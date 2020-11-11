@@ -78,7 +78,7 @@ impl FontAtlasSet {
                 glyph_id,
                 &glyph_texture,
             ) {
-                panic!("could not add character to newly created FontAtlas");
+                return Err(TextError::FailedToAddGlyph(glyph_id));
             }
         }
 

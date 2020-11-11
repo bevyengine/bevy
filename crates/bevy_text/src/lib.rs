@@ -8,6 +8,7 @@ mod glyph_brush;
 mod pipeline;
 
 pub use draw::*;
+pub use error::*;
 pub use font::*;
 pub use font_atlas::*;
 pub use font_atlas_set::*;
@@ -16,12 +17,15 @@ pub use glyph_brush::*;
 pub use pipeline::*;
 
 pub mod prelude {
-    pub use crate::{Font, TextAlignment, TextStyle};
+    pub use crate::{Font, TextAlignment, TextError, TextStyle};
     pub use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
 }
 
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
+use bevy_ecs::Entity;
+
+pub type DefaultTextPipeline = TextPipeline<Entity>;
 
 #[derive(Default)]
 pub struct TextPlugin;
@@ -31,6 +35,6 @@ impl Plugin for TextPlugin {
         app.add_asset::<Font>()
             .add_asset::<FontAtlasSet>()
             .init_asset_loader::<FontLoader>()
-            .add_resource(TextPipeline::default());
+            .add_resource(DefaultTextPipeline::default());
     }
 }

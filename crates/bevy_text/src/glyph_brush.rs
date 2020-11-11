@@ -6,12 +6,10 @@ use bevy_sprite::TextureAtlas;
 use glyph_brush_layout::{
     FontId, GlyphPositioner, Layout, SectionGeometry, SectionGlyph, ToSectionText,
 };
-use parking_lot::Mutex;
 
 use crate::{error::TextError, Font, FontAtlasSet, GlyphAtlasInfo, TextAlignment};
 
 pub struct GlyphBrush {
-    section_queue: Mutex<Vec<Vec<SectionGlyph>>>,
     fonts: Vec<FontArc>,
     handles: Vec<Handle<Font>>,
     latest_font_id: FontId,
@@ -20,7 +18,6 @@ pub struct GlyphBrush {
 impl Default for GlyphBrush {
     fn default() -> Self {
         GlyphBrush {
-            section_queue: Mutex::new(Vec::new()),
             fonts: Vec::new(),
             handles: Vec::new(),
             latest_font_id: FontId(0),
@@ -35,7 +32,6 @@ impl GlyphBrush {
         bounds: Size,
         text_alignment: TextAlignment,
     ) -> Result<Vec<SectionGlyph>, TextError> {
-        // Todo: handle cache
         let geom = SectionGeometry {
             bounds: (bounds.width, bounds.height),
             ..Default::default()
@@ -47,95 +43,68 @@ impl GlyphBrush {
         Ok(section_glyphs)
     }
 
-    pub fn queue_text<S: ToSectionText>(
+    pub fn process_glyphs(
         &self,
-        sections: &[S],
-        bounds: Size,
-        text_alignment: TextAlignment,
-    ) -> Result<(), TextError> {
-        let glyphs = self.compute_glyphs(sections, bounds, text_alignment)?;
-        let mut sq = self.section_queue.lock();
-        sq.push(glyphs);
-        Ok(())
-    }
-
-    pub fn process_queued(
-        &self,
+        glyphs: Vec<SectionGlyph>,
         font_atlas_set_storage: &mut Assets<FontAtlasSet>,
         fonts: &Assets<Font>,
         texture_atlases: &mut Assets<TextureAtlas>,
         textures: &mut Assets<Texture>,
     ) -> Result<Vec<PositionedGlyph>, TextError> {
-        let mut sq = self.section_queue.lock();
-        let sq = std::mem::replace(&mut *sq, Vec::new());
-        let glyphs = sq
-            .into_iter()
-            .map(|section_glyphs| {
-                if section_glyphs.is_empty() {
-                    return Ok(Vec::new());
-                }
-                let mut glyphs = Vec::new();
-                let sg = section_glyphs.first().unwrap();
-                let mut min_x: f32 = sg.glyph.position.x;
-                let mut max_y: f32 = sg.glyph.position.y;
-                for section_glyph in section_glyphs.iter() {
-                    let handle = &self.handles[section_glyph.font_id.0];
-                    let font = fonts.get(handle).ok_or(TextError::NoSuchFont)?;
-                    let glyph = &section_glyph.glyph;
-                    let scaled_font = ab_glyph::Font::as_scaled(&font.font, glyph.scale.y);
-                    // glyph.position.y = baseline
-                    max_y = max_y.max(glyph.position.y - scaled_font.descent());
-                    min_x = min_x.min(glyph.position.x);
-                }
-                max_y = max_y.floor();
-                min_x = min_x.floor();
+        if glyphs.is_empty() {
+            return Ok(Vec::new());
+        }
 
-                for section_glyph in section_glyphs {
-                    let handle = &self.handles[section_glyph.font_id.0];
-                    let font = fonts.get(handle).ok_or(TextError::NoSuchFont)?;
-                    let glyph_id = section_glyph.glyph.id;
-                    let font_size = section_glyph.glyph.scale.y;
-                    if let Some(outlined_glyph) = font.font.outline_glyph(section_glyph.glyph) {
-                        let bounds = outlined_glyph.px_bounds();
-                        let handle_font_atlas: Handle<FontAtlasSet> = handle.as_weak();
-                        let font_atlas_set = font_atlas_set_storage
-                            .get_or_insert_with(handle_font_atlas, FontAtlasSet::default);
+        let first_glyph = glyphs.first().expect("Must have at least one glyph");
+        let font_id = first_glyph.font_id.0;
+        let handle = &self.handles[font_id];
+        let font = fonts.get(handle).ok_or(TextError::NoSuchFont)?;
+        let font_size = first_glyph.glyph.scale.y;
+        let scaled_font = ab_glyph::Font::as_scaled(&font.font, font_size);
+        let mut max_y = std::f32::MIN;
+        let mut min_x = std::f32::MAX;
+        for section_glyph in glyphs.iter() {
+            let glyph = &section_glyph.glyph;
+            max_y = max_y.max(glyph.position.y - scaled_font.descent());
+            min_x = min_x.min(glyph.position.x);
+        }
+        max_y = max_y.floor();
+        min_x = min_x.floor();
 
-                        let atlas_info = font_atlas_set
-                            .get_glyph_atlas_info(font_size, glyph_id)
-                            .map(Ok)
-                            .unwrap_or_else(|| {
-                                font_atlas_set.add_glyph_to_atlas(
-                                    texture_atlases,
-                                    textures,
-                                    outlined_glyph,
-                                )
-                            })?;
+        let mut positioned_glyphs = Vec::new();
+        for sg in glyphs {
+            let glyph_id = sg.glyph.id;
+            if let Some(outlined_glyph) = font.font.outline_glyph(sg.glyph) {
+                let bounds = outlined_glyph.px_bounds();
+                let handle_font_atlas: Handle<FontAtlasSet> = handle.as_weak();
+                let font_atlas_set = font_atlas_set_storage
+                    .get_or_insert_with(handle_font_atlas, FontAtlasSet::default);
 
-                        let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
-                        let glyph_rect = texture_atlas.textures[atlas_info.glyph_index as usize];
-                        let glyph_width = glyph_rect.width();
-                        let glyph_height = glyph_rect.height();
+                let atlas_info = font_atlas_set
+                    .get_glyph_atlas_info(font_size, glyph_id)
+                    .map(Ok)
+                    .unwrap_or_else(|| {
+                        font_atlas_set.add_glyph_to_atlas(texture_atlases, textures, outlined_glyph)
+                    })?;
 
-                        let x = bounds.min.x + glyph_width / 2.0 - min_x;
-                        // the 0.5 accounts for odd-numbered heights (bump up by 1 pixel)
-                        // max_y = text block height, and up is negative (whereas for transform, up is positive)
-                        let y = max_y - bounds.max.y + glyph_height / 2.0 + 0.5;
-                        let position = Vec2::new(x, y);
+                let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+                let glyph_rect = texture_atlas.textures[atlas_info.glyph_index as usize];
+                let glyph_width = glyph_rect.width();
+                let glyph_height = glyph_rect.height();
 
-                        glyphs.push(PositionedGlyph {
-                            position,
-                            atlas_info,
-                        });
-                    }
-                }
-                Ok(glyphs)
-            })
-            .collect::<Result<Vec<_>, TextError>>()?
-            .into_iter()
-            .flatten()
-            .collect();
-        Ok(glyphs)
+                let x = bounds.min.x + glyph_width / 2.0 - min_x;
+                // the 0.5 accounts for odd-numbered heights (bump up by 1 pixel)
+                // max_y = text block height, and up is negative (whereas for transform, up is positive)
+                let y = max_y - bounds.max.y + glyph_height / 2.0 + 0.5;
+                let position = Vec2::new(x, y);
+
+                positioned_glyphs.push(PositionedGlyph {
+                    position,
+                    atlas_info,
+                });
+            }
+        }
+        Ok(positioned_glyphs)
     }
 
     pub fn add_font(&mut self, handle: Handle<Font>, font: FontArc) -> FontId {
@@ -151,21 +120,4 @@ impl GlyphBrush {
 pub struct PositionedGlyph {
     pub position: Vec2,
     pub atlas_info: GlyphAtlasInfo,
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct TextGlyphs(Vec<PositionedGlyph>);
-
-impl std::ops::Deref for TextGlyphs {
-    type Target = Vec<PositionedGlyph>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl std::ops::DerefMut for TextGlyphs {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
 }
