@@ -33,7 +33,8 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
     fn remove_texture(&self, texture: TextureId);
     fn remove_sampler(&self, sampler: SamplerId);
     fn get_buffer_info(&self, buffer: BufferId) -> Option<BufferInfo>;
-
+    fn get_aligned_uniform_size(&self, size: usize, dynamic: bool) -> usize;
+    fn get_aligned_texture_size(&self, data_size: usize) -> usize;
     fn set_asset_resource_untyped(
         &self,
         handle: HandleUntyped,
