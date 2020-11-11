@@ -1,4 +1,4 @@
-use bevy_utils::{AhashExt, HashMap};
+use bevy_utils::{AHashExt, HashMap};
 use std::hash::Hash;
 
 #[derive(Debug)]
