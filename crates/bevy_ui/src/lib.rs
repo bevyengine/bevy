@@ -25,9 +25,8 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::Commands;
+use bevy_ecs::IntoSystem;
 use bevy_render::render_graph::RenderGraph;
-use bevy_render::{prelude::Draw, render_graph::RenderGraph};
 use update::ui_z_system;
 
 #[derive(Default)]

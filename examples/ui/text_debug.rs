@@ -12,7 +12,7 @@ fn main() {
 
 struct TextChanges;
 
-fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     commands
         .spawn(UiCameraComponents::default())
@@ -127,9 +127,11 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-fn change_text_system(mut text: Mut<Text>, _: &TextChanges) {
-    text.value = format!(
-        "This text changes in the bottom right {}",
-        rand::random::<u16>(),
-    );
+fn change_text_system(mut query: Query<(&mut Text, &TextChanges)>) {
+    for (mut text, _text_changes) in query.iter_mut() {
+        text.value = format!(
+            "This text changes in the bottom right {}",
+            rand::random::<u16>(),
+        );
+    }
 }
