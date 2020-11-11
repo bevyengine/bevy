@@ -1,5 +1,7 @@
 use crate::app_builder::AppBuilder;
 use bevy_ecs::{ParallelExecutor, Resources, Schedule, World};
+#[cfg(feature = "trace")]
+use tracing::info_span;
 
 #[allow(clippy::needless_doctest_main)]
 /// Containers of app logic and data
@@ -65,6 +67,10 @@ impl App {
     }
 
     pub fn initialize(&mut self) {
+        #[cfg(feature = "trace")]
+        let startup_schedule_span = info_span!("startup_schedule");
+        #[cfg(feature = "trace")]
+        let _startup_schedule_guard = startup_schedule_span.enter();
         self.startup_schedule
             .initialize(&mut self.world, &mut self.resources);
         self.startup_executor.initialize(&mut self.resources);
@@ -76,7 +82,13 @@ impl App {
     }
 
     pub fn run(mut self) {
+        #[cfg(feature = "trace")]
+        let bevy_app_run_span = info_span!("bevy_app_run");
+        #[cfg(feature = "trace")]
+        let _bevy_app_run_guard = bevy_app_run_span.enter();
+
         self.executor.initialize(&mut self.resources);
+
         let runner = std::mem::replace(&mut self.runner, Box::new(run_once));
         (runner)(self);
     }

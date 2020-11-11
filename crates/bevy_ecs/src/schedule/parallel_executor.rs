@@ -7,6 +7,8 @@ use bevy_hecs::{ArchetypesGeneration, TypeAccess, World};
 use bevy_tasks::{ComputeTaskPool, CountdownEvent, TaskPool};
 use fixedbitset::FixedBitSet;
 use std::ops::Range;
+#[cfg(feature = "trace")]
+use tracing::info_span;
 
 /// Executes each schedule stage in parallel by analyzing system dependencies.
 /// System execution order is undefined except under the following conditions:
@@ -48,6 +50,11 @@ impl ParallelExecutor {
     }
 
     pub fn run(&mut self, schedule: &mut Schedule, world: &mut World, resources: &mut Resources) {
+        #[cfg(feature = "trace")]
+        let schedule_span = info_span!("schedule");
+        #[cfg(feature = "trace")]
+        let _schedule_guard = schedule_span.enter();
+
         let schedule_generation = schedule.generation();
         let schedule_changed = schedule.generation() != self.last_schedule_generation;
         if schedule_changed {
@@ -57,6 +64,10 @@ impl ParallelExecutor {
         }
         for (stage_name, executor_stage) in schedule.stage_order.iter().zip(self.stages.iter_mut())
         {
+            #[cfg(feature = "trace")]
+            let stage_span = info_span!("stage", name = stage_name.as_ref());
+            #[cfg(feature = "trace")]
+            let _stage_guard = stage_span.enter();
             log::trace!("run stage {:?}", stage_name);
             if let Some(stage_systems) = schedule.stages.get_mut(stage_name) {
                 executor_stage.run(world, resources, stage_systems, schedule_changed);
@@ -392,6 +403,11 @@ impl ExecutorStage {
                     // Execute the system - in a scope to ensure the system lock is dropped before
                     // triggering dependents
                     {
+                        #[cfg(feature = "trace")]
+                        let system_span = info_span!("system", name = system.name().as_ref());
+                        #[cfg(feature = "trace")]
+                        let _system_guard = system_span.enter();
+
                         log::trace!("run {}", system.name());
                         #[cfg(feature = "profiler")]
                         crate::profiler_start(resources, system.name().clone());
@@ -442,6 +458,11 @@ impl ExecutorStage {
 
             for (system_index, system) in systems.iter().enumerate() {
                 if system.thread_local_execution() == ThreadLocalExecution::Immediate {
+                    #[cfg(feature = "trace")]
+                    let system_span = info_span!("system", name = system.name().as_ref());
+                    #[cfg(feature = "trace")]
+                    let _system_guard = system_span.enter();
+
                     self.thread_local_system_indices.push(system_index);
                 }
             }
@@ -483,6 +504,12 @@ impl ExecutorStage {
             {
                 // if a thread local system is ready to run, run it exclusively on the main thread
                 let system = systems[thread_local_system_index].as_mut();
+
+                #[cfg(feature = "trace")]
+                let system_span = info_span!("system", name = system.name().as_ref());
+                #[cfg(feature = "trace")]
+                let _system_guard = system_span.enter();
+
                 log::trace!("running thread local system {}", system.name());
                 system.run(world, resources);
                 system.run_thread_local(world, resources);
@@ -513,7 +540,13 @@ impl ExecutorStage {
         // "flush"
         for system in systems.iter_mut() {
             match system.thread_local_execution() {
-                ThreadLocalExecution::NextFlush => system.run_thread_local(world, resources),
+                ThreadLocalExecution::NextFlush => {
+                    #[cfg(feature = "trace")]
+                    let system_span = info_span!("system", name = system.name().as_ref());
+                    #[cfg(feature = "trace")]
+                    let _system_guard = system_span.enter();
+                    system.run_thread_local(world, resources);
+                }
                 ThreadLocalExecution::Immediate => { /* already ran */ }
             }
         }

@@ -16,6 +16,7 @@ categories = ["game-engines", "graphics", "gui", "rendering"]
 [features]
 profiler = ["bevy_ecs/profiler", "bevy_diagnostic/profiler"]
 wgpu_trace = ["bevy_wgpu/trace"]
+trace = [ "bevy_app/trace", "bevy_ecs/trace" ]
 
 # Image format support for texture loading (PNG and HDR are enabled by default)
 hdr = ["bevy_render/hdr"]

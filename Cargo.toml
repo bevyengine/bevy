@@ -49,6 +49,7 @@ bevy_wgpu = ["bevy_internal/bevy_wgpu"]
 bevy_winit = ["bevy_internal/bevy_winit"]
 
 profiler = ["bevy_internal/profiler"]
+trace = ["bevy_internal/trace"]
 wgpu_trace = ["bevy_internal/wgpu_trace"]
 
 # Image format support for texture loading (PNG and HDR are enabled by default)
@@ -77,6 +78,9 @@ log = "0.4"
 rand = "0.7.3"
 ron = "0.6"
 serde = {version = "1", features = ["derive"]}
+tracing = "0.1.21"
+tracing-chrome = "0.2.0"
+tracing-subscriber = "0.2.15"
 
 # bevy (Android)
 [target.'cfg(target_os = "android")'.dependencies]
@@ -166,6 +170,10 @@ path = "examples/app/return_after_run.rs"
 [[example]]
 name = "thread_pool_resources"
 path = "examples/app/thread_pool_resources.rs"
+
+[[example]]
+name = "tracing"
+path = "examples/app/tracing.rs"
 
 [[example]]
 name = "hot_asset_reloading"

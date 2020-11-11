@@ -42,6 +42,7 @@ Example | File | Description
 `headless` | [`app/headless.rs`](./app/headless.rs) | An application that runs without default plugins
 `plugin` | [`app/plugin.rs`](./app/plugin.rs) | Demonstrates the creation and registration of a custom plugin
 `thread_pool_resources` | [`app/thread_pool_resources.rs`](./app/thread_pool_resources.rs) | Creates and customizes the internal thread pool
+`tracing` | [`app/tracing.rs`](./app/tracing.rs) | Demonstrates `trace` feature output. Run with `RUST_LOG=info cargo run --example tracing --features trace` and then open the `trace-1234.json` file (where 1234 is a time since the beginning of the epoch) in `chrome://tracing` in Chrome.
 
 ## Assets
 
