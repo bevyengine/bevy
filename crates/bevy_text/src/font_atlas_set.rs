@@ -6,7 +6,7 @@ use bevy_math::Vec2;
 use bevy_render::texture::Texture;
 use bevy_sprite::TextureAtlas;
 use bevy_type_registry::TypeUuid;
-use bevy_utils::{HashMap, HashMapExt};
+use bevy_utils::{AHashExt, HashMap};
 
 type FontSizeKey = FloatOrd;
 
