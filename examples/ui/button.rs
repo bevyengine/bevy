@@ -84,10 +84,7 @@ fn setup(
                     style: TextStyle {
                         font_size: 40.0,
                         color: Color::rgb(0.9, 0.9, 0.9),
-                        alignment: TextAlignment {
-                            horizontal: HorizontalAlign::Center,
-                            ..Default::default()
-                        },
+                        ..Default::default()
                     },
                 },
                 ..Default::default()
