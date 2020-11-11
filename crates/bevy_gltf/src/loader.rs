@@ -163,7 +163,12 @@ async fn load_gltf<'a, 'b>(
 
             for joint in skin.joints() {
                 bones_names.push(joint.name().expect("unnamed bone").to_string());
-                bones_parents.push(parents[joint.index()]);
+
+                if let Some(parent) = parents[joint.index()] {
+                    bones_parents.push(skin.joints().position(|j| j.index() == parent));
+                } else {
+                    bones_parents.push(None);
+                }
             }
 
             load_context.set_labeled_asset(
@@ -438,9 +443,11 @@ fn load_node(
         // TODO: Mesh skinner needs a at least a reference to the skeleton root for it to work
         // for this reason it need to keep track of all entities created by their index in the gltf node vec
         let skeleton_root = skin.skeleton().map_or(root_node.index(), |n| n.index());
-        world_builder.with(MeshSkinner::with_skeleton(
+        world_builder.with(MeshSkinBinder::with_skeleton(
             entity_lookup[skeleton_root].expect("missing skeleton root entity"),
         ));
+
+        world_builder.with(MeshSkinnerDebuger::default());
     }
 
     world_builder.with_children(|parent| {

@@ -2,7 +2,7 @@ use anyhow::Result;
 use bevy_asset::{Assets, Handle};
 use bevy_core::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_ecs::TypeAccess;
+use bevy_ecs::{Location, TypeAccess};
 use bevy_math::prelude::*;
 use bevy_property::Properties;
 use bevy_property::PropertyType;
@@ -24,7 +24,6 @@ pub struct Clip {
     #[serde(default = "clip_default_warp")]
     pub warp: bool,
     pub length: f32,
-    //pub bones: Vec<Bone>,
     /// Property to be animated will be in the format `"path/to/named_entity@Transform.translation.x"`
     /// where the left side `@` defines a path to the entity to animate,
     /// while the right side the path to a property to animate starting from the component.
@@ -159,15 +158,15 @@ where
 struct State {
     clip: usize,
     time: f32,
-    keyframe: Vec<KeyframeState>,
+    keyframe: Vec<usize>,
 }
 
-#[derive(Default, Debug, Clone, Properties)]
-struct KeyframeState {
-    position: usize,
-    rotation: usize,
-    scale: usize,
-}
+// #[derive(Default, Debug, Clone, Properties)]
+// struct KeyframeState {
+//     position: usize,
+//     rotation: usize,
+//     scale: usize,
+// }
 
 // #[derive(Default, Clone, Debug, Properties)]
 // struct Lerp {
@@ -180,7 +179,7 @@ struct KeyframeState {
 pub struct Animator {
     animations: Vec<Handle<Clip>>,
     #[property(ignore)]
-    instances: Vec<Instance>,
+    binds: Vec<ValueBind>,
     pub time_scale: f32,
     // hierarchy: Vec<()>,
     current: State,
@@ -192,7 +191,7 @@ impl Default for Animator {
     fn default() -> Self {
         Self {
             animations: vec![],
-            instances: vec![],
+            binds: vec![],
             time_scale: 1.0,
             current: State::default(),
             // next: None,
@@ -214,9 +213,8 @@ impl Animator {
     }
 }
 
-/// Instance info to be animated
 #[derive(Debug)]
-struct Instance {
+struct ValueBind {
     dirty: bool,
     valid: Vec<bool>,
     entities: Vec<Entity>,
@@ -224,7 +222,7 @@ struct Instance {
     properties: Vec<isize>,
 }
 
-impl Default for Instance {
+impl Default for ValueBind {
     fn default() -> Self {
         Self {
             dirty: true,
@@ -239,23 +237,15 @@ impl Default for Instance {
 /// Fetches entities and properties to animate
 pub(crate) fn animator_fetch(world: &mut World, resources: &mut Resources) {
     // Fetch useful resources
-    let type_registry = resources.get::<TypeRegistry>();
-    let clips = resources.get::<Assets<Clip>>();
-
-    if type_registry.is_none() || clips.is_none() {
-        return;
-    }
-
-    let type_registry = type_registry.unwrap();
-    let clips = clips.unwrap();
+    let type_registry = resources.get::<TypeRegistry>().unwrap();
+    let clips = resources.get::<Assets<Clip>>().unwrap();
 
     // Build queries
     let type_access = TypeAccess::default();
     let mut animators_query: Query<(&mut Animator, &Children)> = Query::new(&world, &type_access);
-    //let animators_query = unsafe { world.query_unchecked::<(&mut Animator, &Children)>() };
     let entities_query: Query<(Entity, &Name, &Children)> = Query::new(&world, &type_access);
 
-    // TODO: Parallelize this loop
+    // TODO: Parallelize use ComputeTaskPool resource?
     for (mut animator, root_children) in animators_query.iter_mut() {
         // Trick for proper borrow rules
         let animator = &mut *animator;
@@ -263,18 +253,18 @@ pub(crate) fn animator_fetch(world: &mut World, resources: &mut Resources) {
         // TODO: Needs to be updated when the hierarch change
         // TODO: Needs to be updated when a clip changes
         let animations_count = animator.animations.len();
-        if animations_count == animator.instances.len() {
-            if animator.instances.iter().all(|item| !item.dirty) {
+        if animations_count == animator.binds.len() {
+            if animator.binds.iter().all(|item| !item.dirty) {
                 break;
             }
         }
 
         animator
-            .instances
+            .binds
             .resize_with(animations_count, || Default::default());
 
         for (clip_index, clip_handle) in animator.animations.iter().enumerate() {
-            let instance = &mut animator.instances[clip_index];
+            let instance = &mut animator.binds[clip_index];
             if !instance.dirty {
                 continue;
             }
@@ -407,8 +397,8 @@ pub(crate) fn animator_fetch(world: &mut World, resources: &mut Resources) {
                                             let root_ptr = root_properties.as_ptr();
                                             let target_ptr = target_property.as_ptr();
                                             // ! NOTE: Requires rust 1.47.0
-                                            // TODO: Need safety check
-                                            unsafe { root_ptr.offset_from(target_ptr) }
+                                            // TODO: Need safety check or SAFE argument
+                                            unsafe { target_ptr.offset_from(root_ptr) }
                                         };
                                     } else {
                                         valid[i] = false;
@@ -434,87 +424,150 @@ pub(crate) fn animator_fetch(world: &mut World, resources: &mut Resources) {
     }
 }
 
-// pub(crate) fn animator_update(
-//     time: Res<Time>,
-//     // keyboard: Res<Input<KeyCode>>,
-//     clips: Res<Assets<Clip>>,
-//     mut animators_query: Query<(Mut<Animator>,)>,
-//     mut transforms_query: Query<(Mut<Transform>,)>,
-// ) {
-//     // let delta_time = if keyboard.just_pressed(KeyCode::Right) {
-//     //     1.0 / 60.0
-//     // } else {
-//     //     0.0
-//     // };
+pub(crate) fn animator_update(world: &mut World, resources: &mut Resources) {
+    let time = resources.get::<Time>().unwrap();
+    let clips = resources.get::<Assets<Clip>>().unwrap();
+    let type_registry = resources.get::<TypeRegistry>().unwrap();
 
-//     let delta_time = time.delta_seconds;
+    // Build queries
+    let type_access = TypeAccess::default();
+    let mut animators_query: Query<(&mut Animator,)> = Query::new(&world, &type_access);
 
-//     for (mut debugger,) in animators_query.iter_mut() {
-//         let debugger = debugger.deref_mut();
+    // let delta_time = if keyboard.just_pressed(KeyCode::Right) {
+    //     1.0 / 60.0
+    // } else {
+    //     0.0
+    // };
 
-//         if !debugger.builded {
-//             return;
-//         }
+    let delta_time = time.delta_seconds;
 
-//         // Time scales by component
-//         let delta_time = delta_time * debugger.time_scale;
+    // TODO: Parallelize
+    for (mut animator,) in animators_query.iter_mut() {
+        let animator = &mut *animator;
 
-//         // Ensure capacity for cached keyframe index vec
-//         let nodes_count = debugger.hierarchy.len();
-//         if debugger.current.keyframe.len() != nodes_count {
-//             debugger.current.keyframe.clear();
-//             debugger
-//                 .current
-//                 .keyframe
-//                 .resize_with(nodes_count, || Default::default());
-//         }
+        // Time scales by component
+        let delta_time = delta_time * animator.time_scale;
 
-//         if let Some(clip) = clips.get(&debugger.clip) {
-//             // Update time
-//             let mut time = debugger.current.time + delta_time;
+        let current = &mut animator.current;
+        let clip_index = current.clip;
+        if let Some(current_clip) = animator
+            .animations
+            .get(clip_index)
+            .map(|clip_handle| clips.get(clip_handle))
+            .flatten()
+        {
+            let bind = &animator.binds[clip_index];
+            let curves_count = current_clip.values.len();
 
-//             // Warp mode
-//             if clip.warp {
-//                 // Warp Around
-//                 if time > clip.length {
-//                     time = (time / clip.length).fract() * clip.length;
-//                     // Reset all keyframes cached indexes
-//                     debugger
-//                         .current
-//                         .keyframe
-//                         .iter_mut()
-//                         .for_each(|x| *x = Default::default())
-//                 }
-//             } else {
-//                 // Hold
-//                 time = time.min(clip.length);
-//             }
+            // Ensure capacity for cached keyframe index vec
+            if current.keyframe.len() != curves_count {
+                current.keyframe.clear();
+                current
+                    .keyframe
+                    .resize_with(curves_count, || Default::default());
+            }
 
-//             // Advance state time
-//             debugger.current.time = time;
+            // Update time
+            let mut time = current.time + delta_time;
 
-//             for (i, entity) in debugger.hierarchy.iter().enumerate() {
-//                 if let Ok((mut transform,)) = transforms_query.get_mut(*entity) {
-//                     // Get cached keyframe info
-//                     let keyframe = &mut debugger.current.keyframe[i];
+            // Warp mode
+            if current_clip.warp {
+                // Warp Around
+                if time > current_clip.length {
+                    time = (time / current_clip.length).fract() * current_clip.length;
+                    // Reset all keyframes cached indexes
+                    current
+                        .keyframe
+                        .iter_mut()
+                        .for_each(|x| *x = Default::default())
+                }
+            } else {
+                // Hold
+                time = time.min(current_clip.length);
+            }
 
-//                     // Sample animation
-//                     let (k, v) = clip.bones[i].position.sample(keyframe.position, time);
-//                     keyframe.position = k;
-//                     transform.translation = v;
+            // Advance state time
+            current.time = time;
 
-//                     let (k, v) = clip.bones[i].rotation.sample(keyframe.rotation, time);
-//                     keyframe.rotation = k;
-//                     transform.rotation = v;
+            let mut entity = None;
+            let mut component = None;
+            let mut pointer = std::ptr::null_mut();
+            let mut location = Location {
+                archetype: u32::MAX,
+                index: usize::MAX,
+            };
+            for i in 0..curves_count {
+                if !bind.valid[i] {
+                    continue;
+                }
 
-//                     let (k, v) = clip.bones[i].scale.sample(keyframe.scale, time);
-//                     keyframe.scale = k;
-//                     transform.scale = v;
-//                 }
-//             }
-//         }
-//     }
-// }
+                let next_entity = bind.entities[i];
+                if entity != Some(next_entity) {
+                    if let Some(l) = world.get_entity_location(next_entity) {
+                        location = l;
+                        entity = Some(next_entity);
+                        component = None; // Force component update
+                    } else {
+                        // Missing entity
+                        continue;
+                    }
+                }
+
+                let next_component = bind.components[i];
+                if component != Some(next_component) {
+                    if let Some(properties) = type_registry
+                        .component
+                        .read()
+                        .get(&next_component)
+                        .map(|reg| {
+                            reg.get_component_properties(
+                                &world.archetypes[location.archetype as usize],
+                                location.index,
+                            )
+                        })
+                    {
+                        // TODO: Find a better way
+                        pointer = unsafe { properties.as_ptr() as *mut u8 };
+                        component = Some(next_component);
+                    } else {
+                        // Missing component
+                        continue;
+                    }
+                }
+
+                let attr = pointer.wrapping_offset(bind.properties[i]);
+                let keyframe = &mut current.keyframe[i];
+
+                match &current_clip.values[i] {
+                    Value::Float(v) => {
+                        let (k, v) = v.sample(*keyframe, time);
+                        let attr = unsafe { &mut *(attr as *mut f32) };
+                        *attr = v;
+                        *keyframe = k;
+                    }
+                    Value::Vec3(v) => {
+                        let (k, v) = v.sample(*keyframe, time);
+                        let attr = unsafe { &mut *(attr as *mut Vec3) };
+                        *attr = v;
+                        *keyframe = k;
+                    }
+                    Value::Vec4(v) => {
+                        let (k, v) = v.sample(*keyframe, time);
+                        let attr = unsafe { &mut *(attr as *mut Vec4) };
+                        *attr = v;
+                        *keyframe = k;
+                    }
+                    Value::Quat(v) => {
+                        let (k, v) = v.sample(*keyframe, time);
+                        let attr = unsafe { &mut *(attr as *mut Quat) };
+                        *attr = v;
+                        *keyframe = k;
+                    }
+                }
+            }
+        }
+    }
+}
 
 // pub struct ClipLoader;
 

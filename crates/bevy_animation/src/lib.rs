@@ -14,11 +14,12 @@ pub use crate::skined_mesh::*;
 pub mod prelude {
     pub use crate::generic::{Animator, Clip, Curve, Value};
     pub use crate::lerping::LerpValue;
-    pub use crate::skined_mesh::{MeshSkin, MeshSkinner};
+    pub use crate::skined_mesh::{MeshSkin, MeshSkinBinder, MeshSkinnerDebuger};
 }
 
 pub mod stage {
     pub const ANIMATE: &'static str = "animate";
+    pub use bevy_app::stage::POST_UPDATE;
     pub use bevy_app::stage::UPDATE;
 }
 
@@ -27,14 +28,19 @@ pub struct AnimationPlugin;
 
 impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut AppBuilder) {
+        // Generic animation
         app.add_asset::<Clip>()
-            .add_stage_after(stage::UPDATE, stage::ANIMATE)
             //.add_asset_loader(ClipLoader)
+            .add_stage_after(stage::UPDATE, stage::ANIMATE)
             .register_component::<Animator>()
-            .add_system_to_stage(stage::ANIMATE, animator_fetch.thread_local_system())
-            //.add_system_to_stage(stage::ANIMATE, animator_update.system())
-            .add_asset::<MeshSkin>()
-            .register_component_with::<MeshSkinner>(|reg| reg.map_entities())
-            .add_system(mesh_skinner_startup.system());
+            .add_system_to_stage(stage::ANIMATE, animator_update.thread_local_system())
+            .add_system_to_stage_front(stage::ANIMATE, animator_fetch.thread_local_system());
+
+        // Skinning
+        app.add_asset::<MeshSkin>()
+            .register_component_with::<MeshSkinBinder>(|reg| reg.map_entities())
+            .register_component::<MeshSkinnerDebuger>()
+            .add_system_to_stage(stage::POST_UPDATE, mesh_skinner_debugger_update.system())
+            .add_system_to_stage_front(stage::UPDATE, mesh_skinner_startup.system());
     }
 }

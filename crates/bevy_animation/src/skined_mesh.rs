@@ -4,8 +4,10 @@ use bevy_core::Name;
 use bevy_ecs::prelude::*;
 use bevy_ecs::MapEntities;
 use bevy_math::Mat4;
+use bevy_pbr::prelude::*;
 use bevy_property::Properties;
-use bevy_render::mesh::Mesh;
+use bevy_render::mesh::{shape, Indices, Mesh, VertexAttributeValues};
+use bevy_render::pipeline::PrimitiveTopology;
 use bevy_transform::prelude::*;
 use bevy_type_registry::TypeUuid;
 use smallvec::SmallVec;
@@ -28,11 +30,10 @@ impl MeshSkin {
     }
 }
 
-// TODO: Find a better name!
 /// Component that skins some mesh.
 /// Requires a `Handle<MeshSkin>` attached to same entity as the component
 #[derive(Properties)]
-pub struct MeshSkinner {
+pub struct MeshSkinBinder {
     /// Keeps track of what `MeshSkin` this component is configured to,
     /// extra work is required to keep bones in order.
     ///
@@ -49,7 +50,7 @@ pub struct MeshSkinner {
     pub meshes: SmallVec<[Entity; 8]>, // ! FIXME: Property can't handle Vec<Entity>
 }
 
-impl MeshSkinner {
+impl MeshSkinBinder {
     pub fn with_skeleton(skeleton: Entity) -> Self {
         Self {
             skin: None,
@@ -63,13 +64,13 @@ impl MeshSkinner {
 }
 
 // TODO: Same problem of Parent component
-impl FromResources for MeshSkinner {
+impl FromResources for MeshSkinBinder {
     fn from_resources(_resources: &bevy_ecs::Resources) -> Self {
-        MeshSkinner::with_skeleton(Entity::new(u32::MAX))
+        MeshSkinBinder::with_skeleton(Entity::new(u32::MAX))
     }
 }
 
-impl MapEntities for MeshSkinner {
+impl MapEntities for MeshSkinBinder {
     fn map_entities(
         &mut self,
         entity_map: &bevy_ecs::EntityMap,
@@ -88,7 +89,7 @@ impl MapEntities for MeshSkinner {
 // will find the rest of the skeleton hierarchy.
 pub(crate) fn mesh_skinner_startup(
     mesh_skin_assets: Res<Assets<MeshSkin>>,
-    mut skinners_query: Query<(&Handle<MeshSkin>, &mut MeshSkinner, Option<&Children>)>,
+    mut skinners_query: Query<(&Handle<MeshSkin>, &mut MeshSkinBinder, Option<&Children>)>,
     meshes_query: Query<(&Handle<Mesh>,)>,
     bones_query: Query<(Entity, &Name, Option<&Children>)>,
 ) {
@@ -144,15 +145,189 @@ pub(crate) fn mesh_skinner_startup(
     }
 }
 
-// TODO: MeshSkinner system
-// fn mesh_skinner_update() {
+// TODO: MeshSkinBinder system
+// fn mesh_skin_binder_update() {
 //     // TODO: have to send the matrices into each entity
 // }
 
-// #[derive(Default, Debug)]
-// pub struct MeshSkinnerDebuger {
-//     pub enabled: bool,
-//     currently_enabled: bool,
-//     mesh: Handle<Mesh>,
-//     entity: Option<Entity>,
+///////////////////////////////////////////////////////////////////////////////
+
+// TODO: Should I implement a SkeletalAnimator for better performance for mesh animations
+// // Similar to Animator but only works for transforms
+// pub struct SkeletalAnimator {}
+
+// pub(crate) fn skeletal_animator_update(
+//     time: Res<Time>,
+//     // keyboard: Res<Input<KeyCode>>,
+//     clips: Res<Assets<Clip>>,
+//     mut animators_query: Query<(Mut<Animator>,)>,
+//     mut transforms_query: Query<(Mut<Transform>,)>,
+// ) {
+//     // let delta_time = if keyboard.just_pressed(KeyCode::Right) {
+//     //     1.0 / 60.0
+//     // } else {
+//     //     0.0
+//     // };
+
+//     let delta_time = time.delta_seconds;
+
+//     for (mut debugger,) in animators_query.iter_mut() {
+//         let debugger = debugger.deref_mut();
+
+//         if !debugger.builded {
+//             return;
+//         }
+
+//         // Time scales by component
+//         let delta_time = delta_time * debugger.time_scale;
+
+//         // Ensure capacity for cached keyframe index vec
+//         let nodes_count = debugger.hierarchy.len();
+//         if debugger.current.keyframe.len() != nodes_count {
+//             debugger.current.keyframe.clear();
+//             debugger
+//                 .current
+//                 .keyframe
+//                 .resize_with(nodes_count, || Default::default());
+//         }
+
+//         if let Some(clip) = clips.get(&debugger.clip) {
+//             // Update time
+//             let mut time = debugger.current.time + delta_time;
+
+//             // Warp mode
+//             if clip.warp {
+//                 // Warp Around
+//                 if time > clip.length {
+//                     time = (time / clip.length).fract() * clip.length;
+//                     // Reset all keyframes cached indexes
+//                     debugger
+//                         .current
+//                         .keyframe
+//                         .iter_mut()
+//                         .for_each(|x| *x = Default::default())
+//                 }
+//             } else {
+//                 // Hold
+//                 time = time.min(clip.length);
+//             }
+
+//             // Advance state time
+//             debugger.current.time = time;
+
+//             for (i, entity) in debugger.hierarchy.iter().enumerate() {
+//                 if let Ok((mut transform,)) = transforms_query.get_mut(*entity) {
+//                     // Get cached keyframe info
+//                     let keyframe = &mut debugger.current.keyframe[i];
+
+//                     // Sample animation
+//                     let (k, v) = clip.bones[i].position.sample(keyframe.position, time);
+//                     keyframe.position = k;
+//                     transform.translation = v;
+
+//                     let (k, v) = clip.bones[i].rotation.sample(keyframe.rotation, time);
+//                     keyframe.rotation = k;
+//                     transform.rotation = v;
+
+//                     let (k, v) = clip.bones[i].scale.sample(keyframe.scale, time);
+//                     keyframe.scale = k;
+//                     transform.scale = v;
+//                 }
+//             }
+//         }
+//     }
 // }
+
+///////////////////////////////////////////////////////////////////////////////
+
+#[derive(Default, Debug, Properties)]
+pub struct MeshSkinnerDebuger {
+    //pub enabled: bool,
+    #[property(ignore)]
+    mesh: Option<Handle<Mesh>>,
+    #[property(ignore)]
+    entity: Option<Entity>,
+}
+
+pub(crate) fn mesh_skinner_debugger_update(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    skins: Res<Assets<MeshSkin>>,
+    mut debugger_query: Query<(&Handle<MeshSkin>, &MeshSkinBinder, &mut MeshSkinnerDebuger)>,
+    bones_query: Query<(&GlobalTransform,)>,
+) {
+    for (skin_handle, skinner, mut debugger) in debugger_query.iter_mut() {
+        let debugger = &mut *debugger;
+
+        // if !debugger.enabled {
+        //     continue;
+        // }
+
+        if let Some(skin) = skins.get(skin_handle) {
+            if debugger.mesh.is_none() {
+                let mesh = Mesh::new(PrimitiveTopology::LineList);
+                debugger.mesh = Some(meshes.add(mesh));
+
+                let bone_mesh = meshes.add(Mesh::from(shape::Cube { size: 0.02 }));
+                for bone in skinner.bones.iter() {
+                    if let Some(entity) = bone {
+                        commands
+                            .spawn(PbrComponents {
+                                mesh: bone_mesh.clone(),
+                                ..Default::default()
+                            })
+                            .with(Parent(*entity));
+                    }
+                }
+            }
+
+            let mesh_handle = debugger.mesh.as_ref().unwrap();
+            let mesh = meshes.get_mut(mesh_handle).unwrap();
+
+            if debugger.entity.is_none() {
+                debugger.entity = commands
+                    .spawn(PbrComponents {
+                        mesh: mesh_handle.clone(),
+                        ..Default::default()
+                    })
+                    .current_entity()
+            }
+
+            let positions = skinner
+                .bones
+                .iter()
+                .map(|bone| {
+                    if let Some(entity) = *bone {
+                        if let Ok((global_transform,)) = bones_query.get(entity) {
+                            global_transform.translation
+                        } else {
+                            Default::default()
+                        }
+                    } else {
+                        Default::default()
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            // TODO: Improve mesh generation with a 3 sided pyramid
+            // TODO: How reuse mesh buffers?
+
+            let mut indices = vec![];
+            let mut vertices = vec![];
+            for (i, parent) in skin.bones_parents.iter().enumerate() {
+                if let Some(parent) = *parent {
+                    indices.push(vertices.len() as u32);
+                    vertices.push(positions[i].into());
+                    indices.push(vertices.len() as u32);
+                    vertices.push(positions[parent].into());
+                }
+            }
+
+            mesh.set_attribute(
+                Mesh::ATTRIBUTE_POSITION,
+                VertexAttributeValues::Float3(vertices),
+            );
+            mesh.set_indices(Some(Indices::U32(indices)));
+        }
+    }
+}

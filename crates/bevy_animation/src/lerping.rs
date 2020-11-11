@@ -5,7 +5,25 @@ pub trait LerpValue: Copy {
     fn lerp(a: Self, b: Self, t: f32) -> Self;
 }
 
+impl LerpValue for f32 {
+    fn lerp(a: Self, b: Self, t: f32) -> Self {
+        a * (1.0 - t) + b * t
+    }
+}
+
+impl LerpValue for Vec2 {
+    fn lerp(a: Self, b: Self, t: f32) -> Self {
+        a * (1.0 - t) + b * t
+    }
+}
+
 impl LerpValue for Vec3 {
+    fn lerp(a: Self, b: Self, t: f32) -> Self {
+        a * (1.0 - t) + b * t
+    }
+}
+
+impl LerpValue for Vec4 {
     fn lerp(a: Self, b: Self, t: f32) -> Self {
         a * (1.0 - t) + b * t
     }
