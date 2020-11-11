@@ -9,20 +9,20 @@ pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 #[cfg(target_arch = "wasm32")]
 pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
 
-/// A std hash map implementing Ahash, a high speed keyed hashing algorithm
+/// A std hash map implementing AHash, a high speed keyed hashing algorithm
 /// intended for use in in-memory hashmaps.
 ///
-/// Ahash is designed for performance and is NOT cryptographically secure.
+/// AHash is designed for performance and is NOT cryptographically secure.
 pub type HashMap<K, V> = std::collections::HashMap<K, V, RandomState>;
 
-pub trait AhashExt {
+pub trait AHashExt {
     fn new() -> Self;
 
     fn with_capacity(capacity: usize) -> Self;
 }
 
-impl<K, V> AhashExt for HashMap<K, V> {
-    /// Creates an empty `HashMap` with Ahash.
+impl<K, V> AHashExt for HashMap<K, V> {
+    /// Creates an empty `HashMap` with AHash.
     ///
     /// The hash map is initially created with a capacity of 0, so it will not
     /// allocate until it is first inserted into.
@@ -30,7 +30,7 @@ impl<K, V> AhashExt for HashMap<K, V> {
     /// # Examples
     ///
     /// ```
-    /// use bevy_utils::{HashMap, AhashExt};
+    /// use bevy_utils::{HashMap, AHashExt};
     /// let mut map: HashMap<&str, i32> = HashMap::new();
     /// ```
     #[inline]
@@ -38,7 +38,7 @@ impl<K, V> AhashExt for HashMap<K, V> {
         Default::default()
     }
 
-    /// Creates an empty `HashMap` with the specified capacity with Ahash.
+    /// Creates an empty `HashMap` with the specified capacity with AHash.
     ///
     /// The hash map will be able to hold at least `capacity` elements without
     /// reallocating. If `capacity` is 0, the hash map will not allocate.
@@ -46,7 +46,7 @@ impl<K, V> AhashExt for HashMap<K, V> {
     /// # Examples
     ///
     /// ```
-    /// use bevy_utils::{HashMap, AhashExt};
+    /// use bevy_utils::{HashMap, AHashExt};
     /// let mut map: HashMap<&str, i32> = HashMap::with_capacity(10);
     /// ```
     #[inline]
@@ -55,14 +55,14 @@ impl<K, V> AhashExt for HashMap<K, V> {
     }
 }
 
-/// A std hash set implementing Ahash, a high speed keyed hashing algorithm
+/// A std hash set implementing AHash, a high speed keyed hashing algorithm
 /// intended for use in in-memory hashmaps.
 ///
-/// Ahash is designed for performance and is NOT cryptographically secure.
+/// AHash is designed for performance and is NOT cryptographically secure.
 pub type HashSet<K> = std::collections::HashSet<K, RandomState>;
 
-impl<K> AhashExt for HashSet<K> {
-    /// Creates an empty `HashSet` with Ahash.
+impl<K> AHashExt for HashSet<K> {
+    /// Creates an empty `HashSet` with AHash.
     ///
     /// The hash set is initially created with a capacity of 0, so it will not
     /// allocate until it is first inserted into.
@@ -70,7 +70,7 @@ impl<K> AhashExt for HashSet<K> {
     /// # Examples
     ///
     /// ```
-    /// use bevy_utils::{HashSet, AhashExt};
+    /// use bevy_utils::{HashSet, AHashExt};
     /// let set: HashSet<i32> = HashSet::new();
     /// ```
     #[inline]
@@ -78,7 +78,7 @@ impl<K> AhashExt for HashSet<K> {
         Default::default()
     }
 
-    /// Creates an empty `HashSet` with the specified capacity with Ahash.
+    /// Creates an empty `HashSet` with the specified capacity with AHash.
     ///
     /// The hash set will be able to hold at least `capacity` elements without
     /// reallocating. If `capacity` is 0, the hash set will not allocate.
@@ -86,7 +86,7 @@ impl<K> AhashExt for HashSet<K> {
     /// # Examples
     ///
     /// ```
-    /// use bevy_utils::{HashSet, AhashExt};
+    /// use bevy_utils::{HashSet, AHashExt};
     /// let set: HashSet<i32> = HashSet::with_capacity(10);
     /// assert!(set.capacity() >= 10);
     /// ```
