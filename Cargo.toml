@@ -48,7 +48,7 @@ bevy_gltf = ["bevy_internal/bevy_gltf"]
 bevy_wgpu = ["bevy_internal/bevy_wgpu"]
 bevy_winit = ["bevy_internal/bevy_winit"]
 
-profiler = ["bevy_internal/profiler"]
+trace_chrome = ["bevy_internal/trace_chrome"]
 trace = ["bevy_internal/trace"]
 wgpu_trace = ["bevy_internal/wgpu_trace"]
 
@@ -74,17 +74,9 @@ bevy_internal = {path = "crates/bevy_internal", version = "0.3.0", default-featu
 
 [dev-dependencies]
 anyhow = "1.0"
-log = "0.4"
 rand = "0.7.3"
 ron = "0.6"
 serde = {version = "1", features = ["derive"]}
-tracing = "0.1.21"
-tracing-chrome = "0.2.0"
-tracing-subscriber = "0.2.15"
-
-[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
-console_error_panic_hook = "0.1.6"
-console_log = {version = "0.2", features = ["color"]}
 
 [[example]]
 name = "hello_world"
@@ -165,10 +157,6 @@ path = "examples/app/return_after_run.rs"
 [[example]]
 name = "thread_pool_resources"
 path = "examples/app/thread_pool_resources.rs"
-
-[[example]]
-name = "tracing"
-path = "examples/app/tracing.rs"
 
 [[example]]
 name = "hot_asset_reloading"

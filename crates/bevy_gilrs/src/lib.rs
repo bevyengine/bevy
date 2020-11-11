@@ -3,6 +3,7 @@ mod gilrs_system;
 
 use bevy_app::{prelude::*, startup_stage::PRE_STARTUP};
 use bevy_ecs::prelude::*;
+use bevy_utils::tracing::error;
 use gilrs::GilrsBuilder;
 use gilrs_system::{gilrs_event_startup_system, gilrs_event_system};
 
@@ -27,7 +28,7 @@ impl Plugin for GilrsPlugin {
                         gilrs_event_system.thread_local_system(),
                     );
             }
-            Err(err) => log::error!("Failed to start Gilrs. {}", err),
+            Err(err) => error!("Failed to start Gilrs. {}", err),
         }
     }
 }

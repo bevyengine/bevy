@@ -13,6 +13,7 @@ use crate::{
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{HecsQuery, ReadOnlyFetch, Resources, World};
+use bevy_utils::tracing::debug;
 use std::{fmt, marker::PhantomData, ops::Deref};
 
 #[derive(Debug)]
@@ -274,14 +275,14 @@ where
                                             instances.clone(),
                                         );
                                     } else {
-                                        log::info!("Could not draw indexed because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
+                                        debug!("Could not draw indexed because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
                                     }
                                 }
                                 RenderCommand::Draw { vertices, instances } => {
                                     if draw_state.can_draw() {
                                         render_pass.draw(vertices.clone(), instances.clone());
                                     } else {
-                                        log::info!("Could not draw because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
+                                        debug!("Could not draw because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
                                     }
                                 }
                                 RenderCommand::SetVertexBuffer {

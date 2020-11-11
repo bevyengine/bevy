@@ -30,7 +30,6 @@ bevy_utils = { path = "../bevy_utils", version = "0.3.0" }
 image = { version = "0.23", default-features = false }
 
 # misc
-log = { version = "0.4", features = ["release_max_level_info"] }
 uuid = { version = "0.8", features = ["v4", "serde"] }
 serde = { version = "1", features = ["derive"] }
 bitflags = "1.2.1"

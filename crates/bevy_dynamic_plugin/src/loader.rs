@@ -20,7 +20,6 @@ pub trait DynamicPluginExt {
 impl DynamicPluginExt for AppBuilder {
     fn load_plugin(&mut self, path: &str) -> &mut Self {
         let (_lib, plugin) = dynamically_load_plugin(path);
-        log::debug!("loaded plugin: {}", plugin.name());
         plugin.build(self);
         self
     }

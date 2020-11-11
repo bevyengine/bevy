@@ -31,8 +31,6 @@ fn propagate_recursive(
     children_query: &Query<Option<&Children>, (With<Parent>, With<GlobalTransform>)>,
     entity: Entity,
 ) {
-    log::trace!("Updating Transform for {:?}", entity);
-
     let global_matrix = {
         if let Ok((transform, mut global_transform)) = transform_query.get_mut(entity) {
             *global_transform = parent.mul_transform(*transform);

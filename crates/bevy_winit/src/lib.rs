@@ -12,6 +12,7 @@ pub use winit_windows::*;
 use bevy_app::{prelude::*, AppExit};
 use bevy_ecs::{IntoThreadLocalSystem, Resources, World};
 use bevy_math::Vec2;
+use bevy_utils::tracing::trace;
 use bevy_window::{
     CreateWindow, CursorMoved, ReceivedCharacter, Window, WindowCloseRequested, WindowCreated,
     WindowResized, Windows,
@@ -160,7 +161,7 @@ pub fn winit_runner(mut app: App) {
 
     app.initialize();
 
-    log::debug!("Entering winit event loop");
+    trace!("Entering winit event loop");
 
     let should_return_from_run = app
         .resources

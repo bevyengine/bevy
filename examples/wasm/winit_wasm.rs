@@ -1,6 +1,3 @@
-#[cfg(target_arch = "wasm32")]
-extern crate console_error_panic_hook;
-
 use bevy::{
     input::{
         keyboard::KeyboardInput,
@@ -10,12 +7,6 @@ use bevy::{
 };
 
 fn main() {
-    #[cfg(target_arch = "wasm32")]
-    {
-        std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-        console_log::init_with_level(log::Level::Debug).expect("cannot initialize console_log");
-    }
-
     App::build()
         .add_resource(WindowDescriptor {
             width: 300,
@@ -34,12 +25,12 @@ fn main() {
 }
 
 fn hello_wasm_system() {
-    log::info!("hello wasm");
+    info!("hello wasm");
 }
 
 fn counter(mut state: Local<CounterState>, time: Res<Time>) {
     if state.count % 60 == 0 {
-        log::info!(
+        info!(
             "tick {} @ {:?} [Δ{}]",
             state.count,
             time.time_since_startup(),
@@ -74,37 +65,36 @@ fn track_input_events(
     // Keyboard input
     for ev in state.keys.iter(&ev_keys) {
         if ev.state.is_pressed() {
-            log::info!("Just pressed key: {:?}", ev.key_code);
+            info!("Just pressed key: {:?}", ev.key_code);
         } else {
-            log::info!("Just released key: {:?}", ev.key_code);
+            info!("Just released key: {:?}", ev.key_code);
         }
     }
 
     // Absolute cursor position (in window coordinates)
     for ev in state.cursor.iter(&ev_cursor) {
-        log::info!("Cursor at: {}", ev.position);
+        info!("Cursor at: {}", ev.position);
     }
 
     // Relative mouse motion
     for ev in state.motion.iter(&ev_motion) {
-        log::info!("Mouse moved {} pixels", ev.delta);
+        info!("Mouse moved {} pixels", ev.delta);
     }
 
     // Mouse buttons
     for ev in state.mousebtn.iter(&ev_mousebtn) {
         if ev.state.is_pressed() {
-            log::info!("Just pressed mouse button: {:?}", ev.button);
+            info!("Just pressed mouse button: {:?}", ev.button);
         } else {
-            log::info!("Just released mouse button: {:?}", ev.button);
+            info!("Just released mouse button: {:?}", ev.button);
         }
     }
 
     // scrolling (mouse wheel, touchpad, etc.)
     for ev in state.scroll.iter(&ev_scroll) {
-        log::info!(
+        info!(
             "Scrolled vertically by {} and horizontally by {}.",
-            ev.y,
-            ev.x
+            ev.y, ev.x
         );
     }
 }

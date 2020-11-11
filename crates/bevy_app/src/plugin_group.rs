@@ -1,5 +1,5 @@
 use crate::{AppBuilder, Plugin};
-use bevy_utils::HashMap;
+use bevy_utils::{tracing::debug, HashMap};
 use std::any::TypeId;
 
 pub trait PluginGroup {
@@ -94,7 +94,7 @@ impl PluginGroupBuilder {
         for ty in self.order.iter() {
             if let Some(entry) = self.plugins.get(ty) {
                 if entry.enabled {
-                    log::debug!("added plugin: {}", entry.plugin.name());
+                    debug!("added plugin: {}", entry.plugin.name());
                     entry.plugin.build(app);
                 }
             }

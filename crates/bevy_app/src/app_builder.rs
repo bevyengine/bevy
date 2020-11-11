@@ -5,6 +5,7 @@ use crate::{
     stage, startup_stage, PluginGroup, PluginGroupBuilder,
 };
 use bevy_ecs::{FromResources, IntoSystem, Resources, System, World};
+use bevy_utils::tracing::debug;
 
 /// Configure [App]s using the builder pattern
 pub struct AppBuilder {
@@ -267,7 +268,7 @@ impl AppBuilder {
     where
         T: Plugin,
     {
-        log::debug!("added plugin: {}", plugin.name());
+        debug!("added plugin: {}", plugin.name());
         plugin.build(self);
         self
     }
