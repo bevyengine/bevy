@@ -57,19 +57,6 @@ pub fn camera_system<T: CameraProjection + Component>(
         changed_window_ids.push(event.id);
     }
 
-    // handle resize events. latest events are handled first because we only want to resize each window once
-    for event in state
-        .window_created_event_reader
-        .iter(&window_created_events)
-        .rev()
-    {
-        if changed_window_ids.contains(&event.id) {
-            continue;
-        }
-
-        changed_window_ids.push(event.id);
-    }
-
     let mut added_cameras = vec![];
     for (entity, _camera) in &mut queries.q1().iter() {
         added_cameras.push(entity);
