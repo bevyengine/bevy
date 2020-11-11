@@ -70,7 +70,7 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
-`custom_loop` | [`app/custom_loop.rs`](./app/custom_loop.rs) | Demonstrates hot to create a custom runner (to update an app manually).
+`custom_loop` | [`app/custom_loop.rs`](./app/custom_loop.rs) | Demonstrates how to create a custom runner (to update an app manually).
 `empty` | [`app/empty.rs`](./app/empty.rs) | An empty application (does nothing)
 `empty_defaults` | [`app/empty_defaults.rs`](./app/empty_defaults.rs) | An empty application with default plugins
 `headless` | [`app/headless.rs`](./app/headless.rs) | An application that runs without default plugins
