@@ -99,6 +99,7 @@ enum TextPipelineResult {
 }
 
 /// Computes the text layout and stores it in the TextPipeline resource.
+#[allow(clippy::too_many_arguments)]
 fn add_text_to_pipeline(
     entity: Entity,
     text: &Text,

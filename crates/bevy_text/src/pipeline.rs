@@ -47,6 +47,7 @@ impl<ID: Hash + Eq> TextPipeline<ID> {
         self.glyph_map.get(id)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn queue_text(
         &mut self,
         id: ID,
