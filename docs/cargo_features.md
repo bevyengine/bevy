@@ -4,7 +4,7 @@
 
 ### bevy_audio
 
-Audio support. All audio formats support depends on this.
+Audio support. Support for all audio formats depends on this.
 
 ### bevy_gltf
 
@@ -36,7 +36,7 @@ PNG picture format support.
 
 ### mp3
 
-Audio of mp3 format support.
+MP3 audio format support.
 
 ### x11
 
