@@ -4,7 +4,7 @@ use crate::{
     Bundle, Component, ComponentError, DynamicBundle, Entity, EntityReserver, World,
 };
 use bevy_utils::tracing::{debug, warn};
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use std::marker::PhantomData;
 
 #[cfg(feature = "command_backtraces")]
