@@ -1,6 +1,7 @@
 extern crate proc_macro;
 
 mod app_plugin;
+mod bevy_main;
 mod bytes;
 mod modules;
 mod render_resource;
@@ -59,4 +60,9 @@ pub fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 #[proc_macro]
 pub fn external_type_uuid(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
     type_uuid::external_type_uuid(tokens)
+}
+
+#[proc_macro_attribute]
+pub fn bevy_main(attr: TokenStream, item: TokenStream) -> TokenStream {
+    bevy_main::bevy_main(attr, item)
 }

@@ -1,14 +1,8 @@
-use bevy::{
-    prelude::{
-        shape, App, Assets, Camera3dComponents, Color, Commands, DefaultPlugins, IntoSystem,
-        LightComponents, Mesh, Msaa, PbrComponents, ResMut, StandardMaterial, Transform, Vec3,
-        WindowDescriptor,
-    },
-    window::WindowMode,
-};
+use bevy::{prelude::*, window::WindowMode};
 
-#[no_mangle]
-extern "C" fn main_rs() {
+// the `bevy_main` proc_macro generates the required ios boilerplate
+#[bevy_main]
+fn main() {
     App::build()
         .add_resource(WindowDescriptor {
             vsync: true,
