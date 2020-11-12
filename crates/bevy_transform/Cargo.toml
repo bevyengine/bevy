@@ -23,3 +23,4 @@ bevy_utils = { path = "../bevy_utils", version = "0.3.0" }
 
 # other
 smallvec = { version = "1.4", features = ["serde"] }
+anyhow = "1.0"

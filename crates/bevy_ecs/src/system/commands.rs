@@ -4,6 +4,7 @@ use crate::{
     Bundle, Component, ComponentError, DynamicBundle, Entity, EntityReserver, World,
 };
 use bevy_utils::tracing::{debug, warn};
+use anyhow::{bail, Context, Result};
 use std::marker::PhantomData;
 
 #[cfg(feature = "commands_backtraces")]
@@ -11,7 +12,7 @@ use std::backtrace::Backtrace;
 
 /// A [World] mutation
 pub trait Command: Send + Sync {
-    fn write(self: Box<Self>, world: &mut World, resources: &mut Resources);
+    fn write(self: Box<Self>, world: &mut World, resources: &mut Resources) -> Result<()>;
 }
 
 #[derive(Debug)]
@@ -26,8 +27,9 @@ impl<T> Command for Spawn<T>
 where
     T: DynamicBundle + Send + Sync + 'static,
 {
-    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
+    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) -> Result<()> {
         world.spawn(self.components);
+        Ok(())
     }
 }
 
@@ -44,8 +46,9 @@ where
     I: IntoIterator + Send + Sync,
     I::Item: Bundle,
 {
-    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
+    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) -> Result<()> {
         world.spawn_batch(self.components_iter);
+        Ok(())
     }
 }
 
@@ -55,10 +58,11 @@ pub(crate) struct Despawn {
 }
 
 impl Command for Despawn {
-    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
+    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) -> Result<()> {
         if let Err(e) = world.despawn(self.entity) {
             debug!("Failed to despawn entity {:?}: {}", self.entity, e);
         }
+        Ok(())
     }
 }
 
@@ -74,8 +78,10 @@ impl<T> Command for Insert<T>
 where
     T: DynamicBundle + Send + Sync + 'static,
 {
-    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
-        world.insert(self.entity, self.components).unwrap();
+    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) -> Result<()> {
+        world
+            .insert(self.entity, self.components)
+            .map_err(|e| e.into())
     }
 }
 
@@ -92,8 +98,10 @@ impl<T> Command for InsertOne<T>
 where
     T: Component,
 {
-    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
-        world.insert(self.entity, (self.component,)).unwrap();
+    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) -> Result<()> {
+        world
+            .insert(self.entity, (self.component,))
+            .map_err(|e| e.into())
     }
 }
 
@@ -110,9 +118,14 @@ impl<T> Command for RemoveOne<T>
 where
     T: Component,
 {
-    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
+    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) -> Result<()> {
         if world.get::<T>(self.entity).is_ok() {
-            world.remove_one::<T>(self.entity).unwrap();
+            world
+                .remove_one::<T>(self.entity)
+                .map_err(|e| e.into())
+                .map(|_| ())
+        } else {
+            bail!("No such entity {:?}", self.entity)
         }
     }
 }
@@ -130,7 +143,7 @@ impl<T> Command for Remove<T>
 where
     T: Bundle + Send + Sync + 'static,
 {
-    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
+    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) -> Result<()> {
         match world.remove::<T>(self.entity) {
             Ok(_) => (),
             Err(ComponentError::MissingComponent(e)) => {
@@ -155,6 +168,7 @@ where
                 );
             }
         }
+        Ok(())
     }
 }
 
@@ -167,8 +181,9 @@ pub struct InsertResource<T: Resource> {
 }
 
 impl<T: Resource> Command for InsertResource<T> {
-    fn write(self: Box<Self>, _world: &mut World, resources: &mut Resources) {
+    fn write(self: Box<Self>, _world: &mut World, resources: &mut Resources) -> Result<()> {
         resources.insert(self.resource);
+        Ok(())
     }
 }
 
@@ -179,8 +194,9 @@ pub(crate) struct InsertLocalResource<T: Resource> {
 }
 
 impl<T: Resource> Command for InsertLocalResource<T> {
-    fn write(self: Box<Self>, _world: &mut World, resources: &mut Resources) {
+    fn write(self: Box<Self>, _world: &mut World, resources: &mut Resources) -> Result<()> {
         resources.insert_local(self.system_id, self.resource);
+        Ok(())
     }
 }
 
@@ -319,15 +335,19 @@ impl Commands {
     #[cfg(not(feature = "commands_backtraces"))]
     pub fn apply(&mut self, world: &mut World, resources: &mut Resources) {
         for command in self.commands.drain(..) {
-            command.write(world, resources);
+            command.write(world, resources).unwrap();
         }
     }
 
     #[cfg(feature = "commands_backtraces")]
     pub fn apply(&mut self, world: &mut World, resources: &mut Resources) {
         for (command, backtrace) in self.commands.drain(..).zip(self.backtraces.drain(..)) {
-            println!("Applying command from here: {}", backtrace);
-            command.write(world, resources);
+            if let Err(e) = command.write(world, resources) {
+                panic!(
+                    "Applying command: {}. Command recorded here: \n{}",
+                    e, backtrace
+                );
+            }
         }
     }
 

@@ -1,4 +1,5 @@
 use crate::components::{Children, Parent};
+use anyhow::Result;
 use bevy_ecs::{Command, Commands, Entity, Query, Resources, World};
 use bevy_utils::tracing::debug;
 
@@ -68,8 +69,9 @@ fn despawn_with_children_recursive_inner(world: &mut World, entity: Entity) {
 }
 
 impl Command for DespawnRecursive {
-    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
+    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) -> Result<()> {
         despawn_with_children_recursive(world, self.entity);
+        Ok(())
     }
 }
 
