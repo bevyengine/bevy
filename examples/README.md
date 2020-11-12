@@ -21,19 +21,19 @@ git checkout v0.3.0
 
 ### Table of Contents
 
-- [Hello, World!](#hello--world-)
+- [Hello, World!](#hello-world)
 - [2D Rendering](#2d-rendering)
 - [3D Rendering](#3d-rendering)
 - [Application](#application)
 - [Assets](#assets)
 - [Audio](#audio)
 - [Diagnostics](#diagnostics)
-- [ECS (Entity Component System)](#ecs--entity-component-system-)
+- [ECS (Entity Component System)](#ecs-entity-component-system)
 - [Games](#games)
 - [Input](#input)
 - [Scene](#scene)
 - [Shaders](#shaders)
-- [UI (User Interface)](#ui--user-interface-)
+- [UI (User Interface)](#ui-user-interface)
 - [Window](#window)
 - [WASM](#wasm)
 - [iOS](#ios)
