@@ -1,15 +1,13 @@
-use std::fmt::{Debug, Write};
-
 use bevy_utils::tracing::{
     field::Field,
     span::{Attributes, Record},
-    Event, Id, Level, Metadata, Subscriber,
+    Event, Id, Level, Subscriber,
 };
+use std::fmt::{Debug, Write};
 use tracing_subscriber::{field::Visit, layer::Context, registry::LookupSpan, Layer};
 
-pub(crate) struct AndroidLayer {
-    pub(crate) min_level: Level,
-}
+#[derive(Default)]
+pub(crate) struct AndroidLayer;
 
 struct StringRecorder(String, bool);
 impl StringRecorder {
@@ -56,11 +54,6 @@ impl core::default::Default for StringRecorder {
 }
 
 impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for AndroidLayer {
-    fn enabled(&self, metadata: &Metadata<'_>, _: Context<'_, S>) -> bool {
-        let level = metadata.level();
-        level <= &self.min_level
-    }
-
     fn new_span(&self, attrs: &Attributes<'_>, id: &Id, ctx: Context<'_, S>) {
         let mut new_debug_record = StringRecorder::new();
         attrs.record(&mut new_debug_record);
@@ -85,9 +78,6 @@ impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for AndroidLayer {
         event.record(&mut recorder);
         let meta = event.metadata();
         let level = meta.level();
-        if *level < self.min_level {
-            return;
-        }
         let priority = match *level {
             Level::TRACE => android_log_sys::LogPriority::VERBOSE,
             Level::DEBUG => android_log_sys::LogPriority::DEBUG,
