@@ -15,7 +15,7 @@ categories = ["game-engines", "data-structures"]
 
 [features]
 trace = []
-commands_backtraces = []
+command_backtraces = []
 
 [dependencies]
 bevy_tasks = { path = "../bevy_tasks", version = "0.3.0" }
