@@ -82,11 +82,6 @@ tracing = "0.1.21"
 tracing-chrome = "0.2.0"
 tracing-subscriber = "0.2.15"
 
-# bevy (Android)
-[target.'cfg(target_os = "android")'.dependencies]
-android_logger = "0.9"
-ndk-glue = {version = "0.2", features = ["logger"]}
-
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 console_error_panic_hook = "0.1.6"
 console_log = {version = "0.2", features = ["color"]}

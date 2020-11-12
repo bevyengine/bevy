@@ -40,6 +40,7 @@ bevy_app = { path = "../bevy_app", version = "0.3.0" }
 bevy_asset = { path = "../bevy_asset", version = "0.3.0" }
 bevy_type_registry = { path = "../bevy_type_registry", version = "0.3.0" }
 bevy_core = { path = "../bevy_core", version = "0.3.0" }
+bevy_derive = { path = "../bevy_derive", version = "0.3.0" }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.3.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.3.0" }
 bevy_input = { path = "../bevy_input", version = "0.3.0" }
@@ -63,3 +64,5 @@ bevy_wgpu = { path = "../bevy_wgpu", optional = true, version = "0.3.0" }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.3.0" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.3.0" }
 
+[target.'cfg(target_os = "android")'.dependencies]
+ndk-glue = {version = "0.2", features = ["logger"]}

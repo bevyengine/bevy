@@ -131,3 +131,6 @@ pub mod wgpu {
 pub mod dynamic_plugin {
     pub use bevy_dynamic_plugin::*;
 }
+
+#[cfg(target_os = "android")]
+pub use ndk_glue;

@@ -4,6 +4,8 @@ pub use crate::{
     type_registry::RegisterType, window::prelude::*, DefaultPlugins, MinimalPlugins,
 };
 
+pub use bevy_derive::bevy_main;
+
 #[cfg(feature = "bevy_audio")]
 pub use crate::audio::prelude::*;
 
