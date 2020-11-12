@@ -23,7 +23,7 @@ impl Into<bevy_glsl_to_spirv::ShaderType> for ShaderStage {
 }
 
 #[cfg(all(not(target_os = "ios"), not(target_arch = "wasm32")))]
-fn glsl_to_spirv(
+pub fn glsl_to_spirv(
     glsl_source: &str,
     stage: ShaderStage,
     shader_defs: Option<&[String]>,
@@ -43,7 +43,7 @@ impl Into<shaderc::ShaderKind> for ShaderStage {
 }
 
 #[cfg(target_os = "ios")]
-fn glsl_to_spirv(
+pub fn glsl_to_spirv(
     glsl_source: &str,
     stage: ShaderStage,
     shader_defs: Option<&[String]>,
@@ -126,30 +126,6 @@ impl Shader {
         Shader {
             source: ShaderSource::Spirv(self.get_spirv(macros)),
             stage: self.stage,
-        }
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    pub fn get_spirv_shader(&self, macros: Option<&[String]>) -> Shader {
-        if let ShaderSource::Glsl(source) = &self.source {
-            assert!(source.starts_with("#version"));
-            let eol_index = source.find('\n').unwrap();
-            let (version_str, source) = source.split_at(eol_index);
-            let mut processed = version_str.to_string();
-            processed.push_str("\n");
-            if let Some(macros) = macros {
-                for m in macros.iter() {
-                    processed.push_str(&format!("#define {}\n", m));
-                }
-            }
-            processed.push_str("#define WEBGL\n");
-            processed.push_str(source);
-            Shader {
-                source: ShaderSource::Glsl(processed),
-                stage: self.stage,
-            }
-        } else {
-            panic!("spirv shader is not supported");
         }
     }
 

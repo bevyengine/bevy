@@ -148,4 +148,8 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
     fn get_aligned_texture_size(&self, size: usize) -> usize {
         size
     }
+
+    fn get_specialized_shader(&self, shader: &Shader, _macros: Option<&[String]>) -> Shader {
+        shader.clone()
+    }
 }

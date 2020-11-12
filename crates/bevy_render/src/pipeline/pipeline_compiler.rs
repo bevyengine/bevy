@@ -70,6 +70,7 @@ pub struct PipelineCompiler {
 impl PipelineCompiler {
     fn compile_shader(
         &mut self,
+        render_resource_context: &dyn RenderResourceContext,
         shaders: &mut Assets<Shader>,
         shader_handle: &Handle<Shader>,
         shader_specialization: &ShaderSpecialization,
@@ -102,7 +103,8 @@ impl PipelineCompiler {
                 .iter()
                 .cloned()
                 .collect::<Vec<String>>();
-            let compiled_shader = shader.get_spirv_shader(Some(&shader_def_vec));
+            let compiled_shader =
+                render_resource_context.get_specialized_shader(shader, Some(&shader_def_vec));
             let specialized_handle = shaders.add(compiled_shader);
             let weak_specialized_handle = specialized_handle.clone_weak();
             specialized_shaders.push(SpecializedShader {
@@ -141,6 +143,7 @@ impl PipelineCompiler {
         let source_descriptor = pipelines.get(source_pipeline).unwrap();
         let mut specialized_descriptor = source_descriptor.clone();
         specialized_descriptor.shader_stages.vertex = self.compile_shader(
+            render_resource_context,
             shaders,
             &specialized_descriptor.shader_stages.vertex,
             &pipeline_specialization.shader_specialization,
@@ -151,6 +154,7 @@ impl PipelineCompiler {
             .as_ref()
             .map(|fragment| {
                 self.compile_shader(
+                    render_resource_context,
                     shaders,
                     fragment,
                     &pipeline_specialization.shader_specialization,
