@@ -12,7 +12,7 @@ impl Command for SpawnScene {
     fn write(self: Box<Self>, _world: &mut World, resources: &mut Resources) -> Result<()> {
         let mut spawner = resources
             .get_mut::<SceneSpawner>()
-            .ok_or(anyhow!("SceneSpawner resource missing"))?;
+            .ok_or_else(|| anyhow!("SceneSpawner resource missing"))?;
         spawner.spawn(self.scene_handle);
         Ok(())
     }
