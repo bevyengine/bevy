@@ -9,7 +9,7 @@ pub const UI_Z_STEP: f32 = 0.001;
 
 pub fn ui_z_system(
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
-    mut node_query: Query<(Entity, &Node, &mut Transform)>,
+    mut node_query: Query<(Entity, &mut Transform), With<Node>>,
     children_query: Query<&Children>,
 ) {
     let mut current_global_z = 0.0;
@@ -29,7 +29,7 @@ pub fn ui_z_system(
 }
 
 fn update_node_entity(
-    node_query: &mut Query<(Entity, &Node, &mut Transform)>,
+    node_query: &mut Query<(Entity, &mut Transform), With<Node>>,
     entity: Entity,
     parent_result: Option<f32>,
     previous_result: Option<f32>,
