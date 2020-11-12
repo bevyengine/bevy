@@ -17,8 +17,11 @@ keywords = ["bevy"]
 bevy_app = { path = "../bevy_app", version = "0.3.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.3.0" }
 
-tracing-subscriber = "0.2.15"
+tracing-subscriber = {version = "0.2.15", features = ["registry"]}
 tracing-chrome = { version = "0.2.0", optional = true } 
+
+[target.'cfg(target_os = "android")'.dependencies]
+android_log-sys = "0.2.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.6"

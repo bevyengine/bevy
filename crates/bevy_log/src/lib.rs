@@ -1,3 +1,6 @@
+#[cfg(target_os = "android")]
+mod android_tracing;
+
 pub mod prelude {
     pub use bevy_app::{AppBuilder, Plugin};
     pub use bevy_utils::tracing::*;
@@ -5,7 +8,9 @@ pub mod prelude {
 pub use bevy_app::{AppBuilder, Plugin};
 pub use bevy_utils::tracing::*;
 #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
-use tracing_subscriber::{fmt, prelude::*, registry::Registry, EnvFilter};
+use tracing_subscriber::{fmt, EnvFilter};
+#[cfg(not(target_arch = "wasm32"))]
+use tracing_subscriber::{prelude::*, registry::Registry};
 
 /// Adds logging to Apps.
 #[derive(Default)]
@@ -17,7 +22,7 @@ impl Plugin for LogPlugin {
         setup_default(_app);
         #[cfg(target_arch = "wasm32")]
         setup_wasm();
-        #[cfg(target_arch = "android")]
+        #[cfg(target_os = "android")]
         setup_android();
     }
 }
@@ -53,4 +58,10 @@ fn setup_wasm() {
 }
 
 #[cfg(target_os = "android")]
-fn setup_android() {}
+fn setup_android() {
+    let subscriber = Registry::default().with(android_tracing::AndroidLayer {
+        min_level: bevy_utils::tracing::Level::INFO,
+    });
+    bevy_utils::tracing::subscriber::set_global_default(subscriber)
+        .expect("Could not set global default tracing subscriber");
+}
