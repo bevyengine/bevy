@@ -1,4 +1,4 @@
-#![feature(backtrace)]
+#![cfg_attr(feature = "command_backtraces", feature(backtrace))]
 mod core;
 mod resource;
 mod schedule;
