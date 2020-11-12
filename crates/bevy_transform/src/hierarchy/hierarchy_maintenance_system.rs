@@ -1,13 +1,15 @@
 use crate::components::*;
-use bevy_ecs::{Commands, Entity, IntoSystem, Query, System, Without};
+use bevy_ecs::{Changed, Commands, Entity, IntoSystem, Query, System, Without};
 use bevy_utils::HashMap;
 use smallvec::SmallVec;
 
 pub fn parent_update_system(
     commands: &mut Commands,
     removed_parent_query: Query<(Entity, &PreviousParent), Without<Parent>>,
-    // TODO: ideally this only runs when the Parent component has changed
-    mut changed_parent_query: Query<(Entity, &Parent, Option<&mut PreviousParent>)>,
+    mut changed_parent_query: Query<
+        (Entity, &Parent, Option<&mut PreviousParent>),
+        Changed<Parent>,
+    >,
     mut children_query: Query<&mut Children>,
 ) {
     // Entities with a missing `Parent` (ie. ones that have a `PreviousParent`), remove
