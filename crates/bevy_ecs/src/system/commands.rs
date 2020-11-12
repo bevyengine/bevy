@@ -217,11 +217,7 @@ impl Commands {
             .expect("entity reserver has not been set")
             .reserve_entity();
         self.current_entity = Some(entity);
-        self.commands.push(Box::new(Insert { entity, components }));
-        #[cfg(feature = "command_backtraces")]
-        {
-            self.backtraces.push(Backtrace::capture());
-        }
+        self.add_command(Insert { entity, components });
         self
     }
 
@@ -290,37 +286,24 @@ impl Commands {
         components: impl DynamicBundle + Send + Sync + 'static,
     ) -> &mut Self {
         let current_entity =  self.current_entity.expect("Cannot add components because the 'current entity' is not set. You should spawn an entity first.");
-        self.commands.push(Box::new(Insert {
+        self.add_command(Insert {
             entity: current_entity,
             components,
-        }));
-        #[cfg(feature = "command_backtraces")]
-        {
-            self.backtraces.push(Backtrace::capture());
-        }
+        });
         self
     }
 
     pub fn with(&mut self, component: impl Component) -> &mut Self {
         let current_entity =  self.current_entity.expect("Cannot add component because the 'current entity' is not set. You should spawn an entity first.");
-        self.commands.push(Box::new(InsertOne {
+        self.add_command(InsertOne {
             entity: current_entity,
             component,
-        }));
-        #[cfg(feature = "command_backtraces")]
-        {
-            self.backtraces.push(Backtrace::capture());
-        }
+        });
         self
     }
 
     pub fn add_command<C: Command + 'static>(&mut self, command: C) -> &mut Self {
-        self.commands.push(Box::new(command));
-        #[cfg(feature = "command_backtraces")]
-        {
-            self.backtraces.push(Backtrace::capture());
-        }
-        self
+        self.add_command_boxed(Box::new(command))
     }
 
     pub fn add_command_boxed(&mut self, command: Box<dyn Command>) -> &mut Self {
