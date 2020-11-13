@@ -571,15 +571,9 @@ impl RenderResourceContext for WgpuRenderResourceContext {
     }
 
     fn get_specialized_shader(&self, shader: &Shader, macros: Option<&[String]>) -> Shader {
-        let macros: Vec<String> = macros
-            .unwrap_or(&[])
-            .iter()
-            .chain((&["WGPU".to_string()]).iter())
-            .cloned()
-            .collect();
         let spirv_data = match shader.source {
             ShaderSource::Spirv(ref bytes) => bytes.clone(),
-            ShaderSource::Glsl(ref source) => glsl_to_spirv(&source, shader.stage, Some(&macros)),
+            ShaderSource::Glsl(ref source) => glsl_to_spirv(&source, shader.stage, macros),
         };
         Shader {
             source: ShaderSource::Spirv(spirv_data),
