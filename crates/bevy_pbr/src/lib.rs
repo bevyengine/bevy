@@ -19,7 +19,7 @@ use bevy_render::{prelude::Color, render_graph::RenderGraph, shader};
 use bevy_type_registry::RegisterType;
 use light::Light;
 use material::StandardMaterial;
-use render_graph::add_pbr_graph;
+use render_graph::{add_pbr_graph, AmbientLight};
 
 /// NOTE: this isn't PBR yet. consider this name "aspirational" :)
 #[derive(Default)]
@@ -32,7 +32,8 @@ impl Plugin for PbrPlugin {
             .add_system_to_stage(
                 stage::POST_UPDATE,
                 shader::asset_shader_defs_system::<StandardMaterial>.system(),
-            );
+            )
+            .init_resource::<AmbientLight>();
         let resources = app.resources();
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
         add_pbr_graph(&mut render_graph, resources);
