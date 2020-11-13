@@ -78,16 +78,13 @@ fn setup(commands: &mut Commands, asset_server: Res<AssetServer>, mut state: Res
     commands
         .spawn(UiCameraComponents::default())
         .spawn(TextComponents {
-            style: Style {
-                size: Size::new(Val::Px(250.0), Val::Px(60.0)),
-                ..Default::default()
-            },
             text: Text {
                 value: "a".to_string(),
                 font: font_handle,
                 style: TextStyle {
                     font_size: 60.0,
                     color: Color::WHITE,
+                    ..Default::default()
                 },
             },
             ..Default::default()

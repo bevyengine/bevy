@@ -84,6 +84,7 @@ fn setup(
                     style: TextStyle {
                         font_size: 40.0,
                         color: Color::rgb(0.9, 0.9, 0.9),
+                        ..Default::default()
                     },
                 },
                 ..Default::default()
