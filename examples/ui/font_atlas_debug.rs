@@ -62,13 +62,15 @@ fn atlas_render_system(
 }
 
 fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Query<&mut Text>) {
-    for mut text in query.iter_mut() {
-        state.timer.tick(time.delta_seconds);
-        let c = rand::random::<u8>() as char;
-        if !text.value.contains(c) && state.timer.finished {
-            text.value = format!("{}{}", text.value, c);
-            state.timer.reset();
+    if state.timer.tick(time.delta_seconds).finished {
+        for mut text in query.iter_mut() {
+            let c = rand::random::<u8>() as char;
+            if !text.value.contains(c) {
+                text.value = format!("{}{}", text.value, c);
+            }
         }
+
+        state.timer.reset();
     }
 }
 
