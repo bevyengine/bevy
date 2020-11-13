@@ -39,9 +39,9 @@ impl Color {
     pub const DARKGRAY: Color = Color::rgb_linear(0.25, 0.25, 0.25);
     pub const DARKGREEN: Color = Color::rgb_linear(0.0, 0.5, 0.0);
     pub const FUCHSIA: Color = Color::rgb_linear(1.0, 0.0, 1.0);
+    pub const GOLD: Color = Color::rgb_linear(1.0, 0.84, 0.0);
     pub const GRAY: Color = Color::rgb_linear(0.5, 0.5, 0.5);
     pub const GREEN: Color = Color::rgb_linear(0.0, 1.0, 0.0);
-    pub const GOLD: Color = Color::rgb_linear(1.0, 0.84, 0.0);
     pub const INDIGO: Color = Color::rgb_linear(0.29, 0.0, 0.51);
     pub const LIMEGREEN: Color = Color::rgb_linear(0.2, 0.8, 0.2);
     pub const MAROON: Color = Color::rgb_linear(0.5, 0.0, 0.0);
