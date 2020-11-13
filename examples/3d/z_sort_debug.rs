@@ -49,7 +49,7 @@ fn setup(
     let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
     commands
         // parent cube
-        .spawn(PbrComponents {
+        .spawn(PbrBundle {
             mesh: cube_handle.clone(),
             material: materials.add(StandardMaterial {
                 shaded: false,
@@ -62,7 +62,7 @@ fn setup(
         .with_children(|parent| {
             // child cubes
             parent
-                .spawn(PbrComponents {
+                .spawn(PbrBundle {
                     mesh: cube_handle.clone(),
                     material: materials.add(StandardMaterial {
                         shaded: false,
@@ -71,7 +71,7 @@ fn setup(
                     transform: Transform::from_translation(Vec3::new(0.0, 3.0, 0.0)),
                     ..Default::default()
                 })
-                .spawn(PbrComponents {
+                .spawn(PbrBundle {
                     mesh: cube_handle,
                     material: materials.add(StandardMaterial {
                         shaded: false,
@@ -82,7 +82,7 @@ fn setup(
                 });
         })
         // camera
-        .spawn(Camera3dComponents {
+        .spawn(Camera3dBundle {
             transform: Transform::from_translation(Vec3::new(5.0, 10.0, 10.0))
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()

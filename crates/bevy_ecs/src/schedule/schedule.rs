@@ -1,8 +1,8 @@
 use crate::{
     resource::Resources,
     system::{System, SystemId, ThreadLocalExecution},
+    World,
 };
-use bevy_hecs::World;
 use bevy_utils::{HashMap, HashSet};
 use std::{borrow::Cow, fmt};
 

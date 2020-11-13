@@ -14,7 +14,7 @@
 
 // modified by Bevy contributors
 
-use bevy_hecs::*;
+use bevy_ecs::*;
 
 #[test]
 fn random_access() {

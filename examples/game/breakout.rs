@@ -44,10 +44,10 @@ fn setup(
     // Add the game's entities to our world
     commands
         // cameras
-        .spawn(Camera2dComponents::default())
-        .spawn(UiCameraComponents::default())
+        .spawn(Camera2dBundle::default())
+        .spawn(UiCameraBundle::default())
         // paddle
-        .spawn(SpriteComponents {
+        .spawn(SpriteBundle {
             material: materials.add(Color::rgb(0.5, 0.5, 1.0).into()),
             transform: Transform::from_translation(Vec3::new(0.0, -215.0, 0.0)),
             sprite: Sprite::new(Vec2::new(120.0, 30.0)),
@@ -56,7 +56,7 @@ fn setup(
         .with(Paddle { speed: 500.0 })
         .with(Collider::Paddle)
         // ball
-        .spawn(SpriteComponents {
+        .spawn(SpriteBundle {
             material: materials.add(Color::rgb(1.0, 0.5, 0.5).into()),
             transform: Transform::from_translation(Vec3::new(0.0, -50.0, 1.0)),
             sprite: Sprite::new(Vec2::new(30.0, 30.0)),
@@ -66,7 +66,7 @@ fn setup(
             velocity: 400.0 * Vec3::new(0.5, -0.5, 0.0).normalize(),
         })
         // scoreboard
-        .spawn(TextComponents {
+        .spawn(TextBundle {
             text: Text {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 value: "Score:".to_string(),
@@ -95,7 +95,7 @@ fn setup(
 
     commands
         // left
-        .spawn(SpriteComponents {
+        .spawn(SpriteBundle {
             material: wall_material.clone(),
             transform: Transform::from_translation(Vec3::new(-bounds.x() / 2.0, 0.0, 0.0)),
             sprite: Sprite::new(Vec2::new(wall_thickness, bounds.y() + wall_thickness)),
@@ -103,7 +103,7 @@ fn setup(
         })
         .with(Collider::Solid)
         // right
-        .spawn(SpriteComponents {
+        .spawn(SpriteBundle {
             material: wall_material.clone(),
             transform: Transform::from_translation(Vec3::new(bounds.x() / 2.0, 0.0, 0.0)),
             sprite: Sprite::new(Vec2::new(wall_thickness, bounds.y() + wall_thickness)),
@@ -111,7 +111,7 @@ fn setup(
         })
         .with(Collider::Solid)
         // bottom
-        .spawn(SpriteComponents {
+        .spawn(SpriteBundle {
             material: wall_material.clone(),
             transform: Transform::from_translation(Vec3::new(0.0, -bounds.y() / 2.0, 0.0)),
             sprite: Sprite::new(Vec2::new(bounds.x() + wall_thickness, wall_thickness)),
@@ -119,7 +119,7 @@ fn setup(
         })
         .with(Collider::Solid)
         // top
-        .spawn(SpriteComponents {
+        .spawn(SpriteBundle {
             material: wall_material,
             transform: Transform::from_translation(Vec3::new(0.0, bounds.y() / 2.0, 0.0)),
             sprite: Sprite::new(Vec2::new(bounds.x() + wall_thickness, wall_thickness)),
@@ -146,7 +146,7 @@ fn setup(
             ) + bricks_offset;
             commands
                 // brick
-                .spawn(SpriteComponents {
+                .spawn(SpriteBundle {
                     material: brick_material.clone(),
                     sprite: Sprite::new(brick_size),
                     transform: Transform::from_translation(brick_position),

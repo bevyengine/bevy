@@ -1,6 +1,5 @@
-use crate::{archetype::Archetype, Component, QueryAccess};
-use core::{any::TypeId, marker::PhantomData, ptr::NonNull};
-use std::{boxed::Box, vec};
+use crate::{Archetype, Bundle, Component, QueryAccess};
+use std::{any::TypeId, marker::PhantomData, ptr::NonNull};
 
 pub trait QueryFilter: Sized {
     type EntityFilter: EntityFilter;
@@ -155,6 +154,33 @@ impl<T: Component> QueryFilter for With<T> {
     #[inline]
     fn get_entity_filter(archetype: &Archetype) -> Option<Self::EntityFilter> {
         if archetype.has_type(TypeId::of::<T>()) {
+            Some(AnyEntityFilter)
+        } else {
+            None
+        }
+    }
+}
+
+pub struct WithType<T: Bundle>(PhantomData<T>);
+
+impl<T: Bundle> QueryFilter for WithType<T> {
+    type EntityFilter = AnyEntityFilter;
+
+    fn access() -> QueryAccess {
+        QueryAccess::union(
+            T::static_type_info()
+                .iter()
+                .map(|info| QueryAccess::With(info.id(), Box::new(QueryAccess::None)))
+                .collect::<Vec<QueryAccess>>(),
+        )
+    }
+
+    #[inline]
+    fn get_entity_filter(archetype: &Archetype) -> Option<Self::EntityFilter> {
+        if T::static_type_info()
+            .iter()
+            .all(|info| archetype.has_type(info.id()))
+        {
             Some(AnyEntityFilter)
         } else {
             None

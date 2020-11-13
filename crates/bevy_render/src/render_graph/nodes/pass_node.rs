@@ -12,7 +12,7 @@ use crate::{
     },
 };
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::{HecsQuery, ReadOnlyFetch, Resources, World};
+use bevy_ecs::{ReadOnlyFetch, Resources, World, WorldQuery};
 use bevy_utils::tracing::debug;
 use std::{fmt, marker::PhantomData, ops::Deref};
 
@@ -22,7 +22,7 @@ struct CameraInfo {
     bind_group_id: Option<BindGroupId>,
 }
 
-pub struct PassNode<Q: HecsQuery> {
+pub struct PassNode<Q: WorldQuery> {
     descriptor: PassDescriptor,
     inputs: Vec<ResourceSlotInfo>,
     cameras: Vec<CameraInfo>,
@@ -34,7 +34,7 @@ pub struct PassNode<Q: HecsQuery> {
     _marker: PhantomData<Q>,
 }
 
-impl<Q: HecsQuery> fmt::Debug for PassNode<Q> {
+impl<Q: WorldQuery> fmt::Debug for PassNode<Q> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("PassNose")
             .field("descriptor", &self.descriptor)
@@ -64,7 +64,7 @@ impl<Q: HecsQuery> fmt::Debug for PassNode<Q> {
     }
 }
 
-impl<Q: HecsQuery> PassNode<Q> {
+impl<Q: WorldQuery> PassNode<Q> {
     pub fn new(descriptor: PassDescriptor) -> Self {
         let mut inputs = Vec::new();
         let mut color_attachment_input_indices = Vec::new();
@@ -140,7 +140,7 @@ impl<Q: HecsQuery> PassNode<Q> {
     }
 }
 
-impl<Q: HecsQuery + Send + Sync + 'static> Node for PassNode<Q>
+impl<Q: WorldQuery + Send + Sync + 'static> Node for PassNode<Q>
 where
     Q::Fetch: ReadOnlyFetch,
 {

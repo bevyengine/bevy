@@ -11,7 +11,7 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// A component bundle for "pbr mesh" entities
 #[derive(Bundle)]
-pub struct PbrComponents {
+pub struct PbrBundle {
     pub mesh: Handle<Mesh>,
     pub material: Handle<StandardMaterial>,
     pub main_pass: MainPass,
@@ -21,7 +21,7 @@ pub struct PbrComponents {
     pub global_transform: GlobalTransform,
 }
 
-impl Default for PbrComponents {
+impl Default for PbrBundle {
     fn default() -> Self {
         Self {
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
@@ -39,7 +39,7 @@ impl Default for PbrComponents {
 
 /// A component bundle for "light" entities
 #[derive(Debug, Bundle, Default)]
-pub struct LightComponents {
+pub struct LightBundle {
     pub light: Light,
     pub transform: Transform,
     pub global_transform: GlobalTransform,

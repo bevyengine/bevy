@@ -1,11 +1,8 @@
-use alloc::{boxed::Box, vec::Vec};
-use core::{
+use std::{
     convert::TryFrom,
     fmt, mem,
     sync::atomic::{AtomicU32, Ordering},
 };
-#[cfg(feature = "std")]
-use std::error::Error;
 
 /// Lightweight unique ID of an entity
 ///

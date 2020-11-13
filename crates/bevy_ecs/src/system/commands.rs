@@ -1,7 +1,9 @@
 use super::SystemId;
-use crate::resource::{Resource, Resources};
-use bevy_hecs::{Bundle, Component, DynamicBundle, Entity, EntityReserver, World};
-use bevy_utils::tracing::{debug, warn};
+use crate::{
+    resource::{Resource, Resources},
+    Bundle, Component, DynamicBundle, Entity, EntityReserver, World,
+};
+use bevy_utils::tracing::debug;
 use std::marker::PhantomData;
 
 /// A [World] mutation
@@ -322,9 +324,7 @@ impl Commands {
 
 #[cfg(test)]
 mod tests {
-    use super::Commands;
-    use crate::resource::Resources;
-    use bevy_hecs::World;
+    use crate::{resource::Resources, Commands, World};
 
     #[test]
     fn command_buffer() {

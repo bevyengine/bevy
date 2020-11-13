@@ -20,7 +20,7 @@ use core::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-use crate::{archetype::Archetype, Component, MissingComponent};
+use crate::{Archetype, Component, MissingComponent};
 
 /// Atomically enforces Rust-style borrow checking at runtime
 #[derive(Debug)]

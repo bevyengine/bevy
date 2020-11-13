@@ -83,7 +83,7 @@ fn setup(
     // Setup our world
     commands
         // cube
-        .spawn(MeshComponents {
+        .spawn(MeshBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 pipeline_handle,
@@ -93,7 +93,7 @@ fn setup(
         })
         .with(material)
         // camera
-        .spawn(Camera3dComponents {
+        .spawn(Camera3dBundle {
             transform: Transform::from_translation(Vec3::new(3.0, 5.0, -8.0))
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()

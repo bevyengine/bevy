@@ -1,19 +1,20 @@
-pub use bevy_hecs::{Query as HecsQuery, *};
+mod core;
 mod resource;
 mod schedule;
 mod system;
-mod world;
 
+pub use crate::core::*;
+pub use bevy_ecs_macros::*;
+pub use lazy_static;
 pub use resource::*;
 pub use schedule::*;
 pub use system::{Query, *};
-pub use world::*;
 
 pub mod prelude {
     pub use crate::{
+        core::WorldBuilderSource,
         resource::{ChangedRes, FromResources, Local, Res, ResMut, Resource, Resources},
         system::{Commands, IntoSystem, IntoThreadLocalSystem, Query, System},
-        world::WorldBuilderSource,
         Added, Bundle, Changed, Component, Entity, Mut, Mutated, Or, QuerySet, Ref, RefMut, With,
         Without, World,
     };

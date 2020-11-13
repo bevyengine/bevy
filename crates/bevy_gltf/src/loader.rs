@@ -2,7 +2,7 @@ use anyhow::Result;
 use bevy_asset::{AssetIoError, AssetLoader, AssetPath, LoadContext, LoadedAsset};
 use bevy_ecs::{bevy_utils::BoxedFuture, World, WorldBuilderSource};
 use bevy_math::Mat4;
-use bevy_pbr::prelude::{PbrComponents, StandardMaterial};
+use bevy_pbr::prelude::{PbrBundle, StandardMaterial};
 use bevy_render::{
     camera::{
         Camera, CameraProjection, OrthographicProjection, PerspectiveProjection, VisibleEntities,
@@ -280,7 +280,7 @@ fn load_node(
                 let material_label = material_label(&material);
                 let material_asset_path =
                     AssetPath::new_ref(load_context.path(), Some(&material_label));
-                parent.spawn(PbrComponents {
+                parent.spawn(PbrBundle {
                     mesh: load_context.get_handle(mesh_asset_path),
                     material: load_context.get_handle(material_asset_path),
                     ..Default::default()

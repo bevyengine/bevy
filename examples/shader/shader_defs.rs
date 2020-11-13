@@ -104,7 +104,7 @@ fn setup(
 
     commands
         // cube
-        .spawn(MeshComponents {
+        .spawn(MeshBundle {
             mesh: cube_handle.clone(),
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 pipeline_handle.clone(),
@@ -114,7 +114,7 @@ fn setup(
         })
         .with(green_material)
         // cube
-        .spawn(MeshComponents {
+        .spawn(MeshBundle {
             mesh: cube_handle,
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 pipeline_handle,
@@ -124,7 +124,7 @@ fn setup(
         })
         .with(blue_material)
         // camera
-        .spawn(Camera3dComponents {
+        .spawn(Camera3dBundle {
             transform: Transform::from_translation(Vec3::new(3.0, 5.0, -8.0))
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()

@@ -1,10 +1,7 @@
 use crate::{
-    ChangedRes, Commands, FromResources, Local, Query, QueryAccess, QuerySet, QueryTuple, Res,
-    ResMut, Resource, ResourceIndex, Resources, SystemState,
-};
-pub use bevy_hecs::SystemParam;
-use bevy_hecs::{
-    ArchetypeComponent, Fetch, Or, Query as HecsQuery, QueryFilter, TypeAccess, World,
+    ArchetypeComponent, ChangedRes, Commands, Fetch, FromResources, Local, Or, Query, QueryAccess,
+    QueryFilter, QuerySet, QueryTuple, Res, ResMut, Resource, ResourceIndex, Resources,
+    SystemState, TypeAccess, World, WorldQuery,
 };
 use parking_lot::Mutex;
 use std::{any::TypeId, sync::Arc};
@@ -21,7 +18,7 @@ pub trait SystemParam: Sized {
     ) -> Option<Self>;
 }
 
-impl<'a, Q: HecsQuery, F: QueryFilter> SystemParam for Query<'a, Q, F> {
+impl<'a, Q: WorldQuery, F: QueryFilter> SystemParam for Query<'a, Q, F> {
     #[inline]
     unsafe fn get_param(
         system_state: &mut SystemState,

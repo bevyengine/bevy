@@ -6,10 +6,10 @@ authors = [
     "Bevy Contributors <bevyengine@gmail.com>",
     "Carter Anderson <mcanders1@gmail.com>",
 ]
-description = "Bevy Engine's custom entity component system"
+description = "Bevy Engine's entity component system"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
-license = "MIT"
+license = "Apache-2.0"
 keywords = ["ecs", "game", "bevy"]
 categories = ["game-engines", "data-structures"]
 
@@ -17,11 +17,21 @@ categories = ["game-engines", "data-structures"]
 trace = []
 
 [dependencies]
-bevy_hecs = { path = "hecs", features = ["macros", "serialize"], version = "0.3.0" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.3.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.3.0" }
+bevy_ecs_macros = { path = "macros", version = "0.3.0" }
 rand = "0.7.3"
+serde = "1.0"
 thiserror = "1.0"
 fixedbitset = "0.3.1"
 downcast-rs = "1.2.0"
 parking_lot = "0.11.0"
+lazy_static = { version = "1.4.0" }
+
+[dev-dependencies]
+bencher = "0.1.5"
+
+[[bench]]
+name = "bench"
+harness = false
+required-features = ["macros"]

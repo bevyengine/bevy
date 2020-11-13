@@ -1,5 +1,4 @@
-use crate::system::SystemId;
-use bevy_hecs::{Archetype, AtomicBorrow, Entity, Ref, RefMut, TypeInfo, TypeState};
+use crate::{system::SystemId, Archetype, AtomicBorrow, Entity, Ref, RefMut, TypeInfo, TypeState};
 use bevy_utils::HashMap;
 use core::any::TypeId;
 use downcast_rs::{impl_downcast, Downcast};

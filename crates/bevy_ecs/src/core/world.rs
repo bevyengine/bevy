@@ -15,20 +15,14 @@
 // modified by Bevy contributors
 
 use crate::{
-    alloc::vec::Vec, borrow::EntityRef, filter::EntityFilter, query::ReadOnlyFetch, BatchedIter,
-    EntityReserver, Fetch, Mut, QueryFilter, QueryIter, RefMut,
+    core::entities::Entities, Archetype, BatchedIter, Bundle, DynamicBundle, Entity, EntityFilter,
+    EntityReserver, Fetch, Location, MissingComponent, Mut, NoSuchEntity, QueryFilter, QueryIter,
+    ReadOnlyFetch, Ref, RefMut, WorldQuery,
 };
 use bevy_utils::{HashMap, HashSet};
-use core::{any::TypeId, fmt, mem, ptr};
+use std::{any::TypeId, fmt, mem, ptr};
 
-#[cfg(feature = "std")]
-use std::error::Error;
-
-use crate::{
-    archetype::Archetype,
-    entities::{Entities, Location},
-    Bundle, DynamicBundle, Entity, MissingComponent, NoSuchEntity, Query, Ref,
-};
+use super::borrow::EntityRef;
 
 /// An unordered collection of entities, each having any number of distinctly typed components
 ///
@@ -77,7 +71,7 @@ impl World {
     ///
     /// # Example
     /// ```
-    /// # use bevy_hecs::*;
+    /// # use bevy_ecs::*;
     /// let mut world = World::new();
     /// let a = world.spawn((123, "abc"));
     /// let b = world.spawn((456, true));
@@ -120,7 +114,7 @@ impl World {
     ///
     /// # Example
     /// ```
-    /// # use bevy_hecs::*;
+    /// # use bevy_ecs::*;
     /// let mut world = World::new();
     /// let entities = world.spawn_batch((0..1_000).map(|i| (i, "abc"))).collect::<Vec<_>>();
     /// for i in 0..1_000 {
@@ -237,7 +231,7 @@ impl World {
     ///
     /// # Example
     /// ```
-    /// # use bevy_hecs::*;
+    /// # use bevy_ecs::*;
     /// let mut world = World::new();
     /// let a = world.spawn((123, true, "abc"));
     /// let b = world.spawn((456, false));
@@ -250,7 +244,7 @@ impl World {
     /// assert!(entities.contains(&(b, 456, false)));
     /// ```
     #[inline]
-    pub fn query<Q: Query>(&self) -> QueryIter<'_, Q, ()>
+    pub fn query<Q: WorldQuery>(&self) -> QueryIter<'_, Q, ()>
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -259,7 +253,7 @@ impl World {
     }
 
     #[inline]
-    pub fn query_filtered<Q: Query, F: QueryFilter>(&self) -> QueryIter<'_, Q, F>
+    pub fn query_filtered<Q: WorldQuery, F: QueryFilter>(&self) -> QueryIter<'_, Q, F>
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -279,7 +273,7 @@ impl World {
     ///
     /// # Example
     /// ```
-    /// # use bevy_hecs::*;
+    /// # use bevy_ecs::*;
     /// let mut world = World::new();
     /// let a = world.spawn((123, true, "abc"));
     /// let b = world.spawn((456, false));
@@ -292,13 +286,13 @@ impl World {
     /// assert!(entities.contains(&(b, 456, false)));
     /// ```
     #[inline]
-    pub fn query_mut<Q: Query>(&mut self) -> QueryIter<'_, Q, ()> {
+    pub fn query_mut<Q: WorldQuery>(&mut self) -> QueryIter<'_, Q, ()> {
         // SAFE: unique mutable access
         unsafe { self.query_unchecked() }
     }
 
     #[inline]
-    pub fn query_filtered_mut<Q: Query, F: QueryFilter>(&mut self) -> QueryIter<'_, Q, F> {
+    pub fn query_filtered_mut<Q: WorldQuery, F: QueryFilter>(&mut self) -> QueryIter<'_, Q, F> {
         // SAFE: unique mutable access
         unsafe { self.query_unchecked() }
     }
@@ -306,7 +300,7 @@ impl World {
     /// Like `query`, but instead of returning a single iterator it returns a "batched iterator",
     /// where each batch is `batch_size`. This is generally used for parallel iteration.
     #[inline]
-    pub fn query_batched<Q: Query>(&self, batch_size: usize) -> BatchedIter<'_, Q, ()>
+    pub fn query_batched<Q: WorldQuery>(&self, batch_size: usize) -> BatchedIter<'_, Q, ()>
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -315,7 +309,7 @@ impl World {
     }
 
     #[inline]
-    pub fn query_batched_filtered<Q: Query, F: QueryFilter>(
+    pub fn query_batched_filtered<Q: WorldQuery, F: QueryFilter>(
         &self,
         batch_size: usize,
     ) -> BatchedIter<'_, Q, F>
@@ -329,13 +323,16 @@ impl World {
     /// Like `query`, but instead of returning a single iterator it returns a "batched iterator",
     /// where each batch is `batch_size`. This is generally used for parallel iteration.
     #[inline]
-    pub fn query_batched_mut<Q: Query>(&mut self, batch_size: usize) -> BatchedIter<'_, Q, ()> {
+    pub fn query_batched_mut<Q: WorldQuery>(
+        &mut self,
+        batch_size: usize,
+    ) -> BatchedIter<'_, Q, ()> {
         // SAFE: unique mutable access
         unsafe { self.query_batched_unchecked(batch_size) }
     }
 
     #[inline]
-    pub fn query_batched_filtered_mut<Q: Query, F: QueryFilter>(
+    pub fn query_batched_filtered_mut<Q: WorldQuery, F: QueryFilter>(
         &mut self,
         batch_size: usize,
     ) -> BatchedIter<'_, Q, F> {
@@ -357,7 +354,7 @@ impl World {
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
-    pub unsafe fn query_unchecked<Q: Query, F: QueryFilter>(&self) -> QueryIter<'_, Q, F> {
+    pub unsafe fn query_unchecked<Q: WorldQuery, F: QueryFilter>(&self) -> QueryIter<'_, Q, F> {
         QueryIter::new(&self.archetypes)
     }
 
@@ -368,7 +365,7 @@ impl World {
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
-    pub unsafe fn query_batched_unchecked<Q: Query, F: QueryFilter>(
+    pub unsafe fn query_batched_unchecked<Q: WorldQuery, F: QueryFilter>(
         &self,
         batch_size: usize,
     ) -> BatchedIter<'_, Q, F> {
@@ -381,7 +378,7 @@ impl World {
     ///
     /// # Example
     /// ```
-    /// # use bevy_hecs::*;
+    /// # use bevy_ecs::*;
     /// let mut world = World::new();
     /// let a = world.spawn((123, true, "abc"));
     /// // The returned query must outlive the borrow made by `get`
@@ -389,7 +386,7 @@ impl World {
     /// assert_eq!(*number, 123);
     /// ```
     #[inline]
-    pub fn query_one<Q: Query>(
+    pub fn query_one<Q: WorldQuery>(
         &self,
         entity: Entity,
     ) -> Result<<Q::Fetch as Fetch>::Item, NoSuchEntity>
@@ -401,7 +398,7 @@ impl World {
     }
 
     #[inline]
-    pub fn query_one_filtered<Q: Query, F: QueryFilter>(
+    pub fn query_one_filtered<Q: WorldQuery, F: QueryFilter>(
         &self,
         entity: Entity,
     ) -> Result<<Q::Fetch as Fetch>::Item, NoSuchEntity>
@@ -418,7 +415,7 @@ impl World {
     ///
     /// # Example
     /// ```
-    /// # use bevy_hecs::*;
+    /// # use bevy_ecs::*;
     /// let mut world = World::new();
     /// let a = world.spawn((123, true, "abc"));
     /// // The returned query must outlive the borrow made by `get`
@@ -427,7 +424,7 @@ impl World {
     /// assert_eq!(*number, 246);
     /// ```
     #[inline]
-    pub fn query_one_mut<Q: Query>(
+    pub fn query_one_mut<Q: WorldQuery>(
         &mut self,
         entity: Entity,
     ) -> Result<<Q::Fetch as Fetch>::Item, NoSuchEntity> {
@@ -436,7 +433,7 @@ impl World {
     }
 
     #[inline]
-    pub fn query_one_filtered_mut<Q: Query, F: QueryFilter>(
+    pub fn query_one_filtered_mut<Q: WorldQuery, F: QueryFilter>(
         &mut self,
         entity: Entity,
     ) -> Result<<Q::Fetch as Fetch>::Item, NoSuchEntity> {
@@ -452,7 +449,7 @@ impl World {
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
-    pub unsafe fn query_one_unchecked<Q: Query, F: QueryFilter>(
+    pub unsafe fn query_one_unchecked<Q: WorldQuery, F: QueryFilter>(
         &self,
         entity: Entity,
     ) -> Result<<Q::Fetch as Fetch>::Item, NoSuchEntity> {
@@ -530,7 +527,7 @@ impl World {
     ///
     /// # Example
     /// ```
-    /// # use bevy_hecs::*;
+    /// # use bevy_ecs::*;
     /// let mut world = World::new();
     /// let a = world.spawn(());
     /// let b = world.spawn(());
@@ -559,7 +556,7 @@ impl World {
     ///
     /// # Example
     /// ```
-    /// # use bevy_hecs::*;
+    /// # use bevy_ecs::*;
     /// let mut world = World::new();
     /// let e = world.spawn((123, "abc"));
     /// world.insert(e, (456, true));
@@ -662,7 +659,7 @@ impl World {
     ///
     /// # Example
     /// ```
-    /// # use bevy_hecs::*;
+    /// # use bevy_ecs::*;
     /// let mut world = World::new();
     /// let e = world.spawn((123, "abc", true));
     /// assert_eq!(world.remove::<(i32, &str)>(e), Ok((123, "abc")));
@@ -913,7 +910,7 @@ impl World {
     ///
     /// # Example
     /// ```
-    /// # use bevy_hecs::*;
+    /// # use bevy_ecs::*;
     /// let mut world = World::new();
     /// let initial_gen = world.archetypes_generation();
     /// world.spawn((123, "abc"));

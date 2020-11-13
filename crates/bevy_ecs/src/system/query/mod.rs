@@ -1,17 +1,16 @@
 mod query_set;
-
 pub use query_set::*;
 
-use bevy_hecs::{
+use crate::{
     ArchetypeComponent, Batch, BatchedIter, Component, ComponentError, Entity, Fetch, Mut,
-    Query as HecsQuery, QueryFilter, QueryIter, ReadOnlyFetch, TypeAccess, World,
+    QueryFilter, QueryIter, ReadOnlyFetch, TypeAccess, World, WorldQuery,
 };
 use bevy_tasks::ParallelIterator;
 use std::marker::PhantomData;
 
 /// Provides scoped access to a World according to a given [HecsQuery]
 #[derive(Debug)]
-pub struct Query<'a, Q: HecsQuery, F: QueryFilter = ()> {
+pub struct Query<'a, Q: WorldQuery, F: QueryFilter = ()> {
     pub(crate) world: &'a World,
     pub(crate) component_access: &'a TypeAccess<ArchetypeComponent>,
     _marker: PhantomData<(Q, F)>,
@@ -26,7 +25,7 @@ pub enum QueryError {
     NoSuchEntity,
 }
 
-impl<'a, Q: HecsQuery, F: QueryFilter> Query<'a, Q, F> {
+impl<'a, Q: WorldQuery, F: QueryFilter> Query<'a, Q, F> {
     /// # Safety
     /// This will create a Query that could violate memory safety rules. Make sure that this is only called in
     /// ways that ensure the Queries have unique mutable access.
@@ -196,19 +195,19 @@ impl<'a, Q: HecsQuery, F: QueryFilter> Query<'a, Q, F> {
 }
 
 /// Parallel version of QueryIter
-pub struct ParIter<'w, Q: HecsQuery, F: QueryFilter> {
+pub struct ParIter<'w, Q: WorldQuery, F: QueryFilter> {
     batched_iter: BatchedIter<'w, Q, F>,
 }
 
-impl<'w, Q: HecsQuery, F: QueryFilter> ParIter<'w, Q, F> {
+impl<'w, Q: WorldQuery, F: QueryFilter> ParIter<'w, Q, F> {
     pub fn new(batched_iter: BatchedIter<'w, Q, F>) -> Self {
         Self { batched_iter }
     }
 }
 
-unsafe impl<'w, Q: HecsQuery, F: QueryFilter> Send for ParIter<'w, Q, F> {}
+unsafe impl<'w, Q: WorldQuery, F: QueryFilter> Send for ParIter<'w, Q, F> {}
 
-impl<'w, Q: HecsQuery, F: QueryFilter> ParallelIterator<Batch<'w, Q, F>> for ParIter<'w, Q, F> {
+impl<'w, Q: WorldQuery, F: QueryFilter> ParallelIterator<Batch<'w, Q, F>> for ParIter<'w, Q, F> {
     type Item = <Q::Fetch as Fetch<'w>>::Item;
 
     #[inline]

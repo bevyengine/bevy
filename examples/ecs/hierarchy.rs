@@ -13,12 +13,12 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn(Camera2dComponents::default());
+    commands.spawn(Camera2dBundle::default());
     let texture = asset_server.load("branding/icon.png");
 
     // Spawn a root entity with no parent
     let parent = commands
-        .spawn(SpriteComponents {
+        .spawn(SpriteBundle {
             transform: Transform::from_scale(Vec3::splat(0.75)),
             material: materials.add(ColorMaterial {
                 color: Color::WHITE,
@@ -29,7 +29,7 @@ fn setup(
         // With that entity as a parent, run a lambda that spawns its children
         .with_children(|parent| {
             // parent is a ChildBuilder, which has a similar API to Commands
-            parent.spawn(SpriteComponents {
+            parent.spawn(SpriteBundle {
                 transform: Transform {
                     translation: Vec3::new(250.0, 0.0, 0.0),
                     scale: Vec3::splat(0.75),
@@ -50,7 +50,7 @@ fn setup(
     // which would be added automatically to parents with other methods.
     // Similarly, adding a Parent component will automatically add a Children component to the parent.
     commands
-        .spawn(SpriteComponents {
+        .spawn(SpriteBundle {
             transform: Transform {
                 translation: Vec3::new(-250.0, 0.0, 0.0),
                 scale: Vec3::splat(0.75),
@@ -68,7 +68,7 @@ fn setup(
     // Another way is to use the push_children function to add children after the parent
     // entity has already been spawned.
     let child = commands
-        .spawn(SpriteComponents {
+        .spawn(SpriteBundle {
             transform: Transform {
                 translation: Vec3::new(0.0, 250.0, 0.0),
                 scale: Vec3::splat(0.75),

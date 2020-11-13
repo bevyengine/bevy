@@ -50,9 +50,9 @@ fn load_atlas(
 
         // set up a scene to display our texture atlas
         commands
-            .spawn(Camera2dComponents::default())
+            .spawn(Camera2dBundle::default())
             // draw a sprite from the atlas
-            .spawn(SpriteSheetComponents {
+            .spawn(SpriteSheetBundle {
                 transform: Transform {
                     translation: Vec3::new(150.0, 0.0, 0.0),
                     scale: Vec3::splat(4.0),
@@ -63,7 +63,7 @@ fn load_atlas(
                 ..Default::default()
             })
             // draw the atlas itself
-            .spawn(SpriteComponents {
+            .spawn(SpriteBundle {
                 material: materials.add(texture_atlas_texture.into()),
                 transform: Transform::from_translation(Vec3::new(-300.0, 0.0, 0.0)),
                 ..Default::default()

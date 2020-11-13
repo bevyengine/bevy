@@ -14,19 +14,18 @@
 
 // modified by Bevy contributors
 
-use crate::{
-    access::QueryAccess, archetype::Archetype, Component, Entity, EntityFilter, MissingComponent,
-    QueryFilter,
-};
-use core::{
+use crate::EntityFilter;
+
+use super::{Archetype, Component, Entity, MissingComponent, QueryAccess, QueryFilter};
+use std::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
     ptr::NonNull,
+    vec,
 };
-use std::vec;
 
 /// A collection of component types to fetch from a `World`
-pub trait Query {
+pub trait WorldQuery {
     #[doc(hidden)]
     type Fetch: for<'a> Fetch<'a>;
 }
@@ -66,7 +65,7 @@ pub trait Fetch<'a>: Sized {
 pub struct EntityFetch(NonNull<Entity>);
 unsafe impl ReadOnlyFetch for EntityFetch {}
 
-impl Query for Entity {
+impl WorldQuery for Entity {
     type Fetch = EntityFetch;
 }
 
@@ -93,7 +92,7 @@ impl<'a> Fetch<'a> for EntityFetch {
     }
 }
 
-impl<'a, T: Component> Query for &'a T {
+impl<'a, T: Component> WorldQuery for &'a T {
     type Fetch = FetchRead<T>;
 }
 
@@ -124,11 +123,11 @@ impl<'a, T: Component> Fetch<'a> for FetchRead<T> {
     }
 }
 
-impl<'a, T: Component> Query for &'a mut T {
+impl<'a, T: Component> WorldQuery for &'a mut T {
     type Fetch = FetchMut<T>;
 }
 
-impl<T: Query> Query for Option<T> {
+impl<T: WorldQuery> WorldQuery for Option<T> {
     type Fetch = TryFetch<T::Fetch>;
 }
 
@@ -180,7 +179,7 @@ impl<'a, T: Component + core::fmt::Debug> core::fmt::Debug for Mut<'a, T> {
     }
 }
 
-impl<'a, T: Component> Query for Mut<'a, T> {
+impl<'a, T: Component> WorldQuery for Mut<'a, T> {
     type Fetch = FetchMut<T>;
 }
 #[doc(hidden)]
@@ -239,21 +238,21 @@ impl<'a, T: Fetch<'a>> Fetch<'a> for TryFetch<T> {
     }
 }
 
-struct ChunkInfo<Q: Query, F: QueryFilter> {
+struct ChunkInfo<Q: WorldQuery, F: QueryFilter> {
     fetch: Q::Fetch,
     filter: F::EntityFilter,
     len: usize,
 }
 
 /// Iterator over the set of entities with the components in `Q`
-pub struct QueryIter<'w, Q: Query, F: QueryFilter> {
+pub struct QueryIter<'w, Q: WorldQuery, F: QueryFilter> {
     archetypes: &'w [Archetype],
     archetype_index: usize,
     chunk_info: ChunkInfo<Q, F>,
     chunk_position: usize,
 }
 
-impl<'w, Q: Query, F: QueryFilter> QueryIter<'w, Q, F> {
+impl<'w, Q: WorldQuery, F: QueryFilter> QueryIter<'w, Q, F> {
     const EMPTY: ChunkInfo<Q, F> = ChunkInfo {
         fetch: Q::Fetch::DANGLING,
         len: 0,
@@ -272,7 +271,7 @@ impl<'w, Q: Query, F: QueryFilter> QueryIter<'w, Q, F> {
     }
 }
 
-impl<'w, Q: Query, F: QueryFilter> Iterator for QueryIter<'w, Q, F> {
+impl<'w, Q: WorldQuery, F: QueryFilter> Iterator for QueryIter<'w, Q, F> {
     type Item = <Q::Fetch as Fetch<'w>>::Item;
 
     #[inline]
@@ -314,7 +313,7 @@ impl<'w, Q: Query, F: QueryFilter> Iterator for QueryIter<'w, Q, F> {
 
 // if the Fetch is an UnfilteredFetch, then we can cheaply compute the length of the query by getting
 // the length of each matching archetype
-impl<'w, Q: Query> ExactSizeIterator for QueryIter<'w, Q, ()> {
+impl<'w, Q: WorldQuery> ExactSizeIterator for QueryIter<'w, Q, ()> {
     fn len(&self) -> usize {
         self.archetypes
             .iter()
@@ -324,14 +323,14 @@ impl<'w, Q: Query> ExactSizeIterator for QueryIter<'w, Q, ()> {
     }
 }
 
-struct ChunkIter<Q: Query, F: QueryFilter> {
+struct ChunkIter<Q: WorldQuery, F: QueryFilter> {
     fetch: Q::Fetch,
     filter: F::EntityFilter,
     position: usize,
     len: usize,
 }
 
-impl<Q: Query, F: QueryFilter> ChunkIter<Q, F> {
+impl<Q: WorldQuery, F: QueryFilter> ChunkIter<Q, F> {
     unsafe fn next<'a>(&mut self) -> Option<<Q::Fetch as Fetch<'a>>::Item> {
         loop {
             if self.position == self.len {
@@ -351,7 +350,7 @@ impl<Q: Query, F: QueryFilter> ChunkIter<Q, F> {
 }
 
 /// Batched version of `QueryIter`
-pub struct BatchedIter<'w, Q: Query, F: QueryFilter> {
+pub struct BatchedIter<'w, Q: WorldQuery, F: QueryFilter> {
     archetypes: &'w [Archetype],
     archetype_index: usize,
     batch_size: usize,
@@ -359,7 +358,7 @@ pub struct BatchedIter<'w, Q: Query, F: QueryFilter> {
     _marker: PhantomData<(Q, F)>,
 }
 
-impl<'w, Q: Query, F: QueryFilter> BatchedIter<'w, Q, F> {
+impl<'w, Q: WorldQuery, F: QueryFilter> BatchedIter<'w, Q, F> {
     pub(crate) fn new(archetypes: &'w [Archetype], batch_size: usize) -> Self {
         Self {
             archetypes,
@@ -371,10 +370,10 @@ impl<'w, Q: Query, F: QueryFilter> BatchedIter<'w, Q, F> {
     }
 }
 
-unsafe impl<'w, Q: Query, F: QueryFilter> Send for BatchedIter<'w, Q, F> {}
-unsafe impl<'w, Q: Query, F: QueryFilter> Sync for BatchedIter<'w, Q, F> {}
+unsafe impl<'w, Q: WorldQuery, F: QueryFilter> Send for BatchedIter<'w, Q, F> {}
+unsafe impl<'w, Q: WorldQuery, F: QueryFilter> Sync for BatchedIter<'w, Q, F> {}
 
-impl<'w, Q: Query, F: QueryFilter> Iterator for BatchedIter<'w, Q, F> {
+impl<'w, Q: WorldQuery, F: QueryFilter> Iterator for BatchedIter<'w, Q, F> {
     type Item = Batch<'w, Q, F>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -413,12 +412,12 @@ impl<'w, Q: Query, F: QueryFilter> Iterator for BatchedIter<'w, Q, F> {
 }
 
 /// A sequence of entities yielded by `BatchedIter`
-pub struct Batch<'q, Q: Query, F: QueryFilter> {
+pub struct Batch<'q, Q: WorldQuery, F: QueryFilter> {
     _marker: PhantomData<&'q ()>,
     state: ChunkIter<Q, F>,
 }
 
-impl<'q, 'w, Q: Query, F: QueryFilter> Iterator for Batch<'q, Q, F> {
+impl<'q, 'w, Q: WorldQuery, F: QueryFilter> Iterator for Batch<'q, Q, F> {
     type Item = <Q::Fetch as Fetch<'q>>::Item;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -427,8 +426,8 @@ impl<'q, 'w, Q: Query, F: QueryFilter> Iterator for Batch<'q, Q, F> {
     }
 }
 
-unsafe impl<'q, Q: Query, F: QueryFilter> Send for Batch<'q, Q, F> {}
-unsafe impl<'q, Q: Query, F: QueryFilter> Sync for Batch<'q, Q, F> {}
+unsafe impl<'q, Q: WorldQuery, F: QueryFilter> Send for Batch<'q, Q, F> {}
+unsafe impl<'q, Q: WorldQuery, F: QueryFilter> Sync for Batch<'q, Q, F> {}
 
 macro_rules! tuple_impl {
     ($($name: ident),*) => {
@@ -456,7 +455,7 @@ macro_rules! tuple_impl {
             }
         }
 
-        impl<$($name: Query),*> Query for ($($name,)*) {
+        impl<$($name: WorldQuery),*> WorldQuery for ($($name,)*) {
             type Fetch = ($($name::Fetch,)*);
         }
 
@@ -468,10 +467,10 @@ smaller_tuples_too!(tuple_impl, O, N, M, L, K, J, I, H, G, F, E, D, C, B, A);
 
 #[cfg(test)]
 mod tests {
-    use crate::{Added, Changed, Entity, Mut, Mutated, Or, World};
+    use crate::core::{Added, Changed, Component, Entity, Mutated, Or, QueryFilter, World};
     use std::{vec, vec::Vec};
 
-    use super::*;
+    use super::Mut;
 
     struct A(usize);
     struct B(usize);

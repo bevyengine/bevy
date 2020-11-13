@@ -14,24 +14,17 @@
 
 // modified by Bevy contributors
 
-use crate::{
-    alloc::{
-        alloc::{alloc, dealloc, Layout},
-        vec::Vec,
-    },
-    Entity,
-};
+use crate::{AtomicBorrow, Component, Entity};
 use bevy_utils::AHasher;
-use core::{
+use std::{
+    alloc::{alloc, dealloc, Layout},
     any::{type_name, TypeId},
     cell::UnsafeCell,
+    collections::HashMap,
     hash::{BuildHasherDefault, Hasher},
     mem,
     ptr::{self, NonNull},
 };
-use std::collections::HashMap;
-
-use crate::{borrow::AtomicBorrow, Component};
 
 /// A collection of entities having the same component types
 ///
