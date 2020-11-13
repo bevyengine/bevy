@@ -17,9 +17,9 @@ use bevy_asset::{AddAsset, Assets, Handle};
 use bevy_ecs::IntoSystem;
 use bevy_render::{prelude::Color, render_graph::RenderGraph, shader};
 use bevy_type_registry::RegisterType;
-use light::Light;
+use light::{AmbientLight, Light};
 use material::StandardMaterial;
-use render_graph::{add_pbr_graph, AmbientLight};
+use render_graph::add_pbr_graph;
 
 /// NOTE: this isn't PBR yet. consider this name "aspirational" :)
 #[derive(Default)]

@@ -1,5 +1,5 @@
 use crate::{
-    light::{Light, LightRaw},
+    light::{AmbientLight, Light, LightRaw},
     render_graph::uniform,
 };
 use bevy_core::{AsBytes, Byteable};
@@ -10,7 +10,6 @@ use bevy_render::{
         BufferId, BufferInfo, BufferUsage, RenderContext, RenderResourceBinding,
         RenderResourceBindings, RenderResourceContext,
     },
-    color::Color,
 };
 use bevy_transform::prelude::*;
 
@@ -76,18 +75,6 @@ pub struct LightsNodeSystemState {
     max_lights: usize,
 }
 
-// Ambient color.
-#[derive(Debug)]
-pub struct AmbientLight {
-    pub color: Color,   
-}
-
-impl Default for AmbientLight {
-    fn default() -> Self {
-        Self{ color: Color::rgb(0.05, 0.05, 0.05) }
-    }
-}
-
 pub fn lights_node_system(
     mut state: Local<LightsNodeSystemState>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
@@ -148,7 +135,8 @@ pub fn lights_node_system(
             data[0..ambient_light_size].copy_from_slice(ambient_light.as_bytes());
 
             // light count
-            data[ambient_light_size..light_count_size].copy_from_slice([light_count as u32, 0, 0, 0].as_bytes());
+            data[ambient_light_size..light_count_size]
+                .copy_from_slice([light_count as u32, 0, 0, 0].as_bytes());
 
             // light array
             for ((light, global_transform), slot) in query
