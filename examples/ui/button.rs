@@ -30,12 +30,12 @@ impl FromResources for ButtonMaterials {
 fn button_system(
     button_materials: Res<ButtonMaterials>,
     mut interaction_query: Query<
-        (&Button, &Interaction, &mut Handle<ColorMaterial>, &Children),
-        Mutated<Interaction>,
+        (&Interaction, &mut Handle<ColorMaterial>, &Children),
+        (Mutated<Interaction>, With<Button>),
     >,
     mut text_query: Query<&mut Text>,
 ) {
-    for (_button, interaction, mut material, children) in interaction_query.iter_mut() {
+    for (interaction, mut material, children) in interaction_query.iter_mut() {
         let mut text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Clicked => {

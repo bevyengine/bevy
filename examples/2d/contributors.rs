@@ -131,12 +131,12 @@ fn setup(
 fn select_system(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut sel: ResMut<ContributorSelection>,
-    mut dq: Query<(&ContributorDisplay, Mut<Text>)>,
-    mut tq: Query<(&SelectTimer, Mut<Timer>)>,
+    mut dq: Query<Mut<Text>, With<ContributorDisplay>>,
+    mut tq: Query<Mut<Timer>, With<SelectTimer>>,
     mut q: Query<(&Contributor, &Handle<ColorMaterial>, &mut Transform)>,
 ) {
     let mut timer_fired = false;
-    for (_, mut t) in tq.iter_mut() {
+    for mut t in tq.iter_mut() {
         if !t.just_finished {
             continue;
         }
@@ -166,7 +166,7 @@ fn select_system(
     let (name, e) = &sel.order[sel.idx];
 
     if let Ok((c, handle, mut tr)) = q.get_mut(*e) {
-        for (_, mut text) in dq.iter_mut() {
+        for mut text in dq.iter_mut() {
             select(
                 &mut *materials,
                 handle.clone(),
@@ -231,7 +231,7 @@ fn velocity_system(time: Res<Time>, mut q: Query<Mut<Velocity>>) {
 /// force.
 fn collision_system(
     wins: Res<Windows>,
-    mut q: Query<(&Contributor, Mut<Velocity>, Mut<Transform>)>,
+    mut q: Query<(Mut<Velocity>, Mut<Transform>), With<Contributor>>,
 ) {
     let mut rnd = rand::thread_rng();
 
@@ -243,7 +243,7 @@ fn collision_system(
     let wall_left = -((win.width() / 2) as f32);
     let wall_right = (win.width() / 2) as f32;
 
-    for (_, mut v, mut t) in q.iter_mut() {
+    for (mut v, mut t) in q.iter_mut() {
         let left = t.translation.x() - SPRITE_SIZE / 2.0;
         let right = t.translation.x() + SPRITE_SIZE / 2.0;
         let top = t.translation.y() + SPRITE_SIZE / 2.0;
