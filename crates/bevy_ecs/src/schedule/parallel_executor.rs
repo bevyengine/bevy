@@ -5,10 +5,11 @@ use crate::{
 };
 use bevy_hecs::{ArchetypesGeneration, TypeAccess, World};
 use bevy_tasks::{ComputeTaskPool, CountdownEvent, TaskPool};
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::info_span;
+use bevy_utils::tracing::trace;
 use fixedbitset::FixedBitSet;
 use std::ops::Range;
-#[cfg(feature = "trace")]
-use tracing::info_span;
 
 /// Executes each schedule stage in parallel by analyzing system dependencies.
 /// System execution order is undefined except under the following conditions:
@@ -68,7 +69,6 @@ impl ParallelExecutor {
             let stage_span = info_span!("stage", name = stage_name.as_ref());
             #[cfg(feature = "trace")]
             let _stage_guard = stage_span.enter();
-            log::trace!("run stage {:?}", stage_name);
             if let Some(stage_systems) = schedule.stages.get_mut(stage_name) {
                 executor_stage.run(world, resources, stage_systems, schedule_changed);
             }
@@ -334,12 +334,12 @@ impl ExecutorStage {
         compute_pool: &TaskPool,
     ) {
         // Generate tasks for systems in the given range and block until they are complete
-        log::trace!("running systems {:?}", prepared_system_range);
+        trace!("running systems {:?}", prepared_system_range);
         compute_pool.scope(|scope| {
             let start_system_index = prepared_system_range.start;
             let mut system_index = start_system_index;
             for system in &mut systems[prepared_system_range] {
-                log::trace!(
+                trace!(
                     "prepare {} {} with {} dependents and {} dependencies",
                     system_index,
                     system.name(),
@@ -381,12 +381,6 @@ impl ExecutorStage {
                     for (trigger_event, dependent_system_index) in
                         trigger_events.iter().zip(dependent_systems)
                     {
-                        log::trace!(
-                            "  * system ({}) triggers events: ({}): {}",
-                            system_index,
-                            dependent_system_index,
-                            trigger_event.get()
-                        );
                         debug_assert!(
                             *dependent_system_index < start_system_index || trigger_event.get() > 0
                         );
@@ -408,12 +402,7 @@ impl ExecutorStage {
                         #[cfg(feature = "trace")]
                         let _system_guard = system_span.enter();
 
-                        log::trace!("run {}", system.name());
-                        #[cfg(feature = "profiler")]
-                        crate::profiler_start(resources, system.name().clone());
                         system.run(world_ref, resources_ref);
-                        #[cfg(feature = "profiler")]
-                        crate::profiler_stop(resources, system.name().clone());
                     }
 
                     // Notify dependents that this task is done
@@ -506,11 +495,10 @@ impl ExecutorStage {
                 let system = systems[thread_local_system_index].as_mut();
 
                 #[cfg(feature = "trace")]
-                let system_span = info_span!("system", name = system.name().as_ref());
+                let system_span = info_span!("thread_local_system", name = system.name().as_ref());
                 #[cfg(feature = "trace")]
                 let _system_guard = system_span.enter();
 
-                log::trace!("running thread local system {}", system.name());
                 system.run(world, resources);
                 system.run_thread_local(world, resources);
             }
@@ -527,7 +515,6 @@ impl ExecutorStage {
                 next_thread_local_index,
             );
 
-            log::trace!("running systems {:?}", run_ready_system_index_range);
             self.run_systems(
                 world,
                 resources,

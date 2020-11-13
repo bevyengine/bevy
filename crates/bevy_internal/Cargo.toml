@@ -14,9 +14,9 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 categories = ["game-engines", "graphics", "gui", "rendering"]
 
 [features]
-profiler = ["bevy_ecs/profiler", "bevy_diagnostic/profiler"]
 wgpu_trace = ["bevy_wgpu/trace"]
 trace = [ "bevy_app/trace", "bevy_ecs/trace" ]
+trace_chrome = [ "bevy_log/tracing-chrome" ]
 
 # Image format support for texture loading (PNG and HDR are enabled by default)
 hdr = ["bevy_render/hdr"]
@@ -44,6 +44,7 @@ bevy_derive = { path = "../bevy_derive", version = "0.3.0" }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.3.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.3.0" }
 bevy_input = { path = "../bevy_input", version = "0.3.0" }
+bevy_log = { path = "../bevy_log", version = "0.3.0" }
 bevy_math = { path = "../bevy_math", version = "0.3.0" }
 bevy_property = { path = "../bevy_property", version = "0.3.0" }
 bevy_scene = { path = "../bevy_scene", version = "0.3.0" }

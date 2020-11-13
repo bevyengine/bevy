@@ -14,6 +14,7 @@ keywords = ["bevy"]
 
 [dependencies]
 ahash = "0.5.3"
+tracing = {version = "0.1", features = ["release_max_level_info"]}
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = {version = "0.2.0", features = ["js"]}

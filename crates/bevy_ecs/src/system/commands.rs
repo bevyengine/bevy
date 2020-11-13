@@ -1,6 +1,7 @@
 use super::SystemId;
 use crate::resource::{Resource, Resources};
 use bevy_hecs::{Bundle, Component, DynamicBundle, Entity, EntityReserver, World};
+use bevy_utils::tracing::debug;
 use std::marker::PhantomData;
 
 /// A [World] mutation
@@ -51,7 +52,7 @@ pub(crate) struct Despawn {
 impl Command for Despawn {
     fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
         if let Err(e) = world.despawn(self.entity) {
-            log::debug!("Failed to despawn entity {:?}: {}", self.entity, e);
+            debug!("Failed to despawn entity {:?}: {}", self.entity, e);
         }
     }
 }

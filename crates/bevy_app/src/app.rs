@@ -1,7 +1,7 @@
 use crate::app_builder::AppBuilder;
 use bevy_ecs::{ParallelExecutor, Resources, Schedule, World};
 #[cfg(feature = "trace")]
-use tracing::info_span;
+use bevy_utils::tracing::info_span;
 
 #[allow(clippy::needless_doctest_main)]
 /// Containers of app logic and data

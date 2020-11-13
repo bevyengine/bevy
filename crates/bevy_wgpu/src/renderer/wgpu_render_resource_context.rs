@@ -15,6 +15,7 @@ use bevy_render::{
     shader::Shader,
     texture::{Extent3d, SamplerDescriptor, TextureDescriptor},
 };
+use bevy_utils::tracing::trace;
 use bevy_window::{Window, WindowId};
 use futures_lite::future;
 use std::{borrow::Cow, ops::Range, sync::Arc};
@@ -459,7 +460,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             .resources
             .has_bind_group(bind_group_descriptor_id, bind_group.id)
         {
-            log::trace!(
+            trace!(
                 "start creating bind group for RenderResourceSet {:?}",
                 bind_group.id
             );
@@ -510,7 +511,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             bind_group_info
                 .bind_groups
                 .insert(bind_group.id, wgpu_bind_group);
-            log::trace!(
+            trace!(
                 "created bind group for RenderResourceSet {:?}",
                 bind_group.id
             );

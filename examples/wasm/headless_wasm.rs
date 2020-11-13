@@ -1,36 +1,29 @@
-#[cfg(target_arch = "wasm32")]
-extern crate console_error_panic_hook;
-
 use bevy::{
     app::{ScheduleRunnerPlugin, ScheduleRunnerSettings},
+    log::LogPlugin,
     prelude::*,
 };
 use std::time::Duration;
 
 fn main() {
-    #[cfg(target_arch = "wasm32")]
-    {
-        std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-        console_log::init_with_level(log::Level::Debug).expect("cannot initialize console_log");
-    }
-
     App::build()
         .add_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
             1.0 / 60.0,
         )))
         .add_plugin(ScheduleRunnerPlugin::default())
+        .add_plugin(LogPlugin::default())
         .add_startup_system(hello_world_system.system())
         .add_system(counter.system())
         .run();
 }
 
 fn hello_world_system() {
-    log::info!("hello wasm");
+    info!("hello wasm");
 }
 
 fn counter(mut state: Local<CounterState>) {
     if state.count % 60 == 0 {
-        log::info!("counter system: {}", state.count);
+        info!("counter system: {}", state.count);
     }
     state.count += 1;
 }

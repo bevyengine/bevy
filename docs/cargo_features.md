@@ -44,9 +44,13 @@ Make GUI applications use X11 protocol. You could enable wayland feature to over
 
 ## Optional Features
 
-### profiler
+### trace
 
-For profiler.
+Enables system tracing (useful in tandem wit a feature like trace_chrome)
+
+### trace_chrome
+
+Enables [tracing-chrome](https://github.com/thoren-d/tracing-chrome) as bevy_log output. This allows you to visualize system execution.
 
 ### wgpu_trace
 

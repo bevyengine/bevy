@@ -5,6 +5,7 @@ use bevy_render::{
     pipeline::{BindGroupDescriptorId, PipelineDescriptor},
     renderer::{BindGroupId, BufferId, RenderContext},
 };
+use bevy_utils::tracing::trace;
 use std::ops::Range;
 
 #[derive(Debug)]
@@ -74,7 +75,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
                         EMPTY
                     };
 
-                log::trace!(
+                trace!(
                     "set bind group {:?} {:?}: {:?}",
                     bind_group_descriptor_id,
                     dynamic_uniform_indices,

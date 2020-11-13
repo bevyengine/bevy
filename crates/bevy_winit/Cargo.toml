@@ -27,7 +27,6 @@ bevy_utils = { path = "../bevy_utils", version = "0.3.0" }
 
 # other
 winit = { version = "0.23.0", default-features = false }
-log = { version = "0.4", features = ["release_max_level_info"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 winit = { version = "0.23.0", features = ["web-sys"], default-features = false }
