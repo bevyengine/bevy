@@ -10,12 +10,9 @@ use crate::{
     shader::Shader,
 };
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::{
-    FetchResource, Query, Res, ResMut, ResourceIndex, ResourceQuery, Resources, SystemId,
-    TypeAccess, UnsafeClone,
-};
+use bevy_ecs::{Query, Res, ResMut, SystemParam};
 use bevy_property::Properties;
-use std::{any::TypeId, ops::Range, sync::Arc};
+use std::{ops::Range, sync::Arc};
 use thiserror::Error;
 
 /// A queued command for the renderer
@@ -125,99 +122,19 @@ pub enum DrawError {
     BufferAllocationFailure,
 }
 
-//#[derive(Debug)]
+#[derive(SystemParam)]
 pub struct DrawContext<'a> {
     pub pipelines: ResMut<'a, Assets<PipelineDescriptor>>,
     pub shaders: ResMut<'a, Assets<Shader>>,
     pub pipeline_compiler: ResMut<'a, PipelineCompiler>,
     pub render_resource_context: Res<'a, Box<dyn RenderResourceContext>>,
     pub shared_buffers: Res<'a, SharedBuffers>,
+    #[system_param(ignore)]
     pub current_pipeline: Option<Handle<PipelineDescriptor>>,
-}
-
-impl<'a> UnsafeClone for DrawContext<'a> {
-    unsafe fn unsafe_clone(&self) -> Self {
-        Self {
-            pipelines: self.pipelines.unsafe_clone(),
-            shaders: self.shaders.unsafe_clone(),
-            pipeline_compiler: self.pipeline_compiler.unsafe_clone(),
-            render_resource_context: self.render_resource_context.unsafe_clone(),
-            shared_buffers: self.shared_buffers.unsafe_clone(),
-            current_pipeline: self.current_pipeline.clone(),
-        }
-    }
-}
-
-impl<'a> ResourceQuery for DrawContext<'a> {
-    type Fetch = FetchDrawContext;
 }
 
 #[derive(Debug)]
 pub struct FetchDrawContext;
-
-// TODO: derive this impl
-impl<'a> FetchResource<'a> for FetchDrawContext {
-    type Item = DrawContext<'a>;
-
-    fn borrow(resources: &Resources) {
-        resources.borrow_mut::<Assets<PipelineDescriptor>>();
-        resources.borrow_mut::<Assets<Shader>>();
-        resources.borrow_mut::<PipelineCompiler>();
-        resources.borrow::<Box<dyn RenderResourceContext>>();
-        resources.borrow::<SharedBuffers>();
-    }
-
-    fn release(resources: &Resources) {
-        resources.release_mut::<Assets<PipelineDescriptor>>();
-        resources.release_mut::<Assets<Shader>>();
-        resources.release_mut::<PipelineCompiler>();
-        resources.release::<Box<dyn RenderResourceContext>>();
-        resources.release::<SharedBuffers>();
-    }
-
-    unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Self::Item {
-        let pipelines = {
-            let (value, type_state) = resources
-                .get_unsafe_ref_with_type_state::<Assets<PipelineDescriptor>>(
-                    ResourceIndex::Global,
-                );
-            ResMut::new(value, type_state.mutated())
-        };
-        let shaders = {
-            let (value, type_state) =
-                resources.get_unsafe_ref_with_type_state::<Assets<Shader>>(ResourceIndex::Global);
-            ResMut::new(value, type_state.mutated())
-        };
-        let pipeline_compiler = {
-            let (value, type_state) =
-                resources.get_unsafe_ref_with_type_state::<PipelineCompiler>(ResourceIndex::Global);
-            ResMut::new(value, type_state.mutated())
-        };
-
-        DrawContext {
-            pipelines,
-            shaders,
-            pipeline_compiler,
-            render_resource_context: Res::new(
-                resources.get_unsafe_ref::<Box<dyn RenderResourceContext>>(ResourceIndex::Global),
-            ),
-            shared_buffers: Res::new(
-                resources.get_unsafe_ref::<SharedBuffers>(ResourceIndex::Global),
-            ),
-            current_pipeline: None,
-        }
-    }
-
-    fn access() -> TypeAccess<TypeId> {
-        let mut access = TypeAccess::default();
-        access.add_write(TypeId::of::<Assets<PipelineDescriptor>>());
-        access.add_write(TypeId::of::<Assets<Shader>>());
-        access.add_write(TypeId::of::<PipelineCompiler>());
-        access.add_read(TypeId::of::<Box<dyn RenderResourceContext>>());
-        access.add_read(TypeId::of::<SharedBuffers>());
-        access
-    }
-}
 
 impl<'a> DrawContext<'a> {
     pub fn get_uniform_buffer<T: RenderResource>(

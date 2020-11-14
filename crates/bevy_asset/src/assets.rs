@@ -2,7 +2,7 @@ use crate::{
     update_asset_storage_system, Asset, AssetLoader, AssetServer, Handle, HandleId, RefChange,
 };
 use bevy_app::{prelude::Events, AppBuilder};
-use bevy_ecs::{FromResources, IntoQuerySystem, ResMut};
+use bevy_ecs::{FromResources, IntoSystem, ResMut};
 use bevy_type_registry::RegisterType;
 use bevy_utils::HashMap;
 use crossbeam_channel::Sender;

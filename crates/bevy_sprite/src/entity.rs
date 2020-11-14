@@ -6,7 +6,7 @@ use bevy_asset::Handle;
 use bevy_ecs::Bundle;
 use bevy_render::{
     mesh::Mesh,
-    pipeline::{DynamicBinding, PipelineSpecialization, RenderPipeline, RenderPipelines},
+    pipeline::{RenderPipeline, RenderPipelines},
     prelude::Draw,
     render_graph::base::MainPass,
 };
@@ -28,23 +28,8 @@ impl Default for SpriteComponents {
     fn default() -> Self {
         Self {
             mesh: QUAD_HANDLE,
-            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
+            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 SPRITE_PIPELINE_HANDLE,
-                PipelineSpecialization {
-                    dynamic_bindings: vec![
-                        // Transform
-                        DynamicBinding {
-                            bind_group: 2,
-                            binding: 0,
-                        },
-                        // Sprite
-                        DynamicBinding {
-                            bind_group: 2,
-                            binding: 1,
-                        },
-                    ],
-                    ..Default::default()
-                },
             )]),
             draw: Draw {
                 is_transparent: true,
@@ -79,23 +64,8 @@ pub struct SpriteSheetComponents {
 impl Default for SpriteSheetComponents {
     fn default() -> Self {
         Self {
-            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
+            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 SPRITE_SHEET_PIPELINE_HANDLE,
-                PipelineSpecialization {
-                    dynamic_bindings: vec![
-                        // Transform
-                        DynamicBinding {
-                            bind_group: 2,
-                            binding: 0,
-                        },
-                        // TextureAtlasSprite
-                        DynamicBinding {
-                            bind_group: 2,
-                            binding: 1,
-                        },
-                    ],
-                    ..Default::default()
-                },
             )]),
             draw: Draw {
                 is_transparent: true,

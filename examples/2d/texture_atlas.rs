@@ -21,7 +21,7 @@ fn setup(mut rpg_sprite_handles: ResMut<RpgSpriteHandles>, asset_server: Res<Ass
 }
 
 fn load_atlas(
-    mut commands: Commands,
+    commands: &mut Commands,
     mut rpg_sprite_handles: ResMut<RpgSpriteHandles>,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,

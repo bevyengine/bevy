@@ -26,6 +26,9 @@ pub struct WgpuRenderResourceContext {
     pub resources: WgpuResources,
 }
 
+pub const BIND_BUFFER_ALIGNMENT: usize = 256;
+pub const TEXTURE_ALIGNMENT: usize = 256;
+
 impl WgpuRenderResourceContext {
     pub fn new(device: Arc<wgpu::Device>) -> Self {
         WgpuRenderResourceContext {
@@ -552,5 +555,17 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         let buffers = self.resources.buffers.read();
         let buffer = buffers.get(&id).unwrap();
         buffer.unmap();
+    }
+
+    fn get_aligned_texture_size(&self, size: usize) -> usize {
+        (size + TEXTURE_ALIGNMENT - 1) & !(TEXTURE_ALIGNMENT - 1)
+    }
+
+    fn get_aligned_uniform_size(&self, size: usize, dynamic: bool) -> usize {
+        if dynamic {
+            (size + BIND_BUFFER_ALIGNMENT - 1) & !(BIND_BUFFER_ALIGNMENT - 1)
+        } else {
+            size
+        }
     }
 }

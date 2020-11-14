@@ -1,4 +1,3 @@
-use super::{FetchResource, ResourceQuery};
 use crate::system::SystemId;
 use bevy_hecs::{Archetype, AtomicBorrow, Entity, Ref, RefMut, TypeInfo, TypeState};
 use bevy_utils::HashMap;
@@ -231,6 +230,7 @@ impl Resources {
                 core::mem::size_of::<T>(),
                 index,
                 added,
+                !added,
             );
             std::mem::forget(resource);
         }
@@ -261,29 +261,6 @@ impl Resources {
                 };
                 RefMut::new(&data.archetype, index).ok()
             })
-    }
-
-    pub fn query<Q: ResourceQuery>(&self) -> Option<<Q::Fetch as FetchResource>::Item> {
-        unsafe {
-            if Q::Fetch::is_some(&self, None) {
-                Some(Q::Fetch::get(&self, None))
-            } else {
-                None
-            }
-        }
-    }
-
-    pub fn query_system<Q: ResourceQuery>(
-        &self,
-        id: SystemId,
-    ) -> Option<<Q::Fetch as FetchResource>::Item> {
-        unsafe {
-            if Q::Fetch::is_some(&self, Some(id)) {
-                Some(Q::Fetch::get(&self, Some(id)))
-            } else {
-                None
-            }
-        }
     }
 
     #[inline]

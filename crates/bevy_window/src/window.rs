@@ -137,6 +137,7 @@ impl Window {
         self.height = height;
     }
 
+    #[inline]
     pub fn title(&self) -> &str {
         &self.title
     }
@@ -146,15 +147,18 @@ impl Window {
         self.command_queue.push(WindowCommand::SetTitle { title });
     }
 
+    #[inline]
     pub fn vsync(&self) -> bool {
         self.vsync
     }
 
+    #[inline]
     pub fn set_vsync(&mut self, vsync: bool) {
         self.vsync = vsync;
         self.command_queue.push(WindowCommand::SetVsync { vsync });
     }
 
+    #[inline]
     pub fn resizable(&self) -> bool {
         self.resizable
     }
@@ -165,6 +169,7 @@ impl Window {
             .push(WindowCommand::SetResizable { resizable });
     }
 
+    #[inline]
     pub fn decorations(&self) -> bool {
         self.decorations
     }
@@ -175,6 +180,7 @@ impl Window {
             .push(WindowCommand::SetDecorations { decorations });
     }
 
+    #[inline]
     pub fn cursor_locked(&self) -> bool {
         self.cursor_locked
     }
@@ -185,6 +191,7 @@ impl Window {
             .push(WindowCommand::SetCursorLockMode { locked: lock_mode });
     }
 
+    #[inline]
     pub fn cursor_visible(&self) -> bool {
         self.cursor_visible
     }
@@ -196,6 +203,7 @@ impl Window {
         });
     }
 
+    #[inline]
     pub fn mode(&self) -> WindowMode {
         self.mode
     }
@@ -208,6 +216,7 @@ impl Window {
         });
     }
 
+    #[inline]
     pub fn drain_commands(&mut self) -> impl Iterator<Item = WindowCommand> + '_ {
         self.command_queue.drain(..)
     }

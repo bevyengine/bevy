@@ -1,5 +1,5 @@
+use find_crate::Manifest;
 use proc_macro::TokenStream;
-use proc_macro_crate::crate_name;
 use syn::Path;
 
 #[derive(Debug)]
@@ -8,9 +8,9 @@ pub struct Modules {
 }
 
 impl Modules {
-    pub fn meta() -> Modules {
+    pub fn meta(name: &str) -> Modules {
         Modules {
-            bevy_property: "bevy::property".to_string(),
+            bevy_property: format!("{}::property", name),
         }
     }
 
@@ -21,16 +21,19 @@ impl Modules {
     }
 }
 
-fn use_meta() -> bool {
-    crate_name("bevy").is_ok()
+fn get_meta() -> Option<Modules> {
+    let manifest = Manifest::new().unwrap();
+    if let Some(package) = manifest.find(|name| name == "bevy") {
+        Some(Modules::meta(&package.name))
+    } else if let Some(package) = manifest.find(|name| name == "bevy_internal") {
+        Some(Modules::meta(&package.name))
+    } else {
+        None
+    }
 }
 
 pub fn get_modules() -> Modules {
-    if use_meta() {
-        Modules::meta()
-    } else {
-        Modules::external()
-    }
+    get_meta().unwrap_or_else(Modules::external)
 }
 
 pub fn get_path(path_str: &str) -> Path {

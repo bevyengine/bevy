@@ -15,8 +15,8 @@
 // modified by Bevy contributors
 
 use crate::{
-    alloc::vec::Vec, borrow::EntityRef, query::ReadOnlyFetch, BatchedIter, EntityReserver, Fetch,
-    Mut, QueryIter, RefMut,
+    alloc::vec::Vec, borrow::EntityRef, filter::EntityFilter, query::ReadOnlyFetch, BatchedIter,
+    EntityReserver, Fetch, Mut, QueryFilter, QueryIter, RefMut,
 };
 use bevy_utils::{HashMap, HashSet};
 use core::{any::TypeId, fmt, mem, ptr};
@@ -102,7 +102,7 @@ impl World {
         unsafe {
             let index = archetype.allocate(entity);
             components.put(|ptr, ty, size| {
-                archetype.put_dynamic(ptr, ty, size, index, true);
+                archetype.put_dynamic(ptr, ty, size, index, true, false);
                 true
             });
             self.entities.meta[entity.id as usize].location = Location {
@@ -249,7 +249,17 @@ impl World {
     /// assert!(entities.contains(&(a, 123, true)));
     /// assert!(entities.contains(&(b, 456, false)));
     /// ```
-    pub fn query<Q: Query>(&self) -> QueryIter<'_, Q>
+    #[inline]
+    pub fn query<Q: Query>(&self) -> QueryIter<'_, Q, ()>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        // SAFE: read-only access to world and read only query prevents mutable access
+        unsafe { self.query_unchecked() }
+    }
+
+    #[inline]
+    pub fn query_filtered<Q: Query, F: QueryFilter>(&self) -> QueryIter<'_, Q, F>
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -281,14 +291,34 @@ impl World {
     /// assert!(entities.contains(&(a, 123, true)));
     /// assert!(entities.contains(&(b, 456, false)));
     /// ```
-    pub fn query_mut<Q: Query>(&mut self) -> QueryIter<'_, Q> {
+    #[inline]
+    pub fn query_mut<Q: Query>(&mut self) -> QueryIter<'_, Q, ()> {
+        // SAFE: unique mutable access
+        unsafe { self.query_unchecked() }
+    }
+
+    #[inline]
+    pub fn query_filtered_mut<Q: Query, F: QueryFilter>(&mut self) -> QueryIter<'_, Q, F> {
         // SAFE: unique mutable access
         unsafe { self.query_unchecked() }
     }
 
     /// Like `query`, but instead of returning a single iterator it returns a "batched iterator",
     /// where each batch is `batch_size`. This is generally used for parallel iteration.
-    pub fn query_batched<Q: Query>(&self, batch_size: usize) -> BatchedIter<'_, Q>
+    #[inline]
+    pub fn query_batched<Q: Query>(&self, batch_size: usize) -> BatchedIter<'_, Q, ()>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        // SAFE: read-only access to world and read only query prevents mutable access
+        unsafe { self.query_batched_unchecked(batch_size) }
+    }
+
+    #[inline]
+    pub fn query_batched_filtered<Q: Query, F: QueryFilter>(
+        &self,
+        batch_size: usize,
+    ) -> BatchedIter<'_, Q, F>
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -298,7 +328,17 @@ impl World {
 
     /// Like `query`, but instead of returning a single iterator it returns a "batched iterator",
     /// where each batch is `batch_size`. This is generally used for parallel iteration.
-    pub fn query_batched_mut<Q: Query>(&mut self, batch_size: usize) -> BatchedIter<'_, Q> {
+    #[inline]
+    pub fn query_batched_mut<Q: Query>(&mut self, batch_size: usize) -> BatchedIter<'_, Q, ()> {
+        // SAFE: unique mutable access
+        unsafe { self.query_batched_unchecked(batch_size) }
+    }
+
+    #[inline]
+    pub fn query_batched_filtered_mut<Q: Query, F: QueryFilter>(
+        &mut self,
+        batch_size: usize,
+    ) -> BatchedIter<'_, Q, F> {
         // SAFE: unique mutable access
         unsafe { self.query_batched_unchecked(batch_size) }
     }
@@ -316,7 +356,8 @@ impl World {
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
-    pub unsafe fn query_unchecked<Q: Query>(&self) -> QueryIter<'_, Q> {
+    #[inline]
+    pub unsafe fn query_unchecked<Q: Query, F: QueryFilter>(&self) -> QueryIter<'_, Q, F> {
         QueryIter::new(&self.archetypes)
     }
 
@@ -327,10 +368,10 @@ impl World {
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
-    pub unsafe fn query_batched_unchecked<Q: Query>(
+    pub unsafe fn query_batched_unchecked<Q: Query, F: QueryFilter>(
         &self,
         batch_size: usize,
-    ) -> BatchedIter<'_, Q> {
+    ) -> BatchedIter<'_, Q, F> {
         BatchedIter::new(&self.archetypes, batch_size)
     }
 
@@ -347,6 +388,7 @@ impl World {
     /// let (number, flag) = world.query_one::<(&i32, &bool)>(a).unwrap();
     /// assert_eq!(*number, 123);
     /// ```
+    #[inline]
     pub fn query_one<Q: Query>(
         &self,
         entity: Entity,
@@ -355,7 +397,19 @@ impl World {
         Q::Fetch: ReadOnlyFetch,
     {
         // SAFE: read-only access to world and read only query prevents mutable access
-        unsafe { self.query_one_unchecked::<Q>(entity) }
+        unsafe { self.query_one_unchecked::<Q, ()>(entity) }
+    }
+
+    #[inline]
+    pub fn query_one_filtered<Q: Query, F: QueryFilter>(
+        &self,
+        entity: Entity,
+    ) -> Result<<Q::Fetch as Fetch>::Item, NoSuchEntity>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        // SAFE: read-only access to world and read only query prevents mutable access
+        unsafe { self.query_one_unchecked::<Q, F>(entity) }
     }
 
     /// Prepare a query against a single entity
@@ -372,12 +426,22 @@ impl World {
     /// if *flag { *number *= 2; }
     /// assert_eq!(*number, 246);
     /// ```
+    #[inline]
     pub fn query_one_mut<Q: Query>(
         &mut self,
         entity: Entity,
     ) -> Result<<Q::Fetch as Fetch>::Item, NoSuchEntity> {
         // SAFE: unique mutable access to world
-        unsafe { self.query_one_unchecked::<Q>(entity) }
+        unsafe { self.query_one_unchecked::<Q, ()>(entity) }
+    }
+
+    #[inline]
+    pub fn query_one_filtered_mut<Q: Query, F: QueryFilter>(
+        &mut self,
+        entity: Entity,
+    ) -> Result<<Q::Fetch as Fetch>::Item, NoSuchEntity> {
+        // SAFE: unique mutable access to world
+        unsafe { self.query_one_unchecked::<Q, F>(entity) }
     }
 
     /// Prepare a query against a single entity, without checking the safety of mutable queries
@@ -387,18 +451,27 @@ impl World {
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
-    pub unsafe fn query_one_unchecked<Q: Query>(
+    #[inline]
+    pub unsafe fn query_one_unchecked<Q: Query, F: QueryFilter>(
         &self,
         entity: Entity,
     ) -> Result<<Q::Fetch as Fetch>::Item, NoSuchEntity> {
         let loc = self.entities.get(entity)?;
-        <Q::Fetch as Fetch>::get(&self.archetypes[loc.archetype as usize], 0)
-            .filter(|fetch| !fetch.should_skip(loc.index))
-            .map(|fetch| fetch.fetch(loc.index))
-            .ok_or(NoSuchEntity)
+        let archetype = &self.archetypes[loc.archetype as usize];
+        let matches_filter = F::get_entity_filter(archetype)
+            .map(|entity_filter| entity_filter.matches_entity(loc.index))
+            .unwrap_or(false);
+        if matches_filter {
+            <Q::Fetch as Fetch>::get(archetype, 0)
+                .map(|fetch| fetch.fetch(loc.index))
+                .ok_or(NoSuchEntity)
+        } else {
+            Err(NoSuchEntity)
+        }
     }
 
     /// Borrow the `T` component of `entity`
+    #[inline]
     pub fn get<T: Component>(&self, entity: Entity) -> Result<&'_ T, ComponentError> {
         unsafe {
             let loc = self.entities.get(entity)?;
@@ -414,6 +487,7 @@ impl World {
     }
 
     /// Mutably borrow the `T` component of `entity`
+    #[inline]
     pub fn get_mut<T: Component>(&mut self, entity: Entity) -> Result<Mut<'_, T>, ComponentError> {
         // SAFE: uniquely borrows world
         unsafe { self.get_mut_unchecked(entity) }
@@ -434,6 +508,7 @@ impl World {
     /// # Safety
     /// This does not check for mutable access correctness. To be safe, make sure this is the only
     /// thing accessing this entity's T component.
+    #[inline]
     pub unsafe fn get_mut_unchecked<T: Component>(
         &self,
         entity: Entity,
@@ -530,7 +605,7 @@ impl World {
                 // Update components in the current archetype
                 let arch = &mut self.archetypes[loc.archetype as usize];
                 components.put(|ptr, ty, size| {
-                    arch.put_dynamic(ptr, ty, size, loc.index, false);
+                    arch.put_dynamic(ptr, ty, size, loc.index, false, true);
                     true
                 });
                 return Ok(());
@@ -547,7 +622,7 @@ impl World {
             let old_index = mem::replace(&mut loc.index, target_index);
             if let Some(moved) =
                 source_arch.move_to(old_index, |ptr, ty, size, is_added, is_mutated| {
-                    target_arch.put_dynamic(ptr, ty, size, target_index, false);
+                    target_arch.put_dynamic(ptr, ty, size, target_index, false, false);
                     let type_state = target_arch.get_type_state_mut(ty).unwrap();
                     *type_state.added().as_ptr().add(target_index) = is_added;
                     *type_state.mutated().as_ptr().add(target_index) = is_mutated;
@@ -557,7 +632,8 @@ impl World {
             }
 
             components.put(|ptr, ty, size| {
-                target_arch.put_dynamic(ptr, ty, size, target_index, true);
+                let had_component = source_arch.has_dynamic(ty);
+                target_arch.put_dynamic(ptr, ty, size, target_index, !had_component, had_component);
                 true
             });
         }
@@ -1003,7 +1079,8 @@ where
         unsafe {
             let index = self.archetype.allocate(entity);
             components.put(|ptr, ty, size| {
-                self.archetype.put_dynamic(ptr, ty, size, index, true);
+                self.archetype
+                    .put_dynamic(ptr, ty, size, index, true, false);
                 true
             });
             self.entities.meta[entity.id as usize].location = Location {

@@ -10,12 +10,13 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
+    commands: &mut Commands,
     asset_server: Res<AssetServer>,
     meshes: Res<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // You can load individual assets like this:
+    // By default AssetServer will load assets from inside the "assets" folder
+    // For example, the next line will load "assets/models/cube/cube.gltf#Mesh0/Primitive0"
     let cube_handle = asset_server.load("models/cube/cube.gltf#Mesh0/Primitive0");
     let sphere_handle = asset_server.load("models/sphere/sphere.gltf#Mesh0/Primitive0");
 

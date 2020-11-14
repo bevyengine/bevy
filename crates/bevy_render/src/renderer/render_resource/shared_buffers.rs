@@ -31,9 +31,12 @@ impl SharedBuffers {
         buffer_usage: BufferUsage,
     ) -> Option<RenderResourceBinding> {
         if let Some(size) = render_resource.buffer_byte_len() {
+            let aligned_size = self
+                .render_resource_context
+                .get_aligned_uniform_size(size, false);
             // PERF: this buffer will be slow
             let staging_buffer = self.render_resource_context.create_buffer(BufferInfo {
-                size,
+                size: aligned_size,
                 buffer_usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
                 mapped_at_creation: true,
             });
@@ -49,7 +52,7 @@ impl SharedBuffers {
             self.render_resource_context.unmap_buffer(staging_buffer);
 
             let destination_buffer = self.render_resource_context.create_buffer(BufferInfo {
-                size,
+                size: aligned_size,
                 buffer_usage: BufferUsage::COPY_DST | buffer_usage,
                 ..Default::default()
             });
@@ -68,7 +71,7 @@ impl SharedBuffers {
             buffers.push(destination_buffer);
             Some(RenderResourceBinding::Buffer {
                 buffer: destination_buffer,
-                range: 0..size as u64,
+                range: 0..aligned_size as u64,
                 dynamic_index: None,
             })
         } else {

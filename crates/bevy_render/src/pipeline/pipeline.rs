@@ -4,13 +4,9 @@ use super::{
         CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace, IndexFormat,
         PrimitiveTopology, RasterizationStateDescriptor, StencilStateFaceDescriptor,
     },
-    BindType, DynamicBinding, PipelineLayout, StencilStateDescriptor,
+    PipelineLayout, StencilStateDescriptor,
 };
-use crate::{
-    shader::{Shader, ShaderStages},
-    texture::TextureFormat,
-};
-use bevy_asset::Assets;
+use crate::{shader::ShaderStages, texture::TextureFormat};
 use bevy_type_registry::TypeUuid;
 
 #[derive(Clone, Debug, TypeUuid)]
@@ -116,64 +112,5 @@ impl PipelineDescriptor {
 
     pub fn get_layout_mut(&mut self) -> Option<&mut PipelineLayout> {
         self.layout.as_mut()
-    }
-
-    /// Reflects the pipeline layout from its shaders.
-    ///
-    /// If `bevy_conventions` is true, it will be assumed that the shader follows "bevy shader conventions". These allow
-    /// richer reflection, such as inferred Vertex Buffer names and inferred instancing.
-    ///
-    /// If `dynamic_bindings` has values, shader uniforms will be set to "dynamic" if there is a matching binding in the list
-    ///
-    /// If `vertex_buffer_descriptors` is set, the pipeline's vertex buffers
-    /// will inherit their layouts from global descriptors, otherwise the layout will be assumed to be complete / local.
-    pub fn reflect_layout(
-        &mut self,
-        shaders: &Assets<Shader>,
-        bevy_conventions: bool,
-        dynamic_bindings: &[DynamicBinding],
-    ) {
-        let vertex_spirv = shaders.get(&self.shader_stages.vertex).unwrap();
-        let fragment_spirv = self
-            .shader_stages
-            .fragment
-            .as_ref()
-            .map(|handle| shaders.get(handle).unwrap());
-
-        let mut layouts = vec![vertex_spirv.reflect_layout(bevy_conventions).unwrap()];
-        if let Some(ref fragment_spirv) = fragment_spirv {
-            layouts.push(fragment_spirv.reflect_layout(bevy_conventions).unwrap());
-        }
-
-        let mut layout = PipelineLayout::from_shader_layouts(&mut layouts);
-
-        if !dynamic_bindings.is_empty() {
-            // set binding uniforms to dynamic if render resource bindings use dynamic
-            for bind_group in layout.bind_groups.iter_mut() {
-                let mut binding_changed = false;
-                for binding in bind_group.bindings.iter_mut() {
-                    let current = DynamicBinding {
-                        bind_group: bind_group.index,
-                        binding: binding.index,
-                    };
-
-                    if dynamic_bindings.contains(&current) {
-                        if let BindType::Uniform {
-                            ref mut dynamic, ..
-                        } = binding.bind_type
-                        {
-                            *dynamic = true;
-                            binding_changed = true;
-                        }
-                    }
-                }
-
-                if binding_changed {
-                    bind_group.update_id();
-                }
-            }
-        }
-
-        self.layout = Some(layout);
     }
 }

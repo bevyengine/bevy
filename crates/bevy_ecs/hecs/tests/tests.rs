@@ -183,7 +183,18 @@ fn derived_bundle() {
 
 #[test]
 #[cfg(feature = "macros")]
-#[should_panic(expected = "each type must occur at most once")]
+#[cfg_attr(
+    debug_assertions,
+    should_panic(
+        expected = "attempted to allocate entity with duplicate i32 components; each type must occur at most once!"
+    )
+)]
+#[cfg_attr(
+    not(debug_assertions),
+    should_panic(
+        expected = "attempted to allocate entity with duplicate components; each type must occur at most once!"
+    )
+)]
 fn bad_bundle_derive() {
     #[derive(Bundle)]
     struct Foo {
@@ -240,7 +251,6 @@ fn query_batched() {
         .flat_map(|x| x)
         .map(|e| e)
         .collect::<Vec<_>>();
-    dbg!(&entities);
     assert_eq!(entities.len(), 3);
     assert!(entities.contains(&a));
     assert!(entities.contains(&b));
@@ -344,20 +354,38 @@ fn added_tracking() {
     let a = world.spawn((123,));
 
     assert_eq!(world.query::<&i32>().count(), 1);
-    assert_eq!(world.query::<Added<i32>>().count(), 1);
+    assert_eq!(world.query_filtered::<(), Added<i32>>().count(), 1);
     assert_eq!(world.query_mut::<&i32>().count(), 1);
-    assert_eq!(world.query_mut::<Added<i32>>().count(), 1);
+    assert_eq!(world.query_filtered_mut::<(), Added<i32>>().count(), 1);
     assert!(world.query_one::<&i32>(a).is_ok());
-    assert!(world.query_one::<Added<i32>>(a).is_ok());
+    assert!(world.query_one_filtered::<(), Added<i32>>(a).is_ok());
     assert!(world.query_one_mut::<&i32>(a).is_ok());
-    assert!(world.query_one_mut::<Added<i32>>(a).is_ok());
+    assert!(world.query_one_filtered_mut::<(), Added<i32>>(a).is_ok());
 
     world.clear_trackers();
 
     assert_eq!(world.query::<&i32>().count(), 1);
-    assert_eq!(world.query::<Added<i32>>().count(), 0);
+    assert_eq!(world.query_filtered::<(), Added<i32>>().count(), 0);
     assert_eq!(world.query_mut::<&i32>().count(), 1);
-    assert_eq!(world.query_mut::<Added<i32>>().count(), 0);
+    assert_eq!(world.query_filtered_mut::<(), Added<i32>>().count(), 0);
     assert!(world.query_one_mut::<&i32>(a).is_ok());
-    assert!(world.query_one_mut::<Added<i32>>(a).is_err());
+    assert!(world.query_one_filtered_mut::<(), Added<i32>>(a).is_err());
+}
+
+#[test]
+#[cfg_attr(
+    debug_assertions,
+    should_panic(
+        expected = "attempted to allocate entity with duplicate f32 components; each type must occur at most once!"
+    )
+)]
+#[cfg_attr(
+    not(debug_assertions),
+    should_panic(
+        expected = "attempted to allocate entity with duplicate components; each type must occur at most once!"
+    )
+)]
+fn duplicate_components_panic() {
+    let mut world = World::new();
+    world.reserve::<(f32, i64, f32)>(1);
 }

@@ -26,7 +26,7 @@ fn text_update_system(diagnostics: Res<Diagnostics>, mut query: Query<(&mut Text
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
     commands
         // 2d camera
         .spawn(UiCameraComponents::default())

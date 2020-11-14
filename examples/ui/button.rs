@@ -29,12 +29,10 @@ impl FromResources for ButtonMaterials {
 
 fn button_system(
     button_materials: Res<ButtonMaterials>,
-    mut interaction_query: Query<(
-        &Button,
+    mut interaction_query: Query<
+        (&Button, &Interaction, &mut Handle<ColorMaterial>, &Children),
         Mutated<Interaction>,
-        &mut Handle<ColorMaterial>,
-        &Children,
-    )>,
+    >,
     mut text_query: Query<&mut Text>,
 ) {
     for (_button, interaction, mut material, children) in interaction_query.iter_mut() {
@@ -57,7 +55,7 @@ fn button_system(
 }
 
 fn setup(
-    mut commands: Commands,
+    commands: &mut Commands,
     asset_server: Res<AssetServer>,
     button_materials: Res<ButtonMaterials>,
 ) {

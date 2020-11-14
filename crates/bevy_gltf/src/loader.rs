@@ -6,9 +6,13 @@ use bevy_ecs::{bevy_utils::BoxedFuture, Entity, World, WorldBuilderSource};
 use bevy_math::prelude::*;
 use bevy_pbr::prelude::{PbrComponents, StandardMaterial};
 use bevy_render::{
+    camera::{
+        Camera, CameraProjection, OrthographicProjection, PerspectiveProjection, VisibleEntities,
+    },
     mesh::{Indices, Mesh, VertexAttributeValues},
     pipeline::PrimitiveTopology,
     prelude::{Color, Texture},
+    render_graph::base::camera,
     texture::{AddressMode, FilterMode, SamplerDescriptor, TextureFormat},
 };
 use bevy_scene::Scene;
@@ -448,6 +452,55 @@ fn load_node(
         ));
 
         world_builder.with(MeshSkinnerDebuger::default());
+    }
+
+    // create camera node
+    if let Some(camera) = node.camera() {
+        world_builder.with(VisibleEntities {
+            ..Default::default()
+        });
+
+        match camera.projection() {
+            gltf::camera::Projection::Orthographic(orthographic) => {
+                let xmag = orthographic.xmag();
+                let ymag = orthographic.ymag();
+                let orthographic_projection: OrthographicProjection = OrthographicProjection {
+                    left: -xmag,
+                    right: xmag,
+                    top: ymag,
+                    bottom: -ymag,
+                    far: orthographic.zfar(),
+                    near: orthographic.znear(),
+                    ..Default::default()
+                };
+
+                world_builder.with(Camera {
+                    name: Some(camera::CAMERA2D.to_owned()),
+                    projection_matrix: orthographic_projection.get_projection_matrix(),
+                    ..Default::default()
+                });
+                world_builder.with(orthographic_projection);
+            }
+            gltf::camera::Projection::Perspective(perspective) => {
+                let mut perspective_projection: PerspectiveProjection = PerspectiveProjection {
+                    fov: perspective.yfov(),
+                    near: perspective.znear(),
+                    ..Default::default()
+                };
+                if let Some(zfar) = perspective.zfar() {
+                    perspective_projection.far = zfar;
+                }
+                if let Some(aspect_ratio) = perspective.aspect_ratio() {
+                    perspective_projection.aspect_ratio = aspect_ratio;
+                }
+                world_builder.with(Camera {
+                    name: Some(camera::CAMERA3D.to_owned()),
+                    projection_matrix: perspective_projection.get_projection_matrix(),
+                    ..Default::default()
+                });
+                world_builder.with(perspective_projection);
+            }
+        }
     }
 
     world_builder.with_children(|parent| {

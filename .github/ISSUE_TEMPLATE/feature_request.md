@@ -2,21 +2,21 @@
 name: Feature Request
 about: Propose a new feature!
 title: ''
-labels: 'enhancement'
+labels: ''
 assignees: ''
 ---
 
 **What problem does this solve or what need does it fill?**
 
-A description of why this particular feature should be added
+A description of why this particular feature should be added.
 
 **Describe the solution would you like?**
 
-The solution you propose for the problem presented
+The solution you propose for the problem presented.
 
 **Describe the alternative(s) you've considered?**
 
-Other solutions to solve and/or work around the problem presented
+Other solutions to solve and/or work around the problem presented.
 
 **Additional context**
 

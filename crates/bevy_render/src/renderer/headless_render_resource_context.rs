@@ -140,4 +140,12 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
     ) -> bool {
         false
     }
+
+    fn get_aligned_uniform_size(&self, size: usize, _dynamic: bool) -> usize {
+        size
+    }
+
+    fn get_aligned_texture_size(&self, size: usize) -> usize {
+        size
+    }
 }

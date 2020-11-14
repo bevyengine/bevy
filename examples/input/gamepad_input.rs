@@ -1,6 +1,8 @@
-use bevy::prelude::*;
-use bevy_input::gamepad::{Gamepad, GamepadButton, GamepadEvent, GamepadEventType};
-use bevy_utils::HashSet;
+use bevy::{
+    input::gamepad::{Gamepad, GamepadButton, GamepadEvent, GamepadEventType},
+    prelude::*,
+    utils::HashSet,
+};
 
 fn main() {
     App::build()

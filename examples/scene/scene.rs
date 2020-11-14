@@ -65,7 +65,7 @@ fn load_scene_system(asset_server: Res<AssetServer>, mut scene_spawner: ResMut<S
 
 // This system prints all ComponentA components in our world. Try making a change to a ComponentA in load_scene_example.scn.
 // You should immediately see the changes appear in the console.
-fn print_system(query: Query<(Entity, Changed<ComponentA>)>) {
+fn print_system(query: Query<(Entity, &ComponentA), Changed<ComponentA>>) {
     for (entity, component_a) in query.iter() {
         println!("  Entity({})", entity.id());
         println!(
@@ -101,7 +101,7 @@ fn save_scene_system(_world: &mut World, resources: &mut Resources) {
 }
 
 // This is only necessary for the info message in the UI. See examples/ui/text.rs for a standalone text example.
-fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(UiCameraComponents::default())
         .spawn(TextComponents {

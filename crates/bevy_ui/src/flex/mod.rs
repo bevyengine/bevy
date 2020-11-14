@@ -160,10 +160,13 @@ unsafe impl Sync for FlexSurface {}
 pub fn flex_node_system(
     windows: Res<Windows>,
     mut flex_surface: ResMut<FlexSurface>,
-    root_node_query: Query<With<Node, Without<Parent, Entity>>>,
-    node_query: Query<With<Node, (Entity, Changed<Style>, Option<&CalculatedSize>)>>,
-    changed_size_query: Query<With<Node, (Entity, &Style, Changed<CalculatedSize>)>>,
-    children_query: Query<With<Node, (Entity, Changed<Children>)>>,
+    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
+    node_query: Query<(Entity, &Style, Option<&CalculatedSize>), (With<Node>, Changed<Style>)>,
+    changed_size_query: Query<
+        (Entity, &Style, &CalculatedSize),
+        (With<Node>, Changed<CalculatedSize>),
+    >,
+    children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
 ) {
     // update window root nodes

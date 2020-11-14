@@ -198,4 +198,14 @@ impl Schedule {
     pub fn generation(&self) -> usize {
         self.generation
     }
+
+    pub fn run_on_systems(&mut self, mut func: impl FnMut(&mut dyn System)) {
+        for stage_name in self.stage_order.iter() {
+            if let Some(stage_systems) = self.stages.get_mut(stage_name) {
+                for system in stage_systems.iter_mut() {
+                    func(&mut **system);
+                }
+            }
+        }
+    }
 }

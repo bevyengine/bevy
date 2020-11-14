@@ -3,13 +3,11 @@ use bevy_ecs::prelude::*;
 
 pub fn transform_propagate_system(
     mut root_query: Query<
-        Without<
-            Parent,
-            With<GlobalTransform, (Option<&Children>, &Transform, &mut GlobalTransform)>,
-        >,
+        (Option<&Children>, &Transform, &mut GlobalTransform),
+        (Without<Parent>, With<GlobalTransform>),
     >,
-    mut transform_query: Query<With<Parent, (&Transform, &mut GlobalTransform)>>,
-    children_query: Query<With<Parent, With<GlobalTransform, Option<&Children>>>>,
+    mut transform_query: Query<(&Transform, &mut GlobalTransform), With<Parent>>,
+    children_query: Query<Option<&Children>, (With<Parent>, With<GlobalTransform>)>,
 ) {
     for (children, transform, mut global_transform) in root_query.iter_mut() {
         *global_transform = GlobalTransform::from(*transform);
@@ -29,8 +27,8 @@ pub fn transform_propagate_system(
 
 fn propagate_recursive(
     parent: &GlobalTransform,
-    transform_query: &mut Query<With<Parent, (&Transform, &mut GlobalTransform)>>,
-    children_query: &Query<With<Parent, With<GlobalTransform, Option<&Children>>>>,
+    transform_query: &mut Query<(&Transform, &mut GlobalTransform), With<Parent>>,
+    children_query: &Query<Option<&Children>, (With<Parent>, With<GlobalTransform>)>,
     entity: Entity,
 ) {
     log::trace!("Updating Transform for {:?}", entity);
@@ -88,10 +86,10 @@ mod test {
                 ),
             ])
             .collect::<Vec<Entity>>();
-        // we need to run the schedule three times because components need to be filled in
+        // we need to run the schedule two times because components need to be filled in
         // to resolve this problem in code, just add the correct components, or use Commands
         // which adds all of the components needed with the correct state (see next test)
-        schedule.run(&mut world, &mut resources);
+        schedule.initialize(&mut world, &mut resources);
         schedule.run(&mut world, &mut resources);
         schedule.run(&mut world, &mut resources);
 
@@ -142,6 +140,7 @@ mod test {
                     .for_current_entity(|entity| children.push(entity));
             });
         commands.apply(&mut world, &mut resources);
+        schedule.initialize(&mut world, &mut resources);
         schedule.run(&mut world, &mut resources);
 
         assert_eq!(
