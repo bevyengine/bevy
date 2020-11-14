@@ -1,10 +1,10 @@
 use super::FromResources;
 use crate::{Resource, ResourceIndex, Resources, SystemId};
-use core::{
+use std::{
+    marker::PhantomData,
     ops::{Deref, DerefMut},
     ptr::NonNull,
 };
-use std::marker::PhantomData;
 
 // TODO: align TypeAccess api with Query::Fetch
 

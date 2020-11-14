@@ -40,7 +40,9 @@ where
         ThreadLocalExecution::Immediate
     }
 
-    fn run(&mut self, _world: &World, _resources: &Resources) {}
+    unsafe fn run_unsafe(&mut self, _world: &World, _resources: &Resources) -> Option<()> {
+        Some(())
+    }
 
     fn run_thread_local(&mut self, world: &mut World, resources: &mut Resources) {
         (self.func)(world, resources);

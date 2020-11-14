@@ -1,7 +1,4 @@
-use crate::{
-    ArchetypeComponent, Commands, QueryAccess, Resources, System, SystemId, SystemParam,
-    ThreadLocalExecution, TypeAccess, World,
-};
+use crate::{ArchetypeComponent, Commands, QueryAccess, Resources, System, SystemId, SystemParam, ThreadLocalExecution, TypeAccess, World};
 use parking_lot::Mutex;
 use std::{any::TypeId, borrow::Cow, sync::Arc};
 
@@ -73,9 +70,9 @@ impl SystemState {
     }
 }
 
-pub struct FuncSystem<F, Init, ThreadLocalFunc>
+pub struct FuncSystem<F, Return, Init, ThreadLocalFunc>
 where
-    F: FnMut(&mut SystemState, &World, &Resources) + Send + Sync + 'static,
+    F: FnMut(&mut SystemState, &World, &Resources) -> Option<Return> + Send + Sync + 'static,
     Init: FnMut(&mut SystemState, &World, &mut Resources) + Send + Sync + 'static,
     ThreadLocalFunc: FnMut(&mut SystemState, &mut World, &mut Resources) + Send + Sync + 'static,
 {
@@ -85,9 +82,9 @@ where
     state: SystemState,
 }
 
-impl<F, Init, ThreadLocalFunc> System for FuncSystem<F, Init, ThreadLocalFunc>
+impl<F, Return, Init, ThreadLocalFunc> System<Return> for FuncSystem<F, Return, Init, ThreadLocalFunc>
 where
-    F: FnMut(&mut SystemState, &World, &Resources) + Send + Sync + 'static,
+    F: FnMut(&mut SystemState, &World, &Resources) -> Option<Return> + Send + Sync + 'static,
     Init: FnMut(&mut SystemState, &World, &mut Resources) + Send + Sync + 'static,
     ThreadLocalFunc: FnMut(&mut SystemState, &mut World, &mut Resources) + Send + Sync + 'static,
 {
@@ -115,7 +112,7 @@ where
         ThreadLocalExecution::NextFlush
     }
 
-    fn run(&mut self, world: &World, resources: &Resources) {
+    unsafe fn run_unsafe(&mut self, world: &World, resources: &Resources) -> Option<Return> {
         (self.func)(&mut self.state, world, resources)
     }
 
@@ -133,19 +130,19 @@ where
     }
 }
 
-pub trait IntoSystem<Params> {
-    fn system(self) -> Box<dyn System>;
+pub trait IntoSystem<Params, Return> {
+    fn system(self) -> Box<dyn System<Return>>;
 }
 
 macro_rules! impl_into_system {
     ($($param: ident),*) => {
-        impl<Func, $($param: SystemParam),*> IntoSystem<($($param,)*)> for Func
-        where Func: FnMut($($param),*) + Send + Sync + 'static,
+        impl<Func, Return, $($param: SystemParam),*> IntoSystem<($($param,)*), Return> for Func
+        where Func: FnMut($($param),*) -> Return + Send + Sync + 'static, Return: 'static
         {
             #[allow(unused_variables)]
             #[allow(unused_unsafe)]
             #[allow(non_snake_case)]
-            fn system(mut self) -> Box<dyn System> {
+            fn system(mut self) -> Box<dyn System<Return>> {
                 Box::new(FuncSystem {
                     state: SystemState {
                         name: std::any::type_name::<Self>().into(),
@@ -165,7 +162,9 @@ macro_rules! impl_into_system {
                         state.reset_indices();
                         unsafe {
                             if let Some(($($param,)*)) = <($($param,)*)>::get_param(state, world, resources) {
-                                self($($param),*);
+                                Some(self($($param),*))
+                            } else {
+                                None
                             }
                         }
                     },

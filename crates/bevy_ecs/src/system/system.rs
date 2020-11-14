@@ -19,7 +19,7 @@ impl SystemId {
 }
 
 /// An ECS system that can be added to a [Schedule](crate::Schedule)
-pub trait System: Send + Sync {
+pub trait System<Return = ()>: Send + Sync {
     fn name(&self) -> Cow<'static, str>;
     fn id(&self) -> SystemId;
     fn is_initialized(&self) -> bool;
@@ -27,7 +27,13 @@ pub trait System: Send + Sync {
     fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent>;
     fn resource_access(&self) -> &TypeAccess<TypeId>;
     fn thread_local_execution(&self) -> ThreadLocalExecution;
-    fn run(&mut self, world: &World, resources: &Resources);
+    unsafe fn run_unsafe(&mut self, world: &World, resources: &Resources) -> Option<Return>;
+    fn run(&mut self, world: &mut World, resources: &mut Resources) -> Option<Return> {
+        // SAFE: world and resources are exclusively borrowed
+        unsafe {
+            self.run_unsafe(world, resources)
+        }
+    }
     fn run_thread_local(&mut self, world: &mut World, resources: &mut Resources);
     fn initialize(&mut self, _world: &mut World, _resources: &mut Resources) {}
 }

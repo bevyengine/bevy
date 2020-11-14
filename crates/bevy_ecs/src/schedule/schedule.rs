@@ -150,7 +150,9 @@ impl Schedule {
                 for system in stage_systems.iter_mut() {
                     system.update(world);
                     match system.thread_local_execution() {
-                        ThreadLocalExecution::NextFlush => system.run(world, resources),
+                        ThreadLocalExecution::NextFlush => {
+                            system.run(world, resources);
+                        }
                         ThreadLocalExecution::Immediate => {
                             system.run(world, resources);
                             // NOTE: when this is made parallel a full sync is required here

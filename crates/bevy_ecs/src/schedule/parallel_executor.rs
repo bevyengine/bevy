@@ -402,7 +402,10 @@ impl ExecutorStage {
                         #[cfg(feature = "trace")]
                         let _system_guard = system_span.enter();
 
-                        system.run(world_ref, resources_ref);
+                        // SAFETY: scheduler ensures safe world / resource access
+                        unsafe {
+                            system.run_unsafe(world_ref, resources_ref);
+                        }
                     }
 
                     // Notify dependents that this task is done
