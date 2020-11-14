@@ -35,6 +35,7 @@ git checkout v0.3.0
   - [Input](#input)
   - [Scene](#scene)
   - [Shaders](#shaders)
+  - [Tools](#tools)
   - [UI (User Interface)](#ui-user-interface)
   - [Window](#window)
 - [Platform-Specific Examples](#platform-specific-examples)
