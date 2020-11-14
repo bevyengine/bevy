@@ -126,6 +126,7 @@ fn recursive_draw_check(
 }
 
 /// Processes a visible entity
+#[allow(clippy::too_many_arguments)]
 fn process_visible(
     entity: Entity,
     camera: &Camera,
