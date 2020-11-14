@@ -79,10 +79,16 @@ pub mod audio {
     pub use bevy_audio::*;
 }
 
-#[cfg(feature = "bevy_gltf")]
+#[cfg(all(feature = "bevy_gltf", feature = "bevy_animation"))]
 pub mod gltf {
     //! Support for GLTF file loading.
     pub use bevy_gltf::*;
+}
+
+#[cfg(feature = "bevy_animation")]
+pub mod animation {
+    //! Support for GLTF file loading.
+    pub use bevy_animation::*;
 }
 
 #[cfg(feature = "bevy_pbr")]

@@ -2,7 +2,7 @@ use anyhow::Result;
 use bevy_asset::{Assets, Handle};
 use bevy_core::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_ecs::{Location, TypeAccess};
+use bevy_ecs::Location;
 use bevy_math::prelude::*;
 use bevy_property::Properties;
 use bevy_property::PropertyType;
@@ -241,12 +241,10 @@ pub(crate) fn animator_fetch(world: &mut World, resources: &mut Resources) {
     let clips = resources.get::<Assets<Clip>>().unwrap();
 
     // Build queries
-    let type_access = TypeAccess::default();
-    let mut animators_query: Query<(&mut Animator, &Children)> = Query::new(&world, &type_access);
-    let entities_query: Query<(Entity, &Name, &Children)> = Query::new(&world, &type_access);
+    let animators_query = unsafe { world.query_unchecked::<(&mut Animator, &Children), ()>() };
 
     // TODO: Parallelize use ComputeTaskPool resource?
-    for (mut animator, root_children) in animators_query.iter_mut() {
+    for (mut animator, root_children) in animators_query {
         // Trick for proper borrow rules
         let animator = &mut *animator;
 
@@ -303,7 +301,9 @@ pub(crate) fn animator_fetch(world: &mut World, resources: &mut Resources) {
                 let mut stack = vec![];
                 // First uneducated search for all hierarchy
                 for parent in root_children.iter().copied() {
-                    if let Ok((entity, name, children)) = entities_query.get(parent) {
+                    if let Ok((entity, name, children)) =
+                        world.query_one::<(Entity, &Name, &Children)>(parent)
+                    {
                         let name = Some(name.0.as_str());
                         for (i, level) in hierarchy.iter_mut().enumerate() {
                             if *level != name {
@@ -321,7 +321,9 @@ pub(crate) fn animator_fetch(world: &mut World, resources: &mut Resources) {
                 // TODO: Many identical queries for the same entity will happen here!
                 while let Some((i, parents)) = stack.pop() {
                     for parent in parents.iter().copied() {
-                        if let Ok((entity, name, children)) = entities_query.get(parent) {
+                        if let Ok((entity, name, children)) =
+                            world.query_one::<(Entity, &Name, &Children)>(parent)
+                        {
                             if hierarchy[i] == Some(name.0.as_str()) {
                                 hierarchy[i] = paths[i].0.next();
                                 entities[i] = entity; // Replaces the entity for the lowest
@@ -430,8 +432,7 @@ pub(crate) fn animator_update(world: &mut World, resources: &mut Resources) {
     let type_registry = resources.get::<TypeRegistry>().unwrap();
 
     // Build queries
-    let type_access = TypeAccess::default();
-    let mut animators_query: Query<(&mut Animator,)> = Query::new(&world, &type_access);
+    let animators_query = unsafe { world.query_unchecked::<(&mut Animator,), ()>() };
 
     // let delta_time = if keyboard.just_pressed(KeyCode::Right) {
     //     1.0 / 60.0
@@ -442,7 +443,7 @@ pub(crate) fn animator_update(world: &mut World, resources: &mut Resources) {
     let delta_time = time.delta_seconds;
 
     // TODO: Parallelize
-    for (mut animator,) in animators_query.iter_mut() {
+    for (mut animator,) in animators_query {
         let animator = &mut *animator;
 
         // Time scales by component
@@ -527,7 +528,7 @@ pub(crate) fn animator_update(world: &mut World, resources: &mut Resources) {
                         })
                     {
                         // TODO: Find a better way
-                        pointer = unsafe { properties.as_ptr() as *mut u8 };
+                        pointer = properties.as_ptr() as *mut u8;
                         component = Some(next_component);
                     } else {
                         // Missing component

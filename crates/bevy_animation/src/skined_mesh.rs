@@ -250,7 +250,7 @@ pub struct MeshSkinnerDebuger {
 }
 
 pub(crate) fn mesh_skinner_debugger_update(
-    mut commands: Commands,
+    commands: &mut Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     skins: Res<Assets<MeshSkin>>,
     mut debugger_query: Query<(&Handle<MeshSkin>, &MeshSkinBinder, &mut MeshSkinnerDebuger)>,
