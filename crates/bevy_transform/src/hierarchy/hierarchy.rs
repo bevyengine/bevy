@@ -1,37 +1,6 @@
 use crate::components::{Children, Parent};
-use bevy_ecs::{Command, Commands, Entity, Query, Resources, World};
+use bevy_ecs::{Command, Commands, Entity, Resources, World};
 use bevy_utils::tracing::debug;
-
-pub fn run_on_hierarchy<T, S>(
-    children_query: &Query<&Children>,
-    state: &mut S,
-    entity: Entity,
-    parent_result: Option<T>,
-    mut previous_result: Option<T>,
-    run: &mut dyn FnMut(&mut S, Entity, Option<T>, Option<T>) -> Option<T>,
-) -> Option<T>
-where
-    T: Clone,
-{
-    let parent_result = run(state, entity, parent_result, previous_result);
-    previous_result = None;
-    if let Ok(children) = children_query.get(entity) {
-        for child in children.iter().cloned() {
-            previous_result = run_on_hierarchy(
-                children_query,
-                state,
-                child,
-                parent_result.clone(),
-                previous_result,
-                run,
-            );
-        }
-    } else {
-        previous_result = parent_result;
-    }
-
-    previous_result
-}
 
 #[derive(Debug)]
 pub struct DespawnRecursive {

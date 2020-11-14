@@ -1,51 +1,75 @@
 use super::Node;
 use bevy_ecs::{Entity, Query, With, Without};
-use bevy_transform::{
-    hierarchy,
-    prelude::{Children, Parent, Transform},
-};
+use bevy_transform::prelude::{Children, Parent, Transform};
 
 pub const UI_Z_STEP: f32 = 0.001;
 
 pub fn ui_z_system(
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
-    mut node_query: Query<(Entity, &mut Transform), With<Node>>,
+    mut node_query: Query<&mut Transform, With<Node>>,
     children_query: Query<&Children>,
 ) {
     let mut current_global_z = 0.0;
 
     for entity in root_node_query.iter() {
-        if let Some(result) = hierarchy::run_on_hierarchy(
+        if let Some(result) = update_hierarchy(
             &children_query,
             &mut node_query,
             entity,
+            current_global_z,
             Some(current_global_z),
-            Some(current_global_z),
-            &mut update_node_entity,
         ) {
             current_global_z = result;
         }
     }
 }
 
-fn update_node_entity(
-    node_query: &mut Query<(Entity, &mut Transform), With<Node>>,
+fn update_hierarchy(
+    children_query: &Query<&Children>,
+    node_query: &mut Query<&mut Transform, With<Node>>,
     entity: Entity,
-    parent_result: Option<f32>,
-    previous_result: Option<f32>,
+    parent_result: f32,
+    mut previous_result: Option<f32>,
 ) -> Option<f32> {
-    let mut z = UI_Z_STEP;
-    let parent_global_z = parent_result.unwrap();
-    if let Some(previous_global_z) = previous_result {
-        z += previous_global_z - parent_global_z;
-    };
-    let global_z = z + parent_global_z;
-
-    if let Ok(mut transform) = node_query.get_component_mut::<Transform>(entity) {
-        transform.translation.z = z;
+    let parent_result = update_node_entity(node_query, entity, parent_result, previous_result);
+    previous_result = None;
+    if let Ok(children) = children_query.get(entity) {
+        for child in children.iter().cloned() {
+            previous_result = update_hierarchy(
+                children_query,
+                node_query,
+                child,
+                parent_result,
+                previous_result,
+            );
+        }
+    } else {
+        previous_result = Some(parent_result);
     }
 
-    Some(global_z)
+    previous_result
+}
+
+fn update_node_entity(
+    node_query: &mut Query<&mut Transform, With<Node>>,
+    entity: Entity,
+    parent_global_z: f32,
+    previous_result: Option<f32>,
+) -> f32 {
+    if let Ok(mut transform) = node_query.get_mut(entity) {
+        let local_z = if let Some(previous_global_z) = previous_result {
+            previous_global_z - parent_global_z + UI_Z_STEP
+        } else {
+            UI_Z_STEP
+        };
+        transform.translation.z = local_z;
+    }
+
+    if let Some(previous_global_z) = previous_result {
+        previous_global_z + UI_Z_STEP
+    } else {
+        parent_global_z + UI_Z_STEP
+    }
 }
 
 #[cfg(test)]
