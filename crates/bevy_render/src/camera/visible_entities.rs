@@ -1,7 +1,7 @@
 use super::{Camera, DepthCalculation};
 use crate::Draw;
 use bevy_core::FloatOrd;
-use bevy_ecs::{Entity, Query, With, Without};
+use bevy_ecs::{Entity, Query, QuerySet, With, Without};
 use bevy_math::Vec3;
 use bevy_property::Properties;
 use bevy_transform::prelude::{Children, GlobalTransform, Parent};
@@ -24,12 +24,13 @@ impl VisibleEntities {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn visible_entities_system(
     mut camera_query: Query<(&Camera, &GlobalTransform, &mut VisibleEntities)>,
-    draw_query: Query<(Entity, Option<&Children>, &Draw), Without<Parent>>,
-    child_draw_query: Query<(Entity, Option<&Children>, &Draw)>,
-    draw_transform_query: Query<&GlobalTransform, With<Draw>>,
+    draw_queries: QuerySet<(
+        Query<(Entity, Option<&Children>, &Draw), Without<Parent>>,
+        Query<(Entity, Option<&Children>, &Draw)>,
+        Query<&GlobalTransform, With<Draw>>,
+    )>,
 ) {
     for (camera, camera_global_transform, mut visible_entities) in camera_query.iter_mut() {
         visible_entities.value.clear();
@@ -37,18 +38,17 @@ pub fn visible_entities_system(
 
         let mut no_transform_order = 0.0;
         let mut transparent_entities = Vec::new();
-        for (entity, children, draw) in draw_query.iter() {
+        for (entity, children, draw) in draw_queries.q0().iter() {
             if !draw.is_visible {
                 continue;
             }
 
             if let Some(children) = children {
                 recursive_draw_check(
-                    &child_draw_query,
+                    &draw_queries,
                     children,
                     camera,
                     camera_position,
-                    &draw_transform_query,
                     &mut no_transform_order,
                     &mut transparent_entities,
                     &mut visible_entities,
@@ -59,7 +59,7 @@ pub fn visible_entities_system(
                 entity,
                 camera,
                 camera_position,
-                &draw_transform_query,
+                &draw_queries,
                 &mut no_transform_order,
                 &mut transparent_entities,
                 &mut visible_entities,
@@ -79,32 +79,33 @@ pub fn visible_entities_system(
 }
 
 /// Checks if an object is visible, and recursively checks the object's children.
-#[allow(clippy::too_many_arguments)]
 fn recursive_draw_check(
-    draw_query: &Query<(Entity, Option<&Children>, &Draw)>,
+    draw_queries: &QuerySet<(
+        Query<(Entity, Option<&Children>, &Draw), Without<Parent>>,
+        Query<(Entity, Option<&Children>, &Draw)>,
+        Query<&GlobalTransform, With<Draw>>,
+    )>,
     children: &Children,
     camera: &Camera,
     camera_position: Vec3,
-    draw_transform_query: &Query<&GlobalTransform, With<Draw>>,
     no_transform_order: &mut f32,
     transparent_entities: &mut Vec<VisibleEntity>,
     visible_entities: &mut VisibleEntities,
 ) {
     for child in children.0.iter() {
-        draw_query.get(*child).unwrap();
+        draw_queries.q1().get(*child).unwrap();
 
-        if let Ok((entity, children, draw)) = draw_query.get(*child) {
+        if let Ok((entity, children, draw)) = draw_queries.q1().get(*child) {
             if !draw.is_visible {
                 continue;
             }
 
             if let Some(children) = children {
                 recursive_draw_check(
-                    draw_query,
+                    draw_queries,
                     children,
                     camera,
                     camera_position,
-                    draw_transform_query,
                     no_transform_order,
                     transparent_entities,
                     visible_entities,
@@ -115,7 +116,7 @@ fn recursive_draw_check(
                 entity,
                 camera,
                 camera_position,
-                draw_transform_query,
+                draw_queries,
                 no_transform_order,
                 transparent_entities,
                 visible_entities,
@@ -131,13 +132,17 @@ fn process_visible(
     entity: Entity,
     camera: &Camera,
     camera_position: Vec3,
-    draw_transform_query: &Query<&GlobalTransform, With<Draw>>,
+    draw_queries: &QuerySet<(
+        Query<(Entity, Option<&Children>, &Draw), Without<Parent>>,
+        Query<(Entity, Option<&Children>, &Draw)>,
+        Query<&GlobalTransform, With<Draw>>,
+    )>,
     no_transform_order: &mut f32,
     transparent_entities: &mut Vec<VisibleEntity>,
     visible_entities: &mut VisibleEntities,
     draw: &Draw,
 ) {
-    let order = if let Ok(global_transform) = draw_transform_query.get(entity) {
+    let order = if let Ok(global_transform) = draw_queries.q2().get(entity) {
         let position = global_transform.translation;
         // smaller distances are sorted to lower indices by using the distance from the camera
         FloatOrd(match camera.depth_calculation {
