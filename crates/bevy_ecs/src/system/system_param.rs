@@ -113,6 +113,14 @@ impl SystemParam for Arc<Mutex<Commands>> {
 
 impl<'a, T: Resource> SystemParam for Res<'a, T> {
     fn init(system_state: &mut SystemState, _world: &World, _resources: &mut Resources) {
+        if system_state.resource_access.is_write(&TypeId::of::<T>()) {
+            panic!(
+                "System `{}` has a `Res<{res}>` parameter that conflicts with \
+                another parameter with mutable access to the same `{res}` resource.",
+                system_state.name,
+                res = std::any::type_name::<T>()
+            );
+        }
         system_state.resource_access.add_read(TypeId::of::<T>());
     }
 
@@ -130,6 +138,19 @@ impl<'a, T: Resource> SystemParam for Res<'a, T> {
 
 impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     fn init(system_state: &mut SystemState, _world: &World, _resources: &mut Resources) {
+        // If a system already has access to the resource in another parameter, then we fail early.
+        // e.g. `fn(Res<Foo>, ResMut<Foo>)` or `fn(ResMut<Foo>, ResMut<Foo>)` must not be allowed.
+        if system_state
+            .resource_access
+            .is_read_or_write(&TypeId::of::<T>())
+        {
+            panic!(
+                "System `{}` has a `ResMut<{res}>` parameter that conflicts with \
+                another parameter to the same `{res}` resource. `ResMut` must have unique access.",
+                system_state.name,
+                res = std::any::type_name::<T>()
+            );
+        }
         system_state.resource_access.add_write(TypeId::of::<T>());
     }
 
@@ -147,6 +168,14 @@ impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
 
 impl<'a, T: Resource> SystemParam for ChangedRes<'a, T> {
     fn init(system_state: &mut SystemState, _world: &World, _resources: &mut Resources) {
+        if system_state.resource_access.is_write(&TypeId::of::<T>()) {
+            panic!(
+                "System `{}` has a `ChangedRes<{res}>` parameter that conflicts with \
+                another parameter with mutable access to the same `{res}` resource.",
+                system_state.name,
+                res = std::any::type_name::<T>()
+            );
+        }
         system_state.resource_access.add_read(TypeId::of::<T>());
     }
 
@@ -169,11 +198,28 @@ impl<'a, T: Resource> SystemParam for ChangedRes<'a, T> {
 
 impl<'a, T: Resource + FromResources> SystemParam for Local<'a, T> {
     fn init(system_state: &mut SystemState, _world: &World, resources: &mut Resources) {
-        system_state.resource_access.add_write(TypeId::of::<T>());
+        if system_state
+            .local_resource_access
+            .is_read_or_write(&TypeId::of::<T>())
+        {
+            panic!(
+                "System `{}` has multiple parameters requesting access to a local resource of type `{}`. \
+                There may be at most one `Local` parameter per resource type.",
+                system_state.name,
+                std::any::type_name::<T>()
+            );
+        }
+
+        // A resource could have been already initialized by another system with
+        // `Commands::insert_local_resource` or `Resources::insert_local`
         if resources.get_local::<T>(system_state.id).is_none() {
             let value = T::from_resources(resources);
             resources.insert_local(system_state.id, value);
         }
+
+        system_state
+            .local_resource_access
+            .add_write(TypeId::of::<T>());
     }
 
     #[inline]

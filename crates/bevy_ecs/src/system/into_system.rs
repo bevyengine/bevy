@@ -9,6 +9,7 @@ pub struct SystemState {
     pub(crate) is_initialized: bool,
     pub(crate) archetype_component_access: TypeAccess<ArchetypeComponent>,
     pub(crate) resource_access: TypeAccess<TypeId>,
+    pub(crate) local_resource_access: TypeAccess<TypeId>,
     pub(crate) query_archetype_component_accesses: Vec<TypeAccess<ArchetypeComponent>>,
     pub(crate) query_accesses: Vec<Vec<QueryAccess>>,
     pub(crate) query_type_names: Vec<&'static str>,
@@ -148,6 +149,7 @@ macro_rules! impl_into_system {
                         name: std::any::type_name::<Self>().into(),
                         archetype_component_access: TypeAccess::default(),
                         resource_access: TypeAccess::default(),
+                        local_resource_access: TypeAccess::default(),
                         is_initialized: false,
                         id: SystemId::new(),
                         commands: Commands::default(),
@@ -204,13 +206,13 @@ impl_into_system!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
 mod tests {
     use super::IntoSystem;
     use crate::{
-        resource::{ResMut, Resources},
+        resource::{Res, ResMut, Resources},
         schedule::Schedule,
-        ChangedRes, Query, QuerySet, System,
+        ChangedRes, Local, Query, QuerySet, System,
     };
     use bevy_hecs::{Entity, Or, With, World};
 
-    #[derive(Debug, Eq, PartialEq)]
+    #[derive(Debug, Eq, PartialEq, Default)]
     struct A;
     struct B;
     struct C;
@@ -440,5 +442,61 @@ mod tests {
 
         schedule.initialize(world, resources);
         schedule.run(world, resources);
+    }
+
+    #[derive(Default)]
+    struct BufferRes {
+        _buffer: Vec<u8>,
+    }
+
+    fn test_for_conflicting_resources(sys: Box<dyn System>) {
+        let mut world = World::default();
+        let mut resources = Resources::default();
+        resources.insert(BufferRes::default());
+        resources.insert(A);
+        resources.insert(B);
+        run_system(&mut world, &mut resources, sys);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflicting_system_resources() {
+        fn sys(_: ResMut<BufferRes>, _: Res<BufferRes>) {}
+        test_for_conflicting_resources(sys.system())
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflicting_system_resources_reverse_order() {
+        fn sys(_: Res<BufferRes>, _: ResMut<BufferRes>) {}
+        test_for_conflicting_resources(sys.system())
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflicting_system_resources_multiple_mutable() {
+        fn sys(_: ResMut<BufferRes>, _: ResMut<BufferRes>) {}
+        test_for_conflicting_resources(sys.system())
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflicting_changed_and_mutable_resource() {
+        // A tempting pattern, but unsound if allowed.
+        fn sys(_: ResMut<BufferRes>, _: ChangedRes<BufferRes>) {}
+        test_for_conflicting_resources(sys.system())
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflicting_system_local_resources() {
+        fn sys(_: Local<BufferRes>, _: Local<BufferRes>) {}
+        test_for_conflicting_resources(sys.system())
+    }
+
+    #[test]
+    fn nonconflicting_system_resources() {
+        fn sys(_: Local<BufferRes>, _: ResMut<BufferRes>, _: Local<A>, _: ResMut<A>) {}
+        test_for_conflicting_resources(sys.system())
     }
 }
