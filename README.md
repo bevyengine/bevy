@@ -12,7 +12,7 @@ Bevy is a refreshingly simple data-driven game engine built in Rust. It is free 
 
 ## WARNING
 
-Bevy is still in the _very_ early stages of development. APIs can and will change (now is the time to make suggestions!). Essential features are missing. Documentation is sparse. Please don't build any serious projects in Bevy unless you are prepared to be broken by API changes constantly.
+Bevy is still in the _very_ early stages of development. APIs can and will change (now is the time to make suggestions!). Important features are missing. Documentation is sparse. Please don't build any serious projects in Bevy unless you are prepared to be broken by API changes constantly.
 
 ## Design Goals
 
@@ -57,7 +57,7 @@ cargo run --example breakout
 
 ### Fast Compiles
 
-Bevy can be built just fine using default configuration on stable Rust. However, for really fast iterative compiles, you should enable the "fast compiles" setup by [following the instructions here](http://bevyengine.org/learn/book/getting-started/setup/).
+Bevy can be built just fine using default configuration on stable Rust. However for really fast iterative compiles, you should enable the "fast compiles" setup by [following the instructions here](http://bevyengine.org/learn/book/getting-started/setup/).
 
 ## Focus Areas
 
