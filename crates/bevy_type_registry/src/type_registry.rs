@@ -35,7 +35,8 @@ impl ComponentRegistry {
         let short_name = registration.short_name.to_string();
         self.full_names
             .insert(registration.long_name.to_string(), registration.ty);
-        if self.short_names.contains_key(&short_name) || self.ambiguous_names.contains(&short_name) {
+        if self.short_names.contains_key(&short_name) || self.ambiguous_names.contains(&short_name)
+        {
             // name is ambiguous. fall back to long names for all ambiguous types
             self.short_names.remove(&short_name);
             self.ambiguous_names.insert(short_name);
