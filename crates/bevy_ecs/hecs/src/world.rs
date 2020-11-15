@@ -672,20 +672,25 @@ impl World {
     /// ```
     pub fn remove<T: Bundle>(&mut self, entity: Entity) -> Result<T, ComponentError> {
         self.flush();
-        let to_remove = T::with_static_ids(|ids| ids.iter().copied().collect::<HashSet<_>>());
+        let loc = self.entities.get_mut(entity)?;
+        unsafe {
+            let to_remove = T::with_static_ids(|ids| ids.iter().copied().collect::<HashSet<_>>());
 
-        match self.remove_bundle_internal::<_, T>(entity, to_remove, true) {
-            Ok(bundle) => Ok(bundle),
-            Err(err) => Err(err),
+            let old_index = loc.index;
+            let source_arch = &self.archetypes[loc.archetype as usize];
+            let bundle = T::get(|ty, size| source_arch.get_dynamic(ty, size, old_index))?;
+            match self.remove_bundle_internal(entity, to_remove) {
+                Ok(_) => Ok(bundle),
+                Err(err) => Err(err),
+            }
         }
     }
 
-    fn remove_bundle_internal<S: core::hash::BuildHasher, T: Bundle>(
+    fn remove_bundle_internal<S: core::hash::BuildHasher>(
         &mut self,
         entity: Entity,
         to_remove: std::collections::HashSet<TypeId, S>,
-        check_presence: bool,
-    ) -> Result<T, ComponentError> {
+    ) -> Result<(), ComponentError> {
         use std::collections::hash_map::Entry;
 
         let loc = self.entities.get_mut(entity)?;
@@ -713,13 +718,6 @@ impl World {
                 loc.archetype as usize,
                 target as usize,
             );
-            let bundle = if check_presence {
-                Some(T::get(|ty, size| {
-                    source_arch.get_dynamic(ty, size, old_index)
-                })?)
-            } else {
-                None
-            };
             let target_index = target_arch.allocate(entity);
             loc.archetype = target;
             loc.index = target_index;
@@ -741,7 +739,7 @@ impl World {
             {
                 self.entities.get_mut(moved).unwrap().index = old_index;
             }
-            bundle.ok_or_else(|| ComponentError::MissingComponent(MissingComponent::new::<()>()))
+            Ok(())
         }
     }
 
@@ -763,11 +761,7 @@ impl World {
             if self.archetypes[loc.archetype as usize].has_dynamic(component_to_remove) {
                 let mut single_component_hashset = std::collections::HashSet::new();
                 single_component_hashset.insert(component_to_remove);
-                match self.remove_bundle_internal::<_, ((),)>(
-                    entity,
-                    single_component_hashset,
-                    false,
-                ) {
+                match self.remove_bundle_internal(entity, single_component_hashset) {
                     Ok(_) | Err(ComponentError::MissingComponent(_)) => (),
                     Err(err) => return Err(err),
                 };
