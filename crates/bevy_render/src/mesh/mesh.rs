@@ -129,8 +129,9 @@ impl Mesh {
     pub fn set_attribute(
         &mut self,
         name: impl Into<Cow<'static, str>>,
-        values: VertexAttributeValues,
+        values: impl Into<VertexAttributeValues>,
     ) {
+        let values: VertexAttributeValues = values.into();
         self.attributes.insert(name.into(), values);
     }
 
@@ -294,9 +295,9 @@ pub mod shape {
             ]);
 
             let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-            mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions.into());
-            mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals.into());
-            mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs.into());
+            mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+            mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+            mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
             mesh.set_indices(Some(indices));
             mesh
         }
@@ -391,9 +392,9 @@ pub mod shape {
 
             let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
             mesh.set_indices(Some(indices));
-            mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions.into());
-            mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals.into());
-            mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs.into());
+            mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+            mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+            mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
             mesh
         }
     }
@@ -429,9 +430,9 @@ pub mod shape {
 
             let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
             mesh.set_indices(Some(indices));
-            mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions.into());
-            mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals.into());
-            mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs.into());
+            mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+            mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+            mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
             mesh
         }
     }
@@ -500,9 +501,9 @@ pub mod shape {
 
             let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
             mesh.set_indices(Some(indices));
-            mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, points.into());
-            mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals.into());
-            mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs.into());
+            mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, points);
+            mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+            mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
             mesh
         }
     }
