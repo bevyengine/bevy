@@ -26,13 +26,44 @@ pub struct Color {
 unsafe impl Byteable for Color {}
 
 impl Color {
+    pub const ALICE_BLUE: Color = Color::rgb_linear(0.94, 0.97, 1.0);
+    pub const ANTIQUE_WHITE: Color = Color::rgb_linear(0.98, 0.92, 0.84);
+    pub const AQUAMARINE: Color = Color::rgb_linear(0.49, 1.0, 0.83);
+    pub const AZURE: Color = Color::rgb_linear(0.94, 1.0, 1.0);
+    pub const BEIGE: Color = Color::rgb_linear(0.96, 0.96, 0.86);
+    pub const BISQUE: Color = Color::rgb_linear(1.0, 0.89, 0.77);
     pub const BLACK: Color = Color::rgb_linear(0.0, 0.0, 0.0);
     pub const BLUE: Color = Color::rgb_linear(0.0, 0.0, 1.0);
+    pub const CRIMSON: Color = Color::rgb_linear(0.86, 0.08, 0.24);
+    pub const CYAN: Color = Color::rgb_linear(0.0, 1.0, 1.0);
+    pub const DARK_GRAY: Color = Color::rgb_linear(0.25, 0.25, 0.25);
+    pub const DARK_GREEN: Color = Color::rgb_linear(0.0, 0.5, 0.0);
+    pub const FUCHSIA: Color = Color::rgb_linear(1.0, 0.0, 1.0);
+    pub const GOLD: Color = Color::rgb_linear(1.0, 0.84, 0.0);
+    pub const GRAY: Color = Color::rgb_linear(0.5, 0.5, 0.5);
     pub const GREEN: Color = Color::rgb_linear(0.0, 1.0, 0.0);
+    pub const INDIGO: Color = Color::rgb_linear(0.29, 0.0, 0.51);
+    pub const LIME_GREEN: Color = Color::rgb_linear(0.2, 0.8, 0.2);
+    pub const MAROON: Color = Color::rgb_linear(0.5, 0.0, 0.0);
+    pub const MIDNIGHT_BLUE: Color = Color::rgb_linear(0.1, 0.1, 0.44);
+    pub const NAVY: Color = Color::rgb_linear(0.0, 0.0, 0.5);
     pub const NONE: Color = Color::rgba_linear(0.0, 0.0, 0.0, 0.0);
+    pub const OLIVE: Color = Color::rgb_linear(0.5, 0.5, 0.0);
+    pub const ORANGE: Color = Color::rgb_linear(1.0, 0.65, 0.0);
+    pub const ORANGE_RED: Color = Color::rgb_linear(1.0, 0.27, 0.0);
     pub const PINK: Color = Color::rgb_linear(1.0, 0.08, 0.58);
+    pub const PURPLE: Color = Color::rgb_linear(0.5, 0.0, 0.5);
     pub const RED: Color = Color::rgb_linear(1.0, 0.0, 0.0);
+    pub const SALMON: Color = Color::rgb_linear(0.98, 0.5, 0.45);
+    pub const SEA_GREEN: Color = Color::rgb_linear(0.18, 0.55, 0.34);
+    pub const SILVER: Color = Color::rgb_linear(0.75, 0.75, 0.75);
+    pub const TEAL: Color = Color::rgb_linear(0.0, 0.5, 0.5);
+    pub const TOMATO: Color = Color::rgb_linear(1.0, 0.39, 0.28);
+    pub const TURQUOISE: Color = Color::rgb_linear(0.25, 0.88, 0.82);
+    pub const VIOLET: Color = Color::rgb_linear(0.93, 0.51, 0.93);
     pub const WHITE: Color = Color::rgb_linear(1.0, 1.0, 1.0);
+    pub const YELLOW: Color = Color::rgb_linear(1.0, 1.0, 0.0);
+    pub const YELLOW_GREEN: Color = Color::rgb_linear(0.6, 0.8, 0.2);
 
     // TODO: cant make rgb and rgba const due traits not allowed in const functions
     // see issue #57563 https://github.com/rust-lang/rust/issues/57563
