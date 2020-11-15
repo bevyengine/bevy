@@ -1,8 +1,6 @@
 use super::{state_descriptors::PrimitiveTopology, IndexFormat, PipelineDescriptor};
 use crate::{
-    pipeline::{
-        BindType, InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
-    },
+    pipeline::{BindType, InputStepMode, VertexBufferDescriptor},
     renderer::RenderResourceContext,
     shader::{Shader, ShaderSource},
 };
@@ -11,7 +9,6 @@ use bevy_property::{Properties, Property};
 use bevy_utils::{HashMap, HashSet};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
 
 #[derive(Clone, Eq, PartialEq, Debug, Properties)]
 pub struct PipelineSpecialization {
