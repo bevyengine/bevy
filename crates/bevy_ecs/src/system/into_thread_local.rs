@@ -40,7 +40,7 @@ where
         ThreadLocalExecution::Immediate
     }
 
-    unsafe fn run_unsafe(&mut self, _world: &World, _resources: &Resources) -> Option<()> {
+    unsafe fn run_unsafe(&mut self, input: (), _world: &World, _resources: &Resources) -> Option<()> {
         Some(())
     }
 

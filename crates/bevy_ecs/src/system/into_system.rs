@@ -1,6 +1,6 @@
 use crate::{ArchetypeComponent, Commands, QueryAccess, Resources, System, SystemId, SystemParam, ThreadLocalExecution, TypeAccess, World};
 use parking_lot::Mutex;
-use std::{any::TypeId, borrow::Cow, sync::Arc};
+use std::{any::TypeId, borrow::Cow, sync::Arc, marker::PhantomData};
 
 pub struct SystemState {
     pub(crate) id: SystemId,
@@ -70,9 +70,9 @@ impl SystemState {
     }
 }
 
-pub struct FuncSystem<F, Return, Init, ThreadLocalFunc>
+pub struct FuncSystem<F, Input, Return, Init, ThreadLocalFunc>
 where
-    F: FnMut(&mut SystemState, &World, &Resources) -> Option<Return> + Send + Sync + 'static,
+    F: FnMut(Input, &mut SystemState, &World, &Resources) -> Option<Return> + Send + Sync + 'static,
     Init: FnMut(&mut SystemState, &World, &mut Resources) + Send + Sync + 'static,
     ThreadLocalFunc: FnMut(&mut SystemState, &mut World, &mut Resources) + Send + Sync + 'static,
 {
@@ -80,11 +80,21 @@ where
     thread_local_func: ThreadLocalFunc,
     init_func: Init,
     state: SystemState,
+    marker: SendSyncPhantomData<(Input, Return)>,
 }
 
-impl<F, Return, Init, ThreadLocalFunc> System<Return> for FuncSystem<F, Return, Init, ThreadLocalFunc>
+struct SendSyncPhantomData<T>(PhantomData<T>);
+impl<T> Default for SendSyncPhantomData<T> {
+    fn default() -> Self {
+        SendSyncPhantomData(Default::default())
+    }
+}
+unsafe impl<T> Send for SendSyncPhantomData<T> {}
+unsafe impl<T> Sync for SendSyncPhantomData<T> {}
+
+impl<F, Input, Return, Init, ThreadLocalFunc> System<Input, Return> for FuncSystem<F, Input, Return, Init, ThreadLocalFunc>
 where
-    F: FnMut(&mut SystemState, &World, &Resources) -> Option<Return> + Send + Sync + 'static,
+    F: FnMut(Input, &mut SystemState, &World, &Resources) -> Option<Return> + Send + Sync + 'static,
     Init: FnMut(&mut SystemState, &World, &mut Resources) + Send + Sync + 'static,
     ThreadLocalFunc: FnMut(&mut SystemState, &mut World, &mut Resources) + Send + Sync + 'static,
 {
@@ -112,8 +122,8 @@ where
         ThreadLocalExecution::NextFlush
     }
 
-    unsafe fn run_unsafe(&mut self, world: &World, resources: &Resources) -> Option<Return> {
-        (self.func)(&mut self.state, world, resources)
+    unsafe fn run_unsafe(&mut self, input: Input, world: &World, resources: &Resources) -> Option<Return> {
+        (self.func)(input, &mut self.state, world, resources)
     }
 
     fn run_thread_local(&mut self, world: &mut World, resources: &mut Resources) {
@@ -130,19 +140,19 @@ where
     }
 }
 
-pub trait IntoSystem<Params, Return> {
-    fn system(self) -> Box<dyn System<Return>>;
+pub trait IntoSystem<Params, Input, Return> {
+    fn system(self) -> Box<dyn System<Input, Return>>;
 }
 
 macro_rules! impl_into_system {
     ($($param: ident),*) => {
-        impl<Func, Return, $($param: SystemParam),*> IntoSystem<($($param,)*), Return> for Func
-        where Func: FnMut($($param),*) -> Return + Send + Sync + 'static, Return: 'static
+        impl<Func, Input, Return, $($param: SystemParam<Input>),*> IntoSystem<($($param,)*), Input, Return> for Func
+        where Func: FnMut($($param),*) -> Return + Send + Sync + 'static, Return: 'static, Input: 'static
         {
             #[allow(unused_variables)]
             #[allow(unused_unsafe)]
             #[allow(non_snake_case)]
-            fn system(mut self) -> Box<dyn System<Return>> {
+            fn system(mut self) -> Box<dyn System<Input, Return>> {
                 Box::new(FuncSystem {
                     state: SystemState {
                         name: std::any::type_name::<Self>().into(),
@@ -158,10 +168,11 @@ macro_rules! impl_into_system {
                         query_type_names: Vec::new(),
                         current_query_index: 0,
                     },
-                    func: move |state, world, resources| {
+                    func: move |input, state, world, resources| {
                         state.reset_indices();
+                        let mut input = Some(input);
                         unsafe {
-                            if let Some(($($param,)*)) = <($($param,)*)>::get_param(state, world, resources) {
+                            if let Some(($($param,)*)) = <($($param,)*)>::get_param(&mut input, state, world, resources) {
                                 Some(self($($param),*))
                             } else {
                                 None
@@ -178,10 +189,10 @@ macro_rules! impl_into_system {
                     init_func: |state, world, resources| {
                         $($param::init(state, world, resources);)*
                     },
+                    marker: Default::default(),
                 })
             }
         }
-
     };
 }
 

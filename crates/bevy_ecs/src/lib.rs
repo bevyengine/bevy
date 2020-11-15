@@ -16,6 +16,6 @@ pub mod prelude {
         resource::{ChangedRes, FromResources, Local, Res, ResMut, Resource, Resources},
         system::{Commands, IntoSystem, IntoThreadLocalSystem, Query, System},
         Added, Bundle, Changed, Component, Entity, Mut, Mutated, Or, QuerySet, Ref, RefMut, With,
-        Without, World,
+        Without, World, AsChainSystem, FillSystemInput
     };
 }

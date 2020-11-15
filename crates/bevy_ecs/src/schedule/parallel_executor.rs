@@ -404,7 +404,7 @@ impl ExecutorStage {
 
                         // SAFETY: scheduler ensures safe world / resource access
                         unsafe {
-                            system.run_unsafe(world_ref, resources_ref);
+                            system.run_unsafe((), world_ref, resources_ref);
                         }
                     }
 
@@ -502,7 +502,7 @@ impl ExecutorStage {
                 #[cfg(feature = "trace")]
                 let _system_guard = system_span.enter();
 
-                system.run(world, resources);
+                system.run((), world, resources);
                 system.run_thread_local(world, resources);
             }
 

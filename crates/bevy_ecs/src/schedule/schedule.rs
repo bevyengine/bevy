@@ -151,10 +151,10 @@ impl Schedule {
                     system.update(world);
                     match system.thread_local_execution() {
                         ThreadLocalExecution::NextFlush => {
-                            system.run(world, resources);
+                            system.run((), world, resources);
                         }
                         ThreadLocalExecution::Immediate => {
-                            system.run(world, resources);
+                            system.run((), world, resources);
                             // NOTE: when this is made parallel a full sync is required here
                             system.run_thread_local(world, resources);
                         }
