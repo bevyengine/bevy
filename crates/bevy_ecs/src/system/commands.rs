@@ -1,9 +1,9 @@
 use super::SystemId;
 use crate::{
     resource::{Resource, Resources},
-    Bundle, Component, DynamicBundle, Entity, EntityReserver, World,
+    Bundle, Component, ComponentError, DynamicBundle, Entity, EntityReserver, World,
 };
-use bevy_utils::tracing::debug;
+use bevy_utils::tracing::{debug, warn};
 use std::marker::PhantomData;
 
 /// A [World] mutation
@@ -130,7 +130,7 @@ where
     fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
         match world.remove::<T>(self.entity) {
             Ok(_) => (),
-            Err(bevy_hecs::ComponentError::MissingComponent(e)) => {
+            Err(ComponentError::MissingComponent(e)) => {
                 warn!(
                     "Failed to remove components {:?} with error: {}. Falling back to inefficient one-by-one component removing.",
                     std::any::type_name::<T>(),
