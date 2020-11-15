@@ -1,8 +1,5 @@
 use crate::{
-    pipeline::{
-        PipelineCompiler, PipelineDescriptor, PipelineLayout, PipelineSpecialization,
-        VERTEX_FALLBACK_LAYOUT_NAME,
-    },
+    pipeline::{PipelineCompiler, PipelineDescriptor, PipelineLayout, PipelineSpecialization},
     renderer::{
         BindGroup, BindGroupId, BufferId, BufferUsage, RenderResource, RenderResourceBinding,
         RenderResourceBindings, RenderResourceContext, SharedBuffers,
@@ -255,33 +252,12 @@ impl<'a> DrawContext<'a> {
         draw: &mut Draw,
         render_resource_bindings: &[&RenderResourceBindings],
     ) -> Result<(), DrawError> {
-        let pipeline = self
-            .current_pipeline
-            .as_ref()
-            .ok_or(DrawError::NoPipelineSet)?;
-        let pipeline_descriptor = self
-            .pipelines
-            .get(pipeline)
-            .ok_or(DrawError::NonExistentPipeline)?;
-        let layout = pipeline_descriptor
-            .get_layout()
-            .ok_or(DrawError::PipelineHasNoLayout)?;
-        // figure out if the fallback buffer is needed
-        let need_fallback_buffer = layout
-            .vertex_buffer_descriptors
-            .iter()
-            .any(|x| x.name == VERTEX_FALLBACK_LAYOUT_NAME);
         for bindings in render_resource_bindings.iter() {
             if let Some(index_buffer) = bindings.index_buffer {
                 draw.set_index_buffer(index_buffer, 0);
             }
             if let Some(main_vertex_buffer) = bindings.vertex_attribute_buffer {
                 draw.set_vertex_buffer(0, main_vertex_buffer, 0);
-            }
-            if need_fallback_buffer {
-                if let Some(fallback_vertex_buffer) = bindings.vertex_fallback_buffer {
-                    draw.set_vertex_buffer(1, fallback_vertex_buffer, 0);
-                }
             }
         }
         Ok(())

@@ -5,17 +5,18 @@ use crate::{
 use bevy_app::prelude::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::AsBytes;
-use bevy_ecs::{Local, Query, Res};
+use bevy_ecs::{Local, Query, Res, ResMut};
 use bevy_math::*;
 use bevy_type_registry::TypeUuid;
 use std::borrow::Cow;
 
 use crate::pipeline::{InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor};
+use crate::renderer::BufferId;
 use bevy_utils::HashMap;
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
-pub const VERTEX_FALLBACK_BUFFER_ID: u64 = 20;
+
 #[derive(Clone, Debug)]
 pub enum VertexAttributeValues {
     Float(Vec<f32>),
@@ -526,7 +527,6 @@ fn remove_current_mesh_resources(
     handle: &Handle<Mesh>,
 ) {
     remove_resource_save(render_resource_context, handle, VERTEX_ATTRIBUTE_BUFFER_ID);
-    remove_resource_save(render_resource_context, handle, VERTEX_FALLBACK_BUFFER_ID);
     remove_resource_save(render_resource_context, handle, INDEX_BUFFER_ASSET_INDEX);
 }
 
@@ -593,20 +593,6 @@ pub fn mesh_resource_provider_system(
                 )),
                 VERTEX_ATTRIBUTE_BUFFER_ID,
             );
-
-            // Fallback buffer
-            // TODO: can be done with a 1 byte buffer + zero stride?
-            render_resource_context.set_asset_resource(
-                changed_mesh_handle,
-                RenderResourceId::Buffer(render_resource_context.create_buffer_with_data(
-                    BufferInfo {
-                        buffer_usage: BufferUsage::VERTEX,
-                        ..Default::default()
-                    },
-                    &vec![0; mesh.count_vertices() * VertexFormat::Float4.get_size() as usize],
-                )),
-                VERTEX_FALLBACK_BUFFER_ID,
-            );
         }
     }
 
@@ -639,13 +625,6 @@ pub fn mesh_resource_provider_system(
                 // set index buffer into binding
                 render_pipelines.bindings.vertex_attribute_buffer =
                     Some(vertex_attribute_buffer_resource);
-            }
-            if let Some(RenderResourceId::Buffer(vertex_attribute_fallback_resource)) =
-                render_resource_context.get_asset_resource(handle, VERTEX_FALLBACK_BUFFER_ID)
-            {
-                // set index buffer into binding
-                render_pipelines.bindings.vertex_fallback_buffer =
-                    Some(vertex_attribute_fallback_resource);
             }
         }
     }
