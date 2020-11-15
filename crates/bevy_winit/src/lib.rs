@@ -171,11 +171,7 @@ pub fn winit_runner(mut app: App) {
     let event_handler = move |event: Event<()>,
                               event_loop: &EventLoopWindowTarget<()>,
                               control_flow: &mut ControlFlow| {
-        *control_flow = if cfg!(feature = "metal-auto-capture") {
-            ControlFlow::Exit
-        } else {
-            ControlFlow::Poll
-        };
+        *control_flow = ControlFlow::Poll;
 
         if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
             if app_exit_event_reader.latest(&app_exit_events).is_some() {
