@@ -709,17 +709,18 @@ impl World {
                 }
             };
             let old_index = loc.index;
-            let bundle = if check_presence {
-                let source = &self.archetypes[loc.archetype as usize];
-                Some(T::get(|ty, size| source.get_dynamic(ty, size, old_index))?)
-            } else {
-                None
-            };
             let (source_arch, target_arch) = index2(
                 &mut self.archetypes,
                 loc.archetype as usize,
                 target as usize,
             );
+            let bundle = if check_presence {
+                Some(T::get(|ty, size| {
+                    source_arch.get_dynamic(ty, size, old_index)
+                })?)
+            } else {
+                None
+            };
             let target_index = target_arch.allocate(entity);
             loc.archetype = target;
             loc.index = target_index;
