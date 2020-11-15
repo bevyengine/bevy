@@ -1,13 +1,8 @@
 use super::{state_descriptors::PrimitiveTopology, IndexFormat, PipelineDescriptor};
 use crate::{
-<<<<<<< Updated upstream
     pipeline::{
         BindType, InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
-        VERTEX_FALLBACK_LAYOUT_NAME,
     },
-=======
-    pipeline::{InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat},
->>>>>>> Stashed changes
     renderer::RenderResourceContext,
     shader::{Shader, ShaderSource},
 };
