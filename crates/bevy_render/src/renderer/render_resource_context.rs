@@ -29,6 +29,7 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
     fn create_buffer_with_data(&self, buffer_info: BufferInfo, data: &[u8]) -> BufferId;
     fn create_shader_module(&self, shader_handle: &Handle<Shader>, shaders: &Assets<Shader>);
     fn create_shader_module_from_source(&self, shader_handle: &Handle<Shader>, shader: &Shader);
+    fn get_specialized_shader(&self, shader: &Shader, macros: Option<&[String]>) -> Shader;
     fn remove_buffer(&self, buffer: BufferId);
     fn remove_texture(&self, texture: TextureId);
     fn remove_sampler(&self, sampler: SamplerId);

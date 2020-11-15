@@ -12,7 +12,7 @@ use bevy_render::{
         BindGroup, BufferId, BufferInfo, RenderResourceBinding, RenderResourceContext,
         RenderResourceId, SamplerId, TextureId,
     },
-    shader::Shader,
+    shader::{glsl_to_spirv, Shader, ShaderSource},
     texture::{Extent3d, SamplerDescriptor, TextureDescriptor},
 };
 use bevy_utils::tracing::trace;
@@ -567,6 +567,17 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             (size + BIND_BUFFER_ALIGNMENT - 1) & !(BIND_BUFFER_ALIGNMENT - 1)
         } else {
             size
+        }
+    }
+
+    fn get_specialized_shader(&self, shader: &Shader, macros: Option<&[String]>) -> Shader {
+        let spirv_data = match shader.source {
+            ShaderSource::Spirv(ref bytes) => bytes.clone(),
+            ShaderSource::Glsl(ref source) => glsl_to_spirv(&source, shader.stage, macros),
+        };
+        Shader {
+            source: ShaderSource::Spirv(spirv_data),
+            ..*shader
         }
     }
 }
