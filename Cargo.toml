@@ -17,7 +17,7 @@ repository = "https://github.com/bevyengine/bevy"
 
 [workspace]
 exclude = ["benches"]
-members = ["crates/*", "examples/ios"]
+members = ["crates/*", "examples/ios", "examples/persist"]
 
 [features]
 default = [
@@ -35,7 +35,7 @@ default = [
 ]
 
 # Force dynamic linking, which improves iterative compile times
-dynamic = ["bevy_dylib"]
+dynamic = ["bevy_dylib", "bevy_internal/dynamic"]
 
 # Rendering support
 render = ["bevy_internal/bevy_pbr", "bevy_internal/bevy_render", "bevy_internal/bevy_sprite", "bevy_internal/bevy_text", "bevy_internal/bevy_ui"]

@@ -320,6 +320,29 @@ impl Resources {
         })
     }
 
+    pub fn take_global_only_resource<T: Resource>(&mut self) -> Option<T> {
+        let data = self.resource_data.remove(&TypeId::of::<T>())?;
+        assert!(
+            data.system_id_to_archetype_index.is_empty(),
+            "Local resources exist for type {}",
+            std::any::type_name::<T>()
+        );
+        let default_index = data.default_index?;
+        Some(
+            data.storage
+                .downcast::<VecResourceStorage<T>>()
+                .unwrap_or_else(|_| {
+                    unreachable!("Storage is of wrong type");
+                })
+                .stored
+                .into_iter()
+                .nth(default_index)
+                .unwrap()
+                .value
+                .into_inner(),
+        )
+    }
+
     /// Clears each resource's tracker state.
     /// For example, each resource's component "mutated" state will be reset to `false`.
     pub fn clear_trackers(&mut self) {

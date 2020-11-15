@@ -1,0 +1,28 @@
+[package]
+name = "bevy_persist"
+version = "0.4.0"
+edition = "2018"
+authors = [
+    "Bevy Contributors <bevyengine@gmail.com>",
+    "bjorn3 <bjorn3@users.noreply.github.com>",
+]
+description = "Provides persistence of state when reloading for Bevy Engine"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT"
+keywords = ["bevy"]
+
+[dependencies]
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.4.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.4.0" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.4.0" }
+
+# other
+libloading = { version = "0.6", optional = true }
+bincode = "1.3.1"
+serde = { version = "1.0" }
+notify = "4.0.15"
+
+[features]
+dynamic = ["libloading"]
