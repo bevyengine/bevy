@@ -1,7 +1,7 @@
 use super::SystemId;
 use crate::resource::{Resource, Resources};
 use bevy_hecs::{Bundle, Component, DynamicBundle, Entity, EntityReserver, World};
-use bevy_utils::tracing::debug;
+use bevy_utils::tracing::{debug, warn};
 use std::marker::PhantomData;
 
 /// A [World] mutation
@@ -129,13 +129,13 @@ where
         match world.remove::<T>(self.entity) {
             Ok(_) => (),
             Err(bevy_hecs::ComponentError::MissingComponent(e)) => {
-                log::warn!(
+                warn!(
                     "Failed to remove components {:?} with error: {}. Falling back to inefficient one-by-one component removing.",
                     std::any::type_name::<T>(),
                     e
                 );
                 if let Err(e) = world.remove_one_by_one::<T>(self.entity) {
-                    log::debug!(
+                    debug!(
                         "Failed to remove components {:?} with error: {}",
                         std::any::type_name::<T>(),
                         e
@@ -143,7 +143,7 @@ where
                 }
             }
             Err(e) => {
-                log::debug!(
+                debug!(
                     "Failed to remove components {:?} with error: {}",
                     std::any::type_name::<T>(),
                     e
