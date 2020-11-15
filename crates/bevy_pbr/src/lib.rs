@@ -32,7 +32,8 @@ impl Plugin for PbrPlugin {
             .add_system_to_stage(
                 stage::POST_UPDATE,
                 shader::asset_shader_defs_system::<StandardMaterial>.system(),
-            );
+            )
+            .init_resource::<AmbientLight>();
         let resources = app.resources();
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
         add_pbr_graph(&mut render_graph, resources);
