@@ -2,9 +2,8 @@ pub use super::Query;
 use crate::{
     resource::Resources,
     system::{System, SystemId, ThreadLocalExecution},
-    TypeAccess,
+    ArchetypeComponent, TypeAccess, World,
 };
-use bevy_hecs::{ArchetypeComponent, World};
 use std::{any::TypeId, borrow::Cow};
 
 #[derive(Debug)]

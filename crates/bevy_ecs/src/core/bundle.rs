@@ -14,14 +14,12 @@
 
 // modified by Bevy contributors
 
-use crate::alloc::{vec, vec::Vec};
-use core::{
+use crate::{Component, TypeInfo};
+use std::{
     any::{type_name, TypeId},
     fmt, mem,
     ptr::NonNull,
 };
-
-use crate::{archetype::TypeInfo, Component};
 
 /// A dynamically typed collection of components
 pub trait DynamicBundle {

@@ -102,22 +102,20 @@ fn save_scene_system(_world: &mut World, resources: &mut Resources) {
 
 // This is only necessary for the info message in the UI. See examples/ui/text.rs for a standalone text example.
 fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
-    commands
-        .spawn(UiCameraComponents::default())
-        .spawn(TextComponents {
-            style: Style {
-                align_self: AlignSelf::FlexEnd,
+    commands.spawn(UiCameraBundle::default()).spawn(TextBundle {
+        style: Style {
+            align_self: AlignSelf::FlexEnd,
+            ..Default::default()
+        },
+        text: Text {
+            value: "Nothing to see in this window! Check the console output!".to_string(),
+            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            style: TextStyle {
+                font_size: 50.0,
+                color: Color::WHITE,
                 ..Default::default()
             },
-            text: Text {
-                value: "Nothing to see in this window! Check the console output!".to_string(),
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                style: TextStyle {
-                    font_size: 50.0,
-                    color: Color::WHITE,
-                    ..Default::default()
-                },
-            },
-            ..Default::default()
-        });
+        },
+        ..Default::default()
+    });
 }

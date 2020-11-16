@@ -50,9 +50,9 @@ fn main() {
 
 fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
     commands
-        .spawn(Camera2dComponents::default())
-        .spawn(UiCameraComponents::default())
-        .spawn(TextComponents {
+        .spawn(Camera2dBundle::default())
+        .spawn(UiCameraBundle::default())
+        .spawn(TextBundle {
             text: Text {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 value: "Bird Count:".to_string(),
@@ -94,7 +94,7 @@ fn mouse_handler(
             transform.scale = Vec3::new(BIRD_SCALE, BIRD_SCALE, BIRD_SCALE);
 
             commands
-                .spawn(SpriteComponents {
+                .spawn(SpriteBundle {
                     material: bird_material.0.clone(),
                     transform,
                     draw: Draw {

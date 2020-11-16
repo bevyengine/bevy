@@ -1,5 +1,7 @@
-use crate::{Commands, Resources, System, SystemId, SystemParam, ThreadLocalExecution};
-use bevy_hecs::{ArchetypeComponent, QueryAccess, TypeAccess, World};
+use crate::{
+    ArchetypeComponent, Commands, QueryAccess, Resources, System, SystemId, SystemParam,
+    ThreadLocalExecution, TypeAccess, World,
+};
 use parking_lot::Mutex;
 use std::{any::TypeId, borrow::Cow, sync::Arc};
 
@@ -208,9 +210,8 @@ mod tests {
     use crate::{
         resource::{Res, ResMut, Resources},
         schedule::Schedule,
-        ChangedRes, Local, Query, QuerySet, System,
+        ChangedRes, Entity, Local, Or, Query, QuerySet, System, With, World,
     };
-    use bevy_hecs::{Entity, Or, With, World};
 
     #[derive(Debug, Eq, PartialEq, Default)]
     struct A;

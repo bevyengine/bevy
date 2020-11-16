@@ -57,10 +57,12 @@ fn derive_bundle_(input: DeriveInput) -> Result<TokenStream2> {
     let manifest = Manifest::new().unwrap();
     let path_str = if let Some(package) = manifest.find(|name| name == "bevy") {
         format!("{}::ecs", package.name)
+    } else if let Some(package) = manifest.find(|name| name == "bevy_internal") {
+        format!("{}::ecs", package.name)
     } else if let Some(package) = manifest.find(|name| name == "bevy_ecs") {
         package.name
     } else {
-        "bevy_hecs".to_string()
+        "bevy_ecs".to_string()
     };
     let crate_path: Path = syn::parse(path_str.parse::<TokenStream>().unwrap()).unwrap();
     let field_idents = member_as_idents(&field_members);
@@ -311,7 +313,7 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
         let query_fn = &query_fns[0..query_count];
         let query_fn_mut = &query_fn_muts[0..query_count];
         tokens.extend(TokenStream::from(quote! {
-            impl<#(#lifetime,)* #(#query: HecsQuery,)* #(#filter: QueryFilter,)*> QueryTuple for (#(Query<#lifetime, #query, #filter>,)*) {
+            impl<#(#lifetime,)* #(#query: WorldQuery,)* #(#filter: QueryFilter,)*> QueryTuple for (#(Query<#lifetime, #query, #filter>,)*) {
                 unsafe fn new(world: &World, component_access: &TypeAccess<ArchetypeComponent>) -> Self {
                     (
                         #(
@@ -330,7 +332,7 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                 }
             }
 
-            impl<#(#lifetime,)* #(#query: HecsQuery,)* #(#filter: QueryFilter,)*> QuerySet<(#(Query<#lifetime, #query, #filter>,)*)> {
+            impl<#(#lifetime,)* #(#query: WorldQuery,)* #(#filter: QueryFilter,)*> QuerySet<(#(Query<#lifetime, #query, #filter>,)*)> {
                 #(#query_fn)*
                 #(#query_fn_mut)*
             }

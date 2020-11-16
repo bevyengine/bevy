@@ -35,7 +35,7 @@ fn setup(
 
     commands
         // parent cube
-        .spawn(PbrComponents {
+        .spawn(PbrBundle {
             mesh: cube_handle.clone(),
             material: cube_material_handle.clone(),
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
@@ -44,7 +44,7 @@ fn setup(
         .with(Rotator)
         .with_children(|parent| {
             // child cube
-            parent.spawn(PbrComponents {
+            parent.spawn(PbrBundle {
                 mesh: cube_handle,
                 material: cube_material_handle,
                 transform: Transform::from_translation(Vec3::new(0.0, 0.0, 3.0)),
@@ -52,12 +52,12 @@ fn setup(
             });
         })
         // light
-        .spawn(LightComponents {
+        .spawn(LightBundle {
             transform: Transform::from_translation(Vec3::new(4.0, 5.0, -4.0)),
             ..Default::default()
         })
         // camera
-        .spawn(Camera3dComponents {
+        .spawn(Camera3dBundle {
             transform: Transform::from_translation(Vec3::new(5.0, 10.0, 10.0))
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()

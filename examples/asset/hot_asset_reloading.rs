@@ -25,12 +25,12 @@ fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
         // mesh
         .spawn_scene(scene_handle)
         // light
-        .spawn(LightComponents {
+        .spawn(LightBundle {
             transform: Transform::from_translation(Vec3::new(4.0, 5.0, 4.0)),
             ..Default::default()
         })
         // camera
-        .spawn(Camera3dComponents {
+        .spawn(Camera3dBundle {
             transform: Transform::from_translation(Vec3::new(2.0, 2.0, 6.0))
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()

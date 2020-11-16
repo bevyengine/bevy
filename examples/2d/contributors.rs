@@ -55,8 +55,8 @@ fn setup(
     let texture_handle = asset_server.load("branding/icon.png");
 
     commands
-        .spawn(Camera2dComponents::default())
-        .spawn(UiCameraComponents::default());
+        .spawn(Camera2dBundle::default())
+        .spawn(UiCameraBundle::default());
 
     let mut sel = ContributorSelection {
         order: vec![],
@@ -83,7 +83,7 @@ fn setup(
                 translation: velocity,
                 rotation: -dir * 5.0,
             })
-            .with_bundle(SpriteComponents {
+            .with_bundle(SpriteBundle {
                 sprite: Sprite {
                     size: Vec2::new(1.0, 1.0) * SPRITE_SIZE,
                     resize_mode: SpriteResizeMode::Manual,
@@ -107,7 +107,7 @@ fn setup(
 
     commands
         .spawn((ContributorDisplay,))
-        .with_bundle(TextComponents {
+        .with_bundle(TextBundle {
             style: Style {
                 align_self: AlignSelf::FlexEnd,
                 ..Default::default()

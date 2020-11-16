@@ -1,5 +1,4 @@
-use crate::resource::Resources;
-use bevy_hecs::{ArchetypeComponent, TypeAccess, World};
+use crate::{ArchetypeComponent, Resources, TypeAccess, World};
 use std::{any::TypeId, borrow::Cow};
 
 /// Determines the strategy used to run the `run_thread_local` function in a [System]

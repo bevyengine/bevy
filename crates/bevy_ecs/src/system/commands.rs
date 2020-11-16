@@ -1,6 +1,8 @@
 use super::SystemId;
-use crate::resource::{Resource, Resources};
-use bevy_hecs::{Bundle, Component, DynamicBundle, Entity, EntityReserver, World};
+use crate::{
+    resource::{Resource, Resources},
+    Bundle, Component, ComponentError, DynamicBundle, Entity, EntityReserver, World,
+};
 use bevy_utils::tracing::{debug, warn};
 use std::marker::PhantomData;
 
@@ -128,7 +130,7 @@ where
     fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
         match world.remove::<T>(self.entity) {
             Ok(_) => (),
-            Err(bevy_hecs::ComponentError::MissingComponent(e)) => {
+            Err(ComponentError::MissingComponent(e)) => {
                 warn!(
                     "Failed to remove components {:?} with error: {}. Falling back to inefficient one-by-one component removing.",
                     std::any::type_name::<T>(),
@@ -322,9 +324,7 @@ impl Commands {
 
 #[cfg(test)]
 mod tests {
-    use super::Commands;
-    use crate::resource::Resources;
-    use bevy_hecs::World;
+    use crate::{resource::Resources, Commands, World};
 
     #[test]
     fn command_buffer() {

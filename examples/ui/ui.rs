@@ -15,9 +15,9 @@ fn setup(
 ) {
     commands
         // ui camera
-        .spawn(UiCameraComponents::default())
+        .spawn(UiCameraBundle::default())
         // root node
-        .spawn(NodeComponents {
+        .spawn(NodeBundle {
             style: Style {
                 size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                 justify_content: JustifyContent::SpaceBetween,
@@ -29,7 +29,7 @@ fn setup(
         .with_children(|parent| {
             parent
                 // left vertical fill (border)
-                .spawn(NodeComponents {
+                .spawn(NodeBundle {
                     style: Style {
                         size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
                         border: Rect::all(Val::Px(2.0)),
@@ -41,7 +41,7 @@ fn setup(
                 .with_children(|parent| {
                     parent
                         // left vertical fill (content)
-                        .spawn(NodeComponents {
+                        .spawn(NodeBundle {
                             style: Style {
                                 size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                                 align_items: AlignItems::FlexEnd,
@@ -52,7 +52,7 @@ fn setup(
                         })
                         .with_children(|parent| {
                             // text
-                            parent.spawn(TextComponents {
+                            parent.spawn(TextBundle {
                                 style: Style {
                                     margin: Rect::all(Val::Px(5.0)),
                                     ..Default::default()
@@ -71,7 +71,7 @@ fn setup(
                         });
                 })
                 // right vertical fill
-                .spawn(NodeComponents {
+                .spawn(NodeBundle {
                     style: Style {
                         size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
                         ..Default::default()
@@ -80,7 +80,7 @@ fn setup(
                     ..Default::default()
                 })
                 // absolute positioning
-                .spawn(NodeComponents {
+                .spawn(NodeBundle {
                     style: Style {
                         size: Size::new(Val::Px(200.0), Val::Px(200.0)),
                         position_type: PositionType::Absolute,
@@ -96,7 +96,7 @@ fn setup(
                     ..Default::default()
                 })
                 .with_children(|parent| {
-                    parent.spawn(NodeComponents {
+                    parent.spawn(NodeBundle {
                         style: Style {
                             size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                             ..Default::default()
@@ -106,7 +106,7 @@ fn setup(
                     });
                 })
                 // render order test: reddest in the back, whitest in the front (flex center)
-                .spawn(NodeComponents {
+                .spawn(NodeBundle {
                     style: Style {
                         size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                         position_type: PositionType::Absolute,
@@ -123,7 +123,7 @@ fn setup(
                 })
                 .with_children(|parent| {
                     parent
-                        .spawn(NodeComponents {
+                        .spawn(NodeBundle {
                             style: Style {
                                 size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                 ..Default::default()
@@ -133,7 +133,7 @@ fn setup(
                         })
                         .with_children(|parent| {
                             parent
-                                .spawn(NodeComponents {
+                                .spawn(NodeBundle {
                                     style: Style {
                                         size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                         position_type: PositionType::Absolute,
@@ -147,7 +147,7 @@ fn setup(
                                     material: materials.add(Color::rgb(1.0, 0.3, 0.3).into()),
                                     ..Default::default()
                                 })
-                                .spawn(NodeComponents {
+                                .spawn(NodeBundle {
                                     style: Style {
                                         size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                         position_type: PositionType::Absolute,
@@ -161,7 +161,7 @@ fn setup(
                                     material: materials.add(Color::rgb(1.0, 0.5, 0.5).into()),
                                     ..Default::default()
                                 })
-                                .spawn(NodeComponents {
+                                .spawn(NodeBundle {
                                     style: Style {
                                         size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                         position_type: PositionType::Absolute,
@@ -176,7 +176,7 @@ fn setup(
                                     ..Default::default()
                                 })
                                 // alpha test
-                                .spawn(NodeComponents {
+                                .spawn(NodeBundle {
                                     style: Style {
                                         size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                         position_type: PositionType::Absolute,
@@ -197,7 +197,7 @@ fn setup(
                         });
                 })
                 // bevy logo (flex center)
-                .spawn(NodeComponents {
+                .spawn(NodeBundle {
                     style: Style {
                         size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                         position_type: PositionType::Absolute,
@@ -214,7 +214,7 @@ fn setup(
                 })
                 .with_children(|parent| {
                     // bevy logo (image)
-                    parent.spawn(ImageComponents {
+                    parent.spawn(ImageBundle {
                         style: Style {
                             size: Size::new(Val::Px(500.0), Val::Auto),
                             ..Default::default()

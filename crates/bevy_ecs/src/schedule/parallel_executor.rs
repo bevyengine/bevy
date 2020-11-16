@@ -2,8 +2,8 @@ use super::Schedule;
 use crate::{
     resource::Resources,
     system::{System, ThreadLocalExecution},
+    ArchetypesGeneration, TypeAccess, World,
 };
-use bevy_hecs::{ArchetypesGeneration, TypeAccess, World};
 use bevy_tasks::{ComputeTaskPool, CountdownEvent, TaskPool};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -553,9 +553,8 @@ mod tests {
         resource::{Res, ResMut, Resources},
         schedule::Schedule,
         system::{IntoSystem, IntoThreadLocalSystem, Query},
-        Commands,
+        Commands, Entity, World,
     };
-    use bevy_hecs::{Entity, World};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use fixedbitset::FixedBitSet;
     use parking_lot::Mutex;

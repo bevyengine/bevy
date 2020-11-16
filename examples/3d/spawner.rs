@@ -38,12 +38,12 @@ fn setup(
 ) {
     commands
         // light
-        .spawn(LightComponents {
+        .spawn(LightBundle {
             transform: Transform::from_translation(Vec3::new(4.0, -4.0, 5.0)),
             ..Default::default()
         })
         // camera
-        .spawn(Camera3dComponents {
+        .spawn(Camera3dBundle {
             transform: Transform::from_translation(Vec3::new(0.0, 15.0, 150.0))
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
@@ -52,7 +52,7 @@ fn setup(
     let mut rng = StdRng::from_entropy();
     let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
     for _ in 0..10000 {
-        commands.spawn(PbrComponents {
+        commands.spawn(PbrBundle {
             mesh: cube_handle.clone(),
             material: materials.add(StandardMaterial {
                 albedo: Color::rgb(

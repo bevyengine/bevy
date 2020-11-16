@@ -19,7 +19,7 @@ pub use texture_atlas_builder::*;
 
 pub mod prelude {
     pub use crate::{
-        entity::{SpriteComponents, SpriteSheetComponents},
+        entity::{SpriteBundle, SpriteSheetBundle},
         ColorMaterial, Sprite, SpriteResizeMode, TextureAtlas, TextureAtlasSprite,
     };
 }

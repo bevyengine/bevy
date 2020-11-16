@@ -1,7 +1,6 @@
-use std::collections::hash_map::Entry;
-
-use bevy_hecs::Entity;
+use crate::Entity;
 use bevy_utils::HashMap;
+use std::collections::hash_map::Entry;
 use thiserror::Error;
 
 #[derive(Error, Debug)]

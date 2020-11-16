@@ -1,8 +1,7 @@
-use core::{any::TypeId, hash::Hash};
-use std::{boxed::Box, vec::Vec};
-
-use crate::{Archetype, World};
 use bevy_utils::HashSet;
+use std::{any::TypeId, boxed::Box, hash::Hash, vec::Vec};
+
+use super::{Archetype, World};
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum Access {
@@ -282,7 +281,8 @@ impl<T: Hash + Eq + PartialEq + Copy> TypeAccess<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{ArchetypeComponent, Entity, Fetch, Query, QueryAccess, TypeAccess, World};
+    use super::{ArchetypeComponent, TypeAccess};
+    use crate::{core::World, Entity, Fetch, QueryAccess, WorldQuery};
     use std::vec;
 
     struct A;
@@ -309,7 +309,7 @@ mod tests {
         let e3_c = ArchetypeComponent::new::<C>(e3_archetype);
 
         let mut a_type_access = TypeAccess::default();
-        <(&A,) as Query>::Fetch::access()
+        <(&A,) as WorldQuery>::Fetch::access()
             .get_world_archetype_access(&world, Some(&mut a_type_access));
 
         assert_eq!(
@@ -318,7 +318,7 @@ mod tests {
         );
 
         let mut a_b_type_access = TypeAccess::default();
-        <(&A, &B) as Query>::Fetch::access()
+        <(&A, &B) as WorldQuery>::Fetch::access()
             .get_world_archetype_access(&world, Some(&mut a_b_type_access));
 
         assert_eq!(
@@ -327,7 +327,7 @@ mod tests {
         );
 
         let mut a_bmut_type_access = TypeAccess::default();
-        <(&A, &mut B) as Query>::Fetch::access()
+        <(&A, &mut B) as WorldQuery>::Fetch::access()
             .get_world_archetype_access(&world, Some(&mut a_bmut_type_access));
 
         assert_eq!(
@@ -336,7 +336,7 @@ mod tests {
         );
 
         let mut a_option_bmut_type_access = TypeAccess::default();
-        <(Entity, &A, Option<&mut B>) as Query>::Fetch::access()
+        <(Entity, &A, Option<&mut B>) as WorldQuery>::Fetch::access()
             .get_world_archetype_access(&world, Some(&mut a_option_bmut_type_access));
 
         assert_eq!(
@@ -345,7 +345,7 @@ mod tests {
         );
 
         let mut a_with_b_type_access = TypeAccess::default();
-        QueryAccess::with::<B>(<&A as Query>::Fetch::access())
+        QueryAccess::with::<B>(<&A as WorldQuery>::Fetch::access())
             .get_world_archetype_access(&world, Some(&mut a_with_b_type_access));
 
         assert_eq!(
@@ -354,7 +354,7 @@ mod tests {
         );
 
         let mut a_with_b_option_c_type_access = TypeAccess::default();
-        QueryAccess::with::<B>(<(&A, Option<&mut C>) as Query>::Fetch::access())
+        QueryAccess::with::<B>(<(&A, Option<&mut C>) as WorldQuery>::Fetch::access())
             .get_world_archetype_access(&world, Some(&mut a_with_b_option_c_type_access));
 
         assert_eq!(

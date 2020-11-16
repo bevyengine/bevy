@@ -61,8 +61,8 @@ fn setup(
 ) {
     commands
         // ui camera
-        .spawn(UiCameraComponents::default())
-        .spawn(ButtonComponents {
+        .spawn(UiCameraBundle::default())
+        .spawn(ButtonBundle {
             style: Style {
                 size: Size::new(Val::Px(150.0), Val::Px(65.0)),
                 // center button
@@ -77,7 +77,7 @@ fn setup(
             ..Default::default()
         })
         .with_children(|parent| {
-            parent.spawn(TextComponents {
+            parent.spawn(TextBundle {
                 text: Text {
                     value: "Button".to_string(),
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),

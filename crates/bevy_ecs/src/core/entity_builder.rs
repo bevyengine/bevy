@@ -14,28 +14,22 @@
 
 // modified by Bevy contributors
 
-use crate::alloc::{
-    alloc::{alloc, dealloc, Layout},
-    boxed::Box,
-    vec,
-    vec::Vec,
-};
-
 use bevy_utils::HashSet;
-use core::{
+use std::{
+    alloc::{alloc, dealloc, Layout},
     any::TypeId,
     mem::{self, MaybeUninit},
     ptr,
 };
 
-use crate::{archetype::TypeInfo, Component, DynamicBundle};
+use crate::{Component, DynamicBundle, TypeInfo};
 
 /// Helper for incrementally constructing a bundle of components with dynamic component types
 ///
 /// Prefer reusing the same builder over creating new ones repeatedly.
 ///
 /// ```
-/// # use bevy_hecs::*;
+/// # use bevy_ecs::*;
 /// let mut world = World::new();
 /// let mut builder = EntityBuilder::new();
 /// builder.add(123).add("abc");
