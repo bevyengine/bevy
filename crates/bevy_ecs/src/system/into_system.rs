@@ -210,7 +210,7 @@ mod tests {
     use crate::{
         resource::{Res, ResMut, Resources},
         schedule::Schedule,
-        ChangedRes, Entity, Or, Query, QuerySet, System, With, World,
+        ChangedRes, Entity, Local, Or, Query, QuerySet, System, With, World,
     };
 
     #[derive(Debug, Eq, PartialEq, Default)]
