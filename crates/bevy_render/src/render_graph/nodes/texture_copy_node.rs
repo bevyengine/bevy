@@ -6,6 +6,7 @@ use crate::{
 use bevy_app::prelude::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets};
 use bevy_ecs::{Resources, World};
+use bevy_utils::HashSet;
 
 #[derive(Default)]
 pub struct TextureCopyNode {
@@ -23,10 +24,15 @@ impl Node for TextureCopyNode {
     ) {
         let texture_events = resources.get::<Events<AssetEvent<Texture>>>().unwrap();
         let textures = resources.get::<Assets<Texture>>().unwrap();
+        let mut synced_textures = HashSet::new();
         for event in self.texture_event_reader.iter(&texture_events) {
             match event {
                 AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
                     if let Some(texture) = textures.get(handle) {
+                        if synced_textures.contains(&handle.id) {
+                            return;
+                        }
+
                         let texture_descriptor: TextureDescriptor = texture.into();
                         let width = texture.size.x() as usize;
                         let aligned_width = render_context
@@ -67,6 +73,8 @@ impl Node for TextureCopyNode {
                             texture_descriptor.size,
                         );
                         render_context.resources().remove_buffer(texture_buffer);
+
+                        synced_textures.insert(&handle.id);
                     }
                 }
                 AssetEvent::Removed { .. } => {}
