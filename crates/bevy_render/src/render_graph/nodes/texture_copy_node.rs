@@ -24,12 +24,12 @@ impl Node for TextureCopyNode {
     ) {
         let texture_events = resources.get::<Events<AssetEvent<Texture>>>().unwrap();
         let textures = resources.get::<Assets<Texture>>().unwrap();
-        let mut synced_textures = HashSet::new();
+        let mut copied_textures = HashSet::new();
         for event in self.texture_event_reader.iter(&texture_events) {
             match event {
                 AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
                     if let Some(texture) = textures.get(handle) {
-                        if synced_textures.contains(&handle.id) {
+                        if copied_textures.contains(&handle.id) {
                             return;
                         }
 
@@ -74,7 +74,7 @@ impl Node for TextureCopyNode {
                         );
                         render_context.resources().remove_buffer(texture_buffer);
 
-                        synced_textures.insert(&handle.id);
+                        copied_textures.insert(&handle.id);
                     }
                 }
                 AssetEvent::Removed { .. } => {}
