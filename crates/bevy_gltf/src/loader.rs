@@ -66,8 +66,7 @@ impl AssetLoader for GltfLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        static EXTENSIONS: &[&str] = &["gltf", "glb"];
-        EXTENSIONS
+        &["gltf", "glb"]
     }
 }
 

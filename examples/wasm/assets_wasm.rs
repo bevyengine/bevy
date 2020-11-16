@@ -63,7 +63,6 @@ impl AssetLoader for RustSourceCodeLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        static EXT: &[&str] = &["rs"];
-        EXT
+        &["rs"]
     }
 }

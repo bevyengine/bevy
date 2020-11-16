@@ -54,13 +54,13 @@ use texture::TextureResourceSystemState;
 /// The names of "render" App stages
 pub mod stage {
     /// Stage where render resources are set up
-    pub static RENDER_RESOURCE: &str = "render_resource";
+    pub const RENDER_RESOURCE: &str = "render_resource";
     /// Stage where Render Graph systems are run. In general you shouldn't add systems to this stage manually.
-    pub static RENDER_GRAPH_SYSTEMS: &str = "render_graph_systems";
+    pub const RENDER_GRAPH_SYSTEMS: &str = "render_graph_systems";
     // Stage where draw systems are executed. This is generally where Draw components are setup
-    pub static DRAW: &str = "draw";
-    pub static RENDER: &str = "render";
-    pub static POST_RENDER: &str = "post_render";
+    pub const DRAW: &str = "draw";
+    pub const RENDER: &str = "render";
+    pub const POST_RENDER: &str = "post_render";
 }
 
 /// Adds core render types and systems to an App
