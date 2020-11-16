@@ -3,8 +3,8 @@ use crate::{
     resource::{Resource, Resources},
     Bundle, Component, ComponentError, DynamicBundle, Entity, EntityReserver, World,
 };
+use anyhow::{anyhow, bail, Result};
 use bevy_utils::tracing::{debug, warn};
-use anyhow::{bail, Result};
 use std::marker::PhantomData;
 
 #[cfg(feature = "command_backtraces")]
@@ -81,7 +81,7 @@ where
     fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) -> Result<()> {
         world
             .insert(self.entity, self.components)
-            .map_err(|e| e.into())
+            .map_err(|e| anyhow!("{:?}", e))
     }
 }
 
@@ -101,7 +101,7 @@ where
     fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) -> Result<()> {
         world
             .insert(self.entity, (self.component,))
-            .map_err(|e| e.into())
+            .map_err(|e| anyhow!("{:?}", e))
     }
 }
 
@@ -122,7 +122,7 @@ where
         if world.get::<T>(self.entity).is_ok() {
             world
                 .remove_one::<T>(self.entity)
-                .map_err(|e| e.into())
+                .map_err(|e| anyhow!("{:?}", e))
                 .map(|_| ())
         } else {
             bail!("No such entity {:?}", self.entity)

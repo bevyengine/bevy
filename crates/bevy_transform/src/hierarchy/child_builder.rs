@@ -1,5 +1,5 @@
 use crate::prelude::{Children, Parent, PreviousParent};
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use bevy_ecs::{Command, Commands, Component, DynamicBundle, Entity, Resources, World};
 use smallvec::SmallVec;
 
@@ -13,7 +13,9 @@ pub struct InsertChildren {
 impl Command for InsertChildren {
     fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) -> Result<()> {
         for child in self.children.iter() {
-            world.insert(*child, (Parent(self.parent), PreviousParent(self.parent)))?;
+            world
+                .insert(*child, (Parent(self.parent), PreviousParent(self.parent)))
+                .map_err(|e| anyhow!("{:?}", e))?;
         }
         {
             let mut added = false;
@@ -26,7 +28,7 @@ impl Command for InsertChildren {
             if !added {
                 world
                     .insert_one(self.parent, Children(self.children))
-                    .map_err(|e| e.into())
+                    .map_err(|e| anyhow!("{:?}", e))
             } else {
                 Ok(())
             }
@@ -48,7 +50,9 @@ pub struct ChildBuilder<'a> {
 impl Command for PushChildren {
     fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) -> Result<()> {
         for child in self.children.iter() {
-            world.insert(*child, (Parent(self.parent), PreviousParent(self.parent)))?
+            world
+                .insert(*child, (Parent(self.parent), PreviousParent(self.parent)))
+                .map_err(|e| anyhow!("{:?}", e))?
         }
         {
             let mut added = false;
@@ -61,7 +65,7 @@ impl Command for PushChildren {
             if !added {
                 world
                     .insert_one(self.parent, Children(self.children))
-                    .map_err(|e| e.into())
+                    .map_err(|e| anyhow!("{:?}", e))
             } else {
                 Ok(())
             }
