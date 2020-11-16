@@ -25,9 +25,6 @@ use winit::{
 #[derive(Default)]
 pub struct WinitPlugin;
 
-#[derive(Debug)]
-pub struct EventLoopProxyPtr(pub usize);
-
 impl Plugin for WinitPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app
@@ -148,10 +145,7 @@ pub fn winit_runner(mut app: App) {
     let mut create_window_event_reader = EventReader::<CreateWindow>::default();
     let mut app_exit_event_reader = EventReader::<AppExit>::default();
 
-    app.resources
-        .insert_thread_local(EventLoopProxyPtr(
-            Box::into_raw(Box::new(event_loop.create_proxy())) as usize,
-        ));
+    app.resources.insert_thread_local(event_loop.create_proxy());
 
     app.initialize();
 
