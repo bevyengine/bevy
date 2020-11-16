@@ -1,8 +1,9 @@
-use crate::{system::SystemId, Archetype, AtomicBorrow, Entity, Ref, RefMut, TypeInfo, TypeState};
+use crate::{system::SystemId, AtomicBorrow, TypeInfo};
 use bevy_utils::HashMap;
 use core::any::TypeId;
 use downcast_rs::{impl_downcast, Downcast};
 use std::{
+    cell::UnsafeCell,
     fmt::Debug,
     ops::{Deref, DerefMut},
     ptr::NonNull,
@@ -13,9 +14,8 @@ use std::{
 pub trait Resource: Send + Sync + 'static {}
 impl<T: Send + Sync + 'static> Resource for T {}
 
-#[derive(Debug)]
 pub(crate) struct ResourceData {
-    archetype: Archetype,
+    storage: Box<dyn ResourceStorage>,
     default_index: Option<usize>,
     system_id_to_archetype_index: HashMap<usize, usize>,
 }
@@ -27,11 +27,15 @@ pub enum ResourceIndex {
 }
 
 // TODO: consider using this for normal resources (would require change tracking)
-trait ResourceStorage: Downcast {}
+trait ResourceStorage: Downcast {
+    fn clear_trackers(&mut self);
+}
 impl_downcast!(ResourceStorage);
 
 struct StoredResource<T: 'static> {
-    value: std::cell::UnsafeCell<T>,
+    value: UnsafeCell<T>,
+    added: UnsafeCell<bool>,
+    mutated: UnsafeCell<bool>,
     atomic_borrow: AtomicBorrow,
 }
 
@@ -52,15 +56,22 @@ impl<T: 'static> VecResourceStorage<T> {
             .map(|stored| ResourceRefMut::new(stored))
     }
 
+    unsafe fn get_unsafe_ref(&self, index: usize) -> NonNull<T> {
+        NonNull::new_unchecked(self.stored.get_unchecked(index).value.get())
+    }
+
     fn push(&mut self, resource: T) {
         self.stored.push(StoredResource {
             atomic_borrow: AtomicBorrow::new(),
-            value: std::cell::UnsafeCell::new(resource),
-        })
+            value: UnsafeCell::new(resource),
+            added: UnsafeCell::new(true),
+            mutated: UnsafeCell::new(true),
+        });
     }
 
     fn set(&mut self, index: usize, resource: T) {
-        self.stored[index].value = std::cell::UnsafeCell::new(resource);
+        self.stored[index].value = UnsafeCell::new(resource);
+        self.stored[index].mutated = UnsafeCell::new(true);
     }
 
     fn is_empty(&self) -> bool {
@@ -76,7 +87,14 @@ impl<T: 'static> Default for VecResourceStorage<T> {
     }
 }
 
-impl<T: 'static> ResourceStorage for VecResourceStorage<T> {}
+impl<T: 'static> ResourceStorage for VecResourceStorage<T> {
+    fn clear_trackers(&mut self) {
+        for stored in &mut self.stored {
+            stored.added = UnsafeCell::new(false);
+            stored.mutated = UnsafeCell::new(false);
+        }
+    }
+}
 
 /// A collection of resource instances identified by their type.
 pub struct Resources {
@@ -124,11 +142,11 @@ impl Resources {
         self.get_resource::<T>(ResourceIndex::Global).is_some()
     }
 
-    pub fn get<T: Resource>(&self) -> Option<Ref<'_, T>> {
+    pub fn get<T: Resource>(&self) -> Option<ResourceRef<'_, T>> {
         self.get_resource(ResourceIndex::Global)
     }
 
-    pub fn get_mut<T: Resource>(&self) -> Option<RefMut<'_, T>> {
+    pub fn get_mut<T: Resource>(&self) -> Option<ResourceRefMut<'_, T>> {
         self.get_resource_mut(ResourceIndex::Global)
     }
 
@@ -155,7 +173,7 @@ impl Resources {
     pub fn get_or_insert_with<T: Resource>(
         &mut self,
         get_resource: impl FnOnce() -> T,
-    ) -> RefMut<'_, T> {
+    ) -> ResourceRefMut<'_, T> {
         // NOTE: this double-get is really weird. why cant we use an if-let here?
         if self.get::<T>().is_some() {
             return self.get_mut::<T>().unwrap();
@@ -171,12 +189,12 @@ impl Resources {
     }
 
     #[allow(clippy::needless_lifetimes)]
-    pub fn get_local<'a, T: Resource>(&'a self, id: SystemId) -> Option<Ref<'a, T>> {
+    pub fn get_local<'a, T: Resource>(&'a self, id: SystemId) -> Option<ResourceRef<'a, T>> {
         self.get_resource(ResourceIndex::System(id))
     }
 
     #[allow(clippy::needless_lifetimes)]
-    pub fn get_local_mut<'a, T: Resource>(&'a self, id: SystemId) -> Option<RefMut<'a, T>> {
+    pub fn get_local_mut<'a, T: Resource>(&'a self, id: SystemId) -> Option<ResourceRefMut<'a, T>> {
         self.get_resource_mut(ResourceIndex::System(id))
     }
 
@@ -184,81 +202,69 @@ impl Resources {
         self.insert_resource(resource, ResourceIndex::System(id))
     }
 
-    fn insert_resource<T: Resource>(&mut self, mut resource: T, resource_index: ResourceIndex) {
+    fn insert_resource<T: Resource>(&mut self, resource: T, resource_index: ResourceIndex) {
         let type_id = TypeId::of::<T>();
         let data = self.resource_data.entry(type_id).or_insert_with(|| {
             let mut types = Vec::new();
             types.push(TypeInfo::of::<T>());
             ResourceData {
-                archetype: Archetype::new(types),
+                storage: Box::new(VecResourceStorage::<T>::default()),
                 default_index: None,
                 system_id_to_archetype_index: HashMap::default(),
             }
         });
 
-        let archetype = &mut data.archetype;
-        let mut added = false;
+        let storage = data
+            .storage
+            .downcast_mut::<VecResourceStorage<T>>()
+            .unwrap();
         let index = match resource_index {
-            ResourceIndex::Global => *data.default_index.get_or_insert_with(|| {
-                added = true;
-                archetype.len()
-            }),
+            ResourceIndex::Global => *data
+                .default_index
+                .get_or_insert_with(|| storage.stored.len()),
             ResourceIndex::System(id) => *data
                 .system_id_to_archetype_index
                 .entry(id.0)
-                .or_insert_with(|| {
-                    added = true;
-                    archetype.len()
-                }),
+                .or_insert_with(|| storage.stored.len()),
         };
 
         use std::cmp::Ordering;
-        match index.cmp(&archetype.len()) {
+        match index.cmp(&storage.stored.len()) {
             Ordering::Equal => {
-                unsafe { archetype.allocate(Entity::new(index as u32)) };
+                storage.push(resource);
             }
             Ordering::Greater => panic!("attempted to access index beyond 'current_capacity + 1'"),
-            Ordering::Less => (),
-        }
-
-        unsafe {
-            let resource_ptr = (&mut resource as *mut T).cast::<u8>();
-            archetype.put_dynamic(
-                resource_ptr,
-                type_id,
-                core::mem::size_of::<T>(),
-                index,
-                added,
-                !added,
-            );
-            std::mem::forget(resource);
+            Ordering::Less => {
+                *storage.get_mut(index).unwrap() = resource;
+            }
         }
     }
 
-    fn get_resource<T: Resource>(&self, resource_index: ResourceIndex) -> Option<Ref<'_, T>> {
-        self.resource_data
-            .get(&TypeId::of::<T>())
-            .and_then(|data| unsafe {
-                let index = match resource_index {
-                    ResourceIndex::Global => data.default_index?,
-                    ResourceIndex::System(id) => *data.system_id_to_archetype_index.get(&id.0)?,
-                };
-                Ref::new(&data.archetype, index).ok()
+    fn get_resource<T: Resource>(
+        &self,
+        resource_index: ResourceIndex,
+    ) -> Option<ResourceRef<'_, T>> {
+        self.get_resource_data_index::<T>(resource_index)
+            .and_then(|(data, index)| {
+                let resources = data
+                    .storage
+                    .downcast_ref::<VecResourceStorage<T>>()
+                    .unwrap();
+                resources.get(index)
             })
     }
 
     fn get_resource_mut<T: Resource>(
         &self,
         resource_index: ResourceIndex,
-    ) -> Option<RefMut<'_, T>> {
-        self.resource_data
-            .get(&TypeId::of::<T>())
-            .and_then(|data| unsafe {
-                let index = match resource_index {
-                    ResourceIndex::Global => data.default_index?,
-                    ResourceIndex::System(id) => *data.system_id_to_archetype_index.get(&id.0)?,
-                };
-                RefMut::new(&data.archetype, index).ok()
+    ) -> Option<ResourceRefMut<'_, T>> {
+        self.get_resource_data_index::<T>(resource_index)
+            .and_then(|(data, index)| {
+                let resources = data
+                    .storage
+                    .downcast_ref::<VecResourceStorage<T>>()
+                    .unwrap();
+                resources.get_mut(index)
             })
     }
 
@@ -266,47 +272,34 @@ impl Resources {
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn get_unsafe_ref<T: Resource>(&self, resource_index: ResourceIndex) -> NonNull<T> {
         self.get_resource_data_index::<T>(resource_index)
-            .and_then(|(data, index)| {
-                Some(NonNull::new_unchecked(
-                    data.archetype.get::<T>()?.as_ptr().add(index),
-                ))
+            .map(|(data, index)| {
+                let resources = data
+                    .storage
+                    .downcast_ref::<VecResourceStorage<T>>()
+                    .unwrap();
+                resources.get_unsafe_ref(index)
             })
             .unwrap_or_else(|| panic!("Resource does not exist {}", std::any::type_name::<T>()))
     }
 
     #[inline]
     #[allow(clippy::missing_safety_doc)]
-    pub unsafe fn get_unsafe_ref_with_type_state<T: Resource>(
+    pub unsafe fn get_unsafe_ref_with_added_and_mutated<T: Resource>(
         &self,
         resource_index: ResourceIndex,
-    ) -> (NonNull<T>, &TypeState) {
+    ) -> (NonNull<T>, NonNull<bool>, NonNull<bool>) {
         self.get_resource_data_index::<T>(resource_index)
-            .and_then(|(data, index)| {
-                data.archetype
-                    .get_with_type_state::<T>()
-                    .map(|(resource, type_state)| {
-                        (
-                            NonNull::new_unchecked(resource.as_ptr().add(index)),
-                            type_state,
-                        )
-                    })
-            })
-            .unwrap_or_else(|| panic!("Resource does not exist {}", std::any::type_name::<T>()))
-    }
+            .map(|(data, index)| {
+                let resources = data
+                    .storage
+                    .downcast_ref::<VecResourceStorage<T>>()
+                    .unwrap();
 
-    #[inline]
-    #[allow(clippy::missing_safety_doc)]
-    pub unsafe fn get_unsafe_added_and_mutated<T: Resource>(
-        &self,
-        resource_index: ResourceIndex,
-    ) -> (NonNull<bool>, NonNull<bool>) {
-        self.get_resource_data_index::<T>(resource_index)
-            .and_then(|(data, index)| {
-                let type_state = data.archetype.get_type_state(TypeId::of::<T>())?;
-                Some((
-                    NonNull::new_unchecked(type_state.added().as_ptr().add(index)),
-                    NonNull::new_unchecked(type_state.mutated().as_ptr().add(index)),
-                ))
+                (
+                    resources.get_unsafe_ref(index),
+                    NonNull::new_unchecked(resources.stored[index].added.get()),
+                    NonNull::new_unchecked(resources.stored[index].mutated.get()),
+                )
             })
             .unwrap_or_else(|| panic!("Resource does not exist {}", std::any::type_name::<T>()))
     }
@@ -327,35 +320,11 @@ impl Resources {
         })
     }
 
-    pub fn borrow<T: Resource>(&self) {
-        if let Some(data) = self.resource_data.get(&TypeId::of::<T>()) {
-            data.archetype.borrow::<T>();
-        }
-    }
-
-    pub fn release<T: Resource>(&self) {
-        if let Some(data) = self.resource_data.get(&TypeId::of::<T>()) {
-            data.archetype.release::<T>();
-        }
-    }
-
-    pub fn borrow_mut<T: Resource>(&self) {
-        if let Some(data) = self.resource_data.get(&TypeId::of::<T>()) {
-            data.archetype.borrow_mut::<T>();
-        }
-    }
-
-    pub fn release_mut<T: Resource>(&self) {
-        if let Some(data) = self.resource_data.get(&TypeId::of::<T>()) {
-            data.archetype.release_mut::<T>();
-        }
-    }
-
     /// Clears each resource's tracker state.
     /// For example, each resource's component "mutated" state will be reset to `false`.
     pub fn clear_trackers(&mut self) {
         for (_, resource_data) in self.resource_data.iter_mut() {
-            resource_data.archetype.clear_trackers();
+            resource_data.storage.clear_trackers();
         }
     }
 }
@@ -390,6 +359,8 @@ impl<'a, T: 'static> ResourceRef<'a, T> {
     fn new(
         StoredResource {
             value,
+            added: _,
+            mutated: _,
             atomic_borrow,
         }: &'a StoredResource<T>,
     ) -> Self {
@@ -438,6 +409,7 @@ where
 pub struct ResourceRefMut<'a, T: 'static> {
     borrow: &'a AtomicBorrow,
     resource: &'a mut T,
+    mutated: &'a mut bool,
 }
 
 impl<'a, T: 'static> ResourceRefMut<'a, T> {
@@ -445,6 +417,8 @@ impl<'a, T: 'static> ResourceRefMut<'a, T> {
     fn new(
         StoredResource {
             value,
+            added: _,
+            mutated,
             atomic_borrow,
         }: &'a StoredResource<T>,
     ) -> Self {
@@ -452,6 +426,8 @@ impl<'a, T: 'static> ResourceRefMut<'a, T> {
             Self {
                 // Safe because we acquired the lock
                 resource: unsafe { &mut *value.get() },
+                // same
+                mutated: unsafe { &mut *mutated.get() },
                 borrow: atomic_borrow,
             }
         } else {
@@ -482,6 +458,7 @@ impl<'a, T: 'static> Deref for ResourceRefMut<'a, T> {
 
 impl<'a, T: 'static> DerefMut for ResourceRefMut<'a, T> {
     fn deref_mut(&mut self) -> &mut T {
+        *self.mutated = true;
         self.resource
     }
 }
@@ -542,7 +519,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "i32 already borrowed")]
+    #[should_panic(expected = "Failed to acquire exclusive lock on resource: i32")]
     fn resource_double_mut_panic() {
         let mut resources = Resources::default();
         resources.insert(123);

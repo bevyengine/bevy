@@ -157,9 +157,9 @@ impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         _world: &World,
         resources: &Resources,
     ) -> Option<Self> {
-        let (value, type_state) =
-            resources.get_unsafe_ref_with_type_state::<T>(ResourceIndex::Global);
-        Some(ResMut::new(value, type_state.mutated()))
+        let (value, _added, mutated) =
+            resources.get_unsafe_ref_with_added_and_mutated::<T>(ResourceIndex::Global);
+        Some(ResMut::new(value, mutated))
     }
 }
 
@@ -182,11 +182,10 @@ impl<'a, T: Resource> SystemParam for ChangedRes<'a, T> {
         _world: &World,
         resources: &Resources,
     ) -> Option<Self> {
-        let (added, mutated) = resources.get_unsafe_added_and_mutated::<T>(ResourceIndex::Global);
+        let (value, added, mutated) =
+            resources.get_unsafe_ref_with_added_and_mutated::<T>(ResourceIndex::Global);
         if *added.as_ptr() || *mutated.as_ptr() {
-            Some(ChangedRes::new(
-                resources.get_unsafe_ref::<T>(ResourceIndex::Global),
-            ))
+            Some(ChangedRes::new(value))
         } else {
             None
         }
