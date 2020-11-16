@@ -1,11 +1,11 @@
-use super::{BindGroup, BindGroupId, BufferId, RenderResourceId, SamplerId, TextureId};
+use super::{BindGroup, BindGroupId, BufferId, SamplerId, TextureId};
 use crate::{
     pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineDescriptor},
     renderer::RenderResourceContext,
 };
 use bevy_asset::{Asset, Handle, HandleUntyped};
 use bevy_utils::{HashMap, HashSet};
-use std::{hash::Hash, ops::Range};
+use std::ops::Range;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum RenderResourceBinding {
@@ -47,27 +47,6 @@ impl RenderResourceBinding {
             Some(*sampler)
         } else {
             None
-        }
-    }
-}
-
-impl Hash for RenderResourceBinding {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        match self {
-            RenderResourceBinding::Buffer {
-                buffer,
-                range,
-                dynamic_index: _, // dynamic_index is not a part of the binding
-            } => {
-                RenderResourceId::from(*buffer).hash(state);
-                range.hash(state);
-            }
-            RenderResourceBinding::Texture(texture) => {
-                RenderResourceId::from(*texture).hash(state);
-            }
-            RenderResourceBinding::Sampler(sampler) => {
-                RenderResourceId::from(*sampler).hash(state);
-            }
         }
     }
 }
