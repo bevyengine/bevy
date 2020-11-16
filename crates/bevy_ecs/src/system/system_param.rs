@@ -12,14 +12,14 @@ impl<Input> SystemParam<Input> for In<Input> {
     #[inline]
     unsafe fn get_param(
         input: &mut Option<Input>,
-        system_state: &mut SystemState,
-        world: &World,
+        _system_state: &mut SystemState,
+        _world: &World,
         _resources: &Resources,
     ) -> Option<Self> {
         Some(In(input.take().unwrap()))
     }
 
-    fn init(system_state: &mut SystemState, _world: &World, _resources: &mut Resources) {
+    fn init(_system_state: &mut SystemState, _world: &World, _resources: &mut Resources) {
     }
 }
 
@@ -40,7 +40,7 @@ pub trait SystemParam<Input>: Sized {
 impl<'a, Q: WorldQuery, F: QueryFilter, Input> SystemParam<Input> for Query<'a, Q, F> {
     #[inline]
     unsafe fn get_param(
-        input: &mut Option<Input>,
+        _input: &mut Option<Input>,
         system_state: &mut SystemState,
         world: &World,
         _resources: &Resources,
@@ -68,7 +68,7 @@ impl<'a, Q: WorldQuery, F: QueryFilter, Input> SystemParam<Input> for Query<'a, 
 impl<T: QueryTuple, Input> SystemParam<Input> for QuerySet<T> {
     #[inline]
     unsafe fn get_param(
-        input: &mut Option<Input>,
+        _input: &mut Option<Input>,
         system_state: &mut SystemState,
         world: &World,
         _resources: &Resources,
@@ -101,7 +101,7 @@ impl<'a, Input> SystemParam<Input> for &'a mut Commands {
 
     #[inline]
     unsafe fn get_param(
-        input: &mut Option<Input>,
+        _input: &mut Option<Input>,
         system_state: &mut SystemState,
         _world: &World,
         _resources: &Resources,
@@ -122,7 +122,7 @@ impl<Input> SystemParam<Input> for Arc<Mutex<Commands>> {
 
     #[inline]
     unsafe fn get_param(
-        input: &mut Option<Input>,
+        _input: &mut Option<Input>,
         system_state: &mut SystemState,
         _world: &World,
         _resources: &Resources,
@@ -146,7 +146,7 @@ impl<'a, T: Resource, Input> SystemParam<Input> for Res<'a, T> {
 
     #[inline]
     unsafe fn get_param(
-        input: &mut Option<Input>,
+        _input: &mut Option<Input>,
         _system_state: &mut SystemState,
         _world: &World,
         resources: &Resources,
@@ -177,7 +177,7 @@ impl<'a, T: Resource, Input> SystemParam<Input> for ResMut<'a, T> {
 
     #[inline]
     unsafe fn get_param(
-        input: &mut Option<Input>,
+        _input: &mut Option<Input>,
         _system_state: &mut SystemState,
         _world: &World,
         resources: &Resources,
@@ -203,7 +203,7 @@ impl<'a, T: Resource, Input> SystemParam<Input> for ChangedRes<'a, T> {
 
     #[inline]
     unsafe fn get_param(
-        input: &mut Option<Input>,
+        _input: &mut Option<Input>,
         _system_state: &mut SystemState,
         _world: &World,
         resources: &Resources,
@@ -247,7 +247,7 @@ impl<'a, T: Resource + FromResources, Input> SystemParam<Input> for Local<'a, T>
 
     #[inline]
     unsafe fn get_param(
-        input: &mut Option<Input>,
+        _input: &mut Option<Input>,
         system_state: &mut SystemState,
         _world: &World,
         resources: &Resources,

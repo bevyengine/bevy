@@ -12,7 +12,7 @@ use crate::{
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Query, Res, ResMut, SystemParam};
 use bevy_property::Properties;
-use std::{ops::Range, sync::Arc, marker::PhantomData};
+use std::{ops::Range, sync::Arc};
 use thiserror::Error;
 
 /// A queued command for the renderer

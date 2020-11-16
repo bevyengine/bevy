@@ -9,11 +9,11 @@ use std::{
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
-        .add_system(velocity_system.system())
-        .add_system(move_system.system())
-        .add_system(collision_system.system())
-        .add_system(select_system.system())
+        .add_startup_system(setup)
+        .add_system(velocity_system)
+        .add_system(move_system)
+        .add_system(collision_system)
+        .add_system(select_system)
         .run();
 }
 

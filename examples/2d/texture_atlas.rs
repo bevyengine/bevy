@@ -5,8 +5,8 @@ fn main() {
     App::build()
         .init_resource::<RpgSpriteHandles>()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
-        .add_system(load_atlas.system())
+        .add_startup_system(setup)
+        .add_system(load_atlas)
         .run();
 }
 

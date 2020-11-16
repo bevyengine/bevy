@@ -5,8 +5,8 @@ extern crate rand;
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(infotext_system.system())
-        .add_system(change_text_system.system())
+        .add_startup_system(infotext_system)
+        .add_system(change_text_system)
         .run();
 }
 

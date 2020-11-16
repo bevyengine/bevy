@@ -51,7 +51,7 @@ struct LightCount {
 unsafe impl Byteable for LightCount {}
 
 impl SystemNode for LightsNode {
-    fn get_system(&self, commands: &mut Commands) -> Box<dyn System> {
+    fn get_system(&self, commands: &mut Commands) -> Box<dyn System<Input = (), Output = ()>> {
         let system = lights_node_system.system();
         commands.insert_local_resource(
             system.id(),
@@ -62,7 +62,7 @@ impl SystemNode for LightsNode {
                 staging_buffer: None,
             },
         );
-        system
+        Box::new(system)
     }
 }
 

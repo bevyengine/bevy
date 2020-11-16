@@ -147,7 +147,7 @@ impl ExecutorStage {
     pub fn prepare_to_next_thread_local(
         &mut self,
         world: &World,
-        systems: &mut [Box<dyn System>],
+        systems: &mut [Box<dyn System<Input = (), Output = ()>>],
         schedule_changed: bool,
         next_thread_local_index: usize,
     ) -> Range<usize> {
@@ -329,7 +329,7 @@ impl ExecutorStage {
         &self,
         world: &World,
         resources: &Resources,
-        systems: &mut [Box<dyn System>],
+        systems: &mut [Box<dyn System<Input = (), Output = ()>>],
         prepared_system_range: Range<usize>,
         compute_pool: &TaskPool,
     ) {
@@ -422,7 +422,7 @@ impl ExecutorStage {
         &mut self,
         world: &mut World,
         resources: &mut Resources,
-        systems: &mut [Box<dyn System>],
+        systems: &mut [Box<dyn System<Input = (), Output = ()>>],
         schedule_changed: bool,
     ) {
         let start_archetypes_generation = world.archetypes_generation();
@@ -555,7 +555,7 @@ mod tests {
     use crate::{
         resource::{Res, ResMut, Resources},
         schedule::Schedule,
-        system::{IntoSystem, IntoThreadLocalSystem, Query},
+        system::Query,
         Commands, Entity, World,
     };
     use bevy_tasks::{ComputeTaskPool, TaskPool};
@@ -592,8 +592,8 @@ mod tests {
             assert_eq!(1, entities.iter().count());
         }
 
-        schedule.add_system_to_stage("PreArchetypeChange", insert.system());
-        schedule.add_system_to_stage("PostArchetypeChange", read.system());
+        schedule.add_system_to_stage("PreArchetypeChange", insert);
+        schedule.add_system_to_stage("PostArchetypeChange", read);
 
         let mut executor = ParallelExecutor::default();
         schedule.initialize(&mut world, &mut resources);
@@ -623,8 +623,8 @@ mod tests {
             assert_eq!(1, entities.iter().count());
         }
 
-        schedule.add_system_to_stage("update", insert.thread_local_system());
-        schedule.add_system_to_stage("update", read.system());
+        schedule.add_system_to_stage("update", insert);
+        schedule.add_system_to_stage("update", read);
         schedule.initialize(&mut world, &mut resources);
 
         let mut executor = ParallelExecutor::default();
@@ -694,10 +694,10 @@ mod tests {
             completed_systems.insert(READ_U64_SYSTEM_NAME);
         }
 
-        schedule.add_system_to_stage("A", read_u32.system());
-        schedule.add_system_to_stage("A", write_float.system());
-        schedule.add_system_to_stage("A", read_u32_write_u64.system());
-        schedule.add_system_to_stage("A", read_u64.system());
+        schedule.add_system_to_stage("A", read_u32);
+        schedule.add_system_to_stage("A", write_float);
+        schedule.add_system_to_stage("A", read_u32_write_u64);
+        schedule.add_system_to_stage("A", read_u64);
 
         // B systems
 
@@ -725,9 +725,9 @@ mod tests {
             completed_systems.insert(WRITE_F32_SYSTEM_NAME);
         }
 
-        schedule.add_system_to_stage("B", write_u64.system());
-        schedule.add_system_to_stage("B", thread_local_system.thread_local_system());
-        schedule.add_system_to_stage("B", write_f32.system());
+        schedule.add_system_to_stage("B", write_u64);
+        schedule.add_system_to_stage("B", thread_local_system);
+        schedule.add_system_to_stage("B", write_f32);
 
         // C systems
 
@@ -762,10 +762,10 @@ mod tests {
             completed_systems.insert(WRITE_F64_RES_SYSTEM_NAME);
         }
 
-        schedule.add_system_to_stage("C", read_f64_res.system());
-        schedule.add_system_to_stage("C", read_isize_res.system());
-        schedule.add_system_to_stage("C", read_isize_write_f64_res.system());
-        schedule.add_system_to_stage("C", write_f64_res.system());
+        schedule.add_system_to_stage("C", read_f64_res);
+        schedule.add_system_to_stage("C", read_isize_res);
+        schedule.add_system_to_stage("C", read_isize_write_f64_res);
+        schedule.add_system_to_stage("C", write_f64_res);
         schedule.initialize(&mut world, &mut resources);
 
         fn run_executor_and_validate(

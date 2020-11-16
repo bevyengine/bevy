@@ -95,79 +95,38 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_system(&mut self, system: Box<dyn System>) -> &mut Self {
+    pub fn add_system<Params, SystemType, Sys>(&mut self, system: Sys) -> &mut Self
+    where
+        SystemType: System<Input = (), Output = ()>,
+        Sys: IntoSystem<Params, SystemType>,
+    {
         self.add_system_to_stage(stage::UPDATE, system)
     }
 
-    pub fn add_systems(&mut self, systems: Vec<Box<dyn System>>) -> &mut Self {
-        self.add_systems_to_stage(stage::UPDATE, systems)
-    }
-
-    pub fn init_system(
-        &mut self,
-        build: impl FnMut(&mut Resources) -> Box<dyn System>,
-    ) -> &mut Self {
-        self.init_system_to_stage(stage::UPDATE, build)
-    }
-
-    pub fn init_system_to_stage(
-        &mut self,
-        stage: &'static str,
-        mut build: impl FnMut(&mut Resources) -> Box<dyn System>,
-    ) -> &mut Self {
-        let system = build(&mut self.app.resources);
-        self.add_system_to_stage(stage, system)
-    }
-
-    pub fn add_startup_system_to_stage(
+    pub fn add_startup_system_to_stage<Params, SystemType, Sys>(
         &mut self,
         stage_name: &'static str,
-        system: Box<dyn System>,
-    ) -> &mut Self {
+        system: Sys,
+    ) -> &mut Self
+    where
+        SystemType: System<Input = (), Output = ()>,
+        Sys: IntoSystem<Params, SystemType>,
+    {
         self.app
             .startup_schedule
             .add_system_to_stage(stage_name, system);
         self
     }
 
-    pub fn add_startup_systems_to_stage(
-        &mut self,
-        stage_name: &'static str,
-        systems: Vec<Box<dyn System>>,
-    ) -> &mut Self {
-        for system in systems {
-            self.app
-                .startup_schedule
-                .add_system_to_stage(stage_name, system);
-        }
-        self
-    }
-
-    pub fn add_startup_system(&mut self, system: Box<dyn System>) -> &mut Self {
+    pub fn add_startup_system<Params, SystemType, Sys>(&mut self, system: Sys) -> &mut Self
+    where
+        SystemType: System<Input = (), Output = ()>,
+        Sys: IntoSystem<Params, SystemType>,
+    {
         self.app
             .startup_schedule
             .add_system_to_stage(startup_stage::STARTUP, system);
         self
-    }
-
-    pub fn add_startup_systems(&mut self, systems: Vec<Box<dyn System>>) -> &mut Self {
-        self.add_startup_systems_to_stage(startup_stage::STARTUP, systems)
-    }
-
-    pub fn init_startup_system(
-        &mut self,
-        build: impl FnMut(&mut Resources) -> Box<dyn System>,
-    ) -> &mut Self {
-        self.init_startup_system_to_stage(startup_stage::STARTUP, build)
-    }
-
-    pub fn init_startup_system_to_stage(
-        &mut self,
-        stage: &'static str,
-        mut build: impl FnMut(&mut Resources) -> Box<dyn System>,
-    ) -> &mut Self {
-        let system = build(&mut self.app.resources);
-        self.add_startup_system_to_stage(stage, system)
     }
 
     pub fn add_default_stages(&mut self) -> &mut Self {
@@ -183,34 +142,31 @@ impl AppBuilder {
             .add_stage(stage::LAST)
     }
 
-    pub fn add_system_to_stage(
+    pub fn add_system_to_stage<Params, SystemType, Sys>(
         &mut self,
         stage_name: &'static str,
-        system: Box<dyn System>,
-    ) -> &mut Self {
+        system: Sys,
+    ) -> &mut Self
+    where
+        SystemType: System<Input = (), Output = ()>,
+        Sys: IntoSystem<Params, SystemType>,
+    {
         self.app.schedule.add_system_to_stage(stage_name, system);
         self
     }
 
-    pub fn add_system_to_stage_front(
+    pub fn add_system_to_stage_front<Params, SystemType, Sys>(
         &mut self,
         stage_name: &'static str,
-        system: Box<dyn System>,
-    ) -> &mut Self {
+        system: Sys,
+    ) -> &mut Self
+    where
+        SystemType: System<Input = (), Output = ()>,
+        Sys: IntoSystem<Params, SystemType>,
+    {
         self.app
             .schedule
             .add_system_to_stage_front(stage_name, system);
-        self
-    }
-
-    pub fn add_systems_to_stage(
-        &mut self,
-        stage_name: &'static str,
-        systems: Vec<Box<dyn System>>,
-    ) -> &mut Self {
-        for system in systems {
-            self.app.schedule.add_system_to_stage(stage_name, system);
-        }
         self
     }
 
@@ -219,7 +175,7 @@ impl AppBuilder {
         T: Send + Sync + 'static,
     {
         self.add_resource(Events::<T>::default())
-            .add_system_to_stage(stage::EVENT, Events::<T>::update_system.system())
+            .add_system_to_stage(stage::EVENT, Events::<T>::update_system)
     }
 
     /// Adds a resource to the current [App] and overwrites any resource previously added of the same type.

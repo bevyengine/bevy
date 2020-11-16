@@ -11,10 +11,10 @@ fn main() {
         // The core Bevy plugins already register their components, so you only need this step for custom components.
         .register_component::<ComponentA>()
         .register_component::<ComponentB>()
-        .add_startup_system(save_scene_system.thread_local_system())
-        .add_startup_system(load_scene_system.system())
-        .add_startup_system(infotext_system.system())
-        .add_system(print_system.system())
+        .add_startup_system(save_scene_system)
+        .add_startup_system(load_scene_system)
+        .add_startup_system(infotext_system)
+        .add_system(print_system)
         .run();
 }
 

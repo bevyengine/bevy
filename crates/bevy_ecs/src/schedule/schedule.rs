@@ -1,7 +1,7 @@
 use crate::{
     resource::Resources,
     system::{System, SystemId, ThreadLocalExecution},
-    World,
+    IntoSystem, World,
 };
 use bevy_utils::{HashMap, HashSet};
 use std::{borrow::Cow, fmt};
@@ -11,7 +11,7 @@ use std::{borrow::Cow, fmt};
 /// They are run on a given [World] and [Resources] reference.
 #[derive(Default)]
 pub struct Schedule {
-    pub(crate) stages: HashMap<Cow<'static, str>, Vec<Box<dyn System>>>,
+    pub(crate) stages: HashMap<Cow<'static, str>, Vec<Box<dyn System<Input = (), Output = ()>>>>,
     pub(crate) stage_order: Vec<Cow<'static, str>>,
     pub(crate) system_ids: HashSet<SystemId>,
     generation: usize,
@@ -96,10 +96,39 @@ impl Schedule {
         self.stage_order.insert(target_index, stage);
     }
 
-    pub fn add_system_to_stage(
+    pub fn add_system_to_stage<Params, SystemType, Sys>(
         &mut self,
         stage_name: impl Into<Cow<'static, str>>,
-        system: Box<dyn System>,
+        system: Sys,
+    ) -> &mut Self
+    where
+        SystemType: System<Input = (), Output = ()>,
+        Sys: IntoSystem<Params, SystemType>,
+    {
+        let stage_name = stage_name.into();
+        let systems = self
+            .stages
+            .get_mut(&stage_name)
+            .unwrap_or_else(|| panic!("Stage does not exist: {}", stage_name));
+        let system = system.system();
+        if self.system_ids.contains(&system.id()) {
+            panic!(
+                "System with id {:?} ({}) already exists",
+                system.id(),
+                system.name()
+            );
+        }
+        self.system_ids.insert(system.id());
+        systems.push(Box::new(system));
+
+        self.generation += 1;
+        self
+    }
+
+    pub fn add_boxed_system_to_stage(
+        &mut self,
+        stage_name: impl Into<Cow<'static, str>>,
+        system: Box<dyn System<Input = (), Output = ()>>,
     ) -> &mut Self {
         let stage_name = stage_name.into();
         let systems = self
@@ -120,16 +149,21 @@ impl Schedule {
         self
     }
 
-    pub fn add_system_to_stage_front(
+    pub fn add_system_to_stage_front<Params, SystemType, Sys>(
         &mut self,
         stage_name: impl Into<Cow<'static, str>>,
-        system: Box<dyn System>,
-    ) -> &mut Self {
+        system: Sys,
+    ) -> &mut Self
+    where
+        SystemType: System<Input = (), Output = ()>,
+        Sys: IntoSystem<Params, SystemType>,
+    {
         let stage_name = stage_name.into();
         let systems = self
             .stages
             .get_mut(&stage_name)
             .unwrap_or_else(|| panic!("Stage does not exist: {}", stage_name));
+        let system = system.system();
         if self.system_ids.contains(&system.id()) {
             panic!(
                 "System with id {:?} ({}) already exists",
@@ -138,7 +172,7 @@ impl Schedule {
             );
         }
         self.system_ids.insert(system.id());
-        systems.insert(0, system);
+        systems.insert(0, Box::new(system));
 
         self.generation += 1;
         self
@@ -197,7 +231,10 @@ impl Schedule {
         self.generation
     }
 
-    pub fn run_on_systems(&mut self, mut func: impl FnMut(&mut dyn System)) {
+    pub fn run_on_systems(
+        &mut self,
+        mut func: impl FnMut(&mut dyn System<Input = (), Output = ()>),
+    ) {
         for stage_name in self.stage_order.iter() {
             if let Some(stage_systems) = self.stages.get_mut(stage_name) {
                 for system in stage_systems.iter_mut() {

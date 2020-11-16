@@ -2,7 +2,7 @@ use crate::{
     update_asset_storage_system, Asset, AssetLoader, AssetServer, Handle, HandleId, RefChange,
 };
 use bevy_app::{prelude::Events, AppBuilder};
-use bevy_ecs::{FromResources, IntoSystem, ResMut};
+use bevy_ecs::{FromResources, ResMut};
 use bevy_type_registry::RegisterType;
 use bevy_utils::HashMap;
 use crossbeam_channel::Sender;
@@ -219,14 +219,8 @@ impl AddAsset for AppBuilder {
 
         self.add_resource(assets)
             .register_component::<Handle<T>>()
-            .add_system_to_stage(
-                super::stage::ASSET_EVENTS,
-                Assets::<T>::asset_event_system.system(),
-            )
-            .add_system_to_stage(
-                crate::stage::LOAD_ASSETS,
-                update_asset_storage_system::<T>.system(),
-            )
+            .add_system_to_stage(super::stage::ASSET_EVENTS, Assets::<T>::asset_event_system)
+            .add_system_to_stage(crate::stage::LOAD_ASSETS, update_asset_storage_system::<T>)
             .add_event::<AssetEvent<T>>()
     }
 

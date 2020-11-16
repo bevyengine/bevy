@@ -43,7 +43,7 @@ impl RenderGraph {
         self.system_node_schedule
             .as_mut()
             .unwrap()
-            .add_system_to_stage("update", node.get_system(&mut self.commands));
+            .add_boxed_system_to_stage("update", node.get_system(&mut self.commands));
         self.add_node(name, node)
     }
 

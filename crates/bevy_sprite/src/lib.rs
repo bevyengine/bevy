@@ -26,7 +26,6 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets, Handle};
-use bevy_ecs::IntoSystem;
 use bevy_math::Vec2;
 use bevy_render::{
     mesh::{shape, Mesh},
@@ -45,10 +44,10 @@ impl Plugin for SpritePlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_asset::<ColorMaterial>()
             .add_asset::<TextureAtlas>()
-            .add_system_to_stage(stage::POST_UPDATE, sprite_system.system())
+            .add_system_to_stage(stage::POST_UPDATE, sprite_system)
             .add_system_to_stage(
                 stage::POST_UPDATE,
-                asset_shader_defs_system::<ColorMaterial>.system(),
+                asset_shader_defs_system::<ColorMaterial>,
             );
 
         let resources = app.resources_mut();

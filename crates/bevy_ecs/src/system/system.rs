@@ -19,7 +19,9 @@ impl SystemId {
 }
 
 /// An ECS system that can be added to a [Schedule](crate::Schedule)
-pub trait System<Input = (), Return = ()>: Send + Sync {
+pub trait System: Send + Sync + 'static {
+    type Input;
+    type Output;
     fn name(&self) -> Cow<'static, str>;
     fn id(&self) -> SystemId;
     fn is_initialized(&self) -> bool;
@@ -27,27 +29,38 @@ pub trait System<Input = (), Return = ()>: Send + Sync {
     fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent>;
     fn resource_access(&self) -> &TypeAccess<TypeId>;
     fn thread_local_execution(&self) -> ThreadLocalExecution;
-    unsafe fn run_unsafe(&mut self, input: Input, world: &World, resources: &Resources) -> Option<Return>;
-    fn run(&mut self, input: Input, world: &mut World, resources: &mut Resources) -> Option<Return> {
+    unsafe fn run_unsafe(
+        &mut self,
+        input: Self::Input,
+        world: &World,
+        resources: &Resources,
+    ) -> Option<Self::Output>;
+    fn run(
+        &mut self,
+        input: Self::Input,
+        world: &mut World,
+        resources: &mut Resources,
+    ) -> Option<Self::Output> {
         // SAFE: world and resources are exclusively borrowed
-        unsafe {
-            self.run_unsafe(input, world, resources)
-        }
+        unsafe { self.run_unsafe(input, world, resources) }
     }
     fn run_thread_local(&mut self, world: &mut World, resources: &mut Resources);
     fn initialize(&mut self, _world: &mut World, _resources: &mut Resources) {}
 }
 
-pub struct ChainSystem<AIn, AOut, BOut> {
-    a: Box<dyn System<AIn, AOut>>,
-    b: Box<dyn System<AOut, BOut>>,
+pub struct ChainSystem<SystemA, SystemB> {
+    a: SystemA,
+    b: SystemB,
     name: Cow<'static, str>,
     id: SystemId,
     pub(crate) archetype_component_access: TypeAccess<ArchetypeComponent>,
     pub(crate) resource_access: TypeAccess<TypeId>,
 }
 
-impl<AIn, AOut, BOut>  System<AIn, BOut> for ChainSystem<AIn, AOut, BOut> {
+impl<SystemA: System, SystemB: System<Input = SystemA::Output>> System for ChainSystem<SystemA, SystemB> {
+    type Input = SystemA::Input;
+    type Output = SystemB::Output;
+
     fn name(&self) -> Cow<'static, str> {
         self.name.clone()
     }
@@ -66,7 +79,8 @@ impl<AIn, AOut, BOut>  System<AIn, BOut> for ChainSystem<AIn, AOut, BOut> {
         self.a.update(world);
         self.b.update(world);
 
-        self.archetype_component_access.union(self.a.archetype_component_access());
+        self.archetype_component_access
+            .union(self.a.archetype_component_access());
         self.resource_access.union(self.b.resource_access());
     }
 
@@ -82,7 +96,12 @@ impl<AIn, AOut, BOut>  System<AIn, BOut> for ChainSystem<AIn, AOut, BOut> {
         ThreadLocalExecution::NextFlush
     }
 
-    unsafe fn run_unsafe(&mut self, input: AIn, world: &World, resources: &Resources) -> Option<BOut> {
+    unsafe fn run_unsafe(
+        &mut self,
+        input: Self::Input,
+        world: &World,
+        resources: &Resources,
+    ) -> Option<Self::Output> {
         let out = self.a.run_unsafe(input, world, resources).unwrap();
         self.b.run_unsafe(out, world, resources)
     }
@@ -93,75 +112,82 @@ impl<AIn, AOut, BOut>  System<AIn, BOut> for ChainSystem<AIn, AOut, BOut> {
     }
 }
 
-pub trait AsChainSystem<AIn, AOut, BOut> {
-    fn chain(self, system: Box<dyn System<AOut, BOut>>) -> Box<dyn System<AIn, BOut>>;
+pub trait AsChainSystem<SystemB: System<Input = Self::Output>>: System + Sized {
+    fn chain(self, system: SystemB) -> ChainSystem<Self, SystemB>;
 }
 
-impl<AIn: 'static, AOut: 'static, BOut: 'static>  AsChainSystem<AIn, AOut, BOut> for Box<dyn System<AIn, AOut>> {
-    fn chain(self, system: Box<dyn System<AOut, BOut>>) -> Box<dyn System<AIn, BOut>> {
-        Box::new(ChainSystem {
+impl<SystemA: System, SystemB: System<Input = SystemA::Output>> AsChainSystem<SystemB> for SystemA {
+    fn chain(self, system: SystemB) -> ChainSystem<SystemA, SystemB> {
+        ChainSystem {
             name: Cow::Owned(format!("Chain({}, {})", self.name(), system.name())),
             a: self,
             b: system,
             archetype_component_access: Default::default(),
             resource_access: Default::default(),
             id: SystemId::new(),
-        })
+        }
     }
 }
 
-pub struct FilledInputSystem<Input: Clone, Output> {
-    system: Box<dyn System<Input, Output>>,
-    input: Input,
-}
+// pub struct FilledInputSystem<Input: Clone, Output> {
+//     system: Box<dyn System<Input, Output>>,
+//     input: Input,
+// }
 
-impl<Input: Clone + Send + Sync, Output> System<(), Output> for FilledInputSystem<Input, Output> {
-    fn name(&self) -> Cow<'static, str> {
-        self.system.name()
-    }
+// impl<Input: Clone + Send + Sync, Output> System<(), Output> for FilledInputSystem<Input, Output> {
+//     fn name(&self) -> Cow<'static, str> {
+//         self.system.name()
+//     }
 
-    fn id(&self) -> SystemId {
-        self.system.id()
-    }
+//     fn id(&self) -> SystemId {
+//         self.system.id()
+//     }
 
-    fn is_initialized(&self) -> bool {
-        self.system.is_initialized()
-    }
+//     fn is_initialized(&self) -> bool {
+//         self.system.is_initialized()
+//     }
 
-    fn update(&mut self, world: &World) {
-        self.system.update(world);
-    }
+//     fn update(&mut self, world: &World) {
+//         self.system.update(world);
+//     }
 
-    fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent> {
-        self.system.archetype_component_access()
-    }
+//     fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent> {
+//         self.system.archetype_component_access()
+//     }
 
-    fn resource_access(&self) -> &TypeAccess<TypeId> {
-        self.system.resource_access()
-    }
+//     fn resource_access(&self) -> &TypeAccess<TypeId> {
+//         self.system.resource_access()
+//     }
 
-    fn thread_local_execution(&self) -> ThreadLocalExecution {
-        self.system.thread_local_execution()
-    }
+//     fn thread_local_execution(&self) -> ThreadLocalExecution {
+//         self.system.thread_local_execution()
+//     }
 
-    unsafe fn run_unsafe(&mut self, _input: (), world: &World, resources: &Resources) -> Option<Output> {
-        self.system.run_unsafe(self.input.clone(), world, resources)
-    }
+//     unsafe fn run_unsafe(
+//         &mut self,
+//         _input: (),
+//         world: &World,
+//         resources: &Resources,
+//     ) -> Option<Output> {
+//         self.system.run_unsafe(self.input.clone(), world, resources)
+//     }
 
-    fn run_thread_local(&mut self, world: &mut World, resources: &mut Resources) {
-        self.system.run_thread_local(world, resources);
-    }
-}
+//     fn run_thread_local(&mut self, world: &mut World, resources: &mut Resources) {
+//         self.system.run_thread_local(world, resources);
+//     }
+// }
 
-pub trait FillSystemInput<Input, Output> {
-    fn input(self, input: Input) -> Box<dyn System<(), Output>>;
-}
+// pub trait FillSystemInput<Input, Output> {
+//     fn input(self, input: Input) -> Box<dyn System<(), Output>>;
+// }
 
-impl<Input: Clone + Send + Sync + 'static, Output: 'static> FillSystemInput<Input, Output> for Box<dyn System<Input, Output>> {
-    fn input(self, input: Input) -> Box<dyn System<(), Output>> {
-        Box::new(FilledInputSystem {
-            system: self,
-            input,
-        })
-    }
-}
+// impl<Input: Clone + Send + Sync + 'static, Output: 'static> FillSystemInput<Input, Output>
+//     for Box<dyn System<Input, Output>>
+// {
+//     fn input(self, input: Input) -> Box<dyn System<(), Output>> {
+//         Box::new(FilledInputSystem {
+//             system: self,
+//             input,
+//         })
+//     }
+// }
