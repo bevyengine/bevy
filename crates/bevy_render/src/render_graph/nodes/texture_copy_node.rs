@@ -6,7 +6,7 @@ use crate::{
 use bevy_app::prelude::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets};
 use bevy_ecs::{Resources, World};
-use bevy_utils::HashSet;
+use bevy_utils::{AHashExt, HashSet};
 
 #[derive(Default)]
 pub struct TextureCopyNode {
