@@ -30,7 +30,7 @@ impl Node for TextureCopyNode {
                 AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
                     if let Some(texture) = textures.get(handle) {
                         if copied_textures.contains(&handle.id) {
-                            return;
+                            continue;
                         }
 
                         let texture_descriptor: TextureDescriptor = texture.into();
