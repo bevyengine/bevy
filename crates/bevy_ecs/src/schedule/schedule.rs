@@ -96,32 +96,16 @@ impl Schedule {
         self.stage_order.insert(target_index, stage);
     }
 
-    pub fn add_system_to_stage<Params, SystemType, Sys>(
+    pub fn add_system_to_stage<S, Params, IntoS>(
         &mut self,
         stage_name: impl Into<Cow<'static, str>>,
-        system: Sys,
+        system: IntoS,
     ) -> &mut Self
     where
-        SystemType: System<Input = (), Output = ()>,
-        Sys: IntoSystem<Params, SystemType>,
+        S: System<Input = (), Output = ()>,
+        IntoS: IntoSystem<Params, S>,
     {
-        let stage_name = stage_name.into();
-        let systems = self
-            .stages
-            .get_mut(&stage_name)
-            .unwrap_or_else(|| panic!("Stage does not exist: {}", stage_name));
-        let system = system.system();
-        if self.system_ids.contains(&system.id()) {
-            panic!(
-                "System with id {:?} ({}) already exists",
-                system.id(),
-                system.name()
-            );
-        }
-        self.system_ids.insert(system.id());
-        systems.push(Box::new(system));
-
-        self.generation += 1;
+        self.add_system_to_stage_internal(stage_name.into(), Box::new(system.system()));
         self
     }
 
@@ -129,8 +113,15 @@ impl Schedule {
         &mut self,
         stage_name: impl Into<Cow<'static, str>>,
         system: Box<dyn System<Input = (), Output = ()>>,
-    ) -> &mut Self {
-        let stage_name = stage_name.into();
+    ) {
+        self.add_system_to_stage_internal(stage_name.into(), system);
+    }
+
+    fn add_system_to_stage_internal(
+        &mut self,
+        stage_name: Cow<'static, str>,
+        system: Box<dyn System<Input = (), Output = ()>>,
+    ) {
         let systems = self
             .stages
             .get_mut(&stage_name)
@@ -146,24 +137,30 @@ impl Schedule {
         systems.push(system);
 
         self.generation += 1;
+    }
+
+    pub fn add_system_to_stage_front<S, Params, IntoS>(
+        &mut self,
+        stage_name: impl Into<Cow<'static, str>>,
+        system: IntoS,
+    ) -> &mut Self
+    where
+        S: System<Input = (), Output = ()>,
+        IntoS: IntoSystem<Params, S>,
+    {
+        self.add_system_to_stage_front_internal(stage_name.into(), Box::new(system.system()));
         self
     }
 
-    pub fn add_system_to_stage_front<Params, SystemType, Sys>(
+    fn add_system_to_stage_front_internal(
         &mut self,
-        stage_name: impl Into<Cow<'static, str>>,
-        system: Sys,
-    ) -> &mut Self
-    where
-        SystemType: System<Input = (), Output = ()>,
-        Sys: IntoSystem<Params, SystemType>,
-    {
-        let stage_name = stage_name.into();
+        stage_name: Cow<'static, str>,
+        system: Box<dyn System<Input = (), Output = ()>>,
+    ) {
         let systems = self
             .stages
             .get_mut(&stage_name)
             .unwrap_or_else(|| panic!("Stage does not exist: {}", stage_name));
-        let system = system.system();
         if self.system_ids.contains(&system.id()) {
             panic!(
                 "System with id {:?} ({}) already exists",
@@ -172,10 +169,9 @@ impl Schedule {
             );
         }
         self.system_ids.insert(system.id());
-        systems.insert(0, Box::new(system));
+        systems.insert(0, system);
 
         self.generation += 1;
-        self
     }
 
     pub fn run(&mut self, world: &mut World, resources: &mut Resources) {

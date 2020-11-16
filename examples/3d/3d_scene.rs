@@ -8,7 +8,6 @@ fn main() {
         .run();
 }
 
-
 /// set up a simple 3D scene
 fn setup(
     commands: &mut Commands,

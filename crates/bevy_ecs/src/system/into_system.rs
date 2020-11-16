@@ -141,6 +141,13 @@ pub trait IntoSystem<Params, SystemType: System> {
     fn system(self) -> SystemType;
 }
 
+// Systems implicitly implement IntoSystem
+impl<Sys: System> IntoSystem<(), Sys> for Sys {
+    fn system(self) -> Sys {
+        self
+    }
+}
+
 macro_rules! impl_into_system {
     ($($param: ident),*) => {
         impl<Func, Input, Return, $($param: SystemParam<Input>),*> IntoSystem<($($param,)*), FuncSystem<Input, Return>> for Func

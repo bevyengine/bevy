@@ -19,10 +19,8 @@ impl<Input> SystemParam<Input> for In<Input> {
         Some(In(input.take().unwrap()))
     }
 
-    fn init(_system_state: &mut SystemState, _world: &World, _resources: &mut Resources) {
-    }
+    fn init(_system_state: &mut SystemState, _world: &World, _resources: &mut Resources) {}
 }
-
 
 pub trait SystemParam<Input>: Sized {
     fn init(system_state: &mut SystemState, world: &World, resources: &mut Resources);

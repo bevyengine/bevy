@@ -120,14 +120,8 @@ impl Plugin for RenderPlugin {
             .init_resource::<TextureResourceSystemState>()
             .init_resource::<AssetRenderResourceBindings>()
             .init_resource::<ActiveCameras>()
-            .add_system_to_stage(
-                bevy_app::stage::PRE_UPDATE,
-                draw::clear_draw_system,
-            )
-            .add_system_to_stage(
-                bevy_app::stage::POST_UPDATE,
-                camera::active_cameras_system,
-            )
+            .add_system_to_stage(bevy_app::stage::PRE_UPDATE, draw::clear_draw_system)
+            .add_system_to_stage(bevy_app::stage::POST_UPDATE, camera::active_cameras_system)
             .add_system_to_stage(
                 bevy_app::stage::POST_UPDATE,
                 camera::camera_system::<OrthographicProjection>,
@@ -142,23 +136,14 @@ impl Plugin for RenderPlugin {
                 camera::visible_entities_system,
             )
             // TODO: turn these "resource systems" into graph nodes and remove the RENDER_RESOURCE stage
-            .add_system_to_stage(
-                stage::RENDER_RESOURCE,
-                mesh::mesh_resource_provider_system,
-            )
-            .add_system_to_stage(
-                stage::RENDER_RESOURCE,
-                Texture::texture_resource_system,
-            )
+            .add_system_to_stage(stage::RENDER_RESOURCE, mesh::mesh_resource_provider_system)
+            .add_system_to_stage(stage::RENDER_RESOURCE, Texture::texture_resource_system)
             .add_system_to_stage(
                 stage::RENDER_GRAPH_SYSTEMS,
                 render_graph::render_graph_schedule_executor_system,
             )
             .add_system_to_stage(stage::DRAW, pipeline::draw_render_pipelines_system)
-            .add_system_to_stage(
-                stage::POST_RENDER,
-                shader::clear_shader_defs_system,
-            );
+            .add_system_to_stage(stage::POST_RENDER, shader::clear_shader_defs_system);
 
         if app.resources().get::<Msaa>().is_none() {
             app.init_resource::<Msaa>();

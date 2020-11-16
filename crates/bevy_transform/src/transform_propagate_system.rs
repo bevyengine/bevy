@@ -50,7 +50,7 @@ fn propagate_recursive(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::hierarchy::{BuildChildren, parent_update_system};
+    use crate::hierarchy::{parent_update_system, BuildChildren};
     use bevy_ecs::{Resources, Schedule, World};
     use bevy_math::Vec3;
 
@@ -112,7 +112,6 @@ mod test {
         schedule.add_stage("update");
         schedule.add_system_to_stage("update", parent_update_system);
         schedule.add_system_to_stage("update", transform_propagate_system);
-
 
         // Root entity
         let mut commands = Commands::default();

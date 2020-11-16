@@ -6,8 +6,7 @@ use crate::{
 };
 use std::{any::TypeId, borrow::Cow};
 
-pub struct ThreadLocalSystemFn
-{
+pub struct ThreadLocalSystemFn {
     pub func: Box<dyn FnMut(&mut World, &mut Resources) + Send + Sync + 'static>,
     pub resource_access: TypeAccess<TypeId>,
     pub archetype_component_access: TypeAccess<ArchetypeComponent>,
@@ -15,10 +14,10 @@ pub struct ThreadLocalSystemFn
     pub id: SystemId,
 }
 
-impl System for ThreadLocalSystemFn
-{
+impl System for ThreadLocalSystemFn {
     type Input = ();
     type Output = ();
+
     fn name(&self) -> Cow<'static, str> {
         self.name.clone()
     }

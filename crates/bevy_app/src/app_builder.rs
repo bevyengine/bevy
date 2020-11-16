@@ -95,22 +95,22 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_system<Params, SystemType, Sys>(&mut self, system: Sys) -> &mut Self
+    pub fn add_system<S, Params, IntoS>(&mut self, system: IntoS) -> &mut Self
     where
-        SystemType: System<Input = (), Output = ()>,
-        Sys: IntoSystem<Params, SystemType>,
+        S: System<Input = (), Output = ()>,
+        IntoS: IntoSystem<Params, S>,
     {
         self.add_system_to_stage(stage::UPDATE, system)
     }
 
-    pub fn add_startup_system_to_stage<Params, SystemType, Sys>(
+    pub fn add_startup_system_to_stage<S, Params, IntoS>(
         &mut self,
         stage_name: &'static str,
-        system: Sys,
+        system: IntoS,
     ) -> &mut Self
     where
-        SystemType: System<Input = (), Output = ()>,
-        Sys: IntoSystem<Params, SystemType>,
+        S: System<Input = (), Output = ()>,
+        IntoS: IntoSystem<Params, S>,
     {
         self.app
             .startup_schedule
@@ -118,10 +118,10 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_startup_system<Params, SystemType, Sys>(&mut self, system: Sys) -> &mut Self
+    pub fn add_startup_system<S, Params, IntoS>(&mut self, system: IntoS) -> &mut Self
     where
-        SystemType: System<Input = (), Output = ()>,
-        Sys: IntoSystem<Params, SystemType>,
+        S: System<Input = (), Output = ()>,
+        IntoS: IntoSystem<Params, S>,
     {
         self.app
             .startup_schedule
@@ -142,31 +142,31 @@ impl AppBuilder {
             .add_stage(stage::LAST)
     }
 
-    pub fn add_system_to_stage<Params, SystemType, Sys>(
+    pub fn add_system_to_stage<S, Params, IntoS>(
         &mut self,
         stage_name: &'static str,
-        system: Sys,
+        system: IntoS,
     ) -> &mut Self
     where
-        SystemType: System<Input = (), Output = ()>,
-        Sys: IntoSystem<Params, SystemType>,
+        S: System<Input = (), Output = ()>,
+        IntoS: IntoSystem<Params, S>,
     {
         self.app.schedule.add_system_to_stage(stage_name, system);
         self
     }
 
-    pub fn add_system_to_stage_front<Params, SystemType, Sys>(
+    pub fn add_system_to_stage_front<S, Params, IntoS>(
         &mut self,
         stage_name: &'static str,
-        system: Sys,
+        system: IntoS,
     ) -> &mut Self
     where
-        SystemType: System<Input = (), Output = ()>,
-        Sys: IntoSystem<Params, SystemType>,
+        S: System<Input = (), Output = ()>,
+        IntoS: IntoSystem<Params, S>,
     {
         self.app
             .schedule
-            .add_system_to_stage_front(stage_name, system);
+            .add_system_to_stage_front(stage_name, system.system());
         self
     }
 

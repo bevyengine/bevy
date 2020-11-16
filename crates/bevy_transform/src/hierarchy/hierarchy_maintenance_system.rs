@@ -67,9 +67,7 @@ pub fn parent_update_system(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{
-        hierarchy::BuildChildren, transform_propagate_system::transform_propagate_system,
-    };
+    use crate::{hierarchy::BuildChildren, transform_propagate_system::transform_propagate_system};
     use bevy_ecs::{Resources, Schedule, World};
     use bevy_math::Vec3;
 
