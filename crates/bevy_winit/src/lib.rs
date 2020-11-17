@@ -10,7 +10,7 @@ pub use winit_config::*;
 pub use winit_windows::*;
 
 use bevy_app::{prelude::*, AppExit};
-use bevy_ecs::{IntoThreadLocalSystem, Resources, World};
+use bevy_ecs::{Resources, World};
 use bevy_math::Vec2;
 use bevy_utils::tracing::trace;
 use bevy_window::{
@@ -36,7 +36,7 @@ impl Plugin for WinitPlugin {
             // .add_event::<winit::event::WindowEvent>()
             .init_resource::<WinitWindows>()
             .set_runner(winit_runner)
-            .add_system(change_window.thread_local_system());
+            .add_system(change_window);
     }
 }
 

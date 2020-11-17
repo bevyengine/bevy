@@ -1,5 +1,5 @@
 use crate::components::*;
-use bevy_ecs::{Changed, Commands, Entity, IntoSystem, Query, System, Without};
+use bevy_ecs::{Changed, Commands, Entity, Query, Without};
 use bevy_utils::HashMap;
 use smallvec::SmallVec;
 
@@ -64,15 +64,10 @@ pub fn parent_update_system(
         commands.insert_one(*k, Children::with(v));
     });
 }
-
-pub fn hierarchy_maintenance_systems() -> Vec<Box<dyn System>> {
-    vec![parent_update_system.system()]
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{hierarchy::BuildChildren, transform_systems};
+    use crate::{hierarchy::BuildChildren, transform_propagate_system::transform_propagate_system};
     use bevy_ecs::{Resources, Schedule, World};
     use bevy_math::Vec3;
 
@@ -83,9 +78,8 @@ mod test {
 
         let mut schedule = Schedule::default();
         schedule.add_stage("update");
-        for system in transform_systems() {
-            schedule.add_system_to_stage("update", system);
-        }
+        schedule.add_system_to_stage("update", parent_update_system);
+        schedule.add_system_to_stage("update", transform_propagate_system);
 
         // Add parent entities
         let mut commands = Commands::default();

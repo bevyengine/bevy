@@ -31,7 +31,6 @@ pub mod prelude {
 }
 
 use bevy_app::{prelude::Plugin, AppBuilder};
-use bevy_ecs::IntoSystem;
 use bevy_type_registry::RegisterType;
 
 /// Adds support for Assets to an App. Assets are typed collections with change tracking, which are added as App Resources.
@@ -80,13 +79,13 @@ impl Plugin for AssetPlugin {
             .register_property::<HandleId>()
             .add_system_to_stage(
                 bevy_app::stage::PRE_UPDATE,
-                asset_server::free_unused_assets_system.system(),
+                asset_server::free_unused_assets_system,
             );
 
         #[cfg(all(
             feature = "filesystem_watcher",
             all(not(target_arch = "wasm32"), not(target_os = "android"))
         ))]
-        app.add_system_to_stage(stage::LOAD_ASSETS, io::filesystem_watcher_system.system());
+        app.add_system_to_stage(stage::LOAD_ASSETS, io::filesystem_watcher_system);
     }
 }

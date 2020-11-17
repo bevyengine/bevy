@@ -6,21 +6,39 @@ use crate::{
 use parking_lot::Mutex;
 use std::{any::TypeId, sync::Arc};
 
-pub trait SystemParam: Sized {
+pub struct In<Input>(pub Input);
+
+impl<Input> SystemParam<Input> for In<Input> {
+    #[inline]
+    unsafe fn get_param(
+        input: &mut Option<Input>,
+        _system_state: &mut SystemState,
+        _world: &World,
+        _resources: &Resources,
+    ) -> Option<Self> {
+        Some(In(input.take().unwrap()))
+    }
+
+    fn init(_system_state: &mut SystemState, _world: &World, _resources: &mut Resources) {}
+}
+
+pub trait SystemParam<Input>: Sized {
     fn init(system_state: &mut SystemState, world: &World, resources: &mut Resources);
     /// # Safety
     /// This call might access any of the input parameters in an unsafe way. Make sure the data access is safe in
     /// the context of the system scheduler
     unsafe fn get_param(
+        input: &mut Option<Input>,
         system_state: &mut SystemState,
         world: &World,
         resources: &Resources,
     ) -> Option<Self>;
 }
 
-impl<'a, Q: WorldQuery, F: QueryFilter> SystemParam for Query<'a, Q, F> {
+impl<'a, Q: WorldQuery, F: QueryFilter, Input> SystemParam<Input> for Query<'a, Q, F> {
     #[inline]
     unsafe fn get_param(
+        _input: &mut Option<Input>,
         system_state: &mut SystemState,
         world: &World,
         _resources: &Resources,
@@ -45,9 +63,10 @@ impl<'a, Q: WorldQuery, F: QueryFilter> SystemParam for Query<'a, Q, F> {
     }
 }
 
-impl<T: QueryTuple> SystemParam for QuerySet<T> {
+impl<T: QueryTuple, Input> SystemParam<Input> for QuerySet<T> {
     #[inline]
     unsafe fn get_param(
+        _input: &mut Option<Input>,
         system_state: &mut SystemState,
         world: &World,
         _resources: &Resources,
@@ -71,7 +90,7 @@ impl<T: QueryTuple> SystemParam for QuerySet<T> {
     }
 }
 
-impl<'a> SystemParam for &'a mut Commands {
+impl<'a, Input> SystemParam<Input> for &'a mut Commands {
     fn init(system_state: &mut SystemState, world: &World, _resources: &mut Resources) {
         system_state
             .commands
@@ -80,6 +99,7 @@ impl<'a> SystemParam for &'a mut Commands {
 
     #[inline]
     unsafe fn get_param(
+        _input: &mut Option<Input>,
         system_state: &mut SystemState,
         _world: &World,
         _resources: &Resources,
@@ -89,7 +109,7 @@ impl<'a> SystemParam for &'a mut Commands {
     }
 }
 
-impl SystemParam for Arc<Mutex<Commands>> {
+impl<Input> SystemParam<Input> for Arc<Mutex<Commands>> {
     fn init(system_state: &mut SystemState, world: &World, _resources: &mut Resources) {
         system_state.arc_commands.get_or_insert_with(|| {
             let mut commands = Commands::default();
@@ -100,6 +120,7 @@ impl SystemParam for Arc<Mutex<Commands>> {
 
     #[inline]
     unsafe fn get_param(
+        _input: &mut Option<Input>,
         system_state: &mut SystemState,
         _world: &World,
         _resources: &Resources,
@@ -108,7 +129,7 @@ impl SystemParam for Arc<Mutex<Commands>> {
     }
 }
 
-impl<'a, T: Resource> SystemParam for Res<'a, T> {
+impl<'a, T: Resource, Input> SystemParam<Input> for Res<'a, T> {
     fn init(system_state: &mut SystemState, _world: &World, _resources: &mut Resources) {
         if system_state.resource_access.is_write(&TypeId::of::<T>()) {
             panic!(
@@ -123,6 +144,7 @@ impl<'a, T: Resource> SystemParam for Res<'a, T> {
 
     #[inline]
     unsafe fn get_param(
+        _input: &mut Option<Input>,
         _system_state: &mut SystemState,
         _world: &World,
         resources: &Resources,
@@ -133,7 +155,7 @@ impl<'a, T: Resource> SystemParam for Res<'a, T> {
     }
 }
 
-impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
+impl<'a, T: Resource, Input> SystemParam<Input> for ResMut<'a, T> {
     fn init(system_state: &mut SystemState, _world: &World, _resources: &mut Resources) {
         // If a system already has access to the resource in another parameter, then we fail early.
         // e.g. `fn(Res<Foo>, ResMut<Foo>)` or `fn(ResMut<Foo>, ResMut<Foo>)` must not be allowed.
@@ -153,6 +175,7 @@ impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
 
     #[inline]
     unsafe fn get_param(
+        _input: &mut Option<Input>,
         _system_state: &mut SystemState,
         _world: &World,
         resources: &Resources,
@@ -163,7 +186,7 @@ impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     }
 }
 
-impl<'a, T: Resource> SystemParam for ChangedRes<'a, T> {
+impl<'a, T: Resource, Input> SystemParam<Input> for ChangedRes<'a, T> {
     fn init(system_state: &mut SystemState, _world: &World, _resources: &mut Resources) {
         if system_state.resource_access.is_write(&TypeId::of::<T>()) {
             panic!(
@@ -178,6 +201,7 @@ impl<'a, T: Resource> SystemParam for ChangedRes<'a, T> {
 
     #[inline]
     unsafe fn get_param(
+        _input: &mut Option<Input>,
         _system_state: &mut SystemState,
         _world: &World,
         resources: &Resources,
@@ -192,7 +216,7 @@ impl<'a, T: Resource> SystemParam for ChangedRes<'a, T> {
     }
 }
 
-impl<'a, T: Resource + FromResources> SystemParam for Local<'a, T> {
+impl<'a, T: Resource + FromResources, Input> SystemParam<Input> for Local<'a, T> {
     fn init(system_state: &mut SystemState, _world: &World, resources: &mut Resources) {
         if system_state
             .local_resource_access
@@ -220,6 +244,7 @@ impl<'a, T: Resource + FromResources> SystemParam for Local<'a, T> {
 
     #[inline]
     unsafe fn get_param(
+        _input: &mut Option<Input>,
         system_state: &mut SystemState,
         _world: &World,
         resources: &Resources,
@@ -231,38 +256,40 @@ impl<'a, T: Resource + FromResources> SystemParam for Local<'a, T> {
 macro_rules! impl_system_param_tuple {
     ($($param: ident),*) => {
         #[allow(unused_variables)]
-        impl<$($param: SystemParam),*> SystemParam for ($($param,)*) {
+        impl<Input, $($param: SystemParam<Input>),*> SystemParam<Input> for ($($param,)*) {
             fn init(system_state: &mut SystemState, world: &World, resources: &mut Resources) {
                 $($param::init(system_state, world, resources);)*
             }
 
             #[inline]
             unsafe fn get_param(
+                input: &mut Option<Input>,
                 system_state: &mut SystemState,
                 world: &World,
                 resources: &Resources,
             ) -> Option<Self> {
-                Some(($($param::get_param(system_state, world, resources)?,)*))
+                Some(($($param::get_param(input, system_state, world, resources)?,)*))
             }
         }
 
         #[allow(unused_variables)]
         #[allow(unused_mut)]
         #[allow(non_snake_case)]
-        impl<$($param: SystemParam),*> SystemParam for Or<($(Option<$param>,)*)> {
+        impl<Input, $($param: SystemParam<Input>),*> SystemParam<Input> for Or<($(Option<$param>,)*)> {
             fn init(system_state: &mut SystemState, world: &World, resources: &mut Resources) {
                 $($param::init(system_state, world, resources);)*
             }
 
             #[inline]
             unsafe fn get_param(
+                input: &mut Option<Input>,
                 system_state: &mut SystemState,
                 world: &World,
                 resources: &Resources,
             ) -> Option<Self> {
                 let mut has_some = false;
                 $(
-                    let $param = $param::get_param(system_state, world, resources);
+                    let $param = $param::get_param(input, system_state, world, resources);
                     if $param.is_some() {
                         has_some = true;
                     }

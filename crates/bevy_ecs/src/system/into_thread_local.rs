@@ -2,26 +2,22 @@ pub use super::Query;
 use crate::{
     resource::Resources,
     system::{System, SystemId, ThreadLocalExecution},
-    ArchetypeComponent, TypeAccess, World,
+    ArchetypeComponent, IntoSystem, TypeAccess, World,
 };
 use std::{any::TypeId, borrow::Cow};
 
-#[derive(Debug)]
-pub(crate) struct ThreadLocalSystemFn<Func>
-where
-    Func: FnMut(&mut World, &mut Resources) + Send + Sync,
-{
-    pub func: Func,
+pub struct ThreadLocalSystemFn {
+    pub func: Box<dyn FnMut(&mut World, &mut Resources) + Send + Sync + 'static>,
     pub resource_access: TypeAccess<TypeId>,
     pub archetype_component_access: TypeAccess<ArchetypeComponent>,
     pub name: Cow<'static, str>,
     pub id: SystemId,
 }
 
-impl<Func> System for ThreadLocalSystemFn<Func>
-where
-    Func: FnMut(&mut World, &mut Resources) + Send + Sync,
-{
+impl System for ThreadLocalSystemFn {
+    type Input = ();
+    type Output = ();
+
     fn name(&self) -> Cow<'static, str> {
         self.name.clone()
     }
@@ -40,7 +36,14 @@ where
         ThreadLocalExecution::Immediate
     }
 
-    fn run(&mut self, _world: &World, _resources: &Resources) {}
+    unsafe fn run_unsafe(
+        &mut self,
+        _input: (),
+        _world: &World,
+        _resources: &Resources,
+    ) -> Option<()> {
+        Some(())
+    }
 
     fn run_thread_local(&mut self, world: &mut World, resources: &mut Resources) {
         (self.func)(world, resources);
@@ -57,22 +60,17 @@ where
     }
 }
 
-/// Converts `Self` into a thread local system
-pub trait IntoThreadLocalSystem {
-    fn thread_local_system(self) -> Box<dyn System>;
-}
-
-impl<F> IntoThreadLocalSystem for F
+impl<F> IntoSystem<(&mut World, &mut Resources), ThreadLocalSystemFn> for F
 where
     F: FnMut(&mut World, &mut Resources) + Send + Sync + 'static,
 {
-    fn thread_local_system(mut self) -> Box<dyn System> {
-        Box::new(ThreadLocalSystemFn {
-            func: move |world, resources| (self)(world, resources),
+    fn system(mut self) -> ThreadLocalSystemFn {
+        ThreadLocalSystemFn {
+            func: Box::new(move |world, resources| (self)(world, resources)),
             name: core::any::type_name::<F>().into(),
             id: SystemId::new(),
             resource_access: TypeAccess::default(),
             archetype_component_access: TypeAccess::default(),
-        })
+        }
     }
 }

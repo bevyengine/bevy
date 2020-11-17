@@ -25,7 +25,6 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::IntoSystem;
 use bevy_render::render_graph::RenderGraph;
 use update::ui_z_system;
 
@@ -40,13 +39,13 @@ impl Plugin for UiPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<FlexSurface>()
             .add_stage_before(bevy_app::stage::POST_UPDATE, stage::UI)
-            .add_system_to_stage(bevy_app::stage::PRE_UPDATE, ui_focus_system.system())
+            .add_system_to_stage(bevy_app::stage::PRE_UPDATE, ui_focus_system)
             // add these stages to front because these must run before transform update systems
-            .add_system_to_stage(stage::UI, widget::text_system.system())
-            .add_system_to_stage(stage::UI, widget::image_node_system.system())
-            .add_system_to_stage(stage::UI, ui_z_system.system())
-            .add_system_to_stage(stage::UI, flex_node_system.system())
-            .add_system_to_stage(bevy_render::stage::DRAW, widget::draw_text_system.system());
+            .add_system_to_stage(stage::UI, widget::text_system)
+            .add_system_to_stage(stage::UI, widget::image_node_system)
+            .add_system_to_stage(stage::UI, ui_z_system)
+            .add_system_to_stage(stage::UI, flex_node_system)
+            .add_system_to_stage(bevy_render::stage::DRAW, widget::draw_text_system);
 
         let resources = app.resources();
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();

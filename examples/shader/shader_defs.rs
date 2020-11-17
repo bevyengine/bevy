@@ -16,11 +16,8 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .add_asset::<MyMaterial>()
-        .add_startup_system(setup.system())
-        .add_system_to_stage(
-            stage::POST_UPDATE,
-            asset_shader_defs_system::<MyMaterial>.system(),
-        )
+        .add_startup_system(setup)
+        .add_system_to_stage(stage::POST_UPDATE, asset_shader_defs_system::<MyMaterial>)
         .run();
 }
 

@@ -408,23 +408,24 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     }
 
     let generics = ast.generics;
-    let (impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     let struct_name = &ast.ident;
 
     TokenStream::from(quote! {
-        impl #impl_generics #path::SystemParam for #struct_name#ty_generics {
+        impl #impl_generics #path::SystemParam<()> for #struct_name#ty_generics #where_clause {
             fn init(system_state: &mut #path::SystemState, world: &#path::World, resources: &mut #path::Resources) {
-                #(<#field_types>::init(system_state, world, resources);)*
+                #(<#field_types as SystemParam<()>>::init(system_state, world, resources);)*
             }
 
             unsafe fn get_param(
+                input: &mut Option<()>,
                 system_state: &mut #path::SystemState,
                 world: &#path::World,
                 resources: &#path::Resources,
             ) -> Option<Self> {
                 Some(#struct_name {
-                    #(#fields: <#field_types>::get_param(system_state, world, resources)?,)*
+                    #(#fields: <#field_types as SystemParam<()>>::get_param(input, system_state, world, resources)?,)*
                     #(#ignored_fields: <#ignored_field_types>::default(),)*
                 })
             }

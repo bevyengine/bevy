@@ -17,7 +17,6 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
-use bevy_ecs::IntoThreadLocalSystem;
 
 #[derive(Default)]
 pub struct ScenePlugin;
@@ -31,6 +30,6 @@ impl Plugin for ScenePlugin {
             .init_asset_loader::<SceneLoader>()
             .init_resource::<SceneSpawner>()
             .add_stage_after(stage::EVENT, SCENE_STAGE)
-            .add_system_to_stage(SCENE_STAGE, scene_spawner_system.thread_local_system());
+            .add_system_to_stage(SCENE_STAGE, scene_spawner_system);
     }
 }
