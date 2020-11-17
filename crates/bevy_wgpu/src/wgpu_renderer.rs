@@ -17,7 +17,7 @@ pub struct WgpuRenderer {
     pub queue: wgpu::Queue,
     pub window_resized_event_reader: EventReader<WindowResized>,
     pub window_created_event_reader: EventReader<WindowCreated>,
-    pub intialized: bool,
+    pub initialized: bool,
 }
 
 impl WgpuRenderer {
@@ -59,7 +59,7 @@ impl WgpuRenderer {
             queue,
             window_resized_event_reader: Default::default(),
             window_created_event_reader: Default::default(),
-            intialized: false,
+            initialized: false,
         }
     }
 

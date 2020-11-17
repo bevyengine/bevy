@@ -20,7 +20,7 @@ pub struct ComponentRegistry {
     pub registrations: HashMap<TypeId, ComponentRegistration>,
     pub short_names: HashMap<String, TypeId>,
     pub full_names: HashMap<String, TypeId>,
-    pub ambigous_names: HashSet<String>,
+    pub ambiguous_names: HashSet<String>,
 }
 
 impl ComponentRegistry {
@@ -35,10 +35,11 @@ impl ComponentRegistry {
         let short_name = registration.short_name.to_string();
         self.full_names
             .insert(registration.long_name.to_string(), registration.ty);
-        if self.short_names.contains_key(&short_name) || self.ambigous_names.contains(&short_name) {
+        if self.short_names.contains_key(&short_name) || self.ambiguous_names.contains(&short_name)
+        {
             // name is ambiguous. fall back to long names for all ambiguous types
             self.short_names.remove(&short_name);
-            self.ambigous_names.insert(short_name);
+            self.ambiguous_names.insert(short_name);
         } else {
             self.short_names.insert(short_name, registration.ty);
         }
@@ -65,7 +66,7 @@ impl ComponentRegistry {
         let mut registration = self.get_with_short_name(type_name);
         if registration.is_none() {
             registration = self.get_with_full_name(type_name);
-            if registration.is_none() && self.ambigous_names.contains(type_name) {
+            if registration.is_none() && self.ambiguous_names.contains(type_name) {
                 panic!("Type name is ambiguous: {}", type_name);
             }
         }
