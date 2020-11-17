@@ -195,6 +195,10 @@ name = "startup_system"
 path = "examples/ecs/startup_system.rs"
 
 [[example]]
+name = "system_chaining"
+path = "examples/ecs/system_chaining.rs"
+
+[[example]]
 name = "ecs_guide"
 path = "examples/ecs/ecs_guide.rs"
 
