@@ -43,7 +43,7 @@ pub fn visible_entities_system(
                 let position = global_transform.translation;
                 // smaller distances are sorted to lower indices by using the distance from the camera
                 FloatOrd(match camera.depth_calculation {
-                    DepthCalculation::ZDifference => camera_position.z() - position.z(),
+                    DepthCalculation::ZDifference => camera_position.z - position.z,
                     DepthCalculation::Distance => (camera_position - position).length(),
                 })
             } else {

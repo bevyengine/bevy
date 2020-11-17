@@ -293,10 +293,10 @@ impl Add<Vec4> for Color {
 
     fn add(self, rhs: Vec4) -> Self::Output {
         Color {
-            red: self.red + rhs.x(),
-            green: self.green + rhs.y(),
-            blue: self.blue + rhs.z(),
-            alpha: self.alpha + rhs.w(),
+            red: self.red + rhs.x,
+            green: self.green + rhs.y,
+            blue: self.blue + rhs.z,
+            alpha: self.alpha + rhs.w,
         }
     }
 }
@@ -321,7 +321,7 @@ impl From<Color> for Vec4 {
 
 impl From<Vec4> for Color {
     fn from(vec4: Vec4) -> Self {
-        Color::rgba(vec4.x(), vec4.y(), vec4.z(), vec4.w())
+        Color::rgba(vec4.x, vec4.y, vec4.z, vec4.w)
     }
 }
 
@@ -346,20 +346,20 @@ impl Mul<Vec4> for Color {
 
     fn mul(self, rhs: Vec4) -> Self::Output {
         Color::rgba(
-            self.r() * rhs.x(),
-            self.g() * rhs.y(),
-            self.b() * rhs.z(),
-            self.a() * rhs.w(),
+            self.r() * rhs.x,
+            self.g() * rhs.y,
+            self.b() * rhs.z,
+            self.a() * rhs.w,
         )
     }
 }
 
 impl MulAssign<Vec4> for Color {
     fn mul_assign(&mut self, rhs: Vec4) {
-        self.set_r(self.r() * rhs.x());
-        self.set_g(self.g() * rhs.y());
-        self.set_b(self.b() * rhs.z());
-        self.set_a(self.a() * rhs.w());
+        self.set_r(self.r() * rhs.x);
+        self.set_g(self.g() * rhs.y);
+        self.set_b(self.b() * rhs.z);
+        self.set_a(self.a() * rhs.w);
     }
 }
 
@@ -368,9 +368,9 @@ impl Mul<Vec3> for Color {
 
     fn mul(self, rhs: Vec3) -> Self::Output {
         Color::rgba(
-            self.r() * rhs.x(),
-            self.g() * rhs.y(),
-            self.b() * rhs.z(),
+            self.r() * rhs.x,
+            self.g() * rhs.y,
+            self.b() * rhs.z,
             self.a(),
         )
     }
@@ -378,9 +378,9 @@ impl Mul<Vec3> for Color {
 
 impl MulAssign<Vec3> for Color {
     fn mul_assign(&mut self, rhs: Vec3) {
-        self.set_r(self.r() * rhs.x());
-        self.set_g(self.g() * rhs.y());
-        self.set_b(self.b() * rhs.z());
+        self.set_r(self.r() * rhs.x);
+        self.set_g(self.g() * rhs.y);
+        self.set_b(self.b() * rhs.z);
     }
 }
 

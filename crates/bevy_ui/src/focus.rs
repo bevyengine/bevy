@@ -85,10 +85,10 @@ pub fn ui_focus_system(
                     let min = ui_position - extents;
                     let max = ui_position + extents;
                     // if the current cursor position is within the bounds of the node, consider it for clicking
-                    if (min.x()..max.x()).contains(&state.cursor_position.x())
-                        && (min.y()..max.y()).contains(&state.cursor_position.y())
+                    if (min.x..max.x).contains(&state.cursor_position.x)
+                        && (min.y..max.y).contains(&state.cursor_position.y)
                     {
-                        Some((entity, focus_policy, interaction, FloatOrd(position.z())))
+                        Some((entity, focus_policy, interaction, FloatOrd(position.z)))
                     } else {
                         if let Some(mut interaction) = interaction {
                             if *interaction == Interaction::Hovered {

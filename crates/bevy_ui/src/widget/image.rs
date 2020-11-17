@@ -28,8 +28,8 @@ pub fn image_node_system(
             .and_then(|texture_handle| textures.get(texture_handle))
         {
             calculated_size.size = Size {
-                width: texture.size.x(),
-                height: texture.size.y(),
+                width: texture.size.x,
+                height: texture.size.y,
             };
         }
     }

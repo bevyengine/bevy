@@ -42,7 +42,7 @@ fn update_node_entity(
     let global_z = z + parent_global_z;
 
     if let Ok(mut transform) = node_query.get_component_mut::<Transform>(entity) {
-        transform.translation.set_z(z);
+        transform.translation.z = z;
     }
 
     Some(global_z)
