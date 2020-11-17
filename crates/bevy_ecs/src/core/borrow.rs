@@ -14,13 +14,12 @@
 
 // modified by Bevy contributors
 
+use crate::{Archetype, Component, ComponentFlags, MissingComponent};
 use core::{
     fmt::Debug,
     ops::{Deref, DerefMut},
     sync::atomic::{AtomicUsize, Ordering},
 };
-
-use crate::{Archetype, Component, MissingComponent};
 
 /// Atomically enforces Rust-style borrow checking at runtime
 #[derive(Debug)]
@@ -125,7 +124,7 @@ where
 pub struct RefMut<'a, T: Component> {
     archetype: &'a Archetype,
     target: &'a mut T,
-    modified: &'a mut bool,
+    flags: &'a mut ComponentFlags,
 }
 
 impl<'a, T: Component> RefMut<'a, T> {
@@ -142,7 +141,7 @@ impl<'a, T: Component> RefMut<'a, T> {
         Ok(Self {
             archetype,
             target: &mut *target.as_ptr().add(index),
-            modified: &mut *type_state.mutated().as_ptr().add(index),
+            flags: &mut *type_state.component_flags().as_ptr().add(index),
         })
     }
 }
@@ -166,7 +165,7 @@ impl<'a, T: Component> Deref for RefMut<'a, T> {
 
 impl<'a, T: Component> DerefMut for RefMut<'a, T> {
     fn deref_mut(&mut self) -> &mut T {
-        *self.modified = true;
+        self.flags.insert(ComponentFlags::MUTATED);
         self.target
     }
 }

@@ -14,9 +14,8 @@
 
 // modified by Bevy contributors
 
-use crate::EntityFilter;
-
 use super::{Archetype, Component, Entity, MissingComponent, QueryAccess, QueryFilter};
+use crate::{ComponentFlags, EntityFilter};
 use std::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
@@ -134,7 +133,7 @@ impl<T: WorldQuery> WorldQuery for Option<T> {
 /// Unique borrow of an entity's component
 pub struct Mut<'a, T: Component> {
     pub(crate) value: &'a mut T,
-    pub(crate) mutated: &'a mut bool,
+    pub(crate) flags: &'a mut ComponentFlags,
 }
 
 impl<'a, T: Component> Mut<'a, T> {
@@ -148,7 +147,7 @@ impl<'a, T: Component> Mut<'a, T> {
             .ok_or_else(MissingComponent::new::<T>)?;
         Ok(Self {
             value: &mut *target.as_ptr().add(index),
-            mutated: &mut *type_state.mutated().as_ptr().add(index),
+            flags: &mut *type_state.component_flags().as_ptr().add(index),
         })
     }
 }
@@ -168,7 +167,7 @@ impl<'a, T: Component> Deref for Mut<'a, T> {
 impl<'a, T: Component> DerefMut for Mut<'a, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut T {
-        *self.mutated = true;
+        self.flags.insert(ComponentFlags::MUTATED);
         self.value
     }
 }
@@ -183,7 +182,7 @@ impl<'a, T: Component> WorldQuery for Mut<'a, T> {
     type Fetch = FetchMut<T>;
 }
 #[doc(hidden)]
-pub struct FetchMut<T>(NonNull<T>, NonNull<bool>);
+pub struct FetchMut<T>(NonNull<T>, NonNull<ComponentFlags>);
 
 impl<'a, T: Component> Fetch<'a> for FetchMut<T> {
     type Item = Mut<'a, T>;
@@ -196,7 +195,7 @@ impl<'a, T: Component> Fetch<'a> for FetchMut<T> {
             .map(|(components, type_state)| {
                 Self(
                     NonNull::new_unchecked(components.as_ptr().add(offset)),
-                    NonNull::new_unchecked(type_state.mutated().as_ptr().add(offset)),
+                    NonNull::new_unchecked(type_state.component_flags().as_ptr().add(offset)),
                 )
             })
     }
@@ -205,7 +204,7 @@ impl<'a, T: Component> Fetch<'a> for FetchMut<T> {
     unsafe fn fetch(&self, n: usize) -> Mut<'a, T> {
         Mut {
             value: &mut *self.0.as_ptr().add(n),
-            mutated: &mut *self.1.as_ptr().add(n),
+            flags: &mut *self.1.as_ptr().add(n),
         }
     }
 
