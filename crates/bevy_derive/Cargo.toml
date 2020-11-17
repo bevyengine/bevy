@@ -17,7 +17,7 @@ proc-macro = true
 
 [dependencies]
 Inflector = { version = "0.11.4", default-features = false }
-find-crate = "0.5"
+find-crate = "0.6"
 proc-macro2 = "1.0"
 quote = "1.0"
 syn = "1.0"
