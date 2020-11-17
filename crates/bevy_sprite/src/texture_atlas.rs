@@ -1,6 +1,6 @@
 use crate::Rect;
 use bevy_asset::Handle;
-use bevy_core::{Bytes, Byteable};
+use bevy_core::{Byteable, Bytes};
 use bevy_math::Vec2;
 use bevy_render::{
     color::Color,
