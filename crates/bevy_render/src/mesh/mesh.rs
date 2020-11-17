@@ -227,58 +227,75 @@ pub mod shape {
     use bevy_math::*;
     use hexasphere::Hexasphere;
 
-    /// A cube.
-    #[derive(Debug)]
-    pub struct Cube {
-        /// Half the side length of the cube.
-        pub size: f32,
+    pub struct Cuboid {
+        pub min_x: f32,
+        pub max_x: f32,
+
+        pub min_y: f32,
+        pub max_y: f32,
+
+        pub min_z: f32,
+        pub max_z: f32,
     }
 
-    impl Default for Cube {
-        fn default() -> Self {
-            Cube { size: 1.0 }
+    impl Cuboid {
+        pub fn new(x_length: f32, y_length: f32, z_length: f32) -> Cuboid {
+            Cuboid {
+                max_x: x_length / 2.0,
+                min_x: -x_length / 2.0,
+                max_y: y_length / 2.0,
+                min_y: -y_length / 2.0,
+                max_z: z_length / 2.0,
+                min_z: -z_length / 2.0,
+            }
         }
     }
 
-    impl From<Cube> for Mesh {
-        fn from(cube: Cube) -> Self {
-            let size = cube.size;
+    impl Default for Cuboid {
+        fn default() -> Self {
+            Cuboid::new(2.0, 1.0, 1.0)
+        }
+    }
+
+    impl From<Cuboid> for Mesh {
+        fn from(sp: Cuboid) -> Self {
             let vertices = &[
-                // top (0., 0., size)
-                ([-size, -size, size], [0., 0., size], [0., 0.]),
-                ([size, -size, size], [0., 0., size], [size, 0.]),
-                ([size, size, size], [0., 0., size], [size, size]),
-                ([-size, size, size], [0., 0., size], [0., size]),
-                // bottom (0., 0., -size)
-                ([-size, size, -size], [0., 0., -size], [size, 0.]),
-                ([size, size, -size], [0., 0., -size], [0., 0.]),
-                ([size, -size, -size], [0., 0., -size], [0., size]),
-                ([-size, -size, -size], [0., 0., -size], [size, size]),
-                // right (size, 0., 0.)
-                ([size, -size, -size], [size, 0., 0.], [0., 0.]),
-                ([size, size, -size], [size, 0., 0.], [size, 0.]),
-                ([size, size, size], [size, 0., 0.], [size, size]),
-                ([size, -size, size], [size, 0., 0.], [0., size]),
-                // left (-size, 0., 0.)
-                ([-size, -size, size], [-size, 0., 0.], [size, 0.]),
-                ([-size, size, size], [-size, 0., 0.], [0., 0.]),
-                ([-size, size, -size], [-size, 0., 0.], [0., size]),
-                ([-size, -size, -size], [-size, 0., 0.], [size, size]),
-                // front (0., size, 0.)
-                ([size, size, -size], [0., size, 0.], [size, 0.]),
-                ([-size, size, -size], [0., size, 0.], [0., 0.]),
-                ([-size, size, size], [0., size, 0.], [0., size]),
-                ([size, size, size], [0., size, 0.], [size, size]),
-                // back (0., -size, 0.)
-                ([size, -size, size], [0., -size, 0.], [0., 0.]),
-                ([-size, -size, size], [0., -size, 0.], [size, 0.]),
-                ([-size, -size, -size], [0., -size, 0.], [size, size]),
-                ([size, -size, -size], [0., -size, 0.], [0., size]),
+                // Top
+                ([sp.min_x, sp.min_y, sp.max_z], [0., 0., 1.0], [0., 0.]),
+                ([sp.max_x, sp.min_y, sp.max_z], [0., 0., 1.0], [1.0, 0.]),
+                ([sp.max_x, sp.max_y, sp.max_z], [0., 0., 1.0], [1.0, 1.0]),
+                ([sp.min_x, sp.max_y, sp.max_z], [0., 0., 1.0], [0., 1.0]),
+                // Bottom
+                ([sp.min_x, sp.max_y, sp.min_z], [0., 0., -1.0], [1.0, 0.]),
+                ([sp.max_x, sp.max_y, sp.min_z], [0., 0., -1.0], [0., 0.]),
+                ([sp.max_x, sp.min_y, sp.min_z], [0., 0., -1.0], [0., 1.0]),
+                ([sp.min_x, sp.min_y, sp.min_z], [0., 0., -1.0], [1.0, 1.0]),
+                // Right
+                ([sp.max_x, sp.min_y, sp.min_z], [1.0, 0., 0.], [0., 0.]),
+                ([sp.max_x, sp.max_y, sp.min_z], [1.0, 0., 0.], [1.0, 0.]),
+                ([sp.max_x, sp.max_y, sp.max_z], [1.0, 0., 0.], [1.0, 1.0]),
+                ([sp.max_x, sp.min_y, sp.max_z], [1.0, 0., 0.], [0., 1.0]),
+                // Left
+                ([sp.min_x, sp.min_y, sp.max_z], [-1.0, 0., 0.], [1.0, 0.]),
+                ([sp.min_x, sp.max_y, sp.max_z], [-1.0, 0., 0.], [0., 0.]),
+                ([sp.min_x, sp.max_y, sp.min_z], [-1.0, 0., 0.], [0., 1.0]),
+                ([sp.min_x, sp.min_y, sp.min_z], [-1.0, 0., 0.], [1.0, 1.0]),
+                // Front
+                ([sp.max_x, sp.max_y, sp.min_z], [0., 1.0, 0.], [1.0, 0.]),
+                ([sp.min_x, sp.max_y, sp.min_z], [0., 1.0, 0.], [0., 0.]),
+                ([sp.min_x, sp.max_y, sp.max_z], [0., 1.0, 0.], [0., 1.0]),
+                ([sp.max_x, sp.max_y, sp.max_z], [0., 1.0, 0.], [1.0, 1.0]),
+                // Back
+                ([sp.max_x, sp.min_y, sp.max_z], [0., -1.0, 0.], [0., 0.]),
+                ([sp.min_x, sp.min_y, sp.max_z], [0., -1.0, 0.], [1.0, 0.]),
+                ([sp.min_x, sp.min_y, sp.min_z], [0., -1.0, 0.], [1.0, 1.0]),
+                ([sp.max_x, sp.min_y, sp.min_z], [0., -1.0, 0.], [0., 1.0]),
             ];
 
-            let mut positions = Vec::new();
-            let mut normals = Vec::new();
-            let mut uvs = Vec::new();
+            let mut positions = Vec::with_capacity(24);
+            let mut normals = Vec::with_capacity(24);
+            let mut uvs = Vec::with_capacity(24);
+
             for (position, normal, uv) in vertices.iter() {
                 positions.push(*position);
                 normals.push(*normal);

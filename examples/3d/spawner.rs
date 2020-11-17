@@ -50,7 +50,7 @@ fn setup(
         });
 
     let mut rng = StdRng::from_entropy();
-    let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
+    let cube_handle = meshes.add(Mesh::from(shape::Cuboid::new(1.0, 1.0, 1.0)));
     for _ in 0..10000 {
         commands.spawn(PbrBundle {
             mesh: cube_handle.clone(),
