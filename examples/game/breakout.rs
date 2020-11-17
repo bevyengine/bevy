@@ -97,32 +97,32 @@ fn setup(
         // left
         .spawn(SpriteBundle {
             material: wall_material.clone(),
-            transform: Transform::from_translation(Vec3::new(-bounds.x() / 2.0, 0.0, 0.0)),
-            sprite: Sprite::new(Vec2::new(wall_thickness, bounds.y() + wall_thickness)),
+            transform: Transform::from_translation(Vec3::new(-bounds.x / 2.0, 0.0, 0.0)),
+            sprite: Sprite::new(Vec2::new(wall_thickness, bounds.y + wall_thickness)),
             ..Default::default()
         })
         .with(Collider::Solid)
         // right
         .spawn(SpriteBundle {
             material: wall_material.clone(),
-            transform: Transform::from_translation(Vec3::new(bounds.x() / 2.0, 0.0, 0.0)),
-            sprite: Sprite::new(Vec2::new(wall_thickness, bounds.y() + wall_thickness)),
+            transform: Transform::from_translation(Vec3::new(bounds.x / 2.0, 0.0, 0.0)),
+            sprite: Sprite::new(Vec2::new(wall_thickness, bounds.y + wall_thickness)),
             ..Default::default()
         })
         .with(Collider::Solid)
         // bottom
         .spawn(SpriteBundle {
             material: wall_material.clone(),
-            transform: Transform::from_translation(Vec3::new(0.0, -bounds.y() / 2.0, 0.0)),
-            sprite: Sprite::new(Vec2::new(bounds.x() + wall_thickness, wall_thickness)),
+            transform: Transform::from_translation(Vec3::new(0.0, -bounds.y / 2.0, 0.0)),
+            sprite: Sprite::new(Vec2::new(bounds.x + wall_thickness, wall_thickness)),
             ..Default::default()
         })
         .with(Collider::Solid)
         // top
         .spawn(SpriteBundle {
             material: wall_material,
-            transform: Transform::from_translation(Vec3::new(0.0, bounds.y() / 2.0, 0.0)),
-            sprite: Sprite::new(Vec2::new(bounds.x() + wall_thickness, wall_thickness)),
+            transform: Transform::from_translation(Vec3::new(0.0, bounds.y / 2.0, 0.0)),
+            sprite: Sprite::new(Vec2::new(bounds.x + wall_thickness, wall_thickness)),
             ..Default::default()
         })
         .with(Collider::Solid);
@@ -132,15 +132,15 @@ fn setup(
     let brick_columns = 5;
     let brick_spacing = 20.0;
     let brick_size = Vec2::new(150.0, 30.0);
-    let bricks_width = brick_columns as f32 * (brick_size.x() + brick_spacing) - brick_spacing;
+    let bricks_width = brick_columns as f32 * (brick_size.x + brick_spacing) - brick_spacing;
     // center the bricks and move them up a bit
-    let bricks_offset = Vec3::new(-(bricks_width - brick_size.x()) / 2.0, 100.0, 0.0);
+    let bricks_offset = Vec3::new(-(bricks_width - brick_size.x) / 2.0, 100.0, 0.0);
     let brick_material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
     for row in 0..brick_rows {
-        let y_position = row as f32 * (brick_size.y() + brick_spacing);
+        let y_position = row as f32 * (brick_size.y + brick_spacing);
         for column in 0..brick_columns {
             let brick_position = Vec3::new(
-                column as f32 * (brick_size.x() + brick_spacing),
+                column as f32 * (brick_size.x + brick_spacing),
                 y_position,
                 0.0,
             ) + bricks_offset;
@@ -174,9 +174,9 @@ fn paddle_movement_system(
 
         let translation = &mut transform.translation;
         // move the paddle horizontally
-        *translation.x_mut() += time.delta_seconds * direction * paddle.speed;
+        translation.x += time.delta_seconds * direction * paddle.speed;
         // bound the paddle within the walls
-        *translation.x_mut() = translation.x().min(380.0).max(-380.0);
+        translation.x = translation.x.min(380.0).max(-380.0);
     }
 }
 
@@ -226,20 +226,20 @@ fn ball_collision_system(
 
                 // only reflect if the ball's velocity is going in the opposite direction of the collision
                 match collision {
-                    Collision::Left => reflect_x = velocity.x() > 0.0,
-                    Collision::Right => reflect_x = velocity.x() < 0.0,
-                    Collision::Top => reflect_y = velocity.y() < 0.0,
-                    Collision::Bottom => reflect_y = velocity.y() > 0.0,
+                    Collision::Left => reflect_x = velocity.x > 0.0,
+                    Collision::Right => reflect_x = velocity.x < 0.0,
+                    Collision::Top => reflect_y = velocity.y < 0.0,
+                    Collision::Bottom => reflect_y = velocity.y > 0.0,
                 }
 
                 // reflect velocity on the x-axis if we hit something on the x-axis
                 if reflect_x {
-                    *velocity.x_mut() = -velocity.x();
+                    velocity.x = -velocity.x;
                 }
 
                 // reflect velocity on the y-axis if we hit something on the y-axis
                 if reflect_y {
-                    *velocity.y_mut() = -velocity.y();
+                    velocity.y = -velocity.y;
                 }
 
                 // break if this collide is on a solid, otherwise continue check whether a solid is also in collision

@@ -20,7 +20,6 @@ impl AssetLoader for FontLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        static EXTENSIONS: &[&str] = &["ttf"];
-        EXTENSIONS
+        &["ttf"]
     }
 }

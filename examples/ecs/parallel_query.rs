@@ -60,10 +60,10 @@ fn bounce_system(
         .par_iter_mut(32)
         // Filter out sprites that don't need to be bounced
         .filter(|(transform, _)| {
-            !(left < transform.translation.x()
-                && transform.translation.x() < right
-                && bottom < transform.translation.y()
-                && transform.translation.y() < top)
+            !(left < transform.translation.x
+                && transform.translation.x < right
+                && bottom < transform.translation.y
+                && transform.translation.y < top)
         })
         // For simplicity, just reverse the velocity; don't use realistic bounces
         .for_each(&pool, |(_, mut v)| {

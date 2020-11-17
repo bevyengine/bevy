@@ -118,9 +118,9 @@ fn mouse_handler(
 
 fn movement_system(time: Res<Time>, mut bird_query: Query<(&mut Bird, &mut Transform)>) {
     for (mut bird, mut transform) in bird_query.iter_mut() {
-        *transform.translation.x_mut() += bird.velocity.x() * time.delta_seconds;
-        *transform.translation.y_mut() += bird.velocity.y() * time.delta_seconds;
-        *bird.velocity.y_mut() += GRAVITY * time.delta_seconds;
+        transform.translation.x += bird.velocity.x * time.delta_seconds;
+        transform.translation.y += bird.velocity.y * time.delta_seconds;
+        bird.velocity.y += GRAVITY * time.delta_seconds;
     }
 }
 
@@ -129,18 +129,18 @@ fn collision_system(window: Res<WindowDescriptor>, mut bird_query: Query<(&mut B
     let half_height = window.height as f32 * 0.5;
 
     for (mut bird, transform) in bird_query.iter_mut() {
-        let x_vel = bird.velocity.x();
-        let y_vel = bird.velocity.y();
-        let x_pos = transform.translation.x();
-        let y_pos = transform.translation.y();
+        let x_vel = bird.velocity.x;
+        let y_vel = bird.velocity.y;
+        let x_pos = transform.translation.x;
+        let y_pos = transform.translation.y;
 
         if (x_vel > 0. && x_pos + HALF_BIRD_SIZE > half_width)
             || (x_vel <= 0. && x_pos - HALF_BIRD_SIZE < -(half_width))
         {
-            bird.velocity.set_x(-x_vel);
+            bird.velocity.x = -x_vel;
         }
         if y_vel < 0. && y_pos - HALF_BIRD_SIZE < -half_height {
-            bird.velocity.set_y(-y_vel);
+            bird.velocity.y = -y_vel;
         }
     }
 }

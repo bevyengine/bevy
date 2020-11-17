@@ -324,8 +324,8 @@ pub mod shape {
 
     impl From<Quad> for Mesh {
         fn from(quad: Quad) -> Self {
-            let extent_x = quad.size.x() / 2.0;
-            let extent_y = quad.size.y() / 2.0;
+            let extent_x = quad.size.x / 2.0;
+            let extent_y = quad.size.y / 2.0;
 
             let north_west = vec2(-extent_x, extent_y);
             let north_east = vec2(extent_x, extent_y);
@@ -334,22 +334,22 @@ pub mod shape {
             let vertices = if quad.flip {
                 [
                     (
-                        [south_east.x(), south_east.y(), 0.0],
+                        [south_east.x, south_east.y, 0.0],
                         [0.0, 0.0, 1.0],
                         [1.0, 1.0],
                     ),
                     (
-                        [north_east.x(), north_east.y(), 0.0],
+                        [north_east.x, north_east.y, 0.0],
                         [0.0, 0.0, 1.0],
                         [1.0, 0.0],
                     ),
                     (
-                        [north_west.x(), north_west.y(), 0.0],
+                        [north_west.x, north_west.y, 0.0],
                         [0.0, 0.0, 1.0],
                         [0.0, 0.0],
                     ),
                     (
-                        [south_west.x(), south_west.y(), 0.0],
+                        [south_west.x, south_west.y, 0.0],
                         [0.0, 0.0, 1.0],
                         [0.0, 1.0],
                     ),
@@ -357,22 +357,22 @@ pub mod shape {
             } else {
                 [
                     (
-                        [south_west.x(), south_west.y(), 0.0],
+                        [south_west.x, south_west.y, 0.0],
                         [0.0, 0.0, 1.0],
                         [0.0, 1.0],
                     ),
                     (
-                        [north_west.x(), north_west.y(), 0.0],
+                        [north_west.x, north_west.y, 0.0],
                         [0.0, 0.0, 1.0],
                         [0.0, 0.0],
                     ),
                     (
-                        [north_east.x(), north_east.y(), 0.0],
+                        [north_east.x, north_east.y, 0.0],
                         [0.0, 0.0, 1.0],
                         [1.0, 0.0],
                     ),
                     (
-                        [south_east.x(), south_east.y(), 0.0],
+                        [south_east.x, south_east.y, 0.0],
                         [0.0, 0.0, 1.0],
                         [1.0, 1.0],
                     ),
@@ -467,8 +467,8 @@ pub mod shape {
                 );
             }
             let hexasphere = Hexasphere::new(sphere.subdivisions, |point| {
-                let inclination = point.z().acos();
-                let azumith = point.y().atan2(point.x());
+                let inclination = point.z.acos();
+                let azumith = point.y.atan2(point.x);
 
                 let norm_inclination = 1.0 - (inclination / std::f32::consts::PI);
                 let norm_azumith = (azumith / std::f32::consts::PI) * 0.5;

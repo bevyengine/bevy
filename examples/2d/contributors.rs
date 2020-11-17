@@ -75,7 +75,7 @@ fn setup(
         let flipped = rnd.gen_bool(0.5);
 
         let mut transform = Transform::from_translation(Vec3::new(pos.0, pos.1, 0.0));
-        *transform.scale.x_mut() *= if flipped { -1.0 } else { 1.0 };
+        transform.scale.x *= if flipped { -1.0 } else { 1.0 };
 
         commands
             .spawn((Contributor { color: col },))
@@ -192,7 +192,7 @@ fn select(
     let mat = materials.get_mut(mat_handle)?;
     mat.color = COL_SELECTED * cont.color;
 
-    trans.translation.set_z(100.0);
+    trans.translation.z = 100.0;
 
     text.value = format!("Contributor: {}", name);
 
@@ -210,7 +210,7 @@ fn deselect(
     let mat = materials.get_mut(mat_handle)?;
     mat.color = COL_DESELECTED * cont.color;
 
-    trans.translation.set_z(0.0);
+    trans.translation.z = 0.0;
 
     Some(())
 }
@@ -244,29 +244,29 @@ fn collision_system(
     let wall_right = (win.width() / 2) as f32;
 
     for (mut v, mut t) in q.iter_mut() {
-        let left = t.translation.x() - SPRITE_SIZE / 2.0;
-        let right = t.translation.x() + SPRITE_SIZE / 2.0;
-        let top = t.translation.y() + SPRITE_SIZE / 2.0;
-        let bottom = t.translation.y() - SPRITE_SIZE / 2.0;
+        let left = t.translation.x - SPRITE_SIZE / 2.0;
+        let right = t.translation.x + SPRITE_SIZE / 2.0;
+        let top = t.translation.y + SPRITE_SIZE / 2.0;
+        let bottom = t.translation.y - SPRITE_SIZE / 2.0;
 
         // clamp the translation to not go out of the bounds
         if bottom < ground {
-            t.translation.set_y(ground + SPRITE_SIZE / 2.0);
+            t.translation.y = ground + SPRITE_SIZE / 2.0;
             // apply an impulse upwards
-            *v.translation.y_mut() = rnd.gen_range(700.0, 1000.0);
+            v.translation.y = rnd.gen_range(700.0, 1000.0);
         }
         if top > ceiling {
-            t.translation.set_y(ceiling - SPRITE_SIZE / 2.0);
+            t.translation.y = ceiling - SPRITE_SIZE / 2.0;
         }
         // on side walls flip the horizontal velocity
         if left < wall_left {
-            t.translation.set_x(wall_left + SPRITE_SIZE / 2.0);
-            *v.translation.x_mut() *= -1.0;
+            t.translation.x = wall_left + SPRITE_SIZE / 2.0;
+            v.translation.x *= -1.0;
             v.rotation *= -1.0;
         }
         if right > wall_right {
-            t.translation.set_x(wall_right - SPRITE_SIZE / 2.0);
-            *v.translation.x_mut() *= -1.0;
+            t.translation.x = wall_right - SPRITE_SIZE / 2.0;
+            v.translation.x *= -1.0;
             v.rotation *= -1.0;
         }
     }
