@@ -1,7 +1,7 @@
 use super::{Camera, DepthCalculation};
 use crate::Draw;
 use bevy_core::FloatOrd;
-use bevy_ecs::{Entity, Query, QuerySet, With, Without};
+use bevy_ecs::{Entity, Query, With, Without};
 use bevy_math::Vec3;
 use bevy_property::Properties;
 use bevy_transform::prelude::{Children, GlobalTransform, Parent};
@@ -26,11 +26,8 @@ impl VisibleEntities {
 
 pub fn visible_entities_system(
     mut camera_query: Query<(&Camera, &GlobalTransform, &mut VisibleEntities)>,
-    draw_queries: QuerySet<(
-        Query<(Entity, Option<&Children>, &Draw), Without<Parent>>,
-        Query<(Entity, Option<&Children>, &Draw)>,
-        Query<&GlobalTransform, With<Draw>>,
-    )>,
+    draw_orphan_query: Query<Entity, (Without<Parent>, With<Draw>)>,
+    draw_query: Query<(Entity, &Draw, Option<&Children>, Option<&GlobalTransform>)>,
 ) {
     for (camera, camera_global_transform, mut visible_entities) in camera_query.iter_mut() {
         visible_entities.value.clear();
@@ -38,33 +35,16 @@ pub fn visible_entities_system(
 
         let mut no_transform_order = 0.0;
         let mut transparent_entities = Vec::new();
-        for (entity, children, draw) in draw_queries.q0().iter() {
-            if !draw.is_visible {
-                continue;
-            }
-
-            if let Some(children) = children {
-                recursive_draw_check(
-                    &draw_queries,
-                    children,
-                    camera,
-                    camera_position,
-                    &mut no_transform_order,
-                    &mut transparent_entities,
-                    &mut visible_entities,
-                )
-            }
-
-            process_visible(
+        for entity in draw_orphan_query.iter() {
+            recursive_draw_check(
+                &draw_query,
                 entity,
                 camera,
                 camera_position,
-                &draw_queries,
                 &mut no_transform_order,
                 &mut transparent_entities,
                 &mut visible_entities,
-                draw,
-            )
+            );
         }
 
         // sort opaque entities front-to-back
@@ -80,69 +60,25 @@ pub fn visible_entities_system(
 
 /// Checks if an object is visible, and recursively checks the object's children.
 fn recursive_draw_check(
-    draw_queries: &QuerySet<(
-        Query<(Entity, Option<&Children>, &Draw), Without<Parent>>,
-        Query<(Entity, Option<&Children>, &Draw)>,
-        Query<&GlobalTransform, With<Draw>>,
-    )>,
-    children: &Children,
-    camera: &Camera,
-    camera_position: Vec3,
-    no_transform_order: &mut f32,
-    transparent_entities: &mut Vec<VisibleEntity>,
-    visible_entities: &mut VisibleEntities,
-) {
-    for child in children.0.iter() {
-        draw_queries.q1().get(*child).unwrap();
-
-        if let Ok((entity, children, draw)) = draw_queries.q1().get(*child) {
-            if !draw.is_visible {
-                continue;
-            }
-
-            if let Some(children) = children {
-                recursive_draw_check(
-                    draw_queries,
-                    children,
-                    camera,
-                    camera_position,
-                    no_transform_order,
-                    transparent_entities,
-                    visible_entities,
-                )
-            }
-
-            process_visible(
-                entity,
-                camera,
-                camera_position,
-                draw_queries,
-                no_transform_order,
-                transparent_entities,
-                visible_entities,
-                draw,
-            )
-        }
-    }
-}
-
-/// Processes a visible entity
-#[allow(clippy::too_many_arguments)]
-fn process_visible(
+    draw_query: &Query<(Entity, &Draw, Option<&Children>, Option<&GlobalTransform>)>,
     entity: Entity,
     camera: &Camera,
     camera_position: Vec3,
-    draw_queries: &QuerySet<(
-        Query<(Entity, Option<&Children>, &Draw), Without<Parent>>,
-        Query<(Entity, Option<&Children>, &Draw)>,
-        Query<&GlobalTransform, With<Draw>>,
-    )>,
     no_transform_order: &mut f32,
     transparent_entities: &mut Vec<VisibleEntity>,
     visible_entities: &mut VisibleEntities,
-    draw: &Draw,
 ) {
-    let order = if let Ok(global_transform) = draw_queries.q2().get(entity) {
+    let (entity, draw, children, global_transform) = if let Ok(result) = draw_query.get(entity) {
+        result
+    } else {
+        return;
+    };
+
+    if !draw.is_visible {
+        return;
+    }
+
+    let order = if let Some(global_transform) = global_transform {
         let position = global_transform.translation;
         // smaller distances are sorted to lower indices by using the distance from the camera
         FloatOrd(match camera.depth_calculation {
@@ -159,5 +95,19 @@ fn process_visible(
         transparent_entities.push(VisibleEntity { entity, order })
     } else {
         visible_entities.value.push(VisibleEntity { entity, order })
+    }
+
+    if let Some(children) = children {
+        for child in children.iter() {
+            recursive_draw_check(
+                draw_query,
+                *child,
+                camera,
+                camera_position,
+                no_transform_order,
+                transparent_entities,
+                visible_entities,
+            )
+        }
     }
 }
