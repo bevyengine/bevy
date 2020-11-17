@@ -21,7 +21,9 @@ bevy_utils = { path = "../bevy_utils", version = "0.3.0" }
 
 # other
 uuid = { version = "0.8", features = ["v4", "serde"] }
+winit = { version = "0.23.0", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+winit = { version = "0.23.0", features = ["web-sys"], default-features = false }
 uuid = { version = "0.8", features = ["wasm-bindgen"] }
 web-sys = "0.3"

@@ -1,5 +1,6 @@
 use super::{WindowDescriptor, WindowId};
 use bevy_math::Vec2;
+use winit::event::DeviceId;
 
 /// A window event that is sent whenever a window has been resized.
 #[derive(Debug, Clone)]
@@ -38,6 +39,7 @@ pub struct WindowCloseRequested {
 #[derive(Debug, Clone)]
 pub struct CursorMoved {
     pub id: WindowId,
+    pub device_id: DeviceId, 
     pub position: Vec2,
 }
 

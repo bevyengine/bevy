@@ -6,6 +6,7 @@ use bevy_input::{
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
     touch::TouchInput,
 };
+pub use winit::event::DeviceId;
 pub use winit_config::*;
 pub use winit_windows::*;
 
@@ -221,7 +222,11 @@ pub fn winit_runner(mut app: App) {
                         app.resources.get_mut::<Events<KeyboardInput>>().unwrap();
                     keyboard_input_events.send(converters::convert_keyboard_input(input));
                 }
-                WindowEvent::CursorMoved { position, .. } => {
+                WindowEvent::CursorMoved {
+                    position,
+                    device_id,
+                    ..
+                } => {
                     let mut cursor_moved_events =
                         app.resources.get_mut::<Events<CursorMoved>>().unwrap();
                     let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
@@ -232,6 +237,7 @@ pub fn winit_runner(mut app: App) {
                     let y_position = inner_size.height as f32 - position.y as f32;
                     cursor_moved_events.send(CursorMoved {
                         id: window_id,
+                        device_id,
                         position: Vec2::new(position.x as f32, y_position as f32),
                     });
                 }
