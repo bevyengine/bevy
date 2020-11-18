@@ -154,26 +154,14 @@ where
     }
 }
 
+// TODO: rename to Layer
 #[derive(Default, Debug, Clone, Properties)]
 struct State {
-    clip: usize,
-    time: f32,
+    //pub weight: f32, // TODO: Enable blending logic
+    pub clip: usize,
+    pub time: f32,
     keyframe: Vec<usize>,
 }
-
-// #[derive(Default, Debug, Clone, Properties)]
-// struct KeyframeState {
-//     position: usize,
-//     rotation: usize,
-//     scale: usize,
-// }
-
-// #[derive(Default, Clone, Debug, Properties)]
-// struct Lerp {
-//     n: f32,
-//     time: f32,
-//     duration: f32,
-// }
 
 #[derive(Debug, Properties)]
 pub struct Animator {
@@ -181,10 +169,8 @@ pub struct Animator {
     #[property(ignore)]
     binds: Vec<ValueBind>,
     pub time_scale: f32,
-    // hierarchy: Vec<()>,
     current: State,
-    // next: Option<State>, // TODO: Keep memory allocated to be reused
-    // transition: Lerp,
+    //pub states: Vec<State>,
 }
 
 impl Default for Animator {
@@ -213,6 +199,7 @@ impl Animator {
     }
 }
 
+// TODO: Remove
 #[derive(Debug)]
 struct ValueBind {
     dirty: bool,
@@ -234,7 +221,21 @@ impl Default for ValueBind {
     }
 }
 
+/// Batch of all necessary commands that can run on parallel
+#[derive(Debug)]
+struct ClipCommandsBatch {
+    commands: Vec<Command>,
+}
+
+#[derive(Debug)]
+struct Command {
+    entity: Entity,
+    curves: Vec<u16>,
+    offsets: Vec<isize>,
+}
+
 /// Fetches entities and properties to animate
+#[tracing::instrument(skip(world, resources))]
 pub(crate) fn animator_fetch(world: &mut World, resources: &mut Resources) {
     // Fetch useful resources
     let type_registry = resources.get::<TypeRegistry>().unwrap();
@@ -426,6 +427,7 @@ pub(crate) fn animator_fetch(world: &mut World, resources: &mut Resources) {
     }
 }
 
+#[tracing::instrument(skip(world, resources))]
 pub(crate) fn animator_update(world: &mut World, resources: &mut Resources) {
     let time = resources.get::<Time>().unwrap();
     let clips = resources.get::<Assets<Clip>>().unwrap();
