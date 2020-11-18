@@ -65,8 +65,8 @@ where
 
     fn add(self, rhs: Vec2) -> Self::Output {
         Self {
-            width: self.width + rhs.x(),
-            height: self.height + rhs.y(),
+            width: self.width + rhs.x,
+            height: self.height + rhs.y,
         }
     }
 }
@@ -76,7 +76,7 @@ where
     T: AddAssign<f32>,
 {
     fn add_assign(&mut self, rhs: Vec2) {
-        self.width += rhs.x();
-        self.height += rhs.y();
+        self.width += rhs.x;
+        self.height += rhs.y;
     }
 }

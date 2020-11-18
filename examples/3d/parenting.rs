@@ -6,8 +6,8 @@ fn main() {
     App::build()
         .add_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
-        .add_system(rotator_system.system())
+        .add_startup_system(setup)
+        .add_system(rotator_system)
         .run();
 }
 
@@ -15,8 +15,8 @@ fn main() {
 struct Rotator;
 
 /// rotates the parent, which will result in the child also rotating
-fn rotator_system(time: Res<Time>, mut query: Query<(&Rotator, &mut Transform)>) {
-    for (_rotator, mut transform) in query.iter_mut() {
+fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Rotator>>) {
+    for mut transform in query.iter_mut() {
         transform.rotation *= Quat::from_rotation_x(3.0 * time.delta_seconds);
     }
 }
@@ -35,7 +35,7 @@ fn setup(
 
     commands
         // parent cube
-        .spawn(PbrComponents {
+        .spawn(PbrBundle {
             mesh: cube_handle.clone(),
             material: cube_material_handle.clone(),
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
@@ -44,7 +44,7 @@ fn setup(
         .with(Rotator)
         .with_children(|parent| {
             // child cube
-            parent.spawn(PbrComponents {
+            parent.spawn(PbrBundle {
                 mesh: cube_handle,
                 material: cube_material_handle,
                 transform: Transform::from_translation(Vec3::new(0.0, 0.0, 3.0)),
@@ -52,12 +52,12 @@ fn setup(
             });
         })
         // light
-        .spawn(LightComponents {
+        .spawn(LightBundle {
             transform: Transform::from_translation(Vec3::new(4.0, 5.0, -4.0)),
             ..Default::default()
         })
         // camera
-        .spawn(Camera3dComponents {
+        .spawn(Camera3dBundle {
             transform: Transform::from_translation(Vec3::new(5.0, 10.0, 10.0))
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()

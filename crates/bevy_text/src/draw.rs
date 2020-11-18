@@ -1,7 +1,4 @@
-use crate::{Font, FontAtlasSet};
-use ab_glyph::{Glyph, PxScale, ScaleFont};
-use bevy_asset::Assets;
-use bevy_math::{Mat4, Vec2, Vec3};
+use bevy_math::{Mat4, Vec3};
 use bevy_render::{
     color::Color,
     draw::{Draw, DrawContext, DrawError, Drawable},
@@ -13,12 +10,31 @@ use bevy_render::{
         RenderResourceId,
     },
 };
-use bevy_sprite::{TextureAtlas, TextureAtlasSprite};
+use bevy_sprite::TextureAtlasSprite;
+use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
+
+use crate::PositionedGlyph;
+
+#[derive(Debug, Clone, Copy)]
+pub struct TextAlignment {
+    pub vertical: VerticalAlign,
+    pub horizontal: HorizontalAlign,
+}
+
+impl Default for TextAlignment {
+    fn default() -> Self {
+        TextAlignment {
+            vertical: VerticalAlign::Top,
+            horizontal: HorizontalAlign::Left,
+        }
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct TextStyle {
     pub font_size: f32,
     pub color: Color,
+    pub alignment: TextAlignment,
 }
 
 impl Default for TextStyle {
@@ -26,20 +42,17 @@ impl Default for TextStyle {
         Self {
             color: Color::WHITE,
             font_size: 12.0,
+            alignment: TextAlignment::default(),
         }
     }
 }
 
 pub struct DrawableText<'a> {
-    pub font: &'a Font,
-    pub font_atlas_set: &'a FontAtlasSet,
-    pub texture_atlases: &'a Assets<TextureAtlas>,
     pub render_resource_bindings: &'a mut RenderResourceBindings,
     pub asset_render_resource_bindings: &'a mut AssetRenderResourceBindings,
     pub position: Vec3,
-    pub container_size: Vec2,
     pub style: &'a TextStyle,
-    pub text: &'a str,
+    pub text_glyphs: &'a Vec<PositionedGlyph>,
     pub msaa: &'a Msaa,
     pub font_quad_vertex_descriptor: &'a VertexBufferDescriptor,
 }
@@ -81,80 +94,37 @@ impl<'a> Drawable for DrawableText<'a> {
         // set global bindings
         context.set_bind_groups_from_bindings(draw, &mut [self.render_resource_bindings])?;
 
-        // NOTE: this uses ab_glyph apis directly. it _might_ be a good idea to add our own layer on top
-        let font = &self.font.font;
-        let scale = PxScale::from(self.style.font_size);
-        let scaled_font = ab_glyph::Font::as_scaled(&font, scale);
-        let mut caret = self.position;
-        let mut last_glyph: Option<Glyph> = None;
+        for tv in self.text_glyphs {
+            let atlas_render_resource_bindings = self
+                .asset_render_resource_bindings
+                .get_mut(&tv.atlas_info.texture_atlas)
+                .unwrap();
+            context.set_bind_groups_from_bindings(draw, &mut [atlas_render_resource_bindings])?;
 
-        // set local per-character bindings
-        for character in self.text.chars() {
-            if character.is_control() {
-                if character == '\n' {
-                    caret.set_x(self.position.x());
-                    // TODO: Necessary to also calculate scaled_font.line_gap() in here?
-                    caret.set_y(caret.y() - scaled_font.height());
-                }
-                continue;
-            }
+            let sprite = TextureAtlasSprite {
+                index: tv.atlas_info.glyph_index,
+                color: self.style.color,
+            };
 
-            let glyph = scaled_font.scaled_glyph(character);
-            if let Some(last_glyph) = last_glyph.take() {
-                caret.set_x(caret.x() + scaled_font.kern(last_glyph.id, glyph.id));
-            }
-            if let Some(glyph_atlas_info) = self
-                .font_atlas_set
-                .get_glyph_atlas_info(self.style.font_size, character)
-            {
-                if let Some(outlined) = scaled_font.outline_glyph(glyph.clone()) {
-                    let texture_atlas = self
-                        .texture_atlases
-                        .get(&glyph_atlas_info.texture_atlas)
-                        .unwrap();
-                    let glyph_rect = texture_atlas.textures[glyph_atlas_info.char_index as usize];
-                    let glyph_width = glyph_rect.width();
-                    let glyph_height = glyph_rect.height();
-                    let atlas_render_resource_bindings = self
-                        .asset_render_resource_bindings
-                        .get_mut(&glyph_atlas_info.texture_atlas)
-                        .unwrap();
-                    context.set_bind_groups_from_bindings(
-                        draw,
-                        &mut [atlas_render_resource_bindings],
-                    )?;
+            let transform = Mat4::from_translation(self.position + tv.position.extend(0.));
 
-                    let bounds = outlined.px_bounds();
-                    let x = bounds.min.x + glyph_width / 2.0;
-                    // the 0.5 accounts for odd-numbered heights (bump up by 1 pixel)
-                    let y = -bounds.max.y + glyph_height / 2.0 - scaled_font.descent() + 0.5;
-                    let transform = Mat4::from_translation(caret + Vec3::new(x, y, 0.0));
-                    let sprite = TextureAtlasSprite {
-                        index: glyph_atlas_info.char_index,
-                        color: self.style.color,
-                    };
-
-                    let transform_buffer = context
-                        .shared_buffers
-                        .get_buffer(&transform, BufferUsage::UNIFORM)
-                        .unwrap();
-                    let sprite_buffer = context
-                        .shared_buffers
-                        .get_buffer(&sprite, BufferUsage::UNIFORM)
-                        .unwrap();
-                    let sprite_bind_group = BindGroup::build()
-                        .add_binding(0, transform_buffer)
-                        .add_binding(1, sprite_buffer)
-                        .finish();
-
-                    context.create_bind_group_resource(2, &sprite_bind_group)?;
-                    draw.set_bind_group(2, &sprite_bind_group);
-                    draw.draw_indexed(indices.clone(), 0, 0..1);
-                }
-            }
-            caret.set_x(caret.x() + scaled_font.h_advance(glyph.id));
-            last_glyph = Some(glyph);
+            let transform_buffer = context
+                .shared_buffers
+                .get_buffer(&transform, BufferUsage::UNIFORM)
+                .unwrap();
+            let sprite_buffer = context
+                .shared_buffers
+                .get_buffer(&sprite, BufferUsage::UNIFORM)
+                .unwrap();
+            let sprite_bind_group = BindGroup::build()
+                .add_binding(0, transform_buffer)
+                .add_binding(1, sprite_buffer)
+                .finish();
+            context.create_bind_group_resource(2, &sprite_bind_group)?;
+            draw.set_bind_group(2, &sprite_bind_group);
+            draw.draw_indexed(indices.clone(), 0, 0..1);
         }
+
         Ok(())
     }
 }

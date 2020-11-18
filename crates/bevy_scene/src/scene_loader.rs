@@ -42,7 +42,6 @@ impl AssetLoader for SceneLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        static EXTENSIONS: &[&str] = &["scn"];
-        EXTENSIONS
+        &["scn"]
     }
 }

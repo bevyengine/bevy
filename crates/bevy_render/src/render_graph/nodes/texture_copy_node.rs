@@ -6,6 +6,7 @@ use crate::{
 use bevy_app::prelude::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets};
 use bevy_ecs::{Resources, World};
+use bevy_utils::{AHashExt, HashSet};
 
 #[derive(Default)]
 pub struct TextureCopyNode {
@@ -23,18 +24,23 @@ impl Node for TextureCopyNode {
     ) {
         let texture_events = resources.get::<Events<AssetEvent<Texture>>>().unwrap();
         let textures = resources.get::<Assets<Texture>>().unwrap();
+        let mut copied_textures = HashSet::new();
         for event in self.texture_event_reader.iter(&texture_events) {
             match event {
                 AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
                     if let Some(texture) = textures.get(handle) {
+                        if copied_textures.contains(&handle.id) {
+                            continue;
+                        }
+
                         let texture_descriptor: TextureDescriptor = texture.into();
-                        let width = texture.size.x() as usize;
+                        let width = texture.size.x as usize;
                         let aligned_width = render_context
                             .resources()
-                            .get_aligned_texture_size(texture.size.x() as usize);
+                            .get_aligned_texture_size(texture.size.x as usize);
                         let format_size = texture.format.pixel_size();
                         let mut aligned_data =
-                            vec![0; format_size * aligned_width * texture.size.y() as usize];
+                            vec![0; format_size * aligned_width * texture.size.y as usize];
                         texture
                             .data
                             .chunks_exact(format_size * width)
@@ -67,6 +73,8 @@ impl Node for TextureCopyNode {
                             texture_descriptor.size,
                         );
                         render_context.resources().remove_buffer(texture_buffer);
+
+                        copied_textures.insert(&handle.id);
                     }
                 }
                 AssetEvent::Removed { .. } => {}

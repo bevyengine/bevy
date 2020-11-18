@@ -30,8 +30,7 @@ impl AssetLoader for Mp3Loader {
     }
 
     fn extensions(&self) -> &[&str] {
-        static EXTENSIONS: &[&str] = &["mp3", "flac", "wav", "ogg"];
-        EXTENSIONS
+        &["mp3", "flac", "wav", "ogg"]
     }
 }
 

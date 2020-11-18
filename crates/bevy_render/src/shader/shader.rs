@@ -23,7 +23,7 @@ impl Into<bevy_glsl_to_spirv::ShaderType> for ShaderStage {
 }
 
 #[cfg(all(not(target_os = "ios"), not(target_arch = "wasm32")))]
-fn glsl_to_spirv(
+pub fn glsl_to_spirv(
     glsl_source: &str,
     stage: ShaderStage,
     shader_defs: Option<&[String]>,
@@ -43,7 +43,7 @@ impl Into<shaderc::ShaderKind> for ShaderStage {
 }
 
 #[cfg(target_os = "ios")]
-fn glsl_to_spirv(
+pub fn glsl_to_spirv(
     glsl_source: &str,
     stage: ShaderStage,
     shader_defs: Option<&[String]>,
@@ -121,17 +121,15 @@ impl Shader {
         }
     }
 
-    #[allow(unused_variables)]
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn get_spirv_shader(&self, macros: Option<&[String]>) -> Shader {
         Shader {
-            #[cfg(not(target_arch = "wasm32"))]
             source: ShaderSource::Spirv(self.get_spirv(macros)),
-            #[cfg(target_arch = "wasm32")]
-            source: self.source.clone(),
             stage: self.stage,
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn reflect_layout(&self, enforce_bevy_conventions: bool) -> Option<ShaderLayout> {
         if let ShaderSource::Spirv(ref spirv) = self.source {
             Some(ShaderLayout::from_spirv(
@@ -141,6 +139,11 @@ impl Shader {
         } else {
             panic!("Cannot reflect layout of non-SpirV shader. Try compiling this shader to SpirV first using self.get_spirv_shader()");
         }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn reflect_layout(&self, _enforce_bevy_conventions: bool) -> Option<ShaderLayout> {
+        panic!("Cannot reflect layout on wasm32");
     }
 }
 

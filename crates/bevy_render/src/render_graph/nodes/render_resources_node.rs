@@ -387,7 +387,7 @@ impl<T> SystemNode for RenderResourcesNode<T>
 where
     T: renderer::RenderResources,
 {
-    fn get_system(&self, commands: &mut Commands) -> Box<dyn System> {
+    fn get_system(&self, commands: &mut Commands) -> Box<dyn System<Input = (), Output = ()>> {
         let system = render_resources_node_system::<T>.system();
         commands.insert_local_resource(
             system.id(),
@@ -398,7 +398,7 @@ where
             },
         );
 
-        system
+        Box::new(system)
     }
 }
 
@@ -527,7 +527,7 @@ impl<T> SystemNode for AssetRenderResourcesNode<T>
 where
     T: renderer::RenderResources + Asset,
 {
-    fn get_system(&self, commands: &mut Commands) -> Box<dyn System> {
+    fn get_system(&self, commands: &mut Commands) -> Box<dyn System<Input = (), Output = ()>> {
         let system = asset_render_resources_node_system::<T>.system();
         commands.insert_local_resource(
             system.id(),
@@ -538,7 +538,7 @@ where
             },
         );
 
-        system
+        Box::new(system)
     }
 }
 

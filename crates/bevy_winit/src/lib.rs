@@ -10,8 +10,9 @@ pub use winit_config::*;
 pub use winit_windows::*;
 
 use bevy_app::{prelude::*, AppExit};
-use bevy_ecs::{IntoThreadLocalSystem, Resources, World};
+use bevy_ecs::{Resources, World};
 use bevy_math::Vec2;
+use bevy_utils::tracing::trace;
 use bevy_window::{
     CreateWindow, CursorMoved, ReceivedCharacter, Window, WindowCloseRequested, WindowCreated,
     WindowResized, Windows,
@@ -24,9 +25,6 @@ use winit::{
 #[derive(Default)]
 pub struct WinitPlugin;
 
-#[derive(Debug)]
-pub struct EventLoopProxyPtr(pub usize);
-
 impl Plugin for WinitPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app
@@ -35,7 +33,7 @@ impl Plugin for WinitPlugin {
             // .add_event::<winit::event::WindowEvent>()
             .init_resource::<WinitWindows>()
             .set_runner(winit_runner)
-            .add_system(change_window.thread_local_system());
+            .add_system(change_window);
     }
 }
 
@@ -147,20 +145,11 @@ pub fn winit_runner(mut app: App) {
     let mut create_window_event_reader = EventReader::<CreateWindow>::default();
     let mut app_exit_event_reader = EventReader::<AppExit>::default();
 
-    app.resources
-        .insert_thread_local(EventLoopProxyPtr(
-            Box::into_raw(Box::new(event_loop.create_proxy())) as usize,
-        ));
-
-    handle_create_window_events(
-        &mut app.resources,
-        &event_loop,
-        &mut create_window_event_reader,
-    );
+    app.resources.insert_thread_local(event_loop.create_proxy());
 
     app.initialize();
 
-    log::debug!("Entering winit event loop");
+    trace!("Entering winit event loop");
 
     let should_return_from_run = app
         .resources
@@ -170,11 +159,7 @@ pub fn winit_runner(mut app: App) {
     let event_handler = move |event: Event<()>,
                               event_loop: &EventLoopWindowTarget<()>,
                               control_flow: &mut ControlFlow| {
-        *control_flow = if cfg!(feature = "metal-auto-capture") {
-            ControlFlow::Exit
-        } else {
-            ControlFlow::Poll
-        };
+        *control_flow = ControlFlow::Poll;
 
         if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
             if app_exit_event_reader.latest(&app_exit_events).is_some() {

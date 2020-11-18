@@ -16,7 +16,7 @@ fn main() {
         .register_property::<Test>()
         .register_property::<Nested>()
         .register_property::<CustomProperty>()
-        .add_startup_system(setup.system())
+        .add_startup_system(setup)
         .run();
 }
 

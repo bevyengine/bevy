@@ -43,7 +43,7 @@ impl TextureAtlasBuilder {
         self.rects_to_place.push_rect(
             texture_handle,
             None,
-            RectToInsert::new(texture.size.x() as u32, texture.size.y() as u32, 1),
+            RectToInsert::new(texture.size.x as u32, texture.size.y as u32, 1),
         )
     }
 
@@ -57,7 +57,7 @@ impl TextureAtlasBuilder {
         let rect_height = packed_location.height() as usize;
         let rect_x = packed_location.x() as usize;
         let rect_y = packed_location.y() as usize;
-        let atlas_width = atlas_texture.size.x() as usize;
+        let atlas_width = atlas_texture.size.x as usize;
         let format_size = atlas_texture.format.pixel_size();
 
         for (texture_y, bound_y) in (rect_y..rect_y + rect_height).enumerate() {
@@ -74,10 +74,10 @@ impl TextureAtlasBuilder {
         mut self,
         textures: &mut Assets<Texture>,
     ) -> Result<TextureAtlas, RectanglePackError> {
-        let initial_width = self.initial_size.x() as u32;
-        let initial_height = self.initial_size.y() as u32;
-        let max_width = self.max_size.x() as u32;
-        let max_height = self.max_size.y() as u32;
+        let initial_width = self.initial_size.x as u32;
+        let initial_height = self.initial_size.y as u32;
+        let max_width = self.max_size.x as u32;
+        let max_height = self.max_size.y as u32;
 
         let mut current_width = initial_width;
         let mut current_height = initial_height;

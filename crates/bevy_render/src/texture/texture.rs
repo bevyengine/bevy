@@ -35,7 +35,7 @@ impl Default for Texture {
 impl Texture {
     pub fn new(size: Vec2, data: Vec<u8>, format: TextureFormat) -> Self {
         debug_assert_eq!(
-            size.x() as usize * size.y() as usize * format.pixel_size(),
+            size.x as usize * size.y as usize * format.pixel_size(),
             data.len(),
             "Pixel data, size and format have to match",
         );
@@ -71,13 +71,13 @@ impl Texture {
     }
 
     pub fn aspect(&self) -> f32 {
-        self.size.y() / self.size.x()
+        self.size.y / self.size.x
     }
 
     pub fn resize(&mut self, size: Vec2) {
         self.size = size;
-        let width = size.x() as usize;
-        let height = size.y() as usize;
+        let width = size.x as usize;
+        let height = size.y as usize;
         self.data
             .resize(width * height * self.format.pixel_size(), 0);
     }

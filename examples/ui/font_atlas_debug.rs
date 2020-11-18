@@ -5,9 +5,9 @@ fn main() {
     App::build()
         .init_resource::<State>()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
-        .add_system(text_update_system.system())
-        .add_system(atlas_render_system.system())
+        .add_startup_system(setup)
+        .add_system(text_update_system)
+        .add_system(atlas_render_system)
         .run();
 }
 
@@ -44,7 +44,7 @@ fn atlas_render_system(
                 .get(&font_atlas[state.atlas_count as usize].texture_atlas)
                 .unwrap();
             state.atlas_count += 1;
-            commands.spawn(ImageComponents {
+            commands.spawn(ImageBundle {
                 material: materials.add(texture_atlas.texture.clone().into()),
                 style: Style {
                     position_type: PositionType::Absolute,
@@ -62,34 +62,31 @@ fn atlas_render_system(
 }
 
 fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Query<&mut Text>) {
-    for mut text in query.iter_mut() {
-        state.timer.tick(time.delta_seconds);
-        let c = rand::random::<u8>() as char;
-        if !text.value.contains(c) && state.timer.finished {
-            text.value = format!("{}{}", text.value, c);
-            state.timer.reset();
+    if state.timer.tick(time.delta_seconds).finished {
+        for mut text in query.iter_mut() {
+            let c = rand::random::<u8>() as char;
+            if !text.value.contains(c) {
+                text.value = format!("{}{}", text.value, c);
+            }
         }
+
+        state.timer.reset();
     }
 }
 
 fn setup(commands: &mut Commands, asset_server: Res<AssetServer>, mut state: ResMut<State>) {
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
     state.handle = font_handle.clone();
-    commands
-        .spawn(UiCameraComponents::default())
-        .spawn(TextComponents {
-            style: Style {
-                size: Size::new(Val::Px(250.0), Val::Px(60.0)),
+    commands.spawn(UiCameraBundle::default()).spawn(TextBundle {
+        text: Text {
+            value: "a".to_string(),
+            font: font_handle,
+            style: TextStyle {
+                font_size: 60.0,
+                color: Color::WHITE,
                 ..Default::default()
             },
-            text: Text {
-                value: "a".to_string(),
-                font: font_handle,
-                style: TextStyle {
-                    font_size: 60.0,
-                    color: Color::WHITE,
-                },
-            },
-            ..Default::default()
-        });
+        },
+        ..Default::default()
+    });
 }

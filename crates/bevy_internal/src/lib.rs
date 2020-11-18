@@ -34,6 +34,11 @@ pub mod input {
     pub use bevy_input::*;
 }
 
+pub mod log {
+    //! Logging capabilities
+    pub use bevy_log::*;
+}
+
 pub mod math {
     //! Math types (Vec3, Mat4, Quat, etc) and helpers.
     pub use bevy_math::*;
@@ -137,3 +142,6 @@ pub mod wgpu {
 pub mod dynamic_plugin {
     pub use bevy_dynamic_plugin::*;
 }
+
+#[cfg(target_os = "android")]
+pub use ndk_glue;

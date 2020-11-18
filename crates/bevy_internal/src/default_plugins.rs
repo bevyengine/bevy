@@ -4,6 +4,7 @@ pub struct DefaultPlugins;
 
 impl PluginGroup for DefaultPlugins {
     fn build(&mut self, group: &mut PluginGroupBuilder) {
+        group.add(bevy_log::LogPlugin::default());
         group.add(bevy_type_registry::TypeRegistryPlugin::default());
         group.add(bevy_core::CorePlugin::default());
         group.add(bevy_transform::TransformPlugin::default());

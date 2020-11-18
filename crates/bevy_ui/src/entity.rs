@@ -17,7 +17,7 @@ use bevy_sprite::{ColorMaterial, QUAD_HANDLE};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 #[derive(Bundle, Clone, Debug)]
-pub struct NodeComponents {
+pub struct NodeBundle {
     pub node: Node,
     pub style: Style,
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
@@ -28,9 +28,9 @@ pub struct NodeComponents {
     pub global_transform: GlobalTransform,
 }
 
-impl Default for NodeComponents {
+impl Default for NodeBundle {
     fn default() -> Self {
-        NodeComponents {
+        NodeBundle {
             mesh: QUAD_HANDLE,
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 UI_PIPELINE_HANDLE,
@@ -46,7 +46,7 @@ impl Default for NodeComponents {
 }
 
 #[derive(Bundle, Clone, Debug)]
-pub struct ImageComponents {
+pub struct ImageBundle {
     pub node: Node,
     pub style: Style,
     pub image: Image,
@@ -59,9 +59,9 @@ pub struct ImageComponents {
     pub global_transform: GlobalTransform,
 }
 
-impl Default for ImageComponents {
+impl Default for ImageBundle {
     fn default() -> Self {
-        ImageComponents {
+        ImageBundle {
             mesh: QUAD_HANDLE,
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 UI_PIPELINE_HANDLE,
@@ -79,7 +79,7 @@ impl Default for ImageComponents {
 }
 
 #[derive(Bundle, Clone, Debug)]
-pub struct TextComponents {
+pub struct TextBundle {
     pub node: Node,
     pub style: Style,
     pub draw: Draw,
@@ -90,9 +90,9 @@ pub struct TextComponents {
     pub global_transform: GlobalTransform,
 }
 
-impl Default for TextComponents {
+impl Default for TextBundle {
     fn default() -> Self {
-        TextComponents {
+        TextBundle {
             focus_policy: FocusPolicy::Pass,
             draw: Draw {
                 is_transparent: true,
@@ -109,7 +109,7 @@ impl Default for TextComponents {
 }
 
 #[derive(Bundle, Clone, Debug)]
-pub struct ButtonComponents {
+pub struct ButtonBundle {
     pub node: Node,
     pub button: Button,
     pub style: Style,
@@ -123,9 +123,9 @@ pub struct ButtonComponents {
     pub global_transform: GlobalTransform,
 }
 
-impl Default for ButtonComponents {
+impl Default for ButtonBundle {
     fn default() -> Self {
-        ButtonComponents {
+        ButtonBundle {
             button: Button,
             mesh: QUAD_HANDLE,
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
@@ -144,7 +144,7 @@ impl Default for ButtonComponents {
 }
 
 #[derive(Bundle, Debug)]
-pub struct UiCameraComponents {
+pub struct UiCameraBundle {
     pub camera: Camera,
     pub orthographic_projection: OrthographicProjection,
     pub visible_entities: VisibleEntities,
@@ -152,12 +152,12 @@ pub struct UiCameraComponents {
     pub global_transform: GlobalTransform,
 }
 
-impl Default for UiCameraComponents {
+impl Default for UiCameraBundle {
     fn default() -> Self {
         // we want 0 to be "closest" and +far to be "farthest" in 2d, so we offset
         // the camera's translation by far and use a right handed coordinate system
         let far = 1000.0;
-        UiCameraComponents {
+        UiCameraBundle {
             camera: Camera {
                 name: Some(crate::camera::UI_CAMERA.to_string()),
                 ..Default::default()

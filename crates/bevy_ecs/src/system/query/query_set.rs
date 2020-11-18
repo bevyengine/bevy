@@ -1,7 +1,6 @@
-use crate::Query;
-use bevy_hecs::{
-    impl_query_set, ArchetypeComponent, Fetch, Query as HecsQuery, QueryAccess, QueryFilter,
-    TypeAccess, World,
+use crate::{
+    impl_query_set, ArchetypeComponent, Fetch, Query, QueryAccess, QueryFilter, TypeAccess, World,
+    WorldQuery,
 };
 
 pub struct QuerySet<T: QueryTuple> {

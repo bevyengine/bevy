@@ -13,7 +13,6 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::IntoSystem;
 
 pub struct WindowPlugin {
     pub add_primary_window: bool,
@@ -54,7 +53,7 @@ impl Plugin for WindowPlugin {
         }
 
         if self.exit_on_close {
-            app.add_system(exit_on_window_close_system.system());
+            app.add_system(exit_on_window_close_system);
         }
     }
 }

@@ -152,7 +152,7 @@ pub fn convert_virtual_key_code(virtual_key_code: winit::event::VirtualKeyCode) 
         winit::event::VirtualKeyCode::NumpadAdd => KeyCode::NumpadAdd,
         winit::event::VirtualKeyCode::Apostrophe => KeyCode::Apostrophe,
         winit::event::VirtualKeyCode::Apps => KeyCode::Apps,
-        winit::event::VirtualKeyCode::Asterisk => KeyCode::Asterix,
+        winit::event::VirtualKeyCode::Asterisk => KeyCode::Asterisk,
         winit::event::VirtualKeyCode::Plus => KeyCode::Plus,
         winit::event::VirtualKeyCode::At => KeyCode::At,
         winit::event::VirtualKeyCode::Ax => KeyCode::Ax,

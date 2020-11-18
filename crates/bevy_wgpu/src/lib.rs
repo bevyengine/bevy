@@ -11,7 +11,7 @@ pub use wgpu_renderer::*;
 pub use wgpu_resources::*;
 
 use bevy_app::prelude::*;
-use bevy_ecs::{IntoSystem, IntoThreadLocalSystem, Resources, World};
+use bevy_ecs::{Resources, World};
 use bevy_render::renderer::{free_shared_buffers_system, RenderResourceContext, SharedBuffers};
 use renderer::WgpuRenderResourceContext;
 
@@ -21,14 +21,8 @@ pub struct WgpuPlugin;
 impl Plugin for WgpuPlugin {
     fn build(&self, app: &mut AppBuilder) {
         let render_system = get_wgpu_render_system(app.resources_mut());
-        app.add_system_to_stage(
-            bevy_render::stage::RENDER,
-            render_system.thread_local_system(),
-        )
-        .add_system_to_stage(
-            bevy_render::stage::POST_RENDER,
-            free_shared_buffers_system.system(),
-        );
+        app.add_system_to_stage(bevy_render::stage::RENDER, render_system)
+            .add_system_to_stage(bevy_render::stage::POST_RENDER, free_shared_buffers_system);
     }
 }
 

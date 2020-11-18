@@ -1,5 +1,6 @@
 use crate::components::{Children, Parent};
 use bevy_ecs::{Command, Commands, Entity, Query, Resources, World};
+use bevy_utils::tracing::debug;
 
 pub fn run_on_hierarchy<T, S>(
     children_query: &Query<&Children>,
@@ -62,7 +63,7 @@ fn despawn_with_children_recursive_inner(world: &mut World, entity: Entity) {
     }
 
     if let Err(e) = world.despawn(entity) {
-        log::debug!("Failed to despawn entity {:?}: {}", entity, e);
+        debug!("Failed to despawn entity {:?}: {}", entity, e);
     }
 }
 

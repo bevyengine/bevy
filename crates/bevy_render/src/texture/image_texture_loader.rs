@@ -155,7 +155,6 @@ impl AssetLoader for ImageTextureLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        static EXTENSIONS: &[&str] = &["png"];
-        EXTENSIONS
+        &["png"]
     }
 }

@@ -14,7 +14,6 @@ pub struct VertexBufferDescriptor {
     pub attributes: Vec<VertexAttributeDescriptor>,
 }
 
-pub const VERTEX_FALLBACK_LAYOUT_NAME: &str = "Fallback";
 impl VertexBufferDescriptor {
     pub fn new_from_attribute(
         attribute: VertexAttributeDescriptor,

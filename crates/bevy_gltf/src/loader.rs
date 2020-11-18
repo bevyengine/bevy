@@ -4,7 +4,7 @@ use bevy_asset::{AssetIoError, AssetLoader, AssetPath, Handle, LoadContext, Load
 use bevy_core::Name;
 use bevy_ecs::{bevy_utils::BoxedFuture, Entity, World, WorldBuilderSource};
 use bevy_math::prelude::*;
-use bevy_pbr::prelude::{PbrComponents, StandardMaterial};
+use bevy_pbr::prelude::{PbrBundle, StandardMaterial};
 use bevy_render::{
     camera::{
         Camera, CameraProjection, OrthographicProjection, PerspectiveProjection, VisibleEntities,
@@ -69,8 +69,7 @@ impl AssetLoader for GltfLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        static EXTENSIONS: &[&str] = &["gltf", "glb"];
-        EXTENSIONS
+        &["gltf", "glb"]
     }
 }
 
@@ -517,7 +516,7 @@ fn load_node(
                 // print!("{}", "    ".repeat(depth));
                 // println!("-Mesh_{:?}_{}", mesh.name(), primitive.index());
 
-                parent.spawn(PbrComponents {
+                parent.spawn(PbrBundle {
                     mesh: load_context.get_handle(mesh_asset_path),
                     material: load_context.get_handle(material_asset_path),
                     ..Default::default()

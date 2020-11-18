@@ -6,7 +6,7 @@ use std::{any::TypeId, fmt};
 pub struct PropertyTypeRegistry {
     registrations: HashMap<String, PropertyTypeRegistration>,
     short_names: HashMap<String, String>,
-    ambigous_names: HashSet<String>,
+    ambiguous_names: HashSet<String>,
 }
 
 impl PropertyTypeRegistry {
@@ -20,10 +20,11 @@ impl PropertyTypeRegistry {
 
     fn add_registration(&mut self, registration: PropertyTypeRegistration) {
         let short_name = registration.short_name.to_string();
-        if self.short_names.contains_key(&short_name) || self.ambigous_names.contains(&short_name) {
+        if self.short_names.contains_key(&short_name) || self.ambiguous_names.contains(&short_name)
+        {
             // name is ambiguous. fall back to long names for all ambiguous types
             self.short_names.remove(&short_name);
-            self.ambigous_names.insert(short_name);
+            self.ambiguous_names.insert(short_name);
         } else {
             self.short_names
                 .insert(short_name, registration.name.to_string());

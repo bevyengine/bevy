@@ -1,21 +1,21 @@
 use crate::components::*;
-use bevy_ecs::{Commands, Entity, IntoSystem, Query, System, Without};
+use bevy_ecs::{Changed, Commands, Entity, Query, Without};
 use bevy_utils::HashMap;
 use smallvec::SmallVec;
 
 pub fn parent_update_system(
     commands: &mut Commands,
     removed_parent_query: Query<(Entity, &PreviousParent), Without<Parent>>,
-    // TODO: ideally this only runs when the Parent component has changed
-    mut changed_parent_query: Query<(Entity, &Parent, Option<&mut PreviousParent>)>,
+    mut changed_parent_query: Query<
+        (Entity, &Parent, Option<&mut PreviousParent>),
+        Changed<Parent>,
+    >,
     mut children_query: Query<&mut Children>,
 ) {
     // Entities with a missing `Parent` (ie. ones that have a `PreviousParent`), remove
     // them from the `Children` of the `PreviousParent`.
     for (entity, previous_parent) in removed_parent_query.iter() {
-        log::trace!("Parent was removed from {:?}", entity);
         if let Ok(mut previous_parent_children) = children_query.get_mut(previous_parent.0) {
-            log::trace!(" > Removing {:?} from it's prev parent's children", entity);
             previous_parent_children.0.retain(|e| *e != entity);
             commands.remove_one::<PreviousParent>(entity);
         }
@@ -26,43 +26,30 @@ pub fn parent_update_system(
 
     // Entities with a changed Parent (that also have a PreviousParent, even if None)
     for (entity, parent, possible_previous_parent) in changed_parent_query.iter_mut() {
-        log::trace!("Parent changed for {:?}", entity);
         if let Some(mut previous_parent) = possible_previous_parent {
             // New and previous point to the same Entity, carry on, nothing to see here.
             if previous_parent.0 == parent.0 {
-                log::trace!(" > But the previous parent is the same, ignoring...");
                 continue;
             }
 
             // Remove from `PreviousParent.Children`.
             if let Ok(mut previous_parent_children) = children_query.get_mut(previous_parent.0) {
-                log::trace!(" > Removing {:?} from prev parent's children", entity);
                 (*previous_parent_children).0.retain(|e| *e != entity);
             }
 
             // Set `PreviousParent = Parent`.
             *previous_parent = PreviousParent(parent.0);
         } else {
-            log::trace!("Adding missing PreviousParent to {:?}", entity);
             commands.insert_one(entity, PreviousParent(parent.0));
         };
 
         // Add to the parent's `Children` (either the real component, or
         // `children_additions`).
-        log::trace!("Adding {:?} to it's new parent {:?}", entity, parent.0);
         if let Ok(mut new_parent_children) = children_query.get_mut(parent.0) {
             // This is the parent
-            log::trace!(
-                " > The new parent {:?} already has a `Children`, adding to it.",
-                parent.0
-            );
             (*new_parent_children).0.push(entity);
         } else {
             // The parent doesn't have a children entity, lets add it
-            log::trace!(
-                "The new parent {:?} doesn't yet have `Children` component.",
-                parent.0
-            );
             children_additions
                 .entry(parent.0)
                 .or_insert_with(Default::default)
@@ -74,23 +61,13 @@ pub fn parent_update_system(
     // collect multiple new children that point to the same parent into the same
     // SmallVec, and to prevent redundant add+remove operations.
     children_additions.iter().for_each(|(k, v)| {
-        log::trace!(
-            "Flushing: Entity {:?} adding `Children` component {:?}",
-            k,
-            v
-        );
         commands.insert_one(*k, Children::with(v));
     });
 }
-
-pub fn hierarchy_maintenance_systems() -> Vec<Box<dyn System>> {
-    vec![parent_update_system.system()]
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{hierarchy::BuildChildren, transform_systems};
+    use crate::{hierarchy::BuildChildren, transform_propagate_system::transform_propagate_system};
     use bevy_ecs::{Resources, Schedule, World};
     use bevy_math::Vec3;
 
@@ -101,9 +78,8 @@ mod test {
 
         let mut schedule = Schedule::default();
         schedule.add_stage("update");
-        for system in transform_systems() {
-            schedule.add_system_to_stage("update", system);
-        }
+        schedule.add_system_to_stage("update", parent_update_system);
+        schedule.add_system_to_stage("update", transform_propagate_system);
 
         // Add parent entities
         let mut commands = Commands::default();

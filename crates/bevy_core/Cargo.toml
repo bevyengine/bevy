@@ -23,7 +23,5 @@ bevy_math = { path = "../bevy_math", version = "0.3.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.3.0" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.3.0" }
 
-log = { version = "0.4", features = ["release_max_level_info"] }
-
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 instant = { version = "0.1", features = ["wasm-bindgen"] }

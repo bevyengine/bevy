@@ -2,6 +2,7 @@ use ahash::RandomState;
 use std::{future::Future, pin::Pin};
 
 pub use ahash::AHasher;
+pub use tracing;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
