@@ -10,11 +10,11 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_resource(Scoreboard { score: 0 })
         .add_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
-        .add_startup_system(setup.system())
-        .add_system(paddle_movement_system.system())
-        .add_system(ball_collision_system.system())
-        .add_system(ball_movement_system.system())
-        .add_system(scoreboard_system.system())
+        .add_startup_system(setup)
+        .add_system(paddle_movement_system)
+        .add_system(ball_collision_system)
+        .add_system(ball_movement_system)
+        .add_system(scoreboard_system)
         .run();
 }
 
@@ -44,10 +44,10 @@ fn setup(
     // Add the game's entities to our world
     commands
         // cameras
-        .spawn(Camera2dComponents::default())
-        .spawn(UiCameraComponents::default())
+        .spawn(Camera2dBundle::default())
+        .spawn(UiCameraBundle::default())
         // paddle
-        .spawn(SpriteComponents {
+        .spawn(SpriteBundle {
             material: materials.add(Color::rgb(0.5, 0.5, 1.0).into()),
             transform: Transform::from_translation(Vec3::new(0.0, -215.0, 0.0)),
             sprite: Sprite::new(Vec2::new(120.0, 30.0)),
@@ -56,7 +56,7 @@ fn setup(
         .with(Paddle { speed: 500.0 })
         .with(Collider::Paddle)
         // ball
-        .spawn(SpriteComponents {
+        .spawn(SpriteBundle {
             material: materials.add(Color::rgb(1.0, 0.5, 0.5).into()),
             transform: Transform::from_translation(Vec3::new(0.0, -50.0, 1.0)),
             sprite: Sprite::new(Vec2::new(30.0, 30.0)),
@@ -66,13 +66,14 @@ fn setup(
             velocity: 400.0 * Vec3::new(0.5, -0.5, 0.0).normalize(),
         })
         // scoreboard
-        .spawn(TextComponents {
+        .spawn(TextBundle {
             text: Text {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 value: "Score:".to_string(),
                 style: TextStyle {
                     color: Color::rgb(0.5, 0.5, 1.0),
                     font_size: 40.0,
+                    ..Default::default()
                 },
             },
             style: Style {
@@ -94,34 +95,34 @@ fn setup(
 
     commands
         // left
-        .spawn(SpriteComponents {
+        .spawn(SpriteBundle {
             material: wall_material.clone(),
-            transform: Transform::from_translation(Vec3::new(-bounds.x() / 2.0, 0.0, 0.0)),
-            sprite: Sprite::new(Vec2::new(wall_thickness, bounds.y() + wall_thickness)),
+            transform: Transform::from_translation(Vec3::new(-bounds.x / 2.0, 0.0, 0.0)),
+            sprite: Sprite::new(Vec2::new(wall_thickness, bounds.y + wall_thickness)),
             ..Default::default()
         })
         .with(Collider::Solid)
         // right
-        .spawn(SpriteComponents {
+        .spawn(SpriteBundle {
             material: wall_material.clone(),
-            transform: Transform::from_translation(Vec3::new(bounds.x() / 2.0, 0.0, 0.0)),
-            sprite: Sprite::new(Vec2::new(wall_thickness, bounds.y() + wall_thickness)),
+            transform: Transform::from_translation(Vec3::new(bounds.x / 2.0, 0.0, 0.0)),
+            sprite: Sprite::new(Vec2::new(wall_thickness, bounds.y + wall_thickness)),
             ..Default::default()
         })
         .with(Collider::Solid)
         // bottom
-        .spawn(SpriteComponents {
+        .spawn(SpriteBundle {
             material: wall_material.clone(),
-            transform: Transform::from_translation(Vec3::new(0.0, -bounds.y() / 2.0, 0.0)),
-            sprite: Sprite::new(Vec2::new(bounds.x() + wall_thickness, wall_thickness)),
+            transform: Transform::from_translation(Vec3::new(0.0, -bounds.y / 2.0, 0.0)),
+            sprite: Sprite::new(Vec2::new(bounds.x + wall_thickness, wall_thickness)),
             ..Default::default()
         })
         .with(Collider::Solid)
         // top
-        .spawn(SpriteComponents {
+        .spawn(SpriteBundle {
             material: wall_material,
-            transform: Transform::from_translation(Vec3::new(0.0, bounds.y() / 2.0, 0.0)),
-            sprite: Sprite::new(Vec2::new(bounds.x() + wall_thickness, wall_thickness)),
+            transform: Transform::from_translation(Vec3::new(0.0, bounds.y / 2.0, 0.0)),
+            sprite: Sprite::new(Vec2::new(bounds.x + wall_thickness, wall_thickness)),
             ..Default::default()
         })
         .with(Collider::Solid);
@@ -131,21 +132,21 @@ fn setup(
     let brick_columns = 5;
     let brick_spacing = 20.0;
     let brick_size = Vec2::new(150.0, 30.0);
-    let bricks_width = brick_columns as f32 * (brick_size.x() + brick_spacing) - brick_spacing;
+    let bricks_width = brick_columns as f32 * (brick_size.x + brick_spacing) - brick_spacing;
     // center the bricks and move them up a bit
-    let bricks_offset = Vec3::new(-(bricks_width - brick_size.x()) / 2.0, 100.0, 0.0);
+    let bricks_offset = Vec3::new(-(bricks_width - brick_size.x) / 2.0, 100.0, 0.0);
     let brick_material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
     for row in 0..brick_rows {
-        let y_position = row as f32 * (brick_size.y() + brick_spacing);
+        let y_position = row as f32 * (brick_size.y + brick_spacing);
         for column in 0..brick_columns {
             let brick_position = Vec3::new(
-                column as f32 * (brick_size.x() + brick_spacing),
+                column as f32 * (brick_size.x + brick_spacing),
                 y_position,
                 0.0,
             ) + bricks_offset;
             commands
                 // brick
-                .spawn(SpriteComponents {
+                .spawn(SpriteBundle {
                     material: brick_material.clone(),
                     sprite: Sprite::new(brick_size),
                     transform: Transform::from_translation(brick_position),
@@ -173,9 +174,9 @@ fn paddle_movement_system(
 
         let translation = &mut transform.translation;
         // move the paddle horizontally
-        *translation.x_mut() += time.delta_seconds * direction * paddle.speed;
+        translation.x += time.delta_seconds * direction * paddle.speed;
         // bound the paddle within the walls
-        *translation.x_mut() = translation.x().min(380.0).max(-380.0);
+        translation.x = translation.x.min(380.0).max(-380.0);
     }
 }
 
@@ -225,20 +226,20 @@ fn ball_collision_system(
 
                 // only reflect if the ball's velocity is going in the opposite direction of the collision
                 match collision {
-                    Collision::Left => reflect_x = velocity.x() > 0.0,
-                    Collision::Right => reflect_x = velocity.x() < 0.0,
-                    Collision::Top => reflect_y = velocity.y() < 0.0,
-                    Collision::Bottom => reflect_y = velocity.y() > 0.0,
+                    Collision::Left => reflect_x = velocity.x > 0.0,
+                    Collision::Right => reflect_x = velocity.x < 0.0,
+                    Collision::Top => reflect_y = velocity.y < 0.0,
+                    Collision::Bottom => reflect_y = velocity.y > 0.0,
                 }
 
                 // reflect velocity on the x-axis if we hit something on the x-axis
                 if reflect_x {
-                    *velocity.x_mut() = -velocity.x();
+                    velocity.x = -velocity.x;
                 }
 
                 // reflect velocity on the y-axis if we hit something on the y-axis
                 if reflect_y {
-                    *velocity.y_mut() = -velocity.y();
+                    velocity.y = -velocity.y;
                 }
 
                 // break if this collide is on a solid, otherwise continue check whether a solid is also in collision

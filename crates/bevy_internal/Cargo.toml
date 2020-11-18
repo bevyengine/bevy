@@ -14,9 +14,9 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 categories = ["game-engines", "graphics", "gui", "rendering"]
 
 [features]
-profiler = ["bevy_ecs/profiler", "bevy_diagnostic/profiler"]
 wgpu_trace = ["bevy_wgpu/trace"]
 trace = [ "bevy_app/trace", "bevy_ecs/trace" ]
+trace_chrome = [ "bevy_log/tracing-chrome" ]
 
 # Image format support for texture loading (PNG and HDR are enabled by default)
 hdr = ["bevy_render/hdr"]
@@ -40,9 +40,11 @@ bevy_app = { path = "../bevy_app", version = "0.3.0" }
 bevy_asset = { path = "../bevy_asset", version = "0.3.0" }
 bevy_type_registry = { path = "../bevy_type_registry", version = "0.3.0" }
 bevy_core = { path = "../bevy_core", version = "0.3.0" }
+bevy_derive = { path = "../bevy_derive", version = "0.3.0" }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.3.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.3.0" }
 bevy_input = { path = "../bevy_input", version = "0.3.0" }
+bevy_log = { path = "../bevy_log", version = "0.3.0" }
 bevy_math = { path = "../bevy_math", version = "0.3.0" }
 bevy_property = { path = "../bevy_property", version = "0.3.0" }
 bevy_scene = { path = "../bevy_scene", version = "0.3.0" }
@@ -63,3 +65,5 @@ bevy_wgpu = { path = "../bevy_wgpu", optional = true, version = "0.3.0" }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.3.0" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.3.0" }
 
+[target.'cfg(target_os = "android")'.dependencies]
+ndk-glue = {version = "0.2", features = ["logger"]}

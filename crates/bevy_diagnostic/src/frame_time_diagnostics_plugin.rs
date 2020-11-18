@@ -1,7 +1,7 @@
 use crate::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_app::prelude::*;
 use bevy_core::Time;
-use bevy_ecs::{IntoSystem, Res, ResMut};
+use bevy_ecs::{Res, ResMut};
 
 /// Adds "frame time" diagnostic to an App, specifically "frame time", "fps" and "frame count"
 #[derive(Default)]
@@ -13,9 +13,9 @@ pub struct FrameTimeDiagnosticsState {
 
 impl Plugin for FrameTimeDiagnosticsPlugin {
     fn build(&self, app: &mut bevy_app::AppBuilder) {
-        app.add_startup_system(Self::setup_system.system())
+        app.add_startup_system(Self::setup_system)
             .add_resource(FrameTimeDiagnosticsState { frame_count: 0.0 })
-            .add_system(Self::diagnostic_system.system());
+            .add_system(Self::diagnostic_system);
     }
 }
 

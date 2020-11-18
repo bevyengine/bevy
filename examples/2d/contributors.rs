@@ -9,11 +9,11 @@ use std::{
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
-        .add_system(velocity_system.system())
-        .add_system(move_system.system())
-        .add_system(collision_system.system())
-        .add_system(select_system.system())
+        .add_startup_system(setup)
+        .add_system(velocity_system)
+        .add_system(move_system)
+        .add_system(collision_system)
+        .add_system(select_system)
         .run();
 }
 
@@ -55,8 +55,8 @@ fn setup(
     let texture_handle = asset_server.load("branding/icon.png");
 
     commands
-        .spawn(Camera2dComponents::default())
-        .spawn(UiCameraComponents::default());
+        .spawn(Camera2dBundle::default())
+        .spawn(UiCameraBundle::default());
 
     let mut sel = ContributorSelection {
         order: vec![],
@@ -75,7 +75,7 @@ fn setup(
         let flipped = rnd.gen_bool(0.5);
 
         let mut transform = Transform::from_translation(Vec3::new(pos.0, pos.1, 0.0));
-        *transform.scale.x_mut() *= if flipped { -1.0 } else { 1.0 };
+        transform.scale.x *= if flipped { -1.0 } else { 1.0 };
 
         commands
             .spawn((Contributor { color: col },))
@@ -83,7 +83,7 @@ fn setup(
                 translation: velocity,
                 rotation: -dir * 5.0,
             })
-            .with_bundle(SpriteComponents {
+            .with_bundle(SpriteBundle {
                 sprite: Sprite {
                     size: Vec2::new(1.0, 1.0) * SPRITE_SIZE,
                     resize_mode: SpriteResizeMode::Manual,
@@ -107,7 +107,7 @@ fn setup(
 
     commands
         .spawn((ContributorDisplay,))
-        .with_bundle(TextComponents {
+        .with_bundle(TextBundle {
             style: Style {
                 align_self: AlignSelf::FlexEnd,
                 ..Default::default()
@@ -118,6 +118,7 @@ fn setup(
                 style: TextStyle {
                     font_size: 60.0,
                     color: Color::WHITE,
+                    ..Default::default()
                 },
             },
             ..Default::default()
@@ -130,12 +131,12 @@ fn setup(
 fn select_system(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut sel: ResMut<ContributorSelection>,
-    mut dq: Query<(&ContributorDisplay, Mut<Text>)>,
-    mut tq: Query<(&SelectTimer, Mut<Timer>)>,
+    mut dq: Query<Mut<Text>, With<ContributorDisplay>>,
+    mut tq: Query<Mut<Timer>, With<SelectTimer>>,
     mut q: Query<(&Contributor, &Handle<ColorMaterial>, &mut Transform)>,
 ) {
     let mut timer_fired = false;
-    for (_, mut t) in tq.iter_mut() {
+    for mut t in tq.iter_mut() {
         if !t.just_finished {
             continue;
         }
@@ -165,7 +166,7 @@ fn select_system(
     let (name, e) = &sel.order[sel.idx];
 
     if let Ok((c, handle, mut tr)) = q.get_mut(*e) {
-        for (_, mut text) in dq.iter_mut() {
+        for mut text in dq.iter_mut() {
             select(
                 &mut *materials,
                 handle.clone(),
@@ -191,7 +192,7 @@ fn select(
     let mat = materials.get_mut(mat_handle)?;
     mat.color = COL_SELECTED * cont.color;
 
-    trans.translation.set_z(100.0);
+    trans.translation.z = 100.0;
 
     text.value = format!("Contributor: {}", name);
 
@@ -209,7 +210,7 @@ fn deselect(
     let mat = materials.get_mut(mat_handle)?;
     mat.color = COL_DESELECTED * cont.color;
 
-    trans.translation.set_z(0.0);
+    trans.translation.z = 0.0;
 
     Some(())
 }
@@ -230,7 +231,7 @@ fn velocity_system(time: Res<Time>, mut q: Query<Mut<Velocity>>) {
 /// force.
 fn collision_system(
     wins: Res<Windows>,
-    mut q: Query<(&Contributor, Mut<Velocity>, Mut<Transform>)>,
+    mut q: Query<(Mut<Velocity>, Mut<Transform>), With<Contributor>>,
 ) {
     let mut rnd = rand::thread_rng();
 
@@ -242,30 +243,30 @@ fn collision_system(
     let wall_left = -((win.width() / 2) as f32);
     let wall_right = (win.width() / 2) as f32;
 
-    for (_, mut v, mut t) in q.iter_mut() {
-        let left = t.translation.x() - SPRITE_SIZE / 2.0;
-        let right = t.translation.x() + SPRITE_SIZE / 2.0;
-        let top = t.translation.y() + SPRITE_SIZE / 2.0;
-        let bottom = t.translation.y() - SPRITE_SIZE / 2.0;
+    for (mut v, mut t) in q.iter_mut() {
+        let left = t.translation.x - SPRITE_SIZE / 2.0;
+        let right = t.translation.x + SPRITE_SIZE / 2.0;
+        let top = t.translation.y + SPRITE_SIZE / 2.0;
+        let bottom = t.translation.y - SPRITE_SIZE / 2.0;
 
         // clamp the translation to not go out of the bounds
         if bottom < ground {
-            t.translation.set_y(ground + SPRITE_SIZE / 2.0);
+            t.translation.y = ground + SPRITE_SIZE / 2.0;
             // apply an impulse upwards
-            *v.translation.y_mut() = rnd.gen_range(700.0, 1000.0);
+            v.translation.y = rnd.gen_range(700.0, 1000.0);
         }
         if top > ceiling {
-            t.translation.set_y(ceiling - SPRITE_SIZE / 2.0);
+            t.translation.y = ceiling - SPRITE_SIZE / 2.0;
         }
         // on side walls flip the horizontal velocity
         if left < wall_left {
-            t.translation.set_x(wall_left + SPRITE_SIZE / 2.0);
-            *v.translation.x_mut() *= -1.0;
+            t.translation.x = wall_left + SPRITE_SIZE / 2.0;
+            v.translation.x *= -1.0;
             v.rotation *= -1.0;
         }
         if right > wall_right {
-            t.translation.set_x(wall_right - SPRITE_SIZE / 2.0);
-            *v.translation.x_mut() *= -1.0;
+            t.translation.x = wall_right - SPRITE_SIZE / 2.0;
+            v.translation.x *= -1.0;
             v.rotation *= -1.0;
         }
     }

@@ -17,7 +17,7 @@ fn main() {
     App::build()
         .add_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
+        .add_startup_system(setup)
         .run();
 }
 
@@ -156,18 +156,18 @@ fn setup(
     commands
         .spawn_scene(asset_server.load("models/monkey/Monkey.gltf"))
         // light
-        .spawn(LightComponents {
+        .spawn(LightBundle {
             transform: Transform::from_translation(Vec3::new(4.0, 5.0, 4.0)),
             ..Default::default()
         })
         // main camera
-        .spawn(Camera3dComponents {
+        .spawn(Camera3dBundle {
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 6.0))
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
         })
         // second window camera
-        .spawn(Camera3dComponents {
+        .spawn(Camera3dBundle {
             camera: Camera {
                 name: Some("Secondary".to_string()),
                 window: window_id,

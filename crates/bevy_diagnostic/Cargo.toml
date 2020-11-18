@@ -12,8 +12,6 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT"
 keywords = ["bevy"]
 
-[features]
-profiler = ["bevy_ecs/profiler"]
 
 [dependencies]
 # bevy

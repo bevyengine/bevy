@@ -5,6 +5,7 @@ use crate::{
     stage, startup_stage, PluginGroup, PluginGroupBuilder,
 };
 use bevy_ecs::{FromResources, IntoSystem, Resources, System, World};
+use bevy_utils::tracing::debug;
 
 /// Configure [App]s using the builder pattern
 pub struct AppBuilder {
@@ -94,79 +95,38 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_system(&mut self, system: Box<dyn System>) -> &mut Self {
+    pub fn add_system<S, Params, IntoS>(&mut self, system: IntoS) -> &mut Self
+    where
+        S: System<Input = (), Output = ()>,
+        IntoS: IntoSystem<Params, S>,
+    {
         self.add_system_to_stage(stage::UPDATE, system)
     }
 
-    pub fn add_systems(&mut self, systems: Vec<Box<dyn System>>) -> &mut Self {
-        self.add_systems_to_stage(stage::UPDATE, systems)
-    }
-
-    pub fn init_system(
-        &mut self,
-        build: impl FnMut(&mut Resources) -> Box<dyn System>,
-    ) -> &mut Self {
-        self.init_system_to_stage(stage::UPDATE, build)
-    }
-
-    pub fn init_system_to_stage(
-        &mut self,
-        stage: &'static str,
-        mut build: impl FnMut(&mut Resources) -> Box<dyn System>,
-    ) -> &mut Self {
-        let system = build(&mut self.app.resources);
-        self.add_system_to_stage(stage, system)
-    }
-
-    pub fn add_startup_system_to_stage(
+    pub fn add_startup_system_to_stage<S, Params, IntoS>(
         &mut self,
         stage_name: &'static str,
-        system: Box<dyn System>,
-    ) -> &mut Self {
+        system: IntoS,
+    ) -> &mut Self
+    where
+        S: System<Input = (), Output = ()>,
+        IntoS: IntoSystem<Params, S>,
+    {
         self.app
             .startup_schedule
             .add_system_to_stage(stage_name, system);
         self
     }
 
-    pub fn add_startup_systems_to_stage(
-        &mut self,
-        stage_name: &'static str,
-        systems: Vec<Box<dyn System>>,
-    ) -> &mut Self {
-        for system in systems {
-            self.app
-                .startup_schedule
-                .add_system_to_stage(stage_name, system);
-        }
-        self
-    }
-
-    pub fn add_startup_system(&mut self, system: Box<dyn System>) -> &mut Self {
+    pub fn add_startup_system<S, Params, IntoS>(&mut self, system: IntoS) -> &mut Self
+    where
+        S: System<Input = (), Output = ()>,
+        IntoS: IntoSystem<Params, S>,
+    {
         self.app
             .startup_schedule
             .add_system_to_stage(startup_stage::STARTUP, system);
         self
-    }
-
-    pub fn add_startup_systems(&mut self, systems: Vec<Box<dyn System>>) -> &mut Self {
-        self.add_startup_systems_to_stage(startup_stage::STARTUP, systems)
-    }
-
-    pub fn init_startup_system(
-        &mut self,
-        build: impl FnMut(&mut Resources) -> Box<dyn System>,
-    ) -> &mut Self {
-        self.init_startup_system_to_stage(startup_stage::STARTUP, build)
-    }
-
-    pub fn init_startup_system_to_stage(
-        &mut self,
-        stage: &'static str,
-        mut build: impl FnMut(&mut Resources) -> Box<dyn System>,
-    ) -> &mut Self {
-        let system = build(&mut self.app.resources);
-        self.add_startup_system_to_stage(stage, system)
     }
 
     pub fn add_default_stages(&mut self) -> &mut Self {
@@ -182,34 +142,31 @@ impl AppBuilder {
             .add_stage(stage::LAST)
     }
 
-    pub fn add_system_to_stage(
+    pub fn add_system_to_stage<S, Params, IntoS>(
         &mut self,
         stage_name: &'static str,
-        system: Box<dyn System>,
-    ) -> &mut Self {
+        system: IntoS,
+    ) -> &mut Self
+    where
+        S: System<Input = (), Output = ()>,
+        IntoS: IntoSystem<Params, S>,
+    {
         self.app.schedule.add_system_to_stage(stage_name, system);
         self
     }
 
-    pub fn add_system_to_stage_front(
+    pub fn add_system_to_stage_front<S, Params, IntoS>(
         &mut self,
         stage_name: &'static str,
-        system: Box<dyn System>,
-    ) -> &mut Self {
+        system: IntoS,
+    ) -> &mut Self
+    where
+        S: System<Input = (), Output = ()>,
+        IntoS: IntoSystem<Params, S>,
+    {
         self.app
             .schedule
-            .add_system_to_stage_front(stage_name, system);
-        self
-    }
-
-    pub fn add_systems_to_stage(
-        &mut self,
-        stage_name: &'static str,
-        systems: Vec<Box<dyn System>>,
-    ) -> &mut Self {
-        for system in systems {
-            self.app.schedule.add_system_to_stage(stage_name, system);
-        }
+            .add_system_to_stage_front(stage_name, system.system());
         self
     }
 
@@ -218,7 +175,7 @@ impl AppBuilder {
         T: Send + Sync + 'static,
     {
         self.add_resource(Events::<T>::default())
-            .add_system_to_stage(stage::EVENT, Events::<T>::update_system.system())
+            .add_system_to_stage(stage::EVENT, Events::<T>::update_system)
     }
 
     /// Adds a resource to the current [App] and overwrites any resource previously added of the same type.
@@ -267,7 +224,7 @@ impl AppBuilder {
     where
         T: Plugin,
     {
-        log::debug!("added plugin: {}", plugin.name());
+        debug!("added plugin: {}", plugin.name());
         plugin.build(self);
         self
     }

@@ -29,8 +29,7 @@ impl Plugin for PrintMessagePlugin {
             message: self.message.clone(),
             timer: Timer::new(self.wait_duration, true),
         };
-        app.add_resource(state)
-            .add_system(print_message_system.system());
+        app.add_resource(state).add_system(print_message_system);
     }
 }
 
@@ -40,8 +39,7 @@ struct PrintMessageState {
 }
 
 fn print_message_system(mut state: ResMut<PrintMessageState>, time: Res<Time>) {
-    state.timer.tick(time.delta_seconds);
-    if state.timer.finished {
+    if state.timer.tick(time.delta_seconds).finished {
         println!("{}", state.message);
     }
 }

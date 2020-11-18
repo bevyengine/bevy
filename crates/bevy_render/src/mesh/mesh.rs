@@ -15,7 +15,7 @@ use bevy_utils::HashMap;
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
-pub const VERTEX_FALLBACK_BUFFER_ID: u64 = 20;
+
 #[derive(Clone, Debug)]
 pub enum VertexAttributeValues {
     Float(Vec<f32>),
@@ -129,8 +129,9 @@ impl Mesh {
     pub fn set_attribute(
         &mut self,
         name: impl Into<Cow<'static, str>>,
-        values: VertexAttributeValues,
+        values: impl Into<VertexAttributeValues>,
     ) {
+        let values: VertexAttributeValues = values.into();
         self.attributes.insert(name.into(), values);
     }
 
@@ -294,9 +295,9 @@ pub mod shape {
             ]);
 
             let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-            mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions.into());
-            mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals.into());
-            mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs.into());
+            mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+            mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+            mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
             mesh.set_indices(Some(indices));
             mesh
         }
@@ -323,8 +324,8 @@ pub mod shape {
 
     impl From<Quad> for Mesh {
         fn from(quad: Quad) -> Self {
-            let extent_x = quad.size.x() / 2.0;
-            let extent_y = quad.size.y() / 2.0;
+            let extent_x = quad.size.x / 2.0;
+            let extent_y = quad.size.y / 2.0;
 
             let north_west = vec2(-extent_x, extent_y);
             let north_east = vec2(extent_x, extent_y);
@@ -333,22 +334,22 @@ pub mod shape {
             let vertices = if quad.flip {
                 [
                     (
-                        [south_east.x(), south_east.y(), 0.0],
+                        [south_east.x, south_east.y, 0.0],
                         [0.0, 0.0, 1.0],
                         [1.0, 1.0],
                     ),
                     (
-                        [north_east.x(), north_east.y(), 0.0],
+                        [north_east.x, north_east.y, 0.0],
                         [0.0, 0.0, 1.0],
                         [1.0, 0.0],
                     ),
                     (
-                        [north_west.x(), north_west.y(), 0.0],
+                        [north_west.x, north_west.y, 0.0],
                         [0.0, 0.0, 1.0],
                         [0.0, 0.0],
                     ),
                     (
-                        [south_west.x(), south_west.y(), 0.0],
+                        [south_west.x, south_west.y, 0.0],
                         [0.0, 0.0, 1.0],
                         [0.0, 1.0],
                     ),
@@ -356,22 +357,22 @@ pub mod shape {
             } else {
                 [
                     (
-                        [south_west.x(), south_west.y(), 0.0],
+                        [south_west.x, south_west.y, 0.0],
                         [0.0, 0.0, 1.0],
                         [0.0, 1.0],
                     ),
                     (
-                        [north_west.x(), north_west.y(), 0.0],
+                        [north_west.x, north_west.y, 0.0],
                         [0.0, 0.0, 1.0],
                         [0.0, 0.0],
                     ),
                     (
-                        [north_east.x(), north_east.y(), 0.0],
+                        [north_east.x, north_east.y, 0.0],
                         [0.0, 0.0, 1.0],
                         [1.0, 0.0],
                     ),
                     (
-                        [south_east.x(), south_east.y(), 0.0],
+                        [south_east.x, south_east.y, 0.0],
                         [0.0, 0.0, 1.0],
                         [1.0, 1.0],
                     ),
@@ -391,9 +392,9 @@ pub mod shape {
 
             let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
             mesh.set_indices(Some(indices));
-            mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions.into());
-            mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals.into());
-            mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs.into());
+            mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+            mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+            mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
             mesh
         }
     }
@@ -429,9 +430,9 @@ pub mod shape {
 
             let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
             mesh.set_indices(Some(indices));
-            mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions.into());
-            mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals.into());
-            mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs.into());
+            mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+            mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+            mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
             mesh
         }
     }
@@ -466,8 +467,8 @@ pub mod shape {
                 );
             }
             let hexasphere = Hexasphere::new(sphere.subdivisions, |point| {
-                let inclination = point.z().acos();
-                let azumith = point.y().atan2(point.x());
+                let inclination = point.z.acos();
+                let azumith = point.y.atan2(point.x);
 
                 let norm_inclination = 1.0 - (inclination / std::f32::consts::PI);
                 let norm_azumith = (azumith / std::f32::consts::PI) * 0.5;
@@ -500,9 +501,9 @@ pub mod shape {
 
             let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
             mesh.set_indices(Some(indices));
-            mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, points.into());
-            mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals.into());
-            mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs.into());
+            mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, points);
+            mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+            mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
             mesh
         }
     }
@@ -525,7 +526,6 @@ fn remove_current_mesh_resources(
     handle: &Handle<Mesh>,
 ) {
     remove_resource_save(render_resource_context, handle, VERTEX_ATTRIBUTE_BUFFER_ID);
-    remove_resource_save(render_resource_context, handle, VERTEX_FALLBACK_BUFFER_ID);
     remove_resource_save(render_resource_context, handle, INDEX_BUFFER_ASSET_INDEX);
 }
 
@@ -592,20 +592,6 @@ pub fn mesh_resource_provider_system(
                 )),
                 VERTEX_ATTRIBUTE_BUFFER_ID,
             );
-
-            // Fallback buffer
-            // TODO: can be done with a 1 byte buffer + zero stride?
-            render_resource_context.set_asset_resource(
-                changed_mesh_handle,
-                RenderResourceId::Buffer(render_resource_context.create_buffer_with_data(
-                    BufferInfo {
-                        buffer_usage: BufferUsage::VERTEX,
-                        ..Default::default()
-                    },
-                    &vec![0; mesh.count_vertices() * VertexFormat::Float4.get_size() as usize],
-                )),
-                VERTEX_FALLBACK_BUFFER_ID,
-            );
         }
     }
 
@@ -638,13 +624,6 @@ pub fn mesh_resource_provider_system(
                 // set index buffer into binding
                 render_pipelines.bindings.vertex_attribute_buffer =
                     Some(vertex_attribute_buffer_resource);
-            }
-            if let Some(RenderResourceId::Buffer(vertex_attribute_fallback_resource)) =
-                render_resource_context.get_asset_resource(handle, VERTEX_FALLBACK_BUFFER_ID)
-            {
-                // set index buffer into binding
-                render_pipelines.bindings.vertex_fallback_buffer =
-                    Some(vertex_attribute_fallback_resource);
             }
         }
     }

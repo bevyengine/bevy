@@ -91,29 +91,29 @@ impl TextureAtlas {
 
         for y in 0..rows {
             if y > 0 {
-                y_padding = padding.y();
+                y_padding = padding.y;
             }
             for x in 0..columns {
                 if x > 0 {
-                    x_padding = padding.x();
+                    x_padding = padding.x;
                 }
 
                 let rect_min = Vec2::new(
-                    (tile_size.x() + x_padding) * x as f32,
-                    (tile_size.y() + y_padding) * y as f32,
+                    (tile_size.x + x_padding) * x as f32,
+                    (tile_size.y + y_padding) * y as f32,
                 );
 
                 sprites.push(Rect {
                     min: rect_min,
-                    max: Vec2::new(rect_min.x() + tile_size.x(), rect_min.y() + tile_size.y()),
+                    max: Vec2::new(rect_min.x + tile_size.x, rect_min.y + tile_size.y),
                 })
             }
         }
 
         TextureAtlas {
             size: Vec2::new(
-                ((tile_size.x() + x_padding) * columns as f32) - x_padding,
-                ((tile_size.y() + y_padding) * rows as f32) - y_padding,
+                ((tile_size.x + x_padding) * columns as f32) - x_padding,
+                ((tile_size.y + y_padding) * rows as f32) - y_padding,
             ),
             textures: sprites,
             texture,

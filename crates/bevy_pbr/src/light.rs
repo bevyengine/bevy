@@ -53,3 +53,17 @@ impl LightRaw {
         }
     }
 }
+
+// Ambient light color.
+#[derive(Debug)]
+pub struct AmbientLight {
+    pub color: Color,
+}
+
+impl Default for AmbientLight {
+    fn default() -> Self {
+        Self {
+            color: Color::rgb(0.05, 0.05, 0.05),
+        }
+    }
+}

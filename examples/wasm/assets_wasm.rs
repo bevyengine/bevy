@@ -1,6 +1,3 @@
-#[cfg(target_arch = "wasm32")]
-extern crate console_error_panic_hook;
-
 use bevy::{
     asset::{AssetLoader, AssetServerSettings, LoadContext, LoadedAsset},
     prelude::*,
@@ -9,12 +6,6 @@ use bevy::{
 };
 
 fn main() {
-    #[cfg(target_arch = "wasm32")]
-    {
-        std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-        console_log::init_with_level(log::Level::Debug).expect("cannot initialize console_log");
-    }
-
     App::build()
         .add_resource(AssetServerSettings {
             asset_folder: "/".to_string(),
@@ -22,8 +13,8 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_asset::<RustSourceCode>()
         .init_asset_loader::<RustSourceCodeLoader>()
-        .add_startup_system(load_asset.system())
-        .add_system(print_asset.system())
+        .add_startup_system(load_asset)
+        .add_system(print_asset)
         .run();
 }
 
@@ -45,7 +36,7 @@ fn print_asset(mut state: ResMut<State>, rust_sources: Res<Assets<RustSourceCode
     }
 
     if let Some(code) = rust_sources.get(&state.handle) {
-        log::info!("code: {}", code.0);
+        info!("code: {}", code.0);
         state.printed = true;
     }
 }
@@ -72,7 +63,6 @@ impl AssetLoader for RustSourceCodeLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        static EXT: &[&str] = &["rs"];
-        EXT
+        &["rs"]
     }
 }

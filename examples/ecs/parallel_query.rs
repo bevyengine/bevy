@@ -8,12 +8,12 @@ fn spawn_system(
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn(Camera2dComponents::default());
+    commands.spawn(Camera2dBundle::default());
     let texture_handle = asset_server.load("branding/icon.png");
     let material = materials.add(texture_handle.into());
     for _ in 0..128 {
         commands
-            .spawn(SpriteComponents {
+            .spawn(SpriteBundle {
                 material: material.clone(),
                 transform: Transform::from_scale(Vec3::splat(0.1)),
                 ..Default::default()
@@ -60,10 +60,10 @@ fn bounce_system(
         .par_iter_mut(32)
         // Filter out sprites that don't need to be bounced
         .filter(|(transform, _)| {
-            !(left < transform.translation.x()
-                && transform.translation.x() < right
-                && bottom < transform.translation.y()
-                && transform.translation.y() < top)
+            !(left < transform.translation.x
+                && transform.translation.x < right
+                && bottom < transform.translation.y
+                && transform.translation.y < top)
         })
         // For simplicity, just reverse the velocity; don't use realistic bounces
         .for_each(&pool, |(_, mut v)| {
@@ -74,8 +74,8 @@ fn bounce_system(
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(spawn_system.system())
-        .add_system(move_system.system())
-        .add_system(bounce_system.system())
+        .add_startup_system(spawn_system)
+        .add_system(move_system)
+        .add_system(bounce_system)
         .run();
 }

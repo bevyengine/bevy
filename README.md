@@ -12,7 +12,7 @@ Bevy is a refreshingly simple data-driven game engine built in Rust. It is free 
 
 ## WARNING
 
-Bevy is still in the _very_ early stages of development. APIs can and will change (now is the time to make suggestions!). Important features are missing. Documentation is sparse. Please don't build any serious projects in Bevy unless you are prepared to be broken by api changes constantly.
+Bevy is still in the _very_ early stages of development. APIs can and will change (now is the time to make suggestions!). Important features are missing. Documentation is sparse. Please don't build any serious projects in Bevy unless you are prepared to be broken by API changes constantly.
 
 ## Design Goals
 
@@ -47,8 +47,8 @@ Before contributing or participating in discussions with the community, you shou
 
 We recommend checking out [The Bevy Book](https://bevyengine.org/learn/book/introduction) for a full tutorial.
 
-Follow the [Setup guide](https://bevyengine.org/learn/book/getting-started/setup/) to ensure your development environment is setup correctly.
-Once setup, you can quickly try out the [examples](/examples) by cloning this repo and running the following command:
+Follow the [Setup guide](https://bevyengine.org/learn/book/getting-started/setup/) to ensure your development environment is set up correctly.
+Once set up, you can quickly try out the [examples](/examples) by cloning this repo and running the following command:
 
 ```sh
 # Runs the "breakout" example
@@ -61,7 +61,7 @@ Bevy can be built just fine using default configuration on stable Rust. However 
 
 ## Focus Areas
 
-Bevy has the following [Focus Areas](https://github.com/bevyengine/bevy/labels/focus-area). We are currently focusing our development efforts in these areas and they will receive priority for Bevy developers' time. If you would like to contribute to Bevy, you are heavily encouraged to join in on these efforts:
+Bevy has the following [Focus Areas](https://github.com/bevyengine/bevy/labels/focus-area). We are currently focusing our development efforts in these areas, and they will receive priority for Bevy developers' time. If you would like to contribute to Bevy, you are heavily encouraged to join in on these efforts:
 
 ### [Editor-Ready UI](https://github.com/bevyengine/bevy/issues/254)
 
@@ -73,9 +73,9 @@ Bevy has the following [Focus Areas](https://github.com/bevyengine/bevy/labels/f
 
 Bevy is only possible because of the hard work put into these foundational technologies:
 
-* [wgpu-rs](https://github.com/gfx-rs/wgpu-rs): modern / low-level / cross platform graphics library inspired by Vulkan
+* [wgpu-rs](https://github.com/gfx-rs/wgpu-rs): modern / low-level / cross-platform graphics library inspired by Vulkan
 * [glam-rs](https://github.com/bitshifter/glam-rs): a simple and fast 3D math library for games and graphics
-* [winit](https://github.com/rust-windowing/winit): cross platform window creation and management in Rust
+* [winit](https://github.com/rust-windowing/winit): cross-platform window creation and management in Rust
 * [spirv-reflect](https://github.com/gwihlidal/spirv-reflect-rs): Reflection API in rust for SPIR-V shader byte code
 
 ## [Bevy Cargo Features][cargo_features]
@@ -86,4 +86,4 @@ This [list][cargo_features] outlines the different cargo features supported by B
 
 ## Thanks and Alternatives
 
-Additionally, we would like to thank the [Amethyst](https://github.com/amethyst/amethyst), [macroquad](https://github.com/not-fl3/macroquad), [coffee](https://github.com/hecrj/coffee), [ggez](https://github.com/ggez/ggez), [rg3d](https://github.com/mrDIMAS/rg3d), and [Piston](https://github.com/PistonDevelopers/piston) projects for providing solid examples of game engine development in Rust. If you are looking for a Rust game engine, it is worth considering all of your options. Each engine has different design goals and some will likely resonate with you more than others.
+Additionally, we would like to thank the [Amethyst](https://github.com/amethyst/amethyst), [macroquad](https://github.com/not-fl3/macroquad), [coffee](https://github.com/hecrj/coffee), [ggez](https://github.com/ggez/ggez), [rg3d](https://github.com/mrDIMAS/rg3d), and [Piston](https://github.com/PistonDevelopers/piston) projects for providing solid examples of game engine development in Rust. If you are looking for a Rust game engine, it is worth considering all of your options. Each engine has different design goals, and some will likely resonate with you more than others.

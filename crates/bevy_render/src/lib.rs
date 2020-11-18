@@ -32,7 +32,6 @@ use crate::prelude::*;
 use base::{MainPass, Msaa};
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
-use bevy_ecs::{IntoSystem, IntoThreadLocalSystem};
 use camera::{
     ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection, VisibleEntities,
 };
@@ -55,13 +54,13 @@ use texture::TextureResourceSystemState;
 /// The names of "render" App stages
 pub mod stage {
     /// Stage where render resources are set up
-    pub static RENDER_RESOURCE: &str = "render_resource";
+    pub const RENDER_RESOURCE: &str = "render_resource";
     /// Stage where Render Graph systems are run. In general you shouldn't add systems to this stage manually.
-    pub static RENDER_GRAPH_SYSTEMS: &str = "render_graph_systems";
+    pub const RENDER_GRAPH_SYSTEMS: &str = "render_graph_systems";
     // Stage where draw systems are executed. This is generally where Draw components are setup
-    pub static DRAW: &str = "draw";
-    pub static RENDER: &str = "render";
-    pub static POST_RENDER: &str = "post_render";
+    pub const DRAW: &str = "draw";
+    pub const RENDER: &str = "render";
+    pub const POST_RENDER: &str = "post_render";
 }
 
 /// Adds core render types and systems to an App
@@ -121,45 +120,30 @@ impl Plugin for RenderPlugin {
             .init_resource::<TextureResourceSystemState>()
             .init_resource::<AssetRenderResourceBindings>()
             .init_resource::<ActiveCameras>()
+            .add_system_to_stage(bevy_app::stage::PRE_UPDATE, draw::clear_draw_system)
+            .add_system_to_stage(bevy_app::stage::POST_UPDATE, camera::active_cameras_system)
             .add_system_to_stage(
-                bevy_app::stage::PRE_UPDATE,
-                draw::clear_draw_system.system(),
+                bevy_app::stage::POST_UPDATE,
+                camera::camera_system::<OrthographicProjection>,
             )
             .add_system_to_stage(
                 bevy_app::stage::POST_UPDATE,
-                camera::active_cameras_system.system(),
-            )
-            .add_system_to_stage(
-                bevy_app::stage::POST_UPDATE,
-                camera::camera_system::<OrthographicProjection>.system(),
-            )
-            .add_system_to_stage(
-                bevy_app::stage::POST_UPDATE,
-                camera::camera_system::<PerspectiveProjection>.system(),
+                camera::camera_system::<PerspectiveProjection>,
             )
             // registration order matters here. this must come after all camera_system::<T> systems
             .add_system_to_stage(
                 bevy_app::stage::POST_UPDATE,
-                camera::visible_entities_system.system(),
+                camera::visible_entities_system,
             )
             // TODO: turn these "resource systems" into graph nodes and remove the RENDER_RESOURCE stage
-            .add_system_to_stage(
-                stage::RENDER_RESOURCE,
-                mesh::mesh_resource_provider_system.system(),
-            )
-            .add_system_to_stage(
-                stage::RENDER_RESOURCE,
-                Texture::texture_resource_system.system(),
-            )
+            .add_system_to_stage(stage::RENDER_RESOURCE, mesh::mesh_resource_provider_system)
+            .add_system_to_stage(stage::RENDER_RESOURCE, Texture::texture_resource_system)
             .add_system_to_stage(
                 stage::RENDER_GRAPH_SYSTEMS,
-                render_graph::render_graph_schedule_executor_system.thread_local_system(),
+                render_graph::render_graph_schedule_executor_system,
             )
-            .add_system_to_stage(stage::DRAW, pipeline::draw_render_pipelines_system.system())
-            .add_system_to_stage(
-                stage::POST_RENDER,
-                shader::clear_shader_defs_system.system(),
-            );
+            .add_system_to_stage(stage::DRAW, pipeline::draw_render_pipelines_system)
+            .add_system_to_stage(stage::POST_RENDER, shader::clear_shader_defs_system);
 
         if app.resources().get::<Msaa>().is_none() {
             app.init_resource::<Msaa>();

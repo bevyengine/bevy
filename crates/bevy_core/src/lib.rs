@@ -15,7 +15,6 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::prelude::*;
 use bevy_math::{Mat3, Mat4, Quat, Vec2, Vec3};
 use bevy_type_registry::RegisterType;
 
@@ -40,8 +39,8 @@ impl Plugin for CorePlugin {
             .register_property::<Mat4>()
             .register_property::<Quat>()
             .register_property::<Option<String>>()
-            .add_system_to_stage(stage::FIRST, time_system.system())
-            .add_system_to_stage(stage::FIRST, timer_system.system())
-            .add_system_to_stage(stage::PRE_UPDATE, entity_labels_system.system());
+            .add_system_to_stage(stage::FIRST, time_system)
+            .add_system_to_stage(stage::FIRST, timer_system)
+            .add_system_to_stage(stage::PRE_UPDATE, entity_labels_system);
     }
 }

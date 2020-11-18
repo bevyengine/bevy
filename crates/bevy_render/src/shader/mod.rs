@@ -5,12 +5,10 @@ mod shader_defs;
 #[cfg(not(target_arch = "wasm32"))]
 mod shader_reflect;
 
-#[cfg(target_arch = "wasm32")]
-#[path = "shader_reflect_wasm.rs"]
-mod shader_reflect;
-
 pub use shader::*;
 pub use shader_defs::*;
+
+#[cfg(not(target_arch = "wasm32"))]
 pub use shader_reflect::*;
 
 use crate::pipeline::{BindGroupDescriptor, VertexBufferDescriptor};

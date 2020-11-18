@@ -19,6 +19,7 @@ layout(set = 0, binding = 0) uniform Camera {
 };
 
 layout(set = 1, binding = 0) uniform Lights {
+    vec3 AmbientColor;
     uvec4 NumLights;
     Light SceneLights[MAX_LIGHTS];
 };
@@ -42,9 +43,8 @@ void main() {
 
 # ifdef STANDARDMATERIAL_SHADED
     vec3 normal = normalize(v_Normal);
-    vec3 ambient = vec3(0.05, 0.05, 0.05);
     // accumulate color
-    vec3 color = ambient;
+    vec3 color = AmbientColor;
     for (int i=0; i<int(NumLights.x) && i<MAX_LIGHTS; ++i) {
         Light light = SceneLights[i];
         // compute Lambertian diffuse term

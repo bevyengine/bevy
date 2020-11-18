@@ -207,12 +207,12 @@ pub fn flex_node_system(
         let layout = flex_surface.get_layout(entity).unwrap();
         node.size = Vec2::new(layout.size.width, layout.size.height);
         let position = &mut transform.translation;
-        position.set_x(layout.location.x + layout.size.width / 2.0);
-        position.set_y(layout.location.y + layout.size.height / 2.0);
+        position.x = layout.location.x + layout.size.width / 2.0;
+        position.y = layout.location.y + layout.size.height / 2.0;
         if let Some(parent) = parent {
             if let Ok(parent_layout) = flex_surface.get_layout(parent.0) {
-                *position.x_mut() -= parent_layout.size.width / 2.0;
-                *position.y_mut() -= parent_layout.size.height / 2.0;
+                position.x -= parent_layout.size.width / 2.0;
+                position.y -= parent_layout.size.height / 2.0;
             }
         }
     }
