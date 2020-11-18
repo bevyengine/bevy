@@ -49,5 +49,5 @@ pub trait System: Send + Sync + 'static {
         unsafe { self.run_unsafe(input, world, resources) }
     }
     fn run_thread_local(&mut self, world: &mut World, resources: &mut Resources);
-    fn initialize(&mut self, _world: &mut World, _resources: &mut Resources) {}
+    fn initialize(&mut self, _world: &mut World, _resources: &mut Resources);
 }

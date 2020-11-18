@@ -68,6 +68,11 @@ impl<SystemA: System, SystemB: System<Input = SystemA::Output>> System
         self.system_a.run_thread_local(world, resources);
         self.system_b.run_thread_local(world, resources);
     }
+
+    fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
+        self.system_a.initialize(world, resources);
+        self.system_b.initialize(world, resources);
+    }
 }
 
 pub trait IntoChainSystem<AParams, BParams, IntoB, SystemA, SystemB>:
