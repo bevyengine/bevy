@@ -1,4 +1,4 @@
-use crate::{Archetype, Bundle, Component, QueryAccess};
+use crate::{core::ComponentFlags, Archetype, Bundle, Component, QueryAccess};
 use std::{any::TypeId, marker::PhantomData, ptr::NonNull};
 
 pub trait QueryFilter: Sized {
@@ -31,13 +31,13 @@ pub struct Or<T>(pub T);
 
 /// Query transformer that retrieves components of type `T` that have been mutated since the start of the frame.
 /// Added components do not count as mutated.
-pub struct Mutated<T>(NonNull<bool>, PhantomData<T>);
+pub struct Mutated<T>(NonNull<ComponentFlags>, PhantomData<T>);
 
 /// Query transformer that retrieves components of type `T` that have been added since the start of the frame.
-pub struct Added<T>(NonNull<bool>, PhantomData<T>);
+pub struct Added<T>(NonNull<ComponentFlags>, PhantomData<T>);
 
 /// Query transformer that retrieves components of type `T` that have either been mutated or added since the start of the frame.
-pub struct Changed<T>(NonNull<bool>, NonNull<bool>, PhantomData<T>);
+pub struct Changed<T>(NonNull<ComponentFlags>, PhantomData<T>);
 
 impl QueryFilter for () {
     type EntityFilter = AnyEntityFilter;
@@ -63,7 +63,7 @@ impl<T: Component> QueryFilter for Added<T> {
     fn get_entity_filter(archetype: &Archetype) -> Option<Self::EntityFilter> {
         archetype
             .get_type_state(TypeId::of::<T>())
-            .map(|state| Added(state.added(), Default::default()))
+            .map(|state| Added(state.component_flags(), Default::default()))
     }
 }
 
@@ -72,7 +72,7 @@ impl<T: Component> EntityFilter for Added<T> {
 
     #[inline]
     unsafe fn matches_entity(&self, offset: usize) -> bool {
-        *self.0.as_ptr().add(offset)
+        (*self.0.as_ptr().add(offset)).contains(ComponentFlags::ADDED)
     }
 }
 
@@ -87,7 +87,7 @@ impl<T: Component> QueryFilter for Mutated<T> {
     fn get_entity_filter(archetype: &Archetype) -> Option<Self::EntityFilter> {
         archetype
             .get_type_state(TypeId::of::<T>())
-            .map(|state| Mutated(state.mutated(), Default::default()))
+            .map(|state| Mutated(state.component_flags(), Default::default()))
     }
 }
 
@@ -95,7 +95,7 @@ impl<T: Component> EntityFilter for Mutated<T> {
     const DANGLING: Self = Mutated(NonNull::dangling(), PhantomData::<T>);
 
     unsafe fn matches_entity(&self, offset: usize) -> bool {
-        *self.0.as_ptr().add(offset)
+        (*self.0.as_ptr().add(offset)).contains(ComponentFlags::MUTATED)
     }
 }
 
@@ -110,16 +110,17 @@ impl<T: Component> QueryFilter for Changed<T> {
     fn get_entity_filter(archetype: &Archetype) -> Option<Self::EntityFilter> {
         archetype
             .get_type_state(TypeId::of::<T>())
-            .map(|state| Changed(state.added(), state.mutated(), Default::default()))
+            .map(|state| Changed(state.component_flags(), Default::default()))
     }
 }
 
 impl<T: Component> EntityFilter for Changed<T> {
-    const DANGLING: Self = Changed(NonNull::dangling(), NonNull::dangling(), PhantomData::<T>);
+    const DANGLING: Self = Changed(NonNull::dangling(), PhantomData::<T>);
 
     #[inline]
     unsafe fn matches_entity(&self, offset: usize) -> bool {
-        *self.0.as_ptr().add(offset) || *self.1.as_ptr().add(offset)
+        let flags = *self.0.as_ptr().add(offset);
+        flags.contains(ComponentFlags::ADDED) || flags.contains(ComponentFlags::MUTATED)
     }
 }
 

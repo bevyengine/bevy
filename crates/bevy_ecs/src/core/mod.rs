@@ -44,7 +44,7 @@ mod world;
 mod world_builder;
 
 pub use access::{ArchetypeComponent, QueryAccess, TypeAccess};
-pub use archetype::{Archetype, TypeState};
+pub use archetype::{Archetype, ComponentFlags, TypeState};
 pub use borrow::{AtomicBorrow, Ref, RefMut};
 pub use bundle::{Bundle, DynamicBundle, MissingComponent};
 pub use entities::{Entity, EntityReserver, Location, NoSuchEntity};

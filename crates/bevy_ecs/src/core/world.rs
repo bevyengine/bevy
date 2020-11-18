@@ -15,9 +15,9 @@
 // modified by Bevy contributors
 
 use crate::{
-    core::entities::Entities, Archetype, BatchedIter, Bundle, DynamicBundle, Entity, EntityFilter,
-    EntityReserver, Fetch, Location, MissingComponent, Mut, NoSuchEntity, QueryFilter, QueryIter,
-    ReadOnlyFetch, Ref, RefMut, WorldQuery,
+    core::entities::Entities, Archetype, BatchedIter, Bundle, ComponentFlags, DynamicBundle,
+    Entity, EntityFilter, EntityReserver, Fetch, Location, MissingComponent, Mut, NoSuchEntity,
+    QueryFilter, QueryIter, ReadOnlyFetch, Ref, RefMut, WorldQuery,
 };
 use bevy_utils::{HashMap, HashSet};
 use std::{any::TypeId, fmt, mem, ptr};
@@ -96,7 +96,7 @@ impl World {
         unsafe {
             let index = archetype.allocate(entity);
             components.put(|ptr, ty, size| {
-                archetype.put_dynamic(ptr, ty, size, index, true, false);
+                archetype.put_dynamic(ptr, ty, size, index, ComponentFlags::ADDED);
                 true
             });
             self.entities.meta[entity.id as usize].location = Location {
@@ -602,7 +602,7 @@ impl World {
                 // Update components in the current archetype
                 let arch = &mut self.archetypes[loc.archetype as usize];
                 components.put(|ptr, ty, size| {
-                    arch.put_dynamic(ptr, ty, size, loc.index, false, true);
+                    arch.put_dynamic(ptr, ty, size, loc.index, ComponentFlags::MUTATED);
                     true
                 });
                 return Ok(());
@@ -617,20 +617,22 @@ impl World {
             let target_index = target_arch.allocate(entity);
             loc.archetype = target;
             let old_index = mem::replace(&mut loc.index, target_index);
-            if let Some(moved) =
-                source_arch.move_to(old_index, |ptr, ty, size, is_added, is_mutated| {
-                    target_arch.put_dynamic(ptr, ty, size, target_index, false, false);
-                    let type_state = target_arch.get_type_state_mut(ty).unwrap();
-                    *type_state.added().as_ptr().add(target_index) = is_added;
-                    *type_state.mutated().as_ptr().add(target_index) = is_mutated;
-                })
-            {
+            if let Some(moved) = source_arch.move_to(old_index, |ptr, ty, size, flags| {
+                target_arch.put_dynamic(ptr, ty, size, target_index, ComponentFlags::empty());
+                let type_state = target_arch.get_type_state_mut(ty).unwrap();
+                *type_state.component_flags().as_ptr().add(target_index) = flags;
+            }) {
                 self.entities.get_mut(moved).unwrap().index = old_index;
             }
 
             components.put(|ptr, ty, size| {
                 let had_component = source_arch.has_dynamic(ty);
-                target_arch.put_dynamic(ptr, ty, size, target_index, !had_component, had_component);
+                let flags = if had_component {
+                    ComponentFlags::MUTATED
+                } else {
+                    ComponentFlags::ADDED
+                };
+                target_arch.put_dynamic(ptr, ty, size, target_index, flags);
                 true
             });
         }
@@ -719,13 +721,12 @@ impl World {
         loc.index = target_index;
         let removed_components = &mut self.removed_components;
         if let Some(moved) = unsafe {
-            source_arch.move_to(old_index, |src, ty, size, is_added, is_mutated| {
+            source_arch.move_to(old_index, |src, ty, size, flags| {
                 // Only move the components present in the target archetype, i.e. the non-removed ones.
                 if let Some(dst) = target_arch.get_dynamic(ty, size, target_index) {
                     ptr::copy_nonoverlapping(src, dst.as_ptr(), size);
                     let state = target_arch.get_type_state_mut(ty).unwrap();
-                    *state.added().as_ptr().add(target_index) = is_added;
-                    *state.mutated().as_ptr().add(target_index) = is_mutated;
+                    *state.component_flags().as_ptr().add(target_index) = flags;
                 } else {
                     let removed_entities = removed_components.entry(ty).or_insert_with(Vec::new);
                     removed_entities.push(entity);
@@ -1117,7 +1118,7 @@ where
             let index = self.archetype.allocate(entity);
             components.put(|ptr, ty, size| {
                 self.archetype
-                    .put_dynamic(ptr, ty, size, index, true, false);
+                    .put_dynamic(ptr, ty, size, index, ComponentFlags::ADDED);
                 true
             });
             self.entities.meta[entity.id as usize].location = Location {

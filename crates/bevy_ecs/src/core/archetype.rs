@@ -16,6 +16,7 @@
 
 use crate::{AtomicBorrow, Component, Entity};
 use bevy_utils::AHasher;
+use bitflags::bitflags;
 use std::{
     alloc::{alloc, dealloc, Layout},
     any::{type_name, TypeId},
@@ -281,8 +282,9 @@ impl Archetype {
             );
 
             for type_state in self.state.values_mut() {
-                type_state.mutated_entities.resize_with(count, || false);
-                type_state.added_entities.resize_with(count, || false);
+                type_state
+                    .component_flags
+                    .resize_with(count, ComponentFlags::empty);
             }
 
             let old_data_size = mem::replace(&mut self.data_size, 0);
@@ -349,8 +351,7 @@ impl Archetype {
                 );
 
                 let type_state = self.state.get_mut(&ty.id).unwrap();
-                type_state.mutated_entities[index] = type_state.mutated_entities[last];
-                type_state.added_entities[index] = type_state.added_entities[last];
+                type_state.component_flags[index] = type_state.component_flags[last];
             }
         }
         self.len = last;
@@ -366,7 +367,7 @@ impl Archetype {
     pub(crate) unsafe fn move_to(
         &mut self,
         index: usize,
-        mut f: impl FnMut(*mut u8, TypeId, usize, bool, bool),
+        mut f: impl FnMut(*mut u8, TypeId, usize, ComponentFlags),
     ) -> Option<Entity> {
         let last = self.len - 1;
         for ty in &self.types {
@@ -375,9 +376,8 @@ impl Archetype {
                 .unwrap()
                 .as_ptr();
             let type_state = self.state.get(&ty.id).unwrap();
-            let is_added = type_state.added_entities[index];
-            let is_mutated = type_state.mutated_entities[index];
-            f(moved, ty.id(), ty.layout().size(), is_added, is_mutated);
+            let flags = type_state.component_flags[index];
+            f(moved, ty.id(), ty.layout().size(), flags);
             if index != last {
                 ptr::copy_nonoverlapping(
                     self.get_dynamic(ty.id, ty.layout.size(), last)
@@ -387,8 +387,7 @@ impl Archetype {
                     ty.layout.size(),
                 );
                 let type_state = self.state.get_mut(&ty.id).unwrap();
-                type_state.added_entities[index] = type_state.added_entities[last];
-                type_state.mutated_entities[index] = type_state.mutated_entities[last];
+                type_state.component_flags[index] = type_state.component_flags[last];
             }
         }
         self.len -= 1;
@@ -413,16 +412,10 @@ impl Archetype {
         ty: TypeId,
         size: usize,
         index: usize,
-        added: bool,
-        mutated: bool,
+        flags: ComponentFlags,
     ) {
         let state = self.state.get_mut(&ty).unwrap();
-        if added {
-            state.added_entities[index] = true;
-        }
-        if mutated {
-            state.mutated_entities[index] = true;
-        }
+        state.component_flags[index] = flags;
         let ptr = (*self.data.get())
             .as_ptr()
             .add(state.offset + size * index)
@@ -453,8 +446,14 @@ impl Drop for Archetype {
 pub struct TypeState {
     offset: usize,
     borrow: AtomicBorrow,
-    mutated_entities: Vec<bool>,
-    added_entities: Vec<bool>,
+    component_flags: Vec<ComponentFlags>,
+}
+
+bitflags! {
+    pub struct ComponentFlags: u8 {
+        const ADDED = 1;
+        const MUTATED = 2;
+    }
 }
 
 impl TypeState {
@@ -462,31 +461,20 @@ impl TypeState {
         Self {
             offset: 0,
             borrow: AtomicBorrow::new(),
-            mutated_entities: Vec::new(),
-            added_entities: Vec::new(),
+            component_flags: Vec::new(),
         }
     }
 
     fn clear_trackers(&mut self) {
-        for mutated in self.mutated_entities.iter_mut() {
-            *mutated = false;
-        }
-
-        for added in self.added_entities.iter_mut() {
-            *added = false;
+        for flags in self.component_flags.iter_mut() {
+            *flags = ComponentFlags::empty();
         }
     }
 
     #[allow(missing_docs)]
     #[inline]
-    pub fn mutated(&self) -> NonNull<bool> {
-        unsafe { NonNull::new_unchecked(self.mutated_entities.as_ptr() as *mut bool) }
-    }
-
-    #[allow(missing_docs)]
-    #[inline]
-    pub fn added(&self) -> NonNull<bool> {
-        unsafe { NonNull::new_unchecked(self.added_entities.as_ptr() as *mut bool) }
+    pub fn component_flags(&self) -> NonNull<ComponentFlags> {
+        unsafe { NonNull::new_unchecked(self.component_flags.as_ptr() as *mut ComponentFlags) }
     }
 }
 
