@@ -89,7 +89,7 @@ impl TextureAtlasBuilder {
                 break;
             }
 
-            let last_attempt = current_height == max_height || current_width == max_width;
+            let last_attempt = current_height == max_height && current_width == max_width;
 
             let mut target_bins = std::collections::BTreeMap::new();
             target_bins.insert(0, TargetBin::new(current_width, current_height, 1));
