@@ -91,11 +91,11 @@ fn setup(
 fn rotate(
     commands: &mut Commands,
     time: Res<Time>,
-    mut parents_query: Query<(Entity, &mut Children), With<Sprite>>,
+    mut parents_query: Query<(Entity, &Children), With<Sprite>>,
     mut transform_query: Query<&mut Transform, With<Sprite>>,
 ) {
     let angle = std::f32::consts::PI / 2.0;
-    for (parent, mut children) in parents_query.iter_mut() {
+    for (parent, children) in parents_query.iter_mut() {
         if let Ok(mut transform) = transform_query.get_mut(parent) {
             transform.rotate(Quat::from_rotation_z(-angle * time.delta_seconds));
         }
@@ -113,7 +113,7 @@ fn rotate(
             // Using .despawn() on an entity does not remove it from its parent's list of children!
             // It must be done manually if using .despawn()
             // NOTE: This is a bug. Eventually Bevy will update the children list automatically
-            let child = children.pop().unwrap();
+            let child = children.last().copied().unwrap();
             commands.despawn(child);
         }
 

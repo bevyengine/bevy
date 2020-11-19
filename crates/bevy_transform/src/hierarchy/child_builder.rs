@@ -17,11 +17,7 @@ impl Command for InsertChildren {
                 .unwrap();
         }
         {
-            let mut added = false;
-            if let Ok(mut children) = world.get_mut::<Children>(self.parent) {
-                children.insert_from_slice(self.index, &self.children);
-                added = true;
-            }
+            let added = world.get_mut::<Children>(self.parent).is_ok();
 
             // NOTE: ideally this is just an else statement, but currently that _incorrectly_ fails borrow-checking
             if !added {
@@ -52,11 +48,7 @@ impl Command for PushChildren {
                 .unwrap();
         }
         {
-            let mut added = false;
-            if let Ok(mut children) = world.get_mut::<Children>(self.parent) {
-                children.extend(self.children.iter().cloned());
-                added = true;
-            }
+            let added = world.get_mut::<Children>(self.parent).is_ok();
 
             // NOTE: ideally this is just an else statement, but currently that _incorrectly_ fails borrow-checking
             if !added {

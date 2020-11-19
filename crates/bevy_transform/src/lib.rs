@@ -15,7 +15,7 @@ pub struct TransformPlugin;
 
 impl Plugin for TransformPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.register_component_with::<Children>(|reg| reg.map_entities())
+        app.register_component::<Children>()
             .register_component_with::<Parent>(|reg| reg.map_entities())
             .register_component::<Transform>()
             .register_component::<GlobalTransform>()

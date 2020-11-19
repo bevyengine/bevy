@@ -46,8 +46,12 @@ pub fn parent_update_system(
         // Add to the parent's `Children` (either the real component, or
         // `children_additions`).
         if let Ok(mut new_parent_children) = children_query.get_mut(parent.0) {
+            let children_vec = &mut (*new_parent_children).0;
+            // Duplicate entities inside the Children component will lead to a state explosion
+            // that will kill the game frame rate
+            debug_assert!(!children_vec.contains(&entity), "duplicate children");
             // This is the parent
-            (*new_parent_children).0.push(entity);
+            children_vec.push(entity);
         } else {
             // The parent doesn't have a children entity, lets add it
             children_additions
@@ -61,7 +65,7 @@ pub fn parent_update_system(
     // collect multiple new children that point to the same parent into the same
     // SmallVec, and to prevent redundant add+remove operations.
     children_additions.iter().for_each(|(k, v)| {
-        commands.insert_one(*k, Children::with(v));
+        commands.insert_one(*k, Children(SmallVec::from_slice(v)));
     });
 }
 #[cfg(test)]
