@@ -37,7 +37,7 @@ struct ComponentA {
 struct ComponentB {
     pub value: String,
     #[property(ignore)]
-    pub time_since_startup: std::time::Duration,
+    pub time_since_startup: instant::Duration,
 }
 
 impl FromResources for ComponentB {

@@ -2,7 +2,7 @@ use super::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_app::prelude::*;
 use bevy_core::{Time, Timer};
 use bevy_ecs::{Res, ResMut};
-use std::time::Duration;
+use instant::Duration;
 
 /// An App Plugin that prints diagnostics to the console
 pub struct PrintDiagnosticsPlugin {

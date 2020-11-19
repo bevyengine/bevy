@@ -3,7 +3,7 @@ use bevy::{
     log::LogPlugin,
     prelude::*,
 };
-use std::time::Duration;
+use instant::Duration;
 
 fn main() {
     App::build()

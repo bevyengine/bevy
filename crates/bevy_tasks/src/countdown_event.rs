@@ -99,7 +99,7 @@ pub fn countdown_event_ready() {
         std::thread::spawn(move || futures_lite::future::block_on(countdown_event_clone.listen()));
 
     // Pause to give the new thread time to start blocking (ugly hack)
-    std::thread::sleep(std::time::Duration::from_millis(100));
+    std::thread::sleep(instant::Duration::from_millis(100));
 
     countdown_event.decrement();
     handle.join().unwrap();
@@ -121,7 +121,7 @@ pub fn event_resets_if_listeners_are_cleared() {
     // Verify that we are still blocked
     assert_eq!(
         false,
-        listener2.wait_timeout(std::time::Duration::from_millis(10))
+        listener2.wait_timeout(instant::Duration::from_millis(10))
     );
 
     // Notify all and verify the remaining listener is notified

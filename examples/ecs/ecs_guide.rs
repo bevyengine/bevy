@@ -3,7 +3,7 @@ use bevy::{
     prelude::*,
 };
 use rand::random;
-use std::time::Duration;
+use instant::Duration;
 
 /// This is a guided introduction to Bevy's "Entity Component System" (ECS)
 /// All Bevy app logic is built using the ECS pattern, so definitely pay attention!
