@@ -3,7 +3,6 @@ use crate::{
 };
 use bevy_app::{prelude::Events, AppBuilder};
 use bevy_ecs::{FromResources, ResMut};
-use bevy_type_registry::RegisterType;
 use bevy_utils::HashMap;
 use crossbeam_channel::Sender;
 use std::fmt::Debug;
@@ -14,6 +13,9 @@ pub enum AssetEvent<T: Asset> {
     Modified { handle: Handle<T> },
     Removed { handle: Handle<T> },
 }
+
+// SAFE: Only contains handles, which are Send. Come on rust ... be cool.
+unsafe impl<T: Asset> Send for AssetEvent<T> {}
 
 impl<T: Asset> Debug for AssetEvent<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -218,7 +220,6 @@ impl AddAsset for AppBuilder {
         };
 
         self.add_resource(assets)
-            .register_component::<Handle<T>>()
             .add_system_to_stage(super::stage::ASSET_EVENTS, Assets::<T>::asset_event_system)
             .add_system_to_stage(crate::stage::LOAD_ASSETS, update_asset_storage_system::<T>)
             .add_event::<AssetEvent<T>>()

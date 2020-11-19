@@ -1,8 +1,8 @@
 use crate::{DynamicScene, Entity};
 use anyhow::Result;
-use bevy_property::{
-    property_serde::{DynamicPropertiesDeserializer, DynamicPropertiesSerializer},
-    DynamicProperties, PropertyTypeRegistry,
+use bevy_reflect::{
+    serde::{ReflectDeserializer, ReflectSerializer},
+    Reflect, TypeRegistry, TypeRegistryArc,
 };
 use serde::{
     de::{DeserializeSeed, Error, MapAccess, SeqAccess, Visitor},
@@ -12,11 +12,11 @@ use serde::{
 
 pub struct SceneSerializer<'a> {
     pub scene: &'a DynamicScene,
-    pub registry: &'a PropertyTypeRegistry,
+    pub registry: &'a TypeRegistryArc,
 }
 
 impl<'a> SceneSerializer<'a> {
-    pub fn new(scene: &'a DynamicScene, registry: &'a PropertyTypeRegistry) -> Self {
+    pub fn new(scene: &'a DynamicScene, registry: &'a TypeRegistryArc) -> Self {
         SceneSerializer { scene, registry }
     }
 }
@@ -39,7 +39,7 @@ impl<'a> Serialize for SceneSerializer<'a> {
 
 pub struct EntitySerializer<'a> {
     pub entity: &'a Entity,
-    pub registry: &'a PropertyTypeRegistry,
+    pub registry: &'a TypeRegistryArc,
 }
 
 impl<'a> Serialize for EntitySerializer<'a> {
@@ -61,8 +61,8 @@ impl<'a> Serialize for EntitySerializer<'a> {
 }
 
 pub struct ComponentsSerializer<'a> {
-    pub components: &'a [DynamicProperties],
-    pub registry: &'a PropertyTypeRegistry,
+    pub components: &'a [Box<dyn Reflect>],
+    pub registry: &'a TypeRegistryArc,
 }
 
 impl<'a> Serialize for ComponentsSerializer<'a> {
@@ -71,10 +71,10 @@ impl<'a> Serialize for ComponentsSerializer<'a> {
         S: serde::Serializer,
     {
         let mut state = serializer.serialize_seq(Some(self.components.len()))?;
-        for dynamic_properties in self.components.iter() {
-            state.serialize_element(&DynamicPropertiesSerializer::new(
-                dynamic_properties,
-                self.registry,
+        for component in self.components.iter() {
+            state.serialize_element(&ReflectSerializer::new(
+                &**component,
+                &*self.registry.read(),
             ))?;
         }
         state.end()
@@ -82,7 +82,7 @@ impl<'a> Serialize for ComponentsSerializer<'a> {
 }
 
 pub struct SceneDeserializer<'a> {
-    pub property_type_registry: &'a PropertyTypeRegistry,
+    pub type_registry: &'a TypeRegistry,
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a> {
@@ -94,14 +94,14 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a> {
     {
         Ok(DynamicScene {
             entities: deserializer.deserialize_seq(SceneEntitySeqVisitor {
-                property_type_registry: self.property_type_registry,
+                type_registry: self.type_registry,
             })?,
         })
     }
 }
 
 struct SceneEntitySeqVisitor<'a> {
-    pub property_type_registry: &'a PropertyTypeRegistry,
+    pub type_registry: &'a TypeRegistry,
 }
 
 impl<'a, 'de> Visitor<'de> for SceneEntitySeqVisitor<'a> {
@@ -117,7 +117,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntitySeqVisitor<'a> {
     {
         let mut entities = Vec::new();
         while let Some(entity) = seq.next_element_seed(SceneEntityDeserializer {
-            property_type_registry: self.property_type_registry,
+            type_registry: self.type_registry,
         })? {
             entities.push(entity);
         }
@@ -127,7 +127,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntitySeqVisitor<'a> {
 }
 
 pub struct SceneEntityDeserializer<'a> {
-    pub property_type_registry: &'a PropertyTypeRegistry,
+    pub type_registry: &'a TypeRegistry,
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
@@ -141,7 +141,7 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
             ENTITY_STRUCT,
             &[ENTITY_FIELD_ENTITY, ENTITY_FIELD_COMPONENTS],
             SceneEntityVisitor {
-                registry: self.property_type_registry,
+                registry: self.type_registry,
             },
         )
     }
@@ -158,9 +158,8 @@ pub const ENTITY_STRUCT: &str = "Entity";
 pub const ENTITY_FIELD_ENTITY: &str = "entity";
 pub const ENTITY_FIELD_COMPONENTS: &str = "components";
 
-#[derive(Debug)]
 struct SceneEntityVisitor<'a> {
-    pub registry: &'a PropertyTypeRegistry,
+    pub registry: &'a TypeRegistry,
 }
 
 impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
@@ -211,11 +210,11 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
 }
 
 pub struct ComponentVecDeserializer<'a> {
-    pub registry: &'a PropertyTypeRegistry,
+    pub registry: &'a TypeRegistry,
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for ComponentVecDeserializer<'a> {
-    type Value = Vec<DynamicProperties>;
+    type Value = Vec<Box<dyn Reflect>>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
@@ -228,11 +227,11 @@ impl<'a, 'de> DeserializeSeed<'de> for ComponentVecDeserializer<'a> {
 }
 
 struct ComponentSeqVisitor<'a> {
-    pub registry: &'a PropertyTypeRegistry,
+    pub registry: &'a TypeRegistry,
 }
 
 impl<'a, 'de> Visitor<'de> for ComponentSeqVisitor<'a> {
-    type Value = Vec<DynamicProperties>;
+    type Value = Vec<Box<dyn Reflect>>;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_str("list of components")
@@ -243,9 +242,7 @@ impl<'a, 'de> Visitor<'de> for ComponentSeqVisitor<'a> {
         A: SeqAccess<'de>,
     {
         let mut dynamic_properties = Vec::new();
-        while let Some(entity) =
-            seq.next_element_seed(DynamicPropertiesDeserializer::new(self.registry))?
-        {
+        while let Some(entity) = seq.next_element_seed(ReflectDeserializer::new(self.registry))? {
             dynamic_properties.push(entity);
         }
 

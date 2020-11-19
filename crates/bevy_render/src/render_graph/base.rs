@@ -10,11 +10,11 @@ use crate::{
     texture::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage},
     Color,
 };
-use bevy_property::Properties;
+use bevy_reflect::Reflect;
 use bevy_window::WindowId;
 
 /// A component that indicates that an entity should be drawn in the "main pass"
-#[derive(Default, Properties)]
+#[derive(Default, Reflect)]
 pub struct MainPass;
 
 #[derive(Debug)]

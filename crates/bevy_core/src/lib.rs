@@ -4,6 +4,9 @@ mod label;
 mod task_pool_options;
 mod time;
 
+use std::ops::Range;
+
+use bevy_reflect::RegisterTypeBuilder;
 pub use bytes::*;
 pub use float_ord::*;
 pub use label::*;
@@ -15,8 +18,6 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_math::{Mat3, Mat4, Quat, Vec2, Vec3};
-use bevy_type_registry::RegisterType;
 
 /// Adds core functionality to Apps.
 #[derive(Default)]
@@ -32,13 +33,9 @@ impl Plugin for CorePlugin {
 
         app.init_resource::<Time>()
             .init_resource::<EntityLabels>()
-            .register_component::<Timer>()
-            .register_property::<Vec2>()
-            .register_property::<Vec3>()
-            .register_property::<Mat3>()
-            .register_property::<Mat4>()
-            .register_property::<Quat>()
-            .register_property::<Option<String>>()
+            .register_type::<Option<String>>()
+            .register_type::<Range<f32>>()
+            .register_type::<Timer>()
             .add_system_to_stage(stage::FIRST, time_system)
             .add_system_to_stage(stage::PRE_UPDATE, entity_labels_system);
     }

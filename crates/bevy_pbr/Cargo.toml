@@ -19,8 +19,7 @@ bevy_core = { path = "../bevy_core", version = "0.3.0" }
 bevy_derive = { path = "../bevy_derive", version = "0.3.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.3.0" }
 bevy_math = { path = "../bevy_math", version = "0.3.0" }
-bevy_property = { path = "../bevy_property", version = "0.3.0" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.3.0", features = ["bevy"] }
 bevy_render = { path = "../bevy_render", version = "0.3.0" }
 bevy_transform = { path = "../bevy_transform", version = "0.3.0" }
-bevy_type_registry = { path = "../bevy_type_registry", version = "0.3.0" }
 bevy_window = { path = "../bevy_window", version = "0.3.0" }

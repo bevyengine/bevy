@@ -7,10 +7,9 @@ use crate::{
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Query, Res, ResMut};
-use bevy_property::Properties;
+use bevy_reflect::Reflect;
 
-#[derive(Debug, Properties, Default, Clone)]
-#[non_exhaustive]
+#[derive(Debug, Default, Clone, Reflect)]
 pub struct RenderPipeline {
     pub pipeline: Handle<PipelineDescriptor>,
     pub specialization: PipelineSpecialization,
@@ -39,10 +38,10 @@ impl RenderPipeline {
     }
 }
 
-#[derive(Debug, Properties, Clone)]
+#[derive(Debug, Clone, Reflect)]
 pub struct RenderPipelines {
     pub pipelines: Vec<RenderPipeline>,
-    #[property(ignore)]
+    #[reflect(ignore)]
     pub bindings: RenderResourceBindings,
 }
 

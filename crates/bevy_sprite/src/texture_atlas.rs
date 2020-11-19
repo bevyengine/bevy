@@ -2,12 +2,12 @@ use crate::Rect;
 use bevy_asset::Handle;
 use bevy_core::Byteable;
 use bevy_math::Vec2;
+use bevy_reflect::TypeUuid;
 use bevy_render::{
     color::Color,
     renderer::{RenderResource, RenderResources},
     texture::Texture,
 };
-use bevy_type_registry::TypeUuid;
 use bevy_utils::HashMap;
 
 /// An atlas containing multiple textures (like a spritesheet or a tilemap)

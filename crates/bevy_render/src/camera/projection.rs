@@ -1,6 +1,6 @@
 use super::DepthCalculation;
 use bevy_math::Mat4;
-use bevy_property::{Properties, Property};
+use bevy_reflect::{Reflect, ReflectDeserialize};
 use serde::{Deserialize, Serialize};
 
 pub trait CameraProjection {
@@ -9,7 +9,7 @@ pub trait CameraProjection {
     fn depth_calculation(&self) -> DepthCalculation;
 }
 
-#[derive(Debug, Clone, Properties)]
+#[derive(Debug, Clone, Reflect)]
 pub struct PerspectiveProjection {
     pub fov: f32,
     pub aspect_ratio: f32,
@@ -43,13 +43,14 @@ impl Default for PerspectiveProjection {
 }
 
 // TODO: make this a component instead of a property
-#[derive(Debug, Clone, Property, Serialize, Deserialize)]
+#[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
+#[reflect_value(Serialize, Deserialize)]
 pub enum WindowOrigin {
     Center,
     BottomLeft,
 }
 
-#[derive(Debug, Clone, Properties)]
+#[derive(Debug, Clone, Reflect)]
 pub struct OrthographicProjection {
     pub left: f32,
     pub right: f32,

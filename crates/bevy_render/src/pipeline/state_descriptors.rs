@@ -1,5 +1,5 @@
 use crate::texture::TextureFormat;
-use bevy_property::Property;
+use bevy_reflect::Reflect;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug)]
@@ -59,7 +59,7 @@ pub enum CompareFunction {
     Always = 7,
 }
 
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Property)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Reflect)]
 pub enum PrimitiveTopology {
     PointList = 0,
     LineList = 1,
@@ -182,7 +182,7 @@ impl Default for BlendOperation {
     }
 }
 
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Property)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Reflect)]
 pub enum IndexFormat {
     Uint16 = 0,
     Uint32 = 1,
