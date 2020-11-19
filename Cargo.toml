@@ -77,6 +77,7 @@ anyhow = "1.0"
 rand = "0.7.3"
 ron = "0.6"
 serde = {version = "1", features = ["derive"]}
+instant = "0.1"
 
 [[example]]
 name = "hello_world"
@@ -336,7 +337,7 @@ apk_label = "Bevy Example"
 assets = "assets"
 res = "assets/android-res"
 icon = "@mipmap/ic_launcher"
-build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"] 
+build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
 min_sdk_version = 16
 target_sdk_version = 29
 
