@@ -65,7 +65,7 @@ impl AssetLoader for ImageTextureLoader {
                     data = i.into_raw();
                 }
                 image::DynamicImage::ImageRgb8(i) => {
-                    let i = image::DynamicImage::ImageRgb8(i).into_rgba();
+                    let i = image::DynamicImage::ImageRgb8(i).into_rgba8();
                     width = i.width();
                     height = i.height();
                     format = TextureFormat::Rgba8UnormSrgb;
@@ -80,7 +80,7 @@ impl AssetLoader for ImageTextureLoader {
                     data = i.into_raw();
                 }
                 image::DynamicImage::ImageBgr8(i) => {
-                    let i = image::DynamicImage::ImageBgr8(i).into_bgra();
+                    let i = image::DynamicImage::ImageBgr8(i).into_bgra8();
 
                     width = i.width();
                     height = i.height();
