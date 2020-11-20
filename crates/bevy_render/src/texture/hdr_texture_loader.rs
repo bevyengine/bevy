@@ -36,7 +36,7 @@ impl AssetLoader for HdrTextureLoader {
                 rgba_data.extend_from_slice(&alpha.to_ne_bytes());
             }
 
-            let texture = Texture::new(
+            let texture = Texture::new_2d(
                 Vec2::new(info.width as f32, info.height as f32),
                 rgba_data,
                 format,

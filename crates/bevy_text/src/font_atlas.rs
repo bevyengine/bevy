@@ -17,7 +17,7 @@ impl FontAtlas {
         texture_atlases: &mut Assets<TextureAtlas>,
         size: Vec2,
     ) -> FontAtlas {
-        let atlas_texture = textures.add(Texture::new_fill(
+        let atlas_texture = textures.add(Texture::new_fill_2d(
             size,
             &[0, 0, 0, 0],
             TextureFormat::Rgba8UnormSrgb,

@@ -93,7 +93,6 @@ impl TextureAtlasBuilder {
 
             let mut target_bins = std::collections::BTreeMap::new();
             target_bins.insert(0, TargetBin::new(current_width, current_height, 1));
-
             rect_placements = match pack_rects(
                 &self.rects_to_place,
                 target_bins,
@@ -101,7 +100,7 @@ impl TextureAtlasBuilder {
                 &contains_smallest_box,
             ) {
                 Ok(rect_placements) => {
-                    atlas_texture = Texture::new_fill(
+                    atlas_texture = Texture::new_fill_2d(
                         Vec2::new(current_width as f32, current_height as f32),
                         &[0, 0, 0, 0],
                         TextureFormat::Rgba8UnormSrgb,
@@ -137,7 +136,7 @@ impl TextureAtlasBuilder {
             self.place_texture(&mut atlas_texture, texture, packed_location);
         }
         Ok(TextureAtlas {
-            size: atlas_texture.size,
+            size: atlas_texture.size_2d(),
             texture: textures.add(atlas_texture),
             textures: texture_rects,
             texture_handles: Some(texture_handles),

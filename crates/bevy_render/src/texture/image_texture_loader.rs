@@ -148,7 +148,7 @@ impl AssetLoader for ImageTextureLoader {
                 }
             }
 
-            let texture = Texture::new(Vec2::new(width as f32, height as f32), data, format);
+            let texture = Texture::new_2d(Vec2::new(width as f32, height as f32), data, format);
             load_context.set_default_asset(LoadedAsset::new(texture));
             Ok(())
         })

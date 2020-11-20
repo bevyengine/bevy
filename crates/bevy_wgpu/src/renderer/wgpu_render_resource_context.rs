@@ -88,7 +88,7 @@ impl WgpuRenderResourceContext {
                 layout: wgpu::TextureDataLayout {
                     offset: source_offset,
                     bytes_per_row: source_bytes_per_row,
-                    rows_per_image: 0, // NOTE: Example sets this to 0, but should it be height?
+                    rows_per_image: size.height,
                 },
             },
             wgpu::TextureCopyView {

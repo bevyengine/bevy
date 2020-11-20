@@ -17,11 +17,11 @@ impl From<&Texture> for TextureDescriptor {
             size: Extent3d {
                 width: texture.size.x as u32,
                 height: texture.size.y as u32,
-                depth: 1,
+                depth: texture.size.z as u32,
             },
             mip_level_count: 1,
             sample_count: 1,
-            dimension: TextureDimension::D2,
+            dimension: texture.dimension,
             format: texture.format,
             usage: TextureUsage::SAMPLED | TextureUsage::COPY_DST,
         }

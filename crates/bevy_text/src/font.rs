@@ -35,7 +35,7 @@ impl Font {
             (color.g() * 255.0) as u8,
             (color.b() * 255.0) as u8,
         ];
-        Texture::new(
+        Texture::new_2d(
             Vec2::new(width as f32, height as f32),
             alpha
                 .iter()
