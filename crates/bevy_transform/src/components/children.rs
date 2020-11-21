@@ -4,7 +4,7 @@ use smallvec::SmallVec;
 use std::ops::Deref;
 
 #[derive(Default, Clone, Properties, Debug)]
-pub struct Children(#[property(ignore)] pub(crate) SmallVec<[Entity; 8]>);
+pub struct Children(pub(crate) SmallVec<[Entity; 8]>);
 
 impl MapEntities for Children {
     fn map_entities(
@@ -16,6 +16,12 @@ impl MapEntities for Children {
         }
 
         Ok(())
+    }
+}
+
+impl Children {
+    pub fn with(entity: &[Entity]) -> Self {
+        Self(SmallVec::from_slice(entity))
     }
 }
 

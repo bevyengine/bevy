@@ -20,7 +20,11 @@ impl<'a, 'b> WorldChildBuilder<'a, 'b> {
         let entity = self.world_builder.current_entity.unwrap();
         {
             let world = &mut self.world_builder.world;
-            let added = world.get_mut::<Children>(parent_entity).is_ok();
+            let mut added = false;
+            if let Ok(mut children) = world.get_mut::<Children>(parent_entity) {
+                children.0.push(entity);
+                added = true;
+            }
 
             // NOTE: ideally this is just an else statement, but currently that _incorrectly_ fails borrow-checking
             if !added {
