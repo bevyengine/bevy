@@ -1,6 +1,6 @@
 use crate::Rect;
 use bevy_asset::Handle;
-use bevy_core::Bytes;
+use bevy_core::Byteable;
 use bevy_math::Vec2;
 use bevy_render::{
     color::Color,
@@ -25,9 +25,7 @@ pub struct TextureAtlas {
     pub texture_handles: Option<HashMap<Handle<Texture>, usize>>,
 }
 
-// NOTE: cannot do `unsafe impl Byteable` here because Vec3 takes up the space of a Vec4. If/when glam changes this we can swap out
-// Bytes for Byteable as a micro-optimization. https://github.com/bitshifter/glam-rs/issues/36
-#[derive(Bytes, Debug, RenderResources, RenderResource)]
+#[derive(Debug, RenderResources, RenderResource)]
 #[render_resources(from_self)]
 pub struct TextureAtlasSprite {
     pub color: Color,
@@ -42,6 +40,8 @@ impl Default for TextureAtlasSprite {
         }
     }
 }
+
+unsafe impl Byteable for TextureAtlasSprite {}
 
 impl TextureAtlasSprite {
     pub fn new(index: u32) -> TextureAtlasSprite {
