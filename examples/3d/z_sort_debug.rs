@@ -46,7 +46,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
+    let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 2.0 }));
     commands
         // parent cube
         .spawn(PbrBundle {

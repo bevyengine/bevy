@@ -83,7 +83,7 @@ fn setup(
     let material = materials.add(MyMaterialWithVertexColorSupport {});
 
     // create a generic cube
-    let mut cube_with_vertex_colors = Mesh::from(shape::Cube { size: 1.0 });
+    let mut cube_with_vertex_colors = Mesh::from(shape::Cube { size: 2.0 });
 
     // insert our custom color attribute with some nice colors!
     cube_with_vertex_colors.set_attribute(

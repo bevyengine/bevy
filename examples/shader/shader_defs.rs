@@ -97,7 +97,7 @@ fn setup(
     });
 
     // Create a cube mesh which will use our materials
-    let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
+    let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 2.0 }));
 
     commands
         // cube
