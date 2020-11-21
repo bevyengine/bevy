@@ -153,22 +153,24 @@ pub fn draw_text_system(
     let vertex_buffer_descriptor = font_quad.get_vertex_buffer_descriptor();
 
     for (entity, mut draw, text, node, global_transform) in query.iter_mut() {
-        if draw.is_visible {
-            if let Some(text_glyphs) = text_pipeline.get_glyphs(&entity) {
-                let position = global_transform.translation - (node.size / 2.0).extend(0.0);
+        if !draw.is_visible {
+            continue;
+        }
 
-                let mut drawable_text = DrawableText {
-                    render_resource_bindings: &mut render_resource_bindings,
-                    asset_render_resource_bindings: &mut asset_render_resource_bindings,
-                    position,
-                    msaa: &msaa,
-                    text_glyphs: &text_glyphs.glyphs,
-                    font_quad_vertex_descriptor: &vertex_buffer_descriptor,
-                    style: &text.style,
-                };
+        if let Some(text_glyphs) = text_pipeline.get_glyphs(&entity) {
+            let position = global_transform.translation - (node.size / 2.0).extend(0.0);
 
-                drawable_text.draw(&mut draw, &mut context).unwrap();
-            }
+            let mut drawable_text = DrawableText {
+                render_resource_bindings: &mut render_resource_bindings,
+                asset_render_resource_bindings: &mut asset_render_resource_bindings,
+                position,
+                msaa: &msaa,
+                text_glyphs: &text_glyphs.glyphs,
+                font_quad_vertex_descriptor: &vertex_buffer_descriptor,
+                style: &text.style,
+            };
+
+            drawable_text.draw(&mut draw, &mut context).unwrap();
         }
     }
 }
