@@ -35,17 +35,13 @@ jobs:
           path: |
             target
           key: ${{ runner.os }}-cargo-check-test-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
-          
-      - name: Update apt-get
-        run: sudo apt-get update
-        if: ${{ runner.os == 'Linux' }}
 
       - name: Install alsa
-        run: sudo apt-get install --no-install-recommends libasound2-dev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev
         if: ${{ runner.os == 'Linux' }}
 
       - name: Install udev
-        run: sudo apt-get install --no-install-recommends libudev-dev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libudev-dev
         if: ${{ runner.os == 'Linux' }}
 
       - name: Build
@@ -112,10 +108,10 @@ jobs:
           override: true
 
       - name: Install alsa
-        run: sudo apt-get install --no-install-recommends libasound2-dev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev
 
       - name: Install udev
-        run: sudo apt-get install --no-install-recommends libudev-dev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libudev-dev
 
       - name: Check the format
         run: cargo +nightly fmt --all -- --check
