@@ -1,5 +1,4 @@
-use bevy_utils::HashMap;
-use instant::{Duration, Instant};
+use bevy_utils::{Duration, HashMap, Instant};
 use std::collections::VecDeque;
 use uuid::Uuid;
 

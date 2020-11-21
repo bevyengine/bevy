@@ -1,8 +1,8 @@
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin, ScheduleRunnerSettings},
     prelude::*,
+    utils::Duration,
 };
-use instant::Duration;
 use rand::random;
 
 /// This is a guided introduction to Bevy's "Entity Component System" (ECS)

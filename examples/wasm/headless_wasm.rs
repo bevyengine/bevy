@@ -2,8 +2,8 @@ use bevy::{
     app::{ScheduleRunnerPlugin, ScheduleRunnerSettings},
     log::LogPlugin,
     prelude::*,
+    utils::Duration,
 };
-use instant::Duration;
 
 fn main() {
     App::build()

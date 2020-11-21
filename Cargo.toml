@@ -77,7 +77,6 @@ anyhow = "1.0"
 rand = "0.7.3"
 ron = "0.6"
 serde = {version = "1", features = ["derive"]}
-instant = "0.1"
 
 [[example]]
 name = "hello_world"

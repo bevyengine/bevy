@@ -4,7 +4,7 @@ use crate::{
     event::{EventReader, Events},
     plugin::Plugin,
 };
-use instant::{Duration, Instant};
+use bevy_utils::{Duration, Instant};
 
 #[cfg(target_arch = "wasm32")]
 use std::{cell::RefCell, rc::Rc};

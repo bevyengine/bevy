@@ -1,5 +1,5 @@
 use bevy_ecs::ResMut;
-use instant::{Duration, Instant};
+use bevy_utils::{Duration, Instant};
 
 /// Tracks elapsed time since the last update and since the App has started
 #[derive(Debug)]
