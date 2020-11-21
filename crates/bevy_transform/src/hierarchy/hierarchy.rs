@@ -38,7 +38,7 @@ pub struct DespawnRecursive {
     entity: Entity,
 }
 
-fn despawn_with_children_recursive(world: &mut World, entity: Entity) {
+pub fn despawn_with_children_recursive(world: &mut World, entity: Entity) {
     // first, make the entity's own parent forget about it
     if let Ok(parent) = world.get::<Parent>(entity).map(|parent| parent.0) {
         if let Ok(mut children) = world.get_mut::<Children>(parent) {
