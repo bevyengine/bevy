@@ -99,7 +99,7 @@ pub fn countdown_event_ready() {
         std::thread::spawn(move || futures_lite::future::block_on(countdown_event_clone.listen()));
 
     // Pause to give the new thread time to start blocking (ugly hack)
-    std::thread::sleep(bevy_utils::Duration::from_millis(100));
+    std::thread::sleep(instant::Duration::from_millis(100));
 
     countdown_event.decrement();
     handle.join().unwrap();
