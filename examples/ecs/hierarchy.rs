@@ -110,9 +110,6 @@ fn rotate(
 
         // To demonstrate removing children, we'll start to remove the children after a couple of seconds
         if time.seconds_since_startup >= 2.0 && children.len() == 3 {
-            // Using .despawn() on an entity does not remove it from its parent's list of children!
-            // It must be done manually if using .despawn()
-            // NOTE: This is a bug. Eventually Bevy will update the children list automatically
             let child = children.last().copied().unwrap();
             commands.despawn(child);
         }

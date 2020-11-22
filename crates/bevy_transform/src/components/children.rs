@@ -23,6 +23,11 @@ impl Children {
     pub fn with(entity: &[Entity]) -> Self {
         Self(SmallVec::from_slice(entity))
     }
+
+    /// Swaps the child at `a_index` with the child at `b_index`
+    pub fn swap(&mut self, a_index: usize, b_index: usize) {
+        self.0.swap(a_index, b_index);
+    }
 }
 
 impl Deref for Children {
