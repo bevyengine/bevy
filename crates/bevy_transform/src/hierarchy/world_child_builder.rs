@@ -22,7 +22,7 @@ impl<'a, 'b> WorldChildBuilder<'a, 'b> {
             let world = &mut self.world_builder.world;
             let mut added = false;
             if let Ok(mut children) = world.get_mut::<Children>(parent_entity) {
-                children.push(entity);
+                children.0.push(entity);
                 added = true;
             }
 
