@@ -16,6 +16,7 @@ pub struct Timer {
     pub finished: bool,
     /// Will only be true on the tick `duration` is reached or exceeded.
     pub just_finished: bool,
+    pub paused: bool,
     pub repeating: bool,
 }
 
@@ -36,8 +37,16 @@ impl Timer {
         }
     }
 
+    pub fn pause(&mut self) {
+        self.paused = true
+    }
+
     /// Advances the timer by `delta` seconds.
     pub fn tick(&mut self, delta: f32) -> &Self {
+        if self.paused {
+            return self;
+        }
+
         let prev_finished = self.elapsed >= self.duration;
         if !prev_finished {
             self.elapsed += delta;
