@@ -44,8 +44,6 @@ pub enum GltfError {
     BufferFormatUnsupported,
     #[error("Invalid image mime type.")]
     InvalidImageMimeType(String),
-    #[error("Failed to convert image to rgb8.")]
-    ImageRgb8ConversionFailure,
     #[error("Failed to load an image.")]
     ImageError(#[from] image::ImageError),
     #[error("Failed to load an asset path.")]
