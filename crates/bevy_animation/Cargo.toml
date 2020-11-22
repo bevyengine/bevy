@@ -14,6 +14,7 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.3.0" }
 bevy_pbr = { path = "../bevy_pbr", version = "0.3.0" }
 bevy_math = { path = "../bevy_math", version = "0.3.0" }
 bevy_render = { path = "../bevy_render", version = "0.3.0" }
+bevy_utils = { path = "../bevy_utils", version = "0.3.0" }
 #bevy_tasks = { path = "../bevy_tasks", version = "0.3.0" }
 bevy_transform = { path = "../bevy_transform", version = "0.3.0" }
 bevy_type_registry = { path = "../bevy_type_registry", version = "0.3.0" }

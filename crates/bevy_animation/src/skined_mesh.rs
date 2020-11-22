@@ -126,6 +126,7 @@ pub(crate) fn mesh_skinner_startup(
                     if root {
                         children.map(|c| stack.extend(c.iter()));
                         root = false;
+                        continue;
                     }
 
                     if let Some((bone_index, _)) = skin
@@ -244,6 +245,8 @@ pub(crate) fn mesh_skinner_startup(
 pub struct MeshSkinnerDebuger {
     //pub enabled: bool,
     #[property(ignore)]
+    started: bool,
+    #[property(ignore)]
     mesh: Option<Handle<Mesh>>,
     #[property(ignore)]
     entity: Option<Entity>,
@@ -257,6 +260,10 @@ pub(crate) fn mesh_skinner_debugger_update(
     bones_query: Query<(&GlobalTransform,)>,
 ) {
     for (skin_handle, skinner, mut debugger) in debugger_query.iter_mut() {
+        if skinner.skin.as_ref() != Some(skin_handle) {
+            continue;
+        }
+
         let debugger = &mut *debugger;
 
         // if !debugger.enabled {
@@ -267,18 +274,24 @@ pub(crate) fn mesh_skinner_debugger_update(
             if debugger.mesh.is_none() {
                 let mesh = Mesh::new(PrimitiveTopology::LineList);
                 debugger.mesh = Some(meshes.add(mesh));
+            }
 
+            if !debugger.started {
                 let bone_mesh = meshes.add(Mesh::from(shape::Cube { size: 0.02 }));
                 for bone in skinner.bones.iter() {
                     if let Some(entity) = bone {
                         commands
-                            .spawn(PbrComponents {
+                            .spawn(PbrBundle {
                                 mesh: bone_mesh.clone(),
                                 ..Default::default()
                             })
                             .with(Parent(*entity));
+
+                        dbg!(commands.current_entity());
                     }
                 }
+
+                debugger.started = true;
             }
 
             let mesh_handle = debugger.mesh.as_ref().unwrap();
@@ -286,7 +299,7 @@ pub(crate) fn mesh_skinner_debugger_update(
 
             if debugger.entity.is_none() {
                 debugger.entity = commands
-                    .spawn(PbrComponents {
+                    .spawn(PbrBundle {
                         mesh: mesh_handle.clone(),
                         ..Default::default()
                     })
@@ -314,6 +327,7 @@ pub(crate) fn mesh_skinner_debugger_update(
 
             let mut indices = vec![];
             let mut vertices = vec![];
+
             for (i, parent) in skin.bones_parents.iter().enumerate() {
                 if let Some(parent) = *parent {
                     indices.push(vertices.len() as u32);
@@ -323,10 +337,31 @@ pub(crate) fn mesh_skinner_debugger_update(
                 }
             }
 
+            // TODO: Change shader to not require normals and uv attributes
+
+            let normals = Some([0f32; 3])
+                .iter()
+                .copied()
+                .cycle()
+                .take(vertices.len())
+                .collect::<Vec<_>>();
+
+            let uvs = Some([0f32; 2])
+                .iter()
+                .copied()
+                .cycle()
+                .take(vertices.len())
+                .collect::<Vec<_>>();
+
             mesh.set_attribute(
                 Mesh::ATTRIBUTE_POSITION,
                 VertexAttributeValues::Float3(vertices),
             );
+            mesh.set_attribute(
+                Mesh::ATTRIBUTE_NORMAL,
+                VertexAttributeValues::Float3(normals),
+            );
+            mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, VertexAttributeValues::Float2(uvs));
             mesh.set_indices(Some(Indices::U32(indices)));
         }
     }

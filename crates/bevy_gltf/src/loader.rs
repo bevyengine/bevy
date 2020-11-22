@@ -302,7 +302,7 @@ async fn load_gltf<'a, 'b>(
                     property_path += "@Transform.translation";
                     clip.add_animated_prop(
                         property_path,
-                        Value::Vec3(Curve::new(time_stamps, values)),
+                        CurveUntyped::Vec3(Curve::new(time_stamps, values)),
                     )
 
                     // TODO: This is a runtime importer so here's no place for further optimizations
@@ -340,7 +340,7 @@ async fn load_gltf<'a, 'b>(
                     property_path += "@Transform.rotation";
                     clip.add_animated_prop(
                         property_path,
-                        Value::Quat(Curve::new(time_stamps, values)),
+                        CurveUntyped::Quat(Curve::new(time_stamps, values)),
                     );
                 }
                 ReadOutputs::Scales(values) => {
@@ -349,7 +349,7 @@ async fn load_gltf<'a, 'b>(
                     property_path += "@Transform.scale";
                     clip.add_animated_prop(
                         property_path,
-                        Value::Vec3(Curve::new(time_stamps, values)),
+                        CurveUntyped::Vec3(Curve::new(time_stamps, values)),
                     )
                 }
                 ReadOutputs::MorphTargetWeights(_) => {
