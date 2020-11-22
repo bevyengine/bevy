@@ -44,8 +44,6 @@ pub enum GltfError {
     BufferFormatUnsupported,
     #[error("Invalid image mime type.")]
     InvalidImageMimeType(String),
-    #[error("Failed to convert image to rgb8.")]
-    ImageRgb8ConversionFailure,
     #[error("Failed to load an image.")]
     ImageError(#[from] image::ImageError),
     #[error("Failed to load an asset path.")]
@@ -131,9 +129,7 @@ async fn load_gltf<'a, 'b>(
             }?;
             let image = image::load_from_memory_with_format(buffer, format)?;
             let size = image.dimensions();
-            let image = image
-                .as_rgba8()
-                .ok_or(GltfError::ImageRgb8ConversionFailure)?;
+            let image = image.into_rgba8();
 
             let texture_label = texture_label(&texture);
             load_context.set_labeled_asset(
