@@ -1,8 +1,7 @@
 use ab_glyph::{FontArc, FontVec, InvalidFont, OutlinedGlyph};
-use bevy_math::Vec2;
 use bevy_render::{
     color::Color,
-    texture::{Texture, TextureFormat},
+    texture::{Extent3d, Texture, TextureDimension, TextureFormat},
 };
 use bevy_type_registry::TypeUuid;
 
@@ -35,8 +34,9 @@ impl Font {
             (color.g() * 255.0) as u8,
             (color.b() * 255.0) as u8,
         ];
-        Texture::new_2d(
-            Vec2::new(width as f32, height as f32),
+        Texture::new(
+            Extent3d::new(width as u32, height as u32, 1),
+            TextureDimension::D2,
             alpha
                 .iter()
                 .map(|a| {

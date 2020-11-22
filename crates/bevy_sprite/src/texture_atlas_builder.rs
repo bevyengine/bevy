@@ -1,7 +1,7 @@
 use crate::{Rect, TextureAtlas};
 use bevy_asset::{Assets, Handle};
 use bevy_math::Vec2;
-use bevy_render::texture::{Texture, TextureFormat};
+use bevy_render::texture::{Extent3d, Texture, TextureDimension, TextureFormat};
 use bevy_utils::HashMap;
 use rectangle_pack::{
     contains_smallest_box, pack_rects, volume_heuristic, GroupedRectsToPlace, PackedLocation,
@@ -43,7 +43,7 @@ impl TextureAtlasBuilder {
         self.rects_to_place.push_rect(
             texture_handle,
             None,
-            RectToInsert::new(texture.size.x as u32, texture.size.y as u32, 1),
+            RectToInsert::new(texture.size.width, texture.size.height, 1),
         )
     }
 
@@ -57,7 +57,7 @@ impl TextureAtlasBuilder {
         let rect_height = packed_location.height() as usize;
         let rect_x = packed_location.x() as usize;
         let rect_y = packed_location.y() as usize;
-        let atlas_width = atlas_texture.size.x as usize;
+        let atlas_width = atlas_texture.size.width as usize;
         let format_size = atlas_texture.format.pixel_size();
 
         for (texture_y, bound_y) in (rect_y..rect_y + rect_height).enumerate() {
@@ -100,8 +100,9 @@ impl TextureAtlasBuilder {
                 &contains_smallest_box,
             ) {
                 Ok(rect_placements) => {
-                    atlas_texture = Texture::new_fill_2d(
-                        Vec2::new(current_width as f32, current_height as f32),
+                    atlas_texture = Texture::new_fill(
+                        Extent3d::new(current_width, current_height, 1),
+                        TextureDimension::D2,
                         &[0, 0, 0, 0],
                         TextureFormat::Rgba8UnormSrgb,
                     );
@@ -136,7 +137,7 @@ impl TextureAtlasBuilder {
             self.place_texture(&mut atlas_texture, texture, packed_location);
         }
         Ok(TextureAtlas {
-            size: atlas_texture.size_2d(),
+            size: atlas_texture.size.as_vec3().truncate(),
             texture: textures.add(atlas_texture),
             textures: texture_rects,
             texture_handles: Some(texture_handles),

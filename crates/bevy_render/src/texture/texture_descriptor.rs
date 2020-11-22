@@ -14,11 +14,7 @@ pub struct TextureDescriptor {
 impl From<&Texture> for TextureDescriptor {
     fn from(texture: &Texture) -> Self {
         TextureDescriptor {
-            size: Extent3d {
-                width: texture.size.x as u32,
-                height: texture.size.y as u32,
-                depth: texture.size.z as u32,
-            },
+            size: texture.size,
             mip_level_count: 1,
             sample_count: 1,
             dimension: texture.dimension,

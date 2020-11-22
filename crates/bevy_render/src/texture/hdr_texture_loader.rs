@@ -1,7 +1,6 @@
-use super::{Texture, TextureFormat};
+use super::{Extent3d, Texture, TextureDimension, TextureFormat};
 use anyhow::Result;
 use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
-use bevy_math::Vec2;
 use bevy_utils::BoxedFuture;
 
 /// Loads HDR textures as Texture assets
@@ -36,8 +35,9 @@ impl AssetLoader for HdrTextureLoader {
                 rgba_data.extend_from_slice(&alpha.to_ne_bytes());
             }
 
-            let texture = Texture::new_2d(
-                Vec2::new(info.width as f32, info.height as f32),
+            let texture = Texture::new(
+                Extent3d::new(info.width, info.height, 1),
+                TextureDimension::D2,
                 rgba_data,
                 format,
             );
