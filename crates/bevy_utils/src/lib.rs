@@ -1,7 +1,7 @@
-use ahash::RandomState;
-use std::{future::Future, pin::Pin};
-
 pub use ahash::AHasher;
+use ahash::RandomState;
+pub use instant::{Duration, Instant};
+use std::{future::Future, pin::Pin};
 pub use tracing;
 
 #[cfg(not(target_arch = "wasm32"))]

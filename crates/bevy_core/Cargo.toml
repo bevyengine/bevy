@@ -22,6 +22,3 @@ bevy_type_registry = { path = "../bevy_type_registry", version = "0.3.0" }
 bevy_math = { path = "../bevy_math", version = "0.3.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.3.0" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.3.0" }
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-instant = { version = "0.1", features = ["wasm-bindgen"] }

@@ -4,12 +4,7 @@ use crate::{
     event::{EventReader, Events},
     plugin::Plugin,
 };
-use std::time::Duration;
-
-#[cfg(target_arch = "wasm32")]
-use instant::Instant;
-#[cfg(not(target_arch = "wasm32"))]
-use std::{thread, time::Instant};
+use bevy_utils::{Duration, Instant};
 
 #[cfg(target_arch = "wasm32")]
 use std::{cell::RefCell, rc::Rc};
@@ -104,7 +99,7 @@ impl Plugin for ScheduleRunnerPlugin {
                     {
                         while let Ok(delay) = tick(&mut app, wait) {
                             if let Some(delay) = delay {
-                                thread::sleep(delay);
+                                std::thread::sleep(delay);
                             }
                         }
                     }

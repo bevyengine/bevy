@@ -1,7 +1,7 @@
 use crate::time::Time;
 use bevy_ecs::prelude::*;
 use bevy_property::Properties;
-use std::time::Duration;
+use bevy_utils::Duration;
 
 /// Tracks elapsed time. Enters the finished state once `duration` is reached.
 ///

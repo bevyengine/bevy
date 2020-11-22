@@ -1,4 +1,4 @@
-use bevy::{prelude::*, type_registry::TypeRegistry};
+use bevy::{prelude::*, type_registry::TypeRegistry, utils::Duration};
 
 /// This example illustrates loading and saving scenes from files
 fn main() {
@@ -37,7 +37,7 @@ struct ComponentA {
 struct ComponentB {
     pub value: String,
     #[property(ignore)]
-    pub time_since_startup: std::time::Duration,
+    pub time_since_startup: Duration,
 }
 
 impl FromResources for ComponentB {
