@@ -12,7 +12,7 @@ pub use winit_windows::*;
 use bevy_app::{prelude::*, AppExit};
 use bevy_ecs::{Resources, World};
 use bevy_math::Vec2;
-use bevy_utils::tracing::trace;
+use bevy_utils::tracing::{error, trace};
 use bevy_window::{
     CreateWindow, CursorMoved, ReceivedCharacter, Window, WindowCloseRequested, WindowCreated,
     WindowResized, Windows,
@@ -86,11 +86,19 @@ fn change_window(_: &mut World, resources: &mut Resources) {
                 }
                 bevy_window::WindowCommand::SetCursorLockMode { locked } => {
                     let window = winit_windows.get_window(id).unwrap();
-                    window.set_cursor_grab(locked).unwrap();
+                    window
+                        .set_cursor_grab(locked)
+                        .unwrap_or_else(|e| error!("Unable to un/grab cursor: {}", e));
                 }
                 bevy_window::WindowCommand::SetCursorVisibility { visible } => {
                     let window = winit_windows.get_window(id).unwrap();
                     window.set_cursor_visible(visible);
+                }
+                bevy_window::WindowCommand::SetCursorPosition { x, y } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    window
+                        .set_cursor_position(winit::dpi::PhysicalPosition::new(x, y))
+                        .unwrap_or_else(|e| error!("Unable to set cursor position: {}", e));
                 }
             }
         }
