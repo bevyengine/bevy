@@ -267,6 +267,10 @@ name = "shader_custom_material"
 path = "examples/shader/shader_custom_material.rs"
 
 [[example]]
+name = "array_texture"
+path = "examples/shader/array_texture.rs"
+
+[[example]]
 name = "shader_defs"
 path = "examples/shader/shader_defs.rs"
 

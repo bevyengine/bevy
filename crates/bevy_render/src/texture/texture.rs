@@ -1,11 +1,10 @@
-use super::{SamplerDescriptor, TextureDescriptor, TextureFormat};
+use super::{Extent3d, SamplerDescriptor, TextureDescriptor, TextureDimension, TextureFormat};
 use crate::renderer::{
     RenderResource, RenderResourceContext, RenderResourceId, RenderResourceType,
 };
 use bevy_app::prelude::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{Res, ResMut};
-use bevy_math::Vec2;
 use bevy_type_registry::TypeUuid;
 use bevy_utils::HashSet;
 
@@ -16,8 +15,9 @@ pub const SAMPLER_ASSET_INDEX: u64 = 1;
 #[uuid = "6ea26da6-6cf8-4ea2-9986-1d7bf6c17d6f"]
 pub struct Texture {
     pub data: Vec<u8>,
-    pub size: Vec2,
+    pub size: Extent3d,
     pub format: TextureFormat,
+    pub dimension: TextureDimension,
     pub sampler: SamplerDescriptor,
 }
 
@@ -25,31 +25,48 @@ impl Default for Texture {
     fn default() -> Self {
         Texture {
             data: Default::default(),
-            size: Default::default(),
+            size: Extent3d {
+                width: 1,
+                height: 1,
+                depth: 1,
+            },
             format: TextureFormat::Rgba8UnormSrgb,
+            dimension: TextureDimension::D2,
             sampler: Default::default(),
         }
     }
 }
 
 impl Texture {
-    pub fn new(size: Vec2, data: Vec<u8>, format: TextureFormat) -> Self {
+    pub fn new(
+        size: Extent3d,
+        dimension: TextureDimension,
+        data: Vec<u8>,
+        format: TextureFormat,
+    ) -> Self {
         debug_assert_eq!(
-            size.x as usize * size.y as usize * format.pixel_size(),
+            size.volume() * format.pixel_size(),
             data.len(),
             "Pixel data, size and format have to match",
         );
         Self {
             data,
             size,
+            dimension,
             format,
             ..Default::default()
         }
     }
 
-    pub fn new_fill(size: Vec2, pixel: &[u8], format: TextureFormat) -> Self {
+    pub fn new_fill(
+        size: Extent3d,
+        dimension: TextureDimension,
+        pixel: &[u8],
+        format: TextureFormat,
+    ) -> Self {
         let mut value = Texture {
             format,
+            dimension,
             ..Default::default()
         };
         value.resize(size);
@@ -70,16 +87,42 @@ impl Texture {
         value
     }
 
-    pub fn aspect(&self) -> f32 {
-        self.size.y / self.size.x
+    pub fn aspect_2d(&self) -> f32 {
+        self.size.height as f32 / self.size.width as f32
     }
 
-    pub fn resize(&mut self, size: Vec2) {
+    pub fn resize(&mut self, size: Extent3d) {
         self.size = size;
-        let width = size.x as usize;
-        let height = size.y as usize;
         self.data
-            .resize(width * height * self.format.pixel_size(), 0);
+            .resize(size.volume() * self.format.pixel_size(), 0);
+    }
+
+    /// Changes the `size`, asserting that the total number of data elements (pixels) remains the same.
+    pub fn reinterpret_size(&mut self, new_size: Extent3d) {
+        assert!(
+            new_size.volume() == self.size.volume(),
+            "Incompatible sizes: old = {:?} new = {:?}",
+            self.size,
+            new_size
+        );
+
+        self.size = new_size;
+    }
+
+    /// Takes a 2D texture containing vertically stacked images of the same size, and reinterprets it as a 2D array texture,
+    /// where each of the stacked images becomes one layer of the array. This is primarily for use with the `texture2DArray`
+    /// shader uniform type.
+    pub fn reinterpret_stacked_2d_as_array(&mut self, layers: u32) {
+        // Must be a stacked image, and the height must be divisible by layers.
+        assert!(self.dimension == TextureDimension::D2);
+        assert!(self.size.depth == 1);
+        assert_eq!(self.size.height % layers, 0);
+
+        self.reinterpret_size(Extent3d {
+            width: self.size.width,
+            height: self.size.height / layers,
+            depth: layers,
+        });
     }
 
     pub fn texture_resource_system(

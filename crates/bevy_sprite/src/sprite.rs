@@ -48,7 +48,7 @@ pub fn sprite_system(
                 let material = materials.get(handle).unwrap();
                 if let Some(ref texture_handle) = material.texture {
                     if let Some(texture) = textures.get(texture_handle) {
-                        sprite.size = texture.size;
+                        sprite.size = texture.size.as_vec3().truncate();
                     }
                 }
             }

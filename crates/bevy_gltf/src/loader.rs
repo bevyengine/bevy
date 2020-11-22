@@ -11,7 +11,9 @@ use bevy_render::{
     pipeline::PrimitiveTopology,
     prelude::{Color, Texture},
     render_graph::base,
-    texture::{AddressMode, FilterMode, SamplerDescriptor, TextureFormat},
+    texture::{
+        AddressMode, Extent3d, FilterMode, SamplerDescriptor, TextureDimension, TextureFormat,
+    },
 };
 use bevy_scene::Scene;
 use bevy_transform::{
@@ -136,7 +138,8 @@ async fn load_gltf<'a, 'b>(
                 &texture_label,
                 LoadedAsset::new(Texture {
                     data: image.clone().into_vec(),
-                    size: bevy_math::f32::vec2(size.0 as f32, size.1 as f32),
+                    size: Extent3d::new(size.0, size.1, 1),
+                    dimension: TextureDimension::D2,
                     format: TextureFormat::Rgba8Unorm,
                     sampler: texture_sampler(&texture)?,
                 }),
