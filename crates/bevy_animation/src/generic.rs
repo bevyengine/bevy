@@ -174,8 +174,30 @@ where
     T: LerpValue + Clone + 'static,
 {
     pub fn new(samples: Vec<f32>, values: Vec<T>) -> Self {
-        assert!(samples.len() == values.len());
+        // TODO: Result?
+
+        // Make sure both have the same length
+        assert!(
+            samples.len() == values.len(),
+            "samples and values must have the same length"
+        );
+
+        // Make sure the
+        assert!(
+            samples
+                .iter()
+                .zip(samples.iter().skip(1))
+                .all(|(a, b)| a < b),
+            "time samples must be on ascending order"
+        );
         Self { samples, values }
+    }
+
+    pub fn from_linear(t0: f32, t1: f32, v0: T, v1: T) -> Self {
+        Self {
+            samples: if t1 >= t0 { vec![t0, t1] } else { vec![t1, t0] },
+            values: vec![v0, v1],
+        }
     }
 
     pub fn duration(&self) -> f32 {
@@ -694,13 +716,14 @@ fn find_property_ptr<'a, P: Iterator<Item = &'a str>>(
 ) -> Ptr {
     Ptr(find_property_at_path(path, root_props, type_id)
         .map(|prop| {
-            let ptr = prop.as_ptr() as *mut _;
+            let ptr = prop.any() as *const _ as *mut u8;
             // Perform an extra assertion to make sure this pointer is inside the component
             // memory bounds, so no dangle pointers can be created
             // TODO: cfg extra asserts
             {
-                let root = root_props.as_ptr();
-                let size = std::mem::size_of_val(root_props.any()) as isize;
+                let root_any = root_props.any();
+                let root = root_any as *const _ as *mut u8;
+                let size = std::mem::size_of_val(root_any) as isize;
                 assert!(unsafe { root.offset_from(ptr).abs() } <= size);
             }
             ptr
@@ -745,6 +768,8 @@ pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resource
 
                     // Update time
                     let mut time = layer.time + delta_time;
+
+                    // TODO: I notice some jitter during playback
 
                     // Warp mode
                     if clip.warp {
@@ -835,3 +860,55 @@ pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resource
 //         &["anim"]
 //     }
 // }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn curve_evaluation() {
+        let curve = Curve::new(vec![0.0, 0.5, 1.0], vec![0.0, 1.0, 2.0]);
+        assert_eq!(curve.sample(0.5), 1.0);
+        assert_eq!(curve.sample_forward(0, 0.75), (1, 1.5));
+        // TODO: Backwards sampling
+    }
+
+    #[test]
+    #[should_panic]
+    fn curve_bad_length() {
+        let _ = Curve::new(vec![0.0, 0.5, 1.0], vec![0.0, 1.0]);
+    }
+
+    #[test]
+    #[should_panic]
+    fn curve_time_samples_not_sorted() {
+        let _ = Curve::new(vec![0.0, 1.5, 1.0], vec![0.0, 1.0, 2.0]);
+    }
+
+    #[test]
+    fn create_clip() {
+        let mut clip = Clip::default();
+        let curve = Curve::from_linear(0.0, 1.0, 0.0, 1.0);
+        clip.add_animated_prop("Root/Ball@Sphere.radius", CurveUntyped::Float(curve));
+    }
+
+    #[test]
+    #[should_panic]
+    fn clip_add_nested_property() {
+        let mut clip = Clip::default();
+        let position = Curve::from_linear(0.0, 1.0, Vec3::zero(), Vec3::unit_y());
+        let y = Curve::from_linear(0.0, 1.0, 0.0, 1.0);
+        clip.add_animated_prop(
+            "Root/Ball@Transform.translation",
+            CurveUntyped::Vec3(position),
+        );
+        // NOTE: Right now "Transform.translation.y" can't be accessed because Vec3 doesn't impl Properties
+        clip.add_animated_prop("Root/Ball@Transform.translation.y", CurveUntyped::Float(y));
+    }
+
+    #[test]
+    #[should_panic]
+    fn clip_get_property_path() {}
+
+    // TODO: Add tests
+}

@@ -24,8 +24,6 @@ pub trait Property: Send + Sync + Any + 'static {
         None
     }
     fn serializable<'a>(&'a self, registry: &'a PropertyTypeRegistry) -> Serializable<'a>;
-    fn as_ptr(&self) -> *const u8;
-    fn as_mut_ptr(&mut self) -> *mut u8;
 }
 
 pub trait DeserializeProperty {

@@ -101,14 +101,6 @@ where
     fn property_type(&self) -> PropertyType {
         PropertyType::Seq
     }
-
-    fn as_ptr(&self) -> *const u8 {
-        self as *const _ as *const u8
-    }
-
-    fn as_mut_ptr(&mut self) -> *mut u8 {
-        self as *mut _ as *mut u8
-    }
 }
 
 // impl_property!(SEQUENCE, VecDeque<T> where T: Clone + Send + Sync + Serialize + 'static);
@@ -162,14 +154,6 @@ impl Property for String {
     fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
     }
-
-    fn as_ptr(&self) -> *const u8 {
-        self as *const _ as *const u8
-    }
-
-    fn as_mut_ptr(&mut self) -> *mut u8 {
-        self as *mut _ as *mut u8
-    }
 }
 
 impl Property for bool {
@@ -209,14 +193,6 @@ impl Property for bool {
 
     fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
-    }
-
-    fn as_ptr(&self) -> *const u8 {
-        self as *const _ as *const u8
-    }
-
-    fn as_mut_ptr(&mut self) -> *mut u8 {
-        self as *mut _ as *mut u8
     }
 }
 
@@ -276,14 +252,6 @@ impl Property for usize {
     fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
     }
-
-    fn as_ptr(&self) -> *const u8 {
-        self as *const _ as *const u8
-    }
-
-    fn as_mut_ptr(&mut self) -> *mut u8 {
-        self as *mut _ as *mut u8
-    }
 }
 
 impl Property for u64 {
@@ -341,14 +309,6 @@ impl Property for u64 {
 
     fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
-    }
-
-    fn as_ptr(&self) -> *const u8 {
-        self as *const _ as *const u8
-    }
-
-    fn as_mut_ptr(&mut self) -> *mut u8 {
-        self as *mut _ as *mut u8
     }
 }
 
@@ -408,14 +368,6 @@ impl Property for u32 {
     fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
     }
-
-    fn as_ptr(&self) -> *const u8 {
-        self as *const _ as *const u8
-    }
-
-    fn as_mut_ptr(&mut self) -> *mut u8 {
-        self as *mut _ as *mut u8
-    }
 }
 
 impl Property for u16 {
@@ -473,14 +425,6 @@ impl Property for u16 {
 
     fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
-    }
-
-    fn as_ptr(&self) -> *const u8 {
-        self as *const _ as *const u8
-    }
-
-    fn as_mut_ptr(&mut self) -> *mut u8 {
-        self as *mut _ as *mut u8
     }
 }
 
@@ -540,14 +484,6 @@ impl Property for u8 {
     fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
     }
-
-    fn as_ptr(&self) -> *const u8 {
-        self as *const _ as *const u8
-    }
-
-    fn as_mut_ptr(&mut self) -> *mut u8 {
-        self as *mut _ as *mut u8
-    }
 }
 
 impl Property for isize {
@@ -605,14 +541,6 @@ impl Property for isize {
 
     fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
-    }
-
-    fn as_ptr(&self) -> *const u8 {
-        self as *const _ as *const u8
-    }
-
-    fn as_mut_ptr(&mut self) -> *mut u8 {
-        self as *mut _ as *mut u8
     }
 }
 
@@ -672,14 +600,6 @@ impl Property for i64 {
     fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
     }
-
-    fn as_ptr(&self) -> *const u8 {
-        self as *const _ as *const u8
-    }
-
-    fn as_mut_ptr(&mut self) -> *mut u8 {
-        self as *mut _ as *mut u8
-    }
 }
 
 impl Property for i32 {
@@ -737,14 +657,6 @@ impl Property for i32 {
 
     fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
-    }
-
-    fn as_ptr(&self) -> *const u8 {
-        self as *const _ as *const u8
-    }
-
-    fn as_mut_ptr(&mut self) -> *mut u8 {
-        self as *mut _ as *mut u8
     }
 }
 
@@ -804,14 +716,6 @@ impl Property for i16 {
     fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
     }
-
-    fn as_ptr(&self) -> *const u8 {
-        self as *const _ as *const u8
-    }
-
-    fn as_mut_ptr(&mut self) -> *mut u8 {
-        self as *mut _ as *mut u8
-    }
 }
 
 impl Property for i8 {
@@ -870,14 +774,6 @@ impl Property for i8 {
     fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
     }
-
-    fn as_ptr(&self) -> *const u8 {
-        self as *const _ as *const u8
-    }
-
-    fn as_mut_ptr(&mut self) -> *mut u8 {
-        self as *mut _ as *mut u8
-    }
 }
 
 impl Property for f32 {
@@ -920,14 +816,6 @@ impl Property for f32 {
     fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
     }
-
-    fn as_ptr(&self) -> *const u8 {
-        self as *const _ as *const u8
-    }
-
-    fn as_mut_ptr(&mut self) -> *mut u8 {
-        self as *mut _ as *mut u8
-    }
 }
 
 impl Property for f64 {
@@ -969,13 +857,5 @@ impl Property for f64 {
 
     fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
-    }
-
-    fn as_ptr(&self) -> *const u8 {
-        self as *const _ as *const u8
-    }
-
-    fn as_mut_ptr(&mut self) -> *mut u8 {
-        self as *mut _ as *mut u8
     }
 }

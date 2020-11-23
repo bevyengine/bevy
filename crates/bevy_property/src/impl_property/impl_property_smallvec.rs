@@ -47,12 +47,4 @@ where
     fn property_type(&self) -> PropertyType {
         PropertyType::Value
     }
-
-    fn as_ptr(&self) -> *const u8 {
-        self as *const _ as *const u8
-    }
-
-    fn as_mut_ptr(&mut self) -> *mut u8 {
-        self as *mut _ as *mut u8
-    }
 }
