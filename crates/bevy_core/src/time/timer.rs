@@ -53,8 +53,16 @@ impl Timer {
         self.elapsed
     }
 
+    pub fn set_elapsed(&mut self, elapsed: f32) {
+        self.elapsed = elapsed
+    }
+
     pub fn duration(&self) -> f32 {
         self.duration
+    }
+
+    pub fn set_duration(&mut self, duration: f32) {
+        self.duration = duration
     }
 
     pub fn is_finished(&self) -> bool {
@@ -67,6 +75,10 @@ impl Timer {
 
     pub fn is_repeating(&self) -> bool {
         self.repeating
+    }
+
+    pub fn set_repeating(&mut self, repeating: bool) {
+        self.repeating = repeating
     }
 
     /// Advances the timer by `delta` seconds.
