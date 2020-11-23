@@ -11,13 +11,13 @@ use bevy_utils::Duration;
 /// Paused timers will not have elapsed time increased.
 #[derive(Clone, Debug, Default, Properties)]
 pub struct Timer {
-    pub elapsed: f32,
-    pub duration: f32,
-    pub finished: bool,
+    elapsed: f32,
+    duration: f32,
+    finished: bool,
     /// Will only be true on the tick `duration` is reached or exceeded.
-    pub just_finished: bool,
-    pub paused: bool,
-    pub repeating: bool,
+    just_finished: bool,
+    paused: bool,
+    repeating: bool,
 }
 
 impl Timer {
@@ -39,6 +39,34 @@ impl Timer {
 
     pub fn pause(&mut self) {
         self.paused = true
+    }
+
+    pub fn resume(&mut self) {
+        self.paused = false
+    }
+
+    pub fn is_paused(&self) -> bool {
+        self.paused
+    }
+
+    pub fn elapsed(&self) -> f32 {
+        self.elapsed
+    }
+
+    pub fn duration(&self) -> f32 {
+        self.duration
+    }
+
+    pub fn is_finished(&self) -> bool {
+        self.finished
+    }
+
+    pub fn just_finished(&self) -> bool {
+        self.just_finished
+    }
+
+    pub fn is_repeating(&self) -> bool {
+        self.repeating
     }
 
     /// Advances the timer by `delta` seconds.
