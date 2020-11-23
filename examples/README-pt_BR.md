@@ -1,18 +1,18 @@
 # Exemplos
 
 Esses exemplos demonstram os principais recursos de Bevy e como usá-los.
-Para executar um exemplo, use o comando `cargo run --example <Example>`, e adicione a opção `--features x11` ou `--features wayland` para forçar o exemplo a ser executado em um compositor de janela específico, e.g.
+Para executar um exemplo, use o comando `cargo run --example <exemplo>`, e adicione a opção `--features x11` ou `--features wayland` para forçar o exemplo a ser executado em um compositor de janela específico, e.g.
 
 ```sh
 cargo run --features wayland --example hello_world
 ```
 
-### ⚠️ Nota: para usuários da versão de crates.io,
+### ⚠️ Nota: para usuários da versão de crates.io
 
 Devido às alterações e adições às APIs, geralmente há diferenças entre os exemplos de desenvolvimento e as versões lançadas do Bevy em crates.io.
-Se você estiver usando uma versão de lançamento de [crates.io](https://crates.io/crates/bevy), veja os exemplos verificando a tag git apropriada, e.g., usuários de `0.3` devem usar os exemplos de [https://github.com/bevyengine/bevy/tree/v0.3.0/examples](https://github.com/bevyengine/bevy/tree/v0.3.0/examples)
+Se você estiver utilizando uma versão de lançamento de [crates.io](https://crates.io/crates/bevy), veja os exemplos verificando a tag git apropriada, e.g., usuários da versão `0.3` devem seguir os exemplos de [https://github.com/bevyengine/bevy/tree/v0.3.0/examples](https://github.com/bevyengine/bevy/tree/v0.3.0/examples)
 
-Se você clonou o repositório do Bevy localmente, use `git checkout` com a tag da versão apropriada.
+Se você clonou localmente o repositório do Bevy, use `git checkout` com a tag da versão apropriada.
 ```
 git checkout v0.3.0
 ```
@@ -22,23 +22,23 @@ git checkout v0.3.0
 ### Tabela de Conteúdos
 
 - [O Básico](#the-bare-minimum)
-  - [Hello, World!](#hello-world)
-- [Cross-Platform Examples](#cross-platform-examples)
-  - [2D Rendering](#2d-rendering)
-  - [3D Rendering](#3d-rendering)
-  - [Application](#application)
-  - [Assets](#assets)
+  - [Olá, Mundo!](#olá-mundo)
+- [Exemplos Multiplataforma](#exemplos-multiplataforma)
+  - [Renderização 2D](#renderização-2d)
+  - [Renderização 3D](#renderização-3d)
+  - [Aplicação](#aplicação)
+  - [Ativos](#ativos)
   - [Audio](#audio)
-  - [Diagnostics](#diagnostics)
-  - [ECS (Entity Component System)](#ecs-entity-component-system)
-  - [Games](#games)
-  - [Input](#input)
-  - [Scene](#scene)
+  - [Diagnóstico](#diagnóstico)
+  - [Entity Component System (ECS)](#entity-component-system-ecs)
+  - [Jogos](#jogos)
+  - [Entrada](#entrada)
+  - [Cenas](#cenas)
   - [Shaders](#shaders)
-  - [Tools](#tools)
-  - [UI (User Interface)](#ui-user-interface)
-  - [Window](#window)
-- [Platform-Specific Examples](#platform-specific-examples)
+  - [Ferramentas](#ferramentas)
+  - [UI (Interface do Usuário)](#ui-interface-do-usuário)
+  - [Janela](#janela)
+- [Exemplos Específicos de Plataforma](#exemplos-específicos-de-plataforma)
   - [Android](#android)
   - [iOS](#ios)
   - [WASM](#wasm)
@@ -109,7 +109,7 @@ Exemplo | Arquivo | Descrição
 `custom_diagnostic` | [`diagnostics/custom_diagnostic.rs`](./diagnostics/custom_diagnostic.rs) | Mostra como criar um diagnóstico personalizado.
 `print_diagnostics` | [`diagnostics/print_diagnostics.rs`](./diagnostics/print_diagnostics.rs) | Adicione um plugin que imprime diagnósticos para o console.
 
-## ECS (Entity Component System)
+## Entity Component System (ECS)
 
 Exemplo | Arquivo | Descrição
 --- | --- | ---
@@ -139,7 +139,7 @@ Exemplo | Arquivo | Descrição
 `touch_input_events` | [`input/touch_input_events.rs`](./input/touch_input_input_events.rs) | Imprime todas as entradas dos toques.
 `touch_input` | [`input/touch_input.rs`](./input/touch_input.rs) | Exibe pressionamentos, liberações e cancelamentos dos toques.
 
-## Cena
+## Cenas
 
 Exemplo | Arquivo | Descrição
 --- | --- | ---
@@ -212,18 +212,18 @@ target_sdk_version = 29
 min_sdk_version = 16
 ```
 
-Por favor referencie `cargo-apk` [LEIA-ME](https://crates.io/crates/cargo-apk) para outros campos de manifesto do Android.
+Por favor referencie `cargo-apk`, [LEIA-ME](https://crates.io/crates/cargo-apk) para obter outros campos de manifesto do Android.
 
 #### Telefones Antigos
 
-Por padrão, o Bevy tem como alvo a API Android nível 29 em seus exemplos, que é o [API mínima da Play Store para fazer upload ou atualizar aplicativos](https://developer.android.com/distribute/best-practices/develop/target-sdk). Usuários de telefones mais antigos podem querer usar uma API mais antiga durante o teste.
+Por padrão, o Bevy tem como alvo a API Android nível 29 em seus exemplos, que é a [API mínima da Play Store para fazer upload ou atualizar aplicativos](https://developer.android.com/distribute/best-practices/develop/target-sdk). Usuários de telefones mais antigos podem querer usar uma API mais antiga durante o teste.
 
 Para usar uma API diferente, os seguintes campos devem ser atualizados em Cargo.toml:
 
 ```toml
 [package.metadata.android]
 target_sdk_version = >>API<<
-min_sdk_version = >>API or less<<
+min_sdk_version = >>API ou menos<<
 ```
 
 ## iOS
@@ -247,10 +247,10 @@ make run
 Em um mundo ideal, isso irá inicializar, instalar e executar o aplicativo para o primeiro simulador iOS em seu `xcrun simctl devices list`. Se isso falhar, você pode especificar o UUID do simulador de dispositivo via:
 
 ```sh
-DEVICE_ID=${YOUR_DEVICE_ID} make run
+DEVICE_ID=${ID_DO_SEU_DISPOSITIVO} make run
 ```
 
-Se você gostaria de ver o xcode fazer coisas, você pode executar
+Se você gostaria de ver o xcode fazer coisas, você pode executar:
 
 ```sh
 open bevy_ios_example.xcodeproj/
@@ -258,7 +258,7 @@ open bevy_ios_example.xcodeproj/
 
 que irá abrir o xcode. Em seguida, você deve apertar o botão zoom zoom play e aguardar a mágica.
 
-A GUI de construção do Xcode irá, por padrão, construir a biblioteca de Rust para ambos `x86_64-apple-ios`, e `aarch64-apple-ios` o que pode demorar um pouco. Se quiser acelerar isso, atualize a variável de ambiente `IOS_TARGETS` definida pelo usuário no "destino `cargo_ios`" para ser `x86_64-apple-ios` ou `aarch64-applo-ios`, depende do seu objetivo.
+A GUI de construção do Xcode irá, por padrão, construir a biblioteca de Rust para ambos `x86_64-apple-ios` e `aarch64-apple-ios`, o que pode demorar um pouco. Se quiser acelerar isso, atualize a variável de ambiente `IOS_TARGETS` definida pelo usuário no "target `cargo_ios`" para ser `x86_64-apple-ios` ou `aarch64-applo-ios`, depende do seu objetivo.
 
 Nota: se você atualizar esta variável no Xcode, também mudará o padrão usado para o `Makefile`.
 
@@ -288,7 +288,7 @@ basic-http-server examples/wasm
 
 Exemplo | Arquivo | Descrição
 --- | --- | ---
-`hello_wasm` | [`wasm/hello_wasm.rs`](./wasm/hello_wasm.rs) | Executa um exemplo mínimo que registra "hello world" no console do navegador
-`headless_wasm` | [`wasm/headless_wasm.rs`](./wasm/headless_wasm.rs) | Configura um executor de programação e registra continuamente um contador para o console do navegador
-`assets_wasm` | [`wasm/assets_wasm.rs`](./wasm/assets_wasm.rs) | Demonstra como carregar ativos do wasm
-`winit_wasm` | [`wasm/winit_wasm.rs`](./wasm/winit_wasm.rs) | Registra a entrada do usuário no console do navegador. Requer os recursos `bevy_winit`
+`hello_wasm` | [`wasm/hello_wasm.rs`](./wasm/hello_wasm.rs) | Executa um exemplo mínimo que registra "hello world" no console do navegador.
+`headless_wasm` | [`wasm/headless_wasm.rs`](./wasm/headless_wasm.rs) | Configura um executor de programação e registra continuamente um contador para o console do navegador.
+`assets_wasm` | [`wasm/assets_wasm.rs`](./wasm/assets_wasm.rs) | Demonstra como carregar ativos do wasm.
+`winit_wasm` | [`wasm/winit_wasm.rs`](./wasm/winit_wasm.rs) | Registra a entrada do usuário no console do navegador. Requer os recursos `bevy_winit`.
