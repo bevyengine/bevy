@@ -286,8 +286,6 @@ pub(crate) fn mesh_skinner_debugger_update(
                                 ..Default::default()
                             })
                             .with(Parent(*entity));
-
-                        dbg!(commands.current_entity());
                     }
                 }
 

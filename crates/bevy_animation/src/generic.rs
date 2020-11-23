@@ -1,12 +1,11 @@
 use anyhow::Result;
 use bevy_app::prelude::{EventReader, Events};
-use bevy_asset::{AssetEvent, Assets, Handle, HandleUntyped};
+use bevy_asset::{AssetEvent, Assets, Handle /*, HandleUntyped*/};
 use bevy_core::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_ecs::{Location, SystemId};
 use bevy_math::prelude::*;
-use bevy_property::Properties;
-use bevy_property::PropertyType;
+use bevy_property::{Properties, Property, PropertyType};
 use bevy_transform::prelude::*;
 use bevy_type_registry::{TypeRegistry, TypeUuid};
 use bevy_utils::HashSet;
@@ -79,9 +78,9 @@ impl Clip {
             } else {
                 // Add entity
                 let e = self.entities.len();
+                self.entities.push((entity, name.to_string()));
                 // Soft limit added to save memory, identical to the curve limit
                 entity = u16::try_from(e).expect("entities limit reached");
-                self.entities.push((entity, name.to_string()));
             }
         }
 
@@ -89,8 +88,13 @@ impl Clip {
         // TODO: we can only have (u16 - 1) max
         // TODO: "...@Transform.translation" and "...@Transform.translation.x" can't live with each other
         self.duration = self.duration.max(curve.duration());
-        self.attribute.push((entity, path.1.to_string()));
+        self.attribute
+            .push((entity, path.1.split_at(1).1.to_string()));
         self.curves.push(curve);
+    }
+
+    pub fn duration(&self) -> f32 {
+        self.duration
     }
 }
 
@@ -142,14 +146,13 @@ pub struct Curve<T> {
 
 impl<T> Curve<T>
 where
-    T: LerpValue,
+    T: LerpValue + Clone,
 {
     pub fn duration(&self) -> f32 {
         self.samples.last().copied().unwrap_or(0.0)
     }
 
     pub fn new(samples: Vec<f32>, values: Vec<T>) -> Self {
-        // TODO: Proper error handling
         assert!(samples.len() == values.len());
         Self { samples, values }
     }
@@ -160,7 +163,7 @@ where
         let last_index = self.samples.len() - 1;
         loop {
             if index > last_index {
-                return (last_index, *self.values.last().unwrap());
+                return (last_index, self.values.last().unwrap().clone());
             }
 
             if self.samples[index] < time {
@@ -171,7 +174,7 @@ where
         }
 
         let value = if index == 0 {
-            self.values[0]
+            self.values[0].clone()
         } else {
             // Lerp the value
             let i = index - 1;
@@ -185,12 +188,30 @@ where
 
         (index, value)
     }
+
+    pub fn add_offset_time(&mut self, time_offset: f32) {
+        self.samples.iter_mut().for_each(|t| *t += time_offset);
+    }
+
+    // pub fn insert(&mut self, time_sample: f32, value: T) {
+    // }
+
+    // pub fn remove(&mut self, index: usize) {
+    // }
+
+    pub fn iter(&self) -> impl Iterator<Item = (f32, &T)> {
+        self.samples.iter().copied().zip(self.values.iter())
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (f32, &mut T)> {
+        self.samples.iter().copied().zip(self.values.iter_mut())
+    }
 }
 
 #[derive(Default, Debug, Clone, Properties)]
-struct Layer {
+pub struct Layer {
     pub weight: f32,
-    pub clip: usize,
+    pub clip: u16,
     pub time: f32,
     keyframe: Vec<usize>,
 }
@@ -202,7 +223,7 @@ pub struct Animator {
     binds: Vec<Option<Binds>>,
     pub time_scale: f32,
     pub layers: Vec<Layer>,
-    // TODO: Transitions to control the animation layer blending byt time and other params
+    // TODO: Transitions to simplify layer blending
 }
 
 impl Default for Animator {
@@ -217,11 +238,25 @@ impl Default for Animator {
 }
 
 impl Animator {
-    pub fn add_clip(&mut self, clip: Handle<Clip>) {
-        if self.clips.contains(&clip) {
-            return;
+    pub fn add_clip(&mut self, clip: Handle<Clip>) -> u16 {
+        if let Some(i) = self.clips.iter().position(|c| *c == clip) {
+            i as u16
+        } else {
+            let i = self.clips.len();
+            self.clips.push(clip);
+            i as u16
         }
-        self.clips.push(clip);
+    }
+
+    pub fn add_layer(&mut self, clip: Handle<Clip>, weight: f32) -> usize {
+        let clip = self.add_clip(clip);
+        let layer_index = self.layers.len();
+        self.layers.push(Layer {
+            clip,
+            weight,
+            ..Default::default()
+        });
+        layer_index
     }
 
     pub fn clips_len(&self) -> usize {
@@ -236,7 +271,7 @@ struct Binds {
     attributes: Vec<Ptr>,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 struct Ptr(*mut u8);
 
 // SAFETY: Store pointers to each attribute to be updated, a clip can't have two pointers
@@ -246,9 +281,6 @@ unsafe impl Sync for Ptr {}
 
 /// Marker type for missing component
 struct MissingComponentMarker;
-
-/// Missing component
-const MISSING_COMPONENT: TypeId = TypeId::of::<MissingComponentMarker>();
 
 /// Meta data is used to check the bind validity
 #[derive(Debug)]
@@ -276,9 +308,18 @@ pub(crate) fn animator_binding_system(world: &mut World, resources: &mut Resourc
     let system_id = SystemId(0); // ? NOTE: shouldn't be required to match the system id
 
     // Fetch resources
-    let mut state = resources
-        .get_local_mut::<ClipResourceProviderState>(system_id)
-        .unwrap();
+    let mut state = {
+        let state = resources.get_local_mut::<ClipResourceProviderState>(system_id);
+        if state.is_none() {
+            std::mem::drop(state); // ? NOTE: Makes the borrow checker happy
+            resources.insert_local(system_id, ClipResourceProviderState::default());
+            resources
+                .get_local_mut::<ClipResourceProviderState>(system_id)
+                .unwrap()
+        } else {
+            state.unwrap()
+        }
+    };
 
     let type_registry = resources.get::<TypeRegistry>().unwrap();
     let type_registry_read_guard = type_registry.component.read();
@@ -288,8 +329,7 @@ pub(crate) fn animator_binding_system(world: &mut World, resources: &mut Resourc
 
     // Builds query
     // SAFETY: Only query with mutable reference the Animator component
-    let mut animator_query =
-        unsafe { world.query_unchecked::<(Entity, &mut Animator, &Children), ()>() };
+    let animator_query = unsafe { world.query_unchecked::<(Entity, &mut Animator), ()>() };
 
     // ? NOTE: Changing a clip on fly is supported, but very expensive so use with caution
     // Query all clips that changed and remove their binds from the animator
@@ -302,8 +342,8 @@ pub(crate) fn animator_binding_system(world: &mut World, resources: &mut Resourc
         };
     }
 
-    for (root, mut animator, children) in animator_query {
-        let mut animator = &mut *animator; // Make sure the borrow checker is happy
+    for (root, mut animator) in animator_query {
+        let animator = &mut *animator; // Make sure the borrow checker is happy
 
         // Make room for binds or deallocate unused
         animator.binds.resize_with(animator.clips.len(), || None);
@@ -327,7 +367,7 @@ pub(crate) fn animator_binding_system(world: &mut World, resources: &mut Resourc
                 if bind.is_none() {
                     // Build binds from scratch
                     // Allocate the minium enough of memory on right at the begin
-                    let b = Binds {
+                    let mut b = Binds {
                         metadata: Vec::with_capacity(clip.entities.len()),
                         curves: Vec::with_capacity(clip.attribute.len()),
                         attributes: Vec::with_capacity(clip.attribute.len()),
@@ -335,7 +375,7 @@ pub(crate) fn animator_binding_system(world: &mut World, resources: &mut Resourc
 
                     let mut range = (0, 0);
                     let mut prev_partial_info = None;
-                    let mut prev_component = MISSING_COMPONENT;
+                    let mut prev_component = TypeId::of::<MissingComponentMarker>();
                     let mut prev_component_short_name = "";
 
                     for (curve_index, (entity_index, attr_path)) in
@@ -343,10 +383,10 @@ pub(crate) fn animator_binding_system(world: &mut World, resources: &mut Resourc
                     {
                         let mut commit = false;
                         let mut partial_info = None;
-                        let mut component = MISSING_COMPONENT;
+                        let mut component = TypeId::of::<MissingComponentMarker>();
 
                         // Query component by name
-                        let path = attr_path.split('.');
+                        let mut path = attr_path.split('.');
                         let component_short_name =
                             path.next().expect("missing component short name");
 
@@ -442,7 +482,7 @@ pub(crate) fn animator_binding_system(world: &mut World, resources: &mut Resourc
                 }
 
                 // Check bind state and update the necessary parts
-                let bind = bind.unwrap();
+                let bind = bind.as_mut().unwrap();
                 for meta in bind.metadata.iter_mut() {
                     if meta.inner.is_none() {
                         // TODO: Handle missing entity
@@ -451,7 +491,24 @@ pub(crate) fn animator_binding_system(world: &mut World, resources: &mut Resourc
 
                     let inner = meta.inner.as_mut().unwrap();
 
-                    // TODO: Handle `Parent` change ..
+                    // Handle `Parent` changed
+                    if let Some(parent) = inner.parent {
+                        // Not root
+                        if let Ok(Parent(new_parent)) =
+                            world.query_one_filtered::<&Parent, Changed<Parent>>(inner.entity)
+                        {
+                            if parent != *new_parent {
+                                // TODO: Look again for the entity
+
+                                // Invalidate bind ...
+                                meta.inner = None;
+                                for i in (meta.range.0)..(meta.range.1) {
+                                    bind.attributes[i as usize] = Ptr(null_mut());
+                                }
+                                continue;
+                            }
+                        }
+                    }
 
                     let mut loc = world.get_entity_location(inner.entity);
                     if loc.is_none() {
@@ -480,7 +537,7 @@ pub(crate) fn animator_binding_system(world: &mut World, resources: &mut Resourc
                         continue;
                     }
 
-                    if inner.component == MISSING_COMPONENT {
+                    if inner.component == TypeId::of::<MissingComponentMarker>() {
                         // TODO: Find component by name
                         continue;
                     }
@@ -496,7 +553,7 @@ pub(crate) fn animator_binding_system(world: &mut World, resources: &mut Resourc
                         for i in (meta.range.0)..(meta.range.1) {
                             let i = i as usize;
                             let curve_index = bind.curves[i] as usize;
-                            let path = clip.attribute[curve_index].1.split('.');
+                            let mut path = clip.attribute[curve_index].1.split('.');
                             path.next(); // Skip component
                             if let Some(prop) = find_target_property(path, root_props) {
                                 // Found property
@@ -525,14 +582,15 @@ fn find_entity(
         Some(*entity)
     } else {
         let (parent_index, entity_name) = &entities_ids[entity_index as usize];
+
         // Use recursion to find the entity parent
         find_entity(*parent_index, entities_ids, entities_table_cache, world).and_then(
             |parent_entity| {
-                if let Ok((children,)) = world.get::<(Children,)>(parent_entity) {
+                if let Ok(children) = world.get::<Children>(parent_entity) {
                     children
                         .iter()
                         .find(|entity| {
-                            if let Ok((name,)) = world.get::<(Name,)>(**entity) {
+                            if let Ok(name) = world.get::<Name>(**entity) {
                                 if &name.0 == entity_name {
                                     // Update cache
                                     entities_table_cache[entity_index as usize] = Some(**entity);
@@ -555,160 +613,124 @@ fn find_entity(
 
 fn find_target_property<'a, P: Iterator<Item = &'a str>>(
     path: P,
-    mut root_props: &dyn Properties,
-) -> Option<&dyn Properties> {
-    let mut target_property = None;
+    root_props: &dyn Properties,
+) -> Option<&dyn Property> {
+    let mut target = None;
+    let mut current = Some(root_props);
     for property_name in path {
-        if let Some(property) = root_props.prop(property_name) {
+        if let Some(property) = current.map(|p| p.prop(property_name)).flatten() {
             // NOTE: Vec, HashMap and other types can't be animated
             // and needed to be filtered out
             if property.property_type() != PropertyType::Value {
-                target_property = None;
+                target = None;
                 break;
             }
 
-            root_props = property.as_properties().unwrap();
-            target_property = Some(root_props);
+            target = Some(property);
+            current = property.as_properties();
         } else {
             // Failed to find property
-            target_property = None;
+            target = None;
             break;
         }
     }
-    target_property
+    target
 }
 
 #[tracing::instrument(skip(world, resources))]
-pub(crate) fn animator_update(world: &mut World, resources: &mut Resources) {
+pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resources) {
     let time = resources.get::<Time>().unwrap();
     let clips = resources.get::<Assets<Clip>>().unwrap();
-    let type_registry = resources.get::<TypeRegistry>().unwrap();
 
     // Build queries
     let animators_query = unsafe { world.query_unchecked::<(&mut Animator,), ()>() };
     let delta_time = time.delta_seconds;
 
-    // TODO: Parallelize
     for (mut animator,) in animators_query {
-        let mut animator = &mut *animator;
+        let animator = &mut *animator;
 
         // Time scales by component
         let delta_time = delta_time * animator.time_scale;
 
-        let current = &mut animator.current;
-        let clip_index = current.clip;
-        if let Some(current_clip) = animator
-            .clips
-            .get(clip_index)
-            .map(|clip_handle| clips.get(clip_handle))
-            .flatten()
-        {
-            let bind = &animator.binds[clip_index];
-            let curves_count = current_clip.curves.len();
+        //for layer in &mut animator.layers {
+        if let Some(layer) = animator.layers.first_mut() {
+            let clip_index = layer.clip;
+            if let Some(clip) = animator
+                .clips
+                .get(clip_index as usize)
+                .map(|clip_handle| clips.get(clip_handle))
+                .flatten()
+            {
+                if let Some(bind) = &animator.binds[clip_index as usize] {
+                    let curves_count = clip.curves.len();
 
-            // Ensure capacity for cached keyframe index vec
-            if current.keyframe.len() != curves_count {
-                current.keyframe.clear();
-                current
-                    .keyframe
-                    .resize_with(curves_count, || Default::default());
-            }
-
-            // Update time
-            let mut time = current.time + delta_time;
-
-            // Warp mode
-            if current_clip.warp {
-                // Warp Around
-                if time > current_clip.duration {
-                    time = (time / current_clip.duration).fract() * current_clip.duration;
-                    // Reset all keyframes cached indexes
-                    current
-                        .keyframe
-                        .iter_mut()
-                        .for_each(|x| *x = Default::default())
-                }
-            } else {
-                // Hold
-                time = time.min(current_clip.duration);
-            }
-
-            // Advance state time
-            current.time = time;
-
-            let mut entity = None;
-            let mut component = None;
-            let mut pointer = std::ptr::null_mut();
-            let mut location = Location {
-                archetype: u32::MAX,
-                index: usize::MAX,
-            };
-            for i in 0..curves_count {
-                if !bind.valid.get(i).unwrap_or(&false) {
-                    continue;
-                }
-
-                let next_entity = bind.entities[i];
-                if entity != Some(next_entity) {
-                    if let Some(l) = world.get_entity_location(next_entity) {
-                        location = l;
-                        entity = Some(next_entity);
-                        component = None; // Force component update
-                    } else {
-                        // Missing entity
-                        continue;
+                    // Ensure capacity for cached keyframe index vec
+                    if layer.keyframe.len() != curves_count {
+                        layer.keyframe.clear();
+                        layer
+                            .keyframe
+                            .resize_with(curves_count, || Default::default());
                     }
-                }
 
-                let next_component = bind.components[i];
-                if component != Some(next_component) {
-                    if let Some(properties) = type_registry
-                        .component
-                        .read()
-                        .get(&next_component)
-                        .map(|reg| {
-                            reg.get_component_properties(
-                                &world.archetypes[location.archetype as usize],
-                                location.index,
-                            )
-                        })
+                    // Update time
+                    let mut time = layer.time + delta_time;
+
+                    // Warp mode
+                    if clip.warp {
+                        // Warp Around
+                        if time > clip.duration {
+                            time = (time / clip.duration).fract() * clip.duration;
+                            // Reset all keyframes cached indexes
+                            layer
+                                .keyframe
+                                .iter_mut()
+                                .for_each(|x| *x = Default::default())
+                        }
+                    } else {
+                        // Hold
+                        time = time.min(clip.duration);
+                    }
+
+                    // Advance state time
+                    layer.time = time;
+
+                    for ((ptr, keyframe), curve) in bind
+                        .attributes
+                        .iter()
+                        .zip(layer.keyframe.iter_mut())
+                        .zip(clip.curves.iter())
                     {
-                        // TODO: Find a better way
-                        pointer = properties.as_ptr() as *mut u8;
-                        component = Some(next_component);
-                    } else {
-                        // Missing component
-                        continue;
-                    }
-                }
+                        // Skip invalid properties
+                        if *ptr == Ptr(null_mut()) {
+                            continue;
+                        }
 
-                let attr = pointer.wrapping_offset(bind.properties[i]);
-                let keyframe = &mut current.keyframe[i];
-
-                match &current_clip.curves[i] {
-                    CurveUntyped::Float(v) => {
-                        let (k, v) = v.sample(*keyframe, time);
-                        let attr = unsafe { &mut *(attr as *mut f32) };
-                        *attr = v;
-                        *keyframe = k;
-                    }
-                    CurveUntyped::Vec3(v) => {
-                        let (k, v) = v.sample(*keyframe, time);
-                        let attr = unsafe { &mut *(attr as *mut Vec3) };
-                        *attr = v;
-                        *keyframe = k;
-                    }
-                    CurveUntyped::Vec4(v) => {
-                        let (k, v) = v.sample(*keyframe, time);
-                        let attr = unsafe { &mut *(attr as *mut Vec4) };
-                        *attr = v;
-                        *keyframe = k;
-                    }
-                    CurveUntyped::Quat(v) => {
-                        let (k, v) = v.sample(*keyframe, time);
-                        let attr = unsafe { &mut *(attr as *mut Quat) };
-                        *attr = v;
-                        *keyframe = k;
+                        match curve {
+                            CurveUntyped::Float(v) => {
+                                let (k, v) = v.sample(*keyframe, time);
+                                let attr = unsafe { &mut *(ptr.0 as *mut f32) };
+                                *attr = v;
+                                *keyframe = k;
+                            }
+                            CurveUntyped::Vec3(v) => {
+                                let (k, v) = v.sample(*keyframe, time);
+                                let attr = unsafe { &mut *(ptr.0 as *mut Vec3) };
+                                *attr = v;
+                                *keyframe = k;
+                            }
+                            CurveUntyped::Vec4(v) => {
+                                let (k, v) = v.sample(*keyframe, time);
+                                let attr = unsafe { &mut *(ptr.0 as *mut Vec4) };
+                                *attr = v;
+                                *keyframe = k;
+                            }
+                            CurveUntyped::Quat(v) => {
+                                let (k, v) = v.sample(*keyframe, time);
+                                let attr = unsafe { &mut *(ptr.0 as *mut Quat) };
+                                *attr = v;
+                                *keyframe = k;
+                            }
+                        }
                     }
                 }
             }

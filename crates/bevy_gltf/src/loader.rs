@@ -262,6 +262,7 @@ async fn load_gltf<'a, 'b>(
         clip.warp = true; // Enable warping by default
 
         let mut start_time = f32::MAX;
+        let mut clip_curves = vec![];
 
         // Each chanel defines how to sample the data and where it will be written
         for channel in animation.channels() {
@@ -293,17 +294,14 @@ async fn load_gltf<'a, 'b>(
             // Start time
             start_time = start_time.min(time_stamps.get(0).copied().unwrap_or(0.0));
 
-            // Figure out clip duration
-            clip.length = clip.length.max(time_stamps.last().copied().unwrap_or(0.0));
-
             match reader.read_outputs().unwrap() {
                 ReadOutputs::Translations(values) => {
                     let values = values.map(|v| Vec3::from(v)).collect::<Vec<_>>();
                     property_path += "@Transform.translation";
-                    clip.add_animated_prop(
+                    clip_curves.push((
                         property_path,
                         CurveUntyped::Vec3(Curve::new(time_stamps, values)),
-                    )
+                    ));
 
                     // TODO: This is a runtime importer so here's no place for further optimizations
                 }
@@ -338,19 +336,19 @@ async fn load_gltf<'a, 'b>(
                     }
 
                     property_path += "@Transform.rotation";
-                    clip.add_animated_prop(
+                    clip_curves.push((
                         property_path,
                         CurveUntyped::Quat(Curve::new(time_stamps, values)),
-                    );
+                    ));
                 }
                 ReadOutputs::Scales(values) => {
                     let values = values.map(|v| Vec3::from(v)).collect::<Vec<_>>();
 
                     property_path += "@Transform.scale";
-                    clip.add_animated_prop(
+                    clip_curves.push((
                         property_path,
                         CurveUntyped::Vec3(Curve::new(time_stamps, values)),
-                    )
+                    ));
                 }
                 ReadOutputs::MorphTargetWeights(_) => {
                     unimplemented!("morph targets aren't current supported")
@@ -359,14 +357,16 @@ async fn load_gltf<'a, 'b>(
         }
 
         // Make sure the start frame is always 0.0
-        for (_, value) in clip.iter_mut() {
-            value.samples_mut().for_each(|x| *x -= start_time);
+        for (property_path, mut curve) in clip_curves {
+            match &mut curve {
+                CurveUntyped::Float(v) => v.add_offset_time(-start_time),
+                CurveUntyped::Vec3(v) => v.add_offset_time(-start_time),
+                CurveUntyped::Vec4(v) => v.add_offset_time(-start_time),
+                CurveUntyped::Quat(v) => v.add_offset_time(-start_time),
+            }
+
+            clip.add_animated_prop(&property_path, curve);
         }
-
-        clip.length -= start_time;
-
-        // Sort properties by path to optimize clip execution
-        clip.optimize();
 
         load_context.set_labeled_asset(&anim_label, LoadedAsset::new(clip));
 
