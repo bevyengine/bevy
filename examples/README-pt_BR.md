@@ -1,7 +1,7 @@
 # Exemplos
 
 Esses exemplos demonstram os principais recursos de Bevy e como usá-los.
-Para executar um exemplo, use o comando `cargo run --example <exemplo>`, e adicione a opção `--features x11` ou `--features wayland` para forçar o exemplo a ser executado em um compositor de janela específico, e.g.
+Para executar um exemplo, use o comando `cargo run --example <exemplo>` e adicione a opção `--features x11` ou `--features wayland` para forçar o exemplo a ser executado em um compositor de janela específico, e.g.
 
 ```sh
 cargo run --features wayland --example hello_world
@@ -258,7 +258,7 @@ open bevy_ios_example.xcodeproj/
 
 que irá abrir o xcode. Em seguida, você deve apertar o botão zoom zoom play e aguardar a mágica.
 
-A GUI de construção do Xcode irá, por padrão, construir a biblioteca de Rust para ambos `x86_64-apple-ios` e `aarch64-apple-ios`, o que pode demorar um pouco. Se quiser acelerar isso, atualize a variável de ambiente `IOS_TARGETS` definida pelo usuário no "target `cargo_ios`" para ser `x86_64-apple-ios` ou `aarch64-applo-ios`, depende do seu objetivo.
+A GUI de construção do Xcode irá, por padrão, construir a biblioteca de Rust para ambos `x86_64-apple-ios` e `aarch64-apple-ios`, o que pode demorar um pouco. Se quiser acelerar isso, atualize a variável de ambiente `IOS_TARGETS` definida pelo usuário no "target `cargo_ios`" para ser `x86_64-apple-ios` ou `aarch64-apple-ios`, depende do seu objetivo.
 
 Nota: se você atualizar esta variável no Xcode, também mudará o padrão usado para o `Makefile`.
 
@@ -280,7 +280,7 @@ cargo build --example headless_wasm --target wasm32-unknown-unknown --no-default
 wasm-bindgen --out-dir examples/wasm/target --target web target/wasm32-unknown-unknown/debug/examples/headless_wasm.wasm
 ```
 
-Em seguida, envie o diretório `examples/wasm` para o navegador. ou seja
+Em seguida, envie o diretório `examples/wasm` para o navegador, ou seja:
 
 ```sh
 basic-http-server examples/wasm
