@@ -265,7 +265,7 @@ The Xcode build GUI will by default build the rust library for both
 `x86_64-apple-ios`, and `aarch64-apple-ios` which may take a while. If you'd
 like speed this up, you update the `IOS_TARGETS` User-Defined environment
 variable in the "`cargo_ios` target" to be either `x86_64-apple-ios` or
-`aarch64-applo-ios` depending on your goal.
+`aarch64-apple-ios` depending on your goal.
 
 Note: if you update this variable in Xcode, it will also change the default
 used for the `Makefile`.
