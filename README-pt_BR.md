@@ -12,22 +12,22 @@ Bevy é um motor de jogo incrivelmente simples, baseado em dados e construído e
 
 ## ATENÇÃO
 
-Bevy ainda está nos estágios _muito_ iniciais de desenvolvimento. As APIs podem e irão mudar (agora é a hora de fazer sugestões!). Recursos importantes estão faltando. A documentação é escassa. Por favor, não construa nenhum projeto sério em Bevy a menos que esteja preparado para ser interrompido por mudanças de API constantemente.
+Bevy ainda está nos estágio _muito_ inicial de seu desenvolvimento. As APIs podem e irão mudar (agora é a hora de fazer sugestões!). Recursos importantes estão faltando. A documentação é escassa. Por favor, não construa nenhum projeto sério em Bevy a menos que esteja preparado para ser interrompido por mudanças de API constantemente.
 
 ## Metas de Design
 
-* **Capaz**: Oferece um conjunto completo de recursos 2D e 3D
-* **Simples**: Fácil de aprender para iniciantes, mas infinitamente flexível para usuários avançados
-* **Focado em Dados**: Arquitetura orientada a dados usando o paradigma Entity Component System
-* **Modular**: Use apenas o que precisar. Substitua o que você não gosta
-* **Rápido**: A lógica do aplicativo deve ser executada rapidamente e, quando possível, em paralelo
-* **Produtivo**: As alterações devem ser compiladas rapidamente... esperar não é divertido
+* **Capaz**: Oferece um conjunto completo de recursos 2D e 3D.
+* **Simples**: Fácil de aprender para iniciantes, mas infinitamente flexível para usuários avançados.
+* **Focado em Dados**: Arquitetura orientada a dados usando o paradigma Entity Component System.
+* **Modular**: Use apenas o que precisar. Substitua o que você não gosta.
+* **Rápido**: A lógica do aplicativo deve ser executada rapidamente e, quando possível, em paralelo.
+* **Produtivo**: As alterações devem ser compiladas rapidamente... esperar não é divertido.
 
 ## Sobre
 
-* **[Recursos](https://bevyengine.org):** Uma rápida visão geral dos recursos de Bevy.
-* **[Roteiro](https://github.com/bevyengine/bevy/projects/1):**O plano de desenvolvimento da equipe de Bevy.
-* **[Apresentando Bevy](https://bevyengine.org/news/introducing-bevy/)**: Uma postagem de um blog cobrindo alguns dos recursos de Bevy
+* **[Recursos](https://bevyengine.org)**: Uma rápida visão geral dos recursos de Bevy.
+* **[Roteiro](https://github.com/bevyengine/bevy/projects/1)**: O plano de desenvolvimento da equipe de Bevy.
+* **[Apresentando Bevy](https://bevyengine.org/news/introducing-bevy/)**: Uma postagem de um blog cobrindo alguns dos recursos de Bevy.
 
 ## Documentos
 
@@ -74,9 +74,9 @@ Bevy tem as seguintes [Áreas de Foco](https://github.com/bevyengine/bevy/labels
 Bevy só é possível por causa do trabalho árduo colocado nessas tecnologias fundamentais:
 
 * [wgpu-rs](https://github.com/gfx-rs/wgpu-rs): Biblioteca gráfica moderna/de baixo nível/multiplataforma inspirada em Vulkan.
-* [glam-rs](https://github.com/bitshifter/glam-rs): Uma biblioteca matemática 3D simples e rápida para jogos e gráficos
-* [winit](https://github.com/rust-windowing/winit): Criação e gerenciamento de janela multiplataforma em Rust
-* [spirv-reflect](https://github.com/gwihlidal/spirv-reflect-rs): API de reflexão em Rust para shader byte-code SPIR-V
+* [glam-rs](https://github.com/bitshifter/glam-rs): Uma biblioteca matemática 3D simples e rápida para jogos e gráficos.
+* [winit](https://github.com/rust-windowing/winit): Criação e gerenciamento de janela multiplataforma em Rust.
+* [spirv-reflect](https://github.com/gwihlidal/spirv-reflect-rs): API de reflexão em Rust para shader byte-code SPIR-V.
 
 ## [Características do Cargo em Bevy][cargo_features]
 
