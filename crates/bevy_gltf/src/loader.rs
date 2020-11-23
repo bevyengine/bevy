@@ -358,13 +358,7 @@ async fn load_gltf<'a, 'b>(
 
         // Make sure the start frame is always 0.0
         for (property_path, mut curve) in clip_curves {
-            match &mut curve {
-                CurveUntyped::Float(v) => v.add_offset_time(-start_time),
-                CurveUntyped::Vec3(v) => v.add_offset_time(-start_time),
-                CurveUntyped::Vec4(v) => v.add_offset_time(-start_time),
-                CurveUntyped::Quat(v) => v.add_offset_time(-start_time),
-            }
-
+            curve.add_time_offset(-start_time);
             clip.add_animated_prop(&property_path, curve);
         }
 

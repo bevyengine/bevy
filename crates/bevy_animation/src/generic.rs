@@ -93,6 +93,34 @@ impl Clip {
         self.curves.push(curve);
     }
 
+    /// Number of animated properties in this clip
+    pub fn len(&self) -> u16 {
+        self.curves.len() as u16
+    }
+
+    /// Returns the property curve property path.
+    ///
+    /// The clip stores a property path in a specific way to improve search performance
+    /// thus it needs to rebuilt the curve property path in the human readable format
+    pub fn get_property_path(&self, index: u16) -> String {
+        let (entity, name) = &self.attribute[index as usize];
+        let mut path = format!("@{}", name);
+
+        let mut first = true;
+        let mut entity = *entity;
+        while let Some((parent, name)) = self.entities.get(entity as usize) {
+            if first {
+                path = format!("{}{}", name, path);
+                first = false;
+            } else {
+                path = format!("{}/{}", name, path);
+            }
+            entity = *parent;
+        }
+
+        path
+    }
+
     pub fn duration(&self) -> f32 {
         self.duration
     }
@@ -107,32 +135,29 @@ pub enum CurveUntyped {
     //Handle(Curve<HandleUntyped>), // TODO: Requires (de)serialize!
 }
 
-impl CurveUntyped {
-    pub fn duration(&self) -> f32 {
-        match self {
-            CurveUntyped::Float(v) => v.duration(),
-            CurveUntyped::Vec3(v) => v.duration(),
-            CurveUntyped::Vec4(v) => v.duration(),
-            CurveUntyped::Quat(v) => v.duration(),
+macro_rules! untyped_fn {
+    ($v:vis fn $name:ident ( &self, $( $arg:ident : $arg_ty:ty ,)* ) $(-> $ret:ty)* ) => {
+        $v fn $name(&self, $( $arg : $arg_ty ),*) $(-> $ret)* {
+            match self {
+                CurveUntyped::Float(v) => v.$name($($arg,)*),
+                CurveUntyped::Vec3(v) => v.$name($($arg,)*),
+                CurveUntyped::Vec4(v) => v.$name($($arg,)*),
+                CurveUntyped::Quat(v) => v.$name($($arg,)*),
+            }
         }
-    }
+    };
+}
 
-    // pub fn value_type_name(&self) -> &str {
-    //     use std::any::type_name;
-    //     match self {
-    //         CurveUntyped::Float(_) => type_name::<f32>(),
-    //         CurveUntyped::Vec3(_) => type_name::<Vec3>(),
-    //         CurveUntyped::Vec4(_) => type_name::<Vec4>(),
-    //         CurveUntyped::Quat(_) => type_name::<Quat>(),
-    //     }
-    // }
+impl CurveUntyped {
+    untyped_fn!(pub fn duration(&self,) -> f32);
+    untyped_fn!(pub fn value_type(&self,) -> TypeId);
 
-    pub fn value_type(&self) -> TypeId {
+    pub fn add_time_offset(&mut self, time: f32) {
         match self {
-            CurveUntyped::Float(_) => TypeId::of::<f32>(),
-            CurveUntyped::Vec3(_) => TypeId::of::<Vec3>(),
-            CurveUntyped::Vec4(_) => TypeId::of::<Vec4>(),
-            CurveUntyped::Quat(_) => TypeId::of::<Quat>(),
+            CurveUntyped::Float(v) => v.add_offset_time(time),
+            CurveUntyped::Vec3(v) => v.add_offset_time(time),
+            CurveUntyped::Vec4(v) => v.add_offset_time(time),
+            CurveUntyped::Quat(v) => v.add_offset_time(time),
         }
     }
 }
@@ -146,19 +171,28 @@ pub struct Curve<T> {
 
 impl<T> Curve<T>
 where
-    T: LerpValue + Clone,
+    T: LerpValue + Clone + 'static,
 {
-    pub fn duration(&self) -> f32 {
-        self.samples.last().copied().unwrap_or(0.0)
-    }
-
     pub fn new(samples: Vec<f32>, values: Vec<T>) -> Self {
         assert!(samples.len() == values.len());
         Self { samples, values }
     }
 
-    /// Samples the curve beginning from the keyframe at index
-    pub fn sample(&self, mut index: usize, time: f32) -> (usize, T) {
+    pub fn duration(&self) -> f32 {
+        self.samples.last().copied().unwrap_or(0.0)
+    }
+
+    /// Easer to use sampling method that don't have time restrictions or needs
+    /// the keyframe index, but is more expensive always `O(n)`. Which means
+    /// sampling takes longer to evaluate as much as time get closer to curve duration
+    /// and it get worse with more keyframes.
+    pub fn sample(&self, time: f32) -> T {
+        self.sample_forward(0, time).1
+    }
+
+    /// Samples the curve starting from some keyframe index, this make the common case `O(1)`,
+    /// use only when time advancing forwards
+    pub fn sample_forward(&self, mut index: usize, time: f32) -> (usize, T) {
         // Adjust for the current keyframe index
         let last_index = self.samples.len() - 1;
         loop {
@@ -205,6 +239,10 @@ where
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (f32, &mut T)> {
         self.samples.iter().copied().zip(self.values.iter_mut())
+    }
+
+    pub fn value_type(&self) -> TypeId {
+        TypeId::of::<T>()
     }
 }
 
@@ -415,18 +453,11 @@ pub(crate) fn animator_binding_system(world: &mut World, resources: &mut Resourc
                                 );
 
                                 b.curves.push(curve_index as u16);
-                                b.attributes.push(Ptr(find_target_property(path, root_props)
-                                    .and_then(|prop| {
-                                        if prop.any().type_id()
-                                            == clip.curves[curve_index].value_type()
-                                        {
-                                            Some(prop.as_ptr() as *mut _)
-                                        } else {
-                                            // TODO: Log warn wrong type
-                                            None
-                                        }
-                                    })
-                                    .unwrap_or(null_mut())));
+                                b.attributes.push(find_property_ptr(
+                                    path,
+                                    root_props,
+                                    clip.curves[curve_index].value_type(),
+                                ));
 
                                 // Group by component type
                                 commit |= prev_component != component;
@@ -449,7 +480,7 @@ pub(crate) fn animator_binding_system(world: &mut World, resources: &mut Resourc
 
                         if commit {
                             // Close range
-                            range.1 = b.curves.len() as u16;
+                            range.1 = b.curves.len() as u16 - 1;
 
                             // Commit meta
                             b.metadata.push(BindMeta {
@@ -472,6 +503,7 @@ pub(crate) fn animator_binding_system(world: &mut World, resources: &mut Resourc
                             prev_component = component;
                             prev_component_short_name = component_short_name;
                             range.0 = range.1;
+                            range.1 += 1;
                         }
                     }
 
@@ -525,9 +557,11 @@ pub(crate) fn animator_binding_system(world: &mut World, resources: &mut Resourc
                             loc = world.get_entity_location(found_entity);
                         } else {
                             // Entity wasn't found, invalidate all the bind attributes
+                            meta.inner = None; // Clear inner data
                             for i in (meta.range.0)..(meta.range.1) {
                                 bind.attributes[i as usize] = Ptr(null_mut());
                             }
+                            continue;
                         }
                     }
 
@@ -536,7 +570,6 @@ pub(crate) fn animator_binding_system(world: &mut World, resources: &mut Resourc
                         // Nothing left todo
                         continue;
                     }
-
                     if inner.component == TypeId::of::<MissingComponentMarker>() {
                         // TODO: Find component by name
                         continue;
@@ -555,13 +588,21 @@ pub(crate) fn animator_binding_system(world: &mut World, resources: &mut Resourc
                             let curve_index = bind.curves[i] as usize;
                             let mut path = clip.attribute[curve_index].1.split('.');
                             path.next(); // Skip component
-                            if let Some(prop) = find_target_property(path, root_props) {
-                                // Found property
-                                bind.attributes[i] = Ptr(prop.as_ptr() as *mut _);
-                            } else {
-                                bind.attributes[i] = Ptr(null_mut());
-                            }
+
+                            let ptr = find_property_ptr(
+                                path,
+                                root_props,
+                                clip.curves[curve_index].value_type(),
+                            );
+                            debug_assert!(bind.attributes[i] != ptr, "pointers can't be the same");
+                            bind.attributes[i] = ptr;
                         }
+                    } else {
+                        // Component is missing
+                        for i in (meta.range.0)..(meta.range.1) {
+                            bind.attributes[i as usize] = Ptr(null_mut());
+                        }
+                        inner.component = TypeId::of::<MissingComponentMarker>();
                     }
 
                     // Update bind location
@@ -611,9 +652,10 @@ fn find_entity(
     }
 }
 
-fn find_target_property<'a, P: Iterator<Item = &'a str>>(
+fn find_property_at_path<'a, P: Iterator<Item = &'a str>>(
     path: P,
     root_props: &dyn Properties,
+    type_id: TypeId,
 ) -> Option<&dyn Property> {
     let mut target = None;
     let mut current = Some(root_props);
@@ -634,7 +676,25 @@ fn find_target_property<'a, P: Iterator<Item = &'a str>>(
             break;
         }
     }
-    target
+
+    target.and_then(|prop| {
+        if prop.any().type_id() == type_id {
+            Some(prop)
+        } else {
+            None
+        }
+    })
+}
+
+#[inline(always)]
+fn find_property_ptr<'a, P: Iterator<Item = &'a str>>(
+    path: P,
+    root_props: &dyn Properties,
+    type_id: TypeId,
+) -> Ptr {
+    Ptr(find_property_at_path(path, root_props, type_id)
+        .map(|prop| prop.as_ptr() as *mut _)
+        .unwrap_or(null_mut()))
 }
 
 #[tracing::instrument(skip(world, resources))]
@@ -694,38 +754,40 @@ pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resource
                     // Advance state time
                     layer.time = time;
 
-                    for ((ptr, keyframe), curve) in bind
+                    for ((ptr, keyframe), curve_index) in bind
                         .attributes
                         .iter()
                         .zip(layer.keyframe.iter_mut())
-                        .zip(clip.curves.iter())
+                        .zip(bind.curves.iter())
                     {
                         // Skip invalid properties
                         if *ptr == Ptr(null_mut()) {
                             continue;
                         }
 
+                        let curve = &clip.curves[*curve_index as usize];
+
                         match curve {
                             CurveUntyped::Float(v) => {
-                                let (k, v) = v.sample(*keyframe, time);
+                                let (k, v) = v.sample_forward(*keyframe, time);
                                 let attr = unsafe { &mut *(ptr.0 as *mut f32) };
                                 *attr = v;
                                 *keyframe = k;
                             }
                             CurveUntyped::Vec3(v) => {
-                                let (k, v) = v.sample(*keyframe, time);
+                                let (k, v) = v.sample_forward(*keyframe, time);
                                 let attr = unsafe { &mut *(ptr.0 as *mut Vec3) };
                                 *attr = v;
                                 *keyframe = k;
                             }
                             CurveUntyped::Vec4(v) => {
-                                let (k, v) = v.sample(*keyframe, time);
+                                let (k, v) = v.sample_forward(*keyframe, time);
                                 let attr = unsafe { &mut *(ptr.0 as *mut Vec4) };
                                 *attr = v;
                                 *keyframe = k;
                             }
                             CurveUntyped::Quat(v) => {
-                                let (k, v) = v.sample(*keyframe, time);
+                                let (k, v) = v.sample_forward(*keyframe, time);
                                 let attr = unsafe { &mut *(ptr.0 as *mut Quat) };
                                 *attr = v;
                                 *keyframe = k;

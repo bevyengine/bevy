@@ -41,7 +41,7 @@ impl Plugin for AnimationPlugin {
         app.add_asset::<MeshSkin>()
             .register_component_with::<MeshSkinBinder>(|reg| reg.map_entities())
             .register_component::<MeshSkinnerDebuger>()
-            .add_system_to_stage(stage::ANIMATE, mesh_skinner_debugger_update)
+            .add_system_to_stage(stage::POST_UPDATE, mesh_skinner_debugger_update)
             .add_system_to_stage(stage::ANIMATE, mesh_skinner_startup);
     }
 }
