@@ -69,6 +69,7 @@ impl Timer {
         self.finished
     }
 
+    /// Will only be true on the tick the timer's duration is reached or exceeded.
     pub fn just_finished(&self) -> bool {
         self.just_finished
     }
