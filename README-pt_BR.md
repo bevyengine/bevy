@@ -41,7 +41,7 @@ Antes de contribuir ou participar de discussões com a comunidade, você deve se
 * **[Discord](https://discord.gg/gMUk5Ph):** Servidor oficial de Bevy no discord.
 * **[Reddit](https://reddit.com/r/bevy):** Subreddit oficial de Bevy.
 * **[Stack Overflow](https://stackoverflow.com/questions/tagged/bevy):** Perguntas marcadas com Bevy no Stack Overflow.
-* **[Incrível Bevy](https://github.com/bevyengine/awesome-bevy):** Uma coleção de projetos incríveis da Bevy.
+* **[Incrível Bevy](https://github.com/bevyengine/awesome-bevy):** Uma coleção de projetos incríveis de Bevy.
 
 ## Começando
 
@@ -57,11 +57,11 @@ cargo run --example breakout
 
 ### Compilar Rapidamente
 
-O Bevy pode ser construído perfeitamente usando a configuração padrão no Rust estável. No entanto, para compilações iterativas realmente rápidas, você deve habilitar a configuração de "compilações rápidas" [seguindo as instruções aqui](http://bevyengine.org/learn/book/getting-started/setup/).
+O Bevy pode ser construído perfeitamente usando a configuração padrão no Rust estável. No entanto, para compilações iterativas realmente rápidas, você deve habilitar a configuração de "compilações rápidas" seguindo essas instruções [aqui](http://bevyengine.org/learn/book/getting-started/setup/).
 
 ## Áreas de Foco
 
-Bevy tem as seguintes [Áreas de Foco](https://github.com/bevyengine/bevy/labels/focus-area). Atualmente, estamos concentrando nossos esforços de desenvolvimento nessas áreas, e elas receberão prioridade durante o tempo dos desenvolvedores Bevy. Se você gostaria de contribuir com Bevy, você é fortemente encorajado a se juntar a estes esforços:
+Bevy tem as seguintes [áreas de foco](https://github.com/bevyengine/bevy/labels/focus-area). Atualmente, estamos concentrando nossos esforços de desenvolvimento nessas áreas, e elas receberão prioridade durante o tempo dos desenvolvedores Bevy. Se você gostaria de contribuir com Bevy, você é fortemente encorajado a se juntar a estes esforços:
 
 ### [Editor-Ready UI](https://github.com/bevyengine/bevy/issues/254)
 
@@ -80,10 +80,10 @@ Bevy só é possível por causa do trabalho árduo colocado nessas tecnologias f
 
 ## [Características do Cargo em Bevy][cargo_features]
 
-Esta [lista][cargo_features] descreve os diferentes recursos de cargo suportados por Bevy. Isso permite que você personalize o conjunto de recursos do Bevy para seu caso de uso.
+Esta [lista][cargo_features] descreve os diferentes recursos de cargo suportados por Bevy. Isso permite que você personalize o conjunto de recursos do Bevy para seu uso.
 
 [cargo_features]: docs/cargo_features.md
 
 ## Obrigado e Algumas Alternativas
 
-Além disso, gostaríamos de agradecer aos projetos [Amethyst](https://github.com/amethyst/amethyst), [macroquad](https://github.com/not-fl3/macroquad), [coffee](https://github.com/hecrj/coffee), [ggez](https://github.com/ggez/ggez), [rg3d](https://github.com/mrDIMAS/rg3d), e [Piston](https://github.com/PistonDevelopers/piston) por fornecer exemplos sólidos de desenvolvimento de motor de jogo em Rust. Se você está procurando um motor de jogo Rust, vale a pena considerar todas as suas opções. Cada mecanismo tem objetivos de design diferentes e alguns provavelmente farão mais sentido com você do que outros.
+Além disso, gostaríamos de agradecer aos projetos [Amethyst](https://github.com/amethyst/amethyst), [macroquad](https://github.com/not-fl3/macroquad), [coffee](https://github.com/hecrj/coffee), [ggez](https://github.com/ggez/ggez), [rg3d](https://github.com/mrDIMAS/rg3d) e [Piston](https://github.com/PistonDevelopers/piston) por fornecer exemplos sólidos no desenvolvimento de motor de jogo em Rust. Se você está procurando um motor de jogo escrito em Rust, vale a pena considerar todas as suas opções. Cada mecanismo tem objetivos de design diferentes e alguns provavelmente farão mais sentido com você do que outros.
