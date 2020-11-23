@@ -366,7 +366,7 @@ pub(crate) fn animator_binding_system(world: &mut World, resources: &mut Resourc
     let clip_events = resources.get::<Events<AssetEvent<Clip>>>().unwrap();
 
     // Builds query
-    // SAFETY: Only query with mutable reference the Animator component
+    // SAFETY: This is the only query with mutable reference the Animator component
     let animator_query = unsafe { world.query_unchecked::<(Entity, &mut Animator), ()>() };
 
     // ? NOTE: Changing a clip on fly is supported, but very expensive so use with caution
@@ -693,7 +693,18 @@ fn find_property_ptr<'a, P: Iterator<Item = &'a str>>(
     type_id: TypeId,
 ) -> Ptr {
     Ptr(find_property_at_path(path, root_props, type_id)
-        .map(|prop| prop.as_ptr() as *mut _)
+        .map(|prop| {
+            let ptr = prop.as_ptr() as *mut _;
+            // Perform an extra assertion to make sure this pointer is inside the component
+            // memory bounds, so no dangle pointers can be created
+            // TODO: cfg extra asserts
+            {
+                let root = root_props.as_ptr();
+                let size = std::mem::size_of_val(root_props.any()) as isize;
+                assert!(unsafe { root.offset_from(ptr).abs() } <= size);
+            }
+            ptr
+        })
         .unwrap_or(null_mut()))
 }
 
@@ -702,7 +713,7 @@ pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resource
     let time = resources.get::<Time>().unwrap();
     let clips = resources.get::<Assets<Clip>>().unwrap();
 
-    // Build queries
+    // SAFETY: This is the only query with mutable reference the Animator component
     let animators_query = unsafe { world.query_unchecked::<(&mut Animator,), ()>() };
     let delta_time = time.delta_seconds;
 
@@ -766,6 +777,11 @@ pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resource
                         }
 
                         let curve = &clip.curves[*curve_index as usize];
+
+                        // SAFETY: The `animator_binding_system` is responsible to invalidate and/or update
+                        // any ptr that no longer pointers to the right component for the right entity;
+                        // Also it will only allows to ptr to attributes by value inside the component this means
+                        // no dangle pointers
 
                         match curve {
                             CurveUntyped::Float(v) => {
