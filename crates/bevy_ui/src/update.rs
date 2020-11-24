@@ -10,17 +10,14 @@ pub fn ui_z_system(
     children_query: Query<&Children>,
 ) {
     let mut current_global_z = 0.0;
-
     for entity in root_node_query.iter() {
-        if let Some(result) = update_hierarchy(
+        current_global_z = update_hierarchy(
             &children_query,
             &mut node_query,
             entity,
             current_global_z,
-            Some(current_global_z),
-        ) {
-            current_global_z = result;
-        }
+            current_global_z,
+        );
     }
 }
 
@@ -28,48 +25,27 @@ fn update_hierarchy(
     children_query: &Query<&Children>,
     node_query: &mut Query<&mut Transform, With<Node>>,
     entity: Entity,
-    parent_result: f32,
-    mut previous_result: Option<f32>,
-) -> Option<f32> {
-    let parent_result = update_node_entity(node_query, entity, parent_result, previous_result);
-    previous_result = None;
+    parent_global_z: f32,
+    mut current_global_z: f32,
+) -> f32 {
+    current_global_z += UI_Z_STEP;
+    if let Ok(mut transform) = node_query.get_mut(entity) {
+        transform.translation.z = current_global_z - parent_global_z;
+    }
     if let Ok(children) = children_query.get(entity) {
+        let current_parent_global_z = current_global_z;
         for child in children.iter().cloned() {
-            previous_result = update_hierarchy(
+            current_global_z = update_hierarchy(
                 children_query,
                 node_query,
                 child,
-                parent_result,
-                previous_result,
+                current_parent_global_z,
+                current_global_z,
             );
         }
     }
-
-    previous_result.or(Some(parent_result))
+    current_global_z
 }
-
-fn update_node_entity(
-    node_query: &mut Query<&mut Transform, With<Node>>,
-    entity: Entity,
-    parent_global_z: f32,
-    previous_result: Option<f32>,
-) -> f32 {
-    if let Ok(mut transform) = node_query.get_mut(entity) {
-        let local_z = if let Some(previous_global_z) = previous_result {
-            previous_global_z - parent_global_z + UI_Z_STEP
-        } else {
-            UI_Z_STEP
-        };
-        transform.translation.z = local_z;
-    }
-
-    if let Some(previous_global_z) = previous_result {
-        previous_global_z + UI_Z_STEP
-    } else {
-        parent_global_z + UI_Z_STEP
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use bevy_ecs::{Commands, IntoSystem, Resources, Schedule, World};
