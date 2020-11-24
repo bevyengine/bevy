@@ -1,6 +1,6 @@
 [package]
 name = "bevy_animation"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2018"
 authors = ["Bevy Contributors <bevyengine@gmail.com>", "Carter Anderson <mcanders1@gmail.com>"]
 description = "Provides spline animation functionality for Bevy Engine"
@@ -12,13 +12,13 @@ keywords = ["bevy"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy_core = { path = "../bevy_core", version = "0.2.1" }
-bevy_math = { path = "../bevy_math", version = "0.2.1" }
-bevy_app = { path = "../bevy_app", version = "0.2.1" }
-bevy_utils = { path = "../bevy_utils", version = "0.2.1" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.2.1" }
-bevy_transform = { path = "../bevy_transform", version = "0.2.1" }
-bevy_render = { path = "../bevy_render", version = "0.2.1" }
-bevy_property = { path = "../bevy_property", version = "0.2.1" }
+bevy_core = { path = "../bevy_core", version = "0.3.0" }
+bevy_math = { path = "../bevy_math", version = "0.3.0" }
+bevy_app = { path = "../bevy_app", version = "0.3.0" }
+bevy_utils = { path = "../bevy_utils", version = "0.3.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.3.0" }
+bevy_transform = { path = "../bevy_transform", version = "0.3.0" }
+bevy_render = { path = "../bevy_render", version = "0.3.0" }
+bevy_property = { path = "../bevy_property", version = "0.3.0" }
 
-splines = { version = "3.4.1", features = ["serialization"] }
+splines = { version = "3.5.0", features = ["serialization"] }
