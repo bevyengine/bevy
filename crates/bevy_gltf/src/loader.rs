@@ -376,7 +376,7 @@ async fn load_gltf<'a, 'b>(
         world_builder.spawn((Transform::default(), GlobalTransform::default()));
 
         if let Some(name) = scene.name() {
-            world_builder.with(Name(name.to_string()));
+            world_builder.with(Name::new(name.to_string()));
         }
 
         // Animator component
@@ -428,7 +428,7 @@ fn load_node(
     entity_lookup[node.index()] = Some(node_entity);
 
     if let Some(name) = node.name() {
-        world_builder.with(Name(name.to_string()));
+        world_builder.with(Name::new(name.to_string()));
     }
 
     if let Some(skin) = node.skin() {

@@ -11,9 +11,7 @@ use bevy_type_registry::{TypeRegistry, TypeUuid};
 use bevy_utils::HashSet;
 //use serde::{Deserialize, Serialize};
 use std::any::TypeId;
-use std::collections::hash_map::DefaultHasher;
 use std::convert::TryFrom;
-use std::hash::{Hash, Hasher};
 use std::ptr::null_mut;
 
 use super::lerping::LerpValue;
@@ -21,23 +19,19 @@ use super::lerping::LerpValue;
 // TODO: Curve/Clip need a validation during deserialization because they are
 // structured as SOA (struct of arrays), so the vec's length must match
 
-/// Used to make fast string comparisons, don't serialize
-#[derive(Debug, PartialEq, Eq)]
-struct HashCode(u64);
-
 // TODO: impl Serialize, Deserialize
-#[derive(Debug, TypeUuid)]
+#[derive(Debug, Clone, TypeUuid)]
 #[uuid = "4c76e6c3-706d-4a74-af8e-4f48033e0733"]
 pub struct Clip {
     //#[serde(default = "clip_default_warp")]
     pub warp: bool,
     duration: f32,
-    /// Entity identification parent index on this same vec and name
-    entities: Vec<(u16, String)>,
+    /// Entity identification made by parent index and name
+    entities: Vec<(u16, Name)>,
     /// Attribute is made by the entity index and a string that combines
     /// component name followed by their attributes spaced by a period,
     /// like so: `"Transform.translation.x"`
-    attribute: Vec<(u16, String, HashCode)>,
+    attribute: Vec<(u16, Name)>,
     curves: Vec<CurveUntyped>,
 }
 
@@ -51,7 +45,7 @@ impl Default for Clip {
             warp: true,
             duration: 0.0,
             // ? NOTE: Since the root has no parent in this context it points to a place outside the vec bounds
-            entities: vec![(u16::MAX, String::default())],
+            entities: vec![(u16::MAX, Name::default())],
             attribute: vec![],
             curves: vec![],
         }
@@ -91,19 +85,14 @@ impl Clip {
             } else {
                 // Add entity
                 let e = self.entities.len();
-                self.entities.push((entity, name.to_string()));
+                self.entities.push((entity, Name::new(name.to_string())));
                 entity_created = true;
                 // Soft limit added to save memory, identical to the curve limit
                 entity = u16::try_from(e).expect("entities limit reached");
             }
         }
 
-        let property = path.1.split_at(1).1;
-
-        // Faster comparison
-        let mut hasher = DefaultHasher::default();
-        property.hash(&mut hasher);
-        let hash = HashCode(hasher.finish());
+        let insert_attr = Name::new(path.1.split_at(1).1.to_string());
 
         // If some entity was created it means this property is a new one
         if !entity_created {
@@ -118,7 +107,7 @@ impl Clip {
                 //
                 // The test case `test::unhandled_properties_implementation_for_types` will ensure that
 
-                if hash == attr.2 && property == attr.1 {
+                if insert_attr == attr.1 {
                     // Found a property are equal the one been inserted
                     // Replace curve, the property was already added, this is very important
                     // because it guarantees that each property will have unique access to some
@@ -134,7 +123,7 @@ impl Clip {
         }
 
         self.duration = self.duration.max(curve.duration());
-        self.attribute.push((entity, property.to_owned(), hash));
+        self.attribute.push((entity, insert_attr));
         self.curves.push(curve);
     }
 
@@ -149,17 +138,17 @@ impl Clip {
     /// The clip stores a property path in a specific way to improve search performance
     /// thus it needs to rebuilt the curve property path in the human readable format
     pub fn get_property_path(&self, index: u16) -> String {
-        let (entity, name, _) = &self.attribute[index as usize];
-        let mut path = format!("@{}", name);
+        let (entity, name) = &self.attribute[index as usize];
+        let mut path = format!("@{}", name.as_str());
 
         let mut first = true;
         let mut entity = *entity;
         while let Some((parent, name)) = self.entities.get(entity as usize) {
             if first {
-                path = format!("{}{}", name, path);
+                path = format!("{}{}", name.as_str(), path);
                 first = false;
             } else {
-                path = format!("{}/{}", name, path);
+                path = format!("{}/{}", name.as_str(), path);
             }
             entity = *parent;
         }
@@ -198,8 +187,16 @@ impl Clip {
     }
 }
 
+// TODO: Not found clip masks very useful, right now you can slone the cu
+// /// Masks clip
+// pub struct ClipMask {
+//     /// Entity identification made by parent index and name
+//     entities: Vec<(u16, String)>,
+//     masked: Vec<u16>,
+// }
+
 // TODO: impl Serialize, Deserialize
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum CurveUntyped {
     Float(Curve<f32>),
     Vec3(Curve<Vec3>),
@@ -239,9 +236,19 @@ impl CurveUntyped {
 // TODO: impl Serialize, Deserialize
 #[derive(Default, Debug)]
 pub struct Curve<T> {
-    // TODO: Linear and Spline variants
+    // TODO: Step / Linear / Spline variants
     samples: Vec<f32>,
+    //tangents: Vec<(f32, f32)>,
     values: Vec<T>,
+}
+
+impl<T: Clone> Clone for Curve<T> {
+    fn clone(&self) -> Self {
+        Self {
+            samples: self.samples.clone(),
+            values: self.values.clone(),
+        }
+    }
 }
 
 impl<T> Curve<T>
@@ -378,17 +385,21 @@ pub struct Layer {
 pub struct Animator {
     clips: Vec<Handle<Clip>>,
     #[property(ignore)]
-    binds: Vec<Option<Binds>>,
+    bind_clips: Vec<Option<ClipBind>>,
+    // masks: Vec<Handle<ClipMask>>,
+    // #[property(ignore)]
+    // bind_masks: Vec<ClipMaskBind>,
     pub time_scale: f32,
     pub layers: Vec<Layer>,
-    // TODO: Transitions to simplify layer blending
 }
+
+// TODO: AnimatorStateMachine + Transitions to simplify layer blending but in another file
 
 impl Default for Animator {
     fn default() -> Self {
         Self {
             clips: vec![],
-            binds: vec![],
+            bind_clips: vec![],
             time_scale: 1.0,
             layers: vec![],
         }
@@ -407,7 +418,7 @@ impl Animator {
         }
     }
 
-    pub fn add_layer(&mut self, clip: Handle<Clip>, weight: f32) -> usize {
+    pub fn add_layer(&mut self, clip: Handle<Clip>, weight: f32) -> u16 {
         let clip = self.add_clip(clip);
         let layer_index = self.layers.len();
         self.layers.push(Layer {
@@ -415,7 +426,7 @@ impl Animator {
             weight,
             ..Default::default()
         });
-        layer_index
+        layer_index as u16
     }
 
     pub fn clips_len(&self) -> u16 {
@@ -423,16 +434,39 @@ impl Animator {
     }
 }
 
-// TODO: Bind asset properties (edge case), notice that this feature will be in hold
+// TODO: Bind asset properties (edge case), notice that this feature will be on hold
 // until the atelier assets get through. I will probably just store pointers offsets
-// because it's safe with less conditions and not that expensive
+// because require less conditions to be safe and is not too much that expensive to store
+// direct pointers
 
 #[derive(Debug)]
-struct Binds {
-    metadata: Vec<BindMeta>,
+struct ClipBindMetadataInner {
+    parent: Option<Entity>,
+    entity: Entity,
+    location: Location,
+    component: TypeId,
+}
+
+/// Metadata is used to check the bind validity
+#[derive(Debug)]
+struct ClipBindMetadata {
+    entity_index: u16,
+    inner: Option<ClipBindMetadataInner>,
+    range: (u16, u16),
+}
+
+#[derive(Debug)]
+struct ClipBind {
+    metadata: Vec<ClipBindMetadata>,
     curves: Vec<u16>,
     attributes: Vec<Ptr>,
 }
+
+// #[derive(Debug)]
+// struct ClipMaskBind {
+//     metadata: Vec<(Option<Entity>, Entity)>
+//     allowed_entities: HashMap<Entity>,
+// }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 struct Ptr(*mut u8);
@@ -444,22 +478,6 @@ unsafe impl Sync for Ptr {}
 
 /// Marker type for missing component
 struct MissingComponentMarker;
-
-/// Meta data is used to check the bind validity
-#[derive(Debug)]
-struct BindMeta {
-    entity_index: u16,
-    inner: Option<BindInner>,
-    range: (u16, u16),
-}
-
-#[derive(Debug)]
-struct BindInner {
-    parent: Option<Entity>,
-    entity: Entity,
-    location: Location,
-    component: TypeId,
-}
 
 #[derive(Default)]
 struct ClipResourceProviderState {
@@ -510,12 +528,14 @@ pub(crate) fn animator_binding_system(world: &mut World, resources: &mut Resourc
         let animator = &mut *animator; // Make sure the borrow checker is happy
 
         // Make room for binds or deallocate unused
-        animator.binds.resize_with(animator.clips.len(), || None);
+        animator
+            .bind_clips
+            .resize_with(animator.clips.len(), || None);
 
         // Used for entity translation
         let mut entities_table_cache = vec![];
 
-        for (clip_handle, bind) in animator.clips.iter().zip(animator.binds.iter_mut()) {
+        for (clip_handle, bind) in animator.clips.iter().zip(animator.bind_clips.iter_mut()) {
             // Invalidate binds for clips that where modified
             if modified.contains(clip_handle) {
                 *bind = None;
@@ -531,7 +551,7 @@ pub(crate) fn animator_binding_system(world: &mut World, resources: &mut Resourc
                 if bind.is_none() {
                     // Build binds from scratch
                     // Allocate the minium enough of memory on right at the begin
-                    let mut b = Binds {
+                    let mut b = ClipBind {
                         metadata: Vec::with_capacity(clip.entities.len()),
                         curves: Vec::with_capacity(clip.attribute.len()),
                         attributes: Vec::with_capacity(clip.attribute.len()),
@@ -542,7 +562,7 @@ pub(crate) fn animator_binding_system(world: &mut World, resources: &mut Resourc
                     let mut prev_component = TypeId::of::<MissingComponentMarker>();
                     let mut prev_component_short_name = "";
 
-                    for (curve_index, (entity_index, attr_path, _)) in
+                    for (curve_index, (entity_index, attr_path)) in
                         clip.attribute.iter().enumerate()
                     {
                         let mut commit = false;
@@ -609,17 +629,19 @@ pub(crate) fn animator_binding_system(world: &mut World, resources: &mut Resourc
                             range.1 = b.curves.len() as u16 - 1;
 
                             // Commit meta
-                            b.metadata.push(BindMeta {
+                            b.metadata.push(ClipBindMetadata {
                                 entity_index: *entity_index,
-                                inner: prev_partial_info.map(|(entity, location)| BindInner {
-                                    // An entity will always have parent unless is the root entity
-                                    parent: entities_table_cache
-                                        .get(clip.entities[*entity_index as usize].0 as usize)
-                                        .copied()
-                                        .flatten(),
-                                    entity,
-                                    location,
-                                    component,
+                                inner: prev_partial_info.map(|(entity, location)| {
+                                    ClipBindMetadataInner {
+                                        // An entity will always have parent unless is the root entity
+                                        parent: entities_table_cache
+                                            .get(clip.entities[*entity_index as usize].0 as usize)
+                                            .copied()
+                                            .flatten(),
+                                        entity,
+                                        location,
+                                        component,
+                                    }
                                 }),
                                 range,
                             });
@@ -741,7 +763,7 @@ pub(crate) fn animator_binding_system(world: &mut World, resources: &mut Resourc
 
 fn find_entity(
     entity_index: u16,
-    entities_ids: &Vec<(u16, String)>,
+    entities_ids: &Vec<(u16, Name)>,
     entities_table_cache: &mut Vec<Option<Entity>>,
     world: &World,
 ) -> Option<Entity> {
@@ -758,7 +780,7 @@ fn find_entity(
                         .iter()
                         .find(|entity| {
                             if let Ok(name) = world.get::<Name>(**entity) {
-                                if &name.0 == entity_name {
+                                if name == entity_name {
                                     // Update cache
                                     entities_table_cache[entity_index as usize] = Some(**entity);
                                     true
@@ -820,15 +842,13 @@ fn find_property_ptr<'a, P: Iterator<Item = &'a str>>(
 ) -> Ptr {
     Ptr(find_property_at_path(path, root_props, type_id)
         .map(|prop| {
-            let ptr = prop.any() as *const _ as *mut u8;
+            let ptr = prop as *const _ as *mut u8;
             // Perform an extra assertion to make sure this pointer is inside the component
             // memory bounds, so no dangle pointers can be created
-            // TODO: cfg extra asserts
             {
-                let root_any = root_props.any();
-                let root = root_any as *const _ as *mut u8;
-                let size = std::mem::size_of_val(root_any) as isize;
-                assert!(unsafe { root.offset_from(ptr).abs() } <= size);
+                let root = root_props as *const _ as *mut u8;
+                let size = std::mem::size_of_val(root_props) as isize;
+                debug_assert!(unsafe { root.offset_from(ptr).abs() } <= size);
             }
             ptr
         })
@@ -861,7 +881,7 @@ pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resource
                 .map(|clip_handle| clips.get(clip_handle))
                 .flatten()
             {
-                if let Some(bind) = &animator.binds[clip_index as usize] {
+                if let Some(bind) = &animator.bind_clips[clip_index as usize] {
                     let curves_count = clip.curves.len();
 
                     // Ensure capacity for cached keyframe index vec
@@ -1084,6 +1104,7 @@ mod tests {
     // TODO: Add tests for hierarch change (creation and deletion)
     // TODO: Add tests for entity archetype change
     // TODO: Add tests for entities with same Name
+    // TODO: Add tests for mutated events
     // TODO: Add tests for animated handle (impl missing)
     // TODO: Add tests for animated asset properties (impl missing)
 }

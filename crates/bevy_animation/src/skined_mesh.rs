@@ -118,6 +118,7 @@ pub(crate) fn mesh_skinner_startup(
             // Ensure bone capacity
             mesh_skinner.bones.resize(skin.bone_count(), None);
 
+            // TODO: Uee the find_entity function instead!
             let mut root = true;
             let mut stack = vec![mesh_skinner.skeleton];
             while let Some(entity) = stack.pop() {
@@ -133,7 +134,7 @@ pub(crate) fn mesh_skinner_startup(
                         .bones_names
                         .iter()
                         .enumerate()
-                        .find(|(_, n)| name.eq(*n))
+                        .find(|(_, n)| name.as_str().eq(n.as_str()))
                     {
                         mesh_skinner.bones[bone_index] = Some(bone_entity);
                         children.map(|c| stack.extend(c.iter()));
