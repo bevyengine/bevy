@@ -6,24 +6,25 @@ struct AnimatableFloat {
 
 fn main() {
     App::build()
-        .add_default_plugins()
-        .add_startup_system(setup.system())
-        .add_system(update_text.system())
-        .add_system(animate_custom.system())
+        .add_plugins(DefaultPlugins)
+        .add_startup_system(setup)
+        .add_system(update_text)
+        .add_system(animate_custom)
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font: Handle<Font> = asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap();
+fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
+    let font: Handle<Font> = asset_server.load("fonts/FiraSans-Bold.ttf");
     commands
-        .spawn(UiCameraComponents::default())
-        .spawn(TextComponents {
+        .spawn(UiCameraBundle::default())
+        .spawn(TextBundle {
             text: Text {
                 font,
                 value: "Unset".to_string(),
                 style: TextStyle {
                     font_size: 30.0,
                     color: Color::WHITE,
+                    ..Default::default()
                 },
             },
             ..Default::default()
@@ -39,12 +40,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-fn update_text(float: &AnimatableFloat, mut text: Mut<Text>) {
-    text.value = format!("{:.0}", float.value);
+fn update_text(mut q: Query<(&AnimatableFloat, &mut Text)>) {
+    for (float, mut text) in q.iter_mut() {
+        text.value = format!("{:.0}", float.value);
+    }
 }
 
-fn animate_custom(animator: &AnimationSplineOne, mut float: Mut<AnimatableFloat>) {
-    if let Some(val) = animator.current() {
-        float.value = val;
+fn animate_custom(mut q: Query<(&AnimationSplineOne, &mut AnimatableFloat)>) {
+    for (animator, mut float) in q.iter_mut() {
+        if let Some(val) = animator.current() {
+            float.value = val;
+        }
     }
 }

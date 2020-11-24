@@ -41,49 +41,6 @@
 
 pub use bevy_internal::*;
 
-pub use add_default_plugins::*;
-pub use bevy_animation as animation;
-pub use bevy_app as app;
-pub use bevy_asset as asset;
-pub use bevy_core as core;
-pub use bevy_diagnostic as diagnostic;
-pub use bevy_ecs as ecs;
-pub use bevy_input as input;
-pub use bevy_math as math;
-pub use bevy_property as property;
-pub use bevy_scene as scene;
-pub use bevy_tasks as tasks;
-pub use bevy_transform as transform;
-pub use bevy_type_registry as type_registry;
-pub use bevy_window as window;
-
-#[cfg(feature = "bevy_audio")]
-pub use bevy_audio as audio;
-
-#[cfg(feature = "bevy_gltf")]
-pub use bevy_gltf as gltf;
-
-#[cfg(feature = "bevy_pbr")]
-pub use bevy_pbr as pbr;
-
-#[cfg(feature = "bevy_render")]
-pub use bevy_render as render;
-
-#[cfg(feature = "bevy_sprite")]
-pub use bevy_sprite as sprite;
-
-#[cfg(feature = "bevy_text")]
-pub use bevy_text as text;
-
-#[cfg(feature = "bevy_ui")]
-pub use bevy_ui as ui;
-
-#[cfg(feature = "bevy_winit")]
-pub use bevy_winit as winit;
-
-#[cfg(feature = "bevy_wgpu")]
-pub use bevy_wgpu as wgpu;
-
 #[cfg(feature = "dynamic")]
 #[allow(unused_imports)]
 #[allow(clippy::single_component_path_imports)]

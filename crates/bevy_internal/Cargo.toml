@@ -36,6 +36,7 @@ x11 = ["bevy_winit/x11"]
 
 [dependencies]
 # bevy
+bevy_animation = { path = "../bevy_animation", version = "0.3.0" }
 bevy_app = { path = "../bevy_app", version = "0.3.0" }
 bevy_asset = { path = "../bevy_asset", version = "0.3.0" }
 bevy_type_registry = { path = "../bevy_type_registry", version = "0.3.0" }
