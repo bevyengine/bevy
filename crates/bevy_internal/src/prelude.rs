@@ -1,6 +1,6 @@
 pub use crate::{
-    animation::prelude::*, app::prelude::*, asset::prelude::*, core::prelude::*, ecs::prelude::*, input::prelude::*,
-    log::prelude::*, math::prelude::*, property::prelude::*, scene::prelude::*,
+    animation::prelude::*, app::prelude::*, asset::prelude::*, core::prelude::*, ecs::prelude::*,
+    input::prelude::*, log::prelude::*, math::prelude::*, property::prelude::*, scene::prelude::*,
     transform::prelude::*, type_registry::RegisterType, window::prelude::*, DefaultPlugins,
     MinimalPlugins,
 };
