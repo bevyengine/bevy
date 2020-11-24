@@ -43,11 +43,9 @@ fn update_hierarchy(
                 previous_result,
             );
         }
-    } else {
-        previous_result = Some(parent_result);
     }
 
-    previous_result
+    previous_result.or(Some(parent_result))
 }
 
 fn update_node_entity(
@@ -163,11 +161,11 @@ mod tests {
             ("1-2-0".to_owned(), 1),
             ("1-2-1".to_owned(), 2),
             ("1-2-2".to_owned(), 3),
-            ("1-2-3".to_owned(), 1),
-            ("1-3".to_owned(), 8),
+            ("1-2-3".to_owned(), 4),
+            ("1-3".to_owned(), 11),
             // 2 has no transform
             ("2-0".to_owned(), 1),
-            ("2-1".to_owned(), 1),
+            ("2-1".to_owned(), 2),
             ("2-1-0".to_owned(), 1),
         ];
         assert_eq!(actual_result, expected_result);
