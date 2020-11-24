@@ -37,9 +37,10 @@ pub trait Node: Downcast + Send + Sync + 'static {
 impl_downcast!(Node);
 
 pub trait SystemNode: Node {
-    fn get_system(&self, commands: &mut Commands) -> Box<dyn System>;
+    fn get_system(&self, commands: &mut Commands) -> Box<dyn System<Input = (), Output = ()>>;
 }
 
+#[derive(Debug)]
 pub struct Edges {
     pub id: NodeId,
     pub input_edges: Vec<Edge>,
@@ -81,7 +82,7 @@ impl Edges {
                     false
                 }
             })
-            .ok_or_else(|| RenderGraphError::UnconnectedNodeInputSlot {
+            .ok_or(RenderGraphError::UnconnectedNodeInputSlot {
                 input_slot: index,
                 node: self.id,
             })
@@ -97,7 +98,7 @@ impl Edges {
                     false
                 }
             })
-            .ok_or_else(|| RenderGraphError::UnconnectedNodeOutputSlot {
+            .ok_or(RenderGraphError::UnconnectedNodeOutputSlot {
                 output_slot: index,
                 node: self.id,
             })

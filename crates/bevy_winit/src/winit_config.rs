@@ -1,5 +1,5 @@
 /// A resource for configuring usage of the `rust_winit` library.
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct WinitConfig {
     /// Configures the winit library to return control to the main thread after
     /// the [run](bevy_app::App::run) loop is exited. Winit strongly recommends

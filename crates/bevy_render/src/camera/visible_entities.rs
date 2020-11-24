@@ -1,7 +1,7 @@
 use super::{Camera, DepthCalculation};
 use crate::Draw;
 use bevy_core::FloatOrd;
-use bevy_ecs::{Entity, Query};
+use bevy_ecs::{Entity, Query, With};
 use bevy_property::Properties;
 use bevy_transform::prelude::GlobalTransform;
 
@@ -25,33 +25,32 @@ impl VisibleEntities {
 
 pub fn visible_entities_system(
     mut camera_query: Query<(&Camera, &GlobalTransform, &mut VisibleEntities)>,
-    mut draw_query: Query<(Entity, &Draw)>,
-    draw_transform_query: Query<(&Draw, &GlobalTransform)>,
+    draw_query: Query<(Entity, &Draw)>,
+    draw_transform_query: Query<&GlobalTransform, With<Draw>>,
 ) {
-    for (camera, camera_global_transform, mut visible_entities) in &mut camera_query.iter() {
+    for (camera, camera_global_transform, mut visible_entities) in camera_query.iter_mut() {
         visible_entities.value.clear();
-        let camera_position = camera_global_transform.translation();
+        let camera_position = camera_global_transform.translation;
 
         let mut no_transform_order = 0.0;
         let mut transparent_entities = Vec::new();
-        for (entity, draw) in &mut draw_query.iter() {
+        for (entity, draw) in draw_query.iter() {
             if !draw.is_visible {
                 continue;
             }
 
-            let order =
-                if let Ok(global_transform) = draw_transform_query.get::<GlobalTransform>(entity) {
-                    let position = global_transform.translation();
-                    // smaller distances are sorted to lower indices by using the distance from the camera
-                    FloatOrd(match camera.depth_calculation {
-                        DepthCalculation::ZDifference => camera_position.z() - position.z(),
-                        DepthCalculation::Distance => (camera_position - position).length(),
-                    })
-                } else {
-                    let order = FloatOrd(no_transform_order);
-                    no_transform_order += 0.1;
-                    order
-                };
+            let order = if let Ok(global_transform) = draw_transform_query.get(entity) {
+                let position = global_transform.translation;
+                // smaller distances are sorted to lower indices by using the distance from the camera
+                FloatOrd(match camera.depth_calculation {
+                    DepthCalculation::ZDifference => camera_position.z - position.z,
+                    DepthCalculation::Distance => (camera_position - position).length(),
+                })
+            } else {
+                let order = FloatOrd(no_transform_order);
+                no_transform_order += 0.1;
+                order
+            };
 
             if draw.is_transparent {
                 transparent_entities.push(VisibleEntity { entity, order })

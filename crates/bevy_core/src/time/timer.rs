@@ -1,7 +1,7 @@
 use crate::time::Time;
 use bevy_ecs::prelude::*;
 use bevy_property::Properties;
-use std::time::Duration;
+use bevy_utils::Duration;
 
 /// Tracks elapsed time. Enters the finished state once `duration` is reached.
 ///
@@ -34,7 +34,8 @@ impl Timer {
         }
     }
 
-    pub fn tick(&mut self, delta: f32) {
+    /// Advances the timer by `delta` seconds.
+    pub fn tick(&mut self, delta: f32) -> &Self {
         let prev_finished = self.elapsed >= self.duration;
         if !prev_finished {
             self.elapsed += delta;
@@ -46,6 +47,7 @@ impl Timer {
         if self.repeating && self.finished {
             self.elapsed %= self.duration;
         }
+        self
     }
 
     pub fn reset(&mut self) {
@@ -56,7 +58,7 @@ impl Timer {
 }
 
 pub(crate) fn timer_system(time: Res<Time>, mut query: Query<&mut Timer>) {
-    for mut timer in &mut query.iter() {
+    for mut timer in query.iter_mut() {
         timer.tick(time.delta_seconds);
     }
 }

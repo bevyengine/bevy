@@ -27,7 +27,7 @@ pub enum Command {
     FreeBuffer(BufferId),
 }
 
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct CommandQueue {
     // TODO: this shouldn't really need a mutex. it just needs to be shared on whatever thread it's scheduled on
     queue: Arc<Mutex<Vec<Command>>>,

@@ -6,12 +6,22 @@ use bevy_math::Vec2;
 use bevy_transform::prelude::{Children, Parent, Transform};
 use bevy_utils::HashMap;
 use bevy_window::{Window, WindowId, Windows};
+use std::fmt;
 use stretch::{number::Number, Stretch};
 
 pub struct FlexSurface {
     entity_to_stretch: HashMap<Entity, stretch::node::Node>,
     window_nodes: HashMap<WindowId, stretch::node::Node>,
     stretch: Stretch,
+}
+
+impl fmt::Debug for FlexSurface {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("FlexSurface")
+            .field("entity_to_stretch", &self.entity_to_stretch)
+            .field("window_nodes", &self.window_nodes)
+            .finish()
+    }
 }
 
 impl Default for FlexSurface {
@@ -95,7 +105,7 @@ impl FlexSurface {
 
     pub fn update_window(&mut self, window: &Window) {
         let stretch = &mut self.stretch;
-        let node = self.window_nodes.entry(window.id).or_insert_with(|| {
+        let node = self.window_nodes.entry(window.id()).or_insert_with(|| {
             stretch
                 .new_node(stretch::style::Style::default(), Vec::new())
                 .unwrap()
@@ -106,8 +116,8 @@ impl FlexSurface {
                 *node,
                 stretch::style::Style {
                     size: stretch::geometry::Size {
-                        width: stretch::style::Dimension::Points(window.width as f32),
-                        height: stretch::style::Dimension::Points(window.height as f32),
+                        width: stretch::style::Dimension::Points(window.width() as f32),
+                        height: stretch::style::Dimension::Points(window.height() as f32),
                     },
                     ..Default::default()
                 },
@@ -150,10 +160,13 @@ unsafe impl Sync for FlexSurface {}
 pub fn flex_node_system(
     windows: Res<Windows>,
     mut flex_surface: ResMut<FlexSurface>,
-    mut root_node_query: Query<With<Node, Without<Parent, Entity>>>,
-    mut node_query: Query<With<Node, (Entity, Changed<Style>, Option<&CalculatedSize>)>>,
-    mut changed_size_query: Query<With<Node, (Entity, &Style, Changed<CalculatedSize>)>>,
-    mut children_query: Query<With<Node, (Entity, Changed<Children>)>>,
+    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
+    node_query: Query<(Entity, &Style, Option<&CalculatedSize>), (With<Node>, Changed<Style>)>,
+    changed_size_query: Query<
+        (Entity, &Style, &CalculatedSize),
+        (With<Node>, Changed<CalculatedSize>),
+    >,
+    children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
 ) {
     // update window root nodes
@@ -162,7 +175,7 @@ pub fn flex_node_system(
     }
 
     // update changed nodes
-    for (entity, style, calculated_size) in &mut node_query.iter() {
+    for (entity, style, calculated_size) in node_query.iter() {
         // TODO: remove node from old hierarchy if its root has changed
         if let Some(calculated_size) = calculated_size {
             flex_surface.upsert_leaf(entity, &style, *calculated_size);
@@ -171,7 +184,7 @@ pub fn flex_node_system(
         }
     }
 
-    for (entity, style, calculated_size) in &mut changed_size_query.iter() {
+    for (entity, style, calculated_size) in changed_size_query.iter() {
         flex_surface.upsert_leaf(entity, &style, *calculated_size);
     }
 
@@ -179,27 +192,27 @@ pub fn flex_node_system(
 
     // update window children (for now assuming all Nodes live in the primary window)
     if let Some(primary_window) = windows.get_primary() {
-        flex_surface.set_window_children(primary_window.id, root_node_query.iter().iter());
+        flex_surface.set_window_children(primary_window.id(), root_node_query.iter());
     }
 
     // update children
-    for (entity, children) in &mut children_query.iter() {
+    for (entity, children) in children_query.iter() {
         flex_surface.update_children(entity, &children);
     }
 
     // compute layouts
     flex_surface.compute_window_layouts();
 
-    for (entity, mut node, mut transform, parent) in &mut node_transform_query.iter() {
+    for (entity, mut node, mut transform, parent) in node_transform_query.iter_mut() {
         let layout = flex_surface.get_layout(entity).unwrap();
         node.size = Vec2::new(layout.size.width, layout.size.height);
-        let position = transform.translation_mut();
-        position.set_x(layout.location.x + layout.size.width / 2.0);
-        position.set_y(layout.location.y + layout.size.height / 2.0);
+        let position = &mut transform.translation;
+        position.x = layout.location.x + layout.size.width / 2.0;
+        position.y = layout.location.y + layout.size.height / 2.0;
         if let Some(parent) = parent {
             if let Ok(parent_layout) = flex_surface.get_layout(parent.0) {
-                *position.x_mut() -= parent_layout.size.width / 2.0;
-                *position.y_mut() -= parent_layout.size.height / 2.0;
+                position.x -= parent_layout.size.width / 2.0;
+                position.y -= parent_layout.size.height / 2.0;
             }
         }
     }

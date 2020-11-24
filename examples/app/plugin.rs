@@ -1,12 +1,11 @@
-use bevy::prelude::*;
-use std::time::Duration;
+use bevy::{prelude::*, utils::Duration};
 
 /// Plugins are the foundation of Bevy. They are scoped sets of components, resources, and systems
 /// that provide a specific piece of functionality (generally the smaller the scope, the better).
 /// This example illustrates how to create a simple plugin that prints out a message.
 fn main() {
     App::build()
-        .add_default_plugins()
+        .add_plugins(DefaultPlugins)
         // plugins are registered as part of the "app building" process
         .add_plugin(PrintMessagePlugin {
             wait_duration: Duration::from_secs(1),
@@ -29,8 +28,7 @@ impl Plugin for PrintMessagePlugin {
             message: self.message.clone(),
             timer: Timer::new(self.wait_duration, true),
         };
-        app.add_resource(state)
-            .add_system(print_message_system.system());
+        app.add_resource(state).add_system(print_message_system);
     }
 }
 
@@ -40,8 +38,7 @@ struct PrintMessageState {
 }
 
 fn print_message_system(mut state: ResMut<PrintMessageState>, time: Res<Time>) {
-    state.timer.tick(time.delta_seconds);
-    if state.timer.finished {
+    if state.timer.tick(time.delta_seconds).finished {
         println!("{}", state.message);
     }
 }

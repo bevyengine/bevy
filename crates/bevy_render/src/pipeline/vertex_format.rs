@@ -1,6 +1,7 @@
 use crate::Color;
 use bevy_math::{Mat4, Vec2, Vec3, Vec4};
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+use serde::{Deserialize, Serialize};
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub enum VertexFormat {
     Uchar2 = 1,
     Uchar4 = 3,

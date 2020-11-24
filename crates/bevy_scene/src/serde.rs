@@ -1,4 +1,4 @@
-use crate::{Entity, Scene};
+use crate::{DynamicScene, Entity};
 use anyhow::Result;
 use bevy_property::{
     property_serde::{DynamicPropertiesDeserializer, DynamicPropertiesSerializer},
@@ -11,12 +11,12 @@ use serde::{
 };
 
 pub struct SceneSerializer<'a> {
-    pub scene: &'a Scene,
+    pub scene: &'a DynamicScene,
     pub registry: &'a PropertyTypeRegistry,
 }
 
 impl<'a> SceneSerializer<'a> {
-    pub fn new(scene: &'a Scene, registry: &'a PropertyTypeRegistry) -> Self {
+    pub fn new(scene: &'a DynamicScene, registry: &'a PropertyTypeRegistry) -> Self {
         SceneSerializer { scene, registry }
     }
 }
@@ -86,26 +86,25 @@ pub struct SceneDeserializer<'a> {
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a> {
-    type Value = Scene;
+    type Value = DynamicScene;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        let mut scene = Scene::default();
-        scene.entities = deserializer.deserialize_seq(SceneEntitySeqVisiter {
-            property_type_registry: self.property_type_registry,
-        })?;
-
-        Ok(scene)
+        Ok(DynamicScene {
+            entities: deserializer.deserialize_seq(SceneEntitySeqVisitor {
+                property_type_registry: self.property_type_registry,
+            })?,
+        })
     }
 }
 
-struct SceneEntitySeqVisiter<'a> {
+struct SceneEntitySeqVisitor<'a> {
     pub property_type_registry: &'a PropertyTypeRegistry,
 }
 
-impl<'a, 'de> Visitor<'de> for SceneEntitySeqVisiter<'a> {
+impl<'a, 'de> Visitor<'de> for SceneEntitySeqVisitor<'a> {
     type Value = Vec<Entity>;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -141,7 +140,7 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
         deserializer.deserialize_struct(
             ENTITY_STRUCT,
             &[ENTITY_FIELD_ENTITY, ENTITY_FIELD_COMPONENTS],
-            SceneEntityVisiter {
+            SceneEntityVisitor {
                 registry: self.property_type_registry,
             },
         )
@@ -159,11 +158,12 @@ pub const ENTITY_STRUCT: &str = "Entity";
 pub const ENTITY_FIELD_ENTITY: &str = "entity";
 pub const ENTITY_FIELD_COMPONENTS: &str = "components";
 
-struct SceneEntityVisiter<'a> {
+#[derive(Debug)]
+struct SceneEntityVisitor<'a> {
     pub registry: &'a PropertyTypeRegistry,
 }
 
-impl<'a, 'de> Visitor<'de> for SceneEntityVisiter<'a> {
+impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
     type Value = Entity;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -221,17 +221,17 @@ impl<'a, 'de> DeserializeSeed<'de> for ComponentVecDeserializer<'a> {
     where
         D: serde::Deserializer<'de>,
     {
-        deserializer.deserialize_seq(ComponentSeqVisiter {
+        deserializer.deserialize_seq(ComponentSeqVisitor {
             registry: self.registry,
         })
     }
 }
 
-struct ComponentSeqVisiter<'a> {
+struct ComponentSeqVisitor<'a> {
     pub registry: &'a PropertyTypeRegistry,
 }
 
-impl<'a, 'de> Visitor<'de> for ComponentSeqVisiter<'a> {
+impl<'a, 'de> Visitor<'de> for ComponentSeqVisitor<'a> {
     type Value = Vec<DynamicProperties>;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {

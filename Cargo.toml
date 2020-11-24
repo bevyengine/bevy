@@ -1,62 +1,72 @@
 [package]
 name = "bevy"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2018"
 authors = [
-    "Bevy Contributors <bevyengine@gmail.com>",
-    "Carter Anderson <mcanders1@gmail.com>",
+  "Bevy Contributors <bevyengine@gmail.com>",
+  "Carter Anderson <mcanders1@gmail.com>",
 ]
-description = "A refreshingly simple data-driven game engine and app framework"
-homepage = "https://bevyengine.org"
-repository = "https://github.com/bevyengine/bevy"
-license = "MIT"
-keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 categories = ["game-engines", "graphics", "gui", "rendering"]
-readme = "README.md"
+description = "A refreshingly simple data-driven game engine and app framework"
 exclude = ["assets/**/*", "tools/**/*", ".github/**/*", "crates/**/*"]
+homepage = "https://bevyengine.org"
+keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/bevyengine/bevy"
+
+[workspace]
+exclude = ["benches"]
+members = ["crates/*", "examples/ios"]
 
 [features]
 default = [
-    "bevy_audio",
-    "bevy_gilrs",
-    "bevy_gltf",
-    "bevy_wgpu",
-    "bevy_winit",
-    "render",
-    "dynamic_plugins",
-    "png",
-    "hdr",
-    "mp3",
-    "x11",
+  "bevy_audio",
+  "bevy_dynamic_plugin",
+  "bevy_gilrs",
+  "bevy_gltf",
+  "bevy_wgpu",
+  "bevy_winit",
+  "render",
+  "png",
+  "hdr",
+  "mp3",
+  "x11",
 ]
-profiler = ["bevy_ecs/profiler", "bevy_diagnostic/profiler"]
-wgpu_trace = ["bevy_wgpu/trace"]
-dynamic_plugins = [
-    "bevy_core/dynamic_plugins",
-    "bevy_app/dynamic_plugins",
-    "bevy_type_registry/dynamic_plugins",
-]
+
+# Force dynamic linking, which improves iterative compile times
+dynamic = ["bevy_dylib"]
+
 # Rendering support
-render = ["bevy_pbr", "bevy_render", "bevy_sprite", "bevy_text", "bevy_ui"]
+render = ["bevy_internal/bevy_pbr", "bevy_internal/bevy_render", "bevy_internal/bevy_sprite", "bevy_internal/bevy_text", "bevy_internal/bevy_ui"]
+
+# Optional bevy crates
+bevy_audio = ["bevy_internal/bevy_audio"]
+bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
+bevy_gilrs = ["bevy_internal/bevy_gilrs"]
+bevy_gltf = ["bevy_internal/bevy_gltf"]
+bevy_wgpu = ["bevy_internal/bevy_wgpu"]
+bevy_winit = ["bevy_internal/bevy_winit"]
+
+trace_chrome = ["bevy_internal/trace_chrome"]
+trace = ["bevy_internal/trace"]
+wgpu_trace = ["bevy_internal/wgpu_trace"]
+
 # Image format support for texture loading (PNG and HDR are enabled by default)
-png = ["bevy_render/png"]
-hdr = ["bevy_render/hdr"]
+hdr = ["bevy_internal/hdr"]
+png = ["bevy_internal/png"]
 
 # Audio format support (MP3 is enabled by default)
-mp3 = ["bevy_audio/mp3"]
-flac = ["bevy_audio/flac"]
-wav = ["bevy_audio/wav"]
-vorbis = ["bevy_audio/vorbis"]
+flac = ["bevy_internal/flac"]
+mp3 = ["bevy_internal/mp3"]
+vorbis = ["bevy_internal/vorbis"]
+wav = ["bevy_internal/wav"]
 
-serialize = ["bevy_input/serialize"]
+serialize = ["bevy_internal/serialize"]
 
 # Display server protocol support (X11 is enabled by default)
-wayland = ["bevy_winit/wayland"]
-x11 = ["bevy_winit/x11"]
-
-[workspace]
-members = ["crates/*", "crates/bevy_ecs/hecs"]
-exclude = ["benches"]
+wayland = ["bevy_internal/wayland"]
+x11 = ["bevy_internal/x11"]
 
 [dependencies]
 # bevy
@@ -86,15 +96,14 @@ bevy_ui = { path = "crates/bevy_ui", optional = true, version = "0.2.1" }
 bevy_wgpu = { path = "crates/bevy_wgpu", optional = true, version = "0.2.1" }
 bevy_winit = { path = "crates/bevy_winit", optional = true, version = "0.2.1" }
 bevy_gilrs = { path = "crates/bevy_gilrs", optional = true, version = "0.2.1" }
+bevy_dylib = {path = "crates/bevy_dylib", version = "0.3.0", default-features = false, optional = true}
+bevy_internal = {path = "crates/bevy_internal", version = "0.3.0", default-features = false}
 
 [dev-dependencies]
+anyhow = "1.0"
 rand = "0.7.3"
-serde = { version = "1", features = ["derive"] }
-log = "0.4"
-
-#wasm
-console_error_panic_hook = "0.1.6"
-console_log = { version = "0.2", features = ["color"] }
+ron = "0.6"
+serde = {version = "1", features = ["derive"]}
 
 [[example]]
 name = "hello_world"
@@ -113,8 +122,12 @@ name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
 
 [[example]]
-name = "load_model"
-path = "examples/3d/load_model.rs"
+name = "contributors"
+path = "examples/2d/contributors.rs"
+
+[[example]]
+name = "load_gltf"
+path = "examples/3d/load_gltf.rs"
 
 [[example]]
 name = "msaa"
@@ -149,6 +162,10 @@ name = "animation_custom"
 path = "examples/animation/animation_custom.rs"
 
 [[example]]
+name = "custom_loop"
+path = "examples/app/custom_loop.rs"
+
+[[example]]
 name = "empty_defaults"
 path = "examples/app/empty_defaults.rs"
 
@@ -157,12 +174,20 @@ name = "empty"
 path = "examples/app/empty.rs"
 
 [[example]]
+name = "logs"
+path = "examples/app/logs.rs"
+
+[[example]]
 name = "headless"
 path = "examples/app/headless.rs"
 
 [[example]]
 name = "plugin"
 path = "examples/app/plugin.rs"
+
+[[example]]
+name = "plugin_group"
+path = "examples/app/plugin_group.rs"
 
 [[example]]
 name = "return_after_run"
@@ -179,6 +204,10 @@ path = "examples/asset/hot_asset_reloading.rs"
 [[example]]
 name = "asset_loading"
 path = "examples/asset/asset_loading.rs"
+
+[[example]]
+name = "custom_asset"
+path = "examples/asset/custom_asset.rs"
 
 [[example]]
 name = "audio"
@@ -201,12 +230,20 @@ name = "startup_system"
 path = "examples/ecs/startup_system.rs"
 
 [[example]]
+name = "system_chaining"
+path = "examples/ecs/system_chaining.rs"
+
+[[example]]
 name = "ecs_guide"
 path = "examples/ecs/ecs_guide.rs"
 
 [[example]]
 name = "parallel_query"
 path = "examples/ecs/parallel_query.rs"
+
+[[example]]
+name = "hierarchy"
+path = "examples/ecs/hierarchy.rs"
 
 [[example]]
 name = "breakout"
@@ -229,8 +266,24 @@ name = "keyboard_input_events"
 path = "examples/input/keyboard_input_events.rs"
 
 [[example]]
+name = "char_input_events"
+path = "examples/input/char_input_events.rs"
+
+[[example]]
 name = "gamepad_input"
 path = "examples/input/gamepad_input.rs"
+
+[[example]]
+name = "gamepad_input_events"
+path = "examples/input/gamepad_input_events.rs"
+
+[[example]]
+name = "touch_input"
+path = "examples/input/touch_input.rs"
+
+[[example]]
+name = "touch_input_events"
+path = "examples/input/touch_input_events.rs"
 
 [[example]]
 name = "scene"
@@ -241,12 +294,24 @@ name = "properties"
 path = "examples/scene/properties.rs"
 
 [[example]]
+name = "mesh_custom_attribute"
+path = "examples/shader/mesh_custom_attribute.rs"
+
+[[example]]
 name = "shader_custom_material"
 path = "examples/shader/shader_custom_material.rs"
 
 [[example]]
+name = "array_texture"
+path = "examples/shader/array_texture.rs"
+
+[[example]]
 name = "shader_defs"
 path = "examples/shader/shader_defs.rs"
+
+[[example]]
+name = "bevymark"
+path = "examples/tools/bevymark.rs"
 
 [[example]]
 name = "button"
@@ -255,6 +320,10 @@ path = "examples/ui/button.rs"
 [[example]]
 name = "text"
 path = "examples/ui/text.rs"
+
+[[example]]
+name = "text_debug"
+path = "examples/ui/text_debug.rs"
 
 [[example]]
 name = "font_atlas_debug"
@@ -290,3 +359,23 @@ required-features = []
 name = "winit_wasm"
 path = "examples/wasm/winit_wasm.rs"
 required-features = ["bevy_winit"]
+
+[[example]]
+name = "assets_wasm"
+path = "examples/wasm/assets_wasm.rs"
+required-features = ["bevy_winit"]
+
+[[example]]
+crate-type = ["cdylib"]
+name = "android"
+path = "examples/android/android.rs"
+
+[package.metadata.android]
+apk_label = "Bevy Example"
+assets = "assets"
+res = "assets/android-res"
+icon = "@mipmap/ic_launcher"
+build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
+min_sdk_version = 16
+target_sdk_version = 29
+

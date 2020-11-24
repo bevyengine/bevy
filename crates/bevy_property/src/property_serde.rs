@@ -25,6 +25,7 @@ impl<'a> Serializable<'a> {
         }
     }
 }
+
 pub struct PropertyValueSerializer<'a, T>
 where
     T: Property + Serialize,
@@ -225,17 +226,17 @@ impl<'a, 'de> DeserializeSeed<'de> for DynamicPropertiesDeserializer<'a> {
     where
         D: serde::Deserializer<'de>,
     {
-        deserializer.deserialize_map(DynamicPropertiesVisiter {
+        deserializer.deserialize_map(DynamicPropertiesVisitor {
             registry: self.registry,
         })
     }
 }
 
-struct DynamicPropertiesVisiter<'a> {
+struct DynamicPropertiesVisitor<'a> {
     registry: &'a PropertyTypeRegistry,
 }
 
-impl<'a, 'de> Visitor<'de> for DynamicPropertiesVisiter<'a> {
+impl<'a, 'de> Visitor<'de> for DynamicPropertiesVisitor<'a> {
     type Value = DynamicProperties;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -271,12 +272,13 @@ impl<'a, 'de> DeserializeSeed<'de> for PropertyDeserializer<'a> {
             })?;
             registration.deserialize(deserializer, self.registry)
         } else {
-            deserializer.deserialize_any(AnyPropVisiter {
+            deserializer.deserialize_any(AnyPropVisitor {
                 registry: self.registry,
             })
         }
     }
 }
+
 pub struct SeqPropertyDeserializer<'a> {
     registry: &'a PropertyTypeRegistry,
 }
@@ -288,17 +290,17 @@ impl<'a, 'de> DeserializeSeed<'de> for SeqPropertyDeserializer<'a> {
     where
         D: serde::Deserializer<'de>,
     {
-        deserializer.deserialize_seq(SeqPropertyVisiter {
+        deserializer.deserialize_seq(SeqPropertyVisitor {
             registry: self.registry,
         })
     }
 }
 
-pub struct SeqPropertyVisiter<'a> {
+pub struct SeqPropertyVisitor<'a> {
     registry: &'a PropertyTypeRegistry,
 }
 
-impl<'a, 'de> Visitor<'de> for SeqPropertyVisiter<'a> {
+impl<'a, 'de> Visitor<'de> for SeqPropertyVisitor<'a> {
     type Value = DynamicProperties;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -337,17 +339,17 @@ impl<'a, 'de> DeserializeSeed<'de> for MapPropertyDeserializer<'a> {
     where
         D: serde::Deserializer<'de>,
     {
-        deserializer.deserialize_map(MapPropertyVisiter {
+        deserializer.deserialize_map(MapPropertyVisitor {
             registry: self.registry,
         })
     }
 }
 
-struct MapPropertyVisiter<'a> {
+struct MapPropertyVisitor<'a> {
     registry: &'a PropertyTypeRegistry,
 }
 
-impl<'a, 'de> Visitor<'de> for MapPropertyVisiter<'a> {
+impl<'a, 'de> Visitor<'de> for MapPropertyVisitor<'a> {
     type Value = DynamicProperties;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -371,11 +373,11 @@ impl<'a, 'de> Visitor<'de> for MapPropertyVisiter<'a> {
     }
 }
 
-struct AnyPropVisiter<'a> {
+struct AnyPropVisitor<'a> {
     registry: &'a PropertyTypeRegistry,
 }
 
-impl<'a, 'de> Visitor<'de> for AnyPropVisiter<'a> {
+impl<'a, 'de> Visitor<'de> for AnyPropVisitor<'a> {
     type Value = Box<dyn Property>;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {

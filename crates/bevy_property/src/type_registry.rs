@@ -1,12 +1,12 @@
 use crate::{DeserializeProperty, Property};
 use bevy_utils::{HashMap, HashSet};
-use std::any::TypeId;
+use std::{any::TypeId, fmt};
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct PropertyTypeRegistry {
     registrations: HashMap<String, PropertyTypeRegistration>,
     short_names: HashMap<String, String>,
-    ambigous_names: HashSet<String>,
+    ambiguous_names: HashSet<String>,
 }
 
 impl PropertyTypeRegistry {
@@ -20,10 +20,11 @@ impl PropertyTypeRegistry {
 
     fn add_registration(&mut self, registration: PropertyTypeRegistration) {
         let short_name = registration.short_name.to_string();
-        if self.short_names.contains_key(&short_name) || self.ambigous_names.contains(&short_name) {
+        if self.short_names.contains_key(&short_name) || self.ambiguous_names.contains(&short_name)
+        {
             // name is ambiguous. fall back to long names for all ambiguous types
             self.short_names.remove(&short_name);
-            self.ambigous_names.insert(short_name);
+            self.ambiguous_names.insert(short_name);
         } else {
             self.short_names
                 .insert(short_name, registration.name.to_string());
@@ -70,6 +71,24 @@ pub struct PropertyTypeRegistration {
     ) -> Result<Box<dyn Property>, erased_serde::Error>,
     pub short_name: String,
     pub name: &'static str,
+}
+
+impl fmt::Debug for PropertyTypeRegistration {
+    fn fmt<'a>(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("PropertyTypeRegistration")
+            .field("ty", &self.ty)
+            .field(
+                "deserialize_fn",
+                &(self.deserialize_fn
+                    as fn(
+                        deserializer: &'a mut dyn erased_serde::Deserializer<'a>,
+                        property_type_registry: &'a PropertyTypeRegistry,
+                    ) -> Result<Box<dyn Property>, erased_serde::Error>),
+            )
+            .field("short_name", &self.short_name)
+            .field("name", &self.name)
+            .finish()
+    }
 }
 
 impl PropertyTypeRegistration {
