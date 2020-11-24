@@ -50,7 +50,7 @@ impl Default for Clip {
         Self {
             warp: true,
             duration: 0.0,
-            // NOTE: Since the root has no parent in this context it points to a place outside the vec bounds
+            // ? NOTE: Since the root has no parent in this context it points to a place outside the vec bounds
             entities: vec![(u16::MAX, String::default())],
             attribute: vec![],
             curves: vec![],
@@ -139,6 +139,7 @@ impl Clip {
     }
 
     /// Number of animated properties in this clip
+    #[inline(always)]
     pub fn len(&self) -> u16 {
         self.curves.len() as u16
     }
@@ -166,23 +167,32 @@ impl Clip {
         path
     }
 
+    /// Clip duration
+    #[inline(always)]
     pub fn duration(&self) -> f32 {
         self.duration
     }
 
+    /// Updates the clip duration based of the inserted and removed curve durations
+    /// *WARNING* The curve must be already replaced before call this function
     fn update_duration(&mut self, removed_duration: f32, inserted_duration: f32) {
-        if removed_duration == inserted_duration { // Precise match
-             // Nothing left todo
+        if removed_duration == inserted_duration {
+            // If precisely matches the inserted curve duration we don't need to update anything
         } else if float_cmp::approx_eq!(f32, removed_duration, self.duration, ulps = 2) {
-            // TODO: Review this approximated comparison
+            // At this point the duration for the removed curve is the same as self.duration
+            // this mean that we have to compute the clip duration from scratch;
+            //
+            // NOTE: I opted for am approximated float comparison because it's better
+            // to do all the this work than get a hard to debug glitch
+            // TODO: Review approximated comparison
 
-            // Heavy path, the clip duration needs
             self.duration = self
                 .curves
                 .iter()
                 .map(|c| c.duration())
                 .fold(0.0, |acc, x| acc.max(x));
         } else {
+            // Faster clip duration update
             self.duration = self.duration.max(inserted_duration);
         }
     }
@@ -196,6 +206,7 @@ pub enum CurveUntyped {
     Vec4(Curve<Vec4>),
     Quat(Curve<Quat>),
     //Handle(Curve<HandleUntyped>), // TODO: Requires (de)serialize!
+    // TODO: Color(Curve<Color>),
 }
 
 macro_rules! untyped_fn {
@@ -246,6 +257,8 @@ where
             "samples and values must have the same length"
         );
 
+        assert!(samples.len() > 0, "empty curve");
+
         // Make sure the
         assert!(
             samples
@@ -273,38 +286,57 @@ where
     /// sampling takes longer to evaluate as much as time get closer to curve duration
     /// and it get worse with more keyframes.
     pub fn sample(&self, time: f32) -> T {
-        self.sample_forward(0, time).1
+        // Index guessing gives a small search optimization
+        let index = if time < self.duration() * 0.5 {
+            0
+        } else {
+            self.samples.len() - 1
+        };
+
+        self.sample_indexed(index, time).1
     }
 
     /// Samples the curve starting from some keyframe index, this make the common case `O(1)`,
     /// use only when time advancing forwards
-    pub fn sample_forward(&self, mut index: usize, time: f32) -> (usize, T) {
+    pub fn sample_indexed(&self, mut index: usize, time: f32) -> (usize, T) {
         // Adjust for the current keyframe index
         let last_index = self.samples.len() - 1;
-        loop {
-            if index > last_index {
-                return (last_index, self.values.last().unwrap().clone());
-            }
 
-            if self.samples[index] < time {
+        index = index.max(0).min(last_index);
+        if self.samples[index] < time {
+            // Forward search
+            loop {
+                if index == last_index {
+                    return (last_index, self.values.last().unwrap().clone());
+                }
                 index += 1;
-            } else {
-                break;
+
+                if self.samples[index] >= time {
+                    break;
+                }
+            }
+        } else {
+            // Backward search
+            loop {
+                if index == 0 {
+                    return (0, self.values.last().unwrap().clone());
+                }
+
+                let i = index - 1;
+                if self.samples[i] <= time {
+                    break;
+                }
+
+                index = i;
             }
         }
 
-        let value = if index == 0 {
-            self.values[0].clone()
-        } else {
-            // Lerp the value
-            let i = index - 1;
-            let previous_time = self.samples[i];
-            let t = (time - previous_time) / (self.samples[index] - previous_time);
-            //println!("{} => ({}, {}) => {}", time, i, index, t);
-            //let t = t.max(0.0).min(1.0);
-            debug_assert!(t >= 0.0 && t <= 1.0); // Checks if it's required to normalize t
-            T::lerp(&self.values[i], &self.values[index], t)
-        };
+        // Lerp the value
+        let i = index - 1;
+        let previous_time = self.samples[i];
+        let t = (time - previous_time) / (self.samples[index] - previous_time);
+        debug_assert!(t >= 0.0 && t <= 1.0, "t = {} but should be normalized", t); // Checks if it's required to normalize t
+        let value = T::lerp(&self.values[i], &self.values[index], t);
 
         (index, value)
     }
@@ -317,6 +349,7 @@ where
     // }
 
     // pub fn remove(&mut self, index: usize) {
+    //assert!(samples.len() > 1, "curve can't be empty");
     // }
 
     pub fn iter(&self) -> impl Iterator<Item = (f32, &T)> {
@@ -390,7 +423,9 @@ impl Animator {
     }
 }
 
-// TODO: Bind asset properties (edge case), offset
+// TODO: Bind asset properties (edge case), notice that this feature will be in hold
+// until the atelier assets get through. I will probably just store pointers offsets
+// because it's safe with less conditions and not that expensive
 
 #[derive(Debug)]
 struct Binds {
@@ -815,6 +850,8 @@ pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resource
         // Time scales by component
         let delta_time = delta_time * animator.time_scale;
 
+        // TODO: Add layer mask or a trimmed clip with reused curves and stuff
+        // TODO: Add layer blending
         //for layer in &mut animator.layers {
         if let Some(layer) = animator.layers.first_mut() {
             let clip_index = layer.clip;
@@ -881,25 +918,25 @@ pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resource
 
                         match curve {
                             CurveUntyped::Float(v) => {
-                                let (k, v) = v.sample_forward(*keyframe, time);
+                                let (k, v) = v.sample_indexed(*keyframe, time);
                                 let attr = unsafe { &mut *(ptr.0 as *mut f32) };
                                 *attr = v;
                                 *keyframe = k;
                             }
                             CurveUntyped::Vec3(v) => {
-                                let (k, v) = v.sample_forward(*keyframe, time);
+                                let (k, v) = v.sample_indexed(*keyframe, time);
                                 let attr = unsafe { &mut *(ptr.0 as *mut Vec3) };
                                 *attr = v;
                                 *keyframe = k;
                             }
                             CurveUntyped::Vec4(v) => {
-                                let (k, v) = v.sample_forward(*keyframe, time);
+                                let (k, v) = v.sample_indexed(*keyframe, time);
                                 let attr = unsafe { &mut *(ptr.0 as *mut Vec4) };
                                 *attr = v;
                                 *keyframe = k;
                             }
                             CurveUntyped::Quat(v) => {
-                                let (k, v) = v.sample_forward(*keyframe, time);
+                                let (k, v) = v.sample_indexed(*keyframe, time);
                                 let attr = unsafe { &mut *(ptr.0 as *mut Quat) };
                                 *attr = v;
                                 *keyframe = k;
@@ -940,10 +977,26 @@ mod tests {
 
     #[test]
     fn curve_evaluation() {
-        let curve = Curve::new(vec![0.0, 0.5, 1.0], vec![0.0, 1.0, 2.0]);
+        let curve = Curve::new(
+            vec![0.0, 0.25, 0.5, 0.75, 1.0],
+            vec![0.0, 0.5, 1.0, 1.5, 2.0],
+        );
         assert_eq!(curve.sample(0.5), 1.0);
-        assert_eq!(curve.sample_forward(0, 0.75), (2, 1.5));
-        // TODO: Backwards sampling
+
+        let mut i0 = 0;
+        let mut e0 = 0.0;
+        for v in &[0.1, 0.3, 0.7, 0.4, 0.2, 0.0, 0.4, 0.85, 1.0] {
+            let v = *v;
+            let (i1, e1) = curve.sample_indexed(i0, v);
+            assert_eq!(e1, 2.0 * v);
+            if e1 > e0 {
+                assert!(i1 >= i0);
+            } else {
+                assert!(i1 <= i0);
+            }
+            e0 = e1;
+            i0 = i1;
+        }
     }
 
     #[test]
@@ -1007,6 +1060,7 @@ mod tests {
         check_for_properties!(Vec3);
         //check_for_properties!(Vec4); // TODO: Vec4 should implement at least Property
         check_for_properties!(Quat);
+        //check_for_properties!(Color); // TODO: sRGB Color
     }
 
     // ? NOTE: Don't remove this test, right now we can skip this test

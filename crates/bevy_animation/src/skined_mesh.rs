@@ -299,6 +299,7 @@ pub(crate) fn mesh_skinner_debugger_update(
                 debugger.entity = commands
                     .spawn(PbrBundle {
                         mesh: mesh_handle.clone(),
+                        // TODO: Ignore depth test and draw skeleton on top of everything
                         ..Default::default()
                     })
                     .current_entity()
