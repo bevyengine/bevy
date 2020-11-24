@@ -9,20 +9,27 @@ use bevy_property::{Properties, Property, PropertyType};
 use bevy_transform::prelude::*;
 use bevy_type_registry::{TypeRegistry, TypeUuid};
 use bevy_utils::HashSet;
-use serde::{Deserialize, Serialize};
+//use serde::{Deserialize, Serialize};
 use std::any::TypeId;
+use std::collections::hash_map::DefaultHasher;
 use std::convert::TryFrom;
+use std::hash::{Hash, Hasher};
 use std::ptr::null_mut;
 
 use super::lerping::LerpValue;
 
-// TODO: Curve/Curve need a validation during deserialization because they are
+// TODO: Curve/Clip need a validation during deserialization because they are
 // structured as SOA (struct of arrays), so the vec's length must match
 
-#[derive(Debug, Serialize, Deserialize, TypeUuid)]
+/// Used to make fast string comparisons, don't serialize
+#[derive(Debug, PartialEq, Eq)]
+struct HashCode(u64);
+
+// TODO: impl Serialize, Deserialize
+#[derive(Debug, TypeUuid)]
 #[uuid = "4c76e6c3-706d-4a74-af8e-4f48033e0733"]
 pub struct Clip {
-    #[serde(default = "clip_default_warp")]
+    //#[serde(default = "clip_default_warp")]
     pub warp: bool,
     duration: f32,
     /// Entity identification parent index on this same vec and name
@@ -30,13 +37,13 @@ pub struct Clip {
     /// Attribute is made by the entity index and a string that combines
     /// component name followed by their attributes spaced by a period,
     /// like so: `"Transform.translation.x"`
-    attribute: Vec<(u16, String)>,
+    attribute: Vec<(u16, String, HashCode)>,
     curves: Vec<CurveUntyped>,
 }
 
-fn clip_default_warp() -> bool {
-    true
-}
+// fn clip_default_warp() -> bool {
+//     true
+// }
 
 impl Default for Clip {
     fn default() -> Self {
@@ -55,7 +62,7 @@ impl Clip {
     /// Property to be animated must be in the following format `"path/to/named_entity@Transform.translation.x"`
     /// where the left side `@` defines a path to the entity to animate,
     /// while the right side the path to a property to animate starting from the component.
-    pub fn add_animated_prop(&mut self, property_path: &str, curve: CurveUntyped) {
+    pub fn add_animated_prop(&mut self, property_path: &str, mut curve: CurveUntyped) {
         // Clip an only have some amount of curves and entities
         // this limitation was added to save memory (but you can increase it if you want)
         assert!(
@@ -66,8 +73,14 @@ impl Clip {
         let path =
             property_path.split_at(property_path.rfind('@').expect("property path missing @"));
 
+        let mut entity_created = false;
         let mut entity = 0; // Start search from root
         for name in path.0.split('/') {
+            // Ignore the first '/' or '///'
+            if name.is_empty() {
+                continue;
+            }
+
             if let Some(e) = self
                 .entities
                 .iter()
@@ -79,17 +92,49 @@ impl Clip {
                 // Add entity
                 let e = self.entities.len();
                 self.entities.push((entity, name.to_string()));
+                entity_created = true;
                 // Soft limit added to save memory, identical to the curve limit
                 entity = u16::try_from(e).expect("entities limit reached");
             }
         }
 
-        // TODO: also replace the curve
-        // TODO: we can only have (u16 - 1) max
-        // TODO: "...@Transform.translation" and "...@Transform.translation.x" can't live with each other
+        let property = path.1.split_at(1).1;
+
+        // Faster comparison
+        let mut hasher = DefaultHasher::default();
+        property.hash(&mut hasher);
+        let hash = HashCode(hasher.finish());
+
+        // If some entity was created it means this property is a new one
+        if !entity_created {
+            for (i, attr) in self.attribute.iter().enumerate() {
+                if attr.0 != entity {
+                    continue;
+                }
+
+                // NOTE: "...@Transform.translation" and "...@Transform.translation.x" can't live with each other
+                // but since Properties aren't implemented for f32, Vec2, Vec3, Vec4 and Quat
+                // (all relevant animated type values) the check rule could be simplified (a lot)
+                //
+                // The test case `test::unhandled_properties_implementation_for_types` will ensure that
+
+                if hash == attr.2 && property == attr.1 {
+                    // Found a property are equal the one been inserted
+                    // Replace curve, the property was already added, this is very important
+                    // because it guarantees that each property will have unique access to some
+                    // attribute during the update stages
+
+                    let inserted_duration = curve.duration();
+                    std::mem::swap(&mut self.curves[i], &mut curve);
+                    self.update_duration(curve.duration(), inserted_duration);
+
+                    return;
+                }
+            }
+        }
+
         self.duration = self.duration.max(curve.duration());
-        self.attribute
-            .push((entity, path.1.split_at(1).1.to_string()));
+        self.attribute.push((entity, property.to_owned(), hash));
         self.curves.push(curve);
     }
 
@@ -103,7 +148,7 @@ impl Clip {
     /// The clip stores a property path in a specific way to improve search performance
     /// thus it needs to rebuilt the curve property path in the human readable format
     pub fn get_property_path(&self, index: u16) -> String {
-        let (entity, name) = &self.attribute[index as usize];
+        let (entity, name, _) = &self.attribute[index as usize];
         let mut path = format!("@{}", name);
 
         let mut first = true;
@@ -124,9 +169,27 @@ impl Clip {
     pub fn duration(&self) -> f32 {
         self.duration
     }
+
+    fn update_duration(&mut self, removed_duration: f32, inserted_duration: f32) {
+        if removed_duration == inserted_duration { // Precise match
+             // Nothing left todo
+        } else if float_cmp::approx_eq!(f32, removed_duration, self.duration, ulps = 2) {
+            // TODO: Review this approximated comparison
+
+            // Heavy path, the clip duration needs
+            self.duration = self
+                .curves
+                .iter()
+                .map(|c| c.duration())
+                .fold(0.0, |acc, x| acc.max(x));
+        } else {
+            self.duration = self.duration.max(inserted_duration);
+        }
+    }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+// TODO: impl Serialize, Deserialize
+#[derive(Debug)]
 pub enum CurveUntyped {
     Float(Curve<f32>),
     Vec3(Curve<Vec3>),
@@ -162,7 +225,8 @@ impl CurveUntyped {
     }
 }
 
-#[derive(Default, Debug, Serialize, Deserialize)]
+// TODO: impl Serialize, Deserialize
+#[derive(Default, Debug)]
 pub struct Curve<T> {
     // TODO: Linear and Spline variants
     samples: Vec<f32>,
@@ -273,6 +337,7 @@ pub struct Layer {
     pub weight: f32,
     pub clip: u16,
     pub time: f32,
+    //pub time_scale: f32, // TODO: Add time_scale
     keyframe: Vec<usize>,
 }
 
@@ -302,6 +367,7 @@ impl Animator {
         if let Some(i) = self.clips.iter().position(|c| *c == clip) {
             i as u16
         } else {
+            // TODO: assert too many clips ...
             let i = self.clips.len();
             self.clips.push(clip);
             i as u16
@@ -319,10 +385,12 @@ impl Animator {
         layer_index
     }
 
-    pub fn clips_len(&self) -> usize {
-        self.clips.len()
+    pub fn clips_len(&self) -> u16 {
+        self.clips.len() as u16
     }
 }
+
+// TODO: Bind asset properties (edge case), offset
 
 #[derive(Debug)]
 struct Binds {
@@ -363,6 +431,7 @@ struct ClipResourceProviderState {
     clip_event_reader: EventReader<AssetEvent<Clip>>,
 }
 
+// TODO: Refactor in hope to reuse more code (maybe just create more functions)
 #[tracing::instrument(skip(world, resources))]
 pub(crate) fn animator_binding_system(world: &mut World, resources: &mut Resources) {
     let system_id = SystemId(0); // ? NOTE: shouldn't be required to match the system id
@@ -438,7 +507,7 @@ pub(crate) fn animator_binding_system(world: &mut World, resources: &mut Resourc
                     let mut prev_component = TypeId::of::<MissingComponentMarker>();
                     let mut prev_component_short_name = "";
 
-                    for (curve_index, (entity_index, attr_path)) in
+                    for (curve_index, (entity_index, attr_path, _)) in
                         clip.attribute.iter().enumerate()
                     {
                         let mut commit = false;
@@ -790,6 +859,8 @@ pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resource
                     // Advance state time
                     layer.time = time;
 
+                    // TODO: handle backwards time
+
                     for ((ptr, keyframe), curve_index) in bind
                         .attributes
                         .iter()
@@ -834,6 +905,8 @@ pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resource
                                 *keyframe = k;
                             }
                         }
+
+                        // TODO: Make sure to update the components states to 'Changed'
                     }
                 }
             }
@@ -869,7 +942,7 @@ mod tests {
     fn curve_evaluation() {
         let curve = Curve::new(vec![0.0, 0.5, 1.0], vec![0.0, 1.0, 2.0]);
         assert_eq!(curve.sample(0.5), 1.0);
-        assert_eq!(curve.sample_forward(0, 0.75), (1, 1.5));
+        assert_eq!(curve.sample_forward(0, 0.75), (2, 1.5));
         // TODO: Backwards sampling
     }
 
@@ -889,26 +962,74 @@ mod tests {
     fn create_clip() {
         let mut clip = Clip::default();
         let curve = Curve::from_linear(0.0, 1.0, 0.0, 1.0);
-        clip.add_animated_prop("Root/Ball@Sphere.radius", CurveUntyped::Float(curve));
+        let prop = "/Root/Ball@Sphere.radius";
+        clip.add_animated_prop(prop, CurveUntyped::Float(curve));
+        assert_eq!(clip.get_property_path(0), prop);
     }
 
     #[test]
-    #[should_panic]
-    fn clip_add_nested_property() {
+    fn clip_replace_property() {
+        // NOTE: This test is very important because it guarantees that each property have unique
+        // access to some attribute during the update stages
         let mut clip = Clip::default();
-        let position = Curve::from_linear(0.0, 1.0, Vec3::zero(), Vec3::unit_y());
-        let y = Curve::from_linear(0.0, 1.0, 0.0, 1.0);
+        let prop = "/Root/Ball@Sphere.radius";
         clip.add_animated_prop(
-            "Root/Ball@Transform.translation",
-            CurveUntyped::Vec3(position),
+            prop,
+            CurveUntyped::Float(Curve::from_linear(0.0, 1.0, 0.0, 1.0)),
         );
-        // NOTE: Right now "Transform.translation.y" can't be accessed because Vec3 doesn't impl Properties
-        clip.add_animated_prop("Root/Ball@Transform.translation.y", CurveUntyped::Float(y));
+        clip.add_animated_prop(
+            prop,
+            CurveUntyped::Float(Curve::from_linear(0.0, 1.2, 0.1, 2.0)),
+        );
+        assert_eq!(clip.len(), 1);
+        assert_eq!(clip.duration(), 1.2);
     }
 
     #[test]
-    #[should_panic]
-    fn clip_get_property_path() {}
+    fn unhandled_properties_implementation_for_types() {
+        // This is take as granted to simplify the function `Clip::add_animated_prop`
+        // you can give a look into it to see more about their implications
 
-    // TODO: Add tests
+        macro_rules! check_for_properties {
+            ($t:ty) => {{
+                let v = <$t>::default();
+                let p: &dyn Property = &v;
+                assert!(
+                    p.as_properties().is_none(),
+                    "unhandled impl `Properties` for {}",
+                    stringify!($t)
+                );
+            }};
+        }
+
+        check_for_properties!(f32);
+        check_for_properties!(Vec2);
+        check_for_properties!(Vec3);
+        //check_for_properties!(Vec4); // TODO: Vec4 should implement at least Property
+        check_for_properties!(Quat);
+    }
+
+    // ? NOTE: Don't remove this test, right now we can skip this test
+    // ? because all the animated type values (Vec2, Vec3 ...) don't
+    // ? implement the `Properties` type and thus none of their inner
+    // ? can be accessed
+    // #[test]
+    // #[should_panic]
+    // fn clip_add_nested_property() {
+    //     let mut clip = Clip::default();
+    //     let position = Curve::from_linear(0.0, 1.0, Vec3::zero(), Vec3::unit_y());
+    //     let y = Curve::from_linear(0.0, 1.0, 0.0, 1.0);
+    //     clip.add_animated_prop(
+    //         "Root/Ball@Transform.translation",
+    //         CurveUntyped::Vec3(position),
+    //     );
+    //     // NOTE: Right now "Transform.translation.y" can't be accessed because Vec3 doesn't impl Properties
+    //     clip.add_animated_prop("Root/Ball@Transform.translation.y", CurveUntyped::Float(y));
+    // }
+
+    // TODO: Add tests for hierarch change (creation and deletion)
+    // TODO: Add tests for entity archetype change
+    // TODO: Add tests for entities with same Name
+    // TODO: Add tests for animated handle (impl missing)
+    // TODO: Add tests for animated asset properties (impl missing)
 }
