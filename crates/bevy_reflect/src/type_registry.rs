@@ -32,10 +32,9 @@ pub trait GetTypeRegistration {
 impl TypeRegistry {
     pub fn register<T>(&mut self)
     where
-        T: Reflect,
+        T: GetTypeRegistration,
     {
-        let registration = TypeRegistration::of::<T>();
-        self.add_registration(registration);
+        self.add_registration(T::get_type_registration());
     }
 
     pub fn add_registration(&mut self, registration: TypeRegistration) {

@@ -302,7 +302,7 @@ mod tests {
         let serialized = to_string_pretty(&serializer, PrettyConfig::default()).unwrap();
 
         let mut deserializer = Deserializer::from_str(&serialized).unwrap();
-        let reflect_deserializer = ReflectDeserializer::new(&mut registry);
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
         let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
         let dynamic_struct = value.take::<DynamicStruct>().unwrap();
 

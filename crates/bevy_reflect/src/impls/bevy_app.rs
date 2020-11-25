@@ -49,10 +49,8 @@ pub trait RegisterTypeBuilder {
 impl RegisterTypeBuilder for AppBuilder {
     fn register_type<T: GetTypeRegistration>(&mut self) -> &mut Self {
         {
-            let registry = &mut self.resources().get_mut::<TypeRegistryArc>().unwrap();
-            registry
-                .write()
-                .add_registration(T::get_type_registration());
+            let registry = self.resources().get_mut::<TypeRegistryArc>().unwrap();
+            registry.write().register::<T>();
         }
         self
     }
