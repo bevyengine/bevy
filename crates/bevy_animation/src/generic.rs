@@ -8,11 +8,11 @@ use bevy_math::prelude::*;
 use bevy_property::{Properties, Property, PropertyType};
 use bevy_transform::prelude::*;
 use bevy_type_registry::{TypeRegistry, TypeUuid};
-use bevy_utils::HashSet;
+use std::collections::HashSet;
 //use serde::{Deserialize, Serialize};
-use std::any::TypeId;
 use std::convert::TryFrom;
 use std::ptr::null_mut;
+use std::{any::TypeId, hash::Hash};
 
 use super::lerping::LerpValue;
 
@@ -372,13 +372,25 @@ where
     }
 }
 
-#[derive(Default, Debug, Clone, Properties)]
+#[derive(Debug, Clone, Properties)]
 pub struct Layer {
     pub weight: f32,
     pub clip: u16,
     pub time: f32,
-    //pub time_scale: f32, // TODO: Add time_scale
+    pub time_scale: f32,
     keyframe: Vec<usize>,
+}
+
+impl Default for Layer {
+    fn default() -> Self {
+        Layer {
+            weight: 1.0,
+            clip: 0,
+            time: 0.0,
+            time_scale: 1.0,
+            keyframe: vec![],
+        }
+    }
 }
 
 #[derive(Debug, Properties)]
@@ -476,6 +488,23 @@ struct Ptr(*mut u8);
 unsafe impl Send for Ptr {}
 unsafe impl Sync for Ptr {}
 
+// /// Hash and equality by pointer not the value it self
+// struct HashPtr<'a, T>(&'a mut T);
+
+// impl<'a, T> Hash for HashPtr<'a, T> {
+//     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+//         (self.0 as *const T).hash(state);
+//     }
+// }
+
+// impl<'a, T> PartialEq for HashPtr<'a, T> {
+//     fn eq(&self, other: &Self) -> bool {
+//         (self.0 as *const T) == (other.0 as *const T)
+//     }
+// }
+
+// impl<'a, T> Eq for HashPtr<'a, T> {}
+
 /// Marker type for missing component
 struct MissingComponentMarker;
 
@@ -515,7 +544,7 @@ pub(crate) fn animator_binding_system(world: &mut World, resources: &mut Resourc
 
     // ? NOTE: Changing a clip on fly is supported, but very expensive so use with caution
     // Query all clips that changed and remove their binds from the animator
-    let mut modified = HashSet::default();
+    let mut modified = HashSet::new();
     for event in state.clip_event_reader.iter(&clip_events) {
         match event {
             AssetEvent::Removed { handle } => modified.insert(handle),
@@ -848,7 +877,12 @@ fn find_property_ptr<'a, P: Iterator<Item = &'a str>>(
             {
                 let root = root_props as *const _ as *mut u8;
                 let size = std::mem::size_of_val(root_props) as isize;
-                debug_assert!(unsafe { root.offset_from(ptr).abs() } <= size);
+                // With the new bevy_reflect we can ref properties inside vectors and other things
+                if unsafe { root.offset_from(ptr).abs() } >= size {
+                    // TODO: log also the full property path
+                    tracing::warn!("property outside component");
+                    return null_mut();
+                }
             }
             ptr
         })
@@ -857,6 +891,9 @@ fn find_property_ptr<'a, P: Iterator<Item = &'a str>>(
 
 #[tracing::instrument(skip(world, resources))]
 pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resources) {
+    /// Small value
+    const SMOL: f32 = 1e-8;
+
     let time = resources.get::<Time>().unwrap();
     let clips = resources.get::<Assets<Clip>>().unwrap();
 
@@ -864,16 +901,36 @@ pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resource
     let animators_query = unsafe { world.query_unchecked::<(&mut Animator,), ()>() };
     let delta_time = time.delta_seconds;
 
+    // TODO: System local?
+    let mut visited = HashSet::new();
+
+    // ? NOTE: Keep in mind that one hierarchy tree could have many `Animator`s thus
+    // ? we can't parallelize over the animators easily without creating a race condition
     for (mut animator,) in animators_query {
         let animator = &mut *animator;
 
         // Time scales by component
         let delta_time = delta_time * animator.time_scale;
 
-        // TODO: Add layer mask or a trimmed clip with reused curves and stuff
-        // TODO: Add layer blending
-        //for layer in &mut animator.layers {
-        if let Some(layer) = animator.layers.first_mut() {
+        let w_total = animator
+            .layers
+            .iter()
+            .fold(0.0, |w, layer| w + layer.weight);
+
+        let norm = 1.0 / w_total;
+
+        // Normalize all states weights
+        for layer in &mut animator.layers {
+            layer.weight *= norm;
+        }
+
+        visited.clear();
+        for layer in &mut animator.layers {
+            let w = layer.weight;
+            if w < SMOL {
+                continue;
+            }
+
             let clip_index = layer.clip;
             if let Some(clip) = animator
                 .clips
@@ -881,6 +938,8 @@ pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resource
                 .map(|clip_handle| clips.get(clip_handle))
                 .flatten()
             {
+                // TODO: Add layer mask
+
                 if let Some(bind) = &animator.bind_clips[clip_index as usize] {
                     let curves_count = clip.curves.len();
 
@@ -893,7 +952,7 @@ pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resource
                     }
 
                     // Update time
-                    let mut time = layer.time + delta_time;
+                    let mut time = layer.time + delta_time * layer.time_scale;
 
                     // TODO: I notice some jitter during playback
 
@@ -916,8 +975,6 @@ pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resource
                     // Advance state time
                     layer.time = time;
 
-                    // TODO: handle backwards time
-
                     for ((ptr, keyframe), curve_index) in bind
                         .attributes
                         .iter()
@@ -931,6 +988,13 @@ pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resource
 
                         let curve = &clip.curves[*curve_index as usize];
 
+                        let viz = if visited.contains(&ptr.0) {
+                            true
+                        } else {
+                            visited.insert(ptr.0);
+                            false
+                        };
+
                         // SAFETY: The `animator_binding_system` is responsible to invalidate and/or update
                         // any ptr that no longer pointers to the right component for the right entity;
                         // Also it will only allows to ptr to attributes by value inside the component this means
@@ -939,35 +1003,69 @@ pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resource
                         match curve {
                             CurveUntyped::Float(v) => {
                                 let (k, v) = v.sample_indexed(*keyframe, time);
-                                let attr = unsafe { &mut *(ptr.0 as *mut f32) };
-                                *attr = v;
                                 *keyframe = k;
+
+                                unsafe {
+                                    let ptr = ptr.0 as *mut f32;
+                                    if viz {
+                                        *ptr = LerpValue::lerp(&*ptr, &v, w);
+                                    } else {
+                                        *ptr = v;
+                                    }
+                                }
                             }
                             CurveUntyped::Vec3(v) => {
                                 let (k, v) = v.sample_indexed(*keyframe, time);
-                                let attr = unsafe { &mut *(ptr.0 as *mut Vec3) };
-                                *attr = v;
                                 *keyframe = k;
+
+                                unsafe {
+                                    let ptr = ptr.0 as *mut Vec3;
+                                    if viz {
+                                        *ptr = LerpValue::lerp(&*ptr, &v, w);
+                                    } else {
+                                        *ptr = v;
+                                    }
+                                }
                             }
-                            CurveUntyped::Vec4(v) => {
-                                let (k, v) = v.sample_indexed(*keyframe, time);
-                                let attr = unsafe { &mut *(ptr.0 as *mut Vec4) };
-                                *attr = v;
+                            CurveUntyped::Vec4(c) => {
+                                let (k, v) = c.sample_indexed(*keyframe, time);
                                 *keyframe = k;
+
+                                unsafe {
+                                    let ptr = ptr.0 as *mut Vec4;
+                                    if viz {
+                                        *ptr = LerpValue::lerp(&*ptr, &v, w);
+                                    } else {
+                                        *ptr = v;
+                                    }
+                                }
                             }
                             CurveUntyped::Quat(v) => {
                                 let (k, v) = v.sample_indexed(*keyframe, time);
-                                let attr = unsafe { &mut *(ptr.0 as *mut Quat) };
-                                *attr = v;
                                 *keyframe = k;
+
+                                // if v.w < 0.0 {
+                                //     v = -v;
+                                // }
+
+                                // TODO: normalize is killing the performance?
+                                unsafe {
+                                    let ptr = ptr.0 as *mut Quat;
+                                    if viz {
+                                        // ? NOTE: Blending must be commutative above so nlerp is always the way to go here
+                                        *ptr = LerpValue::lerp(&*ptr, &v, w);
+                                    } else {
+                                        *ptr = v;
+                                    }
+                                }
                             }
                         }
-
-                        // TODO: Make sure to update the components states to 'Changed'
                     }
                 }
             }
         }
+
+        // TODO: Make sure to update the components states to trigger 'Mutated'
     }
 }
 
@@ -1107,4 +1205,5 @@ mod tests {
     // TODO: Add tests for mutated events
     // TODO: Add tests for animated handle (impl missing)
     // TODO: Add tests for animated asset properties (impl missing)
+    // TODO: Add tests for animated components should trigger 'Mutated' queries filters (impl missing)
 }

@@ -306,35 +306,7 @@ async fn load_gltf<'a, 'b>(
                     // TODO: This is a runtime importer so here's no place for further optimizations
                 }
                 ReadOutputs::Rotations(values) => {
-                    let mut values = values.into_f32().map(|v| Quat::from(v)).collect::<Vec<_>>();
-
-                    // NOTE: To avoid 2pi rotations in between frames we keep the w value always positive
-                    // this happens when decomposing frames from Mat4, each frame snapshot by it self is
-                    // correct but the motion is wrong, causing a in between frames 360º spin around the
-                    // quaternion axis;
-                    //
-                    // When quaternion changes its sign: https://math.stackexchange.com/questions/2016282/negative-quaternion
-
-                    // NOTE: Making sure w > 0 is not enough
-                    // for r in rotation.iter_mut() {
-                    //     if r[3] < 0.0 {
-                    //         *r = -*r;
-                    //     }
-                    //     // NODE: No need to normalize the quaternion
-                    // }
-
-                    // NOTE: Same problem than before but in a different way, some times the quaternion
-                    // axis will flip in between frames (even ensuring w > 0). So the function `is_axis_flipped`
-                    // will check if they are colinear and if they flipped their sing.
-                    if values.len() > 1 {
-                        for i in 0..values.len() - 1 {
-                            if is_axis_flipped(values[i], values[i + 1]) {
-                                let r = &mut values[i + 1];
-                                *r = -(*r);
-                            }
-                        }
-                    }
-
+                    let values = values.into_f32().map(|v| Quat::from(v)).collect::<Vec<_>>();
                     property_path += "@Transform.rotation";
                     clip_curves.push((
                         property_path,
@@ -645,28 +617,4 @@ async fn load_buffers(
     }
 
     Ok(buffer_data)
-}
-
-const EPSILON: f32 = 1.0e-8;
-const EPSILON_SQUARED: f32 = EPSILON * EPSILON;
-
-fn axis(a: Quat) -> Vec3 {
-    let (x, y, z, w) = Vec4::from(a).into();
-    let scale_sq = (1.0 - w * w).max(0.0);
-    if scale_sq >= EPSILON_SQUARED {
-        Vec3::new(x, y, z) / scale_sq.sqrt()
-    } else {
-        Vec3::unit_x()
-    }
-}
-
-fn is_axis_flipped(a: Quat, b: Quat) -> bool {
-    let dot = axis(a).dot(axis(b));
-    if (1.0 - dot.abs()) > 0.1 {
-        false
-    } else {
-        // Quaternion axis are (almost) colinear
-        // but heir axis are opposing to each other
-        dot < 0.0
-    }
 }

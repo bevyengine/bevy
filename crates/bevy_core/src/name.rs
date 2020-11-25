@@ -32,9 +32,14 @@ impl Name {
         Name { name, hash }
     }
 
-    #[inline(always)]
     pub fn as_str(&self) -> &str {
         self.name.as_str()
+    }
+}
+
+impl Hash for Name {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
     }
 }
 
@@ -52,14 +57,12 @@ impl PartialEq for Name {
 impl Eq for Name {}
 
 impl PartialOrd for Name {
-    #[inline(always)]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.name.partial_cmp(&other.name)
     }
 }
 
 impl Ord for Name {
-    #[inline(always)]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.name.cmp(&other.name)
     }
