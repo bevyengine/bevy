@@ -156,6 +156,24 @@ impl<T: Asset> Assets<T> {
         asset
     }
 
+    pub fn swap<H: Into<HandleId>>(&mut self, handle: H, asset: T) -> Option<T> {
+        let id: HandleId = handle.into();
+        match self.assets.insert(id, asset) {
+            None => {
+                self.events.send(AssetEvent::Created {
+                    handle: Handle::weak(id),
+                });
+                None
+            }
+            Some(previous) => {
+                self.events.send(AssetEvent::Modified {
+                    handle: Handle::weak(id),
+                });
+                Some(previous)
+            }
+        }
+    }
+
     /// Clears the inner asset map, removing all key-value pairs.
     ///
     /// Keeps the allocated memory for reuse.
