@@ -50,7 +50,7 @@ spirv-reflect = "0.2.3"
 bevy-glsl-to-spirv = "0.2.0"
 
 [target.'cfg(target_os = "ios")'.dependencies]
-shaderc = "0.6.3"
+shaderc = "0.7.0"
 
 [features]
 png = ["image/png"]
