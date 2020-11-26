@@ -37,47 +37,58 @@ impl Timer {
         }
     }
 
+    #[inline]
     pub fn pause(&mut self) {
         self.paused = true
     }
 
+    #[inline]
     pub fn resume(&mut self) {
         self.paused = false
     }
 
+    #[inline]
     pub fn is_paused(&self) -> bool {
         self.paused
     }
 
+    #[inline]
     pub fn elapsed(&self) -> f32 {
         self.elapsed
     }
 
+    #[inline]
     pub fn set_elapsed(&mut self, elapsed: f32) {
         self.elapsed = elapsed
     }
 
+    #[inline]
     pub fn duration(&self) -> f32 {
         self.duration
     }
 
+    #[inline]
     pub fn set_duration(&mut self, duration: f32) {
         self.duration = duration
     }
 
+    #[inline]
     pub fn is_finished(&self) -> bool {
         self.finished
     }
 
     /// Will only be true on the tick the timer's duration is reached or exceeded.
+    #[inline]
     pub fn just_finished(&self) -> bool {
         self.just_finished
     }
 
+    #[inline]
     pub fn is_repeating(&self) -> bool {
         self.repeating
     }
 
+    #[inline]
     pub fn set_repeating(&mut self, repeating: bool) {
         self.repeating = repeating
     }
@@ -102,6 +113,7 @@ impl Timer {
         self
     }
 
+    #[inline]
     pub fn reset(&mut self) {
         self.finished = false;
         self.just_finished = false;
