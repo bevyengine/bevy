@@ -141,6 +141,8 @@ impl ComponentRegistrationDefaults {
         }
     }
 
+    // NOTE: this code will be removed soon, so we're just suppressing the new clippy lint
+    #[allow(clippy::clippy::unnecessary_wraps)]
     fn map_entities(_world: &mut World, _entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
         Ok(())
     }
