@@ -15,7 +15,8 @@ pub mod prelude {
         plugin::AnimationPlugin,
         spline_group::{LoopStyle, SplineGroup},
         spline_groups::{
-            one::AnimationSplineOne, three::AnimationSplineThree,
+            one::AnimationSplineOne,
+            three::AnimationSplineThree,
             transform::{AnimationSplineTransform, SplineQuatExt},
         },
         vec3_option::Vec3Option,

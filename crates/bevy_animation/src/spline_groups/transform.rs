@@ -3,7 +3,7 @@ use crate::{
     vec3_option::Vec3Option,
 };
 use bevy_math::Quat;
-use splines::{Spline, Key, Interpolation};
+use splines::{Interpolation, Key, Spline};
 
 /// A wrapper for a `Quat`, which represents the orientation of an animation keyframe.
 #[derive(Clone, Copy)]
@@ -151,16 +151,16 @@ mod tests {
     #[test]
     fn big_resample() {
         let spline = Spline::from_vec(vec![
-             Key {
-                 t: 0.,
-                 value: Quat::from_xyzw(0., 0., 0., 1.),
-                 interpolation: Interpolation::Linear,
-             },
-             Key {
-                 t: 1.,
-                 value: Quat::from_xyzw(0., 0., 1., 0.),
-                 interpolation: Interpolation::Linear,
-             },
+            Key {
+                t: 0.,
+                value: Quat::from_xyzw(0., 0., 0., 1.),
+                interpolation: Interpolation::Linear,
+            },
+            Key {
+                t: 1.,
+                value: Quat::from_xyzw(0., 0., 1., 0.),
+                interpolation: Interpolation::Linear,
+            },
         ]);
 
         let start_time = |spline: &Spline<f32, Quat>| spline.keys().first().unwrap().t;
