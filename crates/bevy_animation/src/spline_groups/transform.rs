@@ -111,7 +111,7 @@ impl SplineQuatExt for Spline<f32, Quat> {
                         }
                     }
                 }
-                _ => unimplemented!(),
+                _ => unimplemented!("Only Interpolation::Linear and Step are supported for now."),
             }
         }
         new_keys.push(*keys.last().unwrap());
