@@ -155,6 +155,14 @@ pub fn winit_runner(mut app: App) {
 
     app.resources.insert_thread_local(event_loop.create_proxy());
 
+    // Create Windows and WinitWindows resources, so startup systems
+    // in below app.initialize() have access to them.
+    handle_create_window_events(
+        &mut app.resources,
+        &event_loop,
+        &mut create_window_event_reader,
+    );
+
     app.initialize();
 
     trace!("Entering winit event loop");
