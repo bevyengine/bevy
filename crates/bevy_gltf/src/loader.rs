@@ -416,7 +416,7 @@ fn load_node(
             entity_lookup[skeleton_root].expect("missing skeleton root entity"),
         ));
 
-        world_builder.with(MeshSkinnerDebuger::default());
+        world_builder.with(MeshSkinnerDebugger::default());
     }
 
     // create camera node

@@ -31,19 +31,16 @@ impl LerpValue for Vec4 {
 }
 
 impl LerpValue for Quat {
-    /// Actually performs an nlerp, because it's much cheaper and easer to combine with other animations,
+    /// Performs an nlerp, because it's much cheaper and easer to combine with other animations,
     /// reference: http://number-none.com/product/Understanding%20Slerp,%20Then%20Not%20Using%20It/
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
-        // Make sure is always the short path
+        // Make sure is always the short path, look at this: https://github.com/mgeier/quaternion-nursery
         let mut b = *b;
         if a.dot(b) < 0.0 {
             b = -b;
         }
 
         Vec4::lerp((*a).into(), b.into(), t).normalize().into()
-
-        // ! NOTE: slerp is nice if you want to debug the animation code
-        // a.slerp(b, t)
     }
 }
 

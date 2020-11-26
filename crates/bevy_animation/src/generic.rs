@@ -67,6 +67,7 @@ impl Clip {
         let path =
             property_path.split_at(property_path.rfind('@').expect("property path missing @"));
 
+        // TODO: Prepare for bevy_reflect
         let mut entity_created = false;
         let mut entity = 0; // Start search from root
         for name in path.0.split('/') {
@@ -202,7 +203,7 @@ pub enum CurveUntyped {
     Vec3(Curve<Vec3>),
     Vec4(Curve<Vec4>),
     Quat(Curve<Quat>),
-    //Handle(Curve<HandleUntyped>), // TODO: Requires (de)serialize!
+    //Handle(Curve<HandleUntyped>),
     // TODO: Color(Curve<Color>),
 }
 
@@ -901,8 +902,9 @@ pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resource
     let animators_query = unsafe { world.query_unchecked::<(&mut Animator,), ()>() };
     let delta_time = time.delta_seconds;
 
-    // TODO: System local?
-    let mut visited = HashSet::new();
+    // TODO: Warp in a tread_local! to parallelize the property lerping
+    // NOTE: Allocate a big chunk where to avoid doing any extra allocations during the property lerp
+    let mut visited = HashSet::with_capacity(1069);
 
     // ? NOTE: Keep in mind that one hierarchy tree could have many `Animator`s thus
     // ? we can't parallelize over the animators easily without creating a race condition
@@ -975,6 +977,7 @@ pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resource
                     // Advance state time
                     layer.time = time;
 
+                    // TODO: can be done in bached_parallel when visited warped inside a thread_local!
                     for ((ptr, keyframe), curve_index) in bind
                         .attributes
                         .iter()
@@ -1044,15 +1047,11 @@ pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resource
                                 let (k, v) = v.sample_indexed(*keyframe, time);
                                 *keyframe = k;
 
-                                // if v.w < 0.0 {
-                                //     v = -v;
-                                // }
-
-                                // TODO: normalize is killing the performance?
                                 unsafe {
                                     let ptr = ptr.0 as *mut Quat;
                                     if viz {
-                                        // ? NOTE: Blending must be commutative above so nlerp is always the way to go here
+                                        // ? NOTE: Blending two clips no matter the order
+                                        // ? should give the same results, so nlerp must be used
                                         *ptr = LerpValue::lerp(&*ptr, &v, w);
                                     } else {
                                         *ptr = v;
@@ -1145,15 +1144,53 @@ mod tests {
         let mut clip = Clip::default();
         let prop = "/Root/Ball@Sphere.radius";
         clip.add_animated_prop(
-            prop,
+            "/Root/Ball@Transform.translate.y",
             CurveUntyped::Float(Curve::from_linear(0.0, 1.0, 0.0, 1.0)),
         );
         clip.add_animated_prop(
             prop,
+            CurveUntyped::Float(Curve::from_linear(0.0, 1.0, 0.0, 1.0)),
+        );
+        assert_eq!(clip.duration(), 1.0);
+        clip.add_animated_prop(
+            prop,
             CurveUntyped::Float(Curve::from_linear(0.0, 1.2, 0.1, 2.0)),
         );
-        assert_eq!(clip.len(), 1);
+        assert_eq!(clip.len(), 2);
+        assert_eq!(clip.get_property_path(1), prop);
         assert_eq!(clip.duration(), 1.2);
+    }
+
+    #[test]
+    fn clip_fine_grain_properties() {
+        let mut clip = Clip::default();
+        clip.add_animated_prop(
+            "/Root/Ball@Transform.translate.y",
+            CurveUntyped::Float(Curve::from_linear(0.0, 1.0, 0.0, 1.0)),
+        );
+        assert_eq!(clip.duration(), 1.0);
+        clip.add_animated_prop(
+            "/Root/Ball@Transform.translate.x",
+            CurveUntyped::Float(Curve::from_linear(0.0, 1.2, 0.0, 2.0)),
+        );
+        assert_eq!(clip.len(), 2);
+        assert_eq!(clip.duration(), 1.2);
+    }
+
+    #[test]
+    #[should_panic]
+    fn clip_nested_properties() {
+        // Maybe required by `bevy_reflect` this guarantees are necessary
+        // because the way we execute
+        let mut clip = Clip::default();
+        clip.add_animated_prop(
+            "/Root/Ball@Transform.translate",
+            CurveUntyped::Vec3(Curve::from_linear(0.0, 1.0, Vec3::zero(), Vec3::unit_y())),
+        );
+        clip.add_animated_prop(
+            "/Root/Ball@Transform.translate.x",
+            CurveUntyped::Float(Curve::from_linear(0.0, 1.2, 0.0, 2.0)),
+        );
     }
 
     #[test]

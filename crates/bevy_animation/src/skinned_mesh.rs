@@ -17,7 +17,7 @@ use smallvec::SmallVec;
 #[uuid = "129d54f5-4ee7-456f-9340-32e71469cdaf"]
 pub struct MeshSkin {
     pub inverse_bind_matrices: Vec<Mat4>,
-    pub bones_names: Vec<String>,
+    pub bones_names: Vec<String>, // TODO: Use the Name component instead
     /// Each bone as an entry that specifies their parent bone, maybe used to reconstruct
     /// the bone hierarchy when missing
     pub bones_parents: Vec<Option<usize>>,
@@ -147,103 +147,10 @@ pub(crate) fn mesh_skinner_startup(
     }
 }
 
-// TODO: MeshSkinBinder system
-// fn mesh_skin_binder_update() {
-//     // TODO: have to send the matrices into each entity
-// }
-
-///////////////////////////////////////////////////////////////////////////////
-
-// TODO: Should I implement a SkeletalAnimator for better performance for mesh animations
-// // Similar to Animator but only works for transforms
-// pub struct SkeletalAnimator {}
-
-// pub(crate) fn skeletal_animator_update(
-//     time: Res<Time>,
-//     // keyboard: Res<Input<KeyCode>>,
-//     clips: Res<Assets<Clip>>,
-//     mut animators_query: Query<(Mut<Animator>,)>,
-//     mut transforms_query: Query<(Mut<Transform>,)>,
-// ) {
-//     // let delta_time = if keyboard.just_pressed(KeyCode::Right) {
-//     //     1.0 / 60.0
-//     // } else {
-//     //     0.0
-//     // };
-
-//     let delta_time = time.delta_seconds;
-
-//     for (mut debugger,) in animators_query.iter_mut() {
-//         let debugger = debugger.deref_mut();
-
-//         if !debugger.builded {
-//             return;
-//         }
-
-//         // Time scales by component
-//         let delta_time = delta_time * debugger.time_scale;
-
-//         // Ensure capacity for cached keyframe index vec
-//         let nodes_count = debugger.hierarchy.len();
-//         if debugger.current.keyframe.len() != nodes_count {
-//             debugger.current.keyframe.clear();
-//             debugger
-//                 .current
-//                 .keyframe
-//                 .resize_with(nodes_count, || Default::default());
-//         }
-
-//         if let Some(clip) = clips.get(&debugger.clip) {
-//             // Update time
-//             let mut time = debugger.current.time + delta_time;
-
-//             // Warp mode
-//             if clip.warp {
-//                 // Warp Around
-//                 if time > clip.length {
-//                     time = (time / clip.length).fract() * clip.length;
-//                     // Reset all keyframes cached indexes
-//                     debugger
-//                         .current
-//                         .keyframe
-//                         .iter_mut()
-//                         .for_each(|x| *x = Default::default())
-//                 }
-//             } else {
-//                 // Hold
-//                 time = time.min(clip.length);
-//             }
-
-//             // Advance state time
-//             debugger.current.time = time;
-
-//             for (i, entity) in debugger.hierarchy.iter().enumerate() {
-//                 if let Ok((mut transform,)) = transforms_query.get_mut(*entity) {
-//                     // Get cached keyframe info
-//                     let keyframe = &mut debugger.current.keyframe[i];
-
-//                     // Sample animation
-//                     let (k, v) = clip.bones[i].position.sample(keyframe.position, time);
-//                     keyframe.position = k;
-//                     transform.translation = v;
-
-//                     let (k, v) = clip.bones[i].rotation.sample(keyframe.rotation, time);
-//                     keyframe.rotation = k;
-//                     transform.rotation = v;
-
-//                     let (k, v) = clip.bones[i].scale.sample(keyframe.scale, time);
-//                     keyframe.scale = k;
-//                     transform.scale = v;
-//                 }
-//             }
-//         }
-//     }
-// }
-
 ///////////////////////////////////////////////////////////////////////////////
 
 #[derive(Default, Debug, Properties)]
-pub struct MeshSkinnerDebuger {
+pub struct MeshSkinnerDebugger {
     //pub enabled: bool,
     #[property(ignore)]
     started: bool,
@@ -257,7 +164,7 @@ pub(crate) fn mesh_skinner_debugger_update(
     commands: &mut Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     skins: Res<Assets<MeshSkin>>,
-    mut debugger_query: Query<(&Handle<MeshSkin>, &MeshSkinBinder, &mut MeshSkinnerDebuger)>,
+    mut debugger_query: Query<(&Handle<MeshSkin>, &MeshSkinBinder, &mut MeshSkinnerDebugger)>,
     bones_query: Query<(&GlobalTransform,)>,
 ) {
     for (skin_handle, skinner, mut debugger) in debugger_query.iter_mut() {
