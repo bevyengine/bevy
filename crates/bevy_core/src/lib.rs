@@ -40,7 +40,6 @@ impl Plugin for CorePlugin {
             .register_property::<Quat>()
             .register_property::<Option<String>>()
             .add_system_to_stage(stage::FIRST, time_system)
-            .add_system_to_stage(stage::FIRST, timer_system)
             .add_system_to_stage(stage::PRE_UPDATE, entity_labels_system);
     }
 }

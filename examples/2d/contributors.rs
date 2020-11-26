@@ -137,7 +137,7 @@ fn select_system(
 ) {
     let mut timer_fired = false;
     for mut t in tq.iter_mut() {
-        if !t.just_finished {
+        if !t.just_finished() {
             continue;
         }
         t.reset();
