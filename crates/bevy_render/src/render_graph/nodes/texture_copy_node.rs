@@ -34,13 +34,17 @@ impl Node for TextureCopyNode {
                         }
 
                         let texture_descriptor: TextureDescriptor = texture.into();
-                        let width = texture.size.x as usize;
-                        let aligned_width = render_context
-                            .resources()
-                            .get_aligned_texture_size(texture.size.x as usize);
+                        let width = texture.size.width as usize;
+                        let aligned_width =
+                            render_context.resources().get_aligned_texture_size(width);
                         let format_size = texture.format.pixel_size();
-                        let mut aligned_data =
-                            vec![0; format_size * aligned_width * texture.size.y as usize];
+                        let mut aligned_data = vec![
+                            0;
+                            format_size
+                                * aligned_width
+                                * texture.size.height as usize
+                                * texture.size.depth as usize
+                        ];
                         texture
                             .data
                             .chunks_exact(format_size * width)

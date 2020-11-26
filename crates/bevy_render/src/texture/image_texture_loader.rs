@@ -1,7 +1,6 @@
-use super::{Texture, TextureFormat};
+use super::{Extent3d, Texture, TextureDimension, TextureFormat};
 use anyhow::Result;
 use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
-use bevy_math::Vec2;
 use bevy_utils::BoxedFuture;
 
 /// Loader for images that can be read by the `image` crate.
@@ -148,7 +147,12 @@ impl AssetLoader for ImageTextureLoader {
                 }
             }
 
-            let texture = Texture::new(Vec2::new(width as f32, height as f32), data, format);
+            let texture = Texture::new(
+                Extent3d::new(width, height, 1),
+                TextureDimension::D2,
+                data,
+                format,
+            );
             load_context.set_default_asset(LoadedAsset::new(texture));
             Ok(())
         })

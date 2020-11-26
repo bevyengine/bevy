@@ -19,7 +19,7 @@ impl Command for InsertChildren {
         {
             let mut added = false;
             if let Ok(mut children) = world.get_mut::<Children>(self.parent) {
-                children.insert_from_slice(self.index, &self.children);
+                children.0.insert_from_slice(self.index, &self.children);
                 added = true;
             }
 
@@ -54,7 +54,7 @@ impl Command for PushChildren {
         {
             let mut added = false;
             if let Ok(mut children) = world.get_mut::<Children>(self.parent) {
-                children.extend(self.children.iter().cloned());
+                children.0.extend(self.children.iter().cloned());
                 added = true;
             }
 

@@ -25,9 +25,6 @@ impl MapEntities for Parent {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct PreviousParent(pub Entity);
-
 impl Deref for Parent {
     type Target = Entity;
 
@@ -39,5 +36,25 @@ impl Deref for Parent {
 impl DerefMut for Parent {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Properties)]
+pub struct PreviousParent(pub(crate) Entity);
+
+impl MapEntities for PreviousParent {
+    fn map_entities(
+        &mut self,
+        entity_map: &bevy_ecs::EntityMap,
+    ) -> Result<(), bevy_ecs::MapEntitiesError> {
+        self.0 = entity_map.get(self.0)?;
+        Ok(())
+    }
+}
+
+// TODO: Better handle this case see `impl FromResources for Parent`
+impl FromResources for PreviousParent {
+    fn from_resources(_resources: &bevy_ecs::Resources) -> Self {
+        PreviousParent(Entity::new(u32::MAX))
     }
 }

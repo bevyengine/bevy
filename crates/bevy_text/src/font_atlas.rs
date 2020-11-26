@@ -1,7 +1,7 @@
 use ab_glyph::GlyphId;
 use bevy_asset::{Assets, Handle};
 use bevy_math::Vec2;
-use bevy_render::texture::{Texture, TextureFormat};
+use bevy_render::texture::{Extent3d, Texture, TextureDimension, TextureFormat};
 use bevy_sprite::{DynamicTextureAtlasBuilder, TextureAtlas};
 use bevy_utils::HashMap;
 
@@ -18,7 +18,8 @@ impl FontAtlas {
         size: Vec2,
     ) -> FontAtlas {
         let atlas_texture = textures.add(Texture::new_fill(
-            size,
+            Extent3d::new(size.x as u32, size.y as u32, 1),
+            TextureDimension::D2,
             &[0, 0, 0, 0],
             TextureFormat::Rgba8UnormSrgb,
         ));

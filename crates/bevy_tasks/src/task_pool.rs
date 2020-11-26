@@ -194,7 +194,18 @@ impl TaskPool {
         let fut: Pin<&'static mut (dyn Future<Output = Vec<T>> + Send + 'static)> =
             unsafe { mem::transmute(fut) };
 
-        future::block_on(self.executor.spawn(fut))
+        // The thread that calls scope() will participate in driving tasks in the pool forward
+        // until the tasks that are spawned by this scope() call complete. (If the caller of scope()
+        // happens to be a thread in this thread pool, and we only have one thread in the pool, then
+        // simply calling future::block_on(spawned) would deadlock.)
+        let mut spawned = self.executor.spawn(fut);
+        loop {
+            if let Some(result) = future::block_on(future::poll_once(&mut spawned)) {
+                break result;
+            }
+
+            self.executor.try_tick();
+        }
     }
 
     /// Spawns a static future onto the thread pool. The returned Task is a future. It can also be

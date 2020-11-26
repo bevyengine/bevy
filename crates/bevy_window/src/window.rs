@@ -76,6 +76,10 @@ pub enum WindowCommand {
     SetCursorVisibility {
         visible: bool,
     },
+    SetCursorPosition {
+        x: i32,
+        y: i32,
+    },
 }
 
 /// Defines the way a window is displayed
@@ -201,6 +205,11 @@ impl Window {
         self.command_queue.push(WindowCommand::SetCursorVisibility {
             visible: visibile_mode,
         });
+    }
+
+    pub fn set_cursor_position(&mut self, x: i32, y: i32) {
+        self.command_queue
+            .push(WindowCommand::SetCursorPosition { x, y });
     }
 
     #[inline]
