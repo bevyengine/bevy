@@ -1,5 +1,3 @@
-use crate::time::Time;
-use bevy_ecs::prelude::*;
 use bevy_property::Properties;
 use bevy_utils::Duration;
 
@@ -52,7 +50,7 @@ impl Timer {
         self.paused
     }
 
-     /// Returns the time elapsed on the timer. Guaranteed to be between 0.0 and `duration`, inclusive.
+    /// Returns the time elapsed on the timer. Guaranteed to be between 0.0 and `duration`, inclusive.
     #[inline]
     pub fn elapsed(&self) -> f32 {
         self.elapsed
@@ -132,12 +130,6 @@ impl Timer {
     /// Percent left on timer (goes from 1.0 to 0.0)
     pub fn percent_left(&self) -> f32 {
         (self.duration - self.elapsed) / self.duration
-    }
-}
-
-pub(crate) fn timer_system(time: Res<Time>, mut query: Query<&mut Timer>) {
-    for mut timer in query.iter_mut() {
-        timer.tick(time.delta_seconds);
     }
 }
 
