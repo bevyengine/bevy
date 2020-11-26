@@ -7,7 +7,7 @@ pub struct DespawnRecursive {
     entity: Entity,
 }
 
-fn despawn_with_children_recursive(world: &mut World, entity: Entity) {
+pub fn despawn_with_children_recursive(world: &mut World, entity: Entity) {
     // first, make the entity's own parent forget about it
     if let Ok(parent) = world.get::<Parent>(entity).map(|parent| parent.0) {
         if let Ok(mut children) = world.get_mut::<Children>(parent) {
@@ -21,12 +21,8 @@ fn despawn_with_children_recursive(world: &mut World, entity: Entity) {
 
 // Should only be called by `despawn_with_children_recursive`!
 fn despawn_with_children_recursive_inner(world: &mut World, entity: Entity) {
-    if let Some(children) = world
-        .get::<Children>(entity)
-        .ok()
-        .map(|children| children.0.iter().cloned().collect::<Vec<Entity>>())
-    {
-        for e in children {
+    if let Ok(mut children) = world.get_mut::<Children>(entity) {
+        for e in std::mem::take(&mut children.0) {
             despawn_with_children_recursive(world, e);
         }
     }
@@ -67,28 +63,32 @@ mod tests {
         let mut command_buffer = Commands::default();
         command_buffer.set_entity_reserver(world.get_entity_reserver());
 
-        command_buffer.spawn((0u32, 0u64)).with_children(|parent| {
-            parent.spawn((0u32, 0u64));
-        });
+        command_buffer
+            .spawn(("Another parent".to_owned(), 0u32))
+            .with_children(|parent| {
+                parent.spawn(("Another child".to_owned(), 1u32));
+            });
 
         // Create a grandparent entity which will _not_ be deleted
-        command_buffer.spawn((1u32, 1u64));
+        command_buffer.spawn(("Grandparent".to_owned(), 2u32));
         let grandparent_entity = command_buffer.current_entity().unwrap();
 
         command_buffer.with_children(|parent| {
             // Add a child to the grandparent (the "parent"), which will get deleted
-            parent.spawn((2u32, 2u64));
+            parent.spawn(("Parent, to be deleted".to_owned(), 3u32));
             // All descendents of the "parent" should also be deleted.
             parent.with_children(|parent| {
-                parent.spawn((3u32, 3u64)).with_children(|parent| {
-                    // child
-                    parent.spawn((4u32, 4u64));
-                });
-                parent.spawn((5u32, 5u64));
+                parent
+                    .spawn(("First Child, to be deleted".to_owned(), 4u32))
+                    .with_children(|parent| {
+                        // child
+                        parent.spawn(("First grand child, to be deleted".to_owned(), 5u32));
+                    });
+                parent.spawn(("Second child, to be deleted".to_owned(), 6u32));
             });
         });
 
-        command_buffer.spawn((0u32, 0u64));
+        command_buffer.spawn(("An innocent bystander".to_owned(), 7u32));
         command_buffer.apply(&mut world, &mut resources);
 
         let parent_entity = world.get::<Children>(grandparent_entity).unwrap()[0];
@@ -97,10 +97,11 @@ mod tests {
         command_buffer.despawn_recursive(parent_entity); // despawning the same entity twice should not panic
         command_buffer.apply(&mut world, &mut resources);
 
-        let results = world
-            .query::<(&u32, &u64)>()
-            .map(|(a, b)| (*a, *b))
+        let mut results = world
+            .query::<(&String, &u32)>()
+            .map(|(a, b)| (a.clone(), *b))
             .collect::<Vec<_>>();
+        results.sort_unstable_by_key(|(_, index)| *index);
 
         {
             let children = world.get::<Children>(grandparent_entity).unwrap();
@@ -111,11 +112,14 @@ mod tests {
             );
         }
 
-        // parent_entity and its children should be deleted,
-        // the grandparent tuple (1, 1) and (0, 0) tuples remaining.
         assert_eq!(
             results,
-            vec![(0u32, 0u64), (0u32, 0u64), (0u32, 0u64), (1u32, 1u64)]
+            vec![
+                ("Another parent".to_owned(), 0u32),
+                ("Another child".to_owned(), 1u32),
+                ("Grandparent".to_owned(), 2u32),
+                ("An innocent bystander".to_owned(), 7u32)
+            ]
         );
     }
 }
