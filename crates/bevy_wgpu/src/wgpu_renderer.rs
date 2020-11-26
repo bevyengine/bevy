@@ -1,4 +1,7 @@
-use crate::renderer::{WgpuRenderGraphExecutor, WgpuRenderResourceContext};
+use crate::{
+    renderer::{WgpuRenderGraphExecutor, WgpuRenderResourceContext},
+    WgpuOptions, WgpuPowerOptions,
+};
 use bevy_app::prelude::*;
 use bevy_ecs::{Resources, World};
 use bevy_render::{
@@ -7,21 +10,27 @@ use bevy_render::{
 };
 use bevy_window::{WindowCreated, WindowResized, Windows};
 use std::{ops::Deref, sync::Arc};
+
 pub struct WgpuRenderer {
     pub instance: wgpu::Instance,
     pub device: Arc<wgpu::Device>,
     pub queue: wgpu::Queue,
     pub window_resized_event_reader: EventReader<WindowResized>,
     pub window_created_event_reader: EventReader<WindowCreated>,
-    pub intialized: bool,
+    pub initialized: bool,
 }
 
 impl WgpuRenderer {
-    pub async fn new() -> Self {
+    pub async fn new(options: WgpuOptions) -> Self {
         let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
+
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::HighPerformance,
+                power_preference: match options.power_pref {
+                    WgpuPowerOptions::HighPerformance => wgpu::PowerPreference::HighPerformance,
+                    WgpuPowerOptions::Adaptive => wgpu::PowerPreference::Default,
+                    WgpuPowerOptions::LowPower => wgpu::PowerPreference::LowPower,
+                },
                 compatible_surface: None,
             })
             .await
@@ -50,7 +59,7 @@ impl WgpuRenderer {
             queue,
             window_resized_event_reader: Default::default(),
             window_created_event_reader: Default::default(),
-            intialized: false,
+            initialized: false,
         }
     }
 
@@ -73,9 +82,9 @@ impl WgpuRenderer {
             #[cfg(feature = "bevy_winit")]
             {
                 let winit_windows = resources.get::<bevy_winit::WinitWindows>().unwrap();
-                let winit_window = winit_windows.get_window(window.id).unwrap();
+                let winit_window = winit_windows.get_window(window.id()).unwrap();
                 let surface = unsafe { self.instance.create_surface(winit_window.deref()) };
-                render_resource_context.set_window_surface(window.id, surface);
+                render_resource_context.set_window_surface(window.id(), surface);
             }
         }
     }

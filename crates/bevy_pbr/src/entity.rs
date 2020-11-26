@@ -4,14 +4,14 @@ use bevy_ecs::Bundle;
 use bevy_render::{
     draw::Draw,
     mesh::Mesh,
-    pipeline::{DynamicBinding, PipelineSpecialization, RenderPipeline, RenderPipelines},
+    pipeline::{RenderPipeline, RenderPipelines},
     render_graph::base::MainPass,
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// A component bundle for "pbr mesh" entities
 #[derive(Bundle)]
-pub struct PbrComponents {
+pub struct PbrBundle {
     pub mesh: Handle<Mesh>,
     pub material: Handle<StandardMaterial>,
     pub main_pass: MainPass,
@@ -21,26 +21,11 @@ pub struct PbrComponents {
     pub global_transform: GlobalTransform,
 }
 
-impl Default for PbrComponents {
+impl Default for PbrBundle {
     fn default() -> Self {
         Self {
-            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
+            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 FORWARD_PIPELINE_HANDLE,
-                PipelineSpecialization {
-                    dynamic_bindings: vec![
-                        // Transform
-                        DynamicBinding {
-                            bind_group: 2,
-                            binding: 0,
-                        },
-                        // StandardMaterial_albedo
-                        DynamicBinding {
-                            bind_group: 3,
-                            binding: 0,
-                        },
-                    ],
-                    ..Default::default()
-                },
             )]),
             mesh: Default::default(),
             material: Default::default(),
@@ -53,8 +38,8 @@ impl Default for PbrComponents {
 }
 
 /// A component bundle for "light" entities
-#[derive(Bundle, Default)]
-pub struct LightComponents {
+#[derive(Debug, Bundle, Default)]
+pub struct LightBundle {
     pub light: Light,
     pub transform: Transform,
     pub global_transform: GlobalTransform,

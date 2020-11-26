@@ -13,11 +13,11 @@ pub struct Rect {
 
 impl Rect {
     pub fn width(&self) -> f32 {
-        self.max.x() - self.min.x()
+        self.max.x - self.min.x
     }
 
     pub fn height(&self) -> f32 {
-        self.max.y() - self.min.y()
+        self.max.y - self.min.y
     }
 }
 

@@ -40,3 +40,10 @@ pub struct CursorMoved {
     pub id: WindowId,
     pub position: Vec2,
 }
+
+/// An event that is sent whenever a window receives a character from the OS or underlying system.
+#[derive(Debug, Clone)]
+pub struct ReceivedCharacter {
+    pub id: WindowId,
+    pub char: char,
+}

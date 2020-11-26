@@ -4,15 +4,13 @@ use super::{
         CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace, IndexFormat,
         PrimitiveTopology, RasterizationStateDescriptor, StencilStateFaceDescriptor,
     },
-    BindType, DynamicBinding, PipelineLayout, StencilStateDescriptor, VertexBufferDescriptors,
+    PipelineLayout, StencilStateDescriptor,
 };
-use crate::{
-    shader::{Shader, ShaderStages},
-    texture::TextureFormat,
-};
-use bevy_asset::Assets;
+use crate::{shader::ShaderStages, texture::TextureFormat};
+use bevy_type_registry::TypeUuid;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, TypeUuid)]
+#[uuid = "ebfc1d11-a2a4-44cb-8f12-c49cc631146c"]
 pub struct PipelineDescriptor {
     pub name: Option<String>,
     pub layout: Option<PipelineLayout>,
@@ -55,7 +53,7 @@ impl PipelineDescriptor {
             shader_stages,
             rasterization_state: None,
             primitive_topology: PrimitiveTopology::TriangleList,
-            index_format: IndexFormat::Uint16,
+            index_format: IndexFormat::Uint32,
             sample_count: 1,
             sample_mask: !0,
             alpha_to_coverage_enabled: false,
@@ -67,7 +65,7 @@ impl PipelineDescriptor {
             name: None,
             primitive_topology: PrimitiveTopology::TriangleList,
             layout: None,
-            index_format: IndexFormat::Uint16,
+            index_format: IndexFormat::Uint32,
             sample_count: 1,
             sample_mask: !0,
             alpha_to_coverage_enabled: false,
@@ -91,7 +89,7 @@ impl PipelineDescriptor {
                 },
             }),
             color_states: vec![ColorStateDescriptor {
-                format: TextureFormat::Bgra8UnormSrgb,
+                format: TextureFormat::default(),
                 color_blend: BlendDescriptor {
                     src_factor: BlendFactor::SrcAlpha,
                     dst_factor: BlendFactor::OneMinusSrcAlpha,
@@ -114,62 +112,5 @@ impl PipelineDescriptor {
 
     pub fn get_layout_mut(&mut self) -> Option<&mut PipelineLayout> {
         self.layout.as_mut()
-    }
-
-    /// Reflects the pipeline layout from its shaders.
-    ///
-    /// If `bevy_conventions` is true, it will be assumed that the shader follows "bevy shader conventions". These allow
-    /// richer reflection, such as inferred Vertex Buffer names and inferred instancing.
-    ///
-    /// If `dynamic_bindings` has values, shader uniforms will be set to "dynamic" if there is a matching binding in the list
-    ///
-    /// If `vertex_buffer_descriptors` is set, the pipeline's vertex buffers
-    /// will inherit their layouts from global descriptors, otherwise the layout will be assumed to be complete / local.
-    pub fn reflect_layout(
-        &mut self,
-        shaders: &Assets<Shader>,
-        bevy_conventions: bool,
-        vertex_buffer_descriptors: Option<&VertexBufferDescriptors>,
-        dynamic_bindings: &[DynamicBinding],
-    ) {
-        let vertex_spirv = shaders.get(&self.shader_stages.vertex).unwrap();
-        let fragment_spirv = self
-            .shader_stages
-            .fragment
-            .as_ref()
-            .map(|handle| shaders.get(&handle).unwrap());
-
-        let mut layouts = vec![vertex_spirv.reflect_layout(bevy_conventions).unwrap()];
-        if let Some(ref fragment_spirv) = fragment_spirv {
-            layouts.push(fragment_spirv.reflect_layout(bevy_conventions).unwrap());
-        }
-
-        let mut layout = PipelineLayout::from_shader_layouts(&mut layouts);
-        if let Some(vertex_buffer_descriptors) = vertex_buffer_descriptors {
-            layout.sync_vertex_buffer_descriptors(vertex_buffer_descriptors);
-        }
-
-        if !dynamic_bindings.is_empty() {
-            // set binding uniforms to dynamic if render resource bindings use dynamic
-            for bind_group in layout.bind_groups.iter_mut() {
-                for binding in bind_group.bindings.iter_mut() {
-                    let current = DynamicBinding {
-                        bind_group: bind_group.index,
-                        binding: binding.index,
-                    };
-
-                    if dynamic_bindings.contains(&current) {
-                        if let BindType::Uniform {
-                            ref mut dynamic, ..
-                        } = binding.bind_type
-                        {
-                            *dynamic = true;
-                        }
-                    }
-                }
-            }
-        }
-
-        self.layout = Some(layout);
     }
 }

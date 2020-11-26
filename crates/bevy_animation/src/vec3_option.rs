@@ -14,13 +14,13 @@ impl Vec3Option {
 
     pub fn alter(&self, vec: &mut Vec3) {
         if let Some(x) = self.x {
-            vec.set_x(x);
+            vec.x = x;
         }
         if let Some(y) = self.y {
-            vec.set_y(y);
+            vec.y = y;
         }
         if let Some(z) = self.z {
-            vec.set_z(z);
+            vec.z = z;
         }
     }
 

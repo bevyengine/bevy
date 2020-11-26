@@ -1,0 +1,36 @@
+name: iOS cron CI
+
+on:
+  schedule:
+    - cron:  '0 0 * * *'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: macOS-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            target
+          key: ${{ runner.os }}-cargo-check-test-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - uses: actions-rs/install@v0.1
+        with:
+          crate: cargo-lipo
+          version: latest
+
+      - name: Add iOS targets
+        run: rustup target add aarch64-apple-ios x86_64-apple-ios
+
+      - name: Build and install iOS app in iOS Simulator.
+        run: cd examples/ios && make install

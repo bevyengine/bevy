@@ -5,8 +5,10 @@ use bevy_render::{
     pipeline::{BindGroupDescriptorId, PipelineDescriptor},
     renderer::{BindGroupId, BufferId, RenderContext},
 };
+use bevy_utils::tracing::trace;
 use std::ops::Range;
 
+#[derive(Debug)]
 pub struct WgpuRenderPass<'a> {
     pub render_pass: wgpu::RenderPass<'a>,
     pub render_context: &'a WgpuRenderContext,
@@ -28,6 +30,10 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
     fn set_viewport(&mut self, x: f32, y: f32, w: f32, h: f32, min_depth: f32, max_depth: f32) {
         self.render_pass
             .set_viewport(x, y, w, h, min_depth, max_depth);
+    }
+
+    fn set_scissor_rect(&mut self, x: u32, y: u32, w: u32, h: u32) {
+        self.render_pass.set_scissor_rect(x, y, w, h);
     }
 
     fn set_stencil_reference(&mut self, reference: u32) {
@@ -69,7 +75,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
                         EMPTY
                     };
 
-                log::trace!(
+                trace!(
                     "set bind group {:?} {:?}: {:?}",
                     bind_group_descriptor_id,
                     dynamic_uniform_indices,
@@ -81,11 +87,11 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
         }
     }
 
-    fn set_pipeline(&mut self, pipeline_handle: Handle<PipelineDescriptor>) {
+    fn set_pipeline(&mut self, pipeline_handle: &Handle<PipelineDescriptor>) {
         let pipeline = self
             .wgpu_resources
             .render_pipelines
-            .get(&pipeline_handle)
+            .get(pipeline_handle)
             .expect(
             "Attempted to use a pipeline that does not exist in this RenderPass's RenderContext",
         );

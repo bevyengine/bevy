@@ -1,9 +1,8 @@
-use super::Texture;
 use crate::pipeline::CompareFunction;
 use std::num::NonZeroU8;
 
 /// Describes a sampler
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct SamplerDescriptor {
     pub address_mode_u: AddressMode,
     pub address_mode_v: AddressMode,
@@ -19,23 +18,6 @@ pub struct SamplerDescriptor {
 
 impl Default for SamplerDescriptor {
     fn default() -> Self {
-        SamplerDescriptor {
-            address_mode_u: AddressMode::ClampToEdge,
-            address_mode_v: AddressMode::ClampToEdge,
-            address_mode_w: AddressMode::ClampToEdge,
-            mag_filter: FilterMode::Nearest,
-            min_filter: FilterMode::Linear,
-            mipmap_filter: FilterMode::Nearest,
-            lod_min_clamp: 0.0,
-            lod_max_clamp: std::f32::MAX,
-            compare_function: None,
-            anisotropy_clamp: None,
-        }
-    }
-}
-
-impl From<&Texture> for SamplerDescriptor {
-    fn from(_texture: &Texture) -> Self {
         SamplerDescriptor {
             address_mode_u: AddressMode::ClampToEdge,
             address_mode_v: AddressMode::ClampToEdge,

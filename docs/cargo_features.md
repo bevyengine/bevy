@@ -4,7 +4,7 @@
 
 ### bevy_audio
 
-Audio support. All audio formats support depends on this.
+Audio support. Support for all audio formats depends on this.
 
 ### bevy_gltf
 
@@ -19,14 +19,16 @@ GUI support.
 Make use of GPU via [WebGPU](https://gpuweb.github.io/gpuweb/) support.
 
 ### render
+
 The render pipeline and all render related plugins.
 
 ### dynamic_plugins
+
 Plugins for dynamic loading (libloading)
 
-### png 
+### png
 
-PNG picture format support. 
+PNG picture format support.
 
 ### hdr
 
@@ -34,17 +36,21 @@ PNG picture format support.
 
 ### mp3
 
-Audio of mp3 format support.
+MP3 audio format support.
 
 ### x11
 
-Make GUI applications use X11 procotol. You could enable wayland feature to override this.
+Make GUI applications use X11 protocol. You could enable wayland feature to override this.
 
 ## Optional Features
 
-### profiler
+### trace
 
-For profiler.
+Enables system tracing (useful in tandem wit a feature like trace_chrome)
+
+### trace_chrome
+
+Enables [tracing-chrome](https://github.com/thoren-d/tracing-chrome) as bevy_log output. This allows you to visualize system execution.
 
 ### wgpu_trace
 
@@ -52,13 +58,13 @@ For tracing wgpu.
 
 ### flac
 
-FLAC audio fromat support. It's included in bevy_audio feature.
+FLAC audio format support. It's included in bevy_audio feature.
 
 ### wav
 
 WAV audio format support.
 
-### vorbis 
+### vorbis
 
 Vorbis audio format support.
 

@@ -6,15 +6,11 @@ use crate::{
 use bevy_app::prelude::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets};
 use bevy_ecs::{Resources, World};
+use bevy_utils::{AHashExt, HashSet};
 
 #[derive(Default)]
 pub struct TextureCopyNode {
     pub texture_event_reader: EventReader<AssetEvent<Texture>>,
-}
-
-pub const ALIGNMENT: usize = 256;
-fn get_aligned(data_size: f32) -> usize {
-    ALIGNMENT * ((data_size / ALIGNMENT as f32).ceil() as usize)
 }
 
 impl Node for TextureCopyNode {
@@ -28,16 +24,27 @@ impl Node for TextureCopyNode {
     ) {
         let texture_events = resources.get::<Events<AssetEvent<Texture>>>().unwrap();
         let textures = resources.get::<Assets<Texture>>().unwrap();
+        let mut copied_textures = HashSet::new();
         for event in self.texture_event_reader.iter(&texture_events) {
             match event {
                 AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
-                    if let Some(texture) = textures.get(&handle) {
+                    if let Some(texture) = textures.get(handle) {
+                        if copied_textures.contains(&handle.id) {
+                            continue;
+                        }
+
                         let texture_descriptor: TextureDescriptor = texture.into();
-                        let width = texture.size.x() as usize;
-                        let aligned_width = get_aligned(texture.size.x());
+                        let width = texture.size.width as usize;
+                        let aligned_width =
+                            render_context.resources().get_aligned_texture_size(width);
                         let format_size = texture.format.pixel_size();
-                        let mut aligned_data =
-                            vec![0; format_size * aligned_width * texture.size.y() as usize];
+                        let mut aligned_data = vec![
+                            0;
+                            format_size
+                                * aligned_width
+                                * texture.size.height as usize
+                                * texture.size.depth as usize
+                        ];
                         texture
                             .data
                             .chunks_exact(format_size * width)
@@ -57,7 +64,7 @@ impl Node for TextureCopyNode {
 
                         let texture_resource = render_context
                             .resources()
-                            .get_asset_resource(*handle, TEXTURE_ASSET_INDEX)
+                            .get_asset_resource(handle, TEXTURE_ASSET_INDEX)
                             .unwrap();
 
                         render_context.copy_buffer_to_texture(
@@ -70,6 +77,8 @@ impl Node for TextureCopyNode {
                             texture_descriptor.size,
                         );
                         render_context.resources().remove_buffer(texture_buffer);
+
+                        copied_textures.insert(&handle.id);
                     }
                 }
                 AssetEvent::Removed { .. } => {}

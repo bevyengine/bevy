@@ -1,6 +1,6 @@
 #[allow(clippy::module_inception)]
 mod mesh;
-mod vertex;
+/// Generation for some primitive shape meshes.
+pub mod shape;
 
 pub use mesh::*;
-pub use vertex::*;

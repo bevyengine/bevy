@@ -1,13 +1,14 @@
 extern crate proc_macro;
 
 mod app_plugin;
-mod as_vertex_buffer_descriptor;
+mod bevy_main;
 mod bytes;
 mod modules;
 mod render_resource;
 mod render_resources;
 mod resource;
 mod shader_defs;
+mod type_uuid;
 
 use proc_macro::TokenStream;
 
@@ -44,14 +45,24 @@ pub fn derive_shader_defs(input: TokenStream) -> TokenStream {
     shader_defs::derive_shader_defs(input)
 }
 
-/// Derives the AsVertexBufferDescriptor trait.
-#[proc_macro_derive(AsVertexBufferDescriptor, attributes(vertex, as_crate))]
-pub fn derive_as_vertex_buffer_descriptor(input: TokenStream) -> TokenStream {
-    as_vertex_buffer_descriptor::derive_as_vertex_buffer_descriptor(input)
-}
-
 /// Generates a dynamic plugin entry point function for the given `Plugin` type.  
 #[proc_macro_derive(DynamicPlugin)]
 pub fn derive_dynamic_plugin(input: TokenStream) -> TokenStream {
     app_plugin::derive_dynamic_plugin(input)
+}
+
+// From https://github.com/randomPoison/type-uuid
+#[proc_macro_derive(TypeUuid, attributes(uuid))]
+pub fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    type_uuid::type_uuid_derive(input)
+}
+
+#[proc_macro]
+pub fn external_type_uuid(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    type_uuid::external_type_uuid(tokens)
+}
+
+#[proc_macro_attribute]
+pub fn bevy_main(attr: TokenStream, item: TokenStream) -> TokenStream {
+    bevy_main::bevy_main(attr, item)
 }

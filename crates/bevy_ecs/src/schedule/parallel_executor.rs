@@ -1,18 +1,21 @@
 use super::Schedule;
 use crate::{
     resource::Resources,
-    system::{ArchetypeAccess, System, ThreadLocalExecution, TypeAccess},
+    system::{System, ThreadLocalExecution},
+    ArchetypesGeneration, TypeAccess, World,
 };
-use bevy_hecs::{ArchetypesGeneration, World};
 use bevy_tasks::{ComputeTaskPool, CountdownEvent, TaskPool};
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::info_span;
+use bevy_utils::tracing::trace;
 use fixedbitset::FixedBitSet;
 use std::ops::Range;
 
 /// Executes each schedule stage in parallel by analyzing system dependencies.
 /// System execution order is undefined except under the following conditions:
 /// * systems in earlier stages run before systems in later stages
-/// * in a given stage, systems that mutate archetype X cannot run before systems registered before them that read/write archetype X
-/// * in a given stage, systems the read archetype X cannot run before systems registered before them that write archetype X
+/// * in a given stage, systems that mutate [archetype+component] X cannot run before systems registered before them that read/write [archetype+component] X
+/// * in a given stage, systems the read [archetype+component] X cannot run before systems registered before them that write [archetype+component] X
 /// * in a given stage, systems that mutate resource Y cannot run before systems registered before them that read/write resource Y
 /// * in a given stage, systems the read resource Y cannot run before systems registered before them that write resource Y
 
@@ -41,7 +44,18 @@ impl ParallelExecutor {
         }
     }
 
+    pub fn initialize(&mut self, resources: &mut Resources) {
+        if resources.get::<ComputeTaskPool>().is_none() {
+            resources.insert(ComputeTaskPool(TaskPool::default()));
+        }
+    }
+
     pub fn run(&mut self, schedule: &mut Schedule, world: &mut World, resources: &mut Resources) {
+        #[cfg(feature = "trace")]
+        let schedule_span = info_span!("schedule");
+        #[cfg(feature = "trace")]
+        let _schedule_guard = schedule_span.enter();
+
         let schedule_generation = schedule.generation();
         let schedule_changed = schedule.generation() != self.last_schedule_generation;
         if schedule_changed {
@@ -51,7 +65,10 @@ impl ParallelExecutor {
         }
         for (stage_name, executor_stage) in schedule.stage_order.iter().zip(self.stages.iter_mut())
         {
-            log::trace!("run stage {:?}", stage_name);
+            #[cfg(feature = "trace")]
+            let stage_span = info_span!("stage", name = stage_name.as_ref());
+            #[cfg(feature = "trace")]
+            let _stage_guard = stage_span.enter();
             if let Some(stage_systems) = schedule.stages.get_mut(stage_name) {
                 executor_stage.run(world, resources, stage_systems, schedule_changed);
             }
@@ -63,6 +80,28 @@ impl ParallelExecutor {
         }
 
         self.last_schedule_generation = schedule_generation;
+    }
+
+    pub fn print_order(&self, schedule: &Schedule) {
+        println!("----------------------------");
+        for (stage_name, executor_stage) in schedule.stage_order.iter().zip(self.stages.iter()) {
+            println!("stage {:?}", stage_name);
+            if let Some(stage_systems) = schedule.stages.get(stage_name) {
+                for (i, system) in stage_systems.iter().enumerate() {
+                    println!("  {}-{}", i, system.name());
+                    println!(
+                        "      dependencies({:?})",
+                        executor_stage.system_dependencies[i]
+                            .ones()
+                            .collect::<Vec<usize>>()
+                    );
+                    println!(
+                        "      dependants({:?})",
+                        executor_stage.system_dependents[i]
+                    );
+                }
+            }
+        }
     }
 }
 
@@ -108,7 +147,7 @@ impl ExecutorStage {
     pub fn prepare_to_next_thread_local(
         &mut self,
         world: &World,
-        systems: &mut [Box<dyn System>],
+        systems: &mut [Box<dyn System<Input = (), Output = ()>>],
         schedule_changed: bool,
         next_thread_local_index: usize,
     ) -> Range<usize> {
@@ -140,9 +179,9 @@ impl ExecutorStage {
             self.last_archetypes_generation != world.archetypes_generation();
 
         if schedule_changed || archetypes_generation_changed {
-            // update each system's archetype access to latest world archetypes
+            // update each system's [archetype+component] access to latest world archetypes
             for system_index in prepare_system_index_range.clone() {
-                systems[system_index].update_archetype_access(world);
+                systems[system_index].update(world);
 
                 // Clear this so that the next block of code that populates it doesn't insert
                 // duplicates
@@ -151,11 +190,11 @@ impl ExecutorStage {
             }
 
             // calculate dependencies between systems and build execution order
-            let mut current_archetype_access = ArchetypeAccess::default();
+            let mut current_archetype_access = TypeAccess::default();
             let mut current_resource_access = TypeAccess::default();
             for system_index in prepare_system_index_range.clone() {
                 let system = &systems[system_index];
-                let archetype_access = system.archetype_access();
+                let archetype_access = system.archetype_component_access();
                 match system.thread_local_execution() {
                     ThreadLocalExecution::NextFlush => {
                         let resource_access = system.resource_access();
@@ -177,7 +216,7 @@ impl ExecutorStage {
 
                                 // if earlier system is incompatible, make the current system dependent
                                 if !earlier_system
-                                    .archetype_access()
+                                    .archetype_component_access()
                                     .is_compatible(archetype_access)
                                     || !earlier_system
                                         .resource_access()
@@ -290,17 +329,17 @@ impl ExecutorStage {
         &self,
         world: &World,
         resources: &Resources,
-        systems: &mut [Box<dyn System>],
+        systems: &mut [Box<dyn System<Input = (), Output = ()>>],
         prepared_system_range: Range<usize>,
         compute_pool: &TaskPool,
     ) {
         // Generate tasks for systems in the given range and block until they are complete
-        log::trace!("running systems {:?}", prepared_system_range);
+        trace!("running systems {:?}", prepared_system_range);
         compute_pool.scope(|scope| {
             let start_system_index = prepared_system_range.start;
             let mut system_index = start_system_index;
             for system in &mut systems[prepared_system_range] {
-                log::trace!(
+                trace!(
                     "prepare {} {} with {} dependents and {} dependencies",
                     system_index,
                     system.name(),
@@ -342,12 +381,6 @@ impl ExecutorStage {
                     for (trigger_event, dependent_system_index) in
                         trigger_events.iter().zip(dependent_systems)
                     {
-                        log::trace!(
-                            "  * system ({}) triggers events: ({}): {}",
-                            system_index,
-                            dependent_system_index,
-                            trigger_event.get()
-                        );
                         debug_assert!(
                             *dependent_system_index < start_system_index || trigger_event.get() > 0
                         );
@@ -364,12 +397,15 @@ impl ExecutorStage {
                     // Execute the system - in a scope to ensure the system lock is dropped before
                     // triggering dependents
                     {
-                        log::trace!("run {}", system.name());
-                        #[cfg(feature = "profiler")]
-                        crate::profiler_start(resources, system.name().clone());
-                        system.run(world_ref, resources_ref);
-                        #[cfg(feature = "profiler")]
-                        crate::profiler_stop(resources, system.name().clone());
+                        #[cfg(feature = "trace")]
+                        let system_span = info_span!("system", name = system.name().as_ref());
+                        #[cfg(feature = "trace")]
+                        let _system_guard = system_span.enter();
+
+                        // SAFETY: scheduler ensures safe world / resource access
+                        unsafe {
+                            system.run_unsafe((), world_ref, resources_ref);
+                        }
                     }
 
                     // Notify dependents that this task is done
@@ -386,7 +422,7 @@ impl ExecutorStage {
         &mut self,
         world: &mut World,
         resources: &mut Resources,
-        systems: &mut [Box<dyn System>],
+        systems: &mut [Box<dyn System<Input = (), Output = ()>>],
         schedule_changed: bool,
     ) {
         let start_archetypes_generation = world.archetypes_generation();
@@ -414,6 +450,11 @@ impl ExecutorStage {
 
             for (system_index, system) in systems.iter().enumerate() {
                 if system.thread_local_execution() == ThreadLocalExecution::Immediate {
+                    #[cfg(feature = "trace")]
+                    let system_span = info_span!("system", name = system.name().as_ref());
+                    #[cfg(feature = "trace")]
+                    let _system_guard = system_span.enter();
+
                     self.thread_local_system_indices.push(system_index);
                 }
             }
@@ -455,8 +496,13 @@ impl ExecutorStage {
             {
                 // if a thread local system is ready to run, run it exclusively on the main thread
                 let system = systems[thread_local_system_index].as_mut();
-                log::trace!("running thread local system {}", system.name());
-                system.run(world, resources);
+
+                #[cfg(feature = "trace")]
+                let system_span = info_span!("thread_local_system", name = system.name().as_ref());
+                #[cfg(feature = "trace")]
+                let _system_guard = system_span.enter();
+
+                system.run((), world, resources);
                 system.run_thread_local(world, resources);
             }
 
@@ -472,7 +518,6 @@ impl ExecutorStage {
                 next_thread_local_index,
             );
 
-            log::trace!("running systems {:?}", run_ready_system_index_range);
             self.run_systems(
                 world,
                 resources,
@@ -485,7 +530,13 @@ impl ExecutorStage {
         // "flush"
         for system in systems.iter_mut() {
             match system.thread_local_execution() {
-                ThreadLocalExecution::NextFlush => system.run_thread_local(world, resources),
+                ThreadLocalExecution::NextFlush => {
+                    #[cfg(feature = "trace")]
+                    let system_span = info_span!("system", name = system.name().as_ref());
+                    #[cfg(feature = "trace")]
+                    let _system_guard = system_span.enter();
+                    system.run_thread_local(world, resources);
+                }
                 ThreadLocalExecution::Immediate => { /* already ran */ }
             }
         }
@@ -504,10 +555,9 @@ mod tests {
     use crate::{
         resource::{Res, ResMut, Resources},
         schedule::Schedule,
-        system::{IntoQuerySystem, IntoThreadLocalSystem, Query},
-        Commands,
+        system::Query,
+        Commands, Entity, World,
     };
-    use bevy_hecs::{Entity, World};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use fixedbitset::FixedBitSet;
     use parking_lot::Mutex;
@@ -528,22 +578,22 @@ mod tests {
         schedule.add_stage("PreArchetypeChange");
         schedule.add_stage("PostArchetypeChange");
 
-        fn insert(mut commands: Commands) {
+        fn insert(commands: &mut Commands) {
             commands.spawn((1u32,));
         }
 
-        fn read(query: Query<&u32>, mut entities: Query<Entity>) {
+        fn read(query: Query<&u32>, entities: Query<Entity>) {
             for entity in &mut entities.iter() {
                 // query.get() does a "system permission check" that will fail if the entity is from a
                 // new archetype which hasnt been "prepared yet"
-                query.get::<u32>(entity).unwrap();
+                query.get_component::<u32>(entity).unwrap();
             }
 
-            assert_eq!(1, entities.iter().iter().count());
+            assert_eq!(1, entities.iter().count());
         }
 
-        schedule.add_system_to_stage("PreArchetypeChange", insert.system());
-        schedule.add_system_to_stage("PostArchetypeChange", read.system());
+        schedule.add_system_to_stage("PreArchetypeChange", insert);
+        schedule.add_system_to_stage("PostArchetypeChange", read);
 
         let mut executor = ParallelExecutor::default();
         schedule.initialize(&mut world, &mut resources);
@@ -563,18 +613,19 @@ mod tests {
             world.spawn((1u32,));
         }
 
-        fn read(query: Query<&u32>, mut entities: Query<Entity>) {
+        fn read(query: Query<&u32>, entities: Query<Entity>) {
             for entity in &mut entities.iter() {
                 // query.get() does a "system permission check" that will fail if the entity is from a
                 // new archetype which hasnt been "prepared yet"
-                query.get::<u32>(entity).unwrap();
+                query.get_component::<u32>(entity).unwrap();
             }
 
-            assert_eq!(1, entities.iter().iter().count());
+            assert_eq!(1, entities.iter().count());
         }
 
-        schedule.add_system_to_stage("update", insert.thread_local_system());
-        schedule.add_system_to_stage("update", read.system());
+        schedule.add_system_to_stage("update", insert);
+        schedule.add_system_to_stage("update", read);
+        schedule.initialize(&mut world, &mut resources);
 
         let mut executor = ParallelExecutor::default();
         executor.run(&mut schedule, &mut world, &mut resources);
@@ -619,7 +670,6 @@ mod tests {
 
         fn read_u32(completed_systems: Res<CompletedSystems>, _query: Query<&u32>) {
             let mut completed_systems = completed_systems.completed_systems.lock();
-            assert!(!completed_systems.contains(READ_U32_WRITE_U64_SYSTEM_NAME));
             completed_systems.insert(READ_U32_SYSTEM_NAME);
         }
 
@@ -633,7 +683,6 @@ mod tests {
             _query: Query<(&u32, &mut u64)>,
         ) {
             let mut completed_systems = completed_systems.completed_systems.lock();
-            assert!(completed_systems.contains(READ_U32_SYSTEM_NAME));
             assert!(!completed_systems.contains(READ_U64_SYSTEM_NAME));
             completed_systems.insert(READ_U32_WRITE_U64_SYSTEM_NAME);
         }
@@ -645,10 +694,10 @@ mod tests {
             completed_systems.insert(READ_U64_SYSTEM_NAME);
         }
 
-        schedule.add_system_to_stage("A", read_u32.system());
-        schedule.add_system_to_stage("A", write_float.system());
-        schedule.add_system_to_stage("A", read_u32_write_u64.system());
-        schedule.add_system_to_stage("A", read_u64.system());
+        schedule.add_system_to_stage("A", read_u32);
+        schedule.add_system_to_stage("A", write_float);
+        schedule.add_system_to_stage("A", read_u32_write_u64);
+        schedule.add_system_to_stage("A", read_u64);
 
         // B systems
 
@@ -676,9 +725,9 @@ mod tests {
             completed_systems.insert(WRITE_F32_SYSTEM_NAME);
         }
 
-        schedule.add_system_to_stage("B", write_u64.system());
-        schedule.add_system_to_stage("B", thread_local_system.thread_local_system());
-        schedule.add_system_to_stage("B", write_f32.system());
+        schedule.add_system_to_stage("B", write_u64);
+        schedule.add_system_to_stage("B", thread_local_system);
+        schedule.add_system_to_stage("B", write_f32);
 
         // C systems
 
@@ -713,10 +762,11 @@ mod tests {
             completed_systems.insert(WRITE_F64_RES_SYSTEM_NAME);
         }
 
-        schedule.add_system_to_stage("C", read_f64_res.system());
-        schedule.add_system_to_stage("C", read_isize_res.system());
-        schedule.add_system_to_stage("C", read_isize_write_f64_res.system());
-        schedule.add_system_to_stage("C", write_f64_res.system());
+        schedule.add_system_to_stage("C", read_f64_res);
+        schedule.add_system_to_stage("C", read_isize_res);
+        schedule.add_system_to_stage("C", read_isize_write_f64_res);
+        schedule.add_system_to_stage("C", write_f64_res);
+        schedule.initialize(&mut world, &mut resources);
 
         fn run_executor_and_validate(
             executor: &mut ParallelExecutor,
@@ -728,7 +778,7 @@ mod tests {
 
             assert_eq!(
                 executor.stages[0].system_dependents,
-                vec![vec![2], vec![], vec![3], vec![]]
+                vec![vec![], vec![], vec![3], vec![]]
             );
             assert_eq!(
                 executor.stages[1].system_dependents,
@@ -740,8 +790,6 @@ mod tests {
             );
 
             let stage_0_len = executor.stages[0].system_dependencies.len();
-            let mut read_u32_write_u64_deps = FixedBitSet::with_capacity(stage_0_len);
-            read_u32_write_u64_deps.insert(0);
             let mut read_u64_deps = FixedBitSet::with_capacity(stage_0_len);
             read_u64_deps.insert(2);
 
@@ -750,7 +798,7 @@ mod tests {
                 vec![
                     FixedBitSet::with_capacity(stage_0_len),
                     FixedBitSet::with_capacity(stage_0_len),
-                    read_u32_write_u64_deps,
+                    FixedBitSet::with_capacity(stage_0_len),
                     read_u64_deps,
                 ]
             );
