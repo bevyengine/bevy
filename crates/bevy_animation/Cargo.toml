@@ -14,7 +14,7 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.3.0" }
 bevy_pbr = { path = "../bevy_pbr", version = "0.3.0" }
 bevy_math = { path = "../bevy_math", version = "0.3.0" }
 bevy_render = { path = "../bevy_render", version = "0.3.0" }
-#bevy_tasks = { path = "../bevy_tasks", version = "0.3.0" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.3.0" }
 bevy_transform = { path = "../bevy_transform", version = "0.3.0" }
 bevy_type_registry = { path = "../bevy_type_registry", version = "0.3.0" }
 bevy_property = { path = "../bevy_property", version = "0.3.0" }
@@ -24,4 +24,15 @@ serde = { version = "1.0", features = ["derive"] }
 smallvec = { version = "1.4", features = ["serde"] }
 anyhow = "1.0"
 float-cmp = "0.8.0"
+fnv = "1.0.7"
 tracing = { version = "0.1.21", features = ["attributes"] }
+
+[dev-dependencies]
+criterion = "0.3.3"
+
+[profile.release]
+debug = true
+
+[[bench]]
+name = "animator"
+harness = false

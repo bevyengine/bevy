@@ -10,9 +10,10 @@ use bevy_transform::prelude::*;
 use bevy_type_registry::{TypeRegistry, TypeUuid};
 use std::collections::HashSet;
 //use serde::{Deserialize, Serialize};
+use std::any::TypeId;
 use std::convert::TryFrom;
+use std::hash::Hash;
 use std::ptr::null_mut;
-use std::{any::TypeId, hash::Hash};
 
 use super::lerping::LerpValue;
 
@@ -86,14 +87,14 @@ impl Clip {
             } else {
                 // Add entity
                 let e = self.entities.len();
-                self.entities.push((entity, Name::new(name.to_string())));
+                self.entities.push((entity, Name::from_str(name)));
                 entity_created = true;
                 // Soft limit added to save memory, identical to the curve limit
                 entity = u16::try_from(e).expect("entities limit reached");
             }
         }
 
-        let insert_attr = Name::new(path.1.split_at(1).1.to_string());
+        let insert_attr = Name::from_str(path.1.split_at(1).1);
 
         // If some entity was created it means this property is a new one
         if !entity_created {
@@ -223,6 +224,7 @@ macro_rules! untyped_fn {
 impl CurveUntyped {
     untyped_fn!(pub fn duration(&self,) -> f32);
     untyped_fn!(pub fn value_type(&self,) -> TypeId);
+    //untyped_fn!(pub fn add_time_offset(&mut self, time: f32,) -> ());
 
     pub fn add_time_offset(&mut self, time: f32) {
         match self {
@@ -282,6 +284,13 @@ where
         Self {
             samples: if t1 >= t0 { vec![t0, t1] } else { vec![t1, t0] },
             values: vec![v0, v1],
+        }
+    }
+
+    pub fn from_constant(v: T) -> Self {
+        Self {
+            samples: vec![0.0],
+            values: vec![v],
         }
     }
 
@@ -402,6 +411,13 @@ pub struct Animator {
     // masks: Vec<Handle<ClipMask>>,
     // #[property(ignore)]
     // bind_masks: Vec<ClipMaskBind>,
+    /// Used to blend all the active layers, durning the frame update each pointers
+    /// can only be set once, by the second time then need to perform blended with the next layer
+    ///
+    // ? NOTE: We may need to change this approach when blending more than 2 layers
+    // ? NOTE: It takes more memory but it's faster than having a local resource with a big chunk of data or even allocating at every frame
+    #[property(ignore)]
+    visited: fnv::FnvHashSet<Ptr>,
     pub time_scale: f32,
     pub layers: Vec<Layer>,
 }
@@ -413,6 +429,7 @@ impl Default for Animator {
         Self {
             clips: vec![],
             bind_clips: vec![],
+            visited: fnv::FnvHashSet::default(),
             time_scale: 1.0,
             layers: vec![],
         }
@@ -489,23 +506,6 @@ struct Ptr(*mut u8);
 unsafe impl Send for Ptr {}
 unsafe impl Sync for Ptr {}
 
-// /// Hash and equality by pointer not the value it self
-// struct HashPtr<'a, T>(&'a mut T);
-
-// impl<'a, T> Hash for HashPtr<'a, T> {
-//     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-//         (self.0 as *const T).hash(state);
-//     }
-// }
-
-// impl<'a, T> PartialEq for HashPtr<'a, T> {
-//     fn eq(&self, other: &Self) -> bool {
-//         (self.0 as *const T) == (other.0 as *const T)
-//     }
-// }
-
-// impl<'a, T> Eq for HashPtr<'a, T> {}
-
 /// Marker type for missing component
 struct MissingComponentMarker;
 
@@ -516,9 +516,10 @@ struct ClipResourceProviderState {
 
 // TODO: Refactor in hope to reuse more code (maybe just create more functions)
 #[tracing::instrument(skip(world, resources))]
-pub(crate) fn animator_binding_system(world: &mut World, resources: &mut Resources) {
+pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
     let system_id = SystemId(0); // ? NOTE: shouldn't be required to match the system id
 
+    // TODO: These local resources seams to be quite slow, maybe I need a random system id?
     // Fetch resources
     let mut state = {
         let state = resources.get_local_mut::<ClipResourceProviderState>(system_id);
@@ -891,7 +892,7 @@ fn find_property_ptr<'a, P: Iterator<Item = &'a str>>(
 }
 
 #[tracing::instrument(skip(world, resources))]
-pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resources) {
+pub fn animator_update_system(world: &mut World, resources: &mut Resources) {
     /// Small value
     const SMOL: f32 = 1e-8;
 
@@ -901,10 +902,6 @@ pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resource
     // SAFETY: This is the only query with mutable reference the Animator component
     let animators_query = unsafe { world.query_unchecked::<(&mut Animator,), ()>() };
     let delta_time = time.delta_seconds;
-
-    // TODO: Warp in a tread_local! to parallelize the property lerping
-    // NOTE: Allocate a big chunk where to avoid doing any extra allocations during the property lerp
-    let mut visited = HashSet::with_capacity(1069);
 
     // ? NOTE: Keep in mind that one hierarchy tree could have many `Animator`s thus
     // ? we can't parallelize over the animators easily without creating a race condition
@@ -926,7 +923,7 @@ pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resource
             layer.weight *= norm;
         }
 
-        visited.clear();
+        animator.visited.clear();
         for layer in &mut animator.layers {
             let w = layer.weight;
             if w < SMOL {
@@ -977,7 +974,7 @@ pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resource
                     // Advance state time
                     layer.time = time;
 
-                    // TODO: can be done in bached_parallel when visited warped inside a thread_local!
+                    // TODO: can be done in bached_parallel if is visited warped inside a mutex
                     for ((ptr, keyframe), curve_index) in bind
                         .attributes
                         .iter()
@@ -991,10 +988,10 @@ pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resource
 
                         let curve = &clip.curves[*curve_index as usize];
 
-                        let viz = if visited.contains(&ptr.0) {
+                        let viz = if animator.visited.contains(&ptr) {
                             true
                         } else {
-                            visited.insert(ptr.0);
+                            animator.visited.insert(*ptr);
                             false
                         };
 
@@ -1050,8 +1047,10 @@ pub(crate) fn animator_update_system(world: &mut World, resources: &mut Resource
                                 unsafe {
                                     let ptr = ptr.0 as *mut Quat;
                                     if viz {
-                                        // ? NOTE: Blending two clips no matter the order
-                                        // ? should give the same results, so nlerp must be used
+                                        // ? NOTE: Always nlerp, because blending the same clips in different order must yield the same results
+                                        // ! NOTE: This now one of (if not) the most expensive thing been executed in the animator_update_system
+                                        // ! blending more layers will increase the cost, change this behavior will result in change of the final motion
+                                        // ! in unexpected ways (maybe not by much but still)
                                         *ptr = LerpValue::lerp(&*ptr, &v, w);
                                     } else {
                                         *ptr = v;
@@ -1243,4 +1242,138 @@ mod tests {
     // TODO: Add tests for animated handle (impl missing)
     // TODO: Add tests for animated asset properties (impl missing)
     // TODO: Add tests for animated components should trigger 'Mutated' queries filters (impl missing)
+
+    struct AnimtorTestBench {
+        app: bevy_app::App,
+        //binding_system: Box<dyn bevy_ecs::System<Input = (), Output = ()>>,
+        update_system: Box<dyn bevy_ecs::System<Input = (), Output = ()>>,
+    }
+
+    impl AnimtorTestBench {
+        fn new() -> Self {
+            let mut app_builder = bevy_app::App::build();
+            app_builder
+                .add_plugin(bevy_type_registry::TypeRegistryPlugin::default())
+                .add_plugin(bevy_core::CorePlugin::default())
+                .add_plugin(bevy_app::ScheduleRunnerPlugin::default())
+                .add_plugin(bevy_asset::AssetPlugin)
+                .add_plugin(bevy_transform::TransformPlugin)
+                .add_plugin(crate::AnimationPlugin);
+
+            let mut world = World::new();
+            let mut world_builder = world.build();
+            let base = (
+                GlobalTransform::default(),
+                Transform::from_translation(Vec3::new(0.0, 1.0, 0.0)),
+            );
+
+            // Create animator and assign some clips
+            let mut animator = Animator::default();
+            {
+                let mut clip_a = Clip::default();
+                clip_a.add_animated_prop(
+                    "@Transform.translation",
+                    CurveUntyped::Vec3(Curve::from_linear(
+                        0.0,
+                        1.0,
+                        Vec3::unit_x(),
+                        -Vec3::unit_x(),
+                    )),
+                );
+                let rot = CurveUntyped::Quat(Curve::from_constant(Quat::identity()));
+                clip_a.add_animated_prop("@Transform.rotation", rot.clone());
+                clip_a.add_animated_prop("/Hode1@Transform.rotation", rot.clone());
+                clip_a.add_animated_prop("/Node1/Node2@Transform.rotation", rot);
+
+                let mut clip_b = Clip::default();
+                clip_b.add_animated_prop(
+                    "@Transform.translation",
+                    CurveUntyped::Vec3(Curve::from_constant(Vec3::zero())),
+                );
+                let rot = CurveUntyped::Quat(Curve::from_linear(
+                    0.0,
+                    1.0,
+                    Quat::from_axis_angle(Vec3::unit_z(), 0.1),
+                    Quat::from_axis_angle(Vec3::unit_z(), -0.1),
+                ));
+                clip_b.add_animated_prop("@Transform.rotation", rot.clone());
+                clip_b.add_animated_prop("/Hode1@Transform.rotation", rot.clone());
+                clip_b.add_animated_prop("/Node1/Node2@Transform.rotation", rot);
+
+                let mut clips = app_builder
+                    .resources_mut()
+                    .get_mut::<Assets<Clip>>()
+                    .unwrap();
+                let clip_a = clips.add(clip_a);
+                let clip_b = clips.add(clip_b);
+
+                animator.add_layer(clip_a, 0.5);
+                animator.add_layer(clip_b, 0.5);
+            }
+
+            world_builder
+                .spawn(base.clone())
+                .with(Name::from_str("Root"))
+                .with(animator)
+                .with_children(|world_builder| {
+                    world_builder
+                        .spawn(base.clone())
+                        .with(Name::from_str("Node1"))
+                        .with_children(|world_builder| {
+                            world_builder
+                                .spawn(base.clone())
+                                .with(Name::from_str("Node2"))
+                                .with_children(|world_builder| {
+                                    world_builder
+                                        .spawn(base.clone())
+                                        .with(Name::from_str("Node3"));
+                                });
+                        });
+                });
+
+            app_builder.set_world(world);
+
+            // let mut parent_update_system: Box<dyn bevy_ecs::System<Input = (), Output = ()>> =
+            //     Box::new(bevy_transform::hierarchy::parent_update_system.system());
+
+            let mut binding_system: Box<dyn bevy_ecs::System<Input = (), Output = ()>> =
+                Box::new(crate::animator_binding_system.system());
+
+            let update_system: Box<dyn bevy_ecs::System<Input = (), Output = ()>> =
+                Box::new(crate::animator_update_system.system());
+
+            let mut app = app_builder.app;
+
+            //parent_update_system.run((), &mut app.world, &mut app.resources);
+            binding_system.run_thread_local(&mut app.world, &mut app.resources);
+
+            Self { app, update_system }
+        }
+
+        fn update(&mut self, ticks: usize) {
+            for _ in 0..ticks {
+                // Time tick
+                {
+                    let mut time = self.app.resources.get_mut::<Time>().unwrap();
+                    time.delta_seconds += 0.016;
+                    time.delta_seconds_f64 += 0.016;
+                }
+
+                self.update_system
+                    .run_thread_local(&mut self.app.world, &mut self.app.resources);
+
+                //dbg!(app.world.get::<Transform>(root_entity).unwrap());
+            }
+        }
+    }
+
+    #[test]
+    fn test_bench_update() {
+        // ? NOTE: Mimics a basic system update behavior good for pref since criterion will pollute the
+        // ? annotations with many expensive instructions
+        let mut a = AnimtorTestBench::new();
+        a.update(1_000_000);
+    }
+
+    // TODO: 5 layers or more ...
 }

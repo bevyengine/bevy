@@ -25,15 +25,34 @@ impl Default for Name {
 
 impl Name {
     pub fn new(name: String) -> Self {
-        let mut hasher = DefaultHasher::default();
-        name.hash(&mut hasher);
-        let hash = hasher.finish();
+        let mut name = Name { name, hash: 0 };
+        name.update_hash();
+        name
+    }
 
-        Name { name, hash }
+    #[inline(always)]
+    pub fn from_str(name: &str) -> Self {
+        Name::new(name.to_owned())
+    }
+
+    #[inline(always)]
+    pub fn set(&mut self, name: String) {
+        *self = Name::new(name);
+    }
+
+    pub fn mutate<F: FnOnce(&mut String)>(&mut self, f: F) {
+        f(&mut self.name);
+        self.update_hash();
     }
 
     pub fn as_str(&self) -> &str {
         self.name.as_str()
+    }
+
+    fn update_hash(&mut self) {
+        let mut hasher = DefaultHasher::default();
+        self.name.hash(&mut hasher);
+        self.hash = hasher.finish();
     }
 }
 
