@@ -160,25 +160,25 @@ impl<'a> Iterator for MapIter<'a> {
 
 #[inline]
 pub fn map_partial_eq<M: Map>(a: &M, b: &dyn Reflect) -> Option<bool> {
-    Some(if let ReflectRef::Map(map_value) = b.reflect_ref() {
-        if a.len() == map_value.len() {
-            for (key, value) in a.iter() {
-                if let Some(map_value) = map_value.get(key) {
-                    match value.partial_eq(map_value) {
-                        Some(true) => {}
-                        Some(false) => return Some(false),
-                        None => return Some(false),
-                    }
-                } else {
-                    return Some(false);
-                }
-            }
-
-            true
-        } else {
-            false
-        }
+    let map = if let ReflectRef::Map(map) = b.reflect_ref() {
+        map
     } else {
-        false
-    })
+        return Some(false);
+    };
+
+    if a.len() != map.len() {
+        return Some(false);
+    }
+
+    for (key, value) in a.iter() {
+        if let Some(map_value) = map.get(key) {
+            if let Some(false) | None = value.partial_eq(map_value) {
+                return Some(false);
+            }
+        } else {
+            return Some(false);
+        }
+    }
+
+    Some(true)
 }

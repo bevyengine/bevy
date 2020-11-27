@@ -158,21 +158,21 @@ pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {
 
 #[inline]
 pub fn list_partial_eq<L: List>(a: &L, b: &dyn Reflect) -> Option<bool> {
-    Some(if let ReflectRef::List(list_value) = b.reflect_ref() {
-        if a.len() == list_value.len() {
-            for (a_value, b_value) in a.iter().zip(list_value.iter()) {
-                match a_value.partial_eq(b_value) {
-                    Some(true) => {}
-                    Some(false) => return Some(false),
-                    None => return Some(false),
-                }
-            }
-
-            true
-        } else {
-            false
-        }
+    let list = if let ReflectRef::List(list) = b.reflect_ref() {
+        list
     } else {
-        false
-    })
+        return Some(false);
+    };
+
+    if a.len() != list.len() {
+        return Some(false);
+    }
+
+    for (a_value, b_value) in a.iter().zip(list.iter()) {
+        if let Some(false) | None = a_value.partial_eq(b_value) {
+            return Some(false);
+        }
+    }
+
+    Some(true)
 }

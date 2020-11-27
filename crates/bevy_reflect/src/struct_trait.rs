@@ -231,26 +231,26 @@ impl Reflect for DynamicStruct {
 
 #[inline]
 pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
-    Some(if let ReflectRef::Struct(struct_value) = b.reflect_ref() {
-        if a.field_len() == struct_value.field_len() {
-            for (i, value) in struct_value.iter_fields().enumerate() {
-                let name = struct_value.name_at(i).unwrap();
-                if let Some(field_value) = a.field(name) {
-                    match field_value.partial_eq(value) {
-                        Some(true) => {}
-                        Some(false) => return Some(false),
-                        None => return Some(false),
-                    }
-                } else {
-                    return Some(false);
-                }
-            }
-
-            true
-        } else {
-            false
-        }
+    let struct_value = if let ReflectRef::Struct(struct_value) = b.reflect_ref() {
+        struct_value
     } else {
-        false
-    })
+        return Some(false);
+    };
+
+    if a.field_len() != struct_value.field_len() {
+        return Some(false);
+    }
+
+    for (i, value) in struct_value.iter_fields().enumerate() {
+        let name = struct_value.name_at(i).unwrap();
+        if let Some(field_value) = a.field(name) {
+            if let Some(false) | None = field_value.partial_eq(value) {
+                return Some(false);
+            }
+        } else {
+            return Some(false);
+        }
+    }
+
+    Some(true)
 }

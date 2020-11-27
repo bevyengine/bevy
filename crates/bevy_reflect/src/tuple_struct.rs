@@ -186,27 +186,25 @@ impl Reflect for DynamicTupleStruct {
 
 #[inline]
 pub fn tuple_struct_partial_eq<S: TupleStruct>(a: &S, b: &dyn Reflect) -> Option<bool> {
-    Some(
-        if let ReflectRef::TupleStruct(tuple_struct) = b.reflect_ref() {
-            if a.field_len() == tuple_struct.field_len() {
-                for (i, value) in tuple_struct.iter_fields().enumerate() {
-                    if let Some(field_value) = a.field(i) {
-                        match field_value.partial_eq(value) {
-                            Some(true) => {}
-                            Some(false) => return Some(false),
-                            None => return Some(false),
-                        }
-                    } else {
-                        return Some(false);
-                    }
-                }
+    let tuple_struct = if let ReflectRef::TupleStruct(tuple_struct) = b.reflect_ref() {
+        tuple_struct
+    } else {
+        return Some(false);
+    };
 
-                true
-            } else {
-                false
+    if a.field_len() != tuple_struct.field_len() {
+        return Some(false);
+    }
+
+    for (i, value) in tuple_struct.iter_fields().enumerate() {
+        if let Some(field_value) = a.field(i) {
+            if let Some(false) | None = field_value.partial_eq(value) {
+                return Some(false);
             }
         } else {
-            false
-        },
-    )
+            return Some(false);
+        }
+    }
+
+    Some(true)
 }
