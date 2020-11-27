@@ -22,7 +22,7 @@ pub struct TextureAtlas {
     #[render_resources(buffer)]
     pub textures: Vec<Rect>,
     #[render_resources(ignore)]
-    pub texture_handles: Option<HashMap<(Handle<Texture>, u32), usize>>,
+    pub texture_handles: Option<HashMap<(Handle<Texture>, usize), usize>>,
 }
 
 #[derive(Debug, RenderResources, RenderResource)]
@@ -140,7 +140,7 @@ impl TextureAtlas {
         self.textures.is_empty()
     }
 
-    pub fn get_texture_index(&self, texture: &Handle<Texture>, sub_index: u32) -> Option<usize> {
+    pub fn get_texture_index(&self, texture: &Handle<Texture>, sub_index: usize) -> Option<usize> {
         self.texture_handles.as_ref().and_then(|texture_handles| {
             texture_handles
                 .get(&(texture.clone_weak(), sub_index))

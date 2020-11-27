@@ -12,7 +12,7 @@ use thiserror::Error;
 #[derive(Debug)]
 pub struct TextureAtlasBuilder {
     pub textures: Vec<Handle<Texture>>,
-    pub rects_to_place: GroupedRectsToPlace<(Handle<Texture>, u32)>,
+    pub rects_to_place: GroupedRectsToPlace<(Handle<Texture>, usize)>,
     pub initial_size: Vec2,
     pub max_size: Vec2,
 }
@@ -58,7 +58,7 @@ impl TextureAtlasBuilder {
 
         for y in 0..height {
             for x in 0..width {
-                let index = (y * width) + x;
+                let index = ((y * width) + x) as usize;
                 self.rects_to_place.push_rect(
                     (texture_handle.clone_weak(), index),
                     None,
