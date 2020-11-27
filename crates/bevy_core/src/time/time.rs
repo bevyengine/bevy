@@ -73,7 +73,7 @@ impl Time {
         self.startup
     }
 
-    /// The instant when [`Time::update`] was last called, if it exists
+    /// The ['Instant'] when [`Time::update`] was last called, if it exists
     #[inline]
     pub fn last_update(&self) -> Option<Instant> {
         self.last_update
