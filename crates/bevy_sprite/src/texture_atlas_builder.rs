@@ -12,7 +12,7 @@ use thiserror::Error;
 #[derive(Debug)]
 pub struct TextureAtlasBuilder {
     pub textures: Vec<Handle<Texture>>,
-    pub rects_to_place: GroupedRectsToPlace<Handle<Texture>>,
+    pub rects_to_place: GroupedRectsToPlace<(Handle<Texture>, u32)>,
     pub initial_size: Vec2,
     pub max_size: Vec2,
 }
@@ -41,10 +41,31 @@ impl TextureAtlasBuilder {
 
     pub fn add_texture(&mut self, texture_handle: Handle<Texture>, texture: &Texture) {
         self.rects_to_place.push_rect(
-            texture_handle,
+            (texture_handle, 0),
             None,
             RectToInsert::new(texture.size.width, texture.size.height, 1),
         )
+    }
+
+    pub fn add_textures(
+        &mut self,
+        texture_handle: Handle<Texture>,
+        texture: &Texture,
+        cell_size: Vec2,
+    ) {
+        let width = texture.size.width / cell_size.x as u32;
+        let height = texture.size.height / cell_size.y as u32;
+
+        for y in 0..height {
+            for x in 0..width {
+                let index = (y * width) + x;
+                self.rects_to_place.push_rect(
+                    (texture_handle.clone_weak(), index),
+                    None,
+                    RectToInsert::new(width * cell_size.x as u32, height * cell_size.y as u32, 1),
+                )
+            }
+        }
     }
 
     fn place_texture(
@@ -124,7 +145,9 @@ impl TextureAtlasBuilder {
 
         let mut texture_rects = Vec::with_capacity(rect_placements.packed_locations().len());
         let mut texture_handles = HashMap::default();
-        for (texture_handle, (_, packed_location)) in rect_placements.packed_locations().iter() {
+        for ((texture_handle, index), (_, packed_location)) in
+            rect_placements.packed_locations().iter()
+        {
             let texture = textures.get(texture_handle).unwrap();
             let min = Vec2::new(packed_location.x() as f32, packed_location.y() as f32);
             let max = min
@@ -132,7 +155,7 @@ impl TextureAtlasBuilder {
                     packed_location.width() as f32,
                     packed_location.height() as f32,
                 );
-            texture_handles.insert(texture_handle.clone_weak(), texture_rects.len());
+            texture_handles.insert((texture_handle.clone_weak(), *index), texture_rects.len());
             texture_rects.push(Rect { min, max });
             self.place_texture(&mut atlas_texture, texture, packed_location);
         }
