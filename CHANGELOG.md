@@ -12,7 +12,8 @@ current changes on git with [previous release tags][git_tag_comparison].
 ### Added
 
 ### Changed
-
+- [Breaking changes to timer API][914]
+- [Removed timer auto-ticking system][931]
 ### Fixed
 
 

@@ -199,6 +199,10 @@ name = "system_chaining"
 path = "examples/ecs/system_chaining.rs"
 
 [[example]]
+name = "timers"
+path = "examples/ecs/timers.rs"
+
+[[example]]
 name = "ecs_guide"
 path = "examples/ecs/ecs_guide.rs"
 
