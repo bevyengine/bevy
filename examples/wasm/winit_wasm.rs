@@ -34,7 +34,7 @@ fn counter(mut state: Local<CounterState>, time: Res<Time>) {
             "tick {} @ {:?} [Δ{}]",
             state.count,
             time.time_since_startup(),
-            time.delta_seconds
+            time.delta_seconds()
         );
     }
     state.count += 1;

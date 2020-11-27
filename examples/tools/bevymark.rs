@@ -84,7 +84,7 @@ fn mouse_handler(
     mut counter: ResMut<BevyCounter>,
 ) {
     if mouse_button_input.pressed(MouseButton::Left) {
-        let spawn_count = (BIRDS_PER_SECOND as f32 * time.delta_seconds) as u128;
+        let spawn_count = (BIRDS_PER_SECOND as f32 * time.delta_seconds()) as u128;
         let bird_x = (window.width as i32 / -2) as f32 + HALF_BIRD_SIZE;
         let bird_y = (window.height / 2) as f32 - HALF_BIRD_SIZE;
 
@@ -118,9 +118,9 @@ fn mouse_handler(
 
 fn movement_system(time: Res<Time>, mut bird_query: Query<(&mut Bird, &mut Transform)>) {
     for (mut bird, mut transform) in bird_query.iter_mut() {
-        transform.translation.x += bird.velocity.x * time.delta_seconds;
-        transform.translation.y += bird.velocity.y * time.delta_seconds;
-        bird.velocity.y += GRAVITY * time.delta_seconds;
+        transform.translation.x += bird.velocity.x * time.delta_seconds();
+        transform.translation.y += bird.velocity.y * time.delta_seconds();
+        bird.velocity.y += GRAVITY * time.delta_seconds();
     }
 }
 

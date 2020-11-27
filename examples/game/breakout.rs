@@ -174,7 +174,7 @@ fn paddle_movement_system(
 
         let translation = &mut transform.translation;
         // move the paddle horizontally
-        translation.x += time.delta_seconds * direction * paddle.speed;
+        translation.x += time.delta_seconds() * direction * paddle.speed;
         // bound the paddle within the walls
         translation.x = translation.x.min(380.0).max(-380.0);
     }
@@ -182,7 +182,7 @@ fn paddle_movement_system(
 
 fn ball_movement_system(time: Res<Time>, mut ball_query: Query<(&Ball, &mut Transform)>) {
     // clamp the timestep to stop the ball from escaping when the game starts
-    let delta_seconds = f32::min(0.2, time.delta_seconds);
+    let delta_seconds = f32::min(0.2, time.delta_seconds());
 
     for (ball, mut transform) in ball_query.iter_mut() {
         transform.translation += ball.velocity * delta_seconds;

@@ -40,11 +40,11 @@ impl FrameTimeDiagnosticsPlugin {
         state.frame_count += 1.0;
         diagnostics.add_measurement(Self::FRAME_COUNT, state.frame_count);
 
-        if time.delta_seconds_f64 == 0.0 {
+        if time.delta_seconds_f64() == 0.0 {
             return;
         }
 
-        diagnostics.add_measurement(Self::FRAME_TIME, time.delta_seconds_f64);
+        diagnostics.add_measurement(Self::FRAME_TIME, time.delta_seconds_f64());
         if let Some(fps) = diagnostics
             .get(Self::FRAME_TIME)
             .and_then(|frame_time_diagnostic| {
