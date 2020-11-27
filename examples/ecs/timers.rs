@@ -1,5 +1,4 @@
-use bevy::log::info;
-use bevy::prelude::*;
+use bevy::{log::info, prelude::*};
 
 fn main() {
     App::build()
