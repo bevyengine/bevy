@@ -14,9 +14,6 @@ pub enum AssetEvent<T: Asset> {
     Removed { handle: Handle<T> },
 }
 
-// SAFE: Only contains handles, which are Send. Come on rust ... be cool.
-unsafe impl<T: Asset> Send for AssetEvent<T> {}
-
 impl<T: Asset> Debug for AssetEvent<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
