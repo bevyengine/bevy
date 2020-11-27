@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 pub struct PipelineSpecialization {
     pub shader_specialization: ShaderSpecialization,
     pub primitive_topology: PrimitiveTopology,
-    pub dynamic_bindings: Vec<String>,
+    pub dynamic_bindings: HashSet<String>,
     pub index_format: IndexFormat,
     pub vertex_buffer_descriptor: VertexBufferDescriptor,
     pub sample_count: u32,
