@@ -312,9 +312,10 @@ mod tests {
     fn reflect_path() {
         #[derive(Reflect)]
         struct A {
-            x: usize,
-            y: B,
-            z: Vec<C>,
+            w: usize,
+            x: B,
+            y: Vec<C>,
+            z: D,
         }
 
         #[derive(Reflect)]
@@ -323,30 +324,38 @@ mod tests {
             bar: C,
         }
 
-        #[derive(Reflect, Clone)]
+        #[derive(Reflect)]
         struct C {
             baz: f32,
         }
 
+        #[derive(Reflect)]
+        struct D(E);
+
+        #[derive(Reflect)]
+        struct E(f32, usize);
+
         let mut a = A {
-            x: 1,
-            y: B {
+            w: 1,
+            x: B {
                 foo: 10,
                 bar: C { baz: 3.14 },
             },
-            z: vec![C { baz: 1.0 }, C { baz: 2.0 }],
+            y: vec![C { baz: 1.0 }, C { baz: 2.0 }],
+            z: D(E(10.0, 42)),
         };
 
-        assert_eq!(*a.get_path::<usize>("x").unwrap(), 1);
-        assert_eq!(*a.get_path::<usize>("y.foo").unwrap(), 10);
-        assert_eq!(*a.get_path::<f32>("y.bar.baz").unwrap(), 3.14);
-        assert_eq!(*a.get_path::<f32>("z[1].baz").unwrap(), 2.0);
+        assert_eq!(*a.get_path::<usize>("w").unwrap(), 1);
+        assert_eq!(*a.get_path::<usize>("x.foo").unwrap(), 10);
+        assert_eq!(*a.get_path::<f32>("x.bar.baz").unwrap(), 3.14);
+        assert_eq!(*a.get_path::<f32>("y[1].baz").unwrap(), 2.0);
+        assert_eq!(*a.get_path::<usize>("z.0.1").unwrap(), 42);
 
-        *a.get_path_mut::<f32>("z[1].baz").unwrap() = 3.0;
-        assert_eq!(a.z[1].baz, 3.0);
+        *a.get_path_mut::<f32>("y[1].baz").unwrap() = 3.0;
+        assert_eq!(a.y[1].baz, 3.0);
 
         assert_eq!(
-            a.path("y.notreal").err().unwrap(),
+            a.path("x.notreal").err().unwrap(),
             ReflectPathError::InvalidField {
                 index: 2,
                 field: "notreal"
@@ -354,22 +363,22 @@ mod tests {
         );
 
         assert_eq!(
-            a.path("y..").err().unwrap(),
+            a.path("x..").err().unwrap(),
             ReflectPathError::ExpectedIdent { index: 2 }
         );
 
         assert_eq!(
-            a.path("y[0]").err().unwrap(),
+            a.path("x[0]").err().unwrap(),
             ReflectPathError::ExpectedList { index: 2 }
         );
 
         assert_eq!(
-            a.path("z.x").err().unwrap(),
+            a.path("y.x").err().unwrap(),
             ReflectPathError::ExpectedStruct { index: 2 }
         );
 
         assert!(matches!(
-            a.path("z[badindex]"),
+            a.path("y[badindex]"),
             Err(ReflectPathError::IndexParseError(_))
         ));
     }
