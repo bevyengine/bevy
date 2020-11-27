@@ -73,6 +73,12 @@ impl Time {
         self.startup
     }
 
+    /// The instant when [`Time::update`] was last called, if it exists
+    #[inline]
+    pub fn last_update(&self) -> Option<Instant> {
+        self.last_update
+    }
+
     pub fn time_since_startup(&self) -> Duration {
         Instant::now() - self.startup
     }
@@ -98,24 +104,24 @@ mod tests {
         };
 
         // Ensure `time` was constructed correctly
-        assert_eq!(time.delta, Duration::from_secs(0));
-        assert_eq!(time.last_update, None);
-        assert_eq!(time.startup, start_instant);
-        assert_eq!(time.delta_seconds_f64, 0.0);
-        assert_eq!(time.seconds_since_startup, 0.0);
-        assert_eq!(time.delta_seconds, 0.0);
+        assert_eq!(time.delta(), Duration::from_secs(0));
+        assert_eq!(time.last_update(), None);
+        assert_eq!(time.startup(), start_instant);
+        assert_eq!(time.delta_seconds_f64(), 0.0);
+        assert_eq!(time.seconds_since_startup(), 0.0);
+        assert_eq!(time.delta_seconds(), 0.0);
 
         // Update `time` and check results
         let first_update_instant = Instant::now();
 
         time.update_with_instant(first_update_instant);
 
-        assert_eq!(time.delta, Duration::from_secs(0));
-        assert_eq!(time.last_update, Some(first_update_instant));
-        assert_eq!(time.startup, start_instant);
-        assert_eq!(time.delta_seconds_f64, 0.0);
+        assert_eq!(time.delta(), Duration::from_secs(0));
+        assert_eq!(time.last_update(), Some(first_update_instant));
+        assert_eq!(time.startup(), start_instant);
+        assert_eq!(time.delta_seconds_f64(), 0.0);
         assert_eq!(
-            time.seconds_since_startup,
+            time.seconds_since_startup(),
             (first_update_instant - start_instant).as_secs_f64()
         );
         assert_eq!(time.delta_seconds, 0.0);
@@ -125,16 +131,16 @@ mod tests {
 
         time.update_with_instant(second_update_instant);
 
-        assert_eq!(time.delta, second_update_instant - first_update_instant);
-        assert_eq!(time.last_update, Some(second_update_instant));
-        assert_eq!(time.startup, start_instant);
+        assert_eq!(time.delta(), second_update_instant - first_update_instant);
+        assert_eq!(time.last_update(), Some(second_update_instant));
+        assert_eq!(time.startup(), start_instant);
         // At this point its safe to use time.delta as a valid value
         // because it's been previously verified to be correct
-        assert_eq!(time.delta_seconds_f64, time.delta.as_secs_f64());
+        assert_eq!(time.delta_seconds_f64(), time.delta().as_secs_f64());
         assert_eq!(
-            time.seconds_since_startup,
+            time.seconds_since_startup(),
             (second_update_instant - start_instant).as_secs_f64()
         );
-        assert_eq!(time.delta_seconds, time.delta.as_secs_f32());
+        assert_eq!(time.delta_seconds(), time.delta().as_secs_f32());
     }
 }
