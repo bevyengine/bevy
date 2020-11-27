@@ -106,6 +106,7 @@ impl Timer {
 
         self.finished = self.elapsed >= self.duration;
         self.just_finished = !prev_finished && self.finished;
+
         if self.finished {
             if self.repeating {
                 // Repeating timers wrap around
