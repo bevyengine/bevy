@@ -10,8 +10,21 @@ current changes on git with [previous release tags][git_tag_comparison].
 ## Unreleased
 
 ### Added
-
+- [`bevy_log`][836]
+  - Adds logging functionality as a Plugin.
+  - Changes internal logging to work with the new implementation.
+- [Controllable ambient light color][852]
+  - Added a resource to change the current ambient light color for PBR.
+- [Added more basic color constants][859]
+- [System Inputs, Outputs, and Chaining][876]
+- [Expose an `EventId` for events][894]
+- [Added `set_cursor_position` to `Window`][917]
+- [Added new Bevy reflection system][926]
+  - Replaces the properties system
 ### Changed
+- [FileAssetIo includes full path on error][821]
+- [Removed ECS query APIs that could easily violate safety from the public interface][829]
+- [Changed Query filter API to be easier to understand][834]
 - [Breaking changes to timer API][914]
   - Created getters and setters rather than exposing struct members.
 - [Removed timer auto-ticking system][931]
@@ -19,12 +32,33 @@ current changes on git with [previous release tags][git_tag_comparison].
 - [Breaking changes to Time API][934]
   - Created getters to get `Time` state and made members private.
   - Modifying `Time`'s values directly is no longer possible outside of bevy.
+- [Use `mailbox` instead of `fifo` for vsync on supported systems][920]
 ### Fixed
+- [Fixed typos in KeyCode identifiers][857]
+- [Don't draw text that isn't visible][893]
+- [Use `instant::Instant` for WASM compatibility][895]
+- [Fixed duplicated children when spawning a Scene][904]
+- [Corrected behaviour of the UI depth system][905]
 
+[821]: https://github.com/bevyengine/bevy/pull/821
+[829]: https://github.com/bevyengine/bevy/pull/829
+[834]: https://github.com/bevyengine/bevy/pull/834
+[836]: https://github.com/bevyengine/bevy/pull/836
+[852]: https://github.com/bevyengine/bevy/pull/852
+[857]: https://github.com/bevyengine/bevy/pull/857
+[859]: https://github.com/bevyengine/bevy/pull/859
+[876]: https://github.com/bevyengine/bevy/pull/876
+[893]: https://github.com/bevyengine/bevy/pull/893
+[894]: https://github.com/bevyengine/bevy/pull/894
+[895]: https://github.com/bevyengine/bevy/pull/895
+[904]: https://github.com/bevyengine/bevy/pull/904
+[905]: https://github.com/bevyengine/bevy/pull/905
 [914]: https://github.com/bevyengine/bevy/pull/914
+[917]: https://github.com/bevyengine/bevy/pull/917
+[920]: https://github.com/bevyengine/bevy/pull/920
+[926]: https://github.com/bevyengine/bevy/pull/926
 [931]: https://github.com/bevyengine/bevy/pull/931
 [934]: https://github.com/bevyengine/bevy/pull/934
-
 
 ## Version 0.3.0 (2020-11-03)
 
