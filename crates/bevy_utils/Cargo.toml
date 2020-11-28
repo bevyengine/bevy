@@ -16,6 +16,8 @@ keywords = ["bevy"]
 ahash = "0.5.3"
 tracing = {version = "0.1", features = ["release_max_level_info"]}
 instant = { version = "0.1", features = ["wasm-bindgen"] }
+uuid = { version = "0.8", features = ["v4", "serde"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = {version = "0.2.0", features = ["js"]}
+uuid = { version = "0.8", features = ["wasm-bindgen"] }

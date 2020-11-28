@@ -75,7 +75,7 @@ bevy_internal = {path = "crates/bevy_internal", version = "0.3.0", default-featu
 [dev-dependencies]
 anyhow = "1.0"
 rand = "0.7.3"
-ron = "0.6"
+ron = "0.6.2"
 serde = {version = "1", features = ["derive"]}
 
 [[example]]
@@ -255,12 +255,24 @@ name = "touch_input_events"
 path = "examples/input/touch_input_events.rs"
 
 [[example]]
-name = "scene"
-path = "examples/scene/scene.rs"
+name = "reflection"
+path = "examples/reflection/reflection.rs"
 
 [[example]]
-name = "properties"
-path = "examples/scene/properties.rs"
+name = "reflection_types"
+path = "examples/reflection/reflection_types.rs"
+
+[[example]]
+name = "generic_reflection"
+path = "examples/reflection/generic_reflection.rs"
+
+[[example]]
+name = "trait_reflection"
+path = "examples/reflection/trait_reflection.rs"
+
+[[example]]
+name = "scene"
+path = "examples/scene/scene.rs"
 
 [[example]]
 name = "mesh_custom_attribute"

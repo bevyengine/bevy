@@ -1,6 +1,7 @@
 use crate::{ColorMaterial, Sprite, TextureAtlas, TextureAtlasSprite};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::Resources;
+use bevy_reflect::TypeUuid;
 use bevy_render::{
     pipeline::{
         BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
@@ -11,7 +12,6 @@ use bevy_render::{
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat,
 };
-use bevy_type_registry::TypeUuid;
 
 pub const SPRITE_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
     Handle::weak_from_u64(PipelineDescriptor::TYPE_UUID, 2785347840338765446);

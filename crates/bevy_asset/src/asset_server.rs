@@ -7,12 +7,11 @@ use crate::{
 use anyhow::Result;
 use bevy_ecs::Res;
 use bevy_tasks::TaskPool;
-use bevy_utils::HashMap;
+use bevy_utils::{HashMap, Uuid};
 use crossbeam_channel::TryRecvError;
 use parking_lot::RwLock;
 use std::{collections::hash_map::Entry, path::Path, sync::Arc};
 use thiserror::Error;
-use uuid::Uuid;
 
 /// Errors that occur while loading assets with an AssetServer
 #[derive(Error, Debug)]

@@ -1,5 +1,6 @@
 use bevy::{
     prelude::*,
+    reflect::TypeUuid,
     render::{
         mesh::shape,
         pipeline::{PipelineDescriptor, RenderPipeline},
@@ -7,7 +8,6 @@ use bevy::{
         renderer::RenderResources,
         shader::{ShaderStage, ShaderStages},
     },
-    type_registry::TypeUuid,
 };
 
 /// This example illustrates how to create a custom material asset and a shader that uses that material

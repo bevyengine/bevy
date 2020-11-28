@@ -7,7 +7,7 @@ use crate::{
 use bevy_asset::Handle;
 use bevy_core::{Byteable, Bytes};
 use bevy_math::{Vec3, Vec4};
-use bevy_property::Property;
+use bevy_reflect::Reflect;
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Mul, MulAssign};
 
@@ -15,7 +15,7 @@ use std::ops::{Add, AddAssign, Mul, MulAssign};
 // see comment on bevy issue #688 https://github.com/bevyengine/bevy/pull/688#issuecomment-711414011
 /// RGBA color in the Linear sRGB colorspace (often colloquially referred to as "linear", "RGB", or "linear RGB").
 #[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Property)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 pub struct Color {
     red: f32,
     green: f32,

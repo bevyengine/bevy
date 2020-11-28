@@ -8,7 +8,7 @@ use crate::{
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Query, Res, ResMut, SystemParam};
-use bevy_property::Properties;
+use bevy_reflect::Reflect;
 use std::{ops::Range, sync::Arc};
 use thiserror::Error;
 
@@ -44,11 +44,11 @@ pub enum RenderCommand {
 }
 
 /// A component that indicates how to draw an entity.
-#[derive(Debug, Properties, Clone)]
+#[derive(Debug, Clone, Reflect)]
 pub struct Draw {
     pub is_visible: bool,
     pub is_transparent: bool,
-    #[property(ignore)]
+    #[reflect(ignore)]
     pub render_commands: Vec<RenderCommand>,
 }
 
