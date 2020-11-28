@@ -5,9 +5,10 @@ use crate::{
     prelude::Msaa,
     renderer::RenderResourceBindings,
 };
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{Query, Res, ResMut};
 use bevy_reflect::Reflect;
+use bevy_utils::HashSet;
 
 #[derive(Debug, Default, Clone, Reflect)]
 pub struct RenderPipeline {
@@ -82,6 +83,23 @@ pub fn draw_render_pipelines_system(
     meshes: Res<Assets<Mesh>>,
     mut query: Query<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>)>,
 ) {
+    // Pipelines will be rebuilt for shaders that have been modified.
+    let mut changed_shaders = HashSet::default();
+    for event in draw_context
+        .shader_event_reader
+        .iter(&draw_context.shader_events)
+    {
+        match event {
+            AssetEvent::Modified { handle } => {
+                changed_shaders.insert(handle);
+            }
+            _ => (),
+        }
+    }
+    draw_context
+        .pipeline_compiler
+        .remove_shaders(changed_shaders, &draw_context.pipelines);
+
     for (mut draw, mut render_pipelines, mesh_handle) in query.iter_mut() {
         if !draw.is_visible {
             continue;

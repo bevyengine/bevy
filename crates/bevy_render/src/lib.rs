@@ -44,6 +44,7 @@ use render_graph::{
     RenderGraph,
 };
 use renderer::{AssetRenderResourceBindings, RenderResourceBindings};
+use shader::ShaderLoader;
 #[cfg(feature = "hdr")]
 use texture::HdrTextureLoader;
 #[cfg(feature = "png")]
@@ -86,6 +87,8 @@ impl Plugin for RenderPlugin {
         {
             app.init_asset_loader::<HdrTextureLoader>();
         }
+
+        app.init_asset_loader::<ShaderLoader>();
 
         if app.resources().get::<ClearColor>().is_none() {
             app.resources_mut().insert(ClearColor::default());

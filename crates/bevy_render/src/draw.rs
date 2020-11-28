@@ -6,8 +6,9 @@ use crate::{
     },
     shader::Shader,
 };
-use bevy_asset::{Assets, Handle};
-use bevy_ecs::{Query, Res, ResMut, SystemParam};
+use bevy_app::{EventReader, Events};
+use bevy_asset::{AssetEvent, Assets, Handle};
+use bevy_ecs::{Local, Query, Res, ResMut, SystemParam};
 use bevy_reflect::Reflect;
 use std::{ops::Range, sync::Arc};
 use thiserror::Error;
@@ -123,6 +124,8 @@ pub enum DrawError {
 pub struct DrawContext<'a> {
     pub pipelines: ResMut<'a, Assets<PipelineDescriptor>>,
     pub shaders: ResMut<'a, Assets<Shader>>,
+    pub shader_events: ResMut<'a, Events<AssetEvent<Shader>>>,
+    pub shader_event_reader: Local<'a, EventReader<AssetEvent<Shader>>>,
     pub pipeline_compiler: ResMut<'a, PipelineCompiler>,
     pub render_resource_context: Res<'a, Box<dyn RenderResourceContext>>,
     pub shared_buffers: Res<'a, SharedBuffers>,

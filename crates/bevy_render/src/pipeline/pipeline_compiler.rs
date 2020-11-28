@@ -282,4 +282,22 @@ impl PipelineCompiler {
             })
             .flatten()
     }
+
+    /// Remove any specialized shaders or pipelines that match the
+    /// changed shader set.
+    pub fn remove_shaders(
+        &mut self,
+        shaders: HashSet<&Handle<Shader>>,
+        pipelines: &Assets<PipelineDescriptor>,
+    ) {
+        self.specialized_shaders.retain(|k, _| !shaders.contains(k));
+        self.specialized_pipelines.retain(|k, _| {
+            pipelines
+                .get(k)
+                .unwrap()
+                .shader_stages
+                .iter()
+                .all(|s| !shaders.contains(&s))
+        });
+    }
 }
