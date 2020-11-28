@@ -93,7 +93,11 @@ pub fn draw_render_pipelines_system(
             AssetEvent::Modified { handle } => {
                 changed_shaders.insert(handle);
             }
-            _ => (),
+            // Creating shaders on the fly is unhandled since they
+            // have to exist already when assigned to a pipeline. If a
+            // shader is removed the pipeline keeps using its
+            // specialized version. Maybe this should be a warning?
+            AssetEvent::Created { .. } | AssetEvent::Removed { .. } => (),
         }
     }
     draw_context
