@@ -8,6 +8,7 @@ use crate::{
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Query, Res, ResMut};
 use bevy_reflect::Reflect;
+use bevy_utils::HashSet;
 
 #[derive(Debug, Default, Clone, Reflect)]
 pub struct RenderPipeline {
@@ -110,7 +111,7 @@ pub fn draw_render_pipelines_system(
                     .bindings
                     .iter_dynamic_bindings()
                     .map(|name| name.to_string())
-                    .collect::<Vec<String>>();
+                    .collect::<HashSet<String>>();
                 pipeline.dynamic_bindings_generation =
                     render_pipelines.bindings.dynamic_bindings_generation();
             }
