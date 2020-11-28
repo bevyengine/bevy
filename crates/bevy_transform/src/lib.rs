@@ -7,7 +7,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_type_registry::RegisterType;
+use bevy_reflect::RegisterTypeBuilder;
 use prelude::{parent_update_system, Children, GlobalTransform, Parent, PreviousParent, Transform};
 
 #[derive(Default)]
@@ -15,11 +15,11 @@ pub struct TransformPlugin;
 
 impl Plugin for TransformPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.register_component_with::<Children>(|reg| reg.map_entities())
-            .register_component_with::<Parent>(|reg| reg.map_entities())
-            .register_component_with::<PreviousParent>(|reg| reg.map_entities())
-            .register_component::<Transform>()
-            .register_component::<GlobalTransform>()
+        app.register_type::<Children>()
+            .register_type::<Parent>()
+            .register_type::<PreviousParent>()
+            .register_type::<Transform>()
+            .register_type::<GlobalTransform>()
             // add transform systems to startup so the first update is "correct"
             .add_startup_system(parent_update_system)
             .add_startup_system(transform_propagate_system::transform_propagate_system)

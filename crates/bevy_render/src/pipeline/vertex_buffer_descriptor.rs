@@ -1,12 +1,13 @@
 use super::VertexFormat;
-use bevy_property::Property;
+use bevy_reflect::{Reflect, ReflectDeserialize};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     hash::{Hash, Hasher},
 };
 
-#[derive(Clone, Debug, Eq, PartialEq, Default, Property, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Default, Reflect, Serialize, Deserialize)]
+#[reflect_value(Serialize, Deserialize, PartialEq)]
 pub struct VertexBufferDescriptor {
     pub name: Cow<'static, str>,
     pub stride: u64,

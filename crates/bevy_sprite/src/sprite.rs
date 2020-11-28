@@ -2,10 +2,11 @@ use crate::ColorMaterial;
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Query, Res};
 use bevy_math::Vec2;
+use bevy_reflect::{Reflect, ReflectDeserialize, TypeUuid};
 use bevy_render::{renderer::RenderResources, texture::Texture};
-use bevy_type_registry::TypeUuid;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, RenderResources, TypeUuid)]
+#[derive(Debug, Default, RenderResources, TypeUuid, Reflect)]
 #[uuid = "7233c597-ccfa-411f-bd59-9af349432ada"]
 pub struct Sprite {
     pub size: Vec2,
@@ -14,7 +15,8 @@ pub struct Sprite {
 }
 
 /// Determines how `Sprite` resize should be handled
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
+#[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum SpriteResizeMode {
     Manual,
     Automatic,

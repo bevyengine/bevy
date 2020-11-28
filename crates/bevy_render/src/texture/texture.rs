@@ -5,7 +5,7 @@ use crate::renderer::{
 use bevy_app::prelude::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{Res, ResMut};
-use bevy_type_registry::TypeUuid;
+use bevy_reflect::TypeUuid;
 use bevy_utils::HashSet;
 
 pub const TEXTURE_ASSET_INDEX: u64 = 0;

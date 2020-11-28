@@ -2,23 +2,20 @@ use crate::serde::SceneDeserializer;
 use anyhow::Result;
 use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
 use bevy_ecs::{FromResources, Resources};
-use bevy_property::PropertyTypeRegistry;
-use bevy_type_registry::TypeRegistry;
+use bevy_reflect::TypeRegistryArc;
 use bevy_utils::BoxedFuture;
-use parking_lot::RwLock;
 use serde::de::DeserializeSeed;
-use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct SceneLoader {
-    property_type_registry: Arc<RwLock<PropertyTypeRegistry>>,
+    type_registry: TypeRegistryArc,
 }
 
 impl FromResources for SceneLoader {
     fn from_resources(resources: &Resources) -> Self {
-        let type_registry = resources.get::<TypeRegistry>().unwrap();
+        let type_registry = resources.get::<TypeRegistryArc>().unwrap();
         SceneLoader {
-            property_type_registry: type_registry.property.clone(),
+            type_registry: (&*type_registry).clone(),
         }
     }
 }
@@ -30,10 +27,9 @@ impl AssetLoader for SceneLoader {
         load_context: &'a mut LoadContext,
     ) -> BoxedFuture<'a, Result<()>> {
         Box::pin(async move {
-            let registry = self.property_type_registry.read();
             let mut deserializer = ron::de::Deserializer::from_bytes(&bytes)?;
             let scene_deserializer = SceneDeserializer {
-                property_type_registry: &registry,
+                type_registry: &*self.type_registry.read(),
             };
             let scene = scene_deserializer.deserialize(&mut deserializer)?;
             load_context.set_default_asset(LoadedAsset::new(scene));

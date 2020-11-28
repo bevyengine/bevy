@@ -9,9 +9,8 @@ crates=(
     bevy_ecs
     bevy_app
     bevy_dynamic_plugin
-    bevy_property/bevy_property_derive
-    bevy_property
-    bevy_type_registry
+    bevy_reflect/bevy_reflect_derive
+    bevy_reflect
     bevy_asset
     bevy_audio
     bevy_core

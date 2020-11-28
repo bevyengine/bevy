@@ -11,7 +11,7 @@ pub mod renderer;
 pub mod shader;
 pub mod texture;
 
-use bevy_type_registry::RegisterType;
+use bevy_reflect::RegisterTypeBuilder;
 pub use once_cell;
 
 pub mod prelude {
@@ -29,7 +29,7 @@ pub mod prelude {
 }
 
 use crate::prelude::*;
-use base::{MainPass, Msaa};
+use base::Msaa;
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
 use camera::{
@@ -40,11 +40,10 @@ use pipeline::{
     ShaderSpecialization,
 };
 use render_graph::{
-    base::{self, BaseRenderGraphBuilder, BaseRenderGraphConfig},
+    base::{self, BaseRenderGraphBuilder, BaseRenderGraphConfig, MainPass},
     RenderGraph,
 };
 use renderer::{AssetRenderResourceBindings, RenderResourceBindings};
-use std::ops::Range;
 #[cfg(feature = "hdr")]
 use texture::HdrTextureLoader;
 #[cfg(feature = "png")]
@@ -101,19 +100,18 @@ impl Plugin for RenderPlugin {
             .add_asset::<Texture>()
             .add_asset::<Shader>()
             .add_asset::<PipelineDescriptor>()
-            .register_component::<Camera>()
-            .register_component::<Draw>()
-            .register_component::<RenderPipelines>()
-            .register_component::<OrthographicProjection>()
-            .register_component::<PerspectiveProjection>()
-            .register_component::<MainPass>()
-            .register_component::<VisibleEntities>()
-            .register_property::<Color>()
-            .register_property::<Range<f32>>()
-            .register_property::<ShaderSpecialization>()
-            .register_property::<PrimitiveTopology>()
-            .register_property::<IndexFormat>()
-            .register_properties::<PipelineSpecialization>()
+            .register_type::<Camera>()
+            .register_type::<Draw>()
+            .register_type::<RenderPipelines>()
+            .register_type::<OrthographicProjection>()
+            .register_type::<PerspectiveProjection>()
+            .register_type::<MainPass>()
+            .register_type::<VisibleEntities>()
+            .register_type::<Color>()
+            .register_type::<ShaderSpecialization>()
+            .register_type::<PrimitiveTopology>()
+            .register_type::<IndexFormat>()
+            .register_type::<PipelineSpecialization>()
             .init_resource::<RenderGraph>()
             .init_resource::<PipelineCompiler>()
             .init_resource::<RenderResourceBindings>()

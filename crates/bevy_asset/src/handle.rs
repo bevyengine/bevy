@@ -5,20 +5,20 @@ use std::{
     marker::PhantomData,
 };
 
-use bevy_property::{Properties, Property};
-use crossbeam_channel::{Receiver, Sender};
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-
 use crate::{
     path::{AssetPath, AssetPathId},
     Asset, Assets,
 };
+use bevy_reflect::{Reflect, ReflectDeserialize};
+use bevy_utils::Uuid;
+use crossbeam_channel::{Receiver, Sender};
+use serde::{Deserialize, Serialize};
 
 /// A unique, stable asset id
 #[derive(
-    Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Property,
+    Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Reflect,
 )]
+#[reflect_value(Serialize, Deserialize, PartialEq, Hash)]
 pub enum HandleId {
     Id(Uuid, u64),
     AssetPathId(AssetPathId),
@@ -56,15 +56,15 @@ impl HandleId {
 /// A handle into a specific Asset of type `T`
 ///
 /// Handles contain a unique id that corresponds to a specific asset in the [Assets](crate::Assets) collection.
-#[derive(Properties)]
+#[derive(Reflect)]
 pub struct Handle<T>
 where
     T: 'static,
 {
     pub id: HandleId,
-    #[property(ignore)]
+    #[reflect(ignore)]
     handle_type: HandleType,
-    #[property(ignore)]
+    #[reflect(ignore)]
     marker: PhantomData<T>,
 }
 
@@ -184,7 +184,7 @@ impl<T> From<&Handle<T>> for HandleId {
 
 impl<T> Hash for Handle<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
+        Hash::hash(&self.id, state);
     }
 }
 
@@ -311,7 +311,7 @@ impl From<&HandleUntyped> for HandleId {
 
 impl Hash for HandleUntyped {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
+        Hash::hash(&self.id, state);
     }
 }
 

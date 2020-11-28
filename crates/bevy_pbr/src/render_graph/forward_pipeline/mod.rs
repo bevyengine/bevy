@@ -1,4 +1,5 @@
 use bevy_asset::{Assets, Handle};
+use bevy_reflect::TypeUuid;
 use bevy_render::{
     pipeline::{
         BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
@@ -8,7 +9,6 @@ use bevy_render::{
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat,
 };
-use bevy_type_registry::TypeUuid;
 
 pub const FORWARD_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
     Handle::weak_from_u64(PipelineDescriptor::TYPE_UUID, 13148362314012771389);

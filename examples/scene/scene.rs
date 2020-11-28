@@ -1,16 +1,11 @@
-use bevy::{prelude::*, type_registry::TypeRegistry, utils::Duration};
+use bevy::{prelude::*, reflect::TypeRegistry, utils::Duration};
 
 /// This example illustrates loading and saving scenes from files
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        // Registering components informs Bevy that they exist. This allows them to be used when loading scenes
-        // This step is only required if you want to load your components from scene files.
-        // Unregistered components can still be used in your code, but they will be ignored during scene save/load.
-        // In the future registering components will also make them usable from the Bevy editor.
-        // The core Bevy plugins already register their components, so you only need this step for custom components.
-        .register_component::<ComponentA>()
-        .register_component::<ComponentB>()
+        .register_type::<ComponentA>()
+        .register_type::<ComponentB>()
         .add_startup_system(save_scene_system)
         .add_startup_system(load_scene_system)
         .add_startup_system(infotext_system)
@@ -18,25 +13,27 @@ fn main() {
         .run();
 }
 
-// Registered components must implement the `Properties` and `FromResources` traits.
-// The `Properties` trait enables serialization, deserialization, dynamic property access, and change detection.
-// `Properties` enable a bunch of cool behaviors, so its worth checking out the dedicated `properties.rs` example.
+// Registered components must implement the `Reflect` and `FromResources` traits.
+// The `Reflect` trait enables serialization, deserialization, and dynamic property access.
+// `Reflect` enable a bunch of cool behaviors, so its worth checking out the dedicated `reflect.rs` example.
 // The `FromResources` trait determines how your component is constructed when it loads. For simple use cases you can just
 // implement the `Default` trait (which automatically implements FromResources). The simplest registered component just needs
 // these two derives:
-#[derive(Properties, Default)]
+#[derive(Reflect, Default)]
+#[reflect(Component)] // this tells the reflect derive to also reflect component behaviors
 struct ComponentA {
     pub x: f32,
     pub y: f32,
 }
 
 // Some components have fields that cannot (or should not) be written to scene files. These can be ignored with
-// the #[property(ignore)] attribute. This is also generally where the `FromResources` trait comes into play.
+// the #[reflect(ignore)] attribute. This is also generally where the `FromResources` trait comes into play.
 // `FromResources` gives you access to your App's current ECS `Resources` when you construct your component.
-#[derive(Properties)]
+#[derive(Reflect)]
+#[reflect(Component)]
 struct ComponentB {
     pub value: String,
-    #[property(ignore)]
+    #[reflect(ignore)]
     pub time_since_startup: Duration,
 }
 
@@ -84,18 +81,16 @@ fn save_scene_system(_world: &mut World, resources: &mut Resources) {
             value: "hello".to_string(),
             ..ComponentB::from_resources(resources)
         },
+        Transform::default(),
     ));
     world.spawn((ComponentA { x: 3.0, y: 4.0 },));
 
-    // The component registry resource contains information about all registered components. This is used to construct scenes.
+    // The TypeRegistry resource contains information about all registered types (including components). This is used to construct scenes.
     let type_registry = resources.get::<TypeRegistry>().unwrap();
-    let scene = DynamicScene::from_world(&world, &type_registry.component.read());
+    let scene = DynamicScene::from_world(&world, &type_registry);
 
     // Scenes can be serialized like this:
-    println!(
-        "{}",
-        scene.serialize_ron(&type_registry.property.read()).unwrap()
-    );
+    println!("{}", scene.serialize_ron(&type_registry).unwrap());
 
     // TODO: save scene
 }

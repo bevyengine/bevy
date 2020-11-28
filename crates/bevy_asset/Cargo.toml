@@ -20,13 +20,11 @@ filesystem_watcher = ["notify"]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.3.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.3.0" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.3.0", features = ["bevy"] }
 bevy_tasks = { path = "../bevy_tasks", version = "0.3.0" }
-bevy_type_registry = { path = "../bevy_type_registry", version = "0.3.0" }
-bevy_property = { path = "../bevy_property", version = "0.3.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.3.0" }
 
 # other
-uuid = { version = "0.8", features = ["v4", "serde"] }
 serde = { version = "1", features = ["derive"] }
 ron = "0.6.2"
 crossbeam-channel = "0.4.4"

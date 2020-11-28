@@ -1,4 +1,4 @@
-use uuid::Uuid;
+use bevy_utils::Uuid;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct WindowId(Uuid);

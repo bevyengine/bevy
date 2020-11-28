@@ -1,9 +1,9 @@
 use ab_glyph::{FontArc, FontVec, InvalidFont, OutlinedGlyph};
+use bevy_reflect::TypeUuid;
 use bevy_render::{
     color::Color,
     texture::{Extent3d, Texture, TextureDimension, TextureFormat},
 };
-use bevy_type_registry::TypeUuid;
 
 #[derive(Debug, TypeUuid)]
 #[uuid = "97059ac6-c9ba-4da9-95b6-bed82c3ce198"]

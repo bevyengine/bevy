@@ -1,6 +1,6 @@
 use super::ShaderLayout;
 use bevy_asset::Handle;
-use bevy_type_registry::TypeUuid;
+use bevy_reflect::TypeUuid;
 use std::marker::Copy;
 
 /// The stage of a shader

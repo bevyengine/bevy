@@ -1,4 +1,4 @@
-use bevy_property::Properties;
+use bevy_reflect::{Reflect, ReflectComponent};
 use bevy_utils::Duration;
 
 /// Tracks elapsed time. Enters the finished state once `duration` is reached.
@@ -7,7 +7,8 @@ use bevy_utils::Duration;
 /// Repeating timers will only be in the finished state on each tick `duration` is reached or exceeded, and can still be reset at any given point.
 ///
 /// Paused timers will not have elapsed time increased.
-#[derive(Clone, Debug, Default, Properties)]
+#[derive(Clone, Debug, Default, Reflect)]
+#[reflect(Component)]
 pub struct Timer {
     elapsed: f32,
     duration: f32,
