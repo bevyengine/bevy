@@ -13,8 +13,17 @@ current changes on git with [previous release tags][git_tag_comparison].
 
 ### Changed
 - [Breaking changes to timer API][914]
+  - Created getters and setters rather than exposing struct members.
 - [Removed timer auto-ticking system][931]
+  - Added an example of how to tick timers manually.
+- [Breaking changes to Time API][934]
+  - Created getters to get `Time` state and made members private.
+  - Modifying `Time`'s values directly is no longer possible outside of bevy.
 ### Fixed
+
+[914]: https://github.com/bevyengine/bevy/pull/914
+[931]: https://github.com/bevyengine/bevy/pull/931
+[934]: https://github.com/bevyengine/bevy/pull/934
 
 
 ## Version 0.3.0 (2020-11-03)

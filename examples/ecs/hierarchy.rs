@@ -97,24 +97,24 @@ fn rotate(
     let angle = std::f32::consts::PI / 2.0;
     for (parent, children) in parents_query.iter_mut() {
         if let Ok(mut transform) = transform_query.get_mut(parent) {
-            transform.rotate(Quat::from_rotation_z(-angle * time.delta_seconds));
+            transform.rotate(Quat::from_rotation_z(-angle * time.delta_seconds()));
         }
 
         // To iterate through the entities children, just treat the Children component as a Vec
         // Alternatively, you could query entities that have a Parent component
         for child in children.iter() {
             if let Ok(mut transform) = transform_query.get_mut(*child) {
-                transform.rotate(Quat::from_rotation_z(angle * 2.0 * time.delta_seconds));
+                transform.rotate(Quat::from_rotation_z(angle * 2.0 * time.delta_seconds()));
             }
         }
 
         // To demonstrate removing children, we'll start to remove the children after a couple of seconds
-        if time.seconds_since_startup >= 2.0 && children.len() == 3 {
+        if time.seconds_since_startup() >= 2.0 && children.len() == 3 {
             let child = children.last().copied().unwrap();
             commands.despawn(child);
         }
 
-        if time.seconds_since_startup >= 4.0 {
+        if time.seconds_since_startup() >= 4.0 {
             // This will remove the entity from its parent's list of children, as well as despawn
             // any children the entity has.
             commands.despawn_recursive(parent);
