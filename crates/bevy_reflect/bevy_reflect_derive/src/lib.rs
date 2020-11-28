@@ -318,6 +318,10 @@ fn impl_struct(
             fn partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
                 #partial_eq_fn
             }
+
+            fn diff<'a>(&'a self, value: &'a dyn #bevy_reflect_path::Reflect) -> Result<Option<Box<dyn #bevy_reflect_path::Reflect>>, #bevy_reflect_path::DiffError<'a>> {
+                #bevy_reflect_path::struct_diff(self, value)
+            }
         }
     })
 }
@@ -437,6 +441,10 @@ fn impl_tuple_struct(
             fn partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
                 #partial_eq_fn
             }
+
+            fn diff<'a>(&'a self, value: &'a dyn #bevy_reflect_path::Reflect) -> Result<Option<Box<dyn #bevy_reflect_path::Reflect>>, #bevy_reflect_path::DiffError<'a>> {
+                #bevy_reflect_path::tuple_struct_diff(self, value)
+            }
         }
     })
 }
@@ -511,6 +519,20 @@ fn impl_value(
 
             fn serializable(&self) -> Option<#bevy_reflect_path::serde::Serializable> {
                 #serialize_fn
+            }
+
+            fn diff<'a>(&'a self, value: &'a dyn #bevy_reflect_path::Reflect) -> Result<Option<Box<dyn #bevy_reflect_path::Reflect>>, #bevy_reflect_path::DiffError<'a>> {
+                if let Some(equal) = self.partial_eq(value) {
+                    if equal {
+                        Ok(None)
+                    } else {
+                        Ok(Some(value.clone_value()))
+                    }
+                } else {
+                    Err(#bevy_reflect_path::DiffError::TypeDoesNotSupportPartialEq {
+                        type_name: self.type_name(),
+                    })
+                }
             }
         }
     })

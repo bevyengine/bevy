@@ -1,4 +1,4 @@
-use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
+use crate::{serde::Serializable, DiffError, Reflect, ReflectMut, ReflectRef};
 use bevy_utils::HashMap;
 use std::{any::Any, borrow::Cow, collections::hash_map::Entry};
 
@@ -227,22 +227,28 @@ impl Reflect for DynamicStruct {
     fn serializable(&self) -> Option<Serializable> {
         None
     }
+
+    fn diff<'a>(
+        &'a self,
+        value: &'a dyn Reflect,
+    ) -> Result<Option<Box<dyn Reflect>>, DiffError<'a>> {
+        struct_diff(self, value)
+    }
 }
 
-#[inline]
 pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
-    let struct_value = if let ReflectRef::Struct(struct_value) = b.reflect_ref() {
-        struct_value
+    let b_struct = if let ReflectRef::Struct(b_struct) = b.reflect_ref() {
+        b_struct
     } else {
         return Some(false);
     };
 
-    if a.field_len() != struct_value.field_len() {
+    if a.field_len() != b_struct.field_len() {
         return Some(false);
     }
 
-    for (i, value) in struct_value.iter_fields().enumerate() {
-        let name = struct_value.name_at(i).unwrap();
+    for (i, value) in b_struct.iter_fields().enumerate() {
+        let name = b_struct.name_at(i).unwrap();
         if let Some(field_value) = a.field(name) {
             if let Some(false) | None = field_value.partial_eq(value) {
                 return Some(false);
@@ -253,4 +259,55 @@ pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
     }
 
     Some(true)
+}
+
+pub fn struct_diff<'a, S: Struct>(
+    a: &'a S,
+    b: &'a dyn Reflect,
+) -> Result<Option<Box<dyn Reflect>>, DiffError<'a>> {
+    let b_struct = if let ReflectRef::Struct(b_struct) = b.reflect_ref() {
+        b_struct
+    } else {
+        return Err(DiffError::TypeMismatch {
+            a_type_name: a.type_name(),
+            b_type_name: b.type_name(),
+        });
+    };
+
+    if a.type_name() != b.type_name() {
+        return Err(DiffError::TypeMismatch {
+            a_type_name: a.type_name(),
+            b_type_name: b.type_name(),
+        });
+    }
+
+    if a.field_len() != b_struct.field_len() {
+        return Err(DiffError::StructFieldLenMismatch {
+            type_name: a.type_name(),
+        });
+    }
+
+    let mut diff_struct = None;
+    for (i, b_field) in b_struct.iter_fields().enumerate() {
+        let name = b_struct.name_at(i).unwrap();
+        let a_field = a.field(name).ok_or(DiffError::MissingStructField {
+            type_name: a.type_name(),
+            field_name: name,
+        })?;
+
+        let diff_struct = diff_struct.get_or_insert_with(|| {
+            let mut diff = DynamicStruct::default();
+            diff.set_name(a.type_name().to_string());
+            diff
+        });
+        if let Some(diff) = a_field.diff(b_field)? {
+            diff_struct.insert_boxed(name, diff);
+        }
+    }
+
+    if let Some(diff) = diff_struct {
+        Ok(Some(Box::new(diff)))
+    } else {
+        Ok(None)
+    }
 }

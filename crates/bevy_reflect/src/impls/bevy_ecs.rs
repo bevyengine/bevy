@@ -1,9 +1,12 @@
-use crate::{FromType, Reflect};
+use crate::{FromType, Reflect, ReflectDeserialize};
 use bevy_ecs::{
     Archetype, Component, Entity, EntityMap, FromResources, MapEntities, MapEntitiesError,
     Resources, World,
 };
+use bevy_reflect_derive::impl_reflect_value;
 use std::marker::PhantomData;
+
+impl_reflect_value!(Entity(Hash, PartialEq, Serialize, Deserialize));
 
 #[derive(Clone)]
 pub struct ReflectComponent {

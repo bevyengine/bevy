@@ -1,6 +1,6 @@
 use crate::{
-    map_partial_eq, serde::Serializable, DynamicMap, List, ListIter, Map, MapIter, Reflect,
-    ReflectDeserialize, ReflectMut, ReflectRef,
+    list_diff, map_diff, map_partial_eq, serde::Serializable, DiffError, DynamicMap, List,
+    ListIter, Map, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef,
 };
 
 use bevy_reflect_derive::impl_reflect_value;
@@ -21,8 +21,8 @@ impl_reflect_value!(i32(Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(i64(Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(i128(Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(isize(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(f32(Serialize, Deserialize));
-impl_reflect_value!(f64(Serialize, Deserialize));
+impl_reflect_value!(f32(PartialEq, Serialize, Deserialize));
+impl_reflect_value!(f64(PartialEq, Serialize, Deserialize));
 impl_reflect_value!(String(Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(Option<T: Serialize + Clone + for<'de> Deserialize<'de> + Reflect + 'static>(Serialize, Deserialize));
 impl_reflect_value!(HashSet<T: Serialize + Hash + Eq + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
@@ -103,6 +103,13 @@ impl<T: Reflect> Reflect for Vec<T> {
 
     fn serializable(&self) -> Option<Serializable> {
         None
+    }
+
+    fn diff<'a>(
+        &'a self,
+        value: &'a dyn Reflect,
+    ) -> Result<Option<Box<dyn Reflect>>, DiffError<'a>> {
+        list_diff(self, value)
     }
 }
 
@@ -197,5 +204,12 @@ impl<K: Reflect + Clone + Eq + Hash, V: Reflect + Clone> Reflect for HashMap<K, 
 
     fn serializable(&self) -> Option<Serializable> {
         None
+    }
+
+    fn diff<'a>(
+        &'a self,
+        value: &'a dyn Reflect,
+    ) -> Result<Option<Box<dyn Reflect>>, DiffError<'a>> {
+        map_diff(self, value)
     }
 }

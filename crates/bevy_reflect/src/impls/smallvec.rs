@@ -1,7 +1,9 @@
 use smallvec::{Array, SmallVec};
 use std::any::Any;
 
-use crate::{serde::Serializable, List, ListIter, Reflect, ReflectMut, ReflectRef};
+use crate::{
+    list_diff, serde::Serializable, DiffError, List, ListIter, Reflect, ReflectMut, ReflectRef,
+};
 
 impl<T: Array + Send + Sync + 'static> List for SmallVec<T>
 where
@@ -92,5 +94,12 @@ where
 
     fn serializable(&self) -> Option<Serializable> {
         None
+    }
+
+    fn diff<'a>(
+        &'a self,
+        value: &'a dyn Reflect,
+    ) -> Result<Option<Box<dyn Reflect>>, DiffError<'a>> {
+        list_diff(self, value)
     }
 }
