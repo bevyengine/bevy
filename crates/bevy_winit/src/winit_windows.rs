@@ -38,7 +38,7 @@ impl WinitWindows {
                 }),
             )),
             _ => winit_window_builder
-                .with_inner_size(winit::dpi::PhysicalSize::new(
+                .with_inner_size(winit::dpi::LogicalSize::new(
                     window.width(),
                     window.height(),
                 ))
