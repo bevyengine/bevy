@@ -46,6 +46,7 @@ pub struct Window {
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
     command_queue: Vec<WindowCommand>,
+    scale_factor: f64,
 }
 
 #[derive(Debug)]
@@ -110,6 +111,7 @@ impl Window {
             #[cfg(target_arch = "wasm32")]
             canvas: window_descriptor.canvas.clone(),
             command_queue: Vec::new(),
+            scale_factor: 1.0,
         }
     }
 
@@ -139,6 +141,16 @@ impl Window {
     pub fn update_resolution_from_backend(&mut self, width: u32, height: u32) {
         self.width = width;
         self.height = height;
+    }
+
+    #[doc(hidden)]
+    pub fn update_scale_factor_from_backend(&mut self, scale_factor: f64) {
+        self.scale_factor = scale_factor;
+    }
+
+    #[inline]
+    pub fn scale_factor(&self) -> f64 {
+        self.scale_factor
     }
 
     #[inline]

@@ -303,6 +303,7 @@ pub fn winit_runner(mut app: App) {
                     let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
                     let window = windows.get_mut(window_id).unwrap();
                     let size = new_inner_size.to_logical(scale_factor);
+                    window.update_scale_factor_from_backend(scale_factor);
                     window.update_resolution_from_backend(size.width, size.height);
                 }
                 _ => {}
@@ -344,8 +345,8 @@ fn handle_create_window_events(
     let create_window_events = resources.get::<Events<CreateWindow>>().unwrap();
     let mut window_created_events = resources.get_mut::<Events<WindowCreated>>().unwrap();
     for create_window_event in create_window_event_reader.iter(&create_window_events) {
-        let window = Window::new(create_window_event.id, &create_window_event.descriptor);
-        winit_windows.create_window(event_loop, &window);
+        let mut window = Window::new(create_window_event.id, &create_window_event.descriptor);
+        winit_windows.create_window(event_loop, &mut window);
         let window_id = window.id();
         windows.add(window);
         window_created_events.send(WindowCreated { id: window_id });
