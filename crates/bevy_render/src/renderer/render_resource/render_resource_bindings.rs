@@ -158,14 +158,8 @@ impl RenderResourceBindings {
                         .expect("RenderResourceSet was just changed, so it should exist");
                     render_resource_context.create_bind_group(bind_group_descriptor.id, bind_group);
                 }
-                // TODO: Don't re-create bind groups if they havent changed. this will require cleanup of orphan bind groups and
-                // removal of global context.clear_bind_groups()
-                // PERF: see above
-                BindGroupStatus::Unchanged(id) => {
-                    let bind_group = self
-                        .get_bind_group(id)
-                        .expect("RenderResourceSet was just changed, so it should exist");
-                    render_resource_context.create_bind_group(bind_group_descriptor.id, bind_group);
+                BindGroupStatus::Unchanged(_id) => {
+                    // don't re-create unchanged bind groups
                 }
                 BindGroupStatus::NoMatch => {
                     // ignore unchanged / unmatched render resource sets

@@ -7,6 +7,7 @@ use bevy_render::{
 };
 use bevy_utils::HashMap;
 use bevy_window::WindowId;
+use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use parking_lot::{RwLock, RwLockReadGuard};
 use std::sync::Arc;
 
@@ -45,6 +46,7 @@ pub struct WgpuResourcesReadLock<'a> {
     pub render_pipelines:
         RwLockReadGuard<'a, HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>>,
     pub bind_groups: RwLockReadGuard<'a, HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>>,
+    pub used_bind_group_sender: Sender<BindGroupId>,
 }
 
 impl<'a> WgpuResourcesReadLock<'a> {
@@ -55,6 +57,7 @@ impl<'a> WgpuResourcesReadLock<'a> {
             swap_chain_frames: &self.swap_chain_frames,
             render_pipelines: &self.render_pipelines,
             bind_groups: &self.bind_groups,
+            used_bind_group_sender: &self.used_bind_group_sender,
         }
     }
 }
@@ -67,6 +70,7 @@ pub struct WgpuResourceRefs<'a> {
     pub swap_chain_frames: &'a HashMap<TextureId, wgpu::SwapChainFrame>,
     pub render_pipelines: &'a HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>,
     pub bind_groups: &'a HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>,
+    pub used_bind_group_sender: &'a Sender<BindGroupId>,
 }
 
 #[derive(Default, Clone, Debug)]
@@ -85,6 +89,7 @@ pub struct WgpuResources {
     pub bind_groups: Arc<RwLock<HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>>>,
     pub bind_group_layouts: Arc<RwLock<HashMap<BindGroupDescriptorId, wgpu::BindGroupLayout>>>,
     pub asset_resources: Arc<RwLock<HashMap<(HandleUntyped, u64), RenderResourceId>>>,
+    pub bind_group_counter: BindGroupCounter,
 }
 
 impl WgpuResources {
@@ -95,6 +100,7 @@ impl WgpuResources {
             swap_chain_frames: self.swap_chain_frames.read(),
             render_pipelines: self.render_pipelines.read(),
             bind_groups: self.bind_groups.read(),
+            used_bind_group_sender: self.bind_group_counter.used_bind_group_sender.clone(),
         }
     }
 
@@ -107,6 +113,66 @@ impl WgpuResources {
             bind_group_info.bind_groups.get(&bind_group_id).is_some()
         } else {
             false
+        }
+    }
+
+    pub fn remove_stale_bind_groups(&self) {
+        let mut bind_groups = self.bind_groups.write();
+        self.bind_group_counter
+            .remove_stale_bind_groups(&mut bind_groups);
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct BindGroupCounter {
+    pub used_bind_group_sender: Sender<BindGroupId>,
+    pub used_bind_group_receiver: Receiver<BindGroupId>,
+    pub bind_group_usage_counts: Arc<RwLock<HashMap<BindGroupId, u64>>>,
+}
+
+impl BindGroupCounter {
+    pub fn remove_stale_bind_groups(
+        &self,
+        bind_groups: &mut HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>,
+    ) {
+        let mut bind_group_usage_counts = self.bind_group_usage_counts.write();
+        loop {
+            let bind_group = match self.used_bind_group_receiver.try_recv() {
+                Ok(bind_group) => bind_group,
+                Err(TryRecvError::Empty) => break,
+                Err(TryRecvError::Disconnected) => panic!("used bind group channel disconnected"),
+            };
+
+            let count = bind_group_usage_counts.entry(bind_group).or_insert(0);
+            // free every two frames
+            *count = 2;
+        }
+
+        for info in bind_groups.values_mut() {
+            info.bind_groups.retain(|id, _| {
+                let retain = {
+                    // if a value hasn't been counted yet, give it two frames of leeway
+                    let count = bind_group_usage_counts.entry(*id).or_insert(2);
+                    *count -= 1;
+                    *count > 0
+                };
+                if !retain {
+                    bind_group_usage_counts.remove(&id);
+                }
+
+                retain
+            })
+        }
+    }
+}
+
+impl Default for BindGroupCounter {
+    fn default() -> Self {
+        let (send, recv) = crossbeam_channel::unbounded();
+        BindGroupCounter {
+            used_bind_group_sender: send,
+            used_bind_group_receiver: recv,
+            bind_group_usage_counts: Default::default(),
         }
     }
 }
