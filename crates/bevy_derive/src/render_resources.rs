@@ -160,11 +160,11 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
                 }
 
                 fn get_render_resource_name(&self, index: usize) -> Option<&str> {
-                    Some(#render_resource_names_ident[index])
+                    #render_resource_names_ident.get(index).copied()
                 }
 
                 fn get_render_resource_hints(&self, index: usize) -> Option<#bevy_render_path::renderer::RenderResourceHints> {
-                    #render_resource_hints_ident[index].clone()
+                    #render_resource_hints_ident.get(index).and_then(|o| *o)
                 }
 
                 fn iter(&self) -> #bevy_render_path::renderer::RenderResourceIterator {
