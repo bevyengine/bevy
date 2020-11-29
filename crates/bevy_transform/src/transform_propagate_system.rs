@@ -3,22 +3,29 @@ use bevy_ecs::prelude::*;
 
 pub fn transform_propagate_system(
     mut root_query: Query<
-        (Option<&Children>, &Transform, &mut GlobalTransform),
+        (Entity, Option<&Children>, &Transform, &mut GlobalTransform),
         (Without<Parent>, With<GlobalTransform>),
     >,
     mut transform_query: Query<(&Transform, &mut GlobalTransform), With<Parent>>,
+    changed_transform_query: Query<Entity, Changed<Transform>>,
     children_query: Query<Option<&Children>, (With<Parent>, With<GlobalTransform>)>,
 ) {
-    for (children, transform, mut global_transform) in root_query.iter_mut() {
-        *global_transform = GlobalTransform::from(*transform);
+    for (entity, children, transform, mut global_transform) in root_query.iter_mut() {
+        let mut changed = false;
+        if changed_transform_query.get(entity).is_ok() {
+            *global_transform = GlobalTransform::from(*transform);
+            changed = true;
+        }
 
         if let Some(children) = children {
             for child in children.0.iter() {
                 propagate_recursive(
                     &global_transform,
+                    &changed_transform_query,
                     &mut transform_query,
                     &children_query,
                     *child,
+                    changed,
                 );
             }
         }
@@ -27,13 +34,19 @@ pub fn transform_propagate_system(
 
 fn propagate_recursive(
     parent: &GlobalTransform,
+    changed_transform_query: &Query<Entity, Changed<Transform>>,
     transform_query: &mut Query<(&Transform, &mut GlobalTransform), With<Parent>>,
     children_query: &Query<Option<&Children>, (With<Parent>, With<GlobalTransform>)>,
     entity: Entity,
+    mut changed: bool,
 ) {
+    changed |= changed_transform_query.get(entity).is_ok();
+
     let global_matrix = {
         if let Ok((transform, mut global_transform)) = transform_query.get_mut(entity) {
-            *global_transform = parent.mul_transform(*transform);
+            if changed {
+                *global_transform = parent.mul_transform(*transform);
+            }
             *global_transform
         } else {
             return;
@@ -42,7 +55,14 @@ fn propagate_recursive(
 
     if let Ok(Some(children)) = children_query.get(entity) {
         for child in children.0.iter() {
-            propagate_recursive(&global_matrix, transform_query, children_query, *child);
+            propagate_recursive(
+                &global_matrix,
+                changed_transform_query,
+                transform_query,
+                children_query,
+                *child,
+                changed,
+            );
         }
     }
 }
