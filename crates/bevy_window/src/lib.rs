@@ -42,6 +42,7 @@ impl Plugin for WindowPlugin {
             .add_event::<CursorEntered>()
             .add_event::<CursorLeft>()
             .add_event::<ReceivedCharacter>()
+            .add_event::<WindowFocused>()
             .init_resource::<Windows>();
 
         if self.add_primary_window {
