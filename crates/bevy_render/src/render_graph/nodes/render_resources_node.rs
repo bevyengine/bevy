@@ -10,7 +10,7 @@ use crate::{
 };
 
 use bevy_asset::{Asset, Assets, Handle, HandleId};
-use bevy_ecs::{Commands, Entity, IntoSystem, Local, Query, Res, ResMut, Resources, System, World};
+use bevy_ecs::{Changed, Commands, Entity, IntoSystem, Local, Query, Res, ResMut, Resources, System, World};
 use bevy_utils::HashMap;
 use renderer::{AssetRenderResourceBindings, BufferId, RenderResourceType, RenderResources};
 use std::{hash::Hash, marker::PhantomData, ops::DerefMut};
@@ -421,7 +421,7 @@ impl<I, T: RenderResources> Default for RenderResourcesNodeState<I, T> {
 fn render_resources_node_system<T: RenderResources>(
     mut state: Local<RenderResourcesNodeState<Entity, T>>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
-    mut query: Query<(Entity, &T, &Draw, &mut RenderPipelines)>,
+    mut query: Query<(Entity, &T, &Draw, &mut RenderPipelines), Changed<T>>,
 ) {
     let state = state.deref_mut();
     let uniform_buffer_arrays = &mut state.uniform_buffer_arrays;
