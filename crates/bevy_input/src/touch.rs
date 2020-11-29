@@ -213,8 +213,71 @@ pub fn touch_screen_input_system(
 }
 
 mod test {
+
     #[test]
-    fn touch() {
+    fn touch_update() {}
+
+    #[test]
+    fn touch_process() {
+        use crate::{touch::TouchPhase, TouchInput, Touches};
+        use bevy_math::Vec2;
+
+        let mut touches = Touches::default();
+
+        // Test adding a `TouchPhase::Started`
+
+        let touch_event = TouchInput {
+            phase: TouchPhase::Started,
+            position: Vec2::new(4.0, 4.0),
+            force: None,
+            id: 4,
+        };
+
+        touches.update();
+        touches.process_touch_event(&touch_event);
+
+        assert!(touches.pressed.get(&touch_event.id).is_some());
+        assert!(touches.just_pressed.get(&touch_event.id).is_some());
+
+        // Test adding a `TouchPhase::Moved`
+
+        let moved_touch_event = TouchInput {
+            phase: TouchPhase::Started,
+            position: Vec2::new(5.0, 5.0),
+            force: None,
+            id: touch_event.id,
+        };
+
+        touches.update();
+        touches.process_touch_event(&moved_touch_event);
+
+        assert_eq!(
+            touches
+                .pressed
+                .get(&moved_touch_event.id)
+                .expect("Missing from pressed after move.")
+                .previous_position,
+            touch_event.position
+        );
+
+        // Test cancelling an event
+
+        let cancel_touch_event = TouchInput {
+            phase: TouchPhase::Cancelled,
+            position: Vec2::new(1.0, 1.0),
+            force: None,
+            id: touch_event.id,
+        };
+
+        touches.update();
+        touches.process_touch_event(&cancel_touch_event);
+
+        assert!(touches.just_cancelled.get(&cancel_touch_event.id).is_some());
+        assert!(touches.pressed.get(&cancel_touch_event.id).is_none());
+    }
+
+    #[test]
+    fn touch_pressed() {
         use crate::{touch::TouchPhase, TouchInput, Touches};
         use bevy_math::Vec2;
 
@@ -332,4 +395,10 @@ mod test {
 
         assert!(touches.get_pressed(4).is_none());
     }
+
+    #[test]
+    fn touch_released() {}
+
+    #[test]
+    fn touch_cancelled() {}
 }
