@@ -1,6 +1,6 @@
 use crate::ColorMaterial;
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::{Query, Res};
+use bevy_ecs::{Changed, Query, Res};
 use bevy_math::Vec2;
 use bevy_reflect::{Reflect, ReflectDeserialize, TypeUuid};
 use bevy_render::{renderer::RenderResources, texture::Texture};
@@ -41,7 +41,7 @@ impl Sprite {
 pub fn sprite_system(
     materials: Res<Assets<ColorMaterial>>,
     textures: Res<Assets<Texture>>,
-    mut query: Query<(&mut Sprite, &Handle<ColorMaterial>)>,
+    mut query: Query<(&mut Sprite, &Handle<ColorMaterial>), Changed<Sprite>>,
 ) {
     for (mut sprite, handle) in query.iter_mut() {
         match sprite.resize_mode {
@@ -50,7 +50,11 @@ pub fn sprite_system(
                 let material = materials.get(handle).unwrap();
                 if let Some(ref texture_handle) = material.texture {
                     if let Some(texture) = textures.get(texture_handle) {
-                        sprite.size = texture.size.as_vec3().truncate();
+                        let texture_size = texture.size.as_vec3().truncate();
+                        // only set sprite size if it has changed (this check prevents change detection from triggering)
+                        if sprite.size != texture_size {
+                            sprite.size = texture_size;
+                        }
                     }
                 }
             }
