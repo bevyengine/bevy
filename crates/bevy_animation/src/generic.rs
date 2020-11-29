@@ -31,7 +31,7 @@ pub struct Clip {
     /// Attribute is made by the entity index and a string that combines
     /// component name followed by their attributes spaced by a period,
     /// like so: `"Transform.translation.x"`
-    attribute: Vec<(u16, Name)>,
+    properties: Vec<(u16, String)>,
     curves: Vec<CurveUntyped>,
 }
 
@@ -46,7 +46,7 @@ impl Default for Clip {
             duration: 0.0,
             // ? NOTE: Since the root has no parent in this context it points to a place outside the vec bounds
             hierarchy: NamedHierarchy::default(),
-            attribute: vec![],
+            properties: vec![],
             curves: vec![],
         }
     }
@@ -56,6 +56,8 @@ impl Clip {
     /// Property to be animated must be in the following format `"path/to/named_entity@Transform.translation.x"`
     /// where the left side `@` defines a path to the entity to animate,
     /// while the right side the path to a property to animate starting from the component.
+    ///
+    /// *NOTE* This is a expensive function
     pub fn add_animated_prop(&mut self, property_path: &str, mut curve: CurveUntyped) {
         // Clip an only have some amount of curves and entities
         // this limitation was added to save memory (but you can increase it if you want)
@@ -64,40 +66,53 @@ impl Clip {
             "curve limit reached"
         );
 
+        // Split in entity and attribute path,
+        // NOTE: use rfind because it's expected the latter to be generally shorter
         let path =
             property_path.split_at(property_path.rfind('@').expect("property path missing @"));
 
-        let (entity, entity_created) = self.hierarchy.get_or_insert_entity(path.0);
-
-        let insert_attr = Name::from_str(path.1.split_at(1).1);
+        let (entity1, just_created) = self.hierarchy.get_or_insert_entity(path.0);
+        let name1 = path.1.split_at(1).1;
 
         // If some entity was created it means this property is a new one so we can safely skip the attribute testing
-        if !entity_created {
-            for (i, attr) in self.attribute.iter().enumerate() {
-                if attr.0 != entity {
+        if !just_created {
+            for (i, entry) in self.properties.iter().enumerate() {
+                let (entity0, name0) = entry;
+
+                if *entity0 != entity1 {
                     continue;
                 }
 
-                // TODO: Prepare for bevy_reflect
-                // TODO: "...@Transform.translation" and "...@Transform.translation.x" can't live with each other
+                let mid = name1.len().min(name0.len());
+                let (head0, tail0) = name0.split_at(mid);
+                let (head1, tail1) = name1.split_at(mid);
 
-                if insert_attr == attr.1 {
-                    // Found a property are equal the one been inserted
-                    // Replace curve, the property was already added, this is very important
-                    // because it guarantees that each property will have unique access to some
-                    // attribute during the update stages
+                if head0 == head1 {
+                    // Replace
+                    if tail0.len() == 0 && tail1.len() == 0 {
+                        // Found a property are equal the one been inserted
+                        // Replace curve, the property was already added, this is very important
+                        // because it guarantees that each property will have unique access to some
+                        // attribute during the update stages
 
-                    let inserted_duration = curve.duration();
-                    std::mem::swap(&mut self.curves[i], &mut curve);
-                    self.update_duration(curve.duration(), inserted_duration);
-
-                    return;
+                        let inserted_duration = curve.duration();
+                        std::mem::swap(&mut self.curves[i], &mut curve);
+                        self.update_duration(curve.duration(), inserted_duration);
+                        return;
+                    } else {
+                        // Check the inserted attribute is nested of an already present attribute
+                        // NOTE: ".../Enity0@Transform.translation" and ".../Enity0@Transform.translation.x"
+                        // can't coexist because it may cause a problems of non unique access
+                        if tail0.starts_with('.') || tail1.starts_with('.') {
+                            panic!("nesting properties");
+                        }
+                    }
                 }
             }
         }
 
         self.duration = self.duration.max(curve.duration());
-        self.attribute.push((entity, insert_attr));
+        self.properties.push((entity1, name1.to_string()));
         self.curves.push(curve);
     }
 
@@ -112,7 +127,7 @@ impl Clip {
     /// The clip stores a property path in a specific way to improve search performance
     /// thus it needs to rebuilt the curve property path in the human readable format
     pub fn get_property_path(&self, index: u16) -> String {
-        let (entity_index, name) = &self.attribute[index as usize];
+        let (entity_index, name) = &self.properties[index as usize];
         format!(
             "{}@{}",
             self.hierarchy
@@ -600,7 +615,7 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
                     .for_each(|(entity_index, entry)| {
                         *entry = None;
                         // ? NOTE: Will only run if the bind was invalidated in this frame
-                        for (descriptor, attr) in clip.attribute.iter().zip(attrs.iter_mut()) {
+                        for (descriptor, attr) in clip.properties.iter().zip(attrs.iter_mut()) {
                             if descriptor.0 as usize == entity_index {
                                 *attr = Ptr(null_mut());
                             }
@@ -614,7 +629,7 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
                 *bind = Some(ClipBind {
                     entities: vec_filled(clip.hierarchy.len(), || None),
                     all_binded: false,
-                    attributes: vec_filled(clip.attribute.len(), || Ptr(null_mut())),
+                    attributes: vec_filled(clip.properties.len(), || Ptr(null_mut())),
                 });
 
                 bind.as_mut().unwrap()
@@ -632,7 +647,7 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
             for (attr_index, (attr, descriptor)) in bind
                 .attributes
                 .iter_mut()
-                .zip(clip.attribute.iter())
+                .zip(clip.properties.iter())
                 .enumerate()
             {
                 let (entity_index, attr_path) = descriptor;
@@ -659,9 +674,11 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
 
                     bind.entities[*entity_index as usize].get_or_insert_with(|| {
                         ClipBindEntity {
-                            // If the entity was found the parent was as well (unless if the root which will be always None)
+                            // If the entity was found the parent was as well (unless is the root which will always be None)
                             parent: entities_table_cache
-                                [clip.hierarchy.get_entity(*entity_index).0 as usize],
+                                .get(clip.hierarchy.get_entity(*entity_index).0 as usize)
+                                .copied()
+                                .flatten(),
                             entity,
                             location,
                         }
@@ -1087,6 +1104,7 @@ mod tests {
     struct AnimatorTestBench {
         app: bevy_app::App,
         entities: Vec<Entity>,
+        schedule: bevy_ecs::Schedule,
     }
 
     impl AnimatorTestBench {
@@ -1122,7 +1140,7 @@ mod tests {
                 );
                 let rot = CurveUntyped::Quat(Curve::from_constant(Quat::identity()));
                 clip_a.add_animated_prop("@Transform.rotation", rot.clone());
-                clip_a.add_animated_prop("/Hode1@Transform.rotation", rot.clone());
+                clip_a.add_animated_prop("/Node1@Transform.rotation", rot.clone());
                 clip_a.add_animated_prop("/Node1/Node2@Transform.rotation", rot);
 
                 let mut clip_b = Clip::default();
@@ -1137,7 +1155,7 @@ mod tests {
                     Quat::from_axis_angle(Vec3::unit_z(), -0.1),
                 ));
                 clip_b.add_animated_prop("@Transform.rotation", rot.clone());
-                clip_b.add_animated_prop("/Hode1@Transform.rotation", rot.clone());
+                clip_b.add_animated_prop("/Node1@Transform.rotation", rot.clone());
                 clip_b.add_animated_prop("/Node1/Node2@Transform.rotation", rot);
 
                 let mut clips = app_builder
@@ -1192,27 +1210,27 @@ mod tests {
 
             app_builder.set_world(world);
 
+            let mut schedule = bevy_ecs::Schedule::default();
+            schedule.add_stage("update");
+            schedule.add_stage_after("update", "post_update");
+            schedule.add_system_to_stage("update", animator_binding_system);
+            schedule.add_system_to_stage("update", animator_update_system);
+            schedule.add_system_to_stage("post_update", parent_update_system);
+            //schedule.add_system_to_stage("update", transform_propagate_system);
+
+            schedule.initialize(&mut app_builder.app.world, &mut app_builder.app.resources);
+            schedule.run(&mut app_builder.app.world, &mut app_builder.app.resources);
+
             Self {
                 app: app_builder.app,
                 entities,
+                schedule,
             }
         }
 
-        fn bind(&mut self) {
-            animator_binding_system(&mut self.app.world, &mut self.app.resources);
-        }
-
-        fn update(&mut self, ticks: usize) {
-            for _ in 0..ticks {
-                // Time tick
-                {
-                    let mut time = self.app.resources.get_mut::<Time>().unwrap();
-                    time.delta_seconds += 0.016;
-                    time.delta_seconds_f64 += 0.016;
-                }
-
-                animator_update_system(&mut self.app.world, &mut self.app.resources);
-            }
+        fn run(&mut self) {
+            self.schedule
+                .run(&mut self.app.world, &mut self.app.resources);
         }
     }
 
@@ -1220,7 +1238,6 @@ mod tests {
     fn hierarch_change() {
         // Tests for hierarch change deletion and creation of some entity that is been animated
         let mut test_bench = AnimatorTestBench::new();
-        test_bench.bind();
 
         {
             let animator = test_bench
@@ -1240,8 +1257,15 @@ mod tests {
                 });
         }
 
-        // TODO: delete "Node2"
-        test_bench.bind();
+        // delete "Node1"
+        test_bench
+            .app
+            .world
+            .despawn(test_bench.entities[1])
+            .unwrap();
+
+        // Tick
+        test_bench.run();
 
         {
             let animator = test_bench
@@ -1250,11 +1274,43 @@ mod tests {
                 .get::<Animator>(test_bench.entities[0])
                 .expect("missing animator");
 
-            // TODO: Checks
+            animator
+                .bind_clips
+                .iter()
+                .map(|b| b.as_ref().expect("missing clip bind"))
+                .zip([2, 2].iter())
+                .for_each(|(b, skip)| {
+                    b.attributes.iter().skip(*skip).for_each(|attr| {
+                        assert_eq!(*attr, Ptr(null_mut()), "attribute still binded")
+                    })
+                });
         }
 
-        // TODO: Re-add "Node2"
-        test_bench.bind();
+        // Re-add "Node1"
+        test_bench.entities[1] = test_bench
+            .app
+            .world
+            .build()
+            .spawn((
+                GlobalTransform::default(),
+                Transform::from_translation(Vec3::new(0.0, 1.0, 0.0)),
+                Name::from_str("Node1"),
+                Parent(test_bench.entities[0]),
+            ))
+            .current_entity
+            .unwrap();
+
+        *test_bench
+            .app
+            .world
+            .get_mut::<Parent>(test_bench.entities[2])
+            .unwrap() = Parent(test_bench.entities[1]);
+
+        // Tick
+        // ! FIXME: May take one frame to bind the missing properties because
+        // ! the `parent_update_system` must run in order to update the `Children` component
+        test_bench.run();
+        test_bench.run();
 
         {
             let animator = test_bench
@@ -1269,7 +1325,7 @@ mod tests {
                 .map(|b| b.as_ref().expect("missing clip bind"))
                 .for_each(|b| {
                     b.attributes.iter().for_each(|attr| {
-                        assert_ne!(*attr, Ptr(null_mut()), "missing attribute bind")
+                        assert_ne!(*attr, Ptr(null_mut()), "attribute didn't rebinded")
                     })
                 });
         }
@@ -1326,9 +1382,19 @@ mod tests {
     fn test_bench_update() {
         // ? NOTE: Mimics a basic system update behavior good for pref since criterion will pollute the
         // ? annotations with many expensive instructions
-        let mut a = AnimatorTestBench::new();
-        a.bind();
-        a.update(1_000_000);
+        let mut test_bench = AnimatorTestBench::new();
+        test_bench.run();
+
+        for _ in 0..100_000 {
+            // Time tick
+            {
+                let mut time = test_bench.app.resources.get_mut::<Time>().unwrap();
+                time.delta_seconds += 0.016;
+                time.delta_seconds_f64 += 0.016;
+            }
+
+            animator_update_system(&mut test_bench.app.world, &mut test_bench.app.resources);
+        }
     }
 
     // TODO: test update with 5 layers or more ...
