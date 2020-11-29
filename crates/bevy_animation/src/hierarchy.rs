@@ -36,6 +36,10 @@ impl NamedHierarchy {
         &self.entities[entity_index as usize]
     }
 
+    pub fn iter(&self) -> impl Iterator<Item = &(Index, Name)> {
+        self.entities.iter()
+    }
+
     /// Adds a new entity hierarchy path separated by backslashes (`'/'`)
     /// return the entity index and if was or not inserted
     pub fn get_or_insert_entity(&mut self, entity_path: &str) -> (Index, bool) {
@@ -108,7 +112,7 @@ impl NamedHierarchy {
         entity_index: Index,
         entities_table_cache: &mut Vec<Option<Entity>>,
         children_query: &mut Query<(&Children,)>,
-        name_query: &mut Query<(&Name,)>,
+        name_query: &mut Query<(&Parent, &Name)>,
     ) -> Option<Entity> {
         if let Some(entity) = &entities_table_cache[entity_index as usize] {
             Some(*entity)
@@ -127,14 +131,16 @@ impl NamedHierarchy {
                     children
                         .iter()
                         .find(|entity| {
-                            if let Ok((name,)) = name_query.get(**entity) {
-                                if name == entity_name {
-                                    // Update cache
-                                    entities_table_cache[entity_index as usize] = Some(**entity);
-                                    true
-                                } else {
-                                    false
+                            if let Ok((current_parent, name)) = name_query.get(**entity) {
+                                // ! FIXME: Parent changes before the children update it self,
+                                // ! to account for that we also must double check entity parent component it self
+                                if current_parent.0 != parent_entity || name != entity_name {
+                                    return false;
                                 }
+
+                                // Update cache
+                                entities_table_cache[entity_index as usize] = Some(**entity);
+                                true
                             } else {
                                 false
                             }
@@ -176,15 +182,18 @@ impl NamedHierarchy {
                         children
                             .iter()
                             .find(|entity| {
-                                if let Ok(name) = world.get::<Name>(**entity) {
-                                    if name == entity_name {
-                                        // Update cache
-                                        entities_table_cache[entity_index as usize] =
-                                            Some(**entity);
-                                        true
-                                    } else {
-                                        false
+                                if let Ok((current_parent, name)) =
+                                    world.query_one::<(&Parent, &Name)>(**entity)
+                                {
+                                    // ! FIXME: Parent changes before the children update it self,
+                                    // ! to account for that we also must double check entity parent component it self
+                                    if current_parent.0 != parent_entity || name != entity_name {
+                                        return false;
                                     }
+
+                                    // Update cache
+                                    entities_table_cache[entity_index as usize] = Some(**entity);
+                                    true
                                 } else {
                                     false
                                 }

@@ -482,9 +482,10 @@ unsafe impl Sync for Ptr {}
 
 /// State info for the system `animator_binding_system`
 #[derive(Default)]
-struct ClipResourceProviderState {
-    clip_event_reader: EventReader<AssetEvent<Clip>>,
-    modified: fnv::FnvHashSet<Handle<Clip>>,
+struct BindingState {
+    clips_event_reader: EventReader<AssetEvent<Clip>>,
+    clips_modified: fnv::FnvHashSet<Handle<Clip>>,
+    entities_parent_changed: Vec<u16>,
 }
 
 /// Creates a new vector with a given size filled with the values returned by the given default function
@@ -502,13 +503,11 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
     // ! FIXME: These local resources seams to be quite slow, maybe I need a random system id?
     // Fetch resources
     let mut state = {
-        let state = resources.get_local_mut::<ClipResourceProviderState>(system_id);
+        let state = resources.get_local_mut::<BindingState>(system_id);
         if state.is_none() {
             std::mem::drop(state); // ? NOTE: Makes the borrow checker happy
-            resources.insert_local(system_id, ClipResourceProviderState::default());
-            resources
-                .get_local_mut::<ClipResourceProviderState>(system_id)
-                .unwrap()
+            resources.insert_local(system_id, BindingState::default());
+            resources.get_local_mut::<BindingState>(system_id).unwrap()
         } else {
             state.unwrap()
         }
@@ -526,11 +525,11 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
 
     // ? NOTE: Changing a clip on fly is supported, but very expensive so use with caution
     // Query all clips that changed and remove their binds from the animator
-    state.modified.clear();
-    for event in state.clip_event_reader.iter(&clip_events) {
+    state.clips_modified.clear();
+    for event in state.clips_event_reader.iter(&clip_events) {
         match event {
-            AssetEvent::Removed { handle } => state.modified.insert(handle.clone()),
-            AssetEvent::Modified { handle } => state.modified.insert(handle.clone()),
+            AssetEvent::Removed { handle } => state.clips_modified.insert(handle.clone()),
+            AssetEvent::Modified { handle } => state.clips_modified.insert(handle.clone()),
             _ => false,
         };
     }
@@ -548,7 +547,7 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
 
         for (clip_handle, bind) in animator.clips.iter().zip(animator.bind_clips.iter_mut()) {
             // Invalidate binds for clips that where modified
-            if state.modified.contains(clip_handle) {
+            if state.clips_modified.contains(clip_handle) {
                 *bind = None;
             }
 
@@ -574,6 +573,13 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
                 let done = &mut bind.all_binded;
                 let attrs = &mut bind.attributes;
 
+                // NOTE: Must be empty in this next function, if not it means
+                // something went wrong in the previous iteration
+                debug_assert!(
+                    state.entities_parent_changed.len() == 0,
+                    "parent changes have not been properly handled"
+                );
+
                 bind.entities
                     .iter_mut()
                     .enumerate()
@@ -588,8 +594,9 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
                         // Not root
                         if *entity_index > 0 {
                             if let Ok(Parent(parent)) = world.query_one::<&Parent>(inner.entity) {
-                                // Parent changed
+                                // Parent changed or removed
                                 if inner.parent != Some(*parent) {
+                                    state.entities_parent_changed.push(*entity_index as u16);
                                     return true;
                                 }
                             } else {
@@ -622,6 +629,40 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
                         }
                         *done = false;
                     });
+
+                // Handle entities that had theirs parents changed
+                // ? NOTE: Heavy code path triggered when an animated hierarchy changes
+                while let Some(entity_index) = state.entities_parent_changed.pop() {
+                    let entry = &mut bind.entities[entity_index as usize];
+
+                    if entry.is_some() {
+                        // Yet not invalidated
+                        for (descriptor, attr) in clip.properties.iter().zip(attrs.iter_mut()) {
+                            if descriptor.0 == entity_index {
+                                *attr = Ptr(null_mut());
+                            }
+                        }
+                    }
+
+                    *entry = None;
+                    *done = false;
+
+                    // Find children to invalidate their binds as well
+                    // ? NOTE: The `NamedHierarch` isn't optimized for travel the hierarchy
+                    // ? tree from top to bottom, so this operation is quite inefficient
+                    state.entities_parent_changed.extend(
+                        clip.hierarchy
+                            .iter()
+                            .enumerate()
+                            .filter_map(|(i, (parent_index, _))| {
+                                if *parent_index == entity_index {
+                                    Some(i as u16)
+                                } else {
+                                    None
+                                }
+                            }),
+                    );
+                }
 
                 bind
             } else {
@@ -1232,30 +1273,41 @@ mod tests {
             self.schedule
                 .run(&mut self.app.world, &mut self.app.resources);
         }
-    }
 
-    #[test]
-    fn hierarch_change() {
-        // Tests for hierarch change deletion and creation of some entity that is been animated
-        let mut test_bench = AnimatorTestBench::new();
-
-        {
-            let animator = test_bench
+        fn validate_binds<F: Fn(usize, usize, &Ptr)>(&self, validation: F) {
+            let animator = self
                 .app
                 .world
-                .get::<Animator>(test_bench.entities[0])
+                .get::<Animator>(self.entities[0])
                 .expect("missing animator");
 
             animator
                 .bind_clips
                 .iter()
                 .map(|b| b.as_ref().expect("missing clip bind"))
-                .for_each(|b| {
-                    b.attributes.iter().for_each(|attr| {
-                        assert_ne!(*attr, Ptr(null_mut()), "missing attribute bind")
-                    })
+                .enumerate()
+                .for_each(|(i, b)| {
+                    b.attributes
+                        .iter()
+                        .enumerate()
+                        .for_each(|(j, attr)| validation(i, j, attr));
                 });
         }
+    }
+
+    #[test]
+    fn entity_deleted() {
+        // Tests for hierarch change deletion and creation of some entity that is been animated
+        let mut test_bench = AnimatorTestBench::new();
+
+        test_bench.validate_binds(|curve_index, prop_index, ptr| {
+            assert!(
+                *ptr != Ptr(null_mut()),
+                "property {} unbinded in curve {}",
+                prop_index,
+                curve_index,
+            )
+        });
 
         // delete "Node1"
         test_bench
@@ -1267,24 +1319,23 @@ mod tests {
         // Tick
         test_bench.run();
 
-        {
-            let animator = test_bench
-                .app
-                .world
-                .get::<Animator>(test_bench.entities[0])
-                .expect("missing animator");
-
-            animator
-                .bind_clips
-                .iter()
-                .map(|b| b.as_ref().expect("missing clip bind"))
-                .zip([2, 2].iter())
-                .for_each(|(b, skip)| {
-                    b.attributes.iter().skip(*skip).for_each(|attr| {
-                        assert_eq!(*attr, Ptr(null_mut()), "attribute still binded")
-                    })
-                });
-        }
+        test_bench.validate_binds(|curve_index, prop_index, ptr| {
+            if prop_index < [2, 2][curve_index] {
+                assert!(
+                    *ptr != Ptr(null_mut()),
+                    "property {} unbinded in curve {}",
+                    prop_index,
+                    curve_index,
+                )
+            } else {
+                assert!(
+                    *ptr == Ptr(null_mut()),
+                    "property {} still binded in curve {}",
+                    prop_index,
+                    curve_index,
+                )
+            }
+        });
 
         // Re-add "Node1"
         test_bench.entities[1] = test_bench
@@ -1312,23 +1363,87 @@ mod tests {
         test_bench.run();
         test_bench.run();
 
-        {
-            let animator = test_bench
-                .app
-                .world
-                .get::<Animator>(test_bench.entities[0])
-                .expect("missing animator");
+        test_bench.validate_binds(|curve_index, prop_index, ptr| {
+            assert!(
+                *ptr != Ptr(null_mut()),
+                "property {} wasn't rebinded in curve {}",
+                prop_index,
+                curve_index,
+            )
+        });
+    }
 
-            animator
-                .bind_clips
-                .iter()
-                .map(|b| b.as_ref().expect("missing clip bind"))
-                .for_each(|b| {
-                    b.attributes.iter().for_each(|attr| {
-                        assert_ne!(*attr, Ptr(null_mut()), "attribute didn't rebinded")
-                    })
-                });
-        }
+    #[test]
+    fn entity_parent_changed() {
+        // Tests for hierarch change deletion and creation of some entity that is been animated
+        let mut test_bench = AnimatorTestBench::new();
+
+        test_bench.validate_binds(|curve_index, prop_index, ptr| {
+            assert!(
+                *ptr != Ptr(null_mut()),
+                "property {} unbinded in curve {}",
+                prop_index,
+                curve_index,
+            )
+        });
+
+        // Change parent of node "Node1"
+        let new_parent = test_bench
+            .app
+            .world
+            .build()
+            .spawn(())
+            .current_entity
+            .unwrap();
+
+        *test_bench
+            .app
+            .world
+            .get_mut::<Parent>(test_bench.entities[1])
+            .unwrap() = Parent(new_parent);
+
+        // Tick
+        test_bench.run();
+
+        test_bench.validate_binds(|curve_index, prop_index, ptr| {
+            if prop_index < [2, 2][curve_index] {
+                assert!(
+                    *ptr != Ptr(null_mut()),
+                    "property {} unbinded in curve {}",
+                    prop_index,
+                    curve_index,
+                )
+            } else {
+                assert!(
+                    *ptr == Ptr(null_mut()),
+                    "property {} still binded in curve {}",
+                    prop_index,
+                    curve_index,
+                )
+            }
+        });
+
+        // Re-parent "Node1"
+        *test_bench
+            .app
+            .world
+            .get_mut::<Parent>(test_bench.entities[1])
+            .unwrap() = Parent(test_bench.entities[0]);
+
+        // Tick
+        // ! FIXME: May take one frame to bind the missing properties because
+        // ! the `parent_update_system` must run in order to update the `Children` component
+        test_bench.run();
+        test_bench.run();
+
+        test_bench.validate_binds(|curve_index, prop_index, ptr| {
+            assert!(
+                *ptr != Ptr(null_mut()),
+                "property {} wasn't rebinded in curve {}",
+                prop_index,
+                curve_index,
+            )
+        });
     }
 
     #[test]
@@ -1379,6 +1494,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "extra-profiling-tests")]
     fn test_bench_update() {
         // ? NOTE: Mimics a basic system update behavior good for pref since criterion will pollute the
         // ? annotations with many expensive instructions
