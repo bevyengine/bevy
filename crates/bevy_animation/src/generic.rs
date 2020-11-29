@@ -8,13 +8,12 @@ use bevy_math::prelude::*;
 use bevy_property::{Properties, Property, PropertyType};
 use bevy_transform::prelude::*;
 use bevy_type_registry::{TypeRegistry, TypeUuid};
-use std::collections::HashSet;
 //use serde::{Deserialize, Serialize};
 use std::any::TypeId;
-use std::convert::TryFrom;
 use std::hash::Hash;
 use std::ptr::null_mut;
 
+use super::hierarchy::NamedHierarchy;
 use super::lerping::LerpValue;
 
 // TODO: Curve/Clip need a validation during deserialization because they are
@@ -28,7 +27,7 @@ pub struct Clip {
     pub warp: bool,
     duration: f32,
     /// Entity identification made by parent index and name
-    entities: Vec<(u16, Name)>,
+    hierarchy: NamedHierarchy,
     /// Attribute is made by the entity index and a string that combines
     /// component name followed by their attributes spaced by a period,
     /// like so: `"Transform.translation.x"`
@@ -46,7 +45,7 @@ impl Default for Clip {
             warp: true,
             duration: 0.0,
             // ? NOTE: Since the root has no parent in this context it points to a place outside the vec bounds
-            entities: vec![(u16::MAX, Name::default())],
+            hierarchy: NamedHierarchy::default(),
             attribute: vec![],
             curves: vec![],
         }
@@ -68,46 +67,19 @@ impl Clip {
         let path =
             property_path.split_at(property_path.rfind('@').expect("property path missing @"));
 
-        // TODO: Prepare for bevy_reflect
-        let mut entity_created = false;
-        let mut entity = 0; // Start search from root
-        for name in path.0.split('/') {
-            // Ignore the first '/' or '///'
-            if name.is_empty() {
-                continue;
-            }
-
-            if let Some(e) = self
-                .entities
-                .iter()
-                .position(|(p, n)| (*p, n.as_str()) == (entity, name))
-            {
-                // Found entity
-                entity = e as u16;
-            } else {
-                // Add entity
-                let e = self.entities.len();
-                self.entities.push((entity, Name::from_str(name)));
-                entity_created = true;
-                // Soft limit added to save memory, identical to the curve limit
-                entity = u16::try_from(e).expect("entities limit reached");
-            }
-        }
+        let (entity, entity_created) = self.hierarchy.get_or_insert_entity(path.0);
 
         let insert_attr = Name::from_str(path.1.split_at(1).1);
 
-        // If some entity was created it means this property is a new one
+        // If some entity was created it means this property is a new one so we can safely skip the attribute testing
         if !entity_created {
             for (i, attr) in self.attribute.iter().enumerate() {
                 if attr.0 != entity {
                     continue;
                 }
 
-                // NOTE: "...@Transform.translation" and "...@Transform.translation.x" can't live with each other
-                // but since Properties aren't implemented for f32, Vec2, Vec3, Vec4 and Quat
-                // (all relevant animated type values) the check rule could be simplified (a lot)
-                //
-                // The test case `test::unhandled_properties_implementation_for_types` will ensure that
+                // TODO: Prepare for bevy_reflect
+                // TODO: "...@Transform.translation" and "...@Transform.translation.x" can't live with each other
 
                 if insert_attr == attr.1 {
                     // Found a property are equal the one been inserted
@@ -140,22 +112,14 @@ impl Clip {
     /// The clip stores a property path in a specific way to improve search performance
     /// thus it needs to rebuilt the curve property path in the human readable format
     pub fn get_property_path(&self, index: u16) -> String {
-        let (entity, name) = &self.attribute[index as usize];
-        let mut path = format!("@{}", name.as_str());
-
-        let mut first = true;
-        let mut entity = *entity;
-        while let Some((parent, name)) = self.entities.get(entity as usize) {
-            if first {
-                path = format!("{}{}", name.as_str(), path);
-                first = false;
-            } else {
-                path = format!("{}/{}", name.as_str(), path);
-            }
-            entity = *parent;
-        }
-
-        path
+        let (entity_index, name) = &self.attribute[index as usize];
+        format!(
+            "{}@{}",
+            self.hierarchy
+                .get_entity_path_at(*entity_index)
+                .expect("property as an invalid entity"),
+            name.as_str()
+        )
     }
 
     /// Clip duration
@@ -470,31 +434,23 @@ impl Animator {
 // direct pointers
 
 #[derive(Debug)]
-struct ClipBindMetadataInner {
+struct ClipBindEntity {
     parent: Option<Entity>,
     entity: Entity,
     location: Location,
-    component: TypeId,
-}
-
-/// Metadata is used to check the bind validity
-#[derive(Debug)]
-struct ClipBindMetadata {
-    entity_index: u16,
-    inner: Option<ClipBindMetadataInner>,
-    range: (u16, u16),
 }
 
 #[derive(Debug)]
 struct ClipBind {
-    metadata: Vec<ClipBindMetadata>,
-    curves: Vec<u16>,
+    entities: Vec<Option<ClipBindEntity>>,
+    /// True only when all the attributes are binded
+    all_binded: bool,
+    /// Attributes pointers
     attributes: Vec<Ptr>,
 }
 
 // #[derive(Debug)]
 // struct ClipMaskBind {
-//     metadata: Vec<(Option<Entity>, Entity)>
 //     allowed_entities: HashMap<Entity>,
 // }
 
@@ -506,20 +462,29 @@ struct Ptr(*mut u8);
 unsafe impl Send for Ptr {}
 unsafe impl Sync for Ptr {}
 
-/// Marker type for missing component
-struct MissingComponentMarker;
+// /// Marker type for missing component
+// struct MissingComponentMarker;
 
+/// State info for the system `animator_binding_system`
 #[derive(Default)]
 struct ClipResourceProviderState {
     clip_event_reader: EventReader<AssetEvent<Clip>>,
+    modified: fnv::FnvHashSet<Handle<Clip>>,
 }
 
-// TODO: Refactor in hope to reuse more code (maybe just create more functions)
+/// Creates a new vector with a given size filled with the values returned by the given default function
+#[inline(always)]
+fn vec_filled<T, F: Fn() -> T>(size: usize, default: F) -> Vec<T> {
+    let mut v = vec![];
+    v.resize_with(size, default);
+    v
+}
+
 #[tracing::instrument(skip(world, resources))]
 pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
     let system_id = SystemId(0); // ? NOTE: shouldn't be required to match the system id
 
-    // TODO: These local resources seams to be quite slow, maybe I need a random system id?
+    // ! FIXME: These local resources seams to be quite slow, maybe I need a random system id?
     // Fetch resources
     let mut state = {
         let state = resources.get_local_mut::<ClipResourceProviderState>(system_id);
@@ -546,11 +511,11 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
 
     // ? NOTE: Changing a clip on fly is supported, but very expensive so use with caution
     // Query all clips that changed and remove their binds from the animator
-    let mut modified = HashSet::new();
+    state.modified.clear();
     for event in state.clip_event_reader.iter(&clip_events) {
         match event {
-            AssetEvent::Removed { handle } => modified.insert(handle),
-            AssetEvent::Modified { handle } => modified.insert(handle),
+            AssetEvent::Removed { handle } => state.modified.insert(handle.clone()),
+            AssetEvent::Modified { handle } => state.modified.insert(handle.clone()),
             _ => false,
         };
     }
@@ -568,266 +533,167 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
 
         for (clip_handle, bind) in animator.clips.iter().zip(animator.bind_clips.iter_mut()) {
             // Invalidate binds for clips that where modified
-            if modified.contains(clip_handle) {
+            if state.modified.contains(clip_handle) {
                 *bind = None;
             }
 
-            if let Some(clip) = clips.get(clip_handle) {
-                // Prepare the entities table cache
-                entities_table_cache.clear();
-                entities_table_cache.resize(clip.entities.len(), None);
-                // Assign the root entity as the first element
-                entities_table_cache[0] = Some(root);
+            let clip = clips.get(clip_handle);
+            if clip.is_none() {
+                // Clip missing, invalidate binds if any
+                *bind = None;
+                continue;
+            }
 
-                if bind.is_none() {
-                    // Build binds from scratch
-                    // Allocate the minium enough of memory on right at the begin
-                    let mut b = ClipBind {
-                        metadata: Vec::with_capacity(clip.entities.len()),
-                        curves: Vec::with_capacity(clip.attribute.len()),
-                        attributes: Vec::with_capacity(clip.attribute.len()),
-                    };
+            // Unwraps the clip
+            let clip = clip.unwrap();
 
-                    let mut range = (0, 0);
-                    let mut prev_partial_info = None;
-                    let mut prev_component = TypeId::of::<MissingComponentMarker>();
-                    let mut prev_component_short_name = "";
+            // Prepare the entities table cache
+            entities_table_cache.clear();
+            entities_table_cache.resize(clip.hierarchy.len(), None);
+            // Assign the root entity as the first element
+            entities_table_cache[0] = Some(root);
 
-                    for (curve_index, (entity_index, attr_path)) in
-                        clip.attribute.iter().enumerate()
-                    {
-                        let mut commit = false;
-                        let mut partial_info = None;
-                        let mut component = TypeId::of::<MissingComponentMarker>();
+            let bind = if let Some(bind) = bind.as_mut() {
+                // Invalidate previously binded attributes
 
-                        // Query component by name
-                        let mut path = attr_path.split('.');
-                        let component_short_name =
-                            path.next().expect("missing component short name");
+                let done = &mut bind.all_binded;
+                let attrs = &mut bind.attributes;
 
-                        if let Some(entity) = find_entity(
-                            *entity_index,
-                            &clip.entities,
-                            &mut entities_table_cache,
-                            &world,
-                        ) {
-                            let location = world.get_entity_location(entity).unwrap();
+                bind.entities
+                    .iter_mut()
+                    .enumerate()
+                    // Find entities that changed
+                    .filter(|(entity_index, entry)| {
+                        if entry.is_none() {
+                            // Already invalid
+                            return false;
+                        }
+                        let inner = entry.as_ref().unwrap();
 
-                            // Commit is needed
-                            partial_info = Some((entity, location));
-                            if prev_partial_info != partial_info {
-                                commit = true;
-                            }
-
-                            if let Some(component_reg) =
-                                type_registry_read_guard.get_with_short_name(component_short_name)
-                            {
-                                component = component_reg.ty;
-
-                                let root_props = component_reg.get_component_properties(
-                                    &world.archetypes[location.archetype as usize],
-                                    location.index,
-                                );
-
-                                b.curves.push(curve_index as u16);
-                                b.attributes.push(find_property_ptr(
-                                    path,
-                                    root_props,
-                                    clip.curves[curve_index].value_type(),
-                                ));
-
-                                // Group by component type
-                                commit |= prev_component != component;
+                        // Not root
+                        if *entity_index > 0 {
+                            if let Ok(Parent(parent)) = world.query_one::<&Parent>(inner.entity) {
+                                // Parent changed
+                                if inner.parent != Some(*parent) {
+                                    return true;
+                                }
                             } else {
-                                // Missing component
-                                b.curves.push(curve_index as u16);
-                                b.attributes.push(Ptr(null_mut()));
+                                // Parent removed
+                                return true;
+                            }
+                        }
 
-                                // Group by component name
-                                commit |= prev_component_short_name != component_short_name;
+                        if let Some(loc) = world.get_entity_location(inner.entity) {
+                            if inner.location != loc {
+                                // Entity archetype changed
+                                return true;
                             }
                         } else {
-                            // Missing entity
-                            commit = prev_partial_info != partial_info;
-                            commit |= prev_component_short_name != component_short_name;
-
-                            b.curves.push(curve_index as u16);
-                            b.attributes.push(Ptr(null_mut()));
+                            // Entity deleted
+                            return true;
                         }
 
-                        if commit {
-                            // Close range
-                            range.1 = b.curves.len() as u16 - 1;
-
-                            // Commit meta
-                            b.metadata.push(ClipBindMetadata {
-                                entity_index: *entity_index,
-                                inner: prev_partial_info.map(|(entity, location)| {
-                                    ClipBindMetadataInner {
-                                        // An entity will always have parent unless is the root entity
-                                        parent: entities_table_cache
-                                            .get(clip.entities[*entity_index as usize].0 as usize)
-                                            .copied()
-                                            .flatten(),
-                                        entity,
-                                        location,
-                                        component,
-                                    }
-                                }),
-                                range,
-                            });
-
-                            // Jump to the next range
-                            prev_partial_info = partial_info;
-                            prev_component = component;
-                            prev_component_short_name = component_short_name;
-                            range.0 = range.1;
-                            range.1 += 1;
+                        // Entity didn't change
+                        false
+                    })
+                    // Invalidate all entities that changed
+                    .for_each(|(entity_index, entry)| {
+                        *entry = None;
+                        // ? NOTE: Will only run if the bind was invalidated in this frame
+                        for (descriptor, attr) in clip.attribute.iter().zip(attrs.iter_mut()) {
+                            if descriptor.0 as usize == entity_index {
+                                *attr = Ptr(null_mut());
+                            }
                         }
-                    }
+                        *done = false;
+                    });
 
-                    *bind = Some(b);
+                bind
+            } else {
+                // Create empty binds
+                *bind = Some(ClipBind {
+                    entities: vec_filled(clip.hierarchy.len(), || None),
+                    all_binded: false,
+                    attributes: vec_filled(clip.attribute.len(), || Ptr(null_mut())),
+                });
 
-                    // No need to continue because binds are fresh
+                bind.as_mut().unwrap()
+            };
+
+            // All attributes are binded
+            if bind.all_binded {
+                continue;
+            }
+
+            // Will be cleared if any attribute fail to bind
+            bind.all_binded = true;
+
+            // Bind attributes
+            for (attr_index, (attr, descriptor)) in bind
+                .attributes
+                .iter_mut()
+                .zip(clip.attribute.iter())
+                .enumerate()
+            {
+                let (entity_index, attr_path) = descriptor;
+
+                if *attr != Ptr(null_mut()) {
+                    // Already binded
                     continue;
                 }
 
-                // Check bind state and update the necessary parts
-                let bind = bind.as_mut().unwrap();
-                for meta in bind.metadata.iter_mut() {
-                    if meta.inner.is_none() {
-                        // TODO: Handle missing entity
-                        continue;
-                    }
+                // ! NOTE: Unbinded attributes will trigger this code path every frame,
+                // ! so missing attributes will make a dent in the performance,
 
-                    let inner = meta.inner.as_mut().unwrap();
+                // Query component by name
+                // TODO: Log error instead of panic ...
+                let mut path = attr_path.split('.');
+                let component_short_name = path.next().expect("missing component short name");
 
-                    // Handle `Parent` changed
-                    if let Some(parent) = inner.parent {
-                        // Not root
-                        if let Ok(Parent(new_parent)) =
-                            world.query_one_filtered::<&Parent, Changed<Parent>>(inner.entity)
-                        {
-                            if parent != *new_parent {
-                                // TODO: Look again for the entity
+                if let Some(entity) = clip.hierarchy.find_entity_in_world(
+                    *entity_index,
+                    &mut entities_table_cache,
+                    &world,
+                ) {
+                    let location = world.get_entity_location(entity).unwrap();
 
-                                // Invalidate bind ...
-                                meta.inner = None;
-                                for i in (meta.range.0)..(meta.range.1) {
-                                    bind.attributes[i as usize] = Ptr(null_mut());
-                                }
-                                continue;
-                            }
+                    bind.entities[*entity_index as usize].get_or_insert_with(|| {
+                        ClipBindEntity {
+                            // If the entity was found the parent was as well (unless if the root which will be always None)
+                            parent: entities_table_cache
+                                [clip.hierarchy.get_entity(*entity_index).0 as usize],
+                            entity,
+                            location,
                         }
-                    }
+                    });
 
-                    let mut loc = world.get_entity_location(inner.entity);
-                    if loc.is_none() {
-                        // Missing entity
-                        if let Some(found_entity) = find_entity(
-                            meta.entity_index,
-                            &clip.entities,
-                            &mut entities_table_cache,
-                            &world,
-                        ) {
-                            // Found new entity
-                            inner.entity = found_entity;
-                            // Fetch it's location
-                            loc = world.get_entity_location(found_entity);
-                        } else {
-                            // Entity wasn't found, invalidate all the bind attributes
-                            meta.inner = None; // Clear inner data
-                            for i in (meta.range.0)..(meta.range.1) {
-                                bind.attributes[i as usize] = Ptr(null_mut());
-                            }
-                            continue;
-                        }
-                    }
-
-                    let loc = loc.unwrap();
-                    if inner.location == loc {
-                        // Nothing left todo
-                        continue;
-                    }
-                    if inner.component == TypeId::of::<MissingComponentMarker>() {
-                        // TODO: Find component by name
-                        continue;
-                    }
-
-                    // Entity archetype changed
-                    if let Some(component_reg) = type_registry_read_guard.get(&inner.component) {
+                    if let Some(component_reg) =
+                        type_registry_read_guard.get_with_short_name(component_short_name)
+                    {
+                        // ! FIXME: This function should fail, if the entity doesn't have the component
                         let root_props = component_reg.get_component_properties(
-                            &world.archetypes[loc.archetype as usize],
-                            loc.index,
+                            &world.archetypes[location.archetype as usize],
+                            location.index,
                         );
 
-                        // Update pointers to reflect the new entity memory location
-                        for i in (meta.range.0)..(meta.range.1) {
-                            let i = i as usize;
-                            let curve_index = bind.curves[i] as usize;
-                            let mut path = clip.attribute[curve_index].1.split('.');
-                            path.next(); // Skip component
+                        *attr = find_property_ptr(
+                            path,
+                            root_props,
+                            clip.curves[attr_index].value_type(),
+                        );
 
-                            let ptr = find_property_ptr(
-                                path,
-                                root_props,
-                                clip.curves[curve_index].value_type(),
-                            );
-                            debug_assert!(bind.attributes[i] != ptr, "pointers can't be the same");
-                            bind.attributes[i] = ptr;
-                        }
+                        // Clear binded bit if not fully binded
+                        bind.all_binded &= *attr != Ptr(null_mut());
                     } else {
-                        // Component is missing
-                        for i in (meta.range.0)..(meta.range.1) {
-                            bind.attributes[i as usize] = Ptr(null_mut());
-                        }
-                        inner.component = TypeId::of::<MissingComponentMarker>();
+                        bind.all_binded = false;
+                        panic!("component `{}` not registered", component_short_name);
                     }
-
-                    // Update bind location
-                    inner.location = loc;
+                } else {
+                    // Missing entity
+                    bind.all_binded = false;
                 }
             }
         }
-    }
-}
-
-fn find_entity(
-    entity_index: u16,
-    entities_ids: &Vec<(u16, Name)>,
-    entities_table_cache: &mut Vec<Option<Entity>>,
-    world: &World,
-) -> Option<Entity> {
-    if let Some(entity) = &entities_table_cache[entity_index as usize] {
-        Some(*entity)
-    } else {
-        let (parent_index, entity_name) = &entities_ids[entity_index as usize];
-
-        // Use recursion to find the entity parent
-        find_entity(*parent_index, entities_ids, entities_table_cache, world).and_then(
-            |parent_entity| {
-                if let Ok(children) = world.get::<Children>(parent_entity) {
-                    children
-                        .iter()
-                        .find(|entity| {
-                            if let Ok(name) = world.get::<Name>(**entity) {
-                                if name == entity_name {
-                                    // Update cache
-                                    entities_table_cache[entity_index as usize] = Some(**entity);
-                                    true
-                                } else {
-                                    false
-                                }
-                            } else {
-                                false
-                            }
-                        })
-                        .copied()
-                } else {
-                    None
-                }
-            },
-        )
     }
 }
 
@@ -975,18 +841,18 @@ pub fn animator_update_system(world: &mut World, resources: &mut Resources) {
                     layer.time = time;
 
                     // TODO: can be done in bached_parallel if is visited warped inside a mutex
-                    for ((ptr, keyframe), curve_index) in bind
+                    for (curve_index, (ptr, keyframe)) in bind
                         .attributes
                         .iter()
                         .zip(layer.keyframe.iter_mut())
-                        .zip(bind.curves.iter())
+                        .enumerate()
                     {
                         // Skip invalid properties
                         if *ptr == Ptr(null_mut()) {
                             continue;
                         }
 
-                        let curve = &clip.curves[*curve_index as usize];
+                        let curve = &clip.curves[curve_index];
 
                         let viz = if animator.visited.contains(&ptr) {
                             true
@@ -1217,39 +1083,13 @@ mod tests {
         //check_for_properties!(Color); // TODO: sRGB Color
     }
 
-    // ? NOTE: Don't remove this test, right now we can skip this test
-    // ? because all the animated type values (Vec2, Vec3 ...) don't
-    // ? implement the `Properties` type and thus none of their inner
-    // ? can be accessed
-    // #[test]
-    // #[should_panic]
-    // fn clip_add_nested_property() {
-    //     let mut clip = Clip::default();
-    //     let position = Curve::from_linear(0.0, 1.0, Vec3::zero(), Vec3::unit_y());
-    //     let y = Curve::from_linear(0.0, 1.0, 0.0, 1.0);
-    //     clip.add_animated_prop(
-    //         "Root/Ball@Transform.translation",
-    //         CurveUntyped::Vec3(position),
-    //     );
-    //     // NOTE: Right now "Transform.translation.y" can't be accessed because Vec3 doesn't impl Properties
-    //     clip.add_animated_prop("Root/Ball@Transform.translation.y", CurveUntyped::Float(y));
-    // }
-
-    // TODO: Add tests for hierarch change (creation and deletion)
-    // TODO: Add tests for entity archetype change
-    // TODO: Add tests for entities with same Name
-    // TODO: Add tests for mutated events
-    // TODO: Add tests for animated handle (impl missing)
-    // TODO: Add tests for animated asset properties (impl missing)
-    // TODO: Add tests for animated components should trigger 'Mutated' queries filters (impl missing)
-
-    struct AnimtorTestBench {
+    #[allow(dead_code)]
+    struct AnimatorTestBench {
         app: bevy_app::App,
-        //binding_system: Box<dyn bevy_ecs::System<Input = (), Output = ()>>,
-        update_system: Box<dyn bevy_ecs::System<Input = (), Output = ()>>,
+        entities: Vec<Entity>,
     }
 
-    impl AnimtorTestBench {
+    impl AnimatorTestBench {
         fn new() -> Self {
             let mut app_builder = bevy_app::App::build();
             app_builder
@@ -1311,43 +1151,55 @@ mod tests {
                 animator.add_layer(clip_b, 0.5);
             }
 
-            world_builder
-                .spawn(base.clone())
-                .with(Name::from_str("Root"))
-                .with(animator)
-                .with_children(|world_builder| {
+            let mut entities = vec![];
+            entities.push(
+                world_builder
+                    .spawn(base.clone())
+                    .with(Name::from_str("Root"))
+                    .with(animator)
+                    .current_entity
+                    .unwrap(),
+            );
+            world_builder.with_children(|world_builder| {
+                entities.push(
                     world_builder
                         .spawn(base.clone())
                         .with(Name::from_str("Node1"))
-                        .with_children(|world_builder| {
+                        .current_entity()
+                        .unwrap(),
+                );
+
+                world_builder.with_children(|world_builder| {
+                    entities.push(
+                        world_builder
+                            .spawn(base.clone())
+                            .with(Name::from_str("Node2"))
+                            .current_entity()
+                            .unwrap(),
+                    );
+
+                    world_builder.with_children(|world_builder| {
+                        entities.push(
                             world_builder
                                 .spawn(base.clone())
-                                .with(Name::from_str("Node2"))
-                                .with_children(|world_builder| {
-                                    world_builder
-                                        .spawn(base.clone())
-                                        .with(Name::from_str("Node3"));
-                                });
-                        });
+                                .with(Name::from_str("Node3"))
+                                .current_entity()
+                                .unwrap(),
+                        );
+                    });
                 });
+            });
 
             app_builder.set_world(world);
 
-            // let mut parent_update_system: Box<dyn bevy_ecs::System<Input = (), Output = ()>> =
-            //     Box::new(bevy_transform::hierarchy::parent_update_system.system());
+            Self {
+                app: app_builder.app,
+                entities,
+            }
+        }
 
-            let mut binding_system: Box<dyn bevy_ecs::System<Input = (), Output = ()>> =
-                Box::new(crate::animator_binding_system.system());
-
-            let update_system: Box<dyn bevy_ecs::System<Input = (), Output = ()>> =
-                Box::new(crate::animator_update_system.system());
-
-            let mut app = app_builder.app;
-
-            //parent_update_system.run((), &mut app.world, &mut app.resources);
-            binding_system.run_thread_local(&mut app.world, &mut app.resources);
-
-            Self { app, update_system }
+        fn bind(&mut self) {
+            animator_binding_system(&mut self.app.world, &mut self.app.resources);
         }
 
         fn update(&mut self, ticks: usize) {
@@ -1359,21 +1211,125 @@ mod tests {
                     time.delta_seconds_f64 += 0.016;
                 }
 
-                self.update_system
-                    .run_thread_local(&mut self.app.world, &mut self.app.resources);
-
-                //dbg!(app.world.get::<Transform>(root_entity).unwrap());
+                animator_update_system(&mut self.app.world, &mut self.app.resources);
             }
         }
+    }
+
+    #[test]
+    fn hierarch_change() {
+        // Tests for hierarch change deletion and creation of some entity that is been animated
+        let mut test_bench = AnimatorTestBench::new();
+        test_bench.bind();
+
+        {
+            let animator = test_bench
+                .app
+                .world
+                .get::<Animator>(test_bench.entities[0])
+                .expect("missing animator");
+
+            animator
+                .bind_clips
+                .iter()
+                .map(|b| b.as_ref().expect("missing clip bind"))
+                .for_each(|b| {
+                    b.attributes.iter().for_each(|attr| {
+                        assert_ne!(*attr, Ptr(null_mut()), "missing attribute bind")
+                    })
+                });
+        }
+
+        // TODO: delete "Node2"
+        test_bench.bind();
+
+        {
+            let animator = test_bench
+                .app
+                .world
+                .get::<Animator>(test_bench.entities[0])
+                .expect("missing animator");
+
+            // TODO: Checks
+        }
+
+        // TODO: Re-add "Node2"
+        test_bench.bind();
+
+        {
+            let animator = test_bench
+                .app
+                .world
+                .get::<Animator>(test_bench.entities[0])
+                .expect("missing animator");
+
+            animator
+                .bind_clips
+                .iter()
+                .map(|b| b.as_ref().expect("missing clip bind"))
+                .for_each(|b| {
+                    b.attributes.iter().for_each(|attr| {
+                        assert_ne!(*attr, Ptr(null_mut()), "missing attribute bind")
+                    })
+                });
+        }
+    }
+
+    #[test]
+    fn entity_archetype_change() {
+        // Add tests for entity archetype change
+        unimplemented!()
+    }
+
+    #[test]
+    fn entity_renamed() {
+        unimplemented!()
+    }
+
+    #[test]
+    fn missing_component_in_entity() {
+        // TODO: try to bind a property against a existent entity that doesn't have the target component
+        unimplemented!()
+    }
+
+    #[test]
+    fn entity_with_same_name() {
+        // TODO: Add tests for entities with same Name
+        unimplemented!()
+    }
+
+    #[test]
+    fn clip_changed() {
+        // TODO: Add tests for mutated events
+        unimplemented!()
+    }
+
+    #[test]
+    fn animated_components_are_marked_as_mutated() {
+        // TODO: Add tests for animated components should trigger 'Mutated' queries filters (impl missing)
+        unimplemented!()
+    }
+
+    #[test]
+    fn swapping_handle_animation() {
+        // TODO: Add tests for animated handle (impl missing)
+        unimplemented!()
+    }
+
+    #[test]
+    fn animate_asset_properties() {
+        // TODO: Add tests for animated asset properties (impl missing)
+        unimplemented!()
     }
 
     #[test]
     fn test_bench_update() {
         // ? NOTE: Mimics a basic system update behavior good for pref since criterion will pollute the
         // ? annotations with many expensive instructions
-        let mut a = AnimtorTestBench::new();
+        let mut a = AnimatorTestBench::new();
+        a.bind();
         a.update(1_000_000);
     }
 
-    // TODO: 5 layers or more ...
+    // TODO: test update with 5 layers or more ...
 }

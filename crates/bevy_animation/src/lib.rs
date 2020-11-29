@@ -4,12 +4,13 @@ use bevy_asset::AddAsset;
 use bevy_type_registry::RegisterType;
 
 pub mod generic;
+mod hierarchy;
 pub mod lerping;
 mod skinned_mesh;
 
 pub use crate::generic::*;
+pub use crate::hierarchy::NamedHierarchy;
 pub use crate::skinned_mesh::*;
-//mod util;
 
 pub mod prelude {
     pub use crate::generic::{Animator, Clip, Curve, CurveUntyped};
