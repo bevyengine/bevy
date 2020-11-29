@@ -2,7 +2,6 @@ use bevy_app::{EventReader, Events};
 use bevy_ecs::{Local, Res, ResMut};
 use bevy_math::Vec2;
 use bevy_utils::HashMap;
-use core::ops::DerefMut;
 
 /// Represents a touch event
 ///
@@ -168,6 +167,36 @@ impl Touches {
             .iter()
             .map(move |(id, _)| self.pressed.get(id).unwrap())
     }
+
+    fn process_touch_event(&mut self, event: &TouchInput) {
+        match event.phase {
+            TouchPhase::Started => {
+                self.pressed.insert(event.id, event.into());
+                self.just_pressed.insert(event.id, event.into());
+            }
+            TouchPhase::Moved => {
+                let mut new_touch = self.pressed.get(&event.id).cloned().unwrap();
+                new_touch.previous_position = new_touch.position;
+                new_touch.previous_force = new_touch.force;
+                new_touch.position = event.position;
+                new_touch.force = event.force;
+                self.pressed.insert(event.id, new_touch);
+            }
+            TouchPhase::Ended => {
+                self.just_released.insert(event.id, event.into());
+                self.pressed.remove_entry(&event.id);
+            }
+            TouchPhase::Cancelled => {
+                self.just_cancelled.insert(event.id, event.into());
+                self.pressed.remove_entry(&event.id);
+            }
+        };
+    }
+
+    fn update(&mut self) {
+        self.just_pressed.clear();
+        self.just_released.clear();
+    }
 }
 
 /// Updates the Touches resource with the latest TouchInput events
@@ -176,31 +205,131 @@ pub fn touch_screen_input_system(
     mut touch_state: ResMut<Touches>,
     touch_input_events: Res<Events<TouchInput>>,
 ) {
-    let touch_state = touch_state.deref_mut();
-    touch_state.just_pressed.clear();
-    touch_state.just_released.clear();
+    touch_state.update();
+
     for event in state.touch_event_reader.iter(&touch_input_events) {
-        match event.phase {
-            TouchPhase::Started => {
-                touch_state.pressed.insert(event.id, event.into());
-                touch_state.just_pressed.insert(event.id, event.into());
-            }
-            TouchPhase::Moved => {
-                let mut new_touch = touch_state.pressed.get(&event.id).cloned().unwrap();
-                new_touch.previous_position = new_touch.position;
-                new_touch.previous_force = new_touch.force;
-                new_touch.position = event.position;
-                new_touch.force = event.force;
-                touch_state.pressed.insert(event.id, new_touch);
-            }
-            TouchPhase::Ended => {
-                touch_state.just_released.insert(event.id, event.into());
-                touch_state.pressed.remove_entry(&event.id);
-            }
-            TouchPhase::Cancelled => {
-                touch_state.just_cancelled.insert(event.id, event.into());
-                touch_state.pressed.remove_entry(&event.id);
-            }
+        touch_state.process_touch_event(event);
+    }
+}
+
+mod test {
+    #[test]
+    fn touch() {
+        use crate::{touch::TouchPhase, TouchInput, Touches};
+        use bevy_math::Vec2;
+
+        let mut touches = Touches::default();
+
+        let touch_event_1 = TouchInput {
+            phase: TouchPhase::Started,
+            position: Vec2::new(4.0, 4.0),
+            force: None,
+            id: 4,
         };
+
+        let touch_event_2 = TouchInput {
+            phase: TouchPhase::Started,
+            position: Vec2::new(4.0, 4.0),
+            force: None,
+            id: 5,
+        };
+
+        // Process the two touch events
+        touches.process_touch_event(&touch_event_1);
+        touches.process_touch_event(&touch_event_2);
+
+        // Check that the touches are pressed and just pressed
+
+        assert!(touches.just_pressed(4));
+        assert!(touches.just_pressed(5));
+
+        assert!(touches.get_pressed(4).is_some());
+        assert!(touches.get_pressed(5).is_some());
+
+        // Check that the touches are not released or just released
+
+        assert!(!touches.just_released(4));
+        assert!(!touches.just_released(5));
+
+        assert!(touches.get_released(4).is_none());
+        assert!(touches.get_released(4).is_none());
+
+        // Test iteration
+
+        // Check that the touch events are in the pressed iterator
+        assert_eq!(touches.iter().count(), 2);
+
+        // Check that the touch events are in the just pressed iterator
+        assert_eq!(touches.iter_just_pressed().count(), 2);
+
+        // Check that the just released iterator returns nothing
+        assert_eq!(touches.iter_just_released().count(), 0);
+
+        // Update the `Touches` and check that touches have been removed from just touched
+        touches.update();
+
+        assert!(!touches.just_pressed(4));
+        assert!(!touches.just_pressed(5));
+
+        assert!(touches.get_pressed(4).is_some());
+        assert!(touches.get_pressed(5).is_some());
+
+        // Test moving
+        let new_touch_event = TouchInput {
+            phase: TouchPhase::Moved,
+            position: Vec2::new(5.0, 4.0),
+            force: None,
+            id: 4,
+        };
+
+        touches.process_touch_event(&new_touch_event);
+
+        let touch = touches.get_pressed(4).unwrap();
+
+        assert_eq!(touch.start_position, touch_event_1.position);
+        assert_eq!(touch.start_force, touch_event_1.force);
+        assert_eq!(touch.previous_position, touch_event_1.position);
+        assert_eq!(touch.previous_force, touch_event_1.force);
+        assert_eq!(touch.position, new_touch_event.position);
+        assert_eq!(touch.force, new_touch_event.force);
+
+        // Test removal
+        let touch_event_1 = TouchInput {
+            phase: TouchPhase::Cancelled,
+            position: Vec2::new(4.0, 4.0),
+            force: None,
+            id: 4,
+        };
+
+        let touch_event_2 = TouchInput {
+            phase: TouchPhase::Cancelled,
+            position: Vec2::new(4.0, 4.0),
+            force: None,
+            id: 5,
+        };
+
+        touches.process_touch_event(&touch_event_1);
+        touches.process_touch_event(&touch_event_2);
+
+        assert!(touches.just_cancelled(4));
+        assert!(touches.just_cancelled(5));
+
+        assert_eq!(touches.iter_just_cancelled().count(), 2);
+
+        touches.update();
+
+        assert_eq!(touches.iter_just_cancelled().count(), 0);
+
+        // Test ending
+        let touch_event = TouchInput {
+            phase: TouchPhase::Ended,
+            position: Vec2::new(0.0, 0.0),
+            force: None,
+            id: 4,
+        };
+
+        touches.process_touch_event(&touch_event);
+
+        assert!(touches.get_pressed(4).is_none());
     }
 }
