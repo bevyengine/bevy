@@ -181,6 +181,12 @@ impl<'a, Q: WorldQuery, F: QueryFilter> Query<'a, Q, F> {
             .map_err(QueryError::ComponentError)
     }
 
+    /// Returns an array containing the entities in this query that had the given component
+    /// removed in this update.
+    ///
+    /// This function needs to be executed on some stage *after* the removal of the component,
+    /// otherwise the component hasn't actually been removed yet.
+    /// `AppBuilder::add_system_to_stage` can be used to control at what stage a system runs.
     pub fn removed<C: Component>(&self) -> &[Entity] {
         self.world.removed::<C>()
     }
