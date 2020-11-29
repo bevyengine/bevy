@@ -111,7 +111,7 @@ impl Reflect for DynamicList {
     }
 
     #[inline]
-    fn hash(&self) -> Option<u64> {
+    fn reflect_hash(&self) -> Option<u64> {
         None
     }
 

@@ -93,7 +93,7 @@ impl<T: Reflect> Reflect for Vec<T> {
         Box::new(self.clone_dynamic())
     }
 
-    fn hash(&self) -> Option<u64> {
+    fn reflect_hash(&self) -> Option<u64> {
         None
     }
 
@@ -187,7 +187,7 @@ impl<K: Reflect + Clone + Eq + Hash, V: Reflect + Clone> Reflect for HashMap<K, 
         Box::new(self.clone_dynamic())
     }
 
-    fn hash(&self) -> Option<u64> {
+    fn reflect_hash(&self) -> Option<u64> {
         None
     }
 

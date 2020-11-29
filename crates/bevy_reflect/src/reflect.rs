@@ -30,7 +30,7 @@ pub trait Reflect: Any + Send + Sync {
     fn reflect_mut(&mut self) -> ReflectMut;
     fn clone_value(&self) -> Box<dyn Reflect>;
     /// Returns a hash of the value (which includes the type) if hashing is supported. Otherwise `None` will be returned.
-    fn hash(&self) -> Option<u64>;
+    fn reflect_hash(&self) -> Option<u64>;
     /// Returns a "partial equal" comparison result if comparison is supported. Otherwise `None` will be returned.
     fn partial_eq(&self, _value: &dyn Reflect) -> Option<bool>;
     /// Returns a serializable value, if serialization is supported. Otherwise `None` will be returned.

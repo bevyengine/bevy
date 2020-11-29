@@ -311,7 +311,7 @@ fn impl_struct(
                 #serialize_fn
             }
 
-            fn hash(&self) -> Option<u64> {
+            fn reflect_hash(&self) -> Option<u64> {
                 #hash_fn
             }
 
@@ -430,7 +430,7 @@ fn impl_tuple_struct(
                 #serialize_fn
             }
 
-            fn hash(&self) -> Option<u64> {
+            fn reflect_hash(&self) -> Option<u64> {
                 #hash_fn
             }
 
@@ -501,7 +501,7 @@ fn impl_value(
                 #bevy_reflect_path::ReflectMut::Value(self)
             }
 
-            fn hash(&self) -> Option<u64> {
+            fn reflect_hash(&self) -> Option<u64> {
                 #hash_fn
             }
 
@@ -585,7 +585,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 
 #[derive(Default)]
 struct ReflectAttrs {
-    hash: TraitImpl,
+    reflect_hash: TraitImpl,
     partial_eq: TraitImpl,
     serialize: TraitImpl,
     data: Vec<Ident>,
@@ -603,7 +603,7 @@ impl ReflectAttrs {
                             let ident = segment.ident.to_string();
                             match ident.as_str() {
                                 "PartialEq" => attrs.partial_eq = TraitImpl::Implemented,
-                                "Hash" => attrs.hash = TraitImpl::Implemented,
+                                "Hash" => attrs.reflect_hash = TraitImpl::Implemented,
                                 "Serialize" => attrs.serialize = TraitImpl::Implemented,
                                 _ => attrs.data.push(Ident::new(
                                     &format!("Reflect{}", segment.ident),
@@ -630,7 +630,7 @@ impl ReflectAttrs {
                                                         TraitImpl::Custom(segment.ident.clone())
                                                 }
                                                 "Hash" => {
-                                                    attrs.hash =
+                                                    attrs.reflect_hash =
                                                         TraitImpl::Custom(segment.ident.clone())
                                                 }
                                                 "Serialize" => {
@@ -657,7 +657,7 @@ impl ReflectAttrs {
     }
 
     fn get_hash_impl(&self, path: &Path) -> proc_macro2::TokenStream {
-        match &self.hash {
+        match &self.reflect_hash {
             TraitImpl::Implemented => quote! {
                 use std::hash::{Hash, Hasher};
                 let mut hasher = #path::ReflectHasher::default();

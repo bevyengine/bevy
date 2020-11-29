@@ -216,7 +216,7 @@ impl Reflect for DynamicStruct {
         Ok(())
     }
 
-    fn hash(&self) -> Option<u64> {
+    fn reflect_hash(&self) -> Option<u64> {
         None
     }
 
