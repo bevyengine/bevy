@@ -14,6 +14,7 @@ impl std::ops::Add<Self> for SlerpWrapper {
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
+        #[allow(clippy::suspicious_arithmetic_impl)]
         Self(self.0 * other.0)
     }
 }
@@ -22,6 +23,7 @@ impl std::ops::Sub<Self> for SlerpWrapper {
     type Output = Self;
 
     fn sub(self, other: Self) -> Self {
+        #[allow(clippy::suspicious_arithmetic_impl)]
         Self(self.0 * other.0.conjugate())
     }
 }
@@ -83,8 +85,8 @@ impl SplineQuatExt for Spline<f32, Quat> {
         let mut new_keys = Vec::with_capacity(keys.len());
         for window in keys.windows(2) {
             // TODO array_windows
-            let [a, b] = match window {
-                &[a, b] => [a, b],
+            let [a, b] = match *window {
+                [a, b] => [a, b],
                 _ => unreachable!(),
             };
 
