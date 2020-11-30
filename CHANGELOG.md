@@ -10,6 +10,7 @@ current changes on git with [previous release tags][git_tag_comparison].
 ## Unreleased
 
 ### Added
+
 - [`bevy_log`][836]
   - Adds logging functionality as a Plugin.
   - Changes internal logging to work with the new implementation.
@@ -21,7 +22,10 @@ current changes on git with [previous release tags][git_tag_comparison].
 - [Added `set_cursor_position` to `Window`][917]
 - [Added new Bevy reflection system][926]
   - Replaces the properties system
+- [Add removal_detection example][945]
+
 ### Changed
+
 - [FileAssetIo includes full path on error][821]
 - [Removed ECS query APIs that could easily violate safety from the public interface][829]
 - [Changed Query filter API to be easier to understand][834]
@@ -33,7 +37,9 @@ current changes on git with [previous release tags][git_tag_comparison].
   - Created getters to get `Time` state and made members private.
   - Modifying `Time`'s values directly is no longer possible outside of bevy.
 - [Use `mailbox` instead of `fifo` for vsync on supported systems][920]
+
 ### Fixed
+
 - [Fixed typos in KeyCode identifiers][857]
 - [Don't draw text that isn't visible][893]
 - [Use `instant::Instant` for WASM compatibility][895]
@@ -60,6 +66,7 @@ current changes on git with [previous release tags][git_tag_comparison].
 [926]: https://github.com/bevyengine/bevy/pull/926
 [931]: https://github.com/bevyengine/bevy/pull/931
 [934]: https://github.com/bevyengine/bevy/pull/934
+[945]: https://github.com/bevyengine/bevy/pull/945
 [955]: https://github.com/bevyengine/bevy/pull/955
 
 ## Version 0.3.0 (2020-11-03)

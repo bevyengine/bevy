@@ -327,6 +327,10 @@ name = "window_settings"
 path = "examples/window/window_settings.rs"
 
 [[example]]
+name = "removal_detection"
+path = "examples/ecs/removal_detection.rs"
+
+[[example]]
 name = "hello_wasm"
 path = "examples/wasm/hello_wasm.rs"
 required-features = []
