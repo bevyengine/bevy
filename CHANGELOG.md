@@ -45,6 +45,7 @@ current changes on git with [previous release tags][git_tag_comparison].
 - [Use `instant::Instant` for WASM compatibility][895]
 - [Fixed duplicated children when spawning a Scene][904]
 - [Corrected behaviour of the UI depth system][905]
+- [Run parent-update and transform-propagation during the "post-startup" stage][955]
 
 [821]: https://github.com/bevyengine/bevy/pull/821
 [829]: https://github.com/bevyengine/bevy/pull/829
@@ -66,6 +67,7 @@ current changes on git with [previous release tags][git_tag_comparison].
 [931]: https://github.com/bevyengine/bevy/pull/931
 [934]: https://github.com/bevyengine/bevy/pull/934
 [945]: https://github.com/bevyengine/bevy/pull/945
+[955]: https://github.com/bevyengine/bevy/pull/955
 
 ## Version 0.3.0 (2020-11-03)
 
