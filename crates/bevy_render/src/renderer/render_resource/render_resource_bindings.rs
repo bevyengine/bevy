@@ -120,6 +120,7 @@ impl RenderResourceBindings {
             self.bind_group_descriptors.insert(descriptor.id, Some(id));
             BindGroupStatus::Changed(id)
         } else {
+            self.bind_group_descriptors.insert(descriptor.id, None);
             BindGroupStatus::NoMatch
         }
     }
