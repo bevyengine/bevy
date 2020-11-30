@@ -137,7 +137,7 @@ fn select_system(
 ) {
     let mut timer_fired = false;
     for mut t in tq.iter_mut() {
-        if !t.just_finished {
+        if !t.just_finished() {
             continue;
         }
         t.reset();
@@ -217,7 +217,7 @@ fn deselect(
 
 /// Applies gravity to all entities with velocity
 fn velocity_system(time: Res<Time>, mut q: Query<Mut<Velocity>>) {
-    let delta = time.delta_seconds;
+    let delta = time.delta_seconds();
 
     for mut v in q.iter_mut() {
         v.translation += Vec3::new(0.0, GRAVITY * delta, 0.0);
@@ -274,7 +274,7 @@ fn collision_system(
 
 /// Apply velocity to positions and rotations.
 fn move_system(time: Res<Time>, mut q: Query<(&Velocity, Mut<Transform>)>) {
-    let delta = time.delta_seconds;
+    let delta = time.delta_seconds();
 
     for (v, mut t) in q.iter_mut() {
         t.translation += delta * v.translation;

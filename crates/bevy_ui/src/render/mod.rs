@@ -1,6 +1,7 @@
 use crate::Node;
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::Resources;
+use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ActiveCameras,
     pass::{
@@ -16,7 +17,6 @@ use bevy_render::{
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat,
 };
-use bevy_type_registry::TypeUuid;
 
 pub const UI_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
     Handle::weak_from_u64(PipelineDescriptor::TYPE_UUID, 3234320022263993878);

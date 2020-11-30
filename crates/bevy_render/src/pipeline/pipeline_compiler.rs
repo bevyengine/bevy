@@ -5,16 +5,16 @@ use crate::{
     shader::{Shader, ShaderSource},
 };
 use bevy_asset::{Assets, Handle};
-use bevy_property::{Properties, Property};
+use bevy_reflect::Reflect;
 use bevy_utils::{HashMap, HashSet};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Eq, PartialEq, Debug, Properties)]
+#[derive(Clone, Eq, PartialEq, Debug, Reflect)]
 pub struct PipelineSpecialization {
     pub shader_specialization: ShaderSpecialization,
     pub primitive_topology: PrimitiveTopology,
-    pub dynamic_bindings: Vec<String>,
+    pub dynamic_bindings: HashSet<String>,
     pub index_format: IndexFormat,
     pub vertex_buffer_descriptor: VertexBufferDescriptor,
     pub sample_count: u32,
@@ -40,7 +40,7 @@ impl PipelineSpecialization {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Default, Property, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Default, Reflect, Serialize, Deserialize)]
 pub struct ShaderSpecialization {
     pub shader_defs: HashSet<String>,
 }

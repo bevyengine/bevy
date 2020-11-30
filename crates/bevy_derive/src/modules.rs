@@ -8,7 +8,6 @@ pub struct Modules {
     pub bevy_asset: String,
     pub bevy_core: String,
     pub bevy_app: String,
-    pub bevy_type_registry: String,
 }
 
 impl Modules {
@@ -18,7 +17,6 @@ impl Modules {
             bevy_render: format!("{}::render", name),
             bevy_core: format!("{}::core", name),
             bevy_app: format!("{}::app", name),
-            bevy_type_registry: format!("{}::type_registry", name),
         }
     }
 
@@ -28,7 +26,6 @@ impl Modules {
             bevy_render: "bevy_render".to_string(),
             bevy_core: "bevy_core".to_string(),
             bevy_app: "bevy_app".to_string(),
-            bevy_type_registry: "bevy_type_registry".to_string(),
         }
     }
 }

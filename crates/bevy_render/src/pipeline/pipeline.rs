@@ -7,7 +7,7 @@ use super::{
     PipelineLayout, StencilStateDescriptor,
 };
 use crate::{shader::ShaderStages, texture::TextureFormat};
-use bevy_type_registry::TypeUuid;
+use bevy_reflect::TypeUuid;
 
 #[derive(Clone, Debug, TypeUuid)]
 #[uuid = "ebfc1d11-a2a4-44cb-8f12-c49cc631146c"]

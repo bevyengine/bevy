@@ -1,4 +1,4 @@
-use uuid::Uuid;
+use bevy_utils::Uuid;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct WindowId(Uuid);
@@ -75,6 +75,10 @@ pub enum WindowCommand {
     },
     SetCursorVisibility {
         visible: bool,
+    },
+    SetCursorPosition {
+        x: i32,
+        y: i32,
     },
 }
 
@@ -201,6 +205,11 @@ impl Window {
         self.command_queue.push(WindowCommand::SetCursorVisibility {
             visible: visibile_mode,
         });
+    }
+
+    pub fn set_cursor_position(&mut self, x: i32, y: i32) {
+        self.command_queue
+            .push(WindowCommand::SetCursorPosition { x, y });
     }
 
     #[inline]

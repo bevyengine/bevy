@@ -272,9 +272,9 @@ impl Archetype {
     fn grow(&mut self, increment: usize) {
         unsafe {
             let old_count = self.len;
-            let count = old_count + increment;
+            let new_capacity = self.capacity() + increment;
             self.entities.resize(
-                self.entities.len() + increment,
+                new_capacity,
                 Entity {
                     id: u32::MAX,
                     generation: u32::MAX,
@@ -284,7 +284,7 @@ impl Archetype {
             for type_state in self.state.values_mut() {
                 type_state
                     .component_flags
-                    .resize_with(count, ComponentFlags::empty);
+                    .resize_with(new_capacity, ComponentFlags::empty);
             }
 
             let old_data_size = mem::replace(&mut self.data_size, 0);
@@ -294,7 +294,7 @@ impl Archetype {
                 let ty_state = self.state.get_mut(&ty.id).unwrap();
                 old_offsets.push(ty_state.offset);
                 ty_state.offset = self.data_size;
-                self.data_size += ty.layout.size() * count;
+                self.data_size += ty.layout.size() * new_capacity;
             }
             let new_data = if self.data_size == 0 {
                 NonNull::dangling()

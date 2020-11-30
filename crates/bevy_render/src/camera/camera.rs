@@ -2,16 +2,16 @@ use super::CameraProjection;
 use bevy_app::prelude::{EventReader, Events};
 use bevy_ecs::{Added, Component, Entity, Local, Query, QuerySet, Res};
 use bevy_math::Mat4;
-use bevy_property::Properties;
+use bevy_reflect::Reflect;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 
-#[derive(Default, Debug, Properties)]
+#[derive(Default, Debug, Reflect)]
 pub struct Camera {
     pub projection_matrix: Mat4,
     pub name: Option<String>,
-    #[property(ignore)]
+    #[reflect(ignore)]
     pub window: WindowId,
-    #[property(ignore)]
+    #[reflect(ignore)]
     pub depth_calculation: DepthCalculation,
 }
 

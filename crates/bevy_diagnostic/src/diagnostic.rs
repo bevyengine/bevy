@@ -1,6 +1,5 @@
-use bevy_utils::{Duration, HashMap, Instant};
+use bevy_utils::{Duration, HashMap, Instant, Uuid};
 use std::collections::VecDeque;
-use uuid::Uuid;
 
 /// Unique identifier for a [Diagnostic]
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]

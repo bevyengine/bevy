@@ -2,7 +2,7 @@ use crate::{DynamicScene, Scene};
 use bevy_app::prelude::*;
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{EntityMap, Resources, World};
-use bevy_type_registry::TypeRegistry;
+use bevy_reflect::{ReflectComponent, ReflectMapEntities, TypeRegistryArc};
 use bevy_utils::HashMap;
 use thiserror::Error;
 use uuid::Uuid;
@@ -100,8 +100,8 @@ impl SceneSpawner {
         scene_handle: &Handle<DynamicScene>,
         instance_info: &mut InstanceInfo,
     ) -> Result<(), SceneSpawnError> {
-        let type_registry = resources.get::<TypeRegistry>().unwrap();
-        let component_registry = type_registry.component.read();
+        let type_registry = resources.get::<TypeRegistryArc>().unwrap();
+        let type_registry = type_registry.read();
         let scenes = resources.get::<Assets<DynamicScene>>().unwrap();
         let scene = scenes
             .get(scene_handle)
@@ -116,18 +116,23 @@ impl SceneSpawner {
                 .entry(bevy_ecs::Entity::new(scene_entity.entity))
                 .or_insert_with(|| world.reserve_entity());
             for component in scene_entity.components.iter() {
-                let component_registration = component_registry
-                    .get_with_name(&component.type_name)
-                    .ok_or(SceneSpawnError::UnregisteredComponent {
-                        type_name: component.type_name.to_string(),
+                let registration = type_registry
+                    .get_with_name(component.type_name())
+                    .ok_or_else(|| SceneSpawnError::UnregisteredComponent {
+                        type_name: component.type_name().to_string(),
                     })?;
-                if world.has_component_type(entity, component_registration.ty) {
-                    if component.type_name != "Camera" {
-                        component_registration.apply_property_to_entity(world, entity, component);
+                let reflect_component =
+                    registration.data::<ReflectComponent>().ok_or_else(|| {
+                        SceneSpawnError::UnregisteredComponent {
+                            type_name: component.type_name().to_string(),
+                        }
+                    })?;
+                if world.has_component_type(entity, registration.type_id()) {
+                    if registration.short_name() != "Camera" {
+                        reflect_component.apply_component(world, entity, &**component);
                     }
                 } else {
-                    component_registration
-                        .add_property_to_entity(world, resources, entity, component);
+                    reflect_component.add_component(world, resources, entity, &**component);
                 }
             }
         }
@@ -144,8 +149,8 @@ impl SceneSpawner {
         let mut instance_info = InstanceInfo {
             entity_map: EntityMap::default(),
         };
-        let type_registry = resources.get::<TypeRegistry>().unwrap();
-        let component_registry = type_registry.component.read();
+        let type_registry = resources.get::<TypeRegistryArc>().unwrap();
+        let type_registry = type_registry.read();
         let scenes = resources.get::<Assets<Scene>>().unwrap();
         let scene =
             scenes
@@ -161,22 +166,26 @@ impl SceneSpawner {
                     .entry(*scene_entity)
                     .or_insert_with(|| world.reserve_entity());
                 for type_info in archetype.types() {
-                    if let Some(component_registration) = component_registry.get(&type_info.id()) {
-                        component_registration.component_copy(
-                            &scene.world,
-                            world,
-                            resources,
-                            *scene_entity,
-                            entity,
-                        );
+                    if let Some(registration) = type_registry.get(type_info.id()) {
+                        if let Some(component_reflect) = registration.data::<ReflectComponent>() {
+                            component_reflect.copy_component(
+                                &scene.world,
+                                world,
+                                resources,
+                                *scene_entity,
+                                entity,
+                            );
+                        }
                     }
                 }
             }
         }
-        for component_registration in component_registry.iter() {
-            component_registration
-                .map_entities(world, &instance_info.entity_map)
-                .unwrap();
+        for registration in type_registry.iter() {
+            if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
+                map_entities_reflect
+                    .map_entities(world, &instance_info.entity_map)
+                    .unwrap();
+            }
         }
         self.spawned_instances.insert(instance_id, instance_info);
         let spawned = self

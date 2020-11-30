@@ -1,7 +1,7 @@
 use bevy::{
     asset::{AssetLoader, AssetServerSettings, LoadContext, LoadedAsset},
     prelude::*,
-    type_registry::TypeUuid,
+    reflect::TypeUuid,
     utils::BoxedFuture,
 };
 

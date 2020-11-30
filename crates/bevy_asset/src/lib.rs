@@ -13,6 +13,7 @@ mod path;
 
 pub use asset_server::*;
 pub use assets::*;
+use bevy_reflect::RegisterTypeBuilder;
 use bevy_tasks::IoTaskPool;
 pub use handle::*;
 pub use info::*;
@@ -31,7 +32,6 @@ pub mod prelude {
 }
 
 use bevy_app::{prelude::Plugin, AppBuilder};
-use bevy_type_registry::RegisterType;
 
 /// Adds support for Assets to an App. Assets are typed collections with change tracking, which are added as App Resources.
 /// Examples of assets: textures, sounds, 3d models, maps, scenes
@@ -76,7 +76,7 @@ impl Plugin for AssetPlugin {
         app.add_stage_before(bevy_app::stage::PRE_UPDATE, stage::LOAD_ASSETS)
             .add_stage_after(bevy_app::stage::POST_UPDATE, stage::ASSET_EVENTS)
             .add_resource(asset_server)
-            .register_property::<HandleId>()
+            .register_type::<HandleId>()
             .add_system_to_stage(
                 bevy_app::stage::PRE_UPDATE,
                 asset_server::free_unused_assets_system,

@@ -7,10 +7,10 @@ use crate::{
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Query, Res, ResMut};
-use bevy_property::Properties;
+use bevy_reflect::Reflect;
+use bevy_utils::HashSet;
 
-#[derive(Debug, Properties, Default, Clone)]
-#[non_exhaustive]
+#[derive(Debug, Default, Clone, Reflect)]
 pub struct RenderPipeline {
     pub pipeline: Handle<PipelineDescriptor>,
     pub specialization: PipelineSpecialization,
@@ -39,10 +39,10 @@ impl RenderPipeline {
     }
 }
 
-#[derive(Debug, Properties, Clone)]
+#[derive(Debug, Clone, Reflect)]
 pub struct RenderPipelines {
     pub pipelines: Vec<RenderPipeline>,
-    #[property(ignore)]
+    #[reflect(ignore)]
     pub bindings: RenderResourceBindings,
 }
 
@@ -111,7 +111,7 @@ pub fn draw_render_pipelines_system(
                     .bindings
                     .iter_dynamic_bindings()
                     .map(|name| name.to_string())
-                    .collect::<Vec<String>>();
+                    .collect::<HashSet<String>>();
                 pipeline.dynamic_bindings_generation =
                     render_pipelines.bindings.dynamic_bindings_generation();
             }

@@ -21,5 +21,4 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.3.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.3.0" }
 
 # other
-uuid = { version = "0.8", features = ["v4", "serde"] }
 parking_lot = "0.11.0"
