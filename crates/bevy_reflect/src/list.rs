@@ -1,6 +1,6 @@
 use std::any::Any;
 
-use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
+use crate::{serde::Serializable, DiffError, Reflect, ReflectMut, ReflectRef};
 
 /// An ordered, mutable list of [ReflectValue] items. This corresponds to types like [std::vec::Vec].
 pub trait List: Reflect {
@@ -122,6 +122,13 @@ impl Reflect for DynamicList {
     fn serializable(&self) -> Option<Serializable> {
         None
     }
+
+    fn diff<'a>(
+        &'a self,
+        value: &'a dyn Reflect,
+    ) -> Result<Option<Box<dyn Reflect>>, DiffError<'a>> {
+        list_diff(self, value)
+    }
 }
 
 pub struct ListIter<'a> {
@@ -156,7 +163,6 @@ pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {
     }
 }
 
-#[inline]
 pub fn list_partial_eq<L: List>(a: &L, b: &dyn Reflect) -> Option<bool> {
     let list = if let ReflectRef::List(list) = b.reflect_ref() {
         list
@@ -175,4 +181,37 @@ pub fn list_partial_eq<L: List>(a: &L, b: &dyn Reflect) -> Option<bool> {
     }
 
     Some(true)
+}
+
+pub fn list_diff<'a, L: List>(
+    a: &'a L,
+    b: &'a dyn Reflect,
+) -> Result<Option<Box<dyn Reflect>>, DiffError<'a>> {
+    let b_list = if let ReflectRef::List(b_list) = b.reflect_ref() {
+        b_list
+    } else {
+        return Err(DiffError::TypeMismatch {
+            a_type_name: a.type_name(),
+            b_type_name: b.type_name(),
+        });
+    };
+
+    if a.type_name() != b.type_name() {
+        return Err(DiffError::TypeMismatch {
+            a_type_name: a.type_name(),
+            b_type_name: b.type_name(),
+        });
+    }
+
+    if let Some(equal) = a.partial_eq(b) {
+        if equal {
+            Ok(None)
+        } else {
+            Ok(Some(b_list.clone_value()))
+        }
+    } else {
+        Err(DiffError::TypeDoesNotSupportPartialEq {
+            type_name: a.type_name(),
+        })
+    }
 }

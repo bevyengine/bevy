@@ -1,4 +1,4 @@
-use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
+use crate::{serde::Serializable, DiffError, Reflect, ReflectMut, ReflectRef};
 use std::any::Any;
 
 /// A rust "tuple struct" reflection
@@ -182,9 +182,15 @@ impl Reflect for DynamicTupleStruct {
     fn serializable(&self) -> Option<Serializable> {
         None
     }
+
+    fn diff<'a>(
+        &'a self,
+        value: &'a dyn Reflect,
+    ) -> Result<Option<Box<dyn Reflect>>, DiffError<'a>> {
+        tuple_struct_diff(self, value)
+    }
 }
 
-#[inline]
 pub fn tuple_struct_partial_eq<S: TupleStruct>(a: &S, b: &dyn Reflect) -> Option<bool> {
     let tuple_struct = if let ReflectRef::TupleStruct(tuple_struct) = b.reflect_ref() {
         tuple_struct
@@ -207,4 +213,37 @@ pub fn tuple_struct_partial_eq<S: TupleStruct>(a: &S, b: &dyn Reflect) -> Option
     }
 
     Some(true)
+}
+
+pub fn tuple_struct_diff<'a, S: TupleStruct>(
+    a: &'a S,
+    b: &'a dyn Reflect,
+) -> Result<Option<Box<dyn Reflect>>, DiffError<'a>> {
+    let b_struct = if let ReflectRef::TupleStruct(b_struct) = b.reflect_ref() {
+        b_struct
+    } else {
+        return Err(DiffError::TypeMismatch {
+            a_type_name: a.type_name(),
+            b_type_name: b.type_name(),
+        });
+    };
+
+    if a.type_name() != b.type_name() {
+        return Err(DiffError::TypeMismatch {
+            a_type_name: a.type_name(),
+            b_type_name: b.type_name(),
+        });
+    }
+
+    if let Some(equal) = a.partial_eq(b) {
+        if equal {
+            Ok(None)
+        } else {
+            Ok(Some(b_struct.clone_value()))
+        }
+    } else {
+        Err(DiffError::TypeDoesNotSupportPartialEq {
+            type_name: a.type_name(),
+        })
+    }
 }

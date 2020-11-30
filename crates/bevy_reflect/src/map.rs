@@ -2,7 +2,7 @@ use std::{any::Any, collections::hash_map::Entry};
 
 use bevy_utils::HashMap;
 
-use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
+use crate::{serde::Serializable, DiffError, Reflect, ReflectMut, ReflectRef};
 
 /// An ordered ReflectValue->ReflectValue mapping. ReflectValue Keys are assumed to return a non-None hash.  
 /// Ideally the ordering is stable across runs, but this is not required.
@@ -141,6 +141,13 @@ impl Reflect for DynamicMap {
     fn serializable(&self) -> Option<Serializable> {
         None
     }
+
+    fn diff<'a>(
+        &'a self,
+        value: &'a dyn Reflect,
+    ) -> Result<Option<Box<dyn Reflect>>, DiffError<'a>> {
+        map_diff(self, value)
+    }
 }
 
 pub struct MapIter<'a> {
@@ -158,7 +165,6 @@ impl<'a> Iterator for MapIter<'a> {
     }
 }
 
-#[inline]
 pub fn map_partial_eq<M: Map>(a: &M, b: &dyn Reflect) -> Option<bool> {
     let map = if let ReflectRef::Map(map) = b.reflect_ref() {
         map
@@ -181,4 +187,37 @@ pub fn map_partial_eq<M: Map>(a: &M, b: &dyn Reflect) -> Option<bool> {
     }
 
     Some(true)
+}
+
+pub fn map_diff<'a, M: Map>(
+    a: &'a M,
+    b: &'a dyn Reflect,
+) -> Result<Option<Box<dyn Reflect>>, DiffError<'a>> {
+    let b_map = if let ReflectRef::Map(b_map) = b.reflect_ref() {
+        b_map
+    } else {
+        return Err(DiffError::TypeMismatch {
+            a_type_name: a.type_name(),
+            b_type_name: b.type_name(),
+        });
+    };
+
+    if a.type_name() != b.type_name() {
+        return Err(DiffError::TypeMismatch {
+            a_type_name: a.type_name(),
+            b_type_name: b.type_name(),
+        });
+    }
+
+    if let Some(equal) = a.partial_eq(b) {
+        if equal {
+            Ok(None)
+        } else {
+            Ok(Some(b_map.clone_value()))
+        }
+    } else {
+        Err(DiffError::TypeDoesNotSupportPartialEq {
+            type_name: a.type_name(),
+        })
+    }
 }

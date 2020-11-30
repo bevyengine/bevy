@@ -1,7 +1,8 @@
+pub use bevy_utils::AHasher as ReflectHasher;
+
 use crate::{serde::Serializable, List, Map, Struct, TupleStruct};
 use std::{any::Any, fmt::Debug};
-
-pub use bevy_utils::AHasher as ReflectHasher;
+use thiserror::Error;
 
 pub enum ReflectRef<'a> {
     Struct(&'a dyn Struct),
@@ -32,9 +33,14 @@ pub trait Reflect: Any + Send + Sync {
     /// Returns a hash of the value (which includes the type) if hashing is supported. Otherwise `None` will be returned.
     fn hash(&self) -> Option<u64>;
     /// Returns a "partial equal" comparison result if comparison is supported. Otherwise `None` will be returned.
-    fn partial_eq(&self, _value: &dyn Reflect) -> Option<bool>;
+    fn partial_eq(&self, value: &dyn Reflect) -> Option<bool>;
     /// Returns a serializable value, if serialization is supported. Otherwise `None` will be returned.
     fn serializable(&self) -> Option<Serializable>;
+    // Returns a "diff" of the current value and the reflected value, or None if there is no difference.
+    fn diff<'a>(
+        &'a self,
+        value: &'a dyn Reflect,
+    ) -> Result<Option<Box<dyn Reflect>>, DiffError<'a>>;
 }
 
 impl Debug for dyn Reflect {
@@ -74,4 +80,22 @@ impl dyn Reflect {
     pub fn downcast_mut<T: Reflect>(&mut self) -> Option<&mut T> {
         self.any_mut().downcast_mut::<T>()
     }
+}
+
+#[derive(Debug, Error)]
+pub enum DiffError<'a> {
+    #[error("Cannot diff mismatched types")]
+    TypeMismatch {
+        a_type_name: &'a str,
+        b_type_name: &'a str,
+    },
+    #[error("The diff-ed structs have the same type name, but a different number of fields")]
+    StructFieldLenMismatch { type_name: &'a str },
+    #[error("The diffed struct has a field that the current struct does not")]
+    MissingStructField {
+        type_name: &'a str,
+        field_name: &'a str,
+    },
+    #[error("This type does not support Reflect::partial_eq() comparison")]
+    TypeDoesNotSupportPartialEq { type_name: &'a str },
 }

@@ -320,4 +320,83 @@ mod tests {
         let y = x.take::<Bar>().unwrap();
         assert_eq!(y, Bar { x: 2 });
     }
+
+    #[test]
+    fn diff_struct() {
+        #[derive(Reflect, Default, Debug, PartialEq)]
+        struct Foo {
+            a: u32,
+            b: f32,
+            c: Bar,
+        }
+
+        #[derive(Reflect, Default, Debug, PartialEq)]
+        struct Bar {
+            x: String,
+            y: f32,
+        }
+
+        let mut a = Foo::default();
+
+        let b = Foo {
+            a: 1,
+            c: Bar {
+                x: "hi".to_string(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let mut expected = DynamicStruct::default();
+        expected.set_name(a.type_name().to_string());
+        expected.insert("a", 1u32);
+        let mut expected_bar = DynamicStruct::default();
+        expected_bar.set_name(a.c.type_name().to_string());
+        expected_bar.insert("x", "hi".to_string());
+        expected.insert("c", expected_bar);
+
+        let diff = a.diff(&b).unwrap().unwrap();
+
+        assert!(diff.partial_eq(&expected).unwrap());
+
+        a.apply(&*diff);
+        assert!(
+            a.partial_eq(&b).unwrap(),
+            "after applying a diff to `a` it should match `b`"
+        );
+    }
+
+    #[test]
+    fn diff_list() {
+        let a = vec![1, 2, 3];
+        let b = vec![1, 2];
+        let c = vec![1, 2, 3];
+        assert!(a
+            .diff(&b)
+            .unwrap()
+            .unwrap()
+            .partial_eq(&vec![1, 2])
+            .unwrap());
+        assert!(a.diff(&c).unwrap().is_none());
+    }
+
+    #[test]
+    fn diff_map() {
+        let mut a = HashMap::default();
+        a.insert("x".to_string(), 1);
+        a.insert("y".to_string(), 2);
+        a.insert("z".to_string(), 3);
+
+        let mut b = HashMap::default();
+        b.insert("x".to_string(), 1);
+        b.insert("y".to_string(), 2);
+
+        let mut c = HashMap::default();
+        c.insert("x".to_string(), 1);
+        c.insert("y".to_string(), 2);
+        c.insert("z".to_string(), 3);
+
+        assert!(a.diff(&b).unwrap().unwrap().partial_eq(&b).unwrap());
+        assert!(a.diff(&c).unwrap().is_none());
+    }
 }
