@@ -196,6 +196,7 @@ impl Touches {
     fn update(&mut self) {
         self.just_pressed.clear();
         self.just_released.clear();
+        self.just_cancelled.clear();
     }
 }
 
@@ -215,7 +216,35 @@ pub fn touch_screen_input_system(
 mod test {
 
     #[test]
-    fn touch_update() {}
+    fn touch_update() {
+        use crate::{touch::Touch, Touches};
+        use bevy_math::Vec2;
+
+        let mut touches = Touches::default();
+
+        let touch_event = Touch {
+            id: 4,
+            start_position: Vec2::new(0.0, 0.0),
+            start_force: None,
+            previous_position: Vec2::new(0.0, 0.0),
+            previous_force: None,
+            position: Vec2::new(0.0, 0.0),
+            force: None,
+        };
+
+        // Add a touch to `just_pressed`, 'just_released', and 'just cancelled'
+
+        touches.just_pressed.insert(4, touch_event);
+        touches.just_released.insert(4, touch_event);
+        touches.just_cancelled.insert(4, touch_event);
+
+        touches.update();
+
+        // Verify that all the `just_x` maps are cleared
+        assert!(touches.just_pressed.is_empty());
+        assert!(touches.just_released.is_empty());
+        assert!(touches.just_cancelled.is_empty());
+    }
 
     #[test]
     fn touch_process() {
@@ -242,7 +271,7 @@ mod test {
         // Test adding a `TouchPhase::Moved`
 
         let moved_touch_event = TouchInput {
-            phase: TouchPhase::Started,
+            phase: TouchPhase::Moved,
             position: Vec2::new(5.0, 5.0),
             force: None,
             id: touch_event.id,
@@ -251,12 +280,14 @@ mod test {
         touches.update();
         touches.process_touch_event(&moved_touch_event);
 
-        assert_eq!(touches
-            .pressed
-            .get(&moved_touch_event.id)
-            .expect("Missing from pressed after move.")
-            .previous_position
-            , touch_event.position);
+        assert_eq!(
+            touches
+                .pressed
+                .get(&moved_touch_event.id)
+                .expect("Missing from pressed after move.")
+                .previous_position,
+            touch_event.position
+        );
 
         // Test cancelling an event
 
@@ -272,6 +303,22 @@ mod test {
 
         assert!(touches.just_cancelled.get(&cancel_touch_event.id).is_some());
         assert!(touches.pressed.get(&cancel_touch_event.id).is_none());
+
+        // Test ending an event
+
+        let end_touch_event = TouchInput {
+            phase: TouchPhase::Ended,
+            position: Vec2::new(4.0, 4.0),
+            force: None,
+            id: 4,
+        };
+
+        touches.update();
+        touches.process_touch_event(&touch_event);
+        touches.process_touch_event(&end_touch_event);
+
+        assert!(touches.just_released.get(&touch_event.id).is_some());
+        assert!(touches.pressed.get(&touch_event.id).is_none());
     }
 
     #[test]
