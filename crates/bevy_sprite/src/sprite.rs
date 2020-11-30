@@ -1,6 +1,6 @@
 use crate::ColorMaterial;
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::{Changed, Query, Res};
+use bevy_ecs::{Query, Res};
 use bevy_math::Vec2;
 use bevy_reflect::{Reflect, ReflectDeserialize, TypeUuid};
 use bevy_render::{renderer::RenderResources, texture::Texture};

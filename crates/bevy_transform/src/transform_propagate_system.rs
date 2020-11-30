@@ -70,7 +70,7 @@ fn propagate_recursive(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::hierarchy::{parent_update_system, BuildChildren};
+    use crate::hierarchy::{parent_update_system, BuildChildren, BuildWorldChildren};
     use bevy_ecs::{Resources, Schedule, World};
     use bevy_math::Vec3;
 
@@ -85,29 +85,35 @@ mod test {
         schedule.add_system_to_stage("update", transform_propagate_system);
 
         // Root entity
-        let parent = world.spawn((
+        world.spawn((
             Transform::from_translation(Vec3::new(1.0, 0.0, 0.0)),
             GlobalTransform::identity(),
         ));
-        let children = world
-            .spawn_batch(vec![
-                (
-                    Transform::from_translation(Vec3::new(0.0, 2.0, 0.)),
-                    Parent(parent),
-                    GlobalTransform::identity(),
-                ),
-                (
-                    Transform::from_translation(Vec3::new(0.0, 0.0, 3.)),
-                    Parent(parent),
-                    GlobalTransform::identity(),
-                ),
-            ])
-            .collect::<Vec<Entity>>();
+
+        let mut children = Vec::new();
+        world
+            .build()
+            .spawn((
+                Transform::from_translation(Vec3::new(1.0, 0.0, 0.0)),
+                GlobalTransform::identity(),
+            ))
+            .with_children(|parent| {
+                parent
+                    .spawn((
+                        Transform::from_translation(Vec3::new(0.0, 2.0, 0.)),
+                        GlobalTransform::identity(),
+                    ))
+                    .for_current_entity(|entity| children.push(entity))
+                    .spawn((
+                        Transform::from_translation(Vec3::new(0.0, 0.0, 3.)),
+                        GlobalTransform::identity(),
+                    ))
+                    .for_current_entity(|entity| children.push(entity));
+            });
         // we need to run the schedule two times because components need to be filled in
         // to resolve this problem in code, just add the correct components, or use Commands
         // which adds all of the components needed with the correct state (see next test)
         schedule.initialize(&mut world, &mut resources);
-        schedule.run(&mut world, &mut resources);
         schedule.run(&mut world, &mut resources);
 
         assert_eq!(

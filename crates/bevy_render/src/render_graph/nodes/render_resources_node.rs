@@ -10,7 +10,9 @@ use crate::{
 };
 
 use bevy_asset::{Asset, Assets, Handle, HandleId};
-use bevy_ecs::{Changed, Commands, Entity, IntoSystem, Local, Query, Res, ResMut, Resources, System, World};
+use bevy_ecs::{
+    Changed, Commands, Entity, IntoSystem, Local, Query, Res, ResMut, Resources, System, World,
+};
 use bevy_utils::HashMap;
 use renderer::{AssetRenderResourceBindings, BufferId, RenderResourceType, RenderResources};
 use std::{hash::Hash, marker::PhantomData, ops::DerefMut};

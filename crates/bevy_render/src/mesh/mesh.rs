@@ -402,7 +402,6 @@ pub fn mesh_resource_provider_system(
                             render_resource_context,
                             mesh,
                             changed_mesh_handle,
-                            entity,
                             render_pipelines,
                         );
                     }
@@ -420,13 +419,7 @@ pub fn mesh_resource_provider_system(
         if let Some(mesh) = meshes.get(handle) {
             mesh_entities.entities.insert(entity);
             mesh_entities.waiting.remove(&entity);
-            update_entity_mesh(
-                render_resource_context,
-                mesh,
-                handle,
-                entity,
-                render_pipelines,
-            );
+            update_entity_mesh(render_resource_context, mesh, handle, render_pipelines);
         } else {
             mesh_entities.waiting.insert(entity);
         }
@@ -437,7 +430,6 @@ fn update_entity_mesh(
     render_resource_context: &dyn RenderResourceContext,
     mesh: &Mesh,
     handle: &Handle<Mesh>,
-    entity: Entity,
     mut render_pipelines: Mut<RenderPipelines>,
 ) {
     for render_pipeline in render_pipelines.pipelines.iter_mut() {

@@ -153,6 +153,5 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         shader.clone()
     }
 
-    fn remove_stale_bind_groups(&self) {
-    }
+    fn remove_stale_bind_groups(&self) {}
 }
