@@ -19,18 +19,34 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 #[derive(Clone, Debug)]
 pub enum VertexAttributeValues {
     Float(Vec<f32>),
+    Int(Vec<i32>),
+    Uint(Vec<u32>),
     Float2(Vec<[f32; 2]>),
+    Int2(Vec<[i32; 2]>),
+    Uint2(Vec<[u32; 2]>),
     Float3(Vec<[f32; 3]>),
+    Int3(Vec<[i32; 3]>),
+    Uint3(Vec<[u32; 3]>),
     Float4(Vec<[f32; 4]>),
+    Int4(Vec<[i32; 4]>),
+    Uint4(Vec<[u32; 4]>),
 }
 
 impl VertexAttributeValues {
     pub fn len(&self) -> usize {
         match *self {
             VertexAttributeValues::Float(ref values) => values.len(),
+            VertexAttributeValues::Int(ref values) => values.len(),
+            VertexAttributeValues::Uint(ref values) => values.len(),
             VertexAttributeValues::Float2(ref values) => values.len(),
+            VertexAttributeValues::Int2(ref values) => values.len(),
+            VertexAttributeValues::Uint2(ref values) => values.len(),
             VertexAttributeValues::Float3(ref values) => values.len(),
+            VertexAttributeValues::Int3(ref values) => values.len(),
+            VertexAttributeValues::Uint3(ref values) => values.len(),
             VertexAttributeValues::Float4(ref values) => values.len(),
+            VertexAttributeValues::Int4(ref values) => values.len(),
+            VertexAttributeValues::Uint4(ref values) => values.len(),
         }
     }
 
@@ -42,9 +58,17 @@ impl VertexAttributeValues {
     pub fn get_bytes(&self) -> &[u8] {
         match self {
             VertexAttributeValues::Float(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Int(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Uint(values) => values.as_slice().as_bytes(),
             VertexAttributeValues::Float2(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Int2(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Uint2(values) => values.as_slice().as_bytes(),
             VertexAttributeValues::Float3(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Int3(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Uint3(values) => values.as_slice().as_bytes(),
             VertexAttributeValues::Float4(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Int4(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Uint4(values) => values.as_slice().as_bytes(),
         }
     }
 }
@@ -53,9 +77,17 @@ impl From<&VertexAttributeValues> for VertexFormat {
     fn from(values: &VertexAttributeValues) -> Self {
         match values {
             VertexAttributeValues::Float(_) => VertexFormat::Float,
+            VertexAttributeValues::Int(_) => VertexFormat::Int,
+            VertexAttributeValues::Uint(_) => VertexFormat::Uint,
             VertexAttributeValues::Float2(_) => VertexFormat::Float2,
+            VertexAttributeValues::Int2(_) => VertexFormat::Int2,
+            VertexAttributeValues::Uint2(_) => VertexFormat::Uint2,
             VertexAttributeValues::Float3(_) => VertexFormat::Float3,
+            VertexAttributeValues::Int3(_) => VertexFormat::Int3,
+            VertexAttributeValues::Uint3(_) => VertexFormat::Uint3,
             VertexAttributeValues::Float4(_) => VertexFormat::Float4,
+            VertexAttributeValues::Int4(_) => VertexFormat::Int4,
+            VertexAttributeValues::Uint4(_) => VertexFormat::Uint4,
         }
     }
 }
@@ -66,9 +98,33 @@ impl From<Vec<f32>> for VertexAttributeValues {
     }
 }
 
+impl From<Vec<i32>> for VertexAttributeValues {
+    fn from(vec: Vec<i32>) -> Self {
+        VertexAttributeValues::Int(vec)
+    }
+}
+
+impl From<Vec<u32>> for VertexAttributeValues {
+    fn from(vec: Vec<u32>) -> Self {
+        VertexAttributeValues::Uint(vec)
+    }
+}
+
 impl From<Vec<[f32; 2]>> for VertexAttributeValues {
     fn from(vec: Vec<[f32; 2]>) -> Self {
         VertexAttributeValues::Float2(vec)
+    }
+}
+
+impl From<Vec<[i32; 2]>> for VertexAttributeValues {
+    fn from(vec: Vec<[i32; 2]>) -> Self {
+        VertexAttributeValues::Int2(vec)
+    }
+}
+
+impl From<Vec<[u32; 2]>> for VertexAttributeValues {
+    fn from(vec: Vec<[u32; 2]>) -> Self {
+        VertexAttributeValues::Uint2(vec)
     }
 }
 
@@ -78,9 +134,33 @@ impl From<Vec<[f32; 3]>> for VertexAttributeValues {
     }
 }
 
+impl From<Vec<[i32; 3]>> for VertexAttributeValues {
+    fn from(vec: Vec<[i32; 3]>) -> Self {
+        VertexAttributeValues::Int3(vec)
+    }
+}
+
+impl From<Vec<[u32; 3]>> for VertexAttributeValues {
+    fn from(vec: Vec<[u32; 3]>) -> Self {
+        VertexAttributeValues::Uint3(vec)
+    }
+}
+
 impl From<Vec<[f32; 4]>> for VertexAttributeValues {
     fn from(vec: Vec<[f32; 4]>) -> Self {
         VertexAttributeValues::Float4(vec)
+    }
+}
+
+impl From<Vec<[i32; 4]>> for VertexAttributeValues {
+    fn from(vec: Vec<[i32; 4]>) -> Self {
+        VertexAttributeValues::Int4(vec)
+    }
+}
+
+impl From<Vec<[u32; 4]>> for VertexAttributeValues {
+    fn from(vec: Vec<[u32; 4]>) -> Self {
+        VertexAttributeValues::Uint4(vec)
     }
 }
 
