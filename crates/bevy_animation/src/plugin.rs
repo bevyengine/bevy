@@ -8,7 +8,7 @@ use crate::{
 use bevy_app::{AppBuilder, Plugin};
 use bevy_core::Time;
 use bevy_ecs::{IntoSystem, Query, Res};
-use bevy_math::{Quat, Vec3};
+use bevy_math::Vec3;
 use bevy_transform::components::Transform;
 
 #[derive(Default)]
@@ -41,15 +41,15 @@ fn advance_animation_transform(
     for (mut transform, mut splines) in q.iter_mut() {
         let mut scale = transform.scale;
         splines.advance(time.delta_seconds);
-        let s = splines.current();
-        s.translation.alter(&mut transform.translation);
-        if let Some(sample_scale) = s.scale {
+        let sample = splines.current();
+        sample.translation.alter(&mut transform.translation);
+        if let Some(sample_scale) = sample.scale {
             scale = Vec3::one() * sample_scale;
         }
-        let mut rot = Vec3::zero();
-        s.rotation.alter(&mut rot);
         *transform = Transform::from_translation(transform.translation);
-        transform.rotation = Quat::from_rotation_ypr(rot.x, rot.y, rot.z);
+        if let Some(rotation) = sample.rotation {
+            transform.rotation = rotation;
+        }
         transform.apply_non_uniform_scale(scale);
     }
 }

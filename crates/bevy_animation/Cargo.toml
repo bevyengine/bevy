@@ -21,4 +21,4 @@ bevy_transform = { path = "../bevy_transform", version = "0.3.0" }
 bevy_render = { path = "../bevy_render", version = "0.3.0" }
 bevy_property = { path = "../bevy_property", version = "0.3.0" }
 
-splines = { version = "3.5.0", features = ["serialization"] }
+splines = { version = "3.5.0", features = ["serialization", "impl-glam"] }

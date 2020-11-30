@@ -1,4 +1,4 @@
-use crate::spline_group::{LoopStyle, SplineGroup};
+use crate::spline_group::{LoopStyle, SplineExt, SplineGroup};
 use splines::Spline;
 
 pub struct AnimationSplineOne {
@@ -26,8 +26,16 @@ impl Default for AnimationSplineOne {
 impl SplineGroup for AnimationSplineOne {
     type Sample = Option<f32>;
 
-    fn splines(&self) -> Vec<&Spline<f32, f32>> {
-        vec![&self.spline]
+    fn is_empty(&self) -> bool {
+        self.spline.is_empty()
+    }
+
+    fn start_time(&self) -> Option<f32> {
+        self.spline.start_time()
+    }
+
+    fn end_time(&self) -> Option<f32> {
+        self.spline.end_time()
     }
 
     fn loop_style(&self) -> LoopStyle {

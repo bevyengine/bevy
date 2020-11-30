@@ -1,6 +1,21 @@
 use core::time::Duration;
 use splines::Spline;
 
+pub(crate) trait SplineExt {
+    fn start_time(&self) -> Option<f32>;
+    fn end_time(&self) -> Option<f32>;
+}
+
+impl<V> SplineExt for Spline<f32, V> {
+    fn start_time(&self) -> Option<f32> {
+        self.keys().first().map(|k| k.t)
+    }
+
+    fn end_time(&self) -> Option<f32> {
+        self.keys().last().map(|k| k.t)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LoopStyle {
     Once,
@@ -10,8 +25,6 @@ pub enum LoopStyle {
 
 pub trait SplineGroup {
     type Sample;
-
-    fn splines(&self) -> Vec<&Spline<f32, f32>>;
 
     fn loop_style(&self) -> LoopStyle;
     fn loop_style_mut(&mut self) -> &mut LoopStyle;
@@ -34,46 +47,11 @@ pub trait SplineGroup {
         self.sample(self.time())
     }
 
-    fn is_empty(&self) -> bool {
-        let any_not_empty = self.splines().into_iter().any(|v| !v.is_empty());
-        !any_not_empty
-    }
+    fn is_empty(&self) -> bool;
 
-    fn start_time(&self) -> Option<f32> {
-        let starts: Vec<f32> = self
-            .splines()
-            .into_iter()
-            .filter_map(spline_start_time)
-            .collect();
+    fn start_time(&self) -> Option<f32>;
 
-        if starts.is_empty() {
-            None
-        } else {
-            Some(
-                starts
-                    .iter()
-                    .fold(starts[0], |acc, v| if *v < acc { *v } else { acc }),
-            )
-        }
-    }
-
-    fn end_time(&self) -> Option<f32> {
-        let ends: Vec<f32> = self
-            .splines()
-            .into_iter()
-            .map(|s| spline_end_time(s))
-            .filter_map(|s| s)
-            .collect();
-
-        if ends.is_empty() {
-            None
-        } else {
-            Some(
-                ends.iter()
-                    .fold(ends[0], |acc, v| if *v > acc { *v } else { acc }),
-            )
-        }
-    }
+    fn end_time(&self) -> Option<f32>;
 
     fn duration(&self) -> Option<Duration> {
         self.start_time()
@@ -146,14 +124,4 @@ pub trait SplineGroup {
         let paused = self.paused();
         *self.paused_mut() = !paused;
     }
-}
-
-fn spline_start_time(spline: &Spline<f32, f32>) -> Option<f32> {
-    spline.get(0).map(|first_key| first_key.t)
-}
-
-fn spline_end_time(spline: &Spline<f32, f32>) -> Option<f32> {
-    spline
-        .get(spline.len().saturating_sub(1))
-        .map(|last_key| last_key.t)
 }

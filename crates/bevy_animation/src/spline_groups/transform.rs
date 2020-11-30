@@ -1,12 +1,181 @@
 use crate::{
-    spline_group::{LoopStyle, SplineGroup},
+    spline_group::{LoopStyle, SplineExt, SplineGroup},
     vec3_option::Vec3Option,
 };
-use splines::Spline;
+use bevy_math::Quat;
+use splines::{Interpolation, Key, Spline};
+
+/// A wrapper for a `Quat`, which represents the orientation of an animation keyframe.
+#[derive(Clone, Copy)]
+#[repr(transparent)]
+struct SlerpWrapper(Quat);
+
+impl std::ops::Add<Self> for SlerpWrapper {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        #[allow(clippy::suspicious_arithmetic_impl)]
+        Self(self.0 * other.0)
+    }
+}
+
+impl std::ops::Sub<Self> for SlerpWrapper {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self {
+        #[allow(clippy::suspicious_arithmetic_impl)]
+        Self(self.0 * other.0.conjugate())
+    }
+}
+
+impl splines::interpolate::Linear<f32> for SlerpWrapper {
+    fn outer_mul(self, t: f32) -> Self {
+        Self(Quat::identity().slerp(self.0, t))
+    }
+
+    fn outer_div(self, t: f32) -> Self {
+        self.outer_mul(1.0 / t)
+    }
+}
+
+impl splines::Interpolate<f32> for SlerpWrapper {
+    fn lerp(Self(a): Self, Self(b): Self, t: f32) -> Self {
+        Self(a.slerp(b, t))
+    }
+
+    fn quadratic_bezier(_: Self, _: Self, _: Self, _: f32) -> Self {
+        todo!()
+    }
+
+    fn cubic_bezier(_: Self, _: Self, _: Self, _: Self, _: f32) -> Self {
+        todo!()
+    }
+}
+
+impl Into<Quat> for SlerpWrapper {
+    fn into(self) -> Quat {
+        self.0
+    }
+}
+
+impl AsRef<Quat> for SlerpWrapper {
+    fn as_ref(&self) -> &Quat {
+        &self.0
+    }
+}
+
+impl AsMut<Quat> for SlerpWrapper {
+    fn as_mut(&mut self) -> &mut Quat {
+        &mut self.0
+    }
+}
+
+pub trait SplineQuatExt {
+    fn slerp(self) -> Self;
+}
+
+impl SplineQuatExt for Spline<f32, Quat> {
+    fn slerp(self) -> Self {
+        let keys = self.keys();
+
+        if keys.len() < 2 {
+            return self;
+        }
+
+        let mut new_keys = Vec::with_capacity(keys.len());
+        for window in keys.windows(2) {
+            // TODO array_windows
+            let [a, b] = match *window {
+                [a, b] => [a, b],
+                _ => unreachable!(),
+            };
+
+            match a.interpolation {
+                Interpolation::Step(_) => new_keys.push(a),
+                Interpolation::Linear => {
+                    new_keys.push(a);
+
+                    const COS_MIN_ANGLE: f32 = 0.9995;
+                    let cos_angle = a.value.dot(b.value);
+                    if cos_angle < COS_MIN_ANGLE {
+                        let angle = cos_angle.acos();
+                        let min_angle = COS_MIN_ANGLE.acos();
+                        let steps = (angle / min_angle) as u32 + 1;
+
+                        let step_t = (b.t - a.t) / steps as f32;
+                        for i in 1..steps {
+                            let delta_t = (i as f32) * step_t;
+                            new_keys.push(Key {
+                                value: a.value.slerp(b.value, delta_t),
+                                t: delta_t + a.t,
+                                interpolation: Interpolation::Linear,
+                            });
+                        }
+                    }
+                }
+                _ => unimplemented!("Only Interpolation::Linear and Step are supported for now."),
+            }
+        }
+        new_keys.push(*keys.last().unwrap());
+
+        Spline::from_vec(new_keys)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn noop_resample() {
+        const MIN_ANGLE: f32 = 0.0316;
+        let spline = Spline::from_vec(vec![
+            Key {
+                t: 0.,
+                value: Quat::from_axis_angle(bevy_math::Vec3::unit_z(), 0.),
+                interpolation: Interpolation::Linear,
+            },
+            Key {
+                t: 1.,
+                value: Quat::from_axis_angle(bevy_math::Vec3::unit_z(), MIN_ANGLE),
+                interpolation: Interpolation::Linear,
+            },
+            Key {
+                t: 2.,
+                value: Quat::from_axis_angle(bevy_math::Vec3::unit_z(), 2. * MIN_ANGLE),
+                interpolation: Interpolation::Linear,
+            },
+        ]);
+
+        assert_eq!(spline.clone().keys(), spline.slerp().keys());
+    }
+
+    #[test]
+    fn big_resample() {
+        let spline = Spline::from_vec(vec![
+            Key {
+                t: 0.,
+                value: Quat::from_xyzw(0., 0., 0., 1.),
+                interpolation: Interpolation::Linear,
+            },
+            Key {
+                t: 1.,
+                value: Quat::from_xyzw(0., 0., 1., 0.),
+                interpolation: Interpolation::Linear,
+            },
+        ]);
+
+        let slerped = spline.clone().slerp();
+
+        assert_eq!(spline.start_time(), slerped.start_time());
+        assert_eq!(spline.end_time(), slerped.end_time());
+        assert!(spline.keys().len() < slerped.keys().len());
+    }
+}
 
 pub struct TransformSample {
     pub translation: Vec3Option,
-    pub rotation: Vec3Option,
+    pub rotation: Option<Quat>,
     pub scale: Option<f32>,
 }
 
@@ -14,9 +183,7 @@ pub struct AnimationSplineTransform {
     pub translation_x: Spline<f32, f32>,
     pub translation_y: Spline<f32, f32>,
     pub translation_z: Spline<f32, f32>,
-    pub rotation_x: Spline<f32, f32>,
-    pub rotation_y: Spline<f32, f32>,
-    pub rotation_z: Spline<f32, f32>,
+    pub rotation: Spline<f32, Quat>,
     pub scale: Spline<f32, f32>,
     pub loop_style: LoopStyle,
     pub time: f32,
@@ -31,9 +198,7 @@ impl Default for AnimationSplineTransform {
             translation_x: Spline::from_vec(vec![]),
             translation_y: Spline::from_vec(vec![]),
             translation_z: Spline::from_vec(vec![]),
-            rotation_x: Spline::from_vec(vec![]),
-            rotation_y: Spline::from_vec(vec![]),
-            rotation_z: Spline::from_vec(vec![]),
+            rotation: Spline::from_vec(vec![]),
             scale: Spline::from_vec(vec![]),
             loop_style: LoopStyle::Once,
             time: 0.0,
@@ -44,19 +209,41 @@ impl Default for AnimationSplineTransform {
     }
 }
 
+fn cmp_f32(a: &f32, b: &f32) -> std::cmp::Ordering {
+    a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+}
+
 impl SplineGroup for AnimationSplineTransform {
     type Sample = TransformSample;
 
-    fn splines(&self) -> Vec<&Spline<f32, f32>> {
-        vec![
-            &self.translation_x,
-            &self.translation_y,
-            &self.translation_z,
-            &self.rotation_x,
-            &self.rotation_y,
-            &self.rotation_z,
-            &self.scale,
-        ]
+    fn is_empty(&self) -> bool {
+        self.scale.is_empty()
+            && self.translation_x.is_empty()
+            && self.translation_y.is_empty()
+            && self.translation_z.is_empty()
+            && self.rotation.is_empty()
+    }
+
+    fn start_time(&self) -> Option<f32> {
+        self.scale
+            .start_time()
+            .into_iter()
+            .chain(self.translation_x.start_time())
+            .chain(self.translation_y.start_time())
+            .chain(self.translation_z.start_time())
+            .chain(self.rotation.start_time())
+            .min_by(cmp_f32)
+    }
+
+    fn end_time(&self) -> Option<f32> {
+        self.scale
+            .end_time()
+            .into_iter()
+            .chain(self.translation_x.end_time())
+            .chain(self.translation_y.end_time())
+            .chain(self.translation_z.end_time())
+            .chain(self.rotation.end_time())
+            .max_by(cmp_f32)
     }
 
     fn loop_style(&self) -> LoopStyle {
@@ -106,11 +293,7 @@ impl SplineGroup for AnimationSplineTransform {
                 self.translation_y.sample(time),
                 self.translation_z.sample(time),
             ),
-            rotation: Vec3Option::new(
-                self.rotation_x.sample(time),
-                self.rotation_y.sample(time),
-                self.rotation_z.sample(time),
-            ),
+            rotation: self.rotation.sample(time),
             scale: self.scale.sample(time),
         }
     }
