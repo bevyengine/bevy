@@ -13,7 +13,7 @@ use std::any::TypeId;
 use std::hash::Hash;
 use std::ptr::null_mut;
 
-use super::hierarchy::NamedHierarchy;
+use super::hierarchy::Hierarchy;
 use super::lerping::LerpValue;
 
 // TODO: Curve/Clip need a validation during deserialization because they are
@@ -27,7 +27,7 @@ pub struct Clip {
     pub warp: bool,
     duration: f32,
     /// Entity identification made by parent index and name
-    hierarchy: NamedHierarchy,
+    hierarchy: Hierarchy,
     /// Attribute is made by the entity index and a string that combines
     /// component name followed by their attributes spaced by a period,
     /// like so: `"Transform.translation.x"`
@@ -45,7 +45,7 @@ impl Default for Clip {
             warp: true,
             duration: 0.0,
             // ? NOTE: Since the root has no parent in this context it points to a place outside the vec bounds
-            hierarchy: NamedHierarchy::default(),
+            hierarchy: Hierarchy::default(),
             properties: vec![],
             curves: vec![],
         }
@@ -459,9 +459,9 @@ struct ClipBindEntity {
 struct ClipBind {
     entities: Vec<Option<ClipBindEntity>>,
     /// True only when all the attributes are binded
-    all_binded: bool,
+    binded: bool,
     /// Attributes pointers
-    attributes: Vec<Ptr>,
+    pointers: Vec<Ptr>,
 }
 
 // #[derive(Debug)]
@@ -485,7 +485,6 @@ unsafe impl Sync for Ptr {}
 struct BindingState {
     clips_event_reader: EventReader<AssetEvent<Clip>>,
     clips_modified: fnv::FnvHashSet<Handle<Clip>>,
-    entities_parent_changed: Vec<u16>,
 }
 
 /// Creates a new vector with a given size filled with the values returned by the given default function
@@ -504,17 +503,18 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
     // Fetch resources
     let mut state = {
         let state = resources.get_local_mut::<BindingState>(system_id);
-        if state.is_none() {
-            std::mem::drop(state); // ? NOTE: Makes the borrow checker happy
-            resources.insert_local(system_id, BindingState::default());
-            resources.get_local_mut::<BindingState>(system_id).unwrap()
-        } else {
-            state.unwrap()
+        match state {
+            Some(state) => state,
+            None => {
+                std::mem::drop(state); // ? NOTE: Makes the borrow checker happy
+                resources.insert_local(system_id, BindingState::default());
+                resources.get_local_mut::<BindingState>(system_id).unwrap()
+            }
         }
     };
 
     let type_registry = resources.get::<TypeRegistry>().unwrap();
-    let type_registry_read_guard = type_registry.component.read();
+    let mut type_registry_read_guard = None;
 
     let clips = resources.get::<Assets<Clip>>().unwrap();
     let clip_events = resources.get::<Events<AssetEvent<Clip>>>().unwrap();
@@ -534,6 +534,11 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
         };
     }
 
+    let mut entities_parent_changed = vec![];
+
+    // Used for entity translation
+    let mut entities_table_cache = vec![];
+
     for (root, mut animator) in animator_query {
         let animator = &mut *animator; // Make sure the borrow checker is happy
 
@@ -541,9 +546,6 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
         animator
             .bind_clips
             .resize_with(animator.clips.len(), || None);
-
-        // Used for entity translation
-        let mut entities_table_cache = vec![];
 
         for (clip_handle, bind) in animator.clips.iter().zip(animator.bind_clips.iter_mut()) {
             // Invalidate binds for clips that where modified
@@ -570,17 +572,19 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
             let bind = if let Some(bind) = bind.as_mut() {
                 // Invalidate previously binded attributes
 
-                let done = &mut bind.all_binded;
-                let attrs = &mut bind.attributes;
+                // Borrow checker sugar coat
+                let binded = &mut bind.binded;
+                let pointers = &mut bind.pointers;
+                let entities = &mut bind.entities;
 
                 // NOTE: Must be empty in this next function, if not it means
                 // something went wrong in the previous iteration
                 debug_assert!(
-                    state.entities_parent_changed.len() == 0,
+                    entities_parent_changed.len() == 0,
                     "parent changes have not been properly handled"
                 );
 
-                bind.entities
+                entities
                     .iter_mut()
                     .enumerate()
                     // Find entities that changed
@@ -593,14 +597,16 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
 
                         // Not root
                         if *entity_index > 0 {
+                            // TODO: Check the entity name
                             if let Ok(Parent(parent)) = world.query_one::<&Parent>(inner.entity) {
                                 // Parent changed or removed
                                 if inner.parent != Some(*parent) {
-                                    state.entities_parent_changed.push(*entity_index as u16);
+                                    entities_parent_changed.push(*entity_index as u16);
                                     return true;
                                 }
                             } else {
                                 // Parent removed
+                                entities_parent_changed.push(*entity_index as u16);
                                 return true;
                             }
                         }
@@ -612,6 +618,7 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
                             }
                         } else {
                             // Entity deleted
+                            entities_parent_changed.push(*entity_index as u16);
                             return true;
                         }
 
@@ -622,46 +629,36 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
                     .for_each(|(entity_index, entry)| {
                         *entry = None;
                         // ? NOTE: Will only run if the bind was invalidated in this frame
-                        for (descriptor, attr) in clip.properties.iter().zip(attrs.iter_mut()) {
+                        for (descriptor, attr) in clip.properties.iter().zip(pointers.iter_mut()) {
                             if descriptor.0 as usize == entity_index {
                                 *attr = Ptr(null_mut());
                             }
                         }
-                        *done = false;
+                        *binded = false;
                     });
 
                 // Handle entities that had theirs parents changed
                 // ? NOTE: Heavy code path triggered when an animated hierarchy changes
-                while let Some(entity_index) = state.entities_parent_changed.pop() {
-                    let entry = &mut bind.entities[entity_index as usize];
+                while let Some(entity_index) = entities_parent_changed.pop() {
+                    clip.hierarchy
+                        .depth_first(entity_index, &mut |entity_index, _| {
+                            let entry = &mut entities[entity_index as usize];
 
-                    if entry.is_some() {
-                        // Yet not invalidated
-                        for (descriptor, attr) in clip.properties.iter().zip(attrs.iter_mut()) {
-                            if descriptor.0 == entity_index {
-                                *attr = Ptr(null_mut());
-                            }
-                        }
-                    }
-
-                    *entry = None;
-                    *done = false;
-
-                    // Find children to invalidate their binds as well
-                    // ? NOTE: The `NamedHierarch` isn't optimized for travel the hierarchy
-                    // ? tree from top to bottom, so this operation is quite inefficient
-                    state.entities_parent_changed.extend(
-                        clip.hierarchy
-                            .iter()
-                            .enumerate()
-                            .filter_map(|(i, (parent_index, _))| {
-                                if *parent_index == entity_index {
-                                    Some(i as u16)
-                                } else {
-                                    None
+                            if entry.is_some() {
+                                // Yet not invalidated
+                                for (descriptor, attr) in
+                                    clip.properties.iter().zip(pointers.iter_mut())
+                                {
+                                    if descriptor.0 == entity_index {
+                                        *attr = Ptr(null_mut());
+                                    }
                                 }
-                            }),
-                    );
+
+                                *entry = None;
+                            }
+
+                            *binded = false;
+                        });
                 }
 
                 bind
@@ -669,24 +666,24 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
                 // Create empty binds
                 *bind = Some(ClipBind {
                     entities: vec_filled(clip.hierarchy.len(), || None),
-                    all_binded: false,
-                    attributes: vec_filled(clip.properties.len(), || Ptr(null_mut())),
+                    binded: false,
+                    pointers: vec_filled(clip.properties.len(), || Ptr(null_mut())),
                 });
 
                 bind.as_mut().unwrap()
             };
 
             // All attributes are binded
-            if bind.all_binded {
+            if bind.binded {
                 continue;
             }
 
             // Will be cleared if any attribute fail to bind
-            bind.all_binded = true;
+            bind.binded = true;
 
             // Bind attributes
             for (attr_index, (attr, descriptor)) in bind
-                .attributes
+                .pointers
                 .iter_mut()
                 .zip(clip.properties.iter())
                 .enumerate()
@@ -725,8 +722,9 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
                         }
                     });
 
-                    if let Some(component_reg) =
-                        type_registry_read_guard.get_with_short_name(component_short_name)
+                    if let Some(component_reg) = type_registry_read_guard
+                        .get_or_insert_with(|| type_registry.component.read()) // Lazily gets type registry read lock
+                        .get_with_short_name(component_short_name)
                     {
                         // ! FIXME: This function should fail, if the entity doesn't have the component
                         let root_props = component_reg.get_component_properties(
@@ -741,15 +739,19 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
                         );
 
                         // Clear binded bit if not fully binded
-                        bind.all_binded &= *attr != Ptr(null_mut());
+                        bind.binded &= *attr != Ptr(null_mut());
                     } else {
-                        bind.all_binded = false;
+                        bind.binded = false;
                         panic!("component `{}` not registered", component_short_name);
                     }
                 } else {
                     // Missing entity
-                    bind.all_binded = false;
+                    bind.binded = false;
                 }
+
+                // TODO: Check bounds and memory alignment whenever the binds change
+                // do this by: sorting the pointers and then checking if the curve value type size
+                // doesn't overlap with the next pointer
             }
         }
     }
@@ -900,7 +902,7 @@ pub fn animator_update_system(world: &mut World, resources: &mut Resources) {
 
                     // TODO: can be done in bached_parallel if is visited warped inside a mutex
                     for (curve_index, (ptr, keyframe)) in bind
-                        .attributes
+                        .pointers
                         .iter()
                         .zip(layer.keyframe.iter_mut())
                         .enumerate()
@@ -1287,7 +1289,7 @@ mod tests {
                 .map(|b| b.as_ref().expect("missing clip bind"))
                 .enumerate()
                 .for_each(|(i, b)| {
-                    b.attributes
+                    b.pointers
                         .iter()
                         .enumerate()
                         .for_each(|(j, attr)| validation(i, j, attr));
@@ -1449,6 +1451,11 @@ mod tests {
     #[test]
     fn entity_archetype_change() {
         // Add tests for entity archetype change
+
+        // TODO: Add extra dummy component
+        // TODO: Remove dummy component
+        // TODO: Remove parent
+
         unimplemented!()
     }
 
@@ -1501,7 +1508,7 @@ mod tests {
         let mut test_bench = AnimatorTestBench::new();
         test_bench.run();
 
-        for _ in 0..100_000 {
+        for _ in 0..1_000_000 {
             // Time tick
             {
                 let mut time = test_bench.app.resources.get_mut::<Time>().unwrap();
@@ -1510,6 +1517,19 @@ mod tests {
             }
 
             animator_update_system(&mut test_bench.app.world, &mut test_bench.app.resources);
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "extra-profiling-tests")]
+    fn test_bench_binding() {
+        // ? NOTE: Mimics a basic system update behavior good for pref since criterion will pollute the
+        // ? annotations with many expensive instructions
+        let mut test_bench = AnimatorTestBench::new();
+        test_bench.run();
+
+        for _ in 0..1_000_000 {
+            animator_binding_system(&mut test_bench.app.world, &mut test_bench.app.resources);
         }
     }
 

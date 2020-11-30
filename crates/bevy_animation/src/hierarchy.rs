@@ -2,6 +2,7 @@ use bevy_core::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_transform::prelude::*;
 //use serde::{Deserialize, Serialize};
+use smallvec::{smallvec, SmallVec};
 use std::convert::TryFrom;
 
 pub type Index = u16;
@@ -9,21 +10,25 @@ pub type Index = u16;
 /// Provides a way of describing a hierarchy or named entities
 /// and means for finding then in the world
 #[derive(Debug, Clone)]
-pub struct NamedHierarchy {
+pub struct Hierarchy {
     /// Entity identification made by parent index and name
     entities: Vec<(Index, Name)>,
+    // ? NOTE: SmallVec<[u16; 10]> occupy the same 32 bytes as the SmallVec<[u16; 8]>, but the latter
+    // ? should be only take 24 bytes using the "union" feature
+    children: Vec<SmallVec<[u16; 10]>>,
 }
 
-impl Default for NamedHierarchy {
+impl Default for Hierarchy {
     fn default() -> Self {
         Self {
             // ? NOTE: Since the root has no parent in this context it points to a place outside the vec bounds
             entities: vec![(Index::MAX, Name::default())],
+            children: vec![smallvec![]],
         }
     }
 }
 
-impl NamedHierarchy {
+impl Hierarchy {
     /// Number of entities registered.
     #[inline(always)]
     pub fn len(&self) -> usize {
@@ -36,8 +41,15 @@ impl NamedHierarchy {
         &self.entities[entity_index as usize]
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &(Index, Name)> {
-        self.entities.iter()
+    pub fn depth_first<F: FnMut(Index, &Name)>(&self, entity_index: Index, visitor: &mut F) {
+        let i = entity_index as usize;
+        let (_, name) = &self.entities[i];
+
+        visitor(entity_index, name);
+
+        for child_index in &self.children[i] {
+            self.depth_first(*child_index, visitor);
+        }
     }
 
     /// Adds a new entity hierarchy path separated by backslashes (`'/'`)
@@ -65,9 +77,12 @@ impl NamedHierarchy {
                 // Add entity
                 let e = self.entities.len();
                 self.entities.push((entity, Name::from_str(name)));
+                self.children.push(smallvec![]);
                 entity_created = true;
                 // Soft limit added to save memory, identical to the curve limit
+                let _parent = entity;
                 entity = Index::try_from(e).expect("entities limit reached");
+                self.children[_parent as usize].push(entity)
             }
         }
 
@@ -93,8 +108,6 @@ impl NamedHierarchy {
 
         path
     }
-
-    // TODO: Docs of how to proper use the find_* functions
 
     /// Finds an entity given a set of queries, see the example bellow
     /// how to proper call this function,

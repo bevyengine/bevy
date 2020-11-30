@@ -9,7 +9,7 @@ pub mod lerping;
 mod skinned_mesh;
 
 pub use crate::generic::*;
-pub use crate::hierarchy::NamedHierarchy;
+pub use crate::hierarchy::Hierarchy;
 pub use crate::skinned_mesh::*;
 
 pub mod prelude {
