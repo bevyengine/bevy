@@ -328,122 +328,61 @@ mod test {
 
         let mut touches = Touches::default();
 
-        let touch_event_1 = TouchInput {
-            phase: TouchPhase::Started,
-            position: Vec2::new(4.0, 4.0),
-            force: None,
-            id: 4,
-        };
-
-        let touch_event_2 = TouchInput {
-            phase: TouchPhase::Started,
-            position: Vec2::new(4.0, 4.0),
-            force: None,
-            id: 5,
-        };
-
-        // Process the two touch events
-        touches.process_touch_event(&touch_event_1);
-        touches.process_touch_event(&touch_event_2);
-
-        // Check that the touches are pressed and just pressed
-
-        assert!(touches.just_pressed(4));
-        assert!(touches.just_pressed(5));
-
-        assert!(touches.get_pressed(4).is_some());
-        assert!(touches.get_pressed(5).is_some());
-
-        // Check that the touches are not released or just released
-
-        assert!(!touches.just_released(4));
-        assert!(!touches.just_released(5));
-
-        assert!(touches.get_released(4).is_none());
-        assert!(touches.get_released(4).is_none());
-
-        // Test iteration
-
-        // Check that the touch events are in the pressed iterator
-        assert_eq!(touches.iter().count(), 2);
-
-        // Check that the touch events are in the just pressed iterator
-        assert_eq!(touches.iter_just_pressed().count(), 2);
-
-        // Check that the just released iterator returns nothing
-        assert_eq!(touches.iter_just_released().count(), 0);
-
-        // Update the `Touches` and check that touches have been removed from just touched
-        touches.update();
-
-        assert!(!touches.just_pressed(4));
-        assert!(!touches.just_pressed(5));
-
-        assert!(touches.get_pressed(4).is_some());
-        assert!(touches.get_pressed(5).is_some());
-
-        // Test moving
-        let new_touch_event = TouchInput {
-            phase: TouchPhase::Moved,
-            position: Vec2::new(5.0, 4.0),
-            force: None,
-            id: 4,
-        };
-
-        touches.process_touch_event(&new_touch_event);
-
-        let touch = touches.get_pressed(4).unwrap();
-
-        assert_eq!(touch.start_position, touch_event_1.position);
-        assert_eq!(touch.start_force, touch_event_1.force);
-        assert_eq!(touch.previous_position, touch_event_1.position);
-        assert_eq!(touch.previous_force, touch_event_1.force);
-        assert_eq!(touch.position, new_touch_event.position);
-        assert_eq!(touch.force, new_touch_event.force);
-
-        // Test removal
-        let touch_event_1 = TouchInput {
-            phase: TouchPhase::Cancelled,
-            position: Vec2::new(4.0, 4.0),
-            force: None,
-            id: 4,
-        };
-
-        let touch_event_2 = TouchInput {
-            phase: TouchPhase::Cancelled,
-            position: Vec2::new(4.0, 4.0),
-            force: None,
-            id: 5,
-        };
-
-        touches.process_touch_event(&touch_event_1);
-        touches.process_touch_event(&touch_event_2);
-
-        assert!(touches.just_cancelled(4));
-        assert!(touches.just_cancelled(5));
-
-        assert_eq!(touches.iter_just_cancelled().count(), 2);
-
-        touches.update();
-
-        assert_eq!(touches.iter_just_cancelled().count(), 0);
-
-        // Test ending
         let touch_event = TouchInput {
-            phase: TouchPhase::Ended,
-            position: Vec2::new(0.0, 0.0),
+            phase: TouchPhase::Started,
+            position: Vec2::new(4.0, 4.0),
             force: None,
             id: 4,
         };
 
+        // Register the touch and test that it was registered correctly
         touches.process_touch_event(&touch_event);
 
-        assert!(touches.get_pressed(4).is_none());
+        assert!(touches.get_pressed(touch_event.id).is_some());
+        assert!(touches.just_pressed(touch_event.id));
+        assert_eq!(touches.iter().count(), 1);
     }
 
     #[test]
-    fn touch_released() {}
+    fn touch_released() {
+        use crate::{touch::TouchPhase, TouchInput, Touches};
+        use bevy_math::Vec2;
+
+        let mut touches = Touches::default();
+
+        let touch_event = TouchInput {
+            phase: TouchPhase::Ended,
+            position: Vec2::new(4.0, 4.0),
+            force: None,
+            id: 4,
+        };
+
+        // Register the touch and test that it was registered correctly
+        touches.process_touch_event(&touch_event);
+
+        assert!(touches.get_released(touch_event.id).is_some());
+        assert!(touches.just_released(touch_event.id));
+        assert_eq!(touches.iter_just_released().count(), 1);
+    }
 
     #[test]
-    fn touch_cancelled() {}
+    fn touch_cancelled() {
+        use crate::{touch::TouchPhase, TouchInput, Touches};
+        use bevy_math::Vec2;
+
+        let mut touches = Touches::default();
+
+        let touch_event = TouchInput {
+            phase: TouchPhase::Cancelled,
+            position: Vec2::new(4.0, 4.0),
+            force: None,
+            id: 4,
+        };
+
+        // Register the touch and test that it was registered correctly
+        touches.process_touch_event(&touch_event);
+
+        assert!(touches.just_cancelled(touch_event.id));
+        assert_eq!(touches.iter_just_cancelled().count(), 1);
+    }
 }
