@@ -1,5 +1,5 @@
 use crate::{
-    spline_group::{LoopStyle, SplineGroup},
+    spline_group::{LoopStyle, SplineExt, SplineGroup},
     vec3_option::Vec3Option,
 };
 use splines::Spline;
@@ -31,15 +31,33 @@ impl Default for AnimationSplineThree {
     }
 }
 
+fn cmp_f32(a: &f32, b: &f32) -> std::cmp::Ordering {
+    a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+}
+
 impl SplineGroup for AnimationSplineThree {
     type Sample = Vec3Option;
 
-    fn spline_key_times(&self) -> Vec<Box<dyn DoubleEndedIterator<Item = f32> + '_>> {
-        vec![
-            Box::new(self.x.keys().iter().map(|key| key.t)),
-            Box::new(self.y.keys().iter().map(|key| key.t)),
-            Box::new(self.z.keys().iter().map(|key| key.t)),
-        ]
+    fn is_empty(&self) -> bool {
+        self.x.is_empty() && self.y.is_empty() && self.z.is_empty()
+    }
+
+    fn start_time(&self) -> Option<f32> {
+        self.x
+            .start_time()
+            .into_iter()
+            .chain(self.y.start_time())
+            .chain(self.z.start_time())
+            .min_by(cmp_f32)
+    }
+
+    fn end_time(&self) -> Option<f32> {
+        self.x
+            .end_time()
+            .into_iter()
+            .chain(self.y.end_time())
+            .chain(self.z.end_time())
+            .max_by(cmp_f32)
     }
 
     fn loop_style(&self) -> LoopStyle {

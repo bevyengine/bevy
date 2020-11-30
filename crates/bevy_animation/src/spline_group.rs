@@ -1,4 +1,20 @@
 use core::time::Duration;
+use splines::Spline;
+
+pub(crate) trait SplineExt {
+    fn start_time(&self) -> Option<f32>;
+    fn end_time(&self) -> Option<f32>;
+}
+
+impl<V> SplineExt for Spline<f32, V> {
+    fn start_time(&self) -> Option<f32> {
+        self.keys().first().map(|k| k.t)
+    }
+
+    fn end_time(&self) -> Option<f32> {
+        self.keys().last().map(|k| k.t)
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LoopStyle {
@@ -9,8 +25,6 @@ pub enum LoopStyle {
 
 pub trait SplineGroup {
     type Sample;
-
-    fn spline_key_times(&self) -> Vec<Box<dyn DoubleEndedIterator<Item = f32> + '_>>;
 
     fn loop_style(&self) -> LoopStyle;
     fn loop_style_mut(&mut self) -> &mut LoopStyle;
@@ -33,35 +47,11 @@ pub trait SplineGroup {
         self.sample(self.time())
     }
 
-    fn is_empty(&self) -> bool {
-        let any_not_empty = self
-            .spline_key_times()
-            .into_iter()
-            .any(|mut i| i.next().is_some());
-        !any_not_empty
-    }
+    fn is_empty(&self) -> bool;
 
-    fn start_time(&self) -> Option<f32> {
-        let mut starts = self
-            .spline_key_times()
-            .into_iter()
-            .filter_map(|mut iter| iter.next());
+    fn start_time(&self) -> Option<f32>;
 
-        let first = starts.next()?;
-
-        Some(starts.fold(first, |acc, v| if v < acc { v } else { acc }))
-    }
-
-    fn end_time(&self) -> Option<f32> {
-        let mut ends = self
-            .spline_key_times()
-            .into_iter()
-            .filter_map(|mut s| s.next_back());
-
-        let first = ends.next()?;
-
-        Some(ends.fold(first, |acc, v| if v > acc { v } else { acc }))
-    }
+    fn end_time(&self) -> Option<f32>;
 
     fn duration(&self) -> Option<Duration> {
         self.start_time()

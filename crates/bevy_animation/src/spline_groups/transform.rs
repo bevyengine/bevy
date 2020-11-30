@@ -1,5 +1,5 @@
 use crate::{
-    spline_group::{LoopStyle, SplineGroup},
+    spline_group::{LoopStyle, SplineExt, SplineGroup},
     vec3_option::Vec3Option,
 };
 use bevy_math::Quat;
@@ -163,13 +163,10 @@ mod tests {
             },
         ]);
 
-        let start_time = |spline: &Spline<f32, Quat>| spline.keys().first().unwrap().t;
-        let end_time = |spline: &Spline<f32, Quat>| spline.keys().last().unwrap().t;
-
         let slerped = spline.clone().slerp();
 
-        assert_eq!(start_time(&spline), start_time(&slerped));
-        assert_eq!(end_time(&spline), end_time(&slerped));
+        assert_eq!(spline.start_time(), slerped.start_time());
+        assert_eq!(spline.end_time(), slerped.end_time());
         assert!(spline.keys().len() < slerped.keys().len());
     }
 }
@@ -210,17 +207,41 @@ impl Default for AnimationSplineTransform {
     }
 }
 
+fn cmp_f32(a: &f32, b: &f32) -> std::cmp::Ordering {
+    a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+}
+
 impl SplineGroup for AnimationSplineTransform {
     type Sample = TransformSample;
 
-    fn spline_key_times(&self) -> Vec<Box<dyn DoubleEndedIterator<Item = f32> + '_>> {
-        vec![
-            Box::new(self.translation_x.keys().iter().map(|key| key.t)),
-            Box::new(self.translation_y.keys().iter().map(|key| key.t)),
-            Box::new(self.translation_z.keys().iter().map(|key| key.t)),
-            Box::new(self.rotation.keys().iter().map(|key| key.t)),
-            Box::new(self.scale.keys().iter().map(|key| key.t)),
-        ]
+    fn is_empty(&self) -> bool {
+        self.scale.is_empty()
+            && self.translation_x.is_empty()
+            && self.translation_y.is_empty()
+            && self.translation_z.is_empty()
+            && self.rotation.is_empty()
+    }
+
+    fn start_time(&self) -> Option<f32> {
+        self.scale
+            .start_time()
+            .into_iter()
+            .chain(self.translation_x.start_time())
+            .chain(self.translation_y.start_time())
+            .chain(self.translation_z.start_time())
+            .chain(self.rotation.start_time())
+            .min_by(cmp_f32)
+    }
+
+    fn end_time(&self) -> Option<f32> {
+        self.scale
+            .end_time()
+            .into_iter()
+            .chain(self.translation_x.end_time())
+            .chain(self.translation_y.end_time())
+            .chain(self.translation_z.end_time())
+            .chain(self.rotation.end_time())
+            .max_by(cmp_f32)
     }
 
     fn loop_style(&self) -> LoopStyle {
