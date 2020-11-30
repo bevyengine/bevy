@@ -155,7 +155,7 @@ impl Touches {
     pub fn iter_just_released(&self) -> impl Iterator<Item = &Touch> + '_ {
         self.just_released
             .iter()
-            .map(move |(id, _)| self.pressed.get(id).unwrap())
+            .map(move |(id, _)| self.just_released.get(id).unwrap())
     }
 
     pub fn just_cancelled(&self, id: u64) -> bool {
@@ -165,7 +165,7 @@ impl Touches {
     pub fn iter_just_cancelled(&self) -> impl Iterator<Item = &Touch> + '_ {
         self.just_cancelled
             .iter()
-            .map(move |(id, _)| self.pressed.get(id).unwrap())
+            .map(move |(id, _)| self.just_cancelled.get(id).unwrap())
     }
 
     fn process_touch_event(&mut self, event: &TouchInput) {
@@ -251,14 +251,12 @@ mod test {
         touches.update();
         touches.process_touch_event(&moved_touch_event);
 
-        assert_eq!(
-            touches
-                .pressed
-                .get(&moved_touch_event.id)
-                .expect("Missing from pressed after move.")
-                .previous_position,
-            touch_event.position
-        );
+        assert_eq!(touches
+            .pressed
+            .get(&moved_touch_event.id)
+            .expect("Missing from pressed after move.")
+            .previous_position
+            , touch_event.position);
 
         // Test cancelling an event
 
