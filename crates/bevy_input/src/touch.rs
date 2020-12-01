@@ -85,13 +85,13 @@ pub struct TouchSystemState {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Touch {
-    pub id: u64,
-    pub start_position: Vec2,
-    pub start_force: Option<ForceTouch>,
-    pub previous_position: Vec2,
-    pub previous_force: Option<ForceTouch>,
-    pub position: Vec2,
-    pub force: Option<ForceTouch>,
+    id: u64,
+    start_position: Vec2,
+    start_force: Option<ForceTouch>,
+    previous_position: Vec2,
+    previous_force: Option<ForceTouch>,
+    position: Vec2,
+    force: Option<ForceTouch>,
 }
 
 impl Touch {
@@ -101,6 +101,36 @@ impl Touch {
 
     pub fn distance(&self) -> Vec2 {
         self.position - self.start_position
+    }
+
+    #[inline]
+    pub fn id(&self) -> u64 {
+        self.id
+    }
+
+    #[inline]
+    pub fn start_position(&self) -> Vec2 {
+        self.start_position
+    }
+
+    #[inline]
+    pub fn start_force(&self) -> Option<ForceTouch> {
+        self.start_force
+    }
+
+    #[inline]
+    pub fn previous_position(&self) -> Vec2 {
+        self.previous_position
+    }
+
+    #[inline]
+    pub fn position(&self) -> Vec2 {
+        self.position
+    }
+
+    #[inline]
+    pub fn force(&self) -> Option<ForceTouch> {
+        self.force
     }
 }
 
