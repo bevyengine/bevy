@@ -484,7 +484,6 @@ pub struct TypeInfo {
     id: TypeId,
     layout: Layout,
     drop: unsafe fn(*mut u8),
-    #[cfg(debug_assertions)]
     type_name: &'static str,
 }
 
@@ -499,7 +498,6 @@ impl TypeInfo {
             id: TypeId::of::<T>(),
             layout: Layout::new::<T>(),
             drop: drop_ptr::<T>,
-            #[cfg(debug_assertions)]
             type_name: core::any::type_name::<T>(),
         }
     }
@@ -518,6 +516,12 @@ impl TypeInfo {
 
     pub(crate) unsafe fn drop(&self, data: *mut u8) {
         (self.drop)(data)
+    }
+
+    #[allow(missing_docs)]
+    #[inline]
+    pub fn type_name(&self) -> &'static str {
+        self.type_name
     }
 }
 
