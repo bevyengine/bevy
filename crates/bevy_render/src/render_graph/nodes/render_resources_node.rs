@@ -274,7 +274,7 @@ where
                     {
                         dynamic_index
                     } else {
-                        panic!("dynamic index should always be set");
+                        panic!("Dynamic index should always be set.");
                     };
                     render_resource_bindings.set(render_resource_name, binding);
                     (buffer_array.buffer.unwrap(), dynamic_index)

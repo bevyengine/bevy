@@ -133,7 +133,7 @@ fn add_text_to_pipeline(
     ) {
         Err(TextError::NoSuchFont) => TextPipelineResult::Reschedule,
         Err(e @ TextError::FailedToAddGlyph(_)) => {
-            panic!("Fatal error when processing text: {}", e);
+            panic!("Fatal error when processing text: {}.", e);
         }
         Ok(()) => TextPipelineResult::Ok,
     }

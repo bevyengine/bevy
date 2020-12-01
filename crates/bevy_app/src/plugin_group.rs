@@ -38,7 +38,10 @@ impl PluginGroupBuilder {
             .find(|(_i, ty)| **ty == TypeId::of::<Target>())
             .map(|(i, _)| i)
             .unwrap_or_else(|| {
-                panic!("Plugin does not exist: {}", std::any::type_name::<Target>())
+                panic!(
+                    "Plugin does not exist: {}.",
+                    std::any::type_name::<Target>()
+                )
             });
         self.order.insert(target_index, TypeId::of::<T>());
         self.plugins.insert(
@@ -59,7 +62,10 @@ impl PluginGroupBuilder {
             .find(|(_i, ty)| **ty == TypeId::of::<Target>())
             .map(|(i, _)| i)
             .unwrap_or_else(|| {
-                panic!("Plugin does not exist: {}", std::any::type_name::<Target>())
+                panic!(
+                    "Plugin does not exist: {}.",
+                    std::any::type_name::<Target>()
+                )
             });
         self.order.insert(target_index + 1, TypeId::of::<T>());
         self.plugins.insert(
@@ -76,7 +82,7 @@ impl PluginGroupBuilder {
         let mut plugin_entry = self
             .plugins
             .get_mut(&TypeId::of::<T>())
-            .expect("Cannot enable a plugin that does not exist");
+            .expect("Cannot enable a plugin that does not exist.");
         plugin_entry.enabled = true;
         self
     }
@@ -85,7 +91,7 @@ impl PluginGroupBuilder {
         let mut plugin_entry = self
             .plugins
             .get_mut(&TypeId::of::<T>())
-            .expect("Cannot disable a plugin that does not exist");
+            .expect("Cannot disable a plugin that does not exist.");
         plugin_entry.enabled = false;
         self
     }

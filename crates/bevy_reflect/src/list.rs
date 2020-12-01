@@ -152,7 +152,7 @@ pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {
             }
         }
     } else {
-        panic!("attempted to apply a non-list type to a list type");
+        panic!("Attempted to apply a non-list type to a list type.");
     }
 }
 

@@ -279,7 +279,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         let swap_chain_descriptor: wgpu::SwapChainDescriptor = window.wgpu_into();
         let surface = surfaces
             .get(&window.id())
-            .expect("No surface found for window");
+            .expect("No surface found for window.");
         let swap_chain = self
             .device
             .create_swap_chain(surface, &swap_chain_descriptor);
@@ -552,7 +552,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         let data = buffer_slice.map_async(wgpu::MapMode::Write);
         self.device.poll(wgpu::Maintain::Wait);
         if future::block_on(data).is_err() {
-            panic!("failed to map buffer to host");
+            panic!("Failed to map buffer to host.");
         }
     }
 

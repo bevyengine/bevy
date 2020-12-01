@@ -51,7 +51,7 @@ impl<T: Reflect> List for Vec<T> {
     fn push(&mut self, value: Box<dyn Reflect>) {
         let value = value.take::<T>().unwrap_or_else(|value| {
             panic!(
-                "Attempted to push invalid value of type {}",
+                "Attempted to push invalid value of type {}.",
                 value.type_name()
             )
         });
@@ -166,7 +166,7 @@ impl<K: Reflect + Clone + Eq + Hash, V: Reflect + Clone> Reflect for HashMap<K, 
                 }
             }
         } else {
-            panic!("attempted to apply a non-map type to a map type");
+            panic!("Attempted to apply a non-map type to a map type.");
         }
     }
 

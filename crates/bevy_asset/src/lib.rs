@@ -55,7 +55,7 @@ impl Plugin for AssetPlugin {
         let task_pool = app
             .resources()
             .get::<IoTaskPool>()
-            .expect("IoTaskPool resource not found")
+            .expect("`IoTaskPool` resource not found.")
             .0
             .clone();
 

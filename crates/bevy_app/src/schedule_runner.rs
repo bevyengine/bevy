@@ -113,7 +113,7 @@ impl Plugin for ScheduleRunnerPlugin {
                                     f.as_ref().unchecked_ref(),
                                     dur.as_millis() as i32,
                                 )
-                                .expect("should register `setTimeout`");
+                                .expect("Should register `setTimeout`.");
                         }
                         let asap = Duration::from_millis(1);
 

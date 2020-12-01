@@ -25,7 +25,7 @@ impl Default for TextureAtlasBuilder {
 
 #[derive(Debug, Error)]
 pub enum RectanglePackError {
-    #[error("Could not pack textures into an atlas within the given bounds")]
+    #[error("could not pack textures into an atlas within the given bounds")]
     NotEnoughSpace,
 }
 

@@ -109,7 +109,7 @@ impl Reflect for DynamicMap {
                 }
             }
         } else {
-            panic!("attempted to apply a non-map type to a map type");
+            panic!("Attempted to apply a non-map type to a map type.");
         }
     }
 

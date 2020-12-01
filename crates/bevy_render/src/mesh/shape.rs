@@ -278,7 +278,7 @@ impl From<Icosphere> for Mesh {
             let number_of_resulting_points = (subdivisions * subdivisions * 10) + 2;
 
             panic!(
-                "Cannot create an icosphere of {} subdivisions due to there being too many vertices being generated: {} (Limited to 65535 vertices or 79 subdivisions)",
+                "Cannot create an icosphere of {} subdivisions due to there being too many vertices being generated: {}. (Limited to 65535 vertices or 79 subdivisions)",
                 sphere.subdivisions,
                 number_of_resulting_points
             );

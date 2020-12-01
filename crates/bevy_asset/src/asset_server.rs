@@ -16,15 +16,15 @@ use thiserror::Error;
 /// Errors that occur while loading assets with an AssetServer
 #[derive(Error, Debug)]
 pub enum AssetServerError {
-    #[error("Asset folder path is not a directory.")]
+    #[error("asset folder path is not a directory")]
     AssetFolderNotADirectory(String),
-    #[error("No AssetLoader found for the given extension.")]
+    #[error("no AssetLoader found for the given extension")]
     MissingAssetLoader(Option<String>),
-    #[error("The given type does not match the type of the loaded asset.")]
+    #[error("the given type does not match the type of the loaded asset")]
     IncorrectHandleType,
-    #[error("Encountered an error while loading an asset.")]
+    #[error("encountered an error while loading an asset")]
     AssetLoaderError(anyhow::Error),
-    #[error("PathLoader encountered an error")]
+    #[error("`PathLoader` encountered an error")]
     PathLoaderError(#[from] AssetIoError),
 }
 
@@ -238,7 +238,7 @@ impl AssetServer {
         let mut asset_sources = self.server.asset_sources.write();
         let source_info = asset_sources
             .get_mut(&asset_path_id.source_path_id())
-            .expect("AssetSource should exist at this point");
+            .expect("`AssetSource` should exist at this point.");
         if version != source_info.version {
             return Ok(asset_path_id);
         }
@@ -317,7 +317,7 @@ impl AssetServer {
                     continue;
                 }
                 let handle =
-                    self.load_untyped(child_path.to_str().expect("Path should be a valid string"));
+                    self.load_untyped(child_path.to_str().expect("Path should be a valid string."));
                 handles.push(handle);
             }
         }
@@ -334,7 +334,7 @@ impl AssetServer {
             let ref_change = match receiver.try_recv() {
                 Ok(ref_change) => ref_change,
                 Err(TryRecvError::Empty) => break,
-                Err(TryRecvError::Disconnected) => panic!("RefChange channel disconnected"),
+                Err(TryRecvError::Disconnected) => panic!("RefChange channel disconnected."),
             };
             match ref_change {
                 RefChange::Increment(handle_id) => *ref_counts.entry(handle_id).or_insert(0) += 1,
@@ -377,7 +377,7 @@ impl AssetServer {
             let asset_value = asset
                 .value
                 .take()
-                .expect("Asset should exist at this point");
+                .expect("Asset should exist at this point.");
             if let Some(asset_lifecycle) = asset_lifecycles.get(&asset_value.type_uuid()) {
                 let asset_path =
                     AssetPath::new_ref(&load_context.path, label.as_ref().map(|l| l.as_str()));
@@ -431,7 +431,7 @@ impl AssetServer {
                 Err(TryRecvError::Empty) => {
                     break;
                 }
-                Err(TryRecvError::Disconnected) => panic!("AssetChannel disconnected"),
+                Err(TryRecvError::Disconnected) => panic!("AssetChannel disconnected."),
             }
         }
     }

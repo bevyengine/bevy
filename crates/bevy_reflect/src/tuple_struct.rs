@@ -162,7 +162,7 @@ impl Reflect for DynamicTupleStruct {
                 }
             }
         } else {
-            panic!("attempted to apply non-TupleStruct type to TupleStruct type");
+            panic!("Attempted to apply non-TupleStruct type to TupleStruct type.");
         }
     }
 

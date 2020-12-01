@@ -98,7 +98,7 @@ mod tests {
         if let ReflectRef::Struct(value) = c.reflect_ref() {
             assert_eq!(*value.get_field::<u32>("x").unwrap(), 1);
         } else {
-            panic!("expected a struct");
+            panic!("Expected a struct.");
         }
 
         // patch Foo with a dynamic struct

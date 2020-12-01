@@ -160,7 +160,7 @@ impl RenderResourceBindings {
                 BindGroupStatus::Changed(id) => {
                     let bind_group = self
                         .get_bind_group(id)
-                        .expect("RenderResourceSet was just changed, so it should exist");
+                        .expect("`RenderResourceSet` was just changed, so it should exist.");
                     render_resource_context.create_bind_group(bind_group_descriptor.id, bind_group);
                 }
                 BindGroupStatus::Unchanged(id) => {
@@ -168,7 +168,7 @@ impl RenderResourceBindings {
                     // when a stale bind group has been removed
                     let bind_group = self
                         .get_bind_group(id)
-                        .expect("RenderResourceSet was just changed, so it should exist");
+                        .expect("`RenderResourceSet` was just changed, so it should exist.");
                     render_resource_context.create_bind_group(bind_group_descriptor.id, bind_group);
                 }
                 BindGroupStatus::NoMatch => {
@@ -297,7 +297,7 @@ mod tests {
         let id = if let BindGroupStatus::Changed(id) = status {
             id
         } else {
-            panic!("expected a changed bind group");
+            panic!("Expected a changed bind group.");
         };
 
         let different_bind_group_status =
@@ -309,7 +309,7 @@ mod tests {
             );
             different_bind_group_id
         } else {
-            panic!("expected a changed bind group");
+            panic!("Expected a changed bind group.");
         };
 
         let equal_bind_group_status = equal_bindings.update_bind_group(&bind_group_descriptor);
@@ -319,7 +319,7 @@ mod tests {
                 "equal bind group should have the same id"
             );
         } else {
-            panic!("expected a changed bind group");
+            panic!("Expected a changed bind group.");
         };
 
         let mut unmatched_bindings = RenderResourceBindings::default();

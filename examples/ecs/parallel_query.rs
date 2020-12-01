@@ -47,7 +47,7 @@ fn bounce_system(
     windows: Res<Windows>,
     mut sprites: Query<(&Transform, &mut Velocity)>,
 ) {
-    let window = windows.get_primary().expect("No primary window");
+    let window = windows.get_primary().expect("No primary window.");
     let width = window.width();
     let height = window.height();
     let left = width as f32 / -2.0;

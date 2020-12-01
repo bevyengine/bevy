@@ -137,13 +137,13 @@ impl Shader {
                 enforce_bevy_conventions,
             ))
         } else {
-            panic!("Cannot reflect layout of non-SpirV shader. Try compiling this shader to SpirV first using self.get_spirv_shader()");
+            panic!("Cannot reflect layout of non-SpirV shader. Try compiling this shader to SpirV first using self.get_spirv_shader().");
         }
     }
 
     #[cfg(target_arch = "wasm32")]
     pub fn reflect_layout(&self, _enforce_bevy_conventions: bool) -> Option<ShaderLayout> {
-        panic!("Cannot reflect layout on wasm32");
+        panic!("Cannot reflect layout on wasm32.");
     }
 }
 

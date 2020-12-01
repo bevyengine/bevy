@@ -4,7 +4,8 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum StagerError {
-    #[error("Encountered a RenderGraphError")]
+    // This might have to be `:` tagged at the end.
+    #[error("encountered a `RenderGraphError`")]
     RenderGraphError(#[from] RenderGraphError),
 }
 
@@ -211,7 +212,7 @@ fn stage_node(
         .map(|e| {
             node_stages_and_jobs
                 .get(&e.get_output_node())
-                .expect("already checked that parents were visited")
+                .expect("Already checked that parents were visited.")
         })
         .max()
     {
@@ -223,7 +224,7 @@ fn stage_node(
             .filter(|e| {
                 let (max_stage, _) = node_stages_and_jobs
                     .get(&e.get_output_node())
-                    .expect("already checked that parents were visited");
+                    .expect("Already checked that parents were visited.");
                 max_stage == max_parent_stage
             })
             .count();

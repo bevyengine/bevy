@@ -193,7 +193,7 @@ impl Commands {
         let entity = self
             .entity_reserver
             .as_ref()
-            .expect("entity reserver has not been set")
+            .expect("Entity reserver has not been set.")
             .reserve_entity();
         self.current_entity = Some(entity);
         self.commands.push(Box::new(Insert { entity, components }));

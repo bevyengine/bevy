@@ -34,11 +34,11 @@ pub struct SceneSpawner {
 
 #[derive(Error, Debug)]
 pub enum SceneSpawnError {
-    #[error("Scene contains an unregistered component.")]
+    #[error("scene contains an unregistered component")]
     UnregisteredComponent { type_name: String },
-    #[error("Scene does not exist. Perhaps it is still loading?")]
+    #[error("scene does not exist, perhaps it is still loading")]
     NonExistentScene { handle: Handle<DynamicScene> },
-    #[error("Scene does not exist. Perhaps it is still loading?")]
+    #[error("scene does not exist, perhaps it is still loading")]
     NonExistentRealScene { handle: Handle<Scene> },
 }
 

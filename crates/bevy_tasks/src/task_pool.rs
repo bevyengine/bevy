@@ -72,7 +72,7 @@ impl Drop for TaskPoolInner {
         for join_handle in self.threads.drain(..) {
             join_handle
                 .join()
-                .expect("task thread panicked while executing");
+                .expect("Task thread panicked while executing.");
         }
     }
 }
@@ -132,7 +132,7 @@ impl TaskPool {
                         // Use unwrap_err because we expect a Closed error
                         future::block_on(shutdown_future).unwrap_err();
                     })
-                    .expect("failed to spawn thread")
+                    .expect("Failed to spawn thread.")
             })
             .collect();
 
