@@ -63,6 +63,7 @@ impl<'a> WorldBuilder<'a> {
         self
     }
 
+    #[inline]
     pub fn current_entity(&self) -> Option<Entity> {
         self.current_entity
     }
