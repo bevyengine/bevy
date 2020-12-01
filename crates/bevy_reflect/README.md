@@ -19,7 +19,7 @@ This crate enables you to dynamically interact with Rust types:
 #[derive(Reflect)]
 struct Foo {
     a: u32,
-    b: Bar
+    b: Bar,
     c: Vec<i32>,
     d: Vec<Bar>,
 }
@@ -31,14 +31,14 @@ struct Bar(String);
 #[derive(Reflect)]
 struct Baz {
     value: f32,
-};
+}
 
 // We will use this value to illustrate `bevy_reflect` features
 let mut foo = Foo {
     a: 1,
     b: Bar("hello".to_string()),
-    c: vec![1, 2]
-    d: vec![Baz { value: 3.14 }]
+    c: vec![1, 2],
+    d: vec![Baz { value: 3.14 }],
 };
 ```
 
