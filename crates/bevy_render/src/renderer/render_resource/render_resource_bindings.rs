@@ -162,8 +162,13 @@ impl RenderResourceBindings {
                         .expect("RenderResourceSet was just changed, so it should exist");
                     render_resource_context.create_bind_group(bind_group_descriptor.id, bind_group);
                 }
-                BindGroupStatus::Unchanged(_id) => {
-                    // don't re-create unchanged bind groups
+                BindGroupStatus::Unchanged(id) => {
+                    // PERF: this is only required because RenderResourceContext::remove_stale_bind_groups doesn't inform RenderResourceBindings
+                    // when a stale bind group has been removed 
+                    let bind_group = self
+                        .get_bind_group(id)
+                        .expect("RenderResourceSet was just changed, so it should exist");
+                    render_resource_context.create_bind_group(bind_group_descriptor.id, bind_group);
                 }
                 BindGroupStatus::NoMatch => {
                     // ignore unchanged / unmatched render resource sets
