@@ -59,11 +59,11 @@ impl TextureAtlasBuilder {
     }
 
     /// Adds a texture to be copied to the texture atlas.
-    pub fn add_texture(&mut self, texture_handle: Handle<Texture>, width: u32, height: u32) {
+    pub fn add_texture(&mut self, texture_handle: Handle<Texture>, texture: &Texture) {
         self.rects_to_place.push_rect(
             texture_handle,
             None,
-            RectToInsert::new(width, height, 1),
+            RectToInsert::new(texture.size.width, texture.size.height, 1),
         )
     }
 
