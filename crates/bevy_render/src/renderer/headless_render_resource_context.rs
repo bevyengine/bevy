@@ -152,4 +152,6 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
     fn get_specialized_shader(&self, shader: &Shader, _macros: Option<&[String]>) -> Shader {
         shader.clone()
     }
+
+    fn remove_stale_bind_groups(&self) {}
 }

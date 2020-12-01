@@ -62,6 +62,7 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
         bind_group: &BindGroup,
     );
     fn clear_bind_groups(&self);
+    fn remove_stale_bind_groups(&self);
     /// Reflects the pipeline layout from its shaders.
     ///
     /// If `bevy_conventions` is true, it will be assumed that the shader follows "bevy shader conventions". These allow

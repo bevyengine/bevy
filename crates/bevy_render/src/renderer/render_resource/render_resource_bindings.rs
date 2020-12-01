@@ -99,6 +99,10 @@ impl RenderResourceBindings {
                     self.dirty_bind_groups.insert(*id);
                 }
             }
+        } else {
+            // unmatched bind group descriptors might now match
+            self.bind_group_descriptors
+                .retain(|_, value| value.is_some());
         }
     }
 
@@ -120,6 +124,7 @@ impl RenderResourceBindings {
             self.bind_group_descriptors.insert(descriptor.id, Some(id));
             BindGroupStatus::Changed(id)
         } else {
+            self.bind_group_descriptors.insert(descriptor.id, None);
             BindGroupStatus::NoMatch
         }
     }
@@ -158,10 +163,9 @@ impl RenderResourceBindings {
                         .expect("RenderResourceSet was just changed, so it should exist");
                     render_resource_context.create_bind_group(bind_group_descriptor.id, bind_group);
                 }
-                // TODO: Don't re-create bind groups if they havent changed. this will require cleanup of orphan bind groups and
-                // removal of global context.clear_bind_groups()
-                // PERF: see above
                 BindGroupStatus::Unchanged(id) => {
+                    // PERF: this is only required because RenderResourceContext::remove_stale_bind_groups doesn't inform RenderResourceBindings
+                    // when a stale bind group has been removed
                     let bind_group = self
                         .get_bind_group(id)
                         .expect("RenderResourceSet was just changed, so it should exist");

@@ -5,13 +5,13 @@ use crate::{
 use bevy_app::prelude::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::AsBytes;
-use bevy_ecs::{Local, Query, Res};
+use bevy_ecs::{Changed, Entity, Local, Mut, Query, QuerySet, Res, With};
 use bevy_math::*;
 use bevy_reflect::TypeUuid;
 use std::borrow::Cow;
 
 use crate::pipeline::{InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor};
-use bevy_utils::HashMap;
+use bevy_utils::{HashMap, HashSet};
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
@@ -321,8 +321,15 @@ fn remove_current_mesh_resources(
 }
 
 #[derive(Default)]
+pub struct MeshEntities {
+    entities: HashSet<Entity>,
+    waiting: HashSet<Entity>,
+}
+
+#[derive(Default)]
 pub struct MeshResourceProviderState {
     mesh_event_reader: EventReader<AssetEvent<Mesh>>,
+    mesh_entities: HashMap<Handle<Mesh>, MeshEntities>,
 }
 
 pub fn mesh_resource_provider_system(
@@ -330,7 +337,10 @@ pub fn mesh_resource_provider_system(
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     meshes: Res<Assets<Mesh>>,
     mesh_events: Res<Events<AssetEvent<Mesh>>>,
-    mut query: Query<(&Handle<Mesh>, &mut RenderPipelines)>,
+    mut queries: QuerySet<(
+        Query<&mut RenderPipelines, With<Handle<Mesh>>>,
+        Query<(Entity, &Handle<Mesh>, &mut RenderPipelines), Changed<Handle<Mesh>>>,
+    )>,
 ) {
     let mut changed_meshes = bevy_utils::HashSet::<Handle<Mesh>>::default();
     let render_resource_context = &**render_resource_context;
@@ -383,39 +393,69 @@ pub fn mesh_resource_provider_system(
                 )),
                 VERTEX_ATTRIBUTE_BUFFER_ID,
             );
+
+            if let Some(mesh_entities) = state.mesh_entities.get_mut(changed_mesh_handle) {
+                for entity in mesh_entities.waiting.drain() {
+                    if let Ok(render_pipelines) = queries.q0_mut().get_mut(entity) {
+                        mesh_entities.entities.insert(entity);
+                        update_entity_mesh(
+                            render_resource_context,
+                            mesh,
+                            changed_mesh_handle,
+                            render_pipelines,
+                        );
+                    }
+                }
+            }
         }
     }
 
     // handover buffers to pipeline
-    for (handle, mut render_pipelines) in query.iter_mut() {
+    for (entity, handle, render_pipelines) in queries.q1_mut().iter_mut() {
+        let mesh_entities = state
+            .mesh_entities
+            .entry(handle.clone_weak())
+            .or_insert_with(MeshEntities::default);
         if let Some(mesh) = meshes.get(handle) {
-            for render_pipeline in render_pipelines.pipelines.iter_mut() {
-                render_pipeline.specialization.primitive_topology = mesh.primitive_topology;
-                // TODO: don't allocate a new vertex buffer descriptor for every entity
-                render_pipeline.specialization.vertex_buffer_descriptor =
-                    mesh.get_vertex_buffer_descriptor();
-                render_pipeline.specialization.index_format = mesh
-                    .indices()
-                    .map(|i| i.into())
-                    .unwrap_or(IndexFormat::Uint32);
-            }
-
-            if let Some(RenderResourceId::Buffer(index_buffer_resource)) =
-                render_resource_context.get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX)
-            {
-                // set index buffer into binding
-                render_pipelines
-                    .bindings
-                    .set_index_buffer(index_buffer_resource);
-            }
-
-            if let Some(RenderResourceId::Buffer(vertex_attribute_buffer_resource)) =
-                render_resource_context.get_asset_resource(handle, VERTEX_ATTRIBUTE_BUFFER_ID)
-            {
-                // set index buffer into binding
-                render_pipelines.bindings.vertex_attribute_buffer =
-                    Some(vertex_attribute_buffer_resource);
-            }
+            mesh_entities.entities.insert(entity);
+            mesh_entities.waiting.remove(&entity);
+            update_entity_mesh(render_resource_context, mesh, handle, render_pipelines);
+        } else {
+            mesh_entities.waiting.insert(entity);
         }
+    }
+}
+
+fn update_entity_mesh(
+    render_resource_context: &dyn RenderResourceContext,
+    mesh: &Mesh,
+    handle: &Handle<Mesh>,
+    mut render_pipelines: Mut<RenderPipelines>,
+) {
+    for render_pipeline in render_pipelines.pipelines.iter_mut() {
+        render_pipeline.specialization.primitive_topology = mesh.primitive_topology;
+        // TODO: don't allocate a new vertex buffer descriptor for every entity
+        render_pipeline.specialization.vertex_buffer_descriptor =
+            mesh.get_vertex_buffer_descriptor();
+        render_pipeline.specialization.index_format = mesh
+            .indices()
+            .map(|i| i.into())
+            .unwrap_or(IndexFormat::Uint32);
+    }
+
+    if let Some(RenderResourceId::Buffer(index_buffer_resource)) =
+        render_resource_context.get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX)
+    {
+        // set index buffer into binding
+        render_pipelines
+            .bindings
+            .set_index_buffer(index_buffer_resource);
+    }
+
+    if let Some(RenderResourceId::Buffer(vertex_attribute_buffer_resource)) =
+        render_resource_context.get_asset_resource(handle, VERTEX_ATTRIBUTE_BUFFER_ID)
+    {
+        // set index buffer into binding
+        render_pipelines.bindings.vertex_attribute_buffer = Some(vertex_attribute_buffer_resource);
     }
 }

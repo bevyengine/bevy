@@ -74,6 +74,10 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
                     } else {
                         EMPTY
                     };
+                self.wgpu_resources
+                    .used_bind_group_sender
+                    .send(bind_group)
+                    .unwrap();
 
                 trace!(
                     "set bind group {:?} {:?}: {:?}",

@@ -522,6 +522,10 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         self.resources.bind_groups.write().clear();
     }
 
+    fn remove_stale_bind_groups(&self) {
+        self.resources.remove_stale_bind_groups();
+    }
+
     fn get_buffer_info(&self, buffer: BufferId) -> Option<BufferInfo> {
         self.resources.buffer_infos.read().get(&buffer).cloned()
     }
