@@ -111,11 +111,11 @@ impl Reflect for DynamicList {
     }
 
     #[inline]
-    fn hash(&self) -> Option<u64> {
+    fn reflect_hash(&self) -> Option<u64> {
         None
     }
 
-    fn partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         list_partial_eq(self, value)
     }
 
@@ -169,7 +169,7 @@ pub fn list_partial_eq<L: List>(a: &L, b: &dyn Reflect) -> Option<bool> {
     }
 
     for (a_value, b_value) in a.iter().zip(list.iter()) {
-        if let Some(false) | None = a_value.partial_eq(b_value) {
+        if let Some(false) | None = a_value.reflect_partial_eq(b_value) {
             return Some(false);
         }
     }

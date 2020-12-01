@@ -33,7 +33,7 @@ impl DynamicMap {
     }
 
     pub fn insert_boxed(&mut self, key: Box<dyn Reflect>, value: Box<dyn Reflect>) {
-        match self.indices.entry(key.hash().expect(HASH_ERROR)) {
+        match self.indices.entry(key.reflect_hash().expect(HASH_ERROR)) {
             Entry::Occupied(entry) => {
                 self.values[*entry.get()] = (key, value);
             }
@@ -48,13 +48,13 @@ impl DynamicMap {
 impl Map for DynamicMap {
     fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect> {
         self.indices
-            .get(&key.hash().expect(HASH_ERROR))
+            .get(&key.reflect_hash().expect(HASH_ERROR))
             .map(|index| &*self.values.get(*index).unwrap().1)
     }
 
     fn get_mut(&mut self, key: &dyn Reflect) -> Option<&mut dyn Reflect> {
         self.indices
-            .get(&key.hash().expect(HASH_ERROR))
+            .get(&key.reflect_hash().expect(HASH_ERROR))
             .cloned()
             .map(move |index| &mut *self.values.get_mut(index).unwrap().1)
     }
@@ -130,11 +130,11 @@ impl Reflect for DynamicMap {
         Box::new(self.clone_dynamic())
     }
 
-    fn hash(&self) -> Option<u64> {
+    fn reflect_hash(&self) -> Option<u64> {
         None
     }
 
-    fn partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         map_partial_eq(self, value)
     }
 
@@ -172,7 +172,7 @@ pub fn map_partial_eq<M: Map>(a: &M, b: &dyn Reflect) -> Option<bool> {
 
     for (key, value) in a.iter() {
         if let Some(map_value) = map.get(key) {
-            if let Some(false) | None = value.partial_eq(map_value) {
+            if let Some(false) | None = value.reflect_partial_eq(map_value) {
                 return Some(false);
             }
         } else {

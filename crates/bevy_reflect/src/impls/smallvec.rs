@@ -82,11 +82,11 @@ where
         Box::new(self.clone_dynamic())
     }
 
-    fn hash(&self) -> Option<u64> {
+    fn reflect_hash(&self) -> Option<u64> {
         None
     }
 
-    fn partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         crate::list_partial_eq(self, value)
     }
 

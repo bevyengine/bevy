@@ -171,11 +171,11 @@ impl Reflect for DynamicTupleStruct {
         Ok(())
     }
 
-    fn hash(&self) -> Option<u64> {
+    fn reflect_hash(&self) -> Option<u64> {
         None
     }
 
-    fn partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         tuple_struct_partial_eq(self, value)
     }
 
@@ -198,7 +198,7 @@ pub fn tuple_struct_partial_eq<S: TupleStruct>(a: &S, b: &dyn Reflect) -> Option
 
     for (i, value) in tuple_struct.iter_fields().enumerate() {
         if let Some(field_value) = a.field(i) {
-            if let Some(false) | None = field_value.partial_eq(value) {
+            if let Some(false) | None = field_value.reflect_partial_eq(value) {
                 return Some(false);
             }
         } else {

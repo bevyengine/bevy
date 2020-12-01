@@ -93,11 +93,11 @@ impl<T: Reflect> Reflect for Vec<T> {
         Box::new(self.clone_dynamic())
     }
 
-    fn hash(&self) -> Option<u64> {
+    fn reflect_hash(&self) -> Option<u64> {
         None
     }
 
-    fn partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         crate::list_partial_eq(self, value)
     }
 
@@ -187,11 +187,11 @@ impl<K: Reflect + Clone + Eq + Hash, V: Reflect + Clone> Reflect for HashMap<K, 
         Box::new(self.clone_dynamic())
     }
 
-    fn hash(&self) -> Option<u64> {
+    fn reflect_hash(&self) -> Option<u64> {
         None
     }
 
-    fn partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         map_partial_eq(self, value)
     }
 

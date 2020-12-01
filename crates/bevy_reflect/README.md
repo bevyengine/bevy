@@ -102,7 +102,7 @@ let reflect_deserializer = ReflectDeserializer::new(&registry);
 let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 let dynamic_struct = value.take::<DynamicStruct>().unwrap();
 
-assert!(foo.partial_eq(&dynamic_struct).unwrap());
+assert!(foo.reflect_partial_eq(&dynamic_struct).unwrap());
 ```
 
 ### Trait "reflection"
