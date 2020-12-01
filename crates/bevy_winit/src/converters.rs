@@ -30,7 +30,10 @@ pub fn convert_mouse_button(mouse_button: winit::event::MouseButton) -> MouseBut
     }
 }
 
-pub fn convert_touch_input(touch_input: winit::event::Touch) -> TouchInput {
+pub fn convert_touch_input(
+    touch_input: winit::event::Touch,
+    location: winit::dpi::LogicalPosition<f32>,
+) -> TouchInput {
     TouchInput {
         phase: match touch_input.phase {
             winit::event::TouchPhase::Started => TouchPhase::Started,
@@ -38,7 +41,7 @@ pub fn convert_touch_input(touch_input: winit::event::Touch) -> TouchInput {
             winit::event::TouchPhase::Ended => TouchPhase::Ended,
             winit::event::TouchPhase::Cancelled => TouchPhase::Cancelled,
         },
-        position: Vec2::new(touch_input.location.x as f32, touch_input.location.y as f32),
+        position: Vec2::new(location.x as f32, location.y as f32),
         force: touch_input.force.map(|f| match f {
             winit::event::Force::Calibrated {
                 force,

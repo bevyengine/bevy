@@ -12,7 +12,7 @@ impl WinitWindows {
     pub fn create_window(
         &mut self,
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
-        window: &Window,
+        window: &mut Window,
     ) {
         #[cfg(target_os = "windows")]
         let mut winit_window_builder = {
@@ -38,7 +38,7 @@ impl WinitWindows {
                 }),
             )),
             _ => winit_window_builder
-                .with_inner_size(winit::dpi::PhysicalSize::new(
+                .with_inner_size(winit::dpi::LogicalSize::new(
                     window.width(),
                     window.height(),
                 ))
@@ -99,6 +99,8 @@ impl WinitWindows {
                     .expect("Append canvas to HTML body");
             }
         }
+
+        window.update_scale_factor_from_backend(winit_window.scale_factor());
 
         self.windows.insert(winit_window.id(), winit_window);
     }
