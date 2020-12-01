@@ -213,6 +213,7 @@ pub fn touch_screen_input_system(
     }
 }
 
+#[cfg(test)]
 mod test {
 
     #[test]

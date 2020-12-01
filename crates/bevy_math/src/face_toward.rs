@@ -20,6 +20,7 @@ impl FaceToward for Mat4 {
     }
 }
 
+#[cfg(test)]
 mod test {
     #[test]
     fn face_toward_mat4() {

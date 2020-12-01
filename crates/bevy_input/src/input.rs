@@ -72,6 +72,7 @@ where
     }
 }
 
+#[cfg(test)]
 mod test {
 
     #[test]
