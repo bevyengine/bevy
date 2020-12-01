@@ -99,6 +99,9 @@ impl RenderResourceBindings {
                     self.dirty_bind_groups.insert(*id);
                 }
             }
+        } else {
+            // unmatched bind group descriptors might now match
+            self.bind_group_descriptors.retain(|_, value| value.is_some());
         }
     }
 
