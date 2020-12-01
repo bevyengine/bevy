@@ -1,7 +1,7 @@
 use super::{Indices, Mesh};
 use crate::pipeline::PrimitiveTopology;
 use bevy_math::*;
-use hexasphere::Hexasphere;
+use hexasphere::shapes::IcoSphere;
 
 pub struct Cube {
     pub size: f32,
@@ -273,15 +273,17 @@ impl Default for Icosphere {
 impl From<Icosphere> for Mesh {
     fn from(sphere: Icosphere) -> Self {
         if sphere.subdivisions >= 80 {
-            let temp_sphere = Hexasphere::new(sphere.subdivisions, |_| ());
+            // https://oeis.org/A005901
+            let subdivisions = sphere.subdivisions + 1;
+            let number_of_resulting_points = (subdivisions * subdivisions * 10) + 2;
 
             panic!(
                 "Cannot create an icosphere of {} subdivisions due to there being too many vertices being generated: {} (Limited to 65535 vertices or 79 subdivisions)",
                 sphere.subdivisions,
-                temp_sphere.raw_points().len()
+                number_of_resulting_points
             );
         }
-        let hexasphere = Hexasphere::new(sphere.subdivisions, |point| {
+        let generated = IcoSphere::new(sphere.subdivisions, |point| {
             let inclination = point.z.acos();
             let azumith = point.y.atan2(point.x);
 
@@ -291,7 +293,7 @@ impl From<Icosphere> for Mesh {
             [norm_inclination, norm_azumith]
         });
 
-        let raw_points = hexasphere.raw_points();
+        let raw_points = generated.raw_points();
 
         let points = raw_points
             .iter()
@@ -304,12 +306,12 @@ impl From<Icosphere> for Mesh {
             .map(Into::into)
             .collect::<Vec<[f32; 3]>>();
 
-        let uvs = hexasphere.raw_data().to_owned();
+        let uvs = generated.raw_data().to_owned();
 
-        let mut indices = Vec::with_capacity(hexasphere.indices_per_main_triangle() * 20);
+        let mut indices = Vec::with_capacity(generated.indices_per_main_triangle() * 20);
 
         for i in 0..20 {
-            hexasphere.get_indices(i, &mut indices);
+            generated.get_indices(i, &mut indices);
         }
 
         let indices = Indices::U32(indices);
