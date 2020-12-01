@@ -158,7 +158,7 @@ impl Touches {
         self.just_cancelled.contains_key(&id)
     }
 
-    pub fn iter_just_cancelled(&self) -> impl Iterator<Item = &Touch> + '_ {
+    pub fn iter_just_cancelled(&self) -> impl Iterator<Item = &Touch> {
         self.just_cancelled.values()
     }
 
