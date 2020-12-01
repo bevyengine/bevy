@@ -134,7 +134,7 @@ impl Reflect for DynamicMap {
         None
     }
 
-    fn partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         map_partial_eq(self, value)
     }
 
@@ -172,7 +172,7 @@ pub fn map_partial_eq<M: Map>(a: &M, b: &dyn Reflect) -> Option<bool> {
 
     for (key, value) in a.iter() {
         if let Some(map_value) = map.get(key) {
-            if let Some(false) | None = value.partial_eq(map_value) {
+            if let Some(false) | None = value.reflect_partial_eq(map_value) {
                 return Some(false);
             }
         } else {

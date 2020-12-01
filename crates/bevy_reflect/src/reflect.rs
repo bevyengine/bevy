@@ -32,7 +32,7 @@ pub trait Reflect: Any + Send + Sync {
     /// Returns a hash of the value (which includes the type) if hashing is supported. Otherwise `None` will be returned.
     fn reflect_hash(&self) -> Option<u64>;
     /// Returns a "partial equal" comparison result if comparison is supported. Otherwise `None` will be returned.
-    fn partial_eq(&self, _value: &dyn Reflect) -> Option<bool>;
+    fn reflect_partial_eq(&self, _value: &dyn Reflect) -> Option<bool>;
     /// Returns a serializable value, if serialization is supported. Otherwise `None` will be returned.
     fn serializable(&self) -> Option<Serializable>;
 }
