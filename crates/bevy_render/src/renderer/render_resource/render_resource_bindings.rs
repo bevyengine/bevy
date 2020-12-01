@@ -101,7 +101,8 @@ impl RenderResourceBindings {
             }
         } else {
             // unmatched bind group descriptors might now match
-            self.bind_group_descriptors.retain(|_, value| value.is_some());
+            self.bind_group_descriptors
+                .retain(|_, value| value.is_some());
         }
     }
 
@@ -164,7 +165,7 @@ impl RenderResourceBindings {
                 }
                 BindGroupStatus::Unchanged(id) => {
                     // PERF: this is only required because RenderResourceContext::remove_stale_bind_groups doesn't inform RenderResourceBindings
-                    // when a stale bind group has been removed 
+                    // when a stale bind group has been removed
                     let bind_group = self
                         .get_bind_group(id)
                         .expect("RenderResourceSet was just changed, so it should exist");
