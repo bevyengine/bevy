@@ -41,11 +41,6 @@ impl Default for TextureAtlasBuilder {
 pub type TextureAtlasBuilderResult<T> = Result<T, TextureAtlasBuilderError>;
 
 impl TextureAtlasBuilder {
-    /// Constructs a new texture atlas builder.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     /// Sets the initial size of the atlas in pixels.
     pub fn initial_size(mut self, size: Vec2) -> Self {
         self.initial_size = size;
