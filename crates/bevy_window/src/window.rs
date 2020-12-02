@@ -270,8 +270,8 @@ impl Default for WindowDescriptor {
     fn default() -> Self {
         WindowDescriptor {
             title: "bevy".to_string(),
-            width: 800,
-            height: 600,
+            width: 1280,
+            height: 720,
             vsync: true,
             resizable: true,
             decorations: true,
