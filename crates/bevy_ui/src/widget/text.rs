@@ -6,7 +6,7 @@ use bevy_render::{
     draw::{Draw, DrawContext, Drawable},
     mesh::Mesh,
     prelude::Msaa,
-    renderer::{AssetRenderResourceBindings, RenderResourceBindings},
+    renderer::RenderResourceBindings,
     texture::Texture,
 };
 use bevy_sprite::{TextureAtlas, QUAD_HANDLE};
@@ -145,7 +145,6 @@ pub fn draw_text_system(
     msaa: Res<Msaa>,
     meshes: Res<Assets<Mesh>>,
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
-    mut asset_render_resource_bindings: ResMut<AssetRenderResourceBindings>,
     text_pipeline: Res<DefaultTextPipeline>,
     mut query: Query<(Entity, &mut Draw, &Text, &Node, &GlobalTransform)>,
 ) {
@@ -162,7 +161,6 @@ pub fn draw_text_system(
 
             let mut drawable_text = DrawableText {
                 render_resource_bindings: &mut render_resource_bindings,
-                asset_render_resource_bindings: &mut asset_render_resource_bindings,
                 position,
                 msaa: &msaa,
                 text_glyphs: &text_glyphs.glyphs,

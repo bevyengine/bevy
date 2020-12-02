@@ -5,7 +5,7 @@ use bevy_render::{
     mesh,
     pipeline::{PipelineSpecialization, VertexBufferDescriptor},
     prelude::Msaa,
-    renderer::{AssetRenderResourceBindings, BindGroup, RenderResourceBindings, RenderResourceId},
+    renderer::{BindGroup, RenderResourceBindings, RenderResourceId},
 };
 use bevy_sprite::TextureAtlasSprite;
 use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
@@ -46,7 +46,6 @@ impl Default for TextStyle {
 
 pub struct DrawableText<'a> {
     pub render_resource_bindings: &'a mut RenderResourceBindings,
-    pub asset_render_resource_bindings: &'a mut AssetRenderResourceBindings,
     pub position: Vec3,
     pub style: &'a TextStyle,
     pub text_glyphs: &'a Vec<PositionedGlyph>,
@@ -92,11 +91,7 @@ impl<'a> Drawable for DrawableText<'a> {
         context.set_bind_groups_from_bindings(draw, &mut [self.render_resource_bindings])?;
 
         for tv in self.text_glyphs {
-            let atlas_render_resource_bindings = self
-                .asset_render_resource_bindings
-                .get_mut(&tv.atlas_info.texture_atlas)
-                .unwrap();
-            context.set_bind_groups_from_bindings(draw, &mut [atlas_render_resource_bindings])?;
+            context.set_asset_bind_groups(draw, &tv.atlas_info.texture_atlas)?;
 
             let sprite = TextureAtlasSprite {
                 index: tv.atlas_info.glyph_index,

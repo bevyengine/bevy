@@ -114,6 +114,19 @@ pub fn draw_render_pipelines_system(
                     .collect::<HashSet<String>>();
                 pipeline.dynamic_bindings_generation =
                     render_pipelines.bindings.dynamic_bindings_generation();
+                for (handle, _) in render_pipelines.bindings.iter_assets() {
+                    if let Some(bindings) = draw_context
+                        .asset_render_resource_bindings
+                        .get_untyped(handle)
+                    {
+                        for binding in bindings.iter_dynamic_bindings() {
+                            pipeline
+                                .specialization
+                                .dynamic_bindings
+                                .insert(binding.to_string());
+                        }
+                    }
+                }
             }
         }
 
