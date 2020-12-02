@@ -190,11 +190,11 @@ pub struct Commands {
 }
 
 impl Commands {
-    /// Creates a new entity and calls `insert` with the it and `bundle`.
+    /// Creates a new entity with the components contained in `bundle`.
     ///
-    /// Note that `bundle` is a bundle. If you would like to spawn an entity with a single component, consider wrapping the component in a tuple (which `Bundle` is implemented for).
+    /// Note that `bundle` is a [DynamicBundle], which is a collection of components. [DynamicBundle] is automatically implemented for tuples of components. You can also create your own bundle types by deriving [`derive@Bundle`]. If you would like to spawn an entity with a single component, consider wrapping the component in a tuple (which [DynamicBundle] is implemented for).
     ///
-    /// See [`Commands::set_current_entity`], [`Commands::insert`].
+    /// See [`Self::set_current_entity`], [`Self::insert`].
     ///
     /// # Example
     ///
@@ -217,9 +217,10 @@ impl Commands {
     ///         b: Component2,
     ///     });
     ///
-    ///     // Create new entities with a single component each.
+    ///     // Create a new entity with a single component.
     ///     commands.spawn((Component1,));
-    ///     commands.spawn((Component2,));
+    ///     // Create a new entity with two components.
+    ///     commands.spawn((Component1, Component2));
     /// }
     /// ```
     pub fn spawn(&mut self, bundle: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
@@ -233,7 +234,7 @@ impl Commands {
         self
     }
 
-    /// Equivalent to iterating of `bundles_iter` and calling `spawn` on each bundle, but slightly more performant.
+    /// Equivalent to iterating of `bundles_iter` and calling [`Self::spawn`] on each bundle, but slightly more performant.
     pub fn spawn_batch<I>(&mut self, bundles_iter: I) -> &mut Self
     where
         I: IntoIterator + Send + Sync + 'static,
@@ -242,9 +243,7 @@ impl Commands {
         self.add_command(SpawnBatch { bundles_iter })
     }
 
-    /// Despawns only the specified entity, ignoring any other consideration.
-    ///
-    /// Note that this does not recursively despawn and entity's children.
+    /// Despawns only the specified entity, not including its children.
     pub fn despawn(&mut self, entity: Entity) -> &mut Self {
         self.add_command(Despawn { entity })
     }
@@ -271,6 +270,9 @@ impl Commands {
         self.add_command(InsertResource { resource })
     }
 
+    /// Insert a resource that is local to a specific system.
+    ///
+    /// See [`crate::System::id`].
     pub fn insert_local_resource<T: Resource>(
         &mut self,
         system_id: SystemId,
@@ -306,7 +308,7 @@ impl Commands {
 
     /// Adds a bundle of components to the current entity.
     ///
-    /// See [`Commands::with`], [`Commands::current_entity`].
+    /// See [`Self::with`], [`Self::current_entity`].
     pub fn with_bundle(&mut self, bundle: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
         let current_entity =  self.current_entity.expect("Cannot add bundle because the 'current entity' is not set. You should spawn an entity first.");
         self.commands.push(Box::new(Insert {
@@ -318,15 +320,15 @@ impl Commands {
 
     /// Adds a single component to the current entity.
     ///
-    /// See [`Commands::with_bundle`], [`Commands::current_entity`].
+    /// See [`Self::with_bundle`], [`Self::current_entity`].
     ///
     /// # Warning
     ///
-    /// It's possible to call this with a bundle, but this is likely not intended and `with_bundle` should be used instead. If `with` is called with a bundle, the bundle itself will be added as a component instead of the bundles' inner components each being added.
+    /// It's possible to call this with a bundle, but this is likely not intended and [`Self::with_bundle`] should be used instead. If `with` is called with a bundle, the bundle itself will be added as a component instead of the bundles' inner components each being added.
     ///
     /// # Example
     ///
-    /// `with` can be chained with `spawn`.
+    /// `with` can be chained with [`Self::spawn`].
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
@@ -361,13 +363,13 @@ impl Commands {
         self
     }
 
-    /// Adds a command directly to the command list. Prefer this to `add_command_boxed` if the type of |command| is statically known.
+    /// Adds a command directly to the command list. Prefer this to [`Self::add_command_boxed`] if the type of `command` is statically known.
     pub fn add_command<C: Command + 'static>(&mut self, command: C) -> &mut Self {
         self.commands.push(Box::new(command));
         self
     }
 
-    /// See [`Commands::add_command`].
+    /// See [`Self::add_command`].
     pub fn add_command_boxed(&mut self, command: Box<dyn Command>) -> &mut Self {
         self.commands.push(command);
         self
@@ -380,7 +382,7 @@ impl Commands {
         }
     }
 
-    /// Returns the current entity, set by `spawn` or with `set_current_entity`.
+    /// Returns the current entity, set by [`Self::spawn`] or with [`Self::set_current_entity`].
     pub fn current_entity(&self) -> Option<Entity> {
         self.current_entity
     }
