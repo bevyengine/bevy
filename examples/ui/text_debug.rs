@@ -6,6 +6,10 @@ use bevy::{
 /// This example is for debugging text layout
 fn main() {
     App::build()
+        .add_resource(WindowDescriptor {
+            vsync: false,
+            ..Default::default()
+        })
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin)
         .add_startup_system(infotext_system)
