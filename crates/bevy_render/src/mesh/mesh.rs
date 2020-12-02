@@ -323,7 +323,6 @@ fn remove_current_mesh_resources(
 #[derive(Default)]
 pub struct MeshEntities {
     entities: HashSet<Entity>,
-    waiting: HashSet<Entity>,
 }
 
 #[derive(Default)]
@@ -342,7 +341,7 @@ pub fn mesh_resource_provider_system(
         Query<(Entity, &Handle<Mesh>, &mut RenderPipelines), Changed<Handle<Mesh>>>,
     )>,
 ) {
-    let mut changed_meshes = bevy_utils::HashSet::<Handle<Mesh>>::default();
+    let mut changed_meshes = HashSet::default();
     let render_resource_context = &**render_resource_context;
     for event in state.mesh_event_reader.iter(&mesh_events) {
         match event {
@@ -395,9 +394,8 @@ pub fn mesh_resource_provider_system(
             );
 
             if let Some(mesh_entities) = state.mesh_entities.get_mut(changed_mesh_handle) {
-                for entity in mesh_entities.waiting.drain() {
-                    if let Ok(render_pipelines) = queries.q0_mut().get_mut(entity) {
-                        mesh_entities.entities.insert(entity);
+                for entity in mesh_entities.entities.iter() {
+                    if let Ok(render_pipelines) = queries.q0_mut().get_mut(*entity) {
                         update_entity_mesh(
                             render_resource_context,
                             mesh,
@@ -416,12 +414,9 @@ pub fn mesh_resource_provider_system(
             .mesh_entities
             .entry(handle.clone_weak())
             .or_insert_with(MeshEntities::default);
+        mesh_entities.entities.insert(entity);
         if let Some(mesh) = meshes.get(handle) {
-            mesh_entities.entities.insert(entity);
-            mesh_entities.waiting.remove(&entity);
             update_entity_mesh(render_resource_context, mesh, handle, render_pipelines);
-        } else {
-            mesh_entities.waiting.insert(entity);
         }
     }
 }
