@@ -130,9 +130,9 @@ fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
 fn change_text_system(
     time: Res<Time>,
     diagnostics: Res<Diagnostics>,
-    mut query: Query<(&mut Text, &TextChanges)>,
+    mut query: Query<&mut Text, With<TextChanges>>,
 ) {
-    for (mut text, _text_changes) in query.iter_mut() {
+    for mut text in query.iter_mut() {
         let mut fps = 0.0;
         if let Some(fps_diagnostic) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(fps_avg) = fps_diagnostic.average() {
