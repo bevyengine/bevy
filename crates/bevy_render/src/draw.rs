@@ -109,13 +109,13 @@ impl Draw {
 
 #[derive(Debug, Error)]
 pub enum DrawError {
-    #[error("Pipeline does not exist.")]
+    #[error("pipeline does not exist")]
     NonExistentPipeline,
-    #[error("No pipeline set")]
+    #[error("no pipeline set")]
     NoPipelineSet,
-    #[error("Pipeline has no layout")]
+    #[error("pipeline has no layout")]
     PipelineHasNoLayout,
-    #[error("Failed to get a buffer for the given RenderResource.")]
+    #[error("failed to get a buffer for the given `RenderResource`")]
     BufferAllocationFailure,
 }
 

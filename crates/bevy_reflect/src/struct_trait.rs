@@ -207,7 +207,7 @@ impl Reflect for DynamicStruct {
                 }
             }
         } else {
-            panic!("attempted to apply non-struct type to struct type");
+            panic!("Attempted to apply non-struct type to struct type.");
         }
     }
 

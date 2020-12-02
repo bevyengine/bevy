@@ -59,12 +59,12 @@ impl WinitWindows {
                 let document = window.document().unwrap();
                 let canvas = document
                     .query_selector(&selector)
-                    .expect("Cannot query for canvas element");
+                    .expect("Cannot query for canvas element.");
                 if let Some(canvas) = canvas {
                     let canvas = canvas.dyn_into::<web_sys::HtmlCanvasElement>().ok();
                     winit_window_builder = winit_window_builder.with_canvas(canvas);
                 } else {
-                    panic!("Cannot find element: {}", selector);
+                    panic!("Cannot find element: {}.", selector);
                 }
             }
         }
@@ -96,7 +96,7 @@ impl WinitWindows {
                 let body = document.body().unwrap();
 
                 body.append_child(&canvas)
-                    .expect("Append canvas to HTML body");
+                    .expect("Append canvas to HTML body.");
             }
         }
 

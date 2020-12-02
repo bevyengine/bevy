@@ -289,16 +289,16 @@ fn move_system(time: Res<Time>, mut q: Query<(&Velocity, Mut<Transform>)>) {
 /// the program is run through `cargo`.
 fn contributors() -> Contributors {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
-        .expect("This example needs to run through `cargo run --example`");
+        .expect("This example needs to run through `cargo run --example`.");
 
     let mut cmd = std::process::Command::new("git")
         .args(&["--no-pager", "log", "--pretty=format:%an"])
         .current_dir(manifest_dir)
         .stdout(Stdio::piped())
         .spawn()
-        .expect("git needs to be installed");
+        .expect("`git` needs to be installed.");
 
-    let stdout = cmd.stdout.take().expect("Child should have a stdout");
+    let stdout = cmd.stdout.take().expect("`Child` should have a stdout.");
 
     BufReader::new(stdout)
         .lines()

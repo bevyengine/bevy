@@ -97,7 +97,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
             .render_pipelines
             .get(pipeline_handle)
             .expect(
-            "Attempted to use a pipeline that does not exist in this RenderPass's RenderContext",
+            "Attempted to use a pipeline that does not exist in this `RenderPass`'s `RenderContext`.",
         );
         self.render_pass.set_pipeline(pipeline);
     }

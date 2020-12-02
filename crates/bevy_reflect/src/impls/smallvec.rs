@@ -30,7 +30,7 @@ where
     fn push(&mut self, value: Box<dyn Reflect>) {
         let value = value.take::<T::Item>().unwrap_or_else(|value| {
             panic!(
-                "Attempted to push invalid value of type {}",
+                "Attempted to push invalid value of type {}.",
                 value.type_name()
             )
         });

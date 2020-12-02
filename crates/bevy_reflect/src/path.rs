@@ -5,28 +5,28 @@ use thiserror::Error;
 
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum ReflectPathError<'a> {
-    #[error("Expected an identifier at the given index")]
+    #[error("expected an identifier at the given index")]
     ExpectedIdent { index: usize },
-    #[error("The current struct doesn't have a field with the given name")]
+    #[error("the current struct doesn't have a field with the given name")]
     InvalidField { index: usize, field: &'a str },
-    #[error("The current tuple struct doesn't have a field with the given index")]
+    #[error("the current tuple struct doesn't have a field with the given index")]
     InvalidTupleStructIndex {
         index: usize,
         tuple_struct_index: usize,
     },
-    #[error("The current list doesn't have a value at the given index")]
+    #[error("the current list doesn't have a value at the given index")]
     InvalidListIndex { index: usize, list_index: usize },
-    #[error("Encountered an unexpected token")]
+    #[error("encountered an unexpected token")]
     UnexpectedToken { index: usize, token: &'a str },
-    #[error("Expected a token, but it wasn't there.")]
+    #[error("expected a token, but it wasn't there.")]
     ExpectedToken { index: usize, token: &'a str },
-    #[error("Expected a struct, but found a different reflect value")]
+    #[error("expected a struct, but found a different reflect value")]
     ExpectedStruct { index: usize },
-    #[error("Expected a list, but found a different reflect value")]
+    #[error("expected a list, but found a different reflect value")]
     ExpectedList { index: usize },
-    #[error("Failed to parse a usize")]
+    #[error("failed to parse a usize")]
     IndexParseError(#[from] ParseIntError),
-    #[error("Failed to downcast to the path result to the given type")]
+    #[error("failed to downcast to the path result to the given type")]
     InvalidDowncast,
 }
 

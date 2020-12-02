@@ -86,7 +86,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
                             }
                             Ok(())
                         })
-                        .expect("invalid 'property' attribute format");
+                        .expect("Invalid 'property' attribute format.");
 
                         attribute_args
                     }),
@@ -295,7 +295,7 @@ fn impl_struct(
                         self.field_mut(name).map(|v| v.apply(value));
                     }
                 } else {
-                    panic!("attempted to apply non-struct type to struct type");
+                    panic!("Attempted to apply non-struct type to struct type.");
                 }
             }
 
@@ -414,7 +414,7 @@ fn impl_tuple_struct(
                         self.field_mut(i).map(|v| v.apply(value));
                     }
                 } else {
-                    panic!("attempted to apply non-TupleStruct type to TupleStruct type");
+                    panic!("Attempted to apply non-TupleStruct type to TupleStruct type.");
                 }
             }
 
@@ -483,7 +483,7 @@ fn impl_value(
                 if let Some(value) = value.downcast_ref::<Self>() {
                     *self = value.clone();
                 } else {
-                    panic!("value is not {}", std::any::type_name::<Self>());
+                    panic!("Value is not {}.", std::any::type_name::<Self>());
                 }
             }
 

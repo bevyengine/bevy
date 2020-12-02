@@ -76,7 +76,7 @@ impl<'a> Drawable for DrawableText<'a> {
         {
             draw.set_vertex_buffer(0, vertex_attribute_buffer_id, 0);
         } else {
-            println!("could not find vertex buffer for bevy_sprite::QUAD_HANDLE")
+            println!("Could not find vertex buffer for `bevy_sprite::QUAD_HANDLE`.")
         }
 
         let mut indices = 0..0;
@@ -87,7 +87,7 @@ impl<'a> Drawable for DrawableText<'a> {
             if let Some(buffer_info) = render_resource_context.get_buffer_info(quad_index_buffer) {
                 indices = 0..(buffer_info.size / 4) as u32;
             } else {
-                panic!("expected buffer type");
+                panic!("Expected buffer type.");
             }
         }
 

@@ -90,7 +90,7 @@ impl Entities {
                         id: u32::try_from(self.meta.len())
                             .ok()
                             .and_then(|x| x.checked_add(n))
-                            .expect("too many entities"),
+                            .expect("Too many entities."),
                     }
                 }
                 // The freelist has entities in it, so move the last entry to the reserved list, to

@@ -43,7 +43,7 @@ impl Schedule {
     pub fn add_stage(&mut self, stage: impl Into<Cow<'static, str>>) {
         let stage: Cow<str> = stage.into();
         if self.stages.get(&stage).is_some() {
-            panic!("Stage already exists: {}", stage);
+            panic!("Stage already exists: {}.", stage);
         } else {
             self.stages.insert(stage.clone(), Vec::new());
             self.stage_order.push(stage);
@@ -58,7 +58,7 @@ impl Schedule {
         let target: Cow<str> = target.into();
         let stage: Cow<str> = stage.into();
         if self.stages.get(&stage).is_some() {
-            panic!("Stage already exists: {}", stage);
+            panic!("Stage already exists: {}.", stage);
         }
 
         let target_index = self
@@ -67,7 +67,7 @@ impl Schedule {
             .enumerate()
             .find(|(_i, stage)| **stage == target)
             .map(|(i, _)| i)
-            .unwrap_or_else(|| panic!("Target stage does not exist: {}", target));
+            .unwrap_or_else(|| panic!("Target stage does not exist: {}.", target));
 
         self.stages.insert(stage.clone(), Vec::new());
         self.stage_order.insert(target_index + 1, stage);
@@ -81,7 +81,7 @@ impl Schedule {
         let target: Cow<str> = target.into();
         let stage: Cow<str> = stage.into();
         if self.stages.get(&stage).is_some() {
-            panic!("Stage already exists: {}", stage);
+            panic!("Stage already exists: {}.", stage);
         }
 
         let target_index = self
@@ -90,7 +90,7 @@ impl Schedule {
             .enumerate()
             .find(|(_i, stage)| **stage == target)
             .map(|(i, _)| i)
-            .unwrap_or_else(|| panic!("Target stage does not exist: {}", target));
+            .unwrap_or_else(|| panic!("Target stage does not exist: {}.", target));
 
         self.stages.insert(stage.clone(), Vec::new());
         self.stage_order.insert(target_index, stage);
@@ -125,10 +125,10 @@ impl Schedule {
         let systems = self
             .stages
             .get_mut(&stage_name)
-            .unwrap_or_else(|| panic!("Stage does not exist: {}", stage_name));
+            .unwrap_or_else(|| panic!("Stage does not exist: {}.", stage_name));
         if self.system_ids.contains(&system.id()) {
             panic!(
-                "System with id {:?} ({}) already exists",
+                "System with id {:?} ({}) already exists.",
                 system.id(),
                 system.name()
             );
@@ -163,7 +163,7 @@ impl Schedule {
             .unwrap_or_else(|| panic!("Stage does not exist: {}", stage_name));
         if self.system_ids.contains(&system.id()) {
             panic!(
-                "System with id {:?} ({}) already exists",
+                "System with id {:?} ({}) already exists.",
                 system.id(),
                 system.name()
             );

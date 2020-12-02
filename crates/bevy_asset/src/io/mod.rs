@@ -24,11 +24,11 @@ use thiserror::Error;
 /// Errors that occur while loading assets
 #[derive(Error, Debug)]
 pub enum AssetIoError {
-    #[error("Path not found")]
+    #[error("path not found")]
     NotFound(PathBuf),
-    #[error("Encountered an io error while loading asset.")]
+    #[error("encountered an io error while loading asset")]
     Io(#[from] io::Error),
-    #[error("Failed to watch path")]
+    #[error("failed to watch path")]
     PathWatchError(PathBuf),
 }
 

@@ -34,7 +34,7 @@ impl PipelineLayout {
                                     || binding.name != shader_binding.name
                                     || binding.index != shader_binding.index
                                 {
-                                    panic!("Binding {} in BindGroup {} does not match across all shader types: {:?} {:?}", binding.index, bind_group.index, binding, shader_binding);
+                                    panic!("Binding {} in BindGroup {} does not match across all shader types: {:?} {:?}.", binding.index, bind_group.index, binding, shader_binding);
                                 }
                             } else {
                                 bind_group.bindings.push(shader_binding.clone());

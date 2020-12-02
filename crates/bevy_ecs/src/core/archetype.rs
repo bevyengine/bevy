@@ -59,7 +59,7 @@ impl Archetype {
                 "attempted to allocate entity with duplicate components; \
                  each type must occur at most once!"
             ),
-            core::cmp::Ordering::Greater => panic!("type info is unsorted"),
+            core::cmp::Ordering::Greater => panic!("Type info is unsorted."),
         });
     }
 
@@ -160,7 +160,7 @@ impl Archetype {
             .get(&TypeId::of::<T>())
             .map_or(false, |x| !x.borrow.borrow())
         {
-            panic!("{} already borrowed uniquely", type_name::<T>());
+            panic!("{} already borrowed uniquely.", type_name::<T>());
         }
     }
 
@@ -172,7 +172,7 @@ impl Archetype {
             .get(&TypeId::of::<T>())
             .map_or(false, |x| !x.borrow.borrow_mut())
         {
-            panic!("{} already borrowed", type_name::<T>());
+            panic!("{} already borrowed.", type_name::<T>());
         }
     }
 

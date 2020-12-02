@@ -78,7 +78,7 @@ impl WgpuRenderer {
         {
             let window = windows
                 .get(window_created_event.id)
-                .expect("Received window created event for non-existent window");
+                .expect("Received window created event for non-existent window.");
             #[cfg(feature = "bevy_winit")]
             {
                 let winit_windows = resources.get::<bevy_winit::WinitWindows>().unwrap();

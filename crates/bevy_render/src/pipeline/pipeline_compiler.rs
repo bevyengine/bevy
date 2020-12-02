@@ -221,7 +221,7 @@ impl PipelineCompiler {
                     .push(compiled_vertex_attribute);
             } else {
                 panic!(
-                    "Attribute {} is required by shader, but not supplied by mesh. Either remove the attribute from the shader or supply the attribute ({}) to the mesh. ",
+                    "Attribute {} is required by shader, but not supplied by mesh. Either remove the attribute from the shader or supply the attribute ({}) to the mesh.",
                     shader_vertex_attribute.name,
                     shader_vertex_attribute.name,
                 );
