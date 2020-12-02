@@ -1,10 +1,13 @@
-use bevy::prelude::*;
-extern crate rand;
+use bevy::{
+    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
+    prelude::*,
+};
 
 /// This example is for debugging text layout
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
+        .add_plugin(FrameTimeDiagnosticsPlugin)
         .add_startup_system(infotext_system)
         .add_system(change_text_system)
         .run();
@@ -83,7 +86,7 @@ fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
                 value: "This text changes in the bottom right".to_string(),
                 font: font.clone(),
                 style: TextStyle {
-                    font_size: 50.0,
+                    font_size: 30.0,
                     color: Color::WHITE,
                     alignment: TextAlignment::default(),
                 },
@@ -120,11 +123,23 @@ fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
     });
 }
 
-fn change_text_system(mut query: Query<(&mut Text, &TextChanges)>) {
+fn change_text_system(
+    time: Res<Time>,
+    diagnostics: Res<Diagnostics>,
+    mut query: Query<(&mut Text, &TextChanges)>,
+) {
     for (mut text, _text_changes) in query.iter_mut() {
+        let mut fps = 0.0;
+        if let Some(fps_diagnostic) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
+            if let Some(fps_avg) = fps_diagnostic.average() {
+                fps = fps_avg;
+            }
+        }
+
         text.value = format!(
-            "This text changes in the bottom right {}",
-            rand::random::<u16>(),
+            "This text changes in the bottom right - {:.1} fps, {:.3} ms/frame",
+            fps,
+            time.delta_seconds_f64() * 1000.0,
         );
     }
 }
