@@ -519,12 +519,6 @@ impl TypeInfo {
     pub(crate) unsafe fn drop(&self, data: *mut u8) {
         (self.drop)(data)
     }
-
-    #[allow(missing_docs)]
-    #[inline]
-    pub fn type_name(&self) -> &'static str {
-        self.type_name
-    }
 }
 
 impl PartialOrd for TypeInfo {
