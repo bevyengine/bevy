@@ -194,7 +194,7 @@ impl Commands {
     ///
     /// Note that `components` is a bundle. If you would like to spawn an entity with a single component, consider wrapping the component in a tuple (which `DynamicBundle` is implemented for).
     ///
-    /// See `set_current_entity`, `insert`.
+    /// See [`Commands::set_current_entity`], [`Commands::insert`].
     ///
     /// # Example
     ///
@@ -249,7 +249,7 @@ impl Commands {
 
     /// Inserts a bundle of components into `entity`.
     ///
-    /// See `World::insert`.
+    /// See [`World::insert`].
     pub fn insert(
         &mut self,
         entity: Entity,
@@ -260,7 +260,7 @@ impl Commands {
 
     /// Inserts a single component into `entity`.
     ///
-    /// See `World::insert_one`.
+    /// See [`World::insert_one`].
     pub fn insert_one(&mut self, entity: Entity, component: impl Component) -> &mut Self {
         self.add_command(InsertOne { entity, component })
     }
@@ -280,7 +280,7 @@ impl Commands {
         })
     }
 
-    /// See `World::remove_one`.
+    /// See [`World::remove_one`].
     pub fn remove_one<T>(&mut self, entity: Entity) -> &mut Self
     where
         T: Component,
@@ -291,7 +291,7 @@ impl Commands {
         })
     }
 
-    /// See `World::remove`.
+    /// See [`World::remove`].
     pub fn remove<T>(&mut self, entity: Entity) -> &mut Self
     where
         T: Bundle + Send + Sync + 'static,
@@ -304,7 +304,7 @@ impl Commands {
 
     /// Adds a bundle of components to the current entity.
     ///
-    /// See `with`, `current_entity`.
+    /// See [`Commands::with`], [`Commands::current_entity`].
     pub fn with_bundle(
         &mut self,
         components: impl DynamicBundle + Send + Sync + 'static,
@@ -319,7 +319,7 @@ impl Commands {
 
     /// Adds a single component to the current entity.
     ///
-    /// See `with_bundle`, `current_entity`.
+    /// See [`Commands::with_bundle`], [`Commands::current_entity`].
     ///
     /// # Warning
     ///
@@ -362,13 +362,13 @@ impl Commands {
         self
     }
 
-    /// Adds a command directly to the command list. If `command` is boxed, call `add_command_boxed`.
+    /// Adds a command directly to the command list. Prefer this to `add_command_boxed` if the type of |command| is statically known.
     pub fn add_command<C: Command + 'static>(&mut self, command: C) -> &mut Self {
         self.commands.push(Box::new(command));
         self
     }
 
-    /// See `add_command`.
+    /// See [`Commands::add_command`].
     pub fn add_command_boxed(&mut self, command: Box<dyn Command>) -> &mut Self {
         self.commands.push(command);
         self
