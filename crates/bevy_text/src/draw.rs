@@ -5,10 +5,7 @@ use bevy_render::{
     mesh,
     pipeline::{PipelineSpecialization, VertexBufferDescriptor},
     prelude::Msaa,
-    renderer::{
-        AssetRenderResourceBindings, BindGroup, BufferUsage, RenderResourceBindings,
-        RenderResourceId,
-    },
+    renderer::{AssetRenderResourceBindings, BindGroup, RenderResourceBindings, RenderResourceId},
 };
 use bevy_sprite::TextureAtlasSprite;
 use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
@@ -108,14 +105,8 @@ impl<'a> Drawable for DrawableText<'a> {
 
             let transform = Mat4::from_translation(self.position + tv.position.extend(0.));
 
-            let transform_buffer = context
-                .shared_buffers
-                .get_buffer(&transform, BufferUsage::UNIFORM)
-                .unwrap();
-            let sprite_buffer = context
-                .shared_buffers
-                .get_buffer(&sprite, BufferUsage::UNIFORM)
-                .unwrap();
+            let transform_buffer = context.get_uniform_buffer(&transform).unwrap();
+            let sprite_buffer = context.get_uniform_buffer(&sprite).unwrap();
             let sprite_bind_group = BindGroup::build()
                 .add_binding(0, transform_buffer)
                 .add_binding(1, sprite_buffer)
