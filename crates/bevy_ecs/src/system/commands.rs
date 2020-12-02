@@ -16,7 +16,7 @@ pub(crate) struct Spawn<T>
 where
     T: DynamicBundle + Send + Sync + 'static,
 {
-    components: T,
+    bundle: T,
 }
 
 impl<T> Command for Spawn<T>
@@ -24,7 +24,7 @@ where
     T: DynamicBundle + Send + Sync + 'static,
 {
     fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
-        world.spawn(self.components);
+        world.spawn(self.bundle);
     }
 }
 
@@ -33,7 +33,7 @@ where
     I: IntoIterator,
     I::Item: Bundle,
 {
-    components_iter: I,
+    bundles_iter: I,
 }
 
 impl<I> Command for SpawnBatch<I>
@@ -42,7 +42,7 @@ where
     I::Item: Bundle,
 {
     fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
-        world.spawn_batch(self.components_iter);
+        world.spawn_batch(self.bundles_iter);
     }
 }
 
@@ -64,7 +64,7 @@ where
     T: DynamicBundle + Send + Sync + 'static,
 {
     entity: Entity,
-    components: T,
+    bundle: T,
 }
 
 impl<T> Command for Insert<T>
@@ -72,7 +72,7 @@ where
     T: DynamicBundle + Send + Sync + 'static,
 {
     fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
-        world.insert(self.entity, self.components).unwrap();
+        world.insert(self.entity, self.bundle).unwrap();
     }
 }
 
@@ -190,9 +190,9 @@ pub struct Commands {
 }
 
 impl Commands {
-    /// Creates a new entity and calls `insert` with the it and `components`.
+    /// Creates a new entity and calls `insert` with the it and `bundle`.
     ///
-    /// Note that `components` is a bundle. If you would like to spawn an entity with a single component, consider wrapping the component in a tuple (which `DynamicBundle` is implemented for).
+    /// Note that `bundle` is a bundle. If you would like to spawn an entity with a single component, consider wrapping the component in a tuple (which `Bundle` is implemented for).
     ///
     /// See [`Commands::set_current_entity`], [`Commands::insert`].
     ///
@@ -222,24 +222,24 @@ impl Commands {
     ///     commands.spawn((Component2,));
     /// }
     /// ```
-    pub fn spawn(&mut self, components: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
+    pub fn spawn(&mut self, bundle: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
         let entity = self
             .entity_reserver
             .as_ref()
             .expect("entity reserver has not been set")
             .reserve_entity();
         self.set_current_entity(entity);
-        self.insert(entity, components);
+        self.insert(entity, bundle);
         self
     }
 
-    /// Equivalent to iterating of `components_iter` and calling `spawn` on each bundle, but slightly more performant.
-    pub fn spawn_batch<I>(&mut self, components_iter: I) -> &mut Self
+    /// Equivalent to iterating of `bundles_iter` and calling `spawn` on each bundle, but slightly more performant.
+    pub fn spawn_batch<I>(&mut self, bundles_iter: I) -> &mut Self
     where
         I: IntoIterator + Send + Sync + 'static,
         I::Item: Bundle,
     {
-        self.add_command(SpawnBatch { components_iter })
+        self.add_command(SpawnBatch { bundles_iter })
     }
 
     /// Despawns only the specified entity, ignoring any other consideration.
@@ -253,9 +253,9 @@ impl Commands {
     pub fn insert(
         &mut self,
         entity: Entity,
-        components: impl DynamicBundle + Send + Sync + 'static,
+        bundle: impl DynamicBundle + Send + Sync + 'static,
     ) -> &mut Self {
-        self.add_command(Insert { entity, components })
+        self.add_command(Insert { entity, bundle })
     }
 
     /// Inserts a single component into `entity`.
@@ -305,14 +305,11 @@ impl Commands {
     /// Adds a bundle of components to the current entity.
     ///
     /// See [`Commands::with`], [`Commands::current_entity`].
-    pub fn with_bundle(
-        &mut self,
-        components: impl DynamicBundle + Send + Sync + 'static,
-    ) -> &mut Self {
-        let current_entity =  self.current_entity.expect("Cannot add components because the 'current entity' is not set. You should spawn an entity first.");
+    pub fn with_bundle(&mut self, bundle: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
+        let current_entity =  self.current_entity.expect("Cannot add bundle because the 'current entity' is not set. You should spawn an entity first.");
         self.commands.push(Box::new(Insert {
             entity: current_entity,
-            components,
+            bundle,
         }));
         self
     }
