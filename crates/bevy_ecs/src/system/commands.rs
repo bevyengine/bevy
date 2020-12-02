@@ -243,6 +243,8 @@ impl Commands {
     }
 
     /// Despawns only the specified entity, ignoring any other consideration.
+    ///
+    /// Note that this does not recursively despawn and entity's children.
     pub fn despawn(&mut self, entity: Entity) -> &mut Self {
         self.add_command(Despawn { entity })
     }
