@@ -12,12 +12,9 @@ pub use bevy_utils::tracing::{
 };
 
 use bevy_app::{AppBuilder, Plugin};
-use tracing_subscriber::{
-    fmt::{format::DefaultFields, FormattedFields},
-    prelude::*,
-    registry::Registry,
-    EnvFilter,
-};
+#[cfg(feature = "tracing-chrome")]
+use tracing_subscriber::fmt::{format::DefaultFields, FormattedFields};
+use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 
 /// Adds logging to Apps.
 #[derive(Default)]
