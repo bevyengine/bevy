@@ -22,9 +22,9 @@ pub struct TextureAtlasBuilder {
     /// The grouped rects which must be placed with a key value pair of a
     /// texture handle to an index.
     rects_to_place: GroupedRectsToPlace<Handle<Texture>>,
-    /// The sprite size in pixels.
+    /// The initial atlas size in pixels.
     initial_size: Vec2,
-    /// The absolute maximum size of a sprite sheet in pixels.
+    /// The absolute maximum size of the texture atlas in pixels.
     max_size: Vec2,
 }
 
