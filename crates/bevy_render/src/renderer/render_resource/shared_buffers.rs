@@ -6,8 +6,8 @@ use crate::{
 use bevy_ecs::{Res, ResMut};
 
 pub struct SharedBuffers {
-    staging_buffer: BufferId,
-    uniform_buffer: BufferId,
+    staging_buffer: Option<BufferId>,
+    uniform_buffer: Option<BufferId>,
     buffers_to_free: Vec<BufferId>,
     buffer_size: usize,
     initial_size: usize,
@@ -18,8 +18,8 @@ pub struct SharedBuffers {
 impl SharedBuffers {
     pub fn new(initial_size: usize) -> Self {
         Self {
-            staging_buffer: BufferId::new(), // non-existent buffer
-            uniform_buffer: BufferId::new(), // non-existent buffer
+            staging_buffer: None,
+            uniform_buffer: None,
             buffer_size: 0,
             current_offset: 0,
             initial_size,
@@ -33,7 +33,6 @@ impl SharedBuffers {
         render_resource_context: &dyn RenderResourceContext,
         required_space: usize,
     ) {
-        let first_resize = self.buffer_size == 0;
         while self.buffer_size < self.current_offset + required_space {
             self.buffer_size = if self.buffer_size == 0 {
                 self.initial_size
@@ -44,23 +43,25 @@ impl SharedBuffers {
 
         self.current_offset = 0;
 
-        // ignore the initial "dummy buffers"
-        if !first_resize {
-            render_resource_context.unmap_buffer(self.staging_buffer);
-            self.buffers_to_free.push(self.staging_buffer);
-            self.buffers_to_free.push(self.uniform_buffer);
+        if let Some(staging_buffer) = self.staging_buffer.take() {
+            render_resource_context.unmap_buffer(staging_buffer);
+            self.buffers_to_free.push(staging_buffer);
         }
 
-        self.staging_buffer = render_resource_context.create_buffer(BufferInfo {
+        if let Some(uniform_buffer) = self.uniform_buffer.take() {
+            self.buffers_to_free.push(uniform_buffer);
+        }
+
+        self.staging_buffer = Some(render_resource_context.create_buffer(BufferInfo {
             size: self.buffer_size,
             buffer_usage: BufferUsage::MAP_WRITE | BufferUsage::COPY_SRC,
             mapped_at_creation: true,
-        });
-        self.uniform_buffer = render_resource_context.create_buffer(BufferInfo {
+        }));
+        self.uniform_buffer = Some(render_resource_context.create_buffer(BufferInfo {
             size: self.buffer_size,
             buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
             mapped_at_creation: false,
-        });
+        }));
     }
 
     pub fn get_uniform_buffer<T: RenderResource>(
@@ -78,9 +79,10 @@ impl SharedBuffers {
             }
 
             let range = self.current_offset as u64..new_offset as u64;
-
+            let staging_buffer = self.staging_buffer.unwrap();
+            let uniform_buffer = self.uniform_buffer.unwrap();
             render_resource_context.write_mapped_buffer(
-                self.staging_buffer,
+                staging_buffer,
                 range.clone(),
                 &mut |data, _renderer| {
                     render_resource.write_buffer_bytes(data);
@@ -88,16 +90,16 @@ impl SharedBuffers {
             );
 
             self.command_queue.copy_buffer_to_buffer(
-                self.staging_buffer,
+                staging_buffer,
                 self.current_offset as u64,
-                self.uniform_buffer,
+                uniform_buffer,
                 self.current_offset as u64,
                 aligned_size as u64,
             );
 
             self.current_offset = new_offset;
             Some(RenderResourceBinding::Buffer {
-                buffer: self.uniform_buffer,
+                buffer: uniform_buffer,
                 range,
                 dynamic_index: None,
             })
@@ -111,11 +113,16 @@ impl SharedBuffers {
         for buffer in self.buffers_to_free.drain(..) {
             render_resource_context.remove_buffer(buffer)
         }
-        render_resource_context.map_buffer(self.staging_buffer);
+
+        if let Some(staging_buffer) = self.staging_buffer {
+            render_resource_context.map_buffer(staging_buffer);
+        }
     }
 
     pub fn apply(&mut self, render_context: &mut dyn RenderContext) {
-        render_context.resources().unmap_buffer(self.staging_buffer);
+        if let Some(staging_buffer) = self.staging_buffer {
+            render_context.resources().unmap_buffer(staging_buffer);
+        }
         let mut command_queue = std::mem::take(&mut self.command_queue);
         command_queue.execute(render_context);
     }
