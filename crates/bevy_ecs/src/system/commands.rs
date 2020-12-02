@@ -181,6 +181,7 @@ impl<T: Resource> Command for InsertLocalResource<T> {
     }
 }
 
+/// A list of commands that will be run to populate a `World` and `Resources`.
 #[derive(Default)]
 pub struct Commands {
     commands: Vec<Box<dyn Command>>,
@@ -189,17 +190,50 @@ pub struct Commands {
 }
 
 impl Commands {
+    /// Creates a new entity and calls `insert` with the it and `components`.
+    ///
+    /// Note that `components` is a bundle. If you would like to spawn an entity with a single component, consider wrapping the component in a tuple (which `DynamicBundle` is implemented for).
+    ///
+    /// See `set_current_entity`, `insert`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// struct Component1;
+    /// struct Component2;
+    ///
+    /// #[derive(Bundle)]
+    /// struct ExampleBundle {
+    ///     a: Component1,
+    ///     b: Component2,
+    /// }
+    ///
+    /// fn example_system(mut commands: Commands) {
+    ///     // Create a new entity with a component bundle.
+    ///     commands.spawn(ExampleBundle {
+    ///         a: Component1,
+    ///         b: Component2,
+    ///     });
+    ///
+    ///     // Create new entities with a single component each.
+    ///     commands.spawn((Component1,));
+    ///     commands.spawn((Component2,));
+    /// }
+    /// ```
     pub fn spawn(&mut self, components: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
         let entity = self
             .entity_reserver
             .as_ref()
             .expect("entity reserver has not been set")
             .reserve_entity();
-        self.current_entity = Some(entity);
-        self.commands.push(Box::new(Insert { entity, components }));
+        self.set_current_entity(entity);
+        self.insert(entity, components);
         self
     }
 
+    /// Equivalent to iterating of `components_iter` and calling `spawn` on each bundle, but slightly more performant.
     pub fn spawn_batch<I>(&mut self, components_iter: I) -> &mut Self
     where
         I: IntoIterator + Send + Sync + 'static,
@@ -213,6 +247,9 @@ impl Commands {
         self.add_command(Despawn { entity })
     }
 
+    /// Inserts a bundle of components into `entity`.
+    ///
+    /// See `World::insert`.
     pub fn insert(
         &mut self,
         entity: Entity,
@@ -221,6 +258,9 @@ impl Commands {
         self.add_command(Insert { entity, components })
     }
 
+    /// Inserts a single component into `entity`.
+    ///
+    /// See `World::insert_one`.
     pub fn insert_one(&mut self, entity: Entity, component: impl Component) -> &mut Self {
         self.add_command(InsertOne { entity, component })
     }
@@ -240,6 +280,7 @@ impl Commands {
         })
     }
 
+    /// See `World::remove_one`.
     pub fn remove_one<T>(&mut self, entity: Entity) -> &mut Self
     where
         T: Component,
@@ -250,6 +291,7 @@ impl Commands {
         })
     }
 
+    /// See `World::remove`.
     pub fn remove<T>(&mut self, entity: Entity) -> &mut Self
     where
         T: Bundle + Send + Sync + 'static,
@@ -260,6 +302,9 @@ impl Commands {
         })
     }
 
+    /// Adds a bundle of components to the current entity.
+    ///
+    /// See `with`, `current_entity`.
     pub fn with_bundle(
         &mut self,
         components: impl DynamicBundle + Send + Sync + 'static,
@@ -272,6 +317,42 @@ impl Commands {
         self
     }
 
+    /// Adds a single component to the current entity.
+    ///
+    /// See `with_bundle`, `current_entity`.
+    ///
+    /// # Warning
+    ///
+    /// It's possible to call this with a bundle, but this is likely not intended and `with_bundle` should be used instead. If `with` is called with a bundle, the bundle itself will be added as a component instead of the bundles' inner components each being added.
+    ///
+    /// # Example
+    ///
+    /// `with` can be chained with `spawn`.
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// struct Component1;
+    /// struct Component2;
+    ///
+    /// fn example_system(mut commands: Commands) {
+    ///     // Create a new entity with a `Component1` and `Component2`.
+    ///     commands.spawn((Component1,)).with(Component2);
+    ///
+    ///     // Psst! These are also equivalent to the line above!
+    ///     commands.spawn((Component1, Component2));
+    ///     commands.spawn(()).with(Component1).with(Component2);
+    ///     #[derive(Bundle)]
+    ///     struct ExampleBundle {
+    ///         a: Component1,
+    ///         b: Component2,
+    ///     }
+    ///     commands.spawn(()).with_bundle(ExampleBundle {
+    ///         a: Component1,
+    ///         b: Component2,
+    ///     });
+    /// }
+    /// ```
     pub fn with(&mut self, component: impl Component) -> &mut Self {
         let current_entity =  self.current_entity.expect("Cannot add component because the 'current entity' is not set. You should spawn an entity first.");
         self.commands.push(Box::new(InsertOne {
@@ -281,22 +362,26 @@ impl Commands {
         self
     }
 
+    /// Adds a command directly to the command list. If `command` is boxed, call `add_command_boxed`.
     pub fn add_command<C: Command + 'static>(&mut self, command: C) -> &mut Self {
         self.commands.push(Box::new(command));
         self
     }
 
+    /// See `add_command`.
     pub fn add_command_boxed(&mut self, command: Box<dyn Command>) -> &mut Self {
         self.commands.push(command);
         self
     }
 
+    /// Runs all the stored commands on `world` and `resources`. The command buffer is emptied as a part of this call.
     pub fn apply(&mut self, world: &mut World, resources: &mut Resources) {
         for command in self.commands.drain(..) {
             command.write(world, resources);
         }
     }
 
+    /// Returns the current entity, set by `spawn` or with `set_current_entity`.
     pub fn current_entity(&self) -> Option<Entity> {
         self.current_entity
     }
