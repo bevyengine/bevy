@@ -125,6 +125,14 @@ impl Window {
         self.width
     }
 
+    pub fn scaled_width(&self) -> u32 {
+        (self.width as f64 * self.scale_factor) as u32
+    }
+
+    pub fn scaled_height(&self) -> u32 {
+        (self.height as f64 * self.scale_factor) as u32
+    }
+
     #[inline]
     pub fn height(&self) -> u32 {
         self.height
@@ -262,8 +270,8 @@ impl Default for WindowDescriptor {
     fn default() -> Self {
         WindowDescriptor {
             title: "bevy".to_string(),
-            width: 1280,
-            height: 720,
+            width: 800,
+            height: 600,
             vsync: true,
             resizable: true,
             decorations: true,
