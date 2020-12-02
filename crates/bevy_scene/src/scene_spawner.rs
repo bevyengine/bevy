@@ -36,9 +36,9 @@ pub struct SceneSpawner {
 pub enum SceneSpawnError {
     #[error("scene contains an unregistered component")]
     UnregisteredComponent { type_name: String },
-    #[error("scene does not exist, perhaps it is still loading")]
+    #[error("scene does not exist")]
     NonExistentScene { handle: Handle<DynamicScene> },
-    #[error("scene does not exist, perhaps it is still loading")]
+    #[error("scene does not exist")]
     NonExistentRealScene { handle: Handle<Scene> },
 }
 

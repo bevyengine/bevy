@@ -40,7 +40,7 @@ pub fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 
         uuid = Some(
             Uuid::parse_str(&uuid_str.value())
-                .expect("Value specified to `#[uuid]` attribute is not a valid `UUID`."),
+                .expect("Value specified to `#[uuid]` attribute is not a valid UUID."),
         );
     }
 
@@ -79,7 +79,7 @@ impl Parse for ExternalDeriveInput {
 pub fn external_type_uuid(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let ExternalDeriveInput { path, uuid_str } = parse_macro_input!(tokens as ExternalDeriveInput);
 
-    let uuid = Uuid::parse_str(&uuid_str.value()).expect("Value was not a valid `UUID`.");
+    let uuid = Uuid::parse_str(&uuid_str.value()).expect("Value was not a valid UUID.");
 
     let bytes = uuid
         .as_bytes()
