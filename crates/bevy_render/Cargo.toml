@@ -38,7 +38,7 @@ downcast-rs = "1.2.0"
 thiserror = "1.0"
 anyhow = "1.0"
 hex = "0.4.2"
-hexasphere = "2.1.0"
+hexasphere = "3.0.0"
 parking_lot = "0.11.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
