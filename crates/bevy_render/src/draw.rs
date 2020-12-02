@@ -1,7 +1,7 @@
 use crate::{
     pipeline::{PipelineCompiler, PipelineDescriptor, PipelineLayout, PipelineSpecialization},
     renderer::{
-        BindGroup, BindGroupId, BufferId, BufferUsage, RenderResource, RenderResourceBinding,
+        BindGroup, BindGroupId, BufferId, RenderResource, RenderResourceBinding,
         RenderResourceBindings, RenderResourceContext, SharedBuffers,
     },
     shader::Shader,
@@ -125,7 +125,7 @@ pub struct DrawContext<'a> {
     pub shaders: ResMut<'a, Assets<Shader>>,
     pub pipeline_compiler: ResMut<'a, PipelineCompiler>,
     pub render_resource_context: Res<'a, Box<dyn RenderResourceContext>>,
-    pub shared_buffers: Res<'a, SharedBuffers>,
+    pub shared_buffers: ResMut<'a, SharedBuffers>,
     #[system_param(ignore)]
     pub current_pipeline: Option<Handle<PipelineDescriptor>>,
 }
@@ -135,19 +135,11 @@ pub struct FetchDrawContext;
 
 impl<'a> DrawContext<'a> {
     pub fn get_uniform_buffer<T: RenderResource>(
-        &self,
+        &mut self,
         render_resource: &T,
-    ) -> Result<RenderResourceBinding, DrawError> {
-        self.get_buffer(render_resource, BufferUsage::UNIFORM)
-    }
-
-    pub fn get_buffer<T: RenderResource>(
-        &self,
-        render_resource: &T,
-        buffer_usage: BufferUsage,
     ) -> Result<RenderResourceBinding, DrawError> {
         self.shared_buffers
-            .get_buffer(render_resource, buffer_usage)
+            .get_uniform_buffer(&**self.render_resource_context, render_resource)
             .ok_or(DrawError::BufferAllocationFailure)
     }
 
