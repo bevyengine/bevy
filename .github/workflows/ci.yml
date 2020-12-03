@@ -191,4 +191,4 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --all-targets --all-features -- -D warnings -A clippy::type_complexity
+          args: --all-targets --all-features -- -D warnings -A clippy::type_complexity -A clippy::manual-strip
