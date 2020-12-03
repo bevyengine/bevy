@@ -1,5 +1,5 @@
 use bevy_input::{
-    keyboard::{KeyCode, KeyboardInput},
+    keyboard::{KeyCode, KeyModifiers, KeyboardInput},
     mouse::MouseButton,
     touch::{ForceTouch, TouchInput, TouchPhase},
     ElementState,
@@ -56,6 +56,23 @@ pub fn convert_touch_input(
         }),
         id: touch_input.id,
     }
+}
+
+pub fn convert_keyboard_modifiers(src: winit::event::ModifiersState) -> KeyModifiers {
+    let mut result = KeyModifiers::default();
+    if src.shift() {
+        result.set_shift();
+    }
+    if src.ctrl() {
+        result.set_ctrl();
+    }
+    if src.alt() {
+        result.set_alt();
+    }
+    if src.logo() {
+        result.set_logo();
+    }
+    result
 }
 
 pub fn convert_virtual_key_code(virtual_key_code: winit::event::VirtualKeyCode) -> KeyCode {

@@ -240,3 +240,66 @@ pub enum KeyCode {
     Paste,
     Cut,
 }
+
+pub mod modifiers {
+    /// Identifies a key modifier
+    #[derive(Debug, Default, Hash, PartialEq, Eq, Clone, Copy)]
+    #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+    pub struct KeyModifiers(u8);
+
+    macro_rules! key_modifiers_accessors {
+        ( $( $mask:ident => $get:ident , $set:ident , $clear:ident ; )* ) => {
+
+            $(
+
+                pub fn $get (&self) -> bool { self.0 & Self::$mask == Self::$mask }
+
+                pub fn $set (&mut self) { self.0 |= Self::$mask; }
+
+                pub fn $clear (&mut self) { self.0 &= !Self::$mask; }
+
+            )*
+
+
+        }
+    }
+
+    impl KeyModifiers {
+        pub const MASK_ALT: u8 = 4;
+        pub const MASK_CTRL: u8 = 2;
+        pub const MASK_LOGO: u8 = 8;
+        pub const MASK_SHIFT: u8 = 1;
+
+        key_modifiers_accessors! {
+            MASK_SHIFT => has_shift, set_shift, clear_shift;
+            MASK_CTRL  => has_ctrl , set_ctrl , clear_ctrl ;
+            MASK_ALT   => has_alt  , set_alt  , clear_alt  ;
+            MASK_LOGO  => has_logo , set_logo , clear_logo ;
+        }
+
+        pub fn from_raw(value: u8) -> Option<Self> {
+            if (value & !(Self::MASK_SHIFT | Self::MASK_CTRL | Self::MASK_ALT | Self::MASK_LOGO))
+                == 0
+            {
+                Some(Self(value))
+            } else {
+                None
+            }
+        }
+    }
+
+    impl std::ops::BitOr for KeyModifiers {
+        type Output = Self;
+
+        fn bitor(self, rhs: Self) -> Self::Output {
+            Self(self.0 | rhs.0)
+        }
+    }
+
+    pub const SHIFT: KeyModifiers = KeyModifiers(KeyModifiers::MASK_SHIFT);
+    pub const CTRL: KeyModifiers = KeyModifiers(KeyModifiers::MASK_CTRL);
+    pub const ALT: KeyModifiers = KeyModifiers(KeyModifiers::MASK_ALT);
+    pub const LOGO: KeyModifiers = KeyModifiers(KeyModifiers::MASK_LOGO);
+}
+
+pub use modifiers::KeyModifiers;

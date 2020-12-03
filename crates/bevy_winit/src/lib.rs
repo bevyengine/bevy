@@ -2,7 +2,7 @@ mod converters;
 mod winit_config;
 mod winit_windows;
 use bevy_input::{
-    keyboard::KeyboardInput,
+    keyboard::{KeyModifiers, KeyboardInput},
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
     touch::TouchInput,
 };
@@ -219,6 +219,10 @@ pub fn winit_runner(mut app: App) {
                     let mut keyboard_input_events =
                         app.resources.get_mut::<Events<KeyboardInput>>().unwrap();
                     keyboard_input_events.send(converters::convert_keyboard_input(input));
+                }
+                WindowEvent::ModifiersChanged(modifiers) => {
+                    let mut keyboard_modifiers = app.resources.get_mut::<KeyModifiers>().unwrap();
+                    *keyboard_modifiers = converters::convert_keyboard_modifiers(modifiers);
                 }
                 WindowEvent::CursorMoved { position, .. } => {
                     let mut cursor_moved_events =

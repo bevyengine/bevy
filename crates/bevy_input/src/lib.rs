@@ -23,7 +23,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use keyboard::{keyboard_input_system, KeyCode, KeyboardInput};
+use keyboard::{keyboard_input_system, KeyCode, KeyModifiers, KeyboardInput};
 use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel};
 use touch::{touch_screen_input_system, TouchInput, Touches};
 
@@ -44,6 +44,7 @@ impl Plugin for InputPlugin {
             .add_event::<MouseMotion>()
             .add_event::<MouseWheel>()
             .init_resource::<Input<KeyCode>>()
+            .init_resource::<KeyModifiers>()
             .add_system_to_stage(bevy_app::stage::EVENT, keyboard_input_system)
             .init_resource::<Input<MouseButton>>()
             .add_system_to_stage(bevy_app::stage::EVENT, mouse_button_input_system)
