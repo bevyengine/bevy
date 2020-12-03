@@ -94,10 +94,14 @@ fn change_window(_: &mut World, resources: &mut Resources) {
                     let window = winit_windows.get_window(id).unwrap();
                     window.set_cursor_visible(visible);
                 }
-                bevy_window::WindowCommand::SetCursorPosition { x, y } => {
+                bevy_window::WindowCommand::SetCursorPosition { position } => {
                     let window = winit_windows.get_window(id).unwrap();
+                    let inner_size = window.inner_size().to_logical::<f32>(window.scale_factor());
                     window
-                        .set_cursor_position(winit::dpi::LogicalPosition::new(x, y))
+                        .set_cursor_position(winit::dpi::LogicalPosition::new(
+                            position.x,
+                            inner_size.height - position.y,
+                        ))
                         .unwrap_or_else(|e| error!("Unable to set cursor position: {}", e));
                 }
             }

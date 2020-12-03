@@ -80,8 +80,7 @@ pub enum WindowCommand {
         visible: bool,
     },
     SetCursorPosition {
-        x: i32,
-        y: i32,
+        position: Vec2,
     },
 }
 
@@ -237,9 +236,9 @@ impl Window {
         self.cursor_position
     }
 
-    pub fn set_cursor_position(&mut self, x: i32, y: i32) {
+    pub fn set_cursor_position(&mut self, position: Vec2) {
         self.command_queue
-            .push(WindowCommand::SetCursorPosition { x, y });
+            .push(WindowCommand::SetCursorPosition { position });
     }
 
     #[allow(missing_docs)]
