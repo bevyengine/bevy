@@ -9,36 +9,51 @@ use rectangle_pack::{
 };
 use thiserror::Error;
 
-#[derive(Debug)]
-pub struct TextureAtlasBuilder {
-    pub textures: Vec<Handle<Texture>>,
-    pub rects_to_place: GroupedRectsToPlace<Handle<Texture>>,
-    pub initial_size: Vec2,
-    pub max_size: Vec2,
-}
-
-impl Default for TextureAtlasBuilder {
-    fn default() -> Self {
-        Self::new(Vec2::new(256., 256.), Vec2::new(2048., 2048.))
-    }
-}
-
 #[derive(Debug, Error)]
-pub enum RectanglePackError {
+pub enum TextureAtlasBuilderError {
     #[error("could not pack textures into an atlas within the given bounds")]
     NotEnoughSpace,
 }
 
-impl TextureAtlasBuilder {
-    pub fn new(initial_size: Vec2, max_size: Vec2) -> Self {
+#[derive(Debug)]
+/// A builder which is used to create a texture atlas from many individual
+/// sprites.
+pub struct TextureAtlasBuilder {
+    /// The grouped rects which must be placed with a key value pair of a
+    /// texture handle to an index.
+    rects_to_place: GroupedRectsToPlace<Handle<Texture>>,
+    /// The initial atlas size in pixels.
+    initial_size: Vec2,
+    /// The absolute maximum size of the texture atlas in pixels.
+    max_size: Vec2,
+}
+
+impl Default for TextureAtlasBuilder {
+    fn default() -> Self {
         Self {
-            textures: Default::default(),
             rects_to_place: GroupedRectsToPlace::new(),
-            initial_size,
-            max_size,
+            initial_size: Vec2::new(256., 256.),
+            max_size: Vec2::new(2048., 2048.),
         }
     }
+}
 
+pub type TextureAtlasBuilderResult<T> = Result<T, TextureAtlasBuilderError>;
+
+impl TextureAtlasBuilder {
+    /// Sets the initial size of the atlas in pixels.
+    pub fn initial_size(mut self, size: Vec2) -> Self {
+        self.initial_size = size;
+        self
+    }
+
+    /// Sets the max size of the atlas in pixels.
+    pub fn max_size(mut self, size: Vec2) -> Self {
+        self.max_size = size;
+        self
+    }
+
+    /// Adds a texture to be copied to the texture atlas.
     pub fn add_texture(&mut self, texture_handle: Handle<Texture>, texture: &Texture) {
         self.rects_to_place.push_rect(
             texture_handle,
@@ -47,7 +62,7 @@ impl TextureAtlasBuilder {
         )
     }
 
-    fn place_texture(
+    fn copy_texture(
         &mut self,
         atlas_texture: &mut Texture,
         texture: &Texture,
@@ -70,10 +85,21 @@ impl TextureAtlasBuilder {
         }
     }
 
+    /// Consumes the builder and returns a result with a new texture atlas.
+    ///
+    /// Internally it copies all rectangles from the textures and copies them
+    /// into a new texture which the texture atlas will use. It is not useful to
+    /// hold a strong handle to the texture afterwards else it will exist twice
+    /// in memory.
+    ///
+    /// # Errors
+    ///
+    /// If there is not enough space in the atlas texture, an error will
+    /// be returned. It is then recommended to make a larger sprite sheet.
     pub fn finish(
         mut self,
         textures: &mut Assets<Texture>,
-    ) -> Result<TextureAtlas, RectanglePackError> {
+    ) -> Result<TextureAtlas, TextureAtlasBuilderError> {
         let initial_width = self.initial_size.x as u32;
         let initial_height = self.initial_size.y as u32;
         let max_width = self.max_size.x as u32;
@@ -120,7 +146,7 @@ impl TextureAtlasBuilder {
             }
         }
 
-        let rect_placements = rect_placements.ok_or(RectanglePackError::NotEnoughSpace)?;
+        let rect_placements = rect_placements.ok_or(TextureAtlasBuilderError::NotEnoughSpace)?;
 
         let mut texture_rects = Vec::with_capacity(rect_placements.packed_locations().len());
         let mut texture_handles = HashMap::default();
@@ -134,7 +160,7 @@ impl TextureAtlasBuilder {
                 );
             texture_handles.insert(texture_handle.clone_weak(), texture_rects.len());
             texture_rects.push(Rect { min, max });
-            self.place_texture(&mut atlas_texture, texture, packed_location);
+            self.copy_texture(&mut atlas_texture, texture, packed_location);
         }
         Ok(TextureAtlas {
             size: atlas_texture.size.as_vec3().truncate(),
