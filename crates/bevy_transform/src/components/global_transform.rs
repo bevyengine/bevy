@@ -1,9 +1,10 @@
 use super::Transform;
 use bevy_math::{Mat3, Mat4, Quat, Vec3};
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, ReflectComponent};
 use std::ops::Mul;
 
 #[derive(Debug, PartialEq, Clone, Copy, Reflect)]
+#[reflect(Component)]
 pub struct GlobalTransform {
     pub translation: Vec3,
     pub rotation: Quat,

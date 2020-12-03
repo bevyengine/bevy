@@ -1,9 +1,9 @@
 use bevy_ecs::{Entity, FromResources, MapEntities};
-use bevy_reflect::{Reflect, ReflectMapEntities};
+use bevy_reflect::{Reflect, ReflectComponent, ReflectMapEntities};
 use std::ops::{Deref, DerefMut};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Reflect)]
-#[reflect(MapEntities)]
+#[reflect(Component, MapEntities)]
 pub struct Parent(pub Entity);
 
 // TODO: We need to impl either FromResources or Default so Parent can be registered as Properties.
@@ -41,7 +41,7 @@ impl DerefMut for Parent {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Reflect)]
-#[reflect(MapEntities)]
+#[reflect(Component, MapEntities)]
 pub struct PreviousParent(pub(crate) Entity);
 
 impl MapEntities for PreviousParent {

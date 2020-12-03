@@ -1,5 +1,5 @@
 use crate::Node;
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{Assets, HandleUntyped};
 use bevy_ecs::Resources;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
@@ -18,8 +18,8 @@ use bevy_render::{
     texture::TextureFormat,
 };
 
-pub const UI_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
-    Handle::weak_from_u64(PipelineDescriptor::TYPE_UUID, 3234320022263993878);
+pub const UI_PIPELINE_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 3234320022263993878);
 
 pub fn build_ui_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
     PipelineDescriptor {

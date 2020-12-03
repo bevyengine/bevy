@@ -3,6 +3,7 @@ use bevy_render::{
     color::Color,
     draw::{Draw, DrawContext, DrawError, Drawable},
     mesh,
+    mesh::Mesh,
     pipeline::{PipelineSpecialization, VertexBufferDescriptor},
     prelude::Msaa,
     renderer::{AssetRenderResourceBindings, BindGroup, RenderResourceBindings, RenderResourceId},
@@ -58,7 +59,7 @@ impl<'a> Drawable for DrawableText<'a> {
     fn draw(&mut self, draw: &mut Draw, context: &mut DrawContext) -> Result<(), DrawError> {
         context.set_pipeline(
             draw,
-            &bevy_sprite::SPRITE_SHEET_PIPELINE_HANDLE,
+            &bevy_sprite::SPRITE_SHEET_PIPELINE_HANDLE.typed(),
             &PipelineSpecialization {
                 sample_count: self.msaa.samples,
                 vertex_buffer_descriptor: self.font_quad_vertex_descriptor.clone(),
@@ -69,7 +70,10 @@ impl<'a> Drawable for DrawableText<'a> {
         let render_resource_context = &**context.render_resource_context;
 
         if let Some(RenderResourceId::Buffer(vertex_attribute_buffer_id)) = render_resource_context
-            .get_asset_resource(&bevy_sprite::QUAD_HANDLE, mesh::VERTEX_ATTRIBUTE_BUFFER_ID)
+            .get_asset_resource(
+                &bevy_sprite::QUAD_HANDLE.typed::<Mesh>(),
+                mesh::VERTEX_ATTRIBUTE_BUFFER_ID,
+            )
         {
             draw.set_vertex_buffer(0, vertex_attribute_buffer_id, 0);
         } else {
@@ -78,7 +82,10 @@ impl<'a> Drawable for DrawableText<'a> {
 
         let mut indices = 0..0;
         if let Some(RenderResourceId::Buffer(quad_index_buffer)) = render_resource_context
-            .get_asset_resource(&bevy_sprite::QUAD_HANDLE, mesh::INDEX_BUFFER_ASSET_INDEX)
+            .get_asset_resource(
+                &bevy_sprite::QUAD_HANDLE.typed::<Mesh>(),
+                mesh::INDEX_BUFFER_ASSET_INDEX,
+            )
         {
             draw.set_index_buffer(quad_index_buffer, 0);
             if let Some(buffer_info) = render_resource_context.get_buffer_info(quad_index_buffer) {

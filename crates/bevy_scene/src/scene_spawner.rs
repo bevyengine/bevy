@@ -34,8 +34,10 @@ pub struct SceneSpawner {
 
 #[derive(Error, Debug)]
 pub enum SceneSpawnError {
-    #[error("scene contains an unregistered component")]
+    #[error("scene contains the unregistered component `{type_name}`. consider adding `#[reflect(Component)]` to your type")]
     UnregisteredComponent { type_name: String },
+    #[error("scene contains the unregistered type `{type_name}`. consider registering the type using `app.register_type::<T>()`")]
+    UnregisteredType { type_name: String },
     #[error("scene does not exist")]
     NonExistentScene { handle: Handle<DynamicScene> },
     #[error("scene does not exist")]
@@ -118,7 +120,7 @@ impl SceneSpawner {
             for component in scene_entity.components.iter() {
                 let registration = type_registry
                     .get_with_name(component.type_name())
-                    .ok_or_else(|| SceneSpawnError::UnregisteredComponent {
+                    .ok_or_else(|| SceneSpawnError::UnregisteredType {
                         type_name: component.type_name().to_string(),
                     })?;
                 let reflect_component =
@@ -166,17 +168,24 @@ impl SceneSpawner {
                     .entry(*scene_entity)
                     .or_insert_with(|| world.reserve_entity());
                 for type_info in archetype.types() {
-                    if let Some(registration) = type_registry.get(type_info.id()) {
-                        if let Some(component_reflect) = registration.data::<ReflectComponent>() {
-                            component_reflect.copy_component(
-                                &scene.world,
-                                world,
-                                resources,
-                                *scene_entity,
-                                entity,
-                            );
+                    let registration = type_registry.get(type_info.id()).ok_or_else(|| {
+                        SceneSpawnError::UnregisteredType {
+                            type_name: type_info.type_name().to_string(),
                         }
-                    }
+                    })?;
+                    let reflect_component =
+                        registration.data::<ReflectComponent>().ok_or_else(|| {
+                            SceneSpawnError::UnregisteredComponent {
+                                type_name: registration.name().to_string(),
+                            }
+                        })?;
+                    reflect_component.copy_component(
+                        &scene.world,
+                        world,
+                        resources,
+                        *scene_entity,
+                        entity,
+                    );
                 }
             }
         }
@@ -278,7 +287,9 @@ pub fn scene_spawner_system(world: &mut World, resources: &mut Resources) {
     }
 
     scene_spawner.despawn_queued_scenes(world).unwrap();
-    scene_spawner.spawn_queued_scenes(world, resources).unwrap();
+    scene_spawner
+        .spawn_queued_scenes(world, resources)
+        .unwrap_or_else(|err| panic!("{}", err));
     scene_spawner
         .update_spawned_scenes(world, resources, &updated_spawned_scenes)
         .unwrap();

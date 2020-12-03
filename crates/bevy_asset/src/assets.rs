@@ -3,6 +3,7 @@ use crate::{
 };
 use bevy_app::{prelude::Events, AppBuilder};
 use bevy_ecs::{FromResources, ResMut};
+use bevy_reflect::RegisterTypeBuilder;
 use bevy_utils::HashMap;
 use crossbeam_channel::Sender;
 use std::fmt::Debug;
@@ -219,6 +220,7 @@ impl AddAsset for AppBuilder {
         self.add_resource(assets)
             .add_system_to_stage(super::stage::ASSET_EVENTS, Assets::<T>::asset_event_system)
             .add_system_to_stage(crate::stage::LOAD_ASSETS, update_asset_storage_system::<T>)
+            .register_type::<Handle<T>>()
             .add_event::<AssetEvent<T>>()
     }
 
