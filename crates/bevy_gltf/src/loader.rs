@@ -239,7 +239,7 @@ fn load_node(
                 };
 
                 node.with(Camera {
-                    name: Some(base::camera::CAMERA2D.to_owned()),
+                    name: Some(base::camera::CAMERA_2D.to_owned()),
                     projection_matrix: orthographic_projection.get_projection_matrix(),
                     ..Default::default()
                 });
@@ -258,7 +258,7 @@ fn load_node(
                     perspective_projection.aspect_ratio = aspect_ratio;
                 }
                 node.with(Camera {
-                    name: Some(base::camera::CAMERA3D.to_owned()),
+                    name: Some(base::camera::CAMERA_3D.to_owned()),
                     projection_matrix: perspective_projection.get_projection_matrix(),
                     ..Default::default()
                 });

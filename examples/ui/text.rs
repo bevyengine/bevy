@@ -29,7 +29,7 @@ fn text_update_system(diagnostics: Res<Diagnostics>, mut query: Query<&mut Text,
 fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
     commands
         // 2d camera
-        .spawn(UiCameraBundle::default())
+        .spawn(CameraUiBundle::default())
         // texture
         .spawn(TextBundle {
             style: Style {

@@ -77,7 +77,7 @@ fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Quer
 fn setup(commands: &mut Commands, asset_server: Res<AssetServer>, mut state: ResMut<State>) {
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
     state.handle = font_handle.clone();
-    commands.spawn(UiCameraBundle::default()).spawn(TextBundle {
+    commands.spawn(CameraUiBundle::default()).spawn(TextBundle {
         text: Text {
             value: "a".to_string(),
             font: font_handle,

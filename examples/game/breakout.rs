@@ -45,7 +45,7 @@ fn setup(
     commands
         // cameras
         .spawn(Camera2dBundle::default())
-        .spawn(UiCameraBundle::default())
+        .spawn(CameraUiBundle::default())
         // paddle
         .spawn(SpriteBundle {
             material: materials.add(Color::rgb(0.5, 0.5, 1.0).into()),
