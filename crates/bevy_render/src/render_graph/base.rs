@@ -168,11 +168,13 @@ impl BaseRenderGraphBuilder for RenderGraph {
                 .unwrap();
 
             if config.add_3d_camera {
-                self.add_node_edge(node::CAMERA_3D, node::MAIN_PASS).unwrap();
+                self.add_node_edge(node::CAMERA_3D, node::MAIN_PASS)
+                    .unwrap();
             }
 
             if config.add_2d_camera {
-                self.add_node_edge(node::CAMERA_2D, node::MAIN_PASS).unwrap();
+                self.add_node_edge(node::CAMERA_2D, node::MAIN_PASS)
+                    .unwrap();
             }
         }
 
