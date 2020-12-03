@@ -144,12 +144,21 @@ impl TextureAtlas {
         self.textures.is_empty()
     }
 
-    /// Retrieves the textures's index from a given texture handle and sub-index.
-    pub fn get_texture_index(&self, texture: &Handle<Texture>, index: &usize) -> Option<usize> {
+    /// Retrievs the texture's from a given texture handle and sub index.
+    pub fn get_texture_index_with_sub_index(
+        &self,
+        texture: &Handle<Texture>,
+        sub_index: &usize,
+    ) -> Option<usize> {
         self.texture_handles.as_ref().and_then(|texture_handles| {
             texture_handles
                 .get(texture)
-                .and_then(|indexes| indexes.get(index).cloned())
+                .and_then(|indexes| indexes.get(sub_index).cloned())
         })
+    }
+
+    /// Retrieves the texture's index from a given texture handle.
+    pub fn get_texture_index(&self, texture: &Handle<Texture>) -> Option<usize> {
+        self.get_texture_index_with_sub_index(texture, &0)
     }
 }
