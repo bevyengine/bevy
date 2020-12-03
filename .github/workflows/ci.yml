@@ -52,7 +52,7 @@ jobs:
   
   master:
     name: Push
-    if: "github.event_name == 'push'"
+    # if: "github.event_name == 'push'"
     strategy:
       matrix:
         os:
@@ -98,7 +98,7 @@ jobs:
 
   build-wasm:
     name: Wasm
-    if: "github.event_name == 'push'"
+    # if: "github.event_name == 'push'"
     strategy:
       matrix:
         toolchain: [stable, nightly]
@@ -126,7 +126,7 @@ jobs:
   # actions-rs/cargo@v1.
   build-android:
     name: Android
-    if: "github.event_name == 'push'"
+    # if: "github.event_name == 'push'"
     needs: lint
     runs-on: ubuntu-latest
     steps:
@@ -140,7 +140,7 @@ jobs:
 
   build-ios:
     name: iOS
-    if: "github.event_name == 'push'"
+    # if: "github.event_name == 'push'"
     needs: lint
     runs-on: macOS-latest
     steps:
