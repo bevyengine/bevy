@@ -84,6 +84,12 @@ This [list][cargo_features] outlines the different cargo features supported by B
 
 [cargo_features]: docs/cargo_features.md
 
+## Minimum Supported Rust Version (MSRV)
+
+This library should always compile with all features on *Rust 1.43* and up. It might be able to compile on older verions
+without prior notice depending on our dependencies. This may also change at any point in the future to take advantage of
+Rust's ever growing features.
+
 ## Thanks and Alternatives
 
 Additionally, we would like to thank the [Amethyst](https://github.com/amethyst/amethyst), [macroquad](https://github.com/not-fl3/macroquad), [coffee](https://github.com/hecrj/coffee), [ggez](https://github.com/ggez/ggez), [rg3d](https://github.com/mrDIMAS/rg3d), and [Piston](https://github.com/PistonDevelopers/piston) projects for providing solid examples of game engine development in Rust. If you are looking for a Rust game engine, it is worth considering all of your options. Each engine has different design goals, and some will likely resonate with you more than others.
