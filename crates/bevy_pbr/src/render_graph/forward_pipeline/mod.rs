@@ -1,4 +1,4 @@
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{Assets, HandleUntyped};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     pipeline::{
@@ -10,8 +10,8 @@ use bevy_render::{
     texture::TextureFormat,
 };
 
-pub const FORWARD_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
-    Handle::weak_from_u64(PipelineDescriptor::TYPE_UUID, 13148362314012771389);
+pub const FORWARD_PIPELINE_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 13148362314012771389);
 
 pub(crate) fn build_forward_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
     PipelineDescriptor {

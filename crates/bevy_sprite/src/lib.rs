@@ -25,7 +25,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_asset::{AddAsset, Assets, Handle};
+use bevy_asset::{AddAsset, Assets, Handle, HandleUntyped};
 use bevy_math::Vec2;
 use bevy_reflect::{RegisterTypeBuilder, TypeUuid};
 use bevy_render::{
@@ -38,7 +38,8 @@ use sprite::sprite_system;
 #[derive(Default)]
 pub struct SpritePlugin;
 
-pub const QUAD_HANDLE: Handle<Mesh> = Handle::weak_from_u64(Mesh::TYPE_UUID, 14240461981130137526);
+pub const QUAD_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Mesh::TYPE_UUID, 14240461981130137526);
 
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut AppBuilder) {

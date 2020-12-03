@@ -9,7 +9,7 @@ use crate::{
     path::{AssetPath, AssetPathId},
     Asset, Assets,
 };
-use bevy_reflect::{Reflect, ReflectDeserialize};
+use bevy_reflect::{Reflect, ReflectComponent, ReflectDeserialize};
 use bevy_utils::Uuid;
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
@@ -57,9 +57,10 @@ impl HandleId {
 ///
 /// Handles contain a unique id that corresponds to a specific asset in the [Assets](crate::Assets) collection.
 #[derive(Reflect)]
+#[reflect(Component)]
 pub struct Handle<T>
 where
-    T: 'static,
+    T: Asset,
 {
     pub id: HandleId,
     #[reflect(ignore)]
@@ -82,17 +83,6 @@ impl Debug for HandleType {
     }
 }
 
-impl<T> Handle<T> {
-    // TODO: remove "uuid" parameter whenever rust support type constraints in const fns
-    pub const fn weak_from_u64(uuid: Uuid, id: u64) -> Self {
-        Self {
-            id: HandleId::new(uuid, id),
-            handle_type: HandleType::Weak,
-            marker: PhantomData,
-        }
-    }
-}
-
 impl<T: Asset> Handle<T> {
     pub(crate) fn strong(id: HandleId, ref_change_sender: Sender<RefChange>) -> Self {
         ref_change_sender.send(RefChange::Increment(id)).unwrap();
@@ -111,7 +101,7 @@ impl<T: Asset> Handle<T> {
         }
     }
 
-    pub fn as_weak<U>(&self) -> Handle<U> {
+    pub fn as_weak<U: Asset>(&self) -> Handle<U> {
         Handle {
             id: self.id,
             handle_type: HandleType::Weak,
@@ -152,7 +142,7 @@ impl<T: Asset> Handle<T> {
     }
 }
 
-impl<T> Drop for Handle<T> {
+impl<T: Asset> Drop for Handle<T> {
     fn drop(&mut self) {
         match self.handle_type {
             HandleType::Strong(ref sender) => {
@@ -164,8 +154,14 @@ impl<T> Drop for Handle<T> {
     }
 }
 
-impl<T> From<Handle<T>> for HandleId {
+impl<T: Asset> From<Handle<T>> for HandleId {
     fn from(value: Handle<T>) -> Self {
+        value.id
+    }
+}
+
+impl From<HandleUntyped> for HandleId {
+    fn from(value: HandleUntyped) -> Self {
         value.id
     }
 }
@@ -176,33 +172,33 @@ impl From<&str> for HandleId {
     }
 }
 
-impl<T> From<&Handle<T>> for HandleId {
+impl<T: Asset> From<&Handle<T>> for HandleId {
     fn from(value: &Handle<T>) -> Self {
         value.id
     }
 }
 
-impl<T> Hash for Handle<T> {
+impl<T: Asset> Hash for Handle<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         Hash::hash(&self.id, state);
     }
 }
 
-impl<T> PartialEq for Handle<T> {
+impl<T: Asset> PartialEq for Handle<T> {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl<T> Eq for Handle<T> {}
+impl<T: Asset> Eq for Handle<T> {}
 
-impl<T> PartialOrd for Handle<T> {
+impl<T: Asset> PartialOrd for Handle<T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.id.cmp(&other.id))
     }
 }
 
-impl<T> Ord for Handle<T> {
+impl<T: Asset> Ord for Handle<T> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.id.cmp(&other.id)
     }
@@ -214,7 +210,7 @@ impl<T: Asset> Default for Handle<T> {
     }
 }
 
-impl<T> Debug for Handle<T> {
+impl<T: Asset> Debug for Handle<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         let name = std::any::type_name::<T>().split("::").last().unwrap();
         write!(f, "{:?}Handle<{}>({:?})", self.handle_type, name, self.id)
@@ -231,8 +227,8 @@ impl<T: Asset> Clone for Handle<T> {
 }
 
 // SAFE: T is phantom data and Handle::id is an integer
-unsafe impl<T> Send for Handle<T> {}
-unsafe impl<T> Sync for Handle<T> {}
+unsafe impl<T: Asset> Send for Handle<T> {}
+unsafe impl<T: Asset> Sync for Handle<T> {}
 
 /// A non-generic version of [Handle]
 ///
@@ -244,6 +240,13 @@ pub struct HandleUntyped {
 }
 
 impl HandleUntyped {
+    pub const fn weak_from_u64(uuid: Uuid, id: u64) -> Self {
+        Self {
+            id: HandleId::new(uuid, id),
+            handle_type: HandleType::Weak,
+        }
+    }
+
     pub(crate) fn strong(id: HandleId, ref_change_sender: Sender<RefChange>) -> Self {
         ref_change_sender.send(RefChange::Increment(id)).unwrap();
         Self {
