@@ -15,7 +15,7 @@ fn setup(
 ) {
     commands
         // ui camera
-        .spawn(UiCameraBundle::default())
+        .spawn(CameraUiBundle::default())
         // root node
         .spawn(NodeBundle {
             style: Style {

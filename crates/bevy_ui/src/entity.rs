@@ -144,7 +144,7 @@ impl Default for ButtonBundle {
 }
 
 #[derive(Bundle, Debug)]
-pub struct UiCameraBundle {
+pub struct CameraUiBundle {
     pub camera: Camera,
     pub orthographic_projection: OrthographicProjection,
     pub visible_entities: VisibleEntities,
@@ -152,14 +152,14 @@ pub struct UiCameraBundle {
     pub global_transform: GlobalTransform,
 }
 
-impl Default for UiCameraBundle {
+impl Default for CameraUiBundle {
     fn default() -> Self {
         // we want 0 to be "closest" and +far to be "farthest" in 2d, so we offset
         // the camera's translation by far and use a right handed coordinate system
         let far = 1000.0;
-        UiCameraBundle {
+        CameraUiBundle {
             camera: Camera {
-                name: Some(crate::camera::UI_CAMERA.to_string()),
+                name: Some(crate::camera::CAMERA_UI.to_string()),
                 ..Default::default()
             },
             orthographic_projection: OrthographicProjection {

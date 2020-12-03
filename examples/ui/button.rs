@@ -61,7 +61,7 @@ fn setup(
 ) {
     commands
         // ui camera
-        .spawn(UiCameraBundle::default())
+        .spawn(CameraUiBundle::default())
         .spawn(ButtonBundle {
             style: Style {
                 size: Size::new(Val::Px(150.0), Val::Px(65.0)),

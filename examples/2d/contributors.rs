@@ -56,7 +56,7 @@ fn setup(
 
     commands
         .spawn(Camera2dBundle::default())
-        .spawn(UiCameraBundle::default());
+        .spawn(CameraUiBundle::default());
 
     let mut sel = ContributorSelection {
         order: vec![],

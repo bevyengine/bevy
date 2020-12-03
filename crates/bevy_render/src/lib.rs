@@ -154,11 +154,11 @@ impl Plugin for RenderPlugin {
             render_graph.add_base_graph(config, &msaa);
             let mut active_cameras = resources.get_mut::<ActiveCameras>().unwrap();
             if config.add_3d_camera {
-                active_cameras.add(base::camera::CAMERA3D);
+                active_cameras.add(base::camera::CAMERA_3D);
             }
 
             if config.add_2d_camera {
-                active_cameras.add(base::camera::CAMERA2D);
+                active_cameras.add(base::camera::CAMERA_2D);
             }
         }
     }
