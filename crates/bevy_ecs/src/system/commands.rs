@@ -234,7 +234,7 @@ impl Commands {
         self
     }
 
-    /// Equivalent to iterating of `bundles_iter` and calling [`Self::spawn`] on each bundle, but slightly more performant.
+    /// Equivalent to iterating `bundles_iter` and calling [`Self::spawn`] on each bundle, but slightly more performant.
     pub fn spawn_batch<I>(&mut self, bundles_iter: I) -> &mut Self
     where
         I: IntoIterator + Send + Sync + 'static,
