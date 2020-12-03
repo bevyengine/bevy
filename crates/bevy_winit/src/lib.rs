@@ -96,9 +96,11 @@ fn change_window(_: &mut World, resources: &mut Resources) {
                 }
                 bevy_window::WindowCommand::SetCursorPosition { position } => {
                     let window = winit_windows.get_window(id).unwrap();
+                    let inner_size = window.inner_size().to_logical::<f32>(window.scale_factor());
                     window
                         .set_cursor_position(winit::dpi::LogicalPosition::new(
-                            position.x, position.y,
+                            position.x,
+                            inner_size.height - position.y,
                         ))
                         .unwrap_or_else(|e| error!("Unable to set cursor position: {}", e));
                 }
