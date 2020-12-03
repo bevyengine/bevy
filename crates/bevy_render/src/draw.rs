@@ -1,12 +1,12 @@
 use crate::{
     pipeline::{PipelineCompiler, PipelineDescriptor, PipelineLayout, PipelineSpecialization},
     renderer::{
-        BindGroup, BindGroupId, BufferId, RenderResource, RenderResourceBinding,
-        RenderResourceBindings, RenderResourceContext, SharedBuffers,
+        AssetRenderResourceBindings, BindGroup, BindGroupId, BufferId, RenderResource,
+        RenderResourceBinding, RenderResourceBindings, RenderResourceContext, SharedBuffers,
     },
     shader::Shader,
 };
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{Asset, Assets, Handle};
 use bevy_ecs::{Query, Res, ResMut, SystemParam};
 use bevy_reflect::Reflect;
 use std::{ops::Range, sync::Arc};
@@ -117,12 +117,15 @@ pub enum DrawError {
     PipelineHasNoLayout,
     #[error("failed to get a buffer for the given `RenderResource`")]
     BufferAllocationFailure,
+    #[error("the given asset does not have any render resources")]
+    MissingAssetRenderResources,
 }
 
 #[derive(SystemParam)]
 pub struct DrawContext<'a> {
     pub pipelines: ResMut<'a, Assets<PipelineDescriptor>>,
     pub shaders: ResMut<'a, Assets<Shader>>,
+    pub asset_render_resource_bindings: ResMut<'a, AssetRenderResourceBindings>,
     pub pipeline_compiler: ResMut<'a, PipelineCompiler>,
     pub render_resource_context: Res<'a, Box<dyn RenderResourceContext>>,
     pub shared_buffers: ResMut<'a, SharedBuffers>,
@@ -184,32 +187,91 @@ impl<'a> DrawContext<'a> {
         })
     }
 
+    pub fn set_asset_bind_groups<T: Asset>(
+        &mut self,
+        draw: &mut Draw,
+        asset_handle: &Handle<T>,
+    ) -> Result<(), DrawError> {
+        if let Some(asset_bindings) = self
+            .asset_render_resource_bindings
+            .get_mut_untyped(&asset_handle.clone_weak_untyped())
+        {
+            Self::set_bind_groups_from_bindings_internal(
+                &self.current_pipeline,
+                &self.pipelines,
+                &**self.render_resource_context,
+                None,
+                draw,
+                &mut [asset_bindings],
+            )
+        } else {
+            Err(DrawError::MissingAssetRenderResources)
+        }
+    }
+
     pub fn set_bind_groups_from_bindings(
-        &self,
+        &mut self,
         draw: &mut Draw,
         render_resource_bindings: &mut [&mut RenderResourceBindings],
     ) -> Result<(), DrawError> {
-        let pipeline = self
-            .current_pipeline
-            .as_ref()
-            .ok_or(DrawError::NoPipelineSet)?;
-        let pipeline_descriptor = self
-            .pipelines
+        Self::set_bind_groups_from_bindings_internal(
+            &self.current_pipeline,
+            &self.pipelines,
+            &**self.render_resource_context,
+            Some(&mut self.asset_render_resource_bindings),
+            draw,
+            render_resource_bindings,
+        )
+    }
+
+    fn set_bind_groups_from_bindings_internal(
+        current_pipeline: &Option<Handle<PipelineDescriptor>>,
+        pipelines: &Assets<PipelineDescriptor>,
+        render_resource_context: &dyn RenderResourceContext,
+        mut asset_render_resource_bindings: Option<&mut AssetRenderResourceBindings>,
+        draw: &mut Draw,
+        render_resource_bindings: &mut [&mut RenderResourceBindings],
+    ) -> Result<(), DrawError> {
+        let pipeline = current_pipeline.as_ref().ok_or(DrawError::NoPipelineSet)?;
+        let pipeline_descriptor = pipelines
             .get(pipeline)
             .ok_or(DrawError::NonExistentPipeline)?;
         let layout = pipeline_descriptor
             .get_layout()
             .ok_or(DrawError::PipelineHasNoLayout)?;
-        for bindings in render_resource_bindings.iter_mut() {
-            bindings.update_bind_groups(pipeline_descriptor, &**self.render_resource_context);
-        }
-        for bind_group_descriptor in layout.bind_groups.iter() {
+        'bind_group_descriptors: for bind_group_descriptor in layout.bind_groups.iter() {
             for bindings in render_resource_bindings.iter_mut() {
                 if let Some(bind_group) =
-                    bindings.get_descriptor_bind_group(bind_group_descriptor.id)
+                    bindings.update_bind_group(bind_group_descriptor, render_resource_context)
                 {
                     draw.set_bind_group(bind_group_descriptor.index, bind_group);
-                    break;
+                    continue 'bind_group_descriptors;
+                }
+            }
+
+            // if none of the given RenderResourceBindings have the current bind group, try their assets
+            let asset_render_resource_bindings =
+                if let Some(value) = asset_render_resource_bindings.as_mut() {
+                    value
+                } else {
+                    continue 'bind_group_descriptors;
+                };
+            for bindings in render_resource_bindings.iter_mut() {
+                for (asset_handle, _) in bindings.iter_assets() {
+                    let asset_bindings = if let Some(asset_bindings) =
+                        asset_render_resource_bindings.get_mut_untyped(asset_handle)
+                    {
+                        asset_bindings
+                    } else {
+                        continue;
+                    };
+
+                    if let Some(bind_group) = asset_bindings
+                        .update_bind_group(bind_group_descriptor, render_resource_context)
+                    {
+                        draw.set_bind_group(bind_group_descriptor.index, bind_group);
+                        continue 'bind_group_descriptors;
+                    }
                 }
             }
         }

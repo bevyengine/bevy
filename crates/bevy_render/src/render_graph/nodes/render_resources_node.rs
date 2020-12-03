@@ -9,14 +9,15 @@ use crate::{
     texture,
 };
 
-use bevy_asset::{Asset, Assets, Handle, HandleId};
+use bevy_app::{EventReader, Events};
+use bevy_asset::{Asset, AssetEvent, Assets, Handle, HandleId};
 use bevy_ecs::{
     Changed, Commands, Entity, IntoSystem, Local, Query, QuerySet, Res, ResMut, Resources, System,
-    World,
+    With, World,
 };
 use bevy_utils::HashMap;
 use renderer::{AssetRenderResourceBindings, BufferId, RenderResourceType, RenderResources};
-use std::{hash::Hash, marker::PhantomData, ops::DerefMut};
+use std::{any::TypeId, hash::Hash, marker::PhantomData, ops::DerefMut};
 
 #[derive(Debug)]
 struct QueuedBufferWrite {
@@ -562,8 +563,6 @@ where
     }
 }
 
-const EXPECT_ASSET_MESSAGE: &str = "Only assets that exist should be in the modified assets list";
-
 impl<T> SystemNode for AssetRenderResourcesNode<T>
 where
     T: renderer::RenderResources + Asset,
@@ -583,35 +582,75 @@ where
     }
 }
 
+struct AssetRenderNodeState<T: Asset> {
+    event_reader: EventReader<AssetEvent<T>>,
+}
+
+impl<T: Asset> Default for AssetRenderNodeState<T> {
+    fn default() -> Self {
+        Self {
+            event_reader: Default::default(),
+        }
+    }
+}
+
+#[allow(clippy::clippy::too_many_arguments)]
 fn asset_render_resources_node_system<T: RenderResources + Asset>(
     mut state: Local<RenderResourcesNodeState<HandleId, T>>,
+    mut asset_state: Local<AssetRenderNodeState<T>>,
     assets: Res<Assets<T>>,
+    asset_events: Res<Events<AssetEvent<T>>>,
     mut asset_render_resource_bindings: ResMut<AssetRenderResourceBindings>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
-    mut query: Query<(&Handle<T>, &Draw, &mut RenderPipelines)>,
+    mut queries: QuerySet<(
+        Query<(&Handle<T>, &mut RenderPipelines), Changed<Handle<T>>>,
+        Query<&mut RenderPipelines, With<Handle<T>>>,
+    )>,
+    entity_query: Query<Entity>,
 ) {
     let state = state.deref_mut();
     let uniform_buffer_arrays = &mut state.uniform_buffer_arrays;
     let render_resource_context = &**render_resource_context;
 
-    let modified_assets = assets.ids().collect::<Vec<_>>();
+    let mut changed_assets = HashMap::default();
+    for event in asset_state.event_reader.iter(&asset_events) {
+        match event {
+            AssetEvent::Created { ref handle } => {
+                if let Some(asset) = assets.get(handle) {
+                    changed_assets.insert(handle.id, asset);
+                }
+            }
+            AssetEvent::Modified { ref handle } => {
+                if let Some(asset) = assets.get(handle) {
+                    changed_assets.insert(handle.id, asset);
+                }
+            }
+            AssetEvent::Removed { ref handle } => {
+                uniform_buffer_arrays.remove_bindings(handle.id);
+                // if asset was modified and removed in the same update, ignore the modification
+                // events are ordered so future modification events are ok
+                changed_assets.remove(&handle.id);
+            }
+        }
+    }
 
     uniform_buffer_arrays.begin_update();
     // initialize uniform buffer arrays using the first RenderResources
-    if let Some(first_handle) = modified_assets.get(0) {
-        let asset = assets.get(*first_handle).expect(EXPECT_ASSET_MESSAGE);
+    if let Some(asset) = changed_assets.values().next() {
         uniform_buffer_arrays.initialize(asset, render_resource_context);
     }
 
-    for asset_handle in modified_assets.iter() {
-        let asset = assets.get(*asset_handle).expect(EXPECT_ASSET_MESSAGE);
+    for (asset_handle, asset) in changed_assets.iter() {
         uniform_buffer_arrays.prepare_uniform_buffers(*asset_handle, asset);
         let mut bindings =
             asset_render_resource_bindings.get_or_insert_mut(&Handle::<T>::weak(*asset_handle));
         setup_uniform_texture_resources::<T>(&asset, render_resource_context, &mut bindings);
     }
 
-    uniform_buffer_arrays.resize_buffer_arrays(render_resource_context);
+    let resized = uniform_buffer_arrays.resize_buffer_arrays(render_resource_context);
+    if resized {
+        uniform_buffer_arrays.set_required_staging_buffer_size_to_max()
+    }
     uniform_buffer_arrays.resize_staging_buffer(render_resource_context);
 
     if let Some(staging_buffer) = state.uniform_buffer_arrays.staging_buffer {
@@ -620,19 +659,34 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
             staging_buffer,
             0..state.uniform_buffer_arrays.staging_buffer_size as u64,
             &mut |mut staging_buffer, _render_resource_context| {
-                for asset_handle in modified_assets.iter() {
-                    let asset = assets.get(*asset_handle).expect(EXPECT_ASSET_MESSAGE);
-                    let mut render_resource_bindings = asset_render_resource_bindings
-                        .get_or_insert_mut(&Handle::<T>::weak(*asset_handle));
-                    // TODO: only setup buffer if we haven't seen this handle before
-                    state.uniform_buffer_arrays.write_uniform_buffers(
-                        *asset_handle,
-                        &asset,
-                        state.dynamic_uniforms,
-                        render_resource_context,
-                        &mut render_resource_bindings,
-                        &mut staging_buffer,
-                    );
+                if resized {
+                    for (asset_handle, asset) in assets.iter() {
+                        let mut render_resource_bindings = asset_render_resource_bindings
+                            .get_or_insert_mut(&Handle::<T>::weak(asset_handle));
+                        // TODO: only setup buffer if we haven't seen this handle before
+                        state.uniform_buffer_arrays.write_uniform_buffers(
+                            asset_handle,
+                            &asset,
+                            state.dynamic_uniforms,
+                            render_resource_context,
+                            &mut render_resource_bindings,
+                            &mut staging_buffer,
+                        );
+                    }
+                } else {
+                    for (asset_handle, asset) in changed_assets.iter() {
+                        let mut render_resource_bindings = asset_render_resource_bindings
+                            .get_or_insert_mut(&Handle::<T>::weak(*asset_handle));
+                        // TODO: only setup buffer if we haven't seen this handle before
+                        state.uniform_buffer_arrays.write_uniform_buffers(
+                            *asset_handle,
+                            &asset,
+                            state.dynamic_uniforms,
+                            render_resource_context,
+                            &mut render_resource_bindings,
+                            &mut staging_buffer,
+                        );
+                    }
                 }
             },
         );
@@ -643,13 +697,23 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
             .copy_staging_buffer_to_final_buffers(&mut state.command_queue, staging_buffer);
     }
 
-    for (asset_handle, draw, mut render_pipelines) in query.iter_mut() {
-        if !draw.is_visible {
-            continue;
+    // update removed entity asset mapping
+    for entity in entity_query.removed::<Handle<T>>() {
+        if let Ok(mut render_pipelines) = queries.q1_mut().get_mut(*entity) {
+            render_pipelines
+                .bindings
+                .remove_asset_with_type(TypeId::of::<T>())
         }
-        if let Some(asset_bindings) = asset_render_resource_bindings.get(asset_handle) {
-            render_pipelines.bindings.extend(asset_bindings);
-        }
+    }
+
+    // update changed entity asset mapping
+    for (asset_handle, mut render_pipelines) in queries.q0_mut().iter_mut() {
+        render_pipelines
+            .bindings
+            .remove_asset_with_type(TypeId::of::<T>());
+        render_pipelines
+            .bindings
+            .add_asset(asset_handle.clone_weak_untyped(), TypeId::of::<T>());
     }
 }
 
