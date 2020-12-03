@@ -104,7 +104,7 @@ jobs:
         toolchain: [stable, nightly]
         os: [ubuntu-20.04]
     runs-on: ${{ matrix.os }}
-    needs: clean
+    needs: lint
     steps:
       - name: Checkout the source code
         uses: actions/checkout@v2
@@ -122,9 +122,12 @@ jobs:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
+  # Not sure how to build with APK to multiple targets else it would be using
+  # actions-rs/cargo@v1.
   build-android:
     name: Android
     if: "github.event_name == 'push'"
+    needs: lint
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
