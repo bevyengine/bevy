@@ -31,16 +31,16 @@ impl WinitWindows {
                 winit::window::Fullscreen::Exclusive(match use_size {
                     true => get_fitting_videomode(
                         &event_loop.primary_monitor().unwrap(),
-                        window.width(),
-                        window.height(),
+                        window.physical_width(),
+                        window.physical_height(),
                     ),
                     false => get_best_videomode(&event_loop.primary_monitor().unwrap()),
                 }),
             )),
             _ => winit_window_builder
-                .with_inner_size(winit::dpi::LogicalSize::new(
-                    window.width(),
-                    window.height(),
+                .with_inner_size(winit::dpi::PhysicalSize::new(
+                    window.physical_width(),
+                    window.physical_height(),
                 ))
                 .with_resizable(window.resizable())
                 .with_decorations(window.decorations()),
@@ -100,6 +100,8 @@ impl WinitWindows {
             }
         }
 
+        let inner_size = winit_window.inner_size();
+        window.update_physical_size_from_backend(inner_size.width, inner_size.height);
         window.update_scale_factor_from_backend(winit_window.scale_factor());
 
         self.windows.insert(winit_window.id(), winit_window);
