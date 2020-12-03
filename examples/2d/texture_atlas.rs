@@ -45,7 +45,7 @@ fn load_atlas(
         let texture_atlas_texture = texture_atlas.texture.clone();
         let vendor_handle =
             asset_server.get_handle("textures/rpg/chars/vendor/generic-rpg-vendor.png");
-        let vendor_index = texture_atlas.get_texture_index(&vendor_handle).unwrap();
+        let vendor_index = texture_atlas.get_texture_index(&vendor_handle, &0).unwrap();
         let atlas_handle = texture_atlases.add(texture_atlas);
 
         // set up a scene to display our texture atlas

@@ -21,8 +21,10 @@ pub struct TextureAtlas {
     /// The specific areas of the atlas where each texture can be found
     #[render_resources(buffer)]
     pub textures: Vec<Rect>,
+    /// Contains the handle to the index in the texture, which then contains the
+    /// indexes of the textures.
     #[render_resources(ignore)]
-    pub texture_handles: Option<HashMap<Handle<Texture>, usize>>,
+    pub texture_handles: Option<HashMap<Handle<Texture>, HashMap<usize, usize>>>,
 }
 
 #[derive(Debug, RenderResources, RenderResource)]
@@ -54,7 +56,7 @@ impl TextureAtlasSprite {
 
 impl TextureAtlas {
     /// Create a new `TextureAtlas` that has a texture, but does not have
-    /// any individual sprites specified
+    /// any individual sprites specified.
     pub fn new_empty(texture: Handle<Texture>, dimensions: Vec2) -> Self {
         Self {
             texture,
@@ -65,7 +67,7 @@ impl TextureAtlas {
     }
 
     /// Generate a `TextureAtlas` by splitting a texture into a grid where each
-    /// cell of the grid  of `tile_size` is one of the textures in the atlas
+    /// cell of the grid of `tile_size` is one of the textures in the atlas.
     pub fn from_grid(
         texture: Handle<Texture>,
         tile_size: Vec2,
@@ -76,8 +78,8 @@ impl TextureAtlas {
     }
 
     /// Generate a `TextureAtlas` by splitting a texture into a grid where each
-    /// cell of the grid of `tile_size` is one of the textures in the atlas and is separated by
-    /// some `padding` in the texture
+    /// cell of the grid of `tile_size` is one of the textures in the atlas and
+    /// is separated by some `padding` in the texture.
     pub fn from_grid_with_padding(
         texture: Handle<Texture>,
         tile_size: Vec2,
@@ -121,28 +123,33 @@ impl TextureAtlas {
         }
     }
 
-    /// Add a sprite to the list of textures in the `TextureAtlas`
+    /// Add a sprite to the list of textures in the `TextureAtlas`.
     ///
     /// # Arguments
     ///
-    /// * `rect` - The section of the atlas that contains the texture to be added,
-    /// from the top-left corner of the texture to the bottom-right corner
+    /// * `rect` - The section of the atlas that contains the texture to be
+    /// added, from the top-left corner of the texture to the bottom-right
+    /// corner
     pub fn add_texture(&mut self, rect: Rect) {
         self.textures.push(rect);
     }
 
-    /// How many textures are in the `TextureAtlas`
+    /// How many textures are in the `TextureAtlas`, also known as length.
     pub fn len(&self) -> usize {
         self.textures.len()
     }
 
+    /// If there are textures or not contained within.
     pub fn is_empty(&self) -> bool {
         self.textures.is_empty()
     }
 
-    pub fn get_texture_index(&self, texture: &Handle<Texture>) -> Option<usize> {
-        self.texture_handles
-            .as_ref()
-            .and_then(|texture_handles| texture_handles.get(texture).cloned())
+    /// Retrieves the textures's index from a given texture handle and sub-index.
+    pub fn get_texture_index(&self, texture: &Handle<Texture>, index: &usize) -> Option<usize> {
+        self.texture_handles.as_ref().and_then(|texture_handles| {
+            texture_handles
+                .get(texture)
+                .and_then(|indexes| indexes.get(index).cloned())
+        })
     }
 }
