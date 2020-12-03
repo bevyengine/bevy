@@ -4,60 +4,101 @@ on:
   push:
     branches: [master]
   pull_request:
-    branches: [master]
+    branches:
+      - "*"
 
 env:
   CARGO_TERM_COLOR: always
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  build:
+  pr:
+    name: Pull request
+    if: "github.event_name == 'pull_request'"
     strategy:
       matrix:
-        toolchain: [stable, nightly]
-        os: [windows-2019, ubuntu-20.04, macos-10.15]
-        exclude:
-          - os: macos-10.15
-            toolchain: nightly
-          - os: windows-2019
-            toolchain: nightly
+        os:
+          - ubuntu-20.04
+        toolchain:
+          - stable
+          - nightly
+          - 1.43.0 #msrv
     runs-on: ${{ matrix.os }}
-    needs: clean
+    needs: lint
     steps:
       - uses: actions/checkout@v2
-
       - uses: actions-rs/toolchain@v1
         with:
+          profile: minimal
           toolchain: ${{ matrix.toolchain }}
           override: true
-
-      - uses: actions/cache@v2
-        with:
-          path: |
-            target
-          key: ${{ runner.os }}-cargo-check-test-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
-
       - name: Install alsa
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev
-        if: ${{ runner.os == 'Linux' }}
-
       - name: Install udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libudev-dev
-        if: ${{ runner.os == 'Linux' }}
-
-      - name: Build
+      - name: Run check
         run: cargo check
         env:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
-
-      - name: Run tests
+      - name: Run test
         run: cargo test --workspace
+        env:
+          CARGO_INCREMENTAL: 0
+          RUSTFLAGS: "-C debuginfo=0 -D warnings"
+  
+  master:
+    name: Push
+    if: "github.event_name == 'push'"
+    strategy:
+      matrix:
+        os:
+          - ubuntu-20.04
+          - windows-2019
+          - macos-11.0
+        toolchain:
+          - stable
+          - beta
+          - nightly
+          - 1.43.0
+    runs-on: ${{ matrix.os }}
+    needs: lint
+    steps:
+      - name: Checkout the source code
+        uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.toolchain }}
+          override: true
+      - name: Install alsa
         if: ${{ runner.os == 'Linux' }}
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev
+      - name: Install udev
+        if: ${{ runner.os == 'Linux' }}
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libudev-dev
+      - name: Run check
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+        env:
+          CARGO_INCREMENTAL: 0
+          RUSTFLAGS: "-C debuginfo=0 -D warnings"
+      - name: Run test
+        if: ${{ matrix.toolchain == 'stable' }}
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
         env:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
   build-wasm:
+    name: Wasm
+    if: "github.event_name == 'push'"
     strategy:
       matrix:
         toolchain: [stable, nightly]
@@ -65,27 +106,25 @@ jobs:
     runs-on: ${{ matrix.os }}
     needs: clean
     steps:
-      - uses: actions/checkout@v2
-
+      - name: Checkout the source code
+        uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.toolchain }}
           target: wasm32-unknown-unknown
           override: true
-
-      - uses: actions/cache@v2
-        with:
-          path: |
-            target
-          key: ${{ runner.os }}-cargo-check-test-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Check wasm
+      - name: Run check
         uses: actions-rs/cargo@v1
         with:
           command: check
           args: --target wasm32-unknown-unknown --no-default-features --features bevy_winit,x11,hdr,bevy_gltf
+        env:
+          CARGO_INCREMENTAL: 0
+          RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
   build-android:
+    name: Android
+    if: "github.event_name == 'push'"
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -96,27 +135,36 @@ jobs:
     - name: Build APK
       run: cargo apk build --example android
 
-  clean:
-    runs-on: ubuntu-latest
+  lint:
+    name: Lint
+    strategy:
+      matrix:
+        os:
+          - ubuntu-20.04
+        toolchain:
+          - nightly
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
-
+      - name: Checkout the source code
+        uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
-          components: rustfmt, clippy
+          profile: minimal
+          toolchain: ${{ matrix.toolchain }}
           override: true
-
+          components: rustfmt, clippy
       - name: Install alsa
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev
-
       - name: Install udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libudev-dev
-
       - name: Check the format
-        run: cargo +nightly fmt --all -- --check
-
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
       # type complexity must be ignored because we use huge templates for queries
-      # -A clippy::manual-strip: strip_prefix support was added in 1.45. we want to support earlier rust versions
       - name: Run clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings -A clippy::type_complexity -A clippy::manual-strip
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --all-targets --all-features -- -D warnings -A clippy::type_complexity

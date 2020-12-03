@@ -1,5 +1,6 @@
 # [![Bevy](assets/branding/bevy_logo_light_small.svg)](https://bevyengine.org)
 
+[![MSRV](https://img.shields.io/badge/MSRV-^1.43.0&logo=rust)](https://blog.rust-lang.org/2020/04/23/Rust-1.43.0.html)
 [![Crates.io](https://img.shields.io/crates/v/bevy.svg)](https://crates.io/crates/bevy)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/bevyengine/bevy/blob/master/LICENSE)
 [![Crates.io](https://img.shields.io/crates/d/bevy.svg)](https://crates.io/crates/bevy)
