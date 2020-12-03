@@ -1,3 +1,4 @@
+use bevy_math::Vec2;
 use bevy_utils::Uuid;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -42,6 +43,7 @@ pub struct Window {
     decorations: bool,
     cursor_visible: bool,
     cursor_locked: bool,
+    cursor_position: Option<Vec2>,
     mode: WindowMode,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
@@ -107,6 +109,7 @@ impl Window {
             decorations: window_descriptor.decorations,
             cursor_visible: window_descriptor.cursor_visible,
             cursor_locked: window_descriptor.cursor_locked,
+            cursor_position: None,
             mode: window_descriptor.mode,
             #[cfg(target_arch = "wasm32")]
             canvas: window_descriptor.canvas.clone(),
@@ -145,13 +148,15 @@ impl Window {
             .push(WindowCommand::SetResolution { width, height });
     }
 
-    #[doc(hidden)]
+    #[allow(missing_docs)]
+    #[inline]
     pub fn update_resolution_from_backend(&mut self, width: u32, height: u32) {
         self.width = width;
         self.height = height;
     }
 
-    #[doc(hidden)]
+    #[allow(missing_docs)]
+    #[inline]
     pub fn update_scale_factor_from_backend(&mut self, scale_factor: f64) {
         self.scale_factor = scale_factor;
     }
@@ -227,9 +232,20 @@ impl Window {
         });
     }
 
+    #[inline]
+    pub fn cursor_position(&self) -> Option<Vec2> {
+        self.cursor_position
+    }
+
     pub fn set_cursor_position(&mut self, x: i32, y: i32) {
         self.command_queue
             .push(WindowCommand::SetCursorPosition { x, y });
+    }
+
+    #[allow(missing_docs)]
+    #[inline]
+    pub fn update_cursor_position_from_backend(&mut self, cursor_position: Option<Vec2>) {
+        self.cursor_position = cursor_position;
     }
 
     #[inline]

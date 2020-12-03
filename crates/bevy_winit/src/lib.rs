@@ -14,8 +14,8 @@ use bevy_ecs::{Resources, World};
 use bevy_math::Vec2;
 use bevy_utils::tracing::{error, trace};
 use bevy_window::{
-    CreateWindow, CursorMoved, ReceivedCharacter, Window, WindowCloseRequested, WindowCreated,
-    WindowResized, Windows,
+    CreateWindow, CursorEntered, CursorLeft, CursorMoved, ReceivedCharacter, Window,
+    WindowCloseRequested, WindowCreated, WindowResized, Windows,
 };
 use winit::{
     event::{self, DeviceEvent, Event, WindowEvent},
@@ -224,16 +224,42 @@ pub fn winit_runner(mut app: App) {
                     let mut cursor_moved_events =
                         app.resources.get_mut::<Events<CursorMoved>>().unwrap();
                     let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
+                    let mut windows = app.resources.get_mut::<Windows>().unwrap();
                     let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
-                    let window = winit_windows.get_window(window_id).unwrap();
-                    let position = position.to_logical(window.scale_factor());
-                    let inner_size = window.inner_size().to_logical::<f32>(window.scale_factor());
+                    let winit_window = winit_windows.get_window(window_id).unwrap();
+                    let window = windows.get_mut(window_id).unwrap();
+                    let position = position.to_logical(winit_window.scale_factor());
+                    let inner_size = winit_window
+                        .inner_size()
+                        .to_logical::<f32>(winit_window.scale_factor());
+
                     // move origin to bottom left
                     let y_position = inner_size.height - position.y;
+
+                    let position = Vec2::new(position.x, y_position);
+                    window.update_cursor_position_from_backend(Some(position));
+
                     cursor_moved_events.send(CursorMoved {
                         id: window_id,
-                        position: Vec2::new(position.x, y_position),
+                        position,
                     });
+                }
+                WindowEvent::CursorEntered { .. } => {
+                    let mut cursor_entered_events =
+                        app.resources.get_mut::<Events<CursorEntered>>().unwrap();
+                    let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
+                    let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
+                    cursor_entered_events.send(CursorEntered { id: window_id });
+                }
+                WindowEvent::CursorLeft { .. } => {
+                    let mut cursor_left_events =
+                        app.resources.get_mut::<Events<CursorLeft>>().unwrap();
+                    let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
+                    let mut windows = app.resources.get_mut::<Windows>().unwrap();
+                    let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
+                    let window = windows.get_mut(window_id).unwrap();
+                    window.update_cursor_position_from_backend(None);
+                    cursor_left_events.send(CursorLeft { id: window_id });
                 }
                 WindowEvent::MouseInput { state, button, .. } => {
                     let mut mouse_button_input_events =
