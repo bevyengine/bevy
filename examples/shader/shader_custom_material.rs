@@ -39,21 +39,29 @@ void main() {
 }
 "#;
 
+const FRAGMENT_SHADER: &str = r#"
+#version 450
+layout(location = 0) out vec4 o_Target;
+layout(set = 1, binding = 1) uniform MyMaterial_color {
+    vec4 color;
+};
+void main() {
+    o_Target = color;
+}
+"#;
+
 fn setup(
     commands: &mut Commands,
-    asset_server: ResMut<AssetServer>,
     mut pipelines: ResMut<Assets<PipelineDescriptor>>,
     mut shaders: ResMut<Assets<Shader>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<MyMaterial>>,
     mut render_graph: ResMut<RenderGraph>,
 ) {
-    asset_server.watch_for_changes().unwrap();
-
     // Create a new shader pipeline
     let pipeline_handle = pipelines.add(PipelineDescriptor::default_config(ShaderStages {
         vertex: shaders.add(Shader::from_glsl(ShaderStage::Vertex, VERTEX_SHADER)),
-        fragment: Some(asset_server.load::<Shader, _>("shaders/custom.frag")),
+        fragment: Some(shaders.add(Shader::from_glsl(ShaderStage::Fragment, FRAGMENT_SHADER))),
     }));
 
     // Add an AssetRenderResourcesNode to our Render Graph. This will bind MyMaterial resources to our shader
