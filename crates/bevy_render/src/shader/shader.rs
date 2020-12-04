@@ -11,7 +11,11 @@ pub enum ShaderStage {
     Compute,
 }
 
-#[cfg(all(not(target_os = "ios"), not(all(target_os = "macos", target_arch = "aarch64")), not(target_arch = "wasm32")))]
+#[cfg(all(
+    not(target_os = "ios"),
+    not(all(target_os = "macos", target_arch = "aarch64")),
+    not(target_arch = "wasm32")
+))]
 impl Into<bevy_glsl_to_spirv::ShaderType> for ShaderStage {
     fn into(self) -> bevy_glsl_to_spirv::ShaderType {
         match self {
@@ -22,7 +26,11 @@ impl Into<bevy_glsl_to_spirv::ShaderType> for ShaderStage {
     }
 }
 
-#[cfg(all(not(target_os = "ios"), not(all(target_os = "macos", target_arch = "aarch64")), not(target_arch = "wasm32")))]
+#[cfg(all(
+    not(target_os = "ios"),
+    not(all(target_os = "macos", target_arch = "aarch64")),
+    not(target_arch = "wasm32")
+))]
 pub fn glsl_to_spirv(
     glsl_source: &str,
     stage: ShaderStage,
