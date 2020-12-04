@@ -12,15 +12,17 @@ use crate::{
     },
 };
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::{HecsQuery, ReadOnlyFetch, Resources, World};
-use std::{marker::PhantomData, ops::Deref};
+use bevy_ecs::{ReadOnlyFetch, Resources, World, WorldQuery};
+use bevy_utils::tracing::debug;
+use std::{fmt, marker::PhantomData, ops::Deref};
 
+#[derive(Debug)]
 struct CameraInfo {
     name: String,
     bind_group_id: Option<BindGroupId>,
 }
 
-pub struct PassNode<Q: HecsQuery> {
+pub struct PassNode<Q: WorldQuery> {
     descriptor: PassDescriptor,
     inputs: Vec<ResourceSlotInfo>,
     cameras: Vec<CameraInfo>,
@@ -32,7 +34,37 @@ pub struct PassNode<Q: HecsQuery> {
     _marker: PhantomData<Q>,
 }
 
-impl<Q: HecsQuery> PassNode<Q> {
+impl<Q: WorldQuery> fmt::Debug for PassNode<Q> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("PassNose")
+            .field("descriptor", &self.descriptor)
+            .field("inputs", &self.inputs)
+            .field("cameras", &self.cameras)
+            .field(
+                "color_attachment_input_indices",
+                &self.color_attachment_input_indices,
+            )
+            .field(
+                "color_resolve_target_indices",
+                &self.color_resolve_target_indices,
+            )
+            .field(
+                "depth_stencil_attachment_input_index",
+                &self.depth_stencil_attachment_input_index,
+            )
+            .field(
+                "default_clear_color_inputs",
+                &self.default_clear_color_inputs,
+            )
+            .field(
+                "camera_bind_group_descriptor",
+                &self.camera_bind_group_descriptor,
+            )
+            .finish()
+    }
+}
+
+impl<Q: WorldQuery> PassNode<Q> {
     pub fn new(descriptor: PassDescriptor) -> Self {
         let mut inputs = Vec::new();
         let mut color_attachment_input_indices = Vec::new();
@@ -108,7 +140,7 @@ impl<Q: HecsQuery> PassNode<Q> {
     }
 }
 
-impl<Q: HecsQuery + Send + Sync + 'static> Node for PassNode<Q>
+impl<Q: WorldQuery + Send + Sync + 'static> Node for PassNode<Q>
 where
     Q::Fetch: ReadOnlyFetch,
 {
@@ -193,11 +225,9 @@ where
                     // attempt to draw each visible entity
                     let mut draw_state = DrawState::default();
                     for visible_entity in visible_entities.iter() {
-                        if let Ok(query_one) = world.query_one::<Q>(visible_entity.entity) {
-                            if query_one.get().is_none() {
-                                // visible entity does not match the Pass query
-                                continue;
-                            }
+                        if world.query_one::<Q>(visible_entity.entity).is_err() {
+                            // visible entity does not match the Pass query
+                            continue;
                         }
 
                         let draw = if let Ok(draw) = world.get::<Draw>(visible_entity.entity) {
@@ -214,10 +244,12 @@ where
                         for render_command in draw.render_commands.iter() {
                             match render_command {
                                 RenderCommand::SetPipeline { pipeline } => {
-                                    // TODO: Filter pipelines
-                                    render_pass.set_pipeline(*pipeline);
+                                    if draw_state.is_pipeline_set(pipeline.clone_weak()) {
+                                        continue;
+                                    }
+                                    render_pass.set_pipeline(pipeline);
                                     let descriptor = pipelines.get(pipeline).unwrap();
-                                    draw_state.set_pipeline(*pipeline, descriptor);
+                                    draw_state.set_pipeline(pipeline, descriptor);
 
                                     // try to set current camera bind group
                                     let layout = descriptor.get_layout().unwrap();
@@ -245,14 +277,14 @@ where
                                             instances.clone(),
                                         );
                                     } else {
-                                        log::info!("Could not draw indexed because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
+                                        debug!("Could not draw indexed because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
                                     }
                                 }
                                 RenderCommand::Draw { vertices, instances } => {
                                     if draw_state.can_draw() {
                                         render_pass.draw(vertices.clone(), instances.clone());
                                     } else {
-                                        log::info!("Could not draw because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
+                                        debug!("Could not draw because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
                                     }
                                 }
                                 RenderCommand::SetVertexBuffer {
@@ -260,19 +292,28 @@ where
                                     offset,
                                     slot,
                                 } => {
+                                    if draw_state.is_vertex_buffer_set(*slot, *buffer, *offset) {
+                                        continue;
+                                    }
                                     render_pass.set_vertex_buffer(*slot, *buffer, *offset);
-                                    draw_state.set_vertex_buffer(*slot, *buffer);
+                                    draw_state.set_vertex_buffer(*slot, *buffer, *offset);
                                 }
                                 RenderCommand::SetIndexBuffer { buffer, offset } => {
+                                    if draw_state.is_index_buffer_set(*buffer, *offset) {
+                                        continue;
+                                    }
                                     render_pass.set_index_buffer(*buffer, *offset);
-                                    draw_state.set_index_buffer(*buffer)
+                                    draw_state.set_index_buffer(*buffer, *offset)
                                 }
                                 RenderCommand::SetBindGroup {
                                     index,
                                     bind_group,
                                     dynamic_uniform_indices,
                                 } => {
-                                    let pipeline = pipelines.get(&draw_state.pipeline.unwrap()).unwrap();
+                                    if dynamic_uniform_indices.is_none() && draw_state.is_bind_group_set(*index, *bind_group) {
+                                        continue;
+                                    }
+                                    let pipeline = pipelines.get(draw_state.pipeline.as_ref().unwrap()).unwrap();
                                     let layout = pipeline.get_layout().unwrap();
                                     let bind_group_descriptor = layout.get_bind_group(*index).unwrap();
                                     render_pass.set_bind_group(
@@ -295,12 +336,12 @@ where
 }
 
 /// Tracks the current pipeline state to ensure draw calls are valid.
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct DrawState {
     pipeline: Option<Handle<PipelineDescriptor>>,
     bind_groups: Vec<Option<BindGroupId>>,
-    vertex_buffers: Vec<Option<BufferId>>,
-    index_buffer: Option<BufferId>,
+    vertex_buffers: Vec<Option<(BufferId, u64)>>,
+    index_buffer: Option<(BufferId, u64)>,
 }
 
 impl DrawState {
@@ -308,12 +349,24 @@ impl DrawState {
         self.bind_groups[index as usize] = Some(bind_group);
     }
 
-    pub fn set_vertex_buffer(&mut self, index: u32, buffer: BufferId) {
-        self.vertex_buffers[index as usize] = Some(buffer);
+    pub fn is_bind_group_set(&self, index: u32, bind_group: BindGroupId) -> bool {
+        self.bind_groups[index as usize] == Some(bind_group)
     }
 
-    pub fn set_index_buffer(&mut self, buffer: BufferId) {
-        self.index_buffer = Some(buffer);
+    pub fn set_vertex_buffer(&mut self, index: u32, buffer: BufferId, offset: u64) {
+        self.vertex_buffers[index as usize] = Some((buffer, offset));
+    }
+
+    pub fn is_vertex_buffer_set(&self, index: u32, buffer: BufferId, offset: u64) -> bool {
+        self.vertex_buffers[index as usize] == Some((buffer, offset))
+    }
+
+    pub fn set_index_buffer(&mut self, buffer: BufferId, offset: u64) {
+        self.index_buffer = Some((buffer, offset));
+    }
+
+    pub fn is_index_buffer_set(&self, buffer: BufferId, offset: u64) -> bool {
+        self.index_buffer == Some((buffer, offset))
     }
 
     pub fn can_draw(&self) -> bool {
@@ -325,16 +378,20 @@ impl DrawState {
         self.can_draw() && self.index_buffer.is_some()
     }
 
+    pub fn is_pipeline_set(&self, pipeline: Handle<PipelineDescriptor>) -> bool {
+        self.pipeline == Some(pipeline)
+    }
+
     pub fn set_pipeline(
         &mut self,
-        handle: Handle<PipelineDescriptor>,
+        handle: &Handle<PipelineDescriptor>,
         descriptor: &PipelineDescriptor,
     ) {
         self.bind_groups.clear();
         self.vertex_buffers.clear();
         self.index_buffer = None;
 
-        self.pipeline = Some(handle);
+        self.pipeline = Some(handle.clone_weak());
         let layout = descriptor.get_layout().unwrap();
         self.bind_groups.resize(layout.bind_groups.len(), None);
         self.vertex_buffers

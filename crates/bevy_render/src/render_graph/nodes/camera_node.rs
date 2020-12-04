@@ -8,10 +8,11 @@ use crate::{
 };
 use bevy_core::AsBytes;
 
-use bevy_ecs::{Commands, IntoQuerySystem, Local, Query, Res, ResMut, Resources, System, World};
+use bevy_ecs::{Commands, IntoSystem, Local, Query, Res, ResMut, Resources, System, World};
 use bevy_transform::prelude::*;
 use std::borrow::Cow;
 
+#[derive(Debug)]
 pub struct CameraNode {
     command_queue: CommandQueue,
     camera_name: Cow<'static, str>,
@@ -43,7 +44,7 @@ impl Node for CameraNode {
 }
 
 impl SystemNode for CameraNode {
-    fn get_system(&self, commands: &mut Commands) -> Box<dyn System> {
+    fn get_system(&self, commands: &mut Commands) -> Box<dyn System<Input = (), Output = ()>> {
         let system = camera_node_system.system();
         commands.insert_local_resource(
             system.id(),
@@ -54,11 +55,11 @@ impl SystemNode for CameraNode {
                 staging_buffer: None,
             },
         );
-        system
+        Box::new(system)
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct CameraNodeState {
     command_queue: CommandQueue,
     camera_name: Cow<'static, str>,
@@ -77,15 +78,11 @@ pub fn camera_node_system(
 ) {
     let render_resource_context = &**render_resource_context;
 
-    let (camera, global_transform) =
-        if let Some(camera_entity) = active_cameras.get(&state.camera_name) {
-            (
-                query.get::<Camera>(camera_entity).unwrap(),
-                query.get::<GlobalTransform>(camera_entity).unwrap(),
-            )
-        } else {
-            return;
-        };
+    let (camera, global_transform) = if let Some(entity) = active_cameras.get(&state.camera_name) {
+        query.get(entity).unwrap()
+    } else {
+        return;
+    };
 
     let staging_buffer = if let Some(staging_buffer) = state.staging_buffer {
         render_resource_context.map_buffer(staging_buffer);
@@ -119,7 +116,7 @@ pub fn camera_node_system(
 
     let matrix_size = std::mem::size_of::<[[f32; 4]; 4]>();
     let camera_matrix: [f32; 16] =
-        (camera.projection_matrix * global_transform.value().inverse()).to_cols_array();
+        (camera.projection_matrix * global_transform.compute_matrix().inverse()).to_cols_array();
 
     render_resource_context.write_mapped_buffer(
         staging_buffer,

@@ -1,7 +1,6 @@
-use bevy::{app::ScheduleRunnerPlugin, prelude::*};
-use std::time::Duration;
+use bevy::{app::ScheduleRunnerSettings, prelude::*, utils::Duration};
 
-// This example disables the default plugins by not registering them during setup.
+// This example only enables a minimal set of plugins required for bevy to run.
 // You can also completely remove rendering / windowing Plugin code from bevy
 // by making your import look like this in your Cargo.toml
 //
@@ -12,16 +11,18 @@ use std::time::Duration;
 fn main() {
     // this app runs once
     App::build()
-        .add_plugin(ScheduleRunnerPlugin::run_once())
-        .add_system(hello_world_system.system())
+        .add_resource(ScheduleRunnerSettings::run_once())
+        .add_plugins(MinimalPlugins)
+        .add_system(hello_world_system)
         .run();
 
     // this app loops forever at 60 fps
     App::build()
-        .add_plugin(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
+        .add_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
             1.0 / 60.0,
         )))
-        .add_system(counter.system())
+        .add_plugins(MinimalPlugins)
+        .add_system(counter)
         .run();
 }
 

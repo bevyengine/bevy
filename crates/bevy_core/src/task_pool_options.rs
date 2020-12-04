@@ -1,5 +1,6 @@
 use bevy_ecs::Resources;
 use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder};
+use bevy_utils::tracing::trace;
 
 /// Defines a simple way to determine how many threads to use given the number of remaining cores
 /// and number of total cores
@@ -82,11 +83,11 @@ impl Default for DefaultTaskPoolOptions {
 impl DefaultTaskPoolOptions {
     /// Create a configuration that forces using the given number of threads.
     pub fn with_num_threads(thread_count: usize) -> Self {
-        let mut options = Self::default();
-        options.min_total_threads = thread_count;
-        options.max_total_threads = thread_count;
-
-        options
+        DefaultTaskPoolOptions {
+            min_total_threads: thread_count,
+            max_total_threads: thread_count,
+            ..Default::default()
+        }
     }
 
     /// Inserts the default thread pools into the given resource map based on the configured values
@@ -96,7 +97,7 @@ impl DefaultTaskPoolOptions {
             self.min_total_threads,
             self.max_total_threads,
         );
-        log::trace!("Assigning {} cores to default task pools", total_threads);
+        trace!("Assigning {} cores to default task pools", total_threads);
 
         let mut remaining_threads = total_threads;
 
@@ -106,7 +107,7 @@ impl DefaultTaskPoolOptions {
                 .io
                 .get_number_of_threads(remaining_threads, total_threads);
 
-            log::trace!("IO Threads: {}", io_threads);
+            trace!("IO Threads: {}", io_threads);
             remaining_threads = remaining_threads.saturating_sub(io_threads);
 
             resources.insert(IoTaskPool(
@@ -123,7 +124,7 @@ impl DefaultTaskPoolOptions {
                 .async_compute
                 .get_number_of_threads(remaining_threads, total_threads);
 
-            log::trace!("Async Compute Threads: {}", async_compute_threads);
+            trace!("Async Compute Threads: {}", async_compute_threads);
             remaining_threads = remaining_threads.saturating_sub(async_compute_threads);
 
             resources.insert(AsyncComputeTaskPool(
@@ -141,7 +142,7 @@ impl DefaultTaskPoolOptions {
                 .compute
                 .get_number_of_threads(remaining_threads, total_threads);
 
-            log::trace!("Compute Threads: {}", compute_threads);
+            trace!("Compute Threads: {}", compute_threads);
             resources.insert(ComputeTaskPool(
                 TaskPoolBuilder::default()
                     .num_threads(compute_threads)

@@ -24,15 +24,15 @@ impl DynamicTextureAtlasBuilder {
         texture: &Texture,
     ) -> Option<u32> {
         let allocation = self.atlas_allocator.allocate(size2(
-            texture.size.x() as i32 + self.padding,
-            texture.size.y() as i32 + self.padding,
+            texture.size.width as i32 + self.padding,
+            texture.size.height as i32 + self.padding,
         ));
         if let Some(allocation) = allocation {
             let atlas_texture = textures.get_mut(&texture_atlas.texture).unwrap();
             self.place_texture(atlas_texture, allocation, texture);
             let mut rect: Rect = allocation.rectangle.into();
-            *rect.max.x_mut() -= self.padding as f32;
-            *rect.max.y_mut() -= self.padding as f32;
+            rect.max.x -= self.padding as f32;
+            rect.max.y -= self.padding as f32;
             texture_atlas.add_texture(rect);
             Some((texture_atlas.len() - 1) as u32)
         } else {
@@ -72,7 +72,7 @@ impl DynamicTextureAtlasBuilder {
         let mut rect = allocation.rectangle;
         rect.max.x -= self.padding;
         rect.max.y -= self.padding;
-        let atlas_width = atlas_texture.size.x() as usize;
+        let atlas_width = atlas_texture.size.width as usize;
         let rect_width = rect.width() as usize;
         let format_size = atlas_texture.format.pixel_size();
 
@@ -97,5 +97,5 @@ impl From<guillotiere::Rectangle> for Rect {
 }
 
 fn to_size2(vec2: Vec2) -> guillotiere::Size {
-    guillotiere::Size::new(vec2.x() as i32, vec2.y() as i32)
+    guillotiere::Size::new(vec2.x as i32, vec2.y as i32)
 }

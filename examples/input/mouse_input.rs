@@ -2,8 +2,8 @@ use bevy::prelude::*;
 
 fn main() {
     App::build()
-        .add_default_plugins()
-        .add_system(mouse_click_system.system())
+        .add_plugins(DefaultPlugins)
+        .add_system(mouse_click_system)
         .run();
 }
 

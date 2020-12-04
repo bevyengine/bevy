@@ -18,6 +18,8 @@ jobs:
         exclude:
           - os: macos-10.15
             toolchain: nightly
+          - os: windows-2019
+            toolchain: nightly
     runs-on: ${{ matrix.os }}
     needs: clean
     steps:
@@ -55,12 +57,44 @@ jobs:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
+  build-wasm:
+    strategy:
+      matrix:
+        toolchain: [stable, nightly]
+        os: [ubuntu-20.04]
+    runs-on: ${{ matrix.os }}
+    needs: clean
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          target: wasm32-unknown-unknown
+          override: true
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            target
+          key: ${{ runner.os }}-cargo-check-test-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Check wasm
         uses: actions-rs/cargo@v1
         with:
           command: check
-          target: wasm32-unknown-unknown
-          override: true
+          args: --target wasm32-unknown-unknown --no-default-features --features bevy_winit,x11,hdr,bevy_gltf
+
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install Android targets
+      run: rustup target add aarch64-linux-android armv7-linux-androideabi
+    - name: Install Cargo APK
+      run: cargo install cargo-apk
+    - name: Build APK
+      run: cargo apk build --example android
 
   clean:
     runs-on: ubuntu-latest
@@ -72,17 +106,17 @@ jobs:
           toolchain: nightly
           components: rustfmt, clippy
           override: true
-          
+
       - name: Install alsa
-        run: sudo apt-get install --no-install-recommends libasound2-dev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev
 
       - name: Install udev
-        run: sudo apt-get install --no-install-recommends libudev-dev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libudev-dev
 
       - name: Check the format
         run: cargo +nightly fmt --all -- --check
 
       # type complexity must be ignored because we use huge templates for queries
-      # -A clippy::manual-strip: strip_prefix support was added in 1.45. we want to support earlier rust versions  
+      # -A clippy::manual-strip: strip_prefix support was added in 1.45. we want to support earlier rust versions
       - name: Run clippy
         run: cargo clippy --all-targets --all-features -- -D warnings -A clippy::type_complexity -A clippy::manual-strip

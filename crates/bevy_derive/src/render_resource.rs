@@ -25,7 +25,7 @@ pub fn derive_render_resource(input: TokenStream) -> TokenStream {
                 use #bevy_core_path::Bytes;
                 Some(self.byte_len())
             }
-            fn texture(&self) -> Option<#bevy_asset_path::Handle<#bevy_render_path::texture::Texture>> {
+            fn texture(&self) -> Option<&#bevy_asset_path::Handle<#bevy_render_path::texture::Texture>> {
                 None
             }
 

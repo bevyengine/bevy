@@ -1,27 +1,40 @@
-use bevy_ecs::Entity;
-use bevy_property::Properties;
+use bevy_ecs::{Entity, MapEntities};
+use bevy_reflect::{Reflect, ReflectComponent, ReflectMapEntities};
 use smallvec::SmallVec;
-use std::ops::{Deref, DerefMut};
+use std::ops::Deref;
 
-#[derive(Default, Clone, Properties, Debug)]
-pub struct Children(pub SmallVec<[Entity; 8]>);
+#[derive(Default, Clone, Debug, Reflect)]
+#[reflect(Component, MapEntities)]
+pub struct Children(pub(crate) SmallVec<[Entity; 8]>);
+
+impl MapEntities for Children {
+    fn map_entities(
+        &mut self,
+        entity_map: &bevy_ecs::EntityMap,
+    ) -> Result<(), bevy_ecs::MapEntitiesError> {
+        for entity in self.0.iter_mut() {
+            *entity = entity_map.get(*entity)?;
+        }
+
+        Ok(())
+    }
+}
 
 impl Children {
     pub fn with(entity: &[Entity]) -> Self {
         Self(SmallVec::from_slice(entity))
     }
-}
 
-impl Deref for Children {
-    type Target = SmallVec<[Entity; 8]>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
+    /// Swaps the child at `a_index` with the child at `b_index`
+    pub fn swap(&mut self, a_index: usize, b_index: usize) {
+        self.0.swap(a_index, b_index);
     }
 }
 
-impl DerefMut for Children {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+impl Deref for Children {
+    type Target = [Entity];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0[..]
     }
 }

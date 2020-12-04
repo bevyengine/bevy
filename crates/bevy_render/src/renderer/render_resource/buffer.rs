@@ -1,4 +1,4 @@
-use uuid::Uuid;
+use bevy_utils::Uuid;
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct BufferId(Uuid);

@@ -3,8 +3,9 @@ use crate::{
     JustifyContent, PositionType, Style, Val,
 };
 use bevy_math::{Rect, Size};
+use bevy_reflect::Reflect;
 
-fn from_rect<T, U>(rect: Rect<U>) -> stretch::geometry::Rect<T>
+fn from_rect<T, U: Reflect>(rect: Rect<U>) -> stretch::geometry::Rect<T>
 where
     T: From<U>,
 {
@@ -19,6 +20,7 @@ where
 
 fn from_size<T, U>(size: Size<U>) -> stretch::geometry::Size<T>
 where
+    U: Reflect,
     T: From<U>,
 {
     stretch::geometry::Size {

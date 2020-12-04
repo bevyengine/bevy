@@ -1,20 +1,21 @@
+use bevy_reflect::Reflect;
 use glam::Vec2;
 use std::ops::{Add, AddAssign};
 
 /// A two dimensional "size" as defined by a width and height
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub struct Size<T = f32> {
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+pub struct Size<T: Reflect = f32> {
     pub width: T,
     pub height: T,
 }
 
-impl<T> Size<T> {
+impl<T: Reflect> Size<T> {
     pub fn new(width: T, height: T) -> Self {
         Size { width, height }
     }
 }
 
-impl<T: Default> Default for Size<T> {
+impl<T: Default + Reflect> Default for Size<T> {
     fn default() -> Self {
         Self {
             width: Default::default(),
@@ -24,15 +25,15 @@ impl<T: Default> Default for Size<T> {
 }
 
 /// A rect, as defined by its "side" locations
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub struct Rect<T> {
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+pub struct Rect<T: Reflect> {
     pub left: T,
     pub right: T,
     pub top: T,
     pub bottom: T,
 }
 
-impl<T> Rect<T> {
+impl<T: Reflect> Rect<T> {
     pub fn all(value: T) -> Self
     where
         T: Clone,
@@ -46,7 +47,7 @@ impl<T> Rect<T> {
     }
 }
 
-impl<T: Default> Default for Rect<T> {
+impl<T: Default + Reflect> Default for Rect<T> {
     fn default() -> Self {
         Self {
             left: Default::default(),
@@ -57,7 +58,7 @@ impl<T: Default> Default for Rect<T> {
     }
 }
 
-impl<T> Add<Vec2> for Size<T>
+impl<T: Reflect> Add<Vec2> for Size<T>
 where
     T: Add<f32, Output = T>,
 {
@@ -65,18 +66,18 @@ where
 
     fn add(self, rhs: Vec2) -> Self::Output {
         Self {
-            width: self.width + rhs.x(),
-            height: self.height + rhs.y(),
+            width: self.width + rhs.x,
+            height: self.height + rhs.y,
         }
     }
 }
 
-impl<T> AddAssign<Vec2> for Size<T>
+impl<T: Reflect> AddAssign<Vec2> for Size<T>
 where
     T: AddAssign<f32>,
 {
     fn add_assign(&mut self, rhs: Vec2) {
-        self.width += rhs.x();
-        self.height += rhs.y();
+        self.width += rhs.x;
+        self.height += rhs.y;
     }
 }

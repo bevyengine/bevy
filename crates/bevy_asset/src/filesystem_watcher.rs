@@ -12,9 +12,9 @@ impl Default for FilesystemWatcher {
     fn default() -> Self {
         let (sender, receiver) = crossbeam_channel::unbounded();
         let watcher: RecommendedWatcher = Watcher::new_immediate(move |res| {
-            sender.send(res).expect("Watch event send failure");
+            sender.send(res).expect("Watch event send failure.");
         })
-        .expect("Failed to create filesystem watcher");
+        .expect("Failed to create filesystem watcher.");
         FilesystemWatcher { watcher, receiver }
     }
 }

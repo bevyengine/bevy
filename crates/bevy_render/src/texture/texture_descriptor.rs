@@ -14,14 +14,10 @@ pub struct TextureDescriptor {
 impl From<&Texture> for TextureDescriptor {
     fn from(texture: &Texture) -> Self {
         TextureDescriptor {
-            size: Extent3d {
-                width: texture.size.x() as u32,
-                height: texture.size.y() as u32,
-                depth: 1,
-            },
+            size: texture.size,
             mip_level_count: 1,
             sample_count: 1,
-            dimension: TextureDimension::D2,
+            dimension: texture.dimension,
             format: texture.format,
             usage: TextureUsage::SAMPLED | TextureUsage::COPY_DST,
         }

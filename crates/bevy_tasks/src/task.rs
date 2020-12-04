@@ -13,6 +13,7 @@ use std::{
 ///
 /// Tasks that panic get immediately canceled. Awaiting a canceled task also causes a panic.
 /// Wraps async_executor::Task
+#[derive(Debug)]
 pub struct Task<T>(async_executor::Task<T>);
 
 impl<T> Task<T> {

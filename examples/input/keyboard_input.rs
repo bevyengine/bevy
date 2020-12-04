@@ -5,8 +5,8 @@ use bevy::{
 
 fn main() {
     App::build()
-        .add_default_plugins()
-        .add_system(keyboard_input_system.system())
+        .add_plugins(DefaultPlugins)
+        .add_system(keyboard_input_system)
         .run();
 }
 

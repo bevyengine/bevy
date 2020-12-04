@@ -1,4 +1,4 @@
-use super::{IndexFormat, PipelineDescriptor, PipelineSpecialization};
+use super::{PipelineDescriptor, PipelineSpecialization};
 use crate::{
     draw::{Draw, DrawContext},
     mesh::{Indices, Mesh},
@@ -7,20 +7,23 @@ use crate::{
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Query, Res, ResMut};
-use bevy_property::Properties;
+use bevy_reflect::{Reflect, ReflectComponent};
+use bevy_utils::HashSet;
 
-#[derive(Properties, Default, Clone)]
-#[non_exhaustive]
+#[derive(Debug, Default, Clone, Reflect)]
 pub struct RenderPipeline {
     pub pipeline: Handle<PipelineDescriptor>,
     pub specialization: PipelineSpecialization,
+    /// used to track if PipelineSpecialization::dynamic_bindings is in sync with RenderResourceBindings
+    pub dynamic_bindings_generation: usize,
 }
 
 impl RenderPipeline {
     pub fn new(pipeline: Handle<PipelineDescriptor>) -> Self {
         RenderPipeline {
+            specialization: Default::default(),
             pipeline,
-            ..Default::default()
+            dynamic_bindings_generation: std::usize::MAX,
         }
     }
 
@@ -31,14 +34,16 @@ impl RenderPipeline {
         RenderPipeline {
             pipeline,
             specialization,
+            dynamic_bindings_generation: std::usize::MAX,
         }
     }
 }
 
-#[derive(Properties, Clone)]
+#[derive(Debug, Clone, Reflect)]
+#[reflect(Component)]
 pub struct RenderPipelines {
     pub pipelines: Vec<RenderPipeline>,
-    #[property(ignore)]
+    #[reflect(ignore)]
     pub bindings: RenderResourceBindings,
 }
 
@@ -56,7 +61,7 @@ impl RenderPipelines {
         RenderPipelines {
             pipelines: handles
                 .into_iter()
-                .map(|pipeline| RenderPipeline::new(*pipeline))
+                .map(|pipeline| RenderPipeline::new(pipeline.clone_weak()))
                 .collect::<Vec<RenderPipeline>>(),
             ..Default::default()
         }
@@ -79,44 +84,72 @@ pub fn draw_render_pipelines_system(
     meshes: Res<Assets<Mesh>>,
     mut query: Query<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>)>,
 ) {
-    for (mut draw, mut render_pipelines, mesh_handle) in &mut query.iter() {
+    for (mut draw, mut render_pipelines, mesh_handle) in query.iter_mut() {
         if !draw.is_visible {
             continue;
         }
 
-        let mesh = meshes.get(mesh_handle).unwrap();
-        let (index_range, index_format) = match mesh.indices.as_ref() {
-            Some(Indices::U32(indices)) => (Some(0..indices.len() as u32), IndexFormat::Uint32),
-            Some(Indices::U16(indices)) => (Some(0..indices.len() as u32), IndexFormat::Uint16),
-            None => (None, IndexFormat::Uint32),
+        // don't render if the mesh isn't loaded yet
+        let mesh = if let Some(mesh) = meshes.get(mesh_handle) {
+            mesh
+        } else {
+            continue;
+        };
+
+        let index_range = match mesh.indices() {
+            Some(Indices::U32(indices)) => Some(0..indices.len() as u32),
+            Some(Indices::U16(indices)) => Some(0..indices.len() as u32),
+            None => None,
         };
 
         let render_pipelines = &mut *render_pipelines;
         for pipeline in render_pipelines.pipelines.iter_mut() {
             pipeline.specialization.sample_count = msaa.samples;
-            pipeline.specialization.index_format = index_format;
+            if pipeline.dynamic_bindings_generation
+                != render_pipelines.bindings.dynamic_bindings_generation()
+            {
+                pipeline.specialization.dynamic_bindings = render_pipelines
+                    .bindings
+                    .iter_dynamic_bindings()
+                    .map(|name| name.to_string())
+                    .collect::<HashSet<String>>();
+                pipeline.dynamic_bindings_generation =
+                    render_pipelines.bindings.dynamic_bindings_generation();
+                for (handle, _) in render_pipelines.bindings.iter_assets() {
+                    if let Some(bindings) = draw_context
+                        .asset_render_resource_bindings
+                        .get_untyped(handle)
+                    {
+                        for binding in bindings.iter_dynamic_bindings() {
+                            pipeline
+                                .specialization
+                                .dynamic_bindings
+                                .insert(binding.to_string());
+                        }
+                    }
+                }
+            }
         }
 
-        for render_pipeline in render_pipelines.pipelines.iter() {
+        for render_pipeline in render_pipelines.pipelines.iter_mut() {
+            let render_resource_bindings = &mut [
+                &mut render_pipelines.bindings,
+                &mut render_resource_bindings,
+            ];
             draw_context
                 .set_pipeline(
                     &mut draw,
-                    render_pipeline.pipeline,
+                    &render_pipeline.pipeline,
                     &render_pipeline.specialization,
                 )
                 .unwrap();
             draw_context
-                .set_bind_groups_from_bindings(
-                    &mut draw,
-                    &mut [
-                        &mut render_pipelines.bindings,
-                        &mut render_resource_bindings,
-                    ],
-                )
+                .set_bind_groups_from_bindings(&mut draw, render_resource_bindings)
                 .unwrap();
             draw_context
                 .set_vertex_buffers_from_bindings(&mut draw, &[&render_pipelines.bindings])
                 .unwrap();
+
             if let Some(indices) = index_range.clone() {
                 draw.draw_indexed(indices, 0, 0..1);
             }

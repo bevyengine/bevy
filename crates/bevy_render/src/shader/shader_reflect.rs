@@ -3,33 +3,23 @@ use crate::{
         BindGroupDescriptor, BindType, BindingDescriptor, BindingShaderStage, InputStepMode,
         UniformProperty, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
     },
+    shader::{ShaderLayout, GL_VERTEX_INDEX},
     texture::{TextureComponentType, TextureViewDimension},
 };
 use bevy_core::AsBytes;
-use bevy_utils::HashSet;
 use spirv_reflect::{
     types::{
         ReflectDescriptorBinding, ReflectDescriptorSet, ReflectDescriptorType, ReflectDimension,
-        ReflectInterfaceVariable, ReflectShaderStageFlags, ReflectTypeDescription,
-        ReflectTypeFlags,
+        ReflectShaderStageFlags, ReflectTypeDescription, ReflectTypeFlags,
     },
     ShaderModule,
 };
-
-/// Defines the memory layout of a shader
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ShaderLayout {
-    pub bind_groups: Vec<BindGroupDescriptor>,
-    pub vertex_buffer_descriptors: Vec<VertexBufferDescriptor>,
-    pub entry_point: String,
-}
-
-pub const GL_VERTEX_INDEX: &str = "gl_VertexIndex";
 
 impl ShaderLayout {
     pub fn from_spirv(spirv_data: &[u32], bevy_conventions: bool) -> ShaderLayout {
         match ShaderModule::load_u8_data(spirv_data.as_bytes()) {
             Ok(ref mut module) => {
+                // init
                 let entry_point_name = module.get_entry_point_name();
                 let shader_stage = module.get_shader_stage();
                 let mut bind_groups = Vec::new();
@@ -38,66 +28,45 @@ impl ShaderLayout {
                     bind_groups.push(bind_group);
                 }
 
+                // obtain attribute descriptors from reflection
                 let mut vertex_attribute_descriptors = Vec::new();
                 for input_variable in module.enumerate_input_variables(None).unwrap() {
-                    let vertex_attribute_descriptor =
-                        reflect_vertex_attribute_descriptor(&input_variable);
-                    if vertex_attribute_descriptor.name == GL_VERTEX_INDEX {
+                    if input_variable.name == GL_VERTEX_INDEX {
                         continue;
                     }
-                    vertex_attribute_descriptors.push(vertex_attribute_descriptor);
+                    // reflect vertex attribute descriptor and record it
+                    vertex_attribute_descriptors.push(VertexAttributeDescriptor {
+                        name: input_variable.name.clone().into(),
+                        format: reflect_vertex_format(
+                            input_variable.type_description.as_ref().unwrap(),
+                        ),
+                        offset: 0,
+                        shader_location: input_variable.location,
+                    });
                 }
 
                 vertex_attribute_descriptors
                     .sort_by(|a, b| a.shader_location.cmp(&b.shader_location));
 
-                let mut visited_buffer_descriptors = HashSet::default();
                 let mut vertex_buffer_descriptors = Vec::new();
-                let mut current_descriptor: Option<VertexBufferDescriptor> = None;
                 for vertex_attribute_descriptor in vertex_attribute_descriptors.drain(..) {
                     let mut instance = false;
+                    // obtain buffer name and instancing flag
                     let current_buffer_name = {
                         if bevy_conventions {
                             if vertex_attribute_descriptor.name == GL_VERTEX_INDEX {
                                 GL_VERTEX_INDEX.to_string()
                             } else {
-                                let parts = vertex_attribute_descriptor
-                                    .name
-                                    .splitn(3, '_')
-                                    .collect::<Vec<&str>>();
-                                if parts.len() == 3 {
-                                    if parts[0] == "I" {
-                                        instance = true;
-                                        parts[1].to_string()
-                                    } else {
-                                        parts[0].to_string()
-                                    }
-                                } else if parts.len() == 2 {
-                                    parts[0].to_string()
-                                } else {
-                                    panic!("Vertex attributes must follow the form BUFFERNAME_PROPERTYNAME. For example: Vertex_Position");
-                                }
+                                instance = vertex_attribute_descriptor.name.starts_with("I_");
+                                vertex_attribute_descriptor.name.to_string()
                             }
                         } else {
                             "DefaultVertex".to_string()
                         }
                     };
 
-                    if let Some(current) = current_descriptor.as_mut() {
-                        if current.name == current_buffer_name {
-                            current.attributes.push(vertex_attribute_descriptor);
-                            continue;
-                        } else if visited_buffer_descriptors.contains(&current_buffer_name) {
-                            panic!("Vertex attribute buffer names must be consecutive.")
-                        }
-                    }
-
-                    if let Some(current) = current_descriptor.take() {
-                        visited_buffer_descriptors.insert(current.name.to_string());
-                        vertex_buffer_descriptors.push(current);
-                    }
-
-                    current_descriptor = Some(VertexBufferDescriptor {
+                    // create a new buffer descriptor, per attribute!
+                    vertex_buffer_descriptors.push(VertexBufferDescriptor {
                         attributes: vec![vertex_attribute_descriptor],
                         name: current_buffer_name.into(),
                         step_mode: if instance {
@@ -106,16 +75,7 @@ impl ShaderLayout {
                             InputStepMode::Vertex
                         },
                         stride: 0,
-                    })
-                }
-
-                if let Some(current) = current_descriptor.take() {
-                    visited_buffer_descriptors.insert(current.name.to_string());
-                    vertex_buffer_descriptors.push(current);
-                }
-
-                for vertex_buffer_descriptor in vertex_buffer_descriptors.iter_mut() {
-                    calculate_offsets(vertex_buffer_descriptor);
+                    });
                 }
 
                 ShaderLayout {
@@ -124,29 +84,8 @@ impl ShaderLayout {
                     entry_point: entry_point_name,
                 }
             }
-            Err(err) => panic!("Failed to reflect shader layout: {:?}", err),
+            Err(err) => panic!("Failed to reflect shader layout: {:?}.", err),
         }
-    }
-}
-
-fn calculate_offsets(vertex_buffer_descriptor: &mut VertexBufferDescriptor) {
-    let mut offset = 0;
-    for attribute in vertex_buffer_descriptor.attributes.iter_mut() {
-        attribute.offset = offset;
-        offset += attribute.format.get_size();
-    }
-
-    vertex_buffer_descriptor.stride = offset;
-}
-
-fn reflect_vertex_attribute_descriptor(
-    input_variable: &ReflectInterfaceVariable,
-) -> VertexAttributeDescriptor {
-    VertexAttributeDescriptor {
-        name: input_variable.name.clone().into(),
-        format: reflect_vertex_format(input_variable.type_description.as_ref().unwrap()),
-        offset: 0,
-        shader_location: input_variable.location,
     }
 }
 
@@ -169,7 +108,7 @@ fn reflect_dimension(type_description: &ReflectTypeDescription) -> TextureViewDi
         ReflectDimension::Type2d => TextureViewDimension::D2,
         ReflectDimension::Type3d => TextureViewDimension::D3,
         ReflectDimension::Cube => TextureViewDimension::Cube,
-        dimension => panic!("unsupported image dimension: {:?}", dimension),
+        dimension => panic!("Unsupported image dimension: {:?}.", dimension),
     }
 }
 
@@ -203,7 +142,7 @@ fn reflect_binding(
         ),
         // TODO: detect comparison "true" case: https://github.com/gpuweb/gpuweb/issues/552
         ReflectDescriptorType::Sampler => (&binding.name, BindType::Sampler { comparison: false }),
-        _ => panic!("unsupported bind type {:?}", binding.descriptor_type),
+        _ => panic!("Unsupported bind type {:?}.", binding.descriptor_type),
     };
 
     let mut shader_stage = match shader_stage {
@@ -260,7 +199,7 @@ fn reflect_uniform_numeric(type_description: &ReflectTypeDescription) -> Uniform
         match traits.numeric.scalar.signedness {
             0 => NumberType::UInt,
             1 => NumberType::Int,
-            signedness => panic!("unexpected signedness {}", signedness),
+            signedness => panic!("Unexpected signedness {}.", signedness),
         }
     } else if type_description
         .type_flags
@@ -268,7 +207,7 @@ fn reflect_uniform_numeric(type_description: &ReflectTypeDescription) -> Uniform
     {
         NumberType::Float
     } else {
-        panic!("unexpected type flag {:?}", type_description.type_flags);
+        panic!("Unexpected type flag {:?}.", type_description.type_flags);
     };
 
     // TODO: handle scalar width here
@@ -313,7 +252,7 @@ fn reflect_vertex_format(type_description: &ReflectTypeDescription) -> VertexFor
         match traits.numeric.scalar.signedness {
             0 => NumberType::UInt,
             1 => NumberType::Int,
-            signedness => panic!("unexpected signedness {}", signedness),
+            signedness => panic!("Unexpected signedness {}.", signedness),
         }
     } else if type_description
         .type_flags
@@ -321,7 +260,7 @@ fn reflect_vertex_format(type_description: &ReflectTypeDescription) -> VertexFor
     {
         NumberType::Float
     } else {
-        panic!("unexpected type flag {:?}", type_description.type_flags);
+        panic!("Unexpected type flag {:?}.", type_description.type_flags);
     };
 
     let width = traits.numeric.scalar.width;
@@ -361,6 +300,12 @@ mod tests {
     use super::*;
     use crate::shader::{Shader, ShaderStage};
 
+    impl VertexBufferDescriptor {
+        pub fn test_zero_stride(mut self) -> VertexBufferDescriptor {
+            self.stride = 0;
+            self
+        }
+    }
     #[test]
     fn test_reflection() {
         let vertex_shader = Shader::from_glsl(
@@ -391,36 +336,36 @@ mod tests {
             ShaderLayout {
                 entry_point: "main".into(),
                 vertex_buffer_descriptors: vec![
-                    VertexBufferDescriptor {
-                        name: "Vertex".into(),
-                        attributes: vec![
-                            VertexAttributeDescriptor {
-                                name: "Vertex_Position".into(),
-                                format: VertexFormat::Float4,
-                                offset: 0,
-                                shader_location: 0,
-                            },
-                            VertexAttributeDescriptor {
-                                name: "Vertex_Normal".into(),
-                                format: VertexFormat::Uint4,
-                                offset: 16,
-                                shader_location: 1,
-                            }
-                        ],
-                        step_mode: InputStepMode::Vertex,
-                        stride: 32,
-                    },
-                    VertexBufferDescriptor {
-                        name: "TestInstancing".into(),
-                        attributes: vec![VertexAttributeDescriptor {
+                    VertexBufferDescriptor::new_from_attribute(
+                        VertexAttributeDescriptor {
+                            name: "Vertex_Position".into(),
+                            format: VertexFormat::Float4,
+                            offset: 0,
+                            shader_location: 0,
+                        },
+                        InputStepMode::Vertex
+                    )
+                    .test_zero_stride(),
+                    VertexBufferDescriptor::new_from_attribute(
+                        VertexAttributeDescriptor {
+                            name: "Vertex_Normal".into(),
+                            format: VertexFormat::Uint4,
+                            offset: 0,
+                            shader_location: 1,
+                        },
+                        InputStepMode::Vertex
+                    )
+                    .test_zero_stride(),
+                    VertexBufferDescriptor::new_from_attribute(
+                        VertexAttributeDescriptor {
                             name: "I_TestInstancing_Property".into(),
                             format: VertexFormat::Uint4,
                             offset: 0,
                             shader_location: 2,
-                        },],
-                        step_mode: InputStepMode::Instance,
-                        stride: 16,
-                    }
+                        },
+                        InputStepMode::Instance
+                    )
+                    .test_zero_stride(),
                 ],
                 bind_groups: vec![
                     BindGroupDescriptor::new(
@@ -451,33 +396,5 @@ mod tests {
                 ]
             }
         );
-    }
-
-    #[test]
-    #[should_panic(expected = "Vertex attribute buffer names must be consecutive.")]
-    fn test_reflection_consecutive_buffer_validation() {
-        let vertex_shader = Shader::from_glsl(
-            ShaderStage::Vertex,
-            r#"
-            #version 450
-            layout(location = 0) in vec4 Vertex_Position;
-            layout(location = 1) in uvec4 Other_Property;
-            layout(location = 2) in uvec4 Vertex_Normal;
-
-            layout(location = 0) out vec4 v_Position;
-            layout(set = 0, binding = 0) uniform Camera {
-                mat4 ViewProj;
-            };
-            layout(set = 1, binding = 0) uniform texture2D Texture;
-
-            void main() {
-                v_Position = Vertex_Position;
-                gl_Position = ViewProj * v_Position;
-            }
-        "#,
-        )
-        .get_spirv_shader(None);
-
-        let _layout = vertex_shader.reflect_layout(true).unwrap();
     }
 }

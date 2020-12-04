@@ -1,7 +1,8 @@
 use crate::Rect;
 use bevy_asset::Handle;
-use bevy_core::Bytes;
+use bevy_core::Byteable;
 use bevy_math::Vec2;
+use bevy_reflect::TypeUuid;
 use bevy_render::{
     color::Color,
     renderer::{RenderResource, RenderResources},
@@ -10,7 +11,8 @@ use bevy_render::{
 use bevy_utils::HashMap;
 
 /// An atlas containing multiple textures (like a spritesheet or a tilemap)
-#[derive(RenderResources)]
+#[derive(Debug, RenderResources, TypeUuid)]
+#[uuid = "946dacc5-c2b2-4b30-b81d-af77d79d1db7"]
 pub struct TextureAtlas {
     /// The handle to the texture in which the sprites are stored
     pub texture: Handle<Texture>,
@@ -23,9 +25,7 @@ pub struct TextureAtlas {
     pub texture_handles: Option<HashMap<Handle<Texture>, usize>>,
 }
 
-// NOTE: cannot do `unsafe impl Byteable` here because Vec3 takes up the space of a Vec4. If/when glam changes this we can swap out
-// Bytes for Byteable as a micro-optimization. https://github.com/bitshifter/glam-rs/issues/36
-#[derive(Bytes, RenderResources, RenderResource)]
+#[derive(Debug, RenderResources, RenderResource)]
 #[render_resources(from_self)]
 pub struct TextureAtlasSprite {
     pub color: Color,
@@ -40,6 +40,8 @@ impl Default for TextureAtlasSprite {
         }
     }
 }
+
+unsafe impl Byteable for TextureAtlasSprite {}
 
 impl TextureAtlasSprite {
     pub fn new(index: u32) -> TextureAtlasSprite {
@@ -63,29 +65,56 @@ impl TextureAtlas {
     }
 
     /// Generate a `TextureAtlas` by splitting a texture into a grid where each
-    /// cell of the grid is one of the textures in the atlas
+    /// cell of the grid  of `tile_size` is one of the textures in the atlas
     pub fn from_grid(
         texture: Handle<Texture>,
-        size: Vec2,
+        tile_size: Vec2,
         columns: usize,
         rows: usize,
     ) -> TextureAtlas {
-        let texture_width = size.x() / columns as f32;
-        let texture_height = size.y() / rows as f32;
+        Self::from_grid_with_padding(texture, tile_size, columns, rows, Vec2::new(0f32, 0f32))
+    }
+
+    /// Generate a `TextureAtlas` by splitting a texture into a grid where each
+    /// cell of the grid of `tile_size` is one of the textures in the atlas and is separated by
+    /// some `padding` in the texture
+    pub fn from_grid_with_padding(
+        texture: Handle<Texture>,
+        tile_size: Vec2,
+        columns: usize,
+        rows: usize,
+        padding: Vec2,
+    ) -> TextureAtlas {
         let mut sprites = Vec::new();
+        let mut x_padding = 0.0;
+        let mut y_padding = 0.0;
+
         for y in 0..rows {
+            if y > 0 {
+                y_padding = padding.y;
+            }
             for x in 0..columns {
+                if x > 0 {
+                    x_padding = padding.x;
+                }
+
+                let rect_min = Vec2::new(
+                    (tile_size.x + x_padding) * x as f32,
+                    (tile_size.y + y_padding) * y as f32,
+                );
+
                 sprites.push(Rect {
-                    min: Vec2::new(x as f32 * texture_width, y as f32 * texture_height),
-                    max: Vec2::new(
-                        (x + 1) as f32 * texture_width,
-                        (y + 1) as f32 * texture_height,
-                    ),
+                    min: rect_min,
+                    max: Vec2::new(rect_min.x + tile_size.x, rect_min.y + tile_size.y),
                 })
             }
         }
+
         TextureAtlas {
-            size,
+            size: Vec2::new(
+                ((tile_size.x + x_padding) * columns as f32) - x_padding,
+                ((tile_size.y + y_padding) * rows as f32) - y_padding,
+            ),
             textures: sprites,
             texture,
             texture_handles: None,
@@ -111,9 +140,9 @@ impl TextureAtlas {
         self.textures.is_empty()
     }
 
-    pub fn get_texture_index(&self, texture: Handle<Texture>) -> Option<usize> {
+    pub fn get_texture_index(&self, texture: &Handle<Texture>) -> Option<usize> {
         self.texture_handles
             .as_ref()
-            .and_then(|texture_handles| texture_handles.get(&texture).cloned())
+            .and_then(|texture_handles| texture_handles.get(texture).cloned())
     }
 }

@@ -13,11 +13,9 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_asset::AddAsset;
-use bevy_ecs::IntoQuerySystem;
-use bevy_render::{render_graph::RenderGraph, shader};
-use bevy_type_registry::RegisterType;
-use light::Light;
+use bevy_asset::{AddAsset, Assets, Handle};
+use bevy_reflect::RegisterTypeBuilder;
+use bevy_render::{prelude::Color, render_graph::RenderGraph, shader};
 use material::StandardMaterial;
 use render_graph::add_pbr_graph;
 
@@ -28,13 +26,28 @@ pub struct PbrPlugin;
 impl Plugin for PbrPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_asset::<StandardMaterial>()
-            .register_component::<Light>()
+            .register_type::<Light>()
             .add_system_to_stage(
                 stage::POST_UPDATE,
-                shader::asset_shader_defs_system::<StandardMaterial>.system(),
-            );
+                shader::asset_shader_defs_system::<StandardMaterial>,
+            )
+            .init_resource::<AmbientLight>();
         let resources = app.resources();
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
         add_pbr_graph(&mut render_graph, resources);
+
+        // add default StandardMaterial
+        let mut materials = app
+            .resources()
+            .get_mut::<Assets<StandardMaterial>>()
+            .unwrap();
+        materials.set_untracked(
+            Handle::<StandardMaterial>::default(),
+            StandardMaterial {
+                albedo: Color::PINK,
+                shaded: false,
+                albedo_texture: None,
+            },
+        );
     }
 }

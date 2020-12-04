@@ -49,18 +49,18 @@ impl Node for WindowSwapChainNode {
 
         let window = windows
             .get(self.window_id)
-            .expect("Received window resized event for non-existent window");
+            .expect("Received window resized event for non-existent window.");
 
         let render_resource_context = render_context.resources_mut();
 
         // create window swapchain when window is resized or created
         if self
             .window_created_event_reader
-            .find_latest(&window_created_events, |e| e.id == window.id)
+            .find_latest(&window_created_events, |e| e.id == window.id())
             .is_some()
             || self
                 .window_resized_event_reader
-                .find_latest(&window_resized_events, |e| e.id == window.id)
+                .find_latest(&window_resized_events, |e| e.id == window.id())
                 .is_some()
         {
             render_resource_context.create_swap_chain(window);

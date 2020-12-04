@@ -1,191 +1,354 @@
 use std::{
+    cmp::Ordering,
     fmt::Debug,
     hash::{Hash, Hasher},
+    marker::PhantomData,
 };
 
-use bevy_property::{Properties, Property};
+use crate::{
+    path::{AssetPath, AssetPathId},
+    Asset, Assets,
+};
+use bevy_reflect::{Reflect, ReflectComponent, ReflectDeserialize};
+use bevy_utils::Uuid;
+use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
-use std::{any::TypeId, marker::PhantomData};
-use uuid::Uuid;
 
-/// The ID of the "default" asset
-pub(crate) const DEFAULT_HANDLE_ID: HandleId =
-    HandleId(Uuid::from_u128(240940089166493627844978703213080810552));
+/// A unique, stable asset id
+#[derive(
+    Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Reflect,
+)]
+#[reflect_value(Serialize, Deserialize, PartialEq, Hash)]
+pub enum HandleId {
+    Id(Uuid, u64),
+    AssetPathId(AssetPathId),
+}
 
-/// A unique id that corresponds to a specific asset in the [Assets](crate::Assets) collection.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize, Property)]
-pub struct HandleId(pub Uuid);
+impl From<AssetPathId> for HandleId {
+    fn from(value: AssetPathId) -> Self {
+        HandleId::AssetPathId(value)
+    }
+}
+
+impl<'a> From<AssetPath<'a>> for HandleId {
+    fn from(value: AssetPath<'a>) -> Self {
+        HandleId::AssetPathId(AssetPathId::from(value))
+    }
+}
 
 impl HandleId {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> HandleId {
-        HandleId(Uuid::new_v4())
+    #[inline]
+    pub fn random<T: Asset>() -> Self {
+        HandleId::Id(T::TYPE_UUID, rand::random())
+    }
+
+    #[inline]
+    pub fn default<T: Asset>() -> Self {
+        HandleId::Id(T::TYPE_UUID, 0)
+    }
+
+    #[inline]
+    pub const fn new(type_uuid: Uuid, id: u64) -> Self {
+        HandleId::Id(type_uuid, id)
     }
 }
 
 /// A handle into a specific Asset of type `T`
 ///
 /// Handles contain a unique id that corresponds to a specific asset in the [Assets](crate::Assets) collection.
-#[derive(Properties)]
+#[derive(Reflect)]
+#[reflect(Component)]
 pub struct Handle<T>
 where
-    T: 'static,
+    T: Asset,
 {
     pub id: HandleId,
-    #[property(ignore)]
+    #[reflect(ignore)]
+    handle_type: HandleType,
+    #[reflect(ignore)]
     marker: PhantomData<T>,
 }
 
-impl<T> Handle<T> {
-    pub fn new() -> Self {
-        Handle {
-            id: HandleId::new(),
-            marker: PhantomData,
+enum HandleType {
+    Weak,
+    Strong(Sender<RefChange>),
+}
+
+impl Debug for HandleType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            HandleType::Weak => f.write_str("Weak"),
+            HandleType::Strong(_) => f.write_str("Strong"),
         }
     }
+}
 
-    /// Gets a handle for the given type that has this handle's id. This is useful when an
-    /// asset is derived from another asset. In this case, a common handle can be used to
-    /// correlate them.
-    /// NOTE: This pattern might eventually be replaced by a more formal asset dependency system.
-    pub fn as_handle<U>(&self) -> Handle<U> {
-        Handle::from_id(self.id)
-    }
-
-    pub const fn from_id(id: HandleId) -> Self {
-        Handle {
+impl<T: Asset> Handle<T> {
+    pub(crate) fn strong(id: HandleId, ref_change_sender: Sender<RefChange>) -> Self {
+        ref_change_sender.send(RefChange::Increment(id)).unwrap();
+        Self {
             id,
+            handle_type: HandleType::Strong(ref_change_sender),
             marker: PhantomData,
         }
     }
 
-    pub const fn from_u128(value: u128) -> Self {
+    pub fn weak(id: HandleId) -> Self {
+        Self {
+            id,
+            handle_type: HandleType::Weak,
+            marker: PhantomData,
+        }
+    }
+
+    pub fn as_weak<U: Asset>(&self) -> Handle<U> {
         Handle {
-            id: HandleId(Uuid::from_u128(value)),
+            id: self.id,
+            handle_type: HandleType::Weak,
             marker: PhantomData,
         }
     }
 
-    pub const fn from_bytes(bytes: [u8; 16]) -> Self {
-        Handle {
-            id: HandleId(Uuid::from_bytes(bytes)),
-            marker: PhantomData,
+    pub fn is_weak(&self) -> bool {
+        matches!(self.handle_type, HandleType::Weak)
+    }
+
+    pub fn is_strong(&self) -> bool {
+        matches!(self.handle_type, HandleType::Strong(_))
+    }
+
+    pub fn make_strong(&mut self, assets: &mut Assets<T>) {
+        if self.is_strong() {
+            return;
+        }
+        let sender = assets.ref_change_sender.clone();
+        sender.send(RefChange::Increment(self.id)).unwrap();
+        self.handle_type = HandleType::Strong(sender);
+    }
+
+    pub fn clone_weak(&self) -> Self {
+        Handle::weak(self.id)
+    }
+
+    pub fn clone_untyped(&self) -> HandleUntyped {
+        match &self.handle_type {
+            HandleType::Strong(sender) => HandleUntyped::strong(self.id, sender.clone()),
+            HandleType::Weak => HandleUntyped::weak(self.id),
         }
     }
 
-    pub fn from_untyped(untyped_handle: HandleUntyped) -> Option<Handle<T>>
-    where
-        T: 'static,
-    {
-        if TypeId::of::<T>() == untyped_handle.type_id {
-            Some(Handle::from_id(untyped_handle.id))
-        } else {
-            None
-        }
+    pub fn clone_weak_untyped(&self) -> HandleUntyped {
+        HandleUntyped::weak(self.id)
     }
 }
 
-impl<T> From<HandleId> for Handle<T> {
-    fn from(value: HandleId) -> Self {
-        Handle::from_id(value)
-    }
-}
-
-impl<T> From<u128> for Handle<T> {
-    fn from(value: u128) -> Self {
-        Handle::from_u128(value)
-    }
-}
-
-impl<T> From<[u8; 16]> for Handle<T> {
-    fn from(value: [u8; 16]) -> Self {
-        Handle::from_bytes(value)
-    }
-}
-
-impl<T> From<HandleUntyped> for Handle<T>
-where
-    T: 'static,
-{
-    fn from(handle: HandleUntyped) -> Self {
-        if TypeId::of::<T>() == handle.type_id {
-            Handle {
-                id: handle.id,
-                marker: PhantomData::default(),
+impl<T: Asset> Drop for Handle<T> {
+    fn drop(&mut self) {
+        match self.handle_type {
+            HandleType::Strong(ref sender) => {
+                // ignore send errors because this means the channel is shut down / the game has stopped
+                let _ = sender.send(RefChange::Decrement(self.id));
             }
-        } else {
-            panic!("attempted to convert untyped handle to incorrect typed handle")
+            HandleType::Weak => {}
         }
     }
 }
 
-impl<T> Hash for Handle<T> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
+impl<T: Asset> From<Handle<T>> for HandleId {
+    fn from(value: Handle<T>) -> Self {
+        value.id
     }
 }
 
-impl<T> PartialEq for Handle<T> {
+impl From<HandleUntyped> for HandleId {
+    fn from(value: HandleUntyped) -> Self {
+        value.id
+    }
+}
+
+impl From<&str> for HandleId {
+    fn from(value: &str) -> Self {
+        AssetPathId::from(value).into()
+    }
+}
+
+impl<T: Asset> From<&Handle<T>> for HandleId {
+    fn from(value: &Handle<T>) -> Self {
+        value.id
+    }
+}
+
+impl<T: Asset> Hash for Handle<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        Hash::hash(&self.id, state);
+    }
+}
+
+impl<T: Asset> PartialEq for Handle<T> {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl<T> Eq for Handle<T> {}
+impl<T: Asset> Eq for Handle<T> {}
 
-impl<T> Debug for Handle<T> {
+impl<T: Asset> PartialOrd for Handle<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.id.cmp(&other.id))
+    }
+}
+
+impl<T: Asset> Ord for Handle<T> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.id.cmp(&other.id)
+    }
+}
+
+impl<T: Asset> Default for Handle<T> {
+    fn default() -> Self {
+        Handle::weak(HandleId::default::<T>())
+    }
+}
+
+impl<T: Asset> Debug for Handle<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         let name = std::any::type_name::<T>().split("::").last().unwrap();
-        write!(f, "Handle<{}>({:?})", name, self.id.0)
+        write!(f, "{:?}Handle<{}>({:?})", self.handle_type, name, self.id)
     }
 }
 
-impl<T> Default for Handle<T> {
-    fn default() -> Self {
-        Handle {
-            id: DEFAULT_HANDLE_ID,
-            marker: PhantomData,
-        }
-    }
-}
-
-impl<T> Clone for Handle<T> {
+impl<T: Asset> Clone for Handle<T> {
     fn clone(&self) -> Self {
-        Handle {
-            id: self.id,
-            marker: PhantomData,
+        match self.handle_type {
+            HandleType::Strong(ref sender) => Handle::strong(self.id, sender.clone()),
+            HandleType::Weak => Handle::weak(self.id),
         }
     }
 }
-impl<T> Copy for Handle<T> {}
 
 // SAFE: T is phantom data and Handle::id is an integer
-unsafe impl<T> Send for Handle<T> {}
-unsafe impl<T> Sync for Handle<T> {}
+unsafe impl<T: Asset> Send for Handle<T> {}
+unsafe impl<T: Asset> Sync for Handle<T> {}
 
 /// A non-generic version of [Handle]
 ///
 /// This allows handles to be mingled in a cross asset context. For example, storing `Handle<A>` and `Handle<B>` in the same `HashSet<HandleUntyped>`.
-#[derive(Hash, Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Debug)]
 pub struct HandleUntyped {
     pub id: HandleId,
-    pub type_id: TypeId,
+    handle_type: HandleType,
 }
 
 impl HandleUntyped {
-    pub fn is_handle<T: 'static>(untyped: &HandleUntyped) -> bool {
-        TypeId::of::<T>() == untyped.type_id
+    pub const fn weak_from_u64(uuid: Uuid, id: u64) -> Self {
+        Self {
+            id: HandleId::new(uuid, id),
+            handle_type: HandleType::Weak,
+        }
+    }
+
+    pub(crate) fn strong(id: HandleId, ref_change_sender: Sender<RefChange>) -> Self {
+        ref_change_sender.send(RefChange::Increment(id)).unwrap();
+        Self {
+            id,
+            handle_type: HandleType::Strong(ref_change_sender),
+        }
+    }
+
+    pub fn weak(id: HandleId) -> Self {
+        Self {
+            id,
+            handle_type: HandleType::Weak,
+        }
+    }
+
+    pub fn clone_weak(&self) -> HandleUntyped {
+        HandleUntyped::weak(self.id)
+    }
+
+    pub fn is_weak(&self) -> bool {
+        matches!(self.handle_type, HandleType::Weak)
+    }
+
+    pub fn is_strong(&self) -> bool {
+        matches!(self.handle_type, HandleType::Strong(_))
+    }
+
+    pub fn typed<T: Asset>(mut self) -> Handle<T> {
+        if let HandleId::Id(type_uuid, _) = self.id {
+            if T::TYPE_UUID != type_uuid {
+                panic!("Attempted to convert handle to invalid type.");
+            }
+        }
+        let handle_type = match &self.handle_type {
+            HandleType::Strong(sender) => HandleType::Strong(sender.clone()),
+            HandleType::Weak => HandleType::Weak,
+        };
+        // ensure we don't send the RefChange event when "self" is dropped
+        self.handle_type = HandleType::Weak;
+        Handle {
+            handle_type,
+            id: self.id,
+            marker: PhantomData::default(),
+        }
     }
 }
 
-impl<T> From<Handle<T>> for HandleUntyped
-where
-    T: 'static,
-{
-    fn from(handle: Handle<T>) -> Self {
-        HandleUntyped {
-            id: handle.id,
-            type_id: TypeId::of::<T>(),
+impl Drop for HandleUntyped {
+    fn drop(&mut self) {
+        match self.handle_type {
+            HandleType::Strong(ref sender) => {
+                // ignore send errors because this means the channel is shut down / the game has stopped
+                let _ = sender.send(RefChange::Decrement(self.id));
+            }
+            HandleType::Weak => {}
         }
+    }
+}
+
+impl From<&HandleUntyped> for HandleId {
+    fn from(value: &HandleUntyped) -> Self {
+        value.id
+    }
+}
+
+impl Hash for HandleUntyped {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        Hash::hash(&self.id, state);
+    }
+}
+
+impl PartialEq for HandleUntyped {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for HandleUntyped {}
+
+impl Clone for HandleUntyped {
+    fn clone(&self) -> Self {
+        match self.handle_type {
+            HandleType::Strong(ref sender) => HandleUntyped::strong(self.id, sender.clone()),
+            HandleType::Weak => HandleUntyped::weak(self.id),
+        }
+    }
+}
+
+pub(crate) enum RefChange {
+    Increment(HandleId),
+    Decrement(HandleId),
+}
+
+#[derive(Clone)]
+pub(crate) struct RefChangeChannel {
+    pub sender: Sender<RefChange>,
+    pub receiver: Receiver<RefChange>,
+}
+
+impl Default for RefChangeChannel {
+    fn default() -> Self {
+        let (sender, receiver) = crossbeam_channel::unbounded();
+        RefChangeChannel { sender, receiver }
     }
 }

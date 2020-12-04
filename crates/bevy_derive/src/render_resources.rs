@@ -36,7 +36,7 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
                 }
                 Ok(())
             })
-            .expect("invalid 'render_resources' attribute format");
+            .expect("Invalid 'render_resources' attribute format.");
 
             attributes
         });
@@ -77,7 +77,7 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
                 fields: Fields::Named(fields),
                 ..
             }) => &fields.named,
-            _ => panic!("expected a struct with named fields"),
+            _ => panic!("Expected a struct with named fields."),
         };
         let field_attributes = fields
             .iter()
@@ -102,7 +102,7 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
                                 }
                                 Ok(())
                             })
-                            .expect("invalid 'render_resources' attribute format");
+                            .expect("Invalid 'render_resources' attribute format.");
 
                             attributes
                         }),
@@ -160,11 +160,11 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
                 }
 
                 fn get_render_resource_name(&self, index: usize) -> Option<&str> {
-                    Some(#render_resource_names_ident[index])
+                    #render_resource_names_ident.get(index).copied()
                 }
 
                 fn get_render_resource_hints(&self, index: usize) -> Option<#bevy_render_path::renderer::RenderResourceHints> {
-                    #render_resource_hints_ident[index].clone()
+                    #render_resource_hints_ident.get(index).and_then(|o| *o)
                 }
 
                 fn iter(&self) -> #bevy_render_path::renderer::RenderResourceIterator {

@@ -1,6 +1,6 @@
 [package]
 name = "bevy_utils"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2018"
 authors = [
     "Bevy Contributors <bevyengine@gmail.com>",
@@ -13,4 +13,11 @@ license = "MIT"
 keywords = ["bevy"]
 
 [dependencies]
-ahash = "0.4.5"
+ahash = "0.6.1"
+tracing = {version = "0.1", features = ["release_max_level_info"]}
+instant = { version = "0.1", features = ["wasm-bindgen"] }
+uuid = { version = "0.8", features = ["v4", "serde"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = {version = "0.2.0", features = ["js"]}
+uuid = { version = "0.8", features = ["wasm-bindgen"] }
