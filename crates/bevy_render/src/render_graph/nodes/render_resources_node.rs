@@ -434,6 +434,7 @@ impl<I, T: RenderResources> Default for RenderResourcesNodeState<I, T> {
 
 fn render_resources_node_system<T: RenderResources>(
     mut state: Local<RenderResourcesNodeState<Entity, T>>,
+    mut entities_waiting_for_textures: Local<Vec<Entity>>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     mut queries: QuerySet<(
         Query<(Entity, &T, &Draw, &mut RenderPipelines), Changed<T>>,
@@ -453,17 +454,34 @@ fn render_resources_node_system<T: RenderResources>(
         uniform_buffer_arrays.remove_bindings(*entity);
     }
 
+    // handle entities that were waiting for texture loads on the last update
+    for entity in std::mem::take(&mut *entities_waiting_for_textures) {
+        if let Ok((entity, uniforms, _draw, mut render_pipelines)) =
+            queries.q1_mut().get_mut(entity)
+        {
+            if !setup_uniform_texture_resources::<T>(
+                &uniforms,
+                render_resource_context,
+                &mut render_pipelines.bindings,
+            ) {
+                entities_waiting_for_textures.push(entity);
+            }
+        }
+    }
+
     for (entity, uniforms, draw, mut render_pipelines) in queries.q0_mut().iter_mut() {
         if !draw.is_visible {
             continue;
         }
 
         uniform_buffer_arrays.prepare_uniform_buffers(entity, uniforms);
-        setup_uniform_texture_resources::<T>(
+        if !setup_uniform_texture_resources::<T>(
             &uniforms,
             render_resource_context,
             &mut render_pipelines.bindings,
-        )
+        ) {
+            entities_waiting_for_textures.push(entity);
+        }
     }
 
     let resized = uniform_buffer_arrays.resize_buffer_arrays(render_resource_context);
@@ -584,17 +602,19 @@ where
 
 struct AssetRenderNodeState<T: Asset> {
     event_reader: EventReader<AssetEvent<T>>,
+    assets_waiting_for_textures: Vec<HandleId>,
 }
 
 impl<T: Asset> Default for AssetRenderNodeState<T> {
     fn default() -> Self {
         Self {
             event_reader: Default::default(),
+            assets_waiting_for_textures: Default::default(),
         }
     }
 }
 
-#[allow(clippy::clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments)]
 fn asset_render_resources_node_system<T: RenderResources + Asset>(
     mut state: Local<RenderResourcesNodeState<HandleId, T>>,
     mut asset_state: Local<AssetRenderNodeState<T>>,
@@ -634,6 +654,18 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
         }
     }
 
+    // handle assets that were waiting for texture loads on the last update
+    for asset_handle in std::mem::take(&mut asset_state.assets_waiting_for_textures) {
+        if let Some(asset) = assets.get(asset_handle) {
+            let mut bindings =
+                asset_render_resource_bindings.get_or_insert_mut(&Handle::<T>::weak(asset_handle));
+            if !setup_uniform_texture_resources::<T>(&asset, render_resource_context, &mut bindings)
+            {
+                asset_state.assets_waiting_for_textures.push(asset_handle);
+            }
+        }
+    }
+
     uniform_buffer_arrays.begin_update();
     // initialize uniform buffer arrays using the first RenderResources
     if let Some(asset) = changed_assets.values().next() {
@@ -644,7 +676,9 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
         uniform_buffer_arrays.prepare_uniform_buffers(*asset_handle, asset);
         let mut bindings =
             asset_render_resource_bindings.get_or_insert_mut(&Handle::<T>::weak(*asset_handle));
-        setup_uniform_texture_resources::<T>(&asset, render_resource_context, &mut bindings);
+        if !setup_uniform_texture_resources::<T>(&asset, render_resource_context, &mut bindings) {
+            asset_state.assets_waiting_for_textures.push(*asset_handle);
+        }
     }
 
     let resized = uniform_buffer_arrays.resize_buffer_arrays(render_resource_context);
@@ -721,9 +755,11 @@ fn setup_uniform_texture_resources<T>(
     uniforms: &T,
     render_resource_context: &dyn RenderResourceContext,
     render_resource_bindings: &mut RenderResourceBindings,
-) where
+) -> bool
+where
     T: renderer::RenderResources,
 {
+    let mut success = true;
     for (i, render_resource) in uniforms.iter().enumerate() {
         if let Some(RenderResourceType::Texture) = render_resource.resource_type() {
             let render_resource_name = uniforms.get_render_resource_name(i).unwrap();
@@ -745,8 +781,12 @@ fn setup_uniform_texture_resources<T>(
                         RenderResourceBinding::Sampler(sampler_resource.get_sampler().unwrap()),
                     );
                     continue;
+                } else {
+                    success = false;
                 }
             }
         }
     }
+
+    success
 }
