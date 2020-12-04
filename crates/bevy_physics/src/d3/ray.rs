@@ -19,7 +19,12 @@ impl Ray {
         camera: &Camera,
         camera_transform: &GlobalTransform,
     ) -> Self {
-        Self::from_mouse_position(window.cursor_position(), camera, camera_transform)
+        Self::from_mouse_position(
+            &window.cursor_position().unwrap(),
+            window,
+            camera,
+            camera_transform,
+        )
     }
 
     pub fn from_mouse_position(
