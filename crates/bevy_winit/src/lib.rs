@@ -104,6 +104,10 @@ fn change_window(_: &mut World, resources: &mut Resources) {
                         ))
                         .unwrap_or_else(|e| error!("Unable to set cursor position: {}", e));
                 }
+                bevy_window::WindowCommand::SetMaximized { maximized } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    window.set_maximized(maximized)
+                }
             }
         }
     }

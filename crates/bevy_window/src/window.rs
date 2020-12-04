@@ -82,6 +82,9 @@ pub enum WindowCommand {
     SetCursorPosition {
         position: Vec2,
     },
+    SetMaximized {
+        maximized: bool,
+    },
 }
 
 /// Defines the way a window is displayed
@@ -138,6 +141,12 @@ impl Window {
     #[inline]
     pub fn height(&self) -> u32 {
         self.height
+    }
+
+    #[inline]
+    pub fn set_maximized(&mut self, maximized: bool) {
+        self.command_queue
+            .push(WindowCommand::SetMaximized { maximized });
     }
 
     pub fn set_resolution(&mut self, width: u32, height: u32) {
