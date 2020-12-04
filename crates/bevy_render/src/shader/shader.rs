@@ -1,8 +1,13 @@
+use crate::pipeline::{PipelineCompiler, PipelineDescriptor};
+
 use super::ShaderLayout;
-use bevy_asset::{AssetLoader, Handle, LoadContext, LoadedAsset};
+use bevy_app::{EventReader, Events};
+use bevy_asset::{AssetEvent, AssetLoader, Assets, Handle, LoadContext, LoadedAsset};
+use bevy_ecs::{Local, Res, ResMut};
 use bevy_reflect::TypeUuid;
 use bevy_utils::BoxedFuture;
 use std::marker::Copy;
+use thiserror::Error;
 
 /// The stage of a shader
 #[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
@@ -10,6 +15,18 @@ pub enum ShaderStage {
     Vertex,
     Fragment,
     Compute,
+}
+
+/// An error that occurs during shader handling.
+#[derive(Error, Debug)]
+pub enum ShaderError {
+    /// Shader compilation error.
+    #[error("Shader compilation error: {0}")]
+    Compilation(String),
+    #[cfg(target_os = "ios")]
+    /// shaderc error.
+    #[error("shaderc error")]
+    ShaderC(#[from] shaderc::Error),
 }
 
 #[cfg(all(not(target_os = "ios"), not(target_arch = "wasm32")))]
@@ -28,8 +45,9 @@ pub fn glsl_to_spirv(
     glsl_source: &str,
     stage: ShaderStage,
     shader_defs: Option<&[String]>,
-) -> Vec<u32> {
-    bevy_glsl_to_spirv::compile(glsl_source, stage.into(), shader_defs).unwrap()
+) -> Result<Vec<u32>, ShaderError> {
+    bevy_glsl_to_spirv::compile(glsl_source, stage.into(), shader_defs)
+        .map_err(ShaderError::Compilation)
 }
 
 #[cfg(target_os = "ios")]
@@ -48,26 +66,24 @@ pub fn glsl_to_spirv(
     glsl_source: &str,
     stage: ShaderStage,
     shader_defs: Option<&[String]>,
-) -> Vec<u32> {
-    let mut compiler = shaderc::Compiler::new().unwrap();
-    let mut options = shaderc::CompileOptions::new().unwrap();
+) -> Result<Vec<u32>, ShaderError> {
+    let mut compiler = shaderc::Compiler::new()?;
+    let mut options = shaderc::CompileOptions::new()?;
     if let Some(shader_defs) = shader_defs {
         for def in shader_defs.iter() {
             options.add_macro_definition(def, None);
         }
     }
 
-    let binary_result = compiler
-        .compile_into_spirv(
-            glsl_source,
-            stage.into(),
-            "shader.glsl",
-            "main",
-            Some(&options),
-        )
-        .unwrap();
+    let binary_result = compiler.compile_into_spirv(
+        glsl_source,
+        stage.into(),
+        "shader.glsl",
+        "main",
+        Some(&options),
+    )?;
 
-    binary_result.as_binary().to_vec()
+    Ok(binary_result.as_binary().to_vec())
 }
 
 fn bytes_to_words(bytes: &[u8]) -> Vec<u32> {
@@ -115,19 +131,19 @@ impl Shader {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn get_spirv(&self, macros: Option<&[String]>) -> Vec<u32> {
+    pub fn get_spirv(&self, macros: Option<&[String]>) -> Result<Vec<u32>, ShaderError> {
         match self.source {
-            ShaderSource::Spirv(ref bytes) => bytes.clone(),
+            ShaderSource::Spirv(ref bytes) => Ok(bytes.clone()),
             ShaderSource::Glsl(ref source) => glsl_to_spirv(&source, self.stage, macros),
         }
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn get_spirv_shader(&self, macros: Option<&[String]>) -> Shader {
-        Shader {
-            source: ShaderSource::Spirv(self.get_spirv(macros)),
+    pub fn get_spirv_shader(&self, macros: Option<&[String]>) -> Result<Shader, ShaderError> {
+        Ok(Shader {
+            source: ShaderSource::Spirv(self.get_spirv(macros)?),
             stage: self.stage,
-        }
+        })
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -215,5 +231,26 @@ impl AssetLoader for ShaderLoader {
 
     fn extensions(&self) -> &[&str] {
         &["vert", "frag"]
+    }
+}
+
+pub fn shader_update_system(
+    mut shaders: ResMut<Assets<Shader>>,
+    mut pipelines: ResMut<Assets<PipelineDescriptor>>,
+    shader_events: Res<Events<AssetEvent<Shader>>>,
+    mut shader_event_reader: Local<EventReader<AssetEvent<Shader>>>,
+    mut pipeline_compiler: ResMut<PipelineCompiler>,
+) {
+    for event in shader_event_reader.iter(&shader_events) {
+        match event {
+            AssetEvent::Modified { handle } => {
+                pipeline_compiler.update_shader(handle, &mut pipelines, &mut shaders);
+            }
+            // Creating shaders on the fly is unhandled since they
+            // have to exist already when assigned to a pipeline. If a
+            // shader is removed the pipeline keeps using its
+            // specialized version. Maybe this should be a warning?
+            AssetEvent::Created { .. } | AssetEvent::Removed { .. } => (),
+        }
     }
 }

@@ -137,6 +137,7 @@ impl Plugin for RenderPlugin {
                 camera::visible_entities_system,
             )
             // TODO: turn these "resource systems" into graph nodes and remove the RENDER_RESOURCE stage
+            .add_system_to_stage(stage::RENDER_RESOURCE, shader::shader_update_system)
             .add_system_to_stage(stage::RENDER_RESOURCE, mesh::mesh_resource_provider_system)
             .add_system_to_stage(stage::RENDER_RESOURCE, Texture::texture_resource_system)
             .add_system_to_stage(

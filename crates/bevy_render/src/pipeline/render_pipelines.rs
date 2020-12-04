@@ -83,27 +83,6 @@ pub fn draw_render_pipelines_system(
     meshes: Res<Assets<Mesh>>,
     mut query: Query<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>)>,
 ) {
-    // Pipelines will be rebuilt for shaders that have been modified.
-    let mut changed_shaders = HashSet::default();
-    for event in draw_context
-        .shader_event_reader
-        .iter(&draw_context.shader_events)
-    {
-        match event {
-            AssetEvent::Modified { handle } => {
-                changed_shaders.insert(handle);
-            }
-            // Creating shaders on the fly is unhandled since they
-            // have to exist already when assigned to a pipeline. If a
-            // shader is removed the pipeline keeps using its
-            // specialized version. Maybe this should be a warning?
-            AssetEvent::Created { .. } | AssetEvent::Removed { .. } => (),
-        }
-    }
-    draw_context
-        .pipeline_compiler
-        .remove_shaders(changed_shaders, &draw_context.pipelines);
-
     for (mut draw, mut render_pipelines, mesh_handle) in query.iter_mut() {
         if !draw.is_visible {
             continue;
