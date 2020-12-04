@@ -14,6 +14,14 @@ impl Ray {
         Self { origin, direction }
     }
 
+    pub fn from_window(
+        window: &Window,
+        camera: &Camera,
+        camera_transform: &GlobalTransform,
+    ) -> Self {
+        Self::from_mouse_position(window.cursor_position(), camera, camera_transform)
+    }
+
     pub fn from_mouse_position(
         mouse_position: &Vec2,
         window: &Window,
