@@ -71,9 +71,15 @@ fn change_window(_: &mut World, resources: &mut Resources) {
                     let window = winit_windows.get_window(id).unwrap();
                     window.set_title(&title);
                 }
-                bevy_window::WindowCommand::SetResolution { width, height } => {
+                bevy_window::WindowCommand::SetResolution {
+                    physical_width,
+                    physical_height,
+                } => {
                     let window = winit_windows.get_window(id).unwrap();
-                    window.set_inner_size(winit::dpi::PhysicalSize::new(width, height));
+                    window.set_inner_size(winit::dpi::PhysicalSize::new(
+                        physical_width,
+                        physical_height,
+                    ));
                 }
                 bevy_window::WindowCommand::SetVsync { .. } => (),
                 bevy_window::WindowCommand::SetResizable { resizable } => {
@@ -208,8 +214,8 @@ pub fn winit_runner(mut app: App) {
                         app.resources.get_mut::<Events<WindowResized>>().unwrap();
                     resize_events.send(WindowResized {
                         id: window_id,
-                        height: window.logical_height() as usize,
-                        width: window.logical_width() as usize,
+                        height: window.height(),
+                        width: window.width(),
                     });
                 }
                 WindowEvent::CloseRequested => {
@@ -307,8 +313,8 @@ pub fn winit_runner(mut app: App) {
 
                     // FIXME?: On Android window start is top while on PC/Linux/OSX on bottom
                     if cfg!(target_os = "android") {
-                        let window_height = windows.get_primary().unwrap().logical_height();
-                        location.y = window_height as f32 - location.y;
+                        let window_height = windows.get_primary().unwrap().height();
+                        location.y = window_height - location.y;
                     }
                     touch_input_events.send(converters::convert_touch_input(touch, location));
                 }

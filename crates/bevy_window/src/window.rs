@@ -61,8 +61,8 @@ pub enum WindowCommand {
         title: String,
     },
     SetResolution {
-        width: u32,
-        height: u32,
+        physical_width: u32,
+        physical_height: u32,
     },
     SetVsync {
         vsync: bool,
@@ -126,12 +126,12 @@ impl Window {
     }
 
     #[inline]
-    pub fn logical_width(&self) -> f32 {
+    pub fn width(&self) -> f32 {
         (self.physical_width as f64 / self.scale_factor) as f32
     }
 
     #[inline]
-    pub fn logical_height(&self) -> f32 {
+    pub fn height(&self) -> f32 {
         (self.physical_height as f64 / self.scale_factor) as f32
     }
 
@@ -149,6 +149,15 @@ impl Window {
     pub fn set_maximized(&mut self, maximized: bool) {
         self.command_queue
             .push(WindowCommand::SetMaximized { maximized });
+    }
+
+    pub fn set_resolution(&mut self, width: f32, height: f32) {
+        self.physical_width = (width as f64 * self.scale_factor) as u32;
+        self.physical_height = (height as f64 * self.scale_factor) as u32;
+        self.command_queue.push(WindowCommand::SetResolution {
+            physical_width: self.physical_width,
+            physical_height: self.physical_height,
+        });
     }
 
     #[allow(missing_docs)]

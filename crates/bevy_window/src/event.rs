@@ -5,8 +5,8 @@ use bevy_math::Vec2;
 #[derive(Debug, Clone)]
 pub struct WindowResized {
     pub id: WindowId,
-    pub width: usize,
-    pub height: usize,
+    pub width: f32,
+    pub height: f32,
 }
 
 /// An event that indicates that a new window should be created.

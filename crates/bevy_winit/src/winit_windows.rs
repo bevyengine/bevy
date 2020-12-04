@@ -38,9 +38,9 @@ impl WinitWindows {
                 }),
             )),
             _ => winit_window_builder
-                .with_inner_size(winit::dpi::PhysicalSize::new(
-                    window.physical_width(),
-                    window.physical_height(),
+                .with_inner_size(winit::dpi::LogicalSize::new(
+                    window.width(),
+                    window.height(),
                 ))
                 .with_resizable(window.resizable())
                 .with_decorations(window.decorations()),
