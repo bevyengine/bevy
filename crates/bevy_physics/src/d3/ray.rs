@@ -20,19 +20,20 @@ impl Ray {
         camera: &Camera,
         camera_transform: &GlobalTransform,
     ) -> Self {
-        if window.id != camera.window {
+        if window.id() != camera.window {
             panic!("Generating Ray from Camera with wrong Window");
         }
 
-        let x = 2.0 * (mouse_position.x() / window.width as f32) - 1.0;
-        let y = 2.0 * (mouse_position.y() / window.height as f32) - 1.0;
+        let x = 2.0 * (mouse_position.x / window.width() as f32) - 1.0;
+        let y = 2.0 * (mouse_position.y / window.height() as f32) - 1.0;
 
-        let camera_inverse_matrix = *camera_transform.value() * camera.projection_matrix.inverse();
+        let camera_inverse_matrix =
+            camera_transform.compute_matrix() * camera.projection_matrix.inverse();
         let near = camera_inverse_matrix * Vec3::new(x, y, 0.0).extend(1.0);
         let far = camera_inverse_matrix * Vec3::new(x, y, 1.0).extend(1.0);
 
-        let near = near.truncate() / near.w();
-        let far = far.truncate() / far.w();
+        let near = near.truncate() / near.w;
+        let far = far.truncate() / far.w;
 
         let direction: Vec3 = (far - near).into();
         let origin: Vec3 = near.into();

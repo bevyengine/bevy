@@ -44,6 +44,11 @@ pub mod math {
     pub use bevy_math::*;
 }
 
+pub mod physics {
+	//! colliders and raycasting
+    pub use bevy_physics::*;
+}
+
 pub mod reflect {
     // TODO: remove these renames once TypeRegistryArc is no longer required
     //! Type reflection used for dynamically interacting with rust types.

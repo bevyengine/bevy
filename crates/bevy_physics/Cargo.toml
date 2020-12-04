@@ -1,6 +1,6 @@
 [package]
 name = "bevy_physics"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2018"
 authors = [
     "Bevy Contributors <bevyengine@gmail.com>",
@@ -14,10 +14,10 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_transform = { path = "../bevy_transform", version = "0.2.1" }
-bevy_render = { path = "../bevy_render", version = "0.2.1" }
-bevy_window = { path = "../bevy_window", version = "0.2.1" }
+bevy_transform = { path = "../bevy_transform", version = "0.3.0" }
+bevy_render = { path = "../bevy_render", version = "0.3.0" }
+bevy_window = { path = "../bevy_window", version = "0.3.0" }
 
 # linear algebra
-glam = { version = "0.9.4", features = ["serde"] }
+glam = { version = "0.11.2", features = ["serde"] }
 

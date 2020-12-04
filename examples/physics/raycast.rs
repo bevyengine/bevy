@@ -1,5 +1,5 @@
 use bevy::{
-    input::{keyboard::ElementState, mouse::MouseButtonInput},
+    input::{mouse::MouseButtonInput, ElementState},
     physics::d3::prelude::*,
     prelude::*,
     render::camera::Camera,
@@ -8,25 +8,25 @@ use bevy::{
 fn main() {
     App::build()
         .add_resource(Msaa { samples: 4 })
-        .add_default_plugins()
-        .add_startup_system(setup.system())
-        .add_system(raycast.system())
+        .add_plugins(DefaultPlugins)
+        .add_startup_system(setup)
+        .add_system(raycast)
         .add_system(move_camera.system())
         .run();
 }
 
 fn setup(
-    mut commands: Commands,
+    commands: &mut Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands
-        .spawn(PbrComponents {
+        .spawn(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Plane { size: 10.0 })),
             material: materials.add(Color::rgb(0.1, 0.2, 0.1).into()),
             ..Default::default()
         })
-        .spawn(PbrComponents {
+        .spawn(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Icosphere {
                 subdivisions: 4,
                 radius: 0.5,
@@ -35,16 +35,13 @@ fn setup(
             transform: Transform::from_translation(Vec3::new(1.5, 1.5, 0.0)),
             ..Default::default()
         })
-        .spawn(LightComponents {
+        .spawn(LightBundle {
             transform: Transform::from_translation(Vec3::new(4.0, 8.0, 4.0)),
             ..Default::default()
         })
-        .spawn(Camera3dComponents {
-            transform: Transform::new(Mat4::face_toward(
-                Vec3::new(-3.0, 5.0, 8.0),
-                Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(0.0, 1.0, 0.0),
-            )),
+        .spawn(Camera3dBundle {
+            transform: Transform::from_translation(Vec3::new(-3.0, 5.0, 8.0))
+                .looking_at(Vec3::zero(), Vec3::unit_y()),
             ..Default::default()
         })
         .insert_resource(MouseState::default());
@@ -58,14 +55,14 @@ struct MouseState {
 }
 
 fn raycast(
-    mut commands: Commands,
+    commands: &mut Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut mouse_state: ResMut<MouseState>,
     mouse_button_input_events: Res<Events<MouseButtonInput>>,
     cursor_moved_events: Res<Events<CursorMoved>>,
     windows: Res<Windows>,
-    mut cameras: Query<(&Camera, &GlobalTransform)>,
+    cameras: Query<(&Camera, &GlobalTransform)>,
 ) {
     for event in mouse_state
         .cursor_moved_event_reader
@@ -79,7 +76,7 @@ fn raycast(
         .iter(&mouse_button_input_events)
     {
         if event.button == MouseButton::Left && event.state == ElementState::Pressed {
-            for (camera, global_transform) in &mut cameras.iter() {
+            for (camera, global_transform) in cameras.iter() {
                 let window = windows.get(camera.window).unwrap();
 
                 let ray = Ray::from_mouse_position(
@@ -113,7 +110,7 @@ fn raycast(
                 };
 
                 if let Some(hit) = hit {
-                    commands.spawn(PbrComponents {
+                    commands.spawn(PbrBundle {
                         mesh: meshes.add(Mesh::from(shape::Icosphere {
                             subdivisions: 3,
                             radius: 0.05,
@@ -141,14 +138,9 @@ fn move_camera(keyboard_input: Res<Input<KeyCode>>, mut cameras: Query<(&mut Tra
             0.0
         };
 
-    for (mut camera_transform, _) in &mut cameras.iter() {
-        let rotation = camera_transform.rotation();
-        camera_transform.translate(rotation * translation);
-        let position = camera_transform.translation();
-        camera_transform.set_rotation(Quat::from_rotation_mat4(&Mat4::face_toward(
-            position,
-            Vec3::zero(),
-            Vec3::unit_y(),
-        )));
+    for (mut camera_transform, _) in cameras.iter_mut() {
+        let rotation = camera_transform.rotation;
+        camera_transform.translation += rotation * translation;
+        camera_transform.look_at(Vec3::zero(), Vec3::unit_y());
     }
 }
