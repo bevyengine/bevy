@@ -499,7 +499,7 @@ fn render_resources_node_system<T: RenderResources>(
             &mut |mut staging_buffer, _render_resource_context| {
                 // if the buffer array was resized, write all entities to the new buffer, otherwise only write changes
                 if resized {
-                    for (entity, uniforms, draw, mut render_pipelines) in
+                    for (entity, uniforms, _draw, mut render_pipelines) in
                         queries.q1_mut().iter_mut()
                     {
                         state.uniform_buffer_arrays.write_uniform_buffers(
