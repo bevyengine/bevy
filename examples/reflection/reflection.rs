@@ -84,9 +84,9 @@ fn setup(type_registry: Res<TypeRegistry>) {
     // as themselves.
     let _deserialized_struct = reflect_value.downcast_ref::<DynamicStruct>();
 
-    // Reflect has its own `partial_eq` implementation. This behaves like normal `partial_eq`, but it treats "dynamic" and
+    // Reflect has its own `partial_eq` implementation, named `reflect_partial_eq`. This behaves like normal `partial_eq`, but it treats "dynamic" and
     // "non-dynamic" types the same. The `Foo` struct and deserialized `DynamicStruct` are considered equal for this reason:
-    assert!(reflect_value.partial_eq(&value).unwrap());
+    assert!(reflect_value.reflect_partial_eq(&value).unwrap());
 
     // By "patching" `Foo` with the deserialized DynamicStruct, we can "Deserialize" Foo.
     // This means we can serialize and deserialize with a single `Reflect` derive!

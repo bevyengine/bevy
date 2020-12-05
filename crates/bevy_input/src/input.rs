@@ -71,3 +71,80 @@ where
         self.just_released.iter()
     }
 }
+
+#[cfg(test)]
+mod test {
+
+    #[test]
+    fn input_test() {
+        use crate::Input;
+
+        /// Used for testing `Input` functionality
+        #[derive(Copy, Clone, Eq, PartialEq, Hash)]
+        enum DummyInput {
+            Input1,
+            Input2,
+        }
+
+        let mut input = Input::default();
+
+        // Test pressing
+        input.press(DummyInput::Input1);
+        input.press(DummyInput::Input2);
+
+        // Check if they were "just pressed" (pressed on this update)
+        assert!(input.just_pressed(DummyInput::Input1));
+        assert!(input.just_pressed(DummyInput::Input2));
+
+        // Check if they are also marked as pressed
+        assert!(input.pressed(DummyInput::Input1));
+        assert!(input.pressed(DummyInput::Input2));
+
+        // Update the `Input` and check press state
+        input.update();
+
+        // Check if they're marked "just pressed"
+        assert!(!input.just_pressed(DummyInput::Input1));
+        assert!(!input.just_pressed(DummyInput::Input2));
+
+        // Check if they're marked as pressed
+        assert!(input.pressed(DummyInput::Input1));
+        assert!(input.pressed(DummyInput::Input2));
+
+        // Release the inputs and check state
+
+        input.release(DummyInput::Input1);
+        input.release(DummyInput::Input2);
+
+        // Check if they're marked as "just released" (released on this update)
+        assert!(input.just_released(DummyInput::Input1));
+        assert!(input.just_released(DummyInput::Input2));
+
+        // Check that they're not incorrectly marked as pressed
+        assert!(!input.pressed(DummyInput::Input1));
+        assert!(!input.pressed(DummyInput::Input2));
+
+        // Update the `Input` and check for removal from `just_released`
+
+        input.update();
+
+        // Check that they're not incorrectly marked as just released
+        assert!(!input.just_released(DummyInput::Input1));
+        assert!(!input.just_released(DummyInput::Input2));
+
+        // Set up an `Input` to test resetting.
+        let mut input = Input::default();
+
+        input.press(DummyInput::Input1);
+        input.release(DummyInput::Input2);
+
+        // Reset the `Input` and test it was reset correctly.
+        input.reset(DummyInput::Input1);
+        input.reset(DummyInput::Input2);
+
+        assert!(!input.just_pressed(DummyInput::Input1));
+        assert!(!input.pressed(DummyInput::Input1));
+
+        assert!(!input.just_released(DummyInput::Input2));
+    }
+}

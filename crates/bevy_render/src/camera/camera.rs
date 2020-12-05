@@ -2,10 +2,11 @@ use super::CameraProjection;
 use bevy_app::prelude::{EventReader, Events};
 use bevy_ecs::{Added, Component, Entity, Local, Query, QuerySet, Res};
 use bevy_math::Mat4;
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, ReflectComponent};
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 
 #[derive(Default, Debug, Reflect)]
+#[reflect(Component)]
 pub struct Camera {
     pub projection_matrix: Mat4,
     pub name: Option<String>,

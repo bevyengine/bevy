@@ -98,7 +98,7 @@ mod tests {
         if let ReflectRef::Struct(value) = c.reflect_ref() {
             assert_eq!(*value.get_field::<u32>("x").unwrap(), 1);
         } else {
-            panic!("expected a struct");
+            panic!("Expected a struct.");
         }
 
         // patch Foo with a dynamic struct
@@ -306,7 +306,7 @@ mod tests {
         let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
         let dynamic_struct = value.take::<DynamicStruct>().unwrap();
 
-        assert!(foo.partial_eq(&dynamic_struct).unwrap());
+        assert!(foo.reflect_partial_eq(&dynamic_struct).unwrap());
     }
 
     #[test]

@@ -2,7 +2,7 @@ use super::{Camera, DepthCalculation};
 use crate::Draw;
 use bevy_core::FloatOrd;
 use bevy_ecs::{Entity, Query, With};
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, ReflectComponent};
 use bevy_transform::prelude::GlobalTransform;
 
 #[derive(Debug)]
@@ -12,6 +12,7 @@ pub struct VisibleEntity {
 }
 
 #[derive(Default, Debug, Reflect)]
+#[reflect(Component)]
 pub struct VisibleEntities {
     #[reflect(ignore)]
     pub value: Vec<VisibleEntity>,

@@ -156,4 +156,6 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
     ) -> Result<Shader, ShaderError> {
         Ok(shader.clone())
     }
+
+    fn remove_stale_bind_groups(&self) {}
 }

@@ -56,7 +56,7 @@ pub fn ui_focus_system(
         state.cursor_position = cursor_moved.position;
     }
     if let Some(touch) = touches_input.get_pressed(0) {
-        state.cursor_position = touch.position;
+        state.cursor_position = touch.position();
     }
 
     if mouse_button_input.just_released(MouseButton::Left) || touches_input.just_released(0) {

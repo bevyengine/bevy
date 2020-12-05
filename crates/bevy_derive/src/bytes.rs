@@ -10,7 +10,7 @@ pub fn derive_bytes(input: TokenStream) -> TokenStream {
             fields: Fields::Named(fields),
             ..
         }) => &fields.named,
-        _ => panic!("expected a struct with named fields"),
+        _ => panic!("Expected a struct with named fields."),
     };
 
     let modules = get_modules(&ast.attrs);

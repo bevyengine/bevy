@@ -51,7 +51,7 @@ impl<T: Reflect> List for Vec<T> {
     fn push(&mut self, value: Box<dyn Reflect>) {
         let value = value.take::<T>().unwrap_or_else(|value| {
             panic!(
-                "Attempted to push invalid value of type {}",
+                "Attempted to push invalid value of type {}.",
                 value.type_name()
             )
         });
@@ -93,11 +93,11 @@ impl<T: Reflect> Reflect for Vec<T> {
         Box::new(self.clone_dynamic())
     }
 
-    fn hash(&self) -> Option<u64> {
+    fn reflect_hash(&self) -> Option<u64> {
         None
     }
 
-    fn partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         crate::list_partial_eq(self, value)
     }
 
@@ -166,7 +166,7 @@ impl<K: Reflect + Clone + Eq + Hash, V: Reflect + Clone> Reflect for HashMap<K, 
                 }
             }
         } else {
-            panic!("attempted to apply a non-map type to a map type");
+            panic!("Attempted to apply a non-map type to a map type.");
         }
     }
 
@@ -187,11 +187,11 @@ impl<K: Reflect + Clone + Eq + Hash, V: Reflect + Clone> Reflect for HashMap<K, 
         Box::new(self.clone_dynamic())
     }
 
-    fn hash(&self) -> Option<u64> {
+    fn reflect_hash(&self) -> Option<u64> {
         None
     }
 
-    fn partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         map_partial_eq(self, value)
     }
 

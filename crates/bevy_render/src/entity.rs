@@ -35,7 +35,7 @@ impl Default for Camera3dBundle {
     fn default() -> Self {
         Camera3dBundle {
             camera: Camera {
-                name: Some(base::camera::CAMERA3D.to_string()),
+                name: Some(base::camera::CAMERA_3D.to_string()),
                 ..Default::default()
             },
             perspective_projection: Default::default(),
@@ -63,7 +63,7 @@ impl Default for Camera2dBundle {
         let far = 1000.0;
         Camera2dBundle {
             camera: Camera {
-                name: Some(base::camera::CAMERA2D.to_string()),
+                name: Some(base::camera::CAMERA_2D.to_string()),
                 ..Default::default()
             },
             orthographic_projection: OrthographicProjection {

@@ -32,23 +32,23 @@ use thiserror::Error;
 /// An error that occurs when loading a GLTF file
 #[derive(Error, Debug)]
 pub enum GltfError {
-    #[error("Unsupported primitive mode.")]
+    #[error("unsupported primitive mode")]
     UnsupportedPrimitive { mode: Mode },
-    #[error("Unsupported min filter.")]
+    #[error("unsupported min filter")]
     UnsupportedMinFilter { filter: MinFilter },
-    #[error("Invalid GLTF file.")]
+    #[error("invalid GLTF file")]
     Gltf(#[from] gltf::Error),
-    #[error("Binary blob is missing.")]
+    #[error("binary blob is missing")]
     MissingBlob,
-    #[error("Failed to decode base64 mesh data.")]
+    #[error("failed to decode base64 mesh data")]
     Base64Decode(#[from] base64::DecodeError),
-    #[error("Unsupported buffer format.")]
+    #[error("unsupported buffer format")]
     BufferFormatUnsupported,
-    #[error("Invalid image mime type.")]
+    #[error("invalid image mime type")]
     InvalidImageMimeType(String),
-    #[error("Failed to load an image.")]
+    #[error("failed to load an image")]
     ImageError(#[from] image::ImageError),
-    #[error("Failed to load an asset path.")]
+    #[error("failed to load an asset path")]
     AssetIoError(#[from] AssetIoError),
 }
 
@@ -239,7 +239,7 @@ fn load_node(
                 };
 
                 node.with(Camera {
-                    name: Some(base::camera::CAMERA2D.to_owned()),
+                    name: Some(base::camera::CAMERA_2D.to_owned()),
                     projection_matrix: orthographic_projection.get_projection_matrix(),
                     ..Default::default()
                 });
@@ -258,7 +258,7 @@ fn load_node(
                     perspective_projection.aspect_ratio = aspect_ratio;
                 }
                 node.with(Camera {
-                    name: Some(base::camera::CAMERA3D.to_owned()),
+                    name: Some(base::camera::CAMERA_3D.to_owned()),
                     projection_matrix: perspective_projection.get_projection_matrix(),
                     ..Default::default()
                 });

@@ -357,7 +357,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             fields: Fields::Named(fields),
             ..
         }) => &fields.named,
-        _ => panic!("expected a struct with named fields"),
+        _ => panic!("Expected a struct with named fields."),
     };
 
     let manifest = Manifest::new().unwrap();
@@ -386,7 +386,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                             }
                             Ok(())
                         })
-                        .expect("invalid 'render_resources' attribute format");
+                        .expect("Invalid 'render_resources' attribute format.");
 
                         attributes
                     }),

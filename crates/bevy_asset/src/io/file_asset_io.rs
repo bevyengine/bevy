@@ -122,7 +122,7 @@ pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
             let event = match watcher.receiver.try_recv() {
                 Ok(result) => result.unwrap(),
                 Err(TryRecvError::Empty) => break,
-                Err(TryRecvError::Disconnected) => panic!("FilesystemWatcher disconnected"),
+                Err(TryRecvError::Disconnected) => panic!("FilesystemWatcher disconnected."),
             };
             if let notify::event::Event {
                 kind: notify::event::EventKind::Modify(_),

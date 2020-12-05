@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 pub struct PipelineSpecialization {
     pub shader_specialization: ShaderSpecialization,
     pub primitive_topology: PrimitiveTopology,
-    pub dynamic_bindings: Vec<String>,
+    pub dynamic_bindings: HashSet<String>,
     pub index_format: IndexFormat,
     pub vertex_buffer_descriptor: VertexBufferDescriptor,
     pub sample_count: u32,
@@ -230,7 +230,7 @@ impl PipelineCompiler {
                     .push(compiled_vertex_attribute);
             } else {
                 panic!(
-                    "Attribute {} is required by shader, but not supplied by mesh. Either remove the attribute from the shader or supply the attribute ({}) to the mesh. ",
+                    "Attribute {} is required by shader, but not supplied by mesh. Either remove the attribute from the shader or supply the attribute ({}) to the mesh.",
                     shader_vertex_attribute.name,
                     shader_vertex_attribute.name,
                 );

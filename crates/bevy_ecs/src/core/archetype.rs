@@ -59,7 +59,7 @@ impl Archetype {
                 "attempted to allocate entity with duplicate components; \
                  each type must occur at most once!"
             ),
-            core::cmp::Ordering::Greater => panic!("type info is unsorted"),
+            core::cmp::Ordering::Greater => panic!("Type info is unsorted."),
         });
     }
 
@@ -160,7 +160,7 @@ impl Archetype {
             .get(&TypeId::of::<T>())
             .map_or(false, |x| !x.borrow.borrow())
         {
-            panic!("{} already borrowed uniquely", type_name::<T>());
+            panic!("{} already borrowed uniquely.", type_name::<T>());
         }
     }
 
@@ -172,7 +172,7 @@ impl Archetype {
             .get(&TypeId::of::<T>())
             .map_or(false, |x| !x.borrow.borrow_mut())
         {
-            panic!("{} already borrowed", type_name::<T>());
+            panic!("{} already borrowed.", type_name::<T>());
         }
     }
 
@@ -484,7 +484,6 @@ pub struct TypeInfo {
     id: TypeId,
     layout: Layout,
     drop: unsafe fn(*mut u8),
-    #[cfg(debug_assertions)]
     type_name: &'static str,
 }
 
@@ -499,7 +498,6 @@ impl TypeInfo {
             id: TypeId::of::<T>(),
             layout: Layout::new::<T>(),
             drop: drop_ptr::<T>,
-            #[cfg(debug_assertions)]
             type_name: core::any::type_name::<T>(),
         }
     }
@@ -518,6 +516,12 @@ impl TypeInfo {
 
     pub(crate) unsafe fn drop(&self, data: *mut u8) {
         (self.drop)(data)
+    }
+
+    #[allow(missing_docs)]
+    #[inline]
+    pub fn type_name(&self) -> &'static str {
+        self.type_name
     }
 }
 

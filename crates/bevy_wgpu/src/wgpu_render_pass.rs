@@ -74,6 +74,10 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
                     } else {
                         EMPTY
                     };
+                self.wgpu_resources
+                    .used_bind_group_sender
+                    .send(bind_group)
+                    .unwrap();
 
                 trace!(
                     "set bind group {:?} {:?}: {:?}",
@@ -93,7 +97,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
             .render_pipelines
             .get(pipeline_handle)
             .expect(
-            "Attempted to use a pipeline that does not exist in this RenderPass's RenderContext",
+            "Attempted to use a pipeline that does not exist in this `RenderPass`'s `RenderContext`.",
         );
         self.render_pass.set_pipeline(pipeline);
     }

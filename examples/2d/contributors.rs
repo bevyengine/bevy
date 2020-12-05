@@ -56,7 +56,7 @@ fn setup(
 
     commands
         .spawn(Camera2dBundle::default())
-        .spawn(UiCameraBundle::default());
+        .spawn(CameraUiBundle::default());
 
     let mut sel = ContributorSelection {
         order: vec![],
@@ -217,7 +217,7 @@ fn deselect(
 
 /// Applies gravity to all entities with velocity
 fn velocity_system(time: Res<Time>, mut q: Query<Mut<Velocity>>) {
-    let delta = time.delta_seconds;
+    let delta = time.delta_seconds();
 
     for mut v in q.iter_mut() {
         v.translation += Vec3::new(0.0, GRAVITY * delta, 0.0);
@@ -274,7 +274,7 @@ fn collision_system(
 
 /// Apply velocity to positions and rotations.
 fn move_system(time: Res<Time>, mut q: Query<(&Velocity, Mut<Transform>)>) {
-    let delta = time.delta_seconds;
+    let delta = time.delta_seconds();
 
     for (v, mut t) in q.iter_mut() {
         t.translation += delta * v.translation;
@@ -289,16 +289,16 @@ fn move_system(time: Res<Time>, mut q: Query<(&Velocity, Mut<Transform>)>) {
 /// the program is run through `cargo`.
 fn contributors() -> Contributors {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
-        .expect("This example needs to run through `cargo run --example`");
+        .expect("This example needs to run through `cargo run --example`.");
 
     let mut cmd = std::process::Command::new("git")
         .args(&["--no-pager", "log", "--pretty=format:%an"])
         .current_dir(manifest_dir)
         .stdout(Stdio::piped())
         .spawn()
-        .expect("git needs to be installed");
+        .expect("`git` needs to be installed.");
 
-    let stdout = cmd.stdout.take().expect("Child should have a stdout");
+    let stdout = cmd.stdout.take().expect("`Child` should have a stdout.");
 
     BufReader::new(stdout)
         .lines()

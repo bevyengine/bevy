@@ -14,8 +14,8 @@ use bevy_ecs::{Resources, World};
 use bevy_math::Vec2;
 use bevy_utils::tracing::{error, trace};
 use bevy_window::{
-    CreateWindow, CursorMoved, ReceivedCharacter, Window, WindowCloseRequested, WindowCreated,
-    WindowResized, Windows,
+    CreateWindow, CursorEntered, CursorLeft, CursorMoved, ReceivedCharacter, Window,
+    WindowCloseRequested, WindowCreated, WindowResized, Windows,
 };
 use winit::{
     event::{self, DeviceEvent, Event, WindowEvent},
@@ -73,7 +73,7 @@ fn change_window(_: &mut World, resources: &mut Resources) {
                 }
                 bevy_window::WindowCommand::SetResolution { width, height } => {
                     let window = winit_windows.get_window(id).unwrap();
-                    window.set_inner_size(winit::dpi::PhysicalSize::new(width, height));
+                    window.set_inner_size(winit::dpi::LogicalSize::new(width, height));
                 }
                 bevy_window::WindowCommand::SetVsync { .. } => (),
                 bevy_window::WindowCommand::SetResizable { resizable } => {
@@ -94,11 +94,19 @@ fn change_window(_: &mut World, resources: &mut Resources) {
                     let window = winit_windows.get_window(id).unwrap();
                     window.set_cursor_visible(visible);
                 }
-                bevy_window::WindowCommand::SetCursorPosition { x, y } => {
+                bevy_window::WindowCommand::SetCursorPosition { position } => {
                     let window = winit_windows.get_window(id).unwrap();
+                    let inner_size = window.inner_size().to_logical::<f32>(window.scale_factor());
                     window
-                        .set_cursor_position(winit::dpi::PhysicalPosition::new(x, y))
+                        .set_cursor_position(winit::dpi::LogicalPosition::new(
+                            position.x,
+                            inner_size.height - position.y,
+                        ))
                         .unwrap_or_else(|e| error!("Unable to set cursor position: {}", e));
+                }
+                bevy_window::WindowCommand::SetMaximized { maximized } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    window.set_maximized(maximized)
                 }
             }
         }
@@ -185,28 +193,27 @@ pub fn winit_runner(mut app: App) {
 
         match event {
             event::Event::WindowEvent {
-                event: WindowEvent::Resized(size),
-                window_id: winit_window_id,
-                ..
-            } => {
-                let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
-                let mut windows = app.resources.get_mut::<Windows>().unwrap();
-                let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
-                let window = windows.get_mut(window_id).unwrap();
-                window.update_resolution_from_backend(size.width, size.height);
-
-                let mut resize_events = app.resources.get_mut::<Events<WindowResized>>().unwrap();
-                resize_events.send(WindowResized {
-                    id: window_id,
-                    height: window.height() as usize,
-                    width: window.width() as usize,
-                });
-            }
-            event::Event::WindowEvent {
                 event,
                 window_id: winit_window_id,
                 ..
             } => match event {
+                WindowEvent::Resized(size) => {
+                    let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
+                    let mut windows = app.resources.get_mut::<Windows>().unwrap();
+                    let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
+                    let winit_window = winit_windows.get_window(window_id).unwrap();
+                    let window = windows.get_mut(window_id).unwrap();
+                    let size = size.to_logical(winit_window.scale_factor());
+                    window.update_resolution_from_backend(size.width, size.height);
+
+                    let mut resize_events =
+                        app.resources.get_mut::<Events<WindowResized>>().unwrap();
+                    resize_events.send(WindowResized {
+                        id: window_id,
+                        height: window.height() as usize,
+                        width: window.width() as usize,
+                    });
+                }
                 WindowEvent::CloseRequested => {
                     let mut window_close_requested_events = app
                         .resources
@@ -225,15 +232,42 @@ pub fn winit_runner(mut app: App) {
                     let mut cursor_moved_events =
                         app.resources.get_mut::<Events<CursorMoved>>().unwrap();
                     let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
+                    let mut windows = app.resources.get_mut::<Windows>().unwrap();
                     let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
-                    let window = winit_windows.get_window(window_id).unwrap();
-                    let inner_size = window.inner_size();
+                    let winit_window = winit_windows.get_window(window_id).unwrap();
+                    let window = windows.get_mut(window_id).unwrap();
+                    let position = position.to_logical(winit_window.scale_factor());
+                    let inner_size = winit_window
+                        .inner_size()
+                        .to_logical::<f32>(winit_window.scale_factor());
+
                     // move origin to bottom left
-                    let y_position = inner_size.height as f32 - position.y as f32;
+                    let y_position = inner_size.height - position.y;
+
+                    let position = Vec2::new(position.x, y_position);
+                    window.update_cursor_position_from_backend(Some(position));
+
                     cursor_moved_events.send(CursorMoved {
                         id: window_id,
-                        position: Vec2::new(position.x as f32, y_position as f32),
+                        position,
                     });
+                }
+                WindowEvent::CursorEntered { .. } => {
+                    let mut cursor_entered_events =
+                        app.resources.get_mut::<Events<CursorEntered>>().unwrap();
+                    let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
+                    let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
+                    cursor_entered_events.send(CursorEntered { id: window_id });
+                }
+                WindowEvent::CursorLeft { .. } => {
+                    let mut cursor_left_events =
+                        app.resources.get_mut::<Events<CursorLeft>>().unwrap();
+                    let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
+                    let mut windows = app.resources.get_mut::<Windows>().unwrap();
+                    let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
+                    let window = windows.get_mut(window_id).unwrap();
+                    window.update_cursor_position_from_backend(None);
+                    cursor_left_events.send(CursorLeft { id: window_id });
                 }
                 WindowEvent::MouseInput { state, button, .. } => {
                     let mut mouse_button_input_events =
@@ -263,16 +297,22 @@ pub fn winit_runner(mut app: App) {
                         });
                     }
                 },
-                WindowEvent::Touch(mut touch) => {
+                WindowEvent::Touch(touch) => {
                     let mut touch_input_events =
                         app.resources.get_mut::<Events<TouchInput>>().unwrap();
+
+                    let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
                     let windows = app.resources.get_mut::<Windows>().unwrap();
+                    let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
+                    let winit_window = winit_windows.get_window(window_id).unwrap();
+                    let mut location = touch.location.to_logical(winit_window.scale_factor());
+
                     // FIXME?: On Android window start is top while on PC/Linux/OSX on bottom
                     if cfg!(target_os = "android") {
                         let window_height = windows.get_primary().unwrap().height();
-                        touch.location.y = window_height as f64 - touch.location.y;
+                        location.y = window_height as f32 - location.y;
                     }
-                    touch_input_events.send(converters::convert_touch_input(touch));
+                    touch_input_events.send(converters::convert_touch_input(touch, location));
                 }
                 WindowEvent::ReceivedCharacter(c) => {
                     let mut char_input_events = app
@@ -287,6 +327,18 @@ pub fn winit_runner(mut app: App) {
                         id: window_id,
                         char: c,
                     })
+                }
+                WindowEvent::ScaleFactorChanged {
+                    scale_factor,
+                    new_inner_size,
+                } => {
+                    let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
+                    let mut windows = app.resources.get_mut::<Windows>().unwrap();
+                    let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
+                    let window = windows.get_mut(window_id).unwrap();
+                    let size = new_inner_size.to_logical(scale_factor);
+                    window.update_scale_factor_from_backend(scale_factor);
+                    window.update_resolution_from_backend(size.width, size.height);
                 }
                 _ => {}
             },
@@ -327,8 +379,8 @@ fn handle_create_window_events(
     let create_window_events = resources.get::<Events<CreateWindow>>().unwrap();
     let mut window_created_events = resources.get_mut::<Events<WindowCreated>>().unwrap();
     for create_window_event in create_window_event_reader.iter(&create_window_events) {
-        let window = Window::new(create_window_event.id, &create_window_event.descriptor);
-        winit_windows.create_window(event_loop, &window);
+        let mut window = Window::new(create_window_event.id, &create_window_event.descriptor);
+        winit_windows.create_window(event_loop, &mut window);
         let window_id = window.id();
         windows.add(window);
         window_created_events.send(WindowCreated { id: window_id });

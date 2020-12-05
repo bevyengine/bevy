@@ -55,7 +55,7 @@ impl GlyphBrush {
             return Ok(Vec::new());
         }
 
-        let first_glyph = glyphs.first().expect("Must have at least one glyph");
+        let first_glyph = glyphs.first().expect("Must have at least one glyph.");
         let font_id = first_glyph.font_id.0;
         let handle = &self.handles[font_id];
         let font = fonts.get(handle).ok_or(TextError::NoSuchFont)?;

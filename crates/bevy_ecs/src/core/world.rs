@@ -76,16 +76,16 @@ impl World {
     /// let a = world.spawn((123, "abc"));
     /// let b = world.spawn((456, true));
     /// ```
-    pub fn spawn(&mut self, components: impl DynamicBundle) -> Entity {
+    pub fn spawn(&mut self, bundle: impl DynamicBundle) -> Entity {
         // Ensure all entity allocations are accounted for so `self.entities` can realloc if
         // necessary
         self.flush();
 
         let entity = self.entities.alloc();
-        let archetype_id = components.with_ids(|ids| {
+        let archetype_id = bundle.with_ids(|ids| {
             self.index.get(ids).copied().unwrap_or_else(|| {
                 let x = self.archetypes.len() as u32;
-                self.archetypes.push(Archetype::new(components.type_info()));
+                self.archetypes.push(Archetype::new(bundle.type_info()));
                 self.index.insert(ids.to_vec(), x);
                 self.archetype_generation += 1;
                 x
@@ -95,7 +95,7 @@ impl World {
         let archetype = &mut self.archetypes[archetype_id as usize];
         unsafe {
             let index = archetype.allocate(entity);
-            components.put(|ptr, ty, size| {
+            bundle.put(|ptr, ty, size| {
                 archetype.put_dynamic(ptr, ty, size, index, ComponentFlags::ADDED);
                 true
             });
@@ -566,7 +566,7 @@ impl World {
     pub fn insert(
         &mut self,
         entity: Entity,
-        components: impl DynamicBundle,
+        bundle: impl DynamicBundle,
     ) -> Result<(), NoSuchEntity> {
         use std::collections::hash_map::Entry;
 
@@ -576,7 +576,7 @@ impl World {
             // Assemble Vec<TypeInfo> for the final entity
             let arch = &mut self.archetypes[loc.archetype as usize];
             let mut info = arch.types().to_vec();
-            for ty in components.type_info() {
+            for ty in bundle.type_info() {
                 if let Some(ptr) = arch.get_dynamic(ty.id(), ty.layout().size(), loc.index) {
                     ty.drop(ptr.as_ptr());
                 } else {
@@ -601,7 +601,7 @@ impl World {
             if target == loc.archetype {
                 // Update components in the current archetype
                 let arch = &mut self.archetypes[loc.archetype as usize];
-                components.put(|ptr, ty, size| {
+                bundle.put(|ptr, ty, size| {
                     arch.put_dynamic(ptr, ty, size, loc.index, ComponentFlags::MUTATED);
                     true
                 });
@@ -625,7 +625,7 @@ impl World {
                 self.entities.get_mut(moved).unwrap().index = old_index;
             }
 
-            components.put(|ptr, ty, size| {
+            bundle.put(|ptr, ty, size| {
                 let had_component = source_arch.has_dynamic(ty);
                 let flags = if had_component {
                     ComponentFlags::MUTATED
