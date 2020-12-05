@@ -13,7 +13,7 @@ use std::any::TypeId;
 use std::hash::Hash;
 use std::ptr::null_mut;
 
-use super::hierarchy::NamedHierarchyTree;
+use super::hierarchy::Hierarchy;
 use super::lerping::LerpValue;
 
 // TODO: Curve/Clip need a validation during deserialization because they are
@@ -27,7 +27,7 @@ pub struct Clip {
     pub warp: bool,
     duration: f32,
     /// Entity identification made by parent index and name
-    hierarchy: NamedHierarchyTree,
+    hierarchy: Hierarchy,
     /// Attribute is made by the entity index and a string that combines
     /// component name followed by their attributes spaced by a period,
     /// like so: `"Transform.translation.x"`
@@ -45,7 +45,7 @@ impl Default for Clip {
             warp: true,
             duration: 0.0,
             // ? NOTE: Since the root has no parent in this context it points to a place outside the vec bounds
-            hierarchy: NamedHierarchyTree::default(),
+            hierarchy: Hierarchy::default(),
             properties: vec![],
             curves: vec![],
         }

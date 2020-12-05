@@ -9,12 +9,12 @@ pub mod lerping;
 mod skinned_mesh;
 
 pub use crate::generic::*;
-pub use crate::hierarchy::NamedHierarchyTree;
+pub use crate::hierarchy::Hierarchy;
 pub use crate::skinned_mesh::*;
 
 pub mod prelude {
     pub use crate::generic::{Animator, Clip, Curve, CurveUntyped};
-    pub use crate::hierarchy::NamedHierarchyTree;
+    pub use crate::hierarchy::Hierarchy;
     pub use crate::lerping::LerpValue;
     pub use crate::skinned_mesh::{SkinAsset, SkinComponent, SkinDebugger};
 }

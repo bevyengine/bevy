@@ -1,5 +1,5 @@
 // TODO: Later merge with bevy_animation
-use crate::hierarchy::NamedHierarchyTree;
+use crate::hierarchy::Hierarchy;
 use bevy_asset::{Assets, Handle};
 use bevy_core::Name;
 use bevy_ecs::prelude::*;
@@ -27,7 +27,7 @@ pub struct SkinAsset {
     /// Inverse bind matrices in root node space
     pub inverse_bind_matrices: Vec<Mat4>,
     /// Skin joint hierarchy, plus one extra the root node as the first entry.
-    pub hierarchy: NamedHierarchyTree,
+    pub hierarchy: Hierarchy,
 }
 
 #[derive(Default, Debug, Clone, TypeUuid, RenderResources)]

@@ -182,9 +182,7 @@ async fn load_gltf<'a, 'b>(
                     inverse_bind_matrices: inverse_bind_matrices
                         .map(|x| Mat4::from_cols_array_2d(&x))
                         .collect(),
-                    hierarchy: NamedHierarchyTree::from_parent_and_name_entities(
-                        entities_parent_and_name,
-                    ),
+                    hierarchy: Hierarchy::from_ordered_entities(entities_parent_and_name),
                 }),
             );
         }
