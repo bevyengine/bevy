@@ -1,112 +1,66 @@
-use super::Schedule;
-use crate::{
-    resource::Resources,
-    system::{System, ThreadLocalExecution},
-    ArchetypesGeneration, TypeAccess, World,
-};
-use bevy_tasks::{ComputeTaskPool, CountdownEvent, TaskPool};
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
-use bevy_utils::tracing::trace;
-use fixedbitset::FixedBitSet;
 use std::ops::Range;
 
-/// Executes each schedule stage in parallel by analyzing system dependencies.
+use bevy_tasks::{ComputeTaskPool, CountdownEvent, TaskPool};
+use bevy_utils::tracing::trace;
+use downcast_rs::{impl_downcast, Downcast};
+use fixedbitset::FixedBitSet;
+
+use crate::{ArchetypesGeneration, Resources, System, ThreadLocalExecution, TypeAccess, World};
+
+pub trait SystemStageExecutor: Downcast + Send + Sync {
+    fn execute_stage(
+        &mut self,
+        systems: &mut [Box<dyn System<In = (), Out = ()>>],
+        changed_systems: &[usize],
+        world: &mut World,
+        resources: &mut Resources,
+    );
+}
+
+impl_downcast!(SystemStageExecutor);
+
+#[derive(Default)]
+pub struct SerialSystemStageExecutor;
+
+impl SystemStageExecutor for SerialSystemStageExecutor {
+    fn execute_stage(
+        &mut self,
+        systems: &mut [Box<dyn System<In = (), Out = ()>>],
+        _changed_systems: &[usize],
+        world: &mut World,
+        resources: &mut Resources,
+    ) {
+        for system in systems.iter_mut() {
+            system.update(world);
+            match system.thread_local_execution() {
+                ThreadLocalExecution::NextFlush => {
+                    system.run((), world, resources);
+                }
+                ThreadLocalExecution::Immediate => {
+                    system.run((), world, resources);
+                    system.run_thread_local(world, resources);
+                }
+            }
+        }
+
+        // "flush"
+        for system in systems.iter_mut() {
+            match system.thread_local_execution() {
+                ThreadLocalExecution::NextFlush => system.run_thread_local(world, resources),
+                ThreadLocalExecution::Immediate => { /* already ran immediate */ }
+            }
+        }
+    }
+}
+
+/// Executes the stage in parallel by analyzing system dependencies.
 /// System execution order is undefined except under the following conditions:
 /// * systems in earlier stages run before systems in later stages
 /// * in a given stage, systems that mutate [archetype+component] X cannot run before systems registered before them that read/write [archetype+component] X
 /// * in a given stage, systems the read [archetype+component] X cannot run before systems registered before them that write [archetype+component] X
 /// * in a given stage, systems that mutate resource Y cannot run before systems registered before them that read/write resource Y
 /// * in a given stage, systems the read resource Y cannot run before systems registered before them that write resource Y
-
-#[derive(Debug)]
-pub struct ParallelExecutor {
-    stages: Vec<ExecutorStage>,
-    last_schedule_generation: usize,
-    clear_trackers: bool,
-}
-
-impl Default for ParallelExecutor {
-    fn default() -> Self {
-        Self {
-            stages: Default::default(),
-            last_schedule_generation: usize::MAX, // MAX forces prepare to run the first time
-            clear_trackers: true,
-        }
-    }
-}
-
-impl ParallelExecutor {
-    pub fn without_tracker_clears() -> Self {
-        Self {
-            clear_trackers: false,
-            ..Default::default()
-        }
-    }
-
-    pub fn initialize(&mut self, resources: &mut Resources) {
-        if resources.get::<ComputeTaskPool>().is_none() {
-            resources.insert(ComputeTaskPool(TaskPool::default()));
-        }
-    }
-
-    pub fn run(&mut self, schedule: &mut Schedule, world: &mut World, resources: &mut Resources) {
-        #[cfg(feature = "trace")]
-        let schedule_span = info_span!("schedule");
-        #[cfg(feature = "trace")]
-        let _schedule_guard = schedule_span.enter();
-
-        let schedule_generation = schedule.generation();
-        let schedule_changed = schedule.generation() != self.last_schedule_generation;
-        if schedule_changed {
-            self.stages.clear();
-            self.stages
-                .resize_with(schedule.stage_order.len(), ExecutorStage::default);
-        }
-        for (stage_name, executor_stage) in schedule.stage_order.iter().zip(self.stages.iter_mut())
-        {
-            #[cfg(feature = "trace")]
-            let stage_span = info_span!("stage", name = stage_name.as_ref());
-            #[cfg(feature = "trace")]
-            let _stage_guard = stage_span.enter();
-            if let Some(stage_systems) = schedule.stages.get_mut(stage_name) {
-                executor_stage.run(world, resources, stage_systems, schedule_changed);
-            }
-        }
-
-        if self.clear_trackers {
-            world.clear_trackers();
-            resources.clear_trackers();
-        }
-
-        self.last_schedule_generation = schedule_generation;
-    }
-
-    pub fn print_order(&self, schedule: &Schedule) {
-        println!("----------------------------");
-        for (stage_name, executor_stage) in schedule.stage_order.iter().zip(self.stages.iter()) {
-            println!("stage {:?}", stage_name);
-            if let Some(stage_systems) = schedule.stages.get(stage_name) {
-                for (i, system) in stage_systems.iter().enumerate() {
-                    println!("  {}-{}", i, system.name());
-                    println!(
-                        "      dependencies({:?})",
-                        executor_stage.system_dependencies[i]
-                            .ones()
-                            .collect::<Vec<usize>>()
-                    );
-                    println!(
-                        "      dependants({:?})",
-                        executor_stage.system_dependents[i]
-                    );
-                }
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct ExecutorStage {
+pub struct ParallelSystemStageExecutor {
     /// each system's set of dependencies
     system_dependencies: Vec<FixedBitSet>,
     /// count of each system's dependencies
@@ -124,7 +78,7 @@ pub struct ExecutorStage {
     last_archetypes_generation: ArchetypesGeneration,
 }
 
-impl Default for ExecutorStage {
+impl Default for ParallelSystemStageExecutor {
     fn default() -> Self {
         Self {
             system_dependents: Default::default(),
@@ -138,7 +92,15 @@ impl Default for ExecutorStage {
     }
 }
 
-impl ExecutorStage {
+impl ParallelSystemStageExecutor {
+    pub fn system_dependents(&self) -> &[Vec<usize>] {
+        &self.system_dependents
+    }
+
+    pub fn system_dependencies(&self) -> &[FixedBitSet] {
+        &self.system_dependencies
+    }
+
     /// Sets up state to run the next "batch" of systems. Each batch contains 0..n systems and
     /// optionally a thread local system at the end. After this function runs, a bunch of state
     /// in self will be populated for systems in this batch. Returns the range of systems
@@ -147,8 +109,8 @@ impl ExecutorStage {
     pub fn prepare_to_next_thread_local(
         &mut self,
         world: &World,
-        systems: &mut [Box<dyn System<Input = (), Output = ()>>],
-        schedule_changed: bool,
+        systems: &mut [Box<dyn System<In = (), Out = ()>>],
+        stage_changed: bool,
         next_thread_local_index: usize,
     ) -> Range<usize> {
         // Find the first system in this batch and (if there is one) the thread local system that
@@ -178,7 +140,7 @@ impl ExecutorStage {
         let archetypes_generation_changed =
             self.last_archetypes_generation != world.archetypes_generation();
 
-        if schedule_changed || archetypes_generation_changed {
+        if stage_changed || archetypes_generation_changed {
             // update each system's [archetype+component] access to latest world archetypes
             for system_index in prepare_system_index_range.clone() {
                 systems[system_index].update(world);
@@ -329,7 +291,7 @@ impl ExecutorStage {
         &self,
         world: &World,
         resources: &Resources,
-        systems: &mut [Box<dyn System<Input = (), Output = ()>>],
+        systems: &mut [Box<dyn System<In = (), Out = ()>>],
         prepared_system_range: Range<usize>,
         compute_pool: &TaskPool,
     ) {
@@ -398,7 +360,10 @@ impl ExecutorStage {
                     // triggering dependents
                     {
                         #[cfg(feature = "trace")]
-                        let system_span = info_span!("system", name = system.name().as_ref());
+                        let system_span = bevy_utils::tracing::info_span!(
+                            "system",
+                            name = system.name().as_ref()
+                        );
                         #[cfg(feature = "trace")]
                         let _system_guard = system_span.enter();
 
@@ -417,21 +382,27 @@ impl ExecutorStage {
             }
         });
     }
+}
 
-    pub fn run(
+impl SystemStageExecutor for ParallelSystemStageExecutor {
+    fn execute_stage(
         &mut self,
+        systems: &mut [Box<dyn System<In = (), Out = ()>>],
+        changed_systems: &[usize],
         world: &mut World,
         resources: &mut Resources,
-        systems: &mut [Box<dyn System<Input = (), Output = ()>>],
-        schedule_changed: bool,
     ) {
         let start_archetypes_generation = world.archetypes_generation();
-        let compute_pool = resources.get_cloned::<ComputeTaskPool>().unwrap();
+        let compute_pool = resources
+            .get_or_insert_with(|| ComputeTaskPool(TaskPool::default()))
+            .clone();
+
+        let stage_changed = !changed_systems.is_empty();
 
         // if the schedule has changed, clear executor state / fill it with new defaults
         // This is mostly zeroing out a bunch of arrays parallel to the systems array. They will get
         // repopulated by prepare_to_next_thread_local() calls
-        if schedule_changed {
+        if stage_changed {
             self.system_dependencies.clear();
             self.system_dependencies
                 .resize_with(systems.len(), || FixedBitSet::with_capacity(systems.len()));
@@ -451,7 +422,8 @@ impl ExecutorStage {
             for (system_index, system) in systems.iter().enumerate() {
                 if system.thread_local_execution() == ThreadLocalExecution::Immediate {
                     #[cfg(feature = "trace")]
-                    let system_span = info_span!("system", name = system.name().as_ref());
+                    let system_span =
+                        bevy_utils::tracing::info_span!("system", name = system.name().as_ref());
                     #[cfg(feature = "trace")]
                     let _system_guard = system_span.enter();
 
@@ -470,7 +442,7 @@ impl ExecutorStage {
             let prepared_system_range = self.prepare_to_next_thread_local(
                 world,
                 systems,
-                schedule_changed,
+                stage_changed,
                 next_thread_local_index,
             );
 
@@ -498,7 +470,10 @@ impl ExecutorStage {
                 let system = systems[thread_local_system_index].as_mut();
 
                 #[cfg(feature = "trace")]
-                let system_span = info_span!("thread_local_system", name = system.name().as_ref());
+                let system_span = bevy_utils::tracing::info_span!(
+                    "thread_local_system",
+                    name = system.name().as_ref()
+                );
                 #[cfg(feature = "trace")]
                 let _system_guard = system_span.enter();
 
@@ -514,7 +489,7 @@ impl ExecutorStage {
             let run_ready_system_index_range = self.prepare_to_next_thread_local(
                 world,
                 systems,
-                schedule_changed,
+                stage_changed,
                 next_thread_local_index,
             );
 
@@ -532,7 +507,8 @@ impl ExecutorStage {
             match system.thread_local_execution() {
                 ThreadLocalExecution::NextFlush => {
                     #[cfg(feature = "trace")]
-                    let system_span = info_span!("system", name = system.name().as_ref());
+                    let system_span =
+                        bevy_utils::tracing::info_span!("system", name = system.name().as_ref());
                     #[cfg(feature = "trace")]
                     let _system_guard = system_span.enter();
                     system.run_thread_local(world, resources);
@@ -545,326 +521,6 @@ impl ExecutorStage {
         // we can assume that all systems have correct archetype accesses.
         if start_archetypes_generation == world.archetypes_generation() {
             self.last_archetypes_generation = world.archetypes_generation();
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::ParallelExecutor;
-    use crate::{
-        resource::{Res, ResMut, Resources},
-        schedule::Schedule,
-        system::Query,
-        Commands, Entity, World,
-    };
-    use bevy_tasks::{ComputeTaskPool, TaskPool};
-    use fixedbitset::FixedBitSet;
-    use parking_lot::Mutex;
-    use std::{collections::HashSet, sync::Arc};
-
-    #[derive(Default)]
-    struct CompletedSystems {
-        completed_systems: Arc<Mutex<HashSet<&'static str>>>,
-    }
-
-    #[test]
-    fn cross_stage_archetype_change_prepare() {
-        let mut world = World::new();
-        let mut resources = Resources::default();
-        resources.insert(ComputeTaskPool(TaskPool::default()));
-
-        let mut schedule = Schedule::default();
-        schedule.add_stage("PreArchetypeChange");
-        schedule.add_stage("PostArchetypeChange");
-
-        fn insert(commands: &mut Commands) {
-            commands.spawn((1u32,));
-        }
-
-        fn read(query: Query<&u32>, entities: Query<Entity>) {
-            for entity in &mut entities.iter() {
-                // query.get() does a "system permission check" that will fail if the entity is from a
-                // new archetype which hasnt been "prepared yet"
-                query.get_component::<u32>(entity).unwrap();
-            }
-
-            assert_eq!(1, entities.iter().count());
-        }
-
-        schedule.add_system_to_stage("PreArchetypeChange", insert);
-        schedule.add_system_to_stage("PostArchetypeChange", read);
-
-        let mut executor = ParallelExecutor::default();
-        schedule.initialize(&mut world, &mut resources);
-        executor.run(&mut schedule, &mut world, &mut resources);
-    }
-
-    #[test]
-    fn intra_stage_archetype_change_prepare() {
-        let mut world = World::new();
-        let mut resources = Resources::default();
-        resources.insert(ComputeTaskPool(TaskPool::default()));
-
-        let mut schedule = Schedule::default();
-        schedule.add_stage("update");
-
-        fn insert(world: &mut World, _resources: &mut Resources) {
-            world.spawn((1u32,));
-        }
-
-        fn read(query: Query<&u32>, entities: Query<Entity>) {
-            for entity in &mut entities.iter() {
-                // query.get() does a "system permission check" that will fail if the entity is from a
-                // new archetype which hasnt been "prepared yet"
-                query.get_component::<u32>(entity).unwrap();
-            }
-
-            assert_eq!(1, entities.iter().count());
-        }
-
-        schedule.add_system_to_stage("update", insert);
-        schedule.add_system_to_stage("update", read);
-        schedule.initialize(&mut world, &mut resources);
-
-        let mut executor = ParallelExecutor::default();
-        executor.run(&mut schedule, &mut world, &mut resources);
-    }
-
-    #[test]
-    fn schedule() {
-        let mut world = World::new();
-        let mut resources = Resources::default();
-        resources.insert(ComputeTaskPool(TaskPool::default()));
-        resources.insert(CompletedSystems::default());
-        resources.insert(1.0f64);
-        resources.insert(2isize);
-
-        world.spawn((1.0f32,));
-        world.spawn((1u32, 1u64));
-        world.spawn((2u32,));
-
-        let mut schedule = Schedule::default();
-        schedule.add_stage("A"); // component queries
-        schedule.add_stage("B"); // thread local
-        schedule.add_stage("C"); // resources
-
-        // A system names
-        const READ_U32_SYSTEM_NAME: &str = "read_u32";
-        const WRITE_FLOAT_SYSTEM_NAME: &str = "write_float";
-        const READ_U32_WRITE_U64_SYSTEM_NAME: &str = "read_u32_write_u64";
-        const READ_U64_SYSTEM_NAME: &str = "read_u64";
-
-        // B system names
-        const WRITE_U64_SYSTEM_NAME: &str = "write_u64";
-        const THREAD_LOCAL_SYSTEM_SYSTEM_NAME: &str = "thread_local_system";
-        const WRITE_F32_SYSTEM_NAME: &str = "write_f32";
-
-        // C system names
-        const READ_F64_RES_SYSTEM_NAME: &str = "read_f64_res";
-        const READ_ISIZE_RES_SYSTEM_NAME: &str = "read_isize_res";
-        const READ_ISIZE_WRITE_F64_RES_SYSTEM_NAME: &str = "read_isize_write_f64_res";
-        const WRITE_F64_RES_SYSTEM_NAME: &str = "write_f64_res";
-
-        // A systems
-
-        fn read_u32(completed_systems: Res<CompletedSystems>, _query: Query<&u32>) {
-            let mut completed_systems = completed_systems.completed_systems.lock();
-            completed_systems.insert(READ_U32_SYSTEM_NAME);
-        }
-
-        fn write_float(completed_systems: Res<CompletedSystems>, _query: Query<&f32>) {
-            let mut completed_systems = completed_systems.completed_systems.lock();
-            completed_systems.insert(WRITE_FLOAT_SYSTEM_NAME);
-        }
-
-        fn read_u32_write_u64(
-            completed_systems: Res<CompletedSystems>,
-            _query: Query<(&u32, &mut u64)>,
-        ) {
-            let mut completed_systems = completed_systems.completed_systems.lock();
-            assert!(!completed_systems.contains(READ_U64_SYSTEM_NAME));
-            completed_systems.insert(READ_U32_WRITE_U64_SYSTEM_NAME);
-        }
-
-        fn read_u64(completed_systems: Res<CompletedSystems>, _query: Query<&u64>) {
-            let mut completed_systems = completed_systems.completed_systems.lock();
-            assert!(completed_systems.contains(READ_U32_WRITE_U64_SYSTEM_NAME));
-            assert!(!completed_systems.contains(WRITE_U64_SYSTEM_NAME));
-            completed_systems.insert(READ_U64_SYSTEM_NAME);
-        }
-
-        schedule.add_system_to_stage("A", read_u32);
-        schedule.add_system_to_stage("A", write_float);
-        schedule.add_system_to_stage("A", read_u32_write_u64);
-        schedule.add_system_to_stage("A", read_u64);
-
-        // B systems
-
-        fn write_u64(completed_systems: Res<CompletedSystems>, _query: Query<&mut u64>) {
-            let mut completed_systems = completed_systems.completed_systems.lock();
-            assert!(completed_systems.contains(READ_U64_SYSTEM_NAME));
-            assert!(!completed_systems.contains(THREAD_LOCAL_SYSTEM_SYSTEM_NAME));
-            assert!(!completed_systems.contains(WRITE_F32_SYSTEM_NAME));
-            completed_systems.insert(WRITE_U64_SYSTEM_NAME);
-        }
-
-        fn thread_local_system(_world: &mut World, resources: &mut Resources) {
-            let completed_systems = resources.get::<CompletedSystems>().unwrap();
-            let mut completed_systems = completed_systems.completed_systems.lock();
-            assert!(completed_systems.contains(WRITE_U64_SYSTEM_NAME));
-            assert!(!completed_systems.contains(WRITE_F32_SYSTEM_NAME));
-            completed_systems.insert(THREAD_LOCAL_SYSTEM_SYSTEM_NAME);
-        }
-
-        fn write_f32(completed_systems: Res<CompletedSystems>, _query: Query<&mut f32>) {
-            let mut completed_systems = completed_systems.completed_systems.lock();
-            assert!(completed_systems.contains(WRITE_U64_SYSTEM_NAME));
-            assert!(completed_systems.contains(THREAD_LOCAL_SYSTEM_SYSTEM_NAME));
-            assert!(!completed_systems.contains(READ_F64_RES_SYSTEM_NAME));
-            completed_systems.insert(WRITE_F32_SYSTEM_NAME);
-        }
-
-        schedule.add_system_to_stage("B", write_u64);
-        schedule.add_system_to_stage("B", thread_local_system);
-        schedule.add_system_to_stage("B", write_f32);
-
-        // C systems
-
-        fn read_f64_res(completed_systems: Res<CompletedSystems>, _f64_res: Res<f64>) {
-            let mut completed_systems = completed_systems.completed_systems.lock();
-            assert!(completed_systems.contains(WRITE_F32_SYSTEM_NAME));
-            assert!(!completed_systems.contains(READ_ISIZE_WRITE_F64_RES_SYSTEM_NAME));
-            assert!(!completed_systems.contains(WRITE_F64_RES_SYSTEM_NAME));
-            completed_systems.insert(READ_F64_RES_SYSTEM_NAME);
-        }
-
-        fn read_isize_res(completed_systems: Res<CompletedSystems>, _isize_res: Res<isize>) {
-            let mut completed_systems = completed_systems.completed_systems.lock();
-            completed_systems.insert(READ_ISIZE_RES_SYSTEM_NAME);
-        }
-
-        fn read_isize_write_f64_res(
-            completed_systems: Res<CompletedSystems>,
-            _isize_res: Res<isize>,
-            _f64_res: ResMut<f64>,
-        ) {
-            let mut completed_systems = completed_systems.completed_systems.lock();
-            assert!(completed_systems.contains(READ_F64_RES_SYSTEM_NAME));
-            assert!(!completed_systems.contains(WRITE_F64_RES_SYSTEM_NAME));
-            completed_systems.insert(READ_ISIZE_WRITE_F64_RES_SYSTEM_NAME);
-        }
-
-        fn write_f64_res(completed_systems: Res<CompletedSystems>, _f64_res: ResMut<f64>) {
-            let mut completed_systems = completed_systems.completed_systems.lock();
-            assert!(completed_systems.contains(READ_F64_RES_SYSTEM_NAME));
-            assert!(completed_systems.contains(READ_ISIZE_WRITE_F64_RES_SYSTEM_NAME));
-            completed_systems.insert(WRITE_F64_RES_SYSTEM_NAME);
-        }
-
-        schedule.add_system_to_stage("C", read_f64_res);
-        schedule.add_system_to_stage("C", read_isize_res);
-        schedule.add_system_to_stage("C", read_isize_write_f64_res);
-        schedule.add_system_to_stage("C", write_f64_res);
-        schedule.initialize(&mut world, &mut resources);
-
-        fn run_executor_and_validate(
-            executor: &mut ParallelExecutor,
-            schedule: &mut Schedule,
-            world: &mut World,
-            resources: &mut Resources,
-        ) {
-            executor.run(schedule, world, resources);
-
-            assert_eq!(
-                executor.stages[0].system_dependents,
-                vec![vec![], vec![], vec![3], vec![]]
-            );
-            assert_eq!(
-                executor.stages[1].system_dependents,
-                vec![vec![1], vec![2], vec![]]
-            );
-            assert_eq!(
-                executor.stages[2].system_dependents,
-                vec![vec![2, 3], vec![], vec![3], vec![]]
-            );
-
-            let stage_0_len = executor.stages[0].system_dependencies.len();
-            let mut read_u64_deps = FixedBitSet::with_capacity(stage_0_len);
-            read_u64_deps.insert(2);
-
-            assert_eq!(
-                executor.stages[0].system_dependencies,
-                vec![
-                    FixedBitSet::with_capacity(stage_0_len),
-                    FixedBitSet::with_capacity(stage_0_len),
-                    FixedBitSet::with_capacity(stage_0_len),
-                    read_u64_deps,
-                ]
-            );
-
-            let stage_1_len = executor.stages[1].system_dependencies.len();
-            let mut thread_local_deps = FixedBitSet::with_capacity(stage_1_len);
-            thread_local_deps.insert(0);
-            let mut write_f64_deps = FixedBitSet::with_capacity(stage_1_len);
-            write_f64_deps.insert(1);
-            assert_eq!(
-                executor.stages[1].system_dependencies,
-                vec![
-                    FixedBitSet::with_capacity(stage_1_len),
-                    thread_local_deps,
-                    write_f64_deps
-                ]
-            );
-
-            let stage_2_len = executor.stages[2].system_dependencies.len();
-            let mut read_isize_write_f64_res_deps = FixedBitSet::with_capacity(stage_2_len);
-            read_isize_write_f64_res_deps.insert(0);
-            let mut write_f64_res_deps = FixedBitSet::with_capacity(stage_2_len);
-            write_f64_res_deps.insert(0);
-            write_f64_res_deps.insert(2);
-            assert_eq!(
-                executor.stages[2].system_dependencies,
-                vec![
-                    FixedBitSet::with_capacity(stage_2_len),
-                    FixedBitSet::with_capacity(stage_2_len),
-                    read_isize_write_f64_res_deps,
-                    write_f64_res_deps
-                ]
-            );
-
-            let completed_systems = resources.get::<CompletedSystems>().unwrap();
-            assert_eq!(
-                completed_systems.completed_systems.lock().len(),
-                11,
-                "completed_systems should have been incremented once for each system"
-            );
-        }
-
-        // Stress test the "clean start" case
-        for _ in 0..1000 {
-            let mut executor = ParallelExecutor::default();
-            run_executor_and_validate(&mut executor, &mut schedule, &mut world, &mut resources);
-            resources
-                .get::<CompletedSystems>()
-                .unwrap()
-                .completed_systems
-                .lock()
-                .clear();
-        }
-
-        // Stress test the "continue running" case
-        let mut executor = ParallelExecutor::default();
-        run_executor_and_validate(&mut executor, &mut schedule, &mut world, &mut resources);
-        for _ in 0..1000 {
-            // run again (with completed_systems reset) to ensure executor works correctly across runs
-            resources
-                .get::<CompletedSystems>()
-                .unwrap()
-                .completed_systems
-                .lock()
-                .clear();
-            run_executor_and_validate(&mut executor, &mut schedule, &mut world, &mut resources);
         }
     }
 }

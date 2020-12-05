@@ -37,7 +37,7 @@ pub trait Node: Downcast + Send + Sync + 'static {
 impl_downcast!(Node);
 
 pub trait SystemNode: Node {
-    fn get_system(&self, commands: &mut Commands) -> Box<dyn System<Input = (), Output = ()>>;
+    fn get_system(&self, commands: &mut Commands) -> Box<dyn System<In = (), Out = ()>>;
 }
 
 #[derive(Debug)]

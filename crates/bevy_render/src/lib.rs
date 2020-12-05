@@ -11,6 +11,7 @@ pub mod renderer;
 pub mod shader;
 pub mod texture;
 
+use bevy_ecs::SystemStage;
 use bevy_reflect::RegisterTypeBuilder;
 use draw::Visible;
 pub use once_cell;
@@ -95,59 +96,70 @@ impl Plugin for RenderPlugin {
             app.resources_mut().insert(ClearColor::default());
         }
 
-        app.add_stage_after(bevy_asset::stage::ASSET_EVENTS, stage::RENDER_RESOURCE)
-            .add_stage_after(stage::RENDER_RESOURCE, stage::RENDER_GRAPH_SYSTEMS)
-            .add_stage_after(stage::RENDER_GRAPH_SYSTEMS, stage::DRAW)
-            .add_stage_after(stage::DRAW, stage::RENDER)
-            .add_stage_after(stage::RENDER, stage::POST_RENDER)
-            .add_asset::<Mesh>()
-            .add_asset::<Texture>()
-            .add_asset::<Shader>()
-            .add_asset::<PipelineDescriptor>()
-            .register_type::<Camera>()
-            .register_type::<Draw>()
-            .register_type::<Visible>()
-            .register_type::<RenderPipelines>()
-            .register_type::<OrthographicProjection>()
-            .register_type::<PerspectiveProjection>()
-            .register_type::<MainPass>()
-            .register_type::<VisibleEntities>()
-            .register_type::<Color>()
-            .register_type::<ShaderSpecialization>()
-            .register_type::<PrimitiveTopology>()
-            .register_type::<IndexFormat>()
-            .register_type::<PipelineSpecialization>()
-            .init_resource::<RenderGraph>()
-            .init_resource::<PipelineCompiler>()
-            .init_resource::<RenderResourceBindings>()
-            .init_resource::<TextureResourceSystemState>()
-            .init_resource::<AssetRenderResourceBindings>()
-            .init_resource::<ActiveCameras>()
-            .add_system_to_stage(bevy_app::stage::PRE_UPDATE, draw::clear_draw_system)
-            .add_system_to_stage(bevy_app::stage::POST_UPDATE, camera::active_cameras_system)
-            .add_system_to_stage(
-                bevy_app::stage::POST_UPDATE,
-                camera::camera_system::<OrthographicProjection>,
-            )
-            .add_system_to_stage(
-                bevy_app::stage::POST_UPDATE,
-                camera::camera_system::<PerspectiveProjection>,
-            )
-            // registration order matters here. this must come after all camera_system::<T> systems
-            .add_system_to_stage(
-                bevy_app::stage::POST_UPDATE,
-                camera::visible_entities_system,
-            )
-            // TODO: turn these "resource systems" into graph nodes and remove the RENDER_RESOURCE stage
-            .add_system_to_stage(stage::RENDER_RESOURCE, shader::shader_update_system)
-            .add_system_to_stage(stage::RENDER_RESOURCE, mesh::mesh_resource_provider_system)
-            .add_system_to_stage(stage::RENDER_RESOURCE, Texture::texture_resource_system)
-            .add_system_to_stage(
-                stage::RENDER_GRAPH_SYSTEMS,
-                render_graph::render_graph_schedule_executor_system,
-            )
-            .add_system_to_stage(stage::DRAW, pipeline::draw_render_pipelines_system)
-            .add_system_to_stage(stage::POST_RENDER, shader::clear_shader_defs_system);
+        app.add_stage_after(
+            bevy_asset::stage::ASSET_EVENTS,
+            stage::RENDER_RESOURCE,
+            SystemStage::parallel(),
+        )
+        .add_stage_after(
+            stage::RENDER_RESOURCE,
+            stage::RENDER_GRAPH_SYSTEMS,
+            SystemStage::parallel(),
+        )
+        .add_stage_after(
+            stage::RENDER_GRAPH_SYSTEMS,
+            stage::DRAW,
+            SystemStage::parallel(),
+        )
+        .add_stage_after(stage::DRAW, stage::RENDER, SystemStage::parallel())
+        .add_stage_after(stage::RENDER, stage::POST_RENDER, SystemStage::parallel())
+        .add_asset::<Mesh>()
+        .add_asset::<Texture>()
+        .add_asset::<Shader>()
+        .add_asset::<PipelineDescriptor>()
+        .register_type::<Camera>()
+        .register_type::<Draw>()
+        .register_type::<Visible>()
+        .register_type::<RenderPipelines>()
+        .register_type::<OrthographicProjection>()
+        .register_type::<PerspectiveProjection>()
+        .register_type::<MainPass>()
+        .register_type::<VisibleEntities>()
+        .register_type::<Color>()
+        .register_type::<ShaderSpecialization>()
+        .register_type::<PrimitiveTopology>()
+        .register_type::<IndexFormat>()
+        .register_type::<PipelineSpecialization>()
+        .init_resource::<RenderGraph>()
+        .init_resource::<PipelineCompiler>()
+        .init_resource::<RenderResourceBindings>()
+        .init_resource::<TextureResourceSystemState>()
+        .init_resource::<AssetRenderResourceBindings>()
+        .init_resource::<ActiveCameras>()
+        .add_system_to_stage(bevy_app::stage::PRE_UPDATE, draw::clear_draw_system)
+        .add_system_to_stage(bevy_app::stage::POST_UPDATE, camera::active_cameras_system)
+        .add_system_to_stage(
+            bevy_app::stage::POST_UPDATE,
+            camera::camera_system::<OrthographicProjection>,
+        )
+        .add_system_to_stage(
+            bevy_app::stage::POST_UPDATE,
+            camera::camera_system::<PerspectiveProjection>,
+        )
+        // registration order matters here. this must come after all camera_system::<T> systems
+        .add_system_to_stage(
+            bevy_app::stage::POST_UPDATE,
+            camera::visible_entities_system,
+        )
+        .add_system_to_stage(stage::RENDER_RESOURCE, shader::shader_update_system)
+        .add_system_to_stage(stage::RENDER_RESOURCE, mesh::mesh_resource_provider_system)
+        .add_system_to_stage(stage::RENDER_RESOURCE, Texture::texture_resource_system)
+        .add_system_to_stage(
+            stage::RENDER_GRAPH_SYSTEMS,
+            render_graph::render_graph_schedule_executor_system,
+        )
+        .add_system_to_stage(stage::DRAW, pipeline::draw_render_pipelines_system)
+        .add_system_to_stage(stage::POST_RENDER, shader::clear_shader_defs_system);
 
         if app.resources().get::<Msaa>().is_none() {
             app.init_resource::<Msaa>();

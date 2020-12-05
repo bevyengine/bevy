@@ -14,6 +14,7 @@ pub mod prelude {
     pub use crate::{
         core::WorldBuilderSource,
         resource::{ChangedRes, FromResources, Local, Res, ResMut, Resource, Resources},
+        schedule::{Schedule, State, SystemStage},
         system::{Commands, IntoSystem, Query, System},
         Added, Bundle, Changed, Component, Entity, In, IntoChainSystem, Mut, Mutated, Or, QuerySet,
         Ref, RefMut, With, Without, World,

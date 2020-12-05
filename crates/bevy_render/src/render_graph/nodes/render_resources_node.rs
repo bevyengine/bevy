@@ -401,7 +401,7 @@ impl<T> SystemNode for RenderResourcesNode<T>
 where
     T: renderer::RenderResources,
 {
-    fn get_system(&self, commands: &mut Commands) -> Box<dyn System<Input = (), Output = ()>> {
+    fn get_system(&self, commands: &mut Commands) -> Box<dyn System<In = (), Out = ()>> {
         let system = render_resources_node_system::<T>.system();
         commands.insert_local_resource(
             system.id(),
@@ -473,7 +473,6 @@ fn render_resources_node_system<T: RenderResources>(
         if !visible.is_visible {
             continue;
         }
-
         uniform_buffer_arrays.prepare_uniform_buffers(entity, uniforms);
         if !setup_uniform_texture_resources::<T>(
             &uniforms,
@@ -585,7 +584,7 @@ impl<T> SystemNode for AssetRenderResourcesNode<T>
 where
     T: renderer::RenderResources + Asset,
 {
-    fn get_system(&self, commands: &mut Commands) -> Box<dyn System<Input = (), Output = ()>> {
+    fn get_system(&self, commands: &mut Commands) -> Box<dyn System<In = (), Out = ()>> {
         let system = asset_render_resources_node_system::<T>.system();
         commands.insert_local_resource(
             system.id(),

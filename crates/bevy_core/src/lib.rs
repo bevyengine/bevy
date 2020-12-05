@@ -33,6 +33,7 @@ impl Plugin for CorePlugin {
 
         app.init_resource::<Time>()
             .init_resource::<EntityLabels>()
+            .init_resource::<FixedTimesteps>()
             .register_type::<Option<String>>()
             .register_type::<Range<f32>>()
             .register_type::<Timer>()
