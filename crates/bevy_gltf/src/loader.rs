@@ -131,7 +131,7 @@ async fn load_gltf<'a, 'b>(
                     .read_colors(0)
                     .map(|v| VertexAttributeValues::Uchar4(v.into_rgba_u8().collect()))
                 {
-                    mesh.set_attribute(Mesh::ATTRIBUTE_WEIGHT, color_attribute);
+                    mesh.set_attribute(Mesh::ATTRIBUTE_COLOR, color_attribute);
                 }
 
                 if let Some(weight_attribute) = reader
@@ -161,27 +161,30 @@ async fn load_gltf<'a, 'b>(
 
         let reader = skin.reader(|buffer| Some(&buffer_data[buffer.index()]));
         if let Some(inverse_bind_matrices) = reader.read_inverse_bind_matrices() {
-            let mut bones_names = vec![];
-            let mut bones_parents = vec![];
+            let mut entities_parent_and_name = vec![];
+
+            // Skeleton root node
+            entities_parent_and_name.push((u16::MAX, Name::from_str("")));
 
             for joint in skin.joints() {
-                bones_names.push(joint.name().expect("unnamed bone").to_string());
-
-                if let Some(parent) = parents[joint.index()] {
-                    bones_parents.push(skin.joints().position(|j| j.index() == parent));
-                } else {
-                    bones_parents.push(None);
-                }
+                entities_parent_and_name.push((
+                    parents[joint.index()]
+                        .and_then(|parent| skin.joints().position(|j| j.index() == parent))
+                        .map(|parent| parent + 1)
+                        .unwrap_or(0) as u16,
+                    Name::from_str(joint.name().expect("unnamed bone")),
+                ));
             }
 
             load_context.set_labeled_asset(
                 &skin_label,
-                LoadedAsset::new(MeshSkin {
+                LoadedAsset::new(SkinAsset {
                     inverse_bind_matrices: inverse_bind_matrices
                         .map(|x| Mat4::from_cols_array_2d(&x))
                         .collect(),
-                    bones_names,
-                    bones_parents,
+                    hierarchy: NamedHierarchyTree::from_parent_and_name_entities(
+                        entities_parent_and_name,
+                    ),
                 }),
             );
         }
@@ -406,17 +409,17 @@ fn load_node(
     if let Some(skin) = node.skin() {
         let skin_label = skin_label(&skin);
         let skin_asset_path = AssetPath::new_ref(load_context.path(), Some(&skin_label));
-        let skin_handle: Handle<MeshSkin> = load_context.get_handle(skin_asset_path);
+        let skin_handle: Handle<SkinAsset> = load_context.get_handle(skin_asset_path);
         world_builder.with(skin_handle);
 
         // TODO: Mesh skinner needs a at least a reference to the skeleton root for it to work
         // for this reason it need to keep track of all entities created by their index in the gltf node vec
         let skeleton_root = skin.skeleton().map_or(root_node.index(), |n| n.index());
-        world_builder.with(MeshSkinBinder::with_skeleton(
+        world_builder.with(SkinComponent::with_root(
             entity_lookup[skeleton_root].expect("missing skeleton root entity"),
         ));
 
-        world_builder.with(MeshSkinnerDebugger::default());
+        world_builder.with(SkinDebugger::default());
     }
 
     // create camera node

@@ -9,13 +9,14 @@ pub mod lerping;
 mod skinned_mesh;
 
 pub use crate::generic::*;
-pub use crate::hierarchy::Hierarchy;
+pub use crate::hierarchy::NamedHierarchyTree;
 pub use crate::skinned_mesh::*;
 
 pub mod prelude {
     pub use crate::generic::{Animator, Clip, Curve, CurveUntyped};
+    pub use crate::hierarchy::NamedHierarchyTree;
     pub use crate::lerping::LerpValue;
-    pub use crate::skinned_mesh::{MeshSkin, MeshSkinBinder, MeshSkinnerDebugger};
+    pub use crate::skinned_mesh::{SkinAsset, SkinComponent, SkinDebugger};
 }
 
 pub mod stage {
@@ -39,10 +40,12 @@ impl Plugin for AnimationPlugin {
             .add_system_to_stage(stage::ANIMATE, animator_update_system);
 
         // Skinning
-        app.add_asset::<MeshSkin>()
-            .register_component_with::<MeshSkinBinder>(|reg| reg.map_entities())
-            .register_component::<MeshSkinnerDebugger>()
-            .add_system_to_stage(stage::POST_UPDATE, mesh_skinner_debugger_update)
-            .add_system_to_stage(stage::ANIMATE, mesh_skinner_startup);
+        app.add_asset::<SkinAsset>()
+            .add_asset::<SkinInstance>()
+            .register_component_with::<SkinComponent>(|reg| reg.map_entities())
+            .register_component::<SkinDebugger>()
+            .add_startup_system(skinning_setup)
+            .add_system_to_stage(stage::ANIMATE, skinning_update)
+            .add_system_to_stage(stage::POST_UPDATE, skinning_debugger_update);
     }
 }

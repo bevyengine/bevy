@@ -13,7 +13,7 @@ use std::any::TypeId;
 use std::hash::Hash;
 use std::ptr::null_mut;
 
-use super::hierarchy::Hierarchy;
+use super::hierarchy::NamedHierarchyTree;
 use super::lerping::LerpValue;
 
 // TODO: Curve/Clip need a validation during deserialization because they are
@@ -27,7 +27,7 @@ pub struct Clip {
     pub warp: bool,
     duration: f32,
     /// Entity identification made by parent index and name
-    hierarchy: Hierarchy,
+    hierarchy: NamedHierarchyTree,
     /// Attribute is made by the entity index and a string that combines
     /// component name followed by their attributes spaced by a period,
     /// like so: `"Transform.translation.x"`
@@ -45,7 +45,7 @@ impl Default for Clip {
             warp: true,
             duration: 0.0,
             // ? NOTE: Since the root has no parent in this context it points to a place outside the vec bounds
-            hierarchy: Hierarchy::default(),
+            hierarchy: NamedHierarchyTree::default(),
             properties: vec![],
             curves: vec![],
         }
@@ -180,6 +180,7 @@ impl Clip {
 #[derive(Debug, Clone)]
 pub enum CurveUntyped {
     Float(Curve<f32>),
+    //Vec2(Curve<Vec2>),
     Vec3(Curve<Vec3>),
     Vec4(Curve<Vec4>),
     Quat(Curve<Quat>),
@@ -292,8 +293,7 @@ where
         self.sample_indexed(index, time).1
     }
 
-    /// Samples the curve starting from some keyframe index, this make the common case `O(1)`,
-    /// use only when time advancing forwards
+    /// Samples the curve starting from some keyframe index, this make the common case `O(1)`
     pub fn sample_indexed(&self, mut index: usize, time: f32) -> (usize, T) {
         // Adjust for the current keyframe index
         let last_index = self.samples.len() - 1;
@@ -356,8 +356,14 @@ where
         self.samples.iter().copied().zip(self.values.iter_mut())
     }
 
+    #[inline(always)]
     pub fn value_type(&self) -> TypeId {
         TypeId::of::<T>()
+    }
+
+    #[inline(always)]
+    pub fn value_size(&self) -> usize {
+        std::mem::size_of::<T>()
     }
 }
 
@@ -808,8 +814,8 @@ fn find_property_ptr<'a, P: Iterator<Item = &'a str>>(
                 // With the new bevy_reflect we can ref properties inside vectors and other things
                 if unsafe { root.offset_from(ptr).abs() } >= size {
                     // TODO: log also the full property path
-                    tracing::warn!("property outside component");
-                    return null_mut();
+                    panic!("property outside component");
+                    //return null_mut();
                 }
             }
             ptr

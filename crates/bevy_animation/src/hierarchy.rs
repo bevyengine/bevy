@@ -10,15 +10,15 @@ pub type Index = u16;
 /// Provides a way of describing a hierarchy or named entities
 /// and means for finding then in the world
 #[derive(Debug, Clone)]
-pub struct Hierarchy {
+pub struct NamedHierarchyTree {
     /// Entity identification made by parent index and name
     entities: Vec<(Index, Name)>,
     // ? NOTE: SmallVec<[u16; 10]> occupy the same 32 bytes as the SmallVec<[u16; 8]>, but the latter
     // ? should be only take 24 bytes using the "union" feature
-    children: Vec<SmallVec<[u16; 10]>>,
+    children: Vec<SmallVec<[Index; 10]>>,
 }
 
-impl Default for Hierarchy {
+impl Default for NamedHierarchyTree {
     fn default() -> Self {
         Self {
             // ? NOTE: Since the root has no parent in this context it points to a place outside the vec bounds
@@ -28,11 +28,36 @@ impl Default for Hierarchy {
     }
 }
 
-impl Hierarchy {
+impl NamedHierarchyTree {
+    /// Used when the hierarchy must be in a specific order
+    pub fn from_parent_and_name_entities(entities: Vec<(Index, Name)>) -> Self {
+        let mut children = vec![];
+        children.resize_with(entities.len(), || smallvec![]);
+
+        for (entity_index, (parent_index, _)) in entities.iter().enumerate() {
+            children
+                .get_mut(*parent_index as usize)
+                .map(|c| c.push(entity_index as Index));
+        }
+
+        Self { entities, children }
+    }
+
+    // pub fn from_name_and_children_entities(iter: impl Iterator<Item ...>) -> Self {
+    // }
+
     /// Number of entities registered.
     #[inline(always)]
     pub fn len(&self) -> usize {
         self.entities.len()
+    }
+
+    /// Iterates over each entity parent index, name and children indexes
+    #[inline(always)]
+    pub fn iter(&self) -> impl Iterator<Item = (&(Index, Name), &[Index])> {
+        self.entities
+            .iter()
+            .zip(self.children.iter().map(|c| &c[..]))
     }
 
     /// Gets the entity parent index and `Name` components

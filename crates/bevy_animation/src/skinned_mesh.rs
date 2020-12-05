@@ -1,4 +1,5 @@
 // TODO: Later merge with bevy_animation
+use crate::hierarchy::NamedHierarchyTree;
 use bevy_asset::{Assets, Handle};
 use bevy_core::Name;
 use bevy_ecs::prelude::*;
@@ -7,142 +8,241 @@ use bevy_math::Mat4;
 use bevy_pbr::prelude::*;
 use bevy_property::Properties;
 use bevy_render::mesh::{shape, Indices, Mesh, VertexAttributeValues};
-use bevy_render::pipeline::PrimitiveTopology;
+use bevy_render::pipeline::{PipelineDescriptor, PrimitiveTopology, RenderPipelines};
+use bevy_render::render_graph::{base, AssetRenderResourcesNode, RenderGraph};
+use bevy_render::renderer::RenderResources;
+use bevy_render::shader::{Shader, ShaderStage};
 use bevy_transform::prelude::*;
 use bevy_type_registry::TypeUuid;
 use smallvec::SmallVec;
 
-/// Skin asset used by the mesh skinning process
+// NOTE: generated using python `import secrets; secrets.token_hex(8)`
+pub const FORWARD_SKINNED_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
+    Handle::weak_from_u64(PipelineDescriptor::TYPE_UUID, 0xedf5a66b71d07478u64);
+
+/// Skin asset used by the skinning process
 #[derive(Debug, Clone, TypeUuid)]
 #[uuid = "129d54f5-4ee7-456f-9340-32e71469cdaf"]
-pub struct MeshSkin {
+pub struct SkinAsset {
+    /// Inverse bind matrices in root node space
     pub inverse_bind_matrices: Vec<Mat4>,
-    pub bones_names: Vec<String>, // TODO: Use the Name component instead
-    /// Each bone as an entry that specifies their parent bone, maybe used to reconstruct
-    /// the bone hierarchy when missing
-    pub bones_parents: Vec<Option<usize>>,
+    /// Skin joint hierarchy, plus one extra the root node as the first entry.
+    pub hierarchy: NamedHierarchyTree,
 }
 
-impl MeshSkin {
-    #[inline(always)]
-    pub fn bone_count(&self) -> usize {
-        self.bones_names.len()
-    }
+#[derive(Default, Debug, Clone, TypeUuid, RenderResources)]
+#[uuid = "e25de07b-f813-4c6b-ad06-b160c3e924b2"]
+pub struct SkinInstance {
+    // TODO: Use 4x3 matrices instead the last row will be always vec4(0, 0, 0, 1)
+    // NOTE: Mat4 doesn't impl `Byteable` so we need to use an array here
+    #[render_resources(buffer)]
+    joint_matrices: Vec<[f32; 16]>,
+    // TODO: Can we use a shader_def to define the number of bones per vertex? (no we can't)
 }
 
 /// Component that skins some mesh.
-/// Requires a `Handle<MeshSkin>` attached to same entity as the component
+/// Requires a `Handle<Skin>` attached to same entity as the component
 #[derive(Properties)]
-pub struct MeshSkinBinder {
+pub struct SkinComponent {
     /// Keeps track of what `MeshSkin` this component is configured to,
     /// extra work is required to keep bones in order.
     ///
     /// It's expected to the skin not to change very often or at all
     #[property(ignore)]
-    skin: Option<Handle<MeshSkin>>,
-    /// Skeleton root entity
-    pub skeleton: Entity,
+    previous_skin: Option<Handle<SkinAsset>>,
+
     /// Maps each bone to an entity, order matters and must match the
-    /// `Handle<MeshSkin>` bone order, this will simplify the lookup of
+    /// `Handle<Skin>` bone order, this will simplify the lookup of
     /// the bind matrix for each bone
-    pub bones: SmallVec<[Option<Entity>; 16]>, // ! FIXME: Property can't handle Vec<Entity>
-    /// List of sub-meshes (gltf primitives) that uses this mesh skinner
-    pub meshes: SmallVec<[Entity; 8]>, // ! FIXME: Property can't handle Vec<Entity>
+    #[property(ignore)]
+    joint_entities: Vec<Option<Entity>>,
+
+    #[property(ignore)]
+    instance: Option<Handle<SkinInstance>>,
+
+    /// Skeleton root entity
+    pub root: Entity,
+
+    /// List of entities with `RenderPipelines` attached to it
+    /// that will share this component render resources
+    ///
+    /// *NOTE* Children of this component doesn't require to be added
+    pub renderers: SmallVec<[Entity; 8]>, // ! FIXME: Property can't handle Vec<Entity>
 }
 
-impl MeshSkinBinder {
-    pub fn with_skeleton(skeleton: Entity) -> Self {
+impl SkinComponent {
+    /// Creates a new SkinBinder component
+    pub fn with_root(root: Entity) -> Self {
         Self {
-            skin: None,
-            skeleton,
-            bones: Default::default(),
-            meshes: Default::default(),
+            previous_skin: None,
+            joint_entities: Default::default(),
+            instance: None,
+            root,
+            renderers: Default::default(),
         }
     }
-
-    // TODO: Provide a safe interface to `set_bone_by_name` in the MeshSkinner
 }
 
 // TODO: Same problem of Parent component
-impl FromResources for MeshSkinBinder {
+impl FromResources for SkinComponent {
     fn from_resources(_resources: &bevy_ecs::Resources) -> Self {
-        MeshSkinBinder::with_skeleton(Entity::new(u32::MAX))
+        SkinComponent::with_root(Entity::new(u32::MAX))
     }
 }
 
-impl MapEntities for MeshSkinBinder {
+impl MapEntities for SkinComponent {
     fn map_entities(
         &mut self,
         entity_map: &bevy_ecs::EntityMap,
     ) -> Result<(), bevy_ecs::MapEntitiesError> {
-        for bone in &mut self.bones {
-            if let Some(bone_entity) = bone {
-                *bone_entity = entity_map.get(*bone_entity)?;
-            }
+        for renderer in &mut self.renderers {
+            *renderer = entity_map.get(*renderer)?;
         }
-        self.skeleton = entity_map.get(self.skeleton)?;
+        self.root = entity_map.get(self.root)?;
         Ok(())
     }
 }
 
-// NOTE: This system is provided for a user convenience, once the root bone is assigned this system
-// will find the rest of the skeleton hierarchy.
-pub(crate) fn mesh_skinner_startup(
-    mesh_skin_assets: Res<Assets<MeshSkin>>,
-    mut skinners_query: Query<(&Handle<MeshSkin>, &mut MeshSkinBinder, Option<&Children>)>,
-    meshes_query: Query<(&Handle<Mesh>,)>,
-    bones_query: Query<(Entity, &Name, Option<&Children>)>,
+#[tracing::instrument(skip(pipelines, shaders, render_graph))]
+pub(crate) fn skinning_setup(
+    mut pipelines: ResMut<Assets<PipelineDescriptor>>,
+    mut shaders: ResMut<Assets<Shader>>,
+    mut render_graph: ResMut<RenderGraph>,
 ) {
-    for (mesh_skin, mut mesh_skinner, children) in skinners_query.iter_mut() {
+    let mut forward_skinned_pipeline = pipelines
+        .get(bevy_pbr::render_graph::FORWARD_PIPELINE_HANDLE)
+        .expect("missing forward pipeline")
+        .clone();
+
+    forward_skinned_pipeline.shader_stages.vertex = shaders.add(Shader::from_glsl(
+        ShaderStage::Vertex,
+        include_str!("forward_skinned.vert"),
+    ));
+
+    pipelines.set_untracked(FORWARD_SKINNED_PIPELINE_HANDLE, forward_skinned_pipeline);
+
+    // Add an AssetRenderResourcesNode to our Render Graph. This will bind SkinInstance resources to our shader
+    render_graph.add_system_node(
+        "skin_instance",
+        AssetRenderResourcesNode::<SkinInstance>::new(false),
+    );
+
+    // Add a Render Graph edge connecting our new "skin_instance" node to the main pass node.
+    // This ensures "skin_instance" runs before the main pass
+    render_graph
+        .add_node_edge("skin_instance", base::node::MAIN_PASS)
+        .unwrap();
+}
+
+// ? NOTE: You can check the follow link, for more details
+// ? https://github.com/KhronosGroup/glTF-Tutorials/blob/master/gltfTutorial/gltfTutorial_020_Skins.md
+#[tracing::instrument(skip(
+    commands,
+    skin_assets,
+    skin_instances,
+    binds_query,
+    children_query,
+    name_query,
+    transforms_query
+))]
+pub(crate) fn skinning_update(
+    commands: &mut Commands,
+    skin_assets: Res<Assets<SkinAsset>>,
+    mut skin_instances: ResMut<Assets<SkinInstance>>,
+    mut binds_query: Query<(&Handle<SkinAsset>, &mut SkinComponent, &Children)>,
+    //meshes_query: Query<(&Handle<Mesh>,)>,
+    //bones_query: Query<(Entity, &Name, Option<&Children>)>,
+    mut children_query: Query<(&Children,)>,
+    mut name_query: Query<(&Parent, &Name)>,
+    transforms_query: Query<(&GlobalTransform,)>,
+    mut renderers_query: Query<(&mut RenderPipelines,)>,
+) {
+    for (skin_asset_handle, mut skin_bind, skin_children) in binds_query.iter_mut() {
         // Already assigned
-        if Some(mesh_skin) == mesh_skinner.skin.as_ref() {
-            continue;
+        if Some(skin_asset_handle) != skin_bind.previous_skin.as_ref() {
+            // Clear
+            skin_bind.joint_entities.clear();
+            skin_bind.previous_skin = Some(skin_asset_handle.clone());
+            skin_bind.instance = None;
         }
 
-        // Lookup for all non assigned sub-meshes
-        if let Some(children) = children {
-            for mesh in children
-                .iter()
-                .filter_map(|child| meshes_query.get(*child).map_or(None, |_| Some(child)))
-                .copied()
-            {
-                if mesh_skinner.meshes.contains(&mesh) {
-                    continue;
-                }
+        if let Some(skin_asset) = skin_assets.get(skin_asset_handle) {
+            // Ensure bone capacity and assign the root entity
+            skin_bind
+                .joint_entities
+                .resize(skin_asset.hierarchy.len(), None);
+            skin_bind.joint_entities[0] = Some(skin_bind.root);
 
-                mesh_skinner.meshes.push(mesh);
+            // Look for skeleton entities
+            for entity_index in 1..skin_asset.hierarchy.len() {
+                skin_asset.hierarchy.find_entity(
+                    entity_index as u16,
+                    &mut skin_bind.joint_entities,
+                    &mut children_query,
+                    &mut name_query,
+                );
             }
-        }
 
-        if let Some(skin) = mesh_skin_assets.get(mesh_skin) {
-            // Ensure bone capacity
-            mesh_skinner.bones.resize(skin.bone_count(), None);
+            if skin_bind.instance.is_none() {
+                // Create skin instance
+                let mut joint_matrices = vec![];
+                joint_matrices.resize(
+                    skin_asset.inverse_bind_matrices.len(),
+                    Mat4::identity().to_cols_array(),
+                );
+                skin_bind.instance = Some(skin_instances.add(SkinInstance { joint_matrices }));
+            }
 
-            // TODO: Uee the find_entity function instead!
-            let mut root = true;
-            let mut stack = vec![mesh_skinner.skeleton];
-            while let Some(entity) = stack.pop() {
-                // Lookup bones in the hierarchy
-                if let Ok((bone_entity, name, children)) = bones_query.get(entity) {
-                    if root {
-                        children.map(|c| stack.extend(c.iter()));
-                        root = false;
-                        continue;
-                    }
+            // Bind skins in the renderers
 
-                    if let Some((bone_index, _)) = skin
-                        .bones_names
+            let skin_instance_handle = skin_bind
+                .instance
+                .as_ref()
+                .expect("missing skin instance handle");
+
+            for renderer_entity in skin_bind.renderers.iter().chain(skin_children.iter()) {
+                // Insert right skinning info
+                commands.insert_one(*renderer_entity, skin_instance_handle.clone());
+
+                // Change render pipeline
+                if let Ok((mut renderer,)) = renderers_query.get_mut(*renderer_entity) {
+                    renderer.pipelines[0].pipeline = FORWARD_SKINNED_PIPELINE_HANDLE;
+                }
+            }
+
+            // Update skin uniforms
+            let root_inverse_matrix = transforms_query.get(skin_bind.root).map_or_else(
+                |_| Mat4::identity(),
+                |(global_transform,)| {
+                    // TODO: build the inverse matrix directly from the Isometry should be faster
+                    global_transform.compute_matrix().inverse()
+                },
+            );
+
+            let skin_instance = skin_instances
+                .get_mut(skin_instance_handle)
+                .expect("missing skin instance");
+
+            skin_instance
+                .joint_matrices
+                .iter_mut()
+                .zip(
+                    skin_bind
+                        .joint_entities
                         .iter()
-                        .enumerate()
-                        .find(|(_, n)| name.as_str().eq(n.as_str()))
-                    {
-                        mesh_skinner.bones[bone_index] = Some(bone_entity);
-                        children.map(|c| stack.extend(c.iter()));
+                        .skip(1) // Skip the root entity
+                        .zip(skin_asset.inverse_bind_matrices.iter()),
+                )
+                .for_each(|(joint_matrix, (joint_entity, joint_inverse_matrix))| {
+                    if let Some(entity) = joint_entity {
+                        if let Ok((global_transform,)) = transforms_query.get(*entity) {
+                            *joint_matrix = (root_inverse_matrix
+                                * global_transform.compute_matrix()
+                                * (*joint_inverse_matrix))
+                                .to_cols_array();
+                        }
                     }
-                }
-            }
-
-            mesh_skinner.skin = Some(mesh_skin.clone());
+                });
         }
     }
 }
@@ -150,7 +250,7 @@ pub(crate) fn mesh_skinner_startup(
 ///////////////////////////////////////////////////////////////////////////////
 
 #[derive(Default, Debug, Properties)]
-pub struct MeshSkinnerDebugger {
+pub struct SkinDebugger {
     //pub enabled: bool,
     #[property(ignore)]
     started: bool,
@@ -160,15 +260,15 @@ pub struct MeshSkinnerDebugger {
     entity: Option<Entity>,
 }
 
-pub(crate) fn mesh_skinner_debugger_update(
+pub(crate) fn skinning_debugger_update(
     commands: &mut Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    skins: Res<Assets<MeshSkin>>,
-    mut debugger_query: Query<(&Handle<MeshSkin>, &MeshSkinBinder, &mut MeshSkinnerDebugger)>,
+    skins: Res<Assets<SkinAsset>>,
+    mut debugger_query: Query<(&Handle<SkinAsset>, &SkinComponent, &mut SkinDebugger)>,
     bones_query: Query<(&GlobalTransform,)>,
 ) {
     for (skin_handle, skinner, mut debugger) in debugger_query.iter_mut() {
-        if skinner.skin.as_ref() != Some(skin_handle) {
+        if skinner.previous_skin.as_ref() != Some(skin_handle) {
             continue;
         }
 
@@ -186,7 +286,7 @@ pub(crate) fn mesh_skinner_debugger_update(
 
             if !debugger.started {
                 let bone_mesh = meshes.add(Mesh::from(shape::Cube { size: 0.02 }));
-                for bone in skinner.bones.iter() {
+                for bone in skinner.joint_entities.iter() {
                     if let Some(entity) = bone {
                         commands
                             .spawn(PbrBundle {
@@ -214,7 +314,7 @@ pub(crate) fn mesh_skinner_debugger_update(
             }
 
             let positions = skinner
-                .bones
+                .joint_entities
                 .iter()
                 .map(|bone| {
                     if let Some(entity) = *bone {
@@ -235,12 +335,12 @@ pub(crate) fn mesh_skinner_debugger_update(
             let mut indices = vec![];
             let mut vertices = vec![];
 
-            for (i, parent) in skin.bones_parents.iter().enumerate() {
-                if let Some(parent) = *parent {
+            for (i, ((parent_index, _), _)) in skin.hierarchy.iter().enumerate() {
+                if let Some(parent) = positions.get(*parent_index as usize) {
                     indices.push(vertices.len() as u32);
                     vertices.push(positions[i].into());
                     indices.push(vertices.len() as u32);
-                    vertices.push(positions[parent].into());
+                    vertices.push((*parent).into());
                 }
             }
 
