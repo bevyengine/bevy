@@ -470,11 +470,12 @@ fn render_resources_node_system<T: RenderResources>(
     }
 
     for (entity, uniforms, draw, mut render_pipelines) in queries.q0_mut().iter_mut() {
+        uniform_buffer_arrays.prepare_uniform_buffers(entity, uniforms);
+
         if !draw.is_visible {
             continue;
         }
 
-        uniform_buffer_arrays.prepare_uniform_buffers(entity, uniforms);
         if !setup_uniform_texture_resources::<T>(
             &uniforms,
             render_resource_context,
@@ -501,10 +502,6 @@ fn render_resources_node_system<T: RenderResources>(
                     for (entity, uniforms, draw, mut render_pipelines) in
                         queries.q1_mut().iter_mut()
                     {
-                        if !draw.is_visible {
-                            continue;
-                        }
-
                         state.uniform_buffer_arrays.write_uniform_buffers(
                             entity,
                             &uniforms,
