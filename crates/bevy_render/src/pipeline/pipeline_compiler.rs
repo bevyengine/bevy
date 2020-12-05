@@ -48,7 +48,6 @@ pub struct ShaderSpecialization {
 #[derive(Debug)]
 struct SpecializedShader {
     shader: Handle<Shader>,
-    pipelines: Vec<Handle<PipelineDescriptor>>,
     specialization: ShaderSpecialization,
 }
 
@@ -107,7 +106,6 @@ impl PipelineCompiler {
             let weak_specialized_handle = specialized_handle.clone_weak();
             specialized_shaders.push(SpecializedShader {
                 shader: specialized_handle,
-                pipelines: Vec::new(),
                 specialization: shader_specialization.clone(),
             });
             Ok(weak_specialized_handle)
@@ -259,12 +257,12 @@ impl PipelineCompiler {
         self.specialized_shader_pipelines
             .entry(specialized_vertex_shader)
             .or_insert_with(Default::default)
-            .push(specialized_pipeline_handle.clone_weak());
+            .push(source_pipeline.clone_weak());
         if let Some(specialized_fragment_shader) = specialized_fragment_shader {
             self.specialized_shader_pipelines
                 .entry(specialized_fragment_shader)
                 .or_insert_with(Default::default)
-                .push(specialized_pipeline_handle.clone_weak());
+                .push(source_pipeline.clone_weak());
         }
 
         let specialized_pipelines = self
@@ -306,35 +304,55 @@ impl PipelineCompiler {
             .flatten()
     }
 
-    /// Remove any specialized shaders or pipelines that match the
-    /// changed shader.
+    /// Update specialized shaders and remove any related specialized
+    /// pipelines and assets.
     pub fn update_shader(
         &mut self,
         shader: &Handle<Shader>,
         pipelines: &mut Assets<PipelineDescriptor>,
         shaders: &mut Assets<Shader>,
-    ) {
-        if let Some(specialized_shaders) = self.specialized_shaders.remove(shader) {
+        render_resource_context: &dyn RenderResourceContext,
+    ) -> Result<(), ShaderError> {
+        if let Some(specialized_shaders) = self.specialized_shaders.get_mut(shader) {
             for specialized_shader in specialized_shaders {
-                shaders.remove(&specialized_shader.shader);
+                // Recompile specialized shader. If it fails, we bail immediately.
+                let shader_def_vec = specialized_shader
+                    .specialization
+                    .shader_defs
+                    .iter()
+                    .cloned()
+                    .collect::<Vec<String>>();
+                let new_handle =
+                    shaders.add(render_resource_context.get_specialized_shader(
+                        shaders.get(shader).unwrap(),
+                        Some(&shader_def_vec),
+                    )?);
 
-                if let Some(specialized_pipelines) = self
-                    .specialized_shader_pipelines
-                    .get(&specialized_shader.shader)
+                // Replace handle and remove old from assets.
+                let old_handle = std::mem::replace(&mut specialized_shader.shader, new_handle);
+                shaders.remove(&old_handle);
+
+                // Find source pipelines that use the old specialized
+                // shader, and remove from tracking.
+                if let Some(source_pipelines) =
+                    self.specialized_shader_pipelines.remove(&old_handle)
                 {
-                    for specialized_pipeline in specialized_pipelines {
-                        println!("remove pipeline {:?}", specialized_pipeline);
-                        // this is doesn't work
-                        //self.specialized_pipelines.remove(specialized_pipeline);
-                        self.specialized_pipelines
-                            .retain(|_k, v| !v.iter().any(|p| &p.pipeline == specialized_pipeline));
-
-                        pipelines.remove(specialized_pipeline);
+                    // Remove all specialized pipelines from tracking
+                    // and asset storage. They will be rebuilt on next
+                    // draw.
+                    for source_pipeline in source_pipelines {
+                        if let Some(specialized_pipelines) =
+                            self.specialized_pipelines.remove(&source_pipeline)
+                        {
+                            for p in specialized_pipelines {
+                                pipelines.remove(p.pipeline);
+                            }
+                        }
                     }
-
-                    // remove from specialized_shader_pipelines?
                 }
             }
         }
+
+        Ok(())
     }
 }

@@ -5,10 +5,9 @@ use crate::{
     prelude::Msaa,
     renderer::RenderResourceBindings,
 };
-use bevy_asset::{AssetEvent, Assets, Handle};
+use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Query, Res, ResMut};
 use bevy_reflect::Reflect;
-use bevy_utils::HashSet;
 
 #[derive(Debug, Default, Clone, Reflect)]
 pub struct RenderPipeline {

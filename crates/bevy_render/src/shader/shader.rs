@@ -1,11 +1,14 @@
-use crate::pipeline::{PipelineCompiler, PipelineDescriptor};
+use crate::{
+    pipeline::{PipelineCompiler, PipelineDescriptor},
+    renderer::RenderResourceContext,
+};
 
 use super::ShaderLayout;
 use bevy_app::{EventReader, Events};
 use bevy_asset::{AssetEvent, AssetLoader, Assets, Handle, LoadContext, LoadedAsset};
 use bevy_ecs::{Local, Res, ResMut};
 use bevy_reflect::TypeUuid;
-use bevy_utils::BoxedFuture;
+use bevy_utils::{tracing::error, BoxedFuture};
 use std::marker::Copy;
 use thiserror::Error;
 
@@ -240,11 +243,19 @@ pub fn shader_update_system(
     shader_events: Res<Events<AssetEvent<Shader>>>,
     mut shader_event_reader: Local<EventReader<AssetEvent<Shader>>>,
     mut pipeline_compiler: ResMut<PipelineCompiler>,
+    render_resource_context: Res<Box<dyn RenderResourceContext>>,
 ) {
     for event in shader_event_reader.iter(&shader_events) {
         match event {
             AssetEvent::Modified { handle } => {
-                pipeline_compiler.update_shader(handle, &mut pipelines, &mut shaders);
+                if let Err(e) = pipeline_compiler.update_shader(
+                    handle,
+                    &mut pipelines,
+                    &mut shaders,
+                    &**render_resource_context,
+                ) {
+                    error!("Failed to update shader: {}", e);
+                }
             }
             // Creating shaders on the fly is unhandled since they
             // have to exist already when assigned to a pipeline. If a
