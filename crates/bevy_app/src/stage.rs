@@ -2,10 +2,10 @@
 pub const FIRST: &str = "first";
 
 /// Name of app stage that runs before EVENT
-pub const PRE_EVENT: &str = "pre_events";
+pub const PRE_EVENT: &str = "pre_event";
 
 /// Name of app stage that updates events. Runs before UPDATE
-pub const EVENT: &str = "events";
+pub const EVENT: &str = "event";
 
 /// Name of app stage responsible for performing setup before an update. Runs before UPDATE.
 pub const PRE_UPDATE: &str = "pre_update";

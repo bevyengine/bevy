@@ -1,6 +1,7 @@
-mod parallel_executor;
-#[allow(clippy::module_inception)]
 mod schedule;
+mod stage;
+mod stage_executor;
 
-pub use parallel_executor::*;
 pub use schedule::*;
+pub use stage::*;
+pub use stage_executor::*;

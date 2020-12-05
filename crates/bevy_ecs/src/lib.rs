@@ -1,7 +1,6 @@
 mod core;
 mod resource;
 mod schedule;
-pub mod new_schedule;
 mod system;
 
 pub use crate::core::*;

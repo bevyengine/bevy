@@ -13,6 +13,7 @@ mod path;
 
 pub use asset_server::*;
 pub use assets::*;
+use bevy_ecs::SystemStage;
 use bevy_reflect::RegisterTypeBuilder;
 use bevy_tasks::IoTaskPool;
 pub use handle::*;
@@ -73,14 +74,22 @@ impl Plugin for AssetPlugin {
             AssetServer::new(source, task_pool)
         };
 
-        app.add_stage_before(bevy_app::stage::PRE_UPDATE, stage::LOAD_ASSETS)
-            .add_stage_after(bevy_app::stage::POST_UPDATE, stage::ASSET_EVENTS)
-            .add_resource(asset_server)
-            .register_type::<HandleId>()
-            .add_system_to_stage(
-                bevy_app::stage::PRE_UPDATE,
-                asset_server::free_unused_assets_system,
-            );
+        app.add_stage_before(
+            bevy_app::stage::PRE_UPDATE,
+            stage::LOAD_ASSETS,
+            SystemStage::parallel(),
+        )
+        .add_stage_after(
+            bevy_app::stage::POST_UPDATE,
+            stage::ASSET_EVENTS,
+            SystemStage::parallel(),
+        )
+        .add_resource(asset_server)
+        .register_type::<HandleId>()
+        .add_system_to_stage(
+            bevy_app::stage::PRE_UPDATE,
+            asset_server::free_unused_assets_system,
+        );
 
         #[cfg(all(
             feature = "filesystem_watcher",

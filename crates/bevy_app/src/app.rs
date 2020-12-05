@@ -1,5 +1,5 @@
 use crate::app_builder::AppBuilder;
-use bevy_ecs::{ParallelExecutor, Resources, Schedule, World};
+use bevy_ecs::{Resources, Schedule, Stage, World};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
@@ -30,9 +30,7 @@ pub struct App {
     pub resources: Resources,
     pub runner: Box<dyn Fn(App)>,
     pub schedule: Schedule,
-    pub executor: ParallelExecutor,
     pub startup_schedule: Schedule,
-    pub startup_executor: ParallelExecutor,
 }
 
 impl Default for App {
@@ -41,16 +39,13 @@ impl Default for App {
             world: Default::default(),
             resources: Default::default(),
             schedule: Default::default(),
-            executor: Default::default(),
             startup_schedule: Default::default(),
-            startup_executor: ParallelExecutor::without_tracker_clears(),
             runner: Box::new(run_once),
         }
     }
 }
 
 fn run_once(mut app: App) {
-    app.initialize();
     app.update();
 }
 
@@ -60,25 +55,7 @@ impl App {
     }
 
     pub fn update(&mut self) {
-        self.schedule
-            .initialize(&mut self.world, &mut self.resources);
-        self.executor
-            .run(&mut self.schedule, &mut self.world, &mut self.resources);
-    }
-
-    pub fn initialize(&mut self) {
-        #[cfg(feature = "trace")]
-        let startup_schedule_span = info_span!("startup_schedule");
-        #[cfg(feature = "trace")]
-        let _startup_schedule_guard = startup_schedule_span.enter();
-        self.startup_schedule
-            .initialize(&mut self.world, &mut self.resources);
-        self.startup_executor.initialize(&mut self.resources);
-        self.startup_executor.run(
-            &mut self.startup_schedule,
-            &mut self.world,
-            &mut self.resources,
-        );
+        self.schedule.run(&mut self.world, &mut self.resources);
     }
 
     pub fn run(mut self) {
@@ -87,7 +64,8 @@ impl App {
         #[cfg(feature = "trace")]
         let _bevy_app_run_guard = bevy_app_run_span.enter();
 
-        self.executor.initialize(&mut self.resources);
+        self.startup_schedule
+            .run(&mut self.world, &mut self.resources);
 
         let runner = std::mem::replace(&mut self.runner, Box::new(run_once));
         (runner)(self);

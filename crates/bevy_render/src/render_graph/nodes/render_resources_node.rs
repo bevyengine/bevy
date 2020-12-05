@@ -473,7 +473,6 @@ fn render_resources_node_system<T: RenderResources>(
         if !draw.is_visible {
             continue;
         }
-
         uniform_buffer_arrays.prepare_uniform_buffers(entity, uniforms);
         if !setup_uniform_texture_resources::<T>(
             &uniforms,

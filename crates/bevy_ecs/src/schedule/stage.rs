@@ -1,6 +1,6 @@
 use crate::{IntoSystem, Resources, System, SystemId, World};
 use bevy_utils::HashSet;
-use downcast_rs::{Downcast, impl_downcast};
+use downcast_rs::{impl_downcast, Downcast};
 
 use super::{ParallelSystemStageExecutor, SerialSystemStageExecutor, SystemStageExecutor};
 
@@ -8,7 +8,7 @@ pub enum StageError {
     SystemAlreadyExists(SystemId),
 }
 
-pub trait Stage: Downcast {
+pub trait Stage: Downcast + Send + Sync {
     fn run(&mut self, world: &mut World, resources: &mut Resources);
 }
 
@@ -18,19 +18,19 @@ pub struct SystemStage {
     systems: Vec<Box<dyn System<Input = (), Output = ()>>>,
     system_ids: HashSet<SystemId>,
     executor: Box<dyn SystemStageExecutor>,
-    should_run: Option<Box<dyn System<Input = (), Output = bool>>>,
+    run_criteria: Option<Box<dyn System<Input = (), Output = bool>>>,
     changed_systems: Vec<usize>,
-    intialized_should_run: bool,
+    intialized_run_criteria: bool,
 }
 
 impl SystemStage {
     pub fn new(executor: Box<dyn SystemStageExecutor>) -> Self {
         SystemStage {
             executor,
-            intialized_should_run: false,
+            intialized_run_criteria: false,
             systems: Default::default(),
             system_ids: Default::default(),
-            should_run: Default::default(),
+            run_criteria: Default::default(),
             changed_systems: Default::default(),
         }
     }
@@ -69,22 +69,32 @@ impl SystemStage {
         self
     }
 
+    pub fn run_criteria<S, Params, IntoS>(&mut self, system: IntoS) -> &mut Self
+    where
+        S: System<Input = (), Output = bool>,
+        IntoS: IntoSystem<Params, S>,
+    {
+        self.run_criteria = Some(Box::new(system.system()));
+        self.intialized_run_criteria = false;
+        self
+    }
+
     pub fn get_executor<T: SystemStageExecutor>(&self) -> Option<&T> {
         self.executor.downcast_ref()
-    } 
+    }
 
     pub fn get_executor_mut<T: SystemStageExecutor>(&mut self) -> Option<&mut T> {
         self.executor.downcast_mut()
-    } 
+    }
 }
 
 impl Stage for SystemStage {
     fn run(&mut self, world: &mut World, resources: &mut Resources) {
-        if !self.intialized_should_run {
-            if let Some(should_run) = &mut self.should_run {
+        if !self.intialized_run_criteria {
+            if let Some(should_run) = &mut self.run_criteria {
                 should_run.initialize(world, resources)
             }
-            self.intialized_should_run = true;
+            self.intialized_run_criteria = true;
         }
 
         let changed_systems = std::mem::take(&mut self.changed_systems);

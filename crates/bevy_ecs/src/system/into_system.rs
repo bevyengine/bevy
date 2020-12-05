@@ -223,7 +223,7 @@ mod tests {
     use crate::{
         resource::{Res, ResMut, Resources},
         schedule::Schedule,
-        ChangedRes, Entity, Local, Or, Query, QuerySet, System, With, World,
+        ChangedRes, Entity, Local, Or, Query, QuerySet, Stage, System, SystemStage, With, World,
     };
 
     #[derive(Debug, Eq, PartialEq, Default)]
@@ -336,9 +336,9 @@ mod tests {
         let ent = world.spawn((0,));
 
         let mut schedule = Schedule::default();
-        schedule.add_stage("update");
-        schedule.add_system_to_stage("update", incr_e_on_flip);
-        schedule.initialize(&mut world, &mut resources);
+        let mut update = SystemStage::parallel();
+        update.add_system(incr_e_on_flip);
+        schedule.add_stage("update", update);
 
         schedule.run(&mut world, &mut resources);
         assert_eq!(*(world.get::<i32>(ent).unwrap()), 1);
@@ -369,9 +369,9 @@ mod tests {
         let ent = world.spawn((0,));
 
         let mut schedule = Schedule::default();
-        schedule.add_stage("update");
-        schedule.add_system_to_stage("update", incr_e_on_flip);
-        schedule.initialize(&mut world, &mut resources);
+        let mut update = SystemStage::parallel();
+        update.add_system(incr_e_on_flip);
+        schedule.add_stage("update", update);
 
         schedule.run(&mut world, &mut resources);
         assert_eq!(*(world.get::<i32>(ent).unwrap()), 1);
@@ -459,10 +459,9 @@ mod tests {
         system: Sys,
     ) {
         let mut schedule = Schedule::default();
-        schedule.add_stage("update");
-        schedule.add_system_to_stage("update", system);
-
-        schedule.initialize(world, resources);
+        let mut update = SystemStage::parallel();
+        update.add_system(system);
+        schedule.add_stage("update", update);
         schedule.run(world, resources);
     }
 
