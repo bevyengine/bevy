@@ -7,365 +7,15 @@ use bevy_ecs::{Location, SystemId};
 use bevy_math::prelude::*;
 use bevy_property::{Properties, Property, PropertyType};
 use bevy_transform::prelude::*;
-use bevy_type_registry::{TypeRegistry, TypeUuid};
+use bevy_type_registry::TypeRegistry;
 //use serde::{Deserialize, Serialize};
 use std::any::TypeId;
 use std::hash::Hash;
 use std::ptr::null_mut;
 
-use super::hierarchy::Hierarchy;
+use super::clip::Clip;
+use super::curve::CurveUntyped;
 use super::lerping::LerpValue;
-
-// TODO: Curve/Clip need a validation during deserialization because they are
-// structured as SOA (struct of arrays), so the vec's length must match
-
-// TODO: impl Serialize, Deserialize
-#[derive(Debug, Clone, TypeUuid)]
-#[uuid = "4c76e6c3-706d-4a74-af8e-4f48033e0733"]
-pub struct Clip {
-    //#[serde(default = "clip_default_warp")]
-    pub warp: bool,
-    duration: f32,
-    /// Entity identification made by parent index and name
-    hierarchy: Hierarchy,
-    /// Attribute is made by the entity index and a string that combines
-    /// component name followed by their attributes spaced by a period,
-    /// like so: `"Transform.translation.x"`
-    properties: Vec<(u16, String)>,
-    curves: Vec<CurveUntyped>,
-}
-
-// fn clip_default_warp() -> bool {
-//     true
-// }
-
-impl Default for Clip {
-    fn default() -> Self {
-        Self {
-            warp: true,
-            duration: 0.0,
-            // ? NOTE: Since the root has no parent in this context it points to a place outside the vec bounds
-            hierarchy: Hierarchy::default(),
-            properties: vec![],
-            curves: vec![],
-        }
-    }
-}
-
-impl Clip {
-    /// Property to be animated must be in the following format `"path/to/named_entity@Transform.translation.x"`
-    /// where the left side `@` defines a path to the entity to animate,
-    /// while the right side the path to a property to animate starting from the component.
-    ///
-    /// *NOTE* This is a expensive function
-    pub fn add_animated_prop(&mut self, property_path: &str, mut curve: CurveUntyped) {
-        // Clip an only have some amount of curves and entities
-        // this limitation was added to save memory (but you can increase it if you want)
-        assert!(
-            (self.curves.len() as u16) <= u16::MAX,
-            "curve limit reached"
-        );
-
-        // Split in entity and attribute path,
-        // NOTE: use rfind because it's expected the latter to be generally shorter
-        let path =
-            property_path.split_at(property_path.rfind('@').expect("property path missing @"));
-
-        let (entity1, just_created) = self.hierarchy.get_or_insert_entity(path.0);
-        let name1 = path.1.split_at(1).1;
-
-        // If some entity was created it means this property is a new one so we can safely skip the attribute testing
-        if !just_created {
-            for (i, entry) in self.properties.iter().enumerate() {
-                let (entity0, name0) = entry;
-
-                if *entity0 != entity1 {
-                    continue;
-                }
-
-                let mid = name1.len().min(name0.len());
-                let (head0, tail0) = name0.split_at(mid);
-                let (head1, tail1) = name1.split_at(mid);
-
-                if head0 == head1 {
-                    // Replace
-                    if tail0.len() == 0 && tail1.len() == 0 {
-                        // Found a property are equal the one been inserted
-                        // Replace curve, the property was already added, this is very important
-                        // because it guarantees that each property will have unique access to some
-                        // attribute during the update stages
-
-                        let inserted_duration = curve.duration();
-                        std::mem::swap(&mut self.curves[i], &mut curve);
-                        self.update_duration(curve.duration(), inserted_duration);
-                        return;
-                    } else {
-                        // Check the inserted attribute is nested of an already present attribute
-                        // NOTE: ".../Enity0@Transform.translation" and ".../Enity0@Transform.translation.x"
-                        // can't coexist because it may cause a problems of non unique access
-                        if tail0.starts_with('.') || tail1.starts_with('.') {
-                            panic!("nesting properties");
-                        }
-                    }
-                }
-            }
-        }
-
-        self.duration = self.duration.max(curve.duration());
-        self.properties.push((entity1, name1.to_string()));
-        self.curves.push(curve);
-    }
-
-    /// Number of animated properties in this clip
-    #[inline(always)]
-    pub fn len(&self) -> u16 {
-        self.curves.len() as u16
-    }
-
-    /// Returns the property curve property path.
-    ///
-    /// The clip stores a property path in a specific way to improve search performance
-    /// thus it needs to rebuilt the curve property path in the human readable format
-    pub fn get_property_path(&self, index: u16) -> String {
-        let (entity_index, name) = &self.properties[index as usize];
-        format!(
-            "{}@{}",
-            self.hierarchy
-                .get_entity_path_at(*entity_index)
-                .expect("property as an invalid entity"),
-            name.as_str()
-        )
-    }
-
-    /// Clip duration
-    #[inline(always)]
-    pub fn duration(&self) -> f32 {
-        self.duration
-    }
-
-    /// Updates the clip duration based of the inserted and removed curve durations
-    /// *WARNING* The curve must be already replaced before call this function
-    fn update_duration(&mut self, removed_duration: f32, inserted_duration: f32) {
-        if removed_duration == inserted_duration {
-            // If precisely matches the inserted curve duration we don't need to update anything
-        } else if float_cmp::approx_eq!(f32, removed_duration, self.duration, ulps = 2) {
-            // At this point the duration for the removed curve is the same as self.duration
-            // this mean that we have to compute the clip duration from scratch;
-            //
-            // NOTE: I opted for am approximated float comparison because it's better
-            // to do all the this work than get a hard to debug glitch
-            // TODO: Review approximated comparison
-
-            self.duration = self
-                .curves
-                .iter()
-                .map(|c| c.duration())
-                .fold(0.0, |acc, x| acc.max(x));
-        } else {
-            // Faster clip duration update
-            self.duration = self.duration.max(inserted_duration);
-        }
-    }
-}
-
-// TODO: Not found clip masks very useful, right now you can slone the cu
-// /// Masks clip
-// pub struct ClipMask {
-//     /// Entity identification made by parent index and name
-//     entities: Vec<(u16, String)>,
-//     masked: Vec<u16>,
-// }
-
-// TODO: impl Serialize, Deserialize
-#[derive(Debug, Clone)]
-pub enum CurveUntyped {
-    Float(Curve<f32>),
-    //Vec2(Curve<Vec2>),
-    Vec3(Curve<Vec3>),
-    Vec4(Curve<Vec4>),
-    Quat(Curve<Quat>),
-    //Handle(Curve<HandleUntyped>),
-    // TODO: Color(Curve<Color>),
-}
-
-macro_rules! untyped_fn {
-    ($v:vis fn $name:ident ( &self, $( $arg:ident : $arg_ty:ty ,)* ) $(-> $ret:ty)* ) => {
-        $v fn $name(&self, $( $arg : $arg_ty ),*) $(-> $ret)* {
-            match self {
-                CurveUntyped::Float(v) => v.$name($($arg,)*),
-                CurveUntyped::Vec3(v) => v.$name($($arg,)*),
-                CurveUntyped::Vec4(v) => v.$name($($arg,)*),
-                CurveUntyped::Quat(v) => v.$name($($arg,)*),
-            }
-        }
-    };
-}
-
-impl CurveUntyped {
-    untyped_fn!(pub fn duration(&self,) -> f32);
-    untyped_fn!(pub fn value_type(&self,) -> TypeId);
-    //untyped_fn!(pub fn add_time_offset(&mut self, time: f32,) -> ());
-
-    pub fn add_time_offset(&mut self, time: f32) {
-        match self {
-            CurveUntyped::Float(v) => v.add_offset_time(time),
-            CurveUntyped::Vec3(v) => v.add_offset_time(time),
-            CurveUntyped::Vec4(v) => v.add_offset_time(time),
-            CurveUntyped::Quat(v) => v.add_offset_time(time),
-        }
-    }
-}
-
-// TODO: impl Serialize, Deserialize
-#[derive(Default, Debug)]
-pub struct Curve<T> {
-    // TODO: Step / Linear / Spline variants
-    samples: Vec<f32>,
-    //tangents: Vec<(f32, f32)>,
-    values: Vec<T>,
-}
-
-impl<T: Clone> Clone for Curve<T> {
-    fn clone(&self) -> Self {
-        Self {
-            samples: self.samples.clone(),
-            values: self.values.clone(),
-        }
-    }
-}
-
-impl<T> Curve<T>
-where
-    T: LerpValue + Clone + 'static,
-{
-    pub fn new(samples: Vec<f32>, values: Vec<T>) -> Self {
-        // TODO: Result?
-
-        // Make sure both have the same length
-        assert!(
-            samples.len() == values.len(),
-            "samples and values must have the same length"
-        );
-
-        assert!(samples.len() > 0, "empty curve");
-
-        // Make sure the
-        assert!(
-            samples
-                .iter()
-                .zip(samples.iter().skip(1))
-                .all(|(a, b)| a < b),
-            "time samples must be on ascending order"
-        );
-        Self { samples, values }
-    }
-
-    pub fn from_linear(t0: f32, t1: f32, v0: T, v1: T) -> Self {
-        Self {
-            samples: if t1 >= t0 { vec![t0, t1] } else { vec![t1, t0] },
-            values: vec![v0, v1],
-        }
-    }
-
-    pub fn from_constant(v: T) -> Self {
-        Self {
-            samples: vec![0.0],
-            values: vec![v],
-        }
-    }
-
-    pub fn duration(&self) -> f32 {
-        self.samples.last().copied().unwrap_or(0.0)
-    }
-
-    /// Easer to use sampling method that don't have time restrictions or needs
-    /// the keyframe index, but is more expensive always `O(n)`. Which means
-    /// sampling takes longer to evaluate as much as time get closer to curve duration
-    /// and it get worse with more keyframes.
-    pub fn sample(&self, time: f32) -> T {
-        // Index guessing gives a small search optimization
-        let index = if time < self.duration() * 0.5 {
-            0
-        } else {
-            self.samples.len() - 1
-        };
-
-        self.sample_indexed(index, time).1
-    }
-
-    /// Samples the curve starting from some keyframe index, this make the common case `O(1)`
-    pub fn sample_indexed(&self, mut index: usize, time: f32) -> (usize, T) {
-        // Adjust for the current keyframe index
-        let last_index = self.samples.len() - 1;
-
-        index = index.max(0).min(last_index);
-        if self.samples[index] < time {
-            // Forward search
-            loop {
-                if index == last_index {
-                    return (last_index, self.values.last().unwrap().clone());
-                }
-                index += 1;
-
-                if self.samples[index] >= time {
-                    break;
-                }
-            }
-        } else {
-            // Backward search
-            loop {
-                if index == 0 {
-                    return (0, self.values.last().unwrap().clone());
-                }
-
-                let i = index - 1;
-                if self.samples[i] <= time {
-                    break;
-                }
-
-                index = i;
-            }
-        }
-
-        // Lerp the value
-        let i = index - 1;
-        let previous_time = self.samples[i];
-        let t = (time - previous_time) / (self.samples[index] - previous_time);
-        debug_assert!(t >= 0.0 && t <= 1.0, "t = {} but should be normalized", t); // Checks if it's required to normalize t
-        let value = T::lerp(&self.values[i], &self.values[index], t);
-
-        (index, value)
-    }
-
-    pub fn add_offset_time(&mut self, time_offset: f32) {
-        self.samples.iter_mut().for_each(|t| *t += time_offset);
-    }
-
-    // pub fn insert(&mut self, time_sample: f32, value: T) {
-    // }
-
-    // pub fn remove(&mut self, index: usize) {
-    //assert!(samples.len() > 1, "curve can't be empty");
-    // }
-
-    pub fn iter(&self) -> impl Iterator<Item = (f32, &T)> {
-        self.samples.iter().copied().zip(self.values.iter())
-    }
-
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (f32, &mut T)> {
-        self.samples.iter().copied().zip(self.values.iter_mut())
-    }
-
-    #[inline(always)]
-    pub fn value_type(&self) -> TypeId {
-        TypeId::of::<T>()
-    }
-
-    #[inline(always)]
-    pub fn value_size(&self) -> usize {
-        std::mem::size_of::<T>()
-    }
-}
 
 #[derive(Debug, Clone, Properties)]
 pub struct Layer {
@@ -857,11 +507,6 @@ pub fn animator_update_system(world: &mut World, resources: &mut Resources) {
 
         animator.visited.clear();
         for layer in &mut animator.layers {
-            let w = layer.weight;
-            if w < SMOL {
-                continue;
-            }
-
             let clip_index = layer.clip;
             if let Some(clip) = animator
                 .clips
@@ -890,8 +535,8 @@ pub fn animator_update_system(world: &mut World, resources: &mut Resources) {
                     // Warp mode
                     if clip.warp {
                         // Warp Around
-                        if time > clip.duration {
-                            time = (time / clip.duration).fract() * clip.duration;
+                        if time > clip.duration() {
+                            time = (time / clip.duration()).fract() * clip.duration();
                             // Reset all keyframes cached indexes
                             layer
                                 .keyframe
@@ -900,11 +545,16 @@ pub fn animator_update_system(world: &mut World, resources: &mut Resources) {
                         }
                     } else {
                         // Hold
-                        time = time.min(clip.duration);
+                        time = time.min(clip.duration());
                     }
 
                     // Advance state time
                     layer.time = time;
+
+                    let w = layer.weight;
+                    if w < SMOL {
+                        continue;
+                    }
 
                     // TODO: can be done in bached_parallel if is visited warped inside a mutex
                     for (curve_index, (ptr, keyframe)) in bind
@@ -1022,6 +672,7 @@ pub fn animator_update_system(world: &mut World, resources: &mut Resources) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::curve::Curve;
 
     #[test]
     fn curve_evaluation() {
