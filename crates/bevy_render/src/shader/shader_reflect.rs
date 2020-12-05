@@ -328,7 +328,8 @@ mod tests {
             }
         "#,
         )
-        .get_spirv_shader(None);
+        .get_spirv_shader(None)
+        .unwrap();
 
         let layout = vertex_shader.reflect_layout(true).unwrap();
         assert_eq!(
