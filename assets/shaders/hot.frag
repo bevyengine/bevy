@@ -2,7 +2,7 @@
 
 layout(location = 0) out vec4 o_Target;
 
-layout(set = 1, binding = 1) uniform MyMaterial_color {
+layout(set = 2, binding = 0) uniform MyMaterial_color {
     vec4 color;
 };
 
