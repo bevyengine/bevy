@@ -7,8 +7,8 @@ use crate::{
     stage, startup_stage, PluginGroup, PluginGroupBuilder,
 };
 use bevy_ecs::{
-    FromResources, IntoSystem, Resource, Resources, Stage, State, StateStage, System, SystemStage,
-    World,
+    FromResources, IntoStage, IntoSystem, Resource, Resources, Stage, State, StateStage, System,
+    SystemStage, World,
 };
 use bevy_utils::tracing::debug;
 
@@ -61,12 +61,12 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_stage<S: Stage>(&mut self, name: &'static str, stage: S) -> &mut Self {
+    pub fn add_stage<Params, S: IntoStage<Params>>(&mut self, name: &'static str, stage: S) -> &mut Self {
         self.app.schedule.add_stage(name, stage);
         self
     }
 
-    pub fn add_stage_after<S: Stage>(
+    pub fn add_stage_after<Params, S: IntoStage<Params>>(
         &mut self,
         target: &'static str,
         name: &'static str,
@@ -76,7 +76,7 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_stage_before<S: Stage>(
+    pub fn add_stage_before<Params, S: IntoStage<Params>>(
         &mut self,
         target: &'static str,
         name: &'static str,
@@ -86,12 +86,12 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_startup_stage<S: Stage>(&mut self, name: &'static str, stage: S) -> &mut Self {
+    pub fn add_startup_stage<Params, S: IntoStage<Params>>(&mut self, name: &'static str, stage: S) -> &mut Self {
         self.app.startup_schedule.add_stage(name, stage);
         self
     }
 
-    pub fn add_startup_stage_after<S: Stage>(
+    pub fn add_startup_stage_after<Params, S: IntoStage<Params>>(
         &mut self,
         target: &'static str,
         name: &'static str,
@@ -103,7 +103,7 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_startup_stage_before<S: Stage>(
+    pub fn add_startup_stage_before<Params, S: IntoStage<Params>>(
         &mut self,
         target: &'static str,
         name: &'static str,
@@ -212,7 +212,7 @@ impl AppBuilder {
         self
     }
 
-    pub fn on_state_update<T: Clone + Eq + Hash + Resource, S: Stage>(
+    pub fn on_state_enter<T: Clone + Eq + Hash + Resource, Params, S: IntoStage<Params>>(
         &mut self,
         value: T,
         stage: S,
@@ -222,11 +222,11 @@ impl AppBuilder {
             .schedule
             .get_stage_mut::<StateStage<T>>(&Self::state_stage_name::<T>())
             .expect("State does not exist. Try calling app.add_state()");
-        state_stage.set_update(value, stage);
+        state_stage.set_enter(value, stage.into_stage());
         self
     }
 
-    pub fn on_state_enter<T: Clone + Eq + Hash + Resource, S: Stage>(
+    pub fn on_state_update<T: Clone + Eq + Hash + Resource, Params, S: IntoStage<Params>>(
         &mut self,
         value: T,
         stage: S,
@@ -236,11 +236,11 @@ impl AppBuilder {
             .schedule
             .get_stage_mut::<StateStage<T>>(&Self::state_stage_name::<T>())
             .expect("State does not exist. Try calling app.add_state()");
-        state_stage.set_enter(value, stage);
+        state_stage.set_update(value, stage.into_stage());
         self
     }
 
-    pub fn on_state_exit<T: Clone + Eq + Hash + Resource, S: Stage>(
+    pub fn on_state_exit<T: Clone + Eq + Hash + Resource, Params, S: IntoStage<Params>>(
         &mut self,
         value: T,
         stage: S,
@@ -250,7 +250,7 @@ impl AppBuilder {
             .schedule
             .get_stage_mut::<StateStage<T>>(&Self::state_stage_name::<T>())
             .expect("State does not exist. Try calling app.add_state()");
-        state_stage.set_exit(value, stage);
+        state_stage.set_exit(value, stage.into_stage());
         self
     }
 

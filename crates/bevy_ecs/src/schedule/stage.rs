@@ -150,3 +150,32 @@ pub enum ShouldRun {
     /// Yes, the system should run and after running, the criteria should be checked again.
     YesAndLoop,
 }
+
+impl<S: System<Input = (), Output = ()>> From<S> for SystemStage {
+    fn from(system: S) -> Self {
+        SystemStage::single(system)
+    }
+}
+
+pub trait IntoStage<Params> {
+    type Stage: Stage;
+    fn into_stage(self) -> Self::Stage;
+}
+
+impl<Params, S: System<Input = (), Output = ()>, IntoS: IntoSystem<Params, S>>
+    IntoStage<(Params, S)> for IntoS
+{
+    type Stage = SystemStage;
+
+    fn into_stage(self) -> Self::Stage {
+        SystemStage::single(self)
+    }
+}
+
+impl<S: Stage> IntoStage<()> for S {
+    type Stage = S;
+
+    fn into_stage(self) -> Self::Stage {
+        self
+    }
+}

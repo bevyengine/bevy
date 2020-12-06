@@ -1,9 +1,9 @@
-use bevy::{core::FixedTimestep, ecs::SystemStage, prelude::*};
+use bevy::{core::FixedTimestep, prelude::*};
 
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        // this system will run once every update (it should match your screen's refresh rate) 
+        // this system will run once every update (it should match your screen's refresh rate)
         .add_system(update)
         // add a new stage that runs every two seconds
         .add_stage(
@@ -21,6 +21,9 @@ fn update(mut last_time: Local<f64>, time: Res<Time>) {
 }
 
 fn fixed_update(mut last_time: Local<f64>, time: Res<Time>) {
-    println!("fixed_update: {}", time.seconds_since_startup() - *last_time);
+    println!(
+        "fixed_update: {}",
+        time.seconds_since_startup() - *last_time
+    );
     *last_time = time.seconds_since_startup();
 }

@@ -1,4 +1,4 @@
-use crate::{Resource, Resources, Stage, World};
+use crate::{IntoStage, Resource, Resources, Stage, World};
 use bevy_utils::HashMap;
 use parking_lot::RwLock;
 use std::{hash::Hash, ops::Deref};
@@ -24,28 +24,28 @@ impl<T> Default for StateStage<T> {
 }
 
 impl<T: Eq + Hash> StateStage<T> {
-    pub fn set_enter<S: Stage>(&mut self, state: T, stage: S) {
+    pub fn set_enter<Params, S: IntoStage<Params>>(&mut self, state: T, stage: S) {
         let stages = self
             .stages
             .entry(state)
             .or_insert_with(|| StateStages::default());
-        stages.enter = Some(Box::new(stage));
+        stages.enter = Some(Box::new(stage.into_stage()));
     }
 
-    pub fn set_exit<S: Stage>(&mut self, state: T, stage: S) {
+    pub fn set_exit<Params, S: IntoStage<Params>>(&mut self, state: T, stage: S) {
         let stages = self
             .stages
             .entry(state)
             .or_insert_with(|| StateStages::default());
-        stages.exit = Some(Box::new(stage));
+        stages.exit = Some(Box::new(stage.into_stage()));
     }
 
-    pub fn set_update<S: Stage>(&mut self, state: T, stage: S) {
+    pub fn set_update<Params, S: IntoStage<Params>>(&mut self, state: T, stage: S) {
         let stages = self
             .stages
             .entry(state)
             .or_insert_with(|| StateStages::default());
-        stages.update = Some(Box::new(stage));
+        stages.update = Some(Box::new(stage.into_stage()));
     }
 
     pub fn run_enter(&mut self, state: &T, world: &mut World, resources: &mut Resources) {

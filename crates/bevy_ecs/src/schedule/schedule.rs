@@ -1,4 +1,4 @@
-use crate::{Resources, World};
+use crate::{IntoStage, Resources, World};
 
 use super::Stage;
 use bevy_utils::HashMap;
@@ -10,27 +10,43 @@ pub struct Schedule {
 }
 
 impl Schedule {
-    pub fn with_stage<T: Stage>(mut self, name: &str, stage: T) -> Self {
-        self.add_stage(name, stage);
+    pub fn with_stage<Params, S: IntoStage<Params>>(mut self, name: &str, stage: S) -> Self {
+        self.add_stage(name, stage.into_stage());
         self
     }
 
-    pub fn with_stage_after<T: Stage>(mut self, target: &str, name: &str, stage: T) -> Self {
+    pub fn with_stage_after<Params, S: IntoStage<Params>>(
+        mut self,
+        target: &str,
+        name: &str,
+        stage: S,
+    ) -> Self {
         self.add_stage_after(target, name, stage);
         self
     }
 
-    pub fn with_stage_before<T: Stage>(mut self, target: &str, name: &str, stage: T) -> Self {
+    pub fn with_stage_before<Params, S: IntoStage<Params>>(
+        mut self,
+        target: &str,
+        name: &str,
+        stage: S,
+    ) -> Self {
         self.add_stage_before(target, name, stage);
         self
     }
 
-    pub fn add_stage<T: Stage>(&mut self, name: &str, stage: T) {
+    pub fn add_stage<Params, S: IntoStage<Params>>(&mut self, name: &str, stage: S) {
         self.stage_order.push(name.to_string());
-        self.stages.insert(name.to_string(), Box::new(stage));
+        self.stages
+            .insert(name.to_string(), Box::new(stage.into_stage()));
     }
 
-    pub fn add_stage_after<T: Stage>(&mut self, target: &str, name: &str, stage: T) {
+    pub fn add_stage_after<Params, S: IntoStage<Params>>(
+        &mut self,
+        target: &str,
+        name: &str,
+        stage: S,
+    ) {
         if self.stages.get(name).is_some() {
             panic!("Stage already exists: {}.", name);
         }
@@ -43,11 +59,17 @@ impl Schedule {
             .map(|(i, _)| i)
             .unwrap_or_else(|| panic!("Target stage does not exist: {}.", target));
 
-        self.stages.insert(name.to_string(), Box::new(stage));
+        self.stages
+            .insert(name.to_string(), Box::new(stage.into_stage()));
         self.stage_order.insert(target_index + 1, name.to_string());
     }
 
-    pub fn add_stage_before<T: Stage>(&mut self, target: &str, name: &str, stage: T) {
+    pub fn add_stage_before<Params, S: IntoStage<Params>>(
+        &mut self,
+        target: &str,
+        name: &str,
+        stage: S,
+    ) {
         if self.stages.get(name).is_some() {
             panic!("Stage already exists: {}.", name);
         }
@@ -60,7 +82,8 @@ impl Schedule {
             .map(|(i, _)| i)
             .unwrap_or_else(|| panic!("Target stage does not exist: {}.", target));
 
-        self.stages.insert(name.to_string(), Box::new(stage));
+        self.stages
+            .insert(name.to_string(), Box::new(stage.into_stage()));
         self.stage_order.insert(target_index, name.to_string());
     }
 

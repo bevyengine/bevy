@@ -1,9 +1,4 @@
-use bevy::{
-    asset::LoadState,
-    ecs::{State, SystemStage},
-    prelude::*,
-    sprite::TextureAtlasBuilder,
-};
+use bevy::{asset::LoadState, prelude::*, sprite::TextureAtlasBuilder};
 
 /// In this example we generate a new texture atlas (sprite sheet) from a folder containing individual sprites
 fn main() {
@@ -11,17 +6,16 @@ fn main() {
         .init_resource::<RpgSpriteHandles>()
         .add_plugins(DefaultPlugins)
         .add_state(AppState::Setup)
-        .on_state_enter(AppState::Setup, SystemStage::single(setup))
-        .on_state_update(AppState::Setup, SystemStage::single(check_loaded))
-        .on_state_exit(AppState::Setup, SystemStage::single(load_atlas))
-        .on_state_enter(AppState::Running, SystemStage::single(begin_running))
+        .on_state_enter(AppState::Setup, load_textures)
+        .on_state_update(AppState::Setup, check_textures)
+        .on_state_enter(AppState::Finshed, setup)
         .run();
 }
 
 #[derive(Clone, Hash, Eq, PartialEq)]
 pub enum AppState {
     Setup,
-    Running,
+    Finshed,
 }
 
 #[derive(Default)]
@@ -29,11 +23,11 @@ pub struct RpgSpriteHandles {
     handles: Vec<HandleUntyped>,
 }
 
-fn setup(mut rpg_sprite_handles: ResMut<RpgSpriteHandles>, asset_server: Res<AssetServer>) {
+fn load_textures(mut rpg_sprite_handles: ResMut<RpgSpriteHandles>, asset_server: Res<AssetServer>) {
     rpg_sprite_handles.handles = asset_server.load_folder("textures/rpg").unwrap();
 }
 
-fn check_loaded(
+fn check_textures(
     state: Res<State<AppState>>,
     rpg_sprite_handles: ResMut<RpgSpriteHandles>,
     asset_server: Res<AssetServer>,
@@ -41,11 +35,11 @@ fn check_loaded(
     if let LoadState::Loaded =
         asset_server.get_group_load_state(rpg_sprite_handles.handles.iter().map(|handle| handle.id))
     {
-        state.queue(AppState::Running);
+        state.queue(AppState::Finshed);
     }
 }
 
-fn load_atlas(
+fn setup(
     commands: &mut Commands,
     rpg_sprite_handles: Res<RpgSpriteHandles>,
     asset_server: Res<AssetServer>,
@@ -85,8 +79,4 @@ fn load_atlas(
             transform: Transform::from_translation(Vec3::new(-300.0, 0.0, 0.0)),
             ..Default::default()
         });
-}
-
-fn begin_running() {
-    println!("begin running");
 }
