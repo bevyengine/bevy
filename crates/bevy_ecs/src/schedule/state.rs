@@ -43,7 +43,7 @@ impl<T: Eq + Hash> StateStage<T> {
         let stages = self
             .stages
             .entry(state)
-            .or_insert_with(|| StateStages::default());
+            .or_insert_with(StateStages::default);
         stages.enter = Some(Box::new(stage.into_stage()));
         self
     }
@@ -52,7 +52,7 @@ impl<T: Eq + Hash> StateStage<T> {
         let stages = self
             .stages
             .entry(state)
-            .or_insert_with(|| StateStages::default());
+            .or_insert_with(StateStages::default);
         stages.exit = Some(Box::new(stage.into_stage()));
         self
     }
@@ -61,7 +61,7 @@ impl<T: Eq + Hash> StateStage<T> {
         let stages = self
             .stages
             .entry(state)
-            .or_insert_with(|| StateStages::default());
+            .or_insert_with(StateStages::default);
         stages.update = Some(Box::new(stage.into_stage()));
         self
     }

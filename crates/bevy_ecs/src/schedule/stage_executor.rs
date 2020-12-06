@@ -397,7 +397,7 @@ impl SystemStageExecutor for ParallelSystemStageExecutor {
             .get_or_insert_with(|| ComputeTaskPool(TaskPool::default()))
             .clone();
 
-        let stage_changed = changed_systems.len() > 0;
+        let stage_changed = !changed_systems.is_empty();
 
         // if the schedule has changed, clear executor state / fill it with new defaults
         // This is mostly zeroing out a bunch of arrays parallel to the systems array. They will get
