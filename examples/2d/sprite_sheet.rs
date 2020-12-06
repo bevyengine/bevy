@@ -31,8 +31,8 @@ fn setup(
     let texture_atlas = TextureAtlas::from_grid(texture_handle, Vec2::new(24.0, 24.0), 7, 1);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
     commands
-        .spawn(Camera2dBundle::default())
-        .spawn(SpriteSheetBundle {
+        .spawn(Camera2dComponents::default())
+        .spawn(SpriteSheetComponents {
             texture_atlas: texture_atlas_handle,
             transform: Transform::from_scale(Vec3::splat(6.0)),
             ..Default::default()
