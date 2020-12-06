@@ -1,13 +1,33 @@
-use bevy::{asset::LoadState, prelude::*, sprite::TextureAtlasBuilder};
+use bevy::{asset::LoadState, ecs::{Stage, State, StateStage, SystemStage}, prelude::*, sprite::TextureAtlasBuilder, utils::HashMap};
+use std::{hash::Hash, ops::Deref, sync::RwLock};
 
 /// In this example we generate a new texture atlas (sprite sheet) from a folder containing individual sprites
 fn main() {
     App::build()
         .init_resource::<RpgSpriteHandles>()
+        .add_resource(AppState::LoadingAssets)
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
         .add_system(load_atlas)
+        .add_stage_after(
+            stage::UPDATE,
+            "state",
+            StateStage::default()
+                .state(AppState::Setup, SystemStage::parallel().system(setup))
+                .enter_state(AppState::Setup, SystemStage::parallel().system(setup))
+                .state(
+                    AppState::LoadingAssets,
+                    SystemStage::parallel().system(load_atlas),
+                ),
+        )
         .run();
+}
+
+
+#[derive(Clone, Hash, Eq, PartialEq)]
+pub enum AppState {
+    Setup,
+    LoadingAssets,
+    Finish,
 }
 
 #[derive(Default)]
@@ -16,12 +36,18 @@ pub struct RpgSpriteHandles {
     atlas_loaded: bool,
 }
 
-fn setup(mut rpg_sprite_handles: ResMut<RpgSpriteHandles>, asset_server: Res<AssetServer>) {
+fn setup(
+    state: Res<State<AppState>>,
+    mut rpg_sprite_handles: ResMut<RpgSpriteHandles>,
+    asset_server: Res<AssetServer>,
+) {
     rpg_sprite_handles.handles = asset_server.load_folder("textures/rpg").unwrap();
+    // state.set(AppState::LoadingAssets);
 }
 
 fn load_atlas(
     commands: &mut Commands,
+    // mut state: ResMut<State<AppState>>,
     mut rpg_sprite_handles: ResMut<RpgSpriteHandles>,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,

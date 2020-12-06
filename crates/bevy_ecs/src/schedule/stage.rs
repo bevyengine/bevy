@@ -18,19 +18,15 @@ pub struct SystemStage {
     systems: Vec<Box<dyn System<Input = (), Output = ()>>>,
     system_ids: HashSet<SystemId>,
     executor: Box<dyn SystemStageExecutor>,
-    run_criteria: Option<Box<dyn System<Input = (), Output = bool>>>,
     changed_systems: Vec<usize>,
-    intialized_run_criteria: bool,
 }
 
 impl SystemStage {
     pub fn new(executor: Box<dyn SystemStageExecutor>) -> Self {
         SystemStage {
             executor,
-            intialized_run_criteria: false,
             systems: Default::default(),
             system_ids: Default::default(),
-            run_criteria: Default::default(),
             changed_systems: Default::default(),
         }
     }
@@ -41,6 +37,15 @@ impl SystemStage {
 
     pub fn parallel() -> Self {
         Self::new(Box::new(ParallelSystemStageExecutor::default()))
+    }
+
+    pub fn system<S, Params, IntoS>(mut self, system: IntoS) -> Self
+    where
+        S: System<Input = (), Output = ()>,
+        IntoS: IntoSystem<Params, S>,
+    {
+        self.add_system_boxed(Box::new(system.system()));
+        self
     }
 
     pub fn add_system<S, Params, IntoS>(&mut self, system: IntoS) -> &mut Self
@@ -69,16 +74,6 @@ impl SystemStage {
         self
     }
 
-    pub fn run_criteria<S, Params, IntoS>(&mut self, system: IntoS) -> &mut Self
-    where
-        S: System<Input = (), Output = bool>,
-        IntoS: IntoSystem<Params, S>,
-    {
-        self.run_criteria = Some(Box::new(system.system()));
-        self.intialized_run_criteria = false;
-        self
-    }
-
     pub fn get_executor<T: SystemStageExecutor>(&self) -> Option<&T> {
         self.executor.downcast_ref()
     }
@@ -90,13 +85,6 @@ impl SystemStage {
 
 impl Stage for SystemStage {
     fn run(&mut self, world: &mut World, resources: &mut Resources) {
-        if !self.intialized_run_criteria {
-            if let Some(should_run) = &mut self.run_criteria {
-                should_run.initialize(world, resources)
-            }
-            self.intialized_run_criteria = true;
-        }
-
         let changed_systems = std::mem::take(&mut self.changed_systems);
         for system_index in changed_systems.iter() {
             self.systems[*system_index].initialize(world, resources);
@@ -104,4 +92,10 @@ impl Stage for SystemStage {
         self.executor
             .execute_stage(&mut self.systems, &changed_systems, world, resources);
     }
+}
+
+struct EmptyStage;
+
+impl Stage for EmptyStage {
+    fn run(&mut self, _world: &mut World, _resources: &mut Resources) {}
 }
