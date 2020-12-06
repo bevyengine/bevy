@@ -1,11 +1,12 @@
 use crate::Time;
-use bevy_ecs::{ArchetypeComponent, ShouldRun, System, SystemId, TypeAccess};
+use bevy_ecs::{ArchetypeComponent, ShouldRun, System, SystemId, ThreadLocalExecution, TypeAccess};
 use std::{any::TypeId, borrow::Cow};
 
-#[derive(Clone)]
 pub struct FixedTimestep {
-    system_id: SystemId,
     step: f64,
+    accumulator: f64,
+    looping: bool,
+    system_id: SystemId,
     resource_access: TypeAccess<TypeId>,
     archetype_access: TypeAccess<ArchetypeComponent>,
 }
@@ -15,6 +16,8 @@ impl Default for FixedTimestep {
         Self {
             system_id: SystemId::new(),
             step: 1.0 / 60.0,
+            accumulator: 0.0,
+            looping: false,
             resource_access: Default::default(),
             archetype_access: Default::default(),
         }
@@ -35,25 +38,7 @@ impl FixedTimestep {
             ..Default::default()
         }
     }
-}
 
-pub struct FixedTimestepState {
-    accumulator: f64,
-    step: f64,
-    looping: bool,
-}
-
-impl Default for FixedTimestepState {
-    fn default() -> Self {
-        Self {
-            accumulator: 0.0,
-            step: 1.0 / 60.0,
-            looping: false,
-        }
-    }
-}
-
-impl FixedTimestepState {
     pub fn update(&mut self, time: &Time) -> ShouldRun {
         if !self.looping {
             self.accumulator += time.delta_seconds_f64();
@@ -92,8 +77,8 @@ impl System for FixedTimestep {
         &self.resource_access
     }
 
-    fn thread_local_execution(&self) -> bevy_ecs::ThreadLocalExecution {
-        bevy_ecs::ThreadLocalExecution::Immediate
+    fn thread_local_execution(&self) -> ThreadLocalExecution {
+        ThreadLocalExecution::Immediate
     }
 
     unsafe fn run_unsafe(
@@ -102,12 +87,8 @@ impl System for FixedTimestep {
         _world: &bevy_ecs::World,
         resources: &bevy_ecs::Resources,
     ) -> Option<Self::Output> {
-        // TODO: do this in a non-locking way (aka add unsafe methods)
-        let mut fixed_timestep = resources
-            .get_local_mut::<FixedTimestepState>(self.system_id)
-            .unwrap();
         let time = resources.get::<Time>().unwrap();
-        Some(fixed_timestep.update(&time))
+        Some(self.update(&time))
     }
 
     fn run_thread_local(
@@ -117,13 +98,5 @@ impl System for FixedTimestep {
     ) {
     }
 
-    fn initialize(&mut self, _world: &mut bevy_ecs::World, resources: &mut bevy_ecs::Resources) {
-        resources.insert_local(
-            self.system_id,
-            FixedTimestepState {
-                step: self.step,
-                ..Default::default()
-            },
-        )
-    }
+    fn initialize(&mut self, _world: &mut bevy_ecs::World, _resources: &mut bevy_ecs::Resources) {}
 }
