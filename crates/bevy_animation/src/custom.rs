@@ -28,7 +28,12 @@ impl Default for Layer {
     }
 }
 
-#[derive(Default, Debug, Properties)]
+#[derive(Default, Debug)]
+struct Bind {
+    entities: Vec<Option<Entity>>,
+}
+
+#[derive(Debug, Properties)]
 pub struct Animator {
     clips: Vec<Handle<Clip>>,
     #[property(ignore)]
@@ -37,9 +42,15 @@ pub struct Animator {
     pub layers: Vec<Layer>,
 }
 
-#[derive(Default, Debug)]
-struct Bind {
-    entities: Vec<Option<Entity>>,
+impl Default for Animator {
+    fn default() -> Self {
+        Self {
+            clips: vec![],
+            bind_clips: vec![],
+            time_scale: 1.0,
+            layers: vec![],
+        }
+    }
 }
 
 impl Animator {
@@ -82,7 +93,7 @@ pub struct LayerIterator<'a> {
 }
 
 impl<'a> Iterator for LayerIterator<'a> {
-    type Item = (&'a Layer, &'a Handle<Clip>, &'a [Option<Entity>]);
+    type Item = (usize, &'a Layer, &'a Handle<Clip>, &'a [Option<Entity>]);
 
     fn next(&mut self) -> Option<Self::Item> {
         let index = self.index;
@@ -92,26 +103,52 @@ impl<'a> Iterator for LayerIterator<'a> {
         let clip_handle = self.animator.clips.get(layer.clip as usize)?;
         let entities = &self.animator.bind_clips.get(layer.clip as usize)?.entities[..];
 
-        return Some((layer, clip_handle, entities));
+        return Some((index, layer, clip_handle, entities));
+    }
+}
+
+#[derive(Default, Debug, Properties)]
+pub struct KeyframeCache {
+    cache: Vec<Vec<usize>>,
+}
+
+impl KeyframeCache {
+    pub fn get(&mut self, layer_index: usize) -> &mut Vec<usize> {
+        self.cache.resize_with(layer_index + 1, Default::default);
+        &mut self.cache[layer_index]
     }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
+#[tracing::instrument(skip(commands, time, clips, animators_query, children_query, name_query))]
 pub(crate) fn animator_update_system(
+    commands: &mut Commands,
     time: Res<Time>,
     clips: Res<Assets<Clip>>,
-    mut animators_query: Query<(Entity, &mut Animator)>,
+    mut animators_query: Query<(
+        Entity,
+        &mut Animator,
+        Option<&KeyframeCache>,
+        Option<&Visited>,
+    )>,
     mut children_query: Query<(&Children,)>,
     mut name_query: Query<(&Parent, &Name)>,
 ) {
-    let delta_time = time.delta_seconds;
-
-    for (animator_entity, mut animator) in animators_query.iter_mut() {
+    for (animator_entity, mut animator, keyframe_cache, visited) in animators_query.iter_mut() {
         let animator = &mut *animator;
 
+        // Insert KeyframeCache if not already
+        if keyframe_cache.is_none() {
+            commands.insert_one(animator_entity, KeyframeCache::default());
+        }
+
+        if visited.is_none() {
+            commands.insert_one(animator_entity, Visited::default());
+        }
+
         // Time scales by component
-        let delta_time = delta_time * animator.time_scale;
+        let delta_time = time.delta_seconds * animator.time_scale;
 
         let w_total = animator
             .layers
@@ -192,9 +229,17 @@ pub(crate) fn animator_update_system(
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+struct Ptr(*const u8);
+
+// SAFETY: Store pointers to each attribute to be updated, a clip can't have two pointers
+// with the same value. Each clip per Animator will be updated sequentially
+unsafe impl Send for Ptr {}
+unsafe impl Sync for Ptr {}
+
 #[derive(Default, Debug)]
 pub struct Visited {
-    table: fnv::FnvHashSet<*const u8>,
+    table: fnv::FnvHashSet<Ptr>,
 }
 
 impl Visited {
@@ -204,18 +249,19 @@ impl Visited {
 
     pub fn is_visited<T>(&mut self, ptr: *const T) -> bool {
         let ptr = ptr as *const u8;
-        if self.table.contains(&ptr) {
+        if self.table.contains(&Ptr(ptr)) {
             true
         } else {
-            self.table.insert(ptr);
+            self.table.insert(Ptr(ptr));
             false
         }
     }
 }
 
+#[tracing::instrument(skip(clips, animators_query, transform_query))]
 pub(crate) fn animator_transform_update_system(
     clips: Res<Assets<Clip>>,
-    mut animators_query: Query<(&mut Animator,)>,
+    mut animators_query: Query<(&Animator, &mut KeyframeCache, &mut Visited)>,
     mut transform_query: Query<(&mut Transform,)>,
 ) {
     // TODO: Make const
@@ -223,22 +269,26 @@ pub(crate) fn animator_transform_update_system(
     let rotation_name: Name = Name::from_str("Transform.rotation");
     let scale_name: Name = Name::from_str("Transform.scale");
 
-    let mut visited = Visited::default();
-    // let mut transforms = vec![];
+    let mut transforms = vec![];
 
-    for (mut animator,) in animators_query.iter_mut() {
-        let animator = &mut *animator;
+    for (animator, mut keyframe_cache, mut visited) in animators_query.iter_mut() {
+        let keyframe_cache = &mut *keyframe_cache;
+
         visited.clear();
 
-        for (layer, clip_handle, entities) in animator.animate() {
+        for (layer_index, layer, clip_handle, entities) in animator.animate() {
             let w = layer.weight;
             if w < 1.0e-8 {
                 continue;
             }
 
-            let time = layer.time;
-
             if let Some(clip) = clips.get(clip_handle) {
+                let time = layer.time;
+
+                // Get keyframes and ensure capacity
+                let keyframes = keyframe_cache.get(layer_index);
+                keyframes.resize(clip.len() as usize, 0);
+
                 // Fetch properties indexes for this particular clip
                 let mut translation = u16::MAX;
                 let mut rotation = u16::MAX;
@@ -254,79 +304,75 @@ pub(crate) fn animator_transform_update_system(
                     }
                 }
 
-                // transforms.clear();
+                transforms.clear();
 
-                // // SAFETY: Pre-fetch all transforms to avoid calling get_mut multiple fimes
-                // // this is safe because it doesn't change the safe logic
-                // unsafe {
-                //     for entry in entities {
-                //         transforms.push(
-                //             entry
-                //                 .map(|entity| transform_query.get_unsafe(entity).ok())
-                //                 .flatten()
-                //                 .map(|(transform,)| transform),
-                //         );
-                //     }
-                // }
+                // SAFETY: Pre-fetch all transforms to avoid calling get_mut multiple times
+                // this is safe because it doesn't change the safe logic
+                unsafe {
+                    for entry in entities {
+                        transforms.push(
+                            entry
+                                .map(|entity| transform_query.get_unsafe(entity).ok())
+                                .flatten()
+                                .map(|(transform,)| transform),
+                        );
+                    }
+                }
 
                 for (curve_index, (entry, curve)) in clip.curves().enumerate() {
                     let property_index = entry.property_index;
 
                     // Pre check before fetching the entity
                     if property_index != translation
-                        || property_index != rotation
-                        || property_index != scale
+                        && property_index != rotation
+                        && property_index != scale
                     {
                         continue;
                     }
 
-                    if let Some(entity) = entities[entry.entity_index as usize] {
+                    if let Some(Some(ref mut transform)) =
+                        transforms.get_mut(entry.entity_index as usize)
+                    {
                         // Entity found
                         // TODO: Optimize for entity fetch
-                        if let Ok((mut transform,)) = transform_query.get_mut(entity) {
-                            if property_index == translation {
-                                if let CurveUntyped::Vec3(curve) = curve {
-                                    // let (k, v) =
-                                    //     curve.sample_indexed(layer.keyframe[curve_index], time);
-                                    // layer.keyframe[curve_index] = k;
-                                    let v = curve.sample(time);
+                        // if let Ok((mut transform,)) = transform_query.get_mut(entity) {
+                        if property_index == translation {
+                            if let CurveUntyped::Vec3(curve) = curve {
+                                let (k, v) = curve.sample_indexed(keyframes[curve_index], time);
+                                keyframes[curve_index] = k;
 
-                                    if visited.is_visited(transform.translation.as_ref().as_ptr()) {
-                                        transform.translation =
-                                            LerpValue::lerp(&transform.translation, &v, w);
-                                    } else {
-                                        transform.translation = v;
-                                    }
+                                if visited.is_visited(transform.translation.as_ref().as_ptr()) {
+                                    transform.translation =
+                                        LerpValue::lerp(&transform.translation, &v, w);
+                                } else {
+                                    transform.translation = v;
                                 }
-                            } else if property_index == rotation {
-                                if let CurveUntyped::Quat(curve) = curve {
-                                    // let (k, v) =
-                                    //     curve.sample_indexed(layer.keyframe[curve_index], time);
-                                    // layer.keyframe[curve_index] = k;
-                                    let v = curve.sample(time);
+                            }
+                        } else if property_index == rotation {
+                            if let CurveUntyped::Quat(curve) = curve {
+                                let (k, v) = curve.sample_indexed(keyframes[curve_index], time);
+                                keyframes[curve_index] = k;
 
-                                    if visited.is_visited(transform.rotation.as_ref().as_ptr()) {
-                                        transform.rotation =
-                                            LerpValue::lerp(&transform.rotation, &v, w);
-                                    } else {
-                                        transform.rotation = v;
-                                    }
+                                if visited.is_visited(transform.rotation.as_ref().as_ptr()) {
+                                    transform.rotation =
+                                        LerpValue::lerp(&transform.rotation, &v, w);
+                                } else {
+                                    transform.rotation = v;
                                 }
-                            } else if property_index == scale {
-                                if let CurveUntyped::Vec3(curve) = curve {
-                                    // let (k, v) =
-                                    //     curve.sample_indexed(layer.keyframe[curve_index], time);
-                                    // layer.keyframe[curve_index] = k;
-                                    let v = curve.sample(time);
+                            }
+                        } else if property_index == scale {
+                            if let CurveUntyped::Vec3(curve) = curve {
+                                let (k, v) = curve.sample_indexed(keyframes[curve_index], time);
+                                keyframes[curve_index] = k;
 
-                                    if visited.is_visited(transform.scale.as_ref().as_ptr()) {
-                                        transform.scale = LerpValue::lerp(&transform.scale, &v, w);
-                                    } else {
-                                        transform.scale = v;
-                                    }
+                                if visited.is_visited(transform.scale.as_ref().as_ptr()) {
+                                    transform.scale = LerpValue::lerp(&transform.scale, &v, w);
+                                } else {
+                                    transform.scale = v;
                                 }
                             }
                         }
+                        //}
                     }
                 }
             }
