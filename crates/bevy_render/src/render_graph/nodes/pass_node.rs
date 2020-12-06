@@ -373,16 +373,26 @@ impl DrawState {
         self.bind_groups
             .iter()
             .enumerate()
-            .filter(|(_, b)| b.is_none())
-            .map(|(i, _b)| warn!("Bind group (GLSL layout set) {} is missing", i))
+            .filter(|(i, b)| {
+                let is_none = b.is_none();
+                if is_none {
+                    warn!("Bind group (GLSL layout set) {} is missing", i);
+                }
+                is_none
+            })
             .count()
             == 0
             && self
                 .vertex_buffers
                 .iter()
                 .enumerate()
-                .filter(|(_, v)| v.is_none())
-                .map(|(i, _v)| warn!("Vertex buffer (GLSL layout location) {} is missing", i))
+                .filter(|(i, v)| {
+                    let is_none = v.is_none();
+                    if is_none {
+                        warn!("Vertex buffer (GLSL layout location) {} is missing", i);
+                    }
+                    is_none
+                })
                 .count()
                 == 0
     }
