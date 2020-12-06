@@ -276,7 +276,10 @@ impl<'a> DrawContext<'a> {
                     }
                 }
             }
-            debug!("No (asset) render resource binding found for {:?}", bind_group_descriptor);
+            debug!(
+                "No (asset) render resource binding found for {:?}",
+                bind_group_descriptor
+            );
         }
 
         Ok(())
