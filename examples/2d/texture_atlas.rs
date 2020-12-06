@@ -6,20 +6,20 @@ fn main() {
         .init_resource::<RpgSpriteHandles>()
         .add_plugins(DefaultPlugins)
         .add_state(AppState::Setup)
-        .on_state_enter(AppState::Setup, load_textures)
-        .on_state_update(AppState::Setup, check_textures)
-        .on_state_enter(AppState::Finshed, setup)
+        .state_enter(AppState::Setup, load_textures)
+        .state_update(AppState::Setup, check_textures)
+        .state_enter(AppState::Finshed, setup)
         .run();
 }
 
 #[derive(Clone, Hash, Eq, PartialEq)]
-pub enum AppState {
+enum AppState {
     Setup,
     Finshed,
 }
 
 #[derive(Default)]
-pub struct RpgSpriteHandles {
+struct RpgSpriteHandles {
     handles: Vec<HandleUntyped>,
 }
 

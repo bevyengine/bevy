@@ -226,7 +226,7 @@ impl AppBuilder {
         self
     }
 
-    pub fn on_state_enter<T: Clone + Eq + Hash + Resource, Params, S: IntoStage<Params>>(
+    pub fn state_enter<T: Clone + Eq + Hash + Resource, Params, S: IntoStage<Params>>(
         &mut self,
         value: T,
         stage: S,
@@ -237,7 +237,7 @@ impl AppBuilder {
         )
     }
 
-    pub fn on_state_update<T: Clone + Eq + Hash + Resource, Params, S: IntoStage<Params>>(
+    pub fn state_update<T: Clone + Eq + Hash + Resource, Params, S: IntoStage<Params>>(
         &mut self,
         value: T,
         stage: S,
@@ -248,7 +248,7 @@ impl AppBuilder {
         )
     }
 
-    pub fn on_state_exit<T: Clone + Eq + Hash + Resource, Params, S: IntoStage<Params>>(
+    pub fn state_exit<T: Clone + Eq + Hash + Resource, Params, S: IntoStage<Params>>(
         &mut self,
         value: T,
         stage: S,
