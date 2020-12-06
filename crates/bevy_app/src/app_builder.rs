@@ -1,10 +1,15 @@
+use std::{any::Any, hash::Hash};
+
 use crate::{
     app::{App, AppExit},
     event::Events,
     plugin::Plugin,
     stage, startup_stage, PluginGroup, PluginGroupBuilder,
 };
-use bevy_ecs::{FromResources, IntoSystem, Resources, Stage, System, SystemStage, World};
+use bevy_ecs::{
+    FromResources, IntoSystem, Resource, Resources, Stage, State, StateStage, System, SystemStage,
+    World,
+};
 use bevy_utils::tracing::debug;
 
 /// Configure [App]s using the builder pattern
@@ -191,6 +196,62 @@ impl AppBuilder {
     {
         self.add_resource(Events::<T>::default())
             .add_system_to_stage(stage::EVENT, Events::<T>::update_system)
+    }
+
+    fn state_stage_name<T: Any>() -> String {
+        format!("state({})", std::any::type_name::<T>())
+    }
+
+    pub fn add_state<T: Clone + Eq + Hash + Resource>(&mut self, initial: T) -> &mut Self {
+        self.add_resource(State::new(initial));
+        self.app.schedule.add_stage_after(
+            stage::UPDATE,
+            &Self::state_stage_name::<T>(),
+            StateStage::<T>::default(),
+        );
+        self
+    }
+
+    pub fn on_state_update<T: Clone + Eq + Hash + Resource, S: Stage>(
+        &mut self,
+        value: T,
+        stage: S,
+    ) -> &mut Self {
+        let state_stage = self
+            .app
+            .schedule
+            .get_stage_mut::<StateStage<T>>(&Self::state_stage_name::<T>())
+            .expect("State does not exist. Try calling app.add_state()");
+        state_stage.set_update(value, stage);
+        self
+    }
+
+    pub fn on_state_enter<T: Clone + Eq + Hash + Resource, S: Stage>(
+        &mut self,
+        value: T,
+        stage: S,
+    ) -> &mut Self {
+        let state_stage = self
+            .app
+            .schedule
+            .get_stage_mut::<StateStage<T>>(&Self::state_stage_name::<T>())
+            .expect("State does not exist. Try calling app.add_state()");
+        state_stage.set_enter(value, stage);
+        self
+    }
+
+    pub fn on_state_exit<T: Clone + Eq + Hash + Resource, S: Stage>(
+        &mut self,
+        value: T,
+        stage: S,
+    ) -> &mut Self {
+        let state_stage = self
+            .app
+            .schedule
+            .get_stage_mut::<StateStage<T>>(&Self::state_stage_name::<T>())
+            .expect("State does not exist. Try calling app.add_state()");
+        state_stage.set_exit(value, stage);
+        self
     }
 
     /// Adds a resource to the current [App] and overwrites any resource previously added of the same type.

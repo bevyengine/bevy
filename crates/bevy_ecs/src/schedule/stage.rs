@@ -31,6 +31,12 @@ impl SystemStage {
         }
     }
 
+    pub fn single<Params, S: System<Input = (), Output = ()>, Into: IntoSystem<Params, S>>(
+        system: Into,
+    ) -> Self {
+        Self::serial().system(system)
+    }
+
     pub fn serial() -> Self {
         Self::new(Box::new(SerialSystemStageExecutor::default()))
     }
