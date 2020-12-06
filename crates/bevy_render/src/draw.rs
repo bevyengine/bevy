@@ -9,6 +9,7 @@ use crate::{
 use bevy_asset::{Asset, Assets, Handle};
 use bevy_ecs::{Query, Res, ResMut, SystemParam};
 use bevy_reflect::{Reflect, ReflectComponent};
+use bevy_utils::tracing::debug;
 use std::{ops::Range, sync::Arc};
 use thiserror::Error;
 
@@ -275,6 +276,7 @@ impl<'a> DrawContext<'a> {
                     }
                 }
             }
+            debug!("No (asset) render resource binding found for {:?}", bind_group_descriptor);
         }
 
         Ok(())
