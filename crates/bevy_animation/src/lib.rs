@@ -3,23 +3,25 @@ use bevy_asset::AddAsset;
 //use bevy_ecs::prelude::*;
 use bevy_type_registry::RegisterType;
 
+mod custom;
+//mod generic;
+
 pub mod clip;
 pub mod curve;
-pub mod custom;
-
-pub mod generic;
 mod hierarchy;
 pub mod lerping;
 mod skinned_mesh;
 
-pub use crate::generic::*;
+pub use crate::custom::*;
+//pub use crate::generic::*;
 pub use crate::hierarchy::Hierarchy;
 pub use crate::skinned_mesh::*;
 
 pub mod prelude {
     pub use crate::clip::Clip;
     pub use crate::curve::*;
-    pub use crate::generic::Animator;
+    pub use crate::custom::Animator;
+    //pub use crate::generic::Animator;
     pub use crate::hierarchy::Hierarchy;
     pub use crate::lerping::LerpValue;
     pub use crate::skinned_mesh::{SkinAsset, SkinComponent, SkinDebugger};
@@ -42,8 +44,10 @@ impl Plugin for AnimationPlugin {
         app.add_asset::<clip::Clip>()
             //.add_asset_loader(ClipLoader)
             .register_component::<Animator>()
-            .add_system_to_stage(stage::ANIMATE, animator_binding_system)
-            .add_system_to_stage(stage::ANIMATE, animator_update_system);
+            // .add_system_to_stage(stage::ANIMATE, animator_binding_system)
+            // .add_system_to_stage(stage::ANIMATE, animator_update_system);
+            .add_system_to_stage(stage::ANIMATE, animator_update_system)
+            .add_system_to_stage(stage::ANIMATE, animator_transform_update_system);
 
         // Skinning
         app.add_asset::<SkinAsset>()
@@ -51,7 +55,7 @@ impl Plugin for AnimationPlugin {
             .register_component_with::<SkinComponent>(|reg| reg.map_entities())
             .register_component::<SkinDebugger>()
             .add_startup_system(skinning_setup)
-            .add_system_to_stage(stage::ANIMATE, skinning_update)
+            .add_system_to_stage(stage::POST_UPDATE, skinning_update)
             .add_system_to_stage(stage::POST_UPDATE, skinning_debugger_update);
     }
 }
