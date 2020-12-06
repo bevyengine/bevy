@@ -1,4 +1,4 @@
-use bevy::{asset::LoadState, prelude::*, sprite::TextureAtlasBuilder};
+use bevy::{asset::LoadState, prelude::*, sprite::TextureAtlasBuilder, Camera2dComponents, SpriteComponents};
 
 /// In this example we generate a new texture atlas (sprite sheet) from a folder containing individual sprites
 fn main() {
