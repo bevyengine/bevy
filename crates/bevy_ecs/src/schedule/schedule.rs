@@ -10,6 +10,21 @@ pub struct Schedule {
 }
 
 impl Schedule {
+    pub fn with_stage<T: Stage>(mut self, name: &str, stage: T) -> Self {
+        self.add_stage(name, stage);
+        self
+    }
+
+    pub fn with_stage_after<T: Stage>(mut self, target: &str, name: &str, stage: T) -> Self {
+        self.add_stage_after(target, name, stage);
+        self
+    }
+
+    pub fn with_stage_before<T: Stage>(mut self, target: &str, name: &str, stage: T) -> Self {
+        self.add_stage_before(target, name, stage);
+        self
+    }
+
     pub fn add_stage<T: Stage>(&mut self, name: &str, stage: T) {
         self.stage_order.push(name.to_string());
         self.stages.insert(name.to_string(), Box::new(stage));
@@ -77,7 +92,12 @@ impl Stage for Schedule {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Commands, Entity, World, schedule::{ParallelSystemStageExecutor, Schedule, Stage, SystemStage}, resource::{Res, ResMut, Resources}, system::Query};
+    use crate::{
+        resource::{Res, ResMut, Resources},
+        schedule::{ParallelSystemStageExecutor, Schedule, Stage, SystemStage},
+        system::Query,
+        Commands, Entity, World,
+    };
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use fixedbitset::FixedBitSet;
     use parking_lot::Mutex;
@@ -291,9 +311,15 @@ mod tests {
             let stage_b = schedule.get_stage::<SystemStage>("b").unwrap();
             let stage_c = schedule.get_stage::<SystemStage>("c").unwrap();
 
-            let a_executor = stage_a.get_executor::<ParallelSystemStageExecutor>().unwrap();
-            let b_executor = stage_b.get_executor::<ParallelSystemStageExecutor>().unwrap();
-            let c_executor = stage_c.get_executor::<ParallelSystemStageExecutor>().unwrap();
+            let a_executor = stage_a
+                .get_executor::<ParallelSystemStageExecutor>()
+                .unwrap();
+            let b_executor = stage_b
+                .get_executor::<ParallelSystemStageExecutor>()
+                .unwrap();
+            let c_executor = stage_c
+                .get_executor::<ParallelSystemStageExecutor>()
+                .unwrap();
 
             assert_eq!(
                 a_executor.system_dependents(),

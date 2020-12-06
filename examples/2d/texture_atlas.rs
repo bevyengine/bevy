@@ -41,7 +41,7 @@ fn check_loaded(
     if let LoadState::Loaded =
         asset_server.get_group_load_state(rpg_sprite_handles.handles.iter().map(|handle| handle.id))
     {
-        state.queue_change(AppState::Running);
+        state.queue(AppState::Running);
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::{Resource, Resources, Stage, World};
-use bevy_utils::{tracing::trace, HashMap};
+use bevy_utils::HashMap;
 use parking_lot::RwLock;
 use std::{hash::Hash, ops::Deref};
 
@@ -81,7 +81,7 @@ impl<T: Eq + Hash> StateStage<T> {
 
 impl<T: Resource + Clone + Eq + Hash> Stage for StateStage<T> {
     fn run(&mut self, world: &mut World, resources: &mut Resources) {
-        let (previous_state, mut current_state, change_queue) = {
+        let (mut previous_state, mut current_state, change_queue) = {
             let mut state = resources
                 .get_mut::<State<T>>()
                 .expect("Missing state resource");
@@ -103,18 +103,14 @@ impl<T: Resource + Clone + Eq + Hash> Stage for StateStage<T> {
         };
         for next_state in change_queue {
             if next_state != previous_state {
-                println!("exit");
-                self.run_exit(&current_state, world, resources);
-            } else {
-                println!("not exiting");
+                self.run_exit(&previous_state, world, resources);
             }
 
-            println!("enter");
             self.run_enter(&next_state, world, resources);
-            current_state = next_state
+            previous_state = current_state;
+            current_state = next_state;
         }
 
-        println!("update");
         self.run_update(&current_state, world, resources);
     }
 }
@@ -137,7 +133,7 @@ impl<T: Clone + Hash + Eq + PartialEq> State<T> {
         self.current.clone()
     }
 
-    pub fn queue_change(&self, value: T) {
+    pub fn queue(&self, value: T) {
         if self.current == value {
             return;
         }
