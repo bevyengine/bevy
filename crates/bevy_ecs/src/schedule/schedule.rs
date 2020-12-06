@@ -1,12 +1,13 @@
-use crate::{IntoStage, Resources, World};
-
 use super::Stage;
+use crate::{IntoStage, IntoSystem, Resources, ShouldRun, System, SystemStage, World};
 use bevy_utils::HashMap;
 
 #[derive(Default)]
 pub struct Schedule {
     stages: HashMap<String, Box<dyn Stage>>,
     stage_order: Vec<String>,
+    run_criteria: Option<Box<dyn System<Input = (), Output = ShouldRun>>>,
+    run_criteria_initialized: bool,
 }
 
 impl Schedule {
@@ -35,10 +36,43 @@ impl Schedule {
         self
     }
 
-    pub fn add_stage<Params, S: IntoStage<Params>>(&mut self, name: &str, stage: S) {
+    pub fn with_run_criteria<S, Params, IntoS>(mut self, system: IntoS) -> Self
+    where
+        S: System<Input = (), Output = ShouldRun>,
+        IntoS: IntoSystem<Params, S>,
+    {
+        self.set_run_criteria(system);
+        self
+    }
+
+    pub fn with_system_in_stage<S, Params, IntoS>(
+        mut self,
+        stage_name: &'static str,
+        system: IntoS,
+    ) -> Self
+    where
+        S: System<Input = (), Output = ()>,
+        IntoS: IntoSystem<Params, S>,
+    {
+        self.add_system_to_stage(stage_name, system);
+        self
+    }
+
+    pub fn set_run_criteria<S, Params, IntoS>(&mut self, system: IntoS) -> &mut Self
+    where
+        S: System<Input = (), Output = ShouldRun>,
+        IntoS: IntoSystem<Params, S>,
+    {
+        self.run_criteria = Some(Box::new(system.system()));
+        self.run_criteria_initialized = false;
+        self
+    }
+
+    pub fn add_stage<Params, S: IntoStage<Params>>(&mut self, name: &str, stage: S) -> &mut Self {
         self.stage_order.push(name.to_string());
         self.stages
             .insert(name.to_string(), Box::new(stage.into_stage()));
+        self
     }
 
     pub fn add_stage_after<Params, S: IntoStage<Params>>(
@@ -46,7 +80,7 @@ impl Schedule {
         target: &str,
         name: &str,
         stage: S,
-    ) {
+    ) -> &mut Self {
         if self.stages.get(name).is_some() {
             panic!("Stage already exists: {}.", name);
         }
@@ -62,6 +96,7 @@ impl Schedule {
         self.stages
             .insert(name.to_string(), Box::new(stage.into_stage()));
         self.stage_order.insert(target_index + 1, name.to_string());
+        self
     }
 
     pub fn add_stage_before<Params, S: IntoStage<Params>>(
@@ -69,7 +104,7 @@ impl Schedule {
         target: &str,
         name: &str,
         stage: S,
-    ) {
+    ) -> &mut Self {
         if self.stages.get(name).is_some() {
             panic!("Stage already exists: {}.", name);
         }
@@ -85,6 +120,40 @@ impl Schedule {
         self.stages
             .insert(name.to_string(), Box::new(stage.into_stage()));
         self.stage_order.insert(target_index, name.to_string());
+        self
+    }
+
+    pub fn add_system_to_stage<S, Params, IntoS>(
+        &mut self,
+        stage_name: &'static str,
+        system: IntoS,
+    ) -> &mut Self
+    where
+        S: System<Input = (), Output = ()>,
+        IntoS: IntoSystem<Params, S>,
+    {
+        let stage = self
+            .get_stage_mut::<SystemStage>(stage_name)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Stage '{}' does not exist or is not a SystemStage",
+                    stage_name
+                )
+            });
+        stage.add_system(system);
+        self
+    }
+
+    pub fn stage<T: Stage, F: FnOnce(&mut T) -> &mut T>(
+        &mut self,
+        name: &str,
+        func: F,
+    ) -> &mut Self {
+        let stage = self
+            .get_stage_mut::<T>(name)
+            .expect("stage does not exist or is the wrong type");
+        func(stage);
+        self
     }
 
     pub fn get_stage<T: Stage>(&self, name: &str) -> Option<&T> {
@@ -98,10 +167,8 @@ impl Schedule {
             .get_mut(name)
             .and_then(|stage| stage.downcast_mut::<T>())
     }
-}
 
-impl Stage for Schedule {
-    fn run(&mut self, world: &mut World, resources: &mut Resources) {
+    pub fn run_once(&mut self, world: &mut World, resources: &mut Resources) {
         for name in self.stage_order.iter() {
             #[cfg(feature = "trace")]
             let stage_span = bevy_utils::tracing::info_span!("stage", name = stage_name.as_ref());
@@ -109,6 +176,36 @@ impl Stage for Schedule {
             let _stage_guard = stage_span.enter();
             let stage = self.stages.get_mut(name).unwrap();
             stage.run(world, resources);
+        }
+    }
+}
+
+impl Stage for Schedule {
+    fn run(&mut self, world: &mut World, resources: &mut Resources) {
+        loop {
+            let should_run = if let Some(ref mut run_criteria) = self.run_criteria {
+                if !self.run_criteria_initialized {
+                    run_criteria.initialize(world, resources);
+                    self.run_criteria_initialized = true;
+                }
+                let should_run = run_criteria.run((), world, resources);
+                run_criteria.run_thread_local(world, resources);
+                // don't run when no result is returned or false is returned
+                should_run.unwrap_or(ShouldRun::No)
+            } else {
+                ShouldRun::Yes
+            };
+
+            match should_run {
+                ShouldRun::No => return,
+                ShouldRun::Yes => {
+                    self.run_once(world, resources);
+                    return;
+                }
+                ShouldRun::YesAndLoop => {
+                    self.run_once(world, resources);
+                }
+            }
         }
     }
 }

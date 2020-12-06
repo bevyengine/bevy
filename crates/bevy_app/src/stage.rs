@@ -1,3 +1,6 @@
+/// Name of the app stage that runs once at the beginning of the app
+pub const STARTUP: &str = "startup";
+
 /// Name of app stage that runs before all other app stages
 pub const FIRST: &str = "first";
 

@@ -1,4 +1,9 @@
-use crate::{IntoSystem, Resources, System, SystemId, World};
+use std::{any::TypeId, borrow::Cow};
+
+use crate::{
+    ArchetypeComponent, IntoSystem, Resources, System, SystemId, ThreadLocalExecution, TypeAccess,
+    World,
+};
 use bevy_utils::HashSet;
 use downcast_rs::{impl_downcast, Downcast};
 
@@ -178,4 +183,67 @@ impl<S: Stage> IntoStage<()> for S {
     fn into_stage(self) -> Self::Stage {
         self
     }
+}
+
+pub struct RunOnce {
+    ran: bool,
+    system_id: SystemId,
+    resource_access: TypeAccess<TypeId>,
+    archetype_access: TypeAccess<ArchetypeComponent>,
+}
+
+impl Default for RunOnce {
+    fn default() -> Self {
+        Self {
+            ran: false,
+            system_id: SystemId::new(),
+            resource_access: Default::default(),
+            archetype_access: Default::default(),
+        }
+    }
+}
+
+impl System for RunOnce {
+    type Input = ();
+    type Output = ShouldRun;
+
+    fn name(&self) -> Cow<'static, str> {
+        Cow::Borrowed(std::any::type_name::<RunOnce>())
+    }
+
+    fn id(&self) -> SystemId {
+        self.system_id
+    }
+
+    fn update(&mut self, _world: &World) {}
+
+    fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent> {
+        &self.archetype_access
+    }
+
+    fn resource_access(&self) -> &TypeAccess<TypeId> {
+        &self.resource_access
+    }
+
+    fn thread_local_execution(&self) -> ThreadLocalExecution {
+        ThreadLocalExecution::Immediate
+    }
+
+    unsafe fn run_unsafe(
+        &mut self,
+        _input: Self::Input,
+        _world: &World,
+        _resources: &Resources,
+    ) -> Option<Self::Output> {
+        Some(if self.ran {
+            ShouldRun::No
+        } else {
+            self.ran = true;
+            ShouldRun::Yes
+        })
+    }
+
+    fn run_thread_local(&mut self, _world: &mut World, _resources: &mut Resources) {}
+
+    fn initialize(&mut self, _world: &mut World, _resources: &mut Resources) {}
 }

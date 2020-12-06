@@ -30,7 +30,6 @@ pub struct App {
     pub resources: Resources,
     pub runner: Box<dyn Fn(App)>,
     pub schedule: Schedule,
-    pub startup_schedule: Schedule,
 }
 
 impl Default for App {
@@ -39,7 +38,6 @@ impl Default for App {
             world: Default::default(),
             resources: Default::default(),
             schedule: Default::default(),
-            startup_schedule: Default::default(),
             runner: Box::new(run_once),
         }
     }
@@ -60,12 +58,9 @@ impl App {
 
     pub fn run(mut self) {
         #[cfg(feature = "trace")]
-        let bevy_app_run_span = info_span!("bevy_app_run");
+        let bevy_app_run_span = info_span!("bevy_app");
         #[cfg(feature = "trace")]
         let _bevy_app_run_guard = bevy_app_run_span.enter();
-
-        self.startup_schedule
-            .run(&mut self.world, &mut self.resources);
 
         let runner = std::mem::replace(&mut self.runner, Box::new(run_once));
         (runner)(self);

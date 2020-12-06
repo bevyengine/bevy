@@ -24,28 +24,46 @@ impl<T> Default for StateStage<T> {
 }
 
 impl<T: Eq + Hash> StateStage<T> {
-    pub fn set_enter<Params, S: IntoStage<Params>>(&mut self, state: T, stage: S) {
+    pub fn with_enter<Params, S: IntoStage<Params>>(mut self, state: T, stage: S) -> Self {
+        self.set_enter(state, stage);
+        self
+    }
+
+    pub fn with_exit<Params, S: IntoStage<Params>>(mut self, state: T, stage: S) -> Self {
+        self.set_exit(state, stage);
+        self
+    }
+
+    pub fn with_update<Params, S: IntoStage<Params>>(mut self, state: T, stage: S) -> Self {
+        self.set_update(state, stage);
+        self
+    }
+
+    pub fn set_enter<Params, S: IntoStage<Params>>(&mut self, state: T, stage: S) -> &mut Self {
         let stages = self
             .stages
             .entry(state)
             .or_insert_with(|| StateStages::default());
         stages.enter = Some(Box::new(stage.into_stage()));
+        self
     }
 
-    pub fn set_exit<Params, S: IntoStage<Params>>(&mut self, state: T, stage: S) {
+    pub fn set_exit<Params, S: IntoStage<Params>>(&mut self, state: T, stage: S) -> &mut Self {
         let stages = self
             .stages
             .entry(state)
             .or_insert_with(|| StateStages::default());
         stages.exit = Some(Box::new(stage.into_stage()));
+        self
     }
 
-    pub fn set_update<Params, S: IntoStage<Params>>(&mut self, state: T, stage: S) {
+    pub fn set_update<Params, S: IntoStage<Params>>(&mut self, state: T, stage: S) -> &mut Self {
         let stages = self
             .stages
             .entry(state)
             .or_insert_with(|| StateStages::default());
         stages.update = Some(Box::new(stage.into_stage()));
+        self
     }
 
     pub fn run_enter(&mut self, state: &T, world: &mut World, resources: &mut Resources) {
