@@ -221,7 +221,7 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
 
             // Prepare the entities table cache
             entities_table_cache.clear();
-            entities_table_cache.resize(clip.hierarchy.len(), None);
+            entities_table_cache.resize(clip.hierarchy().len(), None);
             // Assign the root entity as the first element
             entities_table_cache[0] = Some(root);
 
@@ -285,8 +285,8 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
                     .for_each(|(entity_index, entry)| {
                         *entry = None;
                         // ? NOTE: Will only run if the bind was invalidated in this frame
-                        for (descriptor, attr) in clip.properties.iter().zip(pointers.iter_mut()) {
-                            if descriptor.0 as usize == entity_index {
+                        for (descriptor, attr) in clip.curves().zip(pointers.iter_mut()) {
+                            if descriptor.0.entity_index as usize == entity_index {
                                 *attr = Ptr(null_mut());
                             }
                         }
@@ -296,16 +296,14 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
                 // Handle entities that had theirs parents changed
                 // ? NOTE: Heavy code path triggered when an animated hierarchy changes
                 while let Some(entity_index) = entities_parent_changed.pop() {
-                    clip.hierarchy
+                    clip.hierarchy()
                         .depth_first(entity_index, &mut |entity_index, _| {
                             let entry = &mut entities[entity_index as usize];
 
                             if entry.is_some() {
                                 // Yet not invalidated
-                                for (descriptor, attr) in
-                                    clip.properties.iter().zip(pointers.iter_mut())
-                                {
-                                    if descriptor.0 == entity_index {
+                                for (descriptor, attr) in clip.curves().zip(pointers.iter_mut()) {
+                                    if descriptor.0.entity_index == entity_index {
                                         *attr = Ptr(null_mut());
                                     }
                                 }
@@ -321,9 +319,9 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
             } else {
                 // Create empty binds
                 *bind = Some(ClipBind {
-                    entities: vec_filled(clip.hierarchy.len(), || None),
+                    entities: vec_filled(clip.hierarchy().len(), || None),
                     binded: false,
-                    pointers: vec_filled(clip.properties.len(), || Ptr(null_mut())),
+                    pointers: vec_filled(clip.len() as usize, || Ptr(null_mut())),
                 });
 
                 bind.as_mut().unwrap()
@@ -338,13 +336,10 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
             bind.binded = true;
 
             // Bind attributes
-            for (attr_index, (attr, descriptor)) in bind
-                .pointers
-                .iter_mut()
-                .zip(clip.properties.iter())
-                .enumerate()
+            for (attr_index, (attr, descriptor)) in
+                bind.pointers.iter_mut().zip(clip.curves()).enumerate()
             {
-                let (entity_index, attr_path) = descriptor;
+                let (entry, curve) = descriptor;
 
                 if *attr != Ptr(null_mut()) {
                     // Already binded
@@ -359,18 +354,18 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
                 let mut path = attr_path.split('.');
                 let component_short_name = path.next().expect("missing component short name");
 
-                if let Some(entity) = clip.hierarchy.find_entity_in_world(
-                    *entity_index,
+                if let Some(entity) = clip.hierarchy().find_entity_in_world(
+                    entry.entity_index,
                     &mut entities_table_cache,
                     &world,
                 ) {
                     let location = world.get_entity_location(entity).unwrap();
 
-                    bind.entities[*entity_index as usize].get_or_insert_with(|| {
+                    bind.entities[entry.entity_index as usize].get_or_insert_with(|| {
                         ClipBindEntity {
                             // If the entity was found the parent was as well (unless is the root which will always be None)
                             parent: entities_table_cache
-                                .get(clip.hierarchy.get_entity(*entity_index).0 as usize)
+                                .get(clip.hierarchy().get_entity(entry.entity_index).0 as usize)
                                 .copied()
                                 .flatten(),
                             entity,
@@ -517,7 +512,7 @@ pub fn animator_update_system(world: &mut World, resources: &mut Resources) {
                 // TODO: Add layer mask
 
                 if let Some(bind) = &animator.bind_clips[clip_index as usize] {
-                    let curves_count = clip.curves.len();
+                    let curves_count = clip.len() as usize;
 
                     // Ensure capacity for cached keyframe index vec
                     if layer.keyframe.len() != curves_count {
@@ -568,7 +563,9 @@ pub fn animator_update_system(world: &mut World, resources: &mut Resources) {
                             continue;
                         }
 
-                        let curve = &clip.curves[curve_index];
+                        let curve = clip
+                            .get(curve_index as u16)
+                            .expect("curve index out of bounds");
 
                         let viz = if animator.visited.contains(&ptr) {
                             true

@@ -17,7 +17,7 @@ pub use crate::hierarchy::Hierarchy;
 pub use crate::skinned_mesh::*;
 
 pub mod prelude {
-    pub use crate::clip::*;
+    pub use crate::clip::Clip;
     pub use crate::curve::*;
     pub use crate::generic::Animator;
     pub use crate::hierarchy::Hierarchy;

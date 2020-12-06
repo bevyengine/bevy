@@ -1,3 +1,4 @@
+use bevy_core::Name;
 use bevy_type_registry::TypeUuid;
 
 use super::curve::CurveUntyped;
@@ -5,6 +6,12 @@ use super::hierarchy::Hierarchy;
 
 // TODO: Curve/Clip need a validation during deserialization because they are
 // structured as SOA (struct of arrays), so the vec's length must match
+
+#[derive(Debug, Clone, Copy)]
+pub struct CurveEntry {
+    pub entity_index: u16,
+    pub property_index: u16,
+}
 
 // TODO: impl Serialize, Deserialize
 #[derive(Debug, Clone, TypeUuid)]
@@ -14,12 +21,14 @@ pub struct Clip {
     pub warp: bool,
     duration: f32,
     /// Entity identification made by parent index and name
-    pub(crate) hierarchy: Hierarchy,
-    /// Attribute is made by the entity index and a string that combines
+    hierarchy: Hierarchy,
+    /// Each curve as one entry that maps a curve to an entity and a property path
+    entries: Vec<CurveEntry>,
+    curves: Vec<CurveUntyped>,
+    /// A single property is made by string that combines
     /// component name followed by their attributes spaced by a period,
     /// like so: `"Transform.translation.x"`
-    pub(crate) properties: Vec<(u16, String)>,
-    pub(crate) curves: Vec<CurveUntyped>,
+    properties: Vec<Name>,
 }
 
 // fn clip_default_warp() -> bool {
@@ -35,6 +44,7 @@ impl Default for Clip {
             hierarchy: Hierarchy::default(),
             properties: vec![],
             curves: vec![],
+            entries: vec![],
         }
     }
 }
@@ -58,21 +68,20 @@ impl Clip {
         let path =
             property_path.split_at(property_path.rfind('@').expect("property path missing @"));
 
-        let (entity1, just_created) = self.hierarchy.get_or_insert_entity(path.0);
-        let name1 = path.1.split_at(1).1;
+        let (entity_index, just_created) = self.hierarchy.get_or_insert_entity(path.0);
+        let target_name = path.1.split_at(1).1;
 
         // If some entity was created it means this property is a new one so we can safely skip the attribute testing
         if !just_created {
-            for (i, entry) in self.properties.iter().enumerate() {
-                let (entity0, name0) = entry;
-
-                if *entity0 != entity1 {
+            for (i, entry) in self.entries.iter().enumerate() {
+                if entry.entity_index != entity_index {
                     continue;
                 }
 
-                let mid = name1.len().min(name0.len());
-                let (head0, tail0) = name0.split_at(mid);
-                let (head1, tail1) = name1.split_at(mid);
+                let property_name = self.properties[entry.property_index as usize];
+                let mid = target_name.len().min(property_name.len());
+                let (head0, tail0) = property_name.split_at(mid);
+                let (head1, tail1) = target_name.split_at(mid);
 
                 if head0 == head1 {
                     // Replace
@@ -98,8 +107,26 @@ impl Clip {
             }
         }
 
+        // Find property or insert as a new one
+        let target_name = Name::from_str(target_name);
+        let property_index = self
+            .properties
+            .iter()
+            .position(|property_name| property_name == &target_name)
+            .map_or_else(
+                || {
+                    let property_index = self.properties.len() as u16;
+                    self.properties.push(target_name);
+                    property_index
+                },
+                |property_index| property_index as u16,
+            );
+
         self.duration = self.duration.max(curve.duration());
-        self.properties.push((entity1, name1.to_string()));
+        self.entries.push(CurveEntry {
+            entity_index,
+            property_index,
+        });
         self.curves.push(curve);
     }
 
@@ -114,13 +141,17 @@ impl Clip {
     /// The clip stores a property path in a specific way to improve search performance
     /// thus it needs to rebuilt the curve property path in the human readable format
     pub fn get_property_path(&self, index: u16) -> String {
-        let (entity_index, name) = &self.properties[index as usize];
+        let CurveEntry {
+            entity_index,
+            property_index,
+        } = &self.entries[index as usize];
+
         format!(
             "{}@{}",
             self.hierarchy
                 .get_entity_path_at(*entity_index)
                 .expect("property as an invalid entity"),
-            name.as_str()
+            self.properties[*property_index as usize].as_str()
         )
     }
 
@@ -152,5 +183,25 @@ impl Clip {
             // Faster clip duration update
             self.duration = self.duration.max(inserted_duration);
         }
+    }
+
+    #[inline(always)]
+    pub fn hierarchy(&self) -> &Hierarchy {
+        &self.hierarchy
+    }
+
+    #[inline(always)]
+    pub fn properties(&self) -> &[Name] {
+        &self.properties[..]
+    }
+
+    #[inline(always)]
+    pub fn curves(&self) -> impl Iterator<Item = (&CurveEntry, &CurveUntyped)> {
+        self.entries.iter().zip(self.curves.iter())
+    }
+
+    #[inline(always)]
+    pub fn get(&self, curve_index: u16) -> Option<&CurveUntyped> {
+        self.curves.get(curve_index as usize)
     }
 }

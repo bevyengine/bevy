@@ -40,11 +40,13 @@ impl Name {
         *self = Name::new(name);
     }
 
+    #[inline(always)]
     pub fn mutate<F: FnOnce(&mut String)>(&mut self, f: F) {
         f(&mut self.name);
         self.update_hash();
     }
 
+    #[inline(always)]
     pub fn as_str(&self) -> &str {
         self.name.as_str()
     }
