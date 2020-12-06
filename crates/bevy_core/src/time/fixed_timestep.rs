@@ -82,10 +82,6 @@ impl System for FixedTimestep {
         self.system_id
     }
 
-    fn is_initialized(&self) -> bool {
-        true
-    }
-
     fn update(&mut self, _world: &bevy_ecs::World) {}
 
     fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent> {

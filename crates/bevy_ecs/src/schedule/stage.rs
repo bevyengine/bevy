@@ -1,4 +1,4 @@
-use crate::{IntoSystem, Local, Res, Resources, System, SystemId, World};
+use crate::{IntoSystem, Resources, System, SystemId, World};
 use bevy_utils::HashSet;
 use downcast_rs::{impl_downcast, Downcast};
 

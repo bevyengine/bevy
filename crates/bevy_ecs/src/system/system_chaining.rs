@@ -27,10 +27,6 @@ impl<SystemA: System, SystemB: System<Input = SystemA::Output>> System
         self.id
     }
 
-    fn is_initialized(&self) -> bool {
-        self.system_a.is_initialized() && self.system_b.is_initialized()
-    }
-
     fn update(&mut self, world: &World) {
         self.archetype_component_access.clear();
         self.resource_access.clear();

@@ -8,7 +8,6 @@ use std::{any::TypeId, borrow::Cow, sync::Arc};
 pub struct SystemState {
     pub(crate) id: SystemId,
     pub(crate) name: Cow<'static, str>,
-    pub(crate) is_initialized: bool,
     pub(crate) archetype_component_access: TypeAccess<ArchetypeComponent>,
     pub(crate) resource_access: TypeAccess<TypeId>,
     pub(crate) local_resource_access: TypeAccess<TypeId>,
@@ -129,11 +128,6 @@ impl<Input: 'static, Output: 'static> System for FuncSystem<Input, Output> {
 
     fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
         (self.init_func)(&mut self.state, world, resources);
-        self.state.is_initialized = true;
-    }
-
-    fn is_initialized(&self) -> bool {
-        self.state.is_initialized
     }
 }
 
@@ -163,7 +157,6 @@ macro_rules! impl_into_system {
                         archetype_component_access: TypeAccess::default(),
                         resource_access: TypeAccess::default(),
                         local_resource_access: TypeAccess::default(),
-                        is_initialized: false,
                         id: SystemId::new(),
                         commands: Commands::default(),
                         arc_commands: Default::default(),

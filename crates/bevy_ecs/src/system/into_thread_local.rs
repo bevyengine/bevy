@@ -54,10 +54,6 @@ impl System for ThreadLocalSystemFn {
     fn id(&self) -> SystemId {
         self.id
     }
-
-    fn is_initialized(&self) -> bool {
-        true
-    }
 }
 
 impl<F> IntoSystem<(&mut World, &mut Resources), ThreadLocalSystemFn> for F
