@@ -9,7 +9,7 @@ use std::hash::{Hash, Hasher};
 /// Component containing the name used to identify a entity. Keep in mind that
 /// multiple entities may have the same name.
 ///
-/// *NOTE* Once created you can't change it's contents because this `Name`
+/// **NOTE** Once created you can't change it's contents because this `Name`
 /// component also stores the string hash to drastically improve performance comparison
 #[derive(Debug, Clone, Properties)]
 pub struct Name {

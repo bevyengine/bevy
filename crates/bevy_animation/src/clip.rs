@@ -78,7 +78,7 @@ impl Clip {
                     continue;
                 }
 
-                let property_name = self.properties[entry.property_index as usize];
+                let property_name = &self.properties[entry.property_index as usize];
                 let mid = target_name.len().min(property_name.len());
                 let (head0, tail0) = property_name.split_at(mid);
                 let (head1, tail1) = target_name.split_at(mid);
@@ -203,5 +203,77 @@ impl Clip {
     #[inline(always)]
     pub fn get(&self, curve_index: u16) -> Option<&CurveUntyped> {
         self.curves.get(curve_index as usize)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::curve::Curve;
+    use bevy_math::prelude::*;
+
+    #[test]
+    fn create_clip() {
+        let mut clip = Clip::default();
+        let curve = Curve::from_linear(0.0, 1.0, 0.0, 1.0);
+        let prop = "/Root/Ball@Sphere.radius";
+        clip.add_animated_prop(prop, CurveUntyped::Float(curve));
+        assert_eq!(clip.get_property_path(0), prop);
+    }
+
+    #[test]
+    fn clip_replace_property() {
+        // NOTE: This test is very important because it guarantees that each property have unique
+        // access to some attribute during the update stages
+        let mut clip = Clip::default();
+        let prop = "/Root/Ball@Sphere.radius";
+        clip.add_animated_prop(
+            "/Root/Ball@Transform.translate.y",
+            CurveUntyped::Float(Curve::from_linear(0.0, 1.0, 0.0, 1.0)),
+        );
+        clip.add_animated_prop(
+            prop,
+            CurveUntyped::Float(Curve::from_linear(0.0, 1.0, 0.0, 1.0)),
+        );
+        assert_eq!(clip.duration(), 1.0);
+        clip.add_animated_prop(
+            prop,
+            CurveUntyped::Float(Curve::from_linear(0.0, 1.2, 0.1, 2.0)),
+        );
+        assert_eq!(clip.len(), 2);
+        assert_eq!(clip.get_property_path(1), prop);
+        assert_eq!(clip.duration(), 1.2);
+    }
+
+    #[test]
+    fn clip_fine_grain_properties() {
+        let mut clip = Clip::default();
+        clip.add_animated_prop(
+            "/Root/Ball@Transform.translate.y",
+            CurveUntyped::Float(Curve::from_linear(0.0, 1.0, 0.0, 1.0)),
+        );
+        assert_eq!(clip.duration(), 1.0);
+        clip.add_animated_prop(
+            "/Root/Ball@Transform.translate.x",
+            CurveUntyped::Float(Curve::from_linear(0.0, 1.2, 0.0, 2.0)),
+        );
+        assert_eq!(clip.len(), 2);
+        assert_eq!(clip.duration(), 1.2);
+    }
+
+    #[test]
+    #[should_panic]
+    fn clip_nested_properties() {
+        // Maybe required by `bevy_reflect` this guarantees are necessary
+        // because the way we execute
+        let mut clip = Clip::default();
+        clip.add_animated_prop(
+            "/Root/Ball@Transform.translate",
+            CurveUntyped::Vec3(Curve::from_linear(0.0, 1.0, Vec3::zero(), Vec3::unit_y())),
+        );
+        clip.add_animated_prop(
+            "/Root/Ball@Transform.translate.x",
+            CurveUntyped::Float(Curve::from_linear(0.0, 1.2, 0.0, 2.0)),
+        );
     }
 }

@@ -46,14 +46,36 @@ impl Default for Layer {
 pub struct Animator {
     clips: Vec<Handle<Clip>>,
     #[property(ignore)]
-    bind_clips: Vec<ClipBind>,
+    bind_clips: Vec<Bind>,
     pub time_scale: f32,
     pub layers: Vec<Layer>,
 }
 
 #[derive(Default, Debug)]
-struct ClipBind {
+struct Bind {
     entities: Vec<Option<Entity>>,
+}
+
+impl Animator {
+    pub fn animate<'a>(&'a mut self) -> LayerIterator<'a> {
+        LayerIterator {
+            index: 0,
+            animator: self,
+        }
+    }
+}
+
+pub struct LayerIterator<'a> {
+    index: usize,
+    animator: &'a mut Animator,
+}
+
+impl<'a> Iterator for LayerIterator<'a> {
+    type Item = (&'a mut Layer, &'a Handle<Clip>, &'a [Option<Entity>]);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        todo!()
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -88,7 +110,7 @@ pub(crate) fn animator_udpate(
         // Make run for the binds
         animator
             .bind_clips
-            .resize_with(animator.clips.len(), ClipBind::default);
+            .resize_with(animator.clips.len(), Bind::default);
 
         for (clip_index, clip_handle) in animator.clips.iter().enumerate() {
             if let Some(clip) = clips.get(clip_handle) {
@@ -152,116 +174,90 @@ pub(crate) fn animator_udpate(
     }
 }
 
-// pub(crate) fn animator_transform_update(
-//     clips: Res<Assets<Clip>>,
-//     mut animators_query: Query<(&mut Animator,)>,
-//     mut transform_query: Query<(&mut Transform,)>,
-// ) {
-//     const TRANSLATION: Name = Name::from_str("Transform.translation");
-//     const ROTATION: Name = Name::from_str("Transform.rotation");
-//     const SCALE: Name = Name::from_str("Transform.scale");
+pub(crate) fn animator_transform_update(
+    clips: Res<Assets<Clip>>,
+    mut animators_query: Query<(&mut Animator,)>,
+    mut transform_query: Query<(&mut Transform,)>,
+) {
+    // TODO: Make const
+    let TRANSLATION: Name = Name::from_str("Transform.translation");
+    let ROTATION: Name = Name::from_str("Transform.rotation");
+    let SCALE: Name = Name::from_str("Transform.scale");
 
-//     for (mut animator,) in animators_query.iter_mut() {
-//         let animator = &mut *animator;
+    // let mut visited = fnv::FnvHashSet::default();
 
-//         for layer in &mut animator.layers {
-//             let w = layer.weight;
-//             if w < 1.0e-8 {
-//                 continue;
-//             }
+    // let viz = if visited.contains(&ptr) {
+    //     true
+    // } else {
+    //     visited.insert(*ptr);
+    //     false
+    // };
 
-//             let time = layer.time;
-//             let clip_index = layer.clip_index as usize;
+    for (mut animator,) in animators_query.iter_mut() {
+        let animator = &mut *animator;
+        // visited.clear();
 
-//             if let Some(bind) = animator.bind_clips.get(clip_index) {
-//                 if let Some(clip_handle) = animator.clips.get(clip_index) {
-//                     if let Some(clip) = clips.get(clip_handle) {
-//                         // Fetch properties indexes for this particular clip
-//                         let mut translation = u16::MAX;
-//                         let mut rotation = u16::MAX;
-//                         let mut scale = u16::MAX;
+        for (layer, clip_handle, entities) in animator.animate() {
+            let w = layer.weight;
+            if w < 1.0e-8 {
+                continue;
+            }
 
-//                         for (property_index, prop_name) in clip.properties().iter().enumerate() {
-//                             if prop_name == &TRANSLATION {
-//                                 translation = property_index as u16;
-//                             } else if prop_name == &ROTATION {
-//                                 rotation = property_index as u16;
-//                             } else if prop_name == &SCALE {
-//                                 scale = property_index as u16;
-//                             }
-//                         }
+            let time = layer.time;
 
-//                         // if let Some(clip_props) = clip_props.get(clip_handle) {
-//                         //     // Update properties
-//                         //     for prop in clip_props.get("Transform.translation").unwrap_or(&[]) {
-//                         //         if let Some(entity) = bind.entities[prop.entity_index as usize] {
-//                         //             let curve_index = prop.curve_index as usize;
-//                         //             match &clip.curves[curve_index] {
-//                         //                 CurveUntyped::Vec3(curve) => {
-//                         //                     // TODO: Expensive query
-//                         //                     if let Ok((mut transform,)) =
-//                         //                         transform_query.get_mut(entity)
-//                         //                     {
-//                         //                         let (k, v) = curve.sample_indexed(
-//                         //                             layer.keyframe[curve_index],
-//                         //                             time,
-//                         //                         );
-//                         //                         transform.translation = v;
-//                         //                         layer.keyframe[curve_index] = k;
-//                         //                     }
-//                         //                 }
-//                         //                 _ => {}
-//                         //             }
-//                         //         }
-//                         //     }
+            if let Some(clip) = clips.get(clip_handle) {
+                // Fetch properties indexes for this particular clip
+                let mut translation = u16::MAX;
+                let mut rotation = u16::MAX;
+                let mut scale = u16::MAX;
 
-//                         //     for prop in clip_props.get("Transform.rotation").unwrap_or(&[]) {
-//                         //         if let Some(entity) = bind.entities[prop.entity_index as usize] {
-//                         //             let curve_index = prop.curve_index as usize;
-//                         //             match &clip.curves[curve_index] {
-//                         //                 CurveUntyped::Quat(curve) => {
-//                         //                     // TODO: Expensive query
-//                         //                     if let Ok((mut transform,)) =
-//                         //                         transform_query.get_mut(entity)
-//                         //                     {
-//                         //                         let (k, v) = curve.sample_indexed(
-//                         //                             layer.keyframe[curve_index],
-//                         //                             time,
-//                         //                         );
-//                         //                         transform.rotation = v;
-//                         //                         layer.keyframe[curve_index] = k;
-//                         //                     }
-//                         //                 }
-//                         //                 _ => {}
-//                         //             }
-//                         //         }
-//                         //     }
+                for (property_index, prop_name) in clip.properties().iter().enumerate() {
+                    if translation == u16::MAX && prop_name == &TRANSLATION {
+                        translation = property_index as u16;
+                    } else if rotation == u16::MAX && prop_name == &ROTATION {
+                        rotation = property_index as u16;
+                    } else if scale == u16::MAX && prop_name == &SCALE {
+                        scale = property_index as u16;
+                    }
+                }
 
-//                         //     for prop in clip_props.get("Transform.scale").unwrap_or(&[]) {
-//                         //         if let Some(entity) = bind.entities[prop.entity_index as usize] {
-//                         //             let curve_index = prop.curve_index as usize;
-//                         //             match &clip.curves[curve_index] {
-//                         //                 CurveUntyped::Vec3(curve) => {
-//                         //                     // TODO: Expensive query
-//                         //                     if let Ok((mut transform,)) =
-//                         //                         transform_query.get_mut(entity)
-//                         //                     {
-//                         //                         let (k, v) = curve.sample_indexed(
-//                         //                             layer.keyframe[curve_index],
-//                         //                             time,
-//                         //                         );
-//                         //                         transform.scale = v;
-//                         //                         layer.keyframe[curve_index] = k;
-//                         //                     }
-//                         //                 }
-//                         //                 _ => {}
-//                         //             }
-//                         //         }
-//                         //     }
-//                         // }
-//                     }
-//                 }
-//             }
-//         }
-//     }
-// }
+                for (curve_index, (entry, curve)) in clip.curves().enumerate() {
+                    if entry.property_index != translation
+                        || entry.property_index != rotation
+                        || entry.property_index != scale
+                    {
+                        continue;
+                    }
+
+                    if let Some(entity) = entities[entry.entity_index as usize] {
+                        // Entity found
+                        if let Ok((mut transform,)) = transform_query.get_mut(entity) {
+                            if entry.property_index == translation {
+                                if let CurveUntyped::Vec3(curve) = curve {
+                                    let (k, v) =
+                                        curve.sample_indexed(layer.keyframe[curve_index], time);
+                                    transform.translation = v;
+                                    layer.keyframe[curve_index] = k;
+                                }
+                            } else if entry.property_index == rotation {
+                                if let CurveUntyped::Quat(curve) = curve {
+                                    let (k, v) =
+                                        curve.sample_indexed(layer.keyframe[curve_index], time);
+                                    transform.rotation = v;
+                                    layer.keyframe[curve_index] = k;
+                                }
+                            } else if entry.property_index == scale {
+                                if let CurveUntyped::Vec3(curve) = curve {
+                                    let (k, v) =
+                                        curve.sample_indexed(layer.keyframe[curve_index], time);
+                                    transform.scale = v;
+                                    layer.keyframe[curve_index] = k;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

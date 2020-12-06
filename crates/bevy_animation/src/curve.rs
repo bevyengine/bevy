@@ -196,3 +196,44 @@ where
         std::mem::size_of::<T>()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn curve_evaluation() {
+        let curve = Curve::new(
+            vec![0.0, 0.25, 0.5, 0.75, 1.0],
+            vec![0.0, 0.5, 1.0, 1.5, 2.0],
+        );
+        assert_eq!(curve.sample(0.5), 1.0);
+
+        let mut i0 = 0;
+        let mut e0 = 0.0;
+        for v in &[0.1, 0.3, 0.7, 0.4, 0.2, 0.0, 0.4, 0.85, 1.0] {
+            let v = *v;
+            let (i1, e1) = curve.sample_indexed(i0, v);
+            assert_eq!(e1, 2.0 * v);
+            if e1 > e0 {
+                assert!(i1 >= i0);
+            } else {
+                assert!(i1 <= i0);
+            }
+            e0 = e1;
+            i0 = i1;
+        }
+    }
+
+    #[test]
+    #[should_panic]
+    fn curve_bad_length() {
+        let _ = Curve::new(vec![0.0, 0.5, 1.0], vec![0.0, 1.0]);
+    }
+
+    #[test]
+    #[should_panic]
+    fn curve_time_samples_not_sorted() {
+        let _ = Curve::new(vec![0.0, 1.5, 1.0], vec![0.0, 1.0, 2.0]);
+    }
+}

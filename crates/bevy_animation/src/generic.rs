@@ -351,6 +351,7 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
 
                 // Query component by name
                 // TODO: Log error instead of panic ...
+                let attr_path = &clip.properties()[entry.property_index as usize];
                 let mut path = attr_path.split('.');
                 let component_short_name = path.next().expect("missing component short name");
 
@@ -386,7 +387,7 @@ pub fn animator_binding_system(world: &mut World, resources: &mut Resources) {
                         *attr = find_property_ptr(
                             path,
                             root_props,
-                            clip.curves[attr_index].value_type(),
+                            clip.get(attr_index as u16).unwrap().value_type(),
                         );
 
                         // Clear binded bit if not fully binded
@@ -670,107 +671,6 @@ pub fn animator_update_system(world: &mut World, resources: &mut Resources) {
 mod tests {
     use super::*;
     use crate::curve::Curve;
-
-    #[test]
-    fn curve_evaluation() {
-        let curve = Curve::new(
-            vec![0.0, 0.25, 0.5, 0.75, 1.0],
-            vec![0.0, 0.5, 1.0, 1.5, 2.0],
-        );
-        assert_eq!(curve.sample(0.5), 1.0);
-
-        let mut i0 = 0;
-        let mut e0 = 0.0;
-        for v in &[0.1, 0.3, 0.7, 0.4, 0.2, 0.0, 0.4, 0.85, 1.0] {
-            let v = *v;
-            let (i1, e1) = curve.sample_indexed(i0, v);
-            assert_eq!(e1, 2.0 * v);
-            if e1 > e0 {
-                assert!(i1 >= i0);
-            } else {
-                assert!(i1 <= i0);
-            }
-            e0 = e1;
-            i0 = i1;
-        }
-    }
-
-    #[test]
-    #[should_panic]
-    fn curve_bad_length() {
-        let _ = Curve::new(vec![0.0, 0.5, 1.0], vec![0.0, 1.0]);
-    }
-
-    #[test]
-    #[should_panic]
-    fn curve_time_samples_not_sorted() {
-        let _ = Curve::new(vec![0.0, 1.5, 1.0], vec![0.0, 1.0, 2.0]);
-    }
-
-    #[test]
-    fn create_clip() {
-        let mut clip = Clip::default();
-        let curve = Curve::from_linear(0.0, 1.0, 0.0, 1.0);
-        let prop = "/Root/Ball@Sphere.radius";
-        clip.add_animated_prop(prop, CurveUntyped::Float(curve));
-        assert_eq!(clip.get_property_path(0), prop);
-    }
-
-    #[test]
-    fn clip_replace_property() {
-        // NOTE: This test is very important because it guarantees that each property have unique
-        // access to some attribute during the update stages
-        let mut clip = Clip::default();
-        let prop = "/Root/Ball@Sphere.radius";
-        clip.add_animated_prop(
-            "/Root/Ball@Transform.translate.y",
-            CurveUntyped::Float(Curve::from_linear(0.0, 1.0, 0.0, 1.0)),
-        );
-        clip.add_animated_prop(
-            prop,
-            CurveUntyped::Float(Curve::from_linear(0.0, 1.0, 0.0, 1.0)),
-        );
-        assert_eq!(clip.duration(), 1.0);
-        clip.add_animated_prop(
-            prop,
-            CurveUntyped::Float(Curve::from_linear(0.0, 1.2, 0.1, 2.0)),
-        );
-        assert_eq!(clip.len(), 2);
-        assert_eq!(clip.get_property_path(1), prop);
-        assert_eq!(clip.duration(), 1.2);
-    }
-
-    #[test]
-    fn clip_fine_grain_properties() {
-        let mut clip = Clip::default();
-        clip.add_animated_prop(
-            "/Root/Ball@Transform.translate.y",
-            CurveUntyped::Float(Curve::from_linear(0.0, 1.0, 0.0, 1.0)),
-        );
-        assert_eq!(clip.duration(), 1.0);
-        clip.add_animated_prop(
-            "/Root/Ball@Transform.translate.x",
-            CurveUntyped::Float(Curve::from_linear(0.0, 1.2, 0.0, 2.0)),
-        );
-        assert_eq!(clip.len(), 2);
-        assert_eq!(clip.duration(), 1.2);
-    }
-
-    #[test]
-    #[should_panic]
-    fn clip_nested_properties() {
-        // Maybe required by `bevy_reflect` this guarantees are necessary
-        // because the way we execute
-        let mut clip = Clip::default();
-        clip.add_animated_prop(
-            "/Root/Ball@Transform.translate",
-            CurveUntyped::Vec3(Curve::from_linear(0.0, 1.0, Vec3::zero(), Vec3::unit_y())),
-        );
-        clip.add_animated_prop(
-            "/Root/Ball@Transform.translate.x",
-            CurveUntyped::Float(Curve::from_linear(0.0, 1.2, 0.0, 2.0)),
-        );
-    }
 
     #[test]
     fn unhandled_properties_implementation_for_types() {
