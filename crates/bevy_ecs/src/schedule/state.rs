@@ -24,22 +24,22 @@ impl<T> Default for StateStage<T> {
 }
 
 impl<T: Eq + Hash> StateStage<T> {
-    pub fn with_enter<Params, S: IntoStage<Params>>(mut self, state: T, stage: S) -> Self {
-        self.set_enter(state, stage);
+    pub fn with_state_enter<Params, S: IntoStage<Params>>(mut self, state: T, stage: S) -> Self {
+        self.state_enter(state, stage);
         self
     }
 
-    pub fn with_exit<Params, S: IntoStage<Params>>(mut self, state: T, stage: S) -> Self {
-        self.set_exit(state, stage);
+    pub fn with_state_exit<Params, S: IntoStage<Params>>(mut self, state: T, stage: S) -> Self {
+        self.state_exit(state, stage);
         self
     }
 
-    pub fn with_update<Params, S: IntoStage<Params>>(mut self, state: T, stage: S) -> Self {
-        self.set_update(state, stage);
+    pub fn with_state_update<Params, S: IntoStage<Params>>(mut self, state: T, stage: S) -> Self {
+        self.state_update(state, stage);
         self
     }
 
-    pub fn set_enter<Params, S: IntoStage<Params>>(&mut self, state: T, stage: S) -> &mut Self {
+    pub fn state_enter<Params, S: IntoStage<Params>>(&mut self, state: T, stage: S) -> &mut Self {
         let stages = self
             .stages
             .entry(state)
@@ -48,7 +48,7 @@ impl<T: Eq + Hash> StateStage<T> {
         self
     }
 
-    pub fn set_exit<Params, S: IntoStage<Params>>(&mut self, state: T, stage: S) -> &mut Self {
+    pub fn state_exit<Params, S: IntoStage<Params>>(&mut self, state: T, stage: S) -> &mut Self {
         let stages = self
             .stages
             .entry(state)
@@ -57,7 +57,7 @@ impl<T: Eq + Hash> StateStage<T> {
         self
     }
 
-    pub fn set_update<Params, S: IntoStage<Params>>(&mut self, state: T, stage: S) -> &mut Self {
+    pub fn state_update<Params, S: IntoStage<Params>>(&mut self, state: T, stage: S) -> &mut Self {
         let stages = self
             .stages
             .entry(state)

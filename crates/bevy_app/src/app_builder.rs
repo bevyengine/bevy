@@ -233,7 +233,7 @@ impl AppBuilder {
     ) -> &mut Self {
         self.stage(
             &Self::state_stage_name::<T>(),
-            |state_stage: &mut StateStage<T>| state_stage.set_enter(value, stage),
+            |state_stage: &mut StateStage<T>| state_stage.state_enter(value, stage),
         )
     }
 
@@ -244,7 +244,7 @@ impl AppBuilder {
     ) -> &mut Self {
         self.stage(
             &Self::state_stage_name::<T>(),
-            |state_stage: &mut StateStage<T>| state_stage.set_update(value, stage),
+            |state_stage: &mut StateStage<T>| state_stage.state_update(value, stage),
         )
     }
 
@@ -255,7 +255,7 @@ impl AppBuilder {
     ) -> &mut Self {
         self.stage(
             &Self::state_stage_name::<T>(),
-            |state_stage: &mut StateStage<T>| state_stage.set_exit(value, stage),
+            |state_stage: &mut StateStage<T>| state_stage.state_exit(value, stage),
         )
     }
 
