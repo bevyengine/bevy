@@ -161,7 +161,7 @@ impl Window {
             .push(WindowCommand::SetMaximized { maximized });
     }
 
-    pub fn set_resolution(&mut self, width: f32, height: f32) {
+    pub fn set_resolution(&mut self, width: u32, height: u32) {
         self.physical_width = (width as f64 * self.scale_factor) as u32;
         self.physical_height = (height as f64 * self.scale_factor) as u32;
         self.command_queue.push(WindowCommand::SetResolution {
