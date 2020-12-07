@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-/// In this example we generate a new texture atlas (sprite sheet) from a folder containing individual sprites
+/// This example illustrates how to use States to control transitioning from a Menu state to an InGame state.
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
@@ -12,7 +12,9 @@ fn main() {
         .state_enter(AppState::InGame, setup_game)
         .state_update(
             AppState::InGame,
-            SystemStage::parallel().with_system(movement),
+            SystemStage::parallel()
+                .with_system(movement)
+                .with_system(change_color),
         )
         .run();
 }
@@ -21,6 +23,10 @@ fn main() {
 enum AppState {
     Menu,
     InGame,
+}
+
+struct MenuData {
+    button_entity: Entity,
 }
 
 fn setup_menu(
@@ -59,6 +65,9 @@ fn setup_menu(
                 ..Default::default()
             });
         });
+    commands.insert_resource(MenuData {
+        button_entity: commands.current_entity().unwrap(),
+    });
 }
 
 fn menu(
@@ -85,8 +94,8 @@ fn menu(
     }
 }
 
-fn cleanup_menu() {
-    println!("cleanup");
+fn cleanup_menu(commands: &mut Commands, menu_data: Res<MenuData>) {
+    commands.despawn_recursive(menu_data.button_entity);
 }
 
 fn setup_game(
@@ -103,12 +112,44 @@ fn setup_game(
         });
 }
 
+const SPEED: f32 = 100.0;
 fn movement(
-    commands: &mut Commands,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    time: Res<Time>,
+    input: Res<Input<KeyCode>>,
+    mut query: Query<&mut Transform, With<Sprite>>,
 ) {
-    println!("moving")
+    for mut transform in query.iter_mut() {
+        let mut direction = Vec3::default();
+        if input.pressed(KeyCode::Left) {
+            direction.x += 1.0;
+        }
+        if input.pressed(KeyCode::Right) {
+            direction.x -= 1.0;
+        }
+        if input.pressed(KeyCode::Up) {
+            direction.y += 1.0;
+        }
+        if input.pressed(KeyCode::Down) {
+            direction.y -= 1.0;
+        }
+
+        if direction != Vec3::default() {
+            transform.translation += direction.normalize() * SPEED * time.delta_seconds();
+        }
+    }
+}
+
+fn change_color(
+    time: Res<Time>,
+    mut assets: ResMut<Assets<ColorMaterial>>,
+    query: Query<&Handle<ColorMaterial>, With<Sprite>>,
+) {
+    for handle in query.iter() {
+        let material = assets.get_mut(handle).unwrap();
+        material
+            .color
+            .set_b((time.seconds_since_startup() * 5.0).sin() as f32 + 2.0);
+    }
 }
 
 struct ButtonMaterials {
