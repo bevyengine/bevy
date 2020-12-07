@@ -375,6 +375,8 @@ pub(crate) fn animator_update_system(
             if let Some(clip) = clips.get(clip_handle) {
                 let bind = &mut animator.bind_clips[clip_index];
 
+                // TODO: Don't look for the entities every frame, only when something happens
+
                 // Prepare the entities table cache
                 bind.entities.clear();
                 bind.entities.resize(clip.hierarchy().len(), None);
@@ -471,6 +473,9 @@ impl<'a> AnimatorBlendGroup<'a> {
     }
 }
 
+// TODO: This should be auto derived using the "Animated" trait that just returns
+// a system able to animate the said component. Use "AnimatedAsset" for asset handles!
+
 #[tracing::instrument(skip(clips, animators_query, transform_query))]
 pub(crate) fn animator_transform_update_system(
     clips: Res<Assets<Clip>>,
@@ -494,6 +499,9 @@ pub(crate) fn animator_transform_update_system(
 
                 // ~15us
                 components.clear();
+
+                // TODO: Merge all the clips hierarchy into a single bigger one
+                // and do the component feching once per animator, instead of per clip
 
                 // SAFETY: Pre-fetch all transforms to avoid calling get_mut multiple times
                 // this is safe because it doesn't change the safe logic
