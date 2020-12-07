@@ -48,12 +48,12 @@ fn bounce_system(
     mut sprites: Query<(&Transform, &mut Velocity)>,
 ) {
     let window = windows.get_primary().expect("No primary window.");
-    let width = window.width();
-    let height = window.height();
-    let left = width as f32 / -2.0;
-    let right = width as f32 / 2.0;
-    let bottom = height as f32 / -2.0;
-    let top = height as f32 / 2.0;
+    let width = window.logical_width();
+    let height = window.logical_height();
+    let left = width / -2.0;
+    let right = width / 2.0;
+    let bottom = height / -2.0;
+    let top = height / 2.0;
     sprites
         // Batch size of 32 is chosen to limit the overhead of
         // ParallelIterator, since negating a vector is very inexpensive.

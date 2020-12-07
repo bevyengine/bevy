@@ -67,9 +67,15 @@ fn change_window(_: &mut World, resources: &mut Resources) {
                     let window = winit_windows.get_window(id).unwrap();
                     window.set_title(&title);
                 }
-                bevy_window::WindowCommand::SetResolution { width, height } => {
+                bevy_window::WindowCommand::SetResolution {
+                    physical_width,
+                    physical_height,
+                } => {
                     let window = winit_windows.get_window(id).unwrap();
-                    window.set_inner_size(winit::dpi::LogicalSize::new(width, height));
+                    window.set_inner_size(winit::dpi::PhysicalSize::new(
+                        physical_width,
+                        physical_height,
+                    ));
                 }
                 bevy_window::WindowCommand::SetVsync { .. } => (),
                 bevy_window::WindowCommand::SetResizable { resizable } => {
@@ -197,17 +203,15 @@ pub fn winit_runner(mut app: App) {
                     let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
                     let mut windows = app.resources.get_mut::<Windows>().unwrap();
                     let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
-                    let winit_window = winit_windows.get_window(window_id).unwrap();
                     let window = windows.get_mut(window_id).unwrap();
-                    let size = size.to_logical(winit_window.scale_factor());
-                    window.update_resolution_from_backend(size.width, size.height);
+                    window.update_physical_size_from_backend(size.width, size.height);
 
                     let mut resize_events =
                         app.resources.get_mut::<Events<WindowResized>>().unwrap();
                     resize_events.send(WindowResized {
                         id: window_id,
-                        height: window.height() as usize,
-                        width: window.width() as usize,
+                        height: window.logical_height(),
+                        width: window.logical_width(),
                     });
                 }
                 WindowEvent::CloseRequested => {
@@ -305,8 +309,8 @@ pub fn winit_runner(mut app: App) {
 
                     // FIXME?: On Android window start is top while on PC/Linux/OSX on bottom
                     if cfg!(target_os = "android") {
-                        let window_height = windows.get_primary().unwrap().height();
-                        location.y = window_height as f32 - location.y;
+                        let window_height = windows.get_primary().unwrap().logical_height();
+                        location.y = window_height - location.y;
                     }
                     touch_input_events.send(converters::convert_touch_input(touch, location));
                 }
@@ -332,9 +336,11 @@ pub fn winit_runner(mut app: App) {
                     let mut windows = app.resources.get_mut::<Windows>().unwrap();
                     let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
                     let window = windows.get_mut(window_id).unwrap();
-                    let size = new_inner_size.to_logical(scale_factor);
+                    window.update_physical_size_from_backend(
+                        new_inner_size.width,
+                        new_inner_size.height,
+                    );
                     window.update_scale_factor_from_backend(scale_factor);
-                    window.update_resolution_from_backend(size.width, size.height);
                 }
                 WindowEvent::Focused(focused) => {
                     let mut focused_events =

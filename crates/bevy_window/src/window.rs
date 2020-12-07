@@ -35,8 +35,8 @@ impl Default for WindowId {
 #[derive(Debug)]
 pub struct Window {
     id: WindowId,
-    width: u32,
-    height: u32,
+    physical_width: u32,
+    physical_height: u32,
     title: String,
     vsync: bool,
     resizable: bool,
@@ -61,8 +61,8 @@ pub enum WindowCommand {
         title: String,
     },
     SetResolution {
-        width: u32,
-        height: u32,
+        physical_width: u32,
+        physical_height: u32,
     },
     SetVsync {
         vsync: bool,
@@ -103,8 +103,8 @@ impl Window {
     pub fn new(id: WindowId, window_descriptor: &WindowDescriptor) -> Self {
         Window {
             id,
-            height: window_descriptor.height,
-            width: window_descriptor.width,
+            physical_height: window_descriptor.height,
+            physical_width: window_descriptor.width,
             title: window_descriptor.title.clone(),
             vsync: window_descriptor.vsync,
             resizable: window_descriptor.resizable,
@@ -127,20 +127,32 @@ impl Window {
 
     #[inline]
     pub fn width(&self) -> u32 {
-        self.width
-    }
-
-    pub fn scaled_width(&self) -> u32 {
-        (self.width as f64 * self.scale_factor) as u32
-    }
-
-    pub fn scaled_height(&self) -> u32 {
-        (self.height as f64 * self.scale_factor) as u32
+        self.logical_width() as u32
     }
 
     #[inline]
     pub fn height(&self) -> u32 {
-        self.height
+        self.logical_height() as u32
+    }
+
+    #[inline]
+    pub fn logical_width(&self) -> f32 {
+        (self.physical_width as f64 / self.scale_factor) as f32
+    }
+
+    #[inline]
+    pub fn logical_height(&self) -> f32 {
+        (self.physical_height as f64 / self.scale_factor) as f32
+    }
+
+    #[inline]
+    pub fn physical_width(&self) -> u32 {
+        self.physical_width
+    }
+
+    #[inline]
+    pub fn physical_height(&self) -> u32 {
+        self.physical_height
     }
 
     #[inline]
@@ -150,17 +162,19 @@ impl Window {
     }
 
     pub fn set_resolution(&mut self, width: u32, height: u32) {
-        self.width = width;
-        self.height = height;
-        self.command_queue
-            .push(WindowCommand::SetResolution { width, height });
+        self.physical_width = (width as f64 * self.scale_factor) as u32;
+        self.physical_height = (height as f64 * self.scale_factor) as u32;
+        self.command_queue.push(WindowCommand::SetResolution {
+            physical_width: self.physical_width,
+            physical_height: self.physical_height,
+        });
     }
 
     #[allow(missing_docs)]
     #[inline]
-    pub fn update_resolution_from_backend(&mut self, width: u32, height: u32) {
-        self.width = width;
-        self.height = height;
+    pub fn update_physical_size_from_backend(&mut self, width: u32, height: u32) {
+        self.physical_width = width;
+        self.physical_height = height;
     }
 
     #[allow(missing_docs)]
@@ -265,7 +279,7 @@ impl Window {
         self.mode = mode;
         self.command_queue.push(WindowCommand::SetWindowMode {
             mode,
-            resolution: (self.width, self.height),
+            resolution: (self.physical_width, self.physical_height),
         });
     }
 
