@@ -36,10 +36,13 @@ impl RenderResourceBinding {
     }
 
     pub fn is_dynamic_buffer(&self) -> bool {
-        matches!(self, RenderResourceBinding::Buffer {
-            dynamic_index: Some(_),
-            ..
-        })
+        matches!(
+            self,
+            RenderResourceBinding::Buffer {
+                dynamic_index: Some(_),
+                ..
+            }
+        )
     }
 
     pub fn get_sampler(&self) -> Option<SamplerId> {
@@ -239,10 +242,13 @@ impl RenderResourceBindings {
         self.bindings
             .iter()
             .filter(|(_, binding)| {
-                matches!(binding, RenderResourceBinding::Buffer {
-                    dynamic_index: Some(_),
-                    ..
-                })
+                matches!(
+                    binding,
+                    RenderResourceBinding::Buffer {
+                        dynamic_index: Some(_),
+                        ..
+                    }
+                )
             })
             .map(|(name, _)| name.as_str())
     }
