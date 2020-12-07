@@ -31,7 +31,7 @@ pub struct SceneSpawner {
     dynamic_scenes_to_spawn: Vec<Handle<DynamicScene>>,
     scenes_to_spawn: Vec<(Handle<Scene>, InstanceId)>,
     scenes_to_despawn: Vec<Handle<DynamicScene>>,
-    scenes_to_root: Vec<(InstanceId, Entity)>,
+    scenes_with_parent: Vec<(InstanceId, Entity)>,
 }
 
 #[derive(Error, Debug)]
@@ -59,7 +59,7 @@ impl SceneSpawner {
     pub fn spawn_as_child(&mut self, scene_handle: Handle<Scene>, parent: Entity) {
         let instance_id = InstanceId::new();
         self.scenes_to_spawn.push((scene_handle, instance_id));
-        self.scenes_to_root.push((instance_id, parent));
+        self.scenes_with_parent.push((instance_id, parent));
     }
 
     pub fn despawn(&mut self, scene_handle: Handle<DynamicScene>) {
@@ -287,27 +287,22 @@ impl SceneSpawner {
         Ok(())
     }
 
-    pub(crate) fn set_scene_instance_root_sync(
-        &mut self,
-        world: &mut World,
-    ) -> Result<(), SceneSpawnError> {
-        let scenes_to_root = std::mem::take(&mut self.scenes_to_root);
+    pub(crate) fn set_scene_instance_parent_sync(&mut self, world: &mut World) {
+        let scenes_with_parent = std::mem::take(&mut self.scenes_with_parent);
 
-        for (instance_id, new_root) in scenes_to_root {
+        for (instance_id, parent) in scenes_with_parent {
             if let Some(instance) = self.spawned_instances.get(&instance_id) {
                 for entity in instance.entity_map.values() {
                     if let Err(bevy_ecs::ComponentError::MissingComponent(_)) =
                         world.get::<Parent>(entity)
                     {
-                        let _ = world.insert_one(entity, Parent(new_root));
+                        let _ = world.insert_one(entity, Parent(parent));
                     }
                 }
             } else {
-                self.scenes_to_root.push((instance_id, new_root));
+                self.scenes_with_parent.push((instance_id, parent));
             }
         }
-
-        Ok(())
     }
 }
 
@@ -334,5 +329,5 @@ pub fn scene_spawner_system(world: &mut World, resources: &mut Resources) {
     scene_spawner
         .update_spawned_scenes(world, resources, &updated_spawned_scenes)
         .unwrap();
-    scene_spawner.set_scene_instance_root_sync(world).unwrap();
+    scene_spawner.set_scene_instance_parent_sync(world);
 }
