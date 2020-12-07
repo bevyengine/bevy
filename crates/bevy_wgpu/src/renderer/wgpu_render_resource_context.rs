@@ -12,7 +12,7 @@ use bevy_render::{
         BindGroup, BufferId, BufferInfo, RenderResourceBinding, RenderResourceContext,
         RenderResourceId, SamplerId, TextureId,
     },
-    shader::{glsl_to_spirv, Shader, ShaderSource},
+    shader::{glsl_to_spirv, Shader, ShaderError, ShaderSource},
     texture::{Extent3d, SamplerDescriptor, TextureDescriptor},
 };
 use bevy_utils::tracing::trace;
@@ -251,7 +251,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
     fn create_shader_module_from_source(&self, shader_handle: &Handle<Shader>, shader: &Shader) {
         let mut shader_modules = self.resources.shader_modules.write();
-        let spirv: Cow<[u32]> = shader.get_spirv(None).into();
+        let spirv: Cow<[u32]> = shader.get_spirv(None).unwrap().into();
         let shader_module = self
             .device
             .create_shader_module(wgpu::ShaderModuleSource::SpirV(spirv));
@@ -574,14 +574,18 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         }
     }
 
-    fn get_specialized_shader(&self, shader: &Shader, macros: Option<&[String]>) -> Shader {
+    fn get_specialized_shader(
+        &self,
+        shader: &Shader,
+        macros: Option<&[String]>,
+    ) -> Result<Shader, ShaderError> {
         let spirv_data = match shader.source {
             ShaderSource::Spirv(ref bytes) => bytes.clone(),
-            ShaderSource::Glsl(ref source) => glsl_to_spirv(&source, shader.stage, macros),
+            ShaderSource::Glsl(ref source) => glsl_to_spirv(&source, shader.stage, macros)?,
         };
-        Shader {
+        Ok(Shader {
             source: ShaderSource::Spirv(spirv_data),
             ..*shader
-        }
+        })
     }
 }

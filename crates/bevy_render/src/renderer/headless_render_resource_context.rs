@@ -2,7 +2,7 @@ use super::RenderResourceContext;
 use crate::{
     pipeline::{BindGroupDescriptorId, PipelineDescriptor},
     renderer::{BindGroup, BufferId, BufferInfo, RenderResourceId, SamplerId, TextureId},
-    shader::Shader,
+    shader::{Shader, ShaderError},
     texture::{SamplerDescriptor, TextureDescriptor},
 };
 use bevy_asset::{Assets, Handle, HandleUntyped};
@@ -149,8 +149,12 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         size
     }
 
-    fn get_specialized_shader(&self, shader: &Shader, _macros: Option<&[String]>) -> Shader {
-        shader.clone()
+    fn get_specialized_shader(
+        &self,
+        shader: &Shader,
+        _macros: Option<&[String]>,
+    ) -> Result<Shader, ShaderError> {
+        Ok(shader.clone())
     }
 
     fn remove_stale_bind_groups(&self) {}
