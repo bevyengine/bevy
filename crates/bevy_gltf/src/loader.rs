@@ -263,7 +263,9 @@ async fn load_gltf<'a, 'b>(
         clip.warp = true; // Enable warping by default
 
         let mut start_time = f32::MAX;
-        let mut clip_curves = vec![];
+
+        let mut clip_curves_rotation = vec![];
+        let mut clip_curves_translation_and_scale = vec![];
 
         // Each chanel defines how to sample the data and where it will be written
         for channel in animation.channels() {
@@ -299,29 +301,22 @@ async fn load_gltf<'a, 'b>(
                 ReadOutputs::Translations(values) => {
                     let values = values.map(|v| Vec3::from(v)).collect::<Vec<_>>();
                     property_path += "@Transform.translation";
-                    clip_curves.push((
-                        property_path,
-                        CurveUntyped::Vec3(Curve::new(time_stamps, values)),
-                    ));
+                    clip_curves_translation_and_scale
+                        .push((property_path, Curve::new(time_stamps, values)));
 
                     // TODO: This is a runtime importer so here's no place for further optimizations
                 }
                 ReadOutputs::Rotations(values) => {
                     let values = values.into_f32().map(|v| Quat::from(v)).collect::<Vec<_>>();
                     property_path += "@Transform.rotation";
-                    clip_curves.push((
-                        property_path,
-                        CurveUntyped::Quat(Curve::new(time_stamps, values)),
-                    ));
+                    clip_curves_rotation.push((property_path, Curve::new(time_stamps, values)));
                 }
                 ReadOutputs::Scales(values) => {
                     let values = values.map(|v| Vec3::from(v)).collect::<Vec<_>>();
 
                     property_path += "@Transform.scale";
-                    clip_curves.push((
-                        property_path,
-                        CurveUntyped::Vec3(Curve::new(time_stamps, values)),
-                    ));
+                    clip_curves_translation_and_scale
+                        .push((property_path, Curve::new(time_stamps, values)));
                 }
                 ReadOutputs::MorphTargetWeights(_) => {
                     unimplemented!("morph targets aren't current supported")
@@ -330,8 +325,15 @@ async fn load_gltf<'a, 'b>(
         }
 
         // Make sure the start frame is always 0.0
-        for (property_path, mut curve) in clip_curves {
-            curve.add_time_offset(-start_time);
+        for (property_path, mut curve) in clip_curves_rotation {
+            Curve::<Quat>::add_offset_time(&mut curve, -start_time);
+            //curve.add_time_offset(-start_time);
+            clip.add_animated_prop(&property_path, curve);
+        }
+
+        for (property_path, mut curve) in clip_curves_translation_and_scale {
+            Curve::<Vec3>::add_offset_time(&mut curve, -start_time);
+            //curve.add_time_offset(-start_time);
             clip.add_animated_prop(&property_path, curve);
         }
 

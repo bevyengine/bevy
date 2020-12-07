@@ -6,7 +6,7 @@ use bevy_type_registry::RegisterType;
 mod custom;
 //mod generic;
 
-pub mod clip;
+//pub mod clip;
 pub mod curve;
 mod hierarchy;
 pub mod lerping;
@@ -18,9 +18,10 @@ pub use crate::hierarchy::Hierarchy;
 pub use crate::skinned_mesh::*;
 
 pub mod prelude {
-    pub use crate::clip::Clip;
-    pub use crate::curve::*;
+    //pub use crate::clip::Clip;
+    pub use crate::curve::{Curve, CurveUntyped};
     pub use crate::custom::Animator;
+    pub use crate::custom::Clip;
     //pub use crate::generic::Animator;
     pub use crate::hierarchy::Hierarchy;
     pub use crate::lerping::LerpValue;
@@ -41,9 +42,9 @@ impl Plugin for AnimationPlugin {
         app.add_stage_after(stage::UPDATE, stage::ANIMATE);
 
         // Generic animation
-        app.add_asset::<clip::Clip>()
+        app.add_asset::<prelude::Clip>()
             //.add_asset_loader(ClipLoader)
-            .register_component::<Animator>()
+            .register_component::<prelude::Animator>()
             // .add_system_to_stage(stage::ANIMATE, animator_binding_system)
             // .add_system_to_stage(stage::ANIMATE, animator_update_system);
             .add_system_to_stage(stage::ANIMATE, animator_update_system)

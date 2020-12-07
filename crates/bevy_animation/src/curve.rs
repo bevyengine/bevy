@@ -64,10 +64,7 @@ impl<T: Clone> Clone for Curve<T> {
     }
 }
 
-impl<T> Curve<T>
-where
-    T: LerpValue + Clone + 'static,
-{
+impl<T> Curve<T> {
     pub fn new(samples: Vec<f32>, values: Vec<T>) -> Self {
         // TODO: Result?
 
@@ -104,10 +101,34 @@ where
         }
     }
 
+    // pub fn insert(&mut self, time_sample: f32, value: T) {
+    // }
+
+    // pub fn remove(&mut self, index: usize) {
+    //assert!(samples.len() > 1, "curve can't be empty");
+    // }
+
     pub fn duration(&self) -> f32 {
         self.samples.last().copied().unwrap_or(0.0)
     }
 
+    pub fn add_offset_time(&mut self, time_offset: f32) {
+        self.samples.iter_mut().for_each(|t| *t += time_offset);
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (f32, &T)> {
+        self.samples.iter().copied().zip(self.values.iter())
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (f32, &mut T)> {
+        self.samples.iter().copied().zip(self.values.iter_mut())
+    }
+}
+
+impl<T> Curve<T>
+where
+    T: LerpValue + Clone + 'static,
+{
     /// Easer to use sampling method that don't have time restrictions or needs
     /// the keyframe index, but is more expensive always `O(n)`. Which means
     /// sampling takes longer to evaluate as much as time get closer to curve duration
@@ -165,25 +186,6 @@ where
         let value = T::lerp(&self.values[i], &self.values[index], t);
 
         (index, value)
-    }
-
-    pub fn add_offset_time(&mut self, time_offset: f32) {
-        self.samples.iter_mut().for_each(|t| *t += time_offset);
-    }
-
-    // pub fn insert(&mut self, time_sample: f32, value: T) {
-    // }
-
-    // pub fn remove(&mut self, index: usize) {
-    //assert!(samples.len() > 1, "curve can't be empty");
-    // }
-
-    pub fn iter(&self) -> impl Iterator<Item = (f32, &T)> {
-        self.samples.iter().copied().zip(self.values.iter())
-    }
-
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (f32, &mut T)> {
-        self.samples.iter().copied().zip(self.values.iter_mut())
     }
 
     #[inline(always)]
