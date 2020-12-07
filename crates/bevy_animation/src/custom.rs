@@ -201,6 +201,12 @@ impl Clip {
         &self.hierarchy
     }
 
+    /// Get the curves an given property
+    #[inline(always)]
+    pub fn get(&self, property_name: &str) -> Option<&CurvesUntyped> {
+        self.properties.get(property_name)
+    }
+
     // #[inline(always)]
     // pub fn properties(&self) -> &[Name] {
     //     &self.properties[..]
@@ -382,6 +388,7 @@ pub(crate) fn animator_update_system(
                 let bind = &mut animator.bind_clips[clip_index];
 
                 // TODO: Don't look for the entities every frame, only when something happens
+                // TODO: Merge newarly added clips hierarchies into a single one
 
                 // Prepare the entities table cache
                 bind.entities.clear();
@@ -526,7 +533,6 @@ pub(crate) fn animator_transform_update_system(
 
                 // ~23us
                 if let Some(curves) = clip
-                    .properties
                     .get("Transform.translation")
                     .map(|curve_untyped| curve_untyped.downcast_ref::<Vec3>())
                     .flatten()
@@ -537,6 +543,7 @@ pub(crate) fn animator_transform_update_system(
 
                     for (curve_index, (entity_index, curve)) in curves.iter().enumerate() {
                         if let Some(ref mut component) = components[entity_index as usize] {
+                            // TODO: I'm not nocing any discernible peformance change from using just `sample`
                             let (k, v) = curve.sample_indexed(keyframes[curve_index], time);
                             keyframes[curve_index] = k;
                             // let v = curve.sample(time);
@@ -547,7 +554,6 @@ pub(crate) fn animator_transform_update_system(
 
                 // ~23us
                 if let Some(curves) = clip
-                    .properties
                     .get("Transform.rotation")
                     .map(|curve_untyped| curve_untyped.downcast_ref::<Quat>())
                     .flatten()
@@ -568,7 +574,6 @@ pub(crate) fn animator_transform_update_system(
 
                 // ~23us
                 if let Some(curves) = clip
-                    .properties
                     .get("Transform.scale")
                     .map(|curve_untyped| curve_untyped.downcast_ref::<Vec3>())
                     .flatten()

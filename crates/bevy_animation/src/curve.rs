@@ -129,6 +129,8 @@ impl<T> Curve<T>
 where
     T: LerpValue + Clone + 'static,
 {
+    // TODO: Profile sample_indexed vs sample, I want to know when use one over the other?
+
     /// Easer to use sampling method that don't have time restrictions or needs
     /// the keyframe index, but is more expensive always `O(n)`. Which means
     /// sampling takes longer to evaluate as much as time get closer to curve duration

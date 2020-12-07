@@ -4,25 +4,20 @@ use bevy_asset::AddAsset;
 use bevy_type_registry::RegisterType;
 
 mod custom;
-//mod generic;
-
-//pub mod clip;
-pub mod curve;
 mod hierarchy;
-pub mod lerping;
 mod skinned_mesh;
 
+pub mod curve;
+pub mod lerping;
+
 pub use crate::custom::*;
-//pub use crate::generic::*;
 pub use crate::hierarchy::Hierarchy;
 pub use crate::skinned_mesh::*;
 
 pub mod prelude {
-    //pub use crate::clip::Clip;
     pub use crate::curve::{Curve, CurveUntyped};
     pub use crate::custom::Animator;
     pub use crate::custom::Clip;
-    //pub use crate::generic::Animator;
     pub use crate::hierarchy::Hierarchy;
     pub use crate::lerping::LerpValue;
     pub use crate::skinned_mesh::{SkinAsset, SkinComponent, SkinDebugger};
@@ -60,3 +55,5 @@ impl Plugin for AnimationPlugin {
             .add_system_to_stage(stage::POST_UPDATE, skinning_debugger_update);
     }
 }
+
+// TODO: AppBuilder trait to add animated components and assets
