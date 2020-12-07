@@ -30,9 +30,6 @@ tracing = { version = "0.1.21", features = ["attributes"] }
 [dev-dependencies]
 criterion = "0.3.3"
 
-# [profile.release]
-# debug = true
-
 [[bench]]
 name = "animator"
 harness = false

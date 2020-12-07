@@ -447,6 +447,7 @@ pub struct AnimatorBlending {
 }
 
 impl AnimatorBlending {
+    #[inline(always)]
     pub fn begin_blending(&mut self) -> AnimatorBlendGroup {
         self.table.clear();
         AnimatorBlendGroup { blending: self }
@@ -458,6 +459,7 @@ pub struct AnimatorBlendGroup<'a> {
 }
 
 impl<'a> AnimatorBlendGroup<'a> {
+    #[inline(always)]
     pub fn blend_lerp<T: LerpValue>(&mut self, attribute: &mut T, value: T, weight: f32) {
         let ptr = Ptr(attribute as *const _ as *const u8);
         if self.blending.table.contains(&ptr) {
@@ -572,3 +574,195 @@ pub(crate) fn animator_transform_update_system(
         }
     }
 }
+
+// #[cfg(test)]
+// #[allow(dead_code)]
+// mod tests {
+//     use super::*;
+//     use crate::curve::Curve;
+//     use bevy_ecs::{ArchetypeComponent, TypeAccess};
+
+//     struct AnimatorTestBench {
+//         app: bevy_app::App,
+//         entities: Vec<Entity>,
+//         schedule: bevy_ecs::Schedule,
+//     }
+
+//     impl AnimatorTestBench {
+//         fn new() -> Self {
+//             let mut app_builder = bevy_app::App::build();
+//             app_builder
+//                 .add_plugin(bevy_type_registry::TypeRegistryPlugin::default())
+//                 .add_plugin(bevy_core::CorePlugin::default())
+//                 .add_plugin(bevy_app::ScheduleRunnerPlugin::default())
+//                 .add_plugin(bevy_asset::AssetPlugin)
+//                 .add_plugin(bevy_transform::TransformPlugin)
+//                 .add_plugin(crate::AnimationPlugin);
+
+//             let mut world = World::new();
+//             let mut world_builder = world.build();
+//             let base = (
+//                 GlobalTransform::default(),
+//                 Transform::from_translation(Vec3::new(0.0, 1.0, 0.0)),
+//             );
+
+//             // Create animator and assign some clips
+//             let mut animator = Animator::default();
+//             {
+//                 let mut clip_a = Clip::default();
+//                 clip_a.add_animated_prop(
+//                     "@Transform.translation",
+//                     Curve::from_linear(0.0, 1.0, Vec3::unit_x(), -Vec3::unit_x()),
+//                 );
+//                 let rot = Curve::from_constant(Quat::identity());
+//                 clip_a.add_animated_prop("@Transform.rotation", rot.clone());
+//                 clip_a.add_animated_prop("/Node1@Transform.rotation", rot.clone());
+//                 clip_a.add_animated_prop("/Node1/Node2@Transform.rotation", rot);
+
+//                 let mut clip_b = Clip::default();
+//                 clip_b.add_animated_prop(
+//                     "@Transform.translation",
+//                     Curve::from_constant(Vec3::zero()),
+//                 );
+//                 let rot = Curve::from_linear(
+//                     0.0,
+//                     1.0,
+//                     Quat::from_axis_angle(Vec3::unit_z(), 0.1),
+//                     Quat::from_axis_angle(Vec3::unit_z(), -0.1),
+//                 );
+//                 clip_b.add_animated_prop("@Transform.rotation", rot.clone());
+//                 clip_b.add_animated_prop("/Node1@Transform.rotation", rot.clone());
+//                 clip_b.add_animated_prop("/Node1/Node2@Transform.rotation", rot);
+
+//                 let mut clips = app_builder
+//                     .resources_mut()
+//                     .get_mut::<Assets<Clip>>()
+//                     .unwrap();
+//                 let clip_a = clips.add(clip_a);
+//                 let clip_b = clips.add(clip_b);
+
+//                 animator.add_layer(clip_a, 0.5);
+//                 animator.add_layer(clip_b, 0.5);
+//             }
+
+//             let mut entities = vec![];
+//             entities.push(
+//                 world_builder
+//                     .spawn(base.clone())
+//                     .with(Name::from_str("Root"))
+//                     .with(animator)
+//                     .current_entity
+//                     .unwrap(),
+//             );
+//             world_builder.with_children(|world_builder| {
+//                 entities.push(
+//                     world_builder
+//                         .spawn(base.clone())
+//                         .with(Name::from_str("Node1"))
+//                         .current_entity()
+//                         .unwrap(),
+//                 );
+
+//                 world_builder.with_children(|world_builder| {
+//                     entities.push(
+//                         world_builder
+//                             .spawn(base.clone())
+//                             .with(Name::from_str("Node2"))
+//                             .current_entity()
+//                             .unwrap(),
+//                     );
+
+//                     world_builder.with_children(|world_builder| {
+//                         entities.push(
+//                             world_builder
+//                                 .spawn(base.clone())
+//                                 .with(Name::from_str("Node3"))
+//                                 .current_entity()
+//                                 .unwrap(),
+//                         );
+//                     });
+//                 });
+//             });
+
+//             app_builder.set_world(world);
+
+//             let mut schedule = bevy_ecs::Schedule::default();
+//             schedule.add_stage("update");
+//             schedule.add_stage_after("update", "post_update");
+//             schedule.add_system_to_stage("update", animator_update_system);
+//             schedule.add_system_to_stage("update", animator_transform_update_system);
+//             schedule.add_system_to_stage("post_update", parent_update_system);
+//             //schedule.add_system_to_stage("update", transform_propagate_system);
+
+//             schedule.initialize(&mut app_builder.app.world, &mut app_builder.app.resources);
+//             schedule.run(&mut app_builder.app.world, &mut app_builder.app.resources);
+
+//             Self {
+//                 app: app_builder.app,
+//                 entities,
+//                 schedule,
+//             }
+//         }
+
+//         fn run(&mut self) {
+//             self.schedule
+//                 .run(&mut self.app.world, &mut self.app.resources);
+//         }
+//     }
+
+//     #[test]
+//     #[cfg(feature = "extra-profiling-tests")]
+//     fn test_bench_update() {
+//         // ? NOTE: Mimics a basic system update behavior good for pref since criterion will pollute the
+//         // ? annotations with many expensive instructions
+//         let mut test_bench = AnimatorTestBench::new();
+//         test_bench.run();
+//         test_bench.run();
+
+//         // let mut schedule = bevy_ecs::Schedule::default();
+//         // schedule.add_stage("update");
+//         // schedule.add_system_to_stage("update", animator_transform_update_system);
+//         // schedule.initialize(&mut test_bench.app.world, &mut test_bench.app.resources);
+
+//         // let mut transform_system: Box<dyn System<Input = (), Output = ()>> =
+//         //     Box::new(animator_transform_update_system.system());
+
+//         // transform_system.initialize(&mut test_bench.app.world, &mut test_bench.app.resources);
+
+//         // fn animator_transform_update_system(
+//         //     clips: Res<Assets<Clip>>,
+//         //     mut animators_query: Query<(&Animator, &mut KeyframeCache, &mut AnimatorBlending)>,
+//         //     transform_query: Query<(&mut Transform,)>,
+//         // );
+
+//         let type_access = <TypeAccess<ArchetypeComponent>>::new(vec![], vec![]);
+//         for _ in 0..100_000 {
+//             // // Time tick
+//             // {
+//             //     let mut time = test_bench.app.resources.get_mut::<Time>().unwrap();
+//             //     time.delta_seconds += 0.016;
+//             //     time.delta_seconds_f64 += 0.016;
+//             // }
+
+//             //schedule.run(&mut test_bench.app.world, &mut test_bench.app.resources);
+
+//             //transform_system.run((), &mut test_bench.app.world, &mut test_bench.app.resources);
+
+//             // Fetching
+//             let clips = &*test_bench.app.resources.get::<Assets<Clip>>().unwrap();
+//             let clips =
+//                 unsafe { Res::new(std::ptr::NonNull::new(clips as *const _ as *mut _).unwrap()) };
+//             let animators_query = unsafe {
+//                 <Query<(&Animator, &mut KeyframeCache, &mut AnimatorBlending)>>::new(
+//                     &test_bench.app.world,
+//                     &type_access,
+//                 )
+//             };
+//             let transform_query =
+//                 unsafe { <Query<(&mut Transform,)>>::new(&test_bench.app.world, &type_access) };
+
+//             // Running
+//             animator_transform_update_system(clips, animators_query, transform_query);
+//         }
+//     }
+// }
