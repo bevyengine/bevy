@@ -41,6 +41,8 @@ pub struct CurvesUntyped {
     untyped: Box<dyn Any + 'static>,
 }
 
+// TODO: This may require that Curves implement Send and Sync
+// SAFETY: CurvesUntyped will only hold on to Curves<T> which are Send and Sync
 unsafe impl Send for CurvesUntyped {}
 unsafe impl Sync for CurvesUntyped {}
 
@@ -60,10 +62,14 @@ impl CurvesUntyped {
 #[derive(Debug, TypeUuid)]
 #[uuid = "79e2ea58-8bf7-43af-8219-5898edb02f80"]
 pub struct Clip {
+    /// Should this clip loop (warping around) or hold
+    ///
+    /// **NOTE** Keep in mind that sampling with time greater
+    /// than the clips duration will always hold.
     //#[serde(default = "clip_default_warp")]
     pub warp: bool,
+    /// Clip compound duration
     duration: f32,
-    /// Entity identification made by parent index and name
     hierarchy: Hierarchy,
     properties: HashMap<String, CurvesUntyped>,
 }
@@ -502,6 +508,8 @@ pub(crate) fn animator_transform_update_system(
 
                 // TODO: Merge all the clips hierarchy into a single bigger one
                 // and do the component feching once per animator, instead of per clip
+
+                // TODO: Lazly get only the needed entities ?! (it will be bad for missing entities components)
 
                 // SAFETY: Pre-fetch all transforms to avoid calling get_mut multiple times
                 // this is safe because it doesn't change the safe logic

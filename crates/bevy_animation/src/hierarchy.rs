@@ -54,6 +54,58 @@ impl<I: Index> Hierarchy<I> {
         Self { entities, children }
     }
 
+    /// Merge other hierarchy into this one, it will collect the
+    /// new entities indexes of merged hierachy.
+    pub fn merge(&mut self, other_hierarchy: &Hierarchy<I>, mapped_entities: &mut Vec<I>) {
+        mapped_entities.clear();
+        mapped_entities.resize(other_hierarchy.len(), I::MAX_VALUE);
+
+        assert!(
+            other_hierarchy.entities[0].0 == I::MAX_VALUE,
+            "first element isn't the root"
+        );
+
+        let root_index = I::from_usize(0);
+        mapped_entities[0] = root_index;
+
+        // At this point they conincide
+        self.internal_merge(other_hierarchy, root_index, root_index, mapped_entities);
+    }
+
+    // TODO: Expose to allow for merging hierarchies with mutiple roots
+    fn internal_merge(
+        &mut self,
+        other_hierarchy: &Hierarchy<I>,
+        other_parent_index: I,
+        parent_index: I,
+        mapped_entities: &mut Vec<I>,
+    ) {
+        for other_index in &other_hierarchy.children[other_parent_index.as_usize()] {
+            let (_, other_name) = &other_hierarchy.entities[other_index.as_usize()];
+            let child = (&parent_index, other_name);
+
+            let entity_index =
+                if let Some(i) = self.entities.iter().position(|(i, n)| (i, n) == child) {
+                    let entity_index = I::from_usize(i);
+                    // Found coresponding entity
+                    mapped_entities[other_index.as_usize()] = entity_index;
+                    entity_index
+                } else {
+                    // Add entity
+                    // Soft limit added to save memory, identical to the curve limit
+                    let i = self.entities.len();
+                    let entity_index = I::from_usize_checked(i);
+                    self.entities.push((entity_index, other_name.clone()));
+                    self.children.push(smallvec![]);
+                    self.children[i].push(entity_index);
+                    mapped_entities[other_index.as_usize()] = entity_index;
+                    entity_index
+                };
+
+            self.internal_merge(other_hierarchy, *other_index, entity_index, mapped_entities);
+        }
+    }
+
     /// Number of entities registered.
     #[inline(always)]
     pub fn len(&self) -> usize {
