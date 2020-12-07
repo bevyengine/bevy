@@ -80,6 +80,31 @@ async fn load_gltf<'a, 'b>(
 
     let world_builder = &mut world.build();
 
+    for node in gltf.nodes() {
+        let node_label = node_label(&node);
+        load_context.set_labeled_asset(
+            &node_label,
+            LoadedAsset::new(crate::GltfNode {
+                children: node.children().map(|child| child.index()).collect(),
+                mesh: node.mesh().map(|mesh| mesh.index()),
+                transform: match node.transform() {
+                    gltf::scene::Transform::Matrix { matrix } => {
+                        Transform::from_matrix(bevy_math::Mat4::from_cols_array_2d(&matrix))
+                    }
+                    gltf::scene::Transform::Decomposed {
+                        translation,
+                        rotation,
+                        scale,
+                    } => Transform {
+                        translation: bevy_math::Vec3::from(translation),
+                        rotation: bevy_math::Quat::from(rotation),
+                        scale: bevy_math::Vec3::from(scale),
+                    },
+                },
+            }),
+        );
+    }
+
     for mesh in gltf.meshes() {
         for primitive in mesh.primitives() {
             let primitive_label = primitive_label(&mesh, &primitive);
@@ -329,6 +354,10 @@ fn material_label(material: &gltf::Material) -> String {
 
 fn texture_label(texture: &gltf::Texture) -> String {
     format!("Texture{}", texture.index())
+}
+
+fn node_label(node: &gltf::Node) -> String {
+    format!("Node{}", node.index())
 }
 
 fn texture_sampler(texture: &gltf::Texture) -> Result<SamplerDescriptor, GltfError> {
