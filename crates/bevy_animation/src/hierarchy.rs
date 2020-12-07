@@ -32,6 +32,10 @@ impl<I: Index> Default for Hierarchy<I> {
 }
 
 impl<I: Index> Hierarchy<I> {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
     /// Used when the hierarchy must be in a specific order,
     /// this function takes an vec of entities defined by their parent index
     /// (on the same vec) and name.
@@ -93,11 +97,10 @@ impl<I: Index> Hierarchy<I> {
                 } else {
                     // Add entity
                     // Soft limit added to save memory, identical to the curve limit
-                    let i = self.entities.len();
-                    let entity_index = I::from_usize_checked(i);
-                    self.entities.push((entity_index, other_name.clone()));
+                    let entity_index = I::from_usize_checked(self.entities.len());
+                    self.entities.push((parent_index, other_name.clone()));
                     self.children.push(smallvec![]);
-                    self.children[i].push(entity_index);
+                    self.children[parent_index.as_usize()].push(entity_index);
                     mapped_entities[other_index.as_usize()] = entity_index;
                     entity_index
                 };
@@ -193,6 +196,8 @@ impl<I: Index> Hierarchy<I> {
 
         path
     }
+
+    // TODO: find_all_entities_inspired in the `internal_merge` function
 
     /// Finds an entity given a set of queries, see the example bellow
     /// how to proper call this function,
@@ -315,9 +320,10 @@ impl<I: Index> Hierarchy<I> {
 
 mod private {
     use std::convert::TryFrom;
+    use std::fmt::{Debug, Display};
 
     /// Implemented by unsigned types
-    pub trait Index: Sized + PartialEq + Copy + Clone {
+    pub trait Index: Sized + PartialEq + Copy + Clone + Debug + Display {
         const MAX_VALUE: Self;
 
         fn as_usize(&self) -> usize;
@@ -353,4 +359,66 @@ mod private {
     impl_index!(u32);
     impl_index!(u64);
     impl_index!(usize);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn merge_different_hierarchies() {
+        let mut hierarchy_a = Hierarchy::<u16>::new();
+        hierarchy_a.get_or_insert_entity("/NodeA0/NodeB0");
+        hierarchy_a.get_or_insert_entity("/NodeA1/NodeB1/NodeC0");
+        hierarchy_a.get_or_insert_entity("/NodeA2/NodeB1/NodeC1");
+
+        let mut hierarchy_b = Hierarchy::<u16>::new();
+        hierarchy_b.get_or_insert_entity("/NodeA1/NodeB2/NodeC2");
+        hierarchy_b.get_or_insert_entity("/NodeA1/NodeB0/NodeC3");
+
+        let mut mapped_entities = vec![];
+        hierarchy_a.merge(&hierarchy_b, &mut mapped_entities);
+
+        assert!(
+            mapped_entities.iter().all(|index| *index < u16::MAX),
+            "some entities weren't mapped or merged"
+        );
+
+        for i in 0..hierarchy_b.len() {
+            assert_eq!(
+                hierarchy_a.get_entity_path_at(mapped_entities[i]),
+                hierarchy_b.get_entity_path_at(i as u16)
+            );
+        }
+    }
+
+    #[test]
+    fn merge_equal_but_scrambled_hierarchies() {
+        let mut hierarchy_a = Hierarchy::<u16>::new();
+        hierarchy_a.get_or_insert_entity("/NodeA0/NodeB0");
+        hierarchy_a.get_or_insert_entity("/NodeA1/NodeB1/NodeC0");
+        hierarchy_a.get_or_insert_entity("/NodeA2/NodeB1/NodeC1");
+        hierarchy_a.get_or_insert_entity("/NodeA1/NodeB0/NodeC3");
+
+        let mut hierarchy_b = Hierarchy::<u16>::new();
+        hierarchy_b.get_or_insert_entity("/NodeA2/NodeB1/NodeC1");
+        hierarchy_b.get_or_insert_entity("/NodeA1/NodeB0/NodeC3");
+        hierarchy_b.get_or_insert_entity("/NodeA1/NodeB1/NodeC0");
+        hierarchy_b.get_or_insert_entity("/NodeA0/NodeB0");
+
+        let mut mapped_entities = vec![];
+        hierarchy_a.merge(&hierarchy_b, &mut mapped_entities);
+
+        assert!(
+            mapped_entities.iter().all(|index| *index < u16::MAX),
+            "some entities weren't mapped or merged"
+        );
+
+        for i in 0..hierarchy_b.len() {
+            assert_eq!(
+                hierarchy_a.get_entity_path_at(mapped_entities[i]),
+                hierarchy_b.get_entity_path_at(i as u16)
+            );
+        }
+    }
 }
