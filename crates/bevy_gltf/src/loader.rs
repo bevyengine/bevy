@@ -106,7 +106,12 @@ async fn load_gltf<'a, 'b>(
     }
 
     for mesh in gltf.meshes() {
+        let mut primitives = vec![];
         for primitive in mesh.primitives() {
+            primitives.push(super::GltfPrimitive {
+                index: primitive.index(),
+                material: primitive.material().index(),
+            });
             let primitive_label = primitive_label(&mesh, &primitive);
             if !load_context.has_labeled_asset(&primitive_label) {
                 let reader = primitive.reader(|buffer| Some(&buffer_data[buffer.index()]));
@@ -142,6 +147,10 @@ async fn load_gltf<'a, 'b>(
                 load_context.set_labeled_asset(&primitive_label, LoadedAsset::new(mesh));
             };
         }
+        load_context.set_labeled_asset(
+            &mesh_label(&mesh),
+            LoadedAsset::new(super::GltfMesh { primitives }),
+        );
     }
 
     for texture in gltf.textures() {
@@ -338,6 +347,10 @@ fn load_node(
     } else {
         Ok(())
     }
+}
+
+fn mesh_label(mesh: &gltf::Mesh) -> String {
+    format!("Mesh{}", mesh.index())
 }
 
 fn primitive_label(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
