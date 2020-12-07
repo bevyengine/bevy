@@ -99,37 +99,44 @@ impl<T: Eq + Hash> StateStage<T> {
 
 impl<T: Resource + Clone + Eq + Hash> Stage for StateStage<T> {
     fn run(&mut self, world: &mut World, resources: &mut Resources) {
-        let (mut previous_state, mut current_state, change_queue) = {
-            let mut state = resources
-                .get_mut::<State<T>>()
-                .expect("Missing state resource");
-            // we use slightly roundabout scoping here to ensure the State resource only
-            // gets set to "mutated" when the state actually changes
-            let (next_state, change_queue) = {
-                let mut change_queue = state.change_queue.write();
-                let mut next_state = None;
-                if !change_queue.is_empty() {
-                    next_state = Some(change_queue[change_queue.len() - 1].clone());
+        loop {
+            let (mut previous_state, mut current_state, change_queue) = {
+                let mut state = resources
+                    .get_mut::<State<T>>()
+                    .expect("Missing state resource");
+                // we use slightly roundabout scoping here to ensure the State resource only
+                // gets set to "mutated" when the state actually changes
+                let (next_state, change_queue) = {
+                    let mut change_queue = state.change_queue.write();
+                    let mut next_state = None;
+                    if !change_queue.is_empty() {
+                        next_state = Some(change_queue[change_queue.len() - 1].clone());
+                    }
+                    (next_state, std::mem::take(&mut *change_queue))
+                };
+                let previous_state = state.current.clone();
+                if let Some(next_state) = next_state {
+                    state.current = next_state;
                 }
-                (next_state, std::mem::take(&mut *change_queue))
+                (previous_state, state.get(), change_queue)
             };
-            let previous_state = state.current.clone();
-            if let Some(next_state) = next_state {
-                state.current = next_state;
-            }
-            (previous_state, state.get(), change_queue)
-        };
-        for next_state in change_queue {
-            if next_state != previous_state {
-                self.run_exit(&previous_state, world, resources);
+            for next_state in change_queue {
+                if next_state != previous_state {
+                    self.run_exit(&previous_state, world, resources);
+                }
+
+                self.run_enter(&next_state, world, resources);
+                previous_state = current_state;
+                current_state = next_state;
             }
 
-            self.run_enter(&next_state, world, resources);
-            previous_state = current_state;
-            current_state = next_state;
+            self.run_update(&current_state, world, resources);
+            let state = resources.get::<State<T>>().expect("Missing state resource");
+            let change_queue = state.change_queue.read();
+            if change_queue.is_empty() {
+                break;
+            }
         }
-
-        self.run_update(&current_state, world, resources);
     }
 }
 
