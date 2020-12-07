@@ -57,3 +57,10 @@ pub struct ReceivedCharacter {
     pub id: WindowId,
     pub char: char,
 }
+
+/// An event that indicates a window has received or lost focus.
+#[derive(Debug, Clone)]
+pub struct WindowFocused {
+    pub id: WindowId,
+    pub focused: bool,
+}

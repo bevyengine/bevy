@@ -15,7 +15,7 @@ use bevy_math::Vec2;
 use bevy_utils::tracing::{error, trace};
 use bevy_window::{
     CreateWindow, CursorEntered, CursorLeft, CursorMoved, ReceivedCharacter, Window,
-    WindowCloseRequested, WindowCreated, WindowResized, Windows,
+    WindowCloseRequested, WindowCreated, WindowFocused, WindowResized, Windows,
 };
 use winit::{
     event::{self, DeviceEvent, Event, WindowEvent},
@@ -27,11 +27,7 @@ pub struct WinitPlugin;
 
 impl Plugin for WinitPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app
-            // TODO: It would be great to provide a raw winit WindowEvent here, but the lifetime on it is
-            // stopping us. there are plans to remove the lifetime: https://github.com/rust-windowing/winit/pull/1456
-            // .add_event::<winit::event::WindowEvent>()
-            .init_resource::<WinitWindows>()
+        app.init_resource::<WinitWindows>()
             .set_runner(winit_runner)
             .add_system(change_window);
     }
@@ -339,6 +335,16 @@ pub fn winit_runner(mut app: App) {
                     let size = new_inner_size.to_logical(scale_factor);
                     window.update_scale_factor_from_backend(scale_factor);
                     window.update_resolution_from_backend(size.width, size.height);
+                }
+                WindowEvent::Focused(focused) => {
+                    let mut focused_events =
+                        app.resources.get_mut::<Events<WindowFocused>>().unwrap();
+                    let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
+                    let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
+                    focused_events.send(WindowFocused {
+                        id: window_id,
+                        focused,
+                    });
                 }
                 _ => {}
             },
