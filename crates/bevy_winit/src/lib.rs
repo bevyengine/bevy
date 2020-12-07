@@ -342,14 +342,15 @@ pub fn winit_runner(mut app: App) {
                 }
                 _ => {}
             },
-            event::Event::DeviceEvent { ref event, .. } => {
-                if let DeviceEvent::MouseMotion { delta } = event {
-                    let mut mouse_motion_events =
-                        app.resources.get_mut::<Events<MouseMotion>>().unwrap();
-                    mouse_motion_events.send(MouseMotion {
-                        delta: Vec2::new(delta.0 as f32, delta.1 as f32),
-                    });
-                }
+            event::Event::DeviceEvent {
+                event: DeviceEvent::MouseMotion { delta },
+                ..
+            } => {
+                let mut mouse_motion_events =
+                    app.resources.get_mut::<Events<MouseMotion>>().unwrap();
+                mouse_motion_events.send(MouseMotion {
+                    delta: Vec2::new(delta.0 as f32, delta.1 as f32),
+                });
             }
             event::Event::MainEventsCleared => {
                 handle_create_window_events(
