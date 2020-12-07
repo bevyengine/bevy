@@ -7,8 +7,8 @@ use crate::{
     stage, startup_stage, PluginGroup, PluginGroupBuilder,
 };
 use bevy_ecs::{
-    FromResources, IntoStage, IntoSystem, Resource, Resources, RunOnce, Schedule, Stage, State,
-    StateStage, System, SystemStage, World,
+    clear_trackers_system, FromResources, IntoStage, IntoSystem, Resource, Resources, RunOnce,
+    Schedule, Stage, State, StateStage, System, SystemStage, World,
 };
 use bevy_utils::tracing::debug;
 
@@ -29,11 +29,6 @@ impl Default for AppBuilder {
             .add_system_to_stage(stage::LAST, clear_trackers_system);
         app_builder
     }
-}
-
-fn clear_trackers_system(world: &mut World, resources: &mut Resources) {
-    world.clear_trackers();
-    resources.clear_trackers();
 }
 
 impl AppBuilder {

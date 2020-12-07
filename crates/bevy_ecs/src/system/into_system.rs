@@ -214,6 +214,7 @@ impl_into_system!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
 mod tests {
     use super::IntoSystem;
     use crate::{
+        clear_trackers_system,
         resource::{Res, ResMut, Resources},
         schedule::Schedule,
         ChangedRes, Entity, Local, Or, Query, QuerySet, Stage, System, SystemStage, With, World,
@@ -332,6 +333,7 @@ mod tests {
         let mut update = SystemStage::parallel();
         update.add_system(incr_e_on_flip);
         schedule.add_stage("update", update);
+        schedule.add_stage("clear_trackers", clear_trackers_system);
 
         schedule.run(&mut world, &mut resources);
         assert_eq!(*(world.get::<i32>(ent).unwrap()), 1);
@@ -365,6 +367,7 @@ mod tests {
         let mut update = SystemStage::parallel();
         update.add_system(incr_e_on_flip);
         schedule.add_stage("update", update);
+        schedule.add_stage("clear_trackers", clear_trackers_system);
 
         schedule.run(&mut world, &mut resources);
         assert_eq!(*(world.get::<i32>(ent).unwrap()), 1);

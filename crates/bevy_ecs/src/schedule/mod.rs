@@ -217,6 +217,11 @@ impl Stage for Schedule {
     }
 }
 
+pub fn clear_trackers_system(world: &mut World, resources: &mut Resources) {
+    world.clear_trackers();
+    resources.clear_trackers();
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
