@@ -483,7 +483,7 @@ pub(crate) fn animator_transform_update_system(
     mut animators_query: Query<(&Animator, &mut KeyframeCache, &mut AnimatorBlending)>,
     transform_query: Query<(&mut Transform,)>,
 ) {
-    let mut components: Vec<FetchState<Mut<Transform>>> = vec![];
+    let mut components = vec![];
 
     for (animator, mut keyframe_cache, mut animator_blend) in animators_query.iter_mut() {
         let keyframe_cache = &mut *keyframe_cache;
@@ -504,14 +504,18 @@ pub(crate) fn animator_transform_update_system(
                 // TODO: Merge all the clips hierarchy into a single bigger one
                 // and do the component feching once per animator, instead of per clip
 
-                // SAFETY: These are the only mutable references to these components,
-                // and each one will be modified one at the time
-                let fetch_fn = |i: usize| unsafe {
-                    entities[i]
-                        .map(|entity| transform_query.get_unsafe(entity).ok())
-                        .flatten()
-                        .map(|(transform,)| transform)
-                };
+                // SAFETY: Pre-fetch all transforms to avoid calling get_mut multiple times
+                // this is safe because it doesn't change the safe logic
+                unsafe {
+                    for entry in entities {
+                        components.push(
+                            entry
+                                .map(|entity| transform_query.get_unsafe(entity).ok())
+                                .flatten()
+                                .map(|(transform,)| transform),
+                        );
+                    }
+                }
 
                 // ~23us
                 if let Some(curves) = clip
@@ -519,15 +523,14 @@ pub(crate) fn animator_transform_update_system(
                     .map(|curve_untyped| curve_untyped.downcast_ref::<Vec3>())
                     .flatten()
                 {
+                    // TODO: Got to improve how the keyframes are handled
                     // Get keyframes and ensure capacity
                     let keyframes = keyframe_cache.get(curves.id);
                     keyframes.resize(curves.len() as usize, 0);
 
                     for (curve_index, (entity_index, curve)) in curves.iter().enumerate() {
-                        if let Some(ref mut component) = components[entity_index as usize]
-                            .fetch_mut(|| fetch_fn(entity_index as usize))
-                        {
-                            // TODO: I'm not nocing any discernible peformance change from using just `sample`
+                        if let Some(ref mut component) = components[entity_index as usize] {
+                            // TODO: I'm not noticing any discernible performance change from using just `sample`
                             let (k, v) = curve.sample_indexed(keyframes[curve_index], time);
                             keyframes[curve_index] = k;
                             // let v = curve.sample(time);
@@ -547,9 +550,7 @@ pub(crate) fn animator_transform_update_system(
                     keyframes.resize(curves.len() as usize, 0);
 
                     for (curve_index, (entity_index, curve)) in curves.iter().enumerate() {
-                        if let Some(ref mut component) = components[entity_index as usize]
-                            .fetch_mut(|| fetch_fn(entity_index as usize))
-                        {
+                        if let Some(ref mut component) = components[entity_index as usize] {
                             let (k, v) = curve.sample_indexed(keyframes[curve_index], time);
                             keyframes[curve_index] = k;
                             // let v = curve.sample(time);
@@ -569,9 +570,7 @@ pub(crate) fn animator_transform_update_system(
                     keyframes.resize(curves.len() as usize, 0);
 
                     for (curve_index, (entity_index, curve)) in curves.iter().enumerate() {
-                        if let Some(ref mut component) = components[entity_index as usize]
-                            .fetch_mut(|| fetch_fn(entity_index as usize))
-                        {
+                        if let Some(ref mut component) = components[entity_index as usize] {
                             let (k, v) = curve.sample_indexed(keyframes[curve_index], time);
                             keyframes[curve_index] = k;
                             //let v = curve.sample(time);
