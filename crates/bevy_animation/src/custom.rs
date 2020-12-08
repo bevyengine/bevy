@@ -4,17 +4,17 @@ use bevy_core::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_math::prelude::*;
 use bevy_property::Properties;
-//use bevy_render::color::Color;
 use bevy_transform::prelude::*;
 use bevy_type_registry::TypeUuid;
 use fnv::FnvBuildHasher;
 use smallvec::{smallvec, SmallVec};
 use std::any::Any;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
+use crate::blending::{AnimatorBlending, Blend};
 use crate::curve::Curve;
 use crate::hierarchy::Hierarchy;
-use crate::lerping::LerpValue;
+use crate::lerping::Lerp;
 
 #[derive(Debug)]
 pub struct Curves<T> {
@@ -25,6 +25,14 @@ pub struct Curves<T> {
 }
 
 impl<T> Curves<T> {
+    fn calculate_duration(&self) -> f32 {
+        self.curves
+            .iter()
+            .map(|c| c.duration())
+            .fold(0.0f32, |acc, d| acc.max(d))
+    }
+
+    /// Number of curves inside
     #[inline(always)]
     pub fn len(&self) -> usize {
         self.curves.len()
@@ -38,6 +46,7 @@ impl<T> Curves<T> {
 
 #[derive(Debug)]
 pub struct CurvesUntyped {
+    /// Cached calculated curves duration
     duration: f32,
     untyped: Box<dyn Any + 'static>,
 }
@@ -55,6 +64,11 @@ impl CurvesUntyped {
                 .fold(0.0, |acc, d| acc.max(d)),
             untyped: Box::new(curves),
         }
+    }
+
+    #[inline(always)]
+    pub fn duration(&self) -> f32 {
+        self.duration
     }
 
     #[inline(always)]
@@ -108,7 +122,7 @@ impl Clip {
     /// **NOTE** This is a expensive function
     pub fn add_animated_prop<T>(&mut self, property_path: &str, mut curve: Curve<T>)
     where
-        T: LerpValue + Clone + Send + Sync + 'static,
+        T: Lerp + Clone + Send + Sync + 'static,
     {
         // Split in entity and attribute path,
         // NOTE: use rfind because it's expected the latter to be generally shorter
@@ -133,21 +147,15 @@ impl Clip {
                 std::mem::swap(&mut curves.curves[i], &mut curve);
 
                 // Update curve duration in two stages
-                let duration = curves
-                    .curves
-                    .iter()
-                    .map(|c| c.duration())
-                    .fold(0.0f32, |acc, x| acc.max(x));
+                let duration = curves.calculate_duration();
 
+                // Drop the down casted ref and update the parent curve
                 std::mem::drop(curves);
                 curves_untyped.duration = duration;
 
+                // Drop the curves untyped (which as a mut borrow) and update the total duration
                 std::mem::drop(curves_untyped);
-                self.duration = self
-                    .properties
-                    .iter()
-                    .map(|(_, c)| c.duration)
-                    .fold(0.0f32, |acc, x| acc.max(x));
+                self.duration = self.calculate_duration();
             } else {
                 // Append newly added curve
                 let duration = curve.duration();
@@ -197,6 +205,13 @@ impl Clip {
     //         self.properties[*property_index as usize].as_str()
     //     )
     // }
+
+    fn calculate_duration(&self) -> f32 {
+        self.properties
+            .iter()
+            .map(|(_, c)| c.duration)
+            .fold(0.0f32, |acc, x| acc.max(x))
+    }
 
     /// Clip duration
     #[inline(always)]
@@ -429,46 +444,6 @@ pub(crate) fn animator_update_system(
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-struct Ptr(*const u8);
-
-// SAFETY: Store pointers to each attribute to be updated, a clip can't have two pointers
-// with the same value. Each clip per Animator will be updated sequentially
-unsafe impl Send for Ptr {}
-unsafe impl Sync for Ptr {}
-
-#[derive(Default, Debug)]
-pub struct AnimatorBlending {
-    // ? NOTE: FnvHasher performed better over the PtrHasher (ptr value as hash) and AHash
-    // TODO: Use instead a vector, the Ptr type can be used as his on hash code
-    table: HashSet<Ptr, FnvBuildHasher>,
-}
-
-impl AnimatorBlending {
-    #[inline(always)]
-    pub fn begin_blending(&mut self) -> AnimatorBlendGroup {
-        self.table.clear();
-        AnimatorBlendGroup { blending: self }
-    }
-}
-
-pub struct AnimatorBlendGroup<'a> {
-    blending: &'a mut AnimatorBlending,
-}
-
-impl<'a> AnimatorBlendGroup<'a> {
-    #[inline(always)]
-    pub fn blend_lerp<T: LerpValue>(&mut self, attribute: &mut T, value: T, weight: f32) {
-        let ptr = Ptr(attribute as *const _ as *const u8);
-        if self.blending.table.contains(&ptr) {
-            *attribute = LerpValue::lerp(&*attribute, &value, weight);
-        } else {
-            self.blending.table.insert(ptr);
-            *attribute = value;
-        }
-    }
-}
-
 // TODO: This should be auto derived using the "Animated" trait that just returns
 // a system able to animate the said component. Use "AnimatedAsset" for asset handles!
 
@@ -530,7 +505,7 @@ pub(crate) fn animator_transform_update_system(
                             let (k, v) = curve.sample_indexed(keyframes[curve_index], time);
                             keyframes[curve_index] = k;
                             // let v = curve.sample(time);
-                            blend_group.blend_lerp(&mut component.translation, v, w);
+                            component.translation.blend(&mut blend_group, v, w);
                         }
                     }
                 }
@@ -550,7 +525,7 @@ pub(crate) fn animator_transform_update_system(
                             let (k, v) = curve.sample_indexed(keyframes[curve_index], time);
                             keyframes[curve_index] = k;
                             // let v = curve.sample(time);
-                            blend_group.blend_lerp(&mut component.rotation, v, w);
+                            component.rotation.blend(&mut blend_group, v, w);
                         }
                     }
                 }
@@ -570,7 +545,7 @@ pub(crate) fn animator_transform_update_system(
                             let (k, v) = curve.sample_indexed(keyframes[curve_index], time);
                             keyframes[curve_index] = k;
                             //let v = curve.sample(time);
-                            blend_group.blend_lerp(&mut component.scale, v, w);
+                            component.scale.blend(&mut blend_group, v, w);
                         }
                     }
                 }

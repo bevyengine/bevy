@@ -18,6 +18,7 @@ pub struct Hierarchy<I: Index = u16> {
     entities: Vec<(I, Name)>,
     // ? NOTE: SmallVec<[u16; 10]> occupy the same 32 bytes as the SmallVec<[u16; 8]>, but the latter
     // ? should be only take 24 bytes using the "union" feature
+    // TODO: Use instead a const to figure out this value based on `I`
     children: Vec<SmallVec<[I; 10]>>,
 }
 

@@ -1,7 +1,7 @@
 use bevy_math::prelude::*;
 use std::any::TypeId;
 
-use super::lerping::LerpValue;
+use super::lerping::Lerp;
 
 // TODO: impl Serialize, Deserialize
 #[derive(Debug, Clone)]
@@ -127,7 +127,7 @@ impl<T> Curve<T> {
 
 impl<T> Curve<T>
 where
-    T: LerpValue + Clone + 'static,
+    T: Lerp + Clone + 'static,
 {
     // TODO: Profile sample_indexed vs sample, I want to know when use one over the other?
 

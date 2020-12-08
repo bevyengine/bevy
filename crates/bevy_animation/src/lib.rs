@@ -7,6 +7,7 @@ mod custom;
 mod hierarchy;
 mod skinned_mesh;
 
+pub mod blending;
 pub mod curve;
 pub mod lerping;
 
@@ -15,11 +16,12 @@ pub use crate::hierarchy::Hierarchy;
 pub use crate::skinned_mesh::*;
 
 pub mod prelude {
+    pub use crate::blending::AnimatorBlending;
     pub use crate::curve::{Curve, CurveUntyped};
     pub use crate::custom::Animator;
     pub use crate::custom::Clip;
     pub use crate::hierarchy::Hierarchy;
-    pub use crate::lerping::LerpValue;
+    pub use crate::lerping::Lerp;
     pub use crate::skinned_mesh::{SkinAsset, SkinComponent, SkinDebugger};
 }
 

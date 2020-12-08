@@ -1,36 +1,52 @@
-// use bevy_asset::prelude::*;
 use bevy_asset::{Asset, Handle, HandleUntyped};
 use bevy_math::prelude::*;
+use bevy_render::color::Color;
 
-pub trait LerpValue {
+pub trait Lerp {
     fn lerp(a: &Self, b: &Self, t: f32) -> Self;
 }
 
-impl LerpValue for f32 {
+impl Lerp for bool {
+    fn lerp(a: &Self, b: &Self, t: f32) -> Self {
+        if t > 0.99 {
+            b.clone()
+        } else {
+            a.clone()
+        }
+    }
+}
+
+impl Lerp for f32 {
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
         (*a) * (1.0 - t) + (*b) * t
     }
 }
 
-impl LerpValue for Vec2 {
+impl Lerp for Vec2 {
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
         (*a) * (1.0 - t) + (*b) * t
     }
 }
 
-impl LerpValue for Vec3 {
+impl Lerp for Vec3 {
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
         (*a) * (1.0 - t) + (*b) * t
     }
 }
 
-impl LerpValue for Vec4 {
+impl Lerp for Vec4 {
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
         (*a) * (1.0 - t) + (*b) * t
     }
 }
 
-impl LerpValue for Quat {
+impl Lerp for Color {
+    fn lerp(a: &Self, b: &Self, t: f32) -> Self {
+        (*a) * (1.0 - t) + (*b) * t
+    }
+}
+
+impl Lerp for Quat {
     /// Performs an nlerp, because it's much cheaper and easer to combine with other animations,
     /// reference: http://number-none.com/product/Understanding%20Slerp,%20Then%20Not%20Using%20It/
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
@@ -44,7 +60,7 @@ impl LerpValue for Quat {
     }
 }
 
-impl<T: Asset + 'static> LerpValue for Handle<T> {
+impl<T: Asset + 'static> Lerp for Handle<T> {
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
         if t > 0.99 {
             b.clone()
@@ -54,7 +70,7 @@ impl<T: Asset + 'static> LerpValue for Handle<T> {
     }
 }
 
-impl LerpValue for HandleUntyped {
+impl Lerp for HandleUntyped {
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
         if t > 0.99 {
             b.clone()
