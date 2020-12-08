@@ -116,8 +116,8 @@ impl FlexSurface {
                 *node,
                 stretch::style::Style {
                     size: stretch::geometry::Size {
-                        width: stretch::style::Dimension::Points(window.logical_width()),
-                        height: stretch::style::Dimension::Points(window.logical_height()),
+                        width: stretch::style::Dimension::Points(window.width()),
+                        height: stretch::style::Dimension::Points(window.height()),
                     },
                     ..Default::default()
                 },

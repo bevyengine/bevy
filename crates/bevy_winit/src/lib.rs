@@ -210,8 +210,8 @@ pub fn winit_runner(mut app: App) {
                         app.resources.get_mut::<Events<WindowResized>>().unwrap();
                     resize_events.send(WindowResized {
                         id: window_id,
-                        height: window.logical_height(),
-                        width: window.logical_width(),
+                        height: window.height(),
+                        width: window.width(),
                     });
                 }
                 WindowEvent::CloseRequested => {
@@ -309,7 +309,7 @@ pub fn winit_runner(mut app: App) {
 
                     // FIXME?: On Android window start is top while on PC/Linux/OSX on bottom
                     if cfg!(target_os = "android") {
-                        let window_height = windows.get_primary().unwrap().logical_height();
+                        let window_height = windows.get_primary().unwrap().height();
                         location.y = window_height - location.y;
                     }
                     touch_input_events.send(converters::convert_touch_input(touch, location));
