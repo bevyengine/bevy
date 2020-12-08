@@ -26,13 +26,26 @@ pub enum ShaderError {
     /// Shader compilation error.
     #[error("Shader compilation error: {0}")]
     Compilation(String),
-    #[cfg(target_os = "ios")]
+
+    #[cfg(any(target_os = "ios", all(target_arch = "aarch64", target_os = "macos")))]
     /// shaderc error.
     #[error("shaderc error")]
     ShaderC(#[from] shaderc::Error),
+
+    #[cfg(any(target_os = "ios", all(target_arch = "aarch64", target_os = "macos")))]
+    #[error("Error initializing shaderc Compiler")]
+    ErrorInitializingShadercCompiler,
+
+    #[cfg(any(target_os = "ios", all(target_arch = "aarch64", target_os = "macos")))]
+    #[error("Error initializing shaderc CompileOptions")]
+    ErrorInitializingShadercCompileOptions,
 }
 
-#[cfg(all(not(target_os = "ios"), not(target_arch = "wasm32")))]
+#[cfg(all(
+    not(target_os = "ios"),
+    not(target_arch = "wasm32"),
+    not(all(target_arch = "aarch64", target_os = "macos"))
+))]
 impl Into<bevy_glsl_to_spirv::ShaderType> for ShaderStage {
     fn into(self) -> bevy_glsl_to_spirv::ShaderType {
         match self {
@@ -43,7 +56,11 @@ impl Into<bevy_glsl_to_spirv::ShaderType> for ShaderStage {
     }
 }
 
-#[cfg(all(not(target_os = "ios"), not(target_arch = "wasm32")))]
+#[cfg(all(
+    not(target_os = "ios"),
+    not(target_arch = "wasm32"),
+    not(all(target_arch = "aarch64", target_os = "macos"))
+))]
 pub fn glsl_to_spirv(
     glsl_source: &str,
     stage: ShaderStage,
@@ -53,7 +70,7 @@ pub fn glsl_to_spirv(
         .map_err(ShaderError::Compilation)
 }
 
-#[cfg(target_os = "ios")]
+#[cfg(any(target_os = "ios", all(target_arch = "aarch64", target_os = "macos")))]
 impl Into<shaderc::ShaderKind> for ShaderStage {
     fn into(self) -> shaderc::ShaderKind {
         match self {
@@ -64,14 +81,16 @@ impl Into<shaderc::ShaderKind> for ShaderStage {
     }
 }
 
-#[cfg(target_os = "ios")]
+#[cfg(any(target_os = "ios", all(target_arch = "aarch64", target_os = "macos")))]
 pub fn glsl_to_spirv(
     glsl_source: &str,
     stage: ShaderStage,
     shader_defs: Option<&[String]>,
 ) -> Result<Vec<u32>, ShaderError> {
-    let mut compiler = shaderc::Compiler::new()?;
-    let mut options = shaderc::CompileOptions::new()?;
+    let mut compiler =
+        shaderc::Compiler::new().ok_or(ShaderError::ErrorInitializingShadercCompiler)?;
+    let mut options = shaderc::CompileOptions::new()
+        .ok_or(ShaderError::ErrorInitializingShadercCompileOptions)?;
     if let Some(shader_defs) = shader_defs {
         for def in shader_defs.iter() {
             options.add_macro_definition(def, None);
