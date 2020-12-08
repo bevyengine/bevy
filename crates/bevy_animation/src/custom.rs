@@ -7,9 +7,11 @@ use bevy_property::Properties;
 //use bevy_render::color::Color;
 use bevy_transform::prelude::*;
 use bevy_type_registry::TypeUuid;
-use fnv::FnvHashMap as HashMap;
+use fnv::FnvBuildHasher;
 use smallvec::{smallvec, SmallVec};
 use std::any::Any;
+use std::collections::{HashMap, HashSet};
+use std::hash::{BuildHasherDefault, Hash, Hasher};
 
 use crate::curve::Curve;
 use crate::hierarchy::Hierarchy;
@@ -41,12 +43,21 @@ pub struct CurvesUntyped {
     untyped: Box<dyn Any + 'static>,
 }
 
-// TODO: This may require that Curves implement Send and Sync
-// SAFETY: CurvesUntyped will only hold on to Curves<T> which are Send and Sync
+// SAFETY: CurvesUntyped will only hold on to Curves<T> which also implement Send and Sync
 unsafe impl Send for CurvesUntyped {}
 unsafe impl Sync for CurvesUntyped {}
 
 impl CurvesUntyped {
+    fn new<T: Send + Sync + 'static>(curves: Curves<T>) -> Self {
+        CurvesUntyped {
+            duration: curves
+                .iter()
+                .map(|(_, c)| c.duration())
+                .fold(0.0, |acc, d| acc.max(d)),
+            untyped: Box::new(curves),
+        }
+    }
+
     #[inline(always)]
     pub fn downcast_ref<T: 'static>(&self) -> Option<&Curves<T>> {
         self.untyped.downcast_ref()
@@ -71,7 +82,7 @@ pub struct Clip {
     /// Clip compound duration
     duration: f32,
     hierarchy: Hierarchy,
-    properties: HashMap<String, CurvesUntyped>,
+    properties: HashMap<String, CurvesUntyped, FnvBuildHasher>,
 }
 
 // fn clip_default_warp() -> bool {
@@ -97,7 +108,7 @@ impl Clip {
     /// **NOTE** This is a expensive function
     pub fn add_animated_prop<T>(&mut self, property_path: &str, mut curve: Curve<T>)
     where
-        T: LerpValue + Clone + 'static,
+        T: LerpValue + Clone + Send + Sync + 'static,
     {
         // Split in entity and attribute path,
         // NOTE: use rfind because it's expected the latter to be generally shorter
@@ -154,14 +165,11 @@ impl Clip {
         let id = self.properties.len();
         self.properties.insert(
             target_name.to_string(),
-            CurvesUntyped {
-                duration: curve.duration(),
-                untyped: Box::new(Curves {
-                    id,
-                    curves: vec![curve],
-                    indexes: smallvec![entity_index],
-                }),
-            },
+            CurvesUntyped::new(Curves {
+                id,
+                curves: vec![curve],
+                indexes: smallvec![entity_index],
+            }),
         );
     }
 
@@ -206,21 +214,6 @@ impl Clip {
     pub fn get(&self, property_name: &str) -> Option<&CurvesUntyped> {
         self.properties.get(property_name)
     }
-
-    // #[inline(always)]
-    // pub fn properties(&self) -> &[Name] {
-    //     &self.properties[..]
-    // }
-
-    // #[inline(always)]
-    // pub fn curves(&self) -> impl Iterator<Item = (&Curves, &CurveUntyped)> {
-    //     self.entries.iter().zip(self.curves.iter())
-    // }
-
-    // #[inline(always)]
-    // pub fn get(&self, curve_index: u16) -> Option<&CurveUntyped> {
-    //     self.curves.get(curve_index as usize)
-    // }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -388,7 +381,9 @@ pub(crate) fn animator_update_system(
                 let bind = &mut animator.bind_clips[clip_index];
 
                 // TODO: Don't look for the entities every frame, only when something happens
-                // TODO: Merge newarly added clips hierarchies into a single one
+                // TODO: Handle parent changed events
+                // TODO: Handle name changed events
+                // TODO: Merge newly added clips hierarchies into a single one
 
                 // Prepare the entities table cache
                 bind.entities.clear();
@@ -396,7 +391,7 @@ pub(crate) fn animator_update_system(
                 // Assign the root entity as the first element
                 bind.entities[0] = Some(animator_entity);
 
-                // Find entitites ...
+                // Find entities ...
                 for entity_index in 1..clip.hierarchy().len() {
                     clip.hierarchy().find_entity(
                         entity_index as u16,
@@ -406,20 +401,10 @@ pub(crate) fn animator_update_system(
                     );
                 }
 
-                // let curves_count = clip.len() as usize;
-
                 for layer in &mut animator.layers {
                     if layer.clip as usize != clip_index {
                         continue;
                     }
-
-                    // // Ensure capacity for cached keyframe index vec
-                    // if layer.keyframe.len() != curves_count {
-                    //     layer.keyframe.clear();
-                    //     layer
-                    //         .keyframe
-                    //         .resize_with(curves_count, || Default::default());
-                    // }
 
                     // Update time
                     let mut time = layer.time + delta_time * layer.time_scale;
@@ -429,11 +414,7 @@ pub(crate) fn animator_update_system(
                         // Warp Around
                         if time > clip.duration() {
                             time = (time / clip.duration()).fract() * clip.duration();
-                            // // Reset all keyframes cached indexes
-                            // layer
-                            //     .keyframe
-                            //     .iter_mut()
-                            //     .for_each(|x| *x = Default::default())
+                            // TODO: Reset all keyframes cached indexes (speedup)
                         }
                     } else {
                         // Hold
@@ -456,9 +437,36 @@ struct Ptr(*const u8);
 unsafe impl Send for Ptr {}
 unsafe impl Sync for Ptr {}
 
+/// Hasher for `Ptr` type, it trivially copies the bytes
+#[derive(Default)]
+struct PtrHasher(u64);
+
+impl Hasher for PtrHasher {
+    #[inline(always)]
+    fn finish(&self) -> u64 {
+        self.0
+    }
+
+    fn write(&mut self, _: &[u8]) {
+        unreachable!("hash type not supported");
+    }
+
+    #[inline(always)]
+    fn write_u64(&mut self, i: u64) {
+        self.0 = i;
+    }
+
+    #[inline(always)]
+    fn write_usize(&mut self, i: usize) {
+        self.0 = i as u64;
+    }
+}
+
 #[derive(Default, Debug)]
 pub struct AnimatorBlending {
-    table: fnv::FnvHashSet<Ptr>,
+    // TODO: Test the performance of FvnHash against the PtrHasher
+    // TODO: Use instead a vector, the Ptr type can be used as his on hash code
+    table: HashSet<Ptr, BuildHasherDefault<PtrHasher>>,
 }
 
 impl AnimatorBlending {

@@ -59,7 +59,7 @@ impl<I: Index> Hierarchy<I> {
     }
 
     /// Merge other hierarchy into this one, it will collect the
-    /// new entities indexes of merged hierachy.
+    /// new entities indexes of merged hierarchy.
     pub fn merge(&mut self, other_hierarchy: &Hierarchy<I>, mapped_entities: &mut Vec<I>) {
         mapped_entities.clear();
         mapped_entities.resize(other_hierarchy.len(), I::MAX_VALUE);
@@ -72,11 +72,11 @@ impl<I: Index> Hierarchy<I> {
         let root_index = I::from_usize(0);
         mapped_entities[0] = root_index;
 
-        // At this point they conincide
+        // At this point they coincide
         self.internal_merge(other_hierarchy, root_index, root_index, mapped_entities);
     }
 
-    // TODO: Expose to allow for merging hierarchies with mutiple roots
+    // TODO: Expose to allow for merging hierarchies with multiple roots
     fn internal_merge(
         &mut self,
         other_hierarchy: &Hierarchy<I>,
@@ -91,7 +91,7 @@ impl<I: Index> Hierarchy<I> {
             let entity_index =
                 if let Some(i) = self.entities.iter().position(|(i, n)| (i, n) == child) {
                     let entity_index = I::from_usize(i);
-                    // Found coresponding entity
+                    // Found corresponding entity
                     mapped_entities[other_index.as_usize()] = entity_index;
                     entity_index
                 } else {
