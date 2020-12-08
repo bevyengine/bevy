@@ -254,14 +254,18 @@ impl Default for Layer {
 
 #[derive(Default, Debug)]
 struct Bind {
-    entities: Vec<Option<Entity>>,
+    entities_indexes: Vec<u16>,
 }
 
 #[derive(Debug, Properties)]
 pub struct Animator {
     clips: Vec<Handle<Clip>>,
     #[property(ignore)]
-    bind_clips: Vec<Bind>,
+    bind_clips: Vec<Option<Bind>>,
+    #[property(ignore)]
+    hierarchy: Hierarchy,
+    #[property(ignore)]
+    entities: Vec<Option<Entity>>,
     pub time_scale: f32,
     pub layers: Vec<Layer>,
 }
@@ -271,6 +275,8 @@ impl Default for Animator {
         Self {
             clips: vec![],
             bind_clips: vec![],
+            hierarchy: Hierarchy::default(),
+            entities: vec![],
             time_scale: 1.0,
             layers: vec![],
         }
@@ -311,23 +317,35 @@ impl Animator {
         }
     }
 }
+
 pub struct LayerIterator<'a> {
     index: usize,
     animator: &'a Animator,
 }
 
 impl<'a> Iterator for LayerIterator<'a> {
-    type Item = (usize, &'a Layer, &'a Handle<Clip>, &'a [Option<Entity>]);
+    type Item = (usize, &'a Layer, &'a Handle<Clip>, &'a [u16]);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let index = self.index;
-        self.index += 1;
+        loop {
+            // Get next layer or stop the iterator
+            let layer = self.animator.layers.get(self.index)?;
+            let index = self.index;
+            self.index += 1;
 
-        let layer = self.animator.layers.get(index)?;
-        let clip_handle = self.animator.clips.get(layer.clip as usize)?;
-        let entities = &self.animator.bind_clips.get(layer.clip as usize)?.entities[..];
+            let clip_index = layer.clip as usize;
+            if let Some(clip_handle) = self.animator.clips.get(clip_index) {
+                if let Some(Some(bind)) = self.animator.bind_clips.get(clip_index) {
+                    return Some((index, layer, clip_handle, &bind.entities_indexes[..]));
+                }
 
-        return Some((index, layer, clip_handle, entities));
+                // Missing clip bind continue to the next layer
+                // TODO: log error
+            }
+
+            // Invalid clip continue to the next layer
+            // TODO: log error
+        }
     }
 }
 
@@ -419,32 +437,51 @@ pub(crate) fn animator_update_system(
         // Make run for the binds
         animator
             .bind_clips
-            .resize_with(animator.clips.len(), Bind::default);
+            .resize_with(animator.clips.len(), || None);
+
+        // TODO: Invalidate clip binds on clip change
 
         for (clip_index, clip_handle) in animator.clips.iter().enumerate() {
             if let Some(clip) = clips.get(clip_handle) {
-                let bind = &mut animator.bind_clips[clip_index];
+                let opt_bind = &mut animator.bind_clips[clip_index];
+                if opt_bind.is_none() {
+                    // Merge newly added clip hierarchy into the animator global hierarchy
+                    let mut bind = Bind::default();
+                    animator
+                        .hierarchy
+                        .merge(&clip.hierarchy, &mut bind.entities_indexes);
 
-                // TODO: Don't look for the entities every frame, only when something happens
-                // TODO: Handle parent changed events
-                // TODO: Handle name changed events
-                // TODO: Merge newly added clips hierarchies into a single one
+                    // Prepare the entities table cache
+                    animator.entities.resize(animator.hierarchy.len(), None);
+                    // Assign the root entity as the first element
+                    animator.entities[0] = Some(animator_entity);
 
-                // Prepare the entities table cache
-                bind.entities.clear();
-                bind.entities.resize(clip.hierarchy().len(), None);
-                // Assign the root entity as the first element
-                bind.entities[0] = Some(animator_entity);
+                    // Find missing entities that where just added in the hierarchy
+                    for entity_index in &bind.entities_indexes {
+                        animator.hierarchy.find_entity(
+                            *entity_index,
+                            &mut animator.entities,
+                            &mut children_query,
+                            &mut name_query,
+                        );
+                    }
 
-                // Find entities ...
-                for entity_index in 1..clip.hierarchy().len() {
-                    clip.hierarchy().find_entity(
-                        entity_index as u16,
-                        &mut bind.entities,
-                        &mut children_query,
-                        &mut name_query,
-                    );
-                }
+                    *opt_bind = Some(bind);
+                };
+
+                // TODO: Invalidate binds on parent changed events
+                // TODO: Invalidate binds on name changed events
+                // if hierarchy_invalidated {
+                //     // Find any missing entities
+                //     for entity_index in 1..clip.hierarchy().len() {
+                //         animator.hierarchy.find_entity(
+                //             entity_index as u16,
+                //             &mut bind.entities,
+                //             &mut children_query,
+                //             &mut name_query,
+                //         );
+                //     }
+                // }
 
                 for layer in &mut animator.layers {
                     if layer.clip as usize != clip_index {
@@ -489,7 +526,24 @@ pub(crate) fn animator_transform_update_system(
         let keyframe_cache = &mut *keyframe_cache;
         let mut blend_group = animator_blend.begin_blending();
 
-        for (_, layer, clip_handle, entities) in animator.animate() {
+        // ~15us
+        components.clear();
+
+        // ? NOTE: Lazy get each component is worse than just fetching everything at once
+        // SAFETY: Pre-fetch all transforms to avoid calling get_mut multiple times
+        // this is safe because it doesn't change the safe logic
+        unsafe {
+            for entity in &animator.entities {
+                components.push(
+                    entity
+                        .map(|entity| transform_query.get_unsafe(entity).ok())
+                        .flatten()
+                        .map(|(transform,)| transform),
+                );
+            }
+        }
+
+        for (_, layer, clip_handle, entities_map) in animator.animate() {
             let w = layer.weight;
             if w < 1.0e-8 {
                 continue;
@@ -497,25 +551,6 @@ pub(crate) fn animator_transform_update_system(
 
             if let Some(clip) = clips.get(clip_handle) {
                 let time = layer.time;
-
-                // ~15us
-                components.clear();
-
-                // TODO: Merge all the clips hierarchy into a single bigger one
-                // and do the component feching once per animator, instead of per clip
-
-                // SAFETY: Pre-fetch all transforms to avoid calling get_mut multiple times
-                // this is safe because it doesn't change the safe logic
-                unsafe {
-                    for entry in entities {
-                        components.push(
-                            entry
-                                .map(|entity| transform_query.get_unsafe(entity).ok())
-                                .flatten()
-                                .map(|(transform,)| transform),
-                        );
-                    }
-                }
 
                 // ~23us
                 if let Some(curves) = clip
@@ -529,6 +564,7 @@ pub(crate) fn animator_transform_update_system(
                     keyframes.resize(curves.len() as usize, 0);
 
                     for (curve_index, (entity_index, curve)) in curves.iter().enumerate() {
+                        let entity_index = entities_map[entity_index as usize];
                         if let Some(ref mut component) = components[entity_index as usize] {
                             // TODO: I'm not noticing any discernible performance change from using just `sample`
                             let (k, v) = curve.sample_indexed(keyframes[curve_index], time);
@@ -550,6 +586,7 @@ pub(crate) fn animator_transform_update_system(
                     keyframes.resize(curves.len() as usize, 0);
 
                     for (curve_index, (entity_index, curve)) in curves.iter().enumerate() {
+                        let entity_index = entities_map[entity_index as usize];
                         if let Some(ref mut component) = components[entity_index as usize] {
                             let (k, v) = curve.sample_indexed(keyframes[curve_index], time);
                             keyframes[curve_index] = k;
@@ -570,6 +607,7 @@ pub(crate) fn animator_transform_update_system(
                     keyframes.resize(curves.len() as usize, 0);
 
                     for (curve_index, (entity_index, curve)) in curves.iter().enumerate() {
+                        let entity_index = entities_map[entity_index as usize];
                         if let Some(ref mut component) = components[entity_index as usize] {
                             let (k, v) = curve.sample_indexed(keyframes[curve_index], time);
                             keyframes[curve_index] = k;
