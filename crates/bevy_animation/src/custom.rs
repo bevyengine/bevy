@@ -11,7 +11,6 @@ use fnv::FnvBuildHasher;
 use smallvec::{smallvec, SmallVec};
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
-use std::hash::{BuildHasherDefault, Hash, Hasher};
 
 use crate::curve::Curve;
 use crate::hierarchy::Hierarchy;
@@ -82,6 +81,7 @@ pub struct Clip {
     /// Clip compound duration
     duration: f32,
     hierarchy: Hierarchy,
+    // ? NOTE: AHash performed worse than FnvHasher
     properties: HashMap<String, CurvesUntyped, FnvBuildHasher>,
 }
 
@@ -437,36 +437,11 @@ struct Ptr(*const u8);
 unsafe impl Send for Ptr {}
 unsafe impl Sync for Ptr {}
 
-/// Hasher for `Ptr` type, it trivially copies the bytes
-#[derive(Default)]
-struct PtrHasher(u64);
-
-impl Hasher for PtrHasher {
-    #[inline(always)]
-    fn finish(&self) -> u64 {
-        self.0
-    }
-
-    fn write(&mut self, _: &[u8]) {
-        unreachable!("hash type not supported");
-    }
-
-    #[inline(always)]
-    fn write_u64(&mut self, i: u64) {
-        self.0 = i;
-    }
-
-    #[inline(always)]
-    fn write_usize(&mut self, i: usize) {
-        self.0 = i as u64;
-    }
-}
-
 #[derive(Default, Debug)]
 pub struct AnimatorBlending {
-    // TODO: Test the performance of FvnHash against the PtrHasher
+    // ? NOTE: FnvHasher performed better over the PtrHasher (ptr value as hash) and AHash
     // TODO: Use instead a vector, the Ptr type can be used as his on hash code
-    table: HashSet<Ptr, BuildHasherDefault<PtrHasher>>,
+    table: HashSet<Ptr, FnvBuildHasher>,
 }
 
 impl AnimatorBlending {

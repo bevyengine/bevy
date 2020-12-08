@@ -52,6 +52,7 @@ impl Name {
     }
 
     fn update_hash(&mut self) {
+        // TODO: Try with Fnv and AHash (I'm goging to need a test suit for that, but my money is on ahash)
         let mut hasher = DefaultHasher::default();
         self.name.hash(&mut hasher);
         self.hash = hasher.finish();
