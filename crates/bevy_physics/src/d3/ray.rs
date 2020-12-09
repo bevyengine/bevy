@@ -48,10 +48,10 @@ impl Ray {
         let near = near.truncate() / near.w;
         let far = far.truncate() / far.w;
 
-        let direction: Vec3 = (far - near).into();
-        let origin: Vec3 = near.into();
+        let direction: Vec3 = far - near;
+        let origin: Vec3 = near;
 
-        return Self { origin, direction };
+        Self { origin, direction }
     }
 
     pub fn origin(&self) -> &Vec3 {

@@ -54,6 +54,8 @@ struct MouseState {
     cursor_position: Vec2,
 }
 
+// Is there a way to reduce the arguments?
+#[allow(clippy::too_many_arguments)]
 fn raycast(
     commands: &mut Commands,
     mut meshes: ResMut<Assets<Mesh>>,

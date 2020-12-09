@@ -53,15 +53,20 @@ impl RayIntersector for Sphere {
         if d < 0.0 {
             None
         } else {
-            let t = (-b - d.sqrt()) / (2.0 * a);
+            let distance = (-b - d.sqrt()) / (2.0 * a);
 
-            Some(RayHit::new(t, *ray.origin() + *ray.direction() * t))
+            Some(RayHit::new(
+                distance,
+                *ray.origin() + *ray.direction() * distance,
+            ))
         }
     }
 }
 
 impl RayIntersector for Triangle {
     // using the Moeller-Trumbore intersection algorithm
+    // Can anyone think of sensible names for theese?
+    #[allow(clippy::many_single_char_names)]
     fn intersect_ray(&self, ray: &Ray) -> Option<RayHit> {
         let edges = (self.1 - self.0, self.2 - self.0);
         let h = ray.direction().cross(edges.1);
@@ -86,10 +91,13 @@ impl RayIntersector for Triangle {
             return None;
         }
 
-        let t = f * edges.1.dot(q);
+        let distance = f * edges.1.dot(q);
 
-        if t > f32::EPSILON {
-            Some(RayHit::new(t, *ray.origin() + *ray.direction() * t))
+        if distance > f32::EPSILON {
+            Some(RayHit::new(
+                distance,
+                *ray.origin() + *ray.direction() * distance,
+            ))
         } else {
             None
         }
