@@ -26,11 +26,14 @@ pub trait RayIntersector {
 
 impl RayIntersector for Plane {
     fn intersect_ray(&self, ray: &Ray) -> Option<RayHit> {
-        let d = self.normal().dot(*ray.direction());
-        if d.abs() > f32::EPSILON {
-            let t = (*self.center() - *ray.origin()).dot(*self.normal()) / d;
-            if t > 0.0 {
-                return Some(RayHit::new(t, *ray.origin() + *ray.direction() * t));
+        let denominator = self.normal().dot(*ray.direction());
+        if denominator.abs() > f32::EPSILON {
+            let distance = (*self.center() - *ray.origin()).dot(*self.normal()) / denominator;
+            if distance > 0.0 {
+                return Some(RayHit::new(
+                    distance,
+                    *ray.origin() + *ray.direction() * distance,
+                ));
             }
         }
 
