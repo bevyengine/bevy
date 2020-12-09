@@ -53,3 +53,6 @@ shaderc = "0.7.0"
 [features]
 png = ["image/png"]
 hdr = ["image/hdr"]
+dds = ["image/dds"]
+tga = ["image/tga"]
+jpeg = ["image/jpeg"]

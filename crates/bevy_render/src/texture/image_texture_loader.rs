@@ -9,6 +9,32 @@ use bevy_utils::BoxedFuture;
 #[derive(Clone, Default)]
 pub struct ImageTextureLoader;
 
+macro_rules! define_file_extensions {
+    ( $( $s:literal => $v:ident ),+ $(,)? ) => {
+
+        const FILE_EXTENSIONS: &'static [&'static str] = &[
+            $( $s ),+
+        ];
+
+        fn match_file_extension (ext: &str) -> Option<image::ImageFormat>
+        {
+            if false { None } $(
+
+                else if ext.eq_ignore_ascii_case ($s) {
+                    Some(image::ImageFormat::$v)
+                }
+
+            )+ else { None }
+        }
+
+    };
+}
+
+define_file_extensions! {
+    "png" => Png, "dds" => Dds,
+    "tga" => Tga, "jpeg" => Jpeg,
+}
+
 impl AssetLoader for ImageTextureLoader {
     fn load<'a>(
         &'a self,
@@ -23,16 +49,15 @@ impl AssetLoader for ImageTextureLoader {
 
             let ext = load_context.path().extension().unwrap().to_str().unwrap();
 
-            // NOTE: If more formats are added they can be added here.
-            let img_format = if ext.eq_ignore_ascii_case("png") {
-                image::ImageFormat::Png
-            } else {
-                panic!(
+            let img_format = match_file_extension(ext)
+                .ok_or_else(|| {
+                    format!(
                     "Unexpected image format {:?} for file {}, this is an error in `bevy_render`.",
                     ext,
                     load_context.path().display()
                 )
-            };
+                })
+                .unwrap();
 
             // Load the image in the expected format.
             // Some formats like PNG allow for R or RG textures too, so the texture
@@ -159,6 +184,6 @@ impl AssetLoader for ImageTextureLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        &["png"]
+        FILE_EXTENSIONS
     }
 }
