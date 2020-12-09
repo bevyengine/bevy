@@ -25,7 +25,7 @@ smallvec = { version = "1.4", features = ["serde"] }
 anyhow = "1.0"
 float-cmp = "0.8.0"
 fnv = "1.0.7"
-tracing = { version = "0.1.21", features = ["attributes"] }
+tracing = "0.1.21"
 
 [dev-dependencies]
 criterion = "0.3.3"

@@ -1,5 +1,6 @@
 use anyhow::Result;
-use bevy_asset::{Assets, Handle /*HandleUntyped*/};
+use bevy_app::prelude::{EventReader, Events};
+use bevy_asset::{AssetEvent, Assets, Handle /*HandleUntyped*/};
 use bevy_core::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_math::prelude::*;
@@ -9,7 +10,7 @@ use bevy_type_registry::TypeUuid;
 use fnv::FnvBuildHasher;
 use smallvec::{smallvec, SmallVec};
 use std::any::Any;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::blending::{AnimatorBlending, Blend};
 use crate::curve::Curve;
@@ -236,7 +237,7 @@ impl Clip {
 #[derive(Debug, Clone, Properties)]
 pub struct Layer {
     pub weight: f32,
-    pub clip: u16,
+    pub clip: usize,
     pub time: f32,
     pub time_scale: f32,
 }
@@ -265,6 +266,8 @@ pub struct Animator {
     #[property(ignore)]
     hierarchy: Hierarchy,
     #[property(ignore)]
+    missing_entities: bool,
+    #[property(ignore)]
     entities: Vec<Option<Entity>>,
     pub time_scale: f32,
     pub layers: Vec<Layer>,
@@ -276,6 +279,7 @@ impl Default for Animator {
             clips: vec![],
             bind_clips: vec![],
             hierarchy: Hierarchy::default(),
+            missing_entities: false,
             entities: vec![],
             time_scale: 1.0,
             layers: vec![],
@@ -284,18 +288,20 @@ impl Default for Animator {
 }
 
 impl Animator {
-    pub fn add_clip(&mut self, clip: Handle<Clip>) -> u16 {
+    pub fn add_clip(&mut self, clip: Handle<Clip>) -> usize {
         if let Some(i) = self.clips.iter().position(|c| *c == clip) {
-            i as u16
+            i
         } else {
             // TODO: assert too many clips ...
             let i = self.clips.len();
             self.clips.push(clip);
-            i as u16
+            i
         }
     }
 
-    pub fn add_layer(&mut self, clip: Handle<Clip>, weight: f32) -> u16 {
+    // TODO: remove clip
+
+    pub fn add_layer(&mut self, clip: Handle<Clip>, weight: f32) -> usize {
         let clip = self.add_clip(clip);
         let layer_index = self.layers.len();
         self.layers.push(Layer {
@@ -303,11 +309,15 @@ impl Animator {
             weight,
             ..Default::default()
         });
-        layer_index as u16
+        layer_index
     }
 
-    pub fn clips_len(&self) -> u16 {
-        self.clips.len() as u16
+    // TODO: remove layer at index
+
+    // TODO: cleanup, clears hierarchy entities and binds
+
+    pub fn clips(&self) -> &[Handle<Clip>] {
+        &self.clips[..]
     }
 
     pub fn animate<'a>(&'a self) -> LayerIterator<'a> {
@@ -393,9 +403,17 @@ impl<T> FetchState<T> {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#[tracing::instrument(skip(commands, time, clips, animators_query, children_query, name_query))]
+/// State info for the system `animator_binding_system`
+#[derive(Default)]
+pub(crate) struct BindingState {
+    clips_event_reader: EventReader<AssetEvent<Clip>>,
+    clips_modified: HashSet<Handle<Clip>, FnvBuildHasher>,
+}
+
 pub(crate) fn animator_update_system(
     commands: &mut Commands,
+    mut state: Local<BindingState>,
+    clip_events: Res<Events<AssetEvent<Clip>>>,
     time: Res<Time>,
     clips: Res<Assets<Clip>>,
     mut animators_query: Query<(
@@ -404,10 +422,28 @@ pub(crate) fn animator_update_system(
         Option<&KeyframeCache>,
         Option<&AnimatorBlending>,
     )>,
-    mut children_query: Query<(&Children,)>,
-    mut name_query: Query<(&Parent, &Name)>,
+    children_query: Query<(&Children,)>,
+    name_query: Query<(&Parent, &Name)>,
+    parent_or_name_changed_query: Query<(Option<&Parent>, &Name), (Changed<Parent>, Changed<Name>)>,
 ) {
-    for (animator_entity, mut animator, keyframe_cache, visited) in animators_query.iter_mut() {
+    let __span = tracing::info_span!("animator_update_system");
+    let __guard = __span.enter();
+
+    // ? NOTE: Changing a clip on fly is supported, but very expensive so use with caution
+    // TODO: Put a warning somewhere in the docs on how expensive is changing a clip on the fly
+    // Query all clips that changed and remove their binds from the animator
+    state.clips_modified.clear();
+    for event in state.clips_event_reader.iter(&clip_events) {
+        match event {
+            AssetEvent::Removed { handle } => state.clips_modified.insert(handle.clone()),
+            AssetEvent::Modified { handle } => state.clips_modified.insert(handle.clone()),
+            _ => false,
+        };
+    }
+
+    for (animator_entity, mut animator, keyframe_cache, animator_blending) in
+        animators_query.iter_mut()
+    {
         let animator = &mut *animator;
 
         // Insert KeyframeCache if not already
@@ -415,7 +451,7 @@ pub(crate) fn animator_update_system(
             commands.insert_one(animator_entity, KeyframeCache::default());
         }
 
-        if visited.is_none() {
+        if animator_blending.is_none() {
             commands.insert_one(animator_entity, AnimatorBlending::default());
         }
 
@@ -434,17 +470,75 @@ pub(crate) fn animator_update_system(
             layer.weight *= norm;
         }
 
+        // Invalidate entities on parent or name changed events
+        for (entity_index, ((parent_index, name), _)) in animator.hierarchy.iter().enumerate() {
+            // Ignore the root entity as we don't care about it's parent nor it's name
+            if entity_index == 0 {
+                continue;
+            }
+
+            let entity = animator.entities[entity_index];
+
+            // ? NOTE: Use a changed events for both parent and name because name
+            // ? comparison isn't fast, as result it won't notice changes before the
+            // ? POST_UPDATE stage
+            if let Some((entity_parent, entity_name)) = entity
+                .map(|entity| parent_or_name_changed_query.get(entity).ok())
+                .flatten()
+            {
+                let parent = animator.entities[*parent_index as usize];
+                if entity_parent.map(|p| p.0) != parent || name != entity_name {
+                    animator.entities[entity_index] = None;
+                    animator.missing_entities = true;
+                }
+            }
+        }
+
+        // TODO: Figure out how expensive this might be with a couple of entities missing
+        // Look for missing entities if any
+        if animator.missing_entities {
+            let mut missing = false;
+            let count = animator.hierarchy.len();
+
+            // Prepare the entities table cache
+            animator.entities.resize(count, None);
+            // Assign the root entity as the first element
+            animator.entities[0] = Some(animator_entity);
+
+            // Find missing entities that where just added in the hierarchy
+            for entity_index in 0..count {
+                missing |= animator
+                    .hierarchy
+                    .find_entity(
+                        entity_index as u16,
+                        &mut animator.entities,
+                        &children_query,
+                        &name_query,
+                    )
+                    .is_none();
+            }
+
+            // Update missing entities state
+            animator.missing_entities = missing;
+            println!("missing entities ...");
+        }
+
         // Make run for the binds
         animator
             .bind_clips
             .resize_with(animator.clips.len(), || None);
 
-        // TODO: Invalidate clip binds on clip change
-
         for (clip_index, clip_handle) in animator.clips.iter().enumerate() {
+            // Invalidate clip binds on clip change
+            // NOTE: The clip might be gone so it's necessary to update it here
+            if state.clips_modified.contains(clip_handle) {
+                animator.bind_clips[clip_index] = None;
+                // TODO: warning clip modified while assigned to an animator
+            }
+
             if let Some(clip) = clips.get(clip_handle) {
-                let opt_bind = &mut animator.bind_clips[clip_index];
-                if opt_bind.is_none() {
+                let bind_slot = &mut animator.bind_clips[clip_index];
+                if bind_slot.is_none() {
                     // Merge newly added clip hierarchy into the animator global hierarchy
                     let mut bind = Bind::default();
                     animator
@@ -456,32 +550,25 @@ pub(crate) fn animator_update_system(
                     // Assign the root entity as the first element
                     animator.entities[0] = Some(animator_entity);
 
+                    let mut missing = false;
                     // Find missing entities that where just added in the hierarchy
                     for entity_index in &bind.entities_indexes {
-                        animator.hierarchy.find_entity(
-                            *entity_index,
-                            &mut animator.entities,
-                            &mut children_query,
-                            &mut name_query,
-                        );
+                        missing |= animator
+                            .hierarchy
+                            .find_entity(
+                                *entity_index,
+                                &mut animator.entities,
+                                &children_query,
+                                &name_query,
+                            )
+                            .is_none();
                     }
 
-                    *opt_bind = Some(bind);
-                };
+                    // Set missing entities if any
+                    animator.missing_entities |= missing;
 
-                // TODO: Invalidate binds on parent changed events
-                // TODO: Invalidate binds on name changed events
-                // if hierarchy_invalidated {
-                //     // Find any missing entities
-                //     for entity_index in 1..clip.hierarchy().len() {
-                //         animator.hierarchy.find_entity(
-                //             entity_index as u16,
-                //             &mut bind.entities,
-                //             &mut children_query,
-                //             &mut name_query,
-                //         );
-                //     }
-                // }
+                    *bind_slot = Some(bind);
+                };
 
                 for layer in &mut animator.layers {
                     if layer.clip as usize != clip_index {
@@ -509,17 +596,21 @@ pub(crate) fn animator_update_system(
             }
         }
     }
+
+    std::mem::drop(__guard);
 }
 
 // TODO: This should be auto derived using the "Animated" trait that just returns
 // a system able to animate the said component. Use "AnimatedAsset" for asset handles!
 
-#[tracing::instrument(skip(clips, animators_query, transform_query))]
 pub(crate) fn animator_transform_update_system(
     clips: Res<Assets<Clip>>,
     mut animators_query: Query<(&Animator, &mut KeyframeCache, &mut AnimatorBlending)>,
     transform_query: Query<(&mut Transform,)>,
 ) {
+    let __span = tracing::info_span!("animator_transform_update_system");
+    let __guard = __span.enter();
+
     let mut components = vec![];
 
     for (animator, mut keyframe_cache, mut animator_blend) in animators_query.iter_mut() {
@@ -530,8 +621,10 @@ pub(crate) fn animator_transform_update_system(
         components.clear();
 
         // ? NOTE: Lazy get each component is worse than just fetching everything at once
-        // SAFETY: Pre-fetch all transforms to avoid calling get_mut multiple times
-        // this is safe because it doesn't change the safe logic
+        // Pre-fetch all transforms to avoid calling get_mut multiple times
+        // SAFETY: each component will be updated one at the time and this function
+        // currently has the mutability over the Transform type, so no race conditions
+        // are possible
         unsafe {
             for entity in &animator.entities {
                 components.push(
@@ -566,7 +659,7 @@ pub(crate) fn animator_transform_update_system(
                     for (curve_index, (entity_index, curve)) in curves.iter().enumerate() {
                         let entity_index = entities_map[entity_index as usize];
                         if let Some(ref mut component) = components[entity_index as usize] {
-                            // TODO: I'm not noticing any discernible performance change from using just `sample`
+                            // TODO: I'm not noticing any discernible performance change from using just `sample` so there's probably something wrong
                             let (k, v) = curve.sample_indexed(keyframes[curve_index], time);
                             keyframes[curve_index] = k;
                             // let v = curve.sample(time);
@@ -619,7 +712,11 @@ pub(crate) fn animator_transform_update_system(
             }
         }
     }
+
+    std::mem::drop(__guard);
 }
+
+// TODO: Port tests from the generic unsafe
 
 // #[cfg(test)]
 // #[allow(dead_code)]

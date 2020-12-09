@@ -219,8 +219,8 @@ impl<I: Index> Hierarchy<I> {
         &self,
         entity_index: I,
         entities_table_cache: &mut Vec<Option<Entity>>,
-        children_query: &mut Query<(&Children,)>,
-        name_query: &mut Query<(&Parent, &Name)>,
+        children_query: &Query<(&Children,)>,
+        name_query: &Query<(&Parent, &Name)>,
     ) -> Option<Entity> {
         if let Some(entity) = &entities_table_cache[entity_index.as_usize()] {
             Some(*entity)

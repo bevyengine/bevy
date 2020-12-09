@@ -103,12 +103,14 @@ impl MapEntities for SkinComponent {
     }
 }
 
-#[tracing::instrument(skip(pipelines, shaders, render_graph))]
 pub(crate) fn skinning_setup(
     mut pipelines: ResMut<Assets<PipelineDescriptor>>,
     mut shaders: ResMut<Assets<Shader>>,
     mut render_graph: ResMut<RenderGraph>,
 ) {
+    let __span = tracing::info_span!("skinning_setup");
+    let __guard = __span.enter();
+
     let mut forward_skinned_pipeline = pipelines
         .get(bevy_pbr::render_graph::FORWARD_PIPELINE_HANDLE)
         .expect("missing forward pipeline")
@@ -132,19 +134,12 @@ pub(crate) fn skinning_setup(
     render_graph
         .add_node_edge("skin_instance", base::node::MAIN_PASS)
         .unwrap();
+
+    std::mem::drop(__guard);
 }
 
 // ? NOTE: You can check the follow link, for more details
 // ? https://github.com/KhronosGroup/glTF-Tutorials/blob/master/gltfTutorial/gltfTutorial_020_Skins.md
-#[tracing::instrument(skip(
-    commands,
-    skin_assets,
-    skin_instances,
-    binds_query,
-    children_query,
-    name_query,
-    transforms_query
-))]
 pub(crate) fn skinning_update(
     commands: &mut Commands,
     skin_assets: Res<Assets<SkinAsset>>,
@@ -157,6 +152,8 @@ pub(crate) fn skinning_update(
     transforms_query: Query<(&GlobalTransform,)>,
     mut renderers_query: Query<(&mut RenderPipelines,)>,
 ) {
+    let __span = tracing::info_span!("skinning_update");
+    let __guard = __span.enter();
     for (skin_asset_handle, mut skin_bind, skin_children) in binds_query.iter_mut() {
         // Already assigned
         if Some(skin_asset_handle) != skin_bind.previous_skin.as_ref() {
@@ -245,6 +242,8 @@ pub(crate) fn skinning_update(
                 });
         }
     }
+
+    std::mem::drop(__guard);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
