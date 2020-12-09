@@ -5,6 +5,7 @@ use bevy_render::{
     draw::Draw,
     mesh::Mesh,
     pipeline::{RenderPipeline, RenderPipelines},
+    prelude::Visible,
     render_graph::base::MainPass,
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
@@ -16,6 +17,7 @@ pub struct PbrBundle {
     pub material: Handle<StandardMaterial>,
     pub main_pass: MainPass,
     pub draw: Draw,
+    pub visible: Visible,
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -28,6 +30,7 @@ impl Default for PbrBundle {
                 FORWARD_PIPELINE_HANDLE.typed(),
             )]),
             mesh: Default::default(),
+            visible: Default::default(),
             material: Default::default(),
             main_pass: Default::default(),
             draw: Default::default(),

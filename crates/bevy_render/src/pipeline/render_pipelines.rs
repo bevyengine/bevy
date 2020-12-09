@@ -2,7 +2,7 @@ use super::{PipelineDescriptor, PipelineSpecialization};
 use crate::{
     draw::{Draw, DrawContext},
     mesh::{Indices, Mesh},
-    prelude::Msaa,
+    prelude::{Msaa, Visible},
     renderer::RenderResourceBindings,
 };
 use bevy_asset::{Assets, Handle};
@@ -82,10 +82,10 @@ pub fn draw_render_pipelines_system(
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
     msaa: Res<Msaa>,
     meshes: Res<Assets<Mesh>>,
-    mut query: Query<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>)>,
+    mut query: Query<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>, &Visible)>,
 ) {
-    for (mut draw, mut render_pipelines, mesh_handle) in query.iter_mut() {
-        if !draw.is_visible {
+    for (mut draw, mut render_pipelines, mesh_handle, visible) in query.iter_mut() {
+        if !visible.is_visible {
             continue;
         }
 

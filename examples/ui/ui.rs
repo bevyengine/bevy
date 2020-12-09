@@ -115,7 +115,7 @@ fn setup(
                         ..Default::default()
                     },
                     material: materials.add(Color::NONE.into()),
-                    draw: Draw {
+                    visible: Visible {
                         is_transparent: true,
                         ..Default::default()
                     },
@@ -188,7 +188,7 @@ fn setup(
                                         ..Default::default()
                                     },
                                     material: materials.add(Color::rgba(1.0, 0.9, 0.9, 0.4).into()),
-                                    draw: Draw {
+                                    visible: Visible {
                                         is_transparent: true,
                                         ..Default::default()
                                     },
@@ -206,7 +206,7 @@ fn setup(
                         ..Default::default()
                     },
                     material: materials.add(Color::NONE.into()),
-                    draw: Draw {
+                    visible: Visible {
                         is_transparent: true,
                         ..Default::default()
                     },
@@ -221,7 +221,7 @@ fn setup(
                         },
                         material: materials
                             .add(asset_server.load("branding/bevy_logo_dark_big.png").into()),
-                        draw: Draw {
+                        visible: Visible {
                             is_transparent: true,
                             ..Default::default()
                         },

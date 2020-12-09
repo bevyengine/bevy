@@ -12,13 +12,14 @@ pub mod shader;
 pub mod texture;
 
 use bevy_reflect::RegisterTypeBuilder;
+use draw::Visible;
 pub use once_cell;
 
 pub mod prelude {
     pub use crate::{
         base::Msaa,
         color::Color,
-        draw::Draw,
+        draw::{Draw, Visible},
         entity::*,
         mesh::{shape, Mesh},
         pass::ClearColor,
@@ -105,6 +106,7 @@ impl Plugin for RenderPlugin {
             .add_asset::<PipelineDescriptor>()
             .register_type::<Camera>()
             .register_type::<Draw>()
+            .register_type::<Visible>()
             .register_type::<RenderPipelines>()
             .register_type::<OrthographicProjection>()
             .register_type::<PerspectiveProjection>()

@@ -97,7 +97,7 @@ fn mouse_handler(
                 .spawn(SpriteBundle {
                     material: bird_material.0.clone(),
                     transform,
-                    draw: Draw {
+                    visible: Visible {
                         is_transparent: true,
                         ..Default::default()
                     },
