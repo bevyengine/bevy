@@ -45,7 +45,7 @@ pub mod math {
 }
 
 pub mod physics {
-	//! colliders and raycasting
+    //! colliders and raycasting
     pub use bevy_physics::*;
 }
 
