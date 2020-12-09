@@ -37,6 +37,8 @@ current changes on git with [previous release tags][git_tag_comparison].
   - Created getters to get `Time` state and made members private.
   - Modifying `Time`'s values directly is no longer possible outside of bevy.
 - [Use `mailbox` instead of `fifo` for vsync on supported systems][920]
+- [Break out Visible component from Draw][1034]
+  - Users setting `Draw::is_visible` or `Draw::is_transparent` should now set `Visible::is_visible` and `Visible::is_transparent`
 
 ### Fixed
 
@@ -68,6 +70,7 @@ current changes on git with [previous release tags][git_tag_comparison].
 [934]: https://github.com/bevyengine/bevy/pull/934
 [945]: https://github.com/bevyengine/bevy/pull/945
 [955]: https://github.com/bevyengine/bevy/pull/955
+[1034]: https://github.com/bevyengine/bevy/pull/1034
 
 ## Version 0.3.0 (2020-11-03)
 

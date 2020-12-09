@@ -1,6 +1,6 @@
 use crate::{
-    draw::Draw,
     pipeline::RenderPipelines,
+    prelude::Visible,
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     renderer::{
         self, BufferInfo, BufferUsage, RenderContext, RenderResourceBinding,
@@ -12,8 +12,8 @@ use crate::{
 use bevy_app::{EventReader, Events};
 use bevy_asset::{Asset, AssetEvent, Assets, Handle, HandleId};
 use bevy_ecs::{
-    Changed, Commands, Entity, IntoSystem, Local, Query, QuerySet, Res, ResMut, Resources, System,
-    With, World,
+    Changed, Commands, Entity, IntoSystem, Local, Or, Query, QuerySet, Res, ResMut, Resources,
+    System, With, World,
 };
 use bevy_utils::HashMap;
 use renderer::{AssetRenderResourceBindings, BufferId, RenderResourceType, RenderResources};
@@ -437,8 +437,8 @@ fn render_resources_node_system<T: RenderResources>(
     mut entities_waiting_for_textures: Local<Vec<Entity>>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     mut queries: QuerySet<(
-        Query<(Entity, &T, &Draw, &mut RenderPipelines), Changed<T>>,
-        Query<(Entity, &T, &Draw, &mut RenderPipelines)>,
+        Query<(Entity, &T, &Visible, &mut RenderPipelines), Or<(Changed<T>, Changed<Visible>)>>,
+        Query<(Entity, &T, &Visible, &mut RenderPipelines)>,
     )>,
 ) {
     let state = state.deref_mut();
@@ -456,7 +456,7 @@ fn render_resources_node_system<T: RenderResources>(
 
     // handle entities that were waiting for texture loads on the last update
     for entity in std::mem::take(&mut *entities_waiting_for_textures) {
-        if let Ok((entity, uniforms, _draw, mut render_pipelines)) =
+        if let Ok((entity, uniforms, _visible, mut render_pipelines)) =
             queries.q1_mut().get_mut(entity)
         {
             if !setup_uniform_texture_resources::<T>(
@@ -469,8 +469,8 @@ fn render_resources_node_system<T: RenderResources>(
         }
     }
 
-    for (entity, uniforms, draw, mut render_pipelines) in queries.q0_mut().iter_mut() {
-        if !draw.is_visible {
+    for (entity, uniforms, visible, mut render_pipelines) in queries.q0_mut().iter_mut() {
+        if !visible.is_visible {
             continue;
         }
 
@@ -498,10 +498,10 @@ fn render_resources_node_system<T: RenderResources>(
             &mut |mut staging_buffer, _render_resource_context| {
                 // if the buffer array was resized, write all entities to the new buffer, otherwise only write changes
                 if resized {
-                    for (entity, uniforms, draw, mut render_pipelines) in
+                    for (entity, uniforms, visible, mut render_pipelines) in
                         queries.q1_mut().iter_mut()
                     {
-                        if !draw.is_visible {
+                        if !visible.is_visible {
                             continue;
                         }
 
@@ -515,10 +515,10 @@ fn render_resources_node_system<T: RenderResources>(
                         );
                     }
                 } else {
-                    for (entity, uniforms, draw, mut render_pipelines) in
+                    for (entity, uniforms, visible, mut render_pipelines) in
                         queries.q0_mut().iter_mut()
                     {
-                        if !draw.is_visible {
+                        if !visible.is_visible {
                             continue;
                         }
 

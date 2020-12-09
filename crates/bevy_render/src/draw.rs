@@ -43,12 +43,27 @@ pub enum RenderCommand {
     },
 }
 
+#[derive(Debug, Clone, Reflect)]
+#[reflect(Component)]
+pub struct Visible {
+    pub is_visible: bool,
+    // TODO: consider moving this to materials
+    pub is_transparent: bool,
+}
+
+impl Default for Visible {
+    fn default() -> Self {
+        Visible {
+            is_visible: true,
+            is_transparent: false,
+        }
+    }
+}
+
 /// A component that indicates how to draw an entity.
 #[derive(Debug, Clone, Reflect)]
 #[reflect(Component)]
 pub struct Draw {
-    pub is_visible: bool,
-    pub is_transparent: bool,
     #[reflect(ignore)]
     pub render_commands: Vec<RenderCommand>,
 }
@@ -56,8 +71,6 @@ pub struct Draw {
 impl Default for Draw {
     fn default() -> Self {
         Self {
-            is_visible: true,
-            is_transparent: false,
             render_commands: Default::default(),
         }
     }

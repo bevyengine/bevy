@@ -6,6 +6,7 @@ use crate::{
         BindGroupDescriptor, BindType, BindingDescriptor, BindingShaderStage, PipelineDescriptor,
         UniformProperty,
     },
+    prelude::Visible,
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
     renderer::{
         BindGroup, BindGroupId, BufferId, RenderContext, RenderResourceBindings, RenderResourceType,
@@ -236,8 +237,10 @@ where
                             continue;
                         };
 
-                        if !draw.is_visible {
-                            continue;
+                        if let Ok(visible) = world.get::<Visible>(visible_entity.entity) {
+                            if !visible.is_visible {
+                                continue;
+                            }
                         }
 
                         // each Draw component contains an ordered list of render commands. we turn those into actual render commands here

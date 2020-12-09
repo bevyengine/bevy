@@ -7,7 +7,7 @@ use bevy_ecs::Bundle;
 use bevy_render::{
     mesh::Mesh,
     pipeline::{RenderPipeline, RenderPipelines},
-    prelude::Draw,
+    prelude::{Draw, Visible},
     render_graph::base::MainPass,
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
@@ -19,6 +19,7 @@ pub struct SpriteBundle {
     pub material: Handle<ColorMaterial>,
     pub main_pass: MainPass,
     pub draw: Draw,
+    pub visible: Visible,
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -31,12 +32,13 @@ impl Default for SpriteBundle {
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 SPRITE_PIPELINE_HANDLE.typed(),
             )]),
-            draw: Draw {
+            visible: Visible {
                 is_transparent: true,
                 ..Default::default()
             },
-            sprite: Default::default(),
             main_pass: MainPass,
+            draw: Default::default(),
+            sprite: Default::default(),
             material: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
@@ -54,6 +56,7 @@ pub struct SpriteSheetBundle {
     pub texture_atlas: Handle<TextureAtlas>,
     /// Data pertaining to how the sprite is drawn on the screen
     pub draw: Draw,
+    pub visible: Visible,
     pub render_pipelines: RenderPipelines,
     pub main_pass: MainPass,
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
@@ -67,12 +70,13 @@ impl Default for SpriteSheetBundle {
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 SPRITE_SHEET_PIPELINE_HANDLE.typed(),
             )]),
-            draw: Draw {
+            visible: Visible {
                 is_transparent: true,
                 ..Default::default()
             },
-            mesh: QUAD_HANDLE.typed(),
             main_pass: MainPass,
+            mesh: QUAD_HANDLE.typed(),
+            draw: Default::default(),
             sprite: Default::default(),
             texture_atlas: Default::default(),
             transform: Default::default(),
