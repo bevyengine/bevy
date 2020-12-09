@@ -2,17 +2,17 @@ use super::{geometry::*, ray::*};
 use glam::Vec3;
 
 pub struct RayHit {
-    t: f32,
+    distance: f32,
     point: Vec3,
 }
 
 impl RayHit {
-    pub fn new(t: f32, point: Vec3) -> Self {
-        Self { t, point }
+    pub fn new(distance: f32, point: Vec3) -> Self {
+        Self { distance, point }
     }
 
-    pub fn t(&self) -> &f32 {
-        &self.t
+    pub fn distance(&self) -> &f32 {
+        &self.distance
     }
 
     pub fn point(&self) -> &Vec3 {
