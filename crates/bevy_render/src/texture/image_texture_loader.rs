@@ -32,7 +32,8 @@ macro_rules! define_file_extensions {
 
 define_file_extensions! {
     "png" => Png, "dds" => Dds,
-    "tga" => Tga, "jpeg" => Jpeg,
+    "tga" => Tga, "jpg" => Jpeg,
+    "jpeg" => Jpeg,
 }
 
 impl AssetLoader for ImageTextureLoader {
