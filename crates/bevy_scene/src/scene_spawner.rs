@@ -1,8 +1,9 @@
 use crate::{DynamicScene, Scene};
 use bevy_app::prelude::*;
 use bevy_asset::{AssetEvent, Assets, Handle};
-use bevy_ecs::{EntityMap, Resources, World};
+use bevy_ecs::{Entity, EntityMap, Resources, World};
 use bevy_reflect::{ReflectComponent, ReflectMapEntities, TypeRegistryArc};
+use bevy_transform::prelude::Parent;
 use bevy_utils::HashMap;
 use thiserror::Error;
 use uuid::Uuid;
@@ -28,8 +29,9 @@ pub struct SceneSpawner {
     spawned_instances: HashMap<InstanceId, InstanceInfo>,
     scene_asset_event_reader: EventReader<AssetEvent<DynamicScene>>,
     dynamic_scenes_to_spawn: Vec<Handle<DynamicScene>>,
-    scenes_to_spawn: Vec<Handle<Scene>>,
+    scenes_to_spawn: Vec<(Handle<Scene>, InstanceId)>,
     scenes_to_despawn: Vec<Handle<DynamicScene>>,
+    scenes_with_parent: Vec<(InstanceId, Entity)>,
 }
 
 #[derive(Error, Debug)]
@@ -50,7 +52,14 @@ impl SceneSpawner {
     }
 
     pub fn spawn(&mut self, scene_handle: Handle<Scene>) {
-        self.scenes_to_spawn.push(scene_handle);
+        let instance_id = InstanceId::new();
+        self.scenes_to_spawn.push((scene_handle, instance_id));
+    }
+
+    pub fn spawn_as_child(&mut self, scene_handle: Handle<Scene>, parent: Entity) {
+        let instance_id = InstanceId::new();
+        self.scenes_to_spawn.push((scene_handle, instance_id));
+        self.scenes_with_parent.push((instance_id, parent));
     }
 
     pub fn despawn(&mut self, scene_handle: Handle<DynamicScene>) {
@@ -147,7 +156,16 @@ impl SceneSpawner {
         resources: &Resources,
         scene_handle: Handle<Scene>,
     ) -> Result<(), SceneSpawnError> {
-        let instance_id = InstanceId::new();
+        self.spawn_sync_internal(world, resources, scene_handle, InstanceId::new())
+    }
+
+    fn spawn_sync_internal(
+        &mut self,
+        world: &mut World,
+        resources: &Resources,
+        scene_handle: Handle<Scene>,
+        instance_id: InstanceId,
+    ) -> Result<(), SceneSpawnError> {
         let mut instance_info = InstanceInfo {
             entity_map: EntityMap::default(),
         };
@@ -256,17 +274,35 @@ impl SceneSpawner {
 
         let scenes_to_spawn = std::mem::take(&mut self.scenes_to_spawn);
 
-        for scene_handle in scenes_to_spawn {
-            match self.spawn_sync(world, resources, scene_handle) {
+        for (scene_handle, instance_id) in scenes_to_spawn {
+            match self.spawn_sync_internal(world, resources, scene_handle, instance_id) {
                 Ok(_) => {}
                 Err(SceneSpawnError::NonExistentRealScene { handle }) => {
-                    self.scenes_to_spawn.push(handle)
+                    self.scenes_to_spawn.push((handle, instance_id))
                 }
                 Err(err) => return Err(err),
             }
         }
 
         Ok(())
+    }
+
+    pub(crate) fn set_scene_instance_parent_sync(&mut self, world: &mut World) {
+        let scenes_with_parent = std::mem::take(&mut self.scenes_with_parent);
+
+        for (instance_id, parent) in scenes_with_parent {
+            if let Some(instance) = self.spawned_instances.get(&instance_id) {
+                for entity in instance.entity_map.values() {
+                    if let Err(bevy_ecs::ComponentError::MissingComponent(_)) =
+                        world.get::<Parent>(entity)
+                    {
+                        let _ = world.insert_one(entity, Parent(parent));
+                    }
+                }
+            } else {
+                self.scenes_with_parent.push((instance_id, parent));
+            }
+        }
     }
 }
 
@@ -293,4 +329,5 @@ pub fn scene_spawner_system(world: &mut World, resources: &mut Resources) {
     scene_spawner
         .update_spawned_scenes(world, resources, &updated_spawned_scenes)
         .unwrap();
+    scene_spawner.set_scene_instance_parent_sync(world);
 }
