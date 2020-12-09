@@ -95,7 +95,7 @@ fn raycast(
 
                 let hit = if let Some(plane_hit) = plane_hit {
                     if let Some(sphere_hit) = sphere_hit {
-                        if plane_hit.t() < sphere_hit.t() {
+                        if plane_hit.distance() < sphere_hit.distance() {
                             Some(plane_hit)
                         } else {
                             Some(sphere_hit)
