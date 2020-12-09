@@ -11,6 +11,7 @@ use fnv::FnvBuildHasher;
 use smallvec::{smallvec, SmallVec};
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
+use std::marker::PhantomData;
 
 use crate::blending::{AnimatorBlending, Blend};
 use crate::curve::Curve;
@@ -19,17 +20,16 @@ use crate::lerping::Lerp;
 
 #[derive(Debug)]
 pub struct Curves<T> {
-    id: usize,
-    /// Maps each curve to an entity index or other value
-    indexes: SmallVec<[u16; 8]>,
-    curves: Vec<Curve<T>>,
+    property_index: usize,
+    entity_indexes: SmallVec<[u16; 8]>,
+    curves: Vec<(usize, Curve<T>)>,
 }
 
 impl<T> Curves<T> {
     fn calculate_duration(&self) -> f32 {
         self.curves
             .iter()
-            .map(|c| c.duration())
+            .map(|(_, c)| c.duration())
             .fold(0.0f32, |acc, d| acc.max(d))
     }
 
@@ -40,8 +40,8 @@ impl<T> Curves<T> {
     }
 
     #[inline(always)]
-    pub fn iter(&self) -> impl Iterator<Item = (u16, &Curve<T>)> {
-        self.indexes.iter().copied().zip(self.curves.iter())
+    pub fn iter(&self) -> impl Iterator<Item = (u16, &(usize, Curve<T>))> {
+        self.entity_indexes.iter().copied().zip(self.curves.iter())
     }
 }
 
@@ -59,10 +59,7 @@ unsafe impl Sync for CurvesUntyped {}
 impl CurvesUntyped {
     fn new<T: Send + Sync + 'static>(curves: Curves<T>) -> Self {
         CurvesUntyped {
-            duration: curves
-                .iter()
-                .map(|(_, c)| c.duration())
-                .fold(0.0, |acc, d| acc.max(d)),
+            duration: curves.calculate_duration(),
             untyped: Box::new(curves),
         }
     }
@@ -98,6 +95,8 @@ pub struct Clip {
     hierarchy: Hierarchy,
     // ? NOTE: AHash performed worse than FnvHasher
     properties: HashMap<String, CurvesUntyped, FnvBuildHasher>,
+    /// Number of animated properties
+    len: usize,
 }
 
 // fn clip_default_warp() -> bool {
@@ -111,6 +110,7 @@ impl Default for Clip {
             duration: 0.0,
             hierarchy: Hierarchy::default(),
             properties: HashMap::default(),
+            len: 0,
         }
     }
 }
@@ -140,12 +140,12 @@ impl Clip {
 
             // If some entity was created it means this property is a new one so we can safely skip the attribute testing
             if let Some(i) = curves
-                .indexes
+                .entity_indexes
                 .iter()
                 .position(|index| *index == entity_index)
             {
                 // Found a property equal to the one been inserted, next replace the curve
-                std::mem::swap(&mut curves.curves[i], &mut curve);
+                std::mem::swap(&mut curves.curves[i].1, &mut curve);
 
                 // Update curve duration in two stages
                 let duration = curves.calculate_duration();
@@ -158,12 +158,17 @@ impl Clip {
                 std::mem::drop(curves_untyped);
                 self.duration = self.calculate_duration();
             } else {
+                let curve_index = self.len;
+                self.len += 1;
+
                 // Append newly added curve
                 let duration = curve.duration();
-                curves.curves.push(curve);
-                curves.indexes.push(entity_index);
+
+                curves.curves.push((curve_index, curve));
+                curves.entity_indexes.push(entity_index);
                 std::mem::drop(curves);
 
+                self.len += 1;
                 self.duration = self.duration.max(duration);
                 curves_untyped.duration = curves_untyped.duration.max(duration);
             }
@@ -171,22 +176,24 @@ impl Clip {
         }
 
         self.duration = self.duration.max(curve.duration());
-        let id = self.properties.len();
+        let property_index = self.properties.len();
+        let curve_index = self.len;
+        self.len += 1;
         self.properties.insert(
             target_name.to_string(),
             CurvesUntyped::new(Curves {
-                id,
-                curves: vec![curve],
-                indexes: smallvec![entity_index],
+                property_index,
+                curves: vec![(curve_index, curve)],
+                entity_indexes: smallvec![entity_index],
             }),
         );
     }
 
-    // /// Number of animated properties in this clip
-    // #[inline(always)]
-    // pub fn len(&self) -> u16 {
-    //     self.curves.len() as u16
-    // }
+    /// Number of animated properties in this clip
+    #[inline(always)]
+    pub fn len(&self) -> usize {
+        self.len
+    }
 
     // /// Returns the property curve property path.
     // ///
@@ -240,6 +247,7 @@ pub struct Layer {
     pub clip: usize,
     pub time: f32,
     pub time_scale: f32,
+    keyframes: Vec<usize>,
 }
 
 impl Default for Layer {
@@ -249,13 +257,14 @@ impl Default for Layer {
             clip: 0,
             time: 0.0,
             time_scale: 1.0,
+            keyframes: vec![],
         }
     }
 }
 
 #[derive(Default, Debug)]
 struct Bind {
-    entities_indexes: Vec<u16>,
+    entity_indexes: Vec<u16>,
 }
 
 #[derive(Debug, Properties)]
@@ -320,33 +329,41 @@ impl Animator {
         &self.clips[..]
     }
 
-    pub fn animate<'a>(&'a self) -> LayerIterator<'a> {
+    pub fn animate<'a>(&'a mut self) -> LayerIterator<'a> {
         LayerIterator {
             index: 0,
             animator: self,
+            marker: PhantomData,
         }
     }
 }
 
 pub struct LayerIterator<'a> {
     index: usize,
-    animator: &'a Animator,
+    animator: *mut Animator,
+    marker: PhantomData<&'a ()>,
 }
 
 impl<'a> Iterator for LayerIterator<'a> {
-    type Item = (usize, &'a Layer, &'a Handle<Clip>, &'a [u16]);
+    type Item = (usize, &'a mut Layer, &'a Handle<Clip>, &'a [u16]);
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
+            // SAFETY: `self.maker` makes ensure to hold a mutable borrow to the
+            // base `Animator`, with that in mind we can safely mutable iterate over
+            // each valid layer while returning some other immutable data related
+            // to that said layer
+            let animator = unsafe { &mut *(self.animator) };
+
             // Get next layer or stop the iterator
-            let layer = self.animator.layers.get(self.index)?;
+            let layer = animator.layers.get_mut(self.index)?;
             let index = self.index;
             self.index += 1;
 
             let clip_index = layer.clip as usize;
-            if let Some(clip_handle) = self.animator.clips.get(clip_index) {
-                if let Some(Some(bind)) = self.animator.bind_clips.get(clip_index) {
-                    return Some((index, layer, clip_handle, &bind.entities_indexes[..]));
+            if let Some(clip_handle) = animator.clips.get(clip_index) {
+                if let Some(Some(bind)) = animator.bind_clips.get(clip_index) {
+                    return Some((index, layer, clip_handle, &bind.entity_indexes[..]));
                 }
 
                 // Missing clip bind continue to the next layer
@@ -356,18 +373,6 @@ impl<'a> Iterator for LayerIterator<'a> {
             // Invalid clip continue to the next layer
             // TODO: log error
         }
-    }
-}
-
-#[derive(Default, Debug, Properties)]
-pub struct KeyframeCache {
-    cache: Vec<Vec<usize>>,
-}
-
-impl KeyframeCache {
-    pub fn get(&mut self, index: usize) -> &mut Vec<usize> {
-        self.cache.resize_with(index + 1, Default::default);
-        &mut self.cache[index]
     }
 }
 
@@ -416,12 +421,7 @@ pub(crate) fn animator_update_system(
     clip_events: Res<Events<AssetEvent<Clip>>>,
     time: Res<Time>,
     clips: Res<Assets<Clip>>,
-    mut animators_query: Query<(
-        Entity,
-        &mut Animator,
-        Option<&KeyframeCache>,
-        Option<&AnimatorBlending>,
-    )>,
+    mut animators_query: Query<(Entity, &mut Animator, Option<&AnimatorBlending>)>,
     children_query: Query<(&Children,)>,
     name_query: Query<(&Parent, &Name)>,
     parent_or_name_changed_query: Query<(Option<&Parent>, &Name), (Changed<Parent>, Changed<Name>)>,
@@ -441,15 +441,8 @@ pub(crate) fn animator_update_system(
         };
     }
 
-    for (animator_entity, mut animator, keyframe_cache, animator_blending) in
-        animators_query.iter_mut()
-    {
+    for (animator_entity, mut animator, animator_blending) in animators_query.iter_mut() {
         let animator = &mut *animator;
-
-        // Insert KeyframeCache if not already
-        if keyframe_cache.is_none() {
-            commands.insert_one(animator_entity, KeyframeCache::default());
-        }
 
         if animator_blending.is_none() {
             commands.insert_one(animator_entity, AnimatorBlending::default());
@@ -543,7 +536,7 @@ pub(crate) fn animator_update_system(
                     let mut bind = Bind::default();
                     animator
                         .hierarchy
-                        .merge(&clip.hierarchy, &mut bind.entities_indexes);
+                        .merge(&clip.hierarchy, &mut bind.entity_indexes);
 
                     // Prepare the entities table cache
                     animator.entities.resize(animator.hierarchy.len(), None);
@@ -552,7 +545,7 @@ pub(crate) fn animator_update_system(
 
                     let mut missing = false;
                     // Find missing entities that where just added in the hierarchy
-                    for entity_index in &bind.entities_indexes {
+                    for entity_index in &bind.entity_indexes {
                         missing |= animator
                             .hierarchy
                             .find_entity(
@@ -583,7 +576,8 @@ pub(crate) fn animator_update_system(
                         // Warp Around
                         if time > clip.duration() {
                             time = (time / clip.duration()).fract() * clip.duration();
-                            // TODO: Reset all keyframes cached indexes (speedup)
+                            // Reset keyframes indexes (speedup sampling)
+                            layer.keyframes.iter_mut().for_each(|k| *k = 0);
                         }
                     } else {
                         // Hold
@@ -605,7 +599,7 @@ pub(crate) fn animator_update_system(
 
 pub(crate) fn animator_transform_update_system(
     clips: Res<Assets<Clip>>,
-    mut animators_query: Query<(&Animator, &mut KeyframeCache, &mut AnimatorBlending)>,
+    mut animators_query: Query<(&mut Animator, &mut AnimatorBlending)>,
     transform_query: Query<(&mut Transform,)>,
 ) {
     let __span = tracing::info_span!("animator_transform_update_system");
@@ -613,8 +607,7 @@ pub(crate) fn animator_transform_update_system(
 
     let mut components = vec![];
 
-    for (animator, mut keyframe_cache, mut animator_blend) in animators_query.iter_mut() {
-        let keyframe_cache = &mut *keyframe_cache;
+    for (mut animator, mut animator_blend) in animators_query.iter_mut() {
         let mut blend_group = animator_blend.begin_blending();
 
         // ~15us
@@ -645,23 +638,22 @@ pub(crate) fn animator_transform_update_system(
             if let Some(clip) = clips.get(clip_handle) {
                 let time = layer.time;
 
+                // Get keyframes and ensure capacity
+                let keyframes = &mut layer.keyframes;
+                keyframes.resize(clip.len(), 0);
+
                 // ~23us
                 if let Some(curves) = clip
                     .get("Transform.translation")
                     .map(|curve_untyped| curve_untyped.downcast_ref::<Vec3>())
                     .flatten()
                 {
-                    // TODO: Got to improve how the keyframes are handled
-                    // Get keyframes and ensure capacity
-                    let keyframes = keyframe_cache.get(curves.id);
-                    keyframes.resize(curves.len() as usize, 0);
-
-                    for (curve_index, (entity_index, curve)) in curves.iter().enumerate() {
+                    for (entity_index, (curve_index, curve)) in curves.iter() {
                         let entity_index = entities_map[entity_index as usize];
                         if let Some(ref mut component) = components[entity_index as usize] {
                             // TODO: I'm not noticing any discernible performance change from using just `sample` so there's probably something wrong
-                            let (k, v) = curve.sample_indexed(keyframes[curve_index], time);
-                            keyframes[curve_index] = k;
+                            let (k, v) = curve.sample_indexed(keyframes[*curve_index], time);
+                            keyframes[*curve_index] = k;
                             // let v = curve.sample(time);
                             component.translation.blend(&mut blend_group, v, w);
                         }
@@ -674,15 +666,11 @@ pub(crate) fn animator_transform_update_system(
                     .map(|curve_untyped| curve_untyped.downcast_ref::<Quat>())
                     .flatten()
                 {
-                    // Get keyframes and ensure capacity
-                    let keyframes = keyframe_cache.get(curves.id);
-                    keyframes.resize(curves.len() as usize, 0);
-
-                    for (curve_index, (entity_index, curve)) in curves.iter().enumerate() {
+                    for (entity_index, (curve_index, curve)) in curves.iter() {
                         let entity_index = entities_map[entity_index as usize];
                         if let Some(ref mut component) = components[entity_index as usize] {
-                            let (k, v) = curve.sample_indexed(keyframes[curve_index], time);
-                            keyframes[curve_index] = k;
+                            let (k, v) = curve.sample_indexed(keyframes[*curve_index], time);
+                            keyframes[*curve_index] = k;
                             // let v = curve.sample(time);
                             component.rotation.blend(&mut blend_group, v, w);
                         }
@@ -695,15 +683,11 @@ pub(crate) fn animator_transform_update_system(
                     .map(|curve_untyped| curve_untyped.downcast_ref::<Vec3>())
                     .flatten()
                 {
-                    // Get keyframes and ensure capacity
-                    let keyframes = keyframe_cache.get(curves.id);
-                    keyframes.resize(curves.len() as usize, 0);
-
-                    for (curve_index, (entity_index, curve)) in curves.iter().enumerate() {
+                    for (entity_index, (curve_index, curve)) in curves.iter() {
                         let entity_index = entities_map[entity_index as usize];
                         if let Some(ref mut component) = components[entity_index as usize] {
-                            let (k, v) = curve.sample_indexed(keyframes[curve_index], time);
-                            keyframes[curve_index] = k;
+                            let (k, v) = curve.sample_indexed(keyframes[*curve_index], time);
+                            keyframes[*curve_index] = k;
                             //let v = curve.sample(time);
                             component.scale.blend(&mut blend_group, v, w);
                         }
