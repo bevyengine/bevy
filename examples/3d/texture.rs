@@ -58,7 +58,7 @@ fn setup(
                 rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
                 ..Default::default()
             },
-            draw: Draw {
+            visible: Visible {
                 is_transparent: true,
                 ..Default::default()
             },
@@ -73,7 +73,7 @@ fn setup(
                 rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
                 ..Default::default()
             },
-            draw: Draw {
+            visible: Visible {
                 is_transparent: true,
                 ..Default::default()
             },
@@ -88,7 +88,7 @@ fn setup(
                 rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
                 ..Default::default()
             },
-            draw: Draw {
+            visible: Visible {
                 is_transparent: true,
                 ..Default::default()
             },
