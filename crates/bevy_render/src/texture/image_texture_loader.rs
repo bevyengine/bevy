@@ -9,32 +9,7 @@ use bevy_utils::BoxedFuture;
 #[derive(Clone, Default)]
 pub struct ImageTextureLoader;
 
-macro_rules! define_file_extensions {
-    ( $( $s:literal => $v:ident ),+ $(,)? ) => {
-
-        const FILE_EXTENSIONS: &'static [&'static str] = &[
-            $( $s ),+
-        ];
-
-        fn match_file_extension (ext: &str) -> Option<image::ImageFormat>
-        {
-            if false { None } $(
-
-                else if ext.eq_ignore_ascii_case ($s) {
-                    Some(image::ImageFormat::$v)
-                }
-
-            )+ else { None }
-        }
-
-    };
-}
-
-define_file_extensions! {
-    "png" => Png, "dds" => Dds,
-    "tga" => Tga, "jpg" => Jpeg,
-    "jpeg" => Jpeg,
-}
+const FILE_EXTENSIONS: &[&str] = &["png", "dds", "tga", "jpg", "jpeg"];
 
 impl AssetLoader for ImageTextureLoader {
     fn load<'a>(
@@ -50,7 +25,7 @@ impl AssetLoader for ImageTextureLoader {
 
             let ext = load_context.path().extension().unwrap().to_str().unwrap();
 
-            let img_format = match_file_extension(ext)
+            let img_format = image::ImageFormat::from_extension(ext)
                 .ok_or_else(|| {
                     format!(
                     "Unexpected image format {:?} for file {}, this is an error in `bevy_render`.",
