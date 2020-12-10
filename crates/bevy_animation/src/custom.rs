@@ -378,36 +378,6 @@ impl<'a> Iterator for LayerIterator<'a> {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-pub enum FetchState<T> {
-    None,
-    Missing,
-    Found(T),
-}
-
-impl<T> FetchState<T> {
-    pub fn fetch_mut<F: Fn() -> Option<T>>(&mut self, fetch_fn: F) -> Option<&mut T> {
-        match self {
-            FetchState::None => {
-                if let Some(t) = fetch_fn() {
-                    *self = FetchState::Found(t);
-                    if let FetchState::Found(t) = self {
-                        Some(t)
-                    } else {
-                        unreachable!()
-                    }
-                } else {
-                    *self = FetchState::Missing;
-                    None
-                }
-            }
-            FetchState::Missing => None,
-            FetchState::Found(t) => Some(t),
-        }
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
 /// State info for the system `animator_binding_system`
 #[derive(Default)]
 pub(crate) struct BindingState {

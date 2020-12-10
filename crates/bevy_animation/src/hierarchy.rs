@@ -6,6 +6,7 @@ use private::*;
 use smallvec::{smallvec, SmallVec};
 
 // TODO: Create a simplified version without the children ?!
+// TODO: Should I just use usize? and get done with it?
 
 /// Provides a way of describing a hierarchy or named entities
 /// and means for finding then in the world
@@ -18,7 +19,6 @@ pub struct Hierarchy<I: Index = u16> {
     entities: Vec<(I, Name)>,
     // ? NOTE: SmallVec<[u16; 10]> occupy the same 32 bytes as the SmallVec<[u16; 8]>, but the latter
     // ? should be only take 24 bytes using the "union" feature
-    // TODO: Use instead a const to figure out this value based on `I`
     children: Vec<SmallVec<[I; 10]>>,
 }
 
