@@ -10,7 +10,7 @@ fn main() {
 
 fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
     commands
-        .spawn_scene(asset_server.load("models/FlightHelmet/FlightHelmet.gltf"))
+        .spawn_scene(asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"))
         .spawn(LightBundle {
             transform: Transform::from_translation(Vec3::new(4.0, 5.0, 4.0)),
             ..Default::default()

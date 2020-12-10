@@ -185,7 +185,7 @@ fn setup_pipeline(
 
     // add entities to the world
     commands
-        .spawn_scene(asset_server.load("models/monkey/Monkey.gltf"))
+        .spawn_scene(asset_server.load("models/monkey/Monkey.gltf#Scene0"))
         // light
         .spawn(LightBundle {
             transform: Transform::from_translation(Vec3::new(4.0, 5.0, 4.0)),
