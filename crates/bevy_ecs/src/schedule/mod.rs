@@ -13,7 +13,7 @@ use bevy_utils::HashMap;
 pub struct Schedule {
     stages: HashMap<String, Box<dyn Stage>>,
     stage_order: Vec<String>,
-    run_criteria: Option<Box<dyn System<Input = (), Output = ShouldRun>>>,
+    run_criteria: Option<Box<dyn System<In = (), Out = ShouldRun>>>,
     run_criteria_initialized: bool,
 }
 
@@ -45,7 +45,7 @@ impl Schedule {
 
     pub fn with_run_criteria<S, Params, IntoS>(mut self, system: IntoS) -> Self
     where
-        S: System<Input = (), Output = ShouldRun>,
+        S: System<In = (), Out = ShouldRun>,
         IntoS: IntoSystem<Params, S>,
     {
         self.set_run_criteria(system);
@@ -58,7 +58,7 @@ impl Schedule {
         system: IntoS,
     ) -> Self
     where
-        S: System<Input = (), Output = ()>,
+        S: System<In = (), Out = ()>,
         IntoS: IntoSystem<Params, S>,
     {
         self.add_system_to_stage(stage_name, system);
@@ -67,7 +67,7 @@ impl Schedule {
 
     pub fn set_run_criteria<S, Params, IntoS>(&mut self, system: IntoS) -> &mut Self
     where
-        S: System<Input = (), Output = ShouldRun>,
+        S: System<In = (), Out = ShouldRun>,
         IntoS: IntoSystem<Params, S>,
     {
         self.run_criteria = Some(Box::new(system.system()));
@@ -136,7 +136,7 @@ impl Schedule {
         system: IntoS,
     ) -> &mut Self
     where
-        S: System<Input = (), Output = ()>,
+        S: System<In = (), Out = ()>,
         IntoS: IntoSystem<Params, S>,
     {
         let stage = self

@@ -15,8 +15,8 @@ pub struct ThreadLocalSystemFn {
 }
 
 impl System for ThreadLocalSystemFn {
-    type Input = ();
-    type Output = ();
+    type In = ();
+    type Out = ();
 
     fn name(&self) -> Cow<'static, str> {
         self.name.clone()

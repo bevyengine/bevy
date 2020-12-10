@@ -10,7 +10,7 @@ use crate::{ArchetypesGeneration, Resources, System, ThreadLocalExecution, TypeA
 pub trait SystemStageExecutor: Downcast + Send + Sync {
     fn execute_stage(
         &mut self,
-        systems: &mut [Box<dyn System<Input = (), Output = ()>>],
+        systems: &mut [Box<dyn System<In = (), Out = ()>>],
         changed_systems: &[usize],
         world: &mut World,
         resources: &mut Resources,
@@ -25,7 +25,7 @@ pub struct SerialSystemStageExecutor;
 impl SystemStageExecutor for SerialSystemStageExecutor {
     fn execute_stage(
         &mut self,
-        systems: &mut [Box<dyn System<Input = (), Output = ()>>],
+        systems: &mut [Box<dyn System<In = (), Out = ()>>],
         _changed_systems: &[usize],
         world: &mut World,
         resources: &mut Resources,
@@ -109,7 +109,7 @@ impl ParallelSystemStageExecutor {
     pub fn prepare_to_next_thread_local(
         &mut self,
         world: &World,
-        systems: &mut [Box<dyn System<Input = (), Output = ()>>],
+        systems: &mut [Box<dyn System<In = (), Out = ()>>],
         stage_changed: bool,
         next_thread_local_index: usize,
     ) -> Range<usize> {
@@ -291,7 +291,7 @@ impl ParallelSystemStageExecutor {
         &self,
         world: &World,
         resources: &Resources,
-        systems: &mut [Box<dyn System<Input = (), Output = ()>>],
+        systems: &mut [Box<dyn System<In = (), Out = ()>>],
         prepared_system_range: Range<usize>,
         compute_pool: &TaskPool,
     ) {
@@ -387,7 +387,7 @@ impl ParallelSystemStageExecutor {
 impl SystemStageExecutor for ParallelSystemStageExecutor {
     fn execute_stage(
         &mut self,
-        systems: &mut [Box<dyn System<Input = (), Output = ()>>],
+        systems: &mut [Box<dyn System<In = (), Out = ()>>],
         changed_systems: &[usize],
         world: &mut World,
         resources: &mut Resources,

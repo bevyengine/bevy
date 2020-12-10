@@ -56,8 +56,8 @@ impl FixedTimestep {
 }
 
 impl System for FixedTimestep {
-    type Input = ();
-    type Output = ShouldRun;
+    type In = ();
+    type Out = ShouldRun;
 
     fn name(&self) -> Cow<'static, str> {
         Cow::Borrowed(std::any::type_name::<FixedTimestep>())
@@ -83,10 +83,10 @@ impl System for FixedTimestep {
 
     unsafe fn run_unsafe(
         &mut self,
-        _input: Self::Input,
+        _input: Self::In,
         _world: &bevy_ecs::World,
         resources: &bevy_ecs::Resources,
-    ) -> Option<Self::Output> {
+    ) -> Option<Self::Out> {
         let time = resources.get::<Time>().unwrap();
         Some(self.update(&time))
     }

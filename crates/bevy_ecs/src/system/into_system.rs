@@ -72,12 +72,9 @@ impl SystemState {
     }
 }
 
-pub struct FuncSystem<Input, Return> {
+pub struct FuncSystem<In, Out> {
     func: Box<
-        dyn FnMut(Input, &mut SystemState, &World, &Resources) -> Option<Return>
-            + Send
-            + Sync
-            + 'static,
+        dyn FnMut(In, &mut SystemState, &World, &Resources) -> Option<Out> + Send + Sync + 'static,
     >,
     thread_local_func:
         Box<dyn FnMut(&mut SystemState, &mut World, &mut Resources) + Send + Sync + 'static>,
@@ -85,9 +82,9 @@ pub struct FuncSystem<Input, Return> {
     state: SystemState,
 }
 
-impl<Input: 'static, Output: 'static> System for FuncSystem<Input, Output> {
-    type Input = Input;
-    type Output = Output;
+impl<In: 'static, Out: 'static> System for FuncSystem<In, Out> {
+    type In = In;
+    type Out = Out;
 
     fn name(&self) -> std::borrow::Cow<'static, str> {
         self.state.name.clone()
@@ -115,10 +112,10 @@ impl<Input: 'static, Output: 'static> System for FuncSystem<Input, Output> {
 
     unsafe fn run_unsafe(
         &mut self,
-        input: Input,
+        input: In,
         world: &World,
         resources: &Resources,
-    ) -> Option<Output> {
+    ) -> Option<Out> {
         (self.func)(input, &mut self.state, world, resources)
     }
 
@@ -144,13 +141,13 @@ impl<Sys: System> IntoSystem<(), Sys> for Sys {
 
 macro_rules! impl_into_system {
     ($($param: ident),*) => {
-        impl<Func, Input, Return, $($param: SystemParam<Input>),*> IntoSystem<($($param,)*), FuncSystem<Input, Return>> for Func
-        where Func: FnMut($($param),*) -> Return + Send + Sync + 'static, Return: 'static, Input: 'static
+        impl<Func, In, Out, $($param: SystemParam<In>),*> IntoSystem<($($param,)*), FuncSystem<In, Out>> for Func
+        where Func: FnMut($($param),*) -> Out + Send + Sync + 'static, Out: 'static, In: 'static
         {
             #[allow(unused_variables)]
             #[allow(unused_unsafe)]
             #[allow(non_snake_case)]
-            fn system(mut self) -> FuncSystem<Input, Return> {
+            fn system(mut self) -> FuncSystem<In, Out> {
                 FuncSystem {
                     state: SystemState {
                         name: std::any::type_name::<Self>().into(),
@@ -447,7 +444,7 @@ mod tests {
 
     fn run_system<
         Params,
-        SystemType: System<Input = (), Output = ()>,
+        SystemType: System<In = (), Out = ()>,
         Sys: IntoSystem<Params, SystemType>,
     >(
         world: &mut World,
@@ -468,7 +465,7 @@ mod tests {
 
     fn test_for_conflicting_resources<
         Params,
-        SystemType: System<Input = (), Output = ()>,
+        SystemType: System<In = (), Out = ()>,
         Sys: IntoSystem<Params, SystemType>,
     >(
         sys: Sys,

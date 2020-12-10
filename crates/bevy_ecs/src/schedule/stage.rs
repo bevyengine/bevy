@@ -20,10 +20,10 @@ pub trait Stage: Downcast + Send + Sync {
 impl_downcast!(Stage);
 
 pub struct SystemStage {
-    systems: Vec<Box<dyn System<Input = (), Output = ()>>>,
+    systems: Vec<Box<dyn System<In = (), Out = ()>>>,
     system_ids: HashSet<SystemId>,
     executor: Box<dyn SystemStageExecutor>,
-    run_criteria: Option<Box<dyn System<Input = (), Output = ShouldRun>>>,
+    run_criteria: Option<Box<dyn System<In = (), Out = ShouldRun>>>,
     run_criteria_initialized: bool,
     changed_systems: Vec<usize>,
 }
@@ -40,7 +40,7 @@ impl SystemStage {
         }
     }
 
-    pub fn single<Params, S: System<Input = (), Output = ()>, Into: IntoSystem<Params, S>>(
+    pub fn single<Params, S: System<In = (), Out = ()>, Into: IntoSystem<Params, S>>(
         system: Into,
     ) -> Self {
         Self::serial().with_system(system)
@@ -56,7 +56,7 @@ impl SystemStage {
 
     pub fn with_system<S, Params, IntoS>(mut self, system: IntoS) -> Self
     where
-        S: System<Input = (), Output = ()>,
+        S: System<In = (), Out = ()>,
         IntoS: IntoSystem<Params, S>,
     {
         self.add_system_boxed(Box::new(system.system()));
@@ -65,7 +65,7 @@ impl SystemStage {
 
     pub fn with_run_criteria<S, Params, IntoS>(mut self, system: IntoS) -> Self
     where
-        S: System<Input = (), Output = ShouldRun>,
+        S: System<In = (), Out = ShouldRun>,
         IntoS: IntoSystem<Params, S>,
     {
         self.run_criteria = Some(Box::new(system.system()));
@@ -75,17 +75,14 @@ impl SystemStage {
 
     pub fn add_system<S, Params, IntoS>(&mut self, system: IntoS) -> &mut Self
     where
-        S: System<Input = (), Output = ()>,
+        S: System<In = (), Out = ()>,
         IntoS: IntoSystem<Params, S>,
     {
         self.add_system_boxed(Box::new(system.system()));
         self
     }
 
-    pub fn add_system_boxed(
-        &mut self,
-        system: Box<dyn System<Input = (), Output = ()>>,
-    ) -> &mut Self {
+    pub fn add_system_boxed(&mut self, system: Box<dyn System<In = (), Out = ()>>) -> &mut Self {
         if self.system_ids.contains(&system.id()) {
             panic!(
                 "System with id {:?} ({}) already exists",
@@ -156,7 +153,7 @@ pub enum ShouldRun {
     YesAndLoop,
 }
 
-impl<S: System<Input = (), Output = ()>> From<S> for SystemStage {
+impl<S: System<In = (), Out = ()>> From<S> for SystemStage {
     fn from(system: S) -> Self {
         SystemStage::single(system)
     }
@@ -167,8 +164,8 @@ pub trait IntoStage<Params> {
     fn into_stage(self) -> Self::Stage;
 }
 
-impl<Params, S: System<Input = (), Output = ()>, IntoS: IntoSystem<Params, S>>
-    IntoStage<(Params, S)> for IntoS
+impl<Params, S: System<In = (), Out = ()>, IntoS: IntoSystem<Params, S>> IntoStage<(Params, S)>
+    for IntoS
 {
     type Stage = SystemStage;
 
@@ -204,8 +201,8 @@ impl Default for RunOnce {
 }
 
 impl System for RunOnce {
-    type Input = ();
-    type Output = ShouldRun;
+    type In = ();
+    type Out = ShouldRun;
 
     fn name(&self) -> Cow<'static, str> {
         Cow::Borrowed(std::any::type_name::<RunOnce>())
@@ -231,10 +228,10 @@ impl System for RunOnce {
 
     unsafe fn run_unsafe(
         &mut self,
-        _input: Self::Input,
+        _input: Self::In,
         _world: &World,
         _resources: &Resources,
-    ) -> Option<Self::Output> {
+    ) -> Option<Self::Out> {
         Some(if self.ran {
             ShouldRun::No
         } else {

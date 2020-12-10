@@ -137,7 +137,7 @@ impl AppBuilder {
 
     pub fn add_system<S, Params, IntoS>(&mut self, system: IntoS) -> &mut Self
     where
-        S: System<Input = (), Output = ()>,
+        S: System<In = (), Out = ()>,
         IntoS: IntoSystem<Params, S>,
     {
         self.add_system_to_stage(stage::UPDATE, system)
@@ -149,7 +149,7 @@ impl AppBuilder {
         system: IntoS,
     ) -> &mut Self
     where
-        S: System<Input = (), Output = ()>,
+        S: System<In = (), Out = ()>,
         IntoS: IntoSystem<Params, S>,
     {
         self.app
@@ -162,7 +162,7 @@ impl AppBuilder {
 
     pub fn add_startup_system<S, Params, IntoS>(&mut self, system: IntoS) -> &mut Self
     where
-        S: System<Input = (), Output = ()>,
+        S: System<In = (), Out = ()>,
         IntoS: IntoSystem<Params, S>,
     {
         self.add_startup_system_to_stage(startup_stage::STARTUP, system)
@@ -192,7 +192,7 @@ impl AppBuilder {
         system: IntoS,
     ) -> &mut Self
     where
-        S: System<Input = (), Output = ()>,
+        S: System<In = (), Out = ()>,
         IntoS: IntoSystem<Params, S>,
     {
         self.app.schedule.add_system_to_stage(stage_name, system);
