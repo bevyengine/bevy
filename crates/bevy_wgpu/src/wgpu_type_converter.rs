@@ -564,8 +564,8 @@ impl WgpuFrom<&Window> for wgpu::SwapChainDescriptor {
         wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
             format: TextureFormat::default().wgpu_into(),
-            width: window.physical_width(),
-            height: window.physical_height(),
+            width: window.physical_width().unwrap(),
+            height: window.physical_height().unwrap(),
             present_mode: if window.vsync() {
                 wgpu::PresentMode::Mailbox
             } else {
