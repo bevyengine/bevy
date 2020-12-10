@@ -9,6 +9,8 @@ use bevy_utils::BoxedFuture;
 #[derive(Clone, Default)]
 pub struct ImageTextureLoader;
 
+const FILE_EXTENSIONS: &[&str] = &["png", "dds", "tga", "jpg", "jpeg"];
+
 impl AssetLoader for ImageTextureLoader {
     fn load<'a>(
         &'a self,
@@ -23,16 +25,15 @@ impl AssetLoader for ImageTextureLoader {
 
             let ext = load_context.path().extension().unwrap().to_str().unwrap();
 
-            // NOTE: If more formats are added they can be added here.
-            let img_format = if ext.eq_ignore_ascii_case("png") {
-                image::ImageFormat::Png
-            } else {
-                panic!(
+            let img_format = image::ImageFormat::from_extension(ext)
+                .ok_or_else(|| {
+                    format!(
                     "Unexpected image format {:?} for file {}, this is an error in `bevy_render`.",
                     ext,
                     load_context.path().display()
                 )
-            };
+                })
+                .unwrap();
 
             // Load the image in the expected format.
             // Some formats like PNG allow for R or RG textures too, so the texture
@@ -159,6 +160,6 @@ impl AssetLoader for ImageTextureLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        &["png"]
+        FILE_EXTENSIONS
     }
 }
