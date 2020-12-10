@@ -26,6 +26,7 @@ use gltf::{
     Material, Primitive,
 };
 use image::{GenericImageView, ImageFormat};
+use std::collections::HashMap;
 use std::path::Path;
 use thiserror::Error;
 
@@ -80,6 +81,7 @@ async fn load_gltf<'a, 'b>(
     let buffer_data = load_buffers(&gltf, load_context, load_context.path()).await?;
 
     let mut materials = vec![];
+    let mut named_materials = HashMap::new();
     for material in gltf.materials() {
         let material_label = material_label(&material);
         let pbr = material.pbr_metallic_roughness();
@@ -104,20 +106,23 @@ async fn load_gltf<'a, 'b>(
             None
         };
         let color = pbr.base_color_factor();
-        materials.push(
-            load_context.set_labeled_asset(
-                &material_label,
-                LoadedAsset::new(StandardMaterial {
-                    albedo: Color::rgba(color[0], color[1], color[2], color[3]),
-                    albedo_texture: texture_handle,
-                    ..Default::default()
-                })
-                .with_dependencies(dependencies),
-            ),
+        let handle = load_context.set_labeled_asset(
+            &material_label,
+            LoadedAsset::new(StandardMaterial {
+                albedo: Color::rgba(color[0], color[1], color[2], color[3]),
+                albedo_texture: texture_handle,
+                ..Default::default()
+            })
+            .with_dependencies(dependencies),
         );
+        if let Some(name) = material.name() {
+            named_materials.insert(name.to_string(), handle.clone());
+        }
+        materials.push(handle);
     }
 
     let mut meshes = vec![];
+    let mut named_meshes = HashMap::new();
     for mesh in gltf.meshes() {
         let mut primitives = vec![];
         for primitive in mesh.primitives() {
@@ -161,13 +166,18 @@ async fn load_gltf<'a, 'b>(
                     .and_then(|i| materials.get(i).cloned()),
             });
         }
-        meshes.push(load_context.set_labeled_asset(
+        let handle = load_context.set_labeled_asset(
             &mesh_label(&mesh),
             LoadedAsset::new(super::GltfMesh { primitives }),
-        ));
+        );
+        if let Some(name) = mesh.name() {
+            named_meshes.insert(name.to_string(), handle.clone());
+        }
+        meshes.push(handle);
     }
 
     let mut nodes_intermediate = vec![];
+    let mut named_nodes_intermediate = HashMap::new();
     for node in gltf.nodes() {
         let node_label = node_label(&node);
         nodes_intermediate.push((
@@ -196,12 +206,23 @@ async fn load_gltf<'a, 'b>(
             node.children()
                 .map(|child| child.index())
                 .collect::<Vec<_>>(),
-        ))
+        ));
+        if let Some(name) = node.name() {
+            named_nodes_intermediate.insert(name, node.index());
+        }
     }
     let nodes = resolve_node_hierarchy(nodes_intermediate)
         .into_iter()
         .map(|(label, node)| load_context.set_labeled_asset(&label, LoadedAsset::new(node)))
         .collect::<Vec<bevy_asset::Handle<GltfNode>>>();
+    let named_nodes = named_nodes_intermediate
+        .into_iter()
+        .filter_map(|(name, index)| {
+            nodes
+                .get(index)
+                .map(|handle| (name.to_string(), handle.clone()))
+        })
+        .collect();
 
     for texture in gltf.textures() {
         if let gltf::image::Source::View { view, mime_type } = texture.source().source() {
@@ -236,6 +257,7 @@ async fn load_gltf<'a, 'b>(
     }
 
     let mut scenes = vec![];
+    let mut named_scenes = HashMap::new();
     for scene in gltf.scenes() {
         let mut err = None;
         let mut world = World::default();
@@ -254,10 +276,13 @@ async fn load_gltf<'a, 'b>(
         if let Some(Err(err)) = err {
             return Err(err);
         }
-        scenes.push(
-            load_context
-                .set_labeled_asset(&scene_label(&scene), LoadedAsset::new(Scene::new(world))),
-        );
+        let scene_handle = load_context
+            .set_labeled_asset(&scene_label(&scene), LoadedAsset::new(Scene::new(world)));
+
+        if let Some(name) = scene.name() {
+            named_scenes.insert(name.to_string(), scene_handle.clone());
+        }
+        scenes.push(scene_handle);
     }
 
     load_context.set_default_asset(LoadedAsset::new(Gltf {
@@ -266,9 +291,13 @@ async fn load_gltf<'a, 'b>(
             .and_then(|scene| scenes.get(scene.index()))
             .cloned(),
         scenes,
+        named_scenes,
         meshes,
+        named_meshes,
         materials,
+        named_materials,
         nodes,
+        named_nodes,
     }));
 
     Ok(())

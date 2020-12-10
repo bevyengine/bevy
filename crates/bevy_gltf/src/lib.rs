@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 mod loader;
 pub use loader::*;
 
@@ -26,9 +28,13 @@ impl Plugin for GltfPlugin {
 #[uuid = "5c7d5f8a-f7b0-4e45-a09e-406c0372fea2"]
 pub struct Gltf {
     pub scenes: Vec<Handle<Scene>>,
+    pub named_scenes: HashMap<String, Handle<Scene>>,
     pub meshes: Vec<Handle<GltfMesh>>,
+    pub named_meshes: HashMap<String, Handle<GltfMesh>>,
     pub materials: Vec<Handle<StandardMaterial>>,
+    pub named_materials: HashMap<String, Handle<StandardMaterial>>,
     pub nodes: Vec<Handle<GltfNode>>,
+    pub named_nodes: HashMap<String, Handle<GltfNode>>,
     pub default_scene: Option<Handle<Scene>>,
 }
 
