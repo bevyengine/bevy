@@ -44,7 +44,43 @@ pub fn get_wgpu_render_system(resources: &mut Resources) -> impl FnMut(&mut Worl
 
 #[derive(Default, Clone)]
 pub struct WgpuOptions {
+    backend: WgpuBackend,
     power_pref: WgpuPowerOptions,
+}
+
+#[derive(Clone)]
+pub enum WgpuBackend {
+    Auto,
+    Vulkan,
+    Metal,
+    Dx12,
+    Dx11,
+    GL,
+    BrowserWgpu,
+}
+
+impl WgpuBackend {
+    fn from_env() -> Self {
+        if let Ok(backend) = std::env::var("BEVY_WGPU_BACKEND") {
+            match backend.to_lowercase().as_str() {
+                "vulkan" => WgpuBackend::Vulkan,
+                "metal" => WgpuBackend::Metal,
+                "dx12" => WgpuBackend::Dx12,
+                "dx11" => WgpuBackend::Dx11,
+                "gl" => WgpuBackend::GL,
+                "webgpu" => WgpuBackend::BrowserWgpu,
+                other => panic!("Unknown backend: {}", other),
+            }
+        } else {
+            WgpuBackend::Auto
+        }
+    }
+}
+
+impl Default for WgpuBackend {
+    fn default() -> Self {
+        Self::from_env()
+    }
 }
 
 #[derive(Clone)]
