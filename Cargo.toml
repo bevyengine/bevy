@@ -333,6 +333,10 @@ crate-type = ["cdylib"]
 name = "android"
 path = "examples/android/android.rs"
 
+[[example]]
+name = "run_animation"
+path = "examples/animations/run_animation.rs"
+
 [package.metadata.android]
 apk_label = "Bevy Example"
 assets = "assets"
