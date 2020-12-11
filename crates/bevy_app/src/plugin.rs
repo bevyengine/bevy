@@ -17,16 +17,16 @@ pub trait Plugin: Any + Send + Sync {
 /// This is necessary because the `Plugin::build` method consumes the plugin,
 /// and therefore cannot be called from `&dyn Plugin`.
 pub trait BoxablePlugin {
-    fn name (&self) -> &str;
-    fn unbox_and_build (self: Box<Self>, app: &mut AppBuilder);
+    fn name(&self) -> &str;
+    fn unbox_and_build(self: Box<Self>, app: &mut AppBuilder);
 }
 
 impl<T: Plugin> BoxablePlugin for T {
-    fn name (&self) -> &str {
-        self.name ()
+    fn name(&self) -> &str {
+        self.name()
     }
-    fn unbox_and_build (self: Box<Self>, app: &mut AppBuilder) {
-        (*self).build (app);
+    fn unbox_and_build(self: Box<Self>, app: &mut AppBuilder) {
+        (*self).build(app);
     }
 }
 

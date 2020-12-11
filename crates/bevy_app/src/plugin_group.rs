@@ -1,4 +1,4 @@
-use crate::{AppBuilder, Plugin, BoxedPlugin};
+use crate::{AppBuilder, BoxedPlugin, Plugin};
 use bevy_utils::{tracing::debug, HashMap};
 use std::any::TypeId;
 
@@ -98,7 +98,7 @@ impl PluginGroupBuilder {
 
     pub fn finish(mut self, app: &mut AppBuilder) {
         for ty in self.order.iter() {
-            if let Some(PluginEntry{plugin,enabled}) = self.plugins.remove(ty) {
+            if let Some(PluginEntry { plugin, enabled }) = self.plugins.remove(ty) {
                 if enabled {
                     debug!("added plugin: {}", plugin.name());
                     plugin.unbox_and_build(app);
