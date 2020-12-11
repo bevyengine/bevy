@@ -25,6 +25,7 @@ impl<T: Plugin> BoxablePlugin for T {
     fn name(&self) -> &str {
         self.name()
     }
+
     fn unbox_and_build(self: Box<Self>, app: &mut AppBuilder) {
         (*self).build(app);
     }
