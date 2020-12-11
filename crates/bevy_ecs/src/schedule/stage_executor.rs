@@ -5,13 +5,14 @@ use bevy_utils::tracing::trace;
 use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
 
-use crate::{ArchetypesGeneration, Resources, System, ThreadLocalExecution, TypeAccess, World};
+use crate::{
+    ArchetypesGeneration, Resources, System, SystemSet, ThreadLocalExecution, TypeAccess, World,
+};
 
 pub trait SystemStageExecutor: Downcast + Send + Sync {
     fn execute_stage(
         &mut self,
-        systems: &mut [Box<dyn System<In = (), Out = ()>>],
-        changed_systems: &[usize],
+        system_sets: &mut [SystemSet],
         world: &mut World,
         resources: &mut Resources,
     );
@@ -25,29 +26,31 @@ pub struct SerialSystemStageExecutor;
 impl SystemStageExecutor for SerialSystemStageExecutor {
     fn execute_stage(
         &mut self,
-        systems: &mut [Box<dyn System<In = (), Out = ()>>],
-        _changed_systems: &[usize],
+        system_sets: &mut [SystemSet],
         world: &mut World,
         resources: &mut Resources,
     ) {
-        for system in systems.iter_mut() {
-            system.update(world);
-            match system.thread_local_execution() {
-                ThreadLocalExecution::NextFlush => {
-                    system.run((), world, resources);
-                }
-                ThreadLocalExecution::Immediate => {
-                    system.run((), world, resources);
-                    system.run_thread_local(world, resources);
+        for system_set in system_sets.iter_mut() {
+            for system in system_set.systems_mut() {
+                system.update(world);
+                match system.thread_local_execution() {
+                    ThreadLocalExecution::NextFlush => {
+                        system.run((), world, resources);
+                    }
+                    ThreadLocalExecution::Immediate => {
+                        system.run((), world, resources);
+                        system.run_thread_local(world, resources);
+                    }
                 }
             }
         }
-
-        // "flush"
-        for system in systems.iter_mut() {
-            match system.thread_local_execution() {
-                ThreadLocalExecution::NextFlush => system.run_thread_local(world, resources),
-                ThreadLocalExecution::Immediate => { /* already ran immediate */ }
+        for system_set in system_sets.iter_mut() {
+            // "flush"
+            for system in system_set.systems_mut() {
+                match system.thread_local_execution() {
+                    ThreadLocalExecution::NextFlush => system.run_thread_local(world, resources),
+                    ThreadLocalExecution::Immediate => { /* already ran immediate */ }
+                }
             }
         }
     }
@@ -387,8 +390,7 @@ impl ParallelSystemStageExecutor {
 impl SystemStageExecutor for ParallelSystemStageExecutor {
     fn execute_stage(
         &mut self,
-        systems: &mut [Box<dyn System<In = (), Out = ()>>],
-        changed_systems: &[usize],
+        system_sets: &mut [SystemSet],
         world: &mut World,
         resources: &mut Resources,
     ) {
@@ -397,7 +399,7 @@ impl SystemStageExecutor for ParallelSystemStageExecutor {
             .get_or_insert_with(|| ComputeTaskPool(TaskPool::default()))
             .clone();
 
-        let stage_changed = !changed_systems.is_empty();
+        let stage_changed = system_sets.iter().any(|set|!set.changed_systems().is_empty());
 
         // if the schedule has changed, clear executor state / fill it with new defaults
         // This is mostly zeroing out a bunch of arrays parallel to the systems array. They will get

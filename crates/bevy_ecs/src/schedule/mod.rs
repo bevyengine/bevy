@@ -13,8 +13,7 @@ use bevy_utils::HashMap;
 pub struct Schedule {
     stages: HashMap<String, Box<dyn Stage>>,
     stage_order: Vec<String>,
-    run_criteria: Option<Box<dyn System<In = (), Out = ShouldRun>>>,
-    run_criteria_initialized: bool,
+    run_critria: RunCriteria,
 }
 
 impl Schedule {
@@ -70,8 +69,7 @@ impl Schedule {
         S: System<In = (), Out = ShouldRun>,
         IntoS: IntoSystem<Params, S>,
     {
-        self.run_criteria = Some(Box::new(system.system()));
-        self.run_criteria_initialized = false;
+        self.run_critria.set(Box::new(system.system()));
         self
     }
 
@@ -190,20 +188,7 @@ impl Schedule {
 impl Stage for Schedule {
     fn run(&mut self, world: &mut World, resources: &mut Resources) {
         loop {
-            let should_run = if let Some(ref mut run_criteria) = self.run_criteria {
-                if !self.run_criteria_initialized {
-                    run_criteria.initialize(world, resources);
-                    self.run_criteria_initialized = true;
-                }
-                let should_run = run_criteria.run((), world, resources);
-                run_criteria.run_thread_local(world, resources);
-                // don't run when no result is returned or false is returned
-                should_run.unwrap_or(ShouldRun::No)
-            } else {
-                ShouldRun::Yes
-            };
-
-            match should_run {
+            match self.run_critria.should_run(world, resources) {
                 ShouldRun::No => return,
                 ShouldRun::Yes => {
                     self.run_once(world, resources);
@@ -220,6 +205,51 @@ impl Stage for Schedule {
 pub fn clear_trackers_system(world: &mut World, resources: &mut Resources) {
     world.clear_trackers();
     resources.clear_trackers();
+}
+
+pub enum ShouldRun {
+    /// No, the system should not run
+    No,
+    /// Yes, the system should run
+    Yes,
+    /// Yes, the system should run and after running, the criteria should be checked again.
+    YesAndLoop,
+}
+
+pub(crate) struct RunCriteria {
+    criteria_system: Option<Box<dyn System<In = (), Out = ShouldRun>>>,
+    initialized: bool,
+}
+
+impl Default for RunCriteria {
+    fn default() -> Self {
+        Self {
+            criteria_system: None,
+            initialized: false,
+        }
+    }
+}
+
+impl RunCriteria {
+    pub fn set(&mut self, criteria_system: Box<dyn System<In = (), Out = ShouldRun>>) {
+        self.criteria_system = Some(criteria_system);
+        self.initialized = false;
+    }
+
+    pub fn should_run(&mut self, world: &mut World, resources: &mut Resources) -> ShouldRun {
+        if let Some(ref mut run_criteria) = self.criteria_system {
+            if !self.initialized {
+                run_criteria.initialize(world, resources);
+                self.initialized = true;
+            }
+            let should_run = run_criteria.run((), world, resources);
+            run_criteria.run_thread_local(world, resources);
+            // don't run when no result is returned or false is returned
+            should_run.unwrap_or(ShouldRun::No)
+        } else {
+            ShouldRun::Yes
+        }
+    }
 }
 
 #[cfg(test)]

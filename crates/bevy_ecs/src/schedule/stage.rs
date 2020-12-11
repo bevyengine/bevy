@@ -1,10 +1,9 @@
 use std::{any::TypeId, borrow::Cow};
 
 use crate::{
-    ArchetypeComponent, IntoSystem, Resources, System, SystemId, ThreadLocalExecution, TypeAccess,
-    World,
+    ArchetypeComponent, IntoSystem, Resources, RunCriteria, ShouldRun, System, SystemId,
+    ThreadLocalExecution, TypeAccess, World,
 };
-use bevy_utils::HashSet;
 use downcast_rs::{impl_downcast, Downcast};
 
 use super::{ParallelSystemStageExecutor, SerialSystemStageExecutor, SystemStageExecutor};
@@ -20,23 +19,17 @@ pub trait Stage: Downcast + Send + Sync {
 impl_downcast!(Stage);
 
 pub struct SystemStage {
-    systems: Vec<Box<dyn System<In = (), Out = ()>>>,
-    system_ids: HashSet<SystemId>,
+    system_sets: Vec<SystemSet>,
     executor: Box<dyn SystemStageExecutor>,
-    run_criteria: Option<Box<dyn System<In = (), Out = ShouldRun>>>,
-    run_criteria_initialized: bool,
-    changed_systems: Vec<usize>,
+    run_criteria: RunCriteria,
 }
 
 impl SystemStage {
     pub fn new(executor: Box<dyn SystemStageExecutor>) -> Self {
         SystemStage {
             executor,
-            run_criteria: None,
-            run_criteria_initialized: false,
-            systems: Default::default(),
-            system_ids: Default::default(),
-            changed_systems: Default::default(),
+            run_criteria: Default::default(),
+            system_sets: vec![SystemSet::default()],
         }
     }
 
@@ -63,13 +56,22 @@ impl SystemStage {
         self
     }
 
+    pub fn with_system_set(mut self, system_set: SystemSet) -> Self {
+        self.add_system_set(system_set);
+        self
+    }
+
     pub fn with_run_criteria<S, Params, IntoS>(mut self, system: IntoS) -> Self
     where
         S: System<In = (), Out = ShouldRun>,
         IntoS: IntoSystem<Params, S>,
     {
-        self.run_criteria = Some(Box::new(system.system()));
-        self.run_criteria_initialized = false;
+        self.run_criteria.set(Box::new(system.system()));
+        self
+    }
+
+    pub fn add_system_set(&mut self, system_set: SystemSet) -> &mut Self {
+        self.system_sets.push(system_set);
         self
     }
 
@@ -78,21 +80,12 @@ impl SystemStage {
         S: System<In = (), Out = ()>,
         IntoS: IntoSystem<Params, S>,
     {
-        self.add_system_boxed(Box::new(system.system()));
+        self.system_sets[0].add_system(system);
         self
     }
 
     pub fn add_system_boxed(&mut self, system: Box<dyn System<In = (), Out = ()>>) -> &mut Self {
-        if self.system_ids.contains(&system.id()) {
-            panic!(
-                "System with id {:?} ({}) already exists",
-                system.id(),
-                system.name()
-            );
-        }
-        self.system_ids.insert(system.id());
-        self.changed_systems.push(self.systems.len());
-        self.systems.push(system);
+        self.system_sets[0].add_system_boxed(system);
         self
     }
 
@@ -105,32 +98,21 @@ impl SystemStage {
     }
 
     pub fn run_once(&mut self, world: &mut World, resources: &mut Resources) {
-        let changed_systems = std::mem::take(&mut self.changed_systems);
-        for system_index in changed_systems.iter() {
-            self.systems[*system_index].initialize(world, resources);
+        for system_set in self.system_sets.iter_mut() {
+            system_set.for_each_changed_system(|system| system.initialize(world, resources));
         }
         self.executor
-            .execute_stage(&mut self.systems, &changed_systems, world, resources);
+            .execute_stage(&mut self.system_sets, world, resources);
+        for system_set in self.system_sets.iter_mut() {
+            system_set.clear_changed_systems();
+        }
     }
 }
 
 impl Stage for SystemStage {
     fn run(&mut self, world: &mut World, resources: &mut Resources) {
         loop {
-            let should_run = if let Some(ref mut run_criteria) = self.run_criteria {
-                if !self.run_criteria_initialized {
-                    run_criteria.initialize(world, resources);
-                    self.run_criteria_initialized = true;
-                }
-                let should_run = run_criteria.run((), world, resources);
-                run_criteria.run_thread_local(world, resources);
-                // don't run when no result is returned or false is returned
-                should_run.unwrap_or(ShouldRun::No)
-            } else {
-                ShouldRun::Yes
-            };
-
-            match should_run {
+            match self.run_criteria.should_run(world, resources) {
                 ShouldRun::No => return,
                 ShouldRun::Yes => {
                     self.run_once(world, resources);
@@ -144,13 +126,71 @@ impl Stage for SystemStage {
     }
 }
 
-pub enum ShouldRun {
-    /// No, the system should not run
-    No,
-    /// Yes, the system should run
-    Yes,
-    /// Yes, the system should run and after running, the criteria should be checked again.
-    YesAndLoop,
+#[derive(Default)]
+pub struct SystemSet {
+    systems: Vec<Box<dyn System<In = (), Out = ()>>>,
+    run_criteria: RunCriteria,
+    changed_systems: Vec<usize>,
+}
+
+impl SystemSet {
+    // TODO: ideally this returns an iterator, but impl Iterator can't be used in this context (yet) and a custom iterator isn't worth it
+    pub fn for_each_changed_system(
+        &mut self,
+        func: impl FnMut(&mut dyn System<In = (), Out = ()>),
+    ) {
+        for index in self.changed_systems.iter_mut() {
+            func(&mut *self.systems[*index])
+        }
+    }
+
+    pub fn changed_systems(&self) -> &[usize] {
+        &self.changed_systems
+    }
+
+    pub fn clear_changed_systems(&mut self) {
+        self.changed_systems.clear()
+    }
+
+    pub fn run_criteria(&self) -> &RunCriteria {
+        &self.run_criteria
+    }
+
+    pub fn run_criteria_mut(&mut self) -> &mut RunCriteria {
+        &mut self.run_criteria
+    }
+
+    pub fn systems(&mut self) -> &[Box<dyn System<In = (), Out = ()>>] {
+        &self.systems
+    }
+
+    pub fn systems_mut(&mut self) -> &mut [Box<dyn System<In = (), Out = ()>>] {
+        &mut self.systems
+    }
+
+    pub fn with_system<S, Params, IntoS>(mut self, system: IntoS) -> Self
+    where
+        S: System<In = (), Out = ()>,
+        IntoS: IntoSystem<Params, S>,
+    {
+        self.add_system_boxed(Box::new(system.system()));
+        self
+    }
+
+    pub fn add_system_boxed(&mut self, system: Box<dyn System<In = (), Out = ()>>) -> &mut Self {
+        self.changed_systems.push(self.systems.len());
+        self.systems.push(system);
+        self
+    }
+
+    pub fn add_system<S, Params, IntoS>(&mut self, system: IntoS) -> &mut Self
+    where
+        S: System<In = (), Out = ()>,
+        IntoS: IntoSystem<Params, S>,
+    {
+        self.add_system_boxed(Box::new(system.system()));
+        self
+    }
 }
 
 impl<S: System<In = (), Out = ()>> From<S> for SystemStage {
