@@ -6,7 +6,7 @@ use bevy_ecs::Entity;
 pub struct ReflectPlugin;
 
 impl Plugin for ReflectPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(self, app: &mut AppBuilder) {
         app.init_resource::<TypeRegistryArc>()
             .register_type::<bool>()
             .register_type::<u8>()

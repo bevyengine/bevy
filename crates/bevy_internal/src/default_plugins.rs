@@ -3,7 +3,7 @@ use bevy_app::{PluginGroup, PluginGroupBuilder};
 pub struct DefaultPlugins;
 
 impl PluginGroup for DefaultPlugins {
-    fn build(&mut self, group: &mut PluginGroupBuilder) {
+    fn build(self, group: &mut PluginGroupBuilder) {
         group.add(bevy_log::LogPlugin::default());
         group.add(bevy_reflect::ReflectPlugin::default());
         group.add(bevy_core::CorePlugin::default());
@@ -49,7 +49,7 @@ impl PluginGroup for DefaultPlugins {
 pub struct MinimalPlugins;
 
 impl PluginGroup for MinimalPlugins {
-    fn build(&mut self, group: &mut PluginGroupBuilder) {
+    fn build(self, group: &mut PluginGroupBuilder) {
         group.add(bevy_reflect::ReflectPlugin::default());
         group.add(bevy_core::CorePlugin::default());
         group.add(bevy_app::ScheduleRunnerPlugin::default());

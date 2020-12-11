@@ -28,10 +28,10 @@ impl Default for PrintDiagnosticsPlugin {
 }
 
 impl Plugin for PrintDiagnosticsPlugin {
-    fn build(&self, app: &mut bevy_app::AppBuilder) {
+    fn build(self, app: &mut bevy_app::AppBuilder) {
         app.add_resource(PrintDiagnosticsState {
             timer: Timer::new(self.wait_duration, true),
-            filter: self.filter.clone(),
+            filter: self.filter,
         });
 
         if self.debug {

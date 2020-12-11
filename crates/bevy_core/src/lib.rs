@@ -24,7 +24,7 @@ use bevy_app::prelude::*;
 pub struct CorePlugin;
 
 impl Plugin for CorePlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(self, app: &mut AppBuilder) {
         // Setup the default bevy task pools
         app.resources_mut()
             .get_cloned::<DefaultTaskPoolOptions>()

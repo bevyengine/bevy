@@ -1,13 +1,13 @@
-use crate::{AppBuilder, Plugin};
+use crate::{AppBuilder, Plugin, BoxedPlugin};
 use bevy_utils::{tracing::debug, HashMap};
 use std::any::TypeId;
 
 pub trait PluginGroup {
-    fn build(&mut self, group: &mut PluginGroupBuilder);
+    fn build(self, group: &mut PluginGroupBuilder);
 }
 
 struct PluginEntry {
-    plugin: Box<dyn Plugin>,
+    plugin: BoxedPlugin,
     enabled: bool,
 }
 
@@ -96,12 +96,12 @@ impl PluginGroupBuilder {
         self
     }
 
-    pub fn finish(self, app: &mut AppBuilder) {
+    pub fn finish(mut self, app: &mut AppBuilder) {
         for ty in self.order.iter() {
-            if let Some(entry) = self.plugins.get(ty) {
-                if entry.enabled {
-                    debug!("added plugin: {}", entry.plugin.name());
-                    entry.plugin.build(app);
+            if let Some(PluginEntry{plugin,enabled}) = self.plugins.remove(ty) {
+                if enabled {
+                    debug!("added plugin: {}", plugin.name());
+                    plugin.unbox_and_build(app);
                 }
             }
         }

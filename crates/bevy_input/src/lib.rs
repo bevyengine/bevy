@@ -38,7 +38,7 @@ use gamepad::{
 pub struct InputPlugin;
 
 impl Plugin for InputPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(self, app: &mut AppBuilder) {
         app.add_event::<KeyboardInput>()
             .add_event::<MouseButtonInput>()
             .add_event::<MouseMotion>()

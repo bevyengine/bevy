@@ -24,7 +24,7 @@ use render_graph::add_pbr_graph;
 pub struct PbrPlugin;
 
 impl Plugin for PbrPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(self, app: &mut AppBuilder) {
         app.add_asset::<StandardMaterial>()
             .register_type::<Light>()
             .add_system_to_stage(

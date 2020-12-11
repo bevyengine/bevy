@@ -10,7 +10,7 @@ use gilrs_system::{gilrs_event_startup_system, gilrs_event_system};
 pub struct GilrsPlugin;
 
 impl Plugin for GilrsPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(self, app: &mut AppBuilder) {
         match GilrsBuilder::new()
             .with_default_filters(false)
             .set_update_state(false)

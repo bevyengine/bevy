@@ -42,7 +42,7 @@ pub const QUAD_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Mesh::TYPE_UUID, 14240461981130137526);
 
 impl Plugin for SpritePlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(self, app: &mut AppBuilder) {
         app.add_asset::<ColorMaterial>()
             .add_asset::<TextureAtlas>()
             .register_type::<Sprite>()

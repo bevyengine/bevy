@@ -23,9 +23,9 @@ pub struct PrintMessagePlugin {
 
 impl Plugin for PrintMessagePlugin {
     // this is where we set up our plugin
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(self, app: &mut AppBuilder) {
         let state = PrintMessageState {
-            message: self.message.clone(),
+            message: self.message,
             timer: Timer::new(self.wait_duration, true),
         };
         app.add_resource(state).add_system(print_message_system);

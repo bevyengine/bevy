@@ -36,7 +36,7 @@ pub mod stage {
 }
 
 impl Plugin for UiPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(self, app: &mut AppBuilder) {
         app.init_resource::<FlexSurface>()
             .add_stage_before(bevy_app::stage::POST_UPDATE, stage::UI)
             .add_system_to_stage(bevy_app::stage::PRE_UPDATE, ui_focus_system)

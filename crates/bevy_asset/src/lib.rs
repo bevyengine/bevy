@@ -51,7 +51,7 @@ impl Default for AssetServerSettings {
 }
 
 impl Plugin for AssetPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(self, app: &mut AppBuilder) {
         let task_pool = app
             .resources()
             .get::<IoTaskPool>()

@@ -20,7 +20,7 @@ fn main() {
 pub struct HelloWorldPlugins;
 
 impl PluginGroup for HelloWorldPlugins {
-    fn build(&mut self, group: &mut PluginGroupBuilder) {
+    fn build(self, group: &mut PluginGroupBuilder) {
         group.add(PrintHelloPlugin).add(PrintWorldPlugin);
     }
 }
@@ -28,7 +28,7 @@ impl PluginGroup for HelloWorldPlugins {
 pub struct PrintHelloPlugin;
 
 impl Plugin for PrintHelloPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(self, app: &mut AppBuilder) {
         app.add_system(print_hello_system);
     }
 }
@@ -40,7 +40,7 @@ fn print_hello_system() {
 pub struct PrintWorldPlugin;
 
 impl Plugin for PrintWorldPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(self, app: &mut AppBuilder) {
         app.add_system(print_world_system);
     }
 }

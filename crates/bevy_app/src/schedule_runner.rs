@@ -50,7 +50,7 @@ impl ScheduleRunnerSettings {
 pub struct ScheduleRunnerPlugin {}
 
 impl Plugin for ScheduleRunnerPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(self, app: &mut AppBuilder) {
         let settings = app
             .resources_mut()
             .get_or_insert_with(ScheduleRunnerSettings::default)

@@ -14,7 +14,7 @@ use prelude::{parent_update_system, Children, GlobalTransform, Parent, PreviousP
 pub struct TransformPlugin;
 
 impl Plugin for TransformPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(self, app: &mut AppBuilder) {
         app.register_type::<Children>()
             .register_type::<Parent>()
             .register_type::<PreviousParent>()

@@ -1,9 +1,9 @@
 use libloading::{Library, Symbol};
 
-use bevy_app::{AppBuilder, CreatePlugin, Plugin};
+use bevy_app::{AppBuilder, CreatePlugin, BoxedPlugin};
 
 /// Dynamically links a plugin a the given path. The plugin must export the [CreatePlugin] function.
-pub fn dynamically_load_plugin(path: &str) -> (Library, Box<dyn Plugin>) {
+pub fn dynamically_load_plugin(path: &str) -> (Library, BoxedPlugin) {
     let lib = Library::new(path).unwrap();
 
     unsafe {
@@ -20,7 +20,7 @@ pub trait DynamicPluginExt {
 impl DynamicPluginExt for AppBuilder {
     fn load_plugin(&mut self, path: &str) -> &mut Self {
         let (_lib, plugin) = dynamically_load_plugin(path);
-        plugin.build(self);
+        plugin.unbox_and_build(self);
         self
     }
 }

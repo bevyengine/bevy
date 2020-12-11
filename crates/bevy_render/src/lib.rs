@@ -79,7 +79,7 @@ impl Default for RenderPlugin {
 }
 
 impl Plugin for RenderPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(self, app: &mut AppBuilder) {
         #[cfg(feature = "png")]
         {
             app.init_asset_loader::<ImageTextureLoader>();

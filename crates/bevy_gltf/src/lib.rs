@@ -9,7 +9,7 @@ use bevy_asset::AddAsset;
 pub struct GltfPlugin;
 
 impl Plugin for GltfPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(self, app: &mut AppBuilder) {
         app.init_asset_loader::<GltfLoader>();
     }
 }
