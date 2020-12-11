@@ -34,14 +34,8 @@ impl<'a> Iterator for ShaderDefIterator<'a> {
     type Item = (&'a str, bool);
 
     fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            if self.index == self.shader_defs.shader_defs_len() {
-                return None;
-            }
-            let shader_def = self.shader_defs.get_shader_def(self.index);
-            self.index += 1;
-            return shader_def;
-        }
+        self.index += 1;
+        self.shader_defs.get_shader_def(self.index - 1)
     }
 }
 
