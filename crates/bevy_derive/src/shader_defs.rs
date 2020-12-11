@@ -47,13 +47,11 @@ pub fn derive_shader_defs(input: TokenStream) -> TokenStream {
                 #shader_defs_len
             }
 
-            fn get_shader_def(&self, index: usize) -> Option<&str> {
+            fn get_shader_def(&self, index: usize) -> Option<(&str, bool)> {
                 use #bevy_render_path::shader::ShaderDef;
                 match index {
-                    #(#shader_def_indices => if self.#shader_def_idents.is_defined() {
-                        Some(#shader_defs)
-                    } else {
-                        None
+                    #(#shader_def_indices => {
+                        Some((#shader_defs, self.#shader_def_idents.is_defined()))
                     },)*
                     _ => None,
                 }

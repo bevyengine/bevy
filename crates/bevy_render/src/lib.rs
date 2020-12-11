@@ -146,8 +146,7 @@ impl Plugin for RenderPlugin {
                 stage::RENDER_GRAPH_SYSTEMS,
                 render_graph::render_graph_schedule_executor_system,
             )
-            .add_system_to_stage(stage::DRAW, pipeline::draw_render_pipelines_system)
-            .add_system_to_stage(stage::POST_RENDER, shader::clear_shader_defs_system);
+            .add_system_to_stage(stage::DRAW, pipeline::draw_render_pipelines_system);
 
         if app.resources().get::<Msaa>().is_none() {
             app.init_resource::<Msaa>();

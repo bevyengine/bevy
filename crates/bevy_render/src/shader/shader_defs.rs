@@ -2,7 +2,7 @@ use bevy_asset::{Asset, Assets, Handle};
 
 use crate::{pipeline::RenderPipelines, Texture};
 pub use bevy_derive::ShaderDefs;
-use bevy_ecs::{Query, Res};
+use bevy_ecs::{Changed, Mut, Query, Res};
 
 /// Something that can either be "defined" or "not defined". This is used to determine if a "shader def" should be considered "defined"
 pub trait ShaderDef {
@@ -12,7 +12,7 @@ pub trait ShaderDef {
 /// A collection of "shader defs", which define compile time definitions for shaders.
 pub trait ShaderDefs {
     fn shader_defs_len(&self) -> usize;
-    fn get_shader_def(&self, index: usize) -> Option<&str>;
+    fn get_shader_def(&self, index: usize) -> Option<(&str, bool)>;
     fn iter_shader_defs(&self) -> ShaderDefIterator;
 }
 
@@ -31,7 +31,7 @@ impl<'a> ShaderDefIterator<'a> {
     }
 }
 impl<'a> Iterator for ShaderDefIterator<'a> {
-    type Item = &'a str;
+    type Item = (&'a str, bool);
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -40,9 +40,7 @@ impl<'a> Iterator for ShaderDefIterator<'a> {
             }
             let shader_def = self.shader_defs.get_shader_def(self.index);
             self.index += 1;
-            if shader_def.is_some() {
-                return shader_def;
-            }
+            return shader_def;
         }
     }
 }
@@ -60,32 +58,31 @@ impl ShaderDef for Option<Handle<Texture>> {
 }
 
 /// Updates [RenderPipelines] with the latest [ShaderDefs]
-pub fn shader_defs_system<T>(mut query: Query<(&T, &mut RenderPipelines)>)
+pub fn shader_defs_system<T>(mut query: Query<(&T, &mut RenderPipelines), Changed<T>>)
 where
     T: ShaderDefs + Send + Sync + 'static,
 {
-    for (shader_defs, mut render_pipelines) in query.iter_mut() {
-        for shader_def in shader_defs.iter_shader_defs() {
-            for render_pipeline in render_pipelines.pipelines.iter_mut() {
-                render_pipeline
-                    .specialization
-                    .shader_specialization
-                    .shader_defs
-                    .insert(shader_def.to_string());
-            }
-        }
-    }
+    query.iter_mut().for_each(update_render_pipelines)
 }
 
-/// Clears each [RenderPipelines]' shader defs collection
-pub fn clear_shader_defs_system(mut query: Query<&mut RenderPipelines>) {
-    for mut render_pipelines in query.iter_mut() {
+/// Insert defined shader defs and remove undefined ones from render pipelines.
+fn update_render_pipelines<T>(q: (&T, Mut<RenderPipelines>))
+where
+    T: ShaderDefs + Send + Sync + 'static,
+{
+    let (shader_defs, mut render_pipelines) = q;
+    for (shader_def, is_defined) in shader_defs.iter_shader_defs() {
         for render_pipeline in render_pipelines.pipelines.iter_mut() {
-            render_pipeline
+            let shader_defs = &mut render_pipeline
                 .specialization
                 .shader_specialization
-                .shader_defs
-                .clear();
+                .shader_defs;
+            let s = shader_def.to_string();
+            if is_defined {
+                shader_defs.insert(s);
+            } else {
+                shader_defs.remove(&s);
+            }
         }
     }
 }
@@ -93,22 +90,13 @@ pub fn clear_shader_defs_system(mut query: Query<&mut RenderPipelines>) {
 /// Updates [RenderPipelines] with the latest [ShaderDefs] from a given asset type
 pub fn asset_shader_defs_system<T: Asset>(
     assets: Res<Assets<T>>,
-    mut query: Query<(&Handle<T>, &mut RenderPipelines)>,
+    mut query: Query<(&Handle<T>, &mut RenderPipelines), Changed<Handle<T>>>,
 ) where
     T: ShaderDefs + Send + Sync + 'static,
 {
-    for (asset_handle, mut render_pipelines) in query.iter_mut() {
-        if let Some(asset_handle) = assets.get(asset_handle) {
-            let shader_defs = asset_handle;
-            for shader_def in shader_defs.iter_shader_defs() {
-                for render_pipeline in render_pipelines.pipelines.iter_mut() {
-                    render_pipeline
-                        .specialization
-                        .shader_specialization
-                        .shader_defs
-                        .insert(shader_def.to_string());
-                }
-            }
-        }
-    }
+    query
+        .iter_mut()
+        // (Handle<T>, _) -> (&T, _)
+        .filter_map(|(h, p)| assets.get(h).map(|a| (a, p)))
+        .for_each(update_render_pipelines);
 }
