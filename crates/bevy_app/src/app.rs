@@ -53,6 +53,8 @@ impl App {
     }
 
     pub fn update(&mut self) {
+        self.schedule
+            .initialize(&mut self.world, &mut self.resources);
         self.schedule.run(&mut self.world, &mut self.resources);
     }
 

@@ -14,6 +14,11 @@ pub enum StageError {
 }
 
 pub trait Stage: Downcast + Send + Sync {
+    /// Stages can perform setup here. Initialize should be called for every stage before calling [Stage::run]. Initialize will
+    /// be called once per update, so internally this should avoid re-doing work where possible.
+    fn initialize(&mut self, world: &mut World, resources: &mut Resources);
+
+    /// Runs the stage. This happens once per update (after [Stage::initialize] is called).
     fn run(&mut self, world: &mut World, resources: &mut Resources);
 }
 
@@ -25,7 +30,8 @@ pub struct SystemStage {
     executor: Box<dyn SystemStageExecutor>,
     run_criteria: Option<Box<dyn System<In = (), Out = ShouldRun>>>,
     run_criteria_initialized: bool,
-    changed_systems: Vec<usize>,
+    uninitialized_systems: Vec<usize>,
+    unexecuted_systems: Vec<usize>,
 }
 
 impl SystemStage {
@@ -36,7 +42,8 @@ impl SystemStage {
             run_criteria_initialized: false,
             systems: Default::default(),
             system_ids: Default::default(),
-            changed_systems: Default::default(),
+            uninitialized_systems: Default::default(),
+            unexecuted_systems: Default::default(),
         }
     }
 
@@ -91,7 +98,8 @@ impl SystemStage {
             );
         }
         self.system_ids.insert(system.id());
-        self.changed_systems.push(self.systems.len());
+        self.unexecuted_systems.push(self.systems.len());
+        self.uninitialized_systems.push(self.systems.len());
         self.systems.push(system);
         self
     }
@@ -105,23 +113,30 @@ impl SystemStage {
     }
 
     pub fn run_once(&mut self, world: &mut World, resources: &mut Resources) {
-        let changed_systems = std::mem::take(&mut self.changed_systems);
-        for system_index in changed_systems.iter() {
-            self.systems[*system_index].initialize(world, resources);
-        }
+        let unexecuted_systems = std::mem::take(&mut self.unexecuted_systems);
         self.executor
-            .execute_stage(&mut self.systems, &changed_systems, world, resources);
+            .execute_stage(&mut self.systems, &unexecuted_systems, world, resources);
     }
 }
 
 impl Stage for SystemStage {
+    fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
+        if let Some(ref mut run_criteria) = self.run_criteria {
+            if !self.run_criteria_initialized {
+                run_criteria.initialize(world, resources);
+                self.run_criteria_initialized = true;
+            }
+        }
+
+        let uninitialized_systems = std::mem::take(&mut self.uninitialized_systems);
+        for system_index in uninitialized_systems.iter() {
+            self.systems[*system_index].initialize(world, resources);
+        }
+    }
+
     fn run(&mut self, world: &mut World, resources: &mut Resources) {
         loop {
             let should_run = if let Some(ref mut run_criteria) = self.run_criteria {
-                if !self.run_criteria_initialized {
-                    run_criteria.initialize(world, resources);
-                    self.run_criteria_initialized = true;
-                }
                 let should_run = run_criteria.run((), world, resources);
                 run_criteria.run_thread_local(world, resources);
                 // don't run when no result is returned or false is returned

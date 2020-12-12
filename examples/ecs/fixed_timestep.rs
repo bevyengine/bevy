@@ -11,7 +11,8 @@ fn main() {
         // this system will run once every update (it should match your screen's refresh rate)
         .add_system(update)
         // add a new stage that runs every two seconds
-        .add_stage(
+        .add_stage_after(
+            stage::UPDATE,
             "fixed_update",
             SystemStage::parallel()
                 .with_run_criteria(

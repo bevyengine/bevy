@@ -188,13 +188,23 @@ impl Schedule {
 }
 
 impl Stage for Schedule {
+    fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
+        if let Some(ref mut run_criteria) = self.run_criteria {
+            if !self.run_criteria_initialized {
+                run_criteria.initialize(world, resources);
+                self.run_criteria_initialized = true;
+            }
+        }
+
+        for name in self.stage_order.iter() {
+            let stage = self.stages.get_mut(name).unwrap();
+            stage.initialize(world, resources);
+        }
+    }
+
     fn run(&mut self, world: &mut World, resources: &mut Resources) {
         loop {
             let should_run = if let Some(ref mut run_criteria) = self.run_criteria {
-                if !self.run_criteria_initialized {
-                    run_criteria.initialize(world, resources);
-                    self.run_criteria_initialized = true;
-                }
                 let should_run = run_criteria.run((), world, resources);
                 run_criteria.run_thread_local(world, resources);
                 // don't run when no result is returned or false is returned

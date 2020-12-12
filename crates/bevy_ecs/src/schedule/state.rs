@@ -81,6 +81,22 @@ impl<T> StateStage<T> {
 
 #[allow(clippy::mem_discriminant_non_enum)]
 impl<T: Resource + Clone> Stage for StateStage<T> {
+    fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
+        for state_stages in self.stages.values_mut() {
+            if let Some(ref mut enter) = state_stages.enter {
+                enter.initialize(world, resources);
+            }
+
+            if let Some(ref mut update) = state_stages.update {
+                update.initialize(world, resources);
+            }
+
+            if let Some(ref mut exit) = state_stages.exit {
+                exit.initialize(world, resources);
+            }
+        }
+    }
+
     fn run(&mut self, world: &mut World, resources: &mut Resources) {
         loop {
             let (next_stage, current_stage) = {
