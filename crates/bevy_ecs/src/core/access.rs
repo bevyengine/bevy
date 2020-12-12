@@ -4,7 +4,7 @@ use std::{any::TypeId, boxed::Box, hash::Hash, vec::Vec};
 use super::{Archetype, World};
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-pub enum Access {
+enum ArchetypeAccess {
     None,
     Read,
     Write,
@@ -115,20 +115,20 @@ impl QueryAccess {
 
     /// Returns how this [QueryAccess] accesses the given `archetype`.
     /// If `type_access` is set, it will populate type access with the types this query reads/writes
-    pub fn get_access(
+    fn get_access(
         &self,
         archetype: &Archetype,
         archetype_index: u32,
         type_access: Option<&mut TypeAccess<ArchetypeComponent>>,
-    ) -> Option<Access> {
+    ) -> Option<ArchetypeAccess> {
         match self {
-            QueryAccess::None => Some(Access::None),
+            QueryAccess::None => Some(ArchetypeAccess::None),
             QueryAccess::Read(ty, _) => {
                 if archetype.has_type(*ty) {
                     if let Some(type_access) = type_access {
                         type_access.add_read(ArchetypeComponent::new_ty(archetype_index, *ty));
                     }
-                    Some(Access::Read)
+                    Some(ArchetypeAccess::Read)
                 } else {
                     None
                 }
@@ -138,7 +138,7 @@ impl QueryAccess {
                     if let Some(type_access) = type_access {
                         type_access.add_write(ArchetypeComponent::new_ty(archetype_index, *ty));
                     }
-                    Some(Access::Write)
+                    Some(ArchetypeAccess::Write)
                 } else {
                     None
                 }
@@ -152,7 +152,7 @@ impl QueryAccess {
                         Some(access)
                     }
                 } else {
-                    Some(Access::Read)
+                    Some(ArchetypeAccess::Read)
                 }
             }
             QueryAccess::With(ty, query_access) => {
@@ -174,7 +174,7 @@ impl QueryAccess {
                 for query_access in query_accesses {
                     if let Some(access) = query_access.get_access(archetype, archetype_index, None)
                     {
-                        result = Some(result.unwrap_or(Access::Read).max(access));
+                        result = Some(result.unwrap_or(ArchetypeAccess::Read).max(access));
                     } else {
                         return None;
                     }
@@ -195,12 +195,91 @@ impl QueryAccess {
     }
 }
 
+#[derive(Debug, Eq, PartialEq, Clone)]
+enum AccessSet<T: Hash + Eq + PartialEq> {
+    All,
+    Some(HashSet<T>),
+}
+
+impl<T: Hash + Eq + PartialEq> Default for AccessSet<T> {
+    fn default() -> Self {
+        Self::Some(Default::default())
+    }
+}
+
+impl<T: Hash + Eq + PartialEq + Copy> AccessSet<T> {
+    fn is_disjoint(&self, other: &AccessSet<T>) -> bool {
+        if let (AccessSet::Some(set), AccessSet::Some(other)) = (self, other) {
+            set.is_disjoint(other)
+        } else {
+            false
+        }
+    }
+
+    fn extend(&mut self, other: &AccessSet<T>) {
+        match self {
+            AccessSet::All => (),
+            AccessSet::Some(set) => match other {
+                AccessSet::All => *self = AccessSet::All,
+                AccessSet::Some(other) => set.extend(other),
+            },
+        }
+    }
+
+    fn insert(&mut self, item: T) {
+        match self {
+            AccessSet::All => (),
+            AccessSet::Some(set) => {
+                set.insert(item);
+            }
+        }
+    }
+
+    fn clear(&mut self) {
+        match self {
+            // If a system had full access before, it'll have full access next time either way.
+            AccessSet::All => (),
+            AccessSet::Some(set) => set.clear(),
+        }
+    }
+
+    fn contains(&self, item: &T) -> bool {
+        match self {
+            AccessSet::All => true,
+            AccessSet::Some(set) => set.contains(item),
+        }
+    }
+
+    fn find_conflict<'a>(&'a self, other: &'a AccessSet<T>) -> AccessConflict<'a, T> {
+        match (self, other) {
+            (AccessSet::Some(set), AccessSet::Some(other)) => {
+                if let Some(intersection) = set.intersection(other).next() {
+                    return AccessConflict::Element(intersection);
+                }
+            }
+            (AccessSet::Some(set), AccessSet::All) | (AccessSet::All, AccessSet::Some(set)) => {
+                if let Some(first) = set.iter().next() {
+                    return AccessConflict::Element(first);
+                }
+            }
+            (AccessSet::All, AccessSet::All) => return AccessConflict::All,
+        }
+        AccessConflict::None
+    }
+}
+
+pub enum AccessConflict<'a, T> {
+    None,
+    Element(&'a T),
+    All,
+}
+
 /// Provides information about the types a [System] reads and writes
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct TypeAccess<T: Hash + Eq + PartialEq> {
-    reads_and_writes: HashSet<T>,
-    writes: HashSet<T>,
-    reads: HashSet<T>,
+    reads_and_writes: AccessSet<T>,
+    writes: AccessSet<T>,
+    reads: AccessSet<T>,
 }
 
 impl<T: Hash + Eq + PartialEq> Default for TypeAccess<T> {
@@ -232,15 +311,15 @@ impl<T: Hash + Eq + PartialEq + Copy> TypeAccess<T> {
             && self.reads_and_writes.is_disjoint(&other.writes)
     }
 
-    pub fn get_conflict<'a>(&'a self, other: &'a TypeAccess<T>) -> Option<&'a T> {
-        let conflict = self.writes.intersection(&other.reads_and_writes).next();
-        if conflict.is_some() {
-            return conflict;
+    pub fn get_conflict<'a>(&'a self, other: &'a TypeAccess<T>) -> AccessConflict<'a, T> {
+        let conflict = self.writes.find_conflict(&other.reads_and_writes);
+        if let AccessConflict::None = conflict {
+            return self.reads_and_writes.find_conflict(&other.writes);
         }
-        self.reads_and_writes.intersection(&other.writes).next()
+        conflict
     }
 
-    pub fn union(&mut self, other: &TypeAccess<T>) {
+    pub fn extend(&mut self, other: &TypeAccess<T>) {
         self.writes.extend(&other.writes);
         self.reads.extend(&other.reads);
         self.reads_and_writes.extend(&other.reads_and_writes);
@@ -256,6 +335,17 @@ impl<T: Hash + Eq + PartialEq + Copy> TypeAccess<T> {
         self.writes.insert(ty);
     }
 
+    pub fn read_all(&mut self) {
+        self.reads_and_writes = AccessSet::All;
+        self.reads = AccessSet::All;
+    }
+
+    pub fn write_all(&mut self) {
+        self.reads_and_writes = AccessSet::All;
+        self.writes = AccessSet::All;
+    }
+
+    /// NB: does not reset access sets that have been set to `All`.
     pub fn clear(&mut self) {
         self.reads_and_writes.clear();
         self.reads.clear();
@@ -270,13 +360,21 @@ impl<T: Hash + Eq + PartialEq + Copy> TypeAccess<T> {
         self.writes.contains(ty)
     }
 
-    pub fn iter_reads(&self) -> impl Iterator<Item = &T> {
+    pub fn reads_all(&self) -> bool {
+        self.reads == AccessSet::All
+    }
+
+    pub fn writes_all(&self) -> bool {
+        self.writes == AccessSet::All
+    }
+
+    /*pub fn iter_reads(&self) -> impl Iterator<Item = &T> {
         self.reads.iter()
     }
 
     pub fn iter_writes(&self) -> impl Iterator<Item = &T> {
         self.writes.iter()
-    }
+    }*/
 }
 
 #[cfg(test)]

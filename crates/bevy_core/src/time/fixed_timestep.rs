@@ -1,5 +1,5 @@
 use crate::Time;
-use bevy_ecs::{ArchetypeComponent, ShouldRun, System, SystemId, ThreadLocalExecution, TypeAccess};
+use bevy_ecs::{ArchetypeComponent, ShouldRun, System, SystemId, TypeAccess};
 use std::{any::TypeId, borrow::Cow};
 
 pub struct FixedTimestep {
@@ -77,8 +77,8 @@ impl System for FixedTimestep {
         &self.resource_access
     }
 
-    fn thread_local_execution(&self) -> ThreadLocalExecution {
-        ThreadLocalExecution::Immediate
+    fn is_thread_local(&self) -> bool {
+        false
     }
 
     unsafe fn run_unsafe(
@@ -91,7 +91,7 @@ impl System for FixedTimestep {
         Some(self.update(&time))
     }
 
-    fn run_thread_local(
+    fn run_exclusive(
         &mut self,
         _world: &mut bevy_ecs::World,
         _resources: &mut bevy_ecs::Resources,

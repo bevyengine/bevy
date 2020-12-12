@@ -133,6 +133,36 @@ impl<'a, T: Resource + FromResources> DerefMut for Local<'a, T> {
     }
 }
 
+// TODO audit, document.
+#[derive(Debug)]
+pub struct ThreadLocal<'a, T: Resource> {
+    value: *mut T,
+    _marker: PhantomData<&'a T>,
+}
+
+impl<'a, T: Resource> ThreadLocal<'a, T> {
+    pub(crate) unsafe fn new(resources: &Resources) -> Self {
+        ThreadLocal {
+            value: resources.get_unsafe_thread_local_ref::<T>().as_ptr(),
+            _marker: Default::default(),
+        }
+    }
+}
+
+impl<'a, T: Resource + FromResources> Deref for ThreadLocal<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        unsafe { &*self.value }
+    }
+}
+
+impl<'a, T: Resource + FromResources> DerefMut for ThreadLocal<'a, T> {
+    fn deref_mut(&mut self) -> &mut T {
+        unsafe { &mut *self.value }
+    }
+}
+
 // #[cfg(test)]
 // mod tests {
 //     use super::*;

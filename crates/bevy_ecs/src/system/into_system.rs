@@ -1,6 +1,6 @@
 use crate::{
-    ArchetypeComponent, Commands, QueryAccess, Resources, System, SystemId, SystemParam,
-    ThreadLocalExecution, TypeAccess, World,
+    AccessConflict, ArchetypeComponent, Commands, QueryAccess, Resources, System, SystemId,
+    SystemParam, TypeAccess, World,
 };
 use parking_lot::Mutex;
 use std::{any::TypeId, borrow::Cow, sync::Arc};
@@ -10,6 +10,7 @@ pub struct SystemState {
     pub(crate) name: Cow<'static, str>,
     pub(crate) archetype_component_access: TypeAccess<ArchetypeComponent>,
     pub(crate) resource_access: TypeAccess<TypeId>,
+    pub(crate) is_thread_local: bool,
     pub(crate) local_resource_access: TypeAccess<TypeId>,
     pub(crate) query_archetype_component_accesses: Vec<TypeAccess<ArchetypeComponent>>,
     pub(crate) query_accesses: Vec<Vec<QueryAccess>>,
@@ -40,8 +41,12 @@ impl SystemState {
             }
             if !component_access.is_compatible(&self.archetype_component_access) {
                 conflict_index = Some(i);
-                conflict_name = component_access
-                    .get_conflict(&self.archetype_component_access)
+                conflict_name =
+                    match component_access.get_conflict(&self.archetype_component_access) {
+                        AccessConflict::None => None,
+                        AccessConflict::Element(element) => Some(element),
+                        AccessConflict::All => unreachable!(), // TODO verify
+                    }
                     .and_then(|archetype_component| {
                         query_accesses
                             .iter()
@@ -52,7 +57,7 @@ impl SystemState {
                     });
                 break;
             }
-            self.archetype_component_access.union(component_access);
+            self.archetype_component_access.extend(component_access);
         }
         if let Some(conflict_index) = conflict_index {
             let mut conflicts_with_index = None;
@@ -76,8 +81,6 @@ pub struct FuncSystem<In, Out> {
     func: Box<
         dyn FnMut(In, &mut SystemState, &World, &Resources) -> Option<Out> + Send + Sync + 'static,
     >,
-    thread_local_func:
-        Box<dyn FnMut(&mut SystemState, &mut World, &mut Resources) + Send + Sync + 'static>,
     init_func: Box<dyn FnMut(&mut SystemState, &World, &mut Resources) + Send + Sync + 'static>,
     state: SystemState,
 }
@@ -106,8 +109,8 @@ impl<In: 'static, Out: 'static> System for FuncSystem<In, Out> {
         &self.state.resource_access
     }
 
-    fn thread_local_execution(&self) -> ThreadLocalExecution {
-        ThreadLocalExecution::NextFlush
+    fn is_thread_local(&self) -> bool {
+        self.state.is_thread_local
     }
 
     unsafe fn run_unsafe(
@@ -119,8 +122,12 @@ impl<In: 'static, Out: 'static> System for FuncSystem<In, Out> {
         (self.func)(input, &mut self.state, world, resources)
     }
 
-    fn run_thread_local(&mut self, world: &mut World, resources: &mut Resources) {
-        (self.thread_local_func)(&mut self.state, world, resources)
+    fn run_exclusive(&mut self, world: &mut World, resources: &mut Resources) {
+        self.state.commands.apply(world, resources);
+        if let Some(ref commands) = self.state.arc_commands {
+            let mut commands = commands.lock();
+            commands.apply(world, resources);
+        }
     }
 
     fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
@@ -153,6 +160,7 @@ macro_rules! impl_into_system {
                         name: std::any::type_name::<Self>().into(),
                         archetype_component_access: TypeAccess::default(),
                         resource_access: TypeAccess::default(),
+                        is_thread_local: false,
                         local_resource_access: TypeAccess::default(),
                         id: SystemId::new(),
                         commands: Commands::default(),
@@ -171,13 +179,6 @@ macro_rules! impl_into_system {
                             } else {
                                 None
                             }
-                        }
-                    }),
-                    thread_local_func: Box::new(|state, world, resources| {
-                        state.commands.apply(world, resources);
-                        if let Some(ref commands) = state.arc_commands {
-                            let mut commands = commands.lock();
-                            commands.apply(world, resources);
                         }
                     }),
                     init_func: Box::new(|state, world, resources| {

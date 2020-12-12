@@ -2,8 +2,9 @@ use std::{any::TypeId, borrow::Cow};
 
 use crate::{
     ArchetypeComponent, IntoSystem, Resources, RunCriteria, ShouldRun, System, SystemId,
-    ThreadLocalExecution, TypeAccess, World,
+    TypeAccess, World,
 };
+use bevy_utils::HashMap;
 use downcast_rs::{impl_downcast, Downcast};
 
 use super::{ParallelSystemStageExecutor, SerialSystemStageExecutor, SystemStageExecutor};
@@ -52,7 +53,47 @@ impl SystemStage {
         S: System<In = (), Out = ()>,
         IntoS: IntoSystem<Params, S>,
     {
-        self.add_system_boxed(Box::new(system.system()));
+        self.system_sets[0].add_system(system.system());
+        self
+    }
+
+    pub fn with_system_labeled<S, Params, IntoS>(mut self, system: IntoS, label: &str) -> Self
+    where
+        S: System<In = (), Out = ()>,
+        IntoS: IntoSystem<Params, S>,
+    {
+        self.system_sets[0].add_system_labeled(system.system(), label);
+        self
+    }
+
+    pub fn with_system_with_dependencies<S, Params, IntoS>(
+        mut self,
+        system: IntoS,
+        dependencies: &[&str],
+    ) -> Self
+    where
+        S: System<In = (), Out = ()>,
+        IntoS: IntoSystem<Params, S>,
+    {
+        self.system_sets[0].add_system_with_dependencies(system.system(), dependencies);
+        self
+    }
+
+    pub fn with_system_labeled_with_dependencies<S, Params, IntoS>(
+        mut self,
+        system: IntoS,
+        label: &str,
+        dependencies: &[&str],
+    ) -> Self
+    where
+        S: System<In = (), Out = ()>,
+        IntoS: IntoSystem<Params, S>,
+    {
+        self.system_sets[0].add_system_labeled_with_dependencies(
+            system.system(),
+            label,
+            dependencies,
+        );
         self
     }
 
@@ -84,8 +125,76 @@ impl SystemStage {
         self
     }
 
+    pub fn add_system_labeled<S, Params, IntoS>(&mut self, system: IntoS, label: &str) -> &mut Self
+    where
+        S: System<In = (), Out = ()>,
+        IntoS: IntoSystem<Params, S>,
+    {
+        self.system_sets[0].add_system_labeled(system.system(), label);
+        self
+    }
+
+    pub fn add_system_with_dependencies<S, Params, IntoS>(
+        &mut self,
+        system: IntoS,
+        dependencies: &[&str],
+    ) -> &mut Self
+    where
+        S: System<In = (), Out = ()>,
+        IntoS: IntoSystem<Params, S>,
+    {
+        self.system_sets[0].add_system_with_dependencies(system.system(), dependencies);
+        self
+    }
+
+    pub fn add_system_labeled_with_dependencies<S, Params, IntoS>(
+        &mut self,
+        system: IntoS,
+        label: &str,
+        dependencies: &[&str],
+    ) -> &mut Self
+    where
+        S: System<In = (), Out = ()>,
+        IntoS: IntoSystem<Params, S>,
+    {
+        self.system_sets[0].add_system_labeled_with_dependencies(
+            system.system(),
+            label,
+            dependencies,
+        );
+        self
+    }
+
     pub fn add_system_boxed(&mut self, system: Box<dyn System<In = (), Out = ()>>) -> &mut Self {
         self.system_sets[0].add_system_boxed(system);
+        self
+    }
+
+    pub fn add_system_boxed_labeled(
+        &mut self,
+        system: Box<dyn System<In = (), Out = ()>>,
+        label: &str,
+    ) -> &mut Self {
+        self.system_sets[0].add_system_boxed_labeled(system, label);
+        self
+    }
+
+    pub fn add_system_boxed_with_dependencies(
+        &mut self,
+        system: Box<dyn System<In = (), Out = ()>>,
+        dependencies: &[&str],
+    ) -> &mut Self {
+        self.system_sets[0].add_system_boxed_with_dependencies(system, dependencies);
+        self
+    }
+
+    pub fn add_system_boxed_labeled_with_dependencies(
+        &mut self,
+        system: Box<dyn System<In = (), Out = ()>>,
+        label: &str,
+        dependencies: &[&str],
+    ) -> &mut Self {
+        self.system_sets[0].add_system_boxed_labeled_with_dependencies(system, label, dependencies);
         self
     }
 
@@ -121,6 +230,9 @@ impl Stage for SystemStage {
                 ShouldRun::YesAndLoop => {
                     self.run_once(world, resources);
                 }
+                ShouldRun::NoAndLoop => {
+                    panic!("`NoAndLoop` run criteria would loop infinitely in this situation.")
+                }
             }
         }
     }
@@ -129,6 +241,8 @@ impl Stage for SystemStage {
 #[derive(Default)]
 pub struct SystemSet {
     systems: Vec<Box<dyn System<In = (), Out = ()>>>,
+    dependencies: Vec<Option<Vec<String>>>,
+    labels: HashMap<String, usize>,
     run_criteria: RunCriteria,
     changed_systems: Vec<usize>,
 }
@@ -137,7 +251,7 @@ impl SystemSet {
     // TODO: ideally this returns an iterator, but impl Iterator can't be used in this context (yet) and a custom iterator isn't worth it
     pub fn for_each_changed_system(
         &mut self,
-        func: impl FnMut(&mut dyn System<In = (), Out = ()>),
+        mut func: impl FnMut(&mut dyn System<In = (), Out = ()>),
     ) {
         for index in self.changed_systems.iter_mut() {
             func(&mut *self.systems[*index])
@@ -152,11 +266,11 @@ impl SystemSet {
         self.changed_systems.clear()
     }
 
-    pub fn run_criteria(&self) -> &RunCriteria {
+    pub(crate) fn run_criteria(&self) -> &RunCriteria {
         &self.run_criteria
     }
 
-    pub fn run_criteria_mut(&mut self) -> &mut RunCriteria {
+    pub(crate) fn run_criteria_mut(&mut self) -> &mut RunCriteria {
         &mut self.run_criteria
     }
 
@@ -173,13 +287,43 @@ impl SystemSet {
         S: System<In = (), Out = ()>,
         IntoS: IntoSystem<Params, S>,
     {
-        self.add_system_boxed(Box::new(system.system()));
+        self.add_system(system.system());
         self
     }
 
-    pub fn add_system_boxed(&mut self, system: Box<dyn System<In = (), Out = ()>>) -> &mut Self {
-        self.changed_systems.push(self.systems.len());
-        self.systems.push(system);
+    pub fn with_system_labeled<S, Params, IntoS>(mut self, system: IntoS, label: &str) -> Self
+    where
+        S: System<In = (), Out = ()>,
+        IntoS: IntoSystem<Params, S>,
+    {
+        self.add_system_labeled(system.system(), label);
+        self
+    }
+
+    pub fn with_system_with_dependencies<S, Params, IntoS>(
+        mut self,
+        system: IntoS,
+        dependencies: &[&str],
+    ) -> Self
+    where
+        S: System<In = (), Out = ()>,
+        IntoS: IntoSystem<Params, S>,
+    {
+        self.add_system_with_dependencies(system.system(), dependencies);
+        self
+    }
+
+    pub fn with_system_labeled_with_dependencies<S, Params, IntoS>(
+        mut self,
+        system: IntoS,
+        label: &str,
+        dependencies: &[&str],
+    ) -> Self
+    where
+        S: System<In = (), Out = ()>,
+        IntoS: IntoSystem<Params, S>,
+    {
+        self.add_system_labeled_with_dependencies(system.system(), label, dependencies);
         self
     }
 
@@ -188,8 +332,86 @@ impl SystemSet {
         S: System<In = (), Out = ()>,
         IntoS: IntoSystem<Params, S>,
     {
-        self.add_system_boxed(Box::new(system.system()));
+        self.add_system_boxed(Box::new(system.system()))
+    }
+
+    pub fn add_system_labeled<S, Params, IntoS>(&mut self, system: IntoS, label: &str) -> &mut Self
+    where
+        S: System<In = (), Out = ()>,
+        IntoS: IntoSystem<Params, S>,
+    {
+        self.add_system_boxed_labeled(Box::new(system.system()), label)
+    }
+
+    pub fn add_system_with_dependencies<S, Params, IntoS>(
+        &mut self,
+        system: IntoS,
+        dependencies: &[&str],
+    ) -> &mut Self
+    where
+        S: System<In = (), Out = ()>,
+        IntoS: IntoSystem<Params, S>,
+    {
+        self.add_system_boxed_with_dependencies(Box::new(system.system()), dependencies)
+    }
+
+    pub fn add_system_labeled_with_dependencies<S, Params, IntoS>(
+        &mut self,
+        system: IntoS,
+        label: &str,
+        dependencies: &[&str],
+    ) -> &mut Self
+    where
+        S: System<In = (), Out = ()>,
+        IntoS: IntoSystem<Params, S>,
+    {
+        self.add_system_boxed_labeled_with_dependencies(
+            Box::new(system.system()),
+            label,
+            dependencies,
+        )
+    }
+
+    pub fn add_system_boxed(&mut self, system: Box<dyn System<In = (), Out = ()>>) -> &mut Self {
+        self.add_system_boxed_with_dependencies(system, &[])
+    }
+
+    pub fn add_system_boxed_labeled(
+        &mut self,
+        system: Box<dyn System<In = (), Out = ()>>,
+        label: &str,
+    ) -> &mut Self {
+        self.add_system_boxed_labeled_with_dependencies(system, label, &[])
+    }
+
+    pub fn add_system_boxed_with_dependencies(
+        &mut self,
+        system: Box<dyn System<In = (), Out = ()>>,
+        dependencies: &[&str],
+    ) -> &mut Self {
+        if dependencies.is_empty() {
+            self.dependencies.push(None);
+        } else {
+            self.dependencies.push(Some(
+                dependencies
+                    .iter()
+                    .map(|string| string.to_string())
+                    .collect(),
+            ));
+        }
+        self.changed_systems.push(self.systems.len());
+        self.systems.push(system);
         self
+    }
+
+    pub fn add_system_boxed_labeled_with_dependencies(
+        &mut self,
+        system: Box<dyn System<In = (), Out = ()>>,
+        label: &str,
+        dependencies: &[&str],
+    ) -> &mut Self {
+        self.labels.insert(label.to_string(), self.systems.len());
+        self.add_system_boxed_with_dependencies(system, dependencies)
     }
 }
 
@@ -225,8 +447,8 @@ impl<S: Stage> IntoStage<()> for S {
 pub struct RunOnce {
     ran: bool,
     system_id: SystemId,
+    archetype_component_access: TypeAccess<ArchetypeComponent>,
     resource_access: TypeAccess<TypeId>,
-    archetype_access: TypeAccess<ArchetypeComponent>,
 }
 
 impl Default for RunOnce {
@@ -234,8 +456,8 @@ impl Default for RunOnce {
         Self {
             ran: false,
             system_id: SystemId::new(),
+            archetype_component_access: Default::default(),
             resource_access: Default::default(),
-            archetype_access: Default::default(),
         }
     }
 }
@@ -255,15 +477,15 @@ impl System for RunOnce {
     fn update(&mut self, _world: &World) {}
 
     fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent> {
-        &self.archetype_access
+        &self.archetype_component_access
     }
 
     fn resource_access(&self) -> &TypeAccess<TypeId> {
         &self.resource_access
     }
 
-    fn thread_local_execution(&self) -> ThreadLocalExecution {
-        ThreadLocalExecution::Immediate
+    fn is_thread_local(&self) -> bool {
+        false
     }
 
     unsafe fn run_unsafe(
@@ -280,7 +502,7 @@ impl System for RunOnce {
         })
     }
 
-    fn run_thread_local(&mut self, _world: &mut World, _resources: &mut Resources) {}
+    fn run_exclusive(&mut self, _world: &mut World, _resources: &mut Resources) {}
 
     fn initialize(&mut self, _world: &mut World, _resources: &mut Resources) {}
 }

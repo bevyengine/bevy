@@ -282,6 +282,25 @@ impl Resources {
             .unwrap_or_else(|| panic!("Resource does not exist {}.", std::any::type_name::<T>()))
     }
 
+    // TODO audit.
+    #[inline]
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn get_unsafe_thread_local_ref<T: 'static>(&self) -> NonNull<T> {
+        self.check_thread_local();
+        self.thread_local_data
+            .get(&TypeId::of::<T>())
+            .map(|storage| {
+                let resources = storage.downcast_ref::<VecResourceStorage<T>>().unwrap();
+                resources.get_unsafe_ref(0)
+            })
+            .unwrap_or_else(|| {
+                panic!(
+                    "Thread-local resource does not exist {}.",
+                    std::any::type_name::<T>()
+                )
+            })
+    }
+
     #[inline]
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn get_unsafe_ref_with_added_and_mutated<T: Resource>(

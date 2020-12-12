@@ -1,7 +1,7 @@
 use crate::{
     ArchetypeComponent, ChangedRes, Commands, Fetch, FromResources, Local, Or, Query, QueryAccess,
     QueryFilter, QuerySet, QueryTuple, Res, ResMut, Resource, ResourceIndex, Resources,
-    SystemState, TypeAccess, World, WorldQuery,
+    SystemState, ThreadLocal, TypeAccess, World, WorldQuery,
 };
 use parking_lot::Mutex;
 use std::{any::TypeId, sync::Arc};
@@ -250,6 +250,24 @@ impl<'a, T: Resource + FromResources, Input> SystemParam<Input> for Local<'a, T>
         resources: &Resources,
     ) -> Option<Self> {
         Some(Local::new(resources, system_state.id))
+    }
+}
+
+impl<'a, T: Resource, Input> SystemParam<Input> for ThreadLocal<'a, T> {
+    fn init(system_state: &mut SystemState, _world: &World, _resources: &mut Resources) {
+        // Thread-local systems run only on the main thread, so only one system
+        // at a time will ever access any thread-local resource.
+        system_state.is_thread_local = true;
+    }
+
+    #[inline]
+    unsafe fn get_param(
+        _input: &mut Option<Input>,
+        _system_state: &mut SystemState,
+        _world: &World,
+        resources: &Resources,
+    ) -> Option<Self> {
+        Some(ThreadLocal::new(resources))
     }
 }
 
