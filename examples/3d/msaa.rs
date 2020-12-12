@@ -21,7 +21,7 @@ fn setup(
     commands
         // cube
         .spawn(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 2.0 })),
             material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
             ..Default::default()
         })

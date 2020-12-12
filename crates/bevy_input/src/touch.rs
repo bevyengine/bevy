@@ -2,7 +2,6 @@ use bevy_app::{EventReader, Events};
 use bevy_ecs::{Local, Res, ResMut};
 use bevy_math::Vec2;
 use bevy_utils::HashMap;
-use core::ops::DerefMut;
 
 /// Represents a touch event
 ///
@@ -85,13 +84,13 @@ pub struct TouchSystemState {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Touch {
-    pub id: u64,
-    pub start_position: Vec2,
-    pub start_force: Option<ForceTouch>,
-    pub previous_position: Vec2,
-    pub previous_force: Option<ForceTouch>,
-    pub position: Vec2,
-    pub force: Option<ForceTouch>,
+    id: u64,
+    start_position: Vec2,
+    start_force: Option<ForceTouch>,
+    previous_position: Vec2,
+    previous_force: Option<ForceTouch>,
+    position: Vec2,
+    force: Option<ForceTouch>,
 }
 
 impl Touch {
@@ -101,6 +100,36 @@ impl Touch {
 
     pub fn distance(&self) -> Vec2 {
         self.position - self.start_position
+    }
+
+    #[inline]
+    pub fn id(&self) -> u64 {
+        self.id
+    }
+
+    #[inline]
+    pub fn start_position(&self) -> Vec2 {
+        self.start_position
+    }
+
+    #[inline]
+    pub fn start_force(&self) -> Option<ForceTouch> {
+        self.start_force
+    }
+
+    #[inline]
+    pub fn previous_position(&self) -> Vec2 {
+        self.previous_position
+    }
+
+    #[inline]
+    pub fn position(&self) -> Vec2 {
+        self.position
+    }
+
+    #[inline]
+    pub fn force(&self) -> Option<ForceTouch> {
+        self.force
     }
 }
 
@@ -139,10 +168,8 @@ impl Touches {
         self.just_pressed.contains_key(&id)
     }
 
-    pub fn iter_just_pressed(&self) -> impl Iterator<Item = &Touch> + '_ {
-        self.just_pressed
-            .iter()
-            .map(move |(id, _)| self.pressed.get(id).unwrap())
+    pub fn iter_just_pressed(&self) -> impl Iterator<Item = &Touch> {
+        self.just_pressed.values()
     }
 
     pub fn get_released(&self, id: u64) -> Option<&Touch> {
@@ -153,20 +180,47 @@ impl Touches {
         self.just_released.contains_key(&id)
     }
 
-    pub fn iter_just_released(&self) -> impl Iterator<Item = &Touch> + '_ {
-        self.just_released
-            .iter()
-            .map(move |(id, _)| self.pressed.get(id).unwrap())
+    pub fn iter_just_released(&self) -> impl Iterator<Item = &Touch> {
+        self.just_released.values()
     }
 
     pub fn just_cancelled(&self, id: u64) -> bool {
         self.just_cancelled.contains_key(&id)
     }
 
-    pub fn iter_just_cancelled(&self) -> impl Iterator<Item = &Touch> + '_ {
-        self.just_cancelled
-            .iter()
-            .map(move |(id, _)| self.pressed.get(id).unwrap())
+    pub fn iter_just_cancelled(&self) -> impl Iterator<Item = &Touch> {
+        self.just_cancelled.values()
+    }
+
+    fn process_touch_event(&mut self, event: &TouchInput) {
+        match event.phase {
+            TouchPhase::Started => {
+                self.pressed.insert(event.id, event.into());
+                self.just_pressed.insert(event.id, event.into());
+            }
+            TouchPhase::Moved => {
+                let mut new_touch = self.pressed.get(&event.id).cloned().unwrap();
+                new_touch.previous_position = new_touch.position;
+                new_touch.previous_force = new_touch.force;
+                new_touch.position = event.position;
+                new_touch.force = event.force;
+                self.pressed.insert(event.id, new_touch);
+            }
+            TouchPhase::Ended => {
+                self.just_released.insert(event.id, event.into());
+                self.pressed.remove_entry(&event.id);
+            }
+            TouchPhase::Cancelled => {
+                self.just_cancelled.insert(event.id, event.into());
+                self.pressed.remove_entry(&event.id);
+            }
+        };
+    }
+
+    fn update(&mut self) {
+        self.just_pressed.clear();
+        self.just_released.clear();
+        self.just_cancelled.clear();
     }
 }
 
@@ -176,31 +230,184 @@ pub fn touch_screen_input_system(
     mut touch_state: ResMut<Touches>,
     touch_input_events: Res<Events<TouchInput>>,
 ) {
-    let touch_state = touch_state.deref_mut();
-    touch_state.just_pressed.clear();
-    touch_state.just_released.clear();
+    touch_state.update();
+
     for event in state.touch_event_reader.iter(&touch_input_events) {
-        match event.phase {
-            TouchPhase::Started => {
-                touch_state.pressed.insert(event.id, event.into());
-                touch_state.just_pressed.insert(event.id, event.into());
-            }
-            TouchPhase::Moved => {
-                let mut new_touch = touch_state.pressed.get(&event.id).cloned().unwrap();
-                new_touch.previous_position = new_touch.position;
-                new_touch.previous_force = new_touch.force;
-                new_touch.position = event.position;
-                new_touch.force = event.force;
-                touch_state.pressed.insert(event.id, new_touch);
-            }
-            TouchPhase::Ended => {
-                touch_state.just_released.insert(event.id, event.into());
-                touch_state.pressed.remove_entry(&event.id);
-            }
-            TouchPhase::Cancelled => {
-                touch_state.just_cancelled.insert(event.id, event.into());
-                touch_state.pressed.remove_entry(&event.id);
-            }
+        touch_state.process_touch_event(event);
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    #[test]
+    fn touch_update() {
+        use crate::{touch::Touch, Touches};
+        use bevy_math::Vec2;
+
+        let mut touches = Touches::default();
+
+        let touch_event = Touch {
+            id: 4,
+            start_position: Vec2::new(0.0, 0.0),
+            start_force: None,
+            previous_position: Vec2::new(0.0, 0.0),
+            previous_force: None,
+            position: Vec2::new(0.0, 0.0),
+            force: None,
         };
+
+        // Add a touch to `just_pressed`, 'just_released', and 'just cancelled'
+
+        touches.just_pressed.insert(4, touch_event);
+        touches.just_released.insert(4, touch_event);
+        touches.just_cancelled.insert(4, touch_event);
+
+        touches.update();
+
+        // Verify that all the `just_x` maps are cleared
+        assert!(touches.just_pressed.is_empty());
+        assert!(touches.just_released.is_empty());
+        assert!(touches.just_cancelled.is_empty());
+    }
+
+    #[test]
+    fn touch_process() {
+        use crate::{touch::TouchPhase, TouchInput, Touches};
+        use bevy_math::Vec2;
+
+        let mut touches = Touches::default();
+
+        // Test adding a `TouchPhase::Started`
+
+        let touch_event = TouchInput {
+            phase: TouchPhase::Started,
+            position: Vec2::new(4.0, 4.0),
+            force: None,
+            id: 4,
+        };
+
+        touches.update();
+        touches.process_touch_event(&touch_event);
+
+        assert!(touches.pressed.get(&touch_event.id).is_some());
+        assert!(touches.just_pressed.get(&touch_event.id).is_some());
+
+        // Test adding a `TouchPhase::Moved`
+
+        let moved_touch_event = TouchInput {
+            phase: TouchPhase::Moved,
+            position: Vec2::new(5.0, 5.0),
+            force: None,
+            id: touch_event.id,
+        };
+
+        touches.update();
+        touches.process_touch_event(&moved_touch_event);
+
+        assert_eq!(
+            touches
+                .pressed
+                .get(&moved_touch_event.id)
+                .expect("Missing from pressed after move.")
+                .previous_position,
+            touch_event.position
+        );
+
+        // Test cancelling an event
+
+        let cancel_touch_event = TouchInput {
+            phase: TouchPhase::Cancelled,
+            position: Vec2::new(1.0, 1.0),
+            force: None,
+            id: touch_event.id,
+        };
+
+        touches.update();
+        touches.process_touch_event(&cancel_touch_event);
+
+        assert!(touches.just_cancelled.get(&cancel_touch_event.id).is_some());
+        assert!(touches.pressed.get(&cancel_touch_event.id).is_none());
+
+        // Test ending an event
+
+        let end_touch_event = TouchInput {
+            phase: TouchPhase::Ended,
+            position: Vec2::new(4.0, 4.0),
+            force: None,
+            id: 4,
+        };
+
+        touches.update();
+        touches.process_touch_event(&touch_event);
+        touches.process_touch_event(&end_touch_event);
+
+        assert!(touches.just_released.get(&touch_event.id).is_some());
+        assert!(touches.pressed.get(&touch_event.id).is_none());
+    }
+
+    #[test]
+    fn touch_pressed() {
+        use crate::{touch::TouchPhase, TouchInput, Touches};
+        use bevy_math::Vec2;
+
+        let mut touches = Touches::default();
+
+        let touch_event = TouchInput {
+            phase: TouchPhase::Started,
+            position: Vec2::new(4.0, 4.0),
+            force: None,
+            id: 4,
+        };
+
+        // Register the touch and test that it was registered correctly
+        touches.process_touch_event(&touch_event);
+
+        assert!(touches.get_pressed(touch_event.id).is_some());
+        assert!(touches.just_pressed(touch_event.id));
+        assert_eq!(touches.iter().count(), 1);
+    }
+
+    #[test]
+    fn touch_released() {
+        use crate::{touch::TouchPhase, TouchInput, Touches};
+        use bevy_math::Vec2;
+
+        let mut touches = Touches::default();
+
+        let touch_event = TouchInput {
+            phase: TouchPhase::Ended,
+            position: Vec2::new(4.0, 4.0),
+            force: None,
+            id: 4,
+        };
+
+        // Register the touch and test that it was registered correctly
+        touches.process_touch_event(&touch_event);
+
+        assert!(touches.get_released(touch_event.id).is_some());
+        assert!(touches.just_released(touch_event.id));
+        assert_eq!(touches.iter_just_released().count(), 1);
+    }
+
+    #[test]
+    fn touch_cancelled() {
+        use crate::{touch::TouchPhase, TouchInput, Touches};
+        use bevy_math::Vec2;
+
+        let mut touches = Touches::default();
+
+        let touch_event = TouchInput {
+            phase: TouchPhase::Cancelled,
+            position: Vec2::new(4.0, 4.0),
+            force: None,
+            id: 4,
+        };
+
+        // Register the touch and test that it was registered correctly
+        touches.process_touch_event(&touch_event);
+
+        assert!(touches.just_cancelled(touch_event.id));
+        assert_eq!(touches.iter_just_cancelled().count(), 1);
     }
 }

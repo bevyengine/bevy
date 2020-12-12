@@ -1,4 +1,4 @@
-use super::{BufferId, RenderResourceBinding, SamplerId, TextureId};
+use super::{BufferId, RenderResourceBinding, RenderResourceId, SamplerId, TextureId};
 use bevy_utils::AHasher;
 use std::{
     hash::{Hash, Hasher},
@@ -45,7 +45,7 @@ impl BindGroupBuilder {
             self.dynamic_uniform_indices.push(dynamic_index);
         }
 
-        binding.hash(&mut self.hasher);
+        self.hash_binding(&binding);
         self.indexed_bindings.push(IndexedBindGroupEntry {
             index,
             entry: binding,
@@ -100,6 +100,25 @@ impl BindGroupBuilder {
             } else {
                 Some(self.dynamic_uniform_indices.into())
             },
+        }
+    }
+
+    fn hash_binding(&mut self, binding: &RenderResourceBinding) {
+        match binding {
+            RenderResourceBinding::Buffer {
+                buffer,
+                range,
+                dynamic_index: _, // dynamic_index is not a part of the binding
+            } => {
+                RenderResourceId::from(*buffer).hash(&mut self.hasher);
+                range.hash(&mut self.hasher);
+            }
+            RenderResourceBinding::Texture(texture) => {
+                RenderResourceId::from(*texture).hash(&mut self.hasher);
+            }
+            RenderResourceBinding::Sampler(sampler) => {
+                RenderResourceId::from(*sampler).hash(&mut self.hasher);
+            }
         }
     }
 }

@@ -219,7 +219,7 @@ impl<I: Index> Hierarchy<I> {
         &self,
         entity_index: I,
         entities_table_cache: &mut Vec<Option<Entity>>,
-        children_query: &Query<(&Children,)>,
+        children_query: &Query<&Children>,
         name_query: &Query<(&Parent, &Name)>,
     ) -> Option<Entity> {
         if let Some(entity) = &entities_table_cache[entity_index.as_usize()] {
@@ -235,7 +235,7 @@ impl<I: Index> Hierarchy<I> {
                 name_query,
             )
             .and_then(|parent_entity| {
-                if let Ok((children,)) = children_query.get(parent_entity) {
+                if let Ok(children) = children_query.get(parent_entity) {
                     children
                         .iter()
                         .find(|entity| {

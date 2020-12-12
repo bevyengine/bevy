@@ -1,4 +1,4 @@
-use bevy_property::Properties;
+use bevy_reflect::{Reflect, ReflectComponent};
 use std::ops::Deref;
 
 // NOTE: This is used by the animation system to find the right entity to animate
@@ -11,7 +11,8 @@ use std::hash::{Hash, Hasher};
 ///
 /// **NOTE** Once created you can't change it's contents because this `Name`
 /// component also stores the string hash to drastically improve performance comparison
-#[derive(Debug, Clone, Properties)]
+#[derive(Debug, Clone, Reflect)]
+#[reflect(Component)]
 pub struct Name {
     hash: u64, // TODO: Shouldn't be serialized
     name: String,

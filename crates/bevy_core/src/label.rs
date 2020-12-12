@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use bevy_property::Properties;
+use bevy_reflect::{Reflect, ReflectComponent};
 use bevy_utils::{HashMap, HashSet};
 use std::{
     borrow::Cow,
@@ -8,7 +8,8 @@ use std::{
 };
 
 /// A collection of labels
-#[derive(Default, Properties)]
+#[derive(Default, Reflect)]
+#[reflect(Component)]
 pub struct Labels {
     labels: HashSet<Cow<'static, str>>,
 }

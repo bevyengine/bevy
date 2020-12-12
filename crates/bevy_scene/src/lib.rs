@@ -12,7 +12,9 @@ pub use scene_loader::*;
 pub use scene_spawner::*;
 
 pub mod prelude {
-    pub use crate::{DynamicScene, Scene, SceneSpawner, SpawnSceneCommands};
+    pub use crate::{
+        DynamicScene, Scene, SceneSpawner, SpawnSceneAsChildCommands, SpawnSceneCommands,
+    };
 }
 
 use bevy_app::prelude::*;

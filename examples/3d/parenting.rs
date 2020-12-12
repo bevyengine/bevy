@@ -17,7 +17,7 @@ struct Rotator;
 /// rotates the parent, which will result in the child also rotating
 fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Rotator>>) {
     for mut transform in query.iter_mut() {
-        transform.rotation *= Quat::from_rotation_x(3.0 * time.delta_seconds);
+        transform.rotation *= Quat::from_rotation_x(3.0 * time.delta_seconds());
     }
 }
 
@@ -27,7 +27,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
+    let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 2.0 }));
     let cube_material_handle = materials.add(StandardMaterial {
         albedo: Color::rgb(0.8, 0.7, 0.6),
         ..Default::default()

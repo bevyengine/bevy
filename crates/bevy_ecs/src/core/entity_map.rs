@@ -5,7 +5,7 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum MapEntitiesError {
-    #[error("The given entity does not exist in the map.")]
+    #[error("the given entity does not exist in the map")]
     EntityNotFound(Entity),
 }
 

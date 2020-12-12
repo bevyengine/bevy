@@ -103,18 +103,18 @@ jobs:
 
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          toolchain: nightly-2020-12-07
           components: rustfmt, clippy
           override: true
 
       - name: Install alsa
-        run: sudo apt-get install --no-install-recommends libasound2-dev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev
 
       - name: Install udev
-        run: sudo apt-get install --no-install-recommends libudev-dev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libudev-dev
 
       - name: Check the format
-        run: cargo +nightly fmt --all -- --check
+        run: cargo +nightly-2020-12-07 fmt --all -- --check
 
       # type complexity must be ignored because we use huge templates for queries
       # -A clippy::manual-strip: strip_prefix support was added in 1.45. we want to support earlier rust versions

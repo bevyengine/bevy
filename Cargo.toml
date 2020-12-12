@@ -57,6 +57,9 @@ wgpu_trace = ["bevy_internal/wgpu_trace"]
 # Image format support for texture loading (PNG and HDR are enabled by default)
 hdr = ["bevy_internal/hdr"]
 png = ["bevy_internal/png"]
+dds = ["bevy_internal/dds"]
+tga = ["bevy_internal/tga"]
+jpeg = ["bevy_internal/jpeg"]
 
 # Audio format support (MP3 is enabled by default)
 flac = ["bevy_internal/flac"]
@@ -77,7 +80,7 @@ bevy_internal = {path = "crates/bevy_internal", version = "0.3.0", default-featu
 [dev-dependencies]
 anyhow = "1.0"
 rand = "0.7.3"
-ron = "0.6"
+ron = "0.6.2"
 serde = {version = "1", features = ["derive"]}
 
 [[example]]
@@ -201,6 +204,10 @@ name = "system_chaining"
 path = "examples/ecs/system_chaining.rs"
 
 [[example]]
+name = "timers"
+path = "examples/ecs/timers.rs"
+
+[[example]]
 name = "ecs_guide"
 path = "examples/ecs/ecs_guide.rs"
 
@@ -253,12 +260,28 @@ name = "touch_input_events"
 path = "examples/input/touch_input_events.rs"
 
 [[example]]
+name = "reflection"
+path = "examples/reflection/reflection.rs"
+
+[[example]]
+name = "reflection_types"
+path = "examples/reflection/reflection_types.rs"
+
+[[example]]
+name = "generic_reflection"
+path = "examples/reflection/generic_reflection.rs"
+
+[[example]]
+name = "trait_reflection"
+path = "examples/reflection/trait_reflection.rs"
+
+[[example]]
 name = "scene"
 path = "examples/scene/scene.rs"
 
 [[example]]
-name = "properties"
-path = "examples/scene/properties.rs"
+name = "hot_shader_reloading"
+path = "examples/shader/hot_shader_reloading.rs"
 
 [[example]]
 name = "mesh_custom_attribute"
@@ -267,6 +290,10 @@ path = "examples/shader/mesh_custom_attribute.rs"
 [[example]]
 name = "shader_custom_material"
 path = "examples/shader/shader_custom_material.rs"
+
+[[example]]
+name = "array_texture"
+path = "examples/shader/array_texture.rs"
 
 [[example]]
 name = "shader_defs"
@@ -309,6 +336,10 @@ name = "window_settings"
 path = "examples/window/window_settings.rs"
 
 [[example]]
+name = "removal_detection"
+path = "examples/ecs/removal_detection.rs"
+
+[[example]]
 name = "hello_wasm"
 path = "examples/wasm/hello_wasm.rs"
 required-features = []
@@ -342,7 +373,7 @@ apk_label = "Bevy Example"
 assets = "assets"
 res = "assets/android-res"
 icon = "@mipmap/ic_launcher"
-build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"] 
+build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
 min_sdk_version = 16
 target_sdk_version = 29
 

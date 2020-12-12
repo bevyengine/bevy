@@ -42,7 +42,7 @@ pub fn collide(a_pos: Vec3, a_size: Vec2, b_pos: Vec3, b_size: Vec2) -> Option<C
         // if we had an "x" and a "y" collision, pick the "primary" side using penetration depth
         match (x_collision, y_collision) {
             (Some(x_collision), Some(y_collision)) => {
-                if y_depth < x_depth {
+                if y_depth.abs() < x_depth.abs() {
                     Some(y_collision)
                 } else {
                     Some(x_collision)

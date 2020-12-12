@@ -1,5 +1,4 @@
-use bevy::{app::ScheduleRunnerSettings, prelude::*};
-use std::time::Duration;
+use bevy::{app::ScheduleRunnerSettings, prelude::*, utils::Duration};
 
 // This example only enables a minimal set of plugins required for bevy to run.
 // You can also completely remove rendering / windowing Plugin code from bevy

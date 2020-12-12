@@ -18,7 +18,7 @@ layout(set = 2, binding = 0) uniform Transform {
     mat4 Model;
 };
 
-layout(set = 2, binding = 1) buffer SkinInstance_joint_matrices {
+layout(set = 3, binding = 1) buffer SkinInstance_joint_matrices {
     mat4[] Joints;
 };
 

@@ -2,15 +2,15 @@ use super::{PipelineDescriptor, PipelineSpecialization};
 use crate::{
     draw::{Draw, DrawContext},
     mesh::{Indices, Mesh},
-    prelude::Msaa,
+    prelude::{Msaa, Visible},
     renderer::RenderResourceBindings,
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Query, Res, ResMut};
-use bevy_property::Properties;
+use bevy_reflect::{Reflect, ReflectComponent};
+use bevy_utils::HashSet;
 
-#[derive(Debug, Properties, Default, Clone)]
-#[non_exhaustive]
+#[derive(Debug, Default, Clone, Reflect)]
 pub struct RenderPipeline {
     pub pipeline: Handle<PipelineDescriptor>,
     pub specialization: PipelineSpecialization,
@@ -39,10 +39,11 @@ impl RenderPipeline {
     }
 }
 
-#[derive(Debug, Properties, Clone)]
+#[derive(Debug, Clone, Reflect)]
+#[reflect(Component)]
 pub struct RenderPipelines {
     pub pipelines: Vec<RenderPipeline>,
-    #[property(ignore)]
+    #[reflect(ignore)]
     pub bindings: RenderResourceBindings,
 }
 
@@ -81,10 +82,10 @@ pub fn draw_render_pipelines_system(
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
     msaa: Res<Msaa>,
     meshes: Res<Assets<Mesh>>,
-    mut query: Query<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>)>,
+    mut query: Query<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>, &Visible)>,
 ) {
-    for (mut draw, mut render_pipelines, mesh_handle) in query.iter_mut() {
-        if !draw.is_visible {
+    for (mut draw, mut render_pipelines, mesh_handle, visible) in query.iter_mut() {
+        if !visible.is_visible {
             continue;
         }
 
@@ -111,9 +112,22 @@ pub fn draw_render_pipelines_system(
                     .bindings
                     .iter_dynamic_bindings()
                     .map(|name| name.to_string())
-                    .collect::<Vec<String>>();
+                    .collect::<HashSet<String>>();
                 pipeline.dynamic_bindings_generation =
                     render_pipelines.bindings.dynamic_bindings_generation();
+                for (handle, _) in render_pipelines.bindings.iter_assets() {
+                    if let Some(bindings) = draw_context
+                        .asset_render_resource_bindings
+                        .get_untyped(handle)
+                    {
+                        for binding in bindings.iter_dynamic_bindings() {
+                            pipeline
+                                .specialization
+                                .dynamic_bindings
+                                .insert(binding.to_string());
+                        }
+                    }
+                }
             }
         }
 

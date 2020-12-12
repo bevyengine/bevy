@@ -4,9 +4,8 @@ use bevy_asset::{AssetEvent, Assets, Handle /*HandleUntyped*/};
 use bevy_core::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_math::prelude::*;
-use bevy_property::Properties;
+use bevy_reflect::{Reflect, ReflectComponent, TypeUuid};
 use bevy_transform::prelude::*;
-use bevy_type_registry::TypeUuid;
 use fnv::FnvBuildHasher;
 use smallvec::{smallvec, SmallVec};
 use std::any::Any;
@@ -241,7 +240,7 @@ impl Clip {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#[derive(Debug, Clone, Properties)]
+#[derive(Debug, Clone, Reflect)]
 pub struct Layer {
     pub weight: f32,
     pub clip: usize,
@@ -267,17 +266,20 @@ struct Bind {
     entity_indexes: Vec<u16>,
 }
 
-#[derive(Debug, Properties)]
+#[derive(Debug, Reflect)]
+#[reflect(Component)]
 pub struct Animator {
     clips: Vec<Handle<Clip>>,
-    #[property(ignore)]
+
+    #[reflect(ignore)]
     bind_clips: Vec<Option<Bind>>,
-    #[property(ignore)]
+    #[reflect(ignore)]
     hierarchy: Hierarchy,
-    #[property(ignore)]
+    #[reflect(ignore)]
     missing_entities: bool,
-    #[property(ignore)]
+    #[reflect(ignore)]
     entities: Vec<Option<Entity>>,
+
     pub time_scale: f32,
     pub layers: Vec<Layer>,
 }
@@ -392,8 +394,9 @@ pub(crate) fn animator_update_system(
     time: Res<Time>,
     clips: Res<Assets<Clip>>,
     mut animators_query: Query<(Entity, &mut Animator, Option<&AnimatorBlending>)>,
-    children_query: Query<(&Children,)>,
+    children_query: Query<&Children>,
     name_query: Query<(&Parent, &Name)>,
+    // TODO: or one or the other changed!
     parent_or_name_changed_query: Query<(Option<&Parent>, &Name), (Changed<Parent>, Changed<Name>)>,
 ) {
     let __span = tracing::info_span!("animator_update_system");
@@ -419,7 +422,7 @@ pub(crate) fn animator_update_system(
         }
 
         // Time scales by component
-        let delta_time = time.delta_seconds * animator.time_scale;
+        let delta_time = time.delta_seconds() * animator.time_scale;
 
         let w_total = animator
             .layers

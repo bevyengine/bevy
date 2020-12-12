@@ -11,14 +11,15 @@ pub mod renderer;
 pub mod shader;
 pub mod texture;
 
-use bevy_type_registry::RegisterType;
+use bevy_reflect::RegisterTypeBuilder;
+use draw::Visible;
 pub use once_cell;
 
 pub mod prelude {
     pub use crate::{
         base::Msaa,
         color::Color,
-        draw::Draw,
+        draw::{Draw, Visible},
         entity::*,
         mesh::{shape, Mesh},
         pass::ClearColor,
@@ -29,7 +30,7 @@ pub mod prelude {
 }
 
 use crate::prelude::*;
-use base::{MainPass, Msaa};
+use base::Msaa;
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
 use camera::{
@@ -40,11 +41,11 @@ use pipeline::{
     ShaderSpecialization,
 };
 use render_graph::{
-    base::{self, BaseRenderGraphBuilder, BaseRenderGraphConfig},
+    base::{self, BaseRenderGraphBuilder, BaseRenderGraphConfig, MainPass},
     RenderGraph,
 };
 use renderer::{AssetRenderResourceBindings, RenderResourceBindings};
-use std::ops::Range;
+use shader::ShaderLoader;
 #[cfg(feature = "hdr")]
 use texture::HdrTextureLoader;
 #[cfg(feature = "png")]
@@ -88,6 +89,8 @@ impl Plugin for RenderPlugin {
             app.init_asset_loader::<HdrTextureLoader>();
         }
 
+        app.init_asset_loader::<ShaderLoader>();
+
         if app.resources().get::<ClearColor>().is_none() {
             app.resources_mut().insert(ClearColor::default());
         }
@@ -101,19 +104,19 @@ impl Plugin for RenderPlugin {
             .add_asset::<Texture>()
             .add_asset::<Shader>()
             .add_asset::<PipelineDescriptor>()
-            .register_component::<Camera>()
-            .register_component::<Draw>()
-            .register_component::<RenderPipelines>()
-            .register_component::<OrthographicProjection>()
-            .register_component::<PerspectiveProjection>()
-            .register_component::<MainPass>()
-            .register_component::<VisibleEntities>()
-            .register_property::<Color>()
-            .register_property::<Range<f32>>()
-            .register_property::<ShaderSpecialization>()
-            .register_property::<PrimitiveTopology>()
-            .register_property::<IndexFormat>()
-            .register_properties::<PipelineSpecialization>()
+            .register_type::<Camera>()
+            .register_type::<Draw>()
+            .register_type::<Visible>()
+            .register_type::<RenderPipelines>()
+            .register_type::<OrthographicProjection>()
+            .register_type::<PerspectiveProjection>()
+            .register_type::<MainPass>()
+            .register_type::<VisibleEntities>()
+            .register_type::<Color>()
+            .register_type::<ShaderSpecialization>()
+            .register_type::<PrimitiveTopology>()
+            .register_type::<IndexFormat>()
+            .register_type::<PipelineSpecialization>()
             .init_resource::<RenderGraph>()
             .init_resource::<PipelineCompiler>()
             .init_resource::<RenderResourceBindings>()
@@ -136,6 +139,7 @@ impl Plugin for RenderPlugin {
                 camera::visible_entities_system,
             )
             // TODO: turn these "resource systems" into graph nodes and remove the RENDER_RESOURCE stage
+            .add_system_to_stage(stage::RENDER_RESOURCE, shader::shader_update_system)
             .add_system_to_stage(stage::RENDER_RESOURCE, mesh::mesh_resource_provider_system)
             .add_system_to_stage(stage::RENDER_RESOURCE, Texture::texture_resource_system)
             .add_system_to_stage(
@@ -156,11 +160,11 @@ impl Plugin for RenderPlugin {
             render_graph.add_base_graph(config, &msaa);
             let mut active_cameras = resources.get_mut::<ActiveCameras>().unwrap();
             if config.add_3d_camera {
-                active_cameras.add(base::camera::CAMERA3D);
+                active_cameras.add(base::camera::CAMERA_3D);
             }
 
             if config.add_2d_camera {
-                active_cameras.add(base::camera::CAMERA2D);
+                active_cameras.add(base::camera::CAMERA_2D);
             }
         }
     }

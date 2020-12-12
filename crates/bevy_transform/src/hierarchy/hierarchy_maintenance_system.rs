@@ -1,15 +1,14 @@
 use crate::components::*;
-use bevy_ecs::{Changed, Commands, Entity, Query, Without};
+use bevy_ecs::{Commands, Entity, Query, Without};
 use bevy_utils::HashMap;
 use smallvec::SmallVec;
 
 pub fn parent_update_system(
     commands: &mut Commands,
     removed_parent_query: Query<(Entity, &PreviousParent), Without<Parent>>,
-    mut changed_parent_query: Query<
-        (Entity, &Parent, Option<&mut PreviousParent>),
-        Changed<Parent>,
-    >,
+    // The next query could be run with a Changed<Parent> filter. However, this would mean that modifications later in the frame are lost.
+    // See issue 891: https://github.com/bevyengine/bevy/issues/891
+    mut parent_query: Query<(Entity, &Parent, Option<&mut PreviousParent>)>,
     mut children_query: Query<&mut Children>,
 ) {
     // Entities with a missing `Parent` (ie. ones that have a `PreviousParent`), remove
@@ -25,7 +24,7 @@ pub fn parent_update_system(
     let mut children_additions = HashMap::<Entity, SmallVec<[Entity; 8]>>::default();
 
     // Entities with a changed Parent (that also have a PreviousParent, even if None)
-    for (entity, parent, possible_previous_parent) in changed_parent_query.iter_mut() {
+    for (entity, parent, possible_previous_parent) in parent_query.iter_mut() {
         if let Some(mut previous_parent) = possible_previous_parent {
             // New and previous point to the same Entity, carry on, nothing to see here.
             if previous_parent.0 == parent.0 {

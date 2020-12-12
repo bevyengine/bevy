@@ -5,13 +5,13 @@ use crate::{
 use bevy_app::prelude::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::AsBytes;
-use bevy_ecs::{Local, Query, Res};
+use bevy_ecs::{Changed, Entity, Local, Mut, Query, QuerySet, Res, With};
 use bevy_math::*;
-use bevy_type_registry::TypeUuid;
+use bevy_reflect::TypeUuid;
 use std::borrow::Cow;
 
 use crate::pipeline::{InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor};
-use bevy_utils::HashMap;
+use bevy_utils::{HashMap, HashSet};
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
@@ -21,9 +21,17 @@ pub enum VertexAttributeValues {
     Uchar4(Vec<[u8; 4]>),
     Ushort4(Vec<[u16; 4]>),
     Float(Vec<f32>),
+    Int(Vec<i32>),
+    Uint(Vec<u32>),
     Float2(Vec<[f32; 2]>),
+    Int2(Vec<[i32; 2]>),
+    Uint2(Vec<[u32; 2]>),
     Float3(Vec<[f32; 3]>),
+    Int3(Vec<[i32; 3]>),
+    Uint3(Vec<[u32; 3]>),
     Float4(Vec<[f32; 4]>),
+    Int4(Vec<[i32; 4]>),
+    Uint4(Vec<[u32; 4]>),
 }
 
 impl VertexAttributeValues {
@@ -32,9 +40,17 @@ impl VertexAttributeValues {
             VertexAttributeValues::Uchar4(ref values) => values.len(),
             VertexAttributeValues::Ushort4(ref values) => values.len(),
             VertexAttributeValues::Float(ref values) => values.len(),
+            VertexAttributeValues::Int(ref values) => values.len(),
+            VertexAttributeValues::Uint(ref values) => values.len(),
             VertexAttributeValues::Float2(ref values) => values.len(),
+            VertexAttributeValues::Int2(ref values) => values.len(),
+            VertexAttributeValues::Uint2(ref values) => values.len(),
             VertexAttributeValues::Float3(ref values) => values.len(),
+            VertexAttributeValues::Int3(ref values) => values.len(),
+            VertexAttributeValues::Uint3(ref values) => values.len(),
             VertexAttributeValues::Float4(ref values) => values.len(),
+            VertexAttributeValues::Int4(ref values) => values.len(),
+            VertexAttributeValues::Uint4(ref values) => values.len(),
         }
     }
 
@@ -48,9 +64,17 @@ impl VertexAttributeValues {
             VertexAttributeValues::Uchar4(values) => values.as_slice().as_bytes(),
             VertexAttributeValues::Ushort4(values) => values.as_slice().as_bytes(),
             VertexAttributeValues::Float(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Int(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Uint(values) => values.as_slice().as_bytes(),
             VertexAttributeValues::Float2(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Int2(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Uint2(values) => values.as_slice().as_bytes(),
             VertexAttributeValues::Float3(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Int3(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Uint3(values) => values.as_slice().as_bytes(),
             VertexAttributeValues::Float4(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Int4(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Uint4(values) => values.as_slice().as_bytes(),
         }
     }
 }
@@ -61,9 +85,17 @@ impl From<&VertexAttributeValues> for VertexFormat {
             VertexAttributeValues::Uchar4(_) => VertexFormat::Uchar4,
             VertexAttributeValues::Ushort4(_) => VertexFormat::Ushort4,
             VertexAttributeValues::Float(_) => VertexFormat::Float,
+            VertexAttributeValues::Int(_) => VertexFormat::Int,
+            VertexAttributeValues::Uint(_) => VertexFormat::Uint,
             VertexAttributeValues::Float2(_) => VertexFormat::Float2,
+            VertexAttributeValues::Int2(_) => VertexFormat::Int2,
+            VertexAttributeValues::Uint2(_) => VertexFormat::Uint2,
             VertexAttributeValues::Float3(_) => VertexFormat::Float3,
+            VertexAttributeValues::Int3(_) => VertexFormat::Int3,
+            VertexAttributeValues::Uint3(_) => VertexFormat::Uint3,
             VertexAttributeValues::Float4(_) => VertexFormat::Float4,
+            VertexAttributeValues::Int4(_) => VertexFormat::Int4,
+            VertexAttributeValues::Uint4(_) => VertexFormat::Uint4,
         }
     }
 }
@@ -74,9 +106,33 @@ impl From<Vec<f32>> for VertexAttributeValues {
     }
 }
 
+impl From<Vec<i32>> for VertexAttributeValues {
+    fn from(vec: Vec<i32>) -> Self {
+        VertexAttributeValues::Int(vec)
+    }
+}
+
+impl From<Vec<u32>> for VertexAttributeValues {
+    fn from(vec: Vec<u32>) -> Self {
+        VertexAttributeValues::Uint(vec)
+    }
+}
+
 impl From<Vec<[f32; 2]>> for VertexAttributeValues {
     fn from(vec: Vec<[f32; 2]>) -> Self {
         VertexAttributeValues::Float2(vec)
+    }
+}
+
+impl From<Vec<[i32; 2]>> for VertexAttributeValues {
+    fn from(vec: Vec<[i32; 2]>) -> Self {
+        VertexAttributeValues::Int2(vec)
+    }
+}
+
+impl From<Vec<[u32; 2]>> for VertexAttributeValues {
+    fn from(vec: Vec<[u32; 2]>) -> Self {
+        VertexAttributeValues::Uint2(vec)
     }
 }
 
@@ -86,9 +142,33 @@ impl From<Vec<[f32; 3]>> for VertexAttributeValues {
     }
 }
 
+impl From<Vec<[i32; 3]>> for VertexAttributeValues {
+    fn from(vec: Vec<[i32; 3]>) -> Self {
+        VertexAttributeValues::Int3(vec)
+    }
+}
+
+impl From<Vec<[u32; 3]>> for VertexAttributeValues {
+    fn from(vec: Vec<[u32; 3]>) -> Self {
+        VertexAttributeValues::Uint3(vec)
+    }
+}
+
 impl From<Vec<[f32; 4]>> for VertexAttributeValues {
     fn from(vec: Vec<[f32; 4]>) -> Self {
         VertexAttributeValues::Float4(vec)
+    }
+}
+
+impl From<Vec<[i32; 4]>> for VertexAttributeValues {
+    fn from(vec: Vec<[i32; 4]>) -> Self {
+        VertexAttributeValues::Int4(vec)
+    }
+}
+
+impl From<Vec<[u32; 4]>> for VertexAttributeValues {
+    fn from(vec: Vec<[u32; 4]>) -> Self {
+        VertexAttributeValues::Uint4(vec)
     }
 }
 
@@ -231,295 +311,6 @@ impl Mesh {
     }
 }
 
-/// Generation for some primitive shape meshes.
-pub mod shape {
-    use super::{Indices, Mesh};
-    use crate::pipeline::PrimitiveTopology;
-    use bevy_math::*;
-    use hexasphere::Hexasphere;
-
-    /// A cube.
-    #[derive(Debug)]
-    pub struct Cube {
-        /// Half the side length of the cube.
-        pub size: f32,
-    }
-
-    impl Default for Cube {
-        fn default() -> Self {
-            Cube { size: 1.0 }
-        }
-    }
-
-    impl From<Cube> for Mesh {
-        fn from(cube: Cube) -> Self {
-            let size = cube.size;
-            let vertices = &[
-                // top (0., 0., size)
-                ([-size, -size, size], [0., 0., size], [0., 0.]),
-                ([size, -size, size], [0., 0., size], [size, 0.]),
-                ([size, size, size], [0., 0., size], [size, size]),
-                ([-size, size, size], [0., 0., size], [0., size]),
-                // bottom (0., 0., -size)
-                ([-size, size, -size], [0., 0., -size], [size, 0.]),
-                ([size, size, -size], [0., 0., -size], [0., 0.]),
-                ([size, -size, -size], [0., 0., -size], [0., size]),
-                ([-size, -size, -size], [0., 0., -size], [size, size]),
-                // right (size, 0., 0.)
-                ([size, -size, -size], [size, 0., 0.], [0., 0.]),
-                ([size, size, -size], [size, 0., 0.], [size, 0.]),
-                ([size, size, size], [size, 0., 0.], [size, size]),
-                ([size, -size, size], [size, 0., 0.], [0., size]),
-                // left (-size, 0., 0.)
-                ([-size, -size, size], [-size, 0., 0.], [size, 0.]),
-                ([-size, size, size], [-size, 0., 0.], [0., 0.]),
-                ([-size, size, -size], [-size, 0., 0.], [0., size]),
-                ([-size, -size, -size], [-size, 0., 0.], [size, size]),
-                // front (0., size, 0.)
-                ([size, size, -size], [0., size, 0.], [size, 0.]),
-                ([-size, size, -size], [0., size, 0.], [0., 0.]),
-                ([-size, size, size], [0., size, 0.], [0., size]),
-                ([size, size, size], [0., size, 0.], [size, size]),
-                // back (0., -size, 0.)
-                ([size, -size, size], [0., -size, 0.], [0., 0.]),
-                ([-size, -size, size], [0., -size, 0.], [size, 0.]),
-                ([-size, -size, -size], [0., -size, 0.], [size, size]),
-                ([size, -size, -size], [0., -size, 0.], [0., size]),
-            ];
-
-            let mut positions = Vec::new();
-            let mut normals = Vec::new();
-            let mut uvs = Vec::new();
-            for (position, normal, uv) in vertices.iter() {
-                positions.push(*position);
-                normals.push(*normal);
-                uvs.push(*uv);
-            }
-
-            let indices = Indices::U32(vec![
-                0, 1, 2, 2, 3, 0, // top
-                4, 5, 6, 6, 7, 4, // bottom
-                8, 9, 10, 10, 11, 8, // right
-                12, 13, 14, 14, 15, 12, // left
-                16, 17, 18, 18, 19, 16, // front
-                20, 21, 22, 22, 23, 20, // back
-            ]);
-
-            let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-            mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-            mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-            mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-            mesh.set_indices(Some(indices));
-            mesh
-        }
-    }
-
-    /// A rectangle on the XY plane.
-    #[derive(Debug)]
-    pub struct Quad {
-        /// Full width and height of the rectangle.
-        pub size: Vec2,
-        /// Flips the texture coords of the resulting vertices.
-        pub flip: bool,
-    }
-
-    impl Quad {
-        pub fn new(size: Vec2) -> Self {
-            Self { size, flip: false }
-        }
-
-        pub fn flipped(size: Vec2) -> Self {
-            Self { size, flip: true }
-        }
-    }
-
-    impl From<Quad> for Mesh {
-        fn from(quad: Quad) -> Self {
-            let extent_x = quad.size.x / 2.0;
-            let extent_y = quad.size.y / 2.0;
-
-            let north_west = vec2(-extent_x, extent_y);
-            let north_east = vec2(extent_x, extent_y);
-            let south_west = vec2(-extent_x, -extent_y);
-            let south_east = vec2(extent_x, -extent_y);
-            let vertices = if quad.flip {
-                [
-                    (
-                        [south_east.x, south_east.y, 0.0],
-                        [0.0, 0.0, 1.0],
-                        [1.0, 1.0],
-                    ),
-                    (
-                        [north_east.x, north_east.y, 0.0],
-                        [0.0, 0.0, 1.0],
-                        [1.0, 0.0],
-                    ),
-                    (
-                        [north_west.x, north_west.y, 0.0],
-                        [0.0, 0.0, 1.0],
-                        [0.0, 0.0],
-                    ),
-                    (
-                        [south_west.x, south_west.y, 0.0],
-                        [0.0, 0.0, 1.0],
-                        [0.0, 1.0],
-                    ),
-                ]
-            } else {
-                [
-                    (
-                        [south_west.x, south_west.y, 0.0],
-                        [0.0, 0.0, 1.0],
-                        [0.0, 1.0],
-                    ),
-                    (
-                        [north_west.x, north_west.y, 0.0],
-                        [0.0, 0.0, 1.0],
-                        [0.0, 0.0],
-                    ),
-                    (
-                        [north_east.x, north_east.y, 0.0],
-                        [0.0, 0.0, 1.0],
-                        [1.0, 0.0],
-                    ),
-                    (
-                        [south_east.x, south_east.y, 0.0],
-                        [0.0, 0.0, 1.0],
-                        [1.0, 1.0],
-                    ),
-                ]
-            };
-
-            let indices = Indices::U32(vec![0, 2, 1, 0, 3, 2]);
-
-            let mut positions = Vec::<[f32; 3]>::new();
-            let mut normals = Vec::<[f32; 3]>::new();
-            let mut uvs = Vec::<[f32; 2]>::new();
-            for (position, normal, uv) in vertices.iter() {
-                positions.push(*position);
-                normals.push(*normal);
-                uvs.push(*uv);
-            }
-
-            let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-            mesh.set_indices(Some(indices));
-            mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-            mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-            mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-            mesh
-        }
-    }
-
-    /// A square on the XZ plane.
-    #[derive(Debug)]
-    pub struct Plane {
-        /// The total side length of the square.
-        pub size: f32,
-    }
-
-    impl From<Plane> for Mesh {
-        fn from(plane: Plane) -> Self {
-            let extent = plane.size / 2.0;
-
-            let vertices = [
-                ([extent, 0.0, -extent], [0.0, 1.0, 0.0], [1.0, 1.0]),
-                ([extent, 0.0, extent], [0.0, 1.0, 0.0], [1.0, 0.0]),
-                ([-extent, 0.0, extent], [0.0, 1.0, 0.0], [0.0, 0.0]),
-                ([-extent, 0.0, -extent], [0.0, 1.0, 0.0], [0.0, 1.0]),
-            ];
-
-            let indices = Indices::U32(vec![0, 2, 1, 0, 3, 2]);
-
-            let mut positions = Vec::new();
-            let mut normals = Vec::new();
-            let mut uvs = Vec::new();
-            for (position, normal, uv) in vertices.iter() {
-                positions.push(*position);
-                normals.push(*normal);
-                uvs.push(*uv);
-            }
-
-            let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-            mesh.set_indices(Some(indices));
-            mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-            mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-            mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-            mesh
-        }
-    }
-
-    /// A sphere made from a subdivided Icosahedron.
-    #[derive(Debug)]
-    pub struct Icosphere {
-        /// The radius of the sphere.
-        pub radius: f32,
-        /// The number of subdivisions applied.
-        pub subdivisions: usize,
-    }
-
-    impl Default for Icosphere {
-        fn default() -> Self {
-            Self {
-                radius: 1.0,
-                subdivisions: 5,
-            }
-        }
-    }
-
-    impl From<Icosphere> for Mesh {
-        fn from(sphere: Icosphere) -> Self {
-            if sphere.subdivisions >= 80 {
-                let temp_sphere = Hexasphere::new(sphere.subdivisions, |_| ());
-
-                panic!(
-                    "Cannot create an icosphere of {} subdivisions due to there being too many vertices being generated: {} (Limited to 65535 vertices or 79 subdivisions)",
-                    sphere.subdivisions,
-                    temp_sphere.raw_points().len()
-                );
-            }
-            let hexasphere = Hexasphere::new(sphere.subdivisions, |point| {
-                let inclination = point.z.acos();
-                let azumith = point.y.atan2(point.x);
-
-                let norm_inclination = 1.0 - (inclination / std::f32::consts::PI);
-                let norm_azumith = (azumith / std::f32::consts::PI) * 0.5;
-
-                [norm_inclination, norm_azumith]
-            });
-
-            let raw_points = hexasphere.raw_points();
-
-            let points = raw_points
-                .iter()
-                .map(|&p| (p * sphere.radius).into())
-                .collect::<Vec<[f32; 3]>>();
-
-            let normals = raw_points
-                .iter()
-                .copied()
-                .map(Into::into)
-                .collect::<Vec<[f32; 3]>>();
-
-            let uvs = hexasphere.raw_data().to_owned();
-
-            let mut indices = Vec::with_capacity(hexasphere.indices_per_main_triangle() * 20);
-
-            for i in 0..20 {
-                hexasphere.get_indices(i, &mut indices);
-            }
-
-            let indices = Indices::U32(indices);
-
-            let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-            mesh.set_indices(Some(indices));
-            mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, points);
-            mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-            mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-            mesh
-        }
-    }
-}
-
 fn remove_resource_save(
     render_resource_context: &dyn RenderResourceContext,
     handle: &Handle<Mesh>,
@@ -541,8 +332,14 @@ fn remove_current_mesh_resources(
 }
 
 #[derive(Default)]
+pub struct MeshEntities {
+    entities: HashSet<Entity>,
+}
+
+#[derive(Default)]
 pub struct MeshResourceProviderState {
     mesh_event_reader: EventReader<AssetEvent<Mesh>>,
+    mesh_entities: HashMap<Handle<Mesh>, MeshEntities>,
 }
 
 pub fn mesh_resource_provider_system(
@@ -550,9 +347,12 @@ pub fn mesh_resource_provider_system(
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     meshes: Res<Assets<Mesh>>,
     mesh_events: Res<Events<AssetEvent<Mesh>>>,
-    mut query: Query<(&Handle<Mesh>, &mut RenderPipelines)>,
+    mut queries: QuerySet<(
+        Query<&mut RenderPipelines, With<Handle<Mesh>>>,
+        Query<(Entity, &Handle<Mesh>, &mut RenderPipelines), Changed<Handle<Mesh>>>,
+    )>,
 ) {
-    let mut changed_meshes = bevy_utils::HashSet::<Handle<Mesh>>::default();
+    let mut changed_meshes = HashSet::default();
     let render_resource_context = &**render_resource_context;
     for event in state.mesh_event_reader.iter(&mesh_events) {
         match event {
@@ -603,39 +403,65 @@ pub fn mesh_resource_provider_system(
                 )),
                 VERTEX_ATTRIBUTE_BUFFER_ID,
             );
+
+            if let Some(mesh_entities) = state.mesh_entities.get_mut(changed_mesh_handle) {
+                for entity in mesh_entities.entities.iter() {
+                    if let Ok(render_pipelines) = queries.q0_mut().get_mut(*entity) {
+                        update_entity_mesh(
+                            render_resource_context,
+                            mesh,
+                            changed_mesh_handle,
+                            render_pipelines,
+                        );
+                    }
+                }
+            }
         }
     }
 
     // handover buffers to pipeline
-    for (handle, mut render_pipelines) in query.iter_mut() {
+    for (entity, handle, render_pipelines) in queries.q1_mut().iter_mut() {
+        let mesh_entities = state
+            .mesh_entities
+            .entry(handle.clone_weak())
+            .or_insert_with(MeshEntities::default);
+        mesh_entities.entities.insert(entity);
         if let Some(mesh) = meshes.get(handle) {
-            for render_pipeline in render_pipelines.pipelines.iter_mut() {
-                render_pipeline.specialization.primitive_topology = mesh.primitive_topology;
-                // TODO: don't allocate a new vertex buffer descriptor for every entity
-                render_pipeline.specialization.vertex_buffer_descriptor =
-                    mesh.get_vertex_buffer_descriptor();
-                render_pipeline.specialization.index_format = mesh
-                    .indices()
-                    .map(|i| i.into())
-                    .unwrap_or(IndexFormat::Uint32);
-            }
-
-            if let Some(RenderResourceId::Buffer(index_buffer_resource)) =
-                render_resource_context.get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX)
-            {
-                // set index buffer into binding
-                render_pipelines
-                    .bindings
-                    .set_index_buffer(index_buffer_resource);
-            }
-
-            if let Some(RenderResourceId::Buffer(vertex_attribute_buffer_resource)) =
-                render_resource_context.get_asset_resource(handle, VERTEX_ATTRIBUTE_BUFFER_ID)
-            {
-                // set index buffer into binding
-                render_pipelines.bindings.vertex_attribute_buffer =
-                    Some(vertex_attribute_buffer_resource);
-            }
+            update_entity_mesh(render_resource_context, mesh, handle, render_pipelines);
         }
+    }
+}
+
+fn update_entity_mesh(
+    render_resource_context: &dyn RenderResourceContext,
+    mesh: &Mesh,
+    handle: &Handle<Mesh>,
+    mut render_pipelines: Mut<RenderPipelines>,
+) {
+    for render_pipeline in render_pipelines.pipelines.iter_mut() {
+        render_pipeline.specialization.primitive_topology = mesh.primitive_topology;
+        // TODO: don't allocate a new vertex buffer descriptor for every entity
+        render_pipeline.specialization.vertex_buffer_descriptor =
+            mesh.get_vertex_buffer_descriptor();
+        render_pipeline.specialization.index_format = mesh
+            .indices()
+            .map(|i| i.into())
+            .unwrap_or(IndexFormat::Uint32);
+    }
+
+    if let Some(RenderResourceId::Buffer(index_buffer_resource)) =
+        render_resource_context.get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX)
+    {
+        // set index buffer into binding
+        render_pipelines
+            .bindings
+            .set_index_buffer(index_buffer_resource);
+    }
+
+    if let Some(RenderResourceId::Buffer(vertex_attribute_buffer_resource)) =
+        render_resource_context.get_asset_resource(handle, VERTEX_ATTRIBUTE_BUFFER_ID)
+    {
+        // set index buffer into binding
+        render_pipelines.bindings.vertex_attribute_buffer = Some(vertex_attribute_buffer_resource);
     }
 }

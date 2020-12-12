@@ -1,9 +1,5 @@
-use bevy_utils::HashMap;
-use std::{
-    collections::VecDeque,
-    time::{Duration, SystemTime},
-};
-use uuid::Uuid;
+use bevy_utils::{Duration, HashMap, Instant, Uuid};
+use std::collections::VecDeque;
 
 /// Unique identifier for a [Diagnostic]
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
@@ -24,7 +20,7 @@ impl Default for DiagnosticId {
 /// A single measurement of a [Diagnostic]
 #[derive(Debug)]
 pub struct DiagnosticMeasurement {
-    pub time: SystemTime,
+    pub time: Instant,
     pub value: f64,
 }
 
@@ -41,7 +37,7 @@ pub struct Diagnostic {
 
 impl Diagnostic {
     pub fn add_measurement(&mut self, value: f64) {
-        let time = SystemTime::now();
+        let time = Instant::now();
         if self.history.len() == self.max_history_length {
             if let Some(removed_diagnostic) = self.history.pop_back() {
                 self.sum -= removed_diagnostic.value;
@@ -90,7 +86,7 @@ impl Diagnostic {
 
         if let Some(oldest) = self.history.back() {
             if let Some(newest) = self.history.front() {
-                return newest.time.duration_since(oldest.time).ok();
+                return Some(newest.time.duration_since(oldest.time));
             }
         }
 

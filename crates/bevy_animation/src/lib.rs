@@ -1,7 +1,6 @@
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
-//use bevy_ecs::prelude::*;
-use bevy_type_registry::RegisterType;
+use bevy_reflect::RegisterTypeBuilder;
 
 mod custom;
 mod hierarchy;
@@ -41,7 +40,7 @@ impl Plugin for AnimationPlugin {
         // Generic animation
         app.add_asset::<prelude::Clip>()
             //.add_asset_loader(ClipLoader)
-            .register_component::<prelude::Animator>()
+            .register_type::<prelude::Animator>()
             // .add_system_to_stage(stage::ANIMATE, animator_binding_system)
             // .add_system_to_stage(stage::ANIMATE, animator_update_system);
             .add_system_to_stage(stage::ANIMATE, animator_update_system)
@@ -50,8 +49,8 @@ impl Plugin for AnimationPlugin {
         // Skinning
         app.add_asset::<SkinAsset>()
             .add_asset::<SkinInstance>()
-            .register_component_with::<SkinComponent>(|reg| reg.map_entities())
-            .register_component::<SkinDebugger>()
+            .register_type::<SkinComponent>()
+            .register_type::<SkinDebugger>()
             .add_startup_system(skinning_setup)
             .add_system_to_stage(stage::POST_UPDATE, skinning_update)
             .add_system_to_stage(stage::POST_UPDATE, skinning_debugger_update);

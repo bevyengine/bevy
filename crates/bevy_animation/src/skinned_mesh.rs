@@ -1,24 +1,23 @@
 // TODO: Later merge with bevy_animation
 use crate::hierarchy::Hierarchy;
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_core::Name;
 use bevy_ecs::prelude::*;
 use bevy_ecs::MapEntities;
 use bevy_math::Mat4;
 use bevy_pbr::prelude::*;
-use bevy_property::Properties;
+use bevy_reflect::{Reflect, ReflectComponent, ReflectMapEntities, TypeUuid};
 use bevy_render::mesh::{shape, Indices, Mesh, VertexAttributeValues};
 use bevy_render::pipeline::{PipelineDescriptor, PrimitiveTopology, RenderPipelines};
 use bevy_render::render_graph::{base, AssetRenderResourcesNode, RenderGraph};
 use bevy_render::renderer::RenderResources;
 use bevy_render::shader::{Shader, ShaderStage};
 use bevy_transform::prelude::*;
-use bevy_type_registry::TypeUuid;
 use smallvec::SmallVec;
 
 // NOTE: generated using python `import secrets; secrets.token_hex(8)`
-pub const FORWARD_SKINNED_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
-    Handle::weak_from_u64(PipelineDescriptor::TYPE_UUID, 0xedf5a66b71d07478u64);
+pub const FORWARD_SKINNED_PIPELINE_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 0xedf5a66b71d07478u64);
 
 /// Skin asset used by the skinning process
 #[derive(Debug, Clone, TypeUuid)]
@@ -33,31 +32,32 @@ pub struct SkinAsset {
 #[derive(Default, Debug, Clone, TypeUuid, RenderResources)]
 #[uuid = "e25de07b-f813-4c6b-ad06-b160c3e924b2"]
 pub struct SkinInstance {
-    // TODO: Use 4x3 matrices instead the last row will be always vec4(0, 0, 0, 1)
+    // TODO: Use 4x3 matrices instead, the last row will be always vec4(0, 0, 0, 1)
     // NOTE: Mat4 doesn't impl `Byteable` so we need to use an array here
     #[render_resources(buffer)]
     joint_matrices: Vec<[f32; 16]>,
-    // TODO: Can we use a shader_def to define the number of bones per vertex? (no we can't)
+    // TODO: Define number of bones per vertex
 }
 
 /// Component that skins some mesh.
 /// Requires a `Handle<Skin>` attached to same entity as the component
-#[derive(Properties)]
+#[derive(Reflect)]
+#[reflect(Component, MapEntities)]
 pub struct SkinComponent {
     /// Keeps track of what `MeshSkin` this component is configured to,
     /// extra work is required to keep bones in order.
     ///
     /// It's expected to the skin not to change very often or at all
-    #[property(ignore)]
+    #[reflect(ignore)]
     previous_skin: Option<Handle<SkinAsset>>,
 
     /// Maps each bone to an entity, order matters and must match the
     /// `Handle<Skin>` bone order, this will simplify the lookup of
     /// the bind matrix for each bone
-    #[property(ignore)]
+    #[reflect(ignore)]
     joint_entities: Vec<Option<Entity>>,
 
-    #[property(ignore)]
+    #[reflect(ignore)]
     instance: Option<Handle<SkinInstance>>,
 
     /// Skeleton root entity
@@ -83,7 +83,6 @@ impl SkinComponent {
     }
 }
 
-// TODO: Same problem of Parent component
 impl FromResources for SkinComponent {
     fn from_resources(_resources: &bevy_ecs::Resources) -> Self {
         SkinComponent::with_root(Entity::new(u32::MAX))
@@ -145,12 +144,10 @@ pub(crate) fn skinning_update(
     skin_assets: Res<Assets<SkinAsset>>,
     mut skin_instances: ResMut<Assets<SkinInstance>>,
     mut binds_query: Query<(&Handle<SkinAsset>, &mut SkinComponent, &Children)>,
-    //meshes_query: Query<(&Handle<Mesh>,)>,
-    //bones_query: Query<(Entity, &Name, Option<&Children>)>,
-    mut children_query: Query<(&Children,)>,
+    mut children_query: Query<&Children>,
     mut name_query: Query<(&Parent, &Name)>,
-    transforms_query: Query<(&GlobalTransform,)>,
-    mut renderers_query: Query<(&mut RenderPipelines,)>,
+    transforms_query: Query<&GlobalTransform>,
+    mut renderers_query: Query<&mut RenderPipelines>,
 ) {
     let __span = tracing::info_span!("skinning_update");
     let __guard = __span.enter();
@@ -170,6 +167,7 @@ pub(crate) fn skinning_update(
                 .resize(skin_asset.hierarchy.len(), None);
             skin_bind.joint_entities[0] = Some(skin_bind.root);
 
+            // TODO: Don't look for these every time!
             // Look for skeleton entities
             for entity_index in 1..skin_asset.hierarchy.len() {
                 skin_asset.hierarchy.find_entity(
@@ -202,15 +200,15 @@ pub(crate) fn skinning_update(
                 commands.insert_one(*renderer_entity, skin_instance_handle.clone());
 
                 // Change render pipeline
-                if let Ok((mut renderer,)) = renderers_query.get_mut(*renderer_entity) {
-                    renderer.pipelines[0].pipeline = FORWARD_SKINNED_PIPELINE_HANDLE;
+                if let Ok(mut renderer) = renderers_query.get_mut(*renderer_entity) {
+                    renderer.pipelines[0].pipeline = FORWARD_SKINNED_PIPELINE_HANDLE.typed();
                 }
             }
 
             // Update skin uniforms
             let root_inverse_matrix = transforms_query.get(skin_bind.root).map_or_else(
                 |_| Mat4::identity(),
-                |(global_transform,)| {
+                |global_transform| {
                     // TODO: build the inverse matrix directly from the Isometry should be faster
                     global_transform.compute_matrix().inverse()
                 },
@@ -232,7 +230,7 @@ pub(crate) fn skinning_update(
                 )
                 .for_each(|(joint_matrix, (joint_entity, joint_inverse_matrix))| {
                     if let Some(entity) = joint_entity {
-                        if let Ok((global_transform,)) = transforms_query.get(*entity) {
+                        if let Ok(global_transform) = transforms_query.get(*entity) {
                             *joint_matrix = (root_inverse_matrix
                                 * global_transform.compute_matrix()
                                 * (*joint_inverse_matrix))
@@ -248,14 +246,17 @@ pub(crate) fn skinning_update(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#[derive(Default, Debug, Properties)]
+// TODO: Fix this component arrangement
+// TODO: Custom shaders for gizmos
+
+#[derive(Default, Debug, Reflect)]
+#[reflect(Component)]
 pub struct SkinDebugger {
-    //pub enabled: bool,
-    #[property(ignore)]
+    #[reflect(ignore)]
     started: bool,
-    #[property(ignore)]
+    #[reflect(ignore)]
     mesh: Option<Handle<Mesh>>,
-    #[property(ignore)]
+    #[reflect(ignore)]
     entity: Option<Entity>,
 }
 
@@ -284,7 +285,8 @@ pub(crate) fn skinning_debugger_update(
             }
 
             if !debugger.started {
-                let bone_mesh = meshes.add(Mesh::from(shape::Cube { size: 0.02 }));
+                let bone_mesh = meshes.add(Mesh::from(shape::Cube { size: 0.05 }));
+                // TODO: Keep track of all these entities, their position will only be updated if the parent GlobalTransform changes ...
                 for bone in skinner.joint_entities.iter() {
                     if let Some(entity) = bone {
                         commands

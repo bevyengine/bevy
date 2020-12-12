@@ -1,9 +1,10 @@
 use bevy_ecs::{Entity, MapEntities};
-use bevy_property::Properties;
+use bevy_reflect::{Reflect, ReflectComponent, ReflectMapEntities};
 use smallvec::SmallVec;
 use std::ops::Deref;
 
-#[derive(Default, Clone, Properties, Debug)]
+#[derive(Default, Clone, Debug, Reflect)]
+#[reflect(Component, MapEntities)]
 pub struct Children(pub(crate) SmallVec<[Entity; 8]>);
 
 impl MapEntities for Children {
@@ -22,6 +23,11 @@ impl MapEntities for Children {
 impl Children {
     pub fn with(entity: &[Entity]) -> Self {
         Self(SmallVec::from_slice(entity))
+    }
+
+    /// Swaps the child at `a_index` with the child at `b_index`
+    pub fn swap(&mut self, a_index: usize, b_index: usize) {
+        self.0.swap(a_index, b_index);
     }
 }
 

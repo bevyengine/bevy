@@ -1,7 +1,7 @@
 use bevy::{
     asset::{AssetLoader, LoadContext, LoadedAsset},
     prelude::*,
-    type_registry::TypeUuid,
+    reflect::TypeUuid,
     utils::BoxedFuture,
 };
 use serde::Deserialize;

@@ -1,14 +1,13 @@
 use crate::{serde::SceneSerializer, Scene};
 use anyhow::Result;
 use bevy_ecs::{EntityMap, Resources, World};
-use bevy_property::{DynamicProperties, PropertyTypeRegistry};
-use bevy_type_registry::{ComponentRegistry, TypeRegistry, TypeUuid};
+use bevy_reflect::{Reflect, ReflectComponent, ReflectMapEntities, TypeRegistryArc, TypeUuid};
 use serde::Serialize;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum DynamicSceneToWorldError {
-    #[error("Scene contains an unregistered component.")]
+    #[error("scene contains an unregistered component")]
     UnregisteredComponent { type_name: String },
 }
 
@@ -20,16 +19,17 @@ pub struct DynamicScene {
 
 pub struct Entity {
     pub entity: u32,
-    pub components: Vec<DynamicProperties>,
+    pub components: Vec<Box<dyn Reflect>>,
 }
 
 impl DynamicScene {
-    pub fn from_scene(scene: &Scene, component_registry: &ComponentRegistry) -> Self {
-        Self::from_world(&scene.world, component_registry)
+    pub fn from_scene(scene: &Scene, type_registry: &TypeRegistryArc) -> Self {
+        Self::from_world(&scene.world, type_registry)
     }
 
-    pub fn from_world(world: &World, component_registry: &ComponentRegistry) -> Self {
+    pub fn from_world(world: &World, type_registry: &TypeRegistryArc) -> Self {
         let mut scene = DynamicScene::default();
+        let type_registry = type_registry.read();
         for archetype in world.archetypes() {
             let mut entities = Vec::new();
             for (index, entity) in archetype.iter_entities().enumerate() {
@@ -40,11 +40,15 @@ impl DynamicScene {
                     })
                 }
                 for type_info in archetype.types() {
-                    if let Some(component_registration) = component_registry.get(&type_info.id()) {
-                        let properties =
-                            component_registration.get_component_properties(&archetype, index);
-
-                        entities[index].components.push(properties.to_dynamic());
+                    if let Some(registration) = type_registry.get(type_info.id()) {
+                        if let Some(reflect_component) = registration.data::<ReflectComponent>() {
+                            // SAFE: the index comes directly from a currently live component
+                            unsafe {
+                                let component =
+                                    reflect_component.reflect_component(&archetype, index);
+                                entities[index].components.push(component.clone_value());
+                            }
+                        }
                     }
                 }
             }
@@ -60,38 +64,45 @@ impl DynamicScene {
         world: &mut World,
         resources: &Resources,
     ) -> Result<(), DynamicSceneToWorldError> {
-        let type_registry = resources.get::<TypeRegistry>().unwrap();
-        let component_registry = type_registry.component.read();
+        let type_registry = resources.get::<TypeRegistryArc>().unwrap();
+        let type_registry = type_registry.read();
         let mut entity_map = EntityMap::default();
         for scene_entity in self.entities.iter() {
             let new_entity = world.reserve_entity();
             entity_map.insert(bevy_ecs::Entity::new(scene_entity.entity), new_entity);
             for component in scene_entity.components.iter() {
-                let component_registration = component_registry
-                    .get_with_name(&component.type_name)
+                let registration = type_registry
+                    .get_with_name(component.type_name())
                     .ok_or_else(|| DynamicSceneToWorldError::UnregisteredComponent {
-                        type_name: component.type_name.to_string(),
+                        type_name: component.type_name().to_string(),
                     })?;
-                if world.has_component_type(new_entity, component_registration.ty) {
-                    component_registration.apply_property_to_entity(world, new_entity, component);
+                let reflect_component =
+                    registration.data::<ReflectComponent>().ok_or_else(|| {
+                        DynamicSceneToWorldError::UnregisteredComponent {
+                            type_name: component.type_name().to_string(),
+                        }
+                    })?;
+                if world.has_component_type(new_entity, registration.type_id()) {
+                    reflect_component.apply_component(world, new_entity, &**component);
                 } else {
-                    component_registration
-                        .add_property_to_entity(world, resources, new_entity, component);
+                    reflect_component.add_component(world, resources, new_entity, &**component);
                 }
             }
         }
 
-        for component_registration in component_registry.iter() {
-            component_registration
-                .map_entities(world, &entity_map)
-                .unwrap();
+        for registration in type_registry.iter() {
+            if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
+                map_entities_reflect
+                    .map_entities(world, &entity_map)
+                    .unwrap();
+            }
         }
 
         Ok(())
     }
 
     // TODO: move to AssetSaver when it is implemented
-    pub fn serialize_ron(&self, registry: &PropertyTypeRegistry) -> Result<String, ron::Error> {
+    pub fn serialize_ron(&self, registry: &TypeRegistryArc) -> Result<String, ron::Error> {
         serialize_ron(SceneSerializer::new(self, registry))
     }
 

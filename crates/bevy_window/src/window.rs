@@ -1,4 +1,5 @@
-use uuid::Uuid;
+use bevy_math::Vec2;
+use bevy_utils::Uuid;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct WindowId(Uuid);
@@ -34,18 +35,20 @@ impl Default for WindowId {
 #[derive(Debug)]
 pub struct Window {
     id: WindowId,
-    width: u32,
-    height: u32,
+    physical_width: u32,
+    physical_height: u32,
     title: String,
     vsync: bool,
     resizable: bool,
     decorations: bool,
     cursor_visible: bool,
     cursor_locked: bool,
+    cursor_position: Option<Vec2>,
     mode: WindowMode,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
     command_queue: Vec<WindowCommand>,
+    scale_factor: f64,
 }
 
 #[derive(Debug)]
@@ -58,8 +61,8 @@ pub enum WindowCommand {
         title: String,
     },
     SetResolution {
-        width: u32,
-        height: u32,
+        physical_width: u32,
+        physical_height: u32,
     },
     SetVsync {
         vsync: bool,
@@ -75,6 +78,12 @@ pub enum WindowCommand {
     },
     SetCursorVisibility {
         visible: bool,
+    },
+    SetCursorPosition {
+        position: Vec2,
+    },
+    SetMaximized {
+        maximized: bool,
     },
 }
 
@@ -94,18 +103,20 @@ impl Window {
     pub fn new(id: WindowId, window_descriptor: &WindowDescriptor) -> Self {
         Window {
             id,
-            height: window_descriptor.height,
-            width: window_descriptor.width,
+            physical_height: window_descriptor.height,
+            physical_width: window_descriptor.width,
             title: window_descriptor.title.clone(),
             vsync: window_descriptor.vsync,
             resizable: window_descriptor.resizable,
             decorations: window_descriptor.decorations,
             cursor_visible: window_descriptor.cursor_visible,
             cursor_locked: window_descriptor.cursor_locked,
+            cursor_position: None,
             mode: window_descriptor.mode,
             #[cfg(target_arch = "wasm32")]
             canvas: window_descriptor.canvas.clone(),
             command_queue: Vec::new(),
+            scale_factor: 1.0,
         }
     }
 
@@ -116,25 +127,65 @@ impl Window {
 
     #[inline]
     pub fn width(&self) -> u32 {
-        self.width
+        self.logical_width() as u32
     }
 
     #[inline]
     pub fn height(&self) -> u32 {
-        self.height
+        self.logical_height() as u32
+    }
+
+    #[inline]
+    pub fn logical_width(&self) -> f32 {
+        (self.physical_width as f64 / self.scale_factor) as f32
+    }
+
+    #[inline]
+    pub fn logical_height(&self) -> f32 {
+        (self.physical_height as f64 / self.scale_factor) as f32
+    }
+
+    #[inline]
+    pub fn physical_width(&self) -> u32 {
+        self.physical_width
+    }
+
+    #[inline]
+    pub fn physical_height(&self) -> u32 {
+        self.physical_height
+    }
+
+    #[inline]
+    pub fn set_maximized(&mut self, maximized: bool) {
+        self.command_queue
+            .push(WindowCommand::SetMaximized { maximized });
     }
 
     pub fn set_resolution(&mut self, width: u32, height: u32) {
-        self.width = width;
-        self.height = height;
-        self.command_queue
-            .push(WindowCommand::SetResolution { width, height });
+        self.physical_width = (width as f64 * self.scale_factor) as u32;
+        self.physical_height = (height as f64 * self.scale_factor) as u32;
+        self.command_queue.push(WindowCommand::SetResolution {
+            physical_width: self.physical_width,
+            physical_height: self.physical_height,
+        });
     }
 
-    #[doc(hidden)]
-    pub fn update_resolution_from_backend(&mut self, width: u32, height: u32) {
-        self.width = width;
-        self.height = height;
+    #[allow(missing_docs)]
+    #[inline]
+    pub fn update_physical_size_from_backend(&mut self, width: u32, height: u32) {
+        self.physical_width = width;
+        self.physical_height = height;
+    }
+
+    #[allow(missing_docs)]
+    #[inline]
+    pub fn update_scale_factor_from_backend(&mut self, scale_factor: f64) {
+        self.scale_factor = scale_factor;
+    }
+
+    #[inline]
+    pub fn scale_factor(&self) -> f64 {
+        self.scale_factor
     }
 
     #[inline]
@@ -204,6 +255,22 @@ impl Window {
     }
 
     #[inline]
+    pub fn cursor_position(&self) -> Option<Vec2> {
+        self.cursor_position
+    }
+
+    pub fn set_cursor_position(&mut self, position: Vec2) {
+        self.command_queue
+            .push(WindowCommand::SetCursorPosition { position });
+    }
+
+    #[allow(missing_docs)]
+    #[inline]
+    pub fn update_cursor_position_from_backend(&mut self, cursor_position: Option<Vec2>) {
+        self.cursor_position = cursor_position;
+    }
+
+    #[inline]
     pub fn mode(&self) -> WindowMode {
         self.mode
     }
@@ -212,7 +279,7 @@ impl Window {
         self.mode = mode;
         self.command_queue.push(WindowCommand::SetWindowMode {
             mode,
-            resolution: (self.width, self.height),
+            resolution: (self.physical_width, self.physical_height),
         });
     }
 

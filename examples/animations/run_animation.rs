@@ -1,8 +1,12 @@
 use bevy::animation::Animator;
+use bevy::asset::AssetServerSettings;
 use bevy::prelude::*;
 
 fn main() {
     App::build()
+        .add_resource(AssetServerSettings {
+            asset_folder: "G:/Rust/bevy/assets".to_string(),
+        })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(anim_set)
@@ -71,9 +75,9 @@ fn anim_blending(
     // Perform a simple ping pong blending between the run and idle animation
     for (mut animator,) in animators_query.iter_mut() {
         let dw = if ping_pong.pong {
-            time.delta_seconds / 5.0
+            time.delta_seconds() / 5.0
         } else {
-            -time.delta_seconds / 5.0
+            -time.delta_seconds() / 5.0
         };
 
         let mut w = animator.layers[0].weight;

@@ -289,7 +289,7 @@ impl ExecutorStage {
                     self.ready_events_of_dependents[system_index].push(
                         self.ready_events[*dependent_system]
                             .as_ref()
-                            .expect("A dependent task should have a non-None ready event")
+                            .expect("A dependent task should have a non-None ready event.")
                             .clone(),
                     );
                 }
@@ -318,7 +318,7 @@ impl ExecutorStage {
             if dependency_count > 0 {
                 self.ready_events[system_index]
                     .as_ref()
-                    .expect("A system with >0 dependency count should have a non-None ready event")
+                    .expect("A system with >0 dependency count should have a non-None ready event.")
                     .reset(dependency_count as isize)
             }
         }

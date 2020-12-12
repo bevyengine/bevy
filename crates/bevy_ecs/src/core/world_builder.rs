@@ -62,4 +62,17 @@ impl<'a> WorldBuilder<'a> {
         self.current_entity = Some(self.world.spawn(components));
         self
     }
+
+    #[inline]
+    pub fn current_entity(&self) -> Option<Entity> {
+        self.current_entity
+    }
+
+    pub fn for_current_entity(&mut self, f: impl FnOnce(Entity)) -> &mut Self {
+        let current_entity = self
+            .current_entity
+            .expect("The 'current entity' is not set. You should spawn an entity first.");
+        f(current_entity);
+        self
+    }
 }

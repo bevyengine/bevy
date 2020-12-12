@@ -64,7 +64,7 @@ impl SystemState {
                     conflicts_with_index = Some(prior_index);
                 }
             }
-            panic!("System {} has conflicting queries. {} conflicts with the component access [{}] in this prior query: {}",
+            panic!("System {} has conflicting queries. {} conflicts with the component access [{}] in this prior query: {}.",
                 self.name,
                 self.query_type_names[conflict_index],
                 conflict_name.unwrap_or("Unknown"),

@@ -52,7 +52,7 @@ impl Node for WindowTextureNode {
 
         let window = windows
             .get(self.window_id)
-            .expect("Received window resized event for non-existent window");
+            .expect("Received window resized event for non-existent window.");
 
         if self
             .window_created_event_reader
@@ -68,8 +68,8 @@ impl Node for WindowTextureNode {
                 render_resource_context.remove_texture(old_texture);
             }
 
-            self.descriptor.size.width = window.width();
-            self.descriptor.size.height = window.height();
+            self.descriptor.size.width = window.physical_width();
+            self.descriptor.size.height = window.physical_height();
             let texture_resource = render_resource_context.create_texture(self.descriptor);
             output.set(WINDOW_TEXTURE, RenderResourceId::Texture(texture_resource));
         }

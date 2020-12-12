@@ -1,8 +1,9 @@
 use bevy_ecs::{Entity, FromResources, MapEntities};
-use bevy_property::Properties;
+use bevy_reflect::{Reflect, ReflectComponent, ReflectMapEntities};
 use std::ops::{Deref, DerefMut};
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Properties)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Reflect)]
+#[reflect(Component, MapEntities)]
 pub struct Parent(pub Entity);
 
 // TODO: We need to impl either FromResources or Default so Parent can be registered as Properties.
@@ -25,7 +26,22 @@ impl MapEntities for Parent {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Properties)]
+impl Deref for Parent {
+    type Target = Entity;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Parent {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Reflect)]
+#[reflect(Component, MapEntities)]
 pub struct PreviousParent(pub(crate) Entity);
 
 impl MapEntities for PreviousParent {
@@ -38,23 +54,9 @@ impl MapEntities for PreviousParent {
     }
 }
 
-// TODO: Better handle this case
+// TODO: Better handle this case see `impl FromResources for Parent`
 impl FromResources for PreviousParent {
     fn from_resources(_resources: &bevy_ecs::Resources) -> Self {
         PreviousParent(Entity::new(u32::MAX))
-    }
-}
-
-impl Deref for Parent {
-    type Target = Entity;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for Parent {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }

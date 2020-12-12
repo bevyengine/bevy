@@ -12,6 +12,8 @@ pub use bevy_utils::tracing::{
 };
 
 use bevy_app::{AppBuilder, Plugin};
+#[cfg(feature = "tracing-chrome")]
+use tracing_subscriber::fmt::{format::DefaultFields, FormattedFields};
 use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 
 /// Adds logging to Apps.
@@ -55,17 +57,30 @@ impl Plugin for LogPlugin {
             let subscriber = subscriber.with(fmt_layer);
             #[cfg(feature = "tracing-chrome")]
             {
-                let (chrome_layer, guard) = tracing_chrome::ChromeLayerBuilder::new().build();
+                let (chrome_layer, guard) = tracing_chrome::ChromeLayerBuilder::new()
+                    .name_fn(Box::new(|event_or_span| match event_or_span {
+                        tracing_chrome::EventOrSpan::Event(event) => event.metadata().name().into(),
+                        tracing_chrome::EventOrSpan::Span(span) => {
+                            if let Some(fields) =
+                                span.extensions().get::<FormattedFields<DefaultFields>>()
+                            {
+                                format!("{}: {}", span.metadata().name(), fields.fields.as_str())
+                            } else {
+                                span.metadata().name().into()
+                            }
+                        }
+                    }))
+                    .build();
                 app.resources_mut().insert_thread_local(guard);
                 let subscriber = subscriber.with(chrome_layer);
                 bevy_utils::tracing::subscriber::set_global_default(subscriber)
-                    .expect("Could not set global default tracing subscriber");
+                    .expect("Could not set global default tracing subscriber.");
             }
 
             #[cfg(not(feature = "tracing-chrome"))]
             {
                 bevy_utils::tracing::subscriber::set_global_default(subscriber)
-                    .expect("Could not set global default tracing subscriber");
+                    .expect("Could not set global default tracing subscriber.");
             }
         }
 
@@ -76,14 +91,14 @@ impl Plugin for LogPlugin {
                 tracing_wasm::WASMLayerConfig::default(),
             ));
             bevy_utils::tracing::subscriber::set_global_default(subscriber)
-                .expect("Could not set global default tracing subscriber");
+                .expect("Could not set global default tracing subscriber.");
         }
 
         #[cfg(target_os = "android")]
         {
             let subscriber = subscriber.with(android_tracing::AndroidLayer::default());
             bevy_utils::tracing::subscriber::set_global_default(subscriber)
-                .expect("Could not set global default tracing subscriber");
+                .expect("Could not set global default tracing subscriber.");
         }
     }
 }
