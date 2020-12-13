@@ -32,32 +32,6 @@ impl Default for WindowId {
     }
 }
 
-/// The requested size of the window client area in logical pixels
-#[derive(Debug, Clone, Copy)]
-struct RequestedSize {
-    width: f32,
-    height: f32,
-}
-
-/// The actual size of the window client area in physical pixels, and the
-/// scaling factory needed to convert to logical pixels
-#[derive(Debug, Clone, Copy)]
-struct ActualSize {
-    physical_width: u32,
-    physical_height: u32,
-    scale_factor: f64,
-}
-
-impl ActualSize {
-    fn logical_width(&self) -> f32 {
-        (self.physical_width as f64 / self.scale_factor) as f32
-    }
-
-    fn logical_height(&self) -> f32 {
-        (self.physical_height as f64 / self.scale_factor) as f32
-    }
-}
-
 /// An operating system window that can present content and receive user input.
 ///
 /// ## Window Sizes
@@ -73,16 +47,14 @@ impl ActualSize {
 /// requested size due to operating system limits on the window size, or the
 /// quantization of the logical size when converting the physical size to the
 /// logical size through the scaling factor.
-///
-/// Prior to window creation, the actual size of the window cannot be known. If
-/// an application requires exact values at startup, it should process the
-/// [WindowResized](crate::WindowResized) event. The first one of which will be
-/// delivered during the first frame.
 #[derive(Debug)]
 pub struct Window {
     id: WindowId,
-    requested_size: RequestedSize,
-    actual_size: Option<ActualSize>,
+    requested_width: f32,
+    requested_height: f32,
+    physical_width: u32,
+    physical_height: u32,
+    scale_factor: f64,
     title: String,
     vsync: bool,
     resizable: bool,
@@ -144,14 +116,20 @@ pub enum WindowMode {
 }
 
 impl Window {
-    pub fn new(id: WindowId, window_descriptor: &WindowDescriptor) -> Self {
+    pub fn new(
+        id: WindowId,
+        window_descriptor: &WindowDescriptor,
+        physical_width: u32,
+        physical_height: u32,
+        scale_factor: f64,
+    ) -> Self {
         Window {
             id,
-            requested_size: RequestedSize {
-                width: window_descriptor.width,
-                height: window_descriptor.height,
-            },
-            actual_size: None,
+            requested_width: window_descriptor.width,
+            requested_height: window_descriptor.height,
+            physical_width,
+            physical_height,
+            scale_factor,
             title: window_descriptor.title.clone(),
             vsync: window_descriptor.vsync,
             resizable: window_descriptor.resizable,
@@ -172,23 +150,15 @@ impl Window {
     }
 
     /// The current logical width of the window's client area.
-    ///
-    /// If the window has not been created yet, this will return
-    /// the [requested width](Window::requested_width) instead of
-    /// the [actual width](Window::logical_width).
     #[inline]
     pub fn width(&self) -> f32 {
-        self.logical_width().unwrap_or(self.requested_size.width)
+        (self.physical_width as f64 / self.scale_factor) as f32
     }
 
     /// The current logical height of the window's client area.
-    ///
-    /// If the window has not been created yet, this will return
-    /// the [requested height](Window::requested_height) instead of
-    /// the [actual height](Window::logical_height).
     #[inline]
     pub fn height(&self) -> f32 {
-        self.logical_height().unwrap_or(self.requested_size.height)
+        (self.physical_height as f64 / self.scale_factor) as f32
     }
 
     /// The requested window client area width in logical pixels from window
@@ -198,7 +168,7 @@ impl Window {
     /// the scaling factor for high DPI monitors.
     #[inline]
     pub fn requested_width(&self) -> f32 {
-        self.requested_size.width
+        self.requested_width
     }
 
     /// The requested window client area height in logical pixels from window
@@ -208,31 +178,19 @@ impl Window {
     /// the scaling factor for high DPI monitors.
     #[inline]
     pub fn requested_height(&self) -> f32 {
-        self.requested_size.height
+        self.requested_height
     }
 
-    /// The window's client area width in logical pixels if it has been created.
+    /// The window's client area width in physical pixels.
     #[inline]
-    pub fn logical_width(&self) -> Option<f32> {
-        self.actual_size.map(|s| s.logical_width())
+    pub fn physical_width(&self) -> u32 {
+        self.physical_width
     }
 
-    /// The window's client area width in logical pixels if it has been created.
+    /// The window's client area height in physical pixels.
     #[inline]
-    pub fn logical_height(&self) -> Option<f32> {
-        self.actual_size.map(|s| s.logical_height())
-    }
-
-    /// The window's client area width in physical pixels if it has been created.
-    #[inline]
-    pub fn physical_width(&self) -> Option<u32> {
-        self.actual_size.map(|s| s.physical_width)
-    }
-
-    /// The window's client area height in physical pixels if it has been created.
-    #[inline]
-    pub fn physical_height(&self) -> Option<u32> {
-        self.actual_size.map(|s| s.physical_height)
+    pub fn physical_height(&self) -> u32 {
+        self.physical_height
     }
 
     #[inline]
@@ -244,48 +202,32 @@ impl Window {
     /// Request the OS to resize the window such the the client area matches the
     /// specified width and height.
     pub fn set_resolution(&mut self, width: f32, height: f32) {
-        self.requested_size = RequestedSize { width, height };
+        self.requested_width = width;
+        self.requested_height = height;
         self.command_queue.push(WindowCommand::SetResolution {
-            resolution: (self.requested_size.width, self.requested_size.height),
+            resolution: (self.requested_width, self.requested_height),
         });
     }
 
     #[allow(missing_docs)]
     #[inline]
-    pub fn update_actual_size_and_scale_from_backend(
-        &mut self,
-        width: u32,
-        height: u32,
-        scale: f64,
-    ) {
-        self.actual_size = Some(ActualSize {
-            physical_width: width,
-            physical_height: height,
-            scale_factor: scale,
-        });
+    pub fn update_scale_factor_from_backend(&mut self, scale_factor: f64) {
+        self.scale_factor = scale_factor;
     }
 
     #[allow(missing_docs)]
     #[inline]
-    pub fn update_actual_size_from_backend(
-        &mut self,
-        width: u32,
-        height: u32,
-    ) -> Option<(f32, f32)> {
-        self.actual_size.as_mut().map(|size| {
-            size.physical_width = width;
-            size.physical_height = height;
-
-            (size.logical_width(), size.logical_height())
-        })
+    pub fn update_actual_size_from_backend(&mut self, physical_width: u32, physical_height: u32) {
+        self.physical_width = physical_width;
+        self.physical_height = physical_height;
     }
 
-    /// The ratio of physical pixels to logical pixels if window has been created.
+    /// The ratio of physical pixels to logical pixels
     ///
     /// `physical_pixels = logical_pixels * scale_factor`
     #[inline]
-    pub fn scale_factor(&self) -> Option<f64> {
-        self.actual_size.map(|s| s.scale_factor)
+    pub fn scale_factor(&self) -> f64 {
+        self.scale_factor
     }
 
     #[inline]
@@ -377,11 +319,9 @@ impl Window {
 
     pub fn set_mode(&mut self, mode: WindowMode) {
         self.mode = mode;
-        let width = self.requested_size.width as u32;
-        let height = self.requested_size.height as u32;
         self.command_queue.push(WindowCommand::SetWindowMode {
             mode,
-            resolution: (width, height),
+            resolution: (self.physical_width, self.physical_height),
         });
     }
 
