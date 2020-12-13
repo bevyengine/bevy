@@ -1,5 +1,5 @@
 use anyhow::Result;
-use bevy_asset::{AssetIoError, AssetLoader, AssetPath, LoadContext, LoadedAsset};
+use bevy_asset::{AssetIoError, AssetLoader, AssetPath, Handle, LoadContext, LoadedAsset};
 use bevy_ecs::{bevy_utils::BoxedFuture, World, WorldBuilderSource};
 use bevy_math::Mat4;
 use bevy_pbr::prelude::{PbrBundle, StandardMaterial};
@@ -83,38 +83,7 @@ async fn load_gltf<'a, 'b>(
     let mut materials = vec![];
     let mut named_materials = HashMap::new();
     for material in gltf.materials() {
-        let material_label = material_label(&material);
-        let pbr = material.pbr_metallic_roughness();
-        let mut dependencies = Vec::new();
-        let texture_handle = if let Some(info) = pbr.base_color_texture() {
-            match info.texture().source().source() {
-                gltf::image::Source::View { .. } => {
-                    let label = texture_label(&info.texture());
-                    let path = AssetPath::new_ref(load_context.path(), Some(&label));
-                    Some(load_context.get_handle(path))
-                }
-                gltf::image::Source::Uri { uri, .. } => {
-                    let parent = load_context.path().parent().unwrap();
-                    let image_path = parent.join(uri);
-                    let asset_path = AssetPath::new(image_path, None);
-                    let handle = load_context.get_handle(asset_path.clone());
-                    dependencies.push(asset_path);
-                    Some(handle)
-                }
-            }
-        } else {
-            None
-        };
-        let color = pbr.base_color_factor();
-        let handle = load_context.set_labeled_asset(
-            &material_label,
-            LoadedAsset::new(StandardMaterial {
-                albedo: Color::rgba(color[0], color[1], color[2], color[3]),
-                albedo_texture: texture_handle,
-                ..Default::default()
-            })
-            .with_dependencies(dependencies),
-        );
+        let handle = load_material(&material, load_context);
         if let Some(name) = material.name() {
             named_materials.insert(name.to_string(), handle.clone());
         }
@@ -252,10 +221,6 @@ async fn load_gltf<'a, 'b>(
         }
     }
 
-    for material in gltf.materials() {
-        load_material(&material, load_context);
-    }
-
     let mut scenes = vec![];
     let mut named_scenes = HashMap::new();
     for scene in gltf.scenes() {
@@ -303,7 +268,7 @@ async fn load_gltf<'a, 'b>(
     Ok(())
 }
 
-fn load_material(material: &Material, load_context: &mut LoadContext) {
+fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<StandardMaterial> {
     let material_label = material_label(&material);
     let pbr = material.pbr_metallic_roughness();
     let mut dependencies = Vec::new();
