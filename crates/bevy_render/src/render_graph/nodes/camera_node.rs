@@ -44,7 +44,7 @@ impl Node for CameraNode {
 }
 
 impl SystemNode for CameraNode {
-    fn get_system(&self, commands: &mut Commands) -> Box<dyn System<Input = (), Output = ()>> {
+    fn get_system(&self, commands: &mut Commands) -> Box<dyn System<In = (), Out = ()>> {
         let system = camera_node_system.system();
         commands.insert_local_resource(
             system.id(),

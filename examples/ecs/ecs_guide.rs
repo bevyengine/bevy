@@ -1,5 +1,6 @@
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin, ScheduleRunnerSettings},
+    ecs::SystemStage,
     prelude::*,
     utils::Duration,
 };
@@ -282,8 +283,8 @@ fn main() {
         // "before_round": new_player_system, new_round_system
         // "update": print_message_system, score_system
         // "after_round": score_check_system, game_over_system
-        .add_stage_before(stage::UPDATE, "before_round")
-        .add_stage_after(stage::UPDATE, "after_round")
+        .add_stage_before(stage::UPDATE, "before_round", SystemStage::parallel())
+        .add_stage_after(stage::UPDATE, "after_round", SystemStage::parallel())
         .add_system_to_stage("before_round", new_round_system)
         .add_system_to_stage("before_round", new_player_system)
         .add_system_to_stage("after_round", score_check_system)

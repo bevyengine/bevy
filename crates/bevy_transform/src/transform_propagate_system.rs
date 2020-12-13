@@ -71,7 +71,7 @@ fn propagate_recursive(
 mod test {
     use super::*;
     use crate::hierarchy::{parent_update_system, BuildChildren, BuildWorldChildren};
-    use bevy_ecs::{Resources, Schedule, World};
+    use bevy_ecs::{Resources, Schedule, SystemStage, World};
     use bevy_math::Vec3;
 
     #[test]
@@ -79,10 +79,12 @@ mod test {
         let mut world = World::default();
         let mut resources = Resources::default();
 
+        let mut update_stage = SystemStage::parallel();
+        update_stage.add_system(parent_update_system);
+        update_stage.add_system(transform_propagate_system);
+
         let mut schedule = Schedule::default();
-        schedule.add_stage("update");
-        schedule.add_system_to_stage("update", parent_update_system);
-        schedule.add_system_to_stage("update", transform_propagate_system);
+        schedule.add_stage("update", update_stage);
 
         // Root entity
         world.spawn((
@@ -110,11 +112,7 @@ mod test {
                     ))
                     .for_current_entity(|entity| children.push(entity));
             });
-        // we need to run the schedule two times because components need to be filled in
-        // to resolve this problem in code, just add the correct components, or use Commands
-        // which adds all of the components needed with the correct state (see next test)
-        schedule.initialize(&mut world, &mut resources);
-        schedule.run(&mut world, &mut resources);
+        schedule.initialize_and_run(&mut world, &mut resources);
 
         assert_eq!(
             *world.get::<GlobalTransform>(children[0]).unwrap(),
@@ -134,10 +132,12 @@ mod test {
         let mut world = World::default();
         let mut resources = Resources::default();
 
+        let mut update_stage = SystemStage::parallel();
+        update_stage.add_system(parent_update_system);
+        update_stage.add_system(transform_propagate_system);
+
         let mut schedule = Schedule::default();
-        schedule.add_stage("update");
-        schedule.add_system_to_stage("update", parent_update_system);
-        schedule.add_system_to_stage("update", transform_propagate_system);
+        schedule.add_stage("update", update_stage);
 
         // Root entity
         let mut commands = Commands::default();
@@ -162,8 +162,7 @@ mod test {
                     .for_current_entity(|entity| children.push(entity));
             });
         commands.apply(&mut world, &mut resources);
-        schedule.initialize(&mut world, &mut resources);
-        schedule.run(&mut world, &mut resources);
+        schedule.initialize_and_run(&mut world, &mut resources);
 
         assert_eq!(
             *world.get::<GlobalTransform>(children[0]).unwrap(),

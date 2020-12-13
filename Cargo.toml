@@ -194,8 +194,16 @@ name = "event"
 path = "examples/ecs/event.rs"
 
 [[example]]
+name = "fixed_timestep"
+path = "examples/ecs/fixed_timestep.rs"
+
+[[example]]
 name = "startup_system"
 path = "examples/ecs/startup_system.rs"
+
+[[example]]
+name = "state"
+path = "examples/ecs/state.rs"
 
 [[example]]
 name = "system_chaining"

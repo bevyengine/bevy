@@ -13,11 +13,9 @@ pub struct ChainSystem<SystemA, SystemB> {
     pub(crate) resource_access: TypeAccess<TypeId>,
 }
 
-impl<SystemA: System, SystemB: System<Input = SystemA::Output>> System
-    for ChainSystem<SystemA, SystemB>
-{
-    type Input = SystemA::Input;
-    type Output = SystemB::Output;
+impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem<SystemA, SystemB> {
+    type In = SystemA::In;
+    type Out = SystemB::Out;
 
     fn name(&self) -> Cow<'static, str> {
         self.name.clone()
@@ -25,10 +23,6 @@ impl<SystemA: System, SystemB: System<Input = SystemA::Output>> System
 
     fn id(&self) -> SystemId {
         self.id
-    }
-
-    fn is_initialized(&self) -> bool {
-        self.system_a.is_initialized() && self.system_b.is_initialized()
     }
 
     fn update(&mut self, world: &World) {
@@ -56,10 +50,10 @@ impl<SystemA: System, SystemB: System<Input = SystemA::Output>> System
 
     unsafe fn run_unsafe(
         &mut self,
-        input: Self::Input,
+        input: Self::In,
         world: &World,
         resources: &Resources,
-    ) -> Option<Self::Output> {
+    ) -> Option<Self::Out> {
         let out = self.system_a.run_unsafe(input, world, resources).unwrap();
         self.system_b.run_unsafe(out, world, resources)
     }
@@ -80,7 +74,7 @@ pub trait IntoChainSystem<AParams, BParams, IntoB, SystemA, SystemB>:
 where
     IntoB: IntoSystem<BParams, SystemB>,
     SystemA: System,
-    SystemB: System<Input = SystemA::Output>,
+    SystemB: System<In = SystemA::Out>,
 {
     fn chain(self, system: IntoB) -> ChainSystem<SystemA, SystemB>;
 }
@@ -89,7 +83,7 @@ impl<AParams, BParams, IntoA, IntoB, SystemA, SystemB>
     IntoChainSystem<AParams, BParams, IntoB, SystemA, SystemB> for IntoA
 where
     SystemA: System,
-    SystemB: System<Input = SystemA::Output>,
+    SystemB: System<In = SystemA::Out>,
     IntoA: IntoSystem<AParams, SystemA>,
     IntoB: IntoSystem<BParams, SystemB>,
 {
