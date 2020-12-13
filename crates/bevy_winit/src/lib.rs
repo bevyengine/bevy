@@ -138,7 +138,7 @@ fn run_return<F>(event_loop: &mut EventLoop<()>, event_handler: F)
 where
     F: FnMut(Event<'_, ()>, &EventLoopWindowTarget<()>, &mut ControlFlow),
 {
-    use winit::platform::desktop::EventLoopExtDesktop;
+    use winit::platform::run_return::EventLoopExtRunReturn;
     event_loop.run_return(event_handler)
 }
 
