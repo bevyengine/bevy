@@ -87,7 +87,7 @@ impl WinitWindows {
         {
             use winit::platform::web::WindowExtWebSys;
 
-            if window.canvas.is_none() {
+            if window_descriptor.canvas.is_none() {
                 let canvas = winit_window.canvas();
 
                 let window = web_sys::window().unwrap();
