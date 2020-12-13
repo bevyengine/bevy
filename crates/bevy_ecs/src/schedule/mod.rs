@@ -158,7 +158,7 @@ impl Schedule {
     ) -> &mut Self {
         let stage = self
             .get_stage_mut::<T>(name)
-            .expect("stage does not exist or is the wrong type");
+            .unwrap_or_else(|| panic!("stage '{}' does not exist or is the wrong type", name));
         func(stage);
         self
     }
