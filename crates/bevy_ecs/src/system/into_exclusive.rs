@@ -26,7 +26,7 @@ impl System for ExclusiveSystemFn {
         self.id
     }
 
-    fn update(&mut self, _world: &World) {}
+    fn update_access(&mut self, _world: &World) {}
 
     fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent> {
         &self.archetype_component_access

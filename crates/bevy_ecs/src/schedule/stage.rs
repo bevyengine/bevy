@@ -19,8 +19,17 @@ pub trait Stage: Downcast + Send + Sync {
 
 impl_downcast!(Stage);
 
+type Label = &'static str; // TODO
+
+#[derive(Clone, Copy)]
+pub struct SystemIndex {
+    pub set: usize,
+    pub system: usize,
+}
+
 pub struct SystemStage {
     system_sets: Vec<SystemSet>,
+    labels: HashMap<Label, SystemIndex>,
     executor: Box<dyn SystemStageExecutor>,
     run_criteria: RunCriteria,
 }
@@ -29,6 +38,7 @@ impl SystemStage {
     pub fn new(executor: Box<dyn SystemStageExecutor>) -> Self {
         SystemStage {
             executor,
+            labels: Default::default(),
             run_criteria: Default::default(),
             system_sets: vec![SystemSet::default()],
         }
@@ -53,47 +63,43 @@ impl SystemStage {
         S: System<In = (), Out = ()>,
         IntoS: IntoSystem<Params, S>,
     {
-        self.system_sets[0].add_system(system.system());
+        self.add_system(system);
         self
     }
 
-    pub fn with_system_labeled<S, Params, IntoS>(mut self, system: IntoS, label: &str) -> Self
+    pub fn with_system_labeled<S, Params, IntoS>(mut self, system: IntoS, label: Label) -> Self
     where
         S: System<In = (), Out = ()>,
         IntoS: IntoSystem<Params, S>,
     {
-        self.system_sets[0].add_system_labeled(system.system(), label);
+        self.add_system_labeled(system, label);
         self
     }
 
     pub fn with_system_with_dependencies<S, Params, IntoS>(
         mut self,
         system: IntoS,
-        dependencies: &[&str],
+        dependencies: &[Label],
     ) -> Self
     where
         S: System<In = (), Out = ()>,
         IntoS: IntoSystem<Params, S>,
     {
-        self.system_sets[0].add_system_with_dependencies(system.system(), dependencies);
+        self.add_system_with_dependencies(system, dependencies);
         self
     }
 
     pub fn with_system_labeled_with_dependencies<S, Params, IntoS>(
         mut self,
         system: IntoS,
-        label: &str,
-        dependencies: &[&str],
+        label: Label,
+        dependencies: &[Label],
     ) -> Self
     where
         S: System<In = (), Out = ()>,
         IntoS: IntoSystem<Params, S>,
     {
-        self.system_sets[0].add_system_labeled_with_dependencies(
-            system.system(),
-            label,
-            dependencies,
-        );
+        self.add_system_labeled_with_dependencies(system, label, dependencies);
         self
     }
 
@@ -125,43 +131,39 @@ impl SystemStage {
         self
     }
 
-    pub fn add_system_labeled<S, Params, IntoS>(&mut self, system: IntoS, label: &str) -> &mut Self
+    pub fn add_system_labeled<S, Params, IntoS>(&mut self, system: IntoS, label: Label) -> &mut Self
     where
         S: System<In = (), Out = ()>,
         IntoS: IntoSystem<Params, S>,
     {
-        self.system_sets[0].add_system_labeled(system.system(), label);
+        self.system_sets[0].add_system_labeled(system, label);
         self
     }
 
     pub fn add_system_with_dependencies<S, Params, IntoS>(
         &mut self,
         system: IntoS,
-        dependencies: &[&str],
+        dependencies: &[Label],
     ) -> &mut Self
     where
         S: System<In = (), Out = ()>,
         IntoS: IntoSystem<Params, S>,
     {
-        self.system_sets[0].add_system_with_dependencies(system.system(), dependencies);
+        self.system_sets[0].add_system_with_dependencies(system, dependencies);
         self
     }
 
     pub fn add_system_labeled_with_dependencies<S, Params, IntoS>(
         &mut self,
         system: IntoS,
-        label: &str,
-        dependencies: &[&str],
+        label: Label,
+        dependencies: &[Label],
     ) -> &mut Self
     where
         S: System<In = (), Out = ()>,
         IntoS: IntoSystem<Params, S>,
     {
-        self.system_sets[0].add_system_labeled_with_dependencies(
-            system.system(),
-            label,
-            dependencies,
-        );
+        self.system_sets[0].add_system_labeled_with_dependencies(system, label, dependencies);
         self
     }
 
@@ -173,7 +175,7 @@ impl SystemStage {
     pub fn add_system_boxed_labeled(
         &mut self,
         system: Box<dyn System<In = (), Out = ()>>,
-        label: &str,
+        label: Label,
     ) -> &mut Self {
         self.system_sets[0].add_system_boxed_labeled(system, label);
         self
@@ -182,7 +184,7 @@ impl SystemStage {
     pub fn add_system_boxed_with_dependencies(
         &mut self,
         system: Box<dyn System<In = (), Out = ()>>,
-        dependencies: &[&str],
+        dependencies: &[Label],
     ) -> &mut Self {
         self.system_sets[0].add_system_boxed_with_dependencies(system, dependencies);
         self
@@ -191,8 +193,8 @@ impl SystemStage {
     pub fn add_system_boxed_labeled_with_dependencies(
         &mut self,
         system: Box<dyn System<In = (), Out = ()>>,
-        label: &str,
-        dependencies: &[&str],
+        label: Label,
+        dependencies: &[Label],
     ) -> &mut Self {
         self.system_sets[0].add_system_boxed_labeled_with_dependencies(system, label, dependencies);
         self
@@ -207,11 +209,22 @@ impl SystemStage {
     }
 
     pub fn run_once(&mut self, world: &mut World, resources: &mut Resources) {
-        for system_set in self.system_sets.iter_mut() {
+        for (set_index, system_set) in self.system_sets.iter_mut().enumerate() {
+            for &system_index in system_set.changed_systems() {
+                if let Some(label) = system_set.system_label(system_index) {
+                    self.labels.insert(
+                        label,
+                        SystemIndex {
+                            set: set_index,
+                            system: system_index,
+                        },
+                    );
+                }
+            }
             system_set.for_each_changed_system(|system| system.initialize(world, resources));
         }
         self.executor
-            .execute_stage(&mut self.system_sets, world, resources);
+            .execute_stage(&mut self.system_sets, &self.labels, world, resources);
         for system_set in self.system_sets.iter_mut() {
             system_set.clear_changed_systems();
         }
@@ -241,8 +254,8 @@ impl Stage for SystemStage {
 #[derive(Default)]
 pub struct SystemSet {
     systems: Vec<Box<dyn System<In = (), Out = ()>>>,
-    dependencies: Vec<Option<Vec<String>>>,
-    labels: HashMap<String, usize>,
+    labels: Vec<Option<Label>>,
+    dependencies: Vec<Vec<Label>>,
     run_criteria: RunCriteria,
     changed_systems: Vec<usize>,
 }
@@ -274,12 +287,20 @@ impl SystemSet {
         &mut self.run_criteria
     }
 
-    pub fn systems(&mut self) -> &[Box<dyn System<In = (), Out = ()>>] {
+    pub fn systems(&self) -> &[Box<dyn System<In = (), Out = ()>>] {
         &self.systems
     }
 
     pub fn systems_mut(&mut self) -> &mut [Box<dyn System<In = (), Out = ()>>] {
         &mut self.systems
+    }
+
+    pub fn system_label(&self, index: usize) -> Option<Label> {
+        self.labels[index]
+    }
+
+    pub fn system_dependencies(&self, index: usize) -> &[Label] {
+        &self.dependencies[index]
     }
 
     pub fn with_system<S, Params, IntoS>(mut self, system: IntoS) -> Self
@@ -291,7 +312,7 @@ impl SystemSet {
         self
     }
 
-    pub fn with_system_labeled<S, Params, IntoS>(mut self, system: IntoS, label: &str) -> Self
+    pub fn with_system_labeled<S, Params, IntoS>(mut self, system: IntoS, label: Label) -> Self
     where
         S: System<In = (), Out = ()>,
         IntoS: IntoSystem<Params, S>,
@@ -303,7 +324,7 @@ impl SystemSet {
     pub fn with_system_with_dependencies<S, Params, IntoS>(
         mut self,
         system: IntoS,
-        dependencies: &[&str],
+        dependencies: &[Label],
     ) -> Self
     where
         S: System<In = (), Out = ()>,
@@ -316,8 +337,8 @@ impl SystemSet {
     pub fn with_system_labeled_with_dependencies<S, Params, IntoS>(
         mut self,
         system: IntoS,
-        label: &str,
-        dependencies: &[&str],
+        label: Label,
+        dependencies: &[Label],
     ) -> Self
     where
         S: System<In = (), Out = ()>,
@@ -335,7 +356,7 @@ impl SystemSet {
         self.add_system_boxed(Box::new(system.system()))
     }
 
-    pub fn add_system_labeled<S, Params, IntoS>(&mut self, system: IntoS, label: &str) -> &mut Self
+    pub fn add_system_labeled<S, Params, IntoS>(&mut self, system: IntoS, label: Label) -> &mut Self
     where
         S: System<In = (), Out = ()>,
         IntoS: IntoSystem<Params, S>,
@@ -346,7 +367,7 @@ impl SystemSet {
     pub fn add_system_with_dependencies<S, Params, IntoS>(
         &mut self,
         system: IntoS,
-        dependencies: &[&str],
+        dependencies: &[Label],
     ) -> &mut Self
     where
         S: System<In = (), Out = ()>,
@@ -358,8 +379,8 @@ impl SystemSet {
     pub fn add_system_labeled_with_dependencies<S, Params, IntoS>(
         &mut self,
         system: IntoS,
-        label: &str,
-        dependencies: &[&str],
+        label: Label,
+        dependencies: &[Label],
     ) -> &mut Self
     where
         S: System<In = (), Out = ()>,
@@ -379,7 +400,7 @@ impl SystemSet {
     pub fn add_system_boxed_labeled(
         &mut self,
         system: Box<dyn System<In = (), Out = ()>>,
-        label: &str,
+        label: Label,
     ) -> &mut Self {
         self.add_system_boxed_labeled_with_dependencies(system, label, &[])
     }
@@ -387,31 +408,26 @@ impl SystemSet {
     pub fn add_system_boxed_with_dependencies(
         &mut self,
         system: Box<dyn System<In = (), Out = ()>>,
-        dependencies: &[&str],
+        dependencies: &[Label],
     ) -> &mut Self {
-        if dependencies.is_empty() {
-            self.dependencies.push(None);
-        } else {
-            self.dependencies.push(Some(
-                dependencies
-                    .iter()
-                    .map(|string| string.to_string())
-                    .collect(),
-            ));
-        }
-        self.changed_systems.push(self.systems.len());
         self.systems.push(system);
+        self.changed_systems.push(self.systems.len());
+        self.labels.push(None);
+        self.dependencies.push(dependencies.to_vec());
         self
     }
 
     pub fn add_system_boxed_labeled_with_dependencies(
         &mut self,
         system: Box<dyn System<In = (), Out = ()>>,
-        label: &str,
-        dependencies: &[&str],
+        label: Label,
+        dependencies: &[Label],
     ) -> &mut Self {
-        self.labels.insert(label.to_string(), self.systems.len());
-        self.add_system_boxed_with_dependencies(system, dependencies)
+        self.systems.push(system);
+        self.changed_systems.push(self.systems.len());
+        self.labels.push(Some(label));
+        self.dependencies.push(dependencies.to_vec());
+        self
     }
 }
 
@@ -474,7 +490,7 @@ impl System for RunOnce {
         self.system_id
     }
 
-    fn update(&mut self, _world: &World) {}
+    fn update_access(&mut self, _world: &World) {}
 
     fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent> {
         &self.archetype_component_access

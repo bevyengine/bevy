@@ -67,7 +67,7 @@ impl System for FixedTimestep {
         self.system_id
     }
 
-    fn update(&mut self, _world: &bevy_ecs::World) {}
+    fn update_access(&mut self, _world: &bevy_ecs::World) {}
 
     fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent> {
         &self.archetype_access

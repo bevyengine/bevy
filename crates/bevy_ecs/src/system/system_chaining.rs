@@ -22,11 +22,11 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
         self.id
     }
 
-    fn update(&mut self, world: &World) {
+    fn update_access(&mut self, world: &World) {
         self.archetype_component_access.clear();
         self.resource_access.clear();
-        self.system_a.update(world);
-        self.system_b.update(world);
+        self.system_a.update_access(world);
+        self.system_b.update_access(world);
 
         // TODO shouldn't this be access of both systems combined?
         self.archetype_component_access

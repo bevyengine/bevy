@@ -54,7 +54,7 @@ pub trait System: Send + Sync + 'static {
     type Out;
     fn name(&self) -> Cow<'static, str>;
     fn id(&self) -> SystemId;
-    fn update(&mut self, world: &World);
+    fn update_access(&mut self, world: &World);
     fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent>;
     fn resource_access(&self) -> &TypeAccess<TypeId>;
     fn is_thread_local(&self) -> bool;

@@ -97,7 +97,7 @@ impl<In: 'static, Out: 'static> System for FuncSystem<In, Out> {
         self.state.id
     }
 
-    fn update(&mut self, world: &World) {
+    fn update_access(&mut self, world: &World) {
         self.state.update(world);
     }
 
