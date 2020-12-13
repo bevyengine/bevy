@@ -17,7 +17,7 @@ struct InstanceInfo {
 pub struct InstanceId(Uuid);
 
 impl InstanceId {
-    pub fn new() -> Self {
+    fn new() -> Self {
         InstanceId(Uuid::new_v4())
     }
 }
