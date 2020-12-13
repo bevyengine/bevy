@@ -98,7 +98,7 @@ impl<T: Resource + Clone> Stage for StateStage<T> {
     }
 
     fn run(&mut self, world: &mut World, resources: &mut Resources) {
-        loop {
+        let current_stage = loop {
             let (next_stage, current_stage) = {
                 let mut state = resources
                     .get_mut::<State<T>>()
@@ -132,14 +132,17 @@ impl<T: Resource + Clone> Stage for StateStage<T> {
                 {
                     enter_next.run(world, resources);
                 }
-            } else if let Some(update_current) = self
-                .stages
-                .get_mut(&current_stage)
-                .and_then(|stage| stage.update.as_mut())
-            {
-                update_current.run(world, resources);
-                break;
+            } else {
+                break current_stage;
             }
+        };
+
+        if let Some(update_current) = self
+            .stages
+            .get_mut(&current_stage)
+            .and_then(|stage| stage.update.as_mut())
+        {
+            update_current.run(world, resources);
         }
     }
 }
