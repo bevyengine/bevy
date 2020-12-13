@@ -26,8 +26,7 @@ use gltf::{
     Material, Primitive,
 };
 use image::{GenericImageView, ImageFormat};
-use std::collections::HashMap;
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 use thiserror::Error;
 
 use crate::{Gltf, GltfNode};
