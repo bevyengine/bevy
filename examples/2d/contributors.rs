@@ -134,10 +134,11 @@ fn select_system(
     mut dq: Query<Mut<Text>, With<ContributorDisplay>>,
     mut tq: Query<Mut<Timer>, With<SelectTimer>>,
     mut q: Query<(&Contributor, &Handle<ColorMaterial>, &mut Transform)>,
+    time: Res<Time>,
 ) {
     let mut timer_fired = false;
     for mut t in tq.iter_mut() {
-        if !t.just_finished() {
+        if !t.tick(time.delta_seconds()).just_finished() {
             continue;
         }
         t.reset();
