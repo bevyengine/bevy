@@ -4,10 +4,10 @@ use std::{mem::Discriminant, ops::Deref};
 use thiserror::Error;
 
 #[derive(Default)]
-pub(crate) struct StateStages {
-    update: Option<Box<dyn Stage>>,
-    enter: Option<Box<dyn Stage>>,
-    exit: Option<Box<dyn Stage>>,
+pub struct StateStages {
+    pub update: Option<Box<dyn Stage>>,
+    pub enter: Option<Box<dyn Stage>>,
+    pub exit: Option<Box<dyn Stage>>,
 }
 
 pub struct StateStage<T> {
@@ -48,19 +48,13 @@ impl<T> StateStage<T> {
         state: T,
         stage: S,
     ) -> &mut Self {
-        let stages = self
-            .stages
-            .entry(std::mem::discriminant(&state))
-            .or_default();
+        let stages = self.get_state_stages_mut(state);
         stages.enter = Some(Box::new(stage.into_stage()));
         self
     }
 
     pub fn on_state_exit<Params, S: IntoStage<Params>>(&mut self, state: T, stage: S) -> &mut Self {
-        let stages = self
-            .stages
-            .entry(std::mem::discriminant(&state))
-            .or_default();
+        let stages = self.get_state_stages_mut(state);
         stages.exit = Some(Box::new(stage.into_stage()));
         self
     }
@@ -70,12 +64,16 @@ impl<T> StateStage<T> {
         state: T,
         stage: S,
     ) -> &mut Self {
-        let stages = self
-            .stages
-            .entry(std::mem::discriminant(&state))
-            .or_default();
+        let stages = self.get_state_stages_mut(state);
         stages.update = Some(Box::new(stage.into_stage()));
         self
+    }
+
+    /// Creates an empty StateStages object if it doesn't exist yet.
+    pub fn get_state_stages_mut(&mut self, state: T) -> &mut StateStages {
+        self.stages
+            .entry(std::mem::discriminant(&state))
+            .or_default()
     }
 }
 
