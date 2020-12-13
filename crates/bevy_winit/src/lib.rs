@@ -22,6 +22,15 @@ use winit::{
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
 
+#[cfg(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd"
+))]
+use winit::platform::unix::EventLoopExtUnix;
+
 #[derive(Default)]
 pub struct WinitPlugin;
 
@@ -157,8 +166,22 @@ where
     panic!("Run return is not supported on this platform!")
 }
 
-pub fn winit_runner(mut app: App) {
-    let mut event_loop = EventLoop::new();
+pub fn winit_runner(app: App) {
+    winit_runner_with(app, EventLoop::new());
+}
+
+#[cfg(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd"
+))]
+pub fn winit_runner_any_thread(app: App) {
+    winit_runner_with(app, EventLoop::new_any_thread());
+}
+
+pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
     let mut create_window_event_reader = EventReader::<CreateWindow>::default();
     let mut app_exit_event_reader = EventReader::<AppExit>::default();
 
