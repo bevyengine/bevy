@@ -30,8 +30,8 @@ fn main() {
     App::build()
         .add_resource(WindowDescriptor {
             title: "BevyMark".to_string(),
-            width: 800,
-            height: 600,
+            width: 800.,
+            height: 600.,
             vsync: true,
             resizable: false,
             ..Default::default()
@@ -85,8 +85,8 @@ fn mouse_handler(
 ) {
     if mouse_button_input.pressed(MouseButton::Left) {
         let spawn_count = (BIRDS_PER_SECOND as f32 * time.delta_seconds()) as u128;
-        let bird_x = (window.width as i32 / -2) as f32 + HALF_BIRD_SIZE;
-        let bird_y = (window.height / 2) as f32 - HALF_BIRD_SIZE;
+        let bird_x = (window.width / -2.) + HALF_BIRD_SIZE;
+        let bird_y = (window.height / 2.) - HALF_BIRD_SIZE;
 
         for count in 0..spawn_count {
             let bird_position = Vec3::new(bird_x, bird_y, (counter.count + count) as f32 * 0.00001);

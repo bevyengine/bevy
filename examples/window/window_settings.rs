@@ -5,8 +5,8 @@ fn main() {
     App::build()
         .add_resource(WindowDescriptor {
             title: "I am a window!".to_string(),
-            width: 500,
-            height: 300,
+            width: 500.,
+            height: 300.,
             vsync: true,
             resizable: false,
             ..Default::default()

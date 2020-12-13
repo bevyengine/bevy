@@ -238,11 +238,11 @@ fn collision_system(
 
     let win = wins.get_primary().unwrap();
 
-    let ceiling = win.logical_height() / 2.;
-    let ground = -(win.logical_height() / 2.);
+    let ceiling = win.height() / 2.;
+    let ground = -(win.height() / 2.);
 
-    let wall_left = -(win.logical_width() / 2.);
-    let wall_right = win.logical_width() / 2.;
+    let wall_left = -(win.width() / 2.);
+    let wall_right = win.width() / 2.;
 
     for (mut v, mut t) in q.iter_mut() {
         let left = t.translation.x - SPRITE_SIZE / 2.0;

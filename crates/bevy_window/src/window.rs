@@ -32,11 +32,29 @@ impl Default for WindowId {
     }
 }
 
+/// An operating system window that can present content and receive user input.
+///
+/// ## Window Sizes
+///
+/// There are three sizes associated with a window. The physical size which is
+/// the height and width in physical pixels on the monitor. The logical size
+/// which is the physical size scaled by an operating system provided factor to
+/// account for monitors with differing pixel densities or user preference. And
+/// the requested size, measured in logical pixels, which is the value submitted
+/// to the API when creating the window, or requesting that it be resized.
+///
+/// The actual size, in logical pixels, of the window may not match the
+/// requested size due to operating system limits on the window size, or the
+/// quantization of the logical size when converting the physical size to the
+/// logical size through the scaling factor.
 #[derive(Debug)]
 pub struct Window {
     id: WindowId,
+    requested_width: f32,
+    requested_height: f32,
     physical_width: u32,
     physical_height: u32,
+    scale_factor: f64,
     title: String,
     vsync: bool,
     resizable: bool,
@@ -48,7 +66,6 @@ pub struct Window {
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
     command_queue: Vec<WindowCommand>,
-    scale_factor: f64,
 }
 
 #[derive(Debug)]
@@ -61,8 +78,7 @@ pub enum WindowCommand {
         title: String,
     },
     SetResolution {
-        physical_width: u32,
-        physical_height: u32,
+        resolution: (f32, f32),
     },
     SetVsync {
         vsync: bool,
@@ -100,11 +116,20 @@ pub enum WindowMode {
 }
 
 impl Window {
-    pub fn new(id: WindowId, window_descriptor: &WindowDescriptor) -> Self {
+    pub fn new(
+        id: WindowId,
+        window_descriptor: &WindowDescriptor,
+        physical_width: u32,
+        physical_height: u32,
+        scale_factor: f64,
+    ) -> Self {
         Window {
             id,
-            physical_height: window_descriptor.height,
-            physical_width: window_descriptor.width,
+            requested_width: window_descriptor.width,
+            requested_height: window_descriptor.height,
+            physical_width,
+            physical_height,
+            scale_factor,
             title: window_descriptor.title.clone(),
             vsync: window_descriptor.vsync,
             resizable: window_descriptor.resizable,
@@ -116,7 +141,6 @@ impl Window {
             #[cfg(target_arch = "wasm32")]
             canvas: window_descriptor.canvas.clone(),
             command_queue: Vec::new(),
-            scale_factor: 1.0,
         }
     }
 
@@ -125,31 +149,45 @@ impl Window {
         self.id
     }
 
+    /// The current logical width of the window's client area.
     #[inline]
-    pub fn width(&self) -> u32 {
-        self.logical_width() as u32
-    }
-
-    #[inline]
-    pub fn height(&self) -> u32 {
-        self.logical_height() as u32
-    }
-
-    #[inline]
-    pub fn logical_width(&self) -> f32 {
+    pub fn width(&self) -> f32 {
         (self.physical_width as f64 / self.scale_factor) as f32
     }
 
+    /// The current logical height of the window's client area.
     #[inline]
-    pub fn logical_height(&self) -> f32 {
+    pub fn height(&self) -> f32 {
         (self.physical_height as f64 / self.scale_factor) as f32
     }
 
+    /// The requested window client area width in logical pixels from window
+    /// creation or the last call to [set_resolution](Window::set_resolution).
+    ///
+    /// This may differ from the actual width depending on OS size limits and
+    /// the scaling factor for high DPI monitors.
+    #[inline]
+    pub fn requested_width(&self) -> f32 {
+        self.requested_width
+    }
+
+    /// The requested window client area height in logical pixels from window
+    /// creation or the last call to [set_resolution](Window::set_resolution).
+    ///
+    /// This may differ from the actual width depending on OS size limits and
+    /// the scaling factor for high DPI monitors.
+    #[inline]
+    pub fn requested_height(&self) -> f32 {
+        self.requested_height
+    }
+
+    /// The window's client area width in physical pixels.
     #[inline]
     pub fn physical_width(&self) -> u32 {
         self.physical_width
     }
 
+    /// The window's client area height in physical pixels.
     #[inline]
     pub fn physical_height(&self) -> u32 {
         self.physical_height
@@ -161,20 +199,14 @@ impl Window {
             .push(WindowCommand::SetMaximized { maximized });
     }
 
-    pub fn set_resolution(&mut self, width: u32, height: u32) {
-        self.physical_width = (width as f64 * self.scale_factor) as u32;
-        self.physical_height = (height as f64 * self.scale_factor) as u32;
+    /// Request the OS to resize the window such the the client area matches the
+    /// specified width and height.
+    pub fn set_resolution(&mut self, width: f32, height: f32) {
+        self.requested_width = width;
+        self.requested_height = height;
         self.command_queue.push(WindowCommand::SetResolution {
-            physical_width: self.physical_width,
-            physical_height: self.physical_height,
+            resolution: (self.requested_width, self.requested_height),
         });
-    }
-
-    #[allow(missing_docs)]
-    #[inline]
-    pub fn update_physical_size_from_backend(&mut self, width: u32, height: u32) {
-        self.physical_width = width;
-        self.physical_height = height;
     }
 
     #[allow(missing_docs)]
@@ -183,6 +215,16 @@ impl Window {
         self.scale_factor = scale_factor;
     }
 
+    #[allow(missing_docs)]
+    #[inline]
+    pub fn update_actual_size_from_backend(&mut self, physical_width: u32, physical_height: u32) {
+        self.physical_width = physical_width;
+        self.physical_height = physical_height;
+    }
+
+    /// The ratio of physical pixels to logical pixels
+    ///
+    /// `physical_pixels = logical_pixels * scale_factor`
     #[inline]
     pub fn scale_factor(&self) -> f64 {
         self.scale_factor
@@ -291,8 +333,8 @@ impl Window {
 
 #[derive(Debug, Clone)]
 pub struct WindowDescriptor {
-    pub width: u32,
-    pub height: u32,
+    pub width: f32,
+    pub height: f32,
     pub title: String,
     pub vsync: bool,
     pub resizable: bool,
@@ -308,8 +350,8 @@ impl Default for WindowDescriptor {
     fn default() -> Self {
         WindowDescriptor {
             title: "bevy".to_string(),
-            width: 1280,
-            height: 720,
+            width: 1280.,
+            height: 720.,
             vsync: true,
             resizable: true,
             decorations: true,
