@@ -185,6 +185,12 @@ impl Schedule {
             stage.run(world, resources);
         }
     }
+
+    /// Shorthand for [Schedule::initialize] and [Schedule::run]
+    pub fn initialize_and_run(&mut self, world: &mut World, resources: &mut Resources) {
+        self.initialize(world, resources);
+        self.run(world, resources);
+    }
 }
 
 impl Stage for Schedule {
@@ -236,7 +242,7 @@ pub fn clear_trackers_system(world: &mut World, resources: &mut Resources) {
 mod tests {
     use crate::{
         resource::{Res, ResMut, Resources},
-        schedule::{ParallelSystemStageExecutor, Schedule, Stage, SystemStage},
+        schedule::{ParallelSystemStageExecutor, Schedule, SystemStage},
         system::Query,
         Commands, Entity, World,
     };
@@ -278,7 +284,7 @@ mod tests {
         post_archetype_change.add_system(read);
         schedule.add_stage("PostArchetypeChange", post_archetype_change);
 
-        schedule.run(&mut world, &mut resources);
+        schedule.initialize_and_run(&mut world, &mut resources);
     }
 
     #[test]
@@ -308,7 +314,7 @@ mod tests {
         let mut schedule = Schedule::default();
         schedule.add_stage("update", update);
 
-        schedule.run(&mut world, &mut resources);
+        schedule.initialize_and_run(&mut world, &mut resources);
     }
 
     #[test]
@@ -447,7 +453,7 @@ mod tests {
         stage_c.add_system(write_f64_res);
 
         fn run_and_validate(schedule: &mut Schedule, world: &mut World, resources: &mut Resources) {
-            schedule.run(world, resources);
+            schedule.initialize_and_run(world, resources);
 
             let stage_a = schedule.get_stage::<SystemStage>("a").unwrap();
             let stage_b = schedule.get_stage::<SystemStage>("b").unwrap();
