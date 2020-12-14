@@ -1,4 +1,4 @@
-use std::{any::TypeId, borrow::Cow};
+use std::{any::TypeId, borrow::Cow, ptr::NonNull};
 
 use crate::{
     ArchetypeComponent, IntoSystem, Resources, RunCriteria, ShouldRun, System, SystemId,
@@ -253,12 +253,16 @@ impl Stage for SystemStage {
 
 #[derive(Default)]
 pub struct SystemSet {
-    systems: Vec<Box<dyn System<In = (), Out = ()>>>,
+    // TODO Audit it. Again. Keep auditing. Don't stop.
+    systems: Vec<NonNull<dyn System<In = (), Out = ()>>>,
     labels: Vec<Option<Label>>,
     dependencies: Vec<Vec<Label>>,
     run_criteria: RunCriteria,
     changed_systems: Vec<usize>,
 }
+
+unsafe impl Send for SystemSet {}
+unsafe impl Sync for SystemSet {}
 
 impl SystemSet {
     // TODO: ideally this returns an iterator, but impl Iterator can't be used in this context (yet) and a custom iterator isn't worth it
@@ -267,7 +271,8 @@ impl SystemSet {
         mut func: impl FnMut(&mut dyn System<In = (), Out = ()>),
     ) {
         for index in self.changed_systems.iter_mut() {
-            func(&mut *self.systems[*index])
+            // SAFE: this happens during exclusive access.
+            unsafe { func(self.systems[*index].as_mut()) }
         }
     }
 
@@ -287,12 +292,40 @@ impl SystemSet {
         &mut self.run_criteria
     }
 
-    pub fn systems(&self) -> &[Box<dyn System<In = (), Out = ()>>] {
-        &self.systems
+    pub fn systems_len(&self) -> usize {
+        self.systems.len()
     }
 
-    pub fn systems_mut(&mut self) -> &mut [Box<dyn System<In = (), Out = ()>>] {
-        &mut self.systems
+    pub fn systems(&self) -> impl Iterator<Item = &dyn System<In = (), Out = ()>> {
+        // SAFE: this can be only happen when no mutable access exists.
+        self.systems
+            .iter()
+            .map(|pointer| unsafe { pointer.as_ref() })
+    }
+
+    pub fn systems_mut(&mut self) -> impl Iterator<Item = &mut dyn System<In = (), Out = ()>> {
+        // SAFE: this happens during exclusive access.
+        self.systems
+            .iter_mut()
+            .map(|pointer| unsafe { pointer.as_mut() })
+    }
+
+    pub fn system(&self, index: usize) -> &dyn System<In = (), Out = ()> {
+        // SAFE: this can be only happen when no mutable access exists.
+        unsafe { self.systems[index].as_ref() }
+    }
+
+    pub fn system_mut(&mut self, index: usize) -> &mut dyn System<In = (), Out = ()> {
+        // SAFE: this happens during exclusive access.
+        unsafe { self.systems[index].as_mut() }
+    }
+
+    // TODO reduce snark
+    /// # Safety
+    /// Not safe. What did you expect, ffs.
+    #[allow(clippy::mut_from_ref)]
+    pub unsafe fn system_mut_unsafe(&self, index: usize) -> &mut dyn System<In = (), Out = ()> {
+        &mut *self.systems[index].as_ptr()
     }
 
     pub fn system_label(&self, index: usize) -> Option<Label> {
@@ -410,7 +443,7 @@ impl SystemSet {
         system: Box<dyn System<In = (), Out = ()>>,
         dependencies: &[Label],
     ) -> &mut Self {
-        self.systems.push(system);
+        self.systems.push(NonNull::from(&*system));
         self.changed_systems.push(self.systems.len());
         self.labels.push(None);
         self.dependencies.push(dependencies.to_vec());
@@ -423,7 +456,7 @@ impl SystemSet {
         label: Label,
         dependencies: &[Label],
     ) -> &mut Self {
-        self.systems.push(system);
+        self.systems.push(NonNull::from(&*system));
         self.changed_systems.push(self.systems.len());
         self.labels.push(Some(label));
         self.dependencies.push(dependencies.to_vec());

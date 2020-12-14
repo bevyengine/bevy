@@ -1,43 +1,6 @@
 use crate::{ArchetypeComponent, Resources, TypeAccess, World};
 use std::{any::TypeId, borrow::Cow};
 
-/*
-/// Provides information about the archetypes and components a [System] reads and writes.
-#[derive(Debug, Eq, PartialEq, Clone)]
-pub enum SystemArchetypeComponentAccess {
-    None,
-    ReadAll,
-    WriteAll,
-    Granular(TypeAccess<ArchetypeComponent>),
-}
-
-/*impl SystemArchetypeComponentAccess {
-    pub fn union(&mut self, other: &SystemArchetypeComponentAccess) {
-        match (self, other) {
-            (Self::None, other) => *self = anything.clone(),
-            (Self::ReadAll, Self::WriteAll) => *self = Self::WriteAll,
-            Self::WriteAll => (),
-            Self::Granular(mut access) => (),
-        }
-    }
-
-    pub fn clear(&mut self) {
-        if let Self::Granular(mut access) = self {
-            access.clear()
-        }
-    }
-}*/
-
-/// Provides information about the resources a [System] reads and writes.
-#[derive(Debug, Eq, PartialEq, Clone)]
-pub enum SystemResourceAccess {
-    None,
-    ReadAll,
-    WriteAll,
-    Granular(TypeAccess<TypeId>),
-    GranularWithThreadLocal(TypeAccess<TypeId>),
-}*/
-
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct SystemId(pub usize);
 
