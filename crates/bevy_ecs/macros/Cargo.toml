@@ -2,9 +2,13 @@
 name = "bevy_ecs_macros"
 version = "0.3.0"
 description = "Bevy ECS Macros"
-authors = ["Benjamin Saunders <ben.e.saunders@gmail.com>"]
+authors = [
+    "Benjamin Saunders <ben.e.saunders@gmail.com>",
+    "Bevy Contributors <bevyengine@gmail.com>",
+    "Carter Anderson <mcanders1@gmail.com>"
+]
 edition = "2018"
-license = "Apache-2.0"
+license = "MIT"
 
 [lib]
 proc-macro = true

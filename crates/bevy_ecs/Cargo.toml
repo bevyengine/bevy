@@ -5,11 +5,12 @@ edition = "2018"
 authors = [
     "Bevy Contributors <bevyengine@gmail.com>",
     "Carter Anderson <mcanders1@gmail.com>",
+    "Benjamin Saunders <ben.e.saunders@gmail.com>", # hecs author
 ]
 description = "Bevy Engine's entity component system"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
-license = "Apache-2.0"
+license = "MIT"
 keywords = ["ecs", "game", "bevy"]
 categories = ["game-engines", "data-structures"]
 

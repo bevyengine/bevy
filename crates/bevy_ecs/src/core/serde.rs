@@ -1,5 +1,3 @@
-// modified by Bevy contributors
-
 use crate::Entity;
 use serde::{de::Visitor, Deserialize, Serialize, Serializer};
 
