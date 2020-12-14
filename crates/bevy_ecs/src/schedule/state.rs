@@ -1,13 +1,22 @@
-use crate::{IntoStage, Resource, Resources, Stage, World};
+use crate::{IntoSystem, Resource, Resources, Stage, System, SystemStage, World};
 use bevy_utils::HashMap;
 use std::{mem::Discriminant, ops::Deref};
 use thiserror::Error;
 
-#[derive(Default)]
 pub(crate) struct StateStages {
-    update: Option<Box<dyn Stage>>,
-    enter: Option<Box<dyn Stage>>,
-    exit: Option<Box<dyn Stage>>,
+    update: Box<dyn Stage>,
+    enter: Box<dyn Stage>,
+    exit: Box<dyn Stage>,
+}
+
+impl Default for StateStages {
+    fn default() -> Self {
+        Self {
+            enter: Box::new(SystemStage::parallel()),
+            update: Box::new(SystemStage::parallel()),
+            exit: Box::new(SystemStage::parallel()),
+        }
+    }
 }
 
 pub struct StateStage<T> {
@@ -24,58 +33,103 @@ impl<T> Default for StateStage<T> {
 
 #[allow(clippy::mem_discriminant_non_enum)]
 impl<T> StateStage<T> {
-    pub fn with_on_state_enter<Params, S: IntoStage<Params>>(mut self, state: T, stage: S) -> Self {
-        self.on_state_enter(state, stage);
+    pub fn set_enter_stage<S: Stage>(&mut self, state: T, stage: S) -> &mut Self {
+        let stages = self.state_stages(state);
+        stages.enter = Box::new(stage);
         self
     }
 
-    pub fn with_on_state_exit<Params, S: IntoStage<Params>>(mut self, state: T, stage: S) -> Self {
-        self.on_state_exit(state, stage);
+    pub fn set_exit_stage<S: Stage>(&mut self, state: T, stage: S) -> &mut Self {
+        let stages = self.state_stages(state);
+        stages.exit = Box::new(stage);
         self
     }
 
-    pub fn with_on_state_update<Params, S: IntoStage<Params>>(
-        mut self,
-        state: T,
-        stage: S,
-    ) -> Self {
-        self.on_state_update(state, stage);
+    pub fn set_update_stage<S: Stage>(&mut self, state: T, stage: S) -> &mut Self {
+        let stages = self.state_stages(state);
+        stages.update = Box::new(stage);
         self
     }
 
-    pub fn on_state_enter<Params, S: IntoStage<Params>>(
+    pub fn on_state_enter<Params, S: System<In = (), Out = ()>, IntoS: IntoSystem<Params, S>>(
         &mut self,
         state: T,
-        stage: S,
+        system: IntoS,
     ) -> &mut Self {
-        let stages = self
-            .stages
-            .entry(std::mem::discriminant(&state))
-            .or_default();
-        stages.enter = Some(Box::new(stage.into_stage()));
-        self
+        self.enter_stage(state, |system_stage: &mut SystemStage| {
+            system_stage.add_system(system)
+        })
     }
 
-    pub fn on_state_exit<Params, S: IntoStage<Params>>(&mut self, state: T, stage: S) -> &mut Self {
-        let stages = self
-            .stages
-            .entry(std::mem::discriminant(&state))
-            .or_default();
-        stages.exit = Some(Box::new(stage.into_stage()));
-        self
-    }
-
-    pub fn on_state_update<Params, S: IntoStage<Params>>(
+    pub fn on_state_exit<Params, S: System<In = (), Out = ()>, IntoS: IntoSystem<Params, S>>(
         &mut self,
         state: T,
-        stage: S,
+        system: IntoS,
     ) -> &mut Self {
-        let stages = self
-            .stages
-            .entry(std::mem::discriminant(&state))
-            .or_default();
-        stages.update = Some(Box::new(stage.into_stage()));
+        self.exit_stage(state, |system_stage: &mut SystemStage| {
+            system_stage.add_system(system)
+        })
+    }
+
+    pub fn on_state_update<Params, S: System<In = (), Out = ()>, IntoS: IntoSystem<Params, S>>(
+        &mut self,
+        state: T,
+        system: IntoS,
+    ) -> &mut Self {
+        self.update_stage(state, |system_stage: &mut SystemStage| {
+            system_stage.add_system(system)
+        })
+    }
+
+    pub fn enter_stage<S: Stage, F: FnOnce(&mut S) -> &mut S>(
+        &mut self,
+        state: T,
+        func: F,
+    ) -> &mut Self {
+        let stages = self.state_stages(state);
+        func(
+            stages
+                .enter
+                .downcast_mut()
+                .expect("'Enter' stage does not match the given type"),
+        );
         self
+    }
+
+    pub fn exit_stage<S: Stage, F: FnOnce(&mut S) -> &mut S>(
+        &mut self,
+        state: T,
+        func: F,
+    ) -> &mut Self {
+        let stages = self.state_stages(state);
+        func(
+            stages
+                .exit
+                .downcast_mut()
+                .expect("'Exit' stage does not match the given type"),
+        );
+        self
+    }
+
+    pub fn update_stage<S: Stage, F: FnOnce(&mut S) -> &mut S>(
+        &mut self,
+        state: T,
+        func: F,
+    ) -> &mut Self {
+        let stages = self.state_stages(state);
+        func(
+            stages
+                .update
+                .downcast_mut()
+                .expect("'Update' stage does not match the given type"),
+        );
+        self
+    }
+
+    fn state_stages(&mut self, state: T) -> &mut StateStages {
+        self.stages
+            .entry(std::mem::discriminant(&state))
+            .or_default()
     }
 }
 
@@ -83,17 +137,9 @@ impl<T> StateStage<T> {
 impl<T: Resource + Clone> Stage for StateStage<T> {
     fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
         for state_stages in self.stages.values_mut() {
-            if let Some(ref mut enter) = state_stages.enter {
-                enter.initialize(world, resources);
-            }
-
-            if let Some(ref mut update) = state_stages.update {
-                update.initialize(world, resources);
-            }
-
-            if let Some(ref mut exit) = state_stages.exit {
-                exit.initialize(world, resources);
-            }
+            state_stages.enter.initialize(world, resources);
+            state_stages.update.initialize(world, resources);
+            state_stages.exit.initialize(world, resources);
         }
     }
 
@@ -116,33 +162,21 @@ impl<T: Resource + Clone> Stage for StateStage<T> {
             // if next_stage is Some, we just applied a new state
             if let Some(next_stage) = next_stage {
                 if next_stage != current_stage {
-                    if let Some(exit_current) = self
-                        .stages
-                        .get_mut(&current_stage)
-                        .and_then(|stage| stage.exit.as_mut())
-                    {
-                        exit_current.run(world, resources);
+                    if let Some(current_state_stages) = self.stages.get_mut(&current_stage) {
+                        current_state_stages.exit.run(world, resources);
                     }
                 }
 
-                if let Some(enter_next) = self
-                    .stages
-                    .get_mut(&next_stage)
-                    .and_then(|stage| stage.enter.as_mut())
-                {
-                    enter_next.run(world, resources);
+                if let Some(next_state_stages) = self.stages.get_mut(&next_stage) {
+                    next_state_stages.enter.run(world, resources);
                 }
             } else {
                 break current_stage;
             }
         };
 
-        if let Some(update_current) = self
-            .stages
-            .get_mut(&current_stage)
-            .and_then(|stage| stage.update.as_mut())
-        {
-            update_current.run(world, resources);
+        if let Some(current_state_stages) = self.stages.get_mut(&current_stage) {
+            current_state_stages.update.run(world, resources);
         }
     }
 }

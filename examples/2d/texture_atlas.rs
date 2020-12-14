@@ -1,16 +1,19 @@
-use bevy::{asset::LoadState, prelude::*, sprite::TextureAtlasBuilder};
+use bevy::{asset::LoadState, ecs::StateStage, prelude::*, sprite::TextureAtlasBuilder};
 
 /// In this example we generate a new texture atlas (sprite sheet) from a folder containing individual sprites
 fn main() {
     App::build()
         .init_resource::<RpgSpriteHandles>()
         .add_plugins(DefaultPlugins)
-        .add_state(AppState::Setup)
-        .on_state_enter(AppState::Setup, load_textures)
-        .on_state_update(AppState::Setup, check_textures)
-        .on_state_enter(AppState::Finshed, setup)
+        .add_resource(State::new(AppState::Setup))
+        .add_stage_after(stage::UPDATE, STAGE, StateStage::<AppState>::default())
+        .on_state_enter(STAGE, AppState::Setup, load_textures)
+        .on_state_update(STAGE, AppState::Setup, check_textures)
+        .on_state_enter(STAGE, AppState::Finshed, setup)
         .run();
 }
+
+const STAGE: &str = "app_state";
 
 #[derive(Clone)]
 enum AppState {

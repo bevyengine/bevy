@@ -174,29 +174,6 @@ impl<S: System<In = (), Out = ()>> From<S> for SystemStage {
     }
 }
 
-pub trait IntoStage<Params> {
-    type Stage: Stage;
-    fn into_stage(self) -> Self::Stage;
-}
-
-impl<Params, S: System<In = (), Out = ()>, IntoS: IntoSystem<Params, S>> IntoStage<(Params, S)>
-    for IntoS
-{
-    type Stage = SystemStage;
-
-    fn into_stage(self) -> Self::Stage {
-        SystemStage::single(self)
-    }
-}
-
-impl<S: Stage> IntoStage<()> for S {
-    type Stage = S;
-
-    fn into_stage(self) -> Self::Stage {
-        self
-    }
-}
-
 pub struct RunOnce {
     ran: bool,
     system_id: SystemId,
