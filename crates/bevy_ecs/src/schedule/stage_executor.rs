@@ -8,7 +8,9 @@ use bevy_utils::{tracing::trace, HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
 
-use crate::{ArchetypesGeneration, Resources, System, SystemIndex, SystemSet, TypeAccess, World};
+use crate::{
+    ArchetypesGeneration, Resources, ShouldRun, System, SystemIndex, SystemSet, TypeAccess, World,
+};
 
 type Label = &'static str; // TODO
 
@@ -100,7 +102,7 @@ struct ParallelSystemSchedulingData {
     /// System's index in the system sets.
     index: SystemIndex,
     // TODO ditch? Rename?
-    /// Ensures a system can be accessed unsafely only once a frame.
+    /// Ensures a system can be accessed unsafely only once per iteration.
     was_accessed_unsafely: bool,
     /// Used to signal the system's task to start the system.
     start_sender: Sender<()>,
@@ -119,6 +121,9 @@ pub struct ParallelSystemStageExecutor {
     /// When archetypes change a counter is bumped - we cache the state of that counter when it was
     /// last read here so that we can detect when archetypes are changed
     last_archetypes_generation: ArchetypesGeneration,
+    /// Cached results of system sets' run criteria evaluation.
+    // TODO consider bitsets
+    system_set_should_run: Vec<ShouldRun>,
     /// Systems with exclusive access that run before parallel systems.
     on_start_exclusives: Vec<SystemIndex>,
     /// Systems with exclusive access that run after parallel systems.
@@ -145,6 +150,7 @@ impl Default for ParallelSystemStageExecutor {
         Self {
             // MAX ensures metadata will be initialized on first run.
             last_archetypes_generation: ArchetypesGeneration(u64::MAX),
+            system_set_should_run: Default::default(),
             on_start_exclusives: Default::default(),
             on_end_exclusives: Default::default(),
             parallel: Default::default(),
@@ -166,66 +172,139 @@ impl SystemStageExecutor for ParallelSystemStageExecutor {
         world: &mut World,
         resources: &mut Resources,
     ) {
-        // TODO run criteria
+        use ShouldRun::*;
+        // Evaluate run criteria.
+        let mut has_any_work = false;
+        let mut has_doable_work = false;
+        self.system_set_should_run.clear();
+        self.system_set_should_run
+            .extend(system_sets.iter_mut().map(|set| {
+                let result = set.run_criteria_mut().should_run(world, resources);
+                match result {
+                    Yes | YesAndLoop => {
+                        has_doable_work = true;
+                        has_any_work = true;
+                    }
+                    NoAndLoop => has_any_work = true,
+                    No => (),
+                }
+                result
+            }));
+        if !has_any_work {
+            return;
+        }
+        // TODO should this be an panic condition?
+        assert!(has_doable_work);
 
-        // Cache dependencies for populating systems' dependants.
-        let mut all_dependencies = Vec::new();
-        for system_set in system_sets {
-            for system in system_set.systems() {
-                // TODO all of this. Split to .prepare() too
+        // TODO all of this. Split to .prepare() too
+        {
+            // Cache dependencies for populating systems' dependants.
+            //let mut all_dependencies = Vec::new();
+            for system_set in system_sets.iter() {
+                for system in system_set.systems() {}
             }
+
+            self.thread_local.grow(self.parallel.len());
+            self.queued.grow(self.parallel.len());
+            self.running.grow(self.parallel.len());
         }
 
-        self.thread_local.grow(self.parallel.len());
-        self.queued.grow(self.parallel.len());
-        self.running.grow(self.parallel.len());
+        while has_doable_work {
+            // Run exclusives that want to be at the start of stage.
+            // TODO sort wrt dependencies
+            for index in &self.on_start_exclusives {
+                if let Yes | YesAndLoop = self.system_set_should_run[index.set] {
+                    system_sets[index.set]
+                        .system_mut(index.system)
+                        .run_exclusive(world, resources);
+                }
+            }
 
-        for index in &self.on_start_exclusives {
-            system_sets[index.set]
-                .system_mut(index.system)
-                .run_exclusive(world, resources);
-        }
+            // Run parallel systems.
+            // TODO account for run criteria.
+            let compute_pool = resources
+                .get_or_insert_with(|| ComputeTaskPool(TaskPool::default()))
+                .clone();
+            compute_pool.scope(|scope| {
+                for index in 0..self.parallel.len() {
+                    // Reset safety bit.
+                    self.parallel[index].was_accessed_unsafely = false;
+                    // Spawn tasks for thread-agnostic systems.
+                    if !self.thread_local[index] {
+                        self.spawn_system_task(index, scope, system_sets, world, resources);
+                    }
+                }
+                // All systems have been ran if there are no queued or running systems.
+                while 0 < self.queued.count_ones(..) + self.running.count_ones(..) {
+                    // Try running a thread-local system on the main thread.
+                    self.run_a_thread_local(system_sets, world, resources);
+                    // Try running thread-agnostic systems.
+                    compute_pool.scope(|scope| {
+                        scope.spawn(async {
+                            self.start_runnable_queued(system_sets, world, resources)
+                                .await;
+                            // Avoid deadlocking if there's nothing to wait for.
+                            if 0 < self.running.count_ones(..) {
+                                self.process_finished(system_sets, world, resources).await;
+                            }
+                        })
+                    });
+                }
+            });
 
-        let compute_pool = resources
-            .get_or_insert_with(|| ComputeTaskPool(TaskPool::default()))
-            .clone();
-        compute_pool.scope(|scope| {
-            // Spawn tasks for thread-agnostic systems.
-            self.spawn_system_tasks(scope, system_sets, world, resources);
-            // All systems have been ran if there are no queued or running systems.
-            while 0 < self.queued.count_ones(..) + self.running.count_ones(..) {
-                // Try running a thread-local system on the main thread.
-                self.run_thread_local(system_sets, world, resources);
-                // Try running thread-agnostic systems.
-                compute_pool.scope(|scope| {
-                    scope.spawn(async {
-                        self.start_runnable_queued(system_sets, world, resources)
-                            .await;
-                        // Avoids deadlocking if there's nothing to wait for.
-                        if 0 < self.running.count_ones(..) {
-                            self.process_finished(system_sets, world, resources).await;
+            // Merge in command buffers.
+            // TODO do we want this before or after the exclusives? Do we update access between?
+            // TODO sort wrt dependencies?
+            for scheduling_data in &self.parallel {
+                let index = scheduling_data.index;
+                if let Yes | YesAndLoop = self.system_set_should_run[index.set] {
+                    system_sets[index.set]
+                        .system_mut(index.system)
+                        .run_exclusive(world, resources);
+                }
+            }
+            // Run exclusives that want to be at the end of stage.
+            // TODO sort wrt dependencies
+            for index in &self.on_end_exclusives {
+                if let Yes | YesAndLoop = self.system_set_should_run[index.set] {
+                    system_sets[index.set]
+                        .system_mut(index.system)
+                        .run_exclusive(world, resources);
+                }
+            }
+
+            // Reevaluate run criteria.
+            has_any_work = false;
+            has_doable_work = false;
+            for (index, result) in self.system_set_should_run.iter_mut().enumerate() {
+                match result {
+                    No => (),
+                    Yes => *result = No,
+                    YesAndLoop | NoAndLoop => {
+                        let new_result = system_sets[index]
+                            .run_criteria_mut()
+                            .should_run(world, resources);
+                        match new_result {
+                            Yes | YesAndLoop => {
+                                has_doable_work = true;
+                                has_any_work = true;
+                            }
+                            NoAndLoop => has_any_work = true,
+                            No => (),
                         }
-                    })
-                });
+                        *result = new_result;
+                    }
+                }
             }
-        });
-
-        // TODO do we want this before or after the exclusives? Do we update access between?
-        for scheduling_data in &self.parallel {
-            let index = scheduling_data.index;
-            system_sets[index.set]
-                .system_mut(index.system)
-                .run_exclusive(world, resources);
-        }
-        for index in &self.on_end_exclusives {
-            system_sets[index.set]
-                .system_mut(index.system)
-                .run_exclusive(world, resources);
+            // TODO should this be an panic condition?
+            assert!(has_any_work && !has_doable_work);
         }
     }
 }
 
 impl ParallelSystemStageExecutor {
+    /// Gives mutable access to the system at given index.
+    /// Can be done only once per system per iteration.
     #[allow(clippy::mut_from_ref)]
     unsafe fn get_system_mut_unsafe<'a>(
         &mut self,
@@ -239,42 +318,44 @@ impl ParallelSystemStageExecutor {
         system_sets[index.set].system_mut_unsafe(index.system)
     }
 
+    /// Determines if the parallel system with given index doesn't conflict already running systems.
+    // TODO
     fn can_start_now(&self, index: usize) -> bool {
         let system = &self.parallel[index];
-        for other in self.queued.ones().map(|index| &self.parallel[index]) {
-
-        }
+        for other in self.queued.ones().map(|index| &self.parallel[index]) {}
         true
     }
 
-    fn spawn_system_tasks<'scope>(
+    /// Spawns the task for parallel system with given index. Trips the safety bit.
+    /// Will likely lead to a panic when used with a thread-local system.
+    fn spawn_system_task<'scope>(
         &mut self,
+        index: usize,
         scope: &mut Scope<'scope, ()>,
         system_sets: &'scope [SystemSet],
         world: &'scope World,
         resources: &'scope Resources,
     ) {
-        for index in 0..self.parallel.len() {
-            if !self.thread_local[index] {
-                let start_receiver = self.parallel[index].start_receiver.clone();
-                let finish_sender = self.finish_sender.clone();
-                let system = unsafe { self.get_system_mut_unsafe(index, system_sets) };
-                scope.spawn(async move {
-                    start_receiver
-                        .recv()
-                        .await
-                        .unwrap_or_else(|error| unreachable!(error));
-                    unsafe { system.run_unsafe((), world, resources) };
-                    finish_sender
-                        .send(index)
-                        .await
-                        .unwrap_or_else(|error| unreachable!(error));
-                });
-            }
-        }
+        let start_receiver = self.parallel[index].start_receiver.clone();
+        let finish_sender = self.finish_sender.clone();
+        let system = unsafe { self.get_system_mut_unsafe(index, system_sets) };
+        scope.spawn(async move {
+            start_receiver
+                .recv()
+                .await
+                .unwrap_or_else(|error| unreachable!(error));
+            unsafe { system.run_unsafe((), world, resources) };
+            finish_sender
+                .send(index)
+                .await
+                .unwrap_or_else(|error| unreachable!(error));
+        });
     }
 
-    fn run_thread_local(
+    /// Tries to run one non-conflicting thread-local system on the main thread, decrements
+    /// dependency counters for its dependants, enqueues dependants with all satisfied dependencies.
+    /// Trips the safety bit.
+    fn run_a_thread_local(
         &mut self,
         system_sets: &[SystemSet],
         world: &World,
@@ -303,6 +384,7 @@ impl ParallelSystemStageExecutor {
         }
     }
 
+    /// Signals all non-conflicting queued systems to start, moves them from `queued` to `running`.
     async fn start_runnable_queued(
         &mut self,
         system_sets: &[SystemSet],
@@ -322,6 +404,8 @@ impl ParallelSystemStageExecutor {
         self.queued.difference_with(&self.running);
     }
 
+    /// Waits for at least one of running parallel systems to finish, decrements dependency
+    /// counters for their dependants, enqueues dependants with all satisfied dependencies.
     async fn process_finished(
         &mut self,
         system_sets: &[SystemSet],
