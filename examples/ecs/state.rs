@@ -1,4 +1,4 @@
-use bevy::{ecs::StateStage, prelude::*};
+use bevy::prelude::*;
 
 /// This example illustrates how to use States to control transitioning from a Menu state to an InGame state.
 fn main() {
