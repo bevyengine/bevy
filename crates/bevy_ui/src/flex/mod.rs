@@ -178,7 +178,7 @@ pub fn flex_node_system(
     }
 
     // assume one window for time being...
-    let l2p_factor = if let Some(primary_window) = windows.get_primary() {
+    let logical_to_physical_factor = if let Some(primary_window) = windows.get_primary() {
         primary_window.scale_factor()
     } else {
         1.
@@ -188,14 +188,14 @@ pub fn flex_node_system(
     for (entity, style, calculated_size) in node_query.iter() {
         // TODO: remove node from old hierarchy if its root has changed
         if let Some(calculated_size) = calculated_size {
-            flex_surface.upsert_leaf(entity, &style, *calculated_size, l2p_factor);
+            flex_surface.upsert_leaf(entity, &style, *calculated_size, logical_to_physical_factor);
         } else {
-            flex_surface.upsert_node(entity, &style, l2p_factor);
+            flex_surface.upsert_node(entity, &style, logical_to_physical_factor);
         }
     }
 
     for (entity, style, calculated_size) in changed_size_query.iter() {
-        flex_surface.upsert_leaf(entity, &style, *calculated_size, l2p_factor);
+        flex_surface.upsert_leaf(entity, &style, *calculated_size, logical_to_physical_factor);
     }
 
     // TODO: handle removed nodes
@@ -213,9 +213,9 @@ pub fn flex_node_system(
     // compute layouts
     flex_surface.compute_window_layouts();
 
-    let p2l_factor = 1. / l2p_factor;
+    let physical_to_logical_factor = 1. / logical_to_physical_factor;
 
-    let to_logical = |v| (p2l_factor * v as f64) as f32;
+    let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
 
     for (entity, mut node, mut transform, parent) in node_transform_query.iter_mut() {
         let layout = flex_surface.get_layout(entity).unwrap();
