@@ -37,7 +37,10 @@ impl Default for NodeBundle {
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 UI_PIPELINE_HANDLE.typed(),
             )]),
-            visible: Default::default(),
+            visible: Visible {
+                is_transparent: true,
+                ..Default::default()
+            },
             node: Default::default(),
             style: Default::default(),
             material: Default::default(),
@@ -76,7 +79,10 @@ impl Default for ImageBundle {
             style: Default::default(),
             material: Default::default(),
             draw: Default::default(),
-            visible: Default::default(),
+            visible: Visible {
+                is_transparent: true,
+                ..Default::default()
+            },
             transform: Default::default(),
             global_transform: Default::default(),
         }
@@ -147,7 +153,10 @@ impl Default for ButtonBundle {
             style: Default::default(),
             material: Default::default(),
             draw: Default::default(),
-            visible: Default::default(),
+            visible: Visible {
+                is_transparent: true,
+                ..Default::default()
+            },
             transform: Default::default(),
             global_transform: Default::default(),
         }
