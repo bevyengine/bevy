@@ -7,9 +7,9 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_resource(State::new(AppState::Setup))
         .add_stage_after(stage::UPDATE, STAGE, StateStage::<AppState>::default())
-        .on_state_enter(STAGE, AppState::Setup, load_textures)
-        .on_state_update(STAGE, AppState::Setup, check_textures)
-        .on_state_enter(STAGE, AppState::Finshed, setup)
+        .on_state_enter(STAGE, AppState::Setup, load_textures.system())
+        .on_state_update(STAGE, AppState::Setup, check_textures.system())
+        .on_state_enter(STAGE, AppState::Finshed, setup.system())
         .run();
 }
 

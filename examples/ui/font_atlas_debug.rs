@@ -5,9 +5,9 @@ fn main() {
     App::build()
         .init_resource::<State>()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(text_update_system)
-        .add_system(atlas_render_system)
+        .add_startup_system(setup.system())
+        .add_system(text_update_system.system())
+        .add_system(atlas_render_system.system())
         .run();
 }
 

@@ -6,6 +6,7 @@ mod time;
 
 use std::ops::Range;
 
+use bevy_ecs::IntoSystem;
 use bevy_reflect::RegisterTypeBuilder;
 pub use bytes::*;
 pub use float_ord::*;
@@ -37,7 +38,7 @@ impl Plugin for CorePlugin {
             .register_type::<Option<String>>()
             .register_type::<Range<f32>>()
             .register_type::<Timer>()
-            .add_system_to_stage(stage::FIRST, time_system)
-            .add_system_to_stage(stage::PRE_UPDATE, entity_labels_system);
+            .add_system_to_stage(stage::FIRST, time_system.system())
+            .add_system_to_stage(stage::PRE_UPDATE, entity_labels_system.system());
     }
 }

@@ -5,8 +5,8 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .init_resource::<ButtonMaterials>()
-        .add_startup_system(setup)
-        .add_system(button_system)
+        .add_startup_system(setup.system())
+        .add_system(button_system.system())
         .run();
 }
 

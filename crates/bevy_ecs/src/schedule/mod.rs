@@ -33,33 +33,24 @@ impl Schedule {
         self
     }
 
-    pub fn with_run_criteria<S, Params, IntoS>(mut self, system: IntoS) -> Self
-    where
-        S: System<In = (), Out = ShouldRun>,
-        IntoS: IntoSystem<Params, S>,
-    {
+    pub fn with_run_criteria<S: System<In = (), Out = ShouldRun>>(mut self, system: S) -> Self {
         self.set_run_criteria(system);
         self
     }
 
-    pub fn with_system_in_stage<S, Params, IntoS>(
+    pub fn with_system_in_stage<S: System<In = (), Out = ()>>(
         mut self,
         stage_name: &'static str,
-        system: IntoS,
-    ) -> Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
-    {
+        system: S,
+    ) -> Self {
         self.add_system_to_stage(stage_name, system);
         self
     }
 
-    pub fn set_run_criteria<S, Params, IntoS>(&mut self, system: IntoS) -> &mut Self
-    where
-        S: System<In = (), Out = ShouldRun>,
-        IntoS: IntoSystem<Params, S>,
-    {
+    pub fn set_run_criteria<S: System<In = (), Out = ShouldRun>>(
+        &mut self,
+        system: S,
+    ) -> &mut Self {
         self.run_criteria = Some(Box::new(system.system()));
         self.run_criteria_initialized = false;
         self
@@ -107,15 +98,11 @@ impl Schedule {
         self
     }
 
-    pub fn add_system_to_stage<S, Params, IntoS>(
+    pub fn add_system_to_stage<S: System<In = (), Out = ()>>(
         &mut self,
         stage_name: &'static str,
-        system: IntoS,
-    ) -> &mut Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
-    {
+        system: S,
+    ) -> &mut Self {
         let stage = self
             .get_stage_mut::<SystemStage>(stage_name)
             .unwrap_or_else(|| {
@@ -124,7 +111,7 @@ impl Schedule {
                     stage_name
                 )
             });
-        stage.add_system(system);
+        stage.add_system(system.system());
         self
     }
 
@@ -221,7 +208,7 @@ mod tests {
         resource::{Res, ResMut, Resources},
         schedule::{ParallelSystemStageExecutor, Schedule, SystemStage},
         system::Query,
-        Commands, Entity, World,
+        Commands, Entity, IntoSystem, World,
     };
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use fixedbitset::FixedBitSet;
@@ -255,10 +242,10 @@ mod tests {
 
         let mut schedule = Schedule::default();
         let mut pre_archetype_change = SystemStage::parallel();
-        pre_archetype_change.add_system(insert);
+        pre_archetype_change.add_system(insert.system());
         schedule.add_stage("PreArchetypeChange", pre_archetype_change);
         let mut post_archetype_change = SystemStage::parallel();
-        post_archetype_change.add_system(read);
+        post_archetype_change.add_system(read.system());
         schedule.add_stage("PostArchetypeChange", post_archetype_change);
 
         schedule.initialize_and_run(&mut world, &mut resources);
@@ -285,8 +272,8 @@ mod tests {
         }
 
         let mut update = SystemStage::parallel();
-        update.add_system(insert);
-        update.add_system(read);
+        update.add_system(insert.system());
+        update.add_system(read.system());
 
         let mut schedule = Schedule::default();
         schedule.add_stage("update", update);
@@ -356,10 +343,10 @@ mod tests {
             completed_systems.insert(READ_U64_SYSTEM_NAME);
         }
 
-        stage_a.add_system(read_u32);
-        stage_a.add_system(write_float);
-        stage_a.add_system(read_u32_write_u64);
-        stage_a.add_system(read_u64);
+        stage_a.add_system(read_u32.system());
+        stage_a.add_system(write_float.system());
+        stage_a.add_system(read_u32_write_u64.system());
+        stage_a.add_system(read_u64.system());
 
         // B systems
 
@@ -387,9 +374,9 @@ mod tests {
             completed_systems.insert(WRITE_F32_SYSTEM_NAME);
         }
 
-        stage_b.add_system(write_u64);
-        stage_b.add_system(thread_local_system);
-        stage_b.add_system(write_f32);
+        stage_b.add_system(write_u64.system());
+        stage_b.add_system(thread_local_system.system());
+        stage_b.add_system(write_f32.system());
 
         // C systems
 
@@ -424,10 +411,10 @@ mod tests {
             completed_systems.insert(WRITE_F64_RES_SYSTEM_NAME);
         }
 
-        stage_c.add_system(read_f64_res);
-        stage_c.add_system(read_isize_res);
-        stage_c.add_system(read_isize_write_f64_res);
-        stage_c.add_system(write_f64_res);
+        stage_c.add_system(read_f64_res.system());
+        stage_c.add_system(read_isize_res.system());
+        stage_c.add_system(read_isize_write_f64_res.system());
+        stage_c.add_system(write_f64_res.system());
 
         fn run_and_validate(schedule: &mut Schedule, world: &mut World, resources: &mut Resources) {
             schedule.initialize_and_run(world, resources);

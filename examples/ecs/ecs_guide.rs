@@ -257,9 +257,9 @@ fn main() {
         .init_resource::<GameState>()
         // Startup systems run exactly once BEFORE all other systems. These are generally used for
         // app initialization code (ex: adding entities and resources)
-        .add_startup_system(startup_system)
+        .add_startup_system(startup_system.system())
         // my_system calls converts normal rust functions into ECS systems:
-        .add_system(print_message_system)
+        .add_system(print_message_system.system())
         //
         // SYSTEM EXECUTION ORDER
         //
@@ -278,17 +278,17 @@ fn main() {
         // and the next stage won't start until all systems in the current stage have finished.
         // add_system(system) adds systems to the UPDATE stage by default
         // However we can manually specify the stage if we want to. The following is equivalent to add_system(score_system)
-        .add_system_to_stage(stage::UPDATE, score_system)
+        .add_system_to_stage(stage::UPDATE, score_system.system())
         // We can also create new stages. Here is what our games stage order will look like:
         // "before_round": new_player_system, new_round_system
         // "update": print_message_system, score_system
         // "after_round": score_check_system, game_over_system
         .add_stage_before(stage::UPDATE, "before_round", SystemStage::parallel())
         .add_stage_after(stage::UPDATE, "after_round", SystemStage::parallel())
-        .add_system_to_stage("before_round", new_round_system)
-        .add_system_to_stage("before_round", new_player_system)
-        .add_system_to_stage("after_round", score_check_system)
-        .add_system_to_stage("after_round", game_over_system)
+        .add_system_to_stage("before_round", new_round_system.system())
+        .add_system_to_stage("before_round", new_player_system.system())
+        .add_system_to_stage("after_round", score_check_system.system())
+        .add_system_to_stage("after_round", game_over_system.system())
         // score_check_system will run before game_over_system because score_check_system modifies GameState and game_over_system
         // reads GameState. This works, but it's a bit confusing. In practice, it would be clearer to create a new stage that runs
         // before "after_round"

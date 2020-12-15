@@ -1,8 +1,7 @@
 use std::{any::TypeId, borrow::Cow};
 
 use crate::{
-    ArchetypeComponent, IntoSystem, Resources, System, SystemId, ThreadLocalExecution, TypeAccess,
-    World,
+    ArchetypeComponent, Resources, System, SystemId, ThreadLocalExecution, TypeAccess, World,
 };
 use bevy_utils::HashSet;
 use downcast_rs::{impl_downcast, Downcast};
@@ -47,9 +46,7 @@ impl SystemStage {
         }
     }
 
-    pub fn single<Params, S: System<In = (), Out = ()>, Into: IntoSystem<Params, S>>(
-        system: Into,
-    ) -> Self {
+    pub fn single<S: System<In = (), Out = ()>>(system: S) -> Self {
         Self::serial().with_system(system)
     }
 
@@ -61,31 +58,19 @@ impl SystemStage {
         Self::new(Box::new(ParallelSystemStageExecutor::default()))
     }
 
-    pub fn with_system<S, Params, IntoS>(mut self, system: IntoS) -> Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
-    {
-        self.add_system_boxed(Box::new(system.system()));
+    pub fn with_system<S: System<In = (), Out = ()>>(mut self, system: S) -> Self {
+        self.add_system_boxed(Box::new(system));
         self
     }
 
-    pub fn with_run_criteria<S, Params, IntoS>(mut self, system: IntoS) -> Self
-    where
-        S: System<In = (), Out = ShouldRun>,
-        IntoS: IntoSystem<Params, S>,
-    {
-        self.run_criteria = Some(Box::new(system.system()));
+    pub fn with_run_criteria<S: System<In = (), Out = ShouldRun>>(mut self, system: S) -> Self {
+        self.run_criteria = Some(Box::new(system));
         self.run_criteria_initialized = false;
         self
     }
 
-    pub fn add_system<S, Params, IntoS>(&mut self, system: IntoS) -> &mut Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
-    {
-        self.add_system_boxed(Box::new(system.system()));
+    pub fn add_system<S: System<In = (), Out = ()>>(&mut self, system: S) -> &mut Self {
+        self.add_system_boxed(Box::new(system));
         self
     }
 

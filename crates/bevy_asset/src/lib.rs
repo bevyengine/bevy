@@ -13,7 +13,7 @@ mod path;
 
 pub use asset_server::*;
 pub use assets::*;
-use bevy_ecs::SystemStage;
+use bevy_ecs::{IntoSystem, SystemStage};
 use bevy_reflect::RegisterTypeBuilder;
 use bevy_tasks::IoTaskPool;
 pub use handle::*;
@@ -88,13 +88,13 @@ impl Plugin for AssetPlugin {
         .register_type::<HandleId>()
         .add_system_to_stage(
             bevy_app::stage::PRE_UPDATE,
-            asset_server::free_unused_assets_system,
+            asset_server::free_unused_assets_system.system(),
         );
 
         #[cfg(all(
             feature = "filesystem_watcher",
             all(not(target_arch = "wasm32"), not(target_os = "android"))
         ))]
-        app.add_system_to_stage(stage::LOAD_ASSETS, io::filesystem_watcher_system);
+        app.add_system_to_stage(stage::LOAD_ASSETS, io::filesystem_watcher_system.system());
     }
 }

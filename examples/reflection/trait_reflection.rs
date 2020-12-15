@@ -3,7 +3,7 @@ use bevy::{prelude::*, reflect::TypeRegistry};
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_startup_system(setup.system())
         .register_type::<MyType>()
         .run();
 }

@@ -4,6 +4,7 @@ mod entity;
 mod light;
 mod material;
 
+use bevy_ecs::IntoSystem;
 pub use entity::*;
 pub use light::*;
 pub use material::*;
@@ -29,7 +30,7 @@ impl Plugin for PbrPlugin {
             .register_type::<Light>()
             .add_system_to_stage(
                 stage::POST_UPDATE,
-                shader::asset_shader_defs_system::<StandardMaterial>,
+                shader::asset_shader_defs_system::<StandardMaterial>.system(),
             )
             .init_resource::<AmbientLight>();
         let resources = app.resources();

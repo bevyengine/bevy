@@ -12,6 +12,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
+use bevy_ecs::IntoSystem;
 
 /// Adds support for audio playback to an App
 #[derive(Default)]
@@ -23,6 +24,9 @@ impl Plugin for AudioPlugin {
             .add_asset::<AudioSource>()
             .init_asset_loader::<Mp3Loader>()
             .init_resource::<Audio<AudioSource>>()
-            .add_system_to_stage(stage::POST_UPDATE, play_queued_audio_system::<AudioSource>);
+            .add_system_to_stage(
+                stage::POST_UPDATE,
+                play_queued_audio_system::<AudioSource>.system(),
+            );
     }
 }

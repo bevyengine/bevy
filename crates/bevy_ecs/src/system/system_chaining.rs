@@ -1,6 +1,5 @@
 use crate::{
-    ArchetypeComponent, IntoSystem, Resources, System, SystemId, ThreadLocalExecution, TypeAccess,
-    World,
+    ArchetypeComponent, Resources, System, SystemId, ThreadLocalExecution, TypeAccess, World,
 };
 use std::{any::TypeId, borrow::Cow};
 
@@ -69,31 +68,23 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
     }
 }
 
-pub trait IntoChainSystem<AParams, BParams, IntoB, SystemA, SystemB>:
-    IntoSystem<AParams, SystemA> + Sized
+pub trait IntoChainSystem<SystemB>: System + Sized
 where
-    IntoB: IntoSystem<BParams, SystemB>,
-    SystemA: System,
-    SystemB: System<In = SystemA::Out>,
+    SystemB: System<In = Self::Out>,
 {
-    fn chain(self, system: IntoB) -> ChainSystem<SystemA, SystemB>;
+    fn chain(self, system: SystemB) -> ChainSystem<Self, SystemB>;
 }
 
-impl<AParams, BParams, IntoA, IntoB, SystemA, SystemB>
-    IntoChainSystem<AParams, BParams, IntoB, SystemA, SystemB> for IntoA
+impl<SystemA, SystemB> IntoChainSystem<SystemB> for SystemA
 where
     SystemA: System,
     SystemB: System<In = SystemA::Out>,
-    IntoA: IntoSystem<AParams, SystemA>,
-    IntoB: IntoSystem<BParams, SystemB>,
 {
-    fn chain(self, system: IntoB) -> ChainSystem<SystemA, SystemB> {
-        let system_a = self.system();
-        let system_b = system.system();
+    fn chain(self, system: SystemB) -> ChainSystem<SystemA, SystemB> {
         ChainSystem {
-            name: Cow::Owned(format!("Chain({}, {})", system_a.name(), system_b.name())),
-            system_a,
-            system_b,
+            name: Cow::Owned(format!("Chain({}, {})", self.name(), system.name())),
+            system_a: self,
+            system_b: system,
             archetype_component_access: Default::default(),
             resource_access: Default::default(),
             id: SystemId::new(),
