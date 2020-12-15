@@ -178,6 +178,10 @@ name = "custom_asset"
 path = "examples/asset/custom_asset.rs"
 
 [[example]]
+name = "custom_asset_io"
+path = "examples/asset/custom_asset_io.rs"
+
+[[example]]
 name = "audio"
 path = "examples/audio/audio.rs"
 
