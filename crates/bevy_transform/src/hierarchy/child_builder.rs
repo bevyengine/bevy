@@ -239,7 +239,12 @@ mod tests {
         let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child2, child3];
 
         assert_eq!(
-            world.get::<Children>(parent).unwrap().iter().cloned().collect::<SmallVec<[Entity; 8]>>(),
+            world
+                .get::<Children>(parent)
+                .unwrap()
+                .iter()
+                .cloned()
+                .collect::<SmallVec<[Entity; 8]>>(),
             expected_children
         );
         assert_eq!(*world.get::<Parent>(child1).unwrap(), Parent(parent));
@@ -275,7 +280,12 @@ mod tests {
 
         let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child2];
         assert_eq!(
-            world.get::<Children>(parent).unwrap().iter().cloned().collect::<SmallVec<[Entity; 8]>>(),
+            world
+                .get::<Children>(parent)
+                .unwrap()
+                .iter()
+                .cloned()
+                .collect::<SmallVec<[Entity; 8]>>(),
             expected_children
         );
         assert_eq!(*world.get::<Parent>(child1).unwrap(), Parent(parent));
@@ -295,7 +305,12 @@ mod tests {
 
         let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child3, child4, child2];
         assert_eq!(
-            world.get::<Children>(parent).unwrap().iter().cloned().collect::<SmallVec<[Entity; 8]>>(),
+            world
+                .get::<Children>(parent)
+                .unwrap()
+                .iter()
+                .cloned()
+                .collect::<SmallVec<[Entity; 8]>>(),
             expected_children
         );
         assert_eq!(*world.get::<Parent>(child3).unwrap(), Parent(parent));
@@ -326,10 +341,14 @@ mod tests {
         commands.push_children(parent, &[child1, child1, child2, child1]);
         commands.apply(&mut world, &mut resources);
 
-
         let expected_children: SmallVec<[Entity; 8]> = smallvec![child2, child1];
         assert_eq!(
-            world.get::<Children>(parent).unwrap().iter().cloned().collect::<SmallVec<[Entity; 8]>>(),
+            world
+                .get::<Children>(parent)
+                .unwrap()
+                .iter()
+                .cloned()
+                .collect::<SmallVec<[Entity; 8]>>(),
             expected_children
         );
 
@@ -338,7 +357,12 @@ mod tests {
 
         let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child2];
         assert_eq!(
-            world.get::<Children>(parent).unwrap().iter().cloned().collect::<SmallVec<[Entity; 8]>>(),
+            world
+                .get::<Children>(parent)
+                .unwrap()
+                .iter()
+                .cloned()
+                .collect::<SmallVec<[Entity; 8]>>(),
             expected_children
         );
     }

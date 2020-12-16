@@ -1,15 +1,14 @@
-use std::collections::hash_map::Entry;
-use bevy_utils::HashMap;
 use bevy_ecs::{Entity, MapEntities};
 use bevy_reflect::{Reflect, ReflectComponent, ReflectMapEntities};
+use bevy_utils::HashMap;
 use smallvec::SmallVec;
-use std::ops::Deref;
+use std::{collections::hash_map::Entry, ops::Deref};
 
 #[derive(Default, Clone, Debug, Reflect)]
 #[reflect(Component, MapEntities)]
 pub struct Children {
     order: SmallVec<[Entity; 8]>,
-    uniqueness: HashMap<Entity, usize>
+    uniqueness: HashMap<Entity, usize>,
 }
 
 impl MapEntities for Children {
@@ -49,10 +48,10 @@ impl Children {
 
         uniqueness.entry(entity).or_insert_with(|| {
             order.push(entity);
-            order.len()-1
+            order.len() - 1
         });
 
-        let desired_index = order.len()-1;
+        let desired_index = order.len() - 1;
         let current_index = uniqueness[&entity];
         if current_index != desired_index {
             self.swap(current_index, desired_index);
