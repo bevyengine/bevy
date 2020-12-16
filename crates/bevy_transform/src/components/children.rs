@@ -2,7 +2,7 @@ use bevy_ecs::{Entity, MapEntities};
 use bevy_reflect::{Reflect, ReflectComponent, ReflectMapEntities};
 use bevy_utils::HashMap;
 use smallvec::SmallVec;
-use std::{collections::hash_map::Entry, ops::Deref};
+use std::ops::Deref;
 
 #[derive(Default, Clone, Debug, Reflect)]
 #[reflect(Component, MapEntities)]
