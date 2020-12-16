@@ -3,7 +3,7 @@ use bevy_reflect::{Reflect, ReflectComponent, ReflectMapEntities};
 use smallvec::SmallVec;
 use std::ops::Deref;
 
-#[derive(Default, Clone, Debug, Reflect)]
+#[derive(Default, Clone, Debug, Reflect, Eq, PartialEq)]
 #[reflect(Component, MapEntities)]
 pub struct Children(pub(crate) SmallVec<[Entity; 8]>);
 
