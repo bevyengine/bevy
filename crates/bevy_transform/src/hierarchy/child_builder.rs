@@ -63,29 +63,13 @@ pub struct ChildBuilder<'a> {
 
 impl Command for PushChildren {
     fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
-        let mut childset = HashSet::default();
-
-        let mut new_children = if let Ok(children) = world.get::<Children>(self.parent) {
-            childset.extend(children.iter().copied());
-            children.0.clone()
-        } else {
-            Default::default()
-        };
-
         for child in self.children.iter() {
-            if !childset.contains(child) {
-                new_children.push(*child);
-            }
-
             if let Ok(Parent(old_parent)) = world.get::<Parent>(*child) {
                 let old_parent = *old_parent;
 
                 // clean old parent of children references
                 if let Ok(mut children) = world.get_mut::<Children>(old_parent) {
-                    let vec = children
-                        .iter()
-                        .filter_map(|c| if c != child { Some(*c) } else { None })
-                        .collect();
+                    let vec = children.iter().copied().filter(|c| c != child).collect();
                     children.0 = vec;
                 }
 
@@ -99,9 +83,21 @@ impl Command for PushChildren {
             }
         }
 
-        world
-            .insert_one(self.parent, Children(self.children))
-            .unwrap();
+        if let Ok(mut children) = world.get_mut::<Children>(self.parent) {
+            let vec = &mut children.0;
+            let index = vec.len();
+
+            // note that for cases with many children a HashSet might be better for contains() check
+            for child in self.children.iter().rev() {
+                if !vec.contains(child) {
+                    vec.insert(index, *child);
+                }
+            }
+        } else {
+            world
+                .insert_one(self.parent, Children(self.children))
+                .unwrap();
+        };
     }
 }
 
