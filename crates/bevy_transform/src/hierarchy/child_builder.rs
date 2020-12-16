@@ -20,6 +20,12 @@ impl Command for InsertChildren {
         } else {
             Default::default()
         };
+        /*
+        old_children
+        new_children
+        self.parent
+        self.index
+        self.children*/
 
         for (offset, child) in self.children.iter().enumerate() {
             if !childset.contains(child) {
@@ -35,10 +41,7 @@ impl Command for InsertChildren {
 
                 // clean old parent of children references
                 if let Ok(mut children) = world.get_mut::<Children>(old_parent) {
-                    let vec = children
-                        .iter()
-                        .filter_map(|c| if c != child { Some(*c) } else { None })
-                        .collect();
+                    let vec = children.iter().copied().filter(|c| c != child).collect();
                     children.0 = vec;
                 }
 
