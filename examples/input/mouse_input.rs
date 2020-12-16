@@ -3,7 +3,7 @@ use bevy::prelude::*;
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .add_system(mouse_click_system)
+        .add_system(mouse_click_system.system())
         .run();
 }
 

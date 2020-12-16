@@ -11,7 +11,7 @@ pub mod renderer;
 pub mod shader;
 pub mod texture;
 
-use bevy_ecs::SystemStage;
+use bevy_ecs::{IntoSystem, SystemStage};
 use bevy_reflect::RegisterTypeBuilder;
 use draw::Visible;
 pub use once_cell;
@@ -136,30 +136,48 @@ impl Plugin for RenderPlugin {
         .init_resource::<TextureResourceSystemState>()
         .init_resource::<AssetRenderResourceBindings>()
         .init_resource::<ActiveCameras>()
-        .add_system_to_stage(bevy_app::stage::PRE_UPDATE, draw::clear_draw_system)
-        .add_system_to_stage(bevy_app::stage::POST_UPDATE, camera::active_cameras_system)
         .add_system_to_stage(
-            bevy_app::stage::POST_UPDATE,
-            camera::camera_system::<OrthographicProjection>,
+            bevy_app::stage::PRE_UPDATE,
+            draw::clear_draw_system.system(),
         )
         .add_system_to_stage(
             bevy_app::stage::POST_UPDATE,
-            camera::camera_system::<PerspectiveProjection>,
+            camera::active_cameras_system.system(),
+        )
+        .add_system_to_stage(
+            bevy_app::stage::POST_UPDATE,
+            camera::camera_system::<OrthographicProjection>.system(),
+        )
+        .add_system_to_stage(
+            bevy_app::stage::POST_UPDATE,
+            camera::camera_system::<PerspectiveProjection>.system(),
         )
         // registration order matters here. this must come after all camera_system::<T> systems
         .add_system_to_stage(
             bevy_app::stage::POST_UPDATE,
-            camera::visible_entities_system,
+            camera::visible_entities_system.system(),
         )
-        .add_system_to_stage(stage::RENDER_RESOURCE, shader::shader_update_system)
-        .add_system_to_stage(stage::RENDER_RESOURCE, mesh::mesh_resource_provider_system)
-        .add_system_to_stage(stage::RENDER_RESOURCE, Texture::texture_resource_system)
+        .add_system_to_stage(
+            stage::RENDER_RESOURCE,
+            shader::shader_update_system.system(),
+        )
+        .add_system_to_stage(
+            stage::RENDER_RESOURCE,
+            mesh::mesh_resource_provider_system.system(),
+        )
+        .add_system_to_stage(
+            stage::RENDER_RESOURCE,
+            Texture::texture_resource_system.system(),
+        )
         .add_system_to_stage(
             stage::RENDER_GRAPH_SYSTEMS,
-            render_graph::render_graph_schedule_executor_system,
+            render_graph::render_graph_schedule_executor_system.system(),
         )
-        .add_system_to_stage(stage::DRAW, pipeline::draw_render_pipelines_system)
-        .add_system_to_stage(stage::POST_RENDER, shader::clear_shader_defs_system);
+        .add_system_to_stage(stage::DRAW, pipeline::draw_render_pipelines_system.system())
+        .add_system_to_stage(
+            stage::POST_RENDER,
+            shader::clear_shader_defs_system.system(),
+        );
 
         if app.resources().get::<Msaa>().is_none() {
             app.init_resource::<Msaa>();

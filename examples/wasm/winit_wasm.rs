@@ -15,12 +15,12 @@ fn main() {
         })
         .add_plugins(DefaultPlugins)
         // One time greet
-        .add_startup_system(hello_wasm_system)
+        .add_startup_system(hello_wasm_system.system())
         // Track ticks (sanity check, whether game loop is running)
-        .add_system(counter)
+        .add_system(counter.system())
         // Track input events
         .init_resource::<TrackInputState>()
-        .add_system(track_input_events)
+        .add_system(track_input_events.system())
         .run();
 }
 

@@ -1,7 +1,7 @@
 use super::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_app::prelude::*;
 use bevy_core::{Time, Timer};
-use bevy_ecs::{Res, ResMut};
+use bevy_ecs::{IntoSystem, Res, ResMut};
 use bevy_utils::Duration;
 
 /// An App Plugin that prints diagnostics to the console
@@ -35,9 +35,12 @@ impl Plugin for PrintDiagnosticsPlugin {
         });
 
         if self.debug {
-            app.add_system_to_stage(stage::POST_UPDATE, Self::print_diagnostics_debug_system);
+            app.add_system_to_stage(
+                stage::POST_UPDATE,
+                Self::print_diagnostics_debug_system.system(),
+            );
         } else {
-            app.add_system_to_stage(stage::POST_UPDATE, Self::print_diagnostics_system);
+            app.add_system_to_stage(stage::POST_UPDATE, Self::print_diagnostics_system.system());
         }
     }
 }

@@ -9,7 +9,7 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         // this system will run once every update (it should match your screen's refresh rate)
-        .add_system(update)
+        .add_system(update.system())
         // add a new stage that runs every two seconds
         .add_stage_after(
             stage::UPDATE,
@@ -20,7 +20,7 @@ fn main() {
                         // labels are optional. they provide a way to access the current FixedTimestep state from within a system
                         .with_label(LABEL),
                 )
-                .with_system(fixed_update),
+                .with_system(fixed_update.system()),
         )
         .run();
 }

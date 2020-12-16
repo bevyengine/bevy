@@ -24,7 +24,7 @@ impl Default for AppBuilder {
         app_builder
             .add_default_stages()
             .add_event::<AppExit>()
-            .add_system_to_stage(stage::LAST, clear_trackers_system);
+            .add_system_to_stage(stage::LAST, clear_trackers_system.system());
         app_builder
     }
 }
@@ -125,68 +125,48 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_system<S, Params, IntoS>(&mut self, system: IntoS) -> &mut Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
-    {
+    pub fn add_system<S: System<In = (), Out = ()>>(&mut self, system: S) -> &mut Self {
         self.add_system_to_stage(stage::UPDATE, system)
     }
 
-    pub fn on_state_enter<T: Clone + Resource, S, Params, IntoS>(
+    pub fn on_state_enter<T: Clone + Resource, S: System<In = (), Out = ()>>(
         &mut self,
         stage: &str,
         state: T,
-        system: IntoS,
-    ) -> &mut Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
-    {
+        system: S,
+    ) -> &mut Self {
         self.stage(stage, |stage: &mut StateStage<T>| {
             stage.on_state_enter(state, system)
         })
     }
 
-    pub fn on_state_update<T: Clone + Resource, S, Params, IntoS>(
+    pub fn on_state_update<T: Clone + Resource, S: System<In = (), Out = ()>>(
         &mut self,
         stage: &str,
         state: T,
-        system: IntoS,
-    ) -> &mut Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
-    {
+        system: S,
+    ) -> &mut Self {
         self.stage(stage, |stage: &mut StateStage<T>| {
             stage.on_state_update(state, system)
         })
     }
 
-    pub fn on_state_exit<T: Clone + Resource, S, Params, IntoS>(
+    pub fn on_state_exit<T: Clone + Resource, S: System<In = (), Out = ()>>(
         &mut self,
         stage: &str,
         state: T,
-        system: IntoS,
-    ) -> &mut Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
-    {
+        system: S,
+    ) -> &mut Self {
         self.stage(stage, |stage: &mut StateStage<T>| {
             stage.on_state_exit(state, system)
         })
     }
 
-    pub fn add_startup_system_to_stage<S, Params, IntoS>(
+    pub fn add_startup_system_to_stage<S: System<In = (), Out = ()>>(
         &mut self,
         stage_name: &'static str,
-        system: IntoS,
-    ) -> &mut Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
-    {
+        system: S,
+    ) -> &mut Self {
         self.app
             .schedule
             .stage(stage::STARTUP, |schedule: &mut Schedule| {
@@ -195,11 +175,7 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_startup_system<S, Params, IntoS>(&mut self, system: IntoS) -> &mut Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
-    {
+    pub fn add_startup_system<S: System<In = (), Out = ()>>(&mut self, system: S) -> &mut Self {
         self.add_startup_system_to_stage(startup_stage::STARTUP, system)
     }
 
@@ -221,15 +197,11 @@ impl AppBuilder {
         .add_stage(stage::LAST, SystemStage::parallel())
     }
 
-    pub fn add_system_to_stage<S, Params, IntoS>(
+    pub fn add_system_to_stage<S: System<In = (), Out = ()>>(
         &mut self,
         stage_name: &'static str,
-        system: IntoS,
-    ) -> &mut Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
-    {
+        system: S,
+    ) -> &mut Self {
         self.app.schedule.add_system_to_stage(stage_name, system);
         self
     }
@@ -239,7 +211,7 @@ impl AppBuilder {
         T: Send + Sync + 'static,
     {
         self.add_resource(Events::<T>::default())
-            .add_system_to_stage(stage::EVENT, Events::<T>::update_system)
+            .add_system_to_stage(stage::EVENT, Events::<T>::update_system.system())
     }
 
     /// Adds a resource to the current [App] and overwrites any resource previously added of the same type.

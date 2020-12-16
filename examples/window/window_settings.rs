@@ -12,8 +12,8 @@ fn main() {
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
-        .add_system(change_title)
-        .add_system(toggle_cursor)
+        .add_system(change_title.system())
+        .add_system(toggle_cursor.system())
         .run();
 }
 

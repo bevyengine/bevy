@@ -71,7 +71,7 @@ pub fn parent_update_system(
 mod test {
     use super::*;
     use crate::{hierarchy::BuildChildren, transform_propagate_system::transform_propagate_system};
-    use bevy_ecs::{Resources, Schedule, SystemStage, World};
+    use bevy_ecs::{IntoSystem, Resources, Schedule, SystemStage, World};
     use bevy_math::Vec3;
 
     #[test]
@@ -80,8 +80,8 @@ mod test {
         let mut resources = Resources::default();
 
         let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(parent_update_system);
-        update_stage.add_system(transform_propagate_system);
+        update_stage.add_system(parent_update_system.system());
+        update_stage.add_system(transform_propagate_system.system());
 
         let mut schedule = Schedule::default();
         schedule.add_stage("update", update_stage);

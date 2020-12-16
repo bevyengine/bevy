@@ -147,9 +147,6 @@ pub struct DrawContext<'a> {
     pub current_pipeline: Option<Handle<PipelineDescriptor>>,
 }
 
-#[derive(Debug)]
-pub struct FetchDrawContext;
-
 impl<'a> DrawContext<'a> {
     pub fn get_uniform_buffer<T: RenderResource>(
         &mut self,

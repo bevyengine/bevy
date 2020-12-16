@@ -1,9 +1,10 @@
+use super::system_param::FetchSystemParam;
 use crate::{
     ArchetypeComponent, Commands, QueryAccess, Resources, System, SystemId, SystemParam,
     ThreadLocalExecution, TypeAccess, World,
 };
 use parking_lot::Mutex;
-use std::{any::TypeId, borrow::Cow, sync::Arc};
+use std::{any::TypeId, borrow::Cow, cell::UnsafeCell, sync::Arc};
 
 pub struct SystemState {
     pub(crate) id: SystemId,
@@ -14,14 +15,20 @@ pub struct SystemState {
     pub(crate) query_archetype_component_accesses: Vec<TypeAccess<ArchetypeComponent>>,
     pub(crate) query_accesses: Vec<Vec<QueryAccess>>,
     pub(crate) query_type_names: Vec<&'static str>,
-    pub(crate) commands: Commands,
+    pub(crate) commands: UnsafeCell<Commands>,
     pub(crate) arc_commands: Option<Arc<Mutex<Commands>>>,
-    pub(crate) current_query_index: usize,
+    pub(crate) current_query_index: UnsafeCell<usize>,
 }
+
+// SAFE: UnsafeCell<Commands> and UnsafeCell<usize> only accessed from the thread they are scheduled on
+unsafe impl Sync for SystemState {}
 
 impl SystemState {
     pub fn reset_indices(&mut self) {
-        self.current_query_index = 0;
+        // SAFE: done with unique mutable access to Self
+        unsafe {
+            *self.current_query_index.get() = 0;
+        }
     }
 
     pub fn update(&mut self, world: &World) {
@@ -72,7 +79,62 @@ impl SystemState {
     }
 }
 
-pub struct FuncSystem<In, Out> {
+pub struct FuncSystem<Out> {
+    func:
+        Box<dyn FnMut(&mut SystemState, &World, &Resources) -> Option<Out> + Send + Sync + 'static>,
+    thread_local_func:
+        Box<dyn FnMut(&mut SystemState, &mut World, &mut Resources) + Send + Sync + 'static>,
+    init_func: Box<dyn FnMut(&mut SystemState, &World, &mut Resources) + Send + Sync + 'static>,
+    state: SystemState,
+}
+
+impl<Out: 'static> System for FuncSystem<Out> {
+    type In = ();
+    type Out = Out;
+
+    fn name(&self) -> std::borrow::Cow<'static, str> {
+        self.state.name.clone()
+    }
+
+    fn id(&self) -> SystemId {
+        self.state.id
+    }
+
+    fn update(&mut self, world: &World) {
+        self.state.update(world);
+    }
+
+    fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent> {
+        &self.state.archetype_component_access
+    }
+
+    fn resource_access(&self) -> &TypeAccess<std::any::TypeId> {
+        &self.state.resource_access
+    }
+
+    fn thread_local_execution(&self) -> ThreadLocalExecution {
+        ThreadLocalExecution::NextFlush
+    }
+
+    unsafe fn run_unsafe(
+        &mut self,
+        _input: Self::In,
+        world: &World,
+        resources: &Resources,
+    ) -> Option<Out> {
+        (self.func)(&mut self.state, world, resources)
+    }
+
+    fn run_thread_local(&mut self, world: &mut World, resources: &mut Resources) {
+        (self.thread_local_func)(&mut self.state, world, resources)
+    }
+
+    fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
+        (self.init_func)(&mut self.state, world, resources);
+    }
+}
+
+pub struct InputFuncSystem<In, Out> {
     func: Box<
         dyn FnMut(In, &mut SystemState, &World, &Resources) -> Option<Out> + Send + Sync + 'static,
     >,
@@ -82,7 +144,7 @@ pub struct FuncSystem<In, Out> {
     state: SystemState,
 }
 
-impl<In: 'static, Out: 'static> System for FuncSystem<In, Out> {
+impl<In: 'static, Out: 'static> System for InputFuncSystem<In, Out> {
     type In = In;
     type Out = Out;
 
@@ -138,16 +200,21 @@ impl<Sys: System> IntoSystem<(), Sys> for Sys {
         self
     }
 }
+pub struct In<In>(pub In);
 
 macro_rules! impl_into_system {
     ($($param: ident),*) => {
-        impl<Func, In, Out, $($param: SystemParam<In>),*> IntoSystem<($($param,)*), FuncSystem<In, Out>> for Func
-        where Func: FnMut($($param),*) -> Out + Send + Sync + 'static, Out: 'static, In: 'static
+        impl<Func, Out, $($param: SystemParam),*> IntoSystem<($($param,)*), FuncSystem<Out>> for Func
+        where
+            Func:
+                FnMut($($param),*) -> Out +
+                FnMut($(<<$param as SystemParam>::Fetch as FetchSystemParam>::Item),*) -> Out +
+                Send + Sync + 'static, Out: 'static
         {
             #[allow(unused_variables)]
             #[allow(unused_unsafe)]
             #[allow(non_snake_case)]
-            fn system(mut self) -> FuncSystem<In, Out> {
+            fn system(mut self) -> FuncSystem<Out> {
                 FuncSystem {
                     state: SystemState {
                         name: std::any::type_name::<Self>().into(),
@@ -155,18 +222,18 @@ macro_rules! impl_into_system {
                         resource_access: TypeAccess::default(),
                         local_resource_access: TypeAccess::default(),
                         id: SystemId::new(),
-                        commands: Commands::default(),
+                        commands: Default::default(),
                         arc_commands: Default::default(),
+                        current_query_index: Default::default(),
                         query_archetype_component_accesses: Vec::new(),
                         query_accesses: Vec::new(),
                         query_type_names: Vec::new(),
-                        current_query_index: 0,
                     },
-                    func: Box::new(move |input, state, world, resources| {
+                    func: Box::new(move |state, world, resources| {
                         state.reset_indices();
-                        let mut input = Some(input);
+                        // let mut input = Some(input);
                         unsafe {
-                            if let Some(($($param,)*)) = <($($param,)*)>::get_param(&mut input, state, world, resources) {
+                            if let Some(($($param,)*)) = <<($($param,)*) as SystemParam>::Fetch as FetchSystemParam>::get_param(state, world, resources) {
                                 Some(self($($param),*))
                             } else {
                                 None
@@ -174,14 +241,69 @@ macro_rules! impl_into_system {
                         }
                     }),
                     thread_local_func: Box::new(|state, world, resources| {
-                        state.commands.apply(world, resources);
+                        // SAFE: this is called with unique access to SystemState
+                        unsafe {
+                            (&mut *state.commands.get()).apply(world, resources);
+                        }
                         if let Some(ref commands) = state.arc_commands {
                             let mut commands = commands.lock();
                             commands.apply(world, resources);
                         }
                     }),
                     init_func: Box::new(|state, world, resources| {
-                        $($param::init(state, world, resources);)*
+                        <<($($param,)*) as SystemParam>::Fetch as FetchSystemParam>::init(state, world, resources)
+                    }),
+                }
+            }
+        }
+        impl<Func, Input, Out, $($param: SystemParam),*> IntoSystem<(Input, $($param,)*), InputFuncSystem<Input, Out>> for Func
+        where
+            Func:
+                FnMut(In<Input>, $($param),*) -> Out +
+                FnMut(In<Input>, $(<<$param as SystemParam>::Fetch as FetchSystemParam>::Item),*) -> Out +
+                Send + Sync + 'static, Input: 'static, Out: 'static
+        {
+            #[allow(unused_variables)]
+            #[allow(unused_unsafe)]
+            #[allow(non_snake_case)]
+            fn system(mut self) -> InputFuncSystem<Input, Out> {
+                InputFuncSystem {
+                    state: SystemState {
+                        name: std::any::type_name::<Self>().into(),
+                        archetype_component_access: TypeAccess::default(),
+                        resource_access: TypeAccess::default(),
+                        local_resource_access: TypeAccess::default(),
+                        id: SystemId::new(),
+                        commands: Default::default(),
+                        arc_commands: Default::default(),
+                        current_query_index: Default::default(),
+                        query_archetype_component_accesses: Vec::new(),
+                        query_accesses: Vec::new(),
+                        query_type_names: Vec::new(),
+                    },
+                    func: Box::new(move |input, state, world, resources| {
+                        state.reset_indices();
+                        // let mut input = Some(input);
+                        unsafe {
+                            if let Some(($($param,)*)) = <<($($param,)*) as SystemParam>::Fetch as FetchSystemParam>::get_param(state, world, resources) {
+                                Some(self(In(input), $($param),*))
+                            } else {
+                                None
+                            }
+                        }
+                    }),
+                    thread_local_func: Box::new(|state, world, resources| {
+                        // SAFE: this is called with unique access to SystemState
+                        unsafe {
+                            (&mut *state.commands.get()).apply(world, resources);
+                        }
+                        if let Some(ref commands) = state.arc_commands {
+                            let mut commands = commands.lock();
+                            commands.apply(world, resources);
+                        }
+                    }),
+                    init_func: Box::new(|state, world, resources| {
+                        <<($($param,)*) as SystemParam>::Fetch as FetchSystemParam>::init(state, world, resources)
                     }),
                 }
             }
@@ -277,7 +399,7 @@ mod tests {
         world.spawn((A, C));
         world.spawn((A, D));
 
-        run_system(&mut world, &mut resources, query_system);
+        run_system(&mut world, &mut resources, query_system.system());
 
         assert!(*resources.get::<bool>().unwrap(), "system ran");
     }
@@ -286,12 +408,14 @@ mod tests {
     fn or_query_set_system() {
         // Regression test for issue #762
         use crate::{Added, Changed, Mutated, Or};
-        let query_system = move |mut ran: ResMut<bool>,
-                                 set: QuerySet<(
-            Query<(), Or<(Changed<A>, Changed<B>)>>,
-            Query<(), Or<(Added<A>, Added<B>)>>,
-            Query<(), Or<(Mutated<A>, Mutated<B>)>>,
-        )>| {
+        fn query_system(
+            mut ran: ResMut<bool>,
+            set: QuerySet<(
+                Query<(), Or<(Changed<A>, Changed<B>)>>,
+                Query<(), Or<(Added<A>, Added<B>)>>,
+                Query<(), Or<(Mutated<A>, Mutated<B>)>>,
+            )>,
+        ) {
             let changed = set.q0().iter().count();
             let added = set.q1().iter().count();
             let mutated = set.q2().iter().count();
@@ -308,7 +432,7 @@ mod tests {
         resources.insert(false);
         world.spawn((A, B));
 
-        run_system(&mut world, &mut resources, query_system);
+        run_system(&mut world, &mut resources, query_system.system());
 
         assert!(*resources.get::<bool>().unwrap(), "system ran");
     }
@@ -328,9 +452,12 @@ mod tests {
 
         let mut schedule = Schedule::default();
         let mut update = SystemStage::parallel();
-        update.add_system(incr_e_on_flip);
+        update.add_system(incr_e_on_flip.system());
         schedule.add_stage("update", update);
-        schedule.add_stage("clear_trackers", SystemStage::single(clear_trackers_system));
+        schedule.add_stage(
+            "clear_trackers",
+            SystemStage::single(clear_trackers_system.system()),
+        );
 
         schedule.initialize_and_run(&mut world, &mut resources);
         assert_eq!(*(world.get::<i32>(ent).unwrap()), 1);
@@ -362,9 +489,12 @@ mod tests {
 
         let mut schedule = Schedule::default();
         let mut update = SystemStage::parallel();
-        update.add_system(incr_e_on_flip);
+        update.add_system(incr_e_on_flip.system());
         schedule.add_stage("update", update);
-        schedule.add_stage("clear_trackers", SystemStage::single(clear_trackers_system));
+        schedule.add_stage(
+            "clear_trackers",
+            SystemStage::single(clear_trackers_system.system()),
+        );
 
         schedule.initialize_and_run(&mut world, &mut resources);
         assert_eq!(*(world.get::<i32>(ent).unwrap()), 1);
@@ -393,7 +523,7 @@ mod tests {
         let mut resources = Resources::default();
         world.spawn((A,));
 
-        run_system(&mut world, &mut resources, sys);
+        run_system(&mut world, &mut resources, sys.system());
     }
 
     #[test]
@@ -405,7 +535,7 @@ mod tests {
         let mut resources = Resources::default();
         world.spawn((A,));
 
-        run_system(&mut world, &mut resources, sys);
+        run_system(&mut world, &mut resources, sys.system());
     }
 
     #[test]
@@ -416,7 +546,7 @@ mod tests {
         let mut resources = Resources::default();
         world.spawn((A,));
 
-        run_system(&mut world, &mut resources, sys);
+        run_system(&mut world, &mut resources, sys.system());
     }
 
     #[test]
@@ -428,7 +558,7 @@ mod tests {
         let mut resources = Resources::default();
         world.spawn((A,));
 
-        run_system(&mut world, &mut resources, sys);
+        run_system(&mut world, &mut resources, sys.system());
     }
 
     #[test]
@@ -439,17 +569,13 @@ mod tests {
         let mut world = World::default();
         let mut resources = Resources::default();
         world.spawn((A,));
-        run_system(&mut world, &mut resources, sys);
+        run_system(&mut world, &mut resources, sys.system());
     }
 
-    fn run_system<
-        Params,
-        SystemType: System<In = (), Out = ()>,
-        Sys: IntoSystem<Params, SystemType>,
-    >(
+    fn run_system<S: System<In = (), Out = ()>>(
         world: &mut World,
         resources: &mut Resources,
-        system: Sys,
+        system: S,
     ) {
         let mut schedule = Schedule::default();
         let mut update = SystemStage::parallel();
@@ -463,40 +589,34 @@ mod tests {
         _buffer: Vec<u8>,
     }
 
-    fn test_for_conflicting_resources<
-        Params,
-        SystemType: System<In = (), Out = ()>,
-        Sys: IntoSystem<Params, SystemType>,
-    >(
-        sys: Sys,
-    ) {
+    fn test_for_conflicting_resources<S: System<In = (), Out = ()>>(sys: S) {
         let mut world = World::default();
         let mut resources = Resources::default();
         resources.insert(BufferRes::default());
         resources.insert(A);
         resources.insert(B);
-        run_system(&mut world, &mut resources, sys);
+        run_system(&mut world, &mut resources, sys.system());
     }
 
     #[test]
     #[should_panic]
     fn conflicting_system_resources() {
         fn sys(_: ResMut<BufferRes>, _: Res<BufferRes>) {}
-        test_for_conflicting_resources(sys)
+        test_for_conflicting_resources(sys.system())
     }
 
     #[test]
     #[should_panic]
     fn conflicting_system_resources_reverse_order() {
         fn sys(_: Res<BufferRes>, _: ResMut<BufferRes>) {}
-        test_for_conflicting_resources(sys)
+        test_for_conflicting_resources(sys.system())
     }
 
     #[test]
     #[should_panic]
     fn conflicting_system_resources_multiple_mutable() {
         fn sys(_: ResMut<BufferRes>, _: ResMut<BufferRes>) {}
-        test_for_conflicting_resources(sys)
+        test_for_conflicting_resources(sys.system())
     }
 
     #[test]
@@ -504,19 +624,19 @@ mod tests {
     fn conflicting_changed_and_mutable_resource() {
         // A tempting pattern, but unsound if allowed.
         fn sys(_: ResMut<BufferRes>, _: ChangedRes<BufferRes>) {}
-        test_for_conflicting_resources(sys)
+        test_for_conflicting_resources(sys.system())
     }
 
     #[test]
     #[should_panic]
     fn conflicting_system_local_resources() {
         fn sys(_: Local<BufferRes>, _: Local<BufferRes>) {}
-        test_for_conflicting_resources(sys)
+        test_for_conflicting_resources(sys.system())
     }
 
     #[test]
     fn nonconflicting_system_resources() {
         fn sys(_: Local<BufferRes>, _: ResMut<BufferRes>, _: Local<A>, _: ResMut<A>) {}
-        test_for_conflicting_resources(sys)
+        test_for_conflicting_resources(sys.system())
     }
 }

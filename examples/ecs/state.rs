@@ -7,12 +7,12 @@ fn main() {
         .init_resource::<ButtonMaterials>()
         .add_resource(State::new(AppState::Menu))
         .add_stage_after(stage::UPDATE, STAGE, StateStage::<AppState>::default())
-        .on_state_enter(STAGE, AppState::Menu, setup_menu)
-        .on_state_update(STAGE, AppState::Menu, menu)
-        .on_state_exit(STAGE, AppState::Menu, cleanup_menu)
-        .on_state_enter(STAGE, AppState::InGame, setup_game)
-        .on_state_update(STAGE, AppState::InGame, movement)
-        .on_state_update(STAGE, AppState::InGame, change_color)
+        .on_state_enter(STAGE, AppState::Menu, setup_menu.system())
+        .on_state_update(STAGE, AppState::Menu, menu.system())
+        .on_state_exit(STAGE, AppState::Menu, cleanup_menu.system())
+        .on_state_enter(STAGE, AppState::InGame, setup_game.system())
+        .on_state_update(STAGE, AppState::InGame, movement.system())
+        .on_state_update(STAGE, AppState::InGame, change_color.system())
         .run();
 }
 
