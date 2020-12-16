@@ -15,7 +15,7 @@ pub fn parent_update_system(
     // them from the `Children` of the `PreviousParent`.
     for (entity, previous_parent) in removed_parent_query.iter() {
         if let Ok(mut previous_parent_children) = children_query.get_mut(previous_parent.0) {
-            previous_parent_children.0.retain(|e| *e != entity);
+            previous_parent_children.retain(|e| *e != entity);
             commands.remove_one::<PreviousParent>(entity);
         }
     }
@@ -33,7 +33,7 @@ pub fn parent_update_system(
 
             // Remove from `PreviousParent.Children`.
             if let Ok(mut previous_parent_children) = children_query.get_mut(previous_parent.0) {
-                (*previous_parent_children).0.retain(|e| *e != entity);
+                (*previous_parent_children).retain(|e| *e != entity);
             }
 
             // Set `PreviousParent = Parent`.
@@ -47,10 +47,10 @@ pub fn parent_update_system(
         if let Ok(mut new_parent_children) = children_query.get_mut(parent.0) {
             // This is the parent
             debug_assert!(
-                !(*new_parent_children).0.contains(&entity),
+                !(*new_parent_children).contains(&entity),
                 "children already added"
             );
-            (*new_parent_children).0.push(entity);
+            (*new_parent_children).push(entity);
         } else {
             // The parent doesn't have a children entity, lets add it
             children_additions
@@ -109,7 +109,6 @@ mod test {
             world
                 .get::<Children>(parent)
                 .unwrap()
-                .0
                 .iter()
                 .cloned()
                 .collect::<Vec<_>>(),

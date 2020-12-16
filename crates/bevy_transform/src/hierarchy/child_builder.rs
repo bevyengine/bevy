@@ -19,14 +19,14 @@ impl Command for InsertChildren {
         {
             let mut added = false;
             if let Ok(mut children) = world.get_mut::<Children>(self.parent) {
-                children.0.insert_from_slice(self.index, &self.children);
+                children.insert(self.index, &self.children);
                 added = true;
             }
 
             // NOTE: ideally this is just an else statement, but currently that _incorrectly_ fails borrow-checking
             if !added {
                 world
-                    .insert_one(self.parent, Children(self.children))
+                    .insert_one(self.parent, Children::with(&self.children))
                     .unwrap();
             }
         }
@@ -54,14 +54,14 @@ impl Command for PushChildren {
         {
             let mut added = false;
             if let Ok(mut children) = world.get_mut::<Children>(self.parent) {
-                children.0.extend(self.children.iter().cloned());
+                children.extend(self.children.iter().cloned());
                 added = true;
             }
 
             // NOTE: ideally this is just an else statement, but currently that _incorrectly_ fails borrow-checking
             if !added {
                 world
-                    .insert_one(self.parent, Children(self.children))
+                    .insert_one(self.parent, Children::with(&self.children))
                     .unwrap();
             }
         }
@@ -239,7 +239,7 @@ mod tests {
         let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child2, child3];
 
         assert_eq!(
-            world.get::<Children>(parent).unwrap().0.clone(),
+            world.get::<Children>(parent).unwrap().iter().cloned().collect::<SmallVec<[Entity; 8]>>(),
             expected_children
         );
         assert_eq!(*world.get::<Parent>(child1).unwrap(), Parent(parent));
@@ -275,7 +275,7 @@ mod tests {
 
         let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child2];
         assert_eq!(
-            world.get::<Children>(parent).unwrap().0.clone(),
+            world.get::<Children>(parent).unwrap().iter().cloned().collect::<SmallVec<[Entity; 8]>>(),
             expected_children
         );
         assert_eq!(*world.get::<Parent>(child1).unwrap(), Parent(parent));
@@ -295,7 +295,7 @@ mod tests {
 
         let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child3, child4, child2];
         assert_eq!(
-            world.get::<Children>(parent).unwrap().0.clone(),
+            world.get::<Children>(parent).unwrap().iter().cloned().collect::<SmallVec<[Entity; 8]>>(),
             expected_children
         );
         assert_eq!(*world.get::<Parent>(child3).unwrap(), Parent(parent));
@@ -307,6 +307,39 @@ mod tests {
         assert_eq!(
             *world.get::<PreviousParent>(child4).unwrap(),
             PreviousParent(parent)
+        );
+    }
+
+    #[test]
+    fn push_duplicate_children() {
+        let mut world = World::default();
+        let mut resources = Resources::default();
+        let mut commands = Commands::default();
+        let entities = world
+            .spawn_batch(vec![(1,), (2,), (3,)])
+            .collect::<Vec<Entity>>();
+
+        let parent = entities[0];
+        let child1 = entities[1];
+        let child2 = entities[2];
+
+        commands.push_children(parent, &[child1, child1, child2, child1]);
+        commands.apply(&mut world, &mut resources);
+
+
+        let expected_children: SmallVec<[Entity; 8]> = smallvec![child2, child1];
+        assert_eq!(
+            world.get::<Children>(parent).unwrap().iter().cloned().collect::<SmallVec<[Entity; 8]>>(),
+            expected_children
+        );
+
+        commands.push_children(parent, &[child2]);
+        commands.apply(&mut world, &mut resources);
+
+        let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child2];
+        assert_eq!(
+            world.get::<Children>(parent).unwrap().iter().cloned().collect::<SmallVec<[Entity; 8]>>(),
+            expected_children
         );
     }
 }
