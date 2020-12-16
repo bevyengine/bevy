@@ -12,25 +12,49 @@ pub struct InsertChildren {
 
 impl Command for InsertChildren {
     fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
-        for child in self.children.iter() {
-            world
-                .insert(*child, (Parent(self.parent), PreviousParent(self.parent)))
-                .unwrap();
-        }
-        {
-            let mut added = false;
-            if let Ok(mut children) = world.get_mut::<Children>(self.parent) {
-                children.0.insert_from_slice(self.index, &self.children);
-                added = true;
+        let mut childset = HashSet::default();
+
+        let mut new_children = if let Ok(children) = world.get::<Children>(self.parent) {
+            childset.extend(children.iter().copied());
+            children.0.clone()
+        } else {
+            Default::default()
+        };
+
+        for (offset, child) in self.children.iter().enumerate() {
+            if !childset.contains(child) {
+                if self.index >= new_children.len() {
+                    new_children.push(*child);
+                } else {
+                    new_children.insert(self.index + offset, *child);
+                }
             }
 
-            // NOTE: ideally this is just an else statement, but currently that _incorrectly_ fails borrow-checking
-            if !added {
+            if let Ok(Parent(old_parent)) = world.get::<Parent>(*child) {
+                let old_parent = *old_parent;
+
+                // clean old parent of children references
+                if let Ok(mut children) = world.get_mut::<Children>(old_parent) {
+                    let vec = children
+                        .iter()
+                        .filter_map(|c| if c != child { Some(*c) } else { None })
+                        .collect();
+                    children.0 = vec;
+                }
+
                 world
-                    .insert_one(self.parent, Children(self.children))
+                    .insert(*child, (Parent(self.parent), PreviousParent(old_parent)))
+                    .unwrap();
+            } else {
+                world
+                    .insert(*child, (Parent(self.parent), PreviousParent(self.parent)))
                     .unwrap();
             }
         }
+
+        world
+            .insert_one(self.parent, Children(new_children))
+            .unwrap();
     }
 }
 
@@ -391,7 +415,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(skip)]
     fn insert_children_keeps_children_unique() {
         let (mut world, mut resources, mut commands, child, parent) = setup();
         commands.insert_children(parent, 0, &child[1..=2]);
@@ -405,7 +428,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(skip)]
     fn insert_children_updates_previous_parent() {
         let (mut world, mut resources, mut commands, entities, parent1) = setup();
         let parent2 = entities[4];
@@ -426,6 +448,10 @@ mod tests {
         let (mut world, mut resources, mut commands, child, parent) = setup();
         commands.insert_children(parent, 0, &child[1..=2]);
         commands.apply(&mut world, &mut resources);
+        assert_eq!(
+            world.get::<Children>(parent).unwrap(),
+            &Children::with(&[child[1], child[2]])
+        );
         commands.insert_children(parent, 1, &child[3..=4]);
         commands.apply(&mut world, &mut resources);
         assert_eq!(
@@ -435,7 +461,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(skip)]
     fn insert_children_out_of_bounds_pushes_to_end() {
         let (mut world, mut resources, mut commands, child, parent) = setup();
         commands.insert_children(parent, 0, &child[1..=2]);
