@@ -12,30 +12,7 @@ pub struct InsertChildren {
 
 impl Command for InsertChildren {
     fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
-        let mut childset = HashSet::default();
-
-        let mut new_children = if let Ok(children) = world.get::<Children>(self.parent) {
-            childset.extend(children.iter().copied());
-            children.0.clone()
-        } else {
-            Default::default()
-        };
-        /*
-        old_children
-        new_children
-        self.parent
-        self.index
-        self.children*/
-
-        for (offset, child) in self.children.iter().enumerate() {
-            if !childset.contains(child) {
-                if self.index >= new_children.len() {
-                    new_children.push(*child);
-                } else {
-                    new_children.insert(self.index + offset, *child);
-                }
-            }
-
+        for child in self.children.iter() {
             if let Ok(Parent(old_parent)) = world.get::<Parent>(*child) {
                 let old_parent = *old_parent;
 
@@ -55,9 +32,21 @@ impl Command for InsertChildren {
             }
         }
 
-        world
-            .insert_one(self.parent, Children(new_children))
-            .unwrap();
+        if let Ok(mut children) = world.get_mut::<Children>(self.parent) {
+            let vec = &mut children.0;
+            let index = self.index.min(vec.len());
+
+            // note that for cases with many children a HashSet might be better for contains() check
+            for child in self.children.iter().rev() {
+                if !vec.contains(child) {
+                    vec.insert(index, *child);
+                }
+            }
+        } else {
+            world
+                .insert_one(self.parent, Children(self.children))
+                .unwrap();
+        };
     }
 }
 
