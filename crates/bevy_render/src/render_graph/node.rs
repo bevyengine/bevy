@@ -31,7 +31,7 @@ pub trait Node: Downcast + Send + Sync + 'static {
         render_context: &mut dyn RenderContext,
         input: &ResourceSlots,
         output: &mut ResourceSlots,
-    );
+    ) -> Result<(), ()>;
 }
 
 impl_downcast!(Node);

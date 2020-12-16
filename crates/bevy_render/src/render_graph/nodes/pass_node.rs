@@ -156,7 +156,7 @@ where
         render_context: &mut dyn RenderContext,
         input: &ResourceSlots,
         _output: &mut ResourceSlots,
-    ) {
+    ) -> Result<(), ()> {
         let render_resource_bindings = resources.get::<RenderResourceBindings>().unwrap();
         let pipelines = resources.get::<Assets<PipelineDescriptor>>().unwrap();
         let active_cameras = resources.get::<ActiveCameras>().unwrap();
@@ -168,8 +168,12 @@ where
                 }
             }
             if let Some(input_index) = self.color_attachment_input_indices[i] {
-                color_attachment.attachment =
-                    TextureAttachment::Id(input.get(input_index).unwrap().get_texture().unwrap());
+                if let Some(resource_id) = input.get(input_index) {
+                    color_attachment.attachment =
+                        TextureAttachment::Id(resource_id.get_texture().unwrap());
+                } else {
+                    return Err(());
+                }
             }
             if let Some(input_index) = self.color_resolve_target_indices[i] {
                 color_attachment.resolve_target = Some(TextureAttachment::Id(
@@ -335,6 +339,7 @@ where
                 }
             },
         );
+        Ok(())
     }
 }
 

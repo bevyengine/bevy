@@ -309,7 +309,8 @@ mod tests {
             _: &mut dyn RenderContext,
             _: &ResourceSlots,
             _: &mut ResourceSlots,
-        ) {
+        ) -> Result<(), ()> {
+            Ok(())
         }
     }
 

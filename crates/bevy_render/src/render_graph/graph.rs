@@ -343,7 +343,8 @@ mod tests {
             _: &mut dyn RenderContext,
             _: &ResourceSlots,
             _: &mut ResourceSlots,
-        ) {
+        ) -> Result<(), ()> {
+            Ok(())
         }
     }
 
@@ -417,7 +418,8 @@ mod tests {
                 _: &mut dyn RenderContext,
                 _: &ResourceSlots,
                 _: &mut ResourceSlots,
-            ) {
+            ) -> Result<(), ()> {
+                Ok(())
             }
         }
 

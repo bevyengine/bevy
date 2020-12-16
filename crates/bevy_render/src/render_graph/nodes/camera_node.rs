@@ -38,8 +38,9 @@ impl Node for CameraNode {
         render_context: &mut dyn RenderContext,
         _input: &ResourceSlots,
         _output: &mut ResourceSlots,
-    ) {
+    ) -> Result<(), ()> {
         self.command_queue.execute(render_context);
+        Ok(())
     }
 }
 

@@ -21,7 +21,7 @@ impl Node for TextureCopyNode {
         render_context: &mut dyn RenderContext,
         _input: &ResourceSlots,
         _output: &mut ResourceSlots,
-    ) {
+    ) -> Result<(), ()> {
         let texture_events = resources.get::<Events<AssetEvent<Texture>>>().unwrap();
         let textures = resources.get::<Assets<Texture>>().unwrap();
         let mut copied_textures = HashSet::new();
@@ -84,5 +84,6 @@ impl Node for TextureCopyNode {
                 AssetEvent::Removed { .. } => {}
             }
         }
+        Ok(())
     }
 }

@@ -1,5 +1,6 @@
 use super::{WgpuRenderContext, WgpuRenderResourceContext};
 use bevy_ecs::{Resources, World};
+use bevy_log::warn;
 use bevy_render::{
     render_graph::{Edge, NodeId, ResourceSlots, StageBorrow},
     renderer::RenderResourceContext,
@@ -60,23 +61,34 @@ impl WgpuRenderGraphExecutor {
                                 let outputs = if let Some(outputs) = node_outputs.get(output_node) {
                                     outputs
                                 } else {
-                                    panic!("Node inputs not set.")
+                                    warn!("Node inputs not set.");
+                                    break;
                                 };
 
-                                let output_resource =
-                                    outputs.get(*output_index).expect("Output should be set.");
-                                input_slot.resource = Some(output_resource);
+                                if let Some(output_resource) = outputs.get(*output_index) {
+                                    input_slot.resource = Some(output_resource);
+                                } else {
+                                    warn!(
+                                        "Output should be set for node {:?}-{:?}",
+                                        output_node, output_index
+                                    );
+                                    break;
+                                }
                             } else {
-                                panic!("No edge connected to input.")
+                                warn!("No edge connected to input.");
+                                break;
                             }
                         }
-                        node_state.node.update(
+                        if let Err(_) = node_state.node.update(
                             world,
                             resources,
                             &mut render_context,
                             &node_state.input_slots,
                             &mut node_state.output_slots,
-                        );
+                        ) {
+                            warn!("Error from node {:?}", node_state.id);
+                            break;
+                        }
 
                         node_outputs
                             .write()

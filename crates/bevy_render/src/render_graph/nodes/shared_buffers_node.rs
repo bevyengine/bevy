@@ -15,8 +15,9 @@ impl Node for SharedBuffersNode {
         render_context: &mut dyn RenderContext,
         _input: &ResourceSlots,
         _output: &mut ResourceSlots,
-    ) {
+    ) -> Result<(), ()> {
         let mut shared_buffers = resources.get_mut::<SharedBuffers>().unwrap();
         shared_buffers.apply(render_context);
+        Ok(())
     }
 }

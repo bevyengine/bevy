@@ -152,7 +152,7 @@ impl WgpuRenderResourceContext {
         let mut window_swap_chains = self.resources.window_swap_chains.write();
         let mut swap_chain_outputs = self.resources.swap_chain_frames.write();
 
-        let window_swap_chain = window_swap_chains.get_mut(&window_id).unwrap();
+        let window_swap_chain = window_swap_chains.get_mut(&window_id)?;
         let next_texture = window_swap_chain.get_current_frame().ok()?;
         let id = TextureId::new();
         swap_chain_outputs.insert(id, next_texture);

@@ -44,34 +44,35 @@ impl Node for WindowTextureNode {
         render_context: &mut dyn RenderContext,
         _input: &ResourceSlots,
         output: &mut ResourceSlots,
-    ) {
+    ) -> Result<(), ()> {
         const WINDOW_TEXTURE: usize = 0;
         let window_created_events = resources.get::<Events<WindowCreated>>().unwrap();
         let window_resized_events = resources.get::<Events<WindowResized>>().unwrap();
         let windows = resources.get::<Windows>().unwrap();
 
-        let window = windows
-            .get(self.window_id)
-            .expect("Received window resized event for non-existent window.");
-
-        if self
-            .window_created_event_reader
-            .find_latest(&window_created_events, |e| e.id == window.id())
-            .is_some()
-            || self
-                .window_resized_event_reader
-                .find_latest(&window_resized_events, |e| e.id == window.id())
+        if let Some(window) = windows.get(self.window_id) {
+            if self
+                .window_created_event_reader
+                .find_latest(&window_created_events, |e| e.id == window.id())
                 .is_some()
-        {
-            let render_resource_context = render_context.resources_mut();
-            if let Some(RenderResourceId::Texture(old_texture)) = output.get(WINDOW_TEXTURE) {
-                render_resource_context.remove_texture(old_texture);
-            }
+                || self
+                    .window_resized_event_reader
+                    .find_latest(&window_resized_events, |e| e.id == window.id())
+                    .is_some()
+            {
+                let render_resource_context = render_context.resources_mut();
+                if let Some(RenderResourceId::Texture(old_texture)) = output.get(WINDOW_TEXTURE) {
+                    render_resource_context.remove_texture(old_texture);
+                }
 
-            self.descriptor.size.width = window.physical_width();
-            self.descriptor.size.height = window.physical_height();
-            let texture_resource = render_resource_context.create_texture(self.descriptor);
-            output.set(WINDOW_TEXTURE, RenderResourceId::Texture(texture_resource));
+                self.descriptor.size.width = window.physical_width();
+                self.descriptor.size.height = window.physical_height();
+                let texture_resource = render_resource_context.create_texture(self.descriptor);
+                output.set(WINDOW_TEXTURE, RenderResourceId::Texture(texture_resource));
+            }
+            Ok(())
+        } else {
+            Err(())
         }
     }
 }
