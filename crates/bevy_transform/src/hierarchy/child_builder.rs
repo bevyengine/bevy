@@ -1,5 +1,6 @@
 use crate::prelude::{Children, Parent, PreviousParent};
 use bevy_ecs::{Command, Commands, Component, DynamicBundle, Entity, Resources, World};
+use bevy_utils::HashSet;
 use smallvec::SmallVec;
 
 #[derive(Debug)]
@@ -46,25 +47,45 @@ pub struct ChildBuilder<'a> {
 
 impl Command for PushChildren {
     fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
+        let mut childset = HashSet::default();
+
+        let mut new_children = if let Ok(children) = world.get::<Children>(self.parent) {
+            childset.extend(children.iter().copied());
+            children.0.clone()
+        } else {
+            Default::default()
+        };
+
         for child in self.children.iter() {
-            world
-                .insert(*child, (Parent(self.parent), PreviousParent(self.parent)))
-                .unwrap();
-        }
-        {
-            let mut added = false;
-            if let Ok(mut children) = world.get_mut::<Children>(self.parent) {
-                children.0.extend(self.children.iter().cloned());
-                added = true;
+            if !childset.contains(child) {
+                new_children.push(*child);
             }
 
-            // NOTE: ideally this is just an else statement, but currently that _incorrectly_ fails borrow-checking
-            if !added {
+            if let Ok(Parent(old_parent)) = world.get::<Parent>(*child) {
+                let old_parent = *old_parent;
+
+                // clean old parent of children references
+                if let Ok(mut children) = world.get_mut::<Children>(old_parent) {
+                    let vec = children
+                        .iter()
+                        .filter_map(|c| if c != child { Some(*c) } else { None })
+                        .collect();
+                    children.0 = vec;
+                }
+
                 world
-                    .insert_one(self.parent, Children(self.children))
+                    .insert(*child, (Parent(self.parent), PreviousParent(old_parent)))
+                    .unwrap();
+            } else {
+                world
+                    .insert(*child, (Parent(self.parent), PreviousParent(self.parent)))
                     .unwrap();
             }
         }
+
+        world
+            .insert_one(self.parent, Children(self.children))
+            .unwrap();
     }
 }
 
@@ -311,7 +332,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(skip)]
     fn push_children_keeps_children_unique() {
         let (mut world, mut resources, mut commands, child, parent) = setup();
         commands.push_children(parent, &child[1..=2]);
@@ -325,7 +345,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(skip)]
     fn push_children_updates_previous_parent() {
         let (mut world, mut resources, mut commands, entities, parent1) = setup();
         let parent2 = entities[4];
