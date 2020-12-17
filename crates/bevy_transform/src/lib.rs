@@ -1,3 +1,5 @@
+#![feature(test)]
+
 pub mod components;
 pub mod hierarchy;
 pub mod transform_propagate_system;

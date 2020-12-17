@@ -22,3 +22,10 @@ bevy_utils = { path = "../bevy_utils", version = "0.3.0" }
 
 # other
 smallvec = { version = "1.4", features = ["serde"] }
+
+[dev-dependencies]
+bencher = "0.1.5"
+
+[[bench]]
+name = "push_children"
+harness = false
