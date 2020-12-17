@@ -72,11 +72,19 @@ impl Command for PushChildren {
         update_parent_and_previous_parent(self.parent, &self.children, world);
 
         if let Ok(mut new_children) = world.get_mut::<Children>(self.parent) {
-            let mut childset: HashSet<Entity> = new_children.iter().copied().collect();
+            if new_children.len() > 8 || self.children.len() > 8 {
+                let mut childset: HashSet<Entity> = new_children.iter().copied().collect();
 
-            for child in self.children.iter() {
-                if childset.insert(*child) {
-                    new_children.0.push(*child);
+                for child in self.children.iter() {
+                    if childset.insert(*child) {
+                        new_children.0.push(*child);
+                    }
+                }
+            } else {
+                for child in self.children.iter() {
+                    if !new_children.contains(child) {
+                        new_children.0.push(*child);
+                    }
                 }
             }
         } else {
