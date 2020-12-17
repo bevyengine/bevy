@@ -282,20 +282,6 @@ mod tests {
         (world, resources, commands, entities, parent)
     }
 
-    // push_children_adds_parent_component
-    // push_children_adds_previous_parent_component
-    // push_children_adds_children_component
-    // push_children_keeps_children_unique
-    // push_children_updates_previous_parent
-
-    // insert_children_adds_parent_component
-    // insert_children_adds_previous_parent_component
-    // insert_children_adds_children_component
-    // insert_children_keeps_children_unique
-    // insert_children_updates_previous_parent
-    // insert_children_keeps_children_order
-    // insert_children_out_of_bounds_pushes_to_end
-
     #[test]
     fn push_children_adds_parent_component() {
         let (mut world, mut resources, mut commands, child, parent) = setup();
