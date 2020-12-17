@@ -1,5 +1,6 @@
 use crate::prelude::{Children, Parent, PreviousParent};
 use bevy_ecs::{Command, Commands, Component, DynamicBundle, Entity, Resources, World};
+use bevy_utils::HashSet;
 use smallvec::SmallVec;
 
 fn update_parent_and_previous_parent(new_parent: Entity, children: &[Entity], world: &mut World) {
@@ -71,8 +72,10 @@ impl Command for PushChildren {
         update_parent_and_previous_parent(self.parent, &self.children, world);
 
         if let Ok(mut new_children) = world.get_mut::<Children>(self.parent) {
+            let mut childset: HashSet<Entity> = new_children.iter().copied().collect();
+
             for child in self.children.iter() {
-                if !new_children.0.contains(child) {
+                if childset.insert(*child) {
                     new_children.0.push(*child);
                 }
             }
