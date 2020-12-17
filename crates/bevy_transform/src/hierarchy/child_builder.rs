@@ -1,7 +1,55 @@
 use crate::prelude::{Children, Parent, PreviousParent};
 use bevy_ecs::{Command, Commands, Component, DynamicBundle, Entity, Resources, World};
-use bevy_utils::HashSet;
 use smallvec::SmallVec;
+
+fn insert_children(
+    new_parent: Entity,
+    index: Option<usize>,
+    children: SmallVec<[Entity; 8]>,
+    world: &mut World,
+) {
+    for child in children.iter() {
+        if let Ok(Parent(old_parent)) = world.get::<Parent>(*child) {
+            let old_parent = *old_parent;
+
+            // clean old parent of children references
+            if let Ok(mut old_children) = world.get_mut::<Children>(old_parent) {
+                let vec = old_children
+                    .iter()
+                    .copied()
+                    .filter(|c| c != child)
+                    .collect();
+                old_children.0 = vec;
+            }
+
+            world
+                .insert(*child, (Parent(new_parent), PreviousParent(old_parent)))
+                .unwrap();
+        } else {
+            world
+                .insert(*child, (Parent(new_parent), PreviousParent(new_parent)))
+                .unwrap();
+        }
+    }
+
+    if let Ok(mut new_children) = world.get_mut::<Children>(new_parent) {
+        let vec = &mut new_children.0;
+        let index = if let Some(i) = index {
+            vec.len().min(i)
+        } else {
+            vec.len()
+        };
+
+        // note that for cases with many children a HashSet might be better for contains() check
+        for child in children.iter().rev() {
+            if !vec.contains(child) {
+                vec.insert(index, *child);
+            }
+        }
+    } else {
+        world.insert_one(new_parent, Children(children)).unwrap();
+    };
+}
 
 #[derive(Debug)]
 pub struct InsertChildren {
@@ -12,41 +60,7 @@ pub struct InsertChildren {
 
 impl Command for InsertChildren {
     fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
-        for child in self.children.iter() {
-            if let Ok(Parent(old_parent)) = world.get::<Parent>(*child) {
-                let old_parent = *old_parent;
-
-                // clean old parent of children references
-                if let Ok(mut children) = world.get_mut::<Children>(old_parent) {
-                    let vec = children.iter().copied().filter(|c| c != child).collect();
-                    children.0 = vec;
-                }
-
-                world
-                    .insert(*child, (Parent(self.parent), PreviousParent(old_parent)))
-                    .unwrap();
-            } else {
-                world
-                    .insert(*child, (Parent(self.parent), PreviousParent(self.parent)))
-                    .unwrap();
-            }
-        }
-
-        if let Ok(mut children) = world.get_mut::<Children>(self.parent) {
-            let vec = &mut children.0;
-            let index = self.index.min(vec.len());
-
-            // note that for cases with many children a HashSet might be better for contains() check
-            for child in self.children.iter().rev() {
-                if !vec.contains(child) {
-                    vec.insert(index, *child);
-                }
-            }
-        } else {
-            world
-                .insert_one(self.parent, Children(self.children))
-                .unwrap();
-        };
+        insert_children(self.parent, Some(self.index), self.children, world);
     }
 }
 
@@ -63,41 +77,7 @@ pub struct ChildBuilder<'a> {
 
 impl Command for PushChildren {
     fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
-        for child in self.children.iter() {
-            if let Ok(Parent(old_parent)) = world.get::<Parent>(*child) {
-                let old_parent = *old_parent;
-
-                // clean old parent of children references
-                if let Ok(mut children) = world.get_mut::<Children>(old_parent) {
-                    let vec = children.iter().copied().filter(|c| c != child).collect();
-                    children.0 = vec;
-                }
-
-                world
-                    .insert(*child, (Parent(self.parent), PreviousParent(old_parent)))
-                    .unwrap();
-            } else {
-                world
-                    .insert(*child, (Parent(self.parent), PreviousParent(self.parent)))
-                    .unwrap();
-            }
-        }
-
-        if let Ok(mut children) = world.get_mut::<Children>(self.parent) {
-            let vec = &mut children.0;
-            let index = vec.len();
-
-            // note that for cases with many children a HashSet might be better for contains() check
-            for child in self.children.iter().rev() {
-                if !vec.contains(child) {
-                    vec.insert(index, *child);
-                }
-            }
-        } else {
-            world
-                .insert_one(self.parent, Children(self.children))
-                .unwrap();
-        };
+        insert_children(self.parent, None, self.children, world);
     }
 }
 
