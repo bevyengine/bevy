@@ -2,36 +2,6 @@ use crate::prelude::{Children, Parent, PreviousParent};
 use bevy_ecs::{Command, Commands, Component, DynamicBundle, Entity, Resources, World};
 use smallvec::SmallVec;
 
-fn insert_children(
-    new_parent: Entity,
-    index: usize,
-    children: SmallVec<[Entity; 8]>,
-    world: &mut World,
-) {
-    if let Ok(mut new_children) = world.get_mut::<Children>(new_parent) {
-        let index = index.min(new_children.len());
-        for child in children.iter().rev() {
-            if !new_children.0.contains(child) {
-                new_children.0.insert(index, *child);
-            }
-        }
-    } else {
-        world.insert_one(new_parent, Children(children)).unwrap();
-    };
-}
-
-fn push_children(new_parent: Entity, children: SmallVec<[Entity; 8]>, world: &mut World) {
-    if let Ok(mut new_children) = world.get_mut::<Children>(new_parent) {
-        for child in children.iter() {
-            if !new_children.0.contains(child) {
-                new_children.0.push(*child);
-            }
-        }
-    } else {
-        world.insert_one(new_parent, Children(children)).unwrap();
-    };
-}
-
 fn update_parent_and_previous_parent(new_parent: Entity, children: &[Entity], world: &mut World) {
     for child in children.iter() {
         if let Ok(Parent(old_parent)) = world.get::<Parent>(*child) {
@@ -68,7 +38,20 @@ pub struct InsertChildren {
 impl Command for InsertChildren {
     fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
         update_parent_and_previous_parent(self.parent, &self.children, world);
-        insert_children(self.parent, self.index, self.children, world);
+
+        if let Ok(mut new_children) = world.get_mut::<Children>(self.parent) {
+            let index = self.index.min(new_children.len());
+
+            for child in self.children.iter().rev() {
+                if !new_children.0.contains(child) {
+                    new_children.0.insert(index, *child);
+                }
+            }
+        } else {
+            world
+                .insert_one(self.parent, Children(self.children))
+                .unwrap();
+        };
     }
 }
 
@@ -86,7 +69,18 @@ pub struct ChildBuilder<'a> {
 impl Command for PushChildren {
     fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
         update_parent_and_previous_parent(self.parent, &self.children, world);
-        push_children(self.parent, self.children, world);
+
+        if let Ok(mut new_children) = world.get_mut::<Children>(self.parent) {
+            for child in self.children.iter() {
+                if !new_children.0.contains(child) {
+                    new_children.0.push(*child);
+                }
+            }
+        } else {
+            world
+                .insert_one(self.parent, Children(self.children))
+                .unwrap();
+        };
     }
 }
 
