@@ -146,7 +146,7 @@ pub fn asset_shader_defs_system<T>(
         });
 
     // Update for changed assets.
-    if changed.len() > 0 {
+    if !changed.is_empty() {
         queries
             .q0_mut()
             .iter_mut()
