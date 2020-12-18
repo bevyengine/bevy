@@ -1,9 +1,9 @@
 mod diagnostic;
 mod frame_time_diagnostics_plugin;
-mod print_diagnostics_plugin;
+mod log_diagnostics_plugin;
 pub use diagnostic::*;
 pub use frame_time_diagnostics_plugin::FrameTimeDiagnosticsPlugin;
-pub use print_diagnostics_plugin::PrintDiagnosticsPlugin;
+pub use log_diagnostics_plugin::LogDiagnosticsPlugin;
 
 use bevy_app::prelude::*;
 
