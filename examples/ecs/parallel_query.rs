@@ -48,8 +48,8 @@ fn bounce_system(
     mut sprites: Query<(&Transform, &mut Velocity)>,
 ) {
     let window = windows.get_primary().expect("No primary window.");
-    let width = window.logical_width();
-    let height = window.logical_height();
+    let width = window.width();
+    let height = window.height();
     let left = width / -2.0;
     let right = width / 2.0;
     let bottom = height / -2.0;
@@ -74,8 +74,8 @@ fn bounce_system(
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(spawn_system)
-        .add_system(move_system)
-        .add_system(bounce_system)
+        .add_startup_system(spawn_system.system())
+        .add_system(move_system.system())
+        .add_system(bounce_system.system())
         .run();
 }

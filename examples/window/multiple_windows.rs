@@ -17,7 +17,7 @@ fn main() {
     App::build()
         .add_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_startup_system(setup.system())
         .run();
 }
 
@@ -35,8 +35,8 @@ fn setup(
     create_window_events.send(CreateWindow {
         id: window_id,
         descriptor: WindowDescriptor {
-            width: 800,
-            height: 600,
+            width: 800.,
+            height: 600.,
             vsync: false,
             title: "second window".to_string(),
             ..Default::default()

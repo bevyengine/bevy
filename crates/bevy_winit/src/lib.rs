@@ -10,12 +10,12 @@ pub use winit_config::*;
 pub use winit_windows::*;
 
 use bevy_app::{prelude::*, AppExit};
-use bevy_ecs::{Resources, World};
+use bevy_ecs::{IntoSystem, Resources, World};
 use bevy_math::Vec2;
 use bevy_utils::tracing::{error, trace};
 use bevy_window::{
-    CreateWindow, CursorEntered, CursorLeft, CursorMoved, ReceivedCharacter, Window,
-    WindowCloseRequested, WindowCreated, WindowFocused, WindowResized, Windows,
+    CreateWindow, CursorEntered, CursorLeft, CursorMoved, ReceivedCharacter, WindowCloseRequested,
+    WindowCreated, WindowFocused, WindowResized, Windows,
 };
 use winit::{
     event::{self, DeviceEvent, Event, WindowEvent},
@@ -29,7 +29,7 @@ impl Plugin for WinitPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<WinitWindows>()
             .set_runner(winit_runner)
-            .add_system(change_window);
+            .add_system(change_window.system());
     }
 }
 
@@ -68,13 +68,12 @@ fn change_window(_: &mut World, resources: &mut Resources) {
                     window.set_title(&title);
                 }
                 bevy_window::WindowCommand::SetResolution {
-                    physical_width,
-                    physical_height,
+                    resolution: (logical_width, logical_height),
                 } => {
                     let window = winit_windows.get_window(id).unwrap();
-                    window.set_inner_size(winit::dpi::PhysicalSize::new(
-                        physical_width,
-                        physical_height,
+                    window.set_inner_size(winit::dpi::LogicalSize::new(
+                        logical_width,
+                        logical_height,
                     ));
                 }
                 bevy_window::WindowCommand::SetVsync { .. } => (),
@@ -138,7 +137,7 @@ fn run_return<F>(event_loop: &mut EventLoop<()>, event_handler: F)
 where
     F: FnMut(Event<'_, ()>, &EventLoopWindowTarget<()>, &mut ControlFlow),
 {
-    use winit::platform::desktop::EventLoopExtDesktop;
+    use winit::platform::run_return::EventLoopExtRunReturn;
     event_loop.run_return(event_handler)
 }
 
@@ -164,16 +163,6 @@ pub fn winit_runner(mut app: App) {
     let mut app_exit_event_reader = EventReader::<AppExit>::default();
 
     app.resources.insert_thread_local(event_loop.create_proxy());
-
-    // Create Windows and WinitWindows resources, so startup systems
-    // in below app.initialize() have access to them.
-    handle_create_window_events(
-        &mut app.resources,
-        &event_loop,
-        &mut create_window_event_reader,
-    );
-
-    app.initialize();
 
     trace!("Entering winit event loop");
 
@@ -204,14 +193,13 @@ pub fn winit_runner(mut app: App) {
                     let mut windows = app.resources.get_mut::<Windows>().unwrap();
                     let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
                     let window = windows.get_mut(window_id).unwrap();
-                    window.update_physical_size_from_backend(size.width, size.height);
-
+                    window.update_actual_size_from_backend(size.width, size.height);
                     let mut resize_events =
                         app.resources.get_mut::<Events<WindowResized>>().unwrap();
                     resize_events.send(WindowResized {
                         id: window_id,
-                        height: window.logical_height(),
-                        width: window.logical_width(),
+                        width: window.width(),
+                        height: window.height(),
                     });
                 }
                 WindowEvent::CloseRequested => {
@@ -309,7 +297,7 @@ pub fn winit_runner(mut app: App) {
 
                     // FIXME?: On Android window start is top while on PC/Linux/OSX on bottom
                     if cfg!(target_os = "android") {
-                        let window_height = windows.get_primary().unwrap().logical_height();
+                        let window_height = windows.get_primary().unwrap().height();
                         location.y = window_height - location.y;
                     }
                     touch_input_events.send(converters::convert_touch_input(touch, location));
@@ -336,11 +324,13 @@ pub fn winit_runner(mut app: App) {
                     let mut windows = app.resources.get_mut::<Windows>().unwrap();
                     let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
                     let window = windows.get_mut(window_id).unwrap();
-                    window.update_physical_size_from_backend(
+                    window.update_actual_size_from_backend(
                         new_inner_size.width,
                         new_inner_size.height,
                     );
                     window.update_scale_factor_from_backend(scale_factor);
+                    // should we send a resize event to indicate the change in
+                    // logical size?
                 }
                 WindowEvent::Focused(focused) => {
                     let mut focused_events =
@@ -392,10 +382,14 @@ fn handle_create_window_events(
     let create_window_events = resources.get::<Events<CreateWindow>>().unwrap();
     let mut window_created_events = resources.get_mut::<Events<WindowCreated>>().unwrap();
     for create_window_event in create_window_event_reader.iter(&create_window_events) {
-        let mut window = Window::new(create_window_event.id, &create_window_event.descriptor);
-        winit_windows.create_window(event_loop, &mut window);
-        let window_id = window.id();
+        let window = winit_windows.create_window(
+            event_loop,
+            create_window_event.id,
+            &create_window_event.descriptor,
+        );
         windows.add(window);
-        window_created_events.send(WindowCreated { id: window_id });
+        window_created_events.send(WindowCreated {
+            id: create_window_event.id,
+        });
     }
 }

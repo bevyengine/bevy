@@ -16,7 +16,7 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .add_asset::<MyMaterial>()
-        .add_startup_system(setup)
+        .add_startup_system(setup.system())
         .run();
 }
 

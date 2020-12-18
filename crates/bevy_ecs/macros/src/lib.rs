@@ -411,21 +411,27 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     let struct_name = &ast.ident;
+    let fetch_struct_name = Ident::new(&format!("Fetch{}", struct_name), Span::call_site());
 
     TokenStream::from(quote! {
-        impl #impl_generics #path::SystemParam<()> for #struct_name#ty_generics #where_clause {
+        pub struct #fetch_struct_name;
+        impl #impl_generics #path::SystemParam for #struct_name#ty_generics #where_clause {
+            type Fetch = #fetch_struct_name;
+        }
+
+        impl #impl_generics #path::FetchSystemParam<'a> for #fetch_struct_name {
+            type Item = #struct_name#ty_generics;
             fn init(system_state: &mut #path::SystemState, world: &#path::World, resources: &mut #path::Resources) {
-                #(<#field_types as SystemParam<()>>::init(system_state, world, resources);)*
+                #(<<#field_types as SystemParam>::Fetch as #path::FetchSystemParam>::init(system_state, world, resources);)*
             }
 
             unsafe fn get_param(
-                input: &mut Option<()>,
-                system_state: &mut #path::SystemState,
-                world: &#path::World,
-                resources: &#path::Resources,
-            ) -> Option<Self> {
+                system_state: &'a #path::SystemState,
+                world: &'a #path::World,
+                resources: &'a #path::Resources,
+            ) -> Option<Self::Item> {
                 Some(#struct_name {
-                    #(#fields: <#field_types as SystemParam<()>>::get_param(input, system_state, world, resources)?,)*
+                    #(#fields: <<#field_types as SystemParam>::Fetch as #path::FetchSystemParam>::get_param(system_state, world, resources)?,)*
                     #(#ignored_fields: <#ignored_field_types>::default(),)*
                 })
             }

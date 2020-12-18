@@ -60,6 +60,10 @@ impl Clone for AssetServer {
 
 impl AssetServer {
     pub fn new<T: AssetIo>(source_io: T, task_pool: TaskPool) -> Self {
+        Self::with_boxed_io(Box::new(source_io), task_pool)
+    }
+
+    pub fn with_boxed_io(asset_io: Box<dyn AssetIo>, task_pool: TaskPool) -> Self {
         AssetServer {
             server: Arc::new(AssetServerInternal {
                 loaders: Default::default(),
@@ -69,7 +73,7 @@ impl AssetServer {
                 handle_to_path: Default::default(),
                 asset_lifecycles: Default::default(),
                 task_pool,
-                asset_io: Box::new(source_io),
+                asset_io,
             }),
         }
     }

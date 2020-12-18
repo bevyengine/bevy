@@ -167,13 +167,12 @@ pub fn asset_shader_defs_system<T>(
 
 #[cfg(test)]
 mod tests {
-    use super::asset_shader_defs_system;
-    use super::ShaderDefs;
+    use super::{asset_shader_defs_system, ShaderDefs};
     use crate::{self as bevy_render, pipeline::RenderPipeline, prelude::RenderPipelines};
     use bevy_app::App;
-    use bevy_asset::{AddAsset, AssetPlugin, AssetServer, Assets, HandleId};
+    use bevy_asset::{AddAsset, AssetPlugin, AssetServer, Assets, Handle, HandleId};
     use bevy_core::CorePlugin;
-    use bevy_ecs::{Commands, ResMut};
+    use bevy_ecs::{Commands, IntoSystem, ResMut};
     use bevy_reflect::{ReflectPlugin, TypeUuid};
 
     #[derive(Debug, Default, ShaderDefs, TypeUuid)]
@@ -198,8 +197,8 @@ mod tests {
     #[test]
     fn empty_handle() {
         // Insert an empty asset handle, and empty render pipelines.
-        let handle_id = HandleId::random::<A>();
-        let setup = move |commands: &mut Commands, asset_server: ResMut<AssetServer>| {
+        fn setup(commands: &mut Commands, asset_server: ResMut<AssetServer>) {
+            let handle_id = HandleId::random::<A>();
             let h = asset_server.get_handle::<A, HandleId>(handle_id);
             let render_pipelines = RenderPipelines::from_pipelines(vec![RenderPipeline::default()]);
             commands.spawn((h, render_pipelines));
@@ -210,15 +209,15 @@ mod tests {
             .add_plugin(CorePlugin::default())
             .add_plugin(AssetPlugin::default())
             .add_asset::<A>()
-            .add_system(asset_shader_defs_system::<A>)
-            .add_startup_system(setup)
+            .add_system(asset_shader_defs_system::<A>.system())
+            .add_startup_system(setup.system())
             .set_runner(move |mut app: App| {
-                app.initialize();
                 app.update();
                 assert_eq!(shader_def_len(&app), 0);
                 {
-                    let mut asset_server = app.resources.get_mut::<Assets<A>>().unwrap();
-                    asset_server.set(handle_id, A { d: true });
+                    let mut assets = app.resources.get_mut::<Assets<A>>().unwrap();
+                    let handle = app.world.query::<&Handle<A>>().next().unwrap();
+                    assets.set(handle, A { d: true });
                 }
 
                 // Asset changed events are sent post-update, so we

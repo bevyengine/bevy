@@ -8,7 +8,7 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .register_type::<MyType<u32>>()
-        .add_startup_system(setup)
+        .add_startup_system(setup.system())
         .run();
 }
 

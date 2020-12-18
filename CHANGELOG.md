@@ -23,6 +23,8 @@ current changes on git with [previous release tags][git_tag_comparison].
 - [Added new Bevy reflection system][926]
   - Replaces the properties system
 - [Add removal_detection example][945]
+- [Add support for Apple Silicon][928]
+- [Allow windows to be maximized][1001]
 
 ### Changed
 
@@ -39,6 +41,7 @@ current changes on git with [previous release tags][git_tag_comparison].
 - [Use `mailbox` instead of `fifo` for vsync on supported systems][920]
 - [Break out Visible component from Draw][1034]
   - Users setting `Draw::is_visible` or `Draw::is_transparent` should now set `Visible::is_visible` and `Visible::is_transparent`
+- [`winit` upgraded from version 0.23 to version 0.24][1043]
 
 ### Fixed
 
@@ -66,11 +69,14 @@ current changes on git with [previous release tags][git_tag_comparison].
 [917]: https://github.com/bevyengine/bevy/pull/917
 [920]: https://github.com/bevyengine/bevy/pull/920
 [926]: https://github.com/bevyengine/bevy/pull/926
+[928]: https://github.com/bevyengine/bevy/pull/928
 [931]: https://github.com/bevyengine/bevy/pull/931
 [934]: https://github.com/bevyengine/bevy/pull/934
 [945]: https://github.com/bevyengine/bevy/pull/945
 [955]: https://github.com/bevyengine/bevy/pull/955
+[1001]: https://github.com/bevyengine/bevy/pull/1001
 [1034]: https://github.com/bevyengine/bevy/pull/1034
+[1043]: https://github.com/bevyengine/bevy/pull/1043
 
 ## Version 0.3.0 (2020-11-03)
 
