@@ -73,12 +73,14 @@ impl Plugin for LogPlugin {
                     .build();
                 app.resources_mut().insert_thread_local(guard);
                 let subscriber = subscriber.with(chrome_layer);
-                let _ = bevy_utils::tracing::subscriber::set_global_default(subscriber);
+                bevy_utils::tracing::subscriber::set_global_default(subscriber)
+                    .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
             }
 
             #[cfg(not(feature = "tracing-chrome"))]
             {
-                let _ = bevy_utils::tracing::subscriber::set_global_default(subscriber);
+                bevy_utils::tracing::subscriber::set_global_default(subscriber)
+                    .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
             }
         }
 
@@ -88,13 +90,15 @@ impl Plugin for LogPlugin {
             let subscriber = subscriber.with(tracing_wasm::WASMLayer::new(
                 tracing_wasm::WASMLayerConfig::default(),
             ));
-            let _ = bevy_utils::tracing::subscriber::set_global_default(subscriber);
+            bevy_utils::tracing::subscriber::set_global_default(subscriber)
+                .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
         }
 
         #[cfg(target_os = "android")]
         {
             let subscriber = subscriber.with(android_tracing::AndroidLayer::default());
-            let _ = bevy_utils::tracing::subscriber::set_global_default(subscriber);
+            bevy_utils::tracing::subscriber::set_global_default(subscriber)
+                .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
         }
     }
 }
