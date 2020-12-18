@@ -89,16 +89,13 @@ fn mouse_handler(
         let bird_y = (window.height / 2.) - HALF_BIRD_SIZE;
 
         for count in 0..spawn_count {
-            let bird_position = Vec3::new(bird_x, bird_y, (counter.count + count) as f32 * 0.00001);
-            let mut transform = Transform::from_translation(bird_position);
-            transform.scale = Vec3::new(BIRD_SCALE, BIRD_SCALE, BIRD_SCALE);
-
+            let bird_z = (counter.count + count) as f32 * 0.00001;
             commands
                 .spawn(SpriteBundle {
                     material: bird_material.0.clone(),
-                    transform,
-                    visible: Visible {
-                        is_transparent: true,
+                    transform: Transform {
+                        translation: Vec3::new(bird_x, bird_y, bird_z),
+                        scale: Vec3::splat(BIRD_SCALE),
                         ..Default::default()
                     },
                     ..Default::default()
