@@ -336,11 +336,19 @@ pub fn winit_runner(mut app: App) {
                     let mut focused_events =
                         app.resources.get_mut::<Events<WindowFocused>>().unwrap();
                     let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
-                    let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
-                    focused_events.send(WindowFocused {
-                        id: window_id,
-                        focused,
-                    });
+                    match (winit_windows.get_window_id(winit_window_id), focused) {
+                        (Some(window_id), _) => focused_events.send(WindowFocused {
+                            id: window_id,
+                            focused,
+                        }),
+                        // unfocus event for an unknown window, ignore it
+                        (None, false) => (),
+                        // focus event on an unknown window, this is an error
+                        _ => panic!(
+                            "Focused(true) event on unknown window {:?}",
+                            winit_window_id
+                        ),
+                    }
                 }
                 _ => {}
             },
