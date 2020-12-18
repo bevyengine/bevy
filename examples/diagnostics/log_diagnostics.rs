@@ -13,5 +13,7 @@ fn main() {
         // Any plugin can register diagnostics
         // Uncomment this to add some render resource diagnostics:
         // .add_plugin(bevy::wgpu::diagnostic::WgpuResourceDiagnosticsPlugin::default())
+        // Uncomment this to add an entity count diagnostics:
+        // .add_plugin(bevy::diagnostic::EntityCountDiagnosticsPlugin::default())
         .run();
 }
