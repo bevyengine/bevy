@@ -16,18 +16,31 @@ use bevy::{
 fn main() {
     App::build()
         .add_resource(Msaa { samples: 4 })
+        .add_resource(State::new(AppState::CreateWindow))
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
+        .add_stage_after(
+            stage::UPDATE,
+            STATE_STAGE,
+            StateStage::<AppState>::default(),
+        )
+        .on_state_update(STATE_STAGE, AppState::CreateWindow, setup_window.system())
+        .on_state_enter(STATE_STAGE, AppState::Setup, setup_pipeline.system())
         .run();
 }
 
-fn setup(
-    commands: &mut Commands,
+const STATE_STAGE: &str = "state";
+
+// NOTE: this "state based" approach to multiple windows is a short term workaround.
+// Future Bevy releases shouldn't require such a strict order of operations.
+#[derive(Clone)]
+enum AppState {
+    CreateWindow,
+    Setup,
+}
+
+fn setup_window(
+    mut app_state: ResMut<State<AppState>>,
     mut create_window_events: ResMut<Events<CreateWindow>>,
-    mut active_cameras: ResMut<ActiveCameras>,
-    mut render_graph: ResMut<RenderGraph>,
-    asset_server: Res<AssetServer>,
-    msaa: Res<Msaa>,
 ) {
     let window_id = WindowId::new();
 
@@ -42,6 +55,24 @@ fn setup(
             ..Default::default()
         },
     });
+
+    app_state.set_next(AppState::Setup).unwrap();
+}
+
+fn setup_pipeline(
+    commands: &mut Commands,
+    windows: Res<Windows>,
+    mut active_cameras: ResMut<ActiveCameras>,
+    mut render_graph: ResMut<RenderGraph>,
+    asset_server: Res<AssetServer>,
+    msaa: Res<Msaa>,
+) {
+    // get the non-default window id
+    let window_id = windows
+        .iter()
+        .find(|w| w.id() != WindowId::default())
+        .map(|w| w.id())
+        .unwrap();
 
     // here we setup our render graph to draw our second camera to the new window's swap chain
 
