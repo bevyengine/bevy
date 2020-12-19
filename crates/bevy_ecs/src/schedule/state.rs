@@ -33,6 +33,21 @@ impl<T> Default for StateStage<T> {
 
 #[allow(clippy::mem_discriminant_non_enum)]
 impl<T> StateStage<T> {
+    pub fn with_enter_stage<S: Stage>(mut self, state: T, stage: S) -> Self {
+        self.set_enter_stage(state, stage);
+        self
+    }
+
+    pub fn with_exit_stage<S: Stage>(mut self, state: T, stage: S) -> Self {
+        self.set_exit_stage(state, stage);
+        self
+    }
+
+    pub fn with_update_stage<S: Stage>(mut self, state: T, stage: S) -> Self {
+        self.set_update_stage(state, stage);
+        self
+    }
+
     pub fn set_enter_stage<S: Stage>(&mut self, state: T, stage: S) -> &mut Self {
         let stages = self.state_stages(state);
         stages.enter = Box::new(stage);
