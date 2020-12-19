@@ -4,6 +4,10 @@ pub mod prelude;
 mod default_plugins;
 pub use default_plugins::*;
 
+pub mod animation {
+    pub use bevy_animation::*;
+}
+
 pub mod app {
     //! Build bevy apps, create plugins, and read events.
     pub use bevy_app::*;
