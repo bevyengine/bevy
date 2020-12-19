@@ -4,10 +4,10 @@ crates=(
     bevy_derive
     bevy_math
     bevy_tasks
-    bevy_ecs/hecs/macros
-    bevy_ecs/hecs
+    bevy_ecs/macros
     bevy_ecs
     bevy_app
+    bevy_log
     bevy_dynamic_plugin
     bevy_reflect/bevy_reflect_derive
     bevy_reflect
@@ -28,6 +28,8 @@ crates=(
     bevy_ui
     bevy_winit
     bevy_wgpu
+    bevy_internal
+    bevy_dylib
 )
 
 cd crates
