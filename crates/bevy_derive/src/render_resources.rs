@@ -2,7 +2,8 @@ use crate::modules::{get_modules, get_path};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    parse::ParseStream, parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Path,
+    parse::ParseStream, parse_macro_input, punctuated::Punctuated, Data, DataStruct, DeriveInput,
+    Field, Fields, Path,
 };
 
 #[derive(Default)]
@@ -72,11 +73,17 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
             }
         })
     } else {
+        let empty = Punctuated::new();
+
         let fields = match &ast.data {
             Data::Struct(DataStruct {
                 fields: Fields::Named(fields),
                 ..
             }) => &fields.named,
+            Data::Struct(DataStruct {
+                fields: Fields::Unit,
+                ..
+            }) => &empty,
             _ => panic!("Expected a struct with named fields."),
         };
         let field_attributes = fields
