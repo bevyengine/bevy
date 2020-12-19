@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2018"
 authors = [
   "Bevy Contributors <bevyengine@gmail.com>",
@@ -72,8 +72,8 @@ wayland = ["bevy_internal/wayland"]
 x11 = ["bevy_internal/x11"]
 
 [dependencies]
-bevy_dylib = {path = "crates/bevy_dylib", version = "0.3.0", default-features = false, optional = true}
-bevy_internal = {path = "crates/bevy_internal", version = "0.3.0", default-features = false}
+bevy_dylib = {path = "crates/bevy_dylib", version = "0.4.0", default-features = false, optional = true}
+bevy_internal = {path = "crates/bevy_internal", version = "0.4.0", default-features = false}
 
 [dev-dependencies]
 anyhow = "1.0"
