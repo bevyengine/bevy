@@ -15,6 +15,9 @@ use bevy_render::shader::{Shader, ShaderStage};
 use bevy_transform::prelude::*;
 use smallvec::SmallVec;
 
+// TODO: We could use a computer shader to skin the mesh with morph targets (performance improvement)
+// TODO: Morph targets
+
 // NOTE: generated using python `import secrets; secrets.token_hex(8)`
 pub const FORWARD_SKINNED_PIPELINE_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 0xedf5a66b71d07478u64);
@@ -205,15 +208,6 @@ pub(crate) fn skinning_update(
                 }
             }
 
-            // Update skin uniforms
-            let root_inverse_matrix = transforms_query.get(skin_bind.root).map_or_else(
-                |_| Mat4::identity(),
-                |global_transform| {
-                    // TODO: build the inverse matrix directly from the Isometry should be faster
-                    global_transform.compute_matrix().inverse()
-                },
-            );
-
             let skin_instance = skin_instances
                 .get_mut(skin_instance_handle)
                 .expect("missing skin instance");
@@ -231,8 +225,7 @@ pub(crate) fn skinning_update(
                 .for_each(|(joint_matrix, (joint_entity, joint_inverse_matrix))| {
                     if let Some(entity) = joint_entity {
                         if let Ok(global_transform) = transforms_query.get(*entity) {
-                            *joint_matrix = (root_inverse_matrix
-                                * global_transform.compute_matrix()
+                            *joint_matrix = (global_transform.compute_matrix()
                                 * (*joint_inverse_matrix))
                                 .to_cols_array();
                         }

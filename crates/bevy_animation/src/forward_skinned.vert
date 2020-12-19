@@ -14,11 +14,7 @@ layout(set = 0, binding = 0) uniform Camera {
     mat4 ViewProj;
 };
 
-layout(set = 2, binding = 0) uniform Transform {
-    mat4 Model;
-};
-
-layout(set = 3, binding = 1) buffer SkinInstance_joint_matrices {
+layout(set = 2, binding = 0) buffer SkinInstance_joint_matrices {
     mat4[] Joints;
 };
 
@@ -27,8 +23,6 @@ void main() {
         + Vertex_Weight.y * Joints[Vertex_Join.y]
         + Vertex_Weight.z * Joints[Vertex_Join.z]
         + Vertex_Weight.w * Joints[Vertex_Join.w];
-
-    Mat = Model * Mat;
 
     v_Normal = (Mat * vec4(Vertex_Normal, 1.0)).xyz;
     v_Normal = mat3(Mat) * Vertex_Normal;
