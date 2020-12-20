@@ -1,4 +1,5 @@
 use bevy_utils::HashSet;
+use fixedbitset::FixedBitSet;
 use std::{any::TypeId, boxed::Box, hash::Hash, vec::Vec};
 
 use super::{Archetype, World};
@@ -195,6 +196,7 @@ impl QueryAccess {
     }
 }
 
+// TODO consider ditching, see CondensedTypeAccess for comparison
 #[derive(Debug, Eq, PartialEq, Clone)]
 enum AccessSet<T: Hash + Eq + PartialEq> {
     All,
@@ -265,6 +267,13 @@ impl<T: Hash + Eq + PartialEq + Copy> AccessSet<T> {
             (AccessSet::All, AccessSet::All) => return AccessConflict::All,
         }
         AccessConflict::None
+    }
+
+    fn distinct_iterator(&self) -> Option<impl Iterator<Item = &T>> {
+        match self {
+            AccessSet::All => None,
+            AccessSet::Some(set) => Some(set.iter()),
+        }
     }
 }
 
@@ -368,13 +377,100 @@ impl<T: Hash + Eq + PartialEq + Copy> TypeAccess<T> {
         self.writes == AccessSet::All
     }
 
-    /*pub fn iter_reads(&self) -> impl Iterator<Item = &T> {
-        self.reads.iter()
+    /// Returns an iterator of distinct accessed types if neither write nor read access is `All`.
+    pub fn all_distinct_types(&self) -> Option<impl Iterator<Item = &T>> {
+        self.reads_and_writes.distinct_iterator()
     }
 
-    pub fn iter_writes(&self) -> impl Iterator<Item = &T> {
-        self.writes.iter()
+    pub fn condense(&self, all_types: &[T]) -> CondensedTypeAccess {
+        if self.writes_all() {
+            unreachable!(
+                "Access for systems that exclusively access all of `World`\
+                 or `Resources` should never be condensed."
+            )
+        }
+        if self.reads_all() {
+            let mut writes = FixedBitSet::with_capacity(all_types.len());
+            for (index, access_type) in all_types.iter().enumerate() {
+                if self.writes.contains(access_type) {
+                    writes.insert(index);
+                }
+            }
+            CondensedTypeAccess {
+                reads_all: true,
+                reads_and_writes: Default::default(),
+                writes,
+            }
+        } else {
+            let mut reads_and_writes = FixedBitSet::with_capacity(all_types.len());
+            let mut writes = FixedBitSet::with_capacity(all_types.len());
+            for (index, access_type) in all_types.iter().enumerate() {
+                if self.writes.contains(access_type) {
+                    reads_and_writes.insert(index);
+                    writes.insert(index);
+                } else if self.reads_and_writes.contains(access_type) {
+                    reads_and_writes.insert(index);
+                }
+            }
+            CondensedTypeAccess {
+                reads_all: false,
+                reads_and_writes,
+                writes,
+            }
+        }
+    }
+
+    /*/// Returns an iterator of distinct reads if read access is not set to `All`.
+    pub fn distinct_reads(&self) -> Option<impl Iterator<Item = &T>> {
+        self.reads.distinct_iterator()
+    }
+
+    /// Returns an iterator of distinct writes if write access is not set to `All`.
+    pub fn distinct_writes(&self) -> Option<impl Iterator<Item = &T>> {
+        self.writes.distinct_iterator()
     }*/
+}
+
+// TODO consider making it typed, to enable compiler helping with bug hunting?
+#[derive(Default, Debug, Eq, PartialEq, Clone)]
+pub struct CondensedTypeAccess {
+    reads_all: bool,
+    reads_and_writes: FixedBitSet,
+    writes: FixedBitSet,
+}
+
+impl CondensedTypeAccess {
+    pub fn grow(&mut self, bits: usize) {
+        self.reads_and_writes.grow(bits);
+        self.writes.grow(bits);
+    }
+
+    pub fn reads_all(&self) -> bool {
+        self.reads_all
+    }
+
+    pub fn clear(&mut self) {
+        self.reads_all = false;
+        self.reads_and_writes.clear();
+        self.writes.clear();
+    }
+
+    pub fn extend(&mut self, other: &CondensedTypeAccess) {
+        self.reads_all = self.reads_all || other.reads_all;
+        self.reads_and_writes.union_with(&other.reads_and_writes);
+        self.writes.union_with(&other.writes);
+    }
+
+    pub fn is_compatible(&self, other: &CondensedTypeAccess) -> bool {
+        if self.reads_all {
+            0 < other.writes.count_ones(..)
+        } else if other.reads_all {
+            0 < self.writes.count_ones(..)
+        } else {
+            self.writes.is_disjoint(&other.reads_and_writes)
+                && self.reads_and_writes.is_disjoint(&other.writes)
+        }
+    }
 }
 
 #[cfg(test)]

@@ -21,7 +21,7 @@ impl_downcast!(Stage);
 
 type Label = &'static str; // TODO
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SystemIndex {
     pub set: usize,
     pub system: usize,
@@ -30,6 +30,7 @@ pub struct SystemIndex {
 pub struct SystemStage {
     system_sets: Vec<SystemSet>,
     labels: HashMap<Label, SystemIndex>,
+    resolved_dependencies: HashMap<SystemIndex, Vec<SystemIndex>>,
     executor: Box<dyn SystemStageExecutor>,
     run_criteria: RunCriteria,
 }
@@ -37,9 +38,10 @@ pub struct SystemStage {
 impl SystemStage {
     pub fn new(executor: Box<dyn SystemStageExecutor>) -> Self {
         SystemStage {
-            executor,
             labels: Default::default(),
+            resolved_dependencies: Default::default(),
             run_criteria: Default::default(),
+            executor,
             system_sets: vec![SystemSet::default()],
         }
     }
@@ -209,22 +211,38 @@ impl SystemStage {
     }
 
     pub fn run_once(&mut self, world: &mut World, resources: &mut Resources) {
+        // TODO dependency tree verification
         for (set_index, system_set) in self.system_sets.iter_mut().enumerate() {
             for &system_index in system_set.changed_systems() {
+                let index = SystemIndex {
+                    set: set_index,
+                    system: system_index,
+                };
+                let dependencies = system_set.system_dependencies(system_index);
+                if !dependencies.is_empty() {
+                    let labels = &self.labels;
+                    let dependencies = dependencies
+                        .iter()
+                        .map(|label| {
+                            *labels
+                                .get(label)
+                                .unwrap_or_else(|| todo!("some error message that makes sense"))
+                        })
+                        .collect();
+                    self.resolved_dependencies.insert(index, dependencies);
+                }
                 if let Some(label) = system_set.system_label(system_index) {
-                    self.labels.insert(
-                        label,
-                        SystemIndex {
-                            set: set_index,
-                            system: system_index,
-                        },
-                    );
+                    self.labels.insert(label, index);
                 }
             }
             system_set.for_each_changed_system(|system| system.initialize(world, resources));
         }
-        self.executor
-            .execute_stage(&mut self.system_sets, &self.labels, world, resources);
+        self.executor.execute_stage(
+            &mut self.system_sets,
+            &self.resolved_dependencies,
+            world,
+            resources,
+        );
         for system_set in self.system_sets.iter_mut() {
             system_set.clear_changed_systems();
         }
@@ -256,6 +274,7 @@ pub struct SystemSet {
     // TODO Audit it. Again. Keep auditing. Don't stop.
     systems: Vec<NonNull<dyn System<In = (), Out = ()>>>,
     labels: Vec<Option<Label>>,
+    // TODO consider Vec<Vec<Option<Label>>> or something to support optional dependencies?
     dependencies: Vec<Vec<Label>>,
     run_criteria: RunCriteria,
     changed_systems: Vec<usize>,
@@ -443,8 +462,8 @@ impl SystemSet {
         system: Box<dyn System<In = (), Out = ()>>,
         dependencies: &[Label],
     ) -> &mut Self {
-        self.systems.push(NonNull::from(&*system));
         self.changed_systems.push(self.systems.len());
+        self.systems.push(NonNull::from(&*system));
         self.labels.push(None);
         self.dependencies.push(dependencies.to_vec());
         self
@@ -456,8 +475,8 @@ impl SystemSet {
         label: Label,
         dependencies: &[Label],
     ) -> &mut Self {
-        self.systems.push(NonNull::from(&*system));
         self.changed_systems.push(self.systems.len());
+        self.systems.push(NonNull::from(&*system));
         self.labels.push(Some(label));
         self.dependencies.push(dependencies.to_vec());
         self
