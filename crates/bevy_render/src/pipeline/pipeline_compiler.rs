@@ -2,13 +2,12 @@ use super::{state_descriptors::PrimitiveTopology, IndexFormat, PipelineDescripto
 use crate::{
     pipeline::{BindType, InputStepMode, VertexBufferDescriptor},
     renderer::RenderResourceContext,
-    shader::{Shader, ShaderError, ShaderSource},
+    shader::{Shader, ShaderDefSource, ShaderError, ShaderSource},
 };
 use bevy_asset::{Assets, Handle};
 use bevy_reflect::Reflect;
 use bevy_utils::{HashMap, HashSet};
 use once_cell::sync::Lazy;
-use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Eq, PartialEq, Debug, Reflect)]
 pub struct PipelineSpecialization {
@@ -40,9 +39,17 @@ impl PipelineSpecialization {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Default, Reflect, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Default, Reflect)]
 pub struct ShaderSpecialization {
-    pub shader_defs: HashSet<String>,
+    /// ShaderDefs tracked per-asset/component.
+    pub shader_defs: HashMap<ShaderDefSource, Vec<String>>,
+}
+
+impl ShaderSpecialization {
+    // get_specialized_shader should take a &[&str]?
+    pub fn get_shader_defs(&self) -> Vec<String> {
+        self.shader_defs.values().flatten().cloned().collect()
+    }
 }
 
 #[derive(Debug)]
@@ -95,13 +102,8 @@ impl PipelineCompiler {
             Ok(specialized_shader.shader.clone_weak())
         } else {
             // if no shader exists with the current configuration, create new shader and compile
-            let shader_def_vec = shader_specialization
-                .shader_defs
-                .iter()
-                .cloned()
-                .collect::<Vec<String>>();
-            let compiled_shader =
-                render_resource_context.get_specialized_shader(shader, Some(&shader_def_vec))?;
+            let compiled_shader = render_resource_context
+                .get_specialized_shader(shader, Some(&shader_specialization.get_shader_defs()))?;
             let specialized_handle = shaders.add(compiled_shader);
             let weak_specialized_handle = specialized_handle.clone_weak();
             specialized_shaders.push(SpecializedShader {
@@ -316,17 +318,10 @@ impl PipelineCompiler {
         if let Some(specialized_shaders) = self.specialized_shaders.get_mut(shader) {
             for specialized_shader in specialized_shaders {
                 // Recompile specialized shader. If it fails, we bail immediately.
-                let shader_def_vec = specialized_shader
-                    .specialization
-                    .shader_defs
-                    .iter()
-                    .cloned()
-                    .collect::<Vec<String>>();
-                let new_handle =
-                    shaders.add(render_resource_context.get_specialized_shader(
-                        shaders.get(shader).unwrap(),
-                        Some(&shader_def_vec),
-                    )?);
+                let new_handle = shaders.add(render_resource_context.get_specialized_shader(
+                    shaders.get(shader).unwrap(),
+                    Some(&specialized_shader.specialization.get_shader_defs()),
+                )?);
 
                 // Replace handle and remove old from assets.
                 let old_handle = std::mem::replace(&mut specialized_shader.shader, new_handle);
