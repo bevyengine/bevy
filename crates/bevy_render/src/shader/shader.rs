@@ -9,7 +9,6 @@ use bevy_asset::{AssetEvent, AssetLoader, Assets, Handle, LoadContext, LoadedAss
 use bevy_ecs::{Local, Res, ResMut};
 use bevy_reflect::TypeUuid;
 use bevy_utils::{tracing::error, BoxedFuture};
-use spirv_reflect::{types::ReflectShaderStageFlags, ShaderModule};
 use std::marker::Copy;
 use thiserror::Error;
 
@@ -146,7 +145,10 @@ impl Shader {
         Shader { stage, source }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn from_spirv(spirv: &[u8]) -> Result<Shader, ShaderError> {
+        use spirv_reflect::{types::ReflectShaderStageFlags, ShaderModule};
+
         let module = ShaderModule::load_u8_data(spirv)
             .map_err(|msg| ShaderError::Compilation(msg.to_string()))?;
         let stage = match module.get_shader_stage() {
@@ -259,7 +261,10 @@ impl AssetLoader for ShaderLoader {
             let shader = match ext {
                 "vert" => Shader::from_glsl(ShaderStage::Vertex, std::str::from_utf8(bytes)?),
                 "frag" => Shader::from_glsl(ShaderStage::Fragment, std::str::from_utf8(bytes)?),
+                #[cfg(not(target_arch = "wasm32"))]
                 "spv" => Shader::from_spirv(bytes)?,
+                #[cfg(target_arch = "wasm32")]
+                "spv" => panic!("cannot load .spv file on wasm"),
                 _ => panic!("unhandled extension: {}", ext),
             };
 
