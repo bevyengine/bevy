@@ -9,6 +9,7 @@ use bevy_asset::{AssetEvent, AssetLoader, Assets, Handle, LoadContext, LoadedAss
 use bevy_ecs::{Local, Res, ResMut};
 use bevy_reflect::TypeUuid;
 use bevy_utils::{tracing::error, BoxedFuture};
+use spirv_reflect::{types::ReflectShaderStageFlags, ShaderModule};
 use std::marker::Copy;
 use thiserror::Error;
 
@@ -145,6 +146,21 @@ impl Shader {
         Shader { stage, source }
     }
 
+    pub fn from_spirv(spirv: &[u8]) -> Result<Shader, ShaderError> {
+        let module = ShaderModule::load_u8_data(spirv)
+            .map_err(|msg| ShaderError::Compilation(msg.to_string()))?;
+        let stage = match module.get_shader_stage() {
+            ReflectShaderStageFlags::VERTEX => ShaderStage::Vertex,
+            ReflectShaderStageFlags::FRAGMENT => ShaderStage::Fragment,
+            other => panic!("cannot load {:?} shader", other),
+        };
+
+        Ok(Shader {
+            source: ShaderSource::spirv_from_bytes(spirv),
+            stage,
+        })
+    }
+
     pub fn from_glsl(stage: ShaderStage, glsl: &str) -> Shader {
         Shader {
             source: ShaderSource::Glsl(glsl.to_string()),
@@ -243,6 +259,7 @@ impl AssetLoader for ShaderLoader {
             let shader = match ext {
                 "vert" => Shader::from_glsl(ShaderStage::Vertex, std::str::from_utf8(bytes)?),
                 "frag" => Shader::from_glsl(ShaderStage::Fragment, std::str::from_utf8(bytes)?),
+                "spv" => Shader::from_spirv(bytes)?,
                 _ => panic!("unhandled extension: {}", ext),
             };
 
@@ -252,7 +269,7 @@ impl AssetLoader for ShaderLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        &["vert", "frag"]
+        &["vert", "frag", "spv"]
     }
 }
 
