@@ -1,8 +1,9 @@
 use bevy_app::prelude::*;
-use bevy_asset::AddAsset;
+use bevy_asset::{AddAsset, Assets};
 use bevy_reflect::RegisterTypeBuilder;
 
 mod custom;
+mod help;
 mod hierarchy;
 mod skinned_mesh;
 
@@ -38,11 +39,10 @@ impl Plugin for AnimationPlugin {
         app.add_stage_after(stage::UPDATE, stage::ANIMATE);
 
         // Generic animation
-        app.add_asset::<prelude::Clip>()
+        app.add_asset::<Clip>()
             //.add_asset_loader(ClipLoader)
-            .register_type::<prelude::Animator>()
-            // .add_system_to_stage(stage::ANIMATE, animator_binding_system)
-            // .add_system_to_stage(stage::ANIMATE, animator_update_system);
+            .register_type::<Animator>()
+            .add_system_to_stage(stage::ANIMATE, Assets::<Clip>::asset_event_system) // ? NOTE: Fix asset event handle
             .add_system_to_stage(stage::ANIMATE, animator_update_system)
             .add_system_to_stage(stage::ANIMATE, animator_transform_update_system);
 

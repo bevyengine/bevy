@@ -14,6 +14,7 @@ use std::marker::PhantomData;
 
 use crate::blending::{AnimatorBlending, Blend};
 use crate::curve::Curve;
+use crate::help::Empty;
 use crate::hierarchy::Hierarchy;
 use crate::lerping::Lerp;
 
@@ -48,12 +49,8 @@ impl<T> Curves<T> {
 pub struct CurvesUntyped {
     /// Cached calculated curves duration
     duration: f32,
-    untyped: Box<dyn Any + 'static>,
+    untyped: Box<dyn Any + Send + Sync + 'static>,
 }
-
-// SAFETY: CurvesUntyped will only hold on to Curves<T> which also implement Send and Sync
-unsafe impl Send for CurvesUntyped {}
-unsafe impl Sync for CurvesUntyped {}
 
 impl CurvesUntyped {
     fn new<T: Send + Sync + 'static>(curves: Curves<T>) -> Self {
@@ -327,6 +324,12 @@ impl Animator {
 
     // TODO: cleanup, clears hierarchy entities and binds
 
+    #[inline(always)]
+    pub fn entities(&self) -> &[Option<Entity>] {
+        &self.entities[..]
+    }
+
+    #[inline(always)]
     pub fn clips(&self) -> &[Handle<Clip>] {
         &self.clips[..]
     }
@@ -396,13 +399,17 @@ pub(crate) fn animator_update_system(
     mut animators_query: Query<(Entity, &mut Animator, Option<&AnimatorBlending>)>,
     children_query: Query<&Children>,
     name_query: Query<(&Parent, &Name)>,
-    // TODO: or one or the other changed!
-    parent_or_name_changed_query: Query<(Option<&Parent>, &Name), (Changed<Parent>, Changed<Name>)>,
+    parent_or_name_changed_query: Query<
+        (Option<&Parent>, &Name),
+        Or<(Changed<Parent>, Changed<Name>)>,
+    >,
+    entity_deleted_query: Query<Empty>,
+    parent_or_name_removed_query: Query<Empty, Or<(Without<Parent>, Without<Name>)>>,
 ) {
     let __span = tracing::info_span!("animator_update_system");
     let __guard = __span.enter();
 
-    // ? NOTE: Changing a clip on fly is supported, but very expensive so use with caution
+    // ? NOTE: Changing a clip on fly is supported, but is expensive so use with caution
     // TODO: Put a warning somewhere in the docs on how expensive is changing a clip on the fly
     // Query all clips that changed and remove their binds from the animator
     state.clips_modified.clear();
@@ -443,20 +450,40 @@ pub(crate) fn animator_update_system(
                 continue;
             }
 
+            let mut remove_entity = false;
             let entity = animator.entities[entity_index];
 
-            // ? NOTE: Use a changed events for both parent and name because name
-            // ? comparison isn't fast, as result it won't notice changes before the
-            // ? POST_UPDATE stage
-            if let Some((entity_parent, entity_name)) = entity
-                .map(|entity| parent_or_name_changed_query.get(entity).ok())
-                .flatten()
-            {
-                let parent = animator.entities[*parent_index as usize];
-                if entity_parent.map(|p| p.0) != parent || name != entity_name {
-                    animator.entities[entity_index] = None;
-                    animator.missing_entities = true;
+            if let Some(entity) = entity {
+                if entity_deleted_query.get(entity).is_err() {
+                    // Entity deleted
+                    remove_entity = true;
+                } else if parent_or_name_removed_query.get(entity).is_ok() {
+                    // Parent or Name component where removed from entity
+                    remove_entity = true;
+                } else if let Ok((entity_parent, entity_name)) =
+                    parent_or_name_changed_query.get(entity)
+                {
+                    // Parent or Name changed
+                    // ? NOTE: Use a changed events for both parent and name because name
+                    // ? comparison isn't fast, as result it won't notice changes before the
+                    // ? POST_UPDATE stage
+
+                    let parent = animator.entities[*parent_index as usize];
+                    if entity_parent.map(|p| p.0) != parent || name != entity_name {
+                        remove_entity = true;
+                    }
                 }
+            }
+
+            // Remove entity
+            if remove_entity {
+                let animator_entities = &mut animator.entities;
+                animator
+                    .hierarchy
+                    .depth_first(entity_index as u16, &mut |index, _| {
+                        animator_entities[index as usize] = None;
+                    });
+                animator.missing_entities = true;
             }
         }
 
@@ -486,7 +513,9 @@ pub(crate) fn animator_update_system(
 
             // Update missing entities state
             animator.missing_entities = missing;
-            println!("missing entities ...");
+
+            // TODO: Better warning messages
+            //warn!("missing entities");
         }
 
         // Make run for the binds
@@ -570,10 +599,27 @@ pub(crate) fn animator_update_system(
 // TODO: This should be auto derived using the "Animated" trait that just returns
 // a system able to animate the said component. Use "AnimatedAsset" for asset handles!
 
+// pub trait AnimatedComponent: Component + Sized {
+//     fn animator_update_system(
+//         clips: Res<Assets<Clip>>,
+//         animators_query: Query<(&mut Animator, &mut AnimatorBlending)>,
+//         component_query: Query<&mut Self>,
+//     );
+// }
+
+// pub trait AnimatedAsset: bevy_asset::Asset + Sized {
+//     fn animator_update_system(
+//         clips: Res<Assets<Clip>>,
+//         animators_query: Query<(&mut Animator, &mut AnimatorBlending)>,
+//         assets: ResMut<Assets<Self>>,
+//         component_query: Query<&mut Handle<Self>>,
+//     );
+// }
+
 pub(crate) fn animator_transform_update_system(
     clips: Res<Assets<Clip>>,
     mut animators_query: Query<(&mut Animator, &mut AnimatorBlending)>,
-    transform_query: Query<(&mut Transform,)>,
+    transform_query: Query<&mut Transform>,
 ) {
     let __span = tracing::info_span!("animator_transform_update_system");
     let __guard = __span.enter();
@@ -583,7 +629,6 @@ pub(crate) fn animator_transform_update_system(
     for (mut animator, mut animator_blend) in animators_query.iter_mut() {
         let mut blend_group = animator_blend.begin_blending();
 
-        // ~15us
         components.clear();
 
         // ? NOTE: Lazy get each component is worse than just fetching everything at once
@@ -592,12 +637,11 @@ pub(crate) fn animator_transform_update_system(
         // currently has the mutability over the Transform type, so no race conditions
         // are possible
         unsafe {
-            for entity in &animator.entities {
+            for entity in animator.entities() {
                 components.push(
                     entity
                         .map(|entity| transform_query.get_unsafe(entity).ok())
-                        .flatten()
-                        .map(|(transform,)| transform),
+                        .flatten(),
                 );
             }
         }
@@ -615,7 +659,6 @@ pub(crate) fn animator_transform_update_system(
                 let keyframes = &mut layer.keyframes;
                 keyframes.resize(clip.len(), 0);
 
-                // ~23us
                 if let Some(curves) = clip
                     .get("Transform.translation")
                     .map(|curve_untyped| curve_untyped.downcast_ref::<Vec3>())
@@ -624,16 +667,13 @@ pub(crate) fn animator_transform_update_system(
                     for (entity_index, (curve_index, curve)) in curves.iter() {
                         let entity_index = entities_map[entity_index as usize];
                         if let Some(ref mut component) = components[entity_index as usize] {
-                            // TODO: I'm not noticing any discernible performance change from using just `sample` so there's probably something wrong
                             let (k, v) = curve.sample_indexed(keyframes[*curve_index], time);
                             keyframes[*curve_index] = k;
-                            // let v = curve.sample(time);
                             component.translation.blend(&mut blend_group, v, w);
                         }
                     }
                 }
 
-                // ~23us
                 if let Some(curves) = clip
                     .get("Transform.rotation")
                     .map(|curve_untyped| curve_untyped.downcast_ref::<Quat>())
@@ -644,13 +684,11 @@ pub(crate) fn animator_transform_update_system(
                         if let Some(ref mut component) = components[entity_index as usize] {
                             let (k, v) = curve.sample_indexed(keyframes[*curve_index], time);
                             keyframes[*curve_index] = k;
-                            // let v = curve.sample(time);
                             component.rotation.blend(&mut blend_group, v, w);
                         }
                     }
                 }
 
-                // ~23us
                 if let Some(curves) = clip
                     .get("Transform.scale")
                     .map(|curve_untyped| curve_untyped.downcast_ref::<Vec3>())
@@ -661,7 +699,6 @@ pub(crate) fn animator_transform_update_system(
                         if let Some(ref mut component) = components[entity_index as usize] {
                             let (k, v) = curve.sample_indexed(keyframes[*curve_index], time);
                             keyframes[*curve_index] = k;
-                            //let v = curve.sample(time);
                             component.scale.blend(&mut blend_group, v, w);
                         }
                     }
@@ -675,194 +712,465 @@ pub(crate) fn animator_transform_update_system(
 
 // TODO: Port tests from the generic unsafe
 
-// #[cfg(test)]
-// #[allow(dead_code)]
-// mod tests {
-//     use super::*;
-//     use crate::curve::Curve;
-//     use bevy_ecs::{ArchetypeComponent, TypeAccess};
+#[cfg(test)]
+#[allow(dead_code)]
+mod tests {
+    use super::*;
+    use crate::curve::Curve;
+    use bevy_asset::AddAsset;
+    use bevy_pbr::prelude::StandardMaterial;
+    use bevy_render::prelude::Mesh;
 
-//     struct AnimatorTestBench {
-//         app: bevy_app::App,
-//         entities: Vec<Entity>,
-//         schedule: bevy_ecs::Schedule,
-//     }
+    struct AnimatorTestBench {
+        app: bevy_app::App,
+        entities: Vec<Entity>,
+    }
 
-//     impl AnimatorTestBench {
-//         fn new() -> Self {
-//             let mut app_builder = bevy_app::App::build();
-//             app_builder
-//                 .add_plugin(bevy_type_registry::TypeRegistryPlugin::default())
-//                 .add_plugin(bevy_core::CorePlugin::default())
-//                 .add_plugin(bevy_app::ScheduleRunnerPlugin::default())
-//                 .add_plugin(bevy_asset::AssetPlugin)
-//                 .add_plugin(bevy_transform::TransformPlugin)
-//                 .add_plugin(crate::AnimationPlugin);
+    impl AnimatorTestBench {
+        fn new() -> Self {
+            let mut app_builder = bevy_app::App::build();
+            app_builder
+                .add_plugin(bevy_reflect::ReflectPlugin::default())
+                .add_plugin(bevy_core::CorePlugin::default())
+                .add_plugin(bevy_app::ScheduleRunnerPlugin::default())
+                .add_plugin(bevy_asset::AssetPlugin::default())
+                .add_asset::<Mesh>()
+                .add_asset::<StandardMaterial>()
+                .add_plugin(bevy_transform::TransformPlugin::default())
+                .add_plugin(crate::AnimationPlugin::default());
 
-//             let mut world = World::new();
-//             let mut world_builder = world.build();
-//             let base = (
-//                 GlobalTransform::default(),
-//                 Transform::from_translation(Vec3::new(0.0, 1.0, 0.0)),
-//             );
+            let mut world = World::new();
+            let mut world_builder = world.build();
+            let base = (
+                GlobalTransform::default(),
+                Transform::from_translation(Vec3::new(0.0, 1.0, 0.0)),
+            );
 
-//             // Create animator and assign some clips
-//             let mut animator = Animator::default();
-//             {
-//                 let mut clip_a = Clip::default();
-//                 clip_a.add_animated_prop(
-//                     "@Transform.translation",
-//                     Curve::from_linear(0.0, 1.0, Vec3::unit_x(), -Vec3::unit_x()),
-//                 );
-//                 let rot = Curve::from_constant(Quat::identity());
-//                 clip_a.add_animated_prop("@Transform.rotation", rot.clone());
-//                 clip_a.add_animated_prop("/Node1@Transform.rotation", rot.clone());
-//                 clip_a.add_animated_prop("/Node1/Node2@Transform.rotation", rot);
+            // Create animator and assign some clips
+            let mut animator = Animator::default();
+            {
+                let mut clip_a = Clip::default();
+                clip_a.add_animated_prop(
+                    "@Transform.translation",
+                    Curve::from_linear(0.0, 1.0, Vec3::unit_x(), -Vec3::unit_x()),
+                );
+                let rot = Curve::from_constant(Quat::identity());
+                clip_a.add_animated_prop("@Transform.rotation", rot.clone());
+                clip_a.add_animated_prop("/Node1@Transform.rotation", rot.clone());
+                clip_a.add_animated_prop("/Node1/Node2@Transform.rotation", rot);
 
-//                 let mut clip_b = Clip::default();
-//                 clip_b.add_animated_prop(
-//                     "@Transform.translation",
-//                     Curve::from_constant(Vec3::zero()),
-//                 );
-//                 let rot = Curve::from_linear(
-//                     0.0,
-//                     1.0,
-//                     Quat::from_axis_angle(Vec3::unit_z(), 0.1),
-//                     Quat::from_axis_angle(Vec3::unit_z(), -0.1),
-//                 );
-//                 clip_b.add_animated_prop("@Transform.rotation", rot.clone());
-//                 clip_b.add_animated_prop("/Node1@Transform.rotation", rot.clone());
-//                 clip_b.add_animated_prop("/Node1/Node2@Transform.rotation", rot);
+                let mut clip_b = Clip::default();
+                clip_b.add_animated_prop(
+                    "@Transform.translation",
+                    Curve::from_constant(Vec3::zero()),
+                );
+                let rot = Curve::from_linear(
+                    0.0,
+                    1.0,
+                    Quat::from_axis_angle(Vec3::unit_z(), 0.1),
+                    Quat::from_axis_angle(Vec3::unit_z(), -0.1),
+                );
+                clip_b.add_animated_prop("@Transform.rotation", rot.clone());
+                clip_b.add_animated_prop("/Node1@Transform.rotation", rot.clone());
+                clip_b.add_animated_prop("/Node1/Node2@Transform.rotation", rot);
 
-//                 let mut clips = app_builder
-//                     .resources_mut()
-//                     .get_mut::<Assets<Clip>>()
-//                     .unwrap();
-//                 let clip_a = clips.add(clip_a);
-//                 let clip_b = clips.add(clip_b);
+                let mut clips = app_builder
+                    .resources_mut()
+                    .get_mut::<Assets<Clip>>()
+                    .unwrap();
+                let clip_a = clips.add(clip_a);
+                let clip_b = clips.add(clip_b);
 
-//                 animator.add_layer(clip_a, 0.5);
-//                 animator.add_layer(clip_b, 0.5);
-//             }
+                animator.add_layer(clip_a, 0.5);
+                animator.add_layer(clip_b, 0.5);
+            }
 
-//             let mut entities = vec![];
-//             entities.push(
-//                 world_builder
-//                     .spawn(base.clone())
-//                     .with(Name::from_str("Root"))
-//                     .with(animator)
-//                     .current_entity
-//                     .unwrap(),
-//             );
-//             world_builder.with_children(|world_builder| {
-//                 entities.push(
-//                     world_builder
-//                         .spawn(base.clone())
-//                         .with(Name::from_str("Node1"))
-//                         .current_entity()
-//                         .unwrap(),
-//                 );
+            let mut entities = vec![];
+            entities.push(
+                world_builder
+                    .spawn(base.clone())
+                    .with(Name::from_str("Root"))
+                    .with(animator)
+                    .current_entity
+                    .unwrap(),
+            );
+            world_builder.with_children(|world_builder| {
+                entities.push(
+                    world_builder
+                        .spawn(base.clone())
+                        .with(Name::from_str("Node1"))
+                        .current_entity()
+                        .unwrap(),
+                );
 
-//                 world_builder.with_children(|world_builder| {
-//                     entities.push(
-//                         world_builder
-//                             .spawn(base.clone())
-//                             .with(Name::from_str("Node2"))
-//                             .current_entity()
-//                             .unwrap(),
-//                     );
+                world_builder.with_children(|world_builder| {
+                    entities.push(
+                        world_builder
+                            .spawn(base.clone())
+                            .with(Name::from_str("Node2"))
+                            .current_entity()
+                            .unwrap(),
+                    );
 
-//                     world_builder.with_children(|world_builder| {
-//                         entities.push(
-//                             world_builder
-//                                 .spawn(base.clone())
-//                                 .with(Name::from_str("Node3"))
-//                                 .current_entity()
-//                                 .unwrap(),
-//                         );
-//                     });
-//                 });
-//             });
+                    world_builder.with_children(|world_builder| {
+                        entities.push(
+                            world_builder
+                                .spawn(base.clone())
+                                .with(Name::from_str("Node3"))
+                                .current_entity()
+                                .unwrap(),
+                        );
+                    });
+                });
+            });
 
-//             app_builder.set_world(world);
+            app_builder.set_world(world);
+            app_builder.app.update();
 
-//             let mut schedule = bevy_ecs::Schedule::default();
-//             schedule.add_stage("update");
-//             schedule.add_stage_after("update", "post_update");
-//             schedule.add_system_to_stage("update", animator_update_system);
-//             schedule.add_system_to_stage("update", animator_transform_update_system);
-//             schedule.add_system_to_stage("post_update", parent_update_system);
-//             //schedule.add_system_to_stage("update", transform_propagate_system);
+            Self {
+                app: app_builder.app,
+                entities,
+            }
+        }
 
-//             schedule.initialize(&mut app_builder.app.world, &mut app_builder.app.resources);
-//             schedule.run(&mut app_builder.app.world, &mut app_builder.app.resources);
+        fn run(&mut self) {
+            self.app.update();
+        }
 
-//             Self {
-//                 app: app_builder.app,
-//                 entities,
-//                 schedule,
-//             }
-//         }
+        fn animator(&mut self) -> Mut<Animator> {
+            self.app
+                .world
+                .get_mut::<Animator>(self.entities[0])
+                .unwrap()
+        }
+    }
 
-//         fn run(&mut self) {
-//             self.schedule
-//                 .run(&mut self.app.world, &mut self.app.resources);
-//         }
-//     }
+    #[test]
+    fn entity_deleted() {
+        // Tests for hierarch change deletion and creation of some entity that is been animated
+        let mut test_bench = AnimatorTestBench::new();
 
-//     #[test]
-//     #[cfg(feature = "extra-profiling-tests")]
-//     fn test_bench_update() {
-//         // ? NOTE: Mimics a basic system update behavior good for pref since criterion will pollute the
-//         // ? annotations with many expensive instructions
-//         let mut test_bench = AnimatorTestBench::new();
-//         test_bench.run();
-//         test_bench.run();
+        test_bench
+            .animator()
+            .entities()
+            .iter()
+            .enumerate()
+            .for_each(|(index, entity)| assert!(entity.is_some(), "missing entity {}", index,));
 
-//         // let mut schedule = bevy_ecs::Schedule::default();
-//         // schedule.add_stage("update");
-//         // schedule.add_system_to_stage("update", animator_transform_update_system);
-//         // schedule.initialize(&mut test_bench.app.world, &mut test_bench.app.resources);
+        // delete "Node1"
+        test_bench
+            .app
+            .world
+            .despawn(test_bench.entities[1])
+            .unwrap();
 
-//         // let mut transform_system: Box<dyn System<Input = (), Output = ()>> =
-//         //     Box::new(animator_transform_update_system.system());
+        // Tick
+        test_bench.run();
 
-//         // transform_system.initialize(&mut test_bench.app.world, &mut test_bench.app.resources);
+        assert!(
+            test_bench.animator().entities()[0].is_some(),
+            "root entity missing"
+        );
+        assert_eq!(
+            &test_bench.animator().entities()[1..],
+            &[None, None][..],
+            "entities still binded"
+        );
 
-//         // fn animator_transform_update_system(
-//         //     clips: Res<Assets<Clip>>,
-//         //     mut animators_query: Query<(&Animator, &mut KeyframeCache, &mut AnimatorBlending)>,
-//         //     transform_query: Query<(&mut Transform,)>,
-//         // );
+        // Re-add "Node1"
+        test_bench.entities[1] = test_bench
+            .app
+            .world
+            .build()
+            .spawn((
+                GlobalTransform::default(),
+                Transform::from_translation(Vec3::new(0.0, 1.0, 0.0)),
+                Name::from_str("Node1"),
+                Parent(test_bench.entities[0]),
+            ))
+            .current_entity
+            .unwrap();
 
-//         let type_access = <TypeAccess<ArchetypeComponent>>::new(vec![], vec![]);
-//         for _ in 0..100_000 {
-//             // // Time tick
-//             // {
-//             //     let mut time = test_bench.app.resources.get_mut::<Time>().unwrap();
-//             //     time.delta_seconds += 0.016;
-//             //     time.delta_seconds_f64 += 0.016;
-//             // }
+        *test_bench
+            .app
+            .world
+            .get_mut::<Parent>(test_bench.entities[2])
+            .unwrap() = Parent(test_bench.entities[1]);
 
-//             //schedule.run(&mut test_bench.app.world, &mut test_bench.app.resources);
+        // Tick
+        // ! FIXME: May take one frame to bind the missing properties because
+        // ! the `parent_update_system` must run in order to update the `Children` component
+        test_bench.run();
+        test_bench.run();
 
-//             //transform_system.run((), &mut test_bench.app.world, &mut test_bench.app.resources);
+        test_bench
+            .animator()
+            .entities()
+            .iter()
+            .enumerate()
+            .for_each(|(index, entity)| assert!(entity.is_some(), "missing entity {}", index,));
+    }
 
-//             // Fetching
-//             let clips = &*test_bench.app.resources.get::<Assets<Clip>>().unwrap();
-//             let clips =
-//                 unsafe { Res::new(std::ptr::NonNull::new(clips as *const _ as *mut _).unwrap()) };
-//             let animators_query = unsafe {
-//                 <Query<(&Animator, &mut KeyframeCache, &mut AnimatorBlending)>>::new(
-//                     &test_bench.app.world,
-//                     &type_access,
-//                 )
-//             };
-//             let transform_query =
-//                 unsafe { <Query<(&mut Transform,)>>::new(&test_bench.app.world, &type_access) };
+    #[test]
+    fn entity_parent_changed() {
+        // Tests for hierarch change deletion and creation of some entity that is been animated
+        let mut test_bench = AnimatorTestBench::new();
 
-//             // Running
-//             animator_transform_update_system(clips, animators_query, transform_query);
-//         }
-//     }
-// }
+        test_bench
+            .animator()
+            .entities()
+            .iter()
+            .enumerate()
+            .for_each(|(index, entity)| assert!(entity.is_some(), "missing entity {}", index,));
+
+        // Change parent of node "Node1"
+        let new_parent = test_bench
+            .app
+            .world
+            .build()
+            .spawn(())
+            .current_entity
+            .unwrap();
+
+        *test_bench
+            .app
+            .world
+            .get_mut::<Parent>(test_bench.entities[1])
+            .unwrap() = Parent(new_parent);
+
+        // Tick
+        test_bench.run();
+
+        assert!(
+            test_bench.animator().entities()[0].is_some(),
+            "root entity missing"
+        );
+        assert_eq!(
+            &test_bench.animator().entities()[1..],
+            &[None, None][..],
+            "entities still binded"
+        );
+
+        // Re-parent "Node1"
+        *test_bench
+            .app
+            .world
+            .get_mut::<Parent>(test_bench.entities[1])
+            .unwrap() = Parent(test_bench.entities[0]);
+
+        // Tick
+        // ! FIXME: Takes one frame to bind the missing properties because
+        // ! the `parent_update_system` must run in order to update the `Children` component
+        test_bench.run();
+        test_bench.run();
+
+        test_bench
+            .animator()
+            .entities()
+            .iter()
+            .enumerate()
+            .for_each(|(index, entity)| assert!(entity.is_some(), "missing entity {}", index,));
+    }
+
+    #[test]
+    fn entity_parent_component_removed() {
+        // Tests for hierarch change deletion and creation of some entity that is been animated
+        let mut test_bench = AnimatorTestBench::new();
+
+        test_bench
+            .animator()
+            .entities()
+            .iter()
+            .enumerate()
+            .for_each(|(index, entity)| assert!(entity.is_some(), "missing entity {}", index,));
+
+        test_bench
+            .app
+            .world
+            .remove_one::<Parent>(test_bench.entities[1])
+            .unwrap();
+
+        // Tick
+        test_bench.run();
+
+        assert!(
+            test_bench.animator().entities()[0].is_some(),
+            "root entity missing"
+        );
+        assert_eq!(
+            &test_bench.animator().entities()[1..],
+            &[None, None][..],
+            "entities still binded"
+        );
+
+        // Re-parent "Node1"
+        test_bench
+            .app
+            .world
+            .insert_one(test_bench.entities[1], Parent(test_bench.entities[0]))
+            .unwrap();
+
+        // Tick
+        // ! FIXME: Takes one frame to bind the missing properties because
+        // ! the `parent_update_system` must run in order to update the `Children` component
+        test_bench.run();
+        test_bench.run();
+
+        test_bench
+            .animator()
+            .entities()
+            .iter()
+            .enumerate()
+            .for_each(|(index, entity)| assert!(entity.is_some(), "missing entity {}", index,));
+    }
+
+    #[test]
+    fn entity_renamed() {
+        // Tests for hierarch change deletion and creation of some entity that is been animated
+        let mut test_bench = AnimatorTestBench::new();
+
+        test_bench
+            .animator()
+            .entities()
+            .iter()
+            .enumerate()
+            .for_each(|(index, entity)| assert!(entity.is_some(), "missing entity {}", index,));
+
+        *test_bench
+            .app
+            .world
+            .get_mut::<Name>(test_bench.entities[1])
+            .unwrap() = Name::from_str("Spine1");
+
+        // Tick
+        test_bench.run();
+
+        assert!(
+            test_bench.animator().entities()[0].is_some(),
+            "root entity missing"
+        );
+        assert_eq!(
+            &test_bench.animator().entities()[1..],
+            &[None, None][..],
+            "entities still binded"
+        );
+
+        *test_bench
+            .app
+            .world
+            .get_mut::<Name>(test_bench.entities[1])
+            .unwrap() = Name::from_str("Node1");
+
+        // Tick
+        // ! FIXME: Takes one frame to bind the missing properties because
+        // ! the `parent_update_system` must run in order to update the `Children` component
+        test_bench.run();
+        test_bench.run();
+
+        test_bench
+            .animator()
+            .entities()
+            .iter()
+            .enumerate()
+            .for_each(|(index, entity)| assert!(entity.is_some(), "missing entity {}", index,));
+    }
+
+    #[test]
+    fn entity_name_component_removed() {
+        // Tests for hierarch change deletion and creation of some entity that is been animated
+        let mut test_bench = AnimatorTestBench::new();
+
+        test_bench
+            .animator()
+            .entities()
+            .iter()
+            .enumerate()
+            .for_each(|(index, entity)| assert!(entity.is_some(), "missing entity {}", index,));
+
+        test_bench
+            .app
+            .world
+            .remove_one::<Name>(test_bench.entities[1])
+            .unwrap();
+
+        // Tick
+        test_bench.run();
+
+        assert!(
+            test_bench.animator().entities()[0].is_some(),
+            "root entity missing"
+        );
+        assert_eq!(
+            &test_bench.animator().entities()[1..],
+            &[None, None][..],
+            "entities still binded"
+        );
+
+        test_bench
+            .app
+            .world
+            .insert_one(test_bench.entities[1], Name::from_str("Node1"))
+            .unwrap();
+
+        // Tick
+        // ! FIXME: Takes one frame to bind the missing properties because
+        // ! the `parent_update_system` must run in order to update the `Children` component
+        test_bench.run();
+        test_bench.run();
+
+        test_bench
+            .animator()
+            .entities()
+            .iter()
+            .enumerate()
+            .for_each(|(index, entity)| assert!(entity.is_some(), "missing entity {}", index,));
+    }
+
+    #[test]
+    fn clip_changed() {
+        // Tests for hierarch change deletion and creation of some entity that is been animated
+        let mut test_bench = AnimatorTestBench::new();
+
+        test_bench
+            .animator()
+            .entities()
+            .iter()
+            .enumerate()
+            .for_each(|(index, entity)| assert!(entity.is_some(), "missing entity {}", index,));
+
+        test_bench.run();
+
+        // Modify clip
+        {
+            let clip_a_handle = test_bench.animator().clips()[0].clone();
+            let mut clips = test_bench.app.resources.get_mut::<Assets<Clip>>().unwrap();
+            let clip_a = clips.get_mut(clip_a_handle).unwrap();
+            clip_a.add_animated_prop(
+                "/Node3/@Transform.translation",
+                Curve::from_linear(0.0, 1.0, Vec3::unit_z(), -Vec3::unit_z()),
+            );
+        }
+
+        test_bench.run();
+
+        assert_eq!(test_bench.animator().entities().len(), 4);
+
+        // Spawn entity
+        test_bench.app.world.build().spawn((
+            GlobalTransform::default(),
+            Transform::from_translation(Vec3::new(0.0, 1.0, 0.0)),
+            Name::from_str("Node3"),
+            Parent(test_bench.entities[0]),
+        ));
+
+        test_bench.run();
+        test_bench.run();
+
+        test_bench
+            .animator()
+            .entities()
+            .iter()
+            .enumerate()
+            .for_each(|(index, entity)| assert!(entity.is_some(), "missing entity {}", index,));
+    }
+}

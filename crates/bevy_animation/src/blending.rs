@@ -9,8 +9,8 @@ use crate::lerping::Lerp;
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 struct Ptr(*const u8);
 
-// SAFETY: Store pointers to each attribute to be updated, a clip can't have two pointers
-// with the same value. Each clip per Animator will be updated sequentially
+// SAFETY: The underlying pointer will never will be dereferenced,
+// it's only use as an numerical value globally unique any attribute
 unsafe impl Send for Ptr {}
 unsafe impl Sync for Ptr {}
 
