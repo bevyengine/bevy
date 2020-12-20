@@ -1,16 +1,8 @@
 use bevy_reflect::{Reflect, ReflectComponent};
+use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 
-// NOTE: This is used by the animation system to find the right entity to animate
-
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
-
-/// Component containing the name used to identify a entity. Keep in mind that
-/// multiple entities may have the same name.
-///
-/// **NOTE** Once created you can't change it's contents because this `Name`
-/// component also stores the string hash to drastically improve performance comparison
+/// Component used to identify a entity. Stores a hash for faster comparisons
 #[derive(Debug, Clone, Reflect)]
 #[reflect(Component)]
 pub struct Name {
@@ -53,8 +45,7 @@ impl Name {
     }
 
     fn update_hash(&mut self) {
-        // TODO: Try with Fnv and AHash (I'm going to need a test suit for that, but my money is on ahash)
-        let mut hasher = DefaultHasher::default();
+        let mut hasher = ahash::AHasher::default();
         self.name.hash(&mut hasher);
         self.hash = hasher.finish();
     }

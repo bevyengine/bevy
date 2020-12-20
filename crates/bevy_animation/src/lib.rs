@@ -3,7 +3,6 @@ use bevy_asset::{AddAsset, Assets};
 use bevy_reflect::RegisterTypeBuilder;
 
 mod custom;
-mod help;
 mod hierarchy;
 mod skinned_mesh;
 

@@ -14,7 +14,6 @@ use std::marker::PhantomData;
 
 use crate::blending::{AnimatorBlending, Blend};
 use crate::curve::Curve;
-use crate::help::Empty;
 use crate::hierarchy::Hierarchy;
 use crate::lerping::Lerp;
 
@@ -403,8 +402,8 @@ pub(crate) fn animator_update_system(
         (Option<&Parent>, &Name),
         Or<(Changed<Parent>, Changed<Name>)>,
     >,
-    entity_deleted_query: Query<Empty>,
-    parent_or_name_removed_query: Query<Empty, Or<(Without<Parent>, Without<Name>)>>,
+    entity_deleted_query: Query<Entity>,
+    parent_or_name_removed_query: Query<Entity, Or<(Without<Parent>, Without<Name>)>>,
 ) {
     let __span = tracing::info_span!("animator_update_system");
     let __guard = __span.enter();
