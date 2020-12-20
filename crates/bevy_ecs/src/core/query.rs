@@ -237,6 +237,36 @@ impl<'a, T: Fetch<'a>> Fetch<'a> for TryFetch<T> {
     }
 }
 
+/// Especial component type that don't care about the if the entity has it or not;
+/// Use to build queries to check component or entity state;
+#[derive(Debug, Copy, Clone)]
+pub struct DontCare;
+
+impl WorldQuery for DontCare {
+    type Fetch = DontCareFetch;
+}
+
+/// Don't care about the component
+pub struct DontCareFetch;
+unsafe impl ReadOnlyFetch for DontCareFetch {}
+
+impl<'a> Fetch<'a> for DontCareFetch {
+    type Item = DontCare;
+    const DANGLING: Self = DontCareFetch;
+
+    fn access() -> QueryAccess {
+        QueryAccess::None
+    }
+
+    unsafe fn get(_archetype: &'a Archetype, _offset: usize) -> Option<Self> {
+        Some(DontCareFetch)
+    }
+
+    unsafe fn fetch(&self, _n: usize) -> Self::Item {
+        DontCare
+    }
+}
+
 struct ChunkInfo<Q: WorldQuery, F: QueryFilter> {
     fetch: Q::Fetch,
     filter: F::EntityFilter,
