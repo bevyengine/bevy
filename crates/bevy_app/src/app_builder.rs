@@ -129,7 +129,7 @@ impl AppBuilder {
         self.add_system_to_stage(stage::UPDATE, system)
     }
 
-    pub fn on_state_enter<T: Clone + Resource, S: System<In = (), Out = ()>>(
+    pub fn on_state_enter<T: Resource, S: System<In = (), Out = ()>>(
         &mut self,
         stage: &str,
         state: T,
@@ -140,7 +140,7 @@ impl AppBuilder {
         })
     }
 
-    pub fn on_state_update<T: Clone + Resource, S: System<In = (), Out = ()>>(
+    pub fn on_state_update<T: Resource, S: System<In = (), Out = ()>>(
         &mut self,
         stage: &str,
         state: T,
@@ -151,7 +151,7 @@ impl AppBuilder {
         })
     }
 
-    pub fn on_state_exit<T: Clone + Resource, S: System<In = (), Out = ()>>(
+    pub fn on_state_exit<T: Resource, S: System<In = (), Out = ()>>(
         &mut self,
         stage: &str,
         state: T,

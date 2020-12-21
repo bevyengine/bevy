@@ -18,7 +18,6 @@ fn main() {
 
 const STAGE: &str = "app_state";
 
-#[derive(Clone)]
 enum AppState {
     Menu,
     InGame,
@@ -101,6 +100,7 @@ fn setup_game(
     commands: &mut Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    state: Res<State<AppState>>,
 ) {
     let texture_handle = asset_server.load("branding/icon.png");
     commands
@@ -109,6 +109,11 @@ fn setup_game(
             material: materials.add(texture_handle.into()),
             ..Default::default()
         });
+    match state.previous() {
+        Some(AppState::Menu) => println!("Called setup_game from leaving the menu"),
+        Some(AppState::InGame) => unreachable!("Called setup_game from leaving InGame"),
+        None => unreachable!("Called setup_game as the first state"),
+    }
 }
 
 const SPEED: f32 = 100.0;
