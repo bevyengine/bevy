@@ -10,6 +10,7 @@ use std::num::NonZeroU16;
 
 ///////////////////////////////////////////////////////////////////////////////
 
+// Maybe useful for when animating assets or sparse components tree
 pub enum FetchState<T> {
     None,
     Missing,

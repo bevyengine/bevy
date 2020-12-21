@@ -625,6 +625,8 @@ pub(crate) fn animator_transform_update_system(
 
     let mut components = vec![];
 
+    // ! FIXME: Animator blending and keyframe indexing are stopping the system to run in parallel
+
     for (mut animator, mut animator_blend) in animators_query.iter_mut() {
         let mut blend_group = animator_blend.begin_blending();
 
