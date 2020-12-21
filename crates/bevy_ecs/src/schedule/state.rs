@@ -167,7 +167,7 @@ impl<T: Resource> Stage for StateStage<T> {
                 let mut state = resources
                     .get_mut::<State<T>>()
                     .expect("Missing state resource");
-                state.previous = state.apply_next().or(state.previous.take());
+                state.previous = state.apply_next().or_else(|| state.previous.take());
                 mem::discriminant(&state.current)
             };
             if self.current_stage == Some(next) {
