@@ -14,7 +14,7 @@ use bevy_reflect::{Reflect, ReflectComponent};
 use bevy_window::WindowId;
 
 /// A component that indicates that an entity should be drawn in the "main pass"
-#[derive(Default, Reflect)]
+#[derive(Clone, Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct MainPass;
 

@@ -3,7 +3,8 @@ use bevy::{
     prelude::*,
 };
 
-/// This example illustrates how to create text and update it in a system. It displays the current FPS in the upper left hand corner.
+/// This example illustrates how to create UI text and update it in a system. It displays the
+/// current FPS in the upper left hand corner.  For text within a scene, please see the text2d example.
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
@@ -28,7 +29,7 @@ fn text_update_system(diagnostics: Res<Diagnostics>, mut query: Query<&mut Text,
 
 fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
     commands
-        // 2d camera
+        // UI camera
         .spawn(CameraUiBundle::default())
         // texture
         .spawn(TextBundle {

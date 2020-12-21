@@ -1,5 +1,5 @@
 use crate::{CalculatedSize, Node, Style, Val};
-use bevy_asset::{Assets, Handle};
+use bevy_asset::Assets;
 use bevy_ecs::{Changed, Entity, Local, Or, Query, QuerySet, Res, ResMut};
 use bevy_math::Size;
 use bevy_render::{
@@ -10,19 +10,12 @@ use bevy_render::{
     texture::Texture,
 };
 use bevy_sprite::{TextureAtlas, QUAD_HANDLE};
-use bevy_text::{DefaultTextPipeline, DrawableText, Font, FontAtlasSet, TextError, TextStyle};
+use bevy_text::{DefaultTextPipeline, DrawableText, Font, FontAtlasSet, Text, TextError};
 use bevy_transform::prelude::GlobalTransform;
 
 #[derive(Debug, Default)]
 pub struct QueuedText {
     entities: Vec<Entity>,
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct Text {
-    pub value: String,
-    pub font: Handle<Font>,
-    pub style: TextStyle,
 }
 
 /// Defines how min_size, size, and max_size affects the bounds of a text
@@ -92,7 +85,6 @@ pub fn text_system(
 
     queued_text.entities = new_queue;
 }
-
 enum TextPipelineResult {
     Ok,
     Reschedule,
