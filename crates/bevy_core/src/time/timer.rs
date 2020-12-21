@@ -89,7 +89,7 @@ impl Timer {
         self.num_times_just_finished > 0
     }
 
-    /// Returns the total number of durations that elapsed during this tick.
+    /// Returns the total number of times the timer finished during this tick.
     ///
     /// This value can be used to ensure no completions of a repeating timer are skipped over due to a tick with an unexpectedly
     /// long delta time. For non repeating timers, the value will only ever be 0 or 1.
