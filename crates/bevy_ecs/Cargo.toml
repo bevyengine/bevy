@@ -20,7 +20,7 @@ trace = []
 bevy_tasks = { path = "../bevy_tasks", version = "0.4.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.4.0" }
 bevy_ecs_macros = { path = "macros", version = "0.4.0" }
-rand = "0.7.3"
+rand = "0.8.0"
 serde = "1.0"
 thiserror = "1.0"
 fixedbitset = "0.3.1"
