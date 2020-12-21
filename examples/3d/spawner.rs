@@ -56,15 +56,15 @@ fn setup(
             mesh: cube_handle.clone(),
             material: materials.add(StandardMaterial {
                 albedo: Color::rgb(
-                    rng.gen_range(0.0, 1.0),
-                    rng.gen_range(0.0, 1.0),
-                    rng.gen_range(0.0, 1.0),
+                    rng.gen_range(0.0..1.0),
+                    rng.gen_range(0.0..1.0),
+                    rng.gen_range(0.0..1.0),
                 ),
                 ..Default::default()
             }),
             transform: Transform::from_xyz(
-                rng.gen_range(-50.0, 50.0),
-                rng.gen_range(-50.0, 50.0),
+                rng.gen_range(-50.0..50.0),
+                rng.gen_range(-50.0..50.0),
                 0.0,
             ),
             ..Default::default()
