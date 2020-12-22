@@ -47,8 +47,10 @@ impl AnimatedComponent for Transform {
                 if let Some(clip) = clips.get(clip_handle) {
                     let time = layer.time;
 
-                    // SAFETY: Never a different thread will modify or access the same index as this one
-                    // ! FIXME: Multiple threads will modifying the same cache line, not sure if this will cause any issue
+                    // SAFETY: Never a different thread will modify or access the same index as this one;
+                    // Plus as a nice and crazy feature each property is grouped by name into their own cache line
+                    // buckets, this way no cache line will be accessed by the same thread unless the same property
+                    // is accessed by two different systems, which is possible but weird and will hit the performance a bit
                     let keyframes = unsafe { layer.keyframes_unsafe() };
 
                     if let Some(curves) = clip

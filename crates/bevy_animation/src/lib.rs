@@ -4,6 +4,7 @@ use bevy_reflect::RegisterTypeBuilder;
 
 mod app;
 mod custom;
+mod experimental;
 mod hierarchy;
 mod impls;
 mod skinned_mesh;

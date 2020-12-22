@@ -74,6 +74,8 @@ impl<T> Curve<T> {
             "samples and values must have the same length"
         );
 
+        assert!(values.len() <= u16::MAX as usize, "too many keyframes");
+
         assert!(samples.len() > 0, "empty curve");
 
         // Make sure the
@@ -143,16 +145,18 @@ where
             self.samples.len() - 1
         };
 
-        self.sample_indexed(index, time).1
+        self.sample_indexed(index as u16, time).1
     }
 
     /// Samples the curve starting from some keyframe index, this make the common case `O(1)`
-    pub fn sample_indexed(&self, mut index: usize, time: f32) -> (usize, T) {
+    ///
+    /// **NOTE** Each keyframe is indexed by a `u16` to reduce memory usage when using the keyframe caching
+    pub fn sample_indexed(&self, mut index: u16, time: f32) -> (u16, T) {
         // Adjust for the current keyframe index
-        let last_index = self.samples.len() - 1;
+        let last_index = (self.samples.len() - 1) as u16;
 
         index = index.max(0).min(last_index);
-        if self.samples[index] < time {
+        if self.samples[index as usize] < time {
             // Forward search
             loop {
                 if index == last_index {
@@ -160,7 +164,7 @@ where
                 }
                 index += 1;
 
-                if self.samples[index] >= time {
+                if self.samples[index as usize] >= time {
                     break;
                 }
             }
@@ -172,7 +176,7 @@ where
                 }
 
                 let i = index - 1;
-                if self.samples[i] <= time {
+                if self.samples[i as usize] <= time {
                     break;
                 }
 
@@ -182,10 +186,10 @@ where
 
         // Lerp the value
         let i = index - 1;
-        let previous_time = self.samples[i];
-        let t = (time - previous_time) / (self.samples[index] - previous_time);
+        let previous_time = self.samples[i as usize];
+        let t = (time - previous_time) / (self.samples[index as usize] - previous_time);
         debug_assert!(t >= 0.0 && t <= 1.0, "t = {} but should be normalized", t); // Checks if it's required to normalize t
-        let value = T::lerp(&self.values[i], &self.values[index], t);
+        let value = T::lerp(&self.values[i as usize], &self.values[index as usize], t);
 
         (index, value)
     }

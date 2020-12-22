@@ -1,6 +1,6 @@
 use anyhow::Result;
 use bevy_app::prelude::{EventReader, Events};
-use bevy_asset::{AssetEvent, Assets, Handle /*HandleUntyped*/};
+use bevy_asset::{Asset, AssetEvent, Assets, Handle};
 use bevy_core::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_reflect::{Reflect, ReflectComponent, TypeUuid};
@@ -17,10 +17,31 @@ use crate::curve::Curve;
 use crate::hierarchy::Hierarchy;
 use crate::lerping::Lerp;
 
+// Starting from Intel's Sandy Bridge, spatial prefetcher is now pulling pairs of 64-byte cache
+// lines at a time, so we have to align to 128 bytes rather than 64.
+//
+// Sources:
+// - https://www.intel.com/content/dam/www/public/us/en/documents/manuals/64-ia-32-architectures-optimization-manual.pdf
+// - https://github.com/facebook/folly/blob/1b5288e6eea6df074758f877c849b6e73bbb9fbb/folly/lang/Align.h#L107
+//
+// ARM's big.LITTLE architecture has asymmetric cores and "big" cores have 128 byte cache line size
+// Sources:
+// - https://www.mono-project.com/news/2016/09/12/arm64-icache/
+//
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+const CACHE_SIZE: usize = 128;
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+const CACHE_SIZE: usize = 64;
+
+/// Defines the number of keyframes that fits inside a cache line;
+const KEYFRAMES_PER_CACHE: usize = CACHE_SIZE / std::mem::size_of::<u16>();
+
+///////////////////////////////////////////////////////////////////////////////
+
 #[derive(Debug)]
 pub struct Curves<T> {
-    property_index: usize,
     entity_indexes: SmallVec<[u16; 8]>,
+    /// Pair of curve and it's index
     curves: Vec<(usize, Curve<T>)>,
 }
 
@@ -75,7 +96,7 @@ impl CurvesUntyped {
     }
 }
 
-// TODO: impl Serialize, Deserialize
+// TODO: impl Serialize, Deserialize using bevy reflect for that
 #[derive(Debug, TypeUuid)]
 #[uuid = "79e2ea58-8bf7-43af-8219-5898edb02f80"]
 pub struct Clip {
@@ -89,9 +110,13 @@ pub struct Clip {
     duration: f32,
     hierarchy: Hierarchy,
     // ? NOTE: AHash performed worse than FnvHasher
-    properties: HashMap<String, CurvesUntyped, FnvBuildHasher>,
+    /// Each curve and keyframe cache index mapped by property name  
+    properties: HashMap<String, (usize, CurvesUntyped), FnvBuildHasher>,
     /// Number of animated properties
     len: usize,
+    /// Number of cache lines currently been used to organize the keyframe
+    /// caching into buckets to be accessed by many different threads at the same time
+    cache: usize,
 }
 
 // fn clip_default_warp() -> bool {
@@ -106,6 +131,7 @@ impl Default for Clip {
             hierarchy: Hierarchy::default(),
             properties: HashMap::default(),
             len: 0,
+            cache: 0,
         }
     }
 }
@@ -115,8 +141,11 @@ impl Clip {
     /// where the left side `@` defines a path to the entity to animate,
     /// while the right side the path to a property to animate starting from the component.
     ///
-    /// **NOTE** This is a expensive function
-    pub fn add_animated_prop<T>(&mut self, property_path: &str, mut curve: Curve<T>)
+    /// **NOTE** This is a expensive function;
+    ///
+    /// **NOTE** You can safely ignore the return value as it's only used for assertions during tests;
+    /// The return value is the assigned curve index in cache line bucket.
+    pub fn add_animated_prop<T>(&mut self, property_path: &str, mut curve: Curve<T>) -> usize
     where
         T: Lerp + Clone + Send + Sync + 'static,
     {
@@ -128,7 +157,7 @@ impl Clip {
         let (entity_index, _) = self.hierarchy.get_or_insert_entity(path.0);
         let target_name = path.1.split_at(1).1;
 
-        if let Some(curves_untyped) = self.properties.get_mut(target_name) {
+        if let Some((cache_index, curves_untyped)) = self.properties.get_mut(target_name) {
             let curves = curves_untyped
                 .downcast_mut::<T>()
                 .expect("properties can't have the same name and different curve types");
@@ -139,8 +168,11 @@ impl Clip {
                 .iter()
                 .position(|index| *index == entity_index)
             {
+                let (curve_index, curve_untyped) = &mut curves.curves[i];
+                let curve_index = *curve_index;
+
                 // Found a property equal to the one been inserted, next replace the curve
-                std::mem::swap(&mut curves.curves[i].1, &mut curve);
+                std::mem::swap(curve_untyped, &mut curve);
 
                 // Update curve duration in two stages
                 let duration = curves.calculate_duration();
@@ -152,42 +184,62 @@ impl Clip {
                 // Drop the curves untyped (which as a mut borrow) and update the total duration
                 std::mem::drop(curves_untyped);
                 self.duration = self.calculate_duration();
+
+                return curve_index;
             } else {
-                let curve_index = self.len;
+                *cache_index += 1;
+                if (*cache_index % KEYFRAMES_PER_CACHE) == 0 {
+                    // No more spaces left in the current cache line
+                    *cache_index = self.cache * KEYFRAMES_PER_CACHE;
+                    self.cache += 1;
+                }
+
                 self.len += 1;
 
                 // Append newly added curve
                 let duration = curve.duration();
 
-                curves.curves.push((curve_index, curve));
+                curves.curves.push((*cache_index, curve));
                 curves.entity_indexes.push(entity_index);
                 std::mem::drop(curves);
 
                 self.len += 1;
                 self.duration = self.duration.max(duration);
                 curves_untyped.duration = curves_untyped.duration.max(duration);
+
+                return *cache_index;
             }
-            return;
         }
 
-        self.duration = self.duration.max(curve.duration());
-        let property_index = self.properties.len();
-        let curve_index = self.len;
+        let cache_index = self.cache * KEYFRAMES_PER_CACHE;
+        self.cache += 1;
         self.len += 1;
+
+        self.duration = self.duration.max(curve.duration());
         self.properties.insert(
             target_name.to_string(),
-            CurvesUntyped::new(Curves {
-                property_index,
-                curves: vec![(curve_index, curve)],
-                entity_indexes: smallvec![entity_index],
-            }),
+            (
+                cache_index,
+                CurvesUntyped::new(Curves {
+                    curves: vec![(cache_index, curve)],
+                    entity_indexes: smallvec![entity_index],
+                }),
+            ),
         );
+
+        cache_index
     }
 
     /// Number of animated properties in this clip
     #[inline(always)]
     pub fn len(&self) -> usize {
         self.len
+    }
+
+    /// Size of the keyframe index array
+    #[inline(always)]
+    fn keyframes_len(&self) -> usize {
+        self.cache * KEYFRAMES_PER_CACHE
     }
 
     // /// Returns the property curve property path.
@@ -212,7 +264,7 @@ impl Clip {
     fn calculate_duration(&self) -> f32 {
         self.properties
             .iter()
-            .map(|(_, c)| c.duration)
+            .map(|(_, (_, c))| c.duration)
             .fold(0.0f32, |acc, x| acc.max(x))
     }
 
@@ -230,7 +282,9 @@ impl Clip {
     /// Get the curves an given property
     #[inline(always)]
     pub fn get(&self, property_name: &str) -> Option<&CurvesUntyped> {
-        self.properties.get(property_name)
+        self.properties
+            .get(property_name)
+            .map(|(_, curve_untyped)| curve_untyped)
     }
 }
 
@@ -242,7 +296,7 @@ pub struct Layer {
     pub clip: usize,
     pub time: f32,
     pub time_scale: f32,
-    keyframes: Vec<usize>,
+    keyframes: Vec<u16>,
 }
 
 impl Default for Layer {
@@ -259,12 +313,17 @@ impl Default for Layer {
 
 impl Layer {
     #[inline(always)]
-    pub fn keyframes_mut(&mut self) -> &mut [usize] {
+    pub fn keyframes(&self) -> &[u16] {
+        &self.keyframes[..]
+    }
+
+    #[inline(always)]
+    pub fn keyframes_mut(&mut self) -> &mut [u16] {
         &mut self.keyframes[..]
     }
 
     #[inline(always)]
-    pub unsafe fn keyframes_unsafe(&self) -> &mut [usize] {
+    pub unsafe fn keyframes_unsafe(&self) -> &mut [u16] {
         std::slice::from_raw_parts_mut(self.keyframes.as_ptr() as *mut _, self.keyframes.len())
     }
 }
@@ -577,7 +636,7 @@ pub(crate) fn animator_update_system(
                     let mut time = layer.time + delta_time * layer.time_scale;
 
                     // Ensure keyframes capacity
-                    layer.keyframes.resize(clip.len(), 0);
+                    layer.keyframes.resize(clip.keyframes_len(), 0);
 
                     // Warp mode
                     if clip.warp {
@@ -602,9 +661,6 @@ pub(crate) fn animator_update_system(
     std::mem::drop(__guard);
 }
 
-// TODO: This should be auto derived using the "Animated" trait that just returns
-// a system able to animate the said component. Use "AnimatedAsset" for asset handles!
-
 // ! FIXME: Theres no way of free memory used by the `Local<AnimatorBlending>` in each system
 
 pub trait AnimatedComponent: Component + Sized {
@@ -616,7 +672,7 @@ pub trait AnimatedComponent: Component + Sized {
     );
 }
 
-pub trait AnimatedAsset: bevy_asset::Asset + Sized {
+pub trait AnimatedAsset: Asset + Sized {
     fn animator_update_system(
         clips: Res<Assets<Clip>>,
         animator_blending: Local<AnimatorBlending>,
@@ -1087,5 +1143,47 @@ mod tests {
             .iter()
             .enumerate()
             .for_each(|(index, entity)| assert!(entity.is_some(), "missing entity {}", index,));
+    }
+
+    #[test]
+    fn clip_property_index_are_grouped_into_cache_line_buckets() {
+        let curve = Curve::from_constant(0.0);
+        let mut clip = Clip::default();
+        assert_eq!(clip.add_animated_prop("a@T.t", curve.clone()), 0);
+        assert_eq!(clip.add_animated_prop("b@T.t", curve.clone()), 1);
+        assert_eq!(
+            clip.add_animated_prop("a@T.r", curve.clone()),
+            KEYFRAMES_PER_CACHE
+        );
+        assert_eq!(clip.add_animated_prop("c@T.t", curve.clone()), 2);
+        assert_eq!(
+            clip.add_animated_prop("b@T.r", curve.clone()),
+            KEYFRAMES_PER_CACHE + 1
+        );
+        assert_eq!(
+            clip.add_animated_prop("c@T.r", curve.clone()),
+            KEYFRAMES_PER_CACHE + 2
+        );
+        assert_eq!(clip.add_animated_prop("d@T.t", curve.clone()), 3);
+
+        for i in 4..KEYFRAMES_PER_CACHE {
+            assert_eq!(
+                clip.add_animated_prop(&format!("node_{}@T.t", i), curve.clone()),
+                i
+            );
+        }
+
+        assert_eq!(
+            clip.add_animated_prop("za@T.t", curve.clone()),
+            KEYFRAMES_PER_CACHE * 2
+        );
+        assert_eq!(
+            clip.add_animated_prop("za@T.r", curve.clone()),
+            KEYFRAMES_PER_CACHE + 3
+        );
+        assert_eq!(
+            clip.add_animated_prop("zb@T.t", curve.clone()),
+            KEYFRAMES_PER_CACHE * 2 + 1
+        );
     }
 }

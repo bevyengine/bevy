@@ -1,4 +1,9 @@
-use std::num::NonZeroU16;
+#![allow(dead_code)]
+
+use fnv::FnvBuildHasher;
+use std::{collections::HashMap, num::NonZeroU16};
+
+use crate::custom::{Curves, CurvesUntyped};
 
 // pub struct EntityMap<'a>(&'a [u16]);
 
@@ -62,9 +67,10 @@ impl Default for PropertiesStash {
 }
 
 impl PropertiesStash {
-    pub fn entry(&mut self, name: String) -> PropEntry {
-        //
-    }
+    // pub fn entry(&mut self, name: String) -> PropEntry {
+    //     //
+    //     todo!()
+    // }
 
     pub fn get<T: 'static>(&self, name: &str, ticket: &mut PropTicket) -> Option<&Curves<T>> {
         if ticket.1 != self.ver.get() {
