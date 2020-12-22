@@ -15,7 +15,7 @@ use bevy_math::Vec2;
 use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
     CreateWindow, CursorEntered, CursorLeft, CursorMoved, ReceivedCharacter, WindowCloseRequested,
-    WindowCreated, WindowFocused, WindowResized, Windows,
+    WindowCreated, WindowDpiChanged, WindowFocused, WindowResized, WindowTrueDpiChanged, Windows,
 };
 use winit::{
     event::{self, DeviceEvent, Event, WindowEvent},
@@ -77,13 +77,28 @@ fn change_window(_: &mut World, resources: &mut Resources) {
                     window.set_title(&title);
                 }
                 bevy_window::WindowCommand::SetResolution {
-                    resolution: (logical_width, logical_height),
+                    resolution: (width, height),
+                    scale_factor_override,
+                    send_dpi_change_event: send_event,
                 } => {
                     let window = winit_windows.get_window(id).unwrap();
-                    window.set_inner_size(winit::dpi::LogicalSize::new(
-                        logical_width,
-                        logical_height,
-                    ));
+                    if send_event {
+                        let mut use_dpi_events =
+                            resources.get_mut::<Events<WindowDpiChanged>>().unwrap();
+                        use_dpi_events.send(WindowDpiChanged {
+                            id,
+                            scale_factor: scale_factor_override
+                                .unwrap_or_else(|| window.scale_factor()),
+                        });
+                    }
+
+                    if let Some(sf) = scale_factor_override {
+                        window.set_inner_size(
+                            winit::dpi::LogicalSize::new(width, height).to_physical::<f64>(sf),
+                        );
+                    } else {
+                        window.set_inner_size(winit::dpi::LogicalSize::new(width, height));
+                    }
                 }
                 bevy_window::WindowCommand::SetVsync { .. } => (),
                 bevy_window::WindowCommand::SetResizable { resizable } => {
@@ -342,10 +357,34 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                         scale_factor,
                         new_inner_size,
                     } => {
-                        window.update_actual_size_from_backend(
-                            new_inner_size.width,
-                            new_inner_size.height,
-                        );
+                        if window.scale_factor_override().is_some() {
+                            *new_inner_size = winit::dpi::PhysicalSize::new(
+                                window.physical_width(),
+                                window.physical_height(),
+                            )
+                        } else {
+                            window.update_actual_size_from_backend(
+                                new_inner_size.width,
+                                new_inner_size.height,
+                            );
+                            let mut dpi_change_events =
+                                app.resources.get_mut::<Events<WindowDpiChanged>>().unwrap();
+
+                            let mut true_dpi_change_events = app
+                                .resources
+                                .get_mut::<Events<WindowTrueDpiChanged>>()
+                                .unwrap();
+
+                            dpi_change_events.send(WindowDpiChanged {
+                                id: window_id,
+                                scale_factor,
+                            });
+
+                            true_dpi_change_events.send(WindowTrueDpiChanged {
+                                id: window_id,
+                                scale_factor,
+                            });
+                        }
                         window.update_scale_factor_from_backend(scale_factor);
                         // should we send a resize event to indicate the change in
                         // logical size?

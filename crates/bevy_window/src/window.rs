@@ -54,7 +54,8 @@ pub struct Window {
     requested_height: f32,
     physical_width: u32,
     physical_height: u32,
-    scale_factor: f64,
+    scale_factor_override: Option<f64>,
+    true_scale_factor: f64,
     title: String,
     vsync: bool,
     resizable: bool,
@@ -79,6 +80,8 @@ pub enum WindowCommand {
     },
     SetResolution {
         resolution: (f32, f32),
+        scale_factor_override: Option<f64>,
+        send_dpi_change_event: bool,
     },
     SetVsync {
         vsync: bool,
@@ -129,7 +132,8 @@ impl Window {
             requested_height: window_descriptor.height,
             physical_width,
             physical_height,
-            scale_factor,
+            scale_factor_override: window_descriptor.scale_factor_override,
+            true_scale_factor: scale_factor,
             title: window_descriptor.title.clone(),
             vsync: window_descriptor.vsync,
             resizable: window_descriptor.resizable,
@@ -152,13 +156,13 @@ impl Window {
     /// The current logical width of the window's client area.
     #[inline]
     pub fn width(&self) -> f32 {
-        (self.physical_width as f64 / self.scale_factor) as f32
+        (self.physical_width as f64 / self.scale_factor()) as f32
     }
 
     /// The current logical height of the window's client area.
     #[inline]
     pub fn height(&self) -> f32 {
-        (self.physical_height as f64 / self.scale_factor) as f32
+        (self.physical_height as f64 / self.scale_factor()) as f32
     }
 
     /// The requested window client area width in logical pixels from window
@@ -206,13 +210,38 @@ impl Window {
         self.requested_height = height;
         self.command_queue.push(WindowCommand::SetResolution {
             resolution: (self.requested_width, self.requested_height),
+            scale_factor_override: None,
+            send_dpi_change_event: self.scale_factor_override.is_some(),
         });
+        self.scale_factor_override = None;
+    }
+
+    /// Directly set the screen size in terms of physical pixels
+    pub fn set_physical_resolution(&mut self, width: f32, height: f32, scale_factor: f64) {
+        self.requested_width = width;
+        self.requested_height = height;
+        self.command_queue.push(WindowCommand::SetResolution {
+            resolution: (self.requested_width, self.requested_height),
+            scale_factor_override: Some(scale_factor),
+            send_dpi_change_event: self.scale_factor_override != Some(scale_factor),
+        });
+        self.scale_factor_override = Some(scale_factor);
+    }
+
+    /// Override the os-reported scaling factor
+    pub fn set_scale_factor_override(&mut self, scale_factor: Option<f64>) {
+        self.command_queue.push(WindowCommand::SetResolution {
+            resolution: (self.requested_width, self.requested_height),
+            scale_factor_override: scale_factor,
+            send_dpi_change_event: true,
+        });
+        self.scale_factor_override = scale_factor;
     }
 
     #[allow(missing_docs)]
     #[inline]
     pub fn update_scale_factor_from_backend(&mut self, scale_factor: f64) {
-        self.scale_factor = scale_factor;
+        self.true_scale_factor = scale_factor;
     }
 
     #[allow(missing_docs)]
@@ -225,9 +254,18 @@ impl Window {
     /// The ratio of physical pixels to logical pixels
     ///
     /// `physical_pixels = logical_pixels * scale_factor`
-    #[inline]
     pub fn scale_factor(&self) -> f64 {
-        self.scale_factor
+        self.scale_factor_override.unwrap_or(self.true_scale_factor)
+    }
+
+    #[inline]
+    pub fn true_scale_factor(&self) -> f64 {
+        self.true_scale_factor
+    }
+
+    #[inline]
+    pub fn scale_factor_override(&self) -> Option<f64> {
+        self.scale_factor_override
     }
 
     #[inline]
@@ -335,6 +373,7 @@ impl Window {
 pub struct WindowDescriptor {
     pub width: f32,
     pub height: f32,
+    pub scale_factor_override: Option<f64>,
     pub title: String,
     pub vsync: bool,
     pub resizable: bool,
@@ -352,6 +391,7 @@ impl Default for WindowDescriptor {
             title: "bevy".to_string(),
             width: 1280.,
             height: 720.,
+            scale_factor_override: None,
             vsync: true,
             resizable: true,
             decorations: true,

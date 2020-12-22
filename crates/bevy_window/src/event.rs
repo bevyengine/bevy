@@ -64,3 +64,16 @@ pub struct WindowFocused {
     pub id: WindowId,
     pub focused: bool,
 }
+
+/// An event that indicates a windows DPI has changed.
+#[derive(Debug, Clone)]
+pub struct WindowDpiChanged {
+    pub id: WindowId,
+    pub scale_factor: f64,
+}
+/// An event that indicates a windows OS-reported DPI has changed.
+#[derive(Debug, Clone)]
+pub struct WindowTrueDpiChanged {
+    pub id: WindowId,
+    pub scale_factor: f64,
+}

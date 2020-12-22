@@ -38,13 +38,24 @@ impl WinitWindows {
                     false => get_best_videomode(&event_loop.primary_monitor().unwrap()),
                 }),
             )),
-            _ => winit_window_builder
-                .with_inner_size(winit::dpi::LogicalSize::new(
-                    window_descriptor.width,
-                    window_descriptor.height,
-                ))
-                .with_resizable(window_descriptor.resizable)
-                .with_decorations(window_descriptor.decorations),
+            _ => {
+                let WindowDescriptor {
+                    width,
+                    height,
+                    scale_factor_override,
+                    ..
+                } = window_descriptor;
+                if let Some(sf) = scale_factor_override {
+                    winit_window_builder.with_inner_size(
+                        winit::dpi::LogicalSize::new(*width, *height).to_physical::<f64>(*sf),
+                    )
+                } else {
+                    winit_window_builder
+                        .with_inner_size(winit::dpi::LogicalSize::new(*width, *height))
+                }
+            }
+            .with_resizable(window_descriptor.resizable)
+            .with_decorations(window_descriptor.decorations),
         };
 
         #[allow(unused_mut)]
