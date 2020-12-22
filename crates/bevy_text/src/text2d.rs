@@ -99,6 +99,7 @@ pub fn draw_text2d_system(
                 msaa: &msaa,
                 text_glyphs: &text_glyphs.glyphs,
                 font_quad_vertex_descriptor: &vertex_buffer_descriptor,
+                inv_scale_factor: 1.,
                 style: &text.style,
             };
 

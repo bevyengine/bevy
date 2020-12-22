@@ -1,6 +1,6 @@
 use crate::{
     render::SPRITE_PIPELINE_HANDLE, sprite::Sprite, ColorMaterial, TextureAtlas,
-    TextureAtlasSprite, QUAD_HANDLE, SPRITE_SHEET_PIPELINE_HANDLE,
+    TextureAtlasSprite, TextureAtlasSpriteScale, QUAD_HANDLE, SPRITE_SHEET_PIPELINE_HANDLE,
 };
 use bevy_asset::Handle;
 use bevy_ecs::Bundle;
@@ -52,6 +52,7 @@ impl Default for SpriteBundle {
 pub struct SpriteSheetBundle {
     /// The specific sprite from the texture atlas to be drawn
     pub sprite: TextureAtlasSprite,
+    pub scale: TextureAtlasSpriteScale,
     /// A handle to the texture atlas that holds the sprite images
     pub texture_atlas: Handle<TextureAtlas>,
     /// Data pertaining to how the sprite is drawn on the screen
@@ -78,6 +79,7 @@ impl Default for SpriteSheetBundle {
             mesh: QUAD_HANDLE.typed(),
             draw: Default::default(),
             sprite: Default::default(),
+            scale: Default::default(),
             texture_atlas: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
