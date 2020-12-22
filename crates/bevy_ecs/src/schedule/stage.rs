@@ -463,7 +463,10 @@ impl SystemSet {
         dependencies: &[Label],
     ) -> &mut Self {
         self.changed_systems.push(self.systems.len());
-        self.systems.push(NonNull::from(&*system));
+        self.systems.push(
+            // SAFE: `Box::into_raw() returns a properly aligned non-null pointer.
+            unsafe { NonNull::new_unchecked(Box::into_raw(system)) },
+        );
         self.labels.push(None);
         self.dependencies.push(dependencies.to_vec());
         self
@@ -476,7 +479,10 @@ impl SystemSet {
         dependencies: &[Label],
     ) -> &mut Self {
         self.changed_systems.push(self.systems.len());
-        self.systems.push(NonNull::from(&*system));
+        self.systems.push(
+            // SAFE: `Box::into_raw() returns a properly aligned non-null pointer.
+            unsafe { NonNull::new_unchecked(Box::into_raw(system)) },
+        );
         self.labels.push(Some(label));
         self.dependencies.push(dependencies.to_vec());
         self

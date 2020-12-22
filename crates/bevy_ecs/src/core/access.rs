@@ -419,16 +419,6 @@ impl<T: Hash + Eq + PartialEq + Copy> TypeAccess<T> {
             }
         }
     }
-
-    /*/// Returns an iterator of distinct reads if read access is not set to `All`.
-    pub fn distinct_reads(&self) -> Option<impl Iterator<Item = &T>> {
-        self.reads.distinct_iterator()
-    }
-
-    /// Returns an iterator of distinct writes if write access is not set to `All`.
-    pub fn distinct_writes(&self) -> Option<impl Iterator<Item = &T>> {
-        self.writes.distinct_iterator()
-    }*/
 }
 
 // TODO consider making it typed, to enable compiler helping with bug hunting?
@@ -463,9 +453,9 @@ impl CondensedTypeAccess {
 
     pub fn is_compatible(&self, other: &CondensedTypeAccess) -> bool {
         if self.reads_all {
-            0 < other.writes.count_ones(..)
+            0 == other.writes.count_ones(..)
         } else if other.reads_all {
-            0 < self.writes.count_ones(..)
+            0 == self.writes.count_ones(..)
         } else {
             self.writes.is_disjoint(&other.reads_and_writes)
                 && self.reads_and_writes.is_disjoint(&other.writes)
