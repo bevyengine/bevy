@@ -44,8 +44,8 @@ pub fn get_wgpu_render_system(resources: &mut Resources) -> impl FnMut(&mut Worl
 
 #[derive(Default, Clone)]
 pub struct WgpuOptions {
-    backend: WgpuBackend,
-    power_pref: WgpuPowerOptions,
+    pub backend: WgpuBackend,
+    pub power_pref: WgpuPowerOptions,
 }
 
 #[derive(Clone)]
