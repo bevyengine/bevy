@@ -1,8 +1,8 @@
-use bevy_utils::{Duration, HashMap, Instant, Uuid};
-use std::collections::VecDeque;
+use bevy_utils::{Duration, Instant, Uuid};
+use std::collections::{BTreeMap, VecDeque};
 
 /// Unique identifier for a [Diagnostic]
-#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub struct DiagnosticId(pub Uuid);
 
 impl DiagnosticId {
@@ -101,7 +101,7 @@ impl Diagnostic {
 /// A collection of [Diagnostic]s
 #[derive(Debug, Default)]
 pub struct Diagnostics {
-    diagnostics: HashMap<DiagnosticId, Diagnostic>,
+    diagnostics: BTreeMap<DiagnosticId, Diagnostic>,
 }
 
 impl Diagnostics {
