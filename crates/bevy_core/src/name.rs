@@ -1,6 +1,9 @@
 use bevy_reflect::{Reflect, ReflectComponent};
-use std::hash::{Hash, Hasher};
-use std::ops::Deref;
+use bevy_utils::AHasher;
+use std::{
+    hash::{Hash, Hasher},
+    ops::Deref,
+};
 
 /// Component used to identify a entity. Stores a hash for faster comparisons
 #[derive(Debug, Clone, Reflect)]
@@ -45,7 +48,7 @@ impl Name {
     }
 
     fn update_hash(&mut self) {
-        let mut hasher = ahash::AHasher::default();
+        let mut hasher = AHasher::default();
         self.name.hash(&mut hasher);
         self.hash = hasher.finish();
     }
