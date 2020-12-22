@@ -13,7 +13,7 @@ pub struct LogDiagnosticsPlugin {
 }
 
 /// State used by the [LogDiagnosticsPlugin]
-pub struct LogDiagnosticsState {
+struct LogDiagnosticsState {
     timer: Timer,
     filter: Option<Vec<DiagnosticId>>,
 }
@@ -67,7 +67,7 @@ impl LogDiagnosticsPlugin {
         }
     }
 
-    pub fn log_diagnostics_system(
+    fn log_diagnostics_system(
         mut state: ResMut<LogDiagnosticsState>,
         time: Res<Time>,
         diagnostics: Res<Diagnostics>,
@@ -85,7 +85,7 @@ impl LogDiagnosticsPlugin {
         }
     }
 
-    pub fn log_diagnostics_debug_system(
+    fn log_diagnostics_debug_system(
         mut state: ResMut<LogDiagnosticsState>,
         time: Res<Time>,
         diagnostics: Res<Diagnostics>,
