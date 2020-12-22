@@ -116,7 +116,7 @@ pub struct Clip {
     len: usize,
     /// Number of cache lines currently been used to organize the keyframe
     /// caching into buckets to be accessed by many different threads at the same time
-    cache: usize,
+    keyframes_cache_buckets: usize,
 }
 
 // fn clip_default_warp() -> bool {
@@ -131,7 +131,7 @@ impl Default for Clip {
             hierarchy: Hierarchy::default(),
             properties: HashMap::default(),
             len: 0,
-            cache: 0,
+            keyframes_cache_buckets: 0,
         }
     }
 }
@@ -190,8 +190,8 @@ impl Clip {
                 *cache_index += 1;
                 if (*cache_index % KEYFRAMES_PER_CACHE) == 0 {
                     // No more spaces left in the current cache line
-                    *cache_index = self.cache * KEYFRAMES_PER_CACHE;
-                    self.cache += 1;
+                    *cache_index = self.keyframes_cache_buckets * KEYFRAMES_PER_CACHE;
+                    self.keyframes_cache_buckets += 1;
                 }
 
                 self.len += 1;
@@ -211,8 +211,8 @@ impl Clip {
             }
         }
 
-        let cache_index = self.cache * KEYFRAMES_PER_CACHE;
-        self.cache += 1;
+        let cache_index = self.keyframes_cache_buckets * KEYFRAMES_PER_CACHE;
+        self.keyframes_cache_buckets += 1;
         self.len += 1;
 
         self.duration = self.duration.max(curve.duration());
@@ -234,12 +234,6 @@ impl Clip {
     #[inline(always)]
     pub fn len(&self) -> usize {
         self.len
-    }
-
-    /// Size of the keyframe index array
-    #[inline(always)]
-    fn keyframes_len(&self) -> usize {
-        self.cache * KEYFRAMES_PER_CACHE
     }
 
     // /// Returns the property curve property path.
@@ -290,13 +284,28 @@ impl Clip {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#[derive(Debug, Clone, Reflect)]
+#[cfg_attr(any(target_arch = "x86_64", target_arch = "aarch64"), repr(align(128)))]
+#[cfg_attr(
+    not(any(target_arch = "x86_64", target_arch = "aarch64")),
+    repr(align(64))
+)]
+#[derive(Debug, Clone)]
+struct KeyframeBucket([u16; KEYFRAMES_PER_CACHE]);
+
+impl Default for KeyframeBucket {
+    fn default() -> Self {
+        Self([0; KEYFRAMES_PER_CACHE])
+    }
+}
+
+#[derive(Clone, Reflect)]
 pub struct Layer {
     pub weight: f32,
     pub clip: usize,
     pub time: f32,
     pub time_scale: f32,
-    keyframes: Vec<u16>,
+    #[reflect(ignore)]
+    keyframes_buckets: Vec<KeyframeBucket>,
 }
 
 impl Default for Layer {
@@ -306,25 +315,46 @@ impl Default for Layer {
             clip: 0,
             time: 0.0,
             time_scale: 1.0,
-            keyframes: vec![],
+            keyframes_buckets: vec![],
         }
+    }
+}
+
+impl std::fmt::Debug for Layer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Layer")
+            .field("weight", &self.weight)
+            .field("clip", &self.clip)
+            .field("time", &self.time)
+            .field("time_scale", &self.time_scale)
+            .finish()
     }
 }
 
 impl Layer {
     #[inline(always)]
     pub fn keyframes(&self) -> &[u16] {
-        &self.keyframes[..]
+        // SAFETY: Keyframes vec still needs to be flatten
+        unsafe {
+            std::slice::from_raw_parts(
+                self.keyframes_buckets.as_ptr() as *const _,
+                self.keyframes_buckets.len() * KEYFRAMES_PER_CACHE,
+            )
+        }
     }
 
     #[inline(always)]
     pub fn keyframes_mut(&mut self) -> &mut [u16] {
-        &mut self.keyframes[..]
+        // SAFETY: Have mutability over self, but the keyframes vec still needs to be flatten
+        unsafe { self.keyframes_unsafe() }
     }
 
     #[inline(always)]
     pub unsafe fn keyframes_unsafe(&self) -> &mut [u16] {
-        std::slice::from_raw_parts_mut(self.keyframes.as_ptr() as *mut _, self.keyframes.len())
+        std::slice::from_raw_parts_mut(
+            self.keyframes_buckets.as_ptr() as *mut _,
+            self.keyframes_buckets.len() * KEYFRAMES_PER_CACHE,
+        )
     }
 }
 
@@ -636,7 +666,9 @@ pub(crate) fn animator_update_system(
                     let mut time = layer.time + delta_time * layer.time_scale;
 
                     // Ensure keyframes capacity
-                    layer.keyframes.resize(clip.keyframes_len(), 0);
+                    layer
+                        .keyframes_buckets
+                        .resize_with(clip.keyframes_cache_buckets, KeyframeBucket::default);
 
                     // Warp mode
                     if clip.warp {
@@ -644,7 +676,10 @@ pub(crate) fn animator_update_system(
                         if time > clip.duration() {
                             time = (time / clip.duration()).fract() * clip.duration();
                             // Reset keyframes indexes (speedup sampling)
-                            layer.keyframes.iter_mut().for_each(|k| *k = 0);
+                            layer
+                                .keyframes_buckets
+                                .iter_mut()
+                                .for_each(|k| *k = KeyframeBucket::default());
                         }
                     } else {
                         // Hold
