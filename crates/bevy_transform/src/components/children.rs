@@ -4,7 +4,7 @@ use bevy_utils::HashMap;
 use smallvec::SmallVec;
 use std::ops::Deref;
 
-#[derive(Default, Clone, Debug, Reflect)]
+#[derive(Default, Clone, Debug, Reflect, PartialEq, Eq)]
 #[reflect(Component, MapEntities)]
 pub struct Children {
     order: SmallVec<[Entity; 8]>,
@@ -86,8 +86,11 @@ impl Children {
     }
 
     pub(crate) fn insert(&mut self, index: usize, entities: &[Entity]) {
+        let initial_count = self.order.len();
         self.extend(entities.iter().cloned());
-        let mut desired_index = index;
+        let actually_inserted = self.order.len() - initial_count;
+        let mut desired_index =
+            (index as i32 - (entities.len() as i32 - actually_inserted as i32)).max(0) as usize;
         for entity in entities {
             let current_index = self.uniqueness[entity];
             if current_index != desired_index {
