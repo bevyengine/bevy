@@ -1,6 +1,6 @@
 use crate::{
     renderer::{WgpuRenderGraphExecutor, WgpuRenderResourceContext},
-    WgpuOptions, WgpuPowerOptions,
+    WgpuBackend, WgpuOptions, WgpuPowerOptions,
 };
 use bevy_app::prelude::*;
 use bevy_ecs::{Resources, World};
@@ -22,7 +22,16 @@ pub struct WgpuRenderer {
 
 impl WgpuRenderer {
     pub async fn new(options: WgpuOptions) -> Self {
-        let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
+        let backend = match options.backend {
+            WgpuBackend::Auto => wgpu::BackendBit::PRIMARY,
+            WgpuBackend::Vulkan => wgpu::BackendBit::VULKAN,
+            WgpuBackend::Metal => wgpu::BackendBit::METAL,
+            WgpuBackend::Dx12 => wgpu::BackendBit::DX12,
+            WgpuBackend::Dx11 => wgpu::BackendBit::DX11,
+            WgpuBackend::GL => wgpu::BackendBit::GL,
+            WgpuBackend::BrowserWgpu => wgpu::BackendBit::BROWSER_WEBGPU,
+        };
+        let instance = wgpu::Instance::new(backend);
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
