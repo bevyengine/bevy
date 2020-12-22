@@ -2,23 +2,27 @@ use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets};
 use bevy_reflect::RegisterTypeBuilder;
 
+mod app;
 mod custom;
 mod hierarchy;
+mod impls;
 mod skinned_mesh;
 
 pub mod blending;
 pub mod curve;
 pub mod lerping;
 
+pub use crate::app::*;
 pub use crate::custom::*;
 pub use crate::hierarchy::Hierarchy;
 pub use crate::skinned_mesh::*;
 
 pub mod prelude {
+    pub use crate::app::AddAnimated;
     pub use crate::blending::AnimatorBlending;
     pub use crate::curve::{Curve, CurveUntyped};
-    pub use crate::custom::Animator;
     pub use crate::custom::Clip;
+    pub use crate::custom::{AnimatedAsset, AnimatedComponent, Animator};
     pub use crate::hierarchy::Hierarchy;
     pub use crate::lerping::Lerp;
     pub use crate::skinned_mesh::{SkinAsset, SkinComponent, SkinDebugger};
@@ -42,8 +46,9 @@ impl Plugin for AnimationPlugin {
             //.add_asset_loader(ClipLoader)
             .register_type::<Animator>()
             .add_system_to_stage(stage::ANIMATE, Assets::<Clip>::asset_event_system) // ? NOTE: Fix asset event handle
-            .add_system_to_stage(stage::ANIMATE, animator_update_system)
-            .add_system_to_stage(stage::ANIMATE, animator_transform_update_system);
+            .add_system_to_stage(stage::ANIMATE, animator_update_system);
+
+        app.register_animated_component::<bevy_transform::prelude::Transform>();
 
         // Skinning
         app.add_asset::<SkinAsset>()

@@ -3,16 +3,16 @@ use bevy_app::prelude::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle /*HandleUntyped*/};
 use bevy_core::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_math::prelude::*;
 use bevy_reflect::{Reflect, ReflectComponent, TypeUuid};
 use bevy_transform::prelude::*;
 use fnv::FnvBuildHasher;
 use smallvec::{smallvec, SmallVec};
-use std::any::Any;
-use std::collections::{HashMap, HashSet};
-use std::marker::PhantomData;
+use std::{
+    any::Any,
+    collections::{HashMap, HashSet},
+};
 
-use crate::blending::{AnimatorBlending, Blend};
+use crate::blending::AnimatorBlending;
 use crate::curve::Curve;
 use crate::hierarchy::Hierarchy;
 use crate::lerping::Lerp;
@@ -257,6 +257,18 @@ impl Default for Layer {
     }
 }
 
+impl Layer {
+    #[inline(always)]
+    pub fn keyframes_mut(&mut self) -> &mut [usize] {
+        &mut self.keyframes[..]
+    }
+
+    #[inline(always)]
+    pub unsafe fn keyframes_unsafe(&self) -> &mut [usize] {
+        std::slice::from_raw_parts_mut(self.keyframes.as_ptr() as *mut _, self.keyframes.len())
+    }
+}
+
 #[derive(Default, Debug)]
 struct Bind {
     entity_indexes: Vec<u16>,
@@ -333,40 +345,32 @@ impl Animator {
         &self.clips[..]
     }
 
-    pub fn animate<'a>(&'a mut self) -> LayerIterator<'a> {
+    pub fn animate<'a>(&'a self) -> LayerIterator<'a> {
         LayerIterator {
             index: 0,
             animator: self,
-            marker: PhantomData,
         }
     }
 }
 
 pub struct LayerIterator<'a> {
     index: usize,
-    animator: *mut Animator,
-    marker: PhantomData<&'a ()>,
+    animator: &'a Animator,
 }
 
 impl<'a> Iterator for LayerIterator<'a> {
-    type Item = (usize, &'a mut Layer, &'a Handle<Clip>, &'a [u16]);
+    type Item = (usize, &'a Layer, &'a Handle<Clip>, &'a [u16]);
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            // SAFETY: `self.maker` makes ensure to hold a mutable borrow to the
-            // base `Animator`, with that in mind we can safely mutable iterate over
-            // each valid layer while returning some other immutable data related
-            // to that said layer
-            let animator = unsafe { &mut *(self.animator) };
-
             // Get next layer or stop the iterator
-            let layer = animator.layers.get_mut(self.index)?;
+            let layer = self.animator.layers.get(self.index)?;
             let index = self.index;
             self.index += 1;
 
             let clip_index = layer.clip as usize;
-            if let Some(clip_handle) = animator.clips.get(clip_index) {
-                if let Some(Some(bind)) = animator.bind_clips.get(clip_index) {
+            if let Some(clip_handle) = self.animator.clips.get(clip_index) {
+                if let Some(Some(bind)) = self.animator.bind_clips.get(clip_index) {
                     return Some((index, layer, clip_handle, &bind.entity_indexes[..]));
                 }
 
@@ -572,6 +576,9 @@ pub(crate) fn animator_update_system(
                     // Update time
                     let mut time = layer.time + delta_time * layer.time_scale;
 
+                    // Ensure keyframes capacity
+                    layer.keyframes.resize(clip.len(), 0);
+
                     // Warp mode
                     if clip.warp {
                         // Warp Around
@@ -598,120 +605,26 @@ pub(crate) fn animator_update_system(
 // TODO: This should be auto derived using the "Animated" trait that just returns
 // a system able to animate the said component. Use "AnimatedAsset" for asset handles!
 
-// pub trait AnimatedComponent: Component + Sized {
-//     fn animator_update_system(
-//         clips: Res<Assets<Clip>>,
-//         animators_query: Query<(&mut Animator, &mut AnimatorBlending)>,
-//         component_query: Query<&mut Self>,
-//     );
-// }
+// ! FIXME: Theres no way of free memory used by the `Local<AnimatorBlending>` in each system
 
-// pub trait AnimatedAsset: bevy_asset::Asset + Sized {
-//     fn animator_update_system(
-//         clips: Res<Assets<Clip>>,
-//         animators_query: Query<(&mut Animator, &mut AnimatorBlending)>,
-//         assets: ResMut<Assets<Self>>,
-//         component_query: Query<&mut Handle<Self>>,
-//     );
-// }
-
-pub(crate) fn animator_transform_update_system(
-    clips: Res<Assets<Clip>>,
-    mut animators_query: Query<(&mut Animator, &mut AnimatorBlending)>,
-    transform_query: Query<&mut Transform>,
-) {
-    let __span = tracing::info_span!("animator_transform_update_system");
-    let __guard = __span.enter();
-
-    let mut components = vec![];
-
-    // ! FIXME: Animator blending and keyframe indexing are stopping the system to run in parallel
-
-    for (mut animator, mut animator_blend) in animators_query.iter_mut() {
-        let mut blend_group = animator_blend.begin_blending();
-
-        components.clear();
-
-        // ? NOTE: Lazy get each component is worse than just fetching everything at once
-        // Pre-fetch all transforms to avoid calling get_mut multiple times
-        // SAFETY: each component will be updated one at the time and this function
-        // currently has the mutability over the Transform type, so no race conditions
-        // are possible
-        unsafe {
-            for entity in animator.entities() {
-                components.push(
-                    entity
-                        .map(|entity| transform_query.get_unsafe(entity).ok())
-                        .flatten(),
-                );
-            }
-        }
-
-        for (_, layer, clip_handle, entities_map) in animator.animate() {
-            let w = layer.weight;
-            if w < 1.0e-8 {
-                continue;
-            }
-
-            if let Some(clip) = clips.get(clip_handle) {
-                let time = layer.time;
-
-                // Get keyframes and ensure capacity
-                let keyframes = &mut layer.keyframes;
-                keyframes.resize(clip.len(), 0);
-
-                if let Some(curves) = clip
-                    .get("Transform.translation")
-                    .map(|curve_untyped| curve_untyped.downcast_ref::<Vec3>())
-                    .flatten()
-                {
-                    for (entity_index, (curve_index, curve)) in curves.iter() {
-                        let entity_index = entities_map[entity_index as usize];
-                        if let Some(ref mut component) = components[entity_index as usize] {
-                            let (k, v) = curve.sample_indexed(keyframes[*curve_index], time);
-                            keyframes[*curve_index] = k;
-                            component.translation.blend(&mut blend_group, v, w);
-                        }
-                    }
-                }
-
-                if let Some(curves) = clip
-                    .get("Transform.rotation")
-                    .map(|curve_untyped| curve_untyped.downcast_ref::<Quat>())
-                    .flatten()
-                {
-                    for (entity_index, (curve_index, curve)) in curves.iter() {
-                        let entity_index = entities_map[entity_index as usize];
-                        if let Some(ref mut component) = components[entity_index as usize] {
-                            let (k, v) = curve.sample_indexed(keyframes[*curve_index], time);
-                            keyframes[*curve_index] = k;
-                            component.rotation.blend(&mut blend_group, v, w);
-                        }
-                    }
-                }
-
-                if let Some(curves) = clip
-                    .get("Transform.scale")
-                    .map(|curve_untyped| curve_untyped.downcast_ref::<Vec3>())
-                    .flatten()
-                {
-                    for (entity_index, (curve_index, curve)) in curves.iter() {
-                        let entity_index = entities_map[entity_index as usize];
-                        if let Some(ref mut component) = components[entity_index as usize] {
-                            let (k, v) = curve.sample_indexed(keyframes[*curve_index], time);
-                            keyframes[*curve_index] = k;
-                            component.scale.blend(&mut blend_group, v, w);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    std::mem::drop(__guard);
+pub trait AnimatedComponent: Component + Sized {
+    fn animator_update_system(
+        clips: Res<Assets<Clip>>,
+        animator_blending: Local<AnimatorBlending>,
+        animators_query: Query<&Animator>,
+        component_query: Query<&mut Self>,
+    );
 }
 
-// TODO: Port tests from the generic unsafe
+pub trait AnimatedAsset: bevy_asset::Asset + Sized {
+    fn animator_update_system(
+        clips: Res<Assets<Clip>>,
+        animator_blending: Local<AnimatorBlending>,
+        animators_query: Query<&Animator>,
+        assets: ResMut<Assets<Self>>,
+        component_query: Query<&mut Handle<Self>>,
+    );
+}
 
 #[cfg(test)]
 #[allow(dead_code)]
@@ -719,6 +632,7 @@ mod tests {
     use super::*;
     use crate::curve::Curve;
     use bevy_asset::AddAsset;
+    use bevy_math::prelude::{Quat, Vec3};
     use bevy_pbr::prelude::StandardMaterial;
     use bevy_render::prelude::Mesh;
 
