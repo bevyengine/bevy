@@ -193,7 +193,6 @@ mod tests {
     use super::BuildChildren;
     use crate::prelude::{Children, Parent, PreviousParent};
     use bevy_ecs::{Commands, Entity, Resources, World};
-    use smallvec::{smallvec, SmallVec};
 
     #[test]
     fn build_children() {
