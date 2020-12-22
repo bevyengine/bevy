@@ -4,7 +4,7 @@ use bevy_reflect::RegisterTypeBuilder;
 
 mod app;
 mod custom;
-mod experimental;
+//mod experimental;
 mod hierarchy;
 mod impls;
 mod skinned_mesh;
@@ -14,9 +14,12 @@ pub mod curve;
 pub mod lerping;
 
 pub use crate::app::*;
+pub use crate::blending::AnimatorBlending;
 pub use crate::custom::*;
 pub use crate::hierarchy::Hierarchy;
 pub use crate::skinned_mesh::*;
+
+pub use bevy_animation_derive::*;
 
 pub mod prelude {
     pub use crate::app::AddAnimated;
@@ -27,6 +30,7 @@ pub mod prelude {
     pub use crate::hierarchy::Hierarchy;
     pub use crate::lerping::Lerp;
     pub use crate::skinned_mesh::{SkinAsset, SkinComponent, SkinDebugger};
+    pub use bevy_animation_derive::*;
 }
 
 pub mod stage {

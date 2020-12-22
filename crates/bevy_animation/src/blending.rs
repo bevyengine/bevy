@@ -112,3 +112,31 @@ impl Blend for HandleUntyped {
         blend_group.blend_contest(self, value, weight);
     }
 }
+
+impl<T: Blend> Blend for Option<T> {
+    fn blend(&mut self, blend_group: &mut AnimatorBlendGroup, value: Self, weight: f32) {
+        let ptr = Ptr(self as *const _ as *const u8);
+
+        match (self.is_some(), value.is_some()) {
+            (true, true) => {
+                // Blend by lerp but also add the entry for the conext blending
+                self.as_mut()
+                    .unwrap()
+                    .blend(blend_group, value.unwrap(), weight);
+
+                // Make sure to also add an entry for contest blent to work
+                let w = blend_group.blending.blend_memory.entry(ptr).or_insert(0.0);
+                if weight > *w {
+                    *w = weight;
+                }
+            }
+            (false, true) | (true, false) | (false, false) => {
+                // Blend by context but also add an entry for the next blend_lerp if needed
+                blend_group.blending.blend.insert(ptr);
+                blend_group.blend_contest(self, value, weight);
+            }
+        }
+    }
+}
+
+// TODO: std::ops::Range
