@@ -27,11 +27,6 @@ impl Name {
     }
 
     #[inline(always)]
-    pub fn from_str(name: &str) -> Self {
-        Name::new(name.to_owned())
-    }
-
-    #[inline(always)]
     pub fn set(&mut self, name: String) {
         *self = Name::new(name);
     }
@@ -51,6 +46,13 @@ impl Name {
         let mut hasher = AHasher::default();
         self.name.hash(&mut hasher);
         self.hash = hasher.finish();
+    }
+}
+
+impl From<&str> for Name {
+    #[inline(always)]
+    fn from(name: &str) -> Self {
+        Name::new(name.to_owned())
     }
 }
 
