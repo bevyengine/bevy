@@ -210,7 +210,6 @@ impl SystemStage {
                     self.labels.insert(label, index);
                 }
             }
-            system_set.for_each_changed_system(|system| system.initialize(world, resources));
         }
         self.executor.execute_stage(
             &mut self.system_sets,
