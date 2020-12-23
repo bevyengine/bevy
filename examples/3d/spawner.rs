@@ -13,8 +13,8 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(PrintDiagnosticsPlugin::default())
-        .add_startup_system(setup)
-        .add_system(move_cubes)
+        .add_startup_system(setup.system())
+        .add_system(move_cubes.system())
         .run();
 }
 
@@ -25,9 +25,9 @@ fn move_cubes(
 ) {
     for (mut transform, material_handle) in query.iter_mut() {
         let material = materials.get_mut(material_handle).unwrap();
-        transform.translation += Vec3::new(1.0, 0.0, 0.0) * time.delta_seconds;
+        transform.translation += Vec3::new(1.0, 0.0, 0.0) * time.delta_seconds();
         material.albedo =
-            Color::BLUE * Vec3::splat((3.0 * time.seconds_since_startup as f32).sin());
+            Color::BLUE * Vec3::splat((3.0 * time.seconds_since_startup() as f32).sin());
     }
 }
 

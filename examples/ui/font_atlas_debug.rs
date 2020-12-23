@@ -5,9 +5,9 @@ fn main() {
     App::build()
         .init_resource::<State>()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(text_update_system)
-        .add_system(atlas_render_system)
+        .add_startup_system(setup.system())
+        .add_system(text_update_system.system())
+        .add_system(atlas_render_system.system())
         .run();
 }
 
@@ -62,7 +62,7 @@ fn atlas_render_system(
 }
 
 fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Query<&mut Text>) {
-    if state.timer.tick(time.delta_seconds).finished {
+    if state.timer.tick(time.delta_seconds()).finished() {
         for mut text in query.iter_mut() {
             let c = rand::random::<u8>() as char;
             if !text.value.contains(c) {
@@ -77,7 +77,7 @@ fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Quer
 fn setup(commands: &mut Commands, asset_server: Res<AssetServer>, mut state: ResMut<State>) {
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
     state.handle = font_handle.clone();
-    commands.spawn(UiCameraBundle::default()).spawn(TextBundle {
+    commands.spawn(CameraUiBundle::default()).spawn(TextBundle {
         text: Text {
             value: "a".to_string(),
             font: font_handle,

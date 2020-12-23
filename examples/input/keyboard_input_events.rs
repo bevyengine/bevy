@@ -3,7 +3,7 @@ use bevy::{input::keyboard::KeyboardInput, prelude::*};
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .add_system(print_keyboard_event_system)
+        .add_system(print_keyboard_event_system.system())
         .run();
 }
 

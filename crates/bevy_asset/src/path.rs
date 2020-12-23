@@ -1,4 +1,4 @@
-use bevy_property::Property;
+use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_utils::AHasher;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -58,18 +58,21 @@ impl<'a> AssetPath<'a> {
 }
 
 #[derive(
-    Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Property,
+    Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Reflect,
 )]
+#[reflect_value(PartialEq, Hash, Serialize, Deserialize)]
 pub struct AssetPathId(SourcePathId, LabelId);
 
 #[derive(
-    Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Property,
+    Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Reflect,
 )]
+#[reflect_value(PartialEq, Hash, Serialize, Deserialize)]
 pub struct SourcePathId(u64);
 
 #[derive(
-    Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Property,
+    Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Reflect,
 )]
+#[reflect_value(PartialEq, Hash, Serialize, Deserialize)]
 pub struct LabelId(u64);
 
 impl<'a> From<&'a Path> for SourcePathId {
@@ -140,7 +143,7 @@ impl<'a, 'b> From<&'a AssetPath<'b>> for AssetPathId {
 impl<'a> From<&'a str> for AssetPath<'a> {
     fn from(asset_path: &'a str) -> Self {
         let mut parts = asset_path.split('#');
-        let path = Path::new(parts.next().expect("path must be set"));
+        let path = Path::new(parts.next().expect("Path must be set."));
         let label = parts.next();
         AssetPath {
             path: Cow::Borrowed(path),

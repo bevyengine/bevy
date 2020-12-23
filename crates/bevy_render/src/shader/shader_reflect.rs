@@ -84,7 +84,7 @@ impl ShaderLayout {
                     entry_point: entry_point_name,
                 }
             }
-            Err(err) => panic!("Failed to reflect shader layout: {:?}", err),
+            Err(err) => panic!("Failed to reflect shader layout: {:?}.", err),
         }
     }
 }
@@ -108,7 +108,7 @@ fn reflect_dimension(type_description: &ReflectTypeDescription) -> TextureViewDi
         ReflectDimension::Type2d => TextureViewDimension::D2,
         ReflectDimension::Type3d => TextureViewDimension::D3,
         ReflectDimension::Cube => TextureViewDimension::Cube,
-        dimension => panic!("unsupported image dimension: {:?}", dimension),
+        dimension => panic!("Unsupported image dimension: {:?}.", dimension),
     }
 }
 
@@ -142,7 +142,7 @@ fn reflect_binding(
         ),
         // TODO: detect comparison "true" case: https://github.com/gpuweb/gpuweb/issues/552
         ReflectDescriptorType::Sampler => (&binding.name, BindType::Sampler { comparison: false }),
-        _ => panic!("unsupported bind type {:?}", binding.descriptor_type),
+        _ => panic!("Unsupported bind type {:?}.", binding.descriptor_type),
     };
 
     let mut shader_stage = match shader_stage {
@@ -199,7 +199,7 @@ fn reflect_uniform_numeric(type_description: &ReflectTypeDescription) -> Uniform
         match traits.numeric.scalar.signedness {
             0 => NumberType::UInt,
             1 => NumberType::Int,
-            signedness => panic!("unexpected signedness {}", signedness),
+            signedness => panic!("Unexpected signedness {}.", signedness),
         }
     } else if type_description
         .type_flags
@@ -207,7 +207,7 @@ fn reflect_uniform_numeric(type_description: &ReflectTypeDescription) -> Uniform
     {
         NumberType::Float
     } else {
-        panic!("unexpected type flag {:?}", type_description.type_flags);
+        panic!("Unexpected type flag {:?}.", type_description.type_flags);
     };
 
     // TODO: handle scalar width here
@@ -252,7 +252,7 @@ fn reflect_vertex_format(type_description: &ReflectTypeDescription) -> VertexFor
         match traits.numeric.scalar.signedness {
             0 => NumberType::UInt,
             1 => NumberType::Int,
-            signedness => panic!("unexpected signedness {}", signedness),
+            signedness => panic!("Unexpected signedness {}.", signedness),
         }
     } else if type_description
         .type_flags
@@ -260,7 +260,7 @@ fn reflect_vertex_format(type_description: &ReflectTypeDescription) -> VertexFor
     {
         NumberType::Float
     } else {
-        panic!("unexpected type flag {:?}", type_description.type_flags);
+        panic!("Unexpected type flag {:?}.", type_description.type_flags);
     };
 
     let width = traits.numeric.scalar.width;
@@ -328,7 +328,8 @@ mod tests {
             }
         "#,
         )
-        .get_spirv_shader(None);
+        .get_spirv_shader(None)
+        .unwrap();
 
         let layout = vertex_shader.reflect_layout(true).unwrap();
         assert_eq!(

@@ -1,0 +1,36 @@
+[package]
+name = "bevy_reflect"
+version = "0.4.0"
+edition = "2018"
+authors = [
+    "Bevy Contributors <bevyengine@gmail.com>",
+    "Carter Anderson <mcanders1@gmail.com>",
+]
+description = "Dynamically interact with rust types"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT"
+keywords = ["bevy"]
+readme = "README.md"
+
+[features]
+bevy = ["bevy_ecs", "bevy_app", "glam", "smallvec"]
+
+[dependencies]
+# bevy
+bevy_reflect_derive = { path = "bevy_reflect_derive", version = "0.4.0" }
+bevy_utils = { path = "../bevy_utils", version = "0.4.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.4.0", optional = true }
+bevy_app = { path = "../bevy_app", version = "0.4.0", optional = true }
+
+# other
+erased-serde = "0.3"
+downcast-rs = "1.2"
+parking_lot = "0.11.0"
+thiserror = "1.0"
+serde = "1"
+smallvec = { version = "1.4", features = ["serde"], optional = true }
+glam = { version = "0.11.0", features = ["serde"], optional = true }
+
+[dev-dependencies]
+ron = "0.6.2"

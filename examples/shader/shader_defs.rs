@@ -1,5 +1,6 @@
 use bevy::{
     prelude::*,
+    reflect::TypeUuid,
     render::{
         mesh::shape,
         pipeline::{PipelineDescriptor, RenderPipeline},
@@ -7,7 +8,6 @@ use bevy::{
         renderer::RenderResources,
         shader::{asset_shader_defs_system, ShaderDefs, ShaderStage, ShaderStages},
     },
-    type_registry::TypeUuid,
 };
 
 /// This example illustrates how to create a custom material asset that uses "shader defs" and a shader that uses that material.
@@ -16,8 +16,11 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .add_asset::<MyMaterial>()
-        .add_startup_system(setup)
-        .add_system_to_stage(stage::POST_UPDATE, asset_shader_defs_system::<MyMaterial>)
+        .add_startup_system(setup.system())
+        .add_system_to_stage(
+            stage::POST_UPDATE,
+            asset_shader_defs_system::<MyMaterial>.system(),
+        )
         .run();
 }
 
@@ -47,7 +50,7 @@ void main() {
 const FRAGMENT_SHADER: &str = r#"
 #version 450
 layout(location = 0) out vec4 o_Target;
-layout(set = 1, binding = 1) uniform MyMaterial_color {
+layout(set = 2, binding = 0) uniform MyMaterial_color {
     vec4 color;
 };
 void main() {

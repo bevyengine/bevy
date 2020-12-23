@@ -12,6 +12,7 @@ use bevy_render::{
     draw::Draw,
     mesh::Mesh,
     pipeline::{RenderPipeline, RenderPipelines},
+    prelude::Visible,
 };
 use bevy_sprite::{ColorMaterial, QUAD_HANDLE};
 use bevy_transform::prelude::{GlobalTransform, Transform};
@@ -23,6 +24,7 @@ pub struct NodeBundle {
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
     pub material: Handle<ColorMaterial>,
     pub draw: Draw,
+    pub visible: Visible,
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -31,10 +33,14 @@ pub struct NodeBundle {
 impl Default for NodeBundle {
     fn default() -> Self {
         NodeBundle {
-            mesh: QUAD_HANDLE,
+            mesh: QUAD_HANDLE.typed(),
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
-                UI_PIPELINE_HANDLE,
+                UI_PIPELINE_HANDLE.typed(),
             )]),
+            visible: Visible {
+                is_transparent: true,
+                ..Default::default()
+            },
             node: Default::default(),
             style: Default::default(),
             material: Default::default(),
@@ -54,6 +60,7 @@ pub struct ImageBundle {
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
     pub material: Handle<ColorMaterial>,
     pub draw: Draw,
+    pub visible: Visible,
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -62,9 +69,9 @@ pub struct ImageBundle {
 impl Default for ImageBundle {
     fn default() -> Self {
         ImageBundle {
-            mesh: QUAD_HANDLE,
+            mesh: QUAD_HANDLE.typed(),
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
-                UI_PIPELINE_HANDLE,
+                UI_PIPELINE_HANDLE.typed(),
             )]),
             node: Default::default(),
             image: Default::default(),
@@ -72,6 +79,10 @@ impl Default for ImageBundle {
             style: Default::default(),
             material: Default::default(),
             draw: Default::default(),
+            visible: Visible {
+                is_transparent: true,
+                ..Default::default()
+            },
             transform: Default::default(),
             global_transform: Default::default(),
         }
@@ -83,6 +94,7 @@ pub struct TextBundle {
     pub node: Node,
     pub style: Style,
     pub draw: Draw,
+    pub visible: Visible,
     pub text: Text,
     pub calculated_size: CalculatedSize,
     pub focus_policy: FocusPolicy,
@@ -95,6 +107,9 @@ impl Default for TextBundle {
         TextBundle {
             focus_policy: FocusPolicy::Pass,
             draw: Draw {
+                ..Default::default()
+            },
+            visible: Visible {
                 is_transparent: true,
                 ..Default::default()
             },
@@ -118,6 +133,7 @@ pub struct ButtonBundle {
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
     pub material: Handle<ColorMaterial>,
     pub draw: Draw,
+    pub visible: Visible,
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -127,9 +143,9 @@ impl Default for ButtonBundle {
     fn default() -> Self {
         ButtonBundle {
             button: Button,
-            mesh: QUAD_HANDLE,
+            mesh: QUAD_HANDLE.typed(),
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
-                UI_PIPELINE_HANDLE,
+                UI_PIPELINE_HANDLE.typed(),
             )]),
             interaction: Default::default(),
             focus_policy: Default::default(),
@@ -137,6 +153,10 @@ impl Default for ButtonBundle {
             style: Default::default(),
             material: Default::default(),
             draw: Default::default(),
+            visible: Visible {
+                is_transparent: true,
+                ..Default::default()
+            },
             transform: Default::default(),
             global_transform: Default::default(),
         }
@@ -144,7 +164,7 @@ impl Default for ButtonBundle {
 }
 
 #[derive(Bundle, Debug)]
-pub struct UiCameraBundle {
+pub struct CameraUiBundle {
     pub camera: Camera,
     pub orthographic_projection: OrthographicProjection,
     pub visible_entities: VisibleEntities,
@@ -152,14 +172,14 @@ pub struct UiCameraBundle {
     pub global_transform: GlobalTransform,
 }
 
-impl Default for UiCameraBundle {
+impl Default for CameraUiBundle {
     fn default() -> Self {
         // we want 0 to be "closest" and +far to be "farthest" in 2d, so we offset
         // the camera's translation by far and use a right handed coordinate system
         let far = 1000.0;
-        UiCameraBundle {
+        CameraUiBundle {
             camera: Camera {
-                name: Some(crate::camera::UI_CAMERA.to_string()),
+                name: Some(crate::camera::CAMERA_UI.to_string()),
                 ..Default::default()
             },
             orthographic_projection: OrthographicProjection {

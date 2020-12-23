@@ -19,7 +19,7 @@ impl Command for InsertChildren {
         {
             let mut added = false;
             if let Ok(mut children) = world.get_mut::<Children>(self.parent) {
-                children.insert_from_slice(self.index, &self.children);
+                children.0.insert_from_slice(self.index, &self.children);
                 added = true;
             }
 
@@ -54,7 +54,7 @@ impl Command for PushChildren {
         {
             let mut added = false;
             if let Ok(mut children) = world.get_mut::<Children>(self.parent) {
-                children.extend(self.children.iter().cloned());
+                children.0.extend(self.children.iter().cloned());
                 added = true;
             }
 
@@ -81,6 +81,10 @@ impl<'a> ChildBuilder<'a> {
         self.commands.current_entity()
     }
 
+    pub fn parent_entity(&self) -> Entity {
+        self.push_children.parent
+    }
+
     pub fn with_bundle(
         &mut self,
         components: impl DynamicBundle + Send + Sync + 'static,
@@ -100,6 +104,11 @@ impl<'a> ChildBuilder<'a> {
             .current_entity()
             .expect("The 'current entity' is not set. You should spawn an entity first.");
         func(current_entity);
+        self
+    }
+
+    pub fn add_command<C: Command + 'static>(&mut self, command: C) -> &mut Self {
+        self.commands.add_command(command);
         self
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "bevy_audio"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2018"
 authors = [
     "Bevy Contributors <bevyengine@gmail.com>",
@@ -14,11 +14,11 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.3.0" }
-bevy_asset = { path = "../bevy_asset", version = "0.3.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.3.0" }
-bevy_type_registry = { path = "../bevy_type_registry", version = "0.3.0" }
-bevy_utils = { path = "../bevy_utils", version = "0.3.0" }
+bevy_app = { path = "../bevy_app", version = "0.4.0" }
+bevy_asset = { path = "../bevy_asset", version = "0.4.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.4.0" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.4.0", features = ["bevy"] }
+bevy_utils = { path = "../bevy_utils", version = "0.4.0" }
 
 # other
 anyhow = "1.0"

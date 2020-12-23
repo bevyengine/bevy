@@ -22,6 +22,8 @@ use std::{
 };
 
 /// A dynamically typed collection of components
+///
+/// See [Bundle]
 pub trait DynamicBundle {
     /// Invoke a callback on the fields' type IDs, sorted by descending alignment then id
     #[doc(hidden)]
@@ -38,6 +40,8 @@ pub trait DynamicBundle {
 }
 
 /// A statically typed collection of components
+///
+/// See [DynamicBundle]
 pub trait Bundle: DynamicBundle {
     #[doc(hidden)]
     fn with_static_ids<T>(f: impl FnOnce(&[TypeId]) -> T) -> T;

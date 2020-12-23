@@ -3,13 +3,17 @@ mod system;
 mod window;
 mod windows;
 
+use bevy_ecs::IntoSystem;
 pub use event::*;
 pub use system::*;
 pub use window::*;
 pub use windows::*;
 
 pub mod prelude {
-    pub use crate::{CursorMoved, ReceivedCharacter, Window, WindowDescriptor, Windows};
+    pub use crate::{
+        CursorEntered, CursorLeft, CursorMoved, ReceivedCharacter, Window, WindowDescriptor,
+        Windows,
+    };
 }
 
 use bevy_app::prelude::*;
@@ -36,7 +40,10 @@ impl Plugin for WindowPlugin {
             .add_event::<WindowCloseRequested>()
             .add_event::<CloseWindow>()
             .add_event::<CursorMoved>()
+            .add_event::<CursorEntered>()
+            .add_event::<CursorLeft>()
             .add_event::<ReceivedCharacter>()
+            .add_event::<WindowFocused>()
             .init_resource::<Windows>();
 
         if self.add_primary_window {
@@ -53,7 +60,7 @@ impl Plugin for WindowPlugin {
         }
 
         if self.exit_on_close {
-            app.add_system(exit_on_window_close_system);
+            app.add_system(exit_on_window_close_system.system());
         }
     }
 }

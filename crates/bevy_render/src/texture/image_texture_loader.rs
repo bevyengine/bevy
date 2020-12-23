@@ -1,7 +1,6 @@
-use super::{Texture, TextureFormat};
+use super::{Extent3d, Texture, TextureDimension, TextureFormat};
 use anyhow::Result;
 use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
-use bevy_math::Vec2;
 use bevy_utils::BoxedFuture;
 
 /// Loader for images that can be read by the `image` crate.
@@ -9,6 +8,8 @@ use bevy_utils::BoxedFuture;
 /// Reads only PNG images for now.
 #[derive(Clone, Default)]
 pub struct ImageTextureLoader;
+
+const FILE_EXTENSIONS: &[&str] = &["png", "dds", "tga", "jpg", "jpeg"];
 
 impl AssetLoader for ImageTextureLoader {
     fn load<'a>(
@@ -24,16 +25,15 @@ impl AssetLoader for ImageTextureLoader {
 
             let ext = load_context.path().extension().unwrap().to_str().unwrap();
 
-            // NOTE: If more formats are added they can be added here.
-            let img_format = if ext.eq_ignore_ascii_case("png") {
-                image::ImageFormat::Png
-            } else {
-                panic!(
+            let img_format = image::ImageFormat::from_extension(ext)
+                .ok_or_else(|| {
+                    format!(
                     "Unexpected image format {:?} for file {}, this is an error in `bevy_render`.",
                     ext,
                     load_context.path().display()
                 )
-            };
+                })
+                .unwrap();
 
             // Load the image in the expected format.
             // Some formats like PNG allow for R or RG textures too, so the texture
@@ -148,13 +148,18 @@ impl AssetLoader for ImageTextureLoader {
                 }
             }
 
-            let texture = Texture::new(Vec2::new(width as f32, height as f32), data, format);
+            let texture = Texture::new(
+                Extent3d::new(width, height, 1),
+                TextureDimension::D2,
+                data,
+                format,
+            );
             load_context.set_default_asset(LoadedAsset::new(texture));
             Ok(())
         })
     }
 
     fn extensions(&self) -> &[&str] {
-        &["png"]
+        FILE_EXTENSIONS
     }
 }

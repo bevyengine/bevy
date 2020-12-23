@@ -6,7 +6,7 @@ fn main() {
     App::build()
         .add_resource(Msaa { samples: 2 })
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_startup_system(setup.system())
         .run();
 }
 

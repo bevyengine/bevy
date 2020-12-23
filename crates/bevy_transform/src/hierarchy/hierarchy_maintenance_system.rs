@@ -1,15 +1,14 @@
 use crate::components::*;
-use bevy_ecs::{Changed, Commands, Entity, Query, Without};
+use bevy_ecs::{Commands, Entity, Query, Without};
 use bevy_utils::HashMap;
 use smallvec::SmallVec;
 
 pub fn parent_update_system(
     commands: &mut Commands,
     removed_parent_query: Query<(Entity, &PreviousParent), Without<Parent>>,
-    mut changed_parent_query: Query<
-        (Entity, &Parent, Option<&mut PreviousParent>),
-        Changed<Parent>,
-    >,
+    // The next query could be run with a Changed<Parent> filter. However, this would mean that modifications later in the frame are lost.
+    // See issue 891: https://github.com/bevyengine/bevy/issues/891
+    mut parent_query: Query<(Entity, &Parent, Option<&mut PreviousParent>)>,
     mut children_query: Query<&mut Children>,
 ) {
     // Entities with a missing `Parent` (ie. ones that have a `PreviousParent`), remove
@@ -25,7 +24,7 @@ pub fn parent_update_system(
     let mut children_additions = HashMap::<Entity, SmallVec<[Entity; 8]>>::default();
 
     // Entities with a changed Parent (that also have a PreviousParent, even if None)
-    for (entity, parent, possible_previous_parent) in changed_parent_query.iter_mut() {
+    for (entity, parent, possible_previous_parent) in parent_query.iter_mut() {
         if let Some(mut previous_parent) = possible_previous_parent {
             // New and previous point to the same Entity, carry on, nothing to see here.
             if previous_parent.0 == parent.0 {
@@ -47,6 +46,10 @@ pub fn parent_update_system(
         // `children_additions`).
         if let Ok(mut new_parent_children) = children_query.get_mut(parent.0) {
             // This is the parent
+            debug_assert!(
+                !(*new_parent_children).0.contains(&entity),
+                "children already added"
+            );
             (*new_parent_children).0.push(entity);
         } else {
             // The parent doesn't have a children entity, lets add it
@@ -68,7 +71,7 @@ pub fn parent_update_system(
 mod test {
     use super::*;
     use crate::{hierarchy::BuildChildren, transform_propagate_system::transform_propagate_system};
-    use bevy_ecs::{Resources, Schedule, World};
+    use bevy_ecs::{IntoSystem, Resources, Schedule, SystemStage, World};
     use bevy_math::Vec3;
 
     #[test]
@@ -76,10 +79,12 @@ mod test {
         let mut world = World::default();
         let mut resources = Resources::default();
 
+        let mut update_stage = SystemStage::parallel();
+        update_stage.add_system(parent_update_system.system());
+        update_stage.add_system(transform_propagate_system.system());
+
         let mut schedule = Schedule::default();
-        schedule.add_stage("update");
-        schedule.add_system_to_stage("update", parent_update_system);
-        schedule.add_system_to_stage("update", transform_propagate_system);
+        schedule.add_stage("update", update_stage);
 
         // Add parent entities
         let mut commands = Commands::default();
@@ -98,8 +103,7 @@ mod test {
             });
         let parent = parent.unwrap();
         commands.apply(&mut world, &mut resources);
-        schedule.initialize(&mut world, &mut resources);
-        schedule.run(&mut world, &mut resources);
+        schedule.initialize_and_run(&mut world, &mut resources);
 
         assert_eq!(
             world
@@ -115,7 +119,7 @@ mod test {
         // Parent `e1` to `e2`.
         (*world.get_mut::<Parent>(children[0]).unwrap()).0 = children[1];
 
-        schedule.run(&mut world, &mut resources);
+        schedule.initialize_and_run(&mut world, &mut resources);
 
         assert_eq!(
             world
@@ -139,7 +143,7 @@ mod test {
 
         world.despawn(children[0]).unwrap();
 
-        schedule.run(&mut world, &mut resources);
+        schedule.initialize_and_run(&mut world, &mut resources);
 
         assert_eq!(
             world

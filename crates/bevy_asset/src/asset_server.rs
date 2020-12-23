@@ -7,25 +7,24 @@ use crate::{
 use anyhow::Result;
 use bevy_ecs::Res;
 use bevy_tasks::TaskPool;
-use bevy_utils::HashMap;
+use bevy_utils::{HashMap, Uuid};
 use crossbeam_channel::TryRecvError;
 use parking_lot::RwLock;
 use std::{collections::hash_map::Entry, path::Path, sync::Arc};
 use thiserror::Error;
-use uuid::Uuid;
 
 /// Errors that occur while loading assets with an AssetServer
 #[derive(Error, Debug)]
 pub enum AssetServerError {
-    #[error("Asset folder path is not a directory.")]
+    #[error("asset folder path is not a directory")]
     AssetFolderNotADirectory(String),
-    #[error("No AssetLoader found for the given extension.")]
+    #[error("no AssetLoader found for the given extension")]
     MissingAssetLoader(Option<String>),
-    #[error("The given type does not match the type of the loaded asset.")]
+    #[error("the given type does not match the type of the loaded asset")]
     IncorrectHandleType,
-    #[error("Encountered an error while loading an asset.")]
+    #[error("encountered an error while loading an asset")]
     AssetLoaderError(anyhow::Error),
-    #[error("PathLoader encountered an error")]
+    #[error("`PathLoader` encountered an error")]
     PathLoaderError(#[from] AssetIoError),
 }
 
@@ -61,6 +60,10 @@ impl Clone for AssetServer {
 
 impl AssetServer {
     pub fn new<T: AssetIo>(source_io: T, task_pool: TaskPool) -> Self {
+        Self::with_boxed_io(Box::new(source_io), task_pool)
+    }
+
+    pub fn with_boxed_io(asset_io: Box<dyn AssetIo>, task_pool: TaskPool) -> Self {
         AssetServer {
             server: Arc::new(AssetServerInternal {
                 loaders: Default::default(),
@@ -70,7 +73,7 @@ impl AssetServer {
                 handle_to_path: Default::default(),
                 asset_lifecycles: Default::default(),
                 task_pool,
-                asset_io: Box::new(source_io),
+                asset_io,
             }),
         }
     }
@@ -239,7 +242,7 @@ impl AssetServer {
         let mut asset_sources = self.server.asset_sources.write();
         let source_info = asset_sources
             .get_mut(&asset_path_id.source_path_id())
-            .expect("AssetSource should exist at this point");
+            .expect("`AssetSource` should exist at this point.");
         if version != source_info.version {
             return Ok(asset_path_id);
         }
@@ -318,7 +321,7 @@ impl AssetServer {
                     continue;
                 }
                 let handle =
-                    self.load_untyped(child_path.to_str().expect("Path should be a valid string"));
+                    self.load_untyped(child_path.to_str().expect("Path should be a valid string."));
                 handles.push(handle);
             }
         }
@@ -335,7 +338,7 @@ impl AssetServer {
             let ref_change = match receiver.try_recv() {
                 Ok(ref_change) => ref_change,
                 Err(TryRecvError::Empty) => break,
-                Err(TryRecvError::Disconnected) => panic!("RefChange channel disconnected"),
+                Err(TryRecvError::Disconnected) => panic!("RefChange channel disconnected."),
             };
             match ref_change {
                 RefChange::Increment(handle_id) => *ref_counts.entry(handle_id).or_insert(0) += 1,
@@ -378,7 +381,7 @@ impl AssetServer {
             let asset_value = asset
                 .value
                 .take()
-                .expect("Asset should exist at this point");
+                .expect("Asset should exist at this point.");
             if let Some(asset_lifecycle) = asset_lifecycles.get(&asset_value.type_uuid()) {
                 let asset_path =
                     AssetPath::new_ref(&load_context.path, label.as_ref().map(|l| l.as_str()));
@@ -392,7 +395,7 @@ impl AssetServer {
     pub(crate) fn update_asset_storage<T: Asset>(&self, assets: &mut Assets<T>) {
         let asset_lifecycles = self.server.asset_lifecycles.read();
         let asset_lifecycle = asset_lifecycles.get(&T::TYPE_UUID).unwrap();
-        let mut asset_sources = self.server.asset_sources.write();
+        let mut asset_sources_guard = None;
         let channel = asset_lifecycle
             .downcast_ref::<AssetLifecycleChannel<T>>()
             .unwrap();
@@ -402,6 +405,8 @@ impl AssetServer {
                 Ok(AssetLifecycleEvent::Create(result)) => {
                     // update SourceInfo if this asset was loaded from an AssetPath
                     if let HandleId::AssetPathId(id) = result.id {
+                        let asset_sources = asset_sources_guard
+                            .get_or_insert_with(|| self.server.asset_sources.write());
                         if let Some(source_info) = asset_sources.get_mut(&id.source_path_id()) {
                             if source_info.version == result.version {
                                 source_info.committed_assets.insert(id.label_id());
@@ -416,6 +421,8 @@ impl AssetServer {
                 }
                 Ok(AssetLifecycleEvent::Free(handle_id)) => {
                     if let HandleId::AssetPathId(id) = handle_id {
+                        let asset_sources = asset_sources_guard
+                            .get_or_insert_with(|| self.server.asset_sources.write());
                         if let Some(source_info) = asset_sources.get_mut(&id.source_path_id()) {
                             source_info.committed_assets.remove(&id.label_id());
                             if source_info.is_loaded() {
@@ -428,7 +435,7 @@ impl AssetServer {
                 Err(TryRecvError::Empty) => {
                     break;
                 }
-                Err(TryRecvError::Disconnected) => panic!("AssetChannel disconnected"),
+                Err(TryRecvError::Disconnected) => panic!("AssetChannel disconnected."),
             }
         }
     }

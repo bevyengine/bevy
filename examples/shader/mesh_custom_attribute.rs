@@ -1,5 +1,6 @@
 use bevy::{
     prelude::*,
+    reflect::TypeUuid,
     render::{
         mesh::{shape, VertexAttributeValues},
         pipeline::{PipelineDescriptor, RenderPipeline},
@@ -7,7 +8,6 @@ use bevy::{
         renderer::RenderResources,
         shader::{ShaderStage, ShaderStages},
     },
-    type_registry::TypeUuid,
 };
 
 /// This example illustrates how to add a custom attribute to a mesh and use it in a custom shader.
@@ -15,7 +15,7 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .add_asset::<MyMaterialWithVertexColorSupport>()
-        .add_startup_system(setup)
+        .add_startup_system(setup.system())
         .run();
 }
 

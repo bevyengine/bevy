@@ -9,7 +9,7 @@ fn main() {
         //     filter: "wgpu=warn,bevy_ecs=info".to_string(),
         // })
         .add_plugins(DefaultPlugins)
-        .add_system(log_system)
+        .add_system(log_system.system())
         .run();
 }
 

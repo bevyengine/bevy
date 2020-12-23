@@ -8,7 +8,6 @@ mod render_resource;
 mod render_resources;
 mod resource;
 mod shader_defs;
-mod type_uuid;
 
 use proc_macro::TokenStream;
 
@@ -49,17 +48,6 @@ pub fn derive_shader_defs(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(DynamicPlugin)]
 pub fn derive_dynamic_plugin(input: TokenStream) -> TokenStream {
     app_plugin::derive_dynamic_plugin(input)
-}
-
-// From https://github.com/randomPoison/type-uuid
-#[proc_macro_derive(TypeUuid, attributes(uuid))]
-pub fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    type_uuid::type_uuid_derive(input)
-}
-
-#[proc_macro]
-pub fn external_type_uuid(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    type_uuid::external_type_uuid(tokens)
 }
 
 #[proc_macro_attribute]

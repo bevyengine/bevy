@@ -1,6 +1,6 @@
 [package]
 name = "bevy_derive"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2018"
 authors = [
     "Bevy Contributors <bevyengine@gmail.com>",
@@ -21,4 +21,3 @@ find-crate = "0.6"
 proc-macro2 = "1.0"
 quote = "1.0"
 syn = "1.0"
-uuid = { version = "0.8", features = ["v4", "serde"] }

@@ -10,11 +10,12 @@ use crate::{
     texture::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage},
     Color,
 };
-use bevy_property::Properties;
+use bevy_reflect::{Reflect, ReflectComponent};
 use bevy_window::WindowId;
 
 /// A component that indicates that an entity should be drawn in the "main pass"
-#[derive(Default, Properties)]
+#[derive(Default, Reflect)]
+#[reflect(Component)]
 pub struct MainPass;
 
 #[derive(Debug)]
@@ -63,8 +64,8 @@ pub struct BaseRenderGraphConfig {
 
 pub mod node {
     pub const PRIMARY_SWAP_CHAIN: &str = "swapchain";
-    pub const CAMERA3D: &str = "camera3d";
-    pub const CAMERA2D: &str = "camera2d";
+    pub const CAMERA_3D: &str = "camera_3d";
+    pub const CAMERA_2D: &str = "camera_2d";
     pub const TEXTURE_COPY: &str = "texture_copy";
     pub const MAIN_DEPTH_TEXTURE: &str = "main_pass_depth_texture";
     pub const MAIN_SAMPLED_COLOR_ATTACHMENT: &str = "main_pass_sampled_color_attachment";
@@ -73,8 +74,8 @@ pub mod node {
 }
 
 pub mod camera {
-    pub const CAMERA3D: &str = "Camera3d";
-    pub const CAMERA2D: &str = "Camera2d";
+    pub const CAMERA_3D: &str = "Camera3d";
+    pub const CAMERA_2D: &str = "Camera2d";
 }
 
 impl Default for BaseRenderGraphConfig {
@@ -100,11 +101,11 @@ impl BaseRenderGraphBuilder for RenderGraph {
     fn add_base_graph(&mut self, config: &BaseRenderGraphConfig, msaa: &Msaa) -> &mut Self {
         self.add_node(node::TEXTURE_COPY, TextureCopyNode::default());
         if config.add_3d_camera {
-            self.add_system_node(node::CAMERA3D, CameraNode::new(camera::CAMERA3D));
+            self.add_system_node(node::CAMERA_3D, CameraNode::new(camera::CAMERA_3D));
         }
 
         if config.add_2d_camera {
-            self.add_system_node(node::CAMERA2D, CameraNode::new(camera::CAMERA2D));
+            self.add_system_node(node::CAMERA_2D, CameraNode::new(camera::CAMERA_2D));
         }
 
         self.add_node(node::SHARED_BUFFERS, SharedBuffersNode::default());
@@ -153,11 +154,11 @@ impl BaseRenderGraphBuilder for RenderGraph {
             main_pass_node.use_default_clear_color(0);
 
             if config.add_3d_camera {
-                main_pass_node.add_camera(camera::CAMERA3D);
+                main_pass_node.add_camera(camera::CAMERA_3D);
             }
 
             if config.add_2d_camera {
-                main_pass_node.add_camera(camera::CAMERA2D);
+                main_pass_node.add_camera(camera::CAMERA_2D);
             }
 
             self.add_node(node::MAIN_PASS, main_pass_node);
@@ -168,11 +169,13 @@ impl BaseRenderGraphBuilder for RenderGraph {
                 .unwrap();
 
             if config.add_3d_camera {
-                self.add_node_edge(node::CAMERA3D, node::MAIN_PASS).unwrap();
+                self.add_node_edge(node::CAMERA_3D, node::MAIN_PASS)
+                    .unwrap();
             }
 
             if config.add_2d_camera {
-                self.add_node_edge(node::CAMERA2D, node::MAIN_PASS).unwrap();
+                self.add_node_edge(node::CAMERA_2D, node::MAIN_PASS)
+                    .unwrap();
             }
         }
 

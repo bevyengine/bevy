@@ -5,8 +5,8 @@ use bevy_math::Size;
 use bevy_render::{
     draw::{Draw, DrawContext, Drawable},
     mesh::Mesh,
-    prelude::Msaa,
-    renderer::{AssetRenderResourceBindings, RenderResourceBindings},
+    prelude::{Msaa, Visible},
+    renderer::RenderResourceBindings,
     texture::Texture,
 };
 use bevy_sprite::{TextureAtlas, QUAD_HANDLE};
@@ -133,7 +133,7 @@ fn add_text_to_pipeline(
     ) {
         Err(TextError::NoSuchFont) => TextPipelineResult::Reschedule,
         Err(e @ TextError::FailedToAddGlyph(_)) => {
-            panic!("Fatal error when processing text: {}", e);
+            panic!("Fatal error when processing text: {}.", e);
         }
         Ok(()) => TextPipelineResult::Ok,
     }
@@ -145,20 +145,22 @@ pub fn draw_text_system(
     msaa: Res<Msaa>,
     meshes: Res<Assets<Mesh>>,
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
-    mut asset_render_resource_bindings: ResMut<AssetRenderResourceBindings>,
     text_pipeline: Res<DefaultTextPipeline>,
-    mut query: Query<(Entity, &mut Draw, &Text, &Node, &GlobalTransform)>,
+    mut query: Query<(Entity, &mut Draw, &Visible, &Text, &Node, &GlobalTransform)>,
 ) {
     let font_quad = meshes.get(&QUAD_HANDLE).unwrap();
     let vertex_buffer_descriptor = font_quad.get_vertex_buffer_descriptor();
 
-    for (entity, mut draw, text, node, global_transform) in query.iter_mut() {
+    for (entity, mut draw, visible, text, node, global_transform) in query.iter_mut() {
+        if !visible.is_visible {
+            continue;
+        }
+
         if let Some(text_glyphs) = text_pipeline.get_glyphs(&entity) {
             let position = global_transform.translation - (node.size / 2.0).extend(0.0);
 
             let mut drawable_text = DrawableText {
                 render_resource_bindings: &mut render_resource_bindings,
-                asset_render_resource_bindings: &mut asset_render_resource_bindings,
                 position,
                 msaa: &msaa,
                 text_glyphs: &text_glyphs.glyphs,

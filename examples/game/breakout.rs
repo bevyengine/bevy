@@ -10,11 +10,11 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_resource(Scoreboard { score: 0 })
         .add_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
-        .add_startup_system(setup)
-        .add_system(paddle_movement_system)
-        .add_system(ball_collision_system)
-        .add_system(ball_movement_system)
-        .add_system(scoreboard_system)
+        .add_startup_system(setup.system())
+        .add_system(paddle_movement_system.system())
+        .add_system(ball_collision_system.system())
+        .add_system(ball_movement_system.system())
+        .add_system(scoreboard_system.system())
         .run();
 }
 
@@ -45,7 +45,7 @@ fn setup(
     commands
         // cameras
         .spawn(Camera2dBundle::default())
-        .spawn(UiCameraBundle::default())
+        .spawn(CameraUiBundle::default())
         // paddle
         .spawn(SpriteBundle {
             material: materials.add(Color::rgb(0.5, 0.5, 1.0).into()),
@@ -174,7 +174,7 @@ fn paddle_movement_system(
 
         let translation = &mut transform.translation;
         // move the paddle horizontally
-        translation.x += time.delta_seconds * direction * paddle.speed;
+        translation.x += time.delta_seconds() * direction * paddle.speed;
         // bound the paddle within the walls
         translation.x = translation.x.min(380.0).max(-380.0);
     }
@@ -182,7 +182,7 @@ fn paddle_movement_system(
 
 fn ball_movement_system(time: Res<Time>, mut ball_query: Query<(&Ball, &mut Transform)>) {
     // clamp the timestep to stop the ball from escaping when the game starts
-    let delta_seconds = f32::min(0.2, time.delta_seconds);
+    let delta_seconds = f32::min(0.2, time.delta_seconds());
 
     for (ball, mut transform) in ball_query.iter_mut() {
         transform.translation += ball.velocity * delta_seconds;

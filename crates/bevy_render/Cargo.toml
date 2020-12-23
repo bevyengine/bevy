@@ -1,6 +1,6 @@
 [package]
 name = "bevy_render"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2018"
 authors = [
     "Bevy Contributors <bevyengine@gmail.com>",
@@ -14,23 +14,21 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.3.0" }
-bevy_asset = { path = "../bevy_asset", version = "0.3.0" }
-bevy_core = { path = "../bevy_core", version = "0.3.0" }
-bevy_derive = { path = "../bevy_derive", version = "0.3.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.3.0" }
-bevy_math = { path = "../bevy_math", version = "0.3.0" }
-bevy_property = { path = "../bevy_property", version = "0.3.0" }
-bevy_transform = { path = "../bevy_transform", version = "0.3.0" }
-bevy_type_registry = { path = "../bevy_type_registry", version = "0.3.0" }
-bevy_window = { path = "../bevy_window", version = "0.3.0" }
-bevy_utils = { path = "../bevy_utils", version = "0.3.0" }
+bevy_app = { path = "../bevy_app", version = "0.4.0" }
+bevy_asset = { path = "../bevy_asset", version = "0.4.0" }
+bevy_core = { path = "../bevy_core", version = "0.4.0" }
+bevy_derive = { path = "../bevy_derive", version = "0.4.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.4.0" }
+bevy_math = { path = "../bevy_math", version = "0.4.0" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.4.0", features = ["bevy"] }
+bevy_transform = { path = "../bevy_transform", version = "0.4.0" }
+bevy_window = { path = "../bevy_window", version = "0.4.0" }
+bevy_utils = { path = "../bevy_utils", version = "0.4.0" }
 
 # rendering
 image = { version = "0.23.12", default-features = false }
 
 # misc
-uuid = { version = "0.8", features = ["v4", "serde"] }
 serde = { version = "1", features = ["derive"] }
 bitflags = "1.2.1"
 smallvec = "1.4.2"
@@ -40,18 +38,21 @@ downcast-rs = "1.2.0"
 thiserror = "1.0"
 anyhow = "1.0"
 hex = "0.4.2"
-hexasphere = "2.0.0"
+hexasphere = "3.1"
 parking_lot = "0.11.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 spirv-reflect = "0.2.3"
 
-[target.'cfg(all(not(target_os = "ios"), not(target_arch = "wasm32")))'.dependencies]
+[target.'cfg(all(not(target_os = "ios"), not(target_arch = "wasm32"), not(all(target_arch = "aarch64", target_os = "macos"))))'.dependencies]
 bevy-glsl-to-spirv = "0.2.0"
 
-[target.'cfg(target_os = "ios")'.dependencies]
-shaderc = "0.6.3"
+[target.'cfg(any(target_os = "ios", all(target_arch = "aarch64", target_os = "macos")))'.dependencies]
+shaderc = "0.7.0"
 
 [features]
 png = ["image/png"]
 hdr = ["image/hdr"]
+dds = ["image/dds"]
+tga = ["image/tga"]
+jpeg = ["image/jpeg"]

@@ -1,6 +1,6 @@
 [package]
 name = "bevy_window"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2018"
 authors = [
     "Bevy Contributors <bevyengine@gmail.com>",
@@ -14,14 +14,12 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.3.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.3.0" }
-bevy_math = { path = "../bevy_math", version = "0.3.0" }
-bevy_utils = { path = "../bevy_utils", version = "0.3.0" }
+bevy_app = { path = "../bevy_app", version = "0.4.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.4.0" }
+bevy_math = { path = "../bevy_math", version = "0.4.0" }
+bevy_utils = { path = "../bevy_utils", version = "0.4.0" }
 
 # other
-uuid = { version = "0.8", features = ["v4", "serde"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-uuid = { version = "0.8", features = ["wasm-bindgen"] }
 web-sys = "0.3"

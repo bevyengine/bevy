@@ -44,9 +44,12 @@ pub mod math {
     pub use bevy_math::*;
 }
 
-pub mod property {
-    //! Dynamically interact with struct fields and names.
-    pub use bevy_property::*;
+pub mod reflect {
+    // TODO: remove these renames once TypeRegistryArc is no longer required
+    //! Type reflection used for dynamically interacting with rust types.
+    pub use bevy_reflect::{
+        TypeRegistry as TypeRegistryInternal, TypeRegistryArc as TypeRegistry, *,
+    };
 }
 
 pub mod scene {
@@ -62,11 +65,6 @@ pub mod tasks {
 pub mod transform {
     //! Local and global transforms (e.g. translation, scale, rotation).
     pub use bevy_transform::*;
-}
-
-pub mod type_registry {
-    //! Registered types and components can be used when loading scenes.
-    pub use bevy_type_registry::*;
 }
 
 pub mod utils {

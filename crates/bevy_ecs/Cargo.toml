@@ -1,6 +1,6 @@
 [package]
 name = "bevy_ecs"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2018"
 authors = [
     "Bevy Contributors <bevyengine@gmail.com>",
@@ -17,9 +17,9 @@ categories = ["game-engines", "data-structures"]
 trace = []
 
 [dependencies]
-bevy_tasks = { path = "../bevy_tasks", version = "0.3.0" }
-bevy_utils = { path = "../bevy_utils", version = "0.3.0" }
-bevy_ecs_macros = { path = "macros", version = "0.3.0" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.4.0" }
+bevy_utils = { path = "../bevy_utils", version = "0.4.0" }
+bevy_ecs_macros = { path = "macros", version = "0.4.0" }
 rand = "0.7.3"
 serde = "1.0"
 thiserror = "1.0"

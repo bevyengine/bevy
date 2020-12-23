@@ -1,6 +1,6 @@
 use bevy_asset::{self, Handle};
+use bevy_reflect::TypeUuid;
 use bevy_render::{color::Color, renderer::RenderResources, shader::ShaderDefs, texture::Texture};
-use bevy_type_registry::TypeUuid;
 
 #[derive(Debug, RenderResources, ShaderDefs, TypeUuid)]
 #[uuid = "506cff92-a9f3-4543-862d-6851c7fdfc99"]

@@ -5,8 +5,8 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .init_resource::<ButtonMaterials>()
-        .add_startup_system(setup)
-        .add_system(button_system)
+        .add_startup_system(setup.system())
+        .add_system(button_system.system())
         .run();
 }
 
@@ -61,7 +61,7 @@ fn setup(
 ) {
     commands
         // ui camera
-        .spawn(UiCameraBundle::default())
+        .spawn(CameraUiBundle::default())
         .spawn(ButtonBundle {
             style: Style {
                 size: Size::new(Val::Px(150.0), Val::Px(65.0)),

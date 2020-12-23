@@ -20,11 +20,10 @@ impl SystemId {
 
 /// An ECS system that can be added to a [Schedule](crate::Schedule)
 pub trait System: Send + Sync + 'static {
-    type Input;
-    type Output;
+    type In;
+    type Out;
     fn name(&self) -> Cow<'static, str>;
     fn id(&self) -> SystemId;
-    fn is_initialized(&self) -> bool;
     fn update(&mut self, world: &World);
     fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent>;
     fn resource_access(&self) -> &TypeAccess<TypeId>;
@@ -35,16 +34,16 @@ pub trait System: Send + Sync + 'static {
     /// 2. This system only runs in parallel with other systems that do not conflict with the `archetype_component_access()` or `resource_access()`
     unsafe fn run_unsafe(
         &mut self,
-        input: Self::Input,
+        input: Self::In,
         world: &World,
         resources: &Resources,
-    ) -> Option<Self::Output>;
+    ) -> Option<Self::Out>;
     fn run(
         &mut self,
-        input: Self::Input,
+        input: Self::In,
         world: &mut World,
         resources: &mut Resources,
-    ) -> Option<Self::Output> {
+    ) -> Option<Self::Out> {
         // SAFE: world and resources are exclusively borrowed
         unsafe { self.run_unsafe(input, world, resources) }
     }

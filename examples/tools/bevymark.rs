@@ -30,8 +30,8 @@ fn main() {
     App::build()
         .add_resource(WindowDescriptor {
             title: "BevyMark".to_string(),
-            width: 800,
-            height: 600,
+            width: 800.,
+            height: 600.,
             vsync: true,
             resizable: false,
             ..Default::default()
@@ -40,18 +40,18 @@ fn main() {
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_resource(BevyCounter { count: 0 })
         .init_resource::<BirdMaterial>()
-        .add_startup_system(setup)
-        .add_system(mouse_handler)
-        .add_system(movement_system)
-        .add_system(collision_system)
-        .add_system(counter_system)
+        .add_startup_system(setup.system())
+        .add_system(mouse_handler.system())
+        .add_system(movement_system.system())
+        .add_system(collision_system.system())
+        .add_system(counter_system.system())
         .run();
 }
 
 fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(Camera2dBundle::default())
-        .spawn(UiCameraBundle::default())
+        .spawn(CameraUiBundle::default())
         .spawn(TextBundle {
             text: Text {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
@@ -84,21 +84,18 @@ fn mouse_handler(
     mut counter: ResMut<BevyCounter>,
 ) {
     if mouse_button_input.pressed(MouseButton::Left) {
-        let spawn_count = (BIRDS_PER_SECOND as f32 * time.delta_seconds) as u128;
-        let bird_x = (window.width as i32 / -2) as f32 + HALF_BIRD_SIZE;
-        let bird_y = (window.height / 2) as f32 - HALF_BIRD_SIZE;
+        let spawn_count = (BIRDS_PER_SECOND as f32 * time.delta_seconds()) as u128;
+        let bird_x = (window.width / -2.) + HALF_BIRD_SIZE;
+        let bird_y = (window.height / 2.) - HALF_BIRD_SIZE;
 
         for count in 0..spawn_count {
-            let bird_position = Vec3::new(bird_x, bird_y, (counter.count + count) as f32 * 0.00001);
-            let mut transform = Transform::from_translation(bird_position);
-            transform.scale = Vec3::new(BIRD_SCALE, BIRD_SCALE, BIRD_SCALE);
-
+            let bird_z = (counter.count + count) as f32 * 0.00001;
             commands
                 .spawn(SpriteBundle {
                     material: bird_material.0.clone(),
-                    transform,
-                    draw: Draw {
-                        is_transparent: true,
+                    transform: Transform {
+                        translation: Vec3::new(bird_x, bird_y, bird_z),
+                        scale: Vec3::splat(BIRD_SCALE),
                         ..Default::default()
                     },
                     ..Default::default()
@@ -118,9 +115,9 @@ fn mouse_handler(
 
 fn movement_system(time: Res<Time>, mut bird_query: Query<(&mut Bird, &mut Transform)>) {
     for (mut bird, mut transform) in bird_query.iter_mut() {
-        transform.translation.x += bird.velocity.x * time.delta_seconds;
-        transform.translation.y += bird.velocity.y * time.delta_seconds;
-        bird.velocity.y += GRAVITY * time.delta_seconds;
+        transform.translation.x += bird.velocity.x * time.delta_seconds();
+        transform.translation.y += bird.velocity.y * time.delta_seconds();
+        bird.velocity.y += GRAVITY * time.delta_seconds();
     }
 }
 

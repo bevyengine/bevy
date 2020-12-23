@@ -1,6 +1,7 @@
 use crate::Node;
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{Assets, HandleUntyped};
 use bevy_ecs::Resources;
+use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ActiveCameras,
     pass::{
@@ -16,10 +17,9 @@ use bevy_render::{
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat,
 };
-use bevy_type_registry::TypeUuid;
 
-pub const UI_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
-    Handle::weak_from_u64(PipelineDescriptor::TYPE_UUID, 3234320022263993878);
+pub const UI_PIPELINE_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 3234320022263993878);
 
 pub fn build_ui_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
     PipelineDescriptor {
@@ -70,13 +70,13 @@ pub fn build_ui_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
 }
 
 pub mod node {
-    pub const UI_CAMERA: &str = "ui_camera";
+    pub const CAMERA_UI: &str = "camera_ui";
     pub const NODE: &str = "node";
     pub const UI_PASS: &str = "ui_pass";
 }
 
 pub mod camera {
-    pub const UI_CAMERA: &str = "UiCamera";
+    pub const CAMERA_UI: &str = "CameraUi";
 }
 
 pub trait UiRenderGraphBuilder {
@@ -110,7 +110,7 @@ impl UiRenderGraphBuilder for RenderGraph {
             sample_count: msaa.samples,
         });
 
-        ui_pass_node.add_camera(camera::UI_CAMERA);
+        ui_pass_node.add_camera(camera::CAMERA_UI);
         self.add_node(node::UI_PASS, ui_pass_node);
 
         self.add_slot_edge(
@@ -148,12 +148,12 @@ impl UiRenderGraphBuilder for RenderGraph {
             .unwrap();
 
         // setup ui camera
-        self.add_system_node(node::UI_CAMERA, CameraNode::new(camera::UI_CAMERA));
-        self.add_node_edge(node::UI_CAMERA, node::UI_PASS).unwrap();
+        self.add_system_node(node::CAMERA_UI, CameraNode::new(camera::CAMERA_UI));
+        self.add_node_edge(node::CAMERA_UI, node::UI_PASS).unwrap();
         self.add_system_node(node::NODE, RenderResourcesNode::<Node>::new(true));
         self.add_node_edge(node::NODE, node::UI_PASS).unwrap();
         let mut active_cameras = resources.get_mut::<ActiveCameras>().unwrap();
-        active_cameras.add(camera::UI_CAMERA);
+        active_cameras.add(camera::CAMERA_UI);
         self
     }
 }

@@ -1,7 +1,7 @@
 use bevy::{
     asset::{AssetLoader, AssetServerSettings, LoadContext, LoadedAsset},
     prelude::*,
-    type_registry::TypeUuid,
+    reflect::TypeUuid,
     utils::BoxedFuture,
 };
 
@@ -13,8 +13,8 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_asset::<RustSourceCode>()
         .init_asset_loader::<RustSourceCodeLoader>()
-        .add_startup_system(load_asset)
-        .add_system(print_asset)
+        .add_startup_system(load_asset.system())
+        .add_system(print_asset.system())
         .run();
 }
 

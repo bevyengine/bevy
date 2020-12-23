@@ -59,7 +59,7 @@ impl Archetype {
                 "attempted to allocate entity with duplicate components; \
                  each type must occur at most once!"
             ),
-            core::cmp::Ordering::Greater => panic!("type info is unsorted"),
+            core::cmp::Ordering::Greater => panic!("Type info is unsorted."),
         });
     }
 
@@ -160,7 +160,7 @@ impl Archetype {
             .get(&TypeId::of::<T>())
             .map_or(false, |x| !x.borrow.borrow())
         {
-            panic!("{} already borrowed uniquely", type_name::<T>());
+            panic!("{} already borrowed uniquely.", type_name::<T>());
         }
     }
 
@@ -172,7 +172,7 @@ impl Archetype {
             .get(&TypeId::of::<T>())
             .map_or(false, |x| !x.borrow.borrow_mut())
         {
-            panic!("{} already borrowed", type_name::<T>());
+            panic!("{} already borrowed.", type_name::<T>());
         }
     }
 
@@ -272,9 +272,9 @@ impl Archetype {
     fn grow(&mut self, increment: usize) {
         unsafe {
             let old_count = self.len;
-            let count = old_count + increment;
+            let new_capacity = self.capacity() + increment;
             self.entities.resize(
-                self.entities.len() + increment,
+                new_capacity,
                 Entity {
                     id: u32::MAX,
                     generation: u32::MAX,
@@ -284,7 +284,7 @@ impl Archetype {
             for type_state in self.state.values_mut() {
                 type_state
                     .component_flags
-                    .resize_with(count, ComponentFlags::empty);
+                    .resize_with(new_capacity, ComponentFlags::empty);
             }
 
             let old_data_size = mem::replace(&mut self.data_size, 0);
@@ -294,7 +294,7 @@ impl Archetype {
                 let ty_state = self.state.get_mut(&ty.id).unwrap();
                 old_offsets.push(ty_state.offset);
                 ty_state.offset = self.data_size;
-                self.data_size += ty.layout.size() * count;
+                self.data_size += ty.layout.size() * new_capacity;
             }
             let new_data = if self.data_size == 0 {
                 NonNull::dangling()
@@ -484,7 +484,6 @@ pub struct TypeInfo {
     id: TypeId,
     layout: Layout,
     drop: unsafe fn(*mut u8),
-    #[cfg(debug_assertions)]
     type_name: &'static str,
 }
 
@@ -499,7 +498,6 @@ impl TypeInfo {
             id: TypeId::of::<T>(),
             layout: Layout::new::<T>(),
             drop: drop_ptr::<T>,
-            #[cfg(debug_assertions)]
             type_name: core::any::type_name::<T>(),
         }
     }
@@ -518,6 +516,12 @@ impl TypeInfo {
 
     pub(crate) unsafe fn drop(&self, data: *mut u8) {
         (self.drop)(data)
+    }
+
+    #[allow(missing_docs)]
+    #[inline]
+    pub fn type_name(&self) -> &'static str {
+        self.type_name
     }
 }
 

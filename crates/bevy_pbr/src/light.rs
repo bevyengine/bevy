@@ -1,5 +1,5 @@
 use bevy_core::Byteable;
-use bevy_property::Properties;
+use bevy_reflect::{Reflect, ReflectComponent};
 use bevy_render::{
     camera::{CameraProjection, PerspectiveProjection},
     color::Color,
@@ -8,7 +8,8 @@ use bevy_transform::components::GlobalTransform;
 use std::ops::Range;
 
 /// A point light
-#[derive(Debug, Properties)]
+#[derive(Debug, Reflect)]
+#[reflect(Component)]
 pub struct Light {
     pub color: Color,
     pub fov: f32,

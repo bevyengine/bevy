@@ -22,7 +22,7 @@ impl<'a, 'b> WorldChildBuilder<'a, 'b> {
             let world = &mut self.world_builder.world;
             let mut added = false;
             if let Ok(mut children) = world.get_mut::<Children>(parent_entity) {
-                children.push(entity);
+                children.0.push(entity);
                 added = true;
             }
 
@@ -51,6 +51,15 @@ impl<'a, 'b> WorldChildBuilder<'a, 'b> {
 
     pub fn current_entity(&self) -> Option<Entity> {
         self.world_builder.current_entity
+    }
+
+    pub fn for_current_entity(&mut self, f: impl FnOnce(Entity)) -> &mut Self {
+        let current_entity = self
+            .world_builder
+            .current_entity
+            .expect("The 'current entity' is not set. You should spawn an entity first.");
+        f(current_entity);
+        self
     }
 }
 
