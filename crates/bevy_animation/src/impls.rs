@@ -72,7 +72,59 @@ impl AnimatedComponent for Transform {
                             if let Some(ref mut component) = components[entity_index as usize] {
                                 let (k, v) = curve.sample_indexed(keyframes[*curve_index], time);
                                 keyframes[*curve_index] = k;
-                                component.translation.blend(&mut blend_group, v, w);
+                                //component.translation.blend(&mut blend_group, v, w);
+                                // ? NOTE: Blend must be done for each component in order for it to work
+                                component.translation.x.blend(&mut blend_group, v.x, w);
+                                component.translation.y.blend(&mut blend_group, v.y, w);
+                                component.translation.z.blend(&mut blend_group, v.z, w);
+                            }
+                        }
+                    } else {
+                        if let Some(curves) = clip
+                            .get("Transform.translation.x")
+                            .map(|curve_untyped| curve_untyped.downcast_ref::<f32>())
+                            .flatten()
+                        {
+                            for (entity_index, (curve_index, curve)) in curves.iter() {
+                                let entity_index = entities_map[entity_index as usize];
+                                if let Some(ref mut component) = components[entity_index as usize] {
+                                    let (k, v) =
+                                        curve.sample_indexed(keyframes[*curve_index], time);
+                                    keyframes[*curve_index] = k;
+                                    component.translation.x.blend(&mut blend_group, v, w);
+                                }
+                            }
+                        }
+
+                        if let Some(curves) = clip
+                            .get("Transform.translation.y")
+                            .map(|curve_untyped| curve_untyped.downcast_ref::<f32>())
+                            .flatten()
+                        {
+                            for (entity_index, (curve_index, curve)) in curves.iter() {
+                                let entity_index = entities_map[entity_index as usize];
+                                if let Some(ref mut component) = components[entity_index as usize] {
+                                    let (k, v) =
+                                        curve.sample_indexed(keyframes[*curve_index], time);
+                                    keyframes[*curve_index] = k;
+                                    component.translation.y.blend(&mut blend_group, v, w);
+                                }
+                            }
+                        }
+
+                        if let Some(curves) = clip
+                            .get("Transform.translation.z")
+                            .map(|curve_untyped| curve_untyped.downcast_ref::<f32>())
+                            .flatten()
+                        {
+                            for (entity_index, (curve_index, curve)) in curves.iter() {
+                                let entity_index = entities_map[entity_index as usize];
+                                if let Some(ref mut component) = components[entity_index as usize] {
+                                    let (k, v) =
+                                        curve.sample_indexed(keyframes[*curve_index], time);
+                                    keyframes[*curve_index] = k;
+                                    component.translation.z.blend(&mut blend_group, v, w);
+                                }
                             }
                         }
                     }
@@ -91,6 +143,8 @@ impl AnimatedComponent for Transform {
                             }
                         }
                     }
+
+                    // TODO: Euler rotation support?
 
                     if let Some(curves) = clip
                         .get("Transform.scale")
@@ -227,6 +281,15 @@ impl AnimatedAsset for StandardMaterial {
         std::mem::drop(__guard);
     }
 }
+
+// #[derive(Debug, AnimatedComponent)]
+// struct Test {
+//     #[animated(expand { x: f32, y: f32, z: f32 })]
+//     a: Vec3,
+//     b: Vec2,
+//     #[animated(ignore)]
+//     c: Vec3,
+// }
 
 // animated_component! {
 //     struct Transform {

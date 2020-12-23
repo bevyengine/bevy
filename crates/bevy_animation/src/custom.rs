@@ -96,7 +96,28 @@ impl CurvesUntyped {
     }
 }
 
+// TODO: Didn't make my mind about it
+// Pros:
+//  - Can limit to only the entities that we really want to animate, from deep nested hierarchies
+//  - Entities names don't matter
+//  - Hierarchy don't matter with can be nice if you keep changing it
+// Cons:
+//  - Harder to modify and manipulate clips
+//  - Harder to find entities
+//  - Harder to mix clips with different hierarchies
+//  - Hierarchy don't matter which can lead to a giant mess, and will make impossible to parallelize
+//    over Animators
+// /// Defines a reusable entity hierarchy
+// #[derive(Debug, TypeUuid)]
+// #[uuid = "9d524787-1fbf-46c6-b34f-f2ae196664c5"]
+// pub struct AnimatorHierarchy {
+//     pub entities: Vec<String>,
+// }
+
 // TODO: impl Serialize, Deserialize using bevy reflect for that
+// TODO: Study an optional asset that lists all animated entities, to take preference over
+// the hierarchy, this animated entity asset must match the one been used in the animator
+// this could help retarget animations, but will mess the clip
 #[derive(Debug, TypeUuid)]
 #[uuid = "79e2ea58-8bf7-43af-8219-5898edb02f80"]
 pub struct Clip {
@@ -108,6 +129,8 @@ pub struct Clip {
     pub warp: bool,
     /// Clip compound duration
     duration: f32,
+    // ! FIXME: The hierarchy may need to know more entities than the current been animated
+    // ! this will case them to fetch extra entities components that aren't used at all
     hierarchy: Hierarchy,
     // ? NOTE: AHash performed worse than FnvHasher
     /// Each curve and keyframe cache index mapped by property name  
@@ -137,6 +160,8 @@ impl Default for Clip {
 }
 
 impl Clip {
+    // TODO: Make harder to make mistakes like assigning a Curve<f32> to a rotation, or misspell names
+    // TODO: Warn about properties that aren't been used so the user can check if they are wrong or not
     /// Property to be animated must be in the following format `"path/to/named_entity@Transform.translation.x"`
     /// where the left side `@` defines a path to the entity to animate,
     /// while the right side the path to a property to animate starting from the component.
@@ -149,6 +174,13 @@ impl Clip {
     where
         T: Lerp + Clone + Send + Sync + 'static,
     {
+        // Clip an only have some amount of curves and entities
+        // this limitation was added to save memory (but you can increase it if you want)
+        assert!(
+            self.len + 1 < (u16::MAX as usize),
+            "clip curve limit reached"
+        );
+
         // Split in entity and attribute path,
         // NOTE: use rfind because it's expected the latter to be generally shorter
         let path =
@@ -289,7 +321,7 @@ impl Clip {
     not(any(target_arch = "x86_64", target_arch = "aarch64")),
     repr(align(64))
 )]
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 struct KeyframeBucket([u16; KEYFRAMES_PER_CACHE]);
 
 impl Default for KeyframeBucket {
@@ -407,7 +439,7 @@ impl Animator {
         }
     }
 
-    // TODO: remove clip
+    // TODO: remove clip (this operation will be very hard)
 
     pub fn add_layer(&mut self, clip: Handle<Clip>, weight: f32) -> usize {
         let clip = self.add_clip(clip);

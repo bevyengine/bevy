@@ -1,7 +1,63 @@
 use crate::modules::{get_modules, get_path};
 use proc_macro::TokenStream;
+use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::{parse::ParseStream, parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields};
+use syn::{
+    parse::ParseStream, parse_macro_input, parse_quote, punctuated::Punctuated, token::Comma, Data,
+    DataStruct, DeriveInput, Field, Fields, Ident, Type,
+};
+
+fn animate_property(
+    property: &str,
+    field_ident: &Ident,
+    field_inner: &[&Ident],
+    field_type: &Type,
+) -> TokenStream2 {
+    quote! {
+        if let Some(curves) = clip
+            .get(#property)
+            .map(|curve_untyped| curve_untyped.downcast_ref::<#field_type>())
+            .flatten()
+        {
+            for (entity_index, (curve_index, curve)) in curves.iter() {
+                let entity_index = entities_map[entity_index as usize];
+                if let Some(ref mut component) = components[entity_index as usize] {
+                    let (k, v) = curve.sample_indexed(keyframes[*curve_index], time);
+                    keyframes[*curve_index] = k;
+                    component.#field_ident #(. #field_inner)* .blend(&mut blend_group, v, w);
+                }
+            }
+        }
+    }
+}
+
+fn animate_property_extended(
+    property: &str,
+    field_ident: &Ident,
+    field_inner: &[Field],
+    field_type: &Type,
+) -> TokenStream2 {
+    let field_inner = field_inner
+        .iter()
+        .map(|field| field.ident.as_ref().unwrap());
+
+    quote! {
+        if let Some(curves) = clip
+            .get(#property)
+            .map(|curve_untyped| curve_untyped.downcast_ref::<#field_type>())
+            .flatten()
+        {
+            for (entity_index, (curve_index, curve)) in curves.iter() {
+                let entity_index = entities_map[entity_index as usize];
+                if let Some(ref mut component) = components[entity_index as usize] {
+                    let (k, v) = curve.sample_indexed(keyframes[*curve_index], time);
+                    keyframes[*curve_index] = k;
+                    #(component.#field_ident.#field_inner.blend(&mut blend_group, v.#field_inner, w);)*
+                }
+            }
+        }
+    }
+}
 
 pub fn derive_animated_component(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -14,10 +70,14 @@ pub fn derive_animated_component(input: TokenStream) -> TokenStream {
         _ => panic!("Expected a struct with named fields."),
     };
 
+    let mut expanded: Vec<Vec<Field>> = vec![];
+    expanded.resize_with(fields.len(), || vec![]);
+
     // Filter fields
     let fields = fields
         .iter()
-        .filter(|field| {
+        .enumerate()
+        .filter(|(field_index, field)| {
             field
                 .attrs
                 .iter()
@@ -26,9 +86,18 @@ pub fn derive_animated_component(input: TokenStream) -> TokenStream {
                     || true,
                     |a| {
                         syn::custom_keyword!(ignore);
+                        syn::custom_keyword!(expand);
                         a.parse_args_with(|input: ParseStream| {
                             if input.parse::<Option<ignore>>()?.is_some() {
                                 Ok(false)
+                            } else if input.parse::<Option<expand>>()?.is_some() {
+                                let content;
+                                //syn::parenthesized!(content in input);
+                                syn::braced!(content in input);
+                                let fields: Punctuated<Field, Comma> =
+                                    content.parse_terminated(Field::parse_named)?;
+                                expanded[*field_index].extend(fields.iter().cloned());
+                                Ok(true)
                             } else {
                                 Ok(true)
                             }
@@ -37,6 +106,7 @@ pub fn derive_animated_component(input: TokenStream) -> TokenStream {
                     },
                 )
         })
+        .map(|(_, field)| field)
         .collect::<Vec<&Field>>();
 
     let modules = get_modules(&ast.attrs);
@@ -45,11 +115,44 @@ pub fn derive_animated_component(input: TokenStream) -> TokenStream {
     let bevy_asset = get_path(&modules.bevy_asset);
 
     let struct_name = &ast.ident;
-    let properties = fields
+
+    let animate = fields
         .iter()
-        .map(|field| format!("{}.{}", struct_name, field.ident.as_ref().unwrap()));
-    let field_types = fields.iter().map(|field| &field.ty);
-    let fields = fields.iter().map(|field| field.ident.as_ref().unwrap());
+        .zip(expanded.iter())
+        .map(|(field, extended_fields)| {
+            if extended_fields.len() == 0 {
+                let ident = field.ident.as_ref().unwrap();
+                animate_property(
+                    &format!("{}.{}", struct_name, field.ident.as_ref().unwrap()),
+                    ident,
+                    &[],
+                    &field.ty,
+                )
+            } else {
+                let property = format!("{}.{}", struct_name, field.ident.as_ref().unwrap());
+                let ident = field.ident.as_ref().unwrap();
+                let main = animate_property_extended(
+                    &property,
+                    &parse_quote!(#ident),
+                    &extended_fields[..],
+                    &field.ty,
+                );
+                let extended = extended_fields.iter().map(|field| {
+                    let inner = field.ident.as_ref().unwrap();
+                    animate_property(
+                        &format!("{}.{}", property, inner),
+                        ident,
+                        &[inner],
+                        &field.ty,
+                    )
+                });
+                quote! {
+                    #main else {
+                        #( #extended )*
+                    }
+                }
+            }
+        });
 
     let generics = ast.generics;
     let (impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
@@ -102,22 +205,7 @@ pub fn derive_animated_component(input: TokenStream) -> TokenStream {
                             // is accessed by two different systems, which is possible but weird and will hit the performance a bit
                             let keyframes = unsafe { layer.keyframes_unsafe() };
 
-                            #(
-                                if let Some(curves) = clip
-                                    .get(#properties)
-                                    .map(|curve_untyped| curve_untyped.downcast_ref::<#field_types>())
-                                    .flatten()
-                                {
-                                    for (entity_index, (curve_index, curve)) in curves.iter() {
-                                        let entity_index = entities_map[entity_index as usize];
-                                        if let Some(ref mut component) = components[entity_index as usize] {
-                                            let (k, v) = curve.sample_indexed(keyframes[*curve_index], time);
-                                            keyframes[*curve_index] = k;
-                                            component.#fields.blend(&mut blend_group, v, w);
-                                        }
-                                    }
-                                }
-                            )*
+                            #(#animate)*
                         }
                     }
                 }

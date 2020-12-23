@@ -3,6 +3,8 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse::ParseStream, parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields};
 
+// TODO: Add extended fields like in animated_component
+
 pub fn derive_animated_asset(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
