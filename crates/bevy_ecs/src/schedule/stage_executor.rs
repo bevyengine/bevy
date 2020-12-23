@@ -204,7 +204,7 @@ impl SystemStageExecutor for ParallelSystemStageExecutor {
         if !has_any_work {
             return;
         }
-        // TODO should this be an panic condition?
+        // TODO should this be a panic condition?
         assert!(has_doable_work);
 
         // TODO Improve? Plumb in from outside?
@@ -317,7 +317,7 @@ impl SystemStageExecutor for ParallelSystemStageExecutor {
                     }
                 }
             }
-            // TODO should this be an panic condition?
+            // TODO should this be a panic condition?
             assert!(!has_any_work || has_doable_work);
         }
     }

@@ -63,14 +63,16 @@ impl SystemStage {
         Self::new(Box::new(ParallelSystemStageExecutor::default()))
     }
 
-    pub fn with_system<S: System<In = (), Out = ()>>(mut self, system: S) -> Self
-    {
+    pub fn with_system<S: System<In = (), Out = ()>>(mut self, system: S) -> Self {
         self.add_system(system);
         self
     }
 
-    pub fn with_system_labeled<S: System<In = (), Out = ()>>(mut self, system: S, label: Label) -> Self
-    {
+    pub fn with_system_labeled<S: System<In = (), Out = ()>>(
+        mut self,
+        system: S,
+        label: Label,
+    ) -> Self {
         self.add_system_labeled(system, label);
         self
     }
@@ -79,8 +81,7 @@ impl SystemStage {
         mut self,
         system: S,
         dependencies: &[Label],
-    ) -> Self
-    {
+    ) -> Self {
         self.add_system_with_dependencies(system, dependencies);
         self
     }
@@ -90,8 +91,7 @@ impl SystemStage {
         system: S,
         label: Label,
         dependencies: &[Label],
-    ) -> Self
-    {
+    ) -> Self {
         self.add_system_labeled_with_dependencies(system, label, dependencies);
         self
     }
@@ -101,9 +101,8 @@ impl SystemStage {
         self
     }
 
-    pub fn with_run_criteria<S: System<In = (), Out = ()>>(mut self, system: S) -> Self
-    {
-        self.run_criteria.set(Box::new(system.system()));
+    pub fn with_run_criteria<S: System<In = (), Out = ShouldRun>>(mut self, system: S) -> Self {
+        self.run_criteria.set(Box::new(system));
         self
     }
 
@@ -112,14 +111,16 @@ impl SystemStage {
         self
     }
 
-    pub fn add_system<S: System<In = (), Out = ()>>(&mut self, system: S) -> &mut Self
-    {
+    pub fn add_system<S: System<In = (), Out = ()>>(&mut self, system: S) -> &mut Self {
         self.system_sets[0].add_system(system);
         self
     }
 
-    pub fn add_system_labeled<S: System<In = (), Out = ()>>(&mut self, system: S, label: Label) -> &mut Self
-    {
+    pub fn add_system_labeled<S: System<In = (), Out = ()>>(
+        &mut self,
+        system: S,
+        label: Label,
+    ) -> &mut Self {
         self.system_sets[0].add_system_labeled(system, label);
         self
     }
@@ -128,8 +129,7 @@ impl SystemStage {
         &mut self,
         system: S,
         dependencies: &[Label],
-    ) -> &mut Self
-    {
+    ) -> &mut Self {
         self.system_sets[0].add_system_with_dependencies(system, dependencies);
         self
     }
@@ -139,8 +139,7 @@ impl SystemStage {
         system: S,
         label: Label,
         dependencies: &[Label],
-    ) -> &mut Self
-    {
+    ) -> &mut Self {
         self.system_sets[0].add_system_labeled_with_dependencies(system, label, dependencies);
         self
     }
@@ -227,7 +226,9 @@ impl SystemStage {
 
 impl Stage for SystemStage {
     fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
-        // TODO
+        for set in &mut self.system_sets {
+            set.initialize(world, resources);
+        }
     }
 
     fn run(&mut self, world: &mut World, resources: &mut Resources) {
@@ -258,6 +259,7 @@ pub struct SystemSet {
     dependencies: Vec<Vec<Label>>,
     run_criteria: RunCriteria,
     changed_systems: Vec<usize>,
+    uninitialized_systems: Vec<usize>,
 }
 
 unsafe impl Send for SystemSet {}
@@ -283,8 +285,13 @@ impl SystemSet {
         self.changed_systems.clear()
     }
 
-    pub(crate) fn run_criteria(&self) -> &RunCriteria {
-        &self.run_criteria
+    fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
+        for index in self.uninitialized_systems.drain(..) {
+            // SAFE: this happens during exclusive access.
+            unsafe {
+                self.systems[index].as_mut().initialize(world, resources);
+            }
+        }
     }
 
     pub(crate) fn run_criteria_mut(&mut self) -> &mut RunCriteria {

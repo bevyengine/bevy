@@ -291,7 +291,15 @@ impl<'a, T: Resource + FromResources> FetchSystemParam<'a> for FetchLocal<T> {
     }
 }
 
-impl<'a, T: Resource, Input> SystemParam<Input> for ThreadLocal<'a, T> {
+pub struct FetchThreadLocal<T>(PhantomData<T>);
+
+impl<'a, T: Resource + FromResources> SystemParam for ThreadLocal<'a, T> {
+    type Fetch = FetchThreadLocal<T>;
+}
+
+impl<'a, T: Resource> FetchSystemParam<'a> for FetchThreadLocal<T> {
+    type Item = ThreadLocal<'a, T>;
+
     fn init(system_state: &mut SystemState, _world: &World, _resources: &mut Resources) {
         // Thread-local systems run only on the main thread, so only one system
         // at a time will ever access any thread-local resource.
@@ -300,11 +308,10 @@ impl<'a, T: Resource, Input> SystemParam<Input> for ThreadLocal<'a, T> {
 
     #[inline]
     unsafe fn get_param(
-        _input: &mut Option<Input>,
-        _system_state: &mut SystemState,
-        _world: &World,
-        resources: &Resources,
-    ) -> Option<Self> {
+        _system_state: &'a SystemState,
+        _world: &'a World,
+        resources: &'a Resources,
+    ) -> Option<Self::Item> {
         Some(ThreadLocal::new(resources))
     }
 }

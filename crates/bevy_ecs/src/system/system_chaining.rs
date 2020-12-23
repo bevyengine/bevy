@@ -1,4 +1,4 @@
-use crate::{ArchetypeComponent, IntoSystem, Resources, System, SystemId, TypeAccess, World};
+use crate::{ArchetypeComponent, Resources, System, SystemId, TypeAccess, World};
 use std::{any::TypeId, borrow::Cow};
 
 pub struct ChainSystem<SystemA, SystemB> {

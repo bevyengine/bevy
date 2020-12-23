@@ -87,8 +87,6 @@ impl SystemState {
 pub struct FuncSystem<Out> {
     func:
         Box<dyn FnMut(&mut SystemState, &World, &Resources) -> Option<Out> + Send + Sync + 'static>,
-    thread_local_func:
-        Box<dyn FnMut(&mut SystemState, &mut World, &mut Resources) + Send + Sync + 'static>,
     init_func: Box<dyn FnMut(&mut SystemState, &World, &mut Resources) + Send + Sync + 'static>,
     state: SystemState,
 }
@@ -133,7 +131,7 @@ impl<Out: 'static> System for FuncSystem<Out> {
     fn run_exclusive(&mut self, world: &mut World, resources: &mut Resources) {
         // SAFE: this is called with unique access to SystemState
         unsafe {
-            (&mut *state.commands.get()).apply(world, resources);
+            (&mut *self.state.commands.get()).apply(world, resources);
         }
         if let Some(ref commands) = self.state.arc_commands {
             let mut commands = commands.lock();
@@ -194,7 +192,7 @@ impl<In: 'static, Out: 'static> System for InputFuncSystem<In, Out> {
     fn run_exclusive(&mut self, world: &mut World, resources: &mut Resources) {
         // SAFE: this is called with unique access to SystemState
         unsafe {
-            (&mut *state.commands.get()).apply(world, resources);
+            (&mut *self.state.commands.get()).apply(world, resources);
         }
         if let Some(ref commands) = self.state.arc_commands {
             let mut commands = commands.lock();

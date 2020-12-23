@@ -1,5 +1,5 @@
 use crate::Time;
-use bevy_ecs::{ArchetypeComponent, ShouldRun, System, SystemId, ThreadLocalExecution, TypeAccess};
+use bevy_ecs::{ArchetypeComponent, ShouldRun, System, SystemId,  TypeAccess};
 use bevy_utils::HashMap;
 use std::{any::TypeId, borrow::Cow};
 
@@ -113,7 +113,7 @@ impl System for FixedTimestep {
         self.system_id
     }
 
-    fn update(&mut self, _world: &bevy_ecs::World) {}
+    fn update_access(&mut self, _world: &bevy_ecs::World) {}
 
     fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent> {
         &self.archetype_access
@@ -123,8 +123,8 @@ impl System for FixedTimestep {
         &self.resource_access
     }
 
-    fn thread_local_execution(&self) -> ThreadLocalExecution {
-        ThreadLocalExecution::Immediate
+    fn is_thread_local(&self) -> bool {
+        false
     }
 
     unsafe fn run_unsafe(
@@ -145,7 +145,7 @@ impl System for FixedTimestep {
         Some(result)
     }
 
-    fn run_thread_local(
+    fn run_exclusive(
         &mut self,
         _world: &mut bevy_ecs::World,
         _resources: &mut bevy_ecs::Resources,
