@@ -21,7 +21,7 @@ fn main() {
 
 #[derive(RenderResources, Default, TypeUuid)]
 #[uuid = "0320b9b8-b3a3-4baa-8bfa-c94008177b17"]
-struct MyMaterialWithVertexColorSupport {}
+struct MyMaterialWithVertexColorSupport;
 
 const VERTEX_SHADER: &str = r#"
 #version 450
