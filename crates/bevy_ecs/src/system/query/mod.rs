@@ -181,6 +181,21 @@ impl<'a, Q: WorldQuery, F: QueryFilter> Query<'a, Q, F> {
             .map_err(QueryError::ComponentError)
     }
 
+    /// Returns an array containing the `Entity`s in this `Query` that had the given `Component`
+    /// removed in this update.
+    ///
+    /// `removed::<C>()` only returns entities whose components were removed before the
+    /// current system started.
+    ///
+    /// Regular systems do not apply `Commands` until the end of their stage. This means component
+    /// removals in a regular system won't be accessible through `removed::<C>()` in the same
+    /// stage, because the removal hasn't actually occurred yet. This can be solved by executing
+    /// `removed::<C>()` in a later stage. `AppBuilder::add_system_to_stage()` can be used to
+    /// control at what stage a system runs.
+    ///
+    /// Thread local systems manipulate the world directly, so removes are applied immediately. This
+    /// means any system that runs after a thread local system in the same update will pick up
+    /// removals that happened in the thread local system, regardless of stages.
     pub fn removed<C: Component>(&self) -> &[Entity] {
         self.world.removed::<C>()
     }

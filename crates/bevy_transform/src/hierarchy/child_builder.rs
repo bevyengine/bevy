@@ -81,6 +81,10 @@ impl<'a> ChildBuilder<'a> {
         self.commands.current_entity()
     }
 
+    pub fn parent_entity(&self) -> Entity {
+        self.push_children.parent
+    }
+
     pub fn with_bundle(
         &mut self,
         components: impl DynamicBundle + Send + Sync + 'static,
@@ -100,6 +104,11 @@ impl<'a> ChildBuilder<'a> {
             .current_entity()
             .expect("The 'current entity' is not set. You should spawn an entity first.");
         func(current_entity);
+        self
+    }
+
+    pub fn add_command<C: Command + 'static>(&mut self, command: C) -> &mut Self {
+        self.commands.add_command(command);
         self
     }
 }

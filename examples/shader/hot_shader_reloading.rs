@@ -6,11 +6,12 @@ use bevy::{
         pipeline::{PipelineDescriptor, RenderPipeline},
         render_graph::{base, AssetRenderResourcesNode, RenderGraph},
         renderer::RenderResources,
-        shader::{ShaderStage, ShaderStages},
+        shader::ShaderStages,
     },
 };
 
-/// This example illustrates how to create a custom material asset and a shader that uses that material
+/// This example illustrates how to load shaders such that they can be
+/// edited while the example is still running.
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
@@ -20,48 +21,26 @@ fn main() {
 }
 
 #[derive(RenderResources, Default, TypeUuid)]
-#[uuid = "1e08866c-0b8a-437e-8bce-37733b25127e"]
+#[uuid = "3bf9e364-f29d-4d6c-92cf-93298466c620"]
 struct MyMaterial {
     pub color: Color,
 }
 
-const VERTEX_SHADER: &str = r#"
-#version 450
-layout(location = 0) in vec3 Vertex_Position;
-layout(set = 0, binding = 0) uniform Camera {
-    mat4 ViewProj;
-};
-layout(set = 1, binding = 0) uniform Transform {
-    mat4 Model;
-};
-void main() {
-    gl_Position = ViewProj * Model * vec4(Vertex_Position, 1.0);
-}
-"#;
-
-const FRAGMENT_SHADER: &str = r#"
-#version 450
-layout(location = 0) out vec4 o_Target;
-layout(set = 2, binding = 0) uniform MyMaterial_color {
-    vec4 color;
-};
-void main() {
-    o_Target = color;
-}
-"#;
-
 fn setup(
     commands: &mut Commands,
+    asset_server: ResMut<AssetServer>,
     mut pipelines: ResMut<Assets<PipelineDescriptor>>,
-    mut shaders: ResMut<Assets<Shader>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<MyMaterial>>,
     mut render_graph: ResMut<RenderGraph>,
 ) {
-    // Create a new shader pipeline
+    // Watch for changes
+    asset_server.watch_for_changes().unwrap();
+
+    // Create a new shader pipeline with shaders loaded from the asset directory
     let pipeline_handle = pipelines.add(PipelineDescriptor::default_config(ShaderStages {
-        vertex: shaders.add(Shader::from_glsl(ShaderStage::Vertex, VERTEX_SHADER)),
-        fragment: Some(shaders.add(Shader::from_glsl(ShaderStage::Fragment, FRAGMENT_SHADER))),
+        vertex: asset_server.load::<Shader, _>("shaders/hot.vert"),
+        fragment: Some(asset_server.load::<Shader, _>("shaders/hot.frag")),
     }));
 
     // Add an AssetRenderResourcesNode to our Render Graph. This will bind MyMaterial resources to our shader

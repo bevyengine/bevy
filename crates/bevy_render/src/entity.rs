@@ -1,6 +1,7 @@
 use crate::{
     camera::{Camera, OrthographicProjection, PerspectiveProjection, VisibleEntities},
     pipeline::RenderPipelines,
+    prelude::Visible,
     render_graph::base,
     Draw, Mesh,
 };
@@ -15,6 +16,7 @@ use bevy_transform::components::{GlobalTransform, Transform};
 pub struct MeshBundle {
     pub mesh: Handle<Mesh>,
     pub draw: Draw,
+    pub visible: Visible,
     pub render_pipelines: RenderPipelines,
     pub main_pass: MainPass,
     pub transform: Transform,

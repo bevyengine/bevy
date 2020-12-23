@@ -8,8 +8,8 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .init_resource::<GamepadLobby>()
-        .add_system_to_stage(stage::PRE_UPDATE, connection_system)
-        .add_system(gamepad_system)
+        .add_system_to_stage(stage::PRE_UPDATE, connection_system.system())
+        .add_system(gamepad_system.system())
         .run();
 }
 

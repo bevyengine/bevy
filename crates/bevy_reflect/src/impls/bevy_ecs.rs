@@ -202,8 +202,10 @@ impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
     fn from_type() -> Self {
         ReflectMapEntities {
             map_entities: |world, entity_map| {
-                for mut component in &mut world.query_mut::<&mut C>() {
-                    component.map_entities(entity_map)?;
+                for entity in entity_map.values() {
+                    if let Ok(mut component) = world.get_mut::<C>(entity) {
+                        component.map_entities(entity_map)?;
+                    }
                 }
 
                 Ok(())

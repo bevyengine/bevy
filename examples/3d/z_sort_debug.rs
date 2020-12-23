@@ -10,9 +10,9 @@ use bevy::{
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(rotator_system)
-        .add_system(camera_order_color_system)
+        .add_startup_system(setup.system())
+        .add_system(rotator_system.system())
+        .add_system(camera_order_color_system.system())
         .run();
 }
 

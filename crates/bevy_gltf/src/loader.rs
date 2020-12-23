@@ -23,7 +23,7 @@ use bevy_transform::{
 use gltf::{
     mesh::Mode,
     texture::{MagFilter, MinFilter, WrappingMode},
-    Primitive,
+    Material, Primitive,
 };
 use image::{GenericImageView, ImageFormat};
 use std::path::Path;
@@ -148,38 +148,7 @@ async fn load_gltf<'a, 'b>(
     }
 
     for material in gltf.materials() {
-        let material_label = material_label(&material);
-        let pbr = material.pbr_metallic_roughness();
-        let mut dependencies = Vec::new();
-        let texture_handle = if let Some(info) = pbr.base_color_texture() {
-            match info.texture().source().source() {
-                gltf::image::Source::View { .. } => {
-                    let label = texture_label(&info.texture());
-                    let path = AssetPath::new_ref(load_context.path(), Some(&label));
-                    Some(load_context.get_handle(path))
-                }
-                gltf::image::Source::Uri { uri, .. } => {
-                    let parent = load_context.path().parent().unwrap();
-                    let image_path = parent.join(uri);
-                    let asset_path = AssetPath::new(image_path, None);
-                    let handle = load_context.get_handle(asset_path.clone());
-                    dependencies.push(asset_path);
-                    Some(handle)
-                }
-            }
-        } else {
-            None
-        };
-        let color = pbr.base_color_factor();
-        load_context.set_labeled_asset(
-            &material_label,
-            LoadedAsset::new(StandardMaterial {
-                albedo: Color::rgba(color[0], color[1], color[2], color[3]),
-                albedo_texture: texture_handle,
-                ..Default::default()
-            })
-            .with_dependencies(dependencies),
-        )
+        load_material(&material, load_context);
     }
 
     for scene in gltf.scenes() {
@@ -203,6 +172,42 @@ async fn load_gltf<'a, 'b>(
     load_context.set_default_asset(LoadedAsset::new(Scene::new(world)));
 
     Ok(())
+}
+
+fn load_material(material: &Material, load_context: &mut LoadContext) {
+    let material_label = material_label(&material);
+    let pbr = material.pbr_metallic_roughness();
+    let mut dependencies = Vec::new();
+    let texture_handle = if let Some(info) = pbr.base_color_texture() {
+        match info.texture().source().source() {
+            gltf::image::Source::View { .. } => {
+                let label = texture_label(&info.texture());
+                let path = AssetPath::new_ref(load_context.path(), Some(&label));
+                Some(load_context.get_handle(path))
+            }
+            gltf::image::Source::Uri { uri, .. } => {
+                let parent = load_context.path().parent().unwrap();
+                let image_path = parent.join(uri);
+                let asset_path = AssetPath::new(image_path, None);
+                let handle = load_context.get_handle(asset_path.clone());
+                dependencies.push(asset_path);
+                Some(handle)
+            }
+        }
+    } else {
+        None
+    };
+
+    let color = pbr.base_color_factor();
+    load_context.set_labeled_asset(
+        &material_label,
+        LoadedAsset::new(StandardMaterial {
+            albedo: Color::rgba(color[0], color[1], color[2], color[3]),
+            albedo_texture: texture_handle,
+            ..Default::default()
+        })
+        .with_dependencies(dependencies),
+    )
 }
 
 fn load_node(
@@ -271,13 +276,22 @@ fn load_node(
         if let Some(mesh) = gltf_node.mesh() {
             // append primitives
             for primitive in mesh.primitives() {
+                let material = primitive.material();
+                let material_label = material_label(&material);
+
+                // This will make sure we load the default material now since it would not have been
+                // added when iterating over all the gltf materials (since the default material is
+                // not explicitly listed in the gltf).
+                if !load_context.has_labeled_asset(&material_label) {
+                    load_material(&material, load_context);
+                }
+
                 let primitive_label = primitive_label(&mesh, &primitive);
                 let mesh_asset_path =
                     AssetPath::new_ref(load_context.path(), Some(&primitive_label));
-                let material = primitive.material();
-                let material_label = material_label(&material);
                 let material_asset_path =
                     AssetPath::new_ref(load_context.path(), Some(&material_label));
+
                 parent.spawn(PbrBundle {
                     mesh: load_context.get_handle(mesh_asset_path),
                     material: load_context.get_handle(material_asset_path),

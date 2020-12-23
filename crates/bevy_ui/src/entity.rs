@@ -12,6 +12,7 @@ use bevy_render::{
     draw::Draw,
     mesh::Mesh,
     pipeline::{RenderPipeline, RenderPipelines},
+    prelude::Visible,
 };
 use bevy_sprite::{ColorMaterial, QUAD_HANDLE};
 use bevy_transform::prelude::{GlobalTransform, Transform};
@@ -23,6 +24,7 @@ pub struct NodeBundle {
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
     pub material: Handle<ColorMaterial>,
     pub draw: Draw,
+    pub visible: Visible,
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -35,6 +37,10 @@ impl Default for NodeBundle {
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 UI_PIPELINE_HANDLE.typed(),
             )]),
+            visible: Visible {
+                is_transparent: true,
+                ..Default::default()
+            },
             node: Default::default(),
             style: Default::default(),
             material: Default::default(),
@@ -54,6 +60,7 @@ pub struct ImageBundle {
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
     pub material: Handle<ColorMaterial>,
     pub draw: Draw,
+    pub visible: Visible,
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -72,6 +79,10 @@ impl Default for ImageBundle {
             style: Default::default(),
             material: Default::default(),
             draw: Default::default(),
+            visible: Visible {
+                is_transparent: true,
+                ..Default::default()
+            },
             transform: Default::default(),
             global_transform: Default::default(),
         }
@@ -83,6 +94,7 @@ pub struct TextBundle {
     pub node: Node,
     pub style: Style,
     pub draw: Draw,
+    pub visible: Visible,
     pub text: Text,
     pub calculated_size: CalculatedSize,
     pub focus_policy: FocusPolicy,
@@ -95,6 +107,9 @@ impl Default for TextBundle {
         TextBundle {
             focus_policy: FocusPolicy::Pass,
             draw: Draw {
+                ..Default::default()
+            },
+            visible: Visible {
                 is_transparent: true,
                 ..Default::default()
             },
@@ -118,6 +133,7 @@ pub struct ButtonBundle {
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
     pub material: Handle<ColorMaterial>,
     pub draw: Draw,
+    pub visible: Visible,
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -137,6 +153,10 @@ impl Default for ButtonBundle {
             style: Default::default(),
             material: Default::default(),
             draw: Default::default(),
+            visible: Visible {
+                is_transparent: true,
+                ..Default::default()
+            },
             transform: Default::default(),
             global_transform: Default::default(),
         }

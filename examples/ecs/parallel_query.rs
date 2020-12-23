@@ -50,10 +50,10 @@ fn bounce_system(
     let window = windows.get_primary().expect("No primary window.");
     let width = window.width();
     let height = window.height();
-    let left = width as f32 / -2.0;
-    let right = width as f32 / 2.0;
-    let bottom = height as f32 / -2.0;
-    let top = height as f32 / 2.0;
+    let left = width / -2.0;
+    let right = width / 2.0;
+    let bottom = height / -2.0;
+    let top = height / 2.0;
     sprites
         // Batch size of 32 is chosen to limit the overhead of
         // ParallelIterator, since negating a vector is very inexpensive.
@@ -74,8 +74,8 @@ fn bounce_system(
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(spawn_system)
-        .add_system(move_system)
-        .add_system(bounce_system)
+        .add_startup_system(spawn_system.system())
+        .add_system(move_system.system())
+        .add_system(bounce_system.system())
         .run();
 }

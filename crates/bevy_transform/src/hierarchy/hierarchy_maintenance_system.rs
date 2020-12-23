@@ -71,7 +71,7 @@ pub fn parent_update_system(
 mod test {
     use super::*;
     use crate::{hierarchy::BuildChildren, transform_propagate_system::transform_propagate_system};
-    use bevy_ecs::{Resources, Schedule, Stage, SystemStage, World};
+    use bevy_ecs::{IntoSystem, Resources, Schedule, SystemStage, World};
     use bevy_math::Vec3;
 
     #[test]
@@ -80,8 +80,8 @@ mod test {
         let mut resources = Resources::default();
 
         let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(parent_update_system);
-        update_stage.add_system(transform_propagate_system);
+        update_stage.add_system(parent_update_system.system());
+        update_stage.add_system(transform_propagate_system.system());
 
         let mut schedule = Schedule::default();
         schedule.add_stage("update", update_stage);
@@ -103,7 +103,7 @@ mod test {
             });
         let parent = parent.unwrap();
         commands.apply(&mut world, &mut resources);
-        schedule.run(&mut world, &mut resources);
+        schedule.initialize_and_run(&mut world, &mut resources);
 
         assert_eq!(
             world
@@ -119,7 +119,7 @@ mod test {
         // Parent `e1` to `e2`.
         (*world.get_mut::<Parent>(children[0]).unwrap()).0 = children[1];
 
-        schedule.run(&mut world, &mut resources);
+        schedule.initialize_and_run(&mut world, &mut resources);
 
         assert_eq!(
             world
@@ -143,7 +143,7 @@ mod test {
 
         world.despawn(children[0]).unwrap();
 
-        schedule.run(&mut world, &mut resources);
+        schedule.initialize_and_run(&mut world, &mut resources);
 
         assert_eq!(
             world

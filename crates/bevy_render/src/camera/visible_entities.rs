@@ -1,5 +1,5 @@
 use super::{Camera, DepthCalculation};
-use crate::Draw;
+use crate::prelude::Visible;
 use bevy_core::FloatOrd;
 use bevy_ecs::{Entity, Query, With};
 use bevy_reflect::{Reflect, ReflectComponent};
@@ -26,8 +26,8 @@ impl VisibleEntities {
 
 pub fn visible_entities_system(
     mut camera_query: Query<(&Camera, &GlobalTransform, &mut VisibleEntities)>,
-    draw_query: Query<(Entity, &Draw)>,
-    draw_transform_query: Query<&GlobalTransform, With<Draw>>,
+    visible_query: Query<(Entity, &Visible)>,
+    visible_transform_query: Query<&GlobalTransform, With<Visible>>,
 ) {
     for (camera, camera_global_transform, mut visible_entities) in camera_query.iter_mut() {
         visible_entities.value.clear();
@@ -35,12 +35,12 @@ pub fn visible_entities_system(
 
         let mut no_transform_order = 0.0;
         let mut transparent_entities = Vec::new();
-        for (entity, draw) in draw_query.iter() {
-            if !draw.is_visible {
+        for (entity, visible) in visible_query.iter() {
+            if !visible.is_visible {
                 continue;
             }
 
-            let order = if let Ok(global_transform) = draw_transform_query.get(entity) {
+            let order = if let Ok(global_transform) = visible_transform_query.get(entity) {
                 let position = global_transform.translation;
                 // smaller distances are sorted to lower indices by using the distance from the camera
                 FloatOrd(match camera.depth_calculation {
@@ -53,7 +53,7 @@ pub fn visible_entities_system(
                 order
             };
 
-            if draw.is_transparent {
+            if visible.is_transparent {
                 transparent_entities.push(VisibleEntity { entity, order })
             } else {
                 visible_entities.value.push(VisibleEntity { entity, order })

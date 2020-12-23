@@ -5,14 +5,17 @@ fn main() {
     App::build()
         .init_resource::<RpgSpriteHandles>()
         .add_plugins(DefaultPlugins)
-        .add_state(AppState::Setup)
-        .state_enter(AppState::Setup, load_textures)
-        .state_update(AppState::Setup, check_textures)
-        .state_enter(AppState::Finshed, setup)
+        .add_resource(State::new(AppState::Setup))
+        .add_stage_after(stage::UPDATE, STAGE, StateStage::<AppState>::default())
+        .on_state_enter(STAGE, AppState::Setup, load_textures.system())
+        .on_state_update(STAGE, AppState::Setup, check_textures.system())
+        .on_state_enter(STAGE, AppState::Finshed, setup.system())
         .run();
 }
 
-#[derive(Clone, Hash, Eq, PartialEq)]
+const STAGE: &str = "app_state";
+
+#[derive(Clone)]
 enum AppState {
     Setup,
     Finshed,
@@ -28,14 +31,14 @@ fn load_textures(mut rpg_sprite_handles: ResMut<RpgSpriteHandles>, asset_server:
 }
 
 fn check_textures(
-    state: Res<State<AppState>>,
+    mut state: ResMut<State<AppState>>,
     rpg_sprite_handles: ResMut<RpgSpriteHandles>,
     asset_server: Res<AssetServer>,
 ) {
     if let LoadState::Loaded =
         asset_server.get_group_load_state(rpg_sprite_handles.handles.iter().map(|handle| handle.id))
     {
-        state.queue(AppState::Finshed);
+        state.set_next(AppState::Finshed).unwrap();
     }
 }
 

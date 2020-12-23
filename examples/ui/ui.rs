@@ -4,7 +4,7 @@ use bevy::prelude::*;
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_startup_system(setup.system())
         .run();
 }
 
@@ -115,10 +115,6 @@ fn setup(
                         ..Default::default()
                     },
                     material: materials.add(Color::NONE.into()),
-                    draw: Draw {
-                        is_transparent: true,
-                        ..Default::default()
-                    },
                     ..Default::default()
                 })
                 .with_children(|parent| {
@@ -188,10 +184,6 @@ fn setup(
                                         ..Default::default()
                                     },
                                     material: materials.add(Color::rgba(1.0, 0.9, 0.9, 0.4).into()),
-                                    draw: Draw {
-                                        is_transparent: true,
-                                        ..Default::default()
-                                    },
                                     ..Default::default()
                                 });
                         });
@@ -206,10 +198,6 @@ fn setup(
                         ..Default::default()
                     },
                     material: materials.add(Color::NONE.into()),
-                    draw: Draw {
-                        is_transparent: true,
-                        ..Default::default()
-                    },
                     ..Default::default()
                 })
                 .with_children(|parent| {
@@ -221,10 +209,6 @@ fn setup(
                         },
                         material: materials
                             .add(asset_server.load("branding/bevy_logo_dark_big.png").into()),
-                        draw: Draw {
-                            is_transparent: true,
-                            ..Default::default()
-                        },
                         ..Default::default()
                     });
                 });

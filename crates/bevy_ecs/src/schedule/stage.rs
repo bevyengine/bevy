@@ -14,6 +14,11 @@ pub enum StageError {
 }
 
 pub trait Stage: Downcast + Send + Sync {
+    /// Stages can perform setup here. Initialize should be called for every stage before calling [Stage::run]. Initialize will
+    /// be called once per update, so internally this should avoid re-doing work where possible.
+    fn initialize(&mut self, world: &mut World, resources: &mut Resources);
+
+    /// Runs the stage. This happens once per update (after [Stage::initialize] is called).
     fn run(&mut self, world: &mut World, resources: &mut Resources);
 }
 
@@ -46,9 +51,7 @@ impl SystemStage {
         }
     }
 
-    pub fn single<Params, S: System<In = (), Out = ()>, Into: IntoSystem<Params, S>>(
-        system: Into,
-    ) -> Self {
+    pub fn single<S: System<In = (), Out = ()>>(system: S) -> Self {
         Self::serial().with_system(system)
     }
 
@@ -60,46 +63,34 @@ impl SystemStage {
         Self::new(Box::new(ParallelSystemStageExecutor::default()))
     }
 
-    pub fn with_system<S, Params, IntoS>(mut self, system: IntoS) -> Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
+    pub fn with_system<S: System<In = (), Out = ()>>(mut self, system: S) -> Self
     {
         self.add_system(system);
         self
     }
 
-    pub fn with_system_labeled<S, Params, IntoS>(mut self, system: IntoS, label: Label) -> Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
+    pub fn with_system_labeled<S: System<In = (), Out = ()>>(mut self, system: S, label: Label) -> Self
     {
         self.add_system_labeled(system, label);
         self
     }
 
-    pub fn with_system_with_dependencies<S, Params, IntoS>(
+    pub fn with_system_with_dependencies<S: System<In = (), Out = ()>>(
         mut self,
-        system: IntoS,
+        system: S,
         dependencies: &[Label],
     ) -> Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
     {
         self.add_system_with_dependencies(system, dependencies);
         self
     }
 
-    pub fn with_system_labeled_with_dependencies<S, Params, IntoS>(
+    pub fn with_system_labeled_with_dependencies<S: System<In = (), Out = ()>>(
         mut self,
-        system: IntoS,
+        system: S,
         label: Label,
         dependencies: &[Label],
     ) -> Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
     {
         self.add_system_labeled_with_dependencies(system, label, dependencies);
         self
@@ -110,10 +101,7 @@ impl SystemStage {
         self
     }
 
-    pub fn with_run_criteria<S, Params, IntoS>(mut self, system: IntoS) -> Self
-    where
-        S: System<In = (), Out = ShouldRun>,
-        IntoS: IntoSystem<Params, S>,
+    pub fn with_run_criteria<S: System<In = (), Out = ()>>(mut self, system: S) -> Self
     {
         self.run_criteria.set(Box::new(system.system()));
         self
@@ -124,46 +112,34 @@ impl SystemStage {
         self
     }
 
-    pub fn add_system<S, Params, IntoS>(&mut self, system: IntoS) -> &mut Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
+    pub fn add_system<S: System<In = (), Out = ()>>(&mut self, system: S) -> &mut Self
     {
         self.system_sets[0].add_system(system);
         self
     }
 
-    pub fn add_system_labeled<S, Params, IntoS>(&mut self, system: IntoS, label: Label) -> &mut Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
+    pub fn add_system_labeled<S: System<In = (), Out = ()>>(&mut self, system: S, label: Label) -> &mut Self
     {
         self.system_sets[0].add_system_labeled(system, label);
         self
     }
 
-    pub fn add_system_with_dependencies<S, Params, IntoS>(
+    pub fn add_system_with_dependencies<S: System<In = (), Out = ()>>(
         &mut self,
-        system: IntoS,
+        system: S,
         dependencies: &[Label],
     ) -> &mut Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
     {
         self.system_sets[0].add_system_with_dependencies(system, dependencies);
         self
     }
 
-    pub fn add_system_labeled_with_dependencies<S, Params, IntoS>(
+    pub fn add_system_labeled_with_dependencies<S: System<In = (), Out = ()>>(
         &mut self,
-        system: IntoS,
+        system: S,
         label: Label,
         dependencies: &[Label],
     ) -> &mut Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
     {
         self.system_sets[0].add_system_labeled_with_dependencies(system, label, dependencies);
         self
@@ -250,6 +226,10 @@ impl SystemStage {
 }
 
 impl Stage for SystemStage {
+    fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
+        // TODO
+    }
+
     fn run(&mut self, world: &mut World, resources: &mut Resources) {
         loop {
             match self.run_criteria.should_run(world, resources) {
@@ -492,29 +472,6 @@ impl SystemSet {
 impl<S: System<In = (), Out = ()>> From<S> for SystemStage {
     fn from(system: S) -> Self {
         SystemStage::single(system)
-    }
-}
-
-pub trait IntoStage<Params> {
-    type Stage: Stage;
-    fn into_stage(self) -> Self::Stage;
-}
-
-impl<Params, S: System<In = (), Out = ()>, IntoS: IntoSystem<Params, S>> IntoStage<(Params, S)>
-    for IntoS
-{
-    type Stage = SystemStage;
-
-    fn into_stage(self) -> Self::Stage {
-        SystemStage::single(self)
-    }
-}
-
-impl<S: Stage> IntoStage<()> for S {
-    type Stage = S;
-
-    fn into_stage(self) -> Self::Stage {
-        self
     }
 }
 

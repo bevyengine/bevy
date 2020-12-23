@@ -5,21 +5,20 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .init_resource::<ButtonMaterials>()
-        .add_state(AppState::Menu)
-        .state_enter(AppState::Menu, setup_menu)
-        .state_update(AppState::Menu, menu)
-        .state_exit(AppState::Menu, cleanup_menu)
-        .state_enter(AppState::InGame, setup_game)
-        .state_update(
-            AppState::InGame,
-            SystemStage::parallel()
-                .with_system(movement)
-                .with_system(change_color),
-        )
+        .add_resource(State::new(AppState::Menu))
+        .add_stage_after(stage::UPDATE, STAGE, StateStage::<AppState>::default())
+        .on_state_enter(STAGE, AppState::Menu, setup_menu.system())
+        .on_state_update(STAGE, AppState::Menu, menu.system())
+        .on_state_exit(STAGE, AppState::Menu, cleanup_menu.system())
+        .on_state_enter(STAGE, AppState::InGame, setup_game.system())
+        .on_state_update(STAGE, AppState::InGame, movement.system())
+        .on_state_update(STAGE, AppState::InGame, change_color.system())
         .run();
 }
 
-#[derive(Clone, Hash, Eq, PartialEq)]
+const STAGE: &str = "app_state";
+
+#[derive(Clone)]
 enum AppState {
     Menu,
     InGame,
@@ -71,7 +70,7 @@ fn setup_menu(
 }
 
 fn menu(
-    state: Res<State<AppState>>,
+    mut state: ResMut<State<AppState>>,
     button_materials: Res<ButtonMaterials>,
     mut interaction_query: Query<
         (&Interaction, &mut Handle<ColorMaterial>),
@@ -82,7 +81,7 @@ fn menu(
         match *interaction {
             Interaction::Clicked => {
                 *material = button_materials.pressed.clone();
-                state.queue(AppState::InGame);
+                state.set_next(AppState::InGame).unwrap();
             }
             Interaction::Hovered => {
                 *material = button_materials.hovered.clone();

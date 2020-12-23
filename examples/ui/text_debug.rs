@@ -12,8 +12,8 @@ fn main() {
         })
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin)
-        .add_startup_system(infotext_system)
-        .add_system(change_text_system)
+        .add_startup_system(infotext_system.system())
+        .add_system(change_text_system.system())
         .run();
 }
 
@@ -21,7 +21,8 @@ struct TextChanges;
 
 fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    commands.spawn(CameraUiBundle::default()).spawn(TextBundle {
+    commands.spawn(CameraUiBundle::default());
+    commands.spawn(TextBundle {
         style: Style {
             align_self: AlignSelf::FlexEnd,
             position_type: PositionType::Absolute,
@@ -43,7 +44,7 @@ fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
         },
         ..Default::default()
     });
-    commands.spawn(CameraUiBundle::default()).spawn(TextBundle {
+    commands.spawn(TextBundle {
         style: Style {
             align_self: AlignSelf::FlexEnd,
             position_type: PositionType::Absolute,
@@ -74,7 +75,6 @@ fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
         ..Default::default()
     });
     commands
-        .spawn(CameraUiBundle::default())
         .spawn(TextBundle {
             style: Style {
                 align_self: AlignSelf::FlexEnd,
@@ -98,7 +98,7 @@ fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
             ..Default::default()
         })
         .with(TextChanges);
-    commands.spawn(CameraUiBundle::default()).spawn(TextBundle {
+    commands.spawn(TextBundle {
         style: Style {
             align_self: AlignSelf::FlexEnd,
             position_type: PositionType::Absolute,

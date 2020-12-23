@@ -5,7 +5,7 @@ use bevy_math::Size;
 use bevy_render::{
     draw::{Draw, DrawContext, Drawable},
     mesh::Mesh,
-    prelude::Msaa,
+    prelude::{Msaa, Visible},
     renderer::RenderResourceBindings,
     texture::Texture,
 };
@@ -146,13 +146,13 @@ pub fn draw_text_system(
     meshes: Res<Assets<Mesh>>,
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
     text_pipeline: Res<DefaultTextPipeline>,
-    mut query: Query<(Entity, &mut Draw, &Text, &Node, &GlobalTransform)>,
+    mut query: Query<(Entity, &mut Draw, &Visible, &Text, &Node, &GlobalTransform)>,
 ) {
     let font_quad = meshes.get(&QUAD_HANDLE).unwrap();
     let vertex_buffer_descriptor = font_quad.get_vertex_buffer_descriptor();
 
-    for (entity, mut draw, text, node, global_transform) in query.iter_mut() {
-        if !draw.is_visible {
+    for (entity, mut draw, visible, text, node, global_transform) in query.iter_mut() {
+        if !visible.is_visible {
             continue;
         }
 

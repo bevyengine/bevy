@@ -13,7 +13,7 @@ mod path;
 
 pub use asset_server::*;
 pub use assets::*;
-use bevy_ecs::SystemStage;
+use bevy_ecs::{IntoSystem, SystemStage};
 use bevy_reflect::RegisterTypeBuilder;
 use bevy_tasks::IoTaskPool;
 pub use handle::*;
@@ -51,28 +51,41 @@ impl Default for AssetServerSettings {
     }
 }
 
+/// Create an instance of the platform default `AssetIo`
+///
+/// This is useful when providing a custom `AssetIo` instance that needs to
+/// delegate to the default `AssetIo` for the platform.
+pub fn create_platform_default_asset_io(app: &mut AppBuilder) -> Box<dyn AssetIo> {
+    let settings = app
+        .resources_mut()
+        .get_or_insert_with(AssetServerSettings::default);
+
+    #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
+    let source = FileAssetIo::new(&settings.asset_folder);
+    #[cfg(target_arch = "wasm32")]
+    let source = WasmAssetIo::new(&settings.asset_folder);
+    #[cfg(target_os = "android")]
+    let source = AndroidAssetIo::new(&settings.asset_folder);
+
+    Box::new(source)
+}
+
 impl Plugin for AssetPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        let task_pool = app
-            .resources()
-            .get::<IoTaskPool>()
-            .expect("`IoTaskPool` resource not found.")
-            .0
-            .clone();
+        if app.resources().get::<AssetServer>().is_none() {
+            let task_pool = app
+                .resources()
+                .get::<IoTaskPool>()
+                .expect("`IoTaskPool` resource not found.")
+                .0
+                .clone();
 
-        let asset_server = {
-            let settings = app
-                .resources_mut()
-                .get_or_insert_with(AssetServerSettings::default);
+            let source = create_platform_default_asset_io(app);
 
-            #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
-            let source = FileAssetIo::new(&settings.asset_folder);
-            #[cfg(target_arch = "wasm32")]
-            let source = WasmAssetIo::new(&settings.asset_folder);
-            #[cfg(target_os = "android")]
-            let source = AndroidAssetIo::new(&settings.asset_folder);
-            AssetServer::new(source, task_pool)
-        };
+            let asset_server = AssetServer::with_boxed_io(source, task_pool);
+
+            app.add_resource(asset_server);
+        }
 
         app.add_stage_before(
             bevy_app::stage::PRE_UPDATE,
@@ -84,17 +97,16 @@ impl Plugin for AssetPlugin {
             stage::ASSET_EVENTS,
             SystemStage::parallel(),
         )
-        .add_resource(asset_server)
         .register_type::<HandleId>()
         .add_system_to_stage(
             bevy_app::stage::PRE_UPDATE,
-            asset_server::free_unused_assets_system,
+            asset_server::free_unused_assets_system.system(),
         );
 
         #[cfg(all(
             feature = "filesystem_watcher",
             all(not(target_arch = "wasm32"), not(target_os = "android"))
         ))]
-        app.add_system_to_stage(stage::LOAD_ASSETS, io::filesystem_watcher_system);
+        app.add_system_to_stage(stage::LOAD_ASSETS, io::filesystem_watcher_system.system());
     }
 }

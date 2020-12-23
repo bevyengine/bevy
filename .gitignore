@@ -3,6 +3,7 @@ crates/*/target
 **/*.rs.bk
 Cargo.lock
 .cargo/config
+.cargo/config.toml
 /.idea
 /.vscode
 /benches/target

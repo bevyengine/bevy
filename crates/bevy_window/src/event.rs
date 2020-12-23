@@ -5,8 +5,8 @@ use bevy_math::Vec2;
 #[derive(Debug, Clone)]
 pub struct WindowResized {
     pub id: WindowId,
-    pub width: usize,
-    pub height: usize,
+    pub width: f32,
+    pub height: f32,
 }
 
 /// An event that indicates that a new window should be created.
@@ -56,4 +56,11 @@ pub struct CursorLeft {
 pub struct ReceivedCharacter {
     pub id: WindowId,
     pub char: char,
+}
+
+/// An event that indicates a window has received or lost focus.
+#[derive(Debug, Clone)]
+pub struct WindowFocused {
+    pub id: WindowId,
+    pub focused: bool,
 }
