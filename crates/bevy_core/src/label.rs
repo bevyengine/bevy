@@ -88,6 +88,10 @@ pub(crate) fn entity_labels_system(
         for added_label in labels.labels.difference(&current_labels) {
             if let Some(entities) = entity_labels.label_entities.get_mut(added_label) {
                 entities.push(entity);
+            } else {
+                entity_labels
+                    .label_entities
+                    .insert(added_label.clone(), vec![entity]);
             }
         }
 
