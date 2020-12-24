@@ -1,9 +1,5 @@
 use super::Node;
-use crate::{
-    render::UI_PIPELINE_HANDLE,
-    widget::{Button, Image, Text},
-    CalculatedSize, FocusPolicy, Interaction, Style,
-};
+use crate::{CalculatedSize, FocusPolicy, Interaction, RenderBorders, Style, render::UI_PIPELINE_HANDLE, widget::{Button, Image, Text}};
 use bevy_asset::Handle;
 use bevy_ecs::Bundle;
 use bevy_math::Vec3;
@@ -28,6 +24,7 @@ pub struct NodeBundle {
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
+    pub render_borders: RenderBorders,
 }
 
 impl Default for NodeBundle {
@@ -47,6 +44,7 @@ impl Default for NodeBundle {
             draw: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
+            render_borders: Default::default(),
         }
     }
 }
@@ -64,6 +62,7 @@ pub struct ImageBundle {
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
+    pub render_borders: RenderBorders,
 }
 
 impl Default for ImageBundle {
@@ -85,6 +84,7 @@ impl Default for ImageBundle {
             },
             transform: Default::default(),
             global_transform: Default::default(),
+            render_borders: Default::default(),
         }
     }
 }
@@ -100,6 +100,7 @@ pub struct TextBundle {
     pub focus_policy: FocusPolicy,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
+    pub render_borders: RenderBorders,
 }
 
 impl Default for TextBundle {
@@ -119,6 +120,7 @@ impl Default for TextBundle {
             style: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
+            render_borders: Default::default(),
         }
     }
 }
@@ -137,6 +139,7 @@ pub struct ButtonBundle {
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
+    pub render_borders: RenderBorders,
 }
 
 impl Default for ButtonBundle {
@@ -159,6 +162,7 @@ impl Default for ButtonBundle {
             },
             transform: Default::default(),
             global_transform: Default::default(),
+            render_borders: Default::default(),
         }
     }
 }

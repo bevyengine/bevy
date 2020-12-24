@@ -1,6 +1,7 @@
-use bevy_math::{Rect, Size, Vec2};
+use bevy_core::Byteable;
+use bevy_math::{Rect, Size, Vec2, Vec4};
 use bevy_reflect::{Reflect, ReflectComponent, ReflectDeserialize};
-use bevy_render::renderer::RenderResources;
+use bevy_render::{prelude::Color, renderer::RenderResources,  renderer::RenderResource};
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign};
 
@@ -9,6 +10,19 @@ use std::ops::{Add, AddAssign};
 pub struct Node {
     pub size: Vec2,
 }
+
+#[derive(Debug, Clone, Default, RenderResources, Reflect, RenderResource)]
+#[reflect(Component)]
+#[render_resources(from_self)]
+pub struct RenderBorders {
+    pub sizes: Vec4,
+    pub left: Color,
+    pub right: Color,
+    pub top: Color,
+    pub bottom: Color,
+}
+
+unsafe impl Byteable for RenderBorders {}
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
@@ -67,7 +81,7 @@ pub struct Style {
     pub position: Rect<Val>,
     pub margin: Rect<Val>,
     pub padding: Rect<Val>,
-    pub border: Rect<Val>,
+    pub border: Rect<Border>,
     pub flex_grow: f32,
     pub flex_shrink: f32,
     pub flex_basis: Val,
@@ -75,6 +89,21 @@ pub struct Style {
     pub min_size: Size<Val>,
     pub max_size: Size<Val>,
     pub aspect_ratio: Option<f32>,
+}
+
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+pub struct Border {
+    pub size: f32,
+    pub color: Color,
+}
+
+impl Default for Border {
+    fn default() -> Self {
+        Border {
+            size: 0.,
+            color: Color::WHITE,
+        }
+    }
 }
 
 impl Default for Style {

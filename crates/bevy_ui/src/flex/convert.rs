@@ -1,19 +1,17 @@
-use crate::{
-    AlignContent, AlignItems, AlignSelf, Direction, Display, FlexDirection, FlexWrap,
-    JustifyContent, PositionType, Style, Val,
-};
+use crate::{AlignContent, AlignItems, AlignSelf, Border, Direction, Display, FlexDirection, FlexWrap, JustifyContent, PositionType, Style, Val};
 use bevy_math::{Rect, Size};
+use bevy_reflect::Reflect;
 
 pub fn from_rect(
     scale_factor: f64,
-    rect: Rect<Val>,
+    rect: Rect<impl Into<Val> + Reflect>,
 ) -> stretch::geometry::Rect<stretch::style::Dimension> {
     stretch::geometry::Rect {
-        start: from_val(scale_factor, rect.left),
-        end: from_val(scale_factor, rect.right),
+        start: from_val(scale_factor, rect.left.into()),
+        end: from_val(scale_factor, rect.right.into()),
         // NOTE: top and bottom are intentionally flipped. stretch has a flipped y-axis
-        top: from_val(scale_factor, rect.bottom),
-        bottom: from_val(scale_factor, rect.top),
+        top: from_val(scale_factor, rect.bottom.into()),
+        bottom: from_val(scale_factor, rect.top.into()),
     }
 }
 
@@ -60,6 +58,12 @@ pub fn from_style(scale_factor: f64, value: &Style) -> stretch::style::Style {
             Some(value) => stretch::number::Number::Defined(value),
             None => stretch::number::Number::Undefined,
         },
+    }
+}
+
+impl From<Border> for Val {
+    fn from(b: Border) -> Self {
+        Val::Px(b.size)
     }
 }
 

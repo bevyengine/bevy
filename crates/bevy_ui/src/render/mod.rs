@@ -1,6 +1,7 @@
-use crate::Node;
+use crate::{Node, RenderBorders, Style};
 use bevy_asset::{Assets, HandleUntyped};
-use bevy_ecs::Resources;
+use bevy_ecs::{Changed, Query, Resources, With};
+use bevy_math::{Vec4};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ActiveCameras,
@@ -72,6 +73,7 @@ pub fn build_ui_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
 pub mod node {
     pub const CAMERA_UI: &str = "camera_ui";
     pub const NODE: &str = "node";
+    pub const BORDERS: &str = "borders";
     pub const UI_PASS: &str = "ui_pass";
 }
 
@@ -90,7 +92,7 @@ impl UiRenderGraphBuilder for RenderGraph {
         let msaa = resources.get::<Msaa>().unwrap();
         pipelines.set_untracked(UI_PIPELINE_HANDLE, build_ui_pipeline(&mut shaders));
 
-        let mut ui_pass_node = PassNode::<&Node>::new(PassDescriptor {
+        let mut ui_pass_node = PassNode::<(&Node, &RenderBorders)>::new(PassDescriptor {
             color_attachments: vec![msaa.color_attachment_descriptor(
                 TextureAttachment::Input("color_attachment".to_string()),
                 TextureAttachment::Input("color_resolve_target".to_string()),
@@ -152,8 +154,26 @@ impl UiRenderGraphBuilder for RenderGraph {
         self.add_node_edge(node::CAMERA_UI, node::UI_PASS).unwrap();
         self.add_system_node(node::NODE, RenderResourcesNode::<Node>::new(true));
         self.add_node_edge(node::NODE, node::UI_PASS).unwrap();
+        self.add_system_node(node::BORDERS, RenderResourcesNode::<RenderBorders>::new(true));
+        self.add_node_edge(node::BORDERS, node::UI_PASS).unwrap();
         let mut active_cameras = resources.get_mut::<ActiveCameras>().unwrap();
         active_cameras.add(camera::CAMERA_UI);
         self
+    }
+}
+
+pub fn render_sync_system(
+    mut query: Query<(&Style, &mut RenderBorders), (With<Node>, Changed<Style>)>,
+) {
+    for (style, mut borders) in query.iter_mut() {
+        let left = style.border.left;
+        let right = style.border.right;
+        let top = style.border.top;
+        let bottom = style.border.bottom;
+        borders.sizes = Vec4::new(left.size, right.size, top.size, bottom.size);
+        borders.left = left.color;
+        borders.right = right.color;
+        borders.top = top.color;
+        borders.bottom = bottom.color;
     }
 }
