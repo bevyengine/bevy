@@ -46,7 +46,16 @@ impl<I: Index> Hierarchy<I> {
     /// Many different root nodes are supported although having other roots
     /// make hard to search entities, please refer to the documentation of
     /// `find_entity` or `find_entity_in_world` to see how.
+    ///
+    /// **WARNING** Be caution when using this function because it may create a
+    /// an invalid hierarchy
     pub fn from_ordered_entities(entities: Vec<(I, Name)>) -> Self {
+        assert_eq!(
+            entities[0].0,
+            I::MAX_VALUE,
+            "first entry must be an root entity"
+        );
+
         let mut children = vec![];
         children.resize_with(entities.len(), || smallvec![]);
 
