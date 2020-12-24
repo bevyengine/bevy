@@ -1,5 +1,5 @@
 use crate::Time;
-use bevy_ecs::{ArchetypeComponent, ShouldRun, System, SystemId,  TypeAccess};
+use bevy_ecs::{ArchetypeComponent, ShouldRun, System, SystemId, TypeAccess};
 use bevy_utils::HashMap;
 use std::{any::TypeId, borrow::Cow};
 
