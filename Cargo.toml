@@ -191,8 +191,8 @@ name = "custom_diagnostic"
 path = "examples/diagnostics/custom_diagnostic.rs"
 
 [[example]]
-name = "print_diagnostics"
-path = "examples/diagnostics/print_diagnostics.rs"
+name = "log_diagnostics"
+path = "examples/diagnostics/log_diagnostics.rs"
 
 [[example]]
 name = "event"

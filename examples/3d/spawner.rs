@@ -1,5 +1,5 @@
 use bevy::{
-    diagnostic::{FrameTimeDiagnosticsPlugin, PrintDiagnosticsPlugin},
+    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
 };
 use rand::{rngs::StdRng, Rng, SeedableRng};
@@ -12,7 +12,7 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugin(PrintDiagnosticsPlugin::default())
+        .add_plugin(LogDiagnosticsPlugin::default())
         .add_startup_system(setup.system())
         .add_system(move_cubes.system())
         .run();

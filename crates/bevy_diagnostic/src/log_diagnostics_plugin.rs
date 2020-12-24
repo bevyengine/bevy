@@ -2,24 +2,25 @@ use super::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_app::prelude::*;
 use bevy_core::{Time, Timer};
 use bevy_ecs::{IntoSystem, Res, ResMut};
+use bevy_log::{debug, info};
 use bevy_utils::Duration;
 
-/// An App Plugin that prints diagnostics to the console
-pub struct PrintDiagnosticsPlugin {
+/// An App Plugin that logs diagnostics to the console
+pub struct LogDiagnosticsPlugin {
     pub debug: bool,
     pub wait_duration: Duration,
     pub filter: Option<Vec<DiagnosticId>>,
 }
 
-/// State used by the [PrintDiagnosticsPlugin]
-pub struct PrintDiagnosticsState {
+/// State used by the [LogDiagnosticsPlugin]
+struct LogDiagnosticsState {
     timer: Timer,
     filter: Option<Vec<DiagnosticId>>,
 }
 
-impl Default for PrintDiagnosticsPlugin {
+impl Default for LogDiagnosticsPlugin {
     fn default() -> Self {
-        PrintDiagnosticsPlugin {
+        LogDiagnosticsPlugin {
             debug: false,
             wait_duration: Duration::from_secs(1),
             filter: None,
@@ -27,9 +28,9 @@ impl Default for PrintDiagnosticsPlugin {
     }
 }
 
-impl Plugin for PrintDiagnosticsPlugin {
+impl Plugin for LogDiagnosticsPlugin {
     fn build(&self, app: &mut bevy_app::AppBuilder) {
-        app.add_resource(PrintDiagnosticsState {
+        app.add_resource(LogDiagnosticsState {
             timer: Timer::new(self.wait_duration, true),
             filter: self.filter.clone(),
         });
@@ -37,68 +38,66 @@ impl Plugin for PrintDiagnosticsPlugin {
         if self.debug {
             app.add_system_to_stage(
                 stage::POST_UPDATE,
-                Self::print_diagnostics_debug_system.system(),
+                Self::log_diagnostics_debug_system.system(),
             );
         } else {
-            app.add_system_to_stage(stage::POST_UPDATE, Self::print_diagnostics_system.system());
+            app.add_system_to_stage(stage::POST_UPDATE, Self::log_diagnostics_system.system());
         }
     }
 }
 
-impl PrintDiagnosticsPlugin {
+impl LogDiagnosticsPlugin {
     pub fn filtered(filter: Vec<DiagnosticId>) -> Self {
-        PrintDiagnosticsPlugin {
+        LogDiagnosticsPlugin {
             filter: Some(filter),
             ..Default::default()
         }
     }
 
-    fn print_diagnostic(diagnostic: &Diagnostic) {
+    fn log_diagnostic(diagnostic: &Diagnostic) {
         if let Some(value) = diagnostic.value() {
-            print!("{:<65}: {:<10.6}", diagnostic.name, value);
             if let Some(average) = diagnostic.average() {
-                print!("  (avg {:.6})", average);
-            }
-
-            println!("\n");
-        }
-    }
-
-    pub fn print_diagnostics_system(
-        mut state: ResMut<PrintDiagnosticsState>,
-        time: Res<Time>,
-        diagnostics: Res<Diagnostics>,
-    ) {
-        if state.timer.tick(time.delta_seconds()).finished() {
-            println!("Diagnostics:");
-            println!("{}", "-".repeat(93));
-            if let Some(ref filter) = state.filter {
-                for diagnostic in filter.iter().map(|id| diagnostics.get(*id).unwrap()) {
-                    Self::print_diagnostic(diagnostic);
-                }
+                info!(
+                    "{:<65}: {:<10.6}  (avg {:.6})",
+                    diagnostic.name, value, average
+                );
             } else {
-                for diagnostic in diagnostics.iter() {
-                    Self::print_diagnostic(diagnostic);
-                }
+                info!("{:<65}: {:<10.6}", diagnostic.name, value);
             }
         }
     }
 
-    pub fn print_diagnostics_debug_system(
-        mut state: ResMut<PrintDiagnosticsState>,
+    fn log_diagnostics_system(
+        mut state: ResMut<LogDiagnosticsState>,
         time: Res<Time>,
         diagnostics: Res<Diagnostics>,
     ) {
         if state.timer.tick(time.delta_seconds()).finished() {
-            println!("Diagnostics (Debug):");
-            println!("{}", "-".repeat(93));
             if let Some(ref filter) = state.filter {
                 for diagnostic in filter.iter().map(|id| diagnostics.get(*id).unwrap()) {
-                    println!("{:#?}\n", diagnostic);
+                    Self::log_diagnostic(diagnostic);
                 }
             } else {
-                for diagnostic in diagnostics.iter() {
-                    println!("{:#?}\n", diagnostic);
+                for diagnostic in diagnostics.ordered_iter() {
+                    Self::log_diagnostic(diagnostic);
+                }
+            }
+        }
+    }
+
+    fn log_diagnostics_debug_system(
+        mut state: ResMut<LogDiagnosticsState>,
+        time: Res<Time>,
+        diagnostics: Res<Diagnostics>,
+    ) {
+        if state.timer.tick(time.delta_seconds()).finished() {
+            if let Some(ref filter) = state.filter {
+                for diagnostic in filter.iter().map(|id| diagnostics.get(*id).unwrap()) {
+                    debug!("{:#?}\n", diagnostic);
+                }
+            } else {
+                for diagnostic in diagnostics.ordered_iter() {
+                    debug!("{:#?}\n", diagnostic);
                 }
             }
         }
