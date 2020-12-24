@@ -1,7 +1,7 @@
 use crate::{Node, RenderBorders, Style};
 use bevy_asset::{Assets, HandleUntyped};
 use bevy_ecs::{Changed, Query, Resources, With};
-use bevy_math::{Vec4};
+use bevy_math::Vec4;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ActiveCameras,
@@ -154,7 +154,10 @@ impl UiRenderGraphBuilder for RenderGraph {
         self.add_node_edge(node::CAMERA_UI, node::UI_PASS).unwrap();
         self.add_system_node(node::NODE, RenderResourcesNode::<Node>::new(true));
         self.add_node_edge(node::NODE, node::UI_PASS).unwrap();
-        self.add_system_node(node::BORDERS, RenderResourcesNode::<RenderBorders>::new(true));
+        self.add_system_node(
+            node::BORDERS,
+            RenderResourcesNode::<RenderBorders>::new(true),
+        );
         self.add_node_edge(node::BORDERS, node::UI_PASS).unwrap();
         let mut active_cameras = resources.get_mut::<ActiveCameras>().unwrap();
         active_cameras.add(camera::CAMERA_UI);

@@ -1,4 +1,7 @@
-use crate::{AlignContent, AlignItems, AlignSelf, Border, Direction, Display, FlexDirection, FlexWrap, JustifyContent, PositionType, Style, Val};
+use crate::{
+    AlignContent, AlignItems, AlignSelf, Border, Direction, Display, FlexDirection, FlexWrap,
+    JustifyContent, PositionType, Style, Val,
+};
 use bevy_math::{Rect, Size};
 use bevy_reflect::Reflect;
 

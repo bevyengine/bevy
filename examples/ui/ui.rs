@@ -31,7 +31,10 @@ fn setup(
                 .spawn(NodeBundle {
                     style: Style {
                         size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
-                        border: Rect::all(Border { size: 2., color: Color::rgb(0.65, 0.65, 0.65) }),
+                        border: Rect::all(Border {
+                            size: 2.,
+                            color: Color::rgb(0.65, 0.65, 0.65),
+                        }),
                         align_items: AlignItems::FlexEnd,
                         ..Default::default()
                     },
@@ -78,7 +81,7 @@ fn setup(
                         },
                         border: Rect::all(Border {
                             size: 20.,
-                            color: Color::rgb(0.4, 0.4, 1.0)
+                            color: Color::rgb(0.4, 0.4, 1.0),
                         }),
                         ..Default::default()
                     },

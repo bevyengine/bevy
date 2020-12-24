@@ -1,7 +1,10 @@
 use bevy_core::Byteable;
 use bevy_math::{Rect, Size, Vec2, Vec4};
 use bevy_reflect::{Reflect, ReflectComponent, ReflectDeserialize};
-use bevy_render::{prelude::Color, renderer::RenderResources,  renderer::RenderResource};
+use bevy_render::{
+    prelude::Color,
+    renderer::{RenderResource, RenderResources},
+};
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign};
 
