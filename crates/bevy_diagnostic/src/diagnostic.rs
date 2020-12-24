@@ -1,5 +1,5 @@
-use bevy_utils::{Duration, Instant, Uuid};
-use std::collections::{BTreeMap, VecDeque};
+use bevy_utils::{Duration, HashMap, Instant, Uuid};
+use std::collections::{BTreeSet, VecDeque};
 
 /// Unique identifier for a [Diagnostic]
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
@@ -101,11 +101,13 @@ impl Diagnostic {
 /// A collection of [Diagnostic]s
 #[derive(Debug, Default)]
 pub struct Diagnostics {
-    diagnostics: BTreeMap<DiagnosticId, Diagnostic>,
+    diagnostics: HashMap<DiagnosticId, Diagnostic>,
+    ordered_diagnostics: BTreeSet<DiagnosticId>,
 }
 
 impl Diagnostics {
     pub fn add(&mut self, diagnostic: Diagnostic) {
+        self.ordered_diagnostics.insert(diagnostic.id);
         self.diagnostics.insert(diagnostic.id, diagnostic);
     }
 
@@ -131,5 +133,11 @@ impl Diagnostics {
 
     pub fn iter(&self) -> impl Iterator<Item = &Diagnostic> {
         self.diagnostics.values()
+    }
+
+    pub fn ordered_iter(&self) -> impl Iterator<Item = &Diagnostic> {
+        self.ordered_diagnostics
+            .iter()
+            .filter_map(move |k| self.diagnostics.get(k))
     }
 }
