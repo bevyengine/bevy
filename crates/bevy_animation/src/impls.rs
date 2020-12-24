@@ -15,6 +15,58 @@ use bevy_render::{
 };
 use bevy_transform::prelude::*;
 
+pub struct TransformTranslationProps;
+
+impl Prop<Vec3, TransformTranslationProps> {
+    pub const fn x(&self) -> Prop<f32> {
+        Prop::borrowed("Transform.translation.x")
+    }
+
+    pub const fn y(&self) -> Prop<f32> {
+        Prop::borrowed("Transform.translation.y")
+    }
+
+    pub const fn z(&self) -> Prop<f32> {
+        Prop::borrowed("Transform.translation.z")
+    }
+}
+
+impl std::ops::Deref for Prop<Vec3, TransformTranslationProps> {
+    type Target = TransformTranslationProps;
+
+    #[inline(always)]
+    fn deref(&self) -> &Self::Target {
+        &TransformTranslationProps
+    }
+}
+
+pub struct TransformProps;
+
+impl TransformProps {
+    pub const fn translation(&self) -> Prop<Vec3, TransformTranslationProps> {
+        Prop::borrowed("Transform.translation")
+    }
+
+    pub const fn rotation(&self) -> Prop<Quat> {
+        Prop::borrowed("Transform.rotation")
+    }
+
+    pub const fn scale(&self) -> Prop<Vec3> {
+        Prop::borrowed("Transform.scale")
+    }
+}
+
+impl AnimatedProperties for Transform {
+    type Props = TransformProps;
+
+    #[inline(always)]
+    fn props() -> Self::Props {
+        TransformProps
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 impl AnimatedComponent for Transform {
     fn animator_update_system(
         clips: Res<Assets<Clip>>,
@@ -168,6 +220,42 @@ impl AnimatedComponent for Transform {
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+
+pub struct StandardMaterialProps;
+
+impl StandardMaterialProps {
+    pub const fn albedo(&self) -> Prop<Color> {
+        Prop::borrowed("Handle<StandardMaterial>.albedo")
+    }
+
+    pub const fn albedo_texture(&self) -> Prop<Option<Handle<Texture>>> {
+        Prop::borrowed("Handle<StandardMaterial>.albedo_texture")
+    }
+}
+
+pub struct HandleStandardMaterialProps;
+
+impl HandleStandardMaterialProps {
+    pub const fn handle(&self) -> Prop<Handle<StandardMaterial>> {
+        Prop::borrowed("Handle<StandardMaterial>")
+    }
+
+    pub const fn fields(&self) -> StandardMaterialProps {
+        StandardMaterialProps
+    }
+}
+
+impl AnimatedProperties for StandardMaterial {
+    type Props = HandleStandardMaterialProps;
+
+    fn props() -> Self::Props {
+        HandleStandardMaterialProps
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 impl AnimatedAsset for StandardMaterial {
     fn animator_update_system(
         clips: Res<Assets<Clip>>,
@@ -282,6 +370,8 @@ impl AnimatedAsset for StandardMaterial {
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+
 // #[derive(Debug, AnimatedComponent)]
 // struct Test {
 //     #[animated(expand { x: f32, y: f32, z: f32 })]
@@ -293,8 +383,10 @@ impl AnimatedAsset for StandardMaterial {
 
 // animated_component! {
 //     struct Transform {
+//         #[animated(expand { x: f32, y: f32, z: f32 })]
 //         translation: Vec3,
 //         rotation: Quat,
+//         #[animated(expand { x: f32, y: f32, z: f32 })]
 //         scale: Vec3,
 //     }
 // }

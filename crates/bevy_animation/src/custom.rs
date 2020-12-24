@@ -9,7 +9,10 @@ use fnv::FnvBuildHasher;
 use smallvec::{smallvec, SmallVec};
 use std::{
     any::Any,
+    borrow::Cow,
     collections::{HashMap, HashSet},
+    marker::PhantomData,
+    // ops::Deref,
 };
 
 use crate::blending::AnimatorBlending;
@@ -96,11 +99,12 @@ impl CurvesUntyped {
     }
 }
 
-// TODO: Didn't make my mind about it
 // Pros:
 //  - Can limit to only the entities that we really want to animate, from deep nested hierarchies
 //  - Entities names don't matter
 //  - Hierarchy don't matter with can be nice if you keep changing it
+//  - Easer to design a LayerMask around it
+//  - Bit less memory
 // Cons:
 //  - Harder to modify and manipulate clips
 //  - Harder to find entities
@@ -115,7 +119,6 @@ impl CurvesUntyped {
 // }
 
 // TODO: impl Serialize, Deserialize using bevy reflect for that
-// TODO: Study an optional asset that lists all animated entities, to take preference over
 // the hierarchy, this animated entity asset must match the one been used in the animator
 // this could help retarget animations, but will mess the clip
 #[derive(Debug, TypeUuid)]
@@ -129,11 +132,12 @@ pub struct Clip {
     pub warp: bool,
     /// Clip compound duration
     duration: f32,
-    // ! FIXME: The hierarchy may need to know more entities than the current been animated
-    // ! this will case them to fetch extra entities components that aren't used at all
+    // ! FIXME: Limit to only entities that have animations to avoid
+    // ! fetching extra components that aren't been used
     hierarchy: Hierarchy,
     // ? NOTE: AHash performed worse than FnvHasher
-    /// Each curve and keyframe cache index mapped by property name  
+    // TODO: Change to Cow<'static, str> since it will be used quit a lot as the common case
+    /// Each curve and keyframe cache index mapped by property name
     properties: HashMap<String, (usize, CurvesUntyped), FnvBuildHasher>,
     /// Number of animated properties
     len: usize,
@@ -159,18 +163,80 @@ impl Default for Clip {
     }
 }
 
+/// A type safe way of referring to properties that can be animated.
+///
+/// If a type implements `AnimatedProperties` each property can be retrieved
+/// by `Transform::props().translation().x()`
+pub struct Prop<CurveType, InnerProps = ()> {
+    pub name: Cow<'static, str>,
+    _marker: PhantomData<(CurveType, InnerProps)>,
+}
+
+impl<CurveType, InnerProps> Prop<CurveType, InnerProps> {
+    pub const fn borrowed(name: &'static str) -> Self {
+        Prop {
+            name: Cow::Borrowed(name),
+            _marker: PhantomData,
+        }
+    }
+
+    pub const fn owned(name: String) -> Self {
+        Prop {
+            name: Cow::Owned(name),
+            _marker: PhantomData,
+        }
+    }
+}
+
+// TODO: How to implement this
+// impl<CurveType, InnerProps> Deref for Prop<CurveType, InnerProps> {
+//     type Target = InnerProps;
+//
+//     fn deref(&self) -> &Self::Target {
+//         todo!()
+//     }
+// }
+
 impl Clip {
-    // TODO: Make harder to make mistakes like assigning a Curve<f32> to a rotation, or misspell names
     // TODO: Warn about properties that aren't been used so the user can check if they are wrong or not
-    /// Property to be animated must be in the following format `"path/to/named_entity@Transform.translation.x"`
-    /// where the left side `@` defines a path to the entity to animate,
-    /// while the right side the path to a property to animate starting from the component.
+    // TODO: Function docs
+    /// ???
+    /// This is the preferred method of adding curves into a clip, since it's better future proof than `add_curve_at_path`;
     ///
     /// **NOTE** This is a expensive function;
     ///
     /// **NOTE** You can safely ignore the return value as it's only used for assertions during tests;
     /// The return value is the assigned curve index in cache line bucket.
-    pub fn add_animated_prop<T>(&mut self, property_path: &str, mut curve: Curve<T>) -> usize
+    pub fn add_curve<T, DontCare>(
+        &mut self,
+        entity_path: &str,
+        property_path: Prop<T, DontCare>,
+        curve: Curve<T>,
+    ) -> usize
+    where
+        T: Lerp + Clone + Send + Sync + 'static,
+    {
+        // ? NOTE: DontCare generic will trigger multiple compilations of the `add_prop`
+        // ? function, here convert between types to make it generic only over `T`
+        self.add_curve_generic(
+            entity_path,
+            Prop {
+                name: property_path.name,
+                _marker: PhantomData,
+            },
+            curve,
+        )
+    }
+
+    // TODO: Can I make it generic over `T` ?
+    /// Used only by `add_prop` function and it's main purpose is prevent
+    /// create multiple versions of this function over the DontCare generic  
+    fn add_curve_generic<T>(
+        &mut self,
+        entity_path: &str, // TODO: Replace to `EntityPath` or something similar to Prop
+        property_path: Prop<T>,
+        mut curve: Curve<T>,
+    ) -> usize
     where
         T: Lerp + Clone + Send + Sync + 'static,
     {
@@ -181,15 +247,11 @@ impl Clip {
             "clip curve limit reached"
         );
 
-        // Split in entity and attribute path,
-        // NOTE: use rfind because it's expected the latter to be generally shorter
-        let path =
-            property_path.split_at(property_path.rfind('@').expect("property path missing @"));
+        let (entity_index, _) = self.hierarchy.get_or_insert_entity(entity_path);
 
-        let (entity_index, _) = self.hierarchy.get_or_insert_entity(path.0);
-        let target_name = path.1.split_at(1).1;
-
-        if let Some((cache_index, curves_untyped)) = self.properties.get_mut(target_name) {
+        if let Some((cache_index, curves_untyped)) =
+            self.properties.get_mut(property_path.name.as_ref())
+        {
             let curves = curves_untyped
                 .downcast_mut::<T>()
                 .expect("properties can't have the same name and different curve types");
@@ -249,7 +311,10 @@ impl Clip {
 
         self.duration = self.duration.max(curve.duration());
         self.properties.insert(
-            target_name.to_string(),
+            match property_path.name {
+                Cow::Borrowed(name) => name.to_string(),
+                Cow::Owned(name) => name,
+            },
             (
                 cache_index,
                 CurvesUntyped::new(Curves {
@@ -260,6 +325,28 @@ impl Clip {
         );
 
         cache_index
+    }
+
+    /// Property to be animated must be in the following format `"path/to/named_entity@Transform.translation.x"`
+    /// where the left side `@` defines a path to the entity to animate,
+    /// while the right side the path to a property to animate starting from the component.
+    ///
+    /// Please use preferably `add_curve` as it's future proof and type safe;
+    ///
+    /// **NOTE** This is a expensive function;
+    ///
+    /// **NOTE** You can safely ignore the return value as it's only used for assertions during tests;
+    /// The return value is the assigned curve index in cache line bucket.
+    pub fn add_curve_at_path<T>(&mut self, path: &str, curve: Curve<T>) -> usize
+    where
+        T: Lerp + Clone + Send + Sync + 'static,
+    {
+        // Split in entity and attribute path,
+        // NOTE: use rfind because it's expected the latter to be generally shorter
+        let path = path.split_at(path.rfind('@').expect("property path missing @"));
+        let property_path = path.1.split_at(1).1;
+
+        self.add_curve::<T, ()>(path.0, Prop::owned(property_path.to_string()), curve)
     }
 
     /// Number of animated properties in this clip
@@ -338,6 +425,7 @@ pub struct Layer {
     pub time_scale: f32,
     #[reflect(ignore)]
     keyframes_buckets: Vec<KeyframeBucket>,
+    // TODO: LayerMask
 }
 
 impl Default for Layer {
@@ -730,6 +818,14 @@ pub(crate) fn animator_update_system(
 
 // ! FIXME: Theres no way of free memory used by the `Local<AnimatorBlending>` in each system
 
+/// Provides a type safe way of get all properties that can be animated
+pub trait AnimatedProperties {
+    type Props;
+
+    /// Type safe animated properties of this component or asset
+    fn props() -> Self::Props;
+}
+
 pub trait AnimatedComponent: Component + Sized {
     fn animator_update_system(
         clips: Res<Assets<Clip>>,
@@ -788,18 +884,20 @@ mod tests {
             let mut animator = Animator::default();
             {
                 let mut clip_a = Clip::default();
-                clip_a.add_animated_prop(
-                    "@Transform.translation",
+                clip_a.add_curve(
+                    "",
+                    Transform::props().translation(),
                     Curve::from_linear(0.0, 1.0, Vec3::unit_x(), -Vec3::unit_x()),
                 );
                 let rot = Curve::from_constant(Quat::identity());
-                clip_a.add_animated_prop("@Transform.rotation", rot.clone());
-                clip_a.add_animated_prop("/Node1@Transform.rotation", rot.clone());
-                clip_a.add_animated_prop("/Node1/Node2@Transform.rotation", rot);
+                clip_a.add_curve("", Transform::props().rotation(), rot.clone());
+                clip_a.add_curve("/Node1", Transform::props().rotation(), rot.clone());
+                clip_a.add_curve("/Node1/Node2", Transform::props().rotation(), rot);
 
                 let mut clip_b = Clip::default();
-                clip_b.add_animated_prop(
-                    "@Transform.translation",
+                clip_b.add_curve(
+                    "",
+                    Transform::props().translation(),
                     Curve::from_constant(Vec3::zero()),
                 );
                 let rot = Curve::from_linear(
@@ -808,9 +906,9 @@ mod tests {
                     Quat::from_axis_angle(Vec3::unit_z(), 0.1),
                     Quat::from_axis_angle(Vec3::unit_z(), -0.1),
                 );
-                clip_b.add_animated_prop("@Transform.rotation", rot.clone());
-                clip_b.add_animated_prop("/Node1@Transform.rotation", rot.clone());
-                clip_b.add_animated_prop("/Node1/Node2@Transform.rotation", rot);
+                clip_b.add_curve("", Transform::props().rotation(), rot.clone());
+                clip_b.add_curve("/Node1", Transform::props().rotation(), rot.clone());
+                clip_b.add_curve("/Node1/Node2", Transform::props().rotation(), rot);
 
                 let mut clips = app_builder
                     .resources_mut()
@@ -1183,7 +1281,7 @@ mod tests {
             let clip_a_handle = test_bench.animator().clips()[0].clone();
             let mut clips = test_bench.app.resources.get_mut::<Assets<Clip>>().unwrap();
             let clip_a = clips.get_mut(clip_a_handle).unwrap();
-            clip_a.add_animated_prop(
+            clip_a.add_curve_at_path(
                 "/Node3/@Transform.translation",
                 Curve::from_linear(0.0, 1.0, Vec3::unit_z(), -Vec3::unit_z()),
             );
@@ -1216,40 +1314,40 @@ mod tests {
     fn clip_property_index_are_grouped_into_cache_line_buckets() {
         let curve = Curve::from_constant(0.0);
         let mut clip = Clip::default();
-        assert_eq!(clip.add_animated_prop("a@T.t", curve.clone()), 0);
-        assert_eq!(clip.add_animated_prop("b@T.t", curve.clone()), 1);
+        assert_eq!(clip.add_curve_at_path("a@T.t", curve.clone()), 0);
+        assert_eq!(clip.add_curve_at_path("b@T.t", curve.clone()), 1);
         assert_eq!(
-            clip.add_animated_prop("a@T.r", curve.clone()),
+            clip.add_curve_at_path("a@T.r", curve.clone()),
             KEYFRAMES_PER_CACHE
         );
-        assert_eq!(clip.add_animated_prop("c@T.t", curve.clone()), 2);
+        assert_eq!(clip.add_curve_at_path("c@T.t", curve.clone()), 2);
         assert_eq!(
-            clip.add_animated_prop("b@T.r", curve.clone()),
+            clip.add_curve_at_path("b@T.r", curve.clone()),
             KEYFRAMES_PER_CACHE + 1
         );
         assert_eq!(
-            clip.add_animated_prop("c@T.r", curve.clone()),
+            clip.add_curve_at_path("c@T.r", curve.clone()),
             KEYFRAMES_PER_CACHE + 2
         );
-        assert_eq!(clip.add_animated_prop("d@T.t", curve.clone()), 3);
+        assert_eq!(clip.add_curve_at_path("d@T.t", curve.clone()), 3);
 
         for i in 4..KEYFRAMES_PER_CACHE {
             assert_eq!(
-                clip.add_animated_prop(&format!("node_{}@T.t", i), curve.clone()),
+                clip.add_curve_at_path(&format!("node_{}@T.t", i), curve.clone()),
                 i
             );
         }
 
         assert_eq!(
-            clip.add_animated_prop("za@T.t", curve.clone()),
+            clip.add_curve_at_path("za@T.t", curve.clone()),
             KEYFRAMES_PER_CACHE * 2
         );
         assert_eq!(
-            clip.add_animated_prop("za@T.r", curve.clone()),
+            clip.add_curve_at_path("za@T.r", curve.clone()),
             KEYFRAMES_PER_CACHE + 3
         );
         assert_eq!(
-            clip.add_animated_prop("zb@T.t", curve.clone()),
+            clip.add_curve_at_path("zb@T.t", curve.clone()),
             KEYFRAMES_PER_CACHE * 2 + 1
         );
     }
