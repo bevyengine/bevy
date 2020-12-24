@@ -237,20 +237,17 @@ impl RunCriteria {
 #[cfg(test)]
 mod tests {
     use crate::{
-        resource::{Res, ResMut, Resources},
-        schedule::{ParallelSystemStageExecutor, Schedule, SystemStage},
+        resource::Resources,
+        schedule::{Schedule, SystemStage},
         system::Query,
         Commands, Entity, IntoSystem, World,
     };
     use bevy_tasks::{ComputeTaskPool, TaskPool};
-    use fixedbitset::FixedBitSet;
-    use parking_lot::Mutex;
-    use std::{collections::HashSet, sync::Arc};
 
-    #[derive(Default)]
+    /*#[derive(Default)]
     struct CompletedSystems {
         completed_systems: Arc<Mutex<HashSet<&'static str>>>,
-    }
+    }*/
 
     #[test]
     fn cross_stage_archetype_change_prepare() {
