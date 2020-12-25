@@ -199,8 +199,8 @@ impl<CurveType, InnerProps> Prop<CurveType, InnerProps> {
 
 impl Clip {
     // TODO: Warn about properties that aren't been used so the user can check if they are wrong or not
-    // TODO: Function docs
-    /// ???
+    /// Animates an entity property with a curve.
+    /// Adding the a second curve to the same entity and property will replace the first one;
     /// This is the preferred method of adding curves into a clip, since it's better future proof than `add_curve_at_path`;
     ///
     /// **NOTE** This is a expensive function;

@@ -24,7 +24,7 @@ pub use bevy_animation_derive::*;
 pub mod prelude {
     pub use crate::app::AddAnimated;
     pub use crate::blending::AnimatorBlending;
-    pub use crate::curve::{Curve, CurveUntyped};
+    pub use crate::curve::Curve;
     pub use crate::custom::{AnimatedAsset, AnimatedComponent, Animator, Clip};
     pub use crate::hierarchy::Hierarchy;
     pub use crate::lerping::Lerp;

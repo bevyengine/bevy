@@ -1,47 +1,6 @@
-use bevy_math::prelude::*;
 use std::any::TypeId;
 
 use super::lerping::Lerp;
-
-// TODO: impl Serialize, Deserialize
-#[derive(Debug, Clone)]
-pub enum CurveUntyped {
-    Float(Curve<f32>),
-    //Vec2(Curve<Vec2>),
-    Vec3(Curve<Vec3>),
-    Vec4(Curve<Vec4>),
-    Quat(Curve<Quat>),
-    //Handle(Curve<HandleUntyped>),
-    // TODO: Color(Curve<Color>),
-}
-
-macro_rules! untyped_fn {
-    ($v:vis fn $name:ident ( &self, $( $arg:ident : $arg_ty:ty ,)* ) $(-> $ret:ty)* ) => {
-        $v fn $name(&self, $( $arg : $arg_ty ),*) $(-> $ret)* {
-            match self {
-                CurveUntyped::Float(v) => v.$name($($arg,)*),
-                CurveUntyped::Vec3(v) => v.$name($($arg,)*),
-                CurveUntyped::Vec4(v) => v.$name($($arg,)*),
-                CurveUntyped::Quat(v) => v.$name($($arg,)*),
-            }
-        }
-    };
-}
-
-impl CurveUntyped {
-    untyped_fn!(pub fn duration(&self,) -> f32);
-    untyped_fn!(pub fn value_type(&self,) -> TypeId);
-    //untyped_fn!(pub fn add_time_offset(&mut self, time: f32,) -> ());
-
-    pub fn add_time_offset(&mut self, time: f32) {
-        match self {
-            CurveUntyped::Float(v) => v.add_offset_time(time),
-            CurveUntyped::Vec3(v) => v.add_offset_time(time),
-            CurveUntyped::Vec4(v) => v.add_offset_time(time),
-            CurveUntyped::Quat(v) => v.add_offset_time(time),
-        }
-    }
-}
 
 // TODO: Curve/Clip need a validation during deserialization because they are
 // structured as SOA (struct of arrays), so the vec's length must match
