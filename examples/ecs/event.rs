@@ -17,7 +17,7 @@ struct MyEvent {
 }
 
 struct EventTriggerState {
-    event_timer: Timer,
+    event_timer: Timer<()>,
 }
 
 impl Default for EventTriggerState {

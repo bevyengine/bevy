@@ -11,8 +11,8 @@ fn main() {
 }
 
 pub struct Countdown {
-    pub percent_trigger: Timer,
-    pub main_timer: Timer,
+    pub percent_trigger: Timer<()>,
+    pub main_timer: Timer<()>,
 }
 
 impl Countdown {
@@ -32,12 +32,12 @@ impl Default for Countdown {
 
 fn setup_system(commands: &mut Commands) {
     // Add an entity to the world with a timer
-    commands.spawn((Timer::from_seconds(5.0, false),));
+    commands.spawn((Timer::<Entity>::from_seconds(5.0, false),));
 }
 
 /// This system ticks all the `Timer` components on entities within the scene
 /// using bevy's `Time` resource to get the delta between each update.
-fn timer_system(time: Res<Time>, mut query: Query<&mut Timer>) {
+fn timer_system(time: Res<Time>, mut query: Query<&mut Timer<Entity>>) {
     for mut timer in query.iter_mut() {
         if timer.tick(time.delta_seconds()).just_finished() {
             info!("Entity timer just finished")

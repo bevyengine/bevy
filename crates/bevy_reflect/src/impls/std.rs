@@ -6,7 +6,7 @@ use crate::{
 use bevy_reflect_derive::impl_reflect_value;
 use bevy_utils::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
-use std::{any::Any, hash::Hash, ops::Range};
+use std::{any::Any, hash::Hash, marker::PhantomData, ops::Range};
 
 impl_reflect_value!(bool(Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(u8(Hash, PartialEq, Serialize, Deserialize));
@@ -197,5 +197,51 @@ impl<K: Reflect + Clone + Eq + Hash, V: Reflect + Clone> Reflect for HashMap<K, 
 
     fn serializable(&self) -> Option<Serializable> {
         None
+    }
+}
+
+impl<T: Send + Sync + 'static> Reflect for PhantomData<T> {
+    fn type_name(&self) -> &str {
+        todo!()
+    }
+
+    fn any(&self) -> &dyn std::any::Any {
+        todo!()
+    }
+
+    fn any_mut(&mut self) -> &mut dyn std::any::Any {
+        todo!()
+    }
+
+    fn apply(&mut self, value: &dyn Reflect) {
+        todo!()
+    }
+
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        todo!()
+    }
+
+    fn reflect_ref(&self) -> ReflectRef {
+        todo!()
+    }
+
+    fn reflect_mut(&mut self) -> ReflectMut {
+        todo!()
+    }
+
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        todo!()
+    }
+
+    fn reflect_hash(&self) -> Option<u64> {
+        todo!()
+    }
+
+    fn reflect_partial_eq(&self, _value: &dyn Reflect) -> Option<bool> {
+        todo!()
+    }
+
+    fn serializable(&self) -> Option<crate::serde::Serializable> {
+        todo!()
     }
 }
