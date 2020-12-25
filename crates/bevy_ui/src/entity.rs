@@ -104,7 +104,6 @@ pub struct TextBundle {
     pub focus_policy: FocusPolicy,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
-    pub render_borders: RenderBorders,
 }
 
 impl Default for TextBundle {
@@ -124,7 +123,6 @@ impl Default for TextBundle {
             style: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
-            render_borders: Default::default(),
         }
     }
 }

@@ -36,9 +36,9 @@ void main() {
         v_Uv);
 # endif
     float r = NodeSize.x / NodeSize.y;
-    vec2 localUvCoords = abs((v_Uv - 0.5.xx) * 2);
+    vec2 mirroredUvCoords = abs((v_Uv - 0.5.xx) * 2);
 
-    float closerY = step(0.0, r * localUvCoords.x + 1.0 - r - localUvCoords.y);
+    float closerY = step(0.0, r * mirroredUvCoords.x + 1.0 - r - mirroredUvCoords.y);
     float closerX = 1 - closerY;
 
     vec2 localCoords = NodeSize * v_Uv;
@@ -55,9 +55,9 @@ void main() {
     vec4 borderSize = border.size;
     float _inBorder = closerX * (closerTop * (borderSize[0] - localCoords.y) + closerBottom * (borderSize[1] - (NodeSize - localCoords).y))
                     + closerY * (closerLeft * (borderSize[2] - localCoords.x) + closerRight * (borderSize[3] - (NodeSize - localCoords).x));
+
     float inBorder = 1.0 - step(0.0, -_inBorder);
     float outOfBorder = 1 - inBorder;
 
     o_Target = color * outOfBorder + borderColor * inBorder;
-    //o_Target = color;
 }
