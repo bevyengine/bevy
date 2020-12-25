@@ -12,6 +12,7 @@ pub use winit_windows::*;
 use bevy_app::{prelude::*, AppExit};
 use bevy_ecs::{IntoSystem, Resources, World};
 use bevy_math::Vec2;
+use bevy_persist::{AppReload, RestoreResource};
 use bevy_utils::tracing::{error, trace};
 use bevy_window::{
     CreateWindow, CursorEntered, CursorLeft, CursorMoved, ReceivedCharacter, WindowCloseRequested,
@@ -36,7 +37,8 @@ pub struct WinitPlugin;
 
 impl Plugin for WinitPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.init_resource::<WinitWindows>()
+        app
+            .add_raw_restore_resource(WinitWindows::default())
             .set_runner(winit_runner)
             .add_system(change_window.system());
     }
@@ -182,8 +184,10 @@ pub fn winit_runner_any_thread(app: App) {
 }
 
 pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
+    // TODO: Keep using the same EventLoop when performing hot code swapping.
     let mut create_window_event_reader = EventReader::<CreateWindow>::default();
     let mut app_exit_event_reader = EventReader::<AppExit>::default();
+    let mut app_reload_event_reader = EventReader::<AppReload>::default();
 
     app.resources.insert_thread_local(event_loop.create_proxy());
 
@@ -201,6 +205,11 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
 
         if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
             if app_exit_event_reader.latest(&app_exit_events).is_some() {
+                *control_flow = ControlFlow::Exit;
+            }
+        }
+        if let Some(app_reload_events) = app.resources.get_mut::<Events<AppReload>>() {
+            if app_reload_event_reader.latest(&app_reload_events).is_some() {
                 *control_flow = ControlFlow::Exit;
             }
         }

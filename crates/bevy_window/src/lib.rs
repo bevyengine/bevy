@@ -17,6 +17,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
+use bevy_persist::RestoreResource;
 
 pub struct WindowPlugin {
     pub add_primary_window: bool,
@@ -44,7 +45,7 @@ impl Plugin for WindowPlugin {
             .add_event::<CursorLeft>()
             .add_event::<ReceivedCharacter>()
             .add_event::<WindowFocused>()
-            .init_resource::<Windows>();
+            .add_raw_restore_resource(Windows::default());
 
         if self.add_primary_window {
             let resources = app.resources();
@@ -52,11 +53,27 @@ impl Plugin for WindowPlugin {
                 .get::<WindowDescriptor>()
                 .map(|descriptor| (*descriptor).clone())
                 .unwrap_or_else(WindowDescriptor::default);
-            let mut create_window_event = resources.get_mut::<Events<CreateWindow>>().unwrap();
-            create_window_event.send(CreateWindow {
-                id: WindowId::primary(),
-                descriptor: window_descriptor,
-            });
+            if resources
+                .get::<Windows>()
+                .unwrap()
+                .get(WindowId::primary())
+                .is_none()
+            {
+                let mut create_window_event = resources.get_mut::<Events<CreateWindow>>().unwrap();
+                create_window_event.send(CreateWindow {
+                    id: WindowId::primary(),
+                    descriptor: window_descriptor,
+                });
+            }
+        }
+
+        // If windows were persisted, we will need to make everyone aware of them again.
+        {
+            let mut window_created_events =
+                app.resources().get_mut::<Events<WindowCreated>>().unwrap();
+            for window in app.resources().get::<Windows>().unwrap().iter() {
+                window_created_events.send(WindowCreated { id: window.id() });
+            }
         }
 
         if self.exit_on_close {
