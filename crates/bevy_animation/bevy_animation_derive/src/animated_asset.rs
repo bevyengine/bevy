@@ -1,11 +1,17 @@
-use crate::modules::{get_modules, get_path};
+use crate::{
+    animated_properties::derive_animated_properties_for_asset,
+    modules::{get_modules, get_path},
+};
 use proc_macro::TokenStream;
+use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{parse::ParseStream, parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields};
 
 // TODO: Add extended fields like in animated_component
 
 pub fn derive_animated_asset(input: TokenStream) -> TokenStream {
+    let animated_properties: TokenStream2 =
+        derive_animated_properties_for_asset(input.clone()).into();
     let ast = parse_macro_input!(input as DeriveInput);
 
     let fields = match &ast.data {
@@ -58,6 +64,8 @@ pub fn derive_animated_asset(input: TokenStream) -> TokenStream {
     let (impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
 
     TokenStream::from(quote! {
+        #animated_properties
+
         impl #impl_generics #bevy_animation::AnimatedAsset for #struct_name #ty_generics {
             fn animator_update_system(
                 clips: #bevy_ecs::Res<#bevy_asset::Assets<#bevy_animation::Clip>>,
