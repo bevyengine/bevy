@@ -21,7 +21,7 @@ use bevy_reflect::{Reflect, ReflectComponent};
 /// ```
 #[derive(Debug, Clone, Reflect)]
 #[reflect(Component)]
-pub struct Stopwatch<T: Send + Sync + 'static = ()> {
+pub struct Stopwatch<T: Send + Sync + 'static> {
     elapsed: f32,
     paused: bool,
     marker: std::marker::PhantomData<T>,

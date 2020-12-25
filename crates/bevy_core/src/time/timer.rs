@@ -10,7 +10,7 @@ use bevy_utils::Duration;
 /// Paused timers will not have elapsed time increased.
 #[derive(Clone, Debug, Reflect)]
 #[reflect(Component)]
-pub struct Timer<T: Send + Sync + 'static = ()> {
+pub struct Timer<T: Send + Sync + 'static> {
     stopwatch: Stopwatch<T>,
     duration: f32,
     repeating: bool,
