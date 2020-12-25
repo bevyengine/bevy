@@ -202,46 +202,47 @@ impl<K: Reflect + Clone + Eq + Hash, V: Reflect + Clone> Reflect for HashMap<K, 
 
 impl<T: Send + Sync + 'static> Reflect for PhantomData<T> {
     fn type_name(&self) -> &str {
-        todo!()
+        std::any::type_name::<T>()
     }
 
     fn any(&self) -> &dyn std::any::Any {
-        todo!()
+        self
     }
 
     fn any_mut(&mut self) -> &mut dyn std::any::Any {
-        todo!()
+        self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        todo!()
+    fn apply(&mut self, _: &dyn Reflect) {
+        // Nothing to do here?
     }
 
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        todo!()
+    fn set(&mut self, _: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        // Here as well?
+        Ok(())
     }
 
     fn reflect_ref(&self) -> ReflectRef {
-        todo!()
+        ReflectRef::Value(self)
     }
 
     fn reflect_mut(&mut self) -> ReflectMut {
-        todo!()
+        ReflectMut::Value(self)
     }
 
     fn clone_value(&self) -> Box<dyn Reflect> {
-        todo!()
+        Box::new(*self)
     }
 
     fn reflect_hash(&self) -> Option<u64> {
-        todo!()
+        None
     }
 
-    fn reflect_partial_eq(&self, _value: &dyn Reflect) -> Option<bool> {
-        todo!()
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+        Some(self.type_id() == value.type_id())
     }
 
     fn serializable(&self) -> Option<crate::serde::Serializable> {
-        todo!()
+        None
     }
 }
