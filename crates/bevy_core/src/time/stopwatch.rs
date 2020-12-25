@@ -7,7 +7,7 @@ use bevy_reflect::{Reflect, ReflectComponent};
 /// # Examples
 ///
 /// ```
-/// # use bevy_time::*;
+/// # use bevy_core::*;
 /// let mut stopwatch = Stopwatch::<()>::new();
 /// assert_eq!(stopwatch.elapsed(), 0.0);
 /// stopwatch.tick(1.0); // tick one second
@@ -32,7 +32,7 @@ impl<T: Send + Sync + 'static> Stopwatch<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let stopwatch: Stopwatch<()> = Stopwatch::new();
     /// assert_eq!(stopwatch.elapsed(), 0.0);
     /// assert_eq!(stopwatch.paused(), false);
@@ -46,7 +46,7 @@ impl<T: Send + Sync + 'static> Stopwatch<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut stopwatch: Stopwatch<()> = Stopwatch::new();
     /// assert_eq!(stopwatch.tick(5.0).elapsed(), 5.0);
     /// ```
@@ -59,7 +59,7 @@ impl<T: Send + Sync + 'static> Stopwatch<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut stopwatch: Stopwatch<()> = Stopwatch::new();
     /// stopwatch.set(1.0);
     /// assert_eq!(stopwatch.elapsed(), 1.0);
@@ -75,7 +75,7 @@ impl<T: Send + Sync + 'static> Stopwatch<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut stopwatch: Stopwatch<()> = Stopwatch::new();
     /// stopwatch.tick(1.5);
     /// assert_eq!(stopwatch.elapsed(), 1.5);
@@ -92,7 +92,7 @@ impl<T: Send + Sync + 'static> Stopwatch<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut stopwatch: Stopwatch<()> = Stopwatch::new();
     /// stopwatch.pause();
     /// stopwatch.tick(1.5);
@@ -108,7 +108,7 @@ impl<T: Send + Sync + 'static> Stopwatch<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut stopwatch: Stopwatch<()> = Stopwatch::new();
     /// stopwatch.pause();
     /// stopwatch.unpause();
@@ -125,7 +125,7 @@ impl<T: Send + Sync + 'static> Stopwatch<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut stopwatch: Stopwatch<()> = Stopwatch::new();
     /// assert!(!stopwatch.paused());
     /// stopwatch.pause();
@@ -142,7 +142,7 @@ impl<T: Send + Sync + 'static> Stopwatch<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut stopwatch: Stopwatch<()> = Stopwatch::new();
     /// stopwatch.tick(1.5);
     /// stopwatch.pause();

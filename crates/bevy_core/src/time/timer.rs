@@ -34,7 +34,7 @@ impl<T: Send + Sync + 'static> Timer<T> {
     ///
     /// # Example
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut timer: Timer<()> = Timer::from_seconds(1.0, false);
     /// ```
     pub fn from_seconds(duration: f32, repeating: bool) -> Self {
@@ -49,7 +49,7 @@ impl<T: Send + Sync + 'static> Timer<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut timer: Timer<()> = Timer::from_seconds(1.0, false);
     /// timer.tick(1.5);
     /// assert!(timer.finished());
@@ -65,7 +65,7 @@ impl<T: Send + Sync + 'static> Timer<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut timer: Timer<()> = Timer::from_seconds(1.0, false);
     /// timer.tick(1.5);
     /// assert!(timer.just_finished());
@@ -83,7 +83,7 @@ impl<T: Send + Sync + 'static> Timer<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut timer: Timer<()> = Timer::from_seconds(1.0, false);
     /// timer.tick(0.5);
     /// assert_eq!(timer.elapsed(), 0.5);
@@ -99,7 +99,7 @@ impl<T: Send + Sync + 'static> Timer<T> {
     ///
     /// #
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut timer: Timer<()> = Timer::from_seconds(1.0, false);
     /// timer.set_elapsed(1.5);
     /// assert_eq!(timer.elapsed(), 1.5);
@@ -116,7 +116,7 @@ impl<T: Send + Sync + 'static> Timer<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let timer: Timer<()> = Timer::from_seconds(1.5, false);
     /// assert_eq!(timer.duration(), 1.5);
     /// ```
@@ -129,7 +129,7 @@ impl<T: Send + Sync + 'static> Timer<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut timer: Timer<()> = Timer::from_seconds(1.5, false);
     /// timer.set_duration(1.0);
     /// assert_eq!(timer.duration(), 1.0);
@@ -143,7 +143,7 @@ impl<T: Send + Sync + 'static> Timer<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut timer: Timer<()> = Timer::from_seconds(1.0, true);
     /// assert!(timer.repeating());
     /// ```
@@ -156,7 +156,7 @@ impl<T: Send + Sync + 'static> Timer<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut timer: Timer<()> = Timer::from_seconds(1.0, true);
     /// timer.set_repeating(false);
     /// assert!(!timer.repeating());
@@ -174,7 +174,7 @@ impl<T: Send + Sync + 'static> Timer<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut timer: Timer<()> = Timer::from_seconds(1.0, false);
     /// let mut repeating: Timer<()> = Timer::from_seconds(1.0, true);
     /// timer.tick(1.5);
@@ -216,7 +216,7 @@ impl<T: Send + Sync + 'static> Timer<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut timer: Timer<()> = Timer::from_seconds(1.0, false);
     /// timer.pause();
     /// timer.tick(0.5);
@@ -233,7 +233,7 @@ impl<T: Send + Sync + 'static> Timer<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut timer: Timer<()> = Timer::from_seconds(1.0, false);
     /// timer.pause();
     /// timer.tick(0.5);
@@ -252,7 +252,7 @@ impl<T: Send + Sync + 'static> Timer<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut timer: Timer<()> = Timer::from_seconds(1.0, false);
     /// assert!(!timer.paused());
     /// timer.pause();
@@ -271,7 +271,7 @@ impl<T: Send + Sync + 'static> Timer<T> {
     ///
     /// Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut timer: Timer<()> = Timer::from_seconds(1.0, false);
     /// timer.tick(1.5);
     /// timer.reset();
@@ -289,7 +289,7 @@ impl<T: Send + Sync + 'static> Timer<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut timer: Timer<()> = Timer::from_seconds(2.0, false);
     /// timer.tick(0.5);
     /// assert_eq!(timer.percent(), 0.25);
@@ -303,7 +303,7 @@ impl<T: Send + Sync + 'static> Timer<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut timer: Timer<()> = Timer::from_seconds(2.0, false);
     /// timer.tick(0.5);
     /// assert_eq!(timer.percent_left(), 0.75);
@@ -321,7 +321,7 @@ impl<T: Send + Sync + 'static> Timer<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut timer: Timer<()> = Timer::from_seconds(1.0, true);
     /// timer.tick(6.0);
     /// assert_eq!(timer.times_finished(), 6);

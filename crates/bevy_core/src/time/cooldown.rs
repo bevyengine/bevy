@@ -26,7 +26,7 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     ///
     /// # Example
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut cooldown: Cooldown<()> = Cooldown::from_seconds(1.0, false);
     /// ```
     pub fn from_seconds(duration: f32, repeating: bool) -> Self {
@@ -52,7 +52,7 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut cooldown: Cooldown<()> = Cooldown::from_seconds(1.0, false);
     /// assert!(cooldown.available());
     /// cooldown.start();
@@ -69,7 +69,7 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut cooldown: Cooldown<()> = Cooldown::from_seconds(1.0, false);
     /// cooldown.start();
     /// cooldown.tick(1.5);
@@ -87,7 +87,7 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut cooldown: Cooldown<()> = Cooldown::from_seconds(1.0, false);
     /// cooldown.start();
     /// cooldown.tick(0.5);
@@ -104,7 +104,7 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     ///
     /// #
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut cooldown: Cooldown<()> = Cooldown::from_seconds(1.0, false);
     /// cooldown.set_elapsed(1.5);
     /// assert_eq!(cooldown.elapsed(), 1.5);
@@ -121,7 +121,7 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let cooldown: Cooldown<()> = Cooldown::from_seconds(1.5, false);
     /// assert_eq!(cooldown.duration(), 1.5);
     /// ```
@@ -134,7 +134,7 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut cooldown: Cooldown<()> = Cooldown::from_seconds(1.5, false);
     /// cooldown.set_duration(1.0);
     /// assert_eq!(cooldown.duration(), 1.0);
@@ -148,7 +148,7 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut cooldown: Cooldown<()> = Cooldown::from_seconds(1.0, true);
     /// assert!(cooldown.repeating());
     /// ```
@@ -161,7 +161,7 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut cooldown: Cooldown<()> = Cooldown::from_seconds(1.0, true);
     /// cooldown.set_repeating(false);
     /// assert!(!cooldown.repeating());
@@ -191,7 +191,7 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut cooldown: Cooldown<()> = Cooldown::from_seconds(1.0, false);
     /// cooldown.pause();
     /// cooldown.tick(0.5);
@@ -208,7 +208,7 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut cooldown: Cooldown<()> = Cooldown::from_seconds(1.0, false);
     /// cooldown.start();
     /// cooldown.pause();
@@ -228,7 +228,7 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut cooldown: Cooldown<()> = Cooldown::from_seconds(1.0, false);
     /// assert!(!cooldown.paused());
     /// cooldown.pause();
@@ -247,7 +247,7 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     ///
     /// Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut cooldown: Cooldown<()> = Cooldown::from_seconds(1.0, false);
     /// cooldown.tick(1.5);
     /// cooldown.reset();
@@ -265,7 +265,7 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut cooldown: Cooldown<()> = Cooldown::from_seconds(2.0, false);
     /// cooldown.start();
     /// cooldown.tick(0.5);
@@ -280,7 +280,7 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     ///
     /// # Examples
     /// ```
-    /// # use bevy_time::*;
+    /// # use bevy_core::*;
     /// let mut cooldown: Cooldown<()> = Cooldown::from_seconds(2.0, false);
     /// cooldown.start();
     /// cooldown.tick(0.5);
