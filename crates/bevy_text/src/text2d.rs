@@ -1,6 +1,6 @@
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Bundle, Changed, Entity, Local, Query, QuerySet, Res, ResMut, With};
-use bevy_math::Size;
+use bevy_math::{Size, Vec3};
 use bevy_render::{
     draw::{DrawContext, Drawable},
     mesh::Mesh,
@@ -10,8 +10,14 @@ use bevy_render::{
 };
 use bevy_sprite::{TextureAtlas, QUAD_HANDLE};
 use bevy_transform::prelude::{GlobalTransform, Transform};
+use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
 
 use crate::{DefaultTextPipeline, DrawableText, Font, FontAtlasSet, TextError, TextStyle};
+
+#[derive(Default, Copy, Clone, Debug)]
+pub struct Text2dCalculatedSize {
+    pub size: Size,
+}
 
 impl Default for Text2dBundle {
     fn default() -> Self {
@@ -27,6 +33,9 @@ impl Default for Text2dBundle {
             transform: Default::default(),
             global_transform: Default::default(),
             main_pass: MainPass {},
+            calculated_size: Text2dCalculatedSize {
+                size: Size::default(),
+            },
         }
     }
 }
@@ -39,6 +48,7 @@ pub struct Text2dBundle {
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     pub main_pass: MainPass,
+    pub calculated_size: Text2dCalculatedSize,
 }
 
 // TODO: DRY -- this is copy pasta from bevy_ui/src/widget/text.rs
@@ -55,18 +65,42 @@ pub fn draw_text2d_system(
     meshes: Res<Assets<Mesh>>,
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
     text_pipeline: Res<DefaultTextPipeline>,
-    mut query: Query<(Entity, &mut Draw, &Visible, &Text, &GlobalTransform), With<MainPass>>,
+    mut query: Query<
+        (
+            Entity,
+            &mut Draw,
+            &Visible,
+            &Text,
+            &GlobalTransform,
+            &Text2dCalculatedSize,
+        ),
+        With<MainPass>,
+    >,
 ) {
     let font_quad = meshes.get(&QUAD_HANDLE).unwrap();
     let vertex_buffer_descriptor = font_quad.get_vertex_buffer_descriptor();
 
-    for (entity, mut draw, visible, text, global_transform) in query.iter_mut() {
+    for (entity, mut draw, visible, text, global_transform, calculated_size) in
+        query.iter_mut()
+    {
         if !visible.is_visible {
             continue;
         }
 
+        let (width, height) = (calculated_size.size.width, calculated_size.size.height);
+
         if let Some(text_glyphs) = text_pipeline.get_glyphs(&entity) {
-            let position = global_transform.translation; // - (node.size / 2.0).extend(0.0);
+            let position = global_transform.translation
+                + match text.style.alignment.vertical {
+                    VerticalAlign::Top => Vec3::zero(),
+                    VerticalAlign::Center => Vec3::new(0.0, -height / 2.0, 0.0),
+                    VerticalAlign::Bottom => Vec3::new(0.0, -height, 0.0),
+                }
+                + match text.style.alignment.horizontal {
+                    HorizontalAlign::Left => Vec3::new(-width, 0.0, 0.0),
+                    HorizontalAlign::Center => Vec3::new(-width / 2.0, 0.0, 0.0),
+                    HorizontalAlign::Right => Vec3::zero(),
+                };
 
             let mut drawable_text = DrawableText {
                 render_resource_bindings: &mut render_resource_bindings,
@@ -95,7 +129,10 @@ pub fn text2d_system(
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<DefaultTextPipeline>,
-    mut text_queries: QuerySet<(Query<Entity, Changed<Text>>, Query<&Text>)>,
+    mut text_queries: QuerySet<(
+        Query<Entity, Changed<Text>>,
+        Query<(&Text, &mut Text2dCalculatedSize)>,
+    )>,
 ) {
     // Adds all entities where the text or the style has changed to the local queue
     for entity in text_queries.q0_mut().iter_mut() {
@@ -110,7 +147,7 @@ pub fn text2d_system(
     let mut new_queue = Vec::new();
     let query = text_queries.q1_mut();
     for entity in queued_text.entities.drain(..) {
-        if let Ok(text) = query.get_mut(entity) {
+        if let Ok((text, mut calculated_size)) = query.get_mut(entity) {
             match add_text_to_pipeline(
                 entity,
                 &*text,
@@ -121,10 +158,10 @@ pub fn text2d_system(
                 &mut *text_pipeline,
             ) {
                 TextPipelineResult::Ok => {
-                    // let text_layout_info = text_pipeline.get_glyphs(&entity).expect(
-                    //     "Failed to get glyphs from the pipeline that have just been computed",
-                    // );
-                    //calculated_size.size = text_layout_info.size;
+                    let text_layout_info = text_pipeline.get_glyphs(&entity).expect(
+                        "Failed to get glyphs from the pipeline that have just been computed",
+                    );
+                    calculated_size.size = text_layout_info.size;
                 }
                 TextPipelineResult::Reschedule => {
                     // There was an error processing the text layout, let's add this entity to the queue for further processing
@@ -154,14 +191,6 @@ fn add_text_to_pipeline(
     font_atlas_set_storage: &mut Assets<FontAtlasSet>,
     text_pipeline: &mut DefaultTextPipeline,
 ) -> TextPipelineResult {
-    // let node_size = Size::new(
-    //     text_constraint(style.min_size.width, style.size.width, style.max_size.width),
-    //     text_constraint(
-    //         style.min_size.height,
-    //         style.size.height,
-    //         style.max_size.height,
-    //     ),
-    // );
 
     // How do we get the actual bounds?  Do we need actual bounds?
     let bounds = Size::new(f32::MAX, f32::MAX);

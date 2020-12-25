@@ -12,7 +12,6 @@ fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
     commands
         // 2d camera
         .spawn(Camera2dBundle::default())
-        // texture
         .spawn(Text2dBundle {
             text: Text {
                 value: "This text is in the 2D scene.".to_string(),
@@ -32,6 +31,7 @@ fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
 
 fn animate(time: Res<Time>, mut query: Query<&mut Transform, With<Text>>) {
     for mut transform in query.iter_mut() {
-        transform.translation.x = 100.0 * time.delta_seconds().sin();
+        transform.translation.x = 100.0 * time.seconds_since_startup().sin() as f32;
+        transform.translation.y = 100.0 * time.seconds_since_startup().cos() as f32;
     }
 }
