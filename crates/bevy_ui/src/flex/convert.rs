@@ -49,7 +49,7 @@ pub fn from_style(scale_factor: f64, value: &Style) -> stretch::style::Style {
         position: from_rect(scale_factor, value.position),
         margin: from_rect(scale_factor, value.margin),
         padding: from_rect(scale_factor, value.padding),
-        border: from_rect(scale_factor, value.border),
+        border: from_rect(scale_factor, Rect::all(Val::Px(value.border.thickness))),
         flex_grow: value.flex_grow,
         flex_shrink: value.flex_shrink,
         flex_basis: from_val(scale_factor, value.flex_basis),

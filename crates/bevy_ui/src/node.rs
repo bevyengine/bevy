@@ -1,6 +1,10 @@
+use bevy_core::Byteable;
 use bevy_math::{Rect, Size, Vec2};
 use bevy_reflect::{Reflect, ReflectComponent, ReflectDeserialize};
-use bevy_render::renderer::RenderResources;
+use bevy_render::{
+    prelude::Color,
+    renderer::{RenderResource, RenderResources},
+};
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign};
 
@@ -53,28 +57,69 @@ pub struct CalculatedSize {
     pub size: Size,
 }
 
-#[derive(Clone, PartialEq, Debug, Reflect)]
+#[derive(Clone, PartialEq, Debug, RenderResources, Reflect)]
 pub struct Style {
+    #[render_resources(ignore)]
     pub display: Display,
+    #[render_resources(ignore)]
     pub position_type: PositionType,
+    #[render_resources(ignore)]
     pub direction: Direction,
+    #[render_resources(ignore)]
     pub flex_direction: FlexDirection,
+    #[render_resources(ignore)]
     pub flex_wrap: FlexWrap,
+    #[render_resources(ignore)]
     pub align_items: AlignItems,
+    #[render_resources(ignore)]
     pub align_self: AlignSelf,
+    #[render_resources(ignore)]
     pub align_content: AlignContent,
+    #[render_resources(ignore)]
     pub justify_content: JustifyContent,
+    #[render_resources(ignore)]
     pub position: Rect<Val>,
+    #[render_resources(ignore)]
     pub margin: Rect<Val>,
+    #[render_resources(ignore)]
     pub padding: Rect<Val>,
-    pub border: Rect<Val>,
+    pub border: Border,
+    #[render_resources(ignore)]
     pub flex_grow: f32,
+    #[render_resources(ignore)]
     pub flex_shrink: f32,
+    #[render_resources(ignore)]
     pub flex_basis: Val,
+    #[render_resources(ignore)]
     pub size: Size<Val>,
+    #[render_resources(ignore)]
     pub min_size: Size<Val>,
+    #[render_resources(ignore)]
     pub max_size: Size<Val>,
+    #[render_resources(ignore)]
     pub aspect_ratio: Option<f32>,
+}
+
+
+#[derive(Debug, Clone, PartialEq, RenderResources, Reflect, RenderResource)]
+#[reflect(Component)]
+#[render_resources(from_self)]
+pub struct Border {
+    pub color: Color,
+    pub radius: f32,
+    pub thickness: f32,
+}
+
+unsafe impl Byteable for Border {}
+
+impl Default for Border {
+    fn default() -> Self {
+        Self {
+            radius: 0.,
+            thickness: 0.,
+            color: Color::RED,
+        }
+    }
 }
 
 impl Default for Style {
