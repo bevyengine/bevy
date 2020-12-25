@@ -9,11 +9,12 @@ use fnv::FnvBuildHasher;
 use smallvec::{smallvec, SmallVec};
 use std::{
     any::Any,
+    any::TypeId,
     borrow::Cow,
     collections::{HashMap, HashSet},
     marker::PhantomData,
-    // ops::Deref,
 };
+use tracing::warn;
 
 use crate::blending::AnimatorBlending;
 use crate::curve::Curve;
@@ -198,7 +199,6 @@ impl<CurveType, InnerProps> Prop<CurveType, InnerProps> {
 // }
 
 impl Clip {
-    // TODO: Warn about properties that aren't been used so the user can check if they are wrong or not
     /// Animates an entity property with a curve.
     /// Adding the a second curve to the same entity and property will replace the first one;
     /// This is the preferred method of adding curves into a clip, since it's better future proof than `add_curve_at_path`;
@@ -595,6 +595,15 @@ impl<'a> Iterator for LayerIterator<'a> {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+#[derive(Default)]
+pub(crate) struct AnimatorRegistry {
+    /// Set of registered animators for components and assets
+    pub(crate) targets: HashSet<TypeId, FnvBuildHasher>,
+    // TODO: Also include TypeId when it becomes stable in as as const fn
+    /// All static properties available
+    pub(crate) static_properties: HashSet<&'static str, FnvBuildHasher>,
+}
+
 /// State info for the system `animator_binding_system`
 #[derive(Default)]
 pub(crate) struct BindingState {
@@ -606,6 +615,7 @@ pub(crate) fn animator_update_system(
     commands: &mut Commands,
     mut state: Local<BindingState>,
     clip_events: Res<Events<AssetEvent<Clip>>>,
+    animator_registry: Res<AnimatorRegistry>,
     time: Res<Time>,
     clips: Res<Assets<Clip>>,
     mut animators_query: Query<(Entity, &mut Animator, Option<&AnimatorBlending>)>,
@@ -746,6 +756,19 @@ pub(crate) fn animator_update_system(
             if let Some(clip) = clips.get(clip_handle) {
                 let bind_slot = &mut animator.bind_clips[clip_index];
                 if bind_slot.is_none() {
+                    // TODO: Add option to ignore these extra checks (or not)
+                    // Check if the clips properties are registered
+                    for (property_name, _) in clip.properties.iter() {
+                        if !animator_registry
+                            .static_properties
+                            .contains(property_name.as_str())
+                        {
+                            // TODO: Check dynamic properties names using regex
+                            // TODO: Include clip name on warning
+                            warn!("property '{}' isn't registered", property_name);
+                        }
+                    }
+
                     // Merge newly added clip hierarchy into the animator global hierarchy
                     let mut bind = Bind::default();
                     animator
@@ -822,11 +845,18 @@ pub(crate) fn animator_update_system(
 pub trait AnimatedProperties {
     type Props;
 
-    /// Type safe animated properties of this component or asset
+    // TODO: Also include TypeId when it becomes stable in as as const fn
+    /// List of all animated properties, is used to search invalid properties in clips
+    const PROPERTIES: &'static [&'static str];
+    /// Similar to `PROPERTIES` but contains a regex to validate dynamic properties
+    const DYNAMIC_PROPERTIES: &'static [&'static str] = &[];
+
+    /// Type safe animated properties of this component or asset;
+    /// Meant to be used only by code, to be type safe and future proof way of defining properties.
     fn props() -> Self::Props;
 }
 
-pub trait AnimatedComponent: Component + Sized {
+pub trait AnimatedComponent: AnimatedProperties + Component + Sized {
     fn animator_update_system(
         clips: Res<Assets<Clip>>,
         animator_blending: Local<AnimatorBlending>,
@@ -835,7 +865,7 @@ pub trait AnimatedComponent: Component + Sized {
     );
 }
 
-pub trait AnimatedAsset: Asset + Sized {
+pub trait AnimatedAsset: AnimatedProperties + Asset + Sized {
     fn animator_update_system(
         clips: Res<Assets<Clip>>,
         animator_blending: Local<AnimatorBlending>,

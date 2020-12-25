@@ -1,7 +1,10 @@
-use bevy_app::AppBuilder;
-
-use crate::custom::{AnimatedAsset, AnimatedComponent};
+use crate::custom::{AnimatedAsset, AnimatedComponent, AnimatorRegistry};
 use crate::stage;
+use bevy_app::AppBuilder;
+use std::{
+    any::{type_name, TypeId},
+    mem::drop,
+};
 
 pub trait AddAnimated {
     fn register_animated_component<T: AnimatedComponent>(&mut self) -> &mut Self;
@@ -10,13 +13,35 @@ pub trait AddAnimated {
 }
 
 impl AddAnimated for AppBuilder {
-    #[inline(always)]
     fn register_animated_component<T: AnimatedComponent>(&mut self) -> &mut Self {
-        self.add_system_to_stage(stage::ANIMATE, T::animator_update_system)
+        let mut registry = self
+            .resources_mut()
+            .get_or_insert_with(AnimatorRegistry::default);
+
+        if registry.targets.insert(TypeId::of::<T>()) {
+            registry.static_properties.extend(T::PROPERTIES.iter());
+            drop(registry);
+
+            self.add_system_to_stage(stage::ANIMATE, T::animator_update_system);
+            self
+        } else {
+            panic!("animator already registered for '{}'", type_name::<T>());
+        }
     }
 
-    #[inline(always)]
     fn register_animated_asset<T: AnimatedAsset>(&mut self) -> &mut Self {
-        self.add_system_to_stage(stage::ANIMATE, T::animator_update_system)
+        let mut registry = self
+            .resources_mut()
+            .get_or_insert_with(AnimatorRegistry::default);
+
+        if registry.targets.insert(TypeId::of::<T>()) {
+            registry.static_properties.extend(T::PROPERTIES.iter());
+            drop(registry);
+
+            self.add_system_to_stage(stage::ANIMATE, T::animator_update_system);
+            self
+        } else {
+            panic!("animator already registered for '{}'", type_name::<T>());
+        }
     }
 }
