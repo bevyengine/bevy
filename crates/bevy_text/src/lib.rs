@@ -6,6 +6,7 @@ mod font_atlas_set;
 mod font_loader;
 mod glyph_brush;
 mod pipeline;
+mod text;
 mod text2d;
 
 pub use draw::*;
@@ -16,6 +17,7 @@ pub use font_atlas_set::*;
 pub use font_loader::*;
 pub use glyph_brush::*;
 pub use pipeline::*;
+pub use text::*;
 pub use text2d::*;
 
 pub mod prelude {

@@ -20,7 +20,7 @@ fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
                     font_size: 60.0,
                     color: Color::WHITE,
                     alignment: TextAlignment {
-                        vertical: VerticalAlign::Top,
+                        vertical: VerticalAlign::Center,
                         horizontal: HorizontalAlign::Center,
                     },
                 },
@@ -30,6 +30,9 @@ fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
 }
 
 fn animate(time: Res<Time>, mut query: Query<&mut Transform, With<Text>>) {
+    // `Transform.translation` will determine the location of the text.
+    // `Transform.scale` and `Transform.rotation` do not yet affect text (though you can set the
+    // size of the text via `Text.style.font_size`)
     for mut transform in query.iter_mut() {
         transform.translation.x = 100.0 * time.seconds_since_startup().sin() as f32;
         transform.translation.y = 100.0 * time.seconds_since_startup().cos() as f32;

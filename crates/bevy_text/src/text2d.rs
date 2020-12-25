@@ -1,4 +1,4 @@
-use bevy_asset::{Assets, Handle};
+use bevy_asset::Assets;
 use bevy_ecs::{Bundle, Changed, Entity, Local, Query, QuerySet, Res, ResMut, With};
 use bevy_math::{Size, Vec3};
 use bevy_render::{
@@ -12,11 +12,20 @@ use bevy_sprite::{TextureAtlas, QUAD_HANDLE};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
 
-use crate::{DefaultTextPipeline, DrawableText, Font, FontAtlasSet, TextError, TextStyle};
+use crate::{
+    CalculatedSize, DefaultTextPipeline, DrawableText, Font, FontAtlasSet, Text, TextError,
+};
 
-#[derive(Default, Copy, Clone, Debug)]
-pub struct Text2dCalculatedSize {
-    pub size: Size,
+/// The bundle of components needed to draw text in a 2D scene via the Camera2dBundle.
+#[derive(Bundle, Clone, Debug)]
+pub struct Text2dBundle {
+    pub draw: Draw,
+    pub visible: Visible,
+    pub text: Text,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+    pub main_pass: MainPass,
+    pub calculated_size: CalculatedSize,
 }
 
 impl Default for Text2dBundle {
@@ -33,32 +42,16 @@ impl Default for Text2dBundle {
             transform: Default::default(),
             global_transform: Default::default(),
             main_pass: MainPass {},
-            calculated_size: Text2dCalculatedSize {
+            calculated_size: CalculatedSize {
                 size: Size::default(),
             },
         }
     }
 }
 
-#[derive(Bundle, Clone, Debug)]
-pub struct Text2dBundle {
-    pub draw: Draw,
-    pub visible: Visible,
-    pub text: Text,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
-    pub main_pass: MainPass,
-    pub calculated_size: Text2dCalculatedSize,
-}
-
-// TODO: DRY -- this is copy pasta from bevy_ui/src/widget/text.rs
-#[derive(Debug, Default, Clone)]
-pub struct Text {
-    pub value: String,
-    pub font: Handle<Font>,
-    pub style: TextStyle,
-}
-
+/// System for drawing text in a 2D scene via the Camera2dBundle.  Included in the default
+/// `TextPlugin`. Position is determined by the `Transform`'s translation, though scale and rotation
+/// are ignored.
 pub fn draw_text2d_system(
     mut context: DrawContext,
     msaa: Res<Msaa>,
@@ -72,7 +65,7 @@ pub fn draw_text2d_system(
             &Visible,
             &Text,
             &GlobalTransform,
-            &Text2dCalculatedSize,
+            &CalculatedSize,
         ),
         With<MainPass>,
     >,
@@ -80,9 +73,7 @@ pub fn draw_text2d_system(
     let font_quad = meshes.get(&QUAD_HANDLE).unwrap();
     let vertex_buffer_descriptor = font_quad.get_vertex_buffer_descriptor();
 
-    for (entity, mut draw, visible, text, global_transform, calculated_size) in
-        query.iter_mut()
-    {
+    for (entity, mut draw, visible, text, global_transform, calculated_size) in query.iter_mut() {
         if !visible.is_visible {
             continue;
         }
@@ -131,7 +122,7 @@ pub fn text2d_system(
     mut text_pipeline: ResMut<DefaultTextPipeline>,
     mut text_queries: QuerySet<(
         Query<Entity, Changed<Text>>,
-        Query<(&Text, &mut Text2dCalculatedSize)>,
+        Query<(&Text, &mut CalculatedSize)>,
     )>,
 ) {
     // Adds all entities where the text or the style has changed to the local queue
@@ -148,69 +139,34 @@ pub fn text2d_system(
     let query = text_queries.q1_mut();
     for entity in queued_text.entities.drain(..) {
         if let Ok((text, mut calculated_size)) = query.get_mut(entity) {
-            match add_text_to_pipeline(
+            match text_pipeline.queue_text(
                 entity,
-                &*text,
-                &mut *textures,
-                &*fonts,
-                &mut *texture_atlases,
+                text.font.clone(),
+                &fonts,
+                &text.value,
+                text.style.font_size,
+                text.style.alignment,
+                Size::new(f32::MAX, f32::MAX),
                 &mut *font_atlas_set_storage,
-                &mut *text_pipeline,
+                &mut *texture_atlases,
+                &mut *textures,
             ) {
-                TextPipelineResult::Ok => {
+                Err(TextError::NoSuchFont) => {
+                    // There was an error processing the text layout, let's add this entity to the queue for further processing
+                    new_queue.push(entity);
+                }
+                Err(e @ TextError::FailedToAddGlyph(_)) => {
+                    panic!("Fatal error when processing text: {}.", e);
+                }
+                Ok(()) => {
                     let text_layout_info = text_pipeline.get_glyphs(&entity).expect(
                         "Failed to get glyphs from the pipeline that have just been computed",
                     );
                     calculated_size.size = text_layout_info.size;
-                }
-                TextPipelineResult::Reschedule => {
-                    // There was an error processing the text layout, let's add this entity to the queue for further processing
-                    new_queue.push(entity);
                 }
             }
         }
     }
 
     queued_text.entities = new_queue;
-}
-
-// TODO: DRY - this is copy pasta from bevy_ui/src/widget/text.rs
-enum TextPipelineResult {
-    Ok,
-    Reschedule,
-}
-
-/// Computes the text layout and stores it in the TextPipeline resource.
-#[allow(clippy::too_many_arguments)]
-fn add_text_to_pipeline(
-    entity: Entity,
-    text: &Text,
-    textures: &mut Assets<Texture>,
-    fonts: &Assets<Font>,
-    texture_atlases: &mut Assets<TextureAtlas>,
-    font_atlas_set_storage: &mut Assets<FontAtlasSet>,
-    text_pipeline: &mut DefaultTextPipeline,
-) -> TextPipelineResult {
-
-    // How do we get the actual bounds?  Do we need actual bounds?
-    let bounds = Size::new(f32::MAX, f32::MAX);
-
-    match text_pipeline.queue_text(
-        entity,
-        text.font.clone(),
-        &fonts,
-        &text.value,
-        text.style.font_size,
-        text.style.alignment,
-        bounds,
-        font_atlas_set_storage,
-        texture_atlases,
-        textures,
-    ) {
-        Err(TextError::NoSuchFont) => TextPipelineResult::Reschedule,
-        Err(e @ TextError::FailedToAddGlyph(_)) => {
-            panic!("Fatal error when processing text: {}.", e);
-        }
-        Ok(()) => TextPipelineResult::Ok,
-    }
 }
