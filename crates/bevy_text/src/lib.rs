@@ -25,13 +25,9 @@ pub mod prelude {
     pub use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
 }
 
-pub mod stage {
-    pub const TEXT2D: &str = "text2d";
-}
-
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
-use bevy_ecs::{Entity, IntoSystem, SystemStage};
+use bevy_ecs::{Entity, IntoSystem};
 
 pub type DefaultTextPipeline = TextPipeline<Entity>;
 
@@ -40,19 +36,14 @@ pub struct TextPlugin;
 
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_stage_before(
-            bevy_app::stage::POST_UPDATE,
-            stage::TEXT2D,
-            SystemStage::parallel(),
-        )
-        .add_asset::<Font>()
-        .add_asset::<FontAtlasSet>()
-        .init_asset_loader::<FontLoader>()
-        .add_resource(DefaultTextPipeline::default())
-        .add_system_to_stage(stage::TEXT2D, text2d_system.system())
-        .add_system_to_stage(
-            bevy_render::stage::DRAW,
-            text2d::draw_text2d_system.system(),
-        );
+        app.add_asset::<Font>()
+            .add_asset::<FontAtlasSet>()
+            .init_asset_loader::<FontLoader>()
+            .add_resource(DefaultTextPipeline::default())
+            .add_system_to_stage(bevy_app::stage::POST_UPDATE, text2d_system.system())
+            .add_system_to_stage(
+                bevy_render::stage::DRAW,
+                text2d::draw_text2d_system.system(),
+            );
     }
 }
