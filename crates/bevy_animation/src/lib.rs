@@ -52,6 +52,8 @@ impl Plugin for AnimationPlugin {
             .add_system_to_stage(stage::ANIMATE, Assets::<Clip>::asset_event_system) // ? NOTE: Fix asset event handle
             .add_system_to_stage(stage::ANIMATE, animator_update_system);
 
+        // ! FIXME: Each added animated component or asset will add a bit of overhead in the animation
+        // ! system, I have no idea how big this is but I would like to make it pay only for what you use
         app.register_animated_component::<bevy_transform::prelude::Transform>();
 
         // Skinning

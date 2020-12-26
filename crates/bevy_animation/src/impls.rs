@@ -1,7 +1,8 @@
-use crate as bevy_animation;
+use crate::{self as bevy_animation};
 use crate::{
     blending::{AnimatorBlending, Blend},
     custom::*,
+    lerping::Lerp,
 };
 use bevy_animation_derive::*;
 use bevy_asset::{Assets, Handle};
@@ -59,6 +60,18 @@ impl TransformProps {
 impl AnimatedProperties for Transform {
     type Props = TransformProps;
 
+    const PROPERTIES: &'static [&'static str] = &[
+        "Transform.translation",
+        "Transform.translation.x",
+        "Transform.translation.y",
+        "Transform.translation.z",
+        "Transform.rotation",
+        "Transform.scale",
+        // "Transform.scale.x",
+        // "Transform.scale.y",
+        // "Transform.scale.z",
+    ];
+
     #[inline(always)]
     fn props() -> Self::Props {
         TransformProps
@@ -80,8 +93,6 @@ impl AnimatedComponent for Transform {
         let mut components = vec![];
 
         for animator in animators_query.iter() {
-            let mut blend_group = animator_blending.begin_blending();
-
             components.clear();
 
             // ? NOTE: Lazy get each component is worse than just fetching everything at once
@@ -98,6 +109,15 @@ impl AnimatedComponent for Transform {
                     );
                 }
             }
+
+            let mut blend_group = animator_blending.begin_blending(components.len());
+
+            // Bit fields
+            const TRANSLATE_X: u32 = 1;
+            const TRANSLATE_Y: u32 = 2;
+            const TRANSLATE_Z: u32 = 4;
+            const ROTATION: u32 = 8;
+            const SCALE: u32 = 16;
 
             for (_, layer, clip_handle, entities_map) in animator.animate() {
                 let w = layer.weight;
@@ -120,15 +140,32 @@ impl AnimatedComponent for Transform {
                         .flatten()
                     {
                         for (entity_index, (curve_index, curve)) in curves.iter() {
-                            let entity_index = entities_map[entity_index as usize];
-                            if let Some(ref mut component) = components[entity_index as usize] {
+                            let entity_index = entities_map[entity_index as usize] as usize;
+                            if let Some(ref mut component) = components[entity_index] {
                                 let (k, v) = curve.sample_indexed(keyframes[*curve_index], time);
                                 keyframes[*curve_index] = k;
-                                //component.translation.blend(&mut blend_group, v, w);
                                 // ? NOTE: Blend must be done for each component in order for it to work
-                                component.translation.x.blend(&mut blend_group, v.x, w);
-                                component.translation.y.blend(&mut blend_group, v.y, w);
-                                component.translation.z.blend(&mut blend_group, v.z, w);
+                                component.translation.x.blend(
+                                    entity_index,
+                                    TRANSLATE_X,
+                                    &mut blend_group,
+                                    v.x,
+                                    w,
+                                );
+                                component.translation.y.blend(
+                                    entity_index,
+                                    TRANSLATE_Y,
+                                    &mut blend_group,
+                                    v.y,
+                                    w,
+                                );
+                                component.translation.z.blend(
+                                    entity_index,
+                                    TRANSLATE_Z,
+                                    &mut blend_group,
+                                    v.z,
+                                    w,
+                                );
                             }
                         }
                     } else {
@@ -138,12 +175,18 @@ impl AnimatedComponent for Transform {
                             .flatten()
                         {
                             for (entity_index, (curve_index, curve)) in curves.iter() {
-                                let entity_index = entities_map[entity_index as usize];
-                                if let Some(ref mut component) = components[entity_index as usize] {
+                                let entity_index = entities_map[entity_index as usize] as usize;
+                                if let Some(ref mut component) = components[entity_index] {
                                     let (k, v) =
                                         curve.sample_indexed(keyframes[*curve_index], time);
                                     keyframes[*curve_index] = k;
-                                    component.translation.x.blend(&mut blend_group, v, w);
+                                    component.translation.x.blend(
+                                        entity_index,
+                                        TRANSLATE_X,
+                                        &mut blend_group,
+                                        v,
+                                        w,
+                                    );
                                 }
                             }
                         }
@@ -154,12 +197,18 @@ impl AnimatedComponent for Transform {
                             .flatten()
                         {
                             for (entity_index, (curve_index, curve)) in curves.iter() {
-                                let entity_index = entities_map[entity_index as usize];
-                                if let Some(ref mut component) = components[entity_index as usize] {
+                                let entity_index = entities_map[entity_index as usize] as usize;
+                                if let Some(ref mut component) = components[entity_index] {
                                     let (k, v) =
                                         curve.sample_indexed(keyframes[*curve_index], time);
                                     keyframes[*curve_index] = k;
-                                    component.translation.y.blend(&mut blend_group, v, w);
+                                    component.translation.y.blend(
+                                        entity_index,
+                                        TRANSLATE_Y,
+                                        &mut blend_group,
+                                        v,
+                                        w,
+                                    );
                                 }
                             }
                         }
@@ -170,12 +219,18 @@ impl AnimatedComponent for Transform {
                             .flatten()
                         {
                             for (entity_index, (curve_index, curve)) in curves.iter() {
-                                let entity_index = entities_map[entity_index as usize];
-                                if let Some(ref mut component) = components[entity_index as usize] {
+                                let entity_index = entities_map[entity_index as usize] as usize;
+                                if let Some(ref mut component) = components[entity_index] {
                                     let (k, v) =
                                         curve.sample_indexed(keyframes[*curve_index], time);
                                     keyframes[*curve_index] = k;
-                                    component.translation.z.blend(&mut blend_group, v, w);
+                                    component.translation.z.blend(
+                                        entity_index,
+                                        TRANSLATE_Z,
+                                        &mut blend_group,
+                                        v,
+                                        w,
+                                    );
                                 }
                             }
                         }
@@ -187,11 +242,17 @@ impl AnimatedComponent for Transform {
                         .flatten()
                     {
                         for (entity_index, (curve_index, curve)) in curves.iter() {
-                            let entity_index = entities_map[entity_index as usize];
-                            if let Some(ref mut component) = components[entity_index as usize] {
+                            let entity_index = entities_map[entity_index as usize] as usize;
+                            if let Some(ref mut component) = components[entity_index] {
                                 let (k, v) = curve.sample_indexed(keyframes[*curve_index], time);
                                 keyframes[*curve_index] = k;
-                                component.rotation.blend(&mut blend_group, v, w);
+                                component.rotation.blend(
+                                    entity_index,
+                                    ROTATION,
+                                    &mut blend_group,
+                                    v,
+                                    w,
+                                );
                             }
                         }
                     }
@@ -204,11 +265,13 @@ impl AnimatedComponent for Transform {
                         .flatten()
                     {
                         for (entity_index, (curve_index, curve)) in curves.iter() {
-                            let entity_index = entities_map[entity_index as usize];
-                            if let Some(ref mut component) = components[entity_index as usize] {
+                            let entity_index = entities_map[entity_index as usize] as usize;
+                            if let Some(ref mut component) = components[entity_index] {
                                 let (k, v) = curve.sample_indexed(keyframes[*curve_index], time);
                                 keyframes[*curve_index] = k;
-                                component.scale.blend(&mut blend_group, v, w);
+                                component
+                                    .scale
+                                    .blend(entity_index, SCALE, &mut blend_group, v, w);
                             }
                         }
                     }
@@ -220,161 +283,163 @@ impl AnimatedComponent for Transform {
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////
+// ///////////////////////////////////////////////////////////////////////////////
 
-pub struct StandardMaterialProps;
+// pub struct StandardMaterialProps;
 
-impl StandardMaterialProps {
-    pub const fn albedo(&self) -> Prop<Color> {
-        Prop::borrowed("Handle<StandardMaterial>.albedo")
-    }
+// impl StandardMaterialProps {
+//     pub const fn albedo(&self) -> Prop<Color> {
+//         Prop::borrowed("Handle<StandardMaterial>.albedo")
+//     }
 
-    pub const fn albedo_texture(&self) -> Prop<Option<Handle<Texture>>> {
-        Prop::borrowed("Handle<StandardMaterial>.albedo_texture")
-    }
-}
+//     pub const fn albedo_texture(&self) -> Prop<Option<Handle<Texture>>> {
+//         Prop::borrowed("Handle<StandardMaterial>.albedo_texture")
+//     }
+// }
 
-pub struct HandleStandardMaterialProps;
+// pub struct HandleStandardMaterialProps;
 
-impl HandleStandardMaterialProps {
-    pub const fn handle(&self) -> Prop<Handle<StandardMaterial>> {
-        Prop::borrowed("Handle<StandardMaterial>")
-    }
+// impl HandleStandardMaterialProps {
+//     pub const fn handle(&self) -> Prop<Handle<StandardMaterial>> {
+//         Prop::borrowed("Handle<StandardMaterial>")
+//     }
 
-    pub const fn fields(&self) -> StandardMaterialProps {
-        StandardMaterialProps
-    }
-}
+//     pub const fn fields(&self) -> StandardMaterialProps {
+//         StandardMaterialProps
+//     }
+// }
 
-impl AnimatedProperties for StandardMaterial {
-    type Props = HandleStandardMaterialProps;
+// impl AnimatedProperties for StandardMaterial {
+//     type Props = HandleStandardMaterialProps;
 
-    fn props() -> Self::Props {
-        HandleStandardMaterialProps
-    }
-}
+//     const PROPERTIES: &'static [&'static str] = &[];
 
-///////////////////////////////////////////////////////////////////////////////
+//     fn props() -> Self::Props {
+//         HandleStandardMaterialProps
+//     }
+// }
 
-impl AnimatedAsset for StandardMaterial {
-    fn animator_update_system(
-        clips: Res<Assets<Clip>>,
-        mut animator_blending: Local<AnimatorBlending>,
-        animators_query: Query<&Animator>,
-        mut assets: ResMut<Assets<Self>>,
-        component_query: Query<&mut Handle<Self>>,
-    ) {
-        let __span = tracing::info_span!("animator_standard_material_update_system");
-        let __guard = __span.enter();
+// ///////////////////////////////////////////////////////////////////////////////
 
-        let mut components = vec![];
+// impl AnimatedAsset for StandardMaterial {
+//     fn animator_update_system(
+//         clips: Res<Assets<Clip>>,
+//         mut animator_blending: Local<AnimatorBlending>,
+//         animators_query: Query<&Animator>,
+//         mut assets: ResMut<Assets<Self>>,
+//         component_query: Query<&mut Handle<Self>>,
+//     ) {
+//         let __span = tracing::info_span!("animator_standard_material_update_system");
+//         let __guard = __span.enter();
 
-        for animator in animators_query.iter() {
-            let mut blend_group = animator_blending.begin_blending();
+//         let mut components = vec![];
 
-            for (_, layer, clip_handle, entities_map) in animator.animate() {
-                let w = layer.weight;
-                if w < 1.0e-8 {
-                    continue;
-                }
+//         for animator in animators_query.iter() {
+//             let mut blend_group = animator_blending.begin_blending();
 
-                components.clear();
+//             for (_, layer, clip_handle, entities_map) in animator.animate() {
+//                 let w = layer.weight;
+//                 if w < 1.0e-8 {
+//                     continue;
+//                 }
 
-                // TODO: Test performance with lazy component fetch
-                // SAFETY: each component will be updated one at the time and this function
-                // currently has the mutability over the Transform type, so no race conditions
-                // are possible
-                unsafe {
-                    for entity in animator.entities() {
-                        components.push(
-                            entity
-                                .map(|entity| component_query.get_unsafe(entity).ok())
-                                .flatten(),
-                        );
-                    }
-                }
+//                 components.clear();
 
-                if let Some(clip) = clips.get(clip_handle) {
-                    let time = layer.time;
+//                 // TODO: Test performance with lazy component fetch
+//                 // SAFETY: each component will be updated one at the time and this function
+//                 // currently has the mutability over the Transform type, so no race conditions
+//                 // are possible
+//                 unsafe {
+//                     for entity in animator.entities() {
+//                         components.push(
+//                             entity
+//                                 .map(|entity| component_query.get_unsafe(entity).ok())
+//                                 .flatten(),
+//                         );
+//                     }
+//                 }
 
-                    // SAFETY: Never a different thread will modify or access the same index as this one;
-                    // Plus as a nice and crazy feature each property is grouped by name into their own cache line
-                    // buckets, this way no cache line will be accessed by the same thread unless the same property
-                    // is accessed by two different systems, which is possible but weird and will hit the performance a bit
-                    let keyframes = unsafe { layer.keyframes_unsafe() };
+//                 if let Some(clip) = clips.get(clip_handle) {
+//                     let time = layer.time;
 
-                    // Replace the material handle
-                    if let Some(curves) = clip
-                        .get("Handle<StandardMaterial>")
-                        .map(|curve_untyped| {
-                            curve_untyped.downcast_ref::<Handle<StandardMaterial>>()
-                        })
-                        .flatten()
-                    {
-                        for (entity_index, (curve_index, curve)) in curves.iter() {
-                            let entity_index = entities_map[entity_index as usize];
+//                     // SAFETY: Never a different thread will modify or access the same index as this one;
+//                     // Plus as a nice and crazy feature each property is grouped by name into their own cache line
+//                     // buckets, this way no cache line will be accessed by the same thread unless the same property
+//                     // is accessed by two different systems, which is possible but weird and will hit the performance a bit
+//                     let keyframes = unsafe { layer.keyframes_unsafe() };
 
-                            if let Some(ref mut component) = components[entity_index as usize] {
-                                let (k, v) = curve.sample_indexed(keyframes[*curve_index], time);
-                                keyframes[*curve_index] = k;
-                                component.blend(&mut blend_group, v, w);
-                            }
-                        }
-                    }
+//                     // Replace the material handle
+//                     if let Some(curves) = clip
+//                         .get("Handle<StandardMaterial>")
+//                         .map(|curve_untyped| {
+//                             curve_untyped.downcast_ref::<Handle<StandardMaterial>>()
+//                         })
+//                         .flatten()
+//                     {
+//                         for (entity_index, (curve_index, curve)) in curves.iter() {
+//                             let entity_index = entities_map[entity_index as usize];
 
-                    // Change asset properties
+//                             if let Some(ref mut component) = components[entity_index as usize] {
+//                                 let (k, v) = curve.sample_indexed(keyframes[*curve_index], time);
+//                                 keyframes[*curve_index] = k;
+//                                 component.blend(&mut blend_group, v, w);
+//                             }
+//                         }
+//                     }
 
-                    if let Some(curves) = clip
-                        .get("Handle<StandardMaterial>.albedo")
-                        .map(|curve_untyped| curve_untyped.downcast_ref::<Color>())
-                        .flatten()
-                    {
-                        for (entity_index, (curve_index, curve)) in curves.iter() {
-                            let entity_index = entities_map[entity_index as usize];
+//                     // Change asset properties
 
-                            if let Some(ref component) = components[entity_index as usize] {
-                                if let Some(asset) = assets.get_mut(&**component) {
-                                    let (k, v) =
-                                        curve.sample_indexed(keyframes[*curve_index], time);
-                                    keyframes[*curve_index] = k;
-                                    asset.albedo.blend(&mut blend_group, v, w);
-                                }
-                            }
-                        }
-                    }
+//                     if let Some(curves) = clip
+//                         .get("Handle<StandardMaterial>.albedo")
+//                         .map(|curve_untyped| curve_untyped.downcast_ref::<Color>())
+//                         .flatten()
+//                     {
+//                         for (entity_index, (curve_index, curve)) in curves.iter() {
+//                             let entity_index = entities_map[entity_index as usize];
 
-                    if let Some(curves) = clip
-                        .get("Handle<StandardMaterial>.albedo_texture")
-                        .map(|curve_untyped| {
-                            curve_untyped.downcast_ref::<Option<Handle<Texture>>>()
-                        })
-                        .flatten()
-                    {
-                        for (entity_index, (curve_index, curve)) in curves.iter() {
-                            let entity_index = entities_map[entity_index as usize];
-                            if let Some(ref component) = components[entity_index as usize] {
-                                if let Some(asset) = assets.get_mut(&**component) {
-                                    let (k, v) =
-                                        curve.sample_indexed(keyframes[*curve_index], time);
-                                    keyframes[*curve_index] = k;
-                                    asset.albedo_texture.blend(&mut blend_group, v, w);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+//                             if let Some(ref component) = components[entity_index as usize] {
+//                                 if let Some(asset) = assets.get_mut(&**component) {
+//                                     let (k, v) =
+//                                         curve.sample_indexed(keyframes[*curve_index], time);
+//                                     keyframes[*curve_index] = k;
+//                                     asset.albedo.blend(&mut blend_group, v, w);
+//                                 }
+//                             }
+//                         }
+//                     }
 
-        std::mem::drop(__guard);
-    }
-}
+//                     if let Some(curves) = clip
+//                         .get("Handle<StandardMaterial>.albedo_texture")
+//                         .map(|curve_untyped| {
+//                             curve_untyped.downcast_ref::<Option<Handle<Texture>>>()
+//                         })
+//                         .flatten()
+//                     {
+//                         for (entity_index, (curve_index, curve)) in curves.iter() {
+//                             let entity_index = entities_map[entity_index as usize];
+//                             if let Some(ref component) = components[entity_index as usize] {
+//                                 if let Some(asset) = assets.get_mut(&**component) {
+//                                     let (k, v) =
+//                                         curve.sample_indexed(keyframes[*curve_index], time);
+//                                     keyframes[*curve_index] = k;
+//                                     asset.albedo_texture.blend(&mut blend_group, v, w);
+//                                 }
+//                             }
+//                         }
+//                     }
+//                 }
+//             }
+//         }
+
+//         std::mem::drop(__guard);
+//     }
+// }
 
 ///////////////////////////////////////////////////////////////////////////////
 
 // #[derive(Debug, AnimatedComponent)]
 // struct Test {
-//     #[animated(expand { x: f32, y: f32, z: f32 })]
+//     #[animated(fields { x: f32, y: f32, z: f32 })]
 //     a: Vec3,
 //     b: Vec2,
 //     #[animated(ignore)]
@@ -383,10 +448,10 @@ impl AnimatedAsset for StandardMaterial {
 
 // animated_component! {
 //     struct Transform {
-//         #[animated(expand { x: f32, y: f32, z: f32 })]
+//         #[animated(fields(x: f32, y: f32, z: f32))]
 //         translation: Vec3,
 //         rotation: Quat,
-//         #[animated(expand { x: f32, y: f32, z: f32 })]
+//         #[animated(fields(x: f32, y: f32, z: f32))]
 //         scale: Vec3,
 //     }
 // }
@@ -402,41 +467,42 @@ impl AnimatedAsset for StandardMaterial {
 //     struct Sprite {}
 // }
 
-animated_asset! {
-    struct Mesh {}
-}
+// animated_asset! {
+//     struct Mesh {}
+// }
 
-animated_component! {
-    struct Visible {
-        is_visible: bool,
-    }
-}
+// animated_component! {
+//     struct Visible {
+//         is_visible: bool,
+//     }
+// }
 
-animated_component! {
-    struct Light {
-        color: Color,
-        fov: f32,
-        //depth: Range<f32>,
-    }
-}
+// animated_component! {
+//     struct Light {
+//         color: Color,
+//         fov: f32,
+//         #[animated(ignore, fields(start: f32, end: f32))]
+//         depth: Range<f32>,
+//     }
+// }
 
-animated_component! {
-    struct PerspectiveProjection {
-        fov: f32,
-        aspect_ratio: f32,
-        near: f32,
-        far: f32,
-    }
-}
+// animated_component! {
+//     struct PerspectiveProjection {
+//         fov: f32,
+//         aspect_ratio: f32,
+//         near: f32,
+//         far: f32,
+//     }
+// }
 
-animated_component! {
-    struct OrthographicProjection {
-        left: f32,
-        right: f32,
-        bottom: f32,
-        top: f32,
-        near: f32,
-        far: f32,
-        //window_origin: WindowOrigin,
-    }
-}
+// animated_component! {
+//     struct OrthographicProjection {
+//         left: f32,
+//         right: f32,
+//         bottom: f32,
+//         top: f32,
+//         near: f32,
+//         far: f32,
+//         //window_origin: WindowOrigin,
+//     }
+// }

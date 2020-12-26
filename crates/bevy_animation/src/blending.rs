@@ -1,10 +1,23 @@
+use crate::lerping::Lerp;
 use bevy_asset::{Asset, Handle, HandleUntyped};
 use bevy_math::prelude::*;
 use bevy_render::color::Color;
 use fnv::FnvBuildHasher;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-use crate::lerping::Lerp;
+// pub struct Bit<'a>(&'a mut u32, u32);
+
+// impl<'a> Bit<'a> {
+//     #[inline(always)]
+//     pub fn set(&mut self) -> bool {
+//         if (*self.0 & self.1) != 0 {
+//             *self.0 |= self.1;
+//             true
+//         } else {
+//             false
+//         }
+//     }
+// }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 struct Ptr(*const u8);
@@ -16,17 +29,18 @@ unsafe impl Sync for Ptr {}
 
 #[derive(Default, Debug)]
 pub struct AnimatorBlending {
-    // ? NOTE: FnvHasher performed better over the PtrHasher (ptr value as hash) and AHash
-    blend: HashSet<Ptr, FnvBuildHasher>,
+    bits: Vec<u32>,
+    // ? NOTE: HashMap is used here to reduce memory waste, it's slower but other wise a lot of memory won't be used
     /// Used for contest blend type
-    blend_memory: HashMap<Ptr, f32, FnvBuildHasher>,
+    weights: HashMap<Ptr, f32, FnvBuildHasher>,
 }
 
 impl AnimatorBlending {
     #[inline(always)]
-    pub fn begin_blending(&mut self) -> AnimatorBlendGroup {
-        self.blend.clear();
-        self.blend_memory.clear();
+    pub fn begin_blending(&mut self, entities: usize) -> AnimatorBlendGroup {
+        self.bits.clear();
+        self.bits.resize(entities, 0);
+        self.weights.clear();
         AnimatorBlendGroup { blending: self }
     }
 }
@@ -37,20 +51,29 @@ pub struct AnimatorBlendGroup<'a> {
 
 impl<'a> AnimatorBlendGroup<'a> {
     /// Blend using lerping
-    pub fn blend_lerp<T: Lerp>(&mut self, attribute: &mut T, value: T, weight: f32) {
-        let ptr = Ptr(attribute as *const _ as *const u8);
-        if self.blending.blend.contains(&ptr) {
+    #[inline(always)]
+    pub fn blend_lerp<T: Lerp>(
+        &mut self,
+        entity_index: usize,
+        bit_mask: u32,
+        attribute: &mut T,
+        value: T,
+        weight: f32,
+    ) {
+        let b = &mut self.blending.bits[entity_index];
+        if *b & bit_mask != 0 {
             *attribute = Lerp::lerp(&*attribute, &value, weight);
         } else {
-            self.blending.blend.insert(ptr);
             *attribute = value;
         }
+        *b |= bit_mask;
     }
 
     /// Contest blending, only the value with the highest weight value will remain
+    #[inline(always)]
     pub fn blend_contest<T>(&mut self, attribute: &mut T, value: T, weight: f32) {
         let ptr = Ptr(attribute as *const _ as *const u8);
-        let w = self.blending.blend_memory.entry(ptr).or_insert(0.0);
+        let w = self.blending.weights.entry(ptr).or_insert(0.0);
         if weight > *w {
             *w = weight;
             *attribute = value;
@@ -69,23 +92,44 @@ impl<'a> AnimatorBlendGroup<'a> {
 ///
 /// impl Blend for MyType {
 ///     #[inline(always)]
-///     fn blend(&mut self, blend_group: &mut AnimatorBlendGroup, value: Self, weight: f32) {
+///     fn blend(
+///         &mut self,
+///         entity_index: usize,
+///         bit_mask: u32,
+///         blend_group: &mut AnimatorBlendGroup,
+///         value: Self,
+///         weight: f32,
+///     ){
 ///         blend_group.blend_contest(self, value, weight);
-///         // or
-///         // blend_group.blend_lerp(self, value, weight);
+///         // or (MyType needs to implement `Lerp`)
+///         // blend_group.blend_lerp(entity_index, bit_mask, self, value, weight);
 ///     }
 /// }
 /// ```
 pub trait Blend {
-    fn blend(&mut self, blend_group: &mut AnimatorBlendGroup, value: Self, weight: f32);
+    fn blend(
+        &mut self,
+        entity_index: usize,
+        bit_mask: u32,
+        blend_group: &mut AnimatorBlendGroup,
+        value: Self,
+        weight: f32,
+    );
 }
 
 macro_rules! lerp {
     ($t:ty) => {
         impl Blend for $t {
             #[inline(always)]
-            fn blend(&mut self, blend_group: &mut AnimatorBlendGroup, value: Self, weight: f32) {
-                blend_group.blend_lerp(self, value, weight);
+            fn blend(
+                &mut self,
+                entity_index: usize,
+                bit_mask: u32,
+                blend_group: &mut AnimatorBlendGroup,
+                value: Self,
+                weight: f32,
+            ) {
+                blend_group.blend_lerp(entity_index, bit_mask, self, value, weight);
             }
         }
     };
@@ -101,38 +145,63 @@ lerp!(Color);
 
 impl<T: Asset + 'static> Blend for Handle<T> {
     #[inline(always)]
-    fn blend(&mut self, blend_group: &mut AnimatorBlendGroup, value: Self, weight: f32) {
+    fn blend(
+        &mut self,
+        _: usize,
+        _: u32,
+        blend_group: &mut AnimatorBlendGroup,
+        value: Self,
+        weight: f32,
+    ) {
         blend_group.blend_contest(self, value, weight);
     }
 }
 
 impl Blend for HandleUntyped {
     #[inline(always)]
-    fn blend(&mut self, blend_group: &mut AnimatorBlendGroup, value: Self, weight: f32) {
+    fn blend(
+        &mut self,
+        _: usize,
+        _: u32,
+        blend_group: &mut AnimatorBlendGroup,
+        value: Self,
+        weight: f32,
+    ) {
         blend_group.blend_contest(self, value, weight);
     }
 }
 
 impl<T: Blend> Blend for Option<T> {
-    fn blend(&mut self, blend_group: &mut AnimatorBlendGroup, value: Self, weight: f32) {
+    fn blend(
+        &mut self,
+        entity_index: usize,
+        bit_mask: u32,
+        blend_group: &mut AnimatorBlendGroup,
+        value: Self,
+        weight: f32,
+    ) {
         let ptr = Ptr(self as *const _ as *const u8);
 
         match (self.is_some(), value.is_some()) {
             (true, true) => {
                 // Blend by lerp but also add the entry for the conext blending
-                self.as_mut()
-                    .unwrap()
-                    .blend(blend_group, value.unwrap(), weight);
+                self.as_mut().unwrap().blend(
+                    entity_index,
+                    bit_mask,
+                    blend_group,
+                    value.unwrap(),
+                    weight,
+                );
 
                 // Make sure to also add an entry for contest blent to work
-                let w = blend_group.blending.blend_memory.entry(ptr).or_insert(0.0);
+                let w = blend_group.blending.weights.entry(ptr).or_insert(0.0);
                 if weight > *w {
                     *w = weight;
                 }
             }
             (false, true) | (true, false) | (false, false) => {
                 // Blend by context but also add an entry for the next blend_lerp if needed
-                blend_group.blending.blend.insert(ptr);
+                blend_group.blending.bits[entity_index] |= bit_mask;
                 blend_group.blend_contest(self, value, weight);
             }
         }
