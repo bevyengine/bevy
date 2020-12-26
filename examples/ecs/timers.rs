@@ -37,7 +37,7 @@ fn setup_system(commands: &mut Commands) {
 
 /// This system ticks all the `Timer` components on entities within the scene
 /// using bevy's `Time` resource to get the delta between each update.
-fn timer_system(time: Res<Time>, mut query: Query<&mut Timer<Entity>>) {
+fn timer_system(time: Res<Time>, mut query: Query<&mut Timer<()>>) {
     for mut timer in query.iter_mut() {
         if timer.tick(time.delta_seconds()).just_finished() {
             info!("Entity timer just finished")
