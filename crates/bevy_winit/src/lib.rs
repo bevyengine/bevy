@@ -190,17 +190,24 @@ pub fn winit_runner(mut app: App) {
             } => {
                 let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
                 let mut windows = app.resources.get_mut::<Windows>().unwrap();
-                let window_id_opt = winit_windows.get_window_id(winit_window_id);
-                let window_opt = window_id_opt
-                    .as_ref()
-                    .cloned()
-                    .and_then(|id| windows.get_mut(id));
-                if window_opt.is_none() {
+                let window_id =
+                    if let Some(window_id) = winit_windows.get_window_id(winit_window_id) {
+                        window_id
+                    } else {
+                        warn!(
+                            "Skipped event for unknown winit Window Id {:?}",
+                            winit_window_id
+                        );
+                        return;
+                    };
+
+                let window = if let Some(window) = windows.get_mut(window_id) {
+                    window
+                } else {
                     warn!("Skipped event for unknown Window Id {:?}", winit_window_id);
                     return;
-                }
-                let window = window_opt.unwrap();
-                let window_id = window_id_opt.unwrap();
+                };
+
                 match event {
                     WindowEvent::Resized(size) => {
                         window.update_actual_size_from_backend(size.width, size.height);
