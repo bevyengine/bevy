@@ -244,13 +244,13 @@ pub fn derive_animated_component(input: TokenStream) -> TokenStream {
         // )*
 
         impl #impl_generics #bevy_animation::AnimatedProperties for #struct_name #ty_generics {
-            type Props = #root_properties;
+            type Props = ();
 
             const PROPERTIES: &'static [&'static str] = &[ #( #properties_names, )* ];
 
             #[inline(always)]
             fn props() -> Self::Props {
-                #root_properties
+                todo!()
             }
         }
 

@@ -16,67 +16,67 @@ use bevy_render::{
 };
 use bevy_transform::prelude::*;
 
-// pub struct TransformTranslationProps;
+pub struct TransformTranslationProps;
 
-// impl Prop<Vec3, TransformTranslationProps> {
-//     pub const fn x(&self) -> Prop<f32> {
-//         Prop::borrowed("Transform.translation.x")
-//     }
+impl Prop<Vec3, TransformTranslationProps> {
+    pub const fn x(&self) -> Prop<f32> {
+        Prop::borrowed("Transform.translation.x")
+    }
 
-//     pub const fn y(&self) -> Prop<f32> {
-//         Prop::borrowed("Transform.translation.y")
-//     }
+    pub const fn y(&self) -> Prop<f32> {
+        Prop::borrowed("Transform.translation.y")
+    }
 
-//     pub const fn z(&self) -> Prop<f32> {
-//         Prop::borrowed("Transform.translation.z")
-//     }
-// }
+    pub const fn z(&self) -> Prop<f32> {
+        Prop::borrowed("Transform.translation.z")
+    }
+}
 
-// impl std::ops::Deref for Prop<Vec3, TransformTranslationProps> {
-//     type Target = TransformTranslationProps;
+impl std::ops::Deref for Prop<Vec3, TransformTranslationProps> {
+    type Target = TransformTranslationProps;
 
-//     #[inline(always)]
-//     fn deref(&self) -> &Self::Target {
-//         &TransformTranslationProps
-//     }
-// }
+    #[inline(always)]
+    fn deref(&self) -> &Self::Target {
+        &TransformTranslationProps
+    }
+}
 
-// pub struct TransformProps;
+pub struct TransformProps;
 
-// impl TransformProps {
-//     pub const fn translation(&self) -> Prop<Vec3, TransformTranslationProps> {
-//         Prop::borrowed("Transform.translation")
-//     }
+impl TransformProps {
+    pub const fn translation(&self) -> Prop<Vec3, TransformTranslationProps> {
+        Prop::borrowed("Transform.translation")
+    }
 
-//     pub const fn rotation(&self) -> Prop<Quat> {
-//         Prop::borrowed("Transform.rotation")
-//     }
+    pub const fn rotation(&self) -> Prop<Quat> {
+        Prop::borrowed("Transform.rotation")
+    }
 
-//     pub const fn scale(&self) -> Prop<Vec3> {
-//         Prop::borrowed("Transform.scale")
-//     }
-// }
+    pub const fn scale(&self) -> Prop<Vec3> {
+        Prop::borrowed("Transform.scale")
+    }
+}
 
-// impl AnimatedProperties for Transform {
-//     type Props = TransformProps;
+impl AnimatedProperties for Transform {
+    type Props = TransformProps;
 
-//     const PROPERTIES: &'static [&'static str] = &[
-//         "Transform.translation",
-//         "Transform.translation.x",
-//         "Transform.translation.y",
-//         "Transform.translation.z",
-//         "Transform.rotation",
-//         "Transform.scale",
-//         // "Transform.scale.x",
-//         // "Transform.scale.y",
-//         // "Transform.scale.z",
-//     ];
+    const PROPERTIES: &'static [&'static str] = &[
+        "Transform.translation",
+        "Transform.translation.x",
+        "Transform.translation.y",
+        "Transform.translation.z",
+        "Transform.rotation",
+        "Transform.scale",
+        // "Transform.scale.x",
+        // "Transform.scale.y",
+        // "Transform.scale.z",
+    ];
 
-//     #[inline(always)]
-//     fn props() -> Self::Props {
-//         TransformProps
-//     }
-// }
+    #[inline(always)]
+    fn props() -> Self::Props {
+        TransformProps
+    }
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -449,15 +449,15 @@ use bevy_transform::prelude::*;
 //     c: Vec3,
 // }
 
-animated_component! {
-    struct Transform {
-        #[animated(fields(x: f32, y: f32, z: f32))]
-        translation: Vec3,
-        rotation: Quat,
-        #[animated(fields(x: f32, y: f32, z: f32))]
-        scale: Vec3,
-    }
-}
+// animated_component! {
+//     struct Transform {
+//         #[animated(fields(x: f32, y: f32, z: f32))]
+//         translation: Vec3,
+//         rotation: Quat,
+//         #[animated(fields(x: f32, y: f32, z: f32))]
+//         scale: Vec3,
+//     }
+// }
 
 // animated_asset! {
 //     struct StandardMaterial {

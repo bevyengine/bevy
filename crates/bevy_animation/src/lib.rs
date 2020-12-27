@@ -4,6 +4,7 @@ use bevy_reflect::RegisterTypeBuilder;
 
 mod app;
 mod custom;
+mod reflect;
 //mod experimental;
 mod hierarchy;
 mod impls;
@@ -54,7 +55,7 @@ impl Plugin for AnimationPlugin {
 
         // ! FIXME: Each added animated component or asset will add a bit of overhead in the animation
         // ! system, I have no idea how big this is but I would like to make it pay only for what you use
-        app.register_animated_component::<bevy_transform::prelude::Transform>();
+        app.register_animated::<bevy_transform::prelude::Transform>();
 
         // Skinning
         app.add_asset::<SkinAsset>()
