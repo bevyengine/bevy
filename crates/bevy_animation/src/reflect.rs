@@ -6,10 +6,11 @@
 
 use std::{any::TypeId, marker::PhantomData};
 
-use bevy_asset::{prelude::*, Asset};
+use bevy_asset::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_math::prelude::*;
 use bevy_reflect::prelude::*;
+use tracing::warn;
 
 use crate::{
     blending::AnimatorBlendGroup, blending::Blend, lerping::Lerp, Animator, AnimatorBlending, Clip,
@@ -30,12 +31,14 @@ type AnimateFn = fn(
 
 /// Register how to animate custom types
 pub struct AnimatorRegistry {
+    ver: usize,
     animate_functions: Vec<(TypeId, AnimateFn)>,
 }
 
 impl Default for AnimatorRegistry {
     fn default() -> Self {
         Self {
+            ver: 0,
             // Basic types
             animate_functions: vec![
                 (TypeId::of::<bool>(), animate::<bool>),
@@ -46,6 +49,7 @@ impl Default for AnimatorRegistry {
                 (TypeId::of::<Quat>(), animate::<Quat>),
                 // (TypeId::of::<Color>(), animate::<Color>),
                 // (TypeId::of::<HandleUntyped>(), animate::<HandleUntyped>),
+                // (TypeId::of::<Handle<Mesh>>(), animate::<Handle<Mesh>>),
                 // TODO: How to handle generic types like Handle<T> or Option<T>
             ],
         }
@@ -64,9 +68,15 @@ impl AnimatorRegistry {
             panic!("type '{}' already registered");
         }
 
+        self.ver = self.ver.wrapping_add(1);
         self.animate_functions.push((ty, animate::<T>))
     }
 
+    /// Returns `usize::MAX` if the type wasn't registered,
+    ///
+    /// **NOTE** The index ranges from `0` to `usize::MAX - 1`,
+    /// which makes usize::MAX an invalid index thats why
+    /// this function doesn't return `Option<usize>`
     pub fn index_of(&self, ty: TypeId) -> usize {
         self.animate_functions
             .iter()
@@ -83,6 +93,7 @@ trait Components {
 impl<'a, 's, T: Send + Sync + 'static> Components for &'s mut [Option<Mut<'a, T>>] {
     #[inline(always)]
     fn get_mut(&mut self, index: usize) -> Option<*mut u8> {
+        // NOTE: Will trigger the `Changed` event to the right types
         self[index].as_mut().map(|c| &mut **c as *mut T as *mut u8)
     }
 }
@@ -119,8 +130,8 @@ fn animate<T: Lerp + Blend + Clone + 'static>(
     }
 }
 
-#[derive(Default)]
 struct AnimatorDescriptorInner {
+    ver: usize,
     dynamic_properties: Vec<(String, TypeId, usize, isize, u32)>,
 }
 
@@ -179,7 +190,10 @@ pub fn animate_system<T: Struct + Send + Sync + 'static>(
 
         if let Some(c) = components.iter().find_map(|c| c.as_ref()) {
             if descriptor.inner.is_none() {
-                let mut inner = AnimatorDescriptorInner::default();
+                let mut inner = AnimatorDescriptorInner {
+                    ver: registry.ver,
+                    dynamic_properties: vec![],
+                };
 
                 // Lazy initialize the descriptor
                 let short_name = shorten_name(c.type_name());
@@ -192,6 +206,9 @@ pub fn animate_system<T: Struct + Send + Sync + 'static>(
 
                     // Find the animate function for the given type
                     let index = registry.index_of(ty);
+                    if index == usize::MAX {
+                        warn!("missing animation function for `{}`", &name);
+                    }
 
                     // SAFETY: Is be less than size_of::<T>() so it won't be crazy high
                     let offset =
@@ -200,6 +217,8 @@ pub fn animate_system<T: Struct + Send + Sync + 'static>(
                     inner
                         .dynamic_properties
                         .push((name, ty, index, offset, (1 << i) as u32));
+
+                    // TODO: Expand type if possible
                 }
 
                 descriptor.inner = Some(inner);
@@ -210,12 +229,17 @@ pub fn animate_system<T: Struct + Send + Sync + 'static>(
         }
 
         let descriptor = &mut *descriptor;
-        let descriptor_inner = descriptor.inner.as_ref().unwrap();
+        let descriptor_inner = descriptor.inner.as_mut().unwrap();
+
+        if descriptor_inner.ver != registry.ver {
+            // TODO: Lookup missing animate functions because `AnimatorRegistry` changed
+        }
 
         let mut blend_group = descriptor
             .animator_blending
             .begin_blending(components.len());
 
+        // Alias `T`
         let mut components: Box<dyn Components> = Box::new(&mut components[..]);
 
         for (_, layer, clip_handle, entities_map) in animator.animate() {
@@ -233,14 +257,12 @@ pub fn animate_system<T: Struct + Send + Sync + 'static>(
                 // is accessed by two different systems, which is possible but weird and will hit the performance a bit
                 let keyframes = unsafe { layer.keyframes_unsafe() };
 
-                for (prop_name, _prop_type, prop_index, prop_offset, prop_mask) in
+                for (prop_name, _, prop_index, prop_offset, prop_mask) in
                     &descriptor_inner.dynamic_properties
                 {
                     let i = *prop_index;
                     if i == usize::MAX {
-                        // ? NOTE: Fetching missing properties will possible cause some slow down
-                        // // Try to look up the property once again
-                        // *prop_index = registry.index_of(*prop_type);
+                        // Missing animation function
                         continue;
                     }
 
