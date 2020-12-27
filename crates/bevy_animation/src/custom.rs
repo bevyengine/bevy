@@ -849,6 +849,8 @@ pub trait AnimatedProperties {
     /// List of all animated properties, is used to search invalid properties in clips
     const PROPERTIES: &'static [&'static str];
     /// Similar to `PROPERTIES` but contains a regex to validate dynamic properties
+    ///
+    /// **NOTE** Use sparelly, as it's more expensive to validate
     const DYNAMIC_PROPERTIES: &'static [&'static str] = &[];
 
     /// Type safe animated properties of this component or asset;
