@@ -1,8 +1,9 @@
 mod convert;
 
-use crate::{CalculatedSize, Node, Style};
+use crate::{Node, Style};
 use bevy_ecs::{Changed, Entity, Query, Res, ResMut, With, Without};
 use bevy_math::Vec2;
+use bevy_text::CalculatedSize;
 use bevy_transform::prelude::{Children, Parent, Transform};
 use bevy_utils::HashMap;
 use bevy_window::{Window, WindowId, Windows};

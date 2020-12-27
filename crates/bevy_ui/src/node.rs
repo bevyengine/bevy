@@ -48,11 +48,6 @@ impl AddAssign<f32> for Val {
     }
 }
 
-#[derive(Default, Copy, Clone, Debug)]
-pub struct CalculatedSize {
-    pub size: Size,
-}
-
 #[derive(Clone, PartialEq, Debug, Reflect)]
 pub struct Style {
     pub display: Display,
