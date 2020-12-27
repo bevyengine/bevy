@@ -11,11 +11,124 @@ use bevy_ecs::prelude::*;
 use bevy_math::prelude::*;
 use bevy_reflect::prelude::*;
 
-use crate::{blending::Blend, lerping::Lerp, Animator, AnimatorBlending, Clip};
+use crate::{
+    blending::AnimatorBlendGroup, blending::Blend, lerping::Lerp, Animator, AnimatorBlending, Clip,
+};
+
+type AnimateFn = fn(
+    components: &mut dyn Components,
+    entities_map: &[u16],
+    blend_group: &mut AnimatorBlendGroup,
+    keyframes: &mut [u16],
+    clip: &Clip,
+    time: f32,
+    w: f32,
+    prop_name: &str,
+    prop_type: TypeId,
+    prop_offset: isize,
+    prop_mask: u32,
+) -> bool;
+
+/// Register how to animate basic types
+pub struct AnimatorRegistry {
+    animate_functions: Vec<(TypeId, AnimateFn)>,
+}
+
+impl Default for AnimatorRegistry {
+    fn default() -> Self {
+        Self {
+            // Basic types
+            animate_functions: vec![
+                (TypeId::of::<bool>(), animate::<f32>),
+                (TypeId::of::<f32>(), animate::<f32>),
+                (TypeId::of::<Vec2>(), animate::<Vec2>),
+                (TypeId::of::<Vec3>(), animate::<Vec3>),
+                (TypeId::of::<Vec4>(), animate::<Vec4>),
+                // (TypeId::of::<Color>(), animate::<Color>),
+                // (TypeId::of::<HandleUntyped>(), animate::<HandleUntyped>),
+                (TypeId::of::<Quat>(), animate::<Quat>),
+            ],
+        }
+    }
+}
+
+impl AnimatorRegistry {
+    pub fn registry<T: Lerp + Blend + Clone + 'static>(&mut self) {
+        let ty = TypeId::of::<T>();
+        if self
+            .animate_functions
+            .iter()
+            .position(|(other, _)| *other == ty)
+            .is_some()
+        {
+            panic!("type '{}' already registered");
+        }
+
+        self.animate_functions.push((ty, animate::<T>))
+    }
+
+    pub fn index_of(&self, ty: TypeId) -> usize {
+        self.animate_functions
+            .iter()
+            .position(|(other, _)| *other == ty)
+            .unwrap_or(usize::MAX)
+    }
+}
+
+/// Helper trait to fetch components pointers
+trait Components {
+    fn get_mut(&mut self, index: usize) -> Option<*mut u8>;
+}
+
+impl<'a, 's, T: Send + Sync + 'static> Components for &'s mut [Option<Mut<'a, T>>] {
+    #[inline(always)]
+    fn get_mut(&mut self, index: usize) -> Option<*mut u8> {
+        self[index].as_mut().map(|c| &mut **c as *mut T as *mut u8)
+    }
+}
+
+#[inline(always)]
+fn animate<T: Lerp + Blend + Clone + 'static>(
+    components: &mut dyn Components,
+    entities_map: &[u16],
+    blend_group: &mut AnimatorBlendGroup,
+    keyframes: &mut [u16],
+    clip: &Clip,
+    time: f32,
+    w: f32,
+    prop_name: &str,
+    prop_type: TypeId,
+    prop_offset: isize,
+    prop_mask: u32,
+) -> bool {
+    if prop_type == TypeId::of::<T>() {
+        if let Some(curves) = clip
+            .get(prop_name)
+            .map(|curve_untyped| curve_untyped.downcast_ref::<T>())
+            .flatten()
+        {
+            for (entity_index, (curve_index, curve)) in curves.iter() {
+                let entity_index = entities_map[entity_index as usize] as usize;
+                if let Some(ref mut component) = components.get_mut(entity_index) {
+                    let kr = &mut keyframes[*curve_index];
+                    let (k, v) = curve.sample_indexed(*kr, time);
+                    *kr = k;
+
+                    // SAFETY: prop_offset is
+                    let value = unsafe { &mut *(component.offset(prop_offset) as *mut T) };
+                    value.blend(entity_index, prop_mask, blend_group, v, w);
+                }
+            }
+        }
+        true
+    } else {
+        false
+    }
+}
 
 #[derive(Default)]
 struct AnimatorDescriptorInner {
-    dynamic_properties: Vec<(String, TypeId, isize, u32)>,
+    dynamic_properties: Vec<(String, TypeId, usize, isize, u32)>,
 }
 
 // Defines how to animate the reflected type
@@ -39,41 +152,8 @@ fn shorten_name(n: &str) -> &str {
     n.rsplit("::").nth(0).unwrap_or(n)
 }
 
-// fn animate<T: Lerp + Blend + 'static>(
-//     prop_name: &str,
-//     prop_type: &TypeId,
-//     prop_offset: &usize,
-//     prop_mask: &u32,
-// ) {
-//     if *prop_type == TypeId::of::<T>() {
-//         if let Some(curves) = clip
-//             .get(prop_name)
-//             .map(|curve_untyped| curve_untyped.downcast_ref::<T>())
-//             .flatten()
-//         {
-//             for (entity_index, (curve_index, curve)) in curves.iter() {
-//                 let entity_index = entities_map[entity_index as usize] as usize;
-//                 if let Some(ref mut component) = components[entity_index] {
-//                     let kr = &mut keyframes[*curve_index];
-//                     let (k, v) = curve.sample_indexed(*kr, time);
-//                     *kr = k;
-
-//                     let value = unsafe {
-//                         &mut *(((&mut *component) as *mut _ as *mut u8).offset(*prop_offset)
-//                             as *mut T)
-//                     };
-
-//                     value.blend(entity_index, *prop_mask, &mut blend_group, v, w);
-//                 }
-//             }
-//         }
-//         true
-//     } else {
-//         false
-//     }
-// }
-
-pub fn animate_system<T: Struct + Component>(
+pub fn animate_system<T: Struct + Send + Sync + 'static>(
+    registry: Res<AnimatorRegistry>,
     mut descriptor: Local<AnimatorDescriptor<T>>,
     clips: Res<Assets<Clip>>,
     animators_query: Query<&Animator>,
@@ -81,8 +161,8 @@ pub fn animate_system<T: Struct + Component>(
     // handles_query: Query<&mut Handle<T>>,
     components_query: Query<&mut T>,
 ) {
-    // let __span = tracing::info_span!("animator_transform_update_system");
-    // let __guard = __span.enter();
+    let __span = tracing::info_span!("animator_transform_update_system");
+    let __guard = __span.enter();
 
     let mut components = vec![];
 
@@ -112,17 +192,21 @@ pub fn animate_system<T: Struct + Component>(
                 let short_name = shorten_name(c.type_name());
                 let origin = (&**c) as *const _ as *const u8;
                 for (i, value) in c.iter_fields().enumerate() {
-                    let mut n = short_name.to_string();
-                    n.push('.');
-                    n.push_str(c.name_at(i).unwrap());
+                    let mut name = short_name.to_string();
+                    name.push('.');
+                    name.push_str(c.name_at(i).unwrap());
                     let ty = value.type_id();
+
+                    // Find the animate function for the given type
+                    let index = registry.index_of(ty);
+
                     // SAFETY: Is be less than size_of::<T>() so it won't be crazy high
                     let offset =
                         unsafe { (value.any() as *const _ as *const u8).offset_from(origin) };
 
                     inner
                         .dynamic_properties
-                        .push((n, ty, offset, (1 << i) as u32));
+                        .push((name, ty, index, offset, (1 << i) as u32));
                 }
 
                 descriptor.inner = Some(inner);
@@ -139,6 +223,8 @@ pub fn animate_system<T: Struct + Component>(
             .animator_blending
             .begin_blending(components.len());
 
+        let mut components: Box<dyn Components> = Box::new(&mut components[..]);
+
         for (_, layer, clip_handle, entities_map) in animator.animate() {
             let w = layer.weight;
             if w < 1.0e-8 {
@@ -154,64 +240,33 @@ pub fn animate_system<T: Struct + Component>(
                 // is accessed by two different systems, which is possible but weird and will hit the performance a bit
                 let keyframes = unsafe { layer.keyframes_unsafe() };
 
-                for (prop_name, prop_type, prop_offset, prop_mask) in
+                for (prop_name, prop_type, prop_index, prop_offset, prop_mask) in
                     &descriptor_inner.dynamic_properties
                 {
-                    if *prop_type == TypeId::of::<Vec3>() {
-                        if let Some(curves) = clip
-                            .get(prop_name)
-                            .map(|curve_untyped| curve_untyped.downcast_ref::<Vec3>())
-                            .flatten()
-                        {
-                            for (entity_index, (curve_index, curve)) in curves.iter() {
-                                let entity_index = entities_map[entity_index as usize] as usize;
-                                if let Some(ref mut component) = components[entity_index] {
-                                    let kr = &mut keyframes[*curve_index];
-                                    let (k, v) = curve.sample_indexed(*kr, time);
-                                    *kr = k;
-
-                                    let value = unsafe {
-                                        &mut *(((&mut **component) as *mut _ as *mut u8)
-                                            .offset(*prop_offset)
-                                            as *mut Vec3)
-                                    };
-
-                                    value.blend(entity_index, *prop_mask, &mut blend_group, v, w);
-                                }
-                            }
-                        }
+                    if *prop_index == usize::MAX {
+                        // ? NOTE: Fetching missing properties will possible cause some slow down
+                        // // Try to look up the property once again
+                        // *prop_index = registry.index_of(*prop_type);
                         continue;
                     }
 
-                    if *prop_type == TypeId::of::<Quat>() {
-                        if let Some(curves) = clip
-                            .get(prop_name)
-                            .map(|curve_untyped| curve_untyped.downcast_ref::<Quat>())
-                            .flatten()
-                        {
-                            for (entity_index, (curve_index, curve)) in curves.iter() {
-                                let entity_index = entities_map[entity_index as usize] as usize;
-                                if let Some(ref mut component) = components[entity_index] {
-                                    let kr = &mut keyframes[*curve_index];
-                                    let (k, v) = curve.sample_indexed(*kr, time);
-                                    *kr = k;
-
-                                    let value = unsafe {
-                                        &mut *(((&mut **component) as *mut _ as *mut u8)
-                                            .offset(*prop_offset)
-                                            as *mut Quat)
-                                    };
-
-                                    value.blend(entity_index, *prop_mask, &mut blend_group, v, w);
-                                }
-                            }
-                        }
-                        continue;
-                    }
+                    (registry.animate_functions[*prop_index].1)(
+                        &mut *components,
+                        entities_map,
+                        &mut blend_group,
+                        keyframes,
+                        clip,
+                        time,
+                        w,
+                        prop_name,
+                        *prop_type,
+                        *prop_offset,
+                        *prop_mask,
+                    );
                 }
             }
         }
     }
 
-    // std::mem::drop(__guard);
+    std::mem::drop(__guard);
 }

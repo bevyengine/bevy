@@ -18,6 +18,7 @@ pub use crate::app::*;
 pub use crate::blending::AnimatorBlending;
 pub use crate::custom::*;
 pub use crate::hierarchy::Hierarchy;
+pub use crate::reflect::AnimatorRegistry;
 pub use crate::skinned_mesh::*;
 
 pub use bevy_animation_derive::*;
@@ -29,6 +30,7 @@ pub mod prelude {
     pub use crate::custom::{AnimatedAsset, AnimatedComponent, Animator, Clip};
     pub use crate::hierarchy::Hierarchy;
     pub use crate::lerping::Lerp;
+    pub use crate::reflect::AnimatorRegistry;
     pub use crate::skinned_mesh::{SkinAsset, SkinComponent, SkinDebugger};
     pub use bevy_animation_derive::*;
 }
@@ -55,6 +57,7 @@ impl Plugin for AnimationPlugin {
 
         // ! FIXME: Each added animated component or asset will add a bit of overhead in the animation
         // ! system, I have no idea how big this is but I would like to make it pay only for what you use
+        app.add_resource(reflect::AnimatorRegistry::default());
         app.register_animated::<bevy_transform::prelude::Transform>();
 
         // Skinning
