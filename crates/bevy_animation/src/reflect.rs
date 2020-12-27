@@ -24,12 +24,11 @@ type AnimateFn = fn(
     time: f32,
     w: f32,
     prop_name: &str,
-    prop_type: TypeId,
     prop_offset: isize,
     prop_mask: u32,
-) -> bool;
+);
 
-/// Register how to animate basic types
+/// Register how to animate custom types
 pub struct AnimatorRegistry {
     animate_functions: Vec<(TypeId, AnimateFn)>,
 }
@@ -39,14 +38,15 @@ impl Default for AnimatorRegistry {
         Self {
             // Basic types
             animate_functions: vec![
-                (TypeId::of::<bool>(), animate::<f32>),
+                (TypeId::of::<bool>(), animate::<bool>),
                 (TypeId::of::<f32>(), animate::<f32>),
                 (TypeId::of::<Vec2>(), animate::<Vec2>),
                 (TypeId::of::<Vec3>(), animate::<Vec3>),
                 (TypeId::of::<Vec4>(), animate::<Vec4>),
+                (TypeId::of::<Quat>(), animate::<Quat>),
                 // (TypeId::of::<Color>(), animate::<Color>),
                 // (TypeId::of::<HandleUntyped>(), animate::<HandleUntyped>),
-                (TypeId::of::<Quat>(), animate::<Quat>),
+                // TODO: How to handle generic types like Handle<T> or Option<T>
             ],
         }
     }
@@ -87,7 +87,6 @@ impl<'a, 's, T: Send + Sync + 'static> Components for &'s mut [Option<Mut<'a, T>
     }
 }
 
-#[inline(always)]
 fn animate<T: Lerp + Blend + Clone + 'static>(
     components: &mut dyn Components,
     entities_map: &[u16],
@@ -97,32 +96,26 @@ fn animate<T: Lerp + Blend + Clone + 'static>(
     time: f32,
     w: f32,
     prop_name: &str,
-    prop_type: TypeId,
     prop_offset: isize,
     prop_mask: u32,
-) -> bool {
-    if prop_type == TypeId::of::<T>() {
-        if let Some(curves) = clip
-            .get(prop_name)
-            .map(|curve_untyped| curve_untyped.downcast_ref::<T>())
-            .flatten()
-        {
-            for (entity_index, (curve_index, curve)) in curves.iter() {
-                let entity_index = entities_map[entity_index as usize] as usize;
-                if let Some(ref mut component) = components.get_mut(entity_index) {
-                    let kr = &mut keyframes[*curve_index];
-                    let (k, v) = curve.sample_indexed(*kr, time);
-                    *kr = k;
+) {
+    if let Some(curves) = clip
+        .get(prop_name)
+        .map(|curve_untyped| curve_untyped.downcast_ref::<T>())
+        .flatten()
+    {
+        for (entity_index, (curve_index, curve)) in curves.iter() {
+            let entity_index = entities_map[entity_index as usize] as usize;
+            if let Some(ref mut component) = components.get_mut(entity_index) {
+                let kr = &mut keyframes[*curve_index];
+                let (k, v) = curve.sample_indexed(*kr, time);
+                *kr = k;
 
-                    // SAFETY: prop_offset is
-                    let value = unsafe { &mut *(component.offset(prop_offset) as *mut T) };
-                    value.blend(entity_index, prop_mask, blend_group, v, w);
-                }
+                // SAFETY: prop_offset is
+                let value = unsafe { &mut *(component.offset(prop_offset) as *mut T) };
+                value.blend(entity_index, prop_mask, blend_group, v, w);
             }
         }
-        true
-    } else {
-        false
     }
 }
 
@@ -240,17 +233,18 @@ pub fn animate_system<T: Struct + Send + Sync + 'static>(
                 // is accessed by two different systems, which is possible but weird and will hit the performance a bit
                 let keyframes = unsafe { layer.keyframes_unsafe() };
 
-                for (prop_name, prop_type, prop_index, prop_offset, prop_mask) in
+                for (prop_name, _prop_type, prop_index, prop_offset, prop_mask) in
                     &descriptor_inner.dynamic_properties
                 {
-                    if *prop_index == usize::MAX {
+                    let i = *prop_index;
+                    if i == usize::MAX {
                         // ? NOTE: Fetching missing properties will possible cause some slow down
                         // // Try to look up the property once again
                         // *prop_index = registry.index_of(*prop_type);
                         continue;
                     }
 
-                    (registry.animate_functions[*prop_index].1)(
+                    (registry.animate_functions[i].1)(
                         &mut *components,
                         entities_map,
                         &mut blend_group,
@@ -259,10 +253,9 @@ pub fn animate_system<T: Struct + Send + Sync + 'static>(
                         time,
                         w,
                         prop_name,
-                        *prop_type,
                         *prop_offset,
                         *prop_mask,
-                    );
+                    )
                 }
             }
         }
