@@ -6,7 +6,7 @@ use bevy_utils::Duration;
 #[reflect(Component)]
 pub struct Cooldown<T: Send + Sync + 'static> {
     stopwatch: Stopwatch<T>,
-    duration: f32,
+    duration: Duration,
     repeating: bool,
     available: bool,
     just_available: bool,
@@ -16,7 +16,7 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     /// Creates a new cooldown with a given duration.
     pub fn new(duration: Duration, repeating: bool) -> Self {
         Self {
-            duration: duration.as_secs_f32(),
+            duration,
             repeating,
             ..Default::default()
         }
@@ -31,7 +31,7 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     /// ```
     pub fn from_seconds(duration: f32, repeating: bool) -> Self {
         Self {
-            duration,
+            duration: Duration::from_secs_f32(duration),
             repeating,
             ..Default::default()
         }
@@ -57,7 +57,7 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     /// assert!(cooldown.available());
     /// cooldown.start();
     /// assert!(!cooldown.available());
-    /// cooldown.tick(1.5);
+    /// cooldown.tick_f32(1.5);
     /// assert!(cooldown.available());
     /// ```
     #[inline]
@@ -72,9 +72,9 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     /// # use bevy_core::*;
     /// let mut cooldown: Cooldown<()> = Cooldown::from_seconds(1.0, false);
     /// cooldown.start();
-    /// cooldown.tick(1.5);
+    /// cooldown.tick_f32(1.5);
     /// assert!(cooldown.just_available());
-    /// cooldown.tick(0.5);
+    /// cooldown.tick_f32(0.5);
     /// assert!(!cooldown.just_available());
     /// ```
     pub fn just_available(&self) -> bool {
@@ -90,12 +90,16 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     /// # use bevy_core::*;
     /// let mut cooldown: Cooldown<()> = Cooldown::from_seconds(1.0, false);
     /// cooldown.start();
-    /// cooldown.tick(0.5);
-    /// assert_eq!(cooldown.elapsed(), 0.5);
+    /// cooldown.tick_f32(0.5);
+    /// assert_eq!(cooldown.elapsed_f32(), 0.5);
     /// ```
     #[inline]
-    pub fn elapsed(&self) -> f32 {
+    pub fn elapsed(&self) -> Duration {
         self.stopwatch.elapsed()
+    }
+
+    pub fn elapsed_f32(&self) -> f32 {
+        self.stopwatch.elapsed_f32()
     }
 
     /// Sets the elapsed time of the cooldown without any other considerations.
@@ -105,15 +109,16 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     /// #
     /// ```
     /// # use bevy_core::*;
+    /// use std::time::Duration;
     /// let mut cooldown: Cooldown<()> = Cooldown::from_seconds(1.0, false);
-    /// cooldown.set_elapsed(1.5);
-    /// assert_eq!(cooldown.elapsed(), 1.5);
+    /// cooldown.set_elapsed(Duration::from_secs_f32(1.5));
+    /// assert_eq!(cooldown.elapsed(), Duration::from_secs_f32(1.5));
     /// // the cooldown is available even if the elapsed time is greater than the duration.
     /// assert!(cooldown.available());
     /// ```
     /// ```
     #[inline]
-    pub fn set_elapsed(&mut self, time: f32) {
+    pub fn set_elapsed(&mut self, time: Duration) {
         self.stopwatch.set(time);
     }
 
@@ -122,12 +127,17 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     /// # Examples
     /// ```
     /// # use bevy_core::*;
+    /// use std::time::Duration;
     /// let cooldown: Cooldown<()> = Cooldown::from_seconds(1.5, false);
-    /// assert_eq!(cooldown.duration(), 1.5);
+    /// assert_eq!(cooldown.duration(), Duration::from_secs_f32(1.5));
     /// ```
     #[inline]
-    pub fn duration(&self) -> f32 {
+    pub fn duration(&self) -> Duration {
         self.duration
+    }
+
+    pub fn duration_f32(&self) -> f32 {
+        self.duration.as_secs_f32()
     }
 
     /// Sets the duration of the cooldown.
@@ -135,12 +145,13 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     /// # Examples
     /// ```
     /// # use bevy_core::*;
+    /// use std::time::Duration;
     /// let mut cooldown: Cooldown<()> = Cooldown::from_seconds(1.5, false);
-    /// cooldown.set_duration(1.0);
-    /// assert_eq!(cooldown.duration(), 1.0);
+    /// cooldown.set_duration(Duration::from_secs(1));
+    /// assert_eq!(cooldown.duration(), Duration::from_secs(1));
     /// ```
     #[inline]
-    pub fn set_duration(&mut self, duration: f32) {
+    pub fn set_duration(&mut self, duration: Duration) {
         self.duration = duration;
     }
 
@@ -173,7 +184,7 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
 
     /// Advances the cooldown by `delta` seconds.
     ///
-    pub fn tick(&mut self, delta: f32) -> &Self {
+    pub fn tick(&mut self, delta: Duration) -> &Self {
         if self.paused() {
             return self;
         }
@@ -185,6 +196,10 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
         }
     }
 
+    pub fn tick_f32(&mut self, delta: f32) -> &Self {
+        self.tick(Duration::from_secs_f32(delta))
+    }
+
     /// Pauses the Cooldown. Disables the ticking of the cooldown.
     ///
     /// See also [`Stopwatch::pause`](Stopwatch<T>::pause).
@@ -194,8 +209,8 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     /// # use bevy_core::*;
     /// let mut cooldown: Cooldown<()> = Cooldown::from_seconds(1.0, false);
     /// cooldown.pause();
-    /// cooldown.tick(0.5);
-    /// assert_eq!(cooldown.elapsed(), 0.0);
+    /// cooldown.tick_f32(0.5);
+    /// assert_eq!(cooldown.elapsed_f32(), 0.0);
     /// ```
     #[inline]
     pub fn pause(&mut self) {
@@ -212,10 +227,10 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     /// let mut cooldown: Cooldown<()> = Cooldown::from_seconds(1.0, false);
     /// cooldown.start();
     /// cooldown.pause();
-    /// cooldown.tick(0.5);
+    /// cooldown.tick_f32(0.5);
     /// cooldown.unpause();
-    /// cooldown.tick(0.5);
-    /// assert_eq!(cooldown.elapsed(), 0.5);
+    /// cooldown.tick_f32(0.5);
+    /// assert_eq!(cooldown.elapsed_f32(), 0.5);
     /// ```
     #[inline]
     pub fn unpause(&mut self) {
@@ -249,11 +264,11 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     /// ```
     /// # use bevy_core::*;
     /// let mut cooldown: Cooldown<()> = Cooldown::from_seconds(1.0, false);
-    /// cooldown.tick(1.5);
+    /// cooldown.tick_f32(1.5);
     /// cooldown.reset();
     /// assert!(cooldown.available());
     /// assert!(cooldown.just_available());
-    /// assert_eq!(cooldown.elapsed(), 0.0);
+    /// assert_eq!(cooldown.elapsed_f32(), 0.0);
     /// ```
     pub fn reset(&mut self) {
         self.stopwatch.reset();
@@ -268,12 +283,12 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     /// # use bevy_core::*;
     /// let mut cooldown: Cooldown<()> = Cooldown::from_seconds(2.0, false);
     /// cooldown.start();
-    /// cooldown.tick(0.5);
+    /// cooldown.tick_f32(0.5);
     /// assert_eq!(cooldown.percent(), 0.25);
     /// ```
     #[inline]
     pub fn percent(&self) -> f32 {
-        self.elapsed() / self.duration()
+        self.elapsed().as_secs_f32() / self.duration().as_secs_f32()
     }
 
     /// Returns the percentage of the cooldown remaining time (goes from 0.0 to 1.0).
@@ -283,7 +298,7 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
     /// # use bevy_core::*;
     /// let mut cooldown: Cooldown<()> = Cooldown::from_seconds(2.0, false);
     /// cooldown.start();
-    /// cooldown.tick(0.5);
+    /// cooldown.tick_f32(0.5);
     /// assert_eq!(cooldown.percent_left(), 0.75);
     /// ```
     #[inline]
@@ -291,12 +306,12 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
         1.0 - self.percent()
     }
 
-    fn tick_repeating(&mut self, delta: f32) -> &Self {
-        self.stopwatch.tick(delta);
-        let elapsed = self.elapsed();
+    fn tick_repeating(&mut self, delta: Duration) -> &Self {
+        let elapsed = self.stopwatch.tick(delta).elapsed();
+        let coeff = self.percent().floor() as u32;
         if elapsed >= self.duration() {
             self.reset();
-            self.set_elapsed(elapsed % self.duration());
+            self.set_elapsed(elapsed - self.duration() * coeff);
         } else {
             self.start();
         };
@@ -304,7 +319,7 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
         self
     }
 
-    fn tick_non_repeating(&mut self, delta: f32) -> &Self {
+    fn tick_non_repeating(&mut self, delta: Duration) -> &Self {
         if self.available() {
             self.just_available = false;
             return self;
@@ -322,7 +337,7 @@ impl<T: Send + Sync + 'static> Cooldown<T> {
 impl<T: Send + Sync + 'static> Default for Cooldown<T> {
     fn default() -> Self {
         Self {
-            duration: 1.0,
+            duration: Duration::from_secs(1),
             repeating: Default::default(),
             stopwatch: Default::default(),
             available: true,
@@ -340,9 +355,9 @@ mod tests {
     fn non_repeating_cooldown() {
         let mut cd: Cooldown<()> = Cooldown::from_seconds(10.0, false);
         // Tick once without starting, check all attributes
-        cd.tick(0.25);
-        assert_eq!(cd.elapsed(), 0.0);
-        assert_eq!(cd.duration(), 10.0);
+        cd.tick_f32(0.25);
+        assert_eq!(cd.elapsed_f32(), 0.0);
+        assert_eq!(cd.duration_f32(), 10.0);
         assert_eq!(cd.available(), true);
         assert_eq!(cd.just_available(), false);
         assert_eq!(cd.repeating(), false);
@@ -354,9 +369,9 @@ mod tests {
         assert_eq!(cd.just_available(), false);
         // Ticking while paused changes nothing
         cd.pause();
-        cd.tick(500.0);
-        assert_eq!(cd.elapsed(), 0.0);
-        assert_eq!(cd.duration(), 10.0);
+        cd.tick_f32(500.0);
+        assert_eq!(cd.elapsed_f32(), 0.0);
+        assert_eq!(cd.duration_f32(), 10.0);
         assert_eq!(cd.available(), false);
         assert_eq!(cd.just_available(), false);
         assert_eq!(cd.repeating(), false);
@@ -364,15 +379,15 @@ mod tests {
         assert_eq!(cd.percent_left(), 1.0);
         // Tick past the end and make sure elapsed returns to 0.0 and other things update
         cd.unpause();
-        cd.tick(500.0);
-        assert_eq!(cd.elapsed(), 0.0);
+        cd.tick_f32(500.0);
+        assert_eq!(cd.elapsed_f32(), 0.0);
         assert_eq!(cd.available(), true);
         assert_eq!(cd.just_available(), true);
         assert_eq!(cd.percent(), 0.0);
         assert_eq!(cd.percent_left(), 1.0);
         // Continuing to tick when finished should only change just_finished
-        cd.tick(1.0);
-        assert_eq!(cd.elapsed(), 0.0);
+        cd.tick_f32(1.0);
+        assert_eq!(cd.elapsed_f32(), 0.0);
         assert_eq!(cd.available(), true);
         assert_eq!(cd.just_available(), false);
         assert_eq!(cd.percent(), 0.0);
@@ -385,24 +400,24 @@ mod tests {
         assert!(cd.available());
         assert!(cd.just_available());
         // Tick once, check all attributes
-        cd.tick(0.75);
-        assert_eq!(cd.elapsed(), 0.75);
-        assert_eq!(cd.duration(), 2.0);
+        cd.tick_f32(0.75);
+        assert_eq!(cd.elapsed_f32(), 0.75);
+        assert_eq!(cd.duration_f32(), 2.0);
         assert_eq!(cd.available(), false);
         assert_eq!(cd.just_available(), false);
         assert_eq!(cd.repeating(), true);
         assert_eq!(cd.percent(), 0.375);
         assert_eq!(cd.percent_left(), 0.625);
         // Tick past the end and make sure elapsed wraps
-        cd.tick(1.5);
-        assert_eq!(cd.elapsed(), 0.25);
+        cd.tick_f32(1.5);
+        assert_eq!(cd.elapsed_f32(), 0.25);
         assert_eq!(cd.available(), true);
         assert_eq!(cd.just_available(), true);
         assert_eq!(cd.percent(), 0.125);
         assert_eq!(cd.percent_left(), 0.875);
         // Continuing to tick should turn off both available & just_available for repeating timers
-        cd.tick(1.0);
-        assert_eq!(cd.elapsed(), 1.25);
+        cd.tick_f32(1.0);
+        assert_eq!(cd.elapsed_f32(), 1.25);
         assert_eq!(cd.available(), false);
         assert_eq!(cd.just_available(), false);
         assert_eq!(cd.percent(), 0.625);

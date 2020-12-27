@@ -12,10 +12,10 @@ use bevy_utils::Duration;
 #[reflect(Component)]
 pub struct Timer<T: Send + Sync + 'static> {
     stopwatch: Stopwatch<T>,
-    duration: f32,
+    duration: Duration,
     repeating: bool,
     finished: bool,
-    times_finished: i32,
+    times_finished: u32,
 }
 
 impl<T: Send + Sync + 'static> Timer<T> {
@@ -24,7 +24,7 @@ impl<T: Send + Sync + 'static> Timer<T> {
     /// See also [`Timer::from_seconds`](Timer<T>::from_seconds).
     pub fn new(duration: Duration, repeating: bool) -> Self {
         Self {
-            duration: duration.as_secs_f32(),
+            duration,
             repeating,
             ..Default::default()
         }
@@ -39,7 +39,7 @@ impl<T: Send + Sync + 'static> Timer<T> {
     /// ```
     pub fn from_seconds(duration: f32, repeating: bool) -> Self {
         Self {
-            duration,
+            duration: Duration::from_secs_f32(duration),
             repeating,
             ..Default::default()
         }
@@ -51,9 +51,9 @@ impl<T: Send + Sync + 'static> Timer<T> {
     /// ```
     /// # use bevy_core::*;
     /// let mut timer: Timer<()> = Timer::from_seconds(1.0, false);
-    /// timer.tick(1.5);
+    /// timer.tick_f32(1.5);
     /// assert!(timer.finished());
-    /// timer.tick(0.5);
+    /// timer.tick_f32(0.5);
     /// assert!(timer.finished());
     /// ```
     #[inline]
@@ -67,9 +67,9 @@ impl<T: Send + Sync + 'static> Timer<T> {
     /// ```
     /// # use bevy_core::*;
     /// let mut timer: Timer<()> = Timer::from_seconds(1.0, false);
-    /// timer.tick(1.5);
+    /// timer.tick_f32(1.5);
     /// assert!(timer.just_finished());
-    /// timer.tick(0.5);
+    /// timer.tick_f32(0.5);
     /// assert!(!timer.just_finished());
     /// ```
     #[inline]
@@ -84,13 +84,19 @@ impl<T: Send + Sync + 'static> Timer<T> {
     /// # Examples
     /// ```
     /// # use bevy_core::*;
+    /// use std::time::Duration;
     /// let mut timer: Timer<()> = Timer::from_seconds(1.0, false);
-    /// timer.tick(0.5);
-    /// assert_eq!(timer.elapsed(), 0.5);
+    /// timer.tick_f32(0.5);
+    /// assert_eq!(timer.elapsed(), Duration::from_secs_f32(0.5));
     /// ```
     #[inline]
-    pub fn elapsed(&self) -> f32 {
+    pub fn elapsed(&self) -> Duration {
         self.stopwatch.elapsed()
+    }
+
+    #[inline]
+    pub fn elapsed_f32(&self) -> f32 {
+        self.stopwatch.elapsed_f32()
     }
 
     /// Sets the elapsed time of the timer without any other considerations.
@@ -100,15 +106,16 @@ impl<T: Send + Sync + 'static> Timer<T> {
     /// #
     /// ```
     /// # use bevy_core::*;
+    /// use std::time::Duration;
     /// let mut timer: Timer<()> = Timer::from_seconds(1.0, false);
-    /// timer.set_elapsed(1.5);
-    /// assert_eq!(timer.elapsed(), 1.5);
+    /// timer.set_elapsed(Duration::from_secs(2));
+    /// assert_eq!(timer.elapsed(), Duration::from_secs(2));
     /// // the timer is not finished even if the elapsed time is greater than the duration.
     /// assert!(!timer.finished());
     /// ```
     /// ```
     #[inline]
-    pub fn set_elapsed(&mut self, time: f32) {
+    pub fn set_elapsed(&mut self, time: Duration) {
         self.stopwatch.set(time);
     }
 
@@ -117,12 +124,18 @@ impl<T: Send + Sync + 'static> Timer<T> {
     /// # Examples
     /// ```
     /// # use bevy_core::*;
-    /// let timer: Timer<()> = Timer::from_seconds(1.5, false);
-    /// assert_eq!(timer.duration(), 1.5);
+    /// use std::time::Duration;
+    /// let timer: Timer<()> = Timer::new(Duration::from_secs(1), false);
+    /// assert_eq!(timer.duration(), Duration::from_secs(1));
     /// ```
     #[inline]
-    pub fn duration(&self) -> f32 {
+    pub fn duration(&self) -> Duration {
         self.duration
+    }
+
+    #[inline]
+    pub fn duration_f32(&self) -> f32 {
+        self.duration.as_secs_f32()
     }
 
     /// Sets the duration of the timer.
@@ -130,12 +143,13 @@ impl<T: Send + Sync + 'static> Timer<T> {
     /// # Examples
     /// ```
     /// # use bevy_core::*;
+    /// use std::time::Duration;
     /// let mut timer: Timer<()> = Timer::from_seconds(1.5, false);
-    /// timer.set_duration(1.0);
-    /// assert_eq!(timer.duration(), 1.0);
+    /// timer.set_duration(Duration::from_secs(1));
+    /// assert_eq!(timer.duration(), Duration::from_secs(1));
     /// ```
     #[inline]
-    pub fn set_duration(&mut self, duration: f32) {
+    pub fn set_duration(&mut self, duration: Duration) {
         self.duration = duration;
     }
 
@@ -177,12 +191,12 @@ impl<T: Send + Sync + 'static> Timer<T> {
     /// # use bevy_core::*;
     /// let mut timer: Timer<()> = Timer::from_seconds(1.0, false);
     /// let mut repeating: Timer<()> = Timer::from_seconds(1.0, true);
-    /// timer.tick(1.5);
-    /// repeating.tick(1.5);
-    /// assert_eq!(timer.elapsed(), 1.0);
-    /// assert_eq!(repeating.elapsed(), 0.5);
+    /// timer.tick_f32(1.5);
+    /// repeating.tick_f32(1.5);
+    /// assert_eq!(timer.elapsed_f32(), 1.0);
+    /// assert_eq!(repeating.elapsed_f32(), 0.5);
     /// ```
-    pub fn tick(&mut self, delta: f32) -> &Self {
+    pub fn tick(&mut self, delta: Duration) -> &Self {
         if self.paused() {
             return self;
         }
@@ -197,8 +211,8 @@ impl<T: Send + Sync + 'static> Timer<T> {
 
         if self.finished() {
             if self.repeating() {
-                self.times_finished = (self.elapsed() / self.duration()).floor() as i32;
-                self.stopwatch.set(self.stopwatch.elapsed() % self.duration);
+                self.times_finished = self.percent().floor() as u32;
+                self.set_elapsed(self.elapsed() - self.duration() * self.times_finished);
             } else {
                 self.times_finished = 1;
                 self.stopwatch.set(self.duration());
@@ -210,6 +224,10 @@ impl<T: Send + Sync + 'static> Timer<T> {
         self
     }
 
+    pub fn tick_f32(&mut self, delta: f32) -> &Self {
+        self.tick(Duration::from_secs_f32(delta))
+    }
+
     /// Pauses the Timer. Disables the ticking of the timer.
     ///
     /// See also [`Stopwatch::pause`](Stopwatch<T>::pause).
@@ -219,8 +237,8 @@ impl<T: Send + Sync + 'static> Timer<T> {
     /// # use bevy_core::*;
     /// let mut timer: Timer<()> = Timer::from_seconds(1.0, false);
     /// timer.pause();
-    /// timer.tick(0.5);
-    /// assert_eq!(timer.elapsed(), 0.0);
+    /// timer.tick_f32(0.5);
+    /// assert_eq!(timer.elapsed_f32(), 0.0);
     /// ```
     #[inline]
     pub fn pause(&mut self) {
@@ -236,10 +254,10 @@ impl<T: Send + Sync + 'static> Timer<T> {
     /// # use bevy_core::*;
     /// let mut timer: Timer<()> = Timer::from_seconds(1.0, false);
     /// timer.pause();
-    /// timer.tick(0.5);
+    /// timer.tick_f32(0.5);
     /// timer.unpause();
-    /// timer.tick(0.5);
-    /// assert_eq!(timer.elapsed(), 0.5);
+    /// timer.tick_f32(0.5);
+    /// assert_eq!(timer.elapsed_f32(), 0.5);
     /// ```
     #[inline]
     pub fn unpause(&mut self) {
@@ -273,11 +291,11 @@ impl<T: Send + Sync + 'static> Timer<T> {
     /// ```
     /// # use bevy_core::*;
     /// let mut timer: Timer<()> = Timer::from_seconds(1.0, false);
-    /// timer.tick(1.5);
+    /// timer.tick_f32(1.5);
     /// timer.reset();
     /// assert!(!timer.finished());
     /// assert!(!timer.just_finished());
-    /// assert_eq!(timer.elapsed(), 0.0);
+    /// assert_eq!(timer.elapsed_f32(), 0.0);
     /// ```
     pub fn reset(&mut self) {
         self.stopwatch.reset();
@@ -291,12 +309,12 @@ impl<T: Send + Sync + 'static> Timer<T> {
     /// ```
     /// # use bevy_core::*;
     /// let mut timer: Timer<()> = Timer::from_seconds(2.0, false);
-    /// timer.tick(0.5);
+    /// timer.tick_f32(0.5);
     /// assert_eq!(timer.percent(), 0.25);
     /// ```
     #[inline]
     pub fn percent(&self) -> f32 {
-        self.elapsed() / self.duration()
+        self.elapsed().as_secs_f32() / self.duration().as_secs_f32()
     }
 
     /// Returns the percentage of the timer remaining time (goes from 0.0 to 1.0).
@@ -305,7 +323,7 @@ impl<T: Send + Sync + 'static> Timer<T> {
     /// ```
     /// # use bevy_core::*;
     /// let mut timer: Timer<()> = Timer::from_seconds(2.0, false);
-    /// timer.tick(0.5);
+    /// timer.tick_f32(0.5);
     /// assert_eq!(timer.percent_left(), 0.75);
     /// ```
     #[inline]
@@ -323,15 +341,15 @@ impl<T: Send + Sync + 'static> Timer<T> {
     /// ```
     /// # use bevy_core::*;
     /// let mut timer: Timer<()> = Timer::from_seconds(1.0, true);
-    /// timer.tick(6.0);
+    /// timer.tick_f32(6.0);
     /// assert_eq!(timer.times_finished(), 6);
-    /// timer.tick(2.0);
+    /// timer.tick_f32(2.0);
     /// assert_eq!(timer.times_finished(), 2);
-    /// timer.tick(0.5);
+    /// timer.tick_f32(0.5);
     /// assert_eq!(timer.times_finished(), 0);
     /// ```
     #[inline]
-    pub fn times_finished(&self) -> i32 {
+    pub fn times_finished(&self) -> u32 {
         self.times_finished
     }
 }
@@ -339,7 +357,7 @@ impl<T: Send + Sync + 'static> Timer<T> {
 impl<T: Send + Sync + 'static> Default for Timer<T> {
     fn default() -> Self {
         Self {
-            duration: 1.0,
+            duration: Duration::from_secs(1),
             repeating: Default::default(),
             stopwatch: Default::default(),
             finished: Default::default(),
@@ -356,9 +374,9 @@ mod tests {
     fn non_repeating_timer() {
         let mut t: Timer<()> = Timer::from_seconds(10.0, false);
         // Tick once, check all attributes
-        t.tick(0.25);
-        assert_eq!(t.elapsed(), 0.25);
-        assert_eq!(t.duration(), 10.0);
+        t.tick_f32(0.25);
+        assert_eq!(t.elapsed_f32(), 0.25);
+        assert_eq!(t.duration_f32(), 10.0);
         assert_eq!(t.finished(), false);
         assert_eq!(t.just_finished(), false);
         assert_eq!(t.repeating(), false);
@@ -366,9 +384,9 @@ mod tests {
         assert_eq!(t.percent_left(), 0.975);
         // Ticking while paused changes nothing
         t.pause();
-        t.tick(500.0);
-        assert_eq!(t.elapsed(), 0.25);
-        assert_eq!(t.duration(), 10.0);
+        t.tick_f32(500.0);
+        assert_eq!(t.elapsed_f32(), 0.25);
+        assert_eq!(t.duration_f32(), 10.0);
         assert_eq!(t.finished(), false);
         assert_eq!(t.just_finished(), false);
         assert_eq!(t.repeating(), false);
@@ -376,15 +394,15 @@ mod tests {
         assert_eq!(t.percent_left(), 0.975);
         // Tick past the end and make sure elapsed doesn't go past 0.0 and other things update
         t.unpause();
-        t.tick(500.0);
-        assert_eq!(t.elapsed(), 10.0);
+        t.tick_f32(500.0);
+        assert_eq!(t.elapsed_f32(), 10.0);
         assert_eq!(t.finished(), true);
         assert_eq!(t.just_finished(), true);
         assert_eq!(t.percent(), 1.0);
         assert_eq!(t.percent_left(), 0.0);
         // Continuing to tick when finished should only change just_finished
-        t.tick(1.0);
-        assert_eq!(t.elapsed(), 10.0);
+        t.tick_f32(1.0);
+        assert_eq!(t.elapsed_f32(), 10.0);
         assert_eq!(t.finished(), true);
         assert_eq!(t.just_finished(), false);
         assert_eq!(t.percent(), 1.0);
@@ -395,24 +413,24 @@ mod tests {
     fn repeating_timer() {
         let mut t: Timer<()> = Timer::from_seconds(2.0, true);
         // Tick once, check all attributes
-        t.tick(0.75);
-        assert_eq!(t.elapsed(), 0.75);
-        assert_eq!(t.duration(), 2.0);
+        t.tick_f32(0.75);
+        assert_eq!(t.elapsed_f32(), 0.75);
+        assert_eq!(t.duration_f32(), 2.0);
         assert_eq!(t.finished(), false);
         assert_eq!(t.just_finished(), false);
         assert_eq!(t.repeating(), true);
         assert_eq!(t.percent(), 0.375);
         assert_eq!(t.percent_left(), 0.625);
         // Tick past the end and make sure elapsed wraps
-        t.tick(1.5);
-        assert_eq!(t.elapsed(), 0.25);
+        t.tick_f32(1.5);
+        assert_eq!(t.elapsed_f32(), 0.25);
         assert_eq!(t.finished(), true);
         assert_eq!(t.just_finished(), true);
         assert_eq!(t.percent(), 0.125);
         assert_eq!(t.percent_left(), 0.875);
         // Continuing to tick should turn off both finished & just_finished for repeating timers
-        t.tick(1.0);
-        assert_eq!(t.elapsed(), 1.25);
+        t.tick_f32(1.0);
+        assert_eq!(t.elapsed_f32(), 1.25);
         assert_eq!(t.finished(), false);
         assert_eq!(t.just_finished(), false);
         assert_eq!(t.percent(), 0.625);
@@ -423,12 +441,12 @@ mod tests {
     fn times_finished_repeating() {
         let mut t: Timer<()> = Timer::from_seconds(1.0, true);
         assert_eq!(t.times_finished(), 0);
-        t.tick(3.5);
+        t.tick_f32(3.5);
         assert_eq!(t.times_finished(), 3);
-        assert_eq!(t.elapsed(), 0.5);
+        assert_eq!(t.elapsed_f32(), 0.5);
         assert!(t.finished());
         assert!(t.just_finished());
-        t.tick(0.2);
+        t.tick_f32(0.2);
         assert_eq!(t.times_finished(), 0);
     }
 
@@ -436,9 +454,9 @@ mod tests {
     fn times_finished() {
         let mut t: Timer<()> = Timer::from_seconds(1.0, false);
         assert_eq!(t.times_finished(), 0);
-        t.tick(1.5);
+        t.tick_f32(1.5);
         assert_eq!(t.times_finished(), 1);
-        t.tick(0.5);
+        t.tick_f32(0.5);
         assert_eq!(t.times_finished(), 0);
     }
 }

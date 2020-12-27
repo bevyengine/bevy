@@ -34,7 +34,7 @@ fn event_trigger_system(
     mut state: ResMut<EventTriggerState>,
     mut my_events: ResMut<Events<MyEvent>>,
 ) {
-    if state.event_timer.tick(time.delta_seconds()).finished() {
+    if state.event_timer.tick(time.delta()).finished() {
         my_events.send(MyEvent {
             message: "MyEvent just happened!".to_string(),
         });
