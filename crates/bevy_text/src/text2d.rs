@@ -84,12 +84,12 @@ pub fn draw_text2d_system(
             let position = global_transform.translation
                 + match text.style.alignment.vertical {
                     VerticalAlign::Top => Vec3::zero(),
-                    VerticalAlign::Center => Vec3::new(0.0, -height / 2.0, 0.0),
+                    VerticalAlign::Center => Vec3::new(0.0, -height * 0.5, 0.0),
                     VerticalAlign::Bottom => Vec3::new(0.0, -height, 0.0),
                 }
                 + match text.style.alignment.horizontal {
                     HorizontalAlign::Left => Vec3::new(-width, 0.0, 0.0),
-                    HorizontalAlign::Center => Vec3::new(-width / 2.0, 0.0, 0.0),
+                    HorizontalAlign::Center => Vec3::new(-width * 0.5, 0.0, 0.0),
                     HorizontalAlign::Right => Vec3::zero(),
                 };
 
