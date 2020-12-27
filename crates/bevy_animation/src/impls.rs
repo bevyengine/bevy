@@ -16,272 +16,275 @@ use bevy_render::{
 };
 use bevy_transform::prelude::*;
 
-pub struct TransformTranslationProps;
+// pub struct TransformTranslationProps;
 
-impl Prop<Vec3, TransformTranslationProps> {
-    pub const fn x(&self) -> Prop<f32> {
-        Prop::borrowed("Transform.translation.x")
-    }
+// impl Prop<Vec3, TransformTranslationProps> {
+//     pub const fn x(&self) -> Prop<f32> {
+//         Prop::borrowed("Transform.translation.x")
+//     }
 
-    pub const fn y(&self) -> Prop<f32> {
-        Prop::borrowed("Transform.translation.y")
-    }
+//     pub const fn y(&self) -> Prop<f32> {
+//         Prop::borrowed("Transform.translation.y")
+//     }
 
-    pub const fn z(&self) -> Prop<f32> {
-        Prop::borrowed("Transform.translation.z")
-    }
-}
+//     pub const fn z(&self) -> Prop<f32> {
+//         Prop::borrowed("Transform.translation.z")
+//     }
+// }
 
-impl std::ops::Deref for Prop<Vec3, TransformTranslationProps> {
-    type Target = TransformTranslationProps;
+// impl std::ops::Deref for Prop<Vec3, TransformTranslationProps> {
+//     type Target = TransformTranslationProps;
 
-    #[inline(always)]
-    fn deref(&self) -> &Self::Target {
-        &TransformTranslationProps
-    }
-}
+//     #[inline(always)]
+//     fn deref(&self) -> &Self::Target {
+//         &TransformTranslationProps
+//     }
+// }
 
-pub struct TransformProps;
+// pub struct TransformProps;
 
-impl TransformProps {
-    pub const fn translation(&self) -> Prop<Vec3, TransformTranslationProps> {
-        Prop::borrowed("Transform.translation")
-    }
+// impl TransformProps {
+//     pub const fn translation(&self) -> Prop<Vec3, TransformTranslationProps> {
+//         Prop::borrowed("Transform.translation")
+//     }
 
-    pub const fn rotation(&self) -> Prop<Quat> {
-        Prop::borrowed("Transform.rotation")
-    }
+//     pub const fn rotation(&self) -> Prop<Quat> {
+//         Prop::borrowed("Transform.rotation")
+//     }
 
-    pub const fn scale(&self) -> Prop<Vec3> {
-        Prop::borrowed("Transform.scale")
-    }
-}
+//     pub const fn scale(&self) -> Prop<Vec3> {
+//         Prop::borrowed("Transform.scale")
+//     }
+// }
 
-impl AnimatedProperties for Transform {
-    type Props = TransformProps;
+// impl AnimatedProperties for Transform {
+//     type Props = TransformProps;
 
-    const PROPERTIES: &'static [&'static str] = &[
-        "Transform.translation",
-        "Transform.translation.x",
-        "Transform.translation.y",
-        "Transform.translation.z",
-        "Transform.rotation",
-        "Transform.scale",
-        // "Transform.scale.x",
-        // "Transform.scale.y",
-        // "Transform.scale.z",
-    ];
+//     const PROPERTIES: &'static [&'static str] = &[
+//         "Transform.translation",
+//         "Transform.translation.x",
+//         "Transform.translation.y",
+//         "Transform.translation.z",
+//         "Transform.rotation",
+//         "Transform.scale",
+//         // "Transform.scale.x",
+//         // "Transform.scale.y",
+//         // "Transform.scale.z",
+//     ];
 
-    #[inline(always)]
-    fn props() -> Self::Props {
-        TransformProps
-    }
-}
+//     #[inline(always)]
+//     fn props() -> Self::Props {
+//         TransformProps
+//     }
+// }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-impl AnimatedComponent for Transform {
-    fn animator_update_system(
-        clips: Res<Assets<Clip>>,
-        mut animator_blending: Local<AnimatorBlending>,
-        animators_query: Query<&Animator>,
-        component_query: Query<&mut Self>,
-    ) {
-        let __span = tracing::info_span!("animator_transform_update_system");
-        let __guard = __span.enter();
+// impl AnimatedComponent for Transform {
+//     fn animator_update_system(
+//         clips: Res<Assets<Clip>>,
+//         mut animator_blending: Local<AnimatorBlending>,
+//         animators_query: Query<&Animator>,
+//         component_query: Query<&mut Self>,
+//     ) {
+//         let __span = tracing::info_span!("animator_transform_update_system");
+//         let __guard = __span.enter();
 
-        let mut components = vec![];
+//         let mut components = vec![];
 
-        for animator in animators_query.iter() {
-            components.clear();
+//         for animator in animators_query.iter() {
+//             components.clear();
 
-            // ? NOTE: Lazy get each component is worse than just fetching everything at once
-            // Pre-fetch all transforms to avoid calling get_mut multiple times
-            // SAFETY: each component will be updated one at the time and this function
-            // currently has the mutability over the Transform type, so no race conditions
-            // are possible
-            unsafe {
-                for entity in animator.entities() {
-                    components.push(
-                        entity
-                            .map(|entity| component_query.get_unsafe(entity).ok())
-                            .flatten(),
-                    );
-                }
-            }
+//             // ? NOTE: Lazy get each component is worse than just fetching everything at once
+//             // Pre-fetch all transforms to avoid calling get_mut multiple times
+//             // SAFETY: each component will be updated one at the time and this function
+//             // currently has the mutability over the Transform type, so no race conditions
+//             // are possible
+//             unsafe {
+//                 for entity in animator.entities() {
+//                     components.push(
+//                         entity
+//                             .map(|entity| component_query.get_unsafe(entity).ok())
+//                             .flatten(),
+//                     );
+//                 }
+//             }
 
-            let mut blend_group = animator_blending.begin_blending(components.len());
+//             let mut blend_group = animator_blending.begin_blending(components.len());
 
-            // Bit fields
-            const TRANSLATE_X: u32 = 1;
-            const TRANSLATE_Y: u32 = 2;
-            const TRANSLATE_Z: u32 = 4;
-            const ROTATION: u32 = 8;
-            const SCALE: u32 = 16;
+//             // Bit fields
+//             const TRANSLATE_X: u32 = 1;
+//             const TRANSLATE_Y: u32 = 2;
+//             const TRANSLATE_Z: u32 = 4;
+//             const ROTATION: u32 = 8;
+//             const SCALE: u32 = 16;
 
-            for (_, layer, clip_handle, entities_map) in animator.animate() {
-                let w = layer.weight;
-                if w < 1.0e-8 {
-                    continue;
-                }
+//             for (_, layer, clip_handle, entities_map) in animator.animate() {
+//                 let w = layer.weight;
+//                 if w < 1.0e-8 {
+//                     continue;
+//                 }
 
-                if let Some(clip) = clips.get(clip_handle) {
-                    let time = layer.time;
+//                 if let Some(clip) = clips.get(clip_handle) {
+//                     let time = layer.time;
 
-                    // SAFETY: Never a different thread will modify or access the same index as this one;
-                    // Plus as a nice and crazy feature each property is grouped by name into their own cache line
-                    // buckets, this way no cache line will be accessed by the same thread unless the same property
-                    // is accessed by two different systems, which is possible but weird and will hit the performance a bit
-                    let keyframes = unsafe { layer.keyframes_unsafe() };
+//                     // SAFETY: Never a different thread will modify or access the same index as this one;
+//                     // Plus as a nice and crazy feature each property is grouped by name into their own cache line
+//                     // buckets, this way no cache line will be accessed by the same thread unless the same property
+//                     // is accessed by two different systems, which is possible but weird and will hit the performance a bit
+//                     let keyframes = unsafe { layer.keyframes_unsafe() };
 
-                    if let Some(curves) = clip
-                        .get("Transform.translation")
-                        .map(|curve_untyped| curve_untyped.downcast_ref::<Vec3>())
-                        .flatten()
-                    {
-                        for (entity_index, (curve_index, curve)) in curves.iter() {
-                            let entity_index = entities_map[entity_index as usize] as usize;
-                            if let Some(ref mut component) = components[entity_index] {
-                                let (k, v) = curve.sample_indexed(keyframes[*curve_index], time);
-                                keyframes[*curve_index] = k;
-                                // ? NOTE: Blend must be done for each component in order for it to work
-                                component.translation.x.blend(
-                                    entity_index,
-                                    TRANSLATE_X,
-                                    &mut blend_group,
-                                    v.x,
-                                    w,
-                                );
-                                component.translation.y.blend(
-                                    entity_index,
-                                    TRANSLATE_Y,
-                                    &mut blend_group,
-                                    v.y,
-                                    w,
-                                );
-                                component.translation.z.blend(
-                                    entity_index,
-                                    TRANSLATE_Z,
-                                    &mut blend_group,
-                                    v.z,
-                                    w,
-                                );
-                            }
-                        }
-                    } else {
-                        if let Some(curves) = clip
-                            .get("Transform.translation.x")
-                            .map(|curve_untyped| curve_untyped.downcast_ref::<f32>())
-                            .flatten()
-                        {
-                            for (entity_index, (curve_index, curve)) in curves.iter() {
-                                let entity_index = entities_map[entity_index as usize] as usize;
-                                if let Some(ref mut component) = components[entity_index] {
-                                    let (k, v) =
-                                        curve.sample_indexed(keyframes[*curve_index], time);
-                                    keyframes[*curve_index] = k;
-                                    component.translation.x.blend(
-                                        entity_index,
-                                        TRANSLATE_X,
-                                        &mut blend_group,
-                                        v,
-                                        w,
-                                    );
-                                }
-                            }
-                        }
+//                     if let Some(curves) = clip
+//                         .get("Transform.translation")
+//                         .map(|curve_untyped| curve_untyped.downcast_ref::<Vec3>())
+//                         .flatten()
+//                     {
+//                         for (entity_index, (curve_index, curve)) in curves.iter() {
+//                             let entity_index = entities_map[entity_index as usize] as usize;
+//                             if let Some(ref mut component) = components[entity_index] {
+//                                 let kr = &mut keyframes[*curve_index];
+//                                 let (k, v) = curve.sample_indexed(*kr, time);
+//                                 *kr = k;
+//                                 // ? NOTE: Blend must be done for each component in order for it to work
+//                                 component.translation.x.blend(
+//                                     entity_index,
+//                                     TRANSLATE_X,
+//                                     &mut blend_group,
+//                                     v.x,
+//                                     w,
+//                                 );
+//                                 component.translation.y.blend(
+//                                     entity_index,
+//                                     TRANSLATE_Y,
+//                                     &mut blend_group,
+//                                     v.y,
+//                                     w,
+//                                 );
+//                                 component.translation.z.blend(
+//                                     entity_index,
+//                                     TRANSLATE_Z,
+//                                     &mut blend_group,
+//                                     v.z,
+//                                     w,
+//                                 );
+//                             }
+//                         }
+//                     } else {
+//                         if let Some(curves) = clip
+//                             .get("Transform.translation.x")
+//                             .map(|curve_untyped| curve_untyped.downcast_ref::<f32>())
+//                             .flatten()
+//                         {
+//                             for (entity_index, (curve_index, curve)) in curves.iter() {
+//                                 let entity_index = entities_map[entity_index as usize] as usize;
+//                                 if let Some(ref mut component) = components[entity_index] {
+//                                     let kr = &mut keyframes[*curve_index];
+//                                     let (k, v) = curve.sample_indexed(*kr, time);
+//                                     *kr = k;
+//                                     component.translation.x.blend(
+//                                         entity_index,
+//                                         TRANSLATE_X,
+//                                         &mut blend_group,
+//                                         v,
+//                                         w,
+//                                     );
+//                                 }
+//                             }
+//                         }
 
-                        if let Some(curves) = clip
-                            .get("Transform.translation.y")
-                            .map(|curve_untyped| curve_untyped.downcast_ref::<f32>())
-                            .flatten()
-                        {
-                            for (entity_index, (curve_index, curve)) in curves.iter() {
-                                let entity_index = entities_map[entity_index as usize] as usize;
-                                if let Some(ref mut component) = components[entity_index] {
-                                    let (k, v) =
-                                        curve.sample_indexed(keyframes[*curve_index], time);
-                                    keyframes[*curve_index] = k;
-                                    component.translation.y.blend(
-                                        entity_index,
-                                        TRANSLATE_Y,
-                                        &mut blend_group,
-                                        v,
-                                        w,
-                                    );
-                                }
-                            }
-                        }
+//                         if let Some(curves) = clip
+//                             .get("Transform.translation.y")
+//                             .map(|curve_untyped| curve_untyped.downcast_ref::<f32>())
+//                             .flatten()
+//                         {
+//                             for (entity_index, (curve_index, curve)) in curves.iter() {
+//                                 let entity_index = entities_map[entity_index as usize] as usize;
+//                                 if let Some(ref mut component) = components[entity_index] {
+//                                     let kr = &mut keyframes[*curve_index];
+//                                     let (k, v) = curve.sample_indexed(*kr, time);
+//                                     *kr = k;
+//                                     component.translation.y.blend(
+//                                         entity_index,
+//                                         TRANSLATE_Y,
+//                                         &mut blend_group,
+//                                         v,
+//                                         w,
+//                                     );
+//                                 }
+//                             }
+//                         }
 
-                        if let Some(curves) = clip
-                            .get("Transform.translation.z")
-                            .map(|curve_untyped| curve_untyped.downcast_ref::<f32>())
-                            .flatten()
-                        {
-                            for (entity_index, (curve_index, curve)) in curves.iter() {
-                                let entity_index = entities_map[entity_index as usize] as usize;
-                                if let Some(ref mut component) = components[entity_index] {
-                                    let (k, v) =
-                                        curve.sample_indexed(keyframes[*curve_index], time);
-                                    keyframes[*curve_index] = k;
-                                    component.translation.z.blend(
-                                        entity_index,
-                                        TRANSLATE_Z,
-                                        &mut blend_group,
-                                        v,
-                                        w,
-                                    );
-                                }
-                            }
-                        }
-                    }
+//                         if let Some(curves) = clip
+//                             .get("Transform.translation.z")
+//                             .map(|curve_untyped| curve_untyped.downcast_ref::<f32>())
+//                             .flatten()
+//                         {
+//                             for (entity_index, (curve_index, curve)) in curves.iter() {
+//                                 let entity_index = entities_map[entity_index as usize] as usize;
+//                                 if let Some(ref mut component) = components[entity_index] {
+//                                     let kr = &mut keyframes[*curve_index];
+//                                     let (k, v) = curve.sample_indexed(*kr, time);
+//                                     *kr = k;
+//                                     component.translation.z.blend(
+//                                         entity_index,
+//                                         TRANSLATE_Z,
+//                                         &mut blend_group,
+//                                         v,
+//                                         w,
+//                                     );
+//                                 }
+//                             }
+//                         }
+//                     }
 
-                    if let Some(curves) = clip
-                        .get("Transform.rotation")
-                        .map(|curve_untyped| curve_untyped.downcast_ref::<Quat>())
-                        .flatten()
-                    {
-                        for (entity_index, (curve_index, curve)) in curves.iter() {
-                            let entity_index = entities_map[entity_index as usize] as usize;
-                            if let Some(ref mut component) = components[entity_index] {
-                                let (k, v) = curve.sample_indexed(keyframes[*curve_index], time);
-                                keyframes[*curve_index] = k;
-                                component.rotation.blend(
-                                    entity_index,
-                                    ROTATION,
-                                    &mut blend_group,
-                                    v,
-                                    w,
-                                );
-                            }
-                        }
-                    }
+//                     if let Some(curves) = clip
+//                         .get("Transform.rotation")
+//                         .map(|curve_untyped| curve_untyped.downcast_ref::<Quat>())
+//                         .flatten()
+//                     {
+//                         for (entity_index, (curve_index, curve)) in curves.iter() {
+//                             let entity_index = entities_map[entity_index as usize] as usize;
+//                             if let Some(ref mut component) = components[entity_index] {
+//                                 let kr = &mut keyframes[*curve_index];
+//                                 let (k, v) = curve.sample_indexed(*kr, time);
+//                                 *kr = k;
+//                                 component.rotation.blend(
+//                                     entity_index,
+//                                     ROTATION,
+//                                     &mut blend_group,
+//                                     v,
+//                                     w,
+//                                 );
+//                             }
+//                         }
+//                     }
 
-                    // TODO: Euler rotation support?
+//                     // TODO: Euler rotation support?
 
-                    if let Some(curves) = clip
-                        .get("Transform.scale")
-                        .map(|curve_untyped| curve_untyped.downcast_ref::<Vec3>())
-                        .flatten()
-                    {
-                        for (entity_index, (curve_index, curve)) in curves.iter() {
-                            let entity_index = entities_map[entity_index as usize] as usize;
-                            if let Some(ref mut component) = components[entity_index] {
-                                let (k, v) = curve.sample_indexed(keyframes[*curve_index], time);
-                                keyframes[*curve_index] = k;
-                                component
-                                    .scale
-                                    .blend(entity_index, SCALE, &mut blend_group, v, w);
-                            }
-                        }
-                    }
-                }
-            }
-        }
+//                     if let Some(curves) = clip
+//                         .get("Transform.scale")
+//                         .map(|curve_untyped| curve_untyped.downcast_ref::<Vec3>())
+//                         .flatten()
+//                     {
+//                         for (entity_index, (curve_index, curve)) in curves.iter() {
+//                             let entity_index = entities_map[entity_index as usize] as usize;
+//                             if let Some(ref mut component) = components[entity_index] {
+//                                 let kr = &mut keyframes[*curve_index];
+//                                 let (k, v) = curve.sample_indexed(*kr, time);
+//                                 *kr = k;
+//                                 component
+//                                     .scale
+//                                     .blend(entity_index, SCALE, &mut blend_group, v, w);
+//                             }
+//                         }
+//                     }
+//                 }
+//             }
+//         }
 
-        std::mem::drop(__guard);
-    }
-}
+//         std::mem::drop(__guard);
+//     }
+// }
 
 // ///////////////////////////////////////////////////////////////////////////////
 
@@ -446,15 +449,15 @@ impl AnimatedComponent for Transform {
 //     c: Vec3,
 // }
 
-// animated_component! {
-//     struct Transform {
-//         #[animated(fields(x: f32, y: f32, z: f32))]
-//         translation: Vec3,
-//         rotation: Quat,
-//         #[animated(fields(x: f32, y: f32, z: f32))]
-//         scale: Vec3,
-//     }
-// }
+animated_component! {
+    struct Transform {
+        #[animated(fields(x: f32, y: f32, z: f32))]
+        translation: Vec3,
+        rotation: Quat,
+        #[animated(fields(x: f32, y: f32, z: f32))]
+        scale: Vec3,
+    }
+}
 
 // animated_asset! {
 //     struct StandardMaterial {

@@ -1,61 +1,109 @@
 use crate::{
-    animated_properties::derive_animated_properties_for_component,
+    animated_properties::{query_prop, query_prop_nested},
+    help::parse_animate_options,
     modules::{get_modules, get_path},
 };
 use proc_macro::TokenStream;
-use proc_macro2::TokenStream as TokenStream2;
+use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
+use std::collections::{HashMap, HashSet};
 use syn::{
-    parse::ParseStream, parse_macro_input, parse_quote, punctuated::Punctuated, token::Comma, Data,
-    DataStruct, DeriveInput, Field, Fields, Ident, Type,
+    parse::{Error as ParseError, Parse, ParseStream, Result as ParserResult},
+    parse_macro_input, parse_quote,
+    punctuated::Punctuated,
+    token::Comma,
+    Data, DataStruct, DeriveInput, Field, Fields, Ident, Type,
 };
 
 fn animate_property(
-    property: &str,
-    field_ident: &Ident,
-    field_inner: &[&Ident],
-    field_type: &Type,
+    property_bit_masks: &mut HashSet<Ident>,
+    property_map: &mut HashMap<String, usize>,
+    property_name: String,
+    ident: &Ident,
+    nested_fields: Option<&Ident>,
+    ty: &Type,
 ) -> TokenStream2 {
+    let mut c = ident.to_string();
+    for n in nested_fields {
+        c.push('_');
+        c.push_str(&n.to_string());
+    }
+    c = c.to_uppercase();
+    let c = Ident::new(&c, Span::call_site());
+    property_bit_masks.insert(c.clone());
+
+    let default_property_index = property_map.len();
+    let property_index = property_map
+        .entry(property_name)
+        .or_insert(default_property_index);
+
+    let nested_fields = nested_fields.into_iter();
+
     quote! {
         if let Some(curves) = clip
-            .get(#property)
-            .map(|curve_untyped| curve_untyped.downcast_ref::<#field_type>())
+            .get(Self::PROPERTIES[#property_index])
+            .map(|curve_untyped| curve_untyped.downcast_ref::<#ty>())
             .flatten()
         {
             for (entity_index, (curve_index, curve)) in curves.iter() {
-                let entity_index = entities_map[entity_index as usize];
-                if let Some(ref mut component) = components[entity_index as usize] {
-                    let (k, v) = curve.sample_indexed(keyframes[*curve_index], time);
-                    keyframes[*curve_index] = k;
-                    component.#field_ident #(. #field_inner)* .blend(&mut blend_group, v, w);
+                let entity_index = entities_map[entity_index as usize] as usize;
+                if let Some(ref mut component) = components[entity_index] {
+                    let kr = &mut keyframes[*curve_index];
+                    let (k, v) = curve.sample_indexed(*kr, time);
+                    *kr = k;
+                    component.#ident #(. #nested_fields)* .blend(entity_index, #c, &mut blend_group, v, w);
                 }
             }
         }
     }
 }
 
-fn animate_property_extended(
-    property: &str,
-    field_ident: &Ident,
-    field_inner: &[Field],
-    field_type: &Type,
+fn animate_property_extended<'a>(
+    property_bit_masks: &mut HashSet<Ident>,
+    property_map: &mut HashMap<String, usize>,
+    property_name: String,
+    ident: &Ident,
+    nested_fields: impl Iterator<Item = &'a Field>,
+    ty: &Type,
 ) -> TokenStream2 {
-    let field_inner = field_inner
+    let nested_fields = nested_fields
+        .map(|field| field.ident.as_ref().unwrap())
+        .collect::<Vec<_>>();
+
+    let bit_masks = nested_fields
         .iter()
-        .map(|field| field.ident.as_ref().unwrap());
+        .map(|field_inner| {
+            let mut c = ident.to_string();
+            c.push('_');
+            c.push_str(&field_inner.to_string());
+            c = c.to_uppercase();
+            let c = Ident::new(&c, Span::call_site());
+            c
+        })
+        .collect::<Vec<_>>();
+
+    for c in &bit_masks {
+        property_bit_masks.insert(c.clone());
+    }
+
+    let default_property_index = property_map.len();
+    let property_index = property_map
+        .entry(property_name)
+        .or_insert(default_property_index);
 
     quote! {
         if let Some(curves) = clip
-            .get(#property)
-            .map(|curve_untyped| curve_untyped.downcast_ref::<#field_type>())
+            .get(Self::PROPERTIES[#property_index])
+            .map(|curve_untyped| curve_untyped.downcast_ref::<#ty>())
             .flatten()
         {
             for (entity_index, (curve_index, curve)) in curves.iter() {
-                let entity_index = entities_map[entity_index as usize];
-                if let Some(ref mut component) = components[entity_index as usize] {
-                    let (k, v) = curve.sample_indexed(keyframes[*curve_index], time);
-                    keyframes[*curve_index] = k;
-                    #(component.#field_ident.#field_inner.blend(&mut blend_group, v.#field_inner, w);)*
+                let entity_index = entities_map[entity_index as usize] as usize;
+                if let Some(ref mut component) = components[entity_index] {
+                    let kr = &mut keyframes[*curve_index];
+                    let (k, v) = curve.sample_indexed(*kr, time);
+                    *kr = k;
+                    #(component.#ident.#nested_fields.blend(entity_index, #bit_masks, &mut blend_group, v.#nested_fields, w);)*
                 }
             }
         }
@@ -63,11 +111,16 @@ fn animate_property_extended(
 }
 
 pub fn derive_animated_component(input: TokenStream) -> TokenStream {
-    let animated_properties: TokenStream2 =
-        derive_animated_properties_for_component(input.clone()).into();
-    let ast = parse_macro_input!(input as DeriveInput);
+    let derive_input = parse_macro_input!(input as DeriveInput);
+    let struct_name = &derive_input.ident;
 
-    let fields = match &ast.data {
+    // Modules namespaces
+    let modules = get_modules(&derive_input.attrs);
+    let bevy_animation = get_path(&modules.bevy_animation);
+    let bevy_ecs = get_path(&modules.bevy_ecs);
+    let bevy_asset = get_path(&modules.bevy_asset);
+
+    let fields = match &derive_input.data {
         Data::Struct(DataStruct {
             fields: Fields::Named(fields),
             ..
@@ -75,95 +128,131 @@ pub fn derive_animated_component(input: TokenStream) -> TokenStream {
         _ => panic!("Expected a struct with named fields."),
     };
 
-    let mut expanded: Vec<Vec<Field>> = vec![];
-    expanded.resize_with(fields.len(), || vec![]);
+    // Animation blocks for each animated property
+    let mut properties_blocks = vec![];
+    let mut property_bit_masks = HashSet::default();
+    let mut property_map = HashMap::default();
 
     // Filter fields
-    let fields = fields
-        .iter()
-        .enumerate()
-        .filter(|(field_index, field)| {
-            field
-                .attrs
+    for field in fields.iter() {
+        let ident = field.ident.as_ref().unwrap();
+        let ty = &field.ty;
+        let field_options = field
+            .attrs
+            .iter()
+            .find(|a| *a.path.get_ident().as_ref().unwrap() == "animated")
+            .map(|attr| parse_animate_options(attr).expect("Invalid 'animated' attribute format."));
+
+        if let Some(options) = field_options {
+            // Have some custom options attached
+            let nested_fields = options.fields.unwrap_or_else(Default::default);
+            let nested = nested_fields
                 .iter()
-                .find(|a| *a.path.get_ident().as_ref().unwrap() == "animated")
-                .map_or_else(
-                    || true,
-                    |a| {
-                        syn::custom_keyword!(ignore);
-                        syn::custom_keyword!(expand);
-                        a.parse_args_with(|input: ParseStream| {
-                            if input.parse::<Option<ignore>>()?.is_some() {
-                                Ok(false)
-                            } else if input.parse::<Option<expand>>()?.is_some() {
-                                let content;
-                                //syn::parenthesized!(content in input);
-                                syn::braced!(content in input);
-                                let fields: Punctuated<Field, Comma> =
-                                    content.parse_terminated(Field::parse_named)?;
-                                expanded[*field_index].extend(fields.iter().cloned());
-                                Ok(true)
-                            } else {
-                                Ok(true)
-                            }
-                        })
-                        .expect("Invalid 'animated' attribute format.")
-                    },
-                )
-        })
-        .map(|(_, field)| field)
-        .collect::<Vec<&Field>>();
-
-    let modules = get_modules(&ast.attrs);
-    let bevy_animation = get_path(&modules.bevy_animation);
-    let bevy_ecs = get_path(&modules.bevy_ecs);
-    let bevy_asset = get_path(&modules.bevy_asset);
-
-    let struct_name = &ast.ident;
-
-    let animate = fields
-        .iter()
-        .zip(expanded.iter())
-        .map(|(field, extended_fields)| {
-            if extended_fields.len() == 0 {
-                let ident = field.ident.as_ref().unwrap();
-                animate_property(
-                    &format!("{}.{}", struct_name, field.ident.as_ref().unwrap()),
-                    ident,
-                    &[],
-                    &field.ty,
-                )
-            } else {
-                let property = format!("{}.{}", struct_name, field.ident.as_ref().unwrap());
-                let ident = field.ident.as_ref().unwrap();
-                let main = animate_property_extended(
-                    &property,
-                    &parse_quote!(#ident),
-                    &extended_fields[..],
-                    &field.ty,
-                );
-                let extended = extended_fields.iter().map(|field| {
-                    let inner = field.ident.as_ref().unwrap();
+                .map(|nested_field| {
+                    let nested_ident = nested_field.ident.as_ref().unwrap();
                     animate_property(
-                        &format!("{}.{}", property, inner),
+                        &mut property_bit_masks,
+                        &mut property_map,
+                        format!("{}.{}.{}", struct_name, ident, nested_ident),
                         ident,
-                        &[inner],
-                        &field.ty,
+                        Some(nested_ident),
+                        &nested_field.ty,
                     )
-                });
-                quote! {
-                    #main else {
-                        #( #extended )*
-                    }
-                }
-            }
-        });
+                })
+                .collect::<Vec<_>>();
 
-    let generics = ast.generics;
+            if options.ignore {
+                if !nested_fields.is_empty() {
+                    // Only expanded properties
+                    properties_blocks.push(quote! { #( #nested )* });
+                }
+                continue;
+            } else {
+                if !nested_fields.is_empty() {
+                    // With expanded attributes
+                    let root = animate_property_extended(
+                        &mut property_bit_masks,
+                        &mut property_map,
+                        format!("{}.{}", struct_name, ident),
+                        ident,
+                        nested_fields.iter(),
+                        &ty,
+                    );
+                    properties_blocks.push(quote! { #root else {  #( #nested )* } });
+                    continue;
+                }
+                // Default behavior
+            }
+        }
+
+        // Default
+        let root = animate_property(
+            &mut property_bit_masks,
+            &mut property_map,
+            format!("{}.{}", struct_name, ident),
+            ident,
+            None,
+            ty,
+        );
+        properties_blocks.push(root);
+    }
+
+    let generics = derive_input.generics;
     let (impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
 
+    let (constants_values, constants_idents): (Vec<u32>, Vec<&Ident>) = property_bit_masks
+        .iter()
+        .enumerate()
+        .map(|(i, n)| {
+            if i >= 32 {
+                panic!("more than 32 animated fields");
+            }
+
+            ((1 << i) as u32, n)
+        })
+        .unzip();
+
+    let mut properties_names = vec![];
+    properties_names.resize_with(property_map.len(), || String::new());
+    for (k, i) in property_map {
+        properties_names[i] = k;
+    }
+
     TokenStream::from(quote! {
-        #animated_properties
+
+        // #(
+        //     pub struct #property_ident;
+
+        //     impl #property_ident {
+        //         #(
+        //             pub const fn #property_field_ident(&self) -> #bevy_animation::Prop<#property_ty, #property_nested> {
+        //                 #bevy_animation::Prop::borrowed( #struct_name::PROPERTIES[#property_index] )
+        //             }
+        //         )*
+        //     }
+        // )*
+
+        // #(
+        //     impl std::ops::Deref for #bevy_animation::Prop<#property_ty, #property_nested> {
+        //         type Target = #property_nested;
+
+        //         #[inline(always)]
+        //         fn deref(&self) -> &Self::Target {
+        //             &#property_nested
+        //         }
+        //     }
+        // )*
+
+        impl #impl_generics #bevy_animation::AnimatedProperties for #struct_name #ty_generics {
+            type Props = #root_properties;
+
+            const PROPERTIES: &'static [&'static str] = &[ #( #properties_names, )* ];
+
+            #[inline(always)]
+            fn props() -> Self::Props {
+                #root_properties
+            }
+        }
 
         impl #impl_generics #bevy_animation::AnimatedComponent for #struct_name #ty_generics {
             fn animator_update_system(
@@ -172,13 +261,16 @@ pub fn derive_animated_component(input: TokenStream) -> TokenStream {
                 animators_query: #bevy_ecs::Query<& #bevy_animation::Animator>,
                 component_query: #bevy_ecs::Query<&mut Self>,
             ) {
+
+                #(const #constants_idents: u32 = #constants_values;)*
+
+                // TODO: add tracing span
                 // let __span = tracing::info_span!("animator_transform_update_system");
                 // let __guard = __span.enter();
 
                 let mut components = vec![];
 
                 for animator in animators_query.iter() {
-                    let mut blend_group = animator_blending.begin_blending();
 
                     components.clear();
 
@@ -197,6 +289,8 @@ pub fn derive_animated_component(input: TokenStream) -> TokenStream {
                         }
                     }
 
+                    let mut blend_group = animator_blending.begin_blending(components.len());
+
                     for (_, layer, clip_handle, entities_map) in animator.animate() {
                         let w = layer.weight;
                         if w < 1.0e-8 {
@@ -212,7 +306,7 @@ pub fn derive_animated_component(input: TokenStream) -> TokenStream {
                             // is accessed by two different systems, which is possible but weird and will hit the performance a bit
                             let keyframes = unsafe { layer.keyframes_unsafe() };
 
-                            #(#animate)*
+                            #(#properties_blocks)*
                         }
                     }
                 }

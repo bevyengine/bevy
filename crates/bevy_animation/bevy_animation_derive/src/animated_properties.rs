@@ -3,12 +3,116 @@ use crate::{
     modules::{get_modules, get_path},
 };
 use proc_macro::TokenStream;
-use proc_macro2::Span;
-use quote::quote;
+use proc_macro2::{Span, TokenStream as TokenStream2};
+use quote::{quote, ToTokens, TokenStreamExt};
 use syn::{
     parse::ParseStream, parse_macro_input, parse_quote, parse_str, punctuated::Punctuated,
-    token::Comma, Data, DataStruct, DeriveInput, Field, Fields, Ident, Type,
+    token::Comma, Data, DataStruct, DeriveInput, Field, Fields, Ident, Path, Type,
 };
+
+// pub struct PropDerive<'a> {
+//     pub namespace: &'a Path,
+//     pub root: &'a Ident,
+//     pub name: Type,
+//     pub field: Vec<Ident>,
+//     pub ty: Vec<Type>,
+//     pub index: Vec<usize>,
+//     pub nested: Vec<Option<PropDerive<'a>>>,
+// }
+
+// impl<'a> ToTokens for PropDerive<'a> {
+//     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+//         for (n, ty) in self
+//             .nested
+//             .iter()
+//             .zip(self.ty.iter())
+//             .filter_map(|(n, ty)| n.as_ref().map(|n| (n, ty)))
+//         {
+//             n.to_tokens(tokens);
+
+//             let namespace = &n.namespace;
+//             let name = &n.name;
+
+//             tokens.append_all(quote! {
+//                 impl std::ops::Deref for #namespace::Prop<#ty, #name> {
+//                     type Target = #name;
+
+//                     #[inline(always)]
+//                     fn deref(&self) -> &Self::Target {
+//                         &#name
+//                     }
+//                 }
+//             });
+//         }
+
+//         let unit: Type = parse_str("()").unwrap();
+//         let namespace = &self.namespace;
+//         let root = &self.root;
+//         let name = &self.name;
+//         let field = &self.field;
+//         let ty = &self.ty;
+//         let index = &self.index;
+//         let nested = self.nested.iter().map(|n| n.map_or(&unit, |n| n.name));
+//         tokens.append_all(quote! {
+//             pub struct #name;
+//             impl #name {
+//                 #(pub const fn #field(&self) -> #namespace::Prop<#ty, #nested> {
+//                     #namespace::Prop::borrowed( #root::PROPERTIES[#index] )
+//                 })*
+//             }
+//         });
+//     }
+// }
+
+pub fn query_prop_nested(
+    namespace: &Path,
+    struct_name: &Ident,
+    nested: &Type,
+    root_ty: &Type,
+    field: &[&Ident],
+    ty: &[&Type],
+    index: &[usize],
+) -> TokenStream2 {
+    quote! {
+        pub struct #nested;
+        impl #nested {
+            #(
+                pub const fn #field(&self) -> #namespace::Prop<#ty> {
+                    #namespace::Prop::borrowed( #struct_name::PROPERTIES[#index] )
+                }
+            )*
+        }
+        impl std::ops::Deref for #namespace::Prop<#root_ty, #nested> {
+            type Target = #nested;
+
+            #[inline(always)]
+            fn deref(&self) -> &Self::Target {
+                &#nested
+            }
+        }
+    }
+}
+
+pub fn query_prop(
+    namespace: &Path,
+    struct_name: &Ident,
+    root: &Type,
+    field: &[&Ident],
+    ty: &[&Type],
+    nested: &[&Type],
+    index: &[usize],
+) -> TokenStream2 {
+    quote! {
+        pub struct #root;
+        impl #root {
+            #(
+                pub const fn #field(&self) -> #namespace::Prop<#ty, #nested> {
+                    #namespace::Prop::borrowed( #struct_name::PROPERTIES[#index] )
+                }
+            )*
+        }
+    }
+}
 
 pub fn derive_animated_properties_for_component(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -43,8 +147,7 @@ pub fn derive_animated_properties_for_component(input: TokenStream) -> TokenStre
                                 Ok(false)
                             } else if input.parse::<Option<expand>>()?.is_some() {
                                 let content;
-                                //syn::parenthesized!(content in input);
-                                syn::braced!(content in input);
+                                syn::parenthesized!(content in input);
                                 let fields: Punctuated<Field, Comma> =
                                     content.parse_terminated(Field::parse_named)?;
                                 expanded[*field_index].extend(fields.iter().cloned());
@@ -192,8 +295,7 @@ pub fn derive_animated_properties_for_asset(input: TokenStream) -> TokenStream {
                                 Ok(false)
                             } else if input.parse::<Option<expand>>()?.is_some() {
                                 let content;
-                                //syn::parenthesized!(content in input);
-                                syn::braced!(content in input);
+                                syn::parenthesized!(content in input);
                                 let fields: Punctuated<Field, Comma> =
                                     content.parse_terminated(Field::parse_named)?;
                                 expanded[*field_index].extend(fields.iter().cloned());
