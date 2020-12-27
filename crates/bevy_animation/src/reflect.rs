@@ -1,8 +1,4 @@
 //! Generic animation for any type that implements the `Reflect` trait
-//!
-//! This will never be as fast as the code gen approach but it will give
-//! a nice way of provide animation to external types or even to types derived
-//! from scrips!
 
 use std::{any::TypeId, marker::PhantomData};
 
@@ -15,6 +11,15 @@ use tracing::warn;
 use crate::{
     blending::AnimatorBlendGroup, blending::Blend, lerping::Lerp, Animator, AnimatorBlending, Clip,
 };
+
+// TODO: How to deal with generic types like Handle<T> or Option<T>
+// TODO: How implement safe property path `Transforms::props().translation().x()`
+// TODO: Property validation tells if some property (path and type) is or isn't valid
+// TODO: Animate assets
+// TODO: Make sure properties are within component size bounds
+// TODO: Accept also `TupleStruct` and `Value`
+// TODO: Expand types like Vec2, Vec3, Vec4 and Color
+// ! FIXME: Vec2, Vec3, Vec4 doesn't implement bevy_reflect::Struct so they can't be auto expanded
 
 type AnimateFn = fn(
     components: &mut dyn Components,
@@ -65,7 +70,7 @@ impl AnimatorRegistry {
             .position(|(other, _)| *other == ty)
             .is_some()
         {
-            panic!("type '{}' already registered");
+            panic!("type '{}' already registered", std::any::type_name::<T>());
         }
 
         self.ver = self.ver.wrapping_add(1);
@@ -134,7 +139,6 @@ struct AnimatorDescriptorInner {
     ver: usize,
     dynamic_properties: Vec<(String, TypeId, usize, isize, u32)>,
 }
-
 // Defines how to animate the reflected type
 pub struct AnimatorDescriptor<T> {
     inner: Option<AnimatorDescriptorInner>,
@@ -217,8 +221,6 @@ pub fn animate_system<T: Struct + Send + Sync + 'static>(
                     inner
                         .dynamic_properties
                         .push((name, ty, index, offset, (1 << i) as u32));
-
-                    // TODO: Expand type if possible
                 }
 
                 descriptor.inner = Some(inner);
@@ -232,7 +234,12 @@ pub fn animate_system<T: Struct + Send + Sync + 'static>(
         let descriptor_inner = descriptor.inner.as_mut().unwrap();
 
         if descriptor_inner.ver != registry.ver {
-            // TODO: Lookup missing animate functions because `AnimatorRegistry` changed
+            // Lookup missing animate functions because `AnimatorRegistry` changed
+            for (_, prop_type, prop_index, _, _) in &mut descriptor_inner.dynamic_properties {
+                if *prop_index == usize::MAX {
+                    *prop_index = registry.index_of(*prop_type);
+                }
+            }
         }
 
         let mut blend_group = descriptor
