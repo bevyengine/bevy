@@ -90,7 +90,10 @@ impl UiRenderGraphBuilder for RenderGraph {
         let mut pipelines = resources.get_mut::<Assets<PipelineDescriptor>>().unwrap();
         let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
         let msaa = resources.get::<Msaa>().unwrap();
-        pipelines.set_untracked(UI_PIPELINE_HANDLE, build_ui_pipeline(&mut shaders, msaa.samples));
+        pipelines.set_untracked(
+            UI_PIPELINE_HANDLE,
+            build_ui_pipeline(&mut shaders, msaa.samples),
+        );
 
         let mut ui_pass_node = PassNode::<(&Node, &Style)>::new(PassDescriptor {
             color_attachments: vec![msaa.color_attachment_descriptor(

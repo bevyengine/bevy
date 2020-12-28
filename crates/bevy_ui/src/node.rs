@@ -118,7 +118,6 @@ pub struct Style {
     pub overflow: Overflow,
 }
 
-
 #[derive(Debug, Clone, PartialEq, RenderResources, Reflect, RenderResource)]
 #[reflect(Component)]
 #[render_resources(from_self)]

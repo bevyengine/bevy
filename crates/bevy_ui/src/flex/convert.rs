@@ -53,7 +53,7 @@ pub fn from_style(scale_factor: f64, value: &Style) -> stretch::style::Style {
         flex_grow: value.flex_grow,
         flex_shrink: value.flex_shrink,
         flex_basis: from_val(scale_factor, value.flex_basis),
-        size: from_val_size(scale_factor,  value.size),
+        size: from_val_size(scale_factor, value.size),
         min_size: from_val_size(scale_factor, value.min_size),
         max_size: from_val_size(scale_factor, value.max_size),
         aspect_ratio: match value.aspect_ratio {
