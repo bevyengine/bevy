@@ -9,7 +9,8 @@ use bevy_reflect::prelude::*;
 use tracing::warn;
 
 use crate::{
-    blending::AnimatorBlendGroup, blending::Blend, lerping::Lerp, Animator, AnimatorBlending, Clip,
+    blending::AnimatorBlendGroup, blending::Blend, lerping::Lerp, shorten_name, Animator,
+    AnimatorBlending, Clip,
 };
 
 // TODO: How to deal with generic types like Handle<T> or Option<T>
@@ -205,10 +206,6 @@ impl<T: Struct> AnimatorDescriptor<T> {
             ..Default::default()
         }
     }
-}
-
-fn shorten_name(n: &str) -> &str {
-    n.rsplit("::").nth(0).unwrap_or(n)
 }
 
 pub fn animate_component_system<T: Struct + Send + Sync + 'static>(

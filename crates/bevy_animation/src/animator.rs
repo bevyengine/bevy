@@ -71,12 +71,15 @@ impl<T> Curves<T> {
     }
 }
 
+pub(crate) fn shorten_name(n: &str) -> &str {
+    n.rsplit("::").nth(0).unwrap_or(n)
+}
+
 pub struct CurveMeta(&'static str, TypeId);
 
 impl CurveMeta {
     pub fn of<T: 'static>() -> Self {
-        let n = std::any::type_name::<T>();
-        Self(n.rsplit("::").nth(0).unwrap_or(n), TypeId::of::<T>())
+        Self(shorten_name(std::any::type_name::<T>()), TypeId::of::<T>())
     }
 
     pub const fn short_name(&self) -> &'static str {
