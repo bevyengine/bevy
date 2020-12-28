@@ -18,7 +18,7 @@ pub mod prelude {
     pub use crate::{DefaultTaskPoolOptions, EntityLabels, Labels, Time, Timer};
 }
 
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, startup_stage};
 
 /// Adds core functionality to Apps.
 #[derive(Default)]
@@ -40,6 +40,7 @@ impl Plugin for CorePlugin {
             .register_type::<Range<f32>>()
             .register_type::<Timer>()
             .add_system_to_stage(stage::FIRST, time_system.system())
-            .add_system_to_stage(stage::PRE_UPDATE, entity_labels_system.system());
+            .add_startup_system_to_stage(startup_stage::POST_STARTUP, entity_labels_system.system())
+            .add_system_to_stage(stage::POST_UPDATE, entity_labels_system.system());
     }
 }
