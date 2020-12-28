@@ -2,8 +2,8 @@ use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets};
 use bevy_reflect::RegisterTypeBuilder;
 
+mod animator;
 mod app;
-mod custom;
 mod reflect;
 //mod experimental;
 mod hierarchy;
@@ -13,25 +13,22 @@ pub mod blending;
 pub mod curve;
 pub mod lerping;
 
+pub use crate::animator::*;
 pub use crate::app::*;
 pub use crate::blending::AnimatorBlending;
-pub use crate::custom::*;
 pub use crate::hierarchy::Hierarchy;
 pub use crate::reflect::AnimatorPropertyRegistry;
 pub use crate::skinned_mesh::*;
 
-pub use bevy_animation_derive::*;
-
 pub mod prelude {
+    pub use crate::animator::{Animator, Clip};
     pub use crate::app::AddAnimated;
     pub use crate::blending::AnimatorBlending;
     pub use crate::curve::Curve;
-    pub use crate::custom::{Animator, Clip};
     pub use crate::hierarchy::Hierarchy;
     pub use crate::lerping::Lerp;
     pub use crate::reflect::AnimatorPropertyRegistry;
     pub use crate::skinned_mesh::{SkinAsset, SkinComponent, SkinDebugger};
-    pub use bevy_animation_derive::*;
 }
 
 pub mod stage {
@@ -48,7 +45,7 @@ impl Plugin for AnimationPlugin {
         app.add_stage_after(stage::UPDATE, stage::ANIMATE);
 
         // Generic animation
-        app.add_resource(custom::AnimatorRegistry::default())
+        app.add_resource(animator::AnimatorRegistry::default())
             .add_asset::<Clip>()
             //.add_asset_loader(ClipLoader)
             .register_type::<Animator>()

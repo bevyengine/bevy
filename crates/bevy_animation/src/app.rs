@@ -7,7 +7,7 @@ use std::{
     mem::drop,
 };
 
-use crate::{custom::AnimatorRegistry, reflect, stage};
+use crate::{animator::AnimatorRegistry, reflect, stage};
 
 pub trait AddAnimated {
     fn register_animated_component<T: Default + Struct + Component>(&mut self) -> &mut Self;
