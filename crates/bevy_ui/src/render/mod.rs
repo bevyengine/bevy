@@ -152,7 +152,7 @@ impl UiRenderGraphBuilder for RenderGraph {
         // setup ui camera
         self.add_system_node(node::CAMERA_UI, CameraNode::new(camera::CAMERA_UI));
         self.add_node_edge(node::CAMERA_UI, node::UI_PASS).unwrap();
-        self.add_system_node(node::NODE, RenderResourcesNode::<Node>::new(true));
+        self.add_system_node(node::NODE, RenderResourcesNode::<Node>::new(false));
         self.add_node_edge(node::NODE, node::UI_PASS).unwrap();
         self.add_system_node(node::STYLE, RenderResourcesNode::<Style>::new(true));
         self.add_node_edge(node::STYLE, node::UI_PASS).unwrap();

@@ -75,7 +75,7 @@ fn setup(
                 // absolute positioning
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Px(200.0), Val::Px(200.0)),
+                        size: Size::new(Val::Px(200.0), Val::Percent(50.0)),
                         position_type: PositionType::Absolute,
                         position: Rect {
                             left: Val::Px(210.0),
@@ -83,14 +83,26 @@ fn setup(
                             ..Default::default()
                         },
                         border: Border {
-                            radius: 50.,
-                            color: Color::rgb(0.4, 0.4, 1.0),
-                            thickness: 20.,
+                            radius: 20.,
+                            color: Color::rgba(0.0, 1.0, 0.0, 0.25), //Color::rgb(0.4, 0.4, 1.0),
+                            thickness: 2.,
                         },
+                        overflow: Overflow::Hidden,
                         ..Default::default()
                     },
                     material: materials.add(Color::rgb(0.8, 0.8, 1.0).into()),
                     ..Default::default()
+                })
+                .with_children(|parent| {
+                    parent.spawn(NodeBundle {
+                        style: Style {
+                            size: Size::new(Val::Px(100.0), Val::Px(300.0)),
+                            align_self: AlignSelf::Center,
+                            ..Default::default()
+                        },
+                        material: materials.add(Color::RED.into()),
+                        ..Default::default()
+                    });
                 })
                 // render order test: reddest in the back, whitest in the front (flex center)
                 .spawn(NodeBundle {

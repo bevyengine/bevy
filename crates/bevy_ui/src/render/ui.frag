@@ -1,5 +1,19 @@
 #version 450
 
+struct Border {
+    vec4 color;
+    float radius;
+    float thickness;
+};
+
+struct Bounds {
+    vec2 offset;
+    vec2 size;
+    float radius;
+    float thickness;
+};
+
+
 layout(location = 0) in vec2 v_Uv;
 
 layout(location = 0) out vec4 o_Target;
@@ -12,10 +26,8 @@ layout(set = 1, binding = 1) uniform Node_size {
     vec2 NodeSize;
 };
 
-struct Border {
-    vec4 color;
-    float radius;
-    float thickness;
+layout(set = 1, binding = 3) buffer Node_bounds {
+    Bounds[] bounds;
 };
 
 layout(set = 1, binding = 2) uniform Style_border {
@@ -27,17 +39,43 @@ layout(set = 2, binding = 1) uniform texture2D ColorMaterial_texture;
 layout(set = 2, binding = 2) uniform sampler ColorMaterial_texture_sampler;
 # endif
 
+
+float aastep(float threshold, float value, float factor) {
+    float afwidth = length(vec2(dFdx(value), dFdy(value))) * 0.70710678118654757 * factor;
+    return smoothstep(threshold-afwidth, threshold+afwidth, value);
+}
+float aastep(float threshold, float value) {
+    return aastep(threshold, value, 1.0);
+}
+
+void calcinner(in Bounds bounds, inout float overflow_mask) {
+    float t = bounds.thickness;
+    float r = bounds.radius;
+    
+    vec2 pos = abs((v_Uv - 0.5) * NodeSize + bounds.offset);
+    vec2 half_size = bounds.size / 2.0;
+    vec2 calc = pos + r - half_size;
+
+    float m = max(r-t, 0.0);
+    calc += 0.5;
+    float R2 = 1.0 - aastep(m*m, dot(calc, calc), 5.0);
+
+    vec2 T = clamp(0.0.xx, 1.0.xx, pos + t - half_size);
+
+    vec2 B2 = 1.0 - step(0.0, pos + r - half_size);
+
+    overflow_mask *= T.x *  T.y * clamp(0.0, 1.0, B2.x + B2.y + R2);
+}
+
 void main() {
     vec4 color = Color;
-# ifdef COLORMATERIAL_TEXTURE
-    color *= texture(
-        sampler2D(ColorMaterial_texture, ColorMaterial_texture_sampler),
-        v_Uv);
-# endif
+    # ifdef COLORMATERIAL_TEXTURE
+        color *= texture(
+            sampler2D(ColorMaterial_texture, ColorMaterial_texture_sampler),
+            v_Uv);
+    # endif
     float t = _border.thickness;
     float r = _border.radius;
-
-    float aa = clamp(1.0, 20.0, 4 * t);
 
     vec2 pos = abs(v_Uv - 0.5) * NodeSize;
 
@@ -47,22 +85,29 @@ void main() {
     vec2 calc = pos + r - half_size;
     float c_dist_sq = dot(calc, calc);
 
-    float O = smoothstep(-aa, aa, c_dist_sq - r*r);
+    float O = aastep(r*r, c_dist_sq * 0.995);
     float O2 = 1.0 - O;
 
-    float m = max(r-t, 0);
-    float R = smoothstep(-aa, aa, c_dist_sq - m*m);
+    float m = max(r-t, 0.0);
+    float R = aastep(m*m, c_dist_sq * 1.005);
 
-    vec2 B = step(0.0, pos + r - half_size);
+    vec2 B = step(half_size, pos + r);
     vec2 B2 = 1.0.xx - B;
 
     float outside = B.x * B.y * O;
     
     float border_corners = B.x * B.y * R * O2;
-    float border_sides = dot(step(0.0, pos + t - half_size), B2.yx);
-    float border = min(1.0, border_corners + border_sides);
+    float border_sides = dot(step(half_size, pos + t), B2.yx);
+    float border = min(t, min(1.0, border_corners + border_sides));
 
-    float inner = 1 - clamp(0.0, 1.0, border + outside);
+    float inner = 1.0 - clamp(0.0, 1.0, border + outside);
 
     o_Target = inner * color + border * _border.color;
+
+    float overflow_mask = 1.0;
+    for (int i = 0; i < bounds.length(); i++) {
+        calcinner(bounds[i], overflow_mask);
+    }
+
+    o_Target.a *= overflow_mask;
 }

@@ -12,7 +12,28 @@ use std::ops::{Add, AddAssign};
 #[reflect(Component)]
 pub struct Node {
     pub size: Vec2,
+    #[render_resources(buffer)]
+    pub(crate) bounds: Vec<Bounds>,
 }
+
+#[derive(Debug, Copy, Clone, RenderResource, Reflect)]
+pub(crate) struct Bounds {
+    pub offset: Vec2,
+    pub size: Vec2,
+    pub radius: f32,
+    pub thickness: f32,
+}
+
+impl Default for Bounds {
+    fn default() -> Self {
+        Self {
+            size: Vec2::new(100000000., 100000000.),
+            ..Default::default()
+        }
+    }
+}
+
+unsafe impl Byteable for Bounds {}
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
@@ -98,6 +119,8 @@ pub struct Style {
     pub max_size: Size<Val>,
     #[render_resources(ignore)]
     pub aspect_ratio: Option<f32>,
+    #[render_resources(ignore)]
+    pub overflow: Overflow,
 }
 
 
@@ -145,6 +168,7 @@ impl Default for Style {
             min_size: Size::new(Val::Auto, Val::Auto),
             max_size: Size::new(Val::Auto, Val::Auto),
             aspect_ratio: Default::default(),
+            overflow: Default::default(),
         }
     }
 }
@@ -259,18 +283,20 @@ impl Default for JustifyContent {
 }
 
 // TODO: add support for overflow settings
-// #[derive(Copy, Clone, PartialEq, Debug)]
-// pub enum Overflow {
-//     Visible,
-//     Hidden,
-//     Scroll,
-// }
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
+#[reflect_value(PartialEq, Serialize, Deserialize)]
+pub enum Overflow {
+    Visible,
+    Hidden,
+    // This option needs more discussion
+    // Scroll,
+}
 
-// impl Default for Overflow {
-//     fn default() -> Overflow {
-//         Overflow::Visible
-//     }
-// }
+impl Default for Overflow {
+    fn default() -> Overflow {
+        Overflow::Visible
+    }
+}
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]

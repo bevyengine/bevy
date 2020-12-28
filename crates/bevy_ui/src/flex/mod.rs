@@ -1,7 +1,7 @@
 mod convert;
 
-use crate::{CalculatedSize, Node, Style};
-use bevy_ecs::{Changed, Entity, Query, Res, ResMut, With, Without};
+use crate::{Bounds, CalculatedSize, Node, Overflow, Style};
+use bevy_ecs::{Changed, Entity, Query, QuerySet, Res, ResMut, With, Without};
 use bevy_math::Vec2;
 use bevy_transform::prelude::{Children, Parent, Transform};
 use bevy_utils::HashMap;
@@ -170,7 +170,10 @@ pub fn flex_node_system(
         (With<Node>, Changed<CalculatedSize>),
     >,
     children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
-    mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
+    mut node_transform_queries: QuerySet<(
+        Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
+        Query<(Option<&Children>, &Style, &mut Node, &Transform)>,
+    )>,
 ) {
     // update window root nodes
     for window in windows.iter() {
@@ -217,7 +220,7 @@ pub fn flex_node_system(
 
     let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
 
-    for (entity, mut node, mut transform, parent) in node_transform_query.iter_mut() {
+    for (entity, mut node, mut transform, parent) in node_transform_queries.q0_mut().iter_mut() {
         let layout = flex_surface.get_layout(entity).unwrap();
         node.size = Vec2::new(
             to_logical(layout.size.width),
@@ -233,4 +236,39 @@ pub fn flex_node_system(
             }
         }
     }
+
+    let node_query = node_transform_queries.q1_mut();
+    for root in root_node_query.iter() {
+        descend(&root, node_query);
+    }
+}
+
+fn descend(root: &Entity, query: &mut Query<(Option<&Children>, &Style, &mut Node, &Transform)>) {
+    for (_, _, mut node, _) in query.iter_mut() {
+        node.bounds.clear();
+    }
+    fn inner(root: &Entity, query: &Query<(Option<&Children>, &Style, &mut Node, &Transform)>) {
+        let (children, root_style, root_node, _) = unsafe { query.get_unsafe(*root).unwrap() };
+
+        for child in children.map(|c| c.iter()).unwrap_or_else(|| [].iter()) {
+            let mut child_node = unsafe { query.get_component_unsafe::<Node>(*child).unwrap() };
+            let child_transform = query.get_component::<Transform>(*child).unwrap();
+            let child_offset = child_transform.translation.truncate();
+            for bound in root_node.bounds.iter() {
+                child_node.bounds.push(*bound);
+            }
+            match root_style.overflow {
+                Overflow::Hidden => child_node.bounds.push(Bounds {
+                    radius: root_style.border.radius,
+                    thickness: root_style.border.thickness,
+                    size: root_node.size,
+                    offset: child_offset,
+                }),
+                Overflow::Visible => {}
+            }
+            inner(child, query);
+        }
+    }
+
+    inner(root, query);
 }
