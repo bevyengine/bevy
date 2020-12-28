@@ -1,5 +1,5 @@
 use bevy::{
-    diagnostic::{Diagnostic, DiagnosticId, Diagnostics, PrintDiagnosticsPlugin},
+    diagnostic::{Diagnostic, DiagnosticId, Diagnostics, LogDiagnosticsPlugin},
     prelude::*,
 };
 
@@ -8,7 +8,7 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         // The "print diagnostics" plugin is optional. It just visualizes our diagnostics in the console
-        .add_plugin(PrintDiagnosticsPlugin::default())
+        .add_plugin(LogDiagnosticsPlugin::default())
         .add_startup_system(setup_diagnostic_system.system())
         .add_system(my_system.system())
         .run();

@@ -1,5 +1,5 @@
-use crate::{CalculatedSize, Node, Style, Val};
-use bevy_asset::{Assets, Handle};
+use crate::{Node, Style, Val};
+use bevy_asset::Assets;
 use bevy_ecs::{Changed, Entity, Local, Or, Query, QuerySet, Res, ResMut};
 use bevy_math::Size;
 use bevy_render::{
@@ -10,19 +10,14 @@ use bevy_render::{
     texture::Texture,
 };
 use bevy_sprite::{TextureAtlas, QUAD_HANDLE};
-use bevy_text::{DefaultTextPipeline, DrawableText, Font, FontAtlasSet, TextError, TextStyle};
+use bevy_text::{
+    CalculatedSize, DefaultTextPipeline, DrawableText, Font, FontAtlasSet, Text, TextError,
+};
 use bevy_transform::prelude::GlobalTransform;
 
 #[derive(Debug, Default)]
 pub struct QueuedText {
     entities: Vec<Entity>,
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct Text {
-    pub value: String,
-    pub font: Handle<Font>,
-    pub style: TextStyle,
 }
 
 /// Defines how min_size, size, and max_size affects the bounds of a text
@@ -66,77 +61,45 @@ pub fn text_system(
     let query = text_queries.q1_mut();
     for entity in queued_text.entities.drain(..) {
         if let Ok((text, style, mut calculated_size)) = query.get_mut(entity) {
-            match add_text_to_pipeline(
+            let node_size = Size::new(
+                text_constraint(style.min_size.width, style.size.width, style.max_size.width),
+                text_constraint(
+                    style.min_size.height,
+                    style.size.height,
+                    style.max_size.height,
+                ),
+            );
+
+            match text_pipeline.queue_text(
                 entity,
-                &*text,
-                &*style,
-                &mut *textures,
-                &*fonts,
-                &mut *texture_atlases,
+                text.font.clone(),
+                &fonts,
+                &text.value,
+                text.style.font_size,
+                text.style.alignment,
+                node_size,
                 &mut *font_atlas_set_storage,
-                &mut *text_pipeline,
+                &mut *texture_atlases,
+                &mut *textures,
             ) {
-                TextPipelineResult::Ok => {
+                Err(TextError::NoSuchFont) => {
+                    // There was an error processing the text layout, let's add this entity to the queue for further processing
+                    new_queue.push(entity);
+                }
+                Err(e @ TextError::FailedToAddGlyph(_)) => {
+                    panic!("Fatal error when processing text: {}.", e);
+                }
+                Ok(()) => {
                     let text_layout_info = text_pipeline.get_glyphs(&entity).expect(
                         "Failed to get glyphs from the pipeline that have just been computed",
                     );
                     calculated_size.size = text_layout_info.size;
-                }
-                TextPipelineResult::Reschedule => {
-                    // There was an error processing the text layout, let's add this entity to the queue for further processing
-                    new_queue.push(entity);
                 }
             }
         }
     }
 
     queued_text.entities = new_queue;
-}
-
-enum TextPipelineResult {
-    Ok,
-    Reschedule,
-}
-
-/// Computes the text layout and stores it in the TextPipeline resource.
-#[allow(clippy::too_many_arguments)]
-fn add_text_to_pipeline(
-    entity: Entity,
-    text: &Text,
-    style: &Style,
-    textures: &mut Assets<Texture>,
-    fonts: &Assets<Font>,
-    texture_atlases: &mut Assets<TextureAtlas>,
-    font_atlas_set_storage: &mut Assets<FontAtlasSet>,
-    text_pipeline: &mut DefaultTextPipeline,
-) -> TextPipelineResult {
-    let node_size = Size::new(
-        text_constraint(style.min_size.width, style.size.width, style.max_size.width),
-        text_constraint(
-            style.min_size.height,
-            style.size.height,
-            style.max_size.height,
-        ),
-    );
-
-    match text_pipeline.queue_text(
-        entity,
-        text.font.clone(),
-        &fonts,
-        &text.value,
-        text.style.font_size,
-        text.style.alignment,
-        node_size,
-        font_atlas_set_storage,
-        texture_atlases,
-        textures,
-    ) {
-        Err(TextError::NoSuchFont) => TextPipelineResult::Reschedule,
-        Err(e @ TextError::FailedToAddGlyph(_)) => {
-            panic!("Fatal error when processing text: {}.", e);
-        }
-        Ok(()) => TextPipelineResult::Ok,
-    }
 }
 
 #[allow(clippy::too_many_arguments)]

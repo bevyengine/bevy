@@ -103,6 +103,10 @@ name = "contributors"
 path = "examples/2d/contributors.rs"
 
 [[example]]
+name = "text2d"
+path = "examples/2d/text2d.rs"
+
+[[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
 
@@ -191,8 +195,8 @@ name = "custom_diagnostic"
 path = "examples/diagnostics/custom_diagnostic.rs"
 
 [[example]]
-name = "print_diagnostics"
-path = "examples/diagnostics/print_diagnostics.rs"
+name = "log_diagnostics"
+path = "examples/diagnostics/log_diagnostics.rs"
 
 [[example]]
 name = "event"
