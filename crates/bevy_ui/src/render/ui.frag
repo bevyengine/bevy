@@ -44,7 +44,16 @@ float aastep(float threshold, float value, float factor) {
     float afwidth = length(vec2(dFdx(value), dFdy(value))) * 0.70710678118654757 * factor;
     return smoothstep(threshold-afwidth, threshold+afwidth, value);
 }
+vec2 aastep(vec2 threshold, vec2 value, float factor) {
+    vec2 dfx = dFdx(value);
+    vec2 dfy = dFdy(value);
+    vec2 afwidth = vec2(length(vec2(dfx.x, dfy.x)), length(vec2(dfx.y, dfy.y))) * 0.70710678118654757 * factor;
+    return smoothstep(threshold-afwidth, threshold+afwidth, value);
+}
 float aastep(float threshold, float value) {
+    return aastep(threshold, value, 1.0);
+}
+vec2 aastep(vec2 threshold, vec2 value) {
     return aastep(threshold, value, 1.0);
 }
 
@@ -57,12 +66,11 @@ void calcinner(in Bounds bounds, inout float overflow_mask) {
     vec2 calc = pos + r - half_size;
 
     float m = max(r-t, 0.0);
-    calc += 0.5;
-    float R2 = 1.0 - aastep(m*m, dot(calc, calc), 5.0);
+    float R2 = 1.0 - aastep(m*m, dot(calc, calc));
 
     vec2 T = clamp(0.0.xx, 1.0.xx, pos + t - half_size);
 
-    vec2 B2 = 1.0 - step(0.0, pos + r - half_size);
+    vec2 B2 = 1.0 - aastep(half_size, pos + r);
 
     overflow_mask *= T.x *  T.y * clamp(0.0, 1.0, B2.x + B2.y + R2);
 }
@@ -91,7 +99,7 @@ void main() {
     float m = max(r-t, 0.0);
     float R = aastep(m*m, c_dist_sq * 1.005);
 
-    vec2 B = step(half_size, pos + r);
+    vec2 B = aastep(half_size, pos + r);
     vec2 B2 = 1.0.xx - B;
 
     float outside = B.x * B.y * O;
