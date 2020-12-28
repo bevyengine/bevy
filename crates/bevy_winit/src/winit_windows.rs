@@ -81,6 +81,18 @@ impl WinitWindows {
             }
         }
 
+        if let Some(icon) = &window_descriptor.icon {
+            let winit_icon =
+                match winit::window::Icon::from_rgba(icon.rgba.clone(), icon.width, icon.height) {
+                    Ok(prepared_icon) => Some(prepared_icon),
+                    Err(bad_icon) => {
+                        println!("Bad icon supplied for window and defaulting to none. Err: {:?}", bad_icon);
+                        None
+                    },
+                };
+            winit_window_builder = winit_window_builder.with_window_icon(winit_icon);
+        }
+
         let winit_window = winit_window_builder.build(&event_loop).unwrap();
 
         match winit_window.set_cursor_grab(window_descriptor.cursor_locked) {

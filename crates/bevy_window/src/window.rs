@@ -108,6 +108,27 @@ pub enum WindowCommand {
     },
 }
 
+#[derive(Debug, Clone)]
+pub struct Icon {
+    pub rgba: Vec<u8>,
+    pub width: u32,
+    pub height: u32
+}
+
+impl Icon {
+    /// Creates an `Icon` from 32bpp RGBA data.
+    ///
+    /// The length of `rgba` must be divisible by 4, and `width * height` must equal
+    /// `rgba.len() / 4`. Otherwise, this will icon will not be used.
+    pub fn from_rgba(rgba: Vec<u8>, width: u32, height: u32) -> Self {
+        Icon {
+            rgba,
+            width,
+            height
+        }
+    }
+}
+
 /// Defines the way a window is displayed
 /// The use_size option that is used in the Fullscreen variant
 /// defines whether a videomode is chosen that best fits the width and height
@@ -383,6 +404,7 @@ pub struct WindowDescriptor {
     pub cursor_visible: bool,
     pub cursor_locked: bool,
     pub mode: WindowMode,
+    pub icon: Option<Icon>,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
 }
@@ -400,6 +422,7 @@ impl Default for WindowDescriptor {
             cursor_locked: false,
             cursor_visible: true,
             mode: WindowMode::Windowed,
+            icon: None,
             #[cfg(target_arch = "wasm32")]
             canvas: None,
         }
