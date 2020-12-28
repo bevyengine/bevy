@@ -81,14 +81,18 @@ impl WinitWindows {
             }
         }
 
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
         if let Some(icon) = &window_descriptor.icon {
             let winit_icon =
                 match winit::window::Icon::from_rgba(icon.rgba.clone(), icon.width, icon.height) {
-                    Ok(prepared_icon) => Some(prepared_icon),
+                    Ok(icon) => Some(icon),
                     Err(bad_icon) => {
-                        println!("Bad icon supplied for window and defaulting to none. Err: {:?}", bad_icon);
+                        println!(
+                            "Bad icon supplied for window and defaulting to none. Error: {:?}",
+                            bad_icon
+                        );
                         None
-                    },
+                    }
                 };
             winit_window_builder = winit_window_builder.with_window_icon(winit_icon);
         }

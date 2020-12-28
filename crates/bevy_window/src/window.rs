@@ -404,6 +404,7 @@ pub struct WindowDescriptor {
     pub cursor_visible: bool,
     pub cursor_locked: bool,
     pub mode: WindowMode,
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
     pub icon: Option<Icon>,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
@@ -422,6 +423,7 @@ impl Default for WindowDescriptor {
             cursor_locked: false,
             cursor_visible: true,
             mode: WindowMode::Windowed,
+            #[cfg(any(target_os = "windows", target_os = "linux"))]
             icon: None,
             #[cfg(target_arch = "wasm32")]
             canvas: None,

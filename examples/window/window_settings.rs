@@ -1,16 +1,17 @@
 use bevy::prelude::*;
+#[cfg(any(target_os = "windows", target_os = "linux"))]
 use bevy::window::Icon;
 
 /// This example illustrates how to customize the default window settings
 fn main() {
-    let icon =include_bytes!("icon.rgba");
     App::build()
         .add_resource(WindowDescriptor {
             title: "I am a window!".to_string(),
             width: 500.,
             height: 300.,
             vsync: true,
-            icon: Some(Icon::from_rgba(icon.to_vec(), 32, 32)),
+            #[cfg(any(target_os = "windows", target_os = "linux"))]
+            icon: Some(Icon::from_rgba(include_bytes!("bevy_icon.rgba").to_vec(), 32, 32)),
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
