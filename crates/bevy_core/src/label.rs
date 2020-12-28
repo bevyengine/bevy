@@ -74,8 +74,7 @@ impl EntityLabels {
 
 pub(crate) fn entity_labels_system(
     mut entity_labels: ResMut<EntityLabels>,
-    // the system runs in an early stage and so can't use a Changed<Labels> filter
-    query: Query<(Entity, &Labels)>,
+    query: Query<(Entity, &Labels), Changed<Labels>>,
 ) {
     let entity_labels = entity_labels.deref_mut();
 
