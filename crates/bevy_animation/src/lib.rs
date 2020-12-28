@@ -7,7 +7,6 @@ mod custom;
 mod reflect;
 //mod experimental;
 mod hierarchy;
-mod impls;
 mod skinned_mesh;
 
 pub mod blending;
@@ -18,7 +17,7 @@ pub use crate::app::*;
 pub use crate::blending::AnimatorBlending;
 pub use crate::custom::*;
 pub use crate::hierarchy::Hierarchy;
-pub use crate::reflect::AnimatorRegistry;
+pub use crate::reflect::AnimatorPropertyRegistry;
 pub use crate::skinned_mesh::*;
 
 pub use bevy_animation_derive::*;
@@ -27,10 +26,10 @@ pub mod prelude {
     pub use crate::app::AddAnimated;
     pub use crate::blending::AnimatorBlending;
     pub use crate::curve::Curve;
-    pub use crate::custom::{AnimatedAsset, AnimatedComponent, Animator, Clip};
+    pub use crate::custom::{Animator, Clip};
     pub use crate::hierarchy::Hierarchy;
     pub use crate::lerping::Lerp;
-    pub use crate::reflect::AnimatorRegistry;
+    pub use crate::reflect::AnimatorPropertyRegistry;
     pub use crate::skinned_mesh::{SkinAsset, SkinComponent, SkinDebugger};
     pub use bevy_animation_derive::*;
 }
@@ -49,7 +48,8 @@ impl Plugin for AnimationPlugin {
         app.add_stage_after(stage::UPDATE, stage::ANIMATE);
 
         // Generic animation
-        app.add_asset::<Clip>()
+        app.add_resource(custom::AnimatorRegistry::default())
+            .add_asset::<Clip>()
             //.add_asset_loader(ClipLoader)
             .register_type::<Animator>()
             .add_system_to_stage(stage::ANIMATE, Assets::<Clip>::asset_event_system) // ? NOTE: Fix asset event handle
@@ -57,8 +57,8 @@ impl Plugin for AnimationPlugin {
 
         // ! FIXME: Each added animated component or asset will add a bit of overhead in the animation
         // ! system, I have no idea how big this is but I would like to make it pay only for what you use
-        app.add_resource(reflect::AnimatorRegistry::default());
-        app.register_animated::<bevy_transform::prelude::Transform>();
+        app.add_resource(reflect::AnimatorPropertyRegistry::default());
+        app.register_animated_component::<bevy_transform::prelude::Transform>();
 
         // Skinning
         app.add_asset::<SkinAsset>()

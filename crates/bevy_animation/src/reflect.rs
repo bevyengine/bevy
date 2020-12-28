@@ -1,6 +1,6 @@
 //! Generic animation for any type that implements the `Reflect` trait
 
-use std::{any::TypeId, marker::PhantomData};
+use std::{any::TypeId, marker::PhantomData, num::NonZeroUsize};
 
 use bevy_asset::prelude::*;
 use bevy_ecs::prelude::*;
@@ -13,13 +13,12 @@ use crate::{
 };
 
 // TODO: How to deal with generic types like Handle<T> or Option<T>
-// TODO: How implement safe property path `Transforms::props().translation().x()`
-// TODO: Property validation tells if some property (path and type) is or isn't valid
 // TODO: Animate assets
 // TODO: Make sure properties are within component size bounds
 // TODO: Accept also `TupleStruct` and `Value`
 // TODO: Expand types like Vec2, Vec3, Vec4 and Color
 // ! FIXME: Vec2, Vec3, Vec4 doesn't implement bevy_reflect::Struct so they can't be auto expanded
+// TODO: Implement safe property path like `Transforms::props().translation().x()` using only const, (Property validation is working)
 
 type AnimateFn = fn(
     components: &mut dyn Components,
@@ -35,15 +34,15 @@ type AnimateFn = fn(
 );
 
 /// Register how to animate custom types
-pub struct AnimatorRegistry {
-    ver: usize,
+pub struct AnimatorPropertyRegistry {
+    ver: NonZeroUsize,
     animate_functions: Vec<(TypeId, AnimateFn)>,
 }
 
-impl Default for AnimatorRegistry {
+impl Default for AnimatorPropertyRegistry {
     fn default() -> Self {
         Self {
-            ver: 0,
+            ver: NonZeroUsize::new(1).unwrap(),
             // Basic types
             animate_functions: vec![
                 (TypeId::of::<bool>(), animate::<bool>),
@@ -61,7 +60,7 @@ impl Default for AnimatorRegistry {
     }
 }
 
-impl AnimatorRegistry {
+impl AnimatorPropertyRegistry {
     pub fn registry<T: Lerp + Blend + Clone + 'static>(&mut self) {
         let ty = TypeId::of::<T>();
         if self
@@ -73,7 +72,14 @@ impl AnimatorRegistry {
             panic!("type '{}' already registered", std::any::type_name::<T>());
         }
 
-        self.ver = self.ver.wrapping_add(1);
+        let ver = self.ver.get().wrapping_add(1);
+        self.ver = if ver == 0 {
+            NonZeroUsize::new(1)
+        } else {
+            NonZeroUsize::new(ver)
+        }
+        .unwrap();
+
         self.animate_functions.push((ty, animate::<T>))
     }
 
@@ -139,6 +145,7 @@ struct AnimatorDescriptorInner {
     ver: usize,
     dynamic_properties: Vec<(String, TypeId, usize, isize, u32)>,
 }
+
 // Defines how to animate the reflected type
 pub struct AnimatorDescriptor<T> {
     inner: Option<AnimatorDescriptorInner>,
@@ -156,13 +163,56 @@ impl<T> Default for AnimatorDescriptor<T> {
     }
 }
 
+impl<T> AnimatorDescriptor<T> {
+    #[inline(always)]
+    pub fn properties(&self) -> impl Iterator<Item = (&str, TypeId)> {
+        self.inner.as_ref().into_iter().flat_map(|inner| {
+            inner
+                .dynamic_properties
+                .iter()
+                .map(|(name, type_id, _, _, _)| (name.as_str(), *type_id))
+        })
+    }
+}
+
+impl<T: Struct> AnimatorDescriptor<T> {
+    pub fn from_component(component: &T) -> Self {
+        let mut inner = AnimatorDescriptorInner {
+            ver: 0,
+            dynamic_properties: vec![],
+        };
+
+        // Lazy initialize the descriptor
+        let short_name = shorten_name(component.type_name());
+        let origin = component.any() as *const _ as *const u8;
+        for (i, value) in component.iter_fields().enumerate() {
+            let mut name = short_name.to_string();
+            name.push('.');
+            name.push_str(component.name_at(i).unwrap());
+            let ty = value.type_id();
+
+            // SAFETY: Is be less than size_of::<T>() so it won't be crazy high
+            let offset = unsafe { (value.any() as *const _ as *const u8).offset_from(origin) };
+
+            inner
+                .dynamic_properties
+                .push((name, ty, usize::MAX, offset, (1 << i) as u32));
+        }
+
+        Self {
+            inner: Some(inner),
+            ..Default::default()
+        }
+    }
+}
+
 fn shorten_name(n: &str) -> &str {
     n.rsplit("::").nth(0).unwrap_or(n)
 }
 
-pub fn animate_system<T: Struct + Send + Sync + 'static>(
-    registry: Res<AnimatorRegistry>,
-    mut descriptor: Local<AnimatorDescriptor<T>>,
+pub fn animate_component_system<T: Struct + Send + Sync + 'static>(
+    registry: Res<AnimatorPropertyRegistry>,
+    mut descriptor: ResMut<AnimatorDescriptor<T>>,
     clips: Res<Assets<Clip>>,
     animators_query: Query<&Animator>,
     // assets: Option<ResMut<Assets<T>>>,
@@ -192,54 +242,23 @@ pub fn animate_system<T: Struct + Send + Sync + 'static>(
             }
         }
 
-        if let Some(c) = components.iter().find_map(|c| c.as_ref()) {
-            if descriptor.inner.is_none() {
-                let mut inner = AnimatorDescriptorInner {
-                    ver: registry.ver,
-                    dynamic_properties: vec![],
-                };
-
-                // Lazy initialize the descriptor
-                let short_name = shorten_name(c.type_name());
-                let origin = (&**c) as *const _ as *const u8;
-                for (i, value) in c.iter_fields().enumerate() {
-                    let mut name = short_name.to_string();
-                    name.push('.');
-                    name.push_str(c.name_at(i).unwrap());
-                    let ty = value.type_id();
-
-                    // Find the animate function for the given type
-                    let index = registry.index_of(ty);
-                    if index == usize::MAX {
-                        warn!("missing animation function for `{}`", &name);
-                    }
-
-                    // SAFETY: Is be less than size_of::<T>() so it won't be crazy high
-                    let offset =
-                        unsafe { (value.any() as *const _ as *const u8).offset_from(origin) };
-
-                    inner
-                        .dynamic_properties
-                        .push((name, ty, index, offset, (1 << i) as u32));
-                }
-
-                descriptor.inner = Some(inner);
-            }
-        } else {
-            // No components found skip
-            continue;
-        }
-
         let descriptor = &mut *descriptor;
         let descriptor_inner = descriptor.inner.as_mut().unwrap();
 
-        if descriptor_inner.ver != registry.ver {
+        if descriptor_inner.ver != registry.ver.get() {
             // Lookup missing animate functions because `AnimatorRegistry` changed
-            for (_, prop_type, prop_index, _, _) in &mut descriptor_inner.dynamic_properties {
-                if *prop_index == usize::MAX {
-                    *prop_index = registry.index_of(*prop_type);
+            for (prop_name, prop_type, prop_index, _, _) in &mut descriptor_inner.dynamic_properties
+            {
+                let mut index = *prop_index;
+                if index == usize::MAX {
+                    index = registry.index_of(*prop_type);
+                    if index == usize::MAX {
+                        warn!("missing animation function for `{}`", &prop_name);
+                    }
+                    *prop_index = index;
                 }
             }
+            descriptor_inner.ver = registry.ver.get();
         }
 
         let mut blend_group = descriptor

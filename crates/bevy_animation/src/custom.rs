@@ -1,19 +1,19 @@
+use std::{
+    any::Any,
+    any::TypeId,
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+};
+
 use anyhow::Result;
 use bevy_app::prelude::{EventReader, Events};
-use bevy_asset::{Asset, AssetEvent, Assets, Handle};
+use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_reflect::{Reflect, ReflectComponent, TypeUuid};
 use bevy_transform::prelude::*;
 use fnv::FnvBuildHasher;
 use smallvec::{smallvec, SmallVec};
-use std::{
-    any::Any,
-    any::TypeId,
-    borrow::Cow,
-    collections::{HashMap, HashSet},
-    marker::PhantomData,
-};
 use tracing::warn;
 
 use crate::blending::AnimatorBlending;
@@ -73,6 +73,7 @@ impl<T> Curves<T> {
 pub struct CurvesUntyped {
     /// Cached calculated curves duration
     duration: f32,
+    type_id: TypeId,
     untyped: Box<dyn Any + Send + Sync + 'static>,
 }
 
@@ -80,12 +81,16 @@ impl CurvesUntyped {
     fn new<T: Send + Sync + 'static>(curves: Curves<T>) -> Self {
         CurvesUntyped {
             duration: curves.calculate_duration(),
+            type_id: TypeId::of::<T>(),
             untyped: Box::new(curves),
         }
     }
 
-    #[inline(always)]
-    pub fn duration(&self) -> f32 {
+    pub const fn type_id(&self) -> TypeId {
+        self.type_id
+    }
+
+    pub const fn duration(&self) -> f32 {
         self.duration
     }
 
@@ -164,82 +169,27 @@ impl Default for Clip {
     }
 }
 
-/// A type safe way of referring to properties that can be animated.
-///
-/// If a type implements `AnimatedProperties` each property can be retrieved
-/// by `Transform::props().translation().x()`
-pub struct Prop<CurveType, InnerProps = ()> {
-    pub name: Cow<'static, str>,
-    _marker: PhantomData<(CurveType, InnerProps)>,
-}
-
-impl<CurveType, InnerProps> Prop<CurveType, InnerProps> {
-    pub const fn borrowed(name: &'static str) -> Self {
-        Prop {
-            name: Cow::Borrowed(name),
-            _marker: PhantomData,
-        }
-    }
-
-    pub const fn owned(name: String) -> Self {
-        Prop {
-            name: Cow::Owned(name),
-            _marker: PhantomData,
-        }
-    }
-}
-
-// TODO: How to implement this
-// impl<CurveType, InnerProps> Deref for Prop<CurveType, InnerProps> {
-//     type Target = InnerProps;
-//
-//     fn deref(&self) -> &Self::Target {
-//         todo!()
-//     }
-// }
-
 impl Clip {
-    /// Animates an entity property with a curve.
-    /// Adding the a second curve to the same entity and property will replace the first one;
-    /// This is the preferred method of adding curves into a clip, since it's better future proof than `add_curve_at_path`;
+    /// Property to be animated must be in the following format `"path/to/named_entity@Transform.translation.x"`
+    /// where the left side `@` defines a path to the entity to animate,
+    /// while the right side the path to a property to animate starting from the component.
+    ///
+    /// Please use preferably `add_curve` as it's future proof and type safe;
     ///
     /// **NOTE** This is a expensive function;
     ///
     /// **NOTE** You can safely ignore the return value as it's only used for assertions during tests;
     /// The return value is the assigned curve index in cache line bucket.
-    pub fn add_curve<T, DontCare>(
-        &mut self,
-        entity_path: &str,
-        property_path: Prop<T, DontCare>,
-        curve: Curve<T>,
-    ) -> usize
+    pub fn add_curve_at_path<T>(&mut self, path: &str, mut curve: Curve<T>) -> usize
     where
         T: Lerp + Clone + Send + Sync + 'static,
     {
-        // ? NOTE: DontCare generic will trigger multiple compilations of the `add_prop`
-        // ? function, here convert between types to make it generic only over `T`
-        self.add_curve_generic(
-            entity_path,
-            Prop {
-                name: property_path.name,
-                _marker: PhantomData,
-            },
-            curve,
-        )
-    }
+        // Split in entity and attribute path,
+        // NOTE: use rfind because it's expected the latter to be generally shorter
+        let path = path.split_at(path.rfind('@').expect("property path missing @"));
+        let entity_path = path.0;
+        let property_path = path.1.split_at(1).1;
 
-    // TODO: Can I make it generic over `T` ?
-    /// Used only by `add_prop` function and it's main purpose is prevent
-    /// create multiple versions of this function over the DontCare generic  
-    fn add_curve_generic<T>(
-        &mut self,
-        entity_path: &str, // TODO: Replace to `EntityPath` or something similar to Prop
-        property_path: Prop<T>,
-        mut curve: Curve<T>,
-    ) -> usize
-    where
-        T: Lerp + Clone + Send + Sync + 'static,
-    {
         // Clip an only have some amount of curves and entities
         // this limitation was added to save memory (but you can increase it if you want)
         assert!(
@@ -249,9 +199,7 @@ impl Clip {
 
         let (entity_index, _) = self.hierarchy.get_or_insert_entity(entity_path);
 
-        if let Some((cache_index, curves_untyped)) =
-            self.properties.get_mut(property_path.name.as_ref())
-        {
+        if let Some((cache_index, curves_untyped)) = self.properties.get_mut(property_path) {
             let curves = curves_untyped
                 .downcast_mut::<T>()
                 .expect("properties can't have the same name and different curve types");
@@ -311,10 +259,7 @@ impl Clip {
 
         self.duration = self.duration.max(curve.duration());
         self.properties.insert(
-            match property_path.name {
-                Cow::Borrowed(name) => name.to_string(),
-                Cow::Owned(name) => name,
-            },
+            property_path.to_string(),
             (
                 cache_index,
                 CurvesUntyped::new(Curves {
@@ -325,28 +270,6 @@ impl Clip {
         );
 
         cache_index
-    }
-
-    /// Property to be animated must be in the following format `"path/to/named_entity@Transform.translation.x"`
-    /// where the left side `@` defines a path to the entity to animate,
-    /// while the right side the path to a property to animate starting from the component.
-    ///
-    /// Please use preferably `add_curve` as it's future proof and type safe;
-    ///
-    /// **NOTE** This is a expensive function;
-    ///
-    /// **NOTE** You can safely ignore the return value as it's only used for assertions during tests;
-    /// The return value is the assigned curve index in cache line bucket.
-    pub fn add_curve_at_path<T>(&mut self, path: &str, curve: Curve<T>) -> usize
-    where
-        T: Lerp + Clone + Send + Sync + 'static,
-    {
-        // Split in entity and attribute path,
-        // NOTE: use rfind because it's expected the latter to be generally shorter
-        let path = path.split_at(path.rfind('@').expect("property path missing @"));
-        let property_path = path.1.split_at(1).1;
-
-        self.add_curve::<T, ()>(path.0, Prop::owned(property_path.to_string()), curve)
     }
 
     /// Number of animated properties in this clip
@@ -599,9 +522,8 @@ impl<'a> Iterator for LayerIterator<'a> {
 pub(crate) struct AnimatorRegistry {
     /// Set of registered animators for components and assets
     pub(crate) targets: HashSet<TypeId, FnvBuildHasher>,
-    // TODO: Also include TypeId when it becomes stable in as as const fn
     /// All static properties available
-    pub(crate) static_properties: HashSet<&'static str, FnvBuildHasher>,
+    pub(crate) static_properties: HashSet<(Cow<'static, str>, TypeId), FnvBuildHasher>,
 }
 
 /// State info for the system `animator_binding_system`
@@ -758,14 +680,14 @@ pub(crate) fn animator_update_system(
                 if bind_slot.is_none() {
                     // TODO: Add option to ignore these extra checks (or not)
                     // Check if the clips properties are registered
-                    for (property_name, _) in clip.properties.iter() {
+                    for (property_name, (_, curves)) in clip.properties.iter() {
                         if !animator_registry
                             .static_properties
-                            .contains(property_name.as_str())
+                            .contains(&(Cow::Borrowed(property_name.as_str()), curves.type_id()))
                         {
                             // TODO: Check dynamic properties names using regex
                             // TODO: Include clip name on warning
-                            warn!("property '{}' isn't registered", property_name);
+                            warn!("unregistered property '{}', maybe it's misspelled or the type doesn't match", &property_name);
                         }
                     }
 
@@ -839,44 +761,6 @@ pub(crate) fn animator_update_system(
     std::mem::drop(__guard);
 }
 
-// ! FIXME: Theres no way of free memory used by the `Local<AnimatorBlending>` in each system
-
-/// Provides a type safe way of get all properties that can be animated
-pub trait AnimatedProperties {
-    type Props;
-
-    // TODO: Also include TypeId when it becomes stable in as as const fn
-    /// List of all animated properties, is used to search invalid properties in clips
-    const PROPERTIES: &'static [&'static str];
-    /// Similar to `PROPERTIES` but contains a regex to validate dynamic properties
-    ///
-    /// **NOTE** Use sparelly, as it's more expensive to validate
-    const DYNAMIC_PROPERTIES: &'static [&'static str] = &[];
-
-    /// Type safe animated properties of this component or asset;
-    /// Meant to be used only by code, to be type safe and future proof way of defining properties.
-    fn props() -> Self::Props;
-}
-
-pub trait AnimatedComponent: AnimatedProperties + Component + Sized {
-    fn animator_update_system(
-        clips: Res<Assets<Clip>>,
-        animator_blending: Local<AnimatorBlending>,
-        animators_query: Query<&Animator>,
-        component_query: Query<&mut Self>,
-    );
-}
-
-pub trait AnimatedAsset: AnimatedProperties + Asset + Sized {
-    fn animator_update_system(
-        clips: Res<Assets<Clip>>,
-        animator_blending: Local<AnimatorBlending>,
-        animators_query: Query<&Animator>,
-        assets: ResMut<Assets<Self>>,
-        component_query: Query<&mut Handle<Self>>,
-    );
-}
-
 #[cfg(test)]
 #[allow(dead_code)]
 mod tests {
@@ -916,20 +800,18 @@ mod tests {
             let mut animator = Animator::default();
             {
                 let mut clip_a = Clip::default();
-                clip_a.add_curve(
-                    "",
-                    Transform::props().translation(),
+                clip_a.add_curve_at_path(
+                    "@Transform.translation",
                     Curve::from_linear(0.0, 1.0, Vec3::unit_x(), -Vec3::unit_x()),
                 );
                 let rot = Curve::from_constant(Quat::identity());
-                clip_a.add_curve("", Transform::props().rotation(), rot.clone());
-                clip_a.add_curve("/Node1", Transform::props().rotation(), rot.clone());
-                clip_a.add_curve("/Node1/Node2", Transform::props().rotation(), rot);
+                clip_a.add_curve_at_path("@Transform.rotation", rot.clone());
+                clip_a.add_curve_at_path("/Node1@Transform.rotation", rot.clone());
+                clip_a.add_curve_at_path("/Node1/Node2@Transform.rotation", rot);
 
                 let mut clip_b = Clip::default();
-                clip_b.add_curve(
-                    "",
-                    Transform::props().translation(),
+                clip_b.add_curve_at_path(
+                    "@Transform.translation",
                     Curve::from_constant(Vec3::zero()),
                 );
                 let rot = Curve::from_linear(
@@ -938,9 +820,9 @@ mod tests {
                     Quat::from_axis_angle(Vec3::unit_z(), 0.1),
                     Quat::from_axis_angle(Vec3::unit_z(), -0.1),
                 );
-                clip_b.add_curve("", Transform::props().rotation(), rot.clone());
-                clip_b.add_curve("/Node1", Transform::props().rotation(), rot.clone());
-                clip_b.add_curve("/Node1/Node2", Transform::props().rotation(), rot);
+                clip_b.add_curve_at_path("@Transform.rotation", rot.clone());
+                clip_b.add_curve_at_path("/Node1@Transform.rotation", rot.clone());
+                clip_b.add_curve_at_path("/Node1/Node2@Transform.rotation", rot);
 
                 let mut clips = app_builder
                     .resources_mut()
