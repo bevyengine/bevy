@@ -38,7 +38,7 @@ layout(set = 1, binding = 2) uniform Style_border {
 layout(set = 2, binding = 1) uniform texture2D ColorMaterial_texture;
 layout(set = 2, binding = 2) uniform sampler ColorMaterial_texture_sampler;
 # endif
-
+#define saturate(x)        clamp(x, 0.0, 1.0)
 
 float aastep(float threshold, float value, float factor) {
     float afwidth = length(vec2(dFdx(value), dFdy(value))) * 0.70710678118654757 * factor;
@@ -68,11 +68,11 @@ void calcinner(in Bounds bounds, inout float overflow_mask) {
     float m = max(r-t, 0.0);
     float R2 = 1.0 - aastep(m*m, dot(calc, calc));
 
-    vec2 T = clamp(0.0.xx, 1.0.xx, pos + t - half_size);
+    vec2 T = min(1.0.xx, pos + t - half_size);
 
     vec2 B2 = 1.0 - aastep(half_size, pos + r);
 
-    overflow_mask *= T.x *  T.y * clamp(0.0, 1.0, B2.x + B2.y + R2);
+    overflow_mask *= T.x *  T.y * saturate(B2.x + B2.y + R2);
 }
 
 void main() {
@@ -108,7 +108,7 @@ void main() {
     float border_sides = dot(step(half_size, pos + t), B2.yx);
     float border = min(t, min(1.0, border_corners + border_sides));
 
-    float inner = 1.0 - clamp(0.0, 1.0, border + outside);
+    float inner = 1.0 - saturate(border + outside);
 
     o_Target = inner * color + border * _border.color;
 
