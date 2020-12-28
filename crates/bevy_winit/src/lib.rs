@@ -14,8 +14,9 @@ use bevy_ecs::{IntoSystem, Resources, World};
 use bevy_math::Vec2;
 use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
-    CreateWindow, CursorEntered, CursorLeft, CursorMoved, ReceivedCharacter, WindowCloseRequested,
-    WindowCreated, WindowDpiChanged, WindowFocused, WindowResized, WindowTrueDpiChanged, Windows,
+    CreateWindow, CursorEntered, CursorLeft, CursorMoved, ReceivedCharacter,
+    WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
+    WindowResized, WindowScaleFactorChanged, Windows,
 };
 use winit::{
     event::{self, DeviceEvent, Event, WindowEvent},
@@ -76,29 +77,21 @@ fn change_window(_: &mut World, resources: &mut Resources) {
                     let window = winit_windows.get_window(id).unwrap();
                     window.set_title(&title);
                 }
+                bevy_window::WindowCommand::SetScaleFactor { scale_factor } => {
+                    let mut window_dpi_changed_events = resources
+                        .get_mut::<Events<WindowScaleFactorChanged>>()
+                        .unwrap();
+                    window_dpi_changed_events.send(WindowScaleFactorChanged { id, scale_factor });
+                }
                 bevy_window::WindowCommand::SetResolution {
-                    resolution: (width, height),
-                    scale_factor_override,
-                    send_dpi_change_event: send_event,
+                    logical_resolution: (width, height),
+                    scale_factor,
                 } => {
                     let window = winit_windows.get_window(id).unwrap();
-                    if send_event {
-                        let mut use_dpi_events =
-                            resources.get_mut::<Events<WindowDpiChanged>>().unwrap();
-                        use_dpi_events.send(WindowDpiChanged {
-                            id,
-                            scale_factor: scale_factor_override
-                                .unwrap_or_else(|| window.scale_factor()),
-                        });
-                    }
-
-                    if let Some(sf) = scale_factor_override {
-                        window.set_inner_size(
-                            winit::dpi::LogicalSize::new(width, height).to_physical::<f64>(sf),
-                        );
-                    } else {
-                        window.set_inner_size(winit::dpi::LogicalSize::new(width, height));
-                    }
+                    window.set_inner_size(
+                        winit::dpi::LogicalSize::new(width, height)
+                            .to_physical::<f64>(scale_factor),
+                    );
                 }
                 bevy_window::WindowCommand::SetVsync { .. } => (),
                 bevy_window::WindowCommand::SetResizable { resizable } => {
@@ -357,37 +350,44 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                         scale_factor,
                         new_inner_size,
                     } => {
-                        if window.scale_factor_override().is_some() {
-                            *new_inner_size = winit::dpi::PhysicalSize::new(
-                                window.physical_width(),
-                                window.physical_height(),
-                            )
-                        } else {
-                            window.update_actual_size_from_backend(
-                                new_inner_size.width,
-                                new_inner_size.height,
-                            );
-                            let mut dpi_change_events =
-                                app.resources.get_mut::<Events<WindowDpiChanged>>().unwrap();
-
-                            let mut true_dpi_change_events = app
+                        let mut backend_scale_factor_change_events = app
+                            .resources
+                            .get_mut::<Events<WindowBackendScaleFactorChanged>>()
+                            .unwrap();
+                        backend_scale_factor_change_events.send(WindowBackendScaleFactorChanged {
+                            id: window_id,
+                            scale_factor,
+                        });
+                        #[allow(clippy::float_cmp)]
+                        if window.scale_factor() != scale_factor {
+                            let mut scale_factor_change_events = app
                                 .resources
-                                .get_mut::<Events<WindowTrueDpiChanged>>()
+                                .get_mut::<Events<WindowScaleFactorChanged>>()
                                 .unwrap();
 
-                            dpi_change_events.send(WindowDpiChanged {
-                                id: window_id,
-                                scale_factor,
-                            });
-
-                            true_dpi_change_events.send(WindowTrueDpiChanged {
+                            scale_factor_change_events.send(WindowScaleFactorChanged {
                                 id: window_id,
                                 scale_factor,
                             });
                         }
+
                         window.update_scale_factor_from_backend(scale_factor);
-                        // should we send a resize event to indicate the change in
-                        // logical size?
+
+                        if window.physical_width() != new_inner_size.width
+                            || window.physical_height() != new_inner_size.height
+                        {
+                            let mut resize_events =
+                                app.resources.get_mut::<Events<WindowResized>>().unwrap();
+                            resize_events.send(WindowResized {
+                                id: window_id,
+                                width: window.width(),
+                                height: window.height(),
+                            });
+                        }
+                        window.update_actual_size_from_backend(
+                            new_inner_size.width,
+                            new_inner_size.height,
+                        );
                     }
                     WindowEvent::Focused(focused) => {
                         let mut focused_events =

@@ -65,15 +65,15 @@ pub struct WindowFocused {
     pub focused: bool,
 }
 
-/// An event that indicates a windows DPI has changed.
+/// An event that indicates a window's scale factor has changed.
 #[derive(Debug, Clone)]
-pub struct WindowDpiChanged {
+pub struct WindowScaleFactorChanged {
     pub id: WindowId,
     pub scale_factor: f64,
 }
-/// An event that indicates a windows OS-reported DPI has changed.
+/// An event that indicates a window's OS-reported scale factor has changed.
 #[derive(Debug, Clone)]
-pub struct WindowTrueDpiChanged {
+pub struct WindowBackendScaleFactorChanged {
     pub id: WindowId,
     pub scale_factor: f64,
 }

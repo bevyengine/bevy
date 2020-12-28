@@ -55,7 +55,7 @@ pub struct Window {
     physical_width: u32,
     physical_height: u32,
     scale_factor_override: Option<f64>,
-    true_scale_factor: f64,
+    backend_scale_factor: f64,
     title: String,
     vsync: bool,
     resizable: bool,
@@ -78,10 +78,12 @@ pub enum WindowCommand {
     SetTitle {
         title: String,
     },
+    SetScaleFactor {
+        scale_factor: f64,
+    },
     SetResolution {
-        resolution: (f32, f32),
-        scale_factor_override: Option<f64>,
-        send_dpi_change_event: bool,
+        logical_resolution: (f32, f32),
+        scale_factor: f64,
     },
     SetVsync {
         vsync: bool,
@@ -133,7 +135,7 @@ impl Window {
             physical_width,
             physical_height,
             scale_factor_override: window_descriptor.scale_factor_override,
-            true_scale_factor: scale_factor,
+            backend_scale_factor: scale_factor,
             title: window_descriptor.title.clone(),
             vsync: window_descriptor.vsync,
             resizable: window_descriptor.resizable,
@@ -205,43 +207,40 @@ impl Window {
 
     /// Request the OS to resize the window such the the client area matches the
     /// specified width and height.
+    #[allow(clippy::float_cmp)]
     pub fn set_resolution(&mut self, width: f32, height: f32) {
+        if self.requested_width == width && self.requested_height == height {
+            return;
+        }
         self.requested_width = width;
         self.requested_height = height;
         self.command_queue.push(WindowCommand::SetResolution {
-            resolution: (self.requested_width, self.requested_height),
-            scale_factor_override: None,
-            send_dpi_change_event: self.scale_factor_override.is_some(),
+            logical_resolution: (self.requested_width, self.requested_height),
+            scale_factor: self.scale_factor(),
         });
-        self.scale_factor_override = None;
-    }
-
-    /// Directly set the screen size in terms of physical pixels
-    pub fn set_physical_resolution(&mut self, width: f32, height: f32, scale_factor: f64) {
-        self.requested_width = width;
-        self.requested_height = height;
-        self.command_queue.push(WindowCommand::SetResolution {
-            resolution: (self.requested_width, self.requested_height),
-            scale_factor_override: Some(scale_factor),
-            send_dpi_change_event: self.scale_factor_override != Some(scale_factor),
-        });
-        self.scale_factor_override = Some(scale_factor);
     }
 
     /// Override the os-reported scaling factor
+    #[allow(clippy::float_cmp)]
     pub fn set_scale_factor_override(&mut self, scale_factor: Option<f64>) {
-        self.command_queue.push(WindowCommand::SetResolution {
-            resolution: (self.requested_width, self.requested_height),
-            scale_factor_override: scale_factor,
-            send_dpi_change_event: true,
-        });
+        if self.scale_factor_override == scale_factor {
+            return;
+        }
+
         self.scale_factor_override = scale_factor;
+        self.command_queue.push(WindowCommand::SetScaleFactor {
+            scale_factor: self.scale_factor(),
+        });
+        self.command_queue.push(WindowCommand::SetResolution {
+            logical_resolution: (self.requested_width, self.requested_height),
+            scale_factor: self.scale_factor(),
+        });
     }
 
     #[allow(missing_docs)]
     #[inline]
     pub fn update_scale_factor_from_backend(&mut self, scale_factor: f64) {
-        self.true_scale_factor = scale_factor;
+        self.backend_scale_factor = scale_factor;
     }
 
     #[allow(missing_docs)]
@@ -255,12 +254,15 @@ impl Window {
     ///
     /// `physical_pixels = logical_pixels * scale_factor`
     pub fn scale_factor(&self) -> f64 {
-        self.scale_factor_override.unwrap_or(self.true_scale_factor)
+        self.scale_factor_override
+            .unwrap_or(self.backend_scale_factor)
     }
 
+    /// The window scale factor as reported by the window backend.
+    /// This value is unaffected by scale_factor_override.
     #[inline]
-    pub fn true_scale_factor(&self) -> f64 {
-        self.true_scale_factor
+    pub fn backend_scale_factor(&self) -> f64 {
+        self.backend_scale_factor
     }
 
     #[inline]

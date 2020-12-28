@@ -7,7 +7,7 @@ use bevy_math::Vec2;
 use bevy_text::CalculatedSize;
 use bevy_transform::prelude::{Children, Parent, Transform};
 use bevy_utils::HashMap;
-use bevy_window::{Window, WindowDpiChanged, WindowId, Windows};
+use bevy_window::{Window, WindowId, WindowScaleFactorChanged, Windows};
 use std::fmt;
 use stretch::{number::Number, Stretch};
 
@@ -165,8 +165,8 @@ unsafe impl Sync for FlexSurface {}
 #[allow(clippy::too_many_arguments)]
 pub fn flex_node_system(
     windows: Res<Windows>,
-    mut dpi_reader: Local<EventReader<WindowDpiChanged>>,
-    dpi_events: Res<Events<WindowDpiChanged>>,
+    mut scale_factor_reader: Local<EventReader<WindowScaleFactorChanged>>,
+    scale_factor_events: Res<Events<WindowScaleFactorChanged>>,
     mut flex_surface: ResMut<FlexSurface>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     node_query: Query<(Entity, &Style, Option<&CalculatedSize>), (With<Node>, Changed<Style>)>,
@@ -190,7 +190,7 @@ pub fn flex_node_system(
         1.
     };
 
-    if dpi_reader.iter(&dpi_events).rev().next().is_some() {
+    if scale_factor_reader.latest(&scale_factor_events).is_some() {
         update_changed(
             &mut *flex_surface,
             logical_to_physical_factor,

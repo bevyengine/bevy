@@ -44,8 +44,8 @@ impl Plugin for WindowPlugin {
             .add_event::<CursorLeft>()
             .add_event::<ReceivedCharacter>()
             .add_event::<WindowFocused>()
-            .add_event::<WindowDpiChanged>()
-            .add_event::<WindowTrueDpiChanged>()
+            .add_event::<WindowScaleFactorChanged>()
+            .add_event::<WindowBackendScaleFactorChanged>()
             .init_resource::<Windows>();
 
         if self.add_primary_window {
