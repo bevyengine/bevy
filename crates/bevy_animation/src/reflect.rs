@@ -36,7 +36,7 @@ type AnimateFn = fn(
 /// Register how to animate custom types
 pub struct AnimatorPropertyRegistry {
     ver: NonZeroUsize,
-    animate_functions: Vec<(TypeId, AnimateFn)>,
+    animate_functions: Vec<(&'static str, TypeId, AnimateFn)>,
 }
 
 impl Default for AnimatorPropertyRegistry {
@@ -45,12 +45,12 @@ impl Default for AnimatorPropertyRegistry {
             ver: NonZeroUsize::new(1).unwrap(),
             // Basic types
             animate_functions: vec![
-                (TypeId::of::<bool>(), animate::<bool>),
-                (TypeId::of::<f32>(), animate::<f32>),
-                (TypeId::of::<Vec2>(), animate::<Vec2>),
-                (TypeId::of::<Vec3>(), animate::<Vec3>),
-                (TypeId::of::<Vec4>(), animate::<Vec4>),
-                (TypeId::of::<Quat>(), animate::<Quat>),
+                ("bool", TypeId::of::<bool>(), animate::<bool>),
+                ("f32", TypeId::of::<f32>(), animate::<f32>),
+                ("Vec2", TypeId::of::<Vec2>(), animate::<Vec2>),
+                ("Vec3", TypeId::of::<Vec3>(), animate::<Vec3>),
+                ("Vec4", TypeId::of::<Vec4>(), animate::<Vec4>),
+                ("Quat", TypeId::of::<Quat>(), animate::<Quat>),
                 // (TypeId::of::<Color>(), animate::<Color>),
                 // (TypeId::of::<HandleUntyped>(), animate::<HandleUntyped>),
                 // (TypeId::of::<Handle<Mesh>>(), animate::<Handle<Mesh>>),
@@ -66,7 +66,7 @@ impl AnimatorPropertyRegistry {
         if self
             .animate_functions
             .iter()
-            .position(|(other, _)| *other == ty)
+            .position(|(_, other, _)| *other == ty)
             .is_some()
         {
             panic!("type '{}' already registered", std::any::type_name::<T>());
@@ -80,7 +80,8 @@ impl AnimatorPropertyRegistry {
         }
         .unwrap();
 
-        self.animate_functions.push((ty, animate::<T>))
+        self.animate_functions
+            .push((shorten_name(std::any::type_name::<T>()), ty, animate::<T>))
     }
 
     /// Returns `usize::MAX` if the type wasn't registered,
@@ -91,7 +92,7 @@ impl AnimatorPropertyRegistry {
     pub fn index_of(&self, ty: TypeId) -> usize {
         self.animate_functions
             .iter()
-            .position(|(other, _)| *other == ty)
+            .position(|(_, other, _)| *other == ty)
             .unwrap_or(usize::MAX)
     }
 }
@@ -292,7 +293,7 @@ pub fn animate_component_system<T: Struct + Send + Sync + 'static>(
                         continue;
                     }
 
-                    (registry.animate_functions[i].1)(
+                    (registry.animate_functions[i].2)(
                         &mut *components,
                         entities_map,
                         &mut blend_group,

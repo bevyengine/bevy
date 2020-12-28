@@ -21,6 +21,8 @@ use crate::curve::Curve;
 use crate::hierarchy::Hierarchy;
 use crate::lerping::Lerp;
 
+// TODO: Load Clip name from gltf
+
 // Starting from Intel's Sandy Bridge, spatial prefetcher is now pulling pairs of 64-byte cache
 // lines at a time, so we have to align to 128 bytes rather than 64.
 //
@@ -69,11 +71,34 @@ impl<T> Curves<T> {
     }
 }
 
+pub struct CurveMeta(&'static str, TypeId);
+
+impl CurveMeta {
+    pub fn of<T: 'static>() -> Self {
+        let n = std::any::type_name::<T>();
+        Self(n.rsplit("::").nth(0).unwrap_or(n), TypeId::of::<T>())
+    }
+
+    pub const fn short_name(&self) -> &'static str {
+        self.0
+    }
+
+    pub const fn type_id(&self) -> TypeId {
+        self.1
+    }
+}
+
+impl std::fmt::Debug for CurveMeta {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("CurveMeta").field(&self.0).finish()
+    }
+}
+
 #[derive(Debug)]
 pub struct CurvesUntyped {
     /// Cached calculated curves duration
     duration: f32,
-    type_id: TypeId,
+    meta: CurveMeta,
     untyped: Box<dyn Any + Send + Sync + 'static>,
 }
 
@@ -81,13 +106,13 @@ impl CurvesUntyped {
     fn new<T: Send + Sync + 'static>(curves: Curves<T>) -> Self {
         CurvesUntyped {
             duration: curves.calculate_duration(),
-            type_id: TypeId::of::<T>(),
+            meta: CurveMeta::of::<T>(),
             untyped: Box::new(curves),
         }
     }
 
-    pub const fn type_id(&self) -> TypeId {
-        self.type_id
+    pub const fn meta(&self) -> &CurveMeta {
+        &self.meta
     }
 
     pub const fn duration(&self) -> f32 {
@@ -130,6 +155,7 @@ impl CurvesUntyped {
 #[derive(Debug, TypeUuid)]
 #[uuid = "79e2ea58-8bf7-43af-8219-5898edb02f80"]
 pub struct Clip {
+    pub name: String,
     /// Should this clip loop (warping around) or hold
     ///
     /// **NOTE** Keep in mind that sampling with time greater
@@ -159,6 +185,7 @@ pub struct Clip {
 impl Default for Clip {
     fn default() -> Self {
         Self {
+            name: String::new(),
             warp: true,
             duration: 0.0,
             hierarchy: Hierarchy::default(),
@@ -681,13 +708,17 @@ pub(crate) fn animator_update_system(
                     // TODO: Add option to ignore these extra checks (or not)
                     // Check if the clips properties are registered
                     for (property_name, (_, curves)) in clip.properties.iter() {
-                        if !animator_registry
-                            .static_properties
-                            .contains(&(Cow::Borrowed(property_name.as_str()), curves.type_id()))
-                        {
+                        if !animator_registry.static_properties.contains(&(
+                            Cow::Borrowed(property_name.as_str()),
+                            curves.meta().type_id(),
+                        )) {
                             // TODO: Check dynamic properties names using regex
-                            // TODO: Include clip name on warning
-                            warn!("unregistered property '{}', maybe it's misspelled or the type doesn't match", &property_name);
+                            warn!(
+                                "unregistered property '{}' ({}) of clip '{}', maybe it's misspelled or the type doesn't match",
+                                &property_name,
+                                curves.meta().short_name(),
+                                &clip.name
+                            );
                         }
                     }
 
