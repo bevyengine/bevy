@@ -14,8 +14,9 @@ use bevy_ecs::{IntoSystem, Resources, World};
 use bevy_math::Vec2;
 use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
-    CreateWindow, CursorEntered, CursorLeft, CursorMoved, ReceivedCharacter, WindowCloseRequested,
-    WindowCreated, WindowFocused, WindowResized, Windows,
+    CreateWindow, CursorEntered, CursorLeft, CursorMoved, ReceivedCharacter,
+    WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
+    WindowResized, WindowScaleFactorChanged, Windows,
 };
 use winit::{
     event::{self, DeviceEvent, Event, WindowEvent},
@@ -76,14 +77,21 @@ fn change_window(_: &mut World, resources: &mut Resources) {
                     let window = winit_windows.get_window(id).unwrap();
                     window.set_title(&title);
                 }
+                bevy_window::WindowCommand::SetScaleFactor { scale_factor } => {
+                    let mut window_dpi_changed_events = resources
+                        .get_mut::<Events<WindowScaleFactorChanged>>()
+                        .unwrap();
+                    window_dpi_changed_events.send(WindowScaleFactorChanged { id, scale_factor });
+                }
                 bevy_window::WindowCommand::SetResolution {
-                    resolution: (logical_width, logical_height),
+                    logical_resolution: (width, height),
+                    scale_factor,
                 } => {
                     let window = winit_windows.get_window(id).unwrap();
-                    window.set_inner_size(winit::dpi::LogicalSize::new(
-                        logical_width,
-                        logical_height,
-                    ));
+                    window.set_inner_size(
+                        winit::dpi::LogicalSize::new(width, height)
+                            .to_physical::<f64>(scale_factor),
+                    );
                 }
                 bevy_window::WindowCommand::SetVsync { .. } => (),
                 bevy_window::WindowCommand::SetResizable { resizable } => {
@@ -342,13 +350,44 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                         scale_factor,
                         new_inner_size,
                     } => {
+                        let mut backend_scale_factor_change_events = app
+                            .resources
+                            .get_mut::<Events<WindowBackendScaleFactorChanged>>()
+                            .unwrap();
+                        backend_scale_factor_change_events.send(WindowBackendScaleFactorChanged {
+                            id: window_id,
+                            scale_factor,
+                        });
+                        #[allow(clippy::float_cmp)]
+                        if window.scale_factor() != scale_factor {
+                            let mut scale_factor_change_events = app
+                                .resources
+                                .get_mut::<Events<WindowScaleFactorChanged>>()
+                                .unwrap();
+
+                            scale_factor_change_events.send(WindowScaleFactorChanged {
+                                id: window_id,
+                                scale_factor,
+                            });
+                        }
+
+                        window.update_scale_factor_from_backend(scale_factor);
+
+                        if window.physical_width() != new_inner_size.width
+                            || window.physical_height() != new_inner_size.height
+                        {
+                            let mut resize_events =
+                                app.resources.get_mut::<Events<WindowResized>>().unwrap();
+                            resize_events.send(WindowResized {
+                                id: window_id,
+                                width: window.width(),
+                                height: window.height(),
+                            });
+                        }
                         window.update_actual_size_from_backend(
                             new_inner_size.width,
                             new_inner_size.height,
                         );
-                        window.update_scale_factor_from_backend(scale_factor);
-                        // should we send a resize event to indicate the change in
-                        // logical size?
                     }
                     WindowEvent::Focused(focused) => {
                         let mut focused_events =

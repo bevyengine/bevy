@@ -347,6 +347,10 @@ name = "multiple_windows"
 path = "examples/window/multiple_windows.rs"
 
 [[example]]
+name = "scale_factor_override"
+path = "examples/window/scale_factor_override.rs"
+
+[[example]]
 name = "window_settings"
 path = "examples/window/window_settings.rs"
 

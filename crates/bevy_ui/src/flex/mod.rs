@@ -1,12 +1,13 @@
 mod convert;
 
 use crate::{Node, Style};
-use bevy_ecs::{Changed, Entity, Query, Res, ResMut, With, Without};
+use bevy_app::{EventReader, Events};
+use bevy_ecs::{Changed, Entity, Local, Query, QueryFilter, Res, ResMut, With, Without};
 use bevy_math::Vec2;
 use bevy_text::CalculatedSize;
 use bevy_transform::prelude::{Children, Parent, Transform};
 use bevy_utils::HashMap;
-use bevy_window::{Window, WindowId, Windows};
+use bevy_window::{Window, WindowId, WindowScaleFactorChanged, Windows};
 use std::fmt;
 use stretch::{number::Number, Stretch};
 
@@ -161,11 +162,15 @@ impl FlexSurface {
 unsafe impl Send for FlexSurface {}
 unsafe impl Sync for FlexSurface {}
 
+#[allow(clippy::too_many_arguments)]
 pub fn flex_node_system(
     windows: Res<Windows>,
+    mut scale_factor_reader: Local<EventReader<WindowScaleFactorChanged>>,
+    scale_factor_events: Res<Events<WindowScaleFactorChanged>>,
     mut flex_surface: ResMut<FlexSurface>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     node_query: Query<(Entity, &Style, Option<&CalculatedSize>), (With<Node>, Changed<Style>)>,
+    full_node_query: Query<(Entity, &Style, Option<&CalculatedSize>), With<Node>>,
     changed_size_query: Query<
         (Entity, &Style, &CalculatedSize),
         (With<Node>, Changed<CalculatedSize>),
@@ -185,13 +190,31 @@ pub fn flex_node_system(
         1.
     };
 
-    // update changed nodes
-    for (entity, style, calculated_size) in node_query.iter() {
-        // TODO: remove node from old hierarchy if its root has changed
-        if let Some(calculated_size) = calculated_size {
-            flex_surface.upsert_leaf(entity, &style, *calculated_size, logical_to_physical_factor);
-        } else {
-            flex_surface.upsert_node(entity, &style, logical_to_physical_factor);
+    if scale_factor_reader.latest(&scale_factor_events).is_some() {
+        update_changed(
+            &mut *flex_surface,
+            logical_to_physical_factor,
+            full_node_query,
+        );
+    } else {
+        update_changed(&mut *flex_surface, logical_to_physical_factor, node_query);
+    }
+
+    fn update_changed<F>(
+        flex_surface: &mut FlexSurface,
+        scaling_factor: f64,
+        query: Query<(Entity, &Style, Option<&CalculatedSize>), F>,
+    ) where
+        F: QueryFilter,
+    {
+        // update changed nodes
+        for (entity, style, calculated_size) in query.iter() {
+            // TODO: remove node from old hierarchy if its root has changed
+            if let Some(calculated_size) = calculated_size {
+                flex_surface.upsert_leaf(entity, &style, *calculated_size, scaling_factor);
+            } else {
+                flex_surface.upsert_node(entity, &style, scaling_factor);
+            }
         }
     }
 

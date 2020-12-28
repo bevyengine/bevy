@@ -64,3 +64,16 @@ pub struct WindowFocused {
     pub id: WindowId,
     pub focused: bool,
 }
+
+/// An event that indicates a window's scale factor has changed.
+#[derive(Debug, Clone)]
+pub struct WindowScaleFactorChanged {
+    pub id: WindowId,
+    pub scale_factor: f64,
+}
+/// An event that indicates a window's OS-reported scale factor has changed.
+#[derive(Debug, Clone)]
+pub struct WindowBackendScaleFactorChanged {
+    pub id: WindowId,
+    pub scale_factor: f64,
+}
