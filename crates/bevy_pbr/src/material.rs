@@ -21,7 +21,7 @@ impl Default for StandardMaterial {
     fn default() -> Self {
         StandardMaterial {
             albedo: Color::rgb(1.0, 1.0, 1.0),
-            pbr: Vec2::new(0.01, 0.08),
+            pbr: Vec2::new(1.0, 0.95),
             albedo_texture: None,
             unlit: false,
         }
