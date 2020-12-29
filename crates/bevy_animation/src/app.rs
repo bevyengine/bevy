@@ -7,13 +7,28 @@ use std::{
     mem::drop,
 };
 
-use crate::{animator::AnimatorRegistry, reflect, stage};
+use crate::{
+    animator::AnimatorRegistry, blending::Blend, lerping::Lerp, reflect, stage,
+    AnimatorPropertyRegistry,
+};
 
 pub trait AddAnimated {
+    fn register_animated_property_type<T: Lerp + Blend + Clone + 'static>(&mut self) -> &mut Self;
     fn register_animated_component<T: Default + Struct + Component>(&mut self) -> &mut Self;
 }
 
 impl AddAnimated for AppBuilder {
+    fn register_animated_property_type<T: Lerp + Blend + Clone + 'static>(&mut self) -> &mut Self {
+        let mut property_registry = self
+            .resources_mut()
+            .get_or_insert_with(AnimatorPropertyRegistry::default);
+
+        property_registry.register::<T>();
+        drop(property_registry);
+
+        self
+    }
+
     fn register_animated_component<T: Default + Struct + Component>(&mut self) -> &mut Self {
         let mut registry = self
             .resources_mut()

@@ -1,6 +1,6 @@
 //! Generic animation for any type that implements the `Reflect` trait
 
-use std::{any::TypeId, marker::PhantomData, num::NonZeroUsize};
+use std::{any::type_name, any::TypeId, marker::PhantomData, num::NonZeroUsize};
 
 use bevy_asset::prelude::*;
 use bevy_ecs::prelude::*;
@@ -9,7 +9,7 @@ use bevy_reflect::prelude::*;
 use tracing::warn;
 
 use crate::{
-    blending::AnimatorBlendGroup, blending::Blend, lerping::Lerp, shorten_name, Animator,
+    blending::AnimatorBlendGroup, blending::Blend, help::shorten_name, lerping::Lerp, Animator,
     AnimatorBlending, Clip,
 };
 
@@ -37,7 +37,7 @@ type AnimateFn = fn(
 /// Register how to animate custom types
 pub struct AnimatorPropertyRegistry {
     ver: NonZeroUsize,
-    animate_functions: Vec<(&'static str, TypeId, AnimateFn)>,
+    animate_functions: Vec<(TypeId, AnimateFn)>,
 }
 
 impl Default for AnimatorPropertyRegistry {
@@ -46,12 +46,12 @@ impl Default for AnimatorPropertyRegistry {
             ver: NonZeroUsize::new(1).unwrap(),
             // Basic types
             animate_functions: vec![
-                ("bool", TypeId::of::<bool>(), animate::<bool>),
-                ("f32", TypeId::of::<f32>(), animate::<f32>),
-                ("Vec2", TypeId::of::<Vec2>(), animate::<Vec2>),
-                ("Vec3", TypeId::of::<Vec3>(), animate::<Vec3>),
-                ("Vec4", TypeId::of::<Vec4>(), animate::<Vec4>),
-                ("Quat", TypeId::of::<Quat>(), animate::<Quat>),
+                (TypeId::of::<bool>(), animate::<bool>),
+                (TypeId::of::<f32>(), animate::<f32>),
+                (TypeId::of::<Vec2>(), animate::<Vec2>),
+                (TypeId::of::<Vec3>(), animate::<Vec3>),
+                (TypeId::of::<Vec4>(), animate::<Vec4>),
+                (TypeId::of::<Quat>(), animate::<Quat>),
                 // (TypeId::of::<Color>(), animate::<Color>),
                 // (TypeId::of::<HandleUntyped>(), animate::<HandleUntyped>),
                 // (TypeId::of::<Handle<Mesh>>(), animate::<Handle<Mesh>>),
@@ -62,15 +62,15 @@ impl Default for AnimatorPropertyRegistry {
 }
 
 impl AnimatorPropertyRegistry {
-    pub fn registry<T: Lerp + Blend + Clone + 'static>(&mut self) {
+    pub fn register<T: Lerp + Blend + Clone + 'static>(&mut self) {
         let ty = TypeId::of::<T>();
         if self
             .animate_functions
             .iter()
-            .position(|(_, other, _)| *other == ty)
+            .position(|(other, _)| *other == ty)
             .is_some()
         {
-            panic!("type '{}' already registered", std::any::type_name::<T>());
+            panic!("type '{}' already registered", type_name::<T>());
         }
 
         let ver = self.ver.get().wrapping_add(1);
@@ -81,8 +81,7 @@ impl AnimatorPropertyRegistry {
         }
         .unwrap();
 
-        self.animate_functions
-            .push((shorten_name(std::any::type_name::<T>()), ty, animate::<T>))
+        self.animate_functions.push((ty, animate::<T>))
     }
 
     /// Returns `usize::MAX` if the type wasn't registered,
@@ -93,7 +92,7 @@ impl AnimatorPropertyRegistry {
     pub fn index_of(&self, ty: TypeId) -> usize {
         self.animate_functions
             .iter()
-            .position(|(_, other, _)| *other == ty)
+            .position(|(other, _)| *other == ty)
             .unwrap_or(usize::MAX)
     }
 }
@@ -188,17 +187,27 @@ impl<T: Struct> AnimatorDescriptor<T> {
         let short_name = shorten_name(component.type_name());
         let origin = component.any() as *const _ as *const u8;
         for (i, value) in component.iter_fields().enumerate() {
-            let mut name = short_name.to_string();
-            name.push('.');
-            name.push_str(component.name_at(i).unwrap());
-            let ty = value.type_id();
+            let component_name = component.name_at(i).unwrap();
+            // NOTE: Pre calculate all the space needed to make in a single allocation (untested)
+            let mut prop_name = String::with_capacity(short_name.len() + 1 + component_name.len());
+            prop_name.push_str(&short_name);
+            prop_name.push('.');
+            prop_name.push_str(component_name);
+
+            let prop_type = value.type_id();
 
             // SAFETY: Is be less than size_of::<T>() so it won't be crazy high
-            let offset = unsafe { (value.any() as *const _ as *const u8).offset_from(origin) };
+            let prop_offset = unsafe { (value.any() as *const _ as *const u8).offset_from(origin) };
 
-            inner
-                .dynamic_properties
-                .push((name, ty, usize::MAX, offset, (1 << i) as u32));
+            let prop_mask = (1 << i) as u32;
+
+            inner.dynamic_properties.push((
+                prop_name,
+                prop_type,
+                usize::MAX,
+                prop_offset,
+                prop_mask,
+            ));
         }
 
         Self {
@@ -290,7 +299,7 @@ pub fn animate_component_system<T: Struct + Send + Sync + 'static>(
                         continue;
                     }
 
-                    (registry.animate_functions[i].2)(
+                    (registry.animate_functions[i].1)(
                         &mut *components,
                         entities_map,
                         &mut blend_group,

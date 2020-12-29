@@ -4,6 +4,7 @@ use bevy_reflect::RegisterTypeBuilder;
 
 mod animator;
 mod app;
+mod help;
 mod reflect;
 //mod experimental;
 mod hierarchy;

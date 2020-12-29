@@ -1,6 +1,5 @@
 use std::{
-    any::Any,
-    any::TypeId,
+    any::{type_name, Any, TypeId},
     borrow::Cow,
     collections::{HashMap, HashSet},
 };
@@ -16,10 +15,7 @@ use fnv::FnvBuildHasher;
 use smallvec::{smallvec, SmallVec};
 use tracing::warn;
 
-use crate::blending::AnimatorBlending;
-use crate::curve::Curve;
-use crate::hierarchy::Hierarchy;
-use crate::lerping::Lerp;
+use crate::{blending::AnimatorBlending, curve::Curve, hierarchy::Hierarchy, lerping::Lerp};
 
 // TODO: Load Clip name from gltf
 
@@ -70,19 +66,14 @@ impl<T> Curves<T> {
         self.entity_indexes.iter().copied().zip(self.curves.iter())
     }
 }
-
-pub(crate) fn shorten_name(n: &str) -> &str {
-    n.rsplit("::").nth(0).unwrap_or(n)
-}
-
 pub struct CurveMeta(&'static str, TypeId);
 
 impl CurveMeta {
     pub fn of<T: 'static>() -> Self {
-        Self(shorten_name(std::any::type_name::<T>()), TypeId::of::<T>())
+        Self(type_name::<T>(), TypeId::of::<T>())
     }
 
-    pub const fn short_name(&self) -> &'static str {
+    pub const fn type_name(&self) -> &str {
         self.0
     }
 
@@ -717,9 +708,9 @@ pub(crate) fn animator_update_system(
                         )) {
                             // TODO: Check dynamic properties names using regex
                             warn!(
-                                "unregistered property '{}' ({}) of clip '{}', maybe it's misspelled or the type doesn't match",
+                                "unregistered property '{}' of type `{}` in clip '{}', maybe the property name is misspelled or it's type isn't registered as animated",
                                 &property_name,
-                                curves.meta().short_name(),
+                                curves.meta().type_name(),
                                 &clip.name
                             );
                         }
