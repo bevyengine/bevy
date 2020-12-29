@@ -219,7 +219,10 @@ impl Mesh {
         self.attributes.get(&name.into())
     }
 
-    pub fn attribute_mut(&mut self, name: impl Into<Cow<'static, str>>) -> Option<&mut VertexAttributeValues> {
+    pub fn attribute_mut(
+        &mut self,
+        name: impl Into<Cow<'static, str>>,
+    ) -> Option<&mut VertexAttributeValues> {
         self.attributes.get_mut(&name.into())
     }
 
