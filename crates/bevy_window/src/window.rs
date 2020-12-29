@@ -112,7 +112,7 @@ pub enum WindowCommand {
 pub struct Icon {
     pub rgba: Vec<u8>,
     pub width: u32,
-    pub height: u32
+    pub height: u32,
 }
 
 impl Icon {
@@ -124,7 +124,7 @@ impl Icon {
         Icon {
             rgba,
             width,
-            height
+            height,
         }
     }
 }

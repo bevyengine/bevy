@@ -11,7 +11,11 @@ fn main() {
             height: 300.,
             vsync: true,
             #[cfg(any(target_os = "windows", target_os = "linux"))]
-            icon: Some(Icon::from_rgba(include_bytes!("bevy_icon.rgba").to_vec(), 32, 32)),
+            icon: Some(Icon::from_rgba(
+                include_bytes!("bevy_icon.rgba").to_vec(),
+                32,
+                32,
+            )),
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
