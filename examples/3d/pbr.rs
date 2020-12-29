@@ -18,6 +18,8 @@ fn setup(
     // add entities to the world
     for y in -2..=2 {
         for x in -5..=5 {
+            let x01 = x as f32 / 10.0 + 0.5;
+            let y01 = y as f32 / 2.0 + 0.5;
             commands
                 // spheres
                 .spawn(PbrBundle {
@@ -25,7 +27,11 @@ fn setup(
                         radius: 0.45,
                         subdivisions: 32,
                     })),
-                    material: materials.add(Color::rgb(0.2, 0.2, 1.0).into()),
+                    material: materials.add(StandardMaterial {
+                        albedo: Color::rgb(0.2, 0.2, 1.0),
+                        pbr: Vec2::new(x01, y01), // vary key PBR parameters on a grid of spheres to show the effect
+                        ..Default::default()
+                    }),
                     transform: Transform::from_translation(Vec3::new(x as f32, y as f32, 0.0)),
                     ..Default::default()
                 });
