@@ -16,6 +16,10 @@ use crate::{
     CalculatedSize, DefaultTextPipeline, DrawableText, Font, FontAtlasSet, Text, TextError,
 };
 
+/// Marker to identify entities as "Text2d"
+#[derive(Clone, Default, Debug)]
+pub struct Text2d;
+
 /// The bundle of components needed to draw text in a 2D scene via the Camera2dBundle.
 #[derive(Bundle, Clone, Debug)]
 pub struct Text2dBundle {
@@ -26,6 +30,7 @@ pub struct Text2dBundle {
     pub global_transform: GlobalTransform,
     pub main_pass: MainPass,
     pub calculated_size: CalculatedSize,
+    pub text2d: Text2d,
 }
 
 impl Default for Text2dBundle {
@@ -45,6 +50,7 @@ impl Default for Text2dBundle {
             calculated_size: CalculatedSize {
                 size: Size::default(),
             },
+            text2d: Default::default(),
         }
     }
 }
@@ -67,7 +73,7 @@ pub fn draw_text2d_system(
             &GlobalTransform,
             &CalculatedSize,
         ),
-        With<MainPass>,
+        With<(Text2d, MainPass)>,
     >,
 ) {
     let font_quad = meshes.get(&QUAD_HANDLE).unwrap();
@@ -122,8 +128,8 @@ pub fn text2d_system(
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<DefaultTextPipeline>,
     mut text_queries: QuerySet<(
-        Query<Entity, Changed<Text>>,
-        Query<(&Text, &mut CalculatedSize)>,
+        Query<Entity, (With<Text2d>, Changed<Text>)>,
+        Query<(&Text, &mut CalculatedSize), With<Text2d>>,
     )>,
 ) {
     // Adds all entities where the text or the style has changed to the local queue
