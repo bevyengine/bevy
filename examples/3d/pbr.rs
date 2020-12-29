@@ -25,7 +25,7 @@ fn setup(
                         radius: 0.45,
                         subdivisions: 32,
                     })),
-                    material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
+                    material: materials.add(Color::rgb(0.2, 0.2, 1.0).into()),
                     transform: Transform::from_translation(Vec3::new(x as f32, y as f32, 0.0)),
                     ..Default::default()
                 });
