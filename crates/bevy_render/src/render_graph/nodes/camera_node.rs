@@ -122,7 +122,7 @@ pub fn camera_node_system(
         staging_buffer,
         0..matrix_size as u64,
         &mut |data, _renderer| {
-            data[0..matrix_size].copy_from_slice(camera_gpu_data.as_bytes());
+            data[0..matrix_size].copy_from_slice(camera_matrix.as_bytes());
         },
     );
     render_resource_context.unmap_buffer(staging_buffer);

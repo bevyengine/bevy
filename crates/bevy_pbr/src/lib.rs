@@ -1,3 +1,5 @@
+use bevy_math::Vec2;
+
 pub mod render_graph;
 
 mod entity;
@@ -48,6 +50,7 @@ impl Plugin for PbrPlugin {
                 albedo: Color::PINK,
                 shaded: false,
                 albedo_texture: None,
+                pbr: Vec2::new(0.01, 0.08),
             },
         );
     }

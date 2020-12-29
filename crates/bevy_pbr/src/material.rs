@@ -1,7 +1,7 @@
 use bevy_asset::{self, Handle};
+use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;
 use bevy_render::{color::Color, renderer::RenderResources, shader::ShaderDefs, texture::Texture};
-use bevy_math::Vec2;
 
 /// A material with "standard" properties used in PBR lighting
 #[derive(Debug, RenderResources, ShaderDefs, TypeUuid)]
@@ -21,7 +21,7 @@ impl Default for StandardMaterial {
     fn default() -> Self {
         StandardMaterial {
             albedo: Color::rgb(1.0, 1.0, 1.0),
-            pbr: Vec2::new(0.01, 0.08),
+            pbr: Vec2::new(1.0, 0.95), //(0.01, 0.08),
             albedo_texture: None,
             shaded: true,
         }

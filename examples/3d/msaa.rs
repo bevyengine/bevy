@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+//use bevy_pbr::{LightBundle, PbrBundle};
 
 /// This example shows how to configure Multi-Sample Anti-Aliasing. Setting the sample count higher will result in smoother edges,
 /// but it will also increase the cost to render those edges. The range should generally be somewhere between 1 (no multi sampling,
@@ -20,14 +21,17 @@ fn setup(
     // add entities to the world
     commands
         // cube
-        .spawn(PbrComponents {
-            mesh: meshes.add(Mesh::from(shape::Icosphere { radius: 1.0, subdivisions: 32, })),
+        .spawn(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Icosphere {
+                radius: 1.0,
+                subdivisions: 32,
+            })),
             material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
             ..Default::default()
         })
         // light
-        .spawn(LightComponents {
-            translation: Translation::new(40.0, 80.0, 40.0),
+        .spawn(LightBundle {
+            transform: Transform::from_translation(Vec3::new(40.0, 80.0, 40.0)),
             ..Default::default()
         })
         // camera

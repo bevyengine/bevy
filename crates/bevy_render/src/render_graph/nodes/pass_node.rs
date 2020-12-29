@@ -110,7 +110,10 @@ impl<Q: WorldQuery> PassNode<Q> {
                 index: 0,
                 bind_type: BindType::Uniform {
                     dynamic: false,
-                    property: UniformProperty::Struct(vec![UniformProperty::Mat4]),
+                    property: UniformProperty::Struct(vec![
+                        UniformProperty::Mat4,
+                        UniformProperty::Vec4,
+                    ]),
                 },
                 shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
             }],
