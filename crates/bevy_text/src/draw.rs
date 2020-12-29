@@ -48,7 +48,7 @@ impl Default for TextStyle {
 pub struct DrawableText<'a> {
     pub render_resource_bindings: &'a mut RenderResourceBindings,
     pub position: Vec3,
-    pub inv_scale_factor: f32,
+    pub scale_factor: f32,
     pub style: &'a TextStyle,
     pub text_glyphs: &'a Vec<PositionedGlyph>,
     pub msaa: &'a Msaa,
@@ -98,7 +98,7 @@ impl<'a> Drawable for DrawableText<'a> {
         // set global bindings
         context.set_bind_groups_from_bindings(draw, &mut [self.render_resource_bindings])?;
 
-        let scale = Vec2::splat(self.inv_scale_factor);
+        let scale = Vec2::splat(1.);
 
         for tv in self.text_glyphs {
             context.set_asset_bind_groups(draw, &tv.atlas_info.texture_atlas)?;
@@ -108,9 +108,20 @@ impl<'a> Drawable for DrawableText<'a> {
                 color: self.style.color,
             };
 
-            let transform = Mat4::from_translation(
-                self.position + (tv.position * self.inv_scale_factor).extend(0.),
-            );
+            // To get the rendering right for non-one scaling factors, we need
+            // the sprite to be drawn in "physical" coordinates. This is because
+            // the shader uses the size of the sprite to control the size on
+            // screen. To accomplish this we make the sprite transform
+            // convert from physical coordinates to logical coordinates in
+            // addition to altering the origin. Since individual glyphs will
+            // already be in physical coordinates, we just need to convert the
+            // overall position to physical coordinates to get the sprites
+            // physical position.
+
+            let transform = Mat4::from_scale(Vec3::splat(1. / self.scale_factor))
+                * Mat4::from_translation(
+                    self.position * self.scale_factor + tv.position.extend(0.),
+                );
 
             let transform_buffer = context.get_uniform_buffer(&transform).unwrap();
             let sprite_buffer = context.get_uniform_buffer(&sprite).unwrap();

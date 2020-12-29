@@ -35,13 +35,9 @@ layout(set = 2, binding = 1) uniform TextureAtlasSprite {
     uint TextureAtlasSprite_index;
 };
 
-layout(set = 2, binding = 2) uniform TextureAtlasSpriteScale {
-    vec2 SpriteScale;
-};
-
 void main() {
     Rect sprite_rect = Textures[TextureAtlasSprite_index];
-    vec2 sprite_dimensions = (sprite_rect.end - sprite_rect.begin)*SpriteScale;
+    vec2 sprite_dimensions = sprite_rect.end - sprite_rect.begin;
     vec3 vertex_position = vec3(Vertex_Position.xy * sprite_dimensions, 0.0);
     vec2 atlas_positions[4] = vec2[](
         vec2(sprite_rect.begin.x, sprite_rect.end.y),

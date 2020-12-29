@@ -1,4 +1,4 @@
-use crate::{ColorMaterial, Sprite, TextureAtlas, TextureAtlasSprite, TextureAtlasSpriteScale};
+use crate::{ColorMaterial, Sprite, TextureAtlas, TextureAtlasSprite};
 use bevy_asset::{Assets, HandleUntyped};
 use bevy_ecs::Resources;
 use bevy_reflect::TypeUuid;
@@ -119,7 +119,6 @@ pub mod node {
     pub const COLOR_MATERIAL: &str = "color_material";
     pub const SPRITE: &str = "sprite";
     pub const SPRITE_SHEET: &str = "sprite_sheet";
-    pub const SPRITE_SHEET_SCALE: &str = "sprite_sheet_scale";
     pub const SPRITE_SHEET_SPRITE: &str = "sprite_sheet_sprite";
 }
 
@@ -148,11 +147,6 @@ impl SpriteRenderGraphBuilder for RenderGraph {
         self.add_system_node(
             node::SPRITE_SHEET_SPRITE,
             RenderResourcesNode::<TextureAtlasSprite>::new(true),
-        );
-
-        self.add_system_node(
-            node::SPRITE_SHEET_SCALE,
-            RenderResourcesNode::<TextureAtlasSpriteScale>::new(true),
         );
 
         let mut pipelines = resources.get_mut::<Assets<PipelineDescriptor>>().unwrap();

@@ -21,15 +21,21 @@ pub struct QueuedText {
     entities: Vec<Entity>,
 }
 
+fn scale_value(value: f32, factor: f64) -> f32 {
+    let result = ((value as f64) * factor) as f32;
+    println!("scale: {}*{} -> {}", value, factor, result);
+    result
+}
+
 /// Defines how min_size, size, and max_size affects the bounds of a text
 /// block.
-pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f32) -> f32 {
+pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f64) -> f32 {
     // Needs support for percentages
     match (min_size, size, max_size) {
-        (_, _, Val::Px(max)) => max * scale_factor,
-        (Val::Px(min), _, _) => min * scale_factor,
-        (Val::Undefined, Val::Px(size), Val::Undefined) => size * scale_factor,
-        (Val::Auto, Val::Px(size), Val::Auto) => size * scale_factor,
+        (_, _, Val::Px(max)) => scale_value(max, scale_factor),
+        (Val::Px(min), _, _) => scale_value(min, scale_factor),
+        (Val::Undefined, Val::Px(size), Val::Undefined) => scale_value(size, scale_factor),
+        (Val::Auto, Val::Px(size), Val::Auto) => scale_value(size, scale_factor),
         _ => f32::MAX,
     }
 }
@@ -51,10 +57,12 @@ pub fn text_system(
     )>,
 ) {
     let scale_factor = if let Some(window) = windows.get_primary() {
-        window.scale_factor() as f32
+        window.scale_factor()
     } else {
         1.
     };
+
+    let inv_scale_factor = 1. / scale_factor;
 
     // Adds all entities where the text or the style has changed to the local queue
     for entity in text_queries.q0_mut().iter_mut() {
@@ -90,7 +98,7 @@ pub fn text_system(
                 text.font.clone(),
                 &fonts,
                 &text.value,
-                text.style.font_size,
+                scale_value(text.style.font_size, scale_factor),
                 text.style.alignment,
                 node_size,
                 &mut *font_atlas_set_storage,
@@ -108,7 +116,10 @@ pub fn text_system(
                     let text_layout_info = text_pipeline.get_glyphs(&entity).expect(
                         "Failed to get glyphs from the pipeline that have just been computed",
                     );
-                    calculated_size.size = text_layout_info.size / scale_factor;
+                    calculated_size.size = Size {
+                        width: scale_value(text_layout_info.size.width, inv_scale_factor),
+                        height: scale_value(text_layout_info.size.height, inv_scale_factor),
+                    };
                 }
             }
         }
@@ -128,7 +139,7 @@ pub fn draw_text_system(
     mut query: Query<(Entity, &mut Draw, &Visible, &Text, &Node, &GlobalTransform)>,
 ) {
     let scale_factor = if let Some(window) = windows.get_primary() {
-        window.scale_factor() as f32
+        window.scale_factor()
     } else {
         1.
     };
@@ -147,7 +158,7 @@ pub fn draw_text_system(
             let mut drawable_text = DrawableText {
                 render_resource_bindings: &mut render_resource_bindings,
                 position,
-                inv_scale_factor: 1. / scale_factor,
+                scale_factor: scale_factor as f32,
                 msaa: &msaa,
                 text_glyphs: &text_glyphs.glyphs,
                 font_quad_vertex_descriptor: &vertex_buffer_descriptor,
