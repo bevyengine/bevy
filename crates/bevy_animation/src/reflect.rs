@@ -18,7 +18,6 @@ use crate::{
 // ? in order to be animated; `Handle<T>` and `Option<Handle<T>>` are registered automatically upon registering a
 // ? animated asset `T` with `register_animated_asset`
 
-// TODO: Make sure properties are within component size bounds
 // TODO: Add tracing spans
 // TODO: Accept also `TupleStruct` and `Value`
 // TODO: Expand types like Vec2, Vec3, Vec4 and Color
@@ -213,8 +212,18 @@ impl<T: Struct> AnimatorDescriptor<T> {
 
             let type_id = value.type_id();
 
-            // SAFETY: Is be less than size_of::<T>() so it won't be crazy high
-            let offset = unsafe { (value.any() as *const _ as *const u8).offset_from(origin) };
+            // SAFETY: Is less than size_of::<T>() witch is expected to be very low compared to isize::MAX;
+            // the resulted offset is also guaranteed to be inside the component
+            let offset = unsafe {
+                let ptr = value.any() as *const _ as *const u8;
+                assert!(
+                    ptr >= origin && ptr < origin.add(size_of::<T>()),
+                    "property '{}' offset isn't within struct bounds [0; {}]",
+                    path,
+                    size_of::<T>()
+                );
+                ptr.offset_from(origin)
+            };
 
             let mask = 1 << i;
             let index = usize::MAX;
