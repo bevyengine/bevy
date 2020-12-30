@@ -30,13 +30,13 @@ pub fn derive_discovery_plugin(input: proc_macro::TokenStream) -> proc_macro::To
     let mut ts = TokenStream::new();
 
     let path = PathBuf::from(root_filename);
-    let mut file = File::open(&path).expect(&format!("Unable to open file {:?}", path));
+    let mut file = File::open(&path).expect("Unable to open file");
     let mut src = String::new();
     file.read_to_string(&mut src).expect("Unable to read file");
     let syntax = syn::parse_file(&src).expect("Unable to parse file");
 
     let path = match path.with_extension("").file_name().and_then(|s| s.to_str()) {
-        Some("mod") | Some("lib") | Some("main") => path.parent().expect("what?").to_owned(),
+        Some("mod") | Some("lib") | Some("main") => path.parent().unwrap().to_owned(),
         _ => path,
     };
 
@@ -56,7 +56,7 @@ pub fn derive_discovery_plugin(input: proc_macro::TokenStream) -> proc_macro::To
 }
 
 fn search_contents(
-    content: &Vec<Item>,
+    content: &[Item],
     path: TokenStream,
     ts: &mut TokenStream,
     search_directory: &Path,
@@ -90,7 +90,7 @@ fn search_contents(
                                     extend.extend(&["mod"]);
                                     File::open(&extend.with_extension("rs")).ok()
                                 },
-                                |v| Some(v),
+                                Some,
                             )
                             .expect("Unable to open file");
 
