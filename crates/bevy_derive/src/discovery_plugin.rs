@@ -26,14 +26,14 @@ pub fn derive_discovery_plugin(input: proc_macro::TokenStream) -> proc_macro::To
         .parse_args::<LitStr>()
         .as_ref()
         .map(LitStr::value)
-        .unwrap_or("src/main.rs".to_string());
+        .unwrap_or_else(|_| "src/main.rs".to_string());
 
     let mut ts = TokenStream::new();
 
     let path = PathBuf::from(root_filename);
     let mut manifest_dir = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap());
     manifest_dir.push(path);
-    
+
     let path = manifest_dir;
 
     let mut file = File::open(&path).expect("Unable to open file");
