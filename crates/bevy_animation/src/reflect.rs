@@ -30,7 +30,7 @@ type Mask = u32;
 /// Number of animated properties a type can hold
 const MASK_LIMIT: usize = size_of::<Mask>() * 8;
 
-type AnimateFn = fn(
+type AnimateFn = unsafe fn(
     get_mut: &mut dyn FnMut(usize) -> Option<*mut u8>,
     entities_map: &[u16],
     blend_group: &mut AnimatorBlendGroup,
@@ -38,9 +38,7 @@ type AnimateFn = fn(
     clip: &Clip,
     time: f32,
     w: f32,
-    prop_name: &str,
-    prop_offset: isize,
-    prop_mask: u32,
+    prop: &Property,
 );
 
 /// Register how to animate custom types
@@ -104,7 +102,9 @@ impl AnimatorPropertyRegistry {
     }
 }
 
-fn animate<T: Lerp + Blend + Clone + 'static>(
+/// Use need to guarantee that `Property` is valid and is owned by same type
+/// of object returned by `get_mut` function
+unsafe fn animate<T: Lerp + Blend + Clone + 'static>(
     get_mut: &mut dyn FnMut(usize) -> Option<*mut u8>,
     entities_map: &[u16],
     blend_group: &mut AnimatorBlendGroup,
@@ -112,12 +112,12 @@ fn animate<T: Lerp + Blend + Clone + 'static>(
     clip: &Clip,
     time: f32,
     w: f32,
-    prop_name: &str,
-    prop_offset: isize,
-    prop_mask: Mask,
+    prop: &Property,
 ) {
+    assert_eq!(TypeId::of::<T>(), prop.type_id);
+
     if let Some(curves) = clip
-        .get(prop_name)
+        .get(&prop.path)
         .map(|curve_untyped| curve_untyped.downcast_ref::<T>())
         .flatten()
     {
@@ -128,9 +128,9 @@ fn animate<T: Lerp + Blend + Clone + 'static>(
                 let (k, v) = curve.sample_indexed(*kr, time);
                 *kr = k;
 
-                // SAFETY: prop_offset is
-                let value = unsafe { &mut *(component.offset(prop_offset) as *mut T) };
-                value.blend(entity_index, prop_mask, blend_group, v, w);
+                // Unsafe portion
+                let value = &mut *(component.offset(prop.offset) as *mut T);
+                value.blend(entity_index, prop.mask, blend_group, v, w);
             }
         }
     }
@@ -145,7 +145,7 @@ struct Property {
 }
 
 // Defines how to animate an type
-pub struct AnimatorDescriptor<T> {
+pub(crate) struct AnimatorDescriptor<T> {
     ver: usize,
     short_name: String,
     dynamic_properties: Vec<Property>,
@@ -237,7 +237,7 @@ impl<T: Struct> AnimatorDescriptor<T> {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-pub fn animate_component_system<T: Component>(
+pub(crate) fn animate_component_system<T: Component>(
     registry: Res<AnimatorPropertyRegistry>,
     mut descriptor: ResMut<AnimatorDescriptor<T>>,
     clips: Res<Assets<Clip>>,
@@ -318,18 +318,21 @@ pub fn animate_component_system<T: Component>(
                         continue;
                     }
 
-                    (registry.animate_functions[i].1)(
-                        &mut get_mut_components,
-                        entities_map,
-                        &mut blend_group,
-                        keyframes,
-                        clip,
-                        time,
-                        w,
-                        &prop.path,
-                        prop.offset,
-                        prop.mask,
-                    )
+                    // SAFETY: Components type matches with the ones returned by `get_mut_components`
+                    // and each property is generates internally by `AnimatorDescriptor<T>` which was
+                    // it's own checks to guarantee that they are valid
+                    unsafe {
+                        (registry.animate_functions[i].1)(
+                            &mut get_mut_components,
+                            entities_map,
+                            &mut blend_group,
+                            keyframes,
+                            clip,
+                            time,
+                            w,
+                            &prop,
+                        )
+                    }
                 }
             }
         }
@@ -340,7 +343,7 @@ pub fn animate_component_system<T: Component>(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-pub fn animate_asset_system<T: Asset>(
+pub(crate) fn animate_asset_system<T: Asset>(
     registry: Res<AnimatorPropertyRegistry>,
     mut descriptor: ResMut<AnimatorDescriptor<T>>,
     clips: Res<Assets<Clip>>,
@@ -480,7 +483,7 @@ pub fn animate_asset_system<T: Asset>(
             *asset
         };
 
-        // TODO: `animator.animate()` doesn't come for free, we might want to cache some info
+        // TODO: `animator.animate()` doesn't come for free, might want to cache some info
         for (_, layer, _, entities_map) in animator.animate() {
             let w = layer.weight;
             if w < 1.0e-8 {
@@ -504,18 +507,21 @@ pub fn animate_asset_system<T: Asset>(
                         continue;
                     }
 
-                    (registry.animate_functions[i].1)(
-                        &mut get_mut_components,
-                        entities_map,
-                        &mut blend_group,
-                        keyframes,
-                        clip,
-                        time,
-                        w,
-                        &prop.path,
-                        prop.offset,
-                        prop.mask,
-                    )
+                    // SAFETY: Components type matches with the ones returned by `get_mut_components`
+                    // and each property is generates internally by `AnimatorDescriptor<T>` which was
+                    // it's own checks to guarantee that they are valid
+                    unsafe {
+                        (registry.animate_functions[i].1)(
+                            &mut get_mut_components,
+                            entities_map,
+                            &mut blend_group,
+                            keyframes,
+                            clip,
+                            time,
+                            w,
+                            &prop,
+                        )
+                    }
                 }
             }
         }

@@ -22,6 +22,7 @@ pub trait AddAnimated {
 }
 
 impl AddAnimated for AppBuilder {
+    /// Registry an property type that can be animated
     fn register_animated_property_type<T: Lerp + Blend + Clone + 'static>(&mut self) -> &mut Self {
         let mut property_registry = self
             .resources_mut()
@@ -33,6 +34,7 @@ impl AddAnimated for AppBuilder {
         self
     }
 
+    /// Registry an component `T` to be animated
     fn register_animated_component<T: Component + Struct + Default>(&mut self) -> &mut Self {
         let mut registry = self
             .resources_mut()
