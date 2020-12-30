@@ -2,7 +2,7 @@
 
 use std::{any::type_name, any::TypeId, marker::PhantomData, num::NonZeroUsize};
 
-use bevy_asset::prelude::*;
+use bevy_asset::{prelude::*, Asset};
 use bevy_ecs::prelude::*;
 use bevy_math::prelude::*;
 use bevy_reflect::prelude::*;
@@ -14,15 +14,15 @@ use crate::{
 };
 
 // TODO: How to deal with generic types like Handle<T> or Option<T>
-// TODO: Animate assets
 // TODO: Make sure properties are within component size bounds
+// TODO: Add tracing spans
 // TODO: Accept also `TupleStruct` and `Value`
 // TODO: Expand types like Vec2, Vec3, Vec4 and Color
 // ! FIXME: Vec2, Vec3, Vec4 doesn't implement bevy_reflect::Struct so they can't be auto expanded
 // TODO: Implement safe property path like `Transforms::props().translation().x()` using only const, (Property validation is working)
 
 type AnimateFn = fn(
-    components: &mut dyn Components,
+    get_mut: &mut dyn FnMut(usize) -> Option<*mut u8>,
     entities_map: &[u16],
     blend_group: &mut AnimatorBlendGroup,
     keyframes: &mut [u16],
@@ -37,6 +37,7 @@ type AnimateFn = fn(
 /// Register how to animate custom types
 pub struct AnimatorPropertyRegistry {
     ver: NonZeroUsize,
+    // TODO: Use a hashmap?
     animate_functions: Vec<(TypeId, AnimateFn)>,
 }
 
@@ -54,7 +55,6 @@ impl Default for AnimatorPropertyRegistry {
                 (TypeId::of::<Quat>(), animate::<Quat>),
                 // (TypeId::of::<Color>(), animate::<Color>),
                 // (TypeId::of::<HandleUntyped>(), animate::<HandleUntyped>),
-                // (TypeId::of::<Handle<Mesh>>(), animate::<Handle<Mesh>>),
                 // TODO: How to handle generic types like Handle<T> or Option<T>
             ],
         }
@@ -97,21 +97,8 @@ impl AnimatorPropertyRegistry {
     }
 }
 
-/// Helper trait to fetch components pointers
-trait Components {
-    fn get_mut(&mut self, index: usize) -> Option<*mut u8>;
-}
-
-impl<'a, 's, T: Send + Sync + 'static> Components for &'s mut [Option<Mut<'a, T>>] {
-    #[inline(always)]
-    fn get_mut(&mut self, index: usize) -> Option<*mut u8> {
-        // NOTE: Will trigger the `Changed` event to the right types
-        self[index].as_mut().map(|c| &mut **c as *mut T as *mut u8)
-    }
-}
-
 fn animate<T: Lerp + Blend + Clone + 'static>(
-    components: &mut dyn Components,
+    get_mut: &mut dyn FnMut(usize) -> Option<*mut u8>,
     entities_map: &[u16],
     blend_group: &mut AnimatorBlendGroup,
     keyframes: &mut [u16],
@@ -129,7 +116,7 @@ fn animate<T: Lerp + Blend + Clone + 'static>(
     {
         for (entity_index, (curve_index, curve)) in curves.iter() {
             let entity_index = entities_map[entity_index as usize] as usize;
-            if let Some(ref mut component) = components.get_mut(entity_index) {
+            if let Some(component) = (get_mut)(entity_index) {
                 let kr = &mut keyframes[*curve_index];
                 let (k, v) = curve.sample_indexed(*kr, time);
                 *kr = k;
@@ -142,14 +129,19 @@ fn animate<T: Lerp + Blend + Clone + 'static>(
     }
 }
 
-struct AnimatorDescriptorInner {
-    ver: usize,
-    dynamic_properties: Vec<(String, TypeId, usize, isize, u32)>,
+struct Property {
+    path: String,
+    type_id: TypeId,
+    index: usize,
+    offset: isize,
+    mask: u32,
 }
 
-// Defines how to animate the reflected type
+// Defines how to animate an type
 pub struct AnimatorDescriptor<T> {
-    inner: Option<AnimatorDescriptorInner>,
+    ver: usize,
+    short_name: String,
+    dynamic_properties: Vec<Property>,
     animator_blending: AnimatorBlending,
     _marker: PhantomData<T>,
 }
@@ -157,7 +149,9 @@ pub struct AnimatorDescriptor<T> {
 impl<T> Default for AnimatorDescriptor<T> {
     fn default() -> Self {
         Self {
-            inner: None,
+            ver: 0,
+            short_name: String::new(),
+            dynamic_properties: vec![],
             animator_blending: AnimatorBlending::default(),
             _marker: PhantomData,
         }
@@ -167,69 +161,95 @@ impl<T> Default for AnimatorDescriptor<T> {
 impl<T> AnimatorDescriptor<T> {
     #[inline(always)]
     pub fn properties(&self) -> impl Iterator<Item = (&str, TypeId)> {
-        self.inner.as_ref().into_iter().flat_map(|inner| {
-            inner
-                .dynamic_properties
-                .iter()
-                .map(|(name, type_id, _, _, _)| (name.as_str(), *type_id))
-        })
+        self.dynamic_properties
+            .iter()
+            .map(|Property { path, type_id, .. }| (path.as_str(), *type_id))
     }
 }
 
 impl<T: Struct> AnimatorDescriptor<T> {
     pub fn from_component(component: &T) -> Self {
-        let mut inner = AnimatorDescriptorInner {
-            ver: 0,
-            dynamic_properties: vec![],
-        };
+        let base_path = shorten_name(component.type_name());
+        let mut descriptor = Self::build(component, &base_path);
+        descriptor.short_name = base_path;
+        descriptor
+    }
+
+    pub fn from_asset(asset: &T) -> Self {
+        let mut base_path = shorten_name(asset.type_name());
+        base_path.insert_str(0, "Handle<");
+        base_path.push('>');
+        let mut descriptor = Self::build(asset, &base_path);
+        descriptor.short_name = base_path;
+        descriptor
+    }
+
+    fn build(instance: &T, base_path: &str) -> Self {
+        let mut dynamic_properties = vec![];
 
         // Lazy initialize the descriptor
-        let short_name = shorten_name(component.type_name());
-        let origin = component.any() as *const _ as *const u8;
-        for (i, value) in component.iter_fields().enumerate() {
-            let component_name = component.name_at(i).unwrap();
+        let origin = instance.any() as *const _ as *const u8;
+        for (i, value) in instance.iter_fields().enumerate() {
+            let field_name = instance.name_at(i).unwrap();
             // NOTE: Pre calculate all the space needed to make in a single allocation (untested)
-            let mut prop_name = String::with_capacity(short_name.len() + 1 + component_name.len());
-            prop_name.push_str(&short_name);
-            prop_name.push('.');
-            prop_name.push_str(component_name);
+            let mut path = String::with_capacity(base_path.len() + 1 + field_name.len());
+            path.push_str(&base_path);
+            path.push('.');
+            path.push_str(field_name);
 
-            let prop_type = value.type_id();
+            let type_id = value.type_id();
 
             // SAFETY: Is be less than size_of::<T>() so it won't be crazy high
-            let prop_offset = unsafe { (value.any() as *const _ as *const u8).offset_from(origin) };
+            let offset = unsafe { (value.any() as *const _ as *const u8).offset_from(origin) };
 
-            let prop_mask = (1 << i) as u32;
+            let mask = 1 << i;
+            let index = usize::MAX;
 
-            inner.dynamic_properties.push((
-                prop_name,
-                prop_type,
-                usize::MAX,
-                prop_offset,
-                prop_mask,
-            ));
+            dynamic_properties.push(Property {
+                path,
+                type_id,
+                index,
+                offset,
+                mask,
+            });
         }
 
         Self {
-            inner: Some(inner),
+            dynamic_properties,
             ..Default::default()
         }
     }
 }
 
-pub fn animate_component_system<T: Struct + Send + Sync + 'static>(
+///////////////////////////////////////////////////////////////////////////////
+
+pub fn animate_component_system<T: Component>(
     registry: Res<AnimatorPropertyRegistry>,
     mut descriptor: ResMut<AnimatorDescriptor<T>>,
     clips: Res<Assets<Clip>>,
     animators_query: Query<&Animator>,
-    // assets: Option<ResMut<Assets<T>>>,
-    // handles_query: Query<&mut Handle<T>>,
     components_query: Query<&mut T>,
 ) {
-    let __span = tracing::info_span!("animator_transform_update_system");
-    let __guard = __span.enter();
+    // let __span = tracing::info_span!("animator_transform_update_system");
+    // let __guard = __span.enter();
 
     let mut components = vec![];
+
+    let descriptor = &mut *descriptor;
+    if descriptor.ver != registry.ver.get() {
+        // Lookup missing animate functions because `AnimatorRegistry` changed
+        for prop in &mut descriptor.dynamic_properties {
+            let mut i = prop.index;
+            if i == usize::MAX {
+                i = registry.index_of(prop.type_id);
+                if i == usize::MAX {
+                    warn!("missing animation function for `{}`", &prop.path);
+                }
+                prop.index = i;
+            }
+        }
+        descriptor.ver = registry.ver.get();
+    }
 
     for animator in animators_query.iter() {
         components.clear();
@@ -249,31 +269,16 @@ pub fn animate_component_system<T: Struct + Send + Sync + 'static>(
             }
         }
 
-        let descriptor = &mut *descriptor;
-        let descriptor_inner = descriptor.inner.as_mut().unwrap();
-
-        if descriptor_inner.ver != registry.ver.get() {
-            // Lookup missing animate functions because `AnimatorRegistry` changed
-            for (prop_name, prop_type, prop_index, _, _) in &mut descriptor_inner.dynamic_properties
-            {
-                let mut index = *prop_index;
-                if index == usize::MAX {
-                    index = registry.index_of(*prop_type);
-                    if index == usize::MAX {
-                        warn!("missing animation function for `{}`", &prop_name);
-                    }
-                    *prop_index = index;
-                }
-            }
-            descriptor_inner.ver = registry.ver.get();
-        }
-
         let mut blend_group = descriptor
             .animator_blending
             .begin_blending(components.len());
 
-        // Alias `T`
-        let mut components: Box<dyn Components> = Box::new(&mut components[..]);
+        let mut get_mut_components = |index: usize| -> Option<*mut u8> {
+            // NOTE: Will trigger the `Changed` event to the right types
+            components[index]
+                .as_mut()
+                .map(|c| &mut **c as *mut T as *mut u8)
+        };
 
         for (_, layer, clip_handle, entities_map) in animator.animate() {
             let w = layer.weight;
@@ -290,31 +295,184 @@ pub fn animate_component_system<T: Struct + Send + Sync + 'static>(
                 // is accessed by two different systems, which is possible but weird and will hit the performance a bit
                 let keyframes = unsafe { layer.keyframes_unsafe() };
 
-                for (prop_name, _, prop_index, prop_offset, prop_mask) in
-                    &descriptor_inner.dynamic_properties
-                {
-                    let i = *prop_index;
+                for prop in &descriptor.dynamic_properties {
+                    let i = prop.index;
                     if i == usize::MAX {
                         // Missing animation function
                         continue;
                     }
 
                     (registry.animate_functions[i].1)(
-                        &mut *components,
+                        &mut get_mut_components,
                         entities_map,
                         &mut blend_group,
                         keyframes,
                         clip,
                         time,
                         w,
-                        prop_name,
-                        *prop_offset,
-                        *prop_mask,
+                        &prop.path,
+                        prop.offset,
+                        prop.mask,
                     )
                 }
             }
         }
     }
 
-    std::mem::drop(__guard);
+    // std::mem::drop(__guard);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+pub fn animate_asset_system<T: Asset>(
+    registry: Res<AnimatorPropertyRegistry>,
+    mut descriptor: ResMut<AnimatorDescriptor<T>>,
+    clips: Res<Assets<Clip>>,
+    animators_query: Query<&Animator>,
+    mut assets: ResMut<Assets<T>>,
+    components_query: Query<&mut Handle<T>>,
+) {
+    // let __span = tracing::info_span!("animator_transform_update_system");
+    // let __guard = __span.enter();
+
+    let mut components = vec![];
+
+    let descriptor = &mut *descriptor;
+    if descriptor.ver != registry.ver.get() {
+        // Lookup missing animate functions because `AnimatorRegistry` changed
+        for prop in &mut descriptor.dynamic_properties {
+            let mut i = prop.index;
+            if i == usize::MAX {
+                i = registry.index_of(prop.type_id);
+                if i == usize::MAX {
+                    warn!("missing animation function for `{}`", &prop.path);
+                }
+                prop.index = i;
+            }
+        }
+        descriptor.ver = registry.ver.get();
+    }
+
+    for animator in animators_query.iter() {
+        components.clear();
+
+        // ? NOTE: Lazy get each component is worse than just fetching everything at once
+        // Pre-fetch all transforms to avoid calling get_mut multiple times
+        // SAFETY: each component will be updated one at the time and this function
+        // currently has the mutability over the Transform type, so no race conditions
+        // are possible
+        unsafe {
+            for entity in animator.entities() {
+                components.push(
+                    entity
+                        .map(|entity| components_query.get_unsafe(entity).ok())
+                        .flatten(),
+                );
+            }
+        }
+
+        let mut blend_group = descriptor
+            .animator_blending
+            .begin_blending(components.len());
+
+        // Animate asset handle
+
+        for (_, layer, clip_handle, entities_map) in animator.animate() {
+            let w = layer.weight;
+            if w < 1.0e-8 {
+                continue;
+            }
+
+            // TODO Should I cache all the clips first hand?
+            if let Some(clip) = clips.get(clip_handle) {
+                let time = layer.time;
+
+                // SAFETY: Never a different thread will modify or access the same index as this one;
+                // Plus as a nice and crazy feature each property is grouped by name into their own cache line
+                // buckets, this way no cache line will be accessed by the same thread unless the same property
+                // is accessed by two different systems, which is possible but weird and will hit the performance a bit
+                let keyframes = unsafe { layer.keyframes_unsafe() };
+
+                // Handle property is always the first one
+                let prop = &descriptor.dynamic_properties[0];
+                let prop_mask = prop.mask;
+
+                // ? NOTE: Maybe a bit incontinent to have this `animate` function inlined here,
+                // ? but it will make the code more safe and also faster
+                if let Some(curves) = clip
+                    .get(&prop.path)
+                    .map(|curve_untyped| curve_untyped.downcast_ref::<Handle<T>>())
+                    .flatten()
+                {
+                    for (entity_index, (curve_index, curve)) in curves.iter() {
+                        let entity_index = entities_map[entity_index as usize] as usize;
+                        if let Some(ref mut component) = components[entity_index] {
+                            let kr = &mut keyframes[*curve_index];
+                            let (k, v) = curve.sample_indexed(*kr, time);
+                            *kr = k;
+
+                            let value = &mut **component;
+                            value.blend(entity_index, prop_mask, &mut blend_group, v, w);
+                        }
+                    }
+                }
+            }
+        }
+
+        // ? NOTE Only after all asset handles had been settled that, the assets properties can be animated
+        // Animate asset properties
+
+        if descriptor.dynamic_properties.len() <= 1 {
+            // This assets have no animated properties
+            continue;
+        }
+
+        let mut get_mut_components = |index: usize| -> Option<*mut u8> {
+            // NOTE: Will trigger the `Changed` event to the right assets
+            components[index]
+                .as_ref()
+                .and_then(|c| assets.get_mut(&**c))
+                .map(|a| a as *mut T as *mut u8)
+        };
+
+        for (_, layer, clip_handle, entities_map) in animator.animate() {
+            let w = layer.weight;
+            if w < 1.0e-8 {
+                continue;
+            }
+
+            if let Some(clip) = clips.get(clip_handle) {
+                let time = layer.time;
+
+                // SAFETY: Never a different thread will modify or access the same index as this one;
+                // Plus as a nice and crazy feature each property is grouped by name into their own cache line
+                // buckets, this way no cache line will be accessed by the same thread unless the same property
+                // is accessed by two different systems, which is possible but weird and will hit the performance a bit
+                let keyframes = unsafe { layer.keyframes_unsafe() };
+
+                for prop in &descriptor.dynamic_properties[1..] {
+                    let i = prop.index;
+                    if i == usize::MAX {
+                        // Missing animation function
+                        continue;
+                    }
+
+                    (registry.animate_functions[i].1)(
+                        &mut get_mut_components,
+                        entities_map,
+                        &mut blend_group,
+                        keyframes,
+                        clip,
+                        time,
+                        w,
+                        &prop.path,
+                        prop.offset,
+                        prop.mask,
+                    )
+                }
+            }
+        }
+    }
+
+    // std::mem::drop(__guard);
 }
