@@ -2,6 +2,7 @@ use bevy_asset::{Asset, Handle, HandleUntyped};
 use bevy_math::prelude::*;
 use bevy_render::color::Color;
 
+/// Defines how a particular type will be interpolated
 pub trait Lerp {
     fn lerp(a: &Self, b: &Self, t: f32) -> Self;
 }

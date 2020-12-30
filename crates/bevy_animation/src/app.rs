@@ -13,6 +13,8 @@ use crate::{
     AnimatorPropertyRegistry,
 };
 
+// TODO: Find a way of lifting the `Default` bound on `register_animated_component` and `register_animated_asset` functions
+
 pub trait AddAnimated {
     fn register_animated_property_type<T: Lerp + Blend + Clone + 'static>(&mut self) -> &mut Self;
     fn register_animated_component<T: Component + Struct + Default>(&mut self) -> &mut Self;
@@ -59,6 +61,9 @@ impl AddAnimated for AppBuilder {
         }
     }
 
+    /// Registry an asset `T` to be animated
+    ///
+    /// **NOTE** `Handle<T>` and `Option<Handle<T>>` are also registered as animated properties
     fn register_animated_asset<T: Asset + Struct + Default>(&mut self) -> &mut Self {
         let mut registry = self
             .resources_mut()

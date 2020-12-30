@@ -1,11 +1,12 @@
 //! Generic animation for any type that implements the `Reflect` trait
 
-use std::{any::type_name, any::TypeId, marker::PhantomData, num::NonZeroUsize};
+use std::{any::type_name, any::TypeId, marker::PhantomData, mem::size_of, num::NonZeroUsize};
 
 use bevy_asset::{prelude::*, Asset};
 use bevy_ecs::prelude::*;
 use bevy_math::prelude::*;
 use bevy_reflect::prelude::*;
+use bevy_render::prelude::Color;
 use tracing::warn;
 
 use crate::{
@@ -13,13 +14,21 @@ use crate::{
     AnimatorBlending, Clip,
 };
 
-// TODO: How to deal with generic types like Handle<T> or Option<T>
+// ? NOTE: Generic types like `Option<T>` must be specialized and registered with `register_animated_property_type`
+// ? in order to be animated; `Handle<T>` and `Option<Handle<T>>` are registered automatically upon registering a
+// ? animated asset `T` with `register_animated_asset`
+
 // TODO: Make sure properties are within component size bounds
 // TODO: Add tracing spans
 // TODO: Accept also `TupleStruct` and `Value`
 // TODO: Expand types like Vec2, Vec3, Vec4 and Color
 // ! FIXME: Vec2, Vec3, Vec4 doesn't implement bevy_reflect::Struct so they can't be auto expanded
-// TODO: Implement safe property path like `Transforms::props().translation().x()` using only const, (Property validation is working)
+
+/// Mask size used to blend properties, each bit corresponds to a property
+type Mask = u32;
+
+/// Number of animated properties a type can hold
+const MASK_LIMIT: usize = size_of::<Mask>() * 8;
 
 type AnimateFn = fn(
     get_mut: &mut dyn FnMut(usize) -> Option<*mut u8>,
@@ -53,9 +62,7 @@ impl Default for AnimatorPropertyRegistry {
                 (TypeId::of::<Vec3>(), animate::<Vec3>),
                 (TypeId::of::<Vec4>(), animate::<Vec4>),
                 (TypeId::of::<Quat>(), animate::<Quat>),
-                // (TypeId::of::<Color>(), animate::<Color>),
-                // (TypeId::of::<HandleUntyped>(), animate::<HandleUntyped>),
-                // TODO: How to handle generic types like Handle<T> or Option<T>
+                (TypeId::of::<Color>(), animate::<Color>),
             ],
         }
     }
@@ -107,7 +114,7 @@ fn animate<T: Lerp + Blend + Clone + 'static>(
     w: f32,
     prop_name: &str,
     prop_offset: isize,
-    prop_mask: u32,
+    prop_mask: Mask,
 ) {
     if let Some(curves) = clip
         .get(prop_name)
@@ -134,7 +141,7 @@ struct Property {
     type_id: TypeId,
     index: usize,
     offset: isize,
-    mask: u32,
+    mask: Mask,
 }
 
 // Defines how to animate an type
@@ -190,6 +197,13 @@ impl<T: Struct> AnimatorDescriptor<T> {
         // Lazy initialize the descriptor
         let origin = instance.any() as *const _ as *const u8;
         for (i, value) in instance.iter_fields().enumerate() {
+            if i >= MASK_LIMIT {
+                panic!(
+                    "`{}` reached the limit of {} animated properties",
+                    base_path, MASK_LIMIT
+                );
+            }
+
             let field_name = instance.name_at(i).unwrap();
             // NOTE: Pre calculate all the space needed to make in a single allocation (untested)
             let mut path = String::with_capacity(base_path.len() + 1 + field_name.len());
@@ -233,7 +247,8 @@ pub fn animate_component_system<T: Component>(
     // let __span = tracing::info_span!("animator_transform_update_system");
     // let __guard = __span.enter();
 
-    let mut components = vec![];
+    // TODO: Find a way to reuse these arrays in between system executions
+    let mut cached_components = vec![];
 
     let descriptor = &mut *descriptor;
     if descriptor.ver != registry.ver.get() {
@@ -252,7 +267,7 @@ pub fn animate_component_system<T: Component>(
     }
 
     for animator in animators_query.iter() {
-        components.clear();
+        cached_components.clear();
 
         // ? NOTE: Lazy get each component is worse than just fetching everything at once
         // Pre-fetch all transforms to avoid calling get_mut multiple times
@@ -261,7 +276,7 @@ pub fn animate_component_system<T: Component>(
         // are possible
         unsafe {
             for entity in animator.entities() {
-                components.push(
+                cached_components.push(
                     entity
                         .map(|entity| components_query.get_unsafe(entity).ok())
                         .flatten(),
@@ -271,11 +286,11 @@ pub fn animate_component_system<T: Component>(
 
         let mut blend_group = descriptor
             .animator_blending
-            .begin_blending(components.len());
+            .begin_blending(cached_components.len());
 
         let mut get_mut_components = |index: usize| -> Option<*mut u8> {
             // NOTE: Will trigger the `Changed` event to the right types
-            components[index]
+            cached_components[index]
                 .as_mut()
                 .map(|c| &mut **c as *mut T as *mut u8)
         };
@@ -286,6 +301,7 @@ pub fn animate_component_system<T: Component>(
                 continue;
             }
 
+            // NOTE: It's most likely that two different layers play different clips
             if let Some(clip) = clips.get(clip_handle) {
                 let time = layer.time;
 
@@ -335,7 +351,12 @@ pub fn animate_asset_system<T: Asset>(
     // let __span = tracing::info_span!("animator_transform_update_system");
     // let __guard = __span.enter();
 
-    let mut components = vec![];
+    // TODO: Find a way to reuse these arrays in between system executions
+    let mut cached_components = vec![];
+    // NOTE: Cache assets to avoid multiple hash table queries
+    let mut cached_assets = vec![];
+    // NOTE: Clips are cached here because we need to loop for the animators layers twice
+    let mut cached_clips = vec![];
 
     let descriptor = &mut *descriptor;
     if descriptor.ver != registry.ver.get() {
@@ -354,7 +375,10 @@ pub fn animate_asset_system<T: Asset>(
     }
 
     for animator in animators_query.iter() {
-        components.clear();
+        cached_clips.clear();
+        cached_clips.resize_with(animator.clips().len(), || None);
+
+        cached_components.clear();
 
         // ? NOTE: Lazy get each component is worse than just fetching everything at once
         // Pre-fetch all transforms to avoid calling get_mut multiple times
@@ -363,7 +387,7 @@ pub fn animate_asset_system<T: Asset>(
         // are possible
         unsafe {
             for entity in animator.entities() {
-                components.push(
+                cached_components.push(
                     entity
                         .map(|entity| components_query.get_unsafe(entity).ok())
                         .flatten(),
@@ -371,9 +395,12 @@ pub fn animate_asset_system<T: Asset>(
             }
         }
 
+        cached_assets.clear();
+        cached_assets.resize_with(animator.entities().len(), || None);
+
         let mut blend_group = descriptor
             .animator_blending
-            .begin_blending(components.len());
+            .begin_blending(cached_components.len());
 
         // Animate asset handle
 
@@ -383,8 +410,13 @@ pub fn animate_asset_system<T: Asset>(
                 continue;
             }
 
-            // TODO Should I cache all the clips first hand?
-            if let Some(clip) = clips.get(clip_handle) {
+            // NOTE: `animator.animate()` only yield layers with valid clip indexes
+            let clip = &mut cached_clips[layer.clip];
+            if clip.is_none() {
+                *clip = clips.get(clip_handle);
+            }
+
+            if let Some(clip) = *clip {
                 let time = layer.time;
 
                 // SAFETY: Never a different thread will modify or access the same index as this one;
@@ -394,19 +426,26 @@ pub fn animate_asset_system<T: Asset>(
                 let keyframes = unsafe { layer.keyframes_unsafe() };
 
                 // Handle property is always the first one
-                let prop = &descriptor.dynamic_properties[0];
-                let prop_mask = prop.mask;
+                let prop_name = &descriptor.short_name;
+
+                if descriptor.dynamic_properties.len() == MASK_LIMIT {
+                    panic!(
+                        "`{}` reached the limit of {} animated properties",
+                        prop_name, MASK_LIMIT
+                    );
+                }
+                let prop_mask = 1 << descriptor.dynamic_properties.len();
 
                 // ? NOTE: Maybe a bit incontinent to have this `animate` function inlined here,
                 // ? but it will make the code more safe and also faster
                 if let Some(curves) = clip
-                    .get(&prop.path)
+                    .get(prop_name)
                     .map(|curve_untyped| curve_untyped.downcast_ref::<Handle<T>>())
                     .flatten()
                 {
                     for (entity_index, (curve_index, curve)) in curves.iter() {
                         let entity_index = entities_map[entity_index as usize] as usize;
-                        if let Some(ref mut component) = components[entity_index] {
+                        if let Some(ref mut component) = cached_components[entity_index] {
                             let kr = &mut keyframes[*curve_index];
                             let (k, v) = curve.sample_indexed(*kr, time);
                             *kr = k;
@@ -422,26 +461,34 @@ pub fn animate_asset_system<T: Asset>(
         // ? NOTE Only after all asset handles had been settled that, the assets properties can be animated
         // Animate asset properties
 
-        if descriptor.dynamic_properties.len() <= 1 {
+        if descriptor.dynamic_properties.len() == 0 {
             // This assets have no animated properties
             continue;
         }
 
         let mut get_mut_components = |index: usize| -> Option<*mut u8> {
             // NOTE: Will trigger the `Changed` event to the right assets
-            components[index]
-                .as_ref()
-                .and_then(|c| assets.get_mut(&**c))
-                .map(|a| a as *mut T as *mut u8)
+
+            let asset = &mut cached_assets[index];
+            if asset.is_none() {
+                *asset = cached_components[index]
+                    .as_ref()
+                    .and_then(|c| assets.get_mut(&**c))
+                    .map(|a| a as *mut T as *mut u8)
+            }
+
+            *asset
         };
 
-        for (_, layer, clip_handle, entities_map) in animator.animate() {
+        // TODO: `animator.animate()` doesn't come for free, we might want to cache some info
+        for (_, layer, _, entities_map) in animator.animate() {
             let w = layer.weight;
             if w < 1.0e-8 {
                 continue;
             }
 
-            if let Some(clip) = clips.get(clip_handle) {
+            // NOTE: `animator.animate()` only yield layers with valid clip indexes
+            if let Some(clip) = cached_clips[layer.clip] {
                 let time = layer.time;
 
                 // SAFETY: Never a different thread will modify or access the same index as this one;
@@ -450,7 +497,7 @@ pub fn animate_asset_system<T: Asset>(
                 // is accessed by two different systems, which is possible but weird and will hit the performance a bit
                 let keyframes = unsafe { layer.keyframes_unsafe() };
 
-                for prop in &descriptor.dynamic_properties[1..] {
+                for prop in &descriptor.dynamic_properties {
                     let i = prop.index;
                     if i == usize::MAX {
                         // Missing animation function

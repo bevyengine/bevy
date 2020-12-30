@@ -440,7 +440,8 @@ pub struct Animator {
     missing_entities: bool,
     #[reflect(ignore)]
     entities: Vec<Option<Entity>>,
-
+    // TODO: Layer groups
+    // TODO: Layer mask (apply a clip animation only in a portion of the tree)
     pub time_scale: f32,
     pub layers: Vec<Layer>,
 }
@@ -539,6 +540,7 @@ impl<'a> Iterator for LayerIterator<'a> {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+/// Used to validate animated properties path and types
 #[derive(Default)]
 pub(crate) struct AnimatorRegistry {
     /// Set of registered animators for components and assets

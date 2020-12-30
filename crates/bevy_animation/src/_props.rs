@@ -1,3 +1,5 @@
+// TODO: Implement safe property path like `Transforms::props().translation().x()` using only const, (Property validation is working at least)
+
 /// A type safe way of referring to properties that can be animated.
 ///
 /// If a type implements `AnimatedProperties` each property can be retrieved

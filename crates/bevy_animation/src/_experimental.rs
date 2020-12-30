@@ -1,3 +1,5 @@
+//! Contains unused experimental ideas
+
 #![allow(dead_code)]
 
 use bevy_ecs::prelude::*;
