@@ -24,12 +24,18 @@ pub fn derive_discovery_plugin(input: proc_macro::TokenStream) -> proc_macro::To
         .find(|a| *a.path.get_ident().as_ref().unwrap() == "root")
         .expect("set search root")
         .parse_args::<LitStr>()
-        .unwrap()
-        .value();
+        .as_ref()
+        .map(LitStr::value)
+        .unwrap_or("src/main.rs".to_string());
 
     let mut ts = TokenStream::new();
 
     let path = PathBuf::from(root_filename);
+    let mut manifest_dir = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap());
+    manifest_dir.push(path);
+    
+    let path = manifest_dir;
+
     let mut file = File::open(&path).expect("Unable to open file");
     let mut src = String::new();
     file.read_to_string(&mut src).expect("Unable to read file");

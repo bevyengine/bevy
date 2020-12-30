@@ -159,6 +159,10 @@ name = "plugin"
 path = "examples/app/plugin.rs"
 
 [[example]]
+name = "discovery"
+path = "examples/app/discovery.rs"
+
+[[example]]
 name = "plugin_group"
 path = "examples/app/plugin_group.rs"
 
