@@ -19,6 +19,6 @@ impl<T: DiscoveryPlugin> Plugin for T {
     fn build(&self, app: &mut AppBuilder) {
         self.build(app);
     }
-} 
+}
 
 pub type CreatePlugin = unsafe fn() -> *mut dyn Plugin;

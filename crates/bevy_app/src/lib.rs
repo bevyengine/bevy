@@ -12,7 +12,7 @@ mod schedule_runner;
 
 pub use app::*;
 pub use app_builder::*;
-pub use bevy_derive::{DynamicPlugin, DiscoveryPlugin, system};
+pub use bevy_derive::{system, DiscoveryPlugin, DynamicPlugin};
 pub use event::*;
 pub use plugin::*;
 pub use plugin_group::*;
@@ -23,6 +23,6 @@ pub mod prelude {
         app::App,
         app_builder::AppBuilder,
         event::{EventReader, Events},
-        stage, DynamicPlugin, Plugin, DiscoveryPlugin, system, PluginGroup,
+        stage, system, DiscoveryPlugin, DynamicPlugin, Plugin, PluginGroup,
     };
 }

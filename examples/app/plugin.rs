@@ -33,7 +33,8 @@ impl Plugin for PrintMessagePlugin {
             message: self.message.clone(),
             timer: Timer::new(self.wait_duration, true),
         };
-        app.add_resource(state).add_resource(state2)
+        app.add_resource(state)
+            .add_resource(state2)
             .add_system(print_message_system.system());
     }
 }
@@ -64,4 +65,3 @@ fn discovered_system(mut state: ResMut<DiscoveredState>, time: Res<Time>) {
 #[derive(DiscoveryPlugin)]
 #[root("/mnt/33CA263211FBF90F/bevy/examples/app/plugin.rs")]
 struct DiscPlugin;
-
