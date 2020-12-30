@@ -22,9 +22,7 @@ pub struct QueuedText {
 }
 
 fn scale_value(value: f32, factor: f64) -> f32 {
-    let result = ((value as f64) * factor) as f32;
-    println!("scale: {}*{} -> {}", value, factor, result);
-    result
+    (value as f64 * factor) as f32
 }
 
 /// Defines how min_size, size, and max_size affects the bounds of a text

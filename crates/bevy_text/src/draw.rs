@@ -1,4 +1,4 @@
-use bevy_math::{Mat4, Vec2, Vec3};
+use bevy_math::{Mat4, Vec3};
 use bevy_render::{
     color::Color,
     draw::{Draw, DrawContext, DrawError, Drawable},
@@ -98,8 +98,6 @@ impl<'a> Drawable for DrawableText<'a> {
         // set global bindings
         context.set_bind_groups_from_bindings(draw, &mut [self.render_resource_bindings])?;
 
-        let scale = Vec2::splat(1.);
-
         for tv in self.text_glyphs {
             context.set_asset_bind_groups(draw, &tv.atlas_info.texture_atlas)?;
 
@@ -125,11 +123,9 @@ impl<'a> Drawable for DrawableText<'a> {
 
             let transform_buffer = context.get_uniform_buffer(&transform).unwrap();
             let sprite_buffer = context.get_uniform_buffer(&sprite).unwrap();
-            let scale_buffer = context.get_uniform_buffer(&scale).unwrap();
             let sprite_bind_group = BindGroup::build()
                 .add_binding(0, transform_buffer)
                 .add_binding(1, sprite_buffer)
-                .add_binding(2, scale_buffer)
                 .finish();
             context.create_bind_group_resource(2, &sprite_bind_group)?;
             draw.set_bind_group(2, &sprite_bind_group);

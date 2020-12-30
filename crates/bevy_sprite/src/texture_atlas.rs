@@ -52,28 +52,6 @@ impl TextureAtlasSprite {
     }
 }
 
-#[derive(Debug, RenderResources, RenderResource)]
-#[render_resources(from_self)]
-pub struct TextureAtlasSpriteScale {
-    pub scale: Vec2,
-}
-
-impl Default for TextureAtlasSpriteScale {
-    fn default() -> Self {
-        Self {
-            scale: Vec2::splat(1.),
-        }
-    }
-}
-
-unsafe impl Byteable for TextureAtlasSpriteScale {}
-
-impl TextureAtlasSpriteScale {
-    pub fn new(scale: Vec2) -> TextureAtlasSpriteScale {
-        Self { scale }
-    }
-}
-
 impl TextureAtlas {
     /// Create a new `TextureAtlas` that has a texture, but does not have
     /// any individual sprites specified
