@@ -3,6 +3,7 @@ extern crate proc_macro;
 mod app_plugin;
 mod bevy_main;
 mod bytes;
+mod discovery_plugin;
 mod modules;
 mod render_resource;
 mod render_resources;
@@ -48,6 +49,17 @@ pub fn derive_shader_defs(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(DynamicPlugin)]
 pub fn derive_dynamic_plugin(input: TokenStream) -> TokenStream {
     app_plugin::derive_dynamic_plugin(input)
+}
+
+/// Searches the module and its descendents, registering every function annotated with `#[system]` under the plugin
+#[proc_macro_derive(DiscoveryPlugin, attributes(root))]
+pub fn derive_discovery_plugin(input: TokenStream) -> TokenStream {
+    discovery_plugin::derive_discovery_plugin(input)
+}
+
+#[proc_macro_attribute]
+pub fn system(_: TokenStream, item: TokenStream) -> TokenStream {
+    item
 }
 
 #[proc_macro_attribute]

@@ -11,6 +11,7 @@ fn main() {
             wait_duration: Duration::from_secs(1),
             message: "This is an example plugin".to_string(),
         })
+        .add_plugin(DiscPlugin)
         .run();
 }
 
@@ -28,7 +29,11 @@ impl Plugin for PrintMessagePlugin {
             message: self.message.clone(),
             timer: Timer::new(self.wait_duration, true),
         };
-        app.add_resource(state)
+        let state2 = DiscoveredState {
+            message: self.message.clone(),
+            timer: Timer::new(self.wait_duration, true),
+        };
+        app.add_resource(state).add_resource(state2)
             .add_system(print_message_system.system());
     }
 }
@@ -38,8 +43,25 @@ struct PrintMessageState {
     timer: Timer,
 }
 
+struct DiscoveredState {
+    message: String,
+    timer: Timer,
+}
+
 fn print_message_system(mut state: ResMut<PrintMessageState>, time: Res<Time>) {
     if state.timer.tick(time.delta_seconds()).finished() {
         println!("{}", state.message);
     }
 }
+
+#[system]
+fn discovered_system(mut state: ResMut<DiscoveredState>, time: Res<Time>) {
+    if state.timer.tick(time.delta_seconds()).finished() {
+        println!("Woo, discovered system!");
+    }
+}
+
+#[derive(DiscoveryPlugin)]
+#[root("/mnt/33CA263211FBF90F/bevy/examples/app/plugin.rs")]
+struct DiscPlugin;
+

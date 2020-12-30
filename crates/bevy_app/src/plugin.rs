@@ -11,4 +11,14 @@ pub trait Plugin: Any + Send + Sync {
     }
 }
 
+pub trait DiscoveryPlugin: Any + Send + Sync {
+    fn build(&self, app: &mut AppBuilder);
+}
+
+impl<T: DiscoveryPlugin> Plugin for T {
+    fn build(&self, app: &mut AppBuilder) {
+        self.build(app);
+    }
+} 
+
 pub type CreatePlugin = unsafe fn() -> *mut dyn Plugin;
