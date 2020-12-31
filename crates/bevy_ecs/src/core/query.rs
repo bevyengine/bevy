@@ -134,11 +134,17 @@ impl<T: WorldQuery> WorldQuery for Option<T> {
 #[derive(Debug, Clone)]
 pub struct Flags<T: Component> {
     _marker: std::marker::PhantomData<T>,
+    with: bool,
     added: bool,
     mutated: bool,
 }
 
 impl<T: Component> Flags<T> {
+    /// Does the entity have this component
+    pub fn with(&self) -> bool {
+        self.with
+    }
+
     /// Has this component been added since the start of the frame.
     pub fn added(&self) -> bool {
         self.added
@@ -267,13 +273,13 @@ impl<'a, T: Fetch<'a>> Fetch<'a> for TryFetch<T> {
 }
 
 #[doc(hidden)]
-pub struct FlagsFetch<T>(NonNull<ComponentFlags>, PhantomData<T>);
+pub struct FlagsFetch<T>(Option<NonNull<ComponentFlags>>, PhantomData<T>);
 unsafe impl<T> ReadOnlyFetch for FlagsFetch<T> {}
 
 impl<'a, T: Component> Fetch<'a> for FlagsFetch<T> {
     type Item = Flags<T>;
 
-    const DANGLING: Self = Self(NonNull::dangling(), PhantomData::<T>);
+    const DANGLING: Self = Self(None, PhantomData::<T>);
 
     #[inline]
     fn access() -> QueryAccess {
@@ -281,22 +287,32 @@ impl<'a, T: Component> Fetch<'a> for FlagsFetch<T> {
     }
 
     unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
-        archetype
-            .get_type_state(std::any::TypeId::of::<T>())
-            .map(|type_state| {
-                Self(
-                    NonNull::new_unchecked(type_state.component_flags().as_ptr().add(offset)),
-                    PhantomData::<T>,
-                )
-            })
+        Some(Self(
+            archetype
+                .get_type_state(std::any::TypeId::of::<T>())
+                .map(|type_state| {
+                    NonNull::new_unchecked(type_state.component_flags().as_ptr().add(offset))
+                }),
+            PhantomData::<T>,
+        ))
     }
 
     unsafe fn fetch(&self, n: usize) -> Self::Item {
-        let flags = *self.0.as_ptr().add(n);
-        Self::Item {
-            _marker: PhantomData::<T>,
-            added: flags.contains(ComponentFlags::ADDED),
-            mutated: flags.contains(ComponentFlags::MUTATED),
+        if let Some(flags) = self.0.as_ref() {
+            let flags = *flags.as_ptr().add(n);
+            Self::Item {
+                _marker: PhantomData::<T>,
+                with: true,
+                added: flags.contains(ComponentFlags::ADDED),
+                mutated: flags.contains(ComponentFlags::MUTATED),
+            }
+        } else {
+            Self::Item {
+                _marker: PhantomData::<T>,
+                with: false,
+                added: false,
+                mutated: false,
+            }
         }
     }
 }
@@ -708,21 +724,29 @@ mod tests {
     fn flags_query() {
         let mut world = World::default();
         let e1 = world.spawn((A(0), B(0)));
+        world.spawn((B(0),));
 
         fn get_flags(world: &World) -> Vec<Flags<A>> {
             world.query::<Flags<A>>().collect::<Vec<Flags<A>>>()
         };
         let flags = get_flags(&world);
+        assert!(flags[0].with());
         assert!(flags[0].added());
         assert!(!flags[0].mutated());
         assert!(flags[0].changed());
+        assert!(!flags[1].with());
+        assert!(!flags[1].added());
+        assert!(!flags[1].mutated());
+        assert!(!flags[1].changed());
         world.clear_trackers();
         let flags = get_flags(&world);
+        assert!(flags[0].with());
         assert!(!flags[0].added());
         assert!(!flags[0].mutated());
         assert!(!flags[0].changed());
         *world.get_mut(e1).unwrap() = A(1);
         let flags = get_flags(&world);
+        assert!(flags[0].with());
         assert!(!flags[0].added());
         assert!(flags[0].mutated());
         assert!(flags[0].changed());
