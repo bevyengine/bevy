@@ -23,12 +23,6 @@ use crate::{
 // TODO: Expand types like Vec2, Vec3, Vec4 and Color
 // ! FIXME: Vec2, Vec3, Vec4 doesn't implement bevy_reflect::Struct so they can't be auto expanded
 
-/// Mask size used to blend properties, each bit corresponds to a property
-type Mask = u32;
-
-/// Number of animated properties a type can hold
-const MASK_LIMIT: usize = size_of::<Mask>() * 8;
-
 type AnimateFn = unsafe fn(
     get_mut: &mut dyn FnMut(usize) -> Option<*mut u8>,
     entities_map: &[u16],

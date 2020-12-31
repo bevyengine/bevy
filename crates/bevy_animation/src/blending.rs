@@ -27,6 +27,12 @@ struct Ptr(*const u8);
 unsafe impl Send for Ptr {}
 unsafe impl Sync for Ptr {}
 
+/// Mask size used to blend properties, each bit corresponds to a property
+pub type Mask = u32;
+
+/// Number of animated properties a type can hold
+pub const MASK_LIMIT: usize = size_of::<Mask>() * 8;
+
 #[derive(Default, Debug)]
 pub struct AnimatorBlending {
     bits: Vec<u32>,
