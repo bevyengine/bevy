@@ -69,7 +69,7 @@ pub fn derive_discovery_plugin(input: proc_macro::TokenStream) -> proc_macro::To
     search_file_cache(&path, &mut cache, &mut ts, &quote! { self });
 
     cache_file
-        .write(ron::to_string(&cache).unwrap().as_bytes())
+        .write_all(ron::to_string(&cache).unwrap().as_bytes())
         .expect("Cannot write to cache");
 
     let app_path = modules::get_path(&modules.bevy_app);
