@@ -99,6 +99,7 @@ pub fn draw_text2d_system(
                 msaa: &msaa,
                 text_glyphs: &text_glyphs.glyphs,
                 font_quad_vertex_descriptor: &vertex_buffer_descriptor,
+                scale_factor: 1.,
                 style: &text.style,
             };
 
@@ -121,8 +122,8 @@ pub fn text2d_system(
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<DefaultTextPipeline>,
     mut text_queries: QuerySet<(
-        Query<Entity, Changed<Text>>,
-        Query<(&Text, &mut CalculatedSize)>,
+        Query<Entity, (With<MainPass>, Changed<Text>)>,
+        Query<(&Text, &mut CalculatedSize), With<MainPass>>,
     )>,
 ) {
     // Adds all entities where the text or the style has changed to the local queue
