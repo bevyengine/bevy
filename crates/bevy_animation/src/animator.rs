@@ -829,7 +829,7 @@ mod tests {
                 let mut clip_a = Clip::default();
                 clip_a.add_curve_at_path(
                     "@Transform.translation",
-                    Curve::from_linear(0.0, 1.0, Vec3::unit_x(), -Vec3::unit_x()),
+                    Curve::from_line(0.0, 1.0, Vec3::unit_x(), -Vec3::unit_x()),
                 );
                 let rot = Curve::from_constant(Quat::identity());
                 clip_a.add_curve_at_path("@Transform.rotation", rot.clone());
@@ -841,7 +841,7 @@ mod tests {
                     "@Transform.translation",
                     Curve::from_constant(Vec3::zero()),
                 );
-                let rot = Curve::from_linear(
+                let rot = Curve::from_line(
                     0.0,
                     1.0,
                     Quat::from_axis_angle(Vec3::unit_z(), 0.1),
@@ -1224,7 +1224,7 @@ mod tests {
             let clip_a = clips.get_mut(clip_a_handle).unwrap();
             clip_a.add_curve_at_path(
                 "/Node3/@Transform.translation",
-                Curve::from_linear(0.0, 1.0, Vec3::unit_z(), -Vec3::unit_z()),
+                Curve::from_line(0.0, 1.0, Vec3::unit_z(), -Vec3::unit_z()),
             );
         }
 

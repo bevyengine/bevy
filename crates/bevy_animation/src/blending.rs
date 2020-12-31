@@ -1,11 +1,12 @@
-use crate::lerping::Lerp;
 use bevy_asset::{Asset, Handle, HandleUntyped};
 use bevy_math::prelude::*;
 use bevy_render::color::Color;
 use fnv::FnvBuildHasher;
-use std::collections::HashMap;
+use std::{collections::HashMap, mem::size_of};
 
-// pub struct Bit<'a>(&'a mut u32, u32);
+use crate::lerping::Lerp;
+
+// pub struct Bit<'a>(&'a mut Mask, Mask);
 
 // impl<'a> Bit<'a> {
 //     #[inline(always)]
@@ -35,7 +36,7 @@ pub const MASK_LIMIT: usize = size_of::<Mask>() * 8;
 
 #[derive(Default, Debug)]
 pub struct AnimatorBlending {
-    bits: Vec<u32>,
+    bits: Vec<Mask>,
     // ? NOTE: HashMap is used here to reduce memory waste, it's slower but other wise a lot of memory won't be used
     /// Used for contest blend type
     weights: HashMap<Ptr, f32, FnvBuildHasher>,
@@ -61,7 +62,7 @@ impl<'a> AnimatorBlendGroup<'a> {
     pub fn blend_lerp<T: Lerp>(
         &mut self,
         entity_index: usize,
-        bit_mask: u32,
+        bit_mask: Mask,
         attribute: &mut T,
         value: T,
         weight: f32,
@@ -101,7 +102,7 @@ impl<'a> AnimatorBlendGroup<'a> {
 ///     fn blend(
 ///         &mut self,
 ///         entity_index: usize,
-///         bit_mask: u32,
+///         bit_mask: Mask,
 ///         blend_group: &mut AnimatorBlendGroup,
 ///         value: Self,
 ///         weight: f32,
@@ -116,7 +117,7 @@ pub trait Blend {
     fn blend(
         &mut self,
         entity_index: usize,
-        bit_mask: u32,
+        bit_mask: Mask,
         blend_group: &mut AnimatorBlendGroup,
         value: Self,
         weight: f32,
@@ -130,7 +131,7 @@ macro_rules! lerp {
             fn blend(
                 &mut self,
                 entity_index: usize,
-                bit_mask: u32,
+                bit_mask: Mask,
                 blend_group: &mut AnimatorBlendGroup,
                 value: Self,
                 weight: f32,
@@ -154,7 +155,7 @@ impl<T: Asset + 'static> Blend for Handle<T> {
     fn blend(
         &mut self,
         _: usize,
-        _: u32,
+        _: Mask,
         blend_group: &mut AnimatorBlendGroup,
         value: Self,
         weight: f32,
@@ -168,7 +169,7 @@ impl Blend for HandleUntyped {
     fn blend(
         &mut self,
         _: usize,
-        _: u32,
+        _: Mask,
         blend_group: &mut AnimatorBlendGroup,
         value: Self,
         weight: f32,
@@ -181,7 +182,7 @@ impl<T: Blend> Blend for Option<T> {
     fn blend(
         &mut self,
         entity_index: usize,
-        bit_mask: u32,
+        bit_mask: Mask,
         blend_group: &mut AnimatorBlendGroup,
         value: Self,
         weight: f32,
