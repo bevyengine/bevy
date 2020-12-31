@@ -162,7 +162,6 @@ pub struct Clip {
     // ! fetching extra components that aren't been used
     hierarchy: Hierarchy,
     // ? NOTE: AHash performed worse than FnvHasher
-    // TODO: Change to Cow<'static, str> since it will be used quit a lot as the common case
     /// Each curve and keyframe cache index mapped by property name
     properties: HashMap<String, (usize, CurvesUntyped), FnvBuildHasher>,
     /// Number of animated properties
@@ -440,8 +439,6 @@ pub struct Animator {
     missing_entities: bool,
     #[reflect(ignore)]
     entities: Vec<Option<Entity>>,
-    // TODO: Layer groups
-    // TODO: Layer mask (apply a clip animation only in a portion of the tree)
     pub time_scale: f32,
     pub layers: Vec<Layer>,
 }
@@ -465,14 +462,13 @@ impl Animator {
         if let Some(i) = self.clips.iter().position(|c| *c == clip) {
             i
         } else {
-            // TODO: assert too many clips ...
             let i = self.clips.len();
             self.clips.push(clip);
             i
         }
     }
 
-    // TODO: remove clip (this operation will be very hard)
+    // TODO: remove clip
 
     pub fn add_layer(&mut self, clip: Handle<Clip>, weight: f32) -> usize {
         let clip = self.add_clip(clip);
