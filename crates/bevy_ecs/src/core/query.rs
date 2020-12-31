@@ -564,7 +564,7 @@ mod tests {
             world
                 .query_filtered::<Entity, Added<Com>>()
                 .collect::<Vec<Entity>>()
-        };
+        }
 
         assert_eq!(get_added::<A>(&world), vec![e1]);
         world.insert(e1, (B(0),)).unwrap();
@@ -599,7 +599,7 @@ mod tests {
 
         fn get_filtered<F: QueryFilter>(world: &mut World) -> Vec<Entity> {
             world.query_filtered::<Entity, F>().collect::<Vec<Entity>>()
-        };
+        }
 
         assert_eq!(get_filtered::<Mutated<A>>(&mut world), vec![e1, e3]);
 
@@ -712,7 +712,7 @@ mod tests {
             world
                 .query_filtered::<Entity, Changed<A>>()
                 .collect::<Vec<Entity>>()
-        };
+        }
         assert_eq!(get_changed(&world), vec![e1]);
         world.clear_trackers();
         assert_eq!(get_changed(&world), vec![]);
@@ -728,7 +728,7 @@ mod tests {
 
         fn get_flags(world: &World) -> Vec<Flags<A>> {
             world.query::<Flags<A>>().collect::<Vec<Flags<A>>>()
-        };
+        }
         let flags = get_flags(&world);
         assert!(flags[0].with());
         assert!(flags[0].added());
