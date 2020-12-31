@@ -8,9 +8,9 @@ use bevy_render::{
     render_graph::base::MainPass,
     renderer::RenderResourceBindings,
 };
-use bevy_window::Windows;
 use bevy_sprite::{TextureAtlas, QUAD_HANDLE};
 use bevy_transform::prelude::{GlobalTransform, Transform};
+use bevy_window::Windows;
 use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
 
 use crate::{
@@ -122,6 +122,7 @@ pub struct QueuedText2d {
 }
 
 /// Updates the TextGlyphs with the new computed glyphs from the layout
+#[allow(clippy::too_many_arguments)]
 pub fn text2d_system(
     mut queued_text: Local<QueuedText2d>,
     mut textures: ResMut<Assets<Texture>>,
@@ -160,7 +161,7 @@ pub fn text2d_system(
                 text.font.clone(),
                 &fonts,
                 &text.value,
-                scale_value (text.style.font_size, scale_factor),
+                scale_value(text.style.font_size, scale_factor),
                 text.style.alignment,
                 Size::new(f32::MAX, f32::MAX),
                 &mut *font_atlas_set_storage,
@@ -178,9 +179,9 @@ pub fn text2d_system(
                     let text_layout_info = text_pipeline.get_glyphs(&entity).expect(
                         "Failed to get glyphs from the pipeline that have just been computed",
                     );
-                    calculated_size.size = Size{
-                        width: scale_value (text_layout_info.size.width, 1. / scale_factor),
-                        height: scale_value (text_layout_info.size.height, 1. / scale_factor),
+                    calculated_size.size = Size {
+                        width: scale_value(text_layout_info.size.width, 1. / scale_factor),
+                        height: scale_value(text_layout_info.size.height, 1. / scale_factor),
                     };
                 }
             }
