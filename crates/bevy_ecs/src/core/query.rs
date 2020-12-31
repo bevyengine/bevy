@@ -130,6 +130,41 @@ impl<T: WorldQuery> WorldQuery for Option<T> {
     type Fetch = TryFetch<T::Fetch>;
 }
 
+/// Flags on component `T` that happened since the start of the frame.
+#[derive(Debug, Clone)]
+pub struct Flags<T: Component> {
+    _marker: std::marker::PhantomData<T>,
+    with: bool,
+    added: bool,
+    mutated: bool,
+}
+
+impl<T: Component> Flags<T> {
+    /// Does the entity have this component
+    pub fn with(&self) -> bool {
+        self.with
+    }
+
+    /// Has this component been added since the start of the frame.
+    pub fn added(&self) -> bool {
+        self.added
+    }
+
+    /// Has this component been mutated since the start of the frame.
+    pub fn mutated(&self) -> bool {
+        self.mutated
+    }
+
+    /// Has this component been either mutated or added since the start of the frame.
+    pub fn changed(&self) -> bool {
+        self.added || self.mutated
+    }
+}
+
+impl<T: Component> WorldQuery for Flags<T> {
+    type Fetch = FlagsFetch<T>;
+}
+
 /// Unique borrow of an entity's component
 pub struct Mut<'a, T: Component> {
     pub(crate) value: &'a mut T,
@@ -234,6 +269,51 @@ impl<'a, T: Fetch<'a>> Fetch<'a> for TryFetch<T> {
 
     unsafe fn fetch(&self, n: usize) -> Option<T::Item> {
         Some(self.0.as_ref()?.fetch(n))
+    }
+}
+
+#[doc(hidden)]
+pub struct FlagsFetch<T>(Option<NonNull<ComponentFlags>>, PhantomData<T>);
+unsafe impl<T> ReadOnlyFetch for FlagsFetch<T> {}
+
+impl<'a, T: Component> Fetch<'a> for FlagsFetch<T> {
+    type Item = Flags<T>;
+
+    const DANGLING: Self = Self(None, PhantomData::<T>);
+
+    #[inline]
+    fn access() -> QueryAccess {
+        QueryAccess::read::<T>()
+    }
+
+    unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
+        Some(Self(
+            archetype
+                .get_type_state(std::any::TypeId::of::<T>())
+                .map(|type_state| {
+                    NonNull::new_unchecked(type_state.component_flags().as_ptr().add(offset))
+                }),
+            PhantomData::<T>,
+        ))
+    }
+
+    unsafe fn fetch(&self, n: usize) -> Self::Item {
+        if let Some(flags) = self.0.as_ref() {
+            let flags = *flags.as_ptr().add(n);
+            Self::Item {
+                _marker: PhantomData::<T>,
+                with: true,
+                added: flags.contains(ComponentFlags::ADDED),
+                mutated: flags.contains(ComponentFlags::MUTATED),
+            }
+        } else {
+            Self::Item {
+                _marker: PhantomData::<T>,
+                with: false,
+                added: false,
+                mutated: false,
+            }
+        }
     }
 }
 
@@ -466,7 +546,7 @@ smaller_tuples_too!(tuple_impl, O, N, M, L, K, J, I, H, G, F, E, D, C, B, A);
 
 #[cfg(test)]
 mod tests {
-    use crate::core::{Added, Changed, Component, Entity, Mutated, Or, QueryFilter, World};
+    use crate::core::{Added, Changed, Component, Entity, Flags, Mutated, Or, QueryFilter, World};
     use std::{vec, vec::Vec};
 
     use super::Mut;
@@ -638,6 +718,38 @@ mod tests {
         assert_eq!(get_changed(&world), vec![]);
         *world.get_mut(e1).unwrap() = A(1);
         assert_eq!(get_changed(&world), vec![e1]);
+    }
+
+    #[test]
+    fn flags_query() {
+        let mut world = World::default();
+        let e1 = world.spawn((A(0), B(0)));
+        world.spawn((B(0),));
+
+        fn get_flags(world: &World) -> Vec<Flags<A>> {
+            world.query::<Flags<A>>().collect::<Vec<Flags<A>>>()
+        }
+        let flags = get_flags(&world);
+        assert!(flags[0].with());
+        assert!(flags[0].added());
+        assert!(!flags[0].mutated());
+        assert!(flags[0].changed());
+        assert!(!flags[1].with());
+        assert!(!flags[1].added());
+        assert!(!flags[1].mutated());
+        assert!(!flags[1].changed());
+        world.clear_trackers();
+        let flags = get_flags(&world);
+        assert!(flags[0].with());
+        assert!(!flags[0].added());
+        assert!(!flags[0].mutated());
+        assert!(!flags[0].changed());
+        *world.get_mut(e1).unwrap() = A(1);
+        let flags = get_flags(&world);
+        assert!(flags[0].with());
+        assert!(!flags[0].added());
+        assert!(flags[0].mutated());
+        assert!(flags[0].changed());
     }
 
     #[test]

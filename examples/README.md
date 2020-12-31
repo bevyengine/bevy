@@ -114,6 +114,7 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
+`change_detection` | [`ecs/change_detection.rs`](./ecs/change_detection.rs) | Change detection on components
 `ecs_guide` | [`ecs/ecs_guide.rs`](./ecs/ecs_guide.rs) | Full guide to Bevy's ECS
 `event` | [`ecs/event.rs`](./ecs/event.rs) | Illustrates event creation, activation, and reception
 `hierarchy` | [`ecs/hierarchy.rs`](./ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities
