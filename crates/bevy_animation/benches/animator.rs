@@ -64,12 +64,7 @@ impl AnimtorTestBench {
             let mut clip_a = Clip::default();
             clip_a.add_animated_prop(
                 "@Transform.translation",
-                CurveUntyped::Vec3(Curve::from_linear(
-                    0.0,
-                    1.0,
-                    Vec3::unit_x(),
-                    -Vec3::unit_x(),
-                )),
+                CurveUntyped::Vec3(Curve::from_line(0.0, 1.0, Vec3::unit_x(), -Vec3::unit_x())),
             );
             let rot = CurveUntyped::Quat(Curve::from_constant(Quat::identity()));
             clip_a.add_animated_prop("@Transform.rotation", rot.clone());
@@ -81,7 +76,7 @@ impl AnimtorTestBench {
                 "@Transform.translation",
                 CurveUntyped::Vec3(Curve::from_constant(Vec3::zero())),
             );
-            let rot = CurveUntyped::Quat(Curve::from_linear(
+            let rot = CurveUntyped::Quat(Curve::from_line(
                 0.0,
                 1.0,
                 Quat::from_axis_angle(Vec3::unit_z(), 0.1),

@@ -10,8 +10,10 @@ use bevy_render::prelude::Color;
 use tracing::warn;
 
 use crate::{
-    blending::AnimatorBlendGroup, blending::Blend, help::shorten_name, lerping::Lerp, Animator,
-    AnimatorBlending, Clip,
+    blending::{AnimatorBlendGroup, Blend, Mask, MASK_LIMIT},
+    help::shorten_name,
+    lerping::Lerp,
+    Animator, AnimatorBlending, Clip,
 };
 
 // ? NOTE: Generic types like `Option<T>` must be specialized and registered with `register_animated_property_type`
@@ -22,12 +24,6 @@ use crate::{
 // TODO: Accept also `TupleStruct` and `Value`
 // TODO: Expand types like Vec2, Vec3, Vec4 and Color
 // ! FIXME: Vec2, Vec3, Vec4 doesn't implement bevy_reflect::Struct so they can't be auto expanded
-
-/// Mask size used to blend properties, each bit corresponds to a property
-type Mask = u32;
-
-/// Number of animated properties a type can hold
-const MASK_LIMIT: usize = size_of::<Mask>() * 8;
 
 type AnimateFn = unsafe fn(
     get_mut: &mut dyn FnMut(usize) -> Option<*mut u8>,
@@ -103,7 +99,7 @@ impl AnimatorPropertyRegistry {
 
 /// Use need to guarantee that `Property` is valid and is owned by same type
 /// of object returned by `get_mut` function
-unsafe fn animate<T: Lerp + Blend + Clone + 'static>(
+unsafe fn animate<T>(
     get_mut: &mut dyn FnMut(usize) -> Option<*mut u8>,
     entities_map: &[u16],
     blend_group: &mut AnimatorBlendGroup,
@@ -112,7 +108,9 @@ unsafe fn animate<T: Lerp + Blend + Clone + 'static>(
     time: f32,
     w: f32,
     prop: &Property,
-) {
+) where
+    T: Lerp + Blend + Clone + 'static,
+{
     assert_eq!(TypeId::of::<T>(), prop.type_id);
 
     if let Some(curves) = clip

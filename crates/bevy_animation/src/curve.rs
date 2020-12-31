@@ -1,9 +1,14 @@
 use std::any::TypeId;
 
-use super::lerping::Lerp;
+use crate::lerping::Lerp;
 
 // TODO: Curve/Clip need a validation during deserialization because they are
 // structured as SOA (struct of arrays), so the vec's length must match
+
+// https://github.com/niklasfrykholm/blog
+// https://bitsquid.blogspot.com/search?q=animation
+// http://bitsquid.blogspot.com/2009/11/bitsquid-low-level-animation-system.html
+// http://archive.gamedev.net/archive/reference/articles/article1497.html (bit old)
 
 // TODO: impl Serialize, Deserialize
 #[derive(Default, Debug)]
@@ -33,7 +38,11 @@ impl<T> Curve<T> {
             "samples and values must have the same length"
         );
 
-        assert!(values.len() <= u16::MAX as usize, "too many keyframes");
+        assert!(
+            values.len() <= u16::MAX as usize,
+            "limit of {} keyframes exceeded",
+            u16::MAX
+        );
 
         assert!(samples.len() > 0, "empty curve");
 
@@ -48,7 +57,7 @@ impl<T> Curve<T> {
         Self { samples, values }
     }
 
-    pub fn from_linear(t0: f32, t1: f32, v0: T, v1: T) -> Self {
+    pub fn from_line(t0: f32, t1: f32, v0: T, v1: T) -> Self {
         Self {
             samples: if t1 >= t0 { vec![t0, t1] } else { vec![t1, t0] },
             values: vec![v0, v1],
