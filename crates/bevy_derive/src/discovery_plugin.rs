@@ -20,21 +20,21 @@ struct DiscoveryAttributes {
     pub root: String,
 }
 
-fn take_attr_value(attrs: &[Attribute], key: &str) -> String {
+fn take_attr_value(attrs: &[Attribute], key: &str) -> Option<String> {
     attrs
         .iter()
-        .find(|a| *a.path.get_ident().as_ref().unwrap() == key)
-        .unwrap_or_else(|| panic!("Cant find key {}", key))
+        .find(|a| *a.path.get_ident().as_ref().unwrap() == key)?
         .parse_args::<LitStr>()
         .as_ref()
         .map(LitStr::value)
-        .unwrap_or_else(|_| "src/main.rs".to_string())
+        .ok()
 }
 
 pub fn derive_discovery_plugin(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let modules = modules::get_modules(&ast.attrs);
-    let root_filename = take_attr_value(&ast.attrs, "root");
+    let root_filename =
+        take_attr_value(&ast.attrs, "root").unwrap_or_else(|| "src/main.rs".to_owned());
 
     let path = PathBuf::from(root_filename);
     let mut manifest_dir = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap());
@@ -48,28 +48,36 @@ pub fn derive_discovery_plugin(input: proc_macro::TokenStream) -> proc_macro::To
     let out_dir = env!("PROC_ARTIFACT_DIR");
     let mut cache_dir = PathBuf::from(out_dir);
     cache_dir.push(PathBuf::from(format!("discovery_cache_{:x}", hash)));
-    let mut cache_file = OpenOptions::new()
-        .write(true)
-        .read(true)
-        .create(true)
-        .open(cache_dir)
-        .expect("Cannot open cache");
+    let cache_path = cache_dir.with_extension("ron");
 
-    let mut cache_str = String::new();
-    cache_file
-        .read_to_string(&mut cache_str)
-        .expect("Unable to read cache");
-    let mut cache = cache_str
-        .parse::<Value>()
-        .unwrap_or_else(|_| Value::Map(ron::Map::new()))
+    let mut cache = File::open(&cache_path)
+        .ok()
+        .and_then(|mut file| {
+            let mut cache_str = String::new();
+            file.read_to_string(&mut cache_str)
+                .expect("Unable to read cache");
+            cache_str.parse::<Value>().ok()
+        })
+        .unwrap_or_else(|| Value::Map(ron::Map::new()))
         .into_rust::<FxHashMap<PathBuf, CacheEntry>>()
-        .expect("Invalid cache");
+        .unwrap_or_default();
 
     let mut ts = TokenStream::new();
     search_file_cache(&path, &mut cache, &mut ts, &quote! { self });
 
+    let mut cache_file = OpenOptions::new()
+        .truncate(true)
+        .write(true)
+        .create(true)
+        .open(&cache_path)
+        .unwrap();
+
     cache_file
-        .write_all(ron::to_string(&cache).unwrap().as_bytes())
+        .write_all(
+            ron::ser::to_string_pretty(&cache, Default::default())
+                .unwrap()
+                .as_bytes(),
+        )
         .expect("Cannot write to cache");
 
     let app_path = modules::get_path(&modules.bevy_app);
@@ -99,12 +107,16 @@ fn search_file_cache(
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap();
     if let Some((filepath, entry)) = cache.remove_entry(filepath) {
-        let module_path = &entry.module_path;
+        let module_path = syn::parse_str::<syn::Path>(&entry.module_path).unwrap();
         let module_path = &quote! { #module_path };
         if last_modified == entry.last_modified {
-            for path in entry.fn_paths.iter() {
-                let path = syn::parse_str::<syn::Path>(path).expect("Broken cache");
-                ts.extend(quote! { .add_system(#path.system()) });
+            for entry in entry.fn_paths.iter() {
+                let path = syn::parse_str::<syn::Path>(&entry.path).expect("Broken cache");
+                if let Some(stage) = &entry.stage {
+                    ts.extend(quote! { .add_system_to_stage(#stage, #path.system()) });
+                } else {
+                    ts.extend(quote! { .add_system(#path.system()) });
+                }
             }
 
             for file in entry.referenced_files.iter() {
@@ -178,7 +190,7 @@ fn search_file(
 
 #[derive(Default)]
 struct ContentSearchResult {
-    direct_additions: Vec<String>,
+    direct_additions: Vec<SystemEntry>,
     direct_referenced_paths: Vec<PathBuf>,
 }
 
@@ -193,11 +205,17 @@ fn search_contents(
     for item in content.iter() {
         match item {
             Item::Fn(f) => {
-                if f.attrs.iter().any(|a| a.path == get_path("system")) {
+                if let Some(a) = f.attrs.iter().find(|a| a.path == get_path("system")) {
                     let ident = &f.sig.ident;
                     let addition = quote! { .add_system(#module_path::#ident.system()) };
-                    csr.direct_additions
-                        .push((quote! { #module_path::#ident }).to_string());
+                    csr.direct_additions.push(SystemEntry {
+                        path: (quote! { #module_path::#ident }).to_string(),
+                        stage: a
+                            .parse_args::<TokenStream>()
+                            .as_ref()
+                            .map(TokenStream::to_string)
+                            .ok(),
+                    });
                     ts.extend(addition);
                 }
             }
@@ -237,7 +255,13 @@ fn search_contents(
 struct CacheEntry {
     last_modified: Duration,
     referenced_files: Vec<PathBuf>,
-    fn_paths: Vec<String>,
+    fn_paths: Vec<SystemEntry>,
     module_path: String,
     search_directory: PathBuf,
+}
+
+#[derive(Serialize, Deserialize)]
+struct SystemEntry {
+    path: String,
+    stage: Option<String>,
 }
