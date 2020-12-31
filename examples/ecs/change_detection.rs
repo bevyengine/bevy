@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use rand::Rng;
 
-/// This example illustrates how to customize the default window settings
+// This example illustrates how to react to component change
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
