@@ -199,6 +199,10 @@ name = "log_diagnostics"
 path = "examples/diagnostics/log_diagnostics.rs"
 
 [[example]]
+name = "change_detection"
+path = "examples/ecs/change_detection.rs"
+
+[[example]]
 name = "event"
 path = "examples/ecs/event.rs"
 
