@@ -35,7 +35,6 @@ pub fn derive_discovery_plugin(input: proc_macro::TokenStream) -> proc_macro::To
     let modules = modules::get_modules(&ast.attrs);
     let root_filename =
         take_attr_value(&ast.attrs, "root").unwrap_or_else(|| "src/main.rs".to_owned());
-
     let path = PathBuf::from(root_filename);
     let mut manifest_dir = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap());
     manifest_dir.push(path);
@@ -99,9 +98,10 @@ fn search_file_cache(
     ts: &mut TokenStream,
     module_path: &TokenStream,
 ) {
+    let fp = filepath.display().to_string();
     let last_modified = filepath
         .metadata()
-        .expect("cannot read metadata")
+        .unwrap_or_else(|e| panic!("cannot read metadata for {}: {}", fp, e))
         .modified()
         .expect("cannot read last modified")
         .duration_since(SystemTime::UNIX_EPOCH)
@@ -113,6 +113,7 @@ fn search_file_cache(
             for entry in entry.fn_paths.iter() {
                 let path = syn::parse_str::<syn::Path>(&entry.path).expect("Broken cache");
                 if let Some(stage) = &entry.stage {
+                    let stage = syn::parse_str::<TokenStream>(stage).unwrap();
                     ts.extend(quote! { .add_system_to_stage(#stage, #path.system()) });
                 } else {
                     ts.extend(quote! { .add_system(#path.system()) });
@@ -207,14 +208,16 @@ fn search_contents(
             Item::Fn(f) => {
                 if let Some(a) = f.attrs.iter().find(|a| a.path == get_path("system")) {
                     let ident = &f.sig.ident;
-                    let addition = quote! { .add_system(#module_path::#ident.system()) };
+                    let stage = a.parse_args::<TokenStream>().ok();
+                    let path = &quote! { #module_path::#ident };
+                    let addition = if let Some(stage) = &stage {
+                        quote! { .add_system_to_stage( #stage, #path.system()) }
+                    } else {
+                        quote! { .add_system(#path.system()) }
+                    };
                     csr.direct_additions.push(SystemEntry {
-                        path: (quote! { #module_path::#ident }).to_string(),
-                        stage: a
-                            .parse_args::<TokenStream>()
-                            .as_ref()
-                            .map(TokenStream::to_string)
-                            .ok(),
+                        path: path.to_string(),
+                        stage: stage.as_ref().map(TokenStream::to_string),
                     });
                     ts.extend(addition);
                 }
@@ -238,8 +241,8 @@ fn search_contents(
                         let mut filepath = dir;
                         if !filepath.with_extension("rs").exists() {
                             filepath.extend(&["mod"]);
-                            filepath.set_extension("rs");
                         }
+                        filepath.set_extension("rs");
                         search_file_cache(&filepath, cache, ts, &path);
                         csr.direct_referenced_paths.push(filepath);
                     }
