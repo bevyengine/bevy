@@ -2,7 +2,8 @@ mod convert;
 
 use crate::{Node, Style};
 use bevy_app::{EventReader, Events};
-use bevy_ecs::{Changed, Entity, Local, Query, QueryFilter, Res, ResMut, With, Without};
+use bevy_ecs::{Changed, Entity, Flags, Local, Query, QueryFilter, Res, ResMut, With, Without};
+use bevy_log::warn;
 use bevy_math::Vec2;
 use bevy_text::CalculatedSize;
 use bevy_transform::prelude::{Children, Parent, Transform};
@@ -98,8 +99,14 @@ impl FlexSurface {
     pub fn update_children(&mut self, entity: Entity, children: &Children) {
         let mut stretch_children = Vec::with_capacity(children.len());
         for child in children.iter() {
-            let stretch_node = self.entity_to_stretch.get(child).unwrap();
-            stretch_children.push(*stretch_node);
+            if let Some(stretch_node) = self.entity_to_stretch.get(child) {
+                stretch_children.push(*stretch_node);
+            } else {
+                warn!(
+                    "Unstyled child in a UI entity hierarchy. You are using an entity \
+without UI components as a child of an entity with UI components, results may be unexpected."
+                );
+            }
         }
 
         let stretch_node = self.entity_to_stretch.get(&entity).unwrap();
@@ -152,10 +159,25 @@ impl FlexSurface {
         }
     }
 
-    pub fn get_layout(&self, entity: Entity) -> Result<&stretch::result::Layout, stretch::Error> {
-        let stretch_node = self.entity_to_stretch.get(&entity).unwrap();
-        self.stretch.layout(*stretch_node)
+    pub fn get_layout(&self, entity: Entity) -> Result<&stretch::result::Layout, FlexError> {
+        if let Some(stretch_node) = self.entity_to_stretch.get(&entity) {
+            self.stretch
+                .layout(*stretch_node)
+                .map_err(FlexError::StretchError)
+        } else {
+            warn!(
+                "Styled child in a non-UI entity hierarchy. You are using an entity \
+with UI components as a child of an entity without UI components, results may be unexpected."
+            );
+            Err(FlexError::InvalidHierarchy)
+        }
     }
+}
+
+#[derive(Debug)]
+pub enum FlexError {
+    InvalidHierarchy,
+    StretchError(stretch::Error),
 }
 
 // SAFE: as long as MeasureFunc is Send + Sync. https://github.com/vislyhq/stretch/issues/69
@@ -176,7 +198,14 @@ pub fn flex_node_system(
         (With<Node>, Changed<CalculatedSize>),
     >,
     children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
-    mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
+    mut node_transform_query: Query<(
+        Entity,
+        &mut Node,
+        &mut Transform,
+        Option<&Parent>,
+        Flags<Parent>,
+        Flags<Transform>,
+    )>,
 ) {
     // update window root nodes
     for window in windows.iter() {
@@ -241,7 +270,9 @@ pub fn flex_node_system(
 
     let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
 
-    for (entity, mut node, mut transform, parent) in node_transform_query.iter_mut() {
+    for (entity, mut node, mut transform, parent, parent_flags, transform_flags) in
+        node_transform_query.iter_mut()
+    {
         let layout = flex_surface.get_layout(entity).unwrap();
         node.size = Vec2::new(
             to_logical(layout.size.width),
@@ -250,10 +281,12 @@ pub fn flex_node_system(
         let position = &mut transform.translation;
         position.x = to_logical(layout.location.x + layout.size.width / 2.0);
         position.y = to_logical(layout.location.y + layout.size.height / 2.0);
-        if let Some(parent) = parent {
-            if let Ok(parent_layout) = flex_surface.get_layout(parent.0) {
-                position.x -= to_logical(parent_layout.size.width / 2.0);
-                position.y -= to_logical(parent_layout.size.height / 2.0);
+        if parent_flags.changed() || transform_flags.changed() {
+            if let Some(parent) = parent {
+                if let Ok(parent_layout) = flex_surface.get_layout(parent.0) {
+                    position.x -= to_logical(parent_layout.size.width / 2.0);
+                    position.y -= to_logical(parent_layout.size.height / 2.0);
+                }
             }
         }
     }
