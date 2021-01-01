@@ -3,11 +3,11 @@ use bevy::prelude::*;
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .add_system(dropped_file_system.system())
+        .add_system(file_drag_and_drop_system.system())
         .run();
 }
 
-fn dropped_file_system(
+fn file_drag_and_drop_system(
     mut reader: Local<EventReader<FileDragAndDrop>>,
     events: Res<Events<FileDragAndDrop>>,
 ) {
