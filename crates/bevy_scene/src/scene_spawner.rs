@@ -313,10 +313,10 @@ impl SceneSpawner {
     }
 
     /// Get an iterator over the entities in an instance, once it's spawned
-    pub fn iter_instance_entities<'a>(
-        &'a self,
+    pub fn iter_instance_entities(
+        &'_ self,
         instance_id: InstanceId,
-    ) -> Option<impl Iterator<Item = Entity> + 'a> {
+    ) -> Option<impl Iterator<Item = Entity> + '_> {
         self.spawned_instances
             .get(&instance_id)
             .map(|instance| instance.entity_map.values())
