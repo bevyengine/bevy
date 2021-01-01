@@ -163,7 +163,7 @@ without UI components as a child of an entity with UI components, results may be
         if let Some(stretch_node) = self.entity_to_stretch.get(&entity) {
             self.stretch
                 .layout(*stretch_node)
-                .map_err(|err| FlexError::StretchError(err))
+                .map_err(FlexError::StretchError)
         } else {
             warn!(
                 "Styled child in a non-UI entity hierarchy. You are using an entity \
