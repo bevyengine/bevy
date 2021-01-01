@@ -107,6 +107,10 @@ name = "text2d"
 path = "examples/2d/text2d.rs"
 
 [[example]]
+name = "3d_scene"
+path = "examples/3d/3d_scene.rs"
+
+[[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
 
@@ -119,16 +123,16 @@ name = "parenting"
 path = "examples/3d/parenting.rs"
 
 [[example]]
-name = "3d_scene"
-path = "examples/3d/3d_scene.rs"
-
-[[example]]
 name = "spawner"
 path = "examples/3d/spawner.rs"
 
 [[example]]
 name = "texture"
 path = "examples/3d/texture.rs"
+
+[[example]]
+name = "update_gltf_scene"
+path = "examples/3d/update_gltf_scene.rs"
 
 [[example]]
 name = "z_sort_debug"

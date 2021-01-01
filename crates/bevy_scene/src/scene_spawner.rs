@@ -14,10 +14,10 @@ struct InstanceInfo {
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-struct InstanceId(Uuid);
+pub struct InstanceId(Uuid);
 
 impl InstanceId {
-    pub fn new() -> Self {
+    fn new() -> Self {
         InstanceId(Uuid::new_v4())
     }
 }
@@ -51,15 +51,17 @@ impl SceneSpawner {
         self.dynamic_scenes_to_spawn.push(scene_handle);
     }
 
-    pub fn spawn(&mut self, scene_handle: Handle<Scene>) {
+    pub fn spawn(&mut self, scene_handle: Handle<Scene>) -> InstanceId {
         let instance_id = InstanceId::new();
         self.scenes_to_spawn.push((scene_handle, instance_id));
+        instance_id
     }
 
-    pub fn spawn_as_child(&mut self, scene_handle: Handle<Scene>, parent: Entity) {
+    pub fn spawn_as_child(&mut self, scene_handle: Handle<Scene>, parent: Entity) -> InstanceId {
         let instance_id = InstanceId::new();
         self.scenes_to_spawn.push((scene_handle, instance_id));
         self.scenes_with_parent.push((instance_id, parent));
+        instance_id
     }
 
     pub fn despawn(&mut self, scene_handle: Handle<DynamicScene>) {
@@ -155,7 +157,7 @@ impl SceneSpawner {
         world: &mut World,
         resources: &Resources,
         scene_handle: Handle<Scene>,
-    ) -> Result<(), SceneSpawnError> {
+    ) -> Result<InstanceId, SceneSpawnError> {
         self.spawn_sync_internal(world, resources, scene_handle, InstanceId::new())
     }
 
@@ -165,7 +167,7 @@ impl SceneSpawner {
         resources: &Resources,
         scene_handle: Handle<Scene>,
         instance_id: InstanceId,
-    ) -> Result<(), SceneSpawnError> {
+    ) -> Result<InstanceId, SceneSpawnError> {
         let mut instance_info = InstanceInfo {
             entity_map: EntityMap::default(),
         };
@@ -220,7 +222,7 @@ impl SceneSpawner {
             .entry(scene_handle)
             .or_insert_with(Vec::new);
         spawned.push(instance_id);
-        Ok(())
+        Ok(instance_id)
     }
 
     pub fn update_spawned_scenes(
@@ -303,6 +305,21 @@ impl SceneSpawner {
                 self.scenes_with_parent.push((instance_id, parent));
             }
         }
+    }
+
+    /// Check that an scene instance spawned previously is ready to use
+    pub fn instance_is_ready(&self, instance_id: InstanceId) -> bool {
+        self.spawned_instances.contains_key(&instance_id)
+    }
+
+    /// Get an iterator over the entities in an instance, once it's spawned
+    pub fn iter_instance_entities(
+        &'_ self,
+        instance_id: InstanceId,
+    ) -> Option<impl Iterator<Item = Entity> + '_> {
+        self.spawned_instances
+            .get(&instance_id)
+            .map(|instance| instance.entity_map.values())
     }
 }
 
