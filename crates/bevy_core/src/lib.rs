@@ -17,7 +17,7 @@ pub use task_pool_options::DefaultTaskPoolOptions;
 pub use time::*;
 
 pub mod prelude {
-    pub use crate::{DefaultTaskPoolOptions, EntityLabels, Labels, Time, Timer};
+    pub use crate::{DefaultTaskPoolOptions, EntityLabels, Labels, Name, Time, Timer};
 }
 
 use bevy_app::{prelude::*, startup_stage};
