@@ -143,6 +143,10 @@ name = "custom_loop"
 path = "examples/app/custom_loop.rs"
 
 [[example]]
+name = "drag_and_drop"
+path = "examples/app/drag_and_drop.rs"
+
+[[example]]
 name = "empty_defaults"
 path = "examples/app/empty_defaults.rs"
 

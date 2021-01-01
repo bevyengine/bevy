@@ -81,6 +81,7 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `custom_loop` | [`app/custom_loop.rs`](./app/custom_loop.rs) | Demonstrates how to create a custom runner (to update an app manually).
+`drag_and_drop` | [`app/drag_and_drop.rs`](./app/drag_and_drop.rs) | An example that shows how to handle drag and drop in an app.
 `empty_defaults` | [`app/empty_defaults.rs`](./app/empty_defaults.rs) | An empty application with default plugins
 `empty` | [`app/empty.rs`](./app/empty.rs) | An empty application (does nothing)
 `headless` | [`app/headless.rs`](./app/headless.rs) | An application that runs without default plugins
