@@ -7,7 +7,7 @@ fn main() {
         .add_resource(SceneInstance::default())
         .add_startup_system(setup.system())
         .add_system(scene_update.system())
-        .add_system(list_scene_entities.system())
+        .add_system(move_scene_entities.system())
         .run();
 }
 
@@ -30,7 +30,7 @@ fn setup(
             ..Default::default()
         })
         .spawn(Camera3dBundle {
-            transform: Transform::from_translation(Vec3::new(0.7, 0.7, 1.0))
+            transform: Transform::from_translation(Vec3::new(1.05, 0.9, 1.5))
                 .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::unit_y()),
             ..Default::default()
         });
@@ -63,8 +63,8 @@ fn scene_update(
 ) {
     if !*done {
         if let Some(instance_id) = scene_instance.0 {
-            if scene_spawner.instance_is_ready(instance_id) {
-                scene_spawner.for_entity_in_scene_instance(instance_id, |entity| {
+            if let Some(entity_iter) = scene_spawner.iter_instance_entities(instance_id) {
+                entity_iter.for_each(|entity| {
                     commands.insert_one(entity, EntityInMyScene);
                 });
                 *done = true;
@@ -73,10 +73,21 @@ fn scene_update(
     }
 }
 
-// This system will list all entities with component `EntityInMyScene`, so all
+// This system will move all entities with component `EntityInMyScene`, so all
 // entities from the second scene
-fn list_scene_entities(scene_entities: Query<Entity, With<EntityInMyScene>>) {
-    for entity in scene_entities.iter() {
-        eprintln!("{:?}", entity);
+fn move_scene_entities(
+    time: Res<Time>,
+    mut scene_entities: Query<&mut Transform, With<EntityInMyScene>>,
+) {
+    let mut direction = 1.;
+    let mut scale = 1.;
+    for mut transform in scene_entities.iter_mut() {
+        transform.translation = Vec3::new(
+            scale * direction * time.seconds_since_startup().sin() as f32 / 20.,
+            0.,
+            time.seconds_since_startup().cos() as f32 / 20.,
+        );
+        direction *= -1.;
+        scale += 0.5;
     }
 }

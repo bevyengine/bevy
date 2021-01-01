@@ -307,16 +307,19 @@ impl SceneSpawner {
         }
     }
 
+    /// Check that an scene instance spawned previously is ready to use
     pub fn instance_is_ready(&self, instance_id: InstanceId) -> bool {
         self.spawned_instances.contains_key(&instance_id)
     }
 
-    pub fn for_entity_in_scene_instance(&self, instance_id: InstanceId, mut f: impl FnMut(Entity)) {
-        if let Some(instance) = self.spawned_instances.get(&instance_id) {
-            for entity in instance.entity_map.values() {
-                f(entity)
-            }
-        }
+    /// Get an iterator over the entities in an instance, once it's spawned
+    pub fn iter_instance_entities<'a>(
+        &'a self,
+        instance_id: InstanceId,
+    ) -> Option<impl Iterator<Item = Entity> + 'a> {
+        self.spawned_instances
+            .get(&instance_id)
+            .map(|instance| instance.entity_map.values())
     }
 }
 
