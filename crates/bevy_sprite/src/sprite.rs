@@ -6,7 +6,7 @@ use bevy_reflect::{Reflect, ReflectDeserialize, TypeUuid};
 use bevy_render::{renderer::RenderResources, texture::Texture};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, RenderResources, TypeUuid, Reflect)]
+#[derive(Debug, Default, Clone, RenderResources, TypeUuid, Reflect)]
 #[uuid = "7233c597-ccfa-411f-bd59-9af349432ada"]
 pub struct Sprite {
     pub size: Vec2,

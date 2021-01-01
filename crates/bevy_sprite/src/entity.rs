@@ -12,7 +12,7 @@ use bevy_render::{
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
-#[derive(Bundle)]
+#[derive(Bundle, Clone)]
 pub struct SpriteBundle {
     pub sprite: Sprite,
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
