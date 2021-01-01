@@ -29,7 +29,9 @@ impl Modules {
 
 pub fn get_modules() -> Modules {
     let mut manifest = Manifest::new().unwrap();
+    // Only look for regular dependencies in the first pass.
     manifest.dependencies = Dependencies::Release;
+
     if let Some(package) = manifest.find(|name| name == "bevy") {
         Modules::meta(&package.name)
     } else if let Some(package) = manifest.find(|name| name == "bevy_internal") {
@@ -37,7 +39,19 @@ pub fn get_modules() -> Modules {
     } else if let Some(_package) = manifest.find(|name| name == "bevy_reflect") {
         Modules::external()
     } else {
-        Modules::internal()
+        // If reflect is not found as a regular dependency,
+        // try dev-dependencies.
+        manifest.dependencies = Dependencies::Dev;
+
+        if let Some(package) = manifest.find(|name| name == "bevy") {
+            Modules::meta(&package.name)
+        } else if let Some(package) = manifest.find(|name| name == "bevy_internal") {
+            Modules::meta(&package.name)
+        } else if let Some(_package) = manifest.find(|name| name == "bevy_reflect") {
+            Modules::external()
+        } else {
+            Modules::internal()
+        }
     }
 }
 
