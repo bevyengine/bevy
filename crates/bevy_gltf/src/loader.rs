@@ -1,6 +1,6 @@
 use anyhow::Result;
 use bevy_asset::{AssetIoError, AssetLoader, AssetPath, Handle, LoadContext, LoadedAsset};
-use bevy_core::Labels;
+use bevy_core::Name;
 use bevy_ecs::{bevy_utils::BoxedFuture, World, WorldBuilderSource};
 use bevy_math::Mat4;
 use bevy_pbr::prelude::{PbrBundle, StandardMaterial};
@@ -318,7 +318,7 @@ fn load_node(
     ));
 
     if let Some(name) = gltf_node.name() {
-        node.with(Labels::from(vec![name.to_string()]));
+        node.with(Name::new(name.to_string()));
     }
 
     // create camera node
