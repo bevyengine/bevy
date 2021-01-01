@@ -10,6 +10,7 @@ use bevy_render::{
 };
 use bevy_sprite::{TextureAtlas, QUAD_HANDLE};
 use bevy_transform::prelude::{GlobalTransform, Transform};
+use bevy_window::Windows;
 use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
 
 use crate::{
@@ -56,6 +57,7 @@ pub fn draw_text2d_system(
     mut context: DrawContext,
     msaa: Res<Msaa>,
     meshes: Res<Assets<Mesh>>,
+    windows: Res<Windows>,
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
     text_pipeline: Res<DefaultTextPipeline>,
     mut query: Query<
@@ -72,6 +74,12 @@ pub fn draw_text2d_system(
 ) {
     let font_quad = meshes.get(&QUAD_HANDLE).unwrap();
     let vertex_buffer_descriptor = font_quad.get_vertex_buffer_descriptor();
+
+    let scale_factor = if let Some(window) = windows.get_primary() {
+        window.scale_factor() as f32
+    } else {
+        1.
+    };
 
     for (entity, mut draw, visible, text, global_transform, calculated_size) in query.iter_mut() {
         if !visible.is_visible {
@@ -99,7 +107,7 @@ pub fn draw_text2d_system(
                 msaa: &msaa,
                 text_glyphs: &text_glyphs.glyphs,
                 font_quad_vertex_descriptor: &vertex_buffer_descriptor,
-                scale_factor: 1.,
+                scale_factor,
                 style: &text.style,
             };
 
@@ -114,10 +122,12 @@ pub struct QueuedText2d {
 }
 
 /// Updates the TextGlyphs with the new computed glyphs from the layout
+#[allow(clippy::too_many_arguments)]
 pub fn text2d_system(
     mut queued_text: Local<QueuedText2d>,
     mut textures: ResMut<Assets<Texture>>,
     fonts: Res<Assets<Font>>,
+    windows: Res<Windows>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<DefaultTextPipeline>,
@@ -135,6 +145,12 @@ pub fn text2d_system(
         return;
     }
 
+    let scale_factor = if let Some(window) = windows.get_primary() {
+        window.scale_factor()
+    } else {
+        1.
+    };
+
     // Computes all text in the local queue
     let mut new_queue = Vec::new();
     let query = text_queries.q1_mut();
@@ -145,7 +161,7 @@ pub fn text2d_system(
                 text.font.clone(),
                 &fonts,
                 &text.value,
-                text.style.font_size,
+                scale_value(text.style.font_size, scale_factor),
                 text.style.alignment,
                 Size::new(f32::MAX, f32::MAX),
                 &mut *font_atlas_set_storage,
@@ -163,11 +179,18 @@ pub fn text2d_system(
                     let text_layout_info = text_pipeline.get_glyphs(&entity).expect(
                         "Failed to get glyphs from the pipeline that have just been computed",
                     );
-                    calculated_size.size = text_layout_info.size;
+                    calculated_size.size = Size {
+                        width: scale_value(text_layout_info.size.width, 1. / scale_factor),
+                        height: scale_value(text_layout_info.size.height, 1. / scale_factor),
+                    };
                 }
             }
         }
     }
 
     queued_text.entities = new_queue;
+}
+
+fn scale_value(value: f32, factor: f64) -> f32 {
+    (value as f64 * factor) as f32
 }
