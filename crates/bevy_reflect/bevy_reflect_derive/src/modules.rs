@@ -1,4 +1,4 @@
-use find_crate::Manifest;
+use find_crate::{Dependencies, Manifest};
 use proc_macro::TokenStream;
 use syn::Path;
 
@@ -28,7 +28,8 @@ impl Modules {
 }
 
 pub fn get_modules() -> Modules {
-    let manifest = Manifest::new().unwrap();
+    let mut manifest = Manifest::new().unwrap();
+    manifest.dependencies = Dependencies::Release;
     if let Some(package) = manifest.find(|name| name == "bevy") {
         Modules::meta(&package.name)
     } else if let Some(package) = manifest.find(|name| name == "bevy_internal") {
