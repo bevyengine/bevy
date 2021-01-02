@@ -91,7 +91,7 @@ impl From<&VertexAttributeValues> for VertexFormat {
             VertexAttributeValues::Float4(_) => VertexFormat::Float4,
             VertexAttributeValues::Int4(_) => VertexFormat::Int4,
             VertexAttributeValues::Uint4(_) => VertexFormat::Uint4,
-            VertexAttributeValues::Uchar4(_) => VertexFormat::Uchar4,
+            VertexAttributeValues::Uchar4(_) => VertexFormat::Uchar4Norm,
         }
     }
 }
