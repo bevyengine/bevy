@@ -5,12 +5,14 @@ use bevy_utils::tracing::trace;
 use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
 
-use crate::{ArchetypesGeneration, Resources, System, ThreadLocalExecution, TypeAccess, World};
+use crate::{
+    ArchetypesGeneration, BoxedSystem, Resources, ThreadLocalExecution, TypeAccess, World,
+};
 
 pub trait SystemStageExecutor: Downcast + Send + Sync {
     fn execute_stage(
         &mut self,
-        systems: &mut [Box<dyn System<In = (), Out = ()>>],
+        systems: &mut [BoxedSystem],
         changed_systems: &[usize],
         world: &mut World,
         resources: &mut Resources,
@@ -25,7 +27,7 @@ pub struct SerialSystemStageExecutor;
 impl SystemStageExecutor for SerialSystemStageExecutor {
     fn execute_stage(
         &mut self,
-        systems: &mut [Box<dyn System<In = (), Out = ()>>],
+        systems: &mut [BoxedSystem],
         _changed_systems: &[usize],
         world: &mut World,
         resources: &mut Resources,
@@ -109,7 +111,7 @@ impl ParallelSystemStageExecutor {
     pub fn prepare_to_next_thread_local(
         &mut self,
         world: &World,
-        systems: &mut [Box<dyn System<In = (), Out = ()>>],
+        systems: &mut [BoxedSystem],
         stage_changed: bool,
         next_thread_local_index: usize,
     ) -> Range<usize> {
@@ -291,7 +293,7 @@ impl ParallelSystemStageExecutor {
         &self,
         world: &World,
         resources: &Resources,
-        systems: &mut [Box<dyn System<In = (), Out = ()>>],
+        systems: &mut [BoxedSystem],
         prepared_system_range: Range<usize>,
         compute_pool: &TaskPool,
     ) {
@@ -387,7 +389,7 @@ impl ParallelSystemStageExecutor {
 impl SystemStageExecutor for ParallelSystemStageExecutor {
     fn execute_stage(
         &mut self,
-        systems: &mut [Box<dyn System<In = (), Out = ()>>],
+        systems: &mut [BoxedSystem],
         changed_systems: &[usize],
         world: &mut World,
         resources: &mut Resources,
