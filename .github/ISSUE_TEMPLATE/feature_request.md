@@ -10,11 +10,11 @@ assignees: ''
 
 A description of why this particular feature should be added.
 
-**Describe the solution would you like?**
+**What solution would you like?**
 
 The solution you propose for the problem presented.
 
-**Describe the alternative(s) you've considered?**
+**What alternative(s) have you considered?**
 
 Other solutions to solve and/or work around the problem presented.
 

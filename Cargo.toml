@@ -107,6 +107,10 @@ name = "text2d"
 path = "examples/2d/text2d.rs"
 
 [[example]]
+name = "3d_scene"
+path = "examples/3d/3d_scene.rs"
+
+[[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
 
@@ -119,10 +123,6 @@ name = "parenting"
 path = "examples/3d/parenting.rs"
 
 [[example]]
-name = "3d_scene"
-path = "examples/3d/3d_scene.rs"
-
-[[example]]
 name = "spawner"
 path = "examples/3d/spawner.rs"
 
@@ -131,12 +131,20 @@ name = "texture"
 path = "examples/3d/texture.rs"
 
 [[example]]
+name = "update_gltf_scene"
+path = "examples/3d/update_gltf_scene.rs"
+
+[[example]]
 name = "z_sort_debug"
 path = "examples/3d/z_sort_debug.rs"
 
 [[example]]
 name = "custom_loop"
 path = "examples/app/custom_loop.rs"
+
+[[example]]
+name = "drag_and_drop"
+path = "examples/app/drag_and_drop.rs"
 
 [[example]]
 name = "empty_defaults"
@@ -197,6 +205,10 @@ path = "examples/diagnostics/custom_diagnostic.rs"
 [[example]]
 name = "log_diagnostics"
 path = "examples/diagnostics/log_diagnostics.rs"
+
+[[example]]
+name = "change_detection"
+path = "examples/ecs/change_detection.rs"
 
 [[example]]
 name = "event"

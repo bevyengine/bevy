@@ -73,6 +73,7 @@ Example | File | Description
 `parenting` | [`3d/parenting.rs`](./3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
 `spawner` | [`3d/spawner.rs`](./3d/spawner.rs) | Renders a large number of cubes with changing position and material
 `texture` | [`3d/texture.rs`](./3d/texture.rs) | Shows configuration of texture materials
+`update_gltf_scene` | [`3d/update_gltf_scene.rs`](./3d/update_gltf_scene.rs) | Update a scene from a gltf file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 `z_sort_debug` | [`3d/z_sort_debug.rs`](./3d/z_sort_debug.rs) | Visualizes camera Z-ordering
 
 ## Application
@@ -80,6 +81,7 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `custom_loop` | [`app/custom_loop.rs`](./app/custom_loop.rs) | Demonstrates how to create a custom runner (to update an app manually).
+`drag_and_drop` | [`app/drag_and_drop.rs`](./app/drag_and_drop.rs) | An example that shows how to handle drag and drop in an app.
 `empty_defaults` | [`app/empty_defaults.rs`](./app/empty_defaults.rs) | An empty application with default plugins
 `empty` | [`app/empty.rs`](./app/empty.rs) | An empty application (does nothing)
 `headless` | [`app/headless.rs`](./app/headless.rs) | An application that runs without default plugins
@@ -114,6 +116,7 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
+`change_detection` | [`ecs/change_detection.rs`](./ecs/change_detection.rs) | Change detection on components
 `ecs_guide` | [`ecs/ecs_guide.rs`](./ecs/ecs_guide.rs) | Full guide to Bevy's ECS
 `event` | [`ecs/event.rs`](./ecs/event.rs) | Illustrates event creation, activation, and reception
 `hierarchy` | [`ecs/hierarchy.rs`](./ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities

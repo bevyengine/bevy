@@ -1,6 +1,7 @@
 mod converters;
 mod winit_config;
 mod winit_windows;
+
 use bevy_input::{
     keyboard::KeyboardInput,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
@@ -14,7 +15,7 @@ use bevy_ecs::{IntoSystem, Resources, World};
 use bevy_math::Vec2;
 use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
-    CreateWindow, CursorEntered, CursorLeft, CursorMoved, ReceivedCharacter,
+    CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
     WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
     WindowResized, WindowScaleFactorChanged, Windows,
 };
@@ -396,6 +397,27 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                             id: window_id,
                             focused,
                         });
+                    }
+                    WindowEvent::DroppedFile(path_buf) => {
+                        let mut events =
+                            app.resources.get_mut::<Events<FileDragAndDrop>>().unwrap();
+                        events.send(FileDragAndDrop::DroppedFile {
+                            id: window_id,
+                            path_buf,
+                        });
+                    }
+                    WindowEvent::HoveredFile(path_buf) => {
+                        let mut events =
+                            app.resources.get_mut::<Events<FileDragAndDrop>>().unwrap();
+                        events.send(FileDragAndDrop::HoveredFile {
+                            id: window_id,
+                            path_buf,
+                        });
+                    }
+                    WindowEvent::HoveredFileCancelled => {
+                        let mut events =
+                            app.resources.get_mut::<Events<FileDragAndDrop>>().unwrap();
+                        events.send(FileDragAndDrop::HoveredFileCancelled { id: window_id });
                     }
                     _ => {}
                 }

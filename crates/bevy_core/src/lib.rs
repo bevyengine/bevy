@@ -1,6 +1,7 @@
 mod bytes;
 mod float_ord;
 mod label;
+mod name;
 mod task_pool_options;
 mod time;
 
@@ -11,11 +12,12 @@ use bevy_reflect::RegisterTypeBuilder;
 pub use bytes::*;
 pub use float_ord::*;
 pub use label::*;
+pub use name::*;
 pub use task_pool_options::DefaultTaskPoolOptions;
 pub use time::*;
 
 pub mod prelude {
-    pub use crate::{DefaultTaskPoolOptions, EntityLabels, Labels, Time, Timer};
+    pub use crate::{DefaultTaskPoolOptions, EntityLabels, Labels, Name, Time, Timer};
 }
 
 use bevy_app::{prelude::*, startup_stage};
@@ -36,6 +38,7 @@ impl Plugin for CorePlugin {
             .init_resource::<EntityLabels>()
             .init_resource::<FixedTimesteps>()
             .register_type::<Option<String>>()
+            .register_type::<Name>()
             .register_type::<Labels>()
             .register_type::<Range<f32>>()
             .register_type::<Timer>()
