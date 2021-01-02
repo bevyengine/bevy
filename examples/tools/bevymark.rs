@@ -2,12 +2,15 @@ use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
 };
+use rand::Rng;
 
 const BIRDS_PER_SECOND: u32 = 1000;
+const BASE_COLOR: Color = Color::rgb_linear(5.0, 5.0, 5.0);
 const GRAVITY: f32 = -9.8 * 100.0;
 const MAX_VELOCITY: f32 = 750.;
 const BIRD_SCALE: f32 = 0.15;
 const HALF_BIRD_SIZE: f32 = 256. * BIRD_SCALE * 0.5;
+
 struct BevyCounter {
     pub count: u128,
 }
@@ -103,14 +106,29 @@ fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
         });
 }
 
+#[allow(clippy::too_many_arguments)]
 fn mouse_handler(
     commands: &mut Commands,
+    asset_server: Res<AssetServer>,
     time: Res<Time>,
     mouse_button_input: Res<Input<MouseButton>>,
     window: Res<WindowDescriptor>,
-    bird_material: Res<BirdMaterial>,
+    mut bird_material: ResMut<BirdMaterial>,
     mut counter: ResMut<BevyCounter>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
+    if mouse_button_input.just_pressed(MouseButton::Left) {
+        let mut rnd = rand::thread_rng();
+        let color = gen_color(&mut rnd);
+
+        let texture_handle = asset_server.load("branding/icon.png");
+
+        bird_material.0 = materials.add(ColorMaterial {
+            color: BASE_COLOR * color,
+            texture: Some(texture_handle),
+        });
+    }
+
     if mouse_button_input.pressed(MouseButton::Left) {
         let spawn_count = (BIRDS_PER_SECOND as f32 * time.delta_seconds()) as u128;
         let bird_x = (window.width / -2.) + HALF_BIRD_SIZE;
@@ -183,4 +201,16 @@ fn counter_system(
             }
         }
     };
+}
+
+/// Generate a color modulation
+///
+/// Because there is no `Mul<Color> for Color` instead `[f32; 3]` is
+/// used.
+fn gen_color(rng: &mut impl Rng) -> [f32; 3] {
+    let r = rng.gen_range(0.2..1.0);
+    let g = rng.gen_range(0.2..1.0);
+    let b = rng.gen_range(0.2..1.0);
+    let v = Vec3::new(r, g, b);
+    v.normalize().into()
 }
