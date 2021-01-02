@@ -76,12 +76,10 @@ impl GlyphBrush {
             let SectionGlyph {
                 section_index: _,
                 byte_index: _,
-                mut glyph,
+                glyph,
                 font_id: _,
             } = sg;
             let glyph_id = glyph.id;
-            let base_x = glyph.position.x.floor();
-            glyph.position.x = 0.;
             if let Some(outlined_glyph) = font.font.outline_glyph(glyph) {
                 let bounds = outlined_glyph.px_bounds();
                 let handle_font_atlas: Handle<FontAtlasSet> = handle.as_weak();
@@ -100,9 +98,7 @@ impl GlyphBrush {
                 let glyph_width = glyph_rect.width();
                 let glyph_height = glyph_rect.height();
 
-                let x = base_x + bounds.min.x + glyph_width / 2.0 - min_x;
-                // the 0.5 accounts for odd-numbered heights (bump up by 1 pixel)
-                // max_y = text block height, and up is negative (whereas for transform, up is positive)
+                let x = bounds.min.x + glyph_width / 2.0 - min_x;
                 let y = max_y - bounds.max.y + glyph_height / 2.0;
                 let position = Vec2::new(x, y);
 
