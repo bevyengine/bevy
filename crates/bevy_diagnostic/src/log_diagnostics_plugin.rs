@@ -1,7 +1,7 @@
 use super::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_app::prelude::*;
 use bevy_core::{Time, Timer};
-use bevy_ecs::{IntoSystem, Res, ResMut};
+use bevy_ecs::system::{IntoSystem, Res, ResMut};
 use bevy_log::{debug, info};
 use bevy_utils::Duration;
 

@@ -5,9 +5,12 @@ use crate::{
     CoreStage, PluginGroup, PluginGroupBuilder, StartupStage,
 };
 use bevy_ecs::{
-    clear_trackers_system, FromResources, IntoExclusiveSystem, IntoSystem, Resource, Resources,
-    RunOnce, Schedule, Stage, StageLabel, StateStage, SystemDescriptor, SystemSet, SystemStage,
-    World,
+    component::Component,
+    schedule::{
+        RunOnce, Schedule, Stage, StageLabel, StateStage, SystemDescriptor, SystemSet, SystemStage,
+    },
+    system::{IntoExclusiveSystem, IntoSystem},
+    world::{FromWorld, World},
 };
 use bevy_utils::tracing::debug;
 
@@ -22,10 +25,13 @@ impl Default for AppBuilder {
             app: App::default(),
         };
 
+        #[cfg(feature = "bevy_reflect")]
+        app_builder.init_resource::<bevy_reflect::TypeRegistryArc>();
+
         app_builder
             .add_default_stages()
             .add_event::<AppExit>()
-            .add_system_to_stage(CoreStage::Last, clear_trackers_system.exclusive_system());
+            .add_system_to_stage(CoreStage::Last, World::clear_trackers.exclusive_system());
         app_builder
     }
 }
@@ -37,17 +43,17 @@ impl AppBuilder {
         }
     }
 
-    pub fn resources(&self) -> &Resources {
-        &self.app.resources
-    }
-
-    pub fn resources_mut(&mut self) -> &mut Resources {
-        &mut self.app.resources
-    }
-
     pub fn run(&mut self) {
         let app = std::mem::take(&mut self.app);
         app.run();
+    }
+
+    pub fn world(&mut self) -> &World {
+        &self.app.world
+    }
+
+    pub fn world_mut(&mut self) -> &mut World {
+        &mut self.app.world
     }
 
     pub fn set_world(&mut self, world: World) -> &mut Self {
@@ -171,7 +177,7 @@ impl AppBuilder {
         self
     }
 
-    pub fn on_state_enter<T: Clone + Resource>(
+    pub fn on_state_enter<T: Clone + Component>(
         &mut self,
         stage: impl StageLabel,
         state: T,
@@ -182,7 +188,7 @@ impl AppBuilder {
         })
     }
 
-    pub fn on_state_update<T: Clone + Resource>(
+    pub fn on_state_update<T: Clone + Component>(
         &mut self,
         stage: impl StageLabel,
         state: T,
@@ -193,7 +199,7 @@ impl AppBuilder {
         })
     }
 
-    pub fn on_state_exit<T: Clone + Resource>(
+    pub fn on_state_exit<T: Clone + Component>(
         &mut self,
         stage: impl StageLabel,
         state: T,
@@ -224,7 +230,7 @@ impl AppBuilder {
 
     pub fn add_event<T>(&mut self) -> &mut Self
     where
-        T: Send + Sync + 'static,
+        T: Component,
     {
         self.insert_resource(Events::<T>::default())
             .add_system_to_stage(CoreStage::Event, Events::<T>::update_system.system())
@@ -233,9 +239,9 @@ impl AppBuilder {
     /// Inserts a resource to the current [App] and overwrites any resource previously added of the same type.
     pub fn insert_resource<T>(&mut self, resource: T) -> &mut Self
     where
-        T: Send + Sync + 'static,
+        T: Component,
     {
-        self.app.resources.insert(resource);
+        self.app.world.insert_resource(resource);
         self
     }
 
@@ -243,19 +249,19 @@ impl AppBuilder {
     where
         T: 'static,
     {
-        self.app.resources.insert_non_send(resource);
+        self.app.world.insert_non_send(resource);
         self
     }
 
     pub fn init_resource<R>(&mut self) -> &mut Self
     where
-        R: FromResources + Send + Sync + 'static,
+        R: FromWorld + Send + Sync + 'static,
     {
         // PERF: We could avoid double hashing here, since the `from_resources` call is guaranteed not to
         // modify the map. However, we would need to be borrowing resources both mutably and immutably,
         // so we would need to be extremely certain this is correct
-        if !self.resources().contains::<R>() {
-            let resource = R::from_resources(&self.resources());
+        if !self.world_mut().contains_resource::<R>() {
+            let resource = R::from_world(self.world_mut());
             self.insert_resource(resource);
         }
         self
@@ -263,12 +269,12 @@ impl AppBuilder {
 
     pub fn init_non_send_resource<R>(&mut self) -> &mut Self
     where
-        R: FromResources + 'static,
+        R: FromWorld + 'static,
     {
         // See perf comment in init_resource
-        if self.app.resources.get_non_send::<R>().is_none() {
-            let resource = R::from_resources(&self.app.resources);
-            self.app.resources.insert_non_send(resource);
+        if self.app.world.get_non_send_resource::<R>().is_none() {
+            let resource = R::from_world(self.world_mut());
+            self.app.world.insert_non_send(resource);
         }
         self
     }
@@ -303,6 +309,18 @@ impl AppBuilder {
         group.build(&mut plugin_group_builder);
         func(&mut plugin_group_builder);
         plugin_group_builder.finish(self);
+        self
+    }
+
+    #[cfg(feature = "bevy_reflect")]
+    pub fn register_type<T: bevy_reflect::GetTypeRegistration>(&mut self) -> &mut Self {
+        {
+            let registry = self
+                .world_mut()
+                .get_resource_mut::<bevy_reflect::TypeRegistryArc>()
+                .unwrap();
+            registry.write().register::<T>();
+        }
         self
     }
 }

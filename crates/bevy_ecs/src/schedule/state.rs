@@ -1,4 +1,8 @@
-use crate::{Resource, Resources, Stage, SystemDescriptor, SystemStage, World};
+use crate::{
+    component::Component,
+    schedule::{Stage, SystemDescriptor, SystemStage},
+    world::World,
+};
 use bevy_utils::HashMap;
 use std::{mem::Discriminant, ops::Deref};
 use thiserror::Error;
@@ -137,12 +141,12 @@ impl<T> StateStage<T> {
 }
 
 #[allow(clippy::mem_discriminant_non_enum)]
-impl<T: Resource + Clone> Stage for StateStage<T> {
-    fn run(&mut self, world: &mut World, resources: &mut Resources) {
+impl<T: Component + Clone> Stage for StateStage<T> {
+    fn run(&mut self, world: &mut World) {
         let current_stage = loop {
             let (next_stage, current_stage) = {
-                let mut state = resources
-                    .get_mut::<State<T>>()
+                let mut state = world
+                    .get_resource_mut::<State<T>>()
                     .expect("Missing state resource");
                 let result = (
                     state.next.as_ref().map(|next| std::mem::discriminant(next)),
@@ -158,12 +162,12 @@ impl<T: Resource + Clone> Stage for StateStage<T> {
             if let Some(next_stage) = next_stage {
                 if next_stage != current_stage {
                     if let Some(current_state_stages) = self.stages.get_mut(&current_stage) {
-                        current_state_stages.exit.run(world, resources);
+                        current_state_stages.exit.run(world);
                     }
                 }
 
                 if let Some(next_state_stages) = self.stages.get_mut(&next_stage) {
-                    next_state_stages.enter.run(world, resources);
+                    next_state_stages.enter.run(world);
                 }
             } else {
                 break current_stage;
@@ -171,7 +175,7 @@ impl<T: Resource + Clone> Stage for StateStage<T> {
         };
 
         if let Some(current_state_stages) = self.stages.get_mut(&current_stage) {
-            current_state_stages.update.run(world, resources);
+            current_state_stages.update.run(world);
         }
     }
 }

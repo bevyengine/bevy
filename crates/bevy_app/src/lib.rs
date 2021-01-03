@@ -22,7 +22,7 @@ pub mod prelude {
     };
 }
 
-use bevy_ecs::StageLabel;
+use bevy_ecs::schedule::StageLabel;
 
 /// The names of the default App stages
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]

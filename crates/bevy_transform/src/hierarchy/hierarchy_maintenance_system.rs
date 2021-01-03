@@ -1,10 +1,14 @@
 use crate::components::*;
-use bevy_ecs::{Commands, Entity, Query, Without};
+use bevy_ecs::{
+    entity::Entity,
+    query::Without,
+    system::{Commands, Query},
+};
 use bevy_utils::HashMap;
 use smallvec::SmallVec;
 
 pub fn parent_update_system(
-    commands: &mut Commands,
+    mut commands: Commands,
     removed_parent_query: Query<(Entity, &PreviousParent), Without<Parent>>,
     // The next query could be run with a Changed<Parent> filter. However, this would mean that modifications later in the frame are lost.
     // See issue 891: https://github.com/bevyengine/bevy/issues/891
@@ -16,7 +20,7 @@ pub fn parent_update_system(
     for (entity, previous_parent) in removed_parent_query.iter() {
         if let Ok(mut previous_parent_children) = children_query.get_mut(previous_parent.0) {
             previous_parent_children.0.retain(|e| *e != entity);
-            commands.remove_one::<PreviousParent>(entity);
+            commands.remove::<PreviousParent>(entity);
         }
     }
 
@@ -39,7 +43,7 @@ pub fn parent_update_system(
             // Set `PreviousParent = Parent`.
             *previous_parent = PreviousParent(parent.0);
         } else {
-            commands.insert_one(entity, PreviousParent(parent.0));
+            commands.insert(entity, PreviousParent(parent.0));
         };
 
         // Add to the parent's `Children` (either the real component, or
@@ -64,19 +68,23 @@ pub fn parent_update_system(
     // collect multiple new children that point to the same parent into the same
     // SmallVec, and to prevent redundant add+remove operations.
     children_additions.iter().for_each(|(k, v)| {
-        commands.insert_one(*k, Children::with(v));
+        commands.insert(*k, Children::with(v));
     });
 }
 #[cfg(test)]
 mod test {
+    use bevy_ecs::{
+        schedule::{Schedule, Stage, SystemStage},
+        system::{CommandQueue, IntoSystem},
+        world::World,
+    };
+
     use super::*;
     use crate::{hierarchy::BuildChildren, transform_propagate_system::transform_propagate_system};
-    use bevy_ecs::{IntoSystem, Resources, Schedule, Stage, SystemStage, World};
 
     #[test]
     fn correct_children() {
         let mut world = World::default();
-        let mut resources = Resources::default();
 
         let mut update_stage = SystemStage::parallel();
         update_stage.add_system(parent_update_system.system());
@@ -86,8 +94,8 @@ mod test {
         schedule.add_stage("update", update_stage);
 
         // Add parent entities
-        let mut commands = Commands::default();
-        commands.set_entity_reserver(world.get_entity_reserver());
+        let mut command_queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut command_queue, &world);
         let mut parent = None;
         let mut children = Vec::new();
         commands
@@ -101,8 +109,8 @@ mod test {
                     .for_current_entity(|entity| children.push(entity));
             });
         let parent = parent.unwrap();
-        commands.apply(&mut world, &mut resources);
-        schedule.run(&mut world, &mut resources);
+        command_queue.apply(&mut world);
+        schedule.run(&mut world);
 
         assert_eq!(
             world
@@ -118,7 +126,7 @@ mod test {
         // Parent `e1` to `e2`.
         (*world.get_mut::<Parent>(children[0]).unwrap()).0 = children[1];
 
-        schedule.run(&mut world, &mut resources);
+        schedule.run(&mut world);
 
         assert_eq!(
             world
@@ -140,9 +148,9 @@ mod test {
             vec![children[0]]
         );
 
-        world.despawn(children[0]).unwrap();
+        assert!(world.despawn(children[0]));
 
-        schedule.run(&mut world, &mut resources);
+        schedule.run(&mut world);
 
         assert_eq!(
             world

@@ -7,7 +7,7 @@ use crate::renderer::{
 };
 use bevy_app::prelude::EventReader;
 use bevy_asset::{AssetEvent, Assets, Handle};
-use bevy_ecs::Res;
+use bevy_ecs::system::Res;
 use bevy_reflect::TypeUuid;
 use bevy_utils::HashSet;
 use thiserror::Error;

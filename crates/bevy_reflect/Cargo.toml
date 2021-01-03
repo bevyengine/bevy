@@ -14,14 +14,12 @@ keywords = ["bevy"]
 readme = "README.md"
 
 [features]
-bevy = ["bevy_ecs", "bevy_app", "glam", "smallvec"]
+bevy = ["glam", "smallvec"]
 
 [dependencies]
 # bevy
 bevy_reflect_derive = { path = "bevy_reflect_derive", version = "0.4.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.4.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.4.0", optional = true }
-bevy_app = { path = "../bevy_app", version = "0.4.0", optional = true }
 
 # other
 erased-serde = "0.3"
