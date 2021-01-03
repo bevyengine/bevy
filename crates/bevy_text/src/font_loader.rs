@@ -20,6 +20,6 @@ impl AssetLoader for FontLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        &["ttf"]
+        &["ttf", "otf"]
     }
 }
