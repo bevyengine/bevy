@@ -79,12 +79,15 @@ mod test {
         let mut world = World::default();
         let mut resources = Resources::default();
 
-        let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(parent_update_system.system());
-        update_stage.add_system(transform_propagate_system.system());
+        let mut update1_stage = SystemStage::parallel();
+        update1_stage.add_system(parent_update_system.system());
+
+        let mut update2_stage = SystemStage::parallel();
+        update2_stage.add_system(transform_propagate_system.system());
 
         let mut schedule = Schedule::default();
-        schedule.add_stage("update", update_stage);
+        schedule.add_stage("update1", update1_stage);
+        schedule.add_stage("update2", update2_stage);
 
         // Root entity
         world.spawn((
@@ -93,12 +96,14 @@ mod test {
         ));
 
         let mut children = Vec::new();
+        let mut parent_entity = None;
         world
             .build()
             .spawn((
                 Transform::from_translation(Vec3::new(1.0, 0.0, 0.0)),
                 GlobalTransform::identity(),
             ))
+            .for_current_entity(|entity| parent_entity = Some(entity))
             .with_children(|parent| {
                 parent
                     .spawn((
@@ -112,6 +117,12 @@ mod test {
                     ))
                     .for_current_entity(|entity| children.push(entity));
             });
+        children.push(world.spawn((
+            Transform::from_translation(Vec3::new(0.0, 3.0, 0.)),
+            GlobalTransform::identity(),
+            Parent(parent_entity.unwrap()),
+        )));
+
         schedule.initialize_and_run(&mut world, &mut resources);
 
         assert_eq!(
@@ -125,6 +136,12 @@ mod test {
             GlobalTransform::from_translation(Vec3::new(1.0, 0.0, 0.0))
                 * Transform::from_translation(Vec3::new(0.0, 0.0, 3.0))
         );
+
+        assert_eq!(
+            *world.get::<GlobalTransform>(children[2]).unwrap(),
+            GlobalTransform::from_translation(Vec3::new(1.0, 0.0, 0.0))
+                * Transform::from_translation(Vec3::new(0.0, 3.0, 0.0))
+        );
     }
 
     #[test]
@@ -132,12 +149,15 @@ mod test {
         let mut world = World::default();
         let mut resources = Resources::default();
 
-        let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(parent_update_system.system());
-        update_stage.add_system(transform_propagate_system.system());
+        let mut update1_stage = SystemStage::parallel();
+        update1_stage.add_system(parent_update_system.system());
+
+        let mut update2_stage = SystemStage::parallel();
+        update2_stage.add_system(transform_propagate_system.system());
 
         let mut schedule = Schedule::default();
-        schedule.add_stage("update", update_stage);
+        schedule.add_stage("update1", update1_stage);
+        schedule.add_stage("update2", update2_stage);
 
         // Root entity
         let mut commands = Commands::default();
