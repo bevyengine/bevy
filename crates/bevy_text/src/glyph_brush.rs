@@ -1,4 +1,4 @@
-use ab_glyph::{Font as _, FontArc, ScaleFont as _};
+use ab_glyph::{Font as _, FontArc, Glyph, ScaleFont as _};
 use bevy_asset::{Assets, Handle};
 use bevy_math::{Size, Vec2};
 use bevy_render::prelude::Texture;
@@ -80,8 +80,8 @@ impl GlyphBrush {
                 font_id: _,
             } = sg;
             let glyph_id = glyph.id;
-            let base_x = glyph.position.x.floor();
-            glyph.position.x = 0.;
+            let glyph_position = glyph.position;
+            let adjust = GlyphPlacementAdjuster::new(&mut glyph);
             if let Some(outlined_glyph) = font.font.outline_glyph(glyph) {
                 let bounds = outlined_glyph.px_bounds();
                 let handle_font_atlas: Handle<FontAtlasSet> = handle.as_weak();
@@ -89,7 +89,7 @@ impl GlyphBrush {
                     .get_or_insert_with(handle_font_atlas, FontAtlasSet::default);
 
                 let atlas_info = font_atlas_set
-                    .get_glyph_atlas_info(font_size, glyph_id)
+                    .get_glyph_atlas_info(font_size, glyph_id, glyph_position)
                     .map(Ok)
                     .unwrap_or_else(|| {
                         font_atlas_set.add_glyph_to_atlas(texture_atlases, textures, outlined_glyph)
@@ -100,11 +100,9 @@ impl GlyphBrush {
                 let glyph_width = glyph_rect.width();
                 let glyph_height = glyph_rect.height();
 
-                let x = base_x + bounds.min.x + glyph_width / 2.0 - min_x;
-                // the 0.5 accounts for odd-numbered heights (bump up by 1 pixel)
-                // max_y = text block height, and up is negative (whereas for transform, up is positive)
+                let x = bounds.min.x + glyph_width / 2.0 - min_x;
                 let y = max_y - bounds.max.y + glyph_height / 2.0;
-                let position = Vec2::new(x, y);
+                let position = adjust.position(Vec2::new(x, y));
 
                 positioned_glyphs.push(PositionedGlyph {
                     position,
@@ -128,4 +126,39 @@ impl GlyphBrush {
 pub struct PositionedGlyph {
     pub position: Vec2,
     pub atlas_info: GlyphAtlasInfo,
+}
+
+#[cfg(feature = "subpixel_glyph_atlas")]
+struct GlyphPlacementAdjuster;
+
+#[cfg(feature = "subpixel_glyph_atlas")]
+impl GlyphPlacementAdjuster {
+    #[inline(always)]
+    pub fn new(_: &mut Glyph) -> Self {
+        Self
+    }
+
+    #[inline(always)]
+    pub fn position(&self, p: Vec2) -> Vec2 {
+        p
+    }
+}
+
+#[cfg(not(feature = "subpixel_glyph_atlas"))]
+struct GlyphPlacementAdjuster(f32);
+
+#[cfg(not(feature = "subpixel_glyph_atlas"))]
+impl GlyphPlacementAdjuster {
+    #[inline(always)]
+    pub fn new(glyph: &mut Glyph) -> Self {
+        let v = glyph.position.x.round();
+        glyph.position.x = 0.;
+        glyph.position.y = glyph.position.y.ceil();
+        Self(v)
+    }
+
+    #[inline(always)]
+    pub fn position(&self, v: Vec2) -> Vec2 {
+        Vec2::new(self.0, 0.) + v
+    }
 }
