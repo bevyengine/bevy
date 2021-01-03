@@ -72,6 +72,9 @@ serialize = ["bevy_internal/serialize"]
 wayland = ["bevy_internal/wayland"]
 x11 = ["bevy_internal/x11"]
 
+# enable rendering of font glyphs using subpixel accuracy
+subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
+
 [dependencies]
 bevy_dylib = {path = "crates/bevy_dylib", version = "0.4.0", default-features = false, optional = true}
 bevy_internal = {path = "crates/bevy_internal", version = "0.4.0", default-features = false}

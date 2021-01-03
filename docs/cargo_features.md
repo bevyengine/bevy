@@ -71,3 +71,9 @@ Vorbis audio format support.
 ### wayland
 
 Enable this to use Wayland display server protocol other than X11.
+
+### subpixel_glyph_atlas
+
+Enable this to cache glyphs using subpixel accuracy. This increases texture
+memory usage as each position requires a separate sprite in the glyph atlas, but
+provide more accurate character spacing.

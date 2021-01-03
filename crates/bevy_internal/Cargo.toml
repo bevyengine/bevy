@@ -38,6 +38,9 @@ serialize = ["bevy_input/serialize"]
 wayland = ["bevy_winit/wayland"]
 x11 = ["bevy_winit/x11"]
 
+# enable rendering of font glyphs using subpixel accuracy
+subpixel_glyph_atlas = ["bevy_text/subpixel_glyph_atlas"]
+
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.4.0" }
