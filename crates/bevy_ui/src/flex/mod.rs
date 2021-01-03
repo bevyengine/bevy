@@ -14,7 +14,7 @@ use stretch::{number::Number, Stretch};
 
 pub struct FlexSurface {
     entity_to_stretch: HashMap<Entity, stretch::node::Node>,
-    window_nodes: HashMap<WindowId, stretch::node::Node>,
+    window_nodes: HashMap<WindowId, Vec<(stretch::node::Node, stretch::node::Node)>>,
     stretch: Stretch,
 }
 
@@ -117,24 +117,26 @@ without UI components as a child of an entity with UI components, results may be
 
     pub fn update_window(&mut self, window: &Window) {
         let stretch = &mut self.stretch;
-        let node = self.window_nodes.entry(window.id()).or_insert_with(|| {
-            stretch
-                .new_node(stretch::style::Style::default(), Vec::new())
-                .unwrap()
-        });
-
-        stretch
-            .set_style(
-                *node,
-                stretch::style::Style {
-                    size: stretch::geometry::Size {
-                        width: stretch::style::Dimension::Points(window.physical_width() as f32),
-                        height: stretch::style::Dimension::Points(window.physical_height() as f32),
-                    },
-                    ..Default::default()
-                },
-            )
-            .unwrap();
+        if let Some(window_nodes) = self.window_nodes.get(&window.id()) {
+            for (window_node, _) in window_nodes.iter() {
+                stretch
+                    .set_style(
+                        *window_node,
+                        stretch::style::Style {
+                            size: stretch::geometry::Size {
+                                width: stretch::style::Dimension::Points(
+                                    window.physical_width() as f32
+                                ),
+                                height: stretch::style::Dimension::Points(
+                                    window.physical_height() as f32
+                                ),
+                            },
+                            ..Default::default()
+                        },
+                    )
+                    .unwrap();
+            }
+        }
     }
 
     pub fn set_window_children(
@@ -142,20 +144,49 @@ without UI components as a child of an entity with UI components, results may be
         window_id: WindowId,
         children: impl Iterator<Item = Entity>,
     ) {
-        let stretch_node = self.window_nodes.get(&window_id).unwrap();
-        let child_nodes = children
+        let children = children
             .map(|e| *self.entity_to_stretch.get(&e).unwrap())
             .collect::<Vec<stretch::node::Node>>();
-        self.stretch
-            .set_children(*stretch_node, child_nodes)
-            .unwrap();
+        let window_nodes = self.window_nodes.entry(window_id).or_default();
+
+        // Remove the previous nodes of deleted entities
+        let mut i = 0;
+        while i != window_nodes.len() {
+            if !children.contains(&window_nodes[i].1) {
+                self.stretch.remove(window_nodes[i].0);
+                self.stretch.remove(window_nodes[i].1);
+                window_nodes.remove(i);
+            } else {
+                i += 1;
+            }
+        }
+
+        // Add the nodes for new entities
+        for child in children.iter() {
+            let mut contains = false;
+            for (_, node) in window_nodes.iter() {
+                if node == child {
+                    contains = true;
+                    break;
+                }
+            }
+            if !contains {
+                let new_root = self
+                    .stretch
+                    .new_node(stretch::style::Style::default(), vec![*child])
+                    .unwrap();
+                window_nodes.push((new_root, *child));
+            }
+        }
     }
 
     pub fn compute_window_layouts(&mut self) {
-        for window_node in self.window_nodes.values() {
-            self.stretch
-                .compute_layout(*window_node, stretch::geometry::Size::undefined())
-                .unwrap();
+        for window_nodes in self.window_nodes.values() {
+            for window_node in window_nodes {
+                self.stretch
+                    .compute_layout(window_node.0, stretch::geometry::Size::undefined())
+                    .unwrap();
+            }
         }
     }
 
@@ -206,11 +237,6 @@ pub fn flex_node_system(
         Flags<Transform>,
     )>,
 ) {
-    // update window root nodes
-    for window in windows.iter() {
-        flex_surface.update_window(window);
-    }
-
     // assume one window for time being...
     let logical_to_physical_factor = if let Some(primary_window) = windows.get_primary() {
         primary_window.scale_factor()
@@ -260,6 +286,11 @@ pub fn flex_node_system(
     // update children
     for (entity, children) in children_query.iter() {
         flex_surface.update_children(entity, &children);
+    }
+
+    // update window root nodes
+    for window in windows.iter() {
+        flex_surface.update_window(window);
     }
 
     // compute layouts
