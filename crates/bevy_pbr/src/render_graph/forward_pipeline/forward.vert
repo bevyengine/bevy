@@ -10,6 +10,7 @@ layout(location = 2) out vec2 v_Uv;
 
 layout(set = 0, binding = 0) uniform Camera {
     mat4 ViewProj;
+    mat4 View;
 };
 
 layout(set = 2, binding = 0) uniform Transform {

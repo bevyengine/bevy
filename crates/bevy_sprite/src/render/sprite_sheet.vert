@@ -9,6 +9,7 @@ layout(location = 1) out vec4 v_Color;
 
 layout(set = 0, binding = 0) uniform Camera {
     mat4 ViewProj;
+    mat4 View;
 };
 
 // TODO: merge dimensions into "sprites" buffer when that is supported in the Uniforms derive abstraction
