@@ -3,7 +3,9 @@ use crate::{
     render_graph::uniform,
 };
 use bevy_core::{AsBytes, Byteable};
-use bevy_ecs::{BoxedSystem, Commands, IntoSystem, Local, Query, Res, ResMut, Resources, System, World};
+use bevy_ecs::{
+    BoxedSystem, Commands, IntoSystem, Local, Query, Res, ResMut, Resources, System, World,
+};
 use bevy_render::{
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     renderer::{
