@@ -4,12 +4,10 @@ use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
 use bevy_utils::BoxedFuture;
 
 /// Loader for images that can be read by the `image` crate.
-///
-/// Reads only PNG images for now.
 #[derive(Clone, Default)]
 pub struct ImageTextureLoader;
 
-const FILE_EXTENSIONS: &[&str] = &["png", "dds", "tga", "jpg", "jpeg"];
+const FILE_EXTENSIONS: &[&str] = &["png", "dds", "tga", "jpg", "jpeg", "bmp"];
 
 impl AssetLoader for ImageTextureLoader {
     fn load<'a>(
@@ -161,5 +159,17 @@ impl AssetLoader for ImageTextureLoader {
 
     fn extensions(&self) -> &[&str] {
         FILE_EXTENSIONS
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_supported_file_extensions() {
+        for ext in FILE_EXTENSIONS {
+            assert!(image::ImageFormat::from_extension(ext).is_some())
+        }
     }
 }

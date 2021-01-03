@@ -25,7 +25,7 @@ pub struct TextureAtlas {
     pub texture_handles: Option<HashMap<Handle<Texture>, usize>>,
 }
 
-#[derive(Debug, RenderResources, RenderResource)]
+#[derive(Debug, RenderResources, RenderResource, Clone)]
 #[render_resources(from_self)]
 pub struct TextureAtlasSprite {
     pub color: Color,

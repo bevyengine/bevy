@@ -227,8 +227,8 @@ impl RenderResourceContext for WgpuRenderResourceContext {
     }
 
     fn remove_buffer(&self, buffer: BufferId) {
-        let mut buffers = self.resources.buffers.write();
         let mut buffer_infos = self.resources.buffer_infos.write();
+        let mut buffers = self.resources.buffers.write();
 
         buffers.remove(&buffer);
         buffer_infos.remove(&buffer);

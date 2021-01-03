@@ -37,7 +37,7 @@ pub struct PassNode<Q: WorldQuery> {
 
 impl<Q: WorldQuery> fmt::Debug for PassNode<Q> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("PassNose")
+        f.debug_struct("PassNode")
             .field("descriptor", &self.descriptor)
             .field("inputs", &self.inputs)
             .field("cameras", &self.cameras)

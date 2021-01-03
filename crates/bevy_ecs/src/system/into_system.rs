@@ -425,7 +425,7 @@ mod tests {
             assert_eq!(mutated, 0);
 
             *ran = true;
-        };
+        }
 
         let mut world = World::default();
         let mut resources = Resources::default();

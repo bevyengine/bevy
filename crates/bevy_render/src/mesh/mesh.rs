@@ -219,12 +219,23 @@ impl Mesh {
         self.attributes.get(&name.into())
     }
 
+    pub fn attribute_mut(
+        &mut self,
+        name: impl Into<Cow<'static, str>>,
+    ) -> Option<&mut VertexAttributeValues> {
+        self.attributes.get_mut(&name.into())
+    }
+
     pub fn set_indices(&mut self, indices: Option<Indices>) {
         self.indices = indices;
     }
 
     pub fn indices(&self) -> Option<&Indices> {
         self.indices.as_ref()
+    }
+
+    pub fn indices_mut(&mut self) -> Option<&mut Indices> {
+        self.indices.as_mut()
     }
 
     pub fn get_index_buffer_bytes(&self) -> Option<Vec<u8>> {

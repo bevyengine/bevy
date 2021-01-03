@@ -500,6 +500,12 @@ impl World {
         })
     }
 
+    pub fn entity_count(&self) -> u32 {
+        self.entities.meta.len() as u32 - self.entities.freed_len()
+            + self.entities.reserved_len()
+            + self.entities.pending_len()
+    }
+
     /// Borrow the `T` component of `entity` without checking if it can be mutated
     ///
     /// # Safety

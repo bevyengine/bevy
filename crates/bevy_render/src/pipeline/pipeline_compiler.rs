@@ -2,7 +2,7 @@ use super::{state_descriptors::PrimitiveTopology, IndexFormat, PipelineDescripto
 use crate::{
     pipeline::{BindType, InputStepMode, VertexBufferDescriptor},
     renderer::RenderResourceContext,
-    shader::{Shader, ShaderError, ShaderSource},
+    shader::{Shader, ShaderError},
 };
 use bevy_asset::{Assets, Handle};
 use bevy_reflect::Reflect;
@@ -78,11 +78,6 @@ impl PipelineCompiler {
             .or_insert_with(Vec::new);
 
         let shader = shaders.get(shader_handle).unwrap();
-
-        // don't produce new shader if the input source is already spirv
-        if let ShaderSource::Spirv(_) = shader.source {
-            return Ok(shader_handle.clone_weak());
-        }
 
         if let Some(specialized_shader) =
             specialized_shaders

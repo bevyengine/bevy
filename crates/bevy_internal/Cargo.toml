@@ -24,6 +24,7 @@ png = ["bevy_render/png"]
 dds = ["bevy_render/dds"]
 tga = ["bevy_render/tga"]
 jpeg = ["bevy_render/jpeg"]
+bmp = ["bevy_render/bmp"]
 
 # Audio format support (MP3 is enabled by default)
 flac = ["bevy_audio/flac"]

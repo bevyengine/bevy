@@ -1,5 +1,6 @@
 mod asset_server;
 mod assets;
+pub mod diagnostic;
 #[cfg(all(
     feature = "filesystem_watcher",
     all(not(target_arch = "wasm32"), not(target_os = "android"))
