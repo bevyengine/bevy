@@ -30,6 +30,7 @@ pub enum VertexAttributeValues {
     Float4(Vec<[f32; 4]>),
     Int4(Vec<[i32; 4]>),
     Uint4(Vec<[u32; 4]>),
+    Uchar4Norm(Vec<[u8; 4]>),
 }
 
 impl VertexAttributeValues {
@@ -47,6 +48,7 @@ impl VertexAttributeValues {
             VertexAttributeValues::Float4(ref values) => values.len(),
             VertexAttributeValues::Int4(ref values) => values.len(),
             VertexAttributeValues::Uint4(ref values) => values.len(),
+            VertexAttributeValues::Uchar4Norm(ref values) => values.len(),
         }
     }
 
@@ -69,6 +71,7 @@ impl VertexAttributeValues {
             VertexAttributeValues::Float4(values) => values.as_slice().as_bytes(),
             VertexAttributeValues::Int4(values) => values.as_slice().as_bytes(),
             VertexAttributeValues::Uint4(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Uchar4Norm(values) => values.as_slice().as_bytes(),
         }
     }
 }
@@ -88,6 +91,7 @@ impl From<&VertexAttributeValues> for VertexFormat {
             VertexAttributeValues::Float4(_) => VertexFormat::Float4,
             VertexAttributeValues::Int4(_) => VertexFormat::Int4,
             VertexAttributeValues::Uint4(_) => VertexFormat::Uint4,
+            VertexAttributeValues::Uchar4Norm(_) => VertexFormat::Uchar4Norm,
         }
     }
 }
@@ -164,6 +168,12 @@ impl From<Vec<[u32; 4]>> for VertexAttributeValues {
     }
 }
 
+impl From<Vec<[u8; 4]>> for VertexAttributeValues {
+    fn from(vec: Vec<[u8; 4]>) -> Self {
+        VertexAttributeValues::Uchar4Norm(vec)
+    }
+}
+
 #[derive(Debug)]
 pub enum Indices {
     U16(Vec<u16>),
@@ -190,6 +200,7 @@ pub struct Mesh {
 }
 
 impl Mesh {
+    pub const ATTRIBUTE_COLOR: &'static str = "Vertex_Color";
     pub const ATTRIBUTE_NORMAL: &'static str = "Vertex_Normal";
     pub const ATTRIBUTE_POSITION: &'static str = "Vertex_Position";
     pub const ATTRIBUTE_UV_0: &'static str = "Vertex_Uv";
