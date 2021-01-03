@@ -7,6 +7,8 @@ use bevy_render::{
 };
 use bevy_utils::tracing::trace;
 use std::ops::Range;
+use wgpu::IndexFormat;
+use crate::wgpu_type_converter::WgpuInto;
 
 #[derive(Debug)]
 pub struct WgpuRenderPass<'a> {
@@ -42,7 +44,12 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
 
     fn set_index_buffer(&mut self, buffer_id: BufferId, offset: u64) {
         let buffer = self.wgpu_resources.buffers.get(&buffer_id).unwrap();
-        self.render_pass.set_index_buffer(buffer.slice(offset..));
+        let index_format = match self.pipeline_descriptor {
+            Some(pipeline_descriptor) => pipeline_descriptor.index_format.wgpu_into(),
+            None => IndexFormat::default()
+        };
+
+        self.render_pass.set_index_buffer(buffer.slice(offset..), index_format);
     }
 
     fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>) {

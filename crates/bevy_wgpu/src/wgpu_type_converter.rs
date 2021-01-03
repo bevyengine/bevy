@@ -15,6 +15,7 @@ use bevy_render::{
     },
 };
 use bevy_window::Window;
+use wgpu::{BufferBindingType, StorageTextureAccess};
 
 pub trait WgpuFrom<T> {
     fn from(val: T) -> Self;
@@ -181,25 +182,29 @@ where
 impl WgpuFrom<&BindType> for wgpu::BindingType {
     fn from(bind_type: &BindType) -> Self {
         match bind_type {
-            BindType::Uniform { dynamic, .. } => wgpu::BindingType::UniformBuffer {
-                dynamic: *dynamic,
+            BindType::Uniform { dynamic, .. } => wgpu::BindingType::Buffer {
+                ty: BufferBindingType::Uniform,
+                has_dynamic_offset: *dynamic,
                 min_binding_size: bind_type.get_uniform_size().and_then(wgpu::BufferSize::new),
             },
-            BindType::StorageBuffer { dynamic, readonly } => wgpu::BindingType::StorageBuffer {
-                dynamic: *dynamic,
-                readonly: *readonly,
+            BindType::StorageBuffer { dynamic, readonly } => wgpu::BindingType::Buffer {
+                ty: BufferBindingType::Storage {
+                    read_only: *readonly
+                },
+                has_dynamic_offset: *dynamic,
                 min_binding_size: bind_type.get_uniform_size().and_then(wgpu::BufferSize::new),
             },
             BindType::SampledTexture {
                 dimension,
                 multisampled,
                 component_type,
-            } => wgpu::BindingType::SampledTexture {
-                dimension: (*dimension).wgpu_into(),
+            } => wgpu::BindingType::Texture {
+                sample_type: (*component_type).wgpu_into(),
+                view_dimension: (*dimension).wgpu_into(),
                 multisampled: *multisampled,
-                component_type: (*component_type).wgpu_into(),
             },
             BindType::Sampler { comparison } => wgpu::BindingType::Sampler {
+                filtering: false,
                 comparison: *comparison,
             },
             BindType::StorageTexture {
@@ -207,20 +212,23 @@ impl WgpuFrom<&BindType> for wgpu::BindingType {
                 format,
                 readonly,
             } => wgpu::BindingType::StorageTexture {
-                dimension: (*dimension).wgpu_into(),
+                view_dimension: (*dimension).wgpu_into(),
                 format: (*format).wgpu_into(),
-                readonly: *readonly,
+                access: match *readonly {
+                    true => StorageTextureAccess::ReadOnly,
+                    false => StorageTextureAccess::WriteOnly
+                },
             },
         }
     }
 }
 
-impl WgpuFrom<TextureComponentType> for wgpu::TextureComponentType {
+impl WgpuFrom<TextureComponentType> for wgpu::TextureSampleType {
     fn from(texture_component_type: TextureComponentType) -> Self {
         match texture_component_type {
-            TextureComponentType::Float => wgpu::TextureComponentType::Float,
-            TextureComponentType::Sint => wgpu::TextureComponentType::Sint,
-            TextureComponentType::Uint => wgpu::TextureComponentType::Uint,
+            TextureComponentType::Float => wgpu::TextureSampleType::Float { filterable: true },
+            TextureComponentType::Sint => wgpu::TextureSampleType::Sint,
+            TextureComponentType::Uint => wgpu::TextureSampleType::Uint,
         }
     }
 }
@@ -450,6 +458,7 @@ impl WgpuFrom<&RasterizationStateDescriptor> for wgpu::RasterizationStateDescrip
             depth_bias_slope_scale: val.depth_bias_slope_scale,
             depth_bias_clamp: val.depth_bias_clamp,
             clamp_depth: val.clamp_depth,
+            polygon_mode: Default::default(),
         }
     }
 }
@@ -536,6 +545,7 @@ impl WgpuFrom<SamplerDescriptor> for wgpu::SamplerDescriptor<'_> {
             lod_max_clamp: sampler_descriptor.lod_max_clamp,
             compare: sampler_descriptor.compare_function.map(|c| c.wgpu_into()),
             anisotropy_clamp: sampler_descriptor.anisotropy_clamp,
+            border_color: None
         }
     }
 }
@@ -562,7 +572,7 @@ impl WgpuFrom<FilterMode> for wgpu::FilterMode {
 impl WgpuFrom<&Window> for wgpu::SwapChainDescriptor {
     fn from(window: &Window) -> Self {
         wgpu::SwapChainDescriptor {
-            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+            usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
             format: TextureFormat::default().wgpu_into(),
             width: window.physical_width(),
             height: window.physical_height(),

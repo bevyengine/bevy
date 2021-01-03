@@ -20,6 +20,7 @@ use bevy_window::{Window, WindowId};
 use futures_lite::future;
 use std::{borrow::Cow, ops::Range, sync::Arc};
 use wgpu::util::DeviceExt;
+use wgpu::{ShaderModuleDescriptor, BufferSize};
 
 #[derive(Clone, Debug)]
 pub struct WgpuRenderResourceContext {
@@ -252,9 +253,17 @@ impl RenderResourceContext for WgpuRenderResourceContext {
     fn create_shader_module_from_source(&self, shader_handle: &Handle<Shader>, shader: &Shader) {
         let mut shader_modules = self.resources.shader_modules.write();
         let spirv: Cow<[u32]> = shader.get_spirv(None).unwrap().into();
+        let source = wgpu::ShaderSource::SpirV(spirv);
+
+        let shader_module_descriptor = ShaderModuleDescriptor {
+            label: None,
+            source: source,
+            flags: Default::default()
+        };
+
         let shader_module = self
             .device
-            .create_shader_module(wgpu::ShaderModuleSource::SpirV(spirv));
+            .create_shader_module(&shader_module_descriptor);
         shader_modules.insert(shader_handle.clone_weak(), shader_module);
     }
 
@@ -425,7 +434,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
                 .as_ref()
                 .map(|d| d.wgpu_into()),
             vertex_state: wgpu::VertexStateDescriptor {
-                index_format: pipeline_descriptor.index_format.wgpu_into(),
+                index_format: Some(pipeline_descriptor.index_format.wgpu_into()),
                 vertex_buffers: &owned_vertex_buffer_descriptors
                     .iter()
                     .map(|v| v.into())
@@ -485,9 +494,17 @@ impl RenderResourceContext for WgpuRenderResourceContext {
                             let sampler = samplers.get(&resource).unwrap();
                             wgpu::BindingResource::Sampler(sampler)
                         }
-                        RenderResourceBinding::Buffer { buffer, range, .. } => {
+                        RenderResourceBinding::Buffer { buffer, range, dynamic_index } => {
                             let wgpu_buffer = buffers.get(&buffer).unwrap();
-                            wgpu::BindingResource::Buffer(wgpu_buffer.slice(range.clone()))
+                            // let wgpu::BufferSlice { buffer, offset, size } = wgpu_buffer.slice(range.clone());
+                            wgpu::BindingResource::Buffer{
+                                buffer: &wgpu_buffer,
+                                offset: match dynamic_index {
+                                    Some(index) => *index as u64,
+                                    None => u64::default()
+                                },
+                                size: Some(BufferSize::new(range.end).unwrap())
+                            }
                         }
                     };
                     wgpu::BindGroupEntry {
