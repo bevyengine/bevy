@@ -111,8 +111,8 @@ impl<Q: WorldQuery> PassNode<Q> {
                 bind_type: BindType::Uniform {
                     dynamic: false,
                     property: UniformProperty::Struct(vec![
-                        UniformProperty::Mat4,
-                        UniformProperty::Mat4
+                        UniformProperty::Mat4, // View Projection
+                        UniformProperty::Mat4, // View
                     ]),
                 },
                 shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
