@@ -26,3 +26,6 @@ pub use crate::ui::prelude::*;
 
 #[cfg(feature = "bevy_dynamic_plugin")]
 pub use crate::dynamic_plugin::*;
+
+#[cfg(feature = "bevy_gilrs")]
+pub use crate::gilrs::*;
