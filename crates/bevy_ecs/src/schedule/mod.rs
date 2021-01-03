@@ -6,14 +6,14 @@ pub use stage::*;
 pub use stage_executor::*;
 pub use state::*;
 
-use crate::{IntoSystem, Resources, System, World};
+use crate::{BoxedSystem, IntoSystem, Resources, System, World};
 use bevy_utils::HashMap;
 
 #[derive(Default)]
 pub struct Schedule {
     stages: HashMap<String, Box<dyn Stage>>,
     stage_order: Vec<String>,
-    run_criteria: Option<Box<dyn System<In = (), Out = ShouldRun>>>,
+    run_criteria: Option<BoxedSystem<(), ShouldRun>>,
     run_criteria_initialized: bool,
 }
 

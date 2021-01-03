@@ -50,3 +50,5 @@ pub trait System: Send + Sync + 'static {
     fn run_thread_local(&mut self, world: &mut World, resources: &mut Resources);
     fn initialize(&mut self, _world: &mut World, _resources: &mut Resources);
 }
+
+pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;
