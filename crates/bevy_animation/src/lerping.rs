@@ -64,8 +64,25 @@ impl Lerp for Quat {
             b = -b;
         }
 
-        Vec4::lerp((*a).into(), b.into(), t).normalize().into()
+        let q = Vec4::lerp((*a).into(), b.into(), t);
+        let d = inv_sqrt(q.dot(q));
+        (q * d).into()
     }
+}
+
+/// Quake 3 fast inverse sqrt
+///
+/// Took this one from piston: https://github.com/PistonDevelopers/skeletal_animation
+fn inv_sqrt(x: f32) -> f32 {
+    let x2: f32 = x * 0.5;
+    let mut y: f32 = x;
+
+    let mut i: i32 = unsafe { std::mem::transmute(y) };
+    i = 0x5f3759df - (i >> 1);
+    y = unsafe { std::mem::transmute(i) };
+
+    y = y * (1.5 - (x2 * y * y));
+    y
 }
 
 impl<T: Asset + 'static> Lerp for Handle<T> {

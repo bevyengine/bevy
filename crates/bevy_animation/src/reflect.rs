@@ -251,8 +251,8 @@ pub(crate) fn animate_component_system<T: Component>(
     animators_query: Query<&Animator>,
     components_query: Query<&mut T>,
 ) {
-    // let __span = tracing::info_span!("animator_transform_update_system");
-    // let __guard = __span.enter();
+    let __span = tracing::info_span!("animator_transform_update_system");
+    let __guard = __span.enter();
 
     // TODO: Find a way to reuse these arrays in between system executions
     let mut cached_components = vec![];
@@ -345,7 +345,7 @@ pub(crate) fn animate_component_system<T: Component>(
         }
     }
 
-    // std::mem::drop(__guard);
+    std::mem::drop(__guard);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

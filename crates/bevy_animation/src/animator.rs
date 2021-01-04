@@ -594,18 +594,6 @@ pub(crate) fn animator_update_system(
         // Time scales by component
         let delta_time = time.delta_seconds() * animator.time_scale;
 
-        let w_total = animator
-            .layers
-            .iter()
-            .fold(0.0, |w, layer| w + layer.weight);
-
-        let norm = 1.0 / w_total;
-
-        // Normalize all states weights
-        for layer in &mut animator.layers {
-            layer.weight *= norm;
-        }
-
         // Invalidate entities on parent or name changed events
         for (entity_index, ((parent_index, name), _)) in animator.hierarchy.iter().enumerate() {
             // Ignore the root entity as we don't care about it's parent nor it's name

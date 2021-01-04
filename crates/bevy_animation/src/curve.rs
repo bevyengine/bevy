@@ -15,7 +15,6 @@ use crate::lerping::Lerp;
 pub struct Curve<T> {
     // TODO: Step / Linear / Spline variants
     samples: Vec<f32>,
-    //tangents: Vec<(f32, f32)>,
     values: Vec<T>,
 }
 
