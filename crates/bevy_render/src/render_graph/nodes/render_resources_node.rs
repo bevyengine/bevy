@@ -666,8 +666,24 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
     }
 
     uniform_buffer_arrays.begin_update();
-    // initialize uniform buffer arrays using the first RenderResources
-    if let Some(asset) = changed_assets.values().next() {
+    // initialize uniform buffer arrays using the largest RenderResources
+    if let Some((asset, _)) = changed_assets
+        .values()
+        .map(|asset| {
+            let size: usize = asset
+                .iter()
+                .filter_map(|render_resource| {
+                    if let Some(RenderResourceType::Buffer) = render_resource.resource_type() {
+                        render_resource.buffer_byte_len()
+                    } else {
+                        None
+                    }
+                })
+                .sum();
+            (asset, size)
+        })
+        .max_by_key(|(_, size)| *size)
+    {
         uniform_buffer_arrays.initialize(asset, render_resource_context);
     }
 
