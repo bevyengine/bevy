@@ -12,6 +12,12 @@ pub struct GlobalTransform {
 }
 
 impl GlobalTransform {
+    /// Create a new [`GlobalTransform`] at the position `(x, y, z)`
+    #[inline]
+    pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
+        Self::from_translation(Vec3::new(x, y, z))
+    }
+
     #[inline]
     pub fn identity() -> Self {
         GlobalTransform {

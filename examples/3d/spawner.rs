@@ -39,12 +39,12 @@ fn setup(
     commands
         // light
         .spawn(LightBundle {
-            transform: Transform::from_translation(Vec3::new(4.0, -4.0, 5.0)),
+            transform: Transform::from_xyz(4.0, -4.0, 5.0),
             ..Default::default()
         })
         // camera
         .spawn(Camera3dBundle {
-            transform: Transform::from_translation(Vec3::new(0.0, 15.0, 150.0))
+            transform: Transform::from_xyz(0.0, 15.0, 150.0)
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
         });
@@ -62,11 +62,11 @@ fn setup(
                 ),
                 ..Default::default()
             }),
-            transform: Transform::from_translation(Vec3::new(
+            transform: Transform::from_xyz(
                 rng.gen_range(-50.0, 50.0),
                 rng.gen_range(-50.0, 50.0),
                 0.0,
-            )),
+            ),
             ..Default::default()
         });
     }

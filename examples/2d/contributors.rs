@@ -74,7 +74,7 @@ fn setup(
         // some sprites should be flipped
         let flipped = rnd.gen_bool(0.5);
 
-        let mut transform = Transform::from_translation(Vec3::new(pos.0, pos.1, 0.0));
+        let mut transform = Transform::from_xyz(pos.0, pos.1, 0.0);
         transform.scale.x *= if flipped { -1.0 } else { 1.0 };
 
         commands

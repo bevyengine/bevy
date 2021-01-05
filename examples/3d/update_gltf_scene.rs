@@ -26,11 +26,11 @@ fn setup(
 ) {
     commands
         .spawn(LightBundle {
-            transform: Transform::from_translation(Vec3::new(4.0, 5.0, 4.0)),
+            transform: Transform::from_xyz(4.0, 5.0, 4.0),
             ..Default::default()
         })
         .spawn(Camera3dBundle {
-            transform: Transform::from_translation(Vec3::new(1.05, 0.9, 1.5))
+            transform: Transform::from_xyz(1.05, 0.9, 1.5)
                 .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::unit_y()),
             ..Default::default()
         });
@@ -39,7 +39,7 @@ fn setup(
     // with its parent
     commands
         .spawn((
-            Transform::from_translation(Vec3::new(0.0, 0.0, -1.0)),
+            Transform::from_xyz(0.0, 0.0, -1.0),
             GlobalTransform::default(),
         ))
         .with_children(|parent| {

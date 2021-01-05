@@ -72,7 +72,6 @@ mod test {
     use super::*;
     use crate::hierarchy::{parent_update_system, BuildChildren, BuildWorldChildren};
     use bevy_ecs::{Resources, Schedule, SystemStage, World};
-    use bevy_math::Vec3;
 
     #[test]
     fn did_propagate() {
@@ -88,7 +87,7 @@ mod test {
 
         // Root entity
         world.spawn((
-            Transform::from_translation(Vec3::new(1.0, 0.0, 0.0)),
+            Transform::from_xyz(1.0, 0.0, 0.0),
             GlobalTransform::identity(),
         ));
 
@@ -96,18 +95,18 @@ mod test {
         world
             .build()
             .spawn((
-                Transform::from_translation(Vec3::new(1.0, 0.0, 0.0)),
+                Transform::from_xyz(1.0, 0.0, 0.0),
                 GlobalTransform::identity(),
             ))
             .with_children(|parent| {
                 parent
                     .spawn((
-                        Transform::from_translation(Vec3::new(0.0, 2.0, 0.)),
+                        Transform::from_xyz(0.0, 2.0, 0.),
                         GlobalTransform::identity(),
                     ))
                     .for_current_entity(|entity| children.push(entity))
                     .spawn((
-                        Transform::from_translation(Vec3::new(0.0, 0.0, 3.)),
+                        Transform::from_xyz(0.0, 0.0, 3.),
                         GlobalTransform::identity(),
                     ))
                     .for_current_entity(|entity| children.push(entity));
@@ -116,14 +115,12 @@ mod test {
 
         assert_eq!(
             *world.get::<GlobalTransform>(children[0]).unwrap(),
-            GlobalTransform::from_translation(Vec3::new(1.0, 0.0, 0.0))
-                * Transform::from_translation(Vec3::new(0.0, 2.0, 0.0))
+            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 2.0, 0.0)
         );
 
         assert_eq!(
             *world.get::<GlobalTransform>(children[1]).unwrap(),
-            GlobalTransform::from_translation(Vec3::new(1.0, 0.0, 0.0))
-                * Transform::from_translation(Vec3::new(0.0, 0.0, 3.0))
+            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 0.0, 3.0)
         );
     }
 
@@ -145,18 +142,18 @@ mod test {
         let mut children = Vec::new();
         commands
             .spawn((
-                Transform::from_translation(Vec3::new(1.0, 0.0, 0.0)),
+                Transform::from_xyz(1.0, 0.0, 0.0),
                 GlobalTransform::identity(),
             ))
             .with_children(|parent| {
                 parent
                     .spawn((
-                        Transform::from_translation(Vec3::new(0.0, 2.0, 0.0)),
+                        Transform::from_xyz(0.0, 2.0, 0.0),
                         GlobalTransform::identity(),
                     ))
                     .for_current_entity(|entity| children.push(entity))
                     .spawn((
-                        Transform::from_translation(Vec3::new(0.0, 0.0, 3.0)),
+                        Transform::from_xyz(0.0, 0.0, 3.0),
                         GlobalTransform::identity(),
                     ))
                     .for_current_entity(|entity| children.push(entity));
@@ -166,14 +163,12 @@ mod test {
 
         assert_eq!(
             *world.get::<GlobalTransform>(children[0]).unwrap(),
-            GlobalTransform::from_translation(Vec3::new(1.0, 0.0, 0.0))
-                * Transform::from_translation(Vec3::new(0.0, 2.0, 0.0))
+            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 2.0, 0.0)
         );
 
         assert_eq!(
             *world.get::<GlobalTransform>(children[1]).unwrap(),
-            GlobalTransform::from_translation(Vec3::new(1.0, 0.0, 0.0))
-                * Transform::from_translation(Vec3::new(0.0, 0.0, 3.0))
+            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 0.0, 3.0)
         );
     }
 }
