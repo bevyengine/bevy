@@ -26,14 +26,14 @@ impl VisibleEntities {
 
 /// A mask that describes which rendering group an entity belongs to.
 /// Cameras with this component will only render entities with a matching
-/// mask. 
+/// mask.
 #[derive(Copy, Clone, Debug, Reflect, PartialEq, Eq, PartialOrd, Ord)]
 #[reflect(Component)]
 pub struct RenderingMask(pub u32);
 
 impl Default for RenderingMask {
     fn default() -> Self {
-        RenderingMask( 0 )
+        RenderingMask(0)
     }
 }
 
@@ -56,11 +56,9 @@ impl RenderingMask {
     /// `RenderingMask`s match if the first mask contains any of the groups
     /// in the second, or if both masks are `0`.
     pub fn matches(&self, other: &RenderingMask) -> bool {
-        ((self.0 & other.0) > 0)
-            || (self.0 == 0 && other.0 == 0)
+        ((self.0 & other.0) > 0) || (self.0 == 0 && other.0 == 0)
     }
 }
-
 
 #[cfg(test)]
 mod rendering_mask_tests {
@@ -73,16 +71,25 @@ mod rendering_mask_tests {
         // a group of 0 means the mask is just 1 bit
         assert!(RenderingMask::group(0).matches(&RenderingMask(1)));
         // a mask will match another mask containing any similar groups
-        assert!(RenderingMask::group(0).with_group(3).matches(&RenderingMask::group(3)));
+        assert!(RenderingMask::group(0)
+            .with_group(3)
+            .matches(&RenderingMask::group(3)));
     }
 }
 
 pub fn visible_entities_system(
-    mut camera_query: Query<(&Camera, &GlobalTransform, &mut VisibleEntities, Option<&RenderingMask>)>,
+    mut camera_query: Query<(
+        &Camera,
+        &GlobalTransform,
+        &mut VisibleEntities,
+        Option<&RenderingMask>,
+    )>,
     visible_query: Query<(Entity, &Visible, Option<&RenderingMask>)>,
     visible_transform_query: Query<&GlobalTransform, With<Visible>>,
 ) {
-    for (camera, camera_global_transform, mut visible_entities, maybe_camera_mask) in camera_query.iter_mut() {
+    for (camera, camera_global_transform, mut visible_entities, maybe_camera_mask) in
+        camera_query.iter_mut()
+    {
         visible_entities.value.clear();
         let camera_position = camera_global_transform.translation;
 
@@ -93,8 +100,12 @@ pub fn visible_entities_system(
                 continue;
             }
 
-            let camera_mask = maybe_camera_mask.map(|m| *m).unwrap_or_else(|| RenderingMask(0));
-            let entity_mask = maybe_ent_mask.map(|m| *m).unwrap_or_else(|| RenderingMask(0));
+            let camera_mask = maybe_camera_mask
+                .map(|m| *m)
+                .unwrap_or_else(|| RenderingMask(0));
+            let entity_mask = maybe_ent_mask
+                .map(|m| *m)
+                .unwrap_or_else(|| RenderingMask(0));
             if !camera_mask.matches(&entity_mask) {
                 continue;
             }
