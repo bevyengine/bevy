@@ -33,7 +33,7 @@ pub struct RenderingMask(pub u32);
 
 impl Default for RenderingMask {
     fn default() -> Self {
-        RenderingMask(0)
+        RenderingMask(1)
     }
 }
 
@@ -43,12 +43,12 @@ impl RenderingMask {
     }
 
     pub fn with_group(mut self, group: u8) -> Self {
-        self.0 = self.0 | (1 << group);
+        self.0 |= 1 << group;
         self
     }
 
     pub fn without_group(mut self, group: u8) -> Self {
-        self.0 = self.0 | (0 << group);
+        self.0 |= 0 << group;
         self
     }
 
@@ -101,10 +101,10 @@ pub fn visible_entities_system(
             }
 
             let camera_mask = maybe_camera_mask
-                .map(|m| *m)
+                .copied()
                 .unwrap_or_else(|| RenderingMask(0));
             let entity_mask = maybe_ent_mask
-                .map(|m| *m)
+                .copied()
                 .unwrap_or_else(|| RenderingMask(0));
             if !camera_mask.matches(&entity_mask) {
                 continue;
