@@ -162,6 +162,7 @@ pub struct Clip {
     // ! fetching extra components that aren't been used
     hierarchy: Hierarchy,
     // ? NOTE: AHash performed worse than FnvHasher
+    // TODO: Change to the hashbrown::raw::RawTable and use a `label!()` to make hashes constants
     /// Each curve and keyframe cache index mapped by property name
     properties: HashMap<String, (usize, CurvesUntyped), FnvBuildHasher>,
     /// Number of animated properties

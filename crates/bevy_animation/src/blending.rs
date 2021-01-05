@@ -38,6 +38,7 @@ pub const MASK_LIMIT: usize = size_of::<Mask>() * 8;
 pub struct AnimatorBlending {
     bits: Vec<Mask>,
     // ? NOTE: HashMap is used here to reduce memory waste, it's slower but other wise a lot of memory won't be used
+    // TODO: Change to the hashbrown::raw::RawTable to use the pointers values as hashes it self
     /// Used for contest blend type
     weights: HashMap<Ptr, f32, FnvBuildHasher>,
 }

@@ -10,10 +10,13 @@ use crate::lerping::Lerp;
 // http://bitsquid.blogspot.com/2009/11/bitsquid-low-level-animation-system.html
 // http://archive.gamedev.net/archive/reference/articles/article1497.html (bit old)
 
+// http://nfrechette.github.io/2016/12/07/anim_compression_key_reduction/
+// https://github.com/nfrechette/acl
+
 // TODO: impl Serialize, Deserialize
 #[derive(Default, Debug)]
 pub struct Curve<T> {
-    // TODO: Step / Linear / Spline variants
+    // TODO: Change to frame_rate / frame_indexes to reduce memory usage
     samples: Vec<f32>,
     values: Vec<T>,
 }
