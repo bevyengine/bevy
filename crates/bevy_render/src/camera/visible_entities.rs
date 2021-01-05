@@ -86,7 +86,10 @@ mod rendering_mask_tests {
         // default masks match each other
         assert!(RenderingMask::default().matches(&RenderingMask::default()));
         // masks with differing groups do not match
-        assert_eq!(RenderingMask::group(0).matches(&RenderingMask::group(1)), false);
+        assert_eq!(
+            RenderingMask::group(0).matches(&RenderingMask::group(1)),
+            false
+        );
     }
 }
 
