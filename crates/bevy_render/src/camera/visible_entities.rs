@@ -27,9 +27,9 @@ impl VisibleEntities {
 /// A mask that describes which rendering group an entity belongs to.
 /// Cameras with this component will only render entities with a matching
 /// mask. 
-#[derive(Debug, Reflect, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, Reflect, PartialEq, Eq, PartialOrd, Ord)]
 #[reflect(Component)]
-pub struct RenderingMask(pub u8);
+pub struct RenderingMask(pub u32);
 
 impl Default for RenderingMask {
     fn default() -> Self {
@@ -52,8 +52,12 @@ impl RenderingMask {
         self
     }
 
+    /// Determine if a `RenderingMask` matches.
+    /// `RenderingMask`s match if the first mask contains any of the groups
+    /// in the second, or if both masks are `0`.
     pub fn matches(&self, other: &RenderingMask) -> bool {
-        (self.0 & other.0) > 0
+        ((self.0 & other.0) > 0)
+            || (self.0 == 0 && other.0 == 0)
     }
 }
 
@@ -89,15 +93,9 @@ pub fn visible_entities_system(
                 continue;
             }
 
-            if let Some(camera_mask) = maybe_camera_mask {
-                if let Some(entity_mask) = maybe_ent_mask {
-                    if !camera_mask.matches(entity_mask) {
-                        continue;
-                    }
-                } else {
-                    continue;
-                }
-            } else if maybe_ent_mask.is_some() {
+            let camera_mask = maybe_camera_mask.map(|m| *m).unwrap_or_else(|| RenderingMask(0));
+            let entity_mask = maybe_ent_mask.map(|m| *m).unwrap_or_else(|| RenderingMask(0));
+            if !camera_mask.matches(&entity_mask) {
                 continue;
             }
 
