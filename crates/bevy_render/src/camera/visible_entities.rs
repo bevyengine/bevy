@@ -26,8 +26,7 @@ impl VisibleEntities {
 
 /// A mask that describes which rendering group an entity belongs to.
 /// Cameras with this component will only render entities with a matching
-/// mask. In other words, only an entity with a matching camera will be
-/// rendered.
+/// mask. 
 #[derive(Debug, Reflect, PartialEq, Eq, PartialOrd, Ord)]
 #[reflect(Component)]
 pub struct RenderingMask(pub u8);
