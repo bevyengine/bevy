@@ -130,7 +130,7 @@ where
             // Forward search
             loop {
                 if index == last_index {
-                    return (last_index, self.values.last().unwrap().clone());
+                    return (last_index, self.values[last_index as usize].clone());
                 }
                 index += 1;
 
@@ -142,7 +142,7 @@ where
             // Backward search
             loop {
                 if index == 0 {
-                    return (0, self.values.last().unwrap().clone());
+                    return (0, self.values[0].clone());
                 }
 
                 let i = index - 1;
