@@ -70,6 +70,12 @@ impl EntityLabels {
             .map(|entities| entities.as_slice())
             .unwrap_or(&[])
     }
+
+    pub fn get_labels(&self, entity: &Entity) -> Option<impl Iterator<Item = &str>> {
+        self.entity_labels
+            .get(entity)
+            .map(|label_set| label_set.iter().map(|label| label.as_ref()))
+    }
 }
 
 pub(crate) fn entity_labels_system(
