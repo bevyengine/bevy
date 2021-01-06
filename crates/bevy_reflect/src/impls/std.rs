@@ -28,6 +28,127 @@ impl_reflect_value!(Option<T: Serialize + Clone + for<'de> Deserialize<'de> + Re
 impl_reflect_value!(HashSet<T: Serialize + Hash + Eq + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
 impl_reflect_value!(Range<T: Serialize + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
 
+macro_rules! impl_reflect_tuple {
+    ($($index:tt : $name:tt),*) => {
+        impl<$($name: Reflect),*> List for ($($name,)*) {
+            fn get(&self, index: usize) -> Option<&dyn Reflect> {
+                match index {
+                    $($index => Some(&self.$index as &dyn Reflect),)*
+                    _ => None,
+                }
+            }
+
+            fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
+                match index {
+                    $($index => Some(&mut self.$index as &mut dyn Reflect),)*
+                    _ => None,
+                }
+            }
+
+            fn len(&self) -> usize {
+                [0usize, $($index as usize),*].len() - 1
+            }
+
+            fn iter(&self) -> ListIter {
+                ListIter {
+                    list: self,
+                    index: 0,
+                }
+            }
+
+            fn push(&mut self, _value: Box<dyn Reflect>) {
+                unimplemented!("attempt to push value to a tuple")
+            }
+        }
+
+        impl<$($name: Reflect),*> Reflect for ($($name,)*) {
+            fn type_name(&self) -> &str {
+                std::any::type_name::<Self>()
+            }
+
+            fn any(&self) -> &dyn Any {
+                self
+            }
+
+            fn any_mut(&mut self) -> &mut dyn Any {
+                self
+            }
+
+            fn apply(&mut self, value: &dyn Reflect) {
+                crate::list_apply(self, value);
+            }
+
+            fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+                *self = value.take()?;
+                Ok(())
+            }
+
+            fn reflect_ref(&self) -> ReflectRef {
+                ReflectRef::List(self)
+            }
+
+            fn reflect_mut(&mut self) -> ReflectMut {
+                ReflectMut::List(self)
+            }
+
+            fn clone_value(&self) -> Box<dyn Reflect> {
+                Box::new(self.clone_dynamic())
+            }
+
+            fn reflect_hash(&self) -> Option<u64> {
+                None
+            }
+
+            fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+                crate::list_partial_eq(self, value)
+            }
+
+            fn serializable(&self) -> Option<Serializable> {
+                None
+            }
+        }
+    }
+}
+
+impl_reflect_tuple!();
+impl_reflect_tuple!(0: A);
+impl_reflect_tuple!(0: A, 1: B);
+impl_reflect_tuple!(0: A, 1: B, 2: C);
+impl_reflect_tuple!(0: A, 1: B, 2: C, 3: D);
+impl_reflect_tuple!(0: A, 1: B, 2: C, 3: D, 4: E);
+impl_reflect_tuple!(0: A, 1: B, 2: C, 3: D, 4: E, 5: F);
+impl_reflect_tuple!(0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G);
+impl_reflect_tuple!(0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H);
+impl_reflect_tuple!(0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I);
+impl_reflect_tuple!(0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J);
+impl_reflect_tuple!(
+    0: A,
+    1: B,
+    2: C,
+    3: D,
+    4: E,
+    5: F,
+    6: G,
+    7: H,
+    8: I,
+    9: J,
+    10: K
+);
+impl_reflect_tuple!(
+    0: A,
+    1: B,
+    2: C,
+    3: D,
+    4: E,
+    5: F,
+    6: G,
+    7: H,
+    8: I,
+    9: J,
+    10: K,
+    11: L
+);
+
 impl<T: Reflect> List for Vec<T> {
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
         <[T]>::get(self, index).map(|value| value as &dyn Reflect)
