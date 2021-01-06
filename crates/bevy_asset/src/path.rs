@@ -152,6 +152,12 @@ impl<'a> From<&'a str> for AssetPath<'a> {
     }
 }
 
+impl<'a> From<String> for AssetPath<'a> {
+    fn from(asset_path: String) -> Self {
+        AssetPath::from(asset_path.as_str())
+    }
+}
+
 impl<'a> From<&'a Path> for AssetPath<'a> {
     fn from(path: &'a Path) -> Self {
         AssetPath {
