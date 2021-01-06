@@ -29,7 +29,7 @@ impl_reflect_value!(HashSet<T: Serialize + Hash + Eq + Clone + for<'de> Deserial
 impl_reflect_value!(Range<T: Serialize + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
 
 macro_rules! impl_reflect_tuple {
-    ($($index:tt : $name:tt),*) => {
+    {$($index:tt : $name:tt),*} => {
         impl<$($name: Reflect),*> List for ($($name,)*) {
             fn get(&self, index: usize) -> Option<&dyn Reflect> {
                 match index {
@@ -110,44 +110,19 @@ macro_rules! impl_reflect_tuple {
     }
 }
 
-impl_reflect_tuple!();
-impl_reflect_tuple!(0: A);
-impl_reflect_tuple!(0: A, 1: B);
-impl_reflect_tuple!(0: A, 1: B, 2: C);
-impl_reflect_tuple!(0: A, 1: B, 2: C, 3: D);
-impl_reflect_tuple!(0: A, 1: B, 2: C, 3: D, 4: E);
-impl_reflect_tuple!(0: A, 1: B, 2: C, 3: D, 4: E, 5: F);
-impl_reflect_tuple!(0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G);
-impl_reflect_tuple!(0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H);
-impl_reflect_tuple!(0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I);
-impl_reflect_tuple!(0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J);
-impl_reflect_tuple!(
-    0: A,
-    1: B,
-    2: C,
-    3: D,
-    4: E,
-    5: F,
-    6: G,
-    7: H,
-    8: I,
-    9: J,
-    10: K
-);
-impl_reflect_tuple!(
-    0: A,
-    1: B,
-    2: C,
-    3: D,
-    4: E,
-    5: F,
-    6: G,
-    7: H,
-    8: I,
-    9: J,
-    10: K,
-    11: L
-);
+impl_reflect_tuple! {}
+impl_reflect_tuple! {0: A}
+impl_reflect_tuple! {0: A, 1: B}
+impl_reflect_tuple! {0: A, 1: B, 2: C}
+impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D}
+impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E}
+impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F}
+impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G}
+impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H}
+impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I}
+impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J}
+impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K}
+impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K, 11: L}
 
 impl<T: Reflect> List for Vec<T> {
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
