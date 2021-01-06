@@ -9,18 +9,9 @@ use bevy::{
 };
 
 fn main() {
-    let mut pwd = std::env::current_dir()
-        .unwrap()
-        .to_str()
-        .unwrap()
-        .to_owned();
-    pwd.push_str("/assets");
-
-    let mut bench = bevy::animation::Bench::build();
+    let mut bench = bevy::animation::Bench::build(None);
     bench
         .builder
-        // Asset folder
-        .add_resource(AssetServerSettings { asset_folder: pwd })
         // To load
         .add_plugin(bevy::scene::ScenePlugin::default())
         .add_plugin(bevy::gltf::GltfPlugin::default())

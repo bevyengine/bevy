@@ -1,6 +1,6 @@
 use crate::{app::AddAnimated, stage::ANIMATE};
 use bevy_app::{App, AppBuilder};
-use bevy_asset::Asset;
+use bevy_asset::{Asset, AssetServerSettings};
 use bevy_ecs::{Component, Schedule};
 use bevy_reflect::Struct;
 use bevy_transform::prelude::*;
@@ -12,9 +12,20 @@ pub struct Bench {
 }
 
 impl Bench {
-    pub fn build() -> Self {
+    pub fn build(asset_folder: Option<String>) -> Self {
+        let asset_folder = asset_folder.unwrap_or_else(|| {
+            let mut asset_folder = std::env::current_dir()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_owned();
+            asset_folder.push_str("/assets");
+            asset_folder
+        });
+
         let mut builder = App::build();
         builder
+            .add_resource(AssetServerSettings { asset_folder })
             .add_plugin(bevy_reflect::ReflectPlugin::default())
             .add_plugin(bevy_core::CorePlugin::default())
             .add_plugin(bevy_app::ScheduleRunnerPlugin::default())
