@@ -10,10 +10,10 @@ use bevy_render::prelude::Color;
 use tracing::warn;
 
 use crate::{
-    blending::{AnimatorBlendGroup, Blend, Mask, MASK_LIMIT},
+    animator::{Animator, Clip},
+    blending::{AnimatorBlendGroup, AnimatorBlending, Blend, Mask, MASK_LIMIT},
     help::shorten_name,
     lerping::Lerp,
-    Animator, AnimatorBlending, Clip,
 };
 
 // ? NOTE: Generic types like `Option<T>` must be specialized and registered with `register_animated_property_type`

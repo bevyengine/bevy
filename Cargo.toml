@@ -368,6 +368,10 @@ path = "examples/android/android.rs"
 name = "run_animation"
 path = "examples/animations/run_animation.rs"
 
+[[example]]
+name = "bench_run_idle_animation"
+path = "examples/animations/bench_run_idle_animation.rs"
+
 [package.metadata.android]
 apk_label = "Bevy Example"
 assets = "assets"

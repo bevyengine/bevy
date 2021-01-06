@@ -35,6 +35,3 @@ harness = false
 
 [features]
 default = []
-
-# Used to enable custom tests designed to profile certain aspects of the animation system
-extra-profiling-tests = []
