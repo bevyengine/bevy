@@ -43,12 +43,12 @@ fn setup(
             GlobalTransform::default(),
         ))
         .with_children(|parent| {
-            parent.spawn_scene(asset_server.load("models/FlightHelmet/FlightHelmet.gltf"));
+            parent.spawn_scene(asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"));
         });
 
     // Spawn a second scene, and keep its `instance_id`
     let instance_id =
-        scene_spawner.spawn(asset_server.load("models/FlightHelmet/FlightHelmet.gltf"));
+        scene_spawner.spawn(asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"));
     scene_instance.0 = Some(instance_id);
 }
 
