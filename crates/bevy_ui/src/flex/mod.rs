@@ -14,7 +14,7 @@ use stretch::{number::Number, Stretch};
 
 pub struct FlexSurface {
     entity_to_stretch: HashMap<Entity, stretch::node::Node>,
-    window_nodes: HashMap<WindowId, Vec<(stretch::node::Node, stretch::node::Node)>>,
+    window_nodes: HashMap<WindowId, Vec<RootNodes>>,
     stretch: Stretch,
 }
 
@@ -35,6 +35,17 @@ impl Default for FlexSurface {
             stretch: Stretch::new(),
         }
     }
+}
+
+#[derive(Debug)]
+struct RootNodes {
+    window: stretch::node::Node,
+    entity: stretch::node::Node,
+}
+
+#[derive(Default, Debug)]
+pub struct UiRoot {
+    pub z_offset: f32,
 }
 
 impl FlexSurface {
@@ -118,7 +129,11 @@ without UI components as a child of an entity with UI components, results may be
     pub fn update_window(&mut self, window: &Window) {
         let stretch = &mut self.stretch;
         if let Some(window_nodes) = self.window_nodes.get(&window.id()) {
-            for (window_node, _) in window_nodes.iter() {
+            for RootNodes {
+                window: window_node,
+                entity: _,
+            } in window_nodes.iter()
+            {
                 stretch
                     .set_style(
                         *window_node,
@@ -150,32 +165,31 @@ without UI components as a child of an entity with UI components, results may be
         let window_nodes = self.window_nodes.entry(window_id).or_default();
 
         // Remove the previous nodes of deleted entities
-        let mut i = 0;
-        while i != window_nodes.len() {
-            if !children.contains(&window_nodes[i].1) {
-                self.stretch.remove(window_nodes[i].0);
-                self.stretch.remove(window_nodes[i].1);
-                window_nodes.remove(i);
+        let stretch = &mut self.stretch;
+        window_nodes.retain(|root_nodes| {
+            if children.contains(&root_nodes.entity) {
+                true
             } else {
-                i += 1;
+                stretch.remove(root_nodes.window);
+                stretch.remove(root_nodes.entity);
+                false
             }
-        }
+        });
 
         // Add the nodes for new entities
         for child in children.iter() {
-            let mut contains = false;
-            for (_, node) in window_nodes.iter() {
-                if node == child {
-                    contains = true;
-                    break;
-                }
-            }
-            if !contains {
+            if let None = window_nodes
+                .iter()
+                .find(|root_nodes| root_nodes.entity == *child)
+            {
                 let new_root = self
                     .stretch
                     .new_node(stretch::style::Style::default(), vec![*child])
                     .unwrap();
-                window_nodes.push((new_root, *child));
+                window_nodes.push(RootNodes {
+                    window: new_root,
+                    entity: *child,
+                });
             }
         }
     }
@@ -184,7 +198,7 @@ without UI components as a child of an entity with UI components, results may be
         for window_nodes in self.window_nodes.values() {
             for window_node in window_nodes {
                 self.stretch
-                    .compute_layout(window_node.0, stretch::geometry::Size::undefined())
+                    .compute_layout(window_node.window, stretch::geometry::Size::undefined())
                     .unwrap();
             }
         }

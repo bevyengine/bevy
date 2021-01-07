@@ -1,21 +1,23 @@
-use super::Node;
+use super::{Node, UiRoot};
 use bevy_ecs::{Entity, Query, With, Without};
 use bevy_transform::prelude::{Children, Parent, Transform};
 
 pub const UI_Z_STEP: f32 = 0.001;
 
 pub fn ui_z_system(
-    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
+    root_node_query: Query<(Entity, Option<&UiRoot>), (With<Node>, Without<Parent>)>,
     mut node_query: Query<&mut Transform, With<Node>>,
     children_query: Query<&Children>,
 ) {
-    let mut current_global_z = 0.0;
-    for entity in root_node_query.iter() {
-        current_global_z = update_hierarchy(
+    for (entity, ui_root) in root_node_query.iter() {
+        let current_global_z = ui_root
+            .map(|root| root.z_offset)
+            .unwrap_or(0.0);
+        update_hierarchy(
             &children_query,
             &mut node_query,
             entity,
-            current_global_z,
+            0.0,
             current_global_z,
         );
     }
