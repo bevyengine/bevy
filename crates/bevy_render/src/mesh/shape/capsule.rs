@@ -1,12 +1,22 @@
-use crate::{mesh::Mesh, pipeline::PrimitiveTopology};
+use crate::{
+    mesh::{Indices, Mesh},
+    pipeline::PrimitiveTopology,
+};
 use bevy_math::{Vec2, Vec3};
 
+/// A cylinder with hemispheres at the top and bottom
 pub struct Capsule {
+    /// Radius on the xz plane.
     pub radius: f32,
+    /// Number of sections in cylinder between hemispheres.
     pub rings: usize,
+    /// Height of the middle cylinder on the y axis, excluding the hemispheres.
     pub depth: f32,
+    /// Number of latitudes, distributed by inclination. Must be even.
     pub latitudes: usize,
+    /// Number of longitudes, or meridians, distributed by azimuth.
     pub longitudes: usize,
+    /// Manner in which UV coordinates are distributed vertically.
     pub uv_profile: CapsuleUvProfile,
 }
 impl Default for Capsule {
@@ -23,10 +33,20 @@ impl Default for Capsule {
 }
 
 #[derive(Clone, Copy)]
+/// Manner in which UV coordinates are distributed vertically.
 pub enum CapsuleUvProfile {
+    /// UV space is distributed by how much of the capsule consists of the hemispheres.
     Aspect,
+    /// Hemispheres get UV space according to the ratio of latitudes to rings.
     Uniform,
+    /// Upper third of the texture goes to the northern hemisphere, middle third to the cylinder and lower third to the southern one.
     Fixed,
+}
+
+impl Default for CapsuleUvProfile {
+    fn default() -> Self {
+        CapsuleUvProfile::Aspect
+    }
 }
 
 impl From<Capsule> for Mesh {

@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_math::{Quat, Vec3};
 
-/// A torus (donut) shape
+/// A torus (donut) shape.
 #[derive(Debug)]
 pub struct Torus {
     pub radius: f32,
