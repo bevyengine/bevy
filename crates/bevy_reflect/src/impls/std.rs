@@ -1,6 +1,6 @@
 use crate::{
-    map_partial_eq, serde::Serializable, DynamicMap, List, ListIter, Map, MapIter, Reflect,
-    ReflectDeserialize, ReflectMut, ReflectRef,
+    map_partial_eq, serde::Serializable, DynamicMap, DynamicTuple, List, ListIter, Map, MapIter,
+    Reflect, ReflectDeserialize, ReflectMut, ReflectRef, Tuple, TupleFieldIter,
 };
 
 use bevy_reflect_derive::impl_reflect_value;
@@ -30,34 +30,45 @@ impl_reflect_value!(Range<T: Serialize + Clone + for<'de> Deserialize<'de> + Sen
 
 macro_rules! impl_reflect_tuple {
     {$($index:tt : $name:tt),*} => {
-        impl<$($name: Reflect),*> List for ($($name,)*) {
-            fn get(&self, index: usize) -> Option<&dyn Reflect> {
+        impl<$($name: Reflect),*> Tuple for ($($name,)*) {
+            #[inline]
+            fn field(&self, index: usize) -> Option<&dyn Reflect> {
                 match index {
                     $($index => Some(&self.$index as &dyn Reflect),)*
                     _ => None,
                 }
             }
 
-            fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
+            #[inline]
+            fn field_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
                 match index {
                     $($index => Some(&mut self.$index as &mut dyn Reflect),)*
                     _ => None,
                 }
             }
 
-            fn len(&self) -> usize {
-                [0usize, $($index as usize),*].len() - 1
+            #[inline]
+            fn field_len(&self) -> usize {
+                let indices: &[usize] = &[$($index as usize),*];
+                indices.len()
             }
 
-            fn iter(&self) -> ListIter {
-                ListIter {
-                    list: self,
+            #[inline]
+            fn iter_fields(&self) -> TupleFieldIter {
+                TupleFieldIter {
+                    tuple: self,
                     index: 0,
                 }
             }
 
-            fn push(&mut self, _value: Box<dyn Reflect>) {
-                unimplemented!("attempt to push value to a tuple")
+            #[inline]
+            fn clone_dynamic(&self) -> DynamicTuple {
+                DynamicTuple {
+                    fields: self
+                        .iter_fields()
+                        .map(|value| value.clone_value())
+                        .collect(),
+                }
             }
         }
 
@@ -75,7 +86,7 @@ macro_rules! impl_reflect_tuple {
             }
 
             fn apply(&mut self, value: &dyn Reflect) {
-                crate::list_apply(self, value);
+                crate::tuple_apply(self, value);
             }
 
             fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
@@ -84,11 +95,11 @@ macro_rules! impl_reflect_tuple {
             }
 
             fn reflect_ref(&self) -> ReflectRef {
-                ReflectRef::List(self)
+                ReflectRef::Tuple(self)
             }
 
             fn reflect_mut(&mut self) -> ReflectMut {
-                ReflectMut::List(self)
+                ReflectMut::Tuple(self)
             }
 
             fn clone_value(&self) -> Box<dyn Reflect> {
@@ -100,7 +111,7 @@ macro_rules! impl_reflect_tuple {
             }
 
             fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
-                crate::list_partial_eq(self, value)
+                crate::tuple_partial_eq(self, value)
             }
 
             fn serializable(&self) -> Option<Serializable> {

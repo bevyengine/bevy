@@ -1,6 +1,6 @@
 use crate::{
-    serde::type_fields, DynamicList, DynamicMap, DynamicStruct, DynamicTupleStruct, Reflect,
-    ReflectDeserialize, TypeRegistry,
+    serde::type_fields, DynamicList, DynamicMap, DynamicStruct, DynamicTuple, DynamicTupleStruct,
+    Reflect, ReflectDeserialize, TypeRegistry,
 };
 use erased_serde::Deserializer;
 use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
@@ -175,6 +175,15 @@ impl<'a, 'de> Visitor<'de> for ReflectVisitor<'a> {
                     })?;
                     tuple_struct.set_name(type_name);
                     return Ok(Box::new(tuple_struct));
+                }
+                type_fields::TUPLE => {
+                    let _type_name = type_name
+                        .take()
+                        .ok_or_else(|| de::Error::missing_field(type_fields::TYPE))?;
+                    let tuple = map.next_value_seed(TupleDeserializer {
+                        registry: self.registry,
+                    })?;
+                    return Ok(Box::new(tuple));
                 }
                 type_fields::LIST => {
                     let _type_name = type_name
@@ -399,5 +408,47 @@ impl<'a, 'de> Visitor<'de> for TupleStructVisitor<'a> {
             tuple_struct.insert_boxed(value);
         }
         Ok(tuple_struct)
+    }
+}
+
+struct TupleDeserializer<'a> {
+    registry: &'a TypeRegistry,
+}
+
+impl<'a, 'de> DeserializeSeed<'de> for TupleDeserializer<'a> {
+    type Value = DynamicTuple;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_seq(TupleVisitor {
+            registry: self.registry,
+        })
+    }
+}
+
+struct TupleVisitor<'a> {
+    registry: &'a TypeRegistry,
+}
+
+impl<'a, 'de> Visitor<'de> for TupleVisitor<'a> {
+    type Value = DynamicTuple;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("tuple value")
+    }
+
+    fn visit_seq<V>(self, mut seq: V) -> Result<Self::Value, V::Error>
+    where
+        V: SeqAccess<'de>,
+    {
+        let mut tuple = DynamicTuple::default();
+        while let Some(value) = seq.next_element_seed(ReflectDeserializer {
+            registry: self.registry,
+        })? {
+            tuple.insert_boxed(value);
+        }
+        Ok(tuple)
     }
 }

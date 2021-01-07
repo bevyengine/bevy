@@ -3,6 +3,7 @@ mod map;
 mod path;
 mod reflect;
 mod struct_trait;
+mod tuple;
 mod tuple_struct;
 mod type_registry;
 mod type_uuid;
@@ -46,6 +47,7 @@ pub use map::*;
 pub use path::*;
 pub use reflect::*;
 pub use struct_trait::*;
+pub use tuple::*;
 pub use tuple_struct::*;
 pub use type_registry::*;
 pub use type_uuid::*;
@@ -246,10 +248,10 @@ mod tests {
         bar_patch.insert("x", 2u32);
         foo_patch.insert("e", bar_patch.clone_dynamic());
 
-        let mut tuple = DynamicList::default();
-        tuple.push(2i32);
-        tuple.push(list);
-        tuple.push(bar_patch);
+        let mut tuple = DynamicTuple::default();
+        tuple.insert(2i32);
+        tuple.insert(list);
+        tuple.insert(bar_patch);
         foo_patch.insert("f", tuple);
 
         foo.apply(&foo_patch);
