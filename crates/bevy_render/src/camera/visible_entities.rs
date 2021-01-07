@@ -106,7 +106,11 @@ mod rendering_mask_tests {
     fn rendering_mask_sanity() {
         assert_eq!(RenderingMask::group(0).0, 1, "group 0 is mask 1");
         assert_eq!(RenderingMask::group(1).0, 2, "group 1 is mask 2");
-        assert_eq!(RenderingMask::group(0).with_group(1).0, 3, "group 0 + 1 is mask 3");
+        assert_eq!(
+            RenderingMask::group(0).with_group(1).0,
+            3,
+            "group 0 + 1 is mask 3"
+        );
         assert!(
             RenderingMask::group(1).matches(&RenderingMask::group(1)),
             "groups match like groups"
