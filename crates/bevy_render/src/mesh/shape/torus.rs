@@ -31,7 +31,7 @@ impl From<Torus> for Mesh {
         let n_vertices = (torus.subdivisions_segments + 1) * (torus.subdivisions_sides + 1);
         let mut positions: Vec<[f32; 3]> = Vec::with_capacity(n_vertices);
         let mut normals: Vec<[f32; 3]> = Vec::with_capacity(n_vertices);
-        let mut uvs: Vec<[f32; 2]> = Vec::new();
+        let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(n_vertices);
 
         for segment in 0..=torus.subdivisions_segments {
             let t1 =

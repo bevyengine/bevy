@@ -86,15 +86,10 @@ impl From<Capsule> for Mesh {
 
         // Initialize arrays.
         let vert_len = vert_offset_south_cap + longitudes;
-        let mut vs: Vec<Vec3> = Vec::with_capacity(vert_len);
-        let mut vts: Vec<Vec2> = Vec::with_capacity(vert_len);
-        let mut vns: Vec<Vec3> = Vec::with_capacity(vert_len);
 
-        for _ in 0..vert_len {
-            vs.push(Vec3::zero());
-            vts.push(Vec2::zero());
-            vns.push(Vec3::zero());
-        }
+        let mut vs: Vec<Vec3> = vec![Vec3::default(); vert_len];
+        let mut vts: Vec<Vec2> = vec![Vec2::default(); vert_len];
+        let mut vns: Vec<Vec3> = vec![Vec3::default(); vert_len];
 
         let to_theta = 2.0 * std::f32::consts::PI / longitudes as f32;
         let to_phi = std::f32::consts::PI / latitudes as f32;
@@ -109,17 +104,9 @@ impl From<Capsule> for Mesh {
         let vt_aspect_north = 1.0 - vt_aspect_ratio;
         let vt_aspect_south = vt_aspect_ratio;
 
-        let mut theta_cartesian: Vec<Vec2> = Vec::with_capacity(longitudes);
-        let mut rho_theta_cartesian: Vec<Vec2> = Vec::with_capacity(longitudes);
-        let mut s_texture_cache: Vec<f32> = Vec::with_capacity(lonsp1);
-
-        for _ in 0..longitudes {
-            theta_cartesian.push(Vec2::zero());
-            rho_theta_cartesian.push(Vec2::zero());
-        }
-        for _ in 0..lonsp1 {
-            s_texture_cache.push(0.0);
-        }
+        let mut theta_cartesian: Vec<Vec2> = vec![Vec2::default(); longitudes];
+        let mut rho_theta_cartesian: Vec<Vec2> = vec![Vec2::default(); longitudes];
+        let mut s_texture_cache: Vec<f32> = vec![0.0; lonsp1];
 
         for j in 0..longitudes {
             let jf = j as f32;
@@ -269,11 +256,7 @@ impl From<Capsule> for Mesh {
         let tri_offset_south_cap = tri_offset_south_hemi + hemi_lons;
 
         let fs_len = tri_offset_south_cap + lons3;
-        let mut tris: Vec<u32> = Vec::with_capacity(fs_len);
-
-        for _ in 0..fs_len {
-            tris.push(0);
-        }
+        let mut tris: Vec<u32> = vec![0; fs_len];
 
         // Polar caps.
         let mut i = 0;
