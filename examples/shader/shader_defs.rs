@@ -109,7 +109,7 @@ fn setup(
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 pipeline_handle.clone(),
             )]),
-            transform: Transform::from_translation(Vec3::new(-2.0, 0.0, 0.0)),
+            transform: Transform::from_xyz(-2.0, 0.0, 0.0),
             ..Default::default()
         })
         .with(green_material)
@@ -119,13 +119,13 @@ fn setup(
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 pipeline_handle,
             )]),
-            transform: Transform::from_translation(Vec3::new(2.0, 0.0, 0.0)),
+            transform: Transform::from_xyz(2.0, 0.0, 0.0),
             ..Default::default()
         })
         .with(blue_material)
         // camera
         .spawn(Camera3dBundle {
-            transform: Transform::from_translation(Vec3::new(3.0, 5.0, -8.0))
+            transform: Transform::from_xyz(3.0, 5.0, -8.0)
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
         });

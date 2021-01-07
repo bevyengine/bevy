@@ -72,7 +72,6 @@ mod test {
     use super::*;
     use crate::{hierarchy::BuildChildren, transform_propagate_system::transform_propagate_system};
     use bevy_ecs::{IntoSystem, Resources, Schedule, SystemStage, World};
-    use bevy_math::Vec3;
 
     #[test]
     fn correct_children() {
@@ -92,13 +91,13 @@ mod test {
         let mut parent = None;
         let mut children = Vec::new();
         commands
-            .spawn((Transform::from_translation(Vec3::new(1.0, 0.0, 0.0)),))
+            .spawn((Transform::from_xyz(1.0, 0.0, 0.0),))
             .for_current_entity(|entity| parent = Some(entity))
             .with_children(|parent| {
                 parent
-                    .spawn((Transform::from_translation(Vec3::new(0.0, 2.0, 0.0)),))
+                    .spawn((Transform::from_xyz(0.0, 2.0, 0.0),))
                     .for_current_entity(|entity| children.push(entity))
-                    .spawn((Transform::from_translation(Vec3::new(0.0, 0.0, 3.0)),))
+                    .spawn((Transform::from_xyz(0.0, 0.0, 3.0),))
                     .for_current_entity(|entity| children.push(entity));
             });
         let parent = parent.unwrap();

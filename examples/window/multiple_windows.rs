@@ -188,12 +188,12 @@ fn setup_pipeline(
         .spawn_scene(asset_server.load("models/monkey/Monkey.gltf#Scene0"))
         // light
         .spawn(LightBundle {
-            transform: Transform::from_translation(Vec3::new(4.0, 5.0, 4.0)),
+            transform: Transform::from_xyz(4.0, 5.0, 4.0),
             ..Default::default()
         })
         // main camera
         .spawn(Camera3dBundle {
-            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 6.0))
+            transform: Transform::from_xyz(0.0, 0.0, 6.0)
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
         })
@@ -204,7 +204,7 @@ fn setup_pipeline(
                 window: window_id,
                 ..Default::default()
             },
-            transform: Transform::from_translation(Vec3::new(6.0, 0.0, 0.0))
+            transform: Transform::from_xyz(6.0, 0.0, 0.0)
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
         });

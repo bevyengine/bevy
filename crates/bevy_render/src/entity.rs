@@ -8,7 +8,6 @@ use crate::{
 use base::MainPass;
 use bevy_asset::Handle;
 use bevy_ecs::Bundle;
-use bevy_math::Vec3;
 use bevy_transform::components::{GlobalTransform, Transform};
 
 /// A component bundle for "mesh" entities
@@ -73,7 +72,7 @@ impl Default for Camera2dBundle {
                 ..Default::default()
             },
             visible_entities: Default::default(),
-            transform: Transform::from_translation(Vec3::new(0.0, 0.0, far - 0.1)),
+            transform: Transform::from_xyz(0.0, 0.0, far - 0.1),
             global_transform: Default::default(),
         }
     }
