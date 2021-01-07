@@ -329,8 +329,8 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                         let winit_window = winit_windows.get_window(window_id).unwrap();
                         let mut location = touch.location.to_logical(winit_window.scale_factor());
 
-                        // FIXME?: On Android window start is top while on PC/Linux/OSX on bottom
-                        if cfg!(target_os = "android") {
+                        // On a mobile window, the start is from the top while on PC/Linux/OSX from bottom
+                        if cfg!(target_os = "android") || cfg!(target_os = "ios") {
                             let window_height = windows.get_primary().unwrap().height();
                             location.y = window_height - location.y;
                         }
