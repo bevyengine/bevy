@@ -12,3 +12,8 @@ bevy = { path = "../" }
 name = "iter"
 path = "benches/bevy_tasks/iter.rs"
 harness = false
+
+[[bench]]
+name = "animation-tick"
+path = "benches/bevy_animation/tick.rs"
+harness = false

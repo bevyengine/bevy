@@ -26,12 +26,5 @@ float-cmp = "0.8.0"
 fnv = "1.0.7"
 tracing = "0.1.21"
 
-[dev-dependencies]
-criterion = "0.3.3"
-
-[[bench]]
-name = "animator"
-harness = false
-
 [features]
 default = []

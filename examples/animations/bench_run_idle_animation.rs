@@ -1,9 +1,8 @@
-use std::{mem::drop, process::exit, thread::sleep, time::Duration};
+use std::{mem::drop, thread::sleep, time::Duration};
 
 use bevy::{
-    animation::{stage::ANIMATE, Animator, Clip},
-    asset::{AssetServerSettings, LoadState},
-    ecs::Schedule,
+    animation::{Animator, Clip},
+    asset::LoadState,
     prelude::*,
     render::{pipeline::RenderPipelines, render_graph::base::MainPass},
 };
