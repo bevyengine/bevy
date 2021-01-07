@@ -36,9 +36,24 @@ impl VisibleEntities {
 ///
 /// The [`Default`] instance of `RenderingMask` returns a mask belonging to
 /// group `0`, the first group.
-#[derive(Copy, Clone, Debug, Reflect, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Reflect, PartialEq, Eq, PartialOrd, Ord)]
 #[reflect(Component)]
 pub struct RenderingMask(u32);
+
+impl std::fmt::Debug for RenderingMask {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("RenderingMask")
+            .field(&self.get_groups())
+            .finish()
+    }
+}
+
+impl std::iter::FromIterator<u8> for RenderingMask {
+    fn from_iter<T: IntoIterator<Item = u8>>(i: T) -> Self {
+        i.into_iter()
+            .fold(RenderingMask(0), |mask, g| mask.with_group(g))
+    }
+}
 
 /// Defaults to a mask belonging to group `0`, the first group.
 impl Default for RenderingMask {
@@ -63,6 +78,13 @@ impl RenderingMask {
         RenderingMask(0)
     }
 
+    /// Create a `RenderingMask` from a list of groups.
+    pub fn from_groups(groups: &[u8]) -> Self {
+        groups
+            .iter()
+            .fold(RenderingMask(0), |mask, g| mask.with_group(*g))
+    }
+
     /// Add the given group to the mask.
     ///
     /// This may be called multiple times to allow an entity to belong
@@ -84,6 +106,13 @@ impl RenderingMask {
         assert!(group < 32, "RenderingMask only supports groups 0 to 31");
         self.0 |= 0 << group;
         self
+    }
+
+    /// Get a vector of this mask's groups.
+    pub fn get_groups(&self) -> Vec<u8> {
+        (0..32)
+            .filter(|g| RenderingMask::group(*g).matches(self))
+            .collect::<Vec<u8>>()
     }
 
     /// Determine if a `RenderingMask` matches another.
@@ -142,6 +171,21 @@ mod rendering_mask_tests {
             false,
             "empty masks don't match"
         );
+        assert_eq!(
+            RenderingMask::from_groups(&[0, 2, 16, 30]).get_groups(),
+            vec![0, 2, 16, 30],
+            "from_groups and get_groups should roundtrip"
+        );
+        assert_eq!(
+            format!("{:?}", RenderingMask::from_groups(&[0, 1, 2, 3])).as_str(),
+            "RenderingMask([0, 1, 2, 3])",
+            "Debug instance shows groups"
+        );
+        assert_eq!(
+            RenderingMask::from_groups(&[0, 1, 2]),
+            <RenderingMask as std::iter::FromIterator<u8>>::from_iter(vec![0, 1, 2]),
+            "from_groups and from_iter are equivalent"
+        )
     }
 }
 
