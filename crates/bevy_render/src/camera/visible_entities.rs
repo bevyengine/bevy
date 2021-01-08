@@ -56,14 +56,14 @@ impl std::fmt::Debug for RenderLayers {
 
 impl std::iter::FromIterator<Layer> for RenderLayers {
     fn from_iter<T: IntoIterator<Item = Layer>>(i: T) -> Self {
-        i.into_iter().fold(RenderLayers(0), |mask, g| mask.with(g))
+        i.into_iter().fold(Self::none(), |mask, g| mask.with(g))
     }
 }
 
 /// Defaults to containing to layer `0`, the first layer.
 impl Default for RenderLayers {
     fn default() -> Self {
-        RenderLayers(1)
+        RenderLayers::layer(0)
     }
 }
 
@@ -88,7 +88,7 @@ impl RenderLayers {
 
     /// Create a `RenderLayers` from a list of layers.
     pub fn from_layers(layers: &[Layer]) -> Self {
-        layers.iter().fold(RenderLayers(0), |mask, g| mask.with(*g))
+        layers.iter().copied().collect()
     }
 
     /// Add the given layer.
