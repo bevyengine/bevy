@@ -3,6 +3,7 @@ mod map;
 mod path;
 mod reflect;
 mod struct_trait;
+mod tuple;
 mod tuple_struct;
 mod type_registry;
 mod type_uuid;
@@ -46,6 +47,7 @@ pub use map::*;
 pub use path::*;
 pub use reflect::*;
 pub use struct_trait::*;
+pub use tuple::*;
 pub use tuple_struct::*;
 pub use type_registry::*;
 pub use type_uuid::*;
@@ -208,6 +210,7 @@ mod tests {
             c: Vec<isize>,
             d: HashMap<usize, i8>,
             e: Bar,
+            f: (i32, Vec<isize>, Bar),
         }
 
         #[derive(Reflect, Eq, PartialEq, Debug)]
@@ -224,6 +227,7 @@ mod tests {
             c: vec![1, 2],
             d: hash_map,
             e: Bar { x: 1 },
+            f: (1, vec![1, 2], Bar { x: 1 }),
         };
 
         let mut foo_patch = DynamicStruct::default();
@@ -234,7 +238,7 @@ mod tests {
         list.push(3isize);
         list.push(4isize);
         list.push(5isize);
-        foo_patch.insert("c", list);
+        foo_patch.insert("c", list.clone_dynamic());
 
         let mut map = DynamicMap::default();
         map.insert(2usize, 3i8);
@@ -242,7 +246,13 @@ mod tests {
 
         let mut bar_patch = DynamicStruct::default();
         bar_patch.insert("x", 2u32);
-        foo_patch.insert("e", bar_patch);
+        foo_patch.insert("e", bar_patch.clone_dynamic());
+
+        let mut tuple = DynamicTuple::default();
+        tuple.insert(2i32);
+        tuple.insert(list);
+        tuple.insert(bar_patch);
+        foo_patch.insert("f", tuple);
 
         foo.apply(&foo_patch);
 
@@ -255,6 +265,7 @@ mod tests {
             c: vec![3, 4, 5],
             d: hash_map,
             e: Bar { x: 2 },
+            f: (2, vec![3, 4, 5], Bar { x: 2 }),
         };
 
         assert_eq!(foo, expected_foo);
@@ -271,6 +282,7 @@ mod tests {
             d: HashMap<usize, i8>,
             e: Bar,
             f: String,
+            g: (i32, Vec<isize>, Bar),
         }
 
         #[derive(Reflect)]
@@ -288,6 +300,7 @@ mod tests {
             d: hash_map,
             e: Bar { x: 1 },
             f: "hi".to_string(),
+            g: (1, vec![1, 2], Bar { x: 1 }),
         };
 
         let mut registry = TypeRegistry::default();
@@ -297,6 +310,7 @@ mod tests {
         registry.register::<Bar>();
         registry.register::<String>();
         registry.register::<i8>();
+        registry.register::<i32>();
 
         let serializer = ReflectSerializer::new(&foo, &registry);
         let serialized = to_string_pretty(&serializer, PrettyConfig::default()).unwrap();
