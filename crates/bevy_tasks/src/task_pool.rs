@@ -271,7 +271,10 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicI32, Ordering};
+    use std::sync::{
+        atomic::{AtomicBool, AtomicI32, Ordering},
+        Barrier,
+    };
 
     #[test]
     pub fn test_spawn() {
@@ -347,5 +350,41 @@ mod tests {
         assert_eq!(outputs.len(), 100);
         assert_eq!(local_count.load(Ordering::Relaxed), 50);
         assert_eq!(non_local_count.load(Ordering::Relaxed), 50);
+    }
+
+    #[test]
+    pub fn test_thread_locality() {
+        let pool = Arc::new(TaskPool::new());
+        let count = Arc::new(AtomicI32::new(0));
+        let barrier = Arc::new(Barrier::new(101));
+        let thread_check_failed = Arc::new(AtomicBool::new(false));
+
+        for _ in 0..100 {
+            let inner_barrier = barrier.clone();
+            let count_clone = count.clone();
+            let inner_pool = pool.clone();
+            let inner_thread_check_failed = thread_check_failed.clone();
+            std::thread::spawn(move || {
+                inner_pool.scope(|scope| {
+                    let inner_count_clone = count_clone.clone();
+                    scope.spawn(async move {
+                        inner_count_clone.fetch_add(1, Ordering::Release);
+                    });
+                    let spawner = std::thread::current().id();
+                    let inner_count_clone = count_clone.clone();
+                    scope.spawn_local(async move {
+                        inner_count_clone.fetch_add(1, Ordering::Release);
+                        if std::thread::current().id() != spawner {
+                            // NOTE: This check is using an atomic rather than simply panicing the thread to avoid deadlocking the barrier on failure
+                            inner_thread_check_failed.store(true, Ordering::Release);
+                        }
+                    });
+                });
+                inner_barrier.wait();
+            });
+        }
+        barrier.wait();
+        assert!(!thread_check_failed.load(Ordering::Acquire));
+        assert_eq!(count.load(Ordering::Acquire), 200);
     }
 }
