@@ -24,167 +24,175 @@ impl VisibleEntities {
     }
 }
 
-/// A mask describes which rendering group an entity belongs to.
+type LayerMask = u32;
+
+/// An identifier for a rendering layer.
+pub type Layer = u8;
+
+/// Describes which rendering layers an entity belongs to.
 ///
-/// Cameras with this component will only render entities with a matching
-/// mask.
+/// Cameras with this component will only render entities with intersecting
+/// layers.
 ///
-/// There are 32 groups numbered `0` - `31`. A mask may belong to one or more
-/// groups, or no group at all.
+/// There are 32 layers numbered `0` - [`TOTAL_LAYERS`]. Entities may belong to one or more
+/// layers, or no layer at all.
 ///
-/// An entity with a mask belonging to no groups is invisible.
+/// The [`Default`] instance of `RenderLayers` contains layer `0`, the first layer.
 ///
-/// The [`Default`] instance of `RenderingMask` returns a mask belonging to
-/// group `0`, the first group.
+/// An entity with this component without any layers is invisible.
+///
+/// Entities without this component belong to layer `0`.
 #[derive(Copy, Clone, Reflect, PartialEq, Eq, PartialOrd, Ord)]
 #[reflect(Component)]
-pub struct RenderingMask(u32);
+pub struct RenderLayers(LayerMask);
 
-impl std::fmt::Debug for RenderingMask {
+impl std::fmt::Debug for RenderLayers {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("RenderingMask")
-            .field(&self.get_groups())
+        f.debug_tuple("RenderLayers")
+            .field(&self.layers_iter().collect::<Vec<_>>())
             .finish()
     }
 }
 
-impl std::iter::FromIterator<u8> for RenderingMask {
-    fn from_iter<T: IntoIterator<Item = u8>>(i: T) -> Self {
-        i.into_iter()
-            .fold(RenderingMask(0), |mask, g| mask.with_group(g))
+impl std::iter::FromIterator<Layer> for RenderLayers {
+    fn from_iter<T: IntoIterator<Item = Layer>>(i: T) -> Self {
+        i.into_iter().fold(RenderLayers(0), |mask, g| mask.with(g))
     }
 }
 
-/// Defaults to a mask belonging to group `0`, the first group.
-impl Default for RenderingMask {
+/// Defaults to containing to layer `0`, the first layer.
+impl Default for RenderLayers {
     fn default() -> Self {
-        RenderingMask(1)
+        RenderLayers(1)
     }
 }
 
-impl RenderingMask {
-    /// Create a new `RenderingMask` belonging to the given rendering group.
-    pub fn group(n: u8) -> Self {
-        RenderingMask(0).with_group(n)
+impl RenderLayers {
+    /// The total number of layers supported.
+    pub const TOTAL_LAYERS: usize = std::mem::size_of::<LayerMask>() * 8;
+
+    /// Create a new `RenderLayers` belonging to the given layer.
+    pub fn layer(n: Layer) -> Self {
+        RenderLayers(0).with(n)
     }
 
-    /// Create a new `RenderingMask` that belongs to all rendering groups.
-    pub fn all_groups() -> Self {
-        RenderingMask(u32::MAX)
+    /// Create a new `RenderLayers` that belongs to all layers.
+    pub fn all() -> Self {
+        RenderLayers(u32::MAX)
     }
 
-    /// Create a new `RenderingMask` that belongs to no rendering groups.
-    pub fn no_groups() -> Self {
-        RenderingMask(0)
+    /// Create a new `RenderLayers` that belongs to no layers.
+    pub fn none() -> Self {
+        RenderLayers(0)
     }
 
-    /// Create a `RenderingMask` from a list of groups.
-    pub fn from_groups(groups: &[u8]) -> Self {
-        groups
-            .iter()
-            .fold(RenderingMask(0), |mask, g| mask.with_group(*g))
+    /// Create a `RenderLayers` from a list of layers.
+    pub fn from_layers(layers: &[Layer]) -> Self {
+        layers.iter().fold(RenderLayers(0), |mask, g| mask.with(*g))
     }
 
-    /// Add the given group to the mask.
+    /// Add the given layer.
     ///
     /// This may be called multiple times to allow an entity to belong
-    /// to multiple rendering groups. The maximum group is 31.
+    /// to multiple rendering layers. The maximum layer is `TOTAL_LAYERS - 1`.
     ///
     /// # Panics
-    /// Panics when called with a group greater than 31.
-    pub fn with_group(mut self, group: u8) -> Self {
-        assert!(group < 32, "RenderingMask only supports groups 0 to 31");
-        self.0 |= 1 << group;
+    /// Panics when called with a layer greater than `TOTAL_LAYERS - 1`.
+    pub fn with(mut self, layer: Layer) -> Self {
+        assert!(usize::from(layer) < Self::TOTAL_LAYERS);
+        self.0 |= 1 << layer;
         self
     }
 
-    /// Removes the given rendering group from the mask.
+    /// Removes the given rendering layer.
     ///
     /// # Panics
-    /// Panics when called with a group greater than 31.
-    pub fn without_group(mut self, group: u8) -> Self {
-        assert!(group < 32, "RenderingMask only supports groups 0 to 31");
-        self.0 |= 0 << group;
+    /// Panics when called with a layer greater than `TOTAL_LAYERS - 1`.
+    pub fn without(mut self, layer: Layer) -> Self {
+        assert!(usize::from(layer) < Self::TOTAL_LAYERS);
+        self.0 |= 0 << layer;
         self
     }
 
-    /// Get a vector of this mask's groups.
-    pub fn get_groups(&self) -> Vec<u8> {
-        (0..32)
-            .filter(|g| RenderingMask::group(*g).matches(self))
-            .collect::<Vec<u8>>()
+    /// Get an iterator of the layers.
+    pub fn layers_iter(&self) -> impl Iterator<Item = Layer> {
+        let total: Layer = std::convert::TryInto::try_into(Self::TOTAL_LAYERS).unwrap();
+        let mask = *self;
+        (0..total).filter(move |g| RenderLayers::layer(*g).intersects(&mask))
     }
 
-    /// Determine if a `RenderingMask` matches another.
+    /// Determine if a `RenderLayers` intersects another.
     ///
-    /// `RenderingMask`s match if the first mask contains any of the groups
-    /// in the other.
+    /// `RenderLayers`s intersect if they share any common layers.
     ///
-    /// A `RenderingMask` belonging to no groups will not match any other
-    /// mask, even another belonging to no groups.
-    pub fn matches(&self, other: &RenderingMask) -> bool {
+    /// A `RenderLayers` with no layers will not match any other
+    /// `RenderLayers`, even another with no layers.
+    pub fn intersects(&self, other: &RenderLayers) -> bool {
         (self.0 & other.0) > 0
     }
 }
 
 #[cfg(test)]
 mod rendering_mask_tests {
-    use super::RenderingMask;
+    use super::{Layer, RenderLayers};
 
     #[test]
     fn rendering_mask_sanity() {
-        assert_eq!(RenderingMask::group(0).0, 1, "group 0 is mask 1");
-        assert_eq!(RenderingMask::group(1).0, 2, "group 1 is mask 2");
         assert_eq!(
-            RenderingMask::group(0).with_group(1).0,
-            3,
-            "group 0 + 1 is mask 3"
+            RenderLayers::TOTAL_LAYERS,
+            32,
+            "total layers is what we think it is"
+        );
+        assert_eq!(RenderLayers::layer(0).0, 1, "layer 0 is mask 1");
+        assert_eq!(RenderLayers::layer(1).0, 2, "layer 1 is mask 2");
+        assert_eq!(RenderLayers::layer(0).with(1).0, 3, "layer 0 + 1 is mask 3");
+        assert!(
+            RenderLayers::layer(1).intersects(&RenderLayers::layer(1)),
+            "layers match like layers"
         );
         assert!(
-            RenderingMask::group(1).matches(&RenderingMask::group(1)),
-            "groups match like groups"
-        );
-        assert!(
-            RenderingMask::group(0).matches(&RenderingMask(1)),
-            "a group of 0 means the mask is just 1 bit"
-        );
-
-        assert!(
-            RenderingMask::group(0)
-                .with_group(3)
-                .matches(&RenderingMask::group(3)),
-            "a mask will match another mask containing any similar groups"
+            RenderLayers::layer(0).intersects(&RenderLayers(1)),
+            "a layer of 0 means the mask is just 1 bit"
         );
 
         assert!(
-            RenderingMask::default().matches(&RenderingMask::default()),
+            RenderLayers::layer(0)
+                .with(3)
+                .intersects(&RenderLayers::layer(3)),
+            "a mask will match another mask containing any similar layers"
+        );
+
+        assert!(
+            RenderLayers::default().intersects(&RenderLayers::default()),
             "default masks match each other"
         );
 
         assert_eq!(
-            RenderingMask::group(0).matches(&RenderingMask::group(1)),
+            RenderLayers::layer(0).intersects(&RenderLayers::layer(1)),
             false,
-            "masks with differing groups do not match"
+            "masks with differing layers do not match"
         );
         assert_eq!(
-            RenderingMask(0).matches(&RenderingMask(0)),
+            RenderLayers(0).intersects(&RenderLayers(0)),
             false,
             "empty masks don't match"
         );
         assert_eq!(
-            RenderingMask::from_groups(&[0, 2, 16, 30]).get_groups(),
+            RenderLayers::from_layers(&[0, 2, 16, 30])
+                .layers_iter()
+                .collect::<Vec<_>>(),
             vec![0, 2, 16, 30],
-            "from_groups and get_groups should roundtrip"
+            "from_layers and get_layers should roundtrip"
         );
         assert_eq!(
-            format!("{:?}", RenderingMask::from_groups(&[0, 1, 2, 3])).as_str(),
-            "RenderingMask([0, 1, 2, 3])",
-            "Debug instance shows groups"
+            format!("{:?}", RenderLayers::from_layers(&[0, 1, 2, 3])).as_str(),
+            "RenderLayers([0, 1, 2, 3])",
+            "Debug instance shows layers"
         );
         assert_eq!(
-            RenderingMask::from_groups(&[0, 1, 2]),
-            <RenderingMask as std::iter::FromIterator<u8>>::from_iter(vec![0, 1, 2]),
-            "from_groups and from_iter are equivalent"
+            RenderLayers::from_layers(&[0, 1, 2]),
+            <RenderLayers as std::iter::FromIterator<Layer>>::from_iter(vec![0, 1, 2]),
+            "from_layers and from_iter are equivalent"
         )
     }
 }
@@ -194,9 +202,9 @@ pub fn visible_entities_system(
         &Camera,
         &GlobalTransform,
         &mut VisibleEntities,
-        Option<&RenderingMask>,
+        Option<&RenderLayers>,
     )>,
-    visible_query: Query<(Entity, &Visible, Option<&RenderingMask>)>,
+    visible_query: Query<(Entity, &Visible, Option<&RenderLayers>)>,
     visible_transform_query: Query<&GlobalTransform, With<Visible>>,
 ) {
     for (camera, camera_global_transform, mut visible_entities, maybe_camera_mask) in
@@ -214,7 +222,7 @@ pub fn visible_entities_system(
             }
 
             let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
-            if !camera_mask.matches(&entity_mask) {
+            if !camera_mask.intersects(&entity_mask) {
                 continue;
             }
 
