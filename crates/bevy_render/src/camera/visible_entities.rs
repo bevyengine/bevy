@@ -49,7 +49,7 @@ pub struct RenderLayers(LayerMask);
 impl std::fmt::Debug for RenderLayers {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("RenderLayers")
-            .field(&self.layers_iter().collect::<Vec<_>>())
+            .field(&self.iter().collect::<Vec<_>>())
             .finish()
     }
 }
@@ -115,7 +115,7 @@ impl RenderLayers {
     }
 
     /// Get an iterator of the layers.
-    pub fn layers_iter(&self) -> impl Iterator<Item = Layer> {
+    pub fn iter(&self) -> impl Iterator<Item = Layer> {
         let total: Layer = std::convert::TryInto::try_into(Self::TOTAL_LAYERS).unwrap();
         let mask = *self;
         (0..total).filter(move |g| RenderLayers::layer(*g).intersects(&mask))
@@ -179,7 +179,7 @@ mod rendering_mask_tests {
         );
         assert_eq!(
             RenderLayers::from_layers(&[0, 2, 16, 30])
-                .layers_iter()
+                .iter()
                 .collect::<Vec<_>>(),
             vec![0, 2, 16, 30],
             "from_layers and get_layers should roundtrip"
