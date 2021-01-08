@@ -1,53 +1,5 @@
-use super::{Node, UiRoot};
-use bevy_ecs::{Entity, Query, With, Without};
-use bevy_transform::prelude::{Children, Parent, Transform};
-
 pub const UI_Z_STEP: f32 = 0.001;
 
-pub fn ui_z_system(
-    root_node_query: Query<(Entity, Option<&UiRoot>), (With<Node>, Without<Parent>)>,
-    mut node_query: Query<&mut Transform, With<Node>>,
-    children_query: Query<&Children>,
-) {
-    for (entity, ui_root) in root_node_query.iter() {
-        let current_global_z = ui_root
-            .map(|root| root.z_offset)
-            .unwrap_or(0.0);
-        update_hierarchy(
-            &children_query,
-            &mut node_query,
-            entity,
-            0.0,
-            current_global_z,
-        );
-    }
-}
-
-fn update_hierarchy(
-    children_query: &Query<&Children>,
-    node_query: &mut Query<&mut Transform, With<Node>>,
-    entity: Entity,
-    parent_global_z: f32,
-    mut current_global_z: f32,
-) -> f32 {
-    current_global_z += UI_Z_STEP;
-    if let Ok(mut transform) = node_query.get_mut(entity) {
-        transform.translation.z = current_global_z - parent_global_z;
-    }
-    if let Ok(children) = children_query.get(entity) {
-        let current_parent_global_z = current_global_z;
-        for child in children.iter().cloned() {
-            current_global_z = update_hierarchy(
-                children_query,
-                node_query,
-                child,
-                current_parent_global_z,
-                current_global_z,
-            );
-        }
-    }
-    current_global_z
-}
 #[cfg(test)]
 mod tests {
     use bevy_ecs::{Commands, IntoSystem, Resources, Schedule, SystemStage, World};
@@ -55,7 +7,7 @@ mod tests {
 
     use crate::Node;
 
-    use super::{ui_z_system, UI_Z_STEP};
+    use super::UI_Z_STEP;
 
     fn node_with_transform(name: &str) -> (String, Node, Transform) {
         (name.to_owned(), Node::default(), Transform::default())
@@ -118,7 +70,7 @@ mod tests {
 
         let mut schedule = Schedule::default();
         let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(ui_z_system.system());
+        update_stage.add_system(ui_z_system.system()); // FIXME
         schedule.add_stage("update", update_stage);
         schedule.initialize_and_run(&mut world, &mut resources);
 

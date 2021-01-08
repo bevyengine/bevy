@@ -22,7 +22,6 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_ecs::{IntoSystem, SystemStage};
 use bevy_render::render_graph::RenderGraph;
-use update::ui_z_system;
 
 #[derive(Default)]
 pub struct UiPlugin;
@@ -43,8 +42,11 @@ impl Plugin for UiPlugin {
             // add these stages to front because these must run before transform update systems
             .add_system_to_stage(stage::UI, widget::text_system.system())
             .add_system_to_stage(stage::UI, widget::image_node_system.system())
-            .add_system_to_stage(stage::UI, ui_z_system.system())
-            .add_system_to_stage(stage::UI, flex_node_system.system())
+            .add_system_to_stage(stage::UI, flex::layout_system.system())
+            .add_system_to_stage(stage::UI, flex::z_index_system.system())
+            // TODO: deactivated for now, there may be a bug in Stretch::remove
+            // TODO: does not need to be scheduled every frame
+            // .add_system_to_stage(stage::UI, flex::garbage_collection_system.system())
             .add_system_to_stage(bevy_render::stage::DRAW, widget::draw_text_system.system());
 
         let resources = app.resources();

@@ -1,20 +1,23 @@
 mod convert;
 
-use crate::{Node, Style};
+use crate::{Node, Style, ZIndex};
+
 use bevy_app::EventReader;
-use bevy_ecs::{Changed, Entity, Flags, Query, QueryFilter, Res, ResMut, With, Without};
-use bevy_log::warn;
+use bevy_ecs::{Added, Changed, Entity, Mutated, Or, Query, Res, ResMut, With};
+use bevy_log::{trace, warn};
+
 use bevy_math::Vec2;
+
 use bevy_text::CalculatedSize;
 use bevy_transform::prelude::{Children, Parent, Transform};
 use bevy_utils::HashMap;
-use bevy_window::{Window, WindowId, WindowScaleFactorChanged, Windows};
-use std::fmt;
+use bevy_window::{Window, WindowId, WindowResized, Windows};
+use std::{collections::hash_map::Entry, fmt};
 use stretch::{number::Number, Stretch};
 
 pub struct FlexSurface {
     entity_to_stretch: HashMap<Entity, stretch::node::Node>,
-    window_nodes: HashMap<WindowId, Vec<RootNodes>>,
+    window_nodes: HashMap<Entity, stretch::node::Node>,
     stretch: Stretch,
 }
 
@@ -37,301 +40,373 @@ impl Default for FlexSurface {
     }
 }
 
-#[derive(Debug)]
-struct RootNodes {
-    window: stretch::node::Node,
-    entity: stretch::node::Node,
-}
-
 #[derive(Default, Debug)]
-pub struct UiRoot {
-    pub z_offset: f32,
-}
-
-impl FlexSurface {
-    pub fn upsert_node(&mut self, entity: Entity, style: &Style, scale_factor: f64) {
-        let mut added = false;
-        let stretch = &mut self.stretch;
-        let stretch_style = convert::from_style(scale_factor, style);
-        let stretch_node = self.entity_to_stretch.entry(entity).or_insert_with(|| {
-            added = true;
-            stretch.new_node(stretch_style, Vec::new()).unwrap()
-        });
-
-        if !added {
-            self.stretch
-                .set_style(*stretch_node, stretch_style)
-                .unwrap();
-        }
-    }
-
-    pub fn upsert_leaf(
-        &mut self,
-        entity: Entity,
-        style: &Style,
-        calculated_size: CalculatedSize,
-        scale_factor: f64,
-    ) {
-        let stretch = &mut self.stretch;
-        let stretch_style = convert::from_style(scale_factor, style);
-        let measure = Box::new(move |constraints: stretch::geometry::Size<Number>| {
-            let mut size = convert::from_f32_size(scale_factor, calculated_size.size);
-            match (constraints.width, constraints.height) {
-                (Number::Undefined, Number::Undefined) => {}
-                (Number::Defined(width), Number::Undefined) => {
-                    size.height = width * size.height / size.width;
-                    size.width = width;
-                }
-                (Number::Undefined, Number::Defined(height)) => {
-                    size.width = height * size.width / size.height;
-                    size.height = height;
-                }
-                (Number::Defined(width), Number::Defined(height)) => {
-                    size.width = width;
-                    size.height = height;
-                }
-            }
-            Ok(size)
-        });
-
-        if let Some(stretch_node) = self.entity_to_stretch.get(&entity) {
-            self.stretch
-                .set_style(*stretch_node, stretch_style)
-                .unwrap();
-            self.stretch
-                .set_measure(*stretch_node, Some(measure))
-                .unwrap();
-        } else {
-            let stretch_node = stretch.new_leaf(stretch_style, measure).unwrap();
-            self.entity_to_stretch.insert(entity, stretch_node);
-        }
-    }
-
-    pub fn update_children(&mut self, entity: Entity, children: &Children) {
-        let mut stretch_children = Vec::with_capacity(children.len());
-        for child in children.iter() {
-            if let Some(stretch_node) = self.entity_to_stretch.get(child) {
-                stretch_children.push(*stretch_node);
-            } else {
-                warn!(
-                    "Unstyled child in a UI entity hierarchy. You are using an entity \
-without UI components as a child of an entity with UI components, results may be unexpected."
-                );
-            }
-        }
-
-        let stretch_node = self.entity_to_stretch.get(&entity).unwrap();
-        self.stretch
-            .set_children(*stretch_node, stretch_children)
-            .unwrap();
-    }
-
-    pub fn update_window(&mut self, window: &Window) {
-        let stretch = &mut self.stretch;
-        if let Some(window_nodes) = self.window_nodes.get(&window.id()) {
-            for RootNodes {
-                window: window_node,
-                entity: _,
-            } in window_nodes.iter()
-            {
-                stretch
-                    .set_style(
-                        *window_node,
-                        stretch::style::Style {
-                            size: stretch::geometry::Size {
-                                width: stretch::style::Dimension::Points(
-                                    window.physical_width() as f32
-                                ),
-                                height: stretch::style::Dimension::Points(
-                                    window.physical_height() as f32
-                                ),
-                            },
-                            ..Default::default()
-                        },
-                    )
-                    .unwrap();
-            }
-        }
-    }
-
-    pub fn set_window_children(
-        &mut self,
-        window_id: WindowId,
-        children: impl Iterator<Item = Entity>,
-    ) {
-        let children = children
-            .map(|e| *self.entity_to_stretch.get(&e).unwrap())
-            .collect::<Vec<stretch::node::Node>>();
-        let window_nodes = self.window_nodes.entry(window_id).or_default();
-
-        // Remove the previous nodes of deleted entities
-        let stretch = &mut self.stretch;
-        window_nodes.retain(|root_nodes| {
-            if children.contains(&root_nodes.entity) {
-                true
-            } else {
-                stretch.remove(root_nodes.window);
-                stretch.remove(root_nodes.entity);
-                false
-            }
-        });
-
-        // Add the nodes for new entities
-        for child in children.iter() {
-            if let None = window_nodes
-                .iter()
-                .find(|root_nodes| root_nodes.entity == *child)
-            {
-                let new_root = self
-                    .stretch
-                    .new_node(stretch::style::Style::default(), vec![*child])
-                    .unwrap();
-                window_nodes.push(RootNodes {
-                    window: new_root,
-                    entity: *child,
-                });
-            }
-        }
-    }
-
-    pub fn compute_window_layouts(&mut self) {
-        for window_nodes in self.window_nodes.values() {
-            for window_node in window_nodes {
-                self.stretch
-                    .compute_layout(window_node.window, stretch::geometry::Size::undefined())
-                    .unwrap();
-            }
-        }
-    }
-
-    pub fn get_layout(&self, entity: Entity) -> Result<&stretch::result::Layout, FlexError> {
-        if let Some(stretch_node) = self.entity_to_stretch.get(&entity) {
-            self.stretch
-                .layout(*stretch_node)
-                .map_err(FlexError::StretchError)
-        } else {
-            warn!(
-                "Styled child in a non-UI entity hierarchy. You are using an entity \
-with UI components as a child of an entity without UI components, results may be unexpected."
-            );
-            Err(FlexError::InvalidHierarchy)
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum FlexError {
-    InvalidHierarchy,
-    StretchError(stretch::Error),
-}
+pub struct NodeWindowId(WindowId);
 
 // SAFE: as long as MeasureFunc is Send + Sync. https://github.com/vislyhq/stretch/issues/69
 unsafe impl Send for FlexSurface {}
 unsafe impl Sync for FlexSurface {}
 
-#[allow(clippy::too_many_arguments)]
-pub fn flex_node_system(
-    windows: Res<Windows>,
-    mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
+pub fn layout_system(
     mut flex_surface: ResMut<FlexSurface>,
-    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
-    node_query: Query<(Entity, &Style, Option<&CalculatedSize>), (With<Node>, Changed<Style>)>,
-    full_node_query: Query<(Entity, &Style, Option<&CalculatedSize>), With<Node>>,
-    changed_size_query: Query<
-        (Entity, &Style, &CalculatedSize),
-        (With<Node>, Changed<CalculatedSize>),
+    changed_style_query: Query<(Entity, &Style, Option<&CalculatedSize>), Changed<Style>>,
+    mutated_size_query: Query<(Entity, &CalculatedSize), (With<Style>, Mutated<CalculatedSize>)>,
+    mutated_children_query: Query<
+        (Entity, &Children),
+        (With<Style>, Or<(Added<Style>, Mutated<Children>)>),
     >,
-    children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
-    mut node_transform_query: Query<(
-        Entity,
-        &mut Node,
-        &mut Transform,
-        Option<&Parent>,
-        Flags<Parent>,
-        Flags<Transform>,
-    )>,
+    windows: Res<Windows>,
+    new_window_nodes_query: Query<(Entity, &Style), (Or<(Added<Style>, Changed<Parent>)>,)>,
+    is_root_query: Query<Option<&Parent>, With<Style>>,
+    mut window_resized_events: EventReader<WindowResized>,
+    window_id_query: Query<&NodeWindowId, With<Style>>,
+    mut transform_xy_query: Query<
+        (Entity, &mut Node, &mut Transform, Option<&Parent>),
+        With<Style>,
+    >,
 ) {
-    // assume one window for time being...
-    let logical_to_physical_factor = if let Some(primary_window) = windows.get_primary() {
-        primary_window.scale_factor()
-    } else {
-        1.
-    };
+    let flex_surface = &mut *flex_surface;
 
-    if scale_factor_events.iter().next_back().is_some() {
-        update_changed(
-            &mut *flex_surface,
-            logical_to_physical_factor,
-            full_node_query,
-        );
-    } else {
-        update_changed(&mut *flex_surface, logical_to_physical_factor, node_query);
-    }
+    upsert_node_styles(flex_surface, &changed_style_query);
 
-    fn update_changed<F>(
-        flex_surface: &mut FlexSurface,
-        scaling_factor: f64,
-        query: Query<(Entity, &Style, Option<&CalculatedSize>), F>,
-    ) where
-        F: QueryFilter,
-    {
-        // update changed nodes
-        for (entity, style, calculated_size) in query.iter() {
-            // TODO: remove node from old hierarchy if its root has changed
-            if let Some(calculated_size) = calculated_size {
-                flex_surface.upsert_leaf(entity, &style, *calculated_size, scaling_factor);
-            } else {
-                flex_surface.upsert_node(entity, &style, scaling_factor);
+    update_node_sizes(flex_surface, &mutated_size_query);
+
+    update_node_children(flex_surface, &mutated_children_query);
+
+    upsert_window_nodes(
+        flex_surface,
+        &windows,
+        &new_window_nodes_query,
+        &is_root_query,
+    );
+
+    update_window_sizes(
+        flex_surface,
+        &*windows,
+        &mut window_resized_events,
+        &window_id_query,
+    );
+
+    compute_window_node_layouts(flex_surface);
+
+    update_transforms_xy(flex_surface, &mut transform_xy_query);
+}
+
+fn upsert_node_styles(
+    flex_surface: &mut FlexSurface,
+    changed_style_query: &Query<(Entity, &Style, Option<&CalculatedSize>), Changed<Style>>,
+) {
+    for (entity, style, size) in changed_style_query.iter() {
+        match flex_surface.entity_to_stretch.entry(entity) {
+            Entry::Occupied(entry) => {
+                trace!("Updating style for {:?}", entity);
+                flex_surface
+                    .stretch
+                    .set_style(*entry.get(), convert::from_style(style))
+                    .unwrap();
+            }
+            Entry::Vacant(entry) => {
+                trace!("Inserting stretch node for: {:?}", entity);
+                let stretch_style = convert::from_style(&style);
+                let node = if let Some(&size) = size {
+                    let measure = Box::new(move |constraints| leaf_measure(constraints, size));
+                    flex_surface
+                        .stretch
+                        .new_leaf(stretch_style, measure)
+                        .unwrap()
+                } else {
+                    flex_surface
+                        .stretch
+                        .new_node(stretch_style, Vec::new())
+                        .unwrap()
+                };
+                entry.insert(node);
             }
         }
     }
+}
 
-    for (entity, style, calculated_size) in changed_size_query.iter() {
-        flex_surface.upsert_leaf(entity, &style, *calculated_size, logical_to_physical_factor);
+fn leaf_measure(
+    constraints: stretch::geometry::Size<Number>,
+    size: CalculatedSize,
+) -> Result<stretch::geometry::Size<f32>, Box<dyn std::any::Any>> {
+    let mut size = convert::from_f32_size(size.size);
+    match (constraints.width, constraints.height) {
+        (Number::Undefined, Number::Undefined) => {}
+        (Number::Defined(width), Number::Undefined) => {
+            size.height = width * size.height / size.width;
+            size.width = width;
+        }
+        (Number::Undefined, Number::Defined(height)) => {
+            size.width = height * size.width / size.height;
+            size.height = height;
+        }
+        (Number::Defined(width), Number::Defined(height)) => {
+            size.width = width;
+            size.height = height;
+        }
     }
+    Ok(size)
+}
 
-    // TODO: handle removed nodes
-
-    // update window children (for now assuming all Nodes live in the primary window)
-    if let Some(primary_window) = windows.get_primary() {
-        flex_surface.set_window_children(primary_window.id(), root_node_query.iter());
+fn update_node_sizes(
+    flex_surface: &mut FlexSurface,
+    mutated_size_query: &Query<(Entity, &CalculatedSize), (With<Style>, Mutated<CalculatedSize>)>, // TODO: Not<Changed<Style>>
+) {
+    for (entity, &size) in mutated_size_query.iter() {
+        trace!("Updating size for {:?}", entity);
+        let node = flex_surface.entity_to_stretch.get(&entity).unwrap();
+        let measure = Box::new(move |constraints| leaf_measure(constraints, size));
+        flex_surface
+            .stretch
+            .set_measure(*node, Some(measure))
+            .unwrap();
     }
-
-    // update children
-    for (entity, children) in children_query.iter() {
-        flex_surface.update_children(entity, &children);
+    for entity in mutated_size_query.removed::<CalculatedSize>().iter() {
+        trace!("Removing size for {:?}", entity);
+        let node = flex_surface.entity_to_stretch.get(&entity).unwrap();
+        flex_surface.stretch.set_measure(*node, None).unwrap();
     }
+}
 
-    // update window root nodes
-    for window in windows.iter() {
-        flex_surface.update_window(window);
+fn update_node_children(
+    flex_surface: &mut FlexSurface,
+    mutated_children_query: &Query<
+        (Entity, &Children),
+        (With<Style>, Or<(Added<Style>, Mutated<Children>)>),
+    >,
+) -> () {
+    for (entity, children) in mutated_children_query.iter() {
+        trace!("Updating children for: {:?}", entity);
+        let parent_node = flex_surface.entity_to_stretch.get(&entity).unwrap();
+        let children_nodes = children
+            .iter()
+            .filter_map(|child| flex_surface.entity_to_stretch.get(&child).copied())
+            .collect();
+        flex_surface
+            .stretch
+            .set_children(*parent_node, children_nodes)
+            .unwrap();
     }
+}
 
-    // compute layouts
-    flex_surface.compute_window_layouts();
+fn upsert_window_nodes(
+    flex_surface: &mut FlexSurface,
+    windows: &Windows,
+    new_window_nodes_query: &Query<(Entity, &Style), (Or<(Added<Style>, Changed<Parent>)>,)>,
+    is_root_query: &Query<Option<&Parent>, With<Style>>,
+) {
+    let stretch = &mut flex_surface.stretch;
+    flex_surface.window_nodes.retain(|entity, window_node| {
+        if is_node_root(*entity, is_root_query) {
+            true
+        } else {
+            trace!("Removing window node for: {:?}", entity);
+            stretch.remove(*window_node);
+            false
+        }
+    });
 
-    let physical_to_logical_factor = 1. / logical_to_physical_factor;
+    for (entity, _style) in new_window_nodes_query.iter() {
+        if is_node_root(entity, is_root_query) {
+            trace!("Adding window node for: {:?}", entity);
+            let window = windows.get_primary().unwrap();
+            let entity_node = flex_surface.entity_to_stretch.get(&entity).unwrap();
 
-    let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
+            let window_node = stretch
+                .new_node(Default::default(), vec![*entity_node])
+                .unwrap();
+            set_window_node_style(stretch, window_node, window);
+            if let Some(previous) = flex_surface.window_nodes.insert(entity, window_node) {
+                warn!("Repacing UI window node for: {:?}", entity);
+                stretch.remove(previous);
+            }
+        }
+    }
+}
 
-    for (entity, mut node, mut transform, parent, parent_flags, transform_flags) in
-        node_transform_query.iter_mut()
-    {
-        let layout = flex_surface.get_layout(entity).unwrap();
-        node.size = Vec2::new(
-            to_logical(layout.size.width),
-            to_logical(layout.size.height),
-        );
+fn is_node_root(entity: Entity, query: &Query<Option<&Parent>, With<Style>>) -> bool {
+    if let Some(parent) = query.get(entity).unwrap() {
+        if query.get(**parent).is_err() {
+            // Parent has no Style
+            true
+        } else {
+            false
+        }
+    } else {
+        // There is no parent
+        true
+    }
+}
+
+fn set_window_node_style(stretch: &mut Stretch, window_node: stretch::node::Node, window: &Window) {
+    stretch
+        .set_style(
+            window_node,
+            stretch::style::Style {
+                size: stretch::geometry::Size {
+                    width: stretch::style::Dimension::Points(window.physical_width() as f32),
+                    height: stretch::style::Dimension::Points(window.physical_height() as f32),
+                },
+                ..Default::default()
+            },
+        )
+        .unwrap();
+}
+
+fn update_window_sizes(
+    flex_surface: &mut FlexSurface,
+    windows: &Windows,
+    window_resized_events: &mut EventReader<WindowResized>,
+    window_id_query: &Query<&NodeWindowId, With<Style>>,
+) {
+    for event in window_resized_events.iter() {
+        let resized_window_id = event.id;
+        for (entity, window_node) in flex_surface.window_nodes.iter() {
+            let entity_window_id = window_id_query
+                .get(*entity)
+                .map(|node_window_id| node_window_id.0)
+                .unwrap_or_else(|_| (windows.get_primary().unwrap().id()));
+            if resized_window_id == entity_window_id {
+                trace!(
+                    "Rescaling window node for {:?} ({:?})",
+                    entity,
+                    resized_window_id
+                );
+                set_window_node_style(
+                    &mut flex_surface.stretch,
+                    *window_node,
+                    windows.get(resized_window_id).unwrap(),
+                );
+            }
+        }
+    }
+}
+
+fn compute_window_node_layouts(flex_surface: &mut FlexSurface) {
+    for window_node in flex_surface.window_nodes.values() {
+        flex_surface
+            .stretch
+            .compute_layout(*window_node, stretch::geometry::Size::undefined())
+            .unwrap();
+    }
+}
+
+fn update_transforms_xy(
+    flex_surface: &mut FlexSurface,
+    transform_xy_query: &mut Query<
+        (Entity, &mut Node, &mut Transform, Option<&Parent>),
+        With<Style>,
+    >,
+) {
+    for (entity, mut node, mut transform, parent) in transform_xy_query.iter_mut() {
+        let stretch_node = flex_surface.entity_to_stretch.get(&entity).unwrap();
+        let layout = flex_surface.stretch.layout(*stretch_node).unwrap();
+        node.size = Vec2::new(layout.size.width, layout.size.height);
+
         let position = &mut transform.translation;
-        position.x = to_logical(layout.location.x + layout.size.width / 2.0);
-        position.y = to_logical(layout.location.y + layout.size.height / 2.0);
-        if parent_flags.changed() || transform_flags.changed() {
-            if let Some(parent) = parent {
-                if let Ok(parent_layout) = flex_surface.get_layout(parent.0) {
-                    position.x -= to_logical(parent_layout.size.width / 2.0);
-                    position.y -= to_logical(parent_layout.size.height / 2.0);
-                }
+        position.x = layout.location.x + layout.size.width / 2.0;
+        position.y = layout.location.y + layout.size.height / 2.0;
+        if let Some(parent) = parent {
+            if let Some(stretch_node) = flex_surface.entity_to_stretch.get(&**parent) {
+                let parent_layout = flex_surface.stretch.layout(*stretch_node).unwrap();
+
+                position.x -= parent_layout.size.width / 2.0;
+                position.y -= parent_layout.size.height / 2.0;
             }
         }
     }
+}
+
+pub fn z_index_system(
+    changed_zindex_query: Query<
+        Entity,
+        (
+            With<Style>,
+            With<Transform>,
+            Or<(Changed<Style>, Changed<Parent>, Changed<Children>)>,
+        ),
+    >,
+    mut transform_z_query: Query<(&Style, Option<&Children>, Option<&Parent>, &mut Transform)>,
+) {
+    for entity in changed_zindex_query.iter() {
+        update_one_transform_z(entity, &mut transform_z_query);
+    }
+}
+
+fn update_one_transform_z(
+    entity: Entity,
+    transform_z_query: &mut Query<(&Style, Option<&Children>, Option<&Parent>, &mut Transform)>,
+) {
+    trace!("Calculating z transforms for entity {:?}", entity);
+    // Find the origin of this stacking context
+    let z_index = transform_z_query
+        .get_component::<Style>(entity)
+        .expect("Root UI entity cannot have z_index = ZIndex::Auto")
+        .z_index;
+    if z_index == ZIndex::Auto {
+        if let Ok(parent) = transform_z_query.get_component::<Parent>(entity) {
+            return update_one_transform_z(**parent, transform_z_query);
+        }
+    }
+
+    // Find all entities that are in this stacking context
+    let mut stacking_context = Vec::new();
+    fill_stacking_context(entity, &mut stacking_context, transform_z_query);
+
+    stacking_context.sort_by_key(|(_entity, z_index)| *z_index);
+
+    // Set their z transform evenly spaced in 0..N
+    for (i, (entity, _z_index)) in stacking_context.iter().enumerate() {
+        let mut transform = transform_z_query
+            .get_component_mut::<Transform>(*entity)
+            .unwrap();
+        transform.translation.z = (i + 1) as f32;
+    }
+    // Set the scale of the origin so that other entities are effectively spaced in 0..1 in the origin's local transform
+    let mut transform = transform_z_query
+        .get_component_mut::<Transform>(entity)
+        .unwrap();
+    transform.scale.z = 1.0 / (stacking_context.len() + 1) as f32;
+}
+
+fn fill_stacking_context(
+    entity: Entity,
+    stacking_context: &mut Vec<(Entity, i16)>,
+    transform_z_query: &Query<(&Style, Option<&Children>, Option<&Parent>, &mut Transform)>,
+) {
+    if let Ok(children) = transform_z_query.get_component::<Children>(entity) {
+        for &child in children.iter() {
+            let z_index = &transform_z_query
+                .get_component::<Style>(child)
+                .unwrap()
+                .z_index;
+            match z_index {
+                ZIndex::None => stacking_context.push((child, 0)),
+                ZIndex::Auto => {
+                    stacking_context.push((child, 0));
+                    fill_stacking_context(child, stacking_context, transform_z_query);
+                }
+                ZIndex::Some(i) => stacking_context.push((child, *i)),
+            };
+        }
+    }
+}
+
+pub fn garbage_collection_system(
+    mut flex_surface: ResMut<FlexSurface>,
+    style_query: Query<&Style>,
+) {
+    let flex_surface = &mut *flex_surface;
+    let stretch = &mut flex_surface.stretch;
+    let entity_to_stretch = &mut flex_surface.entity_to_stretch;
+    entity_to_stretch.retain(|entity, node| {
+        if style_query.get(*entity).is_ok() {
+            true
+        } else {
+            trace!("Removing stretch node for: {:?}", entity);
+            stretch.remove(*node);
+            false
+        }
+    });
 }
