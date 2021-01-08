@@ -1,6 +1,6 @@
 use crate::{
-    map_partial_eq, serde::Serializable, DynamicMap, DynamicTuple, List, ListIter, Map, MapIter,
-    Reflect, ReflectDeserialize, ReflectMut, ReflectRef, Tuple, TupleFieldIter,
+    map_partial_eq, serde::Serializable, DynamicMap, List, ListIter, Map, MapIter, Reflect,
+    ReflectDeserialize, ReflectMut, ReflectRef,
 };
 
 use bevy_reflect_derive::impl_reflect_value;
@@ -27,113 +27,6 @@ impl_reflect_value!(String(Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(Option<T: Serialize + Clone + for<'de> Deserialize<'de> + Reflect + 'static>(Serialize, Deserialize));
 impl_reflect_value!(HashSet<T: Serialize + Hash + Eq + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
 impl_reflect_value!(Range<T: Serialize + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
-
-macro_rules! impl_reflect_tuple {
-    {$($index:tt : $name:tt),*} => {
-        impl<$($name: Reflect),*> Tuple for ($($name,)*) {
-            #[inline]
-            fn field(&self, index: usize) -> Option<&dyn Reflect> {
-                match index {
-                    $($index => Some(&self.$index as &dyn Reflect),)*
-                    _ => None,
-                }
-            }
-
-            #[inline]
-            fn field_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
-                match index {
-                    $($index => Some(&mut self.$index as &mut dyn Reflect),)*
-                    _ => None,
-                }
-            }
-
-            #[inline]
-            fn field_len(&self) -> usize {
-                let indices: &[usize] = &[$($index as usize),*];
-                indices.len()
-            }
-
-            #[inline]
-            fn iter_fields(&self) -> TupleFieldIter {
-                TupleFieldIter {
-                    tuple: self,
-                    index: 0,
-                }
-            }
-
-            #[inline]
-            fn clone_dynamic(&self) -> DynamicTuple {
-                DynamicTuple {
-                    fields: self
-                        .iter_fields()
-                        .map(|value| value.clone_value())
-                        .collect(),
-                }
-            }
-        }
-
-        impl<$($name: Reflect),*> Reflect for ($($name,)*) {
-            fn type_name(&self) -> &str {
-                std::any::type_name::<Self>()
-            }
-
-            fn any(&self) -> &dyn Any {
-                self
-            }
-
-            fn any_mut(&mut self) -> &mut dyn Any {
-                self
-            }
-
-            fn apply(&mut self, value: &dyn Reflect) {
-                crate::tuple_apply(self, value);
-            }
-
-            fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-                *self = value.take()?;
-                Ok(())
-            }
-
-            fn reflect_ref(&self) -> ReflectRef {
-                ReflectRef::Tuple(self)
-            }
-
-            fn reflect_mut(&mut self) -> ReflectMut {
-                ReflectMut::Tuple(self)
-            }
-
-            fn clone_value(&self) -> Box<dyn Reflect> {
-                Box::new(self.clone_dynamic())
-            }
-
-            fn reflect_hash(&self) -> Option<u64> {
-                None
-            }
-
-            fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
-                crate::tuple_partial_eq(self, value)
-            }
-
-            fn serializable(&self) -> Option<Serializable> {
-                None
-            }
-        }
-    }
-}
-
-impl_reflect_tuple! {}
-impl_reflect_tuple! {0: A}
-impl_reflect_tuple! {0: A, 1: B}
-impl_reflect_tuple! {0: A, 1: B, 2: C}
-impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D}
-impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E}
-impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F}
-impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G}
-impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H}
-impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I}
-impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J}
-impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K}
-impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K, 11: L}
 
 impl<T: Reflect> List for Vec<T> {
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
