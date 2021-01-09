@@ -1,6 +1,6 @@
 use super::{Edge, RenderGraphError, ResourceSlotInfo, ResourceSlots};
 use crate::renderer::RenderContext;
-use bevy_ecs::{Commands, Resources, System, World};
+use bevy_ecs::{BoxedSystem, Commands, Resources, World};
 use bevy_utils::Uuid;
 use downcast_rs::{impl_downcast, Downcast};
 use std::{borrow::Cow, fmt::Debug};
@@ -37,7 +37,7 @@ pub trait Node: Downcast + Send + Sync + 'static {
 impl_downcast!(Node);
 
 pub trait SystemNode: Node {
-    fn get_system(&self, commands: &mut Commands) -> Box<dyn System<In = (), Out = ()>>;
+    fn get_system(&self, commands: &mut Commands) -> BoxedSystem;
 }
 
 #[derive(Debug)]

@@ -71,6 +71,10 @@ fn setup() {
         // `TupleStruct` is a trait automatically implemented for tuple structs that derive Reflect. This trait allows you
         // to interact with fields via their indices
         ReflectRef::TupleStruct(_) => {}
+        // `Tuple` is a special trait that can be manually implemented (instead of deriving Reflect). This exposes "tuple"
+        // operations on your type, allowing you to interact with fields via their indices. Tuple is automatically
+        // implemented for tuples of arity 12 or less.
+        ReflectRef::Tuple(_) => {}
         // `List` is a special trait that can be manually implemented (instead of deriving Reflect). This exposes "list"
         // operations on your type, such as indexing and insertion. List is automatically implemented for relevant core
         // types like Vec<T>

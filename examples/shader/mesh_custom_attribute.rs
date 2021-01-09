@@ -21,7 +21,7 @@ fn main() {
 
 #[derive(RenderResources, Default, TypeUuid)]
 #[uuid = "0320b9b8-b3a3-4baa-8bfa-c94008177b17"]
-struct MyMaterialWithVertexColorSupport {}
+struct MyMaterialWithVertexColorSupport;
 
 const VERTEX_SHADER: &str = r#"
 #version 450
@@ -132,13 +132,13 @@ fn setup(
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 pipeline_handle,
             )]),
-            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)),
+            transform: Transform::from_xyz(0.0, 0.0, 0.0),
             ..Default::default()
         })
         .with(material)
         // camera
         .spawn(Camera3dBundle {
-            transform: Transform::from_translation(Vec3::new(3.0, 5.0, -8.0))
+            transform: Transform::from_xyz(3.0, 5.0, -8.0)
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
         });

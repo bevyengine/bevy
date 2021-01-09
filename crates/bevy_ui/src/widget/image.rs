@@ -1,9 +1,9 @@
-use crate::CalculatedSize;
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Query, Res, With};
 use bevy_math::Size;
 use bevy_render::texture::Texture;
 use bevy_sprite::ColorMaterial;
+use bevy_text::CalculatedSize;
 
 #[derive(Debug, Clone)]
 pub enum Image {

@@ -16,6 +16,15 @@ pub struct SamplerDescriptor {
     pub anisotropy_clamp: Option<NonZeroU8>,
 }
 
+impl SamplerDescriptor {
+    /// Sets the address mode for all dimensions of the sampler descriptor.
+    pub fn set_address_mode(&mut self, address_mode: AddressMode) {
+        self.address_mode_u = address_mode;
+        self.address_mode_v = address_mode;
+        self.address_mode_w = address_mode;
+    }
+}
+
 impl Default for SamplerDescriptor {
     fn default() -> Self {
         SamplerDescriptor {

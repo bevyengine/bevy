@@ -1,12 +1,11 @@
 use super::Node;
 use crate::{
     render::UI_PIPELINE_HANDLE,
-    widget::{Button, Image, Text},
-    CalculatedSize, FocusPolicy, Interaction, Style,
+    widget::{Button, Image},
+    FocusPolicy, Interaction, Style,
 };
 use bevy_asset::Handle;
 use bevy_ecs::Bundle;
-use bevy_math::Vec3;
 use bevy_render::{
     camera::{Camera, OrthographicProjection, VisibleEntities, WindowOrigin},
     draw::Draw,
@@ -15,6 +14,7 @@ use bevy_render::{
     prelude::Visible,
 };
 use bevy_sprite::{ColorMaterial, QUAD_HANDLE};
+use bevy_text::{CalculatedSize, Text};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 #[derive(Bundle, Clone, Debug)]
@@ -188,7 +188,7 @@ impl Default for CameraUiBundle {
                 ..Default::default()
             },
             visible_entities: Default::default(),
-            transform: Transform::from_translation(Vec3::new(0.0, 0.0, far - 0.1)),
+            transform: Transform::from_xyz(0.0, 0.0, far - 0.1),
             global_transform: Default::default(),
         }
     }

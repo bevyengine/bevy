@@ -89,9 +89,10 @@ impl<'a> LoadContext<'a> {
         self.labeled_assets.insert(None, asset);
     }
 
-    pub fn set_labeled_asset(&mut self, label: &str, asset: LoadedAsset) {
+    pub fn set_labeled_asset<T: Asset>(&mut self, label: &str, asset: LoadedAsset) -> Handle<T> {
         assert!(!label.is_empty());
         self.labeled_assets.insert(Some(label.to_string()), asset);
+        self.get_handle(AssetPath::new_ref(self.path(), Some(label)))
     }
 
     pub fn get_handle<I: Into<HandleId>, T: Asset>(&self, id: I) -> Handle<T> {

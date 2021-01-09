@@ -6,7 +6,7 @@ pub use stage::*;
 pub use stage_executor::*;
 pub use state::*;
 
-use crate::{IntoSystem, Resources, System, World};
+use crate::{BoxedSystem, IntoSystem, Resources, System, World};
 use bevy_utils::HashMap;
 
 #[derive(Default)]
@@ -199,7 +199,7 @@ pub enum ShouldRun {
 }
 
 pub(crate) struct RunCriteria {
-    criteria_system: Option<Box<dyn System<In = (), Out = ShouldRun>>>,
+    criteria_system: Option<BoxedSystem<(), ShouldRun>>,
     initialized: bool,
 }
 
@@ -213,7 +213,7 @@ impl Default for RunCriteria {
 }
 
 impl RunCriteria {
-    pub fn set(&mut self, criteria_system: Box<dyn System<In = (), Out = ShouldRun>>) {
+    pub fn set(&mut self, criteria_system: BoxedSystem<(), ShouldRun>) {
         self.criteria_system = Some(criteria_system);
         self.initialized = false;
     }

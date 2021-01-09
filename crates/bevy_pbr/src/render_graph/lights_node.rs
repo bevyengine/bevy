@@ -3,7 +3,9 @@ use crate::{
     render_graph::uniform,
 };
 use bevy_core::{AsBytes, Byteable};
-use bevy_ecs::{Commands, IntoSystem, Local, Query, Res, ResMut, Resources, System, World};
+use bevy_ecs::{
+    BoxedSystem, Commands, IntoSystem, Local, Query, Res, ResMut, Resources, System, World,
+};
 use bevy_render::{
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     renderer::{
@@ -51,7 +53,7 @@ struct LightCount {
 unsafe impl Byteable for LightCount {}
 
 impl SystemNode for LightsNode {
-    fn get_system(&self, commands: &mut Commands) -> Box<dyn System<In = (), Out = ()>> {
+    fn get_system(&self, commands: &mut Commands) -> BoxedSystem {
         let system = lights_node_system.system();
         commands.insert_local_resource(
             system.id(),

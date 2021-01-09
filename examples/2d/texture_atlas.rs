@@ -79,7 +79,7 @@ fn setup(
         // draw the atlas itself
         .spawn(SpriteBundle {
             material: materials.add(texture_atlas_texture.into()),
-            transform: Transform::from_translation(Vec3::new(-300.0, 0.0, 0.0)),
+            transform: Transform::from_xyz(-300.0, 0.0, 0.0),
             ..Default::default()
         });
 }

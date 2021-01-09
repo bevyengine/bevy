@@ -1,7 +1,7 @@
 use std::{any::TypeId, borrow::Cow, ptr::NonNull};
 
 use crate::{
-    ArchetypeComponent, IntoSystem, Resources, RunCriteria, ShouldRun, System, SystemId,
+    ArchetypeComponent, BoxedSystem, IntoSystem, Resources, RunCriteria, ShouldRun, System, SystemId,
     TypeAccess, World,
 };
 use bevy_utils::HashMap;
@@ -144,7 +144,7 @@ impl SystemStage {
         self
     }
 
-    pub fn add_system_boxed(&mut self, system: Box<dyn System<In = (), Out = ()>>) -> &mut Self {
+    pub fn add_system_boxed(&mut self, system: BoxedSystem) -> &mut Self {
         self.system_sets[0].add_system_boxed(system);
         self
     }

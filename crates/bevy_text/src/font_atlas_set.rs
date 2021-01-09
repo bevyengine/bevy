@@ -1,5 +1,5 @@
 use crate::{error::TextError, Font, FontAtlas};
-use ab_glyph::{GlyphId, OutlinedGlyph};
+use ab_glyph::{GlyphId, OutlinedGlyph, Point};
 use bevy_asset::{Assets, Handle};
 use bevy_core::FloatOrd;
 use bevy_math::Vec2;
@@ -35,11 +35,13 @@ impl FontAtlasSet {
         self.font_atlases.iter()
     }
 
-    pub fn has_glyph(&self, glyph_id: GlyphId, font_size: f32) -> bool {
+    pub fn has_glyph(&self, glyph_id: GlyphId, glyph_position: Point, font_size: f32) -> bool {
         self.font_atlases
             .get(&FloatOrd(font_size))
             .map_or(false, |font_atlas| {
-                font_atlas.iter().any(|atlas| atlas.has_glyph(glyph_id))
+                font_atlas
+                    .iter()
+                    .any(|atlas| atlas.has_glyph(glyph_id, glyph_position.into()))
             })
     }
 
@@ -51,6 +53,7 @@ impl FontAtlasSet {
     ) -> Result<GlyphAtlasInfo, TextError> {
         let glyph = outlined_glyph.glyph();
         let glyph_id = glyph.id;
+        let glyph_position = glyph.position;
         let font_size = glyph.scale.y;
         let font_atlases = self
             .font_atlases
@@ -64,7 +67,13 @@ impl FontAtlasSet {
             });
         let glyph_texture = Font::get_outlined_glyph_texture(outlined_glyph);
         let add_char_to_font_atlas = |atlas: &mut FontAtlas| -> bool {
-            atlas.add_glyph(textures, texture_atlases, glyph_id, &glyph_texture)
+            atlas.add_glyph(
+                textures,
+                texture_atlases,
+                glyph_id,
+                glyph_position.into(),
+                &glyph_texture,
+            )
         };
         if !font_atlases.iter_mut().any(add_char_to_font_atlas) {
             font_atlases.push(FontAtlas::new(
@@ -76,19 +85,23 @@ impl FontAtlasSet {
                 textures,
                 texture_atlases,
                 glyph_id,
+                glyph_position.into(),
                 &glyph_texture,
             ) {
                 return Err(TextError::FailedToAddGlyph(glyph_id));
             }
         }
 
-        Ok(self.get_glyph_atlas_info(font_size, glyph_id).unwrap())
+        Ok(self
+            .get_glyph_atlas_info(font_size, glyph_id, glyph_position)
+            .unwrap())
     }
 
     pub fn get_glyph_atlas_info(
         &self,
         font_size: f32,
         glyph_id: GlyphId,
+        position: Point,
     ) -> Option<GlyphAtlasInfo> {
         self.font_atlases
             .get(&FloatOrd(font_size))
@@ -97,7 +110,7 @@ impl FontAtlasSet {
                     .iter()
                     .find_map(|atlas| {
                         atlas
-                            .get_glyph_index(glyph_id)
+                            .get_glyph_index(glyph_id, position.into())
                             .map(|glyph_index| (glyph_index, atlas.texture_atlas.clone_weak()))
                     })
                     .map(|(glyph_index, texture_atlas)| GlyphAtlasInfo {
