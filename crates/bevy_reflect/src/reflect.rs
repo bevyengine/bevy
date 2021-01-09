@@ -15,7 +15,7 @@ pub enum ReflectRef<'a> {
 pub enum ReflectMut<'a> {
     Struct(&'a mut dyn Struct),
     TupleStruct(&'a mut dyn TupleStruct),
-    Tuple(&'a dyn Tuple),
+    Tuple(&'a mut dyn Tuple),
     List(&'a mut dyn List),
     Map(&'a mut dyn Map),
     Value(&'a mut dyn Reflect),
