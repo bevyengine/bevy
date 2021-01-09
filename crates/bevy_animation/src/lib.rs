@@ -10,11 +10,11 @@ mod reflect;
 mod bench;
 mod hierarchy;
 mod skinned_mesh;
-mod tracks;
 
 pub mod blending;
 pub mod curve;
 pub mod interpolate;
+pub mod tracks;
 
 pub use crate::animator::*;
 pub use crate::app::*;
@@ -32,6 +32,13 @@ pub mod prelude {
     pub use crate::interpolate::Lerp;
     pub use crate::reflect::AnimatorPropertyRegistry;
     pub use crate::skinned_mesh::{SkinAsset, SkinComponent, SkinDebugger};
+}
+
+/// Exports wide types
+pub mod wide {
+    pub use crate::interpolate::utils::{Quatx4, Quatx8};
+    pub use ultraviolet::vec::*;
+    pub use wide::*;
 }
 
 pub mod stage {

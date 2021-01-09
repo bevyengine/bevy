@@ -26,5 +26,8 @@ float-cmp = "0.8.0"
 fnv = "1.0.7"
 tracing = "0.1.21"
 
+ultraviolet = "0.7.5"
+wide = "0.5.5" # not the latest version of wide but maches the one used by ultravilet
+
 [features]
 default = []

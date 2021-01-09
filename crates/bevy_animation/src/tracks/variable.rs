@@ -16,14 +16,14 @@ use crate::{
 
 // TODO: impl Serialize, Deserialize
 #[derive(Default, Debug)]
-pub struct TrackVariableInterpolated<T: Interpolate> {
+pub struct TrackVariable<T: Interpolate> {
     time_stamps: Vec<f32>,
     keyframes: Vec<T>,
     /// Defines the interpolation for each keyframe pair
     interpolations: Vec<Interpolation<T::Tangent>>,
 }
 
-impl<T> Clone for TrackVariableInterpolated<T>
+impl<T> Clone for TrackVariable<T>
 where
     T: Interpolate + Clone,
     <T as Interpolate>::Tangent: Clone,
@@ -106,7 +106,7 @@ where
 //     }
 // }
 
-impl<T> Track for TrackVariableInterpolated<T>
+impl<T> Track for TrackVariable<T>
 where
     T: Interpolate + Clone + 'static,
 {

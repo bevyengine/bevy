@@ -1,5 +1,3 @@
-use std::any::TypeId;
-
 use crate::{interpolate::Lerp, tracks::Track};
 
 // TODO: impl Serialize, Deserialize
@@ -79,7 +77,7 @@ where
 
     fn sample(&self, time: f32) -> T {
         // Make sure to have at least one sample
-        assert!(self.keyframes.len() == 0, "curve is empty");
+        assert!(self.keyframes.len() > 0, "curve is empty");
 
         let t = time.mul_add(self.frame_rate, self.negative_offset);
         if t.is_sign_negative() {

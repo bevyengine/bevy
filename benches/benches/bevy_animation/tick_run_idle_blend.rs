@@ -18,9 +18,9 @@ const MEASUREMENT_TIME: Duration = Duration::from_secs(35);
 
 fn criterion_benchmark(c: &mut Criterion) {
     c.bench(
-        "animation",
+        "animation/tick",
         ParameterizedBenchmark::new(
-            "tick",
+            "run-idle-blend",
             |b, _| {
                 b.iter_batched(
                     run_idle_setup_bench,

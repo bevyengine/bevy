@@ -57,9 +57,9 @@ impl Interpolate for f32 {
 
     fn interpolate(k0: &Self, k1: &Self, interp: &Interpolation<Self::Tangent>, t: f32) -> Self {
         match interp {
-            Interpolation::Step => utils::step(t, k0, k1),
-            Interpolation::Linear => utils::lerp(t, *k0, *k1),
-            Interpolation::Smooth { right, left } => utils::catmull_rom(t, *k0, *right, *k1, *left),
+            Interpolation::Step => utils::step(k0, k1, t),
+            Interpolation::Linear => utils::lerp(t * k0, *k1, t),
+            Interpolation::Smooth { right, left } => utils::catmull_rom(*k0, *right, *k1, *left, t),
         }
     }
 }
@@ -69,9 +69,9 @@ impl Interpolate for Vec2 {
 
     fn interpolate(k0: &Self, k1: &Self, interp: &Interpolation<Self::Tangent>, t: f32) -> Self {
         match interp {
-            Interpolation::Step => utils::step(t, k0, k1),
-            Interpolation::Linear => utils::lerp(t, *k0, *k1),
-            Interpolation::Smooth { right, left } => utils::catmull_rom(t, *k0, *right, *k1, *left),
+            Interpolation::Step => utils::step(k0, k1, t),
+            Interpolation::Linear => utils::lerp(*k0, *k1, t),
+            Interpolation::Smooth { right, left } => utils::catmull_rom(*k0, *right, *k1, *left, t),
         }
     }
 }
@@ -81,9 +81,9 @@ impl Interpolate for Vec3 {
 
     fn interpolate(k0: &Self, k1: &Self, interp: &Interpolation<Self::Tangent>, t: f32) -> Self {
         match interp {
-            Interpolation::Step => utils::step(t, k0, k1),
-            Interpolation::Linear => utils::lerp(t, *k0, *k1),
-            Interpolation::Smooth { right, left } => utils::catmull_rom(t, *k0, *right, *k1, *left),
+            Interpolation::Step => utils::step(k0, k1, t),
+            Interpolation::Linear => utils::lerp(*k0, *k1, t),
+            Interpolation::Smooth { right, left } => utils::catmull_rom(*k0, *right, *k1, *left, t),
         }
     }
 }
@@ -93,9 +93,9 @@ impl Interpolate for Vec4 {
 
     fn interpolate(k0: &Self, k1: &Self, interp: &Interpolation<Self::Tangent>, t: f32) -> Self {
         match interp {
-            Interpolation::Step => utils::step(t, k0, k1),
-            Interpolation::Linear => utils::lerp(t, *k0, *k1),
-            Interpolation::Smooth { right, left } => utils::catmull_rom(t, *k0, *right, *k1, *left),
+            Interpolation::Step => utils::step(k0, k1, t),
+            Interpolation::Linear => utils::lerp(*k0, *k1, t),
+            Interpolation::Smooth { right, left } => utils::catmull_rom(*k0, *right, *k1, *left, t),
         }
     }
 }
@@ -105,14 +105,14 @@ impl Interpolate for Color {
 
     fn interpolate(k0: &Self, k1: &Self, interp: &Interpolation<Self::Tangent>, t: f32) -> Self {
         match interp {
-            Interpolation::Step => utils::step(t, k0, k1),
-            Interpolation::Linear => utils::lerp(t, *k0, *k1),
+            Interpolation::Step => utils::step(k0, k1, t),
+            Interpolation::Linear => utils::lerp(*k0, *k1, t),
             Interpolation::Smooth { right, left } => utils::catmull_rom::<Vec4>(
-                t,
                 (*k0).into(),
                 (*right).into(),
                 (*k1).into(),
                 (*left).into(),
+                t,
             )
             .into(),
         }
@@ -126,7 +126,7 @@ impl Interpolate for Quat {
     /// reference: http://number-none.com/product/Understanding%20Slerp,%20Then%20Not%20Using%20It/
     fn interpolate(k0: &Self, k1: &Self, interp: &Interpolation<Self::Tangent>, t: f32) -> Self {
         match interp {
-            Interpolation::Step => utils::step(t, k0, k1),
+            Interpolation::Step => utils::step(k0, k1, t),
             Interpolation::Linear => {
                 // Make sure is always the short path, look at this: https://github.com/mgeier/quaternion-nursery
                 let mut k1 = *k1;
@@ -134,7 +134,7 @@ impl Interpolate for Quat {
                     k1 = -k1;
                 }
 
-                let q = utils::lerp::<Vec4>(t, (*k0).into(), k1.into());
+                let q = utils::lerp::<Vec4>((*k0).into(), k1.into(), t);
                 let d = utils::inv_sqrt(q.dot(q));
                 (q * d).into()
             }
@@ -146,11 +146,11 @@ impl Interpolate for Quat {
                 }
 
                 let q = utils::catmull_rom::<Vec4>(
-                    t,
                     (*k0).into(),
                     (*right).into(),
                     k1.into(),
                     (*left).into(),
+                    t,
                 );
                 let d = utils::inv_sqrt(q.dot(q));
                 (q * d).into()

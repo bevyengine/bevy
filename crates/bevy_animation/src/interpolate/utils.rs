@@ -1,4 +1,27 @@
 use std::ops::{Add, Div, Mul, Sub};
+use ultraviolet::{f32x4, f32x8, Vec4x4, Vec4x8};
+use wide::{i32x4, i32x8};
+
+/// Wide quaternion
+#[derive(Debug, Clone)]
+pub struct Quatx4(pub Vec4x4);
+
+/// Wide quaternion
+#[derive(Debug, Clone)]
+pub struct Quatx8(pub Vec4x8);
+
+// macro_rules! wide_quat {
+//     ($t:tt, $) => {
+//         impl $t {
+//             pub fn identity() -> $t {
+//                 $t::splat(Vec4::new(0.0, 0.0, 0.0, 0.1))
+//             }
+//         }
+//     };
+// }
+
+// wide_quat!(Quat4);
+// wide_quat!(Quat8);
 
 /// Quake 3 fast inverse sqrt
 ///
@@ -16,8 +39,36 @@ pub fn inv_sqrt(x: f32) -> f32 {
     y
 }
 
+/// Quake 3 fast inverse sqrt for `f32x4`
 #[inline(always)]
-pub fn step<T: Clone>(u: f32, k0: &T, k1: &T) -> T {
+pub fn inv_sqrt4(x: f32x4) -> f32x4 {
+    let x2: f32x4 = x * 0.5;
+    let mut y: f32x4 = x;
+
+    let mut i: i32x4 = unsafe { std::mem::transmute(y) };
+    i = i32x4::splat(0x5f3759df) - (i >> 1);
+    y = unsafe { std::mem::transmute(i) };
+
+    y = y * (f32x4::splat(1.5) - (x2 * y * y));
+    y
+}
+
+/// Quake 3 fast inverse sqrt for `f32x8`
+#[inline(always)]
+pub fn inv_sqrt8(x: f32x8) -> f32x8 {
+    let x2: f32x8 = x * 0.5;
+    let mut y: f32x8 = x;
+
+    let mut i: i32x8 = unsafe { std::mem::transmute(y) };
+    i = i32x8::splat(0x5f3759df) - (i >> 1);
+    y = unsafe { std::mem::transmute(i) };
+
+    y = y * (f32x8::splat(1.5) - (x2 * y * y));
+    y
+}
+
+#[inline(always)]
+pub fn step<T: Clone>(k0: &T, k1: &T, u: f32) -> T {
     if u > 0.99 {
         k0.clone()
     } else {
@@ -26,7 +77,7 @@ pub fn step<T: Clone>(u: f32, k0: &T, k1: &T) -> T {
 }
 
 #[inline(always)]
-pub fn lerp<T>(u: f32, k0: T, k1: T) -> T
+pub fn lerp<T>(k0: T, k1: T, u: f32) -> T
 where
     T: Add<Output = T> + Mul<f32, Output = T>,
 {
@@ -37,7 +88,7 @@ where
 ///
 /// Source: http://archive.gamedev.net/archive/reference/articles/article1497.html
 #[inline(always)]
-pub fn catmull_rom<T>(u: f32, k0: T, t0: T, k1: T, t1: T) -> T
+pub fn catmull_rom<T>(k0: T, t0: T, k1: T, t1: T, u: f32) -> T
 where
     T: Add<Output = T> + Sub<Output = T> + Mul<f32, Output = T>,
 {
