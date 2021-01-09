@@ -4,7 +4,7 @@ use bevy_render::color::Color;
 use fnv::FnvBuildHasher;
 use std::{collections::HashMap, mem::size_of};
 
-use crate::lerping::Lerp;
+use crate::interpolate::Lerp;
 
 // pub struct Bit<'a>(&'a mut Mask, Mask);
 

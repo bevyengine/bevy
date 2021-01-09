@@ -5,32 +5,23 @@ use crate::interpolate::Lerp;
 // TODO: Curve/Clip need a validation during deserialization because they are
 // structured as SOA (struct of arrays), so the vec's length must match
 
-// https://github.com/niklasfrykholm/blog
-// https://bitsquid.blogspot.com/search?q=animation
-// http://bitsquid.blogspot.com/2009/11/bitsquid-low-level-animation-system.html
-// http://archive.gamedev.net/archive/reference/articles/article1497.html (bit old)
-
-// http://nfrechette.github.io/2016/12/07/anim_compression_key_reduction/
-// https://github.com/nfrechette/acl
-
 // TODO: impl Serialize, Deserialize
 #[derive(Default, Debug)]
-pub struct Curve<T> {
-    // TODO: Change to frame_rate / frame_indexes to reduce memory usage
-    samples: Vec<f32>,
-    values: Vec<T>,
+pub struct TrackVariableLinear<T> {
+    time_stamps: Vec<f32>,
+    keyframes: Vec<T>,
 }
 
-impl<T: Clone> Clone for Curve<T> {
+impl<T: Clone> Clone for TrackVariableLinear<T> {
     fn clone(&self) -> Self {
         Self {
-            samples: self.samples.clone(),
-            values: self.values.clone(),
+            time_stamps: self.time_stamps.clone(),
+            keyframes: self.keyframes.clone(),
         }
     }
 }
 
-impl<T> Curve<T> {
+impl<T> TrackVariableLinear<T> {
     pub fn new(samples: Vec<f32>, values: Vec<T>) -> Self {
         // TODO: Result?
 
@@ -56,20 +47,23 @@ impl<T> Curve<T> {
                 .all(|(a, b)| a < b),
             "time samples must be on ascending order"
         );
-        Self { samples, values }
+        Self {
+            time_stamps: samples,
+            keyframes: values,
+        }
     }
 
     pub fn from_line(t0: f32, t1: f32, v0: T, v1: T) -> Self {
         Self {
-            samples: if t1 >= t0 { vec![t0, t1] } else { vec![t1, t0] },
-            values: vec![v0, v1],
+            time_stamps: if t1 >= t0 { vec![t0, t1] } else { vec![t1, t0] },
+            keyframes: vec![v0, v1],
         }
     }
 
     pub fn from_constant(v: T) -> Self {
         Self {
-            samples: vec![0.0],
-            values: vec![v],
+            time_stamps: vec![0.0],
+            keyframes: vec![v],
         }
     }
 
@@ -81,23 +75,26 @@ impl<T> Curve<T> {
     // }
 
     pub fn duration(&self) -> f32 {
-        self.samples.last().copied().unwrap_or(0.0)
+        self.time_stamps.last().copied().unwrap_or(0.0)
     }
 
     pub fn add_offset_time(&mut self, time_offset: f32) {
-        self.samples.iter_mut().for_each(|t| *t += time_offset);
+        self.time_stamps.iter_mut().for_each(|t| *t += time_offset);
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (f32, &T)> {
-        self.samples.iter().copied().zip(self.values.iter())
+        self.time_stamps.iter().copied().zip(self.keyframes.iter())
     }
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (f32, &mut T)> {
-        self.samples.iter().copied().zip(self.values.iter_mut())
+        self.time_stamps
+            .iter()
+            .copied()
+            .zip(self.keyframes.iter_mut())
     }
 }
 
-impl<T> Curve<T>
+impl<T> TrackVariableLinear<T>
 where
     T: Lerp + Clone + 'static,
 {
@@ -112,7 +109,7 @@ where
         let index = if time < self.duration() * 0.5 {
             0
         } else {
-            self.samples.len() - 1
+            self.time_stamps.len() - 1
         };
 
         self.sample_indexed(index as u16, time).1
@@ -123,18 +120,18 @@ where
     /// **NOTE** Each keyframe is indexed by a `u16` to reduce memory usage when using the keyframe caching
     pub fn sample_indexed(&self, mut index: u16, time: f32) -> (u16, T) {
         // Adjust for the current keyframe index
-        let last_index = (self.samples.len() - 1) as u16;
+        let last_index = (self.time_stamps.len() - 1) as u16;
 
         index = index.max(0).min(last_index);
-        if self.samples[index as usize] < time {
+        if self.time_stamps[index as usize] < time {
             // Forward search
             loop {
                 if index == last_index {
-                    return (last_index, self.values[last_index as usize].clone());
+                    return (last_index, self.keyframes[last_index as usize].clone());
                 }
                 index += 1;
 
-                if self.samples[index as usize] >= time {
+                if self.time_stamps[index as usize] >= time {
                     break;
                 }
             }
@@ -142,11 +139,11 @@ where
             // Backward search
             loop {
                 if index == 0 {
-                    return (0, self.values[0].clone());
+                    return (0, self.keyframes[0].clone());
                 }
 
                 let i = index - 1;
-                if self.samples[i as usize] <= time {
+                if self.time_stamps[i as usize] <= time {
                     break;
                 }
 
@@ -156,10 +153,14 @@ where
 
         // Lerp the value
         let i = index - 1;
-        let previous_time = self.samples[i as usize];
-        let t = (time - previous_time) / (self.samples[index as usize] - previous_time);
+        let previous_time = self.time_stamps[i as usize];
+        let t = (time - previous_time) / (self.time_stamps[index as usize] - previous_time);
         debug_assert!(t >= 0.0 && t <= 1.0, "t = {} but should be normalized", t); // Checks if it's required to normalize t
-        let value = T::lerp(&self.values[i as usize], &self.values[index as usize], t);
+        let value = T::lerp(
+            &self.keyframes[i as usize],
+            &self.keyframes[index as usize],
+            t,
+        );
 
         (index, value)
     }
@@ -181,7 +182,7 @@ mod tests {
 
     #[test]
     fn curve_evaluation() {
-        let curve = Curve::new(
+        let curve = TrackVariableLinear::new(
             vec![0.0, 0.25, 0.5, 0.75, 1.0],
             vec![0.0, 0.5, 1.0, 1.5, 2.0],
         );
@@ -206,12 +207,12 @@ mod tests {
     #[test]
     #[should_panic]
     fn curve_bad_length() {
-        let _ = Curve::new(vec![0.0, 0.5, 1.0], vec![0.0, 1.0]);
+        let _ = TrackVariableLinear::new(vec![0.0, 0.5, 1.0], vec![0.0, 1.0]);
     }
 
     #[test]
     #[should_panic]
     fn curve_time_samples_not_sorted() {
-        let _ = Curve::new(vec![0.0, 1.5, 1.0], vec![0.0, 1.0, 2.0]);
+        let _ = TrackVariableLinear::new(vec![0.0, 1.5, 1.0], vec![0.0, 1.0, 2.0]);
     }
 }

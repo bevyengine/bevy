@@ -10,10 +10,11 @@ mod reflect;
 mod bench;
 mod hierarchy;
 mod skinned_mesh;
+mod tracks;
 
 pub mod blending;
 pub mod curve;
-pub mod lerping;
+pub mod interpolate;
 
 pub use crate::animator::*;
 pub use crate::app::*;
@@ -28,7 +29,7 @@ pub mod prelude {
     pub use crate::blending::AnimatorBlending;
     pub use crate::curve::Curve;
     pub use crate::hierarchy::Hierarchy;
-    pub use crate::lerping::Lerp;
+    pub use crate::interpolate::Lerp;
     pub use crate::reflect::AnimatorPropertyRegistry;
     pub use crate::skinned_mesh::{SkinAsset, SkinComponent, SkinDebugger};
 }

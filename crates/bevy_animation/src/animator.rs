@@ -15,7 +15,7 @@ use fnv::FnvBuildHasher;
 use smallvec::{smallvec, SmallVec};
 use tracing::warn;
 
-use crate::{blending::AnimatorBlending, curve::Curve, hierarchy::Hierarchy, lerping::Lerp};
+use crate::{blending::AnimatorBlending, curve::Curve, hierarchy::Hierarchy, interpolate::Lerp};
 
 // TODO: Load Clip name from gltf
 

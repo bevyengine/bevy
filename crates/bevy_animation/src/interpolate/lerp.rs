@@ -2,6 +2,8 @@ use bevy_asset::{Asset, Handle, HandleUntyped};
 use bevy_math::prelude::*;
 use bevy_render::color::Color;
 
+use super::utils::*;
+
 /// Defines how a particular type will be interpolated
 pub trait Lerp {
     fn lerp(a: &Self, b: &Self, t: f32) -> Self;
@@ -68,21 +70,6 @@ impl Lerp for Quat {
         let d = inv_sqrt(q.dot(q));
         (q * d).into()
     }
-}
-
-/// Quake 3 fast inverse sqrt
-///
-/// Took this one from piston: https://github.com/PistonDevelopers/skeletal_animation
-fn inv_sqrt(x: f32) -> f32 {
-    let x2: f32 = x * 0.5;
-    let mut y: f32 = x;
-
-    let mut i: i32 = unsafe { std::mem::transmute(y) };
-    i = 0x5f3759df - (i >> 1);
-    y = unsafe { std::mem::transmute(i) };
-
-    y = y * (1.5 - (x2 * y * y));
-    y
 }
 
 impl<T: Asset + 'static> Lerp for Handle<T> {

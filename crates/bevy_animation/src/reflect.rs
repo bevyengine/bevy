@@ -13,7 +13,7 @@ use crate::{
     animator::{Animator, Clip},
     blending::{AnimatorBlendGroup, AnimatorBlending, Blend, Mask, MASK_LIMIT},
     help::shorten_name,
-    lerping::Lerp,
+    interpolate::Lerp,
 };
 
 // ? NOTE: Generic types like `Option<T>` must be specialized and registered with `register_animated_property_type`

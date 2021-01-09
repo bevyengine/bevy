@@ -77,11 +77,11 @@ impl Plugin for LogPlugin {
                     .expect("Could not set global default tracing subscriber.");
             }
 
-            #[cfg(not(feature = "tracing-chrome"))]
-            {
-                bevy_utils::tracing::subscriber::set_global_default(subscriber)
-                    .expect("Could not set global default tracing subscriber.");
-            }
+            // #[cfg(not(feature = "tracing-chrome"))]
+            // {
+            //     bevy_utils::tracing::subscriber::set_global_default(subscriber)
+            //         .expect("Could not set global default tracing subscriber.");
+            // }
         }
 
         #[cfg(target_arch = "wasm32")]
