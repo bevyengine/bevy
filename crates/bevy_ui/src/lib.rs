@@ -5,9 +5,7 @@ mod focus;
 mod margins;
 mod node;
 mod render;
-pub mod update;
 pub mod widget;
-
 pub use anchors::*;
 pub use flex::*;
 pub use focus::*;
@@ -28,6 +26,7 @@ pub struct UiPlugin;
 
 pub mod stage {
     pub const UI: &str = "ui";
+    pub const UI_POST_UPDATE: &str = "ui_post_update";
 }
 
 impl Plugin for UiPlugin {
@@ -43,9 +42,16 @@ impl Plugin for UiPlugin {
             .add_system_to_stage(stage::UI, widget::text_system.system())
             .add_system_to_stage(stage::UI, widget::image_node_system.system())
             .add_system_to_stage(stage::UI, flex::layout_system.system())
-            .add_system_to_stage(stage::UI, flex::z_index_system.system())
+            .add_stage_after(
+                bevy_app::stage::POST_UPDATE,
+                stage::UI_POST_UPDATE,
+                SystemStage::parallel(),
+            )
+            .add_system_to_stage(
+                stage::UI_POST_UPDATE,
+                window_nodes_transform_system.system(),
+            )
             // TODO: deactivated for now, there may be a bug in Stretch::remove
-            // TODO: does not need to be scheduled every frame
             // .add_system_to_stage(stage::UI, flex::garbage_collection_system.system())
             .add_system_to_stage(bevy_render::stage::DRAW, widget::draw_text_system.system());
 
