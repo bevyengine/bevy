@@ -81,7 +81,7 @@ bevy_internal = {path = "crates/bevy_internal", version = "0.4.0", default-featu
 
 [dev-dependencies]
 anyhow = "1.0"
-rand = "0.7.3"
+rand = "0.8.1"
 ron = "0.6.2"
 serde = {version = "1", features = ["derive"]}
 
