@@ -115,6 +115,13 @@ impl Draw {
         });
     }
 
+    pub fn draw(&mut self, vertices: Range<u32>, instances: Range<u32>) {
+        self.render_command(RenderCommand::Draw {
+            vertices,
+            instances,
+        });
+    }
+
     #[inline]
     pub fn render_command(&mut self, render_command: RenderCommand) {
         self.render_commands.push(render_command);

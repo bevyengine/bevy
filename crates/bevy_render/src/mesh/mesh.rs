@@ -278,7 +278,7 @@ impl Mesh {
         }
     }
 
-    fn count_vertices(&self) -> usize {
+    pub fn count_vertices(&self) -> usize {
         let mut vertex_count: Option<usize> = None;
         for (attribute_name, attribute_data) in self.attributes.iter() {
             let attribute_len = attribute_data.len();
@@ -387,19 +387,21 @@ pub fn mesh_resource_provider_system(
     for changed_mesh_handle in changed_meshes.iter() {
         if let Some(mesh) = meshes.get(changed_mesh_handle) {
             // TODO: check for individual buffer changes in non-interleaved mode
-            let index_buffer = render_resource_context.create_buffer_with_data(
-                BufferInfo {
-                    buffer_usage: BufferUsage::INDEX,
-                    ..Default::default()
-                },
-                &mesh.get_index_buffer_bytes().unwrap(),
-            );
+            if let Some(data) = mesh.get_index_buffer_bytes() {
+                let index_buffer = render_resource_context.create_buffer_with_data(
+                    BufferInfo {
+                        buffer_usage: BufferUsage::INDEX,
+                        ..Default::default()
+                    },
+                    &data,
+                );
 
-            render_resource_context.set_asset_resource(
-                changed_mesh_handle,
-                RenderResourceId::Buffer(index_buffer),
-                INDEX_BUFFER_ASSET_INDEX,
-            );
+                render_resource_context.set_asset_resource(
+                    changed_mesh_handle,
+                    RenderResourceId::Buffer(index_buffer),
+                    INDEX_BUFFER_ASSET_INDEX,
+                );
+            }
 
             let interleaved_buffer = mesh.get_vertex_buffer_data();
 
