@@ -6,7 +6,7 @@ use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;
 use bevy_render::texture::Texture;
 use bevy_sprite::TextureAtlas;
-use bevy_utils::{AHashExt, HashMap};
+use bevy_utils::HashMap;
 
 type FontSizeKey = FloatOrd;
 
@@ -25,7 +25,7 @@ pub struct GlyphAtlasInfo {
 impl Default for FontAtlasSet {
     fn default() -> Self {
         FontAtlasSet {
-            font_atlases: HashMap::with_capacity(1),
+            font_atlases: HashMap::with_capacity_and_hasher(1, Default::default()),
         }
     }
 }
