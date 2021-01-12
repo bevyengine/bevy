@@ -78,7 +78,7 @@ impl LogDiagnosticsPlugin {
                     Self::log_diagnostic(diagnostic);
                 }
             } else {
-                for diagnostic in diagnostics.ordered_iter() {
+                for diagnostic in diagnostics.iter() {
                     Self::log_diagnostic(diagnostic);
                 }
             }
@@ -96,7 +96,7 @@ impl LogDiagnosticsPlugin {
                     debug!("{:#?}\n", diagnostic);
                 }
             } else {
-                for diagnostic in diagnostics.ordered_iter() {
+                for diagnostic in diagnostics.iter() {
                     debug!("{:#?}\n", diagnostic);
                 }
             }
