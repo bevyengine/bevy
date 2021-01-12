@@ -116,6 +116,7 @@ impl CommandQueue {
             size,
         })
     }
+
     #[allow(clippy::too_many_arguments)]
     pub fn copy_texture_to_texture(
         &mut self,
