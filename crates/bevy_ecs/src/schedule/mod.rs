@@ -1,10 +1,12 @@
 mod stage;
 mod stage_executor;
 mod state;
+mod system_descriptor;
 
 pub use stage::*;
 pub use stage_executor::*;
 pub use state::*;
+pub use system_descriptor::*;
 
 use crate::{BoxedSystem, IntoSystem, Resources, System, World};
 use bevy_utils::HashMap;
@@ -37,10 +39,10 @@ impl Schedule {
         self
     }
 
-    pub fn with_system_in_stage<S: System<In = (), Out = ()>>(
+    pub fn with_system_in_stage(
         mut self,
         stage_name: &'static str,
-        system: S,
+        system: impl Into<SystemDescriptor>,
     ) -> Self {
         self.add_system_to_stage(stage_name, system);
         self
@@ -96,10 +98,10 @@ impl Schedule {
         self
     }
 
-    pub fn add_system_to_stage<S: System<In = (), Out = ()>>(
+    pub fn add_system_to_stage(
         &mut self,
         stage_name: &'static str,
-        system: S,
+        system: impl Into<SystemDescriptor>,
     ) -> &mut Self {
         let stage = self
             .get_stage_mut::<SystemStage>(stage_name)
@@ -109,7 +111,7 @@ impl Schedule {
                     stage_name
                 )
             });
-        stage.add_system(system.system());
+        stage.add_system(system);
         self
     }
 

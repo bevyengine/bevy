@@ -14,10 +14,14 @@ use crate::{
 };
 
 pub trait SystemStageExecutor: Downcast + Send + Sync {
+    #[allow(clippy::too_many_arguments)] // Hmm...
     fn execute_stage(
         &mut self,
         system_sets: &mut [SystemSet],
-        dependencies: &HashMap<SystemIndex, Vec<SystemIndex>>,
+        at_start: &[SystemIndex],
+        before_commands: &[SystemIndex],
+        at_end: &[SystemIndex],
+        parallel_dependencies: &HashMap<SystemIndex, Vec<SystemIndex>>,
         world: &mut World,
         resources: &mut Resources,
     );
@@ -26,74 +30,130 @@ pub trait SystemStageExecutor: Downcast + Send + Sync {
 impl_downcast!(SystemStageExecutor);
 
 pub struct SerialSystemStageExecutor {
-    /// Determines if a system has had its exclusive part already executed.
-    exclusive_ran: FixedBitSet,
+    /// Last archetypes generation observed by parallel systems.
     last_archetypes_generation: ArchetypesGeneration,
+    /// Cached results of system sets' run criteria evaluation.
+    system_set_should_run: Vec<ShouldRun>,
 }
 
 impl Default for SerialSystemStageExecutor {
     fn default() -> Self {
         Self {
-            exclusive_ran: FixedBitSet::with_capacity(64),
             // MAX ensures metadata will be initialized on first run.
             last_archetypes_generation: ArchetypesGeneration(u64::MAX),
+            system_set_should_run: Vec::new(),
         }
     }
 }
 
-// TODO several betterization passes?
 impl SystemStageExecutor for SerialSystemStageExecutor {
     fn execute_stage(
         &mut self,
         system_sets: &mut [SystemSet],
-        dependencies: &HashMap<SystemIndex, Vec<SystemIndex>>,
+        at_start: &[SystemIndex],
+        before_commands: &[SystemIndex],
+        at_end: &[SystemIndex],
+        parallel_dependencies: &HashMap<SystemIndex, Vec<SystemIndex>>,
         world: &mut World,
         resources: &mut Resources,
     ) {
-        self.exclusive_ran.clear();
-        let mut index = 0;
-        for system_set in system_sets.iter_mut() {
-            self.exclusive_ran.grow(index + system_set.systems_len());
-            for system_index in 0..system_set.systems_len() {
-                // TODO handle order of operations set by dependencies.
-                let is_exclusive = {
-                    let system = &system_set.system(system_index);
-                    system.archetype_component_access().writes_all()
-                        || system.resource_access().writes_all()
-                };
-                if is_exclusive {
-                    system_set
-                        .system_mut(system_index)
+        use ShouldRun::*;
+        // Evaluate run criteria.
+        let mut has_any_work = false;
+        let mut has_doable_work = false;
+        self.system_set_should_run.clear();
+        self.system_set_should_run
+            .extend(system_sets.iter_mut().map(|set| {
+                let result = set.run_criteria_mut().should_run(world, resources);
+                match result {
+                    Yes | YesAndLoop => {
+                        has_doable_work = true;
+                        has_any_work = true;
+                    }
+                    NoAndLoop => has_any_work = true,
+                    No => (),
+                }
+                result
+            }));
+        if !has_any_work {
+            return;
+        }
+        // TODO should this be a panic condition?
+        assert!(has_doable_work);
+
+        while has_doable_work {
+            // Run exclusives that want to be at the start of stage.
+            for index in at_start {
+                if let Yes | YesAndLoop = self.system_set_should_run[index.set] {
+                    system_sets[index.set]
+                        .exclusive_system_mut(index.system)
                         .run_exclusive(world, resources);
-                    self.exclusive_ran.set(index, true);
-                }
-                index += 1;
-            }
-        }
-        if self.last_archetypes_generation != world.archetypes_generation() {
-            for system_set in system_sets.iter_mut() {
-                for system in system_set.systems_mut() {
-                    system.update_access(world);
-                    system.run((), world, resources);
                 }
             }
-            self.last_archetypes_generation = world.archetypes_generation();
-        } else {
-            for system_set in system_sets.iter_mut() {
-                system_set.for_each_changed_system(|system| system.update_access(world));
-                for system in system_set.systems_mut() {
-                    system.run((), world, resources);
+
+            // Run parallel systems.
+            // TODO sort wrt dependencies!
+            for (set_index, system_set) in system_sets.iter_mut().enumerate() {
+                if let Yes | YesAndLoop = self.system_set_should_run[set_index] {
+                    for system in system_set.parallel_systems_mut() {
+                        system.run((), world, resources);
+                    }
                 }
             }
-        }
-        let mut index = 0;
-        for system_set in system_sets.iter_mut() {
-            for system in system_set.systems_mut() {
-                if !self.exclusive_ran[index] {
-                    system.run_exclusive(world, resources);
+
+            // Run exclusives that want to be between parallel systems and the command buffers.
+            for index in before_commands {
+                if let Yes | YesAndLoop = self.system_set_should_run[index.set] {
+                    system_sets[index.set]
+                        .exclusive_system_mut(index.system)
+                        .run_exclusive(world, resources);
                 }
-                index += 1;
             }
+
+            // Merge in command buffers.
+            // TODO sort wrt dependencies?
+            for (set_index, system_set) in system_sets.iter_mut().enumerate() {
+                if let Yes | YesAndLoop = self.system_set_should_run[set_index] {
+                    for system in system_set.parallel_systems_mut() {
+                        system.run_exclusive(world, resources);
+                    }
+                }
+            }
+
+            // Run exclusives that want to be at the end of stage.
+            for index in at_end {
+                if let Yes | YesAndLoop = self.system_set_should_run[index.set] {
+                    system_sets[index.set]
+                        .exclusive_system_mut(index.system)
+                        .run_exclusive(world, resources);
+                }
+            }
+
+            // Reevaluate run criteria.
+            has_any_work = false;
+            has_doable_work = false;
+            for (index, result) in self.system_set_should_run.iter_mut().enumerate() {
+                match result {
+                    No => (),
+                    Yes => *result = No,
+                    YesAndLoop | NoAndLoop => {
+                        let new_result = system_sets[index]
+                            .run_criteria_mut()
+                            .should_run(world, resources);
+                        match new_result {
+                            Yes | YesAndLoop => {
+                                has_doable_work = true;
+                                has_any_work = true;
+                            }
+                            NoAndLoop => has_any_work = true,
+                            No => (),
+                        }
+                        *result = new_result;
+                    }
+                }
+            }
+            // TODO should this be a panic condition?
+            assert!(!has_any_work || has_doable_work);
         }
     }
 }
@@ -126,10 +186,6 @@ pub struct ParallelSystemStageExecutor {
     last_archetypes_generation: ArchetypesGeneration,
     /// Cached results of system sets' run criteria evaluation.
     system_set_should_run: Vec<ShouldRun>,
-    /// Systems with exclusive access that run before parallel systems.
-    on_start_exclusives: Vec<SystemIndex>,
-    /// Systems with exclusive access that run after parallel systems.
-    on_end_exclusives: Vec<SystemIndex>,
     /// Systems that run in parallel.
     parallel: Vec<ParallelSystemSchedulingData>,
     /// Used by systems to notify the executor that they have finished.
@@ -159,8 +215,6 @@ impl Default for ParallelSystemStageExecutor {
             // MAX ensures metadata will be initialized on first run.
             last_archetypes_generation: ArchetypesGeneration(u64::MAX),
             system_set_should_run: Default::default(),
-            on_start_exclusives: Default::default(),
-            on_end_exclusives: Default::default(),
             parallel: Default::default(),
             finish_sender,
             finish_receiver,
@@ -179,7 +233,10 @@ impl SystemStageExecutor for ParallelSystemStageExecutor {
     fn execute_stage(
         &mut self,
         system_sets: &mut [SystemSet],
-        dependencies: &HashMap<SystemIndex, Vec<SystemIndex>>,
+        at_start: &[SystemIndex],
+        before_commands: &[SystemIndex],
+        at_end: &[SystemIndex],
+        parallel_dependencies: &HashMap<SystemIndex, Vec<SystemIndex>>,
         world: &mut World,
         resources: &mut Resources,
     ) {
@@ -207,22 +264,16 @@ impl SystemStageExecutor for ParallelSystemStageExecutor {
         // TODO should this be a panic condition?
         assert!(has_doable_work);
 
-        // TODO Improve? Plumb in from outside?
-        let schedule_changed = system_sets
-            .iter()
-            .any(|set| !set.changed_systems().is_empty());
-
-        if schedule_changed {
-            self.rebuild_scheduling_data(system_sets, dependencies, world);
+        if system_sets.iter().any(|system_set| system_set.is_dirty()) {
+            self.rebuild_scheduling_data(system_sets, parallel_dependencies, world);
         }
 
         while has_doable_work {
             // Run exclusives that want to be at the start of stage.
-            // TODO sort wrt dependencies
-            for index in &self.on_start_exclusives {
+            for index in at_start {
                 if let Yes | YesAndLoop = self.system_set_should_run[index.set] {
                     system_sets[index.set]
-                        .system_mut(index.system)
+                        .exclusive_system_mut(index.system)
                         .run_exclusive(world, resources);
                 }
             }
@@ -272,24 +323,32 @@ impl SystemStageExecutor for ParallelSystemStageExecutor {
                 }
             });
 
+            // Run exclusives that want to be between parallel systems and the command buffers.
+            for index in before_commands {
+                if let Yes | YesAndLoop = self.system_set_should_run[index.set] {
+                    system_sets[index.set]
+                        .exclusive_system_mut(index.system)
+                        .run_exclusive(world, resources);
+                }
+            }
+
             // Merge in command buffers.
-            // TODO do we want this before or after the exclusives?
             // TODO sort wrt dependencies?
+            // TODO rewrite to use the bitset?
             for scheduling_data in &self.parallel {
                 let index = scheduling_data.index;
                 if let Yes | YesAndLoop = self.system_set_should_run[index.set] {
                     system_sets[index.set]
-                        .system_mut(index.system)
+                        .parallel_system_mut(index.system)
                         .run_exclusive(world, resources);
                 }
             }
 
             // Run exclusives that want to be at the end of stage.
-            // TODO sort wrt dependencies
-            for index in &self.on_end_exclusives {
+            for index in at_end {
                 if let Yes | YesAndLoop = self.system_set_should_run[index.set] {
                     system_sets[index.set]
-                        .system_mut(index.system)
+                        .exclusive_system_mut(index.system)
                         .run_exclusive(world, resources);
                 }
             }
@@ -329,40 +388,33 @@ impl ParallelSystemStageExecutor {
     fn rebuild_scheduling_data(
         &mut self,
         system_sets: &mut [SystemSet],
-        dependencies: &HashMap<SystemIndex, Vec<SystemIndex>>,
+        parallel_systems_dependencies: &HashMap<SystemIndex, Vec<SystemIndex>>,
         world: &mut World,
     ) {
-        self.on_start_exclusives.clear();
-        self.on_end_exclusives.clear();
         self.parallel.clear();
         self.thread_local.clear();
 
         // Collect all distinct types accessed by parallel systems in order to condense their
-        // access sets into bitsets; also count the parallel systems as we go.
+        // access sets into bitsets.
         let mut all_archetype_components = HashSet::default();
         let mut all_resource_types = HashSet::default();
-        let mut parallel_systems_len = 0;
         let mut gather_distinct_access_types = |system: &dyn System<In = (), Out = ()>| {
-            // Systems that write all of world and/or resources are exclusive, not parallel.
-            if !system.archetype_component_access().writes_all()
-                && !system.resource_access().writes_all()
+            if let Some(archetype_components) =
+                system.archetype_component_access().all_distinct_types()
             {
-                parallel_systems_len += 1;
-                if let Some(archetype_components) =
-                    system.archetype_component_access().all_distinct_types()
-                {
-                    all_archetype_components.extend(archetype_components);
-                }
-                if let Some(resources) = system.resource_access().all_distinct_types() {
-                    all_resource_types.extend(resources);
-                }
+                all_archetype_components.extend(archetype_components);
+            }
+            if let Some(resources) = system.resource_access().all_distinct_types() {
+                all_resource_types.extend(resources);
             }
         };
         // If the archetypes were changed too, system access should be updated
         // before gathering the types.
+        let mut parallel_systems_len = 0;
         if self.last_archetypes_generation != world.archetypes_generation() {
             for system_set in system_sets.iter_mut() {
-                for system in system_set.systems_mut() {
+                parallel_systems_len += system_set.parallel_systems_len();
+                for system in system_set.parallel_systems_mut() {
                     system.update_access(world);
                     gather_distinct_access_types(system);
                 }
@@ -370,7 +422,8 @@ impl ParallelSystemStageExecutor {
             self.last_archetypes_generation = world.archetypes_generation();
         } else {
             for system_set in system_sets.iter() {
-                for system in system_set.systems() {
+                parallel_systems_len += system_set.parallel_systems_len();
+                for system in system_set.parallel_systems() {
                     gather_distinct_access_types(system);
                 }
             }
@@ -383,47 +436,40 @@ impl ParallelSystemStageExecutor {
         self.queued.grow(parallel_systems_len);
         self.running.grow(parallel_systems_len);
 
-        // Construct scheduling data for parallel systems and populate exclusive systems lists;
+        // Construct scheduling data for parallel systems,
         // cache mapping of parallel system's `SystemIndex` to its index in the list.
         let mut parallel_systems_mapping = HashMap::with_capacity(parallel_systems_len);
         for (set_index, system_set) in system_sets.iter_mut().enumerate() {
-            for (system_index, system) in system_set.systems_mut().enumerate() {
+            for (system_index, system) in system_set.parallel_systems().enumerate() {
                 let index = SystemIndex {
                     set: set_index,
                     system: system_index,
                 };
-                if system.archetype_component_access().writes_all()
-                    || system.resource_access().writes_all()
-                {
-                    // TODO figure out if/how some systems should be on_end instead.
-                    self.on_start_exclusives.push(index);
-                } else {
-                    parallel_systems_mapping.insert(index, self.parallel.len());
-                    let dependencies_total = dependencies
-                        .get(&index)
-                        .map_or(0, |dependencies| dependencies.len());
-                    if system.is_thread_local() {
-                        self.thread_local.insert(self.parallel.len());
-                    }
-                    let (start_sender, start_receiver) = async_channel::bounded(1);
-                    self.parallel.push(ParallelSystemSchedulingData {
-                        index,
-                        was_accessed_unsafely: false,
-                        start_sender,
-                        start_receiver,
-                        dependants: vec![],
-                        dependencies_total,
-                        dependencies_now: 0,
-                        archetype_component_access: system
-                            .archetype_component_access()
-                            .condense(&all_archetype_components),
-                        resource_access: system.resource_access().condense(&all_resource_types),
-                    });
+                parallel_systems_mapping.insert(index, self.parallel.len());
+                let dependencies_total = parallel_systems_dependencies
+                    .get(&index)
+                    .map_or(0, |dependencies| dependencies.len());
+                if system.is_thread_local() {
+                    self.thread_local.insert(self.parallel.len());
                 }
+                let (start_sender, start_receiver) = async_channel::bounded(1);
+                self.parallel.push(ParallelSystemSchedulingData {
+                    index,
+                    was_accessed_unsafely: false,
+                    start_sender,
+                    start_receiver,
+                    dependants: vec![],
+                    dependencies_total,
+                    dependencies_now: 0,
+                    archetype_component_access: system
+                        .archetype_component_access()
+                        .condense(&all_archetype_components),
+                    resource_access: system.resource_access().condense(&all_resource_types),
+                });
             }
         }
         // Populate the dependants lists in the scheduling data using the mapping.
-        for (dependant, dependencies) in dependencies.iter() {
+        for (dependant, dependencies) in parallel_systems_dependencies.iter() {
             let dependant = parallel_systems_mapping[dependant];
             for dependency in dependencies {
                 let dependency = parallel_systems_mapping[dependency];
@@ -440,8 +486,8 @@ impl ParallelSystemStageExecutor {
             .iter_mut()
             .filter(|data| !data.archetype_component_access.reads_all())
         {
-            let system =
-                system_sets[scheduling_data.index.set].system_mut(scheduling_data.index.system);
+            let system = system_sets[scheduling_data.index.set]
+                .parallel_system_mut(scheduling_data.index.system);
             system.update_access(world);
             if let Some(archetype_components) =
                 system.archetype_component_access().all_distinct_types()
@@ -455,8 +501,8 @@ impl ParallelSystemStageExecutor {
             .iter_mut()
             .filter(|data| !data.archetype_component_access.reads_all())
         {
-            let system =
-                system_sets[scheduling_data.index.set].system(scheduling_data.index.system);
+            let system = system_sets[scheduling_data.index.set]
+                .parallel_system_mut(scheduling_data.index.system);
             scheduling_data.archetype_component_access = system
                 .archetype_component_access()
                 .condense(&all_archetype_components);
@@ -475,7 +521,7 @@ impl ParallelSystemStageExecutor {
         assert!(!*was_accessed_unsafely);
         *was_accessed_unsafely = true;
         let index = self.parallel[index].index;
-        system_sets[index.set].system_mut_unsafe(index.system)
+        system_sets[index.set].parallel_system_mut_unsafe(index.system)
     }
 
     /// Determines if the parallel system with given index doesn't conflict already running systems.

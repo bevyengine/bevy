@@ -1,8 +1,9 @@
-use std::{any::TypeId, borrow::Cow, ptr::NonNull};
+use std::{any::TypeId, borrow::Cow};
 
 use crate::{
-    ArchetypeComponent, BoxedSystem, IntoSystem, Resources, RunCriteria, ShouldRun, System, SystemId,
-    TypeAccess, World,
+    ArchetypeComponent, ExclusiveSystemDescriptor, InjectionPoint, Ordering,
+    ParallelSystemDescriptor, Resources, RunCriteria, ShouldRun, System, SystemDescriptor,
+    SystemId, TypeAccess, World,
 };
 use bevy_utils::HashMap;
 use downcast_rs::{impl_downcast, Downcast};
@@ -14,8 +15,9 @@ pub enum StageError {
 }
 
 pub trait Stage: Downcast + Send + Sync {
-    /// Stages can perform setup here. Initialize should be called for every stage before calling [Stage::run]. Initialize will
-    /// be called once per update, so internally this should avoid re-doing work where possible.
+    /// Stages can perform setup here. Initialize should be called for every stage before
+    /// calling [Stage::run]. Initialize will be called once per update, so internally this
+    /// should avoid re-doing work where possible.
     fn initialize(&mut self, world: &mut World, resources: &mut Resources);
 
     /// Runs the stage. This happens once per update (after [Stage::initialize] is called).
@@ -33,25 +35,29 @@ pub struct SystemIndex {
 }
 
 pub struct SystemStage {
-    system_sets: Vec<SystemSet>,
-    labels: HashMap<Label, SystemIndex>,
-    resolved_dependencies: HashMap<SystemIndex, Vec<SystemIndex>>,
-    executor: Box<dyn SystemStageExecutor>,
     run_criteria: RunCriteria,
+    executor: Box<dyn SystemStageExecutor>,
+    system_sets: Vec<SystemSet>,
+    at_start: Vec<SystemIndex>,
+    before_commands: Vec<SystemIndex>,
+    at_end: Vec<SystemIndex>,
+    parallel_dependencies: HashMap<SystemIndex, Vec<SystemIndex>>,
 }
 
 impl SystemStage {
     pub fn new(executor: Box<dyn SystemStageExecutor>) -> Self {
         SystemStage {
-            labels: Default::default(),
-            resolved_dependencies: Default::default(),
             run_criteria: Default::default(),
             executor,
             system_sets: vec![SystemSet::default()],
+            at_start: Default::default(),
+            before_commands: Default::default(),
+            at_end: Default::default(),
+            parallel_dependencies: Default::default(),
         }
     }
 
-    pub fn single<S: System<In = (), Out = ()>>(system: S) -> Self {
+    pub fn single(system: impl Into<SystemDescriptor>) -> Self {
         Self::serial().with_system(system)
     }
 
@@ -63,36 +69,8 @@ impl SystemStage {
         Self::new(Box::new(ParallelSystemStageExecutor::default()))
     }
 
-    pub fn with_system<S: System<In = (), Out = ()>>(mut self, system: S) -> Self {
+    pub fn with_system(mut self, system: impl Into<SystemDescriptor>) -> Self {
         self.add_system(system);
-        self
-    }
-
-    pub fn with_system_labeled<S: System<In = (), Out = ()>>(
-        mut self,
-        system: S,
-        label: Label,
-    ) -> Self {
-        self.add_system_labeled(system, label);
-        self
-    }
-
-    pub fn with_system_with_dependencies<S: System<In = (), Out = ()>>(
-        mut self,
-        system: S,
-        dependencies: &[Label],
-    ) -> Self {
-        self.add_system_with_dependencies(system, dependencies);
-        self
-    }
-
-    pub fn with_system_labeled_with_dependencies<S: System<In = (), Out = ()>>(
-        mut self,
-        system: S,
-        label: Label,
-        dependencies: &[Label],
-    ) -> Self {
-        self.add_system_labeled_with_dependencies(system, label, dependencies);
         self
     }
 
@@ -111,69 +89,8 @@ impl SystemStage {
         self
     }
 
-    pub fn add_system<S: System<In = (), Out = ()>>(&mut self, system: S) -> &mut Self {
+    pub fn add_system(&mut self, system: impl Into<SystemDescriptor>) -> &mut Self {
         self.system_sets[0].add_system(system);
-        self
-    }
-
-    pub fn add_system_labeled<S: System<In = (), Out = ()>>(
-        &mut self,
-        system: S,
-        label: Label,
-    ) -> &mut Self {
-        self.system_sets[0].add_system_labeled(system, label);
-        self
-    }
-
-    pub fn add_system_with_dependencies<S: System<In = (), Out = ()>>(
-        &mut self,
-        system: S,
-        dependencies: &[Label],
-    ) -> &mut Self {
-        self.system_sets[0].add_system_with_dependencies(system, dependencies);
-        self
-    }
-
-    pub fn add_system_labeled_with_dependencies<S: System<In = (), Out = ()>>(
-        &mut self,
-        system: S,
-        label: Label,
-        dependencies: &[Label],
-    ) -> &mut Self {
-        self.system_sets[0].add_system_labeled_with_dependencies(system, label, dependencies);
-        self
-    }
-
-    pub fn add_system_boxed(&mut self, system: BoxedSystem) -> &mut Self {
-        self.system_sets[0].add_system_boxed(system);
-        self
-    }
-
-    pub fn add_system_boxed_labeled(
-        &mut self,
-        system: Box<dyn System<In = (), Out = ()>>,
-        label: Label,
-    ) -> &mut Self {
-        self.system_sets[0].add_system_boxed_labeled(system, label);
-        self
-    }
-
-    pub fn add_system_boxed_with_dependencies(
-        &mut self,
-        system: Box<dyn System<In = (), Out = ()>>,
-        dependencies: &[Label],
-    ) -> &mut Self {
-        self.system_sets[0].add_system_boxed_with_dependencies(system, dependencies);
-        self
-    }
-
-    pub fn add_system_boxed_labeled_with_dependencies(
-        &mut self,
-        system: Box<dyn System<In = (), Out = ()>>,
-        label: Label,
-        dependencies: &[Label],
-    ) -> &mut Self {
-        self.system_sets[0].add_system_boxed_labeled_with_dependencies(system, label, dependencies);
         self
     }
 
@@ -185,40 +102,120 @@ impl SystemStage {
         self.executor.downcast_mut()
     }
 
-    pub fn run_once(&mut self, world: &mut World, resources: &mut Resources) {
-        // TODO dependency tree verification
+    // TODO tests
+    fn rebuild_orders_and_dependencies(&mut self) {
+        // TODO consider doing this in two passes: collect labels, then resolve labels.
+        self.at_start.clear();
+        self.before_commands.clear();
+        self.at_end.clear();
+        self.parallel_dependencies.clear();
+        let mut parallel_labels_map = HashMap::<Label, SystemIndex>::default();
+        let mut at_start_labels_map = HashMap::<Label, usize>::default();
+        let mut before_commands_labels_map = HashMap::<Label, usize>::default();
+        let mut at_end_labels_map = HashMap::<Label, usize>::default();
+        let insert_index = |index: SystemIndex,
+                            descriptor: &ExclusiveSystemDescriptor,
+                            order: &mut Vec<SystemIndex>,
+                            map: &mut HashMap<Label, usize>| {
+            let order_index = match descriptor.ordering {
+                Ordering::None => {
+                    order.push(index);
+                    order.len() - 1
+                }
+                Ordering::Before(target) => {
+                    let &target_index = map
+                        .get(target)
+                        .unwrap_or_else(|| todo!("some error message that makes sense"));
+                    order.insert(target_index, index);
+                    for value in map.values_mut().filter(|value| **value >= target_index) {
+                        *value += 1;
+                    }
+                    target_index
+                }
+                Ordering::After(target) => {
+                    let &target_index = map
+                        .get(target)
+                        .unwrap_or_else(|| todo!("some error message that makes sense"));
+                    order.insert(target_index + 1, index);
+                    for value in map.values_mut().filter(|value| **value > target_index) {
+                        *value += 1;
+                    }
+                    target_index + 1
+                }
+            };
+            if let Some(label) = descriptor.label {
+                map.insert(label, order_index);
+            }
+        };
         for (set_index, system_set) in self.system_sets.iter_mut().enumerate() {
-            for &system_index in system_set.changed_systems() {
+            for (system_index, descriptor) in system_set.exclusive_systems.iter().enumerate() {
                 let index = SystemIndex {
                     set: set_index,
                     system: system_index,
                 };
-                let dependencies = system_set.system_dependencies(system_index);
-                if !dependencies.is_empty() {
-                    let labels = &self.labels;
-                    let dependencies = dependencies
+                use InjectionPoint::*;
+                match descriptor.injection_point {
+                    AtStart => insert_index(
+                        index,
+                        descriptor,
+                        &mut self.at_start,
+                        &mut at_start_labels_map,
+                    ),
+                    BeforeCommands => insert_index(
+                        index,
+                        descriptor,
+                        &mut self.before_commands,
+                        &mut before_commands_labels_map,
+                    ),
+                    AtEnd => {
+                        insert_index(index, descriptor, &mut self.at_end, &mut at_end_labels_map)
+                    }
+                }
+            }
+            for (system_index, descriptor) in system_set.parallel_systems.iter().enumerate() {
+                // TODO dependency tree validation
+                let index = SystemIndex {
+                    set: set_index,
+                    system: system_index,
+                };
+                if !descriptor.dependencies.is_empty() {
+                    let dependencies = descriptor
+                        .dependencies
                         .iter()
                         .map(|label| {
-                            *labels
+                            *parallel_labels_map
                                 .get(label)
                                 .unwrap_or_else(|| todo!("some error message that makes sense"))
                         })
                         .collect();
-                    self.resolved_dependencies.insert(index, dependencies);
+                    self.parallel_dependencies.insert(index, dependencies);
                 }
-                if let Some(label) = system_set.system_label(system_index) {
-                    self.labels.insert(label, index);
+                if let Some(label) = descriptor.label {
+                    parallel_labels_map.insert(label, index);
                 }
             }
         }
+    }
+
+    pub fn run_once(&mut self, world: &mut World, resources: &mut Resources) {
+        if self
+            .system_sets
+            .iter()
+            .any(|system_set| system_set.is_dirty)
+        {
+            self.rebuild_orders_and_dependencies();
+        }
         self.executor.execute_stage(
             &mut self.system_sets,
-            &self.resolved_dependencies,
+            &self.at_start,
+            &self.before_commands,
+            &self.at_end,
+            &self.parallel_dependencies,
             world,
             resources,
         );
-        for system_set in self.system_sets.iter_mut() {
-            system_set.clear_changed_systems();
+        for system_set in &mut self.system_sets {
+            system_set.is_dirty = false;
         }
     }
 }
@@ -251,233 +248,106 @@ impl Stage for SystemStage {
 
 #[derive(Default)]
 pub struct SystemSet {
-    // TODO Audit it. Again. Keep auditing. Don't stop.
-    systems: Vec<NonNull<dyn System<In = (), Out = ()>>>,
-    labels: Vec<Option<Label>>,
-    // TODO consider Vec<Vec<Option<Label>>> or something to support optional dependencies?
-    dependencies: Vec<Vec<Label>>,
     run_criteria: RunCriteria,
-    changed_systems: Vec<usize>,
-    uninitialized_systems: Vec<usize>,
+    is_dirty: bool,
+    parallel_systems: Vec<ParallelSystemDescriptor>,
+    exclusive_systems: Vec<ExclusiveSystemDescriptor>,
+    uninitialized_parallel: Vec<usize>,
+    uninitialized_exclusive: Vec<usize>,
 }
 
-unsafe impl Send for SystemSet {}
-unsafe impl Sync for SystemSet {}
-
 impl SystemSet {
-    // TODO: ideally this returns an iterator, but impl Iterator can't be used in this context (yet) and a custom iterator isn't worth it
-    pub fn for_each_changed_system(
-        &mut self,
-        mut func: impl FnMut(&mut dyn System<In = (), Out = ()>),
-    ) {
-        for index in self.changed_systems.iter_mut() {
-            // SAFE: this happens during exclusive access.
-            unsafe { func(self.systems[*index].as_mut()) }
-        }
-    }
-
-    pub fn changed_systems(&self) -> &[usize] {
-        &self.changed_systems
-    }
-
-    pub fn clear_changed_systems(&mut self) {
-        self.changed_systems.clear()
+    pub fn new() -> Self {
+        Default::default()
     }
 
     fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
-        for index in self.uninitialized_systems.drain(..) {
-            // SAFE: this happens during exclusive access.
-            unsafe {
-                self.systems[index].as_mut().initialize(world, resources);
-            }
+        for index in self.uninitialized_exclusive.drain(..) {
+            self.exclusive_systems[index]
+                .system
+                .initialize(world, resources);
         }
+        for index in self.uninitialized_parallel.drain(..) {
+            self.parallel_systems[index]
+                .system_mut()
+                .initialize(world, resources);
+        }
+    }
+
+    pub(crate) fn is_dirty(&self) -> bool {
+        self.is_dirty
     }
 
     pub(crate) fn run_criteria_mut(&mut self) -> &mut RunCriteria {
         &mut self.run_criteria
     }
 
-    pub fn systems_len(&self) -> usize {
-        self.systems.len()
+    pub(crate) fn exclusive_system_mut(
+        &mut self,
+        index: usize,
+    ) -> &mut dyn System<In = (), Out = ()> {
+        &mut *self.exclusive_systems[index].system
     }
 
-    pub fn systems(&self) -> impl Iterator<Item = &dyn System<In = (), Out = ()>> {
-        // SAFE: this can be only happen when no mutable access exists.
-        self.systems
-            .iter()
-            .map(|pointer| unsafe { pointer.as_ref() })
+    pub(crate) fn parallel_system_mut(
+        &mut self,
+        index: usize,
+    ) -> &mut dyn System<In = (), Out = ()> {
+        self.parallel_systems[index].system_mut()
     }
 
-    pub fn systems_mut(&mut self) -> impl Iterator<Item = &mut dyn System<In = (), Out = ()>> {
-        // SAFE: this happens during exclusive access.
-        self.systems
-            .iter_mut()
-            .map(|pointer| unsafe { pointer.as_mut() })
-    }
-
-    pub fn system(&self, index: usize) -> &dyn System<In = (), Out = ()> {
-        // SAFE: this can be only happen when no mutable access exists.
-        unsafe { self.systems[index].as_ref() }
-    }
-
-    pub fn system_mut(&mut self, index: usize) -> &mut dyn System<In = (), Out = ()> {
-        // SAFE: this happens during exclusive access.
-        unsafe { self.systems[index].as_mut() }
-    }
-
-    // TODO reduce snark
     /// # Safety
-    /// Not safe. What did you expect, ffs.
+    /// Ensure no other borrows of this system exist along with this one.
     #[allow(clippy::mut_from_ref)]
-    pub unsafe fn system_mut_unsafe(&self, index: usize) -> &mut dyn System<In = (), Out = ()> {
-        &mut *self.systems[index].as_ptr()
+    pub(crate) unsafe fn parallel_system_mut_unsafe(
+        &self,
+        index: usize,
+    ) -> &mut dyn System<In = (), Out = ()> {
+        self.parallel_systems[index].system_mut_unsafe()
     }
 
-    pub fn system_label(&self, index: usize) -> Option<Label> {
-        self.labels[index]
+    pub(crate) fn parallel_systems_len(&self) -> usize {
+        self.parallel_systems.len()
     }
 
-    pub fn system_dependencies(&self, index: usize) -> &[Label] {
-        &self.dependencies[index]
+    pub(crate) fn parallel_systems(&self) -> impl Iterator<Item = &dyn System<In = (), Out = ()>> {
+        self.parallel_systems
+            .iter()
+            .map(|descriptor| descriptor.system())
     }
 
-    pub fn with_system<S, Params, IntoS>(mut self, system: IntoS) -> Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
-    {
-        self.add_system(system.system());
+    pub(crate) fn parallel_systems_mut(
+        &mut self,
+    ) -> impl Iterator<Item = &mut dyn System<In = (), Out = ()>> {
+        self.parallel_systems
+            .iter_mut()
+            .map(|descriptor| descriptor.system_mut())
+    }
+
+    pub fn with_system(mut self, system: impl Into<SystemDescriptor>) -> Self {
+        self.add_system(system);
         self
     }
 
-    pub fn with_system_labeled<S, Params, IntoS>(mut self, system: IntoS, label: Label) -> Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
-    {
-        self.add_system_labeled(system.system(), label);
-        self
-    }
-
-    pub fn with_system_with_dependencies<S, Params, IntoS>(
-        mut self,
-        system: IntoS,
-        dependencies: &[Label],
-    ) -> Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
-    {
-        self.add_system_with_dependencies(system.system(), dependencies);
-        self
-    }
-
-    pub fn with_system_labeled_with_dependencies<S, Params, IntoS>(
-        mut self,
-        system: IntoS,
-        label: Label,
-        dependencies: &[Label],
-    ) -> Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
-    {
-        self.add_system_labeled_with_dependencies(system.system(), label, dependencies);
-        self
-    }
-
-    pub fn add_system<S, Params, IntoS>(&mut self, system: IntoS) -> &mut Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
-    {
-        self.add_system_boxed(Box::new(system.system()))
-    }
-
-    pub fn add_system_labeled<S, Params, IntoS>(&mut self, system: IntoS, label: Label) -> &mut Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
-    {
-        self.add_system_boxed_labeled(Box::new(system.system()), label)
-    }
-
-    pub fn add_system_with_dependencies<S, Params, IntoS>(
-        &mut self,
-        system: IntoS,
-        dependencies: &[Label],
-    ) -> &mut Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
-    {
-        self.add_system_boxed_with_dependencies(Box::new(system.system()), dependencies)
-    }
-
-    pub fn add_system_labeled_with_dependencies<S, Params, IntoS>(
-        &mut self,
-        system: IntoS,
-        label: Label,
-        dependencies: &[Label],
-    ) -> &mut Self
-    where
-        S: System<In = (), Out = ()>,
-        IntoS: IntoSystem<Params, S>,
-    {
-        self.add_system_boxed_labeled_with_dependencies(
-            Box::new(system.system()),
-            label,
-            dependencies,
-        )
-    }
-
-    pub fn add_system_boxed(&mut self, system: Box<dyn System<In = (), Out = ()>>) -> &mut Self {
-        self.add_system_boxed_with_dependencies(system, &[])
-    }
-
-    pub fn add_system_boxed_labeled(
-        &mut self,
-        system: Box<dyn System<In = (), Out = ()>>,
-        label: Label,
-    ) -> &mut Self {
-        self.add_system_boxed_labeled_with_dependencies(system, label, &[])
-    }
-
-    pub fn add_system_boxed_with_dependencies(
-        &mut self,
-        system: Box<dyn System<In = (), Out = ()>>,
-        dependencies: &[Label],
-    ) -> &mut Self {
-        self.changed_systems.push(self.systems.len());
-        self.uninitialized_systems.push(self.systems.len());
-        self.systems.push(
-            // SAFE: `Box::into_raw() returns a properly aligned non-null pointer.
-            unsafe { NonNull::new_unchecked(Box::into_raw(system)) },
-        );
-        self.labels.push(None);
-        self.dependencies.push(dependencies.to_vec());
-        self
-    }
-
-    pub fn add_system_boxed_labeled_with_dependencies(
-        &mut self,
-        system: Box<dyn System<In = (), Out = ()>>,
-        label: Label,
-        dependencies: &[Label],
-    ) -> &mut Self {
-        self.changed_systems.push(self.systems.len());
-        self.uninitialized_systems.push(self.systems.len());
-        self.systems.push(
-            // SAFE: `Box::into_raw() returns a properly aligned non-null pointer.
-            unsafe { NonNull::new_unchecked(Box::into_raw(system)) },
-        );
-        self.labels.push(Some(label));
-        self.dependencies.push(dependencies.to_vec());
+    pub fn add_system(&mut self, system: impl Into<SystemDescriptor>) -> &mut Self {
+        match system.into() {
+            SystemDescriptor::Parallel(descriptor) => {
+                self.uninitialized_parallel
+                    .push(self.parallel_systems.len());
+                self.parallel_systems.push(descriptor);
+            }
+            SystemDescriptor::Exclusive(descriptor) => {
+                self.uninitialized_exclusive
+                    .push(self.exclusive_systems.len());
+                self.exclusive_systems.push(descriptor);
+            }
+        }
+        self.is_dirty = true;
         self
     }
 }
 
-impl<S: System<In = (), Out = ()>> From<S> for SystemStage {
+impl<S: Into<SystemDescriptor>> From<S> for SystemStage {
     fn from(system: S) -> Self {
         SystemStage::single(system)
     }
