@@ -155,10 +155,6 @@ where
     }
 }
 
-pub trait ResourcesWriter: Send + Sync {
-    fn write(self: Box<Self>, resources: &mut Resources);
-}
-
 pub struct InsertResource<T: Resource> {
     resource: T,
 }
