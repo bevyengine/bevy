@@ -1,10 +1,12 @@
 mod stage;
 mod stage_executor;
+mod stage_executor_parallel;
 mod state;
 mod system_descriptor;
 
 pub use stage::*;
 pub use stage_executor::*;
+pub use stage_executor_parallel::ParallelSystemStageExecutor;
 pub use state::*;
 pub use system_descriptor::*;
 

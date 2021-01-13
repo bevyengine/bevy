@@ -15,7 +15,7 @@ pub mod prelude {
         core::WorldBuilderSource,
         resource::{ChangedRes, FromResources, Local, Res, ResMut, Resource, Resources},
         schedule::{
-            ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion, Schedule, State,
+            ParallelSystemDescriptorCoercion, Schedule, SequentialSystemDescriptorCoercion, State,
             StateStage, SystemStage, UnspecifiedSystemDescriptorCoercion,
         },
         system::{Commands, IntoSystem, Query, System},

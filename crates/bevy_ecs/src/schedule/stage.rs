@@ -1,9 +1,8 @@
 use std::{any::TypeId, borrow::Cow};
 
 use crate::{
-    ArchetypeComponent, ExclusiveSystemDescriptor, InjectionPoint, Ordering,
-    ParallelSystemDescriptor, Resources, RunCriteria, ShouldRun, System, SystemDescriptor,
-    SystemId, TypeAccess, World,
+    ArchetypeComponent, InjectionPoint, Ordering, ParallelSystemDescriptor, Resources, RunCriteria,
+    SequentialSystemDescriptor, ShouldRun, System, SystemDescriptor, SystemId, TypeAccess, World,
 };
 use bevy_utils::HashMap;
 use downcast_rs::{impl_downcast, Downcast};
@@ -114,7 +113,7 @@ impl SystemStage {
         let mut before_commands_labels_map = HashMap::<Label, usize>::default();
         let mut at_end_labels_map = HashMap::<Label, usize>::default();
         let insert_index = |index: SystemIndex,
-                            descriptor: &ExclusiveSystemDescriptor,
+                            descriptor: &SequentialSystemDescriptor,
                             order: &mut Vec<SystemIndex>,
                             map: &mut HashMap<Label, usize>| {
             let order_index = match descriptor.ordering {
@@ -148,7 +147,7 @@ impl SystemStage {
             }
         };
         for (set_index, system_set) in self.system_sets.iter_mut().enumerate() {
-            for (system_index, descriptor) in system_set.exclusive_systems.iter().enumerate() {
+            for (system_index, descriptor) in system_set.sequential_systems.iter().enumerate() {
                 let index = SystemIndex {
                     set: set_index,
                     system: system_index,
@@ -251,9 +250,9 @@ pub struct SystemSet {
     run_criteria: RunCriteria,
     is_dirty: bool,
     parallel_systems: Vec<ParallelSystemDescriptor>,
-    exclusive_systems: Vec<ExclusiveSystemDescriptor>,
+    sequential_systems: Vec<SequentialSystemDescriptor>,
     uninitialized_parallel: Vec<usize>,
-    uninitialized_exclusive: Vec<usize>,
+    uninitialized_sequential: Vec<usize>,
 }
 
 impl SystemSet {
@@ -262,8 +261,8 @@ impl SystemSet {
     }
 
     fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
-        for index in self.uninitialized_exclusive.drain(..) {
-            self.exclusive_systems[index]
+        for index in self.uninitialized_sequential.drain(..) {
+            self.sequential_systems[index]
                 .system
                 .initialize(world, resources);
         }
@@ -286,7 +285,7 @@ impl SystemSet {
         &mut self,
         index: usize,
     ) -> &mut dyn System<In = (), Out = ()> {
-        &mut *self.exclusive_systems[index].system
+        &mut *self.sequential_systems[index].system
     }
 
     pub(crate) fn parallel_system_mut(
@@ -336,10 +335,10 @@ impl SystemSet {
                     .push(self.parallel_systems.len());
                 self.parallel_systems.push(descriptor);
             }
-            SystemDescriptor::Exclusive(descriptor) => {
-                self.uninitialized_exclusive
-                    .push(self.exclusive_systems.len());
-                self.exclusive_systems.push(descriptor);
+            SystemDescriptor::Sequential(descriptor) => {
+                self.uninitialized_sequential
+                    .push(self.sequential_systems.len());
+                self.sequential_systems.push(descriptor);
             }
         }
         self.is_dirty = true;

@@ -6,14 +6,14 @@ type Label = &'static str; // TODO
 
 pub enum SystemDescriptor {
     Parallel(ParallelSystemDescriptor),
-    Exclusive(ExclusiveSystemDescriptor),
+    Sequential(SequentialSystemDescriptor),
 }
 
 impl From<BoxedSystem<(), ()>> for SystemDescriptor {
     fn from(system: BoxedSystem<(), ()>) -> Self {
         if system.archetype_component_access().writes_all() || system.resource_access().writes_all()
         {
-            return SystemDescriptor::Exclusive(new_exclusive_descriptor(system));
+            return SystemDescriptor::Sequential(new_sequential_descriptor(system));
         }
         SystemDescriptor::Parallel(new_parallel_descriptor(system))
     }
@@ -33,8 +33,8 @@ impl From<UnspecifiedSystemDescriptor> for SystemDescriptor {
         if descriptor.system.archetype_component_access().writes_all()
             || descriptor.system.resource_access().writes_all()
         {
-            return SystemDescriptor::Exclusive(
-                new_exclusive_descriptor(descriptor.system).label(descriptor.label),
+            return SystemDescriptor::Sequential(
+                new_sequential_descriptor(descriptor.system).label(descriptor.label),
             );
         }
         SystemDescriptor::Parallel(
@@ -49,9 +49,9 @@ impl From<ParallelSystemDescriptor> for SystemDescriptor {
     }
 }
 
-impl From<ExclusiveSystemDescriptor> for SystemDescriptor {
-    fn from(descriptor: ExclusiveSystemDescriptor) -> Self {
-        SystemDescriptor::Exclusive(descriptor)
+impl From<SequentialSystemDescriptor> for SystemDescriptor {
+    fn from(descriptor: SequentialSystemDescriptor) -> Self {
+        SystemDescriptor::Sequential(descriptor)
     }
 }
 
@@ -183,68 +183,61 @@ pub(crate) enum InjectionPoint {
     AtEnd,
 }
 
-pub struct ExclusiveSystemDescriptor {
+pub struct SequentialSystemDescriptor {
     pub(crate) system: BoxedSystem<(), ()>,
     pub(crate) label: Option<Label>,
     pub(crate) ordering: Ordering,
     pub(crate) injection_point: InjectionPoint,
 }
 
-impl ExclusiveSystemDescriptor {
-    pub fn label(mut self, label: Label) -> ExclusiveSystemDescriptor {
+impl SequentialSystemDescriptor {
+    pub fn label(mut self, label: Label) -> SequentialSystemDescriptor {
         self.label = Some(label);
         self
     }
 }
 
-pub trait ExclusiveSystemDescriptorCoercion {
-    fn before(self, label: Label) -> ExclusiveSystemDescriptor;
+pub trait SequentialSystemDescriptorCoercion {
+    fn before(self, label: Label) -> SequentialSystemDescriptor;
 
-    fn after(self, label: Label) -> ExclusiveSystemDescriptor;
+    fn after(self, label: Label) -> SequentialSystemDescriptor;
 
-    fn at_start(self) -> ExclusiveSystemDescriptor;
+    fn at_start(self) -> SequentialSystemDescriptor;
 
-    fn before_commands(self) -> ExclusiveSystemDescriptor;
+    fn before_commands(self) -> SequentialSystemDescriptor;
 
-    fn at_end(self) -> ExclusiveSystemDescriptor;
+    fn at_end(self) -> SequentialSystemDescriptor;
 }
 
-impl ExclusiveSystemDescriptorCoercion for ExclusiveSystemDescriptor {
-    fn before(mut self, label: Label) -> ExclusiveSystemDescriptor {
+impl SequentialSystemDescriptorCoercion for SequentialSystemDescriptor {
+    fn before(mut self, label: Label) -> SequentialSystemDescriptor {
         self.ordering = Ordering::Before(label);
         self
     }
 
-    fn after(mut self, label: Label) -> ExclusiveSystemDescriptor {
+    fn after(mut self, label: Label) -> SequentialSystemDescriptor {
         self.ordering = Ordering::After(label);
         self
     }
 
-    fn at_start(mut self) -> ExclusiveSystemDescriptor {
+    fn at_start(mut self) -> SequentialSystemDescriptor {
         self.injection_point = InjectionPoint::AtStart;
         self
     }
 
-    fn before_commands(mut self) -> ExclusiveSystemDescriptor {
+    fn before_commands(mut self) -> SequentialSystemDescriptor {
         self.injection_point = InjectionPoint::BeforeCommands;
         self
     }
 
-    fn at_end(mut self) -> ExclusiveSystemDescriptor {
+    fn at_end(mut self) -> SequentialSystemDescriptor {
         self.injection_point = InjectionPoint::AtEnd;
         self
     }
 }
 
-fn new_exclusive_descriptor(system: BoxedSystem<(), ()>) -> ExclusiveSystemDescriptor {
-    if !(system.archetype_component_access().writes_all() || system.resource_access().writes_all())
-    {
-        todo!("some error message that makes sense");
-        // TODO consider... not doing this?
-        // Allow parallel systems to be injected into exclusive system queues, merge their commands
-        // right there, etc.
-    }
-    ExclusiveSystemDescriptor {
+fn new_sequential_descriptor(system: BoxedSystem<(), ()>) -> SequentialSystemDescriptor {
+    SequentialSystemDescriptor {
         system,
         label: None,
         ordering: Ordering::None,
@@ -252,81 +245,81 @@ fn new_exclusive_descriptor(system: BoxedSystem<(), ()>) -> ExclusiveSystemDescr
     }
 }
 
-impl ExclusiveSystemDescriptorCoercion for UnspecifiedSystemDescriptor {
-    fn before(self, label: Label) -> ExclusiveSystemDescriptor {
-        new_exclusive_descriptor(self.system)
+impl SequentialSystemDescriptorCoercion for UnspecifiedSystemDescriptor {
+    fn before(self, label: Label) -> SequentialSystemDescriptor {
+        new_sequential_descriptor(self.system)
             .label(self.label)
             .before(label)
     }
 
-    fn after(self, label: Label) -> ExclusiveSystemDescriptor {
-        new_exclusive_descriptor(self.system)
+    fn after(self, label: Label) -> SequentialSystemDescriptor {
+        new_sequential_descriptor(self.system)
             .label(self.label)
             .after(label)
     }
 
-    fn at_start(self) -> ExclusiveSystemDescriptor {
-        new_exclusive_descriptor(self.system)
+    fn at_start(self) -> SequentialSystemDescriptor {
+        new_sequential_descriptor(self.system)
             .label(self.label)
             .at_start()
     }
 
-    fn before_commands(self) -> ExclusiveSystemDescriptor {
-        new_exclusive_descriptor(self.system)
+    fn before_commands(self) -> SequentialSystemDescriptor {
+        new_sequential_descriptor(self.system)
             .label(self.label)
             .before_commands()
     }
 
-    fn at_end(self) -> ExclusiveSystemDescriptor {
-        new_exclusive_descriptor(self.system)
+    fn at_end(self) -> SequentialSystemDescriptor {
+        new_sequential_descriptor(self.system)
             .label(self.label)
             .at_end()
     }
 }
 
-impl<S> ExclusiveSystemDescriptorCoercion for S
+impl<S> SequentialSystemDescriptorCoercion for S
 where
     S: System<In = (), Out = ()>,
 {
-    fn before(self, label: Label) -> ExclusiveSystemDescriptor {
-        new_exclusive_descriptor(Box::new(self)).before(label)
+    fn before(self, label: Label) -> SequentialSystemDescriptor {
+        new_sequential_descriptor(Box::new(self)).before(label)
     }
 
-    fn after(self, label: Label) -> ExclusiveSystemDescriptor {
-        new_exclusive_descriptor(Box::new(self)).after(label)
+    fn after(self, label: Label) -> SequentialSystemDescriptor {
+        new_sequential_descriptor(Box::new(self)).after(label)
     }
 
-    fn at_start(self) -> ExclusiveSystemDescriptor {
-        new_exclusive_descriptor(Box::new(self)).at_start()
+    fn at_start(self) -> SequentialSystemDescriptor {
+        new_sequential_descriptor(Box::new(self)).at_start()
     }
 
-    fn before_commands(self) -> ExclusiveSystemDescriptor {
-        new_exclusive_descriptor(Box::new(self)).before_commands()
+    fn before_commands(self) -> SequentialSystemDescriptor {
+        new_sequential_descriptor(Box::new(self)).before_commands()
     }
 
-    fn at_end(self) -> ExclusiveSystemDescriptor {
-        new_exclusive_descriptor(Box::new(self)).at_end()
+    fn at_end(self) -> SequentialSystemDescriptor {
+        new_sequential_descriptor(Box::new(self)).at_end()
     }
 }
 
-impl ExclusiveSystemDescriptorCoercion for BoxedSystem<(), ()> {
-    fn before(self, label: Label) -> ExclusiveSystemDescriptor {
-        new_exclusive_descriptor(self).before(label)
+impl SequentialSystemDescriptorCoercion for BoxedSystem<(), ()> {
+    fn before(self, label: Label) -> SequentialSystemDescriptor {
+        new_sequential_descriptor(self).before(label)
     }
 
-    fn after(self, label: Label) -> ExclusiveSystemDescriptor {
-        new_exclusive_descriptor(self).after(label)
+    fn after(self, label: Label) -> SequentialSystemDescriptor {
+        new_sequential_descriptor(self).after(label)
     }
 
-    fn at_start(self) -> ExclusiveSystemDescriptor {
-        new_exclusive_descriptor(self).at_start()
+    fn at_start(self) -> SequentialSystemDescriptor {
+        new_sequential_descriptor(self).at_start()
     }
 
-    fn before_commands(self) -> ExclusiveSystemDescriptor {
-        new_exclusive_descriptor(self).before_commands()
+    fn before_commands(self) -> SequentialSystemDescriptor {
+        new_sequential_descriptor(self).before_commands()
     }
 
-    fn at_end(self) -> ExclusiveSystemDescriptor {
-        new_exclusive_descriptor(self).at_end()
+    fn at_end(self) -> SequentialSystemDescriptor {
+        new_sequential_descriptor(self).at_end()
     }
 }
