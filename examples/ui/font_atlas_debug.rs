@@ -1,5 +1,6 @@
 use bevy::{prelude::*, text::FontAtlasSet};
 
+// TODO: This is now broken.
 /// This example illustrates how FontAtlases are populated. Bevy uses FontAtlases under the hood to optimize text rendering.
 fn main() {
     App::build()
@@ -34,12 +35,14 @@ fn atlas_render_system(
     font_atlas_sets: Res<Assets<FontAtlasSet>>,
     texture_atlases: Res<Assets<TextureAtlas>>,
 ) {
+    let count = font_atlas_sets.iter().count();
     if let Some(set) = font_atlas_sets.get(&state.handle.as_weak::<FontAtlasSet>()) {
         if let Some((_size, font_atlas)) = set.iter().next() {
             let x_offset = state.atlas_count as f32;
             if state.atlas_count == font_atlas.len() as u32 {
                 return;
             }
+            dbg!(count);
             let texture_atlas = texture_atlases
                 .get(&font_atlas[state.atlas_count as usize].texture_atlas)
                 .unwrap();
@@ -65,8 +68,8 @@ fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Quer
     if state.timer.tick(time.delta_seconds()).finished() {
         for mut text in query.iter_mut() {
             let c = rand::random::<u8>() as char;
-            if !text.value.contains(c) {
-                text.value = format!("{}{}", text.value, c);
+            if !text.sections[0].value.contains(c) {
+                text.sections[0].value.push(c);
             }
         }
 
@@ -79,13 +82,15 @@ fn setup(commands: &mut Commands, asset_server: Res<AssetServer>, mut state: Res
     state.handle = font_handle.clone();
     commands.spawn(CameraUiBundle::default()).spawn(TextBundle {
         text: Text {
-            value: "a".to_string(),
-            font: font_handle,
-            style: TextStyle {
-                font_size: 60.0,
-                color: Color::WHITE,
-                ..Default::default()
-            },
+            sections: vec![TextSection {
+                value: "a".to_string(),
+                font: font_handle,
+                style: TextStyle {
+                    font_size: 60.0,
+                    color: Color::MIDNIGHT_BLUE,
+                },
+            }],
+            ..Default::default()
         },
         ..Default::default()
     });

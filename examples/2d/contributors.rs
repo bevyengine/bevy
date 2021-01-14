@@ -41,7 +41,7 @@ const GRAVITY: f32 = -9.821 * 100.0;
 const SPRITE_SIZE: f32 = 75.0;
 
 const COL_DESELECTED: Color = Color::rgb_linear(0.03, 0.03, 0.03);
-const COL_SELECTED: Color = Color::rgb_linear(5.0, 5.0, 5.0);
+const COL_SELECTED: Color = Color::WHITE;
 
 const SHOWCASE_TIMER_SECS: f32 = 3.0;
 
@@ -113,13 +113,27 @@ fn setup(
                 ..Default::default()
             },
             text: Text {
-                value: "Contributor showcase".to_string(),
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                style: TextStyle {
-                    font_size: 60.0,
-                    color: Color::WHITE,
-                    ..Default::default()
-                },
+                sections: vec![
+                    TextSection {
+                        value: "Contributor showcase".to_string(),
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        style: TextStyle {
+                            font_size: 60.0,
+                            color: Color::WHITE,
+                            ..Default::default()
+                        },
+                    },
+                    TextSection {
+                        value: "".to_string(),
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        style: TextStyle {
+                            font_size: 60.0,
+                            color: Color::WHITE,
+                            ..Default::default()
+                        },
+                    },
+                ],
+                ..Default::default()
             },
             ..Default::default()
         });
@@ -195,7 +209,9 @@ fn select(
 
     trans.translation.z = 100.0;
 
-    text.value = format!("Contributor: {}", name);
+    text.sections[0].value = "Contributor: ".to_string();
+    text.sections[1].value = name.to_string();
+    text.sections[1].style.color = mat.color;
 
     Some(())
 }
@@ -312,9 +328,8 @@ fn contributors() -> Contributors {
 /// Because there is no `Mul<Color> for Color` instead `[f32; 3]` is
 /// used.
 fn gen_color(rng: &mut impl Rng) -> [f32; 3] {
-    let r = rng.gen_range(0.2..1.0);
-    let g = rng.gen_range(0.2..1.0);
-    let b = rng.gen_range(0.2..1.0);
-    let v = Vec3::new(r, g, b);
-    v.normalize().into()
+    let r = rng.gen_range(0.3..1.0);
+    let g = rng.gen_range(0.3..1.0);
+    let b = rng.gen_range(0.3..1.0);
+    [r, g, b]
 }
