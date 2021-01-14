@@ -49,7 +49,7 @@ pub struct MeasuredSystem<Sys> {
     resource_access: TypeAccess<TypeId>,
 }
 
-impl<In: 'static, Out: 'static, Sys : System<In = In, Out = Out>> System for MeasuredSystem<Sys> {
+impl<In: 'static, Out: 'static, Sys: System<In = In, Out = Out>> System for MeasuredSystem<Sys> {
     type In = In;
     type Out = Out;
 
