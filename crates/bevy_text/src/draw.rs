@@ -11,7 +11,7 @@ use bevy_render::{
 use bevy_sprite::TextureAtlasSprite;
 use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
 
-use crate::PositionedGlyph;
+use crate::{PositionedGlyph, TextSection};
 
 #[derive(Debug, Clone, Copy)]
 pub struct TextAlignment {
@@ -32,7 +32,6 @@ impl Default for TextAlignment {
 pub struct TextStyle {
     pub font_size: f32,
     pub color: Color,
-    pub alignment: TextAlignment,
 }
 
 impl Default for TextStyle {
@@ -40,7 +39,6 @@ impl Default for TextStyle {
         Self {
             color: Color::WHITE,
             font_size: 12.0,
-            alignment: TextAlignment::default(),
         }
     }
 }
@@ -49,7 +47,8 @@ pub struct DrawableText<'a> {
     pub render_resource_bindings: &'a mut RenderResourceBindings,
     pub position: Vec3,
     pub scale_factor: f32,
-    pub style: &'a TextStyle,
+    // pub style: &'a TextStyle,
+    pub sections: &'a [TextSection],
     pub text_glyphs: &'a Vec<PositionedGlyph>,
     pub msaa: &'a Msaa,
     pub font_quad_vertex_descriptor: &'a VertexBufferDescriptor,
@@ -103,7 +102,7 @@ impl<'a> Drawable for DrawableText<'a> {
 
             let sprite = TextureAtlasSprite {
                 index: tv.atlas_info.glyph_index,
-                color: self.style.color,
+                color: self.sections[tv.section_index].style.color,
             };
 
             // To get the rendering right for non-one scaling factors, we need
