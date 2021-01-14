@@ -14,15 +14,17 @@ fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
         .spawn(Camera2dBundle::default())
         .spawn(Text2dBundle {
             text: Text {
-                value: "This text is in the 2D scene.".to_string(),
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                style: TextStyle {
-                    font_size: 60.0,
-                    color: Color::WHITE,
-                    alignment: TextAlignment {
-                        vertical: VerticalAlign::Center,
-                        horizontal: HorizontalAlign::Center,
+                sections: vec![TextSection {
+                    value: "This text is in the 2D scene.".to_string(),
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    style: TextStyle {
+                        font_size: 60.0,
+                        color: Color::WHITE,
                     },
+                }],
+                alignment: TextAlignment {
+                    vertical: VerticalAlign::Center,
+                    horizontal: HorizontalAlign::Center,
                 },
             },
             ..Default::default()

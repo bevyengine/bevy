@@ -52,13 +52,15 @@ fn setup(
                             ..Default::default()
                         },
                         text: Text {
-                            value: "Example text".to_string(),
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            style: TextStyle {
-                                font_size: 30.0,
-                                color: Color::WHITE,
-                                ..Default::default()
-                            },
+                            sections: vec![TextSection {
+                                value: "Example text".to_string(),
+                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                style: TextStyle {
+                                    font_size: 30.0,
+                                    color: Color::WHITE,
+                                },
+                            }],
+                            ..Default::default()
                         },
                         ..Default::default()
                     });

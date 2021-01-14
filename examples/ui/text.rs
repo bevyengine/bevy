@@ -21,7 +21,7 @@ fn text_update_system(diagnostics: Res<Diagnostics>, mut query: Query<&mut Text,
     for mut text in query.iter_mut() {
         if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(average) = fps.average() {
-                text.value = format!("FPS: {:.2}", average);
+                text.sections[1].value = format!("{:.2}", average);
             }
         }
     }
@@ -38,13 +38,25 @@ fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
                 ..Default::default()
             },
             text: Text {
-                value: "FPS:".to_string(),
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                style: TextStyle {
-                    font_size: 60.0,
-                    color: Color::WHITE,
-                    ..Default::default()
-                },
+                sections: vec![
+                    TextSection {
+                        value: "FPS: ".to_string(),
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        style: TextStyle {
+                            font_size: 60.0,
+                            color: Color::WHITE,
+                        },
+                    },
+                    TextSection {
+                        value: "".to_string(),
+                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                        style: TextStyle {
+                            font_size: 60.0,
+                            color: Color::RED,
+                        },
+                    },
+                ],
+                ..Default::default()
             },
             ..Default::default()
         })
