@@ -47,7 +47,6 @@ pub struct DrawableText<'a> {
     pub render_resource_bindings: &'a mut RenderResourceBindings,
     pub position: Vec3,
     pub scale_factor: f32,
-    // pub style: &'a TextStyle,
     pub sections: &'a [TextSection],
     pub text_glyphs: &'a Vec<PositionedGlyph>,
     pub msaa: &'a Msaa,
