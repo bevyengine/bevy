@@ -66,6 +66,83 @@ impl WgpuRenderResourceContext {
     }
 
     #[allow(clippy::too_many_arguments)]
+    pub fn copy_texture_to_texture(
+        &self,
+        command_encoder: &mut wgpu::CommandEncoder,
+        source_texture: TextureId,
+        source_origin: [u32; 3], // TODO: replace with math type
+        source_mip_level: u32,
+        destination_texture: TextureId,
+        destination_origin: [u32; 3], // TODO: replace with math type
+        destination_mip_level: u32,
+        size: Extent3d,
+    ) {
+        let textures = self.resources.textures.read();
+        let source = textures.get(&source_texture).unwrap();
+        let destination = textures.get(&destination_texture).unwrap();
+        command_encoder.copy_texture_to_texture(
+            wgpu::TextureCopyView {
+                texture: source,
+                mip_level: source_mip_level,
+                origin: wgpu::Origin3d {
+                    x: source_origin[0],
+                    y: source_origin[1],
+                    z: source_origin[2],
+                },
+            },
+            wgpu::TextureCopyView {
+                texture: destination,
+                mip_level: destination_mip_level,
+                origin: wgpu::Origin3d {
+                    x: destination_origin[0],
+                    y: destination_origin[1],
+                    z: destination_origin[2],
+                },
+            },
+            size.wgpu_into(),
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn copy_texture_to_buffer(
+        &self,
+        command_encoder: &mut wgpu::CommandEncoder,
+        source_texture: TextureId,
+        source_origin: [u32; 3], // TODO: replace with math type
+        source_mip_level: u32,
+        destination_buffer: BufferId,
+        destination_offset: u64,
+        destination_bytes_per_row: u32,
+        size: Extent3d,
+    ) {
+        let buffers = self.resources.buffers.read();
+        let textures = self.resources.textures.read();
+
+        let source = textures.get(&source_texture).unwrap();
+        let destination = buffers.get(&destination_buffer).unwrap();
+        command_encoder.copy_texture_to_buffer(
+            wgpu::TextureCopyView {
+                texture: source,
+                mip_level: source_mip_level,
+                origin: wgpu::Origin3d {
+                    x: source_origin[0],
+                    y: source_origin[1],
+                    z: source_origin[2],
+                },
+            },
+            wgpu::BufferCopyView {
+                buffer: destination,
+                layout: wgpu::TextureDataLayout {
+                    offset: destination_offset,
+                    bytes_per_row: destination_bytes_per_row,
+                    rows_per_image: size.height,
+                },
+            },
+            size.wgpu_into(),
+        );
+    }
+
+    #[allow(clippy::too_many_arguments)]
     pub fn copy_buffer_to_texture(
         &self,
         command_encoder: &mut wgpu::CommandEncoder,
