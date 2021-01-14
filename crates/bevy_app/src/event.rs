@@ -284,7 +284,7 @@ impl<T: bevy_ecs::Resource> Events<T> {
 
         self.event_count += 1;
     }
-    
+
     /// Gets a new [ManualEventReader]. This will include all events already in the event buffers.
     pub fn get_reader(&self) -> ManualEventReader<T> {
         ManualEventReader {
