@@ -284,6 +284,22 @@ impl<T: bevy_ecs::Resource> Events<T> {
 
         self.event_count += 1;
     }
+    
+    /// Gets a new [ManualEventReader]. This will include all events already in the event buffers.
+    pub fn get_reader(&self) -> ManualEventReader<T> {
+        ManualEventReader {
+            last_event_count: 0,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Gets a new [ManualEventReader]. This will ignore all events already in the event buffers. It will read all future events.
+    pub fn get_reader_current(&self) -> ManualEventReader<T> {
+        ManualEventReader {
+            last_event_count: self.event_count,
+            _marker: PhantomData,
+        }
+    }
 
     /// Swaps the event buffers and clears the oldest event buffer. In general, this should be called once per frame/update.
     pub fn update(&mut self) {
@@ -350,7 +366,7 @@ impl<T: bevy_ecs::Resource> Events<T> {
         }
     }
 }
-/*
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -452,9 +468,8 @@ mod tests {
 
     fn get_events(
         events: &Events<TestEvent>,
-        reader: &mut EventReader<TestEvent>,
+        reader: &mut ManualEventReader<TestEvent>,
     ) -> Vec<TestEvent> {
         reader.iter(events).cloned().collect::<Vec<TestEvent>>()
     }
 }
-*/
