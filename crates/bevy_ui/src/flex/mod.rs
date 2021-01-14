@@ -218,7 +218,7 @@ pub fn flex_node_system(
         1.
     };
 
-    if scale_factor_events.latest().is_some() {
+    if scale_factor_events.iter().next().is_some() {
         update_changed(
             &mut *flex_surface,
             logical_to_physical_factor,

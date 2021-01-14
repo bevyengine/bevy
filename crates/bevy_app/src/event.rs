@@ -143,11 +143,21 @@ impl<T> Default for ManualEventReader<T> {
 }
 
 impl<T> ManualEventReader<T> {
+    /// See [`EventReader::iter`]
     pub fn iter<'a>(&mut self, events: &'a Events<T>) -> impl DoubleEndedIterator<Item = &'a T> {
         internal_event_reader(&mut self.last_event_count, events).map(|(e, _)| e)
     }
+
+    /// See [`EventReader::iter_with_id`]
+    pub fn iter_with_id<'a>(
+        &mut self,
+        events: &'a Events<T>,
+    ) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> {
+        internal_event_reader(&mut self.last_event_count, events)
+    }
 }
 
+/// Like [`iter_with_id`](EventReader::iter_with_id) except not emitting any traces for read messages.
 fn internal_event_reader<'a, T>(
     last_event_count: &mut usize,
     events: &'a Events<T>,
@@ -206,61 +216,8 @@ impl<'a, T: bevy_ecs::Resource> EventReader<'a, T> {
 
     /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
     pub fn iter_with_id(&mut self) -> impl DoubleEndedIterator<Item = (&T, EventId<T>)> {
-        self.iter_internal().map(|(event, id)| {
+        internal_event_reader(&mut self.last_event_count.0, &self.events).map(|(event, id)| {
             trace!("EventReader::iter() -> {}", id);
-            (event, id)
-        })
-    }
-
-    /// Like [`iter_with_id`](Self::iter_with_id) except not emitting any traces for read messages.
-    pub fn iter_internal(&mut self) -> impl DoubleEndedIterator<Item = (&T, EventId<T>)> {
-        internal_event_reader(&mut self.last_event_count.0, &self.events)
-    }
-
-    /// Retrieves the latest event that this EventReader hasn't seen yet. This updates the EventReader's
-    /// event counter, which means subsequent event reads will not include events that happened before now.
-    pub fn latest(&mut self) -> Option<&T> {
-        self.latest_with_id().map(|(event, _)| event)
-    }
-
-    /// Like [`latest`](Self::latest), except also returning the [`EventId`] of the event.
-    pub fn latest_with_id(&mut self) -> Option<(&T, EventId<T>)> {
-        self.iter_internal().rev().next().map(|(event, id)| {
-            trace!("EventReader::latest() -> {}", id);
-            (event, id)
-        })
-    }
-
-    /// Retrieves the latest event that matches the given `predicate` that this reader hasn't seen yet. This updates the EventReader's
-    /// event counter, which means subsequent event reads will not include events that happened before now.
-    pub fn find_latest(&mut self, predicate: impl FnMut(&&T) -> bool) -> Option<&T> {
-        self.find_latest_with_id(predicate).map(|(event, _)| event)
-    }
-
-    /// Like [`find_latest`](Self::find_latest), except also returning the [`EventId`] of the event.
-    pub fn find_latest_with_id(
-        &mut self,
-        mut predicate: impl FnMut(&&T) -> bool,
-    ) -> Option<(&T, EventId<T>)> {
-        self.iter_internal()
-            .rev()
-            .find(|(event, _id)| predicate(event))
-            .map(|(event, id)| {
-                trace!("EventReader::find_latest() -> {}", id);
-                (event, id)
-            })
-    }
-
-    /// Retrieves the earliest event in `events` that this reader hasn't seen yet. This updates the EventReader's
-    /// event counter, which means subsequent event reads will not include events that happened before now.
-    pub fn earliest(&mut self) -> Option<&T> {
-        self.earliest_with_id().map(|(event, _)| event)
-    }
-
-    /// Like [`earliest`](Self::earliest), except also returning the [`EventId`] of the event.
-    pub fn earliest_with_id(&mut self) -> Option<(&T, EventId<T>)> {
-        self.iter_internal().next().map(|(event, id)| {
-            trace!("EventReader::earliest() -> {}", id);
             (event, id)
         })
     }
