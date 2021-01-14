@@ -9,7 +9,7 @@ use crate::{
     texture,
 };
 
-use bevy_app::{EventReader, Events};
+use bevy_app::EventReader;
 use bevy_asset::{Asset, AssetEvent, Assets, Handle, HandleId};
 use bevy_ecs::{
     BoxedSystem, Changed, Commands, Entity, IntoSystem, Local, Or, Query, QuerySet, Res, ResMut,
@@ -600,14 +600,14 @@ where
 }
 
 struct AssetRenderNodeState<T: Asset> {
-    event_reader: EventReader<AssetEvent<T>>,
     assets_waiting_for_textures: Vec<HandleId>,
+    _marker: PhantomData<T>,
 }
 
 impl<T: Asset> Default for AssetRenderNodeState<T> {
     fn default() -> Self {
         Self {
-            event_reader: Default::default(),
+            _marker: Default::default(),
             assets_waiting_for_textures: Default::default(),
         }
     }
@@ -618,7 +618,7 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
     mut state: Local<RenderResourcesNodeState<HandleId, T>>,
     mut asset_state: Local<AssetRenderNodeState<T>>,
     assets: Res<Assets<T>>,
-    asset_events: Res<Events<AssetEvent<T>>>,
+    mut asset_events: EventReader<AssetEvent<T>>,
     mut asset_render_resource_bindings: ResMut<AssetRenderResourceBindings>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     mut queries: QuerySet<(
@@ -632,7 +632,7 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
     let render_resource_context = &**render_resource_context;
 
     let mut changed_assets = HashMap::default();
-    for event in asset_state.event_reader.iter(&asset_events) {
+    for event in asset_events.iter() {
         match event {
             AssetEvent::Created { ref handle } => {
                 if let Some(asset) = assets.get(handle) {

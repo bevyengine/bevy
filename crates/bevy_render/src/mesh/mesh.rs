@@ -2,7 +2,7 @@ use crate::{
     pipeline::{IndexFormat, PrimitiveTopology, RenderPipelines, VertexFormat},
     renderer::{BufferInfo, BufferUsage, RenderResourceContext, RenderResourceId},
 };
-use bevy_app::prelude::{EventReader, Events};
+use bevy_app::prelude::EventReader;
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::AsBytes;
 use bevy_ecs::{Changed, Entity, Local, Mut, Query, QuerySet, Res, With};
@@ -349,7 +349,6 @@ pub struct MeshEntities {
 
 #[derive(Default)]
 pub struct MeshResourceProviderState {
-    mesh_event_reader: EventReader<AssetEvent<Mesh>>,
     mesh_entities: HashMap<Handle<Mesh>, MeshEntities>,
 }
 
@@ -357,7 +356,7 @@ pub fn mesh_resource_provider_system(
     mut state: Local<MeshResourceProviderState>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     meshes: Res<Assets<Mesh>>,
-    mesh_events: Res<Events<AssetEvent<Mesh>>>,
+    mut mesh_events: EventReader<AssetEvent<Mesh>>,
     mut queries: QuerySet<(
         Query<&mut RenderPipelines, With<Handle<Mesh>>>,
         Query<(Entity, &Handle<Mesh>, &mut RenderPipelines), Changed<Handle<Mesh>>>,
@@ -365,7 +364,7 @@ pub fn mesh_resource_provider_system(
 ) {
     let mut changed_meshes = HashSet::default();
     let render_resource_context = &**render_resource_context;
-    for event in state.mesh_event_reader.iter(&mesh_events) {
+    for event in mesh_events.iter() {
         match event {
             AssetEvent::Created { ref handle } => {
                 changed_meshes.insert(handle.clone_weak());

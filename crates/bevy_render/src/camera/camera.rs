@@ -1,6 +1,6 @@
 use super::CameraProjection;
-use bevy_app::prelude::{EventReader, Events};
-use bevy_ecs::{Added, Component, Entity, Local, Query, QuerySet, Res};
+use bevy_app::prelude::EventReader;
+use bevy_ecs::{Added, Component, Entity, Query, QuerySet, Res};
 use bevy_math::Mat4;
 use bevy_reflect::{Reflect, ReflectComponent};
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
@@ -28,16 +28,9 @@ impl Default for DepthCalculation {
     }
 }
 
-#[derive(Default)]
-pub struct CameraSystemState {
-    window_resized_event_reader: EventReader<WindowResized>,
-    window_created_event_reader: EventReader<WindowCreated>,
-}
-
 pub fn camera_system<T: CameraProjection + Component>(
-    mut state: Local<CameraSystemState>,
-    window_resized_events: Res<Events<WindowResized>>,
-    window_created_events: Res<Events<WindowCreated>>,
+    mut window_resized_events: EventReader<WindowResized>,
+    mut window_created_events: EventReader<WindowCreated>,
     windows: Res<Windows>,
     mut queries: QuerySet<(
         Query<(Entity, &mut Camera, &mut T)>,
@@ -46,11 +39,7 @@ pub fn camera_system<T: CameraProjection + Component>(
 ) {
     let mut changed_window_ids = Vec::new();
     // handle resize events. latest events are handled first because we only want to resize each window once
-    for event in state
-        .window_resized_event_reader
-        .iter(&window_resized_events)
-        .rev()
-    {
+    for event in window_resized_events.iter().rev() {
         if changed_window_ids.contains(&event.id) {
             continue;
         }
@@ -59,11 +48,7 @@ pub fn camera_system<T: CameraProjection + Component>(
     }
 
     // handle resize events. latest events are handled first because we only want to resize each window once
-    for event in state
-        .window_created_event_reader
-        .iter(&window_created_events)
-        .rev()
-    {
+    for event in window_created_events.iter().rev() {
         if changed_window_ids.contains(&event.id) {
             continue;
         }

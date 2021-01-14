@@ -2,7 +2,7 @@ use crate::{
     renderer::{WgpuRenderGraphExecutor, WgpuRenderResourceContext},
     WgpuBackend, WgpuOptions, WgpuPowerOptions,
 };
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, ManualEventReader};
 use bevy_ecs::{Resources, World};
 use bevy_render::{
     render_graph::{DependentNodeStager, RenderGraph, RenderGraphStager},
@@ -15,8 +15,8 @@ pub struct WgpuRenderer {
     pub instance: wgpu::Instance,
     pub device: Arc<wgpu::Device>,
     pub queue: wgpu::Queue,
-    pub window_resized_event_reader: EventReader<WindowResized>,
-    pub window_created_event_reader: EventReader<WindowCreated>,
+    pub window_resized_event_reader: ManualEventReader<WindowResized>,
+    pub window_created_event_reader: ManualEventReader<WindowCreated>,
     pub initialized: bool,
 }
 

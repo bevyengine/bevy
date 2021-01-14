@@ -1,6 +1,6 @@
 use crate::{Axis, Input};
 use bevy_app::{EventReader, Events};
-use bevy_ecs::{Local, Res, ResMut};
+use bevy_ecs::{Res, ResMut};
 use bevy_utils::HashMap;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -202,16 +202,15 @@ impl ButtonAxisSettings {
 }
 
 pub fn gamepad_event_system(
-    mut event_reader: Local<EventReader<GamepadEventRaw>>,
     mut button_input: ResMut<Input<GamepadButton>>,
     mut axis: ResMut<Axis<GamepadAxis>>,
     mut button_axis: ResMut<Axis<GamepadButton>>,
-    raw_events: Res<Events<GamepadEventRaw>>,
+    mut raw_events: EventReader<GamepadEventRaw>,
     mut events: ResMut<Events<GamepadEvent>>,
     settings: Res<GamepadSettings>,
 ) {
     button_input.update();
-    for event in event_reader.iter(&raw_events) {
+    for event in raw_events.iter() {
         let (gamepad, event) = (event.0, &event.1);
         match event {
             GamepadEventType::Connected => {
