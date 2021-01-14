@@ -120,7 +120,6 @@ fn setup(
                         style: TextStyle {
                             font_size: 60.0,
                             color: Color::WHITE,
-                            ..Default::default()
                         },
                     },
                     TextSection {
@@ -129,7 +128,6 @@ fn setup(
                         style: TextStyle {
                             font_size: 60.0,
                             color: Color::WHITE,
-                            ..Default::default()
                         },
                     },
                 ],
