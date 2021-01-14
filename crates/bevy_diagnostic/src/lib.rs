@@ -8,7 +8,7 @@ pub use diagnostic::*;
 pub use entity_count_diagnostics_plugin::EntityCountDiagnosticsPlugin;
 pub use frame_time_diagnostics_plugin::FrameTimeDiagnosticsPlugin;
 pub use log_diagnostics_plugin::LogDiagnosticsPlugin;
-pub use system_diagnostics::AppBuilderMeasuredSystemExt;
+pub use system_diagnostics::MeasuredSystemExt;
 
 /// Adds core diagnostics resources to an App.
 #[derive(Default)]
