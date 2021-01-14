@@ -413,10 +413,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let lifetimeless_generics: Vec<_> = generics
         .params
         .iter()
-        .filter(|g| match g {
-            GenericParam::Type(_) => true,
-            _ => false,
-        })
+        .filter(|g| matches!(g, GenericParam::Type(_)))
         .collect();
 
     let phantoms = lifetimeless_generics
