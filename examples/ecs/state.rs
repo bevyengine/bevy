@@ -52,17 +52,16 @@ fn setup_menu(
         })
         .with_children(|parent| {
             parent.spawn(TextBundle {
-                text: Text {
-                    sections: vec![TextSection {
-                        value: "Play".to_string(),
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        style: TextStyle {
-                            font_size: 40.0,
-                            color: Color::rgb(0.9, 0.9, 0.9),
-                        },
-                    }],
+                text: BasicText {
+                    value: "Play".to_string(),
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    style: TextStyle {
+                        font_size: 40.0,
+                        color: Color::rgb(0.9, 0.9, 0.9),
+                    },
                     ..Default::default()
-                },
+                }
+                .into(),
                 ..Default::default()
             });
         });

@@ -57,17 +57,16 @@ fn setup(
                                     margin: Rect::all(Val::Px(5.0)),
                                     ..Default::default()
                                 },
-                                text: Text {
-                                    sections: vec![TextSection {
-                                        value: "Text Example".to_string(),
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        style: TextStyle {
-                                            font_size: 30.0,
-                                            color: Color::WHITE,
-                                        },
-                                    }],
+                                text: BasicText {
+                                    value: "Text Example".to_string(),
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    style: TextStyle {
+                                        font_size: 30.0,
+                                        color: Color::WHITE,
+                                    },
                                     ..Default::default()
-                                },
+                                }
+                                .into(),
                                 ..Default::default()
                             });
                         });

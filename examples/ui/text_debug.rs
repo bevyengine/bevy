@@ -33,17 +33,16 @@ fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
             },
             ..Default::default()
         },
-        text: Text {
-            sections: vec![TextSection {
-                value: "This is\ntext with\nline breaks\nin the top left".to_string(),
-                font: font.clone(),
-                style: TextStyle {
-                    font_size: 50.0,
-                    color: Color::WHITE,
-                },
-            }],
+        text: BasicText {
+            value: "This is\ntext with\nline breaks\nin the top left".to_string(),
+            font: font.clone(),
+            style: TextStyle {
+                font_size: 50.0,
+                color: Color::WHITE,
+            },
             alignment: TextAlignment::default(),
-        },
+        }
+        .into(),
         ..Default::default()
     });
     commands.spawn(TextBundle {
@@ -61,8 +60,7 @@ fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
             },
             ..Default::default()
         },
-        text: Text {
-            sections: vec![TextSection {
+        text: BasicText {
                 value:
                     "This text is very long, has a limited width, is centred, is positioned in the top right and is also coloured pink."
                         .to_string(),
@@ -71,12 +69,11 @@ fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
                     font_size: 50.0,
                     color: Color::rgb(0.8, 0.2, 0.7),
                 },
-            }],
             alignment: TextAlignment {
                 horizontal: HorizontalAlign::Center,
                 vertical: VerticalAlign::Center,
             },
-        },
+        }.into(),
         ..Default::default()
     });
     commands
@@ -162,18 +159,17 @@ fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
             },
             ..Default::default()
         },
-        text: Text {
-            sections: vec![TextSection {
-                value: "This\ntext has\nline breaks and also a set width in the bottom left"
-                    .to_string(),
-                font,
-                style: TextStyle {
-                    font_size: 50.0,
-                    color: Color::WHITE,
-                },
-            }],
+        text: BasicText {
+            value: "This\ntext has\nline breaks and also a set width in the bottom left"
+                .to_string(),
+            font,
+            style: TextStyle {
+                font_size: 50.0,
+                color: Color::WHITE,
+            },
             alignment: TextAlignment::default(),
-        },
+        }
+        .into(),
         ..Default::default()
     });
 }

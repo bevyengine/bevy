@@ -51,17 +51,16 @@ fn setup(
                             align_self: AlignSelf::FlexEnd,
                             ..Default::default()
                         },
-                        text: Text {
-                            sections: vec![TextSection {
-                                value: "Example text".to_string(),
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                style: TextStyle {
-                                    font_size: 30.0,
-                                    color: Color::WHITE,
-                                },
-                            }],
+                        text: BasicText {
+                            value: "Example text".to_string(),
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            style: TextStyle {
+                                font_size: 30.0,
+                                color: Color::WHITE,
+                            },
                             ..Default::default()
-                        },
+                        }
+                        .into(),
                         ..Default::default()
                     });
                 });
