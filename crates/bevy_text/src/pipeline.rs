@@ -73,7 +73,7 @@ impl<ID: Hash + Eq> TextPipeline<ID> {
 
                 let section = SectionText {
                     font_id,
-                    scale: PxScale::from(section.style.font_size),
+                    scale: PxScale::from(font_size),
                     text: &section.value,
                 };
 
