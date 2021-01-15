@@ -12,7 +12,7 @@ pub struct Text {
 /// This is a transient helper type for basic text (text with only one section).
 /// Under the hood we require, use, construct and interact with the new "sectioned" [`Text`] type.
 /// Intended usage is:
-/// ```no_run
+/// ```compile_fail
 /// commands.spawn(TextBundle {
 ///     text: BasicText {
 ///         value: "hello world!",
@@ -22,7 +22,7 @@ pub struct Text {
 /// });
 /// ```
 /// or
-/// ```no_run
+/// ```compile_fail
 /// commands.spawn(TextBundle {
 ///     text: Text::from(BasicText {
 ///         value: "hello world?",
