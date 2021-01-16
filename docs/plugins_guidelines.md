@@ -25,9 +25,9 @@ Indicating which version of your plugin works with which version of Bevy can be 
 |0.4|0.3|
 |0.3|0.1|
 
-## Bevy features
+## Bevy Features
 
-You should disable Bevy features that you don't use. This is because with Cargo, features are additives, meaning that features that are enabled in bevy in your plugin can't be disabled by someone using your plugin. You can find the list of features [here](cargo_features.md).
+You should disable Bevy features that you don't use. This is because with Cargo, features are additives, meaning that features that are enabled in Bevy in your plugin can't be disabled by someone using your plugin. You can find the list of features [here](cargo_features.md).
 ```
 bevy = { version = "0.4", default-features = false, features = ["..."] }
 ```
