@@ -1,13 +1,12 @@
+use bevy_utils::{AHashExt, HashMap, HashSet};
+use downcast_rs::{impl_downcast, Downcast};
 use std::{any::TypeId, borrow::Cow};
 
+use super::{ParallelSystemStageExecutor, SerialSystemStageExecutor, SystemStageExecutor};
 use crate::{
     ArchetypeComponent, InjectionPoint, Ordering, ParallelSystemDescriptor, Resources, RunCriteria,
     SequentialSystemDescriptor, ShouldRun, System, SystemDescriptor, SystemId, TypeAccess, World,
 };
-use bevy_utils::HashMap;
-use downcast_rs::{impl_downcast, Downcast};
-
-use super::{ParallelSystemStageExecutor, SerialSystemStageExecutor, SystemStageExecutor};
 
 pub enum StageError {
     SystemAlreadyExists(SystemId),
@@ -101,52 +100,105 @@ impl SystemStage {
         self.executor.downcast_mut()
     }
 
+    /// Determines if the parallel systems dependency graph has a cycle using depth first search.
+    fn has_a_dependency_cycle(&self) -> bool {
+        fn is_part_of_a_cycle(
+            index: &SystemIndex,
+            visited: &mut HashSet<SystemIndex>,
+            current: &mut HashSet<SystemIndex>,
+            graph: &HashMap<SystemIndex, Vec<SystemIndex>>,
+        ) -> bool {
+            if current.contains(index) {
+                return true;
+            } else if visited.contains(index) {
+                return false;
+            }
+            visited.insert(*index);
+            current.insert(*index);
+            for dependency in graph.get(index).unwrap() {
+                if is_part_of_a_cycle(dependency, visited, current, graph) {
+                    return true;
+                }
+            }
+            current.remove(index);
+            false
+        }
+        let mut visited = HashSet::with_capacity(self.parallel_dependencies.len());
+        let mut current = HashSet::with_capacity(self.parallel_dependencies.len());
+        for system_index in self.parallel_dependencies.keys() {
+            if is_part_of_a_cycle(
+                system_index,
+                &mut visited,
+                &mut current,
+                &self.parallel_dependencies,
+            ) {
+                return true;
+            }
+        }
+        false
+    }
+
     // TODO tests
     fn rebuild_orders_and_dependencies(&mut self) {
-        // TODO consider doing this in two passes: collect labels, then resolve labels.
+        self.parallel_dependencies.clear();
         self.at_start.clear();
         self.before_commands.clear();
         self.at_end.clear();
-        self.parallel_dependencies.clear();
         let mut parallel_labels_map = HashMap::<Label, SystemIndex>::default();
-        let mut at_start_labels_map = HashMap::<Label, usize>::default();
-        let mut before_commands_labels_map = HashMap::<Label, usize>::default();
-        let mut at_end_labels_map = HashMap::<Label, usize>::default();
-        let insert_index = |index: SystemIndex,
-                            descriptor: &SequentialSystemDescriptor,
-                            order: &mut Vec<SystemIndex>,
-                            map: &mut HashMap<Label, usize>| {
-            let order_index = match descriptor.ordering {
-                Ordering::None => {
-                    order.push(index);
-                    order.len() - 1
+        let mut at_start_labels_map = HashMap::<Label, SystemIndex>::default();
+        let mut before_commands_labels_map = HashMap::<Label, SystemIndex>::default();
+        let mut at_end_labels_map = HashMap::<Label, SystemIndex>::default();
+        // Collect labels.
+        for (set_index, system_set) in self.system_sets.iter().enumerate() {
+            for (system_index, descriptor) in system_set.parallel_systems.iter().enumerate() {
+                if let Some(label) = descriptor.label {
+                    parallel_labels_map.insert(
+                        label,
+                        SystemIndex {
+                            set: set_index,
+                            system: system_index,
+                        },
+                    );
                 }
-                Ordering::Before(target) => {
-                    let &target_index = map
-                        .get(target)
-                        .unwrap_or_else(|| todo!("some error message that makes sense"));
-                    order.insert(target_index, index);
-                    for value in map.values_mut().filter(|value| **value >= target_index) {
-                        *value += 1;
-                    }
-                    target_index
-                }
-                Ordering::After(target) => {
-                    let &target_index = map
-                        .get(target)
-                        .unwrap_or_else(|| todo!("some error message that makes sense"));
-                    order.insert(target_index + 1, index);
-                    for value in map.values_mut().filter(|value| **value > target_index) {
-                        *value += 1;
-                    }
-                    target_index + 1
-                }
-            };
-            if let Some(label) = descriptor.label {
-                map.insert(label, order_index);
             }
-        };
-        for (set_index, system_set) in self.system_sets.iter_mut().enumerate() {
+            for (system_index, descriptor) in system_set.sequential_systems.iter().enumerate() {
+                if let Some(label) = descriptor.label {
+                    let index = SystemIndex {
+                        set: set_index,
+                        system: system_index,
+                    };
+                    use InjectionPoint::*;
+                    match descriptor.injection_point {
+                        AtStart => at_start_labels_map.insert(label, index),
+                        BeforeCommands => before_commands_labels_map.insert(label, index),
+                        AtEnd => at_end_labels_map.insert(label, index),
+                    };
+                }
+            }
+        }
+        // Populate parallel dependency tree and sequential orders.
+        for (set_index, system_set) in self.system_sets.iter().enumerate() {
+            for (system_index, descriptor) in system_set.parallel_systems.iter().enumerate() {
+                if !descriptor.dependencies.is_empty() {
+                    let dependencies = descriptor
+                        .dependencies
+                        .iter()
+                        .map(|label| {
+                            // TODO better error message
+                            *parallel_labels_map
+                                .get(label)
+                                .unwrap_or_else(|| panic!("no such system"))
+                        })
+                        .collect();
+                    self.parallel_dependencies.insert(
+                        SystemIndex {
+                            set: set_index,
+                            system: system_index,
+                        },
+                        dependencies,
+                    );
+                }
+            }
             for (system_index, descriptor) in system_set.sequential_systems.iter().enumerate() {
                 let index = SystemIndex {
                     set: set_index,
@@ -154,45 +206,29 @@ impl SystemStage {
                 };
                 use InjectionPoint::*;
                 match descriptor.injection_point {
-                    AtStart => insert_index(
+                    AtStart => insert_sequential_system(
                         index,
-                        descriptor,
+                        descriptor.ordering,
                         &mut self.at_start,
-                        &mut at_start_labels_map,
+                        &at_start_labels_map,
                     ),
-                    BeforeCommands => insert_index(
+                    BeforeCommands => insert_sequential_system(
                         index,
-                        descriptor,
+                        descriptor.ordering,
                         &mut self.before_commands,
-                        &mut before_commands_labels_map,
+                        &before_commands_labels_map,
                     ),
-                    AtEnd => {
-                        insert_index(index, descriptor, &mut self.at_end, &mut at_end_labels_map)
-                    }
+                    AtEnd => insert_sequential_system(
+                        index,
+                        descriptor.ordering,
+                        &mut self.at_end,
+                        &at_end_labels_map,
+                    ),
                 }
             }
-            for (system_index, descriptor) in system_set.parallel_systems.iter().enumerate() {
-                // TODO dependency tree validation
-                let index = SystemIndex {
-                    set: set_index,
-                    system: system_index,
-                };
-                if !descriptor.dependencies.is_empty() {
-                    let dependencies = descriptor
-                        .dependencies
-                        .iter()
-                        .map(|label| {
-                            *parallel_labels_map
-                                .get(label)
-                                .unwrap_or_else(|| todo!("some error message that makes sense"))
-                        })
-                        .collect();
-                    self.parallel_dependencies.insert(index, dependencies);
-                }
-                if let Some(label) = descriptor.label {
-                    parallel_labels_map.insert(label, index);
-                }
-            }
+        }
+        if self.has_a_dependency_cycle() {
+            panic!("the graph cycles"); // TODO better error message.
         }
     }
 
@@ -215,6 +251,46 @@ impl SystemStage {
         );
         for system_set in &mut self.system_sets {
             system_set.is_dirty = false;
+        }
+    }
+}
+
+fn find_target_index(
+    target: Label,
+    order: &Vec<SystemIndex>,
+    map: &HashMap<Label, SystemIndex>,
+) -> Option<usize> {
+    // TODO better error message
+    let target = map.get(target).unwrap_or_else(|| panic!("no such system"));
+    order
+        .iter()
+        .enumerate()
+        .find_map(|(order_index, system_index)| {
+            if system_index == target {
+                Some(order_index)
+            } else {
+                None
+            }
+        })
+}
+
+fn insert_sequential_system(
+    system_index: SystemIndex,
+    ordering: Ordering,
+    order: &mut Vec<SystemIndex>,
+    map: &HashMap<Label, SystemIndex>,
+) {
+    match ordering {
+        Ordering::None => order.push(system_index),
+        Ordering::Before(target) => {
+            if let Some(target) = find_target_index(target, order, map) {
+                order.insert(target, system_index);
+            }
+        }
+        Ordering::After(target) => {
+            if let Some(target) = find_target_index(target, order, map) {
+                order.insert(target + 1, system_index);
+            }
         }
     }
 }

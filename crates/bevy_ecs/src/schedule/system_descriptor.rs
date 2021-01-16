@@ -171,12 +171,14 @@ impl ParallelSystemDescriptorCoercion for BoxedSystem<(), ()> {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub(crate) enum Ordering {
     None,
     Before(Label),
     After(Label),
 }
 
+#[derive(Debug, Clone, Copy)]
 pub(crate) enum InjectionPoint {
     AtStart,
     BeforeCommands,
