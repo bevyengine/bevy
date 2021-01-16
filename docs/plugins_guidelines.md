@@ -4,15 +4,18 @@ Bevy has a plug and play architecture, where you can easily add plugins for new 
 
 This document targets plugin authors.
 
-## List
-
-You are encouraged to add your plugin to [Awesome Bevy](https://github.com/bevyengine/awesome-bevy).
-
 ## Naming
 
 You are free to use a `bevy_xxx` name for your plugin, with the caveat "please be reasonable". If you are about to claim a generic name like `bevy_animation`, `bevy_color`, or `bevy_editor`... please ask first. The rational is explained [here](https://github.com/bevyengine/bevy/discussions/1202#discussioncomment-258907).
 
 ## Bevy version
+## Promotion
+
+You can promote your plugin to Bevy's [communities](https://github.com/bevyengine/bevy#community):
+
+* Add it to [Awesome Bevy](https://github.com/bevyengine/awesome-bevy)
+* Announce it on [Discord](https://discord.gg/gMUk5Ph), in channel `#showcase`
+* Announce it on [Reddit](https://reddit.com/r/bevy)
 
 Indicating which version of your plugin works with which version of bevy can be a great help for your users. Some of your user may be using an older version of bevy for any number of reason, you can help them finding which version of your plugin they should use. This can be shown as a simple table in your readme with each version of bevy with a working version of your plugin.
 
