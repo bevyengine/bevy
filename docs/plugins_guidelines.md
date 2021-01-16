@@ -1,4 +1,4 @@
-# Plugins
+# Third Party Plugin Guidelines
 
 Bevy has a plug and play architecture, where you can easily add plugins for new features, or replace built-in plugins with your own.
 
@@ -14,7 +14,8 @@ You are free to use a `bevy_xxx` name for your plugin, with the caveat "please b
 
 ## Bevy version
 
-Indicating which version of your plugin works with which version of bevy can be a great help for your users. This can be shown as a simple table in your readme with each version of bevy with a working version of your plugin.
+Indicating which version of your plugin works with which version of bevy can be a great help for your users. Some of your user may be using an older version of bevy for any number of reason, you can help them finding which version of your plugin they should use. This can be shown as a simple table in your readme with each version of bevy with a working version of your plugin.
+
 |bevy|bevy_awesome_plugin|
 |---|---|
 |0.4|0.3|
@@ -37,12 +38,10 @@ You can specify the dependency [both as a version and with git](https://doc.rust
 
 Bevy is evolving very fast, and stating with a badge how you intend to track Bevy's master can be useful for your users.
 
-### I intend to track master as much as I can
-![](https://img.shields.io/badge/Bevy%20tracking-master-green)
+|badge|description|
+|-|-|
+|![](https://img.shields.io/badge/Bevy%20tracking-master-green)|I intend to track master as much as I can|
+|![](https://img.shields.io/badge/Bevy%20tracking-PR%20welcome-yellow)|I welcome PR that will update my plugin to current Bevy master|
+|![](https://img.shields.io/badge/Bevy%20tracking-released%20version-blue)|I will only follow released Bevy's versions|
 
-### I welcome PR that will update my plugin to current Bevy master
-![](https://img.shields.io/badge/Bevy%20tracking-PR%20welcome-yellow)
 
-### I will only follow released Bevy's versions
-
-![](https://img.shields.io/badge/Bevy%20tracking-released%20version-blue)
