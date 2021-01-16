@@ -48,4 +48,34 @@ Bevy is evolving very fast. You can use one of these badges to communicate to yo
 |![](https://img.shields.io/badge/Bevy%20tracking-PR%20welcome-yellow)|I welcome PR that will update my plugin to current Bevy master|`https://img.shields.io/badge/Bevy%20tracking-PR%20welcome-yellow`|
 |![](https://img.shields.io/badge/Bevy%20tracking-released%20version-blue)|I will only follow released Bevy versions|`https://img.shields.io/badge/Bevy%20tracking-released%20version-blue`|
 
+## General Advices for a Rust Crate
 
+These advices should be valid for any Rust crate.
+
+### Licensing
+
+Rust projects are often dual licensed with [MIT and Apache 2.0](https://www.rust-lang.org/policies/licenses). Bevy is licensed with [MIT](https://github.com/bevyengine/bevy/blob/master/LICENSE). Those are great options to license your plugin.
+
+### Small Crate Size
+
+To avoid a long build time in your crate and in projects using your plugin, you should aim for a small crate size:
+
+* Disable features of Bevy that you don't use
+* Avoid large dependencies
+* Put optional functionnalities and dependencies behind a feature
+
+### Documentation and Examples
+
+Documentation and examples are very useful for a crate.
+
+In the case of a plugin for Bevy, a few screenshots or movies/animated GIFs from your examples can really help understanding what your plugin can do.
+
+Additionnaly, it can be interested to list:
+
+* Stages added by the plugin
+* Systems used
+* New components available
+
+### Tests and CI
+
+Tests are always good! For CI, you can check [this example](https://github.com/actions-rs/meta/blob/master/recipes/quickstart.md) for a quickstart using GitHub Actions. As Bevy has additional Linux dependencies, you should install them before building your project, [here is how Bevy is doing it](https://github.com/bevyengine/bevy/blob/cf0e9f9968bb1bceb92a61cd773478675d35cbd6/.github/workflows/ci.yml#L39). Even if you don't have many (or any) tests, setting up CI will compile check your plugin and ensure a basic level of quality.
