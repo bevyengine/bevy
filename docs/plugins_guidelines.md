@@ -38,10 +38,10 @@ You can specify the dependency [both as a version and with git](https://doc.rust
 
 Bevy is evolving very fast, and stating with a badge how you intend to track Bevy's master can be useful for your users.
 
-|badge|description|
-|-|-|
-|![](https://img.shields.io/badge/Bevy%20tracking-master-green)|I intend to track master as much as I can|
-|![](https://img.shields.io/badge/Bevy%20tracking-PR%20welcome-yellow)|I welcome PR that will update my plugin to current Bevy master|
-|![](https://img.shields.io/badge/Bevy%20tracking-released%20version-blue)|I will only follow released Bevy's versions|
+|badge|description|image URL|
+|-|-|-|
+|![](https://img.shields.io/badge/Bevy%20tracking-master-green)|I intend to track master as much as I can|`https://img.shields.io/badge/Bevy%20tracking-master-green`|
+|![](https://img.shields.io/badge/Bevy%20tracking-PR%20welcome-yellow)|I welcome PR that will update my plugin to current Bevy master|`https://img.shields.io/badge/Bevy%20tracking-PR%20welcome-yellow`|
+|![](https://img.shields.io/badge/Bevy%20tracking-released%20version-blue)|I will only follow released Bevy's versions|`https://img.shields.io/badge/Bevy%20tracking-released%20version-blue`|
 
 
