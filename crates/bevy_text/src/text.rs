@@ -12,24 +12,34 @@ pub struct Text {
 /// This is a transient helper type for basic text (text with only one section).
 /// Under the hood we require, use, construct and interact with the new "sectioned" [`Text`] type.
 /// Intended usage is:
-/// ```compile_fail
+/// ```
+/// # use bevy_ecs::Commands;
+/// # use bevy_text::BasicText;
+/// # use bevy_ui::entity::TextBundle;
+/// # fn system(commands: &mut Commands) {
 /// commands.spawn(TextBundle {
 ///     text: BasicText {
-///         value: "hello world!",
+///         value: "hello world!".to_string(),
 ///         ..Default::default()
 ///     }.into(),
 ///     ..Default::default()
 /// });
+/// # }
 /// ```
 /// or
-/// ```compile_fail
+/// ```
+/// # use bevy_ecs::Commands;
+/// # use bevy_text::{BasicText, Text};
+/// # use bevy_ui::entity::TextBundle;
+/// # fn system(commands: &mut Commands) {
 /// commands.spawn(TextBundle {
 ///     text: Text::from(BasicText {
-///         value: "hello world?",
+///         value: "hello world?".to_string(),
 ///         ..Default::default()
 ///     }),
 ///     ..Default::default()
 /// });
+/// # }
 /// ```
 #[derive(Debug, Default, Clone)]
 pub struct BasicText {
