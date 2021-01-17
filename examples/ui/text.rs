@@ -11,33 +11,55 @@ fn main() {
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_startup_system(setup.system())
         .add_system(text_update_system.system())
+        .add_system(text_color_system.system())
         .run();
 }
 
 // A unit struct to help identify the FPS UI component, since there may be many Text components
 struct FpsText;
 
-fn text_update_system(diagnostics: Res<Diagnostics>, mut query: Query<&mut Text, With<FpsText>>) {
-    for mut text in query.iter_mut() {
-        if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
-            if let Some(average) = fps.average() {
-                text.sections[1].value = format!("{:.2}", average);
-            }
-        }
-    }
-}
+// A unit struct to help identify the color-changing Text component
+struct ColorText;
 
 fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
     commands
         // UI camera
         .spawn(CameraUiBundle::default())
-        // texture
+        // Text with one section
+        .spawn(TextBundle {
+            style: Style {
+                align_self: AlignSelf::FlexEnd,
+                position_type: PositionType::Absolute,
+                position: Rect {
+                    bottom: Val::Px(5.0),
+                    right: Val::Px(15.0),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            // construct a `BasicText`
+            text: BasicText {
+                value: "hello bevy!".to_string(),
+                style: TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 100.0,
+                    color: Color::WHITE,
+                },
+                ..Default::default()
+            }
+            .into(), // convert it to `Text`
+            ..Default::default()
+        })
+        .with(ColorText)
+        // Rich text with multiple sections
         .spawn(TextBundle {
             style: Style {
                 align_self: AlignSelf::FlexEnd,
                 ..Default::default()
             },
+            // use `Text` directly
             text: Text {
+                // construct a `Vec` of `TextSection`s
                 sections: vec![
                     TextSection {
                         value: "FPS: ".to_string(),
@@ -61,4 +83,29 @@ fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
             ..Default::default()
         })
         .with(FpsText);
+}
+
+fn text_update_system(diagnostics: Res<Diagnostics>, mut query: Query<&mut Text, With<FpsText>>) {
+    for mut text in query.iter_mut() {
+        if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
+            if let Some(average) = fps.average() {
+                // Update the value of the second section
+                text.sections[1].value = format!("{:.2}", average);
+            }
+        }
+    }
+}
+
+fn text_color_system(time: Res<Time>, mut query: Query<&mut Text, With<ColorText>>) {
+    for mut text in query.iter_mut() {
+        let seconds = time.seconds_since_startup() as f32;
+        // Although we constructed this with a `BasicText`,
+        // we converted it to a `Text` so we still update the only section
+        text.sections[0]
+            .style
+            .color
+            .set_r((1.50 * seconds).sin() / 2.0 + 0.5)
+            .set_g((0.75 * seconds).sin() / 2.0 + 0.5)
+            .set_b((0.50 * seconds).sin() / 2.0 + 0.5);
+    }
 }
