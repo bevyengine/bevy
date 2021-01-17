@@ -18,7 +18,7 @@ You can promote your plugin to Bevy's [communities](https://github.com/bevyengin
 
 ## Bevy Version Supported
 
-Indicating which version of your plugin works with which version of Bevy can be a great help for your users. Some of your user may be using an older version of Bevy for any number of reason, you can help them finding which version of your plugin they should use. This can be shown as a simple table in your readme with each version of Bevy with a working version of your plugin.
+Indicating which version of your plugin works with which version of Bevy can be helpful for your users. Some of your users may be using an older version of Bevy for any number of reasons, you can help them find which version of your plugin they should use. This can be shown as a simple table in your readme with each version of Bevy and the corresponding compatible version of your plugin.
 
 |bevy|bevy_awesome_plugin|
 |---|---|
@@ -50,7 +50,7 @@ Bevy is evolving very fast. You can use one of these badges to communicate to yo
 
 ## General Advices for a Rust Crate
 
-These advices should be valid for any Rust crate.
+This advice is valid for any Rust crate.
 
 ### Licensing
 
@@ -62,7 +62,7 @@ To avoid a long build time in your crate and in projects using your plugin, you 
 
 * Disable features of Bevy that you don't use
 * Avoid large dependencies
-* Put optional functionnalities and dependencies behind a feature
+* Put optional functionality and dependencies behind a feature
 
 ### Documentation and Examples
 
@@ -70,7 +70,7 @@ Documentation and examples are very useful for a crate.
 
 In the case of a plugin for Bevy, a few screenshots or movies/animated GIFs from your examples can really help understanding what your plugin can do.
 
-Additionnaly, it can be interested to list:
+Additionally, it can be helpful to list:
 
 * Stages added by the plugin
 * Systems used
