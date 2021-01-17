@@ -71,7 +71,7 @@ struct Game {
 }
 
 const BOARD_SIZE_I: usize = 14;
-const BOARD_SIZE_J: usize = 20;
+const BOARD_SIZE_J: usize = 21;
 
 const RESET_FOCUS: [f32; 3] = [
     BOARD_SIZE_I as f32 / 2.0,
