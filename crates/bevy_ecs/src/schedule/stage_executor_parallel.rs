@@ -1,6 +1,6 @@
 use async_channel::{Receiver, Sender};
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool};
-use bevy_utils::{AHashExt, HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet};
 use fixedbitset::FixedBitSet;
 
 use super::ExecutorCommonMethods;
@@ -212,7 +212,8 @@ impl ParallelSystemStageExecutor {
 
         // Construct scheduling data for parallel systems,
         // cache mapping of parallel system's `SystemIndex` to its index in the list.
-        let mut parallel_systems_mapping = HashMap::with_capacity(parallel_systems_len);
+        let mut parallel_systems_mapping =
+            HashMap::with_capacity_and_hasher(parallel_systems_len, Default::default());
         for (set_index, system_set) in system_sets.iter_mut().enumerate() {
             for (system_index, system) in system_set.parallel_systems().enumerate() {
                 let index = SystemIndex {

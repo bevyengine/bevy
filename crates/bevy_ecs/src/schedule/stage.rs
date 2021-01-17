@@ -1,4 +1,4 @@
-use bevy_utils::{AHashExt, HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
 use std::{any::TypeId, borrow::Cow};
 
@@ -123,8 +123,10 @@ impl SystemStage {
             current.remove(index);
             false
         }
-        let mut visited = HashSet::with_capacity(self.parallel_dependencies.len());
-        let mut current = HashSet::with_capacity(self.parallel_dependencies.len());
+        let mut visited =
+            HashSet::with_capacity_and_hasher(self.parallel_dependencies.len(), Default::default());
+        let mut current =
+            HashSet::with_capacity_and_hasher(self.parallel_dependencies.len(), Default::default());
         for system_index in self.parallel_dependencies.keys() {
             if is_part_of_a_cycle(
                 system_index,
