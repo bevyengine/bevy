@@ -66,12 +66,22 @@ struct Game {
     bonus: Bonus,
     score: i32,
     cake_eaten: u32,
+    camera_should_focus: Vec3,
+    camera_is_focus: Vec3,
 }
 
 const BOARD_SIZE_I: usize = 14;
 const BOARD_SIZE_J: usize = 20;
 
-fn setup_cameras(commands: &mut Commands) {
+const RESET_FOCUS: [f32; 3] = [
+    BOARD_SIZE_I as f32 / 2.0,
+    0.0,
+    BOARD_SIZE_J as f32 / 2.0 - 0.5,
+];
+
+fn setup_cameras(commands: &mut Commands, mut game: ResMut<Game>) {
+    game.camera_should_focus = Vec3::from(RESET_FOCUS);
+    game.camera_is_focus = game.camera_should_focus;
     commands
         .spawn(Camera3dBundle {
             transform: Transform::from_xyz(
@@ -79,14 +89,7 @@ fn setup_cameras(commands: &mut Commands) {
                 2.0 * BOARD_SIZE_J as f32 / 3.0,
                 BOARD_SIZE_J as f32 / 2.0 - 0.5,
             )
-            .looking_at(
-                Vec3::new(
-                    BOARD_SIZE_I as f32 / 2.0,
-                    0.0,
-                    BOARD_SIZE_J as f32 / 2.0 - 0.5,
-                ),
-                Vec3::unit_y(),
-            ),
+            .looking_at(game.camera_is_focus, Vec3::unit_y()),
             ..Default::default()
         })
         .spawn(CameraUiBundle::default());
@@ -241,29 +244,44 @@ fn move_player(
 }
 
 // move the camera, the more cake eaten, the faster
-fn move_camera(time: Res<Time>, game: Res<Game>, mut transforms: Query<(&mut Transform, &Camera)>) {
-    let mut speed = (game.score as f64 + game.cake_eaten as f64) / 2.0;
-    let mut range = 1.0 + (game.score / 5) as f32;
-    if game.score < 0 {
-        speed = game.cake_eaten as f64 / 3.0;
-        range = 1.0;
+fn move_camera(
+    time: Res<Time>,
+    mut game: ResMut<Game>,
+    mut transforms: QuerySet<(Query<(&mut Transform, &Camera)>, Query<&Transform>)>,
+) {
+    const SPEED: f32 = 2.0;
+    // if there is both a player and a bonus, target the mid-point of them
+    if let (Some(player_entity), Some(bonus_entity)) = (game.player.entity, game.bonus.entity) {
+        if let (Ok(player_transform), Ok(bonus_transform)) = (
+            transforms.q1().get(player_entity),
+            transforms.q1().get(bonus_entity),
+        ) {
+            game.camera_should_focus = player_transform
+                .translation
+                .lerp(bonus_transform.translation, 0.5);
+        }
+    // otherwise, if there is only a player, target the player
+    } else if let Some(player_entity) = game.player.entity {
+        if let Ok(player_transform) = transforms.q1().get(player_entity) {
+            game.camera_should_focus = player_transform.translation;
+        }
+    // otherwise, target the middle
+    } else {
+        game.camera_should_focus = Vec3::from(RESET_FOCUS);
     }
-    for (mut transform, camera) in transforms.iter_mut() {
+    // calculate the camera motion based on the difference between where the camera is looking
+    // and where it should be looking; the greater the distance, the faster the motion;
+    // smooth out the camera movement using the frame time
+    let mut camera_motion = game.camera_should_focus - game.camera_is_focus;
+    if camera_motion.length() > 0.2 {
+        camera_motion *= SPEED * time.delta_seconds();
+        // set the new camera's actual focus
+        game.camera_is_focus += camera_motion;
+    }
+    // look at that new camera's actual focus
+    for (mut transform, camera) in transforms.q0_mut().iter_mut() {
         if camera.name == Some(CAMERA_3D.to_string()) {
-            *transform = Transform::from_xyz(
-                -(BOARD_SIZE_I as f32 / 2.0),
-                2.0 * BOARD_SIZE_J as f32 / 3.0,
-                BOARD_SIZE_J as f32 / 2.0 - 0.5,
-            )
-            .looking_at(
-                Vec3::new(
-                    BOARD_SIZE_I as f32 / 2.0,
-                    range * (time.seconds_since_startup() * speed).cos() as f32 - 1.0,
-                    BOARD_SIZE_J as f32 / 2.0 - 0.5
-                        + range * (time.seconds_since_startup() * speed).sin() as f32,
-                ),
-                Vec3::unit_y(),
-            );
+            *transform = transform.looking_at(game.camera_is_focus, Vec3::unit_y());
         }
     }
 }
