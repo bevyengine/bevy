@@ -52,7 +52,7 @@ fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
                         style: TextStyle {
                             font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                             font_size: 60.0,
-                            color: Color::RED,
+                            color: Color::GOLD,
                         },
                     },
                 ],

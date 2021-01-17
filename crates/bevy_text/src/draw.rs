@@ -1,7 +1,5 @@
-use bevy_asset::Handle;
 use bevy_math::{Mat4, Vec3};
 use bevy_render::{
-    color::Color,
     draw::{Draw, DrawContext, DrawError, Drawable},
     mesh,
     mesh::Mesh,
@@ -10,41 +8,8 @@ use bevy_render::{
     renderer::{BindGroup, RenderResourceBindings, RenderResourceId},
 };
 use bevy_sprite::TextureAtlasSprite;
-use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
 
-use crate::{Font, PositionedGlyph, TextSection};
-
-#[derive(Debug, Clone, Copy)]
-pub struct TextAlignment {
-    pub vertical: VerticalAlign,
-    pub horizontal: HorizontalAlign,
-}
-
-impl Default for TextAlignment {
-    fn default() -> Self {
-        TextAlignment {
-            vertical: VerticalAlign::Top,
-            horizontal: HorizontalAlign::Left,
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct TextStyle {
-    pub font: Handle<Font>,
-    pub font_size: f32,
-    pub color: Color,
-}
-
-impl Default for TextStyle {
-    fn default() -> Self {
-        Self {
-            font: Default::default(),
-            font_size: 12.0,
-            color: Color::WHITE,
-        }
-    }
-}
+use crate::{PositionedGlyph, TextSection};
 
 pub struct DrawableText<'a> {
     pub render_resource_bindings: &'a mut RenderResourceBindings,

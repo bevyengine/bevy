@@ -1,6 +1,9 @@
+use bevy_asset::Handle;
 use bevy_math::Size;
+use bevy_render::color::Color;
+use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
 
-use crate::{TextAlignment, TextStyle};
+use crate::Font;
 
 #[derive(Debug, Default, Clone)]
 pub struct Text {
@@ -65,6 +68,38 @@ impl From<BasicText> for Text {
 pub struct TextSection {
     pub value: String,
     pub style: TextStyle,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct TextAlignment {
+    pub vertical: VerticalAlign,
+    pub horizontal: HorizontalAlign,
+}
+
+impl Default for TextAlignment {
+    fn default() -> Self {
+        TextAlignment {
+            vertical: VerticalAlign::Top,
+            horizontal: HorizontalAlign::Left,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct TextStyle {
+    pub font: Handle<Font>,
+    pub font_size: f32,
+    pub color: Color,
+}
+
+impl Default for TextStyle {
+    fn default() -> Self {
+        Self {
+            font: Default::default(),
+            font_size: 12.0,
+            color: Color::WHITE,
+        }
+    }
 }
 
 #[derive(Default, Copy, Clone, Debug)]
