@@ -105,7 +105,7 @@ There are some [extra fields](https://doc.rust-lang.org/cargo/reference/manifest
 |[`license`](https://doc.rust-lang.org/cargo/reference/manifest.html#the-license-and-license-file-fields)|the plugin license|
 |[`keywords`](https://doc.rust-lang.org/cargo/reference/manifest.html#the-keywords-field)|keywords for the plugin - `"bevy"` at least is a good idea here|
 |[`categories`](https://doc.rust-lang.org/cargo/reference/manifest.html#the-categories-field)|categories of the plugin - see [the full list on crates.io](https://crates.io/categories)|
-|[`exclude`](https://doc.rust-lang.org/cargo/reference/manifest.html#the-exclude-and-include-fields)|files to exclude from the realeased package - excluding the `assets` folder that you may have is a good idea, as well as any large file that are not needed by the plugin|
+|[`exclude`](https://doc.rust-lang.org/cargo/reference/manifest.html#the-exclude-and-include-fields)|files to exclude from the released package - excluding the `assets` folder that you may have is a good idea, as well as any large file that are not needed by the plugin|
 
 Once a crate is published to [crates.io](https://crates.io), there are two badges that you can add to your `README.md` for easy links:
 
