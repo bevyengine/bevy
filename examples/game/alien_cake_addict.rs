@@ -113,7 +113,7 @@ fn setup(commands: &mut Commands, asset_server: Res<AssetServer>, mut game: ResM
         .map(|j| {
             (0..BOARD_SIZE_I)
                 .map(|i| {
-                    let height = rand::thread_rng().gen_range(-0.1, 0.1);
+                    let height = rand::thread_rng().gen_range(-0.1..0.1);
                     commands
                         .spawn((
                             Transform::from_xyz(i as f32, height - 0.2, j as f32),
@@ -304,8 +304,8 @@ fn spawn_bonus(
             return;
         }
     }
-    game.bonus.i = rand::thread_rng().gen_range(0, BOARD_SIZE_I);
-    game.bonus.j = rand::thread_rng().gen_range(0, BOARD_SIZE_J);
+    game.bonus.i = rand::thread_rng().gen_range(0..BOARD_SIZE_I);
+    game.bonus.j = rand::thread_rng().gen_range(0..BOARD_SIZE_J);
     game.bonus.entity = commands
         .spawn((
             Transform {
