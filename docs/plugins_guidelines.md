@@ -79,3 +79,23 @@ Additionally, it can be helpful to list:
 ### Tests and CI
 
 Tests are always good! For CI, you can check [this example](https://github.com/actions-rs/meta/blob/master/recipes/quickstart.md) for a quickstart using GitHub Actions. As Bevy has additional Linux dependencies, you should install them before building your project, [here is how Bevy is doing it](https://github.com/bevyengine/bevy/blob/cf0e9f9968bb1bceb92a61cd773478675d35cbd6/.github/workflows/ci.yml#L39). Even if you don't have many (or any) tests, setting up CI will compile check your plugin and ensure a basic level of quality.
+
+### Publishing your Plugin
+
+There are some [extra fields](https://doc.rust-lang.org/cargo/reference/manifest.html) that you can add to your `Cargo.toml` manifest, in the `[package]` section:
+
+|field|description|
+|-|-|
+|[`description`](https://doc.rust-lang.org/cargo/reference/manifest.html#the-description-field)|a description of the plugin|
+|[`repository`](https://doc.rust-lang.org/cargo/reference/manifest.html#the-repository-field)|URL of the plugin source repository|
+|[`license`](https://doc.rust-lang.org/cargo/reference/manifest.html#the-license-and-license-file-fields)|the plugin license|
+|[`keywords`](https://doc.rust-lang.org/cargo/reference/manifest.html#the-keywords-field)|keywords for the plugin - `"bevy"` at least is a good idea here|
+|[`categories`](https://doc.rust-lang.org/cargo/reference/manifest.html#the-categories-field)|categories of the plugin - see [the full list on crates.io](https://crates.io/categories)|
+|[`exclude`](https://doc.rust-lang.org/cargo/reference/manifest.html#the-exclude-and-include-fields)|files to exclude from the realeased package - excluding the `assets` folder that you may have is a good idea, as well as any large file that are not needed by the plugin|
+
+Once a crate is published to [crates.io](https://crates.io), there are two badges that you can add to your `README.md` for easy links:
+
+|badge|code|
+|-|-|
+|[![crates.io](https://img.shields.io/crates/v/bevy)](https://crates.io/crates/bevy)|`[![crates.io](https://img.shields.io/crates/v/bevy_awesome_plugin)](https://crates.io/crates/bevy_awesome_plugin)`|
+|[![docs.rs](https://docs.rs/bevy/badge.svg)](https://docs.rs/bevy)|`[![docs.rs](https://docs.rs/bevy_awesome_plugin/badge.svg)](https://docs.rs/bevy_awesome_plugin)`|
