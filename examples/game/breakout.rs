@@ -70,19 +70,19 @@ fn setup(
             text: Text {
                 sections: vec![
                     TextSection {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         value: "Score: ".to_string(),
                         style: TextStyle {
-                            color: Color::rgb(0.5, 0.5, 1.0),
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 40.0,
+                            color: Color::rgb(0.5, 0.5, 1.0),
                         },
                     },
                     TextSection {
-                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                         value: "".to_string(),
                         style: TextStyle {
-                            color: Color::rgb(0.9, 0.3, 1.0),
-                            font_size: 60.0,
+                            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                            font_size: 40.0,
+                            color: Color::rgb(1.0, 0.5, 0.5),
                         },
                     },
                 ],

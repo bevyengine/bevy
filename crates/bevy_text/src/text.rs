@@ -1,7 +1,6 @@
-use bevy_asset::Handle;
 use bevy_math::Size;
 
-use crate::{Font, TextAlignment, TextStyle};
+use crate::{TextAlignment, TextStyle};
 
 #[derive(Debug, Default, Clone)]
 pub struct Text {
@@ -44,7 +43,6 @@ pub struct Text {
 #[derive(Debug, Default, Clone)]
 pub struct BasicText {
     pub value: String,
-    pub font: Handle<Font>,
     pub style: TextStyle,
     pub alignment: TextAlignment,
 }
@@ -53,12 +51,11 @@ impl From<BasicText> for Text {
     fn from(source: BasicText) -> Self {
         let BasicText {
             value,
-            font,
             style,
             alignment,
         } = source;
         Self {
-            sections: vec![TextSection { value, font, style }],
+            sections: vec![TextSection { value, style }],
             alignment,
         }
     }
@@ -67,7 +64,6 @@ impl From<BasicText> for Text {
 #[derive(Debug, Default, Clone)]
 pub struct TextSection {
     pub value: String,
-    pub font: Handle<Font>,
     pub style: TextStyle,
 }
 

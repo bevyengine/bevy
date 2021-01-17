@@ -5,6 +5,7 @@ use bevy::{prelude::*, text::FontAtlasSet};
 fn main() {
     App::build()
         .init_resource::<State>()
+        .add_resource(ClearColor(Color::BLACK))
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
         .add_system(text_update_system.system())
@@ -35,14 +36,12 @@ fn atlas_render_system(
     font_atlas_sets: Res<Assets<FontAtlasSet>>,
     texture_atlases: Res<Assets<TextureAtlas>>,
 ) {
-    let count = font_atlas_sets.iter().count();
     if let Some(set) = font_atlas_sets.get(&state.handle.as_weak::<FontAtlasSet>()) {
         if let Some((_size, font_atlas)) = set.iter().next() {
             let x_offset = state.atlas_count as f32;
             if state.atlas_count == font_atlas.len() as u32 {
                 return;
             }
-            dbg!(count);
             let texture_atlas = texture_atlases
                 .get(&font_atlas[state.atlas_count as usize].texture_atlas)
                 .unwrap();
@@ -83,10 +82,10 @@ fn setup(commands: &mut Commands, asset_server: Res<AssetServer>, mut state: Res
     commands.spawn(CameraUiBundle::default()).spawn(TextBundle {
         text: BasicText {
             value: "a".to_string(),
-            font: font_handle,
             style: TextStyle {
+                font: font_handle,
                 font_size: 60.0,
-                color: Color::MIDNIGHT_BLUE,
+                color: Color::YELLOW,
             },
             ..Default::default()
         }

@@ -41,16 +41,16 @@ fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
                 sections: vec![
                     TextSection {
                         value: "FPS: ".to_string(),
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         style: TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 60.0,
                             color: Color::WHITE,
                         },
                     },
                     TextSection {
                         value: "".to_string(),
-                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                         style: TextStyle {
+                            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                             font_size: 60.0,
                             color: Color::RED,
                         },

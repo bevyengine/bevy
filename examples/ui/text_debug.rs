@@ -35,8 +35,8 @@ fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
         },
         text: BasicText {
             value: "This is\ntext with\nline breaks\nin the top left".to_string(),
-            font: font.clone(),
             style: TextStyle {
+                font: font.clone(),
                 font_size: 50.0,
                 color: Color::WHITE,
             },
@@ -64,8 +64,8 @@ fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
                 value:
                     "This text is very long, has a limited width, is centred, is positioned in the top right and is also coloured pink."
                         .to_string(),
-                font: font.clone(),
-                style: TextStyle {
+                        style: TextStyle {
+                    font: font.clone(),
                     font_size: 50.0,
                     color: Color::rgb(0.8, 0.2, 0.7),
                 },
@@ -92,48 +92,48 @@ fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
                 sections: vec![
                     TextSection {
                         value: "This text changes in the bottom right".to_string(),
-                        font: font.clone(),
                         style: TextStyle {
+                            font: font.clone(),
                             font_size: 30.0,
                             color: Color::WHITE,
                         },
                     },
                     TextSection {
                         value: "\nThis text changes in the bottom right - ".to_string(),
-                        font: font.clone(),
                         style: TextStyle {
+                            font: font.clone(),
                             font_size: 30.0,
                             color: Color::RED,
                         },
                     },
                     TextSection {
                         value: "".to_string(),
-                        font: font.clone(),
                         style: TextStyle {
+                            font: font.clone(),
                             font_size: 30.0,
                             color: Color::ORANGE_RED,
                         },
                     },
                     TextSection {
                         value: " fps, ".to_string(),
-                        font: font.clone(),
                         style: TextStyle {
+                            font: font.clone(),
                             font_size: 30.0,
                             color: Color::YELLOW,
                         },
                     },
                     TextSection {
                         value: "".to_string(),
-                        font: font.clone(),
                         style: TextStyle {
+                            font: font.clone(),
                             font_size: 30.0,
                             color: Color::GREEN,
                         },
                     },
                     TextSection {
                         value: " ms/frame".to_string(),
-                        font: font.clone(),
                         style: TextStyle {
+                            font: font.clone(),
                             font_size: 30.0,
                             color: Color::BLUE,
                         },
@@ -162,8 +162,8 @@ fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
         text: BasicText {
             value: "This\ntext has\nline breaks and also a set width in the bottom left"
                 .to_string(),
-            font,
             style: TextStyle {
+                font,
                 font_size: 50.0,
                 color: Color::WHITE,
             },

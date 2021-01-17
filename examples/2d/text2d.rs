@@ -15,8 +15,8 @@ fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
         .spawn(Text2dBundle {
             text: BasicText {
                 value: "This text is in the 2D scene.".to_string(),
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 style: TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 60.0,
                     color: Color::WHITE,
                 },

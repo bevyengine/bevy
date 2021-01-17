@@ -56,35 +56,35 @@ fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
             text: Text {
                 sections: vec![
                     TextSection {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         value: "Bird Count: ".to_string(),
                         style: TextStyle {
-                            color: Color::rgb(0.0, 1.0, 0.0),
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 40.0,
+                            color: Color::rgb(0.0, 1.0, 0.0),
                         },
                     },
                     TextSection {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         value: "".to_string(),
                         style: TextStyle {
-                            color: Color::rgb(0.0, 1.0, 1.0),
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 40.0,
+                            color: Color::rgb(0.0, 1.0, 1.0),
                         },
                     },
                     TextSection {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         value: "\nAverage FPS: ".to_string(),
                         style: TextStyle {
-                            color: Color::rgb(0.0, 1.0, 0.0),
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 40.0,
+                            color: Color::rgb(0.0, 1.0, 0.0),
                         },
                     },
                     TextSection {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         value: "".to_string(),
                         style: TextStyle {
-                            color: Color::rgb(0.0, 1.0, 1.0),
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 40.0,
+                            color: Color::rgb(0.0, 1.0, 1.0),
                         },
                     },
                 ],

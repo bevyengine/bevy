@@ -1,3 +1,4 @@
+use bevy_asset::Handle;
 use bevy_math::{Mat4, Vec3};
 use bevy_render::{
     color::Color,
@@ -11,7 +12,7 @@ use bevy_render::{
 use bevy_sprite::TextureAtlasSprite;
 use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
 
-use crate::{PositionedGlyph, TextSection};
+use crate::{Font, PositionedGlyph, TextSection};
 
 #[derive(Debug, Clone, Copy)]
 pub struct TextAlignment {
@@ -30,6 +31,7 @@ impl Default for TextAlignment {
 
 #[derive(Clone, Debug)]
 pub struct TextStyle {
+    pub font: Handle<Font>,
     pub font_size: f32,
     pub color: Color,
 }
@@ -37,8 +39,9 @@ pub struct TextStyle {
 impl Default for TextStyle {
     fn default() -> Self {
         Self {
-            color: Color::WHITE,
+            font: Default::default(),
             font_size: 12.0,
+            color: Color::WHITE,
         }
     }
 }

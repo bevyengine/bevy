@@ -59,8 +59,8 @@ fn setup(
                                 },
                                 text: BasicText {
                                     value: "Text Example".to_string(),
-                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                     style: TextStyle {
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                         font_size: 30.0,
                                         color: Color::WHITE,
                                     },

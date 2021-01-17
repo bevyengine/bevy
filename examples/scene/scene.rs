@@ -104,8 +104,8 @@ fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
         },
         text: BasicText {
             value: "Nothing to see in this window! Check the console output!".to_string(),
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
             style: TextStyle {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 50.0,
                 color: Color::WHITE,
             },

@@ -116,16 +116,16 @@ fn setup(
                 sections: vec![
                     TextSection {
                         value: "Contributor showcase".to_string(),
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         style: TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 60.0,
                             color: Color::WHITE,
                         },
                     },
                     TextSection {
                         value: "".to_string(),
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         style: TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 60.0,
                             color: Color::WHITE,
                         },

@@ -80,8 +80,8 @@ fn setup(
             parent.spawn(TextBundle {
                 text: BasicText {
                     value: "Button".to_string(),
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     style: TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 40.0,
                         color: Color::rgb(0.9, 0.9, 0.9),
                     },
