@@ -38,7 +38,7 @@ If you intend to track Bevy's master, you can specify the latest commit you supp
 ```
 bevy = { version = "0.4", git = "https://github.com/bevyengine/bevy", rev="509b138e8fa3ea250393de40c33cc857c72134d3", default-features = false }
 ```
-You can specify the dependency [both as a version and with git](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#multiple-locations), the version will be used if using the dependency from crates.io, the git dependency will be used otherwise.
+You can specify the dependency [both as a version and with git](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#multiple-locations), the version will be used if using the dependency from [crates.io](https://crates.io), the git dependency will be used otherwise.
 
 Bevy is evolving very fast. You can use one of these badges to communicate to your users how closely you intend to track Bevy's master branch.
 
