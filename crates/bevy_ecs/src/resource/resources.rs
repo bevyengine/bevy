@@ -29,6 +29,7 @@ pub enum ResourceIndex {
 // TODO: consider using this for normal resources (would require change tracking)
 trait ResourceStorage: Downcast {
     fn clear_trackers(&mut self);
+    fn get_flag_mutated(&mut self, index: usize) -> &mut bool;
 }
 impl_downcast!(ResourceStorage);
 
@@ -77,6 +78,22 @@ impl<T: 'static> VecResourceStorage<T> {
     fn is_empty(&self) -> bool {
         self.stored.is_empty()
     }
+
+    fn borrow(&self, index:usize) -> bool {
+        self.stored[index].atomic_borrow.borrow()
+    }
+
+    fn borrow_mut(&self, index:usize) -> bool {
+        self.stored[index].atomic_borrow.borrow_mut()
+    }
+
+    unsafe fn release(&self, index:usize) {
+        self.stored[index].atomic_borrow.release()
+    }
+
+    unsafe fn release_mut(&self, index:usize) {
+        self.stored[index].atomic_borrow.release_mut()
+    }
 }
 
 impl<T: 'static> Default for VecResourceStorage<T> {
@@ -93,6 +110,12 @@ impl<T: 'static> ResourceStorage for VecResourceStorage<T> {
             stored.added = UnsafeCell::new(false);
             stored.mutated = UnsafeCell::new(false);
         }
+    }
+
+    fn get_flag_mutated(&mut self, index: usize) -> &mut bool {
+        // # Safety
+        // Safe as we take &mut self
+        unsafe { self.stored[index].mutated.get().as_mut().unwrap() }
     }
 }
 
@@ -326,6 +349,63 @@ impl Resources {
         for (_, resource_data) in self.resource_data.iter_mut() {
             resource_data.storage.clear_trackers();
         }
+    }
+
+    pub fn iter_types(&self) -> impl Iterator<Item = &TypeId> {
+        self.resource_data.keys()
+    }
+
+    pub fn set_mutated_dynamic(&mut self, type_id: &TypeId) {
+        let data = self.resource_data.get_mut(type_id).unwrap();
+        *data.storage.get_flag_mutated(data.default_index.unwrap()) = true;
+    }
+
+    pub fn borrow<T: Resource>(&self) {
+        self.get_resource_data_index::<T>(ResourceIndex::Global)
+        .map(|(data, index)| {
+            let resources = data
+                .storage
+                .downcast_ref::<VecResourceStorage<T>>()
+                .unwrap();
+            if !resources.borrow(index) {
+                panic!("{} already borrowed uniquely.", std::any::type_name::<T>());
+            }
+        });
+    }
+
+    pub fn borrow_mut<T: Resource>(&self) {
+        self.get_resource_data_index::<T>(ResourceIndex::Global)
+        .map(|(data, index)| {
+            let resources = data
+                .storage
+                .downcast_ref::<VecResourceStorage<T>>()
+                .unwrap();
+            if !resources.borrow_mut(index) {
+                panic!("{} already borrowed uniquely.", std::any::type_name::<T>());
+            }
+        });
+    }
+
+    pub unsafe fn release<T: Resource>(&self) {
+        self.get_resource_data_index::<T>(ResourceIndex::Global)
+        .map(|(data, index)| {
+            let resources = data
+                .storage
+                .downcast_ref::<VecResourceStorage<T>>()
+                .unwrap();
+                resources.release(index);
+        });
+    }
+
+    pub unsafe fn release_mut<T: Resource>(&self) {
+        self.get_resource_data_index::<T>(ResourceIndex::Global)
+        .map(|(data, index)| {
+            let resources = data
+                .storage
+                .downcast_ref::<VecResourceStorage<T>>()
+                .unwrap();
+                resources.release_mut(index);
+        });
     }
 }
 

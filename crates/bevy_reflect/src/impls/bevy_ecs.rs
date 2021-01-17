@@ -1,7 +1,7 @@
 use crate::{FromType, Reflect};
 use bevy_ecs::{
     Archetype, Component, Entity, EntityMap, FromResources, MapEntities, MapEntitiesError,
-    Resources, World,
+    Resource, ResourceIndex, Resources, World,
 };
 use std::marker::PhantomData;
 
@@ -10,6 +10,7 @@ pub struct ReflectComponent {
     add_component: fn(&mut World, resources: &Resources, Entity, &dyn Reflect),
     apply_component: fn(&mut World, Entity, &dyn Reflect),
     reflect_component: unsafe fn(&Archetype, usize) -> &dyn Reflect,
+    reflect_component_mut: unsafe fn(&mut Archetype, usize) -> &mut dyn Reflect,
     copy_component: fn(&World, &mut World, &Resources, Entity, Entity),
 }
 
@@ -36,6 +37,17 @@ impl ReflectComponent {
         entity_index: usize,
     ) -> &'a dyn Reflect {
         (self.reflect_component)(archetype, entity_index)
+    }
+
+    /// # Safety
+    /// This does not do bound checks on entity_index. You must make sure entity_index is within bounds before calling.
+    /// This does not mark the component as mutated, you must do it as necessary.
+    pub unsafe fn reflect_component_mut<'a>(
+        &self,
+        archetype: &'a mut Archetype,
+        entity_index: usize,
+    ) -> &'a mut dyn Reflect {
+        (self.reflect_component_mut)(archetype, entity_index)
     }
 
     pub fn copy_component(
@@ -85,6 +97,13 @@ impl<C: Component + Reflect + FromResources> FromType<C> for ReflectComponent {
                     // the type has been looked up by the caller, so this is safe
                     let ptr = archetype.get::<C>().unwrap().as_ptr().add(index);
                     ptr.as_ref().unwrap()
+                }
+            },
+            reflect_component_mut: |archetype, index| {
+                unsafe {
+                    // the type has been looked up by the caller, so this is safe
+                    let ptr = archetype.get::<C>().unwrap().as_ptr().add(index);
+                    ptr.as_mut().unwrap()
                 }
             },
         }
@@ -179,6 +198,114 @@ impl<Runtime: Component + IntoComponent<Scene>, Scene: Component> FromType<Runti
                     .unwrap();
             },
             marker: Default::default(),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct ReflectResource {
+    add_resource: fn(&mut Resources, &dyn Reflect),
+    apply_resource: fn(&mut Resources, &dyn Reflect),
+    copy_resource: fn(&Resources, &mut Resources),
+    borrow_resource: fn(&Resources),
+    borrow_mut_resource: fn(&Resources),
+    reflect_resource: unsafe fn(&Resources) -> &dyn Reflect,
+    reflect_resource_mut: unsafe fn(&Resources) -> &mut dyn Reflect,
+    release_resource: unsafe fn(&Resources),
+    release_mut_resource: unsafe fn(&Resources),
+}
+
+impl<'a> ReflectResource {
+    pub fn add_resource(&self, resources: &mut Resources, resource: &dyn Reflect) {
+        (self.add_resource)(resources, resource);
+    }
+
+    pub fn apply_resource(&self, resources: &mut Resources, resource: &dyn Reflect) {
+        (self.apply_resource)(resources, resource);
+    }
+
+    pub fn copy_resource(
+        &self,
+        source_resources: &Resources,
+        destination_resources: &mut Resources,
+    ) {
+        (self.copy_resource)(source_resources, destination_resources);
+    }
+
+    /// # Safety
+    /// You must call borrow_resource() and release_resource() manually
+    pub unsafe fn reflect_resource(&self, resources: &'a Resources) -> &'a dyn Reflect {
+        (self.reflect_resource)(resources)
+    }
+
+    /// # Safety
+    /// You must call borrow_mut_resource() and release_mut_resource() manually
+    /// This does not mark the resource as mutated, you must do it as necessary.
+    pub unsafe fn reflect_resource_mut(&self, resources: &'a Resources) -> &'a mut dyn Reflect {
+        (self.reflect_resource_mut)(resources)
+    }
+
+    pub fn borrow_resource(&self, resources: &Resources) {
+        (self.borrow_resource)(resources)
+    }
+
+    pub fn borrow_mut_resource(&self, resources: &Resources) {
+        (self.borrow_mut_resource)(resources)
+    }
+
+    pub unsafe fn release_resource(&self, resources: &Resources) {
+        (self.release_resource)(resources)
+    }
+
+    pub unsafe  fn release_mut_resource(&self, resources: &Resources) {
+        (self.release_mut_resource)(resources)
+    }
+}
+
+impl<'a, R: Resource + Reflect + FromResources> FromType<R> for ReflectResource {
+    fn from_type() -> Self {
+        ReflectResource {
+            add_resource: |resources, reflected_resource| {
+                let mut resource = R::from_resources(resources);
+                resource.apply(reflected_resource);
+                resources.insert(resource);
+            },
+            apply_resource: |resources, reflected_resource| {
+                let mut resource = resources.get_mut::<R>().unwrap();
+                resource.apply(reflected_resource)
+            },
+            copy_resource: |source_resources, destination_resources| {
+                let source_resource = source_resources.get::<R>().unwrap();
+                let mut destination_resource = R::from_resources(destination_resources);
+                destination_resource.apply(&*source_resource);
+                destination_resources.insert(destination_resource);
+            },
+            reflect_resource: |resources| unsafe {
+                resources
+                    .get_unsafe_ref::<R>(ResourceIndex::Global)
+                    .as_ptr()
+                    .as_ref()
+                    .unwrap()
+            },
+            reflect_resource_mut: |resources| unsafe {
+                resources
+                    .get_unsafe_ref::<R>(ResourceIndex::Global)
+                    .as_ptr()
+                    .as_mut()
+                    .unwrap()
+            },
+            borrow_resource: |resources| {
+                resources.borrow::<R>()
+            },
+            borrow_mut_resource:  |resources| {
+                resources.borrow_mut::<R>()
+            },
+            release_resource: |resources| unsafe {
+                resources.release::<R>();
+            },
+            release_mut_resource: |resources| unsafe {
+                resources.release_mut::<R>();
+            },
         }
     }
 }
