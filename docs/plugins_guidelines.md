@@ -44,9 +44,9 @@ Bevy is evolving very fast. You can use one of these badges to communicate to yo
 
 |badge|description|image URL|
 |-|-|-|
-|![](https://img.shields.io/badge/Bevy%20tracking-master-lightblue)|I intend to track master as much as I can|`https://img.shields.io/badge/Bevy%20tracking-master-green`|
-|![](https://img.shields.io/badge/Bevy%20tracking-PR%20welcome-lightblue)|I welcome PR that will update my plugin to current Bevy master|`https://img.shields.io/badge/Bevy%20tracking-PR%20welcome-yellow`|
-|![](https://img.shields.io/badge/Bevy%20tracking-released%20version-lightblue)|I will only follow released Bevy versions|`https://img.shields.io/badge/Bevy%20tracking-released%20version-blue`|
+|![](https://img.shields.io/badge/Bevy%20tracking-master-lightblue)|I intend to track master as much as I can|`https://img.shields.io/badge/Bevy%20tracking-master-lightblue`|
+|![](https://img.shields.io/badge/Bevy%20tracking-PR%20welcome-lightblue)|I welcome PR that will update my plugin to current Bevy master|`https://img.shields.io/badge/Bevy%20tracking-PR%20welcome-lightblue`|
+|![](https://img.shields.io/badge/Bevy%20tracking-released%20version-lightblue)|I will only follow released Bevy versions|`https://img.shields.io/badge/Bevy%20tracking-released%20version-lightblue`|
 
 ## General Advices for a Rust Crate
 
