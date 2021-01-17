@@ -4,6 +4,20 @@ Bevy has a plug and play architecture, where you can easily add plugins for new 
 
 This document targets plugin authors.
 
+
+## Checklist
+
+* [ ] [Pick a reasonable, descriptive name](#naming)
+* [ ] [Bevy/plugin version support table](#bevy-version-supported)
+* [ ] [Turn off default Bevy features](#bevy-features)
+* [ ] [Choose a Bevy git/master tracking badge](#master-branch-tracking)
+* [ ] [Pick a license](#licensing)
+* [ ] [Remove unnecessary or redundant dependencies](#small-crate-size)
+* [ ] [Add cargo tests and CI](#tests-and-ci)
+* [ ] [Documentation and examples](#documentation-and-examples)
+* [ ] [Publish your plugin](#publishing-your-plugin)
+* [ ] [Promote your plugin](#promotion)
+
 ## Naming
 
 You are free to use a `bevy_xxx` name for your plugin, with the caveat "please be reasonable". If you are about to claim a generic name like `bevy_animation`, `bevy_color`, or `bevy_editor`... please ask first. The rational is explained [here](https://github.com/bevyengine/bevy/discussions/1202#discussioncomment-258907).
