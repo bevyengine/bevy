@@ -23,7 +23,7 @@ fn main() {
         .add_stage_after(stage::UPDATE, STAGE, StateStage::<GameState>::default())
         .on_state_enter(STAGE, GameState::Playing, setup.system())
         .on_state_update(STAGE, GameState::Playing, move_player.system())
-        .on_state_update(STAGE, GameState::Playing, move_camera.system())
+        .on_state_update(STAGE, GameState::Playing, focus_camera.system())
         .on_state_update(STAGE, GameState::Playing, rotate_bonus.system())
         .on_state_update(STAGE, GameState::Playing, scoreboard_system.system())
         .on_state_exit(STAGE, GameState::Playing, teardown.system())
@@ -243,8 +243,8 @@ fn move_player(
     }
 }
 
-// move the camera, the more cake eaten, the faster
-fn move_camera(
+// change the focus of the camera
+fn focus_camera(
     time: Res<Time>,
     mut game: ResMut<Game>,
     mut transforms: QuerySet<(Query<(&mut Transform, &Camera)>, Query<&Transform>)>,
