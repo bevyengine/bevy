@@ -40,7 +40,7 @@ struct Velocity {
 const GRAVITY: f32 = -9.821 * 100.0;
 const SPRITE_SIZE: f32 = 75.0;
 
-const COL_DESELECTED: Color = Color::rgb_linear(0.03, 0.03, 0.03);
+const COL_DESELECTED: Color = Color::rgba_linear(0.03, 0.03, 0.03, 0.92);
 const COL_SELECTED: Color = Color::WHITE;
 
 const SHOWCASE_TIMER_SECS: f32 = 3.0;
@@ -326,8 +326,14 @@ fn contributors() -> Contributors {
 /// Because there is no `Mul<Color> for Color` instead `[f32; 3]` is
 /// used.
 fn gen_color(rng: &mut impl Rng) -> [f32; 3] {
-    let r = rng.gen_range(0.3..1.0);
-    let g = rng.gen_range(0.3..1.0);
-    let b = rng.gen_range(0.3..1.0);
-    [r, g, b]
+    loop {
+        let rgb = rng.gen();
+        if luminance(rgb) >= 0.6 {
+            break rgb;
+        }
+    }
+}
+
+fn luminance([r, g, b]: [f32; 3]) -> f32 {
+    0.299 * r + 0.587 * g + 0.114 * b
 }
