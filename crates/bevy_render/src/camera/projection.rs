@@ -114,8 +114,8 @@ impl Default for OrthographicProjection {
     }
 }
 
-/// Given coordinates in world space (x,y,z), and a camera (origin, direction, projection),
-/// compute the screenspace coordinates (x,y)
+/// Given coordinates in world space (x,y,z), and a camera's position and projection matrix,
+/// compute the screenspace coordinates (x,y).
 pub fn world_to_screen_coordinate(
     world_space_coords: Vec3,
     cam_projection_matrix: Mat4,
