@@ -1,7 +1,7 @@
 use super::system_param::FetchSystemParam;
 use crate::{
-    AccessConflict, ArchetypeComponent, Commands, QueryAccess, Resources, System, SystemId,
-    SystemParam, TypeAccess, World,
+    ArchetypeComponent, Commands, QueryAccess, Resources, System, SystemId, SystemParam,
+    TypeAccess, World,
 };
 use parking_lot::Mutex;
 use std::{any::TypeId, borrow::Cow, cell::UnsafeCell, sync::Arc};
@@ -48,12 +48,8 @@ impl SystemState {
             }
             if !component_access.is_compatible(&self.archetype_component_access) {
                 conflict_index = Some(i);
-                conflict_name =
-                    match component_access.get_conflict(&self.archetype_component_access) {
-                        AccessConflict::None => None,
-                        AccessConflict::Element(element) => Some(element),
-                        AccessConflict::All => unreachable!(), // TODO verify
-                    }
+                conflict_name = component_access
+                    .get_conflict(&self.archetype_component_access)
                     .and_then(|archetype_component| {
                         query_accesses
                             .iter()

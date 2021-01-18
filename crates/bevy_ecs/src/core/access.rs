@@ -196,17 +196,10 @@ impl QueryAccess {
     }
 }
 
-pub enum AccessConflict<'a, T> {
-    None,
-    Element(&'a T),
-    All,
-}
-
 /// Provides information about the types a [System] reads and writes
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct TypeAccess<T: Hash + Eq + PartialEq> {
     reads_all: bool,
-    writes_all: bool,
     reads_and_writes: HashSet<T>,
     writes: HashSet<T>,
 }
@@ -215,7 +208,6 @@ impl<T: Hash + Eq + PartialEq> Default for TypeAccess<T> {
     fn default() -> Self {
         Self {
             reads_all: false,
-            writes_all: false,
             reads_and_writes: Default::default(),
             writes: Default::default(),
         }
@@ -235,59 +227,31 @@ impl<T: Hash + Eq + PartialEq + Copy> TypeAccess<T> {
     }
 
     pub fn is_compatible(&self, other: &TypeAccess<T>) -> bool {
-        if self.writes_all() {
-            !other.writes_all && !other.reads_all && other.reads_and_writes.is_empty()
-        } else if self.reads_all {
-            !other.writes_all && other.writes.is_empty()
+        if self.reads_all {
+            other.writes.is_empty()
+        } else if other.reads_all {
+            self.writes.is_empty()
         } else {
             self.writes.is_disjoint(&other.reads_and_writes)
                 && self.reads_and_writes.is_disjoint(&other.writes)
         }
     }
 
-    pub fn get_conflict<'a>(&'a self, other: &'a TypeAccess<T>) -> AccessConflict<'a, T> {
-        if self.writes_all {
-            if other.writes_all || other.reads_all {
-                AccessConflict::All
-            } else {
-                match other.reads_and_writes.iter().next() {
-                    Some(element) => AccessConflict::Element(element),
-                    None => AccessConflict::None,
-                }
-            }
-        } else if self.reads_all {
-            if other.writes_all {
-                AccessConflict::All
-            } else {
-                match other.writes.iter().next() {
-                    Some(element) => AccessConflict::Element(element),
-                    None => AccessConflict::None,
-                }
-            }
-        } else if other.writes_all {
-            match self.reads_and_writes.iter().next() {
-                Some(element) => AccessConflict::Element(element),
-                None => AccessConflict::None,
-            }
+    pub fn get_conflict<'a>(&'a self, other: &'a TypeAccess<T>) -> Option<&'a T> {
+        if self.reads_all {
+            other.writes.iter().next()
         } else if other.reads_all {
-            match self.writes.iter().next() {
-                Some(element) => AccessConflict::Element(element),
-                None => AccessConflict::None,
-            }
+            self.writes.iter().next()
         } else {
             match self.writes.intersection(&other.reads_and_writes).next() {
-                Some(element) => AccessConflict::Element(element),
-                None => match other.writes.intersection(&self.reads_and_writes).next() {
-                    Some(element) => AccessConflict::Element(element),
-                    None => AccessConflict::None,
-                },
+                Some(element) => Some(element),
+                None => other.writes.intersection(&self.reads_and_writes).next(),
             }
         }
     }
 
     pub fn extend(&mut self, other: &TypeAccess<T>) {
         self.reads_all = self.reads_all || other.reads_all;
-        self.writes_all = self.writes_all || other.writes_all;
         self.writes.extend(&other.writes);
         self.reads_and_writes.extend(&other.reads_and_writes);
     }
@@ -305,49 +269,33 @@ impl<T: Hash + Eq + PartialEq + Copy> TypeAccess<T> {
         self.reads_all = true;
     }
 
-    pub fn write_all(&mut self) {
-        self.reads_all = true;
-        self.writes_all = true;
-    }
-
     pub fn clear(&mut self) {
         self.reads_all = false;
-        self.writes_all = false;
         self.reads_and_writes.clear();
         self.writes.clear();
     }
 
     pub fn is_read_or_write(&self, ty: &T) -> bool {
-        self.reads_all || self.writes_all || self.reads_and_writes.contains(ty)
+        self.reads_all || self.reads_and_writes.contains(ty)
     }
 
     pub fn is_write(&self, ty: &T) -> bool {
-        self.writes_all || self.writes.contains(ty)
+        self.writes.contains(ty)
     }
 
     pub fn reads_all(&self) -> bool {
         self.reads_all
     }
 
-    pub fn writes_all(&self) -> bool {
-        self.writes_all
-    }
-
     /// Returns an iterator of distinct accessed types if only some types are accessed.
     pub fn all_distinct_types(&self) -> Option<impl Iterator<Item = &T>> {
-        if !(self.reads_all || self.writes_all) {
+        if !self.reads_all {
             return Some(self.reads_and_writes.iter());
         }
         None
     }
 
     pub fn condense(&self, all_types: &[T]) -> CondensedTypeAccess {
-        if self.writes_all {
-            unreachable!(
-                "Access for systems that exclusively access all of `World`\
-                 or `Resources` should never be condensed."
-            )
-        }
         if self.reads_all {
             let mut writes = FixedBitSet::with_capacity(all_types.len());
             for (index, access_type) in all_types.iter().enumerate() {

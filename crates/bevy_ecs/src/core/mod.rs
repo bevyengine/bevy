@@ -43,9 +43,7 @@ mod serde;
 mod world;
 mod world_builder;
 
-pub use access::{
-    AccessConflict, ArchetypeComponent, CondensedTypeAccess, QueryAccess, TypeAccess,
-};
+pub use access::{ArchetypeComponent, CondensedTypeAccess, QueryAccess, TypeAccess};
 pub use archetype::{Archetype, ComponentFlags, TypeState};
 pub use borrow::{AtomicBorrow, Ref, RefMut};
 pub use bundle::{Bundle, DynamicBundle, MissingComponent};

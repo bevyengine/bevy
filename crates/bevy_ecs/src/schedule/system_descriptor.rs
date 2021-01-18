@@ -60,10 +60,6 @@ impl ParallelSystemDescriptorCoercion for ParallelSystemDescriptor {
 }
 
 fn new_parallel_descriptor(system: BoxedSystem<(), ()>) -> ParallelSystemDescriptor {
-    // TODO remove this and writes-all case from everywhere
-    if system.archetype_component_access().writes_all() || system.resource_access().writes_all() {
-        panic!();
-    }
     ParallelSystemDescriptor {
         system: unsafe { NonNull::new_unchecked(Box::into_raw(system)) },
         label: None,
