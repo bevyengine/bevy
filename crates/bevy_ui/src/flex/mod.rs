@@ -3,9 +3,7 @@ mod convert;
 use crate::{Node, Style, ZIndex};
 
 use bevy_app::EventReader;
-use bevy_ecs::{
-    Added, Changed, Entity, Mutated, Not, Or, Query, QuerySet, Res, ResMut, With,
-};
+use bevy_ecs::{Added, Changed, Entity, Mutated, Not, Or, Query, QuerySet, Res, ResMut, With};
 use bevy_log::{trace, warn};
 
 use bevy_math::Vec2;
@@ -301,7 +299,8 @@ fn upsert_window_nodes(
             let window = if let Some(node_window_id) = node_window_id {
                 trace!(
                     "Adding window node for: {:?} on {:?}",
-                    entity, node_window_id.0
+                    entity,
+                    node_window_id.0
                 );
                 windows.get(node_window_id.0).unwrap()
             } else {
@@ -375,7 +374,8 @@ fn update_window_sizes(
             if resized_window_id == entity_window_id {
                 trace!(
                     "Rescaling window node for {:?} ({:?})",
-                    entity, resized_window_id
+                    entity,
+                    resized_window_id
                 );
                 *dirty_layout = true;
                 set_window_node_style(
@@ -542,7 +542,8 @@ fn update_stacking_context(
             }
             trace!(
                 "{:?} has ZIndex::Auto, including it into its parent {:?}",
-                entity, **parent
+                entity,
+                **parent
             );
             return update_stacking_context(flex_surface, **parent, style_query);
         }
