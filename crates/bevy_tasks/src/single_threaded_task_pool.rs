@@ -102,6 +102,13 @@ impl TaskPool {
         });
         FakeTask
     }
+
+    pub fn spawn_local<T>(&self, future: impl Future<Output = T> + 'static) -> FakeTask
+    where
+        T: 'static,
+    {
+        self.spawn(future)
+    }
 }
 
 #[derive(Debug)]
