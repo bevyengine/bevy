@@ -136,7 +136,7 @@ impl SystemStageExecutor for ParallelSystemStageExecutor {
             // Run systems that want to be between parallel systems and their command buffers.
             self.run_systems_sequence(before_commands, system_sets, world, resources);
 
-            // Merge in command buffers.
+            // Apply parallel systems' buffers.
             // TODO sort wrt dependencies?
             // TODO rewrite to use the bitset?
             for scheduling_data in &self.parallel {
@@ -144,7 +144,7 @@ impl SystemStageExecutor for ParallelSystemStageExecutor {
                 if let Yes | YesAndLoop = self.system_set_should_run[index.set] {
                     system_sets[index.set]
                         .parallel_system_mut(index.system)
-                        .run_exclusive(world, resources);
+                        .apply_buffers(world, resources);
                 }
             }
 

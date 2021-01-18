@@ -4,8 +4,9 @@ use std::{any::TypeId, borrow::Cow};
 
 use super::{ParallelSystemStageExecutor, SerialSystemStageExecutor, SystemStageExecutor};
 use crate::{
-    ArchetypeComponent, InjectionPoint, Ordering, ParallelSystemDescriptor, Resources, RunCriteria,
-    SequentialSystemDescriptor, ShouldRun, System, SystemDescriptor, SystemId, TypeAccess, World,
+    ArchetypeComponent, ExclusiveSystem, ExclusiveSystemDescriptor, InjectionPoint, Ordering,
+    ParallelSystemDescriptor, Resources, RunCriteria, ShouldRun, System, SystemId, TypeAccess,
+    World,
 };
 
 pub enum StageError {
@@ -55,8 +56,8 @@ impl SystemStage {
         }
     }
 
-    pub fn single(system: impl Into<SystemDescriptor>) -> Self {
-        Self::serial().with_system(system)
+    pub fn single(system: impl Into<ExclusiveSystemDescriptor>) -> Self {
+        Self::serial().with_exclusive_system(system)
     }
 
     pub fn serial() -> Self {
@@ -67,8 +68,13 @@ impl SystemStage {
         Self::new(Box::new(ParallelSystemStageExecutor::default()))
     }
 
-    pub fn with_system(mut self, system: impl Into<SystemDescriptor>) -> Self {
+    pub fn with_system(mut self, system: impl Into<ParallelSystemDescriptor>) -> Self {
         self.add_system(system);
+        self
+    }
+
+    pub fn with_exclusive_system(mut self, system: impl Into<ExclusiveSystemDescriptor>) -> Self {
+        self.add_exclusive_system(system);
         self
     }
 
@@ -87,8 +93,16 @@ impl SystemStage {
         self
     }
 
-    pub fn add_system(&mut self, system: impl Into<SystemDescriptor>) -> &mut Self {
+    pub fn add_system(&mut self, system: impl Into<ParallelSystemDescriptor>) -> &mut Self {
         self.system_sets[0].add_system(system);
+        self
+    }
+
+    pub fn add_exclusive_system(
+        &mut self,
+        system: impl Into<ExclusiveSystemDescriptor>,
+    ) -> &mut Self {
+        self.system_sets[0].add_exclusive_system(system);
         self
     }
 
@@ -163,7 +177,7 @@ impl SystemStage {
                     );
                 }
             }
-            for (system_index, descriptor) in system_set.sequential_systems.iter().enumerate() {
+            for (system_index, descriptor) in system_set.exclusive_systems.iter().enumerate() {
                 if let Some(label) = descriptor.label {
                     let index = SystemIndex {
                         set: set_index,
@@ -201,7 +215,7 @@ impl SystemStage {
                     );
                 }
             }
-            for (system_index, descriptor) in system_set.sequential_systems.iter().enumerate() {
+            for (system_index, descriptor) in system_set.exclusive_systems.iter().enumerate() {
                 let index = SystemIndex {
                     set: set_index,
                     system: system_index,
@@ -259,7 +273,7 @@ impl SystemStage {
 
 fn find_target_index(
     target: Label,
-    order: &Vec<SystemIndex>,
+    order: &[SystemIndex],
     map: &HashMap<Label, SystemIndex>,
 ) -> Option<usize> {
     // TODO better error message
@@ -328,9 +342,9 @@ pub struct SystemSet {
     run_criteria: RunCriteria,
     is_dirty: bool,
     parallel_systems: Vec<ParallelSystemDescriptor>,
-    sequential_systems: Vec<SequentialSystemDescriptor>,
+    exclusive_systems: Vec<ExclusiveSystemDescriptor>,
     uninitialized_parallel: Vec<usize>,
-    uninitialized_sequential: Vec<usize>,
+    uninitialized_exclusive: Vec<usize>,
 }
 
 impl SystemSet {
@@ -339,8 +353,8 @@ impl SystemSet {
     }
 
     fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
-        for index in self.uninitialized_sequential.drain(..) {
-            self.sequential_systems[index]
+        for index in self.uninitialized_exclusive.drain(..) {
+            self.exclusive_systems[index]
                 .system
                 .initialize(world, resources);
         }
@@ -359,11 +373,8 @@ impl SystemSet {
         &mut self.run_criteria
     }
 
-    pub(crate) fn exclusive_system_mut(
-        &mut self,
-        index: usize,
-    ) -> &mut dyn System<In = (), Out = ()> {
-        &mut *self.sequential_systems[index].system
+    pub(crate) fn exclusive_system_mut(&mut self, index: usize) -> &mut impl ExclusiveSystem {
+        &mut self.exclusive_systems[index].system
     }
 
     pub(crate) fn parallel_system_mut(
@@ -401,32 +412,40 @@ impl SystemSet {
             .map(|descriptor| descriptor.system_mut())
     }
 
-    pub fn with_system(mut self, system: impl Into<SystemDescriptor>) -> Self {
+    pub fn with_system(mut self, system: impl Into<ParallelSystemDescriptor>) -> Self {
         self.add_system(system);
         self
     }
 
-    pub fn add_system(&mut self, system: impl Into<SystemDescriptor>) -> &mut Self {
-        match system.into() {
-            SystemDescriptor::Parallel(descriptor) => {
-                self.uninitialized_parallel
-                    .push(self.parallel_systems.len());
-                self.parallel_systems.push(descriptor);
-            }
-            SystemDescriptor::Sequential(descriptor) => {
-                self.uninitialized_sequential
-                    .push(self.sequential_systems.len());
-                self.sequential_systems.push(descriptor);
-            }
-        }
+    pub fn with_exclusive_system(mut self, system: impl Into<ExclusiveSystemDescriptor>) -> Self {
+        self.add_exclusive_system(system);
+        self
+    }
+
+    pub fn add_system(&mut self, system: impl Into<ParallelSystemDescriptor>) -> &mut Self {
+        self.uninitialized_parallel
+            .push(self.parallel_systems.len());
+        self.parallel_systems.push(system.into());
+
+        self.is_dirty = true;
+        self
+    }
+
+    pub fn add_exclusive_system(
+        &mut self,
+        system: impl Into<ExclusiveSystemDescriptor>,
+    ) -> &mut Self {
+        self.uninitialized_exclusive
+            .push(self.exclusive_systems.len());
+        self.exclusive_systems.push(system.into());
         self.is_dirty = true;
         self
     }
 }
 
-impl<S: Into<SystemDescriptor>> From<S> for SystemStage {
-    fn from(system: S) -> Self {
-        SystemStage::single(system)
+impl<S: Into<ExclusiveSystemDescriptor>> From<S> for SystemStage {
+    fn from(descriptor: S) -> Self {
+        SystemStage::single(descriptor.into())
     }
 }
 
@@ -488,7 +507,7 @@ impl System for RunOnce {
         })
     }
 
-    fn run_exclusive(&mut self, _world: &mut World, _resources: &mut Resources) {}
+    fn apply_buffers(&mut self, _world: &mut World, _resources: &mut Resources) {}
 
     fn initialize(&mut self, _world: &mut World, _resources: &mut Resources) {}
 }

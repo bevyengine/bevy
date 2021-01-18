@@ -40,7 +40,7 @@ impl Plugin for WinitPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<WinitWindows>()
             .set_runner(winit_runner)
-            .add_system(change_window.system());
+            .add_exclusive_system(change_window.system());
     }
 }
 

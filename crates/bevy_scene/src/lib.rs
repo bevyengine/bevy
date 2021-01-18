@@ -33,6 +33,6 @@ impl Plugin for ScenePlugin {
             .init_asset_loader::<SceneLoader>()
             .init_resource::<SceneSpawner>()
             .add_stage_after(stage::EVENT, SCENE_STAGE, SystemStage::parallel())
-            .add_system_to_stage(SCENE_STAGE, scene_spawner_system.system());
+            .add_exclusive_system_to_stage(SCENE_STAGE, scene_spawner_system.system());
     }
 }

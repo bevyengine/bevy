@@ -40,8 +40,8 @@ pub trait System: Send + Sync + 'static {
         // SAFE: world and resources are exclusively borrowed
         unsafe { self.run_unsafe(input, world, resources) }
     }
-    fn run_exclusive(&mut self, world: &mut World, resources: &mut Resources);
-    fn initialize(&mut self, _world: &mut World, _resources: &mut Resources);
+    fn apply_buffers(&mut self, world: &mut World, resources: &mut Resources);
+    fn initialize(&mut self, world: &mut World, resources: &mut Resources);
 }
 
 pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;

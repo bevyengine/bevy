@@ -2,7 +2,7 @@ use bevy_utils::HashMap;
 use downcast_rs::{impl_downcast, Downcast};
 
 use crate::{
-    Resources,
+    ExclusiveSystem, Resources,
     ShouldRun::{self, *},
     SystemIndex, SystemSet, World,
 };
@@ -105,8 +105,7 @@ pub(super) trait ExecutorCommonMethods {
         for index in sequence {
             if let Yes | YesAndLoop = self.system_set_should_run()[index.set] {
                 let system = system_sets[index.set].exclusive_system_mut(index.system);
-                system.run((), world, resources);
-                system.run_exclusive(world, resources);
+                system.run(world, resources);
             }
         }
     }
@@ -164,12 +163,12 @@ impl SystemStageExecutor for SerialSystemStageExecutor {
             // Run systems that want to be between parallel systems and their command buffers.
             self.run_systems_sequence(before_commands, system_sets, world, resources);
 
-            // Merge in command buffers.
+            // Apply parallel systems' buffers.
             // TODO sort wrt dependencies?
             for (set_index, system_set) in system_sets.iter_mut().enumerate() {
                 if let Yes | YesAndLoop = self.system_set_should_run[set_index] {
                     for system in system_set.parallel_systems_mut() {
-                        system.run_exclusive(world, resources);
+                        system.apply_buffers(world, resources);
                     }
                 }
             }

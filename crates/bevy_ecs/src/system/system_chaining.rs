@@ -56,9 +56,9 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
         self.system_b.run_unsafe(out, world, resources)
     }
 
-    fn run_exclusive(&mut self, world: &mut World, resources: &mut Resources) {
-        self.system_a.run_exclusive(world, resources);
-        self.system_b.run_exclusive(world, resources);
+    fn apply_buffers(&mut self, world: &mut World, resources: &mut Resources) {
+        self.system_a.apply_buffers(world, resources);
+        self.system_b.apply_buffers(world, resources);
     }
 
     fn initialize(&mut self, world: &mut World, resources: &mut Resources) {

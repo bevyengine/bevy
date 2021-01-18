@@ -15,10 +15,10 @@ pub mod prelude {
         core::WorldBuilderSource,
         resource::{ChangedRes, FromResources, Local, Res, ResMut, Resource, Resources},
         schedule::{
-            ParallelSystemDescriptorCoercion, Schedule, SequentialSystemDescriptorCoercion, State,
-            StateStage, SystemStage, UnspecifiedSystemDescriptorCoercion,
+            ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion, Schedule, State,
+            StateStage, SystemStage,
         },
-        system::{Commands, IntoSystem, Query, System},
+        system::{Commands, ExclusiveSystem, IntoSystem, Query, System},
         Added, Bundle, Changed, Component, Entity, Flags, In, IntoChainSystem, Mut, Mutated, Or,
         QuerySet, Ref, RefMut, With, Without, World,
     };

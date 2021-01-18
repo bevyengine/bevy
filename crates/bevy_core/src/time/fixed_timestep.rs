@@ -145,7 +145,7 @@ impl System for FixedTimestep {
         Some(result)
     }
 
-    fn run_exclusive(
+    fn apply_buffers(
         &mut self,
         _world: &mut bevy_ecs::World,
         _resources: &mut bevy_ecs::Resources,

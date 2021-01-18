@@ -128,7 +128,7 @@ impl<Out: 'static> System for FuncSystem<Out> {
         (self.func)(&mut self.state, world, resources)
     }
 
-    fn run_exclusive(&mut self, world: &mut World, resources: &mut Resources) {
+    fn apply_buffers(&mut self, world: &mut World, resources: &mut Resources) {
         // SAFE: this is called with unique access to SystemState
         unsafe {
             (&mut *self.state.commands.get()).apply(world, resources);
@@ -189,7 +189,7 @@ impl<In: 'static, Out: 'static> System for InputFuncSystem<In, Out> {
         (self.func)(input, &mut self.state, world, resources)
     }
 
-    fn run_exclusive(&mut self, world: &mut World, resources: &mut Resources) {
+    fn apply_buffers(&mut self, world: &mut World, resources: &mut Resources) {
         // SAFE: this is called with unique access to SystemState
         unsafe {
             (&mut *self.state.commands.get()).apply(world, resources);
@@ -205,7 +205,7 @@ impl<In: 'static, Out: 'static> System for InputFuncSystem<In, Out> {
     }
 }
 
-pub trait IntoSystem<Params, SystemType: System> {
+pub trait IntoSystem<Params, SystemType> {
     fn system(self) -> SystemType;
 }
 
@@ -592,7 +592,7 @@ mod tests {
         resources.insert(BufferRes::default());
         resources.insert(A);
         resources.insert(B);
-        run_system(&mut world, &mut resources, sys.system());
+        run_system(&mut world, &mut resources, sys);
     }
 
     #[test]

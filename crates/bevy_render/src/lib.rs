@@ -169,7 +169,7 @@ impl Plugin for RenderPlugin {
             stage::RENDER_RESOURCE,
             Texture::texture_resource_system.system(),
         )
-        .add_system_to_stage(
+        .add_exclusive_system_to_stage(
             stage::RENDER_GRAPH_SYSTEMS,
             render_graph::render_graph_schedule_executor_system.system(),
         )

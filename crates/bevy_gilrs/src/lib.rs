@@ -19,8 +19,11 @@ impl Plugin for GilrsPlugin {
         {
             Ok(gilrs) => {
                 app.add_thread_local_resource(gilrs)
-                    .add_startup_system_to_stage(PRE_STARTUP, gilrs_event_startup_system.system())
-                    .add_system_to_stage(stage::PRE_EVENT, gilrs_event_system.system());
+                    .add_exclusive_startup_system_to_stage(
+                        PRE_STARTUP,
+                        gilrs_event_startup_system.system(),
+                    )
+                    .add_exclusive_system_to_stage(stage::PRE_EVENT, gilrs_event_system.system());
             }
             Err(err) => error!("Failed to start Gilrs. {}", err),
         }

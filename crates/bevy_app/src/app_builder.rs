@@ -5,8 +5,9 @@ use crate::{
     stage, startup_stage, PluginGroup, PluginGroupBuilder,
 };
 use bevy_ecs::{
-    clear_trackers_system, FromResources, IntoSystem, Resource, Resources, RunOnce, Schedule,
-    Stage, StateStage, System, SystemStage, World,
+    clear_trackers_system, ExclusiveSystemDescriptor, FromResources, IntoSystem,
+    ParallelSystemDescriptor, Resource, Resources, RunOnce, Schedule, Stage, StateStage,
+    SystemStage, World,
 };
 use bevy_utils::tracing::debug;
 
@@ -24,7 +25,7 @@ impl Default for AppBuilder {
         app_builder
             .add_default_stages()
             .add_event::<AppExit>()
-            .add_system_to_stage(stage::LAST, clear_trackers_system.system());
+            .add_exclusive_system_to_stage(stage::LAST, clear_trackers_system.system());
         app_builder
     }
 }
@@ -125,47 +126,52 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_system<S: System<In = (), Out = ()>>(&mut self, system: S) -> &mut Self {
+    pub fn add_system(&mut self, system: impl Into<ParallelSystemDescriptor>) -> &mut Self {
         self.add_system_to_stage(stage::UPDATE, system)
     }
 
-    pub fn on_state_enter<T: Clone + Resource, S: System<In = (), Out = ()>>(
+    pub fn add_exclusive_system(
         &mut self,
-        stage: &str,
-        state: T,
-        system: S,
+        system: impl Into<ExclusiveSystemDescriptor>,
     ) -> &mut Self {
-        self.stage(stage, |stage: &mut StateStage<T>| {
-            stage.on_state_enter(state, system)
-        })
+        self.add_exclusive_system_to_stage(stage::UPDATE, system)
     }
 
-    pub fn on_state_update<T: Clone + Resource, S: System<In = (), Out = ()>>(
-        &mut self,
-        stage: &str,
-        state: T,
-        system: S,
-    ) -> &mut Self {
-        self.stage(stage, |stage: &mut StateStage<T>| {
-            stage.on_state_update(state, system)
-        })
-    }
-
-    pub fn on_state_exit<T: Clone + Resource, S: System<In = (), Out = ()>>(
-        &mut self,
-        stage: &str,
-        state: T,
-        system: S,
-    ) -> &mut Self {
-        self.stage(stage, |stage: &mut StateStage<T>| {
-            stage.on_state_exit(state, system)
-        })
-    }
-
-    pub fn add_startup_system_to_stage<S: System<In = (), Out = ()>>(
+    pub fn add_system_to_stage(
         &mut self,
         stage_name: &'static str,
-        system: S,
+        system: impl Into<ParallelSystemDescriptor>,
+    ) -> &mut Self {
+        self.app.schedule.add_system_to_stage(stage_name, system);
+        self
+    }
+
+    pub fn add_exclusive_system_to_stage(
+        &mut self,
+        stage_name: &'static str,
+        system: impl Into<ExclusiveSystemDescriptor>,
+    ) -> &mut Self {
+        self.app
+            .schedule
+            .add_exclusive_system_to_stage(stage_name, system);
+        self
+    }
+
+    pub fn add_startup_system(&mut self, system: impl Into<ParallelSystemDescriptor>) -> &mut Self {
+        self.add_startup_system_to_stage(startup_stage::STARTUP, system)
+    }
+
+    pub fn add_exclusive_startup_system(
+        &mut self,
+        system: impl Into<ExclusiveSystemDescriptor>,
+    ) -> &mut Self {
+        self.add_exclusive_startup_system_to_stage(startup_stage::STARTUP, system)
+    }
+
+    pub fn add_startup_system_to_stage(
+        &mut self,
+        stage_name: &'static str,
+        system: impl Into<ParallelSystemDescriptor>,
     ) -> &mut Self {
         self.app
             .schedule
@@ -175,8 +181,50 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_startup_system<S: System<In = (), Out = ()>>(&mut self, system: S) -> &mut Self {
-        self.add_startup_system_to_stage(startup_stage::STARTUP, system)
+    pub fn add_exclusive_startup_system_to_stage(
+        &mut self,
+        stage_name: &'static str,
+        system: impl Into<ExclusiveSystemDescriptor>,
+    ) -> &mut Self {
+        self.app
+            .schedule
+            .stage(stage::STARTUP, |schedule: &mut Schedule| {
+                schedule.add_exclusive_system_to_stage(stage_name, system)
+            });
+        self
+    }
+
+    pub fn on_state_enter<T: Clone + Resource>(
+        &mut self,
+        stage: &str,
+        state: T,
+        system: impl Into<ParallelSystemDescriptor>,
+    ) -> &mut Self {
+        self.stage(stage, |stage: &mut StateStage<T>| {
+            stage.on_state_enter(state, system)
+        })
+    }
+
+    pub fn on_state_update<T: Clone + Resource>(
+        &mut self,
+        stage: &str,
+        state: T,
+        system: impl Into<ParallelSystemDescriptor>,
+    ) -> &mut Self {
+        self.stage(stage, |stage: &mut StateStage<T>| {
+            stage.on_state_update(state, system)
+        })
+    }
+
+    pub fn on_state_exit<T: Clone + Resource>(
+        &mut self,
+        stage: &str,
+        state: T,
+        system: impl Into<ParallelSystemDescriptor>,
+    ) -> &mut Self {
+        self.stage(stage, |stage: &mut StateStage<T>| {
+            stage.on_state_exit(state, system)
+        })
     }
 
     pub fn add_default_stages(&mut self) -> &mut Self {
@@ -195,15 +243,6 @@ impl AppBuilder {
         .add_stage(stage::UPDATE, SystemStage::parallel())
         .add_stage(stage::POST_UPDATE, SystemStage::parallel())
         .add_stage(stage::LAST, SystemStage::parallel())
-    }
-
-    pub fn add_system_to_stage<S: System<In = (), Out = ()>>(
-        &mut self,
-        stage_name: &'static str,
-        system: S,
-    ) -> &mut Self {
-        self.app.schedule.add_system_to_stage(stage_name, system);
-        self
     }
 
     pub fn add_event<T>(&mut self) -> &mut Self
@@ -237,7 +276,6 @@ impl AppBuilder {
     {
         let resource = R::from_resources(&self.app.resources);
         self.app.resources.insert(resource);
-
         self
     }
 
@@ -247,7 +285,6 @@ impl AppBuilder {
     {
         let resource = R::from_resources(&self.app.resources);
         self.app.resources.insert_thread_local(resource);
-
         self
     }
 

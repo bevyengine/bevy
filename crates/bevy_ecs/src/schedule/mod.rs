@@ -44,9 +44,18 @@ impl Schedule {
     pub fn with_system_in_stage(
         mut self,
         stage_name: &'static str,
-        system: impl Into<SystemDescriptor>,
+        system: impl Into<ParallelSystemDescriptor>,
     ) -> Self {
         self.add_system_to_stage(stage_name, system);
+        self
+    }
+
+    pub fn with_exclusive_system_in_stage(
+        mut self,
+        stage_name: &'static str,
+        system: impl Into<ExclusiveSystemDescriptor>,
+    ) -> Self {
+        self.add_exclusive_system_to_stage(stage_name, system);
         self
     }
 
@@ -103,7 +112,7 @@ impl Schedule {
     pub fn add_system_to_stage(
         &mut self,
         stage_name: &'static str,
-        system: impl Into<SystemDescriptor>,
+        system: impl Into<ParallelSystemDescriptor>,
     ) -> &mut Self {
         let stage = self
             .get_stage_mut::<SystemStage>(stage_name)
@@ -114,6 +123,23 @@ impl Schedule {
                 )
             });
         stage.add_system(system);
+        self
+    }
+
+    pub fn add_exclusive_system_to_stage(
+        &mut self,
+        stage_name: &'static str,
+        system: impl Into<ExclusiveSystemDescriptor>,
+    ) -> &mut Self {
+        let stage = self
+            .get_stage_mut::<SystemStage>(stage_name)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Stage '{}' does not exist or is not a SystemStage",
+                    stage_name
+                )
+            });
+        stage.add_exclusive_system(system);
         self
     }
 
@@ -229,7 +255,7 @@ impl RunCriteria {
                 self.initialized = true;
             }
             let should_run = run_criteria.run((), world, resources);
-            run_criteria.run_exclusive(world, resources);
+            run_criteria.apply_buffers(world, resources);
             // don't run when no result is returned or false is returned
             should_run.unwrap_or(ShouldRun::No)
         } else {
@@ -305,7 +331,7 @@ mod tests {
         }
 
         let mut update = SystemStage::parallel();
-        update.add_system(insert.system());
+        update.add_exclusive_system(insert.system());
         update.add_system(read.system());
 
         let mut schedule = Schedule::default();
