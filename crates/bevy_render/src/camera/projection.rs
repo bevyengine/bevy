@@ -1,4 +1,4 @@
-use super::{DepthCalculation};
+use super::DepthCalculation;
 use bevy_math::{Mat4, Vec2, Vec3};
 use bevy_reflect::{Reflect, ReflectComponent, ReflectDeserialize};
 use bevy_transform::components::GlobalTransform;
