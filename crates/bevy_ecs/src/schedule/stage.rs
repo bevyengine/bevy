@@ -14,12 +14,8 @@ pub enum StageError {
 }
 
 pub trait Stage: Downcast + Send + Sync {
-    /// Stages can perform setup here. Initialize should be called for every stage before
-    /// calling [Stage::run]. Initialize will be called once per update, so internally this
-    /// should avoid re-doing work where possible.
-    fn initialize(&mut self, world: &mut World, resources: &mut Resources);
-
-    /// Runs the stage. This happens once per update (after [Stage::initialize] is called).
+    /// Runs the stage; this happens once per update.
+    /// Implementors must initialize all of their state and systems before running the first time.
     fn run(&mut self, world: &mut World, resources: &mut Resources);
 }
 
@@ -273,6 +269,9 @@ impl SystemStage {
             .iter()
             .any(|system_set| system_set.is_dirty)
         {
+            for system_set in self.system_sets.iter_mut() {
+                system_set.initialize(world, resources);
+            }
             self.rebuild_orders_and_dependencies();
         }
         self.executor.execute_stage(
@@ -331,12 +330,6 @@ fn insert_sequential_system(
 }
 
 impl Stage for SystemStage {
-    fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
-        for set in &mut self.system_sets {
-            set.initialize(world, resources);
-        }
-    }
-
     fn run(&mut self, world: &mut World, resources: &mut Resources) {
         loop {
             match self.run_criteria.should_run(world, resources) {

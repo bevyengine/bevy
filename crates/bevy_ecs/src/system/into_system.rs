@@ -329,7 +329,7 @@ mod tests {
         clear_trackers_system,
         resource::{Res, ResMut, Resources},
         schedule::Schedule,
-        ChangedRes, Entity, Local, Or, Query, QuerySet, System, SystemStage, With, World,
+        ChangedRes, Entity, Local, Or, Query, QuerySet, Stage, System, SystemStage, With, World,
     };
 
     #[derive(Debug, Eq, PartialEq, Default)]
@@ -452,14 +452,14 @@ mod tests {
             SystemStage::single(clear_trackers_system.system()),
         );
 
-        schedule.initialize_and_run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
         assert_eq!(*(world.get::<i32>(ent).unwrap()), 1);
 
-        schedule.initialize_and_run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
         assert_eq!(*(world.get::<i32>(ent).unwrap()), 1);
 
         *resources.get_mut::<bool>().unwrap() = true;
-        schedule.initialize_and_run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
         assert_eq!(*(world.get::<i32>(ent).unwrap()), 2);
     }
 
@@ -489,21 +489,21 @@ mod tests {
             SystemStage::single(clear_trackers_system.system()),
         );
 
-        schedule.initialize_and_run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
         assert_eq!(*(world.get::<i32>(ent).unwrap()), 1);
 
-        schedule.initialize_and_run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
         assert_eq!(*(world.get::<i32>(ent).unwrap()), 1);
 
         *resources.get_mut::<bool>().unwrap() = true;
-        schedule.initialize_and_run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
         assert_eq!(*(world.get::<i32>(ent).unwrap()), 2);
 
-        schedule.initialize_and_run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
         assert_eq!(*(world.get::<i32>(ent).unwrap()), 2);
 
         *resources.get_mut::<i32>().unwrap() = 20;
-        schedule.initialize_and_run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
         assert_eq!(*(world.get::<i32>(ent).unwrap()), 3);
     }
 
@@ -574,7 +574,7 @@ mod tests {
         let mut update = SystemStage::parallel();
         update.add_system(system);
         schedule.add_stage("update", update);
-        schedule.initialize_and_run(world, resources);
+        schedule.run(world, resources);
     }
 
     #[derive(Default)]

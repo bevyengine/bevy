@@ -1,5 +1,5 @@
 use crate::app_builder::AppBuilder;
-use bevy_ecs::{Resources, Schedule, World};
+use bevy_ecs::{Resources, Schedule, Stage, World};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
@@ -53,8 +53,7 @@ impl App {
     }
 
     pub fn update(&mut self) {
-        self.schedule
-            .initialize_and_run(&mut self.world, &mut self.resources);
+        self.schedule.run(&mut self.world, &mut self.resources);
     }
 
     pub fn run(mut self) {

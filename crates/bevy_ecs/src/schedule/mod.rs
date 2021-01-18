@@ -177,22 +177,9 @@ impl Schedule {
             stage.run(world, resources);
         }
     }
-
-    /// Shorthand for [Schedule::initialize] and [Schedule::run]
-    pub fn initialize_and_run(&mut self, world: &mut World, resources: &mut Resources) {
-        self.initialize(world, resources);
-        self.run(world, resources);
-    }
 }
 
 impl Stage for Schedule {
-    fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
-        for name in self.stage_order.iter() {
-            let stage = self.stages.get_mut(name).unwrap();
-            stage.initialize(world, resources);
-        }
-    }
-
     fn run(&mut self, world: &mut World, resources: &mut Resources) {
         loop {
             match self.run_criteria.should_run(world, resources) {
@@ -270,7 +257,7 @@ mod tests {
         resource::Resources,
         schedule::{Schedule, SystemStage},
         system::Query,
-        Commands, Entity, IntoSystem, World,
+        Commands, Entity, IntoSystem, Stage, World,
     };
     use bevy_tasks::{ComputeTaskPool, TaskPool};
 
@@ -307,7 +294,7 @@ mod tests {
         post_archetype_change.add_system(read.system());
         schedule.add_stage("PostArchetypeChange", post_archetype_change);
 
-        schedule.initialize_and_run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
     }
 
     #[test]
@@ -337,7 +324,7 @@ mod tests {
         let mut schedule = Schedule::default();
         schedule.add_stage("update", update);
 
-        schedule.initialize_and_run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
     }
 
     // TODO more relevant tests
