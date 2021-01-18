@@ -36,10 +36,7 @@ impl<'a, 'b> WorldChildBuilder<'a, 'b> {
         self
     }
 
-    pub fn with_bundle(
-        &mut self,
-        bundle: impl DynamicBundle + Send + Sync + 'static,
-    ) -> &mut Self {
+    pub fn with_bundle(&mut self, bundle: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
         self.world_builder.with_bundle(bundle);
         self
     }
