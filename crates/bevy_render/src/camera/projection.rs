@@ -1,8 +1,7 @@
-use super::{Camera, DepthCalculation};
+use super::{DepthCalculation};
 use bevy_math::{Mat4, Vec2, Vec3};
 use bevy_reflect::{Reflect, ReflectComponent, ReflectDeserialize};
 use bevy_transform::components::GlobalTransform;
-use bevy_window::Window;
 use serde::{Deserialize, Serialize};
 
 pub trait CameraProjection {
@@ -119,13 +118,10 @@ impl Default for OrthographicProjection {
 /// compute the screenspace coordinates (x,y)
 pub fn world_to_screen_coordinate(
     world_space_coords: Vec3,
-    projection_matrix: Mat4,
-    camera_position: GlobalTransform,
-    window: &Window,
+    cam_projection_matrix: Mat4,
+    cam_position: GlobalTransform,
 ) -> Vec2 {
-    let world_to_ndc: Mat4 = projection_matrix * camera_position.compute_matrix().inverse();
+    let world_to_ndc: Mat4 = cam_projection_matrix * cam_position.compute_matrix().inverse();
     let ndc_coords: Vec3 = world_to_ndc.transform_point3(world_space_coords);
-    let ndc_2d = Vec2::new(ndc_coords.x, ndc_coords.y);
-    let window_size = Vec2::new(window.width(), window.height());
-    (ndc_2d + Vec2::one()) / 2.0 * window_size
+    Vec2::new(ndc_coords.x, ndc_coords.y)
 }
