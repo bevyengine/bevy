@@ -9,6 +9,7 @@ pub struct ParallelSystemDescriptor {
     pub(crate) label: Option<Label>,
     // TODO consider Vec<Option<Label>> or something to support optional dependencies?
     pub(crate) dependencies: Vec<Label>,
+    pub(crate) dependants: Vec<Label>,
 }
 
 unsafe impl Send for ParallelSystemDescriptor {}
@@ -36,7 +37,9 @@ impl ParallelSystemDescriptor {
 pub trait ParallelSystemDescriptorCoercion {
     fn label(self, label: Label) -> ParallelSystemDescriptor;
 
-    fn with_dependency(self, dependency: Label) -> ParallelSystemDescriptor;
+    fn before(self, label: Label) -> ParallelSystemDescriptor;
+
+    fn after(self, label: Label) -> ParallelSystemDescriptor;
 }
 
 impl ParallelSystemDescriptorCoercion for ParallelSystemDescriptor {
@@ -45,20 +48,27 @@ impl ParallelSystemDescriptorCoercion for ParallelSystemDescriptor {
         self
     }
 
-    fn with_dependency(mut self, dependency: Label) -> ParallelSystemDescriptor {
-        self.dependencies.push(dependency);
+    fn before(mut self, label: Label) -> ParallelSystemDescriptor {
+        self.dependants.push(label);
+        self
+    }
+
+    fn after(mut self, label: Label) -> ParallelSystemDescriptor {
+        self.dependencies.push(label);
         self
     }
 }
 
 fn new_parallel_descriptor(system: BoxedSystem<(), ()>) -> ParallelSystemDescriptor {
+    // TODO remove this and writes-all case from everywhere
     if system.archetype_component_access().writes_all() || system.resource_access().writes_all() {
-        todo!("some error message that makes sense");
+        panic!();
     }
     ParallelSystemDescriptor {
         system: unsafe { NonNull::new_unchecked(Box::into_raw(system)) },
         label: None,
         dependencies: Vec::new(),
+        dependants: Vec::new(),
     }
 }
 
@@ -70,8 +80,12 @@ where
         new_parallel_descriptor(Box::new(self)).label(label)
     }
 
-    fn with_dependency(self, dependency: Label) -> ParallelSystemDescriptor {
-        new_parallel_descriptor(Box::new(self)).with_dependency(dependency)
+    fn before(self, label: Label) -> ParallelSystemDescriptor {
+        new_parallel_descriptor(Box::new(self)).before(label)
+    }
+
+    fn after(self, label: Label) -> ParallelSystemDescriptor {
+        new_parallel_descriptor(Box::new(self)).after(label)
     }
 }
 
@@ -80,8 +94,12 @@ impl ParallelSystemDescriptorCoercion for BoxedSystem<(), ()> {
         new_parallel_descriptor(self).label(label)
     }
 
-    fn with_dependency(self, dependency: Label) -> ParallelSystemDescriptor {
-        new_parallel_descriptor(self).with_dependency(dependency)
+    fn before(self, label: Label) -> ParallelSystemDescriptor {
+        new_parallel_descriptor(self).before(label)
+    }
+
+    fn after(self, label: Label) -> ParallelSystemDescriptor {
+        new_parallel_descriptor(self).after(label)
     }
 }
 

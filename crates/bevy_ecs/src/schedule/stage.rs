@@ -193,26 +193,45 @@ impl SystemStage {
             }
         }
         // Populate parallel dependency tree and sequential orders.
+        let mut new_dependencies = Vec::new(); // Scratch space.
         for (set_index, system_set) in self.system_sets.iter().enumerate() {
             for (system_index, descriptor) in system_set.parallel_systems.iter().enumerate() {
                 if !descriptor.dependencies.is_empty() {
-                    let dependencies = descriptor
-                        .dependencies
-                        .iter()
-                        .map(|label| {
-                            // TODO better error message
-                            *parallel_labels_map
-                                .get(label)
-                                .unwrap_or_else(|| panic!("no such system"))
-                        })
-                        .collect();
-                    self.parallel_dependencies.insert(
-                        SystemIndex {
-                            set: set_index,
-                            system: system_index,
-                        },
-                        dependencies,
+                    let index = SystemIndex {
+                        set: set_index,
+                        system: system_index,
+                    };
+                    let dependencies = self
+                        .parallel_dependencies
+                        .entry(index)
+                        .or_insert_with(Vec::new);
+                    new_dependencies.extend(
+                        descriptor
+                            .dependencies
+                            .iter()
+                            .map(|label| {
+                                // TODO better error message
+                                *parallel_labels_map
+                                    .get(label)
+                                    .unwrap_or_else(|| panic!("no such system"))
+                            })
+                            .filter(|dependency| !dependencies.contains(dependency)),
                     );
+                    dependencies.extend(new_dependencies.drain(..));
+                    for dependant in descriptor.dependants.iter().map(|label| {
+                        // TODO better error message
+                        *parallel_labels_map
+                            .get(label)
+                            .unwrap_or_else(|| panic!("no such system"))
+                    }) {
+                        let dependencies = self
+                            .parallel_dependencies
+                            .entry(dependant)
+                            .or_insert_with(Vec::new);
+                        if !dependencies.contains(&index) {
+                            dependencies.push(index);
+                        }
+                    }
                 }
             }
             for (system_index, descriptor) in system_set.exclusive_systems.iter().enumerate() {
