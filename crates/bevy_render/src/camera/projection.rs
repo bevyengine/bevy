@@ -119,11 +119,11 @@ impl Default for OrthographicProjection {
 /// compute the screenspace coordinates (x,y)
 pub fn world_to_screen_coordinate(
     world_space_coords: Vec3,
-    camera: Camera,
+    projection_matrix: Mat4,
     camera_position: GlobalTransform,
     window: &Window,
 ) -> Vec2 {
-    let world_to_ndc: Mat4 = camera.projection_matrix * camera_position.compute_matrix();
+    let world_to_ndc: Mat4 = projection_matrix * camera_position.compute_matrix();
     let ndc_coords: Vec3 = world_to_ndc.transform_point3(world_space_coords);
     let ndc_2d = Vec2::new(ndc_coords.x, ndc_coords.y);
     let window_size = Vec2::new(window.width(), window.height());
