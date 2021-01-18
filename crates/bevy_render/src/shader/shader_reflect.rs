@@ -3,7 +3,7 @@ use crate::{
         BindGroupDescriptor, BindType, BindingDescriptor, BindingShaderStage, InputStepMode,
         UniformProperty, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
     },
-    shader::{ShaderLayout, GL_VERTEX_INDEX},
+    shader::{ShaderLayout, GL_INSTANCE_INDEX, GL_VERTEX_INDEX},
     texture::{TextureComponentType, TextureViewDimension},
 };
 use bevy_core::AsBytes;
@@ -31,7 +31,9 @@ impl ShaderLayout {
                 // obtain attribute descriptors from reflection
                 let mut vertex_attribute_descriptors = Vec::new();
                 for input_variable in module.enumerate_input_variables(None).unwrap() {
-                    if input_variable.name == GL_VERTEX_INDEX {
+                    if input_variable.name == GL_VERTEX_INDEX
+                        || input_variable.name == GL_INSTANCE_INDEX
+                    {
                         continue;
                     }
                     // reflect vertex attribute descriptor and record it
