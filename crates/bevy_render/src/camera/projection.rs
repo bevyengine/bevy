@@ -1,7 +1,9 @@
-use super::DepthCalculation;
+use super::{Camera, DepthCalculation};
+use bevy_ecs::Res;
 use bevy_math::{Mat4, Vec2, Vec3};
 use bevy_reflect::{Reflect, ReflectComponent, ReflectDeserialize};
 use bevy_transform::components::GlobalTransform;
+use bevy_window::Windows;
 use serde::{Deserialize, Serialize};
 
 pub trait CameraProjection {
@@ -117,11 +119,16 @@ impl Default for OrthographicProjection {
 /// Given coordinates in world space (x,y,z), and a camera's position and projection matrix,
 /// compute the screenspace coordinates (x,y).
 pub fn world_to_screen_coordinate(
-    world_space_coords: Vec3,
-    cam_projection_matrix: Mat4,
-    cam_position: GlobalTransform,
-) -> Vec2 {
-    let world_to_ndc: Mat4 = cam_projection_matrix * cam_position.compute_matrix().inverse();
-    let ndc_coords: Vec3 = world_to_ndc.transform_point3(world_space_coords);
-    Vec2::new(ndc_coords.x, ndc_coords.y)
+    world_space_coords: &GlobalTransform,
+    camera: (&Camera, &GlobalTransform),
+    window_resource: &Res<Windows>,
+) -> Option<Vec2> {
+    let projection_matrix = camera.0.projection_matrix;
+    let window = window_resource.get(camera.0.window)?;
+    let window_size = Vec2::new(window.width(), window.height());
+    let world_to_ndc: Mat4 = projection_matrix * camera.1.compute_matrix().inverse();
+    let ndc_coords_3d: Vec3 = world_to_ndc.transform_point3(world_space_coords.translation);
+    let ndc_coords_2d = Vec2::new(ndc_coords_3d.x, ndc_coords_3d.y);
+    let screen_space_coords = (ndc_coords_2d + Vec2::one()) / 2.0 * window_size;
+    Some(screen_space_coords)
 }
