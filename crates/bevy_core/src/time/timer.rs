@@ -14,7 +14,7 @@ pub struct Timer {
     duration: f32,
     finished: bool,
     /// Will only be non-zero on the tick `duration` is reached or exceeded.
-    num_times_just_finished: u32,
+    just_finished_count: u32,
     paused: bool,
     repeating: bool,
 }
@@ -86,7 +86,7 @@ impl Timer {
     /// Will only be true on the tick the timer's duration is reached or exceeded.
     #[inline]
     pub fn just_finished(&self) -> bool {
-        self.num_times_just_finished > 0
+        self.just_finished_count > 0
     }
 
     /// Returns the total number of times the timer finished during this tick.
@@ -94,8 +94,8 @@ impl Timer {
     /// This value can be used to ensure no completions of a repeating timer are skipped over due to a tick with an unexpectedly
     /// long delta time. For non repeating timers, the value will only ever be 0 or 1.
     #[inline]
-    pub fn num_times_just_finished(&self) -> u32 {
-        self.num_times_just_finished
+    pub fn just_finished_count(&self) -> u32 {
+        self.just_finished_count
     }
 
     #[inline]
@@ -124,16 +124,16 @@ impl Timer {
         if self.finished {
             if self.repeating {
                 // Count the number of times the timer will wrap around from this tick
-                self.num_times_just_finished = (self.elapsed / self.duration) as u32;
+                self.just_finished_count = (self.elapsed / self.duration) as u32;
                 // Repeating timers wrap around
                 self.elapsed %= self.duration;
             } else {
-                self.num_times_just_finished = if prev_finished { 0 } else { 1 };
+                self.just_finished_count = if prev_finished { 0 } else { 1 };
                 // Non-repeating timers clamp to duration
                 self.elapsed = self.duration;
             }
         } else {
-            self.num_times_just_finished = 0;
+            self.just_finished_count = 0;
         }
         self
     }
@@ -141,7 +141,7 @@ impl Timer {
     #[inline]
     pub fn reset(&mut self) {
         self.finished = false;
-        self.num_times_just_finished = 0;
+        self.just_finished_count = 0;
         self.elapsed = 0.0;
     }
 
@@ -169,7 +169,7 @@ mod tests {
         assert_eq!(t.duration(), 10.0);
         assert_eq!(t.finished(), false);
         assert_eq!(t.just_finished(), false);
-        assert_eq!(t.num_times_just_finished(), 0);
+        assert_eq!(t.just_finished_count(), 0);
         assert_eq!(t.repeating(), false);
         assert_eq!(t.percent(), 0.025);
         assert_eq!(t.percent_left(), 0.975);
@@ -180,7 +180,7 @@ mod tests {
         assert_eq!(t.duration(), 10.0);
         assert_eq!(t.finished(), false);
         assert_eq!(t.just_finished(), false);
-        assert_eq!(t.num_times_just_finished(), 0);
+        assert_eq!(t.just_finished_count(), 0);
         assert_eq!(t.repeating(), false);
         assert_eq!(t.percent(), 0.025);
         assert_eq!(t.percent_left(), 0.975);
@@ -190,7 +190,7 @@ mod tests {
         assert_eq!(t.elapsed(), 10.0);
         assert_eq!(t.finished(), true);
         assert_eq!(t.just_finished(), true);
-        assert_eq!(t.num_times_just_finished(), 1);
+        assert_eq!(t.just_finished_count(), 1);
         assert_eq!(t.percent(), 1.0);
         assert_eq!(t.percent_left(), 0.0);
         // Continuing to tick when finished should only change just_finished
@@ -198,7 +198,7 @@ mod tests {
         assert_eq!(t.elapsed(), 10.0);
         assert_eq!(t.finished(), true);
         assert_eq!(t.just_finished(), false);
-        assert_eq!(t.num_times_just_finished(), 0);
+        assert_eq!(t.just_finished_count(), 0);
         assert_eq!(t.percent(), 1.0);
         assert_eq!(t.percent_left(), 0.0);
     }
@@ -212,7 +212,7 @@ mod tests {
         assert_eq!(t.duration(), 2.0);
         assert_eq!(t.finished(), false);
         assert_eq!(t.just_finished(), false);
-        assert_eq!(t.num_times_just_finished(), 0);
+        assert_eq!(t.just_finished_count(), 0);
         assert_eq!(t.repeating(), true);
         assert_eq!(t.percent(), 0.375);
         assert_eq!(t.percent_left(), 0.625);
@@ -221,7 +221,7 @@ mod tests {
         assert_eq!(t.elapsed(), 0.25);
         assert_eq!(t.finished(), true);
         assert_eq!(t.just_finished(), true);
-        assert_eq!(t.num_times_just_finished(), 2);
+        assert_eq!(t.just_finished_count(), 2);
         assert_eq!(t.percent(), 0.125);
         assert_eq!(t.percent_left(), 0.875);
         // Continuing to tick should turn off both finished & just_finished for repeating timers
@@ -229,7 +229,7 @@ mod tests {
         assert_eq!(t.elapsed(), 1.25);
         assert_eq!(t.finished(), false);
         assert_eq!(t.just_finished(), false);
-        assert_eq!(t.num_times_just_finished(), 0);
+        assert_eq!(t.just_finished_count(), 0);
         assert_eq!(t.percent(), 0.625);
         assert_eq!(t.percent_left(), 0.375);
     }
