@@ -51,7 +51,6 @@ use shader::ShaderLoader;
 use texture::HdrTextureLoader;
 #[cfg(feature = "png")]
 use texture::ImageTextureLoader;
-use texture::TextureResourceSystemState;
 
 /// The names of "render" App stages
 pub mod stage {
@@ -133,7 +132,6 @@ impl Plugin for RenderPlugin {
         .init_resource::<RenderGraph>()
         .init_resource::<PipelineCompiler>()
         .init_resource::<RenderResourceBindings>()
-        .init_resource::<TextureResourceSystemState>()
         .init_resource::<AssetRenderResourceBindings>()
         .init_resource::<ActiveCameras>()
         .add_system_to_stage(

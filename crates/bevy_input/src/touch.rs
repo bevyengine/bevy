@@ -1,5 +1,5 @@
-use bevy_app::{EventReader, Events};
-use bevy_ecs::{Local, Res, ResMut};
+use bevy_app::EventReader;
+use bevy_ecs::ResMut;
 use bevy_math::Vec2;
 use bevy_utils::HashMap;
 
@@ -75,11 +75,6 @@ pub enum TouchPhase {
     Moved,
     Ended,
     Cancelled,
-}
-
-#[derive(Default)]
-pub struct TouchSystemState {
-    touch_event_reader: EventReader<TouchInput>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -226,13 +221,12 @@ impl Touches {
 
 /// Updates the Touches resource with the latest TouchInput events
 pub fn touch_screen_input_system(
-    mut state: Local<TouchSystemState>,
     mut touch_state: ResMut<Touches>,
-    touch_input_events: Res<Events<TouchInput>>,
+    mut touch_input_events: EventReader<TouchInput>,
 ) {
     touch_state.update();
 
-    for event in state.touch_event_reader.iter(&touch_input_events) {
+    for event in touch_input_events.iter() {
         touch_state.process_touch_event(event);
     }
 }

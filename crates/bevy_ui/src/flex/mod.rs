@@ -1,8 +1,8 @@
 mod convert;
 
 use crate::{Node, Style};
-use bevy_app::{EventReader, Events};
-use bevy_ecs::{Changed, Entity, Flags, Local, Query, QueryFilter, Res, ResMut, With, Without};
+use bevy_app::EventReader;
+use bevy_ecs::{Changed, Entity, Flags, Query, QueryFilter, Res, ResMut, With, Without};
 use bevy_log::warn;
 use bevy_math::Vec2;
 use bevy_text::CalculatedSize;
@@ -187,8 +187,7 @@ unsafe impl Sync for FlexSurface {}
 #[allow(clippy::too_many_arguments)]
 pub fn flex_node_system(
     windows: Res<Windows>,
-    mut scale_factor_reader: Local<EventReader<WindowScaleFactorChanged>>,
-    scale_factor_events: Res<Events<WindowScaleFactorChanged>>,
+    mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut flex_surface: ResMut<FlexSurface>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     node_query: Query<(Entity, &Style, Option<&CalculatedSize>), (With<Node>, Changed<Style>)>,
@@ -219,7 +218,7 @@ pub fn flex_node_system(
         1.
     };
 
-    if scale_factor_reader.latest(&scale_factor_events).is_some() {
+    if scale_factor_events.iter().next_back().is_some() {
         update_changed(
             &mut *flex_surface,
             logical_to_physical_factor,

@@ -66,8 +66,8 @@ fn setup(
     let mut rnd = rand::thread_rng();
 
     for name in contribs {
-        let pos = (rnd.gen_range(-400.0, 400.0), rnd.gen_range(0.0, 400.0));
-        let dir = rnd.gen_range(-1.0, 1.0);
+        let pos = (rnd.gen_range(-400.0..400.0), rnd.gen_range(0.0..400.0));
+        let dir = rnd.gen_range(-1.0..1.0);
         let velocity = Vec3::new(dir * 500.0, 0.0, 0.0);
         let col = gen_color(&mut rnd);
 
@@ -254,7 +254,7 @@ fn collision_system(
         if bottom < ground {
             t.translation.y = ground + SPRITE_SIZE / 2.0;
             // apply an impulse upwards
-            v.translation.y = rnd.gen_range(700.0, 1000.0);
+            v.translation.y = rnd.gen_range(700.0..1000.0);
         }
         if top > ceiling {
             t.translation.y = ceiling - SPRITE_SIZE / 2.0;
@@ -312,9 +312,9 @@ fn contributors() -> Contributors {
 /// Because there is no `Mul<Color> for Color` instead `[f32; 3]` is
 /// used.
 fn gen_color(rng: &mut impl Rng) -> [f32; 3] {
-    let r = rng.gen_range(0.2, 1.0);
-    let g = rng.gen_range(0.2, 1.0);
-    let b = rng.gen_range(0.2, 1.0);
+    let r = rng.gen_range(0.2..1.0);
+    let g = rng.gen_range(0.2..1.0);
+    let b = rng.gen_range(0.2..1.0);
     let v = Vec3::new(r, g, b);
     v.normalize().into()
 }

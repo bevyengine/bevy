@@ -7,11 +7,8 @@ fn main() {
         .run();
 }
 
-fn file_drag_and_drop_system(
-    mut reader: Local<EventReader<FileDragAndDrop>>,
-    events: Res<Events<FileDragAndDrop>>,
-) {
-    for event in reader.iter(&events) {
+fn file_drag_and_drop_system(mut events: EventReader<FileDragAndDrop>) {
+    for event in events.iter() {
         println!("{:?}", event);
     }
 }
