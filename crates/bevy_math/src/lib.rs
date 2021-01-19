@@ -8,5 +8,7 @@ pub use geometry::*;
 pub use glam::*;
 
 pub mod prelude {
-    pub use crate::{FaceToward, Mat3, Mat4, Quat, Rect, Size, Vec2, Vec3, Vec4};
+    pub use crate::{
+        FaceToward, IVec2, IVec3, IVec4, Mat3, Mat4, Quat, Rect, Size, Vec2, Vec3, Vec4,
+    };
 }
