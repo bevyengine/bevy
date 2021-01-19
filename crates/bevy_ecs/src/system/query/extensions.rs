@@ -5,7 +5,7 @@ use thiserror::Error;
 use crate::{Fetch, Query, QueryFilter, ReadOnlyFetch, WorldQuery};
 
 impl<'a, Q: WorldQuery, F: QueryFilter> Query<'a, Q, F> {
-    /// Takes exactly one result from the query. If there is 0 or <1 results, this will return an error instead.
+    /// Takes exactly one result from the query. If there no results, or more than 1 result, this will return an error instead.
     pub fn get_unique(&self) -> Result<<Q::Fetch as Fetch<'_>>::Item, OnlyQueryError<'_, Q>>
     where
         Q::Fetch: ReadOnlyFetch,
