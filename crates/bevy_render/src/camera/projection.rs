@@ -130,7 +130,9 @@ pub fn world_to_screen(
     let world_to_ndc: Mat4 = projection_matrix * camera.1.compute_matrix().inverse();
     let ndc_space_coords: Vec3 = world_to_ndc.transform_point3(world_space_coords.translation);
     // NDC z-values outside of 0 < z < 1 are behind the camera and are thus not in screen space
-    if ndc_space_coords.z < 0.0 || ndc_space_coords.z > 1.0 { return None }
+    if ndc_space_coords.z < 0.0 || ndc_space_coords.z > 1.0 { 
+        return None;
+    }
     // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
     let screen_space_coords = (ndc_space_coords.truncate() + Vec2::one()) / 2.0 * window_size;
     Some(screen_space_coords)
