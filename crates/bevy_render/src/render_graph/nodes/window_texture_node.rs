@@ -3,7 +3,7 @@ use crate::{
     renderer::{RenderContext, RenderResourceId, RenderResourceType},
     texture::TextureDescriptor,
 };
-use bevy_app::prelude::{EventReader, Events};
+use bevy_app::{prelude::Events, ManualEventReader};
 use bevy_ecs::{Resources, World};
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use std::borrow::Cow;
@@ -11,8 +11,8 @@ use std::borrow::Cow;
 pub struct WindowTextureNode {
     window_id: WindowId,
     descriptor: TextureDescriptor,
-    window_created_event_reader: EventReader<WindowCreated>,
-    window_resized_event_reader: EventReader<WindowResized>,
+    window_created_event_reader: ManualEventReader<WindowCreated>,
+    window_resized_event_reader: ManualEventReader<WindowResized>,
 }
 
 impl WindowTextureNode {
@@ -56,12 +56,12 @@ impl Node for WindowTextureNode {
 
         if self
             .window_created_event_reader
-            .find_latest(&window_created_events, |e| e.id == window.id())
-            .is_some()
+            .iter(&window_created_events)
+            .any(|e| e.id == window.id())
             || self
                 .window_resized_event_reader
-                .find_latest(&window_resized_events, |e| e.id == window.id())
-                .is_some()
+                .iter(&window_resized_events)
+                .any(|e| e.id == window.id())
         {
             let render_resource_context = render_context.resources_mut();
             if let Some(RenderResourceId::Texture(old_texture)) = output.get(WINDOW_TEXTURE) {

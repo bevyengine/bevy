@@ -3,14 +3,14 @@ use crate::{
     renderer::{BufferInfo, BufferUsage, RenderContext},
     texture::{Texture, TextureDescriptor, TEXTURE_ASSET_INDEX},
 };
-use bevy_app::prelude::{EventReader, Events};
+use bevy_app::{prelude::Events, ManualEventReader};
 use bevy_asset::{AssetEvent, Assets};
 use bevy_ecs::{Resources, World};
 use bevy_utils::HashSet;
 
 #[derive(Default)]
 pub struct TextureCopyNode {
-    pub texture_event_reader: EventReader<AssetEvent<Texture>>,
+    pub texture_event_reader: ManualEventReader<AssetEvent<Texture>>,
 }
 
 impl Node for TextureCopyNode {

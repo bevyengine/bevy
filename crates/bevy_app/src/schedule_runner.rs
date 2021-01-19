@@ -1,9 +1,5 @@
 use super::{App, AppBuilder};
-use crate::{
-    app::AppExit,
-    event::{EventReader, Events},
-    plugin::Plugin,
-};
+use crate::{app::AppExit, event::Events, plugin::Plugin, ManualEventReader};
 use bevy_utils::{Duration, Instant};
 
 #[cfg(target_arch = "wasm32")]
@@ -56,7 +52,7 @@ impl Plugin for ScheduleRunnerPlugin {
             .get_or_insert_with(ScheduleRunnerSettings::default)
             .to_owned();
         app.set_runner(move |mut app: App| {
-            let mut app_exit_event_reader = EventReader::<AppExit>::default();
+            let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
             match settings.run_mode {
                 RunMode::Once => {
                     app.update();
@@ -68,7 +64,8 @@ impl Plugin for ScheduleRunnerPlugin {
                         let start_time = Instant::now();
 
                         if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
-                            if let Some(exit) = app_exit_event_reader.latest(&app_exit_events) {
+                            if let Some(exit) = app_exit_event_reader.iter(&app_exit_events).last()
+                            {
                                 return Err(exit.clone());
                             }
                         }
@@ -76,7 +73,8 @@ impl Plugin for ScheduleRunnerPlugin {
                         app.update();
 
                         if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
-                            if let Some(exit) = app_exit_event_reader.latest(&app_exit_events) {
+                            if let Some(exit) = app_exit_event_reader.iter(&app_exit_events).last()
+                            {
                                 return Err(exit.clone());
                             }
                         }
