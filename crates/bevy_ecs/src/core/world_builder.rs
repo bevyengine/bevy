@@ -42,24 +42,24 @@ impl<'a> WorldBuilder<'a> {
         self
     }
 
-    pub fn with_bundle(&mut self, components: impl DynamicBundle) -> &mut Self {
+    pub fn with_bundle(&mut self, bundle: impl DynamicBundle) -> &mut Self {
         self.world
-            .insert(self.current_entity.expect("Cannot add component because the 'current entity' is not set. You should spawn an entity first."), components)
+            .insert(self.current_entity.expect("Cannot add bundle because the 'current entity' is not set. You should spawn an entity first."), bundle)
             .unwrap();
         self
     }
 
-    pub fn spawn_batch<I>(&mut self, components_iter: I) -> &mut Self
+    pub fn spawn_batch<I>(&mut self, bundle_iter: I) -> &mut Self
     where
         I: IntoIterator,
         I::Item: Bundle,
     {
-        self.world.spawn_batch(components_iter);
+        self.world.spawn_batch(bundle_iter);
         self
     }
 
-    pub fn spawn(&mut self, components: impl DynamicBundle) -> &mut Self {
-        self.current_entity = Some(self.world.spawn(components));
+    pub fn spawn(&mut self, bundle: impl DynamicBundle) -> &mut Self {
+        self.current_entity = Some(self.world.spawn(bundle));
         self
     }
 

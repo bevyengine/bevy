@@ -69,8 +69,8 @@ impl Command for PushChildren {
 }
 
 impl<'a> ChildBuilder<'a> {
-    pub fn spawn(&mut self, components: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
-        self.commands.spawn(components);
+    pub fn spawn(&mut self, bundle: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
+        self.commands.spawn(bundle);
         self.push_children
             .children
             .push(self.commands.current_entity().unwrap());
@@ -85,11 +85,8 @@ impl<'a> ChildBuilder<'a> {
         self.push_children.parent
     }
 
-    pub fn with_bundle(
-        &mut self,
-        components: impl DynamicBundle + Send + Sync + 'static,
-    ) -> &mut Self {
-        self.commands.with_bundle(components);
+    pub fn with_bundle(&mut self, bundle: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
+        self.commands.with_bundle(bundle);
         self
     }
 
