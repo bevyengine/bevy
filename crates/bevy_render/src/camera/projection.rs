@@ -116,9 +116,9 @@ impl Default for OrthographicProjection {
     }
 }
 
-/// Given coordinates in world space (x,y,z), and a camera's position and projection matrix,
-/// compute the screenspace coordinates (x,y).
-pub fn world_to_screen_coordinate(
+/// Given coordinates in world space, use the camera and window information to compute the
+/// screen space coordinates.
+pub fn world_to_screen(
     world_space_coords: &GlobalTransform,
     camera: (&Camera, &GlobalTransform),
     window_resource: &Res<Windows>,
@@ -126,9 +126,10 @@ pub fn world_to_screen_coordinate(
     let projection_matrix = camera.0.projection_matrix;
     let window = window_resource.get(camera.0.window)?;
     let window_size = Vec2::new(window.width(), window.height());
+    // Build a transform to convert from world to NDC using camera data
     let world_to_ndc: Mat4 = projection_matrix * camera.1.compute_matrix().inverse();
-    let ndc_coords_3d: Vec3 = world_to_ndc.transform_point3(world_space_coords.translation);
-    let ndc_coords_2d = Vec2::new(ndc_coords_3d.x, ndc_coords_3d.y);
-    let screen_space_coords = (ndc_coords_2d + Vec2::one()) / 2.0 * window_size;
+    let ndc_space_coords: Vec3 = world_to_ndc.transform_point3(world_space_coords.translation);
+    // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
+    let screen_space_coords = (ndc_space_coords.truncate() + Vec2::one()) / 2.0 * window_size;
     Some(screen_space_coords)
 }
