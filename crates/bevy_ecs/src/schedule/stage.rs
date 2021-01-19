@@ -264,14 +264,16 @@ impl SystemStage {
     }
 
     pub fn run_once(&mut self, world: &mut World, resources: &mut Resources) {
-        if self
+        let mut is_dirty = false;
+        for system_set in self
             .system_sets
-            .iter()
-            .any(|system_set| system_set.is_dirty)
+            .iter_mut()
+            .filter(|system_set| system_set.is_dirty)
         {
-            for system_set in self.system_sets.iter_mut() {
-                system_set.initialize(world, resources);
-            }
+            is_dirty = true;
+            system_set.initialize(world, resources);
+        }
+        if is_dirty {
             self.rebuild_orders_and_dependencies();
         }
         self.executor.execute_stage(

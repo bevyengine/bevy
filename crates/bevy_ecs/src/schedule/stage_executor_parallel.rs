@@ -13,9 +13,6 @@ use crate::{
 struct ParallelSystemSchedulingData {
     /// System's index in the system sets.
     index: SystemIndex,
-    // TODO ditch? Rename?
-    /// Ensures a system can be accessed unsafely only once per iteration.
-    was_accessed_unsafely: bool,
     /// Used to signal the system's task to start the system.
     start_sender: Sender<()>,
     /// Receives the signal to start the system.
@@ -124,13 +121,26 @@ impl SystemStageExecutor for ParallelSystemStageExecutor {
                 .clone();
             compute_pool.scope(|scope| {
                 self.prepare_parallel_systems(scope, system_sets, world, resources);
-                // All systems have been ran if there are no queued or running systems.
-                while 0 < self.queued.count_ones(..) + self.running.count_ones(..) {
-                    // Try running a thread-local system on the main thread.
-                    self.run_a_thread_local(system_sets, world, resources);
-                    // Try running thread-agnostic systems.
-                    compute_pool.scope(|scope| scope.spawn(self.run_thread_agnostic()));
-                }
+                scope.spawn(async {
+                    // All systems have been ran if there are no queued or running systems.
+                    while 0 < self.queued.count_ones(..) + self.running.count_ones(..) {
+                        self.start_queued_systems().await;
+                        // Wait until at least one system has finished.
+                        let index = self
+                            .finish_receiver
+                            .recv()
+                            .await
+                            .unwrap_or_else(|error| unreachable!(error));
+                        self.process_finished_system(index);
+                        // Gather other systems than may have finished.
+                        while let Ok(index) = self.finish_receiver.try_recv() {
+                            self.process_finished_system(index);
+                        }
+                        // At least one system has finished, so active access is outdated.
+                        self.rebuild_active_access();
+                        self.update_counters_and_queue_systems();
+                    }
+                });
             });
 
             // Run systems that want to be between parallel systems and their command buffers.
@@ -230,7 +240,6 @@ impl ParallelSystemStageExecutor {
                 let (start_sender, start_receiver) = async_channel::bounded(1);
                 self.parallel.push(ParallelSystemSchedulingData {
                     index,
-                    was_accessed_unsafely: false,
                     start_sender,
                     start_receiver,
                     dependants: vec![],
@@ -284,34 +293,8 @@ impl ParallelSystemStageExecutor {
         }
     }
 
-    /// Gives mutable access to the system at given index.
-    /// Can be done only once per system per iteration.
-    #[allow(clippy::mut_from_ref)]
-    unsafe fn get_system_mut_unsafe<'a>(
-        &mut self,
-        index: usize,
-        system_sets: &'a [SystemSet],
-    ) -> &'a mut dyn System<In = (), Out = ()> {
-        let was_accessed_unsafely = &mut self.parallel[index].was_accessed_unsafely;
-        assert!(!*was_accessed_unsafely);
-        *was_accessed_unsafely = true;
-        let index = self.parallel[index].index;
-        system_sets[index.set].parallel_system_mut_unsafe(index.system)
-    }
-
-    /// Determines if the parallel system with given index doesn't conflict already running systems.
-    fn can_start_now(&self, index: usize) -> bool {
-        let system = &self.parallel[index];
-        system
-            .resource_access
-            .is_compatible(&self.active_resource_access)
-            && system
-                .archetype_component_access
-                .is_compatible(&self.active_archetype_component_access)
-    }
-
-    /// Resets safety bits, populates `should_run` bitset,
-    /// spawns tasks for thread-agnostic systems, queues systems with no dependencies.
+    /// Populates `should_run` bitset, spawns systems' tasks,
+    /// queues systems with no dependencies to run at next opportunity.
     fn prepare_parallel_systems<'scope>(
         &mut self,
         scope: &mut Scope<'scope, ()>,
@@ -320,8 +303,6 @@ impl ParallelSystemStageExecutor {
         resources: &'scope Resources,
     ) {
         for index in 0..self.parallel.len() {
-            // Reset safety bit.
-            self.parallel[index].was_accessed_unsafely = false;
             let should_run = match self.system_set_should_run[self.parallel[index].index.set] {
                 Yes | YesAndLoop => true,
                 No | NoAndLoop => false,
@@ -329,10 +310,7 @@ impl ParallelSystemStageExecutor {
             // Cache which systems should be ran, to avoid queueing them later.
             self.should_run.set(index, should_run);
             if should_run {
-                // Spawn tasks for thread-agnostic systems.
-                if !self.thread_local[index] {
-                    self.spawn_system_task(index, scope, system_sets, world, resources);
-                }
+                self.spawn_system_task(index, scope, system_sets, world, resources);
                 // Queue systems with no dependencies, reset dependency counters.
                 let system_data = &mut self.parallel[index];
                 if system_data.dependencies_total == 0 {
@@ -344,8 +322,7 @@ impl ParallelSystemStageExecutor {
         }
     }
 
-    /// Spawns the task for parallel system with given index. Trips the safety bit.
-    /// Will likely lead to a panic when used with a thread-local system.
+    /// Spawns the task for parallel system with given index.
     fn spawn_system_task<'scope>(
         &mut self,
         index: usize,
@@ -356,8 +333,11 @@ impl ParallelSystemStageExecutor {
     ) {
         let start_receiver = self.parallel[index].start_receiver.clone();
         let finish_sender = self.finish_sender.clone();
-        let system = unsafe { self.get_system_mut_unsafe(index, system_sets) };
-        scope.spawn(async move {
+        let system = unsafe {
+            let index = self.parallel[index].index;
+            system_sets[index.set].parallel_system_mut_unsafe(index.system)
+        };
+        let task = async move {
             start_receiver
                 .recv()
                 .await
@@ -367,40 +347,30 @@ impl ParallelSystemStageExecutor {
                 .send(index)
                 .await
                 .unwrap_or_else(|error| unreachable!(error));
-        });
-    }
-
-    /// Tries to run one non-conflicting queued thread-local system on the main thread, decrements
-    /// dependency counters for its dependants, enqueues dependants with all satisfied dependencies
-    /// if they should be ran this iteration. Trips the safety bit.
-    fn run_a_thread_local(
-        &mut self,
-        system_sets: &[SystemSet],
-        world: &World,
-        resources: &Resources,
-    ) {
-        for index in self.queued.intersection(&self.thread_local) {
-            if self.can_start_now(index) {
-                unsafe {
-                    self.get_system_mut_unsafe(index, system_sets)
-                        .run_unsafe((), world, resources);
-                }
-                self.queued.set(index, false);
-                self.dependants_scratch
-                    .extend(&self.parallel[index].dependants);
-                self.update_counters_and_queue();
-                break;
-            }
+        };
+        if self.thread_local[index] {
+            scope.spawn_local(task);
+        } else {
+            scope.spawn(task);
         }
     }
 
-    /// Starts all non-conflicting queued thread-agnostic systems,
-    /// moves them from `queued` to `running`. If there are running systems, waits for one or more
-    /// of them to finish, decrements dependency counters of their dependants,
-    /// enqueues dependants with all satisfied dependencies if they should be ran this iteration.
-    async fn run_thread_agnostic(&mut self) {
-        // Signal all non-conflicting queued thread-agnostic systems to start.
-        for index in self.queued.difference(&self.thread_local) {
+    /// Determines if the parallel system with given index has
+    /// no conflicts with already running systems.
+    fn can_start_now(&self, index: usize) -> bool {
+        let system = &self.parallel[index];
+        system
+            .resource_access
+            .is_compatible(&self.active_resource_access)
+            && system
+                .archetype_component_access
+                .is_compatible(&self.active_archetype_component_access)
+    }
+
+    /// Starts all non-conflicting queued systems, moves them from `queued` to `running`,
+    /// adds their access information to active access information.
+    async fn start_queued_systems(&mut self) {
+        for index in self.queued.ones() {
             if self.can_start_now(index) {
                 let system = &self.parallel[index];
                 system
@@ -409,7 +379,7 @@ impl ParallelSystemStageExecutor {
                     .await
                     .unwrap_or_else(|error| unreachable!(error));
                 self.running.set(index, true);
-                // Append this system's access information to the active access information.
+                // Add this system's access information to the active access information.
                 self.active_archetype_component_access
                     .extend(&system.archetype_component_access);
                 self.active_resource_access.extend(&system.resource_access);
@@ -417,39 +387,32 @@ impl ParallelSystemStageExecutor {
         }
         // Remove running systems from queued systems.
         self.queued.difference_with(&self.running);
-        // Avoid deadlocking if there's nothing to wait for.
-        if 0 < self.running.count_ones(..) {
-            // Wait until at least one system has finished.
-            let index = self
-                .finish_receiver
-                .recv()
-                .await
-                .unwrap_or_else(|error| unreachable!(error));
-            self.running.set(index, false);
-            self.dependants_scratch
-                .extend(&self.parallel[index].dependants);
-            // Process other systems than may have finished.
-            while let Ok(index) = self.finish_receiver.try_recv() {
-                self.running.set(index, false);
-                self.dependants_scratch
-                    .extend(&self.parallel[index].dependants);
-            }
-            self.update_counters_and_queue();
-            // At least one system has finished, rebuild the active access information.
-            self.active_archetype_component_access.clear();
-            self.active_resource_access.clear();
-            for index in self.running.ones() {
-                self.active_archetype_component_access
-                    .extend(&self.parallel[index].archetype_component_access);
-                self.active_resource_access
-                    .extend(&self.parallel[index].resource_access);
-            }
+    }
+
+    /// Removes the given system index from running systems, caches indices of its dependants
+    /// in the `dependants_scratch`.
+    fn process_finished_system(&mut self, index: usize) {
+        self.running.set(index, false);
+        self.dependants_scratch
+            .extend(&self.parallel[index].dependants);
+    }
+
+    /// Discards active access information and builds it again using currently
+    /// running systems' access information.
+    fn rebuild_active_access(&mut self) {
+        self.active_archetype_component_access.clear();
+        self.active_resource_access.clear();
+        for index in self.running.ones() {
+            self.active_archetype_component_access
+                .extend(&self.parallel[index].archetype_component_access);
+            self.active_resource_access
+                .extend(&self.parallel[index].resource_access);
         }
     }
 
-    /// Drains `dependants_scratch`, decrementing dependency counters and queueing systems with
-    /// satisfied dependencies if they should run this iteration.
-    fn update_counters_and_queue(&mut self) {
+    /// Drains `dependants_scratch`, decrementing dependency counters and enqueueing any
+    /// systems that become able to run.
+    fn update_counters_and_queue_systems(&mut self) {
         for index in self.dependants_scratch.drain(..) {
             if self.should_run[index] {
                 let dependent = &mut self.parallel[index];
