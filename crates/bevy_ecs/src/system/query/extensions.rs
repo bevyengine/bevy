@@ -5,6 +5,7 @@ use thiserror::Error;
 use crate::{Fetch, Query, QueryFilter, ReadOnlyFetch, WorldQuery};
 
 impl<'a, Q: WorldQuery, F: QueryFilter> Query<'a, Q, F> {
+    /// Takes exactly one result from the query. If there is 0 or <1 results, this will return an error instead.
     pub fn get_unique(&self) -> Result<<Q::Fetch as Fetch<'_>>::Item, OnlyQueryError<'_, Q>>
     where
         Q::Fetch: ReadOnlyFetch,
@@ -24,7 +25,10 @@ impl<'a, Q: WorldQuery, F: QueryFilter> Query<'a, Q, F> {
         }
     }
 
-    pub fn get_unique_mut(&mut self) -> Result<<Q::Fetch as Fetch<'_>>::Item, OnlyQueryError<'_, Q>> {
+    /// See [`Query::get_unique`]
+    pub fn get_unique_mut(
+        &mut self,
+    ) -> Result<<Q::Fetch as Fetch<'_>>::Item, OnlyQueryError<'_, Q>> {
         let mut query = self.iter_mut();
         let first = query.next();
         let extra_count = query.count();

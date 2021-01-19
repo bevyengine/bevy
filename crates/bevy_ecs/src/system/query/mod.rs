@@ -1,5 +1,5 @@
-mod query_set;
 mod extensions;
+mod query_set;
 pub use query_set::*;
 
 use crate::{
