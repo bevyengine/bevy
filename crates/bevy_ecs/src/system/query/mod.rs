@@ -1,4 +1,5 @@
 mod query_set;
+mod extensions;
 pub use query_set::*;
 
 use crate::{
