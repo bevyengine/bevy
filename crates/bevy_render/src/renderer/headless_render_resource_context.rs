@@ -1,7 +1,9 @@
 use super::RenderResourceContext;
 use crate::{
     pipeline::{BindGroupDescriptorId, PipelineDescriptor},
-    renderer::{BindGroup, BufferId, BufferInfo, RenderResourceId, SamplerId, TextureId},
+    renderer::{
+        BindGroup, BufferId, BufferInfo, BufferMapMode, RenderResourceId, SamplerId, TextureId,
+    },
     shader::{Shader, ShaderError},
     texture::{SamplerDescriptor, TextureDescriptor},
 };
@@ -66,7 +68,7 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         write(&mut buffer, self);
     }
 
-    fn map_buffer(&self, _id: BufferId) {}
+    fn map_buffer(&self, _id: BufferId, _mode: BufferMapMode) {}
 
     fn unmap_buffer(&self, _id: BufferId) {}
 

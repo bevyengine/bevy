@@ -9,8 +9,8 @@ use bevy_render::{
         BindGroupDescriptor, BindGroupDescriptorId, BindingShaderStage, PipelineDescriptor,
     },
     renderer::{
-        BindGroup, BufferId, BufferInfo, RenderResourceBinding, RenderResourceContext,
-        RenderResourceId, SamplerId, TextureId,
+        BindGroup, BufferId, BufferInfo, BufferMapMode, RenderResourceBinding,
+        RenderResourceContext, RenderResourceId, SamplerId, TextureId,
     },
     shader::{glsl_to_spirv, Shader, ShaderError, ShaderSource},
     texture::{Extent3d, SamplerDescriptor, TextureDescriptor},
@@ -622,11 +622,15 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         write(&mut data, self);
     }
 
-    fn map_buffer(&self, id: BufferId) {
+    fn map_buffer(&self, id: BufferId, mode: BufferMapMode) {
         let buffers = self.resources.buffers.read();
         let buffer = buffers.get(&id).unwrap();
         let buffer_slice = buffer.slice(..);
-        let data = buffer_slice.map_async(wgpu::MapMode::Write);
+        let wgpu_mode = match mode {
+            BufferMapMode::Read => wgpu::MapMode::Read,
+            BufferMapMode::Write => wgpu::MapMode::Write,
+        };
+        let data = buffer_slice.map_async(wgpu_mode);
         self.device.poll(wgpu::Maintain::Wait);
         if future::block_on(data).is_err() {
             panic!("Failed to map buffer to host.");
