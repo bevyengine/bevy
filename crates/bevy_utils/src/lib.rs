@@ -20,7 +20,10 @@ impl std::hash::BuildHasher for FixedState {
 
     #[inline]
     fn build_hasher(&self) -> AHasher {
-        AHasher::new_with_keys(0, 0)
+        AHasher::new_with_keys(
+            0b1001010111101110000001001100010000000011001001101011001001111000,
+            0b1100111101101011011110001011010100000100001111100011010011010101,
+        )
     }
 }
 
