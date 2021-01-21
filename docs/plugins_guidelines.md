@@ -24,7 +24,7 @@ You are free to use a `bevy_xxx` name for your plugin, with the caveat "please b
 
 ## Promotion
 
-You can promote your plugin to Bevy's [communities](https://github.com/bevyengine/bevy#community):
+You can promote your plugin in Bevy's [communities](https://github.com/bevyengine/bevy#community):
 
 * Add it to [Awesome Bevy](https://github.com/bevyengine/awesome-bevy)
 * Announce it on [Discord](https://discord.gg/gMUk5Ph), in channel `#showcase`
@@ -32,7 +32,7 @@ You can promote your plugin to Bevy's [communities](https://github.com/bevyengin
 
 ## Bevy Version Supported
 
-Indicating which version of your plugin works with which version of Bevy can be helpful for your users. Some of your users may be using an older version of Bevy for any number of reasons, you can help them find which version of your plugin they should use. This can be shown as a simple table in your readme with each version of Bevy and the corresponding compatible version of your plugin.
+Indicating which version of your plugin works with which version of Bevy can be helpful for your users. Some of your users may be using an older version of Bevy for any number of reasons. You can help them find which version of your plugin they should use. This can be shown as a simple table in your readme with each version of Bevy and the corresponding compatible version of your plugin.
 
 |bevy|bevy_awesome_plugin|
 |---|---|
@@ -41,14 +41,14 @@ Indicating which version of your plugin works with which version of Bevy can be 
 
 ## Bevy Features
 
-You should disable Bevy features that you don't use. This is because with Cargo, features are additives, meaning that features that are enabled in Bevy in your plugin can't be disabled by someone using your plugin. You can find the list of features [here](cargo_features.md).
+You should disable Bevy features that you don't use. This is because with Cargo, features are additive. Features that are enabled for Bevy in your plugin can't be disabled by someone using your plugin. You can find the list of features [here](cargo_features.md).
 ```
 bevy = { version = "0.4", default-features = false, features = ["..."] }
 ```
 
 ## Master Branch Tracking
 
-If you intend to track Bevy's master, you can specify the latest commit you support in your cargo.toml file:
+If you intend to track Bevy's master branch, you can specify the latest commit you support in your cargo.toml file:
 ```
 bevy = { version = "0.4", git = "https://github.com/bevyengine/bevy", rev="509b138e8fa3ea250393de40c33cc857c72134d3", default-features = false }
 ```
@@ -59,7 +59,7 @@ Bevy is evolving very fast. You can use one of these badges to communicate to yo
 |<div style="width:100px">badge</div>|<div style="width:200px">description</div>|code|
 |-|-|-|
 |[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-master-lightblue)](https://github.com/bevyengine/bevy/blob/master/docs/plugins_guidelines.md#master-branch-tracking)|I intend to track master as much as I can|`[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-master-lightblue)](https://github.com/bevyengine/bevy/blob/master/docs/plugins_guidelines.md#master-branch-tracking)`|
-|[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-PR%20welcome-lightblue)](https://github.com/bevyengine/bevy/blob/master/docs/plugins_guidelines.md#master-branch-tracking)|I welcome PR that will update my plugin to current Bevy master|`[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-PR%20welcome-lightblue)](https://github.com/bevyengine/bevy/blob/master/docs/plugins_guidelines.md#master-branch-tracking)`|
+|[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-PR%20welcome-lightblue)](https://github.com/bevyengine/bevy/blob/master/docs/plugins_guidelines.md#master-branch-tracking)|I welcome PRs that will update my plugin to the current Bevy master (or for new releases)|`[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-PR%20welcome-lightblue)](https://github.com/bevyengine/bevy/blob/master/docs/plugins_guidelines.md#master-branch-tracking)`|
 |[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-master-lightblue)](https://github.com/bevyengine/bevy/blob/master/docs/plugins_guidelines.md#master-released%20version-tracking)|I will only follow released Bevy versions|`[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-master-lightblue)](https://github.com/bevyengine/bevy/blob/master/docs/plugins_guidelines.md#master-released%20version-tracking)`|
 
 ## General Advices for a Rust Crate
@@ -72,9 +72,9 @@ Rust projects are often dual licensed with [MIT and Apache 2.0](https://www.rust
 
 ### Small Crate Size
 
-To avoid a long build time in your crate and in projects using your plugin, you should aim for a small crate size:
+To avoid long build times in your crate and in projects using your plugin, you should aim for a small crate size:
 
-* Disable features of Bevy that you don't use
+* Disable Bevy features that you don't use
 * Avoid large dependencies
 * Put optional functionality and dependencies behind a feature
 
