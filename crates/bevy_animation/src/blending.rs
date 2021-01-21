@@ -6,19 +6,11 @@ use std::{collections::HashMap, mem::size_of};
 
 use crate::interpolate::Lerp;
 
-// pub struct Bit<'a>(&'a mut Mask, Mask);
+// TODO: Remove pointers and use indexes to handle context blending
+// this way begin_blending will take the entity_count and context size
+// with a bit extra work I can define if a type needs or not a slot for context blending
 
-// impl<'a> Bit<'a> {
-//     #[inline(always)]
-//     pub fn set(&mut self) -> bool {
-//         if (*self.0 & self.1) != 0 {
-//             *self.0 |= self.1;
-//             true
-//         } else {
-//             false
-//         }
-//     }
-// }
+// TODO: Additive blending
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 struct Ptr(*const u8);
@@ -28,7 +20,7 @@ struct Ptr(*const u8);
 unsafe impl Send for Ptr {}
 unsafe impl Sync for Ptr {}
 
-/// Mask size used to blend properties, each bit corresponds to a property
+/// Mask size used to blend properties, each bit corresponds to a single property
 pub type Mask = u32;
 
 /// Number of animated properties a type can hold

@@ -69,7 +69,7 @@ impl<T> Track for TrackFixed<T>
 where
     T: Lerp + Clone,
 {
-    type Output = T;
+    type Out = T;
 
     fn duration(&self) -> f32 {
         ((self.keyframes.len() as f32 - 1.0 - self.negative_offset) / self.frame_rate).max(0.0)

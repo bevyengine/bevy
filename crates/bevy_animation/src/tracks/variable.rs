@@ -110,13 +110,13 @@ impl<T> Track for TrackVariable<T>
 where
     T: Interpolate + Clone + 'static,
 {
-    type Output = T;
+    type Out = T;
 
     fn duration(&self) -> f32 {
         self.time_stamps.last().copied().unwrap_or(0.0)
     }
 
-    fn sample(&self, time: f32) -> Self::Output {
+    fn sample(&self, time: f32) -> Self::Out {
         // Index guessing gives a small search optimization
         let index = if time < self.duration() * 0.5 {
             0
@@ -127,7 +127,7 @@ where
         self.sample_with_cursor(index as u16, time).1
     }
 
-    fn sample_with_cursor(&self, mut cursor: u16, time: f32) -> (u16, Self::Output) {
+    fn sample_with_cursor(&self, mut cursor: u16, time: f32) -> (u16, Self::Out) {
         // Adjust for the current keyframe cursor
         let last_cursor = (self.time_stamps.len() - 1) as u16;
 

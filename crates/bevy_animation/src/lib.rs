@@ -14,6 +14,7 @@ mod skinned_mesh;
 pub mod blending;
 pub mod curve;
 pub mod interpolate;
+pub mod sampler;
 pub mod tracks;
 
 pub use crate::animator::*;
@@ -37,7 +38,7 @@ pub mod prelude {
 /// Exports wide types
 pub mod wide {
     pub use crate::interpolate::utils::{Quatx4, Quatx8};
-    pub use ultraviolet::vec::*;
+    pub use ultraviolet::vec::{Vec2x4, Vec2x8, Vec3x4, Vec3x8, Vec4x4, Vec4x8};
     pub use wide::*;
 }
 

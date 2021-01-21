@@ -1,5 +1,4 @@
-use std::any::TypeId;
-
+use super::Track;
 use crate::interpolate::Lerp;
 
 // TODO: Curve/Clip need a validation during deserialization because they are
@@ -74,10 +73,6 @@ impl<T> TrackVariableLinear<T> {
     //assert!(samples.len() > 1, "curve can't be empty");
     // }
 
-    pub fn duration(&self) -> f32 {
-        self.time_stamps.last().copied().unwrap_or(0.0)
-    }
-
     pub fn add_offset_time(&mut self, time_offset: f32) {
         self.time_stamps.iter_mut().for_each(|t| *t += time_offset);
     }
@@ -94,17 +89,17 @@ impl<T> TrackVariableLinear<T> {
     }
 }
 
-impl<T> TrackVariableLinear<T>
+impl<T> Track for TrackVariableLinear<T>
 where
     T: Lerp + Clone + 'static,
 {
-    // TODO: Profile sample_indexed vs sample, I want to know when use one over the other?
+    type Out = T;
 
-    /// Easer to use sampling method that don't have time restrictions or needs
-    /// the keyframe index, but is more expensive always `O(n)`. Which means
-    /// sampling takes longer to evaluate as much as time get closer to curve duration
-    /// and it get worse with more keyframes.
-    pub fn sample(&self, time: f32) -> T {
+    fn duration(&self) -> f32 {
+        self.time_stamps.last().copied().unwrap_or(0.0)
+    }
+
+    fn sample(&self, time: f32) -> Self::Out {
         // Index guessing gives a small search optimization
         let index = if time < self.duration() * 0.5 {
             0
@@ -112,67 +107,54 @@ where
             self.time_stamps.len() - 1
         };
 
-        self.sample_indexed(index as u16, time).1
+        self.sample_with_cursor(index as u16, time).1
     }
 
-    /// Samples the curve starting from some keyframe index, this make the common case `O(1)`
-    ///
-    /// **NOTE** Each keyframe is indexed by a `u16` to reduce memory usage when using the keyframe caching
-    pub fn sample_indexed(&self, mut index: u16, time: f32) -> (u16, T) {
+    fn sample_with_cursor(&self, mut cursor: u16, time: f32) -> (u16, Self::Out) {
         // Adjust for the current keyframe index
-        let last_index = (self.time_stamps.len() - 1) as u16;
+        let last_cursor = (self.time_stamps.len() - 1) as u16;
 
-        index = index.max(0).min(last_index);
-        if self.time_stamps[index as usize] < time {
+        cursor = cursor.max(0).min(last_cursor);
+        if self.time_stamps[cursor as usize] < time {
             // Forward search
             loop {
-                if index == last_index {
-                    return (last_index, self.keyframes[last_index as usize].clone());
+                if cursor == last_cursor {
+                    return (last_cursor, self.keyframes[last_cursor as usize].clone());
                 }
-                index += 1;
+                cursor += 1;
 
-                if self.time_stamps[index as usize] >= time {
+                if self.time_stamps[cursor as usize] >= time {
                     break;
                 }
             }
         } else {
             // Backward search
             loop {
-                if index == 0 {
+                if cursor == 0 {
                     return (0, self.keyframes[0].clone());
                 }
 
-                let i = index - 1;
+                let i = cursor - 1;
                 if self.time_stamps[i as usize] <= time {
                     break;
                 }
 
-                index = i;
+                cursor = i;
             }
         }
 
         // Lerp the value
-        let i = index - 1;
+        let i = cursor - 1;
         let previous_time = self.time_stamps[i as usize];
-        let t = (time - previous_time) / (self.time_stamps[index as usize] - previous_time);
+        let t = (time - previous_time) / (self.time_stamps[cursor as usize] - previous_time);
         debug_assert!(t >= 0.0 && t <= 1.0, "t = {} but should be normalized", t); // Checks if it's required to normalize t
         let value = T::lerp(
             &self.keyframes[i as usize],
-            &self.keyframes[index as usize],
+            &self.keyframes[cursor as usize],
             t,
         );
 
-        (index, value)
-    }
-
-    #[inline(always)]
-    pub fn value_type(&self) -> TypeId {
-        TypeId::of::<T>()
-    }
-
-    #[inline(always)]
-    pub fn value_size(&self) -> usize {
-        std::mem::size_of::<T>()
+        (cursor, value)
     }
 }
 
@@ -192,7 +174,7 @@ mod tests {
         let mut e0 = 0.0;
         for v in &[0.1, 0.3, 0.7, 0.4, 0.2, 0.0, 0.4, 0.85, 1.0] {
             let v = *v;
-            let (i1, e1) = curve.sample_indexed(i0, v);
+            let (i1, e1) = curve.sample_with_cursor(i0, v);
             assert_eq!(e1, 2.0 * v);
             if e1 > e0 {
                 assert!(i1 >= i0);

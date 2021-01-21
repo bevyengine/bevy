@@ -4,9 +4,9 @@ use bevy::prelude::*;
 
 fn main() {
     App::build()
-        .add_resource(AssetServerSettings {
-            asset_folder: "G:/Rust/bevy/assets".to_string(),
-        })
+        // .add_resource(AssetServerSettings {
+        //     asset_folder: "G:/Rust/bevy/assets".to_string(),
+        // })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(anim_set)
