@@ -130,6 +130,7 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
+`alien_cake_addict` | [`game/alien_cake_addict.rs`](./game/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game
 `breakout` | [`game/breakout.rs`](./game/breakout.rs) | An implementation of the classic game "Breakout"
 
 ## Input
