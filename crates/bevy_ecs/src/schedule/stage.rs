@@ -1,11 +1,10 @@
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::HashMap;
 use downcast_rs::{impl_downcast, Downcast};
-use std::{any::TypeId, borrow::Cow};
 
 use super::{ParallelSystemStageExecutor, SerialSystemStageExecutor, SystemStageExecutor};
 use crate::{
-    ArchetypeComponent, ExclusiveSystem, ExclusiveSystemDescriptor, InjectionPoint, Ordering,
-    ParallelSystemDescriptor, Resources, RunCriteria, ShouldRun, System, SystemId, TypeAccess,
+    topological_sorting, ExclusiveSystem, ExclusiveSystemDescriptor, InsertionPoint,
+    ParallelSystemDescriptor, Resources, RunCriteria, ShouldRun, SortingResult, System, SystemId,
     World,
 };
 
@@ -29,14 +28,30 @@ pub struct SystemIndex {
     pub system: usize,
 }
 
+impl std::fmt::Debug for SystemIndex {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "SystemIndex({},{})", self.set, self.system)
+    }
+}
+
 pub struct SystemStage {
+    /// Determines if this stage should run.
     run_criteria: RunCriteria,
+    /// Instance of a scheduling algorithm for running the systems.
     executor: Box<dyn SystemStageExecutor>,
+    /// Groups of systems; each set has its own run criterion.
     system_sets: Vec<SystemSet>,
+    /// Topologically sorted exclusive systems that want to be ran at the start of the stage.
     at_start: Vec<SystemIndex>,
+    /// Topologically sorted exclusive systems that want to be ran after parrallel systems and
+    /// before the application of their command buffers.
     before_commands: Vec<SystemIndex>,
+    /// Topologically sorted exclusive systems that want to be ran at the end of the stage.
     at_end: Vec<SystemIndex>,
+    /// Resolved graph of parallel systems and their dependencies. Contains all parallel systems.
     parallel_dependencies: HashMap<SystemIndex, Vec<SystemIndex>>,
+    /// Topologically sorted parallel systems.
+    parallel_sorted: Vec<SystemIndex>,
 }
 
 impl SystemStage {
@@ -49,6 +64,7 @@ impl SystemStage {
             before_commands: Default::default(),
             at_end: Default::default(),
             parallel_dependencies: Default::default(),
+            parallel_sorted: Default::default(),
         }
     }
 
@@ -62,6 +78,18 @@ impl SystemStage {
 
     pub fn parallel() -> Self {
         Self::new(Box::new(ParallelSystemStageExecutor::default()))
+    }
+
+    pub fn get_executor<T: SystemStageExecutor>(&self) -> Option<&T> {
+        self.executor.downcast_ref()
+    }
+
+    pub fn get_executor_mut<T: SystemStageExecutor>(&mut self) -> Option<&mut T> {
+        self.executor.downcast_mut()
+    }
+
+    pub fn set_executor(&mut self, executor: Box<dyn SystemStageExecutor>) {
+        self.executor = executor;
     }
 
     pub fn with_system(mut self, system: impl Into<ParallelSystemDescriptor>) -> Self {
@@ -102,65 +130,11 @@ impl SystemStage {
         self
     }
 
-    pub fn get_executor<T: SystemStageExecutor>(&self) -> Option<&T> {
-        self.executor.downcast_ref()
-    }
-
-    pub fn get_executor_mut<T: SystemStageExecutor>(&mut self) -> Option<&mut T> {
-        self.executor.downcast_mut()
-    }
-
-    /// Determines if the parallel systems dependency graph has a cycle using depth first search.
-    fn has_a_dependency_cycle(&self) -> bool {
-        fn is_part_of_a_cycle(
-            index: &SystemIndex,
-            visited: &mut HashSet<SystemIndex>,
-            current: &mut HashSet<SystemIndex>,
-            graph: &HashMap<SystemIndex, Vec<SystemIndex>>,
-        ) -> bool {
-            if current.contains(index) {
-                return true;
-            } else if visited.contains(index) {
-                return false;
-            }
-            visited.insert(*index);
-            current.insert(*index);
-            for dependency in graph.get(index).unwrap() {
-                if is_part_of_a_cycle(dependency, visited, current, graph) {
-                    return true;
-                }
-            }
-            current.remove(index);
-            false
-        }
-        let mut visited =
-            HashSet::with_capacity_and_hasher(self.parallel_dependencies.len(), Default::default());
-        let mut current =
-            HashSet::with_capacity_and_hasher(self.parallel_dependencies.len(), Default::default());
-        for system_index in self.parallel_dependencies.keys() {
-            if is_part_of_a_cycle(
-                system_index,
-                &mut visited,
-                &mut current,
-                &self.parallel_dependencies,
-            ) {
-                return true;
-            }
-        }
-        false
-    }
-
     // TODO tests
     fn rebuild_orders_and_dependencies(&mut self) {
-        self.parallel_dependencies.clear();
-        self.at_start.clear();
-        self.before_commands.clear();
-        self.at_end.clear();
-        let mut parallel_labels_map = HashMap::<Label, SystemIndex>::default();
-        let mut at_start_labels_map = HashMap::<Label, SystemIndex>::default();
-        let mut before_commands_labels_map = HashMap::<Label, SystemIndex>::default();
-        let mut at_end_labels_map = HashMap::<Label, SystemIndex>::default();
         // Collect labels.
+        let mut parallel_labels_map = HashMap::<Label, SystemIndex>::default();
+        let mut exclusive_labels_map = HashMap::<Label, SystemIndex>::default();
         for (set_index, system_set) in self.system_sets.iter().enumerate() {
             for (system_index, descriptor) in system_set.parallel_systems.iter().enumerate() {
                 if let Some(label) = descriptor.label {
@@ -175,92 +149,93 @@ impl SystemStage {
             }
             for (system_index, descriptor) in system_set.exclusive_systems.iter().enumerate() {
                 if let Some(label) = descriptor.label {
-                    let index = SystemIndex {
-                        set: set_index,
-                        system: system_index,
-                    };
-                    use InjectionPoint::*;
-                    match descriptor.injection_point {
-                        AtStart => at_start_labels_map.insert(label, index),
-                        BeforeCommands => before_commands_labels_map.insert(label, index),
-                        AtEnd => at_end_labels_map.insert(label, index),
-                    };
+                    exclusive_labels_map.insert(
+                        label,
+                        SystemIndex {
+                            set: set_index,
+                            system: system_index,
+                        },
+                    );
                 }
             }
         }
-        // Populate parallel dependency tree and sequential orders.
-        let mut new_dependencies = Vec::new(); // Scratch space.
+
+        // Build dependency graphs.
+        self.parallel_dependencies.clear();
+        let mut at_start_graph = HashMap::default();
+        let mut before_commands_graph = HashMap::default();
+        let mut at_end_graph = HashMap::default();
         for (set_index, system_set) in self.system_sets.iter().enumerate() {
             for (system_index, descriptor) in system_set.parallel_systems.iter().enumerate() {
-                if !descriptor.dependencies.is_empty() {
-                    let index = SystemIndex {
+                insert_into_graph(
+                    SystemIndex {
                         set: set_index,
                         system: system_index,
-                    };
-                    let dependencies = self
-                        .parallel_dependencies
-                        .entry(index)
-                        .or_insert_with(Vec::new);
-                    new_dependencies.extend(
-                        descriptor
-                            .dependencies
-                            .iter()
-                            .map(|label| {
-                                // TODO better error message
-                                *parallel_labels_map
-                                    .get(label)
-                                    .unwrap_or_else(|| panic!("no such system"))
-                            })
-                            .filter(|dependency| !dependencies.contains(dependency)),
-                    );
-                    dependencies.extend(new_dependencies.drain(..));
-                    for dependant in descriptor.dependants.iter().map(|label| {
-                        // TODO better error message
-                        *parallel_labels_map
-                            .get(label)
-                            .unwrap_or_else(|| panic!("no such system"))
-                    }) {
-                        let dependencies = self
-                            .parallel_dependencies
-                            .entry(dependant)
-                            .or_insert_with(Vec::new);
-                        if !dependencies.contains(&index) {
-                            dependencies.push(index);
-                        }
-                    }
-                }
+                    },
+                    &descriptor.after,
+                    &descriptor.before,
+                    &mut self.parallel_dependencies,
+                    &parallel_labels_map,
+                );
             }
             for (system_index, descriptor) in system_set.exclusive_systems.iter().enumerate() {
-                let index = SystemIndex {
-                    set: set_index,
-                    system: system_index,
+                let tree = match descriptor.insertion_point {
+                    InsertionPoint::AtStart => &mut at_start_graph,
+                    InsertionPoint::BeforeCommands => &mut before_commands_graph,
+                    InsertionPoint::AtEnd => &mut at_end_graph,
                 };
-                use InjectionPoint::*;
-                match descriptor.injection_point {
-                    AtStart => insert_sequential_system(
-                        index,
-                        descriptor.ordering,
-                        &mut self.at_start,
-                        &at_start_labels_map,
-                    ),
-                    BeforeCommands => insert_sequential_system(
-                        index,
-                        descriptor.ordering,
-                        &mut self.before_commands,
-                        &before_commands_labels_map,
-                    ),
-                    AtEnd => insert_sequential_system(
-                        index,
-                        descriptor.ordering,
-                        &mut self.at_end,
-                        &at_end_labels_map,
-                    ),
-                }
+                insert_into_graph(
+                    SystemIndex {
+                        set: set_index,
+                        system: system_index,
+                    },
+                    &descriptor.after,
+                    &descriptor.before,
+                    tree,
+                    &exclusive_labels_map,
+                )
             }
         }
-        if self.has_a_dependency_cycle() {
-            panic!("the graph cycles"); // TODO better error message.
-        }
+
+        // Generate topological order for parallel systems.
+        self.parallel_sorted = match topological_sorting(&self.parallel_dependencies) {
+            SortingResult::Sorted(sorted) => sorted,
+            // TODO better error
+            SortingResult::FoundCycle(cycle) => panic!(
+                "found cycle: {:?}",
+                cycle
+                    .iter()
+                    .map(
+                        |index| self.system_sets[index.set].parallel_systems[index.system]
+                            .label
+                            .unwrap_or("<unlabeled>")
+                    )
+                    .collect::<Vec<_>>()
+            ),
+        };
+
+        // Generate topological orders for exclusive systems.
+        let system_sets = &self.system_sets;
+        let try_sort = |graph: &HashMap<SystemIndex, _>| {
+            match topological_sorting(graph) {
+                SortingResult::Sorted(sorted) => sorted,
+                // TODO better error
+                SortingResult::FoundCycle(cycle) => panic!(
+                    "found cycle: {:?}",
+                    cycle
+                        .iter()
+                        .map(
+                            |index| system_sets[index.set].exclusive_systems[index.system]
+                                .label
+                                .unwrap_or("<unlabeled>")
+                        )
+                        .collect::<Vec<_>>()
+                ),
+            }
+        };
+        self.at_start = try_sort(&at_start_graph);
+        self.before_commands = try_sort(&before_commands_graph);
+        self.at_end = try_sort(&at_end_graph);
     }
 
     pub fn run_once(&mut self, world: &mut World, resources: &mut Resources) {
@@ -282,6 +257,7 @@ impl SystemStage {
             &self.before_commands,
             &self.at_end,
             &self.parallel_dependencies,
+            &self.parallel_sorted,
             world,
             resources,
         );
@@ -291,42 +267,31 @@ impl SystemStage {
     }
 }
 
-fn find_target_index(
-    target: Label,
-    order: &[SystemIndex],
-    map: &HashMap<Label, SystemIndex>,
-) -> Option<usize> {
-    // TODO better error message
-    let target = map.get(target).unwrap_or_else(|| panic!("no such system"));
-    order
-        .iter()
-        .enumerate()
-        .find_map(|(order_index, system_index)| {
-            if system_index == target {
-                Some(order_index)
-            } else {
-                None
-            }
-        })
-}
-
-fn insert_sequential_system(
+fn insert_into_graph(
     system_index: SystemIndex,
-    ordering: Ordering,
-    order: &mut Vec<SystemIndex>,
-    map: &HashMap<Label, SystemIndex>,
+    dependencies: &[Label],
+    dependants: &[Label],
+    graph: &mut HashMap<SystemIndex, Vec<SystemIndex>>,
+    labels: &HashMap<Label, SystemIndex>,
 ) {
-    match ordering {
-        Ordering::None => order.push(system_index),
-        Ordering::Before(target) => {
-            if let Some(target) = find_target_index(target, order, map) {
-                order.insert(target, system_index);
+    let resolve_label = |label| {
+        // TODO better error message
+        labels
+            .get(label)
+            .unwrap_or_else(|| panic!("no such system"))
+    };
+    {
+        let children = graph.entry(system_index).or_insert_with(Vec::new);
+        for dependency in dependencies.iter().map(resolve_label) {
+            if !children.contains(dependency) {
+                children.push(*dependency);
             }
         }
-        Ordering::After(target) => {
-            if let Some(target) = find_target_index(target, order, map) {
-                order.insert(target + 1, system_index);
-            }
+    }
+    for dependant in dependants.iter().map(resolve_label) {
+        let children = graph.entry(*dependant).or_insert_with(Vec::new);
+        if !children.contains(&system_index) {
+            children.push(system_index);
         }
     }
 }
@@ -463,65 +428,244 @@ impl<S: Into<ExclusiveSystemDescriptor>> From<S> for SystemStage {
     }
 }
 
-pub struct RunOnce {
-    ran: bool,
-    system_id: SystemId,
-    archetype_component_access: TypeAccess<ArchetypeComponent>,
-    resource_access: TypeAccess<TypeId>,
-}
+#[cfg(test)]
+mod tests {
+    use crate::{prelude::*, SerialSystemStageExecutor};
+    use bevy_tasks::{ComputeTaskPool, TaskPoolBuilder};
+    use std::thread::{self, ThreadId};
 
-impl Default for RunOnce {
-    fn default() -> Self {
-        Self {
-            ran: false,
-            system_id: SystemId::new(),
-            archetype_component_access: Default::default(),
-            resource_access: Default::default(),
+    fn make_exclusive(tag: usize) -> impl FnMut(&mut Resources) {
+        move |resources| resources.get_mut::<Vec<usize>>().unwrap().push(tag)
+    }
+
+    // This is silly. https://github.com/bevyengine/bevy/issues/1029
+    macro_rules! make_parallel {
+        ($tag:expr) => {{
+            fn parallel(mut resource: ResMut<Vec<usize>>) {
+                resource.push($tag)
+            }
+            parallel
+        }};
+    }
+
+    #[test]
+    fn insertion_points() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+
+        resources.insert(Vec::<usize>::new());
+        let mut stage = SystemStage::parallel()
+            .with_exclusive_system(make_exclusive(0).system().at_start())
+            .with_system(make_parallel!(1).system())
+            .with_exclusive_system(make_exclusive(2).system().before_commands())
+            .with_exclusive_system(make_exclusive(3).system().at_end());
+        stage.run(&mut world, &mut resources);
+        assert_eq!(*resources.get::<Vec<usize>>().unwrap(), vec![0, 1, 2, 3]);
+        stage.set_executor(Box::new(SerialSystemStageExecutor::default()));
+        stage.run(&mut world, &mut resources);
+        assert_eq!(
+            *resources.get::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 3, 0, 1, 2, 3]
+        );
+
+        resources.get_mut::<Vec<usize>>().unwrap().clear();
+        let mut stage = SystemStage::parallel()
+            .with_exclusive_system(make_exclusive(2).system().before_commands())
+            .with_exclusive_system(make_exclusive(3).system().at_end())
+            .with_system(make_parallel!(1).system())
+            .with_exclusive_system(make_exclusive(0).system().at_start());
+        stage.run(&mut world, &mut resources);
+        assert_eq!(*resources.get::<Vec<usize>>().unwrap(), vec![0, 1, 2, 3]);
+        stage.set_executor(Box::new(SerialSystemStageExecutor::default()));
+        stage.run(&mut world, &mut resources);
+        assert_eq!(
+            *resources.get::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 3, 0, 1, 2, 3]
+        );
+    }
+
+    #[test]
+    fn exclusive_after() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert(Vec::<usize>::new());
+        let mut stage = SystemStage::parallel()
+            .with_exclusive_system(make_exclusive(1).system().label("1").after("0"))
+            .with_exclusive_system(make_exclusive(2).system().after("1"))
+            .with_exclusive_system(make_exclusive(0).system().label("0"));
+        stage.run(&mut world, &mut resources);
+        stage.set_executor(Box::new(SerialSystemStageExecutor::default()));
+        stage.run(&mut world, &mut resources);
+        assert_eq!(
+            *resources.get::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 0, 1, 2]
+        );
+    }
+
+    #[test]
+    fn exclusive_before() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert(Vec::<usize>::new());
+        let mut stage = SystemStage::parallel()
+            .with_exclusive_system(make_exclusive(1).system().label("1").before("2"))
+            .with_exclusive_system(make_exclusive(2).system().label("2"))
+            .with_exclusive_system(make_exclusive(0).system().before("1"));
+        stage.run(&mut world, &mut resources);
+        stage.set_executor(Box::new(SerialSystemStageExecutor::default()));
+        stage.run(&mut world, &mut resources);
+        assert_eq!(
+            *resources.get::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 0, 1, 2]
+        );
+    }
+
+    #[test]
+    fn exclusive_mixed() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert(Vec::<usize>::new());
+        let mut stage = SystemStage::parallel()
+            .with_exclusive_system(make_exclusive(2).system().label("2"))
+            .with_exclusive_system(make_exclusive(1).system().label("1").after("0").before("2"))
+            .with_exclusive_system(make_exclusive(0).system().label("0"))
+            .with_exclusive_system(make_exclusive(4).system().label("4"))
+            .with_exclusive_system(make_exclusive(3).system().label("3").after("2").before("4"));
+        stage.run(&mut world, &mut resources);
+        stage.set_executor(Box::new(SerialSystemStageExecutor::default()));
+        stage.run(&mut world, &mut resources);
+        assert_eq!(
+            *resources.get::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn exclusive_cycle_2() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert(Vec::<usize>::new());
+        let mut stage = SystemStage::parallel()
+            .with_exclusive_system(make_exclusive(0).system().label("0").after("1"))
+            .with_exclusive_system(make_exclusive(1).system().label("1").after("0"));
+        stage.run(&mut world, &mut resources);
+    }
+
+    #[test]
+    #[should_panic]
+    fn exclusive_cycle_3() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert(Vec::<usize>::new());
+        let mut stage = SystemStage::parallel()
+            .with_exclusive_system(make_exclusive(0).system().label("0"))
+            .with_exclusive_system(make_exclusive(1).system().after("0").before("2"))
+            .with_exclusive_system(make_exclusive(2).system().label("2").before("0"));
+        stage.run(&mut world, &mut resources);
+    }
+
+    #[test]
+    fn parallel_after() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert(Vec::<usize>::new());
+        let mut stage = SystemStage::parallel()
+            .with_system(make_parallel!(1).system().after("0").label("1"))
+            .with_system(make_parallel!(2).system().after("1"))
+            .with_system(make_parallel!(0).system().label("0"));
+        stage.run(&mut world, &mut resources);
+        stage.set_executor(Box::new(SerialSystemStageExecutor::default()));
+        stage.run(&mut world, &mut resources);
+        assert_eq!(
+            *resources.get::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 0, 1, 2]
+        );
+    }
+
+    #[test]
+    fn parallel_before() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert(Vec::<usize>::new());
+        let mut stage = SystemStage::parallel()
+            .with_system(make_parallel!(1).system().label("1").before("2"))
+            .with_system(make_parallel!(2).system().label("2"))
+            .with_system(make_parallel!(0).system().before("1"));
+        stage.run(&mut world, &mut resources);
+        stage.set_executor(Box::new(SerialSystemStageExecutor::default()));
+        stage.run(&mut world, &mut resources);
+        assert_eq!(
+            *resources.get::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 0, 1, 2]
+        );
+    }
+
+    #[test]
+    fn parallel_mixed() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert(Vec::<usize>::new());
+        let mut stage = SystemStage::parallel()
+            .with_system(make_parallel!(2).system().label("2"))
+            .with_system(make_parallel!(1).system().label("1").after("0").before("2"))
+            .with_system(make_parallel!(0).system().label("0"))
+            .with_system(make_parallel!(4).system().label("4"))
+            .with_system(make_parallel!(3).system().label("3").after("2").before("4"));
+        stage.run(&mut world, &mut resources);
+        stage.set_executor(Box::new(SerialSystemStageExecutor::default()));
+        stage.run(&mut world, &mut resources);
+        assert_eq!(
+            *resources.get::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn parallel_cycle_2() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert(Vec::<usize>::new());
+        let mut stage = SystemStage::parallel()
+            .with_system(make_parallel!(0).system().label("0").after("1"))
+            .with_system(make_parallel!(1).system().label("1").after("0"));
+        stage.run(&mut world, &mut resources);
+    }
+
+    #[test]
+    #[should_panic]
+    fn parallel_cycle_3() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert(Vec::<usize>::new());
+        let mut stage = SystemStage::parallel()
+            .with_system(make_parallel!(0).system().label("0"))
+            .with_system(make_parallel!(1).system().after("0").before("2"))
+            .with_system(make_parallel!(2).system().label("2").before("0"));
+        stage.run(&mut world, &mut resources);
+    }
+
+    #[test]
+    fn thread_local_resource_system() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert(ComputeTaskPool(
+            TaskPoolBuilder::new().num_threads(4).build(),
+        ));
+        resources.insert_thread_local(thread::current().id());
+
+        fn wants_thread_local(thread_id: ThreadLocal<ThreadId>) {
+            assert_eq!(thread::current().id(), *thread_id);
         }
+
+        let mut stage = SystemStage::parallel()
+            .with_system(wants_thread_local.system())
+            .with_system(wants_thread_local.system())
+            .with_system(wants_thread_local.system())
+            .with_system(wants_thread_local.system());
+        stage.run(&mut world, &mut resources);
+        stage.set_executor(Box::new(SerialSystemStageExecutor::default()));
+        stage.run(&mut world, &mut resources);
     }
-}
-
-impl System for RunOnce {
-    type In = ();
-    type Out = ShouldRun;
-
-    fn name(&self) -> Cow<'static, str> {
-        Cow::Borrowed(std::any::type_name::<RunOnce>())
-    }
-
-    fn id(&self) -> SystemId {
-        self.system_id
-    }
-
-    fn update_access(&mut self, _world: &World) {}
-
-    fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent> {
-        &self.archetype_component_access
-    }
-
-    fn resource_access(&self) -> &TypeAccess<TypeId> {
-        &self.resource_access
-    }
-
-    fn is_thread_local(&self) -> bool {
-        false
-    }
-
-    unsafe fn run_unsafe(
-        &mut self,
-        _input: Self::In,
-        _world: &World,
-        _resources: &Resources,
-    ) -> Option<Self::Out> {
-        Some(if self.ran {
-            ShouldRun::No
-        } else {
-            self.ran = true;
-            ShouldRun::Yes
-        })
-    }
-
-    fn apply_buffers(&mut self, _world: &mut World, _resources: &mut Resources) {}
-
-    fn initialize(&mut self, _world: &mut World, _resources: &mut Resources) {}
 }

@@ -293,7 +293,7 @@ impl<'a, T: Resource + FromResources> FetchSystemParam<'a> for FetchLocal<T> {
 
 pub struct FetchThreadLocal<T>(PhantomData<T>);
 
-impl<'a, T: Resource + FromResources> SystemParam for ThreadLocal<'a, T> {
+impl<'a, T: Resource> SystemParam for ThreadLocal<'a, T> {
     type Fetch = FetchThreadLocal<T>;
 }
 

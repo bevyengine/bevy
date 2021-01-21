@@ -149,7 +149,7 @@ impl<'a, T: Resource> ThreadLocal<'a, T> {
     }
 }
 
-impl<'a, T: Resource + FromResources> Deref for ThreadLocal<'a, T> {
+impl<'a, T: Resource> Deref for ThreadLocal<'a, T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -157,7 +157,7 @@ impl<'a, T: Resource + FromResources> Deref for ThreadLocal<'a, T> {
     }
 }
 
-impl<'a, T: Resource + FromResources> DerefMut for ThreadLocal<'a, T> {
+impl<'a, T: Resource> DerefMut for ThreadLocal<'a, T> {
     fn deref_mut(&mut self) -> &mut T {
         unsafe { &mut *self.value }
     }

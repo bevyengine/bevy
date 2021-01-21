@@ -7,9 +7,9 @@ type Label = &'static str; // TODO
 pub struct ParallelSystemDescriptor {
     system: NonNull<dyn System<In = (), Out = ()>>,
     pub(crate) label: Option<Label>,
+    pub(crate) before: Vec<Label>,
     // TODO consider Vec<Option<Label>> or something to support optional dependencies?
-    pub(crate) dependencies: Vec<Label>,
-    pub(crate) dependants: Vec<Label>,
+    pub(crate) after: Vec<Label>,
 }
 
 unsafe impl Send for ParallelSystemDescriptor {}
@@ -49,12 +49,12 @@ impl ParallelSystemDescriptorCoercion for ParallelSystemDescriptor {
     }
 
     fn before(mut self, label: Label) -> ParallelSystemDescriptor {
-        self.dependants.push(label);
+        self.before.push(label);
         self
     }
 
     fn after(mut self, label: Label) -> ParallelSystemDescriptor {
-        self.dependencies.push(label);
+        self.after.push(label);
         self
     }
 }
@@ -63,8 +63,8 @@ fn new_parallel_descriptor(system: BoxedSystem<(), ()>) -> ParallelSystemDescrip
     ParallelSystemDescriptor {
         system: unsafe { NonNull::new_unchecked(Box::into_raw(system)) },
         label: None,
-        dependencies: Vec::new(),
-        dependants: Vec::new(),
+        before: Vec::new(),
+        after: Vec::new(),
     }
 }
 
@@ -115,14 +115,7 @@ impl From<BoxedSystem<(), ()>> for ParallelSystemDescriptor {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) enum Ordering {
-    None,
-    Before(Label),
-    After(Label),
-}
-
-#[derive(Debug, Clone, Copy)]
-pub(crate) enum InjectionPoint {
+pub(crate) enum InsertionPoint {
     AtStart,
     BeforeCommands,
     AtEnd,
@@ -131,8 +124,9 @@ pub(crate) enum InjectionPoint {
 pub struct ExclusiveSystemDescriptor {
     pub(crate) system: ExclusiveSystemFn,
     pub(crate) label: Option<Label>,
-    pub(crate) ordering: Ordering,
-    pub(crate) injection_point: InjectionPoint,
+    pub(crate) before: Vec<Label>,
+    pub(crate) after: Vec<Label>,
+    pub(crate) insertion_point: InsertionPoint,
 }
 
 pub trait ExclusiveSystemDescriptorCoercion {
@@ -156,27 +150,27 @@ impl ExclusiveSystemDescriptorCoercion for ExclusiveSystemDescriptor {
     }
 
     fn before(mut self, label: Label) -> ExclusiveSystemDescriptor {
-        self.ordering = Ordering::Before(label);
+        self.before.push(label);
         self
     }
 
     fn after(mut self, label: Label) -> ExclusiveSystemDescriptor {
-        self.ordering = Ordering::After(label);
+        self.after.push(label);
         self
     }
 
     fn at_start(mut self) -> ExclusiveSystemDescriptor {
-        self.injection_point = InjectionPoint::AtStart;
+        self.insertion_point = InsertionPoint::AtStart;
         self
     }
 
     fn before_commands(mut self) -> ExclusiveSystemDescriptor {
-        self.injection_point = InjectionPoint::BeforeCommands;
+        self.insertion_point = InsertionPoint::BeforeCommands;
         self
     }
 
     fn at_end(mut self) -> ExclusiveSystemDescriptor {
-        self.injection_point = InjectionPoint::AtEnd;
+        self.insertion_point = InsertionPoint::AtEnd;
         self
     }
 }
@@ -185,8 +179,9 @@ fn new_exclusive_descriptor(system: ExclusiveSystemFn) -> ExclusiveSystemDescrip
     ExclusiveSystemDescriptor {
         system,
         label: None,
-        ordering: Ordering::None,
-        injection_point: InjectionPoint::AtStart,
+        before: Vec::new(),
+        after: Vec::new(),
+        insertion_point: InsertionPoint::AtStart,
     }
 }
 
@@ -222,48 +217,5 @@ where
 impl From<ExclusiveSystemFn> for ExclusiveSystemDescriptor {
     fn from(system: ExclusiveSystemFn) -> Self {
         new_exclusive_descriptor(system)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{prelude::*, Stage};
-
-    fn make_exclusive(tag: usize) -> impl FnMut(&mut Resources) {
-        move |resources| resources.get_mut::<Vec<usize>>().unwrap().push(tag)
-    }
-
-    // This is silly. https://github.com/bevyengine/bevy/issues/1029
-    macro_rules! make_parallel {
-        ($tag:expr) => {{
-            fn parallel(mut resource: ResMut<Vec<usize>>) {
-                resource.push($tag)
-            }
-            parallel
-        }};
-    }
-
-    #[test]
-    fn basic_order() {
-        let mut world = World::new();
-        let mut resources = Resources::default();
-
-        resources.insert(Vec::<usize>::new());
-        let mut stage = SystemStage::parallel()
-            .with_exclusive_system(make_exclusive(0).system().at_start())
-            .with_system(make_parallel!(1).system())
-            .with_exclusive_system(make_exclusive(2).system().before_commands())
-            .with_exclusive_system(make_exclusive(3).system().at_end());
-        stage.run(&mut world, &mut resources);
-        assert_eq!(*resources.get::<Vec<usize>>().unwrap(), vec![0, 1, 2, 3]);
-
-        resources.get_mut::<Vec<usize>>().unwrap().clear();
-        let mut stage = SystemStage::parallel()
-            .with_exclusive_system(make_exclusive(2).system().before_commands())
-            .with_exclusive_system(make_exclusive(3).system().at_end())
-            .with_system(make_parallel!(1).system())
-            .with_exclusive_system(make_exclusive(0).system().at_start());
-        stage.run(&mut world, &mut resources);
-        assert_eq!(*resources.get::<Vec<usize>>().unwrap(), vec![0, 1, 2, 3]);
     }
 }

@@ -96,6 +96,7 @@ impl SystemStageExecutor for ParallelSystemStageExecutor {
         before_commands: &[SystemIndex],
         at_end: &[SystemIndex],
         parallel_dependencies: &HashMap<SystemIndex, Vec<SystemIndex>>,
+        parallel_sorted: &[SystemIndex],
         world: &mut World,
         resources: &mut Resources,
     ) {
@@ -108,7 +109,7 @@ impl SystemStageExecutor for ParallelSystemStageExecutor {
         }
         while has_work {
             // Run systems that want to be at the start of stage.
-            self.run_systems_sequence(at_start, system_sets, world, resources);
+            self.run_exclusive_systems_sequence(at_start, system_sets, world, resources);
 
             if self.last_archetypes_generation != world.archetypes_generation() {
                 self.update_parallel_access(system_sets, world);
@@ -144,22 +145,18 @@ impl SystemStageExecutor for ParallelSystemStageExecutor {
             });
 
             // Run systems that want to be between parallel systems and their command buffers.
-            self.run_systems_sequence(before_commands, system_sets, world, resources);
+            self.run_exclusive_systems_sequence(before_commands, system_sets, world, resources);
 
             // Apply parallel systems' buffers.
-            // TODO sort wrt dependencies?
-            // TODO rewrite to use the bitset?
-            for scheduling_data in &self.parallel {
-                let index = scheduling_data.index;
-                if let Yes | YesAndLoop = self.system_set_should_run[index.set] {
-                    system_sets[index.set]
-                        .parallel_system_mut(index.system)
-                        .apply_buffers(world, resources);
+            for index in parallel_sorted {
+                if let Yes | YesAndLoop = self.system_set_should_run()[index.set] {
+                    let system = system_sets[index.set].parallel_system_mut(index.system);
+                    system.apply_buffers(world, resources);
                 }
             }
 
             // Run systems that want to be at the end of stage.
-            self.run_systems_sequence(at_end, system_sets, world, resources);
+            self.run_exclusive_systems_sequence(at_end, system_sets, world, resources);
 
             has_work = self.reevaluate_run_criteria(system_sets, world, resources);
         }

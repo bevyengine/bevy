@@ -10,8 +10,11 @@ pub use stage_executor_parallel::ParallelSystemStageExecutor;
 pub use state::*;
 pub use system_descriptor::*;
 
-use crate::{BoxedSystem, IntoSystem, Resources, System, World};
-use bevy_utils::HashMap;
+use crate::{
+    ArchetypeComponent, BoxedSystem, IntoSystem, Resources, System, SystemId, TypeAccess, World,
+};
+use bevy_utils::{HashMap, HashSet};
+use std::{any::TypeId, borrow::Cow, hash::Hash};
 
 #[derive(Default)]
 pub struct Schedule {
@@ -251,318 +254,350 @@ impl RunCriteria {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::{
-        resource::Resources,
-        schedule::{Schedule, SystemStage},
-        system::Query,
-        Commands, Entity, IntoSystem, Stage, World,
-    };
-    use bevy_tasks::{ComputeTaskPool, TaskPool};
-
-    /*#[derive(Default)]
-    struct CompletedSystems {
-        completed_systems: Arc<Mutex<HashSet<&'static str>>>,
-    }*/
-
-    #[test]
-    fn cross_stage_archetype_change_prepare() {
-        let mut world = World::new();
-        let mut resources = Resources::default();
-        resources.insert(ComputeTaskPool(TaskPool::default()));
-
-        fn insert(commands: &mut Commands) {
-            commands.spawn((1u32,));
-        }
-
-        fn read(query: Query<&u32>, entities: Query<Entity>) {
-            for entity in &mut entities.iter() {
-                // query.get() does a "system permission check" that will fail if the entity is from a
-                // new archetype which hasnt been "prepared yet"
-                query.get_component::<u32>(entity).unwrap();
-            }
-
-            assert_eq!(1, entities.iter().count());
-        }
-
-        let mut schedule = Schedule::default();
-        let mut pre_archetype_change = SystemStage::parallel();
-        pre_archetype_change.add_system(insert.system());
-        schedule.add_stage("PreArchetypeChange", pre_archetype_change);
-        let mut post_archetype_change = SystemStage::parallel();
-        post_archetype_change.add_system(read.system());
-        schedule.add_stage("PostArchetypeChange", post_archetype_change);
-
-        schedule.run(&mut world, &mut resources);
-    }
-
-    #[test]
-    fn intra_stage_archetype_change_prepare() {
-        let mut world = World::new();
-        let mut resources = Resources::default();
-        resources.insert(ComputeTaskPool(TaskPool::default()));
-
-        fn insert(world: &mut World, _resources: &mut Resources) {
-            world.spawn((1u32,));
-        }
-
-        fn read(query: Query<&u32>, entities: Query<Entity>) {
-            for entity in &mut entities.iter() {
-                // query.get() does a "system permission check" that will fail if the entity is from a
-                // new archetype which hasnt been "prepared yet"
-                query.get_component::<u32>(entity).unwrap();
-            }
-
-            assert_eq!(1, entities.iter().count());
-        }
-
-        let mut update = SystemStage::parallel();
-        update.add_exclusive_system(insert.system());
-        update.add_system(read.system());
-
-        let mut schedule = Schedule::default();
-        schedule.add_stage("update", update);
-
-        schedule.run(&mut world, &mut resources);
-    }
-
-    // TODO more relevant tests
-    /*#[test]
-    fn schedule() {
-        let mut world = World::new();
-        let mut resources = Resources::default();
-        resources.insert(ComputeTaskPool(TaskPool::default()));
-        resources.insert(CompletedSystems::default());
-        resources.insert(1.0f64);
-        resources.insert(2isize);
-
-        world.spawn((1.0f32,));
-        world.spawn((1u32, 1u64));
-        world.spawn((2u32,));
-
-        let mut stage_a = SystemStage::parallel(); // component queries
-        let mut stage_b = SystemStage::parallel(); // thread local
-        let mut stage_c = SystemStage::parallel(); // resources
-
-        // A system names
-        const READ_U32_SYSTEM_NAME: &str = "read_u32";
-        const WRITE_FLOAT_SYSTEM_NAME: &str = "write_float";
-        const READ_U32_WRITE_U64_SYSTEM_NAME: &str = "read_u32_write_u64";
-        const READ_U64_SYSTEM_NAME: &str = "read_u64";
-
-        // B system names
-        const WRITE_U64_SYSTEM_NAME: &str = "write_u64";
-        const THREAD_LOCAL_SYSTEM_SYSTEM_NAME: &str = "thread_local_system";
-        const WRITE_F32_SYSTEM_NAME: &str = "write_f32";
-
-        // C system names
-        const READ_F64_RES_SYSTEM_NAME: &str = "read_f64_res";
-        const READ_ISIZE_RES_SYSTEM_NAME: &str = "read_isize_res";
-        const READ_ISIZE_WRITE_F64_RES_SYSTEM_NAME: &str = "read_isize_write_f64_res";
-        const WRITE_F64_RES_SYSTEM_NAME: &str = "write_f64_res";
-
-        // A systems
-
-        fn read_u32(completed_systems: Res<CompletedSystems>, _query: Query<&u32>) {
-            let mut completed_systems = completed_systems.completed_systems.lock();
-            completed_systems.insert(READ_U32_SYSTEM_NAME);
-        }
-
-        fn write_float(completed_systems: Res<CompletedSystems>, _query: Query<&f32>) {
-            let mut completed_systems = completed_systems.completed_systems.lock();
-            completed_systems.insert(WRITE_FLOAT_SYSTEM_NAME);
-        }
-
-        fn read_u32_write_u64(
-            completed_systems: Res<CompletedSystems>,
-            _query: Query<(&u32, &mut u64)>,
-        ) {
-            let mut completed_systems = completed_systems.completed_systems.lock();
-            assert!(!completed_systems.contains(READ_U64_SYSTEM_NAME));
-            completed_systems.insert(READ_U32_WRITE_U64_SYSTEM_NAME);
-        }
-
-        fn read_u64(completed_systems: Res<CompletedSystems>, _query: Query<&u64>) {
-            let mut completed_systems = completed_systems.completed_systems.lock();
-            assert!(completed_systems.contains(READ_U32_WRITE_U64_SYSTEM_NAME));
-            assert!(!completed_systems.contains(WRITE_U64_SYSTEM_NAME));
-            completed_systems.insert(READ_U64_SYSTEM_NAME);
-        }
-
-        stage_a.add_system(read_u32.system());
-        stage_a.add_system(write_float.system());
-        stage_a.add_system(read_u32_write_u64.system());
-        stage_a.add_system(read_u64.system());
-
-        // B systems
-
-        fn write_u64(completed_systems: Res<CompletedSystems>, _query: Query<&mut u64>) {
-            let mut completed_systems = completed_systems.completed_systems.lock();
-            assert!(completed_systems.contains(READ_U64_SYSTEM_NAME));
-            assert!(!completed_systems.contains(THREAD_LOCAL_SYSTEM_SYSTEM_NAME));
-            assert!(!completed_systems.contains(WRITE_F32_SYSTEM_NAME));
-            completed_systems.insert(WRITE_U64_SYSTEM_NAME);
-        }
-
-        fn thread_local_system(_world: &mut World, resources: &mut Resources) {
-            let completed_systems = resources.get::<CompletedSystems>().unwrap();
-            let mut completed_systems = completed_systems.completed_systems.lock();
-            assert!(completed_systems.contains(WRITE_U64_SYSTEM_NAME));
-            assert!(!completed_systems.contains(WRITE_F32_SYSTEM_NAME));
-            completed_systems.insert(THREAD_LOCAL_SYSTEM_SYSTEM_NAME);
-        }
-
-        fn write_f32(completed_systems: Res<CompletedSystems>, _query: Query<&mut f32>) {
-            let mut completed_systems = completed_systems.completed_systems.lock();
-            assert!(completed_systems.contains(WRITE_U64_SYSTEM_NAME));
-            assert!(completed_systems.contains(THREAD_LOCAL_SYSTEM_SYSTEM_NAME));
-            assert!(!completed_systems.contains(READ_F64_RES_SYSTEM_NAME));
-            completed_systems.insert(WRITE_F32_SYSTEM_NAME);
-        }
-
-        stage_b.add_system(write_u64.system());
-        stage_b.add_system(thread_local_system.system());
-        stage_b.add_system(write_f32.system());
-
-        // C systems
-
-        fn read_f64_res(completed_systems: Res<CompletedSystems>, _f64_res: Res<f64>) {
-            let mut completed_systems = completed_systems.completed_systems.lock();
-            assert!(completed_systems.contains(WRITE_F32_SYSTEM_NAME));
-            assert!(!completed_systems.contains(READ_ISIZE_WRITE_F64_RES_SYSTEM_NAME));
-            assert!(!completed_systems.contains(WRITE_F64_RES_SYSTEM_NAME));
-            completed_systems.insert(READ_F64_RES_SYSTEM_NAME);
-        }
-
-        fn read_isize_res(completed_systems: Res<CompletedSystems>, _isize_res: Res<isize>) {
-            let mut completed_systems = completed_systems.completed_systems.lock();
-            completed_systems.insert(READ_ISIZE_RES_SYSTEM_NAME);
-        }
-
-        fn read_isize_write_f64_res(
-            completed_systems: Res<CompletedSystems>,
-            _isize_res: Res<isize>,
-            _f64_res: ResMut<f64>,
-        ) {
-            let mut completed_systems = completed_systems.completed_systems.lock();
-            assert!(completed_systems.contains(READ_F64_RES_SYSTEM_NAME));
-            assert!(!completed_systems.contains(WRITE_F64_RES_SYSTEM_NAME));
-            completed_systems.insert(READ_ISIZE_WRITE_F64_RES_SYSTEM_NAME);
-        }
-
-        fn write_f64_res(completed_systems: Res<CompletedSystems>, _f64_res: ResMut<f64>) {
-            let mut completed_systems = completed_systems.completed_systems.lock();
-            assert!(completed_systems.contains(READ_F64_RES_SYSTEM_NAME));
-            assert!(completed_systems.contains(READ_ISIZE_WRITE_F64_RES_SYSTEM_NAME));
-            completed_systems.insert(WRITE_F64_RES_SYSTEM_NAME);
-        }
-
-        stage_c.add_system(read_f64_res.system());
-        stage_c.add_system(read_isize_res.system());
-        stage_c.add_system(read_isize_write_f64_res.system());
-        stage_c.add_system(write_f64_res.system());
-
-        fn run_and_validate(schedule: &mut Schedule, world: &mut World, resources: &mut Resources) {
-            schedule.initialize_and_run(world, resources);
-
-            let stage_a = schedule.get_stage::<SystemStage>("a").unwrap();
-            let stage_b = schedule.get_stage::<SystemStage>("b").unwrap();
-            let stage_c = schedule.get_stage::<SystemStage>("c").unwrap();
-
-            let a_executor = stage_a
-                .get_executor::<ParallelSystemStageExecutor>()
-                .unwrap();
-            let b_executor = stage_b
-                .get_executor::<ParallelSystemStageExecutor>()
-                .unwrap();
-            let c_executor = stage_c
-                .get_executor::<ParallelSystemStageExecutor>()
-                .unwrap();
-
-            assert_eq!(
-                a_executor.system_dependents(),
-                vec![vec![], vec![], vec![3], vec![]]
-            );
-            assert_eq!(
-                b_executor.system_dependents(),
-                vec![vec![1], vec![2], vec![]]
-            );
-            assert_eq!(
-                c_executor.system_dependents(),
-                vec![vec![2, 3], vec![], vec![3], vec![]]
-            );
-
-            let stage_a_len = a_executor.system_dependencies().len();
-            let mut read_u64_deps = FixedBitSet::with_capacity(stage_a_len);
-            read_u64_deps.insert(2);
-
-            assert_eq!(
-                a_executor.system_dependencies(),
-                vec![
-                    FixedBitSet::with_capacity(stage_a_len),
-                    FixedBitSet::with_capacity(stage_a_len),
-                    FixedBitSet::with_capacity(stage_a_len),
-                    read_u64_deps,
-                ]
-            );
-
-            let stage_b_len = b_executor.system_dependencies().len();
-            let mut thread_local_deps = FixedBitSet::with_capacity(stage_b_len);
-            thread_local_deps.insert(0);
-            let mut write_f64_deps = FixedBitSet::with_capacity(stage_b_len);
-            write_f64_deps.insert(1);
-            assert_eq!(
-                b_executor.system_dependencies(),
-                vec![
-                    FixedBitSet::with_capacity(stage_b_len),
-                    thread_local_deps,
-                    write_f64_deps
-                ]
-            );
-
-            let stage_c_len = c_executor.system_dependencies().len();
-            let mut read_isize_write_f64_res_deps = FixedBitSet::with_capacity(stage_c_len);
-            read_isize_write_f64_res_deps.insert(0);
-            let mut write_f64_res_deps = FixedBitSet::with_capacity(stage_c_len);
-            write_f64_res_deps.insert(0);
-            write_f64_res_deps.insert(2);
-            assert_eq!(
-                c_executor.system_dependencies(),
-                vec![
-                    FixedBitSet::with_capacity(stage_c_len),
-                    FixedBitSet::with_capacity(stage_c_len),
-                    read_isize_write_f64_res_deps,
-                    write_f64_res_deps
-                ]
-            );
-
-            let completed_systems = resources.get::<CompletedSystems>().unwrap();
-            assert_eq!(
-                completed_systems.completed_systems.lock().len(),
-                11,
-                "completed_systems should have been incremented once for each system"
-            );
-        }
-
-        let mut schedule = Schedule::default();
-        schedule.add_stage("a", stage_a);
-        schedule.add_stage("b", stage_b);
-        schedule.add_stage("c", stage_c);
-
-        // Test the "clean start" case
-        run_and_validate(&mut schedule, &mut world, &mut resources);
-
-        // Stress test the "continue running" case
-        for _ in 0..1000 {
-            // run again (with completed_systems reset) to ensure executor works correctly across runs
-            resources
-                .get::<CompletedSystems>()
-                .unwrap()
-                .completed_systems
-                .lock()
-                .clear();
-            run_and_validate(&mut schedule, &mut world, &mut resources);
-        }
-    }*/
+pub struct RunOnce {
+    ran: bool,
+    system_id: SystemId,
+    archetype_component_access: TypeAccess<ArchetypeComponent>,
+    resource_access: TypeAccess<TypeId>,
 }
+
+impl Default for RunOnce {
+    fn default() -> Self {
+        Self {
+            ran: false,
+            system_id: SystemId::new(),
+            archetype_component_access: Default::default(),
+            resource_access: Default::default(),
+        }
+    }
+}
+
+impl System for RunOnce {
+    type In = ();
+    type Out = ShouldRun;
+
+    fn name(&self) -> Cow<'static, str> {
+        Cow::Borrowed(std::any::type_name::<RunOnce>())
+    }
+
+    fn id(&self) -> SystemId {
+        self.system_id
+    }
+
+    fn update_access(&mut self, _world: &World) {}
+
+    fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent> {
+        &self.archetype_component_access
+    }
+
+    fn resource_access(&self) -> &TypeAccess<TypeId> {
+        &self.resource_access
+    }
+
+    fn is_thread_local(&self) -> bool {
+        false
+    }
+
+    unsafe fn run_unsafe(
+        &mut self,
+        _input: Self::In,
+        _world: &World,
+        _resources: &Resources,
+    ) -> Option<Self::Out> {
+        Some(if self.ran {
+            ShouldRun::No
+        } else {
+            self.ran = true;
+            ShouldRun::Yes
+        })
+    }
+
+    fn apply_buffers(&mut self, _world: &mut World, _resources: &mut Resources) {}
+
+    fn initialize(&mut self, _world: &mut World, _resources: &mut Resources) {}
+}
+
+pub(crate) enum SortingResult<T> {
+    Sorted(Vec<T>),
+    FoundCycle(HashSet<T>),
+}
+
+pub(crate) fn topological_sorting<T>(graph: &HashMap<T, Vec<T>>) -> SortingResult<T>
+where
+    T: Hash + Eq + Clone,
+{
+    fn check_if_cycles_and_visit<N>(
+        node: &N,
+        graph: &HashMap<N, Vec<N>>,
+        sorted: &mut Vec<N>,
+        unvisited: &mut HashSet<N>,
+        current: &mut HashSet<N>,
+    ) -> bool
+    where
+        N: Hash + Eq + Clone,
+    {
+        if current.contains(node) {
+            return true;
+        } else if !unvisited.remove(node) {
+            return false;
+        }
+        current.insert(node.clone());
+        for node in graph.get(node).unwrap() {
+            if check_if_cycles_and_visit(node, &graph, sorted, unvisited, current) {
+                return true;
+            }
+        }
+        sorted.push(node.clone());
+        current.remove(node);
+        false
+    }
+    let mut sorted = Vec::with_capacity(graph.len());
+    let mut current = HashSet::with_capacity_and_hasher(graph.len(), Default::default());
+    let mut unvisited = HashSet::with_capacity_and_hasher(graph.len(), Default::default());
+    unvisited.extend(graph.keys().cloned());
+    while let Some(node) = unvisited.iter().next().cloned() {
+        if check_if_cycles_and_visit(&node, graph, &mut sorted, &mut unvisited, &mut current) {
+            return SortingResult::FoundCycle(current);
+        }
+    }
+    SortingResult::Sorted(sorted)
+}
+
+// TODO more relevant tests
+/*#[test]
+fn schedule() {
+    let mut world = World::new();
+    let mut resources = Resources::default();
+    resources.insert(ComputeTaskPool(TaskPool::default()));
+    resources.insert(CompletedSystems::default());
+    resources.insert(1.0f64);
+    resources.insert(2isize);
+
+    world.spawn((1.0f32,));
+    world.spawn((1u32, 1u64));
+    world.spawn((2u32,));
+
+    let mut stage_a = SystemStage::parallel(); // component queries
+    let mut stage_b = SystemStage::parallel(); // thread local
+    let mut stage_c = SystemStage::parallel(); // resources
+
+    // A system names
+    const READ_U32_SYSTEM_NAME: &str = "read_u32";
+    const WRITE_FLOAT_SYSTEM_NAME: &str = "write_float";
+    const READ_U32_WRITE_U64_SYSTEM_NAME: &str = "read_u32_write_u64";
+    const READ_U64_SYSTEM_NAME: &str = "read_u64";
+
+    // B system names
+    const WRITE_U64_SYSTEM_NAME: &str = "write_u64";
+    const THREAD_LOCAL_SYSTEM_SYSTEM_NAME: &str = "thread_local_system";
+    const WRITE_F32_SYSTEM_NAME: &str = "write_f32";
+
+    // C system names
+    const READ_F64_RES_SYSTEM_NAME: &str = "read_f64_res";
+    const READ_ISIZE_RES_SYSTEM_NAME: &str = "read_isize_res";
+    const READ_ISIZE_WRITE_F64_RES_SYSTEM_NAME: &str = "read_isize_write_f64_res";
+    const WRITE_F64_RES_SYSTEM_NAME: &str = "write_f64_res";
+
+    // A systems
+
+    fn read_u32(completed_systems: Res<CompletedSystems>, _query: Query<&u32>) {
+        let mut completed_systems = completed_systems.completed_systems.lock();
+        completed_systems.insert(READ_U32_SYSTEM_NAME);
+    }
+
+    fn write_float(completed_systems: Res<CompletedSystems>, _query: Query<&f32>) {
+        let mut completed_systems = completed_systems.completed_systems.lock();
+        completed_systems.insert(WRITE_FLOAT_SYSTEM_NAME);
+    }
+
+    fn read_u32_write_u64(
+        completed_systems: Res<CompletedSystems>,
+        _query: Query<(&u32, &mut u64)>,
+    ) {
+        let mut completed_systems = completed_systems.completed_systems.lock();
+        assert!(!completed_systems.contains(READ_U64_SYSTEM_NAME));
+        completed_systems.insert(READ_U32_WRITE_U64_SYSTEM_NAME);
+    }
+
+    fn read_u64(completed_systems: Res<CompletedSystems>, _query: Query<&u64>) {
+        let mut completed_systems = completed_systems.completed_systems.lock();
+        assert!(completed_systems.contains(READ_U32_WRITE_U64_SYSTEM_NAME));
+        assert!(!completed_systems.contains(WRITE_U64_SYSTEM_NAME));
+        completed_systems.insert(READ_U64_SYSTEM_NAME);
+    }
+
+    stage_a.add_system(read_u32.system());
+    stage_a.add_system(write_float.system());
+    stage_a.add_system(read_u32_write_u64.system());
+    stage_a.add_system(read_u64.system());
+
+    // B systems
+
+    fn write_u64(completed_systems: Res<CompletedSystems>, _query: Query<&mut u64>) {
+        let mut completed_systems = completed_systems.completed_systems.lock();
+        assert!(completed_systems.contains(READ_U64_SYSTEM_NAME));
+        assert!(!completed_systems.contains(THREAD_LOCAL_SYSTEM_SYSTEM_NAME));
+        assert!(!completed_systems.contains(WRITE_F32_SYSTEM_NAME));
+        completed_systems.insert(WRITE_U64_SYSTEM_NAME);
+    }
+
+    fn thread_local_system(_world: &mut World, resources: &mut Resources) {
+        let completed_systems = resources.get::<CompletedSystems>().unwrap();
+        let mut completed_systems = completed_systems.completed_systems.lock();
+        assert!(completed_systems.contains(WRITE_U64_SYSTEM_NAME));
+        assert!(!completed_systems.contains(WRITE_F32_SYSTEM_NAME));
+        completed_systems.insert(THREAD_LOCAL_SYSTEM_SYSTEM_NAME);
+    }
+
+    fn write_f32(completed_systems: Res<CompletedSystems>, _query: Query<&mut f32>) {
+        let mut completed_systems = completed_systems.completed_systems.lock();
+        assert!(completed_systems.contains(WRITE_U64_SYSTEM_NAME));
+        assert!(completed_systems.contains(THREAD_LOCAL_SYSTEM_SYSTEM_NAME));
+        assert!(!completed_systems.contains(READ_F64_RES_SYSTEM_NAME));
+        completed_systems.insert(WRITE_F32_SYSTEM_NAME);
+    }
+
+    stage_b.add_system(write_u64.system());
+    stage_b.add_system(thread_local_system.system());
+    stage_b.add_system(write_f32.system());
+
+    // C systems
+
+    fn read_f64_res(completed_systems: Res<CompletedSystems>, _f64_res: Res<f64>) {
+        let mut completed_systems = completed_systems.completed_systems.lock();
+        assert!(completed_systems.contains(WRITE_F32_SYSTEM_NAME));
+        assert!(!completed_systems.contains(READ_ISIZE_WRITE_F64_RES_SYSTEM_NAME));
+        assert!(!completed_systems.contains(WRITE_F64_RES_SYSTEM_NAME));
+        completed_systems.insert(READ_F64_RES_SYSTEM_NAME);
+    }
+
+    fn read_isize_res(completed_systems: Res<CompletedSystems>, _isize_res: Res<isize>) {
+        let mut completed_systems = completed_systems.completed_systems.lock();
+        completed_systems.insert(READ_ISIZE_RES_SYSTEM_NAME);
+    }
+
+    fn read_isize_write_f64_res(
+        completed_systems: Res<CompletedSystems>,
+        _isize_res: Res<isize>,
+        _f64_res: ResMut<f64>,
+    ) {
+        let mut completed_systems = completed_systems.completed_systems.lock();
+        assert!(completed_systems.contains(READ_F64_RES_SYSTEM_NAME));
+        assert!(!completed_systems.contains(WRITE_F64_RES_SYSTEM_NAME));
+        completed_systems.insert(READ_ISIZE_WRITE_F64_RES_SYSTEM_NAME);
+    }
+
+    fn write_f64_res(completed_systems: Res<CompletedSystems>, _f64_res: ResMut<f64>) {
+        let mut completed_systems = completed_systems.completed_systems.lock();
+        assert!(completed_systems.contains(READ_F64_RES_SYSTEM_NAME));
+        assert!(completed_systems.contains(READ_ISIZE_WRITE_F64_RES_SYSTEM_NAME));
+        completed_systems.insert(WRITE_F64_RES_SYSTEM_NAME);
+    }
+
+    stage_c.add_system(read_f64_res.system());
+    stage_c.add_system(read_isize_res.system());
+    stage_c.add_system(read_isize_write_f64_res.system());
+    stage_c.add_system(write_f64_res.system());
+
+    fn run_and_validate(schedule: &mut Schedule, world: &mut World, resources: &mut Resources) {
+        schedule.initialize_and_run(world, resources);
+
+        let stage_a = schedule.get_stage::<SystemStage>("a").unwrap();
+        let stage_b = schedule.get_stage::<SystemStage>("b").unwrap();
+        let stage_c = schedule.get_stage::<SystemStage>("c").unwrap();
+
+        let a_executor = stage_a
+            .get_executor::<ParallelSystemStageExecutor>()
+            .unwrap();
+        let b_executor = stage_b
+            .get_executor::<ParallelSystemStageExecutor>()
+            .unwrap();
+        let c_executor = stage_c
+            .get_executor::<ParallelSystemStageExecutor>()
+            .unwrap();
+
+        assert_eq!(
+            a_executor.system_dependents(),
+            vec![vec![], vec![], vec![3], vec![]]
+        );
+        assert_eq!(
+            b_executor.system_dependents(),
+            vec![vec![1], vec![2], vec![]]
+        );
+        assert_eq!(
+            c_executor.system_dependents(),
+            vec![vec![2, 3], vec![], vec![3], vec![]]
+        );
+
+        let stage_a_len = a_executor.system_dependencies().len();
+        let mut read_u64_deps = FixedBitSet::with_capacity(stage_a_len);
+        read_u64_deps.insert(2);
+
+        assert_eq!(
+            a_executor.system_dependencies(),
+            vec![
+                FixedBitSet::with_capacity(stage_a_len),
+                FixedBitSet::with_capacity(stage_a_len),
+                FixedBitSet::with_capacity(stage_a_len),
+                read_u64_deps,
+            ]
+        );
+
+        let stage_b_len = b_executor.system_dependencies().len();
+        let mut thread_local_deps = FixedBitSet::with_capacity(stage_b_len);
+        thread_local_deps.insert(0);
+        let mut write_f64_deps = FixedBitSet::with_capacity(stage_b_len);
+        write_f64_deps.insert(1);
+        assert_eq!(
+            b_executor.system_dependencies(),
+            vec![
+                FixedBitSet::with_capacity(stage_b_len),
+                thread_local_deps,
+                write_f64_deps
+            ]
+        );
+
+        let stage_c_len = c_executor.system_dependencies().len();
+        let mut read_isize_write_f64_res_deps = FixedBitSet::with_capacity(stage_c_len);
+        read_isize_write_f64_res_deps.insert(0);
+        let mut write_f64_res_deps = FixedBitSet::with_capacity(stage_c_len);
+        write_f64_res_deps.insert(0);
+        write_f64_res_deps.insert(2);
+        assert_eq!(
+            c_executor.system_dependencies(),
+            vec![
+                FixedBitSet::with_capacity(stage_c_len),
+                FixedBitSet::with_capacity(stage_c_len),
+                read_isize_write_f64_res_deps,
+                write_f64_res_deps
+            ]
+        );
+
+        let completed_systems = resources.get::<CompletedSystems>().unwrap();
+        assert_eq!(
+            completed_systems.completed_systems.lock().len(),
+            11,
+            "completed_systems should have been incremented once for each system"
+        );
+    }
+
+    let mut schedule = Schedule::default();
+    schedule.add_stage("a", stage_a);
+    schedule.add_stage("b", stage_b);
+    schedule.add_stage("c", stage_c);
+
+    // Test the "clean start" case
+    run_and_validate(&mut schedule, &mut world, &mut resources);
+
+    // Stress test the "continue running" case
+    for _ in 0..1000 {
+        // run again (with completed_systems reset) to ensure executor works correctly across runs
+        resources
+            .get::<CompletedSystems>()
+            .unwrap()
+            .completed_systems
+            .lock()
+            .clear();
+        run_and_validate(&mut schedule, &mut world, &mut resources);
+    }
+}*/
