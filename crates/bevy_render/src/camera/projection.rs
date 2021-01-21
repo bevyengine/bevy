@@ -113,6 +113,13 @@ impl Default for OrthographicProjection {
     }
 }
 
+#[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
+#[reflect_value(Serialize, Deserialize)]
+pub enum BaseAxis {
+    Vertical,
+    Horizontal,
+}
+
 #[derive(Debug, Clone, Reflect)]
 #[reflect(Component)]
 pub struct ScaledOrthographicProjection {
@@ -121,12 +128,13 @@ pub struct ScaledOrthographicProjection {
     pub near: f32,
     pub far: f32,
     pub window_origin: WindowOrigin,
+    pub base_axis: BaseAxis,
 }
 
 impl CameraProjection for ScaledOrthographicProjection {
     fn get_projection_matrix(&self) -> Mat4 {
-        match self.window_origin {
-            WindowOrigin::Center => {
+        match (&self.window_origin, &self.base_axis) {
+            (WindowOrigin::Center, BaseAxis::Vertical) => {
                 Mat4::orthographic_rh(
                     -self.aspect_ratio * self.scale,
                     self.aspect_ratio * self.scale,
@@ -136,7 +144,7 @@ impl CameraProjection for ScaledOrthographicProjection {
                     self.far,
                 )
             }
-            WindowOrigin::BottomLeft => {
+            (WindowOrigin::BottomLeft, BaseAxis::Vertical) => {
                 Mat4::orthographic_rh(
                     0.0,
                     self.aspect_ratio * self.scale,
@@ -146,11 +154,34 @@ impl CameraProjection for ScaledOrthographicProjection {
                     self.far,
                 )
             }
+            (WindowOrigin::Center, BaseAxis::Horizontal) => {
+                Mat4::orthographic_rh(
+                    -self.scale,
+                    self.scale,
+                    -self.aspect_ratio * self.scale,
+                    self.aspect_ratio * self.scale,
+                    self.near,
+                    self.far,
+                )
+            }
+            (WindowOrigin::BottomLeft, BaseAxis::Horizontal) => {
+                Mat4::orthographic_rh(
+                    0.0,
+                    self.scale,
+                    0.0,
+                    self.aspect_ratio * self.scale,
+                    self.near,
+                    self.far,
+                )
+            }
         }
     }
 
     fn update(&mut self, width: f32, height: f32) {
-        self.aspect_ratio = width / height;
+        self.aspect_ratio = match self.base_axis {
+            BaseAxis::Vertical => width / height,
+            BaseAxis::Horizontal => height / width,
+        }
     }
 
     fn depth_calculation(&self) -> DepthCalculation {
@@ -166,6 +197,7 @@ impl Default for ScaledOrthographicProjection {
             near: 0.0,
             far: 1000.0,
             window_origin: WindowOrigin::Center,
+            base_axis: BaseAxis::Vertical,
         }
     }
 }
