@@ -622,6 +622,21 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         write(&mut data, self);
     }
 
+    fn read_mapped_buffer(
+        &self,
+        id: BufferId,
+        range: Range<u64>,
+        read: &dyn Fn(&[u8], &dyn RenderResourceContext),
+    ) {
+        let buffer = {
+            let buffers = self.resources.buffers.read();
+            buffers.get(&id).unwrap().clone()
+        };
+        let buffer_slice = buffer.slice(range);
+        let data = buffer_slice.get_mapped_range();
+        read(&data, self);
+    }
+
     fn map_buffer(&self, id: BufferId, mode: BufferMapMode) {
         let buffers = self.resources.buffers.read();
         let buffer = buffers.get(&id).unwrap();
