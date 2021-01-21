@@ -116,6 +116,7 @@ impl Default for OrthographicProjection {
 #[derive(Debug, Clone, Reflect)]
 #[reflect(Component)]
 pub struct ScaledOrthographicProjection {
+    pub scale: f32,
     pub aspect_ratio: f32,
     pub near: f32,
     pub far: f32,
@@ -127,10 +128,10 @@ impl CameraProjection for ScaledOrthographicProjection {
         match self.window_origin {
             WindowOrigin::Center => {
                 Mat4::orthographic_rh(
-                    -self.aspect_ratio,
-                    self.aspect_ratio,
-                    -1.0,
-                    1.0,
+                    -self.aspect_ratio * self.scale,
+                    self.aspect_ratio * self.scale,
+                    -self.scale,
+                    self.scale,
                     self.near,
                     self.far,
                 )
@@ -138,9 +139,9 @@ impl CameraProjection for ScaledOrthographicProjection {
             WindowOrigin::BottomLeft => {
                 Mat4::orthographic_rh(
                     0.0,
-                    self.aspect_ratio,
+                    self.aspect_ratio * self.scale,
                     0.0,
-                    1.0,
+                    self.scale,
                     self.near,
                     self.far,
                 )
@@ -160,6 +161,7 @@ impl CameraProjection for ScaledOrthographicProjection {
 impl Default for ScaledOrthographicProjection {
     fn default() -> Self {
         ScaledOrthographicProjection {
+            scale: 1.0,
             aspect_ratio: 1.0,
             near: 0.0,
             far: 1000.0,
