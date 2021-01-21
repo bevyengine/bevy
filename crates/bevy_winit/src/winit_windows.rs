@@ -1,5 +1,6 @@
 use bevy_utils::HashMap;
 use bevy_window::{Window, WindowDescriptor, WindowId, WindowMode};
+use raw_window_handle::{HasRawWindowHandle, TrustedWindowHandle};
 
 #[derive(Debug, Default)]
 pub struct WinitWindows {
@@ -14,7 +15,7 @@ impl WinitWindows {
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
         window_id: WindowId,
         window_descriptor: &WindowDescriptor,
-    ) -> Window {
+    ) -> (Window, TrustedWindowHandle) {
         #[cfg(target_os = "windows")]
         let mut winit_window_builder = {
             use winit::platform::windows::WindowBuilderExtWindows;
@@ -112,14 +113,21 @@ impl WinitWindows {
 
         let inner_size = winit_window.inner_size();
         let scale_factor = winit_window.scale_factor();
+        // Safety: Winit returns a valid raw window handle
+        let handle = unsafe {
+            raw_window_handle::TrustedWindowHandle::new(winit_window.raw_window_handle())
+        };
         self.windows.insert(winit_window.id(), winit_window);
 
-        Window::new(
-            window_id,
-            &window_descriptor,
-            inner_size.width,
-            inner_size.height,
-            scale_factor,
+        (
+            Window::new(
+                window_id,
+                &window_descriptor,
+                inner_size.width,
+                inner_size.height,
+                scale_factor,
+            ),
+            handle,
         )
     }
 

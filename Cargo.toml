@@ -38,7 +38,13 @@ default = [
 dynamic = ["bevy_dylib"]
 
 # Rendering support
-render = ["bevy_internal/bevy_pbr", "bevy_internal/bevy_render", "bevy_internal/bevy_sprite", "bevy_internal/bevy_text", "bevy_internal/bevy_ui"]
+render = [
+  "bevy_internal/bevy_pbr",
+  "bevy_internal/bevy_render",
+  "bevy_internal/bevy_sprite",
+  "bevy_internal/bevy_text",
+  "bevy_internal/bevy_ui",
+]
 
 # Optional bevy crates
 bevy_audio = ["bevy_internal/bevy_audio"]
@@ -76,14 +82,14 @@ x11 = ["bevy_internal/x11"]
 subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
 
 [dependencies]
-bevy_dylib = {path = "crates/bevy_dylib", version = "0.4.0", default-features = false, optional = true}
-bevy_internal = {path = "crates/bevy_internal", version = "0.4.0", default-features = false}
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.4.0", default-features = false, optional = true }
+bevy_internal = { path = "crates/bevy_internal", version = "0.4.0", default-features = false }
 
 [dev-dependencies]
 anyhow = "1.0"
 rand = "0.8.0"
 ron = "0.6.2"
-serde = {version = "1", features = ["derive"]}
+serde = { version = "1", features = ["derive"] }
 
 [[example]]
 name = "hello_world"
@@ -406,3 +412,7 @@ icon = "@mipmap/ic_launcher"
 build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
 min_sdk_version = 16
 target_sdk_version = 29
+
+[patch.crates-io]
+# Latest commit breaks the entire ecosystem
+raw-window-handle = { git = "https://github.com/rust-windowing/raw-window-handle", rev = "31d91a932c03b81dc0f3e05e4c11aa7a727b799b" }
