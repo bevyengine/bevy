@@ -19,14 +19,26 @@ use thiserror::Error;
 pub enum AssetServerError {
     #[error("asset folder path is not a directory: {0}")]
     AssetFolderNotADirectory(String),
-    #[error("no `AssetLoader` found for the given extension: {0:?}")]
-    MissingAssetLoader(Option<String>),
+    #[error("no `AssetLoader` found{}", format_missing_asset_ext(.extensions))]
+    MissingAssetLoader { extensions: Vec<String> },
     #[error("the given type does not match the type of the loaded asset")]
     IncorrectHandleType,
     #[error("encountered an error while loading an asset: {0}")]
     AssetLoaderError(anyhow::Error),
     #[error("encountered an error while reading an asset: {0}")]
     AssetIoError(#[from] AssetIoError),
+}
+
+fn format_missing_asset_ext(exts: &[String]) -> String {
+    if exts.is_empty() {
+        format!(
+            " for the following extension{}: {}",
+            if exts.len() > 1 { "s" } else { "" },
+            exts.join(", ")
+        )
+    } else {
+        String::new()
+    }
 }
 
 #[derive(Default)]
@@ -126,18 +138,38 @@ impl AssetServer {
             .read()
             .get(extension)
             .map(|index| self.server.loaders.read()[*index].clone())
-            .ok_or_else(|| AssetServerError::MissingAssetLoader(Some(extension.to_string())))
+            .ok_or_else(|| AssetServerError::MissingAssetLoader {
+                extensions: vec![extension.to_string()],
+            })
     }
 
     fn get_path_asset_loader<P: AsRef<Path>>(
         &self,
         path: P,
     ) -> Result<Arc<Box<dyn AssetLoader>>, AssetServerError> {
-        path.as_ref()
-            .extension()
-            .and_then(|e| e.to_str())
-            .ok_or(AssetServerError::MissingAssetLoader(None))
-            .and_then(|extension| self.get_asset_loader(extension))
+        let s = path
+            .as_ref()
+            .file_name()
+            .ok_or(AssetServerError::MissingAssetLoader {
+                extensions: Vec::new(),
+            })?
+            .to_str()
+            .ok_or(AssetServerError::MissingAssetLoader {
+                extensions: Vec::new(),
+            })?;
+
+        let mut exts = Vec::new();
+        let mut ext = s;
+        while let Some(idx) = ext.find('.') {
+            ext = &ext[idx + 1..];
+            exts.push(ext);
+            if let Ok(loader) = self.get_asset_loader(ext) {
+                return Ok(loader);
+            }
+        }
+        Err(AssetServerError::MissingAssetLoader {
+            extensions: exts.into_iter().map(String::from).collect(),
+        })
     }
 
     pub fn get_handle_path<H: Into<HandleId>>(&self, handle: H) -> Option<AssetPath<'_>> {
@@ -456,4 +488,101 @@ impl AssetServer {
 
 pub fn free_unused_assets_system(asset_server: Res<AssetServer>) {
     asset_server.free_unused_assets();
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use bevy_utils::BoxedFuture;
+
+    struct FakePngLoader;
+    impl AssetLoader for FakePngLoader {
+        fn load<'a>(
+            &'a self,
+            _: &'a [u8],
+            _: &'a mut LoadContext,
+        ) -> BoxedFuture<'a, Result<(), anyhow::Error>> {
+            Box::pin(async move { Ok(()) })
+        }
+
+        fn extensions(&self) -> &[&str] {
+            &["png"]
+        }
+    }
+
+    struct FakeMultipleDotLoader;
+    impl AssetLoader for FakeMultipleDotLoader {
+        fn load<'a>(
+            &'a self,
+            _: &'a [u8],
+            _: &'a mut LoadContext,
+        ) -> BoxedFuture<'a, Result<(), anyhow::Error>> {
+            Box::pin(async move { Ok(()) })
+        }
+
+        fn extensions(&self) -> &[&str] {
+            &["test.png"]
+        }
+    }
+
+    fn setup() -> AssetServer {
+        use crate::FileAssetIo;
+
+        let asset_server = AssetServer {
+            server: Arc::new(AssetServerInternal {
+                loaders: Default::default(),
+                extension_to_loader_index: Default::default(),
+                asset_sources: Default::default(),
+                asset_ref_counter: Default::default(),
+                handle_to_path: Default::default(),
+                asset_lifecycles: Default::default(),
+                task_pool: Default::default(),
+                asset_io: Box::new(FileAssetIo::new(&".")),
+            }),
+        };
+        asset_server.add_loader::<FakePngLoader>(FakePngLoader);
+        asset_server.add_loader::<FakeMultipleDotLoader>(FakeMultipleDotLoader);
+        asset_server
+    }
+
+    #[test]
+    fn extensions() {
+        let asset_server = setup();
+        let t = asset_server.get_path_asset_loader("test.png");
+        assert_eq!(t.unwrap().extensions()[0], "png");
+    }
+
+    #[test]
+    fn no_loader() {
+        let asset_server = setup();
+        let t = asset_server.get_path_asset_loader("test.pong");
+        assert!(t.is_err());
+    }
+
+    #[test]
+    fn multiple_extensions_no_loader() {
+        let asset_server = setup();
+
+        assert!(
+            match asset_server.get_path_asset_loader("test.v1.2.3.pong") {
+                Err(AssetServerError::MissingAssetLoader { extensions }) =>
+                    extensions == vec!["v1.2.3.pong", "2.3.pong", "3.pong", "pong"],
+                _ => false,
+            }
+        )
+    }
+
+    #[test]
+    fn filename_with_dots() {
+        let asset_server = setup();
+        let t = asset_server.get_path_asset_loader("test-v1.2.3.png");
+        assert_eq!(t.unwrap().extensions()[0], "png");
+    }
+
+    #[test]
+    fn multiple_extensions() {
+        let asset_server = setup();
+        let t = asset_server.get_path_asset_loader("test.test.png");
+        assert_eq!(t.unwrap().extensions()[0], "test.png");
+    }
 }
