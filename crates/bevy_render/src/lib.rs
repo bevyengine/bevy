@@ -35,8 +35,8 @@ use base::Msaa;
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
 use camera::{
-    ActiveCameras, Camera, VisibleEntities,
-    OrthographicProjection, PerspectiveProjection, ScaledOrthographicProjection,
+    ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection,
+    ScaledOrthographicProjection, VisibleEntities,
 };
 use pipeline::{
     IndexFormat, PipelineCompiler, PipelineDescriptor, PipelineSpecialization, PrimitiveTopology,

@@ -134,46 +134,38 @@ pub struct ScaledOrthographicProjection {
 impl CameraProjection for ScaledOrthographicProjection {
     fn get_projection_matrix(&self) -> Mat4 {
         match (&self.window_origin, &self.base_axis) {
-            (WindowOrigin::Center, BaseAxis::Vertical) => {
-                Mat4::orthographic_rh(
-                    -self.aspect_ratio * self.scale,
-                    self.aspect_ratio * self.scale,
-                    -self.scale,
-                    self.scale,
-                    self.near,
-                    self.far,
-                )
-            }
-            (WindowOrigin::BottomLeft, BaseAxis::Vertical) => {
-                Mat4::orthographic_rh(
-                    0.0,
-                    self.aspect_ratio * self.scale,
-                    0.0,
-                    self.scale,
-                    self.near,
-                    self.far,
-                )
-            }
-            (WindowOrigin::Center, BaseAxis::Horizontal) => {
-                Mat4::orthographic_rh(
-                    -self.scale,
-                    self.scale,
-                    -self.aspect_ratio * self.scale,
-                    self.aspect_ratio * self.scale,
-                    self.near,
-                    self.far,
-                )
-            }
-            (WindowOrigin::BottomLeft, BaseAxis::Horizontal) => {
-                Mat4::orthographic_rh(
-                    0.0,
-                    self.scale,
-                    0.0,
-                    self.aspect_ratio * self.scale,
-                    self.near,
-                    self.far,
-                )
-            }
+            (WindowOrigin::Center, BaseAxis::Vertical) => Mat4::orthographic_rh(
+                -self.aspect_ratio * self.scale,
+                self.aspect_ratio * self.scale,
+                -self.scale,
+                self.scale,
+                self.near,
+                self.far,
+            ),
+            (WindowOrigin::BottomLeft, BaseAxis::Vertical) => Mat4::orthographic_rh(
+                0.0,
+                self.aspect_ratio * self.scale,
+                0.0,
+                self.scale,
+                self.near,
+                self.far,
+            ),
+            (WindowOrigin::Center, BaseAxis::Horizontal) => Mat4::orthographic_rh(
+                -self.scale,
+                self.scale,
+                -self.aspect_ratio * self.scale,
+                self.aspect_ratio * self.scale,
+                self.near,
+                self.far,
+            ),
+            (WindowOrigin::BottomLeft, BaseAxis::Horizontal) => Mat4::orthographic_rh(
+                0.0,
+                self.scale,
+                0.0,
+                self.aspect_ratio * self.scale,
+                self.near,
+                self.far,
+            ),
         }
     }
 
