@@ -154,4 +154,53 @@ mod test {
             vec![children[1]]
         );
     }
+
+    struct MarkerComponent;
+
+    #[test]
+    fn orphan_relation_cleanup() {
+        let mut world = World::default();
+        let mut resources = Resources::default();
+
+        let mut update_stage = SystemStage::parallel();
+        update_stage.add_system(parent_update_system.system());
+        update_stage.add_system(transform_propagate_system.system());
+
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update", update_stage);
+
+        // Add parent entities
+        let mut commands = Commands::default();
+        commands.set_entity_reserver(world.get_entity_reserver());
+
+        let parent = commands.spawn((MarkerComponent,)).current_entity().unwrap();
+        let child_1 = commands.spawn((MarkerComponent,)).current_entity().unwrap();
+        let child_2 = commands.spawn((MarkerComponent,)).current_entity().unwrap();
+        commands.push_children(parent, &[child_1, child_2]);
+
+        commands.apply(&mut world, &mut resources);
+        schedule.initialize_and_run(&mut world, &mut resources);
+
+        let children = world.get::<Children>(parent).unwrap();
+        let iter = children.iter();
+        assert_eq!(iter.count(), 2);
+
+        assert_eq!(world.get::<Parent>(child_1).unwrap().0, parent);
+
+        commands.despawn(child_1);
+
+        commands.apply(&mut world, &mut resources);
+        schedule.initialize_and_run(&mut world, &mut resources);
+
+        let children = world.get::<Children>(parent).unwrap();
+        let iter = children.iter();
+        assert_eq!(iter.count(), 1);
+
+        commands.despawn(parent);
+
+        commands.apply(&mut world, &mut resources);
+        schedule.initialize_and_run(&mut world, &mut resources);
+
+        assert!(matches!(world.get::<Parent>(child_2), Err(_)));
+    }
 }
