@@ -311,7 +311,10 @@ impl AssetServer {
                 }
             })
             .detach();
-        asset_path.into()
+        let owned_path = asset_path.to_owned();
+        let id: HandleId = asset_path.into();
+        self.server.handle_to_path.write().insert(id, owned_path);
+        id
     }
 
     pub fn load_folder<P: AsRef<Path>>(
