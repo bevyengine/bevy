@@ -65,6 +65,14 @@ impl SystemStage {
     }
 
     pub fn with_run_criteria<S: System<In = (), Out = ShouldRun>>(mut self, system: S) -> Self {
+        self.add_run_criteria(system);
+        self
+    }
+
+    pub fn add_run_criteria<S: System<In = (), Out = ShouldRun>>(
+        &mut self,
+        system: S,
+    ) -> &mut Self {
         self.run_criteria = Some(Box::new(system));
         self.run_criteria_initialized = false;
         self
