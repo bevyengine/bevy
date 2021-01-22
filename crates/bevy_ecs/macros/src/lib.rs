@@ -23,8 +23,8 @@ use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
 use syn::{
-    parse::ParseStream, parse_macro_input, Data, DataStruct, DeriveInput, Error, Field, Fields,
-    Ident, Index, Lifetime, Path, Result,
+    parse::ParseStream, parse_macro_input, punctuated::Punctuated, Data, DataStruct, DeriveInput,
+    Error, Field, Fields, GenericParam, Ident, Index, Lifetime, Path, Result, Token,
 };
 
 /// Implement `Bundle` for a monomorphic struct
@@ -410,16 +410,44 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let generics = ast.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
+    let lifetimeless_generics: Vec<_> = generics
+        .params
+        .iter()
+        .filter(|g| matches!(g, GenericParam::Type(_)))
+        .collect();
+
+    let phantoms = lifetimeless_generics
+        .iter()
+        .map(|g| {
+            let g = match g {
+                GenericParam::Type(g) => &g.ident,
+                _ => panic!(),
+            };
+            quote! { ::std::marker::PhantomData::<#g>, }
+        })
+        .fold(quote!(), |old, new| {
+            quote! { #old #new }
+        });
+
+    let mut punctuated_generics = Punctuated::<_, Token![,]>::new();
+    punctuated_generics.extend(lifetimeless_generics.iter());
+
+    let mut punctuated_generic_idents = Punctuated::<_, Token![,]>::new();
+    punctuated_generic_idents.extend(lifetimeless_generics.iter().map(|g| match g {
+        GenericParam::Type(g) => &g.ident,
+        _ => panic!(),
+    }));
+
     let struct_name = &ast.ident;
     let fetch_struct_name = Ident::new(&format!("Fetch{}", struct_name), Span::call_site());
 
     TokenStream::from(quote! {
-        pub struct #fetch_struct_name;
+        pub struct #fetch_struct_name<#punctuated_generics>(#phantoms);
         impl #impl_generics #path::SystemParam for #struct_name#ty_generics #where_clause {
-            type Fetch = #fetch_struct_name;
+            type Fetch = #fetch_struct_name <#punctuated_generic_idents>;
         }
 
-        impl #impl_generics #path::FetchSystemParam<'a> for #fetch_struct_name {
+        impl #impl_generics #path::FetchSystemParam<'a> for #fetch_struct_name<#punctuated_generic_idents> {
             type Item = #struct_name#ty_generics;
             fn init(system_state: &mut #path::SystemState, world: &#path::World, resources: &mut #path::Resources) {
                 #(<<#field_types as SystemParam>::Fetch as #path::FetchSystemParam>::init(system_state, world, resources);)*

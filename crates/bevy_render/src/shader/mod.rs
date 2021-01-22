@@ -22,3 +22,4 @@ pub struct ShaderLayout {
 }
 
 pub const GL_VERTEX_INDEX: &str = "gl_VertexIndex";
+pub const GL_INSTANCE_INDEX: &str = "gl_InstanceIndex";

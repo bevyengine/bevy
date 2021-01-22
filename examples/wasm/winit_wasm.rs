@@ -19,7 +19,6 @@ fn main() {
         // Track ticks (sanity check, whether game loop is running)
         .add_system(counter.system())
         // Track input events
-        .init_resource::<TrackInputState>()
         .add_system(track_input_events.system())
         .run();
 }
@@ -45,25 +44,15 @@ struct CounterState {
     count: u32,
 }
 
-#[derive(Default)]
-struct TrackInputState {
-    keys: EventReader<KeyboardInput>,
-    cursor: EventReader<CursorMoved>,
-    motion: EventReader<MouseMotion>,
-    mousebtn: EventReader<MouseButtonInput>,
-    scroll: EventReader<MouseWheel>,
-}
-
 fn track_input_events(
-    mut state: ResMut<TrackInputState>,
-    ev_keys: Res<Events<KeyboardInput>>,
-    ev_cursor: Res<Events<CursorMoved>>,
-    ev_motion: Res<Events<MouseMotion>>,
-    ev_mousebtn: Res<Events<MouseButtonInput>>,
-    ev_scroll: Res<Events<MouseWheel>>,
+    mut ev_keys: EventReader<KeyboardInput>,
+    mut ev_cursor: EventReader<CursorMoved>,
+    mut ev_motion: EventReader<MouseMotion>,
+    mut ev_mousebtn: EventReader<MouseButtonInput>,
+    mut ev_scroll: EventReader<MouseWheel>,
 ) {
     // Keyboard input
-    for ev in state.keys.iter(&ev_keys) {
+    for ev in ev_keys.iter() {
         if ev.state.is_pressed() {
             info!("Just pressed key: {:?}", ev.key_code);
         } else {
@@ -72,17 +61,17 @@ fn track_input_events(
     }
 
     // Absolute cursor position (in window coordinates)
-    for ev in state.cursor.iter(&ev_cursor) {
+    for ev in ev_cursor.iter() {
         info!("Cursor at: {}", ev.position);
     }
 
     // Relative mouse motion
-    for ev in state.motion.iter(&ev_motion) {
+    for ev in ev_motion.iter() {
         info!("Mouse moved {} pixels", ev.delta);
     }
 
     // Mouse buttons
-    for ev in state.mousebtn.iter(&ev_mousebtn) {
+    for ev in ev_mousebtn.iter() {
         if ev.state.is_pressed() {
             info!("Just pressed mouse button: {:?}", ev.button);
         } else {
@@ -91,7 +80,7 @@ fn track_input_events(
     }
 
     // scrolling (mouse wheel, touchpad, etc.)
-    for ev in state.scroll.iter(&ev_scroll) {
+    for ev in ev_scroll.iter() {
         info!(
             "Scrolled vertically by {} and horizontally by {}.",
             ev.y, ev.x

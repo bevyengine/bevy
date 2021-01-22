@@ -1,5 +1,5 @@
 use crate::{DynamicScene, Scene};
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, ManualEventReader};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{Entity, EntityMap, Resources, World};
 use bevy_reflect::{ReflectComponent, ReflectMapEntities, TypeRegistryArc};
@@ -27,7 +27,7 @@ pub struct SceneSpawner {
     spawned_scenes: HashMap<Handle<Scene>, Vec<InstanceId>>,
     spawned_dynamic_scenes: HashMap<Handle<DynamicScene>, Vec<InstanceId>>,
     spawned_instances: HashMap<InstanceId, InstanceInfo>,
-    scene_asset_event_reader: EventReader<AssetEvent<DynamicScene>>,
+    scene_asset_event_reader: ManualEventReader<AssetEvent<DynamicScene>>,
     dynamic_scenes_to_spawn: Vec<Handle<DynamicScene>>,
     scenes_to_spawn: Vec<(Handle<Scene>, InstanceId)>,
     scenes_to_despawn: Vec<Handle<DynamicScene>>,

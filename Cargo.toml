@@ -250,6 +250,10 @@ name = "hierarchy"
 path = "examples/ecs/hierarchy.rs"
 
 [[example]]
+name = "alien_cake_addict"
+path = "examples/game/alien_cake_addict.rs"
+
+[[example]]
 name = "breakout"
 path = "examples/game/breakout.rs"
 

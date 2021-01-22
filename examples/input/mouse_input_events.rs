@@ -11,38 +11,26 @@ fn main() {
         .run();
 }
 
-#[derive(Default)]
-struct State {
-    mouse_button_event_reader: EventReader<MouseButtonInput>,
-    mouse_motion_event_reader: EventReader<MouseMotion>,
-    cursor_moved_event_reader: EventReader<CursorMoved>,
-    mouse_wheel_event_reader: EventReader<MouseWheel>,
-}
-
 /// This system prints out all mouse events as they come in
 fn print_mouse_events_system(
-    mut state: Local<State>,
-    mouse_button_input_events: Res<Events<MouseButtonInput>>,
-    mouse_motion_events: Res<Events<MouseMotion>>,
-    cursor_moved_events: Res<Events<CursorMoved>>,
-    mouse_wheel_events: Res<Events<MouseWheel>>,
+    mut mouse_button_input_events: EventReader<MouseButtonInput>,
+    mut mouse_motion_events: EventReader<MouseMotion>,
+    mut cursor_moved_events: EventReader<CursorMoved>,
+    mut mouse_wheel_events: EventReader<MouseWheel>,
 ) {
-    for event in state
-        .mouse_button_event_reader
-        .iter(&mouse_button_input_events)
-    {
+    for event in mouse_button_input_events.iter() {
         println!("{:?}", event);
     }
 
-    for event in state.mouse_motion_event_reader.iter(&mouse_motion_events) {
+    for event in mouse_motion_events.iter() {
         println!("{:?}", event);
     }
 
-    for event in state.cursor_moved_event_reader.iter(&cursor_moved_events) {
+    for event in cursor_moved_events.iter() {
         println!("{:?}", event);
     }
 
-    for event in state.mouse_wheel_event_reader.iter(&mouse_wheel_events) {
+    for event in mouse_wheel_events.iter() {
         println!("{:?}", event);
     }
 }

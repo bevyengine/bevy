@@ -10,7 +10,7 @@ use bevy_input::{
 pub use winit_config::*;
 pub use winit_windows::*;
 
-use bevy_app::{prelude::*, AppExit};
+use bevy_app::{prelude::*, AppExit, ManualEventReader};
 use bevy_ecs::{IntoSystem, Resources, World};
 use bevy_math::Vec2;
 use bevy_utils::tracing::{error, trace, warn};
@@ -191,8 +191,8 @@ pub fn winit_runner_any_thread(app: App) {
 }
 
 pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
-    let mut create_window_event_reader = EventReader::<CreateWindow>::default();
-    let mut app_exit_event_reader = EventReader::<AppExit>::default();
+    let mut create_window_event_reader = ManualEventReader::<CreateWindow>::default();
+    let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
 
     app.resources.insert_thread_local(event_loop.create_proxy());
 
@@ -209,7 +209,11 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
         *control_flow = ControlFlow::Poll;
 
         if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
-            if app_exit_event_reader.latest(&app_exit_events).is_some() {
+            if app_exit_event_reader
+                .iter(&app_exit_events)
+                .next_back()
+                .is_some()
+            {
                 *control_flow = ControlFlow::Exit;
             }
         }
@@ -453,7 +457,7 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
 fn handle_create_window_events(
     resources: &mut Resources,
     event_loop: &EventLoopWindowTarget<()>,
-    create_window_event_reader: &mut EventReader<CreateWindow>,
+    create_window_event_reader: &mut ManualEventReader<CreateWindow>,
 ) {
     let mut winit_windows = resources.get_mut::<WinitWindows>().unwrap();
     let mut windows = resources.get_mut::<Windows>().unwrap();

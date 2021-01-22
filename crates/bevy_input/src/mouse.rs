@@ -1,6 +1,6 @@
 use crate::{ElementState, Input};
-use bevy_app::prelude::{EventReader, Events};
-use bevy_ecs::{Local, Res, ResMut};
+use bevy_app::prelude::EventReader;
+use bevy_ecs::ResMut;
 use bevy_math::Vec2;
 
 /// A mouse button input event
@@ -41,23 +41,13 @@ pub struct MouseWheel {
     pub y: f32,
 }
 
-/// State used by the mouse button input system
-#[derive(Default)]
-pub struct MouseButtonInputState {
-    mouse_button_input_event_reader: EventReader<MouseButtonInput>,
-}
-
 /// Updates the Input<MouseButton> resource with the latest MouseButtonInput events
 pub fn mouse_button_input_system(
-    mut state: Local<MouseButtonInputState>,
     mut mouse_button_input: ResMut<Input<MouseButton>>,
-    mouse_button_input_events: Res<Events<MouseButtonInput>>,
+    mut mouse_button_input_events: EventReader<MouseButtonInput>,
 ) {
     mouse_button_input.update();
-    for event in state
-        .mouse_button_input_event_reader
-        .iter(&mouse_button_input_events)
-    {
+    for event in mouse_button_input_events.iter() {
         match event.state {
             ElementState::Pressed => mouse_button_input.press(event.button),
             ElementState::Released => mouse_button_input.release(event.button),

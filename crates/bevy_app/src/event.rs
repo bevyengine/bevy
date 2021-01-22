@@ -1,4 +1,4 @@
-use bevy_ecs::ResMut;
+use bevy_ecs::{Local, Res, ResMut, SystemParam};
 use bevy_utils::tracing::trace;
 use std::{fmt, marker::PhantomData};
 
@@ -122,138 +122,102 @@ fn map_instance_event<T>(event_instance: &EventInstance<T>) -> &T {
 }
 
 /// Reads events of type `T` in order and tracks which events have already been read.
-pub struct EventReader<T> {
+#[derive(SystemParam)]
+pub struct EventReader<'a, T: bevy_ecs::Resource> {
+    last_event_count: Local<'a, (usize, PhantomData<T>)>,
+    events: Res<'a, Events<T>>,
+}
+
+pub struct ManualEventReader<T> {
     last_event_count: usize,
     _marker: PhantomData<T>,
 }
 
-impl<T> Default for EventReader<T> {
+impl<T> Default for ManualEventReader<T> {
     fn default() -> Self {
-        Self {
+        ManualEventReader {
             last_event_count: 0,
-            _marker: PhantomData::default(),
+            _marker: Default::default(),
         }
     }
 }
 
-impl<T> EventReader<T> {
-    /// Iterates over the events this EventReader has not seen yet. This updates the EventReader's
-    /// event counter, which means subsequent event reads will not include events that happened before now.
+impl<T> ManualEventReader<T> {
+    /// See [`EventReader::iter`]
     pub fn iter<'a>(&mut self, events: &'a Events<T>) -> impl DoubleEndedIterator<Item = &'a T> {
-        self.iter_with_id(events).map(|(event, _id)| event)
+        internal_event_reader(&mut self.last_event_count, events).map(|(e, _)| e)
     }
 
-    /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
+    /// See [`EventReader::iter_with_id`]
     pub fn iter_with_id<'a>(
         &mut self,
         events: &'a Events<T>,
     ) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> {
-        self.iter_internal(events).map(|(event, id)| {
+        internal_event_reader(&mut self.last_event_count, events)
+    }
+}
+
+/// Like [`iter_with_id`](EventReader::iter_with_id) except not emitting any traces for read messages.
+fn internal_event_reader<'a, T>(
+    last_event_count: &mut usize,
+    events: &'a Events<T>,
+) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> {
+    // if the reader has seen some of the events in a buffer, find the proper index offset.
+    // otherwise read all events in the buffer
+    let a_index = if *last_event_count > events.a_start_event_count {
+        *last_event_count - events.a_start_event_count
+    } else {
+        0
+    };
+    let b_index = if *last_event_count > events.b_start_event_count {
+        *last_event_count - events.b_start_event_count
+    } else {
+        0
+    };
+    *last_event_count = events.event_count;
+    match events.state {
+        State::A => events
+            .events_b
+            .get(b_index..)
+            .unwrap_or_else(|| &[])
+            .iter()
+            .map(map_instance_event_with_id)
+            .chain(
+                events
+                    .events_a
+                    .get(a_index..)
+                    .unwrap_or_else(|| &[])
+                    .iter()
+                    .map(map_instance_event_with_id),
+            ),
+        State::B => events
+            .events_a
+            .get(a_index..)
+            .unwrap_or_else(|| &[])
+            .iter()
+            .map(map_instance_event_with_id)
+            .chain(
+                events
+                    .events_b
+                    .get(b_index..)
+                    .unwrap_or_else(|| &[])
+                    .iter()
+                    .map(map_instance_event_with_id),
+            ),
+    }
+}
+
+impl<'a, T: bevy_ecs::Resource> EventReader<'a, T> {
+    /// Iterates over the events this EventReader has not seen yet. This updates the EventReader's
+    /// event counter, which means subsequent event reads will not include events that happened before now.
+    pub fn iter(&mut self) -> impl DoubleEndedIterator<Item = &T> {
+        self.iter_with_id().map(|(event, _id)| event)
+    }
+
+    /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
+    pub fn iter_with_id(&mut self) -> impl DoubleEndedIterator<Item = (&T, EventId<T>)> {
+        internal_event_reader(&mut self.last_event_count.0, &self.events).map(|(event, id)| {
             trace!("EventReader::iter() -> {}", id);
-            (event, id)
-        })
-    }
-
-    /// Like [`iter_with_id`](Self::iter_with_id) except not emitting any traces for read messages.
-    fn iter_internal<'a>(
-        &mut self,
-        events: &'a Events<T>,
-    ) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> {
-        // if the reader has seen some of the events in a buffer, find the proper index offset.
-        // otherwise read all events in the buffer
-        let a_index = if self.last_event_count > events.a_start_event_count {
-            self.last_event_count - events.a_start_event_count
-        } else {
-            0
-        };
-        let b_index = if self.last_event_count > events.b_start_event_count {
-            self.last_event_count - events.b_start_event_count
-        } else {
-            0
-        };
-        self.last_event_count = events.event_count;
-        match events.state {
-            State::A => events
-                .events_b
-                .get(b_index..)
-                .unwrap_or_else(|| &[])
-                .iter()
-                .map(map_instance_event_with_id)
-                .chain(
-                    events
-                        .events_a
-                        .get(a_index..)
-                        .unwrap_or_else(|| &[])
-                        .iter()
-                        .map(map_instance_event_with_id),
-                ),
-            State::B => events
-                .events_a
-                .get(a_index..)
-                .unwrap_or_else(|| &[])
-                .iter()
-                .map(map_instance_event_with_id)
-                .chain(
-                    events
-                        .events_b
-                        .get(b_index..)
-                        .unwrap_or_else(|| &[])
-                        .iter()
-                        .map(map_instance_event_with_id),
-                ),
-        }
-    }
-
-    /// Retrieves the latest event that this EventReader hasn't seen yet. This updates the EventReader's
-    /// event counter, which means subsequent event reads will not include events that happened before now.
-    pub fn latest<'a>(&mut self, events: &'a Events<T>) -> Option<&'a T> {
-        self.latest_with_id(events).map(|(event, _)| event)
-    }
-
-    /// Like [`latest`](Self::latest), except also returning the [`EventId`] of the event.
-    pub fn latest_with_id<'a>(&mut self, events: &'a Events<T>) -> Option<(&'a T, EventId<T>)> {
-        self.iter_internal(events).rev().next().map(|(event, id)| {
-            trace!("EventReader::latest() -> {}", id);
-            (event, id)
-        })
-    }
-
-    /// Retrieves the latest event that matches the given `predicate` that this reader hasn't seen yet. This updates the EventReader's
-    /// event counter, which means subsequent event reads will not include events that happened before now.
-    pub fn find_latest<'a>(
-        &mut self,
-        events: &'a Events<T>,
-        predicate: impl FnMut(&&T) -> bool,
-    ) -> Option<&'a T> {
-        self.find_latest_with_id(events, predicate)
-            .map(|(event, _)| event)
-    }
-
-    /// Like [`find_latest`](Self::find_latest), except also returning the [`EventId`] of the event.
-    pub fn find_latest_with_id<'a>(
-        &mut self,
-        events: &'a Events<T>,
-        mut predicate: impl FnMut(&&T) -> bool,
-    ) -> Option<(&'a T, EventId<T>)> {
-        self.iter_internal(events)
-            .rev()
-            .find(|(event, _id)| predicate(event))
-            .map(|(event, id)| {
-                trace!("EventReader::find_latest() -> {}", id);
-                (event, id)
-            })
-    }
-
-    /// Retrieves the earliest event in `events` that this reader hasn't seen yet. This updates the EventReader's
-    /// event counter, which means subsequent event reads will not include events that happened before now.
-    pub fn earliest<'a>(&mut self, events: &'a Events<T>) -> Option<&'a T> {
-        self.earliest_with_id(events).map(|(event, _)| event)
-    }
-
-    /// Like [`earliest`](Self::earliest), except also returning the [`EventId`] of the event.
-    pub fn earliest_with_id<'a>(&mut self, events: &'a Events<T>) -> Option<(&'a T, EventId<T>)> {
-        self.iter_internal(events).next().map(|(event, id)| {
-            trace!("EventReader::earliest() -> {}", id);
             (event, id)
         })
     }
@@ -278,17 +242,17 @@ impl<T: bevy_ecs::Resource> Events<T> {
         self.event_count += 1;
     }
 
-    /// Gets a new [EventReader]. This will include all events already in the event buffers.
-    pub fn get_reader(&self) -> EventReader<T> {
-        EventReader {
+    /// Gets a new [ManualEventReader]. This will include all events already in the event buffers.
+    pub fn get_reader(&self) -> ManualEventReader<T> {
+        ManualEventReader {
             last_event_count: 0,
             _marker: PhantomData,
         }
     }
 
-    /// Gets a new [EventReader]. This will ignore all events already in the event buffers. It will read all future events.
-    pub fn get_reader_current(&self) -> EventReader<T> {
-        EventReader {
+    /// Gets a new [ManualEventReader]. This will ignore all events already in the event buffers. It will read all future events.
+    pub fn get_reader_current(&self) -> ManualEventReader<T> {
+        ManualEventReader {
             last_event_count: self.event_count,
             _marker: PhantomData,
         }
@@ -461,7 +425,7 @@ mod tests {
 
     fn get_events(
         events: &Events<TestEvent>,
-        reader: &mut EventReader<TestEvent>,
+        reader: &mut ManualEventReader<TestEvent>,
     ) -> Vec<TestEvent> {
         reader.iter(events).cloned().collect::<Vec<TestEvent>>()
     }

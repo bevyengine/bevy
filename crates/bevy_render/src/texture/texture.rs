@@ -2,9 +2,9 @@ use super::{Extent3d, SamplerDescriptor, TextureDescriptor, TextureDimension, Te
 use crate::renderer::{
     RenderResource, RenderResourceContext, RenderResourceId, RenderResourceType,
 };
-use bevy_app::prelude::{EventReader, Events};
+use bevy_app::prelude::EventReader;
 use bevy_asset::{AssetEvent, Assets, Handle};
-use bevy_ecs::{Res, ResMut};
+use bevy_ecs::Res;
 use bevy_reflect::TypeUuid;
 use bevy_utils::HashSet;
 
@@ -126,14 +126,13 @@ impl Texture {
     }
 
     pub fn texture_resource_system(
-        mut state: ResMut<TextureResourceSystemState>,
         render_resource_context: Res<Box<dyn RenderResourceContext>>,
         textures: Res<Assets<Texture>>,
-        texture_events: Res<Events<AssetEvent<Texture>>>,
+        mut texture_events: EventReader<AssetEvent<Texture>>,
     ) {
         let render_resource_context = &**render_resource_context;
         let mut changed_textures = HashSet::default();
-        for event in state.event_reader.iter(&texture_events) {
+        for event in texture_events.iter() {
             match event {
                 AssetEvent::Created { handle } => {
                     changed_textures.insert(handle);
@@ -189,11 +188,6 @@ impl Texture {
             render_resource_context.remove_asset_resource(handle, SAMPLER_ASSET_INDEX);
         }
     }
-}
-
-#[derive(Default)]
-pub struct TextureResourceSystemState {
-    event_reader: EventReader<AssetEvent<Texture>>,
 }
 
 impl RenderResource for Option<Handle<Texture>> {
