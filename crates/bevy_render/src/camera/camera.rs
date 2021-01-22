@@ -1,6 +1,6 @@
 use super::CameraProjection;
-use bevy_app::prelude::{EventReader, Events};
-use bevy_ecs::{Added, Component, Entity, Local, Query, QuerySet, Res};
+use bevy_app::prelude::EventReader;
+use bevy_ecs::{Added, Component, Entity, Query, QuerySet, Res};
 use bevy_math::{Mat4, Vec2, Vec3};
 use bevy_reflect::{Reflect, ReflectComponent};
 use bevy_transform::components::GlobalTransform;
