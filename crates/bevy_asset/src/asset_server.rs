@@ -298,7 +298,13 @@ impl AssetServer {
                 server.load_async(owned_path, force).await.unwrap();
             })
             .detach();
-        asset_path.into()
+        let owned_path = asset_path.to_owned();
+        let id: HandleId = asset_path.into();
+        self.server
+            .handle_to_path
+            .write()
+            .insert(id.clone(), owned_path);
+        id
     }
 
     pub fn load_folder<P: AsRef<Path>>(
