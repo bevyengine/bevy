@@ -127,6 +127,10 @@ pub struct Scope<'scope, T> {
 
 impl<'scope, T: Send + 'scope> Scope<'scope, T> {
     pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
+        self.spawn_local(f);
+    }
+
+    pub fn spawn_local<Fut: Future<Output = T> + 'scope>(&mut self, f: Fut) {
         let result = Arc::new(Mutex::new(None));
         self.results.push(result.clone());
         let f = async move {
