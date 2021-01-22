@@ -41,7 +41,10 @@ impl ReflectComponent {
 
     /// # Safety
     /// This does not do bound checks on entity_index. You must make sure entity_index is within bounds before calling.
-    /// To avoid having multiple mutable pointers to the same data, this method can only be called in a thread-local system.
+    /// This method does not prevent you from having two mutable pointers to the same data, violating Rust's aliasing rules. To avoid this:
+    /// * Only call this method in a thread-local system to avoid sharing across threads.
+    /// * Don't call this method more than once in the same scope for a given component.
+    #[allow(clippy::mut_from_ref)]
     pub unsafe fn reflect_component_mut<'a>(
         &self,
         archetype: &'a Archetype,
