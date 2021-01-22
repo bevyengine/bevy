@@ -1,7 +1,7 @@
 use super::{BufferId, BufferInfo, RenderResource, RenderResourceBinding};
 use crate::{
     render_graph::CommandQueue,
-    renderer::{BufferUsage, RenderContext, RenderResourceContext},
+    renderer::{BufferMapMode, BufferUsage, RenderContext, RenderResourceContext},
 };
 use bevy_ecs::{Res, ResMut};
 
@@ -115,7 +115,7 @@ impl SharedBuffers {
         }
 
         if let Some(staging_buffer) = self.staging_buffer {
-            render_resource_context.map_buffer(staging_buffer);
+            render_resource_context.map_buffer(staging_buffer, BufferMapMode::Write);
         }
     }
 
