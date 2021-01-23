@@ -247,7 +247,7 @@ impl<T: Clone> State<T> {
         Ok(())
     }
 
-    /// Same as [Self::queue], but if there is already a next state, it will be overwritten instead of failing
+    /// Same as [Self::set_next], but if there is already a next state, it will be overwritten instead of failing
     pub fn overwrite_next(&mut self, state: T) -> Result<(), StateError> {
         if std::mem::discriminant(&self.current) == std::mem::discriminant(&state) {
             return Err(StateError::AlreadyInState);
