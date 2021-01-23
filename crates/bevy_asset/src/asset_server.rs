@@ -17,16 +17,16 @@ use thiserror::Error;
 /// Errors that occur while loading assets with an AssetServer
 #[derive(Error, Debug)]
 pub enum AssetServerError {
-    #[error("asset folder path is not a directory")]
+    #[error("asset folder path is not a directory: {0}")]
     AssetFolderNotADirectory(String),
-    #[error("no AssetLoader found for the given extension")]
+    #[error("no `AssetLoader` found for the given extension: {0:?}")]
     MissingAssetLoader(Option<String>),
     #[error("the given type does not match the type of the loaded asset")]
     IncorrectHandleType,
-    #[error("encountered an error while loading an asset")]
+    #[error("encountered an error while loading an asset: {0}")]
     AssetLoaderError(anyhow::Error),
-    #[error("`PathLoader` encountered an error")]
-    PathLoaderError(#[from] AssetIoError),
+    #[error("encountered an error while reading an asset: {0}")]
+    AssetIoError(#[from] AssetIoError),
 }
 
 #[derive(Default)]
@@ -233,7 +233,7 @@ impl AssetServer {
                     .get_mut(&asset_path_id.source_path_id())
                     .expect("`AssetSource` should exist at this point.");
                 source_info.load_state = LoadState::Failed;
-                return Err(AssetServerError::PathLoaderError(err));
+                return Err(AssetServerError::AssetIoError(err));
             }
         };
 
@@ -308,7 +308,7 @@ impl AssetServer {
             .task_pool
             .spawn(async move {
                 if let Err(err) = server.load_async(owned_path, force).await {
-                    warn!("Asset failed to load: {:?}", err);
+                    warn!("{}", err);
                 }
             })
             .detach();
