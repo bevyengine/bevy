@@ -422,12 +422,10 @@ impl ParallelSystemStageExecutor {
     /// systems that become able to run.
     fn update_counters_and_queue_systems(&mut self) {
         for index in self.dependants_scratch.drain(..) {
-            if self.should_run[index] {
-                let dependent = &mut self.parallel[index];
-                dependent.dependencies_now -= 1;
-                if dependent.dependencies_now == 0 {
-                    self.queued.insert(index);
-                }
+            let dependent = &mut self.parallel[index];
+            dependent.dependencies_now -= 1;
+            if dependent.dependencies_now == 0 {
+                self.queued.insert(index);
             }
         }
     }
