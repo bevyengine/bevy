@@ -10,6 +10,7 @@ pub struct ReflectComponent {
     add_component: fn(&mut World, resources: &Resources, Entity, &dyn Reflect),
     apply_component: fn(&mut World, Entity, &dyn Reflect),
     reflect_component: unsafe fn(&Archetype, usize) -> &dyn Reflect,
+    reflect_component_mut: unsafe fn(&Archetype, usize) -> &mut dyn Reflect,
     copy_component: fn(&World, &mut World, &Resources, Entity, Entity),
 }
 
@@ -36,6 +37,20 @@ impl ReflectComponent {
         entity_index: usize,
     ) -> &'a dyn Reflect {
         (self.reflect_component)(archetype, entity_index)
+    }
+
+    /// # Safety
+    /// This does not do bound checks on entity_index. You must make sure entity_index is within bounds before calling.
+    /// This method does not prevent you from having two mutable pointers to the same data, violating Rust's aliasing rules. To avoid this:
+    /// * Only call this method in a thread-local system to avoid sharing across threads.
+    /// * Don't call this method more than once in the same scope for a given component.
+    #[allow(clippy::mut_from_ref)]
+    pub unsafe fn reflect_component_mut<'a>(
+        &self,
+        archetype: &'a Archetype,
+        entity_index: usize,
+    ) -> &'a mut dyn Reflect {
+        (self.reflect_component_mut)(archetype, entity_index)
     }
 
     pub fn copy_component(
@@ -85,6 +100,13 @@ impl<C: Component + Reflect + FromResources> FromType<C> for ReflectComponent {
                     // the type has been looked up by the caller, so this is safe
                     let ptr = archetype.get::<C>().unwrap().as_ptr().add(index);
                     ptr.as_ref().unwrap()
+                }
+            },
+            reflect_component_mut: |archetype, index| {
+                unsafe {
+                    // the type has been looked up by the caller, so this is safe
+                    let ptr = archetype.get::<C>().unwrap().as_ptr().add(index);
+                    &mut *ptr
                 }
             },
         }

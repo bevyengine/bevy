@@ -223,12 +223,7 @@ impl Archetype {
 
     /// # Safety
     /// `index` must be in-bounds
-    pub(crate) unsafe fn get_dynamic(
-        &self,
-        ty: TypeId,
-        size: usize,
-        index: usize,
-    ) -> Option<NonNull<u8>> {
+    pub unsafe fn get_dynamic(&self, ty: TypeId, size: usize, index: usize) -> Option<NonNull<u8>> {
         debug_assert!(index < self.len);
         Some(NonNull::new_unchecked(
             (*self.data.get())

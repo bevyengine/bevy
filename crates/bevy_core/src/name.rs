@@ -20,7 +20,8 @@ impl Default for Name {
 }
 
 impl Name {
-    pub fn new(name: String) -> Self {
+    pub fn new(name: impl Into<String>) -> Self {
+        let name = name.into();
         let mut name = Name { name, hash: 0 };
         name.update_hash();
         name
