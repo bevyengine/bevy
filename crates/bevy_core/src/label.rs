@@ -122,7 +122,7 @@ mod tests {
         let mut resources = Resources::default();
         resources.insert(EntityLabels::default());
         let mut schedule = bevy_ecs::Schedule::default();
-        schedule.add_stage("test", SystemStage::serial());
+        schedule.add_stage("test", SystemStage::single_threaded());
         schedule.add_system_to_stage("test", entity_labels_system.system());
         (world, resources, schedule)
     }

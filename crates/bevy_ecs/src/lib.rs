@@ -18,10 +18,10 @@ pub mod prelude {
         },
         schedule::{
             ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion, RunOnce, Schedule,
-            Stage, State, StateStage, SystemStage,
+            Stage, State, StateStage, SystemSet, SystemStage,
         },
         system::{Commands, ExclusiveSystem, IntoSystem, Query, System},
         Added, Bundle, Changed, Component, Entity, Flags, In, IntoChainSystem, Mut, Mutated, Or,
-        QuerySet, Ref, RefMut, With, Without, World,
+        QuerySet, Ref, RefMut, ShouldRun, With, Without, World,
     };
 }

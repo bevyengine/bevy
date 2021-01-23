@@ -124,21 +124,24 @@ impl SystemStageExecutor for ParallelSystemStageExecutor {
                 self.prepare_parallel_systems(scope, system_sets, world, resources);
                 scope.spawn(async {
                     // All systems have been ran if there are no queued or running systems.
-                    while 0 < self.queued.count_ones(..) + self.running.count_ones(..) {
-                        self.start_queued_systems().await;
-                        // Wait until at least one system has finished.
-                        let index = self
-                            .finish_receiver
-                            .recv()
-                            .await
-                            .unwrap_or_else(|error| unreachable!(error));
-                        self.process_finished_system(index);
-                        // Gather other systems than may have finished.
-                        while let Ok(index) = self.finish_receiver.try_recv() {
+                    while 0 != self.queued.count_ones(..) + self.running.count_ones(..) {
+                        self.process_queued_systems().await;
+                        // Avoid deadlocking if only skipped systems were processed.
+                        if self.running.count_ones(..) != 0 {
+                            // Wait until at least one system has finished.
+                            let index = self
+                                .finish_receiver
+                                .recv()
+                                .await
+                                .unwrap_or_else(|error| unreachable!(error));
                             self.process_finished_system(index);
+                            // Gather other systems than may have finished.
+                            while let Ok(index) = self.finish_receiver.try_recv() {
+                                self.process_finished_system(index);
+                            }
+                            // At least one system has finished, so active access is outdated.
+                            self.rebuild_active_access();
                         }
-                        // At least one system has finished, so active access is outdated.
-                        self.rebuild_active_access();
                         self.update_counters_and_queue_systems();
                     }
                 });
@@ -249,7 +252,7 @@ impl ParallelSystemStageExecutor {
                 });
             }
         }
-        // Populate the dependants lists in the scheduling data using the mapping.
+        // Populate the dependants lists in the scheduling data using the mapping from above.
         for (dependant, dependencies) in parallel_systems_dependencies.iter() {
             let dependant = parallel_systems_mapping[dependant];
             for dependency in dependencies {
@@ -269,6 +272,7 @@ impl ParallelSystemStageExecutor {
         {
             let system = system_sets[scheduling_data.index.set]
                 .parallel_system_mut(scheduling_data.index.system);
+            // TODO this should probably be done outside of the filter
             system.update_access(world);
             if let Some(archetype_components) =
                 system.archetype_component_access().all_distinct_types()
@@ -290,7 +294,7 @@ impl ParallelSystemStageExecutor {
         }
     }
 
-    /// Populates `should_run` bitset, spawns systems' tasks,
+    /// Populates `should_run` bitset, spawns tasks for system that should run this iteration,
     /// queues systems with no dependencies to run at next opportunity.
     fn prepare_parallel_systems<'scope>(
         &mut self,
@@ -304,17 +308,16 @@ impl ParallelSystemStageExecutor {
                 Yes | YesAndLoop => true,
                 No | NoAndLoop => false,
             };
-            // Cache which systems should be ran, to avoid queueing them later.
             self.should_run.set(index, should_run);
             if should_run {
                 self.spawn_system_task(index, scope, system_sets, world, resources);
-                // Queue systems with no dependencies, reset dependency counters.
-                let system_data = &mut self.parallel[index];
-                if system_data.dependencies_total == 0 {
-                    self.queued.insert(index);
-                } else {
-                    system_data.dependencies_now = system_data.dependencies_total;
-                }
+            }
+            // Queue systems with no dependencies, reset dependency counters.
+            let system_data = &mut self.parallel[index];
+            if system_data.dependencies_total == 0 {
+                self.queued.insert(index);
+            } else {
+                system_data.dependencies_now = system_data.dependencies_total;
             }
         }
     }
@@ -355,20 +358,26 @@ impl ParallelSystemStageExecutor {
     /// Determines if the parallel system with given index has
     /// no conflicts with already running systems.
     fn can_start_now(&self, index: usize) -> bool {
-        let system = &self.parallel[index];
-        system
+        let system_data = &self.parallel[index];
+        system_data
             .resource_access
             .is_compatible(&self.active_resource_access)
-            && system
+            && system_data
                 .archetype_component_access
                 .is_compatible(&self.active_archetype_component_access)
     }
 
     /// Starts all non-conflicting queued systems, moves them from `queued` to `running`,
-    /// adds their access information to active access information.
-    async fn start_queued_systems(&mut self) {
+    /// adds their access information to active access information;
+    /// processes queued systems that shouldn't run this iteration as completed immediately.
+    async fn process_queued_systems(&mut self) {
         for index in self.queued.ones() {
-            if self.can_start_now(index) {
+            // If the system shouldn't actually run this iteration, process it as completed
+            // immediately; otherwise, signal its task to start.
+            if !self.should_run[index] {
+                self.dependants_scratch
+                    .extend(&self.parallel[index].dependants);
+            } else if self.can_start_now(index) {
                 let system = &self.parallel[index];
                 system
                     .start_sender
@@ -382,11 +391,13 @@ impl ParallelSystemStageExecutor {
                 self.active_resource_access.extend(&system.resource_access);
             }
         }
-        // Remove running systems from queued systems.
+        // Remove now running systems from the queue.
         self.queued.difference_with(&self.running);
+        // Remove immediately processed systems from the queue.
+        self.queued.intersect_with(&self.should_run);
     }
 
-    /// Removes the given system index from running systems, caches indices of its dependants
+    /// Unmarks the system give index as running, caches indices of its dependants
     /// in the `dependants_scratch`.
     fn process_finished_system(&mut self, index: usize) {
         self.running.set(index, false);

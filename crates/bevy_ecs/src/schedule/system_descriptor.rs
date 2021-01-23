@@ -8,7 +8,6 @@ pub struct ParallelSystemDescriptor {
     system: NonNull<dyn System<In = (), Out = ()>>,
     pub(crate) label: Option<Label>,
     pub(crate) before: Vec<Label>,
-    // TODO consider Vec<Option<Label>> or something to support optional dependencies?
     pub(crate) after: Vec<Label>,
 }
 

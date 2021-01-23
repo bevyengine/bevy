@@ -1,7 +1,7 @@
 use bevy_utils::HashMap;
 use downcast_rs::{impl_downcast, Downcast};
 
-use super::{ParallelSystemStageExecutor, SerialSystemStageExecutor, SystemStageExecutor};
+use super::{ParallelSystemStageExecutor, SingleThreadedSystemStageExecutor, SystemStageExecutor};
 use crate::{
     topological_sorting, ExclusiveSystem, ExclusiveSystemDescriptor, InsertionPoint,
     ParallelSystemDescriptor, Resources, RunCriteria, ShouldRun, SortingResult, System, SystemId,
@@ -43,7 +43,7 @@ pub struct SystemStage {
     system_sets: Vec<SystemSet>,
     /// Topologically sorted exclusive systems that want to be ran at the start of the stage.
     at_start: Vec<SystemIndex>,
-    /// Topologically sorted exclusive systems that want to be ran after parrallel systems and
+    /// Topologically sorted exclusive systems that want to be ran after parallel systems but
     /// before the application of their command buffers.
     before_commands: Vec<SystemIndex>,
     /// Topologically sorted exclusive systems that want to be ran at the end of the stage.
@@ -69,11 +69,11 @@ impl SystemStage {
     }
 
     pub fn single(system: impl Into<ExclusiveSystemDescriptor>) -> Self {
-        Self::serial().with_exclusive_system(system)
+        Self::single_threaded().with_exclusive_system(system)
     }
 
-    pub fn serial() -> Self {
-        Self::new(Box::new(SerialSystemStageExecutor::default()))
+    pub fn single_threaded() -> Self {
+        Self::new(Box::new(SingleThreadedSystemStageExecutor::default()))
     }
 
     pub fn parallel() -> Self {
@@ -205,11 +205,13 @@ impl SystemStage {
                 "found cycle: {:?}",
                 cycle
                     .iter()
-                    .map(
-                        |index| self.system_sets[index.set].parallel_systems[index.system]
+                    .map(|index| {
+                        let system = &self.system_sets[index.set].parallel_systems[index.system];
+                        system
                             .label
-                            .unwrap_or("<unlabeled>")
-                    )
+                            .map(|label| label.into())
+                            .unwrap_or_else(|| system.system().name())
+                    })
                     .collect::<Vec<_>>()
             ),
         };
@@ -224,11 +226,13 @@ impl SystemStage {
                     "found cycle: {:?}",
                     cycle
                         .iter()
-                        .map(
-                            |index| system_sets[index.set].exclusive_systems[index.system]
+                        .map(|index| {
+                            let system = &system_sets[index.set].exclusive_systems[index.system];
+                            system
                                 .label
-                                .unwrap_or("<unlabeled>")
-                        )
+                                .map(|label| label.into())
+                                .unwrap_or_else(|| system.system.name())
+                        })
                         .collect::<Vec<_>>()
                 ),
             }
@@ -391,6 +395,11 @@ impl SystemSet {
             .map(|descriptor| descriptor.system_mut())
     }
 
+    pub fn with_run_criteria<S: System<In = (), Out = ShouldRun>>(mut self, system: S) -> Self {
+        self.run_criteria.set(Box::new(system));
+        self
+    }
+
     pub fn with_system(mut self, system: impl Into<ParallelSystemDescriptor>) -> Self {
         self.add_system(system);
         self
@@ -430,7 +439,7 @@ impl<S: Into<ExclusiveSystemDescriptor>> From<S> for SystemStage {
 
 #[cfg(test)]
 mod tests {
-    use crate::{prelude::*, SerialSystemStageExecutor};
+    use crate::{prelude::*, SingleThreadedSystemStageExecutor};
     use bevy_tasks::{ComputeTaskPool, TaskPoolBuilder};
     use std::thread::{self, ThreadId};
 
@@ -448,6 +457,14 @@ mod tests {
         }};
     }
 
+    fn resettable_run_once(mut has_ran: ResMut<bool>) -> ShouldRun {
+        if !*has_ran {
+            *has_ran = true;
+            return ShouldRun::Yes;
+        }
+        ShouldRun::No
+    }
+
     #[test]
     fn insertion_points() {
         let mut world = World::new();
@@ -461,7 +478,7 @@ mod tests {
             .with_exclusive_system(make_exclusive(3).system().at_end());
         stage.run(&mut world, &mut resources);
         assert_eq!(*resources.get::<Vec<usize>>().unwrap(), vec![0, 1, 2, 3]);
-        stage.set_executor(Box::new(SerialSystemStageExecutor::default()));
+        stage.set_executor(Box::new(SingleThreadedSystemStageExecutor::default()));
         stage.run(&mut world, &mut resources);
         assert_eq!(
             *resources.get::<Vec<usize>>().unwrap(),
@@ -476,7 +493,7 @@ mod tests {
             .with_exclusive_system(make_exclusive(0).system().at_start());
         stage.run(&mut world, &mut resources);
         assert_eq!(*resources.get::<Vec<usize>>().unwrap(), vec![0, 1, 2, 3]);
-        stage.set_executor(Box::new(SerialSystemStageExecutor::default()));
+        stage.set_executor(Box::new(SingleThreadedSystemStageExecutor::default()));
         stage.run(&mut world, &mut resources);
         assert_eq!(
             *resources.get::<Vec<usize>>().unwrap(),
@@ -494,7 +511,7 @@ mod tests {
             .with_exclusive_system(make_exclusive(2).system().after("1"))
             .with_exclusive_system(make_exclusive(0).system().label("0"));
         stage.run(&mut world, &mut resources);
-        stage.set_executor(Box::new(SerialSystemStageExecutor::default()));
+        stage.set_executor(Box::new(SingleThreadedSystemStageExecutor::default()));
         stage.run(&mut world, &mut resources);
         assert_eq!(
             *resources.get::<Vec<usize>>().unwrap(),
@@ -512,7 +529,7 @@ mod tests {
             .with_exclusive_system(make_exclusive(2).system().label("2"))
             .with_exclusive_system(make_exclusive(0).system().before("1"));
         stage.run(&mut world, &mut resources);
-        stage.set_executor(Box::new(SerialSystemStageExecutor::default()));
+        stage.set_executor(Box::new(SingleThreadedSystemStageExecutor::default()));
         stage.run(&mut world, &mut resources);
         assert_eq!(
             *resources.get::<Vec<usize>>().unwrap(),
@@ -527,16 +544,65 @@ mod tests {
         resources.insert(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
             .with_exclusive_system(make_exclusive(2).system().label("2"))
-            .with_exclusive_system(make_exclusive(1).system().label("1").after("0").before("2"))
+            .with_exclusive_system(make_exclusive(1).system().after("0").before("2"))
             .with_exclusive_system(make_exclusive(0).system().label("0"))
             .with_exclusive_system(make_exclusive(4).system().label("4"))
-            .with_exclusive_system(make_exclusive(3).system().label("3").after("2").before("4"));
+            .with_exclusive_system(make_exclusive(3).system().after("2").before("4"));
         stage.run(&mut world, &mut resources);
-        stage.set_executor(Box::new(SerialSystemStageExecutor::default()));
+        stage.set_executor(Box::new(SingleThreadedSystemStageExecutor::default()));
         stage.run(&mut world, &mut resources);
         assert_eq!(
             *resources.get::<Vec<usize>>().unwrap(),
             vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
+        );
+    }
+
+    #[test]
+    fn exclusive_mixed_across_sets() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert(Vec::<usize>::new());
+        let mut stage = SystemStage::parallel()
+            .with_exclusive_system(make_exclusive(2).system().label("2"))
+            .with_system_set(
+                SystemSet::new()
+                    .with_exclusive_system(make_exclusive(0).system().label("0"))
+                    .with_exclusive_system(make_exclusive(4).system().label("4"))
+                    .with_exclusive_system(make_exclusive(3).system().after("2").before("4")),
+            )
+            .with_exclusive_system(make_exclusive(1).system().after("0").before("2"));
+        stage.run(&mut world, &mut resources);
+        stage.set_executor(Box::new(SingleThreadedSystemStageExecutor::default()));
+        stage.run(&mut world, &mut resources);
+        assert_eq!(
+            *resources.get::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
+        );
+    }
+
+    #[test]
+    fn exclusive_run_criteria() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert(Vec::<usize>::new());
+        resources.insert(false);
+        let mut stage = SystemStage::parallel()
+            .with_exclusive_system(make_exclusive(0).system().before("1"))
+            .with_system_set(
+                SystemSet::new()
+                    .with_run_criteria(resettable_run_once.system())
+                    .with_exclusive_system(make_exclusive(1).system().label("1")),
+            )
+            .with_exclusive_system(make_exclusive(2).system().after("1"));
+        stage.run(&mut world, &mut resources);
+        stage.run(&mut world, &mut resources);
+        *resources.get_mut::<bool>().unwrap() = false;
+        stage.set_executor(Box::new(SingleThreadedSystemStageExecutor::default()));
+        stage.run(&mut world, &mut resources);
+        stage.run(&mut world, &mut resources);
+        assert_eq!(
+            *resources.get::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 0, 2, 0, 1, 2, 0, 2]
         );
     }
 
@@ -575,7 +641,7 @@ mod tests {
             .with_system(make_parallel!(2).system().after("1"))
             .with_system(make_parallel!(0).system().label("0"));
         stage.run(&mut world, &mut resources);
-        stage.set_executor(Box::new(SerialSystemStageExecutor::default()));
+        stage.set_executor(Box::new(SingleThreadedSystemStageExecutor::default()));
         stage.run(&mut world, &mut resources);
         assert_eq!(
             *resources.get::<Vec<usize>>().unwrap(),
@@ -593,7 +659,7 @@ mod tests {
             .with_system(make_parallel!(2).system().label("2"))
             .with_system(make_parallel!(0).system().before("1"));
         stage.run(&mut world, &mut resources);
-        stage.set_executor(Box::new(SerialSystemStageExecutor::default()));
+        stage.set_executor(Box::new(SingleThreadedSystemStageExecutor::default()));
         stage.run(&mut world, &mut resources);
         assert_eq!(
             *resources.get::<Vec<usize>>().unwrap(),
@@ -608,16 +674,65 @@ mod tests {
         resources.insert(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
             .with_system(make_parallel!(2).system().label("2"))
-            .with_system(make_parallel!(1).system().label("1").after("0").before("2"))
+            .with_system(make_parallel!(1).system().after("0").before("2"))
             .with_system(make_parallel!(0).system().label("0"))
             .with_system(make_parallel!(4).system().label("4"))
-            .with_system(make_parallel!(3).system().label("3").after("2").before("4"));
+            .with_system(make_parallel!(3).system().after("2").before("4"));
         stage.run(&mut world, &mut resources);
-        stage.set_executor(Box::new(SerialSystemStageExecutor::default()));
+        stage.set_executor(Box::new(SingleThreadedSystemStageExecutor::default()));
         stage.run(&mut world, &mut resources);
         assert_eq!(
             *resources.get::<Vec<usize>>().unwrap(),
             vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
+        );
+    }
+
+    #[test]
+    fn parallel_mixed_across_sets() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert(Vec::<usize>::new());
+        let mut stage = SystemStage::parallel()
+            .with_system(make_parallel!(2).system().label("2"))
+            .with_system_set(
+                SystemSet::new()
+                    .with_system(make_parallel!(0).system().label("0"))
+                    .with_system(make_parallel!(4).system().label("4"))
+                    .with_system(make_parallel!(3).system().after("2").before("4")),
+            )
+            .with_system(make_parallel!(1).system().after("0").before("2"));
+        stage.run(&mut world, &mut resources);
+        stage.set_executor(Box::new(SingleThreadedSystemStageExecutor::default()));
+        stage.run(&mut world, &mut resources);
+        assert_eq!(
+            *resources.get::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
+        );
+    }
+
+    #[test]
+    fn parallel_run_criteria() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert(Vec::<usize>::new());
+        resources.insert(false);
+        let mut stage = SystemStage::parallel()
+            .with_system(make_parallel!(0).system().before("1"))
+            .with_system_set(
+                SystemSet::new()
+                    .with_run_criteria(resettable_run_once.system())
+                    .with_system(make_parallel!(1).system().label("1")),
+            )
+            .with_system(make_parallel!(2).system().after("1"));
+        stage.run(&mut world, &mut resources);
+        stage.run(&mut world, &mut resources);
+        *resources.get_mut::<bool>().unwrap() = false;
+        stage.set_executor(Box::new(SingleThreadedSystemStageExecutor::default()));
+        stage.run(&mut world, &mut resources);
+        stage.run(&mut world, &mut resources);
+        assert_eq!(
+            *resources.get::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 0, 2, 0, 1, 2, 0, 2]
         );
     }
 
@@ -665,7 +780,7 @@ mod tests {
             .with_system(wants_thread_local.system())
             .with_system(wants_thread_local.system());
         stage.run(&mut world, &mut resources);
-        stage.set_executor(Box::new(SerialSystemStageExecutor::default()));
+        stage.set_executor(Box::new(SingleThreadedSystemStageExecutor::default()));
         stage.run(&mut world, &mut resources);
     }
 }

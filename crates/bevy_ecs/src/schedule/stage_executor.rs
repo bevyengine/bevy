@@ -14,7 +14,7 @@ pub trait SystemStageExecutor: Downcast + Send + Sync {
     /// * `at_start`: Topologically sorted exclusive systems that want to
     /// be ran at the start of the stage.
     /// * `before_commands`: Topologically sorted exclusive systems that want to
-    /// be ran after parrallel systems and before the application of their command buffers.
+    /// be ran after parallel systems but before the application of their command buffers.
     /// * `at_end`: Topologically sorted exclusive systems that want to
     /// be ran at the end of the stage.
     /// * `parallel_dependencies`: Resolved graph of parallel systems and their dependencies.
@@ -124,12 +124,12 @@ pub(super) trait ExecutorCommonMethods {
     }
 }
 
-pub struct SerialSystemStageExecutor {
+pub struct SingleThreadedSystemStageExecutor {
     /// Cached results of system sets' run criteria evaluation.
     system_set_should_run: Vec<ShouldRun>,
 }
 
-impl Default for SerialSystemStageExecutor {
+impl Default for SingleThreadedSystemStageExecutor {
     fn default() -> Self {
         Self {
             system_set_should_run: Vec::new(),
@@ -137,7 +137,7 @@ impl Default for SerialSystemStageExecutor {
     }
 }
 
-impl ExecutorCommonMethods for SerialSystemStageExecutor {
+impl ExecutorCommonMethods for SingleThreadedSystemStageExecutor {
     fn system_set_should_run(&self) -> &Vec<ShouldRun> {
         &self.system_set_should_run
     }
@@ -147,7 +147,7 @@ impl ExecutorCommonMethods for SerialSystemStageExecutor {
     }
 }
 
-impl SystemStageExecutor for SerialSystemStageExecutor {
+impl SystemStageExecutor for SingleThreadedSystemStageExecutor {
     fn execute_stage(
         &mut self,
         system_sets: &mut [SystemSet],
