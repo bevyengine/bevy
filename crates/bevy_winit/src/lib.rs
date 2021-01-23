@@ -13,7 +13,7 @@ pub use winit_windows::*;
 use bevy_app::{prelude::*, AppExit, ManualEventReader};
 use bevy_ecs::{IntoSystem, Resources, World};
 use bevy_math::Vec2;
-use bevy_utils::tracing::{error, trace, warn};
+use bevy_utils::tracing::{error, metadata::ParseLevelError, trace, warn};
 use bevy_window::{
     CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
     WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowDescriptor, WindowFocused,
@@ -190,11 +190,29 @@ pub fn winit_runner_any_thread(app: App) {
     winit_runner_with(app, EventLoop::new_any_thread());
 }
 
+#[derive(Debug)]
 enum RunnableState {
+    // Initial state
     NotInitialized,
-    WaitForWindow,
+
+    // Window is present, can render to it
     Running,
-    Stopped,
+
+    // Window indicated to be present, was null though, need to recreate
+    WaitForWindow,
+
+    // Underlying window can not be rendered into
+    Paused,
+
+    // Window was lost, need to recreate when present
+    WindowLost,
+}
+
+impl RunnableState {
+    pub fn set_value(&mut self, value: RunnableState) {
+        println!("runnable state change from {:?} to {:?}", self, value);
+        *self = value;
+    }
 }
 
 pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
@@ -233,6 +251,23 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                 window_id: winit_window_id,
                 ..
             } => {
+                println!("runnable window event (running={:?}), event: {:?}", running, event);
+                match event {
+                    WindowEvent::Focused(focused) => {
+                        println!("runnable: focused={}, running={:?}", focused, running);
+                        if focused {
+                            match running {
+                                RunnableState::NotInitialized | RunnableState::Paused => running.set_value(RunnableState::Running),
+                                RunnableState::WindowLost => {
+                                    running.set_value(RunnableState::WaitForWindow);
+                                }
+                                _ => (),
+                            }
+                        }
+                    }
+                    _ => (),
+                }
+
                 let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
                 let mut windows = app.resources.get_mut::<Windows>().unwrap();
                 let window_id =
@@ -456,19 +491,12 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                     app.update();
                 }
             }
-            event::Event::Resumed => {
-                match running {
-                    RunnableState::NotInitialized => running = RunnableState::Running,
-
-                    RunnableState::Stopped => {
-                        running = RunnableState::WaitForWindow;
-                    }
-                    _ => (),
+            event::Event::ActivityPaused | event::Event::Suspended => {
+                if let RunnableState::NotInitialized = running {
+                    // if not initialized yet, do not set
+                } else {
+                    running.set_value(RunnableState::WindowLost);
                 }
-            }
-            event::Event::Suspended => {
-                println!("ndk_glue::native_window(): {:?}", ndk_glue::native_window());
-                running = RunnableState::Stopped;
             }
             _ => (),
         }
@@ -497,7 +525,7 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
 
                 app.update();
 
-                running = RunnableState::Running;
+                running.set_value(RunnableState::Running);
             }
         }
 
