@@ -17,9 +17,10 @@ use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
     CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
     WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
-    WindowResized, WindowScaleFactorChanged, Windows,
+    WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
 };
 use winit::{
+    dpi::PhysicalPosition,
     event::{self, DeviceEvent, Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
@@ -126,6 +127,14 @@ fn change_window(_: &mut World, resources: &mut Resources) {
                 bevy_window::WindowCommand::SetMaximized { maximized } => {
                     let window = winit_windows.get_window(id).unwrap();
                     window.set_maximized(maximized)
+                }
+                bevy_window::WindowCommand::SetMinimized { minimized } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    window.set_minimized(minimized)
+                }
+                bevy_window::WindowCommand::SetPosition { x, y } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    window.set_outer_position(PhysicalPosition { x, y });
                 }
             }
         }
@@ -422,6 +431,15 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                         let mut events =
                             app.resources.get_mut::<Events<FileDragAndDrop>>().unwrap();
                         events.send(FileDragAndDrop::HoveredFileCancelled { id: window_id });
+                    }
+                    WindowEvent::Moved(position) => {
+                        window.update_actual_position_from_backend(position.x, position.y);
+                        let mut events = app.resources.get_mut::<Events<WindowMoved>>().unwrap();
+                        events.send(WindowMoved {
+                            id: window_id,
+                            x: position.x,
+                            y: position.y,
+                        });
                     }
                     _ => {}
                 }

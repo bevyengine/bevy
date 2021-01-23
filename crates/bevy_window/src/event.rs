@@ -89,3 +89,11 @@ pub enum FileDragAndDrop {
 
     HoveredFileCancelled { id: WindowId },
 }
+
+/// An event that is sent when a window is repositioned in physical pixels.
+#[derive(Debug, Clone)]
+pub struct WindowMoved {
+    pub id: WindowId,
+    pub x: i32,
+    pub y: i32,
+}
