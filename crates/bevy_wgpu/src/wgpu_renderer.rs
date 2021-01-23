@@ -8,8 +8,8 @@ use bevy_render::{
     render_graph::{DependentNodeStager, RenderGraph, RenderGraphStager},
     renderer::RenderResourceContext,
 };
-use bevy_window::{WindowCreated, WindowResized, Windows};
-use std::{ops::Deref, sync::Arc};
+use bevy_window::{WindowCreated, WindowHandles, WindowResized};
+use std::sync::Arc;
 
 pub struct WgpuRenderer {
     pub instance: wgpu::Instance,
@@ -79,22 +79,17 @@ impl WgpuRenderer {
         let render_resource_context = render_resource_context
             .downcast_mut::<WgpuRenderResourceContext>()
             .unwrap();
-        let windows = resources.get::<Windows>().unwrap();
+        let handles = resources.get_thread_local::<WindowHandles>().unwrap();
         let window_created_events = resources.get::<Events<WindowCreated>>().unwrap();
-        for window_created_event in self
+        for WindowCreated { id } in self
             .window_created_event_reader
             .iter(&window_created_events)
         {
-            let window = windows
-                .get(window_created_event.id)
+            let handle = handles
+                .get(*id)
                 .expect("Received window created event for non-existent window.");
-            #[cfg(feature = "bevy_winit")]
-            {
-                let winit_windows = resources.get::<bevy_winit::WinitWindows>().unwrap();
-                let winit_window = winit_windows.get_window(window.id()).unwrap();
-                let surface = unsafe { self.instance.create_surface(winit_window.deref()) };
-                render_resource_context.set_window_surface(window.id(), surface);
-            }
+            let surface = unsafe { self.instance.create_surface(handle) };
+            render_resource_context.set_window_surface(*id, surface);
         }
     }
 

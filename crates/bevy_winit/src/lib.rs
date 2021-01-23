@@ -15,9 +15,9 @@ use bevy_ecs::{IntoSystem, Resources, World};
 use bevy_math::Vec2;
 use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
-    CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
-    WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
-    WindowResized, WindowScaleFactorChanged, Windows,
+    create_window, CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop,
+    ReceivedCharacter, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated,
+    WindowFocused, WindowHandles, WindowResized, WindowScaleFactorChanged, Windows,
 };
 use winit::{
     event::{self, DeviceEvent, Event, WindowEvent},
@@ -461,17 +461,12 @@ fn handle_create_window_events(
 ) {
     let mut winit_windows = resources.get_mut::<WinitWindows>().unwrap();
     let mut windows = resources.get_mut::<Windows>().unwrap();
+    let mut handles = resources.get_thread_local_mut::<WindowHandles>().unwrap();
     let create_window_events = resources.get::<Events<CreateWindow>>().unwrap();
     let mut window_created_events = resources.get_mut::<Events<WindowCreated>>().unwrap();
-    for create_window_event in create_window_event_reader.iter(&create_window_events) {
-        let window = winit_windows.create_window(
-            event_loop,
-            create_window_event.id,
-            &create_window_event.descriptor,
-        );
-        windows.add(window);
-        window_created_events.send(WindowCreated {
-            id: create_window_event.id,
-        });
+    for CreateWindow { id, descriptor } in create_window_event_reader.iter(&create_window_events) {
+        let (window, handle) = winit_windows.create_window(event_loop, *id, descriptor);
+        create_window(&mut *windows, window, &mut *handles, handle);
+        window_created_events.send(WindowCreated { id: *id });
     }
 }

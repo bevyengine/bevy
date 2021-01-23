@@ -47,7 +47,8 @@ impl Plugin for WindowPlugin {
             .add_event::<WindowScaleFactorChanged>()
             .add_event::<WindowBackendScaleFactorChanged>()
             .add_event::<FileDragAndDrop>()
-            .init_resource::<Windows>();
+            .init_resource::<Windows>()
+            .init_thread_local_resource::<WindowHandles>();
 
         if self.add_primary_window {
             let resources = app.resources();
