@@ -303,7 +303,7 @@ impl AssetServer {
         self.server
             .handle_to_path
             .write()
-            .insert(id.clone(), owned_path);
+            .insert(id, owned_path);
         id
     }
 
