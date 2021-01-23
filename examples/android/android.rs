@@ -4,11 +4,14 @@ use bevy::prelude::*;
 #[bevy_main]
 fn main() {
     App::build()
-        .add_resource(Msaa { samples: 2 })
+        //.add_resource(Msaa { samples: 2 })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
+        .add_system(rotate.system())
         .run();
 }
+
+struct Rotation;
 
 /// set up a simple 3D scene
 fn setup(
@@ -30,7 +33,8 @@ fn setup(
             material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
             transform: Transform::from_xyz(0.0, 0.5, 0.0),
             ..Default::default()
-        })
+        }).with(Rotation)
+
         // light
         .spawn(LightBundle {
             transform: Transform::from_xyz(4.0, 8.0, 4.0),
@@ -42,4 +46,16 @@ fn setup(
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
         });
+}
+
+fn rotate(
+    time: Res<Time>,
+    mut transform_query: Query<&mut Transform, With<Rotation>>,
+) {
+    let angle = std::f32::consts::PI / 2.0;
+
+    for mut transform in transform_query.iter_mut() {
+        transform.rotate(Quat::from_rotation_y(angle * 0.5 * time.delta_seconds()));
+    }
+
 }
