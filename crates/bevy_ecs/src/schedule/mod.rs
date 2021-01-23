@@ -3,12 +3,14 @@ mod stage_executor;
 mod stage_executor_parallel;
 mod state;
 mod system_descriptor;
+mod system_set;
 
 pub use stage::*;
 pub use stage_executor::*;
-pub use stage_executor_parallel::ParallelSystemStageExecutor;
+pub use stage_executor_parallel::*;
 pub use state::*;
 pub use system_descriptor::*;
+pub use system_set::*;
 
 use crate::{
     ArchetypeComponent, BoxedSystem, IntoSystem, Resources, System, SystemId, TypeAccess, World,
@@ -207,6 +209,7 @@ pub fn clear_trackers_system(world: &mut World, resources: &mut Resources) {
     resources.clear_trackers();
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ShouldRun {
     /// No, the system should not run
     No,

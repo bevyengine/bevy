@@ -3,14 +3,13 @@ use bevy_tasks::{ComputeTaskPool, Scope, TaskPool};
 use bevy_utils::{HashMap, HashSet};
 use fixedbitset::FixedBitSet;
 
-use super::ExecutorCommonMethods;
 use crate::{
-    ArchetypesGeneration, CondensedTypeAccess, Resources,
+    ArchetypesGeneration, CondensedTypeAccess, ParallelSystemExecutor, Resources,
     ShouldRun::{self, *},
-    System, SystemIndex, SystemSet, SystemStageExecutor, World,
+    System, SystemIndex, SystemSet, World,
 };
 
-struct ParallelSystemSchedulingData {
+struct SystemSchedulingMetadata {
     /// System's index in the system sets.
     index: SystemIndex,
     /// Used to signal the system's task to start the system.
@@ -30,24 +29,22 @@ struct ParallelSystemSchedulingData {
     resource_access: CondensedTypeAccess,
 }
 
-pub struct ParallelSystemStageExecutor {
+pub struct ParallelExecutor {
     /// Last archetypes generation observed by parallel systems.
     last_archetypes_generation: ArchetypesGeneration,
-    /// Cached results of system sets' run criteria evaluation.
-    system_set_should_run: Vec<ShouldRun>,
-    /// Systems that run in parallel.
-    parallel: Vec<ParallelSystemSchedulingData>,
+    /// Cached metadata of every system.
+    system_metadata: Vec<SystemSchedulingMetadata>,
     /// Used by systems to notify the executor that they have finished.
     finish_sender: Sender<usize>,
     /// Receives finish events from systems.
     finish_receiver: Receiver<usize>,
-    /// Parallel systems that should run this iteration.
+    /// Systems that should run this iteration.
     should_run: FixedBitSet,
-    /// Parallel systems that must run on the main thread.
+    /// Systems that must run on the main thread.
     thread_local: FixedBitSet,
-    /// Parallel systems that should be started at next opportunity.
+    /// Systems that should be started at next opportunity.
     queued: FixedBitSet,
-    /// Parallel systems that are currently running.
+    /// Systems that are currently running.
     running: FixedBitSet,
     /// Compound archetype-component access information of currently running systems.
     active_archetype_component_access: CondensedTypeAccess,
@@ -57,14 +54,13 @@ pub struct ParallelSystemStageExecutor {
     dependants_scratch: Vec<usize>,
 }
 
-impl Default for ParallelSystemStageExecutor {
+impl Default for ParallelExecutor {
     fn default() -> Self {
         let (finish_sender, finish_receiver) = async_channel::unbounded();
         Self {
-            // MAX ensures metadata will be initialized on first run.
+            // MAX ensures access information will be initialized on first run.
             last_archetypes_generation: ArchetypesGeneration(u64::MAX),
-            system_set_should_run: Default::default(),
-            parallel: Default::default(),
+            system_metadata: Default::default(),
             finish_sender,
             finish_receiver,
             should_run: Default::default(),
@@ -78,107 +74,68 @@ impl Default for ParallelSystemStageExecutor {
     }
 }
 
-impl ExecutorCommonMethods for ParallelSystemStageExecutor {
-    fn system_set_should_run(&self) -> &Vec<ShouldRun> {
-        &self.system_set_should_run
-    }
-
-    fn system_set_should_run_mut(&mut self) -> &mut Vec<ShouldRun> {
-        &mut self.system_set_should_run
-    }
-}
-
-impl SystemStageExecutor for ParallelSystemStageExecutor {
-    fn execute_stage(
+impl ParallelSystemExecutor for ParallelExecutor {
+    fn run_systems(
         &mut self,
         system_sets: &mut [SystemSet],
-        at_start: &[SystemIndex],
-        before_commands: &[SystemIndex],
-        at_end: &[SystemIndex],
-        parallel_dependencies: &HashMap<SystemIndex, Vec<SystemIndex>>,
-        parallel_sorted: &[SystemIndex],
+        system_set_should_run: &[ShouldRun],
+        dependency_graph: &HashMap<SystemIndex, Vec<SystemIndex>>,
+        topological_order: &[SystemIndex],
         world: &mut World,
         resources: &mut Resources,
     ) {
-        let mut has_work = self.evaluate_run_criteria(system_sets, world, resources);
-        if !has_work {
-            return;
-        }
         if system_sets.iter().any(|system_set| system_set.is_dirty()) {
-            self.rebuild_scheduling_data(system_sets, parallel_dependencies, world);
+            self.rebuild_scheduling_data(system_sets, dependency_graph, topological_order, world);
+        } else if self.last_archetypes_generation != world.archetypes_generation() {
+            self.update_access(system_sets, world);
+            self.last_archetypes_generation = world.archetypes_generation();
         }
-        while has_work {
-            // Run systems that want to be at the start of stage.
-            self.run_exclusive_systems_sequence(at_start, system_sets, world, resources);
-
-            if self.last_archetypes_generation != world.archetypes_generation() {
-                self.update_parallel_access(system_sets, world);
-                self.last_archetypes_generation = world.archetypes_generation();
-            }
-
-            // Run parallel systems.
-            let compute_pool = resources
-                .get_or_insert_with(|| ComputeTaskPool(TaskPool::default()))
-                .clone();
-            compute_pool.scope(|scope| {
-                self.prepare_parallel_systems(scope, system_sets, world, resources);
-                scope.spawn(async {
-                    // All systems have been ran if there are no queued or running systems.
-                    while 0 != self.queued.count_ones(..) + self.running.count_ones(..) {
-                        self.process_queued_systems().await;
-                        // Avoid deadlocking if only skipped systems were processed.
-                        if self.running.count_ones(..) != 0 {
-                            // Wait until at least one system has finished.
-                            let index = self
-                                .finish_receiver
-                                .recv()
-                                .await
-                                .unwrap_or_else(|error| unreachable!(error));
+        let compute_pool = resources
+            .get_or_insert_with(|| ComputeTaskPool(TaskPool::default()))
+            .clone();
+        compute_pool.scope(|scope| {
+            self.prepare_systems(scope, system_sets, system_set_should_run, world, resources);
+            scope.spawn(async {
+                // All systems have been ran if there are no queued or running systems.
+                while 0 != self.queued.count_ones(..) + self.running.count_ones(..) {
+                    self.process_queued_systems().await;
+                    // Avoid deadlocking if no systems were actually started.
+                    if self.running.count_ones(..) != 0 {
+                        // Wait until at least one system has finished.
+                        let index = self
+                            .finish_receiver
+                            .recv()
+                            .await
+                            .unwrap_or_else(|error| unreachable!(error));
+                        self.process_finished_system(index);
+                        // Gather other systems than may have finished.
+                        while let Ok(index) = self.finish_receiver.try_recv() {
                             self.process_finished_system(index);
-                            // Gather other systems than may have finished.
-                            while let Ok(index) = self.finish_receiver.try_recv() {
-                                self.process_finished_system(index);
-                            }
-                            // At least one system has finished, so active access is outdated.
-                            self.rebuild_active_access();
                         }
-                        self.update_counters_and_queue_systems();
+                        // At least one system has finished, so active access is outdated.
+                        self.rebuild_active_access();
                     }
-                });
-            });
-
-            // Run systems that want to be between parallel systems and their command buffers.
-            self.run_exclusive_systems_sequence(before_commands, system_sets, world, resources);
-
-            // Apply parallel systems' buffers.
-            for index in parallel_sorted {
-                if let Yes | YesAndLoop = self.system_set_should_run()[index.set] {
-                    let system = system_sets[index.set].parallel_system_mut(index.system);
-                    system.apply_buffers(world, resources);
+                    self.update_counters_and_queue_systems();
                 }
-            }
-
-            // Run systems that want to be at the end of stage.
-            self.run_exclusive_systems_sequence(at_end, system_sets, world, resources);
-
-            has_work = self.reevaluate_run_criteria(system_sets, world, resources);
-        }
+            });
+        });
     }
 }
 
-impl ParallelSystemStageExecutor {
+impl ParallelExecutor {
     /// Discards and rebuilds parallel system scheduling data and lists of exclusives.
-    /// Updates access of parallel systems if needed.
+    /// Updates systems' access information if needed.
     fn rebuild_scheduling_data(
         &mut self,
         system_sets: &mut [SystemSet],
         parallel_systems_dependencies: &HashMap<SystemIndex, Vec<SystemIndex>>,
+        topological_order: &[SystemIndex],
         world: &mut World,
     ) {
-        self.parallel.clear();
+        self.system_metadata.clear();
         self.thread_local.clear();
 
-        // Collect all distinct types accessed by parallel systems in order to condense their
+        // Collect all distinct types accessed by systems in order to condense their
         // access sets into bitsets.
         let mut all_archetype_components = HashSet::default();
         let mut all_resource_types = HashSet::default();
@@ -194,10 +151,8 @@ impl ParallelSystemStageExecutor {
         };
         // If the archetypes were changed too, system access should be updated
         // before gathering the types.
-        let mut parallel_systems_len = 0;
         if self.last_archetypes_generation != world.archetypes_generation() {
             for system_set in system_sets.iter_mut() {
-                parallel_systems_len += system_set.parallel_systems_len();
                 for system in system_set.parallel_systems_mut() {
                     system.update_access(world);
                     gather_distinct_access_types(system);
@@ -205,9 +160,8 @@ impl ParallelSystemStageExecutor {
             }
             self.last_archetypes_generation = world.archetypes_generation();
         } else {
-            for system_set in system_sets.iter() {
-                parallel_systems_len += system_set.parallel_systems_len();
-                for system in system_set.parallel_systems() {
+            for system_set in system_sets.iter_mut() {
+                for system in system_set.parallel_systems_mut() {
                     gather_distinct_access_types(system);
                 }
             }
@@ -215,105 +169,117 @@ impl ParallelSystemStageExecutor {
         let all_archetype_components = all_archetype_components.drain().collect::<Vec<_>>();
         let all_resource_types = all_resource_types.drain().collect::<Vec<_>>();
 
-        self.should_run.grow(parallel_systems_len);
-        self.thread_local.grow(parallel_systems_len);
-        self.queued.grow(parallel_systems_len);
-        self.running.grow(parallel_systems_len);
+        self.should_run.grow(topological_order.len());
+        self.thread_local.grow(topological_order.len());
+        self.queued.grow(topological_order.len());
+        self.running.grow(topological_order.len());
 
-        // Construct scheduling data for parallel systems,
-        // cache mapping of parallel system's `SystemIndex` to its index in the list.
-        let mut parallel_systems_mapping =
-            HashMap::with_capacity_and_hasher(parallel_systems_len, Default::default());
-        for (set_index, system_set) in system_sets.iter_mut().enumerate() {
-            for (system_index, system) in system_set.parallel_systems().enumerate() {
-                let index = SystemIndex {
-                    set: set_index,
-                    system: system_index,
-                };
-                parallel_systems_mapping.insert(index, self.parallel.len());
-                let dependencies_total = parallel_systems_dependencies
-                    .get(&index)
-                    .map_or(0, |dependencies| dependencies.len());
-                if system.is_thread_local() {
-                    self.thread_local.insert(self.parallel.len());
-                }
-                let (start_sender, start_receiver) = async_channel::bounded(1);
-                self.parallel.push(ParallelSystemSchedulingData {
-                    index,
-                    start_sender,
-                    start_receiver,
-                    dependants: vec![],
-                    dependencies_total,
-                    dependencies_now: 0,
-                    archetype_component_access: system
-                        .archetype_component_access()
-                        .condense(&all_archetype_components),
-                    resource_access: system.resource_access().condense(&all_resource_types),
-                });
+        // Construct scheduling data for systems,
+        // cache mapping of system's `SystemIndex` to its index in the list.
+        let mut system_index_map =
+            HashMap::with_capacity_and_hasher(topological_order.len(), Default::default());
+        for &index in topological_order {
+            system_index_map.insert(index, self.system_metadata.len());
+            let dependencies_total = parallel_systems_dependencies
+                .get(&index)
+                .map_or(0, |dependencies| dependencies.len());
+            let system = system_sets[index.set].parallel_system_mut(index.system);
+            if system.is_thread_local() {
+                self.thread_local.insert(self.system_metadata.len());
             }
+            let (start_sender, start_receiver) = async_channel::bounded(1);
+            self.system_metadata.push(SystemSchedulingMetadata {
+                index,
+                start_sender,
+                start_receiver,
+                dependants: vec![],
+                dependencies_total,
+                dependencies_now: 0,
+                archetype_component_access: system
+                    .archetype_component_access()
+                    .condense(&all_archetype_components),
+                resource_access: system.resource_access().condense(&all_resource_types),
+            });
         }
-        // Populate the dependants lists in the scheduling data using the mapping from above.
+        // Populate the dependants lists in the scheduling metadata.
         for (dependant, dependencies) in parallel_systems_dependencies.iter() {
-            let dependant = parallel_systems_mapping[dependant];
+            let dependant = system_index_map[dependant];
             for dependency in dependencies {
-                let dependency = parallel_systems_mapping[dependency];
-                self.parallel[dependency].dependants.push(dependant);
+                let dependency = system_index_map[dependency];
+                self.system_metadata[dependency].dependants.push(dependant);
             }
         }
     }
 
-    /// Updates access and recondenses the archetype component bitsets of parallel systems.
-    fn update_parallel_access(&mut self, system_sets: &mut [SystemSet], world: &mut World) {
+    /// Updates access and recondenses the archetype component bitsets of systems.
+    fn update_access(&mut self, system_sets: &mut [SystemSet], world: &mut World) {
         let mut all_archetype_components = HashSet::default();
-        for scheduling_data in self
-            .parallel
-            .iter_mut()
-            .filter(|data| !data.archetype_component_access.reads_all())
-        {
-            let system = system_sets[scheduling_data.index.set]
-                .parallel_system_mut(scheduling_data.index.system);
-            // TODO this should probably be done outside of the filter
+        for system_data in &mut self.system_metadata {
+            let system =
+                system_sets[system_data.index.set].parallel_system_mut(system_data.index.system);
             system.update_access(world);
-            if let Some(archetype_components) =
-                system.archetype_component_access().all_distinct_types()
-            {
-                all_archetype_components.extend(archetype_components);
+            if !system.archetype_component_access().reads_all() {
+                if let Some(archetype_components) =
+                    system.archetype_component_access().all_distinct_types()
+                {
+                    all_archetype_components.extend(archetype_components);
+                }
             }
         }
         let all_archetype_components = all_archetype_components.drain().collect::<Vec<_>>();
-        for scheduling_data in self
-            .parallel
-            .iter_mut()
-            .filter(|data| !data.archetype_component_access.reads_all())
-        {
-            let system = system_sets[scheduling_data.index.set]
-                .parallel_system_mut(scheduling_data.index.system);
-            scheduling_data.archetype_component_access = system
-                .archetype_component_access()
-                .condense(&all_archetype_components);
+        for system_data in &mut self.system_metadata {
+            let system =
+                system_sets[system_data.index.set].parallel_system_mut(system_data.index.system);
+            if !system.archetype_component_access().reads_all() {
+                system_data.archetype_component_access = system
+                    .archetype_component_access()
+                    .condense(&all_archetype_components);
+            }
         }
     }
 
-    /// Populates `should_run` bitset, spawns tasks for system that should run this iteration,
-    /// queues systems with no dependencies to run at next opportunity.
-    fn prepare_parallel_systems<'scope>(
+    /// Populates `should_run` bitset, spawns tasks for systems that should run this iteration,
+    /// queues systems with no dependencies to run (or skip) at next opportunity.
+    fn prepare_systems<'scope>(
         &mut self,
         scope: &mut Scope<'scope, ()>,
         system_sets: &'scope [SystemSet],
+        system_set_should_run: &[ShouldRun],
         world: &'scope World,
         resources: &'scope Resources,
     ) {
-        for index in 0..self.parallel.len() {
-            let should_run = match self.system_set_should_run[self.parallel[index].index.set] {
+        for (index, system_data) in self.system_metadata.iter_mut().enumerate() {
+            let should_run = match system_set_should_run[system_data.index.set] {
                 Yes | YesAndLoop => true,
                 No | NoAndLoop => false,
             };
             self.should_run.set(index, should_run);
+            // Spawn the system task.
             if should_run {
-                self.spawn_system_task(index, scope, system_sets, world, resources);
+                let start_receiver = system_data.start_receiver.clone();
+                let finish_sender = self.finish_sender.clone();
+                let system = unsafe {
+                    let index = system_data.index;
+                    system_sets[index.set].parallel_system_mut_unsafe(index.system)
+                };
+                let task = async move {
+                    start_receiver
+                        .recv()
+                        .await
+                        .unwrap_or_else(|error| unreachable!(error));
+                    unsafe { system.run_unsafe((), world, resources) };
+                    finish_sender
+                        .send(index)
+                        .await
+                        .unwrap_or_else(|error| unreachable!(error));
+                };
+                if self.thread_local[index] {
+                    scope.spawn_local(task);
+                } else {
+                    scope.spawn(task);
+                }
             }
-            // Queue systems with no dependencies, reset dependency counters.
-            let system_data = &mut self.parallel[index];
+            // Queue the system if it has no dependencies, otherwise reset its dependency counter.
             if system_data.dependencies_total == 0 {
                 self.queued.insert(index);
             } else {
@@ -322,43 +288,9 @@ impl ParallelSystemStageExecutor {
         }
     }
 
-    /// Spawns the task for parallel system with given index.
-    fn spawn_system_task<'scope>(
-        &mut self,
-        index: usize,
-        scope: &mut Scope<'scope, ()>,
-        system_sets: &'scope [SystemSet],
-        world: &'scope World,
-        resources: &'scope Resources,
-    ) {
-        let start_receiver = self.parallel[index].start_receiver.clone();
-        let finish_sender = self.finish_sender.clone();
-        let system = unsafe {
-            let index = self.parallel[index].index;
-            system_sets[index.set].parallel_system_mut_unsafe(index.system)
-        };
-        let task = async move {
-            start_receiver
-                .recv()
-                .await
-                .unwrap_or_else(|error| unreachable!(error));
-            unsafe { system.run_unsafe((), world, resources) };
-            finish_sender
-                .send(index)
-                .await
-                .unwrap_or_else(|error| unreachable!(error));
-        };
-        if self.thread_local[index] {
-            scope.spawn_local(task);
-        } else {
-            scope.spawn(task);
-        }
-    }
-
-    /// Determines if the parallel system with given index has
-    /// no conflicts with already running systems.
+    /// Determines if the system with given index has no conflicts with already running systems.
     fn can_start_now(&self, index: usize) -> bool {
-        let system_data = &self.parallel[index];
+        let system_data = &self.system_metadata[index];
         system_data
             .resource_access
             .is_compatible(&self.active_resource_access)
@@ -373,13 +305,13 @@ impl ParallelSystemStageExecutor {
     async fn process_queued_systems(&mut self) {
         for index in self.queued.ones() {
             // If the system shouldn't actually run this iteration, process it as completed
-            // immediately; otherwise, signal its task to start.
+            // immediately; otherwise, check for conflicts and signal its task to start.
             if !self.should_run[index] {
                 self.dependants_scratch
-                    .extend(&self.parallel[index].dependants);
+                    .extend(&self.system_metadata[index].dependants);
             } else if self.can_start_now(index) {
-                let system = &self.parallel[index];
-                system
+                let system_data = &self.system_metadata[index];
+                system_data
                     .start_sender
                     .send(())
                     .await
@@ -387,8 +319,9 @@ impl ParallelSystemStageExecutor {
                 self.running.set(index, true);
                 // Add this system's access information to the active access information.
                 self.active_archetype_component_access
-                    .extend(&system.archetype_component_access);
-                self.active_resource_access.extend(&system.resource_access);
+                    .extend(&system_data.archetype_component_access);
+                self.active_resource_access
+                    .extend(&system_data.resource_access);
             }
         }
         // Remove now running systems from the queue.
@@ -402,7 +335,7 @@ impl ParallelSystemStageExecutor {
     fn process_finished_system(&mut self, index: usize) {
         self.running.set(index, false);
         self.dependants_scratch
-            .extend(&self.parallel[index].dependants);
+            .extend(&self.system_metadata[index].dependants);
     }
 
     /// Discards active access information and builds it again using currently
@@ -412,9 +345,9 @@ impl ParallelSystemStageExecutor {
         self.active_resource_access.clear();
         for index in self.running.ones() {
             self.active_archetype_component_access
-                .extend(&self.parallel[index].archetype_component_access);
+                .extend(&self.system_metadata[index].archetype_component_access);
             self.active_resource_access
-                .extend(&self.parallel[index].resource_access);
+                .extend(&self.system_metadata[index].resource_access);
         }
     }
 
@@ -422,9 +355,9 @@ impl ParallelSystemStageExecutor {
     /// systems that become able to run.
     fn update_counters_and_queue_systems(&mut self) {
         for index in self.dependants_scratch.drain(..) {
-            let dependent = &mut self.parallel[index];
-            dependent.dependencies_now -= 1;
-            if dependent.dependencies_now == 0 {
+            let dependant_data = &mut self.system_metadata[index];
+            dependant_data.dependencies_now -= 1;
+            if dependant_data.dependencies_now == 0 {
                 self.queued.insert(index);
             }
         }
