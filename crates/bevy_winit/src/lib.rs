@@ -16,8 +16,8 @@ use bevy_math::Vec2;
 use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
     CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
-    WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
-    WindowResized, WindowScaleFactorChanged, Windows,
+    WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowDescriptor, WindowFocused,
+    WindowResized, WindowScaleFactorChanged, Windows
 };
 use winit::{
     event::{self, DeviceEvent, Event, WindowEvent},
@@ -190,6 +190,13 @@ pub fn winit_runner_any_thread(app: App) {
     winit_runner_with(app, EventLoop::new_any_thread());
 }
 
+enum RunnableState {
+    NotInitialized,
+    WaitForWindow,
+    Running,
+    Stopped,
+}
+
 pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
     let mut create_window_event_reader = ManualEventReader::<CreateWindow>::default();
     let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
@@ -202,6 +209,8 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
         .resources
         .get::<WinitConfig>()
         .map_or(false, |config| config.return_from_run);
+
+    let mut running: RunnableState = RunnableState::NotInitialized;
 
     let event_handler = move |event: Event<()>,
                               event_loop: &EventLoopWindowTarget<()>,
@@ -437,15 +446,61 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                 });
             }
             event::Event::MainEventsCleared => {
+                if let RunnableState::Running = running {
+                    handle_create_window_events(
+                        &mut app.resources,
+                        event_loop,
+                        &mut create_window_event_reader,
+                    );
+
+                    app.update();
+                }
+            }
+            event::Event::Resumed => {
+                match running {
+                    RunnableState::NotInitialized => running = RunnableState::Running,
+
+                    RunnableState::Stopped => {
+                        running = RunnableState::WaitForWindow;
+                    }
+                    _ => (),
+                }
+            }
+            event::Event::Suspended => {
+                println!("ndk_glue::native_window(): {:?}", ndk_glue::native_window());
+                running = RunnableState::Stopped;
+            }
+            _ => (),
+        }
+
+        if let RunnableState::WaitForWindow = running {
+            if let Some(_) = ndk_glue::native_window().as_ref() {
+                {
+                    let mut events = app.resources.get_mut::<Events<CreateWindow>>().unwrap();
+
+                    let window_descriptor = app.resources
+                        .get::<WindowDescriptor>()
+                        .map(|descriptor| (*descriptor).clone())
+                        .unwrap_or_else(WindowDescriptor::default);
+
+                    events.send(CreateWindow {
+                        id: bevy_window::WindowId::primary(),
+                        descriptor: window_descriptor,
+                    });
+                }
+
                 handle_create_window_events(
                     &mut app.resources,
                     event_loop,
                     &mut create_window_event_reader,
                 );
+
                 app.update();
+
+                running = RunnableState::Running;
             }
-            _ => (),
         }
+
     };
     if should_return_from_run {
         run_return(&mut event_loop, event_handler);
