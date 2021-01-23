@@ -300,10 +300,7 @@ impl AssetServer {
             .detach();
         let owned_path = asset_path.to_owned();
         let id: HandleId = asset_path.into();
-        self.server
-            .handle_to_path
-            .write()
-            .insert(id, owned_path);
+        self.server.handle_to_path.write().insert(id, owned_path);
         id
     }
 
