@@ -1,4 +1,4 @@
-use bevy_math::Vec2;
+use bevy_math::{ivec2, IVec2, Vec2};
 use bevy_utils::Uuid;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -54,8 +54,7 @@ pub struct Window {
     requested_height: f32,
     physical_width: u32,
     physical_height: u32,
-    x: i32,
-    y: i32,
+    position: Option<IVec2>,
     scale_factor_override: Option<f64>,
     backend_scale_factor: f64,
     title: String,
@@ -112,8 +111,7 @@ pub enum WindowCommand {
         minimized: bool,
     },
     SetPosition {
-        x: i32,
-        y: i32,
+        position: IVec2,
     },
 }
 
@@ -141,8 +139,7 @@ impl Window {
             id,
             requested_width: window_descriptor.width,
             requested_height: window_descriptor.height,
-            x: window_descriptor.x,
-            y: window_descriptor.y,
+            position: None,
             physical_width,
             physical_height,
             scale_factor_override: window_descriptor.scale_factor_override,
@@ -210,16 +207,10 @@ impl Window {
         self.physical_height
     }
 
-    /// The window's client position on the x axis in physical pixels.
+    /// The window's client position in physical pixels.
     #[inline]
-    pub fn x(&self) -> i32 {
-        self.x
-    }
-
-    /// The window's client position on the y axis in physical pixels.
-    #[inline]
-    pub fn y(&self) -> i32 {
-        self.y
+    pub fn position(&self) -> Option<IVec2> {
+        self.position
     }
 
     #[inline]
@@ -251,8 +242,9 @@ impl Window {
     /// - Web: Sets the top-left coordinates relative to the viewport.
     /// - Android / Wayland: Unsupported.
     #[inline]
-    pub fn set_position(&mut self, x: i32, y: i32) {
-        self.command_queue.push(WindowCommand::SetPosition { x, y })
+    pub fn set_position(&mut self, position: IVec2) {
+        self.command_queue
+            .push(WindowCommand::SetPosition { position })
     }
 
     /// Request the OS to resize the window such the the client area matches the
@@ -302,9 +294,8 @@ impl Window {
 
     #[allow(missing_docs)]
     #[inline]
-    pub fn update_actual_position_from_backend(&mut self, x: i32, y: i32) {
-        self.x = x;
-        self.y = y;
+    pub fn update_actual_position_from_backend(&mut self, position: IVec2) {
+        self.position = Some(position);
     }
 
     /// The ratio of physical pixels to logical pixels
@@ -430,8 +421,6 @@ impl Window {
 
 #[derive(Debug, Clone)]
 pub struct WindowDescriptor {
-    pub x: i32,
-    pub y: i32,
     pub width: f32,
     pub height: f32,
     pub scale_factor_override: Option<f64>,
@@ -450,8 +439,6 @@ impl Default for WindowDescriptor {
     fn default() -> Self {
         WindowDescriptor {
             title: "bevy".to_string(),
-            x: 0,
-            y: 0,
             width: 1280.,
             height: 720.,
             scale_factor_override: None,

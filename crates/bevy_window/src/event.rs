@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use super::{WindowDescriptor, WindowId};
-use bevy_math::Vec2;
+use bevy_math::{IVec2, Vec2};
 
 /// A window event that is sent whenever a window has been resized.
 #[derive(Debug, Clone)]
@@ -94,6 +94,5 @@ pub enum FileDragAndDrop {
 #[derive(Debug, Clone)]
 pub struct WindowMoved {
     pub id: WindowId,
-    pub x: i32,
-    pub y: i32,
+    pub position: IVec2,
 }

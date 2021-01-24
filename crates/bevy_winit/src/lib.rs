@@ -12,7 +12,7 @@ pub use winit_windows::*;
 
 use bevy_app::{prelude::*, AppExit, ManualEventReader};
 use bevy_ecs::{IntoSystem, Resources, World};
-use bevy_math::Vec2;
+use bevy_math::{ivec2, Vec2};
 use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
     CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
@@ -132,9 +132,12 @@ fn change_window(_: &mut World, resources: &mut Resources) {
                     let window = winit_windows.get_window(id).unwrap();
                     window.set_minimized(minimized)
                 }
-                bevy_window::WindowCommand::SetPosition { x, y } => {
+                bevy_window::WindowCommand::SetPosition { position } => {
                     let window = winit_windows.get_window(id).unwrap();
-                    window.set_outer_position(PhysicalPosition { x, y });
+                    window.set_outer_position(PhysicalPosition {
+                        x: position[0],
+                        y: position[1],
+                    });
                 }
             }
         }
@@ -433,12 +436,12 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                         events.send(FileDragAndDrop::HoveredFileCancelled { id: window_id });
                     }
                     WindowEvent::Moved(position) => {
-                        window.update_actual_position_from_backend(position.x, position.y);
+                        let position = ivec2(position.x, position.y);
+                        window.update_actual_position_from_backend(position);
                         let mut events = app.resources.get_mut::<Events<WindowMoved>>().unwrap();
                         events.send(WindowMoved {
                             id: window_id,
-                            x: position.x,
-                            y: position.y,
+                            position,
                         });
                     }
                     _ => {}
