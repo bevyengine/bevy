@@ -75,6 +75,16 @@ impl GlobalTransform {
     }
 
     #[inline]
+    pub fn right(&self) -> Vec3 {
+        self.rotation * Vec3::unit_x()
+    }
+
+    #[inline]
+    pub fn up(&self) -> Vec3 {
+        self.rotation * Vec3::unit_y()
+    }
+
+    #[inline]
     pub fn forward(&self) -> Vec3 {
         self.rotation * Vec3::unit_z()
     }
