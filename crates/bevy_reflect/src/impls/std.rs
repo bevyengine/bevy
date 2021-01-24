@@ -225,7 +225,7 @@ impl Reflect for Cow<'static, str> {
         } else if let Some(value) = value.downcast_ref::<String>() {
             *self = value.clone().into();
         } else if let Some(value) = value.downcast_ref::<&str>() {
-            *self = value.clone().into();
+            *self = (*value).into();
         } else {
             panic!(
                 "Value is not coercible to a {}.",
