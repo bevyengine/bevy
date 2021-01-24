@@ -1,4 +1,4 @@
-use bevy_math::{ivec2, IVec2, Vec2};
+use bevy_math::{IVec2, Vec2};
 use bevy_utils::Uuid;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
