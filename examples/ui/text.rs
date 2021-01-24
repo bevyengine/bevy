@@ -4,7 +4,8 @@ use bevy::{
 };
 
 /// This example illustrates how to create UI text and update it in a system. It displays the
-/// current FPS in the upper left hand corner.  For text within a scene, please see the text2d example.
+/// current FPS in the top left corner, as well as text that changes colour in the bottom right.
+/// For text within a scene, please see the text2d example.
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
@@ -37,17 +38,21 @@ fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
                 },
                 ..Default::default()
             },
-            // construct a `BasicText`
-            text: BasicText {
-                value: "hello bevy!".to_string(),
-                style: TextStyle {
+            // Use the `Text::with_section` constructor
+            text: Text::with_section(
+                // Accepts a `String` or any type that converts into a `String`, such as `&str`
+                "hello\nbevy!",
+                TextStyle {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 100.0,
                     color: Color::WHITE,
                 },
-                ..Default::default()
-            }
-            .into(), // convert it to `Text`
+                // Note: You can use `Default::default()` in place of the `TextAlignment`
+                TextAlignment {
+                    horizontal: HorizontalAlign::Center,
+                    ..Default::default()
+                },
+            ),
             ..Default::default()
         })
         .with(ColorText)
@@ -57,9 +62,9 @@ fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
                 align_self: AlignSelf::FlexEnd,
                 ..Default::default()
             },
-            // use `Text` directly
+            // Use `Text` directly
             text: Text {
-                // construct a `Vec` of `TextSection`s
+                // Construct a `Vec` of `TextSection`s
                 sections: vec![
                     TextSection {
                         value: "FPS: ".to_string(),
@@ -99,12 +104,12 @@ fn text_update_system(diagnostics: Res<Diagnostics>, mut query: Query<&mut Text,
 fn text_color_system(time: Res<Time>, mut query: Query<&mut Text, With<ColorText>>) {
     for mut text in query.iter_mut() {
         let seconds = time.seconds_since_startup() as f32;
-        // Although we constructed this with a `BasicText`,
-        // we converted it to a `Text` so we still update the only section
+        // We used the `Text::with_section` helper method, but it is still just a `Text`,
+        // so to update it, we are still updating the one and only section
         text.sections[0]
             .style
             .color
-            .set_r((1.50 * seconds).sin() / 2.0 + 0.5)
+            .set_r((1.25 * seconds).sin() / 2.0 + 0.5)
             .set_g((0.75 * seconds).sin() / 2.0 + 0.5)
             .set_b((0.50 * seconds).sin() / 2.0 + 0.5);
     }

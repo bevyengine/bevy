@@ -80,16 +80,15 @@ fn setup(commands: &mut Commands, asset_server: Res<AssetServer>, mut state: Res
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
     state.handle = font_handle.clone();
     commands.spawn(CameraUiBundle::default()).spawn(TextBundle {
-        text: BasicText {
-            value: "a".to_string(),
-            style: TextStyle {
+        text: Text::with_section(
+            "a",
+            TextStyle {
                 font: font_handle,
                 font_size: 60.0,
                 color: Color::YELLOW,
             },
-            ..Default::default()
-        }
-        .into(),
+            Default::default(),
+        ),
         ..Default::default()
     });
 }

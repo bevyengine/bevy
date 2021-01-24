@@ -51,16 +51,15 @@ fn setup(
                             align_self: AlignSelf::FlexEnd,
                             ..Default::default()
                         },
-                        text: BasicText {
-                            value: "Example text".to_string(),
-                            style: TextStyle {
+                        text: Text::with_section(
+                            "Example text",
+                            TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 30.0,
                                 color: Color::WHITE,
                             },
-                            ..Default::default()
-                        }
-                        .into(),
+                            Default::default(),
+                        ),
                         ..Default::default()
                     });
                 });

@@ -33,16 +33,15 @@ fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
             },
             ..Default::default()
         },
-        text: BasicText {
-            value: "This is\ntext with\nline breaks\nin the top left".to_string(),
-            style: TextStyle {
+        text: Text::with_section(
+            "This is\ntext with\nline breaks\nin the top left",
+            TextStyle {
                 font: font.clone(),
                 font_size: 50.0,
                 color: Color::WHITE,
             },
-            alignment: TextAlignment::default(),
-        }
-        .into(),
+            Default::default(),
+        ),
         ..Default::default()
     });
     commands.spawn(TextBundle {
@@ -60,20 +59,18 @@ fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
             },
             ..Default::default()
         },
-        text: BasicText {
-                value:
-                    "This text is very long, has a limited width, is centred, is positioned in the top right and is also coloured pink."
-                        .to_string(),
-                        style: TextStyle {
+        text: Text::with_section(
+                    "This text is very long, has a limited width, is centred, is positioned in the top right and is also coloured pink.",
+                        TextStyle {
                     font: font.clone(),
                     font_size: 50.0,
                     color: Color::rgb(0.8, 0.2, 0.7),
                 },
-            alignment: TextAlignment {
+            TextAlignment {
                 horizontal: HorizontalAlign::Center,
                 vertical: VerticalAlign::Center,
             },
-        }.into(),
+        ),
         ..Default::default()
     });
     commands
@@ -139,7 +136,7 @@ fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
                         },
                     },
                 ],
-                alignment: TextAlignment::default(),
+                alignment: Default::default(),
             },
             ..Default::default()
         })
@@ -159,17 +156,15 @@ fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
             },
             ..Default::default()
         },
-        text: BasicText {
-            value: "This\ntext has\nline breaks and also a set width in the bottom left"
-                .to_string(),
-            style: TextStyle {
+        text: Text::with_section(
+            "This\ntext has\nline breaks and also a set width in the bottom left".to_string(),
+            TextStyle {
                 font,
                 font_size: 50.0,
                 color: Color::WHITE,
             },
-            alignment: TextAlignment::default(),
-        }
-        .into(),
+            Default::default(),
+        ),
         ..Default::default()
     });
 }
@@ -201,8 +196,8 @@ fn change_text_system(
             frame_time * 1000.0,
         );
 
-        text.sections[2].value = format!("{:.1}", fps,);
+        text.sections[2].value = format!("{:.1}", fps);
 
-        text.sections[4].value = format!("{:.3}", frame_time * 1000.0,);
+        text.sections[4].value = format!("{:.3}", frame_time * 1000.0);
     }
 }

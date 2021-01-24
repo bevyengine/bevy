@@ -11,54 +11,52 @@ pub struct Text {
     pub alignment: TextAlignment,
 }
 
-/// This is a transient helper type for basic text (text with only one section).
-/// Under the hood we require, use, construct and interact with the new "sectioned" [`Text`] type.
-/// Intended usage is:
-/// ```
-/// # use bevy_ecs::Commands;
-/// # use bevy_text::BasicText;
-/// # use bevy_ui::entity::TextBundle;
-/// # fn system(commands: &mut Commands) {
-/// commands.spawn(TextBundle {
-///     text: BasicText {
-///         value: "hello world!".to_string(),
-///         ..Default::default()
-///     }.into(),
-///     ..Default::default()
-/// });
-/// # }
-/// ```
-/// or
-/// ```
-/// # use bevy_ecs::Commands;
-/// # use bevy_text::{BasicText, Text};
-/// # use bevy_ui::entity::TextBundle;
-/// # fn system(commands: &mut Commands) {
-/// commands.spawn(TextBundle {
-///     text: Text::from(BasicText {
-///         value: "hello world?".to_string(),
-///         ..Default::default()
-///     }),
-///     ..Default::default()
-/// });
-/// # }
-/// ```
-#[derive(Debug, Default, Clone)]
-pub struct BasicText {
-    pub value: String,
-    pub style: TextStyle,
-    pub alignment: TextAlignment,
-}
-
-impl From<BasicText> for Text {
-    fn from(source: BasicText) -> Self {
-        let BasicText {
-            value,
-            style,
-            alignment,
-        } = source;
+impl Text {
+    /// Constructs a [`Text`] with (initially) one section.
+    ///
+    /// ```
+    /// # use bevy_text::{Font, Text, TextAlignment, TextStyle};
+    /// # use bevy_render::color::Color;
+    /// # use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
+    /// # use bevy_asset::{AssetServer, Handle};
+    /// # let font_handle: Handle<Font> = Default::default();
+    /// #
+    /// // basic usage
+    /// let hello_world = Text::with_section(
+    ///     "hello world!".to_string(),
+    ///     TextStyle {
+    ///         font: font_handle.clone(),
+    ///         font_size: 60.0,
+    ///         color: Color::WHITE,
+    ///     },
+    ///     TextAlignment {
+    ///         vertical: VerticalAlign::Center,
+    ///         horizontal: HorizontalAlign::Center,
+    ///     },
+    /// );
+    ///
+    /// let hello_bevy = Text::with_section(
+    ///     // accepts a String or any type that converts into a String, such as &str
+    ///     "hello bevy!",
+    ///     TextStyle {
+    ///         font: font_handle,
+    ///         font_size: 60.0,
+    ///         color: Color::WHITE,
+    ///     },
+    ///     // you can still use Default
+    ///     Default::default(),
+    /// );
+    /// ```
+    pub fn with_section<S: Into<String>>(
+        value: S,
+        style: TextStyle,
+        alignment: TextAlignment,
+    ) -> Self {
         Self {
-            sections: vec![TextSection { value, style }],
+            sections: vec![TextSection {
+                value: value.into(),
+                style,
+            }],
             alignment,
         }
     }
