@@ -194,6 +194,14 @@ impl<T: Resource + Clone> Stage for StateStage<T> {
             current_state_stages.update.run(world, resources);
         }
     }
+
+    fn system_names(&self) -> Vec<String> {
+        let mut self_name = Vec::with_capacity(1);
+        
+        self_name.push("StateStage".to_owned());
+
+        self_name
+    }
 }
 #[derive(Debug, Error)]
 pub enum StateError {

@@ -48,6 +48,10 @@ fn run_once(mut app: App) {
 }
 
 impl App {
+    pub fn print_stage_schedule(&self) -> String {
+        self.schedule.print_schedule()
+    }
+
     pub fn build() -> AppBuilder {
         AppBuilder::default()
     }

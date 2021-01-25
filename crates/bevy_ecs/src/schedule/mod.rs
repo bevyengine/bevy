@@ -18,6 +18,17 @@ pub struct Schedule {
 }
 
 impl Schedule {
+    pub fn print_schedule(&self) -> String {
+        let mut schedule = String::from("Stages and systems in scheduler:\n");
+
+        let system_names = self.system_names();
+        for (line_number, name) in system_names.iter().enumerate() {
+            schedule.push_str(&format!("{}\t{}\n", line_number, name));
+        }
+        
+        schedule
+    }
+
     pub fn with_stage<S: Stage>(mut self, name: &str, stage: S) -> Self {
         self.add_stage(name, stage);
         self
@@ -195,12 +206,67 @@ impl Stage for Schedule {
             }
         }
     }
+
+    fn system_names(&self) -> Vec<String> {
+        let mut system_names = Vec::new();
+
+        let level_shift = "  ";
+        system_names.push(format!("{}Scheduler", level_shift));
+        for (n, stage_name) in self.stage_order.iter().enumerate() {
+            let mut stage_symbol = UTF8_SYMBOLS.tee;
+            let mut system_symbol = UTF8_SYMBOLS.down;
+            if n == self.stage_order.len() - 1 {
+                stage_symbol = UTF8_SYMBOLS.ell;
+                system_symbol = "  "
+            }
+
+            let stage_prefix = format!("{}{}{}", level_shift, stage_symbol, level_shift);
+            let system_prefix = format!("{}{}{}", level_shift, system_symbol, level_shift);
+
+            system_names.push(format!("{}STAGE: '{}'", stage_prefix, stage_name));
+            match self.stages.get(stage_name) {
+                None => (),
+                Some(stage) => {
+                    let mut names = stage.system_names(); 
+                    for (m, name) in names.iter_mut().enumerate() {
+                        let mut system_symbol = level_shift.clone();
+                        if m == 0 {
+                            system_symbol = UTF8_SYMBOLS.ell;
+                        }
+                        let prefix = format!("{}{}", system_prefix, system_symbol);
+                        *name = prefix + &*name;
+                        
+                    }
+                    system_names.extend(names);
+                    
+                }
+            };
+        }
+        
+        system_names
+    }
 }
 
 pub fn clear_trackers_system(world: &mut World, resources: &mut Resources) {
     world.clear_trackers();
     resources.clear_trackers();
 }
+
+// Taken from cargo-tree, MIT LICENSE, https://github.com/sfackler/cargo-tree/blob/master/src/tree.rs#L18
+#[allow(dead_code)]
+pub struct Symbols {
+    pub down: &'static str,
+    pub tee: &'static str,
+    pub ell: &'static str,
+    pub right: &'static str,
+}
+// Taken from cargo-tree, MIT LICENSE, https://github.com/sfackler/cargo-tree/blob/master/src/tree.rs#L25
+pub static UTF8_SYMBOLS: Symbols = Symbols {
+    down: "│",
+    tee: "├",
+    ell: "└",
+    right: "─",
+};
 
 #[cfg(test)]
 mod tests {

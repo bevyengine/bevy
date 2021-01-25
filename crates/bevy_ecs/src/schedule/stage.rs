@@ -19,6 +19,8 @@ pub trait Stage: Downcast + Send + Sync {
 
     /// Runs the stage. This happens once per update (after [Stage::initialize] is called).
     fn run(&mut self, world: &mut World, resources: &mut Resources);
+
+    fn system_names(&self) -> Vec<String>;
 }
 
 impl_downcast!(Stage);
@@ -104,6 +106,8 @@ impl SystemStage {
     }
 }
 
+use super::UTF8_SYMBOLS;
+
 impl Stage for SystemStage {
     fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
         if let Some(ref mut run_criteria) = self.run_criteria {
@@ -141,6 +145,24 @@ impl Stage for SystemStage {
                 }
             }
         }
+    }
+
+    fn system_names(&self) -> Vec<String> {
+        let mut system_names = Vec::with_capacity(self.systems.len());
+        
+        system_names.push("  SystemStage".to_owned());
+        for (n, system) in self.systems.iter().enumerate() {
+            let mut symbol = UTF8_SYMBOLS.tee;
+            if n == self.systems.len() - 1 {
+                symbol = UTF8_SYMBOLS.ell;
+            };
+
+            let string = format!("  {}  {}", symbol, system.name());
+            system_names.push(string);
+
+        }
+        
+        system_names
     }
 }
 
