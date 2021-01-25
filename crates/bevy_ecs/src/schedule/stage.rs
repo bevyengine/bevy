@@ -1,5 +1,6 @@
 use bevy_utils::HashMap;
 use downcast_rs::{impl_downcast, Downcast};
+use fixedbitset::FixedBitSet;
 
 use super::{ParallelExecutor, ParallelSystemExecutor, SingleThreadedExecutor};
 use crate::{
@@ -55,6 +56,8 @@ pub struct SystemStage {
     parallel_dependency_graph: HashMap<SystemIndex, Vec<SystemIndex>>,
     /// Topologically sorted parallel systems.
     parallel_topological_order: Vec<SystemIndex>,
+    /// Parallel systems that should run this iteration, sorted topologically.
+    parallel_should_run: FixedBitSet,
 }
 
 impl SystemStage {
@@ -69,6 +72,7 @@ impl SystemStage {
             exclusive_at_end: Default::default(),
             parallel_dependency_graph: Default::default(),
             parallel_topological_order: Default::default(),
+            parallel_should_run: FixedBitSet::default(),
         }
     }
 
@@ -220,6 +224,8 @@ impl SystemStage {
                     .collect::<Vec<_>>()
             ),
         };
+        self.parallel_should_run
+            .grow(self.parallel_topological_order.len());
 
         // Generate topological orders for exclusive systems.
         let system_sets = &self.system_sets;
@@ -249,12 +255,11 @@ impl SystemStage {
     }
 
     pub fn run_once(&mut self, world: &mut World, resources: &mut Resources) {
+        // Evaluate sets' run criteria, initialize sets as needed, detect if any sets were changed.
         let mut is_dirty = false;
         let mut has_any_work = false;
         let mut has_doable_work = false;
         self.system_set_should_run.clear();
-
-        // Evaluate sets' run criteria, initialize sets as needed, detect if any sets were changed.
         for system_set in &mut self.system_sets {
             if system_set.is_dirty() {
                 is_dirty = true;
@@ -292,11 +297,18 @@ impl SystemStage {
             }
 
             // Run parallel systems using the executor.
+            // TODO hard dependencies, nested sets, whatever... should be evaluated here.
+            self.parallel_should_run.clear();
+            for (index, system_index) in self.parallel_topological_order.iter().enumerate() {
+                if let Yes | YesAndLoop = self.system_set_should_run[system_index.set] {
+                    self.parallel_should_run.set(index, true);
+                }
+            }
             self.executor.run_systems(
                 &mut self.system_sets,
-                &self.system_set_should_run,
                 &self.parallel_dependency_graph,
                 &self.parallel_topological_order,
+                &self.parallel_should_run,
                 world,
                 resources,
             );
@@ -311,12 +323,11 @@ impl SystemStage {
             }
 
             // Apply parallel systems' buffers.
-            for index in &self.parallel_topological_order {
-                if let Yes | YesAndLoop = self.system_set_should_run[index.set] {
-                    self.system_sets[index.set]
-                        .parallel_system_mut(index.system)
-                        .apply_buffers(world, resources);
-                }
+            for index in self.parallel_should_run.ones() {
+                let index = self.parallel_topological_order[index];
+                self.system_sets[index.set]
+                    .parallel_system_mut(index.system)
+                    .apply_buffers(world, resources);
             }
 
             // Run systems that want to be at the end of stage.

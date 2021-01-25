@@ -4,9 +4,8 @@ use bevy_utils::{HashMap, HashSet};
 use fixedbitset::FixedBitSet;
 
 use crate::{
-    ArchetypesGeneration, CondensedTypeAccess, ParallelSystemExecutor, Resources,
-    ShouldRun::{self, *},
-    System, SystemIndex, SystemSet, World,
+    ArchetypesGeneration, CondensedTypeAccess, ParallelSystemExecutor, Resources, System,
+    SystemIndex, SystemSet, World,
 };
 
 struct SystemSchedulingMetadata {
@@ -38,8 +37,6 @@ pub struct ParallelExecutor {
     finish_sender: Sender<usize>,
     /// Receives finish events from systems.
     finish_receiver: Receiver<usize>,
-    /// Systems that should run this iteration.
-    should_run: FixedBitSet,
     /// Systems that must run on the main thread.
     non_send: FixedBitSet,
     /// Systems that should be started at next opportunity.
@@ -63,7 +60,6 @@ impl Default for ParallelExecutor {
             system_metadata: Default::default(),
             finish_sender,
             finish_receiver,
-            should_run: Default::default(),
             non_send: Default::default(),
             queued: Default::default(),
             running: Default::default(),
@@ -78,9 +74,9 @@ impl ParallelSystemExecutor for ParallelExecutor {
     fn run_systems(
         &mut self,
         system_sets: &mut [SystemSet],
-        system_set_should_run: &[ShouldRun],
         dependency_graph: &HashMap<SystemIndex, Vec<SystemIndex>>,
         topological_order: &[SystemIndex],
+        system_should_run: &FixedBitSet,
         world: &mut World,
         resources: &mut Resources,
     ) {
@@ -94,11 +90,11 @@ impl ParallelSystemExecutor for ParallelExecutor {
             .get_or_insert_with(|| ComputeTaskPool(TaskPool::default()))
             .clone();
         compute_pool.scope(|scope| {
-            self.prepare_systems(scope, system_sets, system_set_should_run, world, resources);
+            self.prepare_systems(scope, system_sets, system_should_run, world, resources);
             scope.spawn(async {
                 // All systems have been ran if there are no queued or running systems.
                 while 0 != self.queued.count_ones(..) + self.running.count_ones(..) {
-                    self.process_queued_systems().await;
+                    self.process_queued_systems(system_should_run).await;
                     // Avoid deadlocking if no systems were actually started.
                     if self.running.count_ones(..) != 0 {
                         // Wait until at least one system has finished.
@@ -169,7 +165,6 @@ impl ParallelExecutor {
         let all_archetype_components = all_archetype_components.drain().collect::<Vec<_>>();
         let all_resource_types = all_resource_types.drain().collect::<Vec<_>>();
 
-        self.should_run.grow(topological_order.len());
         self.non_send.grow(topological_order.len());
         self.queued.grow(topological_order.len());
         self.running.grow(topological_order.len());
@@ -242,18 +237,13 @@ impl ParallelExecutor {
         &mut self,
         scope: &mut Scope<'scope, ()>,
         system_sets: &'scope [SystemSet],
-        system_set_should_run: &[ShouldRun],
+        system_should_run: &FixedBitSet,
         world: &'scope World,
         resources: &'scope Resources,
     ) {
         for (index, system_data) in self.system_metadata.iter_mut().enumerate() {
-            let should_run = match system_set_should_run[system_data.index.set] {
-                Yes | YesAndLoop => true,
-                No | NoAndLoop => false,
-            };
-            self.should_run.set(index, should_run);
             // Spawn the system task.
-            if should_run {
+            if system_should_run[index] {
                 let start_receiver = system_data.start_receiver.clone();
                 let finish_sender = self.finish_sender.clone();
                 let system = unsafe {
@@ -300,11 +290,11 @@ impl ParallelExecutor {
     /// Starts all non-conflicting queued systems, moves them from `queued` to `running`,
     /// adds their access information to active access information;
     /// processes queued systems that shouldn't run this iteration as completed immediately.
-    async fn process_queued_systems(&mut self) {
+    async fn process_queued_systems(&mut self, system_should_run: &FixedBitSet) {
         for index in self.queued.ones() {
             // If the system shouldn't actually run this iteration, process it as completed
             // immediately; otherwise, check for conflicts and signal its task to start.
-            if !self.should_run[index] {
+            if !system_should_run[index] {
                 self.dependants_scratch
                     .extend(&self.system_metadata[index].dependants);
             } else if self.can_start_now(index) {
@@ -325,7 +315,7 @@ impl ParallelExecutor {
         // Remove now running systems from the queue.
         self.queued.difference_with(&self.running);
         // Remove immediately processed systems from the queue.
-        self.queued.intersect_with(&self.should_run);
+        self.queued.intersect_with(&system_should_run);
     }
 
     /// Unmarks the system give index as running, caches indices of its dependants
