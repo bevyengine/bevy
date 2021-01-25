@@ -134,12 +134,13 @@ impl Window {
         physical_width: u32,
         physical_height: u32,
         scale_factor: f64,
+        position: Option<IVec2>,
     ) -> Self {
         Window {
             id,
             requested_width: window_descriptor.width,
             requested_height: window_descriptor.height,
-            position: None,
+            position,
             physical_width,
             physical_height,
             scale_factor_override: window_descriptor.scale_factor_override,
