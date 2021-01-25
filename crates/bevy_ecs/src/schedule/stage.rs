@@ -149,7 +149,7 @@ impl Stage for SystemStage {
 
     fn system_names(&self) -> Vec<String> {
         let mut system_names = Vec::with_capacity(self.systems.len());
-        
+
         system_names.push("  SystemStage".to_owned());
         for (n, system) in self.systems.iter().enumerate() {
             let mut symbol = UTF8_SYMBOLS.tee;
@@ -159,9 +159,8 @@ impl Stage for SystemStage {
 
             let string = format!("  {}  {}", symbol, system.name());
             system_names.push(string);
-
         }
-        
+
         system_names
     }
 }

@@ -25,7 +25,7 @@ impl Schedule {
         for (line_number, name) in system_names.iter().enumerate() {
             schedule.push_str(&format!("{}\t{}\n", line_number, name));
         }
-        
+
         schedule
     }
 
@@ -227,7 +227,7 @@ impl Stage for Schedule {
             match self.stages.get(stage_name) {
                 None => (),
                 Some(stage) => {
-                    let mut names = stage.system_names(); 
+                    let mut names = stage.system_names();
                     for (m, name) in names.iter_mut().enumerate() {
                         let mut system_symbol = level_shift.clone();
                         if m == 0 {
@@ -235,14 +235,12 @@ impl Stage for Schedule {
                         }
                         let prefix = format!("{}{}", system_prefix, system_symbol);
                         *name = prefix + &*name;
-                        
                     }
                     system_names.extend(names);
-                    
                 }
             };
         }
-        
+
         system_names
     }
 }
