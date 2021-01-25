@@ -6,6 +6,7 @@ use crate::{
 };
 use anyhow::Result;
 use bevy_ecs::Res;
+use bevy_log::warn;
 use bevy_tasks::TaskPool;
 use bevy_utils::{HashMap, Uuid};
 use crossbeam_channel::TryRecvError;
@@ -16,16 +17,16 @@ use thiserror::Error;
 /// Errors that occur while loading assets with an AssetServer
 #[derive(Error, Debug)]
 pub enum AssetServerError {
-    #[error("asset folder path is not a directory")]
+    #[error("asset folder path is not a directory: {0}")]
     AssetFolderNotADirectory(String),
-    #[error("no AssetLoader found for the given extension")]
+    #[error("no `AssetLoader` found for the given extension: {0:?}")]
     MissingAssetLoader(Option<String>),
     #[error("the given type does not match the type of the loaded asset")]
     IncorrectHandleType,
-    #[error("encountered an error while loading an asset")]
+    #[error("encountered an error while loading an asset: {0}")]
     AssetLoaderError(anyhow::Error),
-    #[error("`PathLoader` encountered an error")]
-    PathLoaderError(#[from] AssetIoError),
+    #[error("encountered an error while reading an asset: {0}")]
+    AssetIoError(#[from] AssetIoError),
 }
 
 #[derive(Default)]
@@ -224,7 +225,17 @@ impl AssetServer {
         };
 
         // load the asset bytes
-        let bytes = self.server.asset_io.load_path(asset_path.path()).await?;
+        let bytes = match self.server.asset_io.load_path(asset_path.path()).await {
+            Ok(bytes) => bytes,
+            Err(err) => {
+                let mut asset_sources = self.server.asset_sources.write();
+                let source_info = asset_sources
+                    .get_mut(&asset_path_id.source_path_id())
+                    .expect("`AssetSource` should exist at this point.");
+                source_info.load_state = LoadState::Failed;
+                return Err(AssetServerError::AssetIoError(err));
+            }
+        };
 
         // load the asset source using the corresponding AssetLoader
         let mut load_context = LoadContext::new(
@@ -295,7 +306,9 @@ impl AssetServer {
         self.server
             .task_pool
             .spawn(async move {
-                server.load_async(owned_path, force).await.unwrap();
+                if let Err(err) = server.load_async(owned_path, force).await {
+                    warn!("{}", err);
+                }
             })
             .detach();
         asset_path.into()

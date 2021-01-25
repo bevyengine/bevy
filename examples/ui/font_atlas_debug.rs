@@ -1,9 +1,11 @@
 use bevy::{prelude::*, text::FontAtlasSet};
 
+// TODO: This is now broken. See #1243
 /// This example illustrates how FontAtlases are populated. Bevy uses FontAtlases under the hood to optimize text rendering.
 fn main() {
     App::build()
         .init_resource::<State>()
+        .add_resource(ClearColor(Color::BLACK))
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
         .add_system(text_update_system.system())
@@ -65,8 +67,8 @@ fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Quer
     if state.timer.tick(time.delta_seconds()).finished() {
         for mut text in query.iter_mut() {
             let c = rand::random::<u8>() as char;
-            if !text.value.contains(c) {
-                text.value = format!("{}{}", text.value, c);
+            if !text.sections[0].value.contains(c) {
+                text.sections[0].value.push(c);
             }
         }
 
@@ -78,15 +80,15 @@ fn setup(commands: &mut Commands, asset_server: Res<AssetServer>, mut state: Res
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
     state.handle = font_handle.clone();
     commands.spawn(CameraUiBundle::default()).spawn(TextBundle {
-        text: Text {
-            value: "a".to_string(),
-            font: font_handle,
-            style: TextStyle {
+        text: Text::with_section(
+            "a",
+            TextStyle {
+                font: font_handle,
                 font_size: 60.0,
-                color: Color::WHITE,
-                ..Default::default()
+                color: Color::YELLOW,
             },
-        },
+            Default::default(),
+        ),
         ..Default::default()
     });
 }

@@ -90,12 +90,12 @@ pub fn draw_text2d_system(
 
         if let Some(text_glyphs) = text_pipeline.get_glyphs(&entity) {
             let position = global_transform.translation
-                + match text.style.alignment.vertical {
+                + match text.alignment.vertical {
                     VerticalAlign::Top => Vec3::zero(),
                     VerticalAlign::Center => Vec3::new(0.0, -height * 0.5, 0.0),
                     VerticalAlign::Bottom => Vec3::new(0.0, -height, 0.0),
                 }
-                + match text.style.alignment.horizontal {
+                + match text.alignment.horizontal {
                     HorizontalAlign::Left => Vec3::new(-width, 0.0, 0.0),
                     HorizontalAlign::Center => Vec3::new(-width * 0.5, 0.0, 0.0),
                     HorizontalAlign::Right => Vec3::zero(),
@@ -108,7 +108,7 @@ pub fn draw_text2d_system(
                 text_glyphs: &text_glyphs.glyphs,
                 font_quad_vertex_descriptor: &vertex_buffer_descriptor,
                 scale_factor,
-                style: &text.style,
+                sections: &text.sections,
             };
 
             drawable_text.draw(&mut draw, &mut context).unwrap();
@@ -158,11 +158,10 @@ pub fn text2d_system(
         if let Ok((text, mut calculated_size)) = query.get_mut(entity) {
             match text_pipeline.queue_text(
                 entity,
-                text.font.clone(),
                 &fonts,
-                &text.value,
-                scale_value(text.style.font_size, scale_factor),
-                text.style.alignment,
+                &text.sections,
+                scale_factor,
+                text.alignment,
                 Size::new(f32::MAX, f32::MAX),
                 &mut *font_atlas_set_storage,
                 &mut *texture_atlases,
@@ -191,6 +190,6 @@ pub fn text2d_system(
     queued_text.entities = new_queue;
 }
 
-fn scale_value(value: f32, factor: f64) -> f32 {
+pub fn scale_value(value: f32, factor: f64) -> f32 {
     (value as f64 * factor) as f32
 }

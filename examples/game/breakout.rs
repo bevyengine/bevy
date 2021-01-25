@@ -68,13 +68,25 @@ fn setup(
         // scoreboard
         .spawn(TextBundle {
             text: Text {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                value: "Score:".to_string(),
-                style: TextStyle {
-                    color: Color::rgb(0.5, 0.5, 1.0),
-                    font_size: 40.0,
-                    ..Default::default()
-                },
+                sections: vec![
+                    TextSection {
+                        value: "Score: ".to_string(),
+                        style: TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 40.0,
+                            color: Color::rgb(0.5, 0.5, 1.0),
+                        },
+                    },
+                    TextSection {
+                        value: "".to_string(),
+                        style: TextStyle {
+                            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                            font_size: 40.0,
+                            color: Color::rgb(1.0, 0.5, 0.5),
+                        },
+                    },
+                ],
+                ..Default::default()
             },
             style: Style {
                 position_type: PositionType::Absolute,
@@ -191,7 +203,7 @@ fn ball_movement_system(time: Res<Time>, mut ball_query: Query<(&Ball, &mut Tran
 
 fn scoreboard_system(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
     for mut text in query.iter_mut() {
-        text.value = format!("Score: {}", scoreboard.score);
+        text.sections[1].value = scoreboard.score.to_string();
     }
 }
 

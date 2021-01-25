@@ -52,15 +52,15 @@ fn setup_menu(
         })
         .with_children(|parent| {
             parent.spawn(TextBundle {
-                text: Text {
-                    value: "Play".to_string(),
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    style: TextStyle {
+                text: Text::with_section(
+                    "Play",
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 40.0,
                         color: Color::rgb(0.9, 0.9, 0.9),
-                        ..Default::default()
                     },
-                },
+                    Default::default(),
+                ),
                 ..Default::default()
             });
         });
