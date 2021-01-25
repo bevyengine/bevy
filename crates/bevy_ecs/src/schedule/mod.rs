@@ -229,7 +229,7 @@ impl Stage for Schedule {
                 Some(stage) => {
                     let mut names = stage.system_names();
                     for (m, name) in names.iter_mut().enumerate() {
-                        let mut system_symbol = level_shift.clone();
+                        let mut system_symbol = level_shift;
                         if m == 0 {
                             system_symbol = UTF8_SYMBOLS.ell;
                         }
