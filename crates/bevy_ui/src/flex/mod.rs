@@ -109,6 +109,7 @@ pub fn layout_system(
     let mut dirty_layout = false;
     let flex_surface = &mut *flex_surface;
 
+    garbage_collection(flex_surface, &style_query);
     upsert_node_styles(flex_surface, &mut dirty_layout, &changed_style_query);
     update_node_sizes(flex_surface, &mut dirty_layout, &mutated_size_query);
     update_node_children(
@@ -649,14 +650,23 @@ fn update_transforms_z_impl(
     }
 }
 
-pub fn garbage_collection_system(
-    mut flex_surface: ResMut<FlexSurface>,
-    style_query: Query<&Style>,
+pub fn garbage_collection(
+    flex_surface: &mut FlexSurface,
+    style_query: &Query<(
+        &Style,
+        Option<&Parent>,
+        Option<&Children>,
+        Option<&NodeWindowId>,
+    )>,
 ) {
     for entity in style_query.removed::<Style>() {
         if let Some(node) = flex_surface.entity_to_stretch.remove(entity) {
             trace!("Removing stretch node for: {:?}", entity);
-            flex_surface.stretch.remove(node);
+            // flex_surface.stretch.remove(node); // FIXME: this unexpectedly unwraps
+            if let Some(window_node) = flex_surface.window_nodes.map.remove(entity) {
+                trace!("Removing stretch window node for: {:?}", entity);
+                // flex_surface.stretch.remove(window_node); // FIXME: this unexpectedly unwraps
+            }
         }
         if flex_surface.stacking_contexts.remove(entity).is_some() {
             trace!("Removing stacking context for: {:?}", entity);

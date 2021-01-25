@@ -51,8 +51,6 @@ impl Plugin for UiPlugin {
                 stage::UI_POST_UPDATE,
                 window_nodes_transform_system.system(),
             )
-            // TODO: deactivated for now, there may be a bug in Stretch::remove
-            // .add_system_to_stage(stage::UI, flex::garbage_collection_system.system())
             .add_system_to_stage(bevy_render::stage::DRAW, widget::draw_text_system.system());
 
         let resources = app.resources();
