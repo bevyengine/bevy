@@ -331,7 +331,11 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         let spirv: Cow<[u32]> = shader.get_spirv(None).unwrap().into();
         let shader_module = self
             .device
-            .create_shader_module(wgpu::ShaderModuleSource::SpirV(spirv));
+            .create_shader_module(&wgpu::ShaderModuleDescriptor {
+                label: None,
+                source: wgpu::ShaderSource::SpirV(spirv),
+                flags: Default::default()
+            });
         shader_modules.insert(shader_handle.clone_weak(), shader_module);
     }
 
