@@ -4,7 +4,7 @@ use crate::{
         UniformProperty, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
     },
     shader::{ShaderLayout, GL_INSTANCE_INDEX, GL_VERTEX_INDEX},
-    texture::{TextureComponentType, TextureViewDimension},
+    texture::{TextureSampleType, TextureViewDimension},
 };
 use bevy_core::AsBytes;
 use spirv_reflect::{
@@ -123,27 +123,34 @@ fn reflect_binding(
         ReflectDescriptorType::UniformBuffer => (
             &type_description.type_name,
             BindType::Uniform {
-                dynamic: false,
+                has_dynamic_offset: false,
                 property: reflect_uniform(type_description),
             },
         ),
         ReflectDescriptorType::SampledImage => (
             &binding.name,
-            BindType::SampledTexture {
-                dimension: reflect_dimension(type_description),
-                component_type: TextureComponentType::Float,
+            BindType::Texture {
+                view_dimension: reflect_dimension(type_description),
+                sample_type: TextureSampleType::Float { filterable: false },
                 multisampled: false,
             },
         ),
         ReflectDescriptorType::StorageBuffer => (
             &type_description.type_name,
             BindType::StorageBuffer {
-                dynamic: false,
+                has_dynamic_offset: false,
                 readonly: true,
             },
         ),
         // TODO: detect comparison "true" case: https://github.com/gpuweb/gpuweb/issues/552
-        ReflectDescriptorType::Sampler => (&binding.name, BindType::Sampler { comparison: false }),
+        // TODO: detect filtering "true" case
+        ReflectDescriptorType::Sampler => (
+            &binding.name,
+            BindType::Sampler {
+                comparison: false,
+                filtering: false,
+            }
+        ),
         _ => panic!("Unsupported bind type {:?}.", binding.descriptor_type),
     };
 

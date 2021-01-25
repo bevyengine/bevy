@@ -10,11 +10,13 @@ use bevy_render::{
     },
     renderer::BufferUsage,
     texture::{
-        AddressMode, Extent3d, FilterMode, SamplerDescriptor, TextureComponentType,
+        AddressMode, Extent3d, FilterMode, SamplerDescriptor, TextureSampleType,
         TextureDescriptor, TextureDimension, TextureFormat, TextureUsage, TextureViewDimension,
     },
 };
 use bevy_window::Window;
+use wgpu::BufferBindingType;
+use bevy_render::texture::StorageTextureAccess;
 
 pub trait WgpuFrom<T> {
     fn from(val: T) -> Self;
@@ -181,46 +183,61 @@ where
 impl WgpuFrom<&BindType> for wgpu::BindingType {
     fn from(bind_type: &BindType) -> Self {
         match bind_type {
-            BindType::Uniform { dynamic, .. } => wgpu::BindingType::UniformBuffer {
-                dynamic: *dynamic,
+            BindType::Uniform { has_dynamic_offset, .. } => wgpu::BindingType::Buffer {
+                ty: BufferBindingType::Uniform,
+                has_dynamic_offset: *has_dynamic_offset,
                 min_binding_size: bind_type.get_uniform_size().and_then(wgpu::BufferSize::new),
             },
-            BindType::StorageBuffer { dynamic, readonly } => wgpu::BindingType::StorageBuffer {
-                dynamic: *dynamic,
-                readonly: *readonly,
+            BindType::StorageBuffer { has_dynamic_offset, readonly } => wgpu::BindingType::Buffer {
+                ty: BufferBindingType::Storage {
+                    read_only: *readonly
+                },
+                has_dynamic_offset: *has_dynamic_offset,
                 min_binding_size: bind_type.get_uniform_size().and_then(wgpu::BufferSize::new),
             },
-            BindType::SampledTexture {
-                dimension,
+            BindType::Texture {
+                view_dimension,
                 multisampled,
-                component_type,
-            } => wgpu::BindingType::SampledTexture {
-                dimension: (*dimension).wgpu_into(),
+                sample_type,
+            } => wgpu::BindingType::Texture {
+                view_dimension: (*view_dimension).wgpu_into(),
                 multisampled: *multisampled,
-                component_type: (*component_type).wgpu_into(),
+                sample_type: (*sample_type).wgpu_into(),
             },
-            BindType::Sampler { comparison } => wgpu::BindingType::Sampler {
+            BindType::Sampler { comparison, filtering } => wgpu::BindingType::Sampler {
+                filtering: *filtering,
                 comparison: *comparison,
             },
             BindType::StorageTexture {
-                dimension,
+                view_dimension,
                 format,
-                readonly,
+                access,
             } => wgpu::BindingType::StorageTexture {
-                dimension: (*dimension).wgpu_into(),
+                access: (*access).wgpu_into(),
+                view_dimension: (*view_dimension).wgpu_into(),
                 format: (*format).wgpu_into(),
-                readonly: *readonly,
             },
         }
     }
 }
 
-impl WgpuFrom<TextureComponentType> for wgpu::TextureComponentType {
-    fn from(texture_component_type: TextureComponentType) -> Self {
+impl WgpuFrom<TextureSampleType> for wgpu::TextureSampleType {
+    fn from(texture_component_type: TextureSampleType) -> Self {
         match texture_component_type {
-            TextureComponentType::Float => wgpu::TextureComponentType::Float,
-            TextureComponentType::Sint => wgpu::TextureComponentType::Sint,
-            TextureComponentType::Uint => wgpu::TextureComponentType::Uint,
+            TextureSampleType::Float { filterable } => wgpu::TextureSampleType::Float { filterable },
+            TextureSampleType::Sint => wgpu::TextureSampleType::Sint,
+            TextureSampleType::Uint => wgpu::TextureSampleType::Uint,
+            TextureSampleType::Depth => wgpu::TextureSampleType::Depth,
+        }
+    }
+}
+
+impl WgpuFrom<StorageTextureAccess> for wgpu::StorageTextureAccess {
+    fn from(storage_texture_access: StorageTextureAccess) -> Self {
+        match storage_texture_access {
+            StorageTextureAccess::ReadOnly => wgpu::StorageTextureAccess::ReadOnly,
+            StorageTextureAccess::WriteOnly => wgpu::StorageTextureAccess::WriteOnly,
+            StorageTextureAccess::ReadWrite => wgpu::StorageTextureAccess::ReadWrite,
         }
     }
 }

@@ -109,7 +109,7 @@ impl<Q: WorldQuery> PassNode<Q> {
                 name: "Camera".to_string(),
                 index: 0,
                 bind_type: BindType::Uniform {
-                    dynamic: false,
+                    has_dynamic_offset: false,
                     property: UniformProperty::Struct(vec![UniformProperty::Mat4]),
                 },
                 shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
