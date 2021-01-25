@@ -4,6 +4,7 @@ use bevy_ecs::prelude::*;
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_transform::components::GlobalTransform;
 use bevy_window::Windows;
+use smallvec::SmallVec;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Interaction {
@@ -33,6 +34,7 @@ impl Default for FocusPolicy {
 #[derive(Default)]
 pub struct State {
     hovered_entity: Option<Entity>,
+    entities_to_reset: SmallVec<[Entity; 1]>,
 }
 
 pub fn ui_focus_system(
@@ -57,7 +59,15 @@ pub fn ui_focus_system(
         return;
     };
 
-    if mouse_button_input.just_released(MouseButton::Left) || touches_input.just_released(0) {
+    // reset entities that were both clicked and released in the last frame
+    for entity in state.entities_to_reset.drain(..) {
+        if let Ok(mut interaction) = node_query.get_component_mut::<Interaction>(entity) {
+            *interaction = Interaction::None;
+        }
+    }
+
+    let mouse_released = mouse_button_input.just_released(MouseButton::Left) || touches_input.just_released(0);
+    if mouse_released {
         for (_entity, _node, _global_transform, interaction, _focus_policy) in node_query.iter_mut()
         {
             if let Some(mut interaction) = interaction {
@@ -106,6 +116,10 @@ pub fn ui_focus_system(
                     // only consider nodes with ClickState "clickable"
                     if *interaction != Interaction::Clicked {
                         *interaction = Interaction::Clicked;
+                        // if the mouse was simultaneously released, reset this Interaction in the next frame
+                        if mouse_released {
+                            state.entities_to_reset.push(entity);
+                        }
                     }
                 } else if *interaction == Interaction::None {
                     *interaction = Interaction::Hovered;
