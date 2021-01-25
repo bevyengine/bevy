@@ -12,6 +12,7 @@ use bevy_render::{
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat,
 };
+use bevy_render::pipeline::PolygonMode;
 
 pub const SPRITE_PIPELINE_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 2785347840338765446);
@@ -22,6 +23,7 @@ pub const SPRITE_SHEET_PIPELINE_HANDLE: HandleUntyped =
 pub fn build_sprite_sheet_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
     PipelineDescriptor {
         rasterization_state: Some(RasterizationStateDescriptor {
+            polygon_mode: PolygonMode::Fill,
             front_face: FrontFace::Ccw,
             cull_mode: CullMode::None,
             depth_bias: 0,
@@ -70,6 +72,7 @@ pub fn build_sprite_sheet_pipeline(shaders: &mut Assets<Shader>) -> PipelineDesc
 pub fn build_sprite_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
     PipelineDescriptor {
         rasterization_state: Some(RasterizationStateDescriptor {
+            polygon_mode: PolygonMode::Fill,
             front_face: FrontFace::Ccw,
             cull_mode: CullMode::None,
             depth_bias: 0,

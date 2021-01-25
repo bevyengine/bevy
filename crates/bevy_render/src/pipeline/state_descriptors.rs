@@ -99,8 +99,25 @@ impl Default for CullMode {
     }
 }
 
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum PolygonMode {
+    /// Polygons are filled
+    Fill = 0,
+    /// Polygons are draw as line segments
+    Line = 1,
+    /// Polygons are draw as points
+    Point = 2,
+}
+
+impl Default for PolygonMode {
+    fn default() -> Self {
+        PolygonMode::Fill
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct RasterizationStateDescriptor {
+    pub polygon_mode: PolygonMode,
     pub front_face: FrontFace,
     pub cull_mode: CullMode,
     pub depth_bias: i32,

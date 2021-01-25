@@ -8,6 +8,7 @@ use super::{
 };
 use crate::{shader::ShaderStages, texture::TextureFormat};
 use bevy_reflect::TypeUuid;
+use crate::pipeline::PolygonMode;
 
 #[derive(Clone, Debug, TypeUuid)]
 #[uuid = "ebfc1d11-a2a4-44cb-8f12-c49cc631146c"]
@@ -70,6 +71,7 @@ impl PipelineDescriptor {
             sample_mask: !0,
             alpha_to_coverage_enabled: false,
             rasterization_state: Some(RasterizationStateDescriptor {
+                polygon_mode: PolygonMode::Fill,
                 front_face: FrontFace::Ccw,
                 cull_mode: CullMode::Back,
                 depth_bias: 0,

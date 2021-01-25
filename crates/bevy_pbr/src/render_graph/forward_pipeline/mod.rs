@@ -9,6 +9,7 @@ use bevy_render::{
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat,
 };
+use bevy_render::pipeline::PolygonMode;
 
 pub const FORWARD_PIPELINE_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 13148362314012771389);
@@ -16,6 +17,7 @@ pub const FORWARD_PIPELINE_HANDLE: HandleUntyped =
 pub(crate) fn build_forward_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
     PipelineDescriptor {
         rasterization_state: Some(RasterizationStateDescriptor {
+            polygon_mode: PolygonMode::Fill,
             front_face: FrontFace::Ccw,
             cull_mode: CullMode::Back,
             depth_bias: 0,

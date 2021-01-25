@@ -17,6 +17,7 @@ use bevy_render::{
 use bevy_window::Window;
 use wgpu::BufferBindingType;
 use bevy_render::texture::StorageTextureAccess;
+use bevy_render::pipeline::PolygonMode;
 
 pub trait WgpuFrom<T> {
     fn from(val: T) -> Self;
@@ -458,6 +459,16 @@ impl WgpuFrom<CullMode> for wgpu::CullMode {
     }
 }
 
+impl WgpuFrom<PolygonMode> for wgpu::PolygonMode {
+    fn from(val: PolygonMode) -> wgpu::PolygonMode {
+        match val {
+            PolygonMode::Fill => wgpu::PolygonMode::Fill,
+            PolygonMode::Line => wgpu::PolygonMode::Line,
+            PolygonMode::Point => wgpu::PolygonMode::Point,
+        }
+    }
+}
+
 impl WgpuFrom<&RasterizationStateDescriptor> for wgpu::RasterizationStateDescriptor {
     fn from(val: &RasterizationStateDescriptor) -> Self {
         wgpu::RasterizationStateDescriptor {
@@ -467,6 +478,7 @@ impl WgpuFrom<&RasterizationStateDescriptor> for wgpu::RasterizationStateDescrip
             depth_bias_slope_scale: val.depth_bias_slope_scale,
             depth_bias_clamp: val.depth_bias_clamp,
             clamp_depth: val.clamp_depth,
+            polygon_mode: val.polygon_mode.wgpu_into(),
         }
     }
 }
