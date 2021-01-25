@@ -222,15 +222,8 @@ impl Reflect for Cow<'static, str> {
         let value = value.any();
         if let Some(value) = value.downcast_ref::<Self>() {
             *self = value.clone();
-        } else if let Some(value) = value.downcast_ref::<String>() {
-            *self = value.clone().into();
-        } else if let Some(value) = value.downcast_ref::<&str>() {
-            *self = (*value).into();
         } else {
-            panic!(
-                "Value is not coercible to a {}.",
-                std::any::type_name::<Self>()
-            );
+            panic!("Value is not a {}.", std::any::type_name::<Self>());
         }
     }
 
