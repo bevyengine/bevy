@@ -31,6 +31,7 @@ pub fn image_node_system(
                 width: texture.size.width as f32,
                 height: texture.size.height as f32,
             };
+            // Update only if size has changed to avoid needless layout calculations
             if size != calculated_size.size {
                 calculated_size.size = size;
             }
