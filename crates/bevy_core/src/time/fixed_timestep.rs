@@ -123,7 +123,7 @@ impl System for FixedTimestep {
         &self.resource_access
     }
 
-    fn is_thread_local(&self) -> bool {
+    fn is_non_send(&self) -> bool {
         false
     }
 

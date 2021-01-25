@@ -134,7 +134,6 @@ impl SystemStage {
         self
     }
 
-    // TODO tests
     fn rebuild_orders_and_dependencies(&mut self) {
         // Collect labels.
         let mut parallel_labels_map = HashMap::<Label, SystemIndex>::default();
@@ -536,6 +535,40 @@ mod tests {
     }
 
     #[test]
+    fn exclusive_redundant_constraints() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert(Vec::<usize>::new());
+        let mut stage = SystemStage::parallel()
+            .with_exclusive_system(
+                make_exclusive(2)
+                    .system()
+                    .label("2")
+                    .after("1")
+                    .before("3")
+                    .before("3"),
+            )
+            .with_exclusive_system(
+                make_exclusive(1)
+                    .system()
+                    .label("1")
+                    .after("0")
+                    .after("0")
+                    .before("2"),
+            )
+            .with_exclusive_system(make_exclusive(0).system().label("0").before("1"))
+            .with_exclusive_system(make_exclusive(4).system().label("4").after("3"))
+            .with_exclusive_system(make_exclusive(3).system().label("3").after("2").before("4"));
+        stage.run(&mut world, &mut resources);
+        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.run(&mut world, &mut resources);
+        assert_eq!(
+            *resources.get::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
+        );
+    }
+
+    #[test]
     fn exclusive_mixed_across_sets() {
         let mut world = World::new();
         let mut resources = Resources::default();
@@ -582,6 +615,17 @@ mod tests {
             *resources.get::<Vec<usize>>().unwrap(),
             vec![0, 1, 2, 0, 2, 0, 1, 2, 0, 2]
         );
+    }
+
+    #[test]
+    #[should_panic]
+    fn exclusive_cycle_1() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert(Vec::<usize>::new());
+        let mut stage = SystemStage::parallel()
+            .with_exclusive_system(make_exclusive(0).system().label("0").after("0"));
+        stage.run(&mut world, &mut resources);
     }
 
     #[test]
@@ -666,6 +710,43 @@ mod tests {
     }
 
     #[test]
+    fn parallel_redundant_constraints() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert(Vec::<usize>::new());
+        let mut stage = SystemStage::parallel()
+            .with_system(
+                make_parallel!(2)
+                    .system()
+                    .label("2")
+                    .after("1")
+                    .before("3")
+                    .before("3"),
+            )
+            .with_system(
+                make_parallel!(1)
+                    .system()
+                    .label("1")
+                    .after("0")
+                    .after("0")
+                    .before("2"),
+            )
+            .with_system(make_parallel!(0).system().label("0").before("1"))
+            .with_system(make_parallel!(4).system().label("4").after("3"))
+            .with_system(make_parallel!(3).system().label("3").after("2").before("4"));
+        stage.run(&mut world, &mut resources);
+        for values in stage.parallel_dependency_graph.values() {
+            assert!(values.len() <= 1);
+        }
+        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.run(&mut world, &mut resources);
+        assert_eq!(
+            *resources.get::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
+        );
+    }
+
+    #[test]
     fn parallel_mixed_across_sets() {
         let mut world = World::new();
         let mut resources = Resources::default();
@@ -716,6 +797,17 @@ mod tests {
 
     #[test]
     #[should_panic]
+    fn parallel_cycle_1() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert(Vec::<usize>::new());
+        let mut stage =
+            SystemStage::parallel().with_system(make_parallel!(0).system().label("0").after("0"));
+        stage.run(&mut world, &mut resources);
+    }
+
+    #[test]
+    #[should_panic]
     fn parallel_cycle_2() {
         let mut world = World::new();
         let mut resources = Resources::default();
@@ -740,23 +832,23 @@ mod tests {
     }
 
     #[test]
-    fn thread_local_resource_system() {
+    fn non_send_resource_system() {
         let mut world = World::new();
         let mut resources = Resources::default();
         resources.insert(ComputeTaskPool(
             TaskPoolBuilder::new().num_threads(4).build(),
         ));
-        resources.insert_thread_local(thread::current().id());
+        resources.insert_non_send(thread::current().id());
 
-        fn wants_thread_local(thread_id: ThreadLocal<ThreadId>) {
+        fn wants_non_send(thread_id: NonSend<ThreadId>) {
             assert_eq!(thread::current().id(), *thread_id);
         }
 
         let mut stage = SystemStage::parallel()
-            .with_system(wants_thread_local.system())
-            .with_system(wants_thread_local.system())
-            .with_system(wants_thread_local.system())
-            .with_system(wants_thread_local.system());
+            .with_system(wants_non_send.system())
+            .with_system(wants_non_send.system())
+            .with_system(wants_non_send.system())
+            .with_system(wants_non_send.system());
         stage.run(&mut world, &mut resources);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world, &mut resources);

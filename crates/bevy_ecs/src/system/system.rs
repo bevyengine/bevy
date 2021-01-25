@@ -20,7 +20,7 @@ pub trait System: Send + Sync + 'static {
     fn update_access(&mut self, world: &World);
     fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent>;
     fn resource_access(&self) -> &TypeAccess<TypeId>;
-    fn is_thread_local(&self) -> bool;
+    fn is_non_send(&self) -> bool;
     /// # Safety
     /// This might access World and Resources in an unsafe manner. This should only be called in one of the following contexts:
     /// 1. This system is the only system running on the given World and Resources across all threads

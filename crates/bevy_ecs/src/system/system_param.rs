@@ -1,7 +1,7 @@
 use crate::{
-    ArchetypeComponent, ChangedRes, Commands, Fetch, FromResources, Local, Or, Query, QueryAccess,
-    QueryFilter, QuerySet, QueryTuple, Res, ResMut, Resource, ResourceIndex, Resources,
-    SystemState, ThreadLocal, TypeAccess, World, WorldQuery,
+    ArchetypeComponent, ChangedRes, Commands, Fetch, FromResources, Local, NonSend, Or, Query,
+    QueryAccess, QueryFilter, QuerySet, QueryTuple, Res, ResMut, Resource, ResourceIndex,
+    Resources, SystemState, TypeAccess, World, WorldQuery,
 };
 use parking_lot::Mutex;
 use std::{any::TypeId, marker::PhantomData, sync::Arc};
@@ -291,19 +291,19 @@ impl<'a, T: Resource + FromResources> FetchSystemParam<'a> for FetchLocal<T> {
     }
 }
 
-pub struct FetchThreadLocal<T>(PhantomData<T>);
+pub struct FetchNonSend<T>(PhantomData<T>);
 
-impl<'a, T: Resource> SystemParam for ThreadLocal<'a, T> {
-    type Fetch = FetchThreadLocal<T>;
+impl<'a, T: Resource> SystemParam for NonSend<'a, T> {
+    type Fetch = FetchNonSend<T>;
 }
 
-impl<'a, T: Resource> FetchSystemParam<'a> for FetchThreadLocal<T> {
-    type Item = ThreadLocal<'a, T>;
+impl<'a, T: Resource> FetchSystemParam<'a> for FetchNonSend<T> {
+    type Item = NonSend<'a, T>;
 
     fn init(system_state: &mut SystemState, _world: &World, _resources: &mut Resources) {
-        // Thread-local systems run only on the main thread, so only one system
+        // !Send systems run only on the main thread, so only one system
         // at a time will ever access any thread-local resource.
-        system_state.is_thread_local = true;
+        system_state.is_non_send = true;
     }
 
     #[inline]
@@ -312,7 +312,7 @@ impl<'a, T: Resource> FetchSystemParam<'a> for FetchThreadLocal<T> {
         _world: &'a World,
         resources: &'a Resources,
     ) -> Option<Self::Item> {
-        Some(ThreadLocal::new(resources))
+        Some(NonSend::new(resources))
     }
 }
 

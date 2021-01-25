@@ -18,7 +18,7 @@ impl Plugin for GilrsPlugin {
             .build()
         {
             Ok(gilrs) => {
-                app.add_thread_local_resource(gilrs)
+                app.add_non_send_resource(gilrs)
                     .add_exclusive_startup_system_to_stage(
                         PRE_STARTUP,
                         gilrs_event_startup_system.system(),

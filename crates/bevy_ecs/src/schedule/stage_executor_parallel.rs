@@ -41,7 +41,7 @@ pub struct ParallelExecutor {
     /// Systems that should run this iteration.
     should_run: FixedBitSet,
     /// Systems that must run on the main thread.
-    thread_local: FixedBitSet,
+    non_send: FixedBitSet,
     /// Systems that should be started at next opportunity.
     queued: FixedBitSet,
     /// Systems that are currently running.
@@ -64,7 +64,7 @@ impl Default for ParallelExecutor {
             finish_sender,
             finish_receiver,
             should_run: Default::default(),
-            thread_local: Default::default(),
+            non_send: Default::default(),
             queued: Default::default(),
             running: Default::default(),
             active_archetype_component_access: Default::default(),
@@ -133,7 +133,7 @@ impl ParallelExecutor {
         world: &mut World,
     ) {
         self.system_metadata.clear();
-        self.thread_local.clear();
+        self.non_send.clear();
 
         // Collect all distinct types accessed by systems in order to condense their
         // access sets into bitsets.
@@ -170,7 +170,7 @@ impl ParallelExecutor {
         let all_resource_types = all_resource_types.drain().collect::<Vec<_>>();
 
         self.should_run.grow(topological_order.len());
-        self.thread_local.grow(topological_order.len());
+        self.non_send.grow(topological_order.len());
         self.queued.grow(topological_order.len());
         self.running.grow(topological_order.len());
 
@@ -184,8 +184,8 @@ impl ParallelExecutor {
                 .get(&index)
                 .map_or(0, |dependencies| dependencies.len());
             let system = system_sets[index.set].parallel_system_mut(index.system);
-            if system.is_thread_local() {
-                self.thread_local.insert(self.system_metadata.len());
+            if system.is_non_send() {
+                self.non_send.insert(self.system_metadata.len());
             }
             let (start_sender, start_receiver) = async_channel::bounded(1);
             self.system_metadata.push(SystemSchedulingMetadata {
@@ -218,12 +218,10 @@ impl ParallelExecutor {
             let system =
                 system_sets[system_data.index.set].parallel_system_mut(system_data.index.system);
             system.update_access(world);
-            if !system.archetype_component_access().reads_all() {
-                if let Some(archetype_components) =
-                    system.archetype_component_access().all_distinct_types()
-                {
-                    all_archetype_components.extend(archetype_components);
-                }
+            if let Some(archetype_components) =
+                system.archetype_component_access().all_distinct_types()
+            {
+                all_archetype_components.extend(archetype_components);
             }
         }
         let all_archetype_components = all_archetype_components.drain().collect::<Vec<_>>();
@@ -273,7 +271,7 @@ impl ParallelExecutor {
                         .await
                         .unwrap_or_else(|error| unreachable!(error));
                 };
-                if self.thread_local[index] {
+                if self.non_send[index] {
                     scope.spawn_local(task);
                 } else {
                     scope.spawn(task);
@@ -361,5 +359,41 @@ impl ParallelExecutor {
                 self.queued.insert(index);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::prelude::*;
+    use std::sync::{Arc, Barrier};
+
+    #[test]
+    fn resources_compatible() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert(Arc::new(Barrier::new(2)));
+        fn wait_on_barrier(barrier: Res<Arc<Barrier>>) {
+            barrier.wait();
+        }
+        let mut stage = SystemStage::parallel()
+            .with_system(wait_on_barrier.system())
+            .with_system(wait_on_barrier.system());
+        stage.run(&mut world, &mut resources);
+    }
+
+    #[test]
+    fn queries_compatible() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        world.spawn((Arc::new(Barrier::new(2)),));
+        fn wait_on_barrier(barrier: Query<&Arc<Barrier>>) {
+            for barrier in barrier.iter() {
+                barrier.wait();
+            }
+        }
+        let mut stage = SystemStage::parallel()
+            .with_system(wait_on_barrier.system())
+            .with_system(wait_on_barrier.system());
+        stage.run(&mut world, &mut resources);
     }
 }

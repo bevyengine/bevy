@@ -194,7 +194,7 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
     let mut create_window_event_reader = ManualEventReader::<CreateWindow>::default();
     let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
 
-    app.resources.insert_thread_local(event_loop.create_proxy());
+    app.resources.insert_non_send(event_loop.create_proxy());
 
     trace!("Entering winit event loop");
 

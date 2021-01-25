@@ -11,7 +11,7 @@ pub struct SystemState {
     pub(crate) name: Cow<'static, str>,
     pub(crate) archetype_component_access: TypeAccess<ArchetypeComponent>,
     pub(crate) resource_access: TypeAccess<TypeId>,
-    pub(crate) is_thread_local: bool,
+    pub(crate) is_non_send: bool,
     pub(crate) local_resource_access: TypeAccess<TypeId>,
     pub(crate) query_archetype_component_accesses: Vec<TypeAccess<ArchetypeComponent>>,
     pub(crate) query_accesses: Vec<Vec<QueryAccess>>,
@@ -111,8 +111,8 @@ impl<Out: 'static> System for FuncSystem<Out> {
         &self.state.resource_access
     }
 
-    fn is_thread_local(&self) -> bool {
-        self.state.is_thread_local
+    fn is_non_send(&self) -> bool {
+        self.state.is_non_send
     }
 
     unsafe fn run_unsafe(
@@ -172,8 +172,8 @@ impl<In: 'static, Out: 'static> System for InputFuncSystem<In, Out> {
         &self.state.resource_access
     }
 
-    fn is_thread_local(&self) -> bool {
-        self.state.is_thread_local
+    fn is_non_send(&self) -> bool {
+        self.state.is_non_send
     }
 
     unsafe fn run_unsafe(
@@ -231,7 +231,7 @@ macro_rules! impl_into_system {
                         name: std::any::type_name::<Self>().into(),
                         archetype_component_access: TypeAccess::default(),
                         resource_access: TypeAccess::default(),
-                        is_thread_local: false,
+                        is_non_send: false,
                         local_resource_access: TypeAccess::default(),
                         id: SystemId::new(),
                         commands: Default::default(),
@@ -274,7 +274,7 @@ macro_rules! impl_into_system {
                         name: std::any::type_name::<Self>().into(),
                         archetype_component_access: TypeAccess::default(),
                         resource_access: TypeAccess::default(),
-                        is_thread_local: false,
+                        is_non_send: false,
                         local_resource_access: TypeAccess::default(),
                         id: SystemId::new(),
                         commands: Default::default(),

@@ -135,21 +135,21 @@ impl<'a, T: Resource + FromResources> DerefMut for Local<'a, T> {
 
 // TODO audit, document.
 #[derive(Debug)]
-pub struct ThreadLocal<'a, T: Resource> {
+pub struct NonSend<'a, T: Resource> {
     value: *mut T,
     _marker: PhantomData<&'a T>,
 }
 
-impl<'a, T: Resource> ThreadLocal<'a, T> {
+impl<'a, T: Resource> NonSend<'a, T> {
     pub(crate) unsafe fn new(resources: &Resources) -> Self {
-        ThreadLocal {
-            value: resources.get_unsafe_thread_local_ref::<T>().as_ptr(),
+        NonSend {
+            value: resources.get_unsafe_non_send_ref::<T>().as_ptr(),
             _marker: Default::default(),
         }
     }
 }
 
-impl<'a, T: Resource> Deref for ThreadLocal<'a, T> {
+impl<'a, T: Resource> Deref for NonSend<'a, T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -157,7 +157,7 @@ impl<'a, T: Resource> Deref for ThreadLocal<'a, T> {
     }
 }
 
-impl<'a, T: Resource> DerefMut for ThreadLocal<'a, T> {
+impl<'a, T: Resource> DerefMut for NonSend<'a, T> {
     fn deref_mut(&mut self) -> &mut T {
         unsafe { &mut *self.value }
     }

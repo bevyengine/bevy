@@ -28,9 +28,11 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
         self.system_a.update_access(world);
         self.system_b.update_access(world);
 
-        // TODO shouldn't this be access of both systems combined?
         self.archetype_component_access
             .extend(self.system_a.archetype_component_access());
+        self.archetype_component_access
+            .extend(self.system_b.archetype_component_access());
+        self.resource_access.extend(self.system_a.resource_access());
         self.resource_access.extend(self.system_b.resource_access());
     }
 
@@ -42,8 +44,8 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
         &self.resource_access
     }
 
-    fn is_thread_local(&self) -> bool {
-        self.system_a.is_thread_local() || self.system_b.is_thread_local()
+    fn is_non_send(&self) -> bool {
+        self.system_a.is_non_send() || self.system_b.is_non_send()
     }
 
     unsafe fn run_unsafe(

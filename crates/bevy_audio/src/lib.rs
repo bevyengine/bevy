@@ -20,7 +20,7 @@ pub struct AudioPlugin;
 
 impl Plugin for AudioPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.init_thread_local_resource::<AudioOutput<AudioSource>>()
+        app.init_non_send_resource::<AudioOutput<AudioSource>>()
             .add_asset::<AudioSource>()
             .init_asset_loader::<Mp3Loader>()
             .init_resource::<Audio<AudioSource>>()

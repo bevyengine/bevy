@@ -13,9 +13,7 @@ pub use system::{Query, *};
 pub mod prelude {
     pub use crate::{
         core::WorldBuilderSource,
-        resource::{
-            ChangedRes, FromResources, Local, Res, ResMut, Resource, Resources, ThreadLocal,
-        },
+        resource::{ChangedRes, FromResources, Local, NonSend, Res, ResMut, Resource, Resources},
         schedule::{
             ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion, RunOnce, Schedule,
             Stage, State, StateStage, SystemSet, SystemStage,
