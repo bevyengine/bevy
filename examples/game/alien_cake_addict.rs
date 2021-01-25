@@ -152,15 +152,15 @@ fn setup(commands: &mut Commands, asset_server: Res<AssetServer>, mut game: ResM
 
     // scoreboard
     commands.spawn(TextBundle {
-        text: Text {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-            value: "Score:".to_string(),
-            style: TextStyle {
-                color: Color::rgb(0.5, 0.5, 1.0),
+        text: Text::with_section(
+            "Score:",
+            TextStyle {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 40.0,
-                ..Default::default()
+                color: Color::rgb(0.5, 0.5, 1.0),
             },
-        },
+            Default::default(),
+        ),
         style: Style {
             position_type: PositionType::Absolute,
             position: Rect {
@@ -338,7 +338,7 @@ fn rotate_bonus(game: Res<Game>, time: Res<Time>, mut transforms: Query<&mut Tra
 // update the score displayed during the game
 fn scoreboard_system(game: Res<Game>, mut query: Query<&mut Text>) {
     for mut text in query.iter_mut() {
-        text.value = format!("Sugar Rush: {}", game.score);
+        text.sections[0].value = format!("Sugar Rush: {}", game.score);
     }
 }
 
@@ -369,15 +369,15 @@ fn display_score(
         })
         .with_children(|parent| {
             parent.spawn(TextBundle {
-                text: Text {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    value: format!("Cake eaten: {}", game.cake_eaten),
-                    style: TextStyle {
-                        color: Color::rgb(0.5, 0.5, 1.0),
+                text: Text::with_section(
+                    format!("Cake eaten: {}", game.cake_eaten),
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 80.0,
-                        ..Default::default()
+                        color: Color::rgb(0.5, 0.5, 1.0),
                     },
-                },
+                    Default::default(),
+                ),
                 ..Default::default()
             });
         });
