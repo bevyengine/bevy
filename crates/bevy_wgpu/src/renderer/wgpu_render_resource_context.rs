@@ -20,6 +20,7 @@ use bevy_window::{Window, WindowId};
 use futures_lite::future;
 use std::{borrow::Cow, ops::Range, sync::Arc};
 use wgpu::util::DeviceExt;
+use std::num::NonZeroU64;
 
 #[derive(Clone, Debug)]
 pub struct WgpuRenderResourceContext {
@@ -506,7 +507,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
                 .as_ref()
                 .map(|d| d.wgpu_into()),
             vertex_state: wgpu::VertexStateDescriptor {
-                index_format: pipeline_descriptor.index_format.wgpu_into(),
+                index_format: Some(pipeline_descriptor.index_format.wgpu_into()),
                 vertex_buffers: &owned_vertex_buffer_descriptors
                     .iter()
                     .map(|v| v.into())
@@ -568,7 +569,12 @@ impl RenderResourceContext for WgpuRenderResourceContext {
                         }
                         RenderResourceBinding::Buffer { buffer, range, .. } => {
                             let wgpu_buffer = buffers.get(&buffer).unwrap();
-                            wgpu::BindingResource::Buffer(wgpu_buffer.slice(range.clone()))
+                            let size = NonZeroU64::new(range.end- range.start).expect("Size of the buffer needs to be greater than 0!");
+                            wgpu::BindingResource::Buffer {
+                                buffer: wgpu_buffer,
+                                offset: range.start,
+                                size: Some(size)
+                            }
                         }
                     };
                     wgpu::BindGroupEntry {
