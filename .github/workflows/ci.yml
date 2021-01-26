@@ -46,7 +46,6 @@ jobs:
 
       - name: Build & run tests
         run: cargo test --workspace
-        if: runner.os == 'linux'
         env:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
