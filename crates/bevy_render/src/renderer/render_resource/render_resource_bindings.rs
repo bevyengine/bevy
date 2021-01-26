@@ -303,7 +303,7 @@ mod tests {
                     index: 0,
                     name: "a".to_string(),
                     bind_type: BindType::Uniform {
-                        dynamic: false,
+                        has_dynamic_offset: false,
                         property: UniformProperty::Struct(vec![UniformProperty::Mat4]),
                     },
                     shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
@@ -312,7 +312,7 @@ mod tests {
                     index: 1,
                     name: "b".to_string(),
                     bind_type: BindType::Uniform {
-                        dynamic: false,
+                        has_dynamic_offset: false,
                         property: UniformProperty::Float,
                     },
                     shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,

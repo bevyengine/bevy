@@ -384,7 +384,7 @@ mod tests {
                             index: 0,
                             name: "Camera".into(),
                             bind_type: BindType::Uniform {
-                                dynamic: false,
+                                has_dynamic_offset: false,
                                 property: UniformProperty::Struct(vec![UniformProperty::Mat4]),
                             },
                             shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
@@ -395,10 +395,10 @@ mod tests {
                         vec![BindingDescriptor {
                             index: 0,
                             name: "Texture".into(),
-                            bind_type: BindType::SampledTexture {
+                            bind_type: BindType::Texture {
                                 multisampled: false,
-                                dimension: TextureViewDimension::D2,
-                                component_type: TextureComponentType::Float,
+                                view_dimension: TextureViewDimension::D2,
+                                sample_type: TextureSampleType::Float { filterable: false }
                             },
                             shader_stage: BindingShaderStage::VERTEX,
                         }]
