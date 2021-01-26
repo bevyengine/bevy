@@ -10,7 +10,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-desktop:
+  build:
     strategy:
       matrix:
         toolchain: [stable, nightly]
@@ -30,12 +30,6 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
           components: rustfmt, clippy
           override: true
-
-      - uses: actions/cache@v2
-        with:
-          path: |
-            target
-          key: ${{ runner.os }}-cargo-check-test-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install alsa and udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
@@ -69,12 +63,6 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
           target: wasm32-unknown-unknown
           override: true
-
-      - uses: actions/cache@v2
-        with:
-          path: |
-            target
-          key: ${{ runner.os }}-cargo-check-test-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Check wasm
         uses: actions-rs/cargo@v1
