@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+# This script is intended to mimic some CI behavior that we encourage contributors to run locally.
+# For the actual CI run on GitHub, see the files in .github/workflows/
+
+# Exit when any command fails
+set -e
+
+# Keep track of the last executed command
+trap 'last_command=$current_command; current_command=$BASH_COMMAND' DEBUG
+# Echo an error message before exiting, so you can see exactly what command and what error code
+trap 'echo "\"${last_command}\" command filed with exit code $?."' EXIT
+
+## ACTUAL COMMANDS
+
+# Auto-format Rust files
+cargo +nightly fmt --all
+
+# Run a more intensive linter
+cargo clippy --all-targets --all-features -- -D warnings -A clippy::type_complexity -A clippy::manual-strip
