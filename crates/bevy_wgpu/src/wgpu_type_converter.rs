@@ -18,6 +18,7 @@ use bevy_render::{
 };
 use bevy_window::Window;
 use wgpu::BufferBindingType;
+use bevy_render::pipeline::BindingShaderStage;
 
 pub trait WgpuFrom<T> {
     fn from(val: T) -> Self;
@@ -228,6 +229,22 @@ impl WgpuFrom<&BindType> for wgpu::BindingType {
                 format: (*format).wgpu_into(),
             },
         }
+    }
+}
+
+impl WgpuFrom<BindingShaderStage> for wgpu::ShaderStage {
+    fn from(val: BindingShaderStage) -> Self {
+        let mut wgpu_val = wgpu::ShaderStage::NONE;
+        if val.contains(BindingShaderStage::VERTEX) {
+            wgpu_val.insert(wgpu::ShaderStage::VERTEX);
+        }
+        if val.contains(BindingShaderStage::FRAGMENT) {
+            wgpu_val.insert(wgpu::ShaderStage::FRAGMENT);
+        }
+        if val.contains(BindingShaderStage::COMPUTE) {
+            wgpu_val.insert(wgpu::ShaderStage::COMPUTE);
+        }
+        wgpu_val
     }
 }
 

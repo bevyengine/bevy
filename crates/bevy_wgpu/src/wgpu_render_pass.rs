@@ -7,6 +7,7 @@ use bevy_render::{
 };
 use bevy_utils::tracing::trace;
 use std::ops::Range;
+use bevy_render::pipeline::BindingShaderStage;
 
 #[derive(Debug)]
 pub struct WgpuRenderPass<'a> {
@@ -44,6 +45,11 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
         let buffer = self.wgpu_resources.buffers.get(&buffer_id).unwrap();
         self.render_pass
             .set_index_buffer(buffer.slice(offset..), index_format.wgpu_into());
+    }
+
+    fn set_push_constants(&mut self, stages: BindingShaderStage, offset: u32, data: &[u8]) {
+        self.render_pass
+            .set_push_constants(stages.wgpu_into(), offset, data);
     }
 
     fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>) {
