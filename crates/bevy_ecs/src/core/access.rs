@@ -82,6 +82,22 @@ impl QueryAccess {
         }
     }
 
+    pub fn get_component_access(&self, type_access: &mut TypeAccess<TypeId>) {
+        match self {
+            QueryAccess::None => {}
+            QueryAccess::Read(ty, _) => type_access.add_read(*ty),
+            QueryAccess::Write(ty, _) => type_access.add_write(*ty),
+            QueryAccess::Optional(access) => access.get_component_access(type_access),
+            QueryAccess::With(_, access) => access.get_component_access(type_access),
+            QueryAccess::Without(_, access) => access.get_component_access(type_access),
+            QueryAccess::Union(accesses) => {
+                for access in accesses {
+                    access.get_component_access(type_access);
+                }
+            }
+        }
+    }
+
     pub fn get_type_name(&self, type_id: TypeId) -> Option<&'static str> {
         match self {
             QueryAccess::None => None,

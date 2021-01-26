@@ -49,6 +49,7 @@ impl<'a, Q: WorldQuery, F: QueryFilter> FetchSystemParam<'a> for FetchQuery<Q, F
             .query_archetype_component_accesses
             .push(TypeAccess::default());
         let access = QueryAccess::union(vec![Q::Fetch::access(), F::access()]);
+        access.get_component_access(&mut system_state.component_access);
         system_state.query_accesses.push(vec![access]);
         system_state
             .query_type_names
@@ -83,7 +84,11 @@ impl<'a, T: QueryTuple> FetchSystemParam<'a> for FetchQuerySet<T> {
         system_state
             .query_archetype_component_accesses
             .push(TypeAccess::default());
-        system_state.query_accesses.push(T::get_accesses());
+        let accesses = T::get_accesses();
+        for access in &accesses {
+            access.get_component_access(&mut system_state.component_access);
+        }
+        system_state.query_accesses.push(accesses);
         system_state
             .query_type_names
             .push(std::any::type_name::<T>());

@@ -7,6 +7,7 @@ pub struct ChainSystem<SystemA, SystemB> {
     name: Cow<'static, str>,
     id: SystemId,
     archetype_component_access: TypeAccess<ArchetypeComponent>,
+    component_access: TypeAccess<TypeId>,
     resource_access: TypeAccess<TypeId>,
 }
 
@@ -24,6 +25,7 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
 
     fn update_access(&mut self, world: &World) {
         self.archetype_component_access.clear();
+        self.component_access.clear();
         self.resource_access.clear();
         self.system_a.update_access(world);
         self.system_b.update_access(world);
@@ -32,12 +34,20 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
             .extend(self.system_a.archetype_component_access());
         self.archetype_component_access
             .extend(self.system_b.archetype_component_access());
+        self.component_access
+            .extend(self.system_a.component_access());
+        self.component_access
+            .extend(self.system_b.component_access());
         self.resource_access.extend(self.system_a.resource_access());
         self.resource_access.extend(self.system_b.resource_access());
     }
 
     fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent> {
         &self.archetype_component_access
+    }
+
+    fn component_access(&self) -> &TypeAccess<TypeId> {
+        &self.component_access
     }
 
     fn resource_access(&self) -> &TypeAccess<TypeId> {
@@ -87,6 +97,7 @@ where
             system_a: self,
             system_b: system,
             archetype_component_access: Default::default(),
+            component_access: Default::default(),
             resource_access: Default::default(),
             id: SystemId::new(),
         }

@@ -47,8 +47,9 @@ pub struct FixedTimestep {
     looping: bool,
     system_id: SystemId,
     label: Option<String>, // TODO: consider making this a TypedLabel
-    resource_access: TypeAccess<TypeId>,
     archetype_access: TypeAccess<ArchetypeComponent>,
+    component_access: TypeAccess<TypeId>,
+    resource_access: TypeAccess<TypeId>,
 }
 
 impl Default for FixedTimestep {
@@ -59,8 +60,9 @@ impl Default for FixedTimestep {
             accumulator: 0.0,
             looping: false,
             label: None,
-            resource_access: Default::default(),
+            component_access: Default::default(),
             archetype_access: Default::default(),
+            resource_access: Default::default(),
         }
     }
 }
@@ -117,6 +119,10 @@ impl System for FixedTimestep {
 
     fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent> {
         &self.archetype_access
+    }
+
+    fn component_access(&self) -> &TypeAccess<TypeId> {
+        &self.component_access
     }
 
     fn resource_access(&self) -> &TypeAccess<TypeId> {

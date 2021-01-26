@@ -19,6 +19,7 @@ pub trait System: Send + Sync + 'static {
     fn id(&self) -> SystemId;
     fn update_access(&mut self, world: &World);
     fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent>;
+    fn component_access(&self) -> &TypeAccess<TypeId>;
     fn resource_access(&self) -> &TypeAccess<TypeId>;
     fn is_non_send(&self) -> bool;
     /// # Safety

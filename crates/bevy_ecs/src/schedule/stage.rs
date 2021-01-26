@@ -1,6 +1,7 @@
 use bevy_utils::HashMap;
 use downcast_rs::{impl_downcast, Downcast};
-use std::ptr::NonNull;
+use fixedbitset::FixedBitSet;
+use std::{borrow::Cow, ptr::NonNull};
 
 use super::{
     ExclusiveSystemContainer, ParallelExecutor, ParallelSystemContainer, ParallelSystemExecutor,
@@ -265,6 +266,49 @@ impl SystemStage {
         sort_exclusive(&mut self.exclusive_before_commands);
         sort_exclusive(&mut self.exclusive_before_commands);
     }
+
+    fn find_ambiguities(&self) -> Vec<(Cow<'static, str>, Cow<'static, str>)> {
+        let mut all_relations = HashMap::<usize, FixedBitSet>::with_capacity_and_hasher(
+            self.parallel.len(),
+            Default::default(),
+        );
+        for index in 0..self.parallel.len() {
+            all_relations
+                .entry(index)
+                .or_insert_with(|| FixedBitSet::with_capacity(self.parallel.len()))
+                .insert(index);
+            add_relations(index, index, &self.parallel, &mut all_relations);
+        }
+        let mut ambiguities = Vec::<(usize, usize)>::new();
+        let mut full_bitset = FixedBitSet::with_capacity(self.parallel.len());
+        full_bitset.insert_range(0..self.parallel.len());
+        for (&index_a, relations) in &all_relations {
+            let difference = full_bitset.difference(relations);
+            for index_b in difference {
+                let system_a = self.parallel[index_a].system();
+                let system_b = self.parallel[index_b].system();
+                if !(system_a
+                    .component_access()
+                    .is_compatible(system_b.component_access())
+                    && system_a
+                        .resource_access()
+                        .is_compatible(system_b.resource_access())
+                    || ambiguities.contains(&(index_b, index_a)))
+                {
+                    ambiguities.push((index_a, index_b));
+                }
+            }
+        }
+        ambiguities
+            .drain(..)
+            .map(|(index_a, index_b)| {
+                (
+                    self.parallel[index_a].display_name(),
+                    self.parallel[index_b].display_name(),
+                )
+            })
+            .collect()
+    }
 }
 
 fn build_dependency_graph(systems: &[impl SystemContainer]) -> HashMap<usize, Vec<usize>> {
@@ -321,6 +365,22 @@ fn rearrange_to_order(systems: &mut Vec<impl SystemContainer>, order: &[usize]) 
     }
 }
 
+fn add_relations(
+    index: usize,
+    current_descendant: usize,
+    systems: &[ParallelSystemContainer],
+    all_relations: &mut HashMap<usize, FixedBitSet>,
+) {
+    for &dependency in &systems[current_descendant].dependencies {
+        all_relations.get_mut(&index).unwrap().insert(dependency);
+        all_relations
+            .entry(dependency)
+            .or_insert_with(|| FixedBitSet::with_capacity(systems.len()))
+            .insert(index);
+        add_relations(index, dependency, systems, all_relations);
+    }
+}
+
 impl Stage for SystemStage {
     fn run(&mut self, world: &mut World, resources: &mut Resources) {
         // Evaluate sets' run criteria, initialize sets as needed, detect if any sets were changed.
@@ -350,6 +410,16 @@ impl Stage for SystemStage {
             self.systems_modified = false;
             self.executor.rebuild_cached_data(&mut self.parallel, world);
             self.executor_modified = false;
+            let mut ambiguities = self.find_ambiguities();
+            if !ambiguities.is_empty() {
+                println!(
+                    "Execution order ambiguities detected, \
+                    you might want to add an explicit dependency relation between these systems:"
+                );
+                for (system_a, system_b) in ambiguities.drain(..) {
+                    println!(" - {:?} and {:?}", system_a, system_b);
+                }
+            }
         } else if self.executor_modified {
             self.executor.rebuild_cached_data(&mut self.parallel, world);
             self.executor_modified = false;
@@ -868,5 +938,64 @@ mod tests {
         stage.run(&mut world, &mut resources);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world, &mut resources);
+    }
+
+    #[test]
+    fn ambiguity_detection() {
+        fn empty() {}
+        fn resource(_: ResMut<usize>) {}
+        fn component(_: Query<&mut f32>) {}
+        let mut world = World::new();
+        let mut resources = Resources::default();
+
+        let mut stage = SystemStage::parallel()
+            .with_system(empty.system().label("0"))
+            .with_system(empty.system().label("1").after("0"))
+            .with_system(empty.system().label("2"))
+            .with_system(empty.system().after("2").before("4"))
+            .with_system(empty.system().label("4"));
+        stage.initialize_systems(&mut world, &mut resources);
+        stage.rebuild_orders_and_dependencies();
+        assert_eq!(stage.find_ambiguities().len(), 0);
+
+        let mut stage = SystemStage::parallel()
+            .with_system(empty.system().label("0"))
+            .with_system(component.system().label("1").after("0"))
+            .with_system(empty.system().label("2"))
+            .with_system(empty.system().after("2").before("4"))
+            .with_system(component.system().label("4"));
+        stage.initialize_systems(&mut world, &mut resources);
+        stage.rebuild_orders_and_dependencies();
+        assert_eq!(stage.find_ambiguities().len(), 1);
+
+        let mut stage = SystemStage::parallel()
+            .with_system(empty.system().label("0"))
+            .with_system(resource.system().label("1").after("0"))
+            .with_system(empty.system().label("2"))
+            .with_system(empty.system().after("2").before("4"))
+            .with_system(resource.system().label("4"));
+        stage.initialize_systems(&mut world, &mut resources);
+        stage.rebuild_orders_and_dependencies();
+        assert_eq!(stage.find_ambiguities().len(), 1);
+
+        let mut stage = SystemStage::parallel()
+            .with_system(empty.system().label("0"))
+            .with_system(resource.system().label("1").after("0"))
+            .with_system(empty.system().label("2"))
+            .with_system(empty.system().after("2").before("4"))
+            .with_system(component.system().label("4"));
+        stage.initialize_systems(&mut world, &mut resources);
+        stage.rebuild_orders_and_dependencies();
+        assert_eq!(stage.find_ambiguities().len(), 0);
+
+        let mut stage = SystemStage::parallel()
+            .with_system(component.system().label("0"))
+            .with_system(resource.system().label("1").after("0"))
+            .with_system(empty.system().label("2"))
+            .with_system(component.system().after("2").before("4"))
+            .with_system(resource.system().label("4"));
+        stage.initialize_systems(&mut world, &mut resources);
+        stage.rebuild_orders_and_dependencies();
+        assert_eq!(stage.find_ambiguities().len(), 2);
     }
 }

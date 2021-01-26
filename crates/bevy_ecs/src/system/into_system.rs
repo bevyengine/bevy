@@ -10,6 +10,7 @@ pub struct SystemState {
     pub(crate) id: SystemId,
     pub(crate) name: Cow<'static, str>,
     pub(crate) archetype_component_access: TypeAccess<ArchetypeComponent>,
+    pub(crate) component_access: TypeAccess<TypeId>,
     pub(crate) resource_access: TypeAccess<TypeId>,
     pub(crate) is_non_send: bool,
     pub(crate) local_resource_access: TypeAccess<TypeId>,
@@ -107,6 +108,10 @@ impl<Out: 'static> System for FuncSystem<Out> {
         &self.state.archetype_component_access
     }
 
+    fn component_access(&self) -> &TypeAccess<TypeId> {
+        &self.state.component_access
+    }
+
     fn resource_access(&self) -> &TypeAccess<std::any::TypeId> {
         &self.state.resource_access
     }
@@ -166,6 +171,10 @@ impl<In: 'static, Out: 'static> System for InputFuncSystem<In, Out> {
 
     fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent> {
         &self.state.archetype_component_access
+    }
+
+    fn component_access(&self) -> &TypeAccess<TypeId> {
+        &self.state.component_access
     }
 
     fn resource_access(&self) -> &TypeAccess<std::any::TypeId> {
@@ -230,6 +239,7 @@ macro_rules! impl_into_system {
                     state: SystemState {
                         name: std::any::type_name::<Self>().into(),
                         archetype_component_access: TypeAccess::default(),
+                        component_access: TypeAccess::default(),
                         resource_access: TypeAccess::default(),
                         is_non_send: false,
                         local_resource_access: TypeAccess::default(),
@@ -273,6 +283,7 @@ macro_rules! impl_into_system {
                     state: SystemState {
                         name: std::any::type_name::<Self>().into(),
                         archetype_component_access: TypeAccess::default(),
+                        component_access: TypeAccess::default(),
                         resource_access: TypeAccess::default(),
                         is_non_send: false,
                         local_resource_access: TypeAccess::default(),
