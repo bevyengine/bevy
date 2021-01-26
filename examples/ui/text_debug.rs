@@ -21,7 +21,7 @@ struct TextChanges;
 
 fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    commands.spawn(CameraUiBundle::default());
+    commands.spawn(UiCameraBundle::default());
     commands.spawn(TextBundle {
         style: Style {
             align_self: AlignSelf::FlexEnd,

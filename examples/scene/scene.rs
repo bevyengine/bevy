@@ -97,7 +97,7 @@ fn save_scene_system(_world: &mut World, resources: &mut Resources) {
 
 // This is only necessary for the info message in the UI. See examples/ui/text.rs for a standalone text example.
 fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(CameraUiBundle::default()).spawn(TextBundle {
+    commands.spawn(UiCameraBundle::default()).spawn(TextBundle {
         style: Style {
             align_self: AlignSelf::FlexEnd,
             ..Default::default()

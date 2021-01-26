@@ -56,7 +56,7 @@ fn setup(
 
     commands
         .spawn(OrthographicCameraBundle::new_2d())
-        .spawn(CameraUiBundle::default());
+        .spawn(UiCameraBundle::default());
 
     let mut sel = ContributorSelection {
         order: vec![],
