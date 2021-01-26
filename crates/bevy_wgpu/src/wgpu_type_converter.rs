@@ -576,7 +576,7 @@ impl WgpuFrom<SamplerDescriptor> for wgpu::SamplerDescriptor<'_> {
             anisotropy_clamp: sampler_descriptor.anisotropy_clamp,
             border_color: sampler_descriptor
                 .border_color
-                .and_then(|border_color| Some(border_color.wgpu_into())),
+                .map(|border_color| border_color.wgpu_into()),
         }
     }
 }
