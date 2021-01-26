@@ -131,12 +131,21 @@ impl<T: WorldQuery> WorldQuery for Option<T> {
 }
 
 /// Flags on component `T` that happened since the start of the frame.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Flags<T: Component> {
     _marker: std::marker::PhantomData<T>,
     with: bool,
     added: bool,
     mutated: bool,
+}
+impl<T: Component> std::fmt::Debug for Flags<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Flags")
+            .field("with", &self.with)
+            .field("added", &self.added)
+            .field("mutated", &self.mutated)
+            .finish()
+    }
 }
 
 impl<T: Component> Flags<T> {
