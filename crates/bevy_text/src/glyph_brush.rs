@@ -86,7 +86,7 @@ impl GlyphBrush {
         for sg in glyphs {
             let SectionGlyph {
                 section_index: _,
-                byte_index: _,
+                byte_index,
                 mut glyph,
                 font_id: _,
             } = sg;
@@ -109,17 +109,18 @@ impl GlyphBrush {
 
                 let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
                 let glyph_rect = texture_atlas.textures[atlas_info.glyph_index as usize];
-                let glyph_width = glyph_rect.width();
-                let glyph_height = glyph_rect.height();
+                let size = Vec2::new(glyph_rect.width(), glyph_rect.height());
 
-                let x = bounds.min.x + glyph_width / 2.0 - min_x;
-                let y = max_y - bounds.max.y + glyph_height / 2.0;
+                let x = bounds.min.x + size.x / 2.0 - min_x;
+                let y = max_y - bounds.max.y + size.y / 2.0;
                 let position = adjust.position(Vec2::new(x, y));
 
                 positioned_glyphs.push(PositionedGlyph {
                     position,
+                    size,
                     atlas_info,
                     section_index: sg.section_index,
+                    byte_index,
                 });
             }
         }
@@ -138,8 +139,10 @@ impl GlyphBrush {
 #[derive(Debug, Clone)]
 pub struct PositionedGlyph {
     pub position: Vec2,
+    pub size: Vec2,
     pub atlas_info: GlyphAtlasInfo,
     pub section_index: usize,
+    pub byte_index: usize,
 }
 
 #[cfg(feature = "subpixel_glyph_atlas")]
