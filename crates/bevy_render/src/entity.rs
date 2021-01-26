@@ -25,11 +25,11 @@ pub struct MeshBundle {
     pub global_transform: GlobalTransform,
 }
 
-/// A component bundle for "3d camera" entities
+/// Component bundle for camera entities with perspective projection
 ///
-/// Uses a perspective projection.
+/// Use this for 3D rendering.
 #[derive(Bundle)]
-pub struct Camera3dBundle {
+pub struct PerspectiveCameraBundle {
     pub camera: Camera,
     pub perspective_projection: PerspectiveProjection,
     pub visible_entities: VisibleEntities,
@@ -37,9 +37,9 @@ pub struct Camera3dBundle {
     pub global_transform: GlobalTransform,
 }
 
-impl Default for Camera3dBundle {
+impl Default for PerspectiveCameraBundle {
     fn default() -> Self {
-        Camera3dBundle {
+        PerspectiveCameraBundle {
             camera: Camera {
                 name: Some(base::camera::CAMERA_3D.to_string()),
                 ..Default::default()
@@ -52,13 +52,11 @@ impl Default for Camera3dBundle {
     }
 }
 
-/// A component bundle for "2d camera" entities
+/// Component bundle for camera entities with orthographic projection
 ///
-/// Uses an orthographic projection mapped to window pixels.
-///
-/// Use this for pixel-art / sprite-based 2D games.
+/// Use this for 2D games, isometric games, CAD-like 3D views.
 #[derive(Bundle)]
-pub struct Camera2dBundle {
+pub struct OrthographicCameraBundle {
     pub camera: Camera,
     pub orthographic_projection: OrthographicProjection,
     pub visible_entities: VisibleEntities,
@@ -66,12 +64,12 @@ pub struct Camera2dBundle {
     pub global_transform: GlobalTransform,
 }
 
-impl Default for Camera2dBundle {
-    fn default() -> Self {
+impl OrthographicCameraBundle {
+    pub fn new_2d() -> Self {
         // we want 0 to be "closest" and +far to be "farthest" in 2d, so we offset
         // the camera's translation by far and use a right handed coordinate system
         let far = 1000.0;
-        Camera2dBundle {
+        OrthographicCameraBundle {
             camera: Camera {
                 name: Some(base::camera::CAMERA_2D.to_string()),
                 ..Default::default()
@@ -85,31 +83,27 @@ impl Default for Camera2dBundle {
             global_transform: Default::default(),
         }
     }
-}
 
-/// A component bundle for "orthographic camera" entities
-///
-/// Uses a normalized orthographic projection.
-///
-/// Use this for CAD-like 3D views, isometric games,
-/// or 2D games that should scale with the window.
-#[derive(Bundle)]
-pub struct CameraOrthoBundle {
-    pub camera: Camera,
-    pub orthographic_projection: ScaledOrthographicProjection,
-    pub visible_entities: VisibleEntities,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
-}
-
-impl Default for CameraOrthoBundle {
-    fn default() -> Self {
-        CameraOrthoBundle {
+    pub fn new_3d() -> Self {
+        OrthographicCameraBundle {
             camera: Camera {
                 name: Some(base::camera::CAMERA_3D.to_string()),
                 ..Default::default()
             },
-            orthographic_projection: ScaledOrthographicProjection::default(),
+            orthographic_projection: Default::default(),
+            visible_entities: Default::default(),
+            transform: Default::default(),
+            global_transform: Default::default(),
+        }
+    }
+
+    pub fn with_name(name: &str) -> Self {
+        OrthographicCameraBundle {
+            camera: Camera {
+                name: Some(name.to_string()),
+                ..Default::default()
+            },
+            orthographic_projection: Default::default(),
             visible_entities: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
