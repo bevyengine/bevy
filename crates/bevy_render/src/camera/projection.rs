@@ -147,10 +147,10 @@ impl CameraProjection for OrthographicProjection {
 impl Default for OrthographicProjection {
     fn default() -> Self {
         OrthographicProjection {
-            left: 0.0,
-            right: 0.0,
-            bottom: 0.0,
-            top: 0.0,
+            left: -1.0,
+            right: 1.0,
+            bottom: -1.0,
+            top: 1.0,
             near: 0.0,
             far: 1000.0,
             window_origin: WindowOrigin::Center,
