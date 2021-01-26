@@ -96,7 +96,6 @@ impl CameraProjection for OrthographicProjection {
             (ScalingMode::WindowSize, WindowOrigin::Center) => {
                 let half_width = width / 2.0;
                 let half_height = height / 2.0;
-
                 self.left = -half_width;
                 self.right = half_width;
                 self.top = half_height;
@@ -110,7 +109,6 @@ impl CameraProjection for OrthographicProjection {
             }
             (ScalingMode::FixedVertical, WindowOrigin::Center) => {
                 let aspect_ratio = width / height;
-
                 self.left = -aspect_ratio;
                 self.right = aspect_ratio;
                 self.top = 1.0;
@@ -118,7 +116,6 @@ impl CameraProjection for OrthographicProjection {
             }
             (ScalingMode::FixedVertical, WindowOrigin::BottomLeft) => {
                 let aspect_ratio = width / height;
-
                 self.left = 0.0;
                 self.right = aspect_ratio;
                 self.top = 1.0;
@@ -126,7 +123,6 @@ impl CameraProjection for OrthographicProjection {
             }
             (ScalingMode::FixedHorizontal, WindowOrigin::Center) => {
                 let aspect_ratio = height / width;
-
                 self.left = -1.0;
                 self.right = 1.0;
                 self.top = aspect_ratio;
@@ -134,7 +130,6 @@ impl CameraProjection for OrthographicProjection {
             }
             (ScalingMode::FixedHorizontal, WindowOrigin::BottomLeft) => {
                 let aspect_ratio = height / width;
-
                 self.left = 0.0;
                 self.right = 1.0;
                 self.top = aspect_ratio;
