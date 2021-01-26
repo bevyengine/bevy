@@ -16,6 +16,7 @@ use bevy_ecs::{
 use bevy_reflect::Reflect;
 use std::{ops::Range, sync::Arc};
 use thiserror::Error;
+use crate::pipeline::BindingShaderStage;
 
 /// A queued command for the renderer
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -37,6 +38,11 @@ pub enum RenderCommand {
         index: u32,
         bind_group: BindGroupId,
         dynamic_uniform_indices: Option<Arc<[u32]>>,
+    },
+    SetPushConstants {
+        stages: BindingShaderStage,
+        offset: u32,
+        data: Arc<[u8]>
     },
     DrawIndexed {
         indices: Range<u32>,
@@ -106,6 +112,14 @@ impl Draw {
             buffer,
             offset,
             index_format,
+        });
+    }
+
+    pub fn set_push_constants(&mut self, stages: BindingShaderStage, offset: u32, data: Arc<[u8]>) {
+        self.render_command(RenderCommand::SetPushConstants {
+            stages,
+            offset,
+            data,
         });
     }
 
