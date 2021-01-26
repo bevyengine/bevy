@@ -16,7 +16,7 @@ use bevy_render::{
 };
 use bevy_window::Window;
 use wgpu::BufferBindingType;
-use bevy_render::texture::StorageTextureAccess;
+use bevy_render::texture::{StorageTextureAccess, SamplerBorderColor};
 use bevy_render::pipeline::PolygonMode;
 
 pub trait WgpuFrom<T> {
@@ -565,6 +565,7 @@ impl WgpuFrom<SamplerDescriptor> for wgpu::SamplerDescriptor<'_> {
             lod_max_clamp: sampler_descriptor.lod_max_clamp,
             compare: sampler_descriptor.compare_function.map(|c| c.wgpu_into()),
             anisotropy_clamp: sampler_descriptor.anisotropy_clamp,
+            border_color: sampler_descriptor.border_color.and_then(|border_color| Some(border_color.wgpu_into())),
         }
     }
 }
@@ -584,6 +585,16 @@ impl WgpuFrom<FilterMode> for wgpu::FilterMode {
         match val {
             FilterMode::Nearest => wgpu::FilterMode::Nearest,
             FilterMode::Linear => wgpu::FilterMode::Linear,
+        }
+    }
+}
+
+impl WgpuFrom<SamplerBorderColor> for wgpu::SamplerBorderColor {
+    fn from(val: SamplerBorderColor) -> Self {
+        match val {
+            SamplerBorderColor::TransparentBlack => wgpu::SamplerBorderColor::TransparentBlack,
+            SamplerBorderColor::OpaqueBlack => wgpu::SamplerBorderColor::OpaqueBlack,
+            SamplerBorderColor::OpaqueWhite => wgpu::SamplerBorderColor::OpaqueWhite,
         }
     }
 }
