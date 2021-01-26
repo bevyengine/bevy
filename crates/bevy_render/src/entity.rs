@@ -34,6 +34,25 @@ pub struct PerspectiveCameraBundle {
     pub global_transform: GlobalTransform,
 }
 
+impl PerspectiveCameraBundle {
+    pub fn new_3d() -> Self {
+        Default::default()
+    }
+
+    pub fn with_name(name: &str) -> Self {
+        PerspectiveCameraBundle {
+            camera: Camera {
+                name: Some(name.to_string()),
+                ..Default::default()
+            },
+            perspective_projection: Default::default(),
+            visible_entities: Default::default(),
+            transform: Default::default(),
+            global_transform: Default::default(),
+        }
+    }
+}
+
 impl Default for PerspectiveCameraBundle {
     fn default() -> Self {
         PerspectiveCameraBundle {
