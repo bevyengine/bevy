@@ -1,10 +1,9 @@
 use crate::{
-    pipeline::{BindGroupDescriptorId, PipelineDescriptor},
+    pipeline::{BindGroupDescriptorId, IndexFormat, PipelineDescriptor},
     renderer::{BindGroupId, BufferId, RenderContext},
 };
 use bevy_asset::Handle;
 use std::ops::Range;
-use crate::pipeline::IndexFormat;
 
 pub trait RenderPass {
     fn get_render_context(&self) -> &dyn RenderContext;

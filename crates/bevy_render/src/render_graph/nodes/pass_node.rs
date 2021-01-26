@@ -3,8 +3,8 @@ use crate::{
     draw::{Draw, RenderCommand},
     pass::{ClearColor, LoadOp, PassDescriptor, TextureAttachment},
     pipeline::{
-        BindGroupDescriptor, BindType, BindingDescriptor, BindingShaderStage, PipelineDescriptor,
-        UniformProperty,
+        BindGroupDescriptor, BindType, BindingDescriptor, BindingShaderStage, IndexFormat,
+        PipelineDescriptor, UniformProperty,
     },
     prelude::Visible,
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
@@ -16,7 +16,6 @@ use bevy_asset::{Assets, Handle};
 use bevy_ecs::{ReadOnlyFetch, Resources, World, WorldQuery};
 use bevy_utils::tracing::debug;
 use std::{fmt, marker::PhantomData, ops::Deref};
-use crate::pipeline::IndexFormat;
 
 #[derive(Debug)]
 struct CameraInfo {
@@ -369,7 +368,12 @@ impl DrawState {
         self.index_buffer = Some((buffer, offset, index_format));
     }
 
-    pub fn is_index_buffer_set(&self, buffer: BufferId, offset: u64, index_format: IndexFormat) -> bool {
+    pub fn is_index_buffer_set(
+        &self,
+        buffer: BufferId,
+        offset: u64,
+        index_format: IndexFormat,
+    ) -> bool {
         self.index_buffer == Some((buffer, offset, index_format))
     }
 

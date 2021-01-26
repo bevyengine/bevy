@@ -455,17 +455,13 @@ fn update_entity_mesh(
         // TODO: don't allocate a new vertex buffer descriptor for every entity
         render_pipeline.specialization.vertex_buffer_descriptor =
             mesh.get_vertex_buffer_descriptor();
-        render_pipeline.specialization.index_format = mesh
-            .indices()
-            .and_then(|indices| Some(indices.into()));
+        render_pipeline.specialization.index_format =
+            mesh.indices().and_then(|indices| Some(indices.into()));
     }
     if let Some(RenderResourceId::Buffer(index_buffer_resource)) =
         render_resource_context.get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX)
     {
-        let index_format: IndexFormat = mesh
-            .indices()
-            .unwrap()
-            .into();
+        let index_format: IndexFormat = mesh.indices().unwrap().into();
         // set index buffer into binding
         render_pipelines
             .bindings

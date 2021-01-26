@@ -6,13 +6,13 @@ use bevy_render::{
     pipeline::{
         BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
         CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace, PipelineDescriptor,
-        RasterizationStateDescriptor, StencilStateDescriptor, StencilStateFaceDescriptor,
+        PolygonMode, RasterizationStateDescriptor, StencilStateDescriptor,
+        StencilStateFaceDescriptor,
     },
     render_graph::{base, AssetRenderResourcesNode, RenderGraph, RenderResourcesNode},
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat,
 };
-use bevy_render::pipeline::PolygonMode;
 
 pub const SPRITE_PIPELINE_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 2785347840338765446);

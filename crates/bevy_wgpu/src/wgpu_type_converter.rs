@@ -4,20 +4,19 @@ use bevy_render::{
     pipeline::{
         BindType, BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
         CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace, IndexFormat,
-        InputStepMode, PrimitiveTopology, RasterizationStateDescriptor, StencilOperation,
-        StencilStateDescriptor, StencilStateFaceDescriptor, VertexAttributeDescriptor,
-        VertexBufferDescriptor, VertexFormat,
+        InputStepMode, PolygonMode, PrimitiveTopology, RasterizationStateDescriptor,
+        StencilOperation, StencilStateDescriptor, StencilStateFaceDescriptor,
+        VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
     },
     renderer::BufferUsage,
     texture::{
-        AddressMode, Extent3d, FilterMode, SamplerDescriptor, TextureSampleType,
-        TextureDescriptor, TextureDimension, TextureFormat, TextureUsage, TextureViewDimension,
+        AddressMode, Extent3d, FilterMode, SamplerBorderColor, SamplerDescriptor,
+        StorageTextureAccess, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureSampleType, TextureUsage, TextureViewDimension,
     },
 };
 use bevy_window::Window;
 use wgpu::BufferBindingType;
-use bevy_render::texture::{StorageTextureAccess, SamplerBorderColor};
-use bevy_render::pipeline::PolygonMode;
 
 pub trait WgpuFrom<T> {
     fn from(val: T) -> Self;
@@ -184,14 +183,19 @@ where
 impl WgpuFrom<&BindType> for wgpu::BindingType {
     fn from(bind_type: &BindType) -> Self {
         match bind_type {
-            BindType::Uniform { has_dynamic_offset, .. } => wgpu::BindingType::Buffer {
+            BindType::Uniform {
+                has_dynamic_offset, ..
+            } => wgpu::BindingType::Buffer {
                 ty: BufferBindingType::Uniform,
                 has_dynamic_offset: *has_dynamic_offset,
                 min_binding_size: bind_type.get_uniform_size().and_then(wgpu::BufferSize::new),
             },
-            BindType::StorageBuffer { has_dynamic_offset, readonly } => wgpu::BindingType::Buffer {
+            BindType::StorageBuffer {
+                has_dynamic_offset,
+                readonly,
+            } => wgpu::BindingType::Buffer {
                 ty: BufferBindingType::Storage {
-                    read_only: *readonly
+                    read_only: *readonly,
                 },
                 has_dynamic_offset: *has_dynamic_offset,
                 min_binding_size: bind_type.get_uniform_size().and_then(wgpu::BufferSize::new),
@@ -205,7 +209,10 @@ impl WgpuFrom<&BindType> for wgpu::BindingType {
                 multisampled: *multisampled,
                 sample_type: (*sample_type).wgpu_into(),
             },
-            BindType::Sampler { comparison, filtering } => wgpu::BindingType::Sampler {
+            BindType::Sampler {
+                comparison,
+                filtering,
+            } => wgpu::BindingType::Sampler {
                 filtering: *filtering,
                 comparison: *comparison,
             },
@@ -225,7 +232,9 @@ impl WgpuFrom<&BindType> for wgpu::BindingType {
 impl WgpuFrom<TextureSampleType> for wgpu::TextureSampleType {
     fn from(texture_component_type: TextureSampleType) -> Self {
         match texture_component_type {
-            TextureSampleType::Float { filterable } => wgpu::TextureSampleType::Float { filterable },
+            TextureSampleType::Float { filterable } => {
+                wgpu::TextureSampleType::Float { filterable }
+            }
             TextureSampleType::Sint => wgpu::TextureSampleType::Sint,
             TextureSampleType::Uint => wgpu::TextureSampleType::Uint,
             TextureSampleType::Depth => wgpu::TextureSampleType::Depth,
@@ -565,7 +574,9 @@ impl WgpuFrom<SamplerDescriptor> for wgpu::SamplerDescriptor<'_> {
             lod_max_clamp: sampler_descriptor.lod_max_clamp,
             compare: sampler_descriptor.compare_function.map(|c| c.wgpu_into()),
             anisotropy_clamp: sampler_descriptor.anisotropy_clamp,
-            border_color: sampler_descriptor.border_color.and_then(|border_color| Some(border_color.wgpu_into())),
+            border_color: sampler_descriptor
+                .border_color
+                .and_then(|border_color| Some(border_color.wgpu_into())),
         }
     }
 }

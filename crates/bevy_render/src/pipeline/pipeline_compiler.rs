@@ -178,7 +178,8 @@ impl PipelineCompiler {
                         .any(|b| b == &binding.name)
                     {
                         if let BindType::Uniform {
-                            ref mut has_dynamic_offset, ..
+                            ref mut has_dynamic_offset,
+                            ..
                         } = binding.bind_type
                         {
                             *has_dynamic_offset = true;

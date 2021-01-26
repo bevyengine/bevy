@@ -1,5 +1,7 @@
 use super::UniformProperty;
-use crate::texture::{TextureSampleType, TextureFormat, TextureViewDimension, StorageTextureAccess};
+use crate::texture::{
+    StorageTextureAccess, TextureFormat, TextureSampleType, TextureViewDimension,
+};
 
 bitflags::bitflags! {
     pub struct BindingShaderStage: u32 {

@@ -1,12 +1,11 @@
 use super::{BindGroup, BindGroupId, BufferId, SamplerId, TextureId};
 use crate::{
-    pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineDescriptor},
+    pipeline::{BindGroupDescriptor, BindGroupDescriptorId, IndexFormat, PipelineDescriptor},
     renderer::RenderResourceContext,
 };
 use bevy_asset::{Asset, Handle, HandleUntyped};
 use bevy_utils::{HashMap, HashSet};
 use std::{any::TypeId, ops::Range};
-use crate::pipeline::IndexFormat;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum RenderResourceBinding {

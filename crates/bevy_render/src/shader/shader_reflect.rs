@@ -149,7 +149,7 @@ fn reflect_binding(
             BindType::Sampler {
                 comparison: false,
                 filtering: false,
-            }
+            },
         ),
         _ => panic!("Unsupported bind type {:?}.", binding.descriptor_type),
     };

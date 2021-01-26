@@ -1,5 +1,7 @@
 use crate::{
-    pipeline::{PipelineCompiler, PipelineDescriptor, PipelineLayout, PipelineSpecialization},
+    pipeline::{
+        IndexFormat, PipelineCompiler, PipelineDescriptor, PipelineLayout, PipelineSpecialization,
+    },
     renderer::{
         AssetRenderResourceBindings, BindGroup, BindGroupId, BufferId, RenderResource,
         RenderResourceBinding, RenderResourceBindings, RenderResourceContext, SharedBuffers,
@@ -11,7 +13,6 @@ use bevy_ecs::{Query, Res, ResMut, SystemParam};
 use bevy_reflect::{Reflect, ReflectComponent};
 use std::{ops::Range, sync::Arc};
 use thiserror::Error;
-use crate::pipeline::IndexFormat;
 
 /// A queued command for the renderer
 #[derive(Debug, Clone, Eq, PartialEq)]

@@ -39,7 +39,7 @@ impl Default for SamplerDescriptor {
             lod_max_clamp: std::f32::MAX,
             compare_function: None,
             anisotropy_clamp: None,
-            border_color: None
+            border_color: None,
         }
     }
 }

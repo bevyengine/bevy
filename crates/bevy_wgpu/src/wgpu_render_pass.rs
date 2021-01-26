@@ -1,14 +1,12 @@
-use crate::{renderer::WgpuRenderContext, WgpuResourceRefs};
+use crate::{renderer::WgpuRenderContext, wgpu_type_converter::WgpuInto, WgpuResourceRefs};
 use bevy_asset::Handle;
 use bevy_render::{
     pass::RenderPass,
-    pipeline::{BindGroupDescriptorId, PipelineDescriptor},
+    pipeline::{BindGroupDescriptorId, IndexFormat, PipelineDescriptor},
     renderer::{BindGroupId, BufferId, RenderContext},
 };
 use bevy_utils::tracing::trace;
 use std::ops::Range;
-use bevy_render::pipeline::IndexFormat;
-use crate::wgpu_type_converter::WgpuInto;
 
 #[derive(Debug)]
 pub struct WgpuRenderPass<'a> {
@@ -44,7 +42,8 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
 
     fn set_index_buffer(&mut self, buffer_id: BufferId, offset: u64, index_format: IndexFormat) {
         let buffer = self.wgpu_resources.buffers.get(&buffer_id).unwrap();
-        self.render_pass.set_index_buffer(buffer.slice(offset..), index_format.wgpu_into());
+        self.render_pass
+            .set_index_buffer(buffer.slice(offset..), index_format.wgpu_into());
     }
 
     fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>) {
