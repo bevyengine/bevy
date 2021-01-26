@@ -1,8 +1,5 @@
 use crate::{
-    camera::{
-        Camera, OrthographicProjection, PerspectiveProjection, ScaledOrthographicProjection,
-        VisibleEntities,
-    },
+    camera::{Camera, OrthographicProjection, PerspectiveProjection, VisibleEntities},
     pipeline::RenderPipelines,
     prelude::Visible,
     render_graph::base,
