@@ -507,7 +507,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
                 .as_ref()
                 .map(|d| d.wgpu_into()),
             vertex_state: wgpu::VertexStateDescriptor {
-                index_format: Some(pipeline_descriptor.index_format.wgpu_into()),
+                index_format: pipeline_descriptor.index_format.and_then(|index_format| Some(index_format.wgpu_into())),
                 vertex_buffers: &owned_vertex_buffer_descriptors
                     .iter()
                     .map(|v| v.into())

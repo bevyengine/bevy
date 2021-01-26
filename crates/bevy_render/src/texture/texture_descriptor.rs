@@ -41,7 +41,7 @@ impl Default for TextureDescriptor {
     }
 }
 
-#[derive(Hash, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Hash, Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum StorageTextureAccess {
     /// The texture can only be read in the shader and it must be annotated with `readonly`.
     ///

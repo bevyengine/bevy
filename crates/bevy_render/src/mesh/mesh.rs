@@ -457,17 +457,19 @@ fn update_entity_mesh(
             mesh.get_vertex_buffer_descriptor();
         render_pipeline.specialization.index_format = mesh
             .indices()
-            .map(|i| i.into())
-            .unwrap_or(IndexFormat::Uint32);
+            .and_then(|indices| Some(indices.into()));
     }
-
     if let Some(RenderResourceId::Buffer(index_buffer_resource)) =
         render_resource_context.get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX)
     {
+        let index_format: IndexFormat = mesh
+            .indices()
+            .unwrap()
+            .into();
         // set index buffer into binding
         render_pipelines
             .bindings
-            .set_index_buffer(index_buffer_resource);
+            .set_index_buffer(index_buffer_resource, index_format);
     }
 
     if let Some(RenderResourceId::Buffer(vertex_attribute_buffer_resource)) =

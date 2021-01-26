@@ -28,7 +28,7 @@ pub struct PipelineDescriptor {
     pub depth_stencil_state: Option<DepthStencilStateDescriptor>,
 
     /// The format of any index buffers used with this pipeline.
-    pub index_format: IndexFormat,
+    pub index_format: Option<IndexFormat>,
 
     /// The number of samples calculated per pixel (for MSAA).
     pub sample_count: u32,
@@ -54,7 +54,7 @@ impl PipelineDescriptor {
             shader_stages,
             rasterization_state: None,
             primitive_topology: PrimitiveTopology::TriangleList,
-            index_format: IndexFormat::Uint32,
+            index_format: Some(IndexFormat::Uint32),
             sample_count: 1,
             sample_mask: !0,
             alpha_to_coverage_enabled: false,
@@ -66,7 +66,7 @@ impl PipelineDescriptor {
             name: None,
             primitive_topology: PrimitiveTopology::TriangleList,
             layout: None,
-            index_format: IndexFormat::Uint32,
+            index_format: Some(IndexFormat::Uint32),
             sample_count: 1,
             sample_mask: !0,
             alpha_to_coverage_enabled: false,

@@ -6,6 +6,7 @@ use crate::{
 use bevy_asset::{Asset, Handle, HandleUntyped};
 use bevy_utils::{HashMap, HashSet};
 use std::{any::TypeId, ops::Range};
+use crate::pipeline::IndexFormat;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum RenderResourceBinding {
@@ -69,7 +70,7 @@ pub struct RenderResourceBindings {
     pub vertex_attribute_buffer: Option<BufferId>,
     /// A Buffer that is filled with zeros that will be used for attributes required by the shader, but undefined by the mesh.
     pub vertex_fallback_buffer: Option<BufferId>,
-    pub index_buffer: Option<BufferId>,
+    pub index_buffer: Option<(BufferId, IndexFormat)>,
     assets: HashSet<(HandleUntyped, TypeId)>,
     bind_groups: HashMap<BindGroupId, BindGroup>,
     bind_group_descriptors: HashMap<BindGroupDescriptorId, Option<BindGroupId>>,
@@ -116,8 +117,8 @@ impl RenderResourceBindings {
         }
     }
 
-    pub fn set_index_buffer(&mut self, index_buffer: BufferId) {
-        self.index_buffer = Some(index_buffer);
+    pub fn set_index_buffer(&mut self, index_buffer: BufferId, index_format: IndexFormat) {
+        self.index_buffer = Some((index_buffer, index_format));
     }
 
     fn create_bind_group(&mut self, descriptor: &BindGroupDescriptor) -> BindGroupStatus {

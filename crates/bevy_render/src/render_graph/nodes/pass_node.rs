@@ -16,6 +16,7 @@ use bevy_asset::{Assets, Handle};
 use bevy_ecs::{ReadOnlyFetch, Resources, World, WorldQuery};
 use bevy_utils::tracing::debug;
 use std::{fmt, marker::PhantomData, ops::Deref};
+use crate::pipeline::IndexFormat;
 
 #[derive(Debug)]
 struct CameraInfo {
@@ -301,12 +302,12 @@ where
                                     render_pass.set_vertex_buffer(*slot, *buffer, *offset);
                                     draw_state.set_vertex_buffer(*slot, *buffer, *offset);
                                 }
-                                RenderCommand::SetIndexBuffer { buffer, offset } => {
-                                    if draw_state.is_index_buffer_set(*buffer, *offset) {
+                                RenderCommand::SetIndexBuffer { buffer, offset, index_format } => {
+                                    if draw_state.is_index_buffer_set(*buffer, *offset, *index_format) {
                                         continue;
                                     }
-                                    render_pass.set_index_buffer(*buffer, *offset);
-                                    draw_state.set_index_buffer(*buffer, *offset)
+                                    render_pass.set_index_buffer(*buffer, *offset, *index_format);
+                                    draw_state.set_index_buffer(*buffer, *offset, *index_format);
                                 }
                                 RenderCommand::SetBindGroup {
                                     index,
@@ -344,7 +345,7 @@ struct DrawState {
     pipeline: Option<Handle<PipelineDescriptor>>,
     bind_groups: Vec<Option<BindGroupId>>,
     vertex_buffers: Vec<Option<(BufferId, u64)>>,
-    index_buffer: Option<(BufferId, u64)>,
+    index_buffer: Option<(BufferId, u64, IndexFormat)>,
 }
 
 impl DrawState {
@@ -364,12 +365,12 @@ impl DrawState {
         self.vertex_buffers[index as usize] == Some((buffer, offset))
     }
 
-    pub fn set_index_buffer(&mut self, buffer: BufferId, offset: u64) {
-        self.index_buffer = Some((buffer, offset));
+    pub fn set_index_buffer(&mut self, buffer: BufferId, offset: u64, index_format: IndexFormat) {
+        self.index_buffer = Some((buffer, offset, index_format));
     }
 
-    pub fn is_index_buffer_set(&self, buffer: BufferId, offset: u64) -> bool {
-        self.index_buffer == Some((buffer, offset))
+    pub fn is_index_buffer_set(&self, buffer: BufferId, offset: u64, index_format: IndexFormat) -> bool {
+        self.index_buffer == Some((buffer, offset, index_format))
     }
 
     pub fn can_draw(&self) -> bool {

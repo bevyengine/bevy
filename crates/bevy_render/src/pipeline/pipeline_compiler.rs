@@ -15,7 +15,7 @@ pub struct PipelineSpecialization {
     pub shader_specialization: ShaderSpecialization,
     pub primitive_topology: PrimitiveTopology,
     pub dynamic_bindings: HashSet<String>,
-    pub index_format: IndexFormat,
+    pub index_format: Option<IndexFormat>,
     pub vertex_buffer_descriptor: VertexBufferDescriptor,
     pub sample_count: u32,
 }
@@ -24,7 +24,7 @@ impl Default for PipelineSpecialization {
     fn default() -> Self {
         Self {
             sample_count: 1,
-            index_format: IndexFormat::Uint32,
+            index_format: Some(IndexFormat::Uint32),
             shader_specialization: Default::default(),
             primitive_topology: Default::default(),
             dynamic_bindings: Default::default(),

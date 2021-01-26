@@ -10,6 +10,7 @@ use bevy_render::{
 use bevy_sprite::TextureAtlasSprite;
 
 use crate::{PositionedGlyph, TextSection};
+use bevy_render::pipeline::IndexFormat;
 
 pub struct DrawableText<'a> {
     pub render_resource_bindings: &'a mut RenderResourceBindings,
@@ -53,7 +54,7 @@ impl<'a> Drawable for DrawableText<'a> {
                 mesh::INDEX_BUFFER_ASSET_INDEX,
             )
         {
-            draw.set_index_buffer(quad_index_buffer, 0);
+            draw.set_index_buffer(quad_index_buffer, 0, IndexFormat::Uint32);
             if let Some(buffer_info) = render_resource_context.get_buffer_info(quad_index_buffer) {
                 indices = 0..(buffer_info.size / 4) as u32;
             } else {

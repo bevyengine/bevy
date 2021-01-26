@@ -11,6 +11,7 @@ use bevy_ecs::{Query, Res, ResMut, SystemParam};
 use bevy_reflect::{Reflect, ReflectComponent};
 use std::{ops::Range, sync::Arc};
 use thiserror::Error;
+use crate::pipeline::IndexFormat;
 
 /// A queued command for the renderer
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -26,6 +27,7 @@ pub enum RenderCommand {
     SetIndexBuffer {
         buffer: BufferId,
         offset: u64,
+        index_format: IndexFormat,
     },
     SetBindGroup {
         index: u32,
@@ -95,8 +97,12 @@ impl Draw {
         });
     }
 
-    pub fn set_index_buffer(&mut self, buffer: BufferId, offset: u64) {
-        self.render_command(RenderCommand::SetIndexBuffer { buffer, offset });
+    pub fn set_index_buffer(&mut self, buffer: BufferId, offset: u64, index_format: IndexFormat) {
+        self.render_command(RenderCommand::SetIndexBuffer {
+            buffer,
+            offset,
+            index_format,
+        });
     }
 
     pub fn set_bind_group(&mut self, index: u32, bind_group: &BindGroup) {
@@ -325,8 +331,8 @@ impl<'a> DrawContext<'a> {
         render_resource_bindings: &[&RenderResourceBindings],
     ) -> Result<(), DrawError> {
         for bindings in render_resource_bindings.iter() {
-            if let Some(index_buffer) = bindings.index_buffer {
-                draw.set_index_buffer(index_buffer, 0);
+            if let Some((index_buffer, index_format)) = bindings.index_buffer {
+                draw.set_index_buffer(index_buffer, 0, index_format);
             }
             if let Some(main_vertex_buffer) = bindings.vertex_attribute_buffer {
                 draw.set_vertex_buffer(0, main_vertex_buffer, 0);
