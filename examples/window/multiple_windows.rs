@@ -192,13 +192,13 @@ fn setup_pipeline(
             ..Default::default()
         })
         // main camera
-        .spawn(Camera3dBundle {
+        .spawn(PerspectiveCameraBundle {
             transform: Transform::from_xyz(0.0, 0.0, 6.0)
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
         })
         // second window camera
-        .spawn(Camera3dBundle {
+        .spawn(PerspectiveCameraBundle {
             camera: Camera {
                 name: Some("Secondary".to_string()),
                 window: window_id,

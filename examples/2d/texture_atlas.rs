@@ -64,7 +64,7 @@ fn setup(
 
     // set up a scene to display our texture atlas
     commands
-        .spawn(Camera2dBundle::default())
+        .spawn(OrthographicCameraBundle::new_2d())
         // draw a sprite from the atlas
         .spawn(SpriteSheetBundle {
             transform: Transform {

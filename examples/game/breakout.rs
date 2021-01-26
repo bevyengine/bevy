@@ -44,7 +44,7 @@ fn setup(
     // Add the game's entities to our world
     commands
         // cameras
-        .spawn(Camera2dBundle::default())
+        .spawn(OrthographicCameraBundle::new_2d())
         .spawn(CameraUiBundle::default())
         // paddle
         .spawn(SpriteBundle {
