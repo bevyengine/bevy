@@ -1,36 +1,12 @@
-use std::ptr::NonNull;
-
 use crate::{BoxedSystem, ExclusiveSystemFn, System};
 
 type Label = &'static str; // TODO
 
 pub struct ParallelSystemDescriptor {
-    system: NonNull<dyn System<In = (), Out = ()>>,
+    pub(crate) system: BoxedSystem<(), ()>,
     pub(crate) label: Option<Label>,
     pub(crate) before: Vec<Label>,
     pub(crate) after: Vec<Label>,
-}
-
-unsafe impl Send for ParallelSystemDescriptor {}
-unsafe impl Sync for ParallelSystemDescriptor {}
-
-impl ParallelSystemDescriptor {
-    pub(crate) fn system(&self) -> &dyn System<In = (), Out = ()> {
-        // SAFE: statically enforced shared access.
-        unsafe { self.system.as_ref() }
-    }
-
-    pub(crate) fn system_mut(&mut self) -> &mut dyn System<In = (), Out = ()> {
-        // SAFE: statically enforced exclusive access.
-        unsafe { self.system.as_mut() }
-    }
-
-    /// # Safety
-    /// Ensure no other borrows exist along with this one.
-    #[allow(clippy::mut_from_ref)]
-    pub(crate) unsafe fn system_mut_unsafe(&self) -> &mut dyn System<In = (), Out = ()> {
-        &mut *self.system.as_ptr()
-    }
 }
 
 pub trait ParallelSystemDescriptorCoercion {
@@ -60,7 +36,7 @@ impl ParallelSystemDescriptorCoercion for ParallelSystemDescriptor {
 
 fn new_parallel_descriptor(system: BoxedSystem<(), ()>) -> ParallelSystemDescriptor {
     ParallelSystemDescriptor {
-        system: unsafe { NonNull::new_unchecked(Box::into_raw(system)) },
+        system,
         label: None,
         before: Vec::new(),
         after: Vec::new(),
