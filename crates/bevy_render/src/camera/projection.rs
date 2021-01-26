@@ -54,12 +54,15 @@ pub enum WindowOrigin {
 #[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
 #[reflect_value(Serialize, Deserialize)]
 pub enum ScalingMode {
-    // Match the window size. 1 world unit = 1 pixel.
+    /// Match the window size. 1 world unit = 1 pixel.
     WindowSize,
-    // Keep vertical axis constant; resize horizontal with aspect ratio.
+    /// Keep vertical axis constant; resize horizontal with aspect ratio.
     FixedVertical,
-    // Keep horizontal axis constant; resize vertical with aspect ratio.
+    /// Keep horizontal axis constant; resize vertical with aspect ratio.
     FixedHorizontal,
+    /// Manually specify left/right/top/bottom values.
+    /// Ignore window resizing; the image will stretch.
+    None,
 }
 
 #[derive(Debug, Clone, Reflect)]
@@ -137,6 +140,7 @@ impl CameraProjection for OrthographicProjection {
                 self.top = aspect_ratio;
                 self.bottom = 0.0;
             }
+            (ScalingMode::None, _) => {}
         }
     }
 
