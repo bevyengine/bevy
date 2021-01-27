@@ -155,10 +155,23 @@ where
     /// Initialize this UniformBufferArrays using information from a RenderResources value.
     fn initialize(
         &mut self,
+        min_size: Option<usize>,
         render_resources: &T,
         render_resource_context: &dyn RenderResourceContext,
     ) {
-        if self.buffer_arrays.len() != render_resources.render_resources_len() {
+        let current = self
+            .buffer_arrays
+            .iter()
+            .flatten()
+            .map(|b| b.item_size)
+            .next();
+
+        let resize = match (min_size, current) {
+            (Some(min), Some(current)) if min > current => true,
+            _ => false,
+        };
+
+        if resize || self.buffer_arrays.len() != render_resources.render_resources_len() {
             let mut buffer_arrays = Vec::with_capacity(render_resources.render_resources_len());
             for render_resource in render_resources.iter() {
                 if let Some(RenderResourceType::Buffer) = render_resource.resource_type() {
@@ -447,7 +460,7 @@ fn render_resources_node_system<T: RenderResources>(
     uniform_buffer_arrays.begin_update();
     // initialize uniform buffer arrays using the first RenderResources
     if let Some((_, first, _, _)) = queries.q0_mut().iter_mut().next() {
-        uniform_buffer_arrays.initialize(first, render_resource_context);
+        uniform_buffer_arrays.initialize(None, first, render_resource_context);
     }
 
     for entity in queries.q0().removed::<T>() {
@@ -667,7 +680,7 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
 
     uniform_buffer_arrays.begin_update();
     // initialize uniform buffer arrays using the largest RenderResources
-    if let Some((asset, _)) = changed_assets
+    if let Some((asset, size)) = changed_assets
         .values()
         .map(|asset| {
             let size: usize = asset
@@ -684,7 +697,7 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
         })
         .max_by_key(|(_, size)| *size)
     {
-        uniform_buffer_arrays.initialize(asset, render_resource_context);
+        uniform_buffer_arrays.initialize(Some(size), asset, render_resource_context);
     }
 
     for (asset_handle, asset) in changed_assets.iter() {
