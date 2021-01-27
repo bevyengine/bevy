@@ -166,10 +166,7 @@ where
             .map(|b| b.item_size)
             .next();
 
-        let resize = match (min_size, current) {
-            (Some(min), Some(current)) if min > current => true,
-            _ => false,
-        };
+        let resize = matches!((min_size, current), (Some(min), Some(current)) if min > current);
 
         if resize || self.buffer_arrays.len() != render_resources.render_resources_len() {
             let mut buffer_arrays = Vec::with_capacity(render_resources.render_resources_len());
