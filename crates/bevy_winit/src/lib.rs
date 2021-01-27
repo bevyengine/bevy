@@ -11,7 +11,7 @@ pub use winit_config::*;
 pub use winit_windows::*;
 
 use bevy_app::{prelude::*, AppExit, ManualEventReader};
-use bevy_ecs::{IntoSystem, Resources, World};
+use bevy_ecs::{IntoExclusiveSystem, Resources, World};
 use bevy_math::Vec2;
 use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
@@ -40,7 +40,7 @@ impl Plugin for WinitPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<WinitWindows>()
             .set_runner(winit_runner)
-            .add_exclusive_system(change_window.system());
+            .add_system(change_window.exclusive_system());
     }
 }
 

@@ -18,7 +18,7 @@ pub mod prelude {
             ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion, RunOnce, Schedule,
             Stage, State, StateStage, SystemSet, SystemStage,
         },
-        system::{Commands, ExclusiveSystem, IntoSystem, Query, System},
+        system::{Commands, ExclusiveSystem, IntoExclusiveSystem, IntoSystem, Query, System},
         Added, Bundle, Changed, Component, Entity, Flags, In, IntoChainSystem, Mut, Mutated, Or,
         QuerySet, Ref, RefMut, ShouldRun, With, Without, World,
     };

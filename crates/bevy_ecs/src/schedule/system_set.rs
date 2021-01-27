@@ -1,17 +1,15 @@
-use crate::{ExclusiveSystemDescriptor, ParallelSystemDescriptor, RunCriteria, ShouldRun, System};
+use crate::{RunCriteria, ShouldRun, System, SystemDescriptor};
 
 pub struct SystemSet {
     pub(crate) run_criteria: RunCriteria,
-    pub(crate) exclusive_descriptors: Vec<ExclusiveSystemDescriptor>,
-    pub(crate) parallel_descriptors: Vec<ParallelSystemDescriptor>,
+    pub(crate) descriptors: Vec<SystemDescriptor>,
 }
 
 impl Default for SystemSet {
     fn default() -> SystemSet {
         SystemSet {
             run_criteria: Default::default(),
-            exclusive_descriptors: vec![],
-            parallel_descriptors: vec![],
+            descriptors: vec![],
         }
     }
 }
@@ -34,26 +32,13 @@ impl SystemSet {
         self
     }
 
-    pub fn with_system(mut self, system: impl Into<ParallelSystemDescriptor>) -> Self {
+    pub fn with_system(mut self, system: impl Into<SystemDescriptor>) -> Self {
         self.add_system(system);
         self
     }
 
-    pub fn with_exclusive_system(mut self, system: impl Into<ExclusiveSystemDescriptor>) -> Self {
-        self.add_exclusive_system(system);
-        self
-    }
-
-    pub fn add_system(&mut self, system: impl Into<ParallelSystemDescriptor>) -> &mut Self {
-        self.parallel_descriptors.push(system.into());
-        self
-    }
-
-    pub fn add_exclusive_system(
-        &mut self,
-        system: impl Into<ExclusiveSystemDescriptor>,
-    ) -> &mut Self {
-        self.exclusive_descriptors.push(system.into());
+    pub fn add_system(&mut self, system: impl Into<SystemDescriptor>) -> &mut Self {
+        self.descriptors.push(system.into());
         self
     }
 }

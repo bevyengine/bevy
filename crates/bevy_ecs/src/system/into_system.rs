@@ -340,7 +340,8 @@ mod tests {
         clear_trackers_system,
         resource::{Res, ResMut, Resources},
         schedule::Schedule,
-        ChangedRes, Entity, Local, Or, Query, QuerySet, Stage, System, SystemStage, With, World,
+        ChangedRes, Entity, IntoExclusiveSystem, Local, Or, Query, QuerySet, Stage, System,
+        SystemStage, With, World,
     };
 
     #[derive(Debug, Eq, PartialEq, Default)]
@@ -460,7 +461,7 @@ mod tests {
         schedule.add_stage("update", update);
         schedule.add_stage(
             "clear_trackers",
-            SystemStage::single(clear_trackers_system.system()),
+            SystemStage::single(clear_trackers_system.exclusive_system()),
         );
 
         schedule.run(&mut world, &mut resources);
@@ -497,7 +498,7 @@ mod tests {
         schedule.add_stage("update", update);
         schedule.add_stage(
             "clear_trackers",
-            SystemStage::single(clear_trackers_system.system()),
+            SystemStage::single(clear_trackers_system.exclusive_system()),
         );
 
         schedule.run(&mut world, &mut resources);

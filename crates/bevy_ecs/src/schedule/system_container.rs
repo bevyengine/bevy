@@ -1,6 +1,6 @@
 use std::{borrow::Cow, ptr::NonNull};
 
-use crate::{ExclusiveSystem, ExclusiveSystemFn, System};
+use crate::{ExclusiveSystem, System};
 
 type Label = &'static str; // TODO
 
@@ -13,7 +13,7 @@ pub(super) trait SystemContainer {
 }
 
 pub(super) struct ExclusiveSystemContainer {
-    pub system: ExclusiveSystemFn,
+    pub system: Box<dyn ExclusiveSystem + 'static>,
     pub set: usize,
     pub label: Option<Label>,
     pub before: Vec<Label>,

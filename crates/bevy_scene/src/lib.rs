@@ -5,7 +5,7 @@ mod scene_loader;
 mod scene_spawner;
 pub mod serde;
 
-use bevy_ecs::{IntoSystem, SystemStage};
+use bevy_ecs::{IntoExclusiveSystem, SystemStage};
 pub use command::*;
 pub use dynamic_scene::*;
 pub use scene::*;
@@ -33,6 +33,6 @@ impl Plugin for ScenePlugin {
             .init_asset_loader::<SceneLoader>()
             .init_resource::<SceneSpawner>()
             .add_stage_after(stage::EVENT, SCENE_STAGE, SystemStage::parallel())
-            .add_exclusive_system_to_stage(SCENE_STAGE, scene_spawner_system.system());
+            .add_system_to_stage(SCENE_STAGE, scene_spawner_system.exclusive_system());
     }
 }
