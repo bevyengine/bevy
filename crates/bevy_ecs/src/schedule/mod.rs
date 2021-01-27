@@ -213,11 +213,11 @@ pub fn clear_trackers_system(world: &mut World, resources: &mut Resources) {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ShouldRun {
-    /// No, the system should not run
+    /// No, the system should not run.
     No,
-    /// Yes, the system should run
+    /// Yes, the system should run.
     Yes,
-    /// Yes, the system should run and after running, the criteria should be checked again.
+    /// Yes, the system should run, and after running the criteria should be checked again.
     YesAndLoop,
     /// No, the system should not run right now, but the criteria should be checked again later.
     NoAndLoop,

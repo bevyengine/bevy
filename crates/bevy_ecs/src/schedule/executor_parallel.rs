@@ -8,6 +8,9 @@ use crate::{
     Resources, System, World,
 };
 
+#[cfg(test)]
+use SchedulingEvent::*;
+
 struct SystemSchedulingMetadata {
     /// Used to signal the system's task to start the system.
     start_sender: Sender<()>,
@@ -41,6 +44,8 @@ pub struct ParallelExecutor {
     queued: FixedBitSet,
     /// Systems that are currently running.
     running: FixedBitSet,
+    /// Whether a non-send system is currently running.
+    non_send_running: bool,
     /// Systems that should run this iteration.
     should_run: FixedBitSet,
     /// Compound archetype-component access information of currently running systems.
@@ -49,6 +54,8 @@ pub struct ParallelExecutor {
     active_resource_access: CondensedTypeAccess,
     /// Scratch space to avoid reallocating a vector when updating dependency counters.
     dependants_scratch: Vec<usize>,
+    #[cfg(test)]
+    events_sender: Option<Sender<SchedulingEvent>>,
 }
 
 impl Default for ParallelExecutor {
@@ -63,10 +70,13 @@ impl Default for ParallelExecutor {
             non_send: Default::default(),
             queued: Default::default(),
             running: Default::default(),
+            non_send_running: false,
             should_run: Default::default(),
             active_archetype_component_access: Default::default(),
             active_resource_access: Default::default(),
             dependants_scratch: Default::default(),
+            #[cfg(test)]
+            events_sender: None,
         }
     }
 }
@@ -143,6 +153,12 @@ impl ParallelSystemExecutor for ParallelExecutor {
         world: &mut World,
         resources: &mut Resources,
     ) {
+        #[cfg(test)]
+        if self.events_sender.is_none() {
+            let (sender, receiver) = async_channel::unbounded::<SchedulingEvent>();
+            resources.insert(receiver);
+            self.events_sender = Some(sender);
+        }
         if self.last_archetypes_generation != world.archetypes_generation() {
             self.update_access(systems, world);
             self.last_archetypes_generation = world.archetypes_generation();
@@ -249,9 +265,11 @@ impl ParallelExecutor {
     /// Determines if the system with given index has no conflicts with already running systems.
     fn can_start_now(&self, index: usize) -> bool {
         let system_data = &self.system_metadata[index];
-        system_data
-            .resource_access
-            .is_compatible(&self.active_resource_access)
+        // Non-send systems are considered conflicting with each other.
+        !(self.non_send[index] && self.non_send_running)
+            && system_data
+                .resource_access
+                .is_compatible(&self.active_resource_access)
             && system_data
                 .archetype_component_access
                 .is_compatible(&self.active_archetype_component_access)
@@ -261,6 +279,8 @@ impl ParallelExecutor {
     /// adds their access information to active access information;
     /// processes queued systems that shouldn't run this iteration as completed immediately.
     async fn process_queued_systems(&mut self) {
+        #[cfg(test)]
+        let mut started_systems = 0;
         for index in self.queued.ones() {
             // If the system shouldn't actually run this iteration, process it as completed
             // immediately; otherwise, check for conflicts and signal its task to start.
@@ -268,6 +288,10 @@ impl ParallelExecutor {
                 self.dependants_scratch
                     .extend(&self.system_metadata[index].dependants);
             } else if self.can_start_now(index) {
+                #[cfg(test)]
+                {
+                    started_systems += 1;
+                }
                 let system_data = &self.system_metadata[index];
                 system_data
                     .start_sender
@@ -275,12 +299,19 @@ impl ParallelExecutor {
                     .await
                     .unwrap_or_else(|error| unreachable!(error));
                 self.running.set(index, true);
+                if self.non_send[index] {
+                    self.non_send_running = true;
+                }
                 // Add this system's access information to the active access information.
                 self.active_archetype_component_access
                     .extend(&system_data.archetype_component_access);
                 self.active_resource_access
                     .extend(&system_data.resource_access);
             }
+        }
+        #[cfg(test)]
+        if started_systems != 0 {
+            self.emit_event(StartedSystems(started_systems));
         }
         // Remove now running systems from the queue.
         self.queued.difference_with(&self.running);
@@ -291,6 +322,9 @@ impl ParallelExecutor {
     /// Unmarks the system give index as running, caches indices of its dependants
     /// in the `dependants_scratch`.
     fn process_finished_system(&mut self, index: usize) {
+        if self.non_send[index] {
+            self.non_send_running = false;
+        }
         self.running.set(index, false);
         self.dependants_scratch
             .extend(&self.system_metadata[index].dependants);
@@ -320,40 +354,146 @@ impl ParallelExecutor {
             }
         }
     }
+
+    #[cfg(test)]
+    fn emit_event(&self, event: SchedulingEvent) {
+        self.events_sender
+            .as_ref()
+            .unwrap()
+            .try_send(event)
+            .unwrap();
+    }
+}
+
+#[cfg(test)]
+#[derive(Debug, PartialEq, Eq)]
+enum SchedulingEvent {
+    StartedSystems(usize),
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::prelude::*;
-    use std::sync::{Arc, Barrier};
+    use super::SchedulingEvent::{self, *};
+    use crate::{prelude::*, SingleThreadedExecutor};
+    use async_channel::Receiver;
+    use std::thread::{self, ThreadId};
 
-    #[test]
-    fn resources_compatible() {
-        let mut world = World::new();
-        let mut resources = Resources::default();
-        resources.insert(Arc::new(Barrier::new(2)));
-        fn wait_on_barrier(barrier: Res<Arc<Barrier>>) {
-            barrier.wait();
+    fn receive_events(resources: &Resources) -> Vec<SchedulingEvent> {
+        let mut events = Vec::new();
+        while let Ok(event) = resources
+            .get::<Receiver<SchedulingEvent>>()
+            .unwrap()
+            .try_recv()
+        {
+            events.push(event);
         }
-        let mut stage = SystemStage::parallel()
-            .with_system(wait_on_barrier.system())
-            .with_system(wait_on_barrier.system());
-        stage.run(&mut world, &mut resources);
+        events
     }
 
     #[test]
-    fn queries_compatible() {
+    fn trivial() {
         let mut world = World::new();
         let mut resources = Resources::default();
-        world.spawn((Arc::new(Barrier::new(2)),));
-        fn wait_on_barrier(barrier: Query<&Arc<Barrier>>) {
-            for barrier in barrier.iter() {
-                barrier.wait();
-            }
-        }
+        fn wants_for_nothing() {}
         let mut stage = SystemStage::parallel()
-            .with_system(wait_on_barrier.system())
-            .with_system(wait_on_barrier.system());
+            .with_system(wants_for_nothing.system())
+            .with_system(wants_for_nothing.system())
+            .with_system(wants_for_nothing.system());
+        stage.run(&mut world, &mut resources);
+        stage.run(&mut world, &mut resources);
+        assert_eq!(
+            receive_events(&resources),
+            vec![StartedSystems(3), StartedSystems(3),]
+        )
+    }
+
+    #[test]
+    fn resources() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert(0usize);
+        fn wants_mut(_: ResMut<usize>) {}
+        fn wants_ref(_: Res<usize>) {}
+        let mut stage = SystemStage::parallel()
+            .with_system(wants_mut.system())
+            .with_system(wants_mut.system());
+        stage.run(&mut world, &mut resources);
+        assert_eq!(
+            receive_events(&resources),
+            vec![StartedSystems(1), StartedSystems(1),]
+        );
+        let mut stage = SystemStage::parallel()
+            .with_system(wants_mut.system())
+            .with_system(wants_ref.system());
+        stage.run(&mut world, &mut resources);
+        assert_eq!(
+            receive_events(&resources),
+            vec![StartedSystems(1), StartedSystems(1),]
+        );
+        let mut stage = SystemStage::parallel()
+            .with_system(wants_ref.system())
+            .with_system(wants_ref.system());
+        stage.run(&mut world, &mut resources);
+        assert_eq!(receive_events(&resources), vec![StartedSystems(2),]);
+    }
+
+    #[test]
+    fn queries() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        world.spawn((0usize,));
+        fn wants_mut(_: Query<&mut usize>) {}
+        fn wants_ref(_: Query<&usize>) {}
+        let mut stage = SystemStage::parallel()
+            .with_system(wants_mut.system())
+            .with_system(wants_mut.system());
+        stage.run(&mut world, &mut resources);
+        assert_eq!(
+            receive_events(&resources),
+            vec![StartedSystems(1), StartedSystems(1),]
+        );
+        let mut stage = SystemStage::parallel()
+            .with_system(wants_mut.system())
+            .with_system(wants_ref.system());
+        stage.run(&mut world, &mut resources);
+        assert_eq!(
+            receive_events(&resources),
+            vec![StartedSystems(1), StartedSystems(1),]
+        );
+        let mut stage = SystemStage::parallel()
+            .with_system(wants_ref.system())
+            .with_system(wants_ref.system());
+        stage.run(&mut world, &mut resources);
+        assert_eq!(receive_events(&resources), vec![StartedSystems(2),]);
+    }
+
+    #[test]
+    fn non_send_resource() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert_non_send(thread::current().id());
+        fn non_send(thread_id: NonSend<ThreadId>) {
+            assert_eq!(thread::current().id(), *thread_id);
+        }
+        fn empty() {}
+        let mut stage = SystemStage::parallel()
+            .with_system(non_send.system())
+            .with_system(non_send.system())
+            .with_system(empty.system())
+            .with_system(empty.system())
+            .with_system(non_send.system())
+            .with_system(non_send.system());
+        stage.run(&mut world, &mut resources);
+        assert_eq!(
+            receive_events(&resources),
+            vec![
+                StartedSystems(3),
+                StartedSystems(1),
+                StartedSystems(1),
+                StartedSystems(1),
+            ]
+        );
+        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world, &mut resources);
     }
 }

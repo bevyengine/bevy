@@ -279,7 +279,7 @@ impl SystemStage {
                 .insert(index);
             add_relations(index, index, &self.parallel, &mut all_relations);
         }
-        let mut ambiguities = Vec::<(usize, usize)>::new();
+        let mut ambiguities = Vec::new();
         let mut full_bitset = FixedBitSet::with_capacity(self.parallel.len());
         full_bitset.insert_range(0..self.parallel.len());
         for (&index_a, relations) in &all_relations {
@@ -492,18 +492,9 @@ impl Stage for SystemStage {
     }
 }
 
-// TODO does this even work
-impl<S: Into<ExclusiveSystemDescriptor>> From<S> for SystemStage {
-    fn from(descriptor: S) -> Self {
-        SystemStage::single(descriptor.into())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::{prelude::*, SingleThreadedExecutor};
-    use bevy_tasks::{ComputeTaskPool, TaskPoolBuilder};
-    use std::thread::{self, ThreadId};
 
     fn make_exclusive(tag: usize) -> impl FnMut(&mut Resources) {
         move |resources| resources.get_mut::<Vec<usize>>().unwrap().push(tag)
@@ -913,30 +904,6 @@ mod tests {
             .with_system(make_parallel!(0).system().label("0"))
             .with_system(make_parallel!(1).system().after("0").before("2"))
             .with_system(make_parallel!(2).system().label("2").before("0"));
-        stage.run(&mut world, &mut resources);
-    }
-
-    #[test]
-    fn non_send_resource_system() {
-        let mut world = World::new();
-        let mut resources = Resources::default();
-        resources.insert(ComputeTaskPool(
-            TaskPoolBuilder::new().num_threads(4).build(),
-        ));
-        resources.insert_non_send(thread::current().id());
-
-        fn wants_non_send(thread_id: NonSend<ThreadId>) {
-            assert_eq!(thread::current().id(), *thread_id);
-            std::thread::sleep(std::time::Duration::from_millis(25));
-        }
-
-        let mut stage = SystemStage::parallel()
-            .with_system(wants_non_send.system())
-            .with_system(wants_non_send.system())
-            .with_system(wants_non_send.system())
-            .with_system(wants_non_send.system());
-        stage.run(&mut world, &mut resources);
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world, &mut resources);
     }
 
