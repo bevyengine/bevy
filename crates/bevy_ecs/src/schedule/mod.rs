@@ -17,8 +17,8 @@ pub use system_set::*;
 use crate::{
     ArchetypeComponent, BoxedSystem, IntoSystem, Resources, System, SystemId, TypeAccess, World,
 };
-use bevy_utils::{HashMap, HashSet};
-use std::{any::TypeId, borrow::Cow, hash::Hash};
+use bevy_utils::HashMap;
+use std::{any::TypeId, borrow::Cow};
 
 #[derive(Default)]
 pub struct Schedule {
@@ -300,52 +300,6 @@ impl System for RunOnce {
     fn apply_buffers(&mut self, _world: &mut World, _resources: &mut Resources) {}
 
     fn initialize(&mut self, _world: &mut World, _resources: &mut Resources) {}
-}
-
-pub(crate) enum SortingResult<T> {
-    Sorted(Vec<T>),
-    FoundCycle(HashSet<T>),
-}
-
-pub(crate) fn topological_sorting<T>(graph: &HashMap<T, Vec<T>>) -> SortingResult<T>
-where
-    T: Hash + Eq + Clone,
-{
-    fn check_if_cycles_and_visit<N>(
-        node: &N,
-        graph: &HashMap<N, Vec<N>>,
-        sorted: &mut Vec<N>,
-        unvisited: &mut HashSet<N>,
-        current: &mut HashSet<N>,
-    ) -> bool
-    where
-        N: Hash + Eq + Clone,
-    {
-        if current.contains(node) {
-            return true;
-        } else if !unvisited.remove(node) {
-            return false;
-        }
-        current.insert(node.clone());
-        for node in graph.get(node).unwrap() {
-            if check_if_cycles_and_visit(node, &graph, sorted, unvisited, current) {
-                return true;
-            }
-        }
-        sorted.push(node.clone());
-        current.remove(node);
-        false
-    }
-    let mut sorted = Vec::with_capacity(graph.len());
-    let mut current = HashSet::with_capacity_and_hasher(graph.len(), Default::default());
-    let mut unvisited = HashSet::with_capacity_and_hasher(graph.len(), Default::default());
-    unvisited.extend(graph.keys().cloned());
-    while let Some(node) = unvisited.iter().next().cloned() {
-        if check_if_cycles_and_visit(&node, graph, &mut sorted, &mut unvisited, &mut current) {
-            return SortingResult::FoundCycle(current);
-        }
-    }
-    SortingResult::Sorted(sorted)
 }
 
 // TODO more relevant tests

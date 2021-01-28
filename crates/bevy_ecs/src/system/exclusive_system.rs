@@ -2,7 +2,7 @@ pub use super::Query;
 use crate::{resource::Resources, system::SystemId, BoxedSystem, IntoSystem, System, World};
 use std::borrow::Cow;
 
-pub trait ExclusiveSystem {
+pub trait ExclusiveSystem: Send + Sync + 'static {
     fn name(&self) -> Cow<'static, str>;
 
     fn id(&self) -> SystemId;

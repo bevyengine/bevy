@@ -13,7 +13,7 @@ pub(super) trait SystemContainer {
 }
 
 pub(super) struct ExclusiveSystemContainer {
-    pub system: Box<dyn ExclusiveSystem + 'static>,
+    pub system: Box<dyn ExclusiveSystem>,
     pub set: usize,
     pub label: Option<Label>,
     pub before: Vec<Label>,
