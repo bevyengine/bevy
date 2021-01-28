@@ -1,4 +1,4 @@
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{tracing::info, HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
 use std::{borrow::Cow, iter::FromIterator, ptr::NonNull};
@@ -434,13 +434,16 @@ impl Stage for SystemStage {
             self.executor.rebuild_cached_data(&mut self.parallel, world);
             self.executor_modified = false;
             if !ambiguities.is_empty() {
-                println!(
-                    "Execution order ambiguities detected, you might want to add an explicit \
-                    dependency relation between some these systems:"
-                );
-                for (system_a, system_b) in ambiguities.drain(..) {
-                    println!(" - {:?} and {:?}", system_a, system_b);
-                }
+                info!("{}", {
+                    use std::fmt::Write;
+                    let mut string = "Execution order ambiguities detected, you might want to \
+                    add an explicit dependency relation between some these systems:\n"
+                        .to_owned();
+                    for (system_a, system_b) in ambiguities.drain(..) {
+                        writeln!(string, " - {:?} and {:?}", system_a, system_b).unwrap();
+                    }
+                    string
+                });
             }
         } else if self.executor_modified {
             self.executor.rebuild_cached_data(&mut self.parallel, world);
