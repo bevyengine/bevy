@@ -82,6 +82,9 @@ fn setup() {
         // with fields via their indices. Tuple is automatically implemented for tuples of
         // arity 12 or less.
         ReflectRef::Tuple(_) => {}
+        // `Enum` is a trait automatically implemented for enums that derive Reflect. This trait allows you
+        // to interact list possible variants and interact with the currently active one
+        ReflectRef::Enum(_) => {}
         // `List` is a special trait that can be manually implemented (instead of deriving Reflect).
         // This exposes "list" operations on your type, such as insertion. `List` is automatically
         // implemented for relevant core types like Vec<T>.

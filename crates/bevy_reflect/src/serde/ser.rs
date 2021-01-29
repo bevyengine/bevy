@@ -89,6 +89,9 @@ impl<'a> Serialize for ReflectSerializer<'a> {
                 value,
             }
             .serialize(serializer),
+            ReflectRef::Enum(_value) => {
+                todo!()
+            }
         }
     }
 }

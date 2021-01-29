@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 mod array;
+mod enum_trait;
 mod fields;
 mod list;
 mod map;
@@ -40,6 +41,7 @@ pub mod prelude {
 }
 
 pub use array::*;
+pub use enum_trait::*;
 pub use fields::*;
 pub use impls::*;
 pub use list::*;
