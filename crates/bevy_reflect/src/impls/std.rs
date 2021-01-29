@@ -109,6 +109,14 @@ impl<T: Reflect> Reflect for Vec<T> {
     fn serializable(&self) -> Option<Serializable> {
         None
     }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
 }
 
 impl<K: Reflect + Clone + Eq + Hash, V: Reflect + Clone> Map for HashMap<K, V> {
@@ -202,6 +210,14 @@ impl<K: Reflect + Clone + Eq + Hash, V: Reflect + Clone> Reflect for HashMap<K, 
 
     fn serializable(&self) -> Option<Serializable> {
         None
+    }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
     }
 }
 

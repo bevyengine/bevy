@@ -318,6 +318,14 @@ fn impl_struct(
             fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
                 #partial_eq_fn
             }
+
+            fn as_reflect(&self) -> &dyn #bevy_reflect_path::Reflect {
+                self
+            }
+
+            fn as_reflect_mut(&mut self) -> &mut dyn #bevy_reflect_path::Reflect {
+                self
+            }
         }
     })
 }
@@ -437,6 +445,14 @@ fn impl_tuple_struct(
             fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
                 #partial_eq_fn
             }
+
+            fn as_reflect(&self) -> &dyn #bevy_reflect_path::Reflect {
+                self
+            }
+
+            fn as_reflect_mut(&mut self) -> &mut dyn #bevy_reflect_path::Reflect {
+                self
+            }
         }
     })
 }
@@ -511,6 +527,14 @@ fn impl_value(
 
             fn serializable(&self) -> Option<#bevy_reflect_path::serde::Serializable> {
                 #serialize_fn
+            }
+
+            fn as_reflect(&self) -> &dyn #bevy_reflect_path::Reflect {
+                self
+            }
+
+            fn as_reflect_mut(&mut self) -> &mut dyn #bevy_reflect_path::Reflect {
+                self
             }
         }
     })

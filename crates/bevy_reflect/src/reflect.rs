@@ -39,6 +39,8 @@ pub trait Reflect: Any + Send + Sync {
     fn reflect_partial_eq(&self, _value: &dyn Reflect) -> Option<bool>;
     /// Returns a serializable value, if serialization is supported. Otherwise `None` will be returned.
     fn serializable(&self) -> Option<Serializable>;
+    fn as_reflect(&self) -> &dyn Reflect;
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect;
 }
 
 impl Debug for dyn Reflect {

@@ -165,6 +165,14 @@ impl Reflect for DynamicTuple {
     fn serializable(&self) -> Option<Serializable> {
         None
     }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
 }
 
 #[inline]
@@ -290,6 +298,14 @@ macro_rules! impl_reflect_tuple {
 
             fn serializable(&self) -> Option<Serializable> {
                 None
+            }
+
+            fn as_reflect(&self) -> &dyn Reflect {
+                self
+            }
+
+            fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+                self
             }
         }
     }
