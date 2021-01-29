@@ -57,6 +57,10 @@ impl Schedule {
     }
 
     pub fn add_stage<S: Stage>(&mut self, name: &str, stage: S) -> &mut Self {
+        if self.stages.get(name).is_some() {
+            panic!("Stage already exists: {}.", name);
+        }
+
         self.stage_order.push(name.to_string());
         self.stages.insert(name.to_string(), Box::new(stage));
         self
