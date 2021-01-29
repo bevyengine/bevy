@@ -1,6 +1,5 @@
 use crate::{BoxedSystem, ExclusiveSystem, ExclusiveSystemCoerced, ExclusiveSystemFn, System};
-
-type Label = &'static str; // TODO
+use std::borrow::Cow;
 
 pub enum SystemDescriptor {
     Parallel(ParallelSystemDescriptor),
@@ -48,9 +47,9 @@ impl From<ExclusiveSystemCoerced> for SystemDescriptor {
 
 pub struct ParallelSystemDescriptor {
     pub(crate) system: BoxedSystem<(), ()>,
-    pub(crate) label: Option<Label>,
-    pub(crate) before: Vec<Label>,
-    pub(crate) after: Vec<Label>,
+    pub(crate) label: Option<Cow<'static, str>>,
+    pub(crate) before: Vec<Cow<'static, str>>,
+    pub(crate) after: Vec<Cow<'static, str>>,
 }
 
 fn new_parallel_descriptor(system: BoxedSystem<(), ()>) -> ParallelSystemDescriptor {
@@ -63,26 +62,26 @@ fn new_parallel_descriptor(system: BoxedSystem<(), ()>) -> ParallelSystemDescrip
 }
 
 pub trait ParallelSystemDescriptorCoercion {
-    fn label(self, label: Label) -> ParallelSystemDescriptor;
+    fn label(self, label: impl Into<Cow<'static, str>>) -> ParallelSystemDescriptor;
 
-    fn before(self, label: Label) -> ParallelSystemDescriptor;
+    fn before(self, label: impl Into<Cow<'static, str>>) -> ParallelSystemDescriptor;
 
-    fn after(self, label: Label) -> ParallelSystemDescriptor;
+    fn after(self, label: impl Into<Cow<'static, str>>) -> ParallelSystemDescriptor;
 }
 
 impl ParallelSystemDescriptorCoercion for ParallelSystemDescriptor {
-    fn label(mut self, label: Label) -> ParallelSystemDescriptor {
-        self.label = Some(label);
+    fn label(mut self, label: impl Into<Cow<'static, str>>) -> ParallelSystemDescriptor {
+        self.label = Some(label.into());
         self
     }
 
-    fn before(mut self, label: Label) -> ParallelSystemDescriptor {
-        self.before.push(label);
+    fn before(mut self, label: impl Into<Cow<'static, str>>) -> ParallelSystemDescriptor {
+        self.before.push(label.into());
         self
     }
 
-    fn after(mut self, label: Label) -> ParallelSystemDescriptor {
-        self.after.push(label);
+    fn after(mut self, label: impl Into<Cow<'static, str>>) -> ParallelSystemDescriptor {
+        self.after.push(label.into());
         self
     }
 }
@@ -91,29 +90,29 @@ impl<S> ParallelSystemDescriptorCoercion for S
 where
     S: System<In = (), Out = ()>,
 {
-    fn label(self, label: Label) -> ParallelSystemDescriptor {
+    fn label(self, label: impl Into<Cow<'static, str>>) -> ParallelSystemDescriptor {
         new_parallel_descriptor(Box::new(self)).label(label)
     }
 
-    fn before(self, label: Label) -> ParallelSystemDescriptor {
+    fn before(self, label: impl Into<Cow<'static, str>>) -> ParallelSystemDescriptor {
         new_parallel_descriptor(Box::new(self)).before(label)
     }
 
-    fn after(self, label: Label) -> ParallelSystemDescriptor {
+    fn after(self, label: impl Into<Cow<'static, str>>) -> ParallelSystemDescriptor {
         new_parallel_descriptor(Box::new(self)).after(label)
     }
 }
 
 impl ParallelSystemDescriptorCoercion for BoxedSystem<(), ()> {
-    fn label(self, label: Label) -> ParallelSystemDescriptor {
+    fn label(self, label: impl Into<Cow<'static, str>>) -> ParallelSystemDescriptor {
         new_parallel_descriptor(self).label(label)
     }
 
-    fn before(self, label: Label) -> ParallelSystemDescriptor {
+    fn before(self, label: impl Into<Cow<'static, str>>) -> ParallelSystemDescriptor {
         new_parallel_descriptor(self).before(label)
     }
 
-    fn after(self, label: Label) -> ParallelSystemDescriptor {
+    fn after(self, label: impl Into<Cow<'static, str>>) -> ParallelSystemDescriptor {
         new_parallel_descriptor(self).after(label)
     }
 }
@@ -127,9 +126,9 @@ pub(crate) enum InsertionPoint {
 
 pub struct ExclusiveSystemDescriptor {
     pub(crate) system: Box<dyn ExclusiveSystem>,
-    pub(crate) label: Option<Label>,
-    pub(crate) before: Vec<Label>,
-    pub(crate) after: Vec<Label>,
+    pub(crate) label: Option<Cow<'static, str>>,
+    pub(crate) before: Vec<Cow<'static, str>>,
+    pub(crate) after: Vec<Cow<'static, str>>,
     pub(crate) insertion_point: InsertionPoint,
 }
 
@@ -144,11 +143,11 @@ fn new_exclusive_descriptor(system: Box<dyn ExclusiveSystem>) -> ExclusiveSystem
 }
 
 pub trait ExclusiveSystemDescriptorCoercion {
-    fn label(self, label: Label) -> ExclusiveSystemDescriptor;
+    fn label(self, label: impl Into<Cow<'static, str>>) -> ExclusiveSystemDescriptor;
 
-    fn before(self, label: Label) -> ExclusiveSystemDescriptor;
+    fn before(self, label: impl Into<Cow<'static, str>>) -> ExclusiveSystemDescriptor;
 
-    fn after(self, label: Label) -> ExclusiveSystemDescriptor;
+    fn after(self, label: impl Into<Cow<'static, str>>) -> ExclusiveSystemDescriptor;
 
     fn at_start(self) -> ExclusiveSystemDescriptor;
 
@@ -158,18 +157,18 @@ pub trait ExclusiveSystemDescriptorCoercion {
 }
 
 impl ExclusiveSystemDescriptorCoercion for ExclusiveSystemDescriptor {
-    fn label(mut self, label: Label) -> ExclusiveSystemDescriptor {
-        self.label = Some(label);
+    fn label(mut self, label: impl Into<Cow<'static, str>>) -> ExclusiveSystemDescriptor {
+        self.label = Some(label.into());
         self
     }
 
-    fn before(mut self, label: Label) -> ExclusiveSystemDescriptor {
-        self.before.push(label);
+    fn before(mut self, label: impl Into<Cow<'static, str>>) -> ExclusiveSystemDescriptor {
+        self.before.push(label.into());
         self
     }
 
-    fn after(mut self, label: Label) -> ExclusiveSystemDescriptor {
-        self.after.push(label);
+    fn after(mut self, label: impl Into<Cow<'static, str>>) -> ExclusiveSystemDescriptor {
+        self.after.push(label.into());
         self
     }
 
@@ -193,15 +192,15 @@ impl<T> ExclusiveSystemDescriptorCoercion for T
 where
     T: ExclusiveSystem + 'static,
 {
-    fn label(self, label: Label) -> ExclusiveSystemDescriptor {
+    fn label(self, label: impl Into<Cow<'static, str>>) -> ExclusiveSystemDescriptor {
         new_exclusive_descriptor(Box::new(self)).label(label)
     }
 
-    fn before(self, label: Label) -> ExclusiveSystemDescriptor {
+    fn before(self, label: impl Into<Cow<'static, str>>) -> ExclusiveSystemDescriptor {
         new_exclusive_descriptor(Box::new(self)).before(label)
     }
 
-    fn after(self, label: Label) -> ExclusiveSystemDescriptor {
+    fn after(self, label: impl Into<Cow<'static, str>>) -> ExclusiveSystemDescriptor {
         new_exclusive_descriptor(Box::new(self)).after(label)
     }
 

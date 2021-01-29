@@ -2,27 +2,27 @@ use std::{borrow::Cow, ptr::NonNull};
 
 use crate::{ExclusiveSystem, System};
 
-type Label = &'static str; // TODO
-
 pub(super) trait SystemContainer {
     fn display_name(&self) -> Cow<'static, str>;
     fn set(&self) -> usize;
-    fn label(&self) -> &Option<Label>;
-    fn before(&self) -> &[Label];
-    fn after(&self) -> &[Label];
+    fn label(&self) -> &Option<Cow<'static, str>>;
+    fn before(&self) -> &[Cow<'static, str>];
+    fn after(&self) -> &[Cow<'static, str>];
 }
 
 pub(super) struct ExclusiveSystemContainer {
     pub system: Box<dyn ExclusiveSystem>,
     pub set: usize,
-    pub label: Option<Label>,
-    pub before: Vec<Label>,
-    pub after: Vec<Label>,
+    pub label: Option<Cow<'static, str>>,
+    pub before: Vec<Cow<'static, str>>,
+    pub after: Vec<Cow<'static, str>>,
 }
 
 impl SystemContainer for ExclusiveSystemContainer {
     fn display_name(&self) -> Cow<'static, str> {
         self.label
+            .as_ref()
+            .cloned()
             .map(|label| label.into())
             .unwrap_or_else(|| self.system.name())
     }
@@ -31,15 +31,15 @@ impl SystemContainer for ExclusiveSystemContainer {
         self.set
     }
 
-    fn label(&self) -> &Option<Label> {
+    fn label(&self) -> &Option<Cow<'static, str>> {
         &self.label
     }
 
-    fn before(&self) -> &[Label] {
+    fn before(&self) -> &[Cow<'static, str>] {
         &self.before
     }
 
-    fn after(&self) -> &[Label] {
+    fn after(&self) -> &[Cow<'static, str>] {
         &self.after
     }
 }
@@ -49,14 +49,16 @@ pub struct ParallelSystemContainer {
     pub(super) should_run: bool,
     pub(super) dependencies: Vec<usize>,
     pub(super) set: usize,
-    pub(super) label: Option<Label>,
-    pub(super) before: Vec<Label>,
-    pub(super) after: Vec<Label>,
+    pub(super) label: Option<Cow<'static, str>>,
+    pub(super) before: Vec<Cow<'static, str>>,
+    pub(super) after: Vec<Cow<'static, str>>,
 }
 
 impl SystemContainer for ParallelSystemContainer {
     fn display_name(&self) -> Cow<'static, str> {
         self.label
+            .as_ref()
+            .cloned()
             .map(|label| label.into())
             .unwrap_or_else(|| self.system().name())
     }
@@ -65,15 +67,15 @@ impl SystemContainer for ParallelSystemContainer {
         self.set
     }
 
-    fn label(&self) -> &Option<Label> {
+    fn label(&self) -> &Option<Cow<'static, str>> {
         &self.label
     }
 
-    fn before(&self) -> &[&'static str] {
+    fn before(&self) -> &[Cow<'static, str>] {
         &self.before
     }
 
-    fn after(&self) -> &[&'static str] {
+    fn after(&self) -> &[Cow<'static, str>] {
         &self.after
     }
 }

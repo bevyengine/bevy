@@ -26,8 +26,6 @@ pub trait Stage: Downcast + Send + Sync {
 
 impl_downcast!(Stage);
 
-type Label = &'static str; // TODO
-
 struct VirtualSystemSet {
     run_criteria: RunCriteria,
     should_run: ShouldRun,
@@ -294,8 +292,14 @@ fn build_dependency_graph(systems: &[impl SystemContainer]) -> HashMap<usize, Ve
     let labels = systems
         .iter()
         .enumerate()
-        .filter_map(|(index, container)| container.label().map(|label| (label, index)))
-        .collect::<HashMap<Label, usize>>();
+        .filter_map(|(index, container)| {
+            container
+                .label()
+                .as_ref()
+                .cloned()
+                .map(|label| (label, index))
+        })
+        .collect::<HashMap<Cow<'static, str>, usize>>();
     let resolve_label = |label| {
         labels
             .get(label)
