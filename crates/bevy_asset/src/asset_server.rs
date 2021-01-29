@@ -30,7 +30,7 @@ pub enum AssetServerError {
 }
 
 fn format_missing_asset_ext(exts: &[String]) -> String {
-    if exts.is_empty() {
+    if !exts.is_empty() {
         format!(
             " for the following extension{}: {}",
             if exts.len() > 1 { "s" } else { "" },
@@ -570,6 +570,28 @@ mod test {
                 _ => false,
             }
         )
+    }
+
+    #[test]
+    fn missing_asset_loader_error_messages() {
+        assert_eq!(
+            AssetServerError::MissingAssetLoader { extensions: vec![] }.to_string(),
+            "no `AssetLoader` found"
+        );
+        assert_eq!(
+            AssetServerError::MissingAssetLoader {
+                extensions: vec!["png".into()]
+            }
+            .to_string(),
+            "no `AssetLoader` found for the following extension: png"
+        );
+        assert_eq!(
+            AssetServerError::MissingAssetLoader {
+                extensions: vec!["1.2.png".into(), "2.png".into(), "png".into()]
+            }
+            .to_string(),
+            "no `AssetLoader` found for the following extensions: 1.2.png, 2.png, png"
+        );
     }
 
     #[test]
