@@ -298,9 +298,8 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
         LoadedAsset::new(StandardMaterial {
             albedo: Color::rgba(color[0], color[1], color[2], color[3]),
             albedo_texture: texture_handle,
-            shaded: !material.unlit(),
-            ..Default::default()
-        })
+            shaded: !material.unlit()
+          })
         .with_dependencies(dependencies),
     )
 }
