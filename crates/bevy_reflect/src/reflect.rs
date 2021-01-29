@@ -1,4 +1,4 @@
-use crate::{serde::Serializable, List, Map, Struct, Tuple, TupleStruct};
+use crate::{serde::Serializable, Enum, List, Map, Struct, Tuple, TupleStruct};
 use std::{any::Any, fmt::Debug};
 
 pub use bevy_utils::AHasher as ReflectHasher;
@@ -9,6 +9,7 @@ pub enum ReflectRef<'a> {
     Tuple(&'a dyn Tuple),
     List(&'a dyn List),
     Map(&'a dyn Map),
+    Enum(&'a dyn Enum),
     Value(&'a dyn Reflect),
 }
 
@@ -18,6 +19,7 @@ pub enum ReflectMut<'a> {
     Tuple(&'a mut dyn Tuple),
     List(&'a mut dyn List),
     Map(&'a mut dyn Map),
+    Enum(&'a mut dyn Enum),
     Value(&'a mut dyn Reflect),
 }
 

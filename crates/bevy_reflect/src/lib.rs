@@ -1,3 +1,4 @@
+mod enum_trait;
 mod list;
 mod map;
 mod path;
@@ -41,6 +42,7 @@ pub mod prelude {
     };
 }
 
+pub use enum_trait::*;
 pub use impls::*;
 pub use list::*;
 pub use map::*;
