@@ -235,7 +235,7 @@ impl AppBuilder {
     where
         R: FromResources + Send + Sync + 'static,
     {
-        if self.resources().contains::<R>() {
+        if !self.resources().contains::<R>() {
             let resource = R::from_resources(&self.app.resources);
             self.add_resource(resource);
         }
@@ -247,7 +247,7 @@ impl AppBuilder {
     where
         R: FromResources + 'static,
     {
-        if self.app.resources.get_thread_local::<R>().is_some() {
+        if self.app.resources.get_thread_local::<R>().is_none() {
             let resource = R::from_resources(&self.app.resources);
             self.app.resources.insert_thread_local(resource);
         }
