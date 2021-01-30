@@ -235,7 +235,7 @@ impl AppBuilder {
     where
         R: FromResources + Send + Sync + 'static,
     {
-        // We could avoid double hashing here, since the `from_resources` call is guaranteed not to
+        // PERF: We could avoid double hashing here, since the `from_resources` call is guaranteed not to
         // modify the map. However, we would need to be borrowing resources both mutably and immutably,
         // so we would need to be extremely certain this is correct
         if !self.resources().contains::<R>() {
