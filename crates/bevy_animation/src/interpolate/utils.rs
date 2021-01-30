@@ -1,4 +1,6 @@
 use std::ops::{Add, Div, Mul, Sub};
+
+use bevy_math::{Vec2, Vec3};
 use ultraviolet::{f32x4, f32x8, Vec4x4, Vec4x8};
 use wide::{i32x4, i32x8};
 
@@ -24,6 +26,14 @@ pub struct Quatx8(pub Vec4x8);
 
 // wide_quat!(Quat4);
 // wide_quat!(Quat8);
+
+/// Used to change the blending semantics of a `Vec2`
+#[derive(Debug, Clone)]
+pub struct Scale2(pub Vec2);
+
+/// Used to change the blending semantics of a `Vec3`
+#[derive(Debug, Clone)]
+pub struct Scale3(pub Vec3);
 
 /// Quake 3 fast inverse sqrt
 ///

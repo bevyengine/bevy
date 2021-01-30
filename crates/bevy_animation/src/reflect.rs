@@ -34,6 +34,7 @@ type AnimateFn = unsafe fn(
     time: f32,
     w: f32,
     prop: &Property,
+    additive: bool,
 );
 
 /// Register how to animate custom types
@@ -108,6 +109,7 @@ unsafe fn animate<T>(
     time: f32,
     w: f32,
     prop: &Property,
+    additive: bool,
 ) where
     T: Lerp + Blend + Clone + 'static,
 {
@@ -129,7 +131,15 @@ unsafe fn animate<T>(
 
                 // Unsafe portion
                 let value = &mut *(component.offset(prop.offset) as *mut T);
-                value.blend(entity_index, prop.mask, blend_group, v, w);
+                value.blend(
+                    entity_index,
+                    prop.mask,
+                    prop.slot,
+                    blend_group,
+                    v,
+                    w,
+                    additive,
+                );
             }
         }
 
@@ -140,7 +150,15 @@ unsafe fn animate<T>(
                 if let Some(component) = (get_mut)(entity_index) {
                     // Unsafe portion
                     let value = &mut *(component.offset(prop.offset) as *mut T);
-                    value.blend(entity_index, prop.mask, blend_group, v, w);
+                    value.blend(
+                        entity_index,
+                        prop.mask,
+                        prop.slot,
+                        blend_group,
+                        v,
+                        w,
+                        additive,
+                    );
                 }
             };
 
@@ -158,12 +176,14 @@ struct Property {
     index: usize,
     offset: isize,
     mask: Mask,
+    slot: usize,
 }
 
 // Defines how to animate an type
 pub(crate) struct AnimatorDescriptor<T> {
     ver: usize,
     short_name: String,
+    weight_slots: usize,
     dynamic_properties: Vec<Property>,
     animator_blending: AnimatorBlending,
     _marker: PhantomData<T>,
@@ -174,6 +194,7 @@ impl<T> Default for AnimatorDescriptor<T> {
         Self {
             ver: 0,
             short_name: String::new(),
+            weight_slots: 0,
             dynamic_properties: vec![],
             animator_blending: AnimatorBlending::default(),
             _marker: PhantomData,
@@ -208,6 +229,7 @@ impl<T: Struct> AnimatorDescriptor<T> {
     }
 
     fn build(instance: &T, base_path: &str) -> Self {
+        let mut weight_slots = 0;
         let mut dynamic_properties = vec![];
 
         // Lazy initialize the descriptor
@@ -219,6 +241,10 @@ impl<T: Struct> AnimatorDescriptor<T> {
                     base_path, MASK_LIMIT
                 );
             }
+
+            // TODO: Reduce the number of slots needed
+            let slot = weight_slots;
+            weight_slots += 1;
 
             let field_name = instance.name_at(i).unwrap();
             // NOTE: Pre calculate all the space needed to make in a single allocation (untested)
@@ -251,10 +277,12 @@ impl<T: Struct> AnimatorDescriptor<T> {
                 index,
                 offset,
                 mask,
+                slot,
             });
         }
 
         Self {
+            weight_slots,
             dynamic_properties,
             ..Default::default()
         }
@@ -312,7 +340,7 @@ pub(crate) fn animate_component_system<T: Component>(
 
         let mut blend_group = descriptor
             .animator_blending
-            .begin_blending(cached_components.len());
+            .begin_blending(cached_components.len(), descriptor.weight_slots);
 
         let mut get_mut_components = |index: usize| -> Option<*mut u8> {
             // NOTE: Will trigger the `Changed` event to the right types
@@ -357,6 +385,7 @@ pub(crate) fn animate_component_system<T: Component>(
                             time,
                             w,
                             &prop,
+                            layer.additive,
                         )
                     }
                 }
@@ -429,7 +458,7 @@ pub(crate) fn animate_asset_system<T: Asset>(
 
         let mut blend_group = descriptor
             .animator_blending
-            .begin_blending(cached_components.len());
+            .begin_blending(cached_components.len(), descriptor.weight_slots + 1);
 
         // Animate asset handle
 
@@ -464,6 +493,7 @@ pub(crate) fn animate_asset_system<T: Asset>(
                     );
                 }
                 let prop_mask = 1 << descriptor.dynamic_properties.len();
+                let prop_slot = descriptor.weight_slots + 1;
 
                 // ? NOTE: Maybe a bit incontinent to have this `animate` function inlined here,
                 // ? but it will make the code more safe and also faster
@@ -482,7 +512,15 @@ pub(crate) fn animate_asset_system<T: Asset>(
                             *kr = k;
 
                             let value = &mut **component;
-                            value.blend(entity_index, prop_mask, &mut blend_group, v, w);
+                            value.blend(
+                                entity_index,
+                                prop_mask,
+                                prop_slot,
+                                &mut blend_group,
+                                v,
+                                w,
+                                layer.additive,
+                            );
                         }
                     }
 
@@ -493,7 +531,15 @@ pub(crate) fn animate_asset_system<T: Asset>(
                             let entity_index = entities_map[output_lane as usize] as usize;
                             if let Some(ref mut component) = cached_components[entity_index] {
                                 let value = &mut **component;
-                                value.blend(entity_index, prop_mask, &mut blend_group, v, w);
+                                value.blend(
+                                    entity_index,
+                                    prop_mask,
+                                    prop_slot,
+                                    &mut blend_group,
+                                    v,
+                                    w,
+                                    layer.additive,
+                                );
                             }
                         };
 
@@ -565,6 +611,7 @@ pub(crate) fn animate_asset_system<T: Asset>(
                             time,
                             w,
                             &prop,
+                            layer.additive,
                         )
                     }
                 }

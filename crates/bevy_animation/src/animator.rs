@@ -495,6 +495,7 @@ pub struct Layer {
     pub clip: usize,
     pub time: f32,
     pub time_scale: f32,
+    pub additive: bool,
     #[reflect(ignore)]
     keyframes_buckets: Vec<KeyframeBucket>,
     // TODO: LayerMask
@@ -507,6 +508,7 @@ impl Default for Layer {
             clip: 0,
             time: 0.0,
             time_scale: 1.0,
+            additive: false,
             keyframes_buckets: vec![],
         }
     }
@@ -519,6 +521,7 @@ impl fmt::Debug for Layer {
             .field("clip", &self.clip)
             .field("time", &self.time)
             .field("time_scale", &self.time_scale)
+            .field("additive", &self.additive)
             .finish()
     }
 }

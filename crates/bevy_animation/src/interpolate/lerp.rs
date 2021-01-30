@@ -5,7 +5,7 @@ use ultraviolet::{f32x4, f32x8, Vec3x4, Vec3x8, Vec4x4, Vec4x8};
 
 use super::utils::*;
 
-// TODO: add Rotors
+// TODO: add Rotors?
 
 /// Defines how a particular type will be interpolated
 pub trait Lerp {
@@ -143,6 +143,20 @@ impl Lerp for Quatx8 {
         let q = Vec4x8::lerp(&a.0, &b, t);
         let d = inv_sqrt8(q.dot(q));
         Quatx8(q * d)
+    }
+}
+
+impl Lerp for Scale2 {
+    #[inline(always)]
+    fn lerp(a: &Self, b: &Self, t: f32) -> Self {
+        Scale2(Vec2::lerp(a.0, b.0, t))
+    }
+}
+
+impl Lerp for Scale3 {
+    #[inline(always)]
+    fn lerp(a: &Self, b: &Self, t: f32) -> Self {
+        Scale3(Vec3::lerp(a.0, b.0, t))
     }
 }
 
