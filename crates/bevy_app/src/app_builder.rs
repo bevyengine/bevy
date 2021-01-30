@@ -240,7 +240,7 @@ impl AppBuilder {
         // so we would need to be extremely certain this is correct
         if !self.resources().contains::<R>() {
             let resource = R::from_resources(&self.resources());
-            self.add_resource(resource);
+            self.insert_resource(resource);
         }
 
         self
