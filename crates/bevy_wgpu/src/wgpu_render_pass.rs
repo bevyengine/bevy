@@ -2,12 +2,11 @@ use crate::{renderer::WgpuRenderContext, wgpu_type_converter::WgpuInto, WgpuReso
 use bevy_asset::Handle;
 use bevy_render::{
     pass::RenderPass,
-    pipeline::{BindGroupDescriptorId, IndexFormat, PipelineDescriptor},
+    pipeline::{BindGroupDescriptorId, BindingShaderStage, IndexFormat, PipelineDescriptor},
     renderer::{BindGroupId, BufferId, RenderContext},
 };
 use bevy_utils::tracing::trace;
 use std::ops::Range;
-use bevy_render::pipeline::BindingShaderStage;
 
 #[derive(Debug)]
 pub struct WgpuRenderPass<'a> {

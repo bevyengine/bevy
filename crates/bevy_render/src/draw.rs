@@ -1,6 +1,7 @@
 use crate::{
     pipeline::{
-        IndexFormat, PipelineCompiler, PipelineDescriptor, PipelineLayout, PipelineSpecialization,
+        BindingShaderStage, IndexFormat, PipelineCompiler, PipelineDescriptor, PipelineLayout,
+        PipelineSpecialization,
     },
     renderer::{
         AssetRenderResourceBindings, BindGroup, BindGroupId, BufferId, RenderResource,
@@ -16,7 +17,6 @@ use bevy_ecs::{
 use bevy_reflect::Reflect;
 use std::{ops::Range, sync::Arc};
 use thiserror::Error;
-use crate::pipeline::BindingShaderStage;
 
 /// A queued command for the renderer
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -42,7 +42,7 @@ pub enum RenderCommand {
     SetPushConstants {
         stages: BindingShaderStage,
         offset: u32,
-        data: Arc<[u8]>
+        data: Arc<[u8]>,
     },
     DrawIndexed {
         indices: Range<u32>,

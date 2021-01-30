@@ -1,12 +1,13 @@
 use super::{BindGroupDescriptor, VertexBufferLayout};
-use crate::shader::ShaderLayout;
+use crate::{pipeline::BindingShaderStage, shader::ShaderLayout};
 use bevy_utils::HashMap;
-use std::hash::Hash;
+use std::{hash::Hash, ops::Range};
 
 #[derive(Clone, Debug, Default)]
 pub struct PipelineLayout {
     pub bind_groups: Vec<BindGroupDescriptor>,
     pub vertex_buffer_descriptors: Vec<VertexBufferLayout>,
+    pub push_constant_ranges: Vec<PushConstantRange>,
 }
 
 impl PipelineLayout {
@@ -65,6 +66,8 @@ impl PipelineLayout {
         PipelineLayout {
             bind_groups: bind_groups_result,
             vertex_buffer_descriptors,
+            // TODO: get push constant ranges from shader layout
+            push_constant_ranges: vec![],
         }
     }
 }
@@ -102,4 +105,14 @@ impl UniformProperty {
             UniformProperty::Array(property, length) => property.get_size() * *length as u64,
         }
     }
+}
+
+#[derive(Hash, Clone, Debug)]
+pub struct PushConstantRange {
+    /// Stage push constant range is visible from. Each stage can only be served by at most one range.
+    /// One range can serve multiple stages however.
+    pub stages: BindingShaderStage,
+    /// Range in push constant memory to use for the stage. Must be less than [`Limits::max_push_constant_size`].
+    /// Start and end must be aligned to the 4s.
+    pub range: Range<u32>,
 }
