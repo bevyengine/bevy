@@ -2,6 +2,9 @@ use std::{
     any::{type_name, Any, TypeId},
     borrow::Cow,
     collections::{HashMap, HashSet},
+    convert::TryFrom,
+    convert::TryInto,
+    fmt,
 };
 
 use anyhow::Result;
@@ -9,6 +12,7 @@ use bevy_app::prelude::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::prelude::*;
 use bevy_ecs::prelude::*;
+use bevy_math::prelude::*;
 use bevy_reflect::{Reflect, ReflectComponent, TypeUuid};
 use bevy_transform::prelude::*;
 use fnv::FnvBuildHasher;
@@ -19,7 +23,9 @@ use crate::{
     blending::AnimatorBlending,
     hierarchy::Hierarchy,
     interpolate::Lerp,
-    tracks::{Track, TrackBase, TrackNBase},
+    tracks::ArrayN,
+    tracks::{Track, TrackBase, TrackFixed, TrackFixedN, TrackNBase, ValueN},
+    wide::{Quatx8, Vec3x8},
 };
 
 // TODO: Load Clip name from gltf
@@ -55,8 +61,8 @@ pub struct Tracks<T> {
     n: Vec<(usize, TrackNBase<T>)>,
 }
 
-impl<T> std::fmt::Debug for Tracks<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<T> fmt::Debug for Tracks<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Tracks").field(&self.len()).finish()
     }
 }
@@ -108,8 +114,8 @@ impl TrackMeta {
     }
 }
 
-impl std::fmt::Debug for TrackMeta {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for TrackMeta {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("TrackMeta").field(&self.0).finish()
     }
 }
@@ -334,6 +340,87 @@ impl Clip {
         cache_index
     }
 
+    #[inline(always)]
+    fn pack_by_type<V>(sampling_rate: f32, tracks: &mut Tracks<V::Value>) -> usize
+    where
+        V: ValueN + Lerp + Clone + Send + Sync + 'static,
+        <V as ValueN>::Value: Default + Send + Sync + 'static,
+        <V as ValueN>::Outputs: Default + Copy + Send + Sync + 'static,
+        <V as ValueN>::Lanes: for<'a> TryFrom<&'a [u16]> + Send + Sync + 'static,
+    {
+        let mut total = 0;
+        let mut left = tracks.tracks.len();
+
+        while left >= V::size() {
+            let lanes: V::Lanes = if let Ok(lanes) = tracks.outputs[0..V::size()].try_into() {
+                lanes
+            } else {
+                panic!("not enough output lanes");
+            };
+
+            let group = &tracks.tracks[0..8];
+            let d = group
+                .iter()
+                .fold(0.0f32, |acc, (_, t)| acc.max(t.duration()));
+
+            let f = (d * sampling_rate).trunc();
+            // Actual frame rate, is approximated the desired sampling rate,
+            // but isn't always equal to avoid loop seams
+            let frame_rate = d / f;
+            let frame_count = f as usize;
+
+            let mut v = V::Outputs::default();
+            let mut keyframes: Vec<V> = Vec::with_capacity(frame_count);
+            for frame_index in 0..frame_count {
+                let time = (frame_index as f32) * frame_rate;
+
+                for (i, (_, t)) in group.iter().enumerate() {
+                    *v.get_mut(i) = t.sample(time);
+                }
+
+                keyframes.push(V::pack(v));
+            }
+
+            let track_packed = TrackFixedN {
+                lanes,
+                len: V::size() as u16,
+                track: TrackFixed::from_keyframes(1.0 / frame_rate, 0, keyframes),
+            };
+
+            tracks.n.push((group[0].0, Box::new(track_packed)));
+
+            tracks.outputs.drain(0..V::size());
+            tracks.tracks.drain(0..V::size());
+            left -= V::size();
+
+            total += 1;
+        }
+
+        total
+    }
+
+    /// Packs single lane tracks into multi lane tracks, increases the performance trading memory
+    /// so the sampling mechanism can issue as many SIMD instruction as possible;
+    ///
+    /// **NOTE** Only a handful of types can be packed, like `Vec3` and `Quat`, more should
+    /// be added in the future;
+    ///
+    /// **NOTE** This is a very expensive function, it works by re-sampling each
+    /// curve at approximately the desired `sampling_rate`, it will preserve the clip total duration
+    /// but can't handle start offsets, so make sure all the tracks starts at time 0.0;
+    pub fn pack(&mut self, sampling_rate: f32) {
+        // println!("packing clip '{}'", self.name);
+
+        for (_, (_, tracks_untyped)) in self.properties.iter_mut() {
+            // TODO: Support more types
+            if let Some(tracks) = tracks_untyped.downcast_mut::<Vec3>() {
+                Self::pack_by_type::<Vec3x8>(sampling_rate, tracks);
+            } else if let Some(tracks) = tracks_untyped.downcast_mut::<Quat>() {
+                Self::pack_by_type::<Quatx8>(sampling_rate, tracks);
+            }
+        }
+    }
+
     /// Number of animated properties in this clip
     #[inline(always)]
     pub fn len(&self) -> usize {
@@ -425,8 +512,8 @@ impl Default for Layer {
     }
 }
 
-impl std::fmt::Debug for Layer {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for Layer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Layer")
             .field("weight", &self.weight)
             .field("clip", &self.clip)

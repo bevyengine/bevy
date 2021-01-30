@@ -23,9 +23,9 @@ impl<T: Clone> Clone for TrackFixed<T> {
 }
 
 impl<T> TrackFixed<T> {
-    pub fn from_keyframes(frame_rate: usize, offset: isize, keyframes: Vec<T>) -> Self {
+    pub fn from_keyframes(frame_rate: f32, offset: isize, keyframes: Vec<T>) -> Self {
         let curve = Self {
-            frame_rate: frame_rate as f32,
+            frame_rate,
             negative_offset: -(offset as f32),
             keyframes,
         };
@@ -41,6 +41,10 @@ impl<T> TrackFixed<T> {
         }
     }
 
+    pub fn keyframes_mut(&mut self) -> &mut [T] {
+        &mut self.keyframes[..]
+    }
+
     // pub fn insert(&mut self, time_sample: f32, value: T) {
     // }
 
@@ -48,8 +52,12 @@ impl<T> TrackFixed<T> {
     //assert!(samples.len() > 1, "curve can't be empty");
     // }
 
-    pub const fn frame_rate(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.frame_rate as usize
+    }
+
+    pub fn frame_rate(&self) -> usize {
+        self.keyframes.len()
     }
 
     pub fn offset(&self) -> isize {

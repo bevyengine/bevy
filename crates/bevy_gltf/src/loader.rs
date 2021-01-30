@@ -341,6 +341,8 @@ async fn load_gltf<'a, 'b>(
             clip.add_track_at_path(&property_path, curve);
         }
 
+        clip.pack(30.0);
+
         load_context.set_labeled_asset(&anim_label, LoadedAsset::new(clip));
 
         let path = AssetPath::new_ref(load_context.path(), Some(&anim_label));

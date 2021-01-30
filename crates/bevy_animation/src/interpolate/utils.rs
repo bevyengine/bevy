@@ -2,6 +2,8 @@ use std::ops::{Add, Div, Mul, Sub};
 use ultraviolet::{f32x4, f32x8, Vec4x4, Vec4x8};
 use wide::{i32x4, i32x8};
 
+// TODO: Add Quat support to ultraviolet?
+
 /// Wide quaternion
 #[derive(Debug, Clone)]
 pub struct Quatx4(pub Vec4x4);
