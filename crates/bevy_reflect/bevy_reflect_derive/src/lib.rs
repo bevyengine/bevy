@@ -665,12 +665,8 @@ fn impl_enum(
             Ident::new("unused", Span::call_site())
         };
         let wrapper_name = match &variant.fields {
-            Fields::Named(struct_fields) => {
-                quote!(#struct_fields).to_string()
-            }
-            Fields::Unnamed(tuple_fields) => {
-                quote!(#tuple_fields).to_string()
-            }
+            Fields::Named(struct_fields) => quote!(#struct_fields).to_string(),
+            Fields::Unnamed(tuple_fields) => quote!(#tuple_fields).to_string(),
             Fields::Unit => "unused".to_string(),
         };
         let reflect_variant = {
@@ -880,7 +876,7 @@ fn impl_enum(
         wrapper_ident,
         wrapper_name,
         variant_index,
-        variant_name,
+        _variant_name,
         _variant_ident,
         variant_and_fields_ident,
         fields,
@@ -1030,7 +1026,7 @@ fn impl_enum(
         wrapper_ident,
         wrapper_name,
         variant_index,
-        variant_name,
+        _variant_name,
         _variant_ident,
         variant_and_fields_ident,
         fields,
