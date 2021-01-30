@@ -223,7 +223,7 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_thread_local_resource<T>(&mut self, resource: T) -> &mut Self
+    pub fn insert_thread_local_resource<T>(&mut self, resource: T) -> &mut Self
     where
         T: 'static,
     {
