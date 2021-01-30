@@ -25,12 +25,13 @@ mod trait_reflection;
 mod type_uuid;
 mod utility;
 
+use crate::container_attributes::ReflectTraits;
 use crate::derive_data::ReflectDeriveData;
 use derive_data::DeriveType;
 use proc_macro::TokenStream;
 use quote::quote;
 use reflect_value::ReflectValueDef;
-use syn::{parse_macro_input, DeriveInput};
+use syn::{parse_macro_input, Data, DeriveInput, Meta};
 
 pub(crate) static REFLECT_ATTRIBUTE_NAME: &str = "reflect";
 pub(crate) static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
@@ -38,6 +39,49 @@ pub(crate) static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
 #[proc_macro_derive(Reflect, attributes(reflect, reflect_value, module))]
 pub fn derive_reflect(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
+
+    // TODO: Update and replace
+    if let Data::Enum(enum_data) = ast.data {
+        let mut traits = ReflectTraits::default();
+        for attribute in ast.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
+            let meta_list = if let Meta::List(meta_list) = attribute {
+                meta_list
+            } else {
+                continue;
+            };
+
+            if let Some(ident) = meta_list.path.get_ident() {
+                if ident == REFLECT_ATTRIBUTE_NAME {
+                    traits = ReflectTraits::from_nested_metas(&meta_list.nested);
+                } else if ident == REFLECT_VALUE_ATTRIBUTE_NAME {
+                    traits = ReflectTraits::from_nested_metas(&meta_list.nested);
+                }
+            }
+        }
+
+        let reflect_path = utility::get_bevy_reflect_path();
+
+        let variants = enum_data
+            .variants
+            .iter()
+            .enumerate()
+            .map(|(index, variant)| (variant, index))
+            .collect::<Vec<_>>();
+
+        return impls::impl_enum(
+            &ast.ident,
+            &ast.generics,
+            registration::impl_get_type_registration(
+                &ast.ident,
+                &reflect_path,
+                traits.idents(),
+                &ast.generics,
+            ),
+            &reflect_path,
+            &traits,
+            &variants,
+        );
+    }
 
     let derive_data = match ReflectDeriveData::from_input(&ast) {
         Ok(data) => data,
