@@ -52,7 +52,7 @@ impl Node for WindowTextureNode {
 
         let window = windows
             .get(self.window_id)
-            .expect("Node refers to a non-existent window.");
+            .expect("Window texture node refers to a non-existent window.");
 
         if self
             .window_created_event_reader
