@@ -35,7 +35,7 @@ fn setup_menu(
 ) {
     commands
         // ui camera
-        .spawn(CameraUiBundle::default())
+        .spawn(UiCameraBundle::default())
         .spawn(ButtonBundle {
             style: Style {
                 size: Size::new(Val::Px(150.0), Val::Px(65.0)),
@@ -104,7 +104,7 @@ fn setup_game(
 ) {
     let texture_handle = asset_server.load("branding/icon.png");
     commands
-        .spawn(Camera2dBundle::default())
+        .spawn(OrthographicCameraBundle::new_2d())
         .spawn(SpriteBundle {
             material: materials.add(texture_handle.into()),
             ..Default::default()

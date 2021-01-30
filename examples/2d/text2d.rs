@@ -11,7 +11,7 @@ fn main() {
 fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
     commands
         // 2d camera
-        .spawn(Camera2dBundle::default())
+        .spawn(OrthographicCameraBundle::new_2d())
         .spawn(Text2dBundle {
             text: Text::with_section(
                 "This text is in the 2D scene.",

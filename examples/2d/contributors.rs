@@ -55,8 +55,8 @@ fn setup(
     let texture_handle = asset_server.load("branding/icon.png");
 
     commands
-        .spawn(Camera2dBundle::default())
-        .spawn(CameraUiBundle::default());
+        .spawn(OrthographicCameraBundle::new_2d())
+        .spawn(UiCameraBundle::default());
 
     let mut sel = ContributorSelection {
         order: vec![],

@@ -82,7 +82,7 @@ fn setup(
                 });
         })
         // camera
-        .spawn(Camera3dBundle {
+        .spawn(PerspectiveCameraBundle {
             transform: Transform::from_xyz(5.0, 10.0, 10.0)
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()

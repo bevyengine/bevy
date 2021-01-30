@@ -50,8 +50,8 @@ fn main() {
 
 fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
     commands
-        .spawn(Camera2dBundle::default())
-        .spawn(CameraUiBundle::default())
+        .spawn(OrthographicCameraBundle::new_2d())
+        .spawn(UiCameraBundle::default())
         .spawn(TextBundle {
             text: Text {
                 sections: vec![
