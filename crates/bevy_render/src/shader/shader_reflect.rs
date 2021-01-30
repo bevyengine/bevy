@@ -29,7 +29,7 @@ impl ShaderLayout {
                 }
 
                 // obtain attribute descriptors from reflection
-                let mut vertex_attribute_descriptors = Vec::new();
+                let mut vertex_attributes = Vec::new();
                 for input_variable in module.enumerate_input_variables(None).unwrap() {
                     if input_variable.name == GL_VERTEX_INDEX
                         || input_variable.name == GL_INSTANCE_INDEX
@@ -37,7 +37,7 @@ impl ShaderLayout {
                         continue;
                     }
                     // reflect vertex attribute descriptor and record it
-                    vertex_attribute_descriptors.push(VertexAttribute {
+                    vertex_attributes.push(VertexAttribute {
                         name: input_variable.name.clone().into(),
                         format: reflect_vertex_format(
                             input_variable.type_description.as_ref().unwrap(),
@@ -47,20 +47,20 @@ impl ShaderLayout {
                     });
                 }
 
-                vertex_attribute_descriptors
+                vertex_attributes
                     .sort_by(|a, b| a.shader_location.cmp(&b.shader_location));
 
-                let mut vertex_buffer_descriptors = Vec::new();
-                for vertex_attribute_descriptor in vertex_attribute_descriptors.drain(..) {
+                let mut vertex_buffer_layouts = Vec::new();
+                for vertex_attribute in vertex_attributes.drain(..) {
                     let mut instance = false;
                     // obtain buffer name and instancing flag
                     let current_buffer_name = {
                         if bevy_conventions {
-                            if vertex_attribute_descriptor.name == GL_VERTEX_INDEX {
+                            if vertex_attribute.name == GL_VERTEX_INDEX {
                                 GL_VERTEX_INDEX.to_string()
                             } else {
-                                instance = vertex_attribute_descriptor.name.starts_with("I_");
-                                vertex_attribute_descriptor.name.to_string()
+                                instance = vertex_attribute.name.starts_with("I_");
+                                vertex_attribute.name.to_string()
                             }
                         } else {
                             "DefaultVertex".to_string()
@@ -68,8 +68,8 @@ impl ShaderLayout {
                     };
 
                     // create a new buffer descriptor, per attribute!
-                    vertex_buffer_descriptors.push(VertexBufferLayout {
-                        attributes: vec![vertex_attribute_descriptor],
+                    vertex_buffer_layouts.push(VertexBufferLayout {
+                        attributes: vec![vertex_attribute],
                         name: current_buffer_name.into(),
                         step_mode: if instance {
                             InputStepMode::Instance
@@ -82,7 +82,7 @@ impl ShaderLayout {
 
                 ShaderLayout {
                     bind_groups,
-                    vertex_buffer_descriptors,
+                    vertex_buffer_layouts,
                     entry_point: entry_point_name,
                 }
             }

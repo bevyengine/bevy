@@ -142,7 +142,7 @@ pub fn draw_text_system(
     };
 
     let font_quad = meshes.get(&QUAD_HANDLE).unwrap();
-    let vertex_buffer_descriptor = font_quad.get_vertex_buffer_descriptor();
+    let vertex_buffer_layout = font_quad.get_vertex_buffer_layout();
 
     for (entity, mut draw, visible, text, node, global_transform) in query.iter_mut() {
         if !visible.is_visible {
@@ -158,7 +158,7 @@ pub fn draw_text_system(
                 scale_factor: scale_factor as f32,
                 msaa: &msaa,
                 text_glyphs: &text_glyphs.glyphs,
-                font_quad_vertex_descriptor: &vertex_buffer_descriptor,
+                font_quad_vertex_layout: &vertex_buffer_layout,
                 sections: &text.sections,
             };
 

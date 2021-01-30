@@ -73,7 +73,7 @@ pub fn draw_text2d_system(
     >,
 ) {
     let font_quad = meshes.get(&QUAD_HANDLE).unwrap();
-    let vertex_buffer_descriptor = font_quad.get_vertex_buffer_descriptor();
+    let font_quad_vertex_layout = font_quad.get_vertex_buffer_layout();
 
     let scale_factor = if let Some(window) = windows.get_primary() {
         window.scale_factor() as f32
@@ -106,7 +106,7 @@ pub fn draw_text2d_system(
                 position,
                 msaa: &msaa,
                 text_glyphs: &text_glyphs.glyphs,
-                font_quad_vertex_descriptor: &vertex_buffer_descriptor,
+                font_quad_vertex_layout: &font_quad_vertex_layout,
                 scale_factor,
                 sections: &text.sections,
             };

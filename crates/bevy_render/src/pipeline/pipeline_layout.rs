@@ -49,7 +49,7 @@ impl PipelineLayout {
             }
         }
 
-        for vertex_buffer_descriptor in shader_layouts[0].vertex_buffer_descriptors.iter() {
+        for vertex_buffer_descriptor in shader_layouts[0].vertex_buffer_layouts.iter() {
             vertex_buffer_descriptors.push(vertex_buffer_descriptor.clone());
         }
 

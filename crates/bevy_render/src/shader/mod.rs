@@ -17,7 +17,7 @@ use crate::pipeline::{BindGroupDescriptor, VertexBufferLayout};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ShaderLayout {
     pub bind_groups: Vec<BindGroupDescriptor>,
-    pub vertex_buffer_descriptors: Vec<VertexBufferLayout>,
+    pub vertex_buffer_layouts: Vec<VertexBufferLayout>,
     pub entry_point: String,
 }
 

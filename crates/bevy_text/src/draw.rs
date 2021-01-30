@@ -19,7 +19,7 @@ pub struct DrawableText<'a> {
     pub sections: &'a [TextSection],
     pub text_glyphs: &'a Vec<PositionedGlyph>,
     pub msaa: &'a Msaa,
-    pub font_quad_vertex_descriptor: &'a VertexBufferLayout,
+    pub font_quad_vertex_layout: &'a VertexBufferLayout,
 }
 
 impl<'a> Drawable for DrawableText<'a> {
@@ -29,7 +29,7 @@ impl<'a> Drawable for DrawableText<'a> {
             &bevy_sprite::SPRITE_SHEET_PIPELINE_HANDLE.typed(),
             &PipelineSpecialization {
                 sample_count: self.msaa.samples,
-                vertex_buffer_descriptor: self.font_quad_vertex_descriptor.clone(),
+                vertex_buffer_descriptor: self.font_quad_vertex_layout.clone(),
                 ..Default::default()
             },
         )?;

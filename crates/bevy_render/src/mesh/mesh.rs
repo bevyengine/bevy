@@ -256,7 +256,7 @@ impl Mesh {
         })
     }
 
-    pub fn get_vertex_buffer_descriptor(&self) -> VertexBufferLayout {
+    pub fn get_vertex_buffer_layout(&self) -> VertexBufferLayout {
         let mut attributes = Vec::new();
         let mut accumulated_offset = 0;
         for (attribute_name, attribute_values) in self.attributes.iter() {
@@ -454,7 +454,7 @@ fn update_entity_mesh(
         render_pipeline.specialization.primitive_topology = mesh.primitive_topology;
         // TODO: don't allocate a new vertex buffer descriptor for every entity
         render_pipeline.specialization.vertex_buffer_descriptor =
-            mesh.get_vertex_buffer_descriptor();
+            mesh.get_vertex_buffer_layout();
         render_pipeline.specialization.index_format = mesh.indices().map(|indices| indices.into());
     }
     if let Some(RenderResourceId::Buffer(index_buffer_resource)) =
