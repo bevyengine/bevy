@@ -1,7 +1,7 @@
 use crate::{
     pipeline::{
         BindGroupDescriptor, BindType, BindingDescriptor, BindingShaderStage, InputStepMode,
-        UniformProperty, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
+        UniformProperty, VertexAttribute, VertexBufferLayout, VertexFormat,
     },
     shader::{ShaderLayout, GL_INSTANCE_INDEX, GL_VERTEX_INDEX},
     texture::{TextureSampleType, TextureViewDimension},
@@ -37,7 +37,7 @@ impl ShaderLayout {
                         continue;
                     }
                     // reflect vertex attribute descriptor and record it
-                    vertex_attribute_descriptors.push(VertexAttributeDescriptor {
+                    vertex_attribute_descriptors.push(VertexAttribute {
                         name: input_variable.name.clone().into(),
                         format: reflect_vertex_format(
                             input_variable.type_description.as_ref().unwrap(),
@@ -68,7 +68,7 @@ impl ShaderLayout {
                     };
 
                     // create a new buffer descriptor, per attribute!
-                    vertex_buffer_descriptors.push(VertexBufferDescriptor {
+                    vertex_buffer_descriptors.push(VertexBufferLayout {
                         attributes: vec![vertex_attribute_descriptor],
                         name: current_buffer_name.into(),
                         step_mode: if instance {

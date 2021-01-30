@@ -1,6 +1,6 @@
 use super::{state_descriptors::PrimitiveTopology, IndexFormat, PipelineDescriptor};
 use crate::{
-    pipeline::{BindType, InputStepMode, VertexBufferDescriptor},
+    pipeline::{BindType, InputStepMode, VertexBufferLayout},
     renderer::RenderResourceContext,
     shader::{Shader, ShaderError},
 };
@@ -16,7 +16,7 @@ pub struct PipelineSpecialization {
     pub primitive_topology: PrimitiveTopology,
     pub dynamic_bindings: HashSet<String>,
     pub index_format: Option<IndexFormat>,
-    pub vertex_buffer_descriptor: VertexBufferDescriptor,
+    pub vertex_buffer_descriptor: VertexBufferLayout,
     pub sample_count: u32,
 }
 
@@ -201,7 +201,7 @@ impl PipelineCompiler {
         let mesh_vertex_buffer_descriptor = &pipeline_specialization.vertex_buffer_descriptor;
 
         // the vertex buffer descriptor that will be used for this pipeline
-        let mut compiled_vertex_buffer_descriptor = VertexBufferDescriptor {
+        let mut compiled_vertex_buffer_descriptor = VertexBufferLayout {
             step_mode: InputStepMode::Vertex,
             stride: mesh_vertex_buffer_descriptor.stride,
             ..Default::default()
@@ -234,12 +234,12 @@ impl PipelineCompiler {
         }
 
         //TODO: add other buffers (like instancing) here
-        let mut vertex_buffer_descriptors = Vec::<VertexBufferDescriptor>::default();
+        let mut vertex_buffer_descriptors = Vec::<VertexBufferLayout>::default();
         vertex_buffer_descriptors.push(compiled_vertex_buffer_descriptor);
 
         pipeline_layout.vertex_buffer_descriptors = vertex_buffer_descriptors;
-        specialized_descriptor.sample_count = pipeline_specialization.sample_count;
-        specialized_descriptor.primitive_topology = pipeline_specialization.primitive_topology;
+        specialized_descriptor.multisample.count = pipeline_specialization.sample_count;
+        specialized_descriptor.primitive.topology = pipeline_specialization.primitive_topology;
         specialized_descriptor.index_format = pipeline_specialization.index_format;
 
         let specialized_pipeline_handle = pipelines.add(specialized_descriptor);

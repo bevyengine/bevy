@@ -1,4 +1,4 @@
-use super::{BindGroupDescriptor, VertexBufferDescriptor};
+use super::{BindGroupDescriptor, VertexBufferLayout};
 use crate::shader::ShaderLayout;
 use bevy_utils::HashMap;
 use std::hash::Hash;
@@ -6,7 +6,7 @@ use std::hash::Hash;
 #[derive(Clone, Debug, Default)]
 pub struct PipelineLayout {
     pub bind_groups: Vec<BindGroupDescriptor>,
-    pub vertex_buffer_descriptors: Vec<VertexBufferDescriptor>,
+    pub vertex_buffer_descriptors: Vec<VertexBufferLayout>,
 }
 
 impl PipelineLayout {

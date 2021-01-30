@@ -3,7 +3,7 @@ use bevy_render::{
     draw::{Draw, DrawContext, DrawError, Drawable},
     mesh,
     mesh::Mesh,
-    pipeline::{PipelineSpecialization, VertexBufferDescriptor},
+    pipeline::{PipelineSpecialization, VertexBufferLayout},
     prelude::Msaa,
     renderer::{BindGroup, RenderResourceBindings, RenderResourceId},
 };
@@ -19,7 +19,7 @@ pub struct DrawableText<'a> {
     pub sections: &'a [TextSection],
     pub text_glyphs: &'a Vec<PositionedGlyph>,
     pub msaa: &'a Msaa,
-    pub font_quad_vertex_descriptor: &'a VertexBufferDescriptor,
+    pub font_quad_vertex_descriptor: &'a VertexBufferLayout,
 }
 
 impl<'a> Drawable for DrawableText<'a> {

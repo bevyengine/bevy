@@ -10,7 +10,7 @@ use bevy_math::*;
 use bevy_reflect::TypeUuid;
 use std::borrow::Cow;
 
-use crate::pipeline::{InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor};
+use crate::pipeline::{InputStepMode, VertexAttribute, VertexBufferLayout};
 use bevy_utils::{HashMap, HashSet};
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
@@ -256,12 +256,12 @@ impl Mesh {
         })
     }
 
-    pub fn get_vertex_buffer_descriptor(&self) -> VertexBufferDescriptor {
+    pub fn get_vertex_buffer_descriptor(&self) -> VertexBufferLayout {
         let mut attributes = Vec::new();
         let mut accumulated_offset = 0;
         for (attribute_name, attribute_values) in self.attributes.iter() {
             let vertex_format = VertexFormat::from(attribute_values);
-            attributes.push(VertexAttributeDescriptor {
+            attributes.push(VertexAttribute {
                 name: attribute_name.clone(),
                 offset: accumulated_offset,
                 format: vertex_format,
@@ -270,7 +270,7 @@ impl Mesh {
             accumulated_offset += vertex_format.get_size();
         }
 
-        VertexBufferDescriptor {
+        VertexBufferLayout {
             name: Default::default(),
             stride: accumulated_offset,
             step_mode: InputStepMode::Vertex,
