@@ -2,10 +2,10 @@ use bevy_render::{
     color::Color,
     pass::{LoadOp, Operations},
     pipeline::{
-        BindType, BlendFactor, BlendOperation, ColorWrite,
-        CompareFunction, CullMode, FrontFace, IndexFormat,
-        InputStepMode, PolygonMode, PrimitiveTopology,
-        StencilOperation,
+        BindType, BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrite,
+        CompareFunction, CullMode, DepthBiasState, DepthStencilState, FrontFace, IndexFormat,
+        InputStepMode, MultisampleState, PolygonMode, PrimitiveState, PrimitiveTopology,
+        StencilFaceState, StencilOperation, StencilState, VertexAttribute, VertexBufferLayout,
         VertexFormat,
     },
     renderer::BufferUsage,
@@ -17,7 +17,6 @@ use bevy_render::{
 };
 use bevy_window::Window;
 use wgpu::BufferBindingType;
-use bevy_render::pipeline::{BlendState, ColorTargetState, StencilState, StencilFaceState, DepthStencilState, DepthBiasState, PrimitiveState, MultisampleState, VertexAttribute, VertexBufferLayout};
 
 pub trait WgpuFrom<T> {
     fn from(val: T) -> Self;
@@ -370,7 +369,7 @@ impl WgpuFrom<DepthStencilState> for wgpu::DepthStencilState {
             format: val.format.wgpu_into(),
             stencil: (&val.stencil).wgpu_into(),
             bias: val.bias.wgpu_into(),
-            clamp_depth: val.clamp_depth
+            clamp_depth: val.clamp_depth,
         }
     }
 }
@@ -380,7 +379,7 @@ impl WgpuFrom<MultisampleState> for wgpu::MultisampleState {
         wgpu::MultisampleState {
             count: val.count,
             mask: val.mask,
-            alpha_to_coverage_enabled: val.alpha_to_coverage_enabled
+            alpha_to_coverage_enabled: val.alpha_to_coverage_enabled,
         }
     }
 }
@@ -516,10 +515,12 @@ impl WgpuFrom<PrimitiveState> for wgpu::PrimitiveState {
     fn from(val: PrimitiveState) -> Self {
         wgpu::PrimitiveState {
             topology: val.topology.wgpu_into(),
-            strip_index_format: val.strip_index_format.map(|index_format| index_format.wgpu_into()),
+            strip_index_format: val
+                .strip_index_format
+                .map(|index_format| index_format.wgpu_into()),
             front_face: val.front_face.wgpu_into(),
             cull_mode: val.cull_mode.wgpu_into(),
-            polygon_mode: val.polygon_mode.wgpu_into()
+            polygon_mode: val.polygon_mode.wgpu_into(),
         }
     }
 }

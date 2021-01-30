@@ -36,9 +36,9 @@ pub fn build_ui_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
             bias: DepthBiasState {
                 constant: 0,
                 slope_scale: 0.0,
-                clamp: 0.0
+                clamp: 0.0,
             },
-            clamp_depth: false
+            clamp_depth: false,
         }),
         color_target_states: vec![ColorTargetState {
             format: TextureFormat::default(),

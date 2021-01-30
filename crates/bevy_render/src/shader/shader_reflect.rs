@@ -47,8 +47,7 @@ impl ShaderLayout {
                     });
                 }
 
-                vertex_attributes
-                    .sort_by(|a, b| a.shader_location.cmp(&b.shader_location));
+                vertex_attributes.sort_by(|a, b| a.shader_location.cmp(&b.shader_location));
 
                 let mut vertex_buffer_layouts = Vec::new();
                 for vertex_attribute in vertex_attributes.drain(..) {

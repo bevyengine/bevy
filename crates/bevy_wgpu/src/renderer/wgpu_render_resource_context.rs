@@ -1,8 +1,6 @@
-use crate::{
-    wgpu_type_converter::{WgpuInto},
-    WgpuBindGroupInfo, WgpuResources,
-};
+use crate::{wgpu_type_converter::WgpuInto, WgpuBindGroupInfo, WgpuResources};
 
+use crate::wgpu_type_converter::OwnedWgpuVertexBufferLayout;
 use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_render::{
     pipeline::{
@@ -20,8 +18,6 @@ use bevy_window::{Window, WindowId};
 use futures_lite::future;
 use std::{borrow::Cow, num::NonZeroU64, ops::Range, sync::Arc};
 use wgpu::util::DeviceExt;
-use bevy_render::pipeline::{ColorTargetState, VertexBufferLayout};
-use crate::wgpu_type_converter::OwnedWgpuVertexBufferLayout;
 
 #[derive(Clone, Debug)]
 pub struct WgpuRenderResourceContext {
@@ -491,18 +487,21 @@ impl RenderResourceContext for WgpuRenderResourceContext {
                 buffers: &owned_vertex_buffer_descriptors
                     .iter()
                     .map(|v| v.into())
-                    .collect::<Vec<wgpu::VertexBufferLayout>>()
+                    .collect::<Vec<wgpu::VertexBufferLayout>>(),
             },
             fragment: match pipeline_descriptor.shader_stages.fragment {
                 Some(_) => Some(wgpu::FragmentState {
                     entry_point: "main",
                     module: fragment_shader_module.as_ref().unwrap(),
-                    targets: color_states.as_slice()
+                    targets: color_states.as_slice(),
                 }),
                 None => None,
             },
             primitive: pipeline_descriptor.primitive.clone().wgpu_into(),
-            depth_stencil: pipeline_descriptor.depth_stencil.clone().map(|depth_stencil| depth_stencil.wgpu_into()),
+            depth_stencil: pipeline_descriptor
+                .depth_stencil
+                .clone()
+                .map(|depth_stencil| depth_stencil.wgpu_into()),
             multisample: pipeline_descriptor.multisample.clone().wgpu_into(),
         };
 

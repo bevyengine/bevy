@@ -46,7 +46,6 @@ pub struct DepthBiasState {
     pub clamp: f32,
 }
 
-
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub enum StencilOperation {
     Keep = 0,

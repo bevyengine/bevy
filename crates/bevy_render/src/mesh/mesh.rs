@@ -453,8 +453,7 @@ fn update_entity_mesh(
     for render_pipeline in render_pipelines.pipelines.iter_mut() {
         render_pipeline.specialization.primitive_topology = mesh.primitive_topology;
         // TODO: don't allocate a new vertex buffer descriptor for every entity
-        render_pipeline.specialization.vertex_buffer_descriptor =
-            mesh.get_vertex_buffer_layout();
+        render_pipeline.specialization.vertex_buffer_descriptor = mesh.get_vertex_buffer_layout();
         render_pipeline.specialization.index_format = mesh.indices().map(|indices| indices.into());
     }
     if let Some(RenderResourceId::Buffer(index_buffer_resource)) =

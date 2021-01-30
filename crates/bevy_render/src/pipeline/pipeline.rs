@@ -1,14 +1,19 @@
 use super::{
     state_descriptors::{
-        BlendFactor, BlendOperation, ColorWrite,
-        CompareFunction, CullMode, FrontFace, IndexFormat,
+        BlendFactor, BlendOperation, ColorWrite, CompareFunction, CullMode, FrontFace, IndexFormat,
         PrimitiveTopology,
     },
     PipelineLayout,
 };
-use crate::{pipeline::PolygonMode, shader::ShaderStages, texture::TextureFormat};
+use crate::{
+    pipeline::{
+        BlendState, ColorTargetState, DepthBiasState, DepthStencilState, MultisampleState,
+        PolygonMode, PrimitiveState, StencilFaceState, StencilState,
+    },
+    shader::ShaderStages,
+    texture::TextureFormat,
+};
 use bevy_reflect::TypeUuid;
-use crate::pipeline::{PrimitiveState, DepthStencilState, StencilFaceState, StencilState, DepthBiasState, MultisampleState, ColorTargetState, BlendState};
 
 #[derive(Clone, Debug, TypeUuid)]
 #[uuid = "ebfc1d11-a2a4-44cb-8f12-c49cc631146c"]
@@ -46,8 +51,8 @@ impl PipelineDescriptor {
             multisample: MultisampleState {
                 count: 1,
                 mask: !0,
-                alpha_to_coverage_enabled: false
-            }
+                alpha_to_coverage_enabled: false,
+            },
         }
     }
 
@@ -76,9 +81,9 @@ impl PipelineDescriptor {
                 bias: DepthBiasState {
                     constant: 0,
                     slope_scale: 0.0,
-                    clamp: 0.0
+                    clamp: 0.0,
                 },
-                clamp_depth: false
+                clamp_depth: false,
             }),
             color_target_states: vec![ColorTargetState {
                 format: TextureFormat::default(),
@@ -97,7 +102,7 @@ impl PipelineDescriptor {
             multisample: MultisampleState {
                 count: 1,
                 mask: !0,
-                alpha_to_coverage_enabled: false
+                alpha_to_coverage_enabled: false,
             },
             shader_stages,
         }

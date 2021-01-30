@@ -2,15 +2,12 @@ use bevy_asset::{Assets, HandleUntyped};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     pipeline::{
-        BlendState, BlendFactor, BlendOperation, ColorWrite,
-        CompareFunction, CullMode, DepthStencilState, FrontFace, PipelineDescriptor,
-        PolygonMode, StencilState,
-        StencilFaceState,
+        BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrite, CompareFunction,
+        DepthBiasState, DepthStencilState, PipelineDescriptor, StencilFaceState, StencilState,
     },
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat,
 };
-use bevy_render::pipeline::{DepthBiasState, ColorTargetState};
 
 pub const FORWARD_PIPELINE_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 13148362314012771389);
@@ -30,9 +27,9 @@ pub(crate) fn build_forward_pipeline(shaders: &mut Assets<Shader>) -> PipelineDe
             bias: DepthBiasState {
                 constant: 0,
                 slope_scale: 0.0,
-                clamp: 0.0
+                clamp: 0.0,
             },
-            clamp_depth: false
+            clamp_depth: false,
         }),
         color_target_states: vec![ColorTargetState {
             format: TextureFormat::default(),

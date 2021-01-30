@@ -4,15 +4,13 @@ use bevy_ecs::Resources;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     pipeline::{
-        BlendState, BlendFactor, BlendOperation, ColorWrite,
-        CompareFunction, CullMode, FrontFace, PipelineDescriptor,
-        PolygonMode,
+        BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrite, CompareFunction,
+        DepthBiasState, DepthStencilState, PipelineDescriptor, StencilFaceState, StencilState,
     },
     render_graph::{base, AssetRenderResourcesNode, RenderGraph, RenderResourcesNode},
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat,
 };
-use bevy_render::pipeline::{DepthStencilState, StencilState, StencilFaceState, DepthBiasState, ColorTargetState};
 
 pub const SPRITE_PIPELINE_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 2785347840338765446);
@@ -35,9 +33,9 @@ pub fn build_sprite_sheet_pipeline(shaders: &mut Assets<Shader>) -> PipelineDesc
             bias: DepthBiasState {
                 constant: 0,
                 slope_scale: 0.0,
-                clamp: 0.0
+                clamp: 0.0,
             },
-            clamp_depth: false
+            clamp_depth: false,
         }),
         color_target_states: vec![ColorTargetState {
             format: TextureFormat::default(),
@@ -81,9 +79,9 @@ pub fn build_sprite_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor
             bias: DepthBiasState {
                 constant: 0,
                 slope_scale: 0.0,
-                clamp: 0.0
+                clamp: 0.0,
             },
-            clamp_depth: false
+            clamp_depth: false,
         }),
         color_target_states: vec![ColorTargetState {
             format: TextureFormat::default(),
