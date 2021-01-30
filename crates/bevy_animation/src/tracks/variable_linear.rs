@@ -93,13 +93,13 @@ impl<T> Track for TrackVariableLinear<T>
 where
     T: Lerp + Clone + 'static,
 {
-    type Out = T;
+    type Output = T;
 
     fn duration(&self) -> f32 {
         self.time_stamps.last().copied().unwrap_or(0.0)
     }
 
-    fn sample(&self, time: f32) -> Self::Out {
+    fn sample(&self, time: f32) -> Self::Output {
         // Index guessing gives a small search optimization
         let index = if time < self.duration() * 0.5 {
             0
@@ -110,7 +110,7 @@ where
         self.sample_with_cursor(index as u16, time).1
     }
 
-    fn sample_with_cursor(&self, mut cursor: u16, time: f32) -> (u16, Self::Out) {
+    fn sample_with_cursor(&self, mut cursor: u16, time: f32) -> (u16, Self::Output) {
         // Adjust for the current keyframe index
         let last_cursor = (self.time_stamps.len() - 1) as u16;
 

@@ -332,13 +332,13 @@ async fn load_gltf<'a, 'b>(
         for (property_path, mut curve) in clip_curves_rotation {
             TrackVariableLinear::<Quat>::add_offset_time(&mut curve, -start_time);
             //curve.add_time_offset(-start_time);
-            clip.add_curve_at_path(&property_path, curve);
+            clip.add_track_at_path(&property_path, curve);
         }
 
         for (property_path, mut curve) in clip_curves_translation_and_scale {
             TrackVariableLinear::<Vec3>::add_offset_time(&mut curve, -start_time);
             //curve.add_time_offset(-start_time);
-            clip.add_curve_at_path(&property_path, curve);
+            clip.add_track_at_path(&property_path, curve);
         }
 
         load_context.set_labeled_asset(&anim_label, LoadedAsset::new(clip));

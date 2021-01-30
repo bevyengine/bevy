@@ -12,14 +12,13 @@ use bevy_ecs::prelude::*;
 use bevy_reflect::{Reflect, ReflectComponent, TypeUuid};
 use bevy_transform::prelude::*;
 use fnv::FnvBuildHasher;
-use smallvec::{smallvec, SmallVec};
 use tracing::warn;
 
 use crate::{
     blending::AnimatorBlending,
     hierarchy::Hierarchy,
     interpolate::Lerp,
-    tracks::{Track, TrackBase},
+    tracks::{Track, TrackNBase, TrackNData, ValueN},
 };
 
 // TODO: Load Clip name from gltf
@@ -46,39 +45,38 @@ const KEYFRAMES_PER_CACHE: usize = CACHE_SIZE / std::mem::size_of::<u16>();
 ///////////////////////////////////////////////////////////////////////////////
 
 pub struct Tracks<T> {
-    entity_indexes: SmallVec<[u16; 8]>,
     /// Pair of curve and it's index
-    curves: Vec<(usize, TrackBase<T>)>,
+    inner: Vec<(usize, TrackNBase<T>)>,
 }
 
 impl<T> std::fmt::Debug for Tracks<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("Tracks").field(&self.curves.len()).finish()
+        f.debug_tuple("Tracks").field(&self.len()).finish()
     }
 }
 
 impl<T> Tracks<T> {
     fn calculate_duration(&self) -> f32 {
-        self.curves
+        self.inner
             .iter()
-            .map(|(_, c)| c.duration())
+            .map(|(_, track)| track.duration())
             .fold(0.0f32, |acc, d| acc.max(d))
     }
 
     /// Number of curves inside
     #[inline(always)]
     pub fn len(&self) -> usize {
-        self.curves.len()
+        self.inner.len()
     }
 
     #[inline(always)]
-    pub fn iter(&self) -> impl Iterator<Item = (u16, &(usize, TrackBase<T>))> {
-        self.entity_indexes.iter().copied().zip(self.curves.iter())
+    pub fn iter(&self) -> impl Iterator<Item = &(usize, TrackNBase<T>)> {
+        self.inner.iter()
     }
 }
-pub struct CurveMeta(&'static str, TypeId);
+pub struct TrackMeta(&'static str, TypeId);
 
-impl CurveMeta {
+impl TrackMeta {
     pub fn of<T: 'static>() -> Self {
         Self(type_name::<T>(), TypeId::of::<T>())
     }
@@ -92,30 +90,30 @@ impl CurveMeta {
     }
 }
 
-impl std::fmt::Debug for CurveMeta {
+impl std::fmt::Debug for TrackMeta {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("CurveMeta").field(&self.0).finish()
+        f.debug_tuple("TrackMeta").field(&self.0).finish()
     }
 }
 
 #[derive(Debug)]
-pub struct CurvesUntyped {
+pub struct TracksUntyped {
     /// Cached calculated curves duration
     duration: f32,
-    meta: CurveMeta,
+    meta: TrackMeta,
     untyped: Box<dyn Any + Send + Sync + 'static>,
 }
 
-impl CurvesUntyped {
-    fn new<T: Send + Sync + 'static>(curves: Tracks<T>) -> Self {
-        CurvesUntyped {
-            duration: curves.calculate_duration(),
-            meta: CurveMeta::of::<T>(),
-            untyped: Box::new(curves),
+impl TracksUntyped {
+    fn new<T: Send + Sync + 'static>(tracks: Tracks<T>) -> Self {
+        TracksUntyped {
+            duration: tracks.calculate_duration(),
+            meta: TrackMeta::of::<T>(),
+            untyped: Box::new(tracks),
         }
     }
 
-    pub const fn meta(&self) -> &CurveMeta {
+    pub const fn meta(&self) -> &TrackMeta {
         &self.meta
     }
 
@@ -174,7 +172,7 @@ pub struct Clip {
     // ? NOTE: AHash performed worse than FnvHasher
     // TODO: Change to the hashbrown::raw::RawTable and use a `label!()` to make hashes constants
     /// Each curve and keyframe cache index mapped by property name
-    properties: HashMap<String, (usize, CurvesUntyped), FnvBuildHasher>,
+    properties: HashMap<String, (usize, TracksUntyped), FnvBuildHasher>,
     /// Number of animated properties
     len: usize,
     /// Number of cache lines currently been used to organize the keyframe
@@ -211,13 +209,13 @@ impl Clip {
     ///
     /// **NOTE** You can safely ignore the return value as it's only used for assertions during tests;
     /// The return value is the assigned curve index in cache line bucket.
-    pub fn add_curve_at_path<T>(&mut self, path: &str, track: T) -> usize
+    pub fn add_track_at_path<T>(&mut self, path: &str, track: T) -> usize
     where
         T: Track + Send + Sync + 'static,
-        <T as Track>::Out: Lerp + Clone + Send + Sync + 'static,
+        <T as Track>::Output: Lerp + Clone + Send + Sync + 'static,
+        // Means this track have a single lane
+        <T as Track>::Output: ValueN<Value = <T as Track>::Output, Lanes = [u16; 1]>,
     {
-        let mut track: TrackBase<<T as Track>::Out> = Box::new(track);
-
         // Split in entity and attribute path,
         // NOTE: use rfind because it's expected the latter to be generally shorter
         let path = path.split_at(path.rfind('@').expect("property path missing @"));
@@ -233,35 +231,47 @@ impl Clip {
 
         let (entity_index, _) = self.hierarchy.get_or_insert_entity(entity_path);
 
-        if let Some((cache_index, curves_untyped)) = self.properties.get_mut(property_path) {
-            let curves = curves_untyped
-                .downcast_mut::<<T as Track>::Out>()
+        if let Some((cache_index, tracks_untyped)) = self.properties.get_mut(property_path) {
+            let tracks = tracks_untyped
+                .downcast_mut::<<T as Track>::Output>()
                 .expect("properties can't have the same name and different curve types");
 
+            let search = tracks.iter().enumerate().find_map(|(i, (_, t))| {
+                t.lanes()
+                    .into_iter()
+                    .position(|index| *index == entity_index)
+                    .map(|o| (i, o))
+            });
+
             // If some entity was created it means this property is a new one so we can safely skip the attribute testing
-            if let Some(i) = curves
-                .entity_indexes
-                .iter()
-                .position(|index| *index == entity_index)
-            {
-                let (curve_index, curve_untyped) = &mut curves.curves[i];
-                let curve_index = *curve_index;
+            if let Some((track_index, _lane_index)) = search {
+                let (k_index, track_a) = &mut tracks.inner[track_index];
+                if track_a.size() == 1 {
+                    let k_index = *k_index;
+                    let mut track_b: TrackNBase<<T as Track>::Output> = Box::new(TrackNData {
+                        lanes: [entity_index],
+                        len: 1,
+                        track,
+                    });
 
-                // Found a property equal to the one been inserted, next replace the curve
-                std::mem::swap(curve_untyped, &mut track);
+                    // Found a property equal to the one been inserted, next replace the curve
+                    std::mem::swap(track_a, &mut track_b);
 
-                // Update curve duration in two stages
-                let duration = curves.calculate_duration();
+                    // Update curve duration in two stages
+                    let duration = tracks.calculate_duration();
 
-                // Drop the down casted ref and update the parent curve
-                std::mem::drop(curves);
-                curves_untyped.duration = duration;
+                    // Drop the down casted ref and update the parent curve
+                    std::mem::drop(tracks);
+                    tracks_untyped.duration = duration;
 
-                // Drop the curves untyped (which as a mut borrow) and update the total duration
-                std::mem::drop(curves_untyped);
-                self.duration = self.calculate_duration();
+                    // Drop the curves untyped (which as a mut borrow) and update the total duration
+                    std::mem::drop(tracks_untyped);
+                    self.duration = self.calculate_duration();
 
-                return curve_index;
+                    return k_index;
+                } else {
+                    panic!("replacing a single lane in multi lane track isn't supported")
+                }
             } else {
                 *cache_index += 1;
                 if (*cache_index % KEYFRAMES_PER_CACHE) == 0 {
@@ -274,14 +284,18 @@ impl Clip {
 
                 // Append newly added curve
                 let duration = track.duration();
+                let track_n = Box::new(TrackNData {
+                    lanes: [entity_index],
+                    len: 1,
+                    track,
+                });
 
-                curves.curves.push((*cache_index, track));
-                curves.entity_indexes.push(entity_index);
-                std::mem::drop(curves);
+                tracks.inner.push((*cache_index, track_n));
+                std::mem::drop(tracks);
 
                 self.len += 1;
                 self.duration = self.duration.max(duration);
-                curves_untyped.duration = curves_untyped.duration.max(duration);
+                tracks_untyped.duration = tracks_untyped.duration.max(duration);
 
                 return *cache_index;
             }
@@ -296,9 +310,15 @@ impl Clip {
             property_path.to_string(),
             (
                 cache_index,
-                CurvesUntyped::new(Tracks {
-                    curves: vec![(cache_index, track)],
-                    entity_indexes: smallvec![entity_index],
+                TracksUntyped::new(Tracks {
+                    inner: vec![(
+                        cache_index,
+                        Box::new(TrackNData {
+                            lanes: [entity_index],
+                            len: 1,
+                            track,
+                        }),
+                    )],
                 }),
             ),
         );
@@ -351,7 +371,7 @@ impl Clip {
 
     /// Get the curves an given property
     #[inline(always)]
-    pub fn get(&self, property_name: &str) -> Option<&CurvesUntyped> {
+    pub fn get(&self, property_name: &str) -> Option<&TracksUntyped> {
         self.properties
             .get(property_name)
             .map(|(_, curve_untyped)| curve_untyped)
@@ -825,17 +845,17 @@ mod tests {
             let mut animator = Animator::default();
             {
                 let mut clip_a = Clip::default();
-                clip_a.add_curve_at_path(
+                clip_a.add_track_at_path(
                     "@Transform.translation",
                     TrackVariableLinear::from_line(0.0, 1.0, Vec3::unit_x(), -Vec3::unit_x()),
                 );
                 let rot = TrackVariableLinear::from_constant(Quat::identity());
-                clip_a.add_curve_at_path("@Transform.rotation", rot.clone());
-                clip_a.add_curve_at_path("/Node1@Transform.rotation", rot.clone());
-                clip_a.add_curve_at_path("/Node1/Node2@Transform.rotation", rot);
+                clip_a.add_track_at_path("@Transform.rotation", rot.clone());
+                clip_a.add_track_at_path("/Node1@Transform.rotation", rot.clone());
+                clip_a.add_track_at_path("/Node1/Node2@Transform.rotation", rot);
 
                 let mut clip_b = Clip::default();
-                clip_b.add_curve_at_path(
+                clip_b.add_track_at_path(
                     "@Transform.translation",
                     TrackVariableLinear::from_constant(Vec3::zero()),
                 );
@@ -845,9 +865,9 @@ mod tests {
                     Quat::from_axis_angle(Vec3::unit_z(), 0.1),
                     Quat::from_axis_angle(Vec3::unit_z(), -0.1),
                 );
-                clip_b.add_curve_at_path("@Transform.rotation", rot.clone());
-                clip_b.add_curve_at_path("/Node1@Transform.rotation", rot.clone());
-                clip_b.add_curve_at_path("/Node1/Node2@Transform.rotation", rot);
+                clip_b.add_track_at_path("@Transform.rotation", rot.clone());
+                clip_b.add_track_at_path("/Node1@Transform.rotation", rot.clone());
+                clip_b.add_track_at_path("/Node1/Node2@Transform.rotation", rot);
 
                 let mut clips = app_builder
                     .resources_mut()
@@ -1220,7 +1240,7 @@ mod tests {
             let clip_a_handle = test_bench.animator().clips()[0].clone();
             let mut clips = test_bench.app.resources.get_mut::<Assets<Clip>>().unwrap();
             let clip_a = clips.get_mut(clip_a_handle).unwrap();
-            clip_a.add_curve_at_path(
+            clip_a.add_track_at_path(
                 "/Node3/@Transform.translation",
                 TrackVariableLinear::from_line(0.0, 1.0, Vec3::unit_z(), -Vec3::unit_z()),
             );
@@ -1253,40 +1273,40 @@ mod tests {
     fn clip_property_index_are_grouped_into_cache_line_buckets() {
         let curve = TrackVariableLinear::from_constant(0.0);
         let mut clip = Clip::default();
-        assert_eq!(clip.add_curve_at_path("a@T.t", curve.clone()), 0);
-        assert_eq!(clip.add_curve_at_path("b@T.t", curve.clone()), 1);
+        assert_eq!(clip.add_track_at_path("a@T.t", curve.clone()), 0);
+        assert_eq!(clip.add_track_at_path("b@T.t", curve.clone()), 1);
         assert_eq!(
-            clip.add_curve_at_path("a@T.r", curve.clone()),
+            clip.add_track_at_path("a@T.r", curve.clone()),
             KEYFRAMES_PER_CACHE
         );
-        assert_eq!(clip.add_curve_at_path("c@T.t", curve.clone()), 2);
+        assert_eq!(clip.add_track_at_path("c@T.t", curve.clone()), 2);
         assert_eq!(
-            clip.add_curve_at_path("b@T.r", curve.clone()),
+            clip.add_track_at_path("b@T.r", curve.clone()),
             KEYFRAMES_PER_CACHE + 1
         );
         assert_eq!(
-            clip.add_curve_at_path("c@T.r", curve.clone()),
+            clip.add_track_at_path("c@T.r", curve.clone()),
             KEYFRAMES_PER_CACHE + 2
         );
-        assert_eq!(clip.add_curve_at_path("d@T.t", curve.clone()), 3);
+        assert_eq!(clip.add_track_at_path("d@T.t", curve.clone()), 3);
 
         for i in 4..KEYFRAMES_PER_CACHE {
             assert_eq!(
-                clip.add_curve_at_path(&format!("node_{}@T.t", i), curve.clone()),
+                clip.add_track_at_path(&format!("node_{}@T.t", i), curve.clone()),
                 i
             );
         }
 
         assert_eq!(
-            clip.add_curve_at_path("za@T.t", curve.clone()),
+            clip.add_track_at_path("za@T.t", curve.clone()),
             KEYFRAMES_PER_CACHE * 2
         );
         assert_eq!(
-            clip.add_curve_at_path("za@T.r", curve.clone()),
+            clip.add_track_at_path("za@T.r", curve.clone()),
             KEYFRAMES_PER_CACHE + 3
         );
         assert_eq!(
-            clip.add_curve_at_path("zb@T.t", curve.clone()),
+            clip.add_track_at_path("zb@T.t", curve.clone()),
             KEYFRAMES_PER_CACHE * 2 + 1
         );
     }

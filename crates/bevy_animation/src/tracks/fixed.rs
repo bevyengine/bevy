@@ -69,13 +69,13 @@ impl<T> Track for TrackFixed<T>
 where
     T: Lerp + Clone,
 {
-    type Out = T;
+    type Output = T;
 
     fn duration(&self) -> f32 {
         ((self.keyframes.len() as f32 - 1.0 - self.negative_offset) / self.frame_rate).max(0.0)
     }
 
-    fn sample(&self, time: f32) -> T {
+    fn sample(&self, time: f32) -> Self::Output {
         // Make sure to have at least one sample
         assert!(self.keyframes.len() > 0, "curve is empty");
 
@@ -108,7 +108,7 @@ where
 
     /// Same as `sample` function
     #[inline(always)]
-    fn sample_with_cursor(&self, cursor: u16, time: f32) -> (u16, T) {
+    fn sample_with_cursor(&self, cursor: u16, time: f32) -> (u16, Self::Output) {
         let _ = cursor;
         (0, self.sample(time))
     }

@@ -118,17 +118,16 @@ unsafe fn animate<T>(
         .map(|curve_untyped| curve_untyped.downcast_ref::<T>())
         .flatten()
     {
-        for (entity_index, (curve_index, curve)) in curves.iter() {
-            let entity_index = entities_map[entity_index as usize] as usize;
-            if let Some(component) = (get_mut)(entity_index) {
-                let kr = &mut keyframes[*curve_index];
-                let (k, v) = curve.sample_with_cursor(*kr, time);
-                *kr = k;
-
-                // Unsafe portion
-                let value = &mut *(component.offset(prop.offset) as *mut T);
-                value.blend(entity_index, prop.mask, blend_group, v, w);
-            }
+        for (curve_index, curve) in curves.iter() {
+            let cursor = &mut keyframes[*curve_index];
+            *cursor = curve.sample(*cursor, time, &mut |output_lane, v| {
+                let entity_index = entities_map[output_lane as usize] as usize;
+                if let Some(component) = (get_mut)(entity_index) {
+                    // Unsafe portion
+                    let value = &mut *(component.offset(prop.offset) as *mut T);
+                    value.blend(entity_index, prop.mask, blend_group, v, w);
+                }
+            });
         }
     }
 }
@@ -453,16 +452,15 @@ pub(crate) fn animate_asset_system<T: Asset>(
                     .map(|curve_untyped| curve_untyped.downcast_ref::<Handle<T>>())
                     .flatten()
                 {
-                    for (entity_index, (curve_index, curve)) in curves.iter() {
-                        let entity_index = entities_map[entity_index as usize] as usize;
-                        if let Some(ref mut component) = cached_components[entity_index] {
-                            let kr = &mut keyframes[*curve_index];
-                            let (k, v) = curve.sample_with_cursor(*kr, time);
-                            *kr = k;
-
-                            let value = &mut **component;
-                            value.blend(entity_index, prop_mask, &mut blend_group, v, w);
-                        }
+                    for (curve_index, curve) in curves.iter() {
+                        let cursor = &mut keyframes[*curve_index];
+                        *cursor = curve.sample(*cursor, time, &mut |output_lane, v| {
+                            let entity_index = entities_map[output_lane as usize] as usize;
+                            if let Some(ref mut component) = cached_components[entity_index] {
+                                let value = &mut **component;
+                                value.blend(entity_index, prop_mask, &mut blend_group, v, w);
+                            }
+                        });
                     }
                 }
             }
