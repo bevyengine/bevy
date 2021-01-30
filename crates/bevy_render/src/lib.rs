@@ -177,9 +177,7 @@ impl Plugin for RenderPlugin {
             shader::clear_shader_defs_system.system(),
         );
 
-        if app.resources().get::<Msaa>().is_none() {
-            app.init_resource::<Msaa>();
-        }
+        app.init_resource::<Msaa>();
 
         if let Some(ref config) = self.base_render_graph_config {
             let resources = app.resources();

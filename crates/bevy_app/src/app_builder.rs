@@ -235,8 +235,13 @@ impl AppBuilder {
     where
         R: FromResources + Send + Sync + 'static,
     {
-        let resource = R::from_resources(&self.app.resources);
-        self.app.resources.insert(resource);
+        // PERF: We could avoid double hashing here, since the `from_resources` call is guaranteed not to
+        // modify the map. However, we would need to be borrowing resources both mutably and immutably,
+        // so we would need to be extremely certain this is correct
+        if !self.resources().contains::<R>() {
+            let resource = R::from_resources(&self.resources());
+            self.add_resource(resource);
+        }
 
         self
     }
@@ -245,8 +250,11 @@ impl AppBuilder {
     where
         R: FromResources + 'static,
     {
-        let resource = R::from_resources(&self.app.resources);
-        self.app.resources.insert_thread_local(resource);
+        // See perf comment in init_resource
+        if self.app.resources.get_thread_local::<R>().is_none() {
+            let resource = R::from_resources(&self.app.resources);
+            self.app.resources.insert_thread_local(resource);
+        }
 
         self
     }
