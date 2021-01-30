@@ -15,7 +15,12 @@ use fnv::FnvBuildHasher;
 use smallvec::{smallvec, SmallVec};
 use tracing::warn;
 
-use crate::{blending::AnimatorBlending, curve::Curve, hierarchy::Hierarchy, interpolate::Lerp};
+use crate::{
+    blending::AnimatorBlending,
+    hierarchy::Hierarchy,
+    interpolate::Lerp,
+    tracks::{Track, TrackBase},
+};
 
 // TODO: Load Clip name from gltf
 
@@ -40,14 +45,19 @@ const KEYFRAMES_PER_CACHE: usize = CACHE_SIZE / std::mem::size_of::<u16>();
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#[derive(Debug)]
-pub struct Curves<T> {
+pub struct Tracks<T> {
     entity_indexes: SmallVec<[u16; 8]>,
     /// Pair of curve and it's index
-    curves: Vec<(usize, Curve<T>)>,
+    curves: Vec<(usize, TrackBase<T>)>,
 }
 
-impl<T> Curves<T> {
+impl<T> std::fmt::Debug for Tracks<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Tracks").field(&self.curves.len()).finish()
+    }
+}
+
+impl<T> Tracks<T> {
     fn calculate_duration(&self) -> f32 {
         self.curves
             .iter()
@@ -62,7 +72,7 @@ impl<T> Curves<T> {
     }
 
     #[inline(always)]
-    pub fn iter(&self) -> impl Iterator<Item = (u16, &(usize, Curve<T>))> {
+    pub fn iter(&self) -> impl Iterator<Item = (u16, &(usize, TrackBase<T>))> {
         self.entity_indexes.iter().copied().zip(self.curves.iter())
     }
 }
@@ -97,7 +107,7 @@ pub struct CurvesUntyped {
 }
 
 impl CurvesUntyped {
-    fn new<T: Send + Sync + 'static>(curves: Curves<T>) -> Self {
+    fn new<T: Send + Sync + 'static>(curves: Tracks<T>) -> Self {
         CurvesUntyped {
             duration: curves.calculate_duration(),
             meta: CurveMeta::of::<T>(),
@@ -114,12 +124,12 @@ impl CurvesUntyped {
     }
 
     #[inline(always)]
-    pub fn downcast_ref<T: 'static>(&self) -> Option<&Curves<T>> {
+    pub fn downcast_ref<T: 'static>(&self) -> Option<&Tracks<T>> {
         self.untyped.downcast_ref()
     }
 
     #[inline(always)]
-    pub fn downcast_mut<T: 'static>(&mut self) -> Option<&mut Curves<T>> {
+    pub fn downcast_mut<T: 'static>(&mut self) -> Option<&mut Tracks<T>> {
         self.untyped.downcast_mut()
     }
 }
@@ -201,10 +211,13 @@ impl Clip {
     ///
     /// **NOTE** You can safely ignore the return value as it's only used for assertions during tests;
     /// The return value is the assigned curve index in cache line bucket.
-    pub fn add_curve_at_path<T>(&mut self, path: &str, mut curve: Curve<T>) -> usize
+    pub fn add_curve_at_path<T>(&mut self, path: &str, track: T) -> usize
     where
-        T: Lerp + Clone + Send + Sync + 'static,
+        T: Track + Send + Sync + 'static,
+        <T as Track>::Out: Lerp + Clone + Send + Sync + 'static,
     {
+        let mut track: TrackBase<<T as Track>::Out> = Box::new(track);
+
         // Split in entity and attribute path,
         // NOTE: use rfind because it's expected the latter to be generally shorter
         let path = path.split_at(path.rfind('@').expect("property path missing @"));
@@ -222,7 +235,7 @@ impl Clip {
 
         if let Some((cache_index, curves_untyped)) = self.properties.get_mut(property_path) {
             let curves = curves_untyped
-                .downcast_mut::<T>()
+                .downcast_mut::<<T as Track>::Out>()
                 .expect("properties can't have the same name and different curve types");
 
             // If some entity was created it means this property is a new one so we can safely skip the attribute testing
@@ -235,7 +248,7 @@ impl Clip {
                 let curve_index = *curve_index;
 
                 // Found a property equal to the one been inserted, next replace the curve
-                std::mem::swap(curve_untyped, &mut curve);
+                std::mem::swap(curve_untyped, &mut track);
 
                 // Update curve duration in two stages
                 let duration = curves.calculate_duration();
@@ -260,9 +273,9 @@ impl Clip {
                 self.len += 1;
 
                 // Append newly added curve
-                let duration = curve.duration();
+                let duration = track.duration();
 
-                curves.curves.push((*cache_index, curve));
+                curves.curves.push((*cache_index, track));
                 curves.entity_indexes.push(entity_index);
                 std::mem::drop(curves);
 
@@ -278,13 +291,13 @@ impl Clip {
         self.keyframes_cache_buckets += 1;
         self.len += 1;
 
-        self.duration = self.duration.max(curve.duration());
+        self.duration = self.duration.max(track.duration());
         self.properties.insert(
             property_path.to_string(),
             (
                 cache_index,
-                CurvesUntyped::new(Curves {
-                    curves: vec![(cache_index, curve)],
+                CurvesUntyped::new(Tracks {
+                    curves: vec![(cache_index, track)],
                     entity_indexes: smallvec![entity_index],
                 }),
             ),
@@ -777,7 +790,7 @@ pub(crate) fn animator_update_system(
 #[allow(dead_code)]
 mod tests {
     use super::*;
-    use crate::curve::Curve;
+    use crate::tracks::TrackVariableLinear;
     use bevy_asset::AddAsset;
     use bevy_math::prelude::{Quat, Vec3};
     use bevy_pbr::prelude::StandardMaterial;
@@ -814,9 +827,9 @@ mod tests {
                 let mut clip_a = Clip::default();
                 clip_a.add_curve_at_path(
                     "@Transform.translation",
-                    Curve::from_line(0.0, 1.0, Vec3::unit_x(), -Vec3::unit_x()),
+                    TrackVariableLinear::from_line(0.0, 1.0, Vec3::unit_x(), -Vec3::unit_x()),
                 );
-                let rot = Curve::from_constant(Quat::identity());
+                let rot = TrackVariableLinear::from_constant(Quat::identity());
                 clip_a.add_curve_at_path("@Transform.rotation", rot.clone());
                 clip_a.add_curve_at_path("/Node1@Transform.rotation", rot.clone());
                 clip_a.add_curve_at_path("/Node1/Node2@Transform.rotation", rot);
@@ -824,9 +837,9 @@ mod tests {
                 let mut clip_b = Clip::default();
                 clip_b.add_curve_at_path(
                     "@Transform.translation",
-                    Curve::from_constant(Vec3::zero()),
+                    TrackVariableLinear::from_constant(Vec3::zero()),
                 );
-                let rot = Curve::from_line(
+                let rot = TrackVariableLinear::from_line(
                     0.0,
                     1.0,
                     Quat::from_axis_angle(Vec3::unit_z(), 0.1),
@@ -1209,7 +1222,7 @@ mod tests {
             let clip_a = clips.get_mut(clip_a_handle).unwrap();
             clip_a.add_curve_at_path(
                 "/Node3/@Transform.translation",
-                Curve::from_line(0.0, 1.0, Vec3::unit_z(), -Vec3::unit_z()),
+                TrackVariableLinear::from_line(0.0, 1.0, Vec3::unit_z(), -Vec3::unit_z()),
             );
         }
 
@@ -1238,7 +1251,7 @@ mod tests {
 
     #[test]
     fn clip_property_index_are_grouped_into_cache_line_buckets() {
-        let curve = Curve::from_constant(0.0);
+        let curve = TrackVariableLinear::from_constant(0.0);
         let mut clip = Clip::default();
         assert_eq!(clip.add_curve_at_path("a@T.t", curve.clone()), 0);
         assert_eq!(clip.add_curve_at_path("b@T.t", curve.clone()), 1);

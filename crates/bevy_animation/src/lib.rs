@@ -12,9 +12,7 @@ mod hierarchy;
 mod skinned_mesh;
 
 pub mod blending;
-pub mod curve;
 pub mod interpolate;
-pub mod sampler;
 pub mod tracks;
 
 pub use crate::animator::*;
@@ -28,7 +26,6 @@ pub mod prelude {
     pub use crate::animator::{Animator, Clip};
     pub use crate::app::AddAnimated;
     pub use crate::blending::AnimatorBlending;
-    pub use crate::curve::Curve;
     pub use crate::hierarchy::Hierarchy;
     pub use crate::interpolate::Lerp;
     pub use crate::reflect::AnimatorPropertyRegistry;

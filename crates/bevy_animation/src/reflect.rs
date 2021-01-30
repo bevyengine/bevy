@@ -122,7 +122,7 @@ unsafe fn animate<T>(
             let entity_index = entities_map[entity_index as usize] as usize;
             if let Some(component) = (get_mut)(entity_index) {
                 let kr = &mut keyframes[*curve_index];
-                let (k, v) = curve.sample_indexed(*kr, time);
+                let (k, v) = curve.sample_with_cursor(*kr, time);
                 *kr = k;
 
                 // Unsafe portion
@@ -457,7 +457,7 @@ pub(crate) fn animate_asset_system<T: Asset>(
                         let entity_index = entities_map[entity_index as usize] as usize;
                         if let Some(ref mut component) = cached_components[entity_index] {
                             let kr = &mut keyframes[*curve_index];
-                            let (k, v) = curve.sample_indexed(*kr, time);
+                            let (k, v) = curve.sample_with_cursor(*kr, time);
                             *kr = k;
 
                             let value = &mut **component;
