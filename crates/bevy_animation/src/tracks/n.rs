@@ -1,7 +1,8 @@
 use std::mem::transmute;
 
 use bevy_math::prelude::*;
-use bevy_render::prelude::Color;
+// TODO: `bevy_render::prelude::Color` can be implemented the same way as Quatx4
+// use bevy_render::prelude::Color;
 
 use crate::{
     interpolate::Lerp,
@@ -73,6 +74,9 @@ pub trait TrackN {
 
     fn lanes(&self) -> &[u16];
 
+    /// Number of used outputs, may be N or less
+    fn len(&self) -> usize;
+
     /// N
     fn size(&self) -> usize;
 }
@@ -91,7 +95,7 @@ impl<V: ValueN, T: Track<Output = V>> TrackN for TrackNData<V, T> {
     fn sample(&self, cursor: u16, time: f32, assign: &mut dyn FnMut(u16, Self::Output)) -> u16 {
         let (cursor, x) = self.track.sample_with_cursor(cursor, time);
         let x = x.unpack();
-        for i in 0..(self.len as usize).min(self.size()) {
+        for i in 0..self.len() {
             (assign)(*self.lanes.get(i), *x.get(i));
         }
         cursor
@@ -101,8 +105,12 @@ impl<V: ValueN, T: Track<Output = V>> TrackN for TrackNData<V, T> {
         self.track.duration()
     }
 
+    fn len(&self) -> usize {
+        (self.len as usize).min(V::size())
+    }
+
     fn lanes(&self) -> &[u16] {
-        self.lanes.as_slice()
+        &self.lanes.as_slice()[0..self.len()]
     }
 
     fn size(&self) -> usize {
@@ -119,79 +127,9 @@ impl<V: ValueN + Lerp + Clone> TrackNData<V, TrackFixed<V>> {
 
 pub type TrackNBase<T> = Box<dyn TrackN<Output = T> + Send + Sync + 'static>;
 
-// impl<T> Sampler for SamplerBase<T> {
-//     type Out = T;
-
-//     #[inline(always)]
-//     fn sample(&self, cursor: u16, time: f32, assign: &mut dyn FnMut(u16, Self::Output)) -> u16 {
-//         self.0.sample(cursor, time, assign)
-//     }
-// }
-
-// pub struct SamplerUntyped(Box<dyn Any + Send + Sync + 'static>);
-
-// impl SamplerUntyped {
-//     pub fn new<S>(sampler: S) -> Self
-//     where
-//         S: Sampler + Send + Sync + 'static,
-//     {
-//         SamplerUntyped(Box::new(SamplerBase(Box::new(sampler))))
-//     }
-
-//     #[inline(always)]
-//     pub fn downcast_ref<T: 'static>(&self) -> Option<&SamplerBase<T>> {
-//         self.0.downcast_ref()
-//     }
-
-//     #[inline(always)]
-//     pub fn downcast_mut<T: 'static>(&mut self) -> Option<&mut SamplerBase<T>> {
-//         self.0.downcast_mut()
-//     }
-// }
-
 ///////////////////////////////////////////////////////////////////////////////
 
-macro_rules! output1x1 {
-    ($t:ty) => {
-        impl ValueN for $t {
-            type Value = $t;
-
-            type Lanes = [u16; 1];
-
-            type Outputs = [Self::Value; 1];
-
-            fn unpack(self) -> Self::Outputs {
-                [self]
-            }
-
-            fn size() -> usize {
-                1
-            }
-        }
-    };
-}
-
-output1x1!(bool);
-output1x1!(u8);
-output1x1!(u16);
-output1x1!(u32);
-output1x1!(u64);
-output1x1!(usize);
-output1x1!(i8);
-output1x1!(i16);
-output1x1!(i32);
-output1x1!(i64);
-output1x1!(isize);
-output1x1!(f32);
-output1x1!(f64);
-
-output1x1!(Vec2);
-output1x1!(Vec3);
-output1x1!(Vec4);
-output1x1!(Color);
-output1x1!(Quat);
-
-macro_rules! output1xn {
+macro_rules! valuen {
     ($t:ty, $i:ty, $o:ty, $s:tt) => {
         impl ValueN for $t {
             type Value = $o;
@@ -212,12 +150,12 @@ macro_rules! output1xn {
     };
 }
 
-output1xn!(f32x4, f32, f32, 4);
-output1xn!(f32x8, f32, f32, 8);
-output1xn!(Vec3x4, ultraviolet::Vec3, Vec3, 4);
-output1xn!(Vec3x8, ultraviolet::Vec3, Vec3, 8);
-output1xn!(Vec4x4, ultraviolet::Vec4, Vec4, 4);
-output1xn!(Vec4x8, ultraviolet::Vec4, Vec4, 8);
+valuen!(f32x4, f32, f32, 4);
+valuen!(f32x8, f32, f32, 8);
+valuen!(Vec3x4, ultraviolet::Vec3, Vec3, 4);
+valuen!(Vec3x8, ultraviolet::Vec3, Vec3, 8);
+valuen!(Vec4x4, ultraviolet::Vec4, Vec4, 4);
+valuen!(Vec4x8, ultraviolet::Vec4, Vec4, 8);
 
 impl ValueN for Quatx4 {
     type Value = Quat;

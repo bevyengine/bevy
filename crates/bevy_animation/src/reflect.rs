@@ -113,21 +113,41 @@ unsafe fn animate<T>(
 {
     assert_eq!(TypeId::of::<T>(), prop.type_id);
 
-    if let Some(curves) = clip
+    if let Some(tracks) = clip
         .get(&prop.path)
         .map(|curve_untyped| curve_untyped.downcast_ref::<T>())
         .flatten()
     {
-        for (curve_index, curve) in curves.iter() {
-            let cursor = &mut keyframes[*curve_index];
-            *cursor = curve.sample(*cursor, time, &mut |output_lane, v| {
+        let (tracks, tracks_n) = tracks.iter();
+
+        for (entity_index, (curve_index, track)) in tracks {
+            let entity_index = entities_map[entity_index as usize] as usize;
+            if let Some(component) = (get_mut)(entity_index) {
+                let kr = &mut keyframes[*curve_index];
+                let (k, v) = track.sample_with_cursor(*kr, time);
+                *kr = k;
+
+                // Unsafe portion
+                let value = &mut *(component.offset(prop.offset) as *mut T);
+                value.blend(entity_index, prop.mask, blend_group, v, w);
+            }
+        }
+
+        // Handle N lane tracks
+        if tracks_n.len() > 0 {
+            let assign = &mut |output_lane: u16, v: T| {
                 let entity_index = entities_map[output_lane as usize] as usize;
                 if let Some(component) = (get_mut)(entity_index) {
                     // Unsafe portion
                     let value = &mut *(component.offset(prop.offset) as *mut T);
                     value.blend(entity_index, prop.mask, blend_group, v, w);
                 }
-            });
+            };
+
+            for (curve_index, track_n) in tracks_n {
+                let cursor = &mut keyframes[*curve_index];
+                *cursor = track_n.sample(*cursor, time, assign);
+            }
         }
     }
 }
@@ -447,20 +467,40 @@ pub(crate) fn animate_asset_system<T: Asset>(
 
                 // ? NOTE: Maybe a bit incontinent to have this `animate` function inlined here,
                 // ? but it will make the code more safe and also faster
-                if let Some(curves) = clip
+                if let Some(tracks) = clip
                     .get(prop_name)
                     .map(|curve_untyped| curve_untyped.downcast_ref::<Handle<T>>())
                     .flatten()
                 {
-                    for (curve_index, curve) in curves.iter() {
-                        let cursor = &mut keyframes[*curve_index];
-                        *cursor = curve.sample(*cursor, time, &mut |output_lane, v| {
+                    let (tracks, tracks_n) = tracks.iter();
+
+                    for (entity_index, (curve_index, curve)) in tracks {
+                        let entity_index = entities_map[entity_index as usize] as usize;
+                        if let Some(ref mut component) = cached_components[entity_index] {
+                            let kr = &mut keyframes[*curve_index];
+                            let (k, v) = curve.sample_with_cursor(*kr, time);
+                            *kr = k;
+
+                            let value = &mut **component;
+                            value.blend(entity_index, prop_mask, &mut blend_group, v, w);
+                        }
+                    }
+
+                    // Handle N lane tracks
+                    // ? NOTE: Currently Handle<T> isn't supported but still be implemented where
+                    if tracks_n.len() > 0 {
+                        let assign = &mut |output_lane: u16, v: Handle<T>| {
                             let entity_index = entities_map[output_lane as usize] as usize;
                             if let Some(ref mut component) = cached_components[entity_index] {
                                 let value = &mut **component;
                                 value.blend(entity_index, prop_mask, &mut blend_group, v, w);
                             }
-                        });
+                        };
+
+                        for (curve_index, curve) in tracks_n {
+                            let cursor = &mut keyframes[*curve_index];
+                            *cursor = curve.sample(*cursor, time, assign);
+                        }
                     }
                 }
             }

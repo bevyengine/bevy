@@ -12,13 +12,14 @@ use bevy_ecs::prelude::*;
 use bevy_reflect::{Reflect, ReflectComponent, TypeUuid};
 use bevy_transform::prelude::*;
 use fnv::FnvBuildHasher;
+use smallvec::{smallvec, SmallVec};
 use tracing::warn;
 
 use crate::{
     blending::AnimatorBlending,
     hierarchy::Hierarchy,
     interpolate::Lerp,
-    tracks::{Track, TrackNBase, TrackNData, ValueN},
+    tracks::{Track, TrackBase, TrackNBase},
 };
 
 // TODO: Load Clip name from gltf
@@ -45,8 +46,13 @@ const KEYFRAMES_PER_CACHE: usize = CACHE_SIZE / std::mem::size_of::<u16>();
 ///////////////////////////////////////////////////////////////////////////////
 
 pub struct Tracks<T> {
-    /// Pair of curve and it's index
-    inner: Vec<(usize, TrackNBase<T>)>,
+    outputs: SmallVec<[u16; 8]>,
+    /// Tuple of track and it's index
+    tracks: Vec<(usize, TrackBase<T>)>,
+    /// Similar to `tracks` but simultaneously has many outputs
+    ///
+    /// **NOTE** It has its own `outputs` stored inside
+    n: Vec<(usize, TrackNBase<T>)>,
 }
 
 impl<T> std::fmt::Debug for Tracks<T> {
@@ -56,24 +62,36 @@ impl<T> std::fmt::Debug for Tracks<T> {
 }
 
 impl<T> Tracks<T> {
+    /// Possible expensive function that calculates from scratch the total tracks duration;
+    ///
+    /// **NOTE** Caching the result value is desired
     fn calculate_duration(&self) -> f32 {
-        self.inner
+        self.tracks
             .iter()
             .map(|(_, track)| track.duration())
+            .chain(self.n.iter().map(|(_, track)| track.duration()))
             .fold(0.0f32, |acc, d| acc.max(d))
     }
 
     /// Number of curves inside
-    #[inline(always)]
     pub fn len(&self) -> usize {
-        self.inner.len()
+        self.tracks.len() + self.n.iter().map(|(_, t)| t.len()).sum::<usize>()
     }
 
     #[inline(always)]
-    pub fn iter(&self) -> impl Iterator<Item = &(usize, TrackNBase<T>)> {
-        self.inner.iter()
+    pub fn iter(
+        &self,
+    ) -> (
+        impl Iterator<Item = (u16, &(usize, TrackBase<T>))>,
+        &[(usize, TrackNBase<T>)],
+    ) {
+        (
+            self.outputs.iter().copied().zip(self.tracks.iter()),
+            &self.n,
+        )
     }
 }
+
 pub struct TrackMeta(&'static str, TypeId);
 
 impl TrackMeta {
@@ -213,8 +231,6 @@ impl Clip {
     where
         T: Track + Send + Sync + 'static,
         <T as Track>::Output: Lerp + Clone + Send + Sync + 'static,
-        // Means this track have a single lane
-        <T as Track>::Output: ValueN<Value = <T as Track>::Output, Lanes = [u16; 1]>,
     {
         // Split in entity and attribute path,
         // NOTE: use rfind because it's expected the latter to be generally shorter
@@ -236,69 +252,66 @@ impl Clip {
                 .downcast_mut::<<T as Track>::Output>()
                 .expect("properties can't have the same name and different curve types");
 
-            let search = tracks.iter().enumerate().find_map(|(i, (_, t))| {
+            let search = tracks
+                .outputs
+                .iter()
+                .position(|index| *index == entity_index);
+
+            // If some entity was created it means this property is a new one so we can safely skip the attribute testing
+            if let Some(track_index) = search {
+                let (kf_index, source) = &mut tracks.tracks[track_index];
+                let k_index = *kf_index;
+
+                let mut track: TrackBase<<T as Track>::Output> = Box::new(track);
+
+                // Found a property equal to the one been inserted, next replace the curve
+                std::mem::swap(source, &mut track);
+
+                // Update curve duration in two stages
+                let duration = tracks.calculate_duration();
+
+                // Drop the down casted ref and update the parent curve
+                std::mem::drop(tracks);
+                tracks_untyped.duration = duration;
+
+                // Drop the curves untyped (which as a mut borrow) and update the total duration
+                std::mem::drop(tracks_untyped);
+                self.duration = self.calculate_duration();
+
+                return k_index;
+            }
+
+            let search_n = tracks.n.iter().enumerate().find_map(|(i, (_, t))| {
                 t.lanes()
                     .into_iter()
                     .position(|index| *index == entity_index)
                     .map(|o| (i, o))
             });
 
-            // If some entity was created it means this property is a new one so we can safely skip the attribute testing
-            if let Some((track_index, _lane_index)) = search {
-                let (k_index, track_a) = &mut tracks.inner[track_index];
-                if track_a.size() == 1 {
-                    let k_index = *k_index;
-                    let mut track_b: TrackNBase<<T as Track>::Output> = Box::new(TrackNData {
-                        lanes: [entity_index],
-                        len: 1,
-                        track,
-                    });
-
-                    // Found a property equal to the one been inserted, next replace the curve
-                    std::mem::swap(track_a, &mut track_b);
-
-                    // Update curve duration in two stages
-                    let duration = tracks.calculate_duration();
-
-                    // Drop the down casted ref and update the parent curve
-                    std::mem::drop(tracks);
-                    tracks_untyped.duration = duration;
-
-                    // Drop the curves untyped (which as a mut borrow) and update the total duration
-                    std::mem::drop(tracks_untyped);
-                    self.duration = self.calculate_duration();
-
-                    return k_index;
-                } else {
-                    panic!("replacing a single lane in multi lane track isn't supported")
-                }
-            } else {
-                *cache_index += 1;
-                if (*cache_index % KEYFRAMES_PER_CACHE) == 0 {
-                    // No more spaces left in the current cache line
-                    *cache_index = self.keyframes_cache_buckets * KEYFRAMES_PER_CACHE;
-                    self.keyframes_cache_buckets += 1;
-                }
-
-                self.len += 1;
-
-                // Append newly added curve
-                let duration = track.duration();
-                let track_n = Box::new(TrackNData {
-                    lanes: [entity_index],
-                    len: 1,
-                    track,
-                });
-
-                tracks.inner.push((*cache_index, track_n));
-                std::mem::drop(tracks);
-
-                self.len += 1;
-                self.duration = self.duration.max(duration);
-                tracks_untyped.duration = tracks_untyped.duration.max(duration);
-
-                return *cache_index;
+            if let Some((_track_index, _lane_index)) = search_n {
+                panic!("replacing a single lane in multi lane track isn't supported");
             }
+
+            *cache_index += 1;
+            if (*cache_index % KEYFRAMES_PER_CACHE) == 0 {
+                // No more spaces left in the current cache line
+                *cache_index = self.keyframes_cache_buckets * KEYFRAMES_PER_CACHE;
+                self.keyframes_cache_buckets += 1;
+            }
+
+            self.len += 1;
+
+            // Append newly added curve
+            let duration = track.duration();
+            tracks.outputs.push(entity_index);
+            tracks.tracks.push((*cache_index, Box::new(track)));
+            std::mem::drop(tracks);
+
+            self.len += 1;
+            self.duration = self.duration.max(duration);
+            tracks_untyped.duration = tracks_untyped.duration.max(duration);
+
+            return *cache_index;
         }
 
         let cache_index = self.keyframes_cache_buckets * KEYFRAMES_PER_CACHE;
@@ -311,14 +324,9 @@ impl Clip {
             (
                 cache_index,
                 TracksUntyped::new(Tracks {
-                    inner: vec![(
-                        cache_index,
-                        Box::new(TrackNData {
-                            lanes: [entity_index],
-                            len: 1,
-                            track,
-                        }),
-                    )],
+                    outputs: smallvec![entity_index],
+                    tracks: vec![(cache_index, Box::new(track))],
+                    n: vec![],
                 }),
             ),
         );
