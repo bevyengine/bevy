@@ -3,11 +3,11 @@ use bevy_render::{
     color::Color,
     pass::{LoadOp, Operations},
     pipeline::{
-        BindType, BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrite,
-        CompareFunction, CullMode, DepthBiasState, DepthStencilState, FrontFace, IndexFormat,
-        InputStepMode, MultisampleState, PolygonMode, PrimitiveState, PrimitiveTopology,
-        StencilFaceState, StencilOperation, StencilState, VertexAttribute, VertexBufferLayout,
-        VertexFormat,
+        BindType, BindingShaderStage, BlendFactor, BlendOperation, BlendState, ColorTargetState,
+        ColorWrite, CompareFunction, CullMode, DepthBiasState, DepthStencilState, FrontFace,
+        IndexFormat, InputStepMode, MultisampleState, PolygonMode, PrimitiveState,
+        PrimitiveTopology, PushConstantRange, StencilFaceState, StencilOperation, StencilState,
+        VertexAttribute, VertexBufferLayout, VertexFormat,
     },
     renderer::BufferUsage,
     texture::{
@@ -18,7 +18,6 @@ use bevy_render::{
 };
 use bevy_window::Window;
 use wgpu::BufferBindingType;
-use bevy_render::pipeline::BindingShaderStage;
 
 pub trait WgpuFrom<T> {
     fn from(val: T) -> Self;
@@ -244,6 +243,15 @@ impl WgpuFrom<BindingShaderStage> for wgpu::ShaderStage {
             wgpu_val.insert(wgpu::ShaderStage::COMPUTE);
         }
         wgpu_val
+    }
+}
+
+impl WgpuFrom<PushConstantRange> for wgpu::PushConstantRange {
+    fn from(val: PushConstantRange) -> Self {
+        wgpu::PushConstantRange {
+            stages: val.stages.wgpu_into(),
+            range: val.range,
+        }
     }
 }
 

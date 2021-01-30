@@ -444,13 +444,18 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             .iter()
             .map(|bind_group| bind_group_layouts.get(&bind_group.id).unwrap())
             .collect::<Vec<&wgpu::BindGroupLayout>>();
+        let push_constant_ranges: Vec<wgpu::PushConstantRange> = layout
+            .push_constant_ranges
+            .iter()
+            .map(|range| range.clone().wgpu_into())
+            .collect();
 
         let pipeline_layout = self
             .device
             .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: None,
                 bind_group_layouts: bind_group_layouts.as_slice(),
-                push_constant_ranges: &[],
+                push_constant_ranges: &push_constant_ranges,
             });
 
         let owned_vertex_buffer_descriptors = layout
