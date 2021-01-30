@@ -58,15 +58,14 @@ impl Schedule {
 
     pub fn add_stage<S: Stage>(&mut self, name: &str, stage: S) -> &mut Self {
         self.stage_order.push(name.to_string());
-        self.stages.insert(name.to_string(), Box::new(stage));
+        let prev = self.stages.insert(name.to_string(), Box::new(stage));
+        if prev.is_some() {
+            panic!("Stage already exists: {}.", name);
+        }
         self
     }
 
     pub fn add_stage_after<S: Stage>(&mut self, target: &str, name: &str, stage: S) -> &mut Self {
-        if self.stages.get(name).is_some() {
-            panic!("Stage already exists: {}.", name);
-        }
-
         let target_index = self
             .stage_order
             .iter()
@@ -75,16 +74,15 @@ impl Schedule {
             .map(|(i, _)| i)
             .unwrap_or_else(|| panic!("Target stage does not exist: {}.", target));
 
-        self.stages.insert(name.to_string(), Box::new(stage));
         self.stage_order.insert(target_index + 1, name.to_string());
+        let prev = self.stages.insert(name.to_string(), Box::new(stage));
+        if prev.is_some() {
+            panic!("Stage already exists: {}.", name);
+        }
         self
     }
 
     pub fn add_stage_before<S: Stage>(&mut self, target: &str, name: &str, stage: S) -> &mut Self {
-        if self.stages.get(name).is_some() {
-            panic!("Stage already exists: {}.", name);
-        }
-
         let target_index = self
             .stage_order
             .iter()
@@ -93,8 +91,11 @@ impl Schedule {
             .map(|(i, _)| i)
             .unwrap_or_else(|| panic!("Target stage does not exist: {}.", target));
 
-        self.stages.insert(name.to_string(), Box::new(stage));
         self.stage_order.insert(target_index, name.to_string());
+        let prev = self.stages.insert(name.to_string(), Box::new(stage));
+        if prev.is_some() {
+            panic!("Stage already exists: {}.", name);
+        }
         self
     }
 
