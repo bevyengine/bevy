@@ -85,7 +85,7 @@ impl Plugin for AssetPlugin {
 
             let asset_server = AssetServer::with_boxed_io(source, task_pool);
 
-            app.add_resource(asset_server);
+            app.insert_resource(asset_server);
         }
 
         app.add_stage_before(

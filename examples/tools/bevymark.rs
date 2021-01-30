@@ -28,7 +28,7 @@ impl FromResources for BirdMaterial {
 
 fn main() {
     App::build()
-        .add_resource(WindowDescriptor {
+        .insert_resource(WindowDescriptor {
             title: "BevyMark".to_string(),
             width: 800.,
             height: 600.,
@@ -38,7 +38,7 @@ fn main() {
         })
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_resource(BevyCounter { count: 0 })
+        .insert_resource(BevyCounter { count: 0 })
         .init_resource::<BirdMaterial>()
         .add_startup_system(setup.system())
         .add_system(mouse_handler.system())

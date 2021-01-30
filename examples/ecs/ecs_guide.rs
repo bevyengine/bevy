@@ -244,9 +244,9 @@ fn main() {
     // Bevy apps are created using the builder pattern. We use the builder to add systems, resources, and plugins to our app
     App::build()
         // Resources can be added to our app like this
-        .add_resource(State { counter: 0 })
+        .insert_resource(State { counter: 0 })
         // Some systems are configured by adding their settings as a resource
-        .add_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs(5)))
+        .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs(5)))
         // Plugins are just a grouped set of app builder calls (just like we're doing here).
         // We could easily turn our game into a plugin, but you can check out the plugin example for that :)
         // The plugin below runs our app's "system schedule" once every 5 seconds (configured above).

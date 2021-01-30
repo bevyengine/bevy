@@ -5,7 +5,7 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .init_resource::<ButtonMaterials>()
-        .add_resource(State::new(AppState::Menu))
+        .insert_resource(State::new(AppState::Menu))
         .add_stage_after(stage::UPDATE, STAGE, StateStage::<AppState>::default())
         .on_state_enter(STAGE, AppState::Menu, setup_menu.system())
         .on_state_update(STAGE, AppState::Menu, menu.system())

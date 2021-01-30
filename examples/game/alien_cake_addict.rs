@@ -15,10 +15,10 @@ enum GameState {
 
 fn main() {
     App::build()
-        .add_resource(Msaa { samples: 4 })
+        .insert_resource(Msaa { samples: 4 })
         .init_resource::<Game>()
         .add_plugins(DefaultPlugins)
-        .add_resource(State::new(GameState::Playing))
+        .insert_resource(State::new(GameState::Playing))
         .add_startup_system(setup_cameras.system())
         .add_stage_after(stage::UPDATE, STAGE, StateStage::<GameState>::default())
         .on_state_enter(STAGE, GameState::Playing, setup.system())

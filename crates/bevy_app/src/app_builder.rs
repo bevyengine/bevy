@@ -210,12 +210,12 @@ impl AppBuilder {
     where
         T: Send + Sync + 'static,
     {
-        self.add_resource(Events::<T>::default())
+        self.insert_resource(Events::<T>::default())
             .add_system_to_stage(stage::EVENT, Events::<T>::update_system.system())
     }
 
-    /// Adds a resource to the current [App] and overwrites any resource previously added of the same type.
-    pub fn add_resource<T>(&mut self, resource: T) -> &mut Self
+    /// Inserts a resource to the current [App] and overwrites any resource previously added of the same type.
+    pub fn insert_resource<T>(&mut self, resource: T) -> &mut Self
     where
         T: Send + Sync + 'static,
     {
@@ -223,7 +223,7 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_thread_local_resource<T>(&mut self, resource: T) -> &mut Self
+    pub fn insert_thread_local_resource<T>(&mut self, resource: T) -> &mut Self
     where
         T: 'static,
     {
