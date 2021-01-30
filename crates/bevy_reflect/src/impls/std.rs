@@ -1,8 +1,9 @@
 use crate::{self as bevy_reflect, ReflectFromPtr};
 use crate::{
-    map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicMap, FromReflect, FromType,
-    GetTypeRegistration, List, ListInfo, Map, MapInfo, MapIter, Reflect, ReflectDeserialize,
-    ReflectMut, ReflectRef, ReflectSerialize, TypeInfo, TypeRegistration, Typed, ValueInfo,
+    map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicMap, Enum, EnumVariant,
+    EnumVariantMut, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Map, MapInfo,
+    MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef, ReflectSerialize, TypeInfo,
+    TypeRegistration, Typed, ValueInfo, VariantInfo, VariantInfoIter,
 };
 
 use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
@@ -32,7 +33,6 @@ impl_reflect_value!(isize(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(f32(Debug, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(f64(Debug, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(String(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(Option<T: Clone + Reflect + 'static>());
 impl_reflect_value!(Result<T: Clone + Reflect + 'static, E: Clone + Reflect + 'static>());
 impl_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + 'static>());
 impl_reflect_value!(Range<T: Clone +  Send + Sync + 'static>());
@@ -557,6 +557,140 @@ impl Reflect for Cow<'static, str> {
     }
 }
 
+impl<T: Reflect + Clone + Send + Sync + 'static> GetTypeRegistration for Option<T> {
+    fn get_type_registration() -> TypeRegistration {
+        TypeRegistration::of::<Option<T>>()
+    }
+}
+
+impl<T: Reflect + Clone + Send + Sync + 'static> Enum for Option<T> {
+    fn variant(&self) -> EnumVariant<'_> {
+        match self {
+            Option::Some(new_type) => EnumVariant::NewType(new_type as &dyn Reflect),
+            Option::None => EnumVariant::Unit,
+        }
+    }
+
+    fn variant_mut(&mut self) -> EnumVariantMut<'_> {
+        match self {
+            Option::Some(new_type) => EnumVariantMut::NewType(new_type as &mut dyn Reflect),
+            Option::None => EnumVariantMut::Unit,
+        }
+    }
+
+    fn variant_info(&self) -> VariantInfo<'_> {
+        let index = match self {
+            Option::Some(_) => 0usize,
+            Option::None => 1usize,
+        };
+        VariantInfo {
+            index,
+            name: self.get_index_name(index).unwrap(),
+        }
+    }
+
+    fn iter_variants_info(&self) -> VariantInfoIter<'_> {
+        VariantInfoIter::new(self)
+    }
+
+    fn get_index_name(&self, index: usize) -> Option<&'_ str> {
+        match index {
+            0usize => Some("Option::Some"),
+            1usize => Some("Option::None"),
+            _ => None,
+        }
+    }
+
+    fn get_index_from_name(&self, name: &str) -> Option<usize> {
+        match name {
+            "Option::Some" => Some(0usize),
+            "Option::None" => Some(1usize),
+            _ => None,
+        }
+    }
+}
+impl<T: Reflect + Clone + Send + Sync + 'static> Reflect for Option<T> {
+    #[inline]
+    fn type_name(&self) -> &str {
+        std::any::type_name::<Self>()
+    }
+
+    #[inline]
+    fn get_type_info(&self) -> &'static TypeInfo {
+        <Self as Typed>::type_info()
+    }
+
+    #[inline]
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    #[inline]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    #[inline]
+    fn apply(&mut self, value: &dyn Reflect) {
+        let value = value.as_any();
+        if let Some(value) = value.downcast_ref::<Self>() {
+            *self = value.clone();
+        } else {
+            {
+                panic!("Enum is not {}.", &std::any::type_name::<Self>());
+            };
+        }
+    }
+
+    #[inline]
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
+        Ok(())
+    }
+
+    fn reflect_ref(&self) -> ReflectRef {
+        ReflectRef::Enum(self)
+    }
+
+    fn reflect_mut(&mut self) -> ReflectMut {
+        ReflectMut::Enum(self)
+    }
+
+    #[inline]
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(self.clone())
+    }
+
+    fn reflect_hash(&self) -> Option<u64> {
+        None
+    }
+
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+        crate::enum_partial_eq(self, value)
+    }
+}
+
+impl<T: Reflect + Clone + Send + Sync + 'static> Typed for Option<T> {
+    fn type_info() -> &'static TypeInfo {
+        // TODO: Replace with EnumInfo
+        static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::Value(ValueInfo::new::<Self>()))
+    }
+}
+
 impl Typed for Cow<'static, str> {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
@@ -663,10 +797,9 @@ mod tests {
     }
 
     #[test]
-    fn should_not_partial_eq_option() {
-        // Option<T> does not contain a `PartialEq` implementation, so it should return `None`
+    fn should_partial_eq_option() {
         let a: &dyn Reflect = &Some(123);
         let b: &dyn Reflect = &Some(123);
-        assert_eq!(None, a.reflect_partial_eq(b));
+        assert_eq!(Some(true), a.reflect_partial_eq(b));
     }
 }
