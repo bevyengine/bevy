@@ -309,8 +309,8 @@ mod tests {
     use super::*;
     use crate::shader::{Shader, ShaderStage};
 
-    impl VertexBufferDescriptor {
-        pub fn test_zero_stride(mut self) -> VertexBufferDescriptor {
+    impl VertexBufferLayout {
+        pub fn test_zero_stride(mut self) -> VertexBufferLayout {
             self.stride = 0;
             self
         }
@@ -345,9 +345,9 @@ mod tests {
             layout,
             ShaderLayout {
                 entry_point: "main".into(),
-                vertex_buffer_descriptors: vec![
-                    VertexBufferDescriptor::new_from_attribute(
-                        VertexAttributeDescriptor {
+                vertex_buffer_layouts: vec![
+                    VertexBufferLayout::new_from_attribute(
+                        VertexAttribute {
                             name: "Vertex_Position".into(),
                             format: VertexFormat::Float4,
                             offset: 0,
@@ -356,8 +356,8 @@ mod tests {
                         InputStepMode::Vertex
                     )
                     .test_zero_stride(),
-                    VertexBufferDescriptor::new_from_attribute(
-                        VertexAttributeDescriptor {
+                    VertexBufferLayout::new_from_attribute(
+                        VertexAttribute {
                             name: "Vertex_Normal".into(),
                             format: VertexFormat::Uint4,
                             offset: 0,
@@ -366,8 +366,8 @@ mod tests {
                         InputStepMode::Vertex
                     )
                     .test_zero_stride(),
-                    VertexBufferDescriptor::new_from_attribute(
-                        VertexAttributeDescriptor {
+                    VertexBufferLayout::new_from_attribute(
+                        VertexAttribute {
                             name: "I_TestInstancing_Property".into(),
                             format: VertexFormat::Uint4,
                             offset: 0,
