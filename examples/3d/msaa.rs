@@ -5,7 +5,7 @@ use bevy::prelude::*;
 /// but cheap) to 8 (crisp but expensive)
 fn main() {
     App::build()
-        .add_resource(Msaa { samples: 4 })
+        .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
         .run();

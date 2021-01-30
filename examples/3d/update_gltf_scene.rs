@@ -2,9 +2,9 @@ use bevy::{prelude::*, scene::InstanceId};
 
 fn main() {
     App::build()
-        .add_resource(Msaa { samples: 4 })
+        .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
-        .add_resource(SceneInstance::default())
+        .insert_resource(SceneInstance::default())
         .add_startup_system(setup.system())
         .add_system(scene_update.system())
         .add_system(move_scene_entities.system())

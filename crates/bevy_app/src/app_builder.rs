@@ -210,7 +210,7 @@ impl AppBuilder {
     where
         T: Send + Sync + 'static,
     {
-        self.add_resource(Events::<T>::default())
+        self.insert_resource(Events::<T>::default())
             .add_system_to_stage(stage::EVENT, Events::<T>::update_system.system())
     }
 
