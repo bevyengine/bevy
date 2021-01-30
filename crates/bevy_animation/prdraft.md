@@ -97,6 +97,16 @@ c) NLerp only and you wont notice the difference, hopefully ...
 Simple and naive implementation, replaces the vertex shader from the `bevy_pbr::prelude::StandardMaterial`.
 Further work should done along side with the rendering, but hey it works!  
 
+11. Additive Blending
+
+Supports additive blending as defined by the ACL mode Additive 1, that can be found
+[here](https://github.com/nfrechette/acl/blob/develop/docs/additive_clips.md)
+
+12. SIMD support
+
+Clips can now be packed, a packed clip will contain tracks that are sampled using wide types from the `ultraviolet` crate
+thus resulting in a greater sampling throughput.
+
 ## Missing Features
 
 1. Nested properties
@@ -104,24 +114,18 @@ Further work should done along side with the rendering, but hey it works!
 Right now only the top most properties of each struct can be animated,
 this means `"@CustomComponent.point.x"` isn't valid;
 
-2. Additive Blending
+2. Masks
 
-3. Masks
+3. Animation events (simple and interval)
 
-4. Animation events (simple and interval)
+4. Morph Targets
 
-5. Morph Targets
-
-6. Dedicated `Transform` animator system
+5. Dedicated `Transform` animator system
 
 `Transform` is the most common animated component in any game, its the only animated component registered
 by default and it should receive a custom animator system to squeeze every single us that is possible,
 this custom system should be also be capable of performing SIMD blending;
 
-7. SIMD support
-
-The sampler do support wide types from the `ultraviolet` crate, but it's isn't fully integrated yet;
-SIMD blending will be a challenge to implement, and probably wont ever land; 
 
 ## Terminology and Internals
 

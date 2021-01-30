@@ -85,47 +85,49 @@ impl<'a> AnimatorBlendGroup<'a> {
 
 #[inline(always)]
 fn additive_blend_bool(a: &bool, b: &bool, _: f32) -> bool {
+    // TODO: Review
     *a || *b
 }
 
 #[inline(always)]
-fn additive_blend_f32(a: &f32, b: &f32, _: f32) -> f32 {
-    *a + *b
+fn additive_blend_f32(a: &f32, b: &f32, w: f32) -> f32 {
+    *a + (*b * w)
 }
 
 #[inline(always)]
-fn additive_blend_vec2(a: &Vec2, b: &Vec2, _: f32) -> Vec2 {
-    *a + *b
+fn additive_blend_vec2(a: &Vec2, b: &Vec2, w: f32) -> Vec2 {
+    *a + (*b * w)
 }
 
 #[inline(always)]
-fn additive_blend_vec3(a: &Vec3, b: &Vec3, _: f32) -> Vec3 {
-    *a + *b
+fn additive_blend_vec3(a: &Vec3, b: &Vec3, w: f32) -> Vec3 {
+    *a + (*b * w)
 }
 
 #[inline(always)]
-fn additive_blend_vec4(a: &Vec4, b: &Vec4, _: f32) -> Vec4 {
-    *a + *b
+fn additive_blend_vec4(a: &Vec4, b: &Vec4, w: f32) -> Vec4 {
+    *a + (*b * w)
 }
 
 #[inline(always)]
-fn additive_blend_quat(a: &Quat, b: &Quat, _: f32) -> Quat {
-    *b * *a
+fn additive_blend_quat(a: &Quat, b: &Quat, w: f32) -> Quat {
+    // TODO: Review
+    (*b * w) * *a
 }
 
 #[inline(always)]
-fn additive_blend_scale2(a: &Scale2, b: &Scale2, _: f32) -> Scale2 {
-    Scale2((Vec2::one() + b.0) * a.0)
+fn additive_blend_scale2(a: &Scale2, b: &Scale2, w: f32) -> Scale2 {
+    Scale2((Vec2::one() + (b.0 * w)) * a.0)
 }
 
 #[inline(always)]
-fn additive_blend_scale3(a: &Scale3, b: &Scale3, _: f32) -> Scale3 {
-    Scale3((Vec3::one() + b.0) * a.0)
+fn additive_blend_scale3(a: &Scale3, b: &Scale3, w: f32) -> Scale3 {
+    Scale3((Vec3::one() + (b.0 * w)) * a.0)
 }
 
 #[inline(always)]
-fn additive_blend_color(a: &Color, b: &Color, _: f32) -> Color {
-    (Vec4::from(*a) + Vec4::from(*b)).into()
+fn additive_blend_color(a: &Color, b: &Color, w: f32) -> Color {
+    (Vec4::from(*a) + (Vec4::from(*b) * w)).into()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
