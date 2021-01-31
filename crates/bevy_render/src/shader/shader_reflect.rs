@@ -344,7 +344,7 @@ mod tests {
             layout,
             ShaderLayout {
                 entry_point: "main".into(),
-                vertex_buffer_layouts: vec![
+                vertex_buffer_layout: vec![
                     VertexBufferLayout::new_from_attribute(
                         VertexAttribute {
                             name: "Vertex_Position".into(),
