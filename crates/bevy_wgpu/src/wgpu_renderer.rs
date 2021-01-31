@@ -37,7 +37,7 @@ impl WgpuRenderer {
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: match options.power_pref {
                     WgpuPowerOptions::HighPerformance => wgpu::PowerPreference::HighPerformance,
-                    WgpuPowerOptions::Adaptive => Default::default(),
+                    WgpuPowerOptions::Adaptive => wgpu::PowerPreference::LowPower,
                     WgpuPowerOptions::LowPower => wgpu::PowerPreference::LowPower,
                 },
                 compatible_surface: None,

@@ -16,7 +16,7 @@ pub struct PipelineSpecialization {
     pub primitive_topology: PrimitiveTopology,
     pub dynamic_bindings: HashSet<String>,
     pub strip_index_format: Option<IndexFormat>,
-    pub vertex_buffer_descriptor: VertexBufferLayout,
+    pub vertex_buffer_layout: VertexBufferLayout,
     pub sample_count: u32,
 }
 
@@ -28,7 +28,7 @@ impl Default for PipelineSpecialization {
             shader_specialization: Default::default(),
             primitive_topology: Default::default(),
             dynamic_bindings: Default::default(),
-            vertex_buffer_descriptor: Default::default(),
+            vertex_buffer_layout: Default::default(),
         }
     }
 }
@@ -198,12 +198,12 @@ impl PipelineCompiler {
         // create a vertex layout that provides all attributes from either the specialized vertex buffers or a zero buffer
         let mut pipeline_layout = specialized_descriptor.layout.as_mut().unwrap();
         // the vertex buffer descriptor of the mesh
-        let mesh_vertex_buffer_descriptor = &pipeline_specialization.vertex_buffer_descriptor;
+        let mesh_vertex_buffer_layout = &pipeline_specialization.vertex_buffer_layout;
 
         // the vertex buffer descriptor that will be used for this pipeline
         let mut compiled_vertex_buffer_descriptor = VertexBufferLayout {
             step_mode: InputStepMode::Vertex,
-            stride: mesh_vertex_buffer_descriptor.stride,
+            stride: mesh_vertex_buffer_layout.stride,
             ..Default::default()
         };
 
@@ -213,7 +213,7 @@ impl PipelineCompiler {
                 .get(0)
                 .expect("Reflected layout has no attributes.");
 
-            if let Some(target_vertex_attribute) = mesh_vertex_buffer_descriptor
+            if let Some(target_vertex_attribute) = mesh_vertex_buffer_layout
                 .attributes
                 .iter()
                 .find(|x| x.name == shader_vertex_attribute.name)

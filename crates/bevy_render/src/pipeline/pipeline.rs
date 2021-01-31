@@ -1,6 +1,6 @@
 use super::{
     state_descriptors::{
-        BlendFactor, BlendOperation, ColorWrite, CompareFunction, CullMode, FrontFace, IndexFormat,
+        BlendFactor, BlendOperation, ColorWrite, CompareFunction, CullMode, FrontFace,
         PrimitiveTopology,
     },
     PipelineLayout,

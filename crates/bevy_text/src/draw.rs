@@ -29,7 +29,7 @@ impl<'a> Drawable for DrawableText<'a> {
             &bevy_sprite::SPRITE_SHEET_PIPELINE_HANDLE.typed(),
             &PipelineSpecialization {
                 sample_count: self.msaa.samples,
-                vertex_buffer_descriptor: self.font_quad_vertex_layout.clone(),
+                vertex_buffer_layout: self.font_quad_vertex_layout.clone(),
                 ..Default::default()
             },
         )?;

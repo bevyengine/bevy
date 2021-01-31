@@ -49,7 +49,7 @@ impl ShaderLayout {
 
                 vertex_attributes.sort_by(|a, b| a.shader_location.cmp(&b.shader_location));
 
-                let mut vertex_buffer_layouts = Vec::new();
+                let mut vertex_buffer_layout = Vec::new();
                 for vertex_attribute in vertex_attributes.drain(..) {
                     let mut instance = false;
                     // obtain buffer name and instancing flag
@@ -67,7 +67,7 @@ impl ShaderLayout {
                     };
 
                     // create a new buffer descriptor, per attribute!
-                    vertex_buffer_layouts.push(VertexBufferLayout {
+                    vertex_buffer_layout.push(VertexBufferLayout {
                         attributes: vec![vertex_attribute],
                         name: current_buffer_name.into(),
                         step_mode: if instance {
@@ -81,7 +81,7 @@ impl ShaderLayout {
 
                 ShaderLayout {
                     bind_groups,
-                    vertex_buffer_layouts,
+                    vertex_buffer_layout,
                     entry_point: entry_point_name,
                 }
             }
@@ -130,7 +130,7 @@ fn reflect_binding(
             &binding.name,
             BindType::Texture {
                 view_dimension: reflect_dimension(type_description),
-                sample_type: TextureSampleType::Float { filterable: false },
+                sample_type: TextureSampleType::Float { filterable: true },
                 multisampled: false,
             },
         ),
