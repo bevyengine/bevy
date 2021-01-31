@@ -15,7 +15,7 @@ pub struct PipelineSpecialization {
     pub shader_specialization: ShaderSpecialization,
     pub primitive_topology: PrimitiveTopology,
     pub dynamic_bindings: HashSet<String>,
-    pub index_format: Option<IndexFormat>,
+    pub strip_index_format: Option<IndexFormat>,
     pub vertex_buffer_descriptor: VertexBufferLayout,
     pub sample_count: u32,
 }
@@ -24,7 +24,7 @@ impl Default for PipelineSpecialization {
     fn default() -> Self {
         Self {
             sample_count: 1,
-            index_format: Some(IndexFormat::Uint32),
+            strip_index_format: None,
             shader_specialization: Default::default(),
             primitive_topology: Default::default(),
             dynamic_bindings: Default::default(),
@@ -240,7 +240,8 @@ impl PipelineCompiler {
         pipeline_layout.vertex_buffer_descriptors = vertex_buffer_descriptors;
         specialized_descriptor.multisample.count = pipeline_specialization.sample_count;
         specialized_descriptor.primitive.topology = pipeline_specialization.primitive_topology;
-        specialized_descriptor.index_format = pipeline_specialization.index_format;
+        specialized_descriptor.primitive.strip_index_format =
+            pipeline_specialization.strip_index_format;
 
         let specialized_pipeline_handle = pipelines.add(specialized_descriptor);
         render_resource_context.create_render_pipeline(

@@ -27,9 +27,6 @@ pub struct PipelineDescriptor {
 
     /// The effect of draw calls on the color aspect of the output target.
     pub color_target_states: Vec<ColorTargetState>,
-
-    /// The format of any index buffers used with this pipeline.
-    pub index_format: Option<IndexFormat>,
 }
 
 impl PipelineDescriptor {
@@ -47,7 +44,6 @@ impl PipelineDescriptor {
                 cull_mode: CullMode::Back,
                 polygon_mode: PolygonMode::Fill,
             },
-            index_format: Some(IndexFormat::Uint32),
             multisample: MultisampleState {
                 count: 1,
                 mask: !0,
@@ -67,7 +63,6 @@ impl PipelineDescriptor {
                 polygon_mode: PolygonMode::Fill,
             },
             layout: None,
-            index_format: Some(IndexFormat::Uint32),
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Depth32Float,
                 depth_write_enabled: true,

@@ -454,7 +454,12 @@ fn update_entity_mesh(
         render_pipeline.specialization.primitive_topology = mesh.primitive_topology;
         // TODO: don't allocate a new vertex buffer descriptor for every entity
         render_pipeline.specialization.vertex_buffer_descriptor = mesh.get_vertex_buffer_layout();
-        render_pipeline.specialization.index_format = mesh.indices().map(|indices| indices.into());
+        if let PrimitiveTopology::LineStrip | PrimitiveTopology::TriangleStrip =
+            mesh.primitive_topology
+        {
+            render_pipeline.specialization.strip_index_format =
+                mesh.indices().map(|indices| indices.into());
+        }
     }
     if let Some(RenderResourceId::Buffer(index_buffer_resource)) =
         render_resource_context.get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX)
