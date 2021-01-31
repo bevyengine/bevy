@@ -7,7 +7,7 @@ use crate::{
 use bevy_asset::Handle;
 use bevy_ecs::Bundle;
 use bevy_render::{
-    camera::{Camera, OrthographicProjection, VisibleEntities, WindowOrigin},
+    camera::{Camera, DepthCalculation, OrthographicProjection, VisibleEntities, WindowOrigin},
     draw::Draw,
     mesh::Mesh,
     pipeline::{RenderPipeline, RenderPipelines},
@@ -185,6 +185,7 @@ impl Default for UiCameraBundle {
             orthographic_projection: OrthographicProjection {
                 far,
                 window_origin: WindowOrigin::BottomLeft,
+                depth_calculation: DepthCalculation::ZDifference,
                 ..Default::default()
             },
             visible_entities: Default::default(),

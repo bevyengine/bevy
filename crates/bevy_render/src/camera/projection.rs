@@ -77,6 +77,7 @@ pub struct OrthographicProjection {
     pub window_origin: WindowOrigin,
     pub scaling_mode: ScalingMode,
     pub scale: f32,
+    pub depth_calculation: DepthCalculation,
 }
 
 impl CameraProjection for OrthographicProjection {
@@ -140,7 +141,7 @@ impl CameraProjection for OrthographicProjection {
     }
 
     fn depth_calculation(&self) -> DepthCalculation {
-        DepthCalculation::ZDifference
+        self.depth_calculation
     }
 }
 
@@ -156,6 +157,7 @@ impl Default for OrthographicProjection {
             window_origin: WindowOrigin::Center,
             scaling_mode: ScalingMode::WindowSize,
             scale: 1.0,
+            depth_calculation: DepthCalculation::Distance,
         }
     }
 }
