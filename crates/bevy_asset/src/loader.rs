@@ -53,7 +53,7 @@ impl<T: Asset> LoadedAsset<T> {
     }
 }
 
-pub struct BoxedLoadedAsset {
+pub(crate) struct BoxedLoadedAsset {
     pub(crate) value: Option<Box<dyn AssetDynamic>>,
     pub(crate) dependencies: Vec<AssetPath<'static>>,
 }
