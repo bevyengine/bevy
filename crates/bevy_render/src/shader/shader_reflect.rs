@@ -397,7 +397,7 @@ mod tests {
                             bind_type: BindType::Texture {
                                 multisampled: false,
                                 view_dimension: TextureViewDimension::D2,
-                                sample_type: TextureSampleType::Float { filterable: false }
+                                sample_type: TextureSampleType::Float { filterable: true }
                             },
                             shader_stage: BindingShaderStage::VERTEX,
                         }]
