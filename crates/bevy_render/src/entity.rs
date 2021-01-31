@@ -1,6 +1,7 @@
 use crate::{
     camera::{
-        Camera, DepthCalculation, OrthographicProjection, PerspectiveProjection, VisibleEntities,
+        Camera, DepthCalculation, OrthographicProjection, PerspectiveProjection, ScalingMode,
+        VisibleEntities,
     },
     pipeline::RenderPipelines,
     prelude::Visible,
@@ -110,6 +111,7 @@ impl OrthographicCameraBundle {
                 ..Default::default()
             },
             orthographic_projection: OrthographicProjection {
+                scaling_mode: ScalingMode::FixedVertical,
                 depth_calculation: DepthCalculation::Distance,
                 ..Default::default()
             },
