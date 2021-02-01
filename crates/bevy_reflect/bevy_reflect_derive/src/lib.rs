@@ -15,8 +15,8 @@ use syn::{
     parse_macro_input,
     punctuated::Punctuated,
     token::{Comma, Paren, Where},
-    Attribute, Data, DataEnum, DataStruct, DeriveInput, Field, Fields, Generics, Ident, Index,
-    Member, Meta, NestedMeta, Path, Token, Variant,
+    Data, DataEnum, DataStruct, DeriveInput, Field, Fields, Generics, Ident, Index, Member, Meta,
+    NestedMeta, Path, Token, Variant,
 };
 
 #[derive(Default)]
@@ -45,9 +45,9 @@ enum DeriveType {
     Value,
 }
 
-enum Items<'a> {
-    Fields(&'a Punctuated<Field, Token![,]>),
-    Variants(&'a Punctuated<Variant, Token![,]>),
+enum Item<'a> {
+    Field(&'a Field),
+    Variant(&'a Variant),
 }
 
 static REFLECT_ATTRIBUTE_NAME: &str = "reflect";
@@ -56,67 +56,96 @@ static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
 #[proc_macro_derive(Reflect, attributes(reflect, reflect_value, module))]
 pub fn derive_reflect(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let unit_struct_punctuated = Punctuated::new();
-    let (items, mut derive_type) = match &ast.data {
+    let unit_struct_punctuated = Punctuated::<Field, Token![,]>::new();
+    let (items, mut derive_type): (Vec<Item>, DeriveType) = match &ast.data {
         Data::Struct(DataStruct {
             fields: Fields::Named(fields),
             ..
-        }) => (Items::Fields(&fields.named), DeriveType::Struct),
+        }) => (
+            fields
+                .named
+                .iter()
+                .map(|field| Item::Field(field))
+                .collect(),
+            DeriveType::Struct,
+        ),
         Data::Struct(DataStruct {
             fields: Fields::Unnamed(fields),
             ..
-        }) => (Items::Fields(&fields.unnamed), DeriveType::TupleStruct),
+        }) => (
+            fields
+                .unnamed
+                .iter()
+                .map(|field| Item::Field(field))
+                .collect(),
+            DeriveType::TupleStruct,
+        ),
         Data::Struct(DataStruct {
             fields: Fields::Unit,
             ..
         }) => (
-            Items::Fields(&unit_struct_punctuated),
+            unit_struct_punctuated
+                .iter()
+                .map(|field| Item::Field(field))
+                .collect(),
             DeriveType::UnitStruct,
         ),
-        Data::Enum(DataEnum { variants, .. }) => (Items::Variants(variants), DeriveType::Enum),
-        _ => (Items::Fields(&unit_struct_punctuated), DeriveType::Value),
+        Data::Enum(DataEnum { variants, .. }) => (
+            variants
+                .iter()
+                .map(|variant| Item::Variant(variant))
+                .collect(),
+            DeriveType::Enum,
+        ),
+        _ => (
+            unit_struct_punctuated
+                .iter()
+                .map(|field| Item::Field(field))
+                .collect(),
+            DeriveType::Value,
+        ),
     };
-    let attrs: Vec<&Vec<Attribute>> = match items {
-        Items::Fields(fields) => fields.iter().map(|field| &field.attrs).collect(),
-        Items::Variants(variants) => variants.iter().map(|variant| &variant.attrs).collect(),
-    };
-    let args = attrs
+    let items_and_args = items
         .iter()
         .enumerate()
-        .map(|(i, attrs)| {
+        .map(|(i, item)| {
             (
-                attrs
-                    .iter()
-                    .find(|a| *a.path.get_ident().as_ref().unwrap() == REFLECT_ATTRIBUTE_NAME)
-                    .map(|a| {
-                        syn::custom_keyword!(ignore);
-                        let mut attribute_args = PropAttributeArgs { ignore: None };
-                        a.parse_args_with(|input: ParseStream| {
-                            if input.parse::<Option<ignore>>()?.is_some() {
-                                attribute_args.ignore = Some(true);
-                                return Ok(());
-                            }
-                            Ok(())
-                        })
-                        .expect("Invalid 'property' attribute format.");
+                item,
+                match *item {
+                    Item::Field(field) => &field.attrs,
+                    Item::Variant(variant) => &variant.attrs,
+                }
+                .iter()
+                .find(|a| *a.path.get_ident().as_ref().unwrap() == REFLECT_ATTRIBUTE_NAME)
+                .map(|a| {
+                    syn::custom_keyword!(ignore);
+                    let mut attribute_args = PropAttributeArgs { ignore: None };
+                    a.parse_args_with(|input: ParseStream| {
+                        if input.parse::<Option<ignore>>()?.is_some() {
+                            attribute_args.ignore = Some(true);
+                            return Ok(());
+                        }
+                        Ok(())
+                    })
+                    .expect("Invalid 'property' attribute format.");
 
-                        attribute_args
-                    }),
+                    attribute_args
+                }),
                 i,
             )
         })
-        .collect::<Vec<(Option<PropAttributeArgs>, usize)>>();
-    let active_items = args
+        .collect::<Vec<(&Item, Option<PropAttributeArgs>, usize)>>();
+    let active_items = items_and_args
         .iter()
-        .filter(|(attrs, _i)| {
+        .filter(|(_item, attrs, _i)| {
             attrs.is_none()
                 || match attrs.as_ref().unwrap().ignore {
                     Some(ignore) => !ignore,
                     None => true,
                 }
         })
-        .map(|(_attr, i)| *i)
-        .collect::<Vec<usize>>();
+        .map(|(item, _attr, i)| (*item, *i))
+        .collect::<Vec<(&Item, usize)>>();
 
     let modules = get_modules();
     let bevy_reflect_path = get_path(&modules.bevy_reflect);
@@ -150,16 +179,20 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 
     match derive_type {
         DeriveType::Struct | DeriveType::UnitStruct => {
-            let active_fields = match items {
-                Items::Fields(fields) => fields,
-                Items::Variants(_) => {
-                    unreachable!()
-                }
-            }
-            .iter()
-            .zip(active_items.iter())
-            .map(|(field, i)| (field, *i))
-            .collect::<Vec<_>>();
+            let active_fields = active_items
+                .iter()
+                .map(|(item, i)| {
+                    (
+                        match *item {
+                            Item::Field(field) => *field,
+                            Item::Variant(_) => {
+                                unreachable!()
+                            }
+                        },
+                        *i,
+                    )
+                })
+                .collect::<Vec<_>>();
             impl_struct(
                 type_name,
                 &ast.generics,
@@ -170,16 +203,20 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
             )
         }
         DeriveType::TupleStruct => {
-            let active_fields = match items {
-                Items::Fields(fields) => fields,
-                Items::Variants(_) => {
-                    unreachable!()
-                }
-            }
-            .iter()
-            .zip(active_items.iter())
-            .map(|(field, i)| (field, *i))
-            .collect::<Vec<_>>();
+            let active_fields = active_items
+                .iter()
+                .map(|(item, i)| {
+                    (
+                        match *item {
+                            Item::Field(field) => *field,
+                            Item::Variant(_) => {
+                                unreachable!()
+                            }
+                        },
+                        *i,
+                    )
+                })
+                .collect::<Vec<_>>();
             impl_tuple_struct(
                 type_name,
                 &ast.generics,
@@ -197,14 +234,18 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
             &reflect_attrs,
         ),
         DeriveType::Enum => {
-            let active_variants = match items {
-                Items::Fields(_) => unreachable!(),
-                Items::Variants(variants) => variants,
-            }
-            .iter()
-            .zip(active_items.iter())
-            .map(|(variant, i)| (variant, *i))
-            .collect::<Vec<_>>();
+            let active_variants = active_items
+                .iter()
+                .map(|(item, i)| {
+                    (
+                        match *item {
+                            Item::Field(_) => unreachable!(),
+                            Item::Variant(variant) => *variant,
+                        },
+                        *i,
+                    )
+                })
+                .collect::<Vec<_>>();
             impl_enum(
                 type_name,
                 &ast.generics,
