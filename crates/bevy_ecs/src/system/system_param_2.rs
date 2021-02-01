@@ -1,9 +1,11 @@
+use std::ops::{Deref, DerefMut};
+
 use crate::{FromResources, Resources, SystemState, World};
 
 /// System parameters which can be in exclusive systems (i.e. those which have `&mut World`, `&mut Resources` arguments)
 /// This allows these systems to use local state
 pub trait PureSystemParam: Sized {
-    type Config;
+    type Config: Default;
     fn create_state_pure(config: Self::Config, resources: &mut Resources) -> Self::State;
 
     type State: for<'a> PureParamState<'a>;
@@ -17,7 +19,20 @@ pub trait PureParamState<'a> {
 }
 
 #[derive(Debug)]
-struct Local<T>(T);
+pub struct Local<T>(T);
+
+impl<T> Deref for Local<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl<T> DerefMut for Local<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 // TODO: Equivalent impl for &Local<T> - would need type
 impl<T: FromResources + 'static> PureSystemParam for &mut Local<T> {
@@ -38,7 +53,7 @@ impl<'a, T: 'static> PureParamState<'a> for Local<T> {
 }
 
 pub trait SystemParam: Sized {
-    type Config;
+    type Config: Default;
     type State: for<'a> ParamState<'a>;
     fn create_state(config: Self::Config, resources: &mut Resources) -> Self::State;
 }
