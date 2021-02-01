@@ -122,6 +122,10 @@ name = "msaa"
 path = "examples/3d/msaa.rs"
 
 [[example]]
+name = "orthographic"
+path = "examples/3d/orthographic.rs"
+
+[[example]]
 name = "parenting"
 path = "examples/3d/parenting.rs"
 
