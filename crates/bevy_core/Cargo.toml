@@ -1,6 +1,6 @@
 [package]
 name = "bevy_core"
-version = "0.2.1"
+version = "0.4.0"
 edition = "2018"
 authors = [
     "Bevy Contributors <bevyengine@gmail.com>",
@@ -12,20 +12,12 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT"
 keywords = ["bevy"]
 
-[features]
-dynamic_plugins = [
-    "bevy_app/dynamic_plugins",
-    "bevy_type_registry/dynamic_plugins",
-]
 
 [dependencies]
-bevy_app = { path = "../bevy_app", version = "0.2.1" }
-bevy_derive = { path = "../bevy_derive", version = "0.2.1" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.2.1" }
-bevy_property = { path = "../bevy_property", version = "0.2.1" }
-bevy_type_registry = { path = "../bevy_type_registry", version = "0.2.1" }
-bevy_math = { path = "../bevy_math", version = "0.2.1" }
-bevy_utils = { path = "../bevy_utils", version = "0.2.1" }
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-instant = "0.1.6"
+bevy_app = { path = "../bevy_app", version = "0.4.0" }
+bevy_derive = { path = "../bevy_derive", version = "0.4.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.4.0" }
+bevy_math = { path = "../bevy_math", version = "0.4.0" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.4.0", features = ["bevy"] }
+bevy_tasks = { path = "../bevy_tasks", version = "0.4.0" }
+bevy_utils = { path = "../bevy_utils", version = "0.4.0" }

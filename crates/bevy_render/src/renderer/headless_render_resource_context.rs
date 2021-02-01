@@ -2,7 +2,7 @@ use super::RenderResourceContext;
 use crate::{
     pipeline::{BindGroupDescriptorId, PipelineDescriptor},
     renderer::{BindGroup, BufferId, BufferInfo, RenderResourceId, SamplerId, TextureId},
-    shader::Shader,
+    shader::{Shader, ShaderError},
     texture::{SamplerDescriptor, TextureDescriptor},
 };
 use bevy_asset::{Assets, Handle, HandleUntyped};
@@ -11,11 +11,11 @@ use bevy_window::Window;
 use parking_lot::RwLock;
 use std::{ops::Range, sync::Arc};
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct HeadlessRenderResourceContext {
     buffer_info: Arc<RwLock<HashMap<BufferId, BufferInfo>>>,
     texture_descriptors: Arc<RwLock<HashMap<TextureId, TextureDescriptor>>>,
-    pub asset_resources: Arc<RwLock<HashMap<(HandleUntyped, usize), RenderResourceId>>>,
+    pub asset_resources: Arc<RwLock<HashMap<(HandleUntyped, u64), RenderResourceId>>>,
 }
 
 impl HeadlessRenderResourceContext {
@@ -76,7 +76,7 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         buffer
     }
 
-    fn create_shader_module(&self, _shader_handle: Handle<Shader>, _shaders: &Assets<Shader>) {}
+    fn create_shader_module(&self, _shader_handle: &Handle<Shader>, _shaders: &Assets<Shader>) {}
 
     fn remove_buffer(&self, buffer: BufferId) {
         self.buffer_info.write().remove(&buffer);
@@ -92,7 +92,7 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         &self,
         handle: HandleUntyped,
         render_resource: RenderResourceId,
-        index: usize,
+        index: u64,
     ) {
         self.asset_resources
             .write()
@@ -102,7 +102,7 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
     fn get_asset_resource_untyped(
         &self,
         handle: HandleUntyped,
-        index: usize,
+        index: u64,
     ) -> Option<RenderResourceId> {
         self.asset_resources.write().get(&(handle, index)).cloned()
     }
@@ -122,9 +122,9 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
     ) {
     }
 
-    fn create_shader_module_from_source(&self, _shader_handle: Handle<Shader>, _shader: &Shader) {}
+    fn create_shader_module_from_source(&self, _shader_handle: &Handle<Shader>, _shader: &Shader) {}
 
-    fn remove_asset_resource_untyped(&self, handle: HandleUntyped, index: usize) {
+    fn remove_asset_resource_untyped(&self, handle: HandleUntyped, index: u64) {
         self.asset_resources.write().remove(&(handle, index));
     }
 
@@ -140,4 +140,22 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
     ) -> bool {
         false
     }
+
+    fn get_aligned_uniform_size(&self, size: usize, _dynamic: bool) -> usize {
+        size
+    }
+
+    fn get_aligned_texture_size(&self, size: usize) -> usize {
+        size
+    }
+
+    fn get_specialized_shader(
+        &self,
+        shader: &Shader,
+        _macros: Option<&[String]>,
+    ) -> Result<Shader, ShaderError> {
+        Ok(shader.clone())
+    }
+
+    fn remove_stale_bind_groups(&self) {}
 }

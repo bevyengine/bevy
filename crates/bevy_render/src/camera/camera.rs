@@ -1,17 +1,18 @@
 use super::CameraProjection;
 use bevy_app::prelude::{EventReader, Events};
-use bevy_ecs::{Component, Local, Query, Res};
+use bevy_ecs::{Added, Component, Entity, Local, Query, QuerySet, Res};
 use bevy_math::Mat4;
-use bevy_property::Properties;
+use bevy_reflect::{Reflect, ReflectComponent};
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 
-#[derive(Default, Debug, Properties)]
+#[derive(Default, Debug, Reflect)]
+#[reflect(Component)]
 pub struct Camera {
     pub projection_matrix: Mat4,
     pub name: Option<String>,
-    #[property(ignore)]
+    #[reflect(ignore)]
     pub window: WindowId,
-    #[property(ignore)]
+    #[reflect(ignore)]
     pub depth_calculation: DepthCalculation,
 }
 
@@ -38,7 +39,10 @@ pub fn camera_system<T: CameraProjection + Component>(
     window_resized_events: Res<Events<WindowResized>>,
     window_created_events: Res<Events<WindowCreated>>,
     windows: Res<Windows>,
-    mut query: Query<(&mut Camera, &mut T)>,
+    mut queries: QuerySet<(
+        Query<(Entity, &mut Camera, &mut T)>,
+        Query<Entity, Added<Camera>>,
+    )>,
 ) {
     let mut changed_window_ids = Vec::new();
     // handle resize events. latest events are handled first because we only want to resize each window once
@@ -67,10 +71,14 @@ pub fn camera_system<T: CameraProjection + Component>(
         changed_window_ids.push(event.id);
     }
 
-    for (mut camera, mut camera_projection) in &mut query.iter() {
+    let mut added_cameras = vec![];
+    for entity in &mut queries.q1().iter() {
+        added_cameras.push(entity);
+    }
+    for (entity, mut camera, mut camera_projection) in queries.q0_mut().iter_mut() {
         if let Some(window) = windows.get(camera.window) {
-            if changed_window_ids.contains(&window.id) {
-                camera_projection.update(window.width as usize, window.height as usize);
+            if changed_window_ids.contains(&window.id()) || added_cameras.contains(&entity) {
+                camera_projection.update(window.width(), window.height());
                 camera.projection_matrix = camera_projection.get_projection_matrix();
                 camera.depth_calculation = camera_projection.depth_calculation();
             }

@@ -1,4 +1,4 @@
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{Asset, Assets, Handle};
 
 use crate::{pipeline::RenderPipelines, Texture};
 pub use bevy_derive::ShaderDefs;
@@ -64,7 +64,7 @@ pub fn shader_defs_system<T>(mut query: Query<(&T, &mut RenderPipelines)>)
 where
     T: ShaderDefs + Send + Sync + 'static,
 {
-    for (shader_defs, mut render_pipelines) in &mut query.iter() {
+    for (shader_defs, mut render_pipelines) in query.iter_mut() {
         for shader_def in shader_defs.iter_shader_defs() {
             for render_pipeline in render_pipelines.pipelines.iter_mut() {
                 render_pipeline
@@ -79,7 +79,7 @@ where
 
 /// Clears each [RenderPipelines]' shader defs collection
 pub fn clear_shader_defs_system(mut query: Query<&mut RenderPipelines>) {
-    for mut render_pipelines in &mut query.iter() {
+    for mut render_pipelines in query.iter_mut() {
         for render_pipeline in render_pipelines.pipelines.iter_mut() {
             render_pipeline
                 .specialization
@@ -91,21 +91,23 @@ pub fn clear_shader_defs_system(mut query: Query<&mut RenderPipelines>) {
 }
 
 /// Updates [RenderPipelines] with the latest [ShaderDefs] from a given asset type
-pub fn asset_shader_defs_system<T>(
+pub fn asset_shader_defs_system<T: Asset>(
     assets: Res<Assets<T>>,
     mut query: Query<(&Handle<T>, &mut RenderPipelines)>,
 ) where
     T: ShaderDefs + Send + Sync + 'static,
 {
-    for (asset_handle, mut render_pipelines) in &mut query.iter() {
-        let shader_defs = assets.get(&asset_handle).unwrap();
-        for shader_def in shader_defs.iter_shader_defs() {
-            for render_pipeline in render_pipelines.pipelines.iter_mut() {
-                render_pipeline
-                    .specialization
-                    .shader_specialization
-                    .shader_defs
-                    .insert(shader_def.to_string());
+    for (asset_handle, mut render_pipelines) in query.iter_mut() {
+        if let Some(asset_handle) = assets.get(asset_handle) {
+            let shader_defs = asset_handle;
+            for shader_def in shader_defs.iter_shader_defs() {
+                for render_pipeline in render_pipelines.pipelines.iter_mut() {
+                    render_pipeline
+                        .specialization
+                        .shader_specialization
+                        .shader_defs
+                        .insert(shader_def.to_string());
+                }
             }
         }
     }

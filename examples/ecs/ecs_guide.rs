@@ -1,9 +1,10 @@
 use bevy::{
-    app::{AppExit, ScheduleRunnerPlugin},
+    app::{AppExit, ScheduleRunnerPlugin, ScheduleRunnerSettings},
+    ecs::SystemStage,
     prelude::*,
+    utils::Duration,
 };
 use rand::random;
-use std::time::Duration;
 
 /// This is a guided introduction to Bevy's "Entity Component System" (ECS)
 /// All Bevy app logic is built using the ECS pattern, so definitely pay attention!
@@ -85,7 +86,7 @@ fn new_round_system(game_rules: Res<GameRules>, mut game_state: ResMut<GameState
 
 // This system updates the score for each entity with the "Player" and "Score" component.
 fn score_system(mut query: Query<(&Player, &mut Score)>) {
-    for (player, mut score) in &mut query.iter() {
+    for (player, mut score) in query.iter_mut() {
         let scored_a_point = random::<bool>();
         if scored_a_point {
             score.value += 1;
@@ -110,9 +111,9 @@ fn score_system(mut query: Query<(&Player, &mut Score)>) {
 fn score_check_system(
     game_rules: Res<GameRules>,
     mut game_state: ResMut<GameState>,
-    mut query: Query<(&Player, &Score)>,
+    query: Query<(&Player, &Score)>,
 ) {
-    for (player, score) in &mut query.iter() {
+    for (player, score) in query.iter() {
         if score.value == game_rules.winning_score {
             game_state.winning_player = Some(player.name.clone());
         }
@@ -141,18 +142,16 @@ fn game_over_system(
 // the initial "state" of our game. The only thing that distinguishes a "startup" system from a "normal" system is how it is registered:
 //      Startup: app.add_startup_system(startup_system)
 //      Normal:  app.add_system(normal_system)
-// This startup system needs direct access to the ECS World and Resources, which makes it a "thread local system".
-// That being said, startup systems can use any of the system forms we've covered. We will also cover thread local systems more in a bit.
-fn startup_system(world: &mut World, resources: &mut Resources) {
+fn startup_system(commands: &mut Commands, mut game_state: ResMut<GameState>) {
     // Create our game rules resource
-    resources.insert(GameRules {
+    commands.insert_resource(GameRules {
         max_rounds: 10,
         winning_score: 4,
         max_players: 4,
     });
 
     // Add some players to our world. Players start with a score of 0 ... we want our game to be fair!
-    world.spawn_batch(vec![
+    commands.spawn_batch(vec![
         (
             Player {
                 name: "Alice".to_string(),
@@ -168,7 +167,6 @@ fn startup_system(world: &mut World, resources: &mut Resources) {
     ]);
 
     // set the total players to "2"
-    let mut game_state = resources.get_mut::<GameState>().unwrap();
     game_state.total_players = 2;
 }
 
@@ -178,7 +176,7 @@ fn startup_system(world: &mut World, resources: &mut Resources) {
 // Command buffers give us the ability to queue up changes to our World without directly accessing it
 // NOTE: Command buffers must always come before resources and queries in system functions
 fn new_player_system(
-    mut commands: Commands,
+    commands: &mut Commands,
     game_rules: Res<GameRules>,
     mut game_state: ResMut<GameState>,
 ) {
@@ -201,8 +199,6 @@ fn new_player_system(
 // These run on the main app thread (hence the name "thread local")
 // WARNING: These will block all parallel execution of other systems until they finish, so they should generally be avoided if you
 // care about performance
-// NOTE: You may notice that this function signature looks exactly like the "startup_system" above.
-// Thats because they are both thread local!
 #[allow(dead_code)]
 fn thread_local_system(world: &mut World, resources: &mut Resources) {
     // this does the same thing as "new_player_system"
@@ -237,8 +233,8 @@ struct State {
 
 // NOTE: this doesn't do anything relevant to our game, it is just here for illustrative purposes
 #[allow(dead_code)]
-fn local_state_system(mut state: Local<State>, mut query: Query<(&Player, &Score)>) {
-    for (player, score) in &mut query.iter() {
+fn local_state_system(mut state: Local<State>, query: Query<(&Player, &Score)>) {
+    for (player, score) in query.iter() {
         println!("processed: {} {}", player.name, score.value);
     }
     println!("this system ran {} times", state.counter);
@@ -249,18 +245,20 @@ fn local_state_system(mut state: Local<State>, mut query: Query<(&Player, &Score
 fn main() {
     // Bevy apps are created using the builder pattern. We use the builder to add systems, resources, and plugins to our app
     App::build()
-        // Plugins are just a grouped set of app builder calls (just like we're doing here).
-        // We could easily turn our game into a plugin, but you can check out the plugin example for that :)
-        // The plugin below runs our app's "system schedule" once every 5 seconds.
-        .add_plugin(ScheduleRunnerPlugin::run_loop(Duration::from_secs(5)))
         // Resources can be added to our app like this
         .add_resource(State { counter: 0 })
+        // Some systems are configured by adding their settings as a resource
+        .add_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs(5)))
+        // Plugins are just a grouped set of app builder calls (just like we're doing here).
+        // We could easily turn our game into a plugin, but you can check out the plugin example for that :)
+        // The plugin below runs our app's "system schedule" once every 5 seconds (configured above).
+        .add_plugin(ScheduleRunnerPlugin::default())
         // Resources that implement the Default or FromResources trait can be added like this:
         .init_resource::<GameState>()
         // Startup systems run exactly once BEFORE all other systems. These are generally used for
         // app initialization code (ex: adding entities and resources)
-        .add_startup_system(startup_system.thread_local_system())
-        // my_system.system() calls converts normal rust functions into ECS systems:
+        .add_startup_system(startup_system.system())
+        // my_system calls converts normal rust functions into ECS systems:
         .add_system(print_message_system.system())
         //
         // SYSTEM EXECUTION ORDER
@@ -279,14 +277,14 @@ fn main() {
         // This is where "stages" come in. A "stage" is a group of systems that execute (in parallel). Stages are executed in order,
         // and the next stage won't start until all systems in the current stage have finished.
         // add_system(system) adds systems to the UPDATE stage by default
-        // However we can manually specify the stage if we want to. The following is equivalent to add_system(score_system.system())
+        // However we can manually specify the stage if we want to. The following is equivalent to add_system(score_system)
         .add_system_to_stage(stage::UPDATE, score_system.system())
         // We can also create new stages. Here is what our games stage order will look like:
         // "before_round": new_player_system, new_round_system
         // "update": print_message_system, score_system
         // "after_round": score_check_system, game_over_system
-        .add_stage_before(stage::UPDATE, "before_round")
-        .add_stage_after(stage::UPDATE, "after_round")
+        .add_stage_before(stage::UPDATE, "before_round", SystemStage::parallel())
+        .add_stage_after(stage::UPDATE, "after_round", SystemStage::parallel())
         .add_system_to_stage("before_round", new_round_system.system())
         .add_system_to_stage("before_round", new_player_system.system())
         .add_system_to_stage("after_round", score_check_system.system())

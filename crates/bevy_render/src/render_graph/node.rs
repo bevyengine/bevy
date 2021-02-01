@@ -1,9 +1,9 @@
 use super::{Edge, RenderGraphError, ResourceSlotInfo, ResourceSlots};
 use crate::renderer::RenderContext;
 use bevy_ecs::{Commands, Resources, System, World};
+use bevy_utils::Uuid;
 use downcast_rs::{impl_downcast, Downcast};
 use std::{borrow::Cow, fmt::Debug};
-use uuid::Uuid;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct NodeId(Uuid);
@@ -37,9 +37,10 @@ pub trait Node: Downcast + Send + Sync + 'static {
 impl_downcast!(Node);
 
 pub trait SystemNode: Node {
-    fn get_system(&self, commands: &mut Commands) -> Box<dyn System>;
+    fn get_system(&self, commands: &mut Commands) -> Box<dyn System<In = (), Out = ()>>;
 }
 
+#[derive(Debug)]
 pub struct Edges {
     pub id: NodeId,
     pub input_edges: Vec<Edge>,
@@ -81,7 +82,7 @@ impl Edges {
                     false
                 }
             })
-            .ok_or_else(|| RenderGraphError::UnconnectedNodeInputSlot {
+            .ok_or(RenderGraphError::UnconnectedNodeInputSlot {
                 input_slot: index,
                 node: self.id,
             })
@@ -97,7 +98,7 @@ impl Edges {
                     false
                 }
             })
-            .ok_or_else(|| RenderGraphError::UnconnectedNodeOutputSlot {
+            .ok_or(RenderGraphError::UnconnectedNodeOutputSlot {
                 output_slot: index,
                 node: self.id,
             })

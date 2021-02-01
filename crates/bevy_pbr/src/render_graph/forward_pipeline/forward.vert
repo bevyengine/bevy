@@ -17,7 +17,6 @@ layout(set = 2, binding = 0) uniform Transform {
 };
 
 void main() {
-    v_Normal = (Model * vec4(Vertex_Normal, 1.0)).xyz;
     v_Normal = mat3(Model) * Vertex_Normal;
     v_Position = (Model * vec4(Vertex_Position, 1.0)).xyz;
     v_Uv = Vertex_Uv;

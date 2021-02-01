@@ -1,5 +1,7 @@
 // NOTE: These are currently just copies of the wgpu types, but they might change in the future
 
+use bevy_math::Vec3;
+
 /// Dimensions of a particular texture view.
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub enum TextureViewDimension {
@@ -25,6 +27,24 @@ pub struct Extent3d {
     pub width: u32,
     pub height: u32,
     pub depth: u32,
+}
+
+impl Extent3d {
+    pub fn new(width: u32, height: u32, depth: u32) -> Self {
+        Self {
+            width,
+            height,
+            depth,
+        }
+    }
+
+    pub fn volume(&self) -> usize {
+        (self.width * self.height * self.depth) as usize
+    }
+
+    pub fn as_vec3(&self) -> Vec3 {
+        Vec3::new(self.width as f32, self.height as f32, self.depth as f32)
+    }
 }
 
 /// Type of data shaders will read from a texture.
@@ -203,6 +223,17 @@ impl TextureFormat {
     pub fn pixel_size(&self) -> usize {
         let info = self.pixel_info();
         info.type_size * info.num_components
+    }
+}
+
+impl Default for TextureFormat {
+    fn default() -> Self {
+        if cfg!(target_os = "android") {
+            // Bgra8UnormSrgb texture missing on some Android devices
+            TextureFormat::Rgba8UnormSrgb
+        } else {
+            TextureFormat::Bgra8UnormSrgb
+        }
     }
 }
 

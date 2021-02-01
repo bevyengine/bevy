@@ -1,7 +1,7 @@
 extern crate proc_macro;
 
 mod app_plugin;
-mod as_vertex_buffer_descriptor;
+mod bevy_main;
 mod bytes;
 mod modules;
 mod render_resource;
@@ -44,14 +44,13 @@ pub fn derive_shader_defs(input: TokenStream) -> TokenStream {
     shader_defs::derive_shader_defs(input)
 }
 
-/// Derives the AsVertexBufferDescriptor trait.
-#[proc_macro_derive(AsVertexBufferDescriptor, attributes(vertex, as_crate))]
-pub fn derive_as_vertex_buffer_descriptor(input: TokenStream) -> TokenStream {
-    as_vertex_buffer_descriptor::derive_as_vertex_buffer_descriptor(input)
-}
-
 /// Generates a dynamic plugin entry point function for the given `Plugin` type.  
 #[proc_macro_derive(DynamicPlugin)]
 pub fn derive_dynamic_plugin(input: TokenStream) -> TokenStream {
     app_plugin::derive_dynamic_plugin(input)
+}
+
+#[proc_macro_attribute]
+pub fn bevy_main(attr: TokenStream, item: TokenStream) -> TokenStream {
+    bevy_main::bevy_main(attr, item)
 }

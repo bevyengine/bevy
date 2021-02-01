@@ -1,7 +1,7 @@
 use bevy_utils::HashMap;
-use bevy_window::{Window, WindowId, WindowMode};
+use bevy_window::{Window, WindowDescriptor, WindowId, WindowMode};
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct WinitWindows {
     pub windows: HashMap<winit::window::WindowId, winit::window::Window>,
     pub window_id_to_winit: HashMap<WindowId, winit::window::WindowId>,
@@ -12,8 +12,9 @@ impl WinitWindows {
     pub fn create_window(
         &mut self,
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
-        window: &Window,
-    ) {
+        window_id: WindowId,
+        window_descriptor: &WindowDescriptor,
+    ) -> Window {
         #[cfg(target_os = "windows")]
         let mut winit_window_builder = {
             use winit::platform::windows::WindowBuilderExtWindows;
@@ -23,44 +24,92 @@ impl WinitWindows {
         #[cfg(not(target_os = "windows"))]
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 
-        winit_window_builder = match window.mode {
+        winit_window_builder = match window_descriptor.mode {
             WindowMode::BorderlessFullscreen => winit_window_builder.with_fullscreen(Some(
                 winit::window::Fullscreen::Borderless(event_loop.primary_monitor()),
             )),
             WindowMode::Fullscreen { use_size } => winit_window_builder.with_fullscreen(Some(
                 winit::window::Fullscreen::Exclusive(match use_size {
-                    true => get_fitting_videomode(&event_loop.primary_monitor(), &window),
-                    false => get_best_videomode(&event_loop.primary_monitor()),
+                    true => get_fitting_videomode(
+                        &event_loop.primary_monitor().unwrap(),
+                        window_descriptor.width as u32,
+                        window_descriptor.height as u32,
+                    ),
+                    false => get_best_videomode(&event_loop.primary_monitor().unwrap()),
                 }),
             )),
             _ => winit_window_builder
-                .with_inner_size(winit::dpi::PhysicalSize::new(window.width, window.height))
-                .with_resizable(window.resizable),
+                .with_inner_size(winit::dpi::LogicalSize::new(
+                    window_descriptor.width,
+                    window_descriptor.height,
+                ))
+                .with_resizable(window_descriptor.resizable)
+                .with_decorations(window_descriptor.decorations),
         };
 
-        let winit_window = winit_window_builder
-            .with_title(&window.title)
-            .build(&event_loop)
-            .unwrap();
+        #[allow(unused_mut)]
+        let mut winit_window_builder = winit_window_builder.with_title(&window_descriptor.title);
 
-        self.window_id_to_winit.insert(window.id, winit_window.id());
-        self.winit_to_window_id.insert(winit_window.id(), window.id);
+        #[cfg(target_arch = "wasm32")]
+        {
+            use wasm_bindgen::JsCast;
+            use winit::platform::web::WindowBuilderExtWebSys;
+
+            if let Some(selector) = &window_descriptor.canvas {
+                let window = web_sys::window().unwrap();
+                let document = window.document().unwrap();
+                let canvas = document
+                    .query_selector(&selector)
+                    .expect("Cannot query for canvas element.");
+                if let Some(canvas) = canvas {
+                    let canvas = canvas.dyn_into::<web_sys::HtmlCanvasElement>().ok();
+                    winit_window_builder = winit_window_builder.with_canvas(canvas);
+                } else {
+                    panic!("Cannot find element: {}.", selector);
+                }
+            }
+        }
+
+        let winit_window = winit_window_builder.build(&event_loop).unwrap();
+
+        match winit_window.set_cursor_grab(window_descriptor.cursor_locked) {
+            Ok(_) => {}
+            Err(winit::error::ExternalError::NotSupported(_)) => {}
+            Err(err) => Err(err).unwrap(),
+        }
+
+        winit_window.set_cursor_visible(window_descriptor.cursor_visible);
+
+        self.window_id_to_winit.insert(window_id, winit_window.id());
+        self.winit_to_window_id.insert(winit_window.id(), window_id);
 
         #[cfg(target_arch = "wasm32")]
         {
             use winit::platform::web::WindowExtWebSys;
 
-            let canvas = winit_window.canvas();
+            if window_descriptor.canvas.is_none() {
+                let canvas = winit_window.canvas();
 
-            let window = web_sys::window().unwrap();
-            let document = window.document().unwrap();
-            let body = document.body().unwrap();
+                let window = web_sys::window().unwrap();
+                let document = window.document().unwrap();
+                let body = document.body().unwrap();
 
-            body.append_child(&canvas)
-                .expect("Append canvas to HTML body");
+                body.append_child(&canvas)
+                    .expect("Append canvas to HTML body.");
+            }
         }
 
+        let inner_size = winit_window.inner_size();
+        let scale_factor = winit_window.scale_factor();
         self.windows.insert(winit_window.id(), winit_window);
+
+        Window::new(
+            window_id,
+            &window_descriptor,
+            inner_size.width,
+            inner_size.height,
+            scale_factor,
+        )
     }
 
     pub fn get_window(&self, id: WindowId) -> Option<&winit::window::Window> {
@@ -73,9 +122,10 @@ impl WinitWindows {
         self.winit_to_window_id.get(&id).cloned()
     }
 }
-fn get_fitting_videomode(
+pub fn get_fitting_videomode(
     monitor: &winit::monitor::MonitorHandle,
-    window: &Window,
+    width: u32,
+    height: u32,
 ) -> winit::monitor::VideoMode {
     let mut modes = monitor.video_modes().collect::<Vec<_>>();
 
@@ -88,11 +138,9 @@ fn get_fitting_videomode(
 
     modes.sort_by(|a, b| {
         use std::cmp::Ordering::*;
-        match abs_diff(a.size().width, window.width).cmp(&abs_diff(b.size().width, window.width)) {
+        match abs_diff(a.size().width, width).cmp(&abs_diff(b.size().width, width)) {
             Equal => {
-                match abs_diff(a.size().height, window.height)
-                    .cmp(&abs_diff(b.size().height, window.height))
-                {
+                match abs_diff(a.size().height, height).cmp(&abs_diff(b.size().height, height)) {
                     Equal => b.refresh_rate().cmp(&a.refresh_rate()),
                     default => default,
                 }
@@ -104,7 +152,7 @@ fn get_fitting_videomode(
     modes.first().unwrap().clone()
 }
 
-fn get_best_videomode(monitor: &winit::monitor::MonitorHandle) -> winit::monitor::VideoMode {
+pub fn get_best_videomode(monitor: &winit::monitor::MonitorHandle) -> winit::monitor::VideoMode {
     let mut modes = monitor.video_modes().collect::<Vec<_>>();
     modes.sort_by(|a, b| {
         use std::cmp::Ordering::*;

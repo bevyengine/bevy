@@ -15,7 +15,7 @@ use bevy_render::{
 
 use std::sync::Arc;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct LazyCommandEncoder {
     command_encoder: Option<wgpu::CommandEncoder>,
 }
@@ -50,6 +50,7 @@ impl LazyCommandEncoder {
     }
 }
 
+#[derive(Debug)]
 pub struct WgpuRenderContext {
     pub device: Arc<wgpu::Device>,
     pub command_encoder: LazyCommandEncoder,
@@ -187,11 +188,11 @@ fn get_texture_view<'a>(
         TextureAttachment::Name(name) => match global_render_resource_bindings.get(&name) {
             Some(RenderResourceBinding::Texture(resource)) => refs.textures.get(&resource).unwrap(),
             _ => {
-                panic!("Color attachment {} does not exist", name);
+                panic!("Color attachment {} does not exist.", name);
             }
         },
         TextureAttachment::Id(render_resource) => refs.textures.get(&render_resource).unwrap_or_else(|| &refs.swap_chain_frames.get(&render_resource).unwrap().output.view),
-        TextureAttachment::Input(_) => panic!("Encountered unset TextureAttachment::Input. The RenderGraph executor should always set TextureAttachment::Inputs to TextureAttachment::RenderResource before running. This is a bug"),
+        TextureAttachment::Input(_) => panic!("Encountered unset `TextureAttachment::Input`. The `RenderGraph` executor should always set `TextureAttachment::Inputs` to `TextureAttachment::RenderResource` before running. This is a bug, please report it!"),
     }
 }
 

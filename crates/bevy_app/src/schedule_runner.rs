@@ -4,12 +4,7 @@ use crate::{
     event::{EventReader, Events},
     plugin::Plugin,
 };
-use std::time::Duration;
-
-#[cfg(target_arch = "wasm32")]
-use instant::Instant;
-#[cfg(not(target_arch = "wasm32"))]
-use std::{thread, time::Instant};
+use bevy_utils::{Duration, Instant};
 
 #[cfg(target_arch = "wasm32")]
 use std::{cell::RefCell, rc::Rc};
@@ -29,21 +24,20 @@ impl Default for RunMode {
     }
 }
 
-/// Configures an App to run its [Schedule](bevy_ecs::Schedule) according to a given [RunMode]
-#[derive(Default)]
-pub struct ScheduleRunnerPlugin {
+#[derive(Copy, Clone, Default)]
+pub struct ScheduleRunnerSettings {
     pub run_mode: RunMode,
 }
 
-impl ScheduleRunnerPlugin {
+impl ScheduleRunnerSettings {
     pub fn run_once() -> Self {
-        ScheduleRunnerPlugin {
+        ScheduleRunnerSettings {
             run_mode: RunMode::Once,
         }
     }
 
     pub fn run_loop(wait_duration: Duration) -> Self {
-        ScheduleRunnerPlugin {
+        ScheduleRunnerSettings {
             run_mode: RunMode::Loop {
                 wait: Some(wait_duration),
             },
@@ -51,32 +45,39 @@ impl ScheduleRunnerPlugin {
     }
 }
 
+/// Configures an App to run its [Schedule](bevy_ecs::Schedule) according to a given [RunMode]
+#[derive(Default)]
+pub struct ScheduleRunnerPlugin {}
+
 impl Plugin for ScheduleRunnerPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        let run_mode = self.run_mode;
+        let settings = app
+            .resources_mut()
+            .get_or_insert_with(ScheduleRunnerSettings::default)
+            .to_owned();
         app.set_runner(move |mut app: App| {
             let mut app_exit_event_reader = EventReader::<AppExit>::default();
-            match run_mode {
+            match settings.run_mode {
                 RunMode::Once => {
                     app.update();
                 }
                 RunMode::Loop { wait } => {
                     let mut tick = move |app: &mut App,
                                          wait: Option<Duration>|
-                          -> Option<Duration> {
+                          -> Result<Option<Duration>, AppExit> {
                         let start_time = Instant::now();
 
                         if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
-                            if app_exit_event_reader.latest(&app_exit_events).is_some() {
-                                return None;
+                            if let Some(exit) = app_exit_event_reader.latest(&app_exit_events) {
+                                return Err(exit.clone());
                             }
                         }
 
                         app.update();
 
                         if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
-                            if app_exit_event_reader.latest(&app_exit_events).is_some() {
-                                return None;
+                            if let Some(exit) = app_exit_event_reader.latest(&app_exit_events) {
+                                return Err(exit.clone());
                             }
                         }
 
@@ -85,17 +86,19 @@ impl Plugin for ScheduleRunnerPlugin {
                         if let Some(wait) = wait {
                             let exe_time = end_time - start_time;
                             if exe_time < wait {
-                                return Some(wait - exe_time);
+                                return Ok(Some(wait - exe_time));
                             }
                         }
 
-                        None
+                        Ok(None)
                     };
 
                     #[cfg(not(target_arch = "wasm32"))]
                     {
-                        while let Some(delay) = tick(&mut app, wait) {
-                            thread::sleep(delay);
+                        while let Ok(delay) = tick(&mut app, wait) {
+                            if let Some(delay) = delay {
+                                std::thread::sleep(delay);
+                            }
                         }
                     }
 
@@ -108,7 +111,7 @@ impl Plugin for ScheduleRunnerPlugin {
                                     f.as_ref().unchecked_ref(),
                                     dur.as_millis() as i32,
                                 )
-                                .expect("should register `setTimeout`");
+                                .expect("Should register `setTimeout`.");
                         }
                         let asap = Duration::from_millis(1);
 
@@ -118,10 +121,14 @@ impl Plugin for ScheduleRunnerPlugin {
 
                         let c = move || {
                             let mut app = Rc::get_mut(&mut rc).unwrap();
-                            let delay = tick(&mut app, wait).unwrap_or(asap);
-                            set_timeout(f.borrow().as_ref().unwrap(), delay);
+                            let delay = tick(&mut app, wait);
+                            match delay {
+                                Ok(delay) => {
+                                    set_timeout(f.borrow().as_ref().unwrap(), delay.unwrap_or(asap))
+                                }
+                                Err(_) => {}
+                            }
                         };
-
                         *g.borrow_mut() = Some(Closure::wrap(Box::new(c) as Box<dyn FnMut()>));
                         set_timeout(g.borrow().as_ref().unwrap(), asap);
                     };

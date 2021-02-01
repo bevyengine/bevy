@@ -2,8 +2,7 @@ use bevy::{input::keyboard::KeyboardInput, prelude::*};
 
 fn main() {
     App::build()
-        .add_default_plugins()
-        .init_resource::<State>()
+        .add_plugins(DefaultPlugins)
         .add_system(print_keyboard_event_system.system())
         .run();
 }
@@ -15,7 +14,7 @@ struct State {
 
 /// This system prints out all keyboard events as they come in
 fn print_keyboard_event_system(
-    mut state: ResMut<State>,
+    mut state: Local<State>,
     keyboard_input_events: Res<Events<KeyboardInput>>,
 ) {
     for event in state.event_reader.iter(&keyboard_input_events) {

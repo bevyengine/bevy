@@ -1,7 +1,10 @@
 use bevy_input::{
-    keyboard::{ElementState, KeyCode, KeyboardInput},
+    keyboard::{KeyCode, KeyboardInput},
     mouse::MouseButton,
+    touch::{ForceTouch, TouchInput, TouchPhase},
+    ElementState,
 };
+use bevy_math::Vec2;
 
 pub fn convert_keyboard_input(keyboard_input: &winit::event::KeyboardInput) -> KeyboardInput {
     KeyboardInput {
@@ -24,6 +27,34 @@ pub fn convert_mouse_button(mouse_button: winit::event::MouseButton) -> MouseBut
         winit::event::MouseButton::Right => MouseButton::Right,
         winit::event::MouseButton::Middle => MouseButton::Middle,
         winit::event::MouseButton::Other(val) => MouseButton::Other(val),
+    }
+}
+
+pub fn convert_touch_input(
+    touch_input: winit::event::Touch,
+    location: winit::dpi::LogicalPosition<f32>,
+) -> TouchInput {
+    TouchInput {
+        phase: match touch_input.phase {
+            winit::event::TouchPhase::Started => TouchPhase::Started,
+            winit::event::TouchPhase::Moved => TouchPhase::Moved,
+            winit::event::TouchPhase::Ended => TouchPhase::Ended,
+            winit::event::TouchPhase::Cancelled => TouchPhase::Cancelled,
+        },
+        position: Vec2::new(location.x as f32, location.y as f32),
+        force: touch_input.force.map(|f| match f {
+            winit::event::Force::Calibrated {
+                force,
+                max_possible_force,
+                altitude_angle,
+            } => ForceTouch::Calibrated {
+                force,
+                max_possible_force,
+                altitude_angle,
+            },
+            winit::event::Force::Normalized(x) => ForceTouch::Normalized(x),
+        }),
+        id: touch_input.id,
     }
 }
 
@@ -121,9 +152,11 @@ pub fn convert_virtual_key_code(virtual_key_code: winit::event::VirtualKeyCode) 
         winit::event::VirtualKeyCode::Numpad9 => KeyCode::Numpad9,
         winit::event::VirtualKeyCode::AbntC1 => KeyCode::AbntC1,
         winit::event::VirtualKeyCode::AbntC2 => KeyCode::AbntC2,
-        winit::event::VirtualKeyCode::Add => KeyCode::Add,
+        winit::event::VirtualKeyCode::NumpadAdd => KeyCode::NumpadAdd,
         winit::event::VirtualKeyCode::Apostrophe => KeyCode::Apostrophe,
         winit::event::VirtualKeyCode::Apps => KeyCode::Apps,
+        winit::event::VirtualKeyCode::Asterisk => KeyCode::Asterisk,
+        winit::event::VirtualKeyCode::Plus => KeyCode::Plus,
         winit::event::VirtualKeyCode::At => KeyCode::At,
         winit::event::VirtualKeyCode::Ax => KeyCode::Ax,
         winit::event::VirtualKeyCode::Backslash => KeyCode::Backslash,
@@ -132,8 +165,8 @@ pub fn convert_virtual_key_code(virtual_key_code: winit::event::VirtualKeyCode) 
         winit::event::VirtualKeyCode::Colon => KeyCode::Colon,
         winit::event::VirtualKeyCode::Comma => KeyCode::Comma,
         winit::event::VirtualKeyCode::Convert => KeyCode::Convert,
-        winit::event::VirtualKeyCode::Decimal => KeyCode::Decimal,
-        winit::event::VirtualKeyCode::Divide => KeyCode::Divide,
+        winit::event::VirtualKeyCode::NumpadDecimal => KeyCode::NumpadDecimal,
+        winit::event::VirtualKeyCode::NumpadDivide => KeyCode::NumpadDivide,
         winit::event::VirtualKeyCode::Equals => KeyCode::Equals,
         winit::event::VirtualKeyCode::Grave => KeyCode::Grave,
         winit::event::VirtualKeyCode::Kana => KeyCode::Kana,
@@ -147,7 +180,7 @@ pub fn convert_virtual_key_code(virtual_key_code: winit::event::VirtualKeyCode) 
         winit::event::VirtualKeyCode::MediaSelect => KeyCode::MediaSelect,
         winit::event::VirtualKeyCode::MediaStop => KeyCode::MediaStop,
         winit::event::VirtualKeyCode::Minus => KeyCode::Minus,
-        winit::event::VirtualKeyCode::Multiply => KeyCode::Multiply,
+        winit::event::VirtualKeyCode::NumpadMultiply => KeyCode::NumpadMultiply,
         winit::event::VirtualKeyCode::Mute => KeyCode::Mute,
         winit::event::VirtualKeyCode::MyComputer => KeyCode::MyComputer,
         winit::event::VirtualKeyCode::NavigateForward => KeyCode::NavigateForward,
@@ -171,7 +204,7 @@ pub fn convert_virtual_key_code(virtual_key_code: winit::event::VirtualKeyCode) 
         winit::event::VirtualKeyCode::Slash => KeyCode::Slash,
         winit::event::VirtualKeyCode::Sleep => KeyCode::Sleep,
         winit::event::VirtualKeyCode::Stop => KeyCode::Stop,
-        winit::event::VirtualKeyCode::Subtract => KeyCode::Subtract,
+        winit::event::VirtualKeyCode::NumpadSubtract => KeyCode::NumpadSubtract,
         winit::event::VirtualKeyCode::Sysrq => KeyCode::Sysrq,
         winit::event::VirtualKeyCode::Tab => KeyCode::Tab,
         winit::event::VirtualKeyCode::Underline => KeyCode::Underline,

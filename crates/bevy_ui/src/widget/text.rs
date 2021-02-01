@@ -1,128 +1,174 @@
-use crate::{CalculatedSize, Node};
+use crate::{CalculatedSize, Node, Style, Val};
 use bevy_asset::{Assets, Handle};
-use bevy_core::FloatOrd;
-use bevy_ecs::{Changed, Local, Query, Res, ResMut};
+use bevy_ecs::{Changed, Entity, Local, Or, Query, QuerySet, Res, ResMut};
 use bevy_math::Size;
 use bevy_render::{
     draw::{Draw, DrawContext, Drawable},
-    prelude::Msaa,
-    renderer::{AssetRenderResourceBindings, RenderResourceBindings},
+    mesh::Mesh,
+    prelude::{Msaa, Visible},
+    renderer::RenderResourceBindings,
     texture::Texture,
 };
-use bevy_sprite::TextureAtlas;
-use bevy_text::{DrawableText, Font, FontAtlasSet, TextStyle};
+use bevy_sprite::{TextureAtlas, QUAD_HANDLE};
+use bevy_text::{DefaultTextPipeline, DrawableText, Font, FontAtlasSet, TextError, TextStyle};
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::HashSet;
 
-#[derive(Default)]
-pub struct QueuedTextGlyphs {
-    glyphs: HashSet<(Handle<Font>, FloatOrd, char)>,
+#[derive(Debug, Default)]
+pub struct QueuedText {
+    entities: Vec<Entity>,
 }
 
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct Text {
     pub value: String,
     pub font: Handle<Font>,
     pub style: TextStyle,
 }
 
+/// Defines how min_size, size, and max_size affects the bounds of a text
+/// block.
+pub fn text_constraint(min_size: Val, size: Val, max_size: Val) -> f32 {
+    // Needs support for percentages
+    match (min_size, size, max_size) {
+        (_, _, Val::Px(max)) => max,
+        (Val::Px(min), _, _) => min,
+        (Val::Undefined, Val::Px(size), Val::Undefined) => size,
+        (Val::Auto, Val::Px(size), Val::Auto) => size,
+        _ => f32::MAX,
+    }
+}
+
+/// Computes the size of a text block and updates the TextGlyphs with the
+/// new computed glyphs from the layout
 pub fn text_system(
-    mut queued_text_glyphs: Local<QueuedTextGlyphs>,
+    mut queued_text: Local<QueuedText>,
     mut textures: ResMut<Assets<Texture>>,
     fonts: Res<Assets<Font>>,
-    mut font_atlas_sets: ResMut<Assets<FontAtlasSet>>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
-    mut query: Query<(Changed<Text>, &mut CalculatedSize)>,
+    mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
+    mut text_pipeline: ResMut<DefaultTextPipeline>,
+    mut text_queries: QuerySet<(
+        Query<Entity, Or<(Changed<Text>, Changed<Style>)>>,
+        Query<(&Text, &Style, &mut CalculatedSize)>,
+    )>,
 ) {
-    // add queued glyphs to atlases
-    if !queued_text_glyphs.glyphs.is_empty() {
-        let mut glyphs_to_queue = Vec::new();
-        for (font_handle, FloatOrd(font_size), character) in queued_text_glyphs.glyphs.drain() {
-            let font_atlases = font_atlas_sets
-                .get_or_insert_with(Handle::from_id(font_handle.id), || {
-                    FontAtlasSet::new(font_handle)
-                });
+    // Adds all entities where the text or the style has changed to the local queue
+    for entity in text_queries.q0_mut().iter_mut() {
+        queued_text.entities.push(entity);
+    }
 
-            // try adding the glyph to an atlas. if it fails, re-queue
-            if let Ok(char_str) = std::str::from_utf8(&[character as u8]) {
-                if font_atlases
-                    .add_glyphs_to_atlas(
-                        &fonts,
-                        &mut texture_atlases,
-                        &mut textures,
-                        font_size,
-                        char_str,
-                    )
-                    .is_none()
-                {
-                    glyphs_to_queue.push((font_handle, FloatOrd(font_size), character));
+    if queued_text.entities.is_empty() {
+        return;
+    }
+
+    // Computes all text in the local queue
+    let mut new_queue = Vec::new();
+    let query = text_queries.q1_mut();
+    for entity in queued_text.entities.drain(..) {
+        if let Ok((text, style, mut calculated_size)) = query.get_mut(entity) {
+            match add_text_to_pipeline(
+                entity,
+                &*text,
+                &*style,
+                &mut *textures,
+                &*fonts,
+                &mut *texture_atlases,
+                &mut *font_atlas_set_storage,
+                &mut *text_pipeline,
+            ) {
+                TextPipelineResult::Ok => {
+                    let text_layout_info = text_pipeline.get_glyphs(&entity).expect(
+                        "Failed to get glyphs from the pipeline that have just been computed",
+                    );
+                    calculated_size.size = text_layout_info.size;
+                }
+                TextPipelineResult::Reschedule => {
+                    // There was an error processing the text layout, let's add this entity to the queue for further processing
+                    new_queue.push(entity);
                 }
             }
         }
-
-        queued_text_glyphs.glyphs.extend(glyphs_to_queue);
     }
 
-    for (text, mut calculated_size) in &mut query.iter() {
-        let font_atlases = font_atlas_sets
-            .get_or_insert_with(Handle::from_id(text.font.id), || {
-                FontAtlasSet::new(text.font)
-            });
-        // TODO: this call results in one or more TextureAtlases, whose render resources are created in the RENDER_GRAPH_SYSTEMS
-        // stage. That logic runs _before_ the DRAW stage, which means we cant call add_glyphs_to_atlas in the draw stage
-        // without our render resources being a frame behind. Therefore glyph atlasing either needs its own system or the TextureAtlas
-        // resource generation needs to happen AFTER the render graph systems. maybe draw systems should execute within the
-        // render graph so ordering like this can be taken into account? Maybe the RENDER_GRAPH_SYSTEMS stage should be removed entirely
-        // in favor of node.update()? Regardless, in the immediate short term the current approach is fine.
-        if let Some(width) = font_atlases.add_glyphs_to_atlas(
-            &fonts,
-            &mut texture_atlases,
-            &mut textures,
-            text.style.font_size,
-            &text.value,
-        ) {
-            calculated_size.size = Size::new(width, text.style.font_size);
-        } else {
-            for character in text.value.chars() {
-                queued_text_glyphs.glyphs.insert((
-                    text.font,
-                    FloatOrd(text.style.font_size),
-                    character,
-                ));
-            }
+    queued_text.entities = new_queue;
+}
+
+enum TextPipelineResult {
+    Ok,
+    Reschedule,
+}
+
+/// Computes the text layout and stores it in the TextPipeline resource.
+#[allow(clippy::too_many_arguments)]
+fn add_text_to_pipeline(
+    entity: Entity,
+    text: &Text,
+    style: &Style,
+    textures: &mut Assets<Texture>,
+    fonts: &Assets<Font>,
+    texture_atlases: &mut Assets<TextureAtlas>,
+    font_atlas_set_storage: &mut Assets<FontAtlasSet>,
+    text_pipeline: &mut DefaultTextPipeline,
+) -> TextPipelineResult {
+    let node_size = Size::new(
+        text_constraint(style.min_size.width, style.size.width, style.max_size.width),
+        text_constraint(
+            style.min_size.height,
+            style.size.height,
+            style.max_size.height,
+        ),
+    );
+
+    match text_pipeline.queue_text(
+        entity,
+        text.font.clone(),
+        &fonts,
+        &text.value,
+        text.style.font_size,
+        text.style.alignment,
+        node_size,
+        font_atlas_set_storage,
+        texture_atlases,
+        textures,
+    ) {
+        Err(TextError::NoSuchFont) => TextPipelineResult::Reschedule,
+        Err(e @ TextError::FailedToAddGlyph(_)) => {
+            panic!("Fatal error when processing text: {}.", e);
         }
+        Ok(()) => TextPipelineResult::Ok,
     }
 }
 
 #[allow(clippy::too_many_arguments)]
 pub fn draw_text_system(
-    mut draw_context: DrawContext,
-    fonts: Res<Assets<Font>>,
+    mut context: DrawContext,
     msaa: Res<Msaa>,
-    font_atlas_sets: Res<Assets<FontAtlasSet>>,
-    texture_atlases: Res<Assets<TextureAtlas>>,
+    meshes: Res<Assets<Mesh>>,
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
-    mut asset_render_resource_bindings: ResMut<AssetRenderResourceBindings>,
-    mut query: Query<(&mut Draw, &Text, &Node, &GlobalTransform)>,
+    text_pipeline: Res<DefaultTextPipeline>,
+    mut query: Query<(Entity, &mut Draw, &Visible, &Text, &Node, &GlobalTransform)>,
 ) {
-    for (mut draw, text, node, global_transform) in &mut query.iter() {
-        if let Some(font) = fonts.get(&text.font) {
-            let position = global_transform.translation() - (node.size / 2.0).extend(0.0);
+    let font_quad = meshes.get(&QUAD_HANDLE).unwrap();
+    let vertex_buffer_descriptor = font_quad.get_vertex_buffer_descriptor();
+
+    for (entity, mut draw, visible, text, node, global_transform) in query.iter_mut() {
+        if !visible.is_visible {
+            continue;
+        }
+
+        if let Some(text_glyphs) = text_pipeline.get_glyphs(&entity) {
+            let position = global_transform.translation - (node.size / 2.0).extend(0.0);
+
             let mut drawable_text = DrawableText {
-                font,
-                font_atlas_set: font_atlas_sets
-                    .get(&text.font.as_handle::<FontAtlasSet>())
-                    .unwrap(),
-                texture_atlases: &texture_atlases,
                 render_resource_bindings: &mut render_resource_bindings,
-                asset_render_resource_bindings: &mut asset_render_resource_bindings,
                 position,
                 msaa: &msaa,
+                text_glyphs: &text_glyphs.glyphs,
+                font_quad_vertex_descriptor: &vertex_buffer_descriptor,
                 style: &text.style,
-                text: &text.value,
-                container_size: node.size,
             };
-            drawable_text.draw(&mut draw, &mut draw_context).unwrap();
+
+            drawable_text.draw(&mut draw, &mut context).unwrap();
         }
     }
 }

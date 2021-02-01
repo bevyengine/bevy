@@ -1,14 +1,13 @@
-use super::{BindGroup, BindGroupId, BufferId, RenderResourceId, SamplerId, TextureId};
+use super::{BindGroup, BindGroupId, BufferId, SamplerId, TextureId};
 use crate::{
     pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineDescriptor},
     renderer::RenderResourceContext,
 };
-use bevy_asset::{Handle, HandleUntyped};
+use bevy_asset::{Asset, Handle, HandleUntyped};
 use bevy_utils::{HashMap, HashSet};
-use std::{hash::Hash, ops::Range};
-use uuid::Uuid;
+use std::{any::TypeId, ops::Range};
 
-#[derive(Clone, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub enum RenderResourceBinding {
     Buffer {
         buffer: BufferId,
@@ -36,60 +35,21 @@ impl RenderResourceBinding {
         }
     }
 
+    pub fn is_dynamic_buffer(&self) -> bool {
+        matches!(
+            self,
+            RenderResourceBinding::Buffer {
+                dynamic_index: Some(_),
+                ..
+            }
+        )
+    }
+
     pub fn get_sampler(&self) -> Option<SamplerId> {
         if let RenderResourceBinding::Sampler(sampler) = self {
             Some(*sampler)
         } else {
             None
-        }
-    }
-}
-
-impl PartialEq for RenderResourceBinding {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (
-                RenderResourceBinding::Buffer {
-                    buffer: self_buffer,
-                    range: self_range,
-                    dynamic_index: _,
-                },
-                RenderResourceBinding::Buffer {
-                    buffer: other_buffer,
-                    range: other_range,
-                    dynamic_index: _,
-                },
-            ) => self_buffer == other_buffer && self_range == other_range,
-            (
-                RenderResourceBinding::Texture(self_texture),
-                RenderResourceBinding::Texture(other_texture),
-            ) => RenderResourceId::from(*self_texture) == RenderResourceId::from(*other_texture),
-            (
-                RenderResourceBinding::Sampler(self_sampler),
-                RenderResourceBinding::Sampler(other_sampler),
-            ) => RenderResourceId::from(*self_sampler) == RenderResourceId::from(*other_sampler),
-            _ => false,
-        }
-    }
-}
-
-impl Hash for RenderResourceBinding {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        match self {
-            RenderResourceBinding::Buffer {
-                buffer,
-                range,
-                dynamic_index: _, // dynamic_index is not a part of the binding
-            } => {
-                RenderResourceId::from(*buffer).hash(state);
-                range.hash(state);
-            }
-            RenderResourceBinding::Texture(texture) => {
-                RenderResourceId::from(*texture).hash(state);
-            }
-            RenderResourceBinding::Sampler(sampler) => {
-                RenderResourceId::from(*sampler).hash(state);
-            }
         }
     }
 }
@@ -104,14 +64,17 @@ pub enum BindGroupStatus {
 // PERF: if the bindings are scoped to a specific pipeline layout, then names could be replaced with indices here for a perf boost
 #[derive(Eq, PartialEq, Debug, Default, Clone)]
 pub struct RenderResourceBindings {
-    // TODO: remove this. it shouldn't be needed anymore
-    pub id: RenderResourceBindingsId,
-    bindings: HashMap<String, RenderResourceBinding>,
-    // TODO: remove this
-    vertex_buffers: HashMap<String, (BufferId, Option<BufferId>)>,
+    pub bindings: HashMap<String, RenderResourceBinding>,
+    /// A Buffer that contains all attributes a mesh has defined
+    pub vertex_attribute_buffer: Option<BufferId>,
+    /// A Buffer that is filled with zeros that will be used for attributes required by the shader, but undefined by the mesh.
+    pub vertex_fallback_buffer: Option<BufferId>,
+    pub index_buffer: Option<BufferId>,
+    assets: HashSet<(HandleUntyped, TypeId)>,
     bind_groups: HashMap<BindGroupId, BindGroup>,
     bind_group_descriptors: HashMap<BindGroupDescriptorId, Option<BindGroupId>>,
     dirty_bind_groups: HashSet<BindGroupId>,
+    dynamic_bindings_generation: usize,
 }
 
 impl RenderResourceBindings {
@@ -124,14 +87,26 @@ impl RenderResourceBindings {
         self.bindings.insert(name.to_string(), binding);
     }
 
+    /// The current "generation" of dynamic bindings. This number increments every time a dynamic binding changes
+    pub fn dynamic_bindings_generation(&self) -> usize {
+        self.dynamic_bindings_generation
+    }
+
     fn try_set_dirty(&mut self, name: &str, binding: &RenderResourceBinding) {
         if let Some(current_binding) = self.bindings.get(name) {
             if current_binding != binding {
+                if current_binding.is_dynamic_buffer() {
+                    self.dynamic_bindings_generation += 1;
+                }
                 // TODO: this is crude. we shouldn't need to invalidate all bind groups
                 for id in self.bind_groups.keys() {
                     self.dirty_bind_groups.insert(*id);
                 }
             }
+        } else {
+            // unmatched bind group descriptors might now match
+            self.bind_group_descriptors
+                .retain(|_, value| value.is_some());
         }
     }
 
@@ -139,25 +114,10 @@ impl RenderResourceBindings {
         for (name, binding) in render_resource_bindings.bindings.iter() {
             self.set(name, binding.clone());
         }
-
-        for (name, (vertex_buffer, index_buffer)) in render_resource_bindings.vertex_buffers.iter()
-        {
-            self.set_vertex_buffer(name, *vertex_buffer, *index_buffer);
-        }
     }
 
-    pub fn get_vertex_buffer(&self, name: &str) -> Option<(BufferId, Option<BufferId>)> {
-        self.vertex_buffers.get(name).cloned()
-    }
-
-    pub fn set_vertex_buffer(
-        &mut self,
-        name: &str,
-        vertex_buffer: BufferId,
-        index_buffer: Option<BufferId>,
-    ) {
-        self.vertex_buffers
-            .insert(name.to_string(), (vertex_buffer, index_buffer));
+    pub fn set_index_buffer(&mut self, index_buffer: BufferId) {
+        self.index_buffer = Some(index_buffer);
     }
 
     fn create_bind_group(&mut self, descriptor: &BindGroupDescriptor) -> BindGroupStatus {
@@ -168,11 +128,12 @@ impl RenderResourceBindings {
             self.bind_group_descriptors.insert(descriptor.id, Some(id));
             BindGroupStatus::Changed(id)
         } else {
+            self.bind_group_descriptors.insert(descriptor.id, None);
             BindGroupStatus::NoMatch
         }
     }
 
-    pub fn update_bind_group(
+    fn update_bind_group_status(
         &mut self,
         bind_group_descriptor: &BindGroupDescriptor,
     ) -> BindGroupStatus {
@@ -192,6 +153,50 @@ impl RenderResourceBindings {
         }
     }
 
+    pub fn add_asset(&mut self, handle: HandleUntyped, type_id: TypeId) {
+        self.dynamic_bindings_generation += 1;
+        self.assets.insert((handle, type_id));
+    }
+
+    pub fn remove_asset_with_type(&mut self, type_id: TypeId) {
+        self.dynamic_bindings_generation += 1;
+        self.assets.retain(|(_, current_id)| *current_id != type_id);
+    }
+
+    pub fn iter_assets(&self) -> impl Iterator<Item = &(HandleUntyped, TypeId)> {
+        self.assets.iter()
+    }
+
+    pub fn update_bind_group(
+        &mut self,
+        bind_group_descriptor: &BindGroupDescriptor,
+        render_resource_context: &dyn RenderResourceContext,
+    ) -> Option<&BindGroup> {
+        let status = self.update_bind_group_status(bind_group_descriptor);
+        match status {
+            BindGroupStatus::Changed(id) => {
+                let bind_group = self
+                    .get_bind_group(id)
+                    .expect("`RenderResourceSet` was just changed, so it should exist.");
+                render_resource_context.create_bind_group(bind_group_descriptor.id, bind_group);
+                Some(bind_group)
+            }
+            BindGroupStatus::Unchanged(id) => {
+                // PERF: this is only required because RenderResourceContext::remove_stale_bind_groups doesn't inform RenderResourceBindings
+                // when a stale bind group has been removed
+                let bind_group = self
+                    .get_bind_group(id)
+                    .expect("`RenderResourceSet` was just changed, so it should exist.");
+                render_resource_context.create_bind_group(bind_group_descriptor.id, bind_group);
+                Some(bind_group)
+            }
+            BindGroupStatus::NoMatch => {
+                // ignore unchanged / unmatched render resource sets
+                None
+            }
+        }
+    }
+
     pub fn update_bind_groups(
         &mut self,
         pipeline: &PipelineDescriptor,
@@ -199,26 +204,7 @@ impl RenderResourceBindings {
     ) {
         let layout = pipeline.get_layout().unwrap();
         for bind_group_descriptor in layout.bind_groups.iter() {
-            match self.update_bind_group(bind_group_descriptor) {
-                BindGroupStatus::Changed(id) => {
-                    let bind_group = self
-                        .get_bind_group(id)
-                        .expect("RenderResourceSet was just changed, so it should exist");
-                    render_resource_context.create_bind_group(bind_group_descriptor.id, bind_group);
-                }
-                // TODO: Don't re-create bind groups if they havent changed. this will require cleanup of orphan bind groups and
-                // removal of global context.clear_bind_groups()
-                // PERF: see above
-                BindGroupStatus::Unchanged(id) => {
-                    let bind_group = self
-                        .get_bind_group(id)
-                        .expect("RenderResourceSet was just changed, so it should exist");
-                    render_resource_context.create_bind_group(bind_group_descriptor.id, bind_group);
-                }
-                BindGroupStatus::NoMatch => {
-                    // ignore unchanged / unmatched render resource sets
-                }
-            }
+            self.update_bind_group(bind_group_descriptor, render_resource_context);
         }
     }
 
@@ -251,35 +237,55 @@ impl RenderResourceBindings {
 
         Some(bind_group_builder.finish())
     }
+
+    pub fn iter_dynamic_bindings(&self) -> impl Iterator<Item = &str> {
+        self.bindings
+            .iter()
+            .filter(|(_, binding)| {
+                matches!(
+                    binding,
+                    RenderResourceBinding::Buffer {
+                        dynamic_index: Some(_),
+                        ..
+                    }
+                )
+            })
+            .map(|(name, _)| name.as_str())
+    }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct AssetRenderResourceBindings {
     pub bindings: HashMap<HandleUntyped, RenderResourceBindings>,
 }
 
 impl AssetRenderResourceBindings {
-    pub fn get<T>(&self, handle: Handle<T>) -> Option<&RenderResourceBindings> {
-        self.bindings.get(&HandleUntyped::from(handle))
+    pub fn get<T: Asset>(&self, handle: &Handle<T>) -> Option<&RenderResourceBindings> {
+        self.get_untyped(&handle.clone_weak_untyped())
     }
 
-    pub fn get_or_insert_mut<T>(&mut self, handle: Handle<T>) -> &mut RenderResourceBindings {
+    pub fn get_untyped(&self, handle: &HandleUntyped) -> Option<&RenderResourceBindings> {
+        self.bindings.get(handle)
+    }
+
+    pub fn get_or_insert_mut<T: Asset>(
+        &mut self,
+        handle: &Handle<T>,
+    ) -> &mut RenderResourceBindings {
         self.bindings
-            .entry(HandleUntyped::from(handle))
+            .entry(handle.clone_weak_untyped())
             .or_insert_with(RenderResourceBindings::default)
     }
 
-    pub fn get_mut<T>(&mut self, handle: Handle<T>) -> Option<&mut RenderResourceBindings> {
-        self.bindings.get_mut(&HandleUntyped::from(handle))
+    pub fn get_mut<T: Asset>(&mut self, handle: &Handle<T>) -> Option<&mut RenderResourceBindings> {
+        self.get_mut_untyped(&handle.clone_weak_untyped())
     }
-}
 
-#[derive(Hash, Eq, PartialEq, Debug, Copy, Clone)]
-pub struct RenderResourceBindingsId(Uuid);
-
-impl Default for RenderResourceBindingsId {
-    fn default() -> Self {
-        RenderResourceBindingsId(Uuid::new_v4())
+    pub fn get_mut_untyped(
+        &mut self,
+        handle: &HandleUntyped,
+    ) -> Option<&mut RenderResourceBindings> {
+        self.bindings.get_mut(handle)
     }
 }
 
@@ -331,15 +337,15 @@ mod tests {
         equal_bindings.set("a", resource1.clone());
         equal_bindings.set("b", resource2.clone());
 
-        let status = bindings.update_bind_group(&bind_group_descriptor);
+        let status = bindings.update_bind_group_status(&bind_group_descriptor);
         let id = if let BindGroupStatus::Changed(id) = status {
             id
         } else {
-            panic!("expected a changed bind group");
+            panic!("Expected a changed bind group.");
         };
 
         let different_bind_group_status =
-            different_bindings.update_bind_group(&bind_group_descriptor);
+            different_bindings.update_bind_group_status(&bind_group_descriptor);
         if let BindGroupStatus::Changed(different_bind_group_id) = different_bind_group_status {
             assert_ne!(
                 id, different_bind_group_id,
@@ -347,23 +353,24 @@ mod tests {
             );
             different_bind_group_id
         } else {
-            panic!("expected a changed bind group");
+            panic!("Expected a changed bind group.");
         };
 
-        let equal_bind_group_status = equal_bindings.update_bind_group(&bind_group_descriptor);
+        let equal_bind_group_status =
+            equal_bindings.update_bind_group_status(&bind_group_descriptor);
         if let BindGroupStatus::Changed(equal_bind_group_id) = equal_bind_group_status {
             assert_eq!(
                 id, equal_bind_group_id,
                 "equal bind group should have the same id"
             );
         } else {
-            panic!("expected a changed bind group");
+            panic!("Expected a changed bind group.");
         };
 
         let mut unmatched_bindings = RenderResourceBindings::default();
         unmatched_bindings.set("a", resource1.clone());
         let unmatched_bind_group_status =
-            unmatched_bindings.update_bind_group(&bind_group_descriptor);
+            unmatched_bindings.update_bind_group_status(&bind_group_descriptor);
         assert_eq!(unmatched_bind_group_status, BindGroupStatus::NoMatch);
     }
 }

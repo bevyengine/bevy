@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_ecs::{Resources, World};
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct SharedBuffersNode;
 
 impl Node for SharedBuffersNode {
@@ -16,8 +16,7 @@ impl Node for SharedBuffersNode {
         _input: &ResourceSlots,
         _output: &mut ResourceSlots,
     ) {
-        let shared_buffers = resources.get::<SharedBuffers>().unwrap();
-        let mut command_queue = shared_buffers.reset_command_queue();
-        command_queue.execute(render_context);
+        let mut shared_buffers = resources.get_mut::<SharedBuffers>().unwrap();
+        shared_buffers.apply(render_context);
     }
 }

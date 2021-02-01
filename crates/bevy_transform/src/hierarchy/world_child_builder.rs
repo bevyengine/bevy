@@ -1,6 +1,7 @@
 use crate::prelude::{Children, Parent, PreviousParent};
 use bevy_ecs::{Component, DynamicBundle, Entity, WorldBuilder};
 
+#[derive(Debug)]
 pub struct WorldChildBuilder<'a, 'b> {
     world_builder: &'b mut WorldBuilder<'a>,
     parent_entities: Vec<Entity>,
@@ -15,13 +16,13 @@ impl<'a, 'b> WorldChildBuilder<'a, 'b> {
             .expect("There should always be a parent at this point.");
         self.world_builder
             .spawn(components)
-            .with_bundle((Parent(parent_entity), PreviousParent(Some(parent_entity))));
+            .with_bundle((Parent(parent_entity), PreviousParent(parent_entity)));
         let entity = self.world_builder.current_entity.unwrap();
         {
             let world = &mut self.world_builder.world;
             let mut added = false;
             if let Ok(mut children) = world.get_mut::<Children>(parent_entity) {
-                children.push(entity);
+                children.0.push(entity);
                 added = true;
             }
 
@@ -47,17 +48,27 @@ impl<'a, 'b> WorldChildBuilder<'a, 'b> {
         self.world_builder.with(component);
         self
     }
+
+    pub fn current_entity(&self) -> Option<Entity> {
+        self.world_builder.current_entity
+    }
+
+    pub fn for_current_entity(&mut self, f: impl FnOnce(Entity)) -> &mut Self {
+        let current_entity = self
+            .world_builder
+            .current_entity
+            .expect("The 'current entity' is not set. You should spawn an entity first.");
+        f(current_entity);
+        self
+    }
 }
 
 pub trait BuildWorldChildren {
-    fn with_children(&mut self, spawn_children: impl FnMut(&mut WorldChildBuilder)) -> &mut Self;
+    fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self;
 }
 
 impl<'a> BuildWorldChildren for WorldBuilder<'a> {
-    fn with_children(
-        &mut self,
-        mut spawn_children: impl FnMut(&mut WorldChildBuilder),
-    ) -> &mut Self {
+    fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self {
         {
             let current_entity = self.current_entity.expect("Cannot add children because the 'current entity' is not set. You should spawn an entity first.");
             let mut builder = WorldChildBuilder {
@@ -72,10 +83,7 @@ impl<'a> BuildWorldChildren for WorldBuilder<'a> {
 }
 
 impl<'a, 'b> BuildWorldChildren for WorldChildBuilder<'a, 'b> {
-    fn with_children(
-        &mut self,
-        mut spawn_children: impl FnMut(&mut WorldChildBuilder),
-    ) -> &mut Self {
+    fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self {
         let current_entity = self
             .world_builder
             .current_entity

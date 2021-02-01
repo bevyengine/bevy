@@ -1,15 +1,16 @@
 use super::DepthCalculation;
 use bevy_math::Mat4;
-use bevy_property::{Properties, Property};
+use bevy_reflect::{Reflect, ReflectComponent, ReflectDeserialize};
 use serde::{Deserialize, Serialize};
 
 pub trait CameraProjection {
     fn get_projection_matrix(&self) -> Mat4;
-    fn update(&mut self, width: usize, height: usize);
+    fn update(&mut self, width: f32, height: f32);
     fn depth_calculation(&self) -> DepthCalculation;
 }
 
-#[derive(Debug, Clone, Properties)]
+#[derive(Debug, Clone, Reflect)]
+#[reflect(Component)]
 pub struct PerspectiveProjection {
     pub fov: f32,
     pub aspect_ratio: f32,
@@ -22,8 +23,8 @@ impl CameraProjection for PerspectiveProjection {
         Mat4::perspective_rh(self.fov, self.aspect_ratio, self.near, self.far)
     }
 
-    fn update(&mut self, width: usize, height: usize) {
-        self.aspect_ratio = width as f32 / height as f32;
+    fn update(&mut self, width: f32, height: f32) {
+        self.aspect_ratio = width / height;
     }
 
     fn depth_calculation(&self) -> DepthCalculation {
@@ -43,13 +44,15 @@ impl Default for PerspectiveProjection {
 }
 
 // TODO: make this a component instead of a property
-#[derive(Debug, Clone, Property, Serialize, Deserialize)]
+#[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
+#[reflect_value(Serialize, Deserialize)]
 pub enum WindowOrigin {
     Center,
     BottomLeft,
 }
 
-#[derive(Debug, Clone, Properties)]
+#[derive(Debug, Clone, Reflect)]
+#[reflect(Component)]
 pub struct OrthographicProjection {
     pub left: f32,
     pub right: f32,
@@ -72,11 +75,11 @@ impl CameraProjection for OrthographicProjection {
         )
     }
 
-    fn update(&mut self, width: usize, height: usize) {
+    fn update(&mut self, width: f32, height: f32) {
         match self.window_origin {
             WindowOrigin::Center => {
-                let half_width = width as f32 / 2.0;
-                let half_height = height as f32 / 2.0;
+                let half_width = width / 2.0;
+                let half_height = height / 2.0;
                 self.left = -half_width;
                 self.right = half_width;
                 self.top = half_height;
@@ -84,8 +87,8 @@ impl CameraProjection for OrthographicProjection {
             }
             WindowOrigin::BottomLeft => {
                 self.left = 0.0;
-                self.right = width as f32;
-                self.top = height as f32;
+                self.right = width;
+                self.top = height;
                 self.bottom = 0.0;
             }
         }

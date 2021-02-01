@@ -1,4 +1,4 @@
-use super::{BufferId, RenderResourceBinding, SamplerId, TextureId};
+use super::{BufferId, RenderResourceBinding, RenderResourceId, SamplerId, TextureId};
 use bevy_utils::AHasher;
 use std::{
     hash::{Hash, Hasher},
@@ -18,8 +18,8 @@ pub struct IndexedBindGroupEntry {
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct BindGroup {
     pub id: BindGroupId,
-    pub indexed_bindings: Arc<Vec<IndexedBindGroupEntry>>,
-    pub dynamic_uniform_indices: Option<Arc<Vec<u32>>>,
+    pub indexed_bindings: Arc<[IndexedBindGroupEntry]>,
+    pub dynamic_uniform_indices: Option<Arc<[u32]>>,
 }
 
 impl BindGroup {
@@ -28,7 +28,7 @@ impl BindGroup {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct BindGroupBuilder {
     pub indexed_bindings: Vec<IndexedBindGroupEntry>,
     pub dynamic_uniform_indices: Vec<u32>,
@@ -45,7 +45,7 @@ impl BindGroupBuilder {
             self.dynamic_uniform_indices.push(dynamic_index);
         }
 
-        binding.hash(&mut self.hasher);
+        self.hash_binding(&binding);
         self.indexed_bindings.push(IndexedBindGroupEntry {
             index,
             entry: binding,
@@ -94,12 +94,31 @@ impl BindGroupBuilder {
         self.indexed_bindings.sort_by_key(|i| i.index);
         BindGroup {
             id: BindGroupId(self.hasher.finish()),
-            indexed_bindings: Arc::new(self.indexed_bindings),
+            indexed_bindings: self.indexed_bindings.into(),
             dynamic_uniform_indices: if self.dynamic_uniform_indices.is_empty() {
                 None
             } else {
-                Some(Arc::new(self.dynamic_uniform_indices))
+                Some(self.dynamic_uniform_indices.into())
             },
+        }
+    }
+
+    fn hash_binding(&mut self, binding: &RenderResourceBinding) {
+        match binding {
+            RenderResourceBinding::Buffer {
+                buffer,
+                range,
+                dynamic_index: _, // dynamic_index is not a part of the binding
+            } => {
+                RenderResourceId::from(*buffer).hash(&mut self.hasher);
+                range.hash(&mut self.hasher);
+            }
+            RenderResourceBinding::Texture(texture) => {
+                RenderResourceId::from(*texture).hash(&mut self.hasher);
+            }
+            RenderResourceBinding::Sampler(sampler) => {
+                RenderResourceId::from(*sampler).hash(&mut self.hasher);
+            }
         }
     }
 }

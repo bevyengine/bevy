@@ -1,4 +1,5 @@
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{Assets, HandleUntyped};
+use bevy_reflect::TypeUuid;
 use bevy_render::{
     pipeline::{
         BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
@@ -9,8 +10,8 @@ use bevy_render::{
     texture::TextureFormat,
 };
 
-pub const FORWARD_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
-    Handle::from_u128(131483623140127713893804825450360211204);
+pub const FORWARD_PIPELINE_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 13148362314012771389);
 
 pub(crate) fn build_forward_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
     PipelineDescriptor {
@@ -34,7 +35,7 @@ pub(crate) fn build_forward_pipeline(shaders: &mut Assets<Shader>) -> PipelineDe
             },
         }),
         color_states: vec![ColorStateDescriptor {
-            format: TextureFormat::Bgra8UnormSrgb,
+            format: TextureFormat::default(),
             color_blend: BlendDescriptor {
                 src_factor: BlendFactor::SrcAlpha,
                 dst_factor: BlendFactor::OneMinusSrcAlpha,

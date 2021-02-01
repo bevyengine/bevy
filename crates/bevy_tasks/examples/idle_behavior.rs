@@ -13,8 +13,8 @@ fn main() {
         for i in 0..1 {
             s.spawn(async move {
                 println!("Blocking for 10 seconds");
-                let now = std::time::Instant::now();
-                while std::time::Instant::now() - now < std::time::Duration::from_millis(10000) {
+                let now = instant::Instant::now();
+                while instant::Instant::now() - now < instant::Duration::from_millis(10000) {
                     // spin, simulating work being done
                 }
 

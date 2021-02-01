@@ -1,6 +1,7 @@
 use crate::{
     camera::{Camera, OrthographicProjection, PerspectiveProjection, VisibleEntities},
     pipeline::RenderPipelines,
+    prelude::Visible,
     render_graph::base,
     Draw, Mesh,
 };
@@ -12,9 +13,10 @@ use bevy_transform::components::{GlobalTransform, Transform};
 
 /// A component bundle for "mesh" entities
 #[derive(Bundle, Default)]
-pub struct MeshComponents {
+pub struct MeshBundle {
     pub mesh: Handle<Mesh>,
     pub draw: Draw,
+    pub visible: Visible,
     pub render_pipelines: RenderPipelines,
     pub main_pass: MainPass,
     pub transform: Transform,
@@ -23,7 +25,7 @@ pub struct MeshComponents {
 
 /// A component bundle for "3d camera" entities
 #[derive(Bundle)]
-pub struct Camera3dComponents {
+pub struct Camera3dBundle {
     pub camera: Camera,
     pub perspective_projection: PerspectiveProjection,
     pub visible_entities: VisibleEntities,
@@ -31,11 +33,11 @@ pub struct Camera3dComponents {
     pub global_transform: GlobalTransform,
 }
 
-impl Default for Camera3dComponents {
+impl Default for Camera3dBundle {
     fn default() -> Self {
-        Camera3dComponents {
+        Camera3dBundle {
             camera: Camera {
-                name: Some(base::camera::CAMERA3D.to_string()),
+                name: Some(base::camera::CAMERA_3D.to_string()),
                 ..Default::default()
             },
             perspective_projection: Default::default(),
@@ -48,7 +50,7 @@ impl Default for Camera3dComponents {
 
 /// A component bundle for "2d camera" entities
 #[derive(Bundle)]
-pub struct Camera2dComponents {
+pub struct Camera2dBundle {
     pub camera: Camera,
     pub orthographic_projection: OrthographicProjection,
     pub visible_entities: VisibleEntities,
@@ -56,14 +58,14 @@ pub struct Camera2dComponents {
     pub global_transform: GlobalTransform,
 }
 
-impl Default for Camera2dComponents {
+impl Default for Camera2dBundle {
     fn default() -> Self {
         // we want 0 to be "closest" and +far to be "farthest" in 2d, so we offset
         // the camera's translation by far and use a right handed coordinate system
         let far = 1000.0;
-        Camera2dComponents {
+        Camera2dBundle {
             camera: Camera {
-                name: Some(base::camera::CAMERA2D.to_string()),
+                name: Some(base::camera::CAMERA_2D.to_string()),
                 ..Default::default()
             },
             orthographic_projection: OrthographicProjection {

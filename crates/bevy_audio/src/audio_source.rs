@@ -1,11 +1,14 @@
 use anyhow::Result;
-use bevy_asset::AssetLoader;
-use std::{io::Cursor, path::Path, sync::Arc};
+use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
+use bevy_reflect::TypeUuid;
+use bevy_utils::BoxedFuture;
+use std::{io::Cursor, sync::Arc};
 
 /// A source of audio data
-#[derive(Clone)]
+#[derive(Debug, Clone, TypeUuid)]
+#[uuid = "7a14806a-672b-443b-8d16-4f18afefa463"]
 pub struct AudioSource {
-    pub bytes: Arc<Vec<u8>>,
+    pub bytes: Arc<[u8]>,
 }
 
 impl AsRef<[u8]> for AudioSource {
@@ -18,16 +21,16 @@ impl AsRef<[u8]> for AudioSource {
 #[derive(Default)]
 pub struct Mp3Loader;
 
-impl AssetLoader<AudioSource> for Mp3Loader {
-    fn from_bytes(&self, _asset_path: &Path, bytes: Vec<u8>) -> Result<AudioSource> {
-        Ok(AudioSource {
-            bytes: Arc::new(bytes),
-        })
+impl AssetLoader for Mp3Loader {
+    fn load(&self, bytes: &[u8], load_context: &mut LoadContext) -> BoxedFuture<Result<()>> {
+        load_context.set_default_asset(LoadedAsset::new(AudioSource {
+            bytes: bytes.into(),
+        }));
+        Box::pin(async move { Ok(()) })
     }
 
     fn extensions(&self) -> &[&str] {
-        static EXTENSIONS: &[&str] = &["mp3", "flac", "wav", "ogg"];
-        EXTENSIONS
+        &["mp3", "flac", "wav", "ogg"]
     }
 }
 

@@ -1,0 +1,16 @@
+[package]
+name = "bevy_ecs_macros"
+version = "0.4.0"
+description = "Bevy ECS Macros"
+authors = ["Benjamin Saunders <ben.e.saunders@gmail.com>"]
+edition = "2018"
+license = "Apache-2.0"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = "1.0"
+quote = "1.0"
+proc-macro2 = "1.0"
+find-crate = "0.6"

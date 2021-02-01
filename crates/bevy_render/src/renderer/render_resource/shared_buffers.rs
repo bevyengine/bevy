@@ -1,74 +1,106 @@
 use super::{BufferId, BufferInfo, RenderResource, RenderResourceBinding};
 use crate::{
     render_graph::CommandQueue,
-    renderer::{BufferUsage, RenderResourceContext},
+    renderer::{BufferUsage, RenderContext, RenderResourceContext},
 };
-use bevy_ecs::Res;
-use parking_lot::RwLock;
-use std::sync::Arc;
+use bevy_ecs::{Res, ResMut};
 
-// TODO: Instead of allocating small "exact size" buffers each frame, this should use multiple large shared buffers and probably
-// a long-living "cpu mapped" staging buffer. Im punting that for now because I don't know the best way to use wgpu's new async
-// buffer mapping yet.
 pub struct SharedBuffers {
-    render_resource_context: Box<dyn RenderResourceContext>,
-    buffers: Arc<RwLock<Vec<BufferId>>>,
-    command_queue: Arc<RwLock<CommandQueue>>,
+    staging_buffer: Option<BufferId>,
+    uniform_buffer: Option<BufferId>,
+    buffers_to_free: Vec<BufferId>,
+    buffer_size: usize,
+    initial_size: usize,
+    current_offset: usize,
+    command_queue: CommandQueue,
 }
 
 impl SharedBuffers {
-    pub fn new(render_resource_context: Box<dyn RenderResourceContext>) -> Self {
+    pub fn new(initial_size: usize) -> Self {
         Self {
-            render_resource_context,
-            buffers: Default::default(),
+            staging_buffer: None,
+            uniform_buffer: None,
+            buffer_size: 0,
+            current_offset: 0,
+            initial_size,
+            buffers_to_free: Default::default(),
             command_queue: Default::default(),
         }
     }
 
-    pub fn get_buffer<T: RenderResource>(
-        &self,
+    pub fn grow(
+        &mut self,
+        render_resource_context: &dyn RenderResourceContext,
+        required_space: usize,
+    ) {
+        while self.buffer_size < self.current_offset + required_space {
+            self.buffer_size = if self.buffer_size == 0 {
+                self.initial_size
+            } else {
+                self.buffer_size * 2
+            };
+        }
+
+        self.current_offset = 0;
+
+        if let Some(staging_buffer) = self.staging_buffer.take() {
+            render_resource_context.unmap_buffer(staging_buffer);
+            self.buffers_to_free.push(staging_buffer);
+        }
+
+        if let Some(uniform_buffer) = self.uniform_buffer.take() {
+            self.buffers_to_free.push(uniform_buffer);
+        }
+
+        self.staging_buffer = Some(render_resource_context.create_buffer(BufferInfo {
+            size: self.buffer_size,
+            buffer_usage: BufferUsage::MAP_WRITE | BufferUsage::COPY_SRC,
+            mapped_at_creation: true,
+        }));
+        self.uniform_buffer = Some(render_resource_context.create_buffer(BufferInfo {
+            size: self.buffer_size,
+            buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
+            mapped_at_creation: false,
+        }));
+    }
+
+    pub fn get_uniform_buffer<T: RenderResource>(
+        &mut self,
+        render_resource_context: &dyn RenderResourceContext,
         render_resource: &T,
-        buffer_usage: BufferUsage,
     ) -> Option<RenderResourceBinding> {
         if let Some(size) = render_resource.buffer_byte_len() {
-            // PERF: this buffer will be slow
-            let staging_buffer = self.render_resource_context.create_buffer(BufferInfo {
-                size,
-                buffer_usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
-                mapped_at_creation: true,
-            });
+            // TODO: overlap alignment if/when possible
+            let aligned_size = render_resource_context.get_aligned_uniform_size(size, true);
+            let mut new_offset = self.current_offset + aligned_size;
+            if new_offset > self.buffer_size {
+                self.grow(render_resource_context, aligned_size);
+                new_offset = aligned_size;
+            }
 
-            self.render_resource_context.write_mapped_buffer(
+            let range = self.current_offset as u64..new_offset as u64;
+            let staging_buffer = self.staging_buffer.unwrap();
+            let uniform_buffer = self.uniform_buffer.unwrap();
+            render_resource_context.write_mapped_buffer(
                 staging_buffer,
-                0..size as u64,
+                range.clone(),
                 &mut |data, _renderer| {
                     render_resource.write_buffer_bytes(data);
                 },
             );
 
-            self.render_resource_context.unmap_buffer(staging_buffer);
-
-            let destination_buffer = self.render_resource_context.create_buffer(BufferInfo {
-                size,
-                buffer_usage: BufferUsage::COPY_DST | buffer_usage,
-                ..Default::default()
-            });
-
-            let mut command_queue = self.command_queue.write();
-            command_queue.copy_buffer_to_buffer(
+            self.command_queue.copy_buffer_to_buffer(
                 staging_buffer,
-                0,
-                destination_buffer,
-                0,
-                size as u64,
+                self.current_offset as u64,
+                uniform_buffer,
+                self.current_offset as u64,
+                aligned_size as u64,
             );
 
-            let mut buffers = self.buffers.write();
-            buffers.push(staging_buffer);
-            buffers.push(destination_buffer);
+            self.current_offset = new_offset;
             Some(RenderResourceBinding::Buffer {
-                buffer: destination_buffer,
-                range: 0..size as u64,
+                buffer: uniform_buffer,
+                range,
                 dynamic_index: None,
             })
         } else {
@@ -76,21 +108,29 @@ impl SharedBuffers {
         }
     }
 
-    // TODO: remove this when this actually uses shared buffers
-    pub fn free_buffers(&self) {
-        let mut buffers = self.buffers.write();
-        for buffer in buffers.drain(..) {
-            self.render_resource_context.remove_buffer(buffer)
+    pub fn update(&mut self, render_resource_context: &dyn RenderResourceContext) {
+        self.current_offset = 0;
+        for buffer in self.buffers_to_free.drain(..) {
+            render_resource_context.remove_buffer(buffer)
+        }
+
+        if let Some(staging_buffer) = self.staging_buffer {
+            render_resource_context.map_buffer(staging_buffer);
         }
     }
 
-    pub fn reset_command_queue(&self) -> CommandQueue {
-        let mut command_queue = self.command_queue.write();
-        std::mem::take(&mut *command_queue)
+    pub fn apply(&mut self, render_context: &mut dyn RenderContext) {
+        if let Some(staging_buffer) = self.staging_buffer {
+            render_context.resources().unmap_buffer(staging_buffer);
+        }
+        let mut command_queue = std::mem::take(&mut self.command_queue);
+        command_queue.execute(render_context);
     }
 }
 
-// TODO: remove this when this actually uses shared buffers
-pub fn free_shared_buffers_system(shared_buffers: Res<SharedBuffers>) {
-    shared_buffers.free_buffers();
+pub fn shared_buffers_update_system(
+    mut shared_buffers: ResMut<SharedBuffers>,
+    render_resource_context: Res<Box<dyn RenderResourceContext>>,
+) {
+    shared_buffers.update(&**render_resource_context);
 }

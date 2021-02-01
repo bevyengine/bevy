@@ -1,8 +1,8 @@
 use super::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_app::prelude::*;
 use bevy_core::{Time, Timer};
-use bevy_ecs::{IntoQuerySystem, Res, ResMut};
-use std::time::Duration;
+use bevy_ecs::{IntoSystem, Res, ResMut};
+use bevy_utils::Duration;
 
 /// An App Plugin that prints diagnostics to the console
 pub struct PrintDiagnosticsPlugin {
@@ -69,8 +69,7 @@ impl PrintDiagnosticsPlugin {
         time: Res<Time>,
         diagnostics: Res<Diagnostics>,
     ) {
-        state.timer.tick(time.delta_seconds);
-        if state.timer.finished {
+        if state.timer.tick(time.delta_seconds()).finished() {
             println!("Diagnostics:");
             println!("{}", "-".repeat(93));
             if let Some(ref filter) = state.filter {
@@ -90,8 +89,7 @@ impl PrintDiagnosticsPlugin {
         time: Res<Time>,
         diagnostics: Res<Diagnostics>,
     ) {
-        state.timer.tick(time.delta_seconds);
-        if state.timer.finished {
+        if state.timer.tick(time.delta_seconds()).finished() {
             println!("Diagnostics (Debug):");
             println!("{}", "-".repeat(93));
             if let Some(ref filter) = state.filter {
