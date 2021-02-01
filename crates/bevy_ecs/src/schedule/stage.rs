@@ -107,9 +107,15 @@ impl SystemStage {
     }
 
     pub fn run_once(&mut self, world: &mut World, resources: &mut Resources) {
+
+        let mut system_refs = Vec::with_capacity(self.systems.len());
+        for system in self.systems.iter_mut() {
+            system_refs.push(system.as_mut());
+        }
+
         let unexecuted_systems = std::mem::take(&mut self.unexecuted_systems);
         self.executor
-            .execute_stage(&mut self.systems, &unexecuted_systems, world, resources);
+            .execute_stage(&mut system_refs, &unexecuted_systems, world, resources);
     }
 }
 

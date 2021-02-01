@@ -52,3 +52,5 @@ pub trait System: Send + Sync + 'static {
 }
 
 pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;
+pub type SystemRef<'a, In = (), Out = ()> = &'a dyn System<In = In, Out = Out>;
+pub type SystemRefMut<'a, In = (), Out = ()> = &'a mut dyn System<In = In, Out = Out>;

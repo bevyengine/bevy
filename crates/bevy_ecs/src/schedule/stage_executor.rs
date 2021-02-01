@@ -6,13 +6,13 @@ use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
 
 use crate::{
-    ArchetypesGeneration, BoxedSystem, Resources, ThreadLocalExecution, TypeAccess, World,
+    ArchetypesGeneration, SystemRefMut, Resources, ThreadLocalExecution, TypeAccess, World,
 };
 
 pub trait SystemStageExecutor: Downcast + Send + Sync {
     fn execute_stage(
         &mut self,
-        systems: &mut [BoxedSystem],
+        systems: &mut [SystemRefMut],
         changed_systems: &[usize],
         world: &mut World,
         resources: &mut Resources,
@@ -27,7 +27,7 @@ pub struct SerialSystemStageExecutor;
 impl SystemStageExecutor for SerialSystemStageExecutor {
     fn execute_stage(
         &mut self,
-        systems: &mut [BoxedSystem],
+        systems: &mut [SystemRefMut],
         _changed_systems: &[usize],
         world: &mut World,
         resources: &mut Resources,
@@ -111,7 +111,7 @@ impl ParallelSystemStageExecutor {
     pub fn prepare_to_next_thread_local(
         &mut self,
         world: &World,
-        systems: &mut [BoxedSystem],
+        systems: &mut [SystemRefMut],
         stage_changed: bool,
         next_thread_local_index: usize,
     ) -> Range<usize> {
@@ -293,7 +293,7 @@ impl ParallelSystemStageExecutor {
         &self,
         world: &World,
         resources: &Resources,
-        systems: &mut [BoxedSystem],
+        systems: &mut [SystemRefMut],
         prepared_system_range: Range<usize>,
         compute_pool: &TaskPool,
     ) {
@@ -389,7 +389,7 @@ impl ParallelSystemStageExecutor {
 impl SystemStageExecutor for ParallelSystemStageExecutor {
     fn execute_stage(
         &mut self,
-        systems: &mut [BoxedSystem],
+        systems: &mut [SystemRefMut],
         changed_systems: &[usize],
         world: &mut World,
         resources: &mut Resources,
@@ -469,7 +469,7 @@ impl SystemStageExecutor for ParallelSystemStageExecutor {
                 self.thread_local_system_indices[next_thread_local_index];
             {
                 // if a thread local system is ready to run, run it exclusively on the main thread
-                let system = systems[thread_local_system_index].as_mut();
+                let system = &mut *systems[thread_local_system_index];
 
                 #[cfg(feature = "trace")]
                 let system_span = bevy_utils::tracing::info_span!(
