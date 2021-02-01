@@ -29,7 +29,7 @@ bevy_winit = { path = "../bevy_winit", optional = true, version = "0.4.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.4.0" }
 
 # other
-wgpu = { git = "https://github.com/gfx-rs/wgpu-rs", rev = "f882abcf4b3d1e9bfbfc95b61874344661956479" }
+wgpu = "0.7"
 futures-lite = "1.4.0"
 crossbeam-channel = "0.4.4"
 crossbeam-utils = "0.7.2"
