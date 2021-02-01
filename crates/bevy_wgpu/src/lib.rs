@@ -91,7 +91,7 @@ pub fn get_wgpu_render_system(resources: &mut Resources) -> impl FnMut(&mut Worl
         );
     }
 
-      let options = resources
+    let options = resources
         .get_cloned::<WgpuOptions>()
         .unwrap_or_else(WgpuOptions::default);
     let mut wgpu_renderer = future::block_on(WgpuRenderer::new(options, wgpu_features));
