@@ -3,13 +3,14 @@ use bevy_render::{
     draw::{Draw, DrawContext, DrawError, Drawable},
     mesh,
     mesh::Mesh,
-    pipeline::{PipelineSpecialization, VertexBufferDescriptor},
+    pipeline::{PipelineSpecialization, VertexBufferLayout},
     prelude::Msaa,
     renderer::{BindGroup, RenderResourceBindings, RenderResourceId},
 };
 use bevy_sprite::TextureAtlasSprite;
 
 use crate::{PositionedGlyph, TextSection};
+use bevy_render::pipeline::IndexFormat;
 
 pub struct DrawableText<'a> {
     pub render_resource_bindings: &'a mut RenderResourceBindings,
@@ -18,7 +19,7 @@ pub struct DrawableText<'a> {
     pub sections: &'a [TextSection],
     pub text_glyphs: &'a Vec<PositionedGlyph>,
     pub msaa: &'a Msaa,
-    pub font_quad_vertex_descriptor: &'a VertexBufferDescriptor,
+    pub font_quad_vertex_layout: &'a VertexBufferLayout,
 }
 
 impl<'a> Drawable for DrawableText<'a> {
@@ -28,7 +29,7 @@ impl<'a> Drawable for DrawableText<'a> {
             &bevy_sprite::SPRITE_SHEET_PIPELINE_HANDLE.typed(),
             &PipelineSpecialization {
                 sample_count: self.msaa.samples,
-                vertex_buffer_descriptor: self.font_quad_vertex_descriptor.clone(),
+                vertex_buffer_layout: self.font_quad_vertex_layout.clone(),
                 ..Default::default()
             },
         )?;
@@ -53,7 +54,7 @@ impl<'a> Drawable for DrawableText<'a> {
                 mesh::INDEX_BUFFER_ASSET_INDEX,
             )
         {
-            draw.set_index_buffer(quad_index_buffer, 0);
+            draw.set_index_buffer(quad_index_buffer, 0, IndexFormat::Uint32);
             if let Some(buffer_info) = render_resource_context.get_buffer_info(quad_index_buffer) {
                 indices = 0..(buffer_info.size / 4) as u32;
             } else {

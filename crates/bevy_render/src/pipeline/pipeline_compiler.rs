@@ -1,6 +1,6 @@
 use super::{state_descriptors::PrimitiveTopology, IndexFormat, PipelineDescriptor};
 use crate::{
-    pipeline::{BindType, InputStepMode, VertexBufferDescriptor},
+    pipeline::{BindType, InputStepMode, VertexBufferLayout},
     renderer::RenderResourceContext,
     shader::{Shader, ShaderError},
 };
@@ -15,8 +15,8 @@ pub struct PipelineSpecialization {
     pub shader_specialization: ShaderSpecialization,
     pub primitive_topology: PrimitiveTopology,
     pub dynamic_bindings: HashSet<String>,
-    pub index_format: IndexFormat,
-    pub vertex_buffer_descriptor: VertexBufferDescriptor,
+    pub strip_index_format: Option<IndexFormat>,
+    pub vertex_buffer_layout: VertexBufferLayout,
     pub sample_count: u32,
 }
 
@@ -24,11 +24,11 @@ impl Default for PipelineSpecialization {
     fn default() -> Self {
         Self {
             sample_count: 1,
-            index_format: IndexFormat::Uint32,
+            strip_index_format: None,
             shader_specialization: Default::default(),
             primitive_topology: Default::default(),
             dynamic_bindings: Default::default(),
-            vertex_buffer_descriptor: Default::default(),
+            vertex_buffer_layout: Default::default(),
         }
     }
 }
@@ -178,10 +178,11 @@ impl PipelineCompiler {
                         .any(|b| b == &binding.name)
                     {
                         if let BindType::Uniform {
-                            ref mut dynamic, ..
+                            ref mut has_dynamic_offset,
+                            ..
                         } = binding.bind_type
                         {
-                            *dynamic = true;
+                            *has_dynamic_offset = true;
                             binding_changed = true;
                         }
                     }
@@ -197,12 +198,12 @@ impl PipelineCompiler {
         // create a vertex layout that provides all attributes from either the specialized vertex buffers or a zero buffer
         let mut pipeline_layout = specialized_descriptor.layout.as_mut().unwrap();
         // the vertex buffer descriptor of the mesh
-        let mesh_vertex_buffer_descriptor = &pipeline_specialization.vertex_buffer_descriptor;
+        let mesh_vertex_buffer_layout = &pipeline_specialization.vertex_buffer_layout;
 
         // the vertex buffer descriptor that will be used for this pipeline
-        let mut compiled_vertex_buffer_descriptor = VertexBufferDescriptor {
+        let mut compiled_vertex_buffer_descriptor = VertexBufferLayout {
             step_mode: InputStepMode::Vertex,
-            stride: mesh_vertex_buffer_descriptor.stride,
+            stride: mesh_vertex_buffer_layout.stride,
             ..Default::default()
         };
 
@@ -212,7 +213,7 @@ impl PipelineCompiler {
                 .get(0)
                 .expect("Reflected layout has no attributes.");
 
-            if let Some(target_vertex_attribute) = mesh_vertex_buffer_descriptor
+            if let Some(target_vertex_attribute) = mesh_vertex_buffer_layout
                 .attributes
                 .iter()
                 .find(|x| x.name == shader_vertex_attribute.name)
@@ -233,13 +234,14 @@ impl PipelineCompiler {
         }
 
         //TODO: add other buffers (like instancing) here
-        let mut vertex_buffer_descriptors = Vec::<VertexBufferDescriptor>::default();
+        let mut vertex_buffer_descriptors = Vec::<VertexBufferLayout>::default();
         vertex_buffer_descriptors.push(compiled_vertex_buffer_descriptor);
 
         pipeline_layout.vertex_buffer_descriptors = vertex_buffer_descriptors;
-        specialized_descriptor.sample_count = pipeline_specialization.sample_count;
-        specialized_descriptor.primitive_topology = pipeline_specialization.primitive_topology;
-        specialized_descriptor.index_format = pipeline_specialization.index_format;
+        specialized_descriptor.multisample.count = pipeline_specialization.sample_count;
+        specialized_descriptor.primitive.topology = pipeline_specialization.primitive_topology;
+        specialized_descriptor.primitive.strip_index_format =
+            pipeline_specialization.strip_index_format;
 
         let specialized_pipeline_handle = pipelines.add(specialized_descriptor);
         render_resource_context.create_render_pipeline(

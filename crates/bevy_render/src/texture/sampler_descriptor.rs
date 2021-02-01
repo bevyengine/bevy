@@ -14,6 +14,7 @@ pub struct SamplerDescriptor {
     pub lod_max_clamp: f32,
     pub compare_function: Option<CompareFunction>,
     pub anisotropy_clamp: Option<NonZeroU8>,
+    pub border_color: Option<SamplerBorderColor>,
 }
 
 impl SamplerDescriptor {
@@ -38,6 +39,7 @@ impl Default for SamplerDescriptor {
             lod_max_clamp: std::f32::MAX,
             compare_function: None,
             anisotropy_clamp: None,
+            border_color: None,
         }
     }
 }
@@ -67,4 +69,11 @@ impl Default for FilterMode {
     fn default() -> Self {
         FilterMode::Nearest
     }
+}
+
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum SamplerBorderColor {
+    TransparentBlack,
+    OpaqueBlack,
+    OpaqueWhite,
 }
