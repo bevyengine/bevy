@@ -1,5 +1,6 @@
 use crate::{Rect, TextureAtlas};
 use bevy_asset::{Assets, Handle};
+use bevy_log::{debug, error, warn};
 use bevy_math::Vec2;
 use bevy_render::texture::{Extent3d, Texture, TextureDimension, TextureFormat};
 use bevy_utils::HashMap;
@@ -13,6 +14,8 @@ use thiserror::Error;
 pub enum TextureAtlasBuilderError {
     #[error("could not pack textures into an atlas within the given bounds")]
     NotEnoughSpace,
+    #[error("added a texture with the wrong format in an atlas")]
+    WrongFormat,
 }
 
 #[derive(Debug)]
@@ -26,6 +29,10 @@ pub struct TextureAtlasBuilder {
     initial_size: Vec2,
     /// The absolute maximum size of the texture atlas in pixels.
     max_size: Vec2,
+    /// The texture format for the textures that will be loaded in the atlas.
+    format: TextureFormat,
+    /// Enable automatic format conversion for textures if they are not in the atlas format.
+    auto_format_conversion: bool,
 }
 
 impl Default for TextureAtlasBuilder {
@@ -34,6 +41,8 @@ impl Default for TextureAtlasBuilder {
             rects_to_place: GroupedRectsToPlace::new(),
             initial_size: Vec2::new(256., 256.),
             max_size: Vec2::new(2048., 2048.),
+            format: TextureFormat::Rgba8UnormSrgb,
+            auto_format_conversion: true,
         }
     }
 }
@@ -53,6 +62,18 @@ impl TextureAtlasBuilder {
         self
     }
 
+    /// Sets the texture format for textures in the atlas.
+    pub fn format(mut self, format: TextureFormat) -> Self {
+        self.format = format;
+        self
+    }
+
+    /// Control whether the added texture should be converted to the atlas format, if different.
+    pub fn auto_format_conversion(mut self, auto_format_conversion: bool) -> Self {
+        self.auto_format_conversion = auto_format_conversion;
+        self
+    }
+
     /// Adds a texture to be copied to the texture atlas.
     pub fn add_texture(&mut self, texture_handle: Handle<Texture>, texture: &Texture) {
         self.rects_to_place.push_rect(
@@ -62,8 +83,7 @@ impl TextureAtlasBuilder {
         )
     }
 
-    fn copy_texture(
-        &mut self,
+    fn copy_texture_to_atlas(
         atlas_texture: &mut Texture,
         texture: &Texture,
         packed_location: &PackedLocation,
@@ -85,6 +105,28 @@ impl TextureAtlasBuilder {
         }
     }
 
+    fn copy_converted_texture(
+        &self,
+        atlas_texture: &mut Texture,
+        texture: &Texture,
+        packed_location: &PackedLocation,
+    ) {
+        if self.format == texture.format {
+            Self::copy_texture_to_atlas(atlas_texture, texture, packed_location);
+        } else if let Some(converted_texture) = texture.convert(self.format) {
+            debug!(
+                "Converting texture from '{:?}' to '{:?}'",
+                texture.format, self.format
+            );
+            Self::copy_texture_to_atlas(atlas_texture, &converted_texture, packed_location);
+        } else {
+            error!(
+                "Error converting texture from '{:?}' to '{:?}', ignoring",
+                texture.format, self.format
+            );
+        }
+    }
+
     /// Consumes the builder and returns a result with a new texture atlas.
     ///
     /// Internally it copies all rectangles from the textures and copies them
@@ -97,7 +139,7 @@ impl TextureAtlasBuilder {
     /// If there is not enough space in the atlas texture, an error will
     /// be returned. It is then recommended to make a larger sprite sheet.
     pub fn finish(
-        mut self,
+        self,
         textures: &mut Assets<Texture>,
     ) -> Result<TextureAtlas, TextureAtlasBuilderError> {
         let initial_width = self.initial_size.x as u32;
@@ -130,7 +172,7 @@ impl TextureAtlasBuilder {
                         Extent3d::new(current_width, current_height, 1),
                         TextureDimension::D2,
                         &[0, 0, 0, 0],
-                        TextureFormat::Rgba8UnormSrgb,
+                        self.format,
                     );
                     Some(rect_placements)
                 }
@@ -160,7 +202,14 @@ impl TextureAtlasBuilder {
                 );
             texture_handles.insert(texture_handle.clone_weak(), texture_rects.len());
             texture_rects.push(Rect { min, max });
-            self.copy_texture(&mut atlas_texture, texture, packed_location);
+            if texture.format != self.format && !self.auto_format_conversion {
+                warn!(
+                    "Loading a texture of format '{:?}' in an atlas with format '{:?}'",
+                    texture.format, self.format
+                );
+                return Err(TextureAtlasBuilderError::WrongFormat);
+            }
+            self.copy_converted_texture(&mut atlas_texture, texture, packed_location);
         }
         Ok(TextureAtlas {
             size: atlas_texture.size.as_vec3().truncate(),
