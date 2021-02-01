@@ -359,7 +359,7 @@ mod tests {
         #[derive(Reflect)]
         struct TestStruct {
             a: usize,
-        };
+        }
         let struct_ = TestStruct { a: 0 };
         let dyn_struct = struct_.clone_dynamic();
         assert_eq!(dyn_struct.type_name(), std::any::type_name::<TestStruct>());
