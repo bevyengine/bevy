@@ -5,7 +5,8 @@ on:
 jobs:
   rebase:
     name: Rebase
-    if: github.event.issue.pull_request != '' && contains(github.event.comment.body, '/rebase') && (github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER')
+    # ideally "cart" isn't hard coded here, but there is a bug that prevents org-owned repos from properly populating the OWNER enum 
+    if: github.event.issue.pull_request != '' && startsWith(github.event.comment.body, '/rebase') && (github.event.comment.author_association == 'MEMBER' || github.event.comment.user.login == 'cart')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the latest code
