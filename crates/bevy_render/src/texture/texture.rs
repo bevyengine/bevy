@@ -146,7 +146,7 @@ impl Texture {
                 }
                 _ => None,
             })
-            .map(|img| super::image_to_texture(img))
+            .map(super::image_to_texture)
     }
 
     pub fn texture_resource_system(

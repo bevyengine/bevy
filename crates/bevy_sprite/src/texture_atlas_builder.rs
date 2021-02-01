@@ -105,26 +105,24 @@ impl TextureAtlasBuilder {
                 atlas_texture.data[begin..end]
                     .copy_from_slice(&texture.data[texture_begin..texture_end]);
             }
-        } else {
-            if let Some(converted_texture) = texture.convert(self.format) {
-                debug!(
-                    "Converting texture from '{:?}' to '{:?}'",
-                    texture.format, self.format
-                );
-                for (texture_y, bound_y) in (rect_y..rect_y + rect_height).enumerate() {
-                    let begin = (bound_y * atlas_width + rect_x) * format_size;
-                    let end = begin + rect_width * format_size;
-                    let texture_begin = texture_y * rect_width * format_size;
-                    let texture_end = texture_begin + rect_width * format_size;
-                    atlas_texture.data[begin..end]
-                        .copy_from_slice(&converted_texture.data[texture_begin..texture_end]);
-                }
-            } else {
-                error!(
-                    "Error converting texture from '{:?}' to '{:?}', ignoring",
-                    texture.format, self.format
-                );
+        } else if let Some(converted_texture) = texture.convert(self.format) {
+            debug!(
+                "Converting texture from '{:?}' to '{:?}'",
+                texture.format, self.format
+            );
+            for (texture_y, bound_y) in (rect_y..rect_y + rect_height).enumerate() {
+                let begin = (bound_y * atlas_width + rect_x) * format_size;
+                let end = begin + rect_width * format_size;
+                let texture_begin = texture_y * rect_width * format_size;
+                let texture_end = texture_begin + rect_width * format_size;
+                atlas_texture.data[begin..end]
+                    .copy_from_slice(&converted_texture.data[texture_begin..texture_end]);
             }
+        } else {
+            error!(
+                "Error converting texture from '{:?}' to '{:?}', ignoring",
+                texture.format, self.format
+            );
         }
     }
 

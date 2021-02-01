@@ -187,25 +187,25 @@ pub(crate) fn texture_to_image(texture: &Texture) -> Option<image::DynamicImage>
             texture.size.height,
             texture.data.clone(),
         )
-        .map(|buffer| image::DynamicImage::ImageLuma8(buffer)),
+        .map(image::DynamicImage::ImageLuma8),
         TextureFormat::Rg8Unorm => image::ImageBuffer::from_raw(
             texture.size.width,
             texture.size.height,
             texture.data.clone(),
         )
-        .map(|buffer| image::DynamicImage::ImageLumaA8(buffer)),
+        .map(image::DynamicImage::ImageLumaA8),
         TextureFormat::Rgba8UnormSrgb => image::ImageBuffer::from_raw(
             texture.size.width,
             texture.size.height,
             texture.data.clone(),
         )
-        .map(|buffer| image::DynamicImage::ImageRgba8(buffer)),
+        .map(image::DynamicImage::ImageRgba8),
         TextureFormat::Bgra8UnormSrgb => image::ImageBuffer::from_raw(
             texture.size.width,
             texture.size.height,
             texture.data.clone(),
         )
-        .map(|buffer| image::DynamicImage::ImageBgra8(buffer)),
+        .map(image::DynamicImage::ImageBgra8),
         _ => None,
     }
 }
