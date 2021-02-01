@@ -1,6 +1,6 @@
 use super::{BindGroup, BindGroupId, BufferId, SamplerId, TextureId};
 use crate::{
-    pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineDescriptor},
+    pipeline::{BindGroupDescriptor, BindGroupDescriptorId, IndexFormat, PipelineDescriptor},
     renderer::RenderResourceContext,
 };
 use bevy_asset::{Asset, Handle, HandleUntyped};
@@ -69,7 +69,7 @@ pub struct RenderResourceBindings {
     pub vertex_attribute_buffer: Option<BufferId>,
     /// A Buffer that is filled with zeros that will be used for attributes required by the shader, but undefined by the mesh.
     pub vertex_fallback_buffer: Option<BufferId>,
-    pub index_buffer: Option<BufferId>,
+    pub index_buffer: Option<(BufferId, IndexFormat)>,
     assets: HashSet<(HandleUntyped, TypeId)>,
     bind_groups: HashMap<BindGroupId, BindGroup>,
     bind_group_descriptors: HashMap<BindGroupDescriptorId, Option<BindGroupId>>,
@@ -116,8 +116,8 @@ impl RenderResourceBindings {
         }
     }
 
-    pub fn set_index_buffer(&mut self, index_buffer: BufferId) {
-        self.index_buffer = Some(index_buffer);
+    pub fn set_index_buffer(&mut self, index_buffer: BufferId, index_format: IndexFormat) {
+        self.index_buffer = Some((index_buffer, index_format));
     }
 
     fn create_bind_group(&mut self, descriptor: &BindGroupDescriptor) -> BindGroupStatus {
@@ -303,7 +303,7 @@ mod tests {
                     index: 0,
                     name: "a".to_string(),
                     bind_type: BindType::Uniform {
-                        dynamic: false,
+                        has_dynamic_offset: false,
                         property: UniformProperty::Struct(vec![UniformProperty::Mat4]),
                     },
                     shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
@@ -312,7 +312,7 @@ mod tests {
                     index: 1,
                     name: "b".to_string(),
                     bind_type: BindType::Uniform {
-                        dynamic: false,
+                        has_dynamic_offset: false,
                         property: UniformProperty::Float,
                     },
                     shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,

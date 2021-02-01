@@ -51,7 +51,7 @@ pub use entities::{Entity, EntityReserver, Location, NoSuchEntity};
 pub use entity_builder::{BuiltEntity, EntityBuilder};
 pub use entity_map::*;
 pub use filter::{Added, Changed, EntityFilter, Mutated, Or, QueryFilter, With, Without};
-pub use query::{Batch, BatchedIter, Mut, QueryIter, ReadOnlyFetch, WorldQuery};
+pub use query::{Batch, BatchedIter, Flags, Mut, QueryIter, ReadOnlyFetch, WorldQuery};
 pub use world::{ArchetypesGeneration, Component, ComponentError, SpawnBatchIter, World};
 pub use world_builder::*;
 

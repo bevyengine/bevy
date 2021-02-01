@@ -3,17 +3,17 @@ use crate::{
     prelude::Visible,
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     renderer::{
-        self, BufferInfo, BufferUsage, RenderContext, RenderResourceBinding,
+        self, BufferInfo, BufferMapMode, BufferUsage, RenderContext, RenderResourceBinding,
         RenderResourceBindings, RenderResourceContext, RenderResourceHints,
     },
     texture,
 };
 
-use bevy_app::{EventReader, Events};
+use bevy_app::EventReader;
 use bevy_asset::{Asset, AssetEvent, Assets, Handle, HandleId};
 use bevy_ecs::{
-    Changed, Commands, Entity, IntoSystem, Local, Or, Query, QuerySet, Res, ResMut, Resources,
-    System, With, World,
+    BoxedSystem, Changed, Commands, Entity, IntoSystem, Local, Or, Query, QuerySet, Res, ResMut,
+    Resources, System, With, World,
 };
 use bevy_utils::HashMap;
 use renderer::{AssetRenderResourceBindings, BufferId, RenderResourceType, RenderResources};
@@ -401,7 +401,7 @@ impl<T> SystemNode for RenderResourcesNode<T>
 where
     T: renderer::RenderResources,
 {
-    fn get_system(&self, commands: &mut Commands) -> Box<dyn System<In = (), Out = ()>> {
+    fn get_system(&self, commands: &mut Commands) -> BoxedSystem {
         let system = render_resources_node_system::<T>.system();
         commands.insert_local_resource(
             system.id(),
@@ -490,7 +490,7 @@ fn render_resources_node_system<T: RenderResources>(
     uniform_buffer_arrays.resize_staging_buffer(render_resource_context);
 
     if let Some(staging_buffer) = state.uniform_buffer_arrays.staging_buffer {
-        render_resource_context.map_buffer(staging_buffer);
+        render_resource_context.map_buffer(staging_buffer, BufferMapMode::Write);
         render_resource_context.write_mapped_buffer(
             staging_buffer,
             0..state.uniform_buffer_arrays.staging_buffer_size as u64,
@@ -584,7 +584,7 @@ impl<T> SystemNode for AssetRenderResourcesNode<T>
 where
     T: renderer::RenderResources + Asset,
 {
-    fn get_system(&self, commands: &mut Commands) -> Box<dyn System<In = (), Out = ()>> {
+    fn get_system(&self, commands: &mut Commands) -> BoxedSystem {
         let system = asset_render_resources_node_system::<T>.system();
         commands.insert_local_resource(
             system.id(),
@@ -600,14 +600,14 @@ where
 }
 
 struct AssetRenderNodeState<T: Asset> {
-    event_reader: EventReader<AssetEvent<T>>,
     assets_waiting_for_textures: Vec<HandleId>,
+    _marker: PhantomData<T>,
 }
 
 impl<T: Asset> Default for AssetRenderNodeState<T> {
     fn default() -> Self {
         Self {
-            event_reader: Default::default(),
+            _marker: Default::default(),
             assets_waiting_for_textures: Default::default(),
         }
     }
@@ -618,7 +618,7 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
     mut state: Local<RenderResourcesNodeState<HandleId, T>>,
     mut asset_state: Local<AssetRenderNodeState<T>>,
     assets: Res<Assets<T>>,
-    asset_events: Res<Events<AssetEvent<T>>>,
+    mut asset_events: EventReader<AssetEvent<T>>,
     mut asset_render_resource_bindings: ResMut<AssetRenderResourceBindings>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     mut queries: QuerySet<(
@@ -632,7 +632,7 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
     let render_resource_context = &**render_resource_context;
 
     let mut changed_assets = HashMap::default();
-    for event in asset_state.event_reader.iter(&asset_events) {
+    for event in asset_events.iter() {
         match event {
             AssetEvent::Created { ref handle } => {
                 if let Some(asset) = assets.get(handle) {
@@ -666,8 +666,24 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
     }
 
     uniform_buffer_arrays.begin_update();
-    // initialize uniform buffer arrays using the first RenderResources
-    if let Some(asset) = changed_assets.values().next() {
+    // initialize uniform buffer arrays using the largest RenderResources
+    if let Some((asset, _)) = changed_assets
+        .values()
+        .map(|asset| {
+            let size: usize = asset
+                .iter()
+                .filter_map(|render_resource| {
+                    if let Some(RenderResourceType::Buffer) = render_resource.resource_type() {
+                        render_resource.buffer_byte_len()
+                    } else {
+                        None
+                    }
+                })
+                .sum();
+            (asset, size)
+        })
+        .max_by_key(|(_, size)| *size)
+    {
         uniform_buffer_arrays.initialize(asset, render_resource_context);
     }
 
@@ -687,7 +703,7 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
     uniform_buffer_arrays.resize_staging_buffer(render_resource_context);
 
     if let Some(staging_buffer) = state.uniform_buffer_arrays.staging_buffer {
-        render_resource_context.map_buffer(staging_buffer);
+        render_resource_context.map_buffer(staging_buffer, BufferMapMode::Write);
         render_resource_context.write_mapped_buffer(
             staging_buffer,
             0..state.uniform_buffer_arrays.staging_buffer_size as u64,

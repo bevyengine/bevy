@@ -19,7 +19,7 @@ sudo apt-get install clang
 Graphics and audio need to be configured for them to work with WSL 2 backend. 
 Please see the ubuntu [WSL documentation](https://wiki.ubuntu.com/WSL) on how to set up graphics and audio. 
 
-## Fedora 32
+## Fedora 33
 
 ```bash
 sudo dnf install gcc-c++ libX11-devel alsa-lib-devel systemd-devel

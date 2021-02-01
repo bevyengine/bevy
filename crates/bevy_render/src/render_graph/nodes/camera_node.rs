@@ -2,13 +2,15 @@ use crate::{
     camera::{ActiveCameras, Camera},
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     renderer::{
-        BufferId, BufferInfo, BufferUsage, RenderContext, RenderResourceBinding,
+        BufferId, BufferInfo, BufferMapMode, BufferUsage, RenderContext, RenderResourceBinding,
         RenderResourceBindings, RenderResourceContext,
     },
 };
 use bevy_core::AsBytes;
 
-use bevy_ecs::{Commands, IntoSystem, Local, Query, Res, ResMut, Resources, System, World};
+use bevy_ecs::{
+    BoxedSystem, Commands, IntoSystem, Local, Query, Res, ResMut, Resources, System, World,
+};
 use bevy_transform::prelude::*;
 use std::borrow::Cow;
 
@@ -44,7 +46,7 @@ impl Node for CameraNode {
 }
 
 impl SystemNode for CameraNode {
-    fn get_system(&self, commands: &mut Commands) -> Box<dyn System<In = (), Out = ()>> {
+    fn get_system(&self, commands: &mut Commands) -> BoxedSystem {
         let system = camera_node_system.system();
         commands.insert_local_resource(
             system.id(),
@@ -85,7 +87,7 @@ pub fn camera_node_system(
     };
 
     let staging_buffer = if let Some(staging_buffer) = state.staging_buffer {
-        render_resource_context.map_buffer(staging_buffer);
+        render_resource_context.map_buffer(staging_buffer, BufferMapMode::Write);
         staging_buffer
     } else {
         let size = std::mem::size_of::<[[f32; 4]; 4]>();

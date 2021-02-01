@@ -41,7 +41,7 @@ void main() {
         v_Uv);
 # endif
 
-# ifdef STANDARDMATERIAL_SHADED
+# ifndef STANDARDMATERIAL_UNLIT
     vec3 normal = normalize(v_Normal);
     // accumulate color
     vec3 color = AmbientColor;
@@ -53,6 +53,10 @@ void main() {
         // add light contribution
         color += diffuse * light.color.xyz;
     }
+
+    // average the lights so that we will never get something with > 1.0
+    color /= max(float(NumLights.x), 1.0);
+
     output_color.xyz *= color;
 # endif
 

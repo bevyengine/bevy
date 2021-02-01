@@ -15,8 +15,8 @@ use bevy::{
 /// This example creates a second window and draws a mesh from two different cameras.
 fn main() {
     App::build()
-        .add_resource(Msaa { samples: 4 })
-        .add_resource(State::new(AppState::CreateWindow))
+        .insert_resource(Msaa { samples: 4 })
+        .insert_resource(State::new(AppState::CreateWindow))
         .add_plugins(DefaultPlugins)
         .add_stage_after(
             stage::UPDATE,
@@ -185,26 +185,26 @@ fn setup_pipeline(
 
     // add entities to the world
     commands
-        .spawn_scene(asset_server.load("models/monkey/Monkey.gltf"))
+        .spawn_scene(asset_server.load("models/monkey/Monkey.gltf#Scene0"))
         // light
         .spawn(LightBundle {
-            transform: Transform::from_translation(Vec3::new(4.0, 5.0, 4.0)),
+            transform: Transform::from_xyz(4.0, 5.0, 4.0),
             ..Default::default()
         })
         // main camera
-        .spawn(Camera3dBundle {
-            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 6.0))
+        .spawn(PerspectiveCameraBundle {
+            transform: Transform::from_xyz(0.0, 0.0, 6.0)
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
         })
         // second window camera
-        .spawn(Camera3dBundle {
+        .spawn(PerspectiveCameraBundle {
             camera: Camera {
                 name: Some("Secondary".to_string()),
                 window: window_id,
                 ..Default::default()
             },
-            transform: Transform::from_translation(Vec3::new(6.0, 0.0, 0.0))
+            transform: Transform::from_xyz(6.0, 0.0, 0.0)
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
         });

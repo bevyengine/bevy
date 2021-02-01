@@ -1,8 +1,8 @@
-use bevy_utils::{Duration, HashMap, Instant, Uuid};
+use bevy_utils::{Duration, Instant, StableHashMap, Uuid};
 use std::collections::VecDeque;
 
 /// Unique identifier for a [Diagnostic]
-#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub struct DiagnosticId(pub Uuid);
 
 impl DiagnosticId {
@@ -101,7 +101,9 @@ impl Diagnostic {
 /// A collection of [Diagnostic]s
 #[derive(Debug, Default)]
 pub struct Diagnostics {
-    diagnostics: HashMap<DiagnosticId, Diagnostic>,
+    // This uses a [`StableHashMap`] to ensure that the iteration order is deterministic between
+    // runs when all diagnostics are inserted in the same order.
+    diagnostics: StableHashMap<DiagnosticId, Diagnostic>,
 }
 
 impl Diagnostics {

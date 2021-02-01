@@ -13,7 +13,7 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(OrthographicCameraBundle::new_2d());
     let texture = asset_server.load("branding/icon.png");
 
     // Spawn a root entity with no parent

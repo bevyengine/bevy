@@ -7,13 +7,8 @@ fn main() {
         .run();
 }
 
-#[derive(Default)]
-struct State {
-    event_reader: EventReader<TouchInput>,
-}
-
-fn touch_event_system(mut state: Local<State>, touch_events: Res<Events<TouchInput>>) {
-    for event in state.event_reader.iter(&touch_events) {
+fn touch_event_system(mut touch_events: EventReader<TouchInput>) {
+    for event in touch_events.iter() {
         println!("{:?}", event);
     }
 }

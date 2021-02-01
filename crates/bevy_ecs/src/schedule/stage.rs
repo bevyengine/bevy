@@ -1,7 +1,8 @@
 use std::{any::TypeId, borrow::Cow};
 
 use crate::{
-    ArchetypeComponent, Resources, System, SystemId, ThreadLocalExecution, TypeAccess, World,
+    ArchetypeComponent, BoxedSystem, Resources, System, SystemId, ThreadLocalExecution, TypeAccess,
+    World,
 };
 use bevy_utils::HashSet;
 use downcast_rs::{impl_downcast, Downcast};
@@ -24,10 +25,10 @@ pub trait Stage: Downcast + Send + Sync {
 impl_downcast!(Stage);
 
 pub struct SystemStage {
-    systems: Vec<Box<dyn System<In = (), Out = ()>>>,
+    systems: Vec<BoxedSystem>,
     system_ids: HashSet<SystemId>,
     executor: Box<dyn SystemStageExecutor>,
-    run_criteria: Option<Box<dyn System<In = (), Out = ShouldRun>>>,
+    run_criteria: Option<BoxedSystem<(), ShouldRun>>,
     run_criteria_initialized: bool,
     uninitialized_systems: Vec<usize>,
     unexecuted_systems: Vec<usize>,
@@ -64,6 +65,14 @@ impl SystemStage {
     }
 
     pub fn with_run_criteria<S: System<In = (), Out = ShouldRun>>(mut self, system: S) -> Self {
+        self.add_run_criteria(system);
+        self
+    }
+
+    pub fn add_run_criteria<S: System<In = (), Out = ShouldRun>>(
+        &mut self,
+        system: S,
+    ) -> &mut Self {
         self.run_criteria = Some(Box::new(system));
         self.run_criteria_initialized = false;
         self
@@ -74,7 +83,7 @@ impl SystemStage {
         self
     }
 
-    pub fn add_system_boxed(&mut self, system: Box<dyn System<In = (), Out = ()>>) -> &mut Self {
+    pub fn add_system_boxed(&mut self, system: BoxedSystem) -> &mut Self {
         if self.system_ids.contains(&system.id()) {
             panic!(
                 "System with id {:?} ({}) already exists",

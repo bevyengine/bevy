@@ -1,8 +1,8 @@
 use crate::{
     renderer::{WgpuRenderGraphExecutor, WgpuRenderResourceContext},
-    WgpuOptions, WgpuPowerOptions,
+    WgpuBackend, WgpuOptions, WgpuPowerOptions,
 };
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, ManualEventReader};
 use bevy_ecs::{Resources, World};
 use bevy_render::{
     render_graph::{DependentNodeStager, RenderGraph, RenderGraphStager},
@@ -15,20 +15,29 @@ pub struct WgpuRenderer {
     pub instance: wgpu::Instance,
     pub device: Arc<wgpu::Device>,
     pub queue: wgpu::Queue,
-    pub window_resized_event_reader: EventReader<WindowResized>,
-    pub window_created_event_reader: EventReader<WindowCreated>,
+    pub window_resized_event_reader: ManualEventReader<WindowResized>,
+    pub window_created_event_reader: ManualEventReader<WindowCreated>,
     pub initialized: bool,
 }
 
 impl WgpuRenderer {
     pub async fn new(options: WgpuOptions, features : wgpu::Features) -> Self {
-        let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
+        let backend = match options.backend {
+            WgpuBackend::Auto => wgpu::BackendBit::PRIMARY,
+            WgpuBackend::Vulkan => wgpu::BackendBit::VULKAN,
+            WgpuBackend::Metal => wgpu::BackendBit::METAL,
+            WgpuBackend::Dx12 => wgpu::BackendBit::DX12,
+            WgpuBackend::Dx11 => wgpu::BackendBit::DX11,
+            WgpuBackend::GL => wgpu::BackendBit::GL,
+            WgpuBackend::BrowserWgpu => wgpu::BackendBit::BROWSER_WEBGPU,
+        };
+        let instance = wgpu::Instance::new(backend);
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: match options.power_pref {
                     WgpuPowerOptions::HighPerformance => wgpu::PowerPreference::HighPerformance,
-                    WgpuPowerOptions::Adaptive => wgpu::PowerPreference::Default,
+                    WgpuPowerOptions::Adaptive => wgpu::PowerPreference::LowPower,
                     WgpuPowerOptions::LowPower => wgpu::PowerPreference::LowPower,
                 },
                 compatible_surface: None,
@@ -44,9 +53,9 @@ impl WgpuRenderer {
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
+                    label: None,
                     features: features,
                     limits: wgpu::Limits::default(),
-                    shader_validation: true,
                 },
                 trace_path,
             )

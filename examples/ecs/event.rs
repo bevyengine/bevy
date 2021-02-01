@@ -42,11 +42,8 @@ fn event_trigger_system(
 }
 
 // prints events as they come in
-fn event_listener_system(
-    mut my_event_reader: Local<EventReader<MyEvent>>,
-    my_events: Res<Events<MyEvent>>,
-) {
-    for my_event in my_event_reader.iter(&my_events) {
+fn event_listener_system(mut events: EventReader<MyEvent>) {
+    for my_event in events.iter() {
         println!("{}", my_event.message);
     }
 }
