@@ -68,7 +68,7 @@ impl TextureAtlasBuilder {
         self
     }
 
-    /// Control wether the added texture should be converted to the atlas format, if different.
+    /// Control whether the added texture should be converted to the atlas format, if different.
     pub fn auto_format_conversion(mut self, auto_format_conversion: bool) -> Self {
         self.auto_format_conversion = auto_format_conversion;
         self
