@@ -6,6 +6,9 @@
 
 Audio support. Support for all audio formats depends on this.
 
+### bevy_gilrs
+Adds gamepad support.
+
 ### bevy_gltf
 
 [glTF](https://www.khronos.org/gltf/) support.
@@ -22,7 +25,7 @@ Make use of GPU via [WebGPU](https://gpuweb.github.io/gpuweb/) support.
 
 The render pipeline and all render related plugins.
 
-### dynamic_plugins
+### bevy_dynamic_plugins
 
 Plugins for dynamic loading (libloading)
 
