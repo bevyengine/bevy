@@ -107,7 +107,6 @@ impl SystemStage {
     }
 
     pub fn run_once(&mut self, world: &mut World, resources: &mut Resources) {
-
         let mut system_refs = Vec::with_capacity(self.systems.len());
         for system in self.systems.iter_mut() {
             system_refs.push(system.as_mut());

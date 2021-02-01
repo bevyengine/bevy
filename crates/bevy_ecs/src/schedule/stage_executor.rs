@@ -6,7 +6,7 @@ use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
 
 use crate::{
-    ArchetypesGeneration, SystemRefMut, Resources, ThreadLocalExecution, TypeAccess, World,
+    ArchetypesGeneration, Resources, SystemRefMut, ThreadLocalExecution, TypeAccess, World,
 };
 
 pub trait SystemStageExecutor: Downcast + Send + Sync {
