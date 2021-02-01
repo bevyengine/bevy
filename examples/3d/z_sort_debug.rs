@@ -52,7 +52,7 @@ fn setup(
         .spawn(PbrBundle {
             mesh: cube_handle.clone(),
             material: materials.add(StandardMaterial {
-                shaded: false,
+                unlit: true,
                 ..Default::default()
             }),
             transform: Transform::from_xyz(0.0, 0.0, 1.0),
@@ -65,7 +65,7 @@ fn setup(
                 .spawn(PbrBundle {
                     mesh: cube_handle.clone(),
                     material: materials.add(StandardMaterial {
-                        shaded: false,
+                        unlit: true,
                         ..Default::default()
                     }),
                     transform: Transform::from_xyz(0.0, 3.0, 0.0),
@@ -74,7 +74,7 @@ fn setup(
                 .spawn(PbrBundle {
                     mesh: cube_handle,
                     material: materials.add(StandardMaterial {
-                        shaded: false,
+                        unlit: true,
                         ..Default::default()
                     }),
                     transform: Transform::from_xyz(0.0, -3.0, 0.0),
