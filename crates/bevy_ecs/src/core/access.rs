@@ -39,8 +39,8 @@ pub enum QueryAccess {
     Read(TypeId, &'static str),
     Write(TypeId, &'static str),
     Optional(Box<QueryAccess>),
-    With(TypeId, Box<QueryAccess>),
-    Without(TypeId, Box<QueryAccess>),
+    With(TypeId),
+    Without(TypeId),
     Union(Vec<QueryAccess>),
 }
 
@@ -53,12 +53,12 @@ impl QueryAccess {
         QueryAccess::Write(TypeId::of::<T>(), std::any::type_name::<T>())
     }
 
-    pub fn with<T: 'static>(access: QueryAccess) -> QueryAccess {
-        QueryAccess::With(TypeId::of::<T>(), Box::new(access))
+    pub fn with<T: 'static>() -> QueryAccess {
+        QueryAccess::With(TypeId::of::<T>())
     }
 
-    pub fn without<T: 'static>(access: QueryAccess) -> QueryAccess {
-        QueryAccess::Without(TypeId::of::<T>(), Box::new(access))
+    pub fn without<T: 'static>() -> QueryAccess {
+        QueryAccess::Without(TypeId::of::<T>())
     }
 
     pub fn optional(access: QueryAccess) -> QueryAccess {
@@ -99,8 +99,8 @@ impl QueryAccess {
                 }
             }
             QueryAccess::Optional(query_access) => query_access.get_type_name(type_id),
-            QueryAccess::With(_, query_access) => query_access.get_type_name(type_id),
-            QueryAccess::Without(_, query_access) => query_access.get_type_name(type_id),
+            QueryAccess::With(_) => None,
+            QueryAccess::Without(_) => None,
             QueryAccess::Union(query_accesses) => {
                 for query_access in query_accesses.iter() {
                     if let Some(name) = query_access.get_type_name(type_id) {
@@ -155,16 +155,16 @@ impl QueryAccess {
                     Some(Access::Read)
                 }
             }
-            QueryAccess::With(ty, query_access) => {
+            QueryAccess::With(ty) => {
                 if archetype.has_type(*ty) {
-                    query_access.get_access(archetype, archetype_index, type_access)
+                    Some(Access::None)
                 } else {
                     None
                 }
             }
-            QueryAccess::Without(ty, query_access) => {
+            QueryAccess::Without(ty) => {
                 if !archetype.has_type(*ty) {
-                    query_access.get_access(archetype, archetype_index, type_access)
+                    Some(Access::None)
                 } else {
                     None
                 }
@@ -345,8 +345,11 @@ mod tests {
         );
 
         let mut a_with_b_type_access = TypeAccess::default();
-        QueryAccess::with::<B>(<&A as WorldQuery>::Fetch::access())
-            .get_world_archetype_access(&world, Some(&mut a_with_b_type_access));
+        QueryAccess::union(vec![
+            QueryAccess::with::<B>(),
+            <&A as WorldQuery>::Fetch::access(),
+        ])
+        .get_world_archetype_access(&world, Some(&mut a_with_b_type_access));
 
         assert_eq!(
             a_with_b_type_access,
@@ -354,8 +357,11 @@ mod tests {
         );
 
         let mut a_with_b_option_c_type_access = TypeAccess::default();
-        QueryAccess::with::<B>(<(&A, Option<&mut C>) as WorldQuery>::Fetch::access())
-            .get_world_archetype_access(&world, Some(&mut a_with_b_option_c_type_access));
+        QueryAccess::union(vec![
+            QueryAccess::with::<B>(),
+            <(&A, Option<&mut C>) as WorldQuery>::Fetch::access(),
+        ])
+        .get_world_archetype_access(&world, Some(&mut a_with_b_option_c_type_access));
 
         assert_eq!(
             a_with_b_option_c_type_access,

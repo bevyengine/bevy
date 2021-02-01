@@ -130,7 +130,7 @@ impl<T: Component> QueryFilter for Without<T> {
     type EntityFilter = AnyEntityFilter;
 
     fn access() -> QueryAccess {
-        QueryAccess::without::<T>(QueryAccess::None)
+        QueryAccess::without::<T>()
     }
 
     #[inline]
@@ -149,7 +149,7 @@ impl<T: Component> QueryFilter for With<T> {
     type EntityFilter = AnyEntityFilter;
 
     fn access() -> QueryAccess {
-        QueryAccess::with::<T>(QueryAccess::None)
+        QueryAccess::with::<T>()
     }
 
     #[inline]
@@ -171,7 +171,7 @@ impl<T: Bundle> QueryFilter for WithType<T> {
         QueryAccess::union(
             T::static_type_info()
                 .iter()
-                .map(|info| QueryAccess::With(info.id(), Box::new(QueryAccess::None)))
+                .map(|info| QueryAccess::With(info.id()))
                 .collect::<Vec<QueryAccess>>(),
         )
     }
