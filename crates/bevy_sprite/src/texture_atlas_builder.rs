@@ -83,8 +83,7 @@ impl TextureAtlasBuilder {
         )
     }
 
-    fn copy_texture(
-        &mut self,
+    fn copy_texture_to_atlas(
         atlas_texture: &mut Texture,
         texture: &Texture,
         packed_location: &PackedLocation,
@@ -96,28 +95,30 @@ impl TextureAtlasBuilder {
         let atlas_width = atlas_texture.size.width as usize;
         let format_size = atlas_texture.format.pixel_size();
 
+        for (texture_y, bound_y) in (rect_y..rect_y + rect_height).enumerate() {
+            let begin = (bound_y * atlas_width + rect_x) * format_size;
+            let end = begin + rect_width * format_size;
+            let texture_begin = texture_y * rect_width * format_size;
+            let texture_end = texture_begin + rect_width * format_size;
+            atlas_texture.data[begin..end]
+                .copy_from_slice(&texture.data[texture_begin..texture_end]);
+        }
+    }
+
+    fn copy_converted_texture(
+        &self,
+        atlas_texture: &mut Texture,
+        texture: &Texture,
+        packed_location: &PackedLocation,
+    ) {
         if self.format == texture.format {
-            for (texture_y, bound_y) in (rect_y..rect_y + rect_height).enumerate() {
-                let begin = (bound_y * atlas_width + rect_x) * format_size;
-                let end = begin + rect_width * format_size;
-                let texture_begin = texture_y * rect_width * format_size;
-                let texture_end = texture_begin + rect_width * format_size;
-                atlas_texture.data[begin..end]
-                    .copy_from_slice(&texture.data[texture_begin..texture_end]);
-            }
+            Self::copy_texture_to_atlas(atlas_texture, texture, packed_location);
         } else if let Some(converted_texture) = texture.convert(self.format) {
             debug!(
                 "Converting texture from '{:?}' to '{:?}'",
                 texture.format, self.format
             );
-            for (texture_y, bound_y) in (rect_y..rect_y + rect_height).enumerate() {
-                let begin = (bound_y * atlas_width + rect_x) * format_size;
-                let end = begin + rect_width * format_size;
-                let texture_begin = texture_y * rect_width * format_size;
-                let texture_end = texture_begin + rect_width * format_size;
-                atlas_texture.data[begin..end]
-                    .copy_from_slice(&converted_texture.data[texture_begin..texture_end]);
-            }
+            Self::copy_texture_to_atlas(atlas_texture, &converted_texture, packed_location);
         } else {
             error!(
                 "Error converting texture from '{:?}' to '{:?}', ignoring",
@@ -138,7 +139,7 @@ impl TextureAtlasBuilder {
     /// If there is not enough space in the atlas texture, an error will
     /// be returned. It is then recommended to make a larger sprite sheet.
     pub fn finish(
-        mut self,
+        self,
         textures: &mut Assets<Texture>,
     ) -> Result<TextureAtlas, TextureAtlasBuilderError> {
         let initial_width = self.initial_size.x as u32;
@@ -208,7 +209,7 @@ impl TextureAtlasBuilder {
                 );
                 return Err(TextureAtlasBuilderError::WrongFormat);
             }
-            self.copy_texture(&mut atlas_texture, texture, packed_location);
+            self.copy_converted_texture(&mut atlas_texture, texture, packed_location);
         }
         Ok(TextureAtlas {
             size: atlas_texture.size.as_vec3().truncate(),
