@@ -131,6 +131,13 @@ impl Texture {
     /// - `TextureFormat::Rg8Unorm`
     /// - `TextureFormat::Rgba8UnormSrgb`
     /// - `TextureFormat::Bgra8UnormSrgb`
+    #[cfg(any(
+        feature = "png",
+        feature = "dds",
+        feature = "tga",
+        feature = "jpeg",
+        feature = "bmp"
+    ))]
     pub fn convert(&self, new_format: TextureFormat) -> Option<Self> {
         super::texture_to_image(self)
             .and_then(|img| match new_format {
