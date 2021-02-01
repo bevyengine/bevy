@@ -31,6 +31,8 @@ pub struct TextureAtlasBuilder {
     max_size: Vec2,
     /// The texture format for the textures that will be loaded in the atlas.
     format: TextureFormat,
+    /// Enable automatic format conversion for textures if they are not in the atlas format.
+    auto_format_conversion: bool,
 }
 
 impl Default for TextureAtlasBuilder {
@@ -40,6 +42,7 @@ impl Default for TextureAtlasBuilder {
             initial_size: Vec2::new(256., 256.),
             max_size: Vec2::new(2048., 2048.),
             format: TextureFormat::Rgba8UnormSrgb,
+            auto_format_conversion: true,
         }
     }
 }
@@ -65,6 +68,12 @@ impl TextureAtlasBuilder {
         self
     }
 
+    /// Control wether the added texture should be converted to the atlas format, if different.
+    pub fn auto_format_conversion(mut self, auto_format_conversion: bool) -> Self {
+        self.auto_format_conversion = auto_format_conversion;
+        self
+    }
+
     /// Adds a texture to be copied to the texture atlas.
     pub fn add_texture(&mut self, texture_handle: Handle<Texture>, texture: &Texture) {
         self.rects_to_place.push_rect(
@@ -87,13 +96,35 @@ impl TextureAtlasBuilder {
         let atlas_width = atlas_texture.size.width as usize;
         let format_size = atlas_texture.format.pixel_size();
 
-        for (texture_y, bound_y) in (rect_y..rect_y + rect_height).enumerate() {
-            let begin = (bound_y * atlas_width + rect_x) * format_size;
-            let end = begin + rect_width * format_size;
-            let texture_begin = texture_y * rect_width * format_size;
-            let texture_end = texture_begin + rect_width * format_size;
-            atlas_texture.data[begin..end]
-                .copy_from_slice(&texture.data[texture_begin..texture_end]);
+        if self.format == texture.format {
+            for (texture_y, bound_y) in (rect_y..rect_y + rect_height).enumerate() {
+                let begin = (bound_y * atlas_width + rect_x) * format_size;
+                let end = begin + rect_width * format_size;
+                let texture_begin = texture_y * rect_width * format_size;
+                let texture_end = texture_begin + rect_width * format_size;
+                atlas_texture.data[begin..end]
+                    .copy_from_slice(&texture.data[texture_begin..texture_end]);
+            }
+        } else {
+            if let Some(converted_texture) = texture.convert(self.format) {
+                debug!(
+                    "Converting texture from '{:?}' to '{:?}'",
+                    texture.format, self.format
+                );
+                for (texture_y, bound_y) in (rect_y..rect_y + rect_height).enumerate() {
+                    let begin = (bound_y * atlas_width + rect_x) * format_size;
+                    let end = begin + rect_width * format_size;
+                    let texture_begin = texture_y * rect_width * format_size;
+                    let texture_end = texture_begin + rect_width * format_size;
+                    atlas_texture.data[begin..end]
+                        .copy_from_slice(&converted_texture.data[texture_begin..texture_end]);
+                }
+            } else {
+                error!(
+                    "Error converting texture from '{:?}' to '{:?}', ignoring",
+                    texture.format, self.format
+                );
+            }
         }
     }
 
@@ -172,7 +203,7 @@ impl TextureAtlasBuilder {
                 );
             texture_handles.insert(texture_handle.clone_weak(), texture_rects.len());
             texture_rects.push(Rect { min, max });
-            if texture.format != self.format {
+            if texture.format != self.format && !self.auto_format_conversion {
                 warn!(
                     "Loading a texture of format '{:?}' in an atlas with format '{:?}'",
                     texture.format, self.format
