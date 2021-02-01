@@ -10,11 +10,11 @@ cargo run --features wayland --example hello_world
 ### ⚠️ Note: for users of releases on crates.io,
 
 Due to changes and additions to APIs, there are often differences between the development examples and the released versions of Bevy on crates.io.
-If you are using a release version from [crates.io](https://crates.io/crates/bevy), view the examples by checking out the appropriate git tag, e.g., users of `0.3` should use the examples on [https://github.com/bevyengine/bevy/tree/v0.3.0/examples](https://github.com/bevyengine/bevy/tree/v0.3.0/examples)
+If you are using a release version from [crates.io](https://crates.io/crates/bevy), view the examples by checking out the appropriate git tag, e.g., users of `0.4` should use the examples on [https://github.com/bevyengine/bevy/tree/v0.4.0/examples](https://github.com/bevyengine/bevy/tree/v0.4.0/examples)
 
 If you have cloned bevy's repo locally, `git checkout` with the appropriate version tag.
 ```
-git checkout v0.3.0
+git checkout v0.4.0
 ```
 
 ---
