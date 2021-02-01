@@ -32,5 +32,5 @@ bevy_utils = { path = "../bevy_utils", version = "0.4.0" }
 wgpu = "0.7"
 futures-lite = "1.4.0"
 crossbeam-channel = "0.5.0"
-crossbeam-utils = "0.7.2"
+crossbeam-utils = "0.8.1"
 parking_lot = "0.11.0"
