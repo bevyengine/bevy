@@ -4,6 +4,14 @@ use proc_macro2::{Ident, Span};
 use quote::quote;
 use syn::{Fields, Generics, Path, Variant};
 
+fn tuple_field_name(i: usize) -> String {
+    format!("t{}", i)
+}
+
+fn tuple_field_ident(i: usize) -> Ident {
+    Ident::new(tuple_field_name(i).as_str(), Span::call_site())
+}
+
 pub(crate) fn impl_enum(
     enum_name: &Ident,
     generics: &Generics,
@@ -17,52 +25,56 @@ pub(crate) fn impl_enum(
     let mut tuple_wrappers = Vec::new();
     let mut variant_names = Vec::new();
     let mut variant_idents = Vec::new();
-    let mut variant_and_fields_idents = Vec::new();
     let mut reflect_variants = Vec::new();
     let mut reflect_variants_mut = Vec::new();
+    let mut variant_with_fields_idents = Vec::new();
+    let mut variant_without_fields_idents = Vec::new();
     for (variant, variant_index) in active_variants.iter() {
-        let ident = &variant.ident;
-        let variant_name = format!("{}::{}", enum_name, variant.ident);
         let variant_ident = {
+            let ident = &variant.ident;
+            quote!(#enum_name::#ident)
+        };
+        let variant_name = variant_ident.to_string();
+        let variant_without_fields_ident = {
             match &variant.fields {
                 Fields::Named(_struct_fields) => {
-                    quote!(#enum_name::#ident {..})
+                    quote!(#variant_ident {..})
                 }
                 Fields::Unnamed(tuple) => {
                     let tuple_fields = &tuple.unnamed;
                     if tuple_fields.len() == 1 {
-                        quote!(#enum_name::#ident (_))
+                        quote!(#variant_ident (_))
                     } else {
-                        quote!(#enum_name::#ident (..))
+                        quote!(#variant_ident (..))
                     }
                 }
                 Fields::Unit => {
-                    quote!(#enum_name::#ident)
+                    quote!(#variant_ident)
                 }
             }
         };
-        let variant_and_fields_ident = {
+        let variant_with_fields_ident = {
             match &variant.fields {
                 Fields::Named(struct_fields) => {
-                    let field_names = struct_fields
+                    let field_idents = struct_fields
                         .named
                         .iter()
                         .map(|field| field.ident.as_ref().unwrap())
                         .collect::<Vec<_>>();
-                    quote!(#enum_name::#ident {#(#field_names,)*})
+                    quote!(#variant_ident {#(#field_idents,)*})
                 }
                 Fields::Unnamed(tuple_fields) => {
-                    let field_names = (0..tuple_fields.unnamed.len())
-                        .map(|i| Ident::new(format!("t{}", i).as_str(), Span::call_site()))
+                    let field_idents = (0..tuple_fields.unnamed.len())
+                        .map(|i| tuple_field_ident(i))
                         .collect::<Vec<_>>();
                     if tuple_fields.unnamed.len() == 1 {
-                        quote!(#enum_name::#ident (new_type))
+                        quote!(#variant_ident (new_type))
                     } else {
-                        quote!(#enum_name::#ident (#(#field_names,)*))
+                        quote!(#variant_ident (#(#field_idents,)*))
                     }
                 }
                 Fields::Unit => {
-                    quote!(#enum_name::#ident)
+                    quote!(#variant_ident)
                 }
             }
         };
@@ -132,9 +144,7 @@ pub(crate) fn impl_enum(
                     wrapper_ident,
                     wrapper_name,
                     variant_index,
-                    variant_name.clone(),
-                    variant_ident.clone(),
-                    variant_and_fields_ident.clone(),
+                    variant_with_fields_ident.clone(),
                     struct_fields.clone(),
                 ));
             }
@@ -144,9 +154,7 @@ pub(crate) fn impl_enum(
                         wrapper_ident,
                         wrapper_name,
                         variant_index,
-                        variant_name.clone(),
-                        variant_ident.clone(),
-                        variant_and_fields_ident.clone(),
+                        variant_with_fields_ident.clone(),
                         tuple_fields.clone(),
                     ));
                 }
@@ -156,9 +164,10 @@ pub(crate) fn impl_enum(
         variant_indices.push(variant_index);
         variant_names.push(variant_name);
         variant_idents.push(variant_ident);
-        variant_and_fields_idents.push(variant_and_fields_ident);
         reflect_variants.push(reflect_variant);
         reflect_variants_mut.push(reflect_variant_mut);
+        variant_with_fields_idents.push(variant_with_fields_ident);
+        variant_without_fields_idents.push(variant_without_fields_ident);
     }
     let hash_fn = traits.get_hash_impl(bevy_reflect_path);
     let partial_eq_fn = traits.get_partial_eq_impl(bevy_reflect_path).unwrap_or_else(|| {
@@ -177,19 +186,19 @@ pub(crate) fn impl_enum(
         impl #impl_generics #bevy_reflect_path::Enum for #enum_name #ty_generics #where_clause {
             fn variant(&self) -> #bevy_reflect_path::EnumVariant<'_> {
                 match self {
-                    #(#variant_and_fields_idents => #reflect_variants,)*
+                    #(#variant_with_fields_idents => #reflect_variants,)*
                 }
             }
 
             fn variant_mut(&mut self) -> #bevy_reflect_path::EnumVariantMut<'_> {
                 match self {
-                    #(#variant_and_fields_idents => #reflect_variants_mut,)*
+                    #(#variant_with_fields_idents => #reflect_variants_mut,)*
                 }
             }
 
             fn variant_info(&self) -> #bevy_reflect_path::VariantInfo<'_> {
                 let index = match self {
-                    #(#variant_idents => #variant_indices,)*
+                    #(#variant_without_fields_idents => #variant_indices,)*
                 };
                 #bevy_reflect_path::VariantInfo {
                     index,
@@ -233,7 +242,7 @@ pub(crate) fn impl_enum(
             #[inline]
             fn clone_value(&self) -> Box<dyn #bevy_reflect_path::Reflect> {
                 use #bevy_reflect_path::Enum;
-                Box::new(self.clone()) // FIXME: should it be clone_dynamic?
+                Box::new(self.clone()) // FIXME: should be clone_dynamic, so that Clone is not a required bound
             }
             #[inline]
             fn set(&mut self, value: Box<dyn #bevy_reflect_path::Reflect>) -> Result<(), Box<dyn #bevy_reflect_path::Reflect>> {
@@ -242,11 +251,11 @@ pub(crate) fn impl_enum(
             }
 
             #[inline]
-            fn apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) { // FIXME
+            fn apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) {
                 use #bevy_reflect_path::Enum;
                 let value = value.any();
                 if let Some(value) = value.downcast_ref::<Self>() {
-                    *self = value.clone();
+                    *self = value.clone_value();
                 } else {
                     panic!("Attempted to apply non-enum type to enum type.");
                 }
@@ -273,15 +282,7 @@ pub(crate) fn impl_enum(
             }
         }
     });
-    for (
-        wrapper_ident,
-        wrapper_name,
-        variant_index,
-        _variant_name,
-        _variant_ident,
-        variant_and_fields_ident,
-        fields,
-    ) in struct_wrappers
+    for (wrapper_ident, wrapper_name, variant_index, variant_with_fields_ident, fields) in struct_wrappers
     {
         let mut field_names = Vec::new();
         let mut field_idents = Vec::new();
@@ -293,14 +294,14 @@ pub(crate) fn impl_enum(
         }
         let fields_len = field_indices.len();
         let mut match_fields = quote!();
-        for (i, variant_ident) in variant_idents.iter().enumerate() {
+        for (i, _variant_ident) in variant_idents.iter().enumerate() {
             if i == *variant_index {
                 match_fields.extend(quote!(
-                    #variant_and_fields_ident => (#(#field_idents,)*),
+                    #variant_with_fields_ident => (#(#field_idents,)*),
                 ));
             } else {
                 match_fields.extend(quote!(
-                    #variant_ident => unreachable!(),
+                    #variant_with_fields_ident => unreachable!(),
                 ));
             }
         }
@@ -423,36 +424,26 @@ pub(crate) fn impl_enum(
             }
         }));
     }
-    for (
-        wrapper_ident,
-        wrapper_name,
-        variant_index,
-        _variant_name,
-        _variant_ident,
-        variant_and_fields_ident,
-        fields,
-    ) in tuple_wrappers
+    for (wrapper_ident, wrapper_name, variant_index, variant_with_fields_ident, fields) in tuple_wrappers
     {
         let mut field_names = Vec::new();
         let mut field_idents = Vec::new();
         let mut field_indices = Vec::new();
         for (index, _field) in fields.unnamed.iter().enumerate() {
-            let field_name = format!("t{}", index); // FIXME: done in 2 places
-            let field_ident = Ident::new(field_name.as_str(), Span::call_site());
-            field_names.push(field_name);
-            field_idents.push(field_ident);
+            field_names.push(tuple_field_name(index));
+            field_idents.push(tuple_field_ident(index));
             field_indices.push(index);
         }
         let fields_len = field_indices.len();
         let mut match_fields = quote!();
-        for (i, variant_ident) in variant_idents.iter().enumerate() {
+        for (i, _variant_ident) in variant_idents.iter().enumerate() {
             if i == *variant_index {
                 match_fields.extend(quote!(
-                    #variant_and_fields_ident => (#(#field_idents,)*),
+                    #variant_with_fields_ident => (#(#field_idents,)*),
                 ));
             } else {
                 match_fields.extend(quote!(
-                    #variant_ident => unreachable!(),
+                    #variant_with_fields_ident => unreachable!(),
                 ));
             }
         }
