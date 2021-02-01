@@ -1,5 +1,6 @@
 use crate::{Rect, TextureAtlas};
 use bevy_asset::{Assets, Handle};
+use bevy_log::{debug, error, warn};
 use bevy_math::Vec2;
 use bevy_render::texture::{Extent3d, Texture, TextureDimension, TextureFormat};
 use bevy_utils::HashMap;
@@ -13,6 +14,8 @@ use thiserror::Error;
 pub enum TextureAtlasBuilderError {
     #[error("could not pack textures into an atlas within the given bounds")]
     NotEnoughSpace,
+    #[error("added a texture with the wrong format in an atlas")]
+    WrongFormat,
 }
 
 #[derive(Debug)]
@@ -26,6 +29,8 @@ pub struct TextureAtlasBuilder {
     initial_size: Vec2,
     /// The absolute maximum size of the texture atlas in pixels.
     max_size: Vec2,
+    /// The texture format for the textures that will be loaded in the atlas.
+    format: TextureFormat,
 }
 
 impl Default for TextureAtlasBuilder {
@@ -34,6 +39,7 @@ impl Default for TextureAtlasBuilder {
             rects_to_place: GroupedRectsToPlace::new(),
             initial_size: Vec2::new(256., 256.),
             max_size: Vec2::new(2048., 2048.),
+            format: TextureFormat::Rgba8UnormSrgb,
         }
     }
 }
@@ -50,6 +56,12 @@ impl TextureAtlasBuilder {
     /// Sets the max size of the atlas in pixels.
     pub fn max_size(mut self, size: Vec2) -> Self {
         self.max_size = size;
+        self
+    }
+
+    /// Sets the texture format for textures in the atlas.
+    pub fn format(mut self, format: TextureFormat) -> Self {
+        self.format = format;
         self
     }
 
@@ -130,7 +142,7 @@ impl TextureAtlasBuilder {
                         Extent3d::new(current_width, current_height, 1),
                         TextureDimension::D2,
                         &[0, 0, 0, 0],
-                        TextureFormat::Rgba8UnormSrgb,
+                        self.format,
                     );
                     Some(rect_placements)
                 }
@@ -160,6 +172,13 @@ impl TextureAtlasBuilder {
                 );
             texture_handles.insert(texture_handle.clone_weak(), texture_rects.len());
             texture_rects.push(Rect { min, max });
+            if texture.format != self.format {
+                warn!(
+                    "Loading a texture of format '{:?}' in an atlas with format '{:?}'",
+                    texture.format, self.format
+                );
+                return Err(TextureAtlasBuilderError::WrongFormat);
+            }
             self.copy_texture(&mut atlas_texture, texture, packed_location);
         }
         Ok(TextureAtlas {
