@@ -1,19 +1,19 @@
-use crate::{FromResources, Resources, World};
+use crate::{FromResources, Resources, SystemState, World};
 
 /// System parameters which can be in exclusive systems (i.e. those which have `&mut World`, `&mut Resources` arguments)
 /// This allows these systems to use local state
 pub trait PureSystemParam: Sized {
     type Config;
-    fn create_state(config: Self::Config, resources: &mut Resources) -> Self::State;
+    fn create_state_pure(config: Self::Config, resources: &mut Resources) -> Self::State;
 
-    type State: for<'a> PureSystemState<'a>;
+    type State: for<'a> PureParamState<'a>;
     // For documentation purposes, at some future point
     // type Item = <Self::State as PurePureSystemState<'static>>::Item;
 }
 
-pub trait PureSystemState<'a> {
+pub trait PureParamState<'a> {
     type Item;
-    fn get_param(&'a mut self) -> Self::Item;
+    fn view_param(&'a mut self) -> Self::Item;
 }
 
 #[derive(Debug)]
@@ -24,64 +24,63 @@ impl<T: FromResources + 'static> PureSystemParam for &mut Local<T> {
     type Config = Option<T>;
     type State = Local<T>;
 
-    fn create_state(config: Self::Config, resources: &mut Resources) -> Self::State {
+    fn create_state_pure(config: Self::Config, resources: &mut Resources) -> Self::State {
         Local(config.unwrap_or_else(|| T::from_resources(resources)))
     }
 }
 
-impl<'a, T: 'static> PureSystemState<'a> for Local<T> {
+impl<'a, T: 'static> PureParamState<'a> for Local<T> {
     type Item = &'a mut Local<T>;
 
-    fn get_param(&'a mut self) -> Self::Item {
+    fn view_param(&'a mut self) -> Self::Item {
         self
     }
 }
 
 pub trait SystemParam: Sized {
     type Config;
-    type State: for<'a> SystemState<'a>;
+    type State: for<'a> ParamState<'a>;
     fn create_state(config: Self::Config, resources: &mut Resources) -> Self::State;
 }
 
-pub trait SystemState<'a> {
+pub trait ParamState<'a> {
     type Item;
 
-    fn init();
-    fn get_param(
+    unsafe fn get_param(
         &'a mut self,
-        system_state: &'a crate::SystemState,
+        system_state: &'a SystemState,
         world: &'a World,
         resources: &'a Resources,
     ) -> Self::Item;
+    // TODO: Make this significantly cleaner by having methods for resource access and archetype access
+    // That is, don't store that information in SystemState
+    fn init(&mut self, system_state: &mut SystemState, _world: &World, _resources: &mut Resources);
+    // TODO: investigate `fn requires_sync()->bool{false}` to determine if there are pessimisations resulting from the lack thereof
+    fn run_sync(&mut self, _world: &mut World, _resources: &mut Resources) {}
 }
 
 // Any `PureSystemParam` can be an 'impure' `SystemParam`
-#[doc(hidden)]
-pub struct PureParamState<T>(T);
-
 impl<T: PureSystemParam> SystemParam for T {
     type Config = T::Config;
 
-    type State = PureParamState<T::State>;
+    type State = T::State;
 
     fn create_state(config: Self::Config, resources: &mut Resources) -> Self::State {
-        PureParamState(T::create_state(config, resources))
+        T::create_state_pure(config, resources)
     }
 }
 
-impl<'a, T: PureSystemState<'a>> SystemState<'a> for PureParamState<T> {
-    type Item = <T as PureSystemState<'a>>::Item;
+impl<'a, T: PureParamState<'a>> ParamState<'a> for T {
+    type Item = <T as PureParamState<'a>>::Item;
 
-    fn get_param(
+    unsafe fn get_param(
         &'a mut self,
         _: &'a crate::SystemState,
         _: &'a World,
         _: &'a Resources,
     ) -> Self::Item {
-        T::get_param(&mut self.0)
+        self.view_param()
     }
 
-    fn init() {
-        todo!()
-    }
+    fn init(&mut self, _: &mut SystemState, _: &World, _: &mut Resources) {}
 }
