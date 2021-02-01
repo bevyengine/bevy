@@ -59,7 +59,6 @@ Bevy is evolving very fast. You can use one of these badges to communicate to yo
 |<div style="width:100px">badge</div>|<div style="width:200px">description</div>|code|
 |-|-|-|
 |[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-master-lightblue)](https://github.com/bevyengine/bevy/blob/master/docs/plugins_guidelines.md#master-branch-tracking)|I intend to track master as much as I can|`[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-master-lightblue)](https://github.com/bevyengine/bevy/blob/master/docs/plugins_guidelines.md#master-branch-tracking)`|
-|[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-PR%20welcome-lightblue)](https://github.com/bevyengine/bevy/blob/master/docs/plugins_guidelines.md#master-branch-tracking)|I welcome PRs that will update my plugin to the current Bevy master (or for new releases)|`[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-PR%20welcome-lightblue)](https://github.com/bevyengine/bevy/blob/master/docs/plugins_guidelines.md#master-branch-tracking)`|
 |[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-released%20version-lightblue)](https://github.com/bevyengine/bevy/blob/master/docs/plugins_guidelines.md#master-released%20version-tracking)|I will only follow released Bevy versions|`[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-released%20version-lightblue)](https://github.com/bevyengine/bevy/blob/master/docs/plugins_guidelines.md#master-released%20version-tracking)`|
 
 ## General Advices for a Rust Crate
