@@ -3,10 +3,10 @@ use bevy::{log::info, prelude::*};
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .add_resource(Countdown::default())
-        .add_startup_system(setup_system)
-        .add_system(countdown_system)
-        .add_system(timer_system)
+        .insert_resource(Countdown::default())
+        .add_startup_system(setup_system.system())
+        .add_system(countdown_system.system())
+        .add_system(timer_system.system())
         .run();
 }
 

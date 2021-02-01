@@ -1,12 +1,14 @@
+use std::path::PathBuf;
+
 use super::{WindowDescriptor, WindowId};
-use bevy_math::Vec2;
+use bevy_math::{IVec2, Vec2};
 
 /// A window event that is sent whenever a window has been resized.
 #[derive(Debug, Clone)]
 pub struct WindowResized {
     pub id: WindowId,
-    pub width: usize,
-    pub height: usize,
+    pub width: f32,
+    pub height: f32,
 }
 
 /// An event that indicates that a new window should be created.
@@ -41,9 +43,56 @@ pub struct CursorMoved {
     pub position: Vec2,
 }
 
+#[derive(Debug, Clone)]
+pub struct CursorEntered {
+    pub id: WindowId,
+}
+
+#[derive(Debug, Clone)]
+pub struct CursorLeft {
+    pub id: WindowId,
+}
+
 /// An event that is sent whenever a window receives a character from the OS or underlying system.
 #[derive(Debug, Clone)]
 pub struct ReceivedCharacter {
     pub id: WindowId,
     pub char: char,
+}
+
+/// An event that indicates a window has received or lost focus.
+#[derive(Debug, Clone)]
+pub struct WindowFocused {
+    pub id: WindowId,
+    pub focused: bool,
+}
+
+/// An event that indicates a window's scale factor has changed.
+#[derive(Debug, Clone)]
+pub struct WindowScaleFactorChanged {
+    pub id: WindowId,
+    pub scale_factor: f64,
+}
+/// An event that indicates a window's OS-reported scale factor has changed.
+#[derive(Debug, Clone)]
+pub struct WindowBackendScaleFactorChanged {
+    pub id: WindowId,
+    pub scale_factor: f64,
+}
+
+/// Events related to files being dragged and dropped on a window.
+#[derive(Debug, Clone)]
+pub enum FileDragAndDrop {
+    DroppedFile { id: WindowId, path_buf: PathBuf },
+
+    HoveredFile { id: WindowId, path_buf: PathBuf },
+
+    HoveredFileCancelled { id: WindowId },
+}
+
+/// An event that is sent when a window is repositioned in physical pixels.
+#[derive(Debug, Clone)]
+pub struct WindowMoved {
+    pub id: WindowId,
+    pub position: IVec2,
 }

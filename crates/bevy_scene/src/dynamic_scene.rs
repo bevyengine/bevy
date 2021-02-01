@@ -7,7 +7,7 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum DynamicSceneToWorldError {
-    #[error("Scene contains an unregistered component.")]
+    #[error("scene contains an unregistered component")]
     UnregisteredComponent { type_name: String },
 }
 

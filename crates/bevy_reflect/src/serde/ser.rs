@@ -1,5 +1,5 @@
 use crate::{
-    serde::type_fields, List, Map, Reflect, ReflectRef, Struct, TupleStruct, TypeRegistry,
+    serde::type_fields, List, Map, Reflect, ReflectRef, Struct, Tuple, TupleStruct, TypeRegistry,
 };
 use serde::{
     ser::{SerializeMap, SerializeSeq},
@@ -54,6 +54,11 @@ impl<'a> Serialize for ReflectSerializer<'a> {
             .serialize(serializer),
             ReflectRef::TupleStruct(value) => TupleStructSerializer {
                 tuple_struct: value,
+                registry: self.registry,
+            }
+            .serialize(serializer),
+            ReflectRef::Tuple(value) => TupleSerializer {
+                tuple: value,
                 registry: self.registry,
             }
             .serialize(serializer),
@@ -175,6 +180,48 @@ impl<'a> Serialize for TupleStructValueSerializer<'a> {
     {
         let mut state = serializer.serialize_seq(Some(self.tuple_struct.field_len()))?;
         for value in self.tuple_struct.iter_fields() {
+            state.serialize_element(&ReflectSerializer::new(value, self.registry))?;
+        }
+        state.end()
+    }
+}
+
+pub struct TupleSerializer<'a> {
+    pub tuple: &'a dyn Tuple,
+    pub registry: &'a TypeRegistry,
+}
+
+impl<'a> Serialize for TupleSerializer<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_map(Some(2))?;
+
+        state.serialize_entry(type_fields::TYPE, self.tuple.type_name())?;
+        state.serialize_entry(
+            type_fields::TUPLE,
+            &TupleValueSerializer {
+                tuple: self.tuple,
+                registry: self.registry,
+            },
+        )?;
+        state.end()
+    }
+}
+
+pub struct TupleValueSerializer<'a> {
+    pub tuple: &'a dyn Tuple,
+    pub registry: &'a TypeRegistry,
+}
+
+impl<'a> Serialize for TupleValueSerializer<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_seq(Some(self.tuple.field_len()))?;
+        for value in self.tuple.iter_fields() {
             state.serialize_element(&ReflectSerializer::new(value, self.registry))?;
         }
         state.end()

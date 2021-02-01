@@ -1,7 +1,9 @@
 use crate::{
     pipeline::{BindGroupDescriptorId, PipelineDescriptor, PipelineLayout},
-    renderer::{BindGroup, BufferId, BufferInfo, RenderResourceId, SamplerId, TextureId},
-    shader::{Shader, ShaderLayout, ShaderStages},
+    renderer::{
+        BindGroup, BufferId, BufferInfo, BufferMapMode, RenderResourceId, SamplerId, TextureId,
+    },
+    shader::{Shader, ShaderError, ShaderLayout, ShaderStages},
     texture::{SamplerDescriptor, TextureDescriptor},
 };
 use bevy_asset::{Asset, Assets, Handle, HandleUntyped};
@@ -24,12 +26,22 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
         range: Range<u64>,
         write: &mut dyn FnMut(&mut [u8], &dyn RenderResourceContext),
     );
-    fn map_buffer(&self, id: BufferId);
+    fn read_mapped_buffer(
+        &self,
+        id: BufferId,
+        range: Range<u64>,
+        read: &dyn Fn(&[u8], &dyn RenderResourceContext),
+    );
+    fn map_buffer(&self, id: BufferId, mode: BufferMapMode);
     fn unmap_buffer(&self, id: BufferId);
     fn create_buffer_with_data(&self, buffer_info: BufferInfo, data: &[u8]) -> BufferId;
     fn create_shader_module(&self, shader_handle: &Handle<Shader>, shaders: &Assets<Shader>);
     fn create_shader_module_from_source(&self, shader_handle: &Handle<Shader>, shader: &Shader);
-    fn get_specialized_shader(&self, shader: &Shader, macros: Option<&[String]>) -> Shader;
+    fn get_specialized_shader(
+        &self,
+        shader: &Shader,
+        macros: Option<&[String]>,
+    ) -> Result<Shader, ShaderError>;
     fn remove_buffer(&self, buffer: BufferId);
     fn remove_texture(&self, texture: TextureId);
     fn remove_sampler(&self, sampler: SamplerId);
@@ -62,6 +74,7 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
         bind_group: &BindGroup,
     );
     fn clear_bind_groups(&self);
+    fn remove_stale_bind_groups(&self);
     /// Reflects the pipeline layout from its shaders.
     ///
     /// If `bevy_conventions` is true, it will be assumed that the shader follows "bevy shader conventions". These allow

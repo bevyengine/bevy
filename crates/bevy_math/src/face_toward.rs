@@ -19,3 +19,23 @@ impl FaceToward for Mat4 {
         )
     }
 }
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn face_toward_mat4() {
+        use crate::{FaceToward, Mat4, Vec3, Vec4};
+
+        // Completely arbitrary arguments
+        let matrix = Mat4::face_toward(
+            Vec3::new(50.0, 60.0, 0.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+
+        assert_eq!(matrix.x_axis, Vec4::new(0.0, 0.0, -1.0, -0.0));
+        assert_eq!(matrix.y_axis, Vec4::new(-0.7682213, 0.6401844, 0.0, 0.0));
+        assert_eq!(matrix.z_axis, Vec4::new(0.6401844, 0.7682213, 0.0, 0.0));
+        assert_eq!(matrix.w_axis, Vec4::new(50.0, 60.0, 0.0, 1.0));
+    }
+}

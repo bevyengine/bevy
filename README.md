@@ -5,6 +5,7 @@
 [![Crates.io](https://img.shields.io/crates/d/bevy.svg)](https://crates.io/crates/bevy)
 [![Rust](https://github.com/bevyengine/bevy/workflows/CI/badge.svg)](https://github.com/bevyengine/bevy/actions)
 ![iOS cron CI](https://github.com/bevyengine/bevy/workflows/iOS%20cron%20CI/badge.svg)
+[![Discord](https://img.shields.io/discord/691052431525675048.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/gMUk5Ph)
 
 ## What is Bevy?
 
@@ -33,10 +34,12 @@ Bevy is still in the _very_ early stages of development. APIs can and will chang
 
 * **[The Bevy Book](https://bevyengine.org/learn/book/introduction):** Bevy's official documentation. The best place to start learning Bevy.
 * **[Bevy Rust API Docs](https://docs.rs/bevy):** Bevy's Rust API docs, which are automatically generated from the doc comments in this repo.
+* **[Community-Made Learning Resources](https://github.com/bevyengine/awesome-bevy#learning)**: Tutorials, documentation, and examples made by the Bevy community.
 
 ## Community
 
-Before contributing or participating in discussions with the community, you should familiarize yourself with our **[Code of Conduct](https://github.com/bevyengine/bevy/blob/master/CODE_OF_CONDUCT.md)**
+Before contributing or participating in discussions with the community, you should familiarize yourself with our **[Code of Conduct](https://github.com/bevyengine/bevy/blob/master/CODE_OF_CONDUCT.md)** and 
+**[How to Contribute](https://bevyengine.org/learn/book/contributing/code/)**
 
 * **[Discord](https://discord.gg/gMUk5Ph):** Bevy's official discord server.
 * **[Reddit](https://reddit.com/r/bevy):** Bevy's official subreddit.
@@ -83,6 +86,12 @@ Bevy is only possible because of the hard work put into these foundational techn
 This [list][cargo_features] outlines the different cargo features supported by Bevy. These allow you to customize the Bevy feature set for your use-case.
 
 [cargo_features]: docs/cargo_features.md
+
+## [Third Party Plugins][plugin_guidelines]
+
+Plugins are very welcome to extend Bevy's features. [Guidelines][plugin_guidelines] are available to help integration and usage.
+
+[plugin_guidelines]: docs/plugins_guidelines.md
 
 ## Thanks and Alternatives
 

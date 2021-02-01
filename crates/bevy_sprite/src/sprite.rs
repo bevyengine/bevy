@@ -6,7 +6,7 @@ use bevy_reflect::{Reflect, ReflectDeserialize, TypeUuid};
 use bevy_render::{renderer::RenderResources, texture::Texture};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, RenderResources, TypeUuid, Reflect)]
+#[derive(Debug, Default, Clone, RenderResources, TypeUuid, Reflect)]
 #[uuid = "7233c597-ccfa-411f-bd59-9af349432ada"]
 pub struct Sprite {
     pub size: Vec2,
@@ -50,7 +50,11 @@ pub fn sprite_system(
                 let material = materials.get(handle).unwrap();
                 if let Some(ref texture_handle) = material.texture {
                     if let Some(texture) = textures.get(texture_handle) {
-                        sprite.size = texture.size.as_vec3().truncate();
+                        let texture_size = texture.size.as_vec3().truncate();
+                        // only set sprite size if it has changed (this check prevents change detection from triggering)
+                        if sprite.size != texture_size {
+                            sprite.size = texture_size;
+                        }
                     }
                 }
             }

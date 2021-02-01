@@ -1,6 +1,6 @@
 [package]
 name = "bevy_math"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2018"
 authors = [
     "Bevy Contributors <bevyengine@gmail.com>",
@@ -13,5 +13,5 @@ license = "MIT"
 keywords = ["bevy"]
 
 [dependencies]
-glam = { version = "0.10.0", features = ["serde"] }
-bevy_reflect = { path = "../bevy_reflect", version = "0.3.0", features = ["bevy"] }
+glam = { version = "0.12.0", features = ["serde"] }
+bevy_reflect = { path = "../bevy_reflect", version = "0.4.0", features = ["bevy"] }

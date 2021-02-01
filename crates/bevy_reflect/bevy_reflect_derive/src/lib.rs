@@ -86,7 +86,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
                             }
                             Ok(())
                         })
-                        .expect("invalid 'property' attribute format");
+                        .expect("Invalid 'property' attribute format.");
 
                         attribute_args
                     }),
@@ -196,7 +196,7 @@ fn impl_struct(
 
     let hash_fn = reflect_attrs.get_hash_impl(&bevy_reflect_path);
     let serialize_fn = reflect_attrs.get_serialize_impl(&bevy_reflect_path);
-    let partial_eq_fn = match reflect_attrs.partial_eq {
+    let partial_eq_fn = match reflect_attrs.reflect_partial_eq {
         TraitImpl::NotImplemented => quote! {
             use #bevy_reflect_path::Struct;
             #bevy_reflect_path::struct_partial_eq(self, value)
@@ -295,7 +295,7 @@ fn impl_struct(
                         self.field_mut(name).map(|v| v.apply(value));
                     }
                 } else {
-                    panic!("attempted to apply non-struct type to struct type");
+                    panic!("Attempted to apply non-struct type to struct type.");
                 }
             }
 
@@ -311,11 +311,11 @@ fn impl_struct(
                 #serialize_fn
             }
 
-            fn hash(&self) -> Option<u64> {
+            fn reflect_hash(&self) -> Option<u64> {
                 #hash_fn
             }
 
-            fn partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
+            fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
                 #partial_eq_fn
             }
         }
@@ -339,7 +339,7 @@ fn impl_tuple_struct(
 
     let hash_fn = reflect_attrs.get_hash_impl(&bevy_reflect_path);
     let serialize_fn = reflect_attrs.get_serialize_impl(&bevy_reflect_path);
-    let partial_eq_fn = match reflect_attrs.partial_eq {
+    let partial_eq_fn = match reflect_attrs.reflect_partial_eq {
         TraitImpl::NotImplemented => quote! {
             use #bevy_reflect_path::TupleStruct;
             #bevy_reflect_path::tuple_struct_partial_eq(self, value)
@@ -414,7 +414,7 @@ fn impl_tuple_struct(
                         self.field_mut(i).map(|v| v.apply(value));
                     }
                 } else {
-                    panic!("attempted to apply non-TupleStruct type to TupleStruct type");
+                    panic!("Attempted to apply non-TupleStruct type to TupleStruct type.");
                 }
             }
 
@@ -430,11 +430,11 @@ fn impl_tuple_struct(
                 #serialize_fn
             }
 
-            fn hash(&self) -> Option<u64> {
+            fn reflect_hash(&self) -> Option<u64> {
                 #hash_fn
             }
 
-            fn partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
+            fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
                 #partial_eq_fn
             }
         }
@@ -483,7 +483,7 @@ fn impl_value(
                 if let Some(value) = value.downcast_ref::<Self>() {
                     *self = value.clone();
                 } else {
-                    panic!("value is not {}", std::any::type_name::<Self>());
+                    panic!("Value is not {}.", std::any::type_name::<Self>());
                 }
             }
 
@@ -501,11 +501,11 @@ fn impl_value(
                 #bevy_reflect_path::ReflectMut::Value(self)
             }
 
-            fn hash(&self) -> Option<u64> {
+            fn reflect_hash(&self) -> Option<u64> {
                 #hash_fn
             }
 
-            fn partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
+            fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
                 #partial_eq_fn
             }
 
@@ -585,8 +585,8 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 
 #[derive(Default)]
 struct ReflectAttrs {
-    hash: TraitImpl,
-    partial_eq: TraitImpl,
+    reflect_hash: TraitImpl,
+    reflect_partial_eq: TraitImpl,
     serialize: TraitImpl,
     data: Vec<Ident>,
 }
@@ -602,8 +602,8 @@ impl ReflectAttrs {
                         if let Some(segment) = path.segments.iter().next() {
                             let ident = segment.ident.to_string();
                             match ident.as_str() {
-                                "PartialEq" => attrs.partial_eq = TraitImpl::Implemented,
-                                "Hash" => attrs.hash = TraitImpl::Implemented,
+                                "PartialEq" => attrs.reflect_partial_eq = TraitImpl::Implemented,
+                                "Hash" => attrs.reflect_hash = TraitImpl::Implemented,
                                 "Serialize" => attrs.serialize = TraitImpl::Implemented,
                                 _ => attrs.data.push(Ident::new(
                                     &format!("Reflect{}", segment.ident),
@@ -626,11 +626,11 @@ impl ReflectAttrs {
                                         if let Some(segment) = path.segments.iter().next() {
                                             match ident.as_str() {
                                                 "PartialEq" => {
-                                                    attrs.partial_eq =
+                                                    attrs.reflect_partial_eq =
                                                         TraitImpl::Custom(segment.ident.clone())
                                                 }
                                                 "Hash" => {
-                                                    attrs.hash =
+                                                    attrs.reflect_hash =
                                                         TraitImpl::Custom(segment.ident.clone())
                                                 }
                                                 "Serialize" => {
@@ -657,7 +657,7 @@ impl ReflectAttrs {
     }
 
     fn get_hash_impl(&self, path: &Path) -> proc_macro2::TokenStream {
-        match &self.hash {
+        match &self.reflect_hash {
             TraitImpl::Implemented => quote! {
                 use std::hash::{Hash, Hasher};
                 let mut hasher = #path::ReflectHasher::default();
@@ -675,7 +675,7 @@ impl ReflectAttrs {
     }
 
     fn get_partial_eq_impl(&self) -> proc_macro2::TokenStream {
-        match &self.partial_eq {
+        match &self.reflect_partial_eq {
             TraitImpl::Implemented => quote! {
                 let value = value.any();
                 if let Some(value) = value.downcast_ref::<Self>() {

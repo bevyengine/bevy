@@ -233,7 +233,7 @@ impl Resources {
             Ordering::Equal => {
                 storage.push(resource);
             }
-            Ordering::Greater => panic!("attempted to access index beyond 'current_capacity + 1'"),
+            Ordering::Greater => panic!("Attempted to access index beyond 'current_capacity + 1'."),
             Ordering::Less => {
                 *storage.get_mut(index).unwrap() = resource;
             }
@@ -279,7 +279,7 @@ impl Resources {
                     .unwrap();
                 resources.get_unsafe_ref(index)
             })
-            .unwrap_or_else(|| panic!("Resource does not exist {}", std::any::type_name::<T>()))
+            .unwrap_or_else(|| panic!("Resource does not exist {}.", std::any::type_name::<T>()))
     }
 
     #[inline]
@@ -301,7 +301,7 @@ impl Resources {
                     NonNull::new_unchecked(resources.stored[index].mutated.get()),
                 )
             })
-            .unwrap_or_else(|| panic!("Resource does not exist {}", std::any::type_name::<T>()))
+            .unwrap_or_else(|| panic!("Resource does not exist {}.", std::any::type_name::<T>()))
     }
 
     #[inline]
@@ -372,7 +372,7 @@ impl<'a, T: 'static> ResourceRef<'a, T> {
             }
         } else {
             panic!(
-                "Failed to acquire shared lock on resource: {}",
+                "Failed to acquire shared lock on resource: {}.",
                 std::any::type_name::<T>()
             );
         }
@@ -432,7 +432,7 @@ impl<'a, T: 'static> ResourceRefMut<'a, T> {
             }
         } else {
             panic!(
-                "Failed to acquire exclusive lock on resource: {}",
+                "Failed to acquire exclusive lock on resource: {}.",
                 std::any::type_name::<T>()
             );
         }

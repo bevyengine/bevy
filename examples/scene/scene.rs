@@ -6,10 +6,10 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .register_type::<ComponentA>()
         .register_type::<ComponentB>()
-        .add_startup_system(save_scene_system)
-        .add_startup_system(load_scene_system)
-        .add_startup_system(infotext_system)
-        .add_system(print_system)
+        .add_startup_system(save_scene_system.system())
+        .add_startup_system(load_scene_system.system())
+        .add_startup_system(infotext_system.system())
+        .add_system(print_system.system())
         .run();
 }
 
@@ -49,7 +49,7 @@ impl FromResources for ComponentB {
 
 fn load_scene_system(asset_server: Res<AssetServer>, mut scene_spawner: ResMut<SceneSpawner>) {
     // Scenes are loaded just like any other asset.
-    let scene_handle: Handle<DynamicScene> = asset_server.load("scenes/load_scene_example.scn");
+    let scene_handle: Handle<DynamicScene> = asset_server.load("scenes/load_scene_example.scn.ron");
 
     // SceneSpawner can "spawn" scenes. "Spawning" a scene creates a new instance of the scene in the World with new entity ids.
     // This guarantees that it will not overwrite existing entities.
@@ -102,15 +102,15 @@ fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
             align_self: AlignSelf::FlexEnd,
             ..Default::default()
         },
-        text: Text {
-            value: "Nothing to see in this window! Check the console output!".to_string(),
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-            style: TextStyle {
+        text: Text::with_section(
+            "Nothing to see in this window! Check the console output!",
+            TextStyle {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 50.0,
                 color: Color::WHITE,
-                ..Default::default()
             },
-        },
+            Default::default(),
+        ),
         ..Default::default()
     });
 }

@@ -15,19 +15,32 @@ use bevy::{
 /// This example creates a second window and draws a mesh from two different cameras.
 fn main() {
     App::build()
-        .add_resource(Msaa { samples: 4 })
+        .insert_resource(Msaa { samples: 4 })
+        .insert_resource(State::new(AppState::CreateWindow))
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_stage_after(
+            stage::UPDATE,
+            STATE_STAGE,
+            StateStage::<AppState>::default(),
+        )
+        .on_state_update(STATE_STAGE, AppState::CreateWindow, setup_window.system())
+        .on_state_enter(STATE_STAGE, AppState::Setup, setup_pipeline.system())
         .run();
 }
 
-fn setup(
-    commands: &mut Commands,
+const STATE_STAGE: &str = "state";
+
+// NOTE: this "state based" approach to multiple windows is a short term workaround.
+// Future Bevy releases shouldn't require such a strict order of operations.
+#[derive(Clone)]
+enum AppState {
+    CreateWindow,
+    Setup,
+}
+
+fn setup_window(
+    mut app_state: ResMut<State<AppState>>,
     mut create_window_events: ResMut<Events<CreateWindow>>,
-    mut active_cameras: ResMut<ActiveCameras>,
-    mut render_graph: ResMut<RenderGraph>,
-    asset_server: Res<AssetServer>,
-    msaa: Res<Msaa>,
 ) {
     let window_id = WindowId::new();
 
@@ -35,13 +48,31 @@ fn setup(
     create_window_events.send(CreateWindow {
         id: window_id,
         descriptor: WindowDescriptor {
-            width: 800,
-            height: 600,
+            width: 800.,
+            height: 600.,
             vsync: false,
             title: "second window".to_string(),
             ..Default::default()
         },
     });
+
+    app_state.set_next(AppState::Setup).unwrap();
+}
+
+fn setup_pipeline(
+    commands: &mut Commands,
+    windows: Res<Windows>,
+    mut active_cameras: ResMut<ActiveCameras>,
+    mut render_graph: ResMut<RenderGraph>,
+    asset_server: Res<AssetServer>,
+    msaa: Res<Msaa>,
+) {
+    // get the non-default window id
+    let window_id = windows
+        .iter()
+        .find(|w| w.id() != WindowId::default())
+        .map(|w| w.id())
+        .unwrap();
 
     // here we setup our render graph to draw our second camera to the new window's swap chain
 
@@ -154,26 +185,26 @@ fn setup(
 
     // add entities to the world
     commands
-        .spawn_scene(asset_server.load("models/monkey/Monkey.gltf"))
+        .spawn_scene(asset_server.load("models/monkey/Monkey.gltf#Scene0"))
         // light
         .spawn(LightBundle {
-            transform: Transform::from_translation(Vec3::new(4.0, 5.0, 4.0)),
+            transform: Transform::from_xyz(4.0, 5.0, 4.0),
             ..Default::default()
         })
         // main camera
-        .spawn(Camera3dBundle {
-            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 6.0))
+        .spawn(PerspectiveCameraBundle {
+            transform: Transform::from_xyz(0.0, 0.0, 6.0)
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
         })
         // second window camera
-        .spawn(Camera3dBundle {
+        .spawn(PerspectiveCameraBundle {
             camera: Camera {
                 name: Some("Secondary".to_string()),
                 window: window_id,
                 ..Default::default()
             },
-            transform: Transform::from_translation(Vec3::new(6.0, 0.0, 0.0))
+            transform: Transform::from_xyz(6.0, 0.0, 0.0)
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
         });

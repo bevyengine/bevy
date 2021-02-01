@@ -90,7 +90,7 @@ impl Entities {
                         id: u32::try_from(self.meta.len())
                             .ok()
                             .and_then(|x| x.checked_add(n))
-                            .expect("too many entities"),
+                            .expect("Too many entities."),
                     }
                 }
                 // The freelist has entities in it, so move the last entry to the reserved list, to
@@ -252,9 +252,20 @@ impl Entities {
         }
     }
 
+    /// Number of freed entities in `self.meta`
+    pub fn freed_len(&self) -> u32 {
+        self.free_cursor.load(Ordering::Relaxed)
+    }
+
+    /// Number of reserved entities outside of `self.meta`
+    pub fn pending_len(&self) -> u32 {
+        self.pending.load(Ordering::Relaxed)
+    }
+
     // The following three methods allow iteration over `reserved` simultaneous to location
     // writes. This is a lazy hack, but we only use it in `World::flush` so the complexity and unsafety
     // involved in producing an `impl Iterator<Item=(u32, &mut Location)>` isn't a clear win.
+    /// Number of reserved entities in `self.meta`
     pub fn reserved_len(&self) -> u32 {
         self.reserved_cursor.load(Ordering::Relaxed)
     }

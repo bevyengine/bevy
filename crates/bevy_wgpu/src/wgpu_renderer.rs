@@ -1,8 +1,8 @@
 use crate::{
     renderer::{WgpuRenderGraphExecutor, WgpuRenderResourceContext},
-    WgpuOptions, WgpuPowerOptions,
+    WgpuBackend, WgpuOptions, WgpuPowerOptions,
 };
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, ManualEventReader};
 use bevy_ecs::{Resources, World};
 use bevy_render::{
     render_graph::{DependentNodeStager, RenderGraph, RenderGraphStager},
@@ -15,20 +15,29 @@ pub struct WgpuRenderer {
     pub instance: wgpu::Instance,
     pub device: Arc<wgpu::Device>,
     pub queue: wgpu::Queue,
-    pub window_resized_event_reader: EventReader<WindowResized>,
-    pub window_created_event_reader: EventReader<WindowCreated>,
+    pub window_resized_event_reader: ManualEventReader<WindowResized>,
+    pub window_created_event_reader: ManualEventReader<WindowCreated>,
     pub initialized: bool,
 }
 
 impl WgpuRenderer {
     pub async fn new(options: WgpuOptions) -> Self {
-        let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
+        let backend = match options.backend {
+            WgpuBackend::Auto => wgpu::BackendBit::PRIMARY,
+            WgpuBackend::Vulkan => wgpu::BackendBit::VULKAN,
+            WgpuBackend::Metal => wgpu::BackendBit::METAL,
+            WgpuBackend::Dx12 => wgpu::BackendBit::DX12,
+            WgpuBackend::Dx11 => wgpu::BackendBit::DX11,
+            WgpuBackend::GL => wgpu::BackendBit::GL,
+            WgpuBackend::BrowserWgpu => wgpu::BackendBit::BROWSER_WEBGPU,
+        };
+        let instance = wgpu::Instance::new(backend);
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: match options.power_pref {
                     WgpuPowerOptions::HighPerformance => wgpu::PowerPreference::HighPerformance,
-                    WgpuPowerOptions::Adaptive => wgpu::PowerPreference::Default,
+                    WgpuPowerOptions::Adaptive => wgpu::PowerPreference::LowPower,
                     WgpuPowerOptions::LowPower => wgpu::PowerPreference::LowPower,
                 },
                 compatible_surface: None,
@@ -44,9 +53,9 @@ impl WgpuRenderer {
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
+                    label: None,
                     features: wgpu::Features::empty(),
                     limits: wgpu::Limits::default(),
-                    shader_validation: true,
                 },
                 trace_path,
             )
@@ -78,7 +87,7 @@ impl WgpuRenderer {
         {
             let window = windows
                 .get(window_created_event.id)
-                .expect("Received window created event for non-existent window");
+                .expect("Received window created event for non-existent window.");
             #[cfg(feature = "bevy_winit")]
             {
                 let winit_windows = resources.get::<bevy_winit::WinitWindows>().unwrap();
@@ -115,6 +124,6 @@ impl WgpuRenderer {
 
         let render_resource_context = resources.get::<Box<dyn RenderResourceContext>>().unwrap();
         render_resource_context.drop_all_swap_chain_textures();
-        render_resource_context.clear_bind_groups();
+        render_resource_context.remove_stale_bind_groups();
     }
 }

@@ -1,9 +1,10 @@
 use super::Transform;
 use bevy_math::{Mat3, Mat4, Quat, Vec3};
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, ReflectComponent};
 use std::ops::Mul;
 
 #[derive(Debug, PartialEq, Clone, Copy, Reflect)]
+#[reflect(Component)]
 pub struct GlobalTransform {
     pub translation: Vec3,
     pub rotation: Quat,
@@ -11,6 +12,12 @@ pub struct GlobalTransform {
 }
 
 impl GlobalTransform {
+    /// Create a new [`GlobalTransform`] at the position `(x, y, z)`
+    #[inline]
+    pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
+        Self::from_translation(Vec3::new(x, y, z))
+    }
+
     #[inline]
     pub fn identity() -> Self {
         GlobalTransform {
@@ -68,8 +75,33 @@ impl GlobalTransform {
     }
 
     #[inline]
+    pub fn right(&self) -> Vec3 {
+        self.rotation * Vec3::unit_x()
+    }
+
+    #[inline]
+    pub fn left(&self) -> Vec3 {
+        -self.right()
+    }
+
+    #[inline]
+    pub fn up(&self) -> Vec3 {
+        self.rotation * Vec3::unit_y()
+    }
+
+    #[inline]
+    pub fn down(&self) -> Vec3 {
+        -self.up()
+    }
+
+    #[inline]
     pub fn forward(&self) -> Vec3 {
         self.rotation * Vec3::unit_z()
+    }
+
+    #[inline]
+    pub fn backward(&self) -> Vec3 {
+        -self.forward()
     }
 
     #[inline]

@@ -51,8 +51,8 @@ const FRAGMENT_SHADER: &str = r#"
 layout(location = 0) in vec4 v_Position;
 layout(location = 0) out vec4 o_Target;
 
-layout(set = 1, binding = 1) uniform texture2DArray MyArrayTexture_texture;
-layout(set = 1, binding = 2) uniform sampler MyArrayTexture_texture_sampler;
+layout(set = 2, binding = 0) uniform texture2DArray MyArrayTexture_texture;
+layout(set = 2, binding = 1) uniform sampler MyArrayTexture_texture_sampler;
 
 void main() {
     // Screen-space coordinates determine which layer of the array texture we sample.
@@ -109,9 +109,8 @@ fn setup(
         .add_node_edge("my_array_texture", base::node::MAIN_PASS)
         .unwrap();
 
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_translation(Vec3::new(2.0, 2.0, 2.0))
-            .looking_at(Vec3::default(), Vec3::unit_y()),
+    commands.spawn(PerspectiveCameraBundle {
+        transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::default(), Vec3::unit_y()),
         ..Default::default()
     });
 }

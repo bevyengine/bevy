@@ -143,7 +143,7 @@ impl<'a, 'b> From<&'a AssetPath<'b>> for AssetPathId {
 impl<'a> From<&'a str> for AssetPath<'a> {
     fn from(asset_path: &'a str) -> Self {
         let mut parts = asset_path.split('#');
-        let path = Path::new(parts.next().expect("path must be set"));
+        let path = Path::new(parts.next().expect("Path must be set."));
         let label = parts.next();
         AssetPath {
             path: Cow::Borrowed(path),

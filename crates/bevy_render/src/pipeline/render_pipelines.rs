@@ -2,12 +2,12 @@ use super::{PipelineDescriptor, PipelineSpecialization};
 use crate::{
     draw::{Draw, DrawContext},
     mesh::{Indices, Mesh},
-    prelude::Msaa,
+    prelude::{Msaa, Visible},
     renderer::RenderResourceBindings,
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Query, Res, ResMut};
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, ReflectComponent};
 use bevy_utils::HashSet;
 
 #[derive(Debug, Default, Clone, Reflect)]
@@ -40,6 +40,7 @@ impl RenderPipeline {
 }
 
 #[derive(Debug, Clone, Reflect)]
+#[reflect(Component)]
 pub struct RenderPipelines {
     pub pipelines: Vec<RenderPipeline>,
     #[reflect(ignore)]
@@ -81,10 +82,10 @@ pub fn draw_render_pipelines_system(
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
     msaa: Res<Msaa>,
     meshes: Res<Assets<Mesh>>,
-    mut query: Query<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>)>,
+    mut query: Query<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>, &Visible)>,
 ) {
-    for (mut draw, mut render_pipelines, mesh_handle) in query.iter_mut() {
-        if !draw.is_visible {
+    for (mut draw, mut render_pipelines, mesh_handle, visible) in query.iter_mut() {
+        if !visible.is_visible {
             continue;
         }
 
@@ -114,6 +115,19 @@ pub fn draw_render_pipelines_system(
                     .collect::<HashSet<String>>();
                 pipeline.dynamic_bindings_generation =
                     render_pipelines.bindings.dynamic_bindings_generation();
+                for (handle, _) in render_pipelines.bindings.iter_assets() {
+                    if let Some(bindings) = draw_context
+                        .asset_render_resource_bindings
+                        .get_untyped(handle)
+                    {
+                        for binding in bindings.iter_dynamic_bindings() {
+                            pipeline
+                                .specialization
+                                .dynamic_bindings
+                                .insert(binding.to_string());
+                        }
+                    }
+                }
             }
         }
 
@@ -138,6 +152,8 @@ pub fn draw_render_pipelines_system(
 
             if let Some(indices) = index_range.clone() {
                 draw.draw_indexed(indices, 0, 0..1);
+            } else {
+                draw.draw(0..mesh.count_vertices() as u32, 0..1)
             }
         }
     }

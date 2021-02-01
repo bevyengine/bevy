@@ -1,10 +1,10 @@
 use bevy_ecs::{Entity, MapEntities};
-use bevy_reflect::{Reflect, ReflectMapEntities};
+use bevy_reflect::{Reflect, ReflectComponent, ReflectMapEntities};
 use smallvec::SmallVec;
 use std::ops::Deref;
 
 #[derive(Default, Clone, Debug, Reflect)]
-#[reflect(MapEntities)]
+#[reflect(Component, MapEntities)]
 pub struct Children(pub(crate) SmallVec<[Entity; 8]>);
 
 impl MapEntities for Children {

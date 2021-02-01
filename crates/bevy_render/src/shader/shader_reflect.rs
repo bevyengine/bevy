@@ -1,10 +1,10 @@
 use crate::{
     pipeline::{
         BindGroupDescriptor, BindType, BindingDescriptor, BindingShaderStage, InputStepMode,
-        UniformProperty, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
+        UniformProperty, VertexAttribute, VertexBufferLayout, VertexFormat,
     },
-    shader::{ShaderLayout, GL_VERTEX_INDEX},
-    texture::{TextureComponentType, TextureViewDimension},
+    shader::{ShaderLayout, GL_INSTANCE_INDEX, GL_VERTEX_INDEX},
+    texture::{TextureSampleType, TextureViewDimension},
 };
 use bevy_core::AsBytes;
 use spirv_reflect::{
@@ -29,13 +29,15 @@ impl ShaderLayout {
                 }
 
                 // obtain attribute descriptors from reflection
-                let mut vertex_attribute_descriptors = Vec::new();
+                let mut vertex_attributes = Vec::new();
                 for input_variable in module.enumerate_input_variables(None).unwrap() {
-                    if input_variable.name == GL_VERTEX_INDEX {
+                    if input_variable.name == GL_VERTEX_INDEX
+                        || input_variable.name == GL_INSTANCE_INDEX
+                    {
                         continue;
                     }
                     // reflect vertex attribute descriptor and record it
-                    vertex_attribute_descriptors.push(VertexAttributeDescriptor {
+                    vertex_attributes.push(VertexAttribute {
                         name: input_variable.name.clone().into(),
                         format: reflect_vertex_format(
                             input_variable.type_description.as_ref().unwrap(),
@@ -45,20 +47,19 @@ impl ShaderLayout {
                     });
                 }
 
-                vertex_attribute_descriptors
-                    .sort_by(|a, b| a.shader_location.cmp(&b.shader_location));
+                vertex_attributes.sort_by(|a, b| a.shader_location.cmp(&b.shader_location));
 
-                let mut vertex_buffer_descriptors = Vec::new();
-                for vertex_attribute_descriptor in vertex_attribute_descriptors.drain(..) {
+                let mut vertex_buffer_layout = Vec::new();
+                for vertex_attribute in vertex_attributes.drain(..) {
                     let mut instance = false;
                     // obtain buffer name and instancing flag
                     let current_buffer_name = {
                         if bevy_conventions {
-                            if vertex_attribute_descriptor.name == GL_VERTEX_INDEX {
+                            if vertex_attribute.name == GL_VERTEX_INDEX {
                                 GL_VERTEX_INDEX.to_string()
                             } else {
-                                instance = vertex_attribute_descriptor.name.starts_with("I_");
-                                vertex_attribute_descriptor.name.to_string()
+                                instance = vertex_attribute.name.starts_with("I_");
+                                vertex_attribute.name.to_string()
                             }
                         } else {
                             "DefaultVertex".to_string()
@@ -66,8 +67,8 @@ impl ShaderLayout {
                     };
 
                     // create a new buffer descriptor, per attribute!
-                    vertex_buffer_descriptors.push(VertexBufferDescriptor {
-                        attributes: vec![vertex_attribute_descriptor],
+                    vertex_buffer_layout.push(VertexBufferLayout {
+                        attributes: vec![vertex_attribute],
                         name: current_buffer_name.into(),
                         step_mode: if instance {
                             InputStepMode::Instance
@@ -80,11 +81,11 @@ impl ShaderLayout {
 
                 ShaderLayout {
                     bind_groups,
-                    vertex_buffer_descriptors,
+                    vertex_buffer_layout,
                     entry_point: entry_point_name,
                 }
             }
-            Err(err) => panic!("Failed to reflect shader layout: {:?}", err),
+            Err(err) => panic!("Failed to reflect shader layout: {:?}.", err),
         }
     }
 }
@@ -108,7 +109,7 @@ fn reflect_dimension(type_description: &ReflectTypeDescription) -> TextureViewDi
         ReflectDimension::Type2d => TextureViewDimension::D2,
         ReflectDimension::Type3d => TextureViewDimension::D3,
         ReflectDimension::Cube => TextureViewDimension::Cube,
-        dimension => panic!("unsupported image dimension: {:?}", dimension),
+        dimension => panic!("Unsupported image dimension: {:?}.", dimension),
     }
 }
 
@@ -121,28 +122,35 @@ fn reflect_binding(
         ReflectDescriptorType::UniformBuffer => (
             &type_description.type_name,
             BindType::Uniform {
-                dynamic: false,
+                has_dynamic_offset: false,
                 property: reflect_uniform(type_description),
             },
         ),
         ReflectDescriptorType::SampledImage => (
             &binding.name,
-            BindType::SampledTexture {
-                dimension: reflect_dimension(type_description),
-                component_type: TextureComponentType::Float,
+            BindType::Texture {
+                view_dimension: reflect_dimension(type_description),
+                sample_type: TextureSampleType::Float { filterable: true },
                 multisampled: false,
             },
         ),
         ReflectDescriptorType::StorageBuffer => (
             &type_description.type_name,
             BindType::StorageBuffer {
-                dynamic: false,
+                has_dynamic_offset: false,
                 readonly: true,
             },
         ),
         // TODO: detect comparison "true" case: https://github.com/gpuweb/gpuweb/issues/552
-        ReflectDescriptorType::Sampler => (&binding.name, BindType::Sampler { comparison: false }),
-        _ => panic!("unsupported bind type {:?}", binding.descriptor_type),
+        // TODO: detect filtering "true" case
+        ReflectDescriptorType::Sampler => (
+            &binding.name,
+            BindType::Sampler {
+                comparison: false,
+                filtering: false,
+            },
+        ),
+        _ => panic!("Unsupported bind type {:?}.", binding.descriptor_type),
     };
 
     let mut shader_stage = match shader_stage {
@@ -199,7 +207,7 @@ fn reflect_uniform_numeric(type_description: &ReflectTypeDescription) -> Uniform
         match traits.numeric.scalar.signedness {
             0 => NumberType::UInt,
             1 => NumberType::Int,
-            signedness => panic!("unexpected signedness {}", signedness),
+            signedness => panic!("Unexpected signedness {}.", signedness),
         }
     } else if type_description
         .type_flags
@@ -207,7 +215,7 @@ fn reflect_uniform_numeric(type_description: &ReflectTypeDescription) -> Uniform
     {
         NumberType::Float
     } else {
-        panic!("unexpected type flag {:?}", type_description.type_flags);
+        panic!("Unexpected type flag {:?}.", type_description.type_flags);
     };
 
     // TODO: handle scalar width here
@@ -252,7 +260,7 @@ fn reflect_vertex_format(type_description: &ReflectTypeDescription) -> VertexFor
         match traits.numeric.scalar.signedness {
             0 => NumberType::UInt,
             1 => NumberType::Int,
-            signedness => panic!("unexpected signedness {}", signedness),
+            signedness => panic!("Unexpected signedness {}.", signedness),
         }
     } else if type_description
         .type_flags
@@ -260,7 +268,7 @@ fn reflect_vertex_format(type_description: &ReflectTypeDescription) -> VertexFor
     {
         NumberType::Float
     } else {
-        panic!("unexpected type flag {:?}", type_description.type_flags);
+        panic!("Unexpected type flag {:?}.", type_description.type_flags);
     };
 
     let width = traits.numeric.scalar.width;
@@ -300,8 +308,8 @@ mod tests {
     use super::*;
     use crate::shader::{Shader, ShaderStage};
 
-    impl VertexBufferDescriptor {
-        pub fn test_zero_stride(mut self) -> VertexBufferDescriptor {
+    impl VertexBufferLayout {
+        pub fn test_zero_stride(mut self) -> VertexBufferLayout {
             self.stride = 0;
             self
         }
@@ -328,16 +336,17 @@ mod tests {
             }
         "#,
         )
-        .get_spirv_shader(None);
+        .get_spirv_shader(None)
+        .unwrap();
 
         let layout = vertex_shader.reflect_layout(true).unwrap();
         assert_eq!(
             layout,
             ShaderLayout {
                 entry_point: "main".into(),
-                vertex_buffer_descriptors: vec![
-                    VertexBufferDescriptor::new_from_attribute(
-                        VertexAttributeDescriptor {
+                vertex_buffer_layout: vec![
+                    VertexBufferLayout::new_from_attribute(
+                        VertexAttribute {
                             name: "Vertex_Position".into(),
                             format: VertexFormat::Float4,
                             offset: 0,
@@ -346,8 +355,8 @@ mod tests {
                         InputStepMode::Vertex
                     )
                     .test_zero_stride(),
-                    VertexBufferDescriptor::new_from_attribute(
-                        VertexAttributeDescriptor {
+                    VertexBufferLayout::new_from_attribute(
+                        VertexAttribute {
                             name: "Vertex_Normal".into(),
                             format: VertexFormat::Uint4,
                             offset: 0,
@@ -356,8 +365,8 @@ mod tests {
                         InputStepMode::Vertex
                     )
                     .test_zero_stride(),
-                    VertexBufferDescriptor::new_from_attribute(
-                        VertexAttributeDescriptor {
+                    VertexBufferLayout::new_from_attribute(
+                        VertexAttribute {
                             name: "I_TestInstancing_Property".into(),
                             format: VertexFormat::Uint4,
                             offset: 0,
@@ -374,7 +383,7 @@ mod tests {
                             index: 0,
                             name: "Camera".into(),
                             bind_type: BindType::Uniform {
-                                dynamic: false,
+                                has_dynamic_offset: false,
                                 property: UniformProperty::Struct(vec![UniformProperty::Mat4]),
                             },
                             shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
@@ -385,10 +394,10 @@ mod tests {
                         vec![BindingDescriptor {
                             index: 0,
                             name: "Texture".into(),
-                            bind_type: BindType::SampledTexture {
+                            bind_type: BindType::Texture {
                                 multisampled: false,
-                                dimension: TextureViewDimension::D2,
-                                component_type: TextureComponentType::Float,
+                                view_dimension: TextureViewDimension::D2,
+                                sample_type: TextureSampleType::Float { filterable: true }
                             },
                             shader_stage: BindingShaderStage::VERTEX,
                         }]

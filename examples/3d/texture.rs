@@ -4,7 +4,7 @@ use bevy::prelude::*;
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_startup_system(setup.system())
         .run();
 }
 
@@ -29,7 +29,7 @@ fn setup(
     // this material renders the texture normally
     let material_handle = materials.add(StandardMaterial {
         albedo_texture: Some(texture_handle.clone()),
-        shaded: false,
+        unlit: true,
         ..Default::default()
     });
 
@@ -37,14 +37,14 @@ fn setup(
     let red_material_handle = materials.add(StandardMaterial {
         albedo: Color::rgba(1.0, 0.0, 0.0, 0.5),
         albedo_texture: Some(texture_handle.clone()),
-        shaded: false,
+        unlit: true,
     });
 
     // and lets make this one blue! (and also slightly transparent)
     let blue_material_handle = materials.add(StandardMaterial {
         albedo: Color::rgba(0.0, 0.0, 1.0, 0.5),
         albedo_texture: Some(texture_handle),
-        shaded: false,
+        unlit: true,
     });
 
     // add entities to the world
@@ -58,7 +58,7 @@ fn setup(
                 rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
                 ..Default::default()
             },
-            draw: Draw {
+            visible: Visible {
                 is_transparent: true,
                 ..Default::default()
             },
@@ -73,7 +73,7 @@ fn setup(
                 rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
                 ..Default::default()
             },
-            draw: Draw {
+            visible: Visible {
                 is_transparent: true,
                 ..Default::default()
             },
@@ -88,15 +88,15 @@ fn setup(
                 rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
                 ..Default::default()
             },
-            draw: Draw {
+            visible: Visible {
                 is_transparent: true,
                 ..Default::default()
             },
             ..Default::default()
         })
         // camera
-        .spawn(Camera3dBundle {
-            transform: Transform::from_translation(Vec3::new(3.0, 5.0, 8.0))
+        .spawn(PerspectiveCameraBundle {
+            transform: Transform::from_xyz(3.0, 5.0, 8.0)
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
         });

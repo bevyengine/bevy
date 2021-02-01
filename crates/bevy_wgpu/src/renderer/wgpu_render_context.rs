@@ -114,6 +114,50 @@ impl RenderContext for WgpuRenderContext {
         )
     }
 
+    fn copy_texture_to_buffer(
+        &mut self,
+        source_texture: TextureId,
+        source_origin: [u32; 3],
+        source_mip_level: u32,
+        destination_buffer: BufferId,
+        destination_offset: u64,
+        destination_bytes_per_row: u32,
+        size: Extent3d,
+    ) {
+        self.render_resource_context.copy_texture_to_buffer(
+            self.command_encoder.get_or_create(&self.device),
+            source_texture,
+            source_origin,
+            source_mip_level,
+            destination_buffer,
+            destination_offset,
+            destination_bytes_per_row,
+            size,
+        )
+    }
+
+    fn copy_texture_to_texture(
+        &mut self,
+        source_texture: TextureId,
+        source_origin: [u32; 3],
+        source_mip_level: u32,
+        destination_texture: TextureId,
+        destination_origin: [u32; 3],
+        destination_mip_level: u32,
+        size: Extent3d,
+    ) {
+        self.render_resource_context.copy_texture_to_texture(
+            self.command_encoder.get_or_create(&self.device),
+            source_texture,
+            source_origin,
+            source_mip_level,
+            destination_texture,
+            destination_origin,
+            destination_mip_level,
+            size,
+        )
+    }
+
     fn resources(&self) -> &dyn RenderResourceContext {
         &self.render_resource_context
     }
@@ -162,6 +206,7 @@ pub fn create_render_pass<'a, 'b>(
     encoder: &'a mut wgpu::CommandEncoder,
 ) -> wgpu::RenderPass<'a> {
     encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        label: None,
         color_attachments: &pass_descriptor
             .color_attachments
             .iter()
@@ -188,11 +233,11 @@ fn get_texture_view<'a>(
         TextureAttachment::Name(name) => match global_render_resource_bindings.get(&name) {
             Some(RenderResourceBinding::Texture(resource)) => refs.textures.get(&resource).unwrap(),
             _ => {
-                panic!("Color attachment {} does not exist", name);
+                panic!("Color attachment {} does not exist.", name);
             }
         },
         TextureAttachment::Id(render_resource) => refs.textures.get(&render_resource).unwrap_or_else(|| &refs.swap_chain_frames.get(&render_resource).unwrap().output.view),
-        TextureAttachment::Input(_) => panic!("Encountered unset TextureAttachment::Input. The RenderGraph executor should always set TextureAttachment::Inputs to TextureAttachment::RenderResource before running. This is a bug"),
+        TextureAttachment::Input(_) => panic!("Encountered unset `TextureAttachment::Input`. The `RenderGraph` executor should always set `TextureAttachment::Inputs` to `TextureAttachment::RenderResource` before running. This is a bug, please report it!"),
     }
 }
 

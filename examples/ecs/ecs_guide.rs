@@ -1,5 +1,6 @@
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin, ScheduleRunnerSettings},
+    ecs::SystemStage,
     prelude::*,
     utils::Duration,
 };
@@ -106,7 +107,6 @@ fn score_system(mut query: Query<(&Player, &mut Score)>) {
 
 // This system runs on all entities with the "Player" and "Score" components, but it also
 // accesses the "GameRules" resource to determine if a player has won.
-// NOTE: resources must always come before worlds/queries in system functions
 fn score_check_system(
     game_rules: Res<GameRules>,
     mut game_state: ResMut<GameState>,
@@ -173,7 +173,6 @@ fn startup_system(commands: &mut Commands, mut game_state: ResMut<GameState>) {
 // Normal systems cannot safely access the World instance directly because they run in parallel.
 // Our World contains all of our components, so mutating arbitrary parts of it in parallel is not thread safe.
 // Command buffers give us the ability to queue up changes to our World without directly accessing it
-// NOTE: Command buffers must always come before resources and queries in system functions
 fn new_player_system(
     commands: &mut Commands,
     game_rules: Res<GameRules>,
@@ -245,9 +244,9 @@ fn main() {
     // Bevy apps are created using the builder pattern. We use the builder to add systems, resources, and plugins to our app
     App::build()
         // Resources can be added to our app like this
-        .add_resource(State { counter: 0 })
+        .insert_resource(State { counter: 0 })
         // Some systems are configured by adding their settings as a resource
-        .add_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs(5)))
+        .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs(5)))
         // Plugins are just a grouped set of app builder calls (just like we're doing here).
         // We could easily turn our game into a plugin, but you can check out the plugin example for that :)
         // The plugin below runs our app's "system schedule" once every 5 seconds (configured above).
@@ -256,9 +255,9 @@ fn main() {
         .init_resource::<GameState>()
         // Startup systems run exactly once BEFORE all other systems. These are generally used for
         // app initialization code (ex: adding entities and resources)
-        .add_startup_system(startup_system)
+        .add_startup_system(startup_system.system())
         // my_system calls converts normal rust functions into ECS systems:
-        .add_system(print_message_system)
+        .add_system(print_message_system.system())
         //
         // SYSTEM EXECUTION ORDER
         //
@@ -277,17 +276,17 @@ fn main() {
         // and the next stage won't start until all systems in the current stage have finished.
         // add_system(system) adds systems to the UPDATE stage by default
         // However we can manually specify the stage if we want to. The following is equivalent to add_system(score_system)
-        .add_system_to_stage(stage::UPDATE, score_system)
+        .add_system_to_stage(stage::UPDATE, score_system.system())
         // We can also create new stages. Here is what our games stage order will look like:
         // "before_round": new_player_system, new_round_system
         // "update": print_message_system, score_system
         // "after_round": score_check_system, game_over_system
-        .add_stage_before(stage::UPDATE, "before_round")
-        .add_stage_after(stage::UPDATE, "after_round")
-        .add_system_to_stage("before_round", new_round_system)
-        .add_system_to_stage("before_round", new_player_system)
-        .add_system_to_stage("after_round", score_check_system)
-        .add_system_to_stage("after_round", game_over_system)
+        .add_stage_before(stage::UPDATE, "before_round", SystemStage::parallel())
+        .add_stage_after(stage::UPDATE, "after_round", SystemStage::parallel())
+        .add_system_to_stage("before_round", new_round_system.system())
+        .add_system_to_stage("before_round", new_player_system.system())
+        .add_system_to_stage("after_round", score_check_system.system())
+        .add_system_to_stage("after_round", game_over_system.system())
         // score_check_system will run before game_over_system because score_check_system modifies GameState and game_over_system
         // reads GameState. This works, but it's a bit confusing. In practice, it would be clearer to create a new stage that runs
         // before "after_round"

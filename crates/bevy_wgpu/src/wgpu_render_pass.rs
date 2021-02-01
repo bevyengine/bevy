@@ -1,8 +1,8 @@
-use crate::{renderer::WgpuRenderContext, WgpuResourceRefs};
+use crate::{renderer::WgpuRenderContext, wgpu_type_converter::WgpuInto, WgpuResourceRefs};
 use bevy_asset::Handle;
 use bevy_render::{
     pass::RenderPass,
-    pipeline::{BindGroupDescriptorId, PipelineDescriptor},
+    pipeline::{BindGroupDescriptorId, IndexFormat, PipelineDescriptor},
     renderer::{BindGroupId, BufferId, RenderContext},
 };
 use bevy_utils::tracing::trace;
@@ -40,9 +40,10 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
         self.render_pass.set_stencil_reference(reference);
     }
 
-    fn set_index_buffer(&mut self, buffer_id: BufferId, offset: u64) {
+    fn set_index_buffer(&mut self, buffer_id: BufferId, offset: u64, index_format: IndexFormat) {
         let buffer = self.wgpu_resources.buffers.get(&buffer_id).unwrap();
-        self.render_pass.set_index_buffer(buffer.slice(offset..));
+        self.render_pass
+            .set_index_buffer(buffer.slice(offset..), index_format.wgpu_into());
     }
 
     fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>) {
@@ -74,6 +75,10 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
                     } else {
                         EMPTY
                     };
+                self.wgpu_resources
+                    .used_bind_group_sender
+                    .send(bind_group)
+                    .unwrap();
 
                 trace!(
                     "set bind group {:?} {:?}: {:?}",
@@ -93,7 +98,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
             .render_pipelines
             .get(pipeline_handle)
             .expect(
-            "Attempted to use a pipeline that does not exist in this RenderPass's RenderContext",
+            "Attempted to use a pipeline that does not exist in this `RenderPass`'s `RenderContext`.",
         );
         self.render_pass.set_pipeline(pipeline);
     }

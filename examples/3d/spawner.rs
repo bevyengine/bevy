@@ -1,5 +1,5 @@
 use bevy::{
-    diagnostic::{FrameTimeDiagnosticsPlugin, PrintDiagnosticsPlugin},
+    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
 };
 use rand::{rngs::StdRng, Rng, SeedableRng};
@@ -12,9 +12,9 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugin(PrintDiagnosticsPlugin::default())
-        .add_startup_system(setup)
-        .add_system(move_cubes)
+        .add_plugin(LogDiagnosticsPlugin::default())
+        .add_startup_system(setup.system())
+        .add_system(move_cubes.system())
         .run();
 }
 
@@ -39,12 +39,12 @@ fn setup(
     commands
         // light
         .spawn(LightBundle {
-            transform: Transform::from_translation(Vec3::new(4.0, -4.0, 5.0)),
+            transform: Transform::from_xyz(4.0, -4.0, 5.0),
             ..Default::default()
         })
         // camera
-        .spawn(Camera3dBundle {
-            transform: Transform::from_translation(Vec3::new(0.0, 15.0, 150.0))
+        .spawn(PerspectiveCameraBundle {
+            transform: Transform::from_xyz(0.0, 15.0, 150.0)
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
         });
@@ -56,17 +56,17 @@ fn setup(
             mesh: cube_handle.clone(),
             material: materials.add(StandardMaterial {
                 albedo: Color::rgb(
-                    rng.gen_range(0.0, 1.0),
-                    rng.gen_range(0.0, 1.0),
-                    rng.gen_range(0.0, 1.0),
+                    rng.gen_range(0.0..1.0),
+                    rng.gen_range(0.0..1.0),
+                    rng.gen_range(0.0..1.0),
                 ),
                 ..Default::default()
             }),
-            transform: Transform::from_translation(Vec3::new(
-                rng.gen_range(-50.0, 50.0),
-                rng.gen_range(-50.0, 50.0),
+            transform: Transform::from_xyz(
+                rng.gen_range(-50.0..50.0),
+                rng.gen_range(-50.0..50.0),
                 0.0,
-            )),
+            ),
             ..Default::default()
         });
     }

@@ -2,9 +2,9 @@ use super::{Extent3d, SamplerDescriptor, TextureDescriptor, TextureDimension, Te
 use crate::renderer::{
     RenderResource, RenderResourceContext, RenderResourceId, RenderResourceType,
 };
-use bevy_app::prelude::{EventReader, Events};
+use bevy_app::prelude::EventReader;
 use bevy_asset::{AssetEvent, Assets, Handle};
-use bevy_ecs::{Res, ResMut};
+use bevy_ecs::Res;
 use bevy_reflect::TypeUuid;
 use bevy_utils::HashSet;
 
@@ -74,11 +74,11 @@ impl Texture {
         debug_assert_eq!(
             pixel.len() % format.pixel_size(),
             0,
-            "Must not have incomplete pixel data"
+            "Must not have incomplete pixel data."
         );
         debug_assert!(
             pixel.len() <= value.data.len(),
-            "Fill data must fit within pixel buffer"
+            "Fill data must fit within pixel buffer."
         );
 
         for current_pixel in value.data.chunks_exact_mut(pixel.len()) {
@@ -125,15 +125,45 @@ impl Texture {
         });
     }
 
+    /// Convert a texture from a format to another
+    /// Only a few formats are supported as input and output:
+    /// - `TextureFormat::R8Unorm`
+    /// - `TextureFormat::Rg8Unorm`
+    /// - `TextureFormat::Rgba8UnormSrgb`
+    /// - `TextureFormat::Bgra8UnormSrgb`
+    #[cfg(any(
+        feature = "png",
+        feature = "dds",
+        feature = "tga",
+        feature = "jpeg",
+        feature = "bmp"
+    ))]
+    pub fn convert(&self, new_format: TextureFormat) -> Option<Self> {
+        super::texture_to_image(self)
+            .and_then(|img| match new_format {
+                TextureFormat::R8Unorm => Some(image::DynamicImage::ImageLuma8(img.into_luma8())),
+                TextureFormat::Rg8Unorm => {
+                    Some(image::DynamicImage::ImageLumaA8(img.into_luma_alpha8()))
+                }
+                TextureFormat::Rgba8UnormSrgb => {
+                    Some(image::DynamicImage::ImageRgba8(img.into_rgba8()))
+                }
+                TextureFormat::Bgra8UnormSrgb => {
+                    Some(image::DynamicImage::ImageBgra8(img.into_bgra8()))
+                }
+                _ => None,
+            })
+            .map(super::image_to_texture)
+    }
+
     pub fn texture_resource_system(
-        mut state: ResMut<TextureResourceSystemState>,
         render_resource_context: Res<Box<dyn RenderResourceContext>>,
         textures: Res<Assets<Texture>>,
-        texture_events: Res<Events<AssetEvent<Texture>>>,
+        mut texture_events: EventReader<AssetEvent<Texture>>,
     ) {
         let render_resource_context = &**render_resource_context;
         let mut changed_textures = HashSet::default();
-        for event in state.event_reader.iter(&texture_events) {
+        for event in texture_events.iter() {
             match event {
                 AssetEvent::Created { handle } => {
                     changed_textures.insert(handle);
@@ -189,11 +219,6 @@ impl Texture {
             render_resource_context.remove_asset_resource(handle, SAMPLER_ASSET_INDEX);
         }
     }
-}
-
-#[derive(Default)]
-pub struct TextureResourceSystemState {
-    event_reader: EventReader<AssetEvent<Texture>>,
 }
 
 impl RenderResource for Option<Handle<Texture>> {

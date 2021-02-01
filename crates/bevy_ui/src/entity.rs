@@ -1,19 +1,20 @@
 use super::Node;
 use crate::{
     render::UI_PIPELINE_HANDLE,
-    widget::{Button, Image, Text},
-    CalculatedSize, FocusPolicy, Interaction, Style,
+    widget::{Button, Image},
+    FocusPolicy, Interaction, Style,
 };
 use bevy_asset::Handle;
 use bevy_ecs::Bundle;
-use bevy_math::Vec3;
 use bevy_render::{
-    camera::{Camera, OrthographicProjection, VisibleEntities, WindowOrigin},
+    camera::{Camera, DepthCalculation, OrthographicProjection, VisibleEntities, WindowOrigin},
     draw::Draw,
     mesh::Mesh,
     pipeline::{RenderPipeline, RenderPipelines},
+    prelude::Visible,
 };
 use bevy_sprite::{ColorMaterial, QUAD_HANDLE};
+use bevy_text::{CalculatedSize, Text};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 #[derive(Bundle, Clone, Debug)]
@@ -23,6 +24,7 @@ pub struct NodeBundle {
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
     pub material: Handle<ColorMaterial>,
     pub draw: Draw,
+    pub visible: Visible,
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -31,10 +33,14 @@ pub struct NodeBundle {
 impl Default for NodeBundle {
     fn default() -> Self {
         NodeBundle {
-            mesh: QUAD_HANDLE,
+            mesh: QUAD_HANDLE.typed(),
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
-                UI_PIPELINE_HANDLE,
+                UI_PIPELINE_HANDLE.typed(),
             )]),
+            visible: Visible {
+                is_transparent: true,
+                ..Default::default()
+            },
             node: Default::default(),
             style: Default::default(),
             material: Default::default(),
@@ -54,6 +60,7 @@ pub struct ImageBundle {
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
     pub material: Handle<ColorMaterial>,
     pub draw: Draw,
+    pub visible: Visible,
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -62,9 +69,9 @@ pub struct ImageBundle {
 impl Default for ImageBundle {
     fn default() -> Self {
         ImageBundle {
-            mesh: QUAD_HANDLE,
+            mesh: QUAD_HANDLE.typed(),
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
-                UI_PIPELINE_HANDLE,
+                UI_PIPELINE_HANDLE.typed(),
             )]),
             node: Default::default(),
             image: Default::default(),
@@ -72,6 +79,10 @@ impl Default for ImageBundle {
             style: Default::default(),
             material: Default::default(),
             draw: Default::default(),
+            visible: Visible {
+                is_transparent: true,
+                ..Default::default()
+            },
             transform: Default::default(),
             global_transform: Default::default(),
         }
@@ -83,6 +94,7 @@ pub struct TextBundle {
     pub node: Node,
     pub style: Style,
     pub draw: Draw,
+    pub visible: Visible,
     pub text: Text,
     pub calculated_size: CalculatedSize,
     pub focus_policy: FocusPolicy,
@@ -95,6 +107,9 @@ impl Default for TextBundle {
         TextBundle {
             focus_policy: FocusPolicy::Pass,
             draw: Draw {
+                ..Default::default()
+            },
+            visible: Visible {
                 is_transparent: true,
                 ..Default::default()
             },
@@ -118,6 +133,7 @@ pub struct ButtonBundle {
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
     pub material: Handle<ColorMaterial>,
     pub draw: Draw,
+    pub visible: Visible,
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -127,9 +143,9 @@ impl Default for ButtonBundle {
     fn default() -> Self {
         ButtonBundle {
             button: Button,
-            mesh: QUAD_HANDLE,
+            mesh: QUAD_HANDLE.typed(),
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
-                UI_PIPELINE_HANDLE,
+                UI_PIPELINE_HANDLE.typed(),
             )]),
             interaction: Default::default(),
             focus_policy: Default::default(),
@@ -137,6 +153,10 @@ impl Default for ButtonBundle {
             style: Default::default(),
             material: Default::default(),
             draw: Default::default(),
+            visible: Visible {
+                is_transparent: true,
+                ..Default::default()
+            },
             transform: Default::default(),
             global_transform: Default::default(),
         }
@@ -159,16 +179,17 @@ impl Default for UiCameraBundle {
         let far = 1000.0;
         UiCameraBundle {
             camera: Camera {
-                name: Some(crate::camera::UI_CAMERA.to_string()),
+                name: Some(crate::camera::CAMERA_UI.to_string()),
                 ..Default::default()
             },
             orthographic_projection: OrthographicProjection {
                 far,
                 window_origin: WindowOrigin::BottomLeft,
+                depth_calculation: DepthCalculation::ZDifference,
                 ..Default::default()
             },
             visible_entities: Default::default(),
-            transform: Transform::from_translation(Vec3::new(0.0, 0.0, far - 0.1)),
+            transform: Transform::from_xyz(0.0, 0.0, far - 0.1),
             global_transform: Default::default(),
         }
     }

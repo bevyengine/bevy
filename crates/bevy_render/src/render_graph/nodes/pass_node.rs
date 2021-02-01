@@ -3,9 +3,10 @@ use crate::{
     draw::{Draw, RenderCommand},
     pass::{ClearColor, LoadOp, PassDescriptor, TextureAttachment},
     pipeline::{
-        BindGroupDescriptor, BindType, BindingDescriptor, BindingShaderStage, PipelineDescriptor,
-        UniformProperty,
+        BindGroupDescriptor, BindType, BindingDescriptor, BindingShaderStage, IndexFormat,
+        PipelineDescriptor, UniformProperty,
     },
+    prelude::Visible,
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
     renderer::{
         BindGroup, BindGroupId, BufferId, RenderContext, RenderResourceBindings, RenderResourceType,
@@ -36,7 +37,7 @@ pub struct PassNode<Q: WorldQuery> {
 
 impl<Q: WorldQuery> fmt::Debug for PassNode<Q> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("PassNose")
+        f.debug_struct("PassNode")
             .field("descriptor", &self.descriptor)
             .field("inputs", &self.inputs)
             .field("cameras", &self.cameras)
@@ -108,7 +109,7 @@ impl<Q: WorldQuery> PassNode<Q> {
                 name: "Camera".to_string(),
                 index: 0,
                 bind_type: BindType::Uniform {
-                    dynamic: false,
+                    has_dynamic_offset: false,
                     property: UniformProperty::Struct(vec![UniformProperty::Mat4]),
                 },
                 shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
@@ -236,15 +237,19 @@ where
                             continue;
                         };
 
-                        if !draw.is_visible {
-                            continue;
+                        if let Ok(visible) = world.get::<Visible>(visible_entity.entity) {
+                            if !visible.is_visible {
+                                continue;
+                            }
                         }
 
                         // each Draw component contains an ordered list of render commands. we turn those into actual render commands here
                         for render_command in draw.render_commands.iter() {
                             match render_command {
                                 RenderCommand::SetPipeline { pipeline } => {
-                                    // TODO: Filter pipelines
+                                    if draw_state.is_pipeline_set(pipeline.clone_weak()) {
+                                        continue;
+                                    }
                                     render_pass.set_pipeline(pipeline);
                                     let descriptor = pipelines.get(pipeline).unwrap();
                                     draw_state.set_pipeline(pipeline, descriptor);
@@ -290,18 +295,27 @@ where
                                     offset,
                                     slot,
                                 } => {
+                                    if draw_state.is_vertex_buffer_set(*slot, *buffer, *offset) {
+                                        continue;
+                                    }
                                     render_pass.set_vertex_buffer(*slot, *buffer, *offset);
-                                    draw_state.set_vertex_buffer(*slot, *buffer);
+                                    draw_state.set_vertex_buffer(*slot, *buffer, *offset);
                                 }
-                                RenderCommand::SetIndexBuffer { buffer, offset } => {
-                                    render_pass.set_index_buffer(*buffer, *offset);
-                                    draw_state.set_index_buffer(*buffer)
+                                RenderCommand::SetIndexBuffer { buffer, offset, index_format } => {
+                                    if draw_state.is_index_buffer_set(*buffer, *offset, *index_format) {
+                                        continue;
+                                    }
+                                    render_pass.set_index_buffer(*buffer, *offset, *index_format);
+                                    draw_state.set_index_buffer(*buffer, *offset, *index_format);
                                 }
                                 RenderCommand::SetBindGroup {
                                     index,
                                     bind_group,
                                     dynamic_uniform_indices,
                                 } => {
+                                    if dynamic_uniform_indices.is_none() && draw_state.is_bind_group_set(*index, *bind_group) {
+                                        continue;
+                                    }
                                     let pipeline = pipelines.get(draw_state.pipeline.as_ref().unwrap()).unwrap();
                                     let layout = pipeline.get_layout().unwrap();
                                     let bind_group_descriptor = layout.get_bind_group(*index).unwrap();
@@ -329,8 +343,8 @@ where
 struct DrawState {
     pipeline: Option<Handle<PipelineDescriptor>>,
     bind_groups: Vec<Option<BindGroupId>>,
-    vertex_buffers: Vec<Option<BufferId>>,
-    index_buffer: Option<BufferId>,
+    vertex_buffers: Vec<Option<(BufferId, u64)>>,
+    index_buffer: Option<(BufferId, u64, IndexFormat)>,
 }
 
 impl DrawState {
@@ -338,12 +352,29 @@ impl DrawState {
         self.bind_groups[index as usize] = Some(bind_group);
     }
 
-    pub fn set_vertex_buffer(&mut self, index: u32, buffer: BufferId) {
-        self.vertex_buffers[index as usize] = Some(buffer);
+    pub fn is_bind_group_set(&self, index: u32, bind_group: BindGroupId) -> bool {
+        self.bind_groups[index as usize] == Some(bind_group)
     }
 
-    pub fn set_index_buffer(&mut self, buffer: BufferId) {
-        self.index_buffer = Some(buffer);
+    pub fn set_vertex_buffer(&mut self, index: u32, buffer: BufferId, offset: u64) {
+        self.vertex_buffers[index as usize] = Some((buffer, offset));
+    }
+
+    pub fn is_vertex_buffer_set(&self, index: u32, buffer: BufferId, offset: u64) -> bool {
+        self.vertex_buffers[index as usize] == Some((buffer, offset))
+    }
+
+    pub fn set_index_buffer(&mut self, buffer: BufferId, offset: u64, index_format: IndexFormat) {
+        self.index_buffer = Some((buffer, offset, index_format));
+    }
+
+    pub fn is_index_buffer_set(
+        &self,
+        buffer: BufferId,
+        offset: u64,
+        index_format: IndexFormat,
+    ) -> bool {
+        self.index_buffer == Some((buffer, offset, index_format))
     }
 
     pub fn can_draw(&self) -> bool {
@@ -353,6 +384,10 @@ impl DrawState {
 
     pub fn can_draw_indexed(&self) -> bool {
         self.can_draw() && self.index_buffer.is_some()
+    }
+
+    pub fn is_pipeline_set(&self, pipeline: Handle<PipelineDescriptor>) -> bool {
+        self.pipeline == Some(pipeline)
     }
 
     pub fn set_pipeline(

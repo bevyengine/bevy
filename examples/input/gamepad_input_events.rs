@@ -6,15 +6,12 @@ use bevy::{
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .add_system(gamepad_events)
+        .add_system(gamepad_events.system())
         .run();
 }
 
-fn gamepad_events(
-    mut event_reader: Local<EventReader<GamepadEvent>>,
-    gamepad_event: Res<Events<GamepadEvent>>,
-) {
-    for event in event_reader.iter(&gamepad_event) {
+fn gamepad_events(mut gamepad_event: EventReader<GamepadEvent>) {
+    for event in gamepad_event.iter() {
         match &event {
             GamepadEvent(gamepad, GamepadEventType::Connected) => {
                 println!("{:?} Connected", gamepad);

@@ -98,14 +98,16 @@ pub fn asset_shader_defs_system<T: Asset>(
     T: ShaderDefs + Send + Sync + 'static,
 {
     for (asset_handle, mut render_pipelines) in query.iter_mut() {
-        let shader_defs = assets.get(asset_handle).unwrap();
-        for shader_def in shader_defs.iter_shader_defs() {
-            for render_pipeline in render_pipelines.pipelines.iter_mut() {
-                render_pipeline
-                    .specialization
-                    .shader_specialization
-                    .shader_defs
-                    .insert(shader_def.to_string());
+        if let Some(asset_handle) = assets.get(asset_handle) {
+            let shader_defs = asset_handle;
+            for shader_def in shader_defs.iter_shader_defs() {
+                for render_pipeline in render_pipelines.pipelines.iter_mut() {
+                    render_pipeline
+                        .specialization
+                        .shader_specialization
+                        .shader_defs
+                        .insert(shader_def.to_string());
+                }
             }
         }
     }

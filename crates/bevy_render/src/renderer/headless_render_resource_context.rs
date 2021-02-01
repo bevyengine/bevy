@@ -1,8 +1,10 @@
 use super::RenderResourceContext;
 use crate::{
     pipeline::{BindGroupDescriptorId, PipelineDescriptor},
-    renderer::{BindGroup, BufferId, BufferInfo, RenderResourceId, SamplerId, TextureId},
-    shader::Shader,
+    renderer::{
+        BindGroup, BufferId, BufferInfo, BufferMapMode, RenderResourceId, SamplerId, TextureId,
+    },
+    shader::{Shader, ShaderError},
     texture::{SamplerDescriptor, TextureDescriptor},
 };
 use bevy_asset::{Assets, Handle, HandleUntyped};
@@ -66,7 +68,18 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         write(&mut buffer, self);
     }
 
-    fn map_buffer(&self, _id: BufferId) {}
+    fn read_mapped_buffer(
+        &self,
+        id: BufferId,
+        _range: Range<u64>,
+        read: &dyn Fn(&[u8], &dyn RenderResourceContext),
+    ) {
+        let size = self.buffer_info.read().get(&id).unwrap().size;
+        let buffer = vec![0; size];
+        read(&buffer, self);
+    }
+
+    fn map_buffer(&self, _id: BufferId, _mode: BufferMapMode) {}
 
     fn unmap_buffer(&self, _id: BufferId) {}
 
@@ -149,7 +162,13 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         size
     }
 
-    fn get_specialized_shader(&self, shader: &Shader, _macros: Option<&[String]>) -> Shader {
-        shader.clone()
+    fn get_specialized_shader(
+        &self,
+        shader: &Shader,
+        _macros: Option<&[String]>,
+    ) -> Result<Shader, ShaderError> {
+        Ok(shader.clone())
     }
+
+    fn remove_stale_bind_groups(&self) {}
 }

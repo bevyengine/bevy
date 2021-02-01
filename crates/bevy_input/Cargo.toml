@@ -1,6 +1,6 @@
 [package]
 name = "bevy_input"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2018"
 authors = [
     "Bevy Contributors <bevyengine@gmail.com>",
@@ -18,10 +18,10 @@ serialize = ["serde"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.3.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.3.0" }
-bevy_math = { path = "../bevy_math", version = "0.3.0" }
-bevy_utils = { path = "../bevy_utils", version = "0.3.0" }
+bevy_app = { path = "../bevy_app", version = "0.4.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.4.0" }
+bevy_math = { path = "../bevy_math", version = "0.4.0" }
+bevy_utils = { path = "../bevy_utils", version = "0.4.0" }
 
 # other
 serde = { version = "1", features = ["derive"], optional = true }

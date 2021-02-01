@@ -2,7 +2,8 @@ use crate::modules::{get_modules, get_path};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    parse::ParseStream, parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Path,
+    parse::ParseStream, parse_macro_input, punctuated::Punctuated, Data, DataStruct, DeriveInput,
+    Field, Fields, Path,
 };
 
 #[derive(Default)]
@@ -36,7 +37,7 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
                 }
                 Ok(())
             })
-            .expect("invalid 'render_resources' attribute format");
+            .expect("Invalid 'render_resources' attribute format.");
 
             attributes
         });
@@ -72,12 +73,18 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
             }
         })
     } else {
+        let empty = Punctuated::new();
+
         let fields = match &ast.data {
             Data::Struct(DataStruct {
                 fields: Fields::Named(fields),
                 ..
             }) => &fields.named,
-            _ => panic!("expected a struct with named fields"),
+            Data::Struct(DataStruct {
+                fields: Fields::Unit,
+                ..
+            }) => &empty,
+            _ => panic!("Expected a struct with named fields."),
         };
         let field_attributes = fields
             .iter()
@@ -102,7 +109,7 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
                                 }
                                 Ok(())
                             })
-                            .expect("invalid 'render_resources' attribute format");
+                            .expect("Invalid 'render_resources' attribute format.");
 
                             attributes
                         }),
@@ -160,11 +167,11 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
                 }
 
                 fn get_render_resource_name(&self, index: usize) -> Option<&str> {
-                    Some(#render_resource_names_ident[index])
+                    #render_resource_names_ident.get(index).copied()
                 }
 
                 fn get_render_resource_hints(&self, index: usize) -> Option<#bevy_render_path::renderer::RenderResourceHints> {
-                    #render_resource_hints_ident[index].clone()
+                    #render_resource_hints_ident.get(index).and_then(|o| *o)
                 }
 
                 fn iter(&self) -> #bevy_render_path::renderer::RenderResourceIterator {

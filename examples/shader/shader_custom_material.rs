@@ -15,7 +15,7 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .add_asset::<MyMaterial>()
-        .add_startup_system(setup)
+        .add_startup_system(setup.system())
         .run();
 }
 
@@ -42,7 +42,7 @@ void main() {
 const FRAGMENT_SHADER: &str = r#"
 #version 450
 layout(location = 0) out vec4 o_Target;
-layout(set = 1, binding = 1) uniform MyMaterial_color {
+layout(set = 2, binding = 0) uniform MyMaterial_color {
     vec4 color;
 };
 void main() {
@@ -88,13 +88,13 @@ fn setup(
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 pipeline_handle,
             )]),
-            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)),
+            transform: Transform::from_xyz(0.0, 0.0, 0.0),
             ..Default::default()
         })
         .with(material)
         // camera
-        .spawn(Camera3dBundle {
-            transform: Transform::from_translation(Vec3::new(3.0, 5.0, -8.0))
+        .spawn(PerspectiveCameraBundle {
+            transform: Transform::from_xyz(3.0, 5.0, -8.0)
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
         });

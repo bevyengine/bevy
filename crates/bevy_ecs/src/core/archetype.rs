@@ -15,14 +15,12 @@
 // modified by Bevy contributors
 
 use crate::{AtomicBorrow, Component, Entity};
-use bevy_utils::AHasher;
 use bitflags::bitflags;
 use std::{
     alloc::{alloc, dealloc, Layout},
     any::{type_name, TypeId},
     cell::UnsafeCell,
     collections::HashMap,
-    hash::{BuildHasherDefault, Hasher},
     mem,
     ptr::{self, NonNull},
 };
@@ -59,7 +57,7 @@ impl Archetype {
                 "attempted to allocate entity with duplicate components; \
                  each type must occur at most once!"
             ),
-            core::cmp::Ordering::Greater => panic!("type info is unsorted"),
+            core::cmp::Ordering::Greater => panic!("Type info is unsorted."),
         });
     }
 
@@ -160,7 +158,7 @@ impl Archetype {
             .get(&TypeId::of::<T>())
             .map_or(false, |x| !x.borrow.borrow())
         {
-            panic!("{} already borrowed uniquely", type_name::<T>());
+            panic!("{} already borrowed uniquely.", type_name::<T>());
         }
     }
 
@@ -172,7 +170,7 @@ impl Archetype {
             .get(&TypeId::of::<T>())
             .map_or(false, |x| !x.borrow.borrow_mut())
         {
-            panic!("{} already borrowed", type_name::<T>());
+            panic!("{} already borrowed.", type_name::<T>());
         }
     }
 
@@ -225,12 +223,7 @@ impl Archetype {
 
     /// # Safety
     /// `index` must be in-bounds
-    pub(crate) unsafe fn get_dynamic(
-        &self,
-        ty: TypeId,
-        size: usize,
-        index: usize,
-    ) -> Option<NonNull<u8>> {
+    pub unsafe fn get_dynamic(&self, ty: TypeId, size: usize, index: usize) -> Option<NonNull<u8>> {
         debug_assert!(index < self.len);
         Some(NonNull::new_unchecked(
             (*self.data.get())
@@ -484,7 +477,6 @@ pub struct TypeInfo {
     id: TypeId,
     layout: Layout,
     drop: unsafe fn(*mut u8),
-    #[cfg(debug_assertions)]
     type_name: &'static str,
 }
 
@@ -499,7 +491,6 @@ impl TypeInfo {
             id: TypeId::of::<T>(),
             layout: Layout::new::<T>(),
             drop: drop_ptr::<T>,
-            #[cfg(debug_assertions)]
             type_name: core::any::type_name::<T>(),
         }
     }
@@ -518,6 +509,12 @@ impl TypeInfo {
 
     pub(crate) unsafe fn drop(&self, data: *mut u8) {
         (self.drop)(data)
+    }
+
+    #[allow(missing_docs)]
+    #[inline]
+    pub fn type_name(&self) -> &'static str {
+        self.type_name
     }
 }
 
@@ -553,44 +550,8 @@ fn align(x: usize, alignment: usize) -> usize {
 
 /// A hasher optimized for hashing a single TypeId.
 ///
-/// TypeId is already thoroughly hashed, so there's no reason to hash it again.
-/// Just leave the bits unchanged.
-#[derive(Default)]
-pub(crate) struct TypeIdHasher {
-    hash: u64,
-}
-
-impl Hasher for TypeIdHasher {
-    fn write_u64(&mut self, n: u64) {
-        // Only a single value can be hashed, so the old hash should be zero.
-        debug_assert_eq!(self.hash, 0);
-        self.hash = n;
-    }
-
-    // Tolerate TypeId being either u64 or u128.
-    fn write_u128(&mut self, n: u128) {
-        debug_assert_eq!(self.hash, 0);
-        self.hash = n as u64;
-    }
-
-    fn write(&mut self, bytes: &[u8]) {
-        debug_assert_eq!(self.hash, 0);
-
-        // This will only be called if TypeId is neither u64 nor u128, which is not anticipated.
-        // In that case we'll just fall back to using a different hash implementation.
-        let mut hasher = AHasher::default();
-        hasher.write(bytes);
-        self.hash = hasher.finish();
-    }
-
-    fn finish(&self) -> u64 {
-        self.hash
-    }
-}
-
-/// A HashMap with TypeId keys
-///
-/// Because TypeId is already a fully-hashed u64 (including data in the high seven bits,
-/// which hashbrown needs), there is no need to hash it again. Instead, this uses the much
-/// faster no-op hash.
-pub(crate) type TypeIdMap<V> = HashMap<TypeId, V, BuildHasherDefault<TypeIdHasher>>;
+/// We don't use RandomState from std or Random state from Ahash
+/// because fxhash is [proved to be faster](https://github.com/bevyengine/bevy/pull/1119#issuecomment-751361215)
+/// and we don't need Hash Dos attack protection here
+/// since TypeIds generated during compilation and there is no reason to user attack himself.
+pub(crate) type TypeIdMap<V> = HashMap<TypeId, V, fxhash::FxBuildHasher>;

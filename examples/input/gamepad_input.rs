@@ -8,19 +8,21 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .init_resource::<GamepadLobby>()
-        .add_system_to_stage(stage::PRE_UPDATE, connection_system)
-        .add_system(gamepad_system)
+        .add_system_to_stage(stage::PRE_UPDATE, connection_system.system())
+        .add_system(gamepad_system.system())
         .run();
 }
 
 #[derive(Default)]
 struct GamepadLobby {
     gamepads: HashSet<Gamepad>,
-    gamepad_event_reader: EventReader<GamepadEvent>,
 }
 
-fn connection_system(mut lobby: ResMut<GamepadLobby>, gamepad_event: Res<Events<GamepadEvent>>) {
-    for event in lobby.gamepad_event_reader.iter(&gamepad_event) {
+fn connection_system(
+    mut lobby: ResMut<GamepadLobby>,
+    mut gamepad_event: EventReader<GamepadEvent>,
+) {
+    for event in gamepad_event.iter() {
         match &event {
             GamepadEvent(gamepad, GamepadEventType::Connected) => {
                 lobby.gamepads.insert(*gamepad);

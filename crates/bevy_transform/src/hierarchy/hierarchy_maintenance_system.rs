@@ -71,18 +71,19 @@ pub fn parent_update_system(
 mod test {
     use super::*;
     use crate::{hierarchy::BuildChildren, transform_propagate_system::transform_propagate_system};
-    use bevy_ecs::{Resources, Schedule, World};
-    use bevy_math::Vec3;
+    use bevy_ecs::{IntoSystem, Resources, Schedule, SystemStage, World};
 
     #[test]
     fn correct_children() {
         let mut world = World::default();
         let mut resources = Resources::default();
 
+        let mut update_stage = SystemStage::parallel();
+        update_stage.add_system(parent_update_system.system());
+        update_stage.add_system(transform_propagate_system.system());
+
         let mut schedule = Schedule::default();
-        schedule.add_stage("update");
-        schedule.add_system_to_stage("update", parent_update_system);
-        schedule.add_system_to_stage("update", transform_propagate_system);
+        schedule.add_stage("update", update_stage);
 
         // Add parent entities
         let mut commands = Commands::default();
@@ -90,19 +91,18 @@ mod test {
         let mut parent = None;
         let mut children = Vec::new();
         commands
-            .spawn((Transform::from_translation(Vec3::new(1.0, 0.0, 0.0)),))
+            .spawn((Transform::from_xyz(1.0, 0.0, 0.0),))
             .for_current_entity(|entity| parent = Some(entity))
             .with_children(|parent| {
                 parent
-                    .spawn((Transform::from_translation(Vec3::new(0.0, 2.0, 0.0)),))
+                    .spawn((Transform::from_xyz(0.0, 2.0, 0.0),))
                     .for_current_entity(|entity| children.push(entity))
-                    .spawn((Transform::from_translation(Vec3::new(0.0, 0.0, 3.0)),))
+                    .spawn((Transform::from_xyz(0.0, 0.0, 3.0),))
                     .for_current_entity(|entity| children.push(entity));
             });
         let parent = parent.unwrap();
         commands.apply(&mut world, &mut resources);
-        schedule.initialize(&mut world, &mut resources);
-        schedule.run(&mut world, &mut resources);
+        schedule.initialize_and_run(&mut world, &mut resources);
 
         assert_eq!(
             world
@@ -118,7 +118,7 @@ mod test {
         // Parent `e1` to `e2`.
         (*world.get_mut::<Parent>(children[0]).unwrap()).0 = children[1];
 
-        schedule.run(&mut world, &mut resources);
+        schedule.initialize_and_run(&mut world, &mut resources);
 
         assert_eq!(
             world
@@ -142,7 +142,7 @@ mod test {
 
         world.despawn(children[0]).unwrap();
 
-        schedule.run(&mut world, &mut resources);
+        schedule.initialize_and_run(&mut world, &mut resources);
 
         assert_eq!(
             world
