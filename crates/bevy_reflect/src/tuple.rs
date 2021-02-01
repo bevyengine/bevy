@@ -65,16 +65,40 @@ impl GetTupleField for dyn Tuple {
 
 #[derive(Default)]
 pub struct DynamicTuple {
-    pub(crate) fields: Vec<Box<dyn Reflect>>,
+    name: String,
+    fields: Vec<Box<dyn Reflect>>,
 }
 
 impl DynamicTuple {
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn set_name(&mut self, name: String) {
+        self.name = name;
+    }
+
     pub fn insert_boxed(&mut self, value: Box<dyn Reflect>) {
         self.fields.push(value);
+        self.generate_name();
     }
 
     pub fn insert<T: Reflect>(&mut self, value: T) {
         self.insert_boxed(Box::new(value));
+        self.generate_name();
+    }
+
+    fn generate_name(&mut self) {
+        let name = &mut self.name;
+        name.clear();
+        name.push('(');
+        for (i, field) in self.fields.iter().enumerate() {
+            if i > 0 {
+                name.push_str(", ");
+            }
+            name.push_str(field.type_name());
+        }
+        name.push(')');
     }
 }
 
@@ -105,6 +129,7 @@ impl Tuple for DynamicTuple {
     #[inline]
     fn clone_dynamic(&self) -> DynamicTuple {
         DynamicTuple {
+            name: self.name.clone(),
             fields: self
                 .fields
                 .iter()
@@ -117,7 +142,7 @@ impl Tuple for DynamicTuple {
 impl Reflect for DynamicTuple {
     #[inline]
     fn type_name(&self) -> &str {
-        std::any::type_name::<Self>()
+        self.name()
     }
 
     #[inline]
@@ -237,12 +262,15 @@ macro_rules! impl_reflect_tuple {
 
             #[inline]
             fn clone_dynamic(&self) -> DynamicTuple {
-                DynamicTuple {
+                let mut dyn_tuple = DynamicTuple {
+                    name: String::default(),
                     fields: self
                         .iter_fields()
                         .map(|value| value.clone_value())
                         .collect(),
-                }
+                };
+                dyn_tuple.generate_name();
+                dyn_tuple
             }
         }
 

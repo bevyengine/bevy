@@ -143,6 +143,7 @@ impl<K: Reflect + Clone + Eq + Hash, V: Reflect + Clone> Map for HashMap<K, V> {
 
     fn clone_dynamic(&self) -> DynamicMap {
         let mut dynamic_map = DynamicMap::default();
+        dynamic_map.set_name(self.type_name().to_string());
         for (k, v) in HashMap::iter(self) {
             dynamic_map.insert_boxed(k.clone_value(), v.clone_value());
         }
