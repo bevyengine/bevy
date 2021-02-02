@@ -131,15 +131,8 @@ impl Texture {
     /// - `TextureFormat::Rg8Unorm`
     /// - `TextureFormat::Rgba8UnormSrgb`
     /// - `TextureFormat::Bgra8UnormSrgb`
-    #[cfg(any(
-        feature = "png",
-        feature = "dds",
-        feature = "tga",
-        feature = "jpeg",
-        feature = "bmp"
-    ))]
     pub fn convert(&self, new_format: TextureFormat) -> Option<Self> {
-        super::texture_to_image(self)
+        super::image_texture_conversion::texture_to_image(self)
             .and_then(|img| match new_format {
                 TextureFormat::R8Unorm => Some(image::DynamicImage::ImageLuma8(img.into_luma8())),
                 TextureFormat::Rg8Unorm => {
@@ -153,7 +146,7 @@ impl Texture {
                 }
                 _ => None,
             })
-            .map(super::image_to_texture)
+            .map(super::image_texture_conversion::image_to_texture)
     }
 
     pub fn texture_resource_system(
