@@ -27,7 +27,7 @@ pub trait IntoSystem<Params> {
 
 impl<F, P: SystemParam, Out> IntoSystem<(P,)> for F
 where
-    F: FnMut(P) -> Out,
+    F: FnMut(P) -> Out + FnMut(<<P as SystemParam>::State as ParamState>::Item) -> Out,
 {
     type SystemConfig = FuncSystemPrepare<F, (P,)>;
 
@@ -46,8 +46,10 @@ where
     }
 }
 
-pub trait AsSystem<In, Out> {
-    type System: System<In = In, Out = Out>;
+pub trait AsSystem {
+    type In;
+    type Out;
+    type System: System<In = Self::In, Out = Self::Out>;
     fn as_system(self, resources: &mut Resources) -> Self::System;
 }
 
@@ -56,23 +58,22 @@ pub struct FuncSystem<F, Params: ParamList> {
     function: F,
 }
 
-impl<P: SystemParam + 'static, F: Send + Sync + 'static, Out> AsSystem<(), Out>
-    for FuncSystemPrepare<F, (P,)>
+impl<P: SystemParam, F, Out: 'static> AsSystem for FuncSystemPrepare<F, (P,)>
 where
-    F: FnMut(P) -> Out,
-    for<'a> F: FnMut(<P::State as ParamState>::Item) -> Out,
+    FuncSystem<F, (P,)>: System<In = (), Out = Out>,
 {
     type System = FuncSystem<F, (P,)>;
+    type In = ();
+    type Out = Out;
 
     fn as_system(self, resources: &mut Resources) -> Self::System {
         todo!()
     }
 }
 
-impl<F, P: SystemParam + 'static, Out> System for FuncSystem<F, (P,)>
+impl<F, P: SystemParam + 'static, Out: 'static> System for FuncSystem<F, (P,)>
 where
-    F: FnMut(P) -> Out + Send + Sync + 'static,
-    for<'a> F: FnMut(<P::State as ParamState<'a>>::Item) -> Out,
+    F: Send + Sync + 'static + FnMut(<<P as SystemParam>::State as ParamState>::Item) -> Out,
 {
     type In = ();
     type Out = Out;
@@ -125,10 +126,10 @@ fn test_system(local: &mut Local<u32>) {
 }
 
 fn test_it() {
-    test_accept(test_system.system());
+    test_accept(test_system.system().configure(|it| it.0 = Some(32)));
 }
 
-fn test_accept<C: AsSystem<(), ()>>(it: C) -> SystemId {
+fn test_accept<C: AsSystem<In = (), Out = ()>>(it: C) -> SystemId {
     let mut res = Resources::default();
     let sys = it.as_system(&mut res);
     sys.id()
