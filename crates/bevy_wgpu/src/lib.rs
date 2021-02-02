@@ -77,7 +77,6 @@ impl Plugin for WgpuPlugin {
     }
 }
 pub fn get_wgpu_render_system(resources: &mut Resources) -> impl FnMut(&mut World, &mut Resources) {
-    let mut wgpu_renderer = future::block_on(WgpuRenderer::new());
 
     let mut wgpu_features = wgpu::Features::empty();
     if let Some(device_features_res) = resources.get::<WgpuDeviceFeatures>() {
