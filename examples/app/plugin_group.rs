@@ -13,6 +13,14 @@ fn main() {
         //         .disable::<PrintWorldPlugin>()
         //         .add_before::<PrintHelloPlugin, _>(bevy::diagnostic::LogDiagnosticsPlugin::default())
         // })
+        // Modifications can also include replacing the default configuration of a specific plugin:
+        // .add_plugins_with(DefaultPlugins, |group| {
+        //     group
+        //         .reconfigure(bevy::window::WindowPlugin {
+        //             exit_on_close: false,
+        //             ..Default::default()
+        //         })
+        // })
         .run();
 }
 
