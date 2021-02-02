@@ -78,6 +78,18 @@ impl PluginGroupBuilder {
         self
     }
 
+    pub fn reconfigure<T: Plugin>(&mut self, plugin: T) -> &mut Self {
+        self.plugins.remove(&TypeId::of::<T>());
+        self.plugins.insert(
+            TypeId::of::<T>(),
+            PluginEntry {
+                plugin: Box::new(plugin),
+                enabled: true,
+            },
+        );
+        self
+    }
+
     pub fn enable<T: Plugin>(&mut self) -> &mut Self {
         let mut plugin_entry = self
             .plugins
