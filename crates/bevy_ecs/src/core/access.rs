@@ -69,6 +69,25 @@ impl QueryAccess {
         QueryAccess::Union(accesses)
     }
 
+    /// Get the maximum access possible for all archetypes.
+    pub(crate) fn get_total_access(&self, components: &mut TypeAccess<ArchetypeComponent>) {
+        match self {
+            QueryAccess::None => {}
+            QueryAccess::Read(ty, _) => components.add_read(ArchetypeComponent::new_ty(0, *ty)),
+            QueryAccess::Write(ty, _) => {
+                components.add_write(ArchetypeComponent::new_ty(0, *ty));
+            }
+            QueryAccess::Optional(query_access) => query_access.get_total_access(components),
+            QueryAccess::With(_, query_access) => query_access.get_total_access(components),
+            QueryAccess::Without(_, query_access) => query_access.get_total_access(components),
+            QueryAccess::Union(query_accesses) => {
+                for query_access in query_accesses {
+                    query_access.get_total_access(components);
+                }
+            }
+        }
+    }
+
     pub fn get_world_archetype_access(
         &self,
         world: &World,
@@ -121,10 +140,24 @@ impl QueryAccess {
         archetype_index: u32,
         type_access: Option<&mut TypeAccess<ArchetypeComponent>>,
     ) -> Option<Access> {
+        self.get_access_filter(&|ty| archetype.has_type(ty), archetype_index, type_access)
+    }
+
+    /// Same as `get_access`, but uses `filter` to determine if a type is part of the given
+    /// archetype.
+    pub(crate) fn get_access_filter<F>(
+        &self,
+        filter: &F,
+        archetype_index: u32,
+        type_access: Option<&mut TypeAccess<ArchetypeComponent>>,
+    ) -> Option<Access>
+    where
+        F: Fn(TypeId) -> bool,
+    {
         match self {
             QueryAccess::None => Some(Access::None),
             QueryAccess::Read(ty, _) => {
-                if archetype.has_type(*ty) {
+                if filter(*ty) {
                     if let Some(type_access) = type_access {
                         type_access.add_read(ArchetypeComponent::new_ty(archetype_index, *ty));
                     }
@@ -134,7 +167,7 @@ impl QueryAccess {
                 }
             }
             QueryAccess::Write(ty, _) => {
-                if archetype.has_type(*ty) {
+                if filter(*ty) {
                     if let Some(type_access) = type_access {
                         type_access.add_write(ArchetypeComponent::new_ty(archetype_index, *ty));
                     }
@@ -144,10 +177,11 @@ impl QueryAccess {
                 }
             }
             QueryAccess::Optional(query_access) => {
-                if let Some(access) = query_access.get_access(archetype, archetype_index, None) {
+                if let Some(access) = query_access.get_access_filter(filter, archetype_index, None)
+                {
                     // only re-run get_archetype_access if we need to set type_access
                     if type_access.is_some() {
-                        query_access.get_access(archetype, archetype_index, type_access)
+                        query_access.get_access_filter(filter, archetype_index, type_access)
                     } else {
                         Some(access)
                     }
@@ -156,15 +190,15 @@ impl QueryAccess {
                 }
             }
             QueryAccess::With(ty, query_access) => {
-                if archetype.has_type(*ty) {
-                    query_access.get_access(archetype, archetype_index, type_access)
+                if filter(*ty) {
+                    query_access.get_access_filter(filter, archetype_index, type_access)
                 } else {
                     None
                 }
             }
             QueryAccess::Without(ty, query_access) => {
-                if !archetype.has_type(*ty) {
-                    query_access.get_access(archetype, archetype_index, type_access)
+                if !filter(*ty) {
+                    query_access.get_access_filter(filter, archetype_index, type_access)
                 } else {
                     None
                 }
@@ -172,7 +206,8 @@ impl QueryAccess {
             QueryAccess::Union(query_accesses) => {
                 let mut result = None;
                 for query_access in query_accesses {
-                    if let Some(access) = query_access.get_access(archetype, archetype_index, None)
+                    if let Some(access) =
+                        query_access.get_access_filter(filter, archetype_index, None)
                     {
                         result = Some(result.unwrap_or(Access::Read).max(access));
                     } else {
@@ -184,7 +219,11 @@ impl QueryAccess {
                 if let Some(type_access) = type_access {
                     if result.is_some() {
                         for query_access in query_accesses {
-                            query_access.get_access(archetype, archetype_index, Some(type_access));
+                            query_access.get_access_filter(
+                                filter,
+                                archetype_index,
+                                Some(type_access),
+                            );
                         }
                     }
                 }
@@ -277,6 +316,10 @@ impl<T: Hash + Eq + PartialEq + Copy> TypeAccess<T> {
     pub fn iter_writes(&self) -> impl Iterator<Item = &T> {
         self.writes.iter()
     }
+
+    pub fn iter_reads_and_writes(&self) -> impl Iterator<Item = &T> {
+        self.reads_and_writes.iter()
+    }
 }
 
 #[cfg(test)]
@@ -360,6 +403,59 @@ mod tests {
         assert_eq!(
             a_with_b_option_c_type_access,
             TypeAccess::new(vec![e2_a, e3_a], vec![e3_c])
+        );
+
+        let e0_a = ArchetypeComponent::new::<A>(0);
+        let e0_b = ArchetypeComponent::new::<B>(0);
+        let e0_c = ArchetypeComponent::new::<C>(0);
+
+        let mut a_type_total_access = TypeAccess::default();
+        <(&A,) as WorldQuery>::Fetch::access().get_total_access(&mut a_type_total_access);
+
+        assert_eq!(a_type_total_access, TypeAccess::new(vec![e0_a], vec![]));
+
+        let mut a_b_type_total_access = TypeAccess::default();
+        <(&A, &B) as WorldQuery>::Fetch::access().get_total_access(&mut a_b_type_total_access);
+
+        assert_eq!(
+            a_b_type_total_access,
+            TypeAccess::new(vec![e0_a, e0_b], vec![])
+        );
+
+        let mut a_bmut_type_total_access = TypeAccess::default();
+        <(&A, &mut B) as WorldQuery>::Fetch::access()
+            .get_total_access(&mut a_bmut_type_total_access);
+
+        assert_eq!(
+            a_bmut_type_total_access,
+            TypeAccess::new(vec![e0_a], vec![e0_b])
+        );
+
+        let mut a_option_bmut_type_total_access = TypeAccess::default();
+        <(Entity, &A, Option<&mut B>) as WorldQuery>::Fetch::access()
+            .get_total_access(&mut a_option_bmut_type_total_access);
+
+        assert_eq!(
+            a_option_bmut_type_total_access,
+            TypeAccess::new(vec![e0_a], vec![e0_b])
+        );
+
+        let mut a_with_b_type_total_access = TypeAccess::default();
+        QueryAccess::with::<B>(<&A as WorldQuery>::Fetch::access())
+            .get_total_access(&mut a_with_b_type_total_access);
+
+        assert_eq!(
+            a_with_b_type_total_access,
+            TypeAccess::new(vec![e0_a], vec![])
+        );
+
+        let mut a_with_b_option_c_type_total_access = TypeAccess::default();
+        QueryAccess::with::<B>(<(&A, Option<&mut C>) as WorldQuery>::Fetch::access())
+            .get_total_access(&mut a_with_b_option_c_type_total_access);
+
+        assert_eq!(
+            a_with_b_option_c_type_total_access,
+            TypeAccess::new(vec![e0_a], vec![e0_c])
         );
     }
 }

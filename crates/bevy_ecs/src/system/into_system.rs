@@ -31,10 +31,18 @@ impl SystemState {
         }
     }
 
-    pub fn update(&mut self, world: &World) {
+    /// Method extracted to reuse code.
+    /// `get_access` should either be `query_access.get_total_access` or
+    /// `query_accesses.get_world_archetype_access`
+    ///
+    /// Returns tuples with conflicting indices and the name of the conflicting type for each
+    /// conflict.
+    fn check_access<F>(&mut self, get_access: F) -> Vec<(usize, usize, Option<&'static str>)>
+    where
+        F: Fn(&QueryAccess, &mut TypeAccess<ArchetypeComponent>),
+    {
         self.archetype_component_access.clear();
-        let mut conflict_index = None;
-        let mut conflict_name = None;
+        let mut conflict_indices = Vec::new();
         for (i, (query_accesses, component_access)) in self
             .query_accesses
             .iter()
@@ -43,11 +51,10 @@ impl SystemState {
         {
             component_access.clear();
             for query_access in query_accesses.iter() {
-                query_access.get_world_archetype_access(world, Some(component_access));
+                get_access(query_access, component_access);
             }
             if !component_access.is_compatible(&self.archetype_component_access) {
-                conflict_index = Some(i);
-                conflict_name = component_access
+                let conflict_name = component_access
                     .get_conflict(&self.archetype_component_access)
                     .and_then(|archetype_component| {
                         query_accesses
@@ -57,25 +64,131 @@ impl SystemState {
                             })
                             .next()
                     });
-                break;
+                conflict_indices.push((i, conflict_name));
             }
             self.archetype_component_access.union(component_access);
         }
-        if let Some(conflict_index) = conflict_index {
-            let mut conflicts_with_index = None;
-            for prior_index in 0..conflict_index {
-                if !self.query_archetype_component_accesses[conflict_index]
-                    .is_compatible(&self.query_archetype_component_accesses[prior_index])
-                {
-                    conflicts_with_index = Some(prior_index);
+        conflict_indices
+            .into_iter()
+            .map(|(conflict_index, conflict_name)| {
+                let mut conflicts_with_index = None;
+                for prior_index in 0..conflict_index {
+                    if !self.query_archetype_component_accesses[conflict_index]
+                        .is_compatible(&self.query_archetype_component_accesses[prior_index])
+                    {
+                        conflicts_with_index = Some(prior_index);
+                    }
                 }
-            }
-            panic!("System {} has conflicting queries. {} conflicts with the component access [{}] in this prior query: {}.",
+                (
+                    conflict_index,
+                    conflicts_with_index.expect("Access is not sum of accesses"),
+                    conflict_name,
+                )
+            })
+            .collect()
+    }
+
+    pub fn initialize(&mut self) {
+        // Only check access exactly, if total access overlaps.
+        // `check_access_recursive` is very expensive for queries that contain many types.
+        let conflicts = self.check_access(|query_access, component_access| {
+            query_access.get_total_access(component_access)
+        });
+        for (conflict_index, conflicts_with_index, _) in conflicts {
+            let mut components = self.query_archetype_component_accesses[conflict_index].clone();
+            components.union(&self.query_archetype_component_accesses[conflicts_with_index]);
+            let components = components
+                .iter_reads_and_writes()
+                .copied()
+                .collect::<Vec<_>>();
+            if let Err(conflict_name) = self.check_access_recursive(
+                conflict_index,
+                conflicts_with_index,
+                &components,
+                0,
+                &mut Vec::with_capacity(components.len()),
+            ) {
+                panic!("System {} has conflicting queries. {} conflicts with the component access [{}] in this prior query: {}.",
                 self.name,
                 self.query_type_names[conflict_index],
                 conflict_name.unwrap_or("Unknown"),
-                conflicts_with_index.map(|index| self.query_type_names[index]).unwrap_or("Unknown"));
+                self.query_type_names[conflicts_with_index])
+            }
         }
+    }
+
+    /// Helper method to check if there is a conflict between the queries with index
+    /// `conflict_index` and `conflicts_with_index` for any combination of components from
+    /// `components`.
+    ///
+    /// If there is a conflict the returned string is the name of the conflicting type.
+    fn check_access_recursive(
+        &self,
+        conflict_index: usize,
+        conflicts_with_index: usize,
+        components: &[ArchetypeComponent],
+        current_index: usize,
+        components_set: &mut Vec<ArchetypeComponent>,
+    ) -> Result<(), Option<&'static str>> {
+        if current_index == components.len() {
+            let mut conflict_access = Default::default();
+            let mut conflicts_with_access = Default::default();
+            for query_access in self.query_accesses[conflict_index].iter() {
+                query_access.get_access_filter(
+                    &|ty| components_set.contains(&ArchetypeComponent::new_ty(0, ty)),
+                    0,
+                    Some(&mut conflict_access),
+                );
+            }
+            for query_access in self.query_accesses[conflicts_with_index].iter() {
+                query_access.get_access_filter(
+                    &|ty| components_set.contains(&ArchetypeComponent::new_ty(0, ty)),
+                    0,
+                    Some(&mut conflicts_with_access),
+                );
+            }
+            if !conflict_access.is_compatible(&conflicts_with_access) {
+                let conflict_name = conflict_access
+                    .get_conflict(&conflicts_with_access)
+                    .and_then(|archetype_component| {
+                        self.query_accesses[conflict_index]
+                            .iter()
+                            .filter_map(|query_access| {
+                                query_access.get_type_name(archetype_component.component)
+                            })
+                            .next()
+                    });
+                Err(conflict_name)
+            } else {
+                Ok(())
+            }
+        } else {
+            self.check_access_recursive(
+                conflict_index,
+                conflicts_with_index,
+                components,
+                current_index + 1,
+                components_set,
+            )?;
+            components_set.push(components[current_index]);
+            self.check_access_recursive(
+                conflict_index,
+                conflicts_with_index,
+                components,
+                current_index + 1,
+                components_set,
+            )?;
+            components_set.pop();
+            Ok(())
+        }
+    }
+
+    pub fn update(&mut self, world: &World) {
+        // update self.archetype_component_access
+        // any conflicts would have been caught earlier
+        let _conflicts = self.check_access(|query_access, component_access| {
+            query_access.get_world_archetype_access(world, Some(component_access))
+        });
     }
 }
 
@@ -131,6 +244,7 @@ impl<Out: 'static> System for FuncSystem<Out> {
 
     fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
         (self.init_func)(&mut self.state, world, resources);
+        self.state.initialize();
     }
 }
 
@@ -336,7 +450,7 @@ mod tests {
         clear_trackers_system,
         resource::{Res, ResMut, Resources},
         schedule::Schedule,
-        ChangedRes, Entity, Local, Or, Query, QuerySet, System, SystemStage, With, World,
+        ChangedRes, Entity, Local, Or, Query, QuerySet, System, SystemStage, With, Without, World,
     };
 
     #[derive(Debug, Eq, PartialEq, Default)]
@@ -534,6 +648,27 @@ mod tests {
         let mut world = World::default();
         let mut resources = Resources::default();
         world.spawn((A,));
+
+        run_system(&mut world, &mut resources, sys.system());
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflicting_query_immut_system_no_archetype() {
+        fn sys(_q1: Query<&A>, _q2: Query<&mut A>) {}
+
+        let mut world = World::default();
+        let mut resources = Resources::default();
+
+        run_system(&mut world, &mut resources, sys.system());
+    }
+
+    #[test]
+    fn nonconflicting_query_immut_system_no_archetype() {
+        fn sys(_q1: Query<&A, With<B>>, _q2: Query<&mut A, Without<B>>) {}
+
+        let mut world = World::default();
+        let mut resources = Resources::default();
 
         run_system(&mut world, &mut resources, sys.system());
     }
