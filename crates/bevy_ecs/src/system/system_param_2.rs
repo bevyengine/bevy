@@ -4,7 +4,7 @@ use crate::{FromResources, Resources, SystemState, World};
 
 /// System parameters which can be in exclusive systems (i.e. those which have `&mut World`, `&mut Resources` arguments)
 /// This allows these systems to use local state
-pub trait PureSystemParam: Sized {
+pub trait PureSystemParam: Sized + Send + Sync + 'static {
     type Config: Default;
     fn create_state_pure(config: Self::Config, resources: &mut Resources) -> Self::State;
 
@@ -13,7 +13,7 @@ pub trait PureSystemParam: Sized {
     // type Item = <Self::State as PurePureSystemState<'static>>::Item;
 }
 
-pub trait PureParamState<'a> {
+pub trait PureParamState<'a>: Sized + Send + Sync + 'static {
     type Item;
     fn view_param(&'a mut self) -> Self::Item;
 }
@@ -35,7 +35,7 @@ impl<T> DerefMut for Local<T> {
 }
 
 // TODO: Equivalent impl for &Local<T> - would need type
-impl<T: FromResources + 'static> PureSystemParam for &mut Local<T> {
+impl<T: FromResources + 'static + Send + Sync> PureSystemParam for &'static mut Local<T> {
     type Config = Option<T>;
     type State = Local<T>;
 
@@ -44,7 +44,7 @@ impl<T: FromResources + 'static> PureSystemParam for &mut Local<T> {
     }
 }
 
-impl<'a, T: 'static> PureParamState<'a> for Local<T> {
+impl<'a, T: Send + Sync + 'static> PureParamState<'a> for Local<T> {
     type Item = &'a mut Local<T>;
 
     fn view_param(&'a mut self) -> Self::Item {
@@ -58,7 +58,7 @@ pub trait SystemParam: Sized {
     fn create_state(config: Self::Config, resources: &mut Resources) -> Self::State;
 }
 
-pub trait ParamState<'a> {
+pub trait ParamState<'a>: Send + Sync + 'static {
     type Item;
 
     unsafe fn get_param(

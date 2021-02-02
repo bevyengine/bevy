@@ -1,0 +1,135 @@
+use crate::{Resources, System, SystemId};
+
+use super::system_param_2::{Local, ParamState, SystemParam};
+
+pub struct FuncSystemPrepare<Func, Params: ParamList> {
+    function: Func,
+    config: Params::Config,
+}
+pub trait ParamList {
+    type Config;
+    type State: Send + Sync;
+    fn default_config() -> Self::Config;
+}
+
+impl<P: SystemParam> ParamList for (P,) {
+    type Config = (P::Config,);
+    type State = (P::State,);
+    fn default_config() -> Self::Config {
+        (P::Config::default(),)
+    }
+}
+
+pub trait IntoSystem<Params> {
+    type SystemConfig;
+    fn system(self) -> Self::SystemConfig;
+}
+
+impl<F, P: SystemParam, Out> IntoSystem<(P,)> for F
+where
+    F: FnMut(P) -> Out,
+{
+    type SystemConfig = FuncSystemPrepare<F, (P,)>;
+
+    fn system(self) -> Self::SystemConfig {
+        todo!()
+    }
+}
+
+impl<F, P: SystemParam, Out> FuncSystemPrepare<F, (P,)>
+where
+    F: FnMut(P) -> Out,
+{
+    pub fn configure(mut self, f: impl FnOnce(&mut <(P,) as ParamList>::Config)) -> Self {
+        f(&mut self.config);
+        self
+    }
+}
+
+pub trait AsSystem<In, Out> {
+    type System: System<In = In, Out = Out>;
+    fn as_system(self, resources: &mut Resources) -> Self::System;
+}
+
+pub struct FuncSystem<F, Params: ParamList> {
+    state: Params::State,
+    function: F,
+}
+
+impl<P: SystemParam + 'static, F: Send + Sync + 'static, Out> AsSystem<(), Out>
+    for FuncSystemPrepare<F, (P,)>
+where
+    F: FnMut(P) -> Out,
+    for<'a> F: FnMut(<P::State as ParamState>::Item) -> Out,
+{
+    type System = FuncSystem<F, (P,)>;
+
+    fn as_system(self, resources: &mut Resources) -> Self::System {
+        todo!()
+    }
+}
+
+impl<F, P: SystemParam + 'static, Out> System for FuncSystem<F, (P,)>
+where
+    F: FnMut(P) -> Out + Send + Sync + 'static,
+    for<'a> F: FnMut(<P::State as ParamState<'a>>::Item) -> Out,
+{
+    type In = ();
+    type Out = Out;
+
+    fn name(&self) -> std::borrow::Cow<'static, str> {
+        todo!()
+    }
+
+    fn id(&self) -> SystemId {
+        todo!()
+    }
+
+    fn update(&mut self, world: &crate::World) {
+        todo!()
+    }
+
+    fn archetype_component_access(&self) -> &crate::TypeAccess<crate::ArchetypeComponent> {
+        todo!()
+    }
+
+    fn resource_access(&self) -> &crate::TypeAccess<std::any::TypeId> {
+        todo!()
+    }
+
+    fn thread_local_execution(&self) -> crate::ThreadLocalExecution {
+        todo!()
+    }
+
+    unsafe fn run_unsafe(
+        &mut self,
+        input: Self::In,
+        world: &crate::World,
+        resources: &Resources,
+    ) -> Option<Self::Out> {
+        todo!()
+    }
+
+    fn run_thread_local(&mut self, world: &mut crate::World, resources: &mut Resources) {
+        todo!()
+    }
+
+    fn initialize(&mut self, _world: &mut crate::World, _resources: &mut Resources) {
+        todo!()
+    }
+    //
+}
+
+fn test_system(local: &mut Local<u32>) {
+    **local = 15;
+}
+
+fn test_it() {
+    test_accept(test_system.system());
+}
+
+fn test_accept<C: AsSystem<(), ()>>(it: C) -> SystemId {
+    let mut res = Resources::default();
+    let sys = it.as_system(&mut res);
+    sys.id()
+}
