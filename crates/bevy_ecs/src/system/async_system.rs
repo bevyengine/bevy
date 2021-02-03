@@ -68,6 +68,7 @@ impl<P: SystemParam> Accessor<P> {
         let (tx, rx) = async_channel::bounded(1);
         self.channel
             .send(Box::new(move |state, world, resources| {
+                // Safe: the sent closure is executed inside run_unsafe, which provides the correct guarantees.
                 match unsafe { P::Fetch::get_param(state, world, resources) } {
                     Some(params) => tx.try_send(sync(params)).unwrap(),
                     None => (),
