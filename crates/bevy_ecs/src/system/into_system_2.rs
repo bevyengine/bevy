@@ -1,4 +1,4 @@
-use crate::{Resources, System, SystemId};
+use crate::{BoxedSystem, Resources, System, SystemId, SystemState, TypeAccess};
 
 use super::system_param_2::{Local, ParamState, SystemParam};
 
@@ -9,15 +9,11 @@ pub struct FuncSystemPrepare<Func, Params: ParamList> {
 pub trait ParamList {
     type Config;
     type State: Send + Sync;
-    fn default_config() -> Self::Config;
 }
 
 impl<P: SystemParam> ParamList for (P,) {
     type Config = (P::Config,);
     type State = (P::State,);
-    fn default_config() -> Self::Config {
-        (P::Config::default(),)
-    }
 }
 
 pub trait IntoSystem<Params> {
@@ -32,7 +28,10 @@ where
     type SystemConfig = FuncSystemPrepare<F, (P,)>;
 
     fn system(self) -> Self::SystemConfig {
-        todo!()
+        FuncSystemPrepare {
+            function: self,
+            config: (P::Config::default(),),
+        }
     }
 }
 
@@ -54,8 +53,9 @@ pub trait AsSystem {
 }
 
 pub struct FuncSystem<F, Params: ParamList> {
-    state: Params::State,
+    param_state: Params::State,
     function: F,
+    sys_state: SystemState,
 }
 
 impl<P: SystemParam, F, Out: 'static> AsSystem for FuncSystemPrepare<F, (P,)>
@@ -67,10 +67,30 @@ where
     type Out = Out;
 
     fn as_system(self, resources: &mut Resources) -> Self::System {
-        todo!()
+        let (p_config,) = self.config;
+        FuncSystem {
+            function: self.function,
+            param_state: (P::create_state(p_config, resources),),
+            sys_state: SystemState {
+                name: std::any::type_name::<F>().into(),
+                archetype_component_access: TypeAccess::default(),
+                resource_access: TypeAccess::default(),
+                local_resource_access: TypeAccess::default(),
+                id: SystemId::new(),
+                commands: Default::default(),
+                arc_commands: Default::default(),
+                current_query_index: Default::default(),
+                query_archetype_component_accesses: Vec::new(),
+                query_accesses: Vec::new(),
+                query_type_names: Vec::new(),
+            },
+        }
     }
 }
 
+#[allow(unused_variables)]
+#[allow(unused_unsafe)]
+#[allow(non_snake_case)]
 impl<F, P: SystemParam + 'static, Out: 'static> System for FuncSystem<F, (P,)>
 where
     F: Send + Sync + 'static + FnMut(<<P as SystemParam>::State as ParamState>::Item) -> Out,
@@ -79,27 +99,27 @@ where
     type Out = Out;
 
     fn name(&self) -> std::borrow::Cow<'static, str> {
-        todo!()
+        self.sys_state.name.clone()
     }
 
     fn id(&self) -> SystemId {
-        todo!()
+        self.sys_state.id
     }
 
     fn update(&mut self, world: &crate::World) {
-        todo!()
+        self.sys_state.update(world)
     }
 
     fn archetype_component_access(&self) -> &crate::TypeAccess<crate::ArchetypeComponent> {
-        todo!()
+        &self.sys_state.archetype_component_access
     }
 
     fn resource_access(&self) -> &crate::TypeAccess<std::any::TypeId> {
-        todo!()
+        &self.sys_state.resource_access
     }
 
     fn thread_local_execution(&self) -> crate::ThreadLocalExecution {
-        todo!()
+        crate::ThreadLocalExecution::NextFlush
     }
 
     unsafe fn run_unsafe(
@@ -108,15 +128,23 @@ where
         world: &crate::World,
         resources: &Resources,
     ) -> Option<Self::Out> {
-        todo!()
+        let (P,) = &mut self.param_state;
+        Some((self.function)(P.get_param(
+            &self.sys_state,
+            world,
+            resources,
+        )))
     }
 
     fn run_thread_local(&mut self, world: &mut crate::World, resources: &mut Resources) {
-        todo!()
+        let (P,) = &mut self.param_state;
+        P.run_sync(world, resources)
     }
 
-    fn initialize(&mut self, _world: &mut crate::World, _resources: &mut Resources) {
-        todo!()
+    fn initialize(&mut self, world: &mut crate::World, resources: &mut Resources) {
+        // This code can be easily macro generated
+        let (P,) = &mut self.param_state;
+        P.init(&mut self.sys_state, world, resources)
     }
     //
 }
@@ -129,8 +157,12 @@ fn test_it() {
     test_accept(test_system.system().configure(|it| it.0 = Some(32)));
 }
 
-fn test_accept<C: AsSystem<In = (), Out = ()>>(it: C) -> SystemId {
+fn test_accept<C: AsSystem<In = (), Out = ()>>(it: C) {
     let mut res = Resources::default();
-    let sys = it.as_system(&mut res);
-    sys.id()
+    let sys = Box::new(it.as_system(&mut res));
+    test_accept_boxed(sys);
+}
+
+fn test_accept_boxed(it: BoxedSystem) {
+    it.id();
 }
