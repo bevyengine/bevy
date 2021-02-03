@@ -1,3 +1,4 @@
+mod async_system;
 mod commands;
 mod into_system;
 mod into_thread_local;
@@ -7,6 +8,7 @@ mod system;
 mod system_chaining;
 mod system_param;
 
+pub use async_system::*;
 pub use commands::*;
 pub use into_system::*;
 pub use into_thread_local::*;

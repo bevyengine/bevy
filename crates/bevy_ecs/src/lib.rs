@@ -17,6 +17,6 @@ pub mod prelude {
         schedule::{Schedule, State, StateStage, SystemStage},
         system::{Commands, IntoSystem, Query, System},
         Added, Bundle, Changed, Component, Entity, Flags, In, IntoChainSystem, Mut, Mutated, Or,
-        QuerySet, Ref, RefMut, With, Without, World,
+        QuerySet, Ref, RefMut, With, Without, World, AsyncSystem, Accessor
     };
 }
