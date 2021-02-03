@@ -206,6 +206,12 @@ impl<'a> ParamState<'a> for Arc<Mutex<Commands>> {
     ) -> Option<Self::Item> {
         Some(self.clone())
     }
+
+    fn run_sync(&mut self, world: &mut World, resources: &mut Resources) {
+        // TODO: try_lock here?
+        // Don't want to block the entire world on a single missing lock release
+        self.lock().apply(world, resources);
+    }
 }
 
 pub struct ResState<T>(PhantomData<T>);
