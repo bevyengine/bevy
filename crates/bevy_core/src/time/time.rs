@@ -89,6 +89,7 @@ pub(crate) fn time_system(mut time: ResMut<Time>) {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)]
 mod tests {
     use super::Time;
     use bevy_utils::{Duration, Instant};

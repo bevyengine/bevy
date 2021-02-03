@@ -36,4 +36,3 @@ bencher = "0.1.5"
 [[bench]]
 name = "bench"
 harness = false
-required-features = ["macros"]

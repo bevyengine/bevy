@@ -17,7 +17,7 @@ impl<'de> Deserialize<'de> for Entity {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(deserializer.deserialize_u32(EntityVisitor)?)
+        deserializer.deserialize_u32(EntityVisitor)
     }
 }
 
