@@ -1,372 +1,213 @@
-use crate::{
-    ArchetypeComponent, ChangedRes, Commands, Fetch, FromResources, Local, Or, Query, QueryAccess,
-    QueryFilter, QuerySet, QueryTuple, Res, ResMut, Resource, ResourceIndex, Resources,
-    SystemState, TypeAccess, World, WorldQuery,
-};
-use parking_lot::Mutex;
-use std::{any::TypeId, marker::PhantomData, sync::Arc};
-pub trait SystemParam: Sized {
-    type Fetch: for<'a> FetchSystemParam<'a>;
+use crate::{Or, Resources, SystemState, World};
+
+mod impls;
+
+/// System parameters which can be in exclusive systems (i.e. those which have `&mut World`, `&mut Resources` arguments)
+/// This allows these systems to use local state
+pub trait PureSystemParam: Sized + 'static {
+    type Config;
+    fn create_state_pure(config: Self::Config, resources: &mut Resources) -> Self::State;
+
+    type State: for<'a> PureParamState<'a>;
+    // For documentation purposes, at some future point
+    // type Item = <Self::State as PurePureSystemState<'static>>::Item;
+    fn default_config_pure() -> Self::Config;
 }
 
-pub trait FetchSystemParam<'a> {
+pub trait PureParamState<'a>: Sized + Send + Sync + 'static {
     type Item;
-    fn init(system_state: &mut SystemState, world: &World, resources: &mut Resources);
-    /// # Safety
-    /// This call might access any of the input parameters in an unsafe way. Make sure the data access is safe in
-    /// the context of the system scheduler
+    fn view_param(&'a mut self) -> Self::Item;
+}
+
+pub trait SystemParam: Sized + 'static {
+    type Config;
+    type State: for<'a> ParamState<'a>;
+    fn create_state(config: Self::Config, resources: &mut Resources) -> Self::State;
+    fn default_config() -> Self::Config;
+}
+
+pub trait ParamState<'a>: Sized + Send + Sync + 'static {
+    type Item;
+
     unsafe fn get_param(
+        &'a mut self,
         system_state: &'a SystemState,
         world: &'a World,
         resources: &'a Resources,
     ) -> Option<Self::Item>;
+    // TODO: Make this significantly cleaner by having methods for resource access and archetype access
+    // That is, don't store that information in SystemState
+    fn init(&mut self, system_state: &mut SystemState, world: &World, resources: &mut Resources);
+    // TODO: investigate `fn requires_sync()->bool{false}` to determine if there are pessimisations resulting from the lack thereof
+    fn run_sync(&mut self, _world: &mut World, _resources: &mut Resources) {}
 }
 
-pub struct FetchQuery<Q, F>(PhantomData<(Q, F)>);
+// TODO: This impl is too clever - in particular it breaks being able to use tuples of PureSystemParam
+// Any `PureSystemParam` can be an 'impure' `SystemParam`
+impl<T: PureSystemParam> SystemParam for T {
+    type Config = T::Config;
 
-impl<'a, Q: WorldQuery, F: QueryFilter> SystemParam for Query<'a, Q, F> {
-    type Fetch = FetchQuery<Q, F>;
+    type State = T::State;
+
+    fn create_state(config: Self::Config, resources: &mut Resources) -> Self::State {
+        T::create_state_pure(config, resources)
+    }
+
+    fn default_config() -> Self::Config {
+        T::default_config_pure()
+    }
 }
 
-impl<'a, Q: WorldQuery, F: QueryFilter> FetchSystemParam<'a> for FetchQuery<Q, F> {
-    type Item = Query<'a, Q, F>;
+// Is this impl also too clever? Probably is so
+impl<'a, T: PureParamState<'a>> ParamState<'a> for T {
+    type Item = <T as PureParamState<'a>>::Item;
 
-    #[inline]
     unsafe fn get_param(
-        system_state: &'a SystemState,
-        world: &'a World,
-        _resources: &'a Resources,
+        &'a mut self,
+        _: &'a crate::SystemState,
+        _: &'a World,
+        _: &'a Resources,
     ) -> Option<Self::Item> {
-        let query_index = *system_state.current_query_index.get();
-        let archetype_component_access: &'a TypeAccess<ArchetypeComponent> =
-            &system_state.query_archetype_component_accesses[query_index];
-        *system_state.current_query_index.get() += 1;
-        Some(Query::new(world, archetype_component_access))
+        Some(self.view_param())
     }
 
-    fn init(system_state: &mut SystemState, _world: &World, _resources: &mut Resources) {
-        system_state
-            .query_archetype_component_accesses
-            .push(TypeAccess::default());
-        let access = QueryAccess::union(vec![Q::Fetch::access(), F::access()]);
-        system_state.query_accesses.push(vec![access]);
-        system_state
-            .query_type_names
-            .push(std::any::type_name::<Q>());
-    }
+    fn init(&mut self, _: &mut SystemState, _: &World, _: &mut Resources) {}
 }
-
-pub struct FetchQuerySet<T>(PhantomData<T>);
-
-impl<T: QueryTuple> SystemParam for QuerySet<T> {
-    type Fetch = FetchQuerySet<T>;
-}
-
-impl<'a, T: QueryTuple> FetchSystemParam<'a> for FetchQuerySet<T> {
-    type Item = QuerySet<T>;
-
-    #[inline]
-    unsafe fn get_param(
-        system_state: &'a SystemState,
-        world: &'a World,
-        _resources: &'a Resources,
-    ) -> Option<Self::Item> {
-        let query_index = *system_state.current_query_index.get();
-        *system_state.current_query_index.get() += 1;
-        Some(QuerySet::new(
-            world,
-            &system_state.query_archetype_component_accesses[query_index],
-        ))
-    }
-
-    fn init(system_state: &mut SystemState, _world: &World, _resources: &mut Resources) {
-        system_state
-            .query_archetype_component_accesses
-            .push(TypeAccess::default());
-        system_state.query_accesses.push(T::get_accesses());
-        system_state
-            .query_type_names
-            .push(std::any::type_name::<T>());
-    }
-}
-
-pub struct FetchCommands;
-
-impl<'a> SystemParam for &'a mut Commands {
-    type Fetch = FetchCommands;
-}
-impl<'a> FetchSystemParam<'a> for FetchCommands {
-    type Item = &'a mut Commands;
-
-    fn init(system_state: &mut SystemState, world: &World, _resources: &mut Resources) {
-        // SAFE: this is called with unique access to SystemState
-        unsafe {
-            (&mut *system_state.commands.get()).set_entity_reserver(world.get_entity_reserver())
-        }
-    }
-
-    #[inline]
-    unsafe fn get_param(
-        system_state: &'a SystemState,
-        _world: &'a World,
-        _resources: &'a Resources,
-    ) -> Option<Self::Item> {
-        Some(&mut *system_state.commands.get())
-    }
-}
-
-pub struct FetchArcCommands;
-impl SystemParam for Arc<Mutex<Commands>> {
-    type Fetch = FetchArcCommands;
-}
-
-impl<'a> FetchSystemParam<'a> for FetchArcCommands {
-    type Item = Arc<Mutex<Commands>>;
-
-    fn init(system_state: &mut SystemState, world: &World, _resources: &mut Resources) {
-        system_state.arc_commands.get_or_insert_with(|| {
-            let mut commands = Commands::default();
-            commands.set_entity_reserver(world.get_entity_reserver());
-            Arc::new(Mutex::new(commands))
-        });
-    }
-
-    #[inline]
-    unsafe fn get_param(
-        system_state: &SystemState,
-        _world: &World,
-        _resources: &Resources,
-    ) -> Option<Self::Item> {
-        Some(system_state.arc_commands.as_ref().unwrap().clone())
-    }
-}
-
-pub struct FetchRes<T>(PhantomData<T>);
-
-impl<'a, T: Resource> SystemParam for Res<'a, T> {
-    type Fetch = FetchRes<T>;
-}
-
-impl<'a, T: Resource> FetchSystemParam<'a> for FetchRes<T> {
-    type Item = Res<'a, T>;
-
-    fn init(system_state: &mut SystemState, _world: &World, _resources: &mut Resources) {
-        if system_state.resource_access.is_write(&TypeId::of::<T>()) {
-            panic!(
-                "System `{}` has a `Res<{res}>` parameter that conflicts with \
-                another parameter with mutable access to the same `{res}` resource.",
-                system_state.name,
-                res = std::any::type_name::<T>()
-            );
-        }
-        system_state.resource_access.add_read(TypeId::of::<T>());
-    }
-
-    #[inline]
-    unsafe fn get_param(
-        _system_state: &'a SystemState,
-        _world: &'a World,
-        resources: &'a Resources,
-    ) -> Option<Self::Item> {
-        Some(Res::new(
-            resources.get_unsafe_ref::<T>(ResourceIndex::Global),
-        ))
-    }
-}
-
-pub struct FetchResMut<T>(PhantomData<T>);
-
-impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
-    type Fetch = FetchResMut<T>;
-}
-impl<'a, T: Resource> FetchSystemParam<'a> for FetchResMut<T> {
-    type Item = ResMut<'a, T>;
-
-    fn init(system_state: &mut SystemState, _world: &World, _resources: &mut Resources) {
-        // If a system already has access to the resource in another parameter, then we fail early.
-        // e.g. `fn(Res<Foo>, ResMut<Foo>)` or `fn(ResMut<Foo>, ResMut<Foo>)` must not be allowed.
-        if system_state
-            .resource_access
-            .is_read_or_write(&TypeId::of::<T>())
-        {
-            panic!(
-                "System `{}` has a `ResMut<{res}>` parameter that conflicts with \
-                another parameter to the same `{res}` resource. `ResMut` must have unique access.",
-                system_state.name,
-                res = std::any::type_name::<T>()
-            );
-        }
-        system_state.resource_access.add_write(TypeId::of::<T>());
-    }
-
-    #[inline]
-    unsafe fn get_param(
-        _system_state: &'a SystemState,
-        _world: &'a World,
-        resources: &'a Resources,
-    ) -> Option<Self::Item> {
-        let (value, _added, mutated) =
-            resources.get_unsafe_ref_with_added_and_mutated::<T>(ResourceIndex::Global);
-        Some(ResMut::new(value, mutated))
-    }
-}
-
-pub struct FetchChangedRes<T>(PhantomData<T>);
-
-impl<'a, T: Resource> SystemParam for ChangedRes<'a, T> {
-    type Fetch = FetchChangedRes<T>;
-}
-
-impl<'a, T: Resource> FetchSystemParam<'a> for FetchChangedRes<T> {
-    type Item = ChangedRes<'a, T>;
-
-    fn init(system_state: &mut SystemState, _world: &World, _resources: &mut Resources) {
-        if system_state.resource_access.is_write(&TypeId::of::<T>()) {
-            panic!(
-                "System `{}` has a `ChangedRes<{res}>` parameter that conflicts with \
-                another parameter with mutable access to the same `{res}` resource.",
-                system_state.name,
-                res = std::any::type_name::<T>()
-            );
-        }
-        system_state.resource_access.add_read(TypeId::of::<T>());
-    }
-
-    #[inline]
-    unsafe fn get_param(
-        _system_state: &'a SystemState,
-        _world: &'a World,
-        resources: &'a Resources,
-    ) -> Option<Self::Item> {
-        let (value, added, mutated) =
-            resources.get_unsafe_ref_with_added_and_mutated::<T>(ResourceIndex::Global);
-        if *added.as_ptr() || *mutated.as_ptr() {
-            Some(ChangedRes::new(value))
-        } else {
-            None
-        }
-    }
-}
-
-pub struct FetchLocal<T>(PhantomData<T>);
-
-impl<'a, T: Resource + FromResources> SystemParam for Local<'a, T> {
-    type Fetch = FetchLocal<T>;
-}
-impl<'a, T: Resource + FromResources> FetchSystemParam<'a> for FetchLocal<T> {
-    type Item = Local<'a, T>;
-
-    fn init(system_state: &mut SystemState, _world: &World, resources: &mut Resources) {
-        if system_state
-            .local_resource_access
-            .is_read_or_write(&TypeId::of::<T>())
-        {
-            panic!(
-                "System `{}` has multiple parameters requesting access to a local resource of type `{}`. \
-                There may be at most one `Local` parameter per resource type.",
-                system_state.name,
-                std::any::type_name::<T>()
-            );
-        }
-
-        // A resource could have been already initialized by another system with
-        // `Commands::insert_local_resource` or `Resources::insert_local`
-        if resources.get_local::<T>(system_state.id).is_none() {
-            let value = T::from_resources(resources);
-            resources.insert_local(system_state.id, value);
-        }
-
-        system_state
-            .local_resource_access
-            .add_write(TypeId::of::<T>());
-    }
-
-    #[inline]
-    unsafe fn get_param(
-        system_state: &'a SystemState,
-        _world: &'a World,
-        resources: &'a Resources,
-    ) -> Option<Self::Item> {
-        Some(Local::new(resources, system_state.id))
-    }
-}
-
-pub struct FetchParamTuple<T>(PhantomData<T>);
-pub struct FetchOr<T>(PhantomData<T>);
 
 macro_rules! impl_system_param_tuple {
     ($($param: ident),*) => {
-        impl<$($param: SystemParam),*> SystemParam for ($($param,)*) {
-            type Fetch = FetchParamTuple<($($param::Fetch,)*)>;
-        }
-        #[allow(unused_variables)]
-        impl<'a, $($param: FetchSystemParam<'a>),*> FetchSystemParam<'a> for FetchParamTuple<($($param,)*)> {
-            type Item = ($($param::Item,)*);
-            fn init(system_state: &mut SystemState, world: &World, resources: &mut Resources) {
-                $($param::init(system_state, world, resources);)*
-            }
-
-            #[inline]
-            unsafe fn get_param(
-                system_state: &'a SystemState,
-                world: &'a World,
-                resources: &'a Resources,
-            ) -> Option<Self::Item> {
-                Some(($($param::get_param(system_state, world, resources)?,)*))
-            }
-        }
-
-        impl<$($param: SystemParam),*> SystemParam for Or<($(Option<$param>,)*)> {
-            type Fetch = FetchOr<($($param::Fetch,)*)>;
-        }
-
-        #[allow(unused_variables)]
-        #[allow(unused_mut)]
         #[allow(non_snake_case)]
-        impl<'a, $($param: FetchSystemParam<'a>),*> FetchSystemParam<'a> for FetchOr<($($param,)*)> {
-            type Item = Or<($(Option<$param::Item>,)*)>;
-            fn init(system_state: &mut SystemState, world: &World, resources: &mut Resources) {
-                $($param::init(system_state, world, resources);)*
+        #[allow(unused_variables)] // Unused in the (,) case
+        impl<$($param: SystemParam,)*> SystemParam for ($($param,)*) {
+            type Config = ($($param::Config,)*);
+            type State = ($($param::State,)*);
+
+            fn create_state(config: Self::Config, resources: &mut Resources) -> Self::State {
+                let ($($param,)*) = config;
+                ($($param::create_state($param, resources),)*)
             }
 
-            #[inline]
+            fn default_config() -> Self::Config{
+                ($($param::default_config(),)*)
+            }
+        }
+        #[allow(unused_variables)]
+        #[allow(non_snake_case)]
+        impl<'a, $($param: ParamState<'a>,)*> ParamState<'a> for ($($param,)*) {
+            type Item = ($($param::Item,)*);
+
             unsafe fn get_param(
+                &'a mut self,
                 system_state: &'a SystemState,
                 world: &'a World,
                 resources: &'a Resources,
             ) -> Option<Self::Item> {
+                let ($($param,)*) = self;
+                Some((
+                    $($param.get_param(
+                        system_state,
+                        world,
+                        resources
+                    )?,)*
+                ))
+            }
+
+            fn init(
+                &mut self,
+                system_state: &mut SystemState,
+                world: &World,
+                resources: &mut Resources,
+            ) {
+                let ($($param,)*) = self;
+                $($param.init(system_state, world, resources);)*
+            }
+
+            fn run_sync(&mut self, world: &mut World, resources: &mut Resources) {
+                let ($($param,)*) = self;
+                $($param.run_sync(world, resources);)*
+            }
+        }
+
+        #[allow(non_snake_case)]
+        #[allow(unused_variables)]
+        impl<$($param: SystemParam,)*> SystemParam for Or<($(Option<$param>,)*)> {
+            type Config = ($($param::Config,)*);
+            type State = Or<($($param::State,)*)>;
+
+            fn create_state(config: Self::Config, resources: &mut Resources) -> Self::State {
+                let ($($param,)*) = config;
+                Or(($($param::create_state($param, resources),)*))
+            }
+            fn default_config() -> Self::Config{
+                ($($param::default_config(),)*)
+            }
+        }
+
+        #[allow(non_snake_case)]
+        #[allow(unused_variables)]
+        impl<'a, $($param: ParamState<'a>,)*> ParamState<'a> for Or<($($param,)*)> {
+            type Item = ($(Option<$param::Item>,)*);
+
+            unsafe fn get_param(
+                &'a mut self,
+                system_state: &'a SystemState,
+                world: &'a World,
+                resources: &'a Resources,
+            ) -> Option<Self::Item> {
+                // Required for the (,) case
+                #[allow(unused_mut)]
                 let mut has_some = false;
+                let ($($param,)*) = &mut self.0;
+
                 $(
-                    let $param = $param::get_param(system_state, world, resources);
+                    let $param = $param.get_param(system_state, world, resources);
                     if $param.is_some() {
                         has_some = true;
                     }
                 )*
 
+                let v = ($($param,)*);
                 if has_some {
-                    Some(Or(($($param,)*)))
+                    Some(v)
                 } else {
                     None
                 }
+            }
+
+            fn init(
+                &mut self,
+                system_state: &mut SystemState,
+                world: &World,
+                resources: &mut Resources,
+            ) {
+                let ($($param,)*) = &mut self.0;
+                $($param.init(system_state, world, resources);)*
+            }
+
+            fn run_sync(&mut self, world: &mut World, resources: &mut Resources) {
+                let ($($param,)*) = &mut self.0;
+                $($param.run_sync(world, resources);)*
             }
         }
     };
 }
 
 impl_system_param_tuple!();
-impl_system_param_tuple!(A);
-impl_system_param_tuple!(A, B);
-impl_system_param_tuple!(A, B, C);
-impl_system_param_tuple!(A, B, C, D);
-impl_system_param_tuple!(A, B, C, D, E);
-impl_system_param_tuple!(A, B, C, D, E, F);
-impl_system_param_tuple!(A, B, C, D, E, F, G);
-impl_system_param_tuple!(A, B, C, D, E, F, G, H);
-impl_system_param_tuple!(A, B, C, D, E, F, G, H, I);
-impl_system_param_tuple!(A, B, C, D, E, F, G, H, I, J);
-impl_system_param_tuple!(A, B, C, D, E, F, G, H, I, J, K);
-impl_system_param_tuple!(A, B, C, D, E, F, G, H, I, J, K, L);
-impl_system_param_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M);
-impl_system_param_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M, N);
-impl_system_param_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
-impl_system_param_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
+impl_system_param_tuple!(T1);
+impl_system_param_tuple!(T1, T2);
+impl_system_param_tuple!(T1, T2, T3);
+impl_system_param_tuple!(T1, T2, T3, T4);
+impl_system_param_tuple!(T1, T2, T3, T4, T5);
+impl_system_param_tuple!(T1, T2, T3, T4, T5, T6);
+impl_system_param_tuple!(T1, T2, T3, T4, T5, T6, T7);
+impl_system_param_tuple!(T1, T2, T3, T4, T5, T6, T7, T8);
+impl_system_param_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9);
+impl_system_param_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
+impl_system_param_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11);
+impl_system_param_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);
+
+// We can't use default because these use more types than tuples
+impl_system_param_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13);
+impl_system_param_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14);
+impl_system_param_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15);
+impl_system_param_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16);

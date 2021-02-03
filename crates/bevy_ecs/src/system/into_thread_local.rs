@@ -56,7 +56,7 @@ impl System for ThreadLocalSystemFn {
     }
 }
 
-impl<F> IntoSystem<(&mut World, &mut Resources), ThreadLocalSystemFn> for F
+impl<F> IntoSystem<(), F> for F
 where
     F: FnMut(&mut World, &mut Resources) + Send + Sync + 'static,
 {
@@ -69,4 +69,6 @@ where
             archetype_component_access: TypeAccess::default(),
         }
     }
+
+    type SystemConfig = ThreadLocalSystemFn;
 }

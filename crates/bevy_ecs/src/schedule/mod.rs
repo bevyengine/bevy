@@ -6,7 +6,7 @@ pub use stage::*;
 pub use stage_executor::*;
 pub use state::*;
 
-use crate::{BoxedSystem, IntoSystem, Resources, System, World};
+use crate::{AsSystem, BoxedSystem, IntoSystem, Resources, System, World};
 use bevy_utils::HashMap;
 
 #[derive(Default)]
@@ -47,11 +47,12 @@ impl Schedule {
         self
     }
 
-    pub fn set_run_criteria<S: System<In = (), Out = ShouldRun>>(
-        &mut self,
-        system: S,
-    ) -> &mut Self {
-        self.run_criteria = Some(Box::new(system.system()));
+    pub fn set_run_criteria<S: AsSystem>(&mut self, system: S) -> &mut Self
+    where
+        S::System: System<In = (), Out = ShouldRun>,
+    {
+        // TODO(before-merge): Get resources here somehow
+        self.run_criteria = Some(Box::new(system.as_system(&mut Resources::default())));
         self.run_criteria_initialized = false;
         self
     }
@@ -99,11 +100,14 @@ impl Schedule {
         self
     }
 
-    pub fn add_system_to_stage<S: System<In = (), Out = ()>>(
+    pub fn add_system_to_stage<S: AsSystem>(
         &mut self,
         stage_name: &'static str,
         system: S,
-    ) -> &mut Self {
+    ) -> &mut Self
+    where
+        S::System: System<In = (), Out = ()>,
+    {
         let stage = self
             .get_stage_mut::<SystemStage>(stage_name)
             .unwrap_or_else(|| {
@@ -112,7 +116,7 @@ impl Schedule {
                     stage_name
                 )
             });
-        stage.add_system(system.system());
+        stage.add_system(system.as_system(&mut Resources::default()));
         self
     }
 

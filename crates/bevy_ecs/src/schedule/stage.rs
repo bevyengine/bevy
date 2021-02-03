@@ -1,8 +1,8 @@
 use std::{any::TypeId, borrow::Cow};
 
 use crate::{
-    ArchetypeComponent, BoxedSystem, Resources, System, SystemId, ThreadLocalExecution, TypeAccess,
-    World,
+    ArchetypeComponent, AsSystem, BoxedSystem, Resources, System, SystemId, ThreadLocalExecution,
+    TypeAccess, World,
 };
 use bevy_utils::HashSet;
 use downcast_rs::{impl_downcast, Downcast};
@@ -78,8 +78,12 @@ impl SystemStage {
         self
     }
 
-    pub fn add_system<S: System<In = (), Out = ()>>(&mut self, system: S) -> &mut Self {
-        self.add_system_boxed(Box::new(system));
+    pub fn add_system<S: AsSystem>(&mut self, system: S) -> &mut Self
+    where
+        S::System: System<In = (), Out = ()>,
+    {
+        // TODO(before-merge): get the resources to here
+        self.add_system_boxed(Box::new(system.as_system(&mut Resources::default())));
         self
     }
 
