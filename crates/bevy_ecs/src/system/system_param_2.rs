@@ -57,7 +57,7 @@ impl<'a, T: Send + Sync + 'static> PureParamState<'a> for Local<T> {
     }
 }
 
-pub trait SystemParam: Sized {
+pub trait SystemParam: Sized + 'static {
     type Config;
     type State: for<'a> ParamState<'a>;
     fn create_state(config: Self::Config, resources: &mut Resources) -> Self::State;

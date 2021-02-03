@@ -117,157 +117,172 @@ where
     }
 }
 
-impl<F, Input, Out, P: SystemParam> IntoSystem<In<Input>, (P,)> for F
-where
-    F: FnMut(In<Input>, P) -> Out
-        + FnMut(In<Input>, <<P as SystemParam>::State as ParamState>::Item) -> Out,
-{
-    type SystemConfig = FuncSystemPrepare<F, In<Input>, (P,)>;
+macro_rules! impl_into_system {
+    ($($param: ident),*) => {
+        impl<F, Input, Out, $($param: SystemParam,)*> IntoSystem<In<Input>, ($($param,)*)> for F
+        where
+            F: FnMut(In<Input>, $($param,)*) -> Out
+                + FnMut(In<Input>, $(<<$param as SystemParam>::State as ParamState>::Item,)*) -> Out,
+        {
+            type SystemConfig = FuncSystemPrepare<F, In<Input>, ($($param,)*)>;
 
-    fn system(self) -> Self::SystemConfig {
-        FuncSystemPrepare {
-            function: self,
-            config: (P::default_config(),),
-            input: PhantomData,
+            fn system(self) -> Self::SystemConfig {
+                FuncSystemPrepare {
+                    function: self,
+                    config: ($($param::default_config(),)*),
+                    input: PhantomData,
+                }
+            }
         }
-    }
-}
 
-impl<F, P: SystemParam, Out> IntoSystem<(), (P,)> for F
-where
-    F: FnMut(P) -> Out + FnMut(<<P as SystemParam>::State as ParamState>::Item) -> Out,
-{
-    type SystemConfig = FuncSystemPrepare<F, (), (P,)>;
+        impl<F, Out, $($param: SystemParam,)*> IntoSystem<(), ($($param,)*)> for F
+        where
+            F: FnMut( $($param,)*) -> Out
+                + FnMut($(<<$param as SystemParam>::State as ParamState>::Item,)*) -> Out,
+        {
+            type SystemConfig = FuncSystemPrepare<F, (), ($($param,)*)>;
 
-    fn system(self) -> Self::SystemConfig {
-        FuncSystemPrepare {
-            function: self,
-            config: (P::default_config(),),
-            input: PhantomData,
+            fn system(self) -> Self::SystemConfig {
+                FuncSystemPrepare {
+                    function: self,
+                    config: ($($param::default_config(),)*),
+                    input: PhantomData,
+                }
+            }
         }
-    }
+
+
+        #[allow(non_snake_case)]
+        #[allow(unused_variables)] // For the zero item case
+        impl<F, $($param: SystemParam,)* Out: 'static> System for FuncSystem<F, (), ($($param,)*)>
+        where
+            F: Send
+                + Sync
+                + 'static
+                + FnMut($(<<$param as SystemParam>::State as ParamState>::Item,)*) -> Out,
+        {
+            type In = ();
+            type Out = Out;
+
+            fn name(&self) -> std::borrow::Cow<'static, str> {
+                self.sys_state.name.clone()
+            }
+
+            fn id(&self) -> SystemId {
+                self.sys_state.id
+            }
+
+            fn update(&mut self, world: &crate::World) {
+                self.sys_state.update(world)
+            }
+
+            fn archetype_component_access(&self) -> &crate::TypeAccess<crate::ArchetypeComponent> {
+                &self.sys_state.archetype_component_access
+            }
+
+            fn resource_access(&self) -> &crate::TypeAccess<std::any::TypeId> {
+                &self.sys_state.resource_access
+            }
+
+            fn thread_local_execution(&self) -> crate::ThreadLocalExecution {
+                crate::ThreadLocalExecution::NextFlush
+            }
+
+            unsafe fn run_unsafe(
+                &mut self,
+                _: Self::In,
+                world: &crate::World,
+                resources: &Resources,
+            ) -> Option<Self::Out> {
+                let ($($param,)*) = &mut self.param_state;
+                Some((self.function)($($param.get_param(
+                    &self.sys_state,
+                    world,
+                    resources,
+                )?,)*))
+            }
+
+            fn run_thread_local(&mut self, world: &mut crate::World, resources: &mut Resources) {
+                let ($($param,)*) = &mut self.param_state;
+                $($param.run_sync(world, resources);)*
+
+            }
+
+            fn initialize(&mut self, world: &mut crate::World, resources: &mut Resources) {
+                // This code can be easily macro generated
+                let ($($param,)*) = &mut self.param_state;
+                $($param.init(&mut self.sys_state, world, resources);)*
+            }
+        }
+
+        #[allow(non_snake_case)]
+        #[allow(unused_variables)] // For the zero item case
+        impl<F, Input: 'static, $($param: SystemParam,)* Out: 'static> System
+            for FuncSystem<F, In<Input>, ($($param,)*)>
+        where
+            F: Send
+                + Sync
+                + 'static
+                + FnMut(In<Input>, $(<<$param as SystemParam>::State as ParamState>::Item,)*) -> Out,
+        {
+            type In = Input;
+            type Out = Out;
+
+            fn name(&self) -> std::borrow::Cow<'static, str> {
+                self.sys_state.name.clone()
+            }
+
+            fn id(&self) -> SystemId {
+                self.sys_state.id
+            }
+
+            fn update(&mut self, world: &crate::World) {
+                self.sys_state.update(world)
+            }
+
+            fn archetype_component_access(&self) -> &crate::TypeAccess<crate::ArchetypeComponent> {
+                &self.sys_state.archetype_component_access
+            }
+
+            fn resource_access(&self) -> &crate::TypeAccess<std::any::TypeId> {
+                &self.sys_state.resource_access
+            }
+
+            fn thread_local_execution(&self) -> crate::ThreadLocalExecution {
+                crate::ThreadLocalExecution::NextFlush
+            }
+
+            unsafe fn run_unsafe(
+                &mut self,
+                input: Self::In,
+                world: &crate::World,
+                resources: &Resources,
+            ) -> Option<Self::Out> {
+                let ($($param,)*) = &mut self.param_state;
+                Some((self.function)(In(input),
+                    $($param.get_param(
+                    &self.sys_state,
+                    world,
+                    resources,
+                )?,)*))
+            }
+
+            fn run_thread_local(&mut self, world: &mut crate::World, resources: &mut Resources) {
+                let ($($param,)*) = &mut self.param_state;
+                $($param.run_sync(world, resources);)*
+
+            }
+
+            fn initialize(&mut self, world: &mut crate::World, resources: &mut Resources) {
+                // This code can be easily macro generated
+                let ($($param,)*) = &mut self.param_state;
+                $($param.init(&mut self.sys_state, world, resources);)*
+            }
+        }
+    };
 }
 
-#[allow(non_snake_case)]
-impl<F, P: SystemParam + 'static, Out: 'static> System for FuncSystem<F, (), (P,)>
-where
-    F: Send + Sync + 'static + FnMut(<<P as SystemParam>::State as ParamState>::Item) -> Out,
-{
-    type In = ();
-    type Out = Out;
-
-    fn name(&self) -> std::borrow::Cow<'static, str> {
-        self.sys_state.name.clone()
-    }
-
-    fn id(&self) -> SystemId {
-        self.sys_state.id
-    }
-
-    fn update(&mut self, world: &crate::World) {
-        self.sys_state.update(world)
-    }
-
-    fn archetype_component_access(&self) -> &crate::TypeAccess<crate::ArchetypeComponent> {
-        &self.sys_state.archetype_component_access
-    }
-
-    fn resource_access(&self) -> &crate::TypeAccess<std::any::TypeId> {
-        &self.sys_state.resource_access
-    }
-
-    fn thread_local_execution(&self) -> crate::ThreadLocalExecution {
-        crate::ThreadLocalExecution::NextFlush
-    }
-
-    unsafe fn run_unsafe(
-        &mut self,
-        _: Self::In,
-        world: &crate::World,
-        resources: &Resources,
-    ) -> Option<Self::Out> {
-        let (P,) = &mut self.param_state;
-        Some((self.function)(P.get_param(
-            &self.sys_state,
-            world,
-            resources,
-        )?))
-    }
-
-    fn run_thread_local(&mut self, world: &mut crate::World, resources: &mut Resources) {
-        let (P,) = &mut self.param_state;
-        P.run_sync(world, resources)
-    }
-
-    fn initialize(&mut self, world: &mut crate::World, resources: &mut Resources) {
-        // This code can be easily macro generated
-        let (P,) = &mut self.param_state;
-        P.init(&mut self.sys_state, world, resources)
-    }
-}
-
-#[allow(non_snake_case)]
-impl<F, Input: 'static, P: SystemParam + 'static, Out: 'static> System
-    for FuncSystem<F, In<Input>, (P,)>
-where
-    F: Send
-        + Sync
-        + 'static
-        + FnMut(In<Input>, <<P as SystemParam>::State as ParamState>::Item) -> Out,
-{
-    type In = Input;
-    type Out = Out;
-
-    fn name(&self) -> std::borrow::Cow<'static, str> {
-        self.sys_state.name.clone()
-    }
-
-    fn id(&self) -> SystemId {
-        self.sys_state.id
-    }
-
-    fn update(&mut self, world: &crate::World) {
-        self.sys_state.update(world)
-    }
-
-    fn archetype_component_access(&self) -> &crate::TypeAccess<crate::ArchetypeComponent> {
-        &self.sys_state.archetype_component_access
-    }
-
-    fn resource_access(&self) -> &crate::TypeAccess<std::any::TypeId> {
-        &self.sys_state.resource_access
-    }
-
-    fn thread_local_execution(&self) -> crate::ThreadLocalExecution {
-        crate::ThreadLocalExecution::NextFlush
-    }
-
-    unsafe fn run_unsafe(
-        &mut self,
-        input: Self::In,
-        world: &crate::World,
-        resources: &Resources,
-    ) -> Option<Self::Out> {
-        let (P,) = &mut self.param_state;
-        Some((self.function)(
-            In(input),
-            P.get_param(&self.sys_state, world, resources)?,
-        ))
-    }
-
-    fn run_thread_local(&mut self, world: &mut crate::World, resources: &mut Resources) {
-        let (P,) = &mut self.param_state;
-        P.run_sync(world, resources)
-    }
-
-    fn initialize(&mut self, world: &mut crate::World, resources: &mut Resources) {
-        // This code can be easily macro generated
-        let (P,) = &mut self.param_state;
-        P.init(&mut self.sys_state, world, resources)
-    }
-}
-
-/* impl_into_system!();
+impl_into_system!();
 impl_into_system!(T1);
 impl_into_system!(T1, T2);
 impl_into_system!(T1, T2, T3);
@@ -280,13 +295,10 @@ impl_into_system!(T1, T2, T3, T4, T5, T6, T7, T8, T9);
 impl_into_system!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
 impl_into_system!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11);
 impl_into_system!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);
-
-// We can't use default because these use more types than tuples
 impl_into_system!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13);
 impl_into_system!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14);
 impl_into_system!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15);
 impl_into_system!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16);
- */
 
 fn test_system(In(input): In<u32>, local: &mut Local<u32>) {
     **local = input;
