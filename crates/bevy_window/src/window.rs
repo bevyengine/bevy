@@ -64,6 +64,7 @@ pub struct Window {
     cursor_visible: bool,
     cursor_locked: bool,
     cursor_position: Option<Vec2>,
+    pub(crate) focused: bool,
     mode: WindowMode,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
@@ -152,6 +153,7 @@ impl Window {
             cursor_visible: window_descriptor.cursor_visible,
             cursor_locked: window_descriptor.cursor_locked,
             cursor_position: None,
+            focused: true,
             mode: window_descriptor.mode,
             #[cfg(target_arch = "wasm32")]
             canvas: window_descriptor.canvas.clone(),
@@ -417,6 +419,11 @@ impl Window {
     #[inline]
     pub fn drain_commands(&mut self) -> impl Iterator<Item = WindowCommand> + '_ {
         self.command_queue.drain(..)
+    }
+
+    #[inline]
+    pub fn is_focused(&self) -> bool {
+        self.focused
     }
 }
 
