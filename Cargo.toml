@@ -17,7 +17,7 @@ repository = "https://github.com/bevyengine/bevy"
 
 [workspace]
 exclude = ["benches"]
-members = ["crates/*", "examples/ios"]
+members = ["crates/*", "examples/ios", "tools/ci"]
 
 [features]
 default = [
