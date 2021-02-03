@@ -1,6 +1,7 @@
 use crate::{ElementState, Input};
 use bevy_app::prelude::*;
 use bevy_ecs::ResMut;
+use std::convert::TryInto;
 
 /// A key input event from a keyboard device
 #[derive(Debug, Clone)]
@@ -229,4 +230,65 @@ pub enum KeyCode {
     Copy,
     Paste,
     Cut,
+}
+
+impl TryInto<char> for KeyCode {
+    type Error = ();
+
+    fn try_into(self) -> Result<char, Self::Error> {
+        match self {
+            KeyCode::Key1 | KeyCode::Numpad1 => Ok('1'),
+            KeyCode::Key2 | KeyCode::Numpad2 => Ok('2'),
+            KeyCode::Key3 | KeyCode::Numpad3 => Ok('3'),
+            KeyCode::Key4 | KeyCode::Numpad4 => Ok('4'),
+            KeyCode::Key5 | KeyCode::Numpad5 => Ok('5'),
+            KeyCode::Key6 | KeyCode::Numpad6 => Ok('6'),
+            KeyCode::Key7 | KeyCode::Numpad7 => Ok('7'),
+            KeyCode::Key8 | KeyCode::Numpad8 => Ok('8'),
+            KeyCode::Key9 | KeyCode::Numpad9 => Ok('9'),
+            KeyCode::Key0 | KeyCode::Numpad0 => Ok('0'),
+            KeyCode::A => Ok('a'),
+            KeyCode::B => Ok('b'),
+            KeyCode::C => Ok('c'),
+            KeyCode::D => Ok('d'),
+            KeyCode::E => Ok('e'),
+            KeyCode::F => Ok('f'),
+            KeyCode::G => Ok('g'),
+            KeyCode::H => Ok('h'),
+            KeyCode::I => Ok('i'),
+            KeyCode::J => Ok('j'),
+            KeyCode::K => Ok('k'),
+            KeyCode::L => Ok('l'),
+            KeyCode::M => Ok('m'),
+            KeyCode::N => Ok('n'),
+            KeyCode::O => Ok('o'),
+            KeyCode::P => Ok('p'),
+            KeyCode::Q => Ok('q'),
+            KeyCode::R => Ok('r'),
+            KeyCode::S => Ok('s'),
+            KeyCode::T => Ok('t'),
+            KeyCode::U => Ok('u'),
+            KeyCode::V => Ok('v'),
+            KeyCode::W => Ok('w'),
+            KeyCode::X => Ok('x'),
+            KeyCode::Y => Ok('y'),
+            KeyCode::Z => Ok('z'),
+            KeyCode::Caret => Ok('^'),
+            KeyCode::Apostrophe => Ok('\''),
+            KeyCode::Asterisk | KeyCode::NumpadMultiply => Ok('*'),
+            KeyCode::Plus | KeyCode::NumpadAdd => Ok('+'),
+            KeyCode::At => Ok('@'),
+            KeyCode::Backslash => Ok('\\'),
+            KeyCode::Colon => Ok(':'),
+            KeyCode::Comma | KeyCode::NumpadComma => Ok(','),
+            KeyCode::Period | KeyCode::NumpadDecimal => Ok('.'),
+            KeyCode::Slash | KeyCode::NumpadDivide => Ok('/'),
+            KeyCode::Equals | KeyCode::NumpadEquals => Ok('='),
+            KeyCode::Grave => Ok('`'),
+            KeyCode::Minus | KeyCode::NumpadSubtract => Ok('-'),
+            KeyCode::Semicolon => Ok(';'),
+            KeyCode::Yen => Ok('¥'),
+            _ => Err(()),
+        }
+    }
 }
