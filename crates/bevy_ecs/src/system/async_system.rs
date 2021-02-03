@@ -63,7 +63,7 @@ pub struct Accessor<P: SystemParam> {
 impl<P: SystemParam> Accessor<P> {
     pub async fn access<F, R: Send + 'static>(&mut self, sync: F) -> R
     where
-        // Removing the 'static here would allow removing the 
+        // Removing the 'static here would allow removing the
         // transmutes, but its currently not possible due to an ICE.
         F: FnOnce(<P::Fetch as FetchSystemParam<'static>>::Item) -> R + Send + Sync + 'static,
     {
