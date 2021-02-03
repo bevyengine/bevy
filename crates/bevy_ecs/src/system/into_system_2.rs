@@ -2,9 +2,9 @@
 
 use std::marker::PhantomData;
 
-use crate::{BoxedSystem, In, Resources, System, SystemId, SystemState, TypeAccess};
+use crate::{In, Resources, System, SystemId, SystemState, TypeAccess};
 
-use super::system_param_2::{Local, ParamState, SystemParam};
+use super::system_param_2::{ParamState, SystemParam};
 
 /// A type which can be converted into a system at some point in the future
 /// This should only be implemented for functions
@@ -299,24 +299,3 @@ impl_into_system!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13);
 impl_into_system!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14);
 impl_into_system!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15);
 impl_into_system!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16);
-
-fn test_system(In(input): In<u32>, local: &mut Local<u32>) {
-    **local = input;
-}
-
-fn test_it() {
-    test_accept(test_system.system().configure(|it| it.0 = Some(32)));
-}
-
-fn test_accept<C: AsSystem>(it: C)
-where
-    C::System: System<In = u32, Out = ()>,
-{
-    let mut res = Resources::default();
-    let sys = Box::new(it.as_system(&mut res));
-    test_accept_boxed(sys);
-}
-
-fn test_accept_boxed(it: BoxedSystem<u32>) {
-    it.id();
-}
