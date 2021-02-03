@@ -305,6 +305,7 @@ fn next_token<'a>(path: &'a str, index: &mut usize) -> Option<Token<'a>> {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
     use super::GetPath;
     use crate::*;

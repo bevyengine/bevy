@@ -330,12 +330,12 @@ mod tests {
         bindings.set("b", resource2.clone());
 
         let mut different_bindings = RenderResourceBindings::default();
-        different_bindings.set("a", resource3.clone());
-        different_bindings.set("b", resource4.clone());
+        different_bindings.set("a", resource3);
+        different_bindings.set("b", resource4);
 
         let mut equal_bindings = RenderResourceBindings::default();
         equal_bindings.set("a", resource1.clone());
-        equal_bindings.set("b", resource2.clone());
+        equal_bindings.set("b", resource2);
 
         let status = bindings.update_bind_group_status(&bind_group_descriptor);
         let id = if let BindGroupStatus::Changed(id) = status {
@@ -368,7 +368,7 @@ mod tests {
         };
 
         let mut unmatched_bindings = RenderResourceBindings::default();
-        unmatched_bindings.set("a", resource1.clone());
+        unmatched_bindings.set("a", resource1);
         let unmatched_bind_group_status =
             unmatched_bindings.update_bind_group_status(&bind_group_descriptor);
         assert_eq!(unmatched_bind_group_status, BindGroupStatus::NoMatch);

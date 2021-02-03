@@ -236,6 +236,7 @@ impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
     }
 }
 
+#[allow(clippy::clippy::wrong_self_convention)]
 pub trait IntoComponent<ToComponent: Component> {
     fn into_component(&self, resources: &Resources) -> ToComponent;
 }

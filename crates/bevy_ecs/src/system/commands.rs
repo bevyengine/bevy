@@ -405,6 +405,7 @@ impl Commands {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
     use crate::{resource::Resources, Commands, World};
 
@@ -416,14 +417,14 @@ mod tests {
         command_buffer.set_entity_reserver(world.get_entity_reserver());
         command_buffer.spawn((1u32, 2u64));
         let entity = command_buffer.current_entity().unwrap();
-        command_buffer.insert_resource(3.14f32);
+        command_buffer.insert_resource(3.14);
         command_buffer.apply(&mut world, &mut resources);
         let results = world
             .query::<(&u32, &u64)>()
             .map(|(a, b)| (*a, *b))
             .collect::<Vec<_>>();
         assert_eq!(results, vec![(1u32, 2u64)]);
-        assert_eq!(*resources.get::<f32>().unwrap(), 3.14f32);
+        assert_eq!(*resources.get::<f32>().unwrap(), 3.14);
         // test entity despawn
         command_buffer.despawn(entity);
         command_buffer.despawn(entity); // double despawn shouldn't panic
@@ -459,7 +460,7 @@ mod tests {
             .map(|(a, b)| (*a, *b))
             .collect::<Vec<_>>();
         assert_eq!(results_after, vec![]);
-        let results_after_u64 = world.query::<&u64>().map(|a| *a).collect::<Vec<_>>();
+        let results_after_u64 = world.query::<&u64>().copied().collect::<Vec<_>>();
         assert_eq!(results_after_u64, vec![]);
     }
 }
