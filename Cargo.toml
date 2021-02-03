@@ -84,6 +84,7 @@ anyhow = "1.0"
 rand = "0.8.0"
 ron = "0.6.2"
 serde = {version = "1", features = ["derive"]}
+futures-timer = "3.0.2"
 
 [[example]]
 name = "hello_world"
@@ -212,6 +213,10 @@ path = "examples/diagnostics/custom_diagnostic.rs"
 [[example]]
 name = "log_diagnostics"
 path = "examples/diagnostics/log_diagnostics.rs"
+
+[[example]]
+name = "async_systems"
+path = "examples/ecs/async_systems.rs"
 
 [[example]]
 name = "change_detection"
