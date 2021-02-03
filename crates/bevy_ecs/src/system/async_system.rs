@@ -1,4 +1,4 @@
-use std::{any::TypeId, borrow::Cow, ops::Deref};
+use std::{any::TypeId, borrow::Cow, marker::PhantomData, ops::Deref};
 
 use async_channel::{Receiver, Sender};
 
@@ -6,8 +6,8 @@ use bevy_tasks::TaskPool;
 use bevy_utils::BoxedFuture;
 
 use crate::{
-    ArchetypeComponent, FetchSystemParam, Resources, System, SystemId, SystemParam,
-    SystemState, TypeAccess, World,
+    ArchetypeComponent, FetchSystemParam, Resources, System, SystemId, SystemParam, SystemState,
+    TypeAccess, World,
 };
 
 pub trait AsyncSystem<Params: SystemParam>: Send + Sync + Copy + 'static {
@@ -50,23 +50,28 @@ where
             },
             channel: async_channel::bounded(1).1,
             core: self,
+            _marker: Default::default(),
         }
     }
 }
 
 pub struct Accessor<P: SystemParam> {
-    channel: Sender<Box<dyn FnOnce(<P::Fetch as FetchSystemParam<'static>>::Item) + Send + Sync>>,
+    channel: Sender<Box<dyn FnOnce(&SystemState, &World, &Resources) + Send + Sync>>,
+    _marker: OpaquePhantomData<P>,
 }
 
 impl<P: SystemParam> Accessor<P> {
     pub async fn access<F, R: Send + 'static>(&mut self, sync: F) -> R
     where
-        F: FnOnce(<P::Fetch as FetchSystemParam<'static>>::Item) -> R + Send + Sync + 'static,
+        F: FnOnce(<P::Fetch as FetchSystemParam>::Item) -> R + Send + Sync + 'static,
     {
         let (tx, rx) = async_channel::bounded(1);
         self.channel
-            .send(Box::new(move |params| {
-                tx.try_send(sync(params)).unwrap();
+            .send(Box::new(move |state, world, resources| {
+                match unsafe { P::Fetch::get_param(state, world, resources) } {
+                    Some(params) => tx.try_send(sync(params)).unwrap(),
+                    None => (),
+                }
             }))
             .await
             .unwrap();
@@ -74,14 +79,26 @@ impl<P: SystemParam> Accessor<P> {
     }
 }
 
-pub struct AsyncSystemContainer<P, S>
-where
-    P: SystemParam,
-    S: AsyncSystem<P> + Copy,
-{
+pub struct AsyncSystemContainer<P: SystemParam, S: AsyncSystem<P> + Copy> {
     state: SystemState,
-    channel: Receiver<Box<dyn FnOnce(<P::Fetch as FetchSystemParam<'static>>::Item) + Send + Sync>>,
+    channel: Receiver<Box<dyn FnOnce(&SystemState, &World, &Resources) + Send + Sync>>,
     core: S,
+    _marker: OpaquePhantomData<P>,
+}
+
+struct OpaquePhantomData<T> {
+    _phantom: PhantomData<T>,
+}
+
+unsafe impl<T> Send for OpaquePhantomData<T> {}
+unsafe impl<T> Sync for OpaquePhantomData<T> {}
+
+impl<T> Default for OpaquePhantomData<T> {
+    fn default() -> Self {
+        Self {
+            _phantom: Default::default(),
+        }
+    }
 }
 
 impl<P: SystemParam + 'static, S: AsyncSystem<P> + Copy> System for AsyncSystemContainer<P, S> {
@@ -110,32 +127,21 @@ impl<P: SystemParam + 'static, S: AsyncSystem<P> + Copy> System for AsyncSystemC
         world: &World,
         resources: &Resources,
     ) -> Option<Self::Out> {
-        // Safety:
-        // The FetchSystemParam uses 'static because of a bug in rustc which causes an ICE
-        // when the lifetime is elided or doesn't match. As such, we're forced to use 'static
-        // and use transmutes to make `get_param` accept the parameters. This is probably safe,
-        // as `params` never leaks out of this function, but this file should be heavily audited
-        // to ensure this function doesn't cause UB.
+        match self.channel.try_recv() {
+            Ok(sync) => (sync)(&self.state, world, resources),
+            Err(async_channel::TryRecvError::Closed) => {
+                let executor = resources.get_mut::<S::TaskPool>().unwrap();
 
-        let params = <P::Fetch as FetchSystemParam<'static>>::get_param(
-            std::mem::transmute(&mut self.state),
-            std::mem::transmute(world),
-            std::mem::transmute(resources),
-        );
-        if let Some(params) = params {
-            match self.channel.try_recv() {
-                Ok(sync) => (sync)(params),
-                Err(async_channel::TryRecvError::Closed) => {
-                    let executor = resources.get_mut::<S::TaskPool>().unwrap();
-
-                    let (tx, rx) = async_channel::unbounded();
-                    executor
-                        .spawn(self.core.run(Accessor { channel: tx }))
-                        .detach();
-                    self.channel = rx;
-                }
-                _ => (),
+                let (tx, rx) = async_channel::unbounded();
+                executor
+                    .spawn(self.core.run(Accessor {
+                        channel: tx,
+                        _marker: Default::default(),
+                    }))
+                    .detach();
+                self.channel = rx;
             }
+            _ => (),
         }
 
         Some(())
@@ -148,7 +154,10 @@ impl<P: SystemParam + 'static, S: AsyncSystem<P> + Copy> System for AsyncSystemC
 
         let (tx, rx) = async_channel::unbounded();
         executor
-            .spawn(self.core.run(Accessor { channel: tx }))
+            .spawn(self.core.run(Accessor {
+                channel: tx,
+                _marker: Default::default(),
+            }))
             .detach();
         self.channel = rx;
     }
