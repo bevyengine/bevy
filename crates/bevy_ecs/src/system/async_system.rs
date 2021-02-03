@@ -63,13 +63,21 @@ pub struct Accessor<P: SystemParam> {
 impl<P: SystemParam> Accessor<P> {
     pub async fn access<F, R: Send + 'static>(&mut self, sync: F) -> R
     where
-        F: FnOnce(<P::Fetch as FetchSystemParam>::Item) -> R + Send + Sync + 'static,
+        // Removing the 'static here would allow removing the 
+        // transmutes, but its currently not possible due to an ICE.
+        F: FnOnce(<P::Fetch as FetchSystemParam<'static>>::Item) -> R + Send + Sync + 'static,
     {
         let (tx, rx) = async_channel::bounded(1);
         self.channel
             .send(Box::new(move |state, world, resources| {
                 // Safe: the sent closure is executed inside run_unsafe, which provides the correct guarantees.
-                match unsafe { P::Fetch::get_param(state, world, resources) } {
+                match unsafe {
+                    P::Fetch::get_param(
+                        std::mem::transmute::<_, &'static _>(state),
+                        std::mem::transmute::<_, &'static _>(world),
+                        std::mem::transmute::<_, &'static _>(resources),
+                    )
+                } {
                     Some(params) => tx.try_send(sync(params)).unwrap(),
                     None => (),
                 }
@@ -245,6 +253,9 @@ mod test {
                 .system(),
             );
 
+        stage.initialize(&mut world, &mut resources);
+        // Crude hack to ensure the async system is fully initialized
+        std::thread::sleep(std::time::Duration::from_millis(10));
         stage.run(&mut world, &mut resources);
     }
 }
