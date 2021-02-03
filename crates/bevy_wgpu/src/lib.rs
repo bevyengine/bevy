@@ -82,9 +82,7 @@ pub fn get_wgpu_render_system(resources: &mut Resources) -> impl FnMut(&mut Worl
         wgpu_features = device_features_res.features.iter().fold(
             wgpu::Features::empty(),
             |wgpu_features, feature| {
-                let feature: wgpu::Features = (*feature).into();
-                let wgpu_features = wgpu_features | feature;
-                wgpu_features
+                wgpu_features | (*feature).into()
             },
         );
     }
