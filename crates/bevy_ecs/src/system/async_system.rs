@@ -297,6 +297,7 @@ pub mod curries {
         ]
     );
 }
+pub use simple_async_system::SimpleAsyncSystem;
 
 // Implements SimpleAsyncSystem for async functions with a single accessor
 #[doc(hidden)]

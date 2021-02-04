@@ -16,7 +16,7 @@ pub mod prelude {
         resource::{ChangedRes, FromResources, Local, Res, ResMut, Resource, Resources},
         schedule::{Schedule, State, StateStage, SystemStage},
         system::{Commands, IntoSystem, Query, System},
-        Accessor, Added, AsyncSystem, Bundle, Changed, Component, Entity, Flags, In,
+        Accessor, Added, AsyncSystem, SimpleAsyncSystem, Bundle, Changed, Component, Entity, Flags, In,
         IntoChainSystem, Mut, Mutated, Or, QuerySet, Ref, RefMut, With, Without, World,
     };
 }
