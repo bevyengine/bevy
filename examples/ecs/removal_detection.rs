@@ -33,7 +33,7 @@ fn setup(
     let texture = asset_server.load("branding/icon.png");
 
     commands
-        .spawn(Camera2dBundle::default())
+        .spawn(OrthographicCameraBundle::new_2d())
         .spawn(SpriteBundle {
             material: materials.add(texture.into()),
             ..Default::default()

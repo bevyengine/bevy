@@ -7,7 +7,7 @@ use crate::{
 use bevy_asset::Handle;
 use bevy_ecs::Bundle;
 use bevy_render::{
-    camera::{Camera, OrthographicProjection, VisibleEntities, WindowOrigin},
+    camera::{Camera, DepthCalculation, OrthographicProjection, VisibleEntities, WindowOrigin},
     draw::Draw,
     mesh::Mesh,
     pipeline::{RenderPipeline, RenderPipelines},
@@ -164,7 +164,7 @@ impl Default for ButtonBundle {
 }
 
 #[derive(Bundle, Debug)]
-pub struct CameraUiBundle {
+pub struct UiCameraBundle {
     pub camera: Camera,
     pub orthographic_projection: OrthographicProjection,
     pub visible_entities: VisibleEntities,
@@ -172,12 +172,12 @@ pub struct CameraUiBundle {
     pub global_transform: GlobalTransform,
 }
 
-impl Default for CameraUiBundle {
+impl Default for UiCameraBundle {
     fn default() -> Self {
         // we want 0 to be "closest" and +far to be "farthest" in 2d, so we offset
         // the camera's translation by far and use a right handed coordinate system
         let far = 1000.0;
-        CameraUiBundle {
+        UiCameraBundle {
             camera: Camera {
                 name: Some(crate::camera::CAMERA_UI.to_string()),
                 ..Default::default()
@@ -185,6 +185,7 @@ impl Default for CameraUiBundle {
             orthographic_projection: OrthographicProjection {
                 far,
                 window_origin: WindowOrigin::BottomLeft,
+                depth_calculation: DepthCalculation::ZDifference,
                 ..Default::default()
             },
             visible_entities: Default::default(),

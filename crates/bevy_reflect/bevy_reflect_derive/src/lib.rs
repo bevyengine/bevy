@@ -376,6 +376,7 @@ fn impl_tuple_struct(
 
             fn clone_dynamic(&self) -> #bevy_reflect_path::DynamicTupleStruct {
                 let mut dynamic = #bevy_reflect_path::DynamicTupleStruct::default();
+                dynamic.set_name(self.type_name().to_string());
                 #(dynamic.insert_boxed(self.#field_idents.clone_value());)*
                 dynamic
             }

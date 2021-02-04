@@ -7,7 +7,7 @@ use bevy::{
 
 fn main() {
     App::build()
-        .add_resource(AssetServerSettings {
+        .insert_resource(AssetServerSettings {
             asset_folder: "/".to_string(),
         })
         .add_plugins(DefaultPlugins)

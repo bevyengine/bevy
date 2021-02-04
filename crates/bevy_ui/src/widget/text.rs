@@ -93,11 +93,10 @@ pub fn text_system(
 
             match text_pipeline.queue_text(
                 entity,
-                text.font.clone(),
                 &fonts,
-                &text.value,
-                scale_value(text.style.font_size, scale_factor),
-                text.style.alignment,
+                &text.sections,
+                scale_factor,
+                text.alignment,
                 node_size,
                 &mut *font_atlas_set_storage,
                 &mut *texture_atlases,
@@ -143,7 +142,7 @@ pub fn draw_text_system(
     };
 
     let font_quad = meshes.get(&QUAD_HANDLE).unwrap();
-    let vertex_buffer_descriptor = font_quad.get_vertex_buffer_descriptor();
+    let vertex_buffer_layout = font_quad.get_vertex_buffer_layout();
 
     for (entity, mut draw, visible, text, node, global_transform) in query.iter_mut() {
         if !visible.is_visible {
@@ -159,8 +158,8 @@ pub fn draw_text_system(
                 scale_factor: scale_factor as f32,
                 msaa: &msaa,
                 text_glyphs: &text_glyphs.glyphs,
-                font_quad_vertex_descriptor: &vertex_buffer_descriptor,
-                style: &text.style,
+                font_quad_vertex_layout: &vertex_buffer_layout,
+                sections: &text.sections,
             };
 
             drawable_text.draw(&mut draw, &mut context).unwrap();

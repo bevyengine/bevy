@@ -43,3 +43,9 @@ bitflags::bitflags! {
         const INDIRECT = 256;
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum BufferMapMode {
+    Read,
+    Write,
+}

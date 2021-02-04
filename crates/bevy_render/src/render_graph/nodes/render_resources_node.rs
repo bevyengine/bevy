@@ -3,7 +3,7 @@ use crate::{
     prelude::Visible,
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     renderer::{
-        self, BufferInfo, BufferUsage, RenderContext, RenderResourceBinding,
+        self, BufferInfo, BufferMapMode, BufferUsage, RenderContext, RenderResourceBinding,
         RenderResourceBindings, RenderResourceContext, RenderResourceHints,
     },
     texture,
@@ -490,7 +490,7 @@ fn render_resources_node_system<T: RenderResources>(
     uniform_buffer_arrays.resize_staging_buffer(render_resource_context);
 
     if let Some(staging_buffer) = state.uniform_buffer_arrays.staging_buffer {
-        render_resource_context.map_buffer(staging_buffer);
+        render_resource_context.map_buffer(staging_buffer, BufferMapMode::Write);
         render_resource_context.write_mapped_buffer(
             staging_buffer,
             0..state.uniform_buffer_arrays.staging_buffer_size as u64,
@@ -703,7 +703,7 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
     uniform_buffer_arrays.resize_staging_buffer(render_resource_context);
 
     if let Some(staging_buffer) = state.uniform_buffer_arrays.staging_buffer {
-        render_resource_context.map_buffer(staging_buffer);
+        render_resource_context.map_buffer(staging_buffer, BufferMapMode::Write);
         render_resource_context.write_mapped_buffer(
             staging_buffer,
             0..state.uniform_buffer_arrays.staging_buffer_size as u64,

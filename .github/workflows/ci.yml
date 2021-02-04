@@ -14,45 +14,38 @@ jobs:
     strategy:
       matrix:
         toolchain: [stable, nightly]
-        os: [windows-2019, ubuntu-20.04, macos-10.15]
+        os: [windows-latest, ubuntu-latest, macos-latest]
         exclude:
-          - os: macos-10.15
+          - os: macos-latest
             toolchain: nightly
-          - os: windows-2019
+          - os: windows-latest
             toolchain: nightly
     runs-on: ${{ matrix.os }}
-    needs: clean
     steps:
       - uses: actions/checkout@v2
 
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.toolchain }}
+          components: rustfmt, clippy
           override: true
 
-      - uses: actions/cache@v2
-        with:
-          path: |
-            target
-          key: ${{ runner.os }}-cargo-check-test-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install alsa and udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+        if: runner.os == 'linux'
 
-      - name: Install alsa
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev
-        if: ${{ runner.os == 'Linux' }}
+      - name: Check the format
+        run: cargo fmt --all -- --check
+        if: runner.os == 'linux' && matrix.toolchain == 'stable'
 
-      - name: Install udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libudev-dev
-        if: ${{ runner.os == 'Linux' }}
+      # type complexity must be ignored because we use huge templates for queries
+      # -A clippy::manual-strip: strip_prefix support was added in 1.45. we want to support earlier rust versions
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings -A clippy::type_complexity -A clippy::manual-strip
+        if: runner.os == 'linux' && matrix.toolchain == 'stable'
 
-      - name: Build
-        run: cargo check
-        env:
-          CARGO_INCREMENTAL: 0
-          RUSTFLAGS: "-C debuginfo=0 -D warnings"
-
-      - name: Run tests
+      - name: Build & run tests
         run: cargo test --workspace
-        if: ${{ runner.os == 'Linux' }}
         env:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
@@ -61,9 +54,8 @@ jobs:
     strategy:
       matrix:
         toolchain: [stable, nightly]
-        os: [ubuntu-20.04]
+        os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
-    needs: clean
     steps:
       - uses: actions/checkout@v2
 
@@ -72,12 +64,6 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
           target: wasm32-unknown-unknown
           override: true
-
-      - uses: actions/cache@v2
-        with:
-          path: |
-            target
-          key: ${{ runner.os }}-cargo-check-test-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Check wasm
         uses: actions-rs/cargo@v1
@@ -88,35 +74,10 @@ jobs:
   build-android:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Install Android targets
-      run: rustup target add aarch64-linux-android armv7-linux-androideabi
-    - name: Install Cargo APK
-      run: cargo install cargo-apk
-    - name: Build APK
-      run: cargo apk build --example android
-
-  clean:
-    runs-on: ubuntu-latest
-    steps:
       - uses: actions/checkout@v2
-
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly-2020-12-07
-          components: rustfmt, clippy
-          override: true
-
-      - name: Install alsa
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev
-
-      - name: Install udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libudev-dev
-
-      - name: Check the format
-        run: cargo +nightly-2020-12-07 fmt --all -- --check
-
-      # type complexity must be ignored because we use huge templates for queries
-      # -A clippy::manual-strip: strip_prefix support was added in 1.45. we want to support earlier rust versions
-      - name: Run clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings -A clippy::type_complexity -A clippy::manual-strip
+      - name: Install Android targets
+        run: rustup target add aarch64-linux-android armv7-linux-androideabi
+      - name: Install Cargo APK
+        run: cargo install cargo-apk
+      - name: Build APK
+        run: cargo apk build --example android

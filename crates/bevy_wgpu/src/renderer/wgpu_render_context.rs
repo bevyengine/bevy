@@ -206,6 +206,7 @@ pub fn create_render_pass<'a, 'b>(
     encoder: &'a mut wgpu::CommandEncoder,
 ) -> wgpu::RenderPass<'a> {
     encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        label: None,
         color_attachments: &pass_descriptor
             .color_attachments
             .iter()

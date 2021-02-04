@@ -10,7 +10,8 @@ use bevy_utils::HashMap;
 use glyph_brush_layout::{FontId, SectionText};
 
 use crate::{
-    error::TextError, glyph_brush::GlyphBrush, Font, FontAtlasSet, PositionedGlyph, TextAlignment,
+    error::TextError, glyph_brush::GlyphBrush, scale_value, Font, FontAtlasSet, PositionedGlyph,
+    TextAlignment, TextSection,
 };
 
 pub struct TextPipeline<ID> {
@@ -35,7 +36,7 @@ pub struct TextLayoutInfo {
 }
 
 impl<ID: Hash + Eq> TextPipeline<ID> {
-    pub fn get_or_insert_font_id(&mut self, handle: Handle<Font>, font: &Font) -> FontId {
+    pub fn get_or_insert_font_id(&mut self, handle: &Handle<Font>, font: &Font) -> FontId {
         let brush = &mut self.brush;
         *self
             .map_font_id
@@ -51,30 +52,40 @@ impl<ID: Hash + Eq> TextPipeline<ID> {
     pub fn queue_text(
         &mut self,
         id: ID,
-        font_handle: Handle<Font>,
         fonts: &Assets<Font>,
-        text: &str,
-        font_size: f32,
+        sections: &[TextSection],
+        scale_factor: f64,
         text_alignment: TextAlignment,
         bounds: Size,
         font_atlas_set_storage: &mut Assets<FontAtlasSet>,
         texture_atlases: &mut Assets<TextureAtlas>,
         textures: &mut Assets<Texture>,
     ) -> Result<(), TextError> {
-        let font = fonts.get(font_handle.id).ok_or(TextError::NoSuchFont)?;
-        let font_id = self.get_or_insert_font_id(font_handle, font);
+        let mut scaled_fonts = Vec::new();
+        let sections = sections
+            .iter()
+            .map(|section| {
+                let font = fonts
+                    .get(section.style.font.id)
+                    .ok_or(TextError::NoSuchFont)?;
+                let font_id = self.get_or_insert_font_id(&section.style.font, font);
+                let font_size = scale_value(section.style.font_size, scale_factor);
 
-        let section = SectionText {
-            font_id,
-            scale: PxScale::from(font_size),
-            text,
-        };
+                scaled_fonts.push(ab_glyph::Font::as_scaled(&font.font, font_size));
 
-        let scaled_font = ab_glyph::Font::as_scaled(&font.font, font_size);
+                let section = SectionText {
+                    font_id,
+                    scale: PxScale::from(font_size),
+                    text: &section.value,
+                };
+
+                Ok(section)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
         let section_glyphs = self
             .brush
-            .compute_glyphs(&[section], bounds, text_alignment)?;
+            .compute_glyphs(&sections, bounds, text_alignment)?;
 
         if section_glyphs.is_empty() {
             self.glyph_map.insert(
@@ -92,8 +103,9 @@ impl<ID: Hash + Eq> TextPipeline<ID> {
         let mut max_x: f32 = std::f32::MIN;
         let mut max_y: f32 = std::f32::MIN;
 
-        for section_glyph in section_glyphs.iter() {
-            let glyph = &section_glyph.glyph;
+        for sg in section_glyphs.iter() {
+            let scaled_font = scaled_fonts[sg.section_index];
+            let glyph = &sg.glyph;
             min_x = min_x.min(glyph.position.x);
             min_y = min_y.min(glyph.position.y - scaled_font.ascent());
             max_x = max_x.max(glyph.position.x + scaled_font.h_advance(glyph.id));
@@ -104,6 +116,7 @@ impl<ID: Hash + Eq> TextPipeline<ID> {
 
         let glyphs = self.brush.process_glyphs(
             section_glyphs,
+            &sections,
             font_atlas_set_storage,
             fonts,
             texture_atlases,

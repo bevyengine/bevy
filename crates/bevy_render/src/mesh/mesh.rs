@@ -10,7 +10,7 @@ use bevy_math::*;
 use bevy_reflect::TypeUuid;
 use std::borrow::Cow;
 
-use crate::pipeline::{InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor};
+use crate::pipeline::{InputStepMode, VertexAttribute, VertexBufferLayout};
 use bevy_utils::{HashMap, HashSet};
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
@@ -256,12 +256,12 @@ impl Mesh {
         })
     }
 
-    pub fn get_vertex_buffer_descriptor(&self) -> VertexBufferDescriptor {
+    pub fn get_vertex_buffer_layout(&self) -> VertexBufferLayout {
         let mut attributes = Vec::new();
         let mut accumulated_offset = 0;
         for (attribute_name, attribute_values) in self.attributes.iter() {
             let vertex_format = VertexFormat::from(attribute_values);
-            attributes.push(VertexAttributeDescriptor {
+            attributes.push(VertexAttribute {
                 name: attribute_name.clone(),
                 offset: accumulated_offset,
                 format: vertex_format,
@@ -270,7 +270,7 @@ impl Mesh {
             accumulated_offset += vertex_format.get_size();
         }
 
-        VertexBufferDescriptor {
+        VertexBufferLayout {
             name: Default::default(),
             stride: accumulated_offset,
             step_mode: InputStepMode::Vertex,
@@ -453,21 +453,22 @@ fn update_entity_mesh(
     for render_pipeline in render_pipelines.pipelines.iter_mut() {
         render_pipeline.specialization.primitive_topology = mesh.primitive_topology;
         // TODO: don't allocate a new vertex buffer descriptor for every entity
-        render_pipeline.specialization.vertex_buffer_descriptor =
-            mesh.get_vertex_buffer_descriptor();
-        render_pipeline.specialization.index_format = mesh
-            .indices()
-            .map(|i| i.into())
-            .unwrap_or(IndexFormat::Uint32);
+        render_pipeline.specialization.vertex_buffer_layout = mesh.get_vertex_buffer_layout();
+        if let PrimitiveTopology::LineStrip | PrimitiveTopology::TriangleStrip =
+            mesh.primitive_topology
+        {
+            render_pipeline.specialization.strip_index_format =
+                mesh.indices().map(|indices| indices.into());
+        }
     }
-
     if let Some(RenderResourceId::Buffer(index_buffer_resource)) =
         render_resource_context.get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX)
     {
+        let index_format: IndexFormat = mesh.indices().unwrap().into();
         // set index buffer into binding
         render_pipelines
             .bindings
-            .set_index_buffer(index_buffer_resource);
+            .set_index_buffer(index_buffer_resource, index_format);
     }
 
     if let Some(RenderResourceId::Buffer(vertex_attribute_buffer_resource)) =

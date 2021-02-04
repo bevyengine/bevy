@@ -5,7 +5,7 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .init_resource::<ButtonMaterials>()
-        .add_resource(State::new(AppState::Menu))
+        .insert_resource(State::new(AppState::Menu))
         .add_stage_after(stage::UPDATE, STAGE, StateStage::<AppState>::default())
         .on_state_enter(STAGE, AppState::Menu, setup_menu.system())
         .on_state_update(STAGE, AppState::Menu, menu.system())
@@ -35,7 +35,7 @@ fn setup_menu(
 ) {
     commands
         // ui camera
-        .spawn(CameraUiBundle::default())
+        .spawn(UiCameraBundle::default())
         .spawn(ButtonBundle {
             style: Style {
                 size: Size::new(Val::Px(150.0), Val::Px(65.0)),
@@ -52,15 +52,15 @@ fn setup_menu(
         })
         .with_children(|parent| {
             parent.spawn(TextBundle {
-                text: Text {
-                    value: "Play".to_string(),
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    style: TextStyle {
+                text: Text::with_section(
+                    "Play",
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 40.0,
                         color: Color::rgb(0.9, 0.9, 0.9),
-                        ..Default::default()
                     },
-                },
+                    Default::default(),
+                ),
                 ..Default::default()
             });
         });
@@ -104,7 +104,7 @@ fn setup_game(
 ) {
     let texture_handle = asset_server.load("branding/icon.png");
     commands
-        .spawn(Camera2dBundle::default())
+        .spawn(OrthographicCameraBundle::new_2d())
         .spawn(SpriteBundle {
             material: materials.add(texture_handle.into()),
             ..Default::default()

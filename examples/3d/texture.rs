@@ -29,7 +29,7 @@ fn setup(
     // this material renders the texture normally
     let material_handle = materials.add(StandardMaterial {
         albedo_texture: Some(texture_handle.clone()),
-        shaded: false,
+        unlit: true,
         ..Default::default()
     });
 
@@ -37,14 +37,14 @@ fn setup(
     let red_material_handle = materials.add(StandardMaterial {
         albedo: Color::rgba(1.0, 0.0, 0.0, 0.5),
         albedo_texture: Some(texture_handle.clone()),
-        shaded: false,
+        unlit: true,
     });
 
     // and lets make this one blue! (and also slightly transparent)
     let blue_material_handle = materials.add(StandardMaterial {
         albedo: Color::rgba(0.0, 0.0, 1.0, 0.5),
         albedo_texture: Some(texture_handle),
-        shaded: false,
+        unlit: true,
     });
 
     // add entities to the world
@@ -95,7 +95,7 @@ fn setup(
             ..Default::default()
         })
         // camera
-        .spawn(Camera3dBundle {
+        .spawn(PerspectiveCameraBundle {
             transform: Transform::from_xyz(3.0, 5.0, 8.0)
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()

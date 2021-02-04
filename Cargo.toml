@@ -122,6 +122,10 @@ name = "msaa"
 path = "examples/3d/msaa.rs"
 
 [[example]]
+name = "orthographic"
+path = "examples/3d/orthographic.rs"
+
+[[example]]
 name = "parenting"
 path = "examples/3d/parenting.rs"
 
@@ -248,6 +252,10 @@ path = "examples/ecs/parallel_query.rs"
 [[example]]
 name = "hierarchy"
 path = "examples/ecs/hierarchy.rs"
+
+[[example]]
+name = "alien_cake_addict"
+path = "examples/game/alien_cake_addict.rs"
 
 [[example]]
 name = "breakout"

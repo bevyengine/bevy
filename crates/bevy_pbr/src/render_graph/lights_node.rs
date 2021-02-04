@@ -9,7 +9,7 @@ use bevy_ecs::{
 use bevy_render::{
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     renderer::{
-        BufferId, BufferInfo, BufferUsage, RenderContext, RenderResourceBinding,
+        BufferId, BufferInfo, BufferMapMode, BufferUsage, RenderContext, RenderResourceBinding,
         RenderResourceBindings, RenderResourceContext,
     },
 };
@@ -103,7 +103,7 @@ pub fn lights_node_system(
             return;
         }
 
-        render_resource_context.map_buffer(staging_buffer);
+        render_resource_context.map_buffer(staging_buffer, BufferMapMode::Write);
     } else {
         let buffer = render_resource_context.create_buffer(BufferInfo {
             size: max_light_uniform_size,

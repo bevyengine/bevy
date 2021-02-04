@@ -52,7 +52,7 @@ fn setup(
         .spawn(PbrBundle {
             mesh: cube_handle.clone(),
             material: materials.add(StandardMaterial {
-                shaded: false,
+                unlit: true,
                 ..Default::default()
             }),
             transform: Transform::from_xyz(0.0, 0.0, 1.0),
@@ -65,7 +65,7 @@ fn setup(
                 .spawn(PbrBundle {
                     mesh: cube_handle.clone(),
                     material: materials.add(StandardMaterial {
-                        shaded: false,
+                        unlit: true,
                         ..Default::default()
                     }),
                     transform: Transform::from_xyz(0.0, 3.0, 0.0),
@@ -74,7 +74,7 @@ fn setup(
                 .spawn(PbrBundle {
                     mesh: cube_handle,
                     material: materials.add(StandardMaterial {
-                        shaded: false,
+                        unlit: true,
                         ..Default::default()
                     }),
                     transform: Transform::from_xyz(0.0, -3.0, 0.0),
@@ -82,7 +82,7 @@ fn setup(
                 });
         })
         // camera
-        .spawn(Camera3dBundle {
+        .spawn(PerspectiveCameraBundle {
             transform: Transform::from_xyz(5.0, 10.0, 10.0)
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()

@@ -11,13 +11,13 @@ pub use shader_defs::*;
 #[cfg(not(target_arch = "wasm32"))]
 pub use shader_reflect::*;
 
-use crate::pipeline::{BindGroupDescriptor, VertexBufferDescriptor};
+use crate::pipeline::{BindGroupDescriptor, VertexBufferLayout};
 
 /// Defines the memory layout of a shader
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ShaderLayout {
     pub bind_groups: Vec<BindGroupDescriptor>,
-    pub vertex_buffer_descriptors: Vec<VertexBufferDescriptor>,
+    pub vertex_buffer_layout: Vec<VertexBufferLayout>,
     pub entry_point: String,
 }
 

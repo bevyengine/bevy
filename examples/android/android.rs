@@ -4,7 +4,7 @@ use bevy::prelude::*;
 #[bevy_main]
 fn main() {
     App::build()
-        .add_resource(Msaa { samples: 2 })
+        .insert_resource(Msaa { samples: 2 })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
         .run();
@@ -37,7 +37,7 @@ fn setup(
             ..Default::default()
         })
         // camera
-        .spawn(Camera3dBundle {
+        .spawn(PerspectiveCameraBundle {
             transform: Transform::from_xyz(-2.0, 2.5, 5.0)
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()

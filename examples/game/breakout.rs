@@ -8,8 +8,8 @@ use bevy::{
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .add_resource(Scoreboard { score: 0 })
-        .add_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
+        .insert_resource(Scoreboard { score: 0 })
+        .insert_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
         .add_startup_system(setup.system())
         .add_system(paddle_movement_system.system())
         .add_system(ball_collision_system.system())
@@ -44,8 +44,8 @@ fn setup(
     // Add the game's entities to our world
     commands
         // cameras
-        .spawn(Camera2dBundle::default())
-        .spawn(CameraUiBundle::default())
+        .spawn(OrthographicCameraBundle::new_2d())
+        .spawn(UiCameraBundle::default())
         // paddle
         .spawn(SpriteBundle {
             material: materials.add(Color::rgb(0.5, 0.5, 1.0).into()),
@@ -68,13 +68,25 @@ fn setup(
         // scoreboard
         .spawn(TextBundle {
             text: Text {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                value: "Score:".to_string(),
-                style: TextStyle {
-                    color: Color::rgb(0.5, 0.5, 1.0),
-                    font_size: 40.0,
-                    ..Default::default()
-                },
+                sections: vec![
+                    TextSection {
+                        value: "Score: ".to_string(),
+                        style: TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 40.0,
+                            color: Color::rgb(0.5, 0.5, 1.0),
+                        },
+                    },
+                    TextSection {
+                        value: "".to_string(),
+                        style: TextStyle {
+                            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                            font_size: 40.0,
+                            color: Color::rgb(1.0, 0.5, 0.5),
+                        },
+                    },
+                ],
+                ..Default::default()
             },
             style: Style {
                 position_type: PositionType::Absolute,
@@ -191,7 +203,7 @@ fn ball_movement_system(time: Res<Time>, mut ball_query: Query<(&Ball, &mut Tran
 
 fn scoreboard_system(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
     for mut text in query.iter_mut() {
-        text.value = format!("Score: {}", scoreboard.score);
+        text.sections[1].value = scoreboard.score.to_string();
     }
 }
 

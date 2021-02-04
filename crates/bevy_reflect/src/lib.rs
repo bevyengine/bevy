@@ -334,4 +334,43 @@ mod tests {
         let y = x.take::<Bar>().unwrap();
         assert_eq!(y, Bar { x: 2 });
     }
+
+    #[test]
+    fn dynamic_names() {
+        let list = Vec::<usize>::new();
+        let dyn_list = list.clone_dynamic();
+        assert_eq!(dyn_list.type_name(), std::any::type_name::<Vec<usize>>());
+
+        let map = HashMap::<usize, String>::default();
+        let dyn_map = map.clone_dynamic();
+        assert_eq!(
+            dyn_map.type_name(),
+            std::any::type_name::<HashMap<usize, String>>()
+        );
+
+        let tuple = (0usize, "1".to_string(), 2.0f32);
+        let mut dyn_tuple = tuple.clone_dynamic();
+        dyn_tuple.insert::<usize>(3);
+        assert_eq!(
+            dyn_tuple.type_name(),
+            std::any::type_name::<(usize, String, f32, usize)>()
+        );
+
+        #[derive(Reflect)]
+        struct TestStruct {
+            a: usize,
+        }
+        let struct_ = TestStruct { a: 0 };
+        let dyn_struct = struct_.clone_dynamic();
+        assert_eq!(dyn_struct.type_name(), std::any::type_name::<TestStruct>());
+
+        #[derive(Reflect)]
+        struct TestTupleStruct(usize);
+        let tuple_struct = TestTupleStruct(0);
+        let dyn_tuple_struct = tuple_struct.clone_dynamic();
+        assert_eq!(
+            dyn_tuple_struct.type_name(),
+            std::any::type_name::<TestTupleStruct>()
+        );
+    }
 }

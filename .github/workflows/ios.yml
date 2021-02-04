@@ -2,14 +2,14 @@ name: iOS cron CI
 
 on:
   schedule:
-    - cron:  '0 0 * * *'
+    - cron: "0 0 * * *"
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   build:
-    runs-on: macOS-latest
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v2
 
