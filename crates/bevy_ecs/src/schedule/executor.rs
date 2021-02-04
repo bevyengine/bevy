@@ -3,6 +3,7 @@ use downcast_rs::{impl_downcast, Downcast};
 use crate::{ParallelSystemContainer, Resources, World};
 
 pub trait ParallelSystemExecutor: Downcast + Send + Sync {
+    /// Called by `SystemStage` whenever `systems` have been changed.
     fn rebuild_cached_data(&mut self, systems: &mut [ParallelSystemContainer], world: &World);
 
     fn run_systems(

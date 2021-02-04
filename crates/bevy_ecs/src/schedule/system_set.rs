@@ -1,5 +1,6 @@
 use crate::{RunCriteria, ShouldRun, System, SystemDescriptor};
 
+/// Describes a group of systems sharing one run criterion.
 pub struct SystemSet {
     pub(crate) run_criteria: RunCriteria,
     pub(crate) descriptors: Vec<SystemDescriptor>,

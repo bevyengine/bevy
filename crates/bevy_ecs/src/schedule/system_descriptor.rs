@@ -1,6 +1,30 @@
 use crate::{BoxedSystem, ExclusiveSystem, ExclusiveSystemCoerced, ExclusiveSystemFn, System};
 use std::borrow::Cow;
 
+/// Encapsulates a system and information on when it run in a `SystemStage`.
+///
+/// Systems can be inserted into 4 different groups within the stage:
+/// * Parallel, accepts non-exclusive systems.
+/// * At start, accepts exclusive systems; runs before parallel systems.
+/// * Before commands, accepts exclusive systems; runs after parallel systems, but before their
+/// command buffers are applied.
+/// * At end, accepts exclusive systems; runs after parallel systems' command buffers have
+/// been applied.
+///
+/// All systems can have a label attached to them; other systems in the same group can then specify
+/// that they have to run before or after the system with that label.
+///
+/// # Example
+/// ```rust
+/// # use bevy_ecs::prelude::*;
+/// # fn do_something() {}
+/// # fn do_the_other_thing() {}
+/// # fn do_something_else() {}
+/// SystemStage::parallel()
+///     .with_system(do_something.system().label("something"))
+///     .with_system(do_the_other_thing.system().after("something"))
+///     .with_system(do_something_else.exclusive_system().at_end());
+/// ```
 pub enum SystemDescriptor {
     Parallel(ParallelSystemDescriptor),
     Exclusive(ExclusiveSystemDescriptor),
@@ -45,6 +69,7 @@ impl From<ExclusiveSystemCoerced> for SystemDescriptor {
     }
 }
 
+/// Encapsulates a parallel system and information on when it run in a `SystemStage`.
 pub struct ParallelSystemDescriptor {
     pub(crate) system: BoxedSystem<(), ()>,
     pub(crate) label: Option<Cow<'static, str>>,
@@ -62,10 +87,13 @@ fn new_parallel_descriptor(system: BoxedSystem<(), ()>) -> ParallelSystemDescrip
 }
 
 pub trait ParallelSystemDescriptorCoercion {
+    /// Assigns a label to the system.
     fn label(self, label: impl Into<Cow<'static, str>>) -> ParallelSystemDescriptor;
 
+    /// Specifies that the system should run before the system with given label.
     fn before(self, label: impl Into<Cow<'static, str>>) -> ParallelSystemDescriptor;
 
+    /// Specifies that the system should run after the system with given label.
     fn after(self, label: impl Into<Cow<'static, str>>) -> ParallelSystemDescriptor;
 }
 
@@ -124,6 +152,7 @@ pub(crate) enum InsertionPoint {
     AtEnd,
 }
 
+/// Encapsulates an exclusive system and information on when it run in a `SystemStage`.
 pub struct ExclusiveSystemDescriptor {
     pub(crate) system: Box<dyn ExclusiveSystem>,
     pub(crate) label: Option<Cow<'static, str>>,
@@ -143,16 +172,23 @@ fn new_exclusive_descriptor(system: Box<dyn ExclusiveSystem>) -> ExclusiveSystem
 }
 
 pub trait ExclusiveSystemDescriptorCoercion {
+    /// Assigns a label to the system.
     fn label(self, label: impl Into<Cow<'static, str>>) -> ExclusiveSystemDescriptor;
 
+    /// Specifies that the system should run before the system with given label.
     fn before(self, label: impl Into<Cow<'static, str>>) -> ExclusiveSystemDescriptor;
 
+    /// Specifies that the system should run after the system with given label.
     fn after(self, label: impl Into<Cow<'static, str>>) -> ExclusiveSystemDescriptor;
 
+    /// Specifies that the system should run with other exclusive systems at the start of stage.
     fn at_start(self) -> ExclusiveSystemDescriptor;
 
+    /// Specifies that the system should run with other exclusive systems after the parallel
+    /// systems and before command buffer application.
     fn before_commands(self) -> ExclusiveSystemDescriptor;
 
+    /// Specifies that the system should run with other exclusive systems at the end of stage.
     fn at_end(self) -> ExclusiveSystemDescriptor;
 }
 

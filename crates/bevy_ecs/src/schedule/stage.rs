@@ -33,6 +33,8 @@ enum SystemKind {
     ExclusiveAtEnd,
 }
 
+/// Stores and executes systems. Execution order is not defined unless explicitly specified;
+/// see `SystemDescriptor` documentation.
 pub struct SystemStage {
     /// Instance of a scheduling algorithm for running the systems.
     executor: Box<dyn ParallelSystemExecutor>,
