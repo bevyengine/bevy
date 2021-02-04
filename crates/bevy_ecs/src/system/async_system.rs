@@ -160,7 +160,12 @@ pub mod curries {
     use super::*;
 
     macro_rules! create_curries {
-        ($name: ident, $seperator: ident, [$(($inner_seperator: ident, $typ: ident {$($nest: ident),*})),*]) => {
+        (
+            $name: ident,
+            $seperator: ident,
+            [ $(
+                ($inner_seperator: ident, $typ: ident {$( $nest: ident ),*})
+            ),* ]) => {
             #[allow(non_snake_case)]
             pub struct $name<Func, Fut, $($typ),*>
             where
