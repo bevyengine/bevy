@@ -1,4 +1,4 @@
-use crate::{Resource, Resources, Stage, System, SystemStage, World};
+use crate::{AsSystem, Resource, Resources, Stage, System, SystemStage, World};
 use bevy_utils::HashMap;
 use std::{mem::Discriminant, ops::Deref};
 use thiserror::Error;
@@ -66,31 +66,28 @@ impl<T> StateStage<T> {
         self
     }
 
-    pub fn on_state_enter<S: System<In = (), Out = ()>>(
-        &mut self,
-        state: T,
-        system: S,
-    ) -> &mut Self {
+    pub fn on_state_enter<S: AsSystem>(&mut self, state: T, system: S) -> &mut Self
+    where
+        S::System: System<In = (), Out = ()>,
+    {
         self.enter_stage(state, |system_stage: &mut SystemStage| {
             system_stage.add_system(system)
         })
     }
 
-    pub fn on_state_exit<S: System<In = (), Out = ()>>(
-        &mut self,
-        state: T,
-        system: S,
-    ) -> &mut Self {
+    pub fn on_state_exit<S: AsSystem>(&mut self, state: T, system: S) -> &mut Self
+    where
+        S::System: System<In = (), Out = ()>,
+    {
         self.exit_stage(state, |system_stage: &mut SystemStage| {
             system_stage.add_system(system)
         })
     }
 
-    pub fn on_state_update<S: System<In = (), Out = ()>>(
-        &mut self,
-        state: T,
-        system: S,
-    ) -> &mut Self {
+    pub fn on_state_update<S: AsSystem>(&mut self, state: T, system: S) -> &mut Self
+    where
+        S::System: System<In = (), Out = ()>,
+    {
         self.update_stage(state, |system_stage: &mut SystemStage| {
             system_stage.add_system(system)
         })

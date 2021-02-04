@@ -59,8 +59,11 @@ impl SystemStage {
         Self::new(Box::new(ParallelSystemStageExecutor::default()))
     }
 
-    pub fn with_system<S: System<In = (), Out = ()>>(mut self, system: S) -> Self {
-        self.add_system_boxed(Box::new(system));
+    pub fn with_system<S: AsSystem>(mut self, system: S) -> Self
+    where
+        S::System: System<In = (), Out = ()>,
+    {
+        self.add_system_boxed(Box::new(system.as_system()));
         self
     }
 
@@ -83,7 +86,7 @@ impl SystemStage {
         S::System: System<In = (), Out = ()>,
     {
         // TODO(before-merge): get the resources to here
-        self.add_system_boxed(Box::new(system.as_system(&mut Resources::default())));
+        self.add_system_boxed(Box::new(system.as_system()));
         self
     }
 

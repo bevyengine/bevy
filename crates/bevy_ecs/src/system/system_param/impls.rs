@@ -3,8 +3,8 @@ use std::{any::TypeId, marker::PhantomData, sync::Arc};
 use parking_lot::Mutex;
 
 use crate::{
-    ArchetypeComponent, ChangedRes, Commands, Fetch, FromResources, Local, Query, QueryAccess,
-    QueryFilter, QuerySet, QueryTuple, Res, ResMut, Resource, ResourceIndex, Resources,
+    ArchetypeComponent, ChangedRes, Commands, Fetch, Local, Query, QueryAccess, QueryFilter,
+    QuerySet, QueryTuple, QueryTupleFetch, Res, ResMut, Resource, ResourceIndex, Resources,
     SystemState, TypeAccess, World, WorldQuery,
 };
 
@@ -13,12 +13,12 @@ use super::{ParamState, PureParamState, PureSystemParam, SystemParam};
 // TODO NOW: Make Local<T> equivalent to &mut T
 pub struct LocalState<T>(T);
 
-impl<'a, T: FromResources + 'static + Send + Sync> PureSystemParam for Local<'a, T> {
+impl<'a, T: Default + 'static + Send + Sync> PureSystemParam for Local<'a, T> {
     type PureConfig = Option<T>;
     type PureState = LocalState<T>;
 
-    fn create_state_pure(config: Self::PureConfig, resources: &mut Resources) -> Self::PureState {
-        LocalState(config.unwrap_or_else(|| T::from_resources(resources)))
+    fn create_state_pure(config: Self::PureConfig) -> Self::PureState {
+        LocalState(config.unwrap_or_else(|| T::default()))
     }
 
     fn default_config_pure() -> Self::PureConfig {
@@ -35,26 +35,23 @@ impl<'a, T: Send + Sync + 'static> PureParamState<'a> for LocalState<T> {
 }
 
 // TODO: Store state here instead of in super::SystemState
-pub struct QueryState<Q, F>(PhantomData<(Q, F)>);
+pub struct QueryState<Q, F>(PhantomData<fn() -> (Q, F)>);
 
-impl<'a, Q: WorldQuery + 'static + Send + Sync, F: QueryFilter + 'static + Send + Sync> SystemParam
-    for Query<'a, Q, F>
-{
+impl<'a, Q: WorldQuery, F: QueryFilter> SystemParam for Query<'a, Q, F> {
     type Config = ();
 
-    type State = QueryState<Q, F>;
+    type State = QueryState<Q::Fetch, F>;
 
-    fn create_state(_: Self::Config, _: &mut crate::Resources) -> Self::State {
+    fn create_state(_: Self::Config) -> Self::State {
         QueryState(PhantomData)
     }
 
     fn default_config() {}
 }
 
-impl<'a, Q: WorldQuery + 'static + Send + Sync, F: QueryFilter + 'static + Send + Sync>
-    ParamState<'a> for QueryState<Q, F>
-{
-    type Item = Query<'a, Q, F>;
+// This Fetch lifetime can be anything, but since 'a is available, it'll do
+impl<'a, Q: Fetch<'static>, F: QueryFilter> ParamState<'a> for QueryState<Q, F> {
+    type Item = Query<'a, Q::Query, F>;
 
     #[inline]
     unsafe fn get_param(
@@ -74,7 +71,7 @@ impl<'a, Q: WorldQuery + 'static + Send + Sync, F: QueryFilter + 'static + Send 
         system_state
             .query_archetype_component_accesses
             .push(TypeAccess::default());
-        let access = QueryAccess::union(vec![<Q::Fetch as Fetch<'static>>::access(), F::access()]);
+        let access = QueryAccess::union(vec![<Q as Fetch<'static>>::access(), F::access()]);
         system_state.query_accesses.push(vec![access]);
         system_state
             .query_type_names
@@ -82,21 +79,21 @@ impl<'a, Q: WorldQuery + 'static + Send + Sync, F: QueryFilter + 'static + Send 
     }
 }
 
-pub struct QuerySetState<T>(PhantomData<T>);
+pub struct QuerySetState<T>(PhantomData<fn() -> T>);
 
-impl<T: QueryTuple + 'static + Send + Sync> SystemParam for QuerySet<T> {
+impl<T: QueryTuple> SystemParam for QuerySet<T> {
     type Config = ();
-    type State = QuerySetState<T>;
+    type State = QuerySetState<T::Fetch>;
 
-    fn create_state(_: Self::Config, _: &mut Resources) -> Self::State {
+    fn create_state(_: Self::Config) -> Self::State {
         QuerySetState(PhantomData)
     }
 
     fn default_config() {}
 }
 
-impl<'a, T: QueryTuple + Send + Sync + 'static> ParamState<'a> for QuerySetState<T> {
-    type Item = QuerySet<T>;
+impl<'a, T: QueryTupleFetch<'a>> ParamState<'a> for QuerySetState<T> {
+    type Item = QuerySet<T::Item>;
 
     #[inline]
     unsafe fn get_param(
@@ -117,7 +114,7 @@ impl<'a, T: QueryTuple + Send + Sync + 'static> ParamState<'a> for QuerySetState
         system_state
             .query_archetype_component_accesses
             .push(TypeAccess::default());
-        system_state.query_accesses.push(T::get_accesses());
+        system_state.query_accesses.push(T::Item::get_accesses());
         system_state
             .query_type_names
             .push(std::any::type_name::<T>());
@@ -128,7 +125,7 @@ impl<'a> SystemParam for &'a mut Commands {
     type Config = ();
     type State = Commands;
 
-    fn create_state(_: Self::Config, _: &mut Resources) -> Self::State {
+    fn create_state(_: Self::Config) -> Self::State {
         Commands::default()
     }
 
@@ -160,7 +157,7 @@ impl SystemParam for Arc<Mutex<Commands>> {
     type Config = ();
     type State = Arc<Mutex<Commands>>;
 
-    fn create_state(_: Self::Config, _: &mut Resources) -> Self::State {
+    fn create_state(_: Self::Config) -> Self::State {
         Arc::new(Mutex::new(Commands::default()))
     }
 
@@ -197,7 +194,7 @@ pub struct ResState<T>(PhantomData<T>);
 impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type Config = ();
     type State = ResState<T>;
-    fn create_state(_: Self::Config, _: &mut Resources) -> Self::State {
+    fn create_state(_: Self::Config) -> Self::State {
         ResState(PhantomData)
     }
 
@@ -237,7 +234,7 @@ pub struct ResMutState<T>(PhantomData<T>);
 impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     type Config = ();
     type State = ResMutState<T>;
-    fn create_state(_: Self::Config, _: &mut Resources) -> Self::State {
+    fn create_state(_: Self::Config) -> Self::State {
         ResMutState(PhantomData)
     }
 
@@ -281,7 +278,7 @@ impl<'a, T: Resource> SystemParam for ChangedRes<'a, T> {
     type Config = ();
     type State = ChangedResState<T>;
 
-    fn create_state(_: Self::Config, _: &mut Resources) -> Self::State {
+    fn create_state(_: Self::Config) -> Self::State {
         ChangedResState(PhantomData)
     }
 

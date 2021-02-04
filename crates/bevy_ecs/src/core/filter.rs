@@ -1,7 +1,7 @@
 use crate::{core::ComponentFlags, Archetype, Bundle, Component, QueryAccess};
 use std::{any::TypeId, marker::PhantomData, ptr::NonNull};
 
-pub trait QueryFilter: Sized {
+pub trait QueryFilter: Sized + 'static {
     type EntityFilter: EntityFilter;
     fn access() -> QueryAccess;
     fn get_entity_filter(archetype: &Archetype) -> Option<Self::EntityFilter>;
@@ -164,7 +164,7 @@ impl<T: Component> QueryFilter for With<T> {
 
 pub struct WithType<T: Bundle>(PhantomData<T>);
 
-impl<T: Bundle> QueryFilter for WithType<T> {
+impl<T: Bundle + 'static> QueryFilter for WithType<T> {
     type EntityFilter = AnyEntityFilter;
 
     fn access() -> QueryAccess {

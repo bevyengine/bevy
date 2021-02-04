@@ -125,48 +125,63 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_system<S: System<In = (), Out = ()>>(&mut self, system: S) -> &mut Self {
+    pub fn add_system<S: AsSystem>(&mut self, system: S) -> &mut Self
+    where
+        S::System: System<In = (), Out = ()>,
+    {
         self.add_system_to_stage(stage::UPDATE, system)
     }
 
-    pub fn on_state_enter<T: Clone + Resource, S: System<In = (), Out = ()>>(
+    pub fn on_state_enter<T: Clone + Resource, S: AsSystem>(
         &mut self,
         stage: &str,
         state: T,
         system: S,
-    ) -> &mut Self {
+    ) -> &mut Self
+    where
+        S::System: System<In = (), Out = ()>,
+    {
         self.stage(stage, |stage: &mut StateStage<T>| {
             stage.on_state_enter(state, system)
         })
     }
 
-    pub fn on_state_update<T: Clone + Resource, S: System<In = (), Out = ()>>(
+    pub fn on_state_update<T: Clone + Resource, S: AsSystem>(
         &mut self,
         stage: &str,
         state: T,
         system: S,
-    ) -> &mut Self {
+    ) -> &mut Self
+    where
+        S::System: System<In = (), Out = ()>,
+    {
         self.stage(stage, |stage: &mut StateStage<T>| {
             stage.on_state_update(state, system)
         })
     }
 
-    pub fn on_state_exit<T: Clone + Resource, S: System<In = (), Out = ()>>(
+    pub fn on_state_exit<T: Clone + Resource, S: AsSystem>(
         &mut self,
         stage: &str,
         state: T,
         system: S,
-    ) -> &mut Self {
+    ) -> &mut Self
+    where
+        S::System: System<In = (), Out = ()>,
+    {
         self.stage(stage, |stage: &mut StateStage<T>| {
             stage.on_state_exit(state, system)
         })
     }
 
-    pub fn add_startup_system_to_stage<S: System<In = (), Out = ()>>(
+    pub fn add_startup_system_to_stage<S: AsSystem>(
         &mut self,
         stage_name: &'static str,
         system: S,
-    ) -> &mut Self {
+    ) -> &mut Self
+    where
+        S::System: System<In = (), Out = ()>,
+    {
         self.app
             .schedule
             .stage(stage::STARTUP, |schedule: &mut Schedule| {
@@ -175,7 +190,10 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_startup_system<S: System<In = (), Out = ()>>(&mut self, system: S) -> &mut Self {
+    pub fn add_startup_system<S: AsSystem>(&mut self, system: S) -> &mut Self
+    where
+        S::System: System<In = (), Out = ()>,
+    {
         self.add_startup_system_to_stage(startup_stage::STARTUP, system)
     }
 

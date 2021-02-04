@@ -15,8 +15,8 @@ pub mod prelude {
         core::WorldBuilderSource,
         resource::{ChangedRes, FromResources, Res, ResMut, Resource, Resources},
         schedule::{Schedule, State, StateStage, SystemStage},
-        system::{Commands, IntoSystem, Local, Query, System},
-        Added, Bundle, Changed, Component, Entity, Flags, In, IntoChainSystem, Mut, Mutated, Or,
-        QuerySet, Ref, RefMut, With, Without, World,
+        system::{AsSystem, Commands, IntoSystem, Local, Query, System},
+        Added, Bundle, Changed, Component, Entity, Flags, In, IntoChainSystem, Mutated, Or,
+        QuerySet, With, Without, World,
     };
 }

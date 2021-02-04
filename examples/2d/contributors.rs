@@ -143,8 +143,8 @@ fn setup(
 fn select_system(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut sel: ResMut<ContributorSelection>,
-    mut dq: Query<Mut<Text>, With<ContributorDisplay>>,
-    mut tq: Query<Mut<Timer>, With<SelectTimer>>,
+    mut dq: Query<&mut Text, With<ContributorDisplay>>,
+    mut tq: Query<&mut Timer, With<SelectTimer>>,
     mut q: Query<(&Contributor, &Handle<ColorMaterial>, &mut Transform)>,
     time: Res<Time>,
 ) {
@@ -231,7 +231,7 @@ fn deselect(
 }
 
 /// Applies gravity to all entities with velocity
-fn velocity_system(time: Res<Time>, mut q: Query<Mut<Velocity>>) {
+fn velocity_system(time: Res<Time>, mut q: Query<&mut Velocity>) {
     let delta = time.delta_seconds();
 
     for mut v in q.iter_mut() {
@@ -246,7 +246,7 @@ fn velocity_system(time: Res<Time>, mut q: Query<Mut<Velocity>>) {
 /// force.
 fn collision_system(
     wins: Res<Windows>,
-    mut q: Query<(Mut<Velocity>, Mut<Transform>), With<Contributor>>,
+    mut q: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
 ) {
     let mut rnd = rand::thread_rng();
 
@@ -288,7 +288,7 @@ fn collision_system(
 }
 
 /// Apply velocity to positions and rotations.
-fn move_system(time: Res<Time>, mut q: Query<(&Velocity, Mut<Transform>)>) {
+fn move_system(time: Res<Time>, mut q: Query<(&Velocity, &mut Transform)>) {
     let delta = time.delta_seconds();
 
     for (v, mut t) in q.iter_mut() {

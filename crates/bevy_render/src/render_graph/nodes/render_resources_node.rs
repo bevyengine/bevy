@@ -12,8 +12,8 @@ use crate::{
 use bevy_app::EventReader;
 use bevy_asset::{Asset, AssetEvent, Assets, Handle, HandleId};
 use bevy_ecs::{
-    BoxedSystem, Changed, Commands, Entity, IntoSystem, Local, Or, Query, QuerySet, Res, ResMut,
-    Resources, System, With, World,
+    AsSystem, BoxedSystem, Changed, Commands, Entity, IntoSystem, Local, Or, Query, QuerySet, Res,
+    ResMut, Resources, With, World,
 };
 use bevy_utils::HashMap;
 use renderer::{AssetRenderResourceBindings, BufferId, RenderResourceType, RenderResources};
@@ -401,18 +401,17 @@ impl<T> SystemNode for RenderResourcesNode<T>
 where
     T: renderer::RenderResources,
 {
-    fn get_system(&self, commands: &mut Commands) -> BoxedSystem {
-        let system = render_resources_node_system::<T>.system();
-        commands.insert_local_resource(
-            system.id(),
-            RenderResourcesNodeState {
-                command_queue: self.command_queue.clone(),
-                uniform_buffer_arrays: UniformBufferArrays::<Entity, T>::default(),
-                dynamic_uniforms: self.dynamic_uniforms,
-            },
-        );
-
-        Box::new(system)
+    fn get_system(&self, _: &mut Commands) -> BoxedSystem {
+        let system = render_resources_node_system::<T>
+            .system()
+            .configure(|config| {
+                config.0 = Some(RenderResourcesNodeState {
+                    command_queue: self.command_queue.clone(),
+                    uniform_buffer_arrays: UniformBufferArrays::<Entity, T>::default(),
+                    dynamic_uniforms: self.dynamic_uniforms,
+                })
+            });
+        Box::new(system.as_system())
     }
 }
 
@@ -584,18 +583,17 @@ impl<T> SystemNode for AssetRenderResourcesNode<T>
 where
     T: renderer::RenderResources + Asset,
 {
-    fn get_system(&self, commands: &mut Commands) -> BoxedSystem {
-        let system = asset_render_resources_node_system::<T>.system();
-        commands.insert_local_resource(
-            system.id(),
-            RenderResourcesNodeState {
-                command_queue: self.command_queue.clone(),
-                uniform_buffer_arrays: UniformBufferArrays::<HandleId, T>::default(),
-                dynamic_uniforms: self.dynamic_uniforms,
-            },
-        );
-
-        Box::new(system)
+    fn get_system(&self, _: &mut Commands) -> BoxedSystem {
+        let system = asset_render_resources_node_system::<T>
+            .system()
+            .configure(|config| {
+                config.0 = Some(RenderResourcesNodeState {
+                    command_queue: self.command_queue.clone(),
+                    uniform_buffer_arrays: UniformBufferArrays::<HandleId, T>::default(),
+                    dynamic_uniforms: self.dynamic_uniforms,
+                })
+            });
+        Box::new(system.as_system())
     }
 }
 

@@ -8,7 +8,7 @@ mod impls;
 /// This allows these systems to use local state
 pub trait PureSystemParam: Sized {
     type PureConfig: 'static;
-    fn create_state_pure(config: Self::PureConfig, resources: &mut Resources) -> Self::PureState;
+    fn create_state_pure(config: Self::PureConfig) -> Self::PureState;
 
     type PureState: for<'a> PureParamState<'a>;
     // For documentation purposes, at some future point
@@ -24,7 +24,7 @@ pub trait PureParamState<'a>: Sized + Send + Sync + 'static {
 pub trait SystemParam: Sized {
     type Config: 'static;
     type State: for<'a> ParamState<'a> + 'static;
-    fn create_state(config: Self::Config, resources: &mut Resources) -> Self::State;
+    fn create_state(config: Self::Config) -> Self::State;
     fn default_config() -> Self::Config;
 }
 
@@ -51,8 +51,8 @@ impl<T: PureSystemParam> SystemParam for T {
 
     type State = T::PureState;
 
-    fn create_state(config: Self::Config, resources: &mut Resources) -> Self::State {
-        T::create_state_pure(config, resources)
+    fn create_state(config: Self::Config) -> Self::State {
+        T::create_state_pure(config)
     }
 
     fn default_config() -> Self::Config {
@@ -100,9 +100,9 @@ macro_rules! impl_system_param_tuple {
             type Config = ($($param::Config,)*);
             type State = ($($param::State,)*);
 
-            fn create_state(config: Self::Config, resources: &mut Resources) -> Self::State {
+            fn create_state(config: Self::Config) -> Self::State {
                 let ($($param,)*) = config;
-                ($($param::create_state($param, resources),)*)
+                ($($param::create_state($param),)*)
             }
 
             fn default_config() -> Self::Config{
@@ -152,9 +152,9 @@ macro_rules! impl_system_param_tuple {
             type Config = ($($param::Config,)*);
             type State = Or<($($param::State,)*)>;
 
-            fn create_state(config: Self::Config, resources: &mut Resources) -> Self::State {
+            fn create_state(config: Self::Config) -> Self::State {
                 let ($($param,)*) = config;
-                Or(($($param::create_state($param, resources),)*))
+                Or(($($param::create_state($param),)*))
             }
             fn default_config() -> Self::Config{
                 ($($param::default_config(),)*)

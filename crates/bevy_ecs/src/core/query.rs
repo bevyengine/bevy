@@ -33,9 +33,10 @@ pub trait WorldQuery {
 pub unsafe trait ReadOnlyFetch {}
 
 /// Streaming iterators over contiguous homogeneous ranges of components
-pub trait Fetch<'a>: Sized {
+pub trait Fetch<'a>: Sized + 'static {
     /// Type of value to be fetched
     type Item;
+    type Query: WorldQuery;
 
     /// A value on which `get` may never be called
     #[allow(clippy::declare_interior_mutable_const)] // no const fn in traits
@@ -70,6 +71,7 @@ impl WorldQuery for Entity {
 
 impl<'a> Fetch<'a> for EntityFetch {
     type Item = Entity;
+    type Query = Entity;
 
     const DANGLING: Self = Self(NonNull::dangling());
 
@@ -102,6 +104,7 @@ unsafe impl<T> ReadOnlyFetch for FetchRead<T> {}
 
 impl<'a, T: Component> Fetch<'a> for FetchRead<T> {
     type Item = &'a T;
+    type Query = &'a T;
 
     const DANGLING: Self = Self(NonNull::dangling());
 
@@ -230,6 +233,7 @@ pub struct FetchMut<T>(NonNull<T>, NonNull<ComponentFlags>);
 
 impl<'a, T: Component> Fetch<'a> for FetchMut<T> {
     type Item = Mut<'a, T>;
+    type Query = &'a mut T;
 
     const DANGLING: Self = Self(NonNull::dangling(), NonNull::dangling());
 
@@ -264,6 +268,7 @@ unsafe impl<T> ReadOnlyFetch for TryFetch<T> where T: ReadOnlyFetch {}
 
 impl<'a, T: Fetch<'a>> Fetch<'a> for TryFetch<T> {
     type Item = Option<T::Item>;
+    type Query = Option<T::Query>;
 
     const DANGLING: Self = Self(None);
 
@@ -287,6 +292,7 @@ unsafe impl<T> ReadOnlyFetch for FlagsFetch<T> {}
 
 impl<'a, T: Component> Fetch<'a> for FlagsFetch<T> {
     type Item = Flags<T>;
+    type Query = Flags<T>;
 
     const DANGLING: Self = Self(None, PhantomData::<T>);
 
@@ -521,6 +527,7 @@ macro_rules! tuple_impl {
     ($($name: ident),*) => {
         impl<'a, $($name: Fetch<'a>),*> Fetch<'a> for ($($name,)*) {
             type Item = ($($name::Item,)*);
+            type Query = ($($name::Query,)*);
             const DANGLING: Self = ($($name::DANGLING,)*);
 
             #[allow(unused_variables, unused_mut)]

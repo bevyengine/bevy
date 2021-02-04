@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_core::{AsBytes, Byteable};
 use bevy_ecs::{
-    BoxedSystem, Commands, IntoSystem, Local, Query, Res, ResMut, Resources, System, World,
+    AsSystem, BoxedSystem, Commands, IntoSystem, Local, Query, Res, ResMut, Resources, World,
 };
 use bevy_render::{
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
@@ -53,18 +53,16 @@ struct LightCount {
 unsafe impl Byteable for LightCount {}
 
 impl SystemNode for LightsNode {
-    fn get_system(&self, commands: &mut Commands) -> BoxedSystem {
-        let system = lights_node_system.system();
-        commands.insert_local_resource(
-            system.id(),
-            LightsNodeSystemState {
+    fn get_system(&self, _: &mut Commands) -> BoxedSystem {
+        let system = lights_node_system.system().configure(|c| {
+            c.0 = Some(LightsNodeSystemState {
                 command_queue: self.command_queue.clone(),
                 max_lights: self.max_lights,
                 light_buffer: None,
                 staging_buffer: None,
-            },
-        );
-        Box::new(system)
+            })
+        });
+        Box::new(system.as_system())
     }
 }
 

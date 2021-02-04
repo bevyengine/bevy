@@ -52,7 +52,7 @@ impl Schedule {
         S::System: System<In = (), Out = ShouldRun>,
     {
         // TODO(before-merge): Get resources here somehow
-        self.run_criteria = Some(Box::new(system.as_system(&mut Resources::default())));
+        self.run_criteria = Some(Box::new(system.as_system()));
         self.run_criteria_initialized = false;
         self
     }
@@ -116,7 +116,7 @@ impl Schedule {
                     stage_name
                 )
             });
-        stage.add_system(system.as_system(&mut Resources::default()));
+        stage.add_system(system.as_system());
         self
     }
 

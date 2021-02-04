@@ -314,6 +314,7 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
         let query_fn_mut = &query_fn_muts[0..query_count];
         tokens.extend(TokenStream::from(quote! {
             impl<#(#lifetime,)* #(#query: WorldQuery,)* #(#filter: QueryFilter,)*> QueryTuple for (#(Query<#lifetime, #query, #filter>,)*) {
+                type Fetch = (#( (#query::Fetch, #filter), )*);
                 unsafe fn new(world: &World, component_access: &TypeAccess<ArchetypeComponent>) -> Self {
                     (
                         #(
@@ -332,13 +333,17 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                 }
             }
 
+            impl<'a, #(#query: Fetch<'a>,)* #(#filter: QueryFilter,)*> QueryTupleFetch<'a> for (#((#query, #filter),)*) {
+                type Item = (#(Query<'a, <#query as Fetch<'a>>::Query, #filter>,)*);
+            }
+
             impl<#(#lifetime,)* #(#query: WorldQuery,)* #(#filter: QueryFilter,)*> QuerySet<(#(Query<#lifetime, #query, #filter>,)*)> {
                 #(#query_fn)*
                 #(#query_fn_mut)*
             }
         }));
     }
-
+    // println!("{}", tokens);
     tokens
 }
 
@@ -439,7 +444,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         #[allow(non_camel_case_types)]
         pub struct #state_struct_name<#(#fields,)* #punctuated_generic_idents>{
             #(#fields: #fields,)*
-            _phantom: std::marker::PhantomData<fn()->(#punctuated_generic_idents,)>
+            _phantom: std::marker::PhantomData<fn()->(#punctuated_generic_idents)>
         }
 
         impl #impl_generics #path::SystemParam for #struct_name#ty_generics #where_clause {
@@ -451,9 +456,9 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 }
             }
 
-            fn create_state(config: Self::Config, resources: &mut #path::Resources) -> Self::State {
+            fn create_state(config: Self::Config) -> Self::State {
                 #state_struct_name {
-                    #(#fields:  <#field_types as #path::SystemParam>::create_state(config.#fields, resources),)*
+                    #(#fields:  <#field_types as #path::SystemParam>::create_state(config.#fields),)*
                     _phantom: std::marker::PhantomData
                 }
             }

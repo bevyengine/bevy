@@ -10,10 +10,15 @@ pub struct QuerySet<T: QueryTuple> {
 impl_query_set!();
 
 pub trait QueryTuple {
+    type Fetch: for<'a> QueryTupleFetch<'a>;
     /// # Safety
     /// this might cast world and component access to the relevant Self lifetimes. verify that this is safe in each impl
     unsafe fn new(world: &World, component_access: &TypeAccess<ArchetypeComponent>) -> Self;
     fn get_accesses() -> Vec<QueryAccess>;
+}
+
+pub trait QueryTupleFetch<'a>: 'static {
+    type Item: QueryTuple;
 }
 
 impl<T: QueryTuple> QuerySet<T> {
