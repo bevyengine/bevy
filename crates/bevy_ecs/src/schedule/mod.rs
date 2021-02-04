@@ -6,7 +6,7 @@ pub use stage::*;
 pub use stage_executor::*;
 pub use state::*;
 
-use crate::{AsSystem, BoxedSystem, IntoSystem, Resources, System, World};
+use crate::{AsSystem, BoxedSystem, Resources, System, World};
 use bevy_utils::HashMap;
 
 #[derive(Default)]

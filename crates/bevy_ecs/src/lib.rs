@@ -13,9 +13,9 @@ pub use system::{Query, *};
 pub mod prelude {
     pub use crate::{
         core::WorldBuilderSource,
-        resource::{ChangedRes, FromResources, Local, Res, ResMut, Resource, Resources},
+        resource::{ChangedRes, FromResources, Res, ResMut, Resource, Resources},
         schedule::{Schedule, State, StateStage, SystemStage},
-        system::{Commands, IntoSystem, Query, System},
+        system::{Commands, IntoSystem, Local, Query, System},
         Added, Bundle, Changed, Component, Entity, Flags, In, IntoChainSystem, Mut, Mutated, Or,
         QuerySet, Ref, RefMut, With, Without, World,
     };

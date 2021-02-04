@@ -1,5 +1,4 @@
-use super::FromResources;
-use crate::{Resource, ResourceIndex, Resources, SystemId};
+use crate::Resource;
 use std::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
@@ -97,39 +96,6 @@ impl<'a, T: Resource> DerefMut for ResMut<'a, T> {
             *self.mutated = true;
             &mut *self.value
         }
-    }
-}
-
-/// Local<T> resources are unique per-system. Two instances of the same system will each have their own resource.
-/// Local resources are automatically initialized using the FromResources trait.
-#[derive(Debug)]
-pub struct Local<'a, T: Resource + FromResources> {
-    value: *mut T,
-    _marker: PhantomData<&'a T>,
-}
-
-impl<'a, T: Resource + FromResources> Local<'a, T> {
-    pub(crate) unsafe fn new(resources: &Resources, id: SystemId) -> Self {
-        Local {
-            value: resources
-                .get_unsafe_ref::<T>(ResourceIndex::System(id))
-                .as_ptr(),
-            _marker: Default::default(),
-        }
-    }
-}
-
-impl<'a, T: Resource + FromResources> Deref for Local<'a, T> {
-    type Target = T;
-
-    fn deref(&self) -> &T {
-        unsafe { &*self.value }
-    }
-}
-
-impl<'a, T: Resource + FromResources> DerefMut for Local<'a, T> {
-    fn deref_mut(&mut self) -> &mut T {
-        unsafe { &mut *self.value }
     }
 }
 

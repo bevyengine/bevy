@@ -1,14 +1,9 @@
-use std::{
-    any::TypeId,
-    marker::PhantomData,
-    ops::{Deref, DerefMut},
-    sync::Arc,
-};
+use std::{any::TypeId, marker::PhantomData, sync::Arc};
 
 use parking_lot::Mutex;
 
 use crate::{
-    ArchetypeComponent, ChangedRes, Commands, Fetch, FromResources, Query, QueryAccess,
+    ArchetypeComponent, ChangedRes, Commands, Fetch, FromResources, Local, Query, QueryAccess,
     QueryFilter, QuerySet, QueryTuple, Res, ResMut, Resource, ResourceIndex, Resources,
     SystemState, TypeAccess, World, WorldQuery,
 };
@@ -16,30 +11,14 @@ use crate::{
 use super::{ParamState, PureParamState, PureSystemParam, SystemParam};
 
 // TODO NOW: Make Local<T> equivalent to &mut T
-#[derive(Debug)]
-pub struct Local<T>(T);
+pub struct LocalState<T>(T);
 
-impl<T> Deref for Local<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<T> DerefMut for Local<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-// TODO: Equivalent impl for &Local<T> - would need type
-impl<T: FromResources + 'static + Send + Sync> PureSystemParam for &'static mut Local<T> {
+impl<T: FromResources + 'static + Send + Sync> PureSystemParam for Local<'static, T> {
     type Config = Option<T>;
-    type State = Local<T>;
+    type State = LocalState<T>;
 
     fn create_state_pure(config: Self::Config, resources: &mut Resources) -> Self::State {
-        Local(config.unwrap_or_else(|| T::from_resources(resources)))
+        LocalState(config.unwrap_or_else(|| T::from_resources(resources)))
     }
 
     fn default_config_pure() -> Self::Config {
@@ -47,11 +26,11 @@ impl<T: FromResources + 'static + Send + Sync> PureSystemParam for &'static mut 
     }
 }
 
-impl<'a, T: Send + Sync + 'static> PureParamState<'a> for Local<T> {
-    type Item = &'a mut Local<T>;
+impl<'a, T: Send + Sync + 'static> PureParamState<'a> for LocalState<T> {
+    type Item = Local<'a, T>;
 
     fn view_param(&'a mut self) -> Self::Item {
-        self
+        Local(&mut self.0)
     }
 }
 

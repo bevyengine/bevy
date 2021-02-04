@@ -1,3 +1,5 @@
+use std::ops::{Deref, DerefMut};
+
 use crate::{Or, Resources, SystemState, World};
 
 mod impls;
@@ -72,6 +74,22 @@ impl<'a, T: PureParamState<'a>> ParamState<'a> for T {
     }
 
     fn init(&mut self, _: &mut SystemState, _: &World, _: &mut Resources) {}
+}
+
+#[derive(Debug)]
+pub struct Local<'a, T>(pub(crate) &'a mut T);
+
+impl<'a, T> DerefMut for Local<'a, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+impl<'a, T> Deref for Local<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &*self.0
+    }
 }
 
 macro_rules! impl_system_param_tuple {
