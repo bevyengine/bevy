@@ -1,60 +1,130 @@
-use std::{any::TypeId, borrow::Cow, marker::PhantomData, ops::Deref};
-
 use async_channel::{Receiver, Sender};
+use parking_lot::Mutex;
+use std::{any::TypeId, borrow::Cow, marker::PhantomData, ops::Deref, sync::Arc};
 
 use bevy_tasks::{AsyncComputeTaskPool, TaskPool};
 use bevy_utils::BoxedFuture;
 
-use crate::{ArchetypeComponent, BoxedSystem, FetchSystemParam, Resources, System, SystemId, SystemParam, SystemState, TypeAccess, World};
+use crate::{
+    ArchetypeComponent, BoxedSystem, FetchSystemParam, Resources, System, SystemId, SystemParam,
+    SystemState, TypeAccess, World,
+};
 
-pub trait AsyncSystem: Sized {
+pub trait AsyncSystem<T>: Sized {
     type TaskPool: Deref<Target = TaskPool>;
 
-     fn system(self, primary: bool) -> Vec<(&'static str, BoxedSystem)>;
+    fn systems(self) -> Vec<BoxedSystem>;
 }
 
-pub trait AsyncSystemWith<Params: SystemParam>: Send + Sync + Copy + 'static {
-    fn init(self, accessor: Accessor<Params>) -> Option<BoxedFuture<'static, ()>>;
+pub trait AsyncSystemWith<Params: SystemParam>: Send + Sync + Copy + 'static {}
+
+pub trait Curry<P: SystemParam>: Send + Sync {
+    fn init(&mut self, accessor: Accessor<P>) -> Option<BoxedFuture<'static, ()>>;
 }
 
-impl<P, F, Func> AsyncSystemWith<P> for Func
-where
-    P: SystemParam + 'static,
-    F: std::future::Future<Output = ()> + Send + Sync + 'static,
-    Func: Fn(Accessor<P>) -> F + Send + Sync + Copy + 'static,
-{
-    fn init(self, accessor: Accessor<P>) -> Option<BoxedFuture<'static, ()>> {
-        todo!()
+pub mod curries {
+    use super::*;
+
+    macro_rules! create_curries {
+        ($name: ident, [$($typ: ident {$($nest: ident),*}),*]) => {
+            #[allow(non_snake_case)]
+            pub struct $name<Func, F, $($typ),*>
+            where
+                F: std::future::Future<Output = ()> + Send + Sync + 'static,
+                Func: Fn($(Accessor<$typ>),*) -> F + Send + Sync + Copy + 'static,
+                $($typ: SystemParam + 'static),*
+            {
+                func: Func,
+                $($typ: Option<Accessor<$typ>>),*
+            }
+
+            unsafe impl<Func, F, $($typ),*> Send for $name<Func, F, $($typ),*>
+            where
+                F: std::future::Future<Output = ()> + Send + Sync + 'static,
+                Func: Fn($(Accessor<$typ>),*) -> F + Send + Sync + Copy + 'static,
+                $($typ: SystemParam + 'static),* {}
+
+            unsafe impl<Func, F, $($typ),*> Sync for $name<Func, F, $($typ),*>
+            where
+                F: std::future::Future<Output = ()> + Send + Sync + 'static,
+                Func: Fn($(Accessor<$typ>),*) -> F + Send + Sync + Copy + 'static,
+                $($typ: SystemParam + 'static),* {}
+
+            #[allow(unused_parens)]
+            impl<Func, $($typ),*, F> AsyncSystem<($($typ),*)> for Func
+            where
+                F: std::future::Future<Output = ()> + Send + Sync + 'static,
+                Func: Fn($(Accessor<$typ>),*) -> F + Send + Sync + Copy + 'static,
+                $($typ: SystemParam + 'static),*
+            {
+                type TaskPool = AsyncComputeTaskPool;
+
+                fn systems(self) -> Vec<BoxedSystem> {
+                    let curry = $name {
+                        func: self,
+                        $(
+                            $typ: None
+                        ),*
+                    };
+                    let arc = Arc::new(Mutex::new(curry));
+                    vec![$(
+                        Box::new(AccessorRunnerSystem {
+                            state: {
+                                let _: $typ;
+                                let mut resource_access = TypeAccess::default();
+                                resource_access.add_write(TypeId::of::<Self::TaskPool>());
+                                SystemState {
+                                    name: std::any::type_name::<Self>().into(),
+                                    archetype_component_access: TypeAccess::default(),
+                                    resource_access: resource_access,
+                                    local_resource_access: TypeAccess::default(),
+                                    id: SystemId::new(),
+                                    commands: Default::default(),
+                                    arc_commands: Default::default(),
+                                    current_query_index: Default::default(),
+                                    query_archetype_component_accesses: Vec::new(),
+                                    query_accesses: Vec::new(),
+                                    query_type_names: Vec::new(),
+                                }
+                            },
+                            channel: async_channel::bounded(1).1,
+                            core: arc.clone(),
+                            _marker: Default::default(),
+                        })
+                    ),*]
+                }
+            }
+
+            $(
+                impl_curry!($name, $typ, [$($nest),*]);
+            )*
+        };
     }
-    // type TaskPool = bevy_tasks::AsyncComputeTaskPool;
 
-    // fn run(self, accessor: Accessor<P>) -> BoxedFuture<'static, ()> {
-    //     Box::pin((self)(accessor))
-    // }
+    macro_rules! impl_curry {
+        ($name: ident, $field: ident, [$($typ: ident),*]) => {
+            impl<Func, F, $($typ),*> Curry<$field> for $name<Func, F, $($typ),*>
+            where
+                F: std::future::Future<Output = ()> + Send + Sync + 'static,
+                Func: Fn($(Accessor<$typ>),*) -> F + Send + Sync + Copy + 'static,
+                $($typ: SystemParam + 'static),*
+            {
+                fn init(&mut self, accessor: Accessor<$field>) -> Option<BoxedFuture<'static, ()>> {
+                    self.$field = Some(accessor);
+                    $(
+                        if self.$typ.is_none() {
+                            return None;
+                        }
+                    )*
 
-    // fn system(self, primary: bool) -> AsyncSystemSyncSystem<P, Self> {
-    //     let mut resource_access = TypeAccess::default();
-    //     resource_access.add_write(TypeId::of::<Self::TaskPool>());
+                    Some(Box::pin((self.func)($(self.$typ.take()?),*)))
+                }
+            }
+        };
+    }
 
-    //     AsyncSystemSyncSystem::<P, Self> {
-    //         state: SystemState {
-    //             name: std::any::type_name::<Self>().into(),
-    //             archetype_component_access: TypeAccess::default(),
-    //             resource_access,
-    //             local_resource_access: TypeAccess::default(),
-    //             id: SystemId::new(),
-    //             commands: Default::default(),
-    //             arc_commands: Default::default(),
-    //             current_query_index: Default::default(),
-    //             query_archetype_component_accesses: Vec::new(),
-    //             query_accesses: Vec::new(),
-    //             query_type_names: Vec::new(),
-    //         },
-    //         channel: async_channel::bounded(1).1,
-    //         core: if primary { Some(self) } else { None },
-    //         _marker: Default::default(),
-    //     }
-    // }
+    create_curries!(Ax, [A { A }]);
+    create_curries!(Bx, [A { A, B }, B { A, B }]);
 }
 
 pub struct Accessor<P: SystemParam> {
@@ -90,10 +160,10 @@ impl<P: SystemParam> Accessor<P> {
     }
 }
 
-pub struct AsyncSystemSyncSystem<P: SystemParam, S: AsyncSystemWith<P>> {
+pub struct AccessorRunnerSystem<P: SystemParam, C: Curry<P>> {
     state: SystemState,
     channel: Receiver<Box<dyn FnOnce(&SystemState, &World, &Resources) + Send + Sync>>,
-    core: Option<S>,
+    core: Arc<Mutex<C>>,
     _marker: OpaquePhantomData<P>,
 }
 
@@ -112,9 +182,7 @@ impl<T> Default for OpaquePhantomData<T> {
     }
 }
 
-impl<P: SystemParam + 'static, S: AsyncSystemWith<P> + Copy> System
-    for AsyncSystemSyncSystem<P, S>
-{
+impl<P: SystemParam + 'static, C: Curry<P> + 'static> System for AccessorRunnerSystem<P, C> {
     type In = ();
     type Out = ();
 
@@ -143,17 +211,15 @@ impl<P: SystemParam + 'static, S: AsyncSystemWith<P> + Copy> System
         match self.channel.try_recv() {
             Ok(sync) => (sync)(&self.state, world, resources),
             Err(async_channel::TryRecvError::Closed) => {
-                if let Some(core) = self.core {
-                    let (tx, rx) = async_channel::unbounded();
-                    if let Some(f) = core.init(Accessor {
-                        channel: tx,
-                        _marker: Default::default(),
-                    }) {
-                        let executor = resources.get_mut::<AsyncComputeTaskPool>().unwrap();
-                        executor.spawn(f).detach();
-                    }
-                    self.channel = rx;
+                let (tx, rx) = async_channel::unbounded();
+                if let Some(f) = self.core.lock().init(Accessor {
+                    channel: tx,
+                    _marker: Default::default(),
+                }) {
+                    let executor = resources.get_mut::<AsyncComputeTaskPool>().unwrap();
+                    executor.spawn(f).detach();
                 }
+                self.channel = rx;
             }
             _ => (),
         }
@@ -164,17 +230,15 @@ impl<P: SystemParam + 'static, S: AsyncSystemWith<P> + Copy> System
     fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
         <P::Fetch as FetchSystemParam>::init(&mut self.state, world, resources);
 
-        if let Some(core) = self.core {
-            let (tx, rx) = async_channel::unbounded();
-            if let Some(f) = core.init(Accessor {
-                channel: tx,
-                _marker: Default::default(),
-            }) {
-                let executor = resources.get_mut::<AsyncComputeTaskPool>().unwrap();
-                executor.spawn(f).detach();
-            }
-            self.channel = rx;
+        let (tx, rx) = async_channel::unbounded();
+        if let Some(f) = self.core.lock().init(Accessor {
+            channel: tx,
+            _marker: Default::default(),
+        }) {
+            let executor = resources.get_mut::<AsyncComputeTaskPool>().unwrap();
+            executor.spawn(f).detach();
         }
+        self.channel = rx;
     }
 
     fn update(&mut self, _world: &World) {}
@@ -199,9 +263,11 @@ impl<P: SystemParam + 'static, S: AsyncSystemWith<P> + Copy> System
 mod test {
     use bevy_tasks::{AsyncComputeTaskPool, TaskPoolBuilder};
 
-    use super::{Accessor, AsyncSystemWith};
+    use super::{Accessor, AsyncSystem};
 
     use crate::{Commands, IntoSystem, Query, Res, ResMut, Resources, Stage, SystemStage, World};
+
+    use std::convert::TryInto;
 
     async fn async_system(mut accessor: Accessor<(Query<'_, (&u32, &i64)>, ResMut<'_, String>)>) {
         let mut x = None;
@@ -243,6 +309,8 @@ mod test {
 
         commands.apply(&mut world, &mut resources);
 
+        let [sync_1]: [_; 1] = async_system.systems().try_into().map_err(|_| ()).unwrap();
+
         let mut stage = SystemStage::serial();
         stage
             .add_system(
@@ -251,7 +319,7 @@ mod test {
                 })
                 .system(),
             )
-            .add_system(async_system.system())
+            .add_system_boxed(sync_1)
             .add_system(
                 (|string: Res<String>| {
                     assert_eq!("Hi!", &*string);
