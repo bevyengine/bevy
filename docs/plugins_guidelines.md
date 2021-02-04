@@ -20,15 +20,15 @@ This document targets plugin authors.
 
 ## Naming
 
-You are free to use a `bevy_xxx` name for your plugin, with the caveat "please be reasonable". If you are about to claim a generic name like `bevy_animation`, `bevy_color`, or `bevy_editor`... please ask first. The rational is explained [here](https://github.com/bevyengine/bevy/discussions/1202#discussioncomment-258907).
+You are free to use a `bevy_xxx` name for your plugin, but please be reasonable. If you are about to claim a generic name like `bevy_animation`, `bevy_color`, or `bevy_editor`, please ask first. The rationale is explained [here](https://github.com/bevyengine/bevy/discussions/1202#discussioncomment-258907).
 
 ## Promotion
 
 You can promote your plugin in Bevy's [communities](https://github.com/bevyengine/bevy#community):
 
-* Add it to [Awesome Bevy](https://github.com/bevyengine/awesome-bevy)
-* Announce it on [Discord](https://discord.gg/gMUk5Ph), in channel `#showcase`
-* Announce it on [Reddit](https://reddit.com/r/bevy)
+* Add it to [Awesome Bevy](https://github.com/bevyengine/awesome-bevy).
+* Announce it on [Discord](https://discord.gg/gMUk5Ph), in the `#showcase` channel.
+* Announce it on [Reddit](https://reddit.com/r/bevy).
 
 ## Bevy Version Supported
 
@@ -48,7 +48,7 @@ bevy = { version = "0.4", default-features = false, features = ["..."] }
 
 ## Master Branch Tracking
 
-If you intend to track Bevy's master branch, you can specify the latest commit you support in your cargo.toml file:
+If you intend to track Bevy's master branch, you can specify the latest commit you support in your `Cargo.toml` file:
 ```
 bevy = { version = "0.4", git = "https://github.com/bevyengine/bevy", rev="509b138e8fa3ea250393de40c33cc857c72134d3", default-features = false }
 ```
