@@ -18,7 +18,7 @@ impl<'a, T: Default + 'static + Send + Sync> PureSystemParam for Local<'a, T> {
     type PureState = LocalState<T>;
 
     fn create_state_pure(config: Self::PureConfig) -> Self::PureState {
-        LocalState(config.unwrap_or_else(|| T::default()))
+        LocalState(config.unwrap_or_else(T::default))
     }
 
     fn default_config_pure() -> Self::PureConfig {

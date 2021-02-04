@@ -31,6 +31,10 @@ pub trait SystemParam: Sized {
 pub trait ParamState<'a>: Sized + Send + Sync + 'static {
     type Item;
 
+    /// # Safety
+    ///
+    /// Init must have been called and the aliasing requirements set up in
+    /// SystemState must be met
     unsafe fn get_param(
         &'a mut self,
         system_state: &'a SystemState,
