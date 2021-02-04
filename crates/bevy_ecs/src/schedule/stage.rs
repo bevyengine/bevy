@@ -1,7 +1,7 @@
 use bevy_utils::{tracing::info, HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
-use std::{borrow::Cow, iter::FromIterator, ptr::NonNull};
+use std::{borrow::Cow, ptr::NonNull};
 
 use super::{
     ExclusiveSystemContainer, ParallelExecutor, ParallelSystemContainer, ParallelSystemExecutor,
@@ -10,13 +10,8 @@ use super::{
 use crate::{
     InsertionPoint, Resources, RunCriteria,
     ShouldRun::{self, *},
-    System, SystemDescriptor, SystemId, SystemSet, World,
+    System, SystemDescriptor, SystemSet, World,
 };
-
-// TODO make use of?
-pub enum StageError {
-    SystemAlreadyExists(SystemId),
-}
 
 pub trait Stage: Downcast + Send + Sync {
     /// Runs the stage; this happens once per update.
@@ -218,10 +213,18 @@ impl SystemStage {
         let mut all_ambiguities = Vec::new();
         let mut all_relations = HashMap::<usize, FixedBitSet>::default();
 
-        let mut graph = build_dependency_graph(&self.parallel);
+        let mut graph =
+            build_dependency_graph(&self.parallel).unwrap_or_else(|error| match error {
+                GraphError::LabelNotFound(label) => {
+                    panic!("No parallel system with label {:?} in stage.", label)
+                }
+                GraphError::DuplicateLabel(label) => {
+                    panic!("Label {:?} already used by a parallel system.", label)
+                }
+            });
         let order = topological_order(&self.parallel, &graph);
         populate_relations(&graph, &mut all_relations);
-        let full_bitset = FixedBitSet::from_iter(0..self.parallel.len());
+        let full_bitset: FixedBitSet = (0..self.parallel.len()).collect();
         for (index_a, relations) in all_relations.drain() {
             let difference = full_bitset.difference(&relations);
             for index_b in difference {
@@ -260,68 +263,127 @@ impl SystemStage {
         rearrange_to_order(&mut self.parallel, &order);
 
         let mut sort_exclusive = |systems: &mut Vec<ExclusiveSystemContainer>| {
-            let graph = build_dependency_graph(systems);
-            let order = topological_order(systems, &graph);
-            populate_relations(&graph, &mut all_relations);
-            let full_bitset = FixedBitSet::from_iter(0..systems.len());
-            for (index_a, relations) in all_relations.drain() {
-                let difference = full_bitset.difference(&relations);
-                for index_b in difference {
-                    if !(ambiguities.contains(&(index_b, index_a))) {
-                        ambiguities.push((index_a, index_b));
+            build_dependency_graph(systems).map(|graph| {
+                let order = topological_order(systems, &graph);
+                populate_relations(&graph, &mut all_relations);
+                let full_bitset: FixedBitSet = (0..systems.len()).collect();
+                for (index_a, relations) in all_relations.drain() {
+                    let difference = full_bitset.difference(&relations);
+                    for index_b in difference {
+                        if !(ambiguities.contains(&(index_b, index_a))) {
+                            ambiguities.push((index_a, index_b));
+                        }
                     }
                 }
-            }
-            all_ambiguities.extend(ambiguities.drain(..).map(|(index_a, index_b)| {
-                (
-                    systems[index_a].display_name(),
-                    systems[index_b].display_name(),
-                )
-            }));
-            rearrange_to_order(systems, &order);
+                all_ambiguities.extend(ambiguities.drain(..).map(|(index_a, index_b)| {
+                    (
+                        systems[index_a].display_name(),
+                        systems[index_b].display_name(),
+                    )
+                }));
+                rearrange_to_order(systems, &order);
+            })
         };
-        sort_exclusive(&mut self.exclusive_at_start);
-        sort_exclusive(&mut self.exclusive_before_commands);
-        sort_exclusive(&mut self.exclusive_at_end);
+        if let Err(error) = sort_exclusive(&mut self.exclusive_at_start) {
+            match error {
+                GraphError::LabelNotFound(label) => {
+                    panic!(
+                        "No exclusive system with label {:?} at start of stage.",
+                        label
+                    )
+                }
+                GraphError::DuplicateLabel(label) => {
+                    panic!(
+                        "Label {:?} already used by an exclusive system at start of stage.",
+                        label
+                    )
+                }
+            }
+        }
+        if let Err(error) = sort_exclusive(&mut self.exclusive_before_commands) {
+            match error {
+                GraphError::LabelNotFound(label) => {
+                    panic!(
+                        "No exclusive system with label {:?} before commands of stage.",
+                        label
+                    )
+                }
+                GraphError::DuplicateLabel(label) => {
+                    panic!(
+                        "Label {:?} already used by an exclusive system before commands of stage.",
+                        label
+                    )
+                }
+            }
+        }
+        if let Err(error) = sort_exclusive(&mut self.exclusive_at_end) {
+            match error {
+                GraphError::LabelNotFound(label) => {
+                    panic!(
+                        "No exclusive system with label {:?} at end of stage.",
+                        label
+                    )
+                }
+                GraphError::DuplicateLabel(label) => {
+                    panic!(
+                        "Label {:?} already used by an exclusive system at end of stage.",
+                        label
+                    )
+                }
+            }
+        }
         all_ambiguities
     }
 }
 
+enum GraphError {
+    LabelNotFound(Cow<'static, str>),
+    DuplicateLabel(Cow<'static, str>),
+}
+
 /// Constructs a dependency graph of given system containers.
-fn build_dependency_graph(systems: &[impl SystemContainer]) -> HashMap<usize, Vec<usize>> {
-    let labels = systems
-        .iter()
-        .enumerate()
-        .filter_map(|(index, container)| {
-            container
-                .label()
-                .as_ref()
-                .cloned()
-                .map(|label| (label, index))
-        })
-        .collect::<HashMap<Cow<'static, str>, usize>>();
-    let resolve_label = |label| {
-        labels
-            .get(label)
-            // TODO better error message
-            .unwrap_or_else(|| panic!("no such system"))
-    };
+fn build_dependency_graph(
+    systems: &[impl SystemContainer],
+) -> Result<HashMap<usize, Vec<usize>>, GraphError> {
+    let mut labels = HashMap::<Cow<'static, str>, usize>::default();
+    for (label, index) in systems.iter().enumerate().filter_map(|(index, container)| {
+        container
+            .label()
+            .as_ref()
+            .cloned()
+            .map(|label| (label, index))
+    }) {
+        if labels.contains_key(&label) {
+            return Err(GraphError::DuplicateLabel(label));
+        }
+        labels.insert(label, index);
+    }
     let mut graph = HashMap::default();
     for (system_index, container) in systems.iter().enumerate() {
         let children = graph.entry(system_index).or_insert_with(Vec::new);
-        for dependency in container.after().iter().map(resolve_label) {
-            if !children.contains(dependency) {
-                children.push(*dependency);
+        for label in container.after() {
+            match labels.get(label) {
+                Some(dependency) => {
+                    if !children.contains(dependency) {
+                        children.push(*dependency);
+                    }
+                }
+                None => return Err(GraphError::LabelNotFound(label.clone())),
             }
         }
-        for dependant in container.before().iter().map(resolve_label) {
-            let children = graph.entry(*dependant).or_insert_with(Vec::new);
-            if !children.contains(&system_index) {
-                children.push(system_index);
+        for label in container.before() {
+            match labels.get(label) {
+                Some(dependant) => {
+                    let children = graph.entry(*dependant).or_insert_with(Vec::new);
+                    if !children.contains(&system_index) {
+                        children.push(system_index);
+                    }
+                }
+                None => return Err(GraphError::LabelNotFound(label.clone())),
             }
         }
     }
-    graph
+    Ok(graph)
 }
 
 /// Generates a topological order for the given graph; panics if the graph cycles,
@@ -342,13 +404,13 @@ fn topological_order(
         } else if !unvisited.remove(node) {
             return false;
         }
-        current.insert(node.clone());
+        current.insert(*node);
         for node in graph.get(node).unwrap() {
             if check_if_cycles_and_visit(node, &graph, sorted, unvisited, current) {
                 return true;
             }
         }
-        sorted.push(node.clone());
+        sorted.push(*node);
         current.remove(node);
         false
     }
@@ -359,7 +421,7 @@ fn topological_order(
     while let Some(node) = unvisited.iter().next().cloned() {
         if check_if_cycles_and_visit(&node, graph, &mut sorted, &mut unvisited, &mut current) {
             panic!(
-                "found cycle: {:?}",
+                "Found a dependency cycle between systems: {:?}.",
                 current
                     .iter()
                     .map(|index| systems[*index].display_name())
@@ -411,24 +473,14 @@ fn populate_relations(
 impl Stage for SystemStage {
     fn run(&mut self, world: &mut World, resources: &mut Resources) {
         // Evaluate sets' run criteria, initialize sets as needed, detect if any sets were changed.
-        let mut has_any_work = false;
-        let mut has_doable_work = false;
+        let mut has_work = false;
         for system_set in self.system_sets.iter_mut() {
             let result = system_set.run_criteria.should_run(world, resources);
             match result {
-                Yes | YesAndLoop => {
-                    has_doable_work = true;
-                    has_any_work = true;
-                }
-                NoAndLoop => has_any_work = true,
-                No => (),
+                Yes | YesAndCheckAgain => has_work = true,
+                No | NoButCheckAgain => (),
             }
             system_set.should_run = result;
-        }
-        // TODO a real error message
-        assert!(!has_any_work || has_doable_work);
-        if !has_doable_work {
-            return;
         }
 
         if self.systems_modified {
@@ -454,10 +506,10 @@ impl Stage for SystemStage {
             self.executor_modified = false;
         }
 
-        while has_doable_work {
+        while has_work {
             // Run systems that want to be at the start of stage.
             for container in &mut self.exclusive_at_start {
-                if let Yes | YesAndLoop = self.system_sets[container.set].should_run {
+                if let Yes | YesAndCheckAgain = self.system_sets[container.set].should_run {
                     container.system.run(world, resources);
                 }
             }
@@ -466,8 +518,8 @@ impl Stage for SystemStage {
             // TODO hard dependencies, nested sets, whatever... should be evaluated here.
             for container in &mut self.parallel {
                 match self.system_sets[container.set].should_run {
-                    Yes | YesAndLoop => container.should_run = true,
-                    No | NoAndLoop => container.should_run = false,
+                    Yes | YesAndCheckAgain => container.should_run = true,
+                    No | NoButCheckAgain => container.should_run = false,
                 }
             }
             self.executor
@@ -475,7 +527,7 @@ impl Stage for SystemStage {
 
             // Run systems that want to be between parallel systems and their command buffers.
             for container in &mut self.exclusive_before_commands {
-                if let Yes | YesAndLoop = self.system_sets[container.set].should_run {
+                if let Yes | YesAndCheckAgain = self.system_sets[container.set].should_run {
                     container.system.run(world, resources);
                 }
             }
@@ -489,34 +541,27 @@ impl Stage for SystemStage {
 
             // Run systems that want to be at the end of stage.
             for container in &mut self.exclusive_at_end {
-                if let Yes | YesAndLoop = self.system_sets[container.set].should_run {
+                if let Yes | YesAndCheckAgain = self.system_sets[container.set].should_run {
                     container.system.run(world, resources);
                 }
             }
 
             // Reevaluate system sets' run criteria.
-            has_any_work = false;
-            has_doable_work = false;
+            has_work = false;
             for system_set in self.system_sets.iter_mut() {
                 match system_set.should_run {
                     No => (),
                     Yes => system_set.should_run = No,
-                    YesAndLoop | NoAndLoop => {
+                    YesAndCheckAgain | NoButCheckAgain => {
                         let new_result = system_set.run_criteria.should_run(world, resources);
                         match new_result {
-                            Yes | YesAndLoop => {
-                                has_doable_work = true;
-                                has_any_work = true;
-                            }
-                            NoAndLoop => has_any_work = true,
-                            No => (),
+                            Yes | YesAndCheckAgain => has_work = true,
+                            No | NoButCheckAgain => (),
                         }
                         system_set.should_run = new_result;
                     }
                 }
             }
-            // TODO a real error message
-            assert!(!has_any_work || has_doable_work);
         }
     }
 }
@@ -538,6 +583,8 @@ mod tests {
             parallel
         }};
     }
+
+    fn empty() {}
 
     fn resettable_run_once(mut has_ran: ResMut<bool>) -> ShouldRun {
         if !*has_ran {
@@ -596,6 +643,36 @@ mod tests {
             *resources.get::<Vec<usize>>().unwrap(),
             vec![0, 1, 2, 3, 0, 1, 2, 3]
         );
+    }
+
+    #[test]
+    #[should_panic(expected = "No exclusive system with label \"empty\" at start of stage.")]
+    fn exclusive_unknown_label() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert(Vec::<usize>::new());
+        let mut stage = SystemStage::parallel()
+            .with_system(empty.exclusive_system().at_end().label("empty"))
+            .with_system(empty.exclusive_system().after("empty"));
+        stage.run(&mut world, &mut resources);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Label \"empty\" already used by an exclusive system at start of stage."
+    )]
+    fn exclusive_duplicate_label() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert(Vec::<usize>::new());
+        let mut stage = SystemStage::parallel()
+            .with_system(empty.exclusive_system().at_end().label("empty"))
+            .with_system(empty.exclusive_system().before_commands().label("empty"));
+        stage.run(&mut world, &mut resources);
+        let mut stage = SystemStage::parallel()
+            .with_system(empty.exclusive_system().label("empty"))
+            .with_system(empty.exclusive_system().label("empty"));
+        stage.run(&mut world, &mut resources);
     }
 
     #[test]
@@ -776,6 +853,30 @@ mod tests {
             .with_system(make_exclusive(0).exclusive_system().label("0"))
             .with_system(make_exclusive(1).exclusive_system().after("0").before("2"))
             .with_system(make_exclusive(2).exclusive_system().label("2").before("0"));
+        stage.run(&mut world, &mut resources);
+    }
+
+    #[test]
+    #[should_panic(expected = "No parallel system with label \"empty\" in stage.")]
+    fn parallel_unknown_label() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert(Vec::<usize>::new());
+        let mut stage = SystemStage::parallel()
+            .with_system(empty.system())
+            .with_system(empty.system().after("empty"));
+        stage.run(&mut world, &mut resources);
+    }
+
+    #[test]
+    #[should_panic(expected = "Label \"empty\" already used by a parallel system.")]
+    fn parallel_duplicate_label() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert(Vec::<usize>::new());
+        let mut stage = SystemStage::parallel()
+            .with_system(empty.system().label("empty"))
+            .with_system(empty.system().label("empty"));
         stage.run(&mut world, &mut resources);
     }
 

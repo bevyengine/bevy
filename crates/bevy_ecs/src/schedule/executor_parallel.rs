@@ -465,6 +465,15 @@ mod tests {
             .with_system(wants_ref.system());
         stage.run(&mut world, &mut resources);
         assert_eq!(receive_events(&resources), vec![StartedSystems(2),]);
+        let mut world = World::new();
+        world.spawn((0usize, 0u32, 0f32));
+        fn wants_mut_usize(_: Query<(&mut usize, &f32)>) {}
+        fn wants_mut_u32(_: Query<(&mut u32, &f32)>) {}
+        let mut stage = SystemStage::parallel()
+            .with_system(wants_mut_usize.system())
+            .with_system(wants_mut_u32.system());
+        stage.run(&mut world, &mut resources);
+        assert_eq!(receive_events(&resources), vec![StartedSystems(2),]);
     }
 
     #[test]

@@ -95,7 +95,7 @@ impl FixedTimestep {
         if self.accumulator >= self.step {
             self.accumulator -= self.step;
             self.looping = true;
-            ShouldRun::YesAndLoop
+            ShouldRun::YesAndCheckAgain
         } else {
             self.looping = false;
             ShouldRun::No

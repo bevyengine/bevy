@@ -23,7 +23,6 @@ impl SystemContainer for ExclusiveSystemContainer {
         self.label
             .as_ref()
             .cloned()
-            .map(|label| label.into())
             .unwrap_or_else(|| self.system.name())
     }
 
@@ -59,7 +58,6 @@ impl SystemContainer for ParallelSystemContainer {
         self.label
             .as_ref()
             .cloned()
-            .map(|label| label.into())
             .unwrap_or_else(|| self.system().name())
     }
 

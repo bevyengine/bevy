@@ -169,11 +169,11 @@ impl Stage for Schedule {
                     self.run_once(world, resources);
                     return;
                 }
-                ShouldRun::YesAndLoop => {
+                ShouldRun::YesAndCheckAgain => {
                     self.run_once(world, resources);
                 }
-                ShouldRun::NoAndLoop => {
-                    panic!("`NoAndLoop` run criteria would loop infinitely in this situation.")
+                ShouldRun::NoButCheckAgain => {
+                    panic!("`NoButCheckAgain` would loop infinitely in this situation.")
                 }
             }
         }
@@ -187,14 +187,14 @@ pub fn clear_trackers_system(world: &mut World, resources: &mut Resources) {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ShouldRun {
-    /// No, the system should not run.
-    No,
     /// Yes, the system should run.
     Yes,
-    /// Yes, the system should run, and after running the criteria should be checked again.
-    YesAndLoop,
+    /// No, the system should not run.
+    No,
+    /// Yes, the system should run, and afterwards the criteria should be checked again.
+    YesAndCheckAgain,
     /// No, the system should not run right now, but the criteria should be checked again later.
-    NoAndLoop,
+    NoButCheckAgain,
 }
 
 pub(crate) struct RunCriteria {
