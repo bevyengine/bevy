@@ -260,6 +260,7 @@ macro_rules! impl_into_system {
                 world: &crate::World,
                 resources: &Resources,
             ) -> Option<Self::Out> {
+                self.sys_state.reset_indices();
                 let ($($param,)*) = &mut self.param_state;
                 Some((self.function)($($param.get_param(
                     &self.sys_state,
@@ -324,6 +325,7 @@ macro_rules! impl_into_system {
                 world: &crate::World,
                 resources: &Resources,
             ) -> Option<Self::Out> {
+                self.sys_state.reset_indices();
                 let ($($param,)*) = &mut self.param_state;
                 Some((self.function)(In(input),
                     $($param.get_param(
