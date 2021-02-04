@@ -5,8 +5,8 @@ use crate::{
     stage, startup_stage, PluginGroup, PluginGroupBuilder,
 };
 use bevy_ecs::{
-    clear_trackers_system, FromResources, IntoSystem, Resource, Resources, RunOnce, Schedule,
-    Stage, StateStage, System, SystemStage, World,
+    clear_trackers_system, AsSystem, FromResources, IntoSystem, Resource, Resources, RunOnce,
+    Schedule, Stage, StateStage, System, SystemStage, World,
 };
 use bevy_utils::tracing::debug;
 
@@ -197,11 +197,14 @@ impl AppBuilder {
         .add_stage(stage::LAST, SystemStage::parallel())
     }
 
-    pub fn add_system_to_stage<S: System<In = (), Out = ()>>(
+    pub fn add_system_to_stage<S: AsSystem>(
         &mut self,
         stage_name: &'static str,
         system: S,
-    ) -> &mut Self {
+    ) -> &mut Self
+    where
+        S::System: System<In = (), Out = ()>,
+    {
         self.app.schedule.add_system_to_stage(stage_name, system);
         self
     }

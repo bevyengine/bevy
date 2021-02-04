@@ -13,15 +13,15 @@ use super::{ParamState, PureParamState, PureSystemParam, SystemParam};
 // TODO NOW: Make Local<T> equivalent to &mut T
 pub struct LocalState<T>(T);
 
-impl<T: FromResources + 'static + Send + Sync> PureSystemParam for Local<'static, T> {
-    type Config = Option<T>;
-    type State = LocalState<T>;
+impl<'a, T: FromResources + 'static + Send + Sync> PureSystemParam for Local<'a, T> {
+    type PureConfig = Option<T>;
+    type PureState = LocalState<T>;
 
-    fn create_state_pure(config: Self::Config, resources: &mut Resources) -> Self::State {
+    fn create_state_pure(config: Self::PureConfig, resources: &mut Resources) -> Self::PureState {
         LocalState(config.unwrap_or_else(|| T::from_resources(resources)))
     }
 
-    fn default_config_pure() -> Self::Config {
+    fn default_config_pure() -> Self::PureConfig {
         None
     }
 }
@@ -37,8 +37,8 @@ impl<'a, T: Send + Sync + 'static> PureParamState<'a> for LocalState<T> {
 // TODO: Store state here instead of in super::SystemState
 pub struct QueryState<Q, F>(PhantomData<(Q, F)>);
 
-impl<Q: WorldQuery + 'static + Send + Sync, F: QueryFilter + 'static + Send + Sync> SystemParam
-    for Query<'static, Q, F>
+impl<'a, Q: WorldQuery + 'static + Send + Sync, F: QueryFilter + 'static + Send + Sync> SystemParam
+    for Query<'a, Q, F>
 {
     type Config = ();
 
@@ -82,7 +82,6 @@ impl<'a, Q: WorldQuery + 'static + Send + Sync, F: QueryFilter + 'static + Send 
     }
 }
 
-// TODO: These can be safely Send + Sync since they are empty.
 pub struct QuerySetState<T>(PhantomData<T>);
 
 impl<T: QueryTuple + 'static + Send + Sync> SystemParam for QuerySet<T> {
@@ -125,7 +124,7 @@ impl<'a, T: QueryTuple + Send + Sync + 'static> ParamState<'a> for QuerySetState
     }
 }
 
-impl SystemParam for &'static mut Commands {
+impl<'a> SystemParam for &'a mut Commands {
     type Config = ();
     type State = Commands;
 
@@ -195,7 +194,7 @@ impl<'a> ParamState<'a> for Arc<Mutex<Commands>> {
 
 pub struct ResState<T>(PhantomData<T>);
 
-impl<T: Resource> SystemParam for Res<'static, T> {
+impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type Config = ();
     type State = ResState<T>;
     fn create_state(_: Self::Config, _: &mut Resources) -> Self::State {
@@ -235,7 +234,7 @@ impl<'a, T: Resource> ParamState<'a> for ResState<T> {
 
 pub struct ResMutState<T>(PhantomData<T>);
 
-impl<T: Resource> SystemParam for ResMut<'static, T> {
+impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     type Config = ();
     type State = ResMutState<T>;
     fn create_state(_: Self::Config, _: &mut Resources) -> Self::State {
@@ -278,7 +277,7 @@ impl<'a, T: Resource> ParamState<'a> for ResMutState<T> {
 
 pub struct ChangedResState<T>(PhantomData<T>);
 
-impl<T: Resource> SystemParam for ChangedRes<'static, T> {
+impl<'a, T: Resource> SystemParam for ChangedRes<'a, T> {
     type Config = ();
     type State = ChangedResState<T>;
 

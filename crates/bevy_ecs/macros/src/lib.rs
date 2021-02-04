@@ -416,19 +416,6 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         .filter(|g| matches!(g, GenericParam::Type(_)))
         .collect();
 
-    let phantoms = lifetimeless_generics
-        .iter()
-        .map(|g| {
-            let g = match g {
-                GenericParam::Type(g) => &g.ident,
-                _ => panic!(),
-            };
-            quote! { ::std::marker::PhantomData::<#g>, }
-        })
-        .fold(quote!(), |old, new| {
-            quote! { #old #new }
-        });
-
     let mut punctuated_generics = Punctuated::<_, Token![,]>::new();
     punctuated_generics.extend(lifetimeless_generics.iter());
 
@@ -439,28 +426,54 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     }));
 
     let struct_name = &ast.ident;
-    let fetch_struct_name = Ident::new(&format!("Fetch{}", struct_name), Span::call_site());
+    let config_struct_name = Ident::new(&format!("{}Config", struct_name), Span::call_site());
+    let state_struct_name = Ident::new(&format!("{}State", struct_name), Span::call_site());
 
     TokenStream::from(quote! {
-        pub struct #fetch_struct_name<#punctuated_generics>(#phantoms);
-        impl #impl_generics #path::SystemParam for #struct_name#ty_generics #where_clause {
-            type Fetch = #fetch_struct_name <#punctuated_generic_idents>;
+        // This construction, as strange as it may seem,
+        // is to force the config struct to be 'static.
+        #[allow(non_camel_case_types)]
+        pub struct #config_struct_name<#(#fields,)*>{
+            #(pub #fields: #fields,)*
+        }
+        #[allow(non_camel_case_types)]
+        pub struct #state_struct_name<#(#fields,)* #punctuated_generic_idents>{
+            #(#fields: #fields,)*
+            _phantom: std::marker::PhantomData<fn()->(#punctuated_generic_idents,)>
         }
 
-        impl #impl_generics #path::FetchSystemParam<'a> for #fetch_struct_name<#punctuated_generic_idents> {
+        impl #impl_generics #path::SystemParam for #struct_name#ty_generics #where_clause {
+            type Config = #config_struct_name<#(<#field_types as #path::SystemParam>::Config,)*>;
+            type State = #state_struct_name  <#(<#field_types as #path::SystemParam>::State,)* #punctuated_generic_idents>;
+            fn default_config() -> Self::Config {
+                #config_struct_name {
+                    #(#fields: <#field_types as #path::SystemParam>::default_config(),)*
+                }
+            }
+
+            fn create_state(config: Self::Config, resources: &mut #path::Resources) -> Self::State {
+                #state_struct_name {
+                    #(#fields:  <#field_types as #path::SystemParam>::create_state(config.#fields, resources),)*,
+                    _phantom: std::marker::PhantomData
+                }
+            }
+        }
+        #[allow(non_camel_case_types)]
+        impl <'a, #(#fields: #path::ParamState<'a, Item=#field_types>,)* #punctuated_generics> #path::ParamState<'a> for #state_struct_name<#(#fields,)* #punctuated_generic_idents> {
             type Item = #struct_name#ty_generics;
-            fn init(system_state: &mut #path::SystemState, world: &#path::World, resources: &mut #path::Resources) {
-                #(<<#field_types as SystemParam>::Fetch as #path::FetchSystemParam>::init(system_state, world, resources);)*
+            fn init(&mut self, system_state: &mut #path::SystemState, world: &#path::World, resources: &mut #path::Resources) {
+                #(self.#fields.init(system_state, world, resources);)*
             }
 
             unsafe fn get_param(
+                &'a mut self,
                 system_state: &'a #path::SystemState,
                 world: &'a #path::World,
                 resources: &'a #path::Resources,
             ) -> Option<Self::Item> {
                 Some(#struct_name {
-                    #(#fields: <<#field_types as SystemParam>::Fetch as #path::FetchSystemParam>::get_param(system_state, world, resources)?,)*
-                    #(#ignored_fields: <#ignored_field_types>::default(),)*
+                    #(#fields: self.#fields.get_param(system_state, world, resources)?,)*
+                    #(#ignored_fields: Default::default(),)*
                 })
             }
         }

@@ -6,14 +6,14 @@ mod impls;
 
 /// System parameters which can be in exclusive systems (i.e. those which have `&mut World`, `&mut Resources` arguments)
 /// This allows these systems to use local state
-pub trait PureSystemParam: Sized + 'static {
-    type Config;
-    fn create_state_pure(config: Self::Config, resources: &mut Resources) -> Self::State;
+pub trait PureSystemParam: Sized {
+    type PureConfig: 'static;
+    fn create_state_pure(config: Self::PureConfig, resources: &mut Resources) -> Self::PureState;
 
-    type State: for<'a> PureParamState<'a>;
+    type PureState: for<'a> PureParamState<'a>;
     // For documentation purposes, at some future point
     // type Item = <Self::State as PurePureSystemState<'static>>::Item;
-    fn default_config_pure() -> Self::Config;
+    fn default_config_pure() -> Self::PureConfig;
 }
 
 pub trait PureParamState<'a>: Sized + Send + Sync + 'static {
@@ -21,9 +21,9 @@ pub trait PureParamState<'a>: Sized + Send + Sync + 'static {
     fn view_param(&'a mut self) -> Self::Item;
 }
 
-pub trait SystemParam: Sized + 'static {
-    type Config;
-    type State: for<'a> ParamState<'a>;
+pub trait SystemParam: Sized {
+    type Config: 'static;
+    type State: for<'a> ParamState<'a> + 'static;
     fn create_state(config: Self::Config, resources: &mut Resources) -> Self::State;
     fn default_config() -> Self::Config;
 }
@@ -47,9 +47,9 @@ pub trait ParamState<'a>: Sized + Send + Sync + 'static {
 // TODO: This impl is too clever - in particular it breaks being able to use tuples of PureSystemParam
 // Any `PureSystemParam` can be an 'impure' `SystemParam`
 impl<T: PureSystemParam> SystemParam for T {
-    type Config = T::Config;
+    type Config = T::PureConfig;
 
-    type State = T::State;
+    type State = T::PureState;
 
     fn create_state(config: Self::Config, resources: &mut Resources) -> Self::State {
         T::create_state_pure(config, resources)

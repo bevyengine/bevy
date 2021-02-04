@@ -123,8 +123,8 @@ impl<T: System> AsSystem for T {
 }
 
 /// A system which runs based on the given function
-pub struct FuncSystem<F, Input, Params: SystemParam> {
-    param_state: Params::State,
+pub struct FuncSystem<F, Input, State> {
+    param_state: State,
     function: F,
     sys_state: SystemState,
     input: PhantomData<fn(Input)>,
@@ -132,9 +132,9 @@ pub struct FuncSystem<F, Input, Params: SystemParam> {
 
 impl<Params: SystemParam, F, Out: 'static> AsSystem for FuncSystemPrepare<F, (), Params>
 where
-    FuncSystem<F, (), Params>: System<In = (), Out = Out>,
+    FuncSystem<F, (), Params::State>: System<In = (), Out = Out>,
 {
-    type System = FuncSystem<F, (), Params>;
+    type System = FuncSystem<F, (), Params::State>;
 
     fn as_system(self, resources: &mut Resources) -> Self::System {
         FuncSystem {
@@ -160,9 +160,9 @@ pub struct In<In>(pub In);
 impl<Input, Params: SystemParam, F, Out: 'static> AsSystem
     for FuncSystemPrepare<F, In<Input>, Params>
 where
-    FuncSystem<F, In<Input>, Params>: System<In = Input, Out = Out>,
+    FuncSystem<F, In<Input>, Params::State>: System<In = Input, Out = Out>,
 {
-    type System = FuncSystem<F, In<Input>, Params>;
+    type System = FuncSystem<F, In<Input>, Params::State>;
 
     fn as_system(self, resources: &mut Resources) -> Self::System {
         FuncSystem {
@@ -220,12 +220,12 @@ macro_rules! impl_into_system {
 
         #[allow(non_snake_case)]
         #[allow(unused_variables)] // For the zero item case
-        impl<F, $($param: SystemParam,)* Out: 'static> System for FuncSystem<F, (), ($($param,)*)>
+        impl<F, $($param: for<'a> ParamState<'a>,)* Out: 'static> System for FuncSystem<F, (), ($($param,)*)>
         where
             F: Send
                 + Sync
                 + 'static
-                + FnMut($(<<$param as SystemParam>::State as ParamState>::Item,)*) -> Out,
+                + FnMut($(<$param as ParamState>::Item,)*) -> Out,
         {
             type In = ();
             type Out = Out;
@@ -283,13 +283,13 @@ macro_rules! impl_into_system {
 
         #[allow(non_snake_case)]
         #[allow(unused_variables)] // For the zero item case
-        impl<F, Input: 'static, $($param: SystemParam,)* Out: 'static> System
+        impl<F, Input: 'static, $($param: for<'a> ParamState<'a>,)* Out: 'static> System
             for FuncSystem<F, In<Input>, ($($param,)*)>
         where
             F: Send
                 + Sync
                 + 'static
-                + FnMut(In<Input>, $(<<$param as SystemParam>::State as ParamState>::Item,)*) -> Out,
+                + FnMut(In<Input>, $(<$param as ParamState>::Item,)*) -> Out,
         {
             type In = Input;
             type Out = Out;
@@ -365,3 +365,80 @@ impl_into_system!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13);
 impl_into_system!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14);
 impl_into_system!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15);
 impl_into_system!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16);
+/*
+impl<F, Input, Out, T1: SystemParam> IntoSystem<In<Input>, (T1,)> for F
+where
+    F: FnMut(In<Input>, T1) -> Out
+        + FnMut(In<Input>, <<T1 as SystemParam>::State as ParamState>::Item) -> Out,
+{
+    type SystemConfig = FuncSystemPrepare<F, In<Input>, (T1,)>;
+    fn system(self) -> Self::SystemConfig {
+        FuncSystemPrepare {
+            function: self,
+            config: (T1::default_config(),),
+            input: PhantomData,
+        }
+    }
+}
+impl<F, Out, T1: SystemParam> IntoSystem<(), (T1,)> for F
+where
+    F: FnMut(T1) -> Out + FnMut(<<T1 as SystemParam>::State as ParamState>::Item) -> Out,
+{
+    type SystemConfig = FuncSystemPrepare<F, (), (T1,)>;
+    fn system(self) -> Self::SystemConfig {
+        FuncSystemPrepare {
+            function: self,
+            config: (T1::default_config(),),
+            input: PhantomData,
+        }
+    }
+}
+#[allow(non_snake_case)]
+#[allow(unused_variables)]
+impl<F, T1: for<'a> ParamState<'a>, Out: 'static> System for FuncSystem<F, (), (T1,)>
+where
+    F: Send + Sync + 'static + FnMut(<T1 as ParamState>::Item) -> Out,
+{
+    type In = ();
+    type Out = Out;
+    fn name(&self) -> std::borrow::Cow<'static, str> {
+        self.sys_state.name.clone()
+    }
+    fn id(&self) -> SystemId {
+        self.sys_state.id
+    }
+    fn update(&mut self, world: &crate::World) {
+        self.sys_state.update(world)
+    }
+    fn archetype_component_access(&self) -> &crate::TypeAccess<crate::ArchetypeComponent> {
+        &self.sys_state.archetype_component_access
+    }
+    fn resource_access(&self) -> &crate::TypeAccess<std::any::TypeId> {
+        &self.sys_state.resource_access
+    }
+    fn thread_local_execution(&self) -> crate::ThreadLocalExecution {
+        crate::ThreadLocalExecution::NextFlush
+    }
+    unsafe fn run_unsafe(
+        &mut self,
+        _: Self::In,
+        world: &crate::World,
+        resources: &Resources,
+    ) -> Option<Self::Out> {
+        let (T1,) = &mut self.param_state;
+        Some((self.function)(T1.get_param(
+            &self.sys_state,
+            world,
+            resources,
+        )?))
+    }
+    fn run_thread_local(&mut self, world: &mut crate::World, resources: &mut Resources) {
+        let (T1,) = &mut self.param_state;
+        T1.run_sync(world, resources);
+    }
+    fn initialize(&mut self, world: &mut crate::World, resources: &mut Resources) {
+        let (T1,) = &mut self.param_state;
+        T1.init(&mut self.sys_state, world, resources);
+    }
+}
+ */

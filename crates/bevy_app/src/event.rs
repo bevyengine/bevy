@@ -1,4 +1,4 @@
-use bevy_ecs::{Local, Res, ResMut, SystemParam};
+use bevy_ecs::{FromResources, Local, Res, ResMut, SystemParam};
 use bevy_utils::tracing::trace;
 use std::{fmt, marker::PhantomData};
 
