@@ -78,6 +78,21 @@ impl SystemState {
 
 /// A type which can be converted into a system at some point in the future
 /// This should only be implemented for functions
+/// ```rust
+/// use bevy_ecs::{IntoSystem, Local};
+/// fn legal_system(it: Local<u32>){}
+/// # fn main(){
+/// legal_system.system();
+/// # }
+/// ```
+/// This will not compile, since it is trying to get a 'static reference to the value
+/// ```compile_fail
+/// use bevy_ecs::{IntoSystem, Local};
+/// fn illegal_system(it: Local<'static, u32>){}
+/// # fn main(){
+/// illegal_system.system();
+/// # }
+/// ```
 // TODO: Seal?
 pub trait IntoSystem<Input, Params> {
     type SystemConfig;
