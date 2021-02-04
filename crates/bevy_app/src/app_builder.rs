@@ -223,7 +223,7 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_non_send_resource<T>(&mut self, resource: T) -> &mut Self
+    pub fn insert_non_send_resource<T>(&mut self, resource: T) -> &mut Self
     where
         T: 'static,
     {
@@ -240,7 +240,8 @@ impl AppBuilder {
         // so we would need to be extremely certain this is correct
         if !self.resources().contains::<R>() {
             let resource = R::from_resources(&self.resources());
-            self.insert_resource(resource);}
+            self.insert_resource(resource);
+        }
         self
     }
 
@@ -251,7 +252,8 @@ impl AppBuilder {
         // See perf comment in init_resource
         if self.app.resources.get_non_send::<R>().is_none() {
             let resource = R::from_resources(&self.app.resources);
-            self.app.resources.insert_non_send(resource);}
+            self.app.resources.insert_non_send(resource);
+        }
         self
     }
 
