@@ -429,7 +429,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let config_struct_name = Ident::new(&format!("{}Config", struct_name), Span::call_site());
     let state_struct_name = Ident::new(&format!("{}State", struct_name), Span::call_site());
 
-    TokenStream::from(quote! {
+    let output = quote! {
         // This construction, as strange as it may seem,
         // is to force the config struct to be 'static.
         #[allow(non_camel_case_types)]
@@ -444,7 +444,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
         impl #impl_generics #path::SystemParam for #struct_name#ty_generics #where_clause {
             type Config = #config_struct_name<#(<#field_types as #path::SystemParam>::Config,)*>;
-            type State = #state_struct_name  <#(<#field_types as #path::SystemParam>::State,)* #punctuated_generic_idents>;
+            type State = #state_struct_name<#(<#field_types as #path::SystemParam>::State,)* #punctuated_generic_idents>;
             fn default_config() -> Self::Config {
                 #config_struct_name {
                     #(#fields: <#field_types as #path::SystemParam>::default_config(),)*
@@ -453,7 +453,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
             fn create_state(config: Self::Config, resources: &mut #path::Resources) -> Self::State {
                 #state_struct_name {
-                    #(#fields:  <#field_types as #path::SystemParam>::create_state(config.#fields, resources),)*,
+                    #(#fields:  <#field_types as #path::SystemParam>::create_state(config.#fields, resources),)*
                     _phantom: std::marker::PhantomData
                 }
             }
@@ -477,5 +477,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 })
             }
         }
-    })
+    };
+    // println!("{}", output);
+    TokenStream::from(output)
 }
