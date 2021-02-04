@@ -124,7 +124,8 @@ fn map_instance_event<T>(event_instance: &EventInstance<T>) -> &T {
 /// Reads events of type `T` in order and tracks which events have already been read.
 #[derive(SystemParam)]
 pub struct EventReader<'a, T: bevy_ecs::Resource> {
-    last_event_count: Local<'a, (usize, PhantomData<T>)>,
+    // Each local is unique, so this won't collide
+    last_event_count: Local<'a, usize>,
     events: Res<'a, Events<T>>,
 }
 
@@ -216,7 +217,7 @@ impl<'a, T: bevy_ecs::Resource> EventReader<'a, T> {
 
     /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
     pub fn iter_with_id(&mut self) -> impl DoubleEndedIterator<Item = (&T, EventId<T>)> {
-        internal_event_reader(&mut self.last_event_count.0, &self.events).map(|(event, id)| {
+        internal_event_reader(&mut self.last_event_count, &self.events).map(|(event, id)| {
             trace!("EventReader::iter() -> {}", id);
             (event, id)
         })
