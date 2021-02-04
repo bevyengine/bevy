@@ -36,7 +36,7 @@ jobs:
 
       - name: Check the format
         # See tools/ci/src/main.rs for the commands this runs
-        run: cargo ci
+        run: cargo run --package ci
         if: runner.os == 'linux' && matrix.toolchain == 'stable'
 
       - name: Build & run tests
