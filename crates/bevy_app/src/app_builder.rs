@@ -49,7 +49,7 @@ impl AppBuilder {
     /// Runs the application main loop.
     ///
     /// Usually the main loop is handled by bevy integrated plugins (`winit`), but
-    /// but one can also set the runner function through `set_runner`
+    /// but one can also set the runner function through [`set_runner`]
     ///
     /// ## Example
     /// ```
@@ -146,13 +146,13 @@ impl AppBuilder {
     /// Systems are the main building block in bevy ECS model. You can define
     /// normal rust functions, and call `.system()` to make them be bevy systems.
     ///
-    /// System functions can have parameters, through with one can query and
+    /// System functions can have parameters, through which one can query and
     /// mutate bevy ECS states. See bevy book for extra information.
     ///
     /// Systems are run in parallel, and the execution order is not deterministic.
-    /// If you want more fine-grained control for order, see `add_system_to_stage`
+    /// If you want more fine-grained control for order, see [`add_system_to_stage`]
     ///
-    /// For adding a system that runs only at app startup, see `add_startup_system`
+    /// For adding a system that runs only at app startup, see [`AppBuilder::add_startup_system`]
     ///
     /// ## Example
     /// ```
@@ -221,8 +221,8 @@ impl AppBuilder {
     /// Startup systems run exactly once BEFORE all other systems. These are generally used for
     /// app initialization code (ex: adding entities and resources)
     ///
-    /// For adding a system that runs for every frame, see `add_system`
-    /// For adding a system to specific stage, see `add_system_to_stage`
+    /// For adding a system that runs for every frame, see [`add_system`]
+    /// For adding a system to specific stage, see [`add_system_to_stage`]
     ///
     /// ## Example
     /// ```
@@ -278,7 +278,7 @@ impl AppBuilder {
     /// Inserts a resource to the current [App] and overwrites any resource previously added of the same type.
     ///
     /// A resource in bevy represents globally unique data. The resources must be added to bevy application
-    /// before using them. This happens with `insert_resource`
+    /// before using them. This happens with [`insert_resource`]
     ///
     /// For adding a main-thread only accessible resource, see `insert_thread_local_resource`
     ///
@@ -411,7 +411,7 @@ impl AppBuilder {
     /// One of Bevy's core principles is modularity. All bevy engine features are implemented
     /// as plugins. This includes internal features like the renderer.
     ///
-    /// Bevy also provides a few sets of default plugins. See `add_plugins`
+    /// Bevy also provides a few sets of default plugins. See [`add_plugins`]
     ///
     /// ## Example
     /// ```
@@ -434,7 +434,7 @@ impl AppBuilder {
     /// bevy provides a few lists of plugins that can be used to kickstart
     /// the development.
     ///
-    /// Current plugins offered are `DefaultPlugins` and `MinimalPlugins`
+    /// Current plugins offered are [`DefaultPlugins`] and [`MinimalPlugins`]
     ///
     /// ## Example
     /// ```
