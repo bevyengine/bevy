@@ -280,7 +280,7 @@ impl AppBuilder {
     /// A resource in bevy represents globally unique data. The resources must be added to bevy application
     /// before using them. This happens with [`insert_resource`]
     ///
-    /// For adding a main-thread only accessible resource, see `insert_thread_local_resource`
+    /// For adding a main-thread only accessible resource, see [`insert_thread_local_resource`]
     ///
     /// See also `init_resource` for resources that implement `Default` or `FromResources`
     ///
