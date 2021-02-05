@@ -282,7 +282,7 @@ impl AppBuilder {
     ///
     /// For adding a main-thread only accessible resource, see [`insert_thread_local_resource`]
     ///
-    /// See also `init_resource` for resources that implement `Default` or `FromResources`
+    /// See also `init_resource` for resources that implement `Default` or [`FromResources`]
     ///
     /// ## Example
     /// ```
