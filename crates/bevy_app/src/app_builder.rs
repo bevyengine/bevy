@@ -385,7 +385,7 @@ impl AppBuilder {
     /// Usually the main loop is handled by bevy integrated plugins (`winit`), but
     /// in some cases one wants to implement an own main loop.
     ///
-    /// This method sets the main loop function. Overwrites previous runner.
+    /// This method sets the main loop function, overwriting a previous runner if any.
     ///
     /// ## Example
     /// ```
