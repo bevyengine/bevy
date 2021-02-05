@@ -152,7 +152,7 @@ impl AppBuilder {
     /// Systems are run in parallel, and the execution order is not deterministic.
     /// If you want more fine-grained control for order, see [`add_system_to_stage`]
     ///
-    /// For adding a system that runs only at app startup, see `add_startup_system`
+    /// For adding a system that runs only at app startup, see [`AppBuilder::add_startup_system`]
     ///
     /// ## Example
     /// ```
