@@ -413,7 +413,7 @@ impl AppBuilder {
     /// One of Bevy's core principles is modularity. All bevy engines are implemented
     /// as plugins. This includes internal features like the renderer.
     ///
-    /// Bevy also provides a few sets of default plugins. See `add_plugins`
+    /// Bevy also provides a few sets of default plugins. See [`add_plugins`]
     ///
     /// ## Example
     /// ```
