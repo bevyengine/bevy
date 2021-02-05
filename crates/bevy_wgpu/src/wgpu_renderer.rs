@@ -10,6 +10,7 @@ use bevy_render::{
 };
 use bevy_window::{WindowCreated, WindowResized, Windows};
 use std::{ops::Deref, sync::Arc};
+use crate::wgpu_type_converter::WgpuInto;
 
 pub struct WgpuRenderer {
     pub instance: wgpu::Instance,
@@ -21,7 +22,7 @@ pub struct WgpuRenderer {
 }
 
 impl WgpuRenderer {
-    pub async fn new(options: WgpuOptions) -> Self {
+    pub async fn new<'a>(options: WgpuOptions<'a>) -> Self {
         let backend = match options.backend {
             WgpuBackend::Auto => wgpu::BackendBit::PRIMARY,
             WgpuBackend::Vulkan => wgpu::BackendBit::VULKAN,
@@ -53,9 +54,9 @@ impl WgpuRenderer {
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
-                    label: None,
-                    features: wgpu::Features::empty(),
-                    limits: wgpu::Limits::default(),
+                    label: options.name,
+                    features: options.features.wgpu_into(),
+                    limits: options.limits.wgpu_into(),
                 },
                 trace_path,
             )
