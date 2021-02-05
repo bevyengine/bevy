@@ -141,7 +141,7 @@ impl AppBuilder {
         self
     }
 
-    /// Adds a system that is run for every frame
+    /// Adds a system that runs every time `app.update()` is called by the runner
     ///
     /// Systems are the main building block in bevy ECS model. You can define
     /// normal rust functions, and call `.system()` to make them be bevy systems.
@@ -387,8 +387,6 @@ impl AppBuilder {
     ///
     /// This method sets the main loop function. Overwrites previous runner.
     ///
-    /// You should call `app.update()` in the runner to trigger the bevy ecs system.
-    ///
     /// ## Example
     /// ```
     /// use bevy_app::prelude::*;
@@ -410,7 +408,7 @@ impl AppBuilder {
 
     /// Adds a single plugin
     ///
-    /// One of Bevy's core principles is modularity. All bevy engines are implemented
+    /// One of Bevy's core principles is modularity. All bevy engine features are implemented
     /// as plugins. This includes internal features like the renderer.
     ///
     /// Bevy also provides a few sets of default plugins. See `add_plugins`
@@ -456,7 +454,8 @@ impl AppBuilder {
     ///
     /// Can be used to add a group of plugins, where the group is modified
     /// before insertion into Bevy application. For example, you can add
-    /// extra plugins at a specific place in the plugin group.
+    /// extra plugins at a specific place in the plugin group, or deactivate
+    /// specific plugins while keeping the rest.
     ///
     /// ## Example
     /// ```
