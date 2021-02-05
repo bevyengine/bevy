@@ -195,7 +195,7 @@ impl Commands {
     /// # Example
     ///
     /// ```
-    /// use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     ///
     /// struct Component1;
     /// struct Component2;
@@ -329,7 +329,7 @@ impl Commands {
     /// `with` can be chained with [`Self::spawn`].
     ///
     /// ```
-    /// use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     ///
     /// struct Component1;
     /// struct Component2;
