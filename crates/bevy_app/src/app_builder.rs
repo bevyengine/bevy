@@ -146,7 +146,7 @@ impl AppBuilder {
     /// Systems are the main building block in bevy ECS model. You can define
     /// normal rust functions, and call `.system()` to make them be bevy systems.
     ///
-    /// System functions can have parameters, through with one can query and
+    /// System functions can have parameters, through which one can query and
     /// mutate bevy ECS states. See bevy book for extra information.
     ///
     /// Systems are run in parallel, and the execution order is not deterministic.
