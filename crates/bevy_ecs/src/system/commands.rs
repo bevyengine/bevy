@@ -206,7 +206,7 @@ impl Commands {
     ///     b: Component2,
     /// }
     ///
-    /// fn example_system(mut commands: &mut Commands) {
+    /// fn example_system(mut commands: Commands) {
     ///     // Create a new entity with a component bundle.
     ///     commands.spawn(ExampleBundle {
     ///         a: Component1,
