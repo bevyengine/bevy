@@ -218,6 +218,9 @@ impl Commands {
     ///     // Create a new entity with two components.
     ///     commands.spawn((Component1, Component2));
     /// }
+    /// # fn foo() {
+    /// #   example_system.system();
+    /// # }
     /// ```
     pub fn spawn(&mut self, bundle: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
         let entity = self
