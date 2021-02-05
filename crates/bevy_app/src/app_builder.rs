@@ -278,7 +278,7 @@ impl AppBuilder {
     /// Inserts a resource to the current [App] and overwrites any resource previously added of the same type.
     ///
     /// A resource in bevy represents globally unique data. The resources must be added to bevy application
-    /// before using them. This happens with `insert_resource`
+    /// before using them. This happens with [`insert_resource`]
     ///
     /// For adding a main-thread only accessible resource, see `insert_thread_local_resource`
     ///
