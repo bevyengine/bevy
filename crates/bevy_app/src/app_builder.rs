@@ -436,7 +436,7 @@ impl AppBuilder {
     /// bevy provides a few lists of plugins that can be used to kickstart
     /// the development.
     ///
-    /// Current plugins offered are `DefaultPlugins` and `MinimalPlugins`
+    /// Current plugins offered are [`DefaultPlugins`] and [`MinimalPlugins`]
     ///
     /// ## Example
     /// ```
