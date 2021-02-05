@@ -26,13 +26,6 @@ struct VirtualSystemSet {
     should_run: ShouldRun,
 }
 
-enum SystemKind {
-    Parallel,
-    ExclusiveAtStart,
-    ExclusiveBeforeCommands,
-    ExclusiveAtEnd,
-}
-
 /// Stores and executes systems. Execution order is not defined unless explicitly specified;
 /// see `SystemDescriptor` documentation.
 pub struct SystemStage {
@@ -54,7 +47,13 @@ pub struct SystemStage {
     /// Determines if the stage's executor was changed.
     executor_modified: bool,
     /// Newly inserted systems that will be initialized at the next opportunity.
-    uninitialized_systems: Vec<(usize, SystemKind)>,
+    uninitialized_at_start: Vec<usize>,
+    /// Newly inserted systems that will be initialized at the next opportunity.
+    uninitialized_before_commands: Vec<usize>,
+    /// Newly inserted systems that will be initialized at the next opportunity.
+    uninitialized_at_end: Vec<usize>,
+    /// Newly inserted systems that will be initialized at the next opportunity.
+    uninitialized_parallel: Vec<usize>,
 }
 
 impl SystemStage {
@@ -72,7 +71,10 @@ impl SystemStage {
             parallel: vec![],
             systems_modified: true,
             executor_modified: true,
-            uninitialized_systems: vec![],
+            uninitialized_parallel: vec![],
+            uninitialized_at_start: vec![],
+            uninitialized_before_commands: vec![],
+            uninitialized_at_end: vec![],
         }
     }
 
@@ -153,27 +155,23 @@ impl SystemStage {
                 match descriptor.insertion_point {
                     InsertionPoint::AtStart => {
                         let index = self.exclusive_at_start.len();
-                        self.uninitialized_systems
-                            .push((index, SystemKind::ExclusiveAtStart));
+                        self.uninitialized_at_start.push(index);
                         self.exclusive_at_start.push(container);
                     }
                     InsertionPoint::BeforeCommands => {
                         let index = self.exclusive_before_commands.len();
-                        self.uninitialized_systems
-                            .push((index, SystemKind::ExclusiveBeforeCommands));
+                        self.uninitialized_before_commands.push(index);
                         self.exclusive_before_commands.push(container);
                     }
                     InsertionPoint::AtEnd => {
                         let index = self.exclusive_at_end.len();
-                        self.uninitialized_systems
-                            .push((index, SystemKind::ExclusiveAtEnd));
+                        self.uninitialized_at_end.push(index);
                         self.exclusive_at_end.push(container);
                     }
                 }
             }
             SystemDescriptor::Parallel(descriptor) => {
-                self.uninitialized_systems
-                    .push((self.parallel.len(), SystemKind::Parallel));
+                self.uninitialized_parallel.push(self.parallel.len());
                 self.parallel.push(ParallelSystemContainer {
                     system: unsafe { NonNull::new_unchecked(Box::into_raw(descriptor.system)) },
                     should_run: false,
@@ -189,22 +187,25 @@ impl SystemStage {
     }
 
     fn initialize_systems(&mut self, world: &mut World, resources: &mut Resources) {
-        for (index, kind) in self.uninitialized_systems.drain(..) {
-            use SystemKind::*;
-            match kind {
-                Parallel => self.parallel[index]
-                    .system_mut()
-                    .initialize(world, resources),
-                ExclusiveAtStart => self.exclusive_at_start[index]
-                    .system
-                    .initialize(world, resources),
-                ExclusiveBeforeCommands => self.exclusive_before_commands[index]
-                    .system
-                    .initialize(world, resources),
-                ExclusiveAtEnd => self.exclusive_at_end[index]
-                    .system
-                    .initialize(world, resources),
-            }
+        for index in self.uninitialized_at_start.drain(..) {
+            self.exclusive_at_start[index]
+                .system
+                .initialize(world, resources);
+        }
+        for index in self.uninitialized_before_commands.drain(..) {
+            self.exclusive_before_commands[index]
+                .system
+                .initialize(world, resources);
+        }
+        for index in self.uninitialized_at_end.drain(..) {
+            self.exclusive_at_end[index]
+                .system
+                .initialize(world, resources);
+        }
+        for index in self.uninitialized_parallel.drain(..) {
+            self.parallel[index]
+                .system_mut()
+                .initialize(world, resources);
         }
     }
 
