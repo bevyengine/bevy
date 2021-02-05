@@ -5,7 +5,8 @@ use bevy_reflect::TypeUuid;
 use bevy_render::{
     pipeline::{
         BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrite, CompareFunction,
-        DepthBiasState, DepthStencilState, PipelineDescriptor, StencilFaceState, StencilState,
+        CullMode, DepthBiasState, DepthStencilState, FrontFace, PipelineDescriptor, PolygonMode,
+        PrimitiveState, PrimitiveTopology, StencilFaceState, StencilState,
     },
     render_graph::{base, AssetRenderResourcesNode, RenderGraph, RenderResourcesNode},
     shader::{Shader, ShaderStage, ShaderStages},
@@ -51,6 +52,13 @@ pub fn build_sprite_sheet_pipeline(shaders: &mut Assets<Shader>) -> PipelineDesc
             },
             write_mask: ColorWrite::ALL,
         }],
+        primitive: PrimitiveState {
+            topology: PrimitiveTopology::TriangleList,
+            strip_index_format: None,
+            front_face: FrontFace::Ccw,
+            cull_mode: CullMode::None,
+            polygon_mode: PolygonMode::Fill,
+        },
         ..PipelineDescriptor::new(ShaderStages {
             vertex: shaders.add(Shader::from_glsl(
                 ShaderStage::Vertex,
@@ -97,6 +105,13 @@ pub fn build_sprite_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor
             },
             write_mask: ColorWrite::ALL,
         }],
+        primitive: PrimitiveState {
+            topology: PrimitiveTopology::TriangleList,
+            strip_index_format: None,
+            front_face: FrontFace::Ccw,
+            cull_mode: CullMode::None,
+            polygon_mode: PolygonMode::Fill,
+        },
         ..PipelineDescriptor::new(ShaderStages {
             vertex: shaders.add(Shader::from_glsl(
                 ShaderStage::Vertex,
