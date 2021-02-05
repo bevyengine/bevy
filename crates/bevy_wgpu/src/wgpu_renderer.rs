@@ -22,7 +22,7 @@ pub struct WgpuRenderer {
 }
 
 impl WgpuRenderer {
-    pub async fn new<'a>(options: WgpuOptions<'a>) -> Self {
+    pub async fn new(options: WgpuOptions<'_>) -> Self {
         let backend = match options.backend {
             WgpuBackend::Auto => wgpu::BackendBit::PRIMARY,
             WgpuBackend::Vulkan => wgpu::BackendBit::VULKAN,
