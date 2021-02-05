@@ -363,12 +363,12 @@ fn build_dependency_graph(
     }
     let mut graph = HashMap::default();
     for (system_index, container) in systems.iter().enumerate() {
-        let children = graph.entry(system_index).or_insert_with(Vec::new);
+        let dependencies = graph.entry(system_index).or_insert_with(Vec::new);
         for label in container.after() {
             match labels.get(label) {
                 Some(dependency) => {
-                    if !children.contains(dependency) {
-                        children.push(*dependency);
+                    if !dependencies.contains(dependency) {
+                        dependencies.push(*dependency);
                     }
                 }
                 None => return Err(GraphError::LabelNotFound(label.clone())),
@@ -377,9 +377,9 @@ fn build_dependency_graph(
         for label in container.before() {
             match labels.get(label) {
                 Some(dependant) => {
-                    let children = graph.entry(*dependant).or_insert_with(Vec::new);
-                    if !children.contains(&system_index) {
-                        children.push(system_index);
+                    let dependencies = graph.entry(*dependant).or_insert_with(Vec::new);
+                    if !dependencies.contains(&system_index) {
+                        dependencies.push(system_index);
                     }
                 }
                 None => return Err(GraphError::LabelNotFound(label.clone())),
@@ -408,8 +408,8 @@ fn topological_order(
             return false;
         }
         current.insert(*node);
-        for node in graph.get(node).unwrap() {
-            if check_if_cycles_and_visit(node, &graph, sorted, unvisited, current) {
+        for dependency in graph.get(node).unwrap() {
+            if check_if_cycles_and_visit(dependency, &graph, sorted, unvisited, current) {
                 return true;
             }
         }
