@@ -125,6 +125,33 @@ impl AppBuilder {
         self
     }
 
+    /// Adds a system that is run for every frame
+    ///
+    /// Systems are the main building block in bevy ECS model. You can define
+    /// normal rust functions, and call `.system()` to make them be bevy systems.
+    ///
+    /// System functions can have parameters, through with one can query and
+    /// mutate bevy ECS states. See bevy book for extra information.
+    ///
+    /// Systems are run in parallel, and the execution order is not deterministic.
+    /// If you want more fine-grained control for order, see `add_system_to_stage`
+    ///
+    /// For adding a system that runs only at app startup, see `add_startup_system`
+    ///
+    /// ## Example
+    /// ```
+    /// use bevy_app::prelude::*;
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// fn my_system(_commands: &mut Commands) {
+    ///     println!("My system, triggered once per frame");
+    /// }
+    ///
+    /// fn main() {
+    ///    App::build()
+    ///        .add_system(my_system.system());
+    /// }
+    /// ```
     pub fn add_system<S: System<In = (), Out = ()>>(&mut self, system: S) -> &mut Self {
         self.add_system_to_stage(stage::UPDATE, system)
     }
@@ -175,6 +202,28 @@ impl AppBuilder {
         self
     }
 
+    /// Adds a system that is run once at application startup
+    ///
+    /// Startup systems run exactly once BEFORE all other systems. These are generally used for
+    /// app initialization code (ex: adding entities and resources)
+    ///
+    /// For adding a system that runs for every frame, see `add_system`
+    /// For adding a system to specific stage, see `add_system_to_stage`
+    ///
+    /// ## Example
+    /// ```
+    /// use bevy_app::prelude::*;
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// fn my_startup_system(_commands: &mut Commands) {
+    ///     println!("My startup system");
+    /// }
+    ///
+    /// fn main() {
+    ///    App::build()
+    ///        .add_startup_system(my_startup_system.system());
+    /// }
+    /// ```
     pub fn add_startup_system<S: System<In = (), Out = ()>>(&mut self, system: S) -> &mut Self {
         self.add_startup_system_to_stage(startup_stage::STARTUP, system)
     }
@@ -215,6 +264,27 @@ impl AppBuilder {
     }
 
     /// Inserts a resource to the current [App] and overwrites any resource previously added of the same type.
+    ///
+    /// A resource in bevy represents globally unique data. The resources must be added to bevy application
+    /// before using them. This happens with `insert_resource`
+    ///
+    /// For adding a main-thread only accessible resource, see `insert_thread_local_resource`
+    ///
+    /// See also `init_resource` for resources that implement `Default` or `FromResources`
+    ///
+    /// ## Example
+    /// ```
+    /// use bevy_app::prelude::*;
+    ///
+    /// struct State {
+    ///     counter: usize,
+    /// }
+    ///
+    /// fn main() {
+    ///    App::build()
+    ///        .insert_resource(State { counter: 0 });
+    /// }
+    /// ```
     pub fn insert_resource<T>(&mut self, resource: T) -> &mut Self
     where
         T: Send + Sync + 'static,
@@ -223,6 +293,25 @@ impl AppBuilder {
         self
     }
 
+    /// Inserts a main thread local resource to the app
+    ///
+    /// Usually developers want to use `insert_resource`, but there are some special cases when a resource
+    /// must be main-thread local.
+    ///
+    /// ## Example
+    /// ```
+    /// use bevy_app::prelude::*;
+    ///
+    /// #[derive(Default)]
+    /// struct State {
+    ///     counter: usize,
+    /// }
+    ///
+    /// fn main() {
+    ///    App::build()
+    ///        .insert_thread_local_resource(State { counter: 0 });
+    /// }
+    /// ```
     pub fn insert_thread_local_resource<T>(&mut self, resource: T) -> &mut Self
     where
         T: 'static,
@@ -231,6 +320,31 @@ impl AppBuilder {
         self
     }
 
+    /// Init a resource to the current [App] and overwrites any resource previously added of the same type.
+    ///
+    /// Adds a resource that implements `Default` or `FromResources` trait
+    ///
+    /// ## Example
+    /// ```
+    /// use bevy_app::prelude::*;
+    ///
+    /// struct State {
+    ///     counter: usize,
+    /// }
+    ///
+    /// impl Default for State {
+    ///     fn default() -> State {
+    ///         State {
+    ///             counter: 100
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// fn main() {
+    ///    App::build()
+    ///        .init_resource::<State>();
+    /// }
+    /// ```
     pub fn init_resource<R>(&mut self) -> &mut Self
     where
         R: FromResources + Send + Sync + 'static,
@@ -259,11 +373,52 @@ impl AppBuilder {
         self
     }
 
+    /// Sets the main runner loop function for bevy application
+    ///
+    /// Usually the main loop is handled by bevy integrated plugins (`winit`), but
+    /// in some cases one wants to implement an own main loop.
+    ///
+    /// This method sets the main loop function. Overwrites previous runner.
+    ///
+    /// You should call `app.update()` in the runner to trigger the bevy ecs system.
+    ///
+    /// ## Example
+    /// ```
+    /// use bevy_app::prelude::*;
+    ///
+    /// fn my_runner(mut app: App) {
+    ///     loop {
+    ///         println!("In main loop");
+    ///         app.update();
+    ///     }
+    /// }
+    ///
+    /// fn main() {
+    ///    App::build()
+    ///        .set_runner(my_runner);
+    /// }
+    /// ```
     pub fn set_runner(&mut self, run_fn: impl Fn(App) + 'static) -> &mut Self {
         self.app.runner = Box::new(run_fn);
         self
     }
 
+    /// Adds a single plugin
+    ///
+    /// One of Bevy's core principles is modularity. All bevy engines are implemented
+    /// as plugins. This includes internal features like the renderer.
+    ///
+    /// Bevy also provides a few sets of default plugins. See `add_plugins`
+    ///
+    /// ## Example
+    /// ```
+    /// use bevy_app::prelude::*;
+    ///
+    /// fn main() {
+    ///    App::build()
+    ///        .add_plugin(bevy_log::LogPlugin::default());
+    /// }
+    /// ```
     pub fn add_plugin<T>(&mut self, plugin: T) -> &mut Self
     where
         T: Plugin,
@@ -273,6 +428,23 @@ impl AppBuilder {
         self
     }
 
+    /// Adds a group of plugins
+    ///
+    /// Bevy plugins can be grouped into a set of plugins. By default
+    /// bevy provides a few lists of plugins that can be used to kickstart
+    /// the development.
+    ///
+    /// Current plugins offered are `DefaultPlugins` and `MinimalPlugins`
+    ///
+    /// ## Example
+    /// ```
+    /// use bevy_app::prelude::*;
+    ///
+    /// fn main() {
+    ///    App::build();
+    ///        //.add_plugins(MinimalPlugins)
+    /// }
+    /// ```
     pub fn add_plugins<T: PluginGroup>(&mut self, mut group: T) -> &mut Self {
         let mut plugin_group_builder = PluginGroupBuilder::default();
         group.build(&mut plugin_group_builder);
@@ -280,6 +452,23 @@ impl AppBuilder {
         self
     }
 
+    /// Adds a group of plugins with an initializer method
+    ///
+    /// Can be used to add a group of plugins, where the group is modified
+    /// before insertion into Bevy application. For example, you can add
+    /// extra plugins at a specific place in the plugin group.
+    ///
+    /// ## Example
+    /// ```
+    /// use bevy_app::prelude::*;
+    ///
+    /// fn main() {
+    ///    App::build();
+    ///        // .add_plugins_with(DefaultPlugins, |group| {
+    ///            // group.add_before::<bevy::asset::AssetPlugin, _>(MyOwnPlugin)
+    ///        // })
+    /// }
+    /// ```
     pub fn add_plugins_with<T, F>(&mut self, mut group: T, func: F) -> &mut Self
     where
         T: PluginGroup,
