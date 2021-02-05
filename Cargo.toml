@@ -99,6 +99,10 @@ name = "sprite"
 path = "examples/2d/sprite.rs"
 
 [[example]]
+name = "sprite_flipping"
+path = "examples/2d/sprite_flipping.rs"
+
+[[example]]
 name = "sprite_sheet"
 path = "examples/2d/sprite_sheet.rs"
 
