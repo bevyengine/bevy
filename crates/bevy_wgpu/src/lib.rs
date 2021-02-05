@@ -99,7 +99,6 @@ impl Default for WgpuPowerOptions {
     }
 }
 
-
 bitflags::bitflags! {
     pub struct WgpuFeatures: u64 {
         const DEPTH_CLAMPING = 0x0000_0000_0000_0001;
@@ -151,15 +150,17 @@ impl Default for WgpuLimits {
         let default = wgpu::Limits::default();
         WgpuLimits {
             max_bind_groups: default.max_bind_groups,
-            max_dynamic_uniform_buffers_per_pipeline_layout: default.max_dynamic_uniform_buffers_per_pipeline_layout,
-            max_dynamic_storage_buffers_per_pipeline_layout: default.max_dynamic_storage_buffers_per_pipeline_layout,
+            max_dynamic_uniform_buffers_per_pipeline_layout: default
+                .max_dynamic_uniform_buffers_per_pipeline_layout,
+            max_dynamic_storage_buffers_per_pipeline_layout: default
+                .max_dynamic_storage_buffers_per_pipeline_layout,
             max_sampled_textures_per_shader_stage: default.max_sampled_textures_per_shader_stage,
             max_samplers_per_shader_stage: default.max_samplers_per_shader_stage,
             max_storage_buffers_per_shader_stage: default.max_storage_buffers_per_shader_stage,
             max_storage_textures_per_shader_stage: default.max_storage_textures_per_shader_stage,
             max_uniform_buffers_per_shader_stage: default.max_uniform_buffers_per_shader_stage,
             max_uniform_buffer_binding_size: default.max_uniform_buffer_binding_size,
-            max_push_constant_size: default.max_push_constant_size
+            max_push_constant_size: default.max_push_constant_size,
         }
     }
 }

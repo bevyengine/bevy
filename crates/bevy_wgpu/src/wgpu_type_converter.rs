@@ -1,3 +1,4 @@
+use crate::{WgpuFeatures, WgpuLimits};
 use bevy_render::{
     color::Color,
     pass::{LoadOp, Operations},
@@ -17,7 +18,6 @@ use bevy_render::{
 };
 use bevy_window::Window;
 use wgpu::BufferBindingType;
-use crate::{WgpuFeatures, WgpuLimits};
 
 pub trait WgpuFrom<T> {
     fn from(val: T) -> Self;
@@ -658,15 +658,17 @@ impl WgpuFrom<WgpuLimits> for wgpu::Limits {
     fn from(val: WgpuLimits) -> Self {
         wgpu::Limits {
             max_bind_groups: val.max_bind_groups,
-            max_dynamic_uniform_buffers_per_pipeline_layout: val.max_dynamic_uniform_buffers_per_pipeline_layout,
-            max_dynamic_storage_buffers_per_pipeline_layout: val.max_dynamic_storage_buffers_per_pipeline_layout,
+            max_dynamic_uniform_buffers_per_pipeline_layout: val
+                .max_dynamic_uniform_buffers_per_pipeline_layout,
+            max_dynamic_storage_buffers_per_pipeline_layout: val
+                .max_dynamic_storage_buffers_per_pipeline_layout,
             max_sampled_textures_per_shader_stage: val.max_sampled_textures_per_shader_stage,
             max_samplers_per_shader_stage: val.max_samplers_per_shader_stage,
             max_storage_buffers_per_shader_stage: val.max_storage_buffers_per_shader_stage,
             max_storage_textures_per_shader_stage: val.max_storage_textures_per_shader_stage,
             max_uniform_buffers_per_shader_stage: val.max_uniform_buffers_per_shader_stage,
             max_uniform_buffer_binding_size: val.max_uniform_buffer_binding_size,
-            max_push_constant_size: val.max_push_constant_size
+            max_push_constant_size: val.max_push_constant_size,
         }
     }
 }

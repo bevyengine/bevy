@@ -1,5 +1,6 @@
 use crate::{
     renderer::{WgpuRenderGraphExecutor, WgpuRenderResourceContext},
+    wgpu_type_converter::WgpuInto,
     WgpuBackend, WgpuOptions, WgpuPowerOptions,
 };
 use bevy_app::{prelude::*, ManualEventReader};
@@ -10,7 +11,6 @@ use bevy_render::{
 };
 use bevy_window::{WindowCreated, WindowResized, Windows};
 use std::{ops::Deref, sync::Arc};
-use crate::wgpu_type_converter::WgpuInto;
 
 pub struct WgpuRenderer {
     pub instance: wgpu::Instance,
