@@ -147,10 +147,8 @@ impl AppBuilder {
     ///     println!("My system, triggered once per frame");
     /// }
     ///
-    /// fn main() {
-    ///    App::build()
-    ///        .add_system(my_system.system());
-    /// }
+    /// App::build()
+    ///     .add_system(my_system.system());
     /// ```
     pub fn add_system<S: System<In = (), Out = ()>>(&mut self, system: S) -> &mut Self {
         self.add_system_to_stage(stage::UPDATE, system)
@@ -219,10 +217,8 @@ impl AppBuilder {
     ///     println!("My startup system");
     /// }
     ///
-    /// fn main() {
-    ///    App::build()
-    ///        .add_startup_system(my_startup_system.system());
-    /// }
+    /// App::build()
+    ///     .add_startup_system(my_startup_system.system());
     /// ```
     pub fn add_startup_system<S: System<In = (), Out = ()>>(&mut self, system: S) -> &mut Self {
         self.add_startup_system_to_stage(startup_stage::STARTUP, system)
@@ -280,10 +276,8 @@ impl AppBuilder {
     ///     counter: usize,
     /// }
     ///
-    /// fn main() {
-    ///    App::build()
-    ///        .insert_resource(State { counter: 0 });
-    /// }
+    /// App::build()
+    ///    .insert_resource(State { counter: 0 });
     /// ```
     pub fn insert_resource<T>(&mut self, resource: T) -> &mut Self
     where
@@ -307,10 +301,8 @@ impl AppBuilder {
     ///     counter: usize,
     /// }
     ///
-    /// fn main() {
-    ///    App::build()
-    ///        .insert_thread_local_resource(State { counter: 0 });
-    /// }
+    /// App::build()
+    ///     .insert_thread_local_resource(State { counter: 0 });
     /// ```
     pub fn insert_thread_local_resource<T>(&mut self, resource: T) -> &mut Self
     where
@@ -340,10 +332,8 @@ impl AppBuilder {
     ///     }
     /// }
     ///
-    /// fn main() {
-    ///    App::build()
-    ///        .init_resource::<State>();
-    /// }
+    /// App::build()
+    ///     .init_resource::<State>();
     /// ```
     pub fn init_resource<R>(&mut self) -> &mut Self
     where
@@ -393,10 +383,8 @@ impl AppBuilder {
     ///     }
     /// }
     ///
-    /// fn main() {
-    ///    App::build()
-    ///        .set_runner(my_runner);
-    /// }
+    /// App::build()
+    ///     .set_runner(my_runner);
     /// ```
     pub fn set_runner(&mut self, run_fn: impl Fn(App) + 'static) -> &mut Self {
         self.app.runner = Box::new(run_fn);
@@ -414,10 +402,7 @@ impl AppBuilder {
     /// ```
     /// use bevy_app::prelude::*;
     ///
-    /// fn main() {
-    ///    App::build()
-    ///        .add_plugin(bevy_log::LogPlugin::default());
-    /// }
+    /// App::build().add_plugin(bevy_log::LogPlugin::default());
     /// ```
     pub fn add_plugin<T>(&mut self, plugin: T) -> &mut Self
     where
@@ -440,10 +425,8 @@ impl AppBuilder {
     /// ```
     /// use bevy_app::prelude::*;
     ///
-    /// fn main() {
-    ///    App::build();
-    ///        //.add_plugins(MinimalPlugins)
-    /// }
+    /// App::build();
+    ///     //.add_plugins(MinimalPlugins)
     /// ```
     pub fn add_plugins<T: PluginGroup>(&mut self, mut group: T) -> &mut Self {
         let mut plugin_group_builder = PluginGroupBuilder::default();
@@ -462,12 +445,10 @@ impl AppBuilder {
     /// ```
     /// use bevy_app::prelude::*;
     ///
-    /// fn main() {
-    ///    App::build();
-    ///        // .add_plugins_with(DefaultPlugins, |group| {
+    /// App::build();
+    ///     // .add_plugins_with(DefaultPlugins, |group| {
     ///            // group.add_before::<bevy::asset::AssetPlugin, _>(MyOwnPlugin)
     ///        // })
-    /// }
     /// ```
     pub fn add_plugins_with<T, F>(&mut self, mut group: T, func: F) -> &mut Self
     where
