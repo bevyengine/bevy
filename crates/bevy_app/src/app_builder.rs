@@ -330,7 +330,7 @@ impl AppBuilder {
 
     /// Init a resource to the current [App], if it does not exist yet
     ///
-    /// Adds a resource that implements `Default` or `FromResources` trait
+    /// Adds a resource that implements `Default` or [`FromResources`] trait
     /// If the resource already exists, `init_resource` does nothing
     ///
     /// ## Example
