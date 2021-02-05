@@ -282,7 +282,7 @@ impl Resources {
             .unwrap_or_else(|| panic!("Resource does not exist {}.", std::any::type_name::<T>()))
     }
 
-    // TODO audit.
+    // TODO: audit.
     #[inline]
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn get_unsafe_non_send_ref<T: 'static>(&self) -> NonNull<T> {

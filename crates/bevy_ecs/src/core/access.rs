@@ -344,7 +344,7 @@ impl<T: Hash + Eq + PartialEq + Copy> TypeAccess<T> {
     }
 }
 
-// TODO consider making it typed, to enable compiler helping with bug hunting?
+// TODO: consider making it typed, to enable compiler helping with bug hunting?
 #[derive(Default, Debug, Eq, PartialEq, Clone)]
 pub struct CondensedTypeAccess {
     reads_all: bool,

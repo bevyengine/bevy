@@ -133,7 +133,7 @@ impl<'a, T: Resource + FromResources> DerefMut for Local<'a, T> {
     }
 }
 
-// TODO audit, document.
+// TODO: audit, document.
 #[derive(Debug)]
 pub struct NonSend<'a, T: Resource> {
     value: *mut T,

@@ -138,7 +138,7 @@ impl SystemStage {
         self.add_system_to_set(system, 0)
     }
 
-    // TODO consider exposing
+    // TODO: consider exposing
     fn add_system_to_set(&mut self, system: impl Into<SystemDescriptor>, set: usize) -> &mut Self {
         self.systems_modified = true;
         match system.into() {
@@ -517,7 +517,7 @@ impl Stage for SystemStage {
             }
 
             // Run parallel systems using the executor.
-            // TODO hard dependencies, nested sets, whatever... should be evaluated here.
+            // TODO: hard dependencies, nested sets, whatever... should be evaluated here.
             for container in &mut self.parallel {
                 match self.system_sets[container.set].should_run {
                     Yes | YesAndCheckAgain => container.should_run = true,
