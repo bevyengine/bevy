@@ -173,8 +173,8 @@ impl Stage for Schedule {
                 ShouldRun::YesAndCheckAgain => {
                     self.run_once(world, resources);
                 }
-                ShouldRun::NoButCheckAgain => {
-                    panic!("`NoButCheckAgain` would loop infinitely in this situation.")
+                ShouldRun::NoAndCheckAgain => {
+                    panic!("`NoAndCheckAgain` would loop infinitely in this situation.")
                 }
             }
         }
@@ -195,7 +195,7 @@ pub enum ShouldRun {
     /// Yes, the system should run, and afterwards the criteria should be checked again.
     YesAndCheckAgain,
     /// No, the system should not run right now, but the criteria should be checked again later.
-    NoButCheckAgain,
+    NoAndCheckAgain,
 }
 
 pub(crate) struct RunCriteria {

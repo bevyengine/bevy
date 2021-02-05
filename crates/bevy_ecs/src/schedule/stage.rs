@@ -480,7 +480,7 @@ impl Stage for SystemStage {
             let result = system_set.run_criteria.should_run(world, resources);
             match result {
                 Yes | YesAndCheckAgain => has_work = true,
-                No | NoButCheckAgain => (),
+                No | NoAndCheckAgain => (),
             }
             system_set.should_run = result;
         }
@@ -521,7 +521,7 @@ impl Stage for SystemStage {
             for container in &mut self.parallel {
                 match self.system_sets[container.set].should_run {
                     Yes | YesAndCheckAgain => container.should_run = true,
-                    No | NoButCheckAgain => container.should_run = false,
+                    No | NoAndCheckAgain => container.should_run = false,
                 }
             }
             self.executor
@@ -554,11 +554,11 @@ impl Stage for SystemStage {
                 match system_set.should_run {
                     No => (),
                     Yes => system_set.should_run = No,
-                    YesAndCheckAgain | NoButCheckAgain => {
+                    YesAndCheckAgain | NoAndCheckAgain => {
                         let new_result = system_set.run_criteria.should_run(world, resources);
                         match new_result {
                             Yes | YesAndCheckAgain => has_work = true,
-                            No | NoButCheckAgain => (),
+                            No | NoAndCheckAgain => (),
                         }
                         system_set.should_run = new_result;
                     }
