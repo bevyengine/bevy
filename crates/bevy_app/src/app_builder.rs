@@ -44,6 +44,22 @@ impl AppBuilder {
         &mut self.app.resources
     }
 
+    /// Starts the application (through main runner)
+    ///
+    /// Runs the application main loop.
+    ///
+    /// Usually the main loop is handled by bevy integrated plugins (`winit`), but
+    /// but one can also set the runner function through `set_runner`
+    ///
+    /// ## Example
+    /// ```
+    /// use bevy_app::prelude::*;
+    ///
+    /// App::build()
+    ///     // all required plugin insertions, systems, etc inserted here
+    ///     // finally, call:
+    ///     .run();
+    /// ```
     pub fn run(&mut self) {
         let app = std::mem::take(&mut self.app);
         app.run();
@@ -312,9 +328,10 @@ impl AppBuilder {
         self
     }
 
-    /// Init a resource to the current [App] and overwrites any resource previously added of the same type.
+    /// Init a resource to the current [App], if it does not exist yet
     ///
     /// Adds a resource that implements `Default` or `FromResources` trait
+    /// If the resource already exists, `init_resource` does nothing
     ///
     /// ## Example
     /// ```
