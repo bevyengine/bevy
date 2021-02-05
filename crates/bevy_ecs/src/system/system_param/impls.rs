@@ -256,7 +256,7 @@ impl<'a, T: Resource> ParamState<'a> for ResMutState<T> {
                 res = std::any::type_name::<T>()
             );
         }
-        system_state.resource_access.add_read(TypeId::of::<T>());
+        system_state.resource_access.add_write(TypeId::of::<T>());
     }
 
     #[inline]

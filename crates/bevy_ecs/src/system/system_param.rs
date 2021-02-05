@@ -168,7 +168,7 @@ macro_rules! impl_system_param_tuple {
         #[allow(non_snake_case)]
         #[allow(unused_variables)]
         impl<'a, $($param: ParamState<'a>,)*> ParamState<'a> for Or<($($param,)*)> {
-            type Item = ($(Option<$param::Item>,)*);
+            type Item = Or<($(Option<<$param as ParamState<'a>>::Item>,)*)>;
 
             unsafe fn get_param(
                 &'a mut self,
@@ -190,7 +190,7 @@ macro_rules! impl_system_param_tuple {
 
                 let v = ($($param,)*);
                 if has_some {
-                    Some(v)
+                    Some(Or(v))
                 } else {
                     None
                 }
@@ -228,7 +228,7 @@ impl_system_param_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
 impl_system_param_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11);
 impl_system_param_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);
 
-// We can't use default because these use more types than tuples
+// We can't use default because these use more types than tuples implement Default for
 impl_system_param_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13);
 impl_system_param_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14);
 impl_system_param_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15);
