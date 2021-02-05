@@ -53,8 +53,8 @@ impl AppBuilder {
     ///
     /// ## Example
     /// ```
-    /// use bevy_app::prelude::*;
-    ///
+    /// # use bevy_app::prelude::*;
+    /// #
     /// App::build()
     ///     // all required plugin insertions, systems, etc inserted here
     ///     // finally, call:
@@ -156,9 +156,9 @@ impl AppBuilder {
     ///
     /// ## Example
     /// ```
-    /// use bevy_app::prelude::*;
-    /// use bevy_ecs::prelude::*;
-    ///
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
     /// fn my_system(_commands: &mut Commands) {
     ///     println!("My system, triggered once per frame");
     /// }
@@ -226,9 +226,9 @@ impl AppBuilder {
     ///
     /// ## Example
     /// ```
-    /// use bevy_app::prelude::*;
-    /// use bevy_ecs::prelude::*;
-    ///
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
     /// fn my_startup_system(_commands: &mut Commands) {
     ///     println!("My startup system");
     /// }
@@ -286,8 +286,8 @@ impl AppBuilder {
     ///
     /// ## Example
     /// ```
-    /// use bevy_app::prelude::*;
-    ///
+    /// # use bevy_app::prelude::*;
+    /// #
     /// struct State {
     ///     counter: usize,
     /// }
@@ -310,8 +310,8 @@ impl AppBuilder {
     ///
     /// ## Example
     /// ```
-    /// use bevy_app::prelude::*;
-    ///
+    /// # use bevy_app::prelude::*;
+    /// #
     /// #[derive(Default)]
     /// struct State {
     ///     counter: usize,
@@ -335,8 +335,8 @@ impl AppBuilder {
     ///
     /// ## Example
     /// ```
-    /// use bevy_app::prelude::*;
-    ///
+    /// # use bevy_app::prelude::*;
+    /// #
     /// struct State {
     ///     counter: usize,
     /// }
@@ -389,8 +389,8 @@ impl AppBuilder {
     ///
     /// ## Example
     /// ```
-    /// use bevy_app::prelude::*;
-    ///
+    /// # use bevy_app::prelude::*;
+    /// #
     /// fn my_runner(mut app: App) {
     ///     loop {
     ///         println!("In main loop");
@@ -415,8 +415,8 @@ impl AppBuilder {
     ///
     /// ## Example
     /// ```
-    /// use bevy_app::prelude::*;
-    ///
+    /// # use bevy_app::prelude::*;
+    /// #
     /// App::build().add_plugin(bevy_log::LogPlugin::default());
     /// ```
     pub fn add_plugin<T>(&mut self, plugin: T) -> &mut Self
@@ -438,8 +438,8 @@ impl AppBuilder {
     ///
     /// ## Example
     /// ```
-    /// use bevy_app::prelude::*;
-    ///
+    /// # use bevy_app::prelude::*;
+    /// #
     /// App::build();
     ///     //.add_plugins(MinimalPlugins)
     /// ```
@@ -459,8 +459,8 @@ impl AppBuilder {
     ///
     /// ## Example
     /// ```
-    /// use bevy_app::prelude::*;
-    ///
+    /// # use bevy_app::prelude::*;
+    /// #
     /// App::build();
     ///     // .add_plugins_with(DefaultPlugins, |group| {
     ///            // group.add_before::<bevy::asset::AssetPlugin, _>(MyOwnPlugin)
