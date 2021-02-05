@@ -49,7 +49,7 @@ impl AppBuilder {
     /// Runs the application main loop.
     ///
     /// Usually the main loop is handled by bevy integrated plugins (`winit`), but
-    /// but one can also set the runner function through `set_runner`
+    /// but one can also set the runner function through [`set_runner`]
     ///
     /// ## Example
     /// ```
