@@ -305,8 +305,8 @@ impl AppBuilder {
 
     /// Inserts a main thread local resource to the app
     ///
-    /// Usually developers want to use `insert_resource`, but there are some special cases when a resource
-    /// must be main-thread local.
+    /// You usually want to use `insert_resource`, but there are some special cases when a resource must
+    /// be main-thread local.
     ///
     /// ## Example
     /// ```
