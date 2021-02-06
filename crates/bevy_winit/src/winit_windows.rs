@@ -95,13 +95,14 @@ impl WinitWindows {
         };
 
         #[allow(unused_mut)]
-        let mut winit_window_builder = if final_resize_constraints.max_width != f32::INFINITY && final_resize_constraints.max_height != f32::INFINITY {
+        let mut winit_window_builder = if final_resize_constraints.max_width != f32::INFINITY
+            && final_resize_constraints.max_height != f32::INFINITY
+        {
             winit_window_builder
                 .with_min_inner_size(min_inner_size)
                 .with_max_inner_size(max_inner_size)
         } else {
-            winit_window_builder
-                .with_min_inner_size(min_inner_size)
+            winit_window_builder.with_min_inner_size(min_inner_size)
         };
 
         #[allow(unused_mut)]
