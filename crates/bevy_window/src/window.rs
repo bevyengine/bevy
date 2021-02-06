@@ -229,7 +229,7 @@ impl Window {
         self.physical_height
     }
 
-    /// The window's client resize constraint in physical pixels.
+    /// The window's client resize constraint in logical pixels.
     #[inline]
     pub fn resize_constraints(&self) -> WindowResizeConstraints {
         self.resize_constraints.clone()
