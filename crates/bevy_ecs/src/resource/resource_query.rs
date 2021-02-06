@@ -133,7 +133,8 @@ impl<'a, T: Resource + FromResources> DerefMut for Local<'a, T> {
     }
 }
 
-// TODO: audit, document.
+/// `NonSend<T>` resources cannot leave the main thread, so any system that wants access to
+/// a non-send resource will run on the main thread. See `Resources::insert_non_send()` and friends.
 #[derive(Debug)]
 pub struct NonSend<'a, T: Resource> {
     value: *mut T,

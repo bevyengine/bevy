@@ -134,7 +134,7 @@ impl Resources {
 
     fn check_if_main_thread(&self) {
         if std::thread::current().id() != self.main_thread_id {
-            panic!("Attempted to access a thread local resource off of the main thread.")
+            panic!("Attempted to access a non-send resource off of the main thread.")
         }
     }
 
@@ -282,7 +282,6 @@ impl Resources {
             .unwrap_or_else(|| panic!("Resource does not exist {}.", std::any::type_name::<T>()))
     }
 
-    // TODO: audit.
     #[inline]
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn get_unsafe_non_send_ref<T: 'static>(&self) -> NonNull<T> {
@@ -295,7 +294,7 @@ impl Resources {
             })
             .unwrap_or_else(|| {
                 panic!(
-                    "Thread-local resource does not exist {}.",
+                    "Non-send resource does not exist {}.",
                     std::any::type_name::<T>()
                 )
             })
