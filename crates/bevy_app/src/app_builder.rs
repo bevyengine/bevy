@@ -44,7 +44,7 @@ impl AppBuilder {
         &mut self.app.resources
     }
 
-    /// Starts the application (through main runner)
+    /// Start the application (through main runner)
     ///
     /// Runs the application main loop.
     ///
@@ -221,8 +221,8 @@ impl AppBuilder {
     /// Startup systems run exactly once BEFORE all other systems. These are generally used for
     /// app initialization code (ex: adding entities and resources).
     ///
-    /// * For adding a system that runs for every frame, see [`add_system`]
-    /// * For adding a system to specific stage, see [`add_system_to_stage`]
+    /// * For adding a system that runs for every frame, see [`add_system`].
+    /// * For adding a system to specific stage, see [`add_system_to_stage`].
     ///
     /// ## Example
     /// ```
