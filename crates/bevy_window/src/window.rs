@@ -18,6 +18,7 @@ impl WindowId {
     }
 }
 
+use core::f32;
 use std::fmt;
 
 impl fmt::Display for WindowId {
@@ -45,8 +46,8 @@ impl Default for WindowResizeConstraints {
         Self {
             min_width: 180.,
             min_height: 120.,
-            max_width: 23040.,
-            max_height: 8640.,
+            max_width: f32::INFINITY,
+            max_height: f32::INFINITY,
         }
     }
 }
