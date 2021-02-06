@@ -45,7 +45,6 @@ impl Plugin for WireframePlugin {
 
 pub fn draw_wireframes_system(
     mut draw_context: DrawContext,
-    mut render_resource_bindings: ResMut<RenderResourceBindings>,
     msaa: Res<Msaa>,
     meshes: Res<Assets<Mesh>>,
     mut query: Query<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>, &Visible)>,
@@ -89,25 +88,8 @@ pub fn draw_wireframes_system(
                 .collect::<HashSet<String>>();
             render_pipeline.dynamic_bindings_generation =
                 render_pipelines.bindings.dynamic_bindings_generation();
-            for (handle, _) in render_pipelines.bindings.iter_assets() {
-                if let Some(bindings) = draw_context
-                    .asset_render_resource_bindings
-                    .get_untyped(handle)
-                {
-                    for binding in bindings.iter_dynamic_bindings() {
-                        render_pipeline
-                            .specialization
-                            .dynamic_bindings
-                            .insert(binding.to_string());
-                    }
-                }
-            }
         }
 
-        let render_resource_bindings = &mut [
-            &mut render_pipelines.bindings,
-            &mut render_resource_bindings,
-        ];
         draw_context
             .set_pipeline(
                 &mut draw,
@@ -116,7 +98,9 @@ pub fn draw_wireframes_system(
             )
             .unwrap();
         draw_context
-            .set_bind_groups_from_bindings(&mut draw, render_resource_bindings)
+            .set_bind_groups_from_bindings(&mut draw, &mut [
+                &mut render_pipelines.bindings,
+            ])
             .unwrap();
         draw_context
             .set_vertex_buffers_from_bindings(&mut draw, &[&render_pipelines.bindings])
