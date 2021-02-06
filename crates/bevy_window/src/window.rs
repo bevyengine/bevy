@@ -43,8 +43,8 @@ pub struct WindowResizeConstraints {
 impl Default for WindowResizeConstraints {
     fn default() -> Self {
         Self {
-            min_width: 360.,
-            min_height: 240.,
+            min_width: 180.,
+            min_height: 120.,
             max_width: 23040.,
             max_height: 8640.,
         }
