@@ -311,7 +311,7 @@ impl SystemStage {
                 )
                 .unwrap();
             }
-        };
+        }
         let parallel = find_ambiguities(&self.parallel);
         let at_start = find_ambiguities(&self.exclusive_at_start);
         let before_commands = find_ambiguities(&self.exclusive_before_commands);
