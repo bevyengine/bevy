@@ -1,4 +1,4 @@
-use crate::{WindowCloseRequested, WindowFocused, Windows};
+use crate::WindowCloseRequested;
 use bevy_app::{
     prelude::{EventReader, Events},
     AppExit,
