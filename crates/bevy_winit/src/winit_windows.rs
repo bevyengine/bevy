@@ -29,7 +29,6 @@ impl WinitWindows {
 
         let default_resize_constraints = WindowResizeConstraints::default();
         let mut final_resize_constraints = window_descriptor.resize_constraints.clone();
-        
         if final_resize_constraints.min_width < default_resize_constraints.min_width {
             final_resize_constraints.min_width = default_resize_constraints.min_width;
         }
