@@ -64,7 +64,7 @@ pub struct Window {
     cursor_visible: bool,
     cursor_locked: bool,
     cursor_position: Option<Vec2>,
-    pub(crate) focused: bool,
+    focused: bool,
     mode: WindowMode,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
@@ -395,6 +395,12 @@ impl Window {
     pub fn set_cursor_position(&mut self, position: Vec2) {
         self.command_queue
             .push(WindowCommand::SetCursorPosition { position });
+    }
+
+    #[allow(missing_docs)]
+    #[inline]
+    pub fn update_focused_status_from_backend(&mut self, focused: bool) {
+        self.focused = focused;
     }
 
     #[allow(missing_docs)]
