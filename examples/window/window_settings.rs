@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, window::WindowResizeConstraints};
 
 /// This example illustrates how to customize the default window settings
 fn main() {
@@ -8,6 +8,12 @@ fn main() {
             width: 500.,
             height: 300.,
             vsync: true,
+            resizable: true,
+            resize_constraints: WindowResizeConstraints {
+                max_width: 1280.,
+                max_height: 720.,
+                ..Default::default()
+            },
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)

@@ -1,6 +1,7 @@
 use bevy_math::IVec2;
 use bevy_utils::HashMap;
-use bevy_window::{Window, WindowDescriptor, WindowId, WindowMode};
+use bevy_window::{Window, WindowDescriptor, WindowId, WindowMode, WindowResizeConstraints};
+use winit::dpi::LogicalSize;
 
 #[derive(Debug, Default)]
 pub struct WinitWindows {
@@ -10,6 +11,7 @@ pub struct WinitWindows {
 }
 
 impl WinitWindows {
+    #[allow(clippy::float_cmp)]
     pub fn create_window(
         &mut self,
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
@@ -24,6 +26,38 @@ impl WinitWindows {
 
         #[cfg(not(target_os = "windows"))]
         let mut winit_window_builder = winit::window::WindowBuilder::new();
+
+        let default_resize_constraints = WindowResizeConstraints::default();
+        let mut final_resize_constraints = window_descriptor.resize_constraints.clone();
+        
+        if final_resize_constraints.min_width < default_resize_constraints.min_width {
+            final_resize_constraints.min_width = default_resize_constraints.min_width;
+        }
+        if final_resize_constraints.min_height < default_resize_constraints.min_height {
+            final_resize_constraints.min_height = default_resize_constraints.min_height;
+        }
+        if final_resize_constraints.max_width > default_resize_constraints.max_width {
+            final_resize_constraints.max_width = default_resize_constraints.max_width;
+        }
+        if final_resize_constraints.max_height > default_resize_constraints.max_height {
+            final_resize_constraints.max_height = default_resize_constraints.max_height;
+        }
+        if final_resize_constraints.max_width < final_resize_constraints.min_width {
+            final_resize_constraints.max_width = default_resize_constraints.max_width;
+        }
+        if final_resize_constraints.max_height < final_resize_constraints.min_height {
+            final_resize_constraints.max_height = default_resize_constraints.max_height;
+        }
+
+        let min_inner_size = LogicalSize {
+            width: final_resize_constraints.min_width,
+            height: final_resize_constraints.min_height,
+        };
+
+        let max_inner_size = LogicalSize {
+            width: final_resize_constraints.max_width,
+            height: final_resize_constraints.max_height,
+        };
 
         winit_window_builder = match window_descriptor.mode {
             WindowMode::BorderlessFullscreen => winit_window_builder.with_fullscreen(Some(
@@ -56,6 +90,8 @@ impl WinitWindows {
                 }
             }
             .with_resizable(window_descriptor.resizable)
+            .with_min_inner_size(min_inner_size)
+            .with_max_inner_size(max_inner_size)
             .with_decorations(window_descriptor.decorations),
         };
 

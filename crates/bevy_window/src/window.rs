@@ -32,6 +32,25 @@ impl Default for WindowId {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct WindowResizeConstraints {
+    pub min_width: f32,
+    pub min_height: f32,
+    pub max_width: f32,
+    pub max_height: f32,
+}
+
+impl Default for WindowResizeConstraints {
+    fn default() -> Self {
+        Self {
+            min_width: 360.,
+            min_height: 240.,
+            max_width: 23040.,
+            max_height: 8640.,
+        }
+    }
+}
+
 /// An operating system window that can present content and receive user input.
 ///
 /// ## Window Sizes
@@ -54,6 +73,7 @@ pub struct Window {
     requested_height: f32,
     physical_width: u32,
     physical_height: u32,
+    resize_constraints: WindowResizeConstraints,
     position: Option<IVec2>,
     scale_factor_override: Option<f64>,
     backend_scale_factor: f64,
@@ -143,6 +163,7 @@ impl Window {
             position,
             physical_width,
             physical_height,
+            resize_constraints: window_descriptor.resize_constraints.clone(),
             scale_factor_override: window_descriptor.scale_factor_override,
             backend_scale_factor: scale_factor,
             title: window_descriptor.title.clone(),
@@ -208,6 +229,12 @@ impl Window {
         self.physical_height
     }
 
+    /// The window's client resize constraint in physical pixels.
+    #[inline]
+    pub fn resize_constraints(&self) -> WindowResizeConstraints {
+        self.resize_constraints.clone()
+    }
+
     /// The window's client position in physical pixels.
     #[inline]
     pub fn position(&self) -> Option<IVec2> {
@@ -255,6 +282,7 @@ impl Window {
         if self.requested_width == width && self.requested_height == height {
             return;
         }
+
         self.requested_width = width;
         self.requested_height = height;
         self.command_queue.push(WindowCommand::SetResolution {
@@ -424,6 +452,7 @@ impl Window {
 pub struct WindowDescriptor {
     pub width: f32,
     pub height: f32,
+    pub resize_constraints: WindowResizeConstraints,
     pub scale_factor_override: Option<f64>,
     pub title: String,
     pub vsync: bool,
@@ -442,6 +471,7 @@ impl Default for WindowDescriptor {
             title: "bevy".to_string(),
             width: 1280.,
             height: 720.,
+            resize_constraints: WindowResizeConstraints::default(),
             scale_factor_override: None,
             vsync: true,
             resizable: true,
