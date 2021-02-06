@@ -74,7 +74,6 @@ pub struct Window {
     requested_height: f32,
     physical_width: u32,
     physical_height: u32,
-    resize_constraints: WindowResizeConstraints,
     position: Option<IVec2>,
     scale_factor_override: Option<f64>,
     backend_scale_factor: f64,
@@ -164,7 +163,6 @@ impl Window {
             position,
             physical_width,
             physical_height,
-            resize_constraints: window_descriptor.resize_constraints.clone(),
             scale_factor_override: window_descriptor.scale_factor_override,
             backend_scale_factor: scale_factor,
             title: window_descriptor.title.clone(),
@@ -228,12 +226,6 @@ impl Window {
     #[inline]
     pub fn physical_height(&self) -> u32 {
         self.physical_height
-    }
-
-    /// The window's client resize constraint in logical pixels.
-    #[inline]
-    pub fn resize_constraints(&self) -> WindowResizeConstraints {
-        self.resize_constraints.clone()
     }
 
     /// The window's client position in physical pixels.
