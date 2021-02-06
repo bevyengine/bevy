@@ -1,7 +1,7 @@
 use bevy_utils::{tracing::info, HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
-use std::{borrow::Cow, ptr::NonNull};
+use std::borrow::Cow;
 
 use super::{
     ExclusiveSystemContainer, ParallelExecutor, ParallelSystemContainer, ParallelSystemExecutor,
@@ -20,6 +20,13 @@ pub trait Stage: Downcast + Send + Sync {
 }
 
 impl_downcast!(Stage);
+
+/// When this resource is present in `Resources`, `SystemStage` will log a report containing
+/// pairs of systems with ambiguous execution order - i.e., those systems might induce different
+/// results depending on the order they're executed in, yet don't have an explicit execution order
+/// constraint between them.
+/// This is not necessarily a bad thing - you have to make that judgement yourself.
+pub struct ReportExecutionOrderAmbiguities;
 
 struct VirtualSystemSet {
     run_criteria: RunCriteria,
@@ -145,14 +152,9 @@ impl SystemStage {
         self.systems_modified = true;
         match system.into() {
             SystemDescriptor::Exclusive(descriptor) => {
-                let container = ExclusiveSystemContainer {
-                    system: descriptor.system,
-                    set,
-                    label: descriptor.label,
-                    before: descriptor.before,
-                    after: descriptor.after,
-                };
-                match descriptor.insertion_point {
+                let insertion_point = descriptor.insertion_point;
+                let container = ExclusiveSystemContainer::from_descriptor(descriptor, set);
+                match insertion_point {
                     InsertionPoint::AtStart => {
                         let index = self.exclusive_at_start.len();
                         self.uninitialized_at_start.push(index);
@@ -172,15 +174,8 @@ impl SystemStage {
             }
             SystemDescriptor::Parallel(descriptor) => {
                 self.uninitialized_parallel.push(self.parallel.len());
-                self.parallel.push(ParallelSystemContainer {
-                    system: unsafe { NonNull::new_unchecked(Box::into_raw(descriptor.system)) },
-                    should_run: false,
-                    set,
-                    dependencies: Vec::new(),
-                    label: descriptor.label,
-                    before: descriptor.before,
-                    after: descriptor.after,
-                });
+                self.parallel
+                    .push(ParallelSystemContainer::from_descriptor(descriptor, set));
             }
         }
         self
@@ -189,17 +184,17 @@ impl SystemStage {
     fn initialize_systems(&mut self, world: &mut World, resources: &mut Resources) {
         for index in self.uninitialized_at_start.drain(..) {
             self.exclusive_at_start[index]
-                .system
+                .system_mut()
                 .initialize(world, resources);
         }
         for index in self.uninitialized_before_commands.drain(..) {
             self.exclusive_before_commands[index]
-                .system
+                .system_mut()
                 .initialize(world, resources);
         }
         for index in self.uninitialized_at_end.drain(..) {
             self.exclusive_at_end[index]
-                .system
+                .system_mut()
                 .initialize(world, resources);
         }
         for index in self.uninitialized_parallel.drain(..) {
@@ -209,145 +204,183 @@ impl SystemStage {
         }
     }
 
-    /// Rearranges all systems in topological order, repopulates dependencies of parallel systems
-    /// to match the new order, returns pairs of names of systems with ambiguous execution order.
-    fn rebuild_orders_and_dependencies(&mut self) -> Vec<(Cow<'static, str>, Cow<'static, str>)> {
-        let mut ambiguities = Vec::new();
-        let mut all_ambiguities = Vec::new();
-        let mut all_relations = HashMap::<usize, FixedBitSet>::default();
-
-        let mut graph =
-            build_dependency_graph(&self.parallel).unwrap_or_else(|error| match error {
-                GraphError::LabelNotFound(label) => {
-                    panic!("No parallel system with label {:?} in stage.", label)
-                }
-                GraphError::DuplicateLabel(label) => {
-                    panic!("Label {:?} already used by a parallel system.", label)
-                }
-            });
-        let order = topological_order(&self.parallel, &graph);
-        populate_relations(&graph, &mut all_relations);
-        let full_bitset: FixedBitSet = (0..self.parallel.len()).collect();
-        for (index_a, relations) in all_relations.drain() {
-            let difference = full_bitset.difference(&relations);
-            for index_b in difference {
-                let system_a = self.parallel[index_a].system();
-                let system_b = self.parallel[index_b].system();
-                if !(system_a
-                    .component_access()
-                    .is_compatible(system_b.component_access())
-                    && system_a
-                        .resource_access()
-                        .is_compatible(system_b.resource_access())
-                    || ambiguities.contains(&(index_b, index_a)))
-                {
-                    ambiguities.push((index_a, index_b));
-                }
+    /// Rearranges all systems in topological orders. Systems must be initialized.
+    fn rebuild_orders_and_dependencies(&mut self) {
+        debug_assert!(
+            self.uninitialized_parallel.is_empty()
+                && self.uninitialized_at_start.is_empty()
+                && self.uninitialized_before_commands.is_empty()
+                && self.uninitialized_at_end.is_empty()
+        );
+        use DependencyGraphError::*;
+        match sort_systems(&mut self.parallel) {
+            Ok(()) => (),
+            Err(LabelNotFound(label)) => {
+                panic!("No parallel system with label {:?} in stage.", label)
+            }
+            Err(DuplicateLabel(label)) => {
+                panic!("Label {:?} already used by a parallel system.", label)
+            }
+            Err(GraphCycles(labels)) => {
+                panic!(
+                    "Found a dependency cycle in parallel systems: {:?}.",
+                    labels
+                )
             }
         }
-        all_ambiguities.extend(ambiguities.drain(..).map(|(index_a, index_b)| {
-            (
-                self.parallel[index_a].display_name(),
-                self.parallel[index_b].display_name(),
-            )
-        }));
-        let mut order_inverted = order.iter().enumerate().collect::<Vec<_>>();
-        order_inverted.sort_unstable_by_key(|(_, &key)| key);
-        for (index, container) in self.parallel.iter_mut().enumerate() {
-            container.dependencies.clear();
-            container.dependencies.extend(
-                graph
-                    .get_mut(&index)
-                    .unwrap()
-                    .drain(..)
-                    .map(|index| order_inverted[index].0),
-            );
+        match sort_systems(&mut self.exclusive_at_start) {
+            Ok(()) => (),
+            Err(LabelNotFound(label)) => {
+                panic!(
+                    "No exclusive system with label {:?} at start of stage.",
+                    label
+                )
+            }
+            Err(DuplicateLabel(label)) => {
+                panic!(
+                    "Label {:?} already used by an exclusive system at start of stage.",
+                    label
+                )
+            }
+            Err(GraphCycles(labels)) => {
+                panic!(
+                    "Found a dependency cycle in exclusive systems at start of stage: {:?}.",
+                    labels
+                )
+            }
         }
-        rearrange_to_order(&mut self.parallel, &order);
+        match sort_systems(&mut self.exclusive_before_commands) {
+            Ok(()) => (),
+            Err(LabelNotFound(label)) => {
+                panic!(
+                    "No exclusive system with label {:?} before commands of stage.",
+                    label
+                )
+            }
+            Err(DuplicateLabel(label)) => {
+                panic!(
+                    "Label {:?} already used by an exclusive system before commands of stage.",
+                    label
+                )
+            }
+            Err(GraphCycles(labels)) => {
+                panic!(
+                    "Found a dependency cycle in exclusive systems before commands of stage: {:?}.",
+                    labels
+                )
+            }
+        }
+        match sort_systems(&mut self.exclusive_at_end) {
+            Ok(()) => (),
+            Err(LabelNotFound(label)) => {
+                panic!(
+                    "No exclusive system with label {:?} at end of stage.",
+                    label
+                )
+            }
+            Err(DuplicateLabel(label)) => {
+                panic!(
+                    "Label {:?} already used by an exclusive system at end of stage.",
+                    label
+                )
+            }
+            Err(GraphCycles(labels)) => {
+                panic!(
+                    "Found a dependency cycle in exclusive systems at end of stage: {:?}.",
+                    labels
+                )
+            }
+        }
+    }
 
-        let mut sort_exclusive = |systems: &mut Vec<ExclusiveSystemContainer>| {
-            build_dependency_graph(systems).map(|graph| {
-                let order = topological_order(systems, &graph);
-                populate_relations(&graph, &mut all_relations);
-                let full_bitset: FixedBitSet = (0..systems.len()).collect();
-                for (index_a, relations) in all_relations.drain() {
-                    let difference = full_bitset.difference(&relations);
-                    for index_b in difference {
-                        if !(ambiguities.contains(&(index_b, index_a))) {
-                            ambiguities.push((index_a, index_b));
-                        }
-                    }
-                }
-                all_ambiguities.extend(ambiguities.drain(..).map(|(index_a, index_b)| {
-                    (
-                        systems[index_a].display_name(),
-                        systems[index_b].display_name(),
-                    )
-                }));
-                rearrange_to_order(systems, &order);
-            })
+    /// Logs execution order ambiguities between systems. System orders must be fresh.
+    fn report_ambiguities(&self) {
+        debug_assert!(!self.systems_modified);
+        use std::fmt::Write;
+        fn write_display_names_of_pairs(
+            string: &mut String,
+            systems: &[impl SystemContainer],
+            mut ambiguities: Vec<(usize, usize)>,
+        ) {
+            for (index_a, index_b) in ambiguities.drain(..) {
+                writeln!(
+                    string,
+                    " -- {:?} and {:?}",
+                    systems[index_a].display_name(),
+                    systems[index_b].display_name()
+                )
+                .unwrap();
+            }
         };
-        if let Err(error) = sort_exclusive(&mut self.exclusive_at_start) {
-            match error {
-                GraphError::LabelNotFound(label) => {
-                    panic!(
-                        "No exclusive system with label {:?} at start of stage.",
-                        label
-                    )
-                }
-                GraphError::DuplicateLabel(label) => {
-                    panic!(
-                        "Label {:?} already used by an exclusive system at start of stage.",
-                        label
-                    )
-                }
+        let parallel = find_ambiguities(&self.parallel);
+        let at_start = find_ambiguities(&self.exclusive_at_start);
+        let before_commands = find_ambiguities(&self.exclusive_before_commands);
+        let at_end = find_ambiguities(&self.exclusive_at_end);
+        if !(parallel.is_empty()
+            && at_start.is_empty()
+            && before_commands.is_empty()
+            && at_end.is_empty())
+        {
+            let mut string = "Execution order ambiguities detected, you might want to \
+                    add an explicit dependency relation between some these systems:\n"
+                .to_owned();
+            if !parallel.is_empty() {
+                writeln!(string, " * Parallel systems:").unwrap();
+                write_display_names_of_pairs(&mut string, &self.parallel, parallel);
             }
-        }
-        if let Err(error) = sort_exclusive(&mut self.exclusive_before_commands) {
-            match error {
-                GraphError::LabelNotFound(label) => {
-                    panic!(
-                        "No exclusive system with label {:?} before commands of stage.",
-                        label
-                    )
-                }
-                GraphError::DuplicateLabel(label) => {
-                    panic!(
-                        "Label {:?} already used by an exclusive system before commands of stage.",
-                        label
-                    )
-                }
+            if !at_start.is_empty() {
+                writeln!(string, " * Exclusive systems at start of stage:").unwrap();
+                write_display_names_of_pairs(&mut string, &self.exclusive_at_start, at_start);
             }
-        }
-        if let Err(error) = sort_exclusive(&mut self.exclusive_at_end) {
-            match error {
-                GraphError::LabelNotFound(label) => {
-                    panic!(
-                        "No exclusive system with label {:?} at end of stage.",
-                        label
-                    )
-                }
-                GraphError::DuplicateLabel(label) => {
-                    panic!(
-                        "Label {:?} already used by an exclusive system at end of stage.",
-                        label
-                    )
-                }
+            if !before_commands.is_empty() {
+                writeln!(string, " * Exclusive systems before commands of stage:").unwrap();
+                write_display_names_of_pairs(
+                    &mut string,
+                    &self.exclusive_before_commands,
+                    before_commands,
+                );
             }
+            if !at_end.is_empty() {
+                writeln!(string, " * Exclusive systems at end of stage:").unwrap();
+                write_display_names_of_pairs(&mut string, &self.exclusive_at_end, at_end);
+            }
+            info!("{}", string);
         }
-        all_ambiguities
     }
 }
 
-enum GraphError {
+enum DependencyGraphError {
     LabelNotFound(Cow<'static, str>),
     DuplicateLabel(Cow<'static, str>),
+    GraphCycles(Vec<Cow<'static, str>>),
+}
+
+/// Sorts given system containers topologically and populates their resolved dependencies.
+fn sort_systems(systems: &mut Vec<impl SystemContainer>) -> Result<(), DependencyGraphError> {
+    let mut graph = build_dependency_graph(systems)?;
+    let order = topological_order(systems, &graph)?;
+    let mut order_inverted = order.iter().enumerate().collect::<Vec<_>>();
+    order_inverted.sort_unstable_by_key(|(_, &key)| key);
+    for (index, container) in systems.iter_mut().enumerate() {
+        container.set_dependencies(
+            graph
+                .get_mut(&index)
+                .unwrap()
+                .drain(..)
+                .map(|index| order_inverted[index].0),
+        );
+    }
+    let mut temp = systems.drain(..).map(Some).collect::<Vec<_>>();
+    for index in order {
+        systems.push(temp[index].take().unwrap());
+    }
+    Ok(())
 }
 
 /// Constructs a dependency graph of given system containers.
 fn build_dependency_graph(
     systems: &[impl SystemContainer],
-) -> Result<HashMap<usize, Vec<usize>>, GraphError> {
+) -> Result<HashMap<usize, Vec<usize>>, DependencyGraphError> {
     let mut labels = HashMap::<Cow<'static, str>, usize>::default();
     for (label, index) in systems.iter().enumerate().filter_map(|(index, container)| {
         container
@@ -357,7 +390,7 @@ fn build_dependency_graph(
             .map(|label| (label, index))
     }) {
         if labels.contains_key(&label) {
-            return Err(GraphError::DuplicateLabel(label));
+            return Err(DependencyGraphError::DuplicateLabel(label));
         }
         labels.insert(label, index);
     }
@@ -371,7 +404,7 @@ fn build_dependency_graph(
                         dependencies.push(*dependency);
                     }
                 }
-                None => return Err(GraphError::LabelNotFound(label.clone())),
+                None => return Err(DependencyGraphError::LabelNotFound(label.clone())),
             }
         }
         for label in container.before() {
@@ -382,19 +415,18 @@ fn build_dependency_graph(
                         dependencies.push(system_index);
                     }
                 }
-                None => return Err(GraphError::LabelNotFound(label.clone())),
+                None => return Err(DependencyGraphError::LabelNotFound(label.clone())),
             }
         }
     }
     Ok(graph)
 }
 
-/// Generates a topological order for the given graph; panics if the graph cycles,
-/// using given list of system containers to find and print system display names.
+/// Generates a topological order for the given graph.
 fn topological_order(
     systems: &[impl SystemContainer],
     graph: &HashMap<usize, Vec<usize>>,
-) -> Vec<usize> {
+) -> Result<Vec<usize>, DependencyGraphError> {
     fn check_if_cycles_and_visit(
         node: &usize,
         graph: &HashMap<usize, Vec<usize>>,
@@ -423,54 +455,50 @@ fn topological_order(
     unvisited.extend(graph.keys().cloned());
     while let Some(node) = unvisited.iter().next().cloned() {
         if check_if_cycles_and_visit(&node, graph, &mut sorted, &mut unvisited, &mut current) {
-            panic!(
-                "Found a dependency cycle between systems: {:?}.",
+            return Err(DependencyGraphError::GraphCycles(
                 current
                     .iter()
                     .map(|index| systems[*index].display_name())
-                    .collect::<Vec<_>>()
-            )
+                    .collect::<Vec<_>>(),
+            ));
         }
     }
-    sorted
+    Ok(sorted)
 }
 
-/// Rearranges given vector of system containers to match the order of the given indices.
-fn rearrange_to_order(systems: &mut Vec<impl SystemContainer>, order: &[usize]) {
-    let mut temp = systems.drain(..).map(Some).collect::<Vec<_>>();
-    for index in order {
-        systems.push(temp[*index].take().unwrap());
+/// Returns vector containing all pairs of indices of systems with ambiguous execution order.
+/// Systems must be topologically sorted beforehand.
+fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize)> {
+    let mut all_relations = Vec::<FixedBitSet>::with_capacity(systems.len());
+    for (index, container) in systems.iter().enumerate() {
+        let mut relations = FixedBitSet::with_capacity(systems.len());
+        relations.insert(index);
+        for dependency in container.dependencies() {
+            relations.union_with(&all_relations[*dependency]);
+            relations.insert(*dependency);
+        }
+        all_relations.push(relations);
     }
-}
-
-/// Populates the map of all ascendants and descendants using the given graph.
-fn populate_relations(
-    graph: &HashMap<usize, Vec<usize>>,
-    all_relations: &mut HashMap<usize, FixedBitSet>,
-) {
-    fn add_relations(
-        index: usize,
-        current_descendant: usize,
-        graph: &HashMap<usize, Vec<usize>>,
-        all_relations: &mut HashMap<usize, FixedBitSet>,
-    ) {
-        for &descendant in graph.get(&current_descendant).unwrap() {
-            all_relations.get_mut(&index).unwrap().insert(descendant);
-            all_relations
-                .entry(descendant)
-                .or_insert_with(|| FixedBitSet::with_capacity(graph.len()))
-                .insert(index);
-            add_relations(index, descendant, graph, all_relations);
+    for (index, container) in systems.iter().enumerate().rev() {
+        let relations = all_relations[index].clone();
+        for dependency in container.dependencies() {
+            all_relations[*dependency].union_with(&relations);
         }
     }
-    all_relations.reserve(graph.len());
-    for index in 0..graph.len() {
-        all_relations
-            .entry(index)
-            .or_insert_with(|| FixedBitSet::with_capacity(graph.len()))
-            .insert(index);
-        add_relations(index, index, graph, all_relations);
+    // TODO: There is enough data to group ambiguity pairs into OR blocks,
+    // as in, "you might want to add a relation to at least one of these pairs".
+    let mut ambiguities = Vec::new();
+    let full_bitset: FixedBitSet = (0..systems.len()).collect();
+    for (index_a, relations) in all_relations.drain(..).enumerate() {
+        for index_b in full_bitset.difference(&relations) {
+            if !systems[index_a].is_compatible(&systems[index_b])
+                && !ambiguities.contains(&(index_b, index_a))
+            {
+                ambiguities.push((index_a, index_b));
+            }
+        }
     }
+    ambiguities
 }
 
 impl Stage for SystemStage {
@@ -488,21 +516,12 @@ impl Stage for SystemStage {
 
         if self.systems_modified {
             self.initialize_systems(world, resources);
-            let mut ambiguities = self.rebuild_orders_and_dependencies();
+            self.rebuild_orders_and_dependencies();
             self.systems_modified = false;
             self.executor.rebuild_cached_data(&mut self.parallel, world);
             self.executor_modified = false;
-            if !ambiguities.is_empty() {
-                info!("{}", {
-                    use std::fmt::Write;
-                    let mut string = "Execution order ambiguities detected, you might want to \
-                    add an explicit dependency relation between some these systems:\n"
-                        .to_owned();
-                    for (system_a, system_b) in ambiguities.drain(..) {
-                        writeln!(string, " - {:?} and {:?}", system_a, system_b).unwrap();
-                    }
-                    string
-                });
+            if resources.contains::<ReportExecutionOrderAmbiguities>() {
+                self.report_ambiguities();
             }
         } else if self.executor_modified {
             self.executor.rebuild_cached_data(&mut self.parallel, world);
@@ -512,15 +531,16 @@ impl Stage for SystemStage {
         while has_work {
             // Run systems that want to be at the start of stage.
             for container in &mut self.exclusive_at_start {
-                if let Yes | YesAndCheckAgain = self.system_sets[container.set].should_run {
-                    container.system.run(world, resources);
+                if let Yes | YesAndCheckAgain = self.system_sets[container.system_set()].should_run
+                {
+                    container.system_mut().run(world, resources);
                 }
             }
 
             // Run parallel systems using the executor.
             // TODO: hard dependencies, nested sets, whatever... should be evaluated here.
             for container in &mut self.parallel {
-                match self.system_sets[container.set].should_run {
+                match self.system_sets[container.system_set()].should_run {
                     Yes | YesAndCheckAgain => container.should_run = true,
                     No | NoAndCheckAgain => container.should_run = false,
                 }
@@ -530,8 +550,9 @@ impl Stage for SystemStage {
 
             // Run systems that want to be between parallel systems and their command buffers.
             for container in &mut self.exclusive_before_commands {
-                if let Yes | YesAndCheckAgain = self.system_sets[container.set].should_run {
-                    container.system.run(world, resources);
+                if let Yes | YesAndCheckAgain = self.system_sets[container.system_set()].should_run
+                {
+                    container.system_mut().run(world, resources);
                 }
             }
 
@@ -544,8 +565,9 @@ impl Stage for SystemStage {
 
             // Run systems that want to be at the end of stage.
             for container in &mut self.exclusive_at_end {
-                if let Yes | YesAndCheckAgain = self.system_sets[container.set].should_run {
-                    container.system.run(world, resources);
+                if let Yes | YesAndCheckAgain = self.system_sets[container.system_set()].should_run
+                {
+                    container.system_mut().run(world, resources);
                 }
             }
 
@@ -966,7 +988,7 @@ mod tests {
             .with_system(make_parallel!(3).system().label("3").after("2").before("4"));
         stage.run(&mut world, &mut resources);
         for container in stage.parallel.iter() {
-            assert!(container.dependencies.len() <= 1);
+            assert!(container.dependencies().len() <= 1);
         }
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world, &mut resources);
@@ -1063,6 +1085,7 @@ mod tests {
 
     #[test]
     fn ambiguity_detection() {
+        use super::find_ambiguities;
         fn empty() {}
         fn resource(_: ResMut<usize>) {}
         fn component(_: Query<&mut f32>) {}
@@ -1076,7 +1099,8 @@ mod tests {
             .with_system(empty.system().after("2").before("4"))
             .with_system(empty.system().label("4"));
         stage.initialize_systems(&mut world, &mut resources);
-        assert_eq!(stage.rebuild_orders_and_dependencies().len(), 0);
+        stage.rebuild_orders_and_dependencies();
+        assert_eq!(find_ambiguities(&stage.parallel).len(), 0);
 
         let mut stage = SystemStage::parallel()
             .with_system(empty.system().label("0"))
@@ -1086,7 +1110,7 @@ mod tests {
             .with_system(component.system().label("4"));
         stage.initialize_systems(&mut world, &mut resources);
         stage.rebuild_orders_and_dependencies();
-        assert_eq!(stage.rebuild_orders_and_dependencies().len(), 1);
+        assert_eq!(find_ambiguities(&stage.parallel).len(), 1);
 
         let mut stage = SystemStage::parallel()
             .with_system(empty.system().label("0"))
@@ -1095,7 +1119,8 @@ mod tests {
             .with_system(empty.system().after("2").before("4"))
             .with_system(resource.system().label("4"));
         stage.initialize_systems(&mut world, &mut resources);
-        assert_eq!(stage.rebuild_orders_and_dependencies().len(), 1);
+        stage.rebuild_orders_and_dependencies();
+        assert_eq!(find_ambiguities(&stage.parallel).len(), 1);
 
         let mut stage = SystemStage::parallel()
             .with_system(empty.system().label("0"))
@@ -1104,7 +1129,8 @@ mod tests {
             .with_system(empty.system().after("2").before("4"))
             .with_system(component.system().label("4"));
         stage.initialize_systems(&mut world, &mut resources);
-        assert_eq!(stage.rebuild_orders_and_dependencies().len(), 0);
+        stage.rebuild_orders_and_dependencies();
+        assert_eq!(find_ambiguities(&stage.parallel).len(), 0);
 
         let mut stage = SystemStage::parallel()
             .with_system(component.system().label("0"))
@@ -1113,7 +1139,8 @@ mod tests {
             .with_system(component.system().after("2").before("4"))
             .with_system(resource.system().label("4"));
         stage.initialize_systems(&mut world, &mut resources);
-        assert_eq!(stage.rebuild_orders_and_dependencies().len(), 2);
+        stage.rebuild_orders_and_dependencies();
+        assert_eq!(find_ambiguities(&stage.parallel).len(), 2);
 
         let mut stage = SystemStage::parallel()
             .with_system(empty.exclusive_system().label("0"))
@@ -1122,6 +1149,7 @@ mod tests {
             .with_system(empty.exclusive_system().after("2").before("4"))
             .with_system(empty.exclusive_system().label("4"));
         stage.initialize_systems(&mut world, &mut resources);
-        assert_eq!(stage.rebuild_orders_and_dependencies().len(), 6);
+        stage.rebuild_orders_and_dependencies();
+        assert_eq!(find_ambiguities(&stage.exclusive_at_start).len(), 6);
     }
 }
