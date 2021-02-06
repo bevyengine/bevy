@@ -1,9 +1,17 @@
 use bevy::prelude::*;
+use bevy_internal::render::wireframe::WireframePlugin;
+use bevy_internal::wgpu::{WgpuOptions, WgpuFeatures};
 
 fn main() {
     App::build()
         .insert_resource(Msaa { samples: 4 })
+        .insert_resource(WgpuOptions {
+            name: Some("3d_scene"),
+            features: WgpuFeatures::NON_FILL_POLYGON_MODE,
+            ..Default::default()
+        })
         .add_plugins(DefaultPlugins)
+        .add_plugin(WireframePlugin)
         .add_startup_system(setup.system())
         .run();
 }

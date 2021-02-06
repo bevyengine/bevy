@@ -10,6 +10,7 @@ pub mod render_graph;
 pub mod renderer;
 pub mod shader;
 pub mod texture;
+pub mod wireframe;
 
 use bevy_ecs::{IntoExclusiveSystem, IntoSystem, SystemStage};
 use bevy_reflect::RegisterTypeBuilder;
