@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_internal::{
-    render::wireframe::{Wireframe, WireframePlugin},
+    render::wireframe::{Wireframe, WireframeConfig, WireframePlugin},
     wgpu::{WgpuFeatures, WgpuOptions},
 };
 
@@ -21,9 +21,11 @@ fn main() {
 /// set up a simple 3D scene
 fn setup(
     commands: &mut Commands,
+    mut wireframe_config: ResMut<WireframeConfig>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    wireframe_config.global = false;
     // add entities to the world
     commands
         // plane
