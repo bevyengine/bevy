@@ -10,6 +10,16 @@ pub struct Viewport {
     pub scale_factor: f64,
 }
 
+impl Viewport {
+    pub fn physical_origin(&self) -> Vec2 {
+        (self.origin.as_f64() * self.scale_factor).as_f32()
+    }
+
+    pub fn physical_size(&self) -> Vec2 {
+        (self.size.as_f64() * self.scale_factor).as_f32()
+    }
+}
+
 impl Default for Viewport {
     fn default() -> Self {
         Self {

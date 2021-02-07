@@ -226,15 +226,19 @@ where
                     let visible_entities = world.get::<VisibleEntities>(camera_entity).unwrap();
 
                     // get camera viewport and apply it
-                    let viewport = world.get::<Viewport>(camera_entity).unwrap();
-                    render_pass.set_viewport(
-                        viewport.origin.x,
-                        viewport.origin.y,
-                        viewport.size.x,
-                        viewport.size.y,
-                        // TODO: implement min/max depth
-                        0.0, 1.0,
-                    );
+                    if let Ok(viewport) = world.get::<Viewport>(camera_entity) {
+                        let origin = viewport.physical_origin();
+                        let size = viewport.physical_size();
+                        render_pass.set_viewport(
+                            origin.x, origin.y,
+                            size.x, size.y,
+                            // TODO: implement min/max depth
+                            0.0, 1.0,
+                        );
+                    } else {
+                        // a camera requires a valid viewport
+                        continue;
+                    }
 
                     // attempt to draw each visible entity
                     let mut draw_state = DrawState::default();
