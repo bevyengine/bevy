@@ -1,57 +1,25 @@
 use bevy_math::{Mat4, Vec3};
 use bevy_render::{
-    color::Color,
     draw::{Draw, DrawContext, DrawError, Drawable},
     mesh,
     mesh::Mesh,
-    pipeline::{PipelineSpecialization, VertexBufferDescriptor},
+    pipeline::{PipelineSpecialization, VertexBufferLayout},
     prelude::Msaa,
     renderer::{BindGroup, RenderResourceBindings, RenderResourceId},
 };
 use bevy_sprite::TextureAtlasSprite;
-use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
 
-use crate::PositionedGlyph;
-
-#[derive(Debug, Clone, Copy)]
-pub struct TextAlignment {
-    pub vertical: VerticalAlign,
-    pub horizontal: HorizontalAlign,
-}
-
-impl Default for TextAlignment {
-    fn default() -> Self {
-        TextAlignment {
-            vertical: VerticalAlign::Top,
-            horizontal: HorizontalAlign::Left,
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct TextStyle {
-    pub font_size: f32,
-    pub color: Color,
-    pub alignment: TextAlignment,
-}
-
-impl Default for TextStyle {
-    fn default() -> Self {
-        Self {
-            color: Color::WHITE,
-            font_size: 12.0,
-            alignment: TextAlignment::default(),
-        }
-    }
-}
+use crate::{PositionedGlyph, TextSection};
+use bevy_render::pipeline::IndexFormat;
 
 pub struct DrawableText<'a> {
     pub render_resource_bindings: &'a mut RenderResourceBindings,
     pub position: Vec3,
-    pub style: &'a TextStyle,
+    pub scale_factor: f32,
+    pub sections: &'a [TextSection],
     pub text_glyphs: &'a Vec<PositionedGlyph>,
     pub msaa: &'a Msaa,
-    pub font_quad_vertex_descriptor: &'a VertexBufferDescriptor,
+    pub font_quad_vertex_layout: &'a VertexBufferLayout,
 }
 
 impl<'a> Drawable for DrawableText<'a> {
@@ -61,7 +29,7 @@ impl<'a> Drawable for DrawableText<'a> {
             &bevy_sprite::SPRITE_SHEET_PIPELINE_HANDLE.typed(),
             &PipelineSpecialization {
                 sample_count: self.msaa.samples,
-                vertex_buffer_descriptor: self.font_quad_vertex_descriptor.clone(),
+                vertex_buffer_layout: self.font_quad_vertex_layout.clone(),
                 ..Default::default()
             },
         )?;
@@ -86,7 +54,7 @@ impl<'a> Drawable for DrawableText<'a> {
                 mesh::INDEX_BUFFER_ASSET_INDEX,
             )
         {
-            draw.set_index_buffer(quad_index_buffer, 0);
+            draw.set_index_buffer(quad_index_buffer, 0, IndexFormat::Uint32);
             if let Some(buffer_info) = render_resource_context.get_buffer_info(quad_index_buffer) {
                 indices = 0..(buffer_info.size / 4) as u32;
             } else {
@@ -102,10 +70,23 @@ impl<'a> Drawable for DrawableText<'a> {
 
             let sprite = TextureAtlasSprite {
                 index: tv.atlas_info.glyph_index,
-                color: self.style.color,
+                color: self.sections[tv.section_index].style.color,
             };
 
-            let transform = Mat4::from_translation(self.position + tv.position.extend(0.));
+            // To get the rendering right for non-one scaling factors, we need
+            // the sprite to be drawn in "physical" coordinates. This is because
+            // the shader uses the size of the sprite to control the size on
+            // screen. To accomplish this we make the sprite transform
+            // convert from physical coordinates to logical coordinates in
+            // addition to altering the origin. Since individual glyphs will
+            // already be in physical coordinates, we just need to convert the
+            // overall position to physical coordinates to get the sprites
+            // physical position.
+
+            let transform = Mat4::from_scale(Vec3::splat(1. / self.scale_factor))
+                * Mat4::from_translation(
+                    self.position * self.scale_factor + tv.position.extend(0.),
+                );
 
             let transform_buffer = context.get_uniform_buffer(&transform).unwrap();
             let sprite_buffer = context.get_uniform_buffer(&sprite).unwrap();

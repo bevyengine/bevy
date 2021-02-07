@@ -21,7 +21,7 @@ pub struct Timer {
 impl Timer {
     /// Creates a new timer with a given duration.
     ///
-    /// See also [`Timer::from_seconds`](Timer<T>::from_seconds).
+    /// See also [`Timer::from_seconds`](Timer::from_seconds).
     pub fn new(duration: Duration, repeating: bool) -> Self {
         Self {
             duration,
@@ -79,9 +79,10 @@ impl Timer {
         self.times_finished > 0
     }
 
-    /// Returns the elapsed time of the timer.
+    /// Returns the time elapsed on the timer. Guaranteed to be between 0.0 and `duration`.
+    /// Will only equal `duration` when the timer is finished and non repeating.
     ///
-    /// See also [`Stopwatch::elapsed`](Stopwatch<T>::elapsed).
+    /// See also [`Stopwatch::elapsed`](Stopwatch::elapsed).
     ///
     /// # Examples
     /// ```
@@ -96,6 +97,8 @@ impl Timer {
         self.stopwatch.elapsed()
     }
 
+    /// Returns the time elapsed on the timer as a `f32`.
+    /// See also [`Timer::elapsed`](Timer::elapsed).
     #[inline]
     pub fn elapsed_secs(&self) -> f32 {
         self.stopwatch.elapsed_secs()
@@ -103,7 +106,7 @@ impl Timer {
 
     /// Sets the elapsed time of the timer without any other considerations.
     ///
-    /// See also [`Stopwatch::set`](Stopwatch<T>::set).
+    /// See also [`Stopwatch::set`](Stopwatch::set).
     ///
     /// #
     /// ```
@@ -174,6 +177,10 @@ impl Timer {
     /// ```
     #[inline]
     pub fn set_repeating(&mut self, repeating: bool) {
+        if !self.repeating && repeating && self.finished {
+            self.stopwatch.reset();
+            self.finished = self.just_finished();
+        }
         self.repeating = repeating
     }
 
@@ -181,7 +188,7 @@ impl Timer {
     /// Non repeating timer will clamp at duration.
     /// Repeating timer will wrap around.
     ///
-    /// See also [`Stopwatch::tick`](Stopwatch<T>::tick).
+    /// See also [`Stopwatch::tick`](Stopwatch::tick).
     ///
     /// # Examples
     /// ```
@@ -225,7 +232,7 @@ impl Timer {
 
     /// Pauses the Timer. Disables the ticking of the timer.
     ///
-    /// See also [`Stopwatch::pause`](Stopwatch<T>::pause).
+    /// See also [`Stopwatch::pause`](Stopwatch::pause).
     ///
     /// # Examples
     /// ```
@@ -243,7 +250,7 @@ impl Timer {
 
     /// Unpauses the Timer. Resumes the ticking of the timer.
     ///
-    /// See also [`Stopwatch::unpause()`](Stopwatch<T>::unpause).
+    /// See also [`Stopwatch::unpause()`](Stopwatch::unpause).
     ///
     /// # Examples
     /// ```
@@ -263,7 +270,7 @@ impl Timer {
 
     /// Returns `true` if the timer is paused.
     ///
-    /// See also [`Stopwatch::paused`](Stopwatch<T>::paused).
+    /// See also [`Stopwatch::paused`](Stopwatch::paused).
     ///
     /// # Examples
     /// ```
@@ -282,7 +289,7 @@ impl Timer {
 
     /// Resets the timer. the reset doesn't affect the `paused` state of the timer.
     ///
-    /// See also [`Stopwatch::reset`](Stopwatch<T>::reset).
+    /// See also [`Stopwatch::reset`](Stopwatch::reset).
     ///
     /// Examples
     /// ```
@@ -368,6 +375,7 @@ mod tests {
         assert_eq!(t.duration(), Duration::from_secs_f32(10.0));
         assert_eq!(t.finished(), false);
         assert_eq!(t.just_finished(), false);
+        assert_eq!(t.times_finished(), 0);
         assert_eq!(t.repeating(), false);
         assert_eq!(t.percent(), 0.025);
         assert_eq!(t.percent_left(), 0.975);
@@ -378,6 +386,7 @@ mod tests {
         assert_eq!(t.duration(), Duration::from_secs_f32(10.0));
         assert_eq!(t.finished(), false);
         assert_eq!(t.just_finished(), false);
+        assert_eq!(t.times_finished(), 0);
         assert_eq!(t.repeating(), false);
         assert_eq!(t.percent(), 0.025);
         assert_eq!(t.percent_left(), 0.975);
@@ -387,6 +396,7 @@ mod tests {
         assert_eq!(t.elapsed_secs(), 10.0);
         assert_eq!(t.finished(), true);
         assert_eq!(t.just_finished(), true);
+        assert_eq!(t.times_finished(), 1);
         assert_eq!(t.percent(), 1.0);
         assert_eq!(t.percent_left(), 0.0);
         // Continuing to tick when finished should only change just_finished
@@ -394,6 +404,7 @@ mod tests {
         assert_eq!(t.elapsed_secs(), 10.0);
         assert_eq!(t.finished(), true);
         assert_eq!(t.just_finished(), false);
+        assert_eq!(t.times_finished(), 0);
         assert_eq!(t.percent(), 1.0);
         assert_eq!(t.percent_left(), 0.0);
     }
@@ -407,6 +418,7 @@ mod tests {
         assert_eq!(t.duration(), Duration::from_secs_f32(2.0));
         assert_eq!(t.finished(), false);
         assert_eq!(t.just_finished(), false);
+        assert_eq!(t.times_finished(), 0);
         assert_eq!(t.repeating(), true);
         assert_eq!(t.percent(), 0.375);
         assert_eq!(t.percent_left(), 0.625);
@@ -415,6 +427,7 @@ mod tests {
         assert_eq!(t.elapsed_secs(), 0.25);
         assert_eq!(t.finished(), true);
         assert_eq!(t.just_finished(), true);
+        assert_eq!(t.times_finished(), 1);
         assert_eq!(t.percent(), 0.125);
         assert_eq!(t.percent_left(), 0.875);
         // Continuing to tick should turn off both finished & just_finished for repeating timers
@@ -422,6 +435,7 @@ mod tests {
         assert_eq!(t.elapsed_secs(), 1.25);
         assert_eq!(t.finished(), false);
         assert_eq!(t.just_finished(), false);
+        assert_eq!(t.times_finished(), 0);
         assert_eq!(t.percent(), 0.625);
         assert_eq!(t.percent_left(), 0.375);
     }

@@ -40,3 +40,29 @@ impl Default for TextureDescriptor {
         }
     }
 }
+
+#[derive(Hash, Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub enum StorageTextureAccess {
+    /// The texture can only be read in the shader and it must be annotated with `readonly`.
+    ///
+    /// Example GLSL syntax:
+    /// ```cpp,ignore
+    /// layout(set=0, binding=0, r32f) readonly uniform image2D myStorageImage;
+    /// ```
+    ReadOnly,
+    /// The texture can only be written in the shader and it must be annotated with `writeonly`.
+    ///
+    /// Example GLSL syntax:
+    /// ```cpp,ignore
+    /// layout(set=0, binding=0, r32f) writeonly uniform image2D myStorageImage;
+    /// ```
+    WriteOnly,
+    /// The texture can be both read and written in the shader.
+    /// [`Features::STORAGE_TEXTURE_ACCESS_READ_WRITE`] must be enabled to use this access mode.
+    ///
+    /// Example GLSL syntax:
+    /// ```cpp,ignore
+    /// layout(set=0, binding=0, r32f) uniform image2D myStorageImage;
+    /// ```
+    ReadWrite,
+}

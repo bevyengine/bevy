@@ -1,4 +1,4 @@
-use bevy_utils::{AHashExt, HashMap};
+use bevy_utils::HashMap;
 use std::hash::Hash;
 
 #[derive(Debug)]
@@ -12,7 +12,7 @@ where
 {
     fn default() -> Self {
         Axis {
-            axis_data: HashMap::new(),
+            axis_data: HashMap::default(),
         }
     }
 }

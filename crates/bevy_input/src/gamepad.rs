@@ -1,6 +1,6 @@
 use crate::{Axis, Input};
 use bevy_app::{EventReader, Events};
-use bevy_ecs::{Local, Res, ResMut};
+use bevy_ecs::{Res, ResMut};
 use bevy_utils::HashMap;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -147,20 +147,22 @@ impl Default for AxisSettings {
 
 impl AxisSettings {
     fn filter(&self, new_value: f32, old_value: Option<f32>) -> Option<f32> {
+        let new_value = if new_value <= self.positive_low && new_value >= self.negative_low {
+            0.0
+        } else if new_value >= self.positive_high {
+            1.0
+        } else if new_value <= self.negative_high {
+            -1.0
+        } else {
+            new_value
+        };
+
         if let Some(old_value) = old_value {
             if (new_value - old_value).abs() <= self.threshold {
                 return None;
             }
         }
-        if new_value <= self.positive_low && new_value >= self.negative_low {
-            return Some(0.0);
-        }
-        if new_value >= self.positive_high {
-            return Some(1.0);
-        }
-        if new_value <= self.negative_high {
-            return Some(-1.0);
-        }
+
         Some(new_value)
     }
 }
@@ -200,16 +202,15 @@ impl ButtonAxisSettings {
 }
 
 pub fn gamepad_event_system(
-    mut event_reader: Local<EventReader<GamepadEventRaw>>,
     mut button_input: ResMut<Input<GamepadButton>>,
     mut axis: ResMut<Axis<GamepadAxis>>,
     mut button_axis: ResMut<Axis<GamepadButton>>,
-    raw_events: Res<Events<GamepadEventRaw>>,
+    mut raw_events: EventReader<GamepadEventRaw>,
     mut events: ResMut<Events<GamepadEvent>>,
     settings: Res<GamepadSettings>,
 ) {
     button_input.update();
-    for event in event_reader.iter(&raw_events) {
+    for event in raw_events.iter() {
         let (gamepad, event) = (event.0, &event.1);
         match event {
             GamepadEventType::Connected => {

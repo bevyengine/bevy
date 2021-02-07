@@ -217,7 +217,7 @@ impl AddAsset for AppBuilder {
             asset_server.register_asset_type::<T>()
         };
 
-        self.add_resource(assets)
+        self.insert_resource(assets)
             .add_system_to_stage(
                 super::stage::ASSET_EVENTS,
                 Assets::<T>::asset_event_system.system(),

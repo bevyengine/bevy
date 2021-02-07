@@ -14,6 +14,7 @@ pub trait List: Reflect {
     fn iter(&self) -> ListIter;
     fn clone_dynamic(&self) -> DynamicList {
         DynamicList {
+            name: self.type_name().to_string(),
             values: self.iter().map(|value| value.clone_value()).collect(),
         }
     }
@@ -21,10 +22,19 @@ pub trait List: Reflect {
 
 #[derive(Default)]
 pub struct DynamicList {
-    pub(crate) values: Vec<Box<dyn Reflect>>,
+    name: String,
+    values: Vec<Box<dyn Reflect>>,
 }
 
 impl DynamicList {
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn set_name(&mut self, name: String) {
+        self.name = name;
+    }
+
     pub fn push<T: Reflect>(&mut self, value: T) {
         self.values.push(Box::new(value));
     }
@@ -49,6 +59,7 @@ impl List for DynamicList {
 
     fn clone_dynamic(&self) -> DynamicList {
         DynamicList {
+            name: self.name.clone(),
             values: self
                 .values
                 .iter()
@@ -72,7 +83,7 @@ impl List for DynamicList {
 impl Reflect for DynamicList {
     #[inline]
     fn type_name(&self) -> &str {
-        std::any::type_name::<Self>()
+        self.name.as_str()
     }
 
     #[inline]

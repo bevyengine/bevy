@@ -16,11 +16,13 @@ fn main() {
 #[derive(Default)]
 struct GamepadLobby {
     gamepads: HashSet<Gamepad>,
-    gamepad_event_reader: EventReader<GamepadEvent>,
 }
 
-fn connection_system(mut lobby: ResMut<GamepadLobby>, gamepad_event: Res<Events<GamepadEvent>>) {
-    for event in lobby.gamepad_event_reader.iter(&gamepad_event) {
+fn connection_system(
+    mut lobby: ResMut<GamepadLobby>,
+    mut gamepad_event: EventReader<GamepadEvent>,
+) {
+    for event in gamepad_event.iter() {
         match &event {
             GamepadEvent(gamepad, GamepadEventType::Connected) => {
                 lobby.gamepads.insert(*gamepad);

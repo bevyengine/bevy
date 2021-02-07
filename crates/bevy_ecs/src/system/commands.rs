@@ -155,10 +155,6 @@ where
     }
 }
 
-pub trait ResourcesWriter: Send + Sync {
-    fn write(self: Box<Self>, resources: &mut Resources);
-}
-
 pub struct InsertResource<T: Resource> {
     resource: T,
 }
@@ -199,7 +195,7 @@ impl Commands {
     /// # Example
     ///
     /// ```
-    /// use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     ///
     /// struct Component1;
     /// struct Component2;
@@ -210,7 +206,7 @@ impl Commands {
     ///     b: Component2,
     /// }
     ///
-    /// fn example_system(mut commands: Commands) {
+    /// fn example_system(commands: &mut Commands) {
     ///     // Create a new entity with a component bundle.
     ///     commands.spawn(ExampleBundle {
     ///         a: Component1,
@@ -222,6 +218,8 @@ impl Commands {
     ///     // Create a new entity with two components.
     ///     commands.spawn((Component1, Component2));
     /// }
+    ///
+    /// # example_system.system();
     /// ```
     pub fn spawn(&mut self, bundle: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
         let entity = self
@@ -331,12 +329,12 @@ impl Commands {
     /// `with` can be chained with [`Self::spawn`].
     ///
     /// ```
-    /// use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     ///
     /// struct Component1;
     /// struct Component2;
     ///
-    /// fn example_system(mut commands: Commands) {
+    /// fn example_system(commands: &mut Commands) {
     ///     // Create a new entity with a `Component1` and `Component2`.
     ///     commands.spawn((Component1,)).with(Component2);
     ///
@@ -353,6 +351,8 @@ impl Commands {
     ///         b: Component2,
     ///     });
     /// }
+    ///
+    /// # example_system.system();
     /// ```
     pub fn with(&mut self, component: impl Component) -> &mut Self {
         let current_entity =  self.current_entity.expect("Cannot add component because the 'current entity' is not set. You should spawn an entity first.");

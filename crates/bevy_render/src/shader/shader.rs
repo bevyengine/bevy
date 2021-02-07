@@ -4,9 +4,9 @@ use crate::{
 };
 
 use super::ShaderLayout;
-use bevy_app::{EventReader, Events};
+use bevy_app::EventReader;
 use bevy_asset::{AssetEvent, AssetLoader, Assets, Handle, LoadContext, LoadedAsset};
-use bevy_ecs::{Local, Res, ResMut};
+use bevy_ecs::{Res, ResMut};
 use bevy_reflect::TypeUuid;
 use bevy_utils::{tracing::error, BoxedFuture};
 use std::marker::Copy;
@@ -281,12 +281,11 @@ impl AssetLoader for ShaderLoader {
 pub fn shader_update_system(
     mut shaders: ResMut<Assets<Shader>>,
     mut pipelines: ResMut<Assets<PipelineDescriptor>>,
-    shader_events: Res<Events<AssetEvent<Shader>>>,
-    mut shader_event_reader: Local<EventReader<AssetEvent<Shader>>>,
+    mut shader_events: EventReader<AssetEvent<Shader>>,
     mut pipeline_compiler: ResMut<PipelineCompiler>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
 ) {
-    for event in shader_event_reader.iter(&shader_events) {
+    for event in shader_events.iter() {
         match event {
             AssetEvent::Modified { handle } => {
                 if let Err(e) = pipeline_compiler.update_shader(

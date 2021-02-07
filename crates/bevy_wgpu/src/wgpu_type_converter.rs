@@ -2,19 +2,21 @@ use bevy_render::{
     color::Color,
     pass::{LoadOp, Operations},
     pipeline::{
-        BindType, BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
-        CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace, IndexFormat,
-        InputStepMode, PrimitiveTopology, RasterizationStateDescriptor, StencilOperation,
-        StencilStateDescriptor, StencilStateFaceDescriptor, VertexAttributeDescriptor,
-        VertexBufferDescriptor, VertexFormat,
+        BindType, BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrite,
+        CompareFunction, CullMode, DepthBiasState, DepthStencilState, FrontFace, IndexFormat,
+        InputStepMode, MultisampleState, PolygonMode, PrimitiveState, PrimitiveTopology,
+        StencilFaceState, StencilOperation, StencilState, VertexAttribute, VertexBufferLayout,
+        VertexFormat,
     },
     renderer::BufferUsage,
     texture::{
-        AddressMode, Extent3d, FilterMode, SamplerDescriptor, TextureComponentType,
-        TextureDescriptor, TextureDimension, TextureFormat, TextureUsage, TextureViewDimension,
+        AddressMode, Extent3d, FilterMode, SamplerBorderColor, SamplerDescriptor,
+        StorageTextureAccess, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureSampleType, TextureUsage, TextureViewDimension,
     },
 };
 use bevy_window::Window;
+use wgpu::BufferBindingType;
 
 pub trait WgpuFrom<T> {
     fn from(val: T) -> Self;
@@ -70,9 +72,9 @@ impl WgpuFrom<VertexFormat> for wgpu::VertexFormat {
     }
 }
 
-impl WgpuFrom<&VertexAttributeDescriptor> for wgpu::VertexAttributeDescriptor {
-    fn from(val: &VertexAttributeDescriptor) -> Self {
-        wgpu::VertexAttributeDescriptor {
+impl WgpuFrom<&VertexAttribute> for wgpu::VertexAttribute {
+    fn from(val: &VertexAttribute) -> Self {
+        wgpu::VertexAttribute {
             format: val.format.wgpu_into(),
             offset: val.offset,
             shader_location: val.shader_location,
@@ -90,34 +92,34 @@ impl WgpuFrom<InputStepMode> for wgpu::InputStepMode {
 }
 
 #[derive(Clone, Debug)]
-pub struct OwnedWgpuVertexBufferDescriptor {
-    pub stride: wgpu::BufferAddress,
+pub struct OwnedWgpuVertexBufferLayout {
+    pub array_stride: wgpu::BufferAddress,
     pub step_mode: wgpu::InputStepMode,
-    pub attributes: Vec<wgpu::VertexAttributeDescriptor>,
+    pub attributes: Vec<wgpu::VertexAttribute>,
 }
 
-impl WgpuFrom<&VertexBufferDescriptor> for OwnedWgpuVertexBufferDescriptor {
-    fn from(val: &VertexBufferDescriptor) -> OwnedWgpuVertexBufferDescriptor {
+impl WgpuFrom<&VertexBufferLayout> for OwnedWgpuVertexBufferLayout {
+    fn from(val: &VertexBufferLayout) -> OwnedWgpuVertexBufferLayout {
         let attributes = val
             .attributes
             .iter()
             .map(|a| a.wgpu_into())
-            .collect::<Vec<wgpu::VertexAttributeDescriptor>>();
+            .collect::<Vec<wgpu::VertexAttribute>>();
 
-        OwnedWgpuVertexBufferDescriptor {
+        OwnedWgpuVertexBufferLayout {
             step_mode: val.step_mode.wgpu_into(),
-            stride: val.stride,
+            array_stride: val.stride,
             attributes,
         }
     }
 }
 
-impl<'a> From<&'a OwnedWgpuVertexBufferDescriptor> for wgpu::VertexBufferDescriptor<'a> {
-    fn from(val: &'a OwnedWgpuVertexBufferDescriptor) -> Self {
-        wgpu::VertexBufferDescriptor {
+impl<'a> From<&'a OwnedWgpuVertexBufferLayout> for wgpu::VertexBufferLayout<'a> {
+    fn from(val: &'a OwnedWgpuVertexBufferLayout) -> Self {
+        wgpu::VertexBufferLayout {
             attributes: &val.attributes,
             step_mode: val.step_mode,
-            stride: val.stride,
+            array_stride: val.array_stride,
         }
     }
 }
@@ -181,46 +183,71 @@ where
 impl WgpuFrom<&BindType> for wgpu::BindingType {
     fn from(bind_type: &BindType) -> Self {
         match bind_type {
-            BindType::Uniform { dynamic, .. } => wgpu::BindingType::UniformBuffer {
-                dynamic: *dynamic,
+            BindType::Uniform {
+                has_dynamic_offset, ..
+            } => wgpu::BindingType::Buffer {
+                ty: BufferBindingType::Uniform,
+                has_dynamic_offset: *has_dynamic_offset,
                 min_binding_size: bind_type.get_uniform_size().and_then(wgpu::BufferSize::new),
             },
-            BindType::StorageBuffer { dynamic, readonly } => wgpu::BindingType::StorageBuffer {
-                dynamic: *dynamic,
-                readonly: *readonly,
+            BindType::StorageBuffer {
+                has_dynamic_offset,
+                readonly,
+            } => wgpu::BindingType::Buffer {
+                ty: BufferBindingType::Storage {
+                    read_only: *readonly,
+                },
+                has_dynamic_offset: *has_dynamic_offset,
                 min_binding_size: bind_type.get_uniform_size().and_then(wgpu::BufferSize::new),
             },
-            BindType::SampledTexture {
-                dimension,
+            BindType::Texture {
+                view_dimension,
                 multisampled,
-                component_type,
-            } => wgpu::BindingType::SampledTexture {
-                dimension: (*dimension).wgpu_into(),
+                sample_type,
+            } => wgpu::BindingType::Texture {
+                view_dimension: (*view_dimension).wgpu_into(),
                 multisampled: *multisampled,
-                component_type: (*component_type).wgpu_into(),
+                sample_type: (*sample_type).wgpu_into(),
             },
-            BindType::Sampler { comparison } => wgpu::BindingType::Sampler {
+            BindType::Sampler {
+                comparison,
+                filtering,
+            } => wgpu::BindingType::Sampler {
+                filtering: *filtering,
                 comparison: *comparison,
             },
             BindType::StorageTexture {
-                dimension,
+                view_dimension,
                 format,
-                readonly,
+                access,
             } => wgpu::BindingType::StorageTexture {
-                dimension: (*dimension).wgpu_into(),
+                access: (*access).wgpu_into(),
+                view_dimension: (*view_dimension).wgpu_into(),
                 format: (*format).wgpu_into(),
-                readonly: *readonly,
             },
         }
     }
 }
 
-impl WgpuFrom<TextureComponentType> for wgpu::TextureComponentType {
-    fn from(texture_component_type: TextureComponentType) -> Self {
+impl WgpuFrom<TextureSampleType> for wgpu::TextureSampleType {
+    fn from(texture_component_type: TextureSampleType) -> Self {
         match texture_component_type {
-            TextureComponentType::Float => wgpu::TextureComponentType::Float,
-            TextureComponentType::Sint => wgpu::TextureComponentType::Sint,
-            TextureComponentType::Uint => wgpu::TextureComponentType::Uint,
+            TextureSampleType::Float { filterable } => {
+                wgpu::TextureSampleType::Float { filterable }
+            }
+            TextureSampleType::Sint => wgpu::TextureSampleType::Sint,
+            TextureSampleType::Uint => wgpu::TextureSampleType::Uint,
+            TextureSampleType::Depth => wgpu::TextureSampleType::Depth,
+        }
+    }
+}
+
+impl WgpuFrom<StorageTextureAccess> for wgpu::StorageTextureAccess {
+    fn from(storage_texture_access: StorageTextureAccess) -> Self {
+        match storage_texture_access {
+            StorageTextureAccess::ReadOnly => wgpu::StorageTextureAccess::ReadOnly,
+            StorageTextureAccess::WriteOnly => wgpu::StorageTextureAccess::WriteOnly,
+            StorageTextureAccess::ReadWrite => wgpu::StorageTextureAccess::ReadWrite,
         }
     }
 }
@@ -323,9 +350,9 @@ impl WgpuFrom<TextureUsage> for wgpu::TextureUsage {
     }
 }
 
-impl WgpuFrom<&StencilStateDescriptor> for wgpu::StencilStateDescriptor {
-    fn from(val: &StencilStateDescriptor) -> Self {
-        wgpu::StencilStateDescriptor {
+impl WgpuFrom<&StencilState> for wgpu::StencilState {
+    fn from(val: &StencilState) -> Self {
+        wgpu::StencilState {
             back: (&val.back).wgpu_into(),
             front: (&val.front).wgpu_into(),
             read_mask: val.read_mask,
@@ -334,20 +361,32 @@ impl WgpuFrom<&StencilStateDescriptor> for wgpu::StencilStateDescriptor {
     }
 }
 
-impl WgpuFrom<&DepthStencilStateDescriptor> for wgpu::DepthStencilStateDescriptor {
-    fn from(val: &DepthStencilStateDescriptor) -> Self {
-        wgpu::DepthStencilStateDescriptor {
+impl WgpuFrom<DepthStencilState> for wgpu::DepthStencilState {
+    fn from(val: DepthStencilState) -> Self {
+        wgpu::DepthStencilState {
             depth_compare: val.depth_compare.wgpu_into(),
             depth_write_enabled: val.depth_write_enabled,
             format: val.format.wgpu_into(),
             stencil: (&val.stencil).wgpu_into(),
+            bias: val.bias.wgpu_into(),
+            clamp_depth: val.clamp_depth,
         }
     }
 }
 
-impl WgpuFrom<&StencilStateFaceDescriptor> for wgpu::StencilStateFaceDescriptor {
-    fn from(val: &StencilStateFaceDescriptor) -> Self {
-        wgpu::StencilStateFaceDescriptor {
+impl WgpuFrom<MultisampleState> for wgpu::MultisampleState {
+    fn from(val: MultisampleState) -> Self {
+        wgpu::MultisampleState {
+            count: val.count,
+            mask: val.mask,
+            alpha_to_coverage_enabled: val.alpha_to_coverage_enabled,
+        }
+    }
+}
+
+impl WgpuFrom<&StencilFaceState> for wgpu::StencilFaceState {
+    fn from(val: &StencilFaceState) -> Self {
+        wgpu::StencilFaceState {
             compare: val.compare.wgpu_into(),
             depth_fail_op: val.depth_fail_op.wgpu_into(),
             fail_op: val.fail_op.wgpu_into(),
@@ -441,26 +480,47 @@ impl WgpuFrom<CullMode> for wgpu::CullMode {
     }
 }
 
-impl WgpuFrom<&RasterizationStateDescriptor> for wgpu::RasterizationStateDescriptor {
-    fn from(val: &RasterizationStateDescriptor) -> Self {
-        wgpu::RasterizationStateDescriptor {
-            front_face: val.front_face.wgpu_into(),
-            cull_mode: val.cull_mode.wgpu_into(),
-            depth_bias: val.depth_bias,
-            depth_bias_slope_scale: val.depth_bias_slope_scale,
-            depth_bias_clamp: val.depth_bias_clamp,
-            clamp_depth: val.clamp_depth,
+impl WgpuFrom<PolygonMode> for wgpu::PolygonMode {
+    fn from(val: PolygonMode) -> wgpu::PolygonMode {
+        match val {
+            PolygonMode::Fill => wgpu::PolygonMode::Fill,
+            PolygonMode::Line => wgpu::PolygonMode::Line,
+            PolygonMode::Point => wgpu::PolygonMode::Point,
         }
     }
 }
 
-impl WgpuFrom<&ColorStateDescriptor> for wgpu::ColorStateDescriptor {
-    fn from(val: &ColorStateDescriptor) -> Self {
-        wgpu::ColorStateDescriptor {
+impl WgpuFrom<DepthBiasState> for wgpu::DepthBiasState {
+    fn from(val: DepthBiasState) -> Self {
+        wgpu::DepthBiasState {
+            constant: val.constant,
+            slope_scale: val.slope_scale,
+            clamp: val.clamp,
+        }
+    }
+}
+
+impl WgpuFrom<&ColorTargetState> for wgpu::ColorTargetState {
+    fn from(val: &ColorTargetState) -> Self {
+        wgpu::ColorTargetState {
             format: val.format.wgpu_into(),
             alpha_blend: (&val.alpha_blend).wgpu_into(),
             color_blend: (&val.color_blend).wgpu_into(),
             write_mask: val.write_mask.wgpu_into(),
+        }
+    }
+}
+
+impl WgpuFrom<PrimitiveState> for wgpu::PrimitiveState {
+    fn from(val: PrimitiveState) -> Self {
+        wgpu::PrimitiveState {
+            topology: val.topology.wgpu_into(),
+            strip_index_format: val
+                .strip_index_format
+                .map(|index_format| index_format.wgpu_into()),
+            front_face: val.front_face.wgpu_into(),
+            cull_mode: val.cull_mode.wgpu_into(),
+            polygon_mode: val.polygon_mode.wgpu_into(),
         }
     }
 }
@@ -471,9 +531,9 @@ impl WgpuFrom<ColorWrite> for wgpu::ColorWrite {
     }
 }
 
-impl WgpuFrom<&BlendDescriptor> for wgpu::BlendDescriptor {
-    fn from(val: &BlendDescriptor) -> Self {
-        wgpu::BlendDescriptor {
+impl WgpuFrom<&BlendState> for wgpu::BlendState {
+    fn from(val: &BlendState) -> Self {
+        wgpu::BlendState {
             src_factor: val.src_factor.wgpu_into(),
             dst_factor: val.dst_factor.wgpu_into(),
             operation: val.operation.wgpu_into(),
@@ -536,6 +596,9 @@ impl WgpuFrom<SamplerDescriptor> for wgpu::SamplerDescriptor<'_> {
             lod_max_clamp: sampler_descriptor.lod_max_clamp,
             compare: sampler_descriptor.compare_function.map(|c| c.wgpu_into()),
             anisotropy_clamp: sampler_descriptor.anisotropy_clamp,
+            border_color: sampler_descriptor
+                .border_color
+                .map(|border_color| border_color.wgpu_into()),
         }
     }
 }
@@ -559,10 +622,20 @@ impl WgpuFrom<FilterMode> for wgpu::FilterMode {
     }
 }
 
+impl WgpuFrom<SamplerBorderColor> for wgpu::SamplerBorderColor {
+    fn from(val: SamplerBorderColor) -> Self {
+        match val {
+            SamplerBorderColor::TransparentBlack => wgpu::SamplerBorderColor::TransparentBlack,
+            SamplerBorderColor::OpaqueBlack => wgpu::SamplerBorderColor::OpaqueBlack,
+            SamplerBorderColor::OpaqueWhite => wgpu::SamplerBorderColor::OpaqueWhite,
+        }
+    }
+}
+
 impl WgpuFrom<&Window> for wgpu::SwapChainDescriptor {
     fn from(window: &Window) -> Self {
         wgpu::SwapChainDescriptor {
-            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+            usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
             format: TextureFormat::default().wgpu_into(),
             width: window.physical_width(),
             height: window.physical_height(),

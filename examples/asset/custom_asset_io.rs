@@ -69,7 +69,7 @@ impl Plugin for CustomAssetIoPlugin {
 
         // the asset server is constructed and added the resource manager
 
-        app.add_resource(AssetServer::new(asset_io, task_pool));
+        app.insert_resource(AssetServer::new(asset_io, task_pool));
     }
 }
 
@@ -96,7 +96,7 @@ fn setup(
 ) {
     let texture_handle = asset_server.load("branding/icon.png");
     commands
-        .spawn(Camera2dBundle::default())
+        .spawn(OrthographicCameraBundle::new_2d())
         .spawn(SpriteBundle {
             material: materials.add(texture_handle.into()),
             ..Default::default()

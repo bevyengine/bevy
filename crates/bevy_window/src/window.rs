@@ -1,4 +1,4 @@
-use bevy_math::Vec2;
+use bevy_math::{IVec2, Vec2};
 use bevy_utils::Uuid;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -54,7 +54,9 @@ pub struct Window {
     requested_height: f32,
     physical_width: u32,
     physical_height: u32,
-    scale_factor: f64,
+    position: Option<IVec2>,
+    scale_factor_override: Option<f64>,
+    backend_scale_factor: f64,
     title: String,
     vsync: bool,
     resizable: bool,
@@ -77,8 +79,12 @@ pub enum WindowCommand {
     SetTitle {
         title: String,
     },
+    SetScaleFactor {
+        scale_factor: f64,
+    },
     SetResolution {
-        resolution: (f32, f32),
+        logical_resolution: (f32, f32),
+        scale_factor: f64,
     },
     SetVsync {
         vsync: bool,
@@ -101,6 +107,12 @@ pub enum WindowCommand {
     SetMaximized {
         maximized: bool,
     },
+    SetMinimized {
+        minimized: bool,
+    },
+    SetPosition {
+        position: IVec2,
+    },
 }
 
 /// Defines the way a window is displayed
@@ -122,14 +134,17 @@ impl Window {
         physical_width: u32,
         physical_height: u32,
         scale_factor: f64,
+        position: Option<IVec2>,
     ) -> Self {
         Window {
             id,
             requested_width: window_descriptor.width,
             requested_height: window_descriptor.height,
+            position,
             physical_width,
             physical_height,
-            scale_factor,
+            scale_factor_override: window_descriptor.scale_factor_override,
+            backend_scale_factor: scale_factor,
             title: window_descriptor.title.clone(),
             vsync: window_descriptor.vsync,
             resizable: window_descriptor.resizable,
@@ -152,13 +167,13 @@ impl Window {
     /// The current logical width of the window's client area.
     #[inline]
     pub fn width(&self) -> f32 {
-        (self.physical_width as f64 / self.scale_factor) as f32
+        (self.physical_width as f64 / self.scale_factor()) as f32
     }
 
     /// The current logical height of the window's client area.
     #[inline]
     pub fn height(&self) -> f32 {
-        (self.physical_height as f64 / self.scale_factor) as f32
+        (self.physical_height as f64 / self.scale_factor()) as f32
     }
 
     /// The requested window client area width in logical pixels from window
@@ -193,26 +208,82 @@ impl Window {
         self.physical_height
     }
 
+    /// The window's client position in physical pixels.
+    #[inline]
+    pub fn position(&self) -> Option<IVec2> {
+        self.position
+    }
+
     #[inline]
     pub fn set_maximized(&mut self, maximized: bool) {
         self.command_queue
             .push(WindowCommand::SetMaximized { maximized });
     }
 
+    /// Sets the window to minimized or back.
+    ///
+    /// # Platform-specific
+    /// - iOS / Android / Web: Unsupported.
+    /// - Wayland: Un-minimize is unsupported.
+    #[inline]
+    pub fn set_minimized(&mut self, minimized: bool) {
+        self.command_queue
+            .push(WindowCommand::SetMinimized { minimized });
+    }
+
+    /// Modifies the position of the window in physical pixels.
+    ///
+    /// Note that the top-left hand corner of the desktop is not necessarily the same as the screen. If the user uses a desktop with multiple monitors,
+    /// the top-left hand corner of the desktop is the top-left hand corner of the monitor at the top-left of the desktop. This automatically un-maximizes
+    /// the window if it's maximized.
+    ///
+    /// # Platform-specific
+    ///
+    /// - iOS: Can only be called on the main thread. Sets the top left coordinates of the window in the screen space coordinate system.
+    /// - Web: Sets the top-left coordinates relative to the viewport.
+    /// - Android / Wayland: Unsupported.
+    #[inline]
+    pub fn set_position(&mut self, position: IVec2) {
+        self.command_queue
+            .push(WindowCommand::SetPosition { position })
+    }
+
     /// Request the OS to resize the window such the the client area matches the
     /// specified width and height.
+    #[allow(clippy::float_cmp)]
     pub fn set_resolution(&mut self, width: f32, height: f32) {
+        if self.requested_width == width && self.requested_height == height {
+            return;
+        }
         self.requested_width = width;
         self.requested_height = height;
         self.command_queue.push(WindowCommand::SetResolution {
-            resolution: (self.requested_width, self.requested_height),
+            logical_resolution: (self.requested_width, self.requested_height),
+            scale_factor: self.scale_factor(),
+        });
+    }
+
+    /// Override the os-reported scaling factor
+    #[allow(clippy::float_cmp)]
+    pub fn set_scale_factor_override(&mut self, scale_factor: Option<f64>) {
+        if self.scale_factor_override == scale_factor {
+            return;
+        }
+
+        self.scale_factor_override = scale_factor;
+        self.command_queue.push(WindowCommand::SetScaleFactor {
+            scale_factor: self.scale_factor(),
+        });
+        self.command_queue.push(WindowCommand::SetResolution {
+            logical_resolution: (self.requested_width, self.requested_height),
+            scale_factor: self.scale_factor(),
         });
     }
 
     #[allow(missing_docs)]
     #[inline]
     pub fn update_scale_factor_from_backend(&mut self, scale_factor: f64) {
-        self.scale_factor = scale_factor;
+        self.backend_scale_factor = scale_factor;
     }
 
     #[allow(missing_docs)]
@@ -222,12 +293,30 @@ impl Window {
         self.physical_height = physical_height;
     }
 
+    #[allow(missing_docs)]
+    #[inline]
+    pub fn update_actual_position_from_backend(&mut self, position: IVec2) {
+        self.position = Some(position);
+    }
+
     /// The ratio of physical pixels to logical pixels
     ///
     /// `physical_pixels = logical_pixels * scale_factor`
-    #[inline]
     pub fn scale_factor(&self) -> f64 {
-        self.scale_factor
+        self.scale_factor_override
+            .unwrap_or(self.backend_scale_factor)
+    }
+
+    /// The window scale factor as reported by the window backend.
+    /// This value is unaffected by scale_factor_override.
+    #[inline]
+    pub fn backend_scale_factor(&self) -> f64 {
+        self.backend_scale_factor
+    }
+
+    #[inline]
+    pub fn scale_factor_override(&self) -> Option<f64> {
+        self.scale_factor_override
     }
 
     #[inline]
@@ -335,6 +424,7 @@ impl Window {
 pub struct WindowDescriptor {
     pub width: f32,
     pub height: f32,
+    pub scale_factor_override: Option<f64>,
     pub title: String,
     pub vsync: bool,
     pub resizable: bool,
@@ -352,6 +442,7 @@ impl Default for WindowDescriptor {
             title: "bevy".to_string(),
             width: 1280.,
             height: 720.,
+            scale_factor_override: None,
             vsync: true,
             resizable: true,
             decorations: true,

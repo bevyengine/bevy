@@ -13,7 +13,7 @@ license = "MIT"
 keywords = ["bevy"]
 
 [dependencies]
-ahash = "0.6.1"
+ahash = "0.7.0"
 tracing = {version = "0.1", features = ["release_max_level_info"]}
 instant = { version = "0.1", features = ["wasm-bindgen"] }
 uuid = { version = "0.8", features = ["v4", "serde"] }

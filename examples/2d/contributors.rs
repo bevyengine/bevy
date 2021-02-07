@@ -40,8 +40,8 @@ struct Velocity {
 const GRAVITY: f32 = -9.821 * 100.0;
 const SPRITE_SIZE: f32 = 75.0;
 
-const COL_DESELECTED: Color = Color::rgb_linear(0.03, 0.03, 0.03);
-const COL_SELECTED: Color = Color::rgb_linear(5.0, 5.0, 5.0);
+const COL_DESELECTED: Color = Color::rgba_linear(0.03, 0.03, 0.03, 0.92);
+const COL_SELECTED: Color = Color::WHITE;
 
 const SHOWCASE_TIMER_SECS: f32 = 3.0;
 
@@ -55,8 +55,8 @@ fn setup(
     let texture_handle = asset_server.load("branding/icon.png");
 
     commands
-        .spawn(Camera2dBundle::default())
-        .spawn(CameraUiBundle::default());
+        .spawn(OrthographicCameraBundle::new_2d())
+        .spawn(UiCameraBundle::default());
 
     let mut sel = ContributorSelection {
         order: vec![],
@@ -66,15 +66,15 @@ fn setup(
     let mut rnd = rand::thread_rng();
 
     for name in contribs {
-        let pos = (rnd.gen_range(-400.0, 400.0), rnd.gen_range(0.0, 400.0));
-        let dir = rnd.gen_range(-1.0, 1.0);
+        let pos = (rnd.gen_range(-400.0..400.0), rnd.gen_range(0.0..400.0));
+        let dir = rnd.gen_range(-1.0..1.0);
         let velocity = Vec3::new(dir * 500.0, 0.0, 0.0);
         let col = gen_color(&mut rnd);
 
         // some sprites should be flipped
         let flipped = rnd.gen_bool(0.5);
 
-        let mut transform = Transform::from_translation(Vec3::new(pos.0, pos.1, 0.0));
+        let mut transform = Transform::from_xyz(pos.0, pos.1, 0.0);
         transform.scale.x *= if flipped { -1.0 } else { 1.0 };
 
         commands
@@ -113,13 +113,25 @@ fn setup(
                 ..Default::default()
             },
             text: Text {
-                value: "Contributor showcase".to_string(),
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                style: TextStyle {
-                    font_size: 60.0,
-                    color: Color::WHITE,
-                    ..Default::default()
-                },
+                sections: vec![
+                    TextSection {
+                        value: "Contributor showcase".to_string(),
+                        style: TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 60.0,
+                            color: Color::WHITE,
+                        },
+                    },
+                    TextSection {
+                        value: "".to_string(),
+                        style: TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 60.0,
+                            color: Color::WHITE,
+                        },
+                    },
+                ],
+                ..Default::default()
             },
             ..Default::default()
         });
@@ -195,7 +207,9 @@ fn select(
 
     trans.translation.z = 100.0;
 
-    text.value = format!("Contributor: {}", name);
+    text.sections[0].value = "Contributor: ".to_string();
+    text.sections[1].value = name.to_string();
+    text.sections[1].style.color = mat.color;
 
     Some(())
 }
@@ -254,7 +268,7 @@ fn collision_system(
         if bottom < ground {
             t.translation.y = ground + SPRITE_SIZE / 2.0;
             // apply an impulse upwards
-            v.translation.y = rnd.gen_range(700.0, 1000.0);
+            v.translation.y = rnd.gen_range(700.0..1000.0);
         }
         if top > ceiling {
             t.translation.y = ceiling - SPRITE_SIZE / 2.0;
@@ -312,9 +326,14 @@ fn contributors() -> Contributors {
 /// Because there is no `Mul<Color> for Color` instead `[f32; 3]` is
 /// used.
 fn gen_color(rng: &mut impl Rng) -> [f32; 3] {
-    let r = rng.gen_range(0.2, 1.0);
-    let g = rng.gen_range(0.2, 1.0);
-    let b = rng.gen_range(0.2, 1.0);
-    let v = Vec3::new(r, g, b);
-    v.normalize().into()
+    loop {
+        let rgb = rng.gen();
+        if luminance(rgb) >= 0.6 {
+            break rgb;
+        }
+    }
+}
+
+fn luminance([r, g, b]: [f32; 3]) -> f32 {
+    0.299 * r + 0.587 * g + 0.114 * b
 }

@@ -8,14 +8,14 @@ pub struct WorldChildBuilder<'a, 'b> {
 }
 
 impl<'a, 'b> WorldChildBuilder<'a, 'b> {
-    pub fn spawn(&mut self, components: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
+    pub fn spawn(&mut self, bundle: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
         let parent_entity = self
             .parent_entities
             .last()
             .cloned()
             .expect("There should always be a parent at this point.");
         self.world_builder
-            .spawn(components)
+            .spawn(bundle)
             .with_bundle((Parent(parent_entity), PreviousParent(parent_entity)));
         let entity = self.world_builder.current_entity.unwrap();
         {
@@ -36,11 +36,8 @@ impl<'a, 'b> WorldChildBuilder<'a, 'b> {
         self
     }
 
-    pub fn with_bundle(
-        &mut self,
-        components: impl DynamicBundle + Send + Sync + 'static,
-    ) -> &mut Self {
-        self.world_builder.with_bundle(components);
+    pub fn with_bundle(&mut self, bundle: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
+        self.world_builder.with_bundle(bundle);
         self
     }
 

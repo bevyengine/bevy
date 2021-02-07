@@ -1,5 +1,5 @@
-use crate::{CalculatedSize, Node, Style, Val};
-use bevy_asset::{Assets, Handle};
+use crate::{Node, Style, Val};
+use bevy_asset::Assets;
 use bevy_ecs::{Changed, Entity, Local, Or, Query, QuerySet, Res, ResMut};
 use bevy_math::Size;
 use bevy_render::{
@@ -10,40 +10,42 @@ use bevy_render::{
     texture::Texture,
 };
 use bevy_sprite::{TextureAtlas, QUAD_HANDLE};
-use bevy_text::{DefaultTextPipeline, DrawableText, Font, FontAtlasSet, TextError, TextStyle};
+use bevy_text::{
+    CalculatedSize, DefaultTextPipeline, DrawableText, Font, FontAtlasSet, Text, TextError,
+};
 use bevy_transform::prelude::GlobalTransform;
+use bevy_window::Windows;
 
 #[derive(Debug, Default)]
 pub struct QueuedText {
     entities: Vec<Entity>,
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct Text {
-    pub value: String,
-    pub font: Handle<Font>,
-    pub style: TextStyle,
+fn scale_value(value: f32, factor: f64) -> f32 {
+    (value as f64 * factor) as f32
 }
 
 /// Defines how min_size, size, and max_size affects the bounds of a text
 /// block.
-pub fn text_constraint(min_size: Val, size: Val, max_size: Val) -> f32 {
+pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f64) -> f32 {
     // Needs support for percentages
     match (min_size, size, max_size) {
-        (_, _, Val::Px(max)) => max,
-        (Val::Px(min), _, _) => min,
-        (Val::Undefined, Val::Px(size), Val::Undefined) => size,
-        (Val::Auto, Val::Px(size), Val::Auto) => size,
+        (_, _, Val::Px(max)) => scale_value(max, scale_factor),
+        (Val::Px(min), _, _) => scale_value(min, scale_factor),
+        (Val::Undefined, Val::Px(size), Val::Undefined) => scale_value(size, scale_factor),
+        (Val::Auto, Val::Px(size), Val::Auto) => scale_value(size, scale_factor),
         _ => f32::MAX,
     }
 }
 
 /// Computes the size of a text block and updates the TextGlyphs with the
 /// new computed glyphs from the layout
+#[allow(clippy::too_many_arguments)]
 pub fn text_system(
     mut queued_text: Local<QueuedText>,
     mut textures: ResMut<Assets<Texture>>,
     fonts: Res<Assets<Font>>,
+    windows: Res<Windows>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<DefaultTextPipeline>,
@@ -52,6 +54,14 @@ pub fn text_system(
         Query<(&Text, &Style, &mut CalculatedSize)>,
     )>,
 ) {
+    let scale_factor = if let Some(window) = windows.get_primary() {
+        window.scale_factor()
+    } else {
+        1.
+    };
+
+    let inv_scale_factor = 1. / scale_factor;
+
     // Adds all entities where the text or the style has changed to the local queue
     for entity in text_queries.q0_mut().iter_mut() {
         queued_text.entities.push(entity);
@@ -66,25 +76,47 @@ pub fn text_system(
     let query = text_queries.q1_mut();
     for entity in queued_text.entities.drain(..) {
         if let Ok((text, style, mut calculated_size)) = query.get_mut(entity) {
-            match add_text_to_pipeline(
+            let node_size = Size::new(
+                text_constraint(
+                    style.min_size.width,
+                    style.size.width,
+                    style.max_size.width,
+                    scale_factor,
+                ),
+                text_constraint(
+                    style.min_size.height,
+                    style.size.height,
+                    style.max_size.height,
+                    scale_factor,
+                ),
+            );
+
+            match text_pipeline.queue_text(
                 entity,
-                &*text,
-                &*style,
-                &mut *textures,
-                &*fonts,
-                &mut *texture_atlases,
+                &fonts,
+                &text.sections,
+                scale_factor,
+                text.alignment,
+                node_size,
                 &mut *font_atlas_set_storage,
-                &mut *text_pipeline,
+                &mut *texture_atlases,
+                &mut *textures,
             ) {
-                TextPipelineResult::Ok => {
+                Err(TextError::NoSuchFont) => {
+                    // There was an error processing the text layout, let's add this entity to the queue for further processing
+                    new_queue.push(entity);
+                }
+                Err(e @ TextError::FailedToAddGlyph(_)) => {
+                    panic!("Fatal error when processing text: {}.", e);
+                }
+                Ok(()) => {
                     let text_layout_info = text_pipeline.get_glyphs(&entity).expect(
                         "Failed to get glyphs from the pipeline that have just been computed",
                     );
-                    calculated_size.size = text_layout_info.size;
-                }
-                TextPipelineResult::Reschedule => {
-                    // There was an error processing the text layout, let's add this entity to the queue for further processing
-                    new_queue.push(entity);
+                    calculated_size.size = Size {
+                        width: scale_value(text_layout_info.size.width, inv_scale_factor),
+                        height: scale_value(text_layout_info.size.height, inv_scale_factor),
+                    };
                 }
             }
         }
@@ -93,63 +125,24 @@ pub fn text_system(
     queued_text.entities = new_queue;
 }
 
-enum TextPipelineResult {
-    Ok,
-    Reschedule,
-}
-
-/// Computes the text layout and stores it in the TextPipeline resource.
-#[allow(clippy::too_many_arguments)]
-fn add_text_to_pipeline(
-    entity: Entity,
-    text: &Text,
-    style: &Style,
-    textures: &mut Assets<Texture>,
-    fonts: &Assets<Font>,
-    texture_atlases: &mut Assets<TextureAtlas>,
-    font_atlas_set_storage: &mut Assets<FontAtlasSet>,
-    text_pipeline: &mut DefaultTextPipeline,
-) -> TextPipelineResult {
-    let node_size = Size::new(
-        text_constraint(style.min_size.width, style.size.width, style.max_size.width),
-        text_constraint(
-            style.min_size.height,
-            style.size.height,
-            style.max_size.height,
-        ),
-    );
-
-    match text_pipeline.queue_text(
-        entity,
-        text.font.clone(),
-        &fonts,
-        &text.value,
-        text.style.font_size,
-        text.style.alignment,
-        node_size,
-        font_atlas_set_storage,
-        texture_atlases,
-        textures,
-    ) {
-        Err(TextError::NoSuchFont) => TextPipelineResult::Reschedule,
-        Err(e @ TextError::FailedToAddGlyph(_)) => {
-            panic!("Fatal error when processing text: {}.", e);
-        }
-        Ok(()) => TextPipelineResult::Ok,
-    }
-}
-
 #[allow(clippy::too_many_arguments)]
 pub fn draw_text_system(
     mut context: DrawContext,
     msaa: Res<Msaa>,
+    windows: Res<Windows>,
     meshes: Res<Assets<Mesh>>,
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
     text_pipeline: Res<DefaultTextPipeline>,
     mut query: Query<(Entity, &mut Draw, &Visible, &Text, &Node, &GlobalTransform)>,
 ) {
+    let scale_factor = if let Some(window) = windows.get_primary() {
+        window.scale_factor()
+    } else {
+        1.
+    };
+
     let font_quad = meshes.get(&QUAD_HANDLE).unwrap();
-    let vertex_buffer_descriptor = font_quad.get_vertex_buffer_descriptor();
+    let vertex_buffer_layout = font_quad.get_vertex_buffer_layout();
 
     for (entity, mut draw, visible, text, node, global_transform) in query.iter_mut() {
         if !visible.is_visible {
@@ -162,10 +155,11 @@ pub fn draw_text_system(
             let mut drawable_text = DrawableText {
                 render_resource_bindings: &mut render_resource_bindings,
                 position,
+                scale_factor: scale_factor as f32,
                 msaa: &msaa,
                 text_glyphs: &text_glyphs.glyphs,
-                font_quad_vertex_descriptor: &vertex_buffer_descriptor,
-                style: &text.style,
+                font_quad_vertex_layout: &vertex_buffer_layout,
+                sections: &text.sections,
             };
 
             drawable_text.draw(&mut draw, &mut context).unwrap();

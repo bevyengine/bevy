@@ -12,6 +12,12 @@ pub struct GlobalTransform {
 }
 
 impl GlobalTransform {
+    /// Create a new [`GlobalTransform`] at the position `(x, y, z)`
+    #[inline]
+    pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
+        Self::from_translation(Vec3::new(x, y, z))
+    }
+
     #[inline]
     pub fn identity() -> Self {
         GlobalTransform {
@@ -69,8 +75,33 @@ impl GlobalTransform {
     }
 
     #[inline]
+    pub fn right(&self) -> Vec3 {
+        self.rotation * Vec3::unit_x()
+    }
+
+    #[inline]
+    pub fn left(&self) -> Vec3 {
+        -self.right()
+    }
+
+    #[inline]
+    pub fn up(&self) -> Vec3 {
+        self.rotation * Vec3::unit_y()
+    }
+
+    #[inline]
+    pub fn down(&self) -> Vec3 {
+        -self.up()
+    }
+
+    #[inline]
     pub fn forward(&self) -> Vec3 {
         self.rotation * Vec3::unit_z()
+    }
+
+    #[inline]
+    pub fn backward(&self) -> Vec3 {
+        -self.forward()
     }
 
     #[inline]

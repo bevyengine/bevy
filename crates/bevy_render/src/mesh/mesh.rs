@@ -2,7 +2,7 @@ use crate::{
     pipeline::{IndexFormat, PrimitiveTopology, RenderPipelines, VertexFormat},
     renderer::{BufferInfo, BufferUsage, RenderResourceContext, RenderResourceId},
 };
-use bevy_app::prelude::{EventReader, Events};
+use bevy_app::prelude::EventReader;
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::AsBytes;
 use bevy_ecs::{Changed, Entity, Local, Mut, Query, QuerySet, Res, With};
@@ -10,7 +10,7 @@ use bevy_math::*;
 use bevy_reflect::TypeUuid;
 use std::borrow::Cow;
 
-use crate::pipeline::{InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor};
+use crate::pipeline::{InputStepMode, VertexAttribute, VertexBufferLayout};
 use bevy_utils::{HashMap, HashSet};
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
@@ -30,6 +30,7 @@ pub enum VertexAttributeValues {
     Float4(Vec<[f32; 4]>),
     Int4(Vec<[i32; 4]>),
     Uint4(Vec<[u32; 4]>),
+    Uchar4Norm(Vec<[u8; 4]>),
 }
 
 impl VertexAttributeValues {
@@ -47,6 +48,7 @@ impl VertexAttributeValues {
             VertexAttributeValues::Float4(ref values) => values.len(),
             VertexAttributeValues::Int4(ref values) => values.len(),
             VertexAttributeValues::Uint4(ref values) => values.len(),
+            VertexAttributeValues::Uchar4Norm(ref values) => values.len(),
         }
     }
 
@@ -69,6 +71,7 @@ impl VertexAttributeValues {
             VertexAttributeValues::Float4(values) => values.as_slice().as_bytes(),
             VertexAttributeValues::Int4(values) => values.as_slice().as_bytes(),
             VertexAttributeValues::Uint4(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Uchar4Norm(values) => values.as_slice().as_bytes(),
         }
     }
 }
@@ -88,6 +91,7 @@ impl From<&VertexAttributeValues> for VertexFormat {
             VertexAttributeValues::Float4(_) => VertexFormat::Float4,
             VertexAttributeValues::Int4(_) => VertexFormat::Int4,
             VertexAttributeValues::Uint4(_) => VertexFormat::Uint4,
+            VertexAttributeValues::Uchar4Norm(_) => VertexFormat::Uchar4Norm,
         }
     }
 }
@@ -164,6 +168,12 @@ impl From<Vec<[u32; 4]>> for VertexAttributeValues {
     }
 }
 
+impl From<Vec<[u8; 4]>> for VertexAttributeValues {
+    fn from(vec: Vec<[u8; 4]>) -> Self {
+        VertexAttributeValues::Uchar4Norm(vec)
+    }
+}
+
 #[derive(Debug)]
 pub enum Indices {
     U16(Vec<u16>),
@@ -190,6 +200,7 @@ pub struct Mesh {
 }
 
 impl Mesh {
+    pub const ATTRIBUTE_COLOR: &'static str = "Vertex_Color";
     pub const ATTRIBUTE_NORMAL: &'static str = "Vertex_Normal";
     pub const ATTRIBUTE_POSITION: &'static str = "Vertex_Position";
     pub const ATTRIBUTE_UV_0: &'static str = "Vertex_Uv";
@@ -219,12 +230,23 @@ impl Mesh {
         self.attributes.get(&name.into())
     }
 
+    pub fn attribute_mut(
+        &mut self,
+        name: impl Into<Cow<'static, str>>,
+    ) -> Option<&mut VertexAttributeValues> {
+        self.attributes.get_mut(&name.into())
+    }
+
     pub fn set_indices(&mut self, indices: Option<Indices>) {
         self.indices = indices;
     }
 
     pub fn indices(&self) -> Option<&Indices> {
         self.indices.as_ref()
+    }
+
+    pub fn indices_mut(&mut self) -> Option<&mut Indices> {
+        self.indices.as_mut()
     }
 
     pub fn get_index_buffer_bytes(&self) -> Option<Vec<u8>> {
@@ -234,12 +256,12 @@ impl Mesh {
         })
     }
 
-    pub fn get_vertex_buffer_descriptor(&self) -> VertexBufferDescriptor {
+    pub fn get_vertex_buffer_layout(&self) -> VertexBufferLayout {
         let mut attributes = Vec::new();
         let mut accumulated_offset = 0;
         for (attribute_name, attribute_values) in self.attributes.iter() {
             let vertex_format = VertexFormat::from(attribute_values);
-            attributes.push(VertexAttributeDescriptor {
+            attributes.push(VertexAttribute {
                 name: attribute_name.clone(),
                 offset: accumulated_offset,
                 format: vertex_format,
@@ -248,7 +270,7 @@ impl Mesh {
             accumulated_offset += vertex_format.get_size();
         }
 
-        VertexBufferDescriptor {
+        VertexBufferLayout {
             name: Default::default(),
             stride: accumulated_offset,
             step_mode: InputStepMode::Vertex,
@@ -256,7 +278,7 @@ impl Mesh {
         }
     }
 
-    fn count_vertices(&self) -> usize {
+    pub fn count_vertices(&self) -> usize {
         let mut vertex_count: Option<usize> = None;
         for (attribute_name, attribute_data) in self.attributes.iter() {
             let attribute_len = attribute_data.len();
@@ -327,7 +349,6 @@ pub struct MeshEntities {
 
 #[derive(Default)]
 pub struct MeshResourceProviderState {
-    mesh_event_reader: EventReader<AssetEvent<Mesh>>,
     mesh_entities: HashMap<Handle<Mesh>, MeshEntities>,
 }
 
@@ -335,7 +356,7 @@ pub fn mesh_resource_provider_system(
     mut state: Local<MeshResourceProviderState>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     meshes: Res<Assets<Mesh>>,
-    mesh_events: Res<Events<AssetEvent<Mesh>>>,
+    mut mesh_events: EventReader<AssetEvent<Mesh>>,
     mut queries: QuerySet<(
         Query<&mut RenderPipelines, With<Handle<Mesh>>>,
         Query<(Entity, &Handle<Mesh>, &mut RenderPipelines), Changed<Handle<Mesh>>>,
@@ -343,7 +364,7 @@ pub fn mesh_resource_provider_system(
 ) {
     let mut changed_meshes = HashSet::default();
     let render_resource_context = &**render_resource_context;
-    for event in state.mesh_event_reader.iter(&mesh_events) {
+    for event in mesh_events.iter() {
         match event {
             AssetEvent::Created { ref handle } => {
                 changed_meshes.insert(handle.clone_weak());
@@ -365,19 +386,21 @@ pub fn mesh_resource_provider_system(
     for changed_mesh_handle in changed_meshes.iter() {
         if let Some(mesh) = meshes.get(changed_mesh_handle) {
             // TODO: check for individual buffer changes in non-interleaved mode
-            let index_buffer = render_resource_context.create_buffer_with_data(
-                BufferInfo {
-                    buffer_usage: BufferUsage::INDEX,
-                    ..Default::default()
-                },
-                &mesh.get_index_buffer_bytes().unwrap(),
-            );
+            if let Some(data) = mesh.get_index_buffer_bytes() {
+                let index_buffer = render_resource_context.create_buffer_with_data(
+                    BufferInfo {
+                        buffer_usage: BufferUsage::INDEX,
+                        ..Default::default()
+                    },
+                    &data,
+                );
 
-            render_resource_context.set_asset_resource(
-                changed_mesh_handle,
-                RenderResourceId::Buffer(index_buffer),
-                INDEX_BUFFER_ASSET_INDEX,
-            );
+                render_resource_context.set_asset_resource(
+                    changed_mesh_handle,
+                    RenderResourceId::Buffer(index_buffer),
+                    INDEX_BUFFER_ASSET_INDEX,
+                );
+            }
 
             let interleaved_buffer = mesh.get_vertex_buffer_data();
 
@@ -430,21 +453,22 @@ fn update_entity_mesh(
     for render_pipeline in render_pipelines.pipelines.iter_mut() {
         render_pipeline.specialization.primitive_topology = mesh.primitive_topology;
         // TODO: don't allocate a new vertex buffer descriptor for every entity
-        render_pipeline.specialization.vertex_buffer_descriptor =
-            mesh.get_vertex_buffer_descriptor();
-        render_pipeline.specialization.index_format = mesh
-            .indices()
-            .map(|i| i.into())
-            .unwrap_or(IndexFormat::Uint32);
+        render_pipeline.specialization.vertex_buffer_layout = mesh.get_vertex_buffer_layout();
+        if let PrimitiveTopology::LineStrip | PrimitiveTopology::TriangleStrip =
+            mesh.primitive_topology
+        {
+            render_pipeline.specialization.strip_index_format =
+                mesh.indices().map(|indices| indices.into());
+        }
     }
-
     if let Some(RenderResourceId::Buffer(index_buffer_resource)) =
         render_resource_context.get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX)
     {
+        let index_format: IndexFormat = mesh.indices().unwrap().into();
         // set index buffer into binding
         render_pipelines
             .bindings
-            .set_index_buffer(index_buffer_resource);
+            .set_index_buffer(index_buffer_resource, index_format);
     }
 
     if let Some(RenderResourceId::Buffer(vertex_attribute_buffer_resource)) =

@@ -1,0 +1,22 @@
+name: Automatic Rebase
+on:
+  issue_comment:
+    types: [created]
+jobs:
+  rebase:
+    name: Rebase
+    # ideally "cart" isn't hard coded here, but there is a bug that prevents org-owned repos from properly populating the OWNER enum 
+    if: github.event.issue.pull_request != '' && startsWith(github.event.comment.body, '/rebase') && (github.event.comment.author_association == 'MEMBER' || github.event.comment.user.login == 'cart')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the latest code
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.CART_PAT }}
+          persist-credentials: false
+          fetch-depth: 0 # otherwise, you will fail to push refs to dest repo
+      - name: Automatic Rebase
+        # this specific hash was hand-validated by @cart. please validate new action code before updating
+        uses: cirrus-actions/rebase@b08442cca46e2ad6c1f3dd24a3320ece8498df75
+        env:
+          GITHUB_TOKEN: ${{ secrets.CART_PAT }}

@@ -12,7 +12,7 @@ use bevy_render::{
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
-#[derive(Bundle)]
+#[derive(Bundle, Clone)]
 pub struct SpriteBundle {
     pub sprite: Sprite,
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
@@ -48,7 +48,7 @@ impl Default for SpriteBundle {
 
 /// A Bundle of components for drawing a single sprite from a sprite sheet (also referred
 /// to as a `TextureAtlas`)
-#[derive(Bundle)]
+#[derive(Bundle, Clone)]
 pub struct SpriteSheetBundle {
     /// The specific sprite from the texture atlas to be drawn
     pub sprite: TextureAtlasSprite,

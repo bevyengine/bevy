@@ -12,7 +12,7 @@ fn main() {
 
 fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
     // Load our mesh:
-    let scene_handle = asset_server.load("models/monkey/Monkey.gltf");
+    let scene_handle = asset_server.load("models/monkey/Monkey.gltf#Scene0");
 
     // Tell the asset server to watch for asset changes on disk:
     asset_server.watch_for_changes().unwrap();
@@ -26,12 +26,12 @@ fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
         .spawn_scene(scene_handle)
         // light
         .spawn(LightBundle {
-            transform: Transform::from_translation(Vec3::new(4.0, 5.0, 4.0)),
+            transform: Transform::from_xyz(4.0, 5.0, 4.0),
             ..Default::default()
         })
         // camera
-        .spawn(Camera3dBundle {
-            transform: Transform::from_translation(Vec3::new(2.0, 2.0, 6.0))
+        .spawn(PerspectiveCameraBundle {
+            transform: Transform::from_xyz(2.0, 2.0, 6.0)
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
         });

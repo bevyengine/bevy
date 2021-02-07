@@ -38,6 +38,6 @@ impl AssetLoader for SceneLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        &["scn"]
+        &["scn", "scn.ron"]
     }
 }

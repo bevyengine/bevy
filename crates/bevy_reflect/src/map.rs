@@ -23,11 +23,20 @@ const HASH_ERROR: &str = "the given key does not support hashing";
 
 #[derive(Default)]
 pub struct DynamicMap {
-    pub values: Vec<(Box<dyn Reflect>, Box<dyn Reflect>)>,
-    pub indices: HashMap<u64, usize>,
+    name: String,
+    values: Vec<(Box<dyn Reflect>, Box<dyn Reflect>)>,
+    indices: HashMap<u64, usize>,
 }
 
 impl DynamicMap {
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn set_name(&mut self, name: String) {
+        self.name = name;
+    }
+
     pub fn insert<K: Reflect, V: Reflect>(&mut self, key: K, value: V) {
         self.insert_boxed(Box::new(key), Box::new(value));
     }
@@ -65,6 +74,7 @@ impl Map for DynamicMap {
 
     fn clone_dynamic(&self) -> DynamicMap {
         DynamicMap {
+            name: self.name.clone(),
             values: self
                 .values
                 .iter()
@@ -90,7 +100,7 @@ impl Map for DynamicMap {
 
 impl Reflect for DynamicMap {
     fn type_name(&self) -> &str {
-        std::any::type_name::<Self>()
+        &self.name
     }
 
     fn any(&self) -> &dyn Any {

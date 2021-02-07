@@ -152,6 +152,8 @@ pub fn draw_render_pipelines_system(
 
             if let Some(indices) = index_range.clone() {
                 draw.draw_indexed(indices, 0, 0..1);
+            } else {
+                draw.draw(0..mesh.count_vertices() as u32, 0..1)
             }
         }
     }

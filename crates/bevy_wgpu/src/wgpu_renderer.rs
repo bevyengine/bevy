@@ -2,7 +2,7 @@ use crate::{
     renderer::{WgpuRenderGraphExecutor, WgpuRenderResourceContext},
     WgpuBackend, WgpuOptions, WgpuPowerOptions,
 };
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, ManualEventReader};
 use bevy_ecs::{Resources, World};
 use bevy_render::{
     render_graph::{DependentNodeStager, RenderGraph, RenderGraphStager},
@@ -15,8 +15,8 @@ pub struct WgpuRenderer {
     pub instance: wgpu::Instance,
     pub device: Arc<wgpu::Device>,
     pub queue: wgpu::Queue,
-    pub window_resized_event_reader: EventReader<WindowResized>,
-    pub window_created_event_reader: EventReader<WindowCreated>,
+    pub window_resized_event_reader: ManualEventReader<WindowResized>,
+    pub window_created_event_reader: ManualEventReader<WindowCreated>,
     pub initialized: bool,
 }
 
@@ -37,7 +37,7 @@ impl WgpuRenderer {
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: match options.power_pref {
                     WgpuPowerOptions::HighPerformance => wgpu::PowerPreference::HighPerformance,
-                    WgpuPowerOptions::Adaptive => wgpu::PowerPreference::Default,
+                    WgpuPowerOptions::Adaptive => wgpu::PowerPreference::LowPower,
                     WgpuPowerOptions::LowPower => wgpu::PowerPreference::LowPower,
                 },
                 compatible_surface: None,
@@ -53,9 +53,9 @@ impl WgpuRenderer {
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
+                    label: None,
                     features: wgpu::Features::empty(),
                     limits: wgpu::Limits::default(),
-                    shader_validation: true,
                 },
                 trace_path,
             )

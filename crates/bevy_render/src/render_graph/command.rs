@@ -23,6 +23,24 @@ pub enum Command {
         destination_mip_level: u32,
         size: Extent3d,
     },
+    CopyTextureToTexture {
+        source_texture: TextureId,
+        source_origin: [u32; 3],
+        source_mip_level: u32,
+        destination_texture: TextureId,
+        destination_origin: [u32; 3],
+        destination_mip_level: u32,
+        size: Extent3d,
+    },
+    CopyTextureToBuffer {
+        source_texture: TextureId,
+        source_origin: [u32; 3],
+        source_mip_level: u32,
+        destination_buffer: BufferId,
+        destination_offset: u64,
+        destination_bytes_per_row: u32,
+        size: Extent3d,
+    },
     // TODO: Frees probably don't need to be queued?
     FreeBuffer(BufferId),
 }
@@ -77,6 +95,50 @@ impl CommandQueue {
         });
     }
 
+    #[allow(clippy::too_many_arguments)]
+    pub fn copy_texture_to_buffer(
+        &mut self,
+        source_texture: TextureId,
+        source_origin: [u32; 3],
+        source_mip_level: u32,
+        destination_buffer: BufferId,
+        destination_offset: u64,
+        destination_bytes_per_row: u32,
+        size: Extent3d,
+    ) {
+        self.push(Command::CopyTextureToBuffer {
+            source_texture,
+            source_origin,
+            source_mip_level,
+            destination_buffer,
+            destination_offset,
+            destination_bytes_per_row,
+            size,
+        })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn copy_texture_to_texture(
+        &mut self,
+        source_texture: TextureId,
+        source_origin: [u32; 3],
+        source_mip_level: u32,
+        destination_texture: TextureId,
+        destination_origin: [u32; 3],
+        destination_mip_level: u32,
+        size: Extent3d,
+    ) {
+        self.push(Command::CopyTextureToTexture {
+            source_texture,
+            source_origin,
+            source_mip_level,
+            destination_texture,
+            destination_origin,
+            destination_mip_level,
+            size,
+        })
+    }
+
     pub fn free_buffer(&mut self, buffer: BufferId) {
         self.push(Command::FreeBuffer(buffer));
     }
@@ -116,6 +178,40 @@ impl CommandQueue {
                     destination_texture,
                     destination_origin,
                     destination_mip_level,
+                    size,
+                ),
+                Command::CopyTextureToTexture {
+                    source_texture,
+                    source_origin,
+                    source_mip_level,
+                    destination_texture,
+                    destination_origin,
+                    destination_mip_level,
+                    size,
+                } => render_context.copy_texture_to_texture(
+                    source_texture,
+                    source_origin,
+                    source_mip_level,
+                    destination_texture,
+                    destination_origin,
+                    destination_mip_level,
+                    size,
+                ),
+                Command::CopyTextureToBuffer {
+                    source_texture,
+                    source_origin,
+                    source_mip_level,
+                    destination_buffer,
+                    destination_offset,
+                    destination_bytes_per_row,
+                    size,
+                } => render_context.copy_texture_to_buffer(
+                    source_texture,
+                    source_origin,
+                    source_mip_level,
+                    destination_buffer,
+                    destination_offset,
+                    destination_bytes_per_row,
                     size,
                 ),
                 Command::FreeBuffer(buffer) => render_context.resources().remove_buffer(buffer),

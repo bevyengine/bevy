@@ -109,9 +109,8 @@ fn setup(
         .add_node_edge("my_array_texture", base::node::MAIN_PASS)
         .unwrap();
 
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_translation(Vec3::new(2.0, 2.0, 2.0))
-            .looking_at(Vec3::default(), Vec3::unit_y()),
+    commands.spawn(PerspectiveCameraBundle {
+        transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::default(), Vec3::unit_y()),
         ..Default::default()
     });
 }

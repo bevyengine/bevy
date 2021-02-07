@@ -8,7 +8,7 @@ fn spawn_system(
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(OrthographicCameraBundle::new_2d());
     let texture_handle = asset_server.load("branding/icon.png");
     let material = materials.add(texture_handle.into());
     for _ in 0..128 {

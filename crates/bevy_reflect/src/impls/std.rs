@@ -6,7 +6,12 @@ use crate::{
 use bevy_reflect_derive::impl_reflect_value;
 use bevy_utils::{Duration, HashMap, HashSet};
 use serde::{Deserialize, Serialize};
-use std::{any::Any, hash::Hash, ops::Range};
+use std::{
+    any::Any,
+    borrow::Cow,
+    hash::{Hash, Hasher},
+    ops::Range,
+};
 
 impl_reflect_value!(bool(Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(u8(Hash, PartialEq, Serialize, Deserialize));
@@ -139,6 +144,7 @@ impl<K: Reflect + Clone + Eq + Hash, V: Reflect + Clone> Map for HashMap<K, V> {
 
     fn clone_dynamic(&self) -> DynamicMap {
         let mut dynamic_map = DynamicMap::default();
+        dynamic_map.set_name(self.type_name().to_string());
         for (k, v) in HashMap::iter(self) {
             dynamic_map.insert_boxed(k.clone_value(), v.clone_value());
         }
@@ -198,5 +204,65 @@ impl<K: Reflect + Clone + Eq + Hash, V: Reflect + Clone> Reflect for HashMap<K, 
 
     fn serializable(&self) -> Option<Serializable> {
         None
+    }
+}
+
+impl Reflect for Cow<'static, str> {
+    fn type_name(&self) -> &str {
+        std::any::type_name::<Self>()
+    }
+
+    fn any(&self) -> &dyn Any {
+        self
+    }
+
+    fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn apply(&mut self, value: &dyn Reflect) {
+        let value = value.any();
+        if let Some(value) = value.downcast_ref::<Self>() {
+            *self = value.clone();
+        } else {
+            panic!("Value is not a {}.", std::any::type_name::<Self>());
+        }
+    }
+
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
+        Ok(())
+    }
+
+    fn reflect_ref(&self) -> ReflectRef {
+        ReflectRef::Value(self)
+    }
+
+    fn reflect_mut(&mut self) -> ReflectMut {
+        ReflectMut::Value(self)
+    }
+
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(self.clone())
+    }
+
+    fn reflect_hash(&self) -> Option<u64> {
+        let mut hasher = crate::ReflectHasher::default();
+        Hash::hash(&std::any::Any::type_id(self), &mut hasher);
+        Hash::hash(self, &mut hasher);
+        Some(hasher.finish())
+    }
+
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+        let value = value.any();
+        if let Some(value) = value.downcast_ref::<Self>() {
+            Some(std::cmp::PartialEq::eq(self, value))
+        } else {
+            Some(false)
+        }
+    }
+
+    fn serializable(&self) -> Option<Serializable> {
+        Some(Serializable::Borrowed(self))
     }
 }

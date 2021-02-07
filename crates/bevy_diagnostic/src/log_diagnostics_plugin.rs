@@ -30,7 +30,7 @@ impl Default for LogDiagnosticsPlugin {
 
 impl Plugin for LogDiagnosticsPlugin {
     fn build(&self, app: &mut bevy_app::AppBuilder) {
-        app.add_resource(LogDiagnosticsState {
+        app.insert_resource(LogDiagnosticsState {
             timer: Timer::new(self.wait_duration, true),
             filter: self.filter.clone(),
         });
@@ -78,7 +78,7 @@ impl LogDiagnosticsPlugin {
                     Self::log_diagnostic(diagnostic);
                 }
             } else {
-                for diagnostic in diagnostics.ordered_iter() {
+                for diagnostic in diagnostics.iter() {
                     Self::log_diagnostic(diagnostic);
                 }
             }
@@ -96,7 +96,7 @@ impl LogDiagnosticsPlugin {
                     debug!("{:#?}\n", diagnostic);
                 }
             } else {
-                for diagnostic in diagnostics.ordered_iter() {
+                for diagnostic in diagnostics.iter() {
                     debug!("{:#?}\n", diagnostic);
                 }
             }
