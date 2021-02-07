@@ -1,6 +1,8 @@
 use bevy::prelude::*;
-use bevy_internal::render::wireframe::{WireframePlugin, Wireframe};
-use bevy_internal::wgpu::{WgpuOptions, WgpuFeatures};
+use bevy_internal::{
+    render::wireframe::{Wireframe, WireframePlugin},
+    wgpu::{WgpuFeatures, WgpuOptions},
+};
 
 fn main() {
     App::build()

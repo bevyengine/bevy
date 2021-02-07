@@ -1,37 +1,27 @@
 use crate::{
-    pipeline::{
-    BlendFactor, BlendOperation, ColorWrite,
-    CompareFunction, CullMode, FrontFace, PipelineDescriptor,
-    PolygonMode, RenderPipeline,
-    },
+    draw::DrawContext,
+    mesh::Indices,
+    pipeline::{PipelineDescriptor, PipelineSpecialization, RenderPipeline},
     prelude::*,
-    shader::{Shader, ShaderStage, ShaderStages},
-    texture::TextureFormat,
+    shader::Shader,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{Assets, Handle, HandleUntyped};
-use bevy_ecs::{Entity, World, ResMut, Res, Query, With, QuerySet, Commands, Mut};
-use bevy_reflect::TypeUuid;
-use crate::draw::DrawContext;
-use crate::renderer::{RenderResourceBindings, RenderResourceContext, RenderContext};
-use crate::mesh::Indices;
-use crate::pipeline::{PipelineSpecialization, VertexBufferLayout};
-use bevy_ecs::IntoSystem;
+use bevy_ecs::{IntoSystem, Mut, Query, QuerySet, Res, With};
+use bevy_reflect::{Reflect, ReflectComponent, TypeUuid};
 use bevy_utils::HashSet;
-use bevy_reflect::{Reflect, ReflectComponent};
 
 mod pipeline;
 
 pub const WIREFRAME_PIPELINE_HANDLE: HandleUntyped =
-HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 0x137c75ab7e9ad7f5);
+    HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 0x137c75ab7e9ad7f5);
 
 #[derive(Debug, Default)]
 pub struct WireframePlugin;
 
 impl Plugin for WireframePlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app
-            .init_resource::<WireframeConfig>()
+        app.init_resource::<WireframeConfig>()
             .add_system_to_stage(crate::stage::DRAW, draw_wireframes_system.system());
         let resources = app.resources();
         let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
@@ -54,9 +44,7 @@ pub struct WireframeConfig {
 
 impl Default for WireframeConfig {
     fn default() -> Self {
-        WireframeConfig {
-            global: false
-        }
+        WireframeConfig { global: false }
     }
 }
 
@@ -67,10 +55,15 @@ pub fn draw_wireframes_system(
     wireframe_config: Res<WireframeConfig>,
     mut query: QuerySet<(
         Query<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>, &Visible)>,
-        Query<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>, &Visible), With<Wireframe>>
+        Query<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>, &Visible), With<Wireframe>>,
     )>,
 ) {
-    let iterator = |(mut draw, mut render_pipelines, mesh_handle, visible): (Mut<Draw>, Mut<RenderPipelines>, &Handle<Mesh>, &Visible)| {
+    let iterator = |(mut draw, mut render_pipelines, mesh_handle, visible): (
+        Mut<Draw>,
+        Mut<RenderPipelines>,
+        &Handle<Mesh>,
+        &Visible,
+    )| {
         if !visible.is_visible {
             return;
         }
@@ -108,9 +101,7 @@ pub fn draw_wireframes_system(
             )
             .unwrap();
         draw_context
-            .set_bind_groups_from_bindings(&mut draw, &mut [
-                &mut render_pipelines.bindings,
-            ])
+            .set_bind_groups_from_bindings(&mut draw, &mut [&mut render_pipelines.bindings])
             .unwrap();
         draw_context
             .set_vertex_buffers_from_bindings(&mut draw, &[&render_pipelines.bindings])

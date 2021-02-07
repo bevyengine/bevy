@@ -1,17 +1,10 @@
 use crate::{
     pipeline::{
-        BlendFactor, BlendOperation, ColorWrite,
-        CompareFunction, CullMode, FrontFace,
-        PolygonMode,
-
-            },
-    prelude::*,
+        CullMode, FrontFace, PipelineDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology,
+    },
     shader::{Shader, ShaderStage, ShaderStages},
-    texture::TextureFormat,
 };
-use bevy_app::prelude::*;
-use bevy_asset::{Assets, Handle};
-use crate::pipeline::{PrimitiveState, PrimitiveTopology, DepthStencilState, StencilState, StencilFaceState, DepthBiasState, MultisampleState, PipelineDescriptor};
+use bevy_asset::Assets;
 
 pub(crate) fn build_wireframe_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
     PipelineDescriptor {
