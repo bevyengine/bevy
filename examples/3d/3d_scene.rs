@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_internal::render::wireframe::WireframePlugin;
+use bevy_internal::render::wireframe::{WireframePlugin, Wireframe};
 use bevy_internal::wgpu::{WgpuOptions, WgpuFeatures};
 
 fn main() {
@@ -30,6 +30,7 @@ fn setup(
             material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
             ..Default::default()
         })
+        .with(Wireframe)
         // cube
         .spawn(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),

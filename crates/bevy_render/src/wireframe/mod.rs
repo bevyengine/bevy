@@ -10,14 +10,15 @@ use crate::{
 };
 use bevy_app::prelude::*;
 use bevy_asset::{Assets, Handle, HandleUntyped};
-use bevy_ecs::{Entity, World, ResMut, Res, Query};
+use bevy_ecs::{Entity, World, ResMut, Res, Query, With, QuerySet, Commands, Mut};
 use bevy_reflect::TypeUuid;
 use crate::draw::DrawContext;
-use crate::renderer::RenderResourceBindings;
+use crate::renderer::{RenderResourceBindings, RenderResourceContext, RenderContext};
 use crate::mesh::Indices;
 use crate::pipeline::{PipelineSpecialization, VertexBufferLayout};
 use bevy_ecs::IntoSystem;
 use bevy_utils::HashSet;
+use bevy_reflect::{Reflect, ReflectComponent};
 
 mod pipeline;
 
@@ -30,6 +31,7 @@ pub struct WireframePlugin;
 impl Plugin for WireframePlugin {
     fn build(&self, app: &mut AppBuilder) {
         app
+            .init_resource::<WireframeConfig>()
             .add_system_to_stage(crate::stage::DRAW, draw_wireframes_system.system());
         let resources = app.resources();
         let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
@@ -41,30 +43,43 @@ impl Plugin for WireframePlugin {
     }
 }
 
+#[derive(Debug, Clone, Reflect, Default)]
+#[reflect(Component)]
+pub struct Wireframe;
 
+#[derive(Debug, Clone)]
+pub struct WireframeConfig {
+    pub global: bool,
+}
+
+impl Default for WireframeConfig {
+    fn default() -> Self {
+        WireframeConfig {
+            global: false
+        }
+    }
+}
 
 pub fn draw_wireframes_system(
     mut draw_context: DrawContext,
     msaa: Res<Msaa>,
     meshes: Res<Assets<Mesh>>,
-    mut query: Query<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>, &Visible)>,
+    wireframe_config: Res<WireframeConfig>,
+    mut query: QuerySet<(
+        Query<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>, &Visible)>,
+        Query<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>, &Visible), With<Wireframe>>
+    )>,
 ) {
-    for (mut draw, mut render_pipelines, mesh_handle, visible) in query.iter_mut() {
+    let iterator = |(mut draw, mut render_pipelines, mesh_handle, visible): (Mut<Draw>, Mut<RenderPipelines>, &Handle<Mesh>, &Visible)| {
         if !visible.is_visible {
-            continue;
+            return;
         }
 
         // don't render if the mesh isn't loaded yet
         let mesh = if let Some(mesh) = meshes.get(mesh_handle) {
             mesh
         } else {
-            continue;
-        };
-
-        let index_range = match mesh.indices() {
-            Some(Indices::U32(indices)) => Some(0..indices.len() as u32),
-            Some(Indices::U16(indices)) => Some(0..indices.len() as u32),
-            None => None,
+            return;
         };
 
         let mut render_pipeline = RenderPipeline::specialized(
@@ -74,21 +89,16 @@ pub fn draw_wireframes_system(
                 strip_index_format: None,
                 shader_specialization: Default::default(),
                 primitive_topology: mesh.primitive_topology(),
-                dynamic_bindings: Default::default(),
+                dynamic_bindings: render_pipelines
+                    .bindings
+                    .iter_dynamic_bindings()
+                    .map(|name| name.to_string())
+                    .collect::<HashSet<String>>(),
                 vertex_buffer_layout: mesh.get_vertex_buffer_layout(),
             },
         );
-        if render_pipeline.dynamic_bindings_generation
-            != render_pipelines.bindings.dynamic_bindings_generation()
-        {
-            render_pipeline.specialization.dynamic_bindings = render_pipelines
-                .bindings
-                .iter_dynamic_bindings()
-                .map(|name| name.to_string())
-                .collect::<HashSet<String>>();
-            render_pipeline.dynamic_bindings_generation =
-                render_pipelines.bindings.dynamic_bindings_generation();
-        }
+        render_pipeline.dynamic_bindings_generation =
+            render_pipelines.bindings.dynamic_bindings_generation();
 
         draw_context
             .set_pipeline(
@@ -105,10 +115,17 @@ pub fn draw_wireframes_system(
         draw_context
             .set_vertex_buffers_from_bindings(&mut draw, &[&render_pipelines.bindings])
             .unwrap();
-        if let Some(indices) = index_range.clone() {
-            draw.draw_indexed(indices, 0, 0..1);
-        } else {
-            draw.draw(0..mesh.count_vertices() as u32, 0..1)
-        }
+
+        match mesh.indices() {
+            Some(Indices::U32(indices)) => draw.draw_indexed(0..indices.len() as u32, 0, 0..1),
+            Some(Indices::U16(indices)) => draw.draw_indexed(0..indices.len() as u32, 0, 0..1),
+            None => draw.draw(0..mesh.count_vertices() as u32, 0..1),
+        };
+    };
+
+    if wireframe_config.global {
+        query.q0_mut().iter_mut().for_each(iterator);
+    } else {
+        query.q1_mut().iter_mut().for_each(iterator);
     }
 }
