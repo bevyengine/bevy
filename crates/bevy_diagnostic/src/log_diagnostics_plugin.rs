@@ -14,7 +14,7 @@ pub struct LogDiagnosticsPlugin {
 
 /// State used by the [LogDiagnosticsPlugin]
 struct LogDiagnosticsState {
-    timer: Timer<LogDiagnosticsState>,
+    timer: Timer,
     filter: Option<Vec<DiagnosticId>>,
 }
 

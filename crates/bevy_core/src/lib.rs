@@ -37,7 +37,7 @@ impl Plugin for CorePlugin {
             .init_resource::<FixedTimesteps>()
             .register_type::<Option<String>>()
             .register_type::<Range<f32>>()
-            .register_type::<Timer<()>>()
+            .register_type::<Timer>()
             .add_system_to_stage(stage::FIRST, time_system.system())
             .add_system_to_stage(stage::PRE_UPDATE, entity_labels_system.system());
     }

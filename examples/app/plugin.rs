@@ -35,7 +35,7 @@ impl Plugin for PrintMessagePlugin {
 
 struct PrintMessageState {
     message: String,
-    timer: Timer<()>,
+    timer: Timer,
 }
 
 fn print_message_system(mut state: ResMut<PrintMessageState>, time: Res<Time>) {

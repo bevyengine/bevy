@@ -14,7 +14,7 @@ fn main() {
 struct State {
     atlas_count: u32,
     handle: Handle<Font>,
-    timer: Timer<()>,
+    timer: Timer,
 }
 
 impl Default for State {

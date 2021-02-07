@@ -11,11 +11,7 @@ fn main() {
 fn animate_sprite_system(
     time: Res<Time>,
     texture_atlases: Res<Assets<TextureAtlas>>,
-    mut query: Query<(
-        &mut Timer<()>,
-        &mut TextureAtlasSprite,
-        &Handle<TextureAtlas>,
-    )>,
+    mut query: Query<(&mut Timer, &mut TextureAtlasSprite, &Handle<TextureAtlas>)>,
 ) {
     for (mut timer, mut sprite, texture_atlas_handle) in query.iter_mut() {
         timer.tick(time.delta());
@@ -41,5 +37,5 @@ fn setup(
             transform: Transform::from_scale(Vec3::splat(6.0)),
             ..Default::default()
         })
-        .with(Timer::<()>::from_seconds(0.1, true));
+        .with(Timer::from_seconds(0.1, true));
 }
