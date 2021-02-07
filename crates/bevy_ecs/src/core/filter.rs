@@ -29,6 +29,8 @@ impl EntityFilter for AnyEntityFilter {
 
 pub struct Or<T>(pub T);
 
+pub struct Not<T>(pub T);
+
 /// Query transformer that retrieves components of type `T` that have been mutated since the start of the frame.
 /// Added components do not count as mutated.
 pub struct Mutated<T>(NonNull<ComponentFlags>, PhantomData<T>);
@@ -270,3 +272,23 @@ impl_query_filter_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M);
 impl_query_filter_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M, N);
 impl_query_filter_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
 impl_query_filter_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
+
+impl<T: QueryFilter> QueryFilter for Not<T> {
+    type EntityFilter = Not<T::EntityFilter>;
+
+    fn access() -> QueryAccess {
+        T::access()
+    }
+
+    fn get_entity_filter(archetype: &Archetype) -> Option<Self::EntityFilter> {
+        T::get_entity_filter(archetype).map(Not)
+    }
+}
+
+impl<T: EntityFilter> EntityFilter for Not<T> {
+    const DANGLING: Self = Not(T::DANGLING);
+
+    unsafe fn matches_entity(&self, offset: usize) -> bool {
+        !self.0.matches_entity(offset)
+    }
+}

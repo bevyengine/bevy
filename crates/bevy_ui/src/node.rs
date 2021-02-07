@@ -48,6 +48,29 @@ impl AddAssign<f32> for Val {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect)]
+#[reflect_value()]
+pub enum ZIndex {
+    None,
+    Auto,
+    Some(i16),
+}
+
+impl Default for ZIndex {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+impl ZIndex {
+    pub fn get(&self) -> i16 {
+        match self {
+            ZIndex::None => 0,
+            ZIndex::Auto => 0,
+            ZIndex::Some(i) => *i,
+        }
+    }
+}
 #[derive(Clone, PartialEq, Debug, Reflect)]
 pub struct Style {
     pub display: Display,
@@ -70,6 +93,7 @@ pub struct Style {
     pub min_size: Size<Val>,
     pub max_size: Size<Val>,
     pub aspect_ratio: Option<f32>,
+    pub z_index: ZIndex,
 }
 
 impl Default for Style {
@@ -95,6 +119,7 @@ impl Default for Style {
             min_size: Size::new(Val::Auto, Val::Auto),
             max_size: Size::new(Val::Auto, Val::Auto),
             aspect_ratio: Default::default(),
+            z_index: Default::default(),
         }
     }
 }

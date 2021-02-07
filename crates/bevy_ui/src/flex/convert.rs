@@ -4,37 +4,31 @@ use crate::{
 };
 use bevy_math::{Rect, Size};
 
-pub fn from_rect(
-    scale_factor: f64,
-    rect: Rect<Val>,
-) -> stretch::geometry::Rect<stretch::style::Dimension> {
+pub fn from_rect(rect: Rect<Val>) -> stretch::geometry::Rect<stretch::style::Dimension> {
     stretch::geometry::Rect {
-        start: from_val(scale_factor, rect.left),
-        end: from_val(scale_factor, rect.right),
+        start: rect.left.into(),
+        end: rect.right.into(),
         // NOTE: top and bottom are intentionally flipped. stretch has a flipped y-axis
-        top: from_val(scale_factor, rect.bottom),
-        bottom: from_val(scale_factor, rect.top),
+        top: rect.bottom.into(),
+        bottom: rect.top.into(),
     }
 }
 
-pub fn from_f32_size(scale_factor: f64, size: Size<f32>) -> stretch::geometry::Size<f32> {
+pub fn from_f32_size(size: Size<f32>) -> stretch::geometry::Size<f32> {
     stretch::geometry::Size {
-        width: (scale_factor * size.width as f64) as f32,
-        height: (scale_factor * size.height as f64) as f32,
+        width: size.width,
+        height: size.height,
     }
 }
 
-pub fn from_val_size(
-    scale_factor: f64,
-    size: Size<Val>,
-) -> stretch::geometry::Size<stretch::style::Dimension> {
+pub fn from_val_size(size: Size<Val>) -> stretch::geometry::Size<stretch::style::Dimension> {
     stretch::geometry::Size {
-        width: from_val(scale_factor, size.width),
-        height: from_val(scale_factor, size.height),
+        width: size.width.into(),
+        height: size.height.into(),
     }
 }
 
-pub fn from_style(scale_factor: f64, value: &Style) -> stretch::style::Style {
+pub fn from_style(value: &Style) -> stretch::style::Style {
     stretch::style::Style {
         overflow: stretch::style::Overflow::Visible,
         display: value.display.into(),
@@ -46,16 +40,16 @@ pub fn from_style(scale_factor: f64, value: &Style) -> stretch::style::Style {
         align_self: value.align_self.into(),
         align_content: value.align_content.into(),
         justify_content: value.justify_content.into(),
-        position: from_rect(scale_factor, value.position),
-        margin: from_rect(scale_factor, value.margin),
-        padding: from_rect(scale_factor, value.padding),
-        border: from_rect(scale_factor, value.border),
+        position: from_rect(value.position),
+        margin: from_rect(value.margin),
+        padding: from_rect(value.padding),
+        border: from_rect(value.border),
         flex_grow: value.flex_grow,
         flex_shrink: value.flex_shrink,
-        flex_basis: from_val(scale_factor, value.flex_basis),
-        size: from_val_size(scale_factor, value.size),
-        min_size: from_val_size(scale_factor, value.min_size),
-        max_size: from_val_size(scale_factor, value.max_size),
+        flex_basis: value.flex_basis.into(),
+        size: from_val_size(value.size),
+        min_size: from_val_size(value.min_size),
+        max_size: from_val_size(value.max_size),
         aspect_ratio: match value.aspect_ratio {
             Some(value) => stretch::number::Number::Defined(value),
             None => stretch::number::Number::Undefined,
@@ -63,12 +57,14 @@ pub fn from_style(scale_factor: f64, value: &Style) -> stretch::style::Style {
     }
 }
 
-pub fn from_val(scale_factor: f64, val: Val) -> stretch::style::Dimension {
-    match val {
-        Val::Auto => stretch::style::Dimension::Auto,
-        Val::Percent(value) => stretch::style::Dimension::Percent(value / 100.0),
-        Val::Px(value) => stretch::style::Dimension::Points((scale_factor * value as f64) as f32),
-        Val::Undefined => stretch::style::Dimension::Undefined,
+impl From<Val> for stretch::style::Dimension {
+    fn from(val: Val) -> Self {
+        match val {
+            Val::Auto => stretch::style::Dimension::Auto,
+            Val::Percent(value) => stretch::style::Dimension::Percent(value / 100.0),
+            Val::Px(value) => stretch::style::Dimension::Points(value),
+            Val::Undefined => stretch::style::Dimension::Undefined,
+        }
     }
 }
 
