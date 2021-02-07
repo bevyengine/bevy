@@ -6,7 +6,7 @@ use crate::{
 use bevy_reflect_derive::impl_reflect_value;
 use bevy_utils::{Duration, HashMap, HashSet};
 use serde::{Deserialize, Serialize};
-use std::{any::Any, hash::Hash, marker::PhantomData, ops::Range};
+use std::{any::Any, hash::Hash, ops::Range};
 
 impl_reflect_value!(bool(Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(u8(Hash, PartialEq, Serialize, Deserialize));
@@ -197,53 +197,6 @@ impl<K: Reflect + Clone + Eq + Hash, V: Reflect + Clone> Reflect for HashMap<K, 
     }
 
     fn serializable(&self) -> Option<Serializable> {
-        None
-    }
-}
-
-impl<T: Send + Sync + 'static> Reflect for PhantomData<T> {
-    fn type_name(&self) -> &str {
-        std::any::type_name::<T>()
-    }
-
-    fn any(&self) -> &dyn std::any::Any {
-        self
-    }
-
-    fn any_mut(&mut self) -> &mut dyn std::any::Any {
-        self
-    }
-
-    fn apply(&mut self, _: &dyn Reflect) {
-        // Nothing to do here?
-    }
-
-    fn set(&mut self, _: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        // Here as well?
-        Ok(())
-    }
-
-    fn reflect_ref(&self) -> ReflectRef {
-        ReflectRef::Value(self)
-    }
-
-    fn reflect_mut(&mut self) -> ReflectMut {
-        ReflectMut::Value(self)
-    }
-
-    fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(*self)
-    }
-
-    fn reflect_hash(&self) -> Option<u64> {
-        None
-    }
-
-    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
-        Some(self.type_id() == value.type_id())
-    }
-
-    fn serializable(&self) -> Option<crate::serde::Serializable> {
         None
     }
 }
