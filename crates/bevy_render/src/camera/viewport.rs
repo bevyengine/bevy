@@ -1,27 +1,22 @@
 use super::SurfaceId;
 use bevy_app::prelude::EventReader;
 use bevy_ecs::{Query, Res};
-use bevy_math::{clamp, vec2, BVec2, Vec2};
+use bevy_math::{clamp, vec2, Rect, Vec2};
 use bevy_reflect::{Reflect, ReflectComponent};
 use bevy_utils::HashMap;
 use bevy_window::{WindowId, WindowResized, WindowScaleFactorChanged, Windows};
+use std::ops::{Add, AddAssign};
 
 #[derive(Debug, PartialEq, Clone, Reflect)]
 #[reflect(Component)]
 pub struct Viewport {
     #[reflect(ignore)]
     pub surface: SurfaceId,
-    // relative values and respective use mask
-    #[reflect(ignore)]
-    pub use_relative_origin: BVec2,
-    pub relative_origin: Vec2,
-    #[reflect(ignore)]
-    pub use_relative_size: BVec2,
-    pub relative_size: Vec2,
-    // absolute values, possibly computed
+    pub sides: Rect<ViewportSideLocation>,
+    pub scale_factor: f64,
+    // computed values
     pub origin: Vec2,
     pub size: Vec2,
-    pub scale_factor: f64,
 }
 
 impl Viewport {
@@ -33,23 +28,25 @@ impl Viewport {
         (self.size.as_f64() * self.scale_factor).as_f32()
     }
 
-    pub fn set_scale_factor(&mut self, scale_factor: f64) {
-        self.scale_factor = scale_factor;
-    }
-
     pub fn update_rectangle(&mut self, surface_size: Vec2) {
-        self.origin = Vec2::select(
-            self.use_relative_origin,
-            self.relative_origin * surface_size,
-            self.origin,
-        );
-        self.size = Vec2::select(
-            self.use_relative_size,
-            self.relative_size * surface_size,
-            self.size,
-        );
+        self.origin.x = match self.sides.left {
+            ViewportSideLocation::Absolute(value) => value,
+            ViewportSideLocation::Relative(value) => value * surface_size.x,
+        };
+        self.origin.y = match self.sides.top {
+            ViewportSideLocation::Absolute(value) => value,
+            ViewportSideLocation::Relative(value) => value * surface_size.y,
+        };
+        self.size.x = match self.sides.right {
+            ViewportSideLocation::Absolute(value) => value - self.origin.x,
+            ViewportSideLocation::Relative(value) => value * surface_size.x - self.origin.x,
+        };
+        self.size.y = match self.sides.bottom {
+            ViewportSideLocation::Absolute(value) => value - self.origin.y,
+            ViewportSideLocation::Relative(value) => value * surface_size.y - self.origin.y,
+        };
         clamp(self.origin, Vec2::zero(), surface_size);
-        clamp(self.size, self.origin, surface_size);
+        clamp(self.size, self.origin, surface_size - self.origin);
     }
 }
 
@@ -57,13 +54,48 @@ impl Default for Viewport {
     fn default() -> Self {
         Self {
             surface: WindowId::primary().into(),
-            use_relative_origin: BVec2::new(true, true),
-            relative_origin: Vec2::zero(),
-            use_relative_size: BVec2::new(true, true),
-            relative_size: Vec2::one(),
+            sides: Rect {
+                left: ViewportSideLocation::Relative(0.0),
+                right: ViewportSideLocation::Relative(1.0),
+                top: ViewportSideLocation::Relative(0.0),
+                bottom: ViewportSideLocation::Relative(1.0),
+            },
+            scale_factor: 1.0,
             origin: Vec2::zero(),
             size: Vec2::one(),
-            scale_factor: 1.0,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Reflect)]
+#[reflect_value(PartialEq)]
+pub enum ViewportSideLocation {
+    Relative(f32),
+    Absolute(f32),
+}
+
+impl Default for ViewportSideLocation {
+    fn default() -> Self {
+        Self::Relative(0.0)
+    }
+}
+
+impl Add<f32> for ViewportSideLocation {
+    type Output = ViewportSideLocation;
+
+    fn add(self, rhs: f32) -> Self::Output {
+        match self {
+            ViewportSideLocation::Relative(value) => ViewportSideLocation::Relative(value + rhs),
+            ViewportSideLocation::Absolute(value) => ViewportSideLocation::Absolute(value + rhs),
+        }
+    }
+}
+
+impl AddAssign<f32> for ViewportSideLocation {
+    fn add_assign(&mut self, rhs: f32) {
+        match self {
+            ViewportSideLocation::Relative(value) => *value += rhs,
+            ViewportSideLocation::Absolute(value) => *value += rhs,
         }
     }
 }
@@ -88,7 +120,7 @@ pub fn viewport_system(
             for mut viewport in query.iter_mut() {
                 if viewport.surface.get_window() == Some(*id) {
                     viewport.update_rectangle(vec2(window.width(), window.height()));
-                    viewport.set_scale_factor(window.scale_factor());
+                    viewport.scale_factor = window.scale_factor();
                 }
             }
         }
