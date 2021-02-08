@@ -1,7 +1,7 @@
 use bevy::{
     prelude::*,
     render::{
-        camera::{ActiveCameras, Camera},
+        camera::{ActiveCameras, Camera, Viewport},
         pass::*,
         render_graph::{
             base::MainPass, CameraNode, PassNode, RenderGraph, WindowSwapChainNode,
@@ -198,7 +198,10 @@ fn setup_pipeline(
         .spawn(PerspectiveCameraBundle {
             camera: Camera {
                 name: Some("Secondary".to_string()),
-                window: window_id,
+                ..Default::default()
+            },
+            viewport: Viewport {
+                surface: window_id.into(),
                 ..Default::default()
             },
             transform: Transform::from_xyz(6.0, 0.0, 0.0)
