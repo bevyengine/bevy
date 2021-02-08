@@ -68,7 +68,7 @@ impl Default for Viewport {
     }
 }
 
-pub fn viewport_resize_system(
+pub fn viewport_system(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_scale_change_events: EventReader<WindowScaleFactorChanged>,
     windows: Res<Windows>,
