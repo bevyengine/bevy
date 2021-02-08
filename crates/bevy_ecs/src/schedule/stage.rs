@@ -475,22 +475,14 @@ fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize)> {
         relations.insert(index);
         for dependency in container.dependencies() {
             relations.union_with(&all_relations[*dependency]);
-            relations.insert(*dependency);
+            all_relations[*dependency].insert(index);
         }
         all_relations.push(relations);
     }
-    for (index, container) in systems.iter().enumerate().rev() {
-        let relations = all_relations[index].clone();
-        for dependency in container.dependencies() {
-            all_relations[*dependency].union_with(&relations);
-        }
-    }
-    // TODO: There is enough data to group ambiguity pairs into OR blocks,
-    // as in, "you might want to add a relation to at least one of these pairs".
     let mut ambiguities = Vec::new();
     let full_bitset: FixedBitSet = (0..systems.len()).collect();
     for (index_a, relations) in all_relations.drain(..).enumerate() {
-        for index_b in full_bitset.difference(&relations) {
+        for index_b in full_bitset.difference(&relations).take(index_a) {
             if !systems[index_a].is_compatible(&systems[index_b])
                 && !ambiguities.contains(&(index_b, index_a))
             {
@@ -1085,10 +1077,27 @@ mod tests {
 
     #[test]
     fn ambiguity_detection() {
-        use super::find_ambiguities;
+        use super::{find_ambiguities, SystemContainer};
+        use std::borrow::Cow;
+
+        fn find_ambiguities_labels(
+            systems: &[impl SystemContainer],
+        ) -> Vec<(Cow<'static, str>, Cow<'static, str>)> {
+            find_ambiguities(systems)
+                .drain(..)
+                .map(|(index_a, index_b)| {
+                    (
+                        systems[index_a].display_name(),
+                        systems[index_b].display_name(),
+                    )
+                })
+                .collect()
+        }
+
         fn empty() {}
         fn resource(_: ResMut<usize>) {}
         fn component(_: Query<&mut f32>) {}
+
         let mut world = World::new();
         let mut resources = Resources::default();
 
@@ -1106,27 +1115,37 @@ mod tests {
             .with_system(empty.system().label("0"))
             .with_system(component.system().label("1").after("0"))
             .with_system(empty.system().label("2"))
-            .with_system(empty.system().after("2").before("4"))
+            .with_system(empty.system().label("3").after("2").before("4"))
             .with_system(component.system().label("4"));
         stage.initialize_systems(&mut world, &mut resources);
         stage.rebuild_orders_and_dependencies();
-        assert_eq!(find_ambiguities(&stage.parallel).len(), 1);
+        let ambiguities = find_ambiguities_labels(&stage.parallel);
+        assert!(
+            ambiguities.contains(&("1".into(), "4".into()))
+                || ambiguities.contains(&("4".into(), "1".into()))
+        );
+        assert_eq!(ambiguities.len(), 1);
 
         let mut stage = SystemStage::parallel()
             .with_system(empty.system().label("0"))
             .with_system(resource.system().label("1").after("0"))
             .with_system(empty.system().label("2"))
-            .with_system(empty.system().after("2").before("4"))
+            .with_system(empty.system().label("3").after("2").before("4"))
             .with_system(resource.system().label("4"));
         stage.initialize_systems(&mut world, &mut resources);
         stage.rebuild_orders_and_dependencies();
-        assert_eq!(find_ambiguities(&stage.parallel).len(), 1);
+        let ambiguities = find_ambiguities_labels(&stage.parallel);
+        assert!(
+            ambiguities.contains(&("1".into(), "4".into()))
+                || ambiguities.contains(&("4".into(), "1".into()))
+        );
+        assert_eq!(ambiguities.len(), 1);
 
         let mut stage = SystemStage::parallel()
             .with_system(empty.system().label("0"))
             .with_system(resource.system().label("1").after("0"))
             .with_system(empty.system().label("2"))
-            .with_system(empty.system().after("2").before("4"))
+            .with_system(empty.system().label("3").after("2").before("4"))
             .with_system(component.system().label("4"));
         stage.initialize_systems(&mut world, &mut resources);
         stage.rebuild_orders_and_dependencies();
@@ -1136,20 +1155,196 @@ mod tests {
             .with_system(component.system().label("0"))
             .with_system(resource.system().label("1").after("0"))
             .with_system(empty.system().label("2"))
-            .with_system(component.system().after("2").before("4"))
+            .with_system(component.system().label("3").after("2").before("4"))
             .with_system(resource.system().label("4"));
         stage.initialize_systems(&mut world, &mut resources);
         stage.rebuild_orders_and_dependencies();
-        assert_eq!(find_ambiguities(&stage.parallel).len(), 2);
+        let ambiguities = find_ambiguities_labels(&stage.parallel);
+        assert!(
+            ambiguities.contains(&("0".into(), "3".into()))
+                || ambiguities.contains(&("3".into(), "0".into()))
+        );
+        assert!(
+            ambiguities.contains(&("1".into(), "4".into()))
+                || ambiguities.contains(&("4".into(), "1".into()))
+        );
+        assert_eq!(ambiguities.len(), 2);
+
+        let mut stage = SystemStage::parallel()
+            .with_system(component.system().label("0").before("2"))
+            .with_system(component.system().label("1").before("2"))
+            .with_system(component.system().label("2"));
+        stage.initialize_systems(&mut world, &mut resources);
+        stage.rebuild_orders_and_dependencies();
+        let ambiguities = find_ambiguities_labels(&stage.parallel);
+        assert!(
+            ambiguities.contains(&("0".into(), "1".into()))
+                || ambiguities.contains(&("1".into(), "0".into()))
+        );
+        assert_eq!(ambiguities.len(), 1);
+
+        let mut stage = SystemStage::parallel()
+            .with_system(component.system().label("0"))
+            .with_system(component.system().label("1").after("0"))
+            .with_system(component.system().label("2").after("0"));
+        stage.initialize_systems(&mut world, &mut resources);
+        stage.rebuild_orders_and_dependencies();
+        let ambiguities = find_ambiguities_labels(&stage.parallel);
+        assert!(
+            ambiguities.contains(&("1".into(), "2".into()))
+                || ambiguities.contains(&("2".into(), "1".into()))
+        );
+        assert_eq!(ambiguities.len(), 1);
+
+        let mut stage = SystemStage::parallel()
+            .with_system(component.system().label("0").before("1").before("2"))
+            .with_system(component.system().label("1"))
+            .with_system(component.system().label("2"))
+            .with_system(component.system().label("3").after("1").after("2"));
+        stage.initialize_systems(&mut world, &mut resources);
+        stage.rebuild_orders_and_dependencies();
+        let ambiguities = find_ambiguities_labels(&stage.parallel);
+        assert!(
+            ambiguities.contains(&("1".into(), "2".into()))
+                || ambiguities.contains(&("2".into(), "1".into()))
+        );
+        assert_eq!(ambiguities.len(), 1);
+
+        let mut stage = SystemStage::parallel()
+            .with_system(
+                component
+                    .system()
+                    .label("0")
+                    .before("1")
+                    .before("2")
+                    .before("3")
+                    .before("4"),
+            )
+            .with_system(component.system().label("1"))
+            .with_system(component.system().label("2"))
+            .with_system(component.system().label("3"))
+            .with_system(component.system().label("4"))
+            .with_system(
+                component
+                    .system()
+                    .label("5")
+                    .after("1")
+                    .after("2")
+                    .after("3")
+                    .after("4"),
+            );
+        stage.initialize_systems(&mut world, &mut resources);
+        stage.rebuild_orders_and_dependencies();
+        let ambiguities = find_ambiguities_labels(&stage.parallel);
+        assert!(
+            ambiguities.contains(&("1".into(), "2".into()))
+                || ambiguities.contains(&("2".into(), "1".into()))
+        );
+        assert!(
+            ambiguities.contains(&("1".into(), "3".into()))
+                || ambiguities.contains(&("3".into(), "1".into()))
+        );
+        assert!(
+            ambiguities.contains(&("1".into(), "4".into()))
+                || ambiguities.contains(&("4".into(), "1".into()))
+        );
+        assert!(
+            ambiguities.contains(&("2".into(), "3".into()))
+                || ambiguities.contains(&("3".into(), "2".into()))
+        );
+        assert!(
+            ambiguities.contains(&("2".into(), "4".into()))
+                || ambiguities.contains(&("4".into(), "2".into()))
+        );
+        assert!(
+            ambiguities.contains(&("3".into(), "4".into()))
+                || ambiguities.contains(&("4".into(), "3".into()))
+        );
+        assert_eq!(ambiguities.len(), 6);
+
+        let mut stage = SystemStage::parallel()
+            .with_system(empty.exclusive_system().label("0").before("1").before("3"))
+            .with_system(empty.exclusive_system().label("1"))
+            .with_system(empty.exclusive_system().label("2").after("1"))
+            .with_system(empty.exclusive_system().label("3"))
+            .with_system(empty.exclusive_system().label("4").after("3").before("5"))
+            .with_system(empty.exclusive_system().label("5"))
+            .with_system(empty.exclusive_system().label("6").after("2").after("5"));
+        stage.initialize_systems(&mut world, &mut resources);
+        stage.rebuild_orders_and_dependencies();
+        let ambiguities = find_ambiguities_labels(&stage.exclusive_at_start);
+        assert!(
+            ambiguities.contains(&("1".into(), "3".into()))
+                || ambiguities.contains(&("3".into(), "1".into()))
+        );
+        assert!(
+            ambiguities.contains(&("2".into(), "3".into()))
+                || ambiguities.contains(&("3".into(), "2".into()))
+        );
+        assert!(
+            ambiguities.contains(&("1".into(), "4".into()))
+                || ambiguities.contains(&("4".into(), "1".into()))
+        );
+        assert!(
+            ambiguities.contains(&("2".into(), "4".into()))
+                || ambiguities.contains(&("4".into(), "2".into()))
+        );
+        assert!(
+            ambiguities.contains(&("1".into(), "5".into()))
+                || ambiguities.contains(&("5".into(), "1".into()))
+        );
+        assert!(
+            ambiguities.contains(&("2".into(), "5".into()))
+                || ambiguities.contains(&("5".into(), "2".into()))
+        );
+        assert_eq!(ambiguities.len(), 6);
 
         let mut stage = SystemStage::parallel()
             .with_system(empty.exclusive_system().label("0"))
             .with_system(empty.exclusive_system().label("1").after("0"))
-            .with_system(empty.exclusive_system().label("2"))
-            .with_system(empty.exclusive_system().after("2").before("4"))
-            .with_system(empty.exclusive_system().label("4"));
+            .with_system(empty.exclusive_system().label("2").after("1"))
+            .with_system(empty.exclusive_system().label("3").after("2"))
+            .with_system(empty.exclusive_system().label("4").after("3"))
+            .with_system(empty.exclusive_system().label("5").after("4"))
+            .with_system(empty.exclusive_system().label("6").after("5"))
+            .with_system(empty.exclusive_system().label("7").after("6"));
         stage.initialize_systems(&mut world, &mut resources);
         stage.rebuild_orders_and_dependencies();
-        assert_eq!(find_ambiguities(&stage.exclusive_at_start).len(), 6);
+        assert_eq!(find_ambiguities(&stage.exclusive_at_start).len(), 0);
+
+        /*struct Paddle;
+        struct Transform;
+        struct Time;
+        struct Input;
+        struct Ball;
+        struct Scoreboard;
+        struct Sprite;
+        struct Collider;
+        struct Text;
+        fn ball_collision_system(
+            commands: &mut Commands,
+            scoreboard: ResMut<Scoreboard>,
+            ball_query: Query<(&mut Ball, &Transform, &Sprite)>,
+            collider_query: Query<(Entity, &Collider, &Transform, &Sprite)>,
+        ) {
+        }
+        fn scoreboard_system(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {}
+        fn ball_movement_system(time: Res<Time>, mut ball_query: Query<(&Ball, &mut Transform)>) {}
+        fn paddle_movement_system(
+            time: Res<Time>,
+            keyboard_input: Res<Input>,
+            mut query: Query<(&Paddle, &mut Transform)>,
+        ) {
+        }
+        let mut stage = SystemStage::parallel()
+            .with_system(paddle_movement_system.system().before("collision"))
+            .with_system(ball_movement_system.system().before("collision"))
+            .with_system(ball_collision_system.system().label("collision"))
+            .with_system(scoreboard_system.system().after("collision"));
+        resources.insert(ReportExecutionOrderAmbiguities);
+        resources.insert(Time);
+        resources.insert(Scoreboard);
+        resources.insert(Text);
+        resources.insert(Input);*/
     }
 }
