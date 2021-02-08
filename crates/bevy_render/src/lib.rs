@@ -149,6 +149,10 @@ impl Plugin for RenderPlugin {
         .add_system_to_stage(CoreStage::PreUpdate, draw::clear_draw_system.system())
         .add_system_to_stage(
             CoreStage::PostUpdate,
+            camera::viewport_resize_system.system(),
+        )
+        .add_system_to_stage(
+            CoreStage::PostUpdate,
             camera::active_cameras_system.system(),
         )
         .add_system_to_stage(

@@ -56,10 +56,6 @@ pub fn camera_system<T: CameraProjection + Component>(
     mut query: Query<(&mut Camera, &mut T, &Viewport), Changed<Viewport>>,
 ) {
     for (mut camera, mut camera_projection, viewport) in query.iter_mut() {
-        println!(
-            "updating camera {:?}, vp {}x{} at {}x{}",
-            camera.name, viewport.size.x, viewport.size.y, viewport.origin.x, viewport.origin.y
-        );
         camera_projection.update(viewport.size.x, viewport.size.y);
         camera.projection_matrix = camera_projection.get_projection_matrix();
         camera.depth_calculation = camera_projection.depth_calculation();
