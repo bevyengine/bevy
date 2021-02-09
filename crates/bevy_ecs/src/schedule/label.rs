@@ -86,29 +86,13 @@ impl<M: 'static> Label<M> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::IntoLabel;
+    struct LabelT;
+    #[derive(IntoLabel, PartialEq, Eq, Hash, Debug)]
+    #[label_type(LabelT)]
+    struct L(&'static str);
     #[test]
     fn label_eq_test() {
-        #[derive(PartialEq, Eq, Hash, Debug)]
-        struct L(&'static str);
-
-        impl IntoLabel<()> for L {
-            fn name(&self) -> Cow<'static, str> {
-                Cow::Borrowed(self.0)
-            }
-
-            fn downcast_eq(&self, other: &dyn IntoLabel<()>) -> bool {
-                match other.downcast_ref::<Self>() {
-                    Some(val) => val == self,
-                    None => false,
-                }
-            }
-
-            fn dyn_hash(&self, mut hasher: &mut dyn Hasher) {
-                std::any::TypeId::of::<Self>().hash(&mut hasher);
-                self.hash(&mut hasher)
-            }
-        }
-
         let label_1 = L("A");
         let label_2 = L("A");
         assert_eq!(label_1, label_2);

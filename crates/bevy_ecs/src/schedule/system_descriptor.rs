@@ -16,14 +16,19 @@ use crate::{
 /// that they have to run before or after the system with that label.
 ///
 /// # Example
-/// ```rust
+/// ```no_run
+/// # // This is no_run because the macro doesn't like the doctest environment
 /// # use bevy_ecs::prelude::*;
 /// # fn do_something() {}
 /// # fn do_the_other_thing() {}
 /// # fn do_something_else() {}
+/// #[derive(IntoLabel, PartialEq, Eq, Hash)]
+/// #[label_type(SystemLabel)]
+/// struct Something;
+///
 /// SystemStage::parallel()
-///     .with_system(do_something.system().label("something"))
-///     .with_system(do_the_other_thing.system().after("something"))
+///     .with_system(do_something.system().label(Something))
+///     .with_system(do_the_other_thing.system().after(Something))
 ///     .with_system(do_something_else.exclusive_system().at_end());
 /// ```
 pub enum SystemDescriptor {
