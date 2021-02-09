@@ -1,21 +1,21 @@
-use bevy_reflect::Reflect;
+use bevy_reflect::{FromReflect, Reflect};
 use glam::Vec2;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 /// A two dimensional "size" as defined by a width and height
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-pub struct Size<T: Reflect = f32> {
+pub struct Size<T: FromReflect = f32> {
     pub width: T,
     pub height: T,
 }
 
-impl<T: Reflect> Size<T> {
+impl<T: FromReflect> Size<T> {
     pub fn new(width: T, height: T) -> Self {
         Size { width, height }
     }
 }
 
-impl<T: Default + Reflect> Default for Size<T> {
+impl<T: Default + FromReflect> Default for Size<T> {
     fn default() -> Self {
         Self {
             width: Default::default(),
@@ -26,14 +26,14 @@ impl<T: Default + Reflect> Default for Size<T> {
 
 /// A rect, as defined by its "side" locations
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-pub struct Rect<T: Reflect> {
+pub struct Rect<T: FromReflect> {
     pub left: T,
     pub right: T,
     pub top: T,
     pub bottom: T,
 }
 
-impl<T: Reflect> Rect<T> {
+impl<T: FromReflect> Rect<T> {
     pub fn all(value: T) -> Self
     where
         T: Clone,
@@ -47,7 +47,7 @@ impl<T: Reflect> Rect<T> {
     }
 }
 
-impl<T: Default + Reflect> Default for Rect<T> {
+impl<T: Default + FromReflect> Default for Rect<T> {
     fn default() -> Self {
         Self {
             left: Default::default(),
@@ -58,7 +58,7 @@ impl<T: Default + Reflect> Default for Rect<T> {
     }
 }
 
-impl<T: Reflect> Add<Vec2> for Size<T>
+impl<T: FromReflect> Add<Vec2> for Size<T>
 where
     T: Add<f32, Output = T>,
 {
@@ -72,7 +72,7 @@ where
     }
 }
 
-impl<T: Reflect> AddAssign<Vec2> for Size<T>
+impl<T: FromReflect> AddAssign<Vec2> for Size<T>
 where
     T: AddAssign<f32>,
 {
@@ -82,7 +82,7 @@ where
     }
 }
 
-impl<T: Reflect> Sub<Vec2> for Size<T>
+impl<T: FromReflect> Sub<Vec2> for Size<T>
 where
     T: Sub<f32, Output = T>,
 {
@@ -96,7 +96,7 @@ where
     }
 }
 
-impl<T: Reflect> SubAssign<Vec2> for Size<T>
+impl<T: FromReflect> SubAssign<Vec2> for Size<T>
 where
     T: SubAssign<f32>,
 {
@@ -106,7 +106,7 @@ where
     }
 }
 
-impl<T: Reflect> Mul<f32> for Size<T>
+impl<T: FromReflect> Mul<f32> for Size<T>
 where
     T: Mul<f32, Output = T>,
 {
@@ -120,7 +120,7 @@ where
     }
 }
 
-impl<T: Reflect> MulAssign<f32> for Size<T>
+impl<T: FromReflect> MulAssign<f32> for Size<T>
 where
     T: MulAssign<f32>,
 {
@@ -130,7 +130,7 @@ where
     }
 }
 
-impl<T: Reflect> Div<f32> for Size<T>
+impl<T: FromReflect> Div<f32> for Size<T>
 where
     T: Div<f32, Output = T>,
 {
@@ -144,7 +144,7 @@ where
     }
 }
 
-impl<T: Reflect> DivAssign<f32> for Size<T>
+impl<T: FromReflect> DivAssign<f32> for Size<T>
 where
     T: DivAssign<f32>,
 {

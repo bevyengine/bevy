@@ -11,10 +11,10 @@ use bevy_render::{
 use bevy_sprite::{TextureAtlas, QUAD_HANDLE};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_window::Windows;
-use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
 
 use crate::{
-    CalculatedSize, DefaultTextPipeline, DrawableText, Font, FontAtlasSet, Text, TextError,
+    CalculatedSize, DefaultTextPipeline, DrawableText, Font, FontAtlasSet, HorizontalAlign, Text,
+    TextError, VerticalAlign,
 };
 
 /// The bundle of components needed to draw text in a 2D scene via the Camera2dBundle.

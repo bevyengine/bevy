@@ -68,10 +68,15 @@ where
     #[reflect(ignore)]
     marker: PhantomData<T>,
 }
-
 enum HandleType {
     Weak,
     Strong(Sender<RefChange>),
+}
+
+impl Default for HandleType {
+    fn default() -> Self {
+        HandleType::Weak
+    }
 }
 
 impl Debug for HandleType {

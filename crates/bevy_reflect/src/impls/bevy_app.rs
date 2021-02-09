@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::{impl_reflect_value, GetTypeRegistration, ReflectDeserialize, TypeRegistryArc};
 use bevy_app::{AppBuilder, Plugin};
 use bevy_ecs::Entity;
@@ -23,7 +25,8 @@ impl Plugin for ReflectPlugin {
             .register_type::<isize>()
             .register_type::<f32>()
             .register_type::<f64>()
-            .register_type::<String>();
+            .register_type::<String>()
+            .register_type::<Cow<str>>();
         #[cfg(feature = "glam")]
         {
             app.register_type::<glam::Vec2>()

@@ -105,6 +105,16 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
         })
         .map(|(f, _attr, i)| (*f, *i))
         .collect::<Vec<(&Field, usize)>>();
+    let ignored_fields = fields_and_args
+        .iter()
+        .filter(|(_field, attrs, _i)| {
+            attrs
+                .as_ref()
+                .map(|attrs| attrs.ignore.unwrap_or(false))
+                .unwrap_or(false)
+        })
+        .map(|(f, _attr, i)| (*f, *i))
+        .collect::<Vec<(&Field, usize)>>();
 
     let modules = get_modules();
     let bevy_reflect_path = get_path(&modules.bevy_reflect);
@@ -144,6 +154,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
             &bevy_reflect_path,
             &reflect_attrs,
             &active_fields,
+            &ignored_fields,
         ),
         DeriveType::TupleStruct => impl_tuple_struct(
             type_name,
@@ -152,6 +163,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
             &bevy_reflect_path,
             &reflect_attrs,
             &active_fields,
+            &ignored_fields,
         ),
         DeriveType::Value => impl_value(
             type_name,
@@ -170,6 +182,7 @@ fn impl_struct(
     bevy_reflect_path: &Path,
     reflect_attrs: &ReflectAttrs,
     active_fields: &[(&Field, usize)],
+    ignored_fields: &[(&Field, usize)],
 ) -> TokenStream {
     let field_names = active_fields
         .iter()
@@ -182,6 +195,20 @@ fn impl_struct(
         })
         .collect::<Vec<String>>();
     let field_idents = active_fields
+        .iter()
+        .map(|(field, index)| {
+            field
+                .ident
+                .as_ref()
+                .map(|ident| Member::Named(ident.clone()))
+                .unwrap_or_else(|| Member::Unnamed(Index::from(*index)))
+        })
+        .collect::<Vec<_>>();
+    let field_types = active_fields
+        .iter()
+        .map(|(field, _index)| field.ty.clone())
+        .collect::<Vec<_>>();
+    let ignored_field_idents = ignored_fields
         .iter()
         .map(|(field, index)| {
             field
@@ -205,6 +232,17 @@ fn impl_struct(
     };
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    // Add FromReflect bound for each field
+    let mut where_from_reflect_clause = if where_clause.is_some() {
+        quote! {#where_clause}
+    } else if field_count > 0 {
+        quote! {where}
+    } else {
+        quote! {}
+    };
+    where_from_reflect_clause.extend(quote! {
+        #(#field_types: #bevy_reflect_path::FromReflect,)*
+    });
 
     TokenStream::from(quote! {
         #get_type_registration_impl
@@ -319,6 +357,25 @@ fn impl_struct(
                 #partial_eq_fn
             }
         }
+
+        impl #impl_generics #bevy_reflect_path::FromReflect for #struct_name#ty_generics #where_from_reflect_clause
+        {
+            fn from_reflect(dyn_reflect: &dyn #bevy_reflect_path::Reflect) -> Option<Self> {
+                use #bevy_reflect_path::Struct;
+                if let #bevy_reflect_path::ReflectRef::Struct(dyn_struct) = dyn_reflect.reflect_ref() {
+                    Some(
+                        Self{
+                            #(#field_idents: {
+                                <#field_types as #bevy_reflect_path::FromReflect>::from_reflect(dyn_struct.field(#field_names)?)?
+                            },)*
+                            #(#ignored_field_idents: Default::default(),)*
+                        }
+                    )
+                } else {
+                    None
+                }
+            }
+        }
     })
 }
 
@@ -329,13 +386,22 @@ fn impl_tuple_struct(
     bevy_reflect_path: &Path,
     reflect_attrs: &ReflectAttrs,
     active_fields: &[(&Field, usize)],
+    ignored_fields: &[(&Field, usize)],
 ) -> TokenStream {
     let field_idents = active_fields
         .iter()
         .map(|(_field, index)| Member::Unnamed(Index::from(*index)))
         .collect::<Vec<_>>();
+    let field_types = active_fields
+        .iter()
+        .map(|(field, _index)| field.ty.clone())
+        .collect::<Vec<_>>();
     let field_count = active_fields.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
+    let ignored_field_idents = ignored_fields
+        .iter()
+        .map(|(_field, index)| Member::Unnamed(Index::from(*index)))
+        .collect::<Vec<_>>();
 
     let hash_fn = reflect_attrs.get_hash_impl(&bevy_reflect_path);
     let serialize_fn = reflect_attrs.get_serialize_impl(&bevy_reflect_path);
@@ -347,7 +413,19 @@ fn impl_tuple_struct(
         TraitImpl::Implemented | TraitImpl::Custom(_) => reflect_attrs.get_partial_eq_impl(),
     };
 
-    let (impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    // Add FromReflect bound for each field
+    let mut where_from_reflect_clause = if where_clause.is_some() {
+        quote! {#where_clause}
+    } else if field_count > 0 {
+        quote! {where}
+    } else {
+        quote! {}
+    };
+    where_from_reflect_clause.extend(quote! {
+        #(#field_types: #bevy_reflect_path::FromReflect,)*
+    });
+
     TokenStream::from(quote! {
         #get_type_registration_impl
 
@@ -439,6 +517,25 @@ fn impl_tuple_struct(
                 #partial_eq_fn
             }
         }
+
+        impl #impl_generics #bevy_reflect_path::FromReflect for #struct_name#ty_generics #where_from_reflect_clause
+        {
+            fn from_reflect(dyn_reflect: &dyn #bevy_reflect_path::Reflect) -> Option<Self> {
+                use #bevy_reflect_path::TupleStruct;
+                if let #bevy_reflect_path::ReflectRef::TupleStruct(dyn_tuple_struct) = dyn_reflect.reflect_ref() {
+                    Some(
+                        Self{
+                            #(#field_idents:
+                                <#field_types as #bevy_reflect_path::FromReflect>::from_reflect(dyn_tuple_struct.field(#field_indices)?)?
+                            ,)*
+                            #(#ignored_field_idents: Default::default(),)*
+                        }
+                    )
+                } else {
+                    None
+                }
+            }
+        }
     })
 }
 
@@ -512,6 +609,12 @@ fn impl_value(
 
             fn serializable(&self) -> Option<#bevy_reflect_path::serde::Serializable> {
                 #serialize_fn
+            }
+        }
+
+        impl #impl_generics #bevy_reflect_path::FromReflect for #type_name#ty_generics #where_clause  {
+            fn from_reflect(dyn_value: &dyn #bevy_reflect_path::Reflect) -> Option<Self> {
+                Some(dyn_value.any().downcast_ref::<#type_name#ty_generics>()?.clone())
             }
         }
     })

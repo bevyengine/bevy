@@ -1,11 +1,13 @@
 use bevy_asset::Handle;
 use bevy_math::Size;
+use bevy_reflect::{Reflect, ReflectComponent, ReflectDeserialize};
 use bevy_render::color::Color;
-use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
+use serde::{Deserialize, Serialize};
 
 use crate::Font;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Reflect)]
+#[reflect(Component)]
 pub struct Text {
     pub sections: Vec<TextSection>,
     pub alignment: TextAlignment,
@@ -17,8 +19,7 @@ impl Text {
     /// ```
     /// # use bevy_asset::{AssetServer, Handle};
     /// # use bevy_render::color::Color;
-    /// # use bevy_text::{Font, Text, TextAlignment, TextStyle};
-    /// # use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
+    /// # use bevy_text::{Font, Text, TextAlignment, TextStyle, HorizontalAlign, VerticalAlign};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
     /// #
@@ -63,13 +64,13 @@ impl Text {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Reflect)]
 pub struct TextSection {
     pub value: String,
     pub style: TextStyle,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Reflect)]
 pub struct TextAlignment {
     pub vertical: VerticalAlign,
     pub horizontal: HorizontalAlign,
@@ -84,7 +85,42 @@ impl Default for TextAlignment {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Reflect)]
+#[reflect_value(Serialize, Deserialize, PartialEq, Hash)]
+pub enum VerticalAlign {
+    Top,
+    Center,
+    Bottom,
+}
+
+impl From<VerticalAlign> for glyph_brush_layout::VerticalAlign {
+    fn from(vertical_align: VerticalAlign) -> Self {
+        match vertical_align {
+            VerticalAlign::Top => glyph_brush_layout::VerticalAlign::Top,
+            VerticalAlign::Center => glyph_brush_layout::VerticalAlign::Center,
+            VerticalAlign::Bottom => glyph_brush_layout::VerticalAlign::Bottom,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Reflect)]
+#[reflect_value(Serialize, Deserialize, PartialEq, Hash)]
+pub enum HorizontalAlign {
+    Left,
+    Center,
+    Right,
+}
+
+impl From<HorizontalAlign> for glyph_brush_layout::HorizontalAlign {
+    fn from(horizontal_align: HorizontalAlign) -> Self {
+        match horizontal_align {
+            HorizontalAlign::Left => glyph_brush_layout::HorizontalAlign::Left,
+            HorizontalAlign::Center => glyph_brush_layout::HorizontalAlign::Center,
+            HorizontalAlign::Right => glyph_brush_layout::HorizontalAlign::Right,
+        }
+    }
+}
+#[derive(Clone, Debug, Reflect)]
 pub struct TextStyle {
     pub font: Handle<Font>,
     pub font_size: f32,
@@ -101,7 +137,8 @@ impl Default for TextStyle {
     }
 }
 
-#[derive(Default, Copy, Clone, Debug)]
+#[derive(Default, Copy, Clone, Debug, Reflect)]
+#[reflect(Component)]
 pub struct CalculatedSize {
     pub size: Size,
 }

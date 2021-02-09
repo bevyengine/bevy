@@ -1,6 +1,6 @@
 use crate::{
-    map_partial_eq, serde::Serializable, DynamicMap, List, ListIter, Map, MapIter, Reflect,
-    ReflectDeserialize, ReflectMut, ReflectRef,
+    map_partial_eq, serde::Serializable, DynamicMap, FromReflect, List, ListIter, Map, MapIter,
+    Reflect, ReflectDeserialize, ReflectMut, ReflectRef,
 };
 
 use bevy_reflect_derive::impl_reflect_value;
@@ -33,7 +33,7 @@ impl_reflect_value!(Option<T: Serialize + Clone + for<'de> Deserialize<'de> + Re
 impl_reflect_value!(HashSet<T: Serialize + Hash + Eq + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
 impl_reflect_value!(Range<T: Serialize + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
 
-impl<T: Reflect> List for Vec<T> {
+impl<T: FromReflect> List for Vec<T> {
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
         <[T]>::get(self, index).map(|value| value as &dyn Reflect)
     }
@@ -54,7 +54,7 @@ impl<T: Reflect> List for Vec<T> {
     }
 
     fn push(&mut self, value: Box<dyn Reflect>) {
-        let value = value.take::<T>().unwrap_or_else(|value| {
+        let value = T::from_reflect(&*value).unwrap_or_else(|| {
             panic!(
                 "Attempted to push invalid value of type {}.",
                 value.type_name()
@@ -64,7 +64,7 @@ impl<T: Reflect> List for Vec<T> {
     }
 }
 
-impl<T: Reflect> Reflect for Vec<T> {
+impl<T: FromReflect> Reflect for Vec<T> {
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
     }
@@ -111,7 +111,21 @@ impl<T: Reflect> Reflect for Vec<T> {
     }
 }
 
-impl<K: Reflect + Clone + Eq + Hash, V: Reflect + Clone> Map for HashMap<K, V> {
+impl<T: FromReflect> FromReflect for Vec<T> {
+    fn from_reflect(dyn_value: &dyn Reflect) -> Option<Self> {
+        if let ReflectRef::List(dyn_list) = dyn_value.reflect_ref() {
+            let mut list = Self::new();
+            for dyn_field in dyn_list.iter() {
+                list.push(T::from_reflect(dyn_field)?);
+            }
+            Some(list)
+        } else {
+            None
+        }
+    }
+}
+
+impl<K: Reflect + Eq + Hash, V: Reflect> Map for HashMap<K, V> {
     fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect> {
         key.downcast_ref::<K>()
             .and_then(|key| HashMap::get(self, key))
@@ -151,7 +165,7 @@ impl<K: Reflect + Clone + Eq + Hash, V: Reflect + Clone> Map for HashMap<K, V> {
     }
 }
 
-impl<K: Reflect + Clone + Eq + Hash, V: Reflect + Clone> Reflect for HashMap<K, V> {
+impl<K: Reflect + Eq + Hash, V: Reflect> Reflect for HashMap<K, V> {
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
     }
@@ -203,6 +217,22 @@ impl<K: Reflect + Clone + Eq + Hash, V: Reflect + Clone> Reflect for HashMap<K, 
 
     fn serializable(&self) -> Option<Serializable> {
         None
+    }
+}
+
+impl<K: FromReflect + Eq + Hash, V: FromReflect> FromReflect for HashMap<K, V> {
+    fn from_reflect(dyn_value: &dyn Reflect) -> Option<Self> {
+        if let ReflectRef::Map(dyn_map) = dyn_value.reflect_ref() {
+            let mut map = Self::default();
+            for (dyn_key, dyn_field) in dyn_map.iter() {
+                let key = K::from_reflect(dyn_key)?;
+                let field = V::from_reflect(dyn_field)?;
+                map.insert(key, field);
+            }
+            Some(map)
+        } else {
+            None
+        }
     }
 }
 
@@ -263,5 +293,20 @@ impl Reflect for Cow<'static, str> {
 
     fn serializable(&self) -> Option<Serializable> {
         Some(Serializable::Borrowed(self))
+    }
+}
+
+impl crate::GetTypeRegistration for Cow<'static, str> {
+    fn get_type_registration() -> crate::TypeRegistration {
+        let mut registration = crate::TypeRegistration::of::<Cow<'static, str>>();
+        registration
+            .insert::<ReflectDeserialize>(crate::FromType::<Cow<'static, str>>::from_type());
+        registration
+    }
+}
+
+impl crate::FromReflect for Cow<'static, str> {
+    fn from_reflect(dyn_value: &dyn crate::Reflect) -> Option<Self> {
+        Some(dyn_value.any().downcast_ref::<Cow<'static, str>>()?.clone())
     }
 }

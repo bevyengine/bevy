@@ -21,13 +21,16 @@ pub use text::*;
 pub use text2d::*;
 
 pub mod prelude {
-    pub use crate::{Font, Text, Text2dBundle, TextAlignment, TextError, TextSection, TextStyle};
-    pub use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
+    pub use crate::{
+        Font, HorizontalAlign, Text, Text2dBundle, TextAlignment, TextError, TextSection,
+        TextStyle, VerticalAlign,
+    };
 }
 
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
 use bevy_ecs::{Entity, IntoSystem};
+use bevy_reflect::RegisterTypeBuilder;
 
 pub type DefaultTextPipeline = TextPipeline<Entity>;
 
@@ -44,6 +47,11 @@ impl Plugin for TextPlugin {
             .add_system_to_stage(
                 bevy_render::stage::DRAW,
                 text2d::draw_text2d_system.system(),
-            );
+            )
+            .register_type::<Text>()
+            .register_type::<CalculatedSize>()
+            .register_type::<VerticalAlign>()
+            .register_type::<HorizontalAlign>()
+            .register_type::<TextAlignment>();
     }
 }

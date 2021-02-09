@@ -145,7 +145,7 @@ impl SceneSpawner {
                         reflect_component.apply_component(world, entity, &**component);
                     }
                 } else {
-                    reflect_component.add_component(world, resources, entity, &**component);
+                    reflect_component.add_component(world, entity, &**component);
                 }
             }
         }
@@ -199,13 +199,7 @@ impl SceneSpawner {
                                 type_name: registration.name().to_string(),
                             }
                         })?;
-                    reflect_component.copy_component(
-                        &scene.world,
-                        world,
-                        resources,
-                        *scene_entity,
-                        entity,
-                    );
+                    reflect_component.copy_component(&scene.world, world, *scene_entity, entity);
                 }
             }
         }

@@ -25,6 +25,7 @@ fn main() {
 pub struct Foo {
     a: usize,
     nested: Bar,
+    // Fields can be ignored, but they must implement then Default so that the struct can be deserialized
     #[reflect(ignore)]
     _ignored: NonReflectedValue,
 }
@@ -35,6 +36,7 @@ pub struct Bar {
     b: usize,
 }
 
+#[derive(Default)]
 pub struct NonReflectedValue {
     _a: usize,
 }
@@ -83,6 +85,10 @@ fn setup(type_registry: Res<TypeRegistry>) {
     // of a type. For example, deserializing a struct will return the DynamicStruct type. "Value types" will be deserialized
     // as themselves.
     let _deserialized_struct = reflect_value.downcast_ref::<DynamicStruct>();
+
+    // A dynamic type can be converted back into a concrete one using the FromReflect trait
+    use bevy::reflect::FromReflect;
+    let _deserialized_concrete_value = Foo::from_reflect(&*reflect_value).unwrap();
 
     // Reflect has its own `partial_eq` implementation, named `reflect_partial_eq`. This behaves like normal `partial_eq`, but it treats "dynamic" and
     // "non-dynamic" types the same. The `Foo` struct and deserialized `DynamicStruct` are considered equal for this reason:

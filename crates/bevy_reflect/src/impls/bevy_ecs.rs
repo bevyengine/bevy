@@ -1,28 +1,21 @@
-use crate::{FromType, Reflect};
+use crate::{FromReflect, FromType, Reflect};
 use bevy_ecs::{
-    Archetype, Component, Entity, EntityMap, FromResources, MapEntities, MapEntitiesError,
-    Resources, World,
+    Archetype, Component, Entity, EntityMap, MapEntities, MapEntitiesError, Resources, World,
 };
 use std::marker::PhantomData;
 
 #[derive(Clone)]
 pub struct ReflectComponent {
-    add_component: fn(&mut World, resources: &Resources, Entity, &dyn Reflect),
+    add_component: fn(&mut World, Entity, &dyn Reflect),
     apply_component: fn(&mut World, Entity, &dyn Reflect),
     reflect_component: unsafe fn(&Archetype, usize) -> &dyn Reflect,
     reflect_component_mut: unsafe fn(&Archetype, usize) -> &mut dyn Reflect,
-    copy_component: fn(&World, &mut World, &Resources, Entity, Entity),
+    copy_component: fn(&World, &mut World, Entity, Entity),
 }
 
 impl ReflectComponent {
-    pub fn add_component(
-        &self,
-        world: &mut World,
-        resources: &Resources,
-        entity: Entity,
-        component: &dyn Reflect,
-    ) {
-        (self.add_component)(world, resources, entity, component);
+    pub fn add_component(&self, world: &mut World, entity: Entity, component: &dyn Reflect) {
+        (self.add_component)(world, entity, component);
     }
 
     pub fn apply_component(&self, world: &mut World, entity: Entity, component: &dyn Reflect) {
@@ -57,40 +50,32 @@ impl ReflectComponent {
         &self,
         source_world: &World,
         destination_world: &mut World,
-        resources: &Resources,
         source_entity: Entity,
         destination_entity: Entity,
     ) {
         (self.copy_component)(
             source_world,
             destination_world,
-            resources,
             source_entity,
             destination_entity,
         );
     }
 }
 
-impl<C: Component + Reflect + FromResources> FromType<C> for ReflectComponent {
+impl<C: Component + FromReflect> FromType<C> for ReflectComponent {
     fn from_type() -> Self {
         ReflectComponent {
-            add_component: |world, resources, entity, reflected_component| {
-                let mut component = C::from_resources(resources);
-                component.apply(reflected_component);
+            add_component: |world, entity, reflected_component| {
+                let component = C::from_reflect(reflected_component).unwrap();
                 world.insert_one(entity, component).unwrap();
             },
             apply_component: |world, entity, reflected_component| {
                 let mut component = world.get_mut::<C>(entity).unwrap();
                 component.apply(reflected_component);
             },
-            copy_component: |source_world,
-                             destination_world,
-                             resources,
-                             source_entity,
-                             destination_entity| {
+            copy_component: |source_world, destination_world, source_entity, destination_entity| {
                 let source_component = source_world.get::<C>(source_entity).unwrap();
-                let mut destination_component = C::from_resources(resources);
-                destination_component.apply(source_component);
+                let destination_component = C::from_reflect(source_component).unwrap();
                 destination_world
                     .insert_one(destination_entity, destination_component)
                     .unwrap();

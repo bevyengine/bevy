@@ -2,8 +2,10 @@ use crate::Node;
 use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
+use bevy_reflect::{Reflect, ReflectComponent, ReflectDeserialize};
 use bevy_transform::components::GlobalTransform;
 use bevy_window::Windows;
+use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -19,7 +21,8 @@ impl Default for Interaction {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
+#[reflect_value(Component, PartialEq, Serialize, Deserialize)]
 pub enum FocusPolicy {
     Block,
     Pass,

@@ -39,6 +39,11 @@ pub trait Reflect: Any + Send + Sync {
     fn serializable(&self) -> Option<Serializable>;
 }
 
+pub trait FromReflect: Reflect + Sized {
+    /// Converts dynamic types to the real type they represent
+    fn from_reflect(dyn_value: &dyn Reflect) -> Option<Self>;
+}
+
 impl Debug for dyn Reflect {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&format!("Reflect({})", self.type_name()))

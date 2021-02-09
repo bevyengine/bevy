@@ -1,5 +1,5 @@
 use crate::texture::TextureFormat;
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, ReflectDeserialize};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug)]
@@ -88,6 +88,7 @@ pub enum CompareFunction {
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Reflect)]
+#[reflect(Serialize, Deserialize, PartialEq, Hash)]
 pub enum PrimitiveTopology {
     PointList = 0,
     LineList = 1,

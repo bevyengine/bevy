@@ -21,6 +21,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::{IntoSystem, SystemStage};
+use bevy_reflect::RegisterTypeBuilder;
 use bevy_render::render_graph::RenderGraph;
 use update::ui_z_system;
 
@@ -45,7 +46,21 @@ impl Plugin for UiPlugin {
             .add_system_to_stage(stage::UI, widget::image_node_system.system())
             .add_system_to_stage(stage::UI, ui_z_system.system())
             .add_system_to_stage(stage::UI, flex_node_system.system())
-            .add_system_to_stage(bevy_render::stage::DRAW, widget::draw_text_system.system());
+            .add_system_to_stage(bevy_render::stage::DRAW, widget::draw_text_system.system())
+            .register_type::<Style>()
+            .register_type::<Node>()
+            .register_type::<FocusPolicy>()
+            .register_type::<Display>()
+            .register_type::<PositionType>()
+            .register_type::<Direction>()
+            .register_type::<FlexDirection>()
+            .register_type::<FlexWrap>()
+            .register_type::<AlignItems>()
+            .register_type::<AlignSelf>()
+            .register_type::<AlignContent>()
+            .register_type::<JustifyContent>()
+            .register_type::<Val>()
+            .register_type::<Option<f32>>();
 
         let resources = app.resources();
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
