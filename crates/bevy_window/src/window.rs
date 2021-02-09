@@ -18,7 +18,6 @@ impl WindowId {
     }
 }
 
-use core::f32;
 use std::fmt;
 
 impl fmt::Display for WindowId {

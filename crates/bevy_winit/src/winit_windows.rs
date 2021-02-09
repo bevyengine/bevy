@@ -1,5 +1,4 @@
-use core::f32;
-
+use bevy_log::warn;
 use bevy_math::IVec2;
 use bevy_utils::HashMap;
 use bevy_window::{Window, WindowDescriptor, WindowId, WindowMode, WindowResizeConstraints};
@@ -29,35 +28,37 @@ impl WinitWindows {
         #[cfg(not(target_os = "windows"))]
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 
-        let default_resize_constraints = WindowResizeConstraints::default();
-        let mut final_resize_constraints = window_descriptor.resize_constraints.clone();
-        if final_resize_constraints.min_width < default_resize_constraints.min_width {
-            final_resize_constraints.min_width = default_resize_constraints.min_width;
+        let WindowResizeConstraints {
+            mut min_width,
+            mut min_height,
+            mut max_width,
+            mut max_height,
+        } = window_descriptor.resize_constraints.clone();
+        min_width = min_width.max(1.);
+        min_height = min_height.max(1.);
+        if max_width < min_width {
+            warn!(
+                "The given maximum width {} is smaller than the minimum width {}",
+                max_width, min_width
+            );
+            max_width = min_width;
         }
-        if final_resize_constraints.min_height < default_resize_constraints.min_height {
-            final_resize_constraints.min_height = default_resize_constraints.min_height;
-        }
-        if final_resize_constraints.max_width > default_resize_constraints.max_width {
-            final_resize_constraints.max_width = default_resize_constraints.max_width;
-        }
-        if final_resize_constraints.max_height > default_resize_constraints.max_height {
-            final_resize_constraints.max_height = default_resize_constraints.max_height;
-        }
-        if final_resize_constraints.max_width < final_resize_constraints.min_width {
-            final_resize_constraints.max_width = default_resize_constraints.max_width;
-        }
-        if final_resize_constraints.max_height < final_resize_constraints.min_height {
-            final_resize_constraints.max_height = default_resize_constraints.max_height;
+        if max_height < min_height {
+            warn!(
+                "The given maximum height {} is smaller than the minimum height {}",
+                max_height, min_height
+            );
+            max_height = min_height;
         }
 
         let min_inner_size = LogicalSize {
-            width: final_resize_constraints.min_width,
-            height: final_resize_constraints.min_height,
+            width: min_width,
+            height: min_height,
         };
 
         let max_inner_size = LogicalSize {
-            width: final_resize_constraints.max_width,
-            height: final_resize_constraints.max_height,
+            width: max_width,
+            height: max_height,
         };
 
         winit_window_builder = match window_descriptor.mode {
@@ -95,9 +96,7 @@ impl WinitWindows {
         };
 
         #[allow(unused_mut)]
-        let mut winit_window_builder = if final_resize_constraints.max_width != f32::INFINITY
-            && final_resize_constraints.max_height != f32::INFINITY
-        {
+        let mut winit_window_builder = if max_width.is_finite() && max_height.is_finite() {
             winit_window_builder
                 .with_min_inner_size(min_inner_size)
                 .with_max_inner_size(max_inner_size)
