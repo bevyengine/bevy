@@ -629,6 +629,7 @@ mod tests {
     // string based label for tests
     #[derive(IntoLabel, PartialEq, Eq, Hash, Clone)]
     #[label_type(SystemLabel)]
+    #[name_expr(self.0)]
     struct L(&'static str);
 
     fn empty() {}

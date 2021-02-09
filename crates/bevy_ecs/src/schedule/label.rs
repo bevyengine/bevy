@@ -40,7 +40,10 @@ impl<T: 'static> Display for Label<T> {
 
 impl<T: 'static> Debug for Label<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.to_str())
+        f.write_str("\"")?;
+        f.write_str(&self.to_str())?;
+        f.write_str("\"")?;
+        Ok(())
     }
 }
 
@@ -77,5 +80,37 @@ downcast_rs::impl_downcast!(IntoLabel<M>);
 impl<M: 'static> Label<M> {
     pub fn to_str(&self) -> Cow<'static, str> {
         self.0.name()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn label_eq_test() {
+        #[derive(PartialEq, Eq, Hash, Debug)]
+        struct L(&'static str);
+
+        impl IntoLabel<()> for L {
+            fn name(&self) -> Cow<'static, str> {
+                Cow::Borrowed(self.0)
+            }
+
+            fn downcast_eq(&self, other: &dyn IntoLabel<()>) -> bool {
+                match other.downcast_ref::<Self>() {
+                    Some(val) => val == self,
+                    None => false,
+                }
+            }
+
+            fn dyn_hash(&self, mut hasher: &mut dyn Hasher) {
+                std::any::TypeId::of::<Self>().hash(&mut hasher);
+                self.hash(&mut hasher)
+            }
+        }
+
+        let label_1 = L("A");
+        let label_2 = L("A");
+        assert_eq!(label_1, label_2);
     }
 }

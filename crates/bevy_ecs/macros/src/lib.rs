@@ -467,7 +467,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     })
 }
 
-#[proc_macro_derive(IntoLabel, attributes(label_type))]
+#[proc_macro_derive(IntoLabel, attributes(label_type, name_expr))]
 pub fn derive_into_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     derive_into_label_(input).into()
@@ -490,15 +490,25 @@ fn derive_into_label_(input: DeriveInput) -> TokenStream2 {
     };
     let crate_path: Path = syn::parse(path_str.parse::<TokenStream>().unwrap()).unwrap();
 
-    let name = ident.to_string();
-    let name = syn::LitStr::new(&name, Span::call_site());
-
     let path = input
         .attrs
         .iter()
         .find(|a| *a.path.get_ident().as_ref().unwrap() == "label_type")
         .and_then(|a| a.parse_args::<syn::Path>().ok())
-        .unwrap_or_else(|| panic!("You must specify label kind"));
+        .unwrap_or_else(|| panic!("You must specify `label_type`"));
+
+    let name = input
+        .attrs
+        .iter()
+        .find(|a| *a.path.get_ident().as_ref().unwrap() == "name_expr")
+        .map(|a| a.parse_args::<syn::Expr>().expect("Expected expression"))
+        .unwrap_or_else(|| {
+            let name = ident.to_string();
+            syn::Expr::Lit(syn::ExprLit {
+                lit: syn::Lit::Str(syn::LitStr::new(&name, Span::call_site())),
+                attrs: Default::default(),
+            })
+        });
 
     quote! {
         impl #crate_path::IntoLabel<#path> for #ident {
@@ -516,6 +526,7 @@ fn derive_into_label_(input: DeriveInput) -> TokenStream2 {
 
             fn dyn_hash(&self, mut hasher: &mut dyn ::std::hash::Hasher) {
                 use ::std::hash::Hash;
+                std::any::TypeId::of::<Self>().hash(&mut hasher);
                 self.hash(&mut hasher)
             }
         }
