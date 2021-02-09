@@ -16,7 +16,7 @@ use crate::{
 /// that they have to run before or after the system with that label.
 ///
 /// # Example
-/// ```no_run
+/// ```ignore
 /// # // This is no_run because the macro doesn't like the doctest environment
 /// # use bevy_ecs::prelude::*;
 /// # fn do_something() {}
