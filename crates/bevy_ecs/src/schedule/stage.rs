@@ -469,20 +469,45 @@ fn topological_order(
 /// Returns vector containing all pairs of indices of systems with ambiguous execution order.
 /// Systems must be topologically sorted beforehand.
 fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize)> {
-    let mut all_relations = Vec::<FixedBitSet>::with_capacity(systems.len());
+    let mut all_dependencies = Vec::<FixedBitSet>::with_capacity(systems.len());
+    let mut all_dependants = Vec::<FixedBitSet>::with_capacity(systems.len());
     for (index, container) in systems.iter().enumerate() {
-        let mut relations = FixedBitSet::with_capacity(systems.len());
-        relations.insert(index);
-        for dependency in container.dependencies() {
-            relations.union_with(&all_relations[*dependency]);
-            all_relations[*dependency].insert(index);
+        let mut dependencies = FixedBitSet::with_capacity(systems.len());
+        for &dependency in container.dependencies() {
+            dependencies.union_with(&all_dependencies[dependency]);
+            dependencies.insert(dependency);
+            all_dependants[dependency].insert(index);
         }
-        all_relations.push(relations);
+        all_dependants.push(FixedBitSet::with_capacity(systems.len()));
+        all_dependencies.push(dependencies);
     }
+    for index in (0..systems.len()).rev() {
+        let mut dependants = FixedBitSet::with_capacity(systems.len());
+        for dependant in all_dependants[index].ones() {
+            dependants.union_with(&all_dependants[dependant]);
+            dependants.insert(dependant);
+        }
+        all_dependants[index] = dependants;
+    }
+    let mut all_relations = all_dependencies
+        .drain(..)
+        .zip(all_dependants.drain(..))
+        .enumerate()
+        .map(|(index, (dependencies, dependants))| {
+            let mut relations = FixedBitSet::with_capacity(systems.len());
+            relations.union_with(&dependencies);
+            relations.union_with(&dependants);
+            relations.insert(index);
+            relations
+        })
+        .collect::<Vec<FixedBitSet>>();
     let mut ambiguities = Vec::new();
     let full_bitset: FixedBitSet = (0..systems.len()).collect();
     for (index_a, relations) in all_relations.drain(..).enumerate() {
-        for index_b in full_bitset.difference(&relations).take(index_a) {
+        // TODO: prove that `.take(index_a)` would be correct here, and uncomment it if so.
+        for index_b in full_bitset.difference(&relations)
+        /*.take(index_a)*/
+        {
             if !systems[index_a].is_compatible(&systems[index_b])
                 && !ambiguities.contains(&(index_b, index_a))
             {
@@ -1105,7 +1130,7 @@ mod tests {
             .with_system(empty.system().label("0"))
             .with_system(empty.system().label("1").after("0"))
             .with_system(empty.system().label("2"))
-            .with_system(empty.system().after("2").before("4"))
+            .with_system(empty.system().label("3").after("2").before("4"))
             .with_system(empty.system().label("4"));
         stage.initialize_systems(&mut world, &mut resources);
         stage.rebuild_orders_and_dependencies();
@@ -1263,6 +1288,19 @@ mod tests {
         assert_eq!(ambiguities.len(), 6);
 
         let mut stage = SystemStage::parallel()
+            .with_system(empty.exclusive_system().label("0"))
+            .with_system(empty.exclusive_system().label("1").after("0"))
+            .with_system(empty.exclusive_system().label("2").after("1"))
+            .with_system(empty.exclusive_system().label("3").after("2"))
+            .with_system(empty.exclusive_system().label("4").after("3"))
+            .with_system(empty.exclusive_system().label("5").after("4"))
+            .with_system(empty.exclusive_system().label("6").after("5"))
+            .with_system(empty.exclusive_system().label("7").after("6"));
+        stage.initialize_systems(&mut world, &mut resources);
+        stage.rebuild_orders_and_dependencies();
+        assert_eq!(find_ambiguities(&stage.exclusive_at_start).len(), 0);
+
+        let mut stage = SystemStage::parallel()
             .with_system(empty.exclusive_system().label("0").before("1").before("3"))
             .with_system(empty.exclusive_system().label("1"))
             .with_system(empty.exclusive_system().label("2").after("1"))
@@ -1298,53 +1336,5 @@ mod tests {
                 || ambiguities.contains(&("5".into(), "2".into()))
         );
         assert_eq!(ambiguities.len(), 6);
-
-        let mut stage = SystemStage::parallel()
-            .with_system(empty.exclusive_system().label("0"))
-            .with_system(empty.exclusive_system().label("1").after("0"))
-            .with_system(empty.exclusive_system().label("2").after("1"))
-            .with_system(empty.exclusive_system().label("3").after("2"))
-            .with_system(empty.exclusive_system().label("4").after("3"))
-            .with_system(empty.exclusive_system().label("5").after("4"))
-            .with_system(empty.exclusive_system().label("6").after("5"))
-            .with_system(empty.exclusive_system().label("7").after("6"));
-        stage.initialize_systems(&mut world, &mut resources);
-        stage.rebuild_orders_and_dependencies();
-        assert_eq!(find_ambiguities(&stage.exclusive_at_start).len(), 0);
-
-        /*struct Paddle;
-        struct Transform;
-        struct Time;
-        struct Input;
-        struct Ball;
-        struct Scoreboard;
-        struct Sprite;
-        struct Collider;
-        struct Text;
-        fn ball_collision_system(
-            commands: &mut Commands,
-            scoreboard: ResMut<Scoreboard>,
-            ball_query: Query<(&mut Ball, &Transform, &Sprite)>,
-            collider_query: Query<(Entity, &Collider, &Transform, &Sprite)>,
-        ) {
-        }
-        fn scoreboard_system(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {}
-        fn ball_movement_system(time: Res<Time>, mut ball_query: Query<(&Ball, &mut Transform)>) {}
-        fn paddle_movement_system(
-            time: Res<Time>,
-            keyboard_input: Res<Input>,
-            mut query: Query<(&Paddle, &mut Transform)>,
-        ) {
-        }
-        let mut stage = SystemStage::parallel()
-            .with_system(paddle_movement_system.system().before("collision"))
-            .with_system(ball_movement_system.system().before("collision"))
-            .with_system(ball_collision_system.system().label("collision"))
-            .with_system(scoreboard_system.system().after("collision"));
-        resources.insert(ReportExecutionOrderAmbiguities);
-        resources.insert(Time);
-        resources.insert(Scoreboard);
-        resources.insert(Text);
-        resources.insert(Input);*/
     }
 }
