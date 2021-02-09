@@ -6,7 +6,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .register_type::<ComponentA>()
         .register_type::<ComponentB>()
-        .add_startup_system(save_scene_system.system())
+        .add_startup_system(save_scene_system.exclusive_system())
         .add_startup_system(load_scene_system.system())
         .add_startup_system(infotext_system.system())
         .add_system(print_system.system())

@@ -11,7 +11,7 @@ pub mod renderer;
 pub mod shader;
 pub mod texture;
 
-use bevy_ecs::{IntoSystem, SystemStage};
+use bevy_ecs::{IntoExclusiveSystem, IntoSystem, SystemStage};
 use bevy_reflect::RegisterTypeBuilder;
 use draw::Visible;
 pub use once_cell;
@@ -169,7 +169,7 @@ impl Plugin for RenderPlugin {
         )
         .add_system_to_stage(
             stage::RENDER_GRAPH_SYSTEMS,
-            render_graph::render_graph_schedule_executor_system.system(),
+            render_graph::render_graph_schedule_executor_system.exclusive_system(),
         )
         .add_system_to_stage(stage::DRAW, pipeline::draw_render_pipelines_system.system())
         .add_system_to_stage(
