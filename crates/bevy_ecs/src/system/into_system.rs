@@ -340,8 +340,8 @@ mod tests {
         clear_trackers_system,
         resource::{Res, ResMut, Resources},
         schedule::Schedule,
-        ChangedRes, Entity, IntoExclusiveSystem, Local, Or, Query, QuerySet, Stage, System,
-        SystemStage, With, World,
+        ChangedRes, Entity, IntoExclusiveSystem, Local, Or, Query, QuerySet, Stage, StageLabel,
+        System, SystemStage, With, World,
     };
 
     #[derive(Debug, Eq, PartialEq, Default)]
@@ -442,6 +442,14 @@ mod tests {
         assert!(*resources.get::<bool>().unwrap(), "system ran");
     }
 
+    use crate::IntoLabel;
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, IntoLabel)]
+    #[label_type(StageLabel)]
+    enum TestLabels {
+        CleanTrackers,
+        Update,
+    }
+
     #[test]
     fn changed_resource_system() {
         fn incr_e_on_flip(_run_on_flip: ChangedRes<bool>, mut query: Query<&mut i32>) {
@@ -458,9 +466,9 @@ mod tests {
         let mut schedule = Schedule::default();
         let mut update = SystemStage::parallel();
         update.add_system(incr_e_on_flip.system());
-        schedule.add_stage("update", update);
+        schedule.add_stage(TestLabels::Update, update);
         schedule.add_stage(
-            "clear_trackers",
+            TestLabels::CleanTrackers,
             SystemStage::single(clear_trackers_system.exclusive_system()),
         );
 
@@ -495,9 +503,9 @@ mod tests {
         let mut schedule = Schedule::default();
         let mut update = SystemStage::parallel();
         update.add_system(incr_e_on_flip.system());
-        schedule.add_stage("update", update);
+        schedule.add_stage(TestLabels::Update, update);
         schedule.add_stage(
-            "clear_trackers",
+            TestLabels::CleanTrackers,
             SystemStage::single(clear_trackers_system.exclusive_system()),
         );
 
@@ -585,7 +593,7 @@ mod tests {
         let mut schedule = Schedule::default();
         let mut update = SystemStage::parallel();
         update.add_system(system);
-        schedule.add_stage("update", update);
+        schedule.add_stage(TestLabels::Update, update);
         schedule.run(world, resources);
     }
 

@@ -47,9 +47,9 @@ impl Plugin for SpritePlugin {
         app.add_asset::<ColorMaterial>()
             .add_asset::<TextureAtlas>()
             .register_type::<Sprite>()
-            .add_system_to_stage(stage::POST_UPDATE, sprite_system.system())
+            .add_system_to_stage(CoreStage::PostUpdate, sprite_system.system())
             .add_system_to_stage(
-                stage::POST_UPDATE,
+                CoreStage::PostUpdate,
                 asset_shader_defs_system::<ColorMaterial>.system(),
             );
 

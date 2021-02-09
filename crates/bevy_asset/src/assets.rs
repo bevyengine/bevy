@@ -219,11 +219,11 @@ impl AddAsset for AppBuilder {
 
         self.insert_resource(assets)
             .add_system_to_stage(
-                super::stage::ASSET_EVENTS,
+                super::AssetStage::AssetEvents,
                 Assets::<T>::asset_event_system.system(),
             )
             .add_system_to_stage(
-                crate::stage::LOAD_ASSETS,
+                crate::AssetStage::LoadAssets,
                 update_asset_storage_system::<T>.system(),
             )
             .register_type::<Handle<T>>()

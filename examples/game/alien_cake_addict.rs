@@ -5,7 +5,12 @@ use bevy::{
 };
 use rand::Rng;
 
-const STAGE: &str = "game";
+#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoLabel)]
+#[label_type(StageLabel)]
+enum GameStages {
+    InGame,
+    BonusUpdate,
+}
 
 #[derive(Clone, PartialEq, Debug)]
 enum GameState {
@@ -20,19 +25,43 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(State::new(GameState::Playing))
         .add_startup_system(setup_cameras.system())
-        .add_stage_after(stage::UPDATE, STAGE, StateStage::<GameState>::default())
-        .on_state_enter(STAGE, GameState::Playing, setup.system())
-        .on_state_update(STAGE, GameState::Playing, move_player.system())
-        .on_state_update(STAGE, GameState::Playing, focus_camera.system())
-        .on_state_update(STAGE, GameState::Playing, rotate_bonus.system())
-        .on_state_update(STAGE, GameState::Playing, scoreboard_system.system())
-        .on_state_exit(STAGE, GameState::Playing, teardown.system())
-        .on_state_enter(STAGE, GameState::GameOver, display_score.system())
-        .on_state_update(STAGE, GameState::GameOver, gameover_keyboard.system())
-        .on_state_exit(STAGE, GameState::GameOver, teardown.system())
         .add_stage_after(
-            stage::UPDATE,
-            "bonus_update",
+            CoreStage::Update,
+            GameStages::InGame,
+            StateStage::<GameState>::default(),
+        )
+        .on_state_enter(GameStages::InGame, GameState::Playing, setup.system())
+        .on_state_update(GameStages::InGame, GameState::Playing, move_player.system())
+        .on_state_update(
+            GameStages::InGame,
+            GameState::Playing,
+            focus_camera.system(),
+        )
+        .on_state_update(
+            GameStages::InGame,
+            GameState::Playing,
+            rotate_bonus.system(),
+        )
+        .on_state_update(
+            GameStages::InGame,
+            GameState::Playing,
+            scoreboard_system.system(),
+        )
+        .on_state_exit(GameStages::InGame, GameState::Playing, teardown.system())
+        .on_state_enter(
+            GameStages::InGame,
+            GameState::GameOver,
+            display_score.system(),
+        )
+        .on_state_update(
+            GameStages::InGame,
+            GameState::GameOver,
+            gameover_keyboard.system(),
+        )
+        .on_state_exit(GameStages::InGame, GameState::GameOver, teardown.system())
+        .add_stage_after(
+            CoreStage::Update,
+            GameStages::BonusUpdate,
             SystemStage::parallel()
                 .with_run_criteria(FixedTimestep::step(5.0))
                 .with_system(spawn_bonus.system()),

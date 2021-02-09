@@ -25,7 +25,7 @@ impl Plugin for AudioPlugin {
             .init_asset_loader::<Mp3Loader>()
             .init_resource::<Audio<AudioSource>>()
             .add_system_to_stage(
-                stage::POST_UPDATE,
+                CoreStage::PostUpdate,
                 play_queued_audio_system::<AudioSource>.exclusive_system(),
             );
     }

@@ -466,3 +466,58 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         }
     })
 }
+
+#[proc_macro_derive(IntoLabel, attributes(label_type))]
+pub fn derive_into_label(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    derive_into_label_(input).into()
+}
+
+fn derive_into_label_(input: DeriveInput) -> TokenStream2 {
+    let ident = input.ident;
+
+    let manifest = Manifest::new().unwrap();
+    let path_str = if let Some(package) = manifest.find(|name| name == "bevy") {
+        format!("{}::ecs", package.name)
+    } else if let Some(package) = manifest.find(|name| name == "bevy_internal") {
+        format!("{}::ecs", package.name)
+    } else if let Some(package) = manifest.find(|name| name == "bevy_ecs") {
+        package.name
+    } else if manifest.crate_package().unwrap().name == "bevy_ecs" {
+        "crate".to_string()
+    } else {
+        "bevy_ecs".to_string()
+    };
+    let crate_path: Path = syn::parse(path_str.parse::<TokenStream>().unwrap()).unwrap();
+
+    let name = ident.to_string();
+    let name = syn::LitStr::new(&name, Span::call_site());
+
+    let path = input
+        .attrs
+        .iter()
+        .find(|a| *a.path.get_ident().as_ref().unwrap() == "label_type")
+        .and_then(|a| a.parse_args::<syn::Path>().ok())
+        .unwrap_or_else(|| panic!("You must specify label kind"));
+
+    quote! {
+        impl #crate_path::IntoLabel<#path> for #ident {
+            fn name(&self) -> std::borrow::Cow<'static, str> {
+                std::borrow::Cow::Borrowed(#name)
+            }
+
+            fn downcast_eq(&self, other: &dyn IntoLabel<#path>) -> bool {
+                self.assert_receiver_is_total_eq();
+                match other.downcast_ref::<Self>() {
+                    Some(val) => val == self,
+                    None => false,
+                }
+            }
+
+            fn dyn_hash(&self, mut hasher: &mut dyn ::std::hash::Hasher) {
+                use ::std::hash::Hash;
+                self.hash(&mut hasher)
+            }
+        }
+    }
+}

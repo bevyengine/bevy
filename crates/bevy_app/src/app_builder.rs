@@ -2,11 +2,12 @@ use crate::{
     app::{App, AppExit},
     event::Events,
     plugin::Plugin,
-    stage, startup_stage, PluginGroup, PluginGroupBuilder,
+    CoreStage, PluginGroup, PluginGroupBuilder, StartupStage,
 };
 use bevy_ecs::{
-    clear_trackers_system, FromResources, IntoExclusiveSystem, IntoSystem, Resource, Resources,
-    RunOnce, Schedule, Stage, StateStage, SystemDescriptor, SystemStage, World,
+    clear_trackers_system, FromResources, FullIntoLabel, IntoExclusiveSystem, IntoSystem, Resource,
+    Resources, RunOnce, Schedule, Stage, StageLabel, StateStage, SystemDescriptor, SystemStage,
+    World,
 };
 use bevy_utils::tracing::debug;
 
@@ -24,7 +25,7 @@ impl Default for AppBuilder {
         app_builder
             .add_default_stages()
             .add_event::<AppExit>()
-            .add_system_to_stage(stage::LAST, clear_trackers_system.exclusive_system());
+            .add_system_to_stage(CoreStage::LAST, clear_trackers_system.exclusive_system());
         app_builder
     }
 }
@@ -54,15 +55,19 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_stage<S: Stage>(&mut self, name: &'static str, stage: S) -> &mut Self {
+    pub fn add_stage<S: Stage>(
+        &mut self,
+        name: impl FullIntoLabel<StageLabel>,
+        stage: S,
+    ) -> &mut Self {
         self.app.schedule.add_stage(name, stage);
         self
     }
 
     pub fn add_stage_after<S: Stage>(
         &mut self,
-        target: &'static str,
-        name: &'static str,
+        target: impl FullIntoLabel<StageLabel>,
+        name: impl FullIntoLabel<StageLabel>,
         stage: S,
     ) -> &mut Self {
         self.app.schedule.add_stage_after(target, name, stage);
@@ -71,18 +76,22 @@ impl AppBuilder {
 
     pub fn add_stage_before<S: Stage>(
         &mut self,
-        target: &'static str,
-        name: &'static str,
+        target: impl FullIntoLabel<StageLabel>,
+        name: impl FullIntoLabel<StageLabel>,
         stage: S,
     ) -> &mut Self {
         self.app.schedule.add_stage_before(target, name, stage);
         self
     }
 
-    pub fn add_startup_stage<S: Stage>(&mut self, name: &'static str, stage: S) -> &mut Self {
+    pub fn add_startup_stage<S: Stage>(
+        &mut self,
+        name: impl FullIntoLabel<StageLabel>,
+        stage: S,
+    ) -> &mut Self {
         self.app
             .schedule
-            .stage(stage::STARTUP, |schedule: &mut Schedule| {
+            .stage(CoreStage::Startup, |schedule: &mut Schedule| {
                 schedule.add_stage(name, stage)
             });
         self
@@ -90,13 +99,13 @@ impl AppBuilder {
 
     pub fn add_startup_stage_after<S: Stage>(
         &mut self,
-        target: &'static str,
-        name: &'static str,
+        target: impl FullIntoLabel<StageLabel>,
+        name: impl FullIntoLabel<StageLabel>,
         stage: S,
     ) -> &mut Self {
         self.app
             .schedule
-            .stage(stage::STARTUP, |schedule: &mut Schedule| {
+            .stage(CoreStage::Startup, |schedule: &mut Schedule| {
                 schedule.add_stage_after(target, name, stage)
             });
         self
@@ -104,13 +113,13 @@ impl AppBuilder {
 
     pub fn add_startup_stage_before<S: Stage>(
         &mut self,
-        target: &'static str,
-        name: &'static str,
+        target: impl FullIntoLabel<StageLabel>,
+        name: impl FullIntoLabel<StageLabel>,
         stage: S,
     ) -> &mut Self {
         self.app
             .schedule
-            .stage(stage::STARTUP, |schedule: &mut Schedule| {
+            .stage(CoreStage::Startup, |schedule: &mut Schedule| {
                 schedule.add_stage_before(target, name, stage)
             });
         self
@@ -118,7 +127,7 @@ impl AppBuilder {
 
     pub fn stage<T: Stage, F: FnOnce(&mut T) -> &mut T>(
         &mut self,
-        name: &str,
+        name: impl FullIntoLabel<StageLabel>,
         func: F,
     ) -> &mut Self {
         self.app.schedule.stage(name, func);
@@ -126,12 +135,12 @@ impl AppBuilder {
     }
 
     pub fn add_system(&mut self, system: impl Into<SystemDescriptor>) -> &mut Self {
-        self.add_system_to_stage(stage::UPDATE, system)
+        self.add_system_to_stage(CoreStage::Update, system)
     }
 
     pub fn add_system_to_stage(
         &mut self,
-        stage_name: &'static str,
+        stage_name: impl FullIntoLabel<StageLabel>,
         system: impl Into<SystemDescriptor>,
     ) -> &mut Self {
         self.app.schedule.add_system_to_stage(stage_name, system);
@@ -139,17 +148,17 @@ impl AppBuilder {
     }
 
     pub fn add_startup_system(&mut self, system: impl Into<SystemDescriptor>) -> &mut Self {
-        self.add_startup_system_to_stage(startup_stage::STARTUP, system)
+        self.add_startup_system_to_stage(StartupStage::Startup, system)
     }
 
     pub fn add_startup_system_to_stage(
         &mut self,
-        stage_name: &'static str,
+        stage_name: impl FullIntoLabel<StageLabel>,
         system: impl Into<SystemDescriptor>,
     ) -> &mut Self {
         self.app
             .schedule
-            .stage(stage::STARTUP, |schedule: &mut Schedule| {
+            .stage(CoreStage::Startup, |schedule: &mut Schedule| {
                 schedule.add_system_to_stage(stage_name, system)
             });
         self
@@ -157,7 +166,7 @@ impl AppBuilder {
 
     pub fn on_state_enter<T: Clone + Resource>(
         &mut self,
-        stage: &str,
+        stage: impl FullIntoLabel<StageLabel>,
         state: T,
         system: impl Into<SystemDescriptor>,
     ) -> &mut Self {
@@ -168,7 +177,7 @@ impl AppBuilder {
 
     pub fn on_state_update<T: Clone + Resource>(
         &mut self,
-        stage: &str,
+        stage: impl FullIntoLabel<StageLabel>,
         state: T,
         system: impl Into<SystemDescriptor>,
     ) -> &mut Self {
@@ -179,7 +188,7 @@ impl AppBuilder {
 
     pub fn on_state_exit<T: Clone + Resource>(
         &mut self,
-        stage: &str,
+        stage: impl FullIntoLabel<StageLabel>,
         state: T,
         system: impl Into<SystemDescriptor>,
     ) -> &mut Self {
@@ -190,20 +199,20 @@ impl AppBuilder {
 
     pub fn add_default_stages(&mut self) -> &mut Self {
         self.add_stage(
-            stage::STARTUP,
+            CoreStage::Startup,
             Schedule::default()
                 .with_run_criteria(RunOnce::default())
-                .with_stage(startup_stage::PRE_STARTUP, SystemStage::parallel())
-                .with_stage(startup_stage::STARTUP, SystemStage::parallel())
-                .with_stage(startup_stage::POST_STARTUP, SystemStage::parallel()),
+                .with_stage(StartupStage::PreStartup, SystemStage::parallel())
+                .with_stage(StartupStage::Startup, SystemStage::parallel())
+                .with_stage(StartupStage::PostStartup, SystemStage::parallel()),
         )
-        .add_stage(stage::FIRST, SystemStage::parallel())
-        .add_stage(stage::PRE_EVENT, SystemStage::parallel())
-        .add_stage(stage::EVENT, SystemStage::parallel())
-        .add_stage(stage::PRE_UPDATE, SystemStage::parallel())
-        .add_stage(stage::UPDATE, SystemStage::parallel())
-        .add_stage(stage::POST_UPDATE, SystemStage::parallel())
-        .add_stage(stage::LAST, SystemStage::parallel())
+        .add_stage(CoreStage::First, SystemStage::parallel())
+        .add_stage(CoreStage::PreEvent, SystemStage::parallel())
+        .add_stage(CoreStage::Event, SystemStage::parallel())
+        .add_stage(CoreStage::PreUpdate, SystemStage::parallel())
+        .add_stage(CoreStage::Update, SystemStage::parallel())
+        .add_stage(CoreStage::PostUpdate, SystemStage::parallel())
+        .add_stage(CoreStage::LAST, SystemStage::parallel())
     }
 
     pub fn add_event<T>(&mut self) -> &mut Self
@@ -211,7 +220,7 @@ impl AppBuilder {
         T: Send + Sync + 'static,
     {
         self.insert_resource(Events::<T>::default())
-            .add_system_to_stage(stage::EVENT, Events::<T>::update_system.system())
+            .add_system_to_stage(CoreStage::Event, Events::<T>::update_system.system())
     }
 
     /// Inserts a resource to the current [App] and overwrites any resource previously added of the same type.

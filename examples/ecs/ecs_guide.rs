@@ -239,6 +239,13 @@ fn local_state_system(mut state: Local<State>, query: Query<(&Player, &Score)>) 
     state.counter += 1;
 }
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoLabel)]
+#[label_type(StageLabel)]
+enum MyStages {
+    BeforeRound,
+    AfterRound,
+}
+
 // Our Bevy app's entry point
 fn main() {
     // Bevy apps are created using the builder pattern. We use the builder to add systems, resources, and plugins to our app
@@ -276,17 +283,25 @@ fn main() {
         // and the next stage won't start until all systems in the current stage have finished.
         // add_system(system) adds systems to the UPDATE stage by default
         // However we can manually specify the stage if we want to. The following is equivalent to add_system(score_system)
-        .add_system_to_stage(stage::UPDATE, score_system.system())
+        .add_system_to_stage(CoreStage::Update, score_system.system())
         // We can also create new stages. Here is what our games stage order will look like:
-        // "before_round": new_player_system, new_round_system
-        // "update": print_message_system, score_system
-        // "after_round": score_check_system, game_over_system
-        .add_stage_before(stage::UPDATE, "before_round", SystemStage::parallel())
-        .add_stage_after(stage::UPDATE, "after_round", SystemStage::parallel())
-        .add_system_to_stage("before_round", new_round_system.system())
-        .add_system_to_stage("before_round", new_player_system.system())
-        .add_system_to_stage("after_round", score_check_system.system())
-        .add_system_to_stage("after_round", game_over_system.system())
+        // `BeforeRound`: new_player_system, new_round_system
+        // `Update`: print_message_system, score_system
+        // `AfterRound`: score_check_system, game_over_system
+        .add_stage_before(
+            CoreStage::Update,
+            MyStages::BeforeRound,
+            SystemStage::parallel(),
+        )
+        .add_stage_after(
+            CoreStage::Update,
+            MyStages::AfterRound,
+            SystemStage::parallel(),
+        )
+        .add_system_to_stage(MyStages::BeforeRound, new_round_system.system())
+        .add_system_to_stage(MyStages::BeforeRound, new_player_system.system())
+        .add_system_to_stage(MyStages::AfterRound, score_check_system.system())
+        .add_system_to_stage(MyStages::AfterRound, game_over_system.system())
         // score_check_system will run before game_over_system because score_check_system modifies GameState and game_over_system
         // reads GameState. This works, but it's a bit confusing. In practice, it would be clearer to create a new stage that runs
         // before "after_round"

@@ -1,5 +1,6 @@
 mod executor;
 mod executor_parallel;
+mod label;
 mod stage;
 mod state;
 mod system_container;
@@ -8,6 +9,7 @@ mod system_set;
 
 pub use executor::*;
 pub use executor_parallel::*;
+pub use label::*;
 pub use stage::*;
 pub use state::*;
 pub use system_container::*;
@@ -22,23 +24,35 @@ use std::{any::TypeId, borrow::Cow};
 
 #[derive(Default)]
 pub struct Schedule {
-    stages: HashMap<String, Box<dyn Stage>>,
-    stage_order: Vec<String>,
+    stages: HashMap<Label<StageLabel>, Box<dyn Stage>>,
+    stage_order: Vec<Label<StageLabel>>,
     run_criteria: RunCriteria,
 }
 
+pub struct StageLabel;
+
 impl Schedule {
-    pub fn with_stage<S: Stage>(mut self, name: &str, stage: S) -> Self {
+    pub fn with_stage<S: Stage>(mut self, name: impl FullIntoLabel<StageLabel>, stage: S) -> Self {
         self.add_stage(name, stage);
         self
     }
 
-    pub fn with_stage_after<S: Stage>(mut self, target: &str, name: &str, stage: S) -> Self {
+    pub fn with_stage_after<S: Stage>(
+        mut self,
+        target: impl FullIntoLabel<StageLabel>,
+        name: impl FullIntoLabel<StageLabel>,
+        stage: S,
+    ) -> Self {
         self.add_stage_after(target, name, stage);
         self
     }
 
-    pub fn with_stage_before<S: Stage>(mut self, target: &str, name: &str, stage: S) -> Self {
+    pub fn with_stage_before<S: Stage>(
+        mut self,
+        target: impl FullIntoLabel<StageLabel>,
+        name: impl FullIntoLabel<StageLabel>,
+        stage: S,
+    ) -> Self {
         self.add_stage_before(target, name, stage);
         self
     }
@@ -50,7 +64,7 @@ impl Schedule {
 
     pub fn with_system_in_stage(
         mut self,
-        stage_name: &'static str,
+        stage_name: impl FullIntoLabel<StageLabel>,
         system: impl Into<SystemDescriptor>,
     ) -> Self {
         self.add_system_to_stage(stage_name, system);
@@ -65,94 +79,109 @@ impl Schedule {
         self
     }
 
-    pub fn add_stage<S: Stage>(&mut self, name: &str, stage: S) -> &mut Self {
-        self.stage_order.push(name.to_string());
-        let prev = self.stages.insert(name.to_string(), Box::new(stage));
+    pub fn add_stage<S: Stage>(
+        &mut self,
+        name: impl FullIntoLabel<StageLabel>,
+        stage: S,
+    ) -> &mut Self {
+        self.stage_order.push(name.clone().into());
+        let prev = self.stages.insert(name.clone().into(), Box::new(stage));
         if prev.is_some() {
-            panic!("Stage already exists: {}.", name);
+            panic!("Stage already exists: {}.", name.name());
         }
         self
     }
 
-    pub fn add_stage_after<S: Stage>(&mut self, target: &str, name: &str, stage: S) -> &mut Self {
+    pub fn add_stage_after<S: Stage>(
+        &mut self,
+        target: impl FullIntoLabel<StageLabel>,
+        name: impl FullIntoLabel<StageLabel>,
+        stage: S,
+    ) -> &mut Self {
         let target_index = self
             .stage_order
             .iter()
             .enumerate()
-            .find(|(_i, stage_name)| *stage_name == target)
+            .find(|(_i, stage_name)| **stage_name == target.clone().into())
             .map(|(i, _)| i)
-            .unwrap_or_else(|| panic!("Target stage does not exist: {}.", target));
+            .unwrap_or_else(|| panic!("Target stage does not exist: {}.", target.name()));
 
-        self.stage_order.insert(target_index + 1, name.to_string());
-        let prev = self.stages.insert(name.to_string(), Box::new(stage));
+        self.stage_order
+            .insert(target_index + 1, name.clone().into());
+        let prev = self.stages.insert(name.clone().into(), Box::new(stage));
         if prev.is_some() {
-            panic!("Stage already exists: {}.", name);
+            panic!("Stage already exists: {}.", name.name());
         }
         self
     }
 
-    pub fn add_stage_before<S: Stage>(&mut self, target: &str, name: &str, stage: S) -> &mut Self {
+    pub fn add_stage_before<S: Stage>(
+        &mut self,
+        target: impl FullIntoLabel<StageLabel>,
+        name: impl FullIntoLabel<StageLabel>,
+        stage: S,
+    ) -> &mut Self {
         let target_index = self
             .stage_order
             .iter()
             .enumerate()
-            .find(|(_i, stage_name)| *stage_name == target)
+            .find(|(_i, stage_name)| **stage_name == target.clone().into())
             .map(|(i, _)| i)
-            .unwrap_or_else(|| panic!("Target stage does not exist: {}.", target));
+            .unwrap_or_else(|| panic!("Target stage does not exist: {}.", target.name()));
 
-        self.stage_order.insert(target_index, name.to_string());
-        let prev = self.stages.insert(name.to_string(), Box::new(stage));
+        self.stage_order.insert(target_index, name.clone().into());
+        let prev = self.stages.insert(name.clone().into(), Box::new(stage));
         if prev.is_some() {
-            panic!("Stage already exists: {}.", name);
+            panic!("Stage already exists: {}.", name.name());
         }
         self
     }
 
     pub fn add_system_to_stage(
         &mut self,
-        stage_name: &'static str,
+        stage_name: impl FullIntoLabel<StageLabel>,
         system: impl Into<SystemDescriptor>,
     ) -> &mut Self {
+        let name = stage_name.name().to_owned();
         let stage = self
-            .get_stage_mut::<SystemStage>(stage_name)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Stage '{}' does not exist or is not a SystemStage",
-                    stage_name
-                )
-            });
+            .get_stage_mut::<SystemStage, _>(stage_name)
+            .unwrap_or_else(|| panic!("Stage '{}' does not exist or is not a SystemStage", name));
         stage.add_system(system);
         self
     }
 
     pub fn stage<T: Stage, F: FnOnce(&mut T) -> &mut T>(
         &mut self,
-        name: &str,
+        name: impl FullIntoLabel<StageLabel>,
         func: F,
     ) -> &mut Self {
+        let str_name = name.name().to_owned();
         let stage = self
-            .get_stage_mut::<T>(name)
-            .unwrap_or_else(|| panic!("stage '{}' does not exist or is the wrong type", name));
+            .get_stage_mut::<T, _>(name)
+            .unwrap_or_else(|| panic!("stage '{}' does not exist or is the wrong type", str_name));
         func(stage);
         self
     }
 
-    pub fn get_stage<T: Stage>(&self, name: &str) -> Option<&T> {
+    pub fn get_stage<T: Stage>(&self, name: impl FullIntoLabel<StageLabel>) -> Option<&T> {
         self.stages
-            .get(name)
+            .get(&name.into())
             .and_then(|stage| stage.downcast_ref::<T>())
     }
 
-    pub fn get_stage_mut<T: Stage>(&mut self, name: &str) -> Option<&mut T> {
+    pub fn get_stage_mut<T: Stage, L: FullIntoLabel<StageLabel>>(
+        &mut self,
+        name: L,
+    ) -> Option<&mut T> {
         self.stages
-            .get_mut(name)
+            .get_mut(&name.into())
             .and_then(|stage| stage.downcast_mut::<T>())
     }
 
     pub fn run_once(&mut self, world: &mut World, resources: &mut Resources) {
         for name in self.stage_order.iter() {
             #[cfg(feature = "trace")]
-            let stage_span = bevy_utils::tracing::info_span!("stage", name = name.as_str());
+            let stage_span = bevy_utils::tracing::info_span!("stage", name = &*name.to_str());
             #[cfg(feature = "trace")]
             let _stage_guard = stage_span.enter();
             let stage = self.stages.get_mut(name).unwrap();

@@ -1,7 +1,37 @@
+use bevy_ecs::{IntoLabel, StageLabel};
+
 /// The names of the default App stages
-pub mod stage;
+#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoLabel)]
+#[label_type(StageLabel)]
+pub enum CoreStage {
+    /// Name of the app stage that runs once at the beginning of the app
+    Startup,
+    /// Name of app stage that runs before all other app stages
+    First,
+    /// Name of app stage that runs before EVENT
+    PreEvent,
+    /// Name of app stage that updates events. Runs before UPDATE
+    Event,
+    /// Name of app stage responsible for performing setup before an update. Runs before UPDATE.
+    PreUpdate,
+    /// Name of app stage responsible for doing most app logic. Systems should be registered here by default.
+    Update,
+    /// Name of app stage responsible for processing the results of UPDATE. Runs after UPDATE.
+    PostUpdate,
+    /// Name of app stage that runs after all other app stages
+    LAST,
+}
 /// The names of the default App startup stages
-pub mod startup_stage;
+#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoLabel)]
+#[label_type(StageLabel)]
+pub enum StartupStage {
+    /// Name of app stage that runs once before the startup stage
+    PreStartup,
+    /// Name of app stage that runs once when an app starts up
+    Startup,
+    /// Name of app stage that runs once after the startup stage
+    PostStartup,
+}
 
 mod app;
 mod app_builder;
@@ -23,6 +53,6 @@ pub mod prelude {
         app::App,
         app_builder::AppBuilder,
         event::{EventReader, Events},
-        stage, DynamicPlugin, Plugin, PluginGroup,
+        CoreStage, DynamicPlugin, Plugin, PluginGroup,
     };
 }

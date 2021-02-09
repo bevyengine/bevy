@@ -24,7 +24,12 @@ use bevy_asset::AddAsset;
 #[derive(Default)]
 pub struct ScenePlugin;
 
-pub const SCENE_STAGE: &str = "scene";
+use bevy_ecs::{IntoLabel, StageLabel};
+#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoLabel)]
+#[label_type(StageLabel)]
+enum Stages {
+    SceneStage,
+}
 
 impl Plugin for ScenePlugin {
     fn build(&self, app: &mut AppBuilder) {
@@ -32,7 +37,11 @@ impl Plugin for ScenePlugin {
             .add_asset::<Scene>()
             .init_asset_loader::<SceneLoader>()
             .init_resource::<SceneSpawner>()
-            .add_stage_after(stage::EVENT, SCENE_STAGE, SystemStage::parallel())
-            .add_system_to_stage(SCENE_STAGE, scene_spawner_system.exclusive_system());
+            .add_stage_after(
+                bevy_app::CoreStage::Event,
+                Stages::SceneStage,
+                SystemStage::parallel(),
+            )
+            .add_system_to_stage(Stages::SceneStage, scene_spawner_system.exclusive_system());
     }
 }

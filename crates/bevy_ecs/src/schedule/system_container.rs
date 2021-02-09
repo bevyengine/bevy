@@ -1,15 +1,18 @@
 use std::{borrow::Cow, ptr::NonNull};
 
-use crate::{ExclusiveSystem, ExclusiveSystemDescriptor, ParallelSystemDescriptor, System};
+use crate::{
+    ExclusiveSystem, ExclusiveSystemDescriptor, Label, ParallelSystemDescriptor, System,
+    SystemLabel,
+};
 
 pub(super) trait SystemContainer {
     fn display_name(&self) -> Cow<'static, str>;
     fn dependencies(&self) -> &[usize];
     fn set_dependencies(&mut self, dependencies: impl IntoIterator<Item = usize>);
     fn system_set(&self) -> usize;
-    fn label(&self) -> &Option<Cow<'static, str>>;
-    fn before(&self) -> &[Cow<'static, str>];
-    fn after(&self) -> &[Cow<'static, str>];
+    fn label(&self) -> &Option<Label<SystemLabel>>;
+    fn before(&self) -> &[Label<SystemLabel>];
+    fn after(&self) -> &[Label<SystemLabel>];
     fn is_compatible(&self, other: &Self) -> bool;
 }
 
@@ -17,9 +20,9 @@ pub(super) struct ExclusiveSystemContainer {
     system: Box<dyn ExclusiveSystem>,
     dependencies: Vec<usize>,
     set: usize,
-    label: Option<Cow<'static, str>>,
-    before: Vec<Cow<'static, str>>,
-    after: Vec<Cow<'static, str>>,
+    label: Option<Label<SystemLabel>>,
+    before: Vec<Label<SystemLabel>>,
+    after: Vec<Label<SystemLabel>>,
 }
 
 impl ExclusiveSystemContainer {
@@ -43,7 +46,7 @@ impl SystemContainer for ExclusiveSystemContainer {
     fn display_name(&self) -> Cow<'static, str> {
         self.label
             .as_ref()
-            .cloned()
+            .map(|l| l.name())
             .unwrap_or_else(|| self.system.name())
     }
 
@@ -60,15 +63,15 @@ impl SystemContainer for ExclusiveSystemContainer {
         self.set
     }
 
-    fn label(&self) -> &Option<Cow<'static, str>> {
+    fn label(&self) -> &Option<Label<SystemLabel>> {
         &self.label
     }
 
-    fn before(&self) -> &[Cow<'static, str>] {
+    fn before(&self) -> &[Label<SystemLabel>] {
         &self.before
     }
 
-    fn after(&self) -> &[Cow<'static, str>] {
+    fn after(&self) -> &[Label<SystemLabel>] {
         &self.after
     }
 
@@ -82,16 +85,16 @@ pub struct ParallelSystemContainer {
     pub(crate) should_run: bool,
     dependencies: Vec<usize>,
     set: usize,
-    label: Option<Cow<'static, str>>,
-    before: Vec<Cow<'static, str>>,
-    after: Vec<Cow<'static, str>>,
+    label: Option<Label<SystemLabel>>,
+    before: Vec<Label<SystemLabel>>,
+    after: Vec<Label<SystemLabel>>,
 }
 
 impl SystemContainer for ParallelSystemContainer {
     fn display_name(&self) -> Cow<'static, str> {
         self.label
             .as_ref()
-            .cloned()
+            .map(|l| l.name())
             .unwrap_or_else(|| self.system().name())
     }
 
@@ -108,15 +111,15 @@ impl SystemContainer for ParallelSystemContainer {
         self.set
     }
 
-    fn label(&self) -> &Option<Cow<'static, str>> {
+    fn label(&self) -> &Option<Label<SystemLabel>> {
         &self.label
     }
 
-    fn before(&self) -> &[Cow<'static, str>] {
+    fn before(&self) -> &[Label<SystemLabel>] {
         &self.before
     }
 
-    fn after(&self) -> &[Cow<'static, str>] {
+    fn after(&self) -> &[Label<SystemLabel>] {
         &self.after
     }
 
