@@ -1,6 +1,7 @@
 use bevy_log::warn;
 use bevy_window::WindowResizeConstraints;
 
+#[allow(clippy::float_cmp)]
 pub(crate) fn check_resize_constraints(
     resize_constraints: WindowResizeConstraints,
 ) -> WindowResizeConstraints {

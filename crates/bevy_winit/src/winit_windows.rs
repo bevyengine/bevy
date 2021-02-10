@@ -12,7 +12,6 @@ pub struct WinitWindows {
 }
 
 impl WinitWindows {
-    #[allow(clippy::float_cmp)]
     pub fn create_window(
         &mut self,
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
