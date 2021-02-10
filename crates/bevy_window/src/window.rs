@@ -73,6 +73,7 @@ pub struct Window {
     requested_height: f32,
     physical_width: u32,
     physical_height: u32,
+    resize_constraints: WindowResizeConstraints,
     position: Option<IVec2>,
     scale_factor_override: Option<f64>,
     backend_scale_factor: f64,
@@ -132,6 +133,9 @@ pub enum WindowCommand {
     SetPosition {
         position: IVec2,
     },
+    SetResizeConstraints {
+        resize_constraints: WindowResizeConstraints,
+    },
 }
 
 /// Defines the way a window is displayed
@@ -162,6 +166,7 @@ impl Window {
             position,
             physical_width,
             physical_height,
+            resize_constraints: window_descriptor.resize_constraints.clone(),
             scale_factor_override: window_descriptor.scale_factor_override,
             backend_scale_factor: scale_factor,
             title: window_descriptor.title.clone(),
@@ -227,6 +232,12 @@ impl Window {
         self.physical_height
     }
 
+    /// The window's client resize constraint in logical pixels.
+    #[inline]
+    pub fn resize_constraints(&self) -> WindowResizeConstraints {
+        self.resize_constraints.clone()
+    }
+
     /// The window's client position in physical pixels.
     #[inline]
     pub fn position(&self) -> Option<IVec2> {
@@ -265,6 +276,13 @@ impl Window {
     pub fn set_position(&mut self, position: IVec2) {
         self.command_queue
             .push(WindowCommand::SetPosition { position })
+    }
+
+    /// Modifies the minimum and maximum window bounds for resizing in logical pixels.
+    #[inline]
+    pub fn set_resize_constraints(&mut self, resize_constraints: WindowResizeConstraints) {
+        self.command_queue
+            .push(WindowCommand::SetResizeConstraints { resize_constraints });
     }
 
     /// Request the OS to resize the window such the the client area matches the

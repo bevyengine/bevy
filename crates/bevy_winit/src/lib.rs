@@ -1,4 +1,5 @@
 mod converters;
+mod utils;
 mod winit_config;
 mod winit_windows;
 
@@ -33,6 +34,8 @@ use winit::{
     target_os = "openbsd"
 ))]
 use winit::platform::unix::EventLoopExtUnix;
+use winit::dpi::LogicalSize;
+use crate::utils::check_resize_constraints;
 
 #[derive(Default)]
 pub struct WinitPlugin;
@@ -138,6 +141,24 @@ fn change_window(_: &mut World, resources: &mut Resources) {
                         x: position[0],
                         y: position[1],
                     });
+                }
+                bevy_window::WindowCommand::SetResizeConstraints { resize_constraints } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    let resize_constraints = check_resize_constraints(resize_constraints);
+                    let min_inner_size = LogicalSize {
+                        width: resize_constraints.min_width,
+                        height: resize_constraints.min_height,
+                    };
+                    let max_inner_size = LogicalSize {
+                        width: resize_constraints.max_width,
+                        height: resize_constraints.max_height,
+                    };
+                    if resize_constraints.max_width.is_finite() && resize_constraints.max_height.is_finite() {
+                        window.set_min_inner_size(Some(min_inner_size));
+                        window.set_max_inner_size(Some(max_inner_size));
+                    } else {
+                        window.set_min_inner_size(Some(min_inner_size));
+                    }
                 }
             }
         }

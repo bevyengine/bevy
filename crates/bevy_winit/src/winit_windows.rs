@@ -3,6 +3,7 @@ use bevy_math::IVec2;
 use bevy_utils::HashMap;
 use bevy_window::{Window, WindowDescriptor, WindowId, WindowMode, WindowResizeConstraints};
 use winit::dpi::LogicalSize;
+use crate::utils::check_resize_constraints;
 
 #[derive(Debug, Default)]
 pub struct WinitWindows {
@@ -27,39 +28,6 @@ impl WinitWindows {
 
         #[cfg(not(target_os = "windows"))]
         let mut winit_window_builder = winit::window::WindowBuilder::new();
-
-        let WindowResizeConstraints {
-            mut min_width,
-            mut min_height,
-            mut max_width,
-            mut max_height,
-        } = window_descriptor.resize_constraints.clone();
-        min_width = min_width.max(1.);
-        min_height = min_height.max(1.);
-        if max_width < min_width {
-            warn!(
-                "The given maximum width {} is smaller than the minimum width {}",
-                max_width, min_width
-            );
-            max_width = min_width;
-        }
-        if max_height < min_height {
-            warn!(
-                "The given maximum height {} is smaller than the minimum height {}",
-                max_height, min_height
-            );
-            max_height = min_height;
-        }
-
-        let min_inner_size = LogicalSize {
-            width: min_width,
-            height: min_height,
-        };
-
-        let max_inner_size = LogicalSize {
-            width: max_width,
-            height: max_height,
-        };
 
         winit_window_builder = match window_descriptor.mode {
             WindowMode::BorderlessFullscreen => winit_window_builder.with_fullscreen(Some(
@@ -93,6 +61,21 @@ impl WinitWindows {
             }
             .with_resizable(window_descriptor.resizable)
             .with_decorations(window_descriptor.decorations),
+        };
+
+        let WindowResizeConstraints {
+            mut min_width,
+            mut min_height,
+            mut max_width,
+            mut max_height,
+        } = check_resize_constraints(window_descriptor.resize_constraints.clone());
+        let min_inner_size = LogicalSize {
+            width: min_width,
+            height: min_height,
+        };
+        let max_inner_size = LogicalSize {
+            width: max_width,
+            height: max_height,
         };
 
         #[allow(unused_mut)]
