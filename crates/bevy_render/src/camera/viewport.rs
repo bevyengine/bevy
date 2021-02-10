@@ -5,7 +5,7 @@ use bevy_math::{clamp, vec2, Rect, Vec2};
 use bevy_reflect::{Reflect, ReflectComponent};
 use bevy_utils::HashMap;
 use bevy_window::{WindowId, WindowResized, WindowScaleFactorChanged, Windows};
-use std::ops::{Add, AddAssign};
+use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 #[derive(Debug, PartialEq, Clone, Reflect)]
 #[reflect(Component)]
@@ -45,8 +45,8 @@ impl Viewport {
             ViewportSideLocation::Absolute(value) => value - self.origin.y,
             ViewportSideLocation::Relative(value) => value * surface_size.y - self.origin.y,
         };
-        clamp(self.origin, Vec2::zero(), surface_size);
-        clamp(self.size, self.origin, surface_size - self.origin);
+        self.origin = clamp(self.origin, Vec2::zero(), surface_size);
+        self.size = clamp(self.size, Vec2::one(), surface_size - self.origin);
     }
 }
 
@@ -91,11 +91,31 @@ impl Add<f32> for ViewportSideLocation {
     }
 }
 
+impl Sub<f32> for ViewportSideLocation {
+    type Output = ViewportSideLocation;
+
+    fn sub(self, rhs: f32) -> Self::Output {
+        match self {
+            ViewportSideLocation::Relative(value) => ViewportSideLocation::Relative(value - rhs),
+            ViewportSideLocation::Absolute(value) => ViewportSideLocation::Absolute(value - rhs),
+        }
+    }
+}
+
 impl AddAssign<f32> for ViewportSideLocation {
     fn add_assign(&mut self, rhs: f32) {
         match self {
             ViewportSideLocation::Relative(value) => *value += rhs,
             ViewportSideLocation::Absolute(value) => *value += rhs,
+        }
+    }
+}
+
+impl SubAssign<f32> for ViewportSideLocation {
+    fn sub_assign(&mut self, rhs: f32) {
+        match self {
+            ViewportSideLocation::Relative(value) => *value -= rhs,
+            ViewportSideLocation::Absolute(value) => *value -= rhs,
         }
     }
 }
