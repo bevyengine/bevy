@@ -9,7 +9,7 @@ pub(crate) fn check_resize_constraints(
         mut min_height,
         mut max_width,
         mut max_height,
-    } = resize_constraints.clone();
+    } = resize_constraints;
     min_width = min_width.max(1.);
     min_height = min_height.max(1.);
     if max_width < min_width {
@@ -26,10 +26,10 @@ pub(crate) fn check_resize_constraints(
         );
         max_height = min_height;
     }
-    return WindowResizeConstraints {
+    WindowResizeConstraints {
         min_width,
         min_height,
         max_width,
         max_height,
-    };
+    }
 }
