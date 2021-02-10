@@ -166,7 +166,7 @@ impl Window {
             position,
             physical_width,
             physical_height,
-            resize_constraints: window_descriptor.resize_constraints.clone(),
+            resize_constraints: window_descriptor.resize_constraints,
             scale_factor_override: window_descriptor.scale_factor_override,
             backend_scale_factor: scale_factor,
             title: window_descriptor.title.clone(),
@@ -235,7 +235,7 @@ impl Window {
     /// The window's client resize constraint in logical pixels.
     #[inline]
     pub fn resize_constraints(&self) -> WindowResizeConstraints {
-        self.resize_constraints.clone()
+        self.resize_constraints
     }
 
     /// The window's client position in physical pixels.
