@@ -66,7 +66,7 @@ impl WinitWindows {
             min_height,
             max_width,
             max_height,
-        } = check_resize_constraints(window_descriptor.resize_constraints.clone());
+        } = check_resize_constraints(window_descriptor.resize_constraints);
         let min_inner_size = LogicalSize {
             width: min_width,
             height: min_height,
