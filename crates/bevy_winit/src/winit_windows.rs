@@ -76,8 +76,7 @@ impl WinitWindows {
             height: max_height,
         };
 
-        #[allow(unused_mut)]
-        let mut winit_window_builder = if max_width.is_finite() && max_height.is_finite() {
+        let winit_window_builder = if max_width.is_finite() && max_height.is_finite() {
             winit_window_builder
                 .with_min_inner_size(min_inner_size)
                 .with_max_inner_size(max_inner_size)

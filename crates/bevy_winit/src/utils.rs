@@ -1,16 +1,14 @@
 use bevy_log::warn;
 use bevy_window::WindowResizeConstraints;
 
-#[allow(clippy::float_cmp)]
 pub(crate) fn check_resize_constraints(
-    resize_constraints: WindowResizeConstraints,
-) -> WindowResizeConstraints {
-    let WindowResizeConstraints {
+    WindowResizeConstraints {
         mut min_width,
         mut min_height,
         mut max_width,
         mut max_height,
-    } = resize_constraints;
+    }: WindowResizeConstraints,
+) -> WindowResizeConstraints {
     min_width = min_width.max(1.);
     min_height = min_height.max(1.);
     if max_width < min_width {

@@ -32,7 +32,7 @@ impl Default for WindowId {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct WindowResizeConstraints {
     pub min_width: f32,
     pub min_height: f32,
