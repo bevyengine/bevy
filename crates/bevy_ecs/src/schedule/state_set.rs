@@ -1,3 +1,5 @@
+#![allow(clippy::clippy::mem_discriminant_non_enum)]
+
 use std::{
     any::TypeId,
     marker::PhantomData,
