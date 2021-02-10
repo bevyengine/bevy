@@ -1,9 +1,8 @@
-use bevy_log::warn;
+use crate::utils::check_resize_constraints;
 use bevy_math::IVec2;
 use bevy_utils::HashMap;
 use bevy_window::{Window, WindowDescriptor, WindowId, WindowMode, WindowResizeConstraints};
 use winit::dpi::LogicalSize;
-use crate::utils::check_resize_constraints;
 
 #[derive(Debug, Default)]
 pub struct WinitWindows {
@@ -64,10 +63,10 @@ impl WinitWindows {
         };
 
         let WindowResizeConstraints {
-            mut min_width,
-            mut min_height,
-            mut max_width,
-            mut max_height,
+            min_width,
+            min_height,
+            max_width,
+            max_height,
         } = check_resize_constraints(window_descriptor.resize_constraints.clone());
         let min_inner_size = LogicalSize {
             width: min_width,

@@ -26,5 +26,10 @@ pub(crate) fn check_resize_constraints(
         );
         max_height = min_height;
     }
-    return WindowResizeConstraints{min_width, min_height, max_width, max_height};
+    return WindowResizeConstraints {
+        min_width,
+        min_height,
+        max_width,
+        max_height
+    };
 }

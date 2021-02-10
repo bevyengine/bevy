@@ -18,7 +18,7 @@ use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
     CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
     WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
-    WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
+    WindowMoved, WindowResizeConstraints, WindowResized, WindowScaleFactorChanged, Windows,
 };
 use winit::{
     dpi::PhysicalPosition,
@@ -26,6 +26,8 @@ use winit::{
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
 
+use crate::utils::check_resize_constraints;
+use winit::dpi::LogicalSize;
 #[cfg(any(
     target_os = "linux",
     target_os = "dragonfly",
@@ -34,8 +36,6 @@ use winit::{
     target_os = "openbsd"
 ))]
 use winit::platform::unix::EventLoopExtUnix;
-use winit::dpi::LogicalSize;
-use crate::utils::check_resize_constraints;
 
 #[derive(Default)]
 pub struct WinitPlugin;
@@ -144,16 +144,21 @@ fn change_window(_: &mut World, resources: &mut Resources) {
                 }
                 bevy_window::WindowCommand::SetResizeConstraints { resize_constraints } => {
                     let window = winit_windows.get_window(id).unwrap();
-                    let resize_constraints = check_resize_constraints(resize_constraints);
+                    let WindowResizeConstraints {
+                        min_width,
+                        min_height,
+                        max_width,
+                        max_height,
+                    } = check_resize_constraints(resize_constraints);
                     let min_inner_size = LogicalSize {
-                        width: resize_constraints.min_width,
-                        height: resize_constraints.min_height,
+                        width: min_width,
+                        height: min_height,
                     };
                     let max_inner_size = LogicalSize {
-                        width: resize_constraints.max_width,
-                        height: resize_constraints.max_height,
+                        width: max_width,
+                        height: max_height,
                     };
-                    if resize_constraints.max_width.is_finite() && resize_constraints.max_height.is_finite() {
+                    if max_width.is_finite() && max_height.is_finite() {
                         window.set_min_inner_size(Some(min_inner_size));
                         window.set_max_inner_size(Some(max_inner_size));
                     } else {
