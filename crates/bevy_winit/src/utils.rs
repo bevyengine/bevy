@@ -30,6 +30,6 @@ pub(crate) fn check_resize_constraints(
         min_width,
         min_height,
         max_width,
-        max_height
+        max_height,
     };
 }
