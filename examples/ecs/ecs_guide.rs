@@ -275,10 +275,14 @@ fn main() {
         // by giving the relevant systems a label with `.label`, then using the `.before` or `.after` methods.
         // Systems will not be scheduled until all of the systems that they have an "ordering dependency" on have completed.
         //
-        // Doing so will help make sure your systems can run safely and quickly in parallel, as changing `Stages` require a "hard sync",
-        // where every system is concluded in order to give exclusive access to both `World` and `Resources`.
-        // While this is typically a drawback, it is necessary to allow `Commands` to be processed, allowing you to
-        // perform heavy operations such as adding or removing entities or components.
+        // Doing that will, in just about all cases, lead to better performance compared to
+        // splitting systems between stages, because it gives the scheduling algorithm more
+        // opportunities to run systems in parallel.
+        // Stages are still necessary, however: end of a stage is a hard sync point
+        // (meaning, no systems are running) where `Commands` issued by systems are processed.
+        // This is required because commands can perform operations that are incompatible with
+        // having systems in flight, such as spawning or deleting entities,
+        // adding or removing resources, etc.
         //
         // add_system(system) adds systems to the UPDATE stage by default
         // However we can manually specify the stage if we want to. The following is equivalent to add_system(score_system)
