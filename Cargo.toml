@@ -405,6 +405,10 @@ name = "scale_factor_override"
 path = "examples/window/scale_factor_override.rs"
 
 [[example]]
+name = "viewports"
+path = "examples/window/viewports.rs"
+
+[[example]]
 name = "window_settings"
 path = "examples/window/window_settings.rs"
 
