@@ -236,6 +236,10 @@ impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
     }
 }
 
+// TODO: Dead code - this trait is never implemented
+// The name of the method was changed in <https://github.com/bevyengine/bevy/pull/1433>
+// to fix the update to clippy for Rust 1.50
+// which is why this is inconsistent
 pub trait IntoComponent<ToComponent: Component> {
     fn as_component(&self, resources: &Resources) -> ToComponent;
 }
