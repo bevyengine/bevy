@@ -308,7 +308,9 @@ fn main() {
         )
         // We can check our systems for execution order ambiguities by examining the output produced in the console
         // by adding the following Resource to our App :)
-        .insert_resource(ReportExecutionOrderAmbiguities {})
+        // Be aware that not everything reported by this checker is a potential problem, you'll have to make
+        // that judgement yourself.
+        .insert_resource(ReportExecutionOrderAmbiguities)
         // This call to run() starts the app we just built!
         .run();
 }
