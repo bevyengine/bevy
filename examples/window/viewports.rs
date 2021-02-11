@@ -1,5 +1,5 @@
 use bevy::{
-    math::clamp,
+    math::{clamp, Rect},
     prelude::*,
     render::{
         camera::{ActiveCameras, Camera},
@@ -26,22 +26,22 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     // add new camera nodes for the secondary viewports
-    render_graph.add_system_node("top_right_camera", CameraNode::new("TopRight"));
-    render_graph.add_system_node("bottom_right_camera", CameraNode::new("BottomRight"));
-    active_cameras.add("TopRight");
-    active_cameras.add("BottomRight");
+    render_graph.add_system_node("front_view_camera", CameraNode::new("FrontView"));
+    render_graph.add_system_node("side_view_camera", CameraNode::new("SideView"));
+    active_cameras.add("FrontView");
+    active_cameras.add("SideView");
 
     // add the cameras to the main pass
     {
         let main_pass: &mut PassNode<&MainPass> = render_graph.get_node_mut("main_pass").unwrap();
-        main_pass.add_camera("TopRight");
-        main_pass.add_camera("BottomRight");
+        main_pass.add_camera("FrontView");
+        main_pass.add_camera("SideView");
     }
     render_graph
-        .add_node_edge("top_right_camera", "main_pass")
+        .add_node_edge("front_view_camera", "main_pass")
         .unwrap();
     render_graph
-        .add_node_edge("bottom_right_camera", "main_pass")
+        .add_node_edge("side_view_camera", "main_pass")
         .unwrap();
 
     // SETUP SCENE
@@ -78,7 +78,7 @@ fn setup(
         // top right camera
         .spawn(PerspectiveCameraBundle {
             camera: Camera {
-                name: Some("TopRight".to_string()),
+                name: Some("FrontView".to_string()),
                 ..Default::default()
             },
             transform: Transform::from_xyz(0.0, 0.3, 1.3)
@@ -88,7 +88,7 @@ fn setup(
         // bottom right camera
         .spawn(PerspectiveCameraBundle {
             camera: Camera {
-                name: Some("BottomRight".to_string()),
+                name: Some("SideView".to_string()),
                 ..Default::default()
             },
             transform: Transform::from_xyz(-1.3, 0.3, 0.0)
@@ -97,7 +97,8 @@ fn setup(
         });
 
     // ui
-    let instructions_text = "use the arrow keys to resize the viewports";
+    let instructions_text =
+        "Use the arrow keys to resize the viewports\nPress Enter to swap the rightmost viewports";
     commands
         .spawn(UiCameraBundle {
             // viewports occupy the entire surface by default, and can overlap each other
@@ -124,6 +125,36 @@ fn setup(
 struct ViewportLayout {
     divide_x: f32,
     divide_y: f32,
+    invert: bool,
+}
+
+impl ViewportLayout {
+    pub fn main_view(&self) -> Rect<SideLocation> {
+        Rect {
+            left: SideLocation::Relative(0.0),
+            right: SideLocation::Relative(self.divide_x),
+            top: SideLocation::Relative(0.0),
+            bottom: SideLocation::Relative(1.0),
+        }
+    }
+
+    pub fn front_view_view(&self) -> Rect<SideLocation> {
+        Rect {
+            left: SideLocation::Relative(self.divide_x),
+            right: SideLocation::Relative(1.0),
+            top: SideLocation::Relative(0.0),
+            bottom: SideLocation::Relative(self.divide_y),
+        }
+    }
+
+    pub fn side_view_view(&self) -> Rect<SideLocation> {
+        Rect {
+            left: SideLocation::Relative(self.divide_x),
+            right: SideLocation::Relative(1.0),
+            top: SideLocation::Relative(self.divide_y),
+            bottom: SideLocation::Relative(1.0),
+        }
+    }
 }
 
 impl Default for ViewportLayout {
@@ -131,6 +162,7 @@ impl Default for ViewportLayout {
         Self {
             divide_x: 0.5,
             divide_y: 0.5,
+            invert: false,
         }
     }
 }
@@ -153,6 +185,9 @@ fn viewport_layout_system(
     if keyboard_input.just_pressed(KeyCode::Down) {
         layout.divide_y += 0.05;
     }
+    if keyboard_input.just_pressed(KeyCode::Return) {
+        layout.invert = !layout.invert;
+    }
     layout.divide_x = clamp(layout.divide_x, 0.0, 1.0);
     layout.divide_y = clamp(layout.divide_y, 0.0, 1.0);
 
@@ -161,15 +196,21 @@ fn viewport_layout_system(
         match camera.name.as_deref() {
             // default camera
             Some("Camera3d") => {
-                viewport.sides.right = SideLocation::Relative(layout.divide_x);
+                viewport.sides = layout.main_view();
             }
-            Some("TopRight") => {
-                viewport.sides.left = SideLocation::Relative(layout.divide_x);
-                viewport.sides.bottom = SideLocation::Relative(layout.divide_y);
+            Some("FrontView") => {
+                if layout.invert {
+                    viewport.sides = layout.front_view_view();
+                } else {
+                    viewport.sides = layout.side_view_view();
+                }
             }
-            Some("BottomRight") => {
-                viewport.sides.left = SideLocation::Relative(layout.divide_x);
-                viewport.sides.top = SideLocation::Relative(layout.divide_y);
+            Some("SideView") => {
+                if layout.invert {
+                    viewport.sides = layout.side_view_view();
+                } else {
+                    viewport.sides = layout.front_view_view();
+                }
             }
             _ => {}
         }
