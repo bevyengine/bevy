@@ -7,8 +7,8 @@ use std::{
 };
 
 use crate::{
-    ArchetypeComponent, IntoSystem, ResMut, Resource, ShouldRun, System,
-    SystemId, SystemSet, TypeAccess,
+    ArchetypeComponent, IntoSystem, ResMut, Resource, ShouldRun, System, SystemId, SystemSet,
+    TypeAccess,
 };
 use thiserror::Error;
 
@@ -44,6 +44,7 @@ impl<T: Clone + Resource> State<T> {
     pub fn on_inactive_update(d: Discriminant<T>) -> impl System<In = (), Out = ShouldRun> {
         Wrapper::<T, OnInactiveUpdate>::new(d)
     }
+
     pub fn on_enter(d: Discriminant<T>) -> impl System<In = (), Out = ShouldRun> {
         Wrapper::<T, OnEnter>::new(d)
     }
@@ -142,7 +143,7 @@ impl<T: Clone + Resource> State<T> {
     }
 
     pub fn inactives(&self) -> &[T] {
-       &self.stack[0..self.stack.len() - 1] 
+        &self.stack[0..self.stack.len() - 1]
     }
 }
 

@@ -5,8 +5,8 @@ use crate::{
     stage, startup_stage, PluginGroup, PluginGroupBuilder,
 };
 use bevy_ecs::{
-    clear_trackers_system, FromResources, IntoExclusiveSystem, IntoSystem, Resource, Resources,
-    RunOnce, Schedule, Stage, StateStage, SystemDescriptor, SystemStage, World,
+    clear_trackers_system, FromResources, IntoExclusiveSystem, IntoSystem, Resources, RunOnce,
+    Schedule, Stage, SystemDescriptor, SystemStage, World,
 };
 use bevy_utils::tracing::debug;
 
@@ -153,39 +153,6 @@ impl AppBuilder {
                 schedule.add_system_to_stage(stage_name, system)
             });
         self
-    }
-
-    pub fn on_state_enter<T: Clone + Resource>(
-        &mut self,
-        stage: &str,
-        state: T,
-        system: impl Into<SystemDescriptor>,
-    ) -> &mut Self {
-        self.stage(stage, |stage: &mut StateStage<T>| {
-            stage.on_state_enter(state, system)
-        })
-    }
-
-    pub fn on_state_update<T: Clone + Resource>(
-        &mut self,
-        stage: &str,
-        state: T,
-        system: impl Into<SystemDescriptor>,
-    ) -> &mut Self {
-        self.stage(stage, |stage: &mut StateStage<T>| {
-            stage.on_state_update(state, system)
-        })
-    }
-
-    pub fn on_state_exit<T: Clone + Resource>(
-        &mut self,
-        stage: &str,
-        state: T,
-        system: impl Into<SystemDescriptor>,
-    ) -> &mut Self {
-        self.stage(stage, |stage: &mut StateStage<T>| {
-            stage.on_state_exit(state, system)
-        })
     }
 
     pub fn add_default_stages(&mut self) -> &mut Self {

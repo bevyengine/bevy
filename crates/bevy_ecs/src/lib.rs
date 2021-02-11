@@ -16,8 +16,8 @@ pub mod prelude {
         resource::{ChangedRes, FromResources, Local, NonSend, Res, ResMut, Resource, Resources},
         schedule::{
             ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
-            ReportExecutionOrderAmbiguities, RunOnce, Schedule, Stage, State,
-            SystemSet, SystemStage,
+            ReportExecutionOrderAmbiguities, RunOnce, Schedule, Stage, State, SystemSet,
+            SystemStage,
         },
         system::{Commands, ExclusiveSystem, IntoExclusiveSystem, IntoSystem, Query, System},
         Added, Bundle, Changed, Component, Entity, Flags, In, IntoChainSystem, Mut, Mutated, Or,
