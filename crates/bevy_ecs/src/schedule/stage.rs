@@ -26,7 +26,7 @@ impl_downcast!(Stage);
 /// pairs of systems with ambiguous execution order.
 ///
 /// Systems that access the same Component or Resource within the same stage
-/// risk an ambiguous order that could result in logic bugs, as, unless they have an
+/// risk an ambiguous order that could result in logic bugs, unless they have an
 /// explicit execution ordering constraint between them.
 ///
 /// This occurs because, in the absence of explicit constraints, systems are executed in
