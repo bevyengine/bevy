@@ -1,3 +1,7 @@
+mod viewport;
+
+pub use viewport::*;
+
 use crate::renderer::TextureId;
 use bevy_window::WindowId;
 

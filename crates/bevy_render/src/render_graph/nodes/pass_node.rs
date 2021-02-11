@@ -1,5 +1,5 @@
 use crate::{
-    camera::{ActiveCameras, Viewport, VisibleEntities},
+    camera::{ActiveCameras, VisibleEntities},
     draw::{Draw, RenderCommand},
     pass::{ClearColor, LoadOp, PassDescriptor, TextureAttachment},
     pipeline::{
@@ -11,6 +11,7 @@ use crate::{
     renderer::{
         BindGroup, BindGroupId, BufferId, RenderContext, RenderResourceBindings, RenderResourceType,
     },
+    surface::Viewport,
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{ReadOnlyFetch, Resources, World, WorldQuery};

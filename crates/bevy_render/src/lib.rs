@@ -9,6 +9,7 @@ pub mod pipeline;
 pub mod render_graph;
 pub mod renderer;
 pub mod shader;
+pub mod surface;
 pub mod texture;
 pub mod wireframe;
 
@@ -149,7 +150,7 @@ impl Plugin for RenderPlugin {
         .add_system_to_stage(CoreStage::PreUpdate, draw::clear_draw_system.system())
         .add_system_to_stage(
             CoreStage::PostUpdate,
-            camera::viewport_system.system(),
+            surface::viewport_system.system(),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,

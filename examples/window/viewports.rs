@@ -2,8 +2,9 @@ use bevy::{
     math::clamp,
     prelude::*,
     render::{
-        camera::{ActiveCameras, Camera, Viewport, ViewportSideLocation},
+        camera::{ActiveCameras, Camera},
         render_graph::{base::MainPass, CameraNode, PassNode, RenderGraph},
+        surface::{Viewport, ViewportSideLocation},
     },
 };
 

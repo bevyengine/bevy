@@ -1,4 +1,5 @@
-use super::{CameraProjection, Viewport};
+use super::CameraProjection;
+use crate::surface::Viewport;
 use bevy_ecs::{Changed, Component, Query};
 use bevy_math::{Mat4, Vec2, Vec3};
 use bevy_reflect::{Reflect, ReflectComponent, ReflectDeserialize};

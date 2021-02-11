@@ -1,12 +1,13 @@
 use bevy::{
     prelude::*,
     render::{
-        camera::{ActiveCameras, Camera, Viewport},
+        camera::{ActiveCameras, Camera},
         pass::*,
         render_graph::{
             base::MainPass, CameraNode, PassNode, RenderGraph, WindowSwapChainNode,
             WindowTextureNode,
         },
+        surface::Viewport,
         texture::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage},
     },
     window::{CreateWindow, WindowDescriptor, WindowId},

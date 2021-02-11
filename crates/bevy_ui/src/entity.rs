@@ -7,13 +7,12 @@ use crate::{
 use bevy_asset::Handle;
 use bevy_ecs::Bundle;
 use bevy_render::{
-    camera::{
-        Camera, DepthCalculation, OrthographicProjection, Viewport, VisibleEntities, WindowOrigin,
-    },
+    camera::{Camera, DepthCalculation, OrthographicProjection, VisibleEntities, WindowOrigin},
     draw::Draw,
     mesh::Mesh,
     pipeline::{RenderPipeline, RenderPipelines},
     prelude::Visible,
+    surface::Viewport,
 };
 use bevy_sprite::{ColorMaterial, QUAD_HANDLE};
 use bevy_text::{CalculatedSize, Text};

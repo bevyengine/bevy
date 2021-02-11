@@ -1,11 +1,12 @@
 use crate::{
     camera::{
         Camera, DepthCalculation, OrthographicProjection, PerspectiveProjection, ScalingMode,
-        Viewport, VisibleEntities,
+        VisibleEntities,
     },
     pipeline::RenderPipelines,
     prelude::Visible,
     render_graph::base,
+    surface::Viewport,
     Draw, Mesh,
 };
 use base::MainPass;
