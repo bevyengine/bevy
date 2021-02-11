@@ -4,7 +4,7 @@ use bevy::{
     render::{
         camera::{ActiveCameras, Camera},
         render_graph::{base::MainPass, CameraNode, PassNode, RenderGraph},
-        surface::{Viewport, ViewportSideLocation},
+        surface::{Viewport, SideLocation},
     },
 };
 
@@ -63,11 +63,11 @@ fn setup(
             viewport: Viewport {
                 sides: Rect {
                     // occupy the left 50% of the available horizontal space
-                    left: ViewportSideLocation::Relative(0.0),
-                    right: ViewportSideLocation::Relative(0.5),
+                    left: SideLocation::Relative(0.0),
+                    right: SideLocation::Relative(0.5),
                     // occupy the left 100% of the available vertical space
-                    top: ViewportSideLocation::Relative(0.0),
-                    bottom: ViewportSideLocation::Relative(1.0),
+                    top: SideLocation::Relative(0.0),
+                    bottom: SideLocation::Relative(1.0),
                 },
                 ..Default::default()
             },
@@ -153,23 +153,23 @@ fn viewport_layout_system(
     if keyboard_input.just_pressed(KeyCode::Down) {
         layout.divide_y += 0.05;
     }
-    layout.divide_x = clamp(layout.divide_x, 0.05, 0.95);
-    layout.divide_y = clamp(layout.divide_y, 0.05, 0.95);
+    layout.divide_x = clamp(layout.divide_x, 0.0, 1.0);
+    layout.divide_y = clamp(layout.divide_y, 0.0, 1.0);
 
     // resize the viewports
     for (camera, mut viewport) in query.iter_mut() {
         match camera.name.as_deref() {
             // default camera
             Some("Camera3d") => {
-                viewport.sides.right = ViewportSideLocation::Relative(layout.divide_x);
+                viewport.sides.right = SideLocation::Relative(layout.divide_x);
             }
             Some("TopRight") => {
-                viewport.sides.left = ViewportSideLocation::Relative(layout.divide_x);
-                viewport.sides.bottom = ViewportSideLocation::Relative(layout.divide_y);
+                viewport.sides.left = SideLocation::Relative(layout.divide_x);
+                viewport.sides.bottom = SideLocation::Relative(layout.divide_y);
             }
             Some("BottomRight") => {
-                viewport.sides.left = ViewportSideLocation::Relative(layout.divide_x);
-                viewport.sides.top = ViewportSideLocation::Relative(layout.divide_y);
+                viewport.sides.left = SideLocation::Relative(layout.divide_x);
+                viewport.sides.top = SideLocation::Relative(layout.divide_y);
             }
             _ => {}
         }

@@ -12,7 +12,7 @@ use std::ops::{Add, AddAssign, Sub, SubAssign};
 pub struct Viewport {
     #[reflect(ignore)]
     pub surface: SurfaceId,
-    pub sides: Rect<ViewportSideLocation>,
+    pub sides: Rect<SideLocation>,
     pub scale_factor: f64,
     // computed values
     pub origin: Vec2,
@@ -29,24 +29,27 @@ impl Viewport {
     }
 
     pub fn update_rectangle(&mut self, surface_size: Vec2) {
-        self.origin.x = match self.sides.left {
-            ViewportSideLocation::Absolute(value) => value,
-            ViewportSideLocation::Relative(value) => value * surface_size.x,
+        const MIN_SIZE: f32 = 1.0;
+        let x = match self.sides.left {
+            SideLocation::Absolute(value) => value,
+            SideLocation::Relative(value) => value * surface_size.x,
         };
-        self.origin.y = match self.sides.top {
-            ViewportSideLocation::Absolute(value) => value,
-            ViewportSideLocation::Relative(value) => value * surface_size.y,
+        let y = match self.sides.top {
+            SideLocation::Absolute(value) => value,
+            SideLocation::Relative(value) => value * surface_size.y,
         };
-        self.size.x = match self.sides.right {
-            ViewportSideLocation::Absolute(value) => value - self.origin.x,
-            ViewportSideLocation::Relative(value) => value * surface_size.x - self.origin.x,
+        let w = match self.sides.right {
+            SideLocation::Absolute(value) => value - x,
+            SideLocation::Relative(value) => value * surface_size.x - x,
         };
-        self.size.y = match self.sides.bottom {
-            ViewportSideLocation::Absolute(value) => value - self.origin.y,
-            ViewportSideLocation::Relative(value) => value * surface_size.y - self.origin.y,
+        let h = match self.sides.bottom {
+            SideLocation::Absolute(value) => value - y,
+            SideLocation::Relative(value) => value * surface_size.y - y,
         };
-        self.origin = clamp(self.origin, Vec2::zero(), surface_size);
-        self.size = clamp(self.size, Vec2::one(), surface_size - self.origin);
+        self.origin.x = clamp(x, MIN_SIZE, surface_size.x - MIN_SIZE);
+        self.origin.y = clamp(y, MIN_SIZE, surface_size.y - MIN_SIZE);
+        self.size.x = clamp(w, MIN_SIZE, surface_size.x - self.origin.x);
+        self.size.y = clamp(h, MIN_SIZE, surface_size.y - self.origin.y);
     }
 }
 
@@ -55,10 +58,10 @@ impl Default for Viewport {
         Self {
             surface: WindowId::primary().into(),
             sides: Rect {
-                left: ViewportSideLocation::Relative(0.0),
-                right: ViewportSideLocation::Relative(1.0),
-                top: ViewportSideLocation::Relative(0.0),
-                bottom: ViewportSideLocation::Relative(1.0),
+                left: SideLocation::Relative(0.0),
+                right: SideLocation::Relative(1.0),
+                top: SideLocation::Relative(0.0),
+                bottom: SideLocation::Relative(1.0),
             },
             scale_factor: 1.0,
             origin: Vec2::zero(),
@@ -69,53 +72,53 @@ impl Default for Viewport {
 
 #[derive(Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect_value(PartialEq)]
-pub enum ViewportSideLocation {
+pub enum SideLocation {
     Relative(f32),
     Absolute(f32),
 }
 
-impl Default for ViewportSideLocation {
+impl Default for SideLocation {
     fn default() -> Self {
         Self::Relative(0.0)
     }
 }
 
-impl Add<f32> for ViewportSideLocation {
-    type Output = ViewportSideLocation;
+impl Add<f32> for SideLocation {
+    type Output = SideLocation;
 
     fn add(self, rhs: f32) -> Self::Output {
         match self {
-            ViewportSideLocation::Relative(value) => ViewportSideLocation::Relative(value + rhs),
-            ViewportSideLocation::Absolute(value) => ViewportSideLocation::Absolute(value + rhs),
+            SideLocation::Relative(value) => SideLocation::Relative(value + rhs),
+            SideLocation::Absolute(value) => SideLocation::Absolute(value + rhs),
         }
     }
 }
 
-impl Sub<f32> for ViewportSideLocation {
-    type Output = ViewportSideLocation;
+impl Sub<f32> for SideLocation {
+    type Output = SideLocation;
 
     fn sub(self, rhs: f32) -> Self::Output {
         match self {
-            ViewportSideLocation::Relative(value) => ViewportSideLocation::Relative(value - rhs),
-            ViewportSideLocation::Absolute(value) => ViewportSideLocation::Absolute(value - rhs),
+            SideLocation::Relative(value) => SideLocation::Relative(value - rhs),
+            SideLocation::Absolute(value) => SideLocation::Absolute(value - rhs),
         }
     }
 }
 
-impl AddAssign<f32> for ViewportSideLocation {
+impl AddAssign<f32> for SideLocation {
     fn add_assign(&mut self, rhs: f32) {
         match self {
-            ViewportSideLocation::Relative(value) => *value += rhs,
-            ViewportSideLocation::Absolute(value) => *value += rhs,
+            SideLocation::Relative(value) => *value += rhs,
+            SideLocation::Absolute(value) => *value += rhs,
         }
     }
 }
 
-impl SubAssign<f32> for ViewportSideLocation {
+impl SubAssign<f32> for SideLocation {
     fn sub_assign(&mut self, rhs: f32) {
         match self {
-            ViewportSideLocation::Relative(value) => *value -= rhs,
-            ViewportSideLocation::Absolute(value) => *value -= rhs,
+            SideLocation::Relative(value) => *value -= rhs,
+            SideLocation::Absolute(value) => *value -= rhs,
         }
     }
 }
