@@ -18,6 +18,8 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 
 #[derive(Clone, Debug)]
 pub enum VertexAttributeValues {
+    Uchar4(Vec<[u8; 4]>),
+    Ushort4(Vec<[u16; 4]>),
     Float(Vec<f32>),
     Int(Vec<i32>),
     Uint(Vec<u32>),
@@ -36,6 +38,8 @@ pub enum VertexAttributeValues {
 impl VertexAttributeValues {
     pub fn len(&self) -> usize {
         match *self {
+            VertexAttributeValues::Uchar4(ref values) => values.len(),
+            VertexAttributeValues::Ushort4(ref values) => values.len(),
             VertexAttributeValues::Float(ref values) => values.len(),
             VertexAttributeValues::Int(ref values) => values.len(),
             VertexAttributeValues::Uint(ref values) => values.len(),
@@ -59,6 +63,8 @@ impl VertexAttributeValues {
     // TODO: add vertex format as parameter here and perform type conversions
     pub fn get_bytes(&self) -> &[u8] {
         match self {
+            VertexAttributeValues::Uchar4(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Ushort4(values) => values.as_slice().as_bytes(),
             VertexAttributeValues::Float(values) => values.as_slice().as_bytes(),
             VertexAttributeValues::Int(values) => values.as_slice().as_bytes(),
             VertexAttributeValues::Uint(values) => values.as_slice().as_bytes(),
@@ -79,6 +85,8 @@ impl VertexAttributeValues {
 impl From<&VertexAttributeValues> for VertexFormat {
     fn from(values: &VertexAttributeValues) -> Self {
         match values {
+            VertexAttributeValues::Uchar4(_) => VertexFormat::Uchar4,
+            VertexAttributeValues::Ushort4(_) => VertexFormat::Ushort4,
             VertexAttributeValues::Float(_) => VertexFormat::Float,
             VertexAttributeValues::Int(_) => VertexFormat::Int,
             VertexAttributeValues::Uint(_) => VertexFormat::Uint,
@@ -204,6 +212,8 @@ impl Mesh {
     pub const ATTRIBUTE_NORMAL: &'static str = "Vertex_Normal";
     pub const ATTRIBUTE_POSITION: &'static str = "Vertex_Position";
     pub const ATTRIBUTE_UV_0: &'static str = "Vertex_Uv";
+    pub const ATTRIBUTE_WEIGHT: &'static str = "Vertex_Weight";
+    pub const ATTRIBUTE_JOINT: &'static str = "Vertex_Join";
 
     pub fn new(primitive_topology: PrimitiveTopology) -> Self {
         Mesh {

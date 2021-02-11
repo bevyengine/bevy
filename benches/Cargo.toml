@@ -6,9 +6,20 @@ edition = "2018"
 
 [dev-dependencies]
 criterion = "0.3"
+rand = "0.8.1"
 bevy = { path = "../" }
 
 [[bench]]
 name = "iter"
 path = "benches/bevy_tasks/iter.rs"
+harness = false
+
+[[bench]]
+name = "animation-tick-run-idle-blend"
+path = "benches/bevy_animation/tick_run_idle_blend.rs"
+harness = false
+
+[[bench]]
+name = "animation-tracks-narrow-and-wide"
+path = "benches/bevy_animation/tracks_narrow_and_wide.rs"
 harness = false
