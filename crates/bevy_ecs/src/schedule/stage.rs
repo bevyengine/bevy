@@ -36,6 +36,9 @@ impl_downcast!(Stage);
 /// or spurious, as the exact combination of archetypes used may prevent them from ever conflicting during actual gameplay.
 /// You can resolve the warnings produced by the ambiguity checker by adding `.before` or `.after` to one of the conflicting systems
 /// referencing the other system to force a specific ordering.
+///
+/// The checker may report a system more times than the amount of constraints it would actually need to have
+/// unambiguous order with regards to a group of already-constrained systems.
 pub struct ReportExecutionOrderAmbiguities;
 
 struct VirtualSystemSet {
