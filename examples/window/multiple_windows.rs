@@ -7,7 +7,7 @@ use bevy::{
             base::MainPass, CameraNode, PassNode, RenderGraph, WindowSwapChainNode,
             WindowTextureNode,
         },
-        surface::Viewport,
+        surface::{Viewport, ViewportDescriptor},
         texture::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage},
     },
     window::{CreateWindow, WindowDescriptor, WindowId},
@@ -201,10 +201,10 @@ fn setup_pipeline(
                 name: Some("Secondary".to_string()),
                 ..Default::default()
             },
-            viewport: Viewport {
+            viewport: Viewport::new(ViewportDescriptor {
                 surface: window_id.into(),
                 ..Default::default()
-            },
+            }),
             transform: Transform::from_xyz(6.0, 0.0, 0.0)
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()

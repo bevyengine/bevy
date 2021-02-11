@@ -48,7 +48,7 @@ impl Camera {
         }
         // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
         let screen_space_coords =
-            viewport.origin + (ndc_space_coords.truncate() + Vec2::one()) / 2.0 * viewport.size;
+            viewport.origin() + (ndc_space_coords.truncate() + Vec2::one()) / 2.0 * viewport.size();
         Some(screen_space_coords)
     }
 }
@@ -57,7 +57,8 @@ pub fn camera_system<T: CameraProjection + Component>(
     mut query: Query<(&mut Camera, &mut T, &Viewport), Changed<Viewport>>,
 ) {
     for (mut camera, mut camera_projection, viewport) in query.iter_mut() {
-        camera_projection.update(viewport.size.x, viewport.size.y);
+        let size = viewport.size();
+        camera_projection.update(size.x, size.y);
         camera.projection_matrix = camera_projection.get_projection_matrix();
         camera.depth_calculation = camera_projection.depth_calculation();
     }

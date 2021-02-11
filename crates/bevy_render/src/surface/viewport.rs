@@ -15,11 +15,31 @@ pub struct Viewport {
     pub sides: Rect<SideLocation>,
     pub scale_factor: f64,
     // computed values
-    pub origin: Vec2,
-    pub size: Vec2,
+    origin: Vec2,
+    size: Vec2,
 }
 
 impl Viewport {
+    const MIN_SIZE: f32 = 1.0;
+
+    pub fn new(descriptor: ViewportDescriptor) -> Self {
+        Self {
+            surface: descriptor.surface,
+            sides: descriptor.sides,
+            scale_factor: descriptor.scale_factor,
+            origin: vec2(0.0, 0.0),
+            size: vec2(Self::MIN_SIZE, Self::MIN_SIZE),
+        }
+    }
+
+    pub fn origin(&self) -> Vec2 {
+        self.origin
+    }
+
+    pub fn size(&self) -> Vec2 {
+        self.size
+    }
+
     pub fn physical_origin(&self) -> Vec2 {
         (self.origin.as_f64() * self.scale_factor).as_f32()
     }
@@ -29,7 +49,6 @@ impl Viewport {
     }
 
     pub fn update_rectangle(&mut self, surface_size: Vec2) {
-        const MIN_SIZE: f32 = 1.0;
         let x = match self.sides.left {
             SideLocation::Absolute(value) => value,
             SideLocation::Relative(value) => value * surface_size.x,
@@ -46,14 +65,27 @@ impl Viewport {
             SideLocation::Absolute(value) => value - y,
             SideLocation::Relative(value) => value * surface_size.y - y,
         };
-        self.origin.x = clamp(x, MIN_SIZE, surface_size.x - MIN_SIZE);
-        self.origin.y = clamp(y, MIN_SIZE, surface_size.y - MIN_SIZE);
-        self.size.x = clamp(w, MIN_SIZE, surface_size.x - self.origin.x);
-        self.size.y = clamp(h, MIN_SIZE, surface_size.y - self.origin.y);
+        self.origin.x = clamp(x, Self::MIN_SIZE, surface_size.x - Self::MIN_SIZE);
+        self.origin.y = clamp(y, Self::MIN_SIZE, surface_size.y - Self::MIN_SIZE);
+        self.size.x = clamp(w, Self::MIN_SIZE, surface_size.x - self.origin.x);
+        self.size.y = clamp(h, Self::MIN_SIZE, surface_size.y - self.origin.y);
     }
 }
 
 impl Default for Viewport {
+    fn default() -> Self {
+        Viewport::new(ViewportDescriptor::default())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ViewportDescriptor {
+    pub surface: SurfaceId,
+    pub sides: Rect<SideLocation>,
+    pub scale_factor: f64,
+}
+
+impl Default for ViewportDescriptor {
     fn default() -> Self {
         Self {
             surface: WindowId::primary().into(),
@@ -64,8 +96,6 @@ impl Default for Viewport {
                 bottom: SideLocation::Relative(1.0),
             },
             scale_factor: 1.0,
-            origin: Vec2::zero(),
-            size: Vec2::one(),
         }
     }
 }

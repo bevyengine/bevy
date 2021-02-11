@@ -4,7 +4,7 @@ use bevy::{
     render::{
         camera::{ActiveCameras, Camera},
         render_graph::{base::MainPass, CameraNode, PassNode, RenderGraph},
-        surface::{Viewport, SideLocation},
+        surface::{SideLocation, Viewport, ViewportDescriptor},
     },
 };
 
@@ -60,7 +60,7 @@ fn setup(
             // the following is an example of how to setup static viewports
             // and isn't really necessary in this case, as it will be
             // immediately overwritten by the viewport_layout_system
-            viewport: Viewport {
+            viewport: Viewport::new(ViewportDescriptor {
                 sides: Rect {
                     // occupy the left 50% of the available horizontal space
                     left: SideLocation::Relative(0.0),
@@ -70,7 +70,7 @@ fn setup(
                     bottom: SideLocation::Relative(1.0),
                 },
                 ..Default::default()
-            },
+            }),
             transform: Transform::from_xyz(-1.0, 1.0, 1.0)
                 .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::unit_y()),
             ..Default::default()
