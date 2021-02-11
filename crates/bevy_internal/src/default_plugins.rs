@@ -35,7 +35,10 @@ impl PluginGroup for DefaultPlugins {
         #[cfg(feature = "bevy_gilrs")]
         group.add(bevy_gilrs::GilrsPlugin::default());
 
-        #[cfg(feature = "bevy_gltf")]
+        #[cfg(feature = "bevy_animation")]
+        group.add(bevy_animation::AnimationPlugin::default());
+
+        #[cfg(all(feature = "bevy_gltf", feature = "bevy_animation"))]
         group.add(bevy_gltf::GltfPlugin::default());
 
         #[cfg(feature = "bevy_winit")]

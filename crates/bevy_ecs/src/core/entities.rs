@@ -349,7 +349,7 @@ pub(crate) struct EntityMeta {
 }
 
 /// A location of an entity in an archetype
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Location {
     /// The archetype index
     pub archetype: u32,

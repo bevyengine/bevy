@@ -24,6 +24,7 @@ default = [
   "bevy_audio",
   "bevy_dynamic_plugin",
   "bevy_gilrs",
+  "bevy_animation",
   "bevy_gltf",
   "bevy_wgpu",
   "bevy_winit",
@@ -41,6 +42,7 @@ dynamic = ["bevy_dylib"]
 render = ["bevy_internal/bevy_pbr", "bevy_internal/bevy_render", "bevy_internal/bevy_sprite", "bevy_internal/bevy_text", "bevy_internal/bevy_ui"]
 
 # Optional bevy crates
+bevy_animation = ["bevy_internal/bevy_animation"]
 bevy_audio = ["bevy_internal/bevy_audio"]
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
@@ -405,6 +407,10 @@ required-features = ["bevy_winit"]
 crate-type = ["cdylib"]
 name = "android"
 path = "examples/android/android.rs"
+
+[[example]]
+name = "run_animation"
+path = "examples/animations/run_animation.rs"
 
 [package.metadata.android]
 apk_label = "Bevy Example"
