@@ -1,3 +1,5 @@
+const TRANSFORM_LABEL: String = String::from("transform_propagation");
+
 pub mod components;
 pub mod hierarchy;
 pub mod transform_propagate_system;
@@ -30,7 +32,7 @@ impl Plugin for TransformPlugin {
             .add_system_to_stage(stage::POST_UPDATE, parent_update_system.system())
             .add_system_to_stage(
                 stage::POST_UPDATE,
-                transform_propagate_system::transform_propagate_system.system(),
+                transform_propagate_system::transform_propagate_system.system().label(TRANSFORM_LABEL),
             );
     }
 }
