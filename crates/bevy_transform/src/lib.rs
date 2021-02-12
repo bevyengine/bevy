@@ -32,7 +32,9 @@ impl Plugin for TransformPlugin {
             .add_system_to_stage(stage::POST_UPDATE, parent_update_system.system())
             .add_system_to_stage(
                 stage::POST_UPDATE,
-                transform_propagate_system::transform_propagate_system.system().label(TRANSFORM_LABEL),
+                transform_propagate_system::transform_propagate_system
+                    .system()
+                    .label(TRANSFORM_LABEL),
             );
     }
 }
