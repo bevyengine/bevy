@@ -32,6 +32,12 @@ impl Default for WindowId {
     }
 }
 
+/// The size limits on a window.
+/// These values are measured in logical pixels, so the user's
+/// scale factor does affect the size limits on the window.
+/// Please note that if the window is resizable, then when the window is
+/// maximized it may have a size outside of these limits. The functionality
+/// required to disable maximizing is not yet exposed by winit.
 #[derive(Debug, Clone, Copy)]
 pub struct WindowResizeConstraints {
     pub min_width: f32,
