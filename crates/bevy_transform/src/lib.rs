@@ -1,4 +1,4 @@
-pub const TRANSFORM_PROPAGATION: &'static str = "transform_propagation";
+pub const TRANSFORM_PROPAGATION: &str = "transform_propagation";
 
 pub mod components;
 pub mod hierarchy;
