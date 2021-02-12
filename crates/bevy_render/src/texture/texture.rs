@@ -125,6 +125,30 @@ impl Texture {
         });
     }
 
+    /// Convert a texture from a format to another
+    /// Only a few formats are supported as input and output:
+    /// - `TextureFormat::R8Unorm`
+    /// - `TextureFormat::Rg8Unorm`
+    /// - `TextureFormat::Rgba8UnormSrgb`
+    /// - `TextureFormat::Bgra8UnormSrgb`
+    pub fn convert(&self, new_format: TextureFormat) -> Option<Self> {
+        super::image_texture_conversion::texture_to_image(self)
+            .and_then(|img| match new_format {
+                TextureFormat::R8Unorm => Some(image::DynamicImage::ImageLuma8(img.into_luma8())),
+                TextureFormat::Rg8Unorm => {
+                    Some(image::DynamicImage::ImageLumaA8(img.into_luma_alpha8()))
+                }
+                TextureFormat::Rgba8UnormSrgb => {
+                    Some(image::DynamicImage::ImageRgba8(img.into_rgba8()))
+                }
+                TextureFormat::Bgra8UnormSrgb => {
+                    Some(image::DynamicImage::ImageBgra8(img.into_bgra8()))
+                }
+                _ => None,
+            })
+            .map(super::image_texture_conversion::image_to_texture)
+    }
+
     pub fn texture_resource_system(
         render_resource_context: Res<Box<dyn RenderResourceContext>>,
         textures: Res<Assets<Texture>>,

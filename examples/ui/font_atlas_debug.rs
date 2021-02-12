@@ -5,7 +5,7 @@ use bevy::{prelude::*, text::FontAtlasSet};
 fn main() {
     App::build()
         .init_resource::<State>()
-        .add_resource(ClearColor(Color::BLACK))
+        .insert_resource(ClearColor(Color::BLACK))
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
         .add_system(text_update_system.system())
@@ -79,7 +79,7 @@ fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Quer
 fn setup(commands: &mut Commands, asset_server: Res<AssetServer>, mut state: ResMut<State>) {
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
     state.handle = font_handle.clone();
-    commands.spawn(CameraUiBundle::default()).spawn(TextBundle {
+    commands.spawn(UiCameraBundle::default()).spawn(TextBundle {
         text: Text::with_section(
             "a",
             TextStyle {

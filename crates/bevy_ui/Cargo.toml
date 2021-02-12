@@ -33,3 +33,4 @@ bevy_utils = { path = "../bevy_utils", version = "0.4.0" }
 # other
 stretch = "0.3"
 serde = {version = "1", features = ["derive"]}
+smallvec = "1.4"

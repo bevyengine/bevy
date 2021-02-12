@@ -2,9 +2,9 @@ use bevy::{prelude::*, scene::InstanceId};
 
 fn main() {
     App::build()
-        .add_resource(Msaa { samples: 4 })
+        .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
-        .add_resource(SceneInstance::default())
+        .insert_resource(SceneInstance::default())
         .add_startup_system(setup.system())
         .add_system(scene_update.system())
         .add_system(move_scene_entities.system())
@@ -29,7 +29,7 @@ fn setup(
             transform: Transform::from_xyz(4.0, 5.0, 4.0),
             ..Default::default()
         })
-        .spawn(Camera3dBundle {
+        .spawn(PerspectiveCameraBundle {
             transform: Transform::from_xyz(1.05, 0.9, 1.5)
                 .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::unit_y()),
             ..Default::default()

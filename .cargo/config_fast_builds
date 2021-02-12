@@ -1,7 +1,7 @@
 # Rename this file to `config.toml` to enable "fast build" configuration. Please read the notes below.
 
 # NOTE: For maximum performance, build using a nightly compiler
-# If you are using rust stable, remove the "-Zshare-generics=y" below.
+# If you are using rust stable, remove the "-Zshare-generics=y" below (as well as "-Csplit-debuginfo=unpacked" when building on macOS).
 
 [target.x86_64-unknown-linux-gnu]
 linker = "/usr/bin/clang"
@@ -10,7 +10,7 @@ rustflags = ["-Clink-arg=-fuse-ld=lld", "-Zshare-generics=y"]
 # NOTE: you must manually install https://github.com/michaeleisel/zld on mac. you can easily do this with the "brew" package manager:
 # `brew install michaeleisel/zld/zld`
 [target.x86_64-apple-darwin]
-rustflags = ["-C", "link-arg=-fuse-ld=/usr/local/bin/zld", "-Zshare-generics=y", "-Zrun-dsymutil=no"]
+rustflags = ["-C", "link-arg=-fuse-ld=/usr/local/bin/zld", "-Zshare-generics=y", "-Csplit-debuginfo=unpacked"]
 
 [target.x86_64-pc-windows-msvc]
 linker = "rust-lld.exe"

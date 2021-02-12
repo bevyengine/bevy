@@ -15,10 +15,10 @@ enum GameState {
 
 fn main() {
     App::build()
-        .add_resource(Msaa { samples: 4 })
+        .insert_resource(Msaa { samples: 4 })
         .init_resource::<Game>()
         .add_plugins(DefaultPlugins)
-        .add_resource(State::new(GameState::Playing))
+        .insert_resource(State::new(GameState::Playing))
         .add_startup_system(setup_cameras.system())
         .add_stage_after(stage::UPDATE, STAGE, StateStage::<GameState>::default())
         .on_state_enter(STAGE, GameState::Playing, setup.system())
@@ -83,7 +83,7 @@ fn setup_cameras(commands: &mut Commands, mut game: ResMut<Game>) {
     game.camera_should_focus = Vec3::from(RESET_FOCUS);
     game.camera_is_focus = game.camera_should_focus;
     commands
-        .spawn(Camera3dBundle {
+        .spawn(PerspectiveCameraBundle {
             transform: Transform::from_xyz(
                 -(BOARD_SIZE_I as f32 / 2.0),
                 2.0 * BOARD_SIZE_J as f32 / 3.0,
@@ -92,7 +92,7 @@ fn setup_cameras(commands: &mut Commands, mut game: ResMut<Game>) {
             .looking_at(game.camera_is_focus, Vec3::unit_y()),
             ..Default::default()
         })
-        .spawn(CameraUiBundle::default());
+        .spawn(UiCameraBundle::default());
 }
 
 fn setup(commands: &mut Commands, asset_server: Res<AssetServer>, mut game: ResMut<Game>) {

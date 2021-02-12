@@ -6,7 +6,7 @@ use bevy::{
 /// This example is for debugging text layout
 fn main() {
     App::build()
-        .add_resource(WindowDescriptor {
+        .insert_resource(WindowDescriptor {
             vsync: false,
             ..Default::default()
         })
@@ -21,7 +21,7 @@ struct TextChanges;
 
 fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    commands.spawn(CameraUiBundle::default());
+    commands.spawn(UiCameraBundle::default());
     commands.spawn(TextBundle {
         style: Style {
             align_self: AlignSelf::FlexEnd,

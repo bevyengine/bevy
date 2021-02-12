@@ -5,11 +5,11 @@ fn main() {
     App::build()
         .init_resource::<RpgSpriteHandles>()
         .add_plugins(DefaultPlugins)
-        .add_resource(State::new(AppState::Setup))
+        .insert_resource(State::new(AppState::Setup))
         .add_stage_after(stage::UPDATE, STAGE, StateStage::<AppState>::default())
         .on_state_enter(STAGE, AppState::Setup, load_textures.system())
         .on_state_update(STAGE, AppState::Setup, check_textures.system())
-        .on_state_enter(STAGE, AppState::Finshed, setup.system())
+        .on_state_enter(STAGE, AppState::Finished, setup.system())
         .run();
 }
 
@@ -18,7 +18,7 @@ const STAGE: &str = "app_state";
 #[derive(Clone)]
 enum AppState {
     Setup,
-    Finshed,
+    Finished,
 }
 
 #[derive(Default)]
@@ -38,7 +38,7 @@ fn check_textures(
     if let LoadState::Loaded =
         asset_server.get_group_load_state(rpg_sprite_handles.handles.iter().map(|handle| handle.id))
     {
-        state.set_next(AppState::Finshed).unwrap();
+        state.set_next(AppState::Finished).unwrap();
     }
 }
 
@@ -64,7 +64,7 @@ fn setup(
 
     // set up a scene to display our texture atlas
     commands
-        .spawn(Camera2dBundle::default())
+        .spawn(OrthographicCameraBundle::new_2d())
         // draw a sprite from the atlas
         .spawn(SpriteSheetBundle {
             transform: Transform {

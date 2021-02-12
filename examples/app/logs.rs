@@ -4,7 +4,7 @@ use bevy::prelude::*;
 fn main() {
     App::build()
         // Uncomment this to override the default log settings:
-        // .add_resource(bevy::log::LogSettings {
+        // .insert_resource(bevy::log::LogSettings {
         //     level: bevy::log::Level::TRACE,
         //     filter: "wgpu=warn,bevy_ecs=info".to_string(),
         // })

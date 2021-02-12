@@ -2,9 +2,8 @@ use bevy_asset::{Assets, HandleUntyped};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     pipeline::{
-        BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
-        CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace, PipelineDescriptor,
-        RasterizationStateDescriptor, StencilStateDescriptor, StencilStateFaceDescriptor,
+        BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrite, CompareFunction,
+        DepthBiasState, DepthStencilState, PipelineDescriptor, StencilFaceState, StencilState,
     },
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat,
@@ -15,33 +14,31 @@ pub const FORWARD_PIPELINE_HANDLE: HandleUntyped =
 
 pub(crate) fn build_forward_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
     PipelineDescriptor {
-        rasterization_state: Some(RasterizationStateDescriptor {
-            front_face: FrontFace::Ccw,
-            cull_mode: CullMode::Back,
-            depth_bias: 0,
-            depth_bias_slope_scale: 0.0,
-            depth_bias_clamp: 0.0,
-            clamp_depth: false,
-        }),
-        depth_stencil_state: Some(DepthStencilStateDescriptor {
+        depth_stencil: Some(DepthStencilState {
             format: TextureFormat::Depth32Float,
             depth_write_enabled: true,
             depth_compare: CompareFunction::Less,
-            stencil: StencilStateDescriptor {
-                front: StencilStateFaceDescriptor::IGNORE,
-                back: StencilStateFaceDescriptor::IGNORE,
+            stencil: StencilState {
+                front: StencilFaceState::IGNORE,
+                back: StencilFaceState::IGNORE,
                 read_mask: 0,
                 write_mask: 0,
             },
+            bias: DepthBiasState {
+                constant: 0,
+                slope_scale: 0.0,
+                clamp: 0.0,
+            },
+            clamp_depth: false,
         }),
-        color_states: vec![ColorStateDescriptor {
+        color_target_states: vec![ColorTargetState {
             format: TextureFormat::default(),
-            color_blend: BlendDescriptor {
+            color_blend: BlendState {
                 src_factor: BlendFactor::SrcAlpha,
                 dst_factor: BlendFactor::OneMinusSrcAlpha,
                 operation: BlendOperation::Add,
             },
-            alpha_blend: BlendDescriptor {
+            alpha_blend: BlendState {
                 src_factor: BlendFactor::One,
                 dst_factor: BlendFactor::One,
                 operation: BlendOperation::Add,

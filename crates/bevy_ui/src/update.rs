@@ -48,7 +48,7 @@ fn update_hierarchy(
 }
 #[cfg(test)]
 mod tests {
-    use bevy_ecs::{Commands, IntoSystem, Resources, Schedule, SystemStage, World};
+    use bevy_ecs::{Commands, IntoSystem, Resources, Schedule, Stage, SystemStage, World};
     use bevy_transform::{components::Transform, hierarchy::BuildChildren};
 
     use crate::Node;
@@ -118,7 +118,7 @@ mod tests {
         let mut update_stage = SystemStage::parallel();
         update_stage.add_system(ui_z_system.system());
         schedule.add_stage("update", update_stage);
-        schedule.initialize_and_run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
 
         let mut actual_result = world
             .query::<(&String, &Transform)>()

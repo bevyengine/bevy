@@ -8,23 +8,23 @@ use std::{
 
 #[derive(Clone, Debug, Eq, PartialEq, Default, Reflect, Serialize, Deserialize)]
 #[reflect_value(Serialize, Deserialize, PartialEq)]
-pub struct VertexBufferDescriptor {
+pub struct VertexBufferLayout {
     pub name: Cow<'static, str>,
     pub stride: u64,
     pub step_mode: InputStepMode,
-    pub attributes: Vec<VertexAttributeDescriptor>,
+    pub attributes: Vec<VertexAttribute>,
 }
 
-impl VertexBufferDescriptor {
+impl VertexBufferLayout {
     pub fn new_from_attribute(
-        attribute: VertexAttributeDescriptor,
+        attribute: VertexAttribute,
         step_mode: InputStepMode,
-    ) -> VertexBufferDescriptor {
-        VertexBufferDescriptor {
+    ) -> VertexBufferLayout {
+        VertexBufferLayout {
             name: attribute.name.clone(),
             stride: attribute.format.get_size(),
             step_mode,
-            attributes: vec![attribute.clone()],
+            attributes: vec![attribute],
         }
     }
 }
@@ -41,10 +41,10 @@ impl Default for InputStepMode {
 }
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct VertexAttributeDescriptor {
+pub struct VertexAttribute {
     pub name: Cow<'static, str>,
-    pub offset: u64,
     pub format: VertexFormat,
+    pub offset: u64,
     pub shader_location: u32,
 }
 

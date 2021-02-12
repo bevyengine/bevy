@@ -20,7 +20,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::{IntoSystem, SystemStage};
+use bevy_ecs::{IntoSystem, ParallelSystemDescriptorCoercion, SystemStage};
 use bevy_render::render_graph::RenderGraph;
 use update::ui_z_system;
 
@@ -29,6 +29,10 @@ pub struct UiPlugin;
 
 pub mod stage {
     pub const UI: &str = "ui";
+}
+
+pub mod system {
+    pub const FLEX: &str = "flex";
 }
 
 impl Plugin for UiPlugin {
@@ -41,10 +45,13 @@ impl Plugin for UiPlugin {
             )
             .add_system_to_stage(bevy_app::stage::PRE_UPDATE, ui_focus_system.system())
             // add these stages to front because these must run before transform update systems
-            .add_system_to_stage(stage::UI, widget::text_system.system())
-            .add_system_to_stage(stage::UI, widget::image_node_system.system())
+            .add_system_to_stage(stage::UI, widget::text_system.system().before(system::FLEX))
+            .add_system_to_stage(
+                stage::UI,
+                widget::image_node_system.system().before(system::FLEX),
+            )
+            .add_system_to_stage(stage::UI, flex_node_system.system().label(system::FLEX))
             .add_system_to_stage(stage::UI, ui_z_system.system())
-            .add_system_to_stage(stage::UI, flex_node_system.system())
             .add_system_to_stage(bevy_render::stage::DRAW, widget::draw_text_system.system());
 
         let resources = app.resources();

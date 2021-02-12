@@ -8,8 +8,8 @@ use bevy::{
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .add_resource(Scoreboard { score: 0 })
-        .add_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
+        .insert_resource(Scoreboard { score: 0 })
+        .insert_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
         .add_startup_system(setup.system())
         .add_system(paddle_movement_system.system())
         .add_system(ball_collision_system.system())
@@ -44,8 +44,8 @@ fn setup(
     // Add the game's entities to our world
     commands
         // cameras
-        .spawn(Camera2dBundle::default())
-        .spawn(CameraUiBundle::default())
+        .spawn(OrthographicCameraBundle::new_2d())
+        .spawn(UiCameraBundle::default())
         // paddle
         .spawn(SpriteBundle {
             material: materials.add(Color::rgb(0.5, 0.5, 1.0).into()),
