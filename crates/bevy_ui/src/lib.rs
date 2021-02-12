@@ -20,8 +20,11 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::{IntoSystem, ParallelSystemDescriptorCoercion, SystemStage};
-use bevy_render::render_graph::RenderGraph;
+use bevy_ecs::{prelude::*, IntoSystem, ParallelSystemDescriptorCoercion, SystemStage};
+use bevy_render::{
+    camera::{Camera, OrthographicProjection},
+    render_graph::RenderGraph,
+};
 use update::ui_z_system;
 
 #[derive(Default)]
@@ -52,10 +55,30 @@ impl Plugin for UiPlugin {
             )
             .add_system_to_stage(stage::UI, flex_node_system.system().label(system::FLEX))
             .add_system_to_stage(stage::UI, ui_z_system.system())
-            .add_system_to_stage(bevy_render::stage::DRAW, widget::draw_text_system.system());
+            .add_system_to_stage(bevy_render::stage::DRAW, widget::draw_text_system.system())
+            .add_startup_system_to_stage(
+                bevy_app::startup_stage::POST_STARTUP,
+                warn_no_ui_cam.system(),
+            );
 
         let resources = app.resources();
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
         render_graph.add_ui_graph(resources);
+    }
+}
+
+fn warn_no_ui_cam(
+    node_query: Query<Entity, With<Node>>,
+    ui_cam_query: Query<&Camera, With<OrthographicProjection>>,
+) {
+    let world_contains_nodes = node_query.iter().next().is_some();
+    let world_contains_ui_cam = ui_cam_query
+        .iter()
+        .any(|cam| cam.name.as_deref() == Some(crate::camera::CAMERA_UI));
+
+    if world_contains_nodes && !world_contains_ui_cam {
+        bevy_log::warn!(
+            "The world contains ui nodes but no ui camera. Consider spawning a UiCameraBundle."
+        );
     }
 }
