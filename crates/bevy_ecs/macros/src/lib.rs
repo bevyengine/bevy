@@ -364,6 +364,10 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let manifest = Manifest::new().unwrap();
     let path_str = if let Some(package) = manifest.find(|name| name == "bevy") {
         format!("{}::ecs", package.name)
+    } else if let Some(package) = manifest.find(|name| name == "bevy_internal") {
+        format!("{}::ecs", package.name)
+    } else if let Some(package) = manifest.find(|name| name == "bevy_ecs") {
+        package.name
     } else {
         "bevy_ecs".to_string()
     };
