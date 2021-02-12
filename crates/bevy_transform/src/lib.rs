@@ -1,4 +1,4 @@
-pub const TRANSFORM_LABEL: String = String::from("transform_propagation");
+pub const TRANSFORM_LABEL: &'static str = "transform_propagation";
 
 pub mod components;
 pub mod hierarchy;
@@ -9,7 +9,7 @@ pub mod prelude {
 }
 
 use bevy_app::{prelude::*, startup_stage};
-use bevy_ecs::IntoSystem;
+use bevy_ecs::{IntoSystem, ParallelSystemDescriptorCoercion};
 use bevy_reflect::RegisterTypeBuilder;
 use prelude::{parent_update_system, Children, GlobalTransform, Parent, PreviousParent, Transform};
 
