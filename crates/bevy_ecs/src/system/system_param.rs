@@ -1,7 +1,7 @@
 use crate::{
-    ArchetypeComponent, Commands, Fetch, FromResources, Local, NonSend, Or, Query,
-    QueryAccess, QueryFilter, QuerySet, QueryTuple, Res, ResMut, Resource, ResourceIndex,
-    Resources, SystemState, TypeAccess, World, WorldQuery,
+    ArchetypeComponent, Commands, Fetch, FromResources, Local, NonSend, Or, Query, QueryAccess,
+    QueryFilter, QuerySet, QueryTuple, Res, ResMut, Resource, ResourceIndex, Resources,
+    SystemState, TypeAccess, World, WorldQuery,
 };
 use parking_lot::Mutex;
 use std::{any::TypeId, marker::PhantomData, sync::Arc};
