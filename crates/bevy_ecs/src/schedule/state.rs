@@ -37,28 +37,28 @@ enum ScheduledOperation<T: Clone> {
 }
 
 impl<T: Clone + Resource> State<T> {
-    pub fn on_update(d: Discriminant<T>) -> impl System<In = (), Out = ShouldRun> {
-        Wrapper::<T, OnUpdate>::new(d)
+    pub fn on_update(d: T) -> impl System<In = (), Out = ShouldRun> {
+        Wrapper::<T, OnUpdate>::new(discriminant(&d))
     }
 
-    pub fn on_inactive_update(d: Discriminant<T>) -> impl System<In = (), Out = ShouldRun> {
-        Wrapper::<T, OnInactiveUpdate>::new(d)
+    pub fn on_inactive_update(d: T) -> impl System<In = (), Out = ShouldRun> {
+        Wrapper::<T, OnInactiveUpdate>::new(discriminant(&d))
     }
 
-    pub fn on_enter(d: Discriminant<T>) -> impl System<In = (), Out = ShouldRun> {
-        Wrapper::<T, OnEnter>::new(d)
+    pub fn on_enter(d: T) -> impl System<In = (), Out = ShouldRun> {
+        Wrapper::<T, OnEnter>::new(discriminant(&d))
     }
 
-    pub fn on_exit(d: Discriminant<T>) -> impl System<In = (), Out = ShouldRun> {
-        Wrapper::<T, OnExit>::new(d)
+    pub fn on_exit(d: T) -> impl System<In = (), Out = ShouldRun> {
+        Wrapper::<T, OnExit>::new(discriminant(&d))
     }
 
-    pub fn on_pause(d: Discriminant<T>) -> impl System<In = (), Out = ShouldRun> {
-        Wrapper::<T, OnExit>::new(d)
+    pub fn on_pause(d: T) -> impl System<In = (), Out = ShouldRun> {
+        Wrapper::<T, OnExit>::new(discriminant(&d))
     }
 
-    pub fn on_resume(d: Discriminant<T>) -> impl System<In = (), Out = ShouldRun> {
-        Wrapper::<T, OnExit>::new(d)
+    pub fn on_resume(d: T) -> impl System<In = (), Out = ShouldRun> {
+        Wrapper::<T, OnExit>::new(discriminant(&d))
     }
 
     pub fn make_driver() -> SystemSet {
@@ -128,12 +128,19 @@ impl<T: Clone + Resource> State<T> {
             return Err(StateError::StateAlreadyQueued);
         }
 
+        if self.stack.len() == 1 {
+            return Err(StateError::StackEmpty);
+        }
+
         self.scheduled = Some(ScheduledOperation::Pop);
         Ok(())
     }
 
     /// Same as [Self::set_pop], but if there is already a next state, it will be overwritten instead of failing
     pub fn overwrite_pop(&mut self) -> Result<(), StateError> {
+        if self.stack.len() == 1 {
+            return Err(StateError::StackEmpty);
+        }
         self.scheduled = Some(ScheduledOperation::Pop);
         Ok(())
     }
@@ -153,6 +160,8 @@ pub enum StateError {
     AlreadyInState,
     #[error("Attempted to queue a state change, but there was already a state queued.")]
     StateAlreadyQueued,
+    #[error("Attempted to queue a pop, but there is nothing to pop.")]
+    StackEmpty,
 }
 
 trait Comparer<T: Clone> {
@@ -349,4 +358,34 @@ fn state_cleaner<T: Clone + Resource>(mut state: ResMut<State<T>>) -> ShouldRun 
         },
     };
     ShouldRun::YesAndCheckAgain
+}
+
+#[cfg(test)]
+mod test {
+    use crate::prelude::*;
+
+    #[derive(Clone, Copy)]
+    enum StateEnum {
+        S1,
+        S2,
+        S3,
+        S4,
+    }
+
+    #[test]
+    fn state_test() {
+        let mut world = World::default();
+        let mut resources = Resources::default();
+
+        resources.insert(Vec::<i32>::new());
+
+        let mut stage = SystemStage::parallel();
+
+        stage.add_system_set(State::<StateEnum>::make_driver());
+        stage.add_system_set(
+            SystemSet::default().with_run_criteria(State::<StateEnum>::on_update(StateEnum::S1)),
+        );
+
+        stage.run(&mut world, &mut resources);
+    }
 }
