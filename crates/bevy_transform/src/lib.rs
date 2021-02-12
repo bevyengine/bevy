@@ -1,4 +1,4 @@
-pub const TRANSFORM_LABEL: &'static str = "transform_propagation";
+pub const TRANSFORM_PROPAGATION: &'static str = "transform_propagation";
 
 pub mod components;
 pub mod hierarchy;
@@ -34,7 +34,7 @@ impl Plugin for TransformPlugin {
                 stage::POST_UPDATE,
                 transform_propagate_system::transform_propagate_system
                     .system()
-                    .label(TRANSFORM_LABEL),
+                    .label(TRANSFORM_PROPAGATION),
             );
     }
 }
