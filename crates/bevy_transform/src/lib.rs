@@ -1,4 +1,4 @@
-const TRANSFORM_LABEL: String = String::from("transform_propagation");
+pub const TRANSFORM_LABEL: String = String::from("transform_propagation");
 
 pub mod components;
 pub mod hierarchy;
