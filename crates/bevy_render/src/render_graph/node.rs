@@ -108,6 +108,7 @@ impl Edges {
 pub struct NodeState {
     pub id: NodeId,
     pub name: Option<Cow<'static, str>>,
+    pub type_name: &'static str,
     pub node: Box<dyn Node>,
     pub input_slots: ResourceSlots,
     pub output_slots: ResourceSlots,
@@ -131,6 +132,7 @@ impl NodeState {
             input_slots: ResourceSlots::from(node.input()),
             output_slots: ResourceSlots::from(node.output()),
             node: Box::new(node),
+            type_name: std::any::type_name::<T>(),
             edges: Edges {
                 id,
                 input_edges: Vec::new(),
