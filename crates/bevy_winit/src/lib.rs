@@ -407,6 +407,7 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                         );
                     }
                     WindowEvent::Focused(focused) => {
+                        window.update_focused_status_from_backend(focused);
                         let mut focused_events =
                             app.resources.get_mut::<Events<WindowFocused>>().unwrap();
                         focused_events.send(WindowFocused {
