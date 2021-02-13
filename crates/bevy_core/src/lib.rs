@@ -37,6 +37,7 @@ impl Plugin for CorePlugin {
         app.init_resource::<Time>()
             .init_resource::<EntityLabels>()
             .init_resource::<FixedTimesteps>()
+            .init_resource::<ValidationConfig>()
             .register_type::<Option<String>>()
             .register_type::<Name>()
             .register_type::<Labels>()
@@ -45,5 +46,31 @@ impl Plugin for CorePlugin {
             .add_system_to_stage(stage::FIRST, time_system.system())
             .add_startup_system_to_stage(startup_stage::POST_STARTUP, entity_labels_system.system())
             .add_system_to_stage(stage::POST_UPDATE, entity_labels_system.system());
+    }
+}
+
+/// Configures which validation checks are run.
+///
+/// By default, they are all enabled in debug mode but
+/// disabled in release mode.
+pub struct ValidationConfig {
+    /// Checks whether the world contains no ui camera but ui nodes.
+    pub missing_ui_cam: bool,
+    #[doc(hidden)]
+    #[allow(unused)]
+    // we cannot use `#[non_exhaustive]`, since that wouldn't allow `ValidationConfig { ..Default::default() }`
+    pub non_exhaustive: (),
+}
+
+impl Default for ValidationConfig {
+    fn default() -> Self {
+        #[cfg(debug_assertions)]
+        let default_value = true;
+        #[cfg(not(debug_assertions))]
+        let default_value = false;
+        ValidationConfig {
+            missing_ui_cam: default_value,
+            non_exhaustive: (),
+        }
     }
 }

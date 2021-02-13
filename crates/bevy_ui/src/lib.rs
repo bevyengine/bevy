@@ -55,11 +55,19 @@ impl Plugin for UiPlugin {
             )
             .add_system_to_stage(stage::UI, flex_node_system.system().label(system::FLEX))
             .add_system_to_stage(stage::UI, ui_z_system.system())
-            .add_system_to_stage(bevy_render::stage::DRAW, widget::draw_text_system.system())
-            .add_startup_system_to_stage(
+            .add_system_to_stage(bevy_render::stage::DRAW, widget::draw_text_system.system());
+
+        let add_ui_cam_validation_system = app
+            .resources()
+            .get::<bevy_core::ValidationConfig>()
+            .map_or(false, |config| config.missing_ui_cam);
+
+        if add_ui_cam_validation_system {
+            app.add_startup_system_to_stage(
                 bevy_app::startup_stage::POST_STARTUP,
                 warn_no_ui_cam.system(),
             );
+        }
 
         let resources = app.resources();
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
