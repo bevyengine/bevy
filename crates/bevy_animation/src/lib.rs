@@ -42,6 +42,7 @@ pub mod wide {
 
 pub mod stage {
     pub const ANIMATE: &'static str = "animate";
+    pub const SKINNING: &'static str = "skinning";
     pub use bevy_app::stage::{POST_UPDATE, UPDATE};
 }
 
@@ -56,6 +57,7 @@ pub struct AnimationPlugin {
 impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_stage_after(stage::UPDATE, stage::ANIMATE, SystemStage::parallel());
+        app.add_stage_after(stage::POST_UPDATE, stage::SKINNING, SystemStage::parallel());
 
         // Generic animation
         app.insert_resource(animator::AnimatorRegistry::default())
@@ -89,10 +91,17 @@ impl Plugin for AnimationPlugin {
 
         if !self.headless {
             app.add_startup_system(skinned_mesh::skinning_setup.system())
-                .add_system_to_stage(stage::POST_UPDATE, skinned_mesh::skinning_update.system())
                 .add_system_to_stage(
-                    stage::POST_UPDATE,
-                    skinned_mesh::skinning_debugger_update.system(),
+                    stage::SKINNING,
+                    skinned_mesh::skinning_update
+                        .system()
+                        .label("skinning_update"),
+                )
+                .add_system_to_stage(
+                    stage::SKINNING,
+                    skinned_mesh::skinning_debugger_update
+                        .system()
+                        .after("skinning_update"),
                 );
         }
     }
