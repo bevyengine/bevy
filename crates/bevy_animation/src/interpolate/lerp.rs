@@ -13,7 +13,7 @@ pub trait Lerp {
 }
 
 impl Lerp for bool {
-    #[inline(always)]
+    #[inline]
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
         if t > 0.99 {
             b.clone()
@@ -24,63 +24,63 @@ impl Lerp for bool {
 }
 
 impl Lerp for f32 {
-    #[inline(always)]
+    #[inline]
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
         (*a) * (1.0 - t) + (*b) * t
     }
 }
 
 impl Lerp for Vec2 {
-    #[inline(always)]
+    #[inline]
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
         (*a) * (1.0 - t) + (*b) * t
     }
 }
 
 impl Lerp for Vec3 {
-    #[inline(always)]
+    #[inline]
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
         (*a) * (1.0 - t) + (*b) * t
     }
 }
 
 impl Lerp for Vec3x4 {
-    #[inline(always)]
+    #[inline]
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
         (*a) * f32x4::splat(1.0 - t) + (*b) * f32x4::splat(t)
     }
 }
 
 impl Lerp for Vec3x8 {
-    #[inline(always)]
+    #[inline]
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
         (*a) * f32x8::splat(1.0 - t) + (*b) * f32x8::splat(t)
     }
 }
 
 impl Lerp for Vec4 {
-    #[inline(always)]
+    #[inline]
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
         (*a) * (1.0 - t) + (*b) * t
     }
 }
 
 impl Lerp for Vec4x4 {
-    #[inline(always)]
+    #[inline]
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
         (*a) * f32x4::splat(1.0 - t) + (*b) * f32x4::splat(t)
     }
 }
 
 impl Lerp for Vec4x8 {
-    #[inline(always)]
+    #[inline]
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
         (*a) * f32x8::splat(1.0 - t) + (*b) * f32x8::splat(t)
     }
 }
 
 impl Lerp for Color {
-    #[inline(always)]
+    #[inline]
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
         (*a) * (1.0 - t) + (*b) * t
     }
@@ -89,7 +89,7 @@ impl Lerp for Color {
 impl Lerp for Quat {
     /// Performs an nlerp, because it's much cheaper and easer to combine with other animations,
     /// reference: http://number-none.com/product/Understanding%20Slerp,%20Then%20Not%20Using%20It/
-    #[inline(always)]
+    #[inline]
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
         let mut b = *b;
 
@@ -107,7 +107,7 @@ impl Lerp for Quat {
 impl Lerp for Quatx4 {
     /// Performs an nlerp, because it's much cheaper and easer to combine with other animations,
     /// reference: http://number-none.com/product/Understanding%20Slerp,%20Then%20Not%20Using%20It/
-    #[inline(always)]
+    #[inline]
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
         let mut b = b.0;
 
@@ -128,7 +128,7 @@ impl Lerp for Quatx4 {
 impl Lerp for Quatx8 {
     /// Performs an nlerp, because it's much cheaper and easer to combine with other animations,
     /// reference: http://number-none.com/product/Understanding%20Slerp,%20Then%20Not%20Using%20It/
-    #[inline(always)]
+    #[inline]
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
         let mut b = b.0;
 
@@ -147,21 +147,21 @@ impl Lerp for Quatx8 {
 }
 
 impl Lerp for Scale2 {
-    #[inline(always)]
+    #[inline]
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
         Scale2(Vec2::lerp(a.0, b.0, t))
     }
 }
 
 impl Lerp for Scale3 {
-    #[inline(always)]
+    #[inline]
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
         Scale3(Vec3::lerp(a.0, b.0, t))
     }
 }
 
 impl<T: Asset + 'static> Lerp for Handle<T> {
-    #[inline(always)]
+    #[inline]
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
         if t > 0.99 {
             b.clone()
@@ -172,7 +172,7 @@ impl<T: Asset + 'static> Lerp for Handle<T> {
 }
 
 impl Lerp for HandleUntyped {
-    #[inline(always)]
+    #[inline]
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
         if t > 0.99 {
             b.clone()

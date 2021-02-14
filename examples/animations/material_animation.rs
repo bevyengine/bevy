@@ -5,7 +5,7 @@ use bevy::prelude::*;
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .register_animated_asset::<Mesh>()
+        .register_animated_asset::<StandardMaterial>()
         .add_startup_system(setup.system())
         .run();
 }
@@ -17,15 +17,6 @@ fn setup(
     mut clips: ResMut<Assets<Clip>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let cube = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
-
-    let sphere = meshes.add(Mesh::from(shape::Icosphere {
-        radius: 1.0,
-        subdivisions: 5,
-    }));
-
-    // TODO: more shapes will be nice!
-
     // TODO: create clip here
 
     let mut animator = Animator::default();
@@ -33,7 +24,10 @@ fn setup(
 
     let entity = commands
         .spawn(PbrBundle {
-            mesh: cube.clone(),
+            mesh: meshes.add(Mesh::from(shape::Icosphere {
+                radius: 1.0,
+                subdivisions: 5,
+            })),
             transform: Transform::from_translation(Vec3::new(0.0, -1.0, 0.0)),
             material: materials.add(Color::rgb(0.1, 0.05, 0.0).into()),
             ..Default::default()
@@ -41,6 +35,13 @@ fn setup(
         .with(animator);
 
     commands
+        // plane
+        .spawn(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Plane { size: 20.0 })),
+            transform: Transform::from_translation(Vec3::new(0.0, -1.0, 0.0)),
+            material: materials.add(Color::rgb(0.1, 0.05, 0.0).into()),
+            ..Default::default()
+        })
         // light
         .spawn(LightBundle {
             transform: Transform::from_translation(Vec3::new(4.0, 8.0, 4.0)),

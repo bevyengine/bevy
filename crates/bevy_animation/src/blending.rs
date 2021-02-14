@@ -23,7 +23,7 @@ pub struct AnimatorBlending {
 }
 
 impl AnimatorBlending {
-    #[inline(always)]
+    #[inline]
     pub fn begin_blending(&mut self, entities: usize, weight_slots: usize) -> AnimatorBlendGroup {
         self.bits.clear();
         self.bits.resize(entities, 0);
@@ -41,7 +41,7 @@ pub struct AnimatorBlendGroup<'a> {
 }
 
 impl<'a> AnimatorBlendGroup<'a> {
-    #[inline(always)]
+    #[inline]
     pub fn blend<T>(
         &mut self,
         entity_index: usize,
@@ -61,7 +61,7 @@ impl<'a> AnimatorBlendGroup<'a> {
     }
 
     /// Contest blending, only the value with the highest weight value will remain
-    #[inline(always)]
+    #[inline]
     pub fn blend_contest<T>(
         &mut self,
         entity_index: usize,
@@ -83,49 +83,49 @@ impl<'a> AnimatorBlendGroup<'a> {
 // ? NOTE: Implements the 'Additive 1' mode described here
 // ? https://github.com/nfrechette/acl/blob/develop/docs/additive_clips.md
 
-#[inline(always)]
+#[inline]
 fn additive_blend_bool(a: &bool, b: &bool, _: f32) -> bool {
     // TODO: Review
     *a || *b
 }
 
-#[inline(always)]
+#[inline]
 fn additive_blend_f32(a: &f32, b: &f32, w: f32) -> f32 {
     *a + (*b * w)
 }
 
-#[inline(always)]
+#[inline]
 fn additive_blend_vec2(a: &Vec2, b: &Vec2, w: f32) -> Vec2 {
     *a + (*b * w)
 }
 
-#[inline(always)]
+#[inline]
 fn additive_blend_vec3(a: &Vec3, b: &Vec3, w: f32) -> Vec3 {
     *a + (*b * w)
 }
 
-#[inline(always)]
+#[inline]
 fn additive_blend_vec4(a: &Vec4, b: &Vec4, w: f32) -> Vec4 {
     *a + (*b * w)
 }
 
-#[inline(always)]
+#[inline]
 fn additive_blend_quat(a: &Quat, b: &Quat, w: f32) -> Quat {
     // TODO: Review
     (*b * w) * *a
 }
 
-#[inline(always)]
+#[inline]
 fn additive_blend_scale2(a: &Scale2, b: &Scale2, w: f32) -> Scale2 {
     Scale2((Vec2::one() + (b.0 * w)) * a.0)
 }
 
-#[inline(always)]
+#[inline]
 fn additive_blend_scale3(a: &Scale3, b: &Scale3, w: f32) -> Scale3 {
     Scale3((Vec3::one() + (b.0 * w)) * a.0)
 }
 
-#[inline(always)]
+#[inline]
 fn additive_blend_color(a: &Color, b: &Color, w: f32) -> Color {
     (Vec4::from(*a) + (Vec4::from(*b) * w)).into()
 }
@@ -142,7 +142,7 @@ fn additive_blend_color(a: &Color, b: &Color, w: f32) -> Color {
 /// struct MyType;
 ///
 /// impl Blend for MyType {
-///     #[inline(always)]
+///     #[inline]
 ///     fn blend(
 ///         &mut self,
 ///         entity_index: usize,
@@ -180,7 +180,7 @@ macro_rules! impl_blend {
                 false
             }
 
-            #[inline(always)]
+            #[inline]
             fn blend(
                 &mut self,
                 entity_index: usize,
@@ -218,7 +218,7 @@ impl<T: Asset + 'static> Blend for Handle<T> {
         true
     }
 
-    #[inline(always)]
+    #[inline]
     fn blend(
         &mut self,
         entity_index: usize,
@@ -238,7 +238,7 @@ impl Blend for HandleUntyped {
         true
     }
 
-    #[inline(always)]
+    #[inline]
     fn blend(
         &mut self,
         entity_index: usize,

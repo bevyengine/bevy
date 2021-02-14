@@ -41,7 +41,7 @@ pub trait Interpolate {
 impl Interpolate for bool {
     type Tangent = TangentIgnore;
 
-    #[inline(always)]
+    #[inline]
     fn interpolate(k0: &Self, k1: &Self, interp: &Interpolation<Self::Tangent>, t: f32) -> Self {
         let _ = interp;
         if t > 0.99 {

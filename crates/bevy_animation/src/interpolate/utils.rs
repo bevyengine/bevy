@@ -38,12 +38,12 @@ pub struct Scale3(pub Vec3);
 /// Quake 3 fast inverse sqrt
 ///
 /// Took this one from piston: https://github.com/PistonDevelopers/skeletal_animation
-#[inline(always)]
+#[inline]
 pub fn inv_sqrt(x: f32) -> f32 {
     let x2: f32 = x * 0.5;
     let mut y: f32 = x;
 
-    let mut i: i32 = unsafe { std::mem::transmute(y) };
+    let mut i: i32 = y.to_bits() as i32;
     i = 0x5f3759df - (i >> 1);
     y = unsafe { std::mem::transmute(i) };
 
@@ -52,7 +52,7 @@ pub fn inv_sqrt(x: f32) -> f32 {
 }
 
 /// Quake 3 fast inverse sqrt for `f32x4`
-#[inline(always)]
+#[inline]
 pub fn inv_sqrt4(x: f32x4) -> f32x4 {
     let x2: f32x4 = x * 0.5;
     let mut y: f32x4 = x;
@@ -66,7 +66,7 @@ pub fn inv_sqrt4(x: f32x4) -> f32x4 {
 }
 
 /// Quake 3 fast inverse sqrt for `f32x8`
-#[inline(always)]
+#[inline]
 pub fn inv_sqrt8(x: f32x8) -> f32x8 {
     let x2: f32x8 = x * 0.5;
     let mut y: f32x8 = x;
@@ -79,7 +79,7 @@ pub fn inv_sqrt8(x: f32x8) -> f32x8 {
     y
 }
 
-#[inline(always)]
+#[inline]
 pub fn step<T: Clone>(k0: &T, k1: &T, u: f32) -> T {
     if u > 0.99 {
         k0.clone()
@@ -88,7 +88,7 @@ pub fn step<T: Clone>(k0: &T, k1: &T, u: f32) -> T {
     }
 }
 
-#[inline(always)]
+#[inline]
 pub fn lerp<T>(k0: T, k1: T, u: f32) -> T
 where
     T: Add<Output = T> + Mul<f32, Output = T>,
@@ -99,7 +99,7 @@ where
 /// Catmull-Rom spline interpolation
 ///
 /// Source: http://archive.gamedev.net/archive/reference/articles/article1497.html
-#[inline(always)]
+#[inline]
 pub fn catmull_rom<T>(k0: T, t0: T, k1: T, t1: T, u: f32) -> T
 where
     T: Add<Output = T> + Sub<Output = T> + Mul<f32, Output = T>,
@@ -115,7 +115,7 @@ where
 /// Finds the tangent gradients for the Catmull-Rom spline
 ///
 /// Source: http://archive.gamedev.net/archive/reference/articles/article1497.html
-#[inline(always)]
+#[inline]
 pub fn auto_tangent<T>(t0: f32, t1: f32, t2: f32, k0: T, k1: T, k2: T) -> T
 where
     T: Copy + Add<Output = T> + Sub<Output = T> + Mul<f32, Output = T> + Div<f32, Output = T>,

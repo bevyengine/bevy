@@ -412,6 +412,14 @@ path = "examples/android/android.rs"
 name = "run_animation"
 path = "examples/animations/run_animation.rs"
 
+# [[example]]
+# name = "mesh_swap_animation"
+# path = "examples/animations/mesh_swap_animation.rs"
+
+# [[example]]
+# name = "material_animation"
+# path = "examples/animations/material_animation.rs"
+
 [package.metadata.android]
 apk_label = "Bevy Example"
 assets = "assets"

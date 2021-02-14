@@ -208,7 +208,7 @@ impl<T> Default for AnimatorDescriptor<T> {
 }
 
 impl<T> AnimatorDescriptor<T> {
-    #[inline(always)]
+    #[inline]
     pub fn properties(&self) -> impl Iterator<Item = (&str, TypeId)> {
         self.dynamic_properties
             .iter()

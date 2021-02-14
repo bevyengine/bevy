@@ -85,7 +85,7 @@ where
 
     fn sample(&self, time: f32) -> Self::Output {
         // Make sure to have at least one sample
-        assert!(self.keyframes.len() > 0, "curve is empty");
+        assert!(self.keyframes.len() > 0, "track is empty");
 
         let t = time.mul_add(self.frame_rate, self.negative_offset);
         if t.is_sign_negative() {
@@ -104,18 +104,11 @@ where
         }
 
         // Lerp the value
-        // SAFETY: bounds checks are performed in the lines above
-        unsafe {
-            T::lerp(
-                self.keyframes.get_unchecked(f),
-                self.keyframes.get_unchecked(f + 1),
-                t,
-            )
-        }
+        T::lerp(&self.keyframes[f], &self.keyframes[f + 1], t)
     }
 
     /// Same as `sample` function
-    #[inline(always)]
+    #[inline]
     fn sample_with_cursor(&self, cursor: u16, time: f32) -> (u16, Self::Output) {
         let _ = cursor;
         (0, self.sample(time))

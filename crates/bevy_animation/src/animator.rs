@@ -82,7 +82,7 @@ impl<T> Tracks<T> {
         self.tracks.len() + self.n.iter().map(|(_, t)| t.len()).sum::<usize>()
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn iter(
         &self,
     ) -> (
@@ -143,12 +143,12 @@ impl TracksUntyped {
         self.duration
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn downcast_ref<T: 'static>(&self) -> Option<&Tracks<T>> {
         self.untyped.downcast_ref()
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn downcast_mut<T: 'static>(&mut self) -> Option<&mut Tracks<T>> {
         self.untyped.downcast_mut()
     }
@@ -338,7 +338,7 @@ impl Clip {
         cache_index
     }
 
-    #[inline(always)]
+    #[inline]
     fn pack_by_type<V>(sampling_rate: f32, tracks: &mut Tracks<V::Value>) -> usize
     where
         V: ValueN + Lerp + Clone + Send + Sync + 'static,
@@ -420,7 +420,7 @@ impl Clip {
     }
 
     /// Number of animated properties in this clip
-    #[inline(always)]
+    #[inline]
     pub fn len(&self) -> usize {
         self.len
     }
@@ -452,18 +452,18 @@ impl Clip {
     }
 
     /// Clip duration
-    #[inline(always)]
+    #[inline]
     pub fn duration(&self) -> f32 {
         self.duration
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn hierarchy(&self) -> &Hierarchy {
         &self.hierarchy
     }
 
     /// Get the curves an given property
-    #[inline(always)]
+    #[inline]
     pub fn get(&self, property_name: &str) -> Option<&TracksUntyped> {
         self.properties
             .get(property_name)
@@ -525,7 +525,7 @@ impl fmt::Debug for Layer {
 }
 
 impl Layer {
-    #[inline(always)]
+    #[inline]
     pub fn keyframes(&self) -> &[u16] {
         // SAFETY: Keyframes vec still needs to be flatten
         unsafe {
@@ -536,13 +536,13 @@ impl Layer {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn keyframes_mut(&mut self) -> &mut [u16] {
         // SAFETY: Have mutability over self, but the keyframes vec still needs to be flatten
         unsafe { self.keyframes_unsafe() }
     }
 
-    #[inline(always)]
+    #[inline]
     pub unsafe fn keyframes_unsafe(&self) -> &mut [u16] {
         std::slice::from_raw_parts_mut(
             self.keyframes_buckets.as_ptr() as *mut _,
@@ -615,12 +615,12 @@ impl Animator {
 
     // TODO: cleanup, clears hierarchy entities and binds
 
-    #[inline(always)]
+    #[inline]
     pub fn entities(&self) -> &[Option<Entity>] {
         &self.entities[..]
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn clips(&self) -> &[Handle<Clip>] {
         &self.clips[..]
     }

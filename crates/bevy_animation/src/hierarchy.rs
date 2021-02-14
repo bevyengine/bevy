@@ -120,13 +120,13 @@ impl<I: Index> Hierarchy<I> {
     }
 
     /// Number of entities registered.
-    #[inline(always)]
+    #[inline]
     pub fn len(&self) -> usize {
         self.entities.len()
     }
 
     /// Iterates over each entity parent index, name and children indexes
-    #[inline(always)]
+    #[inline]
     pub fn iter(&self) -> impl Iterator<Item = (&(I, Name), &[I])> {
         self.entities
             .iter()
@@ -134,7 +134,7 @@ impl<I: Index> Hierarchy<I> {
     }
 
     /// Gets the entity parent index and `Name` components
-    #[inline(always)]
+    #[inline]
     pub fn get_entity(&self, entity_index: I) -> &(I, Name) {
         &self.entities[entity_index.as_usize()]
     }

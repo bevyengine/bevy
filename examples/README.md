@@ -78,6 +78,14 @@ Example | File | Description
 `update_gltf_scene` | [`3d/update_gltf_scene.rs`](./3d/update_gltf_scene.rs) | Update a scene from a gltf file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 `z_sort_debug` | [`3d/z_sort_debug.rs`](./3d/z_sort_debug.rs) | Visualizes camera Z-ordering
 
+## Animations
+
+Example | File | Description
+--- | --- | ---
+`run_animation` | [`animations/run_animation.rs`](./animations/run_animation.rs) | Demonstrates how to play and blending between a idle and run animations
+[//]: # (`mesh_swap_animation` | [`animations/mesh_swap_animation.rs`](./animations/mesh_swap_animation.rs) | Demonstrates hot to create your own animation clip that swaps meshes (or any other asset handle))
+[//]: # (`material_animation` | [`animations/material_animation.rs`](./animations/material_animation.rs) | Illustrate how to animate material properties (or any other asset property))
+
 ## Application
 
 Example | File | Description

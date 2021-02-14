@@ -160,12 +160,12 @@ macro_rules! valuen {
             type Outputs = [Self::Value; $s];
             type Value = $o;
 
-            #[inline(always)]
+            #[inline]
             fn pack(values: Self::Outputs) -> Self {
                 unsafe { transmute::<_, [$i; $s]>(values).into() }
             }
 
-            #[inline(always)]
+            #[inline]
             fn unpack(self) -> Self::Outputs {
                 unsafe { transmute::<[$i; $s], _>(self.into()) }
             }
@@ -189,12 +189,12 @@ impl ValueN for Quatx4 {
     type Outputs = [Self::Value; 4];
     type Value = Quat;
 
-    #[inline(always)]
+    #[inline]
     fn pack(values: Self::Outputs) -> Self {
         Quatx4(unsafe { transmute::<_, [ultraviolet::Vec4; 4]>(values).into() })
     }
 
-    #[inline(always)]
+    #[inline]
     fn unpack(self) -> Self::Outputs {
         unsafe { transmute::<[ultraviolet::Vec4; 4], _>(self.0.into()) }
     }
@@ -209,12 +209,12 @@ impl ValueN for Quatx8 {
     type Outputs = [Self::Value; 8];
     type Value = Quat;
 
-    #[inline(always)]
+    #[inline]
     fn pack(values: Self::Outputs) -> Self {
         Quatx8(unsafe { transmute::<_, [ultraviolet::Vec4; 8]>(values).into() })
     }
 
-    #[inline(always)]
+    #[inline]
     fn unpack(self) -> Self::Outputs {
         unsafe { transmute::<[ultraviolet::Vec4; 8], _>(self.0.into()) }
     }
