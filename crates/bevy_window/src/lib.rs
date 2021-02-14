@@ -38,6 +38,7 @@ impl Plugin for WindowPlugin {
             .add_event::<CreateWindow>()
             .add_event::<WindowCreated>()
             .add_event::<WindowCloseRequested>()
+            .add_event::<WindowRedrawRequested>()
             .add_event::<CloseWindow>()
             .add_event::<CursorMoved>()
             .add_event::<CursorEntered>()

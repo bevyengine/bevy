@@ -114,6 +114,7 @@ pub enum WindowCommand {
     SetPosition {
         position: IVec2,
     },
+    RequestRedraw,
 }
 
 /// Defines the way a window is displayed
@@ -420,6 +421,11 @@ impl Window {
             mode,
             resolution: (self.physical_width, self.physical_height),
         });
+    }
+
+    #[inline]
+    pub fn request_redraw(&mut self) {
+        self.command_queue.push(WindowCommand::RequestRedraw);
     }
 
     #[inline]

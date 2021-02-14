@@ -17,7 +17,7 @@ use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
     CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
     WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
-    WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
+    WindowMoved, WindowRedrawRequested, WindowResized, WindowScaleFactorChanged, Windows,
 };
 use winit::{
     dpi::PhysicalPosition,
@@ -138,6 +138,10 @@ fn change_window(_: &mut World, resources: &mut Resources) {
                         x: position[0],
                         y: position[1],
                     });
+                }
+                bevy_window::WindowCommand::RequestRedraw => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    window.request_redraw()
                 }
             }
         }
@@ -465,6 +469,24 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                     &mut create_window_event_reader,
                 );
                 app.update();
+            }
+            event::Event::RedrawRequested(winit_window_id) => {
+                let winit_windows = app.resources.get::<WinitWindows>().unwrap();
+                let window_id =
+                    if let Some(window_id) = winit_windows.get_window_id(winit_window_id) {
+                        window_id
+                    } else {
+                        warn!(
+                            "Skipped event for unknown winit Window Id {:?}",
+                            winit_window_id
+                        );
+                        return;
+                    };
+                let mut events = app
+                    .resources
+                    .get_mut::<Events<WindowRedrawRequested>>()
+                    .unwrap();
+                events.send(WindowRedrawRequested { id: window_id });
             }
             _ => (),
         }
