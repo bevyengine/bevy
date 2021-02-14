@@ -1,7 +1,7 @@
 use crate::{app::AddAnimated, stage::ANIMATE};
 use bevy_app::{App, AppBuilder};
 use bevy_asset::{Asset, AssetServerSettings};
-use bevy_ecs::{Component, IntoSystem, Schedule, SystemStage, ParallelSystemDescriptorCoercion};
+use bevy_ecs::{Component, IntoSystem, ParallelSystemDescriptorCoercion, Schedule, SystemStage};
 use bevy_reflect::Struct;
 use bevy_transform::prelude::*;
 
@@ -38,10 +38,17 @@ impl Bench {
 
         let mut schedule = Schedule::default();
         schedule.add_stage(ANIMATE, SystemStage::parallel());
-        schedule.add_system_to_stage(ANIMATE, crate::animator::animator_update_system.system().label("animator_update"));
         schedule.add_system_to_stage(
             ANIMATE,
-            crate::reflect::animate_component_system::<Transform>.system().after("animator_update"),
+            crate::animator::animator_update_system
+                .system()
+                .label("animator_update"),
+        );
+        schedule.add_system_to_stage(
+            ANIMATE,
+            crate::reflect::animate_component_system::<Transform>
+                .system()
+                .after("animator_update"),
         );
 
         Bench { builder, schedule }
@@ -56,16 +63,24 @@ impl Bench {
 
     pub fn register_animated_asset<T: Asset + Struct + Default>(&mut self) -> &mut Self {
         self.builder.register_animated_asset::<T>();
-        self.schedule
-            .add_system_to_stage(ANIMATE, crate::reflect::animate_asset_system::<T>.system().after("animator_update"));
+        self.schedule.add_system_to_stage(
+            ANIMATE,
+            crate::reflect::animate_asset_system::<T>
+                .system()
+                .after("animator_update"),
+        );
 
         self
     }
 
     pub fn register_animated_component<T: Component + Struct + Default>(&mut self) -> &mut Self {
         self.builder.register_animated_component::<T>();
-        self.schedule
-            .add_system_to_stage(ANIMATE, crate::reflect::animate_component_system::<T>.system().after("animator_update"));
+        self.schedule.add_system_to_stage(
+            ANIMATE,
+            crate::reflect::animate_component_system::<T>
+                .system()
+                .after("animator_update"),
+        );
 
         self
     }

@@ -1,6 +1,11 @@
 //! Generic animation for any type that implements the `Reflect` trait
 
-use std::{any::type_name, any::TypeId, marker::PhantomData, mem::size_of, num::NonZeroUsize};
+use std::{
+    any::{type_name, TypeId},
+    marker::PhantomData,
+    mem::size_of,
+    num::NonZeroUsize,
+};
 
 use bevy_asset::{prelude::*, Asset};
 use bevy_ecs::prelude::*;

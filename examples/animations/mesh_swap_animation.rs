@@ -1,14 +1,11 @@
-use bevy::{animation::Animator, prelude::*};
+use bevy::animation::Animator;
+use bevy::asset::AssetServerSettings;
+use bevy::prelude::*;
 
 fn main() {
     App::build()
-        // .add_resource(AssetServerSettings {
-        //     asset_folder: "G:/Rust/bevy/assets".to_string(),
-        // })
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
-        .add_system(anim_set.system().label("anim_set"))
-        .add_system(anim_blending.system().after("anim_set"))
+        .add_startup_system(setup)
         .run();
 }
 
@@ -18,6 +15,22 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    let cube = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
+
+    let sphere = meshes.add(Mesh::from(shape::Icosphere {
+        radius: 1.0,
+        subdivisions: 5,
+    }));
+
+    let entity = commands
+        .spawn(PbrBundle {
+            mesh: cube.clone(),
+            transform: Transform::from_translation(Vec3::new(0.0, -1.0, 0.0)),
+            material: materials.add(Color::rgb(0.1, 0.05, 0.0).into()),
+            ..Default::default()
+        })
+        .with_;
+
     commands
         // plane
         .spawn(PbrBundle {
@@ -32,7 +45,7 @@ fn setup(
             ..Default::default()
         })
         // camera
-        .spawn(PerspectiveCameraBundle {
+        .spawn(Camera3dBundle {
             transform: Transform::from_matrix(Mat4::face_toward(
                 Vec3::new(-3.0, 5.0, 8.0),
                 Vec3::new(0.0, 0.0, 0.0),
@@ -40,8 +53,6 @@ fn setup(
             )),
             ..Default::default()
         })
-        // character
-        .spawn_scene(asset_server.load("models/character_medium/character_medium.gltf#Scene0"));
 }
 
 fn anim_set(asset_server: Res<AssetServer>, mut animators_query: Query<(&mut Animator,)>) {
@@ -57,41 +68,5 @@ fn anim_set(asset_server: Res<AssetServer>, mut animators_query: Query<(&mut Ani
                 1.0,
             );
         }
-    }
-}
-
-#[derive(Default, Debug)]
-struct PingPong {
-    pong: bool,
-}
-
-fn anim_blending(
-    mut ping_pong: Local<PingPong>,
-    time: Res<Time>,
-    mut animators_query: Query<(&mut Animator,)>,
-) {
-    // Perform a simple ping pong blending between the run and idle animation
-    for (mut animator,) in animators_query.iter_mut() {
-        let dw = if ping_pong.pong {
-            time.delta_seconds() / 5.0
-        } else {
-            -time.delta_seconds() / 5.0
-        };
-
-        let mut w = animator.layers[0].weight;
-        w = (w + dw).min(1.0).max(0.0);
-
-        if ping_pong.pong {
-            if w >= (1.0 - 1e-2) {
-                ping_pong.pong = false;
-            }
-        } else {
-            if w <= 1e-2 {
-                ping_pong.pong = true;
-            }
-        }
-
-        animator.layers[0].weight = w; // Idle animation layer
-        animator.layers[1].weight = 1.0 - w; // Run animation layer
     }
 }

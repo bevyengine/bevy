@@ -209,11 +209,11 @@ pub struct Mesh {
 
 impl Mesh {
     pub const ATTRIBUTE_COLOR: &'static str = "Vertex_Color";
+    pub const ATTRIBUTE_JOINT: &'static str = "Vertex_Join";
     pub const ATTRIBUTE_NORMAL: &'static str = "Vertex_Normal";
     pub const ATTRIBUTE_POSITION: &'static str = "Vertex_Position";
     pub const ATTRIBUTE_UV_0: &'static str = "Vertex_Uv";
     pub const ATTRIBUTE_WEIGHT: &'static str = "Vertex_Weight";
-    pub const ATTRIBUTE_JOINT: &'static str = "Vertex_Join";
 
     pub fn new(primitive_topology: PrimitiveTopology) -> Self {
         Mesh {

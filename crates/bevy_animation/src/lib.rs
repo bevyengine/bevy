@@ -16,21 +16,21 @@ pub mod blending;
 pub mod interpolate;
 pub mod tracks;
 
-pub use crate::animator::*;
-pub use crate::app::*;
-pub use crate::bench::*;
-pub use crate::blending::AnimatorBlending;
-pub use crate::hierarchy::Hierarchy;
-pub use crate::reflect::AnimatorPropertyRegistry;
+pub use crate::{
+    animator::*, app::*, bench::*, blending::AnimatorBlending, hierarchy::Hierarchy,
+    reflect::AnimatorPropertyRegistry,
+};
 
 pub mod prelude {
-    pub use crate::animator::{Animator, Clip};
-    pub use crate::app::AddAnimated;
-    pub use crate::blending::AnimatorBlending;
-    pub use crate::hierarchy::Hierarchy;
-    pub use crate::interpolate::Lerp;
-    pub use crate::reflect::AnimatorPropertyRegistry;
-    pub use crate::skinned_mesh::{SkinAsset, SkinComponent, SkinDebugger};
+    pub use crate::{
+        animator::{Animator, Clip},
+        app::AddAnimated,
+        blending::AnimatorBlending,
+        hierarchy::Hierarchy,
+        interpolate::Lerp,
+        reflect::AnimatorPropertyRegistry,
+        skinned_mesh::{SkinAsset, SkinComponent, SkinDebugger},
+    };
 }
 
 /// Exports wide types
@@ -42,8 +42,7 @@ pub mod wide {
 
 pub mod stage {
     pub const ANIMATE: &'static str = "animate";
-    pub use bevy_app::stage::POST_UPDATE;
-    pub use bevy_app::stage::UPDATE;
+    pub use bevy_app::stage::{POST_UPDATE, UPDATE};
 }
 
 use bevy_ecs::ParallelSystemDescriptorCoercion;
@@ -63,8 +62,19 @@ impl Plugin for AnimationPlugin {
             .add_asset::<Clip>()
             //.add_asset_loader(ClipLoader)
             .register_type::<Animator>()
-            .add_system_to_stage(stage::ANIMATE, Assets::<Clip>::asset_event_system.system().label("clip_event")) // ? NOTE: Fix asset event handle
-            .add_system_to_stage(stage::ANIMATE, animator::animator_update_system.system().label("animator_update"));
+            .add_system_to_stage(
+                stage::ANIMATE,
+                Assets::<Clip>::asset_event_system
+                    .system()
+                    .label("clip_event_system"),
+            ) // ? NOTE: Fix asset event handle
+            .add_system_to_stage(
+                stage::ANIMATE,
+                animator::animator_update_system
+                    .system()
+                    .label("animator_update")
+                    .after("clip_event_system"),
+            );
 
         // ! FIXME: Each added animated component or asset will add a bit of overhead in the animation
         // ! system, I have no idea how big this is but I would like to make it pay only for what you use
@@ -80,7 +90,10 @@ impl Plugin for AnimationPlugin {
         if !self.headless {
             app.add_startup_system(skinned_mesh::skinning_setup.system())
                 .add_system_to_stage(stage::POST_UPDATE, skinned_mesh::skinning_update.system())
-                .add_system_to_stage(stage::POST_UPDATE, skinned_mesh::skinning_debugger_update.system());
+                .add_system_to_stage(
+                    stage::POST_UPDATE,
+                    skinned_mesh::skinning_debugger_update.system(),
+                );
         }
     }
 }

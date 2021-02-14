@@ -53,7 +53,12 @@ impl AddAnimated for AppBuilder {
             drop(registry);
 
             self.insert_resource(descriptor);
-            self.add_system_to_stage(stage::ANIMATE, reflect::animate_component_system::<T>.system().after("animator_update"));
+            self.add_system_to_stage(
+                stage::ANIMATE,
+                reflect::animate_component_system::<T>
+                    .system()
+                    .after("animator_update"),
+            );
             self
         } else {
             panic!(
@@ -88,7 +93,12 @@ impl AddAnimated for AppBuilder {
             self.register_animated_property_type::<Option<Handle<T>>>();
 
             self.insert_resource(descriptor);
-            self.add_system_to_stage(stage::ANIMATE, reflect::animate_asset_system::<T>.system().after("animator_update"));
+            self.add_system_to_stage(
+                stage::ANIMATE,
+                reflect::animate_asset_system::<T>
+                    .system()
+                    .after("animator_update"),
+            );
             self
         } else {
             panic!("animated asset `{}` already registered", type_name::<T>());

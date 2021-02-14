@@ -329,8 +329,10 @@ impl<I: Index> Hierarchy<I> {
 }
 
 mod private {
-    use std::convert::TryFrom;
-    use std::fmt::{Debug, Display};
+    use std::{
+        convert::TryFrom,
+        fmt::{Debug, Display},
+    };
 
     /// Implemented by unsigned types
     pub trait Index: Sized + PartialEq + Copy + Clone + Debug + Display {

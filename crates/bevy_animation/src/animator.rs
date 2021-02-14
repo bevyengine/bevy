@@ -2,13 +2,12 @@ use std::{
     any::{type_name, Any, TypeId},
     borrow::Cow,
     collections::{HashMap, HashSet},
-    convert::TryFrom,
-    convert::TryInto,
+    convert::{TryFrom, TryInto},
     fmt,
 };
 
 use anyhow::Result;
-use bevy_app::{ManualEventReader, prelude::Events};
+use bevy_app::{prelude::Events, ManualEventReader};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::prelude::*;
 use bevy_ecs::prelude::*;
@@ -23,8 +22,7 @@ use crate::{
     blending::AnimatorBlending,
     hierarchy::Hierarchy,
     interpolate::Lerp,
-    tracks::ArrayN,
-    tracks::{Track, TrackBase, TrackFixed, TrackFixedN, TrackNBase, ValueN},
+    tracks::{ArrayN, Track, TrackBase, TrackFixed, TrackFixedN, TrackNBase, ValueN},
     wide::{Quatx8, Vec3x8},
 };
 
@@ -930,7 +928,7 @@ mod tests {
                 .add_asset::<Mesh>()
                 .add_asset::<StandardMaterial>()
                 .add_plugin(bevy_transform::TransformPlugin::default())
-                .add_plugin(crate::AnimationPlugin { headless: true});
+                .add_plugin(crate::AnimationPlugin { headless: true });
 
             let mut world = World::new();
             let mut world_builder = world.build();

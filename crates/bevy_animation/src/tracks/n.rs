@@ -156,11 +156,9 @@ pub type TrackNBase<T> = Box<dyn TrackN<Output = T> + Send + Sync + 'static>;
 macro_rules! valuen {
     ($t:ty, $i:ty, $o:ty, $s:tt) => {
         impl ValueN for $t {
-            type Value = $o;
-
             type Lanes = [u16; $s];
-
             type Outputs = [Self::Value; $s];
+            type Value = $o;
 
             #[inline(always)]
             fn pack(values: Self::Outputs) -> Self {
@@ -187,11 +185,9 @@ valuen!(Vec4x4, ultraviolet::Vec4, Vec4, 4);
 valuen!(Vec4x8, ultraviolet::Vec4, Vec4, 8);
 
 impl ValueN for Quatx4 {
-    type Value = Quat;
-
     type Lanes = [u16; 4];
-
     type Outputs = [Self::Value; 4];
+    type Value = Quat;
 
     #[inline(always)]
     fn pack(values: Self::Outputs) -> Self {
@@ -209,11 +205,9 @@ impl ValueN for Quatx4 {
 }
 
 impl ValueN for Quatx8 {
-    type Value = Quat;
-
     type Lanes = [u16; 8];
-
     type Outputs = [Self::Value; 8];
+    type Value = Quat;
 
     #[inline(always)]
     fn pack(values: Self::Outputs) -> Self {

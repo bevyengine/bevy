@@ -110,65 +110,67 @@ async fn load_gltf<'a, 'b>(
         let mut primitives = vec![];
         for primitive in mesh.primitives() {
             let primitive_label = primitive_label(&mesh, &primitive);
-            let reader = primitive.reader(|buffer| Some(&buffer_data[buffer.index()]));
-            let primitive_topology = get_primitive_topology(primitive.mode())?;
+            if !load_context.has_labeled_asset(&primitive_label) {
+                let reader = primitive.reader(|buffer| Some(&buffer_data[buffer.index()]));
+                let primitive_topology = get_primitive_topology(primitive.mode())?;
 
-            let mut mesh = Mesh::new(primitive_topology);
+                let mut mesh = Mesh::new(primitive_topology);
 
-            if let Some(vertex_attribute) = reader
-                .read_positions()
-                .map(|v| VertexAttributeValues::Float3(v.collect()))
-            {
-                mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, vertex_attribute);
-            }
+                if let Some(vertex_attribute) = reader
+                    .read_positions()
+                    .map(|v| VertexAttributeValues::Float3(v.collect()))
+                {
+                    mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, vertex_attribute);
+                }
 
-            if let Some(vertex_attribute) = reader
-                .read_normals()
-                .map(|v| VertexAttributeValues::Float3(v.collect()))
-            {
-                mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, vertex_attribute);
-            }
+                if let Some(vertex_attribute) = reader
+                    .read_normals()
+                    .map(|v| VertexAttributeValues::Float3(v.collect()))
+                {
+                    mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, vertex_attribute);
+                }
 
-            if let Some(vertex_attribute) = reader
-                .read_tex_coords(0)
-                .map(|v| VertexAttributeValues::Float2(v.into_f32().collect()))
-            {
-                mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, vertex_attribute);
-            }
+                if let Some(vertex_attribute) = reader
+                    .read_tex_coords(0)
+                    .map(|v| VertexAttributeValues::Float2(v.into_f32().collect()))
+                {
+                    mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, vertex_attribute);
+                }
 
-            if let Some(indices) = reader.read_indices() {
-                mesh.set_indices(Some(Indices::U32(indices.into_u32().collect())));
+                if let Some(indices) = reader.read_indices() {
+                    mesh.set_indices(Some(Indices::U32(indices.into_u32().collect())));
+                };
+
+                if let Some(color_attribute) = reader
+                    .read_colors(0)
+                    .map(|v| VertexAttributeValues::Uchar4(v.into_rgba_u8().collect()))
+                {
+                    mesh.set_attribute(Mesh::ATTRIBUTE_COLOR, color_attribute);
+                }
+
+                if let Some(weight_attribute) = reader
+                    .read_weights(0)
+                    .map(|v| VertexAttributeValues::Float4(v.into_f32().collect()))
+                {
+                    mesh.set_attribute(Mesh::ATTRIBUTE_WEIGHT, weight_attribute);
+                }
+
+                if let Some(joint_attribute) = reader
+                    .read_joints(0)
+                    .map(|v| VertexAttributeValues::Ushort4(v.into_u16().collect()))
+                {
+                    mesh.set_attribute(Mesh::ATTRIBUTE_JOINT, joint_attribute);
+                }
+
+                let mesh = load_context.set_labeled_asset(&primitive_label, LoadedAsset::new(mesh));
+                primitives.push(super::GltfPrimitive {
+                    mesh,
+                    material: primitive
+                        .material()
+                        .index()
+                        .and_then(|i| materials.get(i).cloned()),
+                });
             };
-
-            if let Some(color_attribute) = reader
-                .read_colors(0)
-                .map(|v| VertexAttributeValues::Uchar4(v.into_rgba_u8().collect()))
-            {
-                mesh.set_attribute(Mesh::ATTRIBUTE_COLOR, color_attribute);
-            }
-
-            if let Some(weight_attribute) = reader
-                .read_weights(0)
-                .map(|v| VertexAttributeValues::Float4(v.into_f32().collect()))
-            {
-                mesh.set_attribute(Mesh::ATTRIBUTE_WEIGHT, weight_attribute);
-            }
-
-            if let Some(joint_attribute) = reader
-                .read_joints(0)
-                .map(|v| VertexAttributeValues::Ushort4(v.into_u16().collect()))
-            {
-                mesh.set_attribute(Mesh::ATTRIBUTE_JOINT, joint_attribute);
-            }
-
-            let mesh = load_context.set_labeled_asset(&primitive_label, LoadedAsset::new(mesh));
-            primitives.push(super::GltfPrimitive {
-                mesh,
-                material: primitive
-                    .material()
-                    .index()
-                    .and_then(|i| materials.get(i).cloned()),
-            });
         }
         let handle = load_context.set_labeled_asset(
             &mesh_label(&mesh),
@@ -280,7 +282,7 @@ async fn load_gltf<'a, 'b>(
                 .ok_or(GltfError::ImageRgb8ConversionFailure)?;
 
             let texture_label = texture_label(&texture);
-            load_context.set_labeled_asset::<Texture>(
+            load_context.set_labeled_asset(
                 &texture_label,
                 LoadedAsset::new(Texture {
                     data: image.clone().into_vec(),
@@ -396,13 +398,11 @@ async fn load_gltf<'a, 'b>(
     for scene in gltf.scenes() {
         let mut world = World::default();
         let world_builder = &mut world.build();
-        world_builder
-            .spawn((Transform::default(), GlobalTransform::default()))
-            .with_children(|parent| {
-                for node in scene.nodes() {
-                    load_node(&node, &node, parent, load_context, &mut entity_lookup, 0);
-                }
-            });
+        world_builder.spawn((Transform::default(), GlobalTransform::default()));
+
+        if let Some(name) = scene.name() {
+            world_builder.with(Name::new(name.to_string()));
+        }
 
         // Animator component
         let mut animator = Animator::default();
@@ -410,6 +410,12 @@ async fn load_gltf<'a, 'b>(
             animator.add_clip(clip_handle.clone());
         }
         world_builder.with(animator);
+
+        world_builder.with_children(|parent| {
+            for node in scene.nodes() {
+                load_node(&node, &node, parent, load_context, &mut entity_lookup, 0);
+            }
+        });
 
         let scene_handle = load_context
             .set_labeled_asset(&scene_label(&scene), LoadedAsset::new(Scene::new(world)));

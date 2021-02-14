@@ -2,16 +2,17 @@
 use crate::hierarchy::Hierarchy;
 use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_core::Name;
-use bevy_ecs::prelude::*;
-use bevy_ecs::MapEntities;
+use bevy_ecs::{prelude::*, MapEntities};
 use bevy_math::Mat4;
 use bevy_pbr::prelude::*;
 use bevy_reflect::{Reflect, ReflectComponent, ReflectMapEntities, TypeUuid};
-use bevy_render::mesh::{shape, Indices, Mesh, VertexAttributeValues};
-use bevy_render::pipeline::{PipelineDescriptor, PrimitiveTopology, RenderPipelines};
-use bevy_render::render_graph::{base, AssetRenderResourcesNode, RenderGraph};
-use bevy_render::renderer::RenderResources;
-use bevy_render::shader::{Shader, ShaderStage};
+use bevy_render::{
+    mesh::{shape, Indices, Mesh, VertexAttributeValues},
+    pipeline::{PipelineDescriptor, PrimitiveTopology, RenderPipelines},
+    render_graph::{base, AssetRenderResourcesNode, RenderGraph},
+    renderer::RenderResources,
+    shader::{Shader, ShaderStage},
+};
 use bevy_transform::prelude::*;
 use smallvec::SmallVec;
 
