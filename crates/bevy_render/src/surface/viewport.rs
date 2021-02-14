@@ -3,7 +3,7 @@ use bevy_app::prelude::EventReader;
 use bevy_ecs::{Changed, Query, QuerySet, Res};
 use bevy_math::{clamp, vec2, Rect, Vec2};
 use bevy_reflect::{Reflect, ReflectComponent};
-use bevy_utils::HashMap;
+use bevy_utils::HashSet;
 use bevy_window::{WindowId, WindowResized, WindowScaleFactorChanged, Windows};
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
@@ -159,17 +159,16 @@ pub fn viewport_system(
     windows: Res<Windows>,
     mut queries: QuerySet<(Query<&Viewport, Changed<Viewport>>, Query<&mut Viewport>)>,
 ) {
-    // by using a HashMap we can use insert()
-    let mut changed_window_ids: HashMap<WindowId, ()> = HashMap::default();
+    let mut changed_window_ids: HashSet<WindowId> = HashSet::default();
     for event in window_resized_events.iter() {
-        changed_window_ids.insert(event.id, ());
+        changed_window_ids.insert(event.id);
     }
     for event in window_scale_change_events.iter() {
-        changed_window_ids.insert(event.id, ());
+        changed_window_ids.insert(event.id);
     }
     for viewport in queries.q0().iter() {
         if let Some(id) = viewport.surface.get_window() {
-            changed_window_ids.insert(id, ());
+            changed_window_ids.insert(id);
         }
     }
 
@@ -177,7 +176,7 @@ pub fn viewport_system(
     for mut viewport in queries.q1_mut().iter_mut() {
         match viewport.surface {
             SurfaceId::Window(id) => {
-                if changed_window_ids.contains_key(&id) {
+                if changed_window_ids.contains(&id) {
                     let window = windows
                         .get(id)
                         .expect("Viewport surface refers to non-existent window");
