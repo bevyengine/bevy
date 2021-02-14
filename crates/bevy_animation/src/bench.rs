@@ -32,7 +32,7 @@ impl Bench {
             .add_plugin(bevy_asset::AssetPlugin::default())
             .add_plugin(TransformPlugin::default())
             .add_plugin(crate::AnimationPlugin {
-                headless: true,
+                skinning: false,
                 ..Default::default()
             });
 

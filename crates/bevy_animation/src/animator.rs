@@ -928,7 +928,7 @@ mod tests {
                 .add_asset::<Mesh>()
                 .add_asset::<StandardMaterial>()
                 .add_plugin(bevy_transform::TransformPlugin::default())
-                .add_plugin(crate::AnimationPlugin { headless: true });
+                .add_plugin(crate::AnimationPlugin { skinning: false });
 
             let mut world = World::new();
             let mut world_builder = world.build();

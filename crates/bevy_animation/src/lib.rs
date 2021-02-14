@@ -48,10 +48,15 @@ pub mod stage {
 
 use bevy_ecs::ParallelSystemDescriptorCoercion;
 
-#[derive(Default)]
 pub struct AnimationPlugin {
-    /// Headless mode (no skinning)
-    pub headless: bool,
+    /// Enables or disables the built in skinning
+    pub skinning: bool,
+}
+
+impl Default for AnimationPlugin {
+    fn default() -> Self {
+        Self { skinning: true }
+    }
 }
 
 impl Plugin for AnimationPlugin {
@@ -89,7 +94,7 @@ impl Plugin for AnimationPlugin {
             .register_type::<skinned_mesh::SkinComponent>()
             .register_type::<skinned_mesh::SkinDebugger>();
 
-        if !self.headless {
+        if self.skinning {
             app.add_startup_system(skinned_mesh::skinning_setup.system())
                 .add_system_to_stage(
                     stage::SKINNING,
