@@ -12,6 +12,7 @@ use wasm_bindgen::{prelude::*, JsCast};
 pub enum RunMode {
     Loop { wait: Option<Duration> },
     Once,
+    Ticks(usize),
 }
 
 impl Default for RunMode {
@@ -29,6 +30,12 @@ impl ScheduleRunnerSettings {
     pub fn run_once() -> Self {
         ScheduleRunnerSettings {
             run_mode: RunMode::Once,
+        }
+    }
+
+    pub fn run_ticks(ticks: usize) -> Self {
+        ScheduleRunnerSettings {
+            run_mode: RunMode::Ticks(ticks),
         }
     }
 
@@ -56,6 +63,11 @@ impl Plugin for ScheduleRunnerPlugin {
             match settings.run_mode {
                 RunMode::Once => {
                     app.update();
+                }
+                RunMode::Ticks(ticks) => {
+                    for _ in 0..ticks {
+                        app.update();
+                    }
                 }
                 RunMode::Loop { wait } => {
                     let mut tick = move |app: &mut App,

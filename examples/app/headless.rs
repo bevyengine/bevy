@@ -16,6 +16,13 @@ fn main() {
         .add_system(hello_world_system.system())
         .run();
 
+    // this app runs 10 times
+    App::build()
+        .insert_resource(ScheduleRunnerSettings::run_ticks(10))
+        .add_plugins(MinimalPlugins)
+        .add_system(ticker.system())
+        .run();
+
     // this app loops forever at 60 fps
     App::build()
         .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
@@ -28,6 +35,11 @@ fn main() {
 
 fn hello_world_system() {
     println!("hello world");
+}
+
+fn ticker(mut state: Local<CounterState>) {
+    state.count += 1;
+    println!("{}", state.count);
 }
 
 fn counter(mut state: Local<CounterState>) {
