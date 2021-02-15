@@ -79,11 +79,7 @@ impl Schedule {
         self
     }
 
-    pub fn add_stage<S: Stage>(
-        &mut self,
-        name: impl Into<StageLabel>,
-        stage: S,
-    ) -> &mut Self {
+    pub fn add_stage<S: Stage>(&mut self, name: impl Into<StageLabel>, stage: S) -> &mut Self {
         let name = name.into();
         self.stage_order.push(name.clone());
         let prev = self.stages.insert(name.clone(), Box::new(stage));
@@ -109,8 +105,7 @@ impl Schedule {
             .map(|(i, _)| i)
             .unwrap_or_else(|| panic!("Target stage does not exist: {}.", target.name()));
 
-        self.stage_order
-            .insert(target_index + 1, name.clone());
+        self.stage_order.insert(target_index + 1, name.clone());
         let prev = self.stages.insert(name.clone(), Box::new(stage));
         if prev.is_some() {
             panic!("Stage already exists: {}.", name.name());
@@ -150,7 +145,12 @@ impl Schedule {
         let name = stage_name.into();
         let stage = self
             .get_stage_mut::<SystemStage, _>(name.clone())
-            .unwrap_or_else(move || panic!("Stage '{}' does not exist or is not a SystemStage", name.name()));
+            .unwrap_or_else(move || {
+                panic!(
+                    "Stage '{}' does not exist or is not a SystemStage",
+                    name.name()
+                )
+            });
         stage.add_system(system);
         self
     }
@@ -163,7 +163,12 @@ impl Schedule {
         let name = name.into();
         let stage = self
             .get_stage_mut::<T, _>(name.clone())
-            .unwrap_or_else(move || panic!("stage '{}' does not exist or is the wrong type", name.name()));
+            .unwrap_or_else(move || {
+                panic!(
+                    "stage '{}' does not exist or is the wrong type",
+                    name.name()
+                )
+            });
         func(stage);
         self
     }
@@ -174,10 +179,7 @@ impl Schedule {
             .and_then(|stage| stage.downcast_ref::<T>())
     }
 
-    pub fn get_stage_mut<T: Stage, L: Into<StageLabel>>(
-        &mut self,
-        name: L,
-    ) -> Option<&mut T> {
+    pub fn get_stage_mut<T: Stage, L: Into<StageLabel>>(&mut self, name: L) -> Option<&mut T> {
         self.stages
             .get_mut(&name.into())
             .and_then(|stage| stage.downcast_mut::<T>())

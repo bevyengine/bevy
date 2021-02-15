@@ -1,4 +1,6 @@
-use crate::{BoxedSystem, ExclusiveSystem, ExclusiveSystemCoerced, ExclusiveSystemFn, System, SystemLabel};
+use crate::{
+    BoxedSystem, ExclusiveSystem, ExclusiveSystemCoerced, ExclusiveSystemFn, System, SystemLabel,
+};
 
 /// Encapsulates a system and information on when it run in a `SystemStage`.
 ///

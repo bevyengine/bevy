@@ -1,8 +1,7 @@
 use std::{borrow::Cow, ptr::NonNull};
 
 use crate::{
-    ExclusiveSystem, ExclusiveSystemDescriptor, ParallelSystemDescriptor, System,
-    SystemLabel,
+    ExclusiveSystem, ExclusiveSystemDescriptor, ParallelSystemDescriptor, System, SystemLabel,
 };
 
 pub(super) trait SystemContainer {

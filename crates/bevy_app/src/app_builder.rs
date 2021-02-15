@@ -5,9 +5,8 @@ use crate::{
     CoreStage, PluginGroup, PluginGroupBuilder, StartupStage,
 };
 use bevy_ecs::{
-    clear_trackers_system, FromResources, IntoExclusiveSystem, IntoSystem, Resource,
-    Resources, RunOnce, Schedule, Stage, StageLabel, StateStage, SystemDescriptor, SystemStage,
-    World,
+    clear_trackers_system, FromResources, IntoExclusiveSystem, IntoSystem, Resource, Resources,
+    RunOnce, Schedule, Stage, StageLabel, StateStage, SystemDescriptor, SystemStage, World,
 };
 use bevy_utils::tracing::debug;
 
@@ -55,11 +54,7 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_stage<S: Stage>(
-        &mut self,
-        name: impl Into<StageLabel>,
-        stage: S,
-    ) -> &mut Self {
+    pub fn add_stage<S: Stage>(&mut self, name: impl Into<StageLabel>, stage: S) -> &mut Self {
         self.app.schedule.add_stage(name, stage);
         self
     }
