@@ -71,10 +71,9 @@ fn propagate_recursive(
 mod test {
     use super::*;
     use crate::hierarchy::{parent_update_system, BuildChildren, BuildWorldChildren};
-    use bevy_ecs::{IntoLabel, Resources, Schedule, Stage, StageLabel, SystemStage, World};
+    use bevy_ecs::{Resources, Schedule, Stage, StageLabel, SystemStage, World};
 
-    #[derive(Debug, Hash, PartialEq, Eq, Clone, IntoLabel)]
-    #[label_type(StageLabel)]
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
     struct Update;
 
     #[test]

@@ -1,5 +1,5 @@
 use super::{Edge, Node, NodeId, NodeLabel, NodeState, RenderGraphError, SlotLabel, SystemNode};
-use bevy_ecs::{Commands, IntoLabel, Schedule, StageLabel, SystemStage};
+use bevy_ecs::{Commands, Schedule, StageLabel, SystemStage};
 use bevy_utils::HashMap;
 use std::{borrow::Cow, fmt::Debug};
 pub struct RenderGraph {
@@ -9,8 +9,7 @@ pub struct RenderGraph {
     commands: Commands,
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoLabel)]
-#[label_type(StageLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 struct RenderGraphUpdate;
 
 impl Default for RenderGraph {

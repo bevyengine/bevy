@@ -21,20 +21,18 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::{
-    IntoLabel, IntoSystem, ParallelSystemDescriptorCoercion, StageLabel, SystemLabel, SystemStage,
+    IntoSystem, ParallelSystemDescriptorCoercion, StageLabel, SystemLabel, SystemStage,
 };
 use bevy_render::render_graph::RenderGraph;
 use update::ui_z_system;
 
 #[derive(Default)]
 pub struct UiPlugin;
-#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoLabel)]
-#[label_type(StageLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum UiStages {
     Ui,
 }
-#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoLabel)]
-#[label_type(SystemLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum UiSystems {
     Flex,
 }

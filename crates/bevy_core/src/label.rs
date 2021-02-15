@@ -115,10 +115,9 @@ pub(crate) fn entity_labels_system(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy_ecs::{IntoLabel, Stage, StageLabel};
+    use bevy_ecs::{Stage, StageLabel};
 
-    #[derive(Debug, Hash, PartialEq, Eq, Clone, IntoLabel)]
-    #[label_type(StageLabel)]
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
     struct Test;
 
     fn setup() -> (World, Resources, bevy_ecs::Schedule) {

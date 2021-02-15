@@ -24,9 +24,8 @@ pub use loader::*;
 pub use path::*;
 
 /// The names of asset stages in an App Schedule
-use bevy_ecs::{IntoLabel, StageLabel};
-#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoLabel)]
-#[label_type(StageLabel)]
+use bevy_ecs::StageLabel;
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum AssetStage {
     LoadAssets,
     AssetEvents,

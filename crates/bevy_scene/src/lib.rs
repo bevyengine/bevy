@@ -24,9 +24,8 @@ use bevy_asset::AddAsset;
 #[derive(Default)]
 pub struct ScenePlugin;
 
-use bevy_ecs::{IntoLabel, StageLabel};
-#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoLabel)]
-#[label_type(StageLabel)]
+use bevy_ecs::{StageLabel};
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 enum Stages {
     SceneStage,
 }

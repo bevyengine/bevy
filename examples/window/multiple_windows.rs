@@ -24,8 +24,7 @@ fn main() {
         .run();
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoLabel)]
-#[label_type(StageLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub struct Stage;
 
 // NOTE: this "state based" approach to multiple windows is a short term workaround.

@@ -442,9 +442,7 @@ mod tests {
         assert!(*resources.get::<bool>().unwrap(), "system ran");
     }
 
-    use crate::IntoLabel;
-    #[derive(Debug, Hash, PartialEq, Eq, Clone, IntoLabel)]
-    #[label_type(StageLabel)]
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
     enum TestLabels {
         CleanTrackers,
         Update,

@@ -467,13 +467,19 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     })
 }
 
-#[proc_macro_derive(IntoLabel, attributes(label_type, name_expr))]
-pub fn derive_into_label(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(SystemLabel, attributes(name_expr))]
+pub fn derive_system_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    derive_into_label_(input).into()
+    derive_label(input, Ident::new("SystemLabelMarker", Span::call_site())).into()
 }
 
-fn derive_into_label_(input: DeriveInput) -> TokenStream2 {
+#[proc_macro_derive(StageLabel, attributes(name_expr))]
+pub fn derive_stage_label(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    derive_label(input, Ident::new("StageLabelMarker", Span::call_site())).into()
+}
+
+fn derive_label(input: DeriveInput, label_type: Ident) -> TokenStream2 {
     let ident = input.ident;
 
     let manifest = Manifest::new().unwrap();
@@ -490,13 +496,6 @@ fn derive_into_label_(input: DeriveInput) -> TokenStream2 {
     };
     let crate_path: Path = syn::parse(path_str.parse::<TokenStream>().unwrap()).unwrap();
 
-    let path = input
-        .attrs
-        .iter()
-        .find(|a| *a.path.get_ident().as_ref().unwrap() == "label_type")
-        .and_then(|a| a.parse_args::<syn::Path>().ok())
-        .unwrap_or_else(|| panic!("You must specify `label_type`"));
-
     let name = input
         .attrs
         .iter()
@@ -511,23 +510,9 @@ fn derive_into_label_(input: DeriveInput) -> TokenStream2 {
         });
 
     quote! {
-        impl #crate_path::IntoLabel<#path> for #ident {
+        impl #crate_path::Label<#crate_path::#label_type> for #ident {
             fn name(&self) -> std::borrow::Cow<'static, str> {
                 std::borrow::Cow::Borrowed(#name)
-            }
-
-            fn downcast_eq(&self, other: &dyn IntoLabel<#path>) -> bool {
-                self.assert_receiver_is_total_eq();
-                match other.downcast_ref::<Self>() {
-                    Some(val) => val == self,
-                    None => false,
-                }
-            }
-
-            fn dyn_hash(&self, mut hasher: &mut dyn ::std::hash::Hasher) {
-                use ::std::hash::Hash;
-                std::any::TypeId::of::<Self>().hash(&mut hasher);
-                self.hash(&mut hasher)
             }
         }
     }

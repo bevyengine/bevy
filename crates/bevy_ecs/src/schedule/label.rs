@@ -1,100 +1,131 @@
-use downcast_rs::Downcast;
 use std::{
+    any::Any,
     borrow::Cow,
-    fmt::{Debug, Display},
+    fmt::Debug,
     hash::{Hash, Hasher},
-    marker::PhantomData,
-    sync::Arc,
 };
 
-use crate::{StageLabel, SystemLabel};
+use crate::{StageLabelMarker, SystemLabelMarker};
 
-pub struct Label<M>(Arc<dyn IntoLabel<M>>, PhantomData<M>);
-
-impl<T: 'static> Clone for Label<T> {
-    fn clone(&self) -> Self {
-        Label(self.0.clone(), Default::default())
-    }
-}
-
-impl<T: 'static> Hash for Label<T> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.dyn_hash(state);
-    }
-}
-
-impl<T: 'static> PartialEq for Label<T> {
-    fn eq(&self, other: &Self) -> bool {
-        // Consider using pointer comparison like https://github.com/rust-lang/rust/issues/46139#issuecomment-416101127
-        self.0.downcast_eq(&*other.0.as_ref())
-    }
-}
-
-impl<T: 'static> Eq for Label<T> {}
-
-impl<T: 'static> Display for Label<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.to_str())
-    }
-}
-
-impl<T: 'static> Debug for Label<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("\"")?;
-        f.write_str(&self.to_str())?;
-        f.write_str("\"")?;
-        Ok(())
-    }
-}
-
-impl<T: 'static> Label<T> {
-    pub fn name(&self) -> Cow<'static, str> {
-        self.0.name()
-    }
-}
-
-pub trait IntoLabel<M: 'static>: Downcast + Send + Sync + 'static {
+pub trait Label<T>: DynHash + DynClone<T> + Send + Sync + 'static {
     fn name(&self) -> Cow<'static, str>;
-    fn downcast_eq(&self, other: &dyn IntoLabel<M>) -> bool;
-    fn dyn_hash(&self, hasher: &mut dyn Hasher);
 }
 
-impl<T: IntoLabel<SystemLabel> + Eq + Hash + Clone> From<T> for Label<SystemLabel> {
+impl<M: 'static> Debug for dyn Label<M> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.name())
+    }
+}
+
+pub type SystemLabel = Box<dyn Label<SystemLabelMarker>>;
+pub type StageLabel = Box<dyn Label<StageLabelMarker>>;
+
+pub trait DynEq: Any {
+    fn as_any(&self) -> &dyn Any;
+
+    fn dyn_eq(&self, other: &dyn DynEq) -> bool;
+}
+
+impl<T> DynEq for T
+where
+    T: Any + Eq,
+{
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn dyn_eq(&self, other: &dyn DynEq) -> bool {
+        if let Some(other) = other.as_any().downcast_ref::<T>() {
+            return self == other;
+        }
+        false
+    }
+}
+
+pub trait DynHash: DynEq {
+    fn as_dyn_eq(&self) -> &dyn DynEq;
+
+    fn dyn_hash(&self, state: &mut dyn Hasher);
+}
+
+impl<T> DynHash for T
+where
+    T: DynEq + Hash,
+{
+    fn as_dyn_eq(&self) -> &dyn DynEq {
+        self
+    }
+
+    fn dyn_hash(&self, mut state: &mut dyn Hasher) {
+        T::hash(self, &mut state);
+        self.type_id().hash(&mut state);
+    }
+}
+
+pub trait DynClone<T> {
+    fn dyn_clone(&self) -> Box<dyn Label<T>>;
+}
+
+impl<M, T> DynClone<M> for T
+where
+    T: Label<M> + Clone + 'static,
+{
+    fn dyn_clone(&self) -> Box<dyn Label<M>> {
+        Box::new(self.clone())
+    }
+}
+
+impl<T> PartialEq for dyn Label<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.dyn_eq(other.as_dyn_eq())
+    }
+}
+
+impl<T> Eq for dyn Label<T> {}
+
+impl<T> Hash for dyn Label<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.dyn_hash(state);
+    }
+}
+
+impl<T> Clone for Box<dyn Label<T>> {
+    fn clone(&self) -> Self {
+        self.dyn_clone()
+    }
+}
+
+impl<T: Label<StageLabelMarker>> From<T> for Box<dyn Label<StageLabelMarker>> {
     fn from(t: T) -> Self {
-        Label(Arc::new(t), Default::default())
+        Box::new(t)
     }
 }
 
-impl<T: IntoLabel<StageLabel> + Eq + Hash + Clone> From<T> for Label<StageLabel> {
+impl<T: Label<SystemLabelMarker>> From<T> for Box<dyn Label<SystemLabelMarker>> {
     fn from(t: T) -> Self {
-        Label(Arc::new(t), Default::default())
+        Box::new(t)
     }
 }
 
-pub trait FullIntoLabel<M: 'static>: IntoLabel<M> + Eq + Hash + Clone {}
-
-impl<M: 'static, T: IntoLabel<M> + Eq + Hash + Clone> FullIntoLabel<M> for T {}
-
-downcast_rs::impl_downcast!(IntoLabel<M>);
-
-impl<M: 'static> Label<M> {
-    pub fn to_str(&self) -> Cow<'static, str> {
-        self.0.name()
+impl Label<SystemLabelMarker> for Cow<'static, str> {
+    fn name(&self) -> Cow<'static, str> {
+        self.clone()
     }
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
-    use crate::IntoLabel;
-    struct LabelT;
-    #[derive(IntoLabel, PartialEq, Eq, Hash, Debug)]
-    #[label_type(LabelT)]
-    struct L(&'static str);
-    #[test]
-    fn label_eq_test() {
-        let label_1 = L("A");
-        let label_2 = L("A");
-        assert_eq!(label_1, label_2);
+impl Label<SystemLabelMarker> for &'static str {
+    fn name(&self) -> Cow<'static, str> {
+        Cow::Borrowed(self)
+    }
+}
+impl Label<StageLabelMarker> for Cow<'static, str> {
+    fn name(&self) -> Cow<'static, str> {
+        self.clone()
+    }
+}
+
+impl Label<StageLabelMarker> for &'static str {
+    fn name(&self) -> Cow<'static, str> {
+        Cow::Borrowed(self)
     }
 }

@@ -1,8 +1,7 @@
-use bevy_ecs::{IntoLabel, StageLabel};
+use bevy_ecs::StageLabel;
 
 /// The names of the default App stages
-#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoLabel)]
-#[label_type(StageLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum CoreStage {
     /// Name of the app stage that runs once at the beginning of the app
     Startup,
@@ -22,8 +21,7 @@ pub enum CoreStage {
     LAST,
 }
 /// The names of the default App startup stages
-#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoLabel)]
-#[label_type(StageLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum StartupStage {
     /// Name of app stage that runs once before the startup stage
     PreStartup,

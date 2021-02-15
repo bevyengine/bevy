@@ -52,10 +52,9 @@ use texture::HdrTextureLoader;
 #[cfg(feature = "png")]
 use texture::ImageTextureLoader;
 
-use bevy_ecs::{IntoLabel, StageLabel};
+use bevy_ecs::StageLabel;
 /// The names of "render" App stages
-#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoLabel)]
-#[label_type(StageLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum RenderStage {
     /// Stage where render resources are set up
     RenderResource,

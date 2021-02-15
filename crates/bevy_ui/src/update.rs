@@ -49,13 +49,12 @@ fn update_hierarchy(
 #[cfg(test)]
 mod tests {
     use bevy_ecs::{
-        Commands, IntoLabel, IntoSystem, Resources, Schedule, Stage, StageLabel, SystemStage, World,
+        Commands, IntoSystem, Resources, Schedule, Stage, StageLabel, SystemStage, World,
     };
     use bevy_transform::{components::Transform, hierarchy::BuildChildren};
 
     use crate::Node;
-    #[derive(Debug, Hash, PartialEq, Eq, Clone, IntoLabel)]
-    #[label_type(StageLabel)]
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
     struct Update;
 
     use super::{ui_z_system, UI_Z_STEP};

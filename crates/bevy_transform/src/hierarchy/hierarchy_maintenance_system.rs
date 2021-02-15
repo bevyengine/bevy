@@ -71,12 +71,9 @@ pub fn parent_update_system(
 mod test {
     use super::*;
     use crate::{hierarchy::BuildChildren, transform_propagate_system::transform_propagate_system};
-    use bevy_ecs::{
-        IntoLabel, IntoSystem, Resources, Schedule, Stage, StageLabel, SystemStage, World,
-    };
+    use bevy_ecs::{IntoSystem, Resources, Schedule, Stage, StageLabel, SystemStage, World};
 
-    #[derive(Debug, Hash, PartialEq, Eq, Clone, IntoLabel)]
-    #[label_type(StageLabel)]
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
     struct Update;
 
     #[test]

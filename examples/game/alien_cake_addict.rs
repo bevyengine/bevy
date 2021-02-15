@@ -5,8 +5,7 @@ use bevy::{
 };
 use rand::Rng;
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoLabel)]
-#[label_type(StageLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 enum GameStages {
     InGame,
     BonusUpdate,

@@ -13,8 +13,7 @@ fn main() {
         .run();
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoLabel)]
-#[label_type(StageLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 struct Stage;
 
 #[derive(Clone)]
