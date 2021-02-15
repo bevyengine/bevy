@@ -62,12 +62,15 @@ pub struct ScheduleRunnerPlugin {}
 
 impl Plugin for ScheduleRunnerPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.init_resource::<TickCounter>();
-
         let settings = app
             .resources_mut()
             .get_or_insert_with(ScheduleRunnerSettings::default)
             .to_owned();
+
+        if matches!(settings.run_mode, RunMode::Ticks(_)) {
+            app.init_resource::<TickCounter>();
+        }
+
         app.set_runner(move |mut app: App| {
             let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
             match settings.run_mode {
@@ -103,10 +106,6 @@ impl Plugin for ScheduleRunnerPlugin {
                             {
                                 return Err(exit.clone());
                             }
-                        }
-
-                        if let Some(mut ticker) = app.resources.get_mut::<TickCounter>() {
-                            ticker.count += 1;
                         }
 
                         let end_time = Instant::now();

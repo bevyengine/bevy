@@ -37,12 +37,18 @@ fn hello_world_system() {
     println!("hello world");
 }
 
-fn ticker(ticks: Res<TickCounter>) {
+fn ticker(ticks: Res<bevy::app::TickCounter>) {
     println!("{}", ticks.count);
 }
 
-fn counter(ticks: Res<TickCounter>) {
-    if ticks.count % 60 == 0 {
-        println!("{}", ticks.count);
+fn counter(mut state: Local<CounterState>) {
+    if state.count % 60 == 0 {
+        println!("{}", state.count);
     }
+    state.count += 1;
+}
+
+#[derive(Default)]
+struct CounterState {
+    count: u32,
 }
