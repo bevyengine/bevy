@@ -125,6 +125,23 @@ impl Schedule {
         self
     }
 
+    pub fn add_system_set_to_stage(
+        &mut self,
+        stage_name: &'static str,
+        system_set: SystemSet,
+    ) -> &mut Self {
+        let stage = self
+            .get_stage_mut::<SystemStage>(stage_name)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Stage '{}' does not exist or is not a SystemStage",
+                    stage_name
+                )
+            });
+        stage.add_system_set(system_set);
+        self
+    }
+
     pub fn stage<T: Stage, F: FnOnce(&mut T) -> &mut T>(
         &mut self,
         name: &str,
