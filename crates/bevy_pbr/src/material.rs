@@ -1,13 +1,14 @@
 use bevy_asset::{self, Handle};
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{color::Color, renderer::RenderResources, shader::ShaderDefs, texture::Texture};
 
 /// A material with "standard" properties used in PBR lighting
-#[derive(Debug, RenderResources, ShaderDefs, TypeUuid)]
+#[derive(Debug, RenderResources, ShaderDefs, TypeUuid, Reflect)]
 #[uuid = "dace545e-4bc6-4595-a79d-c224fc694975"]
 pub struct StandardMaterial {
     pub albedo: Color,
     #[shader_def]
+    #[reflect(ignore)]
     pub albedo_texture: Option<Handle<Texture>>,
     #[render_resources(ignore)]
     #[shader_def]

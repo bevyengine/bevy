@@ -7,7 +7,7 @@ use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::AsBytes;
 use bevy_ecs::{Changed, Entity, Local, Mut, Query, QuerySet, Res, With};
 use bevy_math::*;
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{Reflect, TypeUuid};
 use std::borrow::Cow;
 
 use crate::pipeline::{InputStepMode, VertexAttribute, VertexBufferLayout};
@@ -198,13 +198,23 @@ impl From<&Indices> for IndexFormat {
 }
 
 // TODO: allow values to be unloaded after been submitting to the GPU to conserve memory
-#[derive(Debug, TypeUuid)]
+#[derive(Debug, TypeUuid, Reflect)]
 #[uuid = "8ecbac0f-f545-4473-ad43-e1f4243af51e"]
 pub struct Mesh {
+    #[reflect(ignore)]
     primitive_topology: PrimitiveTopology,
     /// `bevy_utils::HashMap` with all defined vertex attributes (Positions, Normals, ...) for this mesh. Attribute name maps to attribute values.
+    #[reflect(ignore)]
     attributes: HashMap<Cow<'static, str>, VertexAttributeValues>,
+    #[reflect(ignore)]
     indices: Option<Indices>,
+}
+
+impl Default for Mesh {
+    /// Creates a empty triangle list mesh
+    fn default() -> Self {
+        Mesh::new(PrimitiveTopology::TriangleList)
+    }
 }
 
 impl Mesh {
