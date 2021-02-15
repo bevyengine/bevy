@@ -23,6 +23,7 @@ pub mod prelude {
         app::App,
         app_builder::AppBuilder,
         event::{EventReader, Events},
+        schedule_runner::TickCounter,
         stage, DynamicPlugin, Plugin, PluginGroup,
     };
 }

@@ -48,12 +48,22 @@ impl ScheduleRunnerSettings {
     }
 }
 
+/// Tracks the number of ticks since the app started.
+///
+/// Can be accessed as a [`Resource`], using `Res<TickCounter>`.
+#[derive(Debug, Default)]
+pub struct TickCounter {
+    pub count: usize,
+}
+
 /// Configures an App to run its [Schedule](bevy_ecs::Schedule) according to a given [RunMode]
 #[derive(Default)]
 pub struct ScheduleRunnerPlugin {}
 
 impl Plugin for ScheduleRunnerPlugin {
     fn build(&self, app: &mut AppBuilder) {
+        app.init_resource::<TickCounter>();
+
         let settings = app
             .resources_mut()
             .get_or_insert_with(ScheduleRunnerSettings::default)
@@ -67,6 +77,10 @@ impl Plugin for ScheduleRunnerPlugin {
                 RunMode::Ticks(ticks) => {
                     for _ in 0..ticks {
                         app.update();
+
+                        if let Some(mut ticker) = app.resources.get_mut::<TickCounter>() {
+                            ticker.count += 1;
+                        }
                     }
                 }
                 RunMode::Loop { wait } => {
@@ -89,6 +103,10 @@ impl Plugin for ScheduleRunnerPlugin {
                             {
                                 return Err(exit.clone());
                             }
+                        }
+
+                        if let Some(mut ticker) = app.resources.get_mut::<TickCounter>() {
+                            ticker.count += 1;
                         }
 
                         let end_time = Instant::now();
