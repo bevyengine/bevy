@@ -84,7 +84,7 @@ impl Schedule {
         self.stage_order.push(name.clone());
         let prev = self.stages.insert(name.clone(), Box::new(stage));
         if prev.is_some() {
-            panic!("Stage already exists: {}.", name.name());
+            panic!("Stage already exists: {:?}.", name);
         }
         self
     }
@@ -103,12 +103,12 @@ impl Schedule {
             .enumerate()
             .find(|(_i, stage_name)| **stage_name == target.clone())
             .map(|(i, _)| i)
-            .unwrap_or_else(|| panic!("Target stage does not exist: {}.", target.name()));
+            .unwrap_or_else(|| panic!("Target stage does not exist: {:?}.", target));
 
         self.stage_order.insert(target_index + 1, name.clone());
         let prev = self.stages.insert(name.clone(), Box::new(stage));
         if prev.is_some() {
-            panic!("Stage already exists: {}.", name.name());
+            panic!("Stage already exists: {:?}.", name);
         }
         self
     }
@@ -127,12 +127,12 @@ impl Schedule {
             .enumerate()
             .find(|(_i, stage_name)| **stage_name == target.clone())
             .map(|(i, _)| i)
-            .unwrap_or_else(|| panic!("Target stage does not exist: {}.", target.name()));
+            .unwrap_or_else(|| panic!("Target stage does not exist: {:?}.", target));
 
         self.stage_order.insert(target_index, name.clone());
         let prev = self.stages.insert(name.clone(), Box::new(stage));
         if prev.is_some() {
-            panic!("Stage already exists: {}.", name.name());
+            panic!("Stage already exists: {:?}.", name);
         }
         self
     }
@@ -146,10 +146,7 @@ impl Schedule {
         let stage = self
             .get_stage_mut::<SystemStage, _>(name.clone())
             .unwrap_or_else(move || {
-                panic!(
-                    "Stage '{}' does not exist or is not a SystemStage",
-                    name.name()
-                )
+                panic!("Stage '{:?}' does not exist or is not a SystemStage", name)
             });
         stage.add_system(system);
         self
@@ -164,10 +161,7 @@ impl Schedule {
         let stage = self
             .get_stage_mut::<T, _>(name.clone())
             .unwrap_or_else(move || {
-                panic!(
-                    "stage '{}' does not exist or is the wrong type",
-                    name.name()
-                )
+                panic!("stage '{:?}' does not exist or is the wrong type", name)
             });
         func(stage);
         self
@@ -188,7 +182,7 @@ impl Schedule {
     pub fn run_once(&mut self, world: &mut World, resources: &mut Resources) {
         for name in self.stage_order.iter() {
             #[cfg(feature = "trace")]
-            let stage_span = bevy_utils::tracing::info_span!("stage", name = &*name.name());
+            let stage_span = bevy_utils::tracing::info_span!("stage", name = &format!("{:?}", name) as &str);
             #[cfg(feature = "trace")]
             let _stage_guard = stage_span.enter();
             let stage = self.stages.get_mut(name).unwrap();

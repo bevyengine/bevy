@@ -1103,17 +1103,16 @@ mod tests {
     #[test]
     fn ambiguity_detection() {
         use super::{find_ambiguities, SystemContainer};
-        use std::borrow::Cow;
 
         fn find_ambiguities_labels(
             systems: &[impl SystemContainer],
-        ) -> Vec<(Cow<'static, str>, Cow<'static, str>)> {
+        ) -> Vec<(SystemLabel, SystemLabel)> {
             find_ambiguities(systems)
                 .drain(..)
                 .map(|(index_a, index_b)| {
                     (
-                        systems[index_a].display_name(),
-                        systems[index_b].display_name(),
+                        systems[index_a].label().clone().unwrap(),
+                        systems[index_b].label().clone().unwrap(),
                     )
                 })
                 .collect()

@@ -45,7 +45,7 @@ impl SystemContainer for ExclusiveSystemContainer {
     fn display_name(&self) -> Cow<'static, str> {
         self.label
             .as_ref()
-            .map(|l| l.name())
+            .map(|l| Cow::Owned(format!("{:?}", l)))
             .unwrap_or_else(|| self.system.name())
     }
 
@@ -93,7 +93,7 @@ impl SystemContainer for ParallelSystemContainer {
     fn display_name(&self) -> Cow<'static, str> {
         self.label
             .as_ref()
-            .map(|l| l.name())
+            .map(|l| Cow::Owned(format!("{:?}", l)))
             .unwrap_or_else(|| self.system().name())
     }
 

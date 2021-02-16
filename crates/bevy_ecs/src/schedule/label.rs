@@ -7,15 +7,7 @@ use std::{
 
 use crate::{StageLabelMarker, SystemLabelMarker};
 
-pub trait Label<T>: DynHash + DynClone<T> + Send + Sync + 'static {
-    fn name(&self) -> Cow<'static, str>;
-}
-
-impl<M: 'static> Debug for dyn Label<M> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.name())
-    }
-}
+pub trait Label<T>: DynHash + DynClone<T> + Debug + Send + Sync + 'static {}
 
 pub type SystemLabel = Box<dyn Label<SystemLabelMarker>>;
 pub type StageLabel = Box<dyn Label<StageLabelMarker>>;
@@ -107,25 +99,7 @@ impl<T: Label<SystemLabelMarker>> From<T> for Box<dyn Label<SystemLabelMarker>> 
     }
 }
 
-impl Label<SystemLabelMarker> for Cow<'static, str> {
-    fn name(&self) -> Cow<'static, str> {
-        self.clone()
-    }
-}
-
-impl Label<SystemLabelMarker> for &'static str {
-    fn name(&self) -> Cow<'static, str> {
-        Cow::Borrowed(self)
-    }
-}
-impl Label<StageLabelMarker> for Cow<'static, str> {
-    fn name(&self) -> Cow<'static, str> {
-        self.clone()
-    }
-}
-
-impl Label<StageLabelMarker> for &'static str {
-    fn name(&self) -> Cow<'static, str> {
-        Cow::Borrowed(self)
-    }
-}
+impl Label<SystemLabelMarker> for Cow<'static, str> {}
+impl Label<SystemLabelMarker> for &'static str {}
+impl Label<StageLabelMarker> for Cow<'static, str> {}
+impl Label<StageLabelMarker> for &'static str {}

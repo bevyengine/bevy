@@ -467,13 +467,13 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     })
 }
 
-#[proc_macro_derive(SystemLabel, attributes(name_expr))]
+#[proc_macro_derive(SystemLabel)]
 pub fn derive_system_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     derive_label(input, Ident::new("SystemLabelMarker", Span::call_site())).into()
 }
 
-#[proc_macro_derive(StageLabel, attributes(name_expr))]
+#[proc_macro_derive(StageLabel)]
 pub fn derive_stage_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     derive_label(input, Ident::new("StageLabelMarker", Span::call_site())).into()
@@ -494,24 +494,7 @@ fn derive_label(input: DeriveInput, label_type: Ident) -> TokenStream2 {
     };
     let crate_path: Path = syn::parse(path_str.parse::<TokenStream>().unwrap()).unwrap();
 
-    let name = input
-        .attrs
-        .iter()
-        .find(|a| *a.path.get_ident().as_ref().unwrap() == "name_expr")
-        .map(|a| a.parse_args::<syn::Expr>().expect("Expected expression"))
-        .unwrap_or_else(|| {
-            let name = ident.to_string();
-            syn::Expr::Lit(syn::ExprLit {
-                lit: syn::Lit::Str(syn::LitStr::new(&name, Span::call_site())),
-                attrs: Default::default(),
-            })
-        });
-
     quote! {
-        impl #crate_path::Label<#crate_path::#label_type> for #ident {
-            fn name(&self) -> std::borrow::Cow<'static, str> {
-                std::borrow::Cow::Borrowed(#name)
-            }
-        }
+        impl #crate_path::Label<#crate_path::#label_type> for #ident {}
     }
 }
