@@ -12,7 +12,7 @@ use std::borrow::Cow;
 /// been applied.
 ///
 /// All systems can have a label attached to them; other systems in the same group can then specify
-/// that they have to run before or after the system with that label.
+/// that they have to run before or after the system with that label using the `before` and `after` methods.
 ///
 /// # Example
 /// ```rust
