@@ -169,7 +169,7 @@ impl<T: Bundle> QueryFilter for WithType<T> {
 
     fn access() -> QueryAccess {
         QueryAccess::union(
-            T::static_type_info()
+            T::TYPES
                 .iter()
                 .map(|info| QueryAccess::With(info.id(), Box::new(QueryAccess::None)))
                 .collect::<Vec<QueryAccess>>(),
@@ -178,7 +178,7 @@ impl<T: Bundle> QueryFilter for WithType<T> {
 
     #[inline]
     fn get_entity_filter(archetype: &Archetype) -> Option<Self::EntityFilter> {
-        if T::static_type_info()
+        if T::TYPES
             .iter()
             .all(|info| archetype.has_type(info.id()))
         {

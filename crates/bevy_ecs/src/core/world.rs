@@ -85,7 +85,7 @@ impl World {
         let archetype_id = bundle.with_ids(|ids| {
             self.index.get(ids).copied().unwrap_or_else(|| {
                 let x = self.archetypes.len() as u32;
-                self.archetypes.push(Archetype::new(bundle.type_info()));
+                self.archetypes.push(Archetype::new(bundle.type_info().to_vec()));
                 self.index.insert(ids.to_vec(), x);
                 self.archetype_generation += 1;
                 x
@@ -175,14 +175,12 @@ impl World {
         self.flush();
         self.entities.reserve(additional);
 
-        let archetype_id = T::with_static_ids(|ids| {
-            self.index.get(ids).copied().unwrap_or_else(|| {
-                let x = self.archetypes.len() as u32;
-                self.archetypes.push(Archetype::new(T::static_type_info()));
-                self.index.insert(ids.to_vec(), x);
-                self.archetype_generation += 1;
-                x
-            })
+        let archetype_id = self.index.get(T::IDS).copied().unwrap_or_else(|| {
+            let x = self.archetypes.len() as u32;
+            self.archetypes.push(Archetype::new(T::TYPES.to_vec()));
+            self.index.insert(T::IDS.to_vec(), x);
+            self.archetype_generation += 1;
+            x
         });
 
         self.archetypes[archetype_id as usize].reserve(additional as usize);
@@ -586,7 +584,7 @@ impl World {
                 if let Some(ptr) = arch.get_dynamic(ty.id(), ty.layout().size(), loc.index) {
                     ty.drop(ptr.as_ptr());
                 } else {
-                    info.push(ty);
+                    info.push(*ty);
                 }
             }
             info.sort();
@@ -679,7 +677,7 @@ impl World {
         self.flush();
         let loc = self.entities.get_mut(entity)?;
         unsafe {
-            let to_remove = T::with_static_ids(|ids| ids.iter().copied().collect::<HashSet<_>>());
+            let to_remove = T::IDS.iter().copied().collect::<HashSet<_>>();
 
             let old_index = loc.index;
             let source_arch = &self.archetypes[loc.archetype as usize];
@@ -753,7 +751,7 @@ impl World {
     pub fn remove_one_by_one<T: Bundle>(&mut self, entity: Entity) -> Result<(), ComponentError> {
         self.flush();
 
-        let to_remove = T::with_static_ids(|ids| ids.iter().copied().collect::<HashSet<_>>());
+        let to_remove = T::IDS.iter().copied().collect::<HashSet<_>>();
         for component_to_remove in to_remove.into_iter() {
             let loc = self.entities.get(entity)?;
             if loc.archetype == 0 {

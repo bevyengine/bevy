@@ -75,7 +75,7 @@ impl Archetype {
         }
         Self {
             state,
-            types,
+            types: types.to_vec(),
             entities: Vec::new(),
             len: 0,
             data: UnsafeCell::new(NonNull::dangling()),
@@ -482,7 +482,7 @@ pub struct TypeInfo {
 
 impl TypeInfo {
     /// Metadata for `T`
-    pub fn of<T: 'static>() -> Self {
+    pub const fn of<T: 'static>() -> Self {
         unsafe fn drop_ptr<T>(x: *mut u8) {
             x.cast::<T>().drop_in_place()
         }
@@ -497,13 +497,13 @@ impl TypeInfo {
 
     #[allow(missing_docs)]
     #[inline]
-    pub fn id(&self) -> TypeId {
+    pub const fn id(&self) -> TypeId {
         self.id
     }
 
     #[allow(missing_docs)]
     #[inline]
-    pub fn layout(&self) -> Layout {
+    pub const fn layout(&self) -> Layout {
         self.layout
     }
 
@@ -513,7 +513,7 @@ impl TypeInfo {
 
     #[allow(missing_docs)]
     #[inline]
-    pub fn type_name(&self) -> &'static str {
+    pub const fn type_name(&self) -> &'static str {
         self.type_name
     }
 }

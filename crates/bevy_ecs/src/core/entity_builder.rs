@@ -14,9 +14,9 @@
 
 // modified by Bevy contributors
 
-use bevy_utils::HashSet;
 use std::{
     alloc::{alloc, dealloc, Layout},
+    collections::HashMap,
     any::TypeId,
     mem::{self, MaybeUninit},
     ptr,
@@ -39,10 +39,10 @@ use crate::{Component, DynamicBundle, TypeInfo};
 /// ```
 pub struct EntityBuilder {
     storage: Box<[MaybeUninit<u8>]>,
+    offsets: HashMap<TypeId, usize>,
     cursor: usize,
-    info: Vec<(TypeInfo, usize)>,
+    info: Vec<TypeInfo>,
     ids: Vec<TypeId>,
-    id_set: HashSet<TypeId>,
 }
 
 impl EntityBuilder {
@@ -51,15 +51,15 @@ impl EntityBuilder {
         Self {
             cursor: 0,
             storage: Box::new([]),
+            offsets: HashMap::new(),
             info: Vec::new(),
             ids: Vec::new(),
-            id_set: HashSet::default(),
         }
     }
 
     /// Add `component` to the entity
     pub fn add<T: Component>(&mut self, component: T) -> &mut Self {
-        if !self.id_set.insert(TypeId::of::<T>()) {
+        if self.offsets.insert(TypeId::of::<T>(), self.cursor).is_some() {
             return self;
         }
         let end = self.cursor + mem::size_of::<T>();
@@ -75,7 +75,7 @@ impl EntityBuilder {
                     .write_unaligned(component);
             }
         }
-        self.info.push((TypeInfo::of::<T>(), self.cursor));
+        self.info.push(TypeInfo::of::<T>());
         self.cursor += mem::size_of::<T>();
         self
     }
@@ -89,8 +89,8 @@ impl EntityBuilder {
 
     /// Construct a `Bundle` suitable for spawning
     pub fn build(&mut self) -> BuiltEntity<'_> {
-        self.info.sort_unstable_by_key(|x| x.0);
-        self.ids.extend(self.info.iter().map(|x| x.0.id()));
+        self.info.sort_unstable();
+        self.ids.extend(self.info.iter().map(|x| x.id()));
         BuiltEntity { builder: self }
     }
 
@@ -100,18 +100,18 @@ impl EntityBuilder {
     /// be called.
     pub fn clear(&mut self) {
         self.ids.clear();
-        self.id_set.clear();
+        self.offsets.clear();
         self.cursor = 0;
         let max_size = self
             .info
             .iter()
-            .map(|x| x.0.layout().size())
+            .map(|x| x.layout().size())
             .max()
             .unwrap_or(0);
         let max_align = self
             .info
             .iter()
-            .map(|x| x.0.layout().align())
+            .map(|x| x.layout().align())
             .max()
             .unwrap_or(0);
         unsafe {
@@ -121,7 +121,10 @@ impl EntityBuilder {
             } else {
                 max_align as *mut _
             };
-            for (ty, offset) in self.info.drain(..) {
+            for ty in self.info.drain(..) {
+                let offset = *self.offsets
+                    .get(&ty.id())
+                    .unwrap();
                 ptr::copy_nonoverlapping(
                     self.storage[offset..offset + ty.layout().size()]
                         .as_ptr()
@@ -161,16 +164,19 @@ pub struct BuiltEntity<'a> {
 
 impl DynamicBundle for BuiltEntity<'_> {
     fn with_ids<T>(&self, f: impl FnOnce(&[TypeId]) -> T) -> T {
-        f(&self.builder.ids)
+        f(self.builder.ids.as_slice())
     }
 
     #[doc(hidden)]
-    fn type_info(&self) -> Vec<TypeInfo> {
-        self.builder.info.iter().map(|x| x.0).collect()
+    fn type_info(&self) -> &[TypeInfo] {
+        self.builder.info.as_slice()
     }
 
     unsafe fn put(self, mut f: impl FnMut(*mut u8, TypeId, usize) -> bool) {
-        for (ty, offset) in self.builder.info.drain(..) {
+        for ty in self.builder.info.drain(..) {
+            let offset = *self.builder.offsets
+                .get(&ty.id())
+                .unwrap();
             let ptr = self.builder.storage.as_mut_ptr().add(offset).cast();
             if !f(ptr, ty.id(), ty.layout().size()) {
                 ty.drop(ptr);

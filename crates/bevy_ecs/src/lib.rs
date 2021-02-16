@@ -1,3 +1,8 @@
+#![feature(const_fn_fn_ptr_basics)]
+#![feature(const_fn_transmute)]
+#![feature(const_type_id)]
+#![feature(const_type_name)]
+
 mod core;
 mod resource;
 mod schedule;

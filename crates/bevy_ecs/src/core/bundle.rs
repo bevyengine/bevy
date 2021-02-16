@@ -30,7 +30,7 @@ pub trait DynamicBundle {
     fn with_ids<T>(&self, f: impl FnOnce(&[TypeId]) -> T) -> T;
     /// Obtain the fields' TypeInfos, sorted by descending alignment then id
     #[doc(hidden)]
-    fn type_info(&self) -> Vec<TypeInfo>;
+    fn type_info(&self) -> &[TypeInfo];
     /// Allow a callback to move all components out of the bundle
     ///
     /// Must invoke `f` only with a valid pointer, its type, and the pointee's size. A `false`
@@ -44,11 +44,10 @@ pub trait DynamicBundle {
 /// See [DynamicBundle]
 pub trait Bundle: DynamicBundle {
     #[doc(hidden)]
-    fn with_static_ids<T>(f: impl FnOnce(&[TypeId]) -> T) -> T;
+    const TYPES: &'static [TypeInfo];
 
-    /// Obtain the fields' TypeInfos, sorted by descending alignment then id
     #[doc(hidden)]
-    fn static_type_info() -> Vec<TypeInfo>;
+    const IDS: &'static [TypeId];
 
     /// Construct `Self` by moving components out of pointers fetched by `f`
     ///
@@ -88,11 +87,11 @@ macro_rules! tuple_impl {
     ($($name: ident),*) => {
         impl<$($name: Component),*> DynamicBundle for ($($name,)*) {
             fn with_ids<T>(&self, f: impl FnOnce(&[TypeId]) -> T) -> T {
-                Self::with_static_ids(f)
+                f(<Self as Bundle>::IDS)
             }
 
-            fn type_info(&self) -> Vec<TypeInfo> {
-                Self::static_type_info()
+            fn type_info(&self) -> &[TypeInfo] {
+                <Self as Bundle>::TYPES
             }
 
             #[allow(unused_variables, unused_mut)]
@@ -112,22 +111,40 @@ macro_rules! tuple_impl {
         }
 
         impl<$($name: Component),*> Bundle for ($($name,)*) {
-            fn with_static_ids<T>(f: impl FnOnce(&[TypeId]) -> T) -> T {
-                const N: usize = count!($($name),*);
-                let mut xs: [(usize, TypeId); N] = [$((mem::align_of::<$name>(), TypeId::of::<$name>())),*];
-                xs.sort_unstable_by(|x, y| x.0.cmp(&y.0).reverse().then(x.1.cmp(&y.1)));
-                let mut ids = [TypeId::of::<()>(); N];
-                for (slot, &(_, id)) in ids.iter_mut().zip(xs.iter()) {
-                    *slot = id;
+            const TYPES: &'static [TypeInfo] = &{
+                const fn is_less(left: &TypeInfo, right: &TypeInfo) -> bool {
+                    unsafe {
+                        left.layout().align() > right.layout().align() ||
+                        left.layout().align() == right.layout().align() &&
+                        mem::transmute::<TypeId, u64>(left.id()) < mem::transmute::<TypeId, u64>(right.id())
+                    }
                 }
-                f(&ids)
-            }
+    
+                let mut types = [$(TypeInfo::of::<$name>()),*];
+                let mut i = 1;
+                while i < types.len() {
+                    let temp = types[i];
+                    let mut j = i;
+                    while j > 0 && is_less(&temp, &types[j - 1]) {
+                        types[j] = types[j - 1];
+                        j -= 1;
+                    }
+                    types[j] = temp;
+                    i += 1;
+                }    
+                types
+            };
 
-            fn static_type_info() -> Vec<TypeInfo> {
-                let mut xs = vec![$(TypeInfo::of::<$name>()),*];
-                xs.sort_unstable();
-                xs
-            }
+            const IDS: &'static [TypeId] = &{
+                let types = Self::TYPES;
+                let mut ids = [TypeId::of::<()>(); count!($($name),*)];
+                let mut i = 0;
+                while i < ids.len() {
+                    ids[i] = types[i].id();
+                    i += 1;
+                }
+                ids
+            };
 
             #[allow(unused_variables, unused_mut)]
             unsafe fn get(mut f: impl FnMut(TypeId, usize) -> Option<NonNull<u8>>) -> Result<Self, MissingComponent> {

@@ -194,7 +194,12 @@ impl Commands {
     ///
     /// # Example
     ///
-    /// ```
+    /// ``` 
+    /// #![feature(const_fn_fn_ptr_basics)]
+    /// #![feature(const_fn_transmute)]
+    /// #![feature(const_type_id)]
+    /// #![feature(const_type_name)]
+    ///
     /// # use bevy_ecs::prelude::*;
     ///
     /// struct Component1;
@@ -329,8 +334,13 @@ impl Commands {
     /// `with` can be chained with [`Self::spawn`].
     ///
     /// ```
-    /// # use bevy_ecs::prelude::*;
+    /// #![feature(const_fn_fn_ptr_basics)]
+    /// #![feature(const_fn_transmute)]
+    /// #![feature(const_type_id)]
+    /// #![feature(const_type_name)]
     ///
+    /// # use bevy_ecs::prelude::*;
+    /// 
     /// struct Component1;
     /// struct Component2;
     ///
