@@ -13,7 +13,7 @@ pub trait Label<T>: DynHash + DynClone<T> + Send + Sync + 'static {
 
 impl<M: 'static> Debug for dyn Label<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&format!("\"{}\"", &self.name()))
+        write!(f, "{:?}", self.name())
     }
 }
 
