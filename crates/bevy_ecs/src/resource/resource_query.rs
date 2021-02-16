@@ -136,12 +136,12 @@ impl<'a, T: Resource + FromResources> DerefMut for Local<'a, T> {
 /// `NonSend<T>` resources cannot leave the main thread, so any system that wants access to
 /// a non-send resource will run on the main thread. See `Resources::insert_non_send()` and friends.
 #[derive(Debug)]
-pub struct NonSend<'a, T: Resource> {
+pub struct NonSend<'a, T: 'static> {
     value: *mut T,
     _marker: PhantomData<&'a T>,
 }
 
-impl<'a, T: Resource> NonSend<'a, T> {
+impl<'a, T: 'static> NonSend<'a, T> {
     pub(crate) unsafe fn new(resources: &Resources) -> Self {
         NonSend {
             value: resources.get_unsafe_non_send_ref::<T>().as_ptr(),
@@ -150,7 +150,7 @@ impl<'a, T: Resource> NonSend<'a, T> {
     }
 }
 
-impl<'a, T: Resource> Deref for NonSend<'a, T> {
+impl<'a, T: 'static> Deref for NonSend<'a, T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -158,7 +158,7 @@ impl<'a, T: Resource> Deref for NonSend<'a, T> {
     }
 }
 
-impl<'a, T: Resource> DerefMut for NonSend<'a, T> {
+impl<'a, T: 'static> DerefMut for NonSend<'a, T> {
     fn deref_mut(&mut self) -> &mut T {
         unsafe { &mut *self.value }
     }

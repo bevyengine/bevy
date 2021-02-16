@@ -64,6 +64,7 @@ pub struct Window {
     cursor_visible: bool,
     cursor_locked: bool,
     cursor_position: Option<Vec2>,
+    focused: bool,
     mode: WindowMode,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
@@ -152,6 +153,7 @@ impl Window {
             cursor_visible: window_descriptor.cursor_visible,
             cursor_locked: window_descriptor.cursor_locked,
             cursor_position: None,
+            focused: true,
             mode: window_descriptor.mode,
             #[cfg(target_arch = "wasm32")]
             canvas: window_descriptor.canvas.clone(),
@@ -397,6 +399,12 @@ impl Window {
 
     #[allow(missing_docs)]
     #[inline]
+    pub fn update_focused_status_from_backend(&mut self, focused: bool) {
+        self.focused = focused;
+    }
+
+    #[allow(missing_docs)]
+    #[inline]
     pub fn update_cursor_position_from_backend(&mut self, cursor_position: Option<Vec2>) {
         self.cursor_position = cursor_position;
     }
@@ -417,6 +425,11 @@ impl Window {
     #[inline]
     pub fn drain_commands(&mut self) -> impl Iterator<Item = WindowCommand> + '_ {
         self.command_queue.drain(..)
+    }
+
+    #[inline]
+    pub fn is_focused(&self) -> bool {
+        self.focused
     }
 }
 
