@@ -489,8 +489,6 @@ fn derive_label(input: DeriveInput, label_type: Ident) -> TokenStream2 {
         format!("{}::ecs", package.name)
     } else if let Some(package) = manifest.find(|name| name == "bevy_ecs") {
         package.name
-    } else if manifest.crate_package().unwrap().name == "bevy_ecs" {
-        "crate".to_string()
     } else {
         "bevy_ecs".to_string()
     };

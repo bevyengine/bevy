@@ -16,13 +16,12 @@ use crate::{
 /// that they have to run before or after the system with that label.
 ///
 /// # Example
-/// ```ignore
-/// # // This is no_run because the macro doesn't like the doctest environment
+/// ```
 /// # use bevy_ecs::prelude::*;
 /// # fn do_something() {}
 /// # fn do_the_other_thing() {}
 /// # fn do_something_else() {}
-/// #[derive(SystemLabel, PartialEq, Eq, Hash)]
+/// #[derive(SystemLabel, Clone, PartialEq, Eq, Hash)]
 /// struct Something;
 ///
 /// SystemStage::parallel()
