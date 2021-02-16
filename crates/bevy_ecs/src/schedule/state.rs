@@ -27,6 +27,7 @@ pub struct State<T: Clone> {
 
 #[derive(Debug)]
 enum StateTransition<T: Clone> {
+    PreStartup,
     Startup,
     ExitingToResume(T, T),
     ExitingFull(T, T),
@@ -77,7 +78,7 @@ impl<T: Clone + Resource> State<T> {
     pub fn new(val: T) -> Self {
         Self {
             stack: vec![val],
-            transition: Some(StateTransition::Startup),
+            transition: Some(StateTransition::PreStartup),
             scheduled: None,
         }
     }
@@ -378,7 +379,9 @@ fn state_cleaner<T: Clone + Resource>(mut state: ResMut<State<T>>) -> ShouldRun 
             Some(StateTransition::ExitingToResume(p, n)) => {
                 state.transition = Some(StateTransition::Resuming(p, n));
             }
-            Some(StateTransition::Startup) => {}
+            Some(StateTransition::PreStartup) => {
+                state.transition = Some(StateTransition::Startup);
+            }
             _ => return ShouldRun::Yes,
         },
     };
