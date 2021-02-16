@@ -21,7 +21,7 @@ use crate::{
 /// # fn do_something() {}
 /// # fn do_the_other_thing() {}
 /// # fn do_something_else() {}
-/// #[derive(SystemLabel, Clone, PartialEq, Eq, Hash)]
+/// #[derive(SystemLabel, Debug, Clone, PartialEq, Eq, Hash)]
 /// struct Something;
 ///
 /// SystemStage::parallel()
