@@ -503,17 +503,17 @@ fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize)> {
         .collect::<Vec<FixedBitSet>>();
     let mut ambiguities = Vec::new();
     let full_bitset: FixedBitSet = (0..systems.len()).collect();
+    let mut processed = FixedBitSet::with_capacity(systems.len());
     for (index_a, relations) in all_relations.drain(..).enumerate() {
         // TODO: prove that `.take(index_a)` would be correct here, and uncomment it if so.
         for index_b in full_bitset.difference(&relations)
         /*.take(index_a)*/
         {
-            if !systems[index_a].is_compatible(&systems[index_b])
-                && !ambiguities.contains(&(index_b, index_a))
-            {
+            if !processed.contains(index_b) && !systems[index_a].is_compatible(&systems[index_b]) {
                 ambiguities.push((index_a, index_b));
             }
         }
+        processed.insert(index_a);
     }
     ambiguities
 }
