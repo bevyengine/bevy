@@ -3,7 +3,7 @@ use bevy_ecs::StageLabel;
 /// The names of the default App stages
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum CoreStage {
-    /// Name of the app stage that runs once at the beginning of the app
+    /// Runs once at the beginning of the app.
     Startup,
     /// Name of app stage that runs before all other app stages
     First,
@@ -18,7 +18,7 @@ pub enum CoreStage {
     /// Name of app stage responsible for processing the results of UPDATE. Runs after UPDATE.
     PostUpdate,
     /// Name of app stage that runs after all other app stages
-    LAST,
+    Last,
 }
 /// The names of the default App startup stages
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
