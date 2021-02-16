@@ -13,7 +13,7 @@ use bevy_render::{
     prelude::{Color, Texture},
     render_graph::base,
     texture::{
-        AddressMode, Extent3d, FilterMode, SamplerDescriptor, TextureDimension, TextureFormat,
+        buffer_to_texture, AddressMode, FilterMode, ImageType, SamplerDescriptor, TextureError,
     },
 };
 use bevy_scene::Scene;
@@ -26,7 +26,6 @@ use gltf::{
     texture::{MagFilter, MinFilter, WrappingMode},
     Material, Primitive,
 };
-use image::{GenericImageView, ImageFormat};
 use std::{collections::HashMap, path::Path};
 use thiserror::Error;
 
@@ -50,7 +49,7 @@ pub enum GltfError {
     #[error("invalid image mime type")]
     InvalidImageMimeType(String),
     #[error("failed to load an image")]
-    ImageError(#[from] image::ImageError),
+    ImageError(#[from] TextureError),
     #[error("failed to load an asset path")]
     AssetIoError(#[from] AssetIoError),
 }
@@ -193,31 +192,15 @@ async fn load_gltf<'a, 'b>(
         })
         .collect();
 
-    for texture in gltf.textures() {
-        if let gltf::image::Source::View { view, mime_type } = texture.source().source() {
+    for gltf_texture in gltf.textures() {
+        if let gltf::image::Source::View { view, mime_type } = gltf_texture.source().source() {
             let start = view.offset() as usize;
             let end = (view.offset() + view.length()) as usize;
             let buffer = &buffer_data[view.buffer().index()][start..end];
-            let format = match mime_type {
-                "image/png" => Ok(ImageFormat::Png),
-                "image/jpeg" => Ok(ImageFormat::Jpeg),
-                _ => Err(GltfError::InvalidImageMimeType(mime_type.to_string())),
-            }?;
-            let image = image::load_from_memory_with_format(buffer, format)?;
-            let size = image.dimensions();
-            let image = image.into_rgba8();
-
-            let texture_label = texture_label(&texture);
-            load_context.set_labeled_asset::<Texture>(
-                &texture_label,
-                LoadedAsset::new(Texture {
-                    data: image.clone().into_vec(),
-                    size: Extent3d::new(size.0, size.1, 1),
-                    dimension: TextureDimension::D2,
-                    format: TextureFormat::Rgba8Unorm,
-                    sampler: texture_sampler(&texture)?,
-                }),
-            );
+            let texture_label = texture_label(&gltf_texture);
+            let mut texture = buffer_to_texture(buffer, ImageType::MimeType(mime_type))?;
+            texture.sampler = texture_sampler(&gltf_texture)?;
+            load_context.set_labeled_asset::<Texture>(&texture_label, LoadedAsset::new(texture));
         }
     }
 
