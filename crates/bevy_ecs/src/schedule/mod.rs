@@ -173,7 +173,7 @@ impl Schedule {
         self
     }
 
-    pub fn get_stage<T: Stage>(&self, name: impl Into<StageLabel>) -> Option<&T> {
+    pub fn get_stage<T: Stage, L: Into<StageLabel>>(&self, name: L) -> Option<&T> {
         self.stages
             .get(&name.into())
             .and_then(|stage| stage.downcast_ref::<T>())
