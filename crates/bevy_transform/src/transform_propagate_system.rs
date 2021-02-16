@@ -71,10 +71,7 @@ fn propagate_recursive(
 mod test {
     use super::*;
     use crate::hierarchy::{parent_update_system, BuildChildren, BuildWorldChildren};
-    use bevy_ecs::{Resources, Schedule, Stage, StageLabel, SystemStage, World};
-
-    #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-    struct Update;
+    use bevy_ecs::{Resources, Schedule, Stage, SystemStage, World};
 
     #[test]
     fn did_propagate() {
@@ -86,7 +83,7 @@ mod test {
         update_stage.add_system(transform_propagate_system.system());
 
         let mut schedule = Schedule::default();
-        schedule.add_stage(Update, update_stage);
+        schedule.add_stage("update", update_stage);
 
         // Root entity
         world.spawn((
@@ -137,7 +134,7 @@ mod test {
         update_stage.add_system(transform_propagate_system.system());
 
         let mut schedule = Schedule::default();
-        schedule.add_stage(Update, update_stage);
+        schedule.add_stage("update", update_stage);
 
         // Root entity
         let mut commands = Commands::default();

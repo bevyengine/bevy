@@ -115,18 +115,15 @@ pub(crate) fn entity_labels_system(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy_ecs::{Stage, StageLabel};
-
-    #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-    struct Test;
+    use bevy_ecs::Stage;
 
     fn setup() -> (World, Resources, bevy_ecs::Schedule) {
         let world = World::new();
         let mut resources = Resources::default();
         resources.insert(EntityLabels::default());
         let mut schedule = bevy_ecs::Schedule::default();
-        schedule.add_stage(Test, SystemStage::single_threaded());
-        schedule.add_system_to_stage(Test, entity_labels_system.system());
+        schedule.add_stage("test", SystemStage::single_threaded());
+        schedule.add_system_to_stage("test", entity_labels_system.system());
         (world, resources, schedule)
     }
 

@@ -71,10 +71,7 @@ pub fn parent_update_system(
 mod test {
     use super::*;
     use crate::{hierarchy::BuildChildren, transform_propagate_system::transform_propagate_system};
-    use bevy_ecs::{IntoSystem, Resources, Schedule, Stage, StageLabel, SystemStage, World};
-
-    #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-    struct Update;
+    use bevy_ecs::{IntoSystem, Resources, Schedule, Stage, SystemStage, World};
 
     #[test]
     fn correct_children() {
@@ -86,7 +83,7 @@ mod test {
         update_stage.add_system(transform_propagate_system.system());
 
         let mut schedule = Schedule::default();
-        schedule.add_stage(Update, update_stage);
+        schedule.add_stage("update", update_stage);
 
         // Add parent entities
         let mut commands = Commands::default();
