@@ -51,6 +51,9 @@ impl<T: Clone + Resource> State<T> {
     pub fn on_inactive_update(d: T) -> impl System<In = (), Out = ShouldRun> {
         Wrapper::<T, OnInactiveUpdate>::new(discriminant(&d))
     }
+    pub fn on_in_stack_update(d: T) -> impl System<In = (), Out = ShouldRun> {
+        Wrapper::<T, OnInStackUpdate>::new(discriminant(&d))
+    }
 
     pub fn on_enter(d: T) -> impl System<In = (), Out = ShouldRun> {
         Wrapper::<T, OnEnter>::new(discriminant(&d))
@@ -186,13 +189,37 @@ impl<T: Clone> Comparer<T> for OnUpdate {
     }
 }
 #[derive(Default)]
-struct OnInactiveUpdate(bool /*tracks if the relevant state has been entered*/);
+struct OnInactiveUpdate(bool /*tracks if the relevant state has been paused*/);
 impl<T: Clone> Comparer<T> for OnInactiveUpdate {
     fn compare(&mut self, d: Discriminant<T>, s: &State<T>) -> bool {
         match &s.transition {
             Some(StateTransition::Pausing(ref relevant, _))
             | Some(StateTransition::Resuming(_, ref relevant)) => {
                 if discriminant(relevant) == d {
+                    self.0 = !self.0;
+                }
+                false
+            }
+            Some(_) => false,
+            None => self.0,
+        }
+    }
+}
+#[derive(Default)]
+struct OnInStackUpdate(bool /*tracks if the relevant state has been entered*/);
+impl<T: Clone> Comparer<T> for OnInStackUpdate {
+    fn compare(&mut self, d: Discriminant<T>, s: &State<T>) -> bool {
+        match &s.transition {
+            Some(StateTransition::Entering(ref relevant, _))
+            | Some(StateTransition::ExitingFull(_, ref relevant))
+            | Some(StateTransition::ExitingToResume(_, ref relevant)) => {
+                if discriminant(relevant) == d {
+                    self.0 = !self.0;
+                }
+                false
+            }
+            Some(StateTransition::Startup) => {
+                if discriminant(s.stack.last().unwrap()) == d {
                     self.0 = !self.0;
                 }
                 false
