@@ -6,8 +6,8 @@ use std::{
 };
 
 use crate::{
-    ArchetypeComponent, IntoSystem, ResMut, Resource, ShouldRun, System, SystemId, SystemSet,
-    TypeAccess,
+    ArchetypeComponent, IntoSystem, Local, ResMut, Resource, ShouldRun, System, SystemId,
+    SystemSet, TypeAccess,
 };
 use thiserror::Error;
 
@@ -23,6 +23,7 @@ pub struct State<T: Clone> {
     transition: Option<StateTransition<T>>,
     stack: Vec<T>,
     scheduled: Option<ScheduledOperation<T>>,
+    ran_update: bool,
 }
 
 #[derive(Debug)]
@@ -51,6 +52,7 @@ impl<T: Clone + Resource> State<T> {
     pub fn on_inactive_update(d: T) -> impl System<In = (), Out = ShouldRun> {
         Wrapper::<T, OnInactiveUpdate>::new(discriminant(&d))
     }
+
     pub fn on_in_stack_update(d: T) -> impl System<In = (), Out = ShouldRun> {
         Wrapper::<T, OnInStackUpdate>::new(discriminant(&d))
     }
@@ -64,11 +66,11 @@ impl<T: Clone + Resource> State<T> {
     }
 
     pub fn on_pause(d: T) -> impl System<In = (), Out = ShouldRun> {
-        Wrapper::<T, OnExit>::new(discriminant(&d))
+        Wrapper::<T, OnPause>::new(discriminant(&d))
     }
 
     pub fn on_resume(d: T) -> impl System<In = (), Out = ShouldRun> {
-        Wrapper::<T, OnExit>::new(discriminant(&d))
+        Wrapper::<T, OnResume>::new(discriminant(&d))
     }
 
     /// Creates a driver set for the State.
@@ -83,6 +85,7 @@ impl<T: Clone + Resource> State<T> {
             stack: vec![val],
             transition: Some(StateTransition::PreStartup),
             scheduled: None,
+            ran_update: false,
         }
     }
 
@@ -286,7 +289,6 @@ impl<T: Clone + Resource, C: Comparer<T> + Default> Wrapper<T, C> {
         resource_access.add_read(std::any::TypeId::of::<State<T>>());
         Self {
             discriminant,
-            exit_flag: false,
             resource_access,
             id: SystemId::new(),
             archetype_access: Default::default(),
@@ -298,7 +300,6 @@ impl<T: Clone + Resource, C: Comparer<T> + Default> Wrapper<T, C> {
 
 struct Wrapper<T: Clone + Resource, C: Comparer<T> + Default> {
     discriminant: Discriminant<T>,
-    exit_flag: bool,
     resource_access: TypeAccess<TypeId>,
     id: SystemId,
     archetype_access: TypeAccess<ArchetypeComponent>,
@@ -344,20 +345,14 @@ impl<T: Clone + Resource, C: Comparer<T> + Resource + Default> System for Wrappe
         resources: &crate::Resources,
     ) -> Option<Self::Out> {
         let state = &*resources.get::<State<T>>().unwrap();
-        if state.transition.is_some() {
-            self.exit_flag = false;
+        if state.ran_update {
+            return Some(ShouldRun::No);
         }
-        if self.exit_flag {
-            self.exit_flag = false;
-            Some(ShouldRun::No)
+        Some(if self.comparer.compare(self.discriminant, state) {
+            ShouldRun::YesAndCheckAgain
         } else {
-            self.exit_flag = true;
-            Some(if self.comparer.compare(self.discriminant, state) {
-                ShouldRun::YesAndCheckAgain
-            } else {
-                ShouldRun::NoAndCheckAgain
-            })
-        }
+            ShouldRun::NoAndCheckAgain
+        })
     }
 
     fn update_access(&mut self, _world: &crate::World) {}
@@ -367,7 +362,18 @@ impl<T: Clone + Resource, C: Comparer<T> + Resource + Default> System for Wrappe
     fn initialize(&mut self, _world: &mut crate::World, _resources: &mut crate::Resources) {}
 }
 
-fn state_cleaner<T: Clone + Resource>(mut state: ResMut<State<T>>) -> ShouldRun {
+fn state_cleaner<T: Clone + Resource>(
+    mut state: ResMut<State<T>>,
+    mut lra: Local<bool>,
+) -> ShouldRun {
+    if *lra {
+        state.ran_update = true;
+        *lra = false;
+        return ShouldRun::YesAndCheckAgain;
+    } else if state.ran_update {
+        state.ran_update = false;
+        return ShouldRun::No;
+    }
     match state.scheduled.take() {
         Some(ScheduledOperation::Next(next)) => {
             if state.stack.len() <= 1 {
@@ -409,9 +415,14 @@ fn state_cleaner<T: Clone + Resource>(mut state: ResMut<State<T>>) -> ShouldRun 
             Some(StateTransition::PreStartup) => {
                 state.transition = Some(StateTransition::Startup);
             }
-            _ => return ShouldRun::Yes,
+            _ => {}
         },
     };
+
+    if state.transition.is_none() {
+        *lra = true;
+    }
+
     ShouldRun::YesAndCheckAgain
 }
 
@@ -442,6 +453,11 @@ mod test {
 
         stage.add_system_set(State::<MyState>::make_driver());
         stage
+            .add_system_set(
+                SystemSet::default()
+                    .with_system((|mut r: ResMut<Vec<&'static str>>| r.push("startup")).system())
+                    .with_run_criteria(State::<MyState>::on_enter(MyState::S1)),
+            )
             .add_system_set(
                 SystemSet::default()
                     .with_system(
@@ -553,16 +569,34 @@ mod test {
                     .with_run_criteria(State::<MyState>::on_exit(MyState::S4)),
             );
 
+        const EXPECTED: &[&[&str]] = &[
+            &["startup", "update S1"],
+            &["enter S2", "update S2"],
+            &["exit S2", "enter S3", "update S3"],
+            &["pause S3", "update S4"],
+            &["inactive S4", "update S5"],
+            &["inactive S4", "inactive S5", "update S6"],
+            &["inactive S4", "inactive S5"],
+        ];
+
+        let mut iterator = EXPECTED.into_iter();
+
         loop {
             println!("new run!");
             stage.run(&mut world, &mut resources);
-            for s in resources.get_mut::<Vec<&'static str>>().unwrap().drain(..) {
-                println!("{}", s);
+            let mut expected: Vec<_> = iterator.next().unwrap().into_iter().collect();
+            let mut collected = resources.get_mut::<Vec<&'static str>>().unwrap();
+            for found in collected.drain(..) {
+                let index = expected.iter().enumerate().find(|(_, &&v)| v == found).map(|(i, _)| i).expect("Unexpected execution");
+                expected.swap_remove(index);
             }
-
+            // If not zero, some elements weren't executed
+            assert_eq!(expected.len(), 0);
             if resources.get::<State<MyState>>().unwrap().current() == &MyState::Final {
                 break;
             }
         }
+        // If not empty, some stages were skipped
+        assert_eq!(iterator.next(), None);
     }
 }
