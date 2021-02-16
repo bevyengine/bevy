@@ -6,7 +6,7 @@ pub mod prelude {
     pub use crate::{components::*, hierarchy::*, TransformPlugin};
 }
 
-use bevy_app::{prelude::*, StartupStage};
+use bevy_app::prelude::*;
 use bevy_ecs::IntoSystem;
 use bevy_reflect::RegisterTypeBuilder;
 use prelude::{parent_update_system, Children, GlobalTransform, Parent, PreviousParent, Transform};

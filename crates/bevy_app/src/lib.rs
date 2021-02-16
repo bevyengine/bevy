@@ -51,6 +51,6 @@ pub mod prelude {
         app::App,
         app_builder::AppBuilder,
         event::{EventReader, Events},
-        CoreStage, DynamicPlugin, Plugin, PluginGroup,
+        CoreStage, StartupStage, DynamicPlugin, Plugin, PluginGroup,
     };
 }

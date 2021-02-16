@@ -1,7 +1,7 @@
 mod converter;
 mod gilrs_system;
 
-use bevy_app::{prelude::*, StartupStage};
+use bevy_app::prelude::*;
 use bevy_ecs::IntoExclusiveSystem;
 use bevy_utils::tracing::error;
 use gilrs::GilrsBuilder;
