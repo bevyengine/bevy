@@ -24,7 +24,7 @@ impl Default for AppBuilder {
         app_builder
             .add_default_stages()
             .add_event::<AppExit>()
-            .add_system_to_stage(CoreStage::LAST, clear_trackers_system.exclusive_system());
+            .add_system_to_stage(CoreStage::Last, clear_trackers_system.exclusive_system());
         app_builder
     }
 }
@@ -207,7 +207,7 @@ impl AppBuilder {
         .add_stage(CoreStage::PreUpdate, SystemStage::parallel())
         .add_stage(CoreStage::Update, SystemStage::parallel())
         .add_stage(CoreStage::PostUpdate, SystemStage::parallel())
-        .add_stage(CoreStage::LAST, SystemStage::parallel())
+        .add_stage(CoreStage::Last, SystemStage::parallel())
     }
 
     pub fn add_event<T>(&mut self) -> &mut Self
