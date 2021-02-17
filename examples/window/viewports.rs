@@ -3,7 +3,7 @@ use bevy::{
     prelude::*,
     render::{
         camera::{ActiveCameras, Camera},
-        render_graph::{base::MainPass, CameraNode, PassNode, RenderGraph},
+        render_graph::{base, CameraNode, PassNode, RenderGraph},
         surface::{SideLocation, Viewport, ViewportDescriptor},
     },
 };
@@ -19,6 +19,11 @@ fn main() {
         .run();
 }
 
+const FRONT_CAMERA: &str = "FrontView";
+const FRONT_CAMERA_NODE: &str = "front_view_camera";
+const SIDE_CAMERA: &str = "SideView";
+const SIDE_CAMERA_NODE: &str = "side_view_camera";
+
 fn setup(
     commands: &mut Commands,
     mut active_cameras: ResMut<ActiveCameras>,
@@ -26,22 +31,23 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     // add new camera nodes for the secondary viewports
-    render_graph.add_system_node("front_view_camera", CameraNode::new("FrontView"));
-    render_graph.add_system_node("side_view_camera", CameraNode::new("SideView"));
-    active_cameras.add("FrontView");
-    active_cameras.add("SideView");
+    render_graph.add_system_node(FRONT_CAMERA_NODE, CameraNode::new(FRONT_CAMERA));
+    render_graph.add_system_node(SIDE_CAMERA_NODE, CameraNode::new(SIDE_CAMERA));
+    active_cameras.add(FRONT_CAMERA);
+    active_cameras.add(SIDE_CAMERA);
 
     // add the cameras to the main pass
     {
-        let main_pass: &mut PassNode<&MainPass> = render_graph.get_node_mut("main_pass").unwrap();
-        main_pass.add_camera("FrontView");
-        main_pass.add_camera("SideView");
+        let main_pass: &mut PassNode<&base::MainPass> =
+            render_graph.get_node_mut(base::node::MAIN_PASS).unwrap();
+        main_pass.add_camera(FRONT_CAMERA);
+        main_pass.add_camera(SIDE_CAMERA);
     }
     render_graph
-        .add_node_edge("front_view_camera", "main_pass")
+        .add_node_edge(FRONT_CAMERA_NODE, base::node::MAIN_PASS)
         .unwrap();
     render_graph
-        .add_node_edge("side_view_camera", "main_pass")
+        .add_node_edge(SIDE_CAMERA_NODE, base::node::MAIN_PASS)
         .unwrap();
 
     // SETUP SCENE
@@ -78,7 +84,7 @@ fn setup(
         // top right camera
         .spawn(PerspectiveCameraBundle {
             camera: Camera {
-                name: Some("FrontView".to_string()),
+                name: Some(FRONT_CAMERA.to_string()),
                 ..Default::default()
             },
             transform: Transform::from_xyz(0.0, 0.3, 1.3)
@@ -88,7 +94,7 @@ fn setup(
         // bottom right camera
         .spawn(PerspectiveCameraBundle {
             camera: Camera {
-                name: Some("SideView".to_string()),
+                name: Some(SIDE_CAMERA.to_string()),
                 ..Default::default()
             },
             transform: Transform::from_xyz(-1.3, 0.3, 0.0)
@@ -198,14 +204,14 @@ fn viewport_layout_system(
             Some("Camera3d") => {
                 viewport.sides = layout.main_view();
             }
-            Some("FrontView") => {
+            Some(FRONT_CAMERA) => {
                 if layout.invert {
                     viewport.sides = layout.front_view_view();
                 } else {
                     viewport.sides = layout.side_view_view();
                 }
             }
-            Some("SideView") => {
+            Some(SIDE_CAMERA) => {
                 if layout.invert {
                     viewport.sides = layout.side_view_view();
                 } else {
