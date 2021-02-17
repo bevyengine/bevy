@@ -7,7 +7,7 @@ To run an example, use the command `cargo run --example <Example>`, and add the 
 cargo run --features wayland --example hello_world
 ```
 
-### ⚠️ Note: for users of releases on crates.io,
+**⚠️ Note: for users of releases on crates.io!**
 
 Due to changes and additions to APIs, there are often differences between the development examples and the released versions of Bevy on crates.io.
 If you are using a release version from [crates.io](https://crates.io/crates/bevy), view the examples by checking out the appropriate git tag, e.g., users of `0.4` should use the examples on [https://github.com/bevyengine/bevy/tree/v0.4.0/examples](https://github.com/bevyengine/bevy/tree/v0.4.0/examples)
@@ -20,7 +20,7 @@ git checkout v0.4.0
 
 ---
 
-### Table of Contents
+## Table of Contents
 
 - [The Bare Minimum](#the-bare-minimum)
   - [Hello, World!](#hello-world)
@@ -207,7 +207,7 @@ Example | File | Description
 
 ## Android
 
-#### Setup
+### Setup
 
 ```sh
 rustup target add aarch64-linux-android armv7-linux-androideabi
@@ -218,7 +218,7 @@ The Android SDK must be installed, and the environment variable `ANDROID_SDK_ROO
 
 When using `NDK (Side by side)`, the environment variable `ANDROID_NDK_ROOT` must also be set to one of the NDKs in `sdk\ndk\[NDK number]`.
 
-#### Build & Run
+### Build & Run
 
 To run on a device setup for Android development, run:
 
@@ -239,7 +239,7 @@ min_sdk_version = 16
 
 Please reference `cargo-apk` [README](https://crates.io/crates/cargo-apk) for other Android Manifest fields.
 
-#### Old phones
+### Old phones
 
 Bevy by default targets Android API level 29 in its examples which is the [Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). Users of older phones may want to use an older API when testing.
 
@@ -257,14 +257,14 @@ Example | File | Description
 
 ## iOS
 
-#### Setup
+### Setup
 
 ```sh
 rustup target add aarch64-apple-ios x86_64-apple-ios
 cargo install cargo-lipo
 ```
 
-#### Build & Run
+### Build & Run
 
 Using bash:
 
@@ -305,14 +305,14 @@ Example | File | Description
 
 ## WASM
 
-#### Setup
+### Setup
 
 ```sh
 rustup target add wasm32-unknown-unknown
 cargo install wasm-bindgen-cli
 ```
 
-#### Build & Run
+### Build & Run
 
 Following is an example for `headless_wasm`. For other examples in wasm/ directory,
 change the `headless_wasm` in the following commands **and edit** `examples/wasm/index.html`
