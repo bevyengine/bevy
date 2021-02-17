@@ -23,15 +23,17 @@ use bevy_app::prelude::*;
 use bevy_ecs::{
     IntoSystem, ParallelSystemDescriptorCoercion, StageLabel, SystemLabel, SystemStage,
 };
-use bevy_render::render_graph::RenderGraph;
+use bevy_render::{render_graph::RenderGraph, RenderStage};
 use update::ui_z_system;
 
 #[derive(Default)]
 pub struct UiPlugin;
+
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum UiStages {
     Ui,
 }
+
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum UiSystems {
     Flex,
@@ -44,12 +46,8 @@ pub mod system {
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<FlexSurface>()
-            .add_stage_before(
-                bevy_app::CoreStage::PostUpdate,
-                UiStages::Ui,
-                SystemStage::parallel(),
-            )
-            .add_system_to_stage(bevy_app::CoreStage::PreUpdate, ui_focus_system.system())
+            .add_stage_before(CoreStage::PostUpdate, UiStages::Ui, SystemStage::parallel())
+            .add_system_to_stage(CoreStage::PreUpdate, ui_focus_system.system())
             // add these stages to front because these must run before transform update systems
             .add_system_to_stage(
                 UiStages::Ui,
@@ -64,10 +62,7 @@ impl Plugin for UiPlugin {
                 flex_node_system.system().label(UiSystems::Flex),
             )
             .add_system_to_stage(UiStages::Ui, ui_z_system.system())
-            .add_system_to_stage(
-                bevy_render::RenderStage::Draw,
-                widget::draw_text_system.system(),
-            );
+            .add_system_to_stage(RenderStage::Draw, widget::draw_text_system.system());
 
         let resources = app.resources();
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();

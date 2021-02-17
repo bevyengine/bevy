@@ -5,7 +5,6 @@ mod scene_loader;
 mod scene_spawner;
 pub mod serde;
 
-use bevy_ecs::{IntoExclusiveSystem, SystemStage};
 pub use command::*;
 pub use dynamic_scene::*;
 pub use scene::*;
@@ -20,11 +19,11 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
+use bevy_ecs::{IntoExclusiveSystem, StageLabel, SystemStage};
 
 #[derive(Default)]
 pub struct ScenePlugin;
 
-use bevy_ecs::StageLabel;
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 enum Stages {
     SceneStage,
@@ -37,7 +36,7 @@ impl Plugin for ScenePlugin {
             .init_asset_loader::<SceneLoader>()
             .init_resource::<SceneSpawner>()
             .add_stage_after(
-                bevy_app::CoreStage::Event,
+                CoreStage::Event,
                 Stages::SceneStage,
                 SystemStage::parallel(),
             )

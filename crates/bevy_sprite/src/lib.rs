@@ -9,7 +9,13 @@ mod sprite;
 mod texture_atlas;
 mod texture_atlas_builder;
 
-use bevy_ecs::IntoSystem;
+pub mod prelude {
+    pub use crate::{
+        entity::{SpriteBundle, SpriteSheetBundle},
+        ColorMaterial, Sprite, SpriteResizeMode, TextureAtlas, TextureAtlasSprite,
+    };
+}
+
 pub use color_material::*;
 pub use dynamic_texture_atlas_builder::*;
 pub use rect::*;
@@ -18,15 +24,9 @@ pub use sprite::*;
 pub use texture_atlas::*;
 pub use texture_atlas_builder::*;
 
-pub mod prelude {
-    pub use crate::{
-        entity::{SpriteBundle, SpriteSheetBundle},
-        ColorMaterial, Sprite, SpriteResizeMode, TextureAtlas, TextureAtlasSprite,
-    };
-}
-
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets, Handle, HandleUntyped};
+use bevy_ecs::IntoSystem;
 use bevy_math::Vec2;
 use bevy_reflect::{RegisterTypeBuilder, TypeUuid};
 use bevy_render::{

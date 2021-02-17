@@ -33,7 +33,8 @@ pub mod prelude {
 use crate::prelude::*;
 use base::Msaa;
 use bevy_app::prelude::*;
-use bevy_asset::AddAsset;
+use bevy_asset::{AddAsset, AssetStage};
+use bevy_ecs::StageLabel;
 use camera::{
     ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection, VisibleEntities,
 };
@@ -52,7 +53,6 @@ use texture::HdrTextureLoader;
 #[cfg(feature = "png")]
 use texture::ImageTextureLoader;
 
-use bevy_ecs::StageLabel;
 /// The names of "render" App stages
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum RenderStage {
@@ -98,7 +98,7 @@ impl Plugin for RenderPlugin {
         }
 
         app.add_stage_after(
-            bevy_asset::AssetStage::AssetEvents,
+            AssetStage::AssetEvents,
             RenderStage::RenderResource,
             SystemStage::parallel(),
         )
@@ -141,28 +141,26 @@ impl Plugin for RenderPlugin {
         .register_type::<PipelineSpecialization>()
         .init_resource::<RenderGraph>()
         .init_resource::<PipelineCompiler>()
+        .init_resource::<Msaa>()
         .init_resource::<RenderResourceBindings>()
         .init_resource::<AssetRenderResourceBindings>()
         .init_resource::<ActiveCameras>()
+        .add_system_to_stage(CoreStage::PreUpdate, draw::clear_draw_system.system())
         .add_system_to_stage(
-            bevy_app::CoreStage::PreUpdate,
-            draw::clear_draw_system.system(),
-        )
-        .add_system_to_stage(
-            bevy_app::CoreStage::PostUpdate,
+            CoreStage::PostUpdate,
             camera::active_cameras_system.system(),
         )
         .add_system_to_stage(
-            bevy_app::CoreStage::PostUpdate,
+            CoreStage::PostUpdate,
             camera::camera_system::<OrthographicProjection>.system(),
         )
         .add_system_to_stage(
-            bevy_app::CoreStage::PostUpdate,
+            CoreStage::PostUpdate,
             camera::camera_system::<PerspectiveProjection>.system(),
         )
         // registration order matters here. this must come after all camera_system::<T> systems
         .add_system_to_stage(
-            bevy_app::CoreStage::PostUpdate,
+            CoreStage::PostUpdate,
             camera::visible_entities_system.system(),
         )
         .add_system_to_stage(
@@ -189,8 +187,6 @@ impl Plugin for RenderPlugin {
             RenderStage::PostRender,
             shader::clear_shader_defs_system.system(),
         );
-
-        app.init_resource::<Msaa>();
 
         if let Some(ref config) = self.base_render_graph_config {
             let resources = app.resources();

@@ -14,27 +14,27 @@ mod path;
 
 pub use asset_server::*;
 pub use assets::*;
-use bevy_ecs::{IntoSystem, SystemStage};
-use bevy_reflect::RegisterTypeBuilder;
-use bevy_tasks::IoTaskPool;
 pub use handle::*;
 pub use info::*;
 pub use io::*;
 pub use loader::*;
 pub use path::*;
 
-/// The names of asset stages in an App Schedule
-use bevy_ecs::StageLabel;
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-pub enum AssetStage {
-    LoadAssets,
-    AssetEvents,
-}
 pub mod prelude {
     pub use crate::{AddAsset, AssetEvent, AssetServer, Assets, Handle, HandleUntyped};
 }
 
 use bevy_app::{prelude::Plugin, AppBuilder};
+use bevy_ecs::{IntoSystem, StageLabel, SystemStage};
+use bevy_reflect::RegisterTypeBuilder;
+use bevy_tasks::IoTaskPool;
+
+/// The names of asset stages in an App Schedule
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+pub enum AssetStage {
+    LoadAssets,
+    AssetEvents,
+}
 
 /// Adds support for Assets to an App. Assets are typed collections with change tracking, which are added as App Resources.
 /// Examples of assets: textures, sounds, 3d models, maps, scenes

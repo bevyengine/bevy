@@ -2,13 +2,13 @@ mod audio;
 mod audio_output;
 mod audio_source;
 
-pub use audio::*;
-pub use audio_output::*;
-pub use audio_source::*;
-
 pub mod prelude {
     pub use crate::{Audio, AudioOutput, AudioSource, Decodable};
 }
+
+pub use audio::*;
+pub use audio_output::*;
+pub use audio_source::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;

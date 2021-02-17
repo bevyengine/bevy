@@ -5,8 +5,6 @@ mod name;
 mod task_pool_options;
 mod time;
 
-use std::ops::Range;
-
 use bevy_ecs::IntoSystem;
 use bevy_reflect::RegisterTypeBuilder;
 pub use bytes::*;
@@ -21,6 +19,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
+use std::ops::Range;
 
 /// Adds core functionality to Apps.
 #[derive(Default)]
