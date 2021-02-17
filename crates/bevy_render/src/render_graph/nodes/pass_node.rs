@@ -230,11 +230,11 @@ where
                     if let Ok(viewport) = world.get::<Viewport>(camera_entity) {
                         let origin = viewport.physical_origin();
                         let size = viewport.physical_size();
+                        let (min_depth, max_depth) = viewport.depth_range().into_inner();
                         render_pass.set_viewport(
                             origin.x, origin.y,
                             size.x, size.y,
-                            viewport.min_depth(),
-                            viewport.max_depth(),
+                            min_depth, max_depth,
                         );
                     } else {
                         // a camera requires a valid viewport

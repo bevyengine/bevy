@@ -55,12 +55,8 @@ impl Viewport {
         (self.size.as_f64() * self.scale_factor).as_f32()
     }
 
-    pub fn min_depth(&self) -> f32 {
-        self.min_depth
-    }
-
-    pub fn max_depth(&self) -> f32 {
-        self.max_depth
+    pub fn depth_range(&self) -> RangeInclusive<f32> {
+        self.min_depth..=self.max_depth
     }
 
     pub fn set_depth_range(&mut self, range: RangeInclusive<f32>) {
