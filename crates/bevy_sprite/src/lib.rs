@@ -26,7 +26,7 @@ pub use texture_atlas_builder::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets, Handle, HandleUntyped};
-use bevy_ecs::system::IntoSystem;
+use bevy_ecs::{IntoChainSystem, IntoSystem};
 use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
@@ -50,6 +50,12 @@ impl Plugin for SpritePlugin {
             .register_type::<Sprite>()
             .register_type::<SpriteResizeMode>()
             .add_system_to_stage(CoreStage::PostUpdate, sprite_system.system())
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                material_texture_detection_system
+                    .system()
+                    .chain(material_texture_trigger_system.system()),
+            )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 asset_shader_defs_system::<ColorMaterial>.system(),

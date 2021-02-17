@@ -1,6 +1,9 @@
-use bevy_asset::{self, Handle};
+use bevy_app::{EventReader, Events};
+use bevy_asset::{self, AssetEvent, Assets, Handle};
+use bevy_ecs::{In, Local, Res, ResMut};
 use bevy_reflect::TypeUuid;
 use bevy_render::{color::Color, renderer::RenderResources, shader::ShaderDefs, texture::Texture};
+use bevy_utils::{HashMap, HashSet};
 
 #[derive(Debug, RenderResources, ShaderDefs, TypeUuid)]
 #[uuid = "506cff92-a9f3-4543-862d-6851c7fdfc99"]
@@ -51,5 +54,106 @@ impl From<Color> for ColorMaterial {
 impl From<Handle<Texture>> for ColorMaterial {
     fn from(texture: Handle<Texture>) -> Self {
         ColorMaterial::texture(texture)
+    }
+}
+
+pub fn material_texture_detection_system(
+    mut texture_to_material: Local<HashMap<Handle<Texture>, HashSet<Handle<ColorMaterial>>>>,
+    mut material_to_texture: Local<HashMap<Handle<ColorMaterial>, Handle<Texture>>>,
+    materials: Res<Assets<ColorMaterial>>,
+    mut texture_events: EventReader<AssetEvent<Texture>>,
+    mut material_events: EventReader<AssetEvent<ColorMaterial>>,
+) -> Vec<Handle<ColorMaterial>> {
+    for event in material_events.iter() {
+        match event {
+            AssetEvent::Created { handle } => {
+                if let Some(texture) = materials.get(handle).and_then(|mat| mat.texture.as_ref()) {
+                    material_to_texture.insert(handle.clone_weak(), texture.clone_weak());
+                    texture_to_material
+                        .entry(texture.clone_weak())
+                        .or_default()
+                        .insert(handle.clone_weak());
+                }
+            }
+            AssetEvent::Modified { handle } => {
+                let old_texture = material_to_texture.get(handle).cloned();
+                match (
+                    materials.get(handle).and_then(|mat| mat.texture.as_ref()),
+                    old_texture,
+                ) {
+                    (None, None) => (),
+                    (Some(texture), None) => {
+                        material_to_texture.insert(handle.clone_weak(), texture.clone_weak());
+                        texture_to_material
+                            .entry(texture.clone_weak())
+                            .or_default()
+                            .insert(handle.clone_weak());
+                    }
+                    (None, Some(texture)) => {
+                        material_to_texture.remove(handle);
+                        texture_to_material
+                            .entry(texture.clone_weak())
+                            .or_default()
+                            .remove(handle);
+                    }
+                    (Some(new_texture), Some(old_texture)) => {
+                        if &old_texture == new_texture {
+                            continue;
+                        }
+                        material_to_texture.insert(handle.clone_weak(), new_texture.clone_weak());
+                        texture_to_material
+                            .entry(new_texture.clone_weak())
+                            .or_default()
+                            .insert(handle.clone_weak());
+                        texture_to_material
+                            .entry(old_texture.clone_weak())
+                            .or_default()
+                            .remove(handle);
+                    }
+                }
+            }
+            AssetEvent::Removed { handle } => {
+                if let Some(texture) = materials.get(handle).and_then(|mat| mat.texture.as_ref()) {
+                    material_to_texture.remove(handle);
+                    texture_to_material
+                        .entry(texture.clone_weak())
+                        .or_default()
+                        .remove(handle);
+                }
+            }
+        }
+    }
+
+    let mut changed_textures = HashSet::default();
+    for event in texture_events.iter() {
+        match event {
+            AssetEvent::Created { handle }
+            | AssetEvent::Modified { handle }
+            | AssetEvent::Removed { handle } => {
+                changed_textures.insert(handle);
+            }
+        }
+    }
+
+    let mut changed_materials = Vec::new();
+    for texture_handle in changed_textures.iter() {
+        if let Some(materials) = texture_to_material.get(texture_handle) {
+            for material in materials.iter() {
+                changed_materials.push(material.clone_weak());
+            }
+        }
+    }
+
+    changed_materials
+}
+
+pub fn material_texture_trigger_system(
+    In(changed_materials): In<Vec<Handle<ColorMaterial>>>,
+    mut material_events: ResMut<Events<AssetEvent<ColorMaterial>>>,
+) {
+    for material in changed_materials.iter() {
+        material_events.send(AssetEvent::Modified {
+            handle: material.clone_weak(),
+        });
     }
 }
