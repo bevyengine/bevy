@@ -223,23 +223,16 @@ where
                         continue;
                     };
 
+                    // get camera viewport and apply it
+                    let viewport = world.get::<Viewport>(camera_entity)
+                    .expect("A camera requires a Viewport component.");
+                    let origin = viewport.physical_origin();
+                    let size = viewport.physical_size();
+                    let (min_depth, max_depth) = viewport.depth_range().into_inner();
+                    render_pass.set_viewport(origin.x, origin.y, size.x, size.y, min_depth, max_depth);
+
                     // get an ordered list of entities visible to the camera
                     let visible_entities = world.get::<VisibleEntities>(camera_entity).unwrap();
-
-                    // get camera viewport and apply it
-                    if let Ok(viewport) = world.get::<Viewport>(camera_entity) {
-                        let origin = viewport.physical_origin();
-                        let size = viewport.physical_size();
-                        let (min_depth, max_depth) = viewport.depth_range().into_inner();
-                        render_pass.set_viewport(
-                            origin.x, origin.y,
-                            size.x, size.y,
-                            min_depth, max_depth,
-                        );
-                    } else {
-                        // a camera requires a valid viewport
-                        continue;
-                    }
 
                     // attempt to draw each visible entity
                     let mut draw_state = DrawState::default();
