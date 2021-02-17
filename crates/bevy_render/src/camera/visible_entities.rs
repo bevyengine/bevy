@@ -211,7 +211,7 @@ pub fn visible_entities_system(
         camera_query.iter_mut()
     {
         visible_entities.value.clear();
-        let camera_position = camera_global_transform.translation;
+        let camera_position = camera_global_transform.translation();
         let camera_mask = maybe_camera_mask.copied().unwrap_or_default();
 
         let mut no_transform_order = 0.0;
@@ -227,7 +227,7 @@ pub fn visible_entities_system(
             }
 
             let order = if let Ok(global_transform) = visible_transform_query.get(entity) {
-                let position = global_transform.translation;
+                let position = global_transform.translation();
                 // smaller distances are sorted to lower indices by using the distance from the camera
                 FloatOrd(match camera.depth_calculation {
                     DepthCalculation::ZDifference => camera_position.z - position.z,

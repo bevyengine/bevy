@@ -46,7 +46,7 @@ impl LightRaw {
         };
 
         let proj = perspective.get_projection_matrix() * global_transform.compute_matrix();
-        let (x, y, z) = global_transform.translation.into();
+        let (x, y, z) = global_transform.translation().into();
         LightRaw {
             proj: proj.to_cols_array_2d(),
             pos: [x, y, z, 1.0],

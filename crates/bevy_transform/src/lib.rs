@@ -7,8 +7,7 @@ pub mod prelude {
 }
 
 use bevy_app::{prelude::*, startup_stage};
-use bevy_ecs::IntoSystem;
-use bevy_ecs::ParallelSystemDescriptorCoercion;
+use bevy_ecs::{IntoSystem, ParallelSystemDescriptorCoercion};
 use bevy_reflect::RegisterTypeBuilder;
 use prelude::{parent_update_system, Children, GlobalTransform, Parent, PreviousParent, Transform};
 

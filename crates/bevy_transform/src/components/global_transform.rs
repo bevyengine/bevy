@@ -6,9 +6,9 @@ use std::ops::Mul;
 #[derive(Debug, PartialEq, Clone, Copy, Reflect)]
 #[reflect(Component)]
 pub struct GlobalTransform {
-    pub translation: Vec3,
-    pub rotation: Quat,
-    pub scale: Vec3,
+    translation: Vec3,
+    rotation: Quat,
+    scale: Vec3,
 }
 
 impl GlobalTransform {
@@ -141,6 +141,21 @@ impl GlobalTransform {
         let right = up.cross(forward).normalize();
         let up = forward.cross(right);
         self.rotation = Quat::from_rotation_mat3(&Mat3::from_cols(right, up, forward));
+    }
+
+    #[inline]
+    pub fn translation(&self) -> Vec3 {
+        self.translation
+    }
+
+    #[inline]
+    pub fn rotation(&self) -> Quat {
+        self.rotation
+    }
+
+    #[inline]
+    pub fn scale(&self) -> Vec3 {
+        self.scale
     }
 }
 

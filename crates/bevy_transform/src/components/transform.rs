@@ -153,9 +153,9 @@ impl Default for Transform {
 impl From<GlobalTransform> for Transform {
     fn from(transform: GlobalTransform) -> Self {
         Self {
-            translation: transform.translation,
-            rotation: transform.rotation,
-            scale: transform.scale,
+            translation: transform.translation(),
+            rotation: transform.rotation(),
+            scale: transform.scale(),
         }
     }
 }

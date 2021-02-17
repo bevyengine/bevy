@@ -89,7 +89,7 @@ pub fn draw_text2d_system(
         let (width, height) = (calculated_size.size.width, calculated_size.size.height);
 
         if let Some(text_glyphs) = text_pipeline.get_glyphs(&entity) {
-            let position = global_transform.translation
+            let position = global_transform.translation()
                 + match text.alignment.vertical {
                     VerticalAlign::Top => Vec3::zero(),
                     VerticalAlign::Center => Vec3::new(0.0, -height * 0.5, 0.0),
