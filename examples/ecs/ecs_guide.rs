@@ -245,6 +245,11 @@ enum MyStages {
     AfterRound,
 }
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+enum MyLabels {
+    ScoreCheck,
+}
+
 // Our Bevy app's entry point
 fn main() {
     // Bevy apps are created using the builder pattern. We use the builder to add systems, resources, and plugins to our app
@@ -314,11 +319,11 @@ fn main() {
         // Then, we use either `.before` or `.after` to describe the order we want the relationship
         .add_system_to_stage(
             MyStages::AfterRound,
-            score_check_system.system().label("score_check"),
+            score_check_system.system().label(MyLabels::ScoreCheck),
         )
         .add_system_to_stage(
             MyStages::AfterRound,
-            game_over_system.system().after("score_check"),
+            game_over_system.system().after(MyLabels::ScoreCheck),
         )
         // We can check our systems for execution order ambiguities by examining the output produced in the console
         // by adding the following Resource to our App :)
