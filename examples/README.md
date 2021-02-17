@@ -62,7 +62,7 @@ Example | Main | Description
 `contributors` | [`2d/contributors.rs`](./2d/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
 `sprite` | [`2d/sprite.rs`](./2d/sprite.rs) | Renders a sprite
 `sprite_sheet` | [`2d/sprite_sheet.rs`](./2d/sprite_sheet.rs) | Renders an animated sprite
-`texture2d` | [`2d/text2d.rs`](./2d/text2d.rs) | Generates text in 2d
+`text2d` | [`2d/text2d.rs`](./2d/text2d.rs) | Generates text in 2d
 `texture_atlas` | [`2d/texture_atlas.rs`](./2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
 
 ## 3D Rendering
@@ -113,15 +113,15 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
-`custom_diagnostic` | [`diagnostics/custom_diagnostic.rs`](./diagnostics/custom_diagnostic.rs) | Shows how to create a custom diagnostic
 `log_diagnostics` | [`diagnostics/log_diagnostics.rs`](./diagnostics/log_diagnostics.rs) | Add a plugin that logs diagnostics to the console
+`custom_diagnostic` | [`diagnostics/custom_diagnostic.rs`](./diagnostics/custom_diagnostic.rs) | Shows how to create a custom diagnostic
 
 ## ECS (Entity Component System)
 
 Example | File | Description
 --- | --- | ---
-`change_detection` | [`ecs/change_detection.rs`](./ecs/change_detection.rs) | Change detection on components
 `ecs_guide` | [`ecs/ecs_guide.rs`](./ecs/ecs_guide.rs) | Full guide to Bevy's ECS
+`change_detection` | [`ecs/change_detection.rs`](./ecs/change_detection.rs) | Change detection on components
 `event` | [`ecs/event.rs`](./ecs/event.rs) | Illustrates event creation, activation, and reception
 `fixed_timestep` | [`ecs/fixed_timestep.rs`](./ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick
 `hierarchy` | [`ecs/hierarchy.rs`](./ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities
@@ -157,8 +157,8 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
-`generic_reflection` | [`reflection/generic_reflection.rs`](reflection/generic_reflection.rs) | Registers concrete instances of generic types that may be used with reflection
 `reflection` | [`reflection/reflection.rs`](reflection/reflection.rs) | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types
+`generic_reflection` | [`reflection/generic_reflection.rs`](reflection/generic_reflection.rs) | Registers concrete instances of generic types that may be used with reflection
 `reflection_types` | [`reflection/reflection_types.rs`](reflection/reflection_types.rs) | Illustrates the various reflection types available
 `trait_reflection` | [`reflection/trait_reflection.rs`](reflection/trait_reflection.rs) | Allows reflection with trait objects
 
@@ -173,8 +173,8 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `array_texture` | [`shader/array_texture.rs`](./shader/array_texture.rs) | Illustrates how to create a texture for use with a texture2DArray shader uniform variable
-`mesh_custom_attribute` | [`shader/mesh_custom_attribute.rs`](./shader/mesh_custom_attribute.rs) | Illustrates how to add a custom attribute to a mesh and use it in a custom shader
 `hot_shader_reloading` | [`shader/hot_shader_reloading.rs`](./shader/hot_shader_reloading.rs) | Illustrates how to load shaders such that they can be edited while the example is still running
+`mesh_custom_attribute` | [`shader/mesh_custom_attribute.rs`](./shader/mesh_custom_attribute.rs) | Illustrates how to add a custom attribute to a mesh and use it in a custom shader
 `shader_custom_material` | [`shader/shader_custom_material.rs`](./shader/shader_custom_material.rs) | Illustrates creating a custom material and a shader that uses it
 `shader_defs` | [`shader/shader_defs.rs`](./shader/shader_defs.rs) | Demonstrates creating a custom material that uses "shaders defs" (a tool to selectively toggle parts of a shader)
 
@@ -190,8 +190,8 @@ Example | File | Description
 --- | --- | ---
 `button` | [`ui/button.rs`](./ui/button.rs) | Illustrates creating and updating a button
 `font_atlas_debug` | [`ui/font_atlas_debug.rs`](./ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
-`text_debug` | [`ui/text_debug.rs`](./ui/text_debug.rs) | An example for debugging text layout
 `text` | [`ui/text.rs`](./ui/text.rs) | Illustrates creating and updating text
+`text_debug` | [`ui/text_debug.rs`](./ui/text_debug.rs) | An example for debugging text layout
 `ui` | [`ui/ui.rs`](./ui/ui.rs) | Illustrates various features of Bevy UI
 
 ## Window
@@ -332,6 +332,6 @@ basic-http-server examples/wasm
 Example | File | Description
 --- | --- | ---
 `hello_wasm` | [`wasm/hello_wasm.rs`](./wasm/hello_wasm.rs) | Runs a minimal example that logs "hello world" to the browser's console
-`headless_wasm` | [`wasm/headless_wasm.rs`](./wasm/headless_wasm.rs) | Sets up a schedule runner and continually logs a counter to the browser's console
 `assets_wasm` | [`wasm/assets_wasm.rs`](./wasm/assets_wasm.rs) | Demonstrates how to load assets from wasm
+`headless_wasm` | [`wasm/headless_wasm.rs`](./wasm/headless_wasm.rs) | Sets up a schedule runner and continually logs a counter to the browser's console
 `winit_wasm` | [`wasm/winit_wasm.rs`](./wasm/winit_wasm.rs) | Logs user input to the browser's console. Requires the `bevy_winit` features
