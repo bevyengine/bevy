@@ -233,8 +233,8 @@ where
                         render_pass.set_viewport(
                             origin.x, origin.y,
                             size.x, size.y,
-                            // TODO: implement min/max depth
-                            0.0, 1.0,
+                            viewport.min_depth(),
+                            viewport.max_depth(),
                         );
                     } else {
                         // a camera requires a valid viewport

@@ -5,7 +5,7 @@ use bevy_math::{clamp, vec2, Rect, Vec2};
 use bevy_reflect::{Reflect, ReflectComponent};
 use bevy_utils::HashSet;
 use bevy_window::{WindowId, WindowResized, WindowScaleFactorChanged, Windows};
-use std::ops::{Add, AddAssign, Sub, SubAssign};
+use std::ops::{Add, AddAssign, RangeInclusive, Sub, SubAssign};
 
 #[derive(Debug, PartialEq, Clone, Reflect)]
 #[reflect(Component)]
@@ -17,16 +17,23 @@ pub struct Viewport {
     // computed values
     origin: Vec2,
     size: Vec2,
+    min_depth: f32,
+    max_depth: f32,
 }
 
 impl Viewport {
     const MIN_SIZE: f32 = 1.0;
 
     pub fn new(descriptor: ViewportDescriptor) -> Self {
+        let (min_depth, max_depth) = descriptor.depth_range.into_inner();
+        assert_depth_bounds(min_depth);
+        assert_depth_bounds(max_depth);
         Self {
             surface: descriptor.surface,
             sides: descriptor.sides,
             scale_factor: descriptor.scale_factor,
+            min_depth,
+            max_depth,
             origin: vec2(0.0, 0.0),
             size: vec2(Self::MIN_SIZE, Self::MIN_SIZE),
         }
@@ -46,6 +53,22 @@ impl Viewport {
 
     pub fn physical_size(&self) -> Vec2 {
         (self.size.as_f64() * self.scale_factor).as_f32()
+    }
+
+    pub fn min_depth(&self) -> f32 {
+        self.min_depth
+    }
+
+    pub fn max_depth(&self) -> f32 {
+        self.max_depth
+    }
+
+    pub fn set_depth_range(&mut self, range: RangeInclusive<f32>) {
+        let (min_depth, max_depth) = range.into_inner();
+        assert_depth_bounds(min_depth);
+        assert_depth_bounds(max_depth);
+        self.min_depth = min_depth;
+        self.max_depth = max_depth;
     }
 
     pub fn update_rectangle(&mut self, surface_size: Vec2) {
@@ -72,6 +95,12 @@ impl Viewport {
     }
 }
 
+#[inline]
+fn assert_depth_bounds(value: f32) {
+    // this panics earlier and with a nicer error message, compared to letting it go through to wgpu
+    assert!((0.0..=1.0).contains(&value), "depth value out of range: {} not in (0.0..=1.0)", value);
+}
+
 impl Default for Viewport {
     fn default() -> Self {
         Viewport::new(ViewportDescriptor::default())
@@ -83,6 +112,7 @@ pub struct ViewportDescriptor {
     pub surface: SurfaceId,
     pub sides: Rect<SideLocation>,
     pub scale_factor: f64,
+    pub depth_range: RangeInclusive<f32>,
 }
 
 impl Default for ViewportDescriptor {
@@ -96,6 +126,7 @@ impl Default for ViewportDescriptor {
                 bottom: SideLocation::Relative(1.0),
             },
             scale_factor: 1.0,
+            depth_range: 0.0..=1.0,
         }
     }
 }
