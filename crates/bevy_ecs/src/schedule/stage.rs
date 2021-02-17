@@ -21,11 +21,24 @@ pub trait Stage: Downcast + Send + Sync {
 
 impl_downcast!(Stage);
 
-/// When this resource is present in `Resources`, `SystemStage` will log a report containing
-/// pairs of systems with ambiguous execution order - i.e., those systems might induce different
-/// results depending on the order they're executed in, yet don't have an explicit execution order
-/// constraint between them.
-/// This is not necessarily a bad thing - you have to make that judgement yourself.
+/// When this resource is present in the `AppBuilder`'s `Resources`,
+/// each `SystemStage` will log a report containing
+/// pairs of systems with ambiguous execution order.
+///
+/// Systems that access the same Component or Resource within the same stage
+/// risk an ambiguous order that could result in logic bugs, unless they have an
+/// explicit execution ordering constraint between them.
+///
+/// This occurs because, in the absence of explicit constraints, systems are executed in
+/// an unstable, arbitrary order within each stage that may vary between runs and frames.
+///
+/// Some ambiguities reported by the ambiguity checker may be warranted (to allow two systems to run without blocking each other)
+/// or spurious, as the exact combination of archetypes used may prevent them from ever conflicting during actual gameplay.
+/// You can resolve the warnings produced by the ambiguity checker by adding `.before` or `.after` to one of the conflicting systems
+/// referencing the other system to force a specific ordering.
+///
+/// The checker may report a system more times than the amount of constraints it would actually need to have
+/// unambiguous order with regards to a group of already-constrained systems.
 pub struct ReportExecutionOrderAmbiguities;
 
 struct VirtualSystemSet {
