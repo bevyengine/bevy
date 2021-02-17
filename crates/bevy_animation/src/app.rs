@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::{
-    animator::AnimatorRegistry, blending::Blend, interpolate::Lerp, reflect, stage,
+    animator::AnimatorRegistry, blending::Blend, interpolation::Lerp, reflect, stage,
     AnimatorPropertyRegistry,
 };
 

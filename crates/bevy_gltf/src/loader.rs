@@ -303,7 +303,6 @@ async fn load_gltf<'a, 'b>(
         }
 
         let mut clip = Clip::default();
-        clip.warp = true; // Enable warping by default
 
         let mut start_time = f32::MAX;
 
@@ -342,7 +341,7 @@ async fn load_gltf<'a, 'b>(
 
             match reader.read_outputs().unwrap() {
                 ReadOutputs::Translations(values) => {
-                    let values = values.map(|v| Vec3::from(v)).collect::<Vec<_>>();
+                    let values = values.map(Vec3::from).collect::<Vec<_>>();
                     property_path += "@Transform.translation";
                     clip_curves_translation_and_scale
                         .push((property_path, TrackVariableLinear::new(time_stamps, values)));
@@ -350,13 +349,13 @@ async fn load_gltf<'a, 'b>(
                     // TODO: This is a runtime importer so here's no place for further optimizations
                 }
                 ReadOutputs::Rotations(values) => {
-                    let values = values.into_f32().map(|v| Quat::from(v)).collect::<Vec<_>>();
+                    let values = values.into_f32().map(Quat::from).collect::<Vec<_>>();
                     property_path += "@Transform.rotation";
                     clip_curves_rotation
                         .push((property_path, TrackVariableLinear::new(time_stamps, values)));
                 }
                 ReadOutputs::Scales(values) => {
-                    let values = values.map(|v| Vec3::from(v)).collect::<Vec<_>>();
+                    let values = values.map(Vec3::from).collect::<Vec<_>>();
 
                     property_path += "@Transform.scale";
                     clip_curves_translation_and_scale
@@ -381,6 +380,8 @@ async fn load_gltf<'a, 'b>(
             clip.add_track_at_path(&property_path, curve);
         }
 
+        // TODO: Should I use a linear curve fit algorithm to estimate a good sample rate
+        // (probably not, 30 fps is the default sampling rate for many export programs)
         clip.pack(30.0);
 
         load_context.set_labeled_asset(&anim_label, LoadedAsset::new(clip));

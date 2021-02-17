@@ -18,7 +18,7 @@ use crate::{
     animator::{Animator, Clip},
     blending::{AnimatorBlendGroup, AnimatorBlending, Blend, Mask, MASK_LIMIT},
     help::shorten_name,
-    interpolate::Lerp,
+    interpolation::Lerp,
 };
 
 // ? NOTE: Generic types like `Option<T>` must be specialized and registered with `register_animated_property_type`
@@ -70,12 +70,7 @@ impl Default for AnimatorPropertyRegistry {
 impl AnimatorPropertyRegistry {
     pub fn register<T: Lerp + Blend + Clone + 'static>(&mut self) {
         let ty = TypeId::of::<T>();
-        if self
-            .animate_functions
-            .iter()
-            .position(|(other, _)| *other == ty)
-            .is_some()
-        {
+        if self.animate_functions.iter().any(|(other, _)| *other == ty) {
             panic!("type '{}' already registered", type_name::<T>());
         }
 
@@ -105,6 +100,7 @@ impl AnimatorPropertyRegistry {
 
 /// Use need to guarantee that `Property` is valid and is owned by same type
 /// of object returned by `get_mut` function
+#[allow(clippy::too_many_arguments)]
 unsafe fn animate<T>(
     get_mut: &mut dyn FnMut(usize) -> Option<*mut u8>,
     entities_map: &[u16],
@@ -149,7 +145,7 @@ unsafe fn animate<T>(
         }
 
         // Handle N lane tracks
-        if tracks_n.len() > 0 {
+        if !tracks_n.is_empty() {
             let assign = &mut |output_lane: u16, v: T| {
                 let entity_index = entities_map[output_lane as usize] as usize;
                 if let Some(component) = (get_mut)(entity_index) {
@@ -531,7 +527,7 @@ pub(crate) fn animate_asset_system<T: Asset>(
 
                     // Handle N lane tracks
                     // ? NOTE: Currently Handle<T> isn't supported but still be implemented where
-                    if tracks_n.len() > 0 {
+                    if !tracks_n.is_empty() {
                         let assign = &mut |output_lane: u16, v: Handle<T>| {
                             let entity_index = entities_map[output_lane as usize] as usize;
                             if let Some(ref mut component) = cached_components[entity_index] {
@@ -560,7 +556,7 @@ pub(crate) fn animate_asset_system<T: Asset>(
         // ? NOTE Only after all asset handles had been settled that, the assets properties can be animated
         // Animate asset properties
 
-        if descriptor.dynamic_properties.len() == 0 {
+        if descriptor.dynamic_properties.is_empty() {
             // This assets have no animated properties
             continue;
         }

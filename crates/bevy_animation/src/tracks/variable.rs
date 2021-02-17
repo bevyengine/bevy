@@ -1,5 +1,5 @@
 use crate::{
-    interpolate::{Interpolate, Interpolation},
+    interpolation::{Interpolate, Interpolation},
     tracks::Track,
 };
 
@@ -164,7 +164,11 @@ where
         let i = cursor - 1;
         let previous_time = self.time_stamps[i as usize];
         let t = (time - previous_time) / (self.time_stamps[cursor as usize] - previous_time);
-        debug_assert!(t >= 0.0 && t <= 1.0, "t = {} but should be normalized", t); // Checks if it's required to normalize t
+        debug_assert!(
+            (0.0..=1.0).contains(&t),
+            "t = {} but should be normalized",
+            t
+        ); // Checks if it's required to normalize t
 
         let value = T::interpolate(
             &self.keyframes[i as usize],

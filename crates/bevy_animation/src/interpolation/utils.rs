@@ -45,7 +45,7 @@ pub fn inv_sqrt(x: f32) -> f32 {
 
     let mut i: i32 = y.to_bits() as i32;
     i = 0x5f3759df - (i >> 1);
-    y = unsafe { std::mem::transmute(i) };
+    y = f32::from_bits(i as u32);
 
     y = y * (1.5 - (x2 * y * y));
     y

@@ -5,7 +5,7 @@ use bevy_math::prelude::*;
 // use bevy_render::prelude::Color;
 
 use crate::{
-    interpolate::Lerp,
+    interpolation::Lerp,
     tracks::{Track, TrackFixed},
     wide::*,
 };
@@ -78,6 +78,12 @@ pub trait TrackN {
 
     /// Number of used outputs, may be N or less
     fn len(&self) -> usize;
+
+    /// True when doesn't output anything
+    #[inline]
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 
     /// N
     fn size(&self) -> usize;

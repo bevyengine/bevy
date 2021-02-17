@@ -143,13 +143,14 @@ pub(crate) fn skinning_setup(
 
 // ? NOTE: You can check the follow link, for more details
 // ? https://github.com/KhronosGroup/glTF-Tutorials/blob/master/gltfTutorial/gltfTutorial_020_Skins.md
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn skinning_update(
     commands: &mut Commands,
     skin_assets: Res<Assets<SkinAsset>>,
     mut skin_instances: ResMut<Assets<SkinInstance>>,
     mut binds_query: Query<(&Handle<SkinAsset>, &mut SkinComponent, &Children)>,
-    mut children_query: Query<&Children>,
-    mut name_query: Query<(&Parent, &Name)>,
+    children_query: Query<&Children>,
+    name_query: Query<(&Parent, &Name)>,
     transforms_query: Query<&GlobalTransform>,
     mut renderers_query: Query<&mut RenderPipelines>,
 ) {
@@ -177,8 +178,8 @@ pub(crate) fn skinning_update(
                 skin_asset.hierarchy.find_entity(
                     entity_index as u16,
                     &mut skin_bind.joint_entities,
-                    &mut children_query,
-                    &mut name_query,
+                    &children_query,
+                    &name_query,
                 );
             }
 

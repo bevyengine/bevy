@@ -21,7 +21,7 @@ use tracing::warn;
 use crate::{
     blending::AnimatorBlending,
     hierarchy::Hierarchy,
-    interpolate::Lerp,
+    interpolation::Lerp,
     tracks::{ArrayN, Track, TrackBase, TrackFixed, TrackFixedN, TrackNBase, ValueN},
     wide::{Quatx8, Vec3x8},
 };
@@ -80,6 +80,11 @@ impl<T> Tracks<T> {
     /// Number of curves inside
     pub fn len(&self) -> usize {
         self.tracks.len() + self.n.iter().map(|(_, t)| t.len()).sum::<usize>()
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     #[inline]
@@ -275,11 +280,9 @@ impl Clip {
                 let duration = tracks.calculate_duration();
 
                 // Drop the down casted ref and update the parent curve
-                std::mem::drop(tracks);
                 tracks_untyped.duration = duration;
 
                 // Drop the curves untyped (which as a mut borrow) and update the total duration
-                std::mem::drop(tracks_untyped);
                 self.duration = self.calculate_duration();
 
                 return k_index;
@@ -287,7 +290,7 @@ impl Clip {
 
             let search_n = tracks.n.iter().enumerate().find_map(|(i, (_, t))| {
                 t.lanes()
-                    .into_iter()
+                    .iter()
                     .position(|index| *index == entity_index)
                     .map(|o| (i, o))
             });
@@ -309,7 +312,6 @@ impl Clip {
             let duration = track.duration();
             tracks.outputs.push(entity_index);
             tracks.tracks.push((*cache_index, Box::new(track)));
-            std::mem::drop(tracks);
 
             self.len += 1;
             self.duration = self.duration.max(duration);
@@ -423,6 +425,11 @@ impl Clip {
     #[inline]
     pub fn len(&self) -> usize {
         self.len
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     // /// Returns the property curve property path.
@@ -542,8 +549,18 @@ impl Layer {
         unsafe { self.keyframes_unsafe() }
     }
 
+    /// # Safety
+    /// Ensure no other borrows exist along with this one.
+    ///
+    /// Alternatively its also possible to use the `curve_index` for properties that are only borrowed once;
+    /// The curves indexes are unique for each curve and for different properties are also guaranteed to not share the same cache line,
+    /// making possible to access the layer keyframes from multiple threads that doesn't look at the same property at the same time.
+    ///
+    /// Any race condition should only slowdown the animation sampling,
+    /// the `sample_with_cursor` function can recover no matter the input given;
     #[inline]
-    pub unsafe fn keyframes_unsafe(&self) -> &mut [u16] {
+    #[allow(clippy::mut_from_ref)]
+    pub(crate) unsafe fn keyframes_unsafe(&self) -> &mut [u16] {
         std::slice::from_raw_parts_mut(
             self.keyframes_buckets.as_ptr() as *mut _,
             self.keyframes_buckets.len() * KEYFRAMES_PER_CACHE,
@@ -625,7 +642,7 @@ impl Animator {
         &self.clips[..]
     }
 
-    pub fn animate<'a>(&'a self) -> LayerIterator<'a> {
+    pub fn animate(&self) -> LayerIterator {
         LayerIterator {
             index: 0,
             animator: self,
@@ -682,6 +699,7 @@ pub(crate) struct BindingState {
     clips_modified: HashSet<Handle<Clip>, FnvBuildHasher>,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn animator_update_system(
     commands: &mut Commands,
     mut state: Local<BindingState>,
@@ -735,11 +753,11 @@ pub(crate) fn animator_update_system(
             let entity = animator.entities[entity_index];
 
             if let Some(entity) = entity {
-                if entity_deleted_query.get(entity).is_err() {
-                    // Entity deleted
-                    remove_entity = true;
-                } else if parent_or_name_removed_query.get(entity).is_ok() {
-                    // Parent or Name component where removed from entity
+                // Entity deleted
+                // or Parent or Name component where removed from entity
+                if entity_deleted_query.get(entity).is_err()
+                    || parent_or_name_removed_query.get(entity).is_ok()
+                {
                     remove_entity = true;
                 } else if let Ok((entity_parent, entity_name)) =
                     parent_or_name_changed_query.get(entity)

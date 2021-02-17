@@ -60,9 +60,9 @@ impl<I: Index> Hierarchy<I> {
         children.resize_with(entities.len(), || smallvec![]);
 
         for (entity_index, (parent_index, _)) in entities.iter().enumerate() {
-            children
-                .get_mut(parent_index.as_usize())
-                .map(|c| c.push(I::from_usize_checked(entity_index)));
+            if let Some(c) = children.get_mut(parent_index.as_usize()) {
+                c.push(I::from_usize_checked(entity_index));
+            }
         }
 
         Self { entities, children }
@@ -123,6 +123,11 @@ impl<I: Index> Hierarchy<I> {
     #[inline]
     pub fn len(&self) -> usize {
         self.entities.len()
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     /// Iterates over each entity parent index, name and children indexes

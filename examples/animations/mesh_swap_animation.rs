@@ -29,7 +29,7 @@ fn setup(
         "@Handle<Mesh>",
         TrackVariableLinear::new(
             vec![0.0, 0.5, 1.0],
-            vec![cube.clone(), sphere.clone(), cube.clone()],
+            vec![cube.clone(), sphere, cube.clone()],
         ),
     );
     let clip_handle = clips.add(clip);
@@ -40,7 +40,7 @@ fn setup(
 
     commands
         .spawn(PbrBundle {
-            mesh: cube.clone(),
+            mesh: cube,
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)),
             material: materials.add(Color::ANTIQUE_WHITE.into()),
             ..Default::default()

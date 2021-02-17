@@ -1,4 +1,4 @@
-use crate::{interpolate::Lerp, tracks::Track};
+use crate::{interpolation::Lerp, tracks::Track};
 
 // TODO: impl Serialize, Deserialize
 /// Fixed frame rate track
@@ -24,13 +24,11 @@ impl<T: Clone> Clone for TrackFixed<T> {
 
 impl<T> TrackFixed<T> {
     pub fn from_keyframes(frame_rate: f32, offset: isize, keyframes: Vec<T>) -> Self {
-        let curve = Self {
+        Self {
             frame_rate,
             negative_offset: -(offset as f32),
             keyframes,
-        };
-
-        curve
+        }
     }
 
     pub fn from_constant(v: T) -> Self {
@@ -52,8 +50,14 @@ impl<T> TrackFixed<T> {
     //assert!(samples.len() > 1, "curve can't be empty");
     // }
 
+    /// Number of keyframes
     pub const fn len(&self) -> usize {
         self.frame_rate as usize
+    }
+
+    /// True when doesn't have any keyframe
+    pub const fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     pub fn frame_rate(&self) -> usize {
@@ -85,7 +89,7 @@ where
 
     fn sample(&self, time: f32) -> Self::Output {
         // Make sure to have at least one sample
-        assert!(self.keyframes.len() > 0, "track is empty");
+        assert!(!self.keyframes.is_empty(), "track is empty");
 
         let t = time.mul_add(self.frame_rate, self.negative_offset);
         if t.is_sign_negative() {

@@ -1,5 +1,5 @@
 use super::Track;
-use crate::interpolate::Lerp;
+use crate::interpolation::Lerp;
 
 // TODO: Curve/Clip need a validation during deserialization because they are
 // structured as SOA (struct of arrays), so the vec's length must match
@@ -36,7 +36,7 @@ impl<T> TrackVariableLinear<T> {
             u16::MAX
         );
 
-        assert!(samples.len() > 0, "empty curve");
+        assert!(!samples.is_empty(), "empty curve");
 
         // Make sure the
         assert!(
@@ -46,6 +46,7 @@ impl<T> TrackVariableLinear<T> {
                 .all(|(a, b)| a < b),
             "time samples must be on ascending order"
         );
+
         Self {
             time_stamps: samples,
             keyframes: values,
@@ -147,7 +148,11 @@ where
         let i = cursor - 1;
         let previous_time = self.time_stamps[i as usize];
         let t = (time - previous_time) / (self.time_stamps[cursor as usize] - previous_time);
-        debug_assert!(t >= 0.0 && t <= 1.0, "t = {} but should be normalized", t); // Checks if it's required to normalize t
+        debug_assert!(
+            (0.0..=1.0).contains(&t),
+            "t = {} but should be normalized",
+            t
+        ); // Checks if it's required to normalize t
         let value = T::lerp(
             &self.keyframes[i as usize],
             &self.keyframes[cursor as usize],

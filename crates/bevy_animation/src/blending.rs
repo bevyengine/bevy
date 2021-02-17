@@ -4,7 +4,7 @@ use bevy_asset::{Asset, Handle, HandleUntyped};
 use bevy_math::prelude::*;
 use bevy_render::color::Color;
 
-use crate::interpolate::{
+use crate::interpolation::{
     utils::{Scale2, Scale3},
     Lerp,
 };
@@ -161,6 +161,9 @@ fn additive_blend_color(a: &Color, b: &Color, w: f32) -> Color {
 pub trait Blend: Sized {
     fn requires_weight_slot() -> bool;
 
+    // TODO: `bit_mask` and `slot` can be grouped into a `PropertyBlendInfo` struct
+    // TODO: `weight` and `additive` can be grouped into a `LayerBlendInfo` struct
+    #[allow(clippy::too_many_arguments)]
     fn blend(
         &mut self,
         entity_index: usize,

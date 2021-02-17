@@ -13,7 +13,7 @@ mod hierarchy;
 mod skinned_mesh;
 
 pub mod blending;
-pub mod interpolate;
+pub mod interpolation;
 pub mod tracks;
 
 pub use crate::{
@@ -27,7 +27,7 @@ pub mod prelude {
         app::AddAnimated,
         blending::AnimatorBlending,
         hierarchy::Hierarchy,
-        interpolate::Lerp,
+        interpolation::Lerp,
         reflect::AnimatorPropertyRegistry,
         skinned_mesh::{SkinAsset, SkinComponent, SkinDebugger},
     };
@@ -35,14 +35,14 @@ pub mod prelude {
 
 /// Exports wide types
 pub mod wide {
-    pub use crate::interpolate::utils::{Quatx4, Quatx8};
+    pub use crate::interpolation::utils::{Quatx4, Quatx8};
     pub use ultraviolet::vec::{Vec2x4, Vec2x8, Vec3x4, Vec3x8, Vec4x4, Vec4x8};
     pub use wide::*;
 }
 
 pub mod stage {
-    pub const ANIMATE: &'static str = "animate";
-    pub const SKINNING: &'static str = "skinning";
+    pub const ANIMATE: &str = "animate";
+    pub const SKINNING: &str = "skinning";
     pub use bevy_app::stage::{POST_UPDATE, UPDATE};
 }
 

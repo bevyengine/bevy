@@ -44,7 +44,7 @@ fn setup(
 fn anim_set(asset_server: Res<AssetServer>, mut animators_query: Query<(&mut Animator,)>) {
     // Load animations and set them to the animator
     for (mut animator,) in animators_query.iter_mut() {
-        if animator.clips().len() == 0 {
+        if animator.clips().is_empty() {
             animator.add_layer(
                 asset_server.load("models/character_medium/idle.gltf#Anim0"),
                 1.0,
@@ -82,10 +82,8 @@ fn anim_blending(
             if w >= (1.0 - 1e-2) {
                 ping_pong.pong = false;
             }
-        } else {
-            if w <= 1e-2 {
-                ping_pong.pong = true;
-            }
+        } else if w <= 1e-2 {
+            ping_pong.pong = true;
         }
 
         animator.layers[0].weight = w; // Idle animation layer

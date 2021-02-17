@@ -16,9 +16,9 @@ impl Lerp for bool {
     #[inline]
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
         if t > 0.99 {
-            b.clone()
+            *b
         } else {
-            a.clone()
+            *a
         }
     }
 }
@@ -98,9 +98,9 @@ impl Lerp for Quat {
             b = -b;
         }
 
-        let q = Vec4::lerp((*a).into(), b.into(), t);
-        let d = inv_sqrt(q.dot(q));
-        (q * d).into()
+        let rot = Vec4::lerp((*a).into(), b.into(), t);
+        let inv_mag = inv_sqrt(rot.dot(rot));
+        (rot * inv_mag).into()
     }
 }
 
@@ -114,14 +114,14 @@ impl Lerp for Quatx4 {
         // Make sure is always the short path, look at this: https://github.com/mgeier/quaternion-nursery
         // Flip b sing if dot product was negative
         let sign: f32x4 = a.0.dot(b) & f32x4::splat(-0.0);
-        b.x = b.x ^ sign;
-        b.y = b.y ^ sign;
-        b.z = b.z ^ sign;
-        b.w = b.w ^ sign;
+        b.x ^= sign;
+        b.y ^= sign;
+        b.z ^= sign;
+        b.w ^= sign;
 
-        let q = Vec4x4::lerp(&a.0, &b, t);
-        let d = inv_sqrt4(q.dot(q));
-        Quatx4(q * d)
+        let rot = Vec4x4::lerp(&a.0, &b, t);
+        let inv_mag = inv_sqrt4(rot.dot(rot));
+        Quatx4(rot * inv_mag)
     }
 }
 
@@ -135,14 +135,14 @@ impl Lerp for Quatx8 {
         // Make sure is always the short path, look at this: https://github.com/mgeier/quaternion-nursery
         // Flip b sing if dot product was negative
         let sign: f32x8 = a.0.dot(b) & f32x8::splat(-0.0);
-        b.x = b.x ^ sign;
-        b.y = b.y ^ sign;
-        b.z = b.z ^ sign;
-        b.w = b.w ^ sign;
+        b.x ^= sign;
+        b.y ^= sign;
+        b.z ^= sign;
+        b.w ^= sign;
 
-        let q = Vec4x8::lerp(&a.0, &b, t);
-        let d = inv_sqrt8(q.dot(q));
-        Quatx8(q * d)
+        let rot = Vec4x8::lerp(&a.0, &b, t);
+        let inv_mag = inv_sqrt8(rot.dot(rot));
+        Quatx8(rot * inv_mag)
     }
 }
 

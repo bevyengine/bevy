@@ -31,10 +31,7 @@ impl Bench {
             .add_plugin(bevy_app::ScheduleRunnerPlugin::default())
             .add_plugin(bevy_asset::AssetPlugin::default())
             .add_plugin(TransformPlugin::default())
-            .add_plugin(crate::AnimationPlugin {
-                skinning: false,
-                ..Default::default()
-            });
+            .add_plugin(crate::AnimationPlugin { skinning: false });
 
         let mut schedule = Schedule::default();
         schedule.add_stage(ANIMATE, SystemStage::parallel());
