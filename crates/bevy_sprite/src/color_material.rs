@@ -57,7 +57,7 @@ impl From<Handle<Texture>> for ColorMaterial {
     }
 }
 
-pub fn material_texture_detection_system(
+pub(crate) fn material_texture_detection_system(
     mut texture_to_material: Local<HashMap<Handle<Texture>, HashSet<Handle<ColorMaterial>>>>,
     mut material_to_texture: Local<HashMap<Handle<ColorMaterial>, Handle<Texture>>>,
     materials: Res<Assets<ColorMaterial>>,
@@ -147,7 +147,7 @@ pub fn material_texture_detection_system(
     changed_materials
 }
 
-pub fn material_texture_trigger_system(
+pub(crate) fn material_texture_trigger_system(
     In(changed_materials): In<Vec<Handle<ColorMaterial>>>,
     mut material_events: ResMut<Events<AssetEvent<ColorMaterial>>>,
 ) {
