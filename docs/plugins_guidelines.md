@@ -57,6 +57,8 @@ bevy = { version = "0.4", git = "https://github.com/bevyengine/bevy", rev="509b1
 You can specify the dependency [both as a version and with git](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#multiple-locations), the version will be used if using the dependency from [crates.io](https://crates.io), the git dependency will be used otherwise.
 
 Bevy is evolving very fast. You can use one of these badges to communicate to your users how closely you intend to track Bevy's main branch.
+
+<!-- MD033 - The Badges could be downsized, without the inline HTML due to the large code colum -->
 <!-- markdownlint-disable MD033 -->
 |<div style="width:100px">badge</div>|<div style="width:200px">description</div>|code|
 |-|-|-|

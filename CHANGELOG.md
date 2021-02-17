@@ -1,3 +1,4 @@
+<!-- MD024 - We want repeated headings in a changelog file -->
 <!-- markdownlint-disable MD024 -->
 
 # Changelog

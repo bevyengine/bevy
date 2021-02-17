@@ -1,4 +1,5 @@
-<!-- markdownlint-disable MD024 MD037 -->
+<!-- MD024 - The Headers from the Platform-Specific Examples should be identical  -->
+<!-- markdownlint-disable MD024 -->
 
 # Examples
 
@@ -49,6 +50,7 @@ git checkout v0.4.0
 
 # The Bare Minimum
 <!-- markdownlint-disable MD026 -->
+<!-- MD026 Hello, World! looks better with the ! -->
 ## Hello, World!
 <!-- markdownlint-enable MD026 -->
 
