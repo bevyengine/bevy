@@ -94,7 +94,11 @@ impl Viewport {
 #[inline]
 fn assert_depth_bounds(value: f32) {
     // this panics earlier and with a nicer error message, compared to letting it go through to wgpu
-    assert!((0.0..=1.0).contains(&value), "depth value out of range: {} not in (0.0..=1.0)", value);
+    assert!(
+        (0.0..=1.0).contains(&value),
+        "depth value out of range: {} not in (0.0..=1.0)",
+        value
+    );
 }
 
 impl Default for Viewport {
