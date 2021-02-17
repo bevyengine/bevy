@@ -9,6 +9,7 @@ current changes on git with [previous release tags][git_tag_comparison].
 ## Version 0.4.0 (2020-12-19)
 
 ### Added
+
 - [add bevymark benchmark example][273]
 - [gltf: support camera and fix hierarchy][772]
 - [Add tracing spans to schedules, stages, systems][789]
@@ -32,7 +33,7 @@ current changes on git with [previous release tags][git_tag_comparison].
   - Replaces the properties system
 - [Add support for Apple Silicon][928]
 - [Live reloading of shaders][937]
-- [ Store mouse cursor position in Window][940]
+- [Store mouse cursor position in Window][940]
 - [Add removal_detection example][945]
 - [Additional vertex attribute value types][946]
 - [Added WindowFocused event][956]
