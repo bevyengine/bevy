@@ -178,10 +178,7 @@ impl<T: Bundle> QueryFilter for WithType<T> {
 
     #[inline]
     fn get_entity_filter(archetype: &Archetype) -> Option<Self::EntityFilter> {
-        if T::TYPES
-            .iter()
-            .all(|info| archetype.has_type(info.id()))
-        {
+        if T::TYPES.iter().all(|info| archetype.has_type(info.id())) {
             Some(AnyEntityFilter)
         } else {
             None

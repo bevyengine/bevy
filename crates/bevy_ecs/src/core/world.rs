@@ -85,7 +85,8 @@ impl World {
         let archetype_id = bundle.with_ids(|ids| {
             self.index.get(ids).copied().unwrap_or_else(|| {
                 let x = self.archetypes.len() as u32;
-                self.archetypes.push(Archetype::new(bundle.type_info().to_vec()));
+                self.archetypes
+                    .push(Archetype::new(bundle.type_info().to_vec()));
                 self.index.insert(ids.to_vec(), x);
                 self.archetype_generation += 1;
                 x

@@ -119,7 +119,7 @@ macro_rules! tuple_impl {
                         mem::transmute::<TypeId, u64>(left.id()) < mem::transmute::<TypeId, u64>(right.id())
                     }
                 }
-    
+
                 let mut types = [$(TypeInfo::of::<$name>()),*];
                 let mut i = 1;
                 while i < types.len() {
@@ -131,7 +131,7 @@ macro_rules! tuple_impl {
                     }
                     types[j] = temp;
                     i += 1;
-                }    
+                }
                 types
             };
 

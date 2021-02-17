@@ -134,7 +134,7 @@ fn gen_bundle_impl(
                         ::std::mem::transmute::<::std::any::TypeId, u64>(left.id()) < std::mem::transmute::<::std::any::TypeId, u64>(right.id())
                     }
                 }
-    
+
                 let mut types = [#(::#crate_path::TypeInfo::of::<#tys>()),*];
                 let mut i = 1;
                 while i < types.len() {
@@ -146,7 +146,7 @@ fn gen_bundle_impl(
                     }
                     types[j] = temp;
                     i += 1;
-                }    
+                }
                 types
             };
 

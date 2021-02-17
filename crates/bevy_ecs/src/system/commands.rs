@@ -194,7 +194,7 @@ impl Commands {
     ///
     /// # Example
     ///
-    /// ``` 
+    /// ```
     /// #![feature(const_fn_fn_ptr_basics)]
     /// #![feature(const_fn_transmute)]
     /// #![feature(const_type_id)]
@@ -340,7 +340,7 @@ impl Commands {
     /// #![feature(const_type_name)]
     ///
     /// # use bevy_ecs::prelude::*;
-    /// 
+    ///
     /// struct Component1;
     /// struct Component2;
     ///

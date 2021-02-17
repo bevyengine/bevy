@@ -16,8 +16,8 @@
 
 use std::{
     alloc::{alloc, dealloc, Layout},
-    collections::HashMap,
     any::TypeId,
+    collections::HashMap,
     mem::{self, MaybeUninit},
     ptr,
 };
@@ -59,7 +59,11 @@ impl EntityBuilder {
 
     /// Add `component` to the entity
     pub fn add<T: Component>(&mut self, component: T) -> &mut Self {
-        if self.offsets.insert(TypeId::of::<T>(), self.cursor).is_some() {
+        if self
+            .offsets
+            .insert(TypeId::of::<T>(), self.cursor)
+            .is_some()
+        {
             return self;
         }
         let end = self.cursor + mem::size_of::<T>();
@@ -122,9 +126,7 @@ impl EntityBuilder {
                 max_align as *mut _
             };
             for ty in self.info.drain(..) {
-                let offset = *self.offsets
-                    .get(&ty.id())
-                    .unwrap();
+                let offset = *self.offsets.get(&ty.id()).unwrap();
                 ptr::copy_nonoverlapping(
                     self.storage[offset..offset + ty.layout().size()]
                         .as_ptr()
@@ -174,9 +176,7 @@ impl DynamicBundle for BuiltEntity<'_> {
 
     unsafe fn put(self, mut f: impl FnMut(*mut u8, TypeId, usize) -> bool) {
         for ty in self.builder.info.drain(..) {
-            let offset = *self.builder.offsets
-                .get(&ty.id())
-                .unwrap();
+            let offset = *self.builder.offsets.get(&ty.id()).unwrap();
             let ptr = self.builder.storage.as_mut_ptr().add(offset).cast();
             if !f(ptr, ty.id(), ty.layout().size()) {
                 ty.drop(ptr);
