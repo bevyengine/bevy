@@ -1,3 +1,5 @@
+<!-- markdownlint-disable MD024 -->
+
 # Changelog
 
 While we try to keep the `Unreleased` changes updated, it is often behind and does not include

@@ -1,3 +1,5 @@
+<!-- markdownlint-disable MD024 MD037 -->
+
 # Examples
 
 These examples demonstrate the main features of Bevy and how to use them.
@@ -46,8 +48,9 @@ git checkout v0.4.0
   - [WASM](#wasm)
 
 # The Bare Minimum
-
+<!-- markdownlint-disable MD026 -->
 ## Hello, World!
+<!-- markdownlint-enable MD026 -->
 
 Example | Main | Description
 --- | --- | ---
