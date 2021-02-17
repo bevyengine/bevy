@@ -4,7 +4,6 @@ Bevy has a plug and play architecture, where you can easily add plugins for new 
 
 This document targets plugin authors.
 
-
 ## Checklist
 
 * [ ] [Pick a reasonable, descriptive name](#naming)
