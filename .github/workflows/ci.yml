@@ -80,3 +80,10 @@ jobs:
         run: cargo install cargo-apk
       - name: Build APK
         run: cargo apk build --example android
+
+  markdownlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: xt0rted/markdownlint-problem-matcher@v1
+      - run: markdownlint **/*.md
