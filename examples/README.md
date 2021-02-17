@@ -13,7 +13,8 @@ Due to changes and additions to APIs, there are often differences between the de
 If you are using a release version from [crates.io](https://crates.io/crates/bevy), view the examples by checking out the appropriate git tag, e.g., users of `0.4` should use the examples on [https://github.com/bevyengine/bevy/tree/v0.4.0/examples](https://github.com/bevyengine/bevy/tree/v0.4.0/examples)
 
 If you have cloned bevy's repo locally, `git checkout` with the appropriate version tag.
-```
+
+```bash
 git checkout v0.4.0
 ```
 

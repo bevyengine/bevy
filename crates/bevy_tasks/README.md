@@ -19,7 +19,7 @@ It is based on [`async-executor`][async-executor], a lightweight executor that a
 
 A very small dependency list is a key feature of this module
 
-```
+```text
 ├── async-executor
 │   ├── async-task
 │   ├── concurrent-queue

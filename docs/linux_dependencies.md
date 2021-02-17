@@ -9,7 +9,9 @@ If you don't see your distro present in the list, feel free to add the instructi
 ```bash
 sudo apt-get install pkg-config libx11-dev libasound2-dev libudev-dev
 ```
+
 If you want to enable fast compiles
+
 ```bash
 sudo apt-get install clang
 ```
