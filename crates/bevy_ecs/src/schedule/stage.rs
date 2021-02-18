@@ -1481,5 +1481,44 @@ mod tests {
                 || ambiguities.contains(&("5".into(), "2".into()))
         );
         assert_eq!(ambiguities.len(), 6);
+
+        let mut stage = SystemStage::parallel()
+            .with_system(empty.exclusive_system().label("0").before("1").before("3"))
+            .with_system(empty.exclusive_system().label("1").in_ambiguity_set("a"))
+            .with_system(empty.exclusive_system().label("2").after("1"))
+            .with_system(empty.exclusive_system().label("3").in_ambiguity_set("a"))
+            .with_system(empty.exclusive_system().label("4").after("3").before("5"))
+            .with_system(empty.exclusive_system().label("5").in_ambiguity_set("a"))
+            .with_system(empty.exclusive_system().label("6").after("2").after("5"));
+        stage.initialize_systems(&mut world, &mut resources);
+        stage.rebuild_orders_and_dependencies();
+        let ambiguities = find_ambiguities_labels(&stage.exclusive_at_start);
+        assert!(
+            ambiguities.contains(&("2".into(), "3".into()))
+                || ambiguities.contains(&("3".into(), "2".into()))
+        );
+        assert!(
+            ambiguities.contains(&("1".into(), "4".into()))
+                || ambiguities.contains(&("4".into(), "1".into()))
+        );
+        assert!(
+            ambiguities.contains(&("2".into(), "4".into()))
+                || ambiguities.contains(&("4".into(), "2".into()))
+        );
+        assert!(
+            ambiguities.contains(&("2".into(), "5".into()))
+                || ambiguities.contains(&("5".into(), "2".into()))
+        );
+        assert_eq!(ambiguities.len(), 4);
+
+        let mut stage = SystemStage::parallel()
+            .with_system(empty.exclusive_system().label("0").in_ambiguity_set("a"))
+            .with_system(empty.exclusive_system().label("1").in_ambiguity_set("a"))
+            .with_system(empty.exclusive_system().label("2").in_ambiguity_set("a"))
+            .with_system(empty.exclusive_system().label("3").in_ambiguity_set("a"));
+        stage.initialize_systems(&mut world, &mut resources);
+        stage.rebuild_orders_and_dependencies();
+        let ambiguities = find_ambiguities_labels(&stage.exclusive_at_start);
+        assert_eq!(ambiguities.len(), 0);
     }
 }
