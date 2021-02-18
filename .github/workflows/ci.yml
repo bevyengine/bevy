@@ -93,7 +93,6 @@ jobs:
         uses: github/super-linter@v3
         env:
           VALIDATE_ALL_CODEBASE: false
-          LINTER_RULES_PATH: /
           VALIDATE_MARKDOWN: true
           DEFAULT_BRANCH: master
           # Not needed here as only one Linter is used.
