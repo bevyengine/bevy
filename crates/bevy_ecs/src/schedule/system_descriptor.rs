@@ -75,6 +75,7 @@ pub struct ParallelSystemDescriptor {
     pub(crate) label: Option<Cow<'static, str>>,
     pub(crate) before: Vec<Cow<'static, str>>,
     pub(crate) after: Vec<Cow<'static, str>>,
+    pub(crate) ambiguity_sets: Vec<Cow<'static, str>>,
 }
 
 fn new_parallel_descriptor(system: BoxedSystem<(), ()>) -> ParallelSystemDescriptor {
@@ -83,6 +84,7 @@ fn new_parallel_descriptor(system: BoxedSystem<(), ()>) -> ParallelSystemDescrip
         label: None,
         before: Vec::new(),
         after: Vec::new(),
+        ambiguity_sets: Vec::new(),
     }
 }
 
@@ -95,6 +97,10 @@ pub trait ParallelSystemDescriptorCoercion {
 
     /// Specifies that the system should run after the system with given label.
     fn after(self, label: impl Into<Cow<'static, str>>) -> ParallelSystemDescriptor;
+
+    /// Specifies that the system is exempt from execution order ambiguity detection
+    /// with other systems in this set.
+    fn in_ambiguity_set(self, set: impl Into<Cow<'static, str>>) -> ParallelSystemDescriptor;
 }
 
 impl ParallelSystemDescriptorCoercion for ParallelSystemDescriptor {
@@ -110,6 +116,11 @@ impl ParallelSystemDescriptorCoercion for ParallelSystemDescriptor {
 
     fn after(mut self, label: impl Into<Cow<'static, str>>) -> ParallelSystemDescriptor {
         self.after.push(label.into());
+        self
+    }
+
+    fn in_ambiguity_set(mut self, set: impl Into<Cow<'static, str>>) -> ParallelSystemDescriptor {
+        self.ambiguity_sets.push(set.into());
         self
     }
 }
@@ -129,6 +140,10 @@ where
     fn after(self, label: impl Into<Cow<'static, str>>) -> ParallelSystemDescriptor {
         new_parallel_descriptor(Box::new(self)).after(label)
     }
+
+    fn in_ambiguity_set(self, set: impl Into<Cow<'static, str>>) -> ParallelSystemDescriptor {
+        new_parallel_descriptor(Box::new(self)).in_ambiguity_set(set)
+    }
 }
 
 impl ParallelSystemDescriptorCoercion for BoxedSystem<(), ()> {
@@ -142,6 +157,10 @@ impl ParallelSystemDescriptorCoercion for BoxedSystem<(), ()> {
 
     fn after(self, label: impl Into<Cow<'static, str>>) -> ParallelSystemDescriptor {
         new_parallel_descriptor(self).after(label)
+    }
+
+    fn in_ambiguity_set(self, set: impl Into<Cow<'static, str>>) -> ParallelSystemDescriptor {
+        new_parallel_descriptor(self).in_ambiguity_set(set)
     }
 }
 
@@ -158,6 +177,7 @@ pub struct ExclusiveSystemDescriptor {
     pub(crate) label: Option<Cow<'static, str>>,
     pub(crate) before: Vec<Cow<'static, str>>,
     pub(crate) after: Vec<Cow<'static, str>>,
+    pub(crate) ambiguity_sets: Vec<Cow<'static, str>>,
     pub(crate) insertion_point: InsertionPoint,
 }
 
@@ -167,6 +187,7 @@ fn new_exclusive_descriptor(system: Box<dyn ExclusiveSystem>) -> ExclusiveSystem
         label: None,
         before: Vec::new(),
         after: Vec::new(),
+        ambiguity_sets: Vec::new(),
         insertion_point: InsertionPoint::AtStart,
     }
 }
@@ -180,6 +201,10 @@ pub trait ExclusiveSystemDescriptorCoercion {
 
     /// Specifies that the system should run after the system with given label.
     fn after(self, label: impl Into<Cow<'static, str>>) -> ExclusiveSystemDescriptor;
+
+    /// Specifies that the system is exempt from execution order ambiguity detection
+    /// with other systems in this set.
+    fn in_ambiguity_set(self, set: impl Into<Cow<'static, str>>) -> ExclusiveSystemDescriptor;
 
     /// Specifies that the system should run with other exclusive systems at the start of stage.
     fn at_start(self) -> ExclusiveSystemDescriptor;
@@ -205,6 +230,11 @@ impl ExclusiveSystemDescriptorCoercion for ExclusiveSystemDescriptor {
 
     fn after(mut self, label: impl Into<Cow<'static, str>>) -> ExclusiveSystemDescriptor {
         self.after.push(label.into());
+        self
+    }
+
+    fn in_ambiguity_set(mut self, set: impl Into<Cow<'static, str>>) -> ExclusiveSystemDescriptor {
+        self.ambiguity_sets.push(set.into());
         self
     }
 
@@ -238,6 +268,10 @@ where
 
     fn after(self, label: impl Into<Cow<'static, str>>) -> ExclusiveSystemDescriptor {
         new_exclusive_descriptor(Box::new(self)).after(label)
+    }
+
+    fn in_ambiguity_set(self, set: impl Into<Cow<'static, str>>) -> ExclusiveSystemDescriptor {
+        new_exclusive_descriptor(Box::new(self)).in_ambiguity_set(set)
     }
 
     fn at_start(self) -> ExclusiveSystemDescriptor {
