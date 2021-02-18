@@ -5,13 +5,6 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use crate::{StageLabelMarker, SystemLabelMarker};
-
-pub trait Label<T>: DynHash + DynClone<T> + Debug + Send + Sync + 'static {}
-
-pub type SystemLabel = Box<dyn Label<SystemLabelMarker>>;
-pub type StageLabel = Box<dyn Label<StageLabelMarker>>;
-
 pub trait DynEq: Any {
     fn as_any(&self) -> &dyn Any;
 
@@ -54,52 +47,53 @@ where
     }
 }
 
-pub trait DynClone<T> {
-    fn dyn_clone(&self) -> Box<dyn Label<T>>;
+pub trait StageLabel: DynHash + Debug + Send + Sync + 'static {
+    #[doc(hidden)]
+    fn dyn_clone(&self) -> Box<dyn StageLabel>;
+}
+pub(crate) type BoxedStageLabel = Box<dyn StageLabel>;
+
+pub trait SystemLabel: DynHash + Debug + Send + Sync + 'static {
+    #[doc(hidden)]
+    fn dyn_clone(&self) -> Box<dyn SystemLabel>;
+}
+pub(crate) type BoxedSystemLabel = Box<dyn SystemLabel>;
+
+macro_rules! impl_label {
+    ($trait_name:ident) => {
+        impl PartialEq for dyn $trait_name {
+            fn eq(&self, other: &Self) -> bool {
+                self.dyn_eq(other.as_dyn_eq())
+            }
+        }
+
+        impl Eq for dyn $trait_name {}
+
+        impl Hash for dyn $trait_name {
+            fn hash<H: Hasher>(&self, state: &mut H) {
+                self.dyn_hash(state);
+            }
+        }
+
+        impl Clone for Box<dyn $trait_name> {
+            fn clone(&self) -> Self {
+                self.dyn_clone()
+            }
+        }
+
+        impl $trait_name for Cow<'static, str> {
+            fn dyn_clone(&self) -> Box<dyn $trait_name> {
+                Box::new(self.clone())
+            }
+        }
+
+        impl $trait_name for &'static str {
+            fn dyn_clone(&self) -> Box<dyn $trait_name> {
+                Box::new(<&str>::clone(self))
+            }
+        }
+    };
 }
 
-impl<M, T> DynClone<M> for T
-where
-    T: Label<M> + Clone + 'static,
-{
-    fn dyn_clone(&self) -> Box<dyn Label<M>> {
-        Box::new(self.clone())
-    }
-}
-
-impl<T> PartialEq for dyn Label<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.dyn_eq(other.as_dyn_eq())
-    }
-}
-
-impl<T> Eq for dyn Label<T> {}
-
-impl<T> Hash for dyn Label<T> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.dyn_hash(state);
-    }
-}
-
-impl<T> Clone for Box<dyn Label<T>> {
-    fn clone(&self) -> Self {
-        self.dyn_clone()
-    }
-}
-
-impl<T: Label<StageLabelMarker>> From<T> for Box<dyn Label<StageLabelMarker>> {
-    fn from(t: T) -> Self {
-        Box::new(t)
-    }
-}
-
-impl<T: Label<SystemLabelMarker>> From<T> for Box<dyn Label<SystemLabelMarker>> {
-    fn from(t: T) -> Self {
-        Box::new(t)
-    }
-}
-
-impl Label<SystemLabelMarker> for Cow<'static, str> {}
-impl Label<SystemLabelMarker> for &'static str {}
-impl Label<StageLabelMarker> for Cow<'static, str> {}
-impl Label<StageLabelMarker> for &'static str {}
+impl_label!(StageLabel);
+impl_label!(SystemLabel);

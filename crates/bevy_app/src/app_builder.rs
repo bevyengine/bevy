@@ -54,15 +54,15 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_stage<S: Stage>(&mut self, label: impl Into<StageLabel>, stage: S) -> &mut Self {
+    pub fn add_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
         self.app.schedule.add_stage(label, stage);
         self
     }
 
     pub fn add_stage_after<S: Stage>(
         &mut self,
-        target: impl Into<StageLabel>,
-        label: impl Into<StageLabel>,
+        target: impl StageLabel,
+        label: impl StageLabel,
         stage: S,
     ) -> &mut Self {
         self.app.schedule.add_stage_after(target, label, stage);
@@ -71,19 +71,15 @@ impl AppBuilder {
 
     pub fn add_stage_before<S: Stage>(
         &mut self,
-        target: impl Into<StageLabel>,
-        label: impl Into<StageLabel>,
+        target: impl StageLabel,
+        label: impl StageLabel,
         stage: S,
     ) -> &mut Self {
         self.app.schedule.add_stage_before(target, label, stage);
         self
     }
 
-    pub fn add_startup_stage<S: Stage>(
-        &mut self,
-        label: impl Into<StageLabel>,
-        stage: S,
-    ) -> &mut Self {
+    pub fn add_startup_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
         self.app
             .schedule
             .stage(CoreStage::Startup, |schedule: &mut Schedule| {
@@ -94,8 +90,8 @@ impl AppBuilder {
 
     pub fn add_startup_stage_after<S: Stage>(
         &mut self,
-        target: impl Into<StageLabel>,
-        label: impl Into<StageLabel>,
+        target: impl StageLabel,
+        label: impl StageLabel,
         stage: S,
     ) -> &mut Self {
         self.app
@@ -108,8 +104,8 @@ impl AppBuilder {
 
     pub fn add_startup_stage_before<S: Stage>(
         &mut self,
-        target: impl Into<StageLabel>,
-        label: impl Into<StageLabel>,
+        target: impl StageLabel,
+        label: impl StageLabel,
         stage: S,
     ) -> &mut Self {
         self.app
@@ -122,7 +118,7 @@ impl AppBuilder {
 
     pub fn stage<T: Stage, F: FnOnce(&mut T) -> &mut T>(
         &mut self,
-        label: impl Into<StageLabel>,
+        label: impl StageLabel,
         func: F,
     ) -> &mut Self {
         self.app.schedule.stage(label, func);
@@ -135,7 +131,7 @@ impl AppBuilder {
 
     pub fn add_system_to_stage(
         &mut self,
-        stage_label: impl Into<StageLabel>,
+        stage_label: impl StageLabel,
         system: impl Into<SystemDescriptor>,
     ) -> &mut Self {
         self.app.schedule.add_system_to_stage(stage_label, system);
@@ -148,7 +144,7 @@ impl AppBuilder {
 
     pub fn add_startup_system_to_stage(
         &mut self,
-        stage_label: impl Into<StageLabel>,
+        stage_label: impl StageLabel,
         system: impl Into<SystemDescriptor>,
     ) -> &mut Self {
         self.app
@@ -161,7 +157,7 @@ impl AppBuilder {
 
     pub fn on_state_enter<T: Clone + Resource>(
         &mut self,
-        stage: impl Into<StageLabel>,
+        stage: impl StageLabel,
         state: T,
         system: impl Into<SystemDescriptor>,
     ) -> &mut Self {
@@ -172,7 +168,7 @@ impl AppBuilder {
 
     pub fn on_state_update<T: Clone + Resource>(
         &mut self,
-        stage: impl Into<StageLabel>,
+        stage: impl StageLabel,
         state: T,
         system: impl Into<SystemDescriptor>,
     ) -> &mut Self {
@@ -183,7 +179,7 @@ impl AppBuilder {
 
     pub fn on_state_exit<T: Clone + Resource>(
         &mut self,
-        stage: impl Into<StageLabel>,
+        stage: impl StageLabel,
         state: T,
         system: impl Into<SystemDescriptor>,
     ) -> &mut Self {

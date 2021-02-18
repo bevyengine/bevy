@@ -1,5 +1,6 @@
 use crate::{
-    BoxedSystem, ExclusiveSystem, ExclusiveSystemCoerced, ExclusiveSystemFn, System, SystemLabel,
+    BoxedSystem, BoxedSystemLabel, ExclusiveSystem, ExclusiveSystemCoerced, ExclusiveSystemFn,
+    System, SystemLabel,
 };
 
 /// Encapsulates a system and information on when it run in a `SystemStage`.
@@ -78,9 +79,9 @@ impl From<ExclusiveSystemCoerced> for SystemDescriptor {
 /// Encapsulates a parallel system and information on when it run in a `SystemStage`.
 pub struct ParallelSystemDescriptor {
     pub(crate) system: BoxedSystem<(), ()>,
-    pub(crate) label: Option<SystemLabel>,
-    pub(crate) before: Vec<SystemLabel>,
-    pub(crate) after: Vec<SystemLabel>,
+    pub(crate) label: Option<BoxedSystemLabel>,
+    pub(crate) before: Vec<BoxedSystemLabel>,
+    pub(crate) after: Vec<BoxedSystemLabel>,
 }
 
 fn new_parallel_descriptor(system: BoxedSystem<(), ()>) -> ParallelSystemDescriptor {
@@ -94,28 +95,28 @@ fn new_parallel_descriptor(system: BoxedSystem<(), ()>) -> ParallelSystemDescrip
 
 pub trait ParallelSystemDescriptorCoercion {
     /// Assigns a label to the system.
-    fn label(self, label: impl Into<SystemLabel>) -> ParallelSystemDescriptor;
+    fn label(self, label: impl SystemLabel) -> ParallelSystemDescriptor;
 
     /// Specifies that the system should run before the system with given label.
-    fn before(self, label: impl Into<SystemLabel>) -> ParallelSystemDescriptor;
+    fn before(self, label: impl SystemLabel) -> ParallelSystemDescriptor;
 
     /// Specifies that the system should run after the system with given label.
-    fn after(self, label: impl Into<SystemLabel>) -> ParallelSystemDescriptor;
+    fn after(self, label: impl SystemLabel) -> ParallelSystemDescriptor;
 }
 
 impl ParallelSystemDescriptorCoercion for ParallelSystemDescriptor {
-    fn label(mut self, label: impl Into<SystemLabel>) -> ParallelSystemDescriptor {
-        self.label = Some(label.into());
+    fn label(mut self, label: impl SystemLabel) -> ParallelSystemDescriptor {
+        self.label = Some(Box::new(label));
         self
     }
 
-    fn before(mut self, label: impl Into<SystemLabel>) -> ParallelSystemDescriptor {
-        self.before.push(label.into());
+    fn before(mut self, label: impl SystemLabel) -> ParallelSystemDescriptor {
+        self.before.push(Box::new(label));
         self
     }
 
-    fn after(mut self, label: impl Into<SystemLabel>) -> ParallelSystemDescriptor {
-        self.after.push(label.into());
+    fn after(mut self, label: impl SystemLabel) -> ParallelSystemDescriptor {
+        self.after.push(Box::new(label));
         self
     }
 }
@@ -124,29 +125,29 @@ impl<S> ParallelSystemDescriptorCoercion for S
 where
     S: System<In = (), Out = ()>,
 {
-    fn label(self, label: impl Into<SystemLabel>) -> ParallelSystemDescriptor {
+    fn label(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
         new_parallel_descriptor(Box::new(self)).label(label)
     }
 
-    fn before(self, label: impl Into<SystemLabel>) -> ParallelSystemDescriptor {
+    fn before(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
         new_parallel_descriptor(Box::new(self)).before(label)
     }
 
-    fn after(self, label: impl Into<SystemLabel>) -> ParallelSystemDescriptor {
+    fn after(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
         new_parallel_descriptor(Box::new(self)).after(label)
     }
 }
 
 impl ParallelSystemDescriptorCoercion for BoxedSystem<(), ()> {
-    fn label(self, label: impl Into<SystemLabel>) -> ParallelSystemDescriptor {
+    fn label(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
         new_parallel_descriptor(self).label(label)
     }
 
-    fn before(self, label: impl Into<SystemLabel>) -> ParallelSystemDescriptor {
+    fn before(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
         new_parallel_descriptor(self).before(label)
     }
 
-    fn after(self, label: impl Into<SystemLabel>) -> ParallelSystemDescriptor {
+    fn after(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
         new_parallel_descriptor(self).after(label)
     }
 }
@@ -161,9 +162,9 @@ pub(crate) enum InsertionPoint {
 /// Encapsulates an exclusive system and information on when it run in a `SystemStage`.
 pub struct ExclusiveSystemDescriptor {
     pub(crate) system: Box<dyn ExclusiveSystem>,
-    pub(crate) label: Option<SystemLabel>,
-    pub(crate) before: Vec<SystemLabel>,
-    pub(crate) after: Vec<SystemLabel>,
+    pub(crate) label: Option<BoxedSystemLabel>,
+    pub(crate) before: Vec<BoxedSystemLabel>,
+    pub(crate) after: Vec<BoxedSystemLabel>,
     pub(crate) insertion_point: InsertionPoint,
 }
 
@@ -179,13 +180,13 @@ fn new_exclusive_descriptor(system: Box<dyn ExclusiveSystem>) -> ExclusiveSystem
 
 pub trait ExclusiveSystemDescriptorCoercion {
     /// Assigns a label to the system.
-    fn label(self, label: impl Into<SystemLabel>) -> ExclusiveSystemDescriptor;
+    fn label(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor;
 
     /// Specifies that the system should run before the system with given label.
-    fn before(self, label: impl Into<SystemLabel>) -> ExclusiveSystemDescriptor;
+    fn before(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor;
 
     /// Specifies that the system should run after the system with given label.
-    fn after(self, label: impl Into<SystemLabel>) -> ExclusiveSystemDescriptor;
+    fn after(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor;
 
     /// Specifies that the system should run with other exclusive systems at the start of stage.
     fn at_start(self) -> ExclusiveSystemDescriptor;
@@ -199,18 +200,18 @@ pub trait ExclusiveSystemDescriptorCoercion {
 }
 
 impl ExclusiveSystemDescriptorCoercion for ExclusiveSystemDescriptor {
-    fn label(mut self, label: impl Into<SystemLabel>) -> ExclusiveSystemDescriptor {
-        self.label = Some(label.into());
+    fn label(mut self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
+        self.label = Some(Box::new(label));
         self
     }
 
-    fn before(mut self, label: impl Into<SystemLabel>) -> ExclusiveSystemDescriptor {
-        self.before.push(label.into());
+    fn before(mut self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
+        self.before.push(Box::new(label));
         self
     }
 
-    fn after(mut self, label: impl Into<SystemLabel>) -> ExclusiveSystemDescriptor {
-        self.after.push(label.into());
+    fn after(mut self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
+        self.after.push(Box::new(label));
         self
     }
 
@@ -234,15 +235,15 @@ impl<T> ExclusiveSystemDescriptorCoercion for T
 where
     T: ExclusiveSystem + 'static,
 {
-    fn label(self, label: impl Into<SystemLabel>) -> ExclusiveSystemDescriptor {
+    fn label(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
         new_exclusive_descriptor(Box::new(self)).label(label)
     }
 
-    fn before(self, label: impl Into<SystemLabel>) -> ExclusiveSystemDescriptor {
+    fn before(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
         new_exclusive_descriptor(Box::new(self)).before(label)
     }
 
-    fn after(self, label: impl Into<SystemLabel>) -> ExclusiveSystemDescriptor {
+    fn after(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
         new_exclusive_descriptor(Box::new(self)).after(label)
     }
 

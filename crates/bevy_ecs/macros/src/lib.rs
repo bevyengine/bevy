@@ -470,13 +470,13 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(SystemLabel)]
 pub fn derive_system_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    derive_label(input, Ident::new("SystemLabelMarker", Span::call_site())).into()
+    derive_label(input, Ident::new("SystemLabel", Span::call_site())).into()
 }
 
 #[proc_macro_derive(StageLabel)]
 pub fn derive_stage_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    derive_label(input, Ident::new("StageLabelMarker", Span::call_site())).into()
+    derive_label(input, Ident::new("StageLabel", Span::call_site())).into()
 }
 
 fn derive_label(input: DeriveInput, label_type: Ident) -> TokenStream2 {
@@ -495,6 +495,10 @@ fn derive_label(input: DeriveInput, label_type: Ident) -> TokenStream2 {
     let crate_path: Path = syn::parse(path_str.parse::<TokenStream>().unwrap()).unwrap();
 
     quote! {
-        impl #crate_path::Label<#crate_path::#label_type> for #ident {}
+        impl #crate_path::#label_type for #ident {
+            fn dyn_clone(&self) -> Box<dyn #crate_path::#label_type> {
+                Box::new(self.clone())
+            }
+        }
     }
 }

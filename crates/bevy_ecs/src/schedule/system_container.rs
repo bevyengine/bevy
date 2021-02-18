@@ -1,7 +1,7 @@
 use std::{borrow::Cow, ptr::NonNull};
 
 use crate::{
-    ExclusiveSystem, ExclusiveSystemDescriptor, ParallelSystemDescriptor, System, SystemLabel,
+    BoxedSystemLabel, ExclusiveSystem, ExclusiveSystemDescriptor, ParallelSystemDescriptor, System,
 };
 
 pub(super) trait SystemContainer {
@@ -9,9 +9,9 @@ pub(super) trait SystemContainer {
     fn dependencies(&self) -> &[usize];
     fn set_dependencies(&mut self, dependencies: impl IntoIterator<Item = usize>);
     fn system_set(&self) -> usize;
-    fn label(&self) -> &Option<SystemLabel>;
-    fn before(&self) -> &[SystemLabel];
-    fn after(&self) -> &[SystemLabel];
+    fn label(&self) -> &Option<BoxedSystemLabel>;
+    fn before(&self) -> &[BoxedSystemLabel];
+    fn after(&self) -> &[BoxedSystemLabel];
     fn is_compatible(&self, other: &Self) -> bool;
 }
 
@@ -19,9 +19,9 @@ pub(super) struct ExclusiveSystemContainer {
     system: Box<dyn ExclusiveSystem>,
     dependencies: Vec<usize>,
     set: usize,
-    label: Option<SystemLabel>,
-    before: Vec<SystemLabel>,
-    after: Vec<SystemLabel>,
+    label: Option<BoxedSystemLabel>,
+    before: Vec<BoxedSystemLabel>,
+    after: Vec<BoxedSystemLabel>,
 }
 
 impl ExclusiveSystemContainer {
@@ -62,15 +62,15 @@ impl SystemContainer for ExclusiveSystemContainer {
         self.set
     }
 
-    fn label(&self) -> &Option<SystemLabel> {
+    fn label(&self) -> &Option<BoxedSystemLabel> {
         &self.label
     }
 
-    fn before(&self) -> &[SystemLabel] {
+    fn before(&self) -> &[BoxedSystemLabel] {
         &self.before
     }
 
-    fn after(&self) -> &[SystemLabel] {
+    fn after(&self) -> &[BoxedSystemLabel] {
         &self.after
     }
 
@@ -84,9 +84,9 @@ pub struct ParallelSystemContainer {
     pub(crate) should_run: bool,
     dependencies: Vec<usize>,
     set: usize,
-    label: Option<SystemLabel>,
-    before: Vec<SystemLabel>,
-    after: Vec<SystemLabel>,
+    label: Option<BoxedSystemLabel>,
+    before: Vec<BoxedSystemLabel>,
+    after: Vec<BoxedSystemLabel>,
 }
 
 impl SystemContainer for ParallelSystemContainer {
@@ -110,15 +110,15 @@ impl SystemContainer for ParallelSystemContainer {
         self.set
     }
 
-    fn label(&self) -> &Option<SystemLabel> {
+    fn label(&self) -> &Option<BoxedSystemLabel> {
         &self.label
     }
 
-    fn before(&self) -> &[SystemLabel] {
+    fn before(&self) -> &[BoxedSystemLabel] {
         &self.before
     }
 
-    fn after(&self) -> &[SystemLabel] {
+    fn after(&self) -> &[BoxedSystemLabel] {
         &self.after
     }
 
