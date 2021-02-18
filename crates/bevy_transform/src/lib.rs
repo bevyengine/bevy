@@ -15,7 +15,7 @@ use prelude::{parent_update_system, Children, GlobalTransform, Parent, PreviousP
 pub struct TransformPlugin;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
-pub enum Systems {
+pub enum TransformSystem {
     TransformPropagate,
     ParentUpdate,
 }
@@ -30,25 +30,25 @@ impl Plugin for TransformPlugin {
             // add transform systems to startup so the first update is "correct"
             .add_startup_system_to_stage(
                 StartupStage::PostStartup,
-                parent_update_system.system().label(Systems::ParentUpdate),
+                parent_update_system.system().label(TransformSystem::ParentUpdate),
             )
             .add_startup_system_to_stage(
                 StartupStage::PostStartup,
                 transform_propagate_system::transform_propagate_system
                     .system()
-                    .label(Systems::TransformPropagate)
-                    .after(Systems::ParentUpdate),
+                    .label(TransformSystem::TransformPropagate)
+                    .after(TransformSystem::ParentUpdate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                parent_update_system.system().label(Systems::ParentUpdate),
+                parent_update_system.system().label(TransformSystem::ParentUpdate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 transform_propagate_system::transform_propagate_system
                     .system()
-                    .label(Systems::TransformPropagate)
-                    .after(Systems::ParentUpdate),
+                    .label(TransformSystem::TransformPropagate)
+                    .after(TransformSystem::ParentUpdate),
             );
     }
 }

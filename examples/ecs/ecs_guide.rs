@@ -240,7 +240,7 @@ fn local_state_system(mut state: Local<State>, query: Query<(&Player, &Score)>) 
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-enum MyStages {
+enum MyStage {
     BeforeRound,
     AfterRound,
 }
@@ -304,25 +304,25 @@ fn main() {
         // "after_round": score_check_system, game_over_system
         .add_stage_before(
             CoreStage::Update,
-            MyStages::BeforeRound,
+            MyStage::BeforeRound,
             SystemStage::parallel(),
         )
         .add_stage_after(
             CoreStage::Update,
-            MyStages::AfterRound,
+            MyStage::AfterRound,
             SystemStage::parallel(),
         )
-        .add_system_to_stage(MyStages::BeforeRound, new_round_system.system())
-        .add_system_to_stage(MyStages::BeforeRound, new_player_system.system())
+        .add_system_to_stage(MyStage::BeforeRound, new_round_system.system())
+        .add_system_to_stage(MyStage::BeforeRound, new_player_system.system())
         // We can ensure that game_over system runs after score_check_system using explicit ordering constraints
         // First, we label the system we want to refer to using `.label`
         // Then, we use either `.before` or `.after` to describe the order we want the relationship
         .add_system_to_stage(
-            MyStages::AfterRound,
+            MyStage::AfterRound,
             score_check_system.system().label(MyLabels::ScoreCheck),
         )
         .add_system_to_stage(
-            MyStages::AfterRound,
+            MyStage::AfterRound,
             game_over_system.system().after(MyLabels::ScoreCheck),
         )
         // We can check our systems for execution order ambiguities by examining the output produced in the console

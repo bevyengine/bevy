@@ -25,7 +25,7 @@ use bevy_ecs::{IntoExclusiveSystem, StageLabel, SystemStage};
 pub struct ScenePlugin;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-enum Stages {
+enum SceneStage {
     SceneStage,
 }
 
@@ -37,9 +37,9 @@ impl Plugin for ScenePlugin {
             .init_resource::<SceneSpawner>()
             .add_stage_after(
                 CoreStage::Event,
-                Stages::SceneStage,
+                SceneStage::SceneStage,
                 SystemStage::parallel(),
             )
-            .add_system_to_stage(Stages::SceneStage, scene_spawner_system.exclusive_system());
+            .add_system_to_stage(SceneStage::SceneStage, scene_spawner_system.exclusive_system());
     }
 }
