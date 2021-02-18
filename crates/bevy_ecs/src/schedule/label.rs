@@ -59,6 +59,12 @@ pub trait SystemLabel: DynHash + Debug + Send + Sync + 'static {
 }
 pub(crate) type BoxedSystemLabel = Box<dyn SystemLabel>;
 
+pub trait AmbiguitySetLabel: DynHash + Debug + Send + Sync + 'static {
+    #[doc(hidden)]
+    fn dyn_clone(&self) -> Box<dyn AmbiguitySetLabel>;
+}
+pub(crate) type BoxedAmbiguitySetLabel = Box<dyn AmbiguitySetLabel>;
+
 macro_rules! impl_label {
     ($trait_name:ident) => {
         impl PartialEq for dyn $trait_name {
@@ -97,3 +103,4 @@ macro_rules! impl_label {
 
 impl_label!(StageLabel);
 impl_label!(SystemLabel);
+impl_label!(AmbiguitySetLabel);

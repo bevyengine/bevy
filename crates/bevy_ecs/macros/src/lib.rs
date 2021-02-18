@@ -479,6 +479,12 @@ pub fn derive_stage_label(input: TokenStream) -> TokenStream {
     derive_label(input, Ident::new("StageLabel", Span::call_site())).into()
 }
 
+#[proc_macro_derive(AmbiguitySetLabel)]
+pub fn derive_ambiguity_set_label(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    derive_label(input, Ident::new("AmbiguitySetLabel", Span::call_site())).into()
+}
+
 fn derive_label(input: DeriveInput, label_type: Ident) -> TokenStream2 {
     let ident = input.ident;
 
