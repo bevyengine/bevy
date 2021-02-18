@@ -1,5 +1,5 @@
 <!-- MD024 - The Headers from the Platform-Specific Examples should be identical  -->
-<!-- markdownlint-disable MD024 -->
+<!-- markdownlint-disable-file MD024 -->
 
 # Examples
 
@@ -49,10 +49,10 @@ git checkout v0.4.0
   - [WASM](#wasm)
 
 # The Bare Minimum
-<!-- markdownlint-disable MD026 -->
-<!-- MD026 Hello, World! looks better with the ! -->
+
+<!-- MD026 - Hello, World! looks better with the ! -->
+<!-- markdownlint-disable-next-line MD026 -->
 ## Hello, World!
-<!-- markdownlint-enable MD026 -->
 
 Example | Main | Description
 --- | --- | ---

@@ -59,12 +59,11 @@ You can specify the dependency [both as a version and with git](https://doc.rust
 Bevy is evolving very fast. You can use one of these badges to communicate to your users how closely you intend to track Bevy's main branch.
 
 <!-- MD033 - The Badges could be downsized, without the inline HTML due to the large code colum -->
-<!-- markdownlint-disable MD033 -->
+<!-- markdownlint-disable-next-line MD033 -->
 |<div style="width:100px">badge</div>|<div style="width:200px">description</div>|code|
 |-|-|-|
 |[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-main-lightblue)](https://github.com/bevyengine/bevy/blob/main/docs/plugins_guidelines.md#main-branch-tracking)|I intend to track main as much as I can|`[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-main-lightblue)](https://github.com/bevyengine/bevy/blob/main/docs/plugins_guidelines.md#main-branch-tracking)`|
 |[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-released%20version-lightblue)](https://github.com/bevyengine/bevy/blob/main/docs/plugins_guidelines.md#main-branch-tracking)|I will only follow released Bevy versions|`[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-released%20version-lightblue)](https://github.com/bevyengine/bevy/blob/main/docs/plugins_guidelines.md#main-branch-tracking)`|
-<!-- markdownlint-enable MD033 -->
 
 ## General Advices for a Rust Crate
 
