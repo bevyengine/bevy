@@ -57,10 +57,7 @@ impl Plugin for UiPlugin {
                 UiStage::Ui,
                 widget::image_node_system.system().before(UiSystem::Flex),
             )
-            .add_system_to_stage(
-                UiStage::Ui,
-                flex_node_system.system().label(UiSystem::Flex),
-            )
+            .add_system_to_stage(UiStage::Ui, flex_node_system.system().label(UiSystem::Flex))
             .add_system_to_stage(UiStage::Ui, ui_z_system.system())
             .add_system_to_stage(RenderStage::Draw, widget::draw_text_system.system());
 

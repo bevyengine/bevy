@@ -31,16 +31,8 @@ fn main() {
         )
         .on_state_enter(GameStage::InGame, GameState::Playing, setup.system())
         .on_state_update(GameStage::InGame, GameState::Playing, move_player.system())
-        .on_state_update(
-            GameStage::InGame,
-            GameState::Playing,
-            focus_camera.system(),
-        )
-        .on_state_update(
-            GameStage::InGame,
-            GameState::Playing,
-            rotate_bonus.system(),
-        )
+        .on_state_update(GameStage::InGame, GameState::Playing, focus_camera.system())
+        .on_state_update(GameStage::InGame, GameState::Playing, rotate_bonus.system())
         .on_state_update(
             GameStage::InGame,
             GameState::Playing,

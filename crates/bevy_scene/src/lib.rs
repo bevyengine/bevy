@@ -40,6 +40,9 @@ impl Plugin for ScenePlugin {
                 SceneStage::SceneStage,
                 SystemStage::parallel(),
             )
-            .add_system_to_stage(SceneStage::SceneStage, scene_spawner_system.exclusive_system());
+            .add_system_to_stage(
+                SceneStage::SceneStage,
+                scene_spawner_system.exclusive_system(),
+            );
     }
 }
