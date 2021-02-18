@@ -482,14 +482,11 @@ fn topological_order(
 /// Returns vector containing all pairs of indices of systems with ambiguous execution order.
 /// Systems must be topologically sorted beforehand.
 fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize)> {
-    let ambiguity_set_labels = systems
-        .iter()
-        .flat_map(|container| container.ambiguity_sets())
-        .collect::<HashSet<_>>()
-        .drain()
-        .enumerate()
-        .map(|(index, set)| (set, index))
-        .collect::<HashMap<_, _>>();
+    let mut ambiguity_set_labels = HashMap::default();
+    for set in systems.iter().flat_map(|c| c.ambiguity_sets()) {
+        let len = ambiguity_set_labels.len();
+        ambiguity_set_labels.entry(set).or_insert(len);
+    }
     let mut all_ambiguity_sets = Vec::<FixedBitSet>::with_capacity(systems.len());
     let mut all_dependencies = Vec::<FixedBitSet>::with_capacity(systems.len());
     let mut all_dependants = Vec::<FixedBitSet>::with_capacity(systems.len());
