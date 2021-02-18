@@ -20,15 +20,23 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::{IntoSystem, ParallelSystemDescriptorCoercion, SystemStage};
-use bevy_render::render_graph::RenderGraph;
+use bevy_ecs::{
+    IntoSystem, ParallelSystemDescriptorCoercion, StageLabel, SystemLabel, SystemStage,
+};
+use bevy_render::{render_graph::RenderGraph, RenderStage};
 use update::ui_z_system;
 
 #[derive(Default)]
 pub struct UiPlugin;
 
-pub mod stage {
-    pub const UI: &str = "ui";
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+pub enum UiStage {
+    Ui,
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+pub enum UiSystem {
+    Flex,
 }
 
 pub mod system {
@@ -38,21 +46,20 @@ pub mod system {
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<FlexSurface>()
-            .add_stage_before(
-                bevy_app::stage::POST_UPDATE,
-                stage::UI,
-                SystemStage::parallel(),
-            )
-            .add_system_to_stage(bevy_app::stage::PRE_UPDATE, ui_focus_system.system())
+            .add_stage_before(CoreStage::PostUpdate, UiStage::Ui, SystemStage::parallel())
+            .add_system_to_stage(CoreStage::PreUpdate, ui_focus_system.system())
             // add these stages to front because these must run before transform update systems
-            .add_system_to_stage(stage::UI, widget::text_system.system().before(system::FLEX))
             .add_system_to_stage(
-                stage::UI,
-                widget::image_node_system.system().before(system::FLEX),
+                UiStage::Ui,
+                widget::text_system.system().before(UiSystem::Flex),
             )
-            .add_system_to_stage(stage::UI, flex_node_system.system().label(system::FLEX))
-            .add_system_to_stage(stage::UI, ui_z_system.system())
-            .add_system_to_stage(bevy_render::stage::DRAW, widget::draw_text_system.system());
+            .add_system_to_stage(
+                UiStage::Ui,
+                widget::image_node_system.system().before(UiSystem::Flex),
+            )
+            .add_system_to_stage(UiStage::Ui, flex_node_system.system().label(UiSystem::Flex))
+            .add_system_to_stage(UiStage::Ui, ui_z_system.system())
+            .add_system_to_stage(RenderStage::Draw, widget::draw_text_system.system());
 
         let resources = app.resources();
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
