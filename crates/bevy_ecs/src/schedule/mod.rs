@@ -153,6 +153,16 @@ impl Schedule {
         self
     }
 
+    pub fn add_system_set_to_stage(
+        &mut self,
+        stage_label: impl StageLabel,
+        system_set: SystemSet,
+    ) -> &mut Self {
+        self.stage(stage_label, |stage: &mut SystemStage| {
+            stage.add_system_set(system_set)
+        })
+    }
+
     pub fn stage<T: Stage, F: FnOnce(&mut T) -> &mut T>(
         &mut self,
         label: impl StageLabel,

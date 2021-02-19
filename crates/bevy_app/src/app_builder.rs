@@ -6,7 +6,8 @@ use crate::{
 };
 use bevy_ecs::{
     clear_trackers_system, FromResources, IntoExclusiveSystem, IntoSystem, Resource, Resources,
-    RunOnce, Schedule, Stage, StageLabel, StateStage, SystemDescriptor, SystemStage, World,
+    RunOnce, Schedule, Stage, StageLabel, StateStage, SystemDescriptor, SystemSet, SystemStage,
+    World,
 };
 use bevy_utils::tracing::debug;
 
@@ -129,12 +130,27 @@ impl AppBuilder {
         self.add_system_to_stage(CoreStage::Update, system)
     }
 
+    pub fn add_system_set(&mut self, system_set: SystemSet) -> &mut Self {
+        self.add_system_set_to_stage(CoreStage::Update, system_set)
+    }
+
     pub fn add_system_to_stage(
         &mut self,
         stage_label: impl StageLabel,
         system: impl Into<SystemDescriptor>,
     ) -> &mut Self {
         self.app.schedule.add_system_to_stage(stage_label, system);
+        self
+    }
+
+    pub fn add_system_set_to_stage(
+        &mut self,
+        stage_label: impl StageLabel,
+        system_set: SystemSet,
+    ) -> &mut Self {
+        self.app
+            .schedule
+            .add_system_set_to_stage(stage_label, system_set);
         self
     }
 
