@@ -450,7 +450,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         impl #impl_generics #path::FetchSystemParam<'a> for #fetch_struct_name<#punctuated_generic_idents> {
             type Item = #struct_name#ty_generics;
             fn init(system_state: &mut #path::SystemState, world: &#path::World, resources: &mut #path::Resources) {
-                #(<<#field_types as SystemParam>::Fetch as #path::FetchSystemParam>::init(system_state, world, resources);)*
+                #(<<#field_types as #path::SystemParam>::Fetch as #path::FetchSystemParam>::init(system_state, world, resources);)*
             }
 
             unsafe fn get_param(
@@ -459,7 +459,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 resources: &'a #path::Resources,
             ) -> Option<Self::Item> {
                 Some(#struct_name {
-                    #(#fields: <<#field_types as SystemParam>::Fetch as #path::FetchSystemParam>::get_param(system_state, world, resources)?,)*
+                    #(#fields: <<#field_types as #path::SystemParam>::Fetch as #path::FetchSystemParam>::get_param(system_state, world, resources)?,)*
                     #(#ignored_fields: <#ignored_field_types>::default(),)*
                 })
             }

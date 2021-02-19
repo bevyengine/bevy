@@ -149,7 +149,7 @@ impl<Scene: Component + IntoComponent<Runtime>, Runtime: Component> FromType<Sce
                                     scene_entity,
                                     runtime_entity| {
                 let scene_component = scene_world.get::<Scene>(scene_entity).unwrap();
-                let destination_component = scene_component.into_component(resources);
+                let destination_component = scene_component.as_component(resources);
                 runtime_world
                     .insert_one(runtime_entity, destination_component)
                     .unwrap();
@@ -195,7 +195,7 @@ impl<Runtime: Component + IntoComponent<Scene>, Scene: Component> FromType<Runti
                                     runtime_entity,
                                     scene_entity| {
                 let runtime_component = runtime_world.get::<Runtime>(runtime_entity).unwrap();
-                let scene_component = runtime_component.into_component(resources);
+                let scene_component = runtime_component.as_component(resources);
                 scene_world
                     .insert_one(scene_entity, scene_component)
                     .unwrap();
@@ -236,6 +236,10 @@ impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
     }
 }
 
+// TODO: Dead code - this trait is never implemented
+// The name of the method was changed in <https://github.com/bevyengine/bevy/pull/1433>
+// to fix the update to clippy for Rust 1.50
+// which is why this is inconsistent
 pub trait IntoComponent<ToComponent: Component> {
-    fn into_component(&self, resources: &Resources) -> ToComponent;
+    fn as_component(&self, resources: &Resources) -> ToComponent;
 }

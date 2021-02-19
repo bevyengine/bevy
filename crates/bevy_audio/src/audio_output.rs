@@ -65,7 +65,7 @@ where
     <P as Decodable>::Decoder: rodio::Source + Send + Sync,
     <<P as Decodable>::Decoder as Iterator>::Item: rodio::Sample + Send + Sync,
 {
-    let audio_output = resources.get_thread_local::<AudioOutput<P>>().unwrap();
+    let audio_output = resources.get_non_send::<AudioOutput<P>>().unwrap();
     let mut audio = resources.get_mut::<Audio<P>>().unwrap();
 
     if let Some(audio_sources) = resources.get::<Assets<P>>() {

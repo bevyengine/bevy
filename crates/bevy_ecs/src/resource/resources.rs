@@ -99,7 +99,7 @@ impl<T: 'static> ResourceStorage for VecResourceStorage<T> {
 /// A collection of resource instances identified by their type.
 pub struct Resources {
     pub(crate) resource_data: HashMap<TypeId, ResourceData>,
-    thread_local_data: HashMap<TypeId, Box<dyn ResourceStorage>>,
+    non_send_data: HashMap<TypeId, Box<dyn ResourceStorage>>,
     main_thread_id: ThreadId,
 }
 
@@ -107,7 +107,7 @@ impl Default for Resources {
     fn default() -> Self {
         Resources {
             resource_data: Default::default(),
-            thread_local_data: Default::default(),
+            non_send_data: Default::default(),
             main_thread_id: std::thread::current().id(),
         }
     }
@@ -118,10 +118,10 @@ impl Resources {
         self.insert_resource(resource, ResourceIndex::Global);
     }
 
-    pub fn insert_thread_local<T: 'static>(&mut self, resource: T) {
-        self.check_thread_local();
+    pub fn insert_non_send<T: 'static>(&mut self, resource: T) {
+        self.check_if_main_thread();
         let entry = self
-            .thread_local_data
+            .non_send_data
             .entry(TypeId::of::<T>())
             .or_insert_with(|| Box::new(VecResourceStorage::<T>::default()));
         let resources = entry.downcast_mut::<VecResourceStorage<T>>().unwrap();
@@ -132,9 +132,9 @@ impl Resources {
         }
     }
 
-    fn check_thread_local(&self) {
+    fn check_if_main_thread(&self) {
         if std::thread::current().id() != self.main_thread_id {
-            panic!("Attempted to access a thread local resource off of the main thread.")
+            panic!("Attempted to access a non-send resource off of the main thread.")
         }
     }
 
@@ -150,9 +150,9 @@ impl Resources {
         self.get_resource_mut(ResourceIndex::Global)
     }
 
-    pub fn get_thread_local<T: 'static>(&self) -> Option<ResourceRef<'_, T>> {
-        self.check_thread_local();
-        self.thread_local_data
+    pub fn get_non_send<T: 'static>(&self) -> Option<ResourceRef<'_, T>> {
+        self.check_if_main_thread();
+        self.non_send_data
             .get(&TypeId::of::<T>())
             .and_then(|storage| {
                 let resources = storage.downcast_ref::<VecResourceStorage<T>>().unwrap();
@@ -160,9 +160,9 @@ impl Resources {
             })
     }
 
-    pub fn get_thread_local_mut<T: 'static>(&self) -> Option<ResourceRefMut<'_, T>> {
-        self.check_thread_local();
-        self.thread_local_data
+    pub fn get_non_send_mut<T: 'static>(&self) -> Option<ResourceRefMut<'_, T>> {
+        self.check_if_main_thread();
+        self.non_send_data
             .get(&TypeId::of::<T>())
             .and_then(|storage| {
                 let resources = storage.downcast_ref::<VecResourceStorage<T>>().unwrap();
@@ -280,6 +280,24 @@ impl Resources {
                 resources.get_unsafe_ref(index)
             })
             .unwrap_or_else(|| panic!("Resource does not exist {}.", std::any::type_name::<T>()))
+    }
+
+    #[inline]
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn get_unsafe_non_send_ref<T: 'static>(&self) -> NonNull<T> {
+        self.check_if_main_thread();
+        self.non_send_data
+            .get(&TypeId::of::<T>())
+            .map(|storage| {
+                let resources = storage.downcast_ref::<VecResourceStorage<T>>().unwrap();
+                resources.get_unsafe_ref(0)
+            })
+            .unwrap_or_else(|| {
+                panic!(
+                    "Non-send resource does not exist {}.",
+                    std::any::type_name::<T>()
+                )
+            })
     }
 
     #[inline]
@@ -528,40 +546,40 @@ mod tests {
     }
 
     #[test]
-    fn thread_local_resource() {
+    fn non_send_resource() {
         let mut resources = Resources::default();
-        resources.insert_thread_local(123i32);
-        resources.insert_thread_local(456i64);
-        assert_eq!(*resources.get_thread_local::<i32>().unwrap(), 123);
-        assert_eq!(*resources.get_thread_local_mut::<i64>().unwrap(), 456);
+        resources.insert_non_send(123i32);
+        resources.insert_non_send(456i64);
+        assert_eq!(*resources.get_non_send::<i32>().unwrap(), 123);
+        assert_eq!(*resources.get_non_send_mut::<i64>().unwrap(), 456);
     }
 
     #[test]
-    fn thread_local_resource_ref_aliasing() {
+    fn non_send_resource_ref_aliasing() {
         let mut resources = Resources::default();
-        resources.insert_thread_local(123i32);
-        let a = resources.get_thread_local::<i32>().unwrap();
-        let b = resources.get_thread_local::<i32>().unwrap();
+        resources.insert_non_send(123i32);
+        let a = resources.get_non_send::<i32>().unwrap();
+        let b = resources.get_non_send::<i32>().unwrap();
         assert_eq!(*a, 123);
         assert_eq!(*b, 123);
     }
 
     #[test]
     #[should_panic]
-    fn thread_local_resource_mut_ref_aliasing() {
+    fn non_send_resource_mut_ref_aliasing() {
         let mut resources = Resources::default();
-        resources.insert_thread_local(123i32);
-        let _a = resources.get_thread_local::<i32>().unwrap();
-        let _b = resources.get_thread_local_mut::<i32>().unwrap();
+        resources.insert_non_send(123i32);
+        let _a = resources.get_non_send::<i32>().unwrap();
+        let _b = resources.get_non_send_mut::<i32>().unwrap();
     }
 
     #[test]
     #[should_panic]
-    fn thread_local_resource_panic() {
+    fn non_send_resource_panic() {
         let mut resources = Resources::default();
-        resources.insert_thread_local(0i32);
+        resources.insert_non_send(0i32);
         std::thread::spawn(move || {
-            let _ = resources.get_thread_local_mut::<i32>();
+            let _ = resources.get_non_send_mut::<i32>();
         })
         .join()
         .unwrap();

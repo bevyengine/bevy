@@ -1,7 +1,7 @@
 mod async_system;
 mod commands;
+mod exclusive_system;
 mod into_system;
-mod into_thread_local;
 mod query;
 #[allow(clippy::module_inception)]
 mod system;
@@ -10,8 +10,8 @@ mod system_param;
 
 pub use async_system::*;
 pub use commands::*;
+pub use exclusive_system::*;
 pub use into_system::*;
-pub use into_thread_local::*;
 pub use query::*;
 pub use system::*;
 pub use system_chaining::*;
