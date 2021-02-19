@@ -22,22 +22,22 @@ cargo clippy --all-targets --all-features -- -D warnings -A clippy::type_complex
 
 ### [markdownlint](https://github.com/DavidAnson/markdownlint)
 
-`markdownlint` is provided by `super-linter` and is responsible for `.md` Files. It's configuration is saved in the [.markdown-lint.yml](../.github/linters/markdown-lint.yml) File.
+`markdownlint` is provided by `super-linter` and is responsible for `.md` files.
+Its configuration is saved in the [.markdown-lint.yml](../.github/linters/markdown-lint.yml) file.
 
-The provided Rules are documented [here](https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md) and Information about setting the Config can be seen [here](https://github.com/DavidAnson/markdownlint#optionsconfig).
+The provided rules are documented [here](https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md) and information about setting the config can be seen [here](https://github.com/DavidAnson/markdownlint#optionsconfig).
 
-#### Using [VSCode markdownlint](https://marketplace.visualstudio.com/items?itemName=DavidAnson.vscode-markdownlint)
+#### Using [VS Code markdownlint](https://marketplace.visualstudio.com/items?itemName=DavidAnson.vscode-markdownlint)
 
-(Currently not need as the Extension already disables the Rule `MD013` by default.)
-
-If you want to use the VSCode Extension with the Rules defined in [.markdown-lint.yml](../.github/linters/markdown-lint.yml), than you need to create a local config File in the Root of the Project, with this base configuration:
+If you want to use the VS Code Extension with the rules defined in [.markdown-lint.yml](../.github/linters/markdown-lint.yml), then you need to create a local config file in the root of the project with the configuration below.
+Currently, this is not needed as the extension already disables the rule `MD013` by default.
 
 ```json
 {
-  "extends": "./.github/linters/.markdown-lint.yml"
+  "extends": ".github/linters/.markdown-lint.yml"
 }
 ```
 
 ### Other Linters provided by [super-linter](https://github.com/github/super-linter)
 
-All other Linters not mentioned in the this file are not activated and can be seen [here](https://github.com/github/super-linter#supported-linters).
+All other linters not mentioned in the this file are not activated and can be seen [here](https://github.com/github/super-linter#supported-linters).
