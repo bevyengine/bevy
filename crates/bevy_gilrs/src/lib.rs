@@ -1,7 +1,7 @@
 mod converter;
 mod gilrs_system;
 
-use bevy_app::{prelude::*, startup_stage::PRE_STARTUP};
+use bevy_app::prelude::*;
 use bevy_ecs::IntoExclusiveSystem;
 use bevy_utils::tracing::error;
 use gilrs::GilrsBuilder;
@@ -20,10 +20,13 @@ impl Plugin for GilrsPlugin {
             Ok(gilrs) => {
                 app.insert_non_send_resource(gilrs)
                     .add_startup_system_to_stage(
-                        PRE_STARTUP,
+                        StartupStage::PreStartup,
                         gilrs_event_startup_system.exclusive_system(),
                     )
-                    .add_system_to_stage(stage::PRE_EVENT, gilrs_event_system.exclusive_system());
+                    .add_system_to_stage(
+                        CoreStage::PreEvent,
+                        gilrs_event_system.exclusive_system(),
+                    );
             }
             Err(err) => error!("Failed to start Gilrs. {}", err),
         }
