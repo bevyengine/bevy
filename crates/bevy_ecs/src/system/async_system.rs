@@ -10,11 +10,12 @@ use crate::{
     SystemState, TypeAccess, World,
 };
 
-pub trait AsyncSystem<Trigger, Params, Future, Marker>: Sized {
+// this is stable on nightly, and will land on 2021-03-25 :)
+pub trait AsyncSystem<Trigger, Params, Future, Marker, const ACCESSOR_COUNT: usize>: Sized {
     type TaskPool: Deref<Target = TaskPool>;
     type Params;
 
-    fn systems(self) -> (Vec<BoxedSystem>, Sender<Trigger>);
+    fn systems(self) -> ([BoxedSystem; ACCESSOR_COUNT], Sender<Trigger>);
 }
 pub struct Accessor<P: SystemParam> {
     channel: Sender<Box<dyn FnOnce(&SystemState, &World, &Resources) + Send + Sync>>,
@@ -114,21 +115,24 @@ impl<P: SystemParam + 'static> System for AccessorRunnerSystem<P> {
         }
     }
 
-    fn update(&mut self, _world: &World) {}
-
-    fn thread_local_execution(&self) -> crate::ThreadLocalExecution {
-        crate::ThreadLocalExecution::NextFlush
-    }
-
-    fn run_thread_local(&mut self, world: &mut World, resources: &mut Resources) {
-        // SAFE: this is called with unique access to SystemState
-        unsafe {
-            (&mut *self.state.commands.get()).apply(world, resources);
-        }
+    fn apply_buffers(&mut self, world: &mut World, resources: &mut Resources) {
+        self.state.commands.get_mut().apply(world, resources);
         if let Some(ref commands) = self.state.arc_commands {
             let mut commands = commands.lock();
             commands.apply(world, resources);
         }
+    }
+
+    fn update_access(&mut self, world: &World) {
+        self.state.update(world);
+    }
+
+    fn component_access(&self) -> &TypeAccess<TypeId> {
+        &self.state.component_access
+    }
+
+    fn is_non_send(&self) -> bool {
+        self.state.is_non_send
     }
 }
 
@@ -144,8 +148,8 @@ pub mod impls {
     pub struct InAsyncMarker;
 
     macro_rules! impl_async_system {
-        ($([$i: ident, $tx: ident, $rx: ident]),*) => {
-            impl<Func, $($i,)* Fut> AsyncSystem<(), ($($i,)*), Fut, SimpleAsyncMarker> for Func
+        ($param_count: literal, $([$i: ident, $tx: ident, $rx: ident]),*) => {
+            impl<Func, $($i,)* Fut> AsyncSystem<(), ($($i,)*), Fut, SimpleAsyncMarker, $param_count> for Func
             where
                 Func: FnMut($(Accessor<$i>,)*) -> Fut + Send + 'static,
                 Fut: Future<Output = ()> + Send + 'static,
@@ -153,7 +157,7 @@ pub mod impls {
             {
                 type TaskPool = AsyncComputeTaskPool;
                 type Params = ($($i,)*);
-                fn systems(mut self) -> (Vec<BoxedSystem>, Sender<()>) {
+                fn systems(mut self) -> ([BoxedSystem; $param_count], Sender<()>) {
                     $(let ($tx, $rx) = async_channel::unbounded();)*
                     let (tx, rx) = async_channel::unbounded();
                     let f = async move {
@@ -173,7 +177,7 @@ pub mod impls {
                     let arc = Arc::new(Mutex::new(Some(
                         Box::pin(f) as Pin<Box<dyn Future<Output = ()> + Send>>
                     )));
-                    (vec![$(
+                    ([$(
                         Box::new(AccessorRunnerSystem::<$i> {
                             state: {
                                 let mut resource_access = TypeAccess::default();
@@ -181,7 +185,9 @@ pub mod impls {
                                 SystemState {
                                     name: std::any::type_name::<Self>().into(),
                                     archetype_component_access: TypeAccess::default(),
+                                    component_access: TypeAccess::default(),
                                     resource_access,
+                                    is_non_send: false,
                                     local_resource_access: TypeAccess::default(),
                                     id: SystemId::new(),
                                     commands: Default::default(),
@@ -200,7 +206,7 @@ pub mod impls {
                 }
             }
 
-            impl<Trigger, Func, $($i,)* Fut> AsyncSystem<Trigger, ($($i,)*), Fut, InAsyncMarker> for Func
+            impl<Trigger, Func, $($i,)* Fut> AsyncSystem<Trigger, ($($i,)*), Fut, InAsyncMarker, $param_count> for Func
             where
                 Trigger: Send + Sync + 'static,
                 Func: FnMut(In<Trigger>, $(Accessor<$i>,)*) -> Fut + Send + 'static,
@@ -209,7 +215,7 @@ pub mod impls {
             {
                 type TaskPool = AsyncComputeTaskPool;
                 type Params = ($($i,)*);
-                fn systems(mut self) -> (Vec<BoxedSystem>, Sender<Trigger>) {
+                fn systems(mut self) -> ([BoxedSystem; $param_count], Sender<Trigger>) {
                     $(let ($tx, $rx) = async_channel::unbounded();)*
                     let (tx, rx) = async_channel::unbounded();
                     let f = async move {
@@ -229,7 +235,7 @@ pub mod impls {
                     let arc = Arc::new(Mutex::new(Some(
                         Box::pin(f) as Pin<Box<dyn Future<Output = ()> + Send>>
                     )));
-                    (vec![$(
+                    ([$(
                         Box::new(AccessorRunnerSystem::<$i> {
                             state: {
                                 let mut resource_access = TypeAccess::default();
@@ -237,7 +243,9 @@ pub mod impls {
                                 SystemState {
                                     name: std::any::type_name::<Self>().into(),
                                     archetype_component_access: TypeAccess::default(),
+                                    component_access: TypeAccess::default(),
                                     resource_access,
+                                    is_non_send: false,
                                     local_resource_access: TypeAccess::default(),
                                     id: SystemId::new(),
                                     commands: Default::default(),
@@ -258,11 +266,18 @@ pub mod impls {
         };
     }
 
-    impl_async_system!([A, txa, rxa]);
-    impl_async_system!([A, txa, rxa], [B, txb, rxb]);
-    impl_async_system!([A, txa, rxa], [B, txb, rxb], [C, txc, rxc]);
-    impl_async_system!([A, txa, rxa], [B, txb, rxb], [C, txc, rxc], [D, txd, rxd]);
+    impl_async_system!(1, [A, txa, rxa]);
+    impl_async_system!(2, [A, txa, rxa], [B, txb, rxb]);
+    impl_async_system!(3, [A, txa, rxa], [B, txb, rxb], [C, txc, rxc]);
     impl_async_system!(
+        4,
+        [A, txa, rxa],
+        [B, txb, rxb],
+        [C, txc, rxc],
+        [D, txd, rxd]
+    );
+    impl_async_system!(
+        5,
         [A, txa, rxa],
         [B, txb, rxb],
         [C, txc, rxc],
@@ -270,6 +285,7 @@ pub mod impls {
         [E, txe, rxe]
     );
     impl_async_system!(
+        6,
         [A, txa, rxa],
         [B, txb, rxb],
         [C, txc, rxc],
@@ -312,7 +328,9 @@ pub mod impls {
                     SystemState {
                         name: std::any::type_name::<Self>().into(),
                         archetype_component_access: TypeAccess::default(),
+                        component_access: TypeAccess::default(),
                         resource_access,
+                        is_non_send: false,
                         local_resource_access: TypeAccess::default(),
                         id: SystemId::new(),
                         commands: Default::default(),
@@ -338,9 +356,10 @@ mod test {
 
     use super::{Accessor, AsyncSystem, SimpleAsyncSystem};
 
-    use crate::{Commands, IntoSystem, Query, Res, ResMut, Resources, Stage, SystemStage, World};
-
-    use std::convert::TryInto;
+    use crate::{
+        Commands, IntoSystem, ParallelSystemDescriptorCoercion, Query, Res, ResMut, Resources,
+        Stage, SystemStage, World,
+    };
 
     async fn complex_async_system(
         mut access_1: Accessor<(Res<'_, u32>, ResMut<'_, String>)>,
@@ -401,33 +420,30 @@ mod test {
 
         commands.apply(&mut world, &mut resources);
 
-        let (systems, fire_sender) = complex_async_system.systems();
+        let ([sync_1, sync_2], fire_sender) = complex_async_system.systems();
         fire_sender.try_send(()).unwrap();
-        let [sync_1, sync_2]: [_; 2] = systems.try_into().map_err(|_| ()).unwrap();
 
-        let mut stage = SystemStage::serial();
+        let mut stage = SystemStage::parallel();
         stage
             .add_system(
                 (|string: Res<String>| {
                     assert_eq!("Hello", &*string);
                 })
-                .system(),
+                .system()
+                .label("1"),
             )
-            .add_system_boxed(sync_1)
+            .add_system(sync_1.label("2").after("1"))
             .add_system(
                 (|string: Res<String>| {
                     assert_eq!("Hi!", &*string);
-                    // Crude hack to ensure the async system moves along
-                    std::thread::sleep(std::time::Duration::from_millis(1));
                 })
-                .system(),
+                .system()
+                .label("3")
+                .after("2"),
             )
-            .add_system_boxed(sync_2)
-            .add_system(simple_async_system.system());
+            .add_system(sync_2.label("4").after("3"))
+            .add_system(simple_async_system.system().after("4"));
 
-        stage.initialize(&mut world, &mut resources);
-        // Crude hack to ensure the async system is fully initialized
-        std::thread::sleep(std::time::Duration::from_millis(10));
         stage.run(&mut world, &mut resources);
     }
 }
