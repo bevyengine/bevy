@@ -26,7 +26,13 @@ impl Plugin for ReflectPlugin {
             .register_type::<String>();
         #[cfg(feature = "glam")]
         {
-            app.register_type::<glam::Vec2>()
+            app.register_type::<glam::IVec2>()
+                .register_type::<glam::IVec3>()
+                .register_type::<glam::IVec4>()
+                .register_type::<glam::UVec2>()
+                .register_type::<glam::UVec3>()
+                .register_type::<glam::UVec4>()
+                .register_type::<glam::Vec2>()
                 .register_type::<glam::Vec3>()
                 .register_type::<glam::Vec4>()
                 .register_type::<glam::Mat3>()
