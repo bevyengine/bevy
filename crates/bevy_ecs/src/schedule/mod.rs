@@ -158,16 +158,9 @@ impl Schedule {
         stage_label: impl StageLabel,
         system_set: SystemSet,
     ) -> &mut Self {
-        let stage = self
-            .get_stage_mut::<SystemStage>(&stage_label)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Stage '{:?}' does not exist or is not a SystemStage",
-                    stage_label
-                )
-            });
-        stage.add_system_set(system_set);
-        self
+        self.stage(stage_label, |stage: &mut SystemStage| {
+            stage.add_system_set(system_set)
+        })
     }
 
     pub fn stage<T: Stage, F: FnOnce(&mut T) -> &mut T>(
