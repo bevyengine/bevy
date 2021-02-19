@@ -6,6 +6,7 @@ status = [
     "build-wasm (stable, ubuntu-latest)",
     "build-wasm (nightly, ubuntu-latest)",
     "build-android",
+    "markdownlint",
 ]
 
 use_squash_merge = true
