@@ -1,5 +1,3 @@
-#![allow(clippy::clippy::mem_discriminant_non_enum)]
-
 use std::any::{Any, TypeId};
 
 use crate::{
