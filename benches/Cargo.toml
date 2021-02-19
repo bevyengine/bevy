@@ -9,6 +9,17 @@ criterion = "0.3"
 bevy = { path = "../" }
 
 [[bench]]
+name = "bench"
+path = "benches/bevy_ecs/bench.rs"
+harness = false
+required-features = ["macros"]
+
+[[bench]]
+name = "system_stage"
+path = "benches/bevy_ecs/stages.rs"
+harness = false
+
+[[bench]]
 name = "iter"
 path = "benches/bevy_tasks/iter.rs"
 harness = false
