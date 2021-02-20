@@ -151,6 +151,7 @@ where
                 Err(AsyncSystemOutputError::OutputMoved) => panic!(),
             }
         } else {
+            self.return_handle = Some(self.handle.fire(input));
             None
         }
     }
@@ -405,7 +406,7 @@ impl<P: SystemParam + 'static> System for AccessorRunnerSystem<P> {
     }
 }
 
-// Implements AsyncSystem for async functions with up to 6 different accessors
+// Implements AsyncSystem for async functions with up to 16 different accessors
 #[doc(hidden)]
 pub mod impls {
     use crate::In;
@@ -417,7 +418,7 @@ pub mod impls {
     pub struct InAsyncMarker;
 
     macro_rules! impl_async_system {
-        ($param_count: literal, $([$i: ident, $system: ident, $accessor: ident]),*) => {
+        ($param_count: literal, $($i: ident),*) => {
             impl<Func, $($i,)* Fut> AsyncSystem<(), ($($i,)*), Fut, SimpleAsyncMarker, $param_count> for Func
             where
                 Func: FnMut($(Accessor<$i>,)*) -> Fut + Send + Sync + 'static,
@@ -425,6 +426,7 @@ pub mod impls {
                 Fut::Output: Send + Sync + 'static,
                 $($i: SystemParam + 'static,)*
             {
+                #[allow(non_snake_case)]
                 fn systems(
                     mut self,
                 ) -> (
@@ -432,11 +434,13 @@ pub mod impls {
                     AsyncSystemHandle<(), Fut::Output>,
                     Box<dyn FnOnce(TaskPool) -> BoxedFuture<'static, ()> + Send + Sync>,
                 ) {
-                    $(let ($system, $accessor) = AccessorRunnerSystem::<$i>::new();)*
+                    $(let $i = AccessorRunnerSystem::<$i>::new();)*
                     let (tx, rx) = async_channel::unbounded();
+                    let boxes = [ $( Box::new($i.0) as BoxedSystem, )* ];
+                    $(let $i = $i.1;)*
                     let f = |tp: TaskPool| Box::pin(async move {
                         while let Ok((_, return_pipe)) = rx.recv().await {
-                            let future = (self)($( $accessor.clone(), )*);
+                            let future = (self)($( $i.clone(), )*);
                             let return_pipe: Sender<_> = return_pipe;
                             tp.spawn(async move {
                                 return_pipe.send(future.await).await.unwrap();
@@ -445,7 +449,7 @@ pub mod impls {
                         }
                     }) as BoxedFuture<'static, ()>;
                     let handle = AsyncSystemHandle { tx, system_count: Default::default()  };
-                    ([ $( Box::new($system), )* ], handle, Box::new(f))
+                    (boxes, handle, Box::new(f))
                 }
             }
 
@@ -457,6 +461,7 @@ pub mod impls {
                 Fut::Output: Send + Sync + 'static,
                 $($i: SystemParam + 'static,)*
             {
+                #[allow(non_snake_case)]
                 fn systems(
                     mut self,
                 ) -> (
@@ -464,11 +469,13 @@ pub mod impls {
                     AsyncSystemHandle<Trigger, Fut::Output>,
                     Box<dyn FnOnce(TaskPool) -> BoxedFuture<'static, ()> + Send + Sync>,
                 ) {
-                    $(let ($system, $accessor) = AccessorRunnerSystem::<$i>::new();)*
+                    $(let $i = AccessorRunnerSystem::<$i>::new();)*
                     let (tx, rx) = async_channel::unbounded();
+                    let boxes = [ $( Box::new($i.0) as BoxedSystem, )* ];
+                    $(let $i = $i.1;)*
                     let f = |tp: TaskPool| Box::pin(async move {
                         while let Ok((input, return_pipe)) = rx.recv().await {
-                            let future = (self)(In(input), $( $accessor.clone(), )*);
+                            let future = (self)(In(input), $( $i.clone(), )*);
                             let return_pipe: Sender<_> = return_pipe;
                             tp.spawn(async move {
                                 return_pipe.send(future.await).await.unwrap();
@@ -477,40 +484,29 @@ pub mod impls {
                         }
                     }) as BoxedFuture<'static, ()>;
                     let handle = AsyncSystemHandle { tx, system_count: Default::default() };
-                    ([ $( Box::new($system), )* ], handle, Box::new(f))
+                    (boxes, handle, Box::new(f))
                 }
             }
         };
     }
 
     impl_async_system!(0,);
-    impl_async_system!(1, [A, txa, rxa]);
-    impl_async_system!(2, [A, txa, rxa], [B, txb, rxb]);
-    impl_async_system!(3, [A, txa, rxa], [B, txb, rxb], [C, txc, rxc]);
-    impl_async_system!(
-        4,
-        [A, txa, rxa],
-        [B, txb, rxb],
-        [C, txc, rxc],
-        [D, txd, rxd]
-    );
-    impl_async_system!(
-        5,
-        [A, txa, rxa],
-        [B, txb, rxb],
-        [C, txc, rxc],
-        [D, txd, rxd],
-        [E, txe, rxe]
-    );
-    impl_async_system!(
-        6,
-        [A, txa, rxa],
-        [B, txb, rxb],
-        [C, txc, rxc],
-        [D, txd, rxd],
-        [E, txe, rxe],
-        [F, txf, rxf]
-    );
+    impl_async_system!(1, A);
+    impl_async_system!(2, A, B);
+    impl_async_system!(3, A, B, C);
+    impl_async_system!(4, A, B, C, D);
+    impl_async_system!(5, A, B, C, D, E);
+    impl_async_system!(6, A, B, C, D, E, F);
+    impl_async_system!(7, A, B, C, D, E, F, G);
+    impl_async_system!(8, A, B, C, D, E, F, G, H);
+    impl_async_system!(9, A, B, C, D, E, F, G, H, I);
+    impl_async_system!(10, A, B, C, D, E, F, G, H, I, J);
+    impl_async_system!(11, A, B, C, D, E, F, G, H, I, J, K);
+    impl_async_system!(12, A, B, C, D, E, F, G, H, I, J, K, L);
+    impl_async_system!(13, A, B, C, D, E, F, G, H, I, J, K, L, M);
+    impl_async_system!(14, A, B, C, D, E, F, G, H, I, J, K, L, M, N);
+    impl_async_system!(15, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
+    impl_async_system!(16, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
 }
 
 #[cfg(test)]

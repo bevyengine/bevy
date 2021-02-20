@@ -17,20 +17,22 @@ struct GreetMessage(String);
 struct NextGreetDelay(f32);
 struct ExecutionTime(f32);
 
+type Access<'a> = (
+    Res<'a, GreetMessage>,
+    ResMut<'a, NextGreetDelay>,
+    Res<'a, Time>,
+    Res<'a, ExecutionTime>,
+);
+
 async fn async_system(
-    mut accessor: Accessor<(
-        Res<'_, GreetMessage>,
-        ResMut<'_, NextGreetDelay>,
-        Res<'_, Time>,
-        Res<'_, ExecutionTime>,
-    )>,
+    mut accessor: Accessor<Access<'_>>,
 ) {
     fn sync_operation(msg: &str, execution_time: f32) {
         println!("{} @ {}", msg, execution_time);
     }
 
     let wait_duration = accessor
-        .access(|(greet_msg, mut next_delay, time, execution_time)| {
+        .access(|(greet_msg, mut next_delay, time, execution_time): Access<'_>| {
             next_delay.0 += 1.;
             if next_delay.0 > time.delta_seconds() {
                 sync_operation(&greet_msg.0, execution_time.0);
