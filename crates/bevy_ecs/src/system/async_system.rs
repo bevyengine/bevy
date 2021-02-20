@@ -383,7 +383,7 @@ pub mod impls {
     use crate::In;
 
     use super::*;
-    use std::{future::Future, pin::Pin};
+    use std::future::Future;
 
     pub struct SimpleAsyncMarker;
     pub struct InAsyncMarker;
@@ -415,7 +415,7 @@ pub mod impls {
                             })
                             .detach();
                         }
-                    }) as Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
+                    }) as BoxedFuture<'static, ()>;
                     let handle = AsyncSystemHandle { tx, system_count: Default::default()  };
                     ([ $( Box::new($system), )* ], handle, Box::new(f))
                 }
@@ -447,7 +447,7 @@ pub mod impls {
                             })
                             .detach();
                         }
-                    }) as Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
+                    }) as BoxedFuture<'static, ()>;
                     let handle = AsyncSystemHandle { tx, system_count: Default::default() };
                     ([ $( Box::new($system), )* ], handle, Box::new(f))
                 }
