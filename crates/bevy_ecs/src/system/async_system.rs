@@ -238,21 +238,13 @@ impl<P: SystemParam> Clone for Accessor<P> {
 impl<P: SystemParam> Accessor<P> {
     pub async fn access<F, R: Send + 'static>(&mut self, sync: F) -> R
     where
-        // Removing the 'static here would allow removing the
-        // transmutes, but its currently not possible due to an ICE.
-        F: FnOnce(<P::Fetch as FetchSystemParam<'static>>::Item) -> R + Send + Sync + 'static,
+        F: FnOnce(<P::Fetch as FetchSystemParam>::Item) -> R + Send + Sync + 'static,
     {
         let (tx, rx) = async_channel::bounded(1);
         self.channel
             .send(Box::new(move |state, world, resources| {
                 // Safe: the sent closure is executed inside run_unsafe, which provides the correct guarantees.
-                if let Some(params) = unsafe {
-                    P::Fetch::get_param(
-                        std::mem::transmute::<_, &'static _>(state),
-                        std::mem::transmute::<_, &'static _>(world),
-                        std::mem::transmute::<_, &'static _>(resources),
-                    )
-                } {
+                if let Some(params) = unsafe { P::Fetch::get_param(state, world, resources) } {
                     tx.try_send(sync(params)).unwrap();
                 }
             }))
@@ -520,6 +512,22 @@ mod test {
                 .await;
         }
     }
+
+    // This should never compile
+    //
+    // thread_local! {
+    //     static TEST: std::cell::RefCell<Option<ResMut<'static, String>>> = Default::default();
+    // }
+    // async fn compile_fail(mut access: Accessor<ResMut<'_, String>>) {
+    //     access
+    //         .access(|res| {
+    //             TEST.with(|mutex| {
+    //                 let test = &mut *mutex.get_mut();
+    //                 test.replace(res);
+    //             });
+    //         })
+    //         .await;
+    // }
 
     async fn simple_async_system(mut accessor: Accessor<Query<'_, (&u32, &i64)>>) {
         accessor
