@@ -1,3 +1,21 @@
+//! This should never compile
+//! ```compile_fail,E0495
+//! use bevy_ecs::prelude::*;
+//! thread_local! {
+//!     static TEST: std::cell::RefCell<Option<ResMut<'static, String>>> = Default::default();
+//! }
+//! async fn compile_fail(mut access: Accessor<ResMut<'_, String>>) {
+//!     access
+//!         .access(|res| {
+//!             TEST.with(|mutex| {
+//!                 let test = &mut *mutex.get_mut();
+//!                 test.replace(res);
+//!             });
+//!         })
+//!         .await;
+//! }
+//! ```
+
 use async_channel::{Receiver, Sender};
 use std::{
     self,
@@ -512,22 +530,6 @@ mod test {
                 .await;
         }
     }
-
-    // This should never compile
-    //
-    // thread_local! {
-    //     static TEST: std::cell::RefCell<Option<ResMut<'static, String>>> = Default::default();
-    // }
-    // async fn compile_fail(mut access: Accessor<ResMut<'_, String>>) {
-    //     access
-    //         .access(|res| {
-    //             TEST.with(|mutex| {
-    //                 let test = &mut *mutex.get_mut();
-    //                 test.replace(res);
-    //             });
-    //         })
-    //         .await;
-    // }
 
     async fn simple_async_system(mut accessor: Accessor<Query<'_, (&u32, &i64)>>) {
         accessor
