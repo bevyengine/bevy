@@ -1,5 +1,5 @@
 unstable_features = true
-merge_imports = true
+imports_granularity = "Crate"
 use_field_init_shorthand = true
 reorder_impl_items = true
 newline_style = "Unix"

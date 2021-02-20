@@ -5,14 +5,17 @@ mod wgpu_renderer;
 mod wgpu_resources;
 mod wgpu_type_converter;
 
-use futures_lite::future;
 pub use wgpu_render_pass::*;
 pub use wgpu_renderer::*;
 pub use wgpu_resources::*;
 
 use bevy_app::prelude::*;
 use bevy_ecs::{IntoExclusiveSystem, IntoSystem, Resources, World};
-use bevy_render::renderer::{shared_buffers_update_system, RenderResourceContext, SharedBuffers};
+use bevy_render::{
+    renderer::{shared_buffers_update_system, RenderResourceContext, SharedBuffers},
+    RenderStage,
+};
+use futures_lite::future;
 use renderer::WgpuRenderResourceContext;
 
 #[derive(Default)]
@@ -21,9 +24,9 @@ pub struct WgpuPlugin;
 impl Plugin for WgpuPlugin {
     fn build(&self, app: &mut AppBuilder) {
         let render_system = get_wgpu_render_system(app.resources_mut());
-        app.add_system_to_stage(bevy_render::stage::RENDER, render_system.exclusive_system())
+        app.add_system_to_stage(RenderStage::Render, render_system.exclusive_system())
             .add_system_to_stage(
-                bevy_render::stage::POST_RENDER,
+                RenderStage::PostRender,
                 shared_buffers_update_system.system(),
             );
     }

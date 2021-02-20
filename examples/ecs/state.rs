@@ -6,17 +6,18 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .init_resource::<ButtonMaterials>()
         .insert_resource(State::new(AppState::Menu))
-        .add_stage_after(stage::UPDATE, STAGE, StateStage::<AppState>::default())
-        .on_state_enter(STAGE, AppState::Menu, setup_menu.system())
-        .on_state_update(STAGE, AppState::Menu, menu.system())
-        .on_state_exit(STAGE, AppState::Menu, cleanup_menu.system())
-        .on_state_enter(STAGE, AppState::InGame, setup_game.system())
-        .on_state_update(STAGE, AppState::InGame, movement.system())
-        .on_state_update(STAGE, AppState::InGame, change_color.system())
+        .add_stage_after(CoreStage::Update, Stage, StateStage::<AppState>::default())
+        .on_state_enter(Stage, AppState::Menu, setup_menu.system())
+        .on_state_update(Stage, AppState::Menu, menu.system())
+        .on_state_exit(Stage, AppState::Menu, cleanup_menu.system())
+        .on_state_enter(Stage, AppState::InGame, setup_game.system())
+        .on_state_update(Stage, AppState::InGame, movement.system())
+        .on_state_update(Stage, AppState::InGame, change_color.system())
         .run();
 }
 
-const STAGE: &str = "app_state";
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+struct Stage;
 
 #[derive(Clone)]
 enum AppState {

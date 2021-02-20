@@ -239,6 +239,17 @@ fn local_state_system(mut state: Local<State>, query: Query<(&Player, &Score)>) 
     state.counter += 1;
 }
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+enum MyStage {
+    BeforeRound,
+    AfterRound,
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+enum MyLabels {
+    ScoreCheck,
+}
+
 // Our Bevy app's entry point
 fn main() {
     // Bevy apps are created using the builder pattern. We use the builder to add systems, resources, and plugins to our app
@@ -286,25 +297,33 @@ fn main() {
         //
         // add_system(system) adds systems to the UPDATE stage by default
         // However we can manually specify the stage if we want to. The following is equivalent to add_system(score_system)
-        .add_system_to_stage(stage::UPDATE, score_system.system())
+        .add_system_to_stage(CoreStage::Update, score_system.system())
         // We can also create new stages. Here is what our games stage order will look like:
         // "before_round": new_player_system, new_round_system
         // "update": print_message_system, score_system
         // "after_round": score_check_system, game_over_system
-        .add_stage_before(stage::UPDATE, "before_round", SystemStage::parallel())
-        .add_stage_after(stage::UPDATE, "after_round", SystemStage::parallel())
-        .add_system_to_stage("before_round", new_round_system.system())
-        .add_system_to_stage("before_round", new_player_system.system())
+        .add_stage_before(
+            CoreStage::Update,
+            MyStage::BeforeRound,
+            SystemStage::parallel(),
+        )
+        .add_stage_after(
+            CoreStage::Update,
+            MyStage::AfterRound,
+            SystemStage::parallel(),
+        )
+        .add_system_to_stage(MyStage::BeforeRound, new_round_system.system())
+        .add_system_to_stage(MyStage::BeforeRound, new_player_system.system())
         // We can ensure that game_over system runs after score_check_system using explicit ordering constraints
         // First, we label the system we want to refer to using `.label`
         // Then, we use either `.before` or `.after` to describe the order we want the relationship
         .add_system_to_stage(
-            "after_round",
-            score_check_system.system().label("score_check"),
+            MyStage::AfterRound,
+            score_check_system.system().label(MyLabels::ScoreCheck),
         )
         .add_system_to_stage(
-            "after_round",
-            game_over_system.system().after("score_check"),
+            MyStage::AfterRound,
+            game_over_system.system().after(MyLabels::ScoreCheck),
         )
         // We can check our systems for execution order ambiguities by examining the output produced in the console
         // by adding the following Resource to our App :)

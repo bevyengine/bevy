@@ -9,7 +9,13 @@ mod sprite;
 mod texture_atlas;
 mod texture_atlas_builder;
 
-use bevy_ecs::IntoSystem;
+pub mod prelude {
+    pub use crate::{
+        entity::{SpriteBundle, SpriteSheetBundle},
+        ColorMaterial, Sprite, SpriteResizeMode, TextureAtlas, TextureAtlasSprite,
+    };
+}
+
 pub use color_material::*;
 pub use dynamic_texture_atlas_builder::*;
 pub use rect::*;
@@ -18,15 +24,9 @@ pub use sprite::*;
 pub use texture_atlas::*;
 pub use texture_atlas_builder::*;
 
-pub mod prelude {
-    pub use crate::{
-        entity::{SpriteBundle, SpriteSheetBundle},
-        ColorMaterial, Sprite, SpriteResizeMode, TextureAtlas, TextureAtlasSprite,
-    };
-}
-
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets, Handle, HandleUntyped};
+use bevy_ecs::IntoSystem;
 use bevy_math::Vec2;
 use bevy_reflect::{RegisterTypeBuilder, TypeUuid};
 use bevy_render::{
@@ -47,9 +47,9 @@ impl Plugin for SpritePlugin {
         app.add_asset::<ColorMaterial>()
             .add_asset::<TextureAtlas>()
             .register_type::<Sprite>()
-            .add_system_to_stage(stage::POST_UPDATE, sprite_system.system())
+            .add_system_to_stage(CoreStage::PostUpdate, sprite_system.system())
             .add_system_to_stage(
-                stage::POST_UPDATE,
+                CoreStage::PostUpdate,
                 asset_shader_defs_system::<ColorMaterial>.system(),
             );
 
