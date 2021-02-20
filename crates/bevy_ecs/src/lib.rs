@@ -20,7 +20,7 @@ pub mod prelude {
             SystemSet, SystemStage,
         },
         system::{Commands, ExclusiveSystem, IntoExclusiveSystem, IntoSystem, Query, System},
-        Added, Bundle, Changed, Component, Entity, Flags, In, IntoChainSystem, Mut, Mutated, Or,
-        QuerySet, Ref, RefMut, ShouldRun, With, Without, World, Accessor, AsyncSystem, SimpleAsyncSystem
+        Accessor, Added, AsyncSystem, Bundle, Changed, Component, Entity, Flags, In,
+        IntoChainSystem, Mut, Mutated, Or, QuerySet, Ref, RefMut, ShouldRun, With, Without, World,
     };
 }

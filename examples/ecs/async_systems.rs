@@ -32,7 +32,7 @@ async fn async_system(
     let wait_duration = accessor
         .access(|(greet_msg, mut next_delay, time, execution_time)| {
             next_delay.0 += 1.;
-            let wait_duration = if next_delay.0 > time.delta_seconds() {
+            if next_delay.0 > time.delta_seconds() {
                 sync_operation(&greet_msg.0, execution_time.0);
                 next_delay.0 - time.delta_seconds()
             } else {
@@ -45,8 +45,7 @@ async fn async_system(
                     sync_operation(&greet_msg.0, execution_time.0)
                 }
                 timer
-            };
-            wait_duration
+            }
         })
         .await;
 
