@@ -1,5 +1,5 @@
 //! This should never compile
-//! ```compile_fail,E0495
+//! ```compile_fail,E0759
 //! use bevy_ecs::prelude::*;
 //! thread_local! {
 //!     static TEST: std::cell::RefCell<Option<ResMut<'static, String>>> = Default::default();
@@ -7,8 +7,8 @@
 //! async fn compile_fail(mut access: Accessor<ResMut<'_, String>>) {
 //!     access
 //!         .access(|res| {
-//!             TEST.with(|mutex| {
-//!                 let test = &mut *mutex.get_mut();
+//!             TEST.with(|mut cell| {
+//!                 let test = &mut *cell.borrow_mut();
 //!                 test.replace(res);
 //!             });
 //!         })
@@ -253,17 +253,35 @@ impl<P: SystemParam> Clone for Accessor<P> {
     }
 }
 
+#[doc(hidden)]
+// This trait adds a middle-man that helps rustc figure out lifetime bounds, and avoids an ICE
+// https://github.com/rust-lang/rust/issues/74261
+pub trait BorrowingFn<'a, P: SystemParam, Out> {
+    fn call(self, v: <P::Fetch as FetchSystemParam<'a>>::Item) -> Out;
+}
+
+impl<'a, Out, P, F> BorrowingFn<'a, P, Out> for F
+where
+    P: SystemParam,
+    F: FnOnce(P) -> Out + 'a,
+    F: FnOnce(<P::Fetch as FetchSystemParam<'a>>::Item) -> Out + 'a,
+{
+    fn call(self, v: <P::Fetch as FetchSystemParam<'a>>::Item) -> Out {
+        self(v)
+    }
+}
+
 impl<P: SystemParam> Accessor<P> {
     pub async fn access<F, R: Send + 'static>(&mut self, sync: F) -> R
     where
-        F: FnOnce(<P::Fetch as FetchSystemParam>::Item) -> R + Send + Sync + 'static,
+        F: for<'a> BorrowingFn<'a, P, R> + Send + Sync + 'static,
     {
         let (tx, rx) = async_channel::bounded(1);
         self.channel
             .send(Box::new(move |state, world, resources| {
                 // Safe: the sent closure is executed inside run_unsafe, which provides the correct guarantees.
                 if let Some(params) = unsafe { P::Fetch::get_param(state, world, resources) } {
-                    tx.try_send(sync(params)).unwrap();
+                    tx.try_send(sync.call(params)).unwrap();
                 }
             }))
             .await
@@ -513,7 +531,7 @@ mod test {
         loop {
             let mut x = None;
             let returns = access_1
-                .access(move |(number, mut res)| {
+                .access(move |(number, mut res): (Res<'_, _>, ResMut<'_, _>)| {
                     //
                     *res = "Hi!".to_owned();
                     assert_eq!(x, None);
@@ -524,7 +542,7 @@ mod test {
             assert_eq!(returns, Some(3));
 
             access_2
-                .access(|res| {
+                .access(|res: Res<'_, _>| {
                     assert_eq!("Hi!", &*res);
                 })
                 .await;
@@ -533,7 +551,7 @@ mod test {
 
     async fn simple_async_system(mut accessor: Accessor<Query<'_, (&u32, &i64)>>) {
         accessor
-            .access(|query| {
+            .access(|query: Query<'_, (&u32, &i64)>| {
                 for res in query.iter() {
                     match res {
                         (3, 5) | (7, -8) => (),
