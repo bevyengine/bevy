@@ -6,7 +6,7 @@
 //! }
 //! async fn compile_fail(mut access: Accessor<ResMut<'_, String>>) {
 //!     access
-//!         .access(|res| {
+//!         .access(|res: ResMut<'_, _>| {
 //!             TEST.with(|mut cell| {
 //!                 let test = &mut *cell.borrow_mut();
 //!                 test.replace(res);
