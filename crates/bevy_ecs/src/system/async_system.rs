@@ -257,11 +257,11 @@ impl<P: SystemParam> Clone for Accessor<P> {
 #[doc(hidden)]
 // This trait adds a middle-man that helps rustc figure out lifetime bounds, and avoids an ICE
 // https://github.com/rust-lang/rust/issues/74261
-pub trait BorrowingFn<'a, P: SystemParam, Out> {
+pub trait AccessFn<'a, P: SystemParam, Out> {
     fn call(self, v: <P::Fetch as FetchSystemParam<'a>>::Item) -> Out;
 }
 
-impl<'a, Out, P, F> BorrowingFn<'a, P, Out> for F
+impl<'a, Out, P, F> AccessFn<'a, P, Out> for F
 where
     P: SystemParam,
     F: FnOnce(P) -> Out + 'a,
@@ -275,7 +275,7 @@ where
 impl<P: SystemParam> Accessor<P> {
     pub async fn access<F, R: Send + 'static>(&mut self, sync: F) -> R
     where
-        F: for<'a> BorrowingFn<'a, P, R> + Send + Sync + 'static,
+        F: for<'a> AccessFn<'a, P, R> + Send + Sync + 'static,
     {
         let (tx, rx) = async_channel::bounded(1);
         self.channel
@@ -372,12 +372,15 @@ impl<P: SystemParam + 'static> System for AccessorRunnerSystem<P> {
         world: &World,
         resources: &Resources,
     ) -> Option<Self::Out> {
-        match self.channel.try_recv() {
-            Ok(sync) => (sync)(&self.state, world, resources),
-            Err(async_channel::TryRecvError::Closed) => panic!(),
-            _ => (),
+        loop {
+            match self.channel.try_recv() {
+                Ok(sync) => (sync)(&self.state, world, resources),
+                Err(async_channel::TryRecvError::Closed) => panic!(
+                    "`AccessorRunnerSystem` called but all relevant accessors have been dropped"
+                ),
+                Err(async_channel::TryRecvError::Empty) => break,
+            }
         }
-
         Some(())
     }
 
@@ -412,7 +415,6 @@ pub mod impls {
     use crate::In;
 
     use super::*;
-    use std::future::Future;
 
     pub struct SimpleAsyncMarker;
     pub struct InAsyncMarker;
