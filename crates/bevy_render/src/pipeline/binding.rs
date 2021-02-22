@@ -36,7 +36,7 @@ pub enum BindType {
         /// A filtering sampler can only be used with a filterable texture.
         filtering: bool,
         /// Use as a comparison sampler instead of a normal sampler.
-        /// For more info take a look at the analogous functionality in OpenGL: https://www.khronos.org/opengl/wiki/Sampler_Object#Comparison_mode.
+        /// For more info take a look at the analogous functionality in OpenGL: <https://www.khronos.org/opengl/wiki/Sampler_Object#Comparison_mode>.
         comparison: bool,
     },
     Texture {
