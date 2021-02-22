@@ -17,6 +17,8 @@
 //! ```
 
 use async_channel::{Receiver, Sender};
+use futures_lite::pin;
+use parking_lot::Mutex;
 use std::{
     self,
     any::TypeId,
@@ -27,6 +29,7 @@ use std::{
         atomic::{AtomicUsize, Ordering},
         Arc,
     },
+    task::{Poll, Waker},
 };
 use thiserror::Error;
 
@@ -241,7 +244,7 @@ pub enum AsyncSystemOutputError {
 }
 
 pub struct Accessor<P: SystemParam> {
-    channel: Sender<Box<dyn FnOnce(&SystemState, &World, &Resources) + Send + Sync>>,
+    channel: Sender<Box<dyn GenericAccess>>,
     _marker: OpaquePhantomData<P>,
 }
 
@@ -258,7 +261,7 @@ impl<P: SystemParam> Clone for Accessor<P> {
 // This trait adds a middle-man that helps rustc figure out lifetime bounds, and avoids an ICE
 // https://github.com/rust-lang/rust/issues/74261
 pub trait AccessFn<'a, 'env, P: SystemParam, Out> {
-    fn call(self, v: <P::Fetch as FetchSystemParam<'a>>::Item) -> Out;
+    fn call(self: Box<Self>, v: <P::Fetch as FetchSystemParam<'a>>::Item) -> Out;
 }
 
 impl<'a, 'env, Out, P, F> AccessFn<'a, 'env, P, Out> for F
@@ -267,38 +270,115 @@ where
     F: FnOnce(P) -> Out + 'env,
     F: FnOnce(<P::Fetch as FetchSystemParam<'a>>::Item) -> Out + 'env,
 {
-    fn call(self, v: <P::Fetch as FetchSystemParam<'a>>::Item) -> Out {
+    fn call(self: Box<Self>, v: <P::Fetch as FetchSystemParam<'a>>::Item) -> Out {
         self(v)
     }
 }
 
 impl<P: SystemParam> Accessor<P> {
-    pub async fn access<'env, R: Send + 'static>(
+    pub fn access<'env, R: Send + Sync + 'static>(
         &mut self,
         sync: impl for<'a> AccessFn<'a, 'env, P, R> + Send + Sync + 'env,
-    ) -> R {
-        let (tx, rx) = async_channel::bounded(1);
-        let boxed: Box<dyn FnOnce(&SystemState, &World, &Resources) + Send + Sync + 'env> =
-            Box::new(move |state, world, resources| {
-                // Safe: the sent closure is executed inside run_unsafe, which provides the correct guarantees.
-                if let Some(params) = unsafe { P::Fetch::get_param(state, world, resources) } {
-                    tx.try_send(sync.call(params)).unwrap();
+    ) -> impl Future<Output = R> + Send + Sync + 'env
+    where
+        P: 'env,
+    {
+        AccessFuture {
+            state: AccessFutureState::FirstPoll {
+                boxed: Box::new(sync),
+                tx: self.channel.clone(),
+            },
+        }
+    }
+}
+
+struct Access<'env, P: SystemParam, Out> {
+    inner: Arc<Mutex<Option<Box<dyn for<'a> AccessFn<'a, 'env, P, Out> + Send + Sync + 'env>>>>,
+    tx: Sender<Out>,
+    waker: Waker,
+}
+
+trait GenericAccess: Send + Sync {
+    fn run(self: Box<Self>, state: &SystemState, world: &World, resources: &Resources);
+}
+
+impl<'env, P: SystemParam, Out: Send + Sync + 'static> GenericAccess for Access<'env, P, Out> {
+    fn run(self: Box<Self>, state: &SystemState, world: &World, resources: &Resources) {
+        if let Some(params) = unsafe { P::Fetch::get_param(state, world, resources) } {
+            if let Some(sync) = self.inner.lock().take() {
+                self.tx.try_send(sync.call(params)).unwrap();
+            }
+        }
+        self.waker.wake();
+    }
+}
+
+enum AccessFutureState<'env, P, R> {
+    FirstPoll {
+        boxed: Box<dyn for<'a> AccessFn<'a, 'env, P, R> + Send + Sync + 'env>,
+        tx: Sender<Box<dyn GenericAccess>>,
+    },
+    WaitingForCompletion(
+        Receiver<R>,
+        Arc<Mutex<Option<Box<dyn for<'a> AccessFn<'a, 'env, P, R> + Send + Sync + 'env>>>>,
+    ),
+}
+
+pub struct AccessFuture<'env, P: SystemParam, R> {
+    state: AccessFutureState<'env, P, R>,
+}
+
+impl<'env, P: SystemParam + 'env, R: Send + Sync + 'static> Future for AccessFuture<'env, P, R> {
+    type Output = R;
+
+    fn poll(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
+        match &mut self.state {
+            AccessFutureState::FirstPoll { .. } => {
+                let (tx, rx) = async_channel::bounded(1);
+                let arc = Arc::new(Mutex::new(None));
+                if let AccessFutureState::FirstPoll { boxed, tx: mtx } = std::mem::replace(
+                    &mut self.state,
+                    AccessFutureState::WaitingForCompletion(rx, arc.clone()),
+                ) {
+                    *arc.lock() = Some(boxed);
+                    let msg = Access {
+                        inner: arc,
+                        tx,
+                        waker: cx.waker().clone(),
+                    };
+                    let boxed: Box<dyn GenericAccess + 'env> = Box::new(msg);
+                    let boxed: Box<dyn GenericAccess + 'static> =
+                    // Safe: the reference will only live as long as this struct, as the drop impl will drop the references
+                        unsafe { std::mem::transmute(boxed) };
+                    mtx.try_send(boxed).unwrap();
+                    Poll::Pending
+                } else {
+                    unreachable!()
                 }
-            });
-        
-        // TODO: I think this is safe, but this point should be audited further.
-        // Safe: This function won't return until this value has been consumed,
-        // meaning the reference is valid as long as the value exists.
-        let boxed: Box<dyn FnOnce(&SystemState, &World, &Resources) + Send + Sync + 'static> =
-            unsafe { std::mem::transmute(boxed) };
-        self.channel.send(boxed).await.unwrap();
-        rx.recv().await.unwrap()
+            }
+            AccessFutureState::WaitingForCompletion(rx, _) => {
+                let future = rx.recv();
+                pin!(future);
+                future.poll(cx).map(|v| v.unwrap())
+            }
+        }
+    }
+}
+
+impl<'env, P: SystemParam, R> Drop for AccessFuture<'env, P, R> {
+    fn drop(&mut self) {
+        if let AccessFutureState::WaitingForCompletion(_, arc) = &self.state {
+            *arc.lock() = None;
+        }
     }
 }
 
 pub struct AccessorRunnerSystem<P: SystemParam> {
     state: SystemState,
-    channel: Receiver<Box<dyn FnOnce(&SystemState, &World, &Resources) + Send + Sync>>,
+    channel: Receiver<Box<dyn GenericAccess>>,
     _marker: OpaquePhantomData<P>,
 }
 
@@ -379,7 +459,7 @@ impl<P: SystemParam + 'static> System for AccessorRunnerSystem<P> {
     ) -> Option<Self::Out> {
         loop {
             match self.channel.try_recv() {
-                Ok(sync) => (sync)(&self.state, world, resources),
+                Ok(sync) => sync.run(&mut self.state, world, resources),
                 Err(async_channel::TryRecvError::Closed) => panic!(
                     "`AccessorRunnerSystem` called but all relevant accessors have been dropped"
                 ),
@@ -533,11 +613,13 @@ mod test {
     ) {
         loop {
             let mut x = None;
-            access_1.access(|(number, mut res): (Res<'_, _>, ResMut<'_, _>)| {
-                *res = "Hi!".to_owned();
-                assert_eq!(x, None);
-                x = Some(*number);
-            }).await;
+            access_1
+                .access(|(number, mut res): (Res<'_, _>, ResMut<'_, _>)| {
+                    *res = "Hi!".to_owned();
+                    assert_eq!(x, None);
+                    x = Some(*number);
+                })
+                .await;
             assert_eq!(x, Some(3));
 
             access_2
