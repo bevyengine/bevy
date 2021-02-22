@@ -1,4 +1,4 @@
-use crate::{system::SystemId, AtomicBorrow, TypeInfo};
+use crate::{system::SystemId, AtomicBorrow};
 use bevy_utils::HashMap;
 use core::any::TypeId;
 use downcast_rs::{impl_downcast, Downcast};
@@ -204,15 +204,14 @@ impl Resources {
 
     fn insert_resource<T: Resource>(&mut self, resource: T, resource_index: ResourceIndex) {
         let type_id = TypeId::of::<T>();
-        let data = self.resource_data.entry(type_id).or_insert_with(|| {
-            let mut types = Vec::new();
-            types.push(TypeInfo::of::<T>());
-            ResourceData {
+        let data = self
+            .resource_data
+            .entry(type_id)
+            .or_insert_with(|| ResourceData {
                 storage: Box::new(VecResourceStorage::<T>::default()),
                 default_index: None,
                 system_id_to_archetype_index: HashMap::default(),
-            }
-        });
+            });
 
         let storage = data
             .storage
@@ -500,6 +499,7 @@ mod tests {
     use crate::system::SystemId;
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn resource() {
         let mut resources = Resources::default();
         assert!(resources.get::<i32>().is_none());

@@ -425,6 +425,7 @@ impl Commands {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
     use crate::{resource::Resources, Commands, World};
     use core::any::TypeId;
@@ -480,7 +481,7 @@ mod tests {
             .map(|(a, b)| (*a, *b))
             .collect::<Vec<_>>();
         assert_eq!(results_after, vec![]);
-        let results_after_u64 = world.query::<&u64>().map(|a| *a).collect::<Vec<_>>();
+        let results_after_u64 = world.query::<&u64>().copied().collect::<Vec<_>>();
         assert_eq!(results_after_u64, vec![]);
     }
 

@@ -34,13 +34,8 @@ jobs:
         if: runner.os == 'linux'
 
       - name: Check the format
-        run: cargo fmt --all -- --check
-        if: runner.os == 'linux' && matrix.toolchain == 'stable'
-
-      # -A clippy::type_complexity: type complexity must be ignored because we use huge templates for queries.
-      # -A clippy::manual-strip: strip_prefix support was added in 1.45. We want to support earlier rust versions.
-      - name: Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings -A clippy::type_complexity -A clippy::manual-strip
+        # See tools/ci/src/main.rs for the commands this runs
+        run: cargo run --package ci
         if: runner.os == 'linux' && matrix.toolchain == 'stable'
 
       - name: Build & run tests
