@@ -503,7 +503,7 @@ fn derive_label(input: DeriveInput, label_type: Ident) -> TokenStream2 {
     quote! {
         impl #crate_path::#label_type for #ident {
             fn dyn_clone(&self) -> Box<dyn #crate_path::#label_type> {
-                Box::new(self.clone())
+                Box::new(Clone::clone(self))
             }
         }
     }
