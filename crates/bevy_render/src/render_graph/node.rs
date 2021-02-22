@@ -16,7 +16,7 @@ impl NodeId {
 
     pub fn uuid(&self) -> &Uuid {
         &self.0
-}
+    }
 }
 
 pub trait Node: Downcast + Send + Sync + 'static {
