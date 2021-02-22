@@ -45,8 +45,7 @@ impl World {
     /// Create an empty world
     pub fn new() -> Self {
         // `flush` assumes archetype 0 always exists, representing entities with no components.
-        let mut archetypes = Vec::new();
-        archetypes.push(Archetype::new(Vec::new()));
+        let archetypes = vec![Archetype::new(Vec::new())];
         let mut index = HashMap::default();
         index.insert(Vec::new(), 0);
         Self {
