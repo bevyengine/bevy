@@ -503,7 +503,7 @@ fn derive_label(input: DeriveInput, label_type: Ident) -> TokenStream2 {
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     quote! {
-        impl #impl_generics #crate_path::#label_type #ty_generics for #ident #where_clause {
+        impl #impl_generics #crate_path::#label_type for #ident #ty_generics #where_clause {
             fn dyn_clone(&self) -> Box<dyn #crate_path::#label_type> {
                 Box::new(Clone::clone(self))
             }
