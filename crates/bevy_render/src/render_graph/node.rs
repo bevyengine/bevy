@@ -13,6 +13,10 @@ impl NodeId {
     pub fn new() -> Self {
         NodeId(Uuid::new_v4())
     }
+
+    pub fn uuid(&self) -> &Uuid {
+        &self.0
+    }
 }
 
 pub trait Node: Downcast + Send + Sync + 'static {
