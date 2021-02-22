@@ -218,6 +218,8 @@ where
     }
 }
 
+// TODO: Dead code
+// This trait seems to be unused apart from in implementations of this trait
 pub trait FromType<T> {
     fn from_type() -> Self;
 }

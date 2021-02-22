@@ -8,7 +8,7 @@ use crate::{
 use bevy_tasks::ParallelIterator;
 use std::marker::PhantomData;
 
-/// Provides scoped access to a World according to a given [HecsQuery]
+/// Provides scoped access to a World according to a given [WorldQuery]
 #[derive(Debug)]
 pub struct Query<'a, Q: WorldQuery, F: QueryFilter = ()> {
     pub(crate) world: &'a World,

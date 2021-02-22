@@ -1,7 +1,7 @@
 # [![Bevy](assets/branding/bevy_logo_light_small.svg)](https://bevyengine.org)
 
 [![Crates.io](https://img.shields.io/crates/v/bevy.svg)](https://crates.io/crates/bevy)
-[![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/bevyengine/bevy/blob/master/LICENSE)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Crates.io](https://img.shields.io/crates/d/bevy.svg)](https://crates.io/crates/bevy)
 [![Rust](https://github.com/bevyengine/bevy/workflows/CI/badge.svg)](https://github.com/bevyengine/bevy/actions)
 ![iOS cron CI](https://github.com/bevyengine/bevy/workflows/iOS%20cron%20CI/badge.svg)
@@ -38,7 +38,7 @@ Bevy is still in the _very_ early stages of development. APIs can and will chang
 
 ## Community
 
-Before contributing or participating in discussions with the community, you should familiarize yourself with our **[Code of Conduct](https://github.com/bevyengine/bevy/blob/master/CODE_OF_CONDUCT.md)** and 
+Before contributing or participating in discussions with the community, you should familiarize yourself with our **[Code of Conduct](./CODE_OF_CONDUCT.md)** and 
 **[How to Contribute](https://bevyengine.org/learn/book/contributing/code/)**
 
 * **[Discord](https://discord.gg/gMUk5Ph):** Bevy's official discord server.

@@ -115,13 +115,14 @@ pub(crate) fn entity_labels_system(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy_ecs::Stage;
 
     fn setup() -> (World, Resources, bevy_ecs::Schedule) {
         let world = World::new();
         let mut resources = Resources::default();
         resources.insert(EntityLabels::default());
         let mut schedule = bevy_ecs::Schedule::default();
-        schedule.add_stage("test", SystemStage::serial());
+        schedule.add_stage("test", SystemStage::single_threaded());
         schedule.add_system_to_stage("test", entity_labels_system.system());
         (world, resources, schedule)
     }
@@ -139,7 +140,7 @@ mod tests {
         let (mut world, mut resources, mut schedule) = setup();
 
         let e1 = world.spawn((holy_cow(),));
-        schedule.initialize_and_run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
 
         let entity_labels = resources.get::<EntityLabels>().unwrap();
         assert_eq!(entity_labels.get("holy"), &[e1], "holy");
@@ -151,10 +152,10 @@ mod tests {
     fn add_labels() {
         let (mut world, mut resources, mut schedule) = setup();
         let e1 = world.spawn((holy_cow(),));
-        schedule.initialize_and_run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
 
         world.get_mut::<Labels>(e1).unwrap().insert("shalau");
-        schedule.initialize_and_run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
 
         let entity_labels = resources.get::<EntityLabels>().unwrap();
         assert_eq!(entity_labels.get("holy"), &[e1], "holy");
@@ -166,10 +167,10 @@ mod tests {
     fn remove_labels() {
         let (mut world, mut resources, mut schedule) = setup();
         let e1 = world.spawn((holy_cow(),));
-        schedule.initialize_and_run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
 
         world.get_mut::<Labels>(e1).unwrap().remove("holy");
-        schedule.initialize_and_run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
 
         let entity_labels = resources.get::<EntityLabels>().unwrap();
         assert_eq!(entity_labels.get("holy"), &[], "holy");
@@ -181,10 +182,10 @@ mod tests {
     fn removes_despawned_entity() {
         let (mut world, mut resources, mut schedule) = setup();
         let e1 = world.spawn((holy_cow(),));
-        schedule.initialize_and_run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
 
         world.despawn(e1).unwrap();
-        schedule.initialize_and_run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
 
         let entity_labels = resources.get::<EntityLabels>().unwrap();
         assert_eq!(entity_labels.get("holy"), &[], "holy");
@@ -196,10 +197,10 @@ mod tests {
     fn removes_labels_when_component_removed() {
         let (mut world, mut resources, mut schedule) = setup();
         let e1 = world.spawn((holy_cow(),));
-        schedule.initialize_and_run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
 
         world.remove_one::<Labels>(e1).unwrap();
-        schedule.initialize_and_run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
 
         let entity_labels = resources.get::<EntityLabels>().unwrap();
         assert_eq!(entity_labels.get("holy"), &[], "holy");
@@ -211,10 +212,10 @@ mod tests {
     fn adds_another_spawned_entity() {
         let (mut world, mut resources, mut schedule) = setup();
         let e1 = world.spawn((holy_cow(),));
-        schedule.initialize_and_run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
 
         let e2 = world.spawn((holy_shamoni(),));
-        schedule.initialize_and_run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
 
         let entity_labels = resources.get::<EntityLabels>().unwrap();
         assert_eq!(entity_labels.get("holy"), &[e1, e2], "holy");
@@ -227,13 +228,13 @@ mod tests {
     fn removes_despawned_entity_but_leaves_other() {
         let (mut world, mut resources, mut schedule) = setup();
         let e1 = world.spawn((holy_cow(),));
-        schedule.initialize_and_run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
 
         let e2 = world.spawn((holy_shamoni(),));
-        schedule.initialize_and_run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
 
         world.despawn(e1).unwrap();
-        schedule.initialize_and_run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
 
         let entity_labels = resources.get::<EntityLabels>().unwrap();
         assert_eq!(entity_labels.get("holy"), &[e2], "holy");

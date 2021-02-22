@@ -1,7 +1,7 @@
 use crate::{
-    ArchetypeComponent, ChangedRes, Commands, Fetch, FromResources, Local, Or, Query, QueryAccess,
-    QueryFilter, QuerySet, QueryTuple, Res, ResMut, Resource, ResourceIndex, Resources,
-    SystemState, TypeAccess, World, WorldQuery,
+    ArchetypeComponent, ChangedRes, Commands, Fetch, FromResources, Local, NonSend, Or, Query,
+    QueryAccess, QueryFilter, QuerySet, QueryTuple, Res, ResMut, Resource, ResourceIndex,
+    Resources, SystemState, TypeAccess, World, WorldQuery,
 };
 use parking_lot::Mutex;
 use std::{any::TypeId, marker::PhantomData, sync::Arc};
@@ -49,6 +49,7 @@ impl<'a, Q: WorldQuery, F: QueryFilter> FetchSystemParam<'a> for FetchQuery<Q, F
             .query_archetype_component_accesses
             .push(TypeAccess::default());
         let access = QueryAccess::union(vec![Q::Fetch::access(), F::access()]);
+        access.get_component_access(&mut system_state.component_access);
         system_state.query_accesses.push(vec![access]);
         system_state
             .query_type_names
@@ -83,7 +84,11 @@ impl<'a, T: QueryTuple> FetchSystemParam<'a> for FetchQuerySet<T> {
         system_state
             .query_archetype_component_accesses
             .push(TypeAccess::default());
-        system_state.query_accesses.push(T::get_accesses());
+        let accesses = T::get_accesses();
+        for access in &accesses {
+            access.get_component_access(&mut system_state.component_access);
+        }
+        system_state.query_accesses.push(accesses);
         system_state
             .query_type_names
             .push(std::any::type_name::<T>());
@@ -288,6 +293,31 @@ impl<'a, T: Resource + FromResources> FetchSystemParam<'a> for FetchLocal<T> {
         resources: &'a Resources,
     ) -> Option<Self::Item> {
         Some(Local::new(resources, system_state.id))
+    }
+}
+
+pub struct FetchNonSend<T>(PhantomData<T>);
+
+impl<'a, T: Resource> SystemParam for NonSend<'a, T> {
+    type Fetch = FetchNonSend<T>;
+}
+
+impl<'a, T: Resource> FetchSystemParam<'a> for FetchNonSend<T> {
+    type Item = NonSend<'a, T>;
+
+    fn init(system_state: &mut SystemState, _world: &World, _resources: &mut Resources) {
+        // !Send systems run only on the main thread, so only one system
+        // at a time will ever access any thread-local resource.
+        system_state.is_non_send = true;
+    }
+
+    #[inline]
+    unsafe fn get_param(
+        _system_state: &'a SystemState,
+        _world: &'a World,
+        resources: &'a Resources,
+    ) -> Option<Self::Item> {
+        Some(NonSend::new(resources))
     }
 }
 

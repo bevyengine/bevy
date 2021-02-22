@@ -11,7 +11,7 @@ pub use winit_config::*;
 pub use winit_windows::*;
 
 use bevy_app::{prelude::*, AppExit, ManualEventReader};
-use bevy_ecs::{IntoSystem, Resources, World};
+use bevy_ecs::{IntoExclusiveSystem, Resources, World};
 use bevy_math::{ivec2, Vec2};
 use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
@@ -41,7 +41,7 @@ impl Plugin for WinitPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<WinitWindows>()
             .set_runner(winit_runner)
-            .add_system(change_window.system());
+            .add_system(change_window.exclusive_system());
     }
 }
 
@@ -206,7 +206,7 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
     let mut create_window_event_reader = ManualEventReader::<CreateWindow>::default();
     let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
 
-    app.resources.insert_thread_local(event_loop.create_proxy());
+    app.resources.insert_non_send(event_loop.create_proxy());
 
     trace!("Entering winit event loop");
 
@@ -407,6 +407,7 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                         );
                     }
                     WindowEvent::Focused(focused) => {
+                        window.update_focused_status_from_backend(focused);
                         let mut focused_events =
                             app.resources.get_mut::<Events<WindowFocused>>().unwrap();
                         focused_events.send(WindowFocused {

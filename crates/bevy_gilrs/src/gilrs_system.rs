@@ -5,7 +5,7 @@ use bevy_input::{gamepad::GamepadEventRaw, prelude::*};
 use gilrs::{EventType, Gilrs};
 
 pub fn gilrs_event_startup_system(_world: &mut World, resources: &mut Resources) {
-    let gilrs = resources.get_thread_local::<Gilrs>().unwrap();
+    let gilrs = resources.get_non_send::<Gilrs>().unwrap();
     let mut event = resources.get_mut::<Events<GamepadEventRaw>>().unwrap();
     for (id, _) in gilrs.gamepads() {
         event.send(GamepadEventRaw(
@@ -16,7 +16,7 @@ pub fn gilrs_event_startup_system(_world: &mut World, resources: &mut Resources)
 }
 
 pub fn gilrs_event_system(_world: &mut World, resources: &mut Resources) {
-    let mut gilrs = resources.get_thread_local_mut::<Gilrs>().unwrap();
+    let mut gilrs = resources.get_non_send_mut::<Gilrs>().unwrap();
     let mut event = resources.get_mut::<Events<GamepadEventRaw>>().unwrap();
     event.update();
     while let Some(gilrs_event) = gilrs.next_event() {

@@ -9,7 +9,7 @@ If you don't see your distro present in the list, feel free to add the instructi
 ```bash
 sudo apt-get install pkg-config libx11-dev libasound2-dev libudev-dev
 ```
-If you want to Enable Fast Compiles
+If you want to enable fast compiles
 ```bash
 sudo apt-get install clang
 ```
@@ -55,7 +55,7 @@ fn main() {
 }
 ```
 
-The following packages are known to provide the dependencies required to run a bevy project. They can be installed globally or via nix-shell.
+These packages provide the dependencies required to run a bevy project. They can be installed globally or via nix-shell.
 
 `nix-shell -p pkgconfig x11 xorg.libXcursor xorg.libXrandr xorg.libXi vulkan-tools lutris vulkan-headers vulkan-loader vulkan-validation-layers alsaLib`
 

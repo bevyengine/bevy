@@ -640,7 +640,7 @@ impl WgpuFrom<&Window> for wgpu::SwapChainDescriptor {
             width: window.physical_width(),
             height: window.physical_height(),
             present_mode: if window.vsync() {
-                wgpu::PresentMode::Mailbox
+                wgpu::PresentMode::Fifo
             } else {
                 wgpu::PresentMode::Immediate
             },
