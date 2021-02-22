@@ -345,6 +345,10 @@ impl Resources {
             resource_data.storage.clear_trackers();
         }
     }
+
+    pub fn remove<T: Resource>(&mut self) {
+        self.resource_data.remove(&TypeId::of::<T>());
+    }
 }
 
 unsafe impl Send for Resources {}
@@ -534,6 +538,8 @@ mod tests {
             222
         );
         assert_eq!(*resources.get::<i32>().expect("resource exists"), 123);
+        resources.remove::<i32>();
+        assert!(resources.get::<i32>().is_none());
     }
 
     #[test]
