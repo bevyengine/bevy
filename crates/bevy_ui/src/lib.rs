@@ -25,7 +25,7 @@ use bevy_render::render_graph::RenderGraph;
 use update::ui_z_system;
 
 pub struct UiPlugin {
-    ui_render_graph_config: Option<UiRenderGraphConfig>,
+    pub ui_render_graph_config: Option<UiRenderGraphConfig>,
 }
 
 impl Default for UiPlugin {
