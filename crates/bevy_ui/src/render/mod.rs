@@ -77,12 +77,24 @@ pub mod camera {
     pub const CAMERA_UI: &str = "CameraUi";
 }
 
+pub struct UiRenderGraphConfig {
+    connect_ui_pass_to_main_depth_texture: bool,
+}
+
+impl Default for UiRenderGraphConfig {
+    fn default() -> Self {
+        Self {
+            connect_ui_pass_to_main_depth_texture: true,
+        }
+    }
+}
+
 pub trait UiRenderGraphBuilder {
-    fn add_ui_graph(&mut self, resources: &Resources) -> &mut Self;
+    fn add_ui_graph(&mut self, config: &UiRenderGraphConfig, resources: &Resources) -> &mut Self;
 }
 
 impl UiRenderGraphBuilder for RenderGraph {
-    fn add_ui_graph(&mut self, resources: &Resources) -> &mut Self {
+    fn add_ui_graph(&mut self, config: &UiRenderGraphConfig, resources: &Resources) -> &mut Self {
         let mut pipelines = resources.get_mut::<Assets<PipelineDescriptor>>().unwrap();
         let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
         let msaa = resources.get::<Msaa>().unwrap();
@@ -123,13 +135,15 @@ impl UiRenderGraphBuilder for RenderGraph {
         )
         .unwrap();
 
-        self.add_slot_edge(
-            base::node::MAIN_DEPTH_TEXTURE,
-            WindowTextureNode::OUT_TEXTURE,
-            node::UI_PASS,
-            "depth",
-        )
-        .unwrap();
+        if config.connect_ui_pass_to_main_depth_texture {
+            self.add_slot_edge(
+                base::node::MAIN_DEPTH_TEXTURE,
+                WindowTextureNode::OUT_TEXTURE,
+                node::UI_PASS,
+                "depth",
+            )
+            .unwrap();
+        }
 
         if msaa.samples > 1 {
             self.add_slot_edge(

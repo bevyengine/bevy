@@ -24,8 +24,17 @@ use bevy_ecs::{IntoSystem, ParallelSystemDescriptorCoercion, SystemStage};
 use bevy_render::render_graph::RenderGraph;
 use update::ui_z_system;
 
-#[derive(Default)]
-pub struct UiPlugin;
+pub struct UiPlugin {
+    ui_render_graph_config: Option<UiRenderGraphConfig>,
+}
+
+impl Default for UiPlugin {
+    fn default() -> Self {
+        Self {
+            ui_render_graph_config: Some(UiRenderGraphConfig::default()),
+        }
+    }
+}
 
 pub mod stage {
     pub const UI: &str = "ui";
@@ -56,6 +65,8 @@ impl Plugin for UiPlugin {
 
         let resources = app.resources();
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-        render_graph.add_ui_graph(resources);
+        if let Some(ref config) = self.ui_render_graph_config {
+            render_graph.add_ui_graph(config, resources);
+        }
     }
 }
