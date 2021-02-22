@@ -95,6 +95,10 @@ name = "contributors"
 path = "examples/2d/contributors.rs"
 
 [[example]]
+name = "many_sprites"
+path = "examples/2d/many_sprites.rs"
+
+[[example]]
 name = "sprite"
 path = "examples/2d/sprite.rs"
 
