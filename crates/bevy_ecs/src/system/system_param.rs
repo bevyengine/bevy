@@ -12,7 +12,7 @@ use std::{any::TypeId, marker::PhantomData, sync::Arc};
 /// This trait can be derived.
 ///
 /// ```
-/// use bevy_ecs::prelude::*;
+/// # use bevy_ecs::prelude::*;
 /// use bevy_ecs::SystemParam;
 ///
 /// #[derive(SystemParam)]
