@@ -75,3 +75,20 @@ jobs:
         run: cargo install cargo-apk
       - name: Build APK
         run: cargo apk build --example android
+
+  markdownlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          # Full git history is needed to get a proper list of changed files within `super-linter`
+          fetch-depth: 0
+
+      - name: Run Markdown Lint
+        uses: github/super-linter@v3
+        env:
+          VALIDATE_ALL_CODEBASE: false
+          VALIDATE_MARKDOWN: true
+          DEFAULT_BRANCH: master
+          # Not needed here as only one Linter is used.
+          #GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -89,6 +89,11 @@ serde = {version = "1", features = ["derive"]}
 name = "hello_world"
 path = "examples/hello_world.rs"
 
+# 2D Rendering
+[[example]]
+name = "contributors"
+path = "examples/2d/contributors.rs"
+
 [[example]]
 name = "sprite"
 path = "examples/2d/sprite.rs"
@@ -98,17 +103,14 @@ name = "sprite_sheet"
 path = "examples/2d/sprite_sheet.rs"
 
 [[example]]
-name = "texture_atlas"
-path = "examples/2d/texture_atlas.rs"
-
-[[example]]
-name = "contributors"
-path = "examples/2d/contributors.rs"
-
-[[example]]
 name = "text2d"
 path = "examples/2d/text2d.rs"
 
+[[example]]
+name = "texture_atlas"
+path = "examples/2d/texture_atlas.rs"
+
+# 3D Rendering
 [[example]]
 name = "3d_scene"
 path = "examples/3d/3d_scene.rs"
@@ -145,6 +147,7 @@ path = "examples/3d/update_gltf_scene.rs"
 name = "z_sort_debug"
 path = "examples/3d/z_sort_debug.rs"
 
+# Application
 [[example]]
 name = "custom_loop"
 path = "examples/app/custom_loop.rs"
@@ -154,20 +157,20 @@ name = "drag_and_drop"
 path = "examples/app/drag_and_drop.rs"
 
 [[example]]
-name = "empty_defaults"
-path = "examples/app/empty_defaults.rs"
-
-[[example]]
 name = "empty"
 path = "examples/app/empty.rs"
 
 [[example]]
-name = "logs"
-path = "examples/app/logs.rs"
+name = "empty_defaults"
+path = "examples/app/empty_defaults.rs"
 
 [[example]]
 name = "headless"
 path = "examples/app/headless.rs"
+
+[[example]]
+name = "logs"
+path = "examples/app/logs.rs"
 
 [[example]]
 name = "plugin"
@@ -185,10 +188,7 @@ path = "examples/app/return_after_run.rs"
 name = "thread_pool_resources"
 path = "examples/app/thread_pool_resources.rs"
 
-[[example]]
-name = "hot_asset_reloading"
-path = "examples/asset/hot_asset_reloading.rs"
-
+# Assets
 [[example]]
 name = "asset_loading"
 path = "examples/asset/asset_loading.rs"
@@ -202,16 +202,27 @@ name = "custom_asset_io"
 path = "examples/asset/custom_asset_io.rs"
 
 [[example]]
+name = "hot_asset_reloading"
+path = "examples/asset/hot_asset_reloading.rs"
+
+# Audio
+[[example]]
 name = "audio"
 path = "examples/audio/audio.rs"
+
+# Diagnostics
+[[example]]
+name = "log_diagnostics"
+path = "examples/diagnostics/log_diagnostics.rs"
 
 [[example]]
 name = "custom_diagnostic"
 path = "examples/diagnostics/custom_diagnostic.rs"
 
+# ECS (Entity Component System)
 [[example]]
-name = "log_diagnostics"
-path = "examples/diagnostics/log_diagnostics.rs"
+name = "ecs_guide"
+path = "examples/ecs/ecs_guide.rs"
 
 [[example]]
 name = "change_detection"
@@ -224,6 +235,18 @@ path = "examples/ecs/event.rs"
 [[example]]
 name = "fixed_timestep"
 path = "examples/ecs/fixed_timestep.rs"
+
+[[example]]
+name = "hierarchy"
+path = "examples/ecs/hierarchy.rs"
+
+[[example]]
+name = "parallel_query"
+path = "examples/ecs/parallel_query.rs"
+
+[[example]]
+name = "removal_detection"
+path = "examples/ecs/removal_detection.rs"
 
 [[example]]
 name = "startup_system"
@@ -241,18 +264,7 @@ path = "examples/ecs/system_chaining.rs"
 name = "timers"
 path = "examples/ecs/timers.rs"
 
-[[example]]
-name = "ecs_guide"
-path = "examples/ecs/ecs_guide.rs"
-
-[[example]]
-name = "parallel_query"
-path = "examples/ecs/parallel_query.rs"
-
-[[example]]
-name = "hierarchy"
-path = "examples/ecs/hierarchy.rs"
-
+# Games
 [[example]]
 name = "alien_cake_addict"
 path = "examples/game/alien_cake_addict.rs"
@@ -261,22 +273,7 @@ path = "examples/game/alien_cake_addict.rs"
 name = "breakout"
 path = "examples/game/breakout.rs"
 
-[[example]]
-name = "mouse_input"
-path = "examples/input/mouse_input.rs"
-
-[[example]]
-name = "mouse_input_events"
-path = "examples/input/mouse_input_events.rs"
-
-[[example]]
-name = "keyboard_input"
-path = "examples/input/keyboard_input.rs"
-
-[[example]]
-name = "keyboard_input_events"
-path = "examples/input/keyboard_input_events.rs"
-
+# Input
 [[example]]
 name = "char_input_events"
 path = "examples/input/char_input_events.rs"
@@ -290,6 +287,22 @@ name = "gamepad_input_events"
 path = "examples/input/gamepad_input_events.rs"
 
 [[example]]
+name = "keyboard_input"
+path = "examples/input/keyboard_input.rs"
+
+[[example]]
+name = "keyboard_input_events"
+path = "examples/input/keyboard_input_events.rs"
+
+[[example]]
+name = "mouse_input"
+path = "examples/input/mouse_input.rs"
+
+[[example]]
+name = "mouse_input_events"
+path = "examples/input/mouse_input_events.rs"
+
+[[example]]
 name = "touch_input"
 path = "examples/input/touch_input.rs"
 
@@ -297,25 +310,32 @@ path = "examples/input/touch_input.rs"
 name = "touch_input_events"
 path = "examples/input/touch_input_events.rs"
 
+# Reflection
 [[example]]
 name = "reflection"
 path = "examples/reflection/reflection.rs"
-
-[[example]]
-name = "reflection_types"
-path = "examples/reflection/reflection_types.rs"
 
 [[example]]
 name = "generic_reflection"
 path = "examples/reflection/generic_reflection.rs"
 
 [[example]]
+name = "reflection_types"
+path = "examples/reflection/reflection_types.rs"
+
+[[example]]
 name = "trait_reflection"
 path = "examples/reflection/trait_reflection.rs"
 
+# Scene
 [[example]]
 name = "scene"
 path = "examples/scene/scene.rs"
+
+# Shaders
+[[example]]
+name = "array_texture"
+path = "examples/shader/array_texture.rs"
 
 [[example]]
 name = "hot_shader_reloading"
@@ -330,20 +350,22 @@ name = "shader_custom_material"
 path = "examples/shader/shader_custom_material.rs"
 
 [[example]]
-name = "array_texture"
-path = "examples/shader/array_texture.rs"
-
-[[example]]
 name = "shader_defs"
 path = "examples/shader/shader_defs.rs"
 
+# Tools
 [[example]]
 name = "bevymark"
 path = "examples/tools/bevymark.rs"
 
+# UI (User Interface)
 [[example]]
 name = "button"
 path = "examples/ui/button.rs"
+
+[[example]]
+name = "font_atlas_debug"
+path = "examples/ui/font_atlas_debug.rs"
 
 [[example]]
 name = "text"
@@ -354,13 +376,10 @@ name = "text_debug"
 path = "examples/ui/text_debug.rs"
 
 [[example]]
-name = "font_atlas_debug"
-path = "examples/ui/font_atlas_debug.rs"
-
-[[example]]
 name = "ui"
 path = "examples/ui/ui.rs"
 
+# Window
 [[example]]
 name = "clear_color"
 path = "examples/window/clear_color.rs"
@@ -377,14 +396,16 @@ path = "examples/window/scale_factor_override.rs"
 name = "window_settings"
 path = "examples/window/window_settings.rs"
 
-[[example]]
-name = "removal_detection"
-path = "examples/ecs/removal_detection.rs"
-
+# WASM
 [[example]]
 name = "hello_wasm"
 path = "examples/wasm/hello_wasm.rs"
 required-features = []
+
+[[example]]
+name = "assets_wasm"
+path = "examples/wasm/assets_wasm.rs"
+required-features = ["bevy_winit"]
 
 [[example]]
 name = "headless_wasm"
@@ -396,11 +417,7 @@ name = "winit_wasm"
 path = "examples/wasm/winit_wasm.rs"
 required-features = ["bevy_winit"]
 
-[[example]]
-name = "assets_wasm"
-path = "examples/wasm/assets_wasm.rs"
-required-features = ["bevy_winit"]
-
+# Android
 [[example]]
 crate-type = ["cdylib"]
 name = "android"
