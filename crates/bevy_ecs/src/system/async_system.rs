@@ -257,15 +257,15 @@ impl<P: SystemParam> Clone for Accessor<P> {
 #[doc(hidden)]
 // This trait adds a middle-man that helps rustc figure out lifetime bounds, and avoids an ICE
 // https://github.com/rust-lang/rust/issues/74261
-pub trait AccessFn<'a, P: SystemParam, Out> {
+pub trait AccessFn<'a, 'env, P: SystemParam, Out> {
     fn call(self, v: <P::Fetch as FetchSystemParam<'a>>::Item) -> Out;
 }
 
-impl<'a, Out, P, F> AccessFn<'a, P, Out> for F
+impl<'a, 'env, Out, P, F> AccessFn<'a, 'env, P, Out> for F
 where
     P: SystemParam,
-    F: FnOnce(P) -> Out + 'a,
-    F: FnOnce(<P::Fetch as FetchSystemParam<'a>>::Item) -> Out + 'a,
+    F: FnOnce(P) -> Out + 'env,
+    F: FnOnce(<P::Fetch as FetchSystemParam<'a>>::Item) -> Out + 'env,
 {
     fn call(self, v: <P::Fetch as FetchSystemParam<'a>>::Item) -> Out {
         self(v)
@@ -273,20 +273,25 @@ where
 }
 
 impl<P: SystemParam> Accessor<P> {
-    pub async fn access<F, R: Send + 'static>(&mut self, sync: F) -> R
-    where
-        F: for<'a> AccessFn<'a, P, R> + Send + Sync + 'static,
-    {
+    pub async fn access<'env, R: Send + 'static>(
+        &mut self,
+        sync: impl for<'a> AccessFn<'a, 'env, P, R> + Send + Sync + 'env,
+    ) -> R {
         let (tx, rx) = async_channel::bounded(1);
-        self.channel
-            .send(Box::new(move |state, world, resources| {
+        let boxed: Box<dyn FnOnce(&SystemState, &World, &Resources) + Send + Sync + 'env> =
+            Box::new(move |state, world, resources| {
                 // Safe: the sent closure is executed inside run_unsafe, which provides the correct guarantees.
                 if let Some(params) = unsafe { P::Fetch::get_param(state, world, resources) } {
                     tx.try_send(sync.call(params)).unwrap();
                 }
-            }))
-            .await
-            .unwrap();
+            });
+        
+        // TODO: I think this is safe, but this point should be audited further.
+        // Safe: This function won't return until this value has been consumed,
+        // meaning the reference is valid as long as the value exists.
+        let boxed: Box<dyn FnOnce(&SystemState, &World, &Resources) + Send + Sync + 'static> =
+            unsafe { std::mem::transmute(boxed) };
+        self.channel.send(boxed).await.unwrap();
         rx.recv().await.unwrap()
     }
 }
@@ -528,16 +533,12 @@ mod test {
     ) {
         loop {
             let mut x = None;
-            let returns = access_1
-                .access(move |(number, mut res): (Res<'_, _>, ResMut<'_, _>)| {
-                    //
-                    *res = "Hi!".to_owned();
-                    assert_eq!(x, None);
-                    x = Some(*number);
-                    x
-                })
-                .await;
-            assert_eq!(returns, Some(3));
+            access_1.access(|(number, mut res): (Res<'_, _>, ResMut<'_, _>)| {
+                *res = "Hi!".to_owned();
+                assert_eq!(x, None);
+                x = Some(*number);
+            }).await;
+            assert_eq!(x, Some(3));
 
             access_2
                 .access(|res: Res<'_, _>| {
