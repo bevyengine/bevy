@@ -78,7 +78,7 @@ pub mod camera {
 }
 
 pub struct UiRenderGraphConfig {
-    connect_ui_pass_to_main_depth_texture: bool,
+    pub connect_ui_pass_to_main_depth_texture: bool,
 }
 
 impl Default for UiRenderGraphConfig {
