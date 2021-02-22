@@ -1,4 +1,4 @@
-use bevy_ecs::{prelude::*, Stage};
+use bevy::ecs::{IntoSystem,World,SystemStage,Resources,Query,Stage};
 use criterion::{criterion_group, criterion_main, Criterion};
 
 criterion_group!(benches, empty_systems, busy_systems, contrived);

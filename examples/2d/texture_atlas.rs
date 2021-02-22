@@ -6,14 +6,15 @@ fn main() {
         .init_resource::<RpgSpriteHandles>()
         .add_plugins(DefaultPlugins)
         .insert_resource(State::new(AppState::Setup))
-        .add_stage_after(stage::UPDATE, STAGE, StateStage::<AppState>::default())
-        .on_state_enter(STAGE, AppState::Setup, load_textures.system())
-        .on_state_update(STAGE, AppState::Setup, check_textures.system())
-        .on_state_enter(STAGE, AppState::Finished, setup.system())
+        .add_stage_after(CoreStage::Update, Stage, StateStage::<AppState>::default())
+        .on_state_enter(Stage, AppState::Setup, load_textures.system())
+        .on_state_update(Stage, AppState::Setup, check_textures.system())
+        .on_state_enter(Stage, AppState::Finished, setup.system())
         .run();
 }
 
-const STAGE: &str = "app_state";
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+struct Stage;
 
 #[derive(Clone)]
 enum AppState {

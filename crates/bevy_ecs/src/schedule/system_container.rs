@@ -1,15 +1,19 @@
 use std::{borrow::Cow, ptr::NonNull};
 
-use crate::{ExclusiveSystem, ExclusiveSystemDescriptor, ParallelSystemDescriptor, System};
+use crate::{
+    BoxedAmbiguitySetLabel, BoxedSystemLabel, ExclusiveSystem, ExclusiveSystemDescriptor,
+    ParallelSystemDescriptor, System,
+};
 
 pub(super) trait SystemContainer {
     fn display_name(&self) -> Cow<'static, str>;
     fn dependencies(&self) -> &[usize];
     fn set_dependencies(&mut self, dependencies: impl IntoIterator<Item = usize>);
     fn system_set(&self) -> usize;
-    fn label(&self) -> &Option<Cow<'static, str>>;
-    fn before(&self) -> &[Cow<'static, str>];
-    fn after(&self) -> &[Cow<'static, str>];
+    fn label(&self) -> &Option<BoxedSystemLabel>;
+    fn before(&self) -> &[BoxedSystemLabel];
+    fn after(&self) -> &[BoxedSystemLabel];
+    fn ambiguity_sets(&self) -> &[BoxedAmbiguitySetLabel];
     fn is_compatible(&self, other: &Self) -> bool;
 }
 
@@ -17,9 +21,10 @@ pub(super) struct ExclusiveSystemContainer {
     system: Box<dyn ExclusiveSystem>,
     dependencies: Vec<usize>,
     set: usize,
-    label: Option<Cow<'static, str>>,
-    before: Vec<Cow<'static, str>>,
-    after: Vec<Cow<'static, str>>,
+    label: Option<BoxedSystemLabel>,
+    before: Vec<BoxedSystemLabel>,
+    after: Vec<BoxedSystemLabel>,
+    ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
 }
 
 impl ExclusiveSystemContainer {
@@ -31,6 +36,7 @@ impl ExclusiveSystemContainer {
             label: descriptor.label,
             before: descriptor.before,
             after: descriptor.after,
+            ambiguity_sets: descriptor.ambiguity_sets,
         }
     }
 
@@ -43,7 +49,7 @@ impl SystemContainer for ExclusiveSystemContainer {
     fn display_name(&self) -> Cow<'static, str> {
         self.label
             .as_ref()
-            .cloned()
+            .map(|l| Cow::Owned(format!("{:?}", l)))
             .unwrap_or_else(|| self.system.name())
     }
 
@@ -60,16 +66,20 @@ impl SystemContainer for ExclusiveSystemContainer {
         self.set
     }
 
-    fn label(&self) -> &Option<Cow<'static, str>> {
+    fn label(&self) -> &Option<BoxedSystemLabel> {
         &self.label
     }
 
-    fn before(&self) -> &[Cow<'static, str>] {
+    fn before(&self) -> &[BoxedSystemLabel] {
         &self.before
     }
 
-    fn after(&self) -> &[Cow<'static, str>] {
+    fn after(&self) -> &[BoxedSystemLabel] {
         &self.after
+    }
+
+    fn ambiguity_sets(&self) -> &[BoxedAmbiguitySetLabel] {
+        &self.ambiguity_sets
     }
 
     fn is_compatible(&self, _: &Self) -> bool {
@@ -82,16 +92,17 @@ pub struct ParallelSystemContainer {
     pub(crate) should_run: bool,
     dependencies: Vec<usize>,
     set: usize,
-    label: Option<Cow<'static, str>>,
-    before: Vec<Cow<'static, str>>,
-    after: Vec<Cow<'static, str>>,
+    label: Option<BoxedSystemLabel>,
+    before: Vec<BoxedSystemLabel>,
+    after: Vec<BoxedSystemLabel>,
+    ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
 }
 
 impl SystemContainer for ParallelSystemContainer {
     fn display_name(&self) -> Cow<'static, str> {
         self.label
             .as_ref()
-            .cloned()
+            .map(|l| Cow::Owned(format!("{:?}", l)))
             .unwrap_or_else(|| self.system().name())
     }
 
@@ -108,16 +119,20 @@ impl SystemContainer for ParallelSystemContainer {
         self.set
     }
 
-    fn label(&self) -> &Option<Cow<'static, str>> {
+    fn label(&self) -> &Option<BoxedSystemLabel> {
         &self.label
     }
 
-    fn before(&self) -> &[Cow<'static, str>] {
+    fn before(&self) -> &[BoxedSystemLabel] {
         &self.before
     }
 
-    fn after(&self) -> &[Cow<'static, str>] {
+    fn after(&self) -> &[BoxedSystemLabel] {
         &self.after
+    }
+
+    fn ambiguity_sets(&self) -> &[BoxedAmbiguitySetLabel] {
+        &self.ambiguity_sets
     }
 
     fn is_compatible(&self, other: &Self) -> bool {
@@ -144,6 +159,7 @@ impl ParallelSystemContainer {
             label: descriptor.label,
             before: descriptor.before,
             after: descriptor.after,
+            ambiguity_sets: descriptor.ambiguity_sets,
         }
     }
 
