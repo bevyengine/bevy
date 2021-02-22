@@ -18,7 +18,7 @@ extern crate proc_macro;
 
 use std::borrow::Cow;
 
-use find_crate::Manifest;
+use find_crate::{Dependencies, Manifest};
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
@@ -54,27 +54,18 @@ fn derive_bundle_(input: DeriveInput) -> Result<TokenStream2> {
         }
     };
     let (tys, field_members) = struct_fields(&data.fields);
-    let manifest = Manifest::new().unwrap();
-    let path_str = if let Some(package) = manifest.find(|name| name == "bevy") {
-        format!("{}::ecs", package.name)
-    } else if let Some(package) = manifest.find(|name| name == "bevy_internal") {
-        format!("{}::ecs", package.name)
-    } else if let Some(package) = manifest.find(|name| name == "bevy_ecs") {
-        package.name
-    } else {
-        "bevy_ecs".to_string()
-    };
-    let crate_path: Path = syn::parse(path_str.parse::<TokenStream>().unwrap()).unwrap();
+
+    let ecs_path = bevy_ecs_path();
     let field_idents = member_as_idents(&field_members);
-    let generics = add_additional_bounds_to_generic_params(&crate_path, input.generics);
+    let generics = add_additional_bounds_to_generic_params(&ecs_path, input.generics);
 
     let dyn_bundle_code =
-        gen_dynamic_bundle_impl(&crate_path, &ident, &generics, &field_members, &tys);
+        gen_dynamic_bundle_impl(&ecs_path, &ident, &generics, &field_members, &tys);
     let bundle_code = if tys.is_empty() {
-        gen_unit_struct_bundle_impl(&crate_path, ident, &generics)
+        gen_unit_struct_bundle_impl(&ecs_path, ident, &generics)
     } else {
         gen_bundle_impl(
-            &crate_path,
+            &ecs_path,
             &ident,
             &generics,
             &field_members,
@@ -88,7 +79,7 @@ fn derive_bundle_(input: DeriveInput) -> Result<TokenStream2> {
 }
 
 fn gen_dynamic_bundle_impl(
-    crate_path: &syn::Path,
+    ecs_path: &syn::Path,
     ident: &syn::Ident,
     generics: &syn::Generics,
     field_members: &[syn::Member],
@@ -96,13 +87,13 @@ fn gen_dynamic_bundle_impl(
 ) -> TokenStream2 {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     quote! {
-        impl #impl_generics ::#crate_path::DynamicBundle for #ident #ty_generics #where_clause {
+        impl #impl_generics ::#ecs_path::DynamicBundle for #ident #ty_generics #where_clause {
             fn with_ids<__hecs__T>(&self, f: impl ::std::ops::FnOnce(&[::std::any::TypeId]) -> __hecs__T) -> __hecs__T {
-                <Self as ::#crate_path::Bundle>::with_static_ids(f)
+                <Self as ::#ecs_path::Bundle>::with_static_ids(f)
             }
 
-            fn type_info(&self) -> ::std::vec::Vec<::#crate_path::TypeInfo> {
-                <Self as ::#crate_path::Bundle>::static_type_info()
+            fn type_info(&self) -> ::std::vec::Vec<::#ecs_path::TypeInfo> {
+                <Self as ::#ecs_path::Bundle>::static_type_info()
             }
 
             #[allow(clippy::forget_copy)]
@@ -119,7 +110,7 @@ fn gen_dynamic_bundle_impl(
 }
 
 fn gen_bundle_impl(
-    crate_path: &syn::Path,
+    ecs_path: &syn::Path,
     ident: &syn::Ident,
     generics: &syn::Generics,
     field_members: &[syn::Member],
@@ -145,7 +136,7 @@ fn gen_bundle_impl(
     };
     let with_static_ids_body = if generics.params.is_empty() {
         quote! {
-            ::#crate_path::lazy_static::lazy_static! {
+            ::#ecs_path::lazy_static::lazy_static! {
                 static ref ELEMENTS: [::std::any::TypeId; #num_tys] = {
                     #with_static_ids_inner
                 };
@@ -158,24 +149,24 @@ fn gen_bundle_impl(
         }
     };
     quote! {
-        impl #impl_generics ::#crate_path::Bundle for #ident #ty_generics #where_clause {
+        impl #impl_generics ::#ecs_path::Bundle for #ident #ty_generics #where_clause {
             #[allow(non_camel_case_types)]
             fn with_static_ids<__hecs__T>(f: impl ::std::ops::FnOnce(&[::std::any::TypeId]) -> __hecs__T) -> __hecs__T {
                 #with_static_ids_body
             }
 
-            fn static_type_info() -> ::std::vec::Vec<::#crate_path::TypeInfo> {
-                let mut info = ::std::vec![#(::#crate_path::TypeInfo::of::<#tys>()),*];
+            fn static_type_info() -> ::std::vec::Vec<::#ecs_path::TypeInfo> {
+                let mut info = ::std::vec![#(::#ecs_path::TypeInfo::of::<#tys>()),*];
                 info.sort_unstable();
                 info
             }
 
             unsafe fn get(
                 mut f: impl ::std::ops::FnMut(::std::any::TypeId, usize) -> ::std::option::Option<::std::ptr::NonNull<u8>>,
-            ) -> ::std::result::Result<Self, ::#crate_path::MissingComponent> {
+            ) -> ::std::result::Result<Self, ::#ecs_path::MissingComponent> {
                 #(
                     let #field_idents = f(::std::any::TypeId::of::<#tys>(), ::std::mem::size_of::<#tys>())
-                            .ok_or_else(::#crate_path::MissingComponent::new::<#tys>)?
+                            .ok_or_else(::#ecs_path::MissingComponent::new::<#tys>)?
                             .cast::<#tys>()
                             .as_ptr();
                 )*
@@ -187,44 +178,42 @@ fn gen_bundle_impl(
 
 // no reason to generate a static for unit structs
 fn gen_unit_struct_bundle_impl(
-    crate_path: &syn::Path,
+    ecs_path: &syn::Path,
     ident: syn::Ident,
     generics: &syn::Generics,
 ) -> TokenStream2 {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     quote! {
-        impl #impl_generics ::#crate_path::Bundle for #ident #ty_generics #where_clause {
+        impl #impl_generics ::#ecs_path::Bundle for #ident #ty_generics #where_clause {
             #[allow(non_camel_case_types)]
             fn with_static_ids<__hecs__T>(f: impl ::std::ops::FnOnce(&[::std::any::TypeId]) -> __hecs__T) -> __hecs__T { f(&[]) }
-            fn static_type_info() -> ::std::vec::Vec<::#crate_path::TypeInfo> { ::std::vec::Vec::new() }
+            fn static_type_info() -> ::std::vec::Vec<::#ecs_path::TypeInfo> { ::std::vec::Vec::new() }
 
             unsafe fn get(
                 f: impl ::std::ops::FnMut(::std::any::TypeId, usize) -> ::std::option::Option<::std::ptr::NonNull<u8>>,
-            ) -> Result<Self, ::#crate_path::MissingComponent> {
+            ) -> Result<Self, ::#ecs_path::MissingComponent> {
                 Ok(Self {/* for some reason this works for all unit struct variations */})
             }
         }
     }
 }
 
-fn make_component_trait_bound(crate_path: &syn::Path) -> syn::TraitBound {
+fn make_component_trait_bound(ecs_path: &syn::Path) -> syn::TraitBound {
     syn::TraitBound {
         paren_token: None,
         modifier: syn::TraitBoundModifier::None,
         lifetimes: None,
-        path: syn::parse_quote!(::#crate_path::Component),
+        path: syn::parse_quote!(::#ecs_path::Component),
     }
 }
 
 fn add_additional_bounds_to_generic_params(
-    crate_path: &syn::Path,
+    ecs: &syn::Path,
     mut generics: syn::Generics,
 ) -> syn::Generics {
     generics.type_params_mut().for_each(|tp| {
         tp.bounds
-            .push(syn::TypeParamBound::Trait(make_component_trait_bound(
-                crate_path,
-            )))
+            .push(syn::TypeParamBound::Trait(make_component_trait_bound(ecs)))
     });
     generics
 }
@@ -360,13 +349,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         _ => panic!("Expected a struct with named fields."),
     };
 
-    let manifest = Manifest::new().unwrap();
-    let path_str = if let Some(package) = manifest.find(|name| name == "bevy") {
-        format!("{}::ecs", package.name)
-    } else {
-        "bevy_ecs".to_string()
-    };
-    let path: Path = syn::parse(path_str.parse::<TokenStream>().unwrap()).unwrap();
+    let ecs_path = bevy_ecs_path();
 
     let field_attributes = fields
         .iter()
@@ -443,23 +426,23 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         pub struct #fetch_struct_name<#punctuated_generics>(#phantoms);
-        impl #impl_generics #path::SystemParam for #struct_name#ty_generics #where_clause {
+        impl #impl_generics #ecs_path::SystemParam for #struct_name#ty_generics #where_clause {
             type Fetch = #fetch_struct_name <#punctuated_generic_idents>;
         }
 
-        impl #impl_generics #path::FetchSystemParam<'a> for #fetch_struct_name<#punctuated_generic_idents> {
+        impl #impl_generics #ecs_path::FetchSystemParam<'a> for #fetch_struct_name<#punctuated_generic_idents> {
             type Item = #struct_name#ty_generics;
-            fn init(system_state: &mut #path::SystemState, world: &#path::World, resources: &mut #path::Resources) {
-                #(<<#field_types as #path::SystemParam>::Fetch as #path::FetchSystemParam>::init(system_state, world, resources);)*
+            fn init(system_state: &mut #ecs_path::SystemState, world: &#ecs_path::World, resources: &mut #ecs_path::Resources) {
+                #(<<#field_types as #ecs_path::SystemParam>::Fetch as #ecs_path::FetchSystemParam>::init(system_state, world, resources);)*
             }
 
             unsafe fn get_param(
-                system_state: &'a #path::SystemState,
-                world: &'a #path::World,
-                resources: &'a #path::Resources,
+                system_state: &'a #ecs_path::SystemState,
+                world: &'a #ecs_path::World,
+                resources: &'a #ecs_path::Resources,
             ) -> Option<Self::Item> {
                 Some(#struct_name {
-                    #(#fields: <<#field_types as #path::SystemParam>::Fetch as #path::FetchSystemParam>::get_param(system_state, world, resources)?,)*
+                    #(#fields: <<#field_types as #ecs_path::SystemParam>::Fetch as #ecs_path::FetchSystemParam>::get_param(system_state, world, resources)?,)*
                     #(#ignored_fields: <#ignored_field_types>::default(),)*
                 })
             }
@@ -487,24 +470,36 @@ pub fn derive_ambiguity_set_label(input: TokenStream) -> TokenStream {
 
 fn derive_label(input: DeriveInput, label_type: Ident) -> TokenStream2 {
     let ident = input.ident;
-
-    let manifest = Manifest::new().unwrap();
-    let path_str = if let Some(package) = manifest.find(|name| name == "bevy") {
-        format!("{}::ecs", package.name)
-    } else if let Some(package) = manifest.find(|name| name == "bevy_internal") {
-        format!("{}::ecs", package.name)
-    } else if let Some(package) = manifest.find(|name| name == "bevy_ecs") {
-        package.name
-    } else {
-        "bevy_ecs".to_string()
-    };
-    let crate_path: Path = syn::parse(path_str.parse::<TokenStream>().unwrap()).unwrap();
+    let ecs_path: Path = bevy_ecs_path();
 
     quote! {
-        impl #crate_path::#label_type for #ident {
-            fn dyn_clone(&self) -> Box<dyn #crate_path::#label_type> {
+        impl #ecs_path::#label_type for #ident {
+            fn dyn_clone(&self) -> Box<dyn #ecs_path::#label_type> {
                 Box::new(Clone::clone(self))
             }
         }
     }
+}
+
+fn bevy_ecs_path() -> syn::Path {
+    fn find_in_manifest(manifest: &mut Manifest, dependencies: Dependencies) -> Option<String> {
+        manifest.dependencies = dependencies;
+        if let Some(package) = manifest.find(|name| name == "bevy") {
+            Some(format!("{}::ecs", package.name))
+        } else if let Some(package) = manifest.find(|name| name == "bevy_internal") {
+            Some(format!("{}::ecs", package.name))
+        } else if let Some(package) = manifest.find(|name| name == "bevy_ecs") {
+            Some(package.name)
+        } else {
+            None
+        }
+    }
+
+    let mut manifest = Manifest::new().unwrap();
+    let path_str = find_in_manifest(&mut manifest, Dependencies::Release)
+        .or_else(|| find_in_manifest(&mut manifest, Dependencies::Dev))
+        .unwrap_or_else(|| "bevy_ecs".to_string());
+
+    let path: Path = syn::parse(path_str.parse::<TokenStream>().unwrap()).unwrap();
+    path
 }
