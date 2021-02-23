@@ -452,7 +452,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
 #[proc_macro_derive(SystemLabel)]
 pub fn derive_system_label(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);cannot move a value of type dyn for<'r> AccessFn<'r, '_, P, Out> + Send + Sync: the size of dyn for<'r> AccessFn<'r, '_, P, Out> + Send + Sync cannot be statically determinedrustcE0161
+    let input = parse_macro_input!(input as DeriveInput);
 
     derive_label(input, Ident::new("SystemLabel", Span::call_site())).into()
 }
