@@ -474,7 +474,10 @@ fn derive_label(input: DeriveInput, label_type: Ident) -> TokenStream2 {
     let ecs_path: Path = bevy_ecs_path();
 
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
-    let mut where_clause = where_clause.cloned().unwrap_or_else(|| syn::WhereClause {where_token: Default::default(), predicates: Default::default()});
+    let mut where_clause = where_clause.cloned().unwrap_or_else(|| syn::WhereClause {
+        where_token: Default::default(),
+        predicates: Default::default(),
+    });
     where_clause.predicates.push(syn::parse2(quote! { Self: Eq + ::std::fmt::Debug + ::std::hash::Hash + Clone + Send + Sync + 'static }).unwrap());
 
     quote! {
