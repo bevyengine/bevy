@@ -212,7 +212,7 @@ impl QueryAccess {
     }
 }
 
-/// Provides information about the types a [System] reads and writes
+/// Provides information about the types a [System](crate::System) reads and writes
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct TypeAccess<T: Hash + Eq + PartialEq> {
     reads_all: bool,

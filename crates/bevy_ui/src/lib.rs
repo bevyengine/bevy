@@ -3,8 +3,8 @@ pub mod entity;
 mod flex;
 mod focus;
 mod margins;
-mod node;
 mod render;
+mod ui_node;
 pub mod update;
 pub mod widget;
 
@@ -12,11 +12,11 @@ pub use anchors::*;
 pub use flex::*;
 pub use focus::*;
 pub use margins::*;
-pub use node::*;
 pub use render::*;
+pub use ui_node::*;
 
 pub mod prelude {
-    pub use crate::{entity::*, node::*, widget::Button, Anchors, Interaction, Margins};
+    pub use crate::{entity::*, ui_node::*, widget::Button, Anchors, Interaction, Margins};
 }
 
 use bevy_app::prelude::*;

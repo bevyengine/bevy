@@ -4,7 +4,6 @@ Bevy has a plug and play architecture, where you can easily add plugins for new 
 
 This document targets plugin authors.
 
-
 ## Checklist
 
 * [ ] [Pick a reasonable, descriptive name](#naming)
@@ -42,20 +41,25 @@ Indicating which version of your plugin works with which version of Bevy can be 
 ## Bevy Features
 
 You should disable Bevy features that you don't use. This is because with Cargo, features are additive. Features that are enabled for Bevy in your plugin can't be disabled by someone using your plugin. You can find the list of features [here](cargo_features.md).
-```
+
+```toml
 bevy = { version = "0.4", default-features = false, features = ["..."] }
 ```
 
 ## Main Branch Tracking
 
 If you intend to track Bevy's main branch, you can specify the latest commit you support in your `Cargo.toml` file:
-```
+
+```toml
 bevy = { version = "0.4", git = "https://github.com/bevyengine/bevy", rev="509b138e8fa3ea250393de40c33cc857c72134d3", default-features = false }
 ```
+
 You can specify the dependency [both as a version and with git](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#multiple-locations), the version will be used if using the dependency from [crates.io](https://crates.io), the git dependency will be used otherwise.
 
 Bevy is evolving very fast. You can use one of these badges to communicate to your users how closely you intend to track Bevy's main branch.
 
+<!-- MD033 - The Badges could be downsized, without the inline HTML due to the large code colum -->
+<!-- markdownlint-disable-next-line MD033 -->
 |<div style="width:100px">badge</div>|<div style="width:200px">description</div>|code|
 |-|-|-|
 |[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-main-lightblue)](https://github.com/bevyengine/bevy/blob/main/docs/plugins_guidelines.md#main-branch-tracking)|I intend to track main as much as I can|`[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-main-lightblue)](https://github.com/bevyengine/bevy/blob/main/docs/plugins_guidelines.md#main-branch-tracking)`|
