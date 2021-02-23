@@ -65,7 +65,7 @@ pub(crate) fn impl_enum(
                 }
                 Fields::Unnamed(tuple_fields) => {
                     let field_idents = (0..tuple_fields.unnamed.len())
-                        .map(|i| tuple_field_ident(i))
+                        .map(tuple_field_ident)
                         .collect::<Vec<_>>();
                     if tuple_fields.unnamed.len() == 1 {
                         quote!(#variant_ident (new_type))
