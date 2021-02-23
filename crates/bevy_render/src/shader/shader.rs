@@ -46,9 +46,9 @@ pub enum ShaderError {
     not(target_arch = "wasm32"),
     not(all(target_arch = "aarch64", target_os = "macos"))
 ))]
-impl Into<bevy_glsl_to_spirv::ShaderType> for ShaderStage {
-    fn into(self) -> bevy_glsl_to_spirv::ShaderType {
-        match self {
+impl From<ShaderStage> for bevy_glsl_to_spirv::ShaderType {
+    fn from(s: ShaderStage) -> bevy_glsl_to_spirv::ShaderType {
+        match s {
             ShaderStage::Vertex => bevy_glsl_to_spirv::ShaderType::Vertex,
             ShaderStage::Fragment => bevy_glsl_to_spirv::ShaderType::Fragment,
             ShaderStage::Compute => bevy_glsl_to_spirv::ShaderType::Compute,

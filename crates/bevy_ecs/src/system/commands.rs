@@ -165,6 +165,16 @@ impl<T: Resource> Command for InsertResource<T> {
     }
 }
 
+pub struct RemoveResource<T: Resource> {
+    phantom: PhantomData<T>,
+}
+
+impl<T: Resource> Command for RemoveResource<T> {
+    fn write(self: Box<Self>, _world: &mut World, resources: &mut Resources) {
+        resources.remove::<T>();
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct InsertLocalResource<T: Resource> {
     resource: T,
@@ -195,7 +205,7 @@ impl Commands {
     /// # Example
     ///
     /// ```
-    /// use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     ///
     /// struct Component1;
     /// struct Component2;
@@ -206,7 +216,7 @@ impl Commands {
     ///     b: Component2,
     /// }
     ///
-    /// fn example_system(mut commands: Commands) {
+    /// fn example_system(commands: &mut Commands) {
     ///     // Create a new entity with a component bundle.
     ///     commands.spawn(ExampleBundle {
     ///         a: Component1,
@@ -218,6 +228,8 @@ impl Commands {
     ///     // Create a new entity with two components.
     ///     commands.spawn((Component1, Component2));
     /// }
+    ///
+    /// # example_system.system();
     /// ```
     pub fn spawn(&mut self, bundle: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
         let entity = self
@@ -302,6 +314,12 @@ impl Commands {
         })
     }
 
+    pub fn remove_resource<T: Resource>(&mut self) -> &mut Self {
+        self.add_command(RemoveResource::<T> {
+            phantom: PhantomData,
+        })
+    }
+
     /// Adds a bundle of components to the current entity.
     ///
     /// See [`Self::with`], [`Self::current_entity`].
@@ -327,12 +345,12 @@ impl Commands {
     /// `with` can be chained with [`Self::spawn`].
     ///
     /// ```
-    /// use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     ///
     /// struct Component1;
     /// struct Component2;
     ///
-    /// fn example_system(mut commands: Commands) {
+    /// fn example_system(commands: &mut Commands) {
     ///     // Create a new entity with a `Component1` and `Component2`.
     ///     commands.spawn((Component1,)).with(Component2);
     ///
@@ -349,6 +367,8 @@ impl Commands {
     ///         b: Component2,
     ///     });
     /// }
+    ///
+    /// # example_system.system();
     /// ```
     pub fn with(&mut self, component: impl Component) -> &mut Self {
         let current_entity =  self.current_entity.expect("Cannot add component because the 'current entity' is not set. You should spawn an entity first.");
@@ -405,8 +425,10 @@ impl Commands {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
     use crate::{resource::Resources, Commands, World};
+    use core::any::TypeId;
 
     #[test]
     fn command_buffer() {
@@ -459,7 +481,37 @@ mod tests {
             .map(|(a, b)| (*a, *b))
             .collect::<Vec<_>>();
         assert_eq!(results_after, vec![]);
-        let results_after_u64 = world.query::<&u64>().map(|a| *a).collect::<Vec<_>>();
+        let results_after_u64 = world.query::<&u64>().copied().collect::<Vec<_>>();
         assert_eq!(results_after_u64, vec![]);
+    }
+
+    #[test]
+    fn remove_resources() {
+        let mut world = World::default();
+        let mut resources = Resources::default();
+        let mut command_buffer = Commands::default();
+        command_buffer.insert_resource(123);
+        command_buffer.insert_resource(456.0);
+        command_buffer.apply(&mut world, &mut resources);
+        assert_eq!(
+            resources.resource_data.contains_key(&TypeId::of::<i32>()),
+            true
+        );
+        assert_eq!(
+            resources.resource_data.contains_key(&TypeId::of::<f64>()),
+            true
+        );
+
+        // test resource removal
+        command_buffer.remove_resource::<i32>();
+        command_buffer.apply(&mut world, &mut resources);
+        assert_eq!(
+            resources.resource_data.contains_key(&TypeId::of::<i32>()),
+            false
+        );
+        assert_eq!(
+            resources.resource_data.contains_key(&TypeId::of::<f64>()),
+            true
+        );
     }
 }

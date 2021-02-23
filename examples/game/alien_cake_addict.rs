@@ -5,7 +5,11 @@ use bevy::{
 };
 use rand::Rng;
 
-const STAGE: &str = "game";
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+enum GameStage {
+    InGame,
+    BonusUpdate,
+}
 
 #[derive(Clone, PartialEq, Debug)]
 enum GameState {
@@ -15,24 +19,40 @@ enum GameState {
 
 fn main() {
     App::build()
-        .add_resource(Msaa { samples: 4 })
+        .insert_resource(Msaa { samples: 4 })
         .init_resource::<Game>()
         .add_plugins(DefaultPlugins)
-        .add_resource(State::new(GameState::Playing))
+        .insert_resource(State::new(GameState::Playing))
         .add_startup_system(setup_cameras.system())
-        .add_stage_after(stage::UPDATE, STAGE, StateStage::<GameState>::default())
-        .on_state_enter(STAGE, GameState::Playing, setup.system())
-        .on_state_update(STAGE, GameState::Playing, move_player.system())
-        .on_state_update(STAGE, GameState::Playing, focus_camera.system())
-        .on_state_update(STAGE, GameState::Playing, rotate_bonus.system())
-        .on_state_update(STAGE, GameState::Playing, scoreboard_system.system())
-        .on_state_exit(STAGE, GameState::Playing, teardown.system())
-        .on_state_enter(STAGE, GameState::GameOver, display_score.system())
-        .on_state_update(STAGE, GameState::GameOver, gameover_keyboard.system())
-        .on_state_exit(STAGE, GameState::GameOver, teardown.system())
         .add_stage_after(
-            stage::UPDATE,
-            "bonus_update",
+            CoreStage::Update,
+            GameStage::InGame,
+            StateStage::<GameState>::default(),
+        )
+        .on_state_enter(GameStage::InGame, GameState::Playing, setup.system())
+        .on_state_update(GameStage::InGame, GameState::Playing, move_player.system())
+        .on_state_update(GameStage::InGame, GameState::Playing, focus_camera.system())
+        .on_state_update(GameStage::InGame, GameState::Playing, rotate_bonus.system())
+        .on_state_update(
+            GameStage::InGame,
+            GameState::Playing,
+            scoreboard_system.system(),
+        )
+        .on_state_exit(GameStage::InGame, GameState::Playing, teardown.system())
+        .on_state_enter(
+            GameStage::InGame,
+            GameState::GameOver,
+            display_score.system(),
+        )
+        .on_state_update(
+            GameStage::InGame,
+            GameState::GameOver,
+            gameover_keyboard.system(),
+        )
+        .on_state_exit(GameStage::InGame, GameState::GameOver, teardown.system())
+        .add_stage_after(
+            CoreStage::Update,
+            GameStage::BonusUpdate,
             SystemStage::parallel()
                 .with_run_criteria(FixedTimestep::step(5.0))
                 .with_system(spawn_bonus.system()),
@@ -83,7 +103,7 @@ fn setup_cameras(commands: &mut Commands, mut game: ResMut<Game>) {
     game.camera_should_focus = Vec3::from(RESET_FOCUS);
     game.camera_is_focus = game.camera_should_focus;
     commands
-        .spawn(Camera3dBundle {
+        .spawn(PerspectiveCameraBundle {
             transform: Transform::from_xyz(
                 -(BOARD_SIZE_I as f32 / 2.0),
                 2.0 * BOARD_SIZE_J as f32 / 3.0,
@@ -92,7 +112,7 @@ fn setup_cameras(commands: &mut Commands, mut game: ResMut<Game>) {
             .looking_at(game.camera_is_focus, Vec3::unit_y()),
             ..Default::default()
         })
-        .spawn(CameraUiBundle::default());
+        .spawn(UiCameraBundle::default());
 }
 
 fn setup(commands: &mut Commands, asset_server: Res<AssetServer>, mut game: ResMut<Game>) {
@@ -152,15 +172,15 @@ fn setup(commands: &mut Commands, asset_server: Res<AssetServer>, mut game: ResM
 
     // scoreboard
     commands.spawn(TextBundle {
-        text: Text {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-            value: "Score:".to_string(),
-            style: TextStyle {
-                color: Color::rgb(0.5, 0.5, 1.0),
+        text: Text::with_section(
+            "Score:",
+            TextStyle {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 40.0,
-                ..Default::default()
+                color: Color::rgb(0.5, 0.5, 1.0),
             },
-        },
+            Default::default(),
+        ),
         style: Style {
             position_type: PositionType::Absolute,
             position: Rect {
@@ -337,7 +357,7 @@ fn rotate_bonus(game: Res<Game>, time: Res<Time>, mut transforms: Query<&mut Tra
 
 // update the score displayed during the game
 fn scoreboard_system(game: Res<Game>, mut query: Query<&mut Text>) {
-    query.get_unique_mut().unwrap().value = format!("Sugar Rush: {}", game.score);
+    query.get_unique_mut().unwrap().sections[0].value = format!("Sugar Rush: {}", game.score);
 }
 
 // restart the game when pressing spacebar
@@ -367,15 +387,15 @@ fn display_score(
         })
         .with_children(|parent| {
             parent.spawn(TextBundle {
-                text: Text {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    value: format!("Cake eaten: {}", game.cake_eaten),
-                    style: TextStyle {
-                        color: Color::rgb(0.5, 0.5, 1.0),
+                text: Text::with_section(
+                    format!("Cake eaten: {}", game.cake_eaten),
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 80.0,
-                        ..Default::default()
+                        color: Color::rgb(0.5, 0.5, 1.0),
                     },
-                },
+                    Default::default(),
+                ),
                 ..Default::default()
             });
         });

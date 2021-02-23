@@ -126,7 +126,7 @@ impl TupleStruct for DynamicTupleStruct {
 impl Reflect for DynamicTupleStruct {
     #[inline]
     fn type_name(&self) -> &str {
-        std::any::type_name::<Self>()
+        self.name.as_str()
     }
 
     #[inline]

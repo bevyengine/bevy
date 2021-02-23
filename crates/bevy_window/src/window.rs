@@ -1,4 +1,4 @@
-use bevy_math::Vec2;
+use bevy_math::{IVec2, Vec2};
 use bevy_utils::Uuid;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -54,6 +54,7 @@ pub struct Window {
     requested_height: f32,
     physical_width: u32,
     physical_height: u32,
+    position: Option<IVec2>,
     scale_factor_override: Option<f64>,
     backend_scale_factor: f64,
     title: String,
@@ -63,6 +64,7 @@ pub struct Window {
     cursor_visible: bool,
     cursor_locked: bool,
     cursor_position: Option<Vec2>,
+    focused: bool,
     mode: WindowMode,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
@@ -106,6 +108,12 @@ pub enum WindowCommand {
     SetMaximized {
         maximized: bool,
     },
+    SetMinimized {
+        minimized: bool,
+    },
+    SetPosition {
+        position: IVec2,
+    },
 }
 
 /// Defines the way a window is displayed
@@ -127,11 +135,13 @@ impl Window {
         physical_width: u32,
         physical_height: u32,
         scale_factor: f64,
+        position: Option<IVec2>,
     ) -> Self {
         Window {
             id,
             requested_width: window_descriptor.width,
             requested_height: window_descriptor.height,
+            position,
             physical_width,
             physical_height,
             scale_factor_override: window_descriptor.scale_factor_override,
@@ -143,6 +153,7 @@ impl Window {
             cursor_visible: window_descriptor.cursor_visible,
             cursor_locked: window_descriptor.cursor_locked,
             cursor_position: None,
+            focused: true,
             mode: window_descriptor.mode,
             #[cfg(target_arch = "wasm32")]
             canvas: window_descriptor.canvas.clone(),
@@ -199,10 +210,44 @@ impl Window {
         self.physical_height
     }
 
+    /// The window's client position in physical pixels.
+    #[inline]
+    pub fn position(&self) -> Option<IVec2> {
+        self.position
+    }
+
     #[inline]
     pub fn set_maximized(&mut self, maximized: bool) {
         self.command_queue
             .push(WindowCommand::SetMaximized { maximized });
+    }
+
+    /// Sets the window to minimized or back.
+    ///
+    /// # Platform-specific
+    /// - iOS / Android / Web: Unsupported.
+    /// - Wayland: Un-minimize is unsupported.
+    #[inline]
+    pub fn set_minimized(&mut self, minimized: bool) {
+        self.command_queue
+            .push(WindowCommand::SetMinimized { minimized });
+    }
+
+    /// Modifies the position of the window in physical pixels.
+    ///
+    /// Note that the top-left hand corner of the desktop is not necessarily the same as the screen. If the user uses a desktop with multiple monitors,
+    /// the top-left hand corner of the desktop is the top-left hand corner of the monitor at the top-left of the desktop. This automatically un-maximizes
+    /// the window if it's maximized.
+    ///
+    /// # Platform-specific
+    ///
+    /// - iOS: Can only be called on the main thread. Sets the top left coordinates of the window in the screen space coordinate system.
+    /// - Web: Sets the top-left coordinates relative to the viewport.
+    /// - Android / Wayland: Unsupported.
+    #[inline]
+    pub fn set_position(&mut self, position: IVec2) {
+        self.command_queue
+            .push(WindowCommand::SetPosition { position })
     }
 
     /// Request the OS to resize the window such the the client area matches the
@@ -248,6 +293,12 @@ impl Window {
     pub fn update_actual_size_from_backend(&mut self, physical_width: u32, physical_height: u32) {
         self.physical_width = physical_width;
         self.physical_height = physical_height;
+    }
+
+    #[allow(missing_docs)]
+    #[inline]
+    pub fn update_actual_position_from_backend(&mut self, position: IVec2) {
+        self.position = Some(position);
     }
 
     /// The ratio of physical pixels to logical pixels
@@ -348,6 +399,12 @@ impl Window {
 
     #[allow(missing_docs)]
     #[inline]
+    pub fn update_focused_status_from_backend(&mut self, focused: bool) {
+        self.focused = focused;
+    }
+
+    #[allow(missing_docs)]
+    #[inline]
     pub fn update_cursor_position_from_backend(&mut self, cursor_position: Option<Vec2>) {
         self.cursor_position = cursor_position;
     }
@@ -368,6 +425,11 @@ impl Window {
     #[inline]
     pub fn drain_commands(&mut self) -> impl Iterator<Item = WindowCommand> + '_ {
         self.command_queue.drain(..)
+    }
+
+    #[inline]
+    pub fn is_focused(&self) -> bool {
+        self.focused
     }
 }
 

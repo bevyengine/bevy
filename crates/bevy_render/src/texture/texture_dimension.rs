@@ -49,9 +49,41 @@ impl Extent3d {
 
 /// Type of data shaders will read from a texture.
 #[derive(Copy, Hash, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
-pub enum TextureComponentType {
-    Float,
+pub enum TextureSampleType {
+    /// Sampling returns floats.
+    ///
+    /// If `filterable` is false, the texture can't be sampled with
+    /// a filtering sampler.
+    ///
+    /// Example GLSL syntax:
+    /// ```cpp,ignore
+    /// layout(binding = 0)
+    /// uniform texture2D t;
+    /// ```
+    Float { filterable: bool },
+    /// Sampling does the depth reference comparison.
+    ///
+    /// Example GLSL syntax:
+    /// ```cpp,ignore
+    /// layout(binding = 0)
+    /// uniform texture2DShadow t;
+    /// ```
+    Depth,
+    /// Sampling returns signed integers.
+    ///
+    /// Example GLSL syntax:
+    /// ```cpp,ignore
+    /// layout(binding = 0)
+    /// uniform itexture2D t;
+    /// ```
     Sint,
+    /// Sampling returns unsigned integers.
+    ///
+    /// Example GLSL syntax:
+    /// ```cpp,ignore
+    /// layout(binding = 0)
+    /// uniform utexture2D t;
+    /// ```
     Uint,
 }
 

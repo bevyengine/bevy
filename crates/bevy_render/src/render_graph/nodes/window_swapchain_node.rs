@@ -49,7 +49,7 @@ impl Node for WindowSwapChainNode {
 
         let window = windows
             .get(self.window_id)
-            .expect("Received window resized event for non-existent window.");
+            .expect("Window swapchain node refers to a non-existent window.");
 
         let render_resource_context = render_context.resources_mut();
 

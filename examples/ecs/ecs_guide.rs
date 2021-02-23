@@ -239,14 +239,25 @@ fn local_state_system(mut state: Local<State>, query: Query<(&Player, &Score)>) 
     state.counter += 1;
 }
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+enum MyStage {
+    BeforeRound,
+    AfterRound,
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+enum MyLabels {
+    ScoreCheck,
+}
+
 // Our Bevy app's entry point
 fn main() {
     // Bevy apps are created using the builder pattern. We use the builder to add systems, resources, and plugins to our app
     App::build()
         // Resources can be added to our app like this
-        .add_resource(State { counter: 0 })
+        .insert_resource(State { counter: 0 })
         // Some systems are configured by adding their settings as a resource
-        .add_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs(5)))
+        .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs(5)))
         // Plugins are just a grouped set of app builder calls (just like we're doing here).
         // We could easily turn our game into a plugin, but you can check out the plugin example for that :)
         // The plugin below runs our app's "system schedule" once every 5 seconds (configured above).
@@ -261,35 +272,64 @@ fn main() {
         //
         // SYSTEM EXECUTION ORDER
         //
-        // By default, all systems run in parallel. This is efficient, but sometimes order matters.
+        // Each system belongs to a `Stage`, which controls the execution strategy and broad order of the systems within each tick.
+        // Startup stages (which startup systems are registered in) will always complete before ordinary stages begin,
+        // and every system in a stage must complete before the next stage advances.
+        // Once every stage has concluded, the main loop is complete and begins again.
+        //
+        // By default, all systems run in parallel, except when they require mutable access to a piece of data.
+        // This is efficient, but sometimes order matters.
         // For example, we want our "game over" system to execute after all other systems to ensure we don't
         // accidentally run the game for an extra round.
         //
-        // First, if a system writes a component or resource (ComMut / ResMut), it will force a synchronization.
-        // Any systems that access the data type and were registered BEFORE the system will need to finish first.
-        // Any systems that were registered _after_ the system will need to wait for it to finish. This is a great
-        // default that makes everything "just work" as fast as possible without us needing to think about it ... provided
-        // we don't care about execution order. If we do care, one option would be to use the rules above to force a synchronization
-        // at the right time. But that is complicated and error prone!
+        // Rather than splitting each of your systems into separate stages, you should force an explicit ordering between them
+        // by giving the relevant systems a label with `.label`, then using the `.before` or `.after` methods.
+        // Systems will not be scheduled until all of the systems that they have an "ordering dependency" on have completed.
         //
-        // This is where "stages" come in. A "stage" is a group of systems that execute (in parallel). Stages are executed in order,
-        // and the next stage won't start until all systems in the current stage have finished.
+        // Doing that will, in just about all cases, lead to better performance compared to
+        // splitting systems between stages, because it gives the scheduling algorithm more
+        // opportunities to run systems in parallel.
+        // Stages are still necessary, however: end of a stage is a hard sync point
+        // (meaning, no systems are running) where `Commands` issued by systems are processed.
+        // This is required because commands can perform operations that are incompatible with
+        // having systems in flight, such as spawning or deleting entities,
+        // adding or removing resources, etc.
+        //
         // add_system(system) adds systems to the UPDATE stage by default
         // However we can manually specify the stage if we want to. The following is equivalent to add_system(score_system)
-        .add_system_to_stage(stage::UPDATE, score_system.system())
+        .add_system_to_stage(CoreStage::Update, score_system.system())
         // We can also create new stages. Here is what our games stage order will look like:
         // "before_round": new_player_system, new_round_system
         // "update": print_message_system, score_system
         // "after_round": score_check_system, game_over_system
-        .add_stage_before(stage::UPDATE, "before_round", SystemStage::parallel())
-        .add_stage_after(stage::UPDATE, "after_round", SystemStage::parallel())
-        .add_system_to_stage("before_round", new_round_system.system())
-        .add_system_to_stage("before_round", new_player_system.system())
-        .add_system_to_stage("after_round", score_check_system.system())
-        .add_system_to_stage("after_round", game_over_system.system())
-        // score_check_system will run before game_over_system because score_check_system modifies GameState and game_over_system
-        // reads GameState. This works, but it's a bit confusing. In practice, it would be clearer to create a new stage that runs
-        // before "after_round"
+        .add_stage_before(
+            CoreStage::Update,
+            MyStage::BeforeRound,
+            SystemStage::parallel(),
+        )
+        .add_stage_after(
+            CoreStage::Update,
+            MyStage::AfterRound,
+            SystemStage::parallel(),
+        )
+        .add_system_to_stage(MyStage::BeforeRound, new_round_system.system())
+        .add_system_to_stage(MyStage::BeforeRound, new_player_system.system())
+        // We can ensure that game_over system runs after score_check_system using explicit ordering constraints
+        // First, we label the system we want to refer to using `.label`
+        // Then, we use either `.before` or `.after` to describe the order we want the relationship
+        .add_system_to_stage(
+            MyStage::AfterRound,
+            score_check_system.system().label(MyLabels::ScoreCheck),
+        )
+        .add_system_to_stage(
+            MyStage::AfterRound,
+            game_over_system.system().after(MyLabels::ScoreCheck),
+        )
+        // We can check our systems for execution order ambiguities by examining the output produced in the console
+        // by adding the following Resource to our App :)
+        // Be aware that not everything reported by this checker is a potential problem, you'll have to make
+        // that judgement yourself.
+        .insert_resource(ReportExecutionOrderAmbiguities)
         // This call to run() starts the app we just built!
         .run();
 }

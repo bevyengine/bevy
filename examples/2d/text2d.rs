@@ -11,20 +11,20 @@ fn main() {
 fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
     commands
         // 2d camera
-        .spawn(Camera2dBundle::default())
+        .spawn(OrthographicCameraBundle::new_2d())
         .spawn(Text2dBundle {
-            text: Text {
-                value: "This text is in the 2D scene.".to_string(),
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                style: TextStyle {
+            text: Text::with_section(
+                "This text is in the 2D scene.",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 60.0,
                     color: Color::WHITE,
-                    alignment: TextAlignment {
-                        vertical: VerticalAlign::Center,
-                        horizontal: HorizontalAlign::Center,
-                    },
                 },
-            },
+                TextAlignment {
+                    vertical: VerticalAlign::Center,
+                    horizontal: HorizontalAlign::Center,
+                },
+            ),
             ..Default::default()
         });
 }

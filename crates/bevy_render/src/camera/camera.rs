@@ -2,9 +2,10 @@ use super::CameraProjection;
 use bevy_app::prelude::EventReader;
 use bevy_ecs::{Added, Component, Entity, Query, QuerySet, Res};
 use bevy_math::{Mat4, Vec2, Vec3};
-use bevy_reflect::{Reflect, ReflectComponent};
+use bevy_reflect::{Reflect, ReflectComponent, ReflectDeserialize};
 use bevy_transform::components::GlobalTransform;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
+use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, Reflect)]
 #[reflect(Component)]
@@ -17,9 +18,12 @@ pub struct Camera {
     pub depth_calculation: DepthCalculation,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, Reflect, Serialize, Deserialize)]
+#[reflect_value(Serialize, Deserialize)]
 pub enum DepthCalculation {
+    /// Pythagorean distance; works everywhere, more expensive to compute.
     Distance,
+    /// Optimization for 2D; assuming the camera points towards -Z.
     ZDifference,
 }
 

@@ -1,45 +1,47 @@
 use bevy_reflect::{Reflect, ReflectComponent};
 use bevy_utils::AHasher;
 use std::{
+    borrow::Cow,
     hash::{Hash, Hasher},
     ops::Deref,
 };
 
-/// Component used to identify a entity. Stores a hash for faster comparisons
+/// Component used to identify an entity. Stores a hash for faster comparisons
 #[derive(Debug, Clone, Reflect)]
 #[reflect(Component)]
 pub struct Name {
     hash: u64, // TODO: Shouldn't be serialized
-    name: String,
+    name: Cow<'static, str>,
 }
 
 impl Default for Name {
     fn default() -> Self {
-        Name::new("".to_string())
+        Name::new("")
     }
 }
 
 impl Name {
-    pub fn new(name: String) -> Self {
+    pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
+        let name = name.into();
         let mut name = Name { name, hash: 0 };
         name.update_hash();
         name
     }
 
     #[inline(always)]
-    pub fn set(&mut self, name: String) {
+    pub fn set(&mut self, name: impl Into<Cow<'static, str>>) {
         *self = Name::new(name);
     }
 
     #[inline(always)]
     pub fn mutate<F: FnOnce(&mut String)>(&mut self, f: F) {
-        f(&mut self.name);
+        f(self.name.to_mut());
         self.update_hash();
     }
 
     #[inline(always)]
     pub fn as_str(&self) -> &str {
-        self.name.as_str()
+        &self.name
     }
 
     fn update_hash(&mut self) {
@@ -88,7 +90,7 @@ impl Ord for Name {
 }
 
 impl Deref for Name {
-    type Target = String;
+    type Target = Cow<'static, str>;
 
     fn deref(&self) -> &Self::Target {
         &self.name

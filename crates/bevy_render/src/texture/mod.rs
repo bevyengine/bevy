@@ -14,6 +14,8 @@ mod texture;
 mod texture_descriptor;
 mod texture_dimension;
 
+pub(crate) mod image_texture_conversion;
+
 #[cfg(feature = "hdr")]
 pub use hdr_texture_loader::*;
 #[cfg(any(

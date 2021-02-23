@@ -30,18 +30,18 @@ impl Default for LogDiagnosticsPlugin {
 
 impl Plugin for LogDiagnosticsPlugin {
     fn build(&self, app: &mut bevy_app::AppBuilder) {
-        app.add_resource(LogDiagnosticsState {
+        app.insert_resource(LogDiagnosticsState {
             timer: Timer::new(self.wait_duration, true),
             filter: self.filter.clone(),
         });
 
         if self.debug {
             app.add_system_to_stage(
-                stage::POST_UPDATE,
+                CoreStage::PostUpdate,
                 Self::log_diagnostics_debug_system.system(),
             );
         } else {
-            app.add_system_to_stage(stage::POST_UPDATE, Self::log_diagnostics_system.system());
+            app.add_system_to_stage(CoreStage::PostUpdate, Self::log_diagnostics_system.system());
         }
     }
 }

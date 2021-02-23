@@ -1,10 +1,9 @@
 name: CI
 
 on:
-  push:
-    branches: [master]
   pull_request:
-    branches: [master]
+  push:
+    branches: [main, staging, trying]
 
 env:
   CARGO_TERM_COLOR: always
@@ -14,45 +13,33 @@ jobs:
     strategy:
       matrix:
         toolchain: [stable, nightly]
-        os: [windows-2019, ubuntu-20.04, macos-10.15]
+        os: [windows-latest, ubuntu-latest, macos-latest]
         exclude:
-          - os: macos-10.15
+          - os: macos-latest
             toolchain: nightly
-          - os: windows-2019
+          - os: windows-latest
             toolchain: nightly
     runs-on: ${{ matrix.os }}
-    needs: clean
     steps:
       - uses: actions/checkout@v2
 
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.toolchain }}
+          components: rustfmt, clippy
           override: true
 
-      - uses: actions/cache@v2
-        with:
-          path: |
-            target
-          key: ${{ runner.os }}-cargo-check-test-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install alsa and udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+        if: runner.os == 'linux'
 
-      - name: Install alsa
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev
-        if: ${{ runner.os == 'Linux' }}
+      - name: Check the format
+        # See tools/ci/src/main.rs for the commands this runs
+        run: cargo run --package ci
+        if: runner.os == 'linux' && matrix.toolchain == 'stable'
 
-      - name: Install udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libudev-dev
-        if: ${{ runner.os == 'Linux' }}
-
-      - name: Build
-        run: cargo check
-        env:
-          CARGO_INCREMENTAL: 0
-          RUSTFLAGS: "-C debuginfo=0 -D warnings"
-
-      - name: Run tests
+      - name: Build & run tests
         run: cargo test --workspace
-        if: ${{ runner.os == 'Linux' }}
         env:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
@@ -61,9 +48,8 @@ jobs:
     strategy:
       matrix:
         toolchain: [stable, nightly]
-        os: [ubuntu-20.04]
+        os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
-    needs: clean
     steps:
       - uses: actions/checkout@v2
 
@@ -72,12 +58,6 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
           target: wasm32-unknown-unknown
           override: true
-
-      - uses: actions/cache@v2
-        with:
-          path: |
-            target
-          key: ${{ runner.os }}-cargo-check-test-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Check wasm
         uses: actions-rs/cargo@v1
@@ -88,35 +68,27 @@ jobs:
   build-android:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Install Android targets
-      run: rustup target add aarch64-linux-android armv7-linux-androideabi
-    - name: Install Cargo APK
-      run: cargo install cargo-apk
-    - name: Build APK
-      run: cargo apk build --example android
+      - uses: actions/checkout@v2
+      - name: Install Android targets
+        run: rustup target add aarch64-linux-android armv7-linux-androideabi
+      - name: Install Cargo APK
+        run: cargo install cargo-apk
+      - name: Build APK
+        run: cargo apk build --example android
 
-  clean:
+  markdownlint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-
-      - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly-2020-12-07
-          components: rustfmt, clippy
-          override: true
+          # Full git history is needed to get a proper list of changed files within `super-linter`
+          fetch-depth: 0
 
-      - name: Install alsa
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev
-
-      - name: Install udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libudev-dev
-
-      - name: Check the format
-        run: cargo +nightly-2020-12-07 fmt --all -- --check
-
-      # type complexity must be ignored because we use huge templates for queries
-      # -A clippy::manual-strip: strip_prefix support was added in 1.45. we want to support earlier rust versions
-      - name: Run clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings -A clippy::type_complexity -A clippy::manual-strip
+      - name: Run Markdown Lint
+        uses: github/super-linter@v3
+        env:
+          VALIDATE_ALL_CODEBASE: false
+          VALIDATE_MARKDOWN: true
+          DEFAULT_BRANCH: master
+          # Not needed here as only one Linter is used.
+          #GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

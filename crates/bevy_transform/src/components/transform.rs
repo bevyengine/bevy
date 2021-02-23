@@ -75,7 +75,20 @@ impl Transform {
     }
 
     #[inline]
-    pub fn forward(&self) -> Vec3 {
+    /// Get the unit vector in the local x direction
+    pub fn local_x(&self) -> Vec3 {
+        self.rotation * Vec3::unit_x()
+    }
+
+    #[inline]
+    /// Get the unit vector in the local y direction
+    pub fn local_y(&self) -> Vec3 {
+        self.rotation * Vec3::unit_y()
+    }
+
+    #[inline]
+    /// Get the unit vector in the local z direction
+    pub fn local_z(&self) -> Vec3 {
         self.rotation * Vec3::unit_z()
     }
 

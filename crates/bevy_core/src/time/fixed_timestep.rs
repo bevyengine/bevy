@@ -1,5 +1,5 @@
 use crate::Time;
-use bevy_ecs::{ArchetypeComponent, ShouldRun, System, SystemId, ThreadLocalExecution, TypeAccess};
+use bevy_ecs::{ArchetypeComponent, ShouldRun, System, SystemId, TypeAccess};
 use bevy_utils::HashMap;
 use std::{any::TypeId, borrow::Cow};
 
@@ -47,8 +47,9 @@ pub struct FixedTimestep {
     looping: bool,
     system_id: SystemId,
     label: Option<String>, // TODO: consider making this a TypedLabel
-    resource_access: TypeAccess<TypeId>,
     archetype_access: TypeAccess<ArchetypeComponent>,
+    component_access: TypeAccess<TypeId>,
+    resource_access: TypeAccess<TypeId>,
 }
 
 impl Default for FixedTimestep {
@@ -59,8 +60,9 @@ impl Default for FixedTimestep {
             accumulator: 0.0,
             looping: false,
             label: None,
-            resource_access: Default::default(),
+            component_access: Default::default(),
             archetype_access: Default::default(),
+            resource_access: Default::default(),
         }
     }
 }
@@ -93,7 +95,7 @@ impl FixedTimestep {
         if self.accumulator >= self.step {
             self.accumulator -= self.step;
             self.looping = true;
-            ShouldRun::YesAndLoop
+            ShouldRun::YesAndCheckAgain
         } else {
             self.looping = false;
             ShouldRun::No
@@ -113,18 +115,22 @@ impl System for FixedTimestep {
         self.system_id
     }
 
-    fn update(&mut self, _world: &bevy_ecs::World) {}
+    fn update_access(&mut self, _world: &bevy_ecs::World) {}
 
     fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent> {
         &self.archetype_access
+    }
+
+    fn component_access(&self) -> &TypeAccess<TypeId> {
+        &self.component_access
     }
 
     fn resource_access(&self) -> &TypeAccess<TypeId> {
         &self.resource_access
     }
 
-    fn thread_local_execution(&self) -> ThreadLocalExecution {
-        ThreadLocalExecution::Immediate
+    fn is_non_send(&self) -> bool {
+        false
     }
 
     unsafe fn run_unsafe(
@@ -145,7 +151,7 @@ impl System for FixedTimestep {
         Some(result)
     }
 
-    fn run_thread_local(
+    fn apply_buffers(
         &mut self,
         _world: &mut bevy_ecs::World,
         _resources: &mut bevy_ecs::Resources,

@@ -5,8 +5,6 @@ mod name;
 mod task_pool_options;
 mod time;
 
-use std::ops::Range;
-
 use bevy_ecs::IntoSystem;
 use bevy_reflect::RegisterTypeBuilder;
 pub use bytes::*;
@@ -20,7 +18,8 @@ pub mod prelude {
     pub use crate::{DefaultTaskPoolOptions, EntityLabels, Labels, Name, Time, Timer};
 }
 
-use bevy_app::{prelude::*, startup_stage};
+use bevy_app::prelude::*;
+use std::ops::Range;
 
 /// Adds core functionality to Apps.
 #[derive(Default)]
@@ -42,8 +41,8 @@ impl Plugin for CorePlugin {
             .register_type::<Labels>()
             .register_type::<Range<f32>>()
             .register_type::<Timer>()
-            .add_system_to_stage(stage::FIRST, time_system.system())
-            .add_startup_system_to_stage(startup_stage::POST_STARTUP, entity_labels_system.system())
-            .add_system_to_stage(stage::POST_UPDATE, entity_labels_system.system());
+            .add_system_to_stage(CoreStage::First, time_system.system())
+            .add_startup_system_to_stage(StartupStage::PostStartup, entity_labels_system.system())
+            .add_system_to_stage(CoreStage::PostUpdate, entity_labels_system.system());
     }
 }

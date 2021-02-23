@@ -32,3 +32,6 @@ winit = { version = "0.24.0", default-features = false }
 winit = { version = "0.24.0", features = ["web-sys"], default-features = false }
 wasm-bindgen = { version = "0.2" }
 web-sys = "0.3"
+
+[package.metadata.docs.rs]
+features = ["x11"]

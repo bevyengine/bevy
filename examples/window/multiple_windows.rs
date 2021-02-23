@@ -15,20 +15,17 @@ use bevy::{
 /// This example creates a second window and draws a mesh from two different cameras.
 fn main() {
     App::build()
-        .add_resource(Msaa { samples: 4 })
-        .add_resource(State::new(AppState::CreateWindow))
+        .insert_resource(Msaa { samples: 4 })
+        .insert_resource(State::new(AppState::CreateWindow))
         .add_plugins(DefaultPlugins)
-        .add_stage_after(
-            stage::UPDATE,
-            STATE_STAGE,
-            StateStage::<AppState>::default(),
-        )
-        .on_state_update(STATE_STAGE, AppState::CreateWindow, setup_window.system())
-        .on_state_enter(STATE_STAGE, AppState::Setup, setup_pipeline.system())
+        .add_stage_after(CoreStage::Update, Stage, StateStage::<AppState>::default())
+        .on_state_update(Stage, AppState::CreateWindow, setup_window.system())
+        .on_state_enter(Stage, AppState::Setup, setup_pipeline.system())
         .run();
 }
 
-const STATE_STAGE: &str = "state";
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+pub struct Stage;
 
 // NOTE: this "state based" approach to multiple windows is a short term workaround.
 // Future Bevy releases shouldn't require such a strict order of operations.
@@ -192,13 +189,13 @@ fn setup_pipeline(
             ..Default::default()
         })
         // main camera
-        .spawn(Camera3dBundle {
+        .spawn(PerspectiveCameraBundle {
             transform: Transform::from_xyz(0.0, 0.0, 6.0)
                 .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
         })
         // second window camera
-        .spawn(Camera3dBundle {
+        .spawn(PerspectiveCameraBundle {
             camera: Camera {
                 name: Some("Secondary".to_string()),
                 window: window_id,
