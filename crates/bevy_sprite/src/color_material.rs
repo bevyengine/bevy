@@ -1,6 +1,6 @@
-use bevy_app::{EventReader, Events};
+use bevy_app::{EventReader, Events, ManualEventReader};
 use bevy_asset::{self, AssetEvent, Assets, Handle};
-use bevy_ecs::{In, Local, Res, ResMut};
+use bevy_ecs::{Local, Res, ResMut};
 use bevy_reflect::TypeUuid;
 use bevy_render::{color::Color, renderer::RenderResources, shader::ShaderDefs, texture::Texture};
 use bevy_utils::{HashMap, HashSet};
@@ -64,9 +64,12 @@ pub(crate) fn material_texture_detection_system(
     mut material_to_texture: Local<HashMap<Handle<ColorMaterial>, Handle<Texture>>>,
     materials: Res<Assets<ColorMaterial>>,
     mut texture_events: EventReader<AssetEvent<Texture>>,
-    mut material_events: EventReader<AssetEvent<ColorMaterial>>,
-) -> Vec<Handle<ColorMaterial>> {
-    for event in material_events.iter() {
+    (mut material_events_reader, mut material_events): (
+        Local<ManualEventReader<AssetEvent<ColorMaterial>>>,
+        ResMut<Events<AssetEvent<ColorMaterial>>>,
+    ),
+) {
+    for event in material_events_reader.iter(&material_events) {
         match event {
             AssetEvent::Created { handle } => {
                 if let Some(texture) = materials.get(handle).and_then(|mat| mat.texture.as_ref()) {
@@ -137,25 +140,13 @@ pub(crate) fn material_texture_detection_system(
         }
     }
 
-    let mut changed_materials = Vec::new();
     for texture_handle in changed_textures.iter() {
         if let Some(materials) = texture_to_material.get(texture_handle) {
             for material in materials.iter() {
-                changed_materials.push(material.clone_weak());
+                material_events.send(AssetEvent::Modified {
+                    handle: material.clone_weak(),
+                });
             }
         }
-    }
-
-    changed_materials
-}
-
-pub(crate) fn material_texture_trigger_system(
-    In(changed_materials): In<Vec<Handle<ColorMaterial>>>,
-    mut material_events: ResMut<Events<AssetEvent<ColorMaterial>>>,
-) {
-    for material in changed_materials.iter() {
-        material_events.send(AssetEvent::Modified {
-            handle: material.clone_weak(),
-        });
     }
 }
