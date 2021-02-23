@@ -2,18 +2,18 @@
 
 ## [rustfmt](https://github.com/rust-lang/rustfmt)
 
-Can be automatically be run with the [CI Script](../tools/ci) together with `Clippy` or manually with this command:
+Can be automatically be run with the [`cargo ci` xtask](../tools/ci) (which also runs other checks) or manually with this command:
 
 ```bash
-cargo +nightly fmt --all
+cargo fmt --all
 ```
 
 ## [Clippy](https://github.com/rust-lang/rust-clippy)
 
-Can be automatically be run with the [CI Script](../tools/ci) together with `rustfmt` or manually with this command:
+Can be automatically be run with the [`cargo ci` xtask](../tools/ci) (which also runs other checks) or manually with this command:
 
 ```bash
-cargo clippy --all-targets --all-features -- -D warnings -A clippy::type_complexity -A clippy::manual-strip
+cargo clippy --workspace --all-targets --all-features -- -D warnings -A clippy::type_complexity -A clippy::manual-strip
 ```
 
 * `-D warnings`: No warnings are allowed in the codebase.
