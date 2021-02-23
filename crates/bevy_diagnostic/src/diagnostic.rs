@@ -69,7 +69,7 @@ impl Diagnostic {
         }
         Diagnostic {
             id,
-            name: name.into(),
+            name,
             suffix: Cow::Borrowed(""),
             history: VecDeque::with_capacity(max_history_length),
             max_history_length,
