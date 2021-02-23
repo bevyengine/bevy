@@ -954,7 +954,7 @@ fn impl_enum(
         };);
         token_stream.extend(TokenStream::from(quote! {
             #[repr(transparent)]
-            pub struct #wrapper_ident(TestEnum);
+            pub struct #wrapper_ident(#enum_name);
             impl #bevy_reflect_path::Reflect for #wrapper_ident {
                 fn type_name(&self) -> &str {
                     #wrapper_name
@@ -1097,7 +1097,7 @@ fn impl_enum(
         };);
         token_stream.extend(TokenStream::from(quote! {
             #[repr(transparent)]
-            pub struct #wrapper_ident(TestEnum);
+            pub struct #wrapper_ident(#enum_name);
             impl #bevy_reflect_path::Reflect for #wrapper_ident {
                 fn type_name(&self) -> &str {
                     #wrapper_name
