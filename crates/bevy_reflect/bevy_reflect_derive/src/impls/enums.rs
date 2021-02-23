@@ -255,7 +255,7 @@ pub(crate) fn impl_enum(
                 use #bevy_reflect_path::Enum;
                 let value = value.any();
                 if let Some(value) = value.downcast_ref::<Self>() {
-                    *self = value.clone_value();
+                    *self = value.clone(); //FIXME: should apply the variant instead
                 } else {
                     panic!("Attempted to apply non-enum type to enum type.");
                 }
