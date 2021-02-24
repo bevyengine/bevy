@@ -158,12 +158,17 @@ impl Plugin for RenderPlugin {
         .init_resource::<RenderResourceBindings>()
         .init_resource::<AssetRenderResourceBindings>()
         .init_resource::<ActiveCameras>()
-        .add_system_to_stage(CoreStage::PreUpdate, draw::clear_draw_system.system())
+        .add_system_to_stage(
+            CoreStage::PreUpdate,
+            draw::clear_draw_system
+                .system()
+                .label(RenderSystem::ClearDraw),
+        )
         .add_system_to_stage(
             CoreStage::PostUpdate,
             camera::active_cameras_system
                 .system()
-                .label(RenderSystem::ClearDraw),
+                .label(RenderSystem::ActiveCameras),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
