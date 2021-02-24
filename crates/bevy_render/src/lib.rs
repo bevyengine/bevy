@@ -13,7 +13,7 @@ pub mod texture;
 pub mod wireframe;
 
 use bevy_ecs::{
-    schedule::SystemStage,
+    schedule::{ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion, SystemStage},
     system::{IntoExclusiveSystem, IntoSystem},
 };
 use draw::Visible;
@@ -37,7 +37,7 @@ use crate::prelude::*;
 use base::Msaa;
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, AssetStage};
-use bevy_ecs::schedule::StageLabel;
+use bevy_ecs::schedule::{StageLabel, SystemLabel};
 use camera::{
     ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection, VisibleEntities,
 };
@@ -67,6 +67,20 @@ pub enum RenderStage {
     Draw,
     Render,
     PostRender,
+}
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+pub enum RenderSystem {
+    ClearDraw,
+    ActiveCameras,
+    OrthographicCamera,
+    PerspectiveCamera,
+    VisibleEntities,
+    ShaderUpdate,
+    MeshResourceProvider,
+    TextureResource,
+    RenderGraphScheduleExecutor,
+    DrawRenderPipelines,
+    ClearShaderDefs,
 }
 
 /// Adds core render types and systems to an App
@@ -147,44 +161,65 @@ impl Plugin for RenderPlugin {
         .add_system_to_stage(CoreStage::PreUpdate, draw::clear_draw_system.system())
         .add_system_to_stage(
             CoreStage::PostUpdate,
-            camera::active_cameras_system.system(),
+            camera::active_cameras_system
+                .system()
+                .label(RenderSystem::ClearDraw),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
-            camera::camera_system::<OrthographicProjection>.system(),
+            camera::camera_system::<OrthographicProjection>
+                .system()
+                .label(RenderSystem::OrthographicCamera),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
-            camera::camera_system::<PerspectiveProjection>.system(),
+            camera::camera_system::<PerspectiveProjection>
+                .system()
+                .label(RenderSystem::PerspectiveCamera),
         )
-        // registration order matters here. this must come after all camera_system::<T> systems
         .add_system_to_stage(
             CoreStage::PostUpdate,
-            camera::visible_entities_system.system(),
+            camera::visible_entities_system
+                .system()
+                .label(RenderSystem::VisibleEntities)
+                .after(RenderSystem::OrthographicCamera)
+                .after(RenderSystem::PerspectiveCamera),
         )
         .add_system_to_stage(
             RenderStage::RenderResource,
-            shader::shader_update_system.system(),
+            shader::shader_update_system
+                .system()
+                .label(RenderSystem::ShaderUpdate),
         )
         .add_system_to_stage(
             RenderStage::RenderResource,
-            mesh::mesh_resource_provider_system.system(),
+            mesh::mesh_resource_provider_system
+                .system()
+                .label(RenderSystem::MeshResourceProvider),
         )
         .add_system_to_stage(
             RenderStage::RenderResource,
-            Texture::texture_resource_system.system(),
+            Texture::texture_resource_system
+                .system()
+                .label(RenderSystem::TextureResource),
         )
         .add_system_to_stage(
             RenderStage::RenderGraphSystems,
-            render_graph::render_graph_schedule_executor_system.exclusive_system(),
+            render_graph::render_graph_schedule_executor_system
+                .exclusive_system()
+                .label(RenderSystem::RenderGraphScheduleExecutor),
         )
         .add_system_to_stage(
             RenderStage::Draw,
-            pipeline::draw_render_pipelines_system.system(),
+            pipeline::draw_render_pipelines_system
+                .system()
+                .label(RenderSystem::DrawRenderPipelines),
         )
         .add_system_to_stage(
             RenderStage::PostRender,
-            shader::clear_shader_defs_system.system(),
+            shader::clear_shader_defs_system
+                .system()
+                .label(RenderSystem::ClearShaderDefs),
         );
 
         if let Some(ref config) = self.base_render_graph_config {
