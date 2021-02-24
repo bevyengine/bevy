@@ -3,7 +3,7 @@ use std::io::BufRead;
 use duct::cmd;
 
 fn main() {
-    // When run locally, results may from actual CI runs triggered by .github/workflows/ci.yml
+    // When run locally, results may differ from actual CI runs triggered by .github/workflows/ci.yml
     // - Official CI runs latest stable
     // - Local runs use whatever the default Rust is locally
 
