@@ -1,0 +1,2 @@
+[alias]
+ci = "run --package ci"
