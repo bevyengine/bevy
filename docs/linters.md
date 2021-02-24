@@ -17,6 +17,7 @@ cargo clippy --workspace --all-targets --all-features -- -D warnings -A clippy::
 ```
 
 Explanation:
+
 * `-D warnings`: No warnings are allowed in the codebase.
 * `-A clippy::type_complexity`: type complexity must be ignored because we use huge templates for queries.
 * `-A clippy::manual-strip`: strip_prefix support was added in 1.45. We want to support earlier rust versions.
