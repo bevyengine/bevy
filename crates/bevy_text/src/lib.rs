@@ -27,7 +27,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
-use bevy_ecs::{Entity, IntoSystem};
+use bevy_ecs::{Entity, IntoSystem, ParallelSystemDescriptorCoercion, SystemLabel};
 use bevy_render::RenderStage;
 
 pub type DefaultTextPipeline = TextPipeline<Entity>;
@@ -35,13 +35,27 @@ pub type DefaultTextPipeline = TextPipeline<Entity>;
 #[derive(Default)]
 pub struct TextPlugin;
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+pub enum TextSystem {
+    Text2d,
+    DrawText2d,
+}
+
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_asset::<Font>()
             .add_asset::<FontAtlasSet>()
             .init_asset_loader::<FontLoader>()
             .insert_resource(DefaultTextPipeline::default())
-            .add_system_to_stage(CoreStage::PostUpdate, text2d_system.system())
-            .add_system_to_stage(RenderStage::Draw, text2d::draw_text2d_system.system());
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                text2d_system.system().label(TextSystem::Text2d),
+            )
+            .add_system_to_stage(
+                RenderStage::Draw,
+                text2d::draw_text2d_system
+                    .system()
+                    .label(TextSystem::DrawText2d),
+            );
     }
 }
