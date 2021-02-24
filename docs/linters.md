@@ -1,21 +1,22 @@
 # Linters in this Repository
 
-## [rustfmt](https://github.com/rust-lang/rustfmt)
+## Code Format Linting with [rustfmt](https://github.com/rust-lang/rustfmt)
 
-Can be automatically be run with the [`cargo ci` xtask](../tools/ci) (which also runs other checks) or manually with this command:
+Can be automatically run with [`cargo ci`](../tools/ci) (which also runs other checks) or manually with this command:
 
 ```bash
 cargo fmt --all
 ```
 
-## [Clippy](https://github.com/rust-lang/rust-clippy)
+## Code Linting with [Clippy](https://github.com/rust-lang/rust-clippy)
 
-Can be automatically be run with the [`cargo ci` xtask](../tools/ci) (which also runs other checks) or manually with this command:
+Can be automatically run with [`cargo ci`](../tools/ci) (which also runs other checks) or manually with this command:
 
 ```bash
 cargo clippy --workspace --all-targets --all-features -- -D warnings -A clippy::type_complexity -A clippy::manual-strip
 ```
 
+Explanation:
 * `-D warnings`: No warnings are allowed in the codebase.
 * `-A clippy::type_complexity`: type complexity must be ignored because we use huge templates for queries.
 * `-A clippy::manual-strip`: strip_prefix support was added in 1.45. We want to support earlier rust versions.
