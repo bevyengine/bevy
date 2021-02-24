@@ -1,5 +1,5 @@
 //! This should never compile
-//! ```compile_fail,E0759
+//! ```compile_fail,E0308
 //! use bevy_ecs::prelude::*;
 //! thread_local! {
 //!     static TEST: std::cell::RefCell<Option<ResMut<'static, String>>> = Default::default();
@@ -20,7 +20,6 @@ use async_channel::{Receiver, Sender};
 use futures_lite::pin;
 use parking_lot::Mutex;
 use std::{
-    self,
     any::TypeId,
     borrow::Cow,
     future::Future,
@@ -37,12 +36,11 @@ use bevy_tasks::{AsyncComputeTaskPool, TaskPool};
 use bevy_utils::BoxedFuture;
 
 use crate::{
-    ArchetypeComponent, BoxedSystem, FetchSystemParam, Resources, System, SystemId, SystemParam,
-    SystemState, TypeAccess, World,
+    ArchetypeComponent, FetchSystemParam, Resources, System, SystemId, SystemParam, SystemState,
+    TypeAccess, World,
 };
 
-// this is stable on nightly, and will land on 2021-03-25 :)
-pub trait AsyncSystem<In, Params, Fut: Future, Marker, const ACCESSOR_COUNT: usize>
+pub trait AsyncSystem<In, Fut: Future, Marker, OutSystems>
 where
     Self: Sized,
     In: Send + Sync + 'static,
@@ -51,33 +49,50 @@ where
     fn systems(
         self,
     ) -> (
-        [BoxedSystem; ACCESSOR_COUNT],
+        OutSystems,
         AsyncSystemHandle<In, Fut::Output>,
         Box<dyn FnOnce(TaskPool) -> BoxedFuture<'static, ()> + Send + Sync>,
     );
 
-    fn system(self) -> Box<dyn System<In = In, Out = Fut::Output>> {
-        let (innner_systems, handle, startup_future) = self.systems();
+    fn system(self) -> AsyncChainSystem<In, Fut::Output, OutSystems>
+    where
+        OutSystems: AccessSystemsTuple,
+    {
+        let (inner_systems, handle, future) = self.systems();
 
-        Box::new(AsyncChainSystem {
-            innner_systems,
+        AsyncChainSystem {
+            inner_systems,
             handle,
-            startup_future: Some(startup_future),
             return_handle: None,
-            name: Cow::Owned(format!("Async Chain({})", std::any::type_name::<Self>())),
+            name: Cow::Borrowed(std::any::type_name::<Self>()),
             id: SystemId::new(),
             archetype_component_access: Default::default(),
             component_access: Default::default(),
             resource_access: Default::default(),
-        })
+            startup_future: Some(future),
+        }
     }
 }
 
-struct AsyncChainSystem<In, Out, const SC: usize>
+pub trait AccessSystemsTuple: Send + Sync + 'static {
+    fn update_access(
+        &mut self,
+        world: &World,
+        archetype_component_access: &mut TypeAccess<ArchetypeComponent>,
+        component_access: &mut TypeAccess<TypeId>,
+        resource_access: &mut TypeAccess<TypeId>,
+    );
+    fn is_non_send(&self) -> bool;
+    fn apply_buffers(&mut self, world: &mut World, resources: &mut Resources);
+    fn initialize(&mut self, world: &mut World, resources: &mut Resources);
+    unsafe fn run(&mut self, world: &World, resources: &Resources);
+}
+
+pub struct AsyncChainSystem<In, Out, Systems>
 where
     Out: Send + Sync + 'static,
 {
-    innner_systems: [BoxedSystem; SC],
+    inner_systems: Systems,
     handle: AsyncSystemHandle<In, Out>,
     return_handle: Option<AsyncSystemOutput<Out>>,
     name: Cow<'static, str>,
@@ -89,7 +104,7 @@ where
         Option<Box<dyn FnOnce(TaskPool) -> BoxedFuture<'static, ()> + Send + Sync + 'static>>,
 }
 
-impl<In, Out, const SC: usize> System for AsyncChainSystem<In, Out, SC>
+impl<In, Out, Systems: AccessSystemsTuple> System for AsyncChainSystem<In, Out, Systems>
 where
     In: Send + Sync + 'static,
     Out: Send + Sync + 'static,
@@ -109,13 +124,12 @@ where
         self.archetype_component_access.clear();
         self.component_access.clear();
         self.resource_access.clear();
-        for system in self.innner_systems.iter_mut() {
-            system.update_access(world);
-            self.archetype_component_access
-                .extend(system.archetype_component_access());
-            self.component_access.extend(system.component_access());
-            self.resource_access.extend(system.resource_access());
-        }
+        self.inner_systems.update_access(
+            world,
+            &mut self.archetype_component_access,
+            &mut self.component_access,
+            &mut self.resource_access,
+        );
     }
 
     fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent> {
@@ -131,7 +145,7 @@ where
     }
 
     fn is_non_send(&self) -> bool {
-        self.innner_systems.iter().any(|s| s.is_non_send())
+        self.inner_systems.is_non_send()
     }
 
     unsafe fn run_unsafe(
@@ -140,10 +154,7 @@ where
         world: &World,
         resources: &Resources,
     ) -> Option<Self::Out> {
-        for system in self.innner_systems.iter_mut() {
-            system.run_unsafe((), world, resources);
-        }
-
+        self.inner_systems.run(world, resources);
         if let Some(ref mut handle) = &mut self.return_handle {
             match handle.get() {
                 Ok(v) => {
@@ -160,9 +171,7 @@ where
     }
 
     fn apply_buffers(&mut self, world: &mut World, resources: &mut Resources) {
-        for system in self.innner_systems.iter_mut() {
-            system.apply_buffers(world, resources);
-        }
+        self.inner_systems.apply_buffers(world, resources);
     }
 
     fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
@@ -170,9 +179,7 @@ where
             let tp = resources.get_mut::<AsyncComputeTaskPool>().unwrap();
             tp.spawn((fut)(tp.clone().0)).detach();
         }
-        for system in self.innner_systems.iter_mut() {
-            system.initialize(world, resources);
-        }
+        self.inner_systems.initialize(world, resources);
     }
 }
 
@@ -243,9 +250,19 @@ pub enum AsyncSystemOutputError {
     SystemNotFinished,
 }
 
+pub trait AccessorTrait: Sized {
+    type AccessSystem;
+
+    fn new() -> (Self, Self::AccessSystem);
+}
+
 pub struct Accessor<P: SystemParam> {
     channel: Sender<Box<dyn GenericAccess>>,
     _marker: OpaquePhantomData<P>,
+}
+
+pub struct ExclusiveAccessor {
+    
 }
 
 impl<P: SystemParam> Clone for Accessor<P> {
@@ -257,11 +274,12 @@ impl<P: SystemParam> Clone for Accessor<P> {
     }
 }
 
-#[doc(hidden)]
-// This trait adds a middle-man that helps rustc figure out lifetime bounds, and avoids an ICE
-// https://github.com/rust-lang/rust/issues/74261
 pub trait AccessFn<'a, 'env, P: SystemParam, Out> {
     fn call(self: Box<Self>, v: <P::Fetch as FetchSystemParam<'a>>::Item) -> Out;
+}
+
+pub trait ExclusiveAccessFn<'a, 'env, Out> {
+    fn call(self: Box<Self>, world: &'a mut World, resources: &'a mut Resources) -> Out;
 }
 
 impl<'a, 'env, Out, P, F> AccessFn<'a, 'env, P, Out> for F
@@ -272,6 +290,15 @@ where
 {
     fn call(self: Box<Self>, v: <P::Fetch as FetchSystemParam<'a>>::Item) -> Out {
         self(v)
+    }
+}
+
+impl<'a, 'env, Out, F> ExclusiveAccessFn<'a, 'env, Out> for F
+where
+    F: FnOnce(&'a mut World, &'a mut Resources) -> Out + 'env,
+{
+    fn call(self: Box<Self>, world: &'a mut World, resources: &'a mut Resources) -> Out {
+        self(world, resources)
     }
 }
 
@@ -302,7 +329,7 @@ trait GenericAccess: Send + Sync {
     fn run(self: Box<Self>, state: &SystemState, world: &World, resources: &Resources);
 }
 
-impl<'env, P: SystemParam, Out: Send + Sync + 'static> GenericAccess for Access<'env, P, Out> {
+impl<'env, P: SystemParam, Out: Send + Sync + 'env> GenericAccess for Access<'env, P, Out> {
     fn run(self: Box<Self>, state: &SystemState, world: &World, resources: &Resources) {
         if let Some(params) = unsafe { P::Fetch::get_param(state, world, resources) } {
             if let Some(sync) = self.inner.lock().take() {
@@ -328,7 +355,7 @@ pub struct AccessFuture<'env, P: SystemParam, R> {
     state: AccessFutureState<'env, P, R>,
 }
 
-impl<'env, P: SystemParam + 'env, R: Send + Sync + 'static> Future for AccessFuture<'env, P, R> {
+impl<'env, P: SystemParam + 'env, R: Send + Sync + 'env> Future for AccessFuture<'env, P, R> {
     type Output = R;
 
     fn poll(
@@ -505,8 +532,8 @@ pub mod impls {
     pub struct InAsyncMarker;
 
     macro_rules! impl_async_system {
-        ($param_count: literal, $($i: ident),*) => {
-            impl<Func, $($i,)* Fut> AsyncSystem<(), ($($i,)*), Fut, SimpleAsyncMarker, $param_count> for Func
+        ($($i: ident),*) => {
+            impl<Func, $($i,)* Fut> AsyncSystem<(), Fut, SimpleAsyncMarker, ($(AccessorRunnerSystem<$i>,)*)> for Func
             where
                 Func: FnMut($(Accessor<$i>,)*) -> Fut + Send + Sync + 'static,
                 Fut: Future + Send + 'static,
@@ -517,13 +544,13 @@ pub mod impls {
                 fn systems(
                     mut self,
                 ) -> (
-                    [BoxedSystem; $param_count],
+                    ($(AccessorRunnerSystem<$i>,)*),
                     AsyncSystemHandle<(), Fut::Output>,
                     Box<dyn FnOnce(TaskPool) -> BoxedFuture<'static, ()> + Send + Sync>,
                 ) {
                     $(let $i = AccessorRunnerSystem::<$i>::new();)*
                     let (tx, rx) = async_channel::unbounded();
-                    let boxes = [ $( Box::new($i.0) as BoxedSystem, )* ];
+                    let systems = ( $( $i.0, )* );
                     $(let $i = $i.1;)*
                     let f = |tp: TaskPool| Box::pin(async move {
                         while let Ok((_, return_pipe)) = rx.recv().await {
@@ -536,11 +563,11 @@ pub mod impls {
                         }
                     }) as BoxedFuture<'static, ()>;
                     let handle = AsyncSystemHandle { tx, system_count: Default::default()  };
-                    (boxes, handle, Box::new(f))
+                    (systems, handle, Box::new(f))
                 }
             }
 
-            impl<Trigger, Func, $($i,)* Fut> AsyncSystem<Trigger, ($($i,)*), Fut, InAsyncMarker, $param_count> for Func
+            impl<Trigger, Func, $($i,)* Fut> AsyncSystem<Trigger, Fut, InAsyncMarker, ($(AccessorRunnerSystem<$i>,)*)> for Func
             where
                 Trigger: Send + Sync + 'static,
                 Func: FnMut(In<Trigger>, $(Accessor<$i>,)*) -> Fut + Send + Sync + 'static,
@@ -552,13 +579,13 @@ pub mod impls {
                 fn systems(
                     mut self,
                 ) -> (
-                    [BoxedSystem; $param_count],
+                    ($(AccessorRunnerSystem<$i>,)*),
                     AsyncSystemHandle<Trigger, Fut::Output>,
                     Box<dyn FnOnce(TaskPool) -> BoxedFuture<'static, ()> + Send + Sync>,
                 ) {
                     $(let $i = AccessorRunnerSystem::<$i>::new();)*
                     let (tx, rx) = async_channel::unbounded();
-                    let boxes = [ $( Box::new($i.0) as BoxedSystem, )* ];
+                    let systems = ( $( $i.0, )* );
                     $(let $i = $i.1;)*
                     let f = |tp: TaskPool| Box::pin(async move {
                         while let Ok((input, return_pipe)) = rx.recv().await {
@@ -571,29 +598,65 @@ pub mod impls {
                         }
                     }) as BoxedFuture<'static, ()>;
                     let handle = AsyncSystemHandle { tx, system_count: Default::default() };
-                    (boxes, handle, Box::new(f))
+                    (systems, handle, Box::new(f))
+                }
+            }
+
+            #[allow(unused)]
+            #[allow(non_snake_case)]
+            impl<$($i: SystemParam + 'static,)*> AccessSystemsTuple for ($(AccessorRunnerSystem<$i>,)*) {
+                fn update_access(
+                    &mut self,
+                    world: &World,
+                    archetype_component_access: &mut TypeAccess<ArchetypeComponent>,
+                    component_access: &mut TypeAccess<TypeId>,
+                    resource_access: &mut TypeAccess<TypeId>,
+                ) {
+                   let ($($i,)*) = self;
+                    $(
+                        $i.update_access(world);
+                        archetype_component_access.extend($i.archetype_component_access());
+                        component_access.extend($i.component_access());
+                        resource_access.extend($i.resource_access());
+                    )*
+                }
+                fn is_non_send(&self) -> bool {
+                    let ($($i,)*) = self;
+                    $($i.is_non_send() ||)* false
+                }
+                fn apply_buffers(&mut self, world: &mut World, resources: &mut Resources) {
+                    let ($($i,)*) = self;
+                    $($i.apply_buffers(world, resources);)*
+                }
+                fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
+                    let ($($i,)*) = self;
+                    $($i.initialize(world, resources);)*
+                }
+                unsafe fn run(&mut self, world: &World, resources: &Resources) {
+                    let ($($i,)*) = self;
+                    $($i.run_unsafe((), world, resources);)*
                 }
             }
         };
     }
 
-    impl_async_system!(0,);
-    impl_async_system!(1, A);
-    impl_async_system!(2, A, B);
-    impl_async_system!(3, A, B, C);
-    impl_async_system!(4, A, B, C, D);
-    impl_async_system!(5, A, B, C, D, E);
-    impl_async_system!(6, A, B, C, D, E, F);
-    impl_async_system!(7, A, B, C, D, E, F, G);
-    impl_async_system!(8, A, B, C, D, E, F, G, H);
-    impl_async_system!(9, A, B, C, D, E, F, G, H, I);
-    impl_async_system!(10, A, B, C, D, E, F, G, H, I, J);
-    impl_async_system!(11, A, B, C, D, E, F, G, H, I, J, K);
-    impl_async_system!(12, A, B, C, D, E, F, G, H, I, J, K, L);
-    impl_async_system!(13, A, B, C, D, E, F, G, H, I, J, K, L, M);
-    impl_async_system!(14, A, B, C, D, E, F, G, H, I, J, K, L, M, N);
-    impl_async_system!(15, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
-    impl_async_system!(16, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
+    impl_async_system!();
+    impl_async_system!(A);
+    impl_async_system!(A, B);
+    impl_async_system!(A, B, C);
+    impl_async_system!(A, B, C, D);
+    impl_async_system!(A, B, C, D, E);
+    impl_async_system!(A, B, C, D, E, F);
+    impl_async_system!(A, B, C, D, E, F, G);
+    impl_async_system!(A, B, C, D, E, F, G, H);
+    impl_async_system!(A, B, C, D, E, F, G, H, I);
+    impl_async_system!(A, B, C, D, E, F, G, H, I, J);
+    impl_async_system!(A, B, C, D, E, F, G, H, I, J, K);
+    impl_async_system!(A, B, C, D, E, F, G, H, I, J, K, L);
+    impl_async_system!(A, B, C, D, E, F, G, H, I, J, K, L, M);
+    impl_async_system!(A, B, C, D, E, F, G, H, I, J, K, L, M, N);
+    impl_async_system!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
+    impl_async_system!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
 }
 
 #[cfg(test)]
@@ -664,7 +727,7 @@ mod test {
 
         commands.apply(&mut world, &mut resources);
 
-        let ([sync_1, sync_2], mut handle, future) = complex_async_system.systems();
+        let ((sync_1, sync_2), mut handle, future) = complex_async_system.systems();
         let tp = resources.get_mut::<AsyncComputeTaskPool>().unwrap();
         tp.spawn((future)(tp.clone().0)).detach();
         drop(tp);
