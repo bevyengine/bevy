@@ -282,7 +282,7 @@ pub(crate) fn impl_enum(
             }
         }
     });
-    for (wrapper_ident, wrapper_name, variant_index, variant_with_fields_ident, fields) in struct_wrappers
+    for (wrapper_ident, wrapper_name, _variant_index, variant_with_fields_ident, fields) in struct_wrappers
     {
         let mut field_names = Vec::new();
         let mut field_idents = Vec::new();
@@ -293,18 +293,10 @@ pub(crate) fn impl_enum(
             field_indices.push(i);
         }
         let fields_len = field_indices.len();
-        let mut match_fields = quote!();
-        for (i, _variant_ident) in variant_idents.iter().enumerate() {
-            if i == *variant_index {
-                match_fields.extend(quote!(
-                    #variant_with_fields_ident => (#(#field_idents,)*),
-                ));
-            } else {
-                match_fields.extend(quote!(
-                    #variant_with_fields_ident => unreachable!(),
-                ));
-            }
-        }
+        let match_fields = quote!(
+            #variant_with_fields_ident => (#(#field_idents,)*),
+            _ => unreachable!(),
+        );
         let match_fields_mut = quote!(let (#(#field_idents,)*) = match &mut self.0 {
             #match_fields
         };);
@@ -424,7 +416,7 @@ pub(crate) fn impl_enum(
             }
         }));
     }
-    for (wrapper_ident, wrapper_name, variant_index, variant_with_fields_ident, fields) in tuple_wrappers
+    for (wrapper_ident, wrapper_name, _variant_index, variant_with_fields_ident, fields) in tuple_wrappers
     {
         let mut field_names = Vec::new();
         let mut field_idents = Vec::new();
@@ -435,18 +427,10 @@ pub(crate) fn impl_enum(
             field_indices.push(index);
         }
         let fields_len = field_indices.len();
-        let mut match_fields = quote!();
-        for (i, _variant_ident) in variant_idents.iter().enumerate() {
-            if i == *variant_index {
-                match_fields.extend(quote!(
-                    #variant_with_fields_ident => (#(#field_idents,)*),
-                ));
-            } else {
-                match_fields.extend(quote!(
-                    #variant_with_fields_ident => unreachable!(),
-                ));
-            }
-        }
+        let match_fields = quote!(
+            #variant_with_fields_ident => (#(#field_idents,)*),
+            _ => unreachable!(),
+        );
         let match_fields_mut = quote!(let (#(#field_idents,)*) = match &mut self.0 {
             #match_fields
         };);
