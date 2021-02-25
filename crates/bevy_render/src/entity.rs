@@ -96,6 +96,8 @@ impl OrthographicCameraBundle {
             orthographic_projection: OrthographicProjection {
                 far,
                 depth_calculation: DepthCalculation::ZDifference,
+                scaling_mode: ScalingMode::FixedVertical,
+                scale: 1024.,
                 ..Default::default()
             },
             visible_entities: Default::default(),
