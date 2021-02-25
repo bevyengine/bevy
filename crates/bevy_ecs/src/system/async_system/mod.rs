@@ -421,6 +421,8 @@ mod test {
             .add_system(
                 (|string: Res<String>| {
                     assert_eq!("Hello", &*string);
+                    // This makes the test more consistently
+                    std::thread::sleep(std::time::Duration::from_millis(10));
                 })
                 .system()
                 .label("1"),
