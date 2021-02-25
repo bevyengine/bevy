@@ -280,7 +280,7 @@ impl<P: SystemParam + 'static> System for AccessorRunnerSystem<P> {
     ) -> Option<Self::Out> {
         loop {
             match self.channel.try_recv() {
-                Ok(sync) => sync.run(&mut self.state, world, resources),
+                Ok(sync) => sync.run(self.state, world, resources),
                 Err(async_channel::TryRecvError::Closed) => panic!(
                     "`AccessorRunnerSystem` called but all relevant accessors have been dropped"
                 ),
