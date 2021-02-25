@@ -34,7 +34,11 @@ pub(crate) fn impl_enum(
             let ident = &variant.ident;
             quote!(#enum_name::#ident)
         };
-        let variant_name = variant_ident.to_string();
+        let variant_name = variant_ident
+            .to_string()
+            .chars()
+            .filter(|c| !c.is_whitespace())
+            .collect::<String>();
         let variant_without_fields_ident = {
             match &variant.fields {
                 Fields::Named(_struct_fields) => {
