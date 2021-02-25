@@ -934,18 +934,10 @@ fn impl_enum(
             field_indices.push(i);
         }
         let fields_len = field_indices.len();
-        let mut match_fields = quote!();
-        for (i, _variant_ident) in variant_idents.iter().enumerate() {
-            if i == *variant_index {
-                match_fields.extend(quote!(
-                    #variant_with_fields_ident => (#(#field_idents,)*),
-                ));
-            } else {
-                match_fields.extend(quote!(
-                    #variant_with_fields_ident => unreachable!(),
-                ));
-            }
-        }
+        let match_fields = quote!(
+            #variant_with_fields_ident => (#(#field_idents,)*),
+            _ => unreachable!(),
+        );
         let match_fields_mut = quote!(let (#(#field_idents,)*) = match &mut self.0 {
             #match_fields
         };);
@@ -1077,18 +1069,10 @@ fn impl_enum(
             field_indices.push(index);
         }
         let fields_len = field_indices.len();
-        let mut match_fields = quote!();
-        for (i, _variant_ident) in variant_idents.iter().enumerate() {
-            if i == *variant_index {
-                match_fields.extend(quote!(
-                    #variant_with_fields_ident => (#(#field_idents,)*),
-                ));
-            } else {
-                match_fields.extend(quote!(
-                    #variant_with_fields_ident => unreachable!(),
-                ));
-            }
-        }
+        let match_fields = quote!(
+            #variant_with_fields_ident => (#(#field_idents,)*),
+            _ => unreachable!(),
+        );
         let match_fields_mut = quote!(let (#(#field_idents,)*) = match &mut self.0 {
             #match_fields
         };);
