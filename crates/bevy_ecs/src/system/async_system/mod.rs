@@ -361,7 +361,7 @@ mod test {
         loop {
             let mut x = None;
             access_1
-                .access(|(number, mut res): (Res<'_, _>, ResMut<'_, _>)| {
+                .access(|number: Res<'_, _>, mut res: ResMut<'_, _>| {
                     *res = "Hi!".to_owned();
                     assert_eq!(x, None);
                     x = Some(*number);

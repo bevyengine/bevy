@@ -69,25 +69,80 @@ impl<P: SystemParam> Clone for Accessor<P> {
     }
 }
 
-pub trait AccessFn<'a, 'env, P: SystemParam, Out> {
-    fn call(self: Box<Self>, v: <P::Fetch as FetchSystemParam<'a>>::Item) -> Out;
+pub trait AccessFn<'a, 'env, P: SystemParam, Out, Marker> {
+    unsafe fn call(
+        self: Box<Self>,
+        state: &'a SystemState,
+        world: &'a World,
+        resources: &'a Resources,
+    ) -> Option<Out>;
 }
-
-impl<'a, 'env, Out, P, F> AccessFn<'a, 'env, P, Out> for F
+pub struct SimpleMarker;
+impl<'a, 'env, Out, P, F> AccessFn<'a, 'env, P, Out, SimpleMarker> for F
 where
     P: SystemParam,
     F: FnOnce(P) -> Out + 'env,
     F: FnOnce(<P::Fetch as FetchSystemParam<'a>>::Item) -> Out + 'env,
 {
-    fn call(self: Box<Self>, v: <P::Fetch as FetchSystemParam<'a>>::Item) -> Out {
-        self(v)
+    unsafe fn call(
+        self: Box<Self>,
+        state: &'a SystemState,
+        world: &'a World,
+        resources: &'a Resources,
+    ) -> Option<Out> {
+        Some(self(<P::Fetch as FetchSystemParam<'a>>::get_param(
+            state, world, resources,
+        )?))
     }
 }
+pub struct ComplexMarker;
+macro_rules! impl_access_fn {
+    ($($A: ident),*) => {
+        impl<'a, 'env, Out, $($A,)* Func> AccessFn<'a, 'env, ($($A,)*), Out, ComplexMarker> for Func
+        where
+            $($A: SystemParam,)*
+            Func: FnOnce($($A,)*) -> Out + 'env,
+            Func: FnOnce(
+                $(<$A::Fetch as FetchSystemParam<'a>>::Item,)*
+            ) -> Out + 'env,
+        {
+            unsafe fn call(
+                self: Box<Self>,
+                state: &'a SystemState,
+                world: &'a World,
+                resources: &'a Resources,
+            ) -> Option<Out> {
+                Some(self(
+                    $(<$A::Fetch as FetchSystemParam<'a>>::get_param(
+                        state, world, resources,
+                    )?,)*
+                ))
+            }
+        }
+    };
+}
+
+impl_access_fn!(A);
+impl_access_fn!(A, B);
+impl_access_fn!(A, B, C);
+impl_access_fn!(A, B, C, D);
+impl_access_fn!(A, B, C, D, E);
+impl_access_fn!(A, B, C, D, E, F);
+impl_access_fn!(A, B, C, D, E, F, G);
+impl_access_fn!(A, B, C, D, E, F, G, H);
+impl_access_fn!(A, B, C, D, E, F, G, H, I);
+impl_access_fn!(A, B, C, D, E, F, G, H, I, J);
+impl_access_fn!(A, B, C, D, E, F, G, H, I, J, K);
+impl_access_fn!(A, B, C, D, E, F, G, H, I, J, K, L);
+impl_access_fn!(A, B, C, D, E, F, G, H, I, J, K, L, M);
+impl_access_fn!(A, B, C, D, E, F, G, H, I, J, K, L, M, N);
+impl_access_fn!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
+impl_access_fn!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
 
 impl<P: SystemParam> Accessor<P> {
-    pub fn access<'env, R: Send + Sync + 'static>(
+    pub fn access<'env, R: Send + Sync + 'static, M: 'static>(
         &mut self,
-        sync: impl for<'a> AccessFn<'a, 'env, P, R> + Send + Sync + 'env,
+        sync: impl for<'a> AccessFn<'a, 'env, P, R, M> + Send + Sync + 'env,
     ) -> impl Future<Output = R> + Send + Sync + 'env
     where
         P: 'env,
@@ -101,43 +156,49 @@ impl<P: SystemParam> Accessor<P> {
     }
 }
 
-struct Access<'env, P: SystemParam, Out> {
-    inner: Arc<Mutex<Option<Box<dyn for<'a> AccessFn<'a, 'env, P, Out> + Send + Sync + 'env>>>>,
+struct Access<'env, P: SystemParam, Out, Marker> {
+    inner: Arc<
+        Mutex<Option<Box<dyn for<'a> AccessFn<'a, 'env, P, Out, Marker> + Send + Sync + 'env>>>,
+    >,
     tx: Sender<Out>,
     waker: Waker,
 }
 
 trait GenericAccess: Send + Sync {
-    fn run(self: Box<Self>, state: &SystemState, world: &World, resources: &Resources);
+    unsafe fn run(self: Box<Self>, state: &SystemState, world: &World, resources: &Resources);
 }
 
-impl<'env, P: SystemParam, Out: Send + Sync + 'env> GenericAccess for Access<'env, P, Out> {
-    fn run(self: Box<Self>, state: &SystemState, world: &World, resources: &Resources) {
-        if let Some(params) = unsafe { P::Fetch::get_param(state, world, resources) } {
-            if let Some(sync) = self.inner.lock().take() {
-                self.tx.try_send(sync.call(params)).unwrap();
-            }
+impl<'env, P: SystemParam, Out: Send + Sync + 'env, Marker> GenericAccess
+    for Access<'env, P, Out, Marker>
+{
+    unsafe fn run(self: Box<Self>, state: &SystemState, world: &World, resources: &Resources) {
+        if let Some(sync) = self.inner.lock().take() {
+            self.tx
+                .try_send(sync.call(state, world, resources).unwrap())
+                .unwrap();
         }
         self.waker.wake();
     }
 }
 
-enum AccessFutureState<'env, P, R> {
+enum AccessFutureState<'env, P, R, M> {
     FirstPoll {
-        boxed: Box<dyn for<'a> AccessFn<'a, 'env, P, R> + Send + Sync + 'env>,
+        boxed: Box<dyn for<'a> AccessFn<'a, 'env, P, R, M> + Send + Sync + 'env>,
         tx: Sender<Box<dyn GenericAccess>>,
     },
     WaitingForCompletion(
         Receiver<R>,
-        Arc<Mutex<Option<Box<dyn for<'a> AccessFn<'a, 'env, P, R> + Send + Sync + 'env>>>>,
+        Arc<Mutex<Option<Box<dyn for<'a> AccessFn<'a, 'env, P, R, M> + Send + Sync + 'env>>>>,
     ),
 }
 
-pub struct AccessFuture<'env, P: SystemParam, R> {
-    state: AccessFutureState<'env, P, R>,
+pub struct AccessFuture<'env, P: SystemParam, R, M> {
+    state: AccessFutureState<'env, P, R, M>,
 }
 
-impl<'env, P: SystemParam + 'env, R: Send + Sync + 'env> Future for AccessFuture<'env, P, R> {
+impl<'env, P: SystemParam + 'env, R: Send + Sync + 'env, M: 'static> Future
+    for AccessFuture<'env, P, R, M>
+{
     type Output = R;
 
     fn poll(
@@ -177,7 +238,7 @@ impl<'env, P: SystemParam + 'env, R: Send + Sync + 'env> Future for AccessFuture
     }
 }
 
-impl<'env, P: SystemParam, R> Drop for AccessFuture<'env, P, R> {
+impl<'env, P: SystemParam, R, M> Drop for AccessFuture<'env, P, R, M> {
     fn drop(&mut self) {
         if let AccessFutureState::WaitingForCompletion(_, arc) = &self.state {
             *arc.lock() = None;
