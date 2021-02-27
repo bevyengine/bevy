@@ -47,8 +47,12 @@ pub struct ChildBuilder<'a> {
 impl Command for PushChildren {
     fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
         for child in self.children.iter() {
+            let previous = match world.get::<Parent>(*child) {
+                Ok(Parent(previous)) => *previous,
+                Err(_) => self.parent,
+            };
             world
-                .insert(*child, (Parent(self.parent), PreviousParent(self.parent)))
+                .insert(*child, (Parent(self.parent), PreviousParent(previous)))
                 .unwrap();
         }
         {
