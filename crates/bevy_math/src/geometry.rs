@@ -4,7 +4,6 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 /// A two dimensional "size" as defined by a width and height
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect_value(PartialEq)]
 pub struct Size<T: Reflect = f32> {
     pub width: T,
     pub height: T,
@@ -27,7 +26,6 @@ impl<T: Default + Reflect> Default for Size<T> {
 
 /// A rect, as defined by its "side" locations
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect_value(PartialEq)]
 pub struct Rect<T: Reflect> {
     pub left: T,
     pub right: T,
