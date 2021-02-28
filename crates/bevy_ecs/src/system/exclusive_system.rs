@@ -105,6 +105,7 @@ impl ExclusiveSystem for ExclusiveSystemCoerced {
 
     fn run(&mut self, world: &mut World, resources: &mut Resources) {
         self.system.run((), world, resources);
+        self.system.apply_buffers(world, resources);
     }
 
     fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
@@ -122,4 +123,39 @@ where
             system: Box::new(self.system()),
         }
     }
+}
+
+#[test]
+fn parallel_with_commands_as_exclusive() {
+    use crate::{
+        Commands, Entity, IntoExclusiveSystem, IntoSystem, ResMut, Resources, Stage, SystemStage,
+        With, World,
+    };
+    let mut world = World::new();
+    let mut resources = Resources::default();
+
+    fn removal(
+        commands: &mut Commands,
+        query: Query<Entity, With<f32>>,
+        mut counter: ResMut<usize>,
+    ) {
+        for entity in query.iter() {
+            *counter += 1;
+            commands.remove_one::<f32>(entity);
+        }
+    }
+
+    let mut stage = SystemStage::parallel().with_system(removal.system());
+    world.spawn((0.0f32,));
+    resources.insert(0usize);
+    stage.run(&mut world, &mut resources);
+    stage.run(&mut world, &mut resources);
+    assert_eq!(*resources.get::<usize>().unwrap(), 1);
+
+    let mut stage = SystemStage::parallel().with_system(removal.exclusive_system());
+    world.spawn((0.0f32,));
+    resources.insert(0usize);
+    stage.run(&mut world, &mut resources);
+    stage.run(&mut world, &mut resources);
+    assert_eq!(*resources.get::<usize>().unwrap(), 1);
 }
