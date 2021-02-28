@@ -3,6 +3,7 @@ use bevy_reflect::{Reflect, ReflectComponent, ReflectMapEntities};
 use std::ops::{Deref, DerefMut};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Reflect)]
+#[reflect_value(PartialEq)]
 #[reflect(Component, MapEntities)]
 pub struct Parent(pub Entity);
 
