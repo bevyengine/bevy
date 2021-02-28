@@ -43,6 +43,7 @@ pub type Layer = u8;
 ///
 /// Entities without this component belong to layer `0`.
 #[derive(Copy, Clone, Reflect, PartialEq, Eq, PartialOrd, Ord)]
+#[reflect_value(PartialEq)]
 #[reflect(Component)]
 pub struct RenderLayers(LayerMask);
 

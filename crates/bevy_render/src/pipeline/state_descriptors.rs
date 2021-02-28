@@ -227,6 +227,7 @@ impl Default for BlendOperation {
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Reflect)]
+#[reflect_value(Hash, PartialEq, Serialize, Deserialize)]
 pub enum IndexFormat {
     Uint16 = 0,
     Uint32 = 1,
