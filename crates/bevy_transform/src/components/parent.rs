@@ -41,7 +41,7 @@ impl DerefMut for Parent {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Reflect)]
-#[reflect(Component, MapEntities)]
+#[reflect(Component, MapEntities, PartialEq)]
 pub struct PreviousParent(pub(crate) Entity);
 
 impl MapEntities for PreviousParent {
