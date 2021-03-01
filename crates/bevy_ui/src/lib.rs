@@ -47,7 +47,18 @@ pub mod system {
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<FlexSurface>()
+            .register_type::<AlignContent>()
+            .register_type::<AlignItems>()
+            .register_type::<AlignSelf>()
+            .register_type::<Direction>()
+            .register_type::<Display>()
+            .register_type::<FlexDirection>()
+            .register_type::<FlexWrap>()
+            .register_type::<JustifyContent>()
+            .register_type::<Node>()
+            .register_type::<PositionType>()
             .register_type::<Style>()
+            .register_type::<Val>()
             .add_stage_before(CoreStage::PostUpdate, UiStage::Ui, SystemStage::parallel())
             .add_system_to_stage(CoreStage::PreUpdate, ui_focus_system.system())
             // add these stages to front because these must run before transform update systems
