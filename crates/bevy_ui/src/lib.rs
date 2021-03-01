@@ -23,6 +23,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::{
     IntoSystem, ParallelSystemDescriptorCoercion, StageLabel, SystemLabel, SystemStage,
 };
+use bevy_reflect::RegisterTypeBuilder;
 use bevy_render::{render_graph::RenderGraph, RenderStage};
 use update::ui_z_system;
 
@@ -46,6 +47,7 @@ pub mod system {
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<FlexSurface>()
+            .register_type::<Style>()
             .add_stage_before(CoreStage::PostUpdate, UiStage::Ui, SystemStage::parallel())
             .add_system_to_stage(CoreStage::PreUpdate, ui_focus_system.system())
             // add these stages to front because these must run before transform update systems
