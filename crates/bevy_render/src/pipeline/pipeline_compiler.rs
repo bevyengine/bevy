@@ -11,7 +11,7 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Eq, PartialEq, Debug, Reflect)]
-#[reflect_value(PartialEq)]
+#[reflect(PartialEq)]
 pub struct PipelineSpecialization {
     pub shader_specialization: ShaderSpecialization,
     pub primitive_topology: PrimitiveTopology,
@@ -42,7 +42,7 @@ impl PipelineSpecialization {
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, Reflect, Serialize, Deserialize)]
-#[reflect_value(PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq, Serialize, Deserialize)]
 pub struct ShaderSpecialization {
     pub shader_defs: HashSet<String>,
 }

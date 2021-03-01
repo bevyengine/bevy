@@ -16,7 +16,7 @@ use std::ops::{Add, AddAssign, Mul, MulAssign};
 /// RGBA color in the Linear sRGB colorspace (often colloquially referred to as "linear", "RGB", or "linear RGB").
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect_value(PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq, Serialize, Deserialize)]
 pub struct Color {
     red: f32,
     green: f32,

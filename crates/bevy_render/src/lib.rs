@@ -36,7 +36,8 @@ use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, AssetStage};
 use bevy_ecs::StageLabel;
 use camera::{
-    ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection, VisibleEntities,
+    ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection, RenderLayers,
+    VisibleEntities,
 };
 use pipeline::{
     IndexFormat, PipelineCompiler, PipelineDescriptor, PipelineSpecialization, PrimitiveTopology,
@@ -139,6 +140,7 @@ impl Plugin for RenderPlugin {
         .register_type::<PrimitiveTopology>()
         .register_type::<IndexFormat>()
         .register_type::<PipelineSpecialization>()
+        .register_type::<RenderLayers>()
         .init_resource::<RenderGraph>()
         .init_resource::<PipelineCompiler>()
         .init_resource::<Msaa>()
