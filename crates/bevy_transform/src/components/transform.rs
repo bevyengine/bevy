@@ -4,8 +4,7 @@ use bevy_reflect::{Reflect, ReflectComponent};
 use std::ops::Mul;
 
 #[derive(Debug, PartialEq, Clone, Copy, Reflect)]
-#[reflect_value(PartialEq)]
-#[reflect(Component)]
+#[reflect(Component, PartialEq)]
 pub struct Transform {
     pub translation: Vec3,
     pub rotation: Quat,

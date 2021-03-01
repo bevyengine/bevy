@@ -3,8 +3,7 @@ use bevy_reflect::{Reflect, ReflectComponent, ReflectMapEntities};
 use std::ops::{Deref, DerefMut};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Reflect)]
-#[reflect_value(PartialEq)]
-#[reflect(Component, MapEntities)]
+#[reflect(Component, MapEntities, PartialEq)]
 pub struct Parent(pub Entity);
 
 // TODO: We need to impl either FromResources or Default so Parent can be registered as Properties.
