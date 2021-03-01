@@ -7,6 +7,7 @@ mod time;
 
 use bevy_ecs::IntoSystem;
 use bevy_reflect::RegisterTypeBuilder;
+use bevy_utils::HashSet;
 pub use bytes::*;
 pub use float_ord::*;
 pub use label::*;
@@ -36,6 +37,7 @@ impl Plugin for CorePlugin {
         app.init_resource::<Time>()
             .init_resource::<EntityLabels>()
             .init_resource::<FixedTimesteps>()
+            .register_type::<HashSet<String>>()
             .register_type::<Option<String>>()
             .register_type::<Name>()
             .register_type::<Labels>()
