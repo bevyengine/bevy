@@ -36,12 +36,12 @@ use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, AssetStage};
 use bevy_ecs::StageLabel;
 use camera::{
-    ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection, RenderLayers,
-    VisibleEntities,
+    ActiveCameras, Camera, DepthCalculation, OrthographicProjection, PerspectiveProjection,
+    RenderLayers, ScalingMode, VisibleEntities, WindowOrigin,
 };
 use pipeline::{
     IndexFormat, PipelineCompiler, PipelineDescriptor, PipelineSpecialization, PrimitiveTopology,
-    ShaderSpecialization,
+    ShaderSpecialization, VertexBufferLayout,
 };
 use render_graph::{
     base::{self, BaseRenderGraphBuilder, BaseRenderGraphConfig, MainPass},
@@ -128,6 +128,7 @@ impl Plugin for RenderPlugin {
         .add_asset::<Shader>()
         .add_asset::<PipelineDescriptor>()
         .register_type::<Camera>()
+        .register_type::<DepthCalculation>()
         .register_type::<Draw>()
         .register_type::<Visible>()
         .register_type::<RenderPipelines>()
@@ -141,6 +142,9 @@ impl Plugin for RenderPlugin {
         .register_type::<IndexFormat>()
         .register_type::<PipelineSpecialization>()
         .register_type::<RenderLayers>()
+        .register_type::<ScalingMode>()
+        .register_type::<VertexBufferLayout>()
+        .register_type::<WindowOrigin>()
         .init_resource::<RenderGraph>()
         .init_resource::<PipelineCompiler>()
         .init_resource::<Msaa>()
