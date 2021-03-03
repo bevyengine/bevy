@@ -87,6 +87,7 @@ fn setup(
                 sprite: Sprite {
                     size: Vec2::new(1.0, 1.0) * SPRITE_SIZE,
                     resize_mode: SpriteResizeMode::Manual,
+                    ..Default::default()
                 },
                 material: materials.add(ColorMaterial {
                     color: COL_DESELECTED * col,

@@ -1,17 +1,50 @@
 use crate::ColorMaterial;
 use bevy_asset::{Assets, Handle};
+use bevy_core::Bytes;
 use bevy_ecs::{Query, Res};
 use bevy_math::Vec2;
 use bevy_reflect::{Reflect, ReflectDeserialize, TypeUuid};
-use bevy_render::{renderer::RenderResources, texture::Texture};
+use bevy_render::{
+    renderer::{RenderResource, RenderResourceType, RenderResources},
+    texture::Texture,
+};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, Clone, RenderResources, TypeUuid, Reflect)]
+#[derive(Debug, Default, Clone, TypeUuid, Reflect, RenderResources)]
+#[render_resources(from_self)]
 #[uuid = "7233c597-ccfa-411f-bd59-9af349432ada"]
+#[repr(C)]
 pub struct Sprite {
     pub size: Vec2,
-    #[render_resources(ignore)]
+    pub flip_x: bool,
+    pub flip_y: bool,
     pub resize_mode: SpriteResizeMode,
+}
+
+impl RenderResource for Sprite {
+    fn resource_type(&self) -> Option<RenderResourceType> {
+        Some(RenderResourceType::Buffer)
+    }
+
+    fn buffer_byte_len(&self) -> Option<usize> {
+        Some(12)
+    }
+
+    fn write_buffer_bytes(&self, buffer: &mut [u8]) {
+        // Write the size buffer
+        let (size_buf, flip_buf) = buffer.split_at_mut(8);
+        self.size.write_bytes(size_buf);
+
+        // First bit means flip x, second bit means flip y
+        flip_buf[0] = if self.flip_x { 0b01 } else { 0 } | if self.flip_y { 0b10 } else { 0 };
+        flip_buf[1] = 0;
+        flip_buf[2] = 0;
+        flip_buf[3] = 0;
+    }
+
+    fn texture(&self) -> Option<&Handle<Texture>> {
+        None
+    }
 }
 
 /// Determines how `Sprite` resize should be handled
@@ -34,6 +67,8 @@ impl Sprite {
         Self {
             size,
             resize_mode: SpriteResizeMode::Manual,
+            flip_x: false,
+            flip_y: false,
         }
     }
 }
