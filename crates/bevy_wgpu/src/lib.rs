@@ -110,7 +110,7 @@ pub fn get_wgpu_render_system(resources: &mut Resources) -> impl FnMut(&mut Worl
 
 #[derive(Default, Clone)]
 pub struct WgpuOptions {
-    pub name: Option<Cow<'static, str>>,
+    pub device_label: Option<Cow<'static, str>>,
     pub backend: WgpuBackend,
     pub power_pref: WgpuPowerOptions,
     pub features: WgpuFeatures,

@@ -54,7 +54,7 @@ impl WgpuRenderer {
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
-                    label: options.name.as_ref().map(|a| a.as_ref()),
+                    label: options.device_label.as_ref().map(|a| a.as_ref()),
                     features: options.features.wgpu_into(),
                     limits: options.limits.wgpu_into(),
                 },
