@@ -17,6 +17,7 @@ use bevy_render::{
 };
 use futures_lite::future;
 use renderer::WgpuRenderResourceContext;
+use std::borrow::Cow;
 
 #[derive(Clone, Copy)]
 pub enum WgpuFeature {
@@ -108,8 +109,8 @@ pub fn get_wgpu_render_system(resources: &mut Resources) -> impl FnMut(&mut Worl
 }
 
 #[derive(Default, Clone)]
-pub struct WgpuOptions<'a> {
-    pub name: Option<&'a str>,
+pub struct WgpuOptions {
+    pub name: Option<Cow<'static, str>>,
     pub backend: WgpuBackend,
     pub power_pref: WgpuPowerOptions,
     pub features: WgpuFeatures,
