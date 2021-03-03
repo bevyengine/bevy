@@ -8,37 +8,12 @@ use std::{
 
 // TODO: align TypeAccess api with Query::Fetch
 
-/// A shared borrow of a Resource
-/// that will only return in a query if the Resource has been changed
-#[derive(Debug)]
-pub struct ChangedRes<'a, T: Resource> {
-    value: &'a T,
-}
-
-impl<'a, T: Resource> ChangedRes<'a, T> {
-    /// Creates a reference cell to a Resource from a pointer
-    ///
-    /// # Safety
-    /// The pointer must have correct lifetime / storage
-    pub unsafe fn new(value: NonNull<T>) -> Self {
-        Self {
-            value: &*value.as_ptr(),
-        }
-    }
-}
-
-impl<'a, T: Resource> Deref for ChangedRes<'a, T> {
-    type Target = T;
-
-    fn deref(&self) -> &T {
-        self.value
-    }
-}
-
 /// Shared borrow of a Resource
 #[derive(Debug)]
 pub struct Res<'a, T: Resource> {
     value: &'a T,
+    added: bool,
+    mutated: bool,
 }
 
 impl<'a, T: Resource> Res<'a, T> {
@@ -46,9 +21,11 @@ impl<'a, T: Resource> Res<'a, T> {
     ///
     /// # Safety
     /// The pointer must have correct lifetime / storage
-    pub unsafe fn new(value: NonNull<T>) -> Self {
+    pub unsafe fn new(value: NonNull<T>, added: bool, changed: bool) -> Self {
         Self {
             value: &*value.as_ptr(),
+            added,
+            mutated: changed,
         }
     }
 }
@@ -61,11 +38,29 @@ impl<'a, T: Resource> Deref for Res<'a, T> {
     }
 }
 
+impl<'a, T: Resource> Res<'a, T> {
+    #[inline(always)]
+    pub fn added(this: &Self) -> bool {
+        this.added
+    }
+
+    #[inline(always)]
+    pub fn mutated(this: &Self) -> bool {
+        this.mutated
+    }
+
+    #[inline(always)]
+    pub fn changed(this: &Self) -> bool {
+        this.added || this.mutated
+    }
+}
+
 /// Unique borrow of a Resource
 #[derive(Debug)]
 pub struct ResMut<'a, T: Resource> {
     _marker: PhantomData<&'a T>,
     value: *mut T,
+    added: bool,
     mutated: *mut bool,
 }
 
@@ -74,10 +69,11 @@ impl<'a, T: Resource> ResMut<'a, T> {
     ///
     /// # Safety
     /// The pointer must have correct lifetime / storage / ownership
-    pub unsafe fn new(value: NonNull<T>, mutated: NonNull<bool>) -> Self {
+    pub unsafe fn new(value: NonNull<T>, added: bool, mutated: NonNull<bool>) -> Self {
         Self {
             value: value.as_ptr(),
             mutated: mutated.as_ptr(),
+            added,
             _marker: Default::default(),
         }
     }
@@ -97,6 +93,23 @@ impl<'a, T: Resource> DerefMut for ResMut<'a, T> {
             *self.mutated = true;
             &mut *self.value
         }
+    }
+}
+
+impl<'a, T: Resource> ResMut<'a, T> {
+    #[inline(always)]
+    pub fn added(this: Self) -> bool {
+        this.added
+    }
+
+    #[inline(always)]
+    pub fn mutated(this: Self) -> bool {
+        unsafe { *this.mutated }
+    }
+
+    #[inline(always)]
+    pub fn changed(this: Self) -> bool {
+        this.added || Self::mutated(this)
     }
 }
 
