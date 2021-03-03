@@ -17,16 +17,11 @@ impl Command for InsertChildren {
                 .unwrap();
         }
         {
-            let mut added = false;
             if let Ok(mut children) = world.get_mut::<Children>(self.parent) {
-                children.0.insert_from_slice(self.index, &self.children);
-                added = true;
-            }
-
-            // NOTE: ideally this is just an else statement, but currently that _incorrectly_ fails borrow-checking
-            if !added {
+                children.insert(self.index, &self.children);
+            } else {
                 world
-                    .insert_one(self.parent, Children(self.children))
+                    .insert_one(self.parent, Children::with(&self.children))
                     .unwrap();
             }
         }
@@ -52,16 +47,11 @@ impl Command for PushChildren {
                 .unwrap();
         }
         {
-            let mut added = false;
             if let Ok(mut children) = world.get_mut::<Children>(self.parent) {
-                children.0.extend(self.children.iter().cloned());
-                added = true;
-            }
-
-            // NOTE: ideally this is just an else statement, but currently that _incorrectly_ fails borrow-checking
-            if !added {
+                children.extend(self.children.iter().cloned());
+            } else {
                 world
-                    .insert_one(self.parent, Children(self.children))
+                    .insert_one(self.parent, Children::with(&self.children))
                     .unwrap();
             }
         }
@@ -200,7 +190,6 @@ mod tests {
     use super::BuildChildren;
     use crate::prelude::{Children, Parent, PreviousParent};
     use bevy_ecs::{Commands, Entity, Resources, World};
-    use smallvec::{smallvec, SmallVec};
 
     #[test]
     fn build_children() {
@@ -233,10 +222,15 @@ mod tests {
         let child1 = child1.expect("child1 should exist");
         let child2 = child2.expect("child2 should exist");
         let child3 = child3.expect("child3 should exist");
-        let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child2, child3];
+        let expected_children = vec![child1, child2, child3];
 
         assert_eq!(
-            world.get::<Children>(parent).unwrap().0.clone(),
+            world
+                .get::<Children>(parent)
+                .unwrap()
+                .iter()
+                .copied()
+                .collect::<Vec<_>>(),
             expected_children
         );
         assert_eq!(*world.get::<Parent>(child1).unwrap(), Parent(parent));
@@ -252,58 +246,117 @@ mod tests {
         );
     }
 
-    #[test]
-    fn push_and_insert_children() {
+    fn setup() -> (World, Resources, Commands, Vec<Entity>, Entity) {
         let mut world = World::default();
-        let mut resources = Resources::default();
-        let mut commands = Commands::default();
+        let resources = Resources::default();
+        let commands = Commands::default();
         let entities = world
-            .spawn_batch(vec![(1,), (2,), (3,), (4,), (5,)])
+            .spawn_batch(vec![(0,), (1,), (2,), (3,), (4,)])
             .collect::<Vec<Entity>>();
-
-        commands.push_children(entities[0], &entities[1..3]);
-        commands.apply(&mut world, &mut resources);
-
         let parent = entities[0];
-        let child1 = entities[1];
-        let child2 = entities[2];
-        let child3 = entities[3];
-        let child4 = entities[4];
+        (world, resources, commands, entities, parent)
+    }
 
-        let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child2];
-        assert_eq!(
-            world.get::<Children>(parent).unwrap().0.clone(),
-            expected_children
-        );
-        assert_eq!(*world.get::<Parent>(child1).unwrap(), Parent(parent));
-        assert_eq!(*world.get::<Parent>(child2).unwrap(), Parent(parent));
-
-        assert_eq!(
-            *world.get::<PreviousParent>(child1).unwrap(),
-            PreviousParent(parent)
-        );
-        assert_eq!(
-            *world.get::<PreviousParent>(child2).unwrap(),
-            PreviousParent(parent)
-        );
-
-        commands.insert_children(parent, 1, &entities[3..]);
+    #[test]
+    fn push_children_adds_parent_component() {
+        let (mut world, mut resources, mut commands, child, parent) = setup();
+        commands.push_children(parent, &child[1..=2]);
         commands.apply(&mut world, &mut resources);
+        assert_eq!(world.get::<Parent>(child[2]).unwrap(), &Parent(parent));
+    }
 
-        let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child3, child4, child2];
+    #[test]
+    fn push_children_adds_previous_parent_component() {
+        let (mut world, mut resources, mut commands, child, parent) = setup();
+        commands.push_children(parent, &child[1..=2]);
+        commands.apply(&mut world, &mut resources);
         assert_eq!(
-            world.get::<Children>(parent).unwrap().0.clone(),
-            expected_children
+            world.get::<PreviousParent>(child[2]).unwrap(),
+            &PreviousParent(parent)
         );
-        assert_eq!(*world.get::<Parent>(child3).unwrap(), Parent(parent));
-        assert_eq!(*world.get::<Parent>(child4).unwrap(), Parent(parent));
+    }
+
+    #[test]
+    fn push_children_adds_children_component() {
+        let (mut world, mut resources, mut commands, child, parent) = setup();
+        commands.push_children(parent, &child[1..=2]);
+        commands.apply(&mut world, &mut resources);
         assert_eq!(
-            *world.get::<PreviousParent>(child3).unwrap(),
-            PreviousParent(parent)
+            world.get::<Children>(parent).unwrap(),
+            &Children::with(&child[1..=2])
         );
+    }
+
+    #[test]
+    fn push_children_keeps_children_unique() {
+        let (mut world, mut resources, mut commands, child, parent) = setup();
+        commands.push_children(parent, &child[1..=2]);
+        commands.apply(&mut world, &mut resources);
+        commands.push_children(parent, &child[1..=2]);
+        commands.apply(&mut world, &mut resources);
         assert_eq!(
-            *world.get::<PreviousParent>(child4).unwrap(),
-            PreviousParent(parent)
+            world.get::<Children>(parent).unwrap(),
+            &Children::with(&child[1..=2])
+        );
+    }
+
+    #[test]
+    fn insert_children_adds_parent_component() {
+        let (mut world, mut resources, mut commands, child, parent) = setup();
+        commands.insert_children(parent, 0, &child[1..=2]);
+        commands.apply(&mut world, &mut resources);
+        assert_eq!(world.get::<Parent>(child[2]).unwrap(), &Parent(parent));
+    }
+
+    #[test]
+    fn insert_children_adds_previous_parent_component() {
+        let (mut world, mut resources, mut commands, child, parent) = setup();
+        commands.insert_children(parent, 0, &child[1..=2]);
+        commands.apply(&mut world, &mut resources);
+        assert_eq!(
+            world.get::<PreviousParent>(child[2]).unwrap(),
+            &PreviousParent(parent)
+        );
+    }
+
+    #[test]
+    fn insert_children_adds_children_component() {
+        let (mut world, mut resources, mut commands, child, parent) = setup();
+        commands.insert_children(parent, 0, &child[1..=2]);
+        commands.apply(&mut world, &mut resources);
+        assert_eq!(
+            world.get::<Children>(parent).unwrap(),
+            &Children::with(&child[1..=2])
+        );
+    }
+
+    #[test]
+    fn insert_children_keeps_children_unique() {
+        let (mut world, mut resources, mut commands, child, parent) = setup();
+        commands.insert_children(parent, 0, &child[1..=2]);
+        commands.apply(&mut world, &mut resources);
+        commands.insert_children(parent, 1, &child[1..=2]);
+        commands.apply(&mut world, &mut resources);
+        assert_eq!(
+            world.get::<Children>(parent).unwrap(),
+            &Children::with(&child[1..=2])
+        );
+    }
+
+    #[test]
+    fn insert_children_keeps_children_order() {
+        let (mut world, mut resources, mut commands, child, parent) = setup();
+        commands.insert_children(parent, 0, &child[1..=2]);
+        commands.apply(&mut world, &mut resources);
+        assert_eq!(
+            world.get::<Children>(parent).unwrap(),
+            &Children::with(&[child[1], child[2]])
+        );
+        commands.insert_children(parent, 1, &child[3..=4]);
+        commands.apply(&mut world, &mut resources);
+        assert_eq!(
+            world.get::<Children>(parent).unwrap(),
+            &Children::with(&[child[1], child[3], child[4], child[2]])
         );
     }
 }

@@ -18,7 +18,7 @@ pub fn transform_propagate_system(
         }
 
         if let Some(children) = children {
-            for child in children.0.iter() {
+            for child in children.iter() {
                 propagate_recursive(
                     &global_transform,
                     &changed_transform_query,
@@ -54,7 +54,7 @@ fn propagate_recursive(
     };
 
     if let Ok(Some(children)) = children_query.get(entity) {
-        for child in children.0.iter() {
+        for child in children.iter() {
             propagate_recursive(
                 &global_matrix,
                 changed_transform_query,

@@ -22,14 +22,14 @@ impl<'a, 'b> WorldChildBuilder<'a, 'b> {
             let world = &mut self.world_builder.world;
             let mut added = false;
             if let Ok(mut children) = world.get_mut::<Children>(parent_entity) {
-                children.0.push(entity);
+                children.push(entity);
                 added = true;
             }
 
             // NOTE: ideally this is just an else statement, but currently that _incorrectly_ fails borrow-checking
             if !added {
                 world
-                    .insert_one(parent_entity, Children(smallvec::smallvec![entity]))
+                    .insert_one(parent_entity, Children::with(&[entity]))
                     .unwrap();
             }
         }
