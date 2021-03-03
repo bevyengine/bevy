@@ -17,6 +17,7 @@ use bevy_render::{
 };
 use futures_lite::future;
 use renderer::WgpuRenderResourceContext;
+use std::borrow::Cow;
 
 #[derive(Clone, Copy)]
 pub enum WgpuFeature {
@@ -41,54 +42,43 @@ pub enum WgpuFeature {
     VertexAttribute64Bit,
 }
 
-impl From<WgpuFeature> for wgpu::Features {
-    fn from(value: WgpuFeature) -> Self {
-        match value {
-            WgpuFeature::DepthClamping => wgpu::Features::DEPTH_CLAMPING,
-            WgpuFeature::TextureCompressionBc => wgpu::Features::TEXTURE_COMPRESSION_BC,
-            WgpuFeature::TimestampQuery => wgpu::Features::TIMESTAMP_QUERY,
-            WgpuFeature::PipelineStatisticsQuery => wgpu::Features::PIPELINE_STATISTICS_QUERY,
-            WgpuFeature::MappablePrimaryBuffers => wgpu::Features::MAPPABLE_PRIMARY_BUFFERS,
-            WgpuFeature::SampledTextureBindingArray => {
-                wgpu::Features::SAMPLED_TEXTURE_BINDING_ARRAY
-            }
-            WgpuFeature::SampledTextureArrayDynamicIndexing => {
-                wgpu::Features::SAMPLED_TEXTURE_ARRAY_DYNAMIC_INDEXING
-            }
-            WgpuFeature::SampledTextureArrayNonUniformIndexing => {
-                wgpu::Features::SAMPLED_TEXTURE_ARRAY_NON_UNIFORM_INDEXING
-            }
-            WgpuFeature::UnsizedBindingArray => wgpu::Features::UNSIZED_BINDING_ARRAY,
-            WgpuFeature::MultiDrawIndirect => wgpu::Features::MULTI_DRAW_INDIRECT,
-            WgpuFeature::MultiDrawIndirectCount => wgpu::Features::MULTI_DRAW_INDIRECT_COUNT,
-            WgpuFeature::PushConstants => wgpu::Features::PUSH_CONSTANTS,
-            WgpuFeature::AddressModeClampToBorder => wgpu::Features::ADDRESS_MODE_CLAMP_TO_BORDER,
-            WgpuFeature::NonFillPolygonMode => wgpu::Features::NON_FILL_POLYGON_MODE,
-            WgpuFeature::TextureCompressionEtc2 => wgpu::Features::TEXTURE_COMPRESSION_ETC2,
-            WgpuFeature::TextureCompressionAstcLdr => wgpu::Features::TEXTURE_COMPRESSION_ASTC_LDR,
-            WgpuFeature::TextureAdapterSpecificFormatFeatures => {
-                wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES
-            }
-            WgpuFeature::ShaderFloat64 => wgpu::Features::SHADER_FLOAT64,
-            WgpuFeature::VertexAttribute64Bit => wgpu::Features::VERTEX_ATTRIBUTE_64BIT,
-        }
-    }
-}
-
-impl From<WgpuFeatures> for wgpu::Features {
-    fn from(features: WgpuFeatures) -> Self {
-        features
-            .features
-            .iter()
-            .fold(wgpu::Features::empty(), |wgpu_features, feature| {
-                wgpu_features | (*feature).into()
-            })
-    }
-}
-
 #[derive(Default, Clone)]
 pub struct WgpuFeatures {
     pub features: Vec<WgpuFeature>,
+}
+
+#[derive(Debug, Clone)]
+pub struct WgpuLimits {
+    pub max_bind_groups: u32,
+    pub max_dynamic_uniform_buffers_per_pipeline_layout: u32,
+    pub max_dynamic_storage_buffers_per_pipeline_layout: u32,
+    pub max_sampled_textures_per_shader_stage: u32,
+    pub max_samplers_per_shader_stage: u32,
+    pub max_storage_buffers_per_shader_stage: u32,
+    pub max_storage_textures_per_shader_stage: u32,
+    pub max_uniform_buffers_per_shader_stage: u32,
+    pub max_uniform_buffer_binding_size: u32,
+    pub max_push_constant_size: u32,
+}
+
+impl Default for WgpuLimits {
+    fn default() -> Self {
+        let default = wgpu::Limits::default();
+        WgpuLimits {
+            max_bind_groups: default.max_bind_groups,
+            max_dynamic_uniform_buffers_per_pipeline_layout: default
+                .max_dynamic_uniform_buffers_per_pipeline_layout,
+            max_dynamic_storage_buffers_per_pipeline_layout: default
+                .max_dynamic_storage_buffers_per_pipeline_layout,
+            max_sampled_textures_per_shader_stage: default.max_sampled_textures_per_shader_stage,
+            max_samplers_per_shader_stage: default.max_samplers_per_shader_stage,
+            max_storage_buffers_per_shader_stage: default.max_storage_buffers_per_shader_stage,
+            max_storage_textures_per_shader_stage: default.max_storage_textures_per_shader_stage,
+            max_uniform_buffers_per_shader_stage: default.max_uniform_buffers_per_shader_stage,
+            max_uniform_buffer_binding_size: default.max_uniform_buffer_binding_size,
+            max_push_constant_size: default.max_push_constant_size,
+        }
+    }
 }
 
 #[derive(Default)]
@@ -120,9 +110,11 @@ pub fn get_wgpu_render_system(resources: &mut Resources) -> impl FnMut(&mut Worl
 
 #[derive(Default, Clone)]
 pub struct WgpuOptions {
+    pub device_label: Option<Cow<'static, str>>,
     pub backend: WgpuBackend,
     pub power_pref: WgpuPowerOptions,
     pub features: WgpuFeatures,
+    pub limits: WgpuLimits,
 }
 
 #[derive(Clone)]

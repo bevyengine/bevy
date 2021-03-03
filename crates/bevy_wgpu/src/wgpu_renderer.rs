@@ -1,5 +1,6 @@
 use crate::{
     renderer::{WgpuRenderGraphExecutor, WgpuRenderResourceContext},
+    wgpu_type_converter::WgpuInto,
     WgpuBackend, WgpuOptions, WgpuPowerOptions,
 };
 use bevy_app::{prelude::*, ManualEventReader};
@@ -53,9 +54,9 @@ impl WgpuRenderer {
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
-                    label: None,
-                    features: options.features.into(),
-                    limits: wgpu::Limits::default(),
+                    label: options.device_label.as_ref().map(|a| a.as_ref()),
+                    features: options.features.wgpu_into(),
+                    limits: options.limits.wgpu_into(),
                 },
                 trace_path,
             )
