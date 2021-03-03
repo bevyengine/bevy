@@ -5,6 +5,25 @@ use crate::{
 };
 use parking_lot::Mutex;
 use std::{any::TypeId, marker::PhantomData, sync::Arc};
+
+/// A parameter that can be used in a system function
+///
+/// # Derive
+/// This trait can be derived.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// use bevy_ecs::SystemParam;
+///
+/// #[derive(SystemParam)]
+/// pub struct MyParam<'a> {
+///     foo: Res<'a, usize>,
+/// }
+///
+/// fn my_system(param: MyParam) {
+///     // Access the resource through `param.foo`
+/// }
+/// ```
 pub trait SystemParam: Sized {
     type Fetch: for<'a> FetchSystemParam<'a>;
 }
