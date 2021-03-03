@@ -1,5 +1,5 @@
 use bevy_math::{IVec2, Vec2};
-use bevy_utils::Uuid;
+use bevy_utils::{tracing::warn, Uuid};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct WindowId(Uuid);
@@ -53,6 +53,39 @@ impl Default for WindowResizeConstraints {
             min_height: 120.,
             max_width: f32::INFINITY,
             max_height: f32::INFINITY,
+        }
+    }
+}
+
+impl WindowResizeConstraints {
+    pub fn check_constraints(&self) -> WindowResizeConstraints {
+        let WindowResizeConstraints {
+            mut min_width,
+            mut min_height,
+            mut max_width,
+            mut max_height,
+        } = self;
+        min_width = min_width.max(1.);
+        min_height = min_height.max(1.);
+        if max_width < min_width {
+            warn!(
+                "The given maximum width {} is smaller than the minimum width {}",
+                max_width, min_width
+            );
+            max_width = min_width;
+        }
+        if max_height < min_height {
+            warn!(
+                "The given maximum height {} is smaller than the minimum height {}",
+                max_height, min_height
+            );
+            max_height = min_height;
+        }
+        WindowResizeConstraints {
+            min_width,
+            min_height,
+            max_width,
+            max_height,
         }
     }
 }

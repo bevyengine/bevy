@@ -1,7 +1,6 @@
-use crate::utils::check_resize_constraints;
 use bevy_math::IVec2;
 use bevy_utils::HashMap;
-use bevy_window::{Window, WindowDescriptor, WindowId, WindowMode, WindowResizeConstraints};
+use bevy_window::{Window, WindowDescriptor, WindowId, WindowMode};
 use winit::dpi::LogicalSize;
 
 #[derive(Debug, Default)]
@@ -61,28 +60,24 @@ impl WinitWindows {
             .with_decorations(window_descriptor.decorations),
         };
 
-        let WindowResizeConstraints {
-            min_width,
-            min_height,
-            max_width,
-            max_height,
-        } = check_resize_constraints(window_descriptor.resize_constraints);
+        let constraints = window_descriptor.resize_constraints.check_constraints();
         let min_inner_size = LogicalSize {
-            width: min_width,
-            height: min_height,
+            width: constraints.min_width,
+            height: constraints.min_height,
         };
         let max_inner_size = LogicalSize {
-            width: max_width,
-            height: max_height,
+            width: constraints.max_width,
+            height: constraints.max_height,
         };
 
-        let winit_window_builder = if max_width.is_finite() && max_height.is_finite() {
-            winit_window_builder
-                .with_min_inner_size(min_inner_size)
-                .with_max_inner_size(max_inner_size)
-        } else {
-            winit_window_builder.with_min_inner_size(min_inner_size)
-        };
+        let winit_window_builder =
+            if constraints.max_width.is_finite() && constraints.max_height.is_finite() {
+                winit_window_builder
+                    .with_min_inner_size(min_inner_size)
+                    .with_max_inner_size(max_inner_size)
+            } else {
+                winit_window_builder.with_min_inner_size(min_inner_size)
+            };
 
         #[allow(unused_mut)]
         let mut winit_window_builder = winit_window_builder.with_title(&window_descriptor.title);

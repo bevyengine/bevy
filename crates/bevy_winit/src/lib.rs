@@ -1,5 +1,4 @@
 mod converters;
-mod utils;
 mod winit_config;
 mod winit_windows;
 
@@ -18,7 +17,7 @@ use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
     CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
     WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
-    WindowMoved, WindowResizeConstraints, WindowResized, WindowScaleFactorChanged, Windows,
+    WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
 };
 use winit::{
     dpi::PhysicalPosition,
@@ -26,7 +25,6 @@ use winit::{
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
 
-use crate::utils::check_resize_constraints;
 use winit::dpi::LogicalSize;
 #[cfg(any(
     target_os = "linux",
@@ -144,21 +142,16 @@ fn change_window(_: &mut World, resources: &mut Resources) {
                 }
                 bevy_window::WindowCommand::SetResizeConstraints { resize_constraints } => {
                     let window = winit_windows.get_window(id).unwrap();
-                    let WindowResizeConstraints {
-                        min_width,
-                        min_height,
-                        max_width,
-                        max_height,
-                    } = check_resize_constraints(resize_constraints);
+                    let constraints = resize_constraints.check_constraints();
                     let min_inner_size = LogicalSize {
-                        width: min_width,
-                        height: min_height,
+                        width: constraints.min_width,
+                        height: constraints.min_height,
                     };
                     let max_inner_size = LogicalSize {
-                        width: max_width,
-                        height: max_height,
+                        width: constraints.max_width,
+                        height: constraints.max_height,
                     };
-                    if max_width.is_finite() && max_height.is_finite() {
+                    if constraints.max_width.is_finite() && constraints.max_height.is_finite() {
                         window.set_min_inner_size(Some(min_inner_size));
                         window.set_max_inner_size(Some(max_inner_size));
                     } else {
