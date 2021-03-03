@@ -21,7 +21,7 @@ pub struct WgpuRenderer {
 }
 
 impl WgpuRenderer {
-    pub async fn new(options: WgpuOptions, features: wgpu::Features) -> Self {
+    pub async fn new(options: WgpuOptions) -> Self {
         let backend = match options.backend {
             WgpuBackend::Auto => wgpu::BackendBit::PRIMARY,
             WgpuBackend::Vulkan => wgpu::BackendBit::VULKAN,
@@ -54,7 +54,7 @@ impl WgpuRenderer {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    features,
+                    features: options.features.into(),
                     limits: wgpu::Limits::default(),
                 },
                 trace_path,
