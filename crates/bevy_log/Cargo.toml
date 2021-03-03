@@ -25,4 +25,4 @@ android_log-sys = "0.2.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.6"
-tracing-wasm = "0.1"
+tracing-wasm = "0.2"
