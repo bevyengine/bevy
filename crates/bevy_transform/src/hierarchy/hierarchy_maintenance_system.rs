@@ -4,8 +4,6 @@ use bevy_ecs::{
     query::Without,
     system::{Commands, Query},
 };
-use bevy_utils::HashMap;
-use smallvec::SmallVec;
 
 pub fn parent_update_system(
     mut commands: Commands,
@@ -97,9 +95,11 @@ mod test {
         );
 
         // Parent `e1` to `e2`.
-        (*world.get_mut::<Parent>(children[0]).unwrap()).0 = children[1];
+        let mut commands = Commands::default();
+        commands.push_children(children[1], &[children[0]]);
 
-        schedule.run(&mut world);
+        commands.apply(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
 
         assert_eq!(
             world
