@@ -54,7 +54,7 @@ impl WgpuRenderer {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    features: wgpu::Features::empty(),
+                    features: options.features.into(),
                     limits: wgpu::Limits::default(),
                 },
                 trace_path,
