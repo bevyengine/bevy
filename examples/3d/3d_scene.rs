@@ -3,13 +3,17 @@ use bevy_internal::{
     render::wireframe::{Wireframe, WireframeConfig, WireframePlugin},
     wgpu::{WgpuFeatures, WgpuOptions},
 };
+use bevy_internal::wgpu::WgpuFeature;
 
 fn main() {
     App::build()
         .insert_resource(Msaa { samples: 4 })
         .insert_resource(WgpuOptions {
-            name: Some("3d_scene"),
-            features: WgpuFeatures::NON_FILL_POLYGON_MODE,
+            features: WgpuFeatures {
+                features: vec![
+                    WgpuFeature::NonFillPolygonMode
+                ]
+            },
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
@@ -25,6 +29,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    // To draw the wireframe on all entities, set this to 'true'
     wireframe_config.global = false;
     // add entities to the world
     commands
@@ -34,7 +39,6 @@ fn setup(
             material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
             ..Default::default()
         })
-        .with(Wireframe)
         // cube
         .spawn(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
@@ -42,6 +46,7 @@ fn setup(
             transform: Transform::from_xyz(0.0, 0.5, 0.0),
             ..Default::default()
         })
+        .with(Wireframe) // This enables wireframe drawing on this entity
         // light
         .spawn(LightBundle {
             transform: Transform::from_xyz(4.0, 8.0, 4.0),

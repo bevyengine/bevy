@@ -22,7 +22,7 @@ pub struct WireframePlugin;
 impl Plugin for WireframePlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<WireframeConfig>()
-            .add_system_to_stage(crate::stage::DRAW, draw_wireframes_system.system());
+            .add_system_to_stage(crate::RenderStage::Draw, draw_wireframes_system.system());
         let resources = app.resources();
         let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
         let mut pipelines = resources.get_mut::<Assets<PipelineDescriptor>>().unwrap();
