@@ -12,9 +12,7 @@ use bevy_render::{
     pipeline::PrimitiveTopology,
     prelude::{Color, Texture},
     render_graph::base,
-    texture::{
-        buffer_to_texture, AddressMode, FilterMode, ImageType, SamplerDescriptor, TextureError,
-    },
+    texture::{AddressMode, FilterMode, ImageType, SamplerDescriptor, TextureError},
 };
 use bevy_scene::Scene;
 use bevy_transform::{
@@ -198,7 +196,7 @@ async fn load_gltf<'a, 'b>(
             let end = (view.offset() + view.length()) as usize;
             let buffer = &buffer_data[view.buffer().index()][start..end];
             let texture_label = texture_label(&gltf_texture);
-            let mut texture = buffer_to_texture(buffer, ImageType::MimeType(mime_type))?;
+            let mut texture = Texture::from_buffer(buffer, ImageType::MimeType(mime_type))?;
             texture.sampler = texture_sampler(&gltf_texture)?;
             load_context.set_labeled_asset::<Texture>(&texture_label, LoadedAsset::new(texture));
         }
