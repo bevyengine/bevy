@@ -28,6 +28,10 @@ impl Default for LogDiagnosticsPlugin {
     }
 }
 
+/// The width which diagnostic names will be printed as
+/// Plugin names should not be longer than this value
+pub(crate) const MAX_LOG_NAME_WIDTH: usize = 32;
+
 impl Plugin for LogDiagnosticsPlugin {
     fn build(&self, app: &mut bevy_app::AppBuilder) {
         app.insert_resource(LogDiagnosticsState {
@@ -58,11 +62,25 @@ impl LogDiagnosticsPlugin {
         if let Some(value) = diagnostic.value() {
             if let Some(average) = diagnostic.average() {
                 info!(
-                    "{:<65}: {:<10.6}  (avg {:.6})",
-                    diagnostic.name, value, average
+                    target: "bevy diagnostic",
+                    "{:<name_width$}: {:>12} (avg {:>})",
+                    diagnostic.name,
+                    // Suffix is only used for 's' as in seconds currently,
+                    // so we reserve one column for it
+                    format!("{:.6}{:1}", value, diagnostic.suffix),
+                    // Do not reserve one column for the suffix in the average
+                    // The ) hugging the value is more aesthetically pleasing
+                    format!("{:.6}{:}", average, diagnostic.suffix),
+                    name_width = MAX_LOG_NAME_WIDTH,
                 );
             } else {
-                info!("{:<65}: {:<10.6}", diagnostic.name, value);
+                info!(
+                    target: "bevy diagnostic",
+                    "{:<name_width$}: {:>}",
+                    diagnostic.name,
+                    format!("{:.6}{:}", value, diagnostic.suffix),
+                    name_width = MAX_LOG_NAME_WIDTH,
+                );
             }
         }
     }
