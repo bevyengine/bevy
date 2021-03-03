@@ -1,18 +1,15 @@
 use bevy::prelude::*;
 use bevy_internal::{
     render::wireframe::{Wireframe, WireframeConfig, WireframePlugin},
-    wgpu::{WgpuFeatures, WgpuOptions},
+    wgpu::{WgpuFeature, WgpuFeatures, WgpuOptions},
 };
-use bevy_internal::wgpu::WgpuFeature;
 
 fn main() {
     App::build()
         .insert_resource(Msaa { samples: 4 })
         .insert_resource(WgpuOptions {
             features: WgpuFeatures {
-                features: vec![
-                    WgpuFeature::NonFillPolygonMode
-                ]
+                features: vec![WgpuFeature::NonFillPolygonMode],
             },
             ..Default::default()
         })
