@@ -18,8 +18,8 @@ fn setup(
     // add entities to the world
     for y in -2..=2 {
         for x in -5..=5 {
-            let x01 = x as f32 / 10.0 + 0.5;
-            let y01 = y as f32 / 2.0 + 0.5;
+            let x01 = (x + 5) as f32 / 10.0;
+            let y01 = (y + 2) as f32 / 4.0;
             commands
                 // spheres
                 .spawn(PbrBundle {
