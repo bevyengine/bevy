@@ -227,7 +227,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for ResState<T> {
     ) -> Self::Item {
         let column = world
             .get_populated_resource_column(state.component_id)
-            .unwrap();
+            .expect("Requested resource does not exist");
         Res {
             value: &*column.get_ptr().as_ptr().cast::<T>(),
             flags: *column.get_flags_mut_ptr(),
@@ -326,7 +326,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for ResMutState<T> {
     ) -> Self::Item {
         let value = world
             .get_resource_unchecked_mut_with_id(state.component_id)
-            .unwrap();
+            .expect("Requested resource does not exist");
         ResMut {
             value: value.value,
             flags: value.flags,
@@ -524,7 +524,9 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendState<T> {
         world: &'a World,
     ) -> Self::Item {
         NonSend {
-            value: world.get_non_send_with_id::<T>(state.component_id).unwrap(),
+            value: world
+                .get_non_send_with_id::<T>(state.component_id)
+                .expect("Requested non-send resource does not exist"),
         }
     }
 }
@@ -613,7 +615,7 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendMutState<T> {
     ) -> Self::Item {
         let value = world
             .get_non_send_unchecked_mut_with_id(state.component_id)
-            .unwrap();
+            .expect("Requested non-send resource does not exist");
         NonSendMut {
             value: value.value,
             flags: value.flags,
