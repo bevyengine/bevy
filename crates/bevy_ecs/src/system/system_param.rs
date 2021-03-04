@@ -21,7 +21,7 @@ use std::{
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::SystemParam;
+/// use bevy_ecs::system::SystemParam;
 ///
 /// #[derive(SystemParam)]
 /// pub struct MyParam<'a> {

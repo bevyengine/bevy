@@ -88,37 +88,38 @@ where
     }
 }
 
-#[test]
-fn parallel_with_commands_as_exclusive() {
-    use crate::{
-        Commands, Entity, IntoExclusiveSystem, IntoSystem, ResMut, Resources, Stage, SystemStage,
-        With, World,
-    };
-    let mut world = World::new();
-    let mut resources = Resources::default();
+#[cfg(test)]
+mod tests {
+    use crate::world::World;
+    use crate::{entity::Entity, system::{Query, ResMut, IntoExclusiveSystem, IntoSystem}};
+    use crate::{query::With, system::Commands, schedule::{SystemStage, Stage}};
+    #[test]
+    fn parallel_with_commands_as_exclusive() {
+        let mut world = World::new();
 
-    fn removal(
-        commands: &mut Commands,
-        query: Query<Entity, With<f32>>,
-        mut counter: ResMut<usize>,
-    ) {
-        for entity in query.iter() {
-            *counter += 1;
-            commands.remove_one::<f32>(entity);
+        fn removal(
+            mut commands: Commands,
+            query: Query<Entity, With<f32>>,
+            mut counter: ResMut<usize>,
+        ) {
+            for entity in query.iter() {
+                *counter += 1;
+                commands.remove::<f32>(entity);
+            }
         }
+
+        let mut stage = SystemStage::parallel().with_system(removal.system());
+        world.spawn().insert(0.0f32);
+        world.insert_resource(0usize);
+        stage.run(&mut world);
+        stage.run(&mut world);
+        assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
+
+        let mut stage = SystemStage::parallel().with_system(removal.exclusive_system());
+        world.spawn().insert(0.0f32);
+        world.insert_resource(0usize);
+        stage.run(&mut world);
+        stage.run(&mut world);
+        assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
     }
-
-    let mut stage = SystemStage::parallel().with_system(removal.system());
-    world.spawn((0.0f32,));
-    resources.insert(0usize);
-    stage.run(&mut world, &mut resources);
-    stage.run(&mut world, &mut resources);
-    assert_eq!(*resources.get::<usize>().unwrap(), 1);
-
-    let mut stage = SystemStage::parallel().with_system(removal.exclusive_system());
-    world.spawn((0.0f32,));
-    resources.insert(0usize);
-    stage.run(&mut world, &mut resources);
-    stage.run(&mut world, &mut resources);
-    assert_eq!(*resources.get::<usize>().unwrap(), 1);
 }
