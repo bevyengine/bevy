@@ -90,9 +90,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::world::World;
-    use crate::{entity::Entity, system::{Query, ResMut, IntoExclusiveSystem, IntoSystem}};
-    use crate::{query::With, system::Commands, schedule::{SystemStage, Stage}};
+    use crate::{
+        entity::Entity,
+        query::With,
+        schedule::{Stage, SystemStage},
+        system::{Commands, IntoExclusiveSystem, IntoSystem, Query, ResMut},
+        world::World,
+    };
     #[test]
     fn parallel_with_commands_as_exclusive() {
         let mut world = World::new();

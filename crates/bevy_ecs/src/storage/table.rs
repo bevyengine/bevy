@@ -213,7 +213,7 @@ impl Table {
     /// new row in `new_table` and the entity in this table swapped in to replace it (if an entity was swapped in).
     /// missing columns will be "forgotten". It is the caller's responsibility to drop them
     /// # Safety
-    /// Row must be in-bounds 
+    /// Row must be in-bounds
     pub unsafe fn move_to_and_forget_missing_unchecked(
         &mut self,
         row: usize,

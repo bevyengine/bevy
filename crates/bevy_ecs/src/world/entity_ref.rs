@@ -49,7 +49,6 @@ impl<'w> EntityRef<'w> {
         self.world
     }
 
-
     #[inline]
     pub fn contains<T: Component>(&self) -> bool {
         self.contains_type_id(TypeId::of::<T>())
