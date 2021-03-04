@@ -308,14 +308,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         }) => &fields.named,
         _ => panic!("Expected a struct with named fields."),
     };
-
-    let manifest = Manifest::new().unwrap();
-    let path_str = if let Some(package) = manifest.find(|name| name == "bevy") {
-        format!("{}::ecs", package.name)
-    } else {
-        "bevy_ecs".to_string()
-    };
-    let path: Path = syn::parse(path_str.parse::<TokenStream>().unwrap()).unwrap();
+    let path = bevy_ecs_path();
 
     let field_attributes = fields
         .iter()
