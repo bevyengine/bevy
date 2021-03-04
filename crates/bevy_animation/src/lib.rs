@@ -43,7 +43,6 @@ pub mod wide {
 pub mod stage {
     pub const ANIMATE: &str = "animate";
     pub const SKINNING: &str = "skinning";
-    pub use bevy_app::stage::{POST_UPDATE, UPDATE};
 }
 
 use bevy_ecs::ParallelSystemDescriptorCoercion;
@@ -61,8 +60,12 @@ impl Default for AnimationPlugin {
 
 impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_stage_after(stage::UPDATE, stage::ANIMATE, SystemStage::parallel());
-        app.add_stage_after(stage::POST_UPDATE, stage::SKINNING, SystemStage::parallel());
+        app.add_stage_after(CoreStage::Update, stage::ANIMATE, SystemStage::parallel());
+        app.add_stage_after(
+            CoreStage::PostUpdate,
+            stage::SKINNING,
+            SystemStage::parallel(),
+        );
 
         // Generic animation
         app.insert_resource(animator::AnimatorRegistry::default())
