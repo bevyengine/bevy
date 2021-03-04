@@ -148,6 +148,10 @@ name = "update_gltf_scene"
 path = "examples/3d/update_gltf_scene.rs"
 
 [[example]]
+name = "wireframe"
+path = "examples/3d/wireframe.rs"
+
+[[example]]
 name = "z_sort_debug"
 path = "examples/3d/z_sort_debug.rs"
 
