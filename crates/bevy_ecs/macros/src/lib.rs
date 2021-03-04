@@ -146,7 +146,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
 
     TokenStream::from(quote! {
-        impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name#ty_generics {
+        unsafe impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name#ty_generics {
             fn type_info(&self) -> Vec<#ecs_path::component::TypeInfo> {
                 Self::static_type_info()
             }
@@ -157,7 +157,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             }
         }
 
-        impl #impl_generics #ecs_path::bundle::Bundle for #struct_name#ty_generics {
+        unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name#ty_generics {
             fn static_type_info() -> Vec<#ecs_path::component::TypeInfo> {
                 let mut type_info = Vec::with_capacity(#field_len);
                 #(#field_static_types)*

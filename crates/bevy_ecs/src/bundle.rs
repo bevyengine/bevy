@@ -11,7 +11,10 @@ use std::{any::TypeId, collections::HashMap};
 /// A dynamically typed ordered collection of components
 ///
 /// See [Bundle]
-pub trait DynamicBundle: Send + Sync + 'static {
+/// # Safety
+/// [DynamicBundle::type_info] must return the TypeInfo for each component type in the bundle, in the _exact_
+/// order that [DynamicBundle::get_components] is called.
+pub unsafe trait DynamicBundle: Send + Sync + 'static {
     /// Gets this [DynamicBundle]'s components type info, in the order of this bundle's Components
     fn type_info(&self) -> Vec<TypeInfo>;
 
@@ -22,7 +25,11 @@ pub trait DynamicBundle: Send + Sync + 'static {
 /// A statically typed ordered collection of components
 ///
 /// See [DynamicBundle]
-pub trait Bundle: DynamicBundle {
+/// # Safety
+/// [Bundle::static_type_info] must return the [TypeInfo] for each component type in the bundle. This must be _exactly_
+/// the same as the [TypeInfo] returned by [DynamicBundle::type_info].
+/// [Bundle::from_components] must call `func` exactly once for each [TypeInfo] returned by [Bundle::static_type_info]
+pub unsafe trait Bundle: DynamicBundle {
     /// Gets this [Bundle]'s components type info, in the order of this bundle's Components
     fn static_type_info() -> Vec<TypeInfo>;
 
@@ -36,7 +43,7 @@ pub trait Bundle: DynamicBundle {
 
 macro_rules! tuple_impl {
     ($($name: ident),*) => {
-        impl<$($name: Component),*> DynamicBundle for ($($name,)*) {
+        unsafe impl<$($name: Component),*> DynamicBundle for ($($name,)*) {
             fn type_info(&self) -> Vec<TypeInfo> {
                 Self::static_type_info()
             }
@@ -52,7 +59,7 @@ macro_rules! tuple_impl {
             }
         }
 
-        impl<$($name: Component),*> Bundle for ($($name,)*) {
+        unsafe impl<$($name: Component),*> Bundle for ($($name,)*) {
             fn static_type_info() -> Vec<TypeInfo> {
                 vec![$(TypeInfo::of::<$name>()),*]
             }
