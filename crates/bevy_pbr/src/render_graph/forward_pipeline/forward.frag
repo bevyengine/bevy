@@ -29,8 +29,6 @@ layout(set = 1, binding = 0) uniform Lights {
 
 layout(set = 3, binding = 0) uniform StandardMaterial_albedo { vec4 Albedo; };
 
-layout(set = 3, binding = 3) uniform StandardMaterial_pbr { vec2 pbr; };
-
 #ifdef STANDARDMATERIAL_ALBEDO_TEXTURE
 layout(set = 3, binding = 1) uniform texture2D StandardMaterial_albedo_texture;
 layout(set = 3,
@@ -38,6 +36,8 @@ layout(set = 3,
 #endif
 
 #ifndef STANDARDMATERIAL_UNLIT
+
+layout(set = 3, binding = 3) uniform StandardMaterial_pbr { vec2 pbr; };
 
 #define saturate(x) clamp(x, 0.0, 1.0)
 const float PI = 3.141592653589793;
@@ -117,6 +117,20 @@ float clampNoV(float NoV) {
     return max(NoV, MIN_N_DOT_V);
 }
 
+float perceptualRoughnessToRoughness(float perceptualRoughness) {
+    return perceptualRoughness * perceptualRoughness;
+}
+
+#if defined(TARGET_MOBILE)
+// min roughness such that (MIN_PERCEPTUAL_ROUGHNESS^4) > 0 in fp16 (i.e.
+// 2^(-14/4), rounded up)
+#define MIN_PERCEPTUAL_ROUGHNESS 0.089
+#define MIN_ROUGHNESS 0.007921
+#else
+#define MIN_PERCEPTUAL_ROUGHNESS 0.045
+#define MIN_ROUGHNESS 0.002025
+#endif
+
 #endif
 
 void main() {
@@ -128,7 +142,11 @@ void main() {
 #endif
 
 #ifndef STANDARDMATERIAL_UNLIT
-    float roughness = pbr.x;
+    float perceptual_roughness = pbr.x;
+    perceptual_roughness =
+        clamp(perceptual_roughness, MIN_PERCEPTUAL_ROUGHNESS, 1.0);
+    float roughness = perceptualRoughnessToRoughness(perceptual_roughness);
+
     float metallic = pbr.y;
     vec3 N = normalize(v_Normal);
     vec3 V = normalize(CameraPos.xyz - v_Position.xyz);
