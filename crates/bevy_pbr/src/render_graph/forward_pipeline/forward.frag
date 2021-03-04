@@ -120,7 +120,7 @@ float clampNoV(float NoV) {
 #endif
 
 void main() {
-    vec4 output_color = Albedo; // Albedo;
+    vec4 output_color = Albedo;
 #ifdef STANDARDMATERIAL_ALBEDO_TEXTURE
     output_color *= texture(sampler2D(StandardMaterial_albedo_texture,
                                       StandardMaterial_albedo_texture_sampler),
@@ -128,9 +128,6 @@ void main() {
 #endif
 
 #ifndef STANDARDMATERIAL_UNLIT
-    // accumulate color
-    vec3 color = AmbientColor;
-
     float roughness = pbr.x;
     float metallic = pbr.y;
     vec3 N = normalize(v_Normal);
