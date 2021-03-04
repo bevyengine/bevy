@@ -191,7 +191,7 @@ fn setup_pipeline(
         // main camera
         .spawn(PerspectiveCameraBundle {
             transform: Transform::from_xyz(0.0, 0.0, 6.0)
-                .looking_at(Vec3::default(), Vec3::unit_y()),
+                .looking_at(Vec3::default(), Vec3::Y),
             ..Default::default()
         })
         // second window camera
@@ -202,7 +202,7 @@ fn setup_pipeline(
                 ..Default::default()
             },
             transform: Transform::from_xyz(6.0, 0.0, 0.0)
-                .looking_at(Vec3::default(), Vec3::unit_y()),
+                .looking_at(Vec3::default(), Vec3::Y),
             ..Default::default()
         });
 }

@@ -48,7 +48,7 @@ impl From<Torus> for Mesh {
                 let z = theta.sin() * (torus.radius + torus.ring_radius * phi.cos());
                 let y = torus.ring_radius * phi.sin();
 
-                let normal = segment_pos.cross(Vec3::unit_y()).normalize();
+                let normal = segment_pos.cross(Vec3::Y).normalize();
 
                 positions.push([x, y, z]);
                 normals.push(normal.into());

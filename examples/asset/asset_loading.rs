@@ -72,7 +72,7 @@ fn setup(
         // camera
         .spawn(PerspectiveCameraBundle {
             transform: Transform::from_xyz(0.0, 3.0, 10.0)
-                .looking_at(Vec3::default(), Vec3::unit_y()),
+                .looking_at(Vec3::default(), Vec3::Y),
             ..Default::default()
         });
 }
