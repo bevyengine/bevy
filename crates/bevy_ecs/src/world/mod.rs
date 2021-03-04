@@ -42,6 +42,7 @@ pub struct World {
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
     pub(crate) removed_components: SparseSet<ComponentId, Vec<Entity>>,
+    /// Access cache used by [WorldCell].
     pub(crate) archetype_component_access: ArchetypeComponentAccess,
     main_thread_validator: MainThreadValidator,
 }
@@ -103,8 +104,10 @@ impl World {
     }
 
     /// Registers a new component using the given [ComponentDescriptor]. Components do not need to be manually
-    /// registered. This just provides a way to override default configuration. For example, the default
-    /// component storage type can be overridden like this:
+    /// registered. This just provides a way to override default configuration. Attempting to register a component
+    /// with a type that has already been used by [World] will result in an error.
+    ///
+    /// The default component storage type can be overridden like this:
     ///
     /// ```
     /// use bevy_ecs::{component::{ComponentDescriptor, StorageType}, world::World};
@@ -540,12 +543,10 @@ impl World {
         &mut self,
         func: impl FnOnce() -> T,
     ) -> Mut<'_, T> {
-        if self.contains_resource::<T>() {
-            self.get_resource_mut().unwrap()
-        } else {
+        if !self.contains_resource::<T>() {
             self.insert_resource(func());
-            self.get_resource_mut().unwrap()
         }
+        self.get_resource_mut().unwrap()
     }
 
     /// Gets a mutable reference to the resource of the given type, if it exists. Otherwise returns [None]
@@ -676,17 +677,16 @@ impl World {
             let row = column.push_uninit();
             // SAFE: index was just allocated above
             column.set_unchecked(row, data);
+            std::mem::forget(value);
             column
                 .get_flags_unchecked_mut(row)
                 .set(ComponentFlags::ADDED, true);
-            std::mem::forget(value);
         } else {
             // SAFE: column is of type T and has already been allocated
-            let row = &mut *column.get_unchecked(0).cast::<T>();
+            *column.get_unchecked(0).cast::<T>() = value;
             column
                 .get_flags_unchecked_mut(0)
                 .set(ComponentFlags::MUTATED, true);
-            *row = value;
         }
     }
 
@@ -781,7 +781,16 @@ impl World {
 
 impl fmt::Debug for World {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "World")
+        f.debug_struct("World")
+            .field("id", &self.id)
+            .field("entity_count", &self.entities.len())
+            .field("archetype_count", &self.archetypes.len())
+            .field("component_count", &self.components.len())
+            .field(
+                "resource_count",
+                &self.archetypes.resource().unique_components.len(),
+            )
+            .finish()
     }
 }
 
