@@ -45,6 +45,12 @@ impl<'w> EntityRef<'w> {
     }
 
     #[inline]
+    pub fn world(&mut self) -> &World {
+        self.world
+    }
+
+
+    #[inline]
     pub fn contains<T: Component>(&self) -> bool {
         self.contains_type_id(TypeId::of::<T>())
     }
@@ -493,11 +499,17 @@ impl<'w> EntityMut<'w> {
         }
     }
 
+    #[inline]
+    pub fn world(&mut self) -> &World {
+        self.world
+    }
+
     /// # Safety
-    /// Caller should not modify the world in a way that changes the current entity's location
-    /// If the caller _does_ do something that could change the location, self.update_location() should be
+    /// Caller must not modify the world in a way that changes the current entity's location
+    /// If the caller _does_ do something that could change the location, self.update_location() must be
     /// called before using any other methods in EntityMut
-    pub unsafe fn world(&mut self) -> &mut World {
+    #[inline]
+    pub unsafe fn world_mut(&mut self) -> &mut World {
         self.world
     }
 
