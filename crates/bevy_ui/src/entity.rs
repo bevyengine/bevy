@@ -12,6 +12,7 @@ use bevy_render::{
     mesh::Mesh,
     pipeline::{RenderPipeline, RenderPipelines},
     prelude::Visible,
+    surface::Viewport,
 };
 use bevy_sprite::{ColorMaterial, QUAD_HANDLE};
 use bevy_text::{CalculatedSize, Text};
@@ -167,6 +168,7 @@ impl Default for ButtonBundle {
 pub struct UiCameraBundle {
     pub camera: Camera,
     pub orthographic_projection: OrthographicProjection,
+    pub viewport: Viewport,
     pub visible_entities: VisibleEntities,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -189,6 +191,7 @@ impl Default for UiCameraBundle {
                 ..Default::default()
             },
             visible_entities: Default::default(),
+            viewport: Default::default(),
             transform: Transform::from_xyz(0.0, 0.0, far - 0.1),
             global_transform: Default::default(),
         }

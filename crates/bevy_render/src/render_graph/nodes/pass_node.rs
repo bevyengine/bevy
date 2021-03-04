@@ -11,6 +11,7 @@ use crate::{
     renderer::{
         BindGroup, BindGroupId, BufferId, RenderContext, RenderResourceBindings, RenderResourceType,
     },
+    surface::Viewport,
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{ReadOnlyFetch, Resources, World, WorldQuery};
@@ -216,12 +217,22 @@ where
                         continue;
                     };
 
-                    // get an ordered list of entities visible to the camera
-                    let visible_entities = if let Some(camera_entity) = active_cameras.get(&camera_info.name) {
-                        world.get::<VisibleEntities>(camera_entity).unwrap()
+                    let camera_entity = if let Some(camera_entity) = active_cameras.get(&camera_info.name) {
+                        camera_entity
                     } else {
                         continue;
                     };
+
+                    // get camera viewport and apply it
+                    let viewport = world.get::<Viewport>(camera_entity)
+                    .expect("A camera requires a Viewport component.");
+                    let origin = viewport.physical_origin();
+                    let size = viewport.physical_size();
+                    let (min_depth, max_depth) = viewport.depth_range().into_inner();
+                    render_pass.set_viewport(origin.x, origin.y, size.x, size.y, min_depth, max_depth);
+
+                    // get an ordered list of entities visible to the camera
+                    let visible_entities = world.get::<VisibleEntities>(camera_entity).unwrap();
 
                     // attempt to draw each visible entity
                     let mut draw_state = DrawState::default();

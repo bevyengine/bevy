@@ -6,6 +6,7 @@ use crate::{
     pipeline::RenderPipelines,
     prelude::Visible,
     render_graph::base,
+    surface::Viewport,
     Draw, Mesh,
 };
 use base::MainPass;
@@ -32,6 +33,7 @@ pub struct MeshBundle {
 pub struct PerspectiveCameraBundle {
     pub camera: Camera,
     pub perspective_projection: PerspectiveProjection,
+    pub viewport: Viewport,
     pub visible_entities: VisibleEntities,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -49,6 +51,7 @@ impl PerspectiveCameraBundle {
                 ..Default::default()
             },
             perspective_projection: Default::default(),
+            viewport: Default::default(),
             visible_entities: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
@@ -64,6 +67,7 @@ impl Default for PerspectiveCameraBundle {
                 ..Default::default()
             },
             perspective_projection: Default::default(),
+            viewport: Default::default(),
             visible_entities: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
@@ -78,6 +82,7 @@ impl Default for PerspectiveCameraBundle {
 pub struct OrthographicCameraBundle {
     pub camera: Camera,
     pub orthographic_projection: OrthographicProjection,
+    pub viewport: Viewport,
     pub visible_entities: VisibleEntities,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -98,6 +103,7 @@ impl OrthographicCameraBundle {
                 depth_calculation: DepthCalculation::ZDifference,
                 ..Default::default()
             },
+            viewport: Default::default(),
             visible_entities: Default::default(),
             transform: Transform::from_xyz(0.0, 0.0, far - 0.1),
             global_transform: Default::default(),
@@ -115,6 +121,7 @@ impl OrthographicCameraBundle {
                 depth_calculation: DepthCalculation::Distance,
                 ..Default::default()
             },
+            viewport: Default::default(),
             visible_entities: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
@@ -128,6 +135,7 @@ impl OrthographicCameraBundle {
                 ..Default::default()
             },
             orthographic_projection: Default::default(),
+            viewport: Default::default(),
             visible_entities: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),

@@ -9,10 +9,11 @@ pub mod pipeline;
 pub mod render_graph;
 pub mod renderer;
 pub mod shader;
+pub mod surface;
 pub mod texture;
 pub mod wireframe;
 
-use bevy_ecs::{IntoExclusiveSystem, IntoSystem, SystemStage};
+use bevy_ecs::{IntoChainSystem, IntoExclusiveSystem, IntoSystem, SystemStage};
 use bevy_reflect::RegisterTypeBuilder;
 use draw::Visible;
 pub use once_cell;
@@ -149,20 +150,13 @@ impl Plugin for RenderPlugin {
         .add_system_to_stage(CoreStage::PreUpdate, draw::clear_draw_system.system())
         .add_system_to_stage(
             CoreStage::PostUpdate,
-            camera::active_cameras_system.system(),
-        )
-        .add_system_to_stage(
-            CoreStage::PostUpdate,
-            camera::camera_system::<OrthographicProjection>.system(),
-        )
-        .add_system_to_stage(
-            CoreStage::PostUpdate,
-            camera::camera_system::<PerspectiveProjection>.system(),
-        )
-        // registration order matters here. this must come after all camera_system::<T> systems
-        .add_system_to_stage(
-            CoreStage::PostUpdate,
-            camera::visible_entities_system.system(),
+            surface::viewport_system
+                .system()
+                .chain(camera::active_cameras_system.system())
+                .chain(camera::camera_system::<OrthographicProjection>.system())
+                .chain(camera::camera_system::<PerspectiveProjection>.system())
+                // registration order matters here. this must come after all camera_system::<T> systems
+                .chain(camera::visible_entities_system.system()),
         )
         .add_system_to_stage(
             RenderStage::RenderResource,

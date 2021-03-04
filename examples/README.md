@@ -208,6 +208,7 @@ Example | File | Description
 `clear_color` | [`window/clear_color.rs`](./window/clear_color.rs) | Creates a solid color window
 `multiple_windows` | [`window/multiple_windows.rs`](./window/multiple_windows.rs) | Creates two windows and cameras viewing the same mesh
 `scale_factor_override` | [`window/scale_factor_override.rs`](./window/scale_factor_override.rs) | Illustrates how to customize the default window settings
+`viewports` | [`window/viewports.rs`](./window/viewports.rs) | Demonstrates how to divide a window into viewports and manage them
 `window_settings` | [`window/window_settings.rs`](./window/window_settings.rs) | Demonstrates customizing default window settings
 
 # Platform-Specific Examples
