@@ -118,10 +118,9 @@ impl Timer {
     /// // the timer is not finished even if the elapsed time is greater than the duration.
     /// assert!(!timer.finished());
     /// ```
-    /// ```
     #[inline]
     pub fn set_elapsed(&mut self, time: Duration) {
-        self.stopwatch.set(time);
+        self.stopwatch.set_elapsed(time);
     }
 
     /// Returns the duration of the timer.

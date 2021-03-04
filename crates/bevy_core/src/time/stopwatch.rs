@@ -2,8 +2,6 @@ use bevy_reflect::{Reflect, ReflectComponent};
 use bevy_utils::Duration;
 
 /// A Stopwatch is a struct that track elapsed time when started.
-/// It requires a type `T` in order to be specialized for your systems and components.
-/// This specialization `T` does not take any additional space in the struct.
 ///
 /// # Examples
 ///
@@ -42,7 +40,7 @@ impl Stopwatch {
         Default::default()
     }
 
-    /// Returns the elapsed time since the last [`reset`](Stopwatch<T>::reset)
+    /// Returns the elapsed time since the last [`reset`](Stopwatch::reset)
     /// of the stopwatch.
     ///
     /// # Examples
@@ -70,11 +68,11 @@ impl Stopwatch {
     /// # use bevy_core::*;
     /// use std::time::Duration;
     /// let mut stopwatch = Stopwatch::new();
-    /// stopwatch.set(Duration::from_secs_f32(1.0));
+    /// stopwatch.set_elapsed(Duration::from_secs_f32(1.0));
     /// assert_eq!(stopwatch.elapsed_secs(), 1.0);
     /// ```
     #[inline]
-    pub fn set(&mut self, time: Duration) {
+    pub fn set_elapsed(&mut self, time: Duration) {
         self.elapsed = time;
     }
 
@@ -97,7 +95,7 @@ impl Stopwatch {
         self
     }
 
-    /// Pauses the stopwatch. Any call to [`tick`](Stopwatch<T>::tick) while
+    /// Pauses the stopwatch. Any call to [`tick`](Stopwatch::tick) while
     /// paused will not have any effect on the elapsed time.
     ///
     /// # Examples
