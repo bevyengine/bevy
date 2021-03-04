@@ -112,9 +112,11 @@ impl ComponentSparseSet {
         self.dense.len() == 0
     }
 
+    /// Inserts the `entity` key and component `value` pair into this sparse set.
+    /// The caller is responsible for ensuring the value is not dropped. This collection will drop the value when needed.
     /// # Safety
-    /// The `value` pointer must point to a valid address that matches the internal BlobVec's Layout.
-    /// Caller is responsible for ensuring the value is not dropped. This collection will drop the value when needed.
+    /// The `value` pointer must point to a valid address that matches the `Layout` inside the `ComponentInfo` given
+    /// when constructing this sparse set.
     pub unsafe fn insert(&mut self, entity: Entity, value: *mut u8, flags: ComponentFlags) {
         let dense = &mut self.dense;
         let entities = &mut self.entities;
@@ -173,14 +175,18 @@ impl ComponentSparseSet {
         })
     }
 
-    /// # Safety
-    /// it is the caller's responsibility to drop the returned ptr (if Some is returned).
-    pub unsafe fn remove_and_forget(&mut self, entity: Entity) -> Option<*mut u8> {
+    /// Removes the `entity` from this sparse set and returns a pointer to the associated value (if it exists).
+    /// It is the caller's responsibility to drop the returned ptr (if Some is returned).
+    pub fn remove_and_forget(&mut self, entity: Entity) -> Option<*mut u8> {
         self.sparse.remove(entity).map(|dense_index| {
-            (*self.flags.get()).swap_remove(dense_index);
+            // SAFE: unique access to flags
+            unsafe {
+                (*self.flags.get()).swap_remove(dense_index);
+            }
             self.entities.swap_remove(dense_index);
             let is_last = dense_index == self.dense.len() - 1;
-            let value = self.dense.swap_remove_and_forget_unchecked(dense_index);
+            // SAFE: dense_index was just removed from `sparse`, which ensures that it is valid
+            let value = unsafe { self.dense.swap_remove_and_forget_unchecked(dense_index) };
             if !is_last {
                 let swapped_entity = self.entities[dense_index];
                 *self.sparse.get_mut(swapped_entity).unwrap() = dense_index;
@@ -189,9 +195,7 @@ impl ComponentSparseSet {
         })
     }
 
-    /// # Safety
-    /// `entity` must have a value stored in the set
-    pub fn remove(&mut self, entity: Entity) {
+    pub fn remove(&mut self, entity: Entity) -> bool {
         if let Some(dense_index) = self.sparse.remove(entity) {
             self.flags.get_mut().swap_remove(dense_index);
             self.entities.swap_remove(dense_index);
@@ -202,6 +206,9 @@ impl ComponentSparseSet {
                 let swapped_entity = self.entities[dense_index];
                 *self.sparse.get_mut(swapped_entity).unwrap() = dense_index;
             }
+            true
+        } else {
+            false
         }
     }
 
@@ -289,10 +296,11 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
             // SAFE: dense indices stored in self.sparse always exist
             unsafe { self.dense.get_unchecked_mut(dense_index) }
         } else {
+            let value = func();
             let dense_index = self.dense.len();
             self.sparse.insert(index.clone(), dense_index);
             self.indices.push(index);
-            self.dense.push(func());
+            self.dense.push(value);
             // SAFE: dense index was just populated above
             unsafe { self.dense.get_unchecked_mut(dense_index) }
         }
