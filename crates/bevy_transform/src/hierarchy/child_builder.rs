@@ -1,6 +1,6 @@
 use crate::prelude::{Children, Parent, PreviousParent};
 use bevy_ecs::{
-    bundle::DynamicBundle,
+    bundle::Bundle,
     component::Component,
     entity::Entity,
     system::{Command, Commands},
@@ -75,7 +75,7 @@ impl Command for PushChildren {
 }
 
 impl<'a, 'b> ChildBuilder<'a, 'b> {
-    pub fn spawn(&mut self, bundle: impl DynamicBundle) -> &mut Self {
+    pub fn spawn(&mut self, bundle: impl Bundle) -> &mut Self {
         self.commands.spawn(bundle);
         self.push_children
             .children
@@ -91,7 +91,7 @@ impl<'a, 'b> ChildBuilder<'a, 'b> {
         self.push_children.parent
     }
 
-    pub fn with_bundle(&mut self, bundle: impl DynamicBundle) -> &mut Self {
+    pub fn with_bundle(&mut self, bundle: impl Bundle) -> &mut Self {
         self.commands.with_bundle(bundle);
         self
     }
@@ -209,7 +209,7 @@ pub struct WorldChildBuilder<'w> {
 }
 
 impl<'w> WorldChildBuilder<'w> {
-    pub fn spawn(&mut self, bundle: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
+    pub fn spawn(&mut self, bundle: impl Bundle + Send + Sync + 'static) -> &mut Self {
         let parent_entity = self
             .parent_entities
             .last()
@@ -232,7 +232,7 @@ impl<'w> WorldChildBuilder<'w> {
         self
     }
 
-    pub fn with_bundle(&mut self, bundle: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
+    pub fn with_bundle(&mut self, bundle: impl Bundle + Send + Sync + 'static) -> &mut Self {
         self.world
             .entity_mut(self.current_entity.unwrap())
             .insert_bundle(bundle);
@@ -272,7 +272,7 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
                 parent_entities: vec![entity],
                 // SAFE: self.update_location() is called below. It is impossible to make EntityMut function calls on `self`
                 // within the scope defined here
-                world: unsafe { self.world() },
+                world: unsafe { self.world_mut() },
             };
 
             spawn_children(&mut builder);

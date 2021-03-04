@@ -8,30 +8,16 @@ use crate::{
 use bevy_ecs_macros::all_tuples;
 use std::{any::TypeId, collections::HashMap};
 
-/// A dynamically typed ordered collection of components
+/// An ordered collection of components
 ///
 /// See [Bundle]
 /// # Safety
 /// [DynamicBundle::type_info] must return the TypeInfo for each component type in the bundle, in the _exact_
 /// order that [DynamicBundle::get_components] is called.
-pub unsafe trait DynamicBundle: Send + Sync + 'static {
-    /// Gets this [DynamicBundle]'s components type info, in the order of this bundle's Components
-    fn type_info(&self) -> Vec<TypeInfo>;
-
-    /// Calls `func` on each value, in the order of this bundle's Components. This will "mem::forget" the bundle
-    /// fields, so callers are responsible for dropping the fields if that is desirable.
-    fn get_components(self, func: impl FnMut(*mut u8));
-}
-/// A statically typed ordered collection of components
-///
-/// See [DynamicBundle]
-/// # Safety
-/// [Bundle::static_type_info] must return the [TypeInfo] for each component type in the bundle. This must be _exactly_
-/// the same as the [TypeInfo] returned by [DynamicBundle::type_info].
 /// [Bundle::from_components] must call `func` exactly once for each [TypeInfo] returned by [Bundle::static_type_info]
-pub unsafe trait Bundle: DynamicBundle {
+pub unsafe trait Bundle: Send + Sync + 'static {
     /// Gets this [Bundle]'s components type info, in the order of this bundle's Components
-    fn static_type_info() -> Vec<TypeInfo>;
+    fn type_info() -> Vec<TypeInfo>;
 
     /// Calls `func`, which should return data for each component in the bundle, in the order of this bundle's Components
     /// # Safety
@@ -39,28 +25,17 @@ pub unsafe trait Bundle: DynamicBundle {
     unsafe fn from_components(func: impl FnMut() -> *mut u8) -> Self
     where
         Self: Sized;
+
+    /// Calls `func` on each value, in the order of this bundle's Components. This will "mem::forget" the bundle
+    /// fields, so callers are responsible for dropping the fields if that is desirable.
+    fn get_components(self, func: impl FnMut(*mut u8));
 }
 
 macro_rules! tuple_impl {
     ($($name: ident),*) => {
-        unsafe impl<$($name: Component),*> DynamicBundle for ($($name,)*) {
-            fn type_info(&self) -> Vec<TypeInfo> {
-                Self::static_type_info()
-            }
-
-            #[allow(unused_variables, unused_mut)]
-            fn get_components(self, mut func: impl FnMut(*mut u8)) {
-                #[allow(non_snake_case)]
-                let ($(mut $name,)*) = self;
-                $(
-                    func((&mut $name as *mut $name).cast::<u8>());
-                    std::mem::forget($name);
-                )*
-            }
-        }
-
+        /// SAFE: TypeInfo is returned in tuple-order. [from_components] and [get_components] use tuple-order
         unsafe impl<$($name: Component),*> Bundle for ($($name,)*) {
-            fn static_type_info() -> Vec<TypeInfo> {
+            fn type_info() -> Vec<TypeInfo> {
                 vec![$(TypeInfo::of::<$name>()),*]
             }
 
@@ -71,6 +46,16 @@ macro_rules! tuple_impl {
                     $(func().cast::<$name>(),)*
                 );
                 ($($name.read(),)*)
+            }
+
+            #[allow(unused_variables, unused_mut)]
+            fn get_components(self, mut func: impl FnMut(*mut u8)) {
+                #[allow(non_snake_case)]
+                let ($(mut $name,)*) = self;
+                $(
+                    func((&mut $name as *mut $name).cast::<u8>());
+                    std::mem::forget($name);
+                )*
             }
         }
     }
@@ -109,7 +94,7 @@ impl BundleInfo {
     /// # Safety
     /// table row must exist, entity must be valid
     #[inline]
-    pub(crate) unsafe fn write_components<T: DynamicBundle>(
+    pub(crate) unsafe fn write_components<T: Bundle>(
         &self,
         sparse_sets: &mut SparseSets,
         entity: Entity,
@@ -172,31 +157,13 @@ impl Bundles {
         self.bundle_ids.get(&type_id).cloned()
     }
 
-    pub(crate) fn init_info_dynamic<T: DynamicBundle>(
-        &mut self,
-        components: &mut Components,
-        bundle: &T,
-    ) -> &BundleInfo {
-        let bundle_infos = &mut self.bundle_infos;
-        let id = self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
-            let type_info = bundle.type_info();
-            let id = BundleId(bundle_infos.len());
-            let bundle_info =
-                initialize_bundle(std::any::type_name::<T>(), &type_info, id, components);
-            bundle_infos.push(bundle_info);
-            id
-        });
-        // SAFE: index either exists, or was initialized
-        unsafe { self.bundle_infos.get_unchecked(id.0) }
-    }
-
     pub(crate) fn init_info<'a, T: Bundle>(
         &'a mut self,
         components: &mut Components,
     ) -> &'a BundleInfo {
         let bundle_infos = &mut self.bundle_infos;
         let id = self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
-            let type_info = T::static_type_info();
+            let type_info = T::type_info();
             let id = BundleId(bundle_infos.len());
             let bundle_info =
                 initialize_bundle(std::any::type_name::<T>(), &type_info, id, components);

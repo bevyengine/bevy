@@ -80,7 +80,7 @@ mod tests {
         }
 
         assert_eq!(
-            <Foo as Bundle>::static_type_info(),
+            <Foo as Bundle>::type_info(),
             vec![TypeInfo::of::<&'static str>(), TypeInfo::of::<i32>(),]
         );
 
@@ -117,7 +117,7 @@ mod tests {
         }
 
         assert_eq!(
-            <Nested as Bundle>::static_type_info(),
+            <Nested as Bundle>::type_info(),
             vec![
                 TypeInfo::of::<usize>(),
                 TypeInfo::of::<&'static str>(),

@@ -1,5 +1,5 @@
 use crate::{
-    bundle::{Bundle, DynamicBundle},
+    bundle::Bundle,
     component::Component,
     entity::{Entities, Entity},
     world::World,
@@ -81,7 +81,7 @@ impl<'a> Commands<'a> {
     /// }
     /// # example_system.system();
     /// ```
-    pub fn spawn(&mut self, bundle: impl DynamicBundle) -> &mut Self {
+    pub fn spawn(&mut self, bundle: impl Bundle) -> &mut Self {
         let entity = self.entities.reserve_entity();
         self.set_current_entity(entity);
         self.insert_bundle(entity, bundle);
@@ -105,7 +105,7 @@ impl<'a> Commands<'a> {
     /// Inserts a bundle of components into `entity`.
     ///
     /// See [crate::core::EntityMut::insert_bundle].
-    pub fn insert_bundle(&mut self, entity: Entity, bundle: impl DynamicBundle) -> &mut Self {
+    pub fn insert_bundle(&mut self, entity: Entity, bundle: impl Bundle) -> &mut Self {
         self.add_command(InsertBundle { entity, bundle })
     }
 
@@ -152,7 +152,7 @@ impl<'a> Commands<'a> {
     /// Adds a bundle of components to the current entity.
     ///
     /// See [`Self::with`], [`Self::current_entity`].
-    pub fn with_bundle(&mut self, bundle: impl DynamicBundle) -> &mut Self {
+    pub fn with_bundle(&mut self, bundle: impl Bundle) -> &mut Self {
         let current_entity =  self.current_entity.expect("Cannot add bundle because the 'current entity' is not set. You should spawn an entity first.");
         self.queue.push(Box::new(InsertBundle {
             entity: current_entity,
@@ -248,7 +248,7 @@ pub(crate) struct Spawn<T> {
 
 impl<T> Command for Spawn<T>
 where
-    T: DynamicBundle,
+    T: Bundle,
 {
     fn write(self: Box<Self>, world: &mut World) {
         world.spawn().insert_bundle(self.bundle);
@@ -293,7 +293,7 @@ pub struct InsertBundle<T> {
 
 impl<T> Command for InsertBundle<T>
 where
-    T: DynamicBundle + 'static,
+    T: Bundle + 'static,
 {
     fn write(self: Box<Self>, world: &mut World) {
         world.entity_mut(self.entity).insert_bundle(self.bundle);

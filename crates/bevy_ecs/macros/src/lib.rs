@@ -111,14 +111,14 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         .map(|field| &field.ty)
         .collect::<Vec<_>>();
 
-    let mut field_static_types = Vec::new();
+    let mut field_type_infos = Vec::new();
     let mut field_get_components = Vec::new();
     let mut field_from_components = Vec::new();
     for ((field_type, is_bundle), field) in
         field_type.iter().zip(is_bundle.iter()).zip(field.iter())
     {
         if *is_bundle {
-            field_static_types.push(quote! {
+            field_type_infos.push(quote! {
                 type_info.extend(#field_type::static_type_info());
             });
             field_get_components.push(quote! {
@@ -128,7 +128,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 #field: #field_type::from_components(&mut func),
             });
         } else {
-            field_static_types.push(quote! {
+            field_type_infos.push(quote! {
                 type_info.push(#ecs_path::component::TypeInfo::of::<#field_type>());
             });
             field_get_components.push(quote! {
@@ -146,21 +146,11 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
 
     TokenStream::from(quote! {
-        unsafe impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name#ty_generics {
-            fn type_info(&self) -> Vec<#ecs_path::component::TypeInfo> {
-                Self::static_type_info()
-            }
-
-            #[allow(unused_variables, unused_mut, forget_copy, forget_ref)]
-            fn get_components(mut self, mut func: impl FnMut(*mut u8)) {
-                #(#field_get_components)*
-            }
-        }
-
+        /// SAFE: TypeInfo is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name#ty_generics {
-            fn static_type_info() -> Vec<#ecs_path::component::TypeInfo> {
+            fn type_info() -> Vec<#ecs_path::component::TypeInfo> {
                 let mut type_info = Vec::with_capacity(#field_len);
-                #(#field_static_types)*
+                #(#field_type_infos)*
                 type_info
             }
 
@@ -169,6 +159,11 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 Self {
                     #(#field_from_components)*
                 }
+            }
+
+            #[allow(unused_variables, unused_mut, forget_copy, forget_ref)]
+            fn get_components(mut self, mut func: impl FnMut(*mut u8)) {
+                #(#field_get_components)*
             }
         }
     })

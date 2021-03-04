@@ -1,6 +1,6 @@
 use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
-    bundle::{Bundle, BundleInfo, DynamicBundle},
+    bundle::{Bundle, BundleInfo},
     component::{Component, ComponentFlags, ComponentId, Components, StorageType},
     entity::{Entity, EntityLocation},
     storage::{SparseSet, Storages},
@@ -186,14 +186,14 @@ impl<'w> EntityMut<'w> {
 
     // TODO: factor out non-generic part to cut down on monomorphization (just check perf)
     // TODO: move relevant methods to World (add/remove bundle)
-    pub fn insert_bundle<T: DynamicBundle>(&mut self, bundle: T) -> &mut Self {
+    pub fn insert_bundle<T: Bundle>(&mut self, bundle: T) -> &mut Self {
         let entity = self.entity;
         let entities = &mut self.world.entities;
         let archetypes = &mut self.world.archetypes;
         let components = &mut self.world.components;
         let storages = &mut self.world.storages;
 
-        let bundle_info = self.world.bundles.init_info_dynamic(components, &bundle);
+        let bundle_info = self.world.bundles.init_info::<T>(components);
         let current_location = self.location;
 
         let new_location = unsafe {
