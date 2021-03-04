@@ -73,10 +73,8 @@ impl ArchetypeComponentAccess {
 impl<'w> Drop for WorldCell<'w> {
     fn drop(&mut self) {
         let mut access = self.access.borrow_mut();
-        // this is cheap because ArchetypeComponentAccess::new() is const / allocation free
-        let access = std::mem::replace(&mut *access, ArchetypeComponentAccess::new());
         // give world ArchetypeComponentAccess back to reuse allocations
-        let _ = std::mem::replace(&mut self.world.archetype_component_access, access);
+        let _ = std::mem::swap(&mut self.world.archetype_component_access, &mut *access);
     }
 }
 
