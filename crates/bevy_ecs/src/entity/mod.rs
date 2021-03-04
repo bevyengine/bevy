@@ -243,7 +243,7 @@ impl Entities {
         self.len += 1;
         if let Some(id) = self.pending.pop() {
             let new_free_cursor = self.pending.len() as i64;
-            self.free_cursor.store(new_free_cursor, Ordering::Relaxed); // Not racey due to &mut self
+            *self.free_cursor.get_mut() = new_free_cursor;
             Entity {
                 generation: self.meta[id as usize].generation,
                 id,
@@ -264,14 +264,14 @@ impl Entities {
         let loc = if entity.id as usize >= self.meta.len() {
             self.pending.extend((self.meta.len() as u32)..entity.id);
             let new_free_cursor = self.pending.len() as i64;
-            self.free_cursor.store(new_free_cursor, Ordering::Relaxed); // Not racey due to &mut self
+            *self.free_cursor.get_mut() = new_free_cursor;
             self.meta.resize(entity.id as usize + 1, EntityMeta::EMPTY);
             self.len += 1;
             None
         } else if let Some(index) = self.pending.iter().position(|item| *item == entity.id) {
             self.pending.swap_remove(index);
             let new_free_cursor = self.pending.len() as i64;
-            self.free_cursor.store(new_free_cursor, Ordering::Relaxed); // Not racey due to &mut self
+            *self.free_cursor.get_mut() = new_free_cursor;
             self.len += 1;
             None
         } else {
@@ -303,7 +303,7 @@ impl Entities {
         self.pending.push(entity.id);
 
         let new_free_cursor = self.pending.len() as i64;
-        self.free_cursor.store(new_free_cursor, Ordering::Relaxed); // Not racey due to &mut self
+        *self.free_cursor.get_mut() = new_free_cursor;
         self.len -= 1;
         Some(loc)
     }
@@ -312,7 +312,7 @@ impl Entities {
     pub fn reserve(&mut self, additional: u32) {
         self.verify_flushed();
 
-        let freelist_size = self.free_cursor.load(Ordering::Relaxed);
+        let freelist_size = *self.free_cursor.get_mut();
         let shortfall = additional as i64 - freelist_size;
         if shortfall > 0 {
             self.meta.reserve(shortfall as usize);
@@ -330,7 +330,7 @@ impl Entities {
     pub fn clear(&mut self) {
         self.meta.clear();
         self.pending.clear();
-        self.free_cursor.store(0, Ordering::Relaxed); // Not racey due to &mut self
+        *self.free_cursor.get_mut() = 0;
     }
 
     /// Access the location storage of an entity
@@ -386,28 +386,27 @@ impl Entities {
     }
 
     fn needs_flush(&mut self) -> bool {
-        // Not racey due to &mut self
-        self.free_cursor.load(Ordering::Relaxed) != self.pending.len() as i64
+        *self.free_cursor.get_mut() != self.pending.len() as i64
     }
 
     /// Allocates space for entities previously reserved with `reserve_entity` or
     /// `reserve_entities`, then initializes each one using the supplied function.
     pub fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
-        // Not racey due because of self is &mut.
-        let free_cursor = self.free_cursor.load(Ordering::Relaxed);
+        let free_cursor = self.free_cursor.get_mut();
+        let current_free_cursor = *free_cursor;
 
-        let new_free_cursor = if free_cursor >= 0 {
-            free_cursor as usize
+        let new_free_cursor = if current_free_cursor >= 0 {
+            current_free_cursor as usize
         } else {
             let old_meta_len = self.meta.len();
-            let new_meta_len = old_meta_len + -free_cursor as usize;
+            let new_meta_len = old_meta_len + -current_free_cursor as usize;
             self.meta.resize(new_meta_len, EntityMeta::EMPTY);
-            self.len += -free_cursor as u32;
+            self.len += -current_free_cursor as u32;
             for (id, meta) in self.meta.iter_mut().enumerate().skip(old_meta_len) {
                 init(Entity::new(id as u32), &mut meta.location);
             }
 
-            self.free_cursor.store(0, Ordering::Relaxed);
+            *free_cursor = 0;
             0
         };
 
