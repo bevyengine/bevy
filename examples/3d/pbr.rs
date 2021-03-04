@@ -32,7 +32,7 @@ fn setup(
                         pbr: Vec2::new(x01, y01), // vary key PBR parameters on a grid of spheres to show the effect
                         ..Default::default()
                     }),
-                    transform: Transform::from_translation(Vec3::new(x as f32, y as f32, 0.0)),
+                    transform: Transform::from_xyz(x as f32, y as f32, 0.0),
                     ..Default::default()
                 });
         }
