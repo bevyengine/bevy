@@ -148,106 +148,6 @@ impl Column {
     }
 }
 
-pub struct Tables {
-    tables: Vec<Table>,
-    table_ids: HashMap<u64, TableId>,
-}
-
-impl Default for Tables {
-    fn default() -> Self {
-        let empty_table = Table::with_capacity(0, 0, 64);
-        Tables {
-            tables: vec![empty_table],
-            table_ids: HashMap::default(),
-        }
-    }
-}
-
-pub struct TableMoveResult {
-    pub swapped_entity: Option<Entity>,
-    pub new_row: usize,
-}
-
-impl Tables {
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.tables.len()
-    }
-
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.tables.is_empty()
-    }
-
-    #[inline]
-    pub fn get_mut(&mut self, id: TableId) -> Option<&mut Table> {
-        self.tables.get_mut(id.index())
-    }
-
-    #[inline]
-    pub fn get(&self, id: TableId) -> Option<&Table> {
-        self.tables.get(id.index())
-    }
-
-    /// # Safety
-    /// `id` must be a valid table
-    #[inline]
-    pub unsafe fn get_unchecked_mut(&mut self, id: TableId) -> &mut Table {
-        debug_assert!(id.index() < self.tables.len());
-        self.tables.get_unchecked_mut(id.index())
-    }
-
-    /// # Safety
-    /// `id` must be a valid table
-    #[inline]
-    pub unsafe fn get_unchecked(&self, id: TableId) -> &Table {
-        debug_assert!(id.index() < self.tables.len());
-        self.tables.get_unchecked(id.index())
-    }
-
-    #[inline]
-    pub(crate) fn get_2_mut(&mut self, a: TableId, b: TableId) -> (&mut Table, &mut Table) {
-        if a.index() > b.index() {
-            let (b_slice, a_slice) = self.tables.split_at_mut(a.index());
-            (&mut a_slice[0], &mut b_slice[b.index()])
-        } else {
-            let (a_slice, b_slice) = self.tables.split_at_mut(b.index());
-            (&mut a_slice[a.index()], &mut b_slice[0])
-        }
-    }
-
-    /// # Safety
-    /// `component_ids` must contain components that exist in `components`
-    pub unsafe fn get_id_or_insert(
-        &mut self,
-        component_ids: &[ComponentId],
-        components: &Components,
-    ) -> TableId {
-        let mut hasher = AHasher::default();
-        component_ids.hash(&mut hasher);
-        let hash = hasher.finish();
-        let tables = &mut self.tables;
-        *self.table_ids.entry(hash).or_insert_with(move || {
-            let mut table = Table::with_capacity(0, component_ids.len(), 64);
-            for component_id in component_ids.iter() {
-                table.add_column(components.get_info_unchecked(*component_id));
-            }
-            tables.push(table);
-            TableId(tables.len() - 1)
-        })
-    }
-
-    pub fn iter(&self) -> std::slice::Iter<'_, Table> {
-        self.tables.iter()
-    }
-
-    pub(crate) fn clear_flags(&mut self) {
-        for table in self.tables.iter_mut() {
-            table.clear_flags();
-        }
-    }
-}
-
 pub struct Table {
     columns: SparseSet<ComponentId, Column>,
     entities: Vec<Entity>,
@@ -311,8 +211,9 @@ impl Table {
 
     /// Moves the `row` column values to `new_table`, for the columns shared between both tables. Returns the index of the
     /// new row in `new_table` and the entity in this table swapped in to replace it (if an entity was swapped in).
+    /// missing columns will be "forgotten". It is the caller's responsibility to drop them
     /// # Safety
-    /// row must be in-bounds. missing columns will be "forgotten". it is the caller's responsibility to drop it
+    /// Row must be in-bounds 
     pub unsafe fn move_to_and_forget_missing_unchecked(
         &mut self,
         row: usize,
@@ -461,6 +362,106 @@ impl Table {
 
     pub fn iter(&self) -> impl Iterator<Item = &Column> {
         self.columns.values()
+    }
+}
+
+pub struct Tables {
+    tables: Vec<Table>,
+    table_ids: HashMap<u64, TableId>,
+}
+
+impl Default for Tables {
+    fn default() -> Self {
+        let empty_table = Table::with_capacity(0, 0, 64);
+        Tables {
+            tables: vec![empty_table],
+            table_ids: HashMap::default(),
+        }
+    }
+}
+
+pub struct TableMoveResult {
+    pub swapped_entity: Option<Entity>,
+    pub new_row: usize,
+}
+
+impl Tables {
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.tables.len()
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.tables.is_empty()
+    }
+
+    #[inline]
+    pub fn get_mut(&mut self, id: TableId) -> Option<&mut Table> {
+        self.tables.get_mut(id.index())
+    }
+
+    #[inline]
+    pub fn get(&self, id: TableId) -> Option<&Table> {
+        self.tables.get(id.index())
+    }
+
+    /// # Safety
+    /// `id` must be a valid table
+    #[inline]
+    pub unsafe fn get_unchecked_mut(&mut self, id: TableId) -> &mut Table {
+        debug_assert!(id.index() < self.tables.len());
+        self.tables.get_unchecked_mut(id.index())
+    }
+
+    /// # Safety
+    /// `id` must be a valid table
+    #[inline]
+    pub unsafe fn get_unchecked(&self, id: TableId) -> &Table {
+        debug_assert!(id.index() < self.tables.len());
+        self.tables.get_unchecked(id.index())
+    }
+
+    #[inline]
+    pub(crate) fn get_2_mut(&mut self, a: TableId, b: TableId) -> (&mut Table, &mut Table) {
+        if a.index() > b.index() {
+            let (b_slice, a_slice) = self.tables.split_at_mut(a.index());
+            (&mut a_slice[0], &mut b_slice[b.index()])
+        } else {
+            let (a_slice, b_slice) = self.tables.split_at_mut(b.index());
+            (&mut a_slice[a.index()], &mut b_slice[0])
+        }
+    }
+
+    /// # Safety
+    /// `component_ids` must contain components that exist in `components`
+    pub unsafe fn get_id_or_insert(
+        &mut self,
+        component_ids: &[ComponentId],
+        components: &Components,
+    ) -> TableId {
+        let mut hasher = AHasher::default();
+        component_ids.hash(&mut hasher);
+        let hash = hasher.finish();
+        let tables = &mut self.tables;
+        *self.table_ids.entry(hash).or_insert_with(move || {
+            let mut table = Table::with_capacity(0, component_ids.len(), 64);
+            for component_id in component_ids.iter() {
+                table.add_column(components.get_info_unchecked(*component_id));
+            }
+            tables.push(table);
+            TableId(tables.len() - 1)
+        })
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<'_, Table> {
+        self.tables.iter()
+    }
+
+    pub(crate) fn clear_flags(&mut self) {
+        for table in self.tables.iter_mut() {
+            table.clear_flags();
+        }
     }
 }
 
