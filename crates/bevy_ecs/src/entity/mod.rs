@@ -403,7 +403,13 @@ impl Entities {
             self.meta.resize(new_meta_len, EntityMeta::EMPTY);
             self.len += -current_free_cursor as u32;
             for (id, meta) in self.meta.iter_mut().enumerate().skip(old_meta_len) {
-                init(Entity::new(id as u32), &mut meta.location);
+                init(
+                    Entity {
+                        id: id as u32,
+                        generation: meta.generation,
+                    },
+                    &mut meta.location,
+                );
             }
 
             *free_cursor = 0;
@@ -412,7 +418,14 @@ impl Entities {
 
         self.len += (self.pending.len() - new_free_cursor) as u32;
         for id in self.pending.drain(new_free_cursor..) {
-            init(Entity::new(id), &mut self.meta[id as usize].location);
+            let meta = &mut self.meta[id as usize];
+            init(
+                Entity {
+                    id,
+                    generation: meta.generation,
+                },
+                &mut meta.location,
+            );
         }
     }
 
