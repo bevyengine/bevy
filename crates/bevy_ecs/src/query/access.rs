@@ -78,7 +78,8 @@ impl<T: SparseSetIndex> Access<T> {
         } else if other.reads_all {
             0 == self.writes.count_ones(..)
         } else {
-            self.writes.is_disjoint(&other.reads_and_writes) && self.reads_and_writes.is_disjoint(&other.writes)
+            self.writes.is_disjoint(&other.reads_and_writes)
+                && self.reads_and_writes.is_disjoint(&other.writes)
         }
     }
 
