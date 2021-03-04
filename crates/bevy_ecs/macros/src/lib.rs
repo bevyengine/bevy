@@ -112,8 +112,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         .collect::<Vec<_>>();
 
     let mut field_static_types = Vec::new();
-    let mut field_puts = Vec::new();
-    let mut field_gets = Vec::new();
+    let mut field_get_components = Vec::new();
+    let mut field_from_components = Vec::new();
     for ((field_type, is_bundle), field) in
         field_type.iter().zip(is_bundle.iter()).zip(field.iter())
     {
@@ -121,21 +121,21 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             field_static_types.push(quote! {
                 type_info.extend(#field_type::static_type_info());
             });
-            field_puts.push(quote! {
-                self.#field.put(&mut func);
+            field_get_components.push(quote! {
+                self.#field.get_components(&mut func);
             });
-            field_gets.push(quote! {
-                #field: #field_type::get(&mut func),
+            field_from_components.push(quote! {
+                #field: #field_type::from_components(&mut func),
             });
         } else {
             field_static_types.push(quote! {
                 type_info.push(#ecs_path::component::TypeInfo::of::<#field_type>());
             });
-            field_puts.push(quote! {
+            field_get_components.push(quote! {
                 func((&mut self.#field as *mut #field_type).cast::<u8>());
                 std::mem::forget(self.#field);
             });
-            field_gets.push(quote! {
+            field_from_components.push(quote! {
                 #field: func().cast::<#field_type>().read(),
             });
         }
@@ -152,8 +152,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             }
 
             #[allow(unused_variables, unused_mut, forget_copy, forget_ref)]
-            fn put(mut self, mut func: impl FnMut(*mut u8)) {
-                #(#field_puts)*
+            fn get_components(mut self, mut func: impl FnMut(*mut u8)) {
+                #(#field_get_components)*
             }
         }
 
@@ -165,9 +165,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             }
 
             #[allow(unused_variables, unused_mut, non_snake_case)]
-            unsafe fn get(mut func: impl FnMut() -> *mut u8) -> Self {
+            unsafe fn from_components(mut func: impl FnMut() -> *mut u8) -> Self {
                 Self {
-                    #(#field_gets)*
+                    #(#field_from_components)*
                 }
             }
         }

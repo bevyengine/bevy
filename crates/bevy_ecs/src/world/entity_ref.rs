@@ -252,7 +252,7 @@ impl<'w> EntityMut<'w> {
         let from_bundle = archetype.edges().get_from_bundle(bundle_info.id).unwrap();
         // SAFE: table row is valid
         unsafe {
-            bundle_info.put_components(
+            bundle_info.write_components(
                 &mut storages.sparse_sets,
                 entity,
                 table,
@@ -294,7 +294,7 @@ impl<'w> EntityMut<'w> {
         let entity = self.entity;
         // SAFE: bundle components are iterated in order, which guarantees that the component type matches
         let result = unsafe {
-            T::get(|| {
+            T::from_components(|| {
                 let component_id = bundle_components.next().unwrap();
                 // SAFE: entity location is valid and table row is removed below
                 remove_component(

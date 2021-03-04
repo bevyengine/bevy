@@ -97,7 +97,7 @@ where
                 .edges()
                 .get_from_bundle(self.bundle_info.id)
                 .unwrap();
-            self.bundle_info.put_components(
+            self.bundle_info.write_components(
                 self.sparse_sets,
                 entity,
                 self.table,

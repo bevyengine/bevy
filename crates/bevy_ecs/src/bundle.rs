@@ -17,7 +17,7 @@ pub trait DynamicBundle: Send + Sync + 'static {
 
     /// Calls `func` on each value, in the order of this bundle's Components. This will "mem::forget" the bundle
     /// fields, so callers are responsible for dropping the fields if that is desirable.
-    fn put(self, func: impl FnMut(*mut u8));
+    fn get_components(self, func: impl FnMut(*mut u8));
 }
 /// A statically typed ordered collection of components
 ///
@@ -29,7 +29,7 @@ pub trait Bundle: DynamicBundle {
     /// Calls `func`, which should return data for each component in the bundle, in the order of this bundle's Components
     /// # Safety
     /// Caller must return data for each component in the bundle, in the order of this bundle's Components
-    unsafe fn get(func: impl FnMut() -> *mut u8) -> Self
+    unsafe fn from_components(func: impl FnMut() -> *mut u8) -> Self
     where
         Self: Sized;
 }
@@ -42,7 +42,7 @@ macro_rules! tuple_impl {
             }
 
             #[allow(unused_variables, unused_mut)]
-            fn put(self, mut func: impl FnMut(*mut u8)) {
+            fn get_components(self, mut func: impl FnMut(*mut u8)) {
                 #[allow(non_snake_case)]
                 let ($(mut $name,)*) = self;
                 $(
@@ -58,7 +58,7 @@ macro_rules! tuple_impl {
             }
 
             #[allow(unused_variables, unused_mut)]
-            unsafe fn get(mut func: impl FnMut() -> *mut u8) -> Self {
+            unsafe fn from_components(mut func: impl FnMut() -> *mut u8) -> Self {
                 #[allow(non_snake_case)]
                 let ($(mut $name,)*) = (
                     $(func().cast::<$name>(),)*
@@ -102,7 +102,7 @@ impl BundleInfo {
     /// # Safety
     /// table row must exist, entity must be valid
     #[inline]
-    pub(crate) unsafe fn put_components<T: DynamicBundle>(
+    pub(crate) unsafe fn write_components<T: DynamicBundle>(
         &self,
         sparse_sets: &mut SparseSets,
         entity: Entity,
@@ -111,9 +111,9 @@ impl BundleInfo {
         bundle_flags: &[ComponentFlags],
         bundle: T,
     ) {
-        // NOTE: put is called on each component in "bundle order". bundle_info.component_ids are also in "bundle order"
+        // NOTE: get_components calls this closure on each component in "bundle order". bundle_info.component_ids are also in "bundle order"
         let mut bundle_component = 0;
-        bundle.put(|component_ptr| {
+        bundle.get_components(|component_ptr| {
             // SAFE: component_id was initialized by get_dynamic_bundle_info
             let component_id = *self.component_ids.get_unchecked(bundle_component);
             let flags = *bundle_flags.get_unchecked(bundle_component);
