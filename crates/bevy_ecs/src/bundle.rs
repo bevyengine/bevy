@@ -12,9 +12,9 @@ use std::{any::TypeId, collections::HashMap};
 ///
 /// See [Bundle]
 /// # Safety
-/// [DynamicBundle::type_info] must return the TypeInfo for each component type in the bundle, in the _exact_
-/// order that [DynamicBundle::get_components] is called.
-/// [Bundle::from_components] must call `func` exactly once for each [TypeInfo] returned by [Bundle::static_type_info]
+/// [Bundle::type_info] must return the TypeInfo for each component type in the bundle, in the _exact_
+/// order that [Bundle::get_components] is called.
+/// [Bundle::from_components] must call `func` exactly once for each [TypeInfo] returned by [Bundle::type_info]
 pub unsafe trait Bundle: Send + Sync + 'static {
     /// Gets this [Bundle]'s components type info, in the order of this bundle's Components
     fn type_info() -> Vec<TypeInfo>;
@@ -33,7 +33,7 @@ pub unsafe trait Bundle: Send + Sync + 'static {
 
 macro_rules! tuple_impl {
     ($($name: ident),*) => {
-        /// SAFE: TypeInfo is returned in tuple-order. [from_components] and [get_components] use tuple-order
+        /// SAFE: TypeInfo is returned in tuple-order. [Bundle::from_components] and [Bundle::get_components] use tuple-order
         unsafe impl<$($name: Component),*> Bundle for ($($name,)*) {
             fn type_info() -> Vec<TypeInfo> {
                 vec![$(TypeInfo::of::<$name>()),*]

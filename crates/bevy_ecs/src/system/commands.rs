@@ -49,7 +49,7 @@ impl<'a> Commands<'a> {
 
     /// Creates a new entity with the components contained in `bundle`.
     ///
-    /// Note that `bundle` is a [DynamicBundle], which is a collection of components. [DynamicBundle] is automatically implemented for tuples of components. You can also create your own bundle types by deriving [`derive@Bundle`]. If you would like to spawn an entity with a single component, consider wrapping the component in a tuple (which [DynamicBundle] is implemented for).
+    /// Note that `bundle` is a [Bundle], which is a collection of components. [Bundle] is automatically implemented for tuples of components. You can also create your own bundle types by deriving [`derive@Bundle`]. If you would like to spawn an entity with a single component, consider wrapping the component in a tuple (which [Bundle] is implemented for).
     ///
     /// See [`Self::set_current_entity`], [`Self::insert`].
     ///
@@ -104,19 +104,19 @@ impl<'a> Commands<'a> {
 
     /// Inserts a bundle of components into `entity`.
     ///
-    /// See [crate::core::EntityMut::insert_bundle].
+    /// See [crate::world::EntityMut::insert_bundle].
     pub fn insert_bundle(&mut self, entity: Entity, bundle: impl Bundle) -> &mut Self {
         self.add_command(InsertBundle { entity, bundle })
     }
 
     /// Inserts a single component into `entity`.
     ///
-    /// See [crate::core::EntityMut::insert].
+    /// See [crate::world::EntityMut::insert].
     pub fn insert(&mut self, entity: Entity, component: impl Component) -> &mut Self {
         self.add_command(Insert { entity, component })
     }
 
-    /// See [crate::core::EntityMut::remove].
+    /// See [crate::world::EntityMut::remove].
     pub fn remove<T>(&mut self, entity: Entity) -> &mut Self
     where
         T: Component,
@@ -132,7 +132,7 @@ impl<'a> Commands<'a> {
         self.add_command(InsertResource { resource })
     }
 
-    /// See [crate::core::EntityMut::remove_bundle].
+    /// See [crate::world::EntityMut::remove_bundle].
     pub fn remove_bundle<T>(&mut self, entity: Entity) -> &mut Self
     where
         T: Bundle,
