@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Access<T: SparseSetIndex> {
     reads_all: bool,
-    reads_and_writes: FixedBitSet,
+    reads: FixedBitSet,
     writes: FixedBitSet,
     marker: PhantomData<T>,
 }
@@ -14,7 +14,7 @@ impl<T: SparseSetIndex> Default for Access<T> {
     fn default() -> Self {
         Self {
             reads_all: false,
-            reads_and_writes: Default::default(),
+            reads: Default::default(),
             writes: Default::default(),
             marker: PhantomData,
         }
@@ -23,19 +23,19 @@ impl<T: SparseSetIndex> Default for Access<T> {
 
 impl<T: SparseSetIndex> Access<T> {
     pub fn grow(&mut self, bits: usize) {
-        self.reads_and_writes.grow(bits);
+        self.reads.grow(bits);
         self.writes.grow(bits);
     }
 
     pub fn add_read(&mut self, index: T) {
-        self.reads_and_writes.grow(index.sparse_set_index() + 1);
-        self.reads_and_writes.insert(index.sparse_set_index());
+        self.reads.grow(index.sparse_set_index() + 1);
+        self.reads.insert(index.sparse_set_index());
     }
 
     pub fn add_write(&mut self, index: T) {
-        self.reads_and_writes.grow(index.sparse_set_index() + 1);
+        self.reads.grow(index.sparse_set_index() + 1);
         self.writes.grow(index.sparse_set_index() + 1);
-        self.reads_and_writes.insert(index.sparse_set_index());
+        self.reads.insert(index.sparse_set_index());
         self.writes.insert(index.sparse_set_index());
     }
 
@@ -43,7 +43,7 @@ impl<T: SparseSetIndex> Access<T> {
         if self.reads_all {
             true
         } else {
-            self.reads_and_writes.contains(index.sparse_set_index())
+            self.reads.contains(index.sparse_set_index())
         }
     }
 
@@ -61,13 +61,13 @@ impl<T: SparseSetIndex> Access<T> {
 
     pub fn clear(&mut self) {
         self.reads_all = false;
-        self.reads_and_writes.clear();
+        self.reads.clear();
         self.writes.clear();
     }
 
     pub fn extend(&mut self, other: &Access<T>) {
         self.reads_all = self.reads_all || other.reads_all;
-        self.reads_and_writes.union_with(&other.reads_and_writes);
+        self.reads.union_with(&other.reads);
         self.writes.union_with(&other.writes);
     }
 
@@ -77,8 +77,8 @@ impl<T: SparseSetIndex> Access<T> {
         } else if other.reads_all {
             0 == self.writes.count_ones(..)
         } else {
-            self.writes.is_disjoint(&other.reads_and_writes)
-                && self.reads_and_writes.is_disjoint(&other.writes)
+            self.writes.is_disjoint(&other.reads)
+                && self.reads.is_disjoint(&other.writes)
         }
     }
 
@@ -91,8 +91,8 @@ impl<T: SparseSetIndex> Access<T> {
         if other.reads_all {
             conflicts.extend(self.writes.ones());
         }
-        conflicts.extend(self.writes.intersection(&other.reads_and_writes));
-        conflicts.extend(self.reads_and_writes.intersection(&other.writes));
+        conflicts.extend(self.writes.intersection(&other.reads));
+        conflicts.extend(self.reads.intersection(&other.writes));
         conflicts
             .ones()
             .map(SparseSetIndex::get_sparse_set_index)
