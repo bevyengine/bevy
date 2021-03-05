@@ -8,6 +8,7 @@ use bevy_render::{
     renderer::{BindGroup, RenderResourceBindings, RenderResourceId},
 };
 use bevy_sprite::TextureAtlasSprite;
+use bevy_utils::tracing::error;
 
 use crate::{PositionedGlyph, TextSection};
 use bevy_render::pipeline::IndexFormat;
@@ -44,7 +45,7 @@ impl<'a> Drawable for DrawableText<'a> {
         {
             draw.set_vertex_buffer(0, vertex_attribute_buffer_id, 0);
         } else {
-            println!("Could not find vertex buffer for `bevy_sprite::QUAD_HANDLE`.")
+            error!("Could not find vertex buffer for `bevy_sprite::QUAD_HANDLE`.")
         }
 
         let mut indices = 0..0;
@@ -71,6 +72,8 @@ impl<'a> Drawable for DrawableText<'a> {
             let sprite = TextureAtlasSprite {
                 index: tv.atlas_info.glyph_index,
                 color: self.sections[tv.section_index].style.color,
+                flip_x: false,
+                flip_y: false,
             };
 
             // To get the rendering right for non-one scaling factors, we need

@@ -1,4 +1,8 @@
-use crate::{Resource, Resources, Stage, System, SystemStage, World};
+use crate::{
+    component::Component,
+    schedule::{Stage, SystemDescriptor, SystemStage},
+    world::World,
+};
 use bevy_utils::HashMap;
 use std::{mem::Discriminant, ops::Deref};
 use thiserror::Error;
@@ -66,31 +70,19 @@ impl<T> StateStage<T> {
         self
     }
 
-    pub fn on_state_enter<S: System<In = (), Out = ()>>(
-        &mut self,
-        state: T,
-        system: S,
-    ) -> &mut Self {
+    pub fn on_state_enter(&mut self, state: T, system: impl Into<SystemDescriptor>) -> &mut Self {
         self.enter_stage(state, |system_stage: &mut SystemStage| {
             system_stage.add_system(system)
         })
     }
 
-    pub fn on_state_exit<S: System<In = (), Out = ()>>(
-        &mut self,
-        state: T,
-        system: S,
-    ) -> &mut Self {
+    pub fn on_state_exit(&mut self, state: T, system: impl Into<SystemDescriptor>) -> &mut Self {
         self.exit_stage(state, |system_stage: &mut SystemStage| {
             system_stage.add_system(system)
         })
     }
 
-    pub fn on_state_update<S: System<In = (), Out = ()>>(
-        &mut self,
-        state: T,
-        system: S,
-    ) -> &mut Self {
+    pub fn on_state_update(&mut self, state: T, system: impl Into<SystemDescriptor>) -> &mut Self {
         self.update_stage(state, |system_stage: &mut SystemStage| {
             system_stage.add_system(system)
         })
@@ -149,20 +141,12 @@ impl<T> StateStage<T> {
 }
 
 #[allow(clippy::mem_discriminant_non_enum)]
-impl<T: Resource + Clone> Stage for StateStage<T> {
-    fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
-        for state_stages in self.stages.values_mut() {
-            state_stages.enter.initialize(world, resources);
-            state_stages.update.initialize(world, resources);
-            state_stages.exit.initialize(world, resources);
-        }
-    }
-
-    fn run(&mut self, world: &mut World, resources: &mut Resources) {
+impl<T: Component + Clone> Stage for StateStage<T> {
+    fn run(&mut self, world: &mut World) {
         let current_stage = loop {
             let (next_stage, current_stage) = {
-                let mut state = resources
-                    .get_mut::<State<T>>()
+                let mut state = world
+                    .get_resource_mut::<State<T>>()
                     .expect("Missing state resource");
                 let result = (
                     state.next.as_ref().map(|next| std::mem::discriminant(next)),
@@ -178,12 +162,12 @@ impl<T: Resource + Clone> Stage for StateStage<T> {
             if let Some(next_stage) = next_stage {
                 if next_stage != current_stage {
                     if let Some(current_state_stages) = self.stages.get_mut(&current_stage) {
-                        current_state_stages.exit.run(world, resources);
+                        current_state_stages.exit.run(world);
                     }
                 }
 
                 if let Some(next_state_stages) = self.stages.get_mut(&next_stage) {
-                    next_state_stages.enter.run(world, resources);
+                    next_state_stages.enter.run(world);
                 }
             } else {
                 break current_stage;
@@ -191,7 +175,7 @@ impl<T: Resource + Clone> Stage for StateStage<T> {
         };
 
         if let Some(current_state_stages) = self.stages.get_mut(&current_stage) {
-            current_state_stages.update.run(world, resources);
+            current_state_stages.update.run(world);
         }
     }
 }

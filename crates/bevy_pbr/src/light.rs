@@ -1,5 +1,6 @@
 use bevy_core::Byteable;
-use bevy_reflect::{Reflect, ReflectComponent};
+use bevy_ecs::reflect::ReflectComponent;
+use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{CameraProjection, PerspectiveProjection},
     color::Color,

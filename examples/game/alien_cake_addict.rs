@@ -5,7 +5,11 @@ use bevy::{
 };
 use rand::Rng;
 
-const STAGE: &str = "game";
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+enum GameStage {
+    InGame,
+    BonusUpdate,
+}
 
 #[derive(Clone, PartialEq, Debug)]
 enum GameState {
@@ -20,19 +24,35 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(State::new(GameState::Playing))
         .add_startup_system(setup_cameras.system())
-        .add_stage_after(stage::UPDATE, STAGE, StateStage::<GameState>::default())
-        .on_state_enter(STAGE, GameState::Playing, setup.system())
-        .on_state_update(STAGE, GameState::Playing, move_player.system())
-        .on_state_update(STAGE, GameState::Playing, focus_camera.system())
-        .on_state_update(STAGE, GameState::Playing, rotate_bonus.system())
-        .on_state_update(STAGE, GameState::Playing, scoreboard_system.system())
-        .on_state_exit(STAGE, GameState::Playing, teardown.system())
-        .on_state_enter(STAGE, GameState::GameOver, display_score.system())
-        .on_state_update(STAGE, GameState::GameOver, gameover_keyboard.system())
-        .on_state_exit(STAGE, GameState::GameOver, teardown.system())
         .add_stage_after(
-            stage::UPDATE,
-            "bonus_update",
+            CoreStage::Update,
+            GameStage::InGame,
+            StateStage::<GameState>::default(),
+        )
+        .on_state_enter(GameStage::InGame, GameState::Playing, setup.system())
+        .on_state_update(GameStage::InGame, GameState::Playing, move_player.system())
+        .on_state_update(GameStage::InGame, GameState::Playing, focus_camera.system())
+        .on_state_update(GameStage::InGame, GameState::Playing, rotate_bonus.system())
+        .on_state_update(
+            GameStage::InGame,
+            GameState::Playing,
+            scoreboard_system.system(),
+        )
+        .on_state_exit(GameStage::InGame, GameState::Playing, teardown.system())
+        .on_state_enter(
+            GameStage::InGame,
+            GameState::GameOver,
+            display_score.system(),
+        )
+        .on_state_update(
+            GameStage::InGame,
+            GameState::GameOver,
+            gameover_keyboard.system(),
+        )
+        .on_state_exit(GameStage::InGame, GameState::GameOver, teardown.system())
+        .add_stage_after(
+            CoreStage::Update,
+            GameStage::BonusUpdate,
             SystemStage::parallel()
                 .with_run_criteria(FixedTimestep::step(5.0))
                 .with_system(spawn_bonus.system()),
@@ -79,7 +99,7 @@ const RESET_FOCUS: [f32; 3] = [
     BOARD_SIZE_J as f32 / 2.0 - 0.5,
 ];
 
-fn setup_cameras(commands: &mut Commands, mut game: ResMut<Game>) {
+fn setup_cameras(mut commands: Commands, mut game: ResMut<Game>) {
     game.camera_should_focus = Vec3::from(RESET_FOCUS);
     game.camera_is_focus = game.camera_should_focus;
     commands
@@ -95,7 +115,7 @@ fn setup_cameras(commands: &mut Commands, mut game: ResMut<Game>) {
         .spawn(UiCameraBundle::default());
 }
 
-fn setup(commands: &mut Commands, asset_server: Res<AssetServer>, mut game: ResMut<Game>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMut<Game>) {
     // reset the game state
     game.cake_eaten = 0;
     game.score = 0;
@@ -175,7 +195,7 @@ fn setup(commands: &mut Commands, asset_server: Res<AssetServer>, mut game: ResM
 }
 
 // remove all entities that are not a camera
-fn teardown(commands: &mut Commands, entities: Query<Entity, Without<Camera>>) {
+fn teardown(mut commands: Commands, entities: Query<Entity, Without<Camera>>) {
     for entity in entities.iter() {
         commands.despawn_recursive(entity);
     }
@@ -183,7 +203,7 @@ fn teardown(commands: &mut Commands, entities: Query<Entity, Without<Camera>>) {
 
 // control the game character
 fn move_player(
-    commands: &mut Commands,
+    mut commands: Commands,
     keyboard_input: Res<Input<KeyCode>>,
     mut game: ResMut<Game>,
     mut transforms: Query<&mut Transform>,
@@ -289,7 +309,7 @@ fn focus_camera(
 // despawn the bonus if there is one, then spawn a new one at a random location
 fn spawn_bonus(
     mut state: ResMut<State<GameState>>,
-    commands: &mut Commands,
+    mut commands: Commands,
     mut game: ResMut<Game>,
 ) {
     if *state.current() != GameState::Playing {
@@ -351,7 +371,7 @@ fn gameover_keyboard(mut state: ResMut<State<GameState>>, keyboard_input: Res<In
 
 // display the number of cake eaten before losing
 fn display_score(
-    commands: &mut Commands,
+    mut commands: Commands,
     asset_server: Res<AssetServer>,
     game: Res<Game>,
     mut materials: ResMut<Assets<ColorMaterial>>,

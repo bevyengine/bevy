@@ -1,10 +1,9 @@
 name: CI
 
 on:
-  push:
-    branches: [master]
   pull_request:
-    branches: [master]
+  push:
+    branches: [main, staging, trying]
 
 env:
   CARGO_TERM_COLOR: always
@@ -35,13 +34,8 @@ jobs:
         if: runner.os == 'linux'
 
       - name: Check the format
-        run: cargo fmt --all -- --check
-        if: runner.os == 'linux' && matrix.toolchain == 'stable'
-
-      # type complexity must be ignored because we use huge templates for queries
-      # -A clippy::manual-strip: strip_prefix support was added in 1.45. we want to support earlier rust versions
-      - name: Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings -A clippy::type_complexity -A clippy::manual-strip
+        # See tools/ci/src/main.rs for the commands this runs
+        run: cargo run --package ci
         if: runner.os == 'linux' && matrix.toolchain == 'stable'
 
       - name: Build & run tests
@@ -81,3 +75,20 @@ jobs:
         run: cargo install cargo-apk
       - name: Build APK
         run: cargo apk build --example android
+
+  markdownlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          # Full git history is needed to get a proper list of changed files within `super-linter`
+          fetch-depth: 0
+
+      - name: Run Markdown Lint
+        uses: github/super-linter@v3.15.1
+        env:
+          VALIDATE_ALL_CODEBASE: false
+          VALIDATE_MARKDOWN: true
+          DEFAULT_BRANCH: master
+          # Not needed here as only one Linter is used.
+          #GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -170,7 +170,7 @@ impl RenderContext for WgpuRenderContext {
         &mut self,
         pass_descriptor: &PassDescriptor,
         render_resource_bindings: &RenderResourceBindings,
-        run_pass: &mut dyn Fn(&mut dyn RenderPass),
+        run_pass: &mut dyn FnMut(&mut dyn RenderPass),
     ) {
         if !self.command_encoder.is_some() {
             self.command_encoder.create(&self.device);

@@ -269,6 +269,7 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
 }
 
 #[cfg(test)]
+#[allow(clippy::blacklisted_name)]
 mod tests {
     use super::*;
     use std::sync::{

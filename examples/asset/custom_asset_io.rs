@@ -50,8 +50,8 @@ impl Plugin for CustomAssetIoPlugin {
         // must get a hold of the task pool in order to create the asset server
 
         let task_pool = app
-            .resources()
-            .get::<bevy::tasks::IoTaskPool>()
+            .world()
+            .get_resource::<bevy::tasks::IoTaskPool>()
             .expect("`IoTaskPool` resource not found.")
             .0
             .clone();
@@ -90,7 +90,7 @@ fn main() {
 }
 
 fn setup(
-    commands: &mut Commands,
+    mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {

@@ -1,6 +1,10 @@
 use crate::{Node, Style, Val};
 use bevy_asset::Assets;
-use bevy_ecs::{Changed, Entity, Local, Or, Query, QuerySet, Res, ResMut};
+use bevy_ecs::{
+    entity::Entity,
+    query::{Changed, Or},
+    system::{Local, Query, QuerySet, Res, ResMut},
+};
 use bevy_math::Size;
 use bevy_render::{
     draw::{Draw, DrawContext, Drawable},

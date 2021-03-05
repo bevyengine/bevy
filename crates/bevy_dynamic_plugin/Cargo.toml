@@ -19,4 +19,4 @@ keywords = ["bevy"]
 bevy_app = { path = "../bevy_app", version = "0.4.0" }
 
 # other
-libloading = { version = "0.6" }
+libloading = { version = "0.7" }

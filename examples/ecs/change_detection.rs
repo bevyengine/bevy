@@ -15,7 +15,7 @@ fn main() {
 #[derive(Debug)]
 struct MyComponent(f64);
 
-fn setup(commands: &mut Commands) {
+fn setup(mut commands: Commands) {
     commands.spawn((MyComponent(0.),));
     commands.spawn((Transform::default(),));
 }
@@ -38,16 +38,8 @@ fn change_detection(query: Query<(Entity, &MyComponent), Changed<MyComponent>>) 
 }
 
 // By looking at flags, the query is not filtered but the information is available
-fn flags_monitoring(query: Query<(Entity, Option<&MyComponent>, Flags<MyComponent>)>) {
+fn flags_monitoring(query: Query<(Entity, Option<&MyComponent>, Option<Flags<MyComponent>>)>) {
     for (entity, component, flags) in query.iter() {
-        info!(
-            "{:?}: {:?} -> with: {:?} - added: {:?} - mutated: {:?} - changed: {:?}",
-            entity,
-            component,
-            flags.with(),
-            flags.added(),
-            flags.mutated(),
-            flags.changed()
-        );
+        info!("{:?}: {:?} -> {:?}", entity, component, flags,);
     }
 }

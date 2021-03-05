@@ -6,7 +6,7 @@ use bevy_app::{
     prelude::{EventReader, Events},
     AppExit,
 };
-use bevy_ecs::ResMut;
+use bevy_ecs::system::ResMut;
 
 /// Sends the AppExit event whenever the "esc" key is pressed.
 pub fn exit_on_esc_system(

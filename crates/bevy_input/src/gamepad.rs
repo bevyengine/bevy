@@ -1,6 +1,6 @@
 use crate::{Axis, Input};
 use bevy_app::{EventReader, Events};
-use bevy_ecs::{Res, ResMut};
+use bevy_ecs::system::{Res, ResMut};
 use bevy_utils::HashMap;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
