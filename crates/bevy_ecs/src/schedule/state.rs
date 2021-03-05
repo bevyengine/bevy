@@ -7,7 +7,7 @@ use thiserror::Error;
 
 /// ### Stack based state machine
 ///
-/// This state machine has three operations: Next, Pop, and Push.
+/// This state machine has three operations: Push, Pop, and Next.
 /// * Push pushes a new state to the state stack, pausing the previous state
 /// * Pop removes the current state, and unpauses the last paused state.
 /// * Next unwinds the state stack, and replaces the entire stack with a single new state
