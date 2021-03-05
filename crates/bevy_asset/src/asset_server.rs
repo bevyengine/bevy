@@ -5,7 +5,7 @@ use crate::{
     RefChange, RefChangeChannel, SourceInfo, SourceMeta,
 };
 use anyhow::Result;
-use bevy_ecs::Res;
+use bevy_ecs::system::Res;
 use bevy_log::warn;
 use bevy_tasks::TaskPool;
 use bevy_utils::{HashMap, Uuid};

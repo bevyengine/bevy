@@ -12,8 +12,10 @@ pub mod shader;
 pub mod texture;
 pub mod wireframe;
 
-use bevy_ecs::{IntoExclusiveSystem, IntoSystem, SystemStage};
-use bevy_reflect::RegisterTypeBuilder;
+use bevy_ecs::{
+    schedule::SystemStage,
+    system::{IntoExclusiveSystem, IntoSystem},
+};
 use draw::Visible;
 pub use once_cell;
 
@@ -35,7 +37,7 @@ use crate::prelude::*;
 use base::Msaa;
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, AssetStage};
-use bevy_ecs::StageLabel;
+use bevy_ecs::schedule::StageLabel;
 use camera::{
     ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection, VisibleEntities,
 };
@@ -44,7 +46,7 @@ use pipeline::{
     ShaderSpecialization,
 };
 use render_graph::{
-    base::{self, BaseRenderGraphBuilder, BaseRenderGraphConfig, MainPass},
+    base::{self, BaseRenderGraphConfig, MainPass},
     RenderGraph,
 };
 use renderer::{AssetRenderResourceBindings, RenderResourceBindings};
@@ -92,12 +94,6 @@ impl Plugin for RenderPlugin {
             app.init_asset_loader::<HdrTextureLoader>();
         }
 
-        app.init_asset_loader::<ShaderLoader>();
-
-        if app.resources().get::<ClearColor>().is_none() {
-            app.resources_mut().insert(ClearColor::default());
-        }
-
         app.add_stage_after(
             AssetStage::AssetEvents,
             RenderStage::RenderResource,
@@ -123,6 +119,7 @@ impl Plugin for RenderPlugin {
             RenderStage::PostRender,
             SystemStage::parallel(),
         )
+        .init_asset_loader::<ShaderLoader>()
         .add_asset::<Mesh>()
         .add_asset::<Texture>()
         .add_asset::<Shader>()
@@ -140,6 +137,7 @@ impl Plugin for RenderPlugin {
         .register_type::<PrimitiveTopology>()
         .register_type::<IndexFormat>()
         .register_type::<PipelineSpecialization>()
+        .init_resource::<ClearColor>()
         .init_resource::<RenderGraph>()
         .init_resource::<PipelineCompiler>()
         .init_resource::<Msaa>()
@@ -190,11 +188,8 @@ impl Plugin for RenderPlugin {
         );
 
         if let Some(ref config) = self.base_render_graph_config {
-            let resources = app.resources();
-            let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-            let msaa = resources.get::<Msaa>().unwrap();
-            render_graph.add_base_graph(config, &msaa);
-            let mut active_cameras = resources.get_mut::<ActiveCameras>().unwrap();
+            crate::base::add_base_graph(config, app.world_mut());
+            let mut active_cameras = app.world_mut().get_resource_mut::<ActiveCameras>().unwrap();
             if config.add_3d_camera {
                 active_cameras.add(base::camera::CAMERA_3D);
             }

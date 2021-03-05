@@ -3,8 +3,10 @@ use crate::{
     RefChange,
 };
 use bevy_app::{prelude::Events, AppBuilder};
-use bevy_ecs::{FromResources, IntoSystem, ResMut};
-use bevy_reflect::RegisterTypeBuilder;
+use bevy_ecs::{
+    system::{IntoSystem, ResMut},
+    world::FromWorld,
+};
 use bevy_utils::HashMap;
 use crossbeam_channel::Sender;
 use std::fmt::Debug;
@@ -202,7 +204,7 @@ pub trait AddAsset {
         T: Asset;
     fn init_asset_loader<T>(&mut self) -> &mut Self
     where
-        T: AssetLoader + FromResources;
+        T: AssetLoader + FromWorld;
     fn add_asset_loader<T>(&mut self, loader: T) -> &mut Self
     where
         T: AssetLoader;
@@ -214,7 +216,7 @@ impl AddAsset for AppBuilder {
         T: Asset,
     {
         let assets = {
-            let asset_server = self.resources().get::<AssetServer>().unwrap();
+            let asset_server = self.world().get_resource::<AssetServer>().unwrap();
             asset_server.register_asset_type::<T>()
         };
 
@@ -233,17 +235,18 @@ impl AddAsset for AppBuilder {
 
     fn init_asset_loader<T>(&mut self) -> &mut Self
     where
-        T: AssetLoader + FromResources,
+        T: AssetLoader + FromWorld,
     {
-        self.add_asset_loader(T::from_resources(self.resources()))
+        let result = T::from_world(self.world_mut());
+        self.add_asset_loader(result)
     }
 
     fn add_asset_loader<T>(&mut self, loader: T) -> &mut Self
     where
         T: AssetLoader,
     {
-        self.resources()
-            .get_mut::<AssetServer>()
+        self.world_mut()
+            .get_resource_mut::<AssetServer>()
             .expect("AssetServer does not exist. Consider adding it as a resource.")
             .add_loader(loader);
         self

@@ -3,7 +3,7 @@ mod system;
 mod window;
 mod windows;
 
-use bevy_ecs::IntoSystem;
+use bevy_ecs::system::IntoSystem;
 pub use event::*;
 pub use system::*;
 pub use window::*;
@@ -51,12 +51,12 @@ impl Plugin for WindowPlugin {
             .init_resource::<Windows>();
 
         if self.add_primary_window {
-            let resources = app.resources();
-            let window_descriptor = resources
-                .get::<WindowDescriptor>()
+            let world = app.world_mut();
+            let window_descriptor = world
+                .get_resource::<WindowDescriptor>()
                 .map(|descriptor| (*descriptor).clone())
                 .unwrap_or_else(WindowDescriptor::default);
-            let mut create_window_event = resources.get_mut::<Events<CreateWindow>>().unwrap();
+            let mut create_window_event = world.get_resource_mut::<Events<CreateWindow>>().unwrap();
             create_window_event.send(CreateWindow {
                 id: WindowId::primary(),
                 descriptor: window_descriptor,

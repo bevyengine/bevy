@@ -30,7 +30,7 @@ impl Default for Countdown {
     }
 }
 
-fn setup_system(commands: &mut Commands) {
+fn setup_system(mut commands: Commands) {
     // Add an entity to the world with a timer
     commands.spawn((Timer::from_seconds(5.0, false),));
 }

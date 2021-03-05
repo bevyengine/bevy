@@ -5,7 +5,7 @@ use crate::{
 };
 use bevy_app::{prelude::Events, ManualEventReader};
 use bevy_asset::{AssetEvent, Assets};
-use bevy_ecs::{Resources, World};
+use bevy_ecs::world::World;
 use bevy_utils::HashSet;
 
 #[derive(Default)]
@@ -16,14 +16,13 @@ pub struct TextureCopyNode {
 impl Node for TextureCopyNode {
     fn update(
         &mut self,
-        _world: &World,
-        resources: &Resources,
+        world: &World,
         render_context: &mut dyn RenderContext,
         _input: &ResourceSlots,
         _output: &mut ResourceSlots,
     ) {
-        let texture_events = resources.get::<Events<AssetEvent<Texture>>>().unwrap();
-        let textures = resources.get::<Assets<Texture>>().unwrap();
+        let texture_events = world.get_resource::<Events<AssetEvent<Texture>>>().unwrap();
+        let textures = world.get_resource::<Assets<Texture>>().unwrap();
         let mut copied_textures = HashSet::default();
         for event in self.texture_event_reader.iter(&texture_events) {
             match event {

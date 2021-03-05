@@ -3,7 +3,10 @@ use crate::{
     RefChangeChannel,
 };
 use anyhow::Result;
-use bevy_ecs::{Res, ResMut, Resource};
+use bevy_ecs::{
+    component::Component,
+    system::{Res, ResMut},
+};
 use bevy_reflect::{TypeUuid, TypeUuidDynamic};
 use bevy_utils::{BoxedFuture, HashMap};
 use crossbeam_channel::{Receiver, Sender};
@@ -136,7 +139,7 @@ impl<'a> LoadContext<'a> {
 
 /// The result of loading an asset of type `T`
 #[derive(Debug)]
-pub struct AssetResult<T: Resource> {
+pub struct AssetResult<T: Component> {
     pub asset: T,
     pub id: HandleId,
     pub version: usize,
@@ -144,12 +147,12 @@ pub struct AssetResult<T: Resource> {
 
 /// A channel to send and receive [AssetResult]s
 #[derive(Debug)]
-pub struct AssetLifecycleChannel<T: Resource> {
+pub struct AssetLifecycleChannel<T: Component> {
     pub sender: Sender<AssetLifecycleEvent<T>>,
     pub receiver: Receiver<AssetLifecycleEvent<T>>,
 }
 
-pub enum AssetLifecycleEvent<T: Resource> {
+pub enum AssetLifecycleEvent<T: Component> {
     Create(AssetResult<T>),
     Free(HandleId),
 }
@@ -183,7 +186,7 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
     }
 }
 
-impl<T: Resource> Default for AssetLifecycleChannel<T> {
+impl<T: Component> Default for AssetLifecycleChannel<T> {
     fn default() -> Self {
         let (sender, receiver) = crossbeam_channel::unbounded();
         AssetLifecycleChannel { sender, receiver }

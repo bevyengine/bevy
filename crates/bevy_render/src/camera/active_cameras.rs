@@ -1,5 +1,8 @@
 use super::Camera;
-use bevy_ecs::{Entity, Query, ResMut};
+use bevy_ecs::{
+    entity::Entity,
+    system::{Query, ResMut},
+};
 use bevy_utils::HashMap;
 
 #[derive(Debug, Default)]

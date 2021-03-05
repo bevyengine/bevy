@@ -1,7 +1,7 @@
 use crate::ColorMaterial;
 use bevy_asset::{Assets, Handle};
 use bevy_core::Bytes;
-use bevy_ecs::{Query, Res};
+use bevy_ecs::system::{Query, Res};
 use bevy_math::Vec2;
 use bevy_reflect::{Reflect, ReflectDeserialize, TypeUuid};
 use bevy_render::{

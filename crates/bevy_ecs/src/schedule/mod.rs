@@ -2,7 +2,6 @@ mod executor;
 mod executor_parallel;
 mod label;
 mod stage;
-//mod stageless;
 mod state;
 mod system_container;
 mod system_descriptor;
@@ -18,10 +17,14 @@ pub use system_descriptor::*;
 pub use system_set::*;
 
 use crate::{
-    ArchetypeComponent, BoxedSystem, IntoSystem, Resources, System, SystemId, TypeAccess, World,
+    archetype::{Archetype, ArchetypeComponentId},
+    component::ComponentId,
+    query::Access,
+    system::{BoxedSystem, IntoSystem, System, SystemId},
+    world::World,
 };
 use bevy_utils::HashMap;
-use std::{any::TypeId, borrow::Cow};
+use std::borrow::Cow;
 
 #[derive(Default)]
 pub struct Schedule {
@@ -187,7 +190,7 @@ impl Schedule {
             .and_then(|stage| stage.downcast_mut::<T>())
     }
 
-    pub fn run_once(&mut self, world: &mut World, resources: &mut Resources) {
+    pub fn run_once(&mut self, world: &mut World) {
         for label in self.stage_order.iter() {
             #[cfg(feature = "trace")]
             let stage_span =
@@ -195,22 +198,22 @@ impl Schedule {
             #[cfg(feature = "trace")]
             let _stage_guard = stage_span.enter();
             let stage = self.stages.get_mut(label).unwrap();
-            stage.run(world, resources);
+            stage.run(world);
         }
     }
 }
 
 impl Stage for Schedule {
-    fn run(&mut self, world: &mut World, resources: &mut Resources) {
+    fn run(&mut self, world: &mut World) {
         loop {
-            match self.run_criteria.should_run(world, resources) {
+            match self.run_criteria.should_run(world) {
                 ShouldRun::No => return,
                 ShouldRun::Yes => {
-                    self.run_once(world, resources);
+                    self.run_once(world);
                     return;
                 }
                 ShouldRun::YesAndCheckAgain => {
-                    self.run_once(world, resources);
+                    self.run_once(world);
                 }
                 ShouldRun::NoAndCheckAgain => {
                     panic!("`NoAndCheckAgain` would loop infinitely in this situation.")
@@ -218,11 +221,6 @@ impl Stage for Schedule {
             }
         }
     }
-}
-
-pub fn clear_trackers_system(world: &mut World, resources: &mut Resources) {
-    world.clear_trackers();
-    resources.clear_trackers();
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -257,16 +255,15 @@ impl RunCriteria {
         self.initialized = false;
     }
 
-    pub fn should_run(&mut self, world: &mut World, resources: &mut Resources) -> ShouldRun {
+    pub fn should_run(&mut self, world: &mut World) -> ShouldRun {
         if let Some(ref mut run_criteria) = self.criteria_system {
             if !self.initialized {
-                run_criteria.initialize(world, resources);
+                run_criteria.initialize(world);
                 self.initialized = true;
             }
-            let should_run = run_criteria.run((), world, resources);
-            run_criteria.apply_buffers(world, resources);
-            // don't run when no result is returned or false is returned
-            should_run.unwrap_or(ShouldRun::No)
+            let should_run = run_criteria.run((), world);
+            run_criteria.apply_buffers(world);
+            should_run
         } else {
             ShouldRun::Yes
         }
@@ -276,9 +273,8 @@ impl RunCriteria {
 pub struct RunOnce {
     ran: bool,
     system_id: SystemId,
-    archetype_component_access: TypeAccess<ArchetypeComponent>,
-    component_access: TypeAccess<TypeId>,
-    resource_access: TypeAccess<TypeId>,
+    archetype_component_access: Access<ArchetypeComponentId>,
+    component_access: Access<ComponentId>,
 }
 
 impl Default for RunOnce {
@@ -288,7 +284,6 @@ impl Default for RunOnce {
             system_id: SystemId::new(),
             archetype_component_access: Default::default(),
             component_access: Default::default(),
-            resource_access: Default::default(),
         }
     }
 }
@@ -305,39 +300,30 @@ impl System for RunOnce {
         self.system_id
     }
 
-    fn update_access(&mut self, _world: &World) {}
+    fn new_archetype(&mut self, _archetype: &Archetype) {}
 
-    fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent> {
+    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
         &self.archetype_component_access
     }
 
-    fn component_access(&self) -> &TypeAccess<TypeId> {
+    fn component_access(&self) -> &Access<ComponentId> {
         &self.component_access
     }
 
-    fn resource_access(&self) -> &TypeAccess<TypeId> {
-        &self.resource_access
+    fn is_send(&self) -> bool {
+        true
     }
 
-    fn is_non_send(&self) -> bool {
-        false
-    }
-
-    unsafe fn run_unsafe(
-        &mut self,
-        _input: Self::In,
-        _world: &World,
-        _resources: &Resources,
-    ) -> Option<Self::Out> {
-        Some(if self.ran {
+    unsafe fn run_unsafe(&mut self, _input: Self::In, _world: &World) -> Self::Out {
+        if self.ran {
             ShouldRun::No
         } else {
             self.ran = true;
             ShouldRun::Yes
-        })
+        }
     }
 
-    fn apply_buffers(&mut self, _world: &mut World, _resources: &mut Resources) {}
+    fn apply_buffers(&mut self, _world: &mut World) {}
 
-    fn initialize(&mut self, _world: &mut World, _resources: &mut Resources) {}
+    fn initialize(&mut self, _world: &mut World) {}
 }

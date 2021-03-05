@@ -42,7 +42,9 @@ impl Default for LogSettings {
 impl Plugin for LogPlugin {
     fn build(&self, app: &mut AppBuilder) {
         let default_filter = {
-            let settings = app.resources_mut().get_or_insert_with(LogSettings::default);
+            let settings = app
+                .world_mut()
+                .get_resource_or_insert_with(LogSettings::default);
             format!("{},{}", settings.level, settings.filter)
         };
 
@@ -71,7 +73,7 @@ impl Plugin for LogPlugin {
                         }
                     }))
                     .build();
-                app.resources_mut().insert_non_send(guard);
+                app.world_mut().insert_non_send(guard);
                 let subscriber = subscriber.with(chrome_layer);
                 bevy_utils::tracing::subscriber::set_global_default(subscriber)
                     .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
