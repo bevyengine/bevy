@@ -45,33 +45,6 @@ pub fn parent_update_system(
         } else {
             commands.insert(entity, PreviousParent(parent.0));
         };
-
-        #[cfg(feature = "trace")]
-        log::warn!(?entity, "would add as child here")
-        // // Add to the parent's `Children` (either the real component, or
-        // // `children_additions`).
-        // if let Ok(mut new_parent_children) = children_query.get_mut(parent.0) {
-        //     // This is the parent
-        //     debug_assert!(
-        //         !(*new_parent_children).0.contains(&entity),
-        //         "children already added"
-        //     );
-        //     (*new_parent_children).0.push(entity);
-        // } else {
-        //     // The parent doesn't have a children entity, lets add it
-        //     children_additions
-        //         .entry(parent.0)
-        //         .or_insert_with(Default::default)
-        //         .push(entity);
-        // }
-    }
-
-    // Flush the `children_additions` to the command buffer. It is stored separate to
-    // collect multiple new children that point to the same parent into the same
-    // SmallVec, and to prevent redundant add+remove operations.
-    children_additions.iter().for_each(|(k, v)| {
-        commands.insert(*k, Children::with(v));
-    });
 }
 #[cfg(test)]
 mod test {
