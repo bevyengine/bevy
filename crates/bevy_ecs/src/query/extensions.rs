@@ -2,9 +2,14 @@ use std::fmt::Debug;
 
 use thiserror::Error;
 
-use crate::{Fetch, Query, QueryFilter, ReadOnlyFetch, WorldQuery};
+use crate::prelude::Query;
 
-impl<'a, Q: WorldQuery, F: QueryFilter> Query<'a, Q, F> {
+use super::{Fetch, FilterFetch, ReadOnlyFetch, WorldQuery};
+
+impl<'w, Q: WorldQuery, F: WorldQuery> Query<'w, Q, F>
+where
+    F::Fetch: FilterFetch,
+{
     /// Takes exactly one result from the query. If there are no results, or more than 1 result, this will return an error instead.
     pub fn get_unique(&self) -> Result<<Q::Fetch as Fetch<'_>>::Item, UniqueQueryError<'_, Q>>
     where
