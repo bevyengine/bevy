@@ -1,7 +1,9 @@
-use bevy::prelude::*;
-use bevy::render::{
-    pipeline::{PipelineDescriptor, RenderPipeline},
-    shader::{ShaderStage, ShaderStages},
+use bevy::{
+    prelude::*,
+    render::{
+        pipeline::{PipelineDescriptor, RenderPipeline},
+        shader::{ShaderStage, ShaderStages},
+    },
 };
 
 fn main() {
@@ -36,13 +38,9 @@ fn star(
 
     let pipeline_handle = pipelines.add(PipelineDescriptor::default_config(ShaderStages {
         // Vertex shaders are run once for every vertex in the mesh.
-        // Each vertex can have attributes associated to it (e.g. position, 
+        // Each vertex can have attributes associated to it (e.g. position,
         // color, texture mapping). The output of a shader is per-vertex.
-        vertex: shaders.add(
-                    Shader::from_glsl(
-                        ShaderStage::Vertex,
-                        VERTEX_SHADER)
-                    ),
+        vertex: shaders.add(Shader::from_glsl(ShaderStage::Vertex, VERTEX_SHADER)),
         // Fragment shaders are run for each pixel belonging to a triangle on
         // the screen. Their output is per-pixel.
         fragment: Some(shaders.add(Shader::from_glsl(ShaderStage::Fragment, FRAGMENT_SHADER))),
@@ -63,7 +61,7 @@ fn star(
     //     10   2
     // 9      0      3
     //     8     4
-    //        6  
+    //        6
     //   7        5
     //
     // These vertices are specificed in 3D space.
@@ -96,7 +94,7 @@ fn star(
     //   Last triangle: 0, 1, 10
     let mut indices = vec![0, 1, 10];
     for i in 2..=10 {
-        indices.extend_from_slice(&[0, i, i-1]);
+        indices.extend_from_slice(&[0, i, i - 1]);
     }
     star.set_indices(Some(bevy::render::mesh::Indices::U32(indices)));
 
@@ -104,14 +102,13 @@ fn star(
     commands
         .spawn(MeshBundle {
             mesh: meshes.add(star),
-            render_pipelines: RenderPipelines::from_pipelines(
-                vec![RenderPipeline::new(pipeline_handle)],
-            ),
+            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
+                pipeline_handle,
+            )]),
             ..Default::default()
         })
         // And use an orthographic projection
-        .spawn(OrthographicCameraBundle::new_2d())
-    ;
+        .spawn(OrthographicCameraBundle::new_2d());
 }
 
 const VERTEX_SHADER: &str = r"
