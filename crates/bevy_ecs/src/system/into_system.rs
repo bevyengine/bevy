@@ -18,9 +18,9 @@ pub struct SystemState {
 }
 
 impl SystemState {
-    fn new<T>() -> Self {
+    pub(crate) fn new(name: Cow<'static, str>) -> Self {
         Self {
-            name: std::any::type_name::<T>().into(),
+            name,
             archetype_component_access: Access::default(),
             component_access_set: FilteredAccessSet::default(),
             is_send: true,
@@ -88,7 +88,7 @@ where
             func: self,
             param_state: None,
             config: Some(Default::default()),
-            system_state: SystemState::new::<F>(),
+            system_state: SystemState::new(std::any::type_name::<F>().into()),
             marker: PhantomData,
         }
     }

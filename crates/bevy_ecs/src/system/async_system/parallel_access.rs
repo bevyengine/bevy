@@ -1,5 +1,4 @@
 use std::{
-    any::TypeId,
     borrow::Cow,
     future::Future,
     sync::Arc,
@@ -7,21 +6,26 @@ use std::{
 };
 
 use async_channel::{Receiver, Sender};
+use bevy_ecs_macros::all_tuples;
 use bevy_tasks::{AsyncComputeTaskPool, TaskPool};
 use bevy_utils::BoxedFuture;
 use futures_lite::pin;
 use parking_lot::Mutex;
 
 use crate::{
-    AccessorTrait, ArchetypeComponent, AsyncSystemHandle, AsyncSystemOutput,
-    AsyncSystemOutputError, FetchSystemParam, Resources, System, SystemId, SystemParam,
-    SystemState, TypeAccess, World,
+    archetype::{Archetype, ArchetypeComponentId},
+    component::ComponentId,
+    prelude::{System, World},
+    query::Access,
+    system::{SystemId, SystemParam, SystemParamFetch, SystemParamState, SystemState},
 };
 
-use super::OpaquePhantomData;
+use super::{
+    AccessorTrait, AsyncSystemHandle, AsyncSystemOutput, AsyncSystemOutputError, OpaquePhantomData,
+};
 
 pub struct Accessor<P: SystemParam> {
-    channel: Sender<Box<dyn GenericAccess>>,
+    channel: Sender<Box<dyn GenericAccess<P>>>,
     _marker: OpaquePhantomData<P>,
 }
 
@@ -36,23 +40,8 @@ impl<P: SystemParam> AccessorTrait for Accessor<P> {
                 _marker: Default::default(),
             },
             AccessorRunnerSystem {
-                state: {
-                    SystemState {
-                        name: std::any::type_name::<Self>().into(),
-                        archetype_component_access: TypeAccess::default(),
-                        component_access: TypeAccess::default(),
-                        resource_access: TypeAccess::default(),
-                        is_non_send: false,
-                        local_resource_access: TypeAccess::default(),
-                        id: SystemId::new(),
-                        commands: Default::default(),
-                        arc_commands: Default::default(),
-                        current_query_index: Default::default(),
-                        query_archetype_component_accesses: Vec::new(),
-                        query_accesses: Vec::new(),
-                        query_type_names: Vec::new(),
-                    }
-                },
+                system_state: SystemState::new("".into()),
+                param_state: None,
                 channel: rx,
                 _marker: Default::default(),
             },
@@ -69,80 +58,41 @@ impl<P: SystemParam> Clone for Accessor<P> {
     }
 }
 
-pub trait AccessFn<'a, 'env, P: SystemParam, Out, Marker> {
-    unsafe fn call(
+pub trait AccessFn<Out, Param: SystemParam>: Send + Sync {
+    fn run(
         self: Box<Self>,
-        state: &'a SystemState,
-        world: &'a World,
-        resources: &'a Resources,
-    ) -> Option<Out>;
+        state: &mut Param::Fetch,
+        system_state: &SystemState,
+        world: &World,
+    ) -> Out;
 }
-pub struct SimpleMarker;
-impl<'a, 'env, Out, P, F> AccessFn<'a, 'env, P, Out, SimpleMarker> for F
-where
-    P: SystemParam,
-    F: FnOnce(P) -> Out + 'env,
-    F: FnOnce(<P::Fetch as FetchSystemParam<'a>>::Item) -> Out + 'env,
-{
-    unsafe fn call(
-        self: Box<Self>,
-        state: &'a SystemState,
-        world: &'a World,
-        resources: &'a Resources,
-    ) -> Option<Out> {
-        Some(self(<P::Fetch as FetchSystemParam<'a>>::get_param(
-            state, world, resources,
-        )?))
-    }
-}
-pub struct ComplexMarker;
-macro_rules! impl_access_fn {
-    ($($A: ident),*) => {
-        impl<'a, 'env, Out, $($A,)* Func> AccessFn<'a, 'env, ($($A,)*), Out, ComplexMarker> for Func
+
+macro_rules! impl_system_function {
+    ($($param: ident),*) => {
+        #[allow(non_snake_case)]
+        impl<Out, Func, $($param: SystemParam),*> AccessFn<Out, ($($param,)*)> for Func
         where
-            $($A: SystemParam,)*
-            Func: FnOnce($($A,)*) -> Out + 'env,
-            Func: FnOnce(
-                $(<$A::Fetch as FetchSystemParam<'a>>::Item,)*
-            ) -> Out + 'env,
+            Func:
+                FnOnce($($param),*) -> Out +
+                FnOnce($(<<$param as SystemParam>::Fetch as SystemParamFetch>::Item),*) -> Out + Send + Sync, Out: 'static
         {
-            unsafe fn call(
-                self: Box<Self>,
-                state: &'a SystemState,
-                world: &'a World,
-                resources: &'a Resources,
-            ) -> Option<Out> {
-                Some(self(
-                    $(<$A::Fetch as FetchSystemParam<'a>>::get_param(
-                        state, world, resources,
-                    )?,)*
-                ))
+            #[inline]
+            fn run(self: Box<Self>, state: &mut <($($param,)*) as SystemParam>::Fetch, system_state: &SystemState, world: &World) -> Out {
+                unsafe {
+                    let ($($param,)*) = <<($($param,)*) as SystemParam>::Fetch as SystemParamFetch>::get_param(state, system_state, world);
+                    self($($param),*)
+                }
             }
         }
     };
 }
 
-impl_access_fn!(A);
-impl_access_fn!(A, B);
-impl_access_fn!(A, B, C);
-impl_access_fn!(A, B, C, D);
-impl_access_fn!(A, B, C, D, E);
-impl_access_fn!(A, B, C, D, E, F);
-impl_access_fn!(A, B, C, D, E, F, G);
-impl_access_fn!(A, B, C, D, E, F, G, H);
-impl_access_fn!(A, B, C, D, E, F, G, H, I);
-impl_access_fn!(A, B, C, D, E, F, G, H, I, J);
-impl_access_fn!(A, B, C, D, E, F, G, H, I, J, K);
-impl_access_fn!(A, B, C, D, E, F, G, H, I, J, K, L);
-impl_access_fn!(A, B, C, D, E, F, G, H, I, J, K, L, M);
-impl_access_fn!(A, B, C, D, E, F, G, H, I, J, K, L, M, N);
-impl_access_fn!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
-impl_access_fn!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
+all_tuples!(impl_system_function, 0, 12, F);
 
 impl<P: SystemParam> Accessor<P> {
-    pub fn access<'env, R: Send + Sync + 'static, M: 'static>(
+    pub fn access<'env, R: Send + Sync + 'static>(
         &mut self,
-        sync: impl for<'a> AccessFn<'a, 'env, P, R, M> + Send + Sync + 'env,
+        sync: impl AccessFn<R, P> + Send + Sync + 'env,
     ) -> impl Future<Output = R> + Send + Sync + 'env
     where
         P: 'env,
@@ -156,49 +106,50 @@ impl<P: SystemParam> Accessor<P> {
     }
 }
 
-struct Access<'env, P: SystemParam, Out, Marker> {
-    inner: Arc<
-        Mutex<Option<Box<dyn for<'a> AccessFn<'a, 'env, P, Out, Marker> + Send + Sync + 'env>>>,
-    >,
+struct ParallelAccess<'env, P: SystemParam, Out> {
+    inner: Arc<Mutex<Option<Box<dyn AccessFn<Out, P> + Send + Sync + 'env>>>>,
     tx: Sender<Out>,
     waker: Waker,
 }
 
-trait GenericAccess: Send + Sync {
-    unsafe fn run(self: Box<Self>, state: &SystemState, world: &World, resources: &Resources);
+trait GenericAccess<P: SystemParam>: Send + Sync {
+    unsafe fn run(
+        self: Box<Self>,
+        param_state: &mut P::Fetch,
+        system_state: &SystemState,
+        world: &World,
+    );
 }
 
-impl<'env, P: SystemParam, Out: Send + Sync + 'env, Marker> GenericAccess
-    for Access<'env, P, Out, Marker>
+impl<'env, P: SystemParam, Out: Send + Sync + 'env> GenericAccess<P>
+    for ParallelAccess<'env, P, Out>
 {
-    unsafe fn run(self: Box<Self>, state: &SystemState, world: &World, resources: &Resources) {
+    unsafe fn run(self: Box<Self>, param_state: &mut P::Fetch, state: &SystemState, world: &World) {
         if let Some(sync) = self.inner.lock().take() {
             self.tx
-                .try_send(sync.call(state, world, resources).unwrap())
+                .try_send(sync.run(param_state, state, world))
                 .unwrap();
         }
         self.waker.wake();
     }
 }
 
-enum AccessFutureState<'env, P, R, M> {
+enum AccessFutureState<'env, P, R> {
     FirstPoll {
-        boxed: Box<dyn for<'a> AccessFn<'a, 'env, P, R, M> + Send + Sync + 'env>,
-        tx: Sender<Box<dyn GenericAccess>>,
+        boxed: Box<dyn AccessFn<R, P> + Send + Sync + 'env>,
+        tx: Sender<Box<dyn GenericAccess<P>>>,
     },
     WaitingForCompletion(
         Receiver<R>,
-        Arc<Mutex<Option<Box<dyn for<'a> AccessFn<'a, 'env, P, R, M> + Send + Sync + 'env>>>>,
+        Arc<Mutex<Option<Box<dyn AccessFn<R, P> + Send + Sync + 'env>>>>,
     ),
 }
 
-pub struct AccessFuture<'env, P: SystemParam, R, M> {
-    state: AccessFutureState<'env, P, R, M>,
+pub struct AccessFuture<'env, P: SystemParam, R> {
+    state: AccessFutureState<'env, P, R>,
 }
 
-impl<'env, P: SystemParam + 'env, R: Send + Sync + 'env, M: 'static> Future
-    for AccessFuture<'env, P, R, M>
-{
+impl<'env, P: SystemParam + 'env, R: Send + Sync + 'env> Future for AccessFuture<'env, P, R> {
     type Output = R;
 
     fn poll(
@@ -214,13 +165,13 @@ impl<'env, P: SystemParam + 'env, R: Send + Sync + 'env, M: 'static> Future
                     AccessFutureState::WaitingForCompletion(rx, arc.clone()),
                 ) {
                     *arc.lock() = Some(boxed);
-                    let msg = Access {
+                    let msg = ParallelAccess {
                         inner: arc,
                         tx,
                         waker: cx.waker().clone(),
                     };
-                    let boxed: Box<dyn GenericAccess + 'env> = Box::new(msg);
-                    let boxed: Box<dyn GenericAccess + 'static> =
+                    let boxed: Box<dyn GenericAccess<P> + 'env> = Box::new(msg);
+                    let boxed: Box<dyn GenericAccess<P> + 'static> =
                     // Safe: the reference will only live as long as this struct, as the drop impl will drop the references
                         unsafe { std::mem::transmute(boxed) };
                     mtx.try_send(boxed).unwrap();
@@ -238,7 +189,7 @@ impl<'env, P: SystemParam + 'env, R: Send + Sync + 'env, M: 'static> Future
     }
 }
 
-impl<'env, P: SystemParam, R, M> Drop for AccessFuture<'env, P, R, M> {
+impl<'env, P: SystemParam, R> Drop for AccessFuture<'env, P, R> {
     fn drop(&mut self) {
         if let AccessFutureState::WaitingForCompletion(_, arc) = &self.state {
             *arc.lock() = None;
@@ -247,8 +198,9 @@ impl<'env, P: SystemParam, R, M> Drop for AccessFuture<'env, P, R, M> {
 }
 
 pub struct AccessorRunnerSystem<P: SystemParam> {
-    state: SystemState,
-    channel: Receiver<Box<dyn GenericAccess>>,
+    system_state: SystemState,
+    param_state: Option<P::Fetch>,
+    channel: Receiver<Box<dyn GenericAccess<P>>>,
     _marker: OpaquePhantomData<P>,
 }
 
@@ -257,76 +209,70 @@ impl<P: SystemParam + 'static> System for AccessorRunnerSystem<P> {
     type Out = ();
 
     fn name(&self) -> Cow<'static, str> {
-        self.state.name.clone()
+        self.system_state.name.clone()
     }
 
     fn id(&self) -> SystemId {
-        self.state.id
+        self.system_state.id
     }
 
-    fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent> {
-        &self.state.archetype_component_access
+    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+        &self.system_state.archetype_component_access
     }
 
-    fn resource_access(&self) -> &TypeAccess<TypeId> {
-        &self.state.resource_access
-    }
-
-    unsafe fn run_unsafe(
-        &mut self,
-        _: Self::In,
-        world: &World,
-        resources: &Resources,
-    ) -> Option<Self::Out> {
+    unsafe fn run_unsafe(&mut self, _: Self::In, world: &World) -> Self::Out {
         loop {
             match self.channel.try_recv() {
-                Ok(sync) => sync.run(&self.state, world, resources),
+                Ok(sync) => sync.run(
+                    &mut self.param_state.as_mut().unwrap(),
+                    &self.system_state,
+                    world,
+                ),
                 Err(async_channel::TryRecvError::Closed) => panic!(
                     "`AccessorRunnerSystem` called but all relevant accessors have been dropped"
                 ),
                 Err(async_channel::TryRecvError::Empty) => break,
             }
         }
-        Some(())
     }
 
-    fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
-        <P::Fetch as FetchSystemParam>::init(&mut self.state, world, resources);
+    fn initialize(&mut self, world: &mut World) {
+        self.param_state = Some(<P::Fetch as SystemParamState>::init(
+            world,
+            &mut self.system_state,
+            Default::default(),
+        ))
     }
 
-    fn apply_buffers(&mut self, world: &mut World, resources: &mut Resources) {
-        self.state.commands.get_mut().apply(world, resources);
-        if let Some(ref commands) = self.state.arc_commands {
-            let mut commands = commands.lock();
-            commands.apply(world, resources);
-        }
+    fn apply_buffers(&mut self, world: &mut World) {
+        let param_state = self.param_state.as_mut().unwrap();
+        param_state.apply(world);
     }
 
-    fn update_access(&mut self, world: &World) {
-        self.state.update(world);
+    fn component_access(&self) -> &Access<ComponentId> {
+        &self.system_state.component_access_set.combined_access()
     }
 
-    fn component_access(&self) -> &TypeAccess<TypeId> {
-        &self.state.component_access
+    fn new_archetype(&mut self, archetype: &Archetype) {
+        let param_state = self.param_state.as_mut().unwrap();
+        param_state.new_archetype(archetype, &mut self.system_state);
     }
 
-    fn is_non_send(&self) -> bool {
-        self.state.is_non_send
+    fn is_send(&self) -> bool {
+        self.system_state.is_send()
     }
 }
 
 pub trait AccessSystemsTuple: Send + Sync + 'static {
-    fn update_access(
+    fn new_archetype(
         &mut self,
-        world: &World,
-        archetype_component_access: &mut TypeAccess<ArchetypeComponent>,
-        component_access: &mut TypeAccess<TypeId>,
-        resource_access: &mut TypeAccess<TypeId>,
+        archetype: &Archetype,
+        archetype_component_access: &mut Access<ArchetypeComponentId>,
     );
-    fn is_non_send(&self) -> bool;
-    fn apply_buffers(&mut self, world: &mut World, resources: &mut Resources);
-    fn initialize(&mut self, world: &mut World, resources: &mut Resources);
-    unsafe fn run(&mut self, world: &World, resources: &Resources);
+    fn is_send(&self) -> bool;
+    fn apply_buffers(&mut self, world: &mut World);
+    fn initialize(&mut self, world: &mut World);
+    unsafe fn run(&mut self, world: &World);
 }
 
 pub struct AsyncChainSystem<In, Out, Systems>
@@ -338,9 +284,8 @@ where
     pub(super) return_handle: Option<AsyncSystemOutput<Out>>,
     pub(super) name: Cow<'static, str>,
     pub(super) id: SystemId,
-    pub(super) archetype_component_access: TypeAccess<ArchetypeComponent>,
-    pub(super) component_access: TypeAccess<TypeId>,
-    pub(super) resource_access: TypeAccess<TypeId>,
+    pub(super) component_access: Access<ComponentId>,
+    pub(super) archetype_component_access: Access<ArchetypeComponentId>,
     pub(super) startup_future:
         Option<Box<dyn FnOnce(TaskPool) -> BoxedFuture<'static, ()> + Send + Sync + 'static>>,
 }
@@ -351,7 +296,7 @@ where
     Out: Send + Sync + 'static,
 {
     type In = In;
-    type Out = Out;
+    type Out = Option<Out>;
 
     fn name(&self) -> Cow<'static, str> {
         self.name.clone()
@@ -361,41 +306,16 @@ where
         self.id
     }
 
-    fn update_access(&mut self, world: &World) {
-        self.archetype_component_access.clear();
-        self.component_access.clear();
-        self.resource_access.clear();
-        self.inner_systems.update_access(
-            world,
-            &mut self.archetype_component_access,
-            &mut self.component_access,
-            &mut self.resource_access,
-        );
-    }
-
-    fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent> {
+    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
         &self.archetype_component_access
     }
 
-    fn component_access(&self) -> &TypeAccess<TypeId> {
+    fn component_access(&self) -> &Access<ComponentId> {
         &self.component_access
     }
 
-    fn resource_access(&self) -> &TypeAccess<TypeId> {
-        &self.resource_access
-    }
-
-    fn is_non_send(&self) -> bool {
-        self.inner_systems.is_non_send()
-    }
-
-    unsafe fn run_unsafe(
-        &mut self,
-        input: Self::In,
-        world: &World,
-        resources: &Resources,
-    ) -> Option<Self::Out> {
-        self.inner_systems.run(world, resources);
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
+        self.inner_systems.run(world);
         if let Some(ref mut handle) = &mut self.return_handle {
             match handle.get() {
                 Ok(v) => {
@@ -411,15 +331,24 @@ where
         }
     }
 
-    fn apply_buffers(&mut self, world: &mut World, resources: &mut Resources) {
-        self.inner_systems.apply_buffers(world, resources);
+    fn apply_buffers(&mut self, world: &mut World) {
+        self.inner_systems.apply_buffers(world);
     }
 
-    fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
+    fn initialize(&mut self, world: &mut World) {
         if let Some(fut) = self.startup_future.take() {
-            let tp = resources.get_mut::<AsyncComputeTaskPool>().unwrap();
+            let tp = world.get_resource_mut::<AsyncComputeTaskPool>().unwrap();
             tp.spawn((fut)(tp.clone().0)).detach();
         }
-        self.inner_systems.initialize(world, resources);
+        self.inner_systems.initialize(world);
+    }
+
+    fn new_archetype(&mut self, archetype: &Archetype) {
+        self.inner_systems
+            .new_archetype(archetype, &mut self.archetype_component_access);
+    }
+
+    fn is_send(&self) -> bool {
+        self.inner_systems.is_send()
     }
 }

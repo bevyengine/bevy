@@ -11,10 +11,9 @@ use bevy_utils::BoxedFuture;
 use futures_lite::pin;
 use parking_lot::Mutex;
 
-use crate::{
-    AccessorTrait, AsyncSystemHandle, AsyncSystemOutput, AsyncSystemOutputError, ExclusiveSystem,
-    Resources, SystemId, World,
-};
+use crate::{prelude::World, system::{ExclusiveSystem, SystemId}};
+
+use super::{AccessorTrait, AsyncSystemHandle, AsyncSystemOutput, AsyncSystemOutputError};
 
 #[derive(Clone)]
 pub struct ExclusiveAccessor {
@@ -38,15 +37,15 @@ impl AccessorTrait for ExclusiveAccessor {
 }
 
 pub trait AccessFn<'a, 'env, Out> {
-    fn call(self: Box<Self>, world: &'a mut World, resources: &'a mut Resources) -> Out;
+    fn call(self: Box<Self>, world: &'a mut World) -> Out;
 }
 
 impl<'a, 'env, Out, F> AccessFn<'a, 'env, Out> for F
 where
-    F: FnOnce(&'a mut World, &'a mut Resources) -> Out + 'env,
+    F: FnOnce(&'a mut World) -> Out + 'env,
 {
-    fn call(self: Box<Self>, world: &'a mut World, resources: &'a mut Resources) -> Out {
-        self(world, resources)
+    fn call(self: Box<Self>, world: &'a mut World) -> Out {
+        self(world)
     }
 }
 
@@ -71,13 +70,13 @@ struct Access<'env, Out> {
 }
 
 trait GenericAccess: Send + Sync {
-    fn run(self: Box<Self>, world: &mut World, resources: &mut Resources);
+    fn run(self: Box<Self>, world: &mut World);
 }
 
 impl<'env, Out: Send + Sync + 'env> GenericAccess for Access<'env, Out> {
-    fn run(self: Box<Self>, world: &mut World, resources: &mut Resources) {
+    fn run(self: Box<Self>, world: &mut World) {
         if let Some(sync) = self.inner.lock().take() {
-            self.tx.try_send(sync.call(world, resources)).unwrap();
+            self.tx.try_send(sync.call(world)).unwrap();
         }
         self.waker.wake();
     }
@@ -161,22 +160,22 @@ impl ExclusiveSystem for ExclusiveAccessorRunnerSystem {
         self.id
     }
 
-    fn run(&mut self, world: &mut World, resources: &mut Resources) {
+    fn run(&mut self, world: &mut World) {
         loop {
             match self.channel.try_recv() {
-                Ok(sync) => sync.run(world, resources),
+                Ok(sync) => sync.run(world),
                 Err(async_channel::TryRecvError::Closed) => panic!(),
                 Err(async_channel::TryRecvError::Empty) => break,
             }
         }
     }
 
-    fn initialize(&mut self, _: &mut World, _: &mut Resources) {}
+    fn initialize(&mut self, _: &mut World) {}
 }
 
 pub trait ExclusiveAccessSystemsTuple: Send + Sync + 'static {
-    fn initialize(&mut self, world: &mut World, resources: &mut Resources);
-    fn run(&mut self, world: &mut World, resources: &mut Resources);
+    fn initialize(&mut self, world: &mut World);
+    fn run(&mut self, world: &mut World);
 }
 
 pub struct ExclusiveAsyncChainSystem<Systems> {
@@ -198,16 +197,16 @@ impl<Systems: ExclusiveAccessSystemsTuple> ExclusiveSystem for ExclusiveAsyncCha
         self.id
     }
 
-    fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
+    fn initialize(&mut self, world: &mut World) {
         if let Some(fut) = self.startup_future.take() {
-            let tp = resources.get_mut::<AsyncComputeTaskPool>().unwrap();
+            let tp = world.get_resource_mut::<AsyncComputeTaskPool>().unwrap();
             tp.spawn((fut)(tp.clone().0)).detach();
         }
-        self.inner_systems.initialize(world, resources);
+        self.inner_systems.initialize(world);
     }
 
-    fn run(&mut self, world: &mut World, resources: &mut Resources) {
-        self.inner_systems.run(world, resources);
+    fn run(&mut self, world: &mut World) {
+        self.inner_systems.run(world);
         if let Some(ref mut handle) = &mut self.return_handle {
             match handle.get() {
                 Ok(_) => {

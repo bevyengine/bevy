@@ -24,6 +24,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.4.0" }
 bevy_ecs_macros = { path = "macros", version = "0.4.0" }
 
 async-channel = "1.4"
+futures-lite = "1.11.3"
 bitflags = "1.2"
 fixedbitset = "0.3"
 fxhash = "0.2"

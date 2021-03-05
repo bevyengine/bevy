@@ -35,13 +35,10 @@ use thiserror::Error;
 use bevy_tasks::TaskPool;
 use bevy_utils::BoxedFuture;
 
-use crate::{
-    ArchetypeComponent, ExclusiveSystem, Resources, System, SystemId, SystemParam, TypeAccess,
-    World,
-};
-
 pub use exclusive_access::ExclusiveAccessor;
 pub use parallel_access::Accessor;
+
+use super::SystemId;
 
 pub trait AsyncSystem<Marker, OutSystems>
 where
@@ -75,7 +72,6 @@ where
             id: SystemId::new(),
             archetype_component_access: Default::default(),
             component_access: Default::default(),
-            resource_access: Default::default(),
             startup_future: Some(future),
         }
     }
@@ -175,7 +171,12 @@ pub trait AccessorTrait: Clone + Send + Sync {
 // Implements AsyncSystem for async functions with up to 16 different accessors
 #[doc(hidden)]
 pub mod impls {
-    use crate::In;
+    use crate::{
+        archetype::{Archetype, ArchetypeComponentId},
+        query::Access,
+        system::{ExclusiveSystem, In, System, SystemParam},
+        world::World,
+    };
 
     use super::*;
 
@@ -260,49 +261,45 @@ pub mod impls {
             #[allow(unused)]
             #[allow(non_snake_case)]
             impl<$($i: SystemParam + 'static,)*> parallel_access::AccessSystemsTuple for ($(super::parallel_access::AccessorRunnerSystem<$i>,)*) {
-                fn update_access(
+                fn new_archetype(
                     &mut self,
-                    world: &World,
-                    archetype_component_access: &mut TypeAccess<ArchetypeComponent>,
-                    component_access: &mut TypeAccess<TypeId>,
-                    resource_access: &mut TypeAccess<TypeId>,
+                    archetype: &Archetype,
+                    archetype_component_access: &mut Access<ArchetypeComponentId>,
                 ) {
                    let ($($i,)*) = self;
                     $(
-                        $i.update_access(world);
+                        $i.new_archetype(archetype);
                         archetype_component_access.extend($i.archetype_component_access());
-                        component_access.extend($i.component_access());
-                        resource_access.extend($i.resource_access());
                     )*
                 }
-                fn is_non_send(&self) -> bool {
+                fn is_send(&self) -> bool {
                     let ($($i,)*) = self;
-                    $($i.is_non_send() ||)* false
+                    $($i.is_send() &&)* true
                 }
-                fn apply_buffers(&mut self, world: &mut World, resources: &mut Resources) {
+                fn apply_buffers(&mut self, world: &mut World) {
                     let ($($i,)*) = self;
-                    $($i.apply_buffers(world, resources);)*
+                    $($i.apply_buffers(world);)*
                 }
-                fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
+                fn initialize(&mut self, world: &mut World) {
                     let ($($i,)*) = self;
-                    $($i.initialize(world, resources);)*
+                    $($i.initialize(world);)*
                 }
-                unsafe fn run(&mut self, world: &World, resources: &Resources) {
+                unsafe fn run(&mut self, world: &World) {
                     let ($($i,)*) = self;
-                    $($i.run_unsafe((), world, resources);)*
+                    $($i.run_unsafe((), world);)*
                 }
             }
 
             #[allow(unused)]
             #[allow(non_snake_case)]
             impl<$($i: ExclusiveSystem,)*> exclusive_access::ExclusiveAccessSystemsTuple for ($($i,)*) {
-                fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
+                fn initialize(&mut self, world: &mut World) {
                     let ($($i,)*) = self;
-                    $($i.initialize(world, resources);)*
+                    $($i.initialize(world);)*
                 }
-                fn run(&mut self, world: &mut World, resources: &mut Resources) {
+                fn run(&mut self, world: &mut World) {
                     let ($($i,)*) = self;
-                    $($i.run(world, resources);)*
+                    $($i.run(world);)*
                 }
             }
         };
@@ -345,14 +342,9 @@ impl<T> Default for OpaquePhantomData<T> {
 
 #[cfg(test)]
 mod test {
-    use bevy_tasks::{AsyncComputeTaskPool, TaskPoolBuilder};
-
     use super::{Accessor, AsyncSystem};
-
-    use crate::{
-        Commands, IntoSystem, ParallelSystemDescriptorCoercion, Query, Res, ResMut, Resources,
-        Stage, SystemStage, World,
-    };
+    use crate::prelude::*;
+    use bevy_tasks::{AsyncComputeTaskPool, TaskPoolBuilder};
 
     async fn complex_async_system(
         mut access_1: Accessor<(Res<'_, u32>, ResMut<'_, String>)>,
@@ -393,7 +385,6 @@ mod test {
     #[test]
     fn run_async_system() {
         let mut world = World::new();
-        let mut resources = Resources::default();
 
         let mut commands = Commands::default();
         commands.set_entity_reserver(world.get_entity_reserver());
@@ -409,10 +400,10 @@ mod test {
                     .build(),
             ));
 
-        commands.apply(&mut world, &mut resources);
+        commands.apply(&mut world);
 
         let ((sync_1, sync_2), mut handle, future) = complex_async_system.systems();
-        let tp = resources.get_mut::<AsyncComputeTaskPool>().unwrap();
+        let tp = world.get_resource_mut::<AsyncComputeTaskPool>().unwrap();
         tp.spawn((future)(tp.clone().0)).detach();
         drop(tp);
         handle.fire(());
@@ -439,6 +430,6 @@ mod test {
             .add_system(sync_2.label("4").after("3"))
             .add_system(simple_async_system.system().after("4"));
 
-        stage.run(&mut world, &mut resources);
+        stage.run(&mut world);
     }
 }
