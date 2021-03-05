@@ -591,14 +591,14 @@ impl World {
     /// Temporarily removes the requested resource from this [World], then re-adds it before returning.
     /// This enables safe mutable access to a resource while still providing mutable world access
     /// ```
-    /// use bevy_ecs::world::World;
+    /// use bevy_ecs::world::{World, Mut};
     /// struct A(u32);
     /// struct B(u32);
     /// let mut world = World::new();
     /// world.insert_resource(A(1));
     /// let entity = world.spawn().insert(B(1)).id();
     ///
-    /// world.resource_scope(|a: &mut A, world| {
+    /// world.resource_scope(|mut a: Mut<A>, world| {
     ///     let b = world.get_mut::<B>(entity).unwrap();
     ///     a.0 += b.0;
     /// });
