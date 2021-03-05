@@ -1,4 +1,4 @@
-use bevy::{asset::LoadState, prelude::*, sprite::TextureAtlasBuilder};
+use bevy::{asset::LoadState, ecs::schedule::SystemSet, prelude::*, sprite::TextureAtlasBuilder};
 
 /// In this example we generate a new texture atlas (sprite sheet) from a folder containing individual sprites
 fn main() {
@@ -6,17 +6,26 @@ fn main() {
         .init_resource::<RpgSpriteHandles>()
         .add_plugins(DefaultPlugins)
         .insert_resource(State::new(AppState::Setup))
-        .add_stage_after(CoreStage::Update, Stage, StateStage::<AppState>::default())
-        .on_state_enter(Stage, AppState::Setup, load_textures.system())
-        .on_state_update(Stage, AppState::Setup, check_textures.system())
-        .on_state_enter(Stage, AppState::Finished, setup.system())
+        .add_system_set(State::<AppState>::make_driver())
+        .add_system_set(
+            SystemSet::new()
+                .with_run_criteria(State::on_enter(AppState::Setup))
+                .with_system(load_textures.system()),
+        )
+        .add_system_set(
+            SystemSet::new()
+                .with_run_criteria(State::on_update(AppState::Setup))
+                .with_system(check_textures.system()),
+        )
+        .add_system_set(
+            SystemSet::new()
+                .with_run_criteria(State::on_enter(AppState::Finished))
+                .with_system(setup.system()),
+        )
         .run();
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-struct Stage;
-
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 enum AppState {
     Setup,
     Finished,

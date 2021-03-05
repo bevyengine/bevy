@@ -507,12 +507,12 @@ mod test {
             &["inactive S4", "inactive S5"],
         ];
 
-        let mut iterator = EXPECTED.into_iter();
+        let mut iterator = EXPECTED.iter();
 
         loop {
             println!("new run!");
             stage.run(&mut world);
-            let mut expected: Vec<_> = iterator.next().unwrap().into_iter().collect();
+            let mut expected: Vec<_> = iterator.next().unwrap().iter().collect();
             let mut collected = world.get_resource_mut::<Vec<&'static str>>().unwrap();
             for found in collected.drain(..) {
                 let index = expected

@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{ecs::schedule::SystemSet, prelude::*};
 
 /// This example illustrates how to use States to control transitioning from a Menu state to an InGame state.
 fn main() {
@@ -6,20 +6,37 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .init_resource::<ButtonMaterials>()
         .insert_resource(State::new(AppState::Menu))
-        .add_stage_after(CoreStage::Update, Stage, StateStage::<AppState>::default())
-        .on_state_enter(Stage, AppState::Menu, setup_menu.system())
-        .on_state_update(Stage, AppState::Menu, menu.system())
-        .on_state_exit(Stage, AppState::Menu, cleanup_menu.system())
-        .on_state_enter(Stage, AppState::InGame, setup_game.system())
-        .on_state_update(Stage, AppState::InGame, movement.system())
-        .on_state_update(Stage, AppState::InGame, change_color.system())
+        .add_system_set(State::<AppState>::make_driver())
+        .add_system_set(
+            SystemSet::new()
+                .with_run_criteria(State::on_enter(AppState::Menu))
+                .with_system(setup_menu.system()),
+        )
+        .add_system_set(
+            SystemSet::new()
+                .with_run_criteria(State::on_update(AppState::Menu))
+                .with_system(menu.system()),
+        )
+        .add_system_set(
+            SystemSet::new()
+                .with_run_criteria(State::on_exit(AppState::Menu))
+                .with_system(cleanup_menu.system()),
+        )
+        .add_system_set(
+            SystemSet::new()
+                .with_run_criteria(State::on_enter(AppState::InGame))
+                .with_system(setup_game.system()),
+        )
+        .add_system_set(
+            SystemSet::new()
+                .with_run_criteria(State::on_update(AppState::InGame))
+                .with_system(movement.system())
+                .with_system(change_color.system()),
+        )
         .run();
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-struct Stage;
-
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 enum AppState {
     Menu,
     InGame,
