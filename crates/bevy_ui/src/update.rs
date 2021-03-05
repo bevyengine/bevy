@@ -1,5 +1,9 @@
 use super::Node;
-use bevy_ecs::{Entity, Query, With, Without};
+use bevy_ecs::{
+    entity::Entity,
+    query::{With, Without},
+    system::Query,
+};
 use bevy_transform::prelude::{Children, Parent, Transform};
 
 pub const UI_Z_STEP: f32 = 0.001;
@@ -48,7 +52,11 @@ fn update_hierarchy(
 }
 #[cfg(test)]
 mod tests {
-    use bevy_ecs::{Commands, IntoSystem, Resources, Schedule, Stage, SystemStage, World};
+    use bevy_ecs::{
+        schedule::{Schedule, Stage, SystemStage},
+        system::{CommandQueue, Commands, IntoSystem},
+        world::World,
+    };
     use bevy_transform::{components::Transform, hierarchy::BuildChildren};
 
     use crate::Node;
@@ -70,10 +78,8 @@ mod tests {
     #[test]
     fn test_ui_z_system() {
         let mut world = World::default();
-        let mut resources = Resources::default();
-        let mut commands = Commands::default();
-        commands.set_entity_reserver(world.get_entity_reserver());
-
+        let mut queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut queue, &world);
         commands.spawn(node_with_transform("0"));
 
         commands
@@ -112,16 +118,17 @@ mod tests {
                         parent.spawn(node_with_transform("2-1-0"));
                     });
             });
-        commands.apply(&mut world, &mut resources);
+        queue.apply(&mut world);
 
         let mut schedule = Schedule::default();
         let mut update_stage = SystemStage::parallel();
         update_stage.add_system(ui_z_system.system());
         schedule.add_stage("update", update_stage);
-        schedule.run(&mut world, &mut resources);
+        schedule.run(&mut world);
 
         let mut actual_result = world
             .query::<(&String, &Transform)>()
+            .iter(&world)
             .map(|(name, transform)| (name.clone(), get_steps(transform)))
             .collect::<Vec<(String, u32)>>();
         actual_result.sort_unstable_by_key(|(name, _)| name.clone());

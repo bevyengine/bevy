@@ -1,4 +1,5 @@
-use bevy_reflect::{Reflect, ReflectComponent};
+use bevy_ecs::reflect::ReflectComponent;
+use bevy_reflect::Reflect;
 use bevy_utils::Duration;
 
 /// Tracks elapsed time. Enters the finished state once `duration` is reached.
@@ -157,6 +158,7 @@ impl Timer {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)]
 mod tests {
     use super::Timer;
 

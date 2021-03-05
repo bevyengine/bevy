@@ -2,11 +2,15 @@ use crate::{
     app::{App, AppExit},
     event::Events,
     plugin::Plugin,
-    stage, startup_stage, PluginGroup, PluginGroupBuilder,
+    CoreStage, PluginGroup, PluginGroupBuilder, StartupStage,
 };
 use bevy_ecs::{
-    clear_trackers_system, FromResources, IntoExclusiveSystem, IntoSystem, Resources, RunOnce,
-    Schedule, Stage, SystemDescriptor, SystemStage, World,
+    component::Component,
+    schedule::{
+        RunOnce, Schedule, Stage, StageLabel, StateStage, SystemDescriptor, SystemSet, SystemStage,
+    },
+    system::{IntoExclusiveSystem, IntoSystem},
+    world::{FromWorld, World},
 };
 use bevy_utils::tracing::debug;
 
@@ -21,10 +25,13 @@ impl Default for AppBuilder {
             app: App::default(),
         };
 
+        #[cfg(feature = "bevy_reflect")]
+        app_builder.init_resource::<bevy_reflect::TypeRegistryArc>();
+
         app_builder
             .add_default_stages()
             .add_event::<AppExit>()
-            .add_system_to_stage(stage::LAST, clear_trackers_system.exclusive_system());
+            .add_system_to_stage(CoreStage::Last, World::clear_trackers.exclusive_system());
         app_builder
     }
 }
@@ -36,17 +43,17 @@ impl AppBuilder {
         }
     }
 
-    pub fn resources(&self) -> &Resources {
-        &self.app.resources
-    }
-
-    pub fn resources_mut(&mut self) -> &mut Resources {
-        &mut self.app.resources
-    }
-
     pub fn run(&mut self) {
         let app = std::mem::take(&mut self.app);
         app.run();
+    }
+
+    pub fn world(&mut self) -> &World {
+        &self.app.world
+    }
+
+    pub fn world_mut(&mut self) -> &mut World {
+        &mut self.app.world
     }
 
     pub fn set_world(&mut self, world: World) -> &mut Self {
@@ -54,139 +61,187 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_stage<S: Stage>(&mut self, name: &'static str, stage: S) -> &mut Self {
-        self.app.schedule.add_stage(name, stage);
+    pub fn add_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
+        self.app.schedule.add_stage(label, stage);
         self
     }
 
     pub fn add_stage_after<S: Stage>(
         &mut self,
-        target: &'static str,
-        name: &'static str,
+        target: impl StageLabel,
+        label: impl StageLabel,
         stage: S,
     ) -> &mut Self {
-        self.app.schedule.add_stage_after(target, name, stage);
+        self.app.schedule.add_stage_after(target, label, stage);
         self
     }
 
     pub fn add_stage_before<S: Stage>(
         &mut self,
-        target: &'static str,
-        name: &'static str,
+        target: impl StageLabel,
+        label: impl StageLabel,
         stage: S,
     ) -> &mut Self {
-        self.app.schedule.add_stage_before(target, name, stage);
+        self.app.schedule.add_stage_before(target, label, stage);
         self
     }
 
-    pub fn add_startup_stage<S: Stage>(&mut self, name: &'static str, stage: S) -> &mut Self {
+    pub fn add_startup_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
         self.app
             .schedule
-            .stage(stage::STARTUP, |schedule: &mut Schedule| {
-                schedule.add_stage(name, stage)
+            .stage(CoreStage::Startup, |schedule: &mut Schedule| {
+                schedule.add_stage(label, stage)
             });
         self
     }
 
     pub fn add_startup_stage_after<S: Stage>(
         &mut self,
-        target: &'static str,
-        name: &'static str,
+        target: impl StageLabel,
+        label: impl StageLabel,
         stage: S,
     ) -> &mut Self {
         self.app
             .schedule
-            .stage(stage::STARTUP, |schedule: &mut Schedule| {
-                schedule.add_stage_after(target, name, stage)
+            .stage(CoreStage::Startup, |schedule: &mut Schedule| {
+                schedule.add_stage_after(target, label, stage)
             });
         self
     }
 
     pub fn add_startup_stage_before<S: Stage>(
         &mut self,
-        target: &'static str,
-        name: &'static str,
+        target: impl StageLabel,
+        label: impl StageLabel,
         stage: S,
     ) -> &mut Self {
         self.app
             .schedule
-            .stage(stage::STARTUP, |schedule: &mut Schedule| {
-                schedule.add_stage_before(target, name, stage)
+            .stage(CoreStage::Startup, |schedule: &mut Schedule| {
+                schedule.add_stage_before(target, label, stage)
             });
         self
     }
 
     pub fn stage<T: Stage, F: FnOnce(&mut T) -> &mut T>(
         &mut self,
-        name: &str,
+        label: impl StageLabel,
         func: F,
     ) -> &mut Self {
-        self.app.schedule.stage(name, func);
+        self.app.schedule.stage(label, func);
         self
     }
 
     pub fn add_system(&mut self, system: impl Into<SystemDescriptor>) -> &mut Self {
-        self.add_system_to_stage(stage::UPDATE, system)
+        self.add_system_to_stage(CoreStage::Update, system)
+    }
+
+    pub fn add_system_set(&mut self, system_set: SystemSet) -> &mut Self {
+        self.add_system_set_to_stage(CoreStage::Update, system_set)
     }
 
     pub fn add_system_to_stage(
         &mut self,
-        stage_name: &'static str,
+        stage_label: impl StageLabel,
         system: impl Into<SystemDescriptor>,
     ) -> &mut Self {
-        self.app.schedule.add_system_to_stage(stage_name, system);
+        self.app.schedule.add_system_to_stage(stage_label, system);
+        self
+    }
+
+    pub fn add_system_set_to_stage(
+        &mut self,
+        stage_label: impl StageLabel,
+        system_set: SystemSet,
+    ) -> &mut Self {
+        self.app
+            .schedule
+            .add_system_set_to_stage(stage_label, system_set);
         self
     }
 
     pub fn add_startup_system(&mut self, system: impl Into<SystemDescriptor>) -> &mut Self {
-        self.add_startup_system_to_stage(startup_stage::STARTUP, system)
+        self.add_startup_system_to_stage(StartupStage::Startup, system)
     }
 
     pub fn add_startup_system_to_stage(
         &mut self,
-        stage_name: &'static str,
+        stage_label: impl StageLabel,
         system: impl Into<SystemDescriptor>,
     ) -> &mut Self {
         self.app
             .schedule
-            .stage(stage::STARTUP, |schedule: &mut Schedule| {
-                schedule.add_system_to_stage(stage_name, system)
+            .stage(CoreStage::Startup, |schedule: &mut Schedule| {
+                schedule.add_system_to_stage(stage_label, system)
             });
         self
     }
 
+    pub fn on_state_enter<T: Clone + Component>(
+        &mut self,
+        stage: impl StageLabel,
+        state: T,
+        system: impl Into<SystemDescriptor>,
+    ) -> &mut Self {
+        self.stage(stage, |stage: &mut StateStage<T>| {
+            stage.on_state_enter(state, system)
+        })
+    }
+
+    pub fn on_state_update<T: Clone + Component>(
+        &mut self,
+        stage: impl StageLabel,
+        state: T,
+        system: impl Into<SystemDescriptor>,
+    ) -> &mut Self {
+        self.stage(stage, |stage: &mut StateStage<T>| {
+            stage.on_state_update(state, system)
+        })
+    }
+
+    pub fn on_state_exit<T: Clone + Component>(
+        &mut self,
+        stage: impl StageLabel,
+        state: T,
+        system: impl Into<SystemDescriptor>,
+    ) -> &mut Self {
+        self.stage(stage, |stage: &mut StateStage<T>| {
+            stage.on_state_exit(state, system)
+        })
+    }
+
     pub fn add_default_stages(&mut self) -> &mut Self {
         self.add_stage(
-            stage::STARTUP,
+            CoreStage::Startup,
             Schedule::default()
                 .with_run_criteria(RunOnce::default())
-                .with_stage(startup_stage::PRE_STARTUP, SystemStage::parallel())
-                .with_stage(startup_stage::STARTUP, SystemStage::parallel())
-                .with_stage(startup_stage::POST_STARTUP, SystemStage::parallel()),
+                .with_stage(StartupStage::PreStartup, SystemStage::parallel())
+                .with_stage(StartupStage::Startup, SystemStage::parallel())
+                .with_stage(StartupStage::PostStartup, SystemStage::parallel()),
         )
-        .add_stage(stage::FIRST, SystemStage::parallel())
-        .add_stage(stage::PRE_EVENT, SystemStage::parallel())
-        .add_stage(stage::EVENT, SystemStage::parallel())
-        .add_stage(stage::PRE_UPDATE, SystemStage::parallel())
-        .add_stage(stage::UPDATE, SystemStage::parallel())
-        .add_stage(stage::POST_UPDATE, SystemStage::parallel())
-        .add_stage(stage::LAST, SystemStage::parallel())
+        .add_stage(CoreStage::First, SystemStage::parallel())
+        .add_stage(CoreStage::PreEvent, SystemStage::parallel())
+        .add_stage(CoreStage::Event, SystemStage::parallel())
+        .add_stage(CoreStage::PreUpdate, SystemStage::parallel())
+        .add_stage(CoreStage::Update, SystemStage::parallel())
+        .add_stage(CoreStage::PostUpdate, SystemStage::parallel())
+        .add_stage(CoreStage::Last, SystemStage::parallel())
     }
 
     pub fn add_event<T>(&mut self) -> &mut Self
     where
-        T: Send + Sync + 'static,
+        T: Component,
     {
         self.insert_resource(Events::<T>::default())
-            .add_system_to_stage(stage::EVENT, Events::<T>::update_system.system())
+            .add_system_to_stage(CoreStage::Event, Events::<T>::update_system.system())
     }
 
     /// Inserts a resource to the current [App] and overwrites any resource previously added of the same type.
     pub fn insert_resource<T>(&mut self, resource: T) -> &mut Self
     where
-        T: Send + Sync + 'static,
+        T: Component,
     {
-        self.app.resources.insert(resource);
+        self.app.world.insert_resource(resource);
         self
     }
 
@@ -194,19 +249,19 @@ impl AppBuilder {
     where
         T: 'static,
     {
-        self.app.resources.insert_non_send(resource);
+        self.app.world.insert_non_send(resource);
         self
     }
 
     pub fn init_resource<R>(&mut self) -> &mut Self
     where
-        R: FromResources + Send + Sync + 'static,
+        R: FromWorld + Send + Sync + 'static,
     {
         // PERF: We could avoid double hashing here, since the `from_resources` call is guaranteed not to
         // modify the map. However, we would need to be borrowing resources both mutably and immutably,
         // so we would need to be extremely certain this is correct
-        if !self.resources().contains::<R>() {
-            let resource = R::from_resources(&self.resources());
+        if !self.world_mut().contains_resource::<R>() {
+            let resource = R::from_world(self.world_mut());
             self.insert_resource(resource);
         }
         self
@@ -214,12 +269,12 @@ impl AppBuilder {
 
     pub fn init_non_send_resource<R>(&mut self) -> &mut Self
     where
-        R: FromResources + 'static,
+        R: FromWorld + 'static,
     {
         // See perf comment in init_resource
-        if self.app.resources.get_non_send::<R>().is_none() {
-            let resource = R::from_resources(&self.app.resources);
-            self.app.resources.insert_non_send(resource);
+        if self.app.world.get_non_send_resource::<R>().is_none() {
+            let resource = R::from_world(self.world_mut());
+            self.app.world.insert_non_send(resource);
         }
         self
     }
@@ -254,6 +309,18 @@ impl AppBuilder {
         group.build(&mut plugin_group_builder);
         func(&mut plugin_group_builder);
         plugin_group_builder.finish(self);
+        self
+    }
+
+    #[cfg(feature = "bevy_reflect")]
+    pub fn register_type<T: bevy_reflect::GetTypeRegistration>(&mut self) -> &mut Self {
+        {
+            let registry = self
+                .world_mut()
+                .get_resource_mut::<bevy_reflect::TypeRegistryArc>()
+                .unwrap();
+            registry.write().register::<T>();
+        }
         self
     }
 }

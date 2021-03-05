@@ -8,7 +8,7 @@ This crate enables you to dynamically interact with Rust types:
 * Look up nested fields using "path strings"
 * Iterate over struct fields
 * Automatically serialize and deserialize via Serde (without explicit serde impls)
-* Trait "reflection" 
+* Trait "reflection"
 
 ## Features
 
@@ -79,7 +79,7 @@ for (i, value: &Reflect) in foo.iter_fields().enumerate() {
     let field_name = foo.name_at(i).unwrap();
     if let Ok(value) = value.downcast_ref::<u32>() {
         println!("{} is a u32 with the value: {}", field_name, *value);
-    } 
+    }
 }
 ```
 

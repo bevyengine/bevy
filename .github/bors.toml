@@ -1,0 +1,12 @@
+status = [
+    "build (stable, windows-latest)",
+    "build (stable, ubuntu-latest)",
+    "build (stable, macos-latest)",
+    "build (nightly, ubuntu-latest)",
+    "build-wasm (stable, ubuntu-latest)",
+    "build-wasm (nightly, ubuntu-latest)",
+    "build-android",
+    "markdownlint",
+]
+
+use_squash_merge = true

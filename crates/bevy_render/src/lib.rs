@@ -10,9 +10,12 @@ pub mod render_graph;
 pub mod renderer;
 pub mod shader;
 pub mod texture;
+pub mod wireframe;
 
-use bevy_ecs::{IntoExclusiveSystem, IntoSystem, SystemStage};
-use bevy_reflect::RegisterTypeBuilder;
+use bevy_ecs::{
+    schedule::SystemStage,
+    system::{IntoExclusiveSystem, IntoSystem},
+};
 use draw::Visible;
 pub use once_cell;
 
@@ -33,7 +36,8 @@ pub mod prelude {
 use crate::prelude::*;
 use base::Msaa;
 use bevy_app::prelude::*;
-use bevy_asset::AddAsset;
+use bevy_asset::{AddAsset, AssetStage};
+use bevy_ecs::schedule::StageLabel;
 use camera::{
     ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection, VisibleEntities,
 };
@@ -42,7 +46,7 @@ use pipeline::{
     ShaderSpecialization,
 };
 use render_graph::{
-    base::{self, BaseRenderGraphBuilder, BaseRenderGraphConfig, MainPass},
+    base::{self, BaseRenderGraphConfig, MainPass},
     RenderGraph,
 };
 use renderer::{AssetRenderResourceBindings, RenderResourceBindings};
@@ -53,15 +57,16 @@ use texture::HdrTextureLoader;
 use texture::ImageTextureLoader;
 
 /// The names of "render" App stages
-pub mod stage {
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+pub enum RenderStage {
     /// Stage where render resources are set up
-    pub const RENDER_RESOURCE: &str = "render_resource";
+    RenderResource,
     /// Stage where Render Graph systems are run. In general you shouldn't add systems to this stage manually.
-    pub const RENDER_GRAPH_SYSTEMS: &str = "render_graph_systems";
+    RenderGraphSystems,
     // Stage where draw systems are executed. This is generally where Draw components are setup
-    pub const DRAW: &str = "draw";
-    pub const RENDER: &str = "render";
-    pub const POST_RENDER: &str = "post_render";
+    Draw,
+    Render,
+    PostRender,
 }
 
 /// Adds core render types and systems to an App
@@ -89,29 +94,32 @@ impl Plugin for RenderPlugin {
             app.init_asset_loader::<HdrTextureLoader>();
         }
 
-        app.init_asset_loader::<ShaderLoader>();
-
-        if app.resources().get::<ClearColor>().is_none() {
-            app.resources_mut().insert(ClearColor::default());
-        }
-
         app.add_stage_after(
-            bevy_asset::stage::ASSET_EVENTS,
-            stage::RENDER_RESOURCE,
+            AssetStage::AssetEvents,
+            RenderStage::RenderResource,
             SystemStage::parallel(),
         )
         .add_stage_after(
-            stage::RENDER_RESOURCE,
-            stage::RENDER_GRAPH_SYSTEMS,
+            RenderStage::RenderResource,
+            RenderStage::RenderGraphSystems,
             SystemStage::parallel(),
         )
         .add_stage_after(
-            stage::RENDER_GRAPH_SYSTEMS,
-            stage::DRAW,
+            RenderStage::RenderGraphSystems,
+            RenderStage::Draw,
             SystemStage::parallel(),
         )
-        .add_stage_after(stage::DRAW, stage::RENDER, SystemStage::parallel())
-        .add_stage_after(stage::RENDER, stage::POST_RENDER, SystemStage::parallel())
+        .add_stage_after(
+            RenderStage::Draw,
+            RenderStage::Render,
+            SystemStage::parallel(),
+        )
+        .add_stage_after(
+            RenderStage::Render,
+            RenderStage::PostRender,
+            SystemStage::parallel(),
+        )
+        .init_asset_loader::<ShaderLoader>()
         .add_asset::<Mesh>()
         .add_asset::<Texture>()
         .add_asset::<Shader>()
@@ -129,62 +137,59 @@ impl Plugin for RenderPlugin {
         .register_type::<PrimitiveTopology>()
         .register_type::<IndexFormat>()
         .register_type::<PipelineSpecialization>()
+        .init_resource::<ClearColor>()
         .init_resource::<RenderGraph>()
         .init_resource::<PipelineCompiler>()
+        .init_resource::<Msaa>()
         .init_resource::<RenderResourceBindings>()
         .init_resource::<AssetRenderResourceBindings>()
         .init_resource::<ActiveCameras>()
+        .add_system_to_stage(CoreStage::PreUpdate, draw::clear_draw_system.system())
         .add_system_to_stage(
-            bevy_app::stage::PRE_UPDATE,
-            draw::clear_draw_system.system(),
-        )
-        .add_system_to_stage(
-            bevy_app::stage::POST_UPDATE,
+            CoreStage::PostUpdate,
             camera::active_cameras_system.system(),
         )
         .add_system_to_stage(
-            bevy_app::stage::POST_UPDATE,
+            CoreStage::PostUpdate,
             camera::camera_system::<OrthographicProjection>.system(),
         )
         .add_system_to_stage(
-            bevy_app::stage::POST_UPDATE,
+            CoreStage::PostUpdate,
             camera::camera_system::<PerspectiveProjection>.system(),
         )
         // registration order matters here. this must come after all camera_system::<T> systems
         .add_system_to_stage(
-            bevy_app::stage::POST_UPDATE,
+            CoreStage::PostUpdate,
             camera::visible_entities_system.system(),
         )
         .add_system_to_stage(
-            stage::RENDER_RESOURCE,
+            RenderStage::RenderResource,
             shader::shader_update_system.system(),
         )
         .add_system_to_stage(
-            stage::RENDER_RESOURCE,
+            RenderStage::RenderResource,
             mesh::mesh_resource_provider_system.system(),
         )
         .add_system_to_stage(
-            stage::RENDER_RESOURCE,
+            RenderStage::RenderResource,
             Texture::texture_resource_system.system(),
         )
         .add_system_to_stage(
-            stage::RENDER_GRAPH_SYSTEMS,
+            RenderStage::RenderGraphSystems,
             render_graph::render_graph_schedule_executor_system.exclusive_system(),
         )
-        .add_system_to_stage(stage::DRAW, pipeline::draw_render_pipelines_system.system())
         .add_system_to_stage(
-            stage::POST_RENDER,
+            RenderStage::Draw,
+            pipeline::draw_render_pipelines_system.system(),
+        )
+        .add_system_to_stage(
+            RenderStage::PostRender,
             shader::clear_shader_defs_system.system(),
         );
 
-        app.init_resource::<Msaa>();
-
         if let Some(ref config) = self.base_render_graph_config {
-            let resources = app.resources();
-            let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-            let msaa = resources.get::<Msaa>().unwrap();
-            render_graph.add_base_graph(config, &msaa);
-            let mut active_cameras = resources.get_mut::<ActiveCameras>().unwrap();
+            crate::base::add_base_graph(config, app.world_mut());
+            let mut active_cameras = app.world_mut().get_resource_mut::<ActiveCameras>().unwrap();
             if config.add_3d_camera {
                 active_cameras.add(base::camera::CAMERA_3D);
             }

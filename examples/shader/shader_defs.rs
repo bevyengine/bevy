@@ -18,7 +18,7 @@ fn main() {
         .add_asset::<MyMaterial>()
         .add_startup_system(setup.system())
         .add_system_to_stage(
-            stage::POST_UPDATE,
+            CoreStage::PostUpdate,
             asset_shader_defs_system::<MyMaterial>.system(),
         )
         .run();
@@ -63,7 +63,7 @@ void main() {
 "#;
 
 fn setup(
-    commands: &mut Commands,
+    mut commands: Commands,
     mut pipelines: ResMut<Assets<PipelineDescriptor>>,
     mut shaders: ResMut<Assets<Shader>>,
     mut meshes: ResMut<Assets<Mesh>>,

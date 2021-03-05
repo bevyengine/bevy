@@ -1,4 +1,4 @@
-use bevy_ecs::ResMut;
+use bevy_ecs::system::ResMut;
 use bevy_utils::{Duration, Instant};
 
 /// Tracks elapsed time since the last update and since the App has started
@@ -89,6 +89,7 @@ pub(crate) fn time_system(mut time: ResMut<Time>) {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)]
 mod tests {
     use super::Time;
     use bevy_utils::{Duration, Instant};

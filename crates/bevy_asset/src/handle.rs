@@ -9,7 +9,8 @@ use crate::{
     path::{AssetPath, AssetPathId},
     Asset, Assets,
 };
-use bevy_reflect::{Reflect, ReflectComponent, ReflectDeserialize};
+use bevy_ecs::reflect::ReflectComponent;
+use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_utils::Uuid;
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};

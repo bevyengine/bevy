@@ -19,7 +19,7 @@ fn main() {
 
 struct TextChanges;
 
-fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
+fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     commands.spawn(UiCameraBundle::default());
     commands.spawn(TextBundle {

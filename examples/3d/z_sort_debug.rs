@@ -34,7 +34,7 @@ fn camera_order_color_system(
         for visible_entity in visible_entities.iter() {
             if let Ok(material_handle) = material_query.get(visible_entity.entity) {
                 let material = materials.get_mut(&*material_handle).unwrap();
-                let value = 1.0 - (visible_entity.order.0 - 10.0) / 7.0;
+                let value = 1.0 - (visible_entity.order.0.sqrt() - 10.0) / 7.0;
                 material.albedo = Color::rgb(value, value, value);
             }
         }
@@ -42,7 +42,7 @@ fn camera_order_color_system(
 }
 
 fn setup(
-    commands: &mut Commands,
+    mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {

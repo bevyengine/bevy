@@ -1,6 +1,6 @@
 use crate::{ElementState, Input};
-use bevy_app::prelude::*;
-use bevy_ecs::ResMut;
+use bevy_app::EventReader;
+use bevy_ecs::system::ResMut;
 
 /// A key input event from a keyboard device
 #[derive(Debug, Clone)]
@@ -196,7 +196,7 @@ pub enum KeyCode {
     NumpadComma,
     NumpadEnter,
     NumpadEquals,
-    OEM102,
+    Oem102,
     Period,
     PlayPause,
     Power,

@@ -6,17 +6,18 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .init_resource::<ButtonMaterials>()
         .insert_resource(State::new(AppState::Menu))
-        .add_stage_after(stage::UPDATE, STAGE, StateStage::<AppState>::default())
-        .on_state_enter(STAGE, AppState::Menu, setup_menu.system())
-        .on_state_update(STAGE, AppState::Menu, menu.system())
-        .on_state_exit(STAGE, AppState::Menu, cleanup_menu.system())
-        .on_state_enter(STAGE, AppState::InGame, setup_game.system())
-        .on_state_update(STAGE, AppState::InGame, movement.system())
-        .on_state_update(STAGE, AppState::InGame, change_color.system())
+        .add_stage_after(CoreStage::Update, Stage, StateStage::<AppState>::default())
+        .on_state_enter(Stage, AppState::Menu, setup_menu.system())
+        .on_state_update(Stage, AppState::Menu, menu.system())
+        .on_state_exit(Stage, AppState::Menu, cleanup_menu.system())
+        .on_state_enter(Stage, AppState::InGame, setup_game.system())
+        .on_state_update(Stage, AppState::InGame, movement.system())
+        .on_state_update(Stage, AppState::InGame, change_color.system())
         .run();
 }
 
-const STAGE: &str = "app_state";
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+struct Stage;
 
 #[derive(Clone)]
 enum AppState {
@@ -29,7 +30,7 @@ struct MenuData {
 }
 
 fn setup_menu(
-    commands: &mut Commands,
+    mut commands: Commands,
     asset_server: Res<AssetServer>,
     button_materials: Res<ButtonMaterials>,
 ) {
@@ -93,12 +94,12 @@ fn menu(
     }
 }
 
-fn cleanup_menu(commands: &mut Commands, menu_data: Res<MenuData>) {
+fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
     commands.despawn_recursive(menu_data.button_entity);
 }
 
 fn setup_game(
-    commands: &mut Commands,
+    mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
@@ -157,9 +158,9 @@ struct ButtonMaterials {
     pressed: Handle<ColorMaterial>,
 }
 
-impl FromResources for ButtonMaterials {
-    fn from_resources(resources: &Resources) -> Self {
-        let mut materials = resources.get_mut::<Assets<ColorMaterial>>().unwrap();
+impl FromWorld for ButtonMaterials {
+    fn from_world(world: &mut World) -> Self {
+        let mut materials = world.get_resource_mut::<Assets<ColorMaterial>>().unwrap();
         ButtonMaterials {
             normal: materials.add(Color::rgb(0.15, 0.15, 0.15).into()),
             hovered: materials.add(Color::rgb(0.25, 0.25, 0.25).into()),

@@ -1,6 +1,7 @@
 use super::GlobalTransform;
+use bevy_ecs::reflect::ReflectComponent;
 use bevy_math::{Mat3, Mat4, Quat, Vec3};
-use bevy_reflect::{Reflect, ReflectComponent};
+use bevy_reflect::Reflect;
 use std::ops::Mul;
 
 #[derive(Debug, PartialEq, Clone, Copy, Reflect)]
@@ -75,33 +76,21 @@ impl Transform {
     }
 
     #[inline]
-    pub fn right(&self) -> Vec3 {
+    /// Get the unit vector in the local x direction
+    pub fn local_x(&self) -> Vec3 {
         self.rotation * Vec3::unit_x()
     }
 
     #[inline]
-    pub fn left(&self) -> Vec3 {
-        -self.right()
-    }
-
-    #[inline]
-    pub fn up(&self) -> Vec3 {
+    /// Get the unit vector in the local y direction
+    pub fn local_y(&self) -> Vec3 {
         self.rotation * Vec3::unit_y()
     }
 
     #[inline]
-    pub fn down(&self) -> Vec3 {
-        -self.up()
-    }
-
-    #[inline]
-    pub fn forward(&self) -> Vec3 {
+    /// Get the unit vector in the local z direction
+    pub fn local_z(&self) -> Vec3 {
         self.rotation * Vec3::unit_z()
-    }
-
-    #[inline]
-    pub fn backward(&self) -> Vec3 {
-        -self.forward()
     }
 
     #[inline]
