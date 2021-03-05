@@ -4,7 +4,7 @@ use crate::{
 };
 
 use bevy_reflect_derive::impl_reflect_value;
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{Duration, HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use std::{
     any::Any,
@@ -32,6 +32,7 @@ impl_reflect_value!(String(Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(Option<T: Serialize + Clone + for<'de> Deserialize<'de> + Reflect + 'static>(Serialize, Deserialize));
 impl_reflect_value!(HashSet<T: Serialize + Hash + Eq + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
 impl_reflect_value!(Range<T: Serialize + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
+impl_reflect_value!(Duration);
 
 impl<T: Reflect> List for Vec<T> {
     fn get(&self, index: usize) -> Option<&dyn Reflect> {

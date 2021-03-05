@@ -64,7 +64,7 @@ fn atlas_render_system(
 }
 
 fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Query<&mut Text>) {
-    if state.timer.tick(time.delta_seconds()).finished() {
+    if state.timer.tick(time.delta()).finished() {
         for mut text in query.iter_mut() {
             let c = rand::random::<u8>() as char;
             if !text.sections[0].value.contains(c) {
