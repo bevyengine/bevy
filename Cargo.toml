@@ -124,6 +124,10 @@ name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
 
 [[example]]
+name = "mesh"
+path = "examples/2d/mesh.rs"
+
+[[example]]
 name = "msaa"
 path = "examples/3d/msaa.rs"
 
