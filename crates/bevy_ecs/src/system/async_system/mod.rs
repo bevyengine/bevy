@@ -21,7 +21,6 @@ mod parallel_access;
 
 use async_channel::{Receiver, Sender};
 use std::{
-    any::TypeId,
     borrow::Cow,
     future::Future,
     marker::PhantomData,
@@ -343,12 +342,12 @@ impl<T> Default for OpaquePhantomData<T> {
 #[cfg(test)]
 mod test {
     use super::{Accessor, AsyncSystem};
-    use crate::prelude::*;
+    use crate::{prelude::*, system::CommandQueue};
     use bevy_tasks::{AsyncComputeTaskPool, TaskPoolBuilder};
 
     async fn complex_async_system(
         mut access_1: Accessor<(Res<'_, u32>, ResMut<'_, String>)>,
-        mut access_2: Accessor<Res<'_, String>>,
+        mut access_2: Accessor<(Res<'_, String>,)>,
     ) {
         loop {
             let mut x = None;
@@ -369,7 +368,7 @@ mod test {
         }
     }
 
-    async fn simple_async_system(mut accessor: Accessor<Query<'_, (&u32, &i64)>>) {
+    async fn simple_async_system(mut accessor: Accessor<(Query<'_, (&u32, &i64)>,)>) {
         accessor
             .access(|query: Query<'_, (&u32, &i64)>| {
                 for res in query.iter() {
@@ -386,8 +385,8 @@ mod test {
     fn run_async_system() {
         let mut world = World::new();
 
-        let mut commands = Commands::default();
-        commands.set_entity_reserver(world.get_entity_reserver());
+        let cq = CommandQueue::default();
+        let mut commands = Commands::new(&mut cq, &world);
 
         commands
             .spawn((3u32, 5i64))
@@ -400,7 +399,7 @@ mod test {
                     .build(),
             ));
 
-        commands.apply(&mut world);
+        cq.apply(&mut world);
 
         let ((sync_1, sync_2), mut handle, future) = complex_async_system.systems();
         let tp = world.get_resource_mut::<AsyncComputeTaskPool>().unwrap();

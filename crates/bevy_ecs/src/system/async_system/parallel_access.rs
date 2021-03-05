@@ -58,28 +58,29 @@ impl<P: SystemParam> Clone for Accessor<P> {
     }
 }
 
-pub trait AccessFn<Out, Param: SystemParam>: Send + Sync {
+pub trait AccessFn<'a, Out, Param: SystemParam>: Send + Sync {
     fn run(
         self: Box<Self>,
-        state: &mut Param::Fetch,
-        system_state: &SystemState,
-        world: &World,
+        state: &'a mut Param::Fetch,
+        system_state: &'a SystemState,
+        world: &'a World,
     ) -> Out;
 }
 
 macro_rules! impl_system_function {
     ($($param: ident),*) => {
         #[allow(non_snake_case)]
-        impl<Out, Func, $($param: SystemParam),*> AccessFn<Out, ($($param,)*)> for Func
+        impl<'a, Out, Func, $($param: SystemParam),*> AccessFn<'a, Out, ($($param,)*)> for Func
         where
             Func:
                 FnOnce($($param),*) -> Out +
-                FnOnce($(<<$param as SystemParam>::Fetch as SystemParamFetch>::Item),*) -> Out + Send + Sync, Out: 'static
+                FnOnce($(<<$param as SystemParam>::Fetch as SystemParamFetch<'a>>::Item),*) -> Out + Send + Sync, 
+            Out: 'static
         {
             #[inline]
-            fn run(self: Box<Self>, state: &mut <($($param,)*) as SystemParam>::Fetch, system_state: &SystemState, world: &World) -> Out {
+            fn run(self: Box<Self>, state: &'a mut <($($param,)*) as SystemParam>::Fetch, system_state: &'a SystemState, world: &'a World) -> Out {
                 unsafe {
-                    let ($($param,)*) = <<($($param,)*) as SystemParam>::Fetch as SystemParamFetch>::get_param(state, system_state, world);
+                    let ($($param,)*) = <<($($param,)*) as SystemParam>::Fetch as SystemParamFetch<'a>>::get_param(state, system_state, world);
                     self($($param),*)
                 }
             }
@@ -92,7 +93,7 @@ all_tuples!(impl_system_function, 0, 12, F);
 impl<P: SystemParam> Accessor<P> {
     pub fn access<'env, R: Send + Sync + 'static>(
         &mut self,
-        sync: impl AccessFn<R, P> + Send + Sync + 'env,
+        sync: impl for<'a> AccessFn<'a, R, P> + Send + Sync + 'env,
     ) -> impl Future<Output = R> + Send + Sync + 'env
     where
         P: 'env,
@@ -107,7 +108,7 @@ impl<P: SystemParam> Accessor<P> {
 }
 
 struct ParallelAccess<'env, P: SystemParam, Out> {
-    inner: Arc<Mutex<Option<Box<dyn AccessFn<Out, P> + Send + Sync + 'env>>>>,
+    inner: Arc<Mutex<Option<Box<dyn for<'a> AccessFn<'a, Out, P> + Send + Sync + 'env>>>>,
     tx: Sender<Out>,
     waker: Waker,
 }
@@ -136,12 +137,12 @@ impl<'env, P: SystemParam, Out: Send + Sync + 'env> GenericAccess<P>
 
 enum AccessFutureState<'env, P, R> {
     FirstPoll {
-        boxed: Box<dyn AccessFn<R, P> + Send + Sync + 'env>,
+        boxed: Box<dyn for<'a> AccessFn<'a, R, P> + Send + Sync + 'env>,
         tx: Sender<Box<dyn GenericAccess<P>>>,
     },
     WaitingForCompletion(
         Receiver<R>,
-        Arc<Mutex<Option<Box<dyn AccessFn<R, P> + Send + Sync + 'env>>>>,
+        Arc<Mutex<Option<Box<dyn for<'a> AccessFn<'a, R, P> + Send + Sync + 'env>>>>,
     ),
 }
 
