@@ -10,7 +10,7 @@ fn main() {
         .run();
 }
 
-fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Load our mesh:
     let scene_handle = asset_server.load("models/monkey/Monkey.gltf#Scene0");
 

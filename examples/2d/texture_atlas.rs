@@ -44,7 +44,7 @@ fn check_textures(
 }
 
 fn setup(
-    commands: &mut Commands,
+    mut commands: Commands,
     rpg_sprite_handles: Res<RpgSpriteHandles>,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,

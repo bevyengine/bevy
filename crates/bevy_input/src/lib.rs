@@ -7,7 +7,7 @@ pub mod system;
 pub mod touch;
 
 pub use axis::*;
-use bevy_ecs::IntoSystem;
+use bevy_ecs::system::IntoSystem;
 pub use input::*;
 
 pub mod prelude {

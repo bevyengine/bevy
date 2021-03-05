@@ -1,6 +1,9 @@
 use crate::Node;
 use bevy_core::FloatOrd;
-use bevy_ecs::prelude::*;
+use bevy_ecs::{
+    entity::Entity,
+    system::{Local, Query, Res},
+};
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_transform::components::GlobalTransform;
 use bevy_window::Windows;

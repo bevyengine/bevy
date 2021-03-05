@@ -1,7 +1,7 @@
 use crate::serde::SceneDeserializer;
 use anyhow::Result;
 use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
-use bevy_ecs::{FromResources, Resources};
+use bevy_ecs::world::{FromWorld, World};
 use bevy_reflect::TypeRegistryArc;
 use bevy_utils::BoxedFuture;
 use serde::de::DeserializeSeed;
@@ -11,9 +11,9 @@ pub struct SceneLoader {
     type_registry: TypeRegistryArc,
 }
 
-impl FromResources for SceneLoader {
-    fn from_resources(resources: &Resources) -> Self {
-        let type_registry = resources.get::<TypeRegistryArc>().unwrap();
+impl FromWorld for SceneLoader {
+    fn from_world(world: &mut World) -> Self {
+        let type_registry = world.get_resource::<TypeRegistryArc>().unwrap();
         SceneLoader {
             type_registry: (&*type_registry).clone(),
         }

@@ -1,5 +1,5 @@
 use bevy_app::EventReader;
-use bevy_ecs::ResMut;
+use bevy_ecs::system::ResMut;
 use bevy_math::Vec2;
 use bevy_utils::HashMap;
 

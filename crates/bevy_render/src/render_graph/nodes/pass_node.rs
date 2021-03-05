@@ -13,9 +13,12 @@ use crate::{
     },
 };
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::{ReadOnlyFetch, Resources, World, WorldQuery};
+use bevy_ecs::{
+    query::{QueryState, ReadOnlyFetch, WorldQuery},
+    world::World,
+};
 use bevy_utils::tracing::debug;
-use std::{fmt, marker::PhantomData, ops::Deref};
+use std::{fmt, ops::Deref};
 
 #[derive(Debug)]
 struct CameraInfo {
@@ -32,7 +35,7 @@ pub struct PassNode<Q: WorldQuery> {
     depth_stencil_attachment_input_index: Option<usize>,
     default_clear_color_inputs: Vec<usize>,
     camera_bind_group_descriptor: BindGroupDescriptor,
-    _marker: PhantomData<Q>,
+    query_state: Option<QueryState<Q>>,
 }
 
 impl<Q: WorldQuery> fmt::Debug for PassNode<Q> {
@@ -125,7 +128,7 @@ impl<Q: WorldQuery> PassNode<Q> {
             depth_stencil_attachment_input_index,
             default_clear_color_inputs: Vec::new(),
             camera_bind_group_descriptor,
-            _marker: PhantomData::default(),
+            query_state: None,
         }
     }
 
@@ -149,21 +152,24 @@ where
         &self.inputs
     }
 
+    fn prepare(&mut self, world: &mut World) {
+        self.query_state.get_or_insert_with(|| world.query());
+    }
+
     fn update(
         &mut self,
         world: &World,
-        resources: &Resources,
         render_context: &mut dyn RenderContext,
         input: &ResourceSlots,
         _output: &mut ResourceSlots,
     ) {
-        let render_resource_bindings = resources.get::<RenderResourceBindings>().unwrap();
-        let pipelines = resources.get::<Assets<PipelineDescriptor>>().unwrap();
-        let active_cameras = resources.get::<ActiveCameras>().unwrap();
+        let render_resource_bindings = world.get_resource::<RenderResourceBindings>().unwrap();
+        let pipelines = world.get_resource::<Assets<PipelineDescriptor>>().unwrap();
+        let active_cameras = world.get_resource::<ActiveCameras>().unwrap();
 
         for (i, color_attachment) in self.descriptor.color_attachments.iter_mut().enumerate() {
             if self.default_clear_color_inputs.contains(&i) {
-                if let Some(default_clear_color) = resources.get::<ClearColor>() {
+                if let Some(default_clear_color) = world.get_resource::<ClearColor>() {
                     color_attachment.ops.load = LoadOp::Clear(default_clear_color.0);
                 }
             }
@@ -205,11 +211,14 @@ where
             }
         }
 
+        let query_state = self.query_state.as_mut().unwrap();
+        let cameras = &self.cameras;
+        let camera_bind_group_descriptor = &self.camera_bind_group_descriptor;
         render_context.begin_pass(
             &self.descriptor,
             &render_resource_bindings,
             &mut |render_pass| {
-                for camera_info in self.cameras.iter() {
+                for camera_info in cameras.iter() {
                     let camera_bind_group_id= if let Some(bind_group_id) = camera_info.bind_group_id {
                         bind_group_id
                     } else {
@@ -226,18 +235,18 @@ where
                     // attempt to draw each visible entity
                     let mut draw_state = DrawState::default();
                     for visible_entity in visible_entities.iter() {
-                        if world.query_one::<Q>(visible_entity.entity).is_err() {
+                        if query_state.get(world, visible_entity.entity).is_err() {
                             // visible entity does not match the Pass query
                             continue;
                         }
 
-                        let draw = if let Ok(draw) = world.get::<Draw>(visible_entity.entity) {
+                        let draw = if let Some(draw) = world.get::<Draw>(visible_entity.entity) {
                             draw
                         } else {
                             continue;
                         };
 
-                        if let Ok(visible) = world.get::<Visible>(visible_entity.entity) {
+                        if let Some(visible) = world.get::<Visible>(visible_entity.entity) {
                             if !visible.is_visible {
                                 continue;
                             }
@@ -257,7 +266,7 @@ where
                                     // try to set current camera bind group
                                     let layout = descriptor.get_layout().unwrap();
                                     if let Some(descriptor) = layout.get_bind_group(0) {
-                                        if *descriptor == self.camera_bind_group_descriptor {
+                                        if descriptor == camera_bind_group_descriptor {
                                             draw_state.set_bind_group(0, camera_bind_group_id);
                                             render_pass.set_bind_group(
                                                 0,

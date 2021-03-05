@@ -4,7 +4,7 @@ use crate::{
     texture::TextureDescriptor,
 };
 use bevy_app::{prelude::Events, ManualEventReader};
-use bevy_ecs::{Resources, World};
+use bevy_ecs::world::World;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use std::borrow::Cow;
 
@@ -39,16 +39,15 @@ impl Node for WindowTextureNode {
 
     fn update(
         &mut self,
-        _world: &World,
-        resources: &Resources,
+        world: &World,
         render_context: &mut dyn RenderContext,
         _input: &ResourceSlots,
         output: &mut ResourceSlots,
     ) {
         const WINDOW_TEXTURE: usize = 0;
-        let window_created_events = resources.get::<Events<WindowCreated>>().unwrap();
-        let window_resized_events = resources.get::<Events<WindowResized>>().unwrap();
-        let windows = resources.get::<Windows>().unwrap();
+        let window_created_events = world.get_resource::<Events<WindowCreated>>().unwrap();
+        let window_resized_events = world.get_resource::<Events<WindowResized>>().unwrap();
+        let windows = world.get_resource::<Windows>().unwrap();
 
         let window = windows
             .get(self.window_id)

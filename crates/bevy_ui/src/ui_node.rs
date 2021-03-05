@@ -1,5 +1,6 @@
+use bevy_ecs::reflect::ReflectComponent;
 use bevy_math::{Rect, Size, Vec2};
-use bevy_reflect::{Reflect, ReflectComponent, ReflectDeserialize};
+use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_render::renderer::RenderResources;
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign};
@@ -153,8 +154,8 @@ impl Default for AlignContent {
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum Direction {
     Inherit,
-    LTR,
-    RTL,
+    Ltr,
+    Rtl,
 }
 
 impl Default for Direction {

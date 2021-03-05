@@ -9,7 +9,7 @@ fn main() {
 }
 
 fn setup(
-    commands: &mut Commands,
+    mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
@@ -89,7 +89,7 @@ fn setup(
 
 // A simple system to rotate the root entity, and rotate all its children separately
 fn rotate(
-    commands: &mut Commands,
+    mut commands: Commands,
     time: Res<Time>,
     mut parents_query: Query<(Entity, &Children), With<Sprite>>,
     mut transform_query: Query<&mut Transform, With<Sprite>>,
