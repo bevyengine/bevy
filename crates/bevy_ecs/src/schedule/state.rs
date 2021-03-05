@@ -25,10 +25,10 @@ enum StateTransition<T: Component + Clone + Eq> {
     Startup,
     // The parameter order is always (leaving, entering)
     ExitingToResume(T, T),
-    ExitingFull(T, T /**/),
+    ExitingFull(T, T),
     Entering(T, T),
     Resuming(T, T),
-    Pausing(T, T /**/),
+    Pausing(T, T),
 }
 
 #[derive(Debug)]
