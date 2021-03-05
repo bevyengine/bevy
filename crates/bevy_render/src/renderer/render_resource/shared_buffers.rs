@@ -3,7 +3,7 @@ use crate::{
     render_graph::CommandQueue,
     renderer::{BufferMapMode, BufferUsage, RenderContext, RenderResourceContext},
 };
-use bevy_ecs::{Res, ResMut};
+use bevy_ecs::system::{Res, ResMut};
 
 pub struct SharedBuffers {
     staging_buffer: Option<BufferId>,
@@ -119,12 +119,15 @@ impl SharedBuffers {
         }
     }
 
-    pub fn apply(&mut self, render_context: &mut dyn RenderContext) {
+    pub fn apply(&self, render_context: &mut dyn RenderContext) {
         if let Some(staging_buffer) = self.staging_buffer {
             render_context.resources().unmap_buffer(staging_buffer);
         }
-        let mut command_queue = std::mem::take(&mut self.command_queue);
-        command_queue.execute(render_context);
+        self.command_queue.execute(render_context);
+    }
+
+    pub fn command_queue_mut(&mut self) -> &mut CommandQueue {
+        &mut self.command_queue
     }
 }
 

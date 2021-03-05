@@ -1,5 +1,8 @@
 use crate::app_builder::AppBuilder;
-use bevy_ecs::{Resources, Schedule, Stage, World};
+use bevy_ecs::{
+    schedule::{Schedule, Stage},
+    world::World,
+};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
@@ -27,7 +30,6 @@ use bevy_utils::tracing::info_span;
 /// ```
 pub struct App {
     pub world: World,
-    pub resources: Resources,
     pub runner: Box<dyn Fn(App)>,
     pub schedule: Schedule,
 }
@@ -36,7 +38,6 @@ impl Default for App {
     fn default() -> Self {
         Self {
             world: Default::default(),
-            resources: Default::default(),
             schedule: Default::default(),
             runner: Box::new(run_once),
         }
@@ -53,7 +54,7 @@ impl App {
     }
 
     pub fn update(&mut self) {
-        self.schedule.run(&mut self.world, &mut self.resources);
+        self.schedule.run(&mut self.world);
     }
 
     pub fn run(mut self) {

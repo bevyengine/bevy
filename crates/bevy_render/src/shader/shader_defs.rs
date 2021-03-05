@@ -2,7 +2,7 @@ use bevy_asset::{Asset, Assets, Handle};
 
 use crate::{pipeline::RenderPipelines, Texture};
 pub use bevy_derive::ShaderDefs;
-use bevy_ecs::{Query, Res};
+use bevy_ecs::system::{Query, Res};
 
 /// Something that can either be "defined" or "not defined". This is used to determine if a "shader def" should be considered "defined"
 pub trait ShaderDef {

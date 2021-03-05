@@ -8,7 +8,7 @@ fn main() {
         .run();
 }
 
-fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn_scene(asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"))
         .spawn(LightBundle {

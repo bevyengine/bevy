@@ -95,7 +95,7 @@ Additionally, it can be helpful to list:
 
 ### Tests and CI
 
-Tests are always good! For CI, you can check [this example](https://github.com/actions-rs/meta/blob/main/recipes/quickstart.md) for a quickstart using GitHub Actions. As Bevy has additional Linux dependencies, you should install them before building your project, [here is how Bevy is doing it](https://github.com/bevyengine/bevy/blob/cf0e9f9968bb1bceb92a61cd773478675d35cbd6/.github/workflows/ci.yml#L39). Even if you don't have many (or any) tests, setting up CI will compile check your plugin and ensure a basic level of quality.
+Tests are always good! For CI, you can check [this example](https://github.com/actions-rs/meta/blob/master/recipes/quickstart.md) for a quickstart using GitHub Actions. As Bevy has additional Linux dependencies, you should install them before building your project, [here is how Bevy is doing it](https://github.com/bevyengine/bevy/blob/cf0e9f9968bb1bceb92a61cd773478675d35cbd6/.github/workflows/ci.yml#L39). Even if you don't have many (or any) tests, setting up CI will compile check your plugin and ensure a basic level of quality.
 
 ### Publishing your Plugin
 

@@ -9,6 +9,7 @@ pub mod update;
 pub mod widget;
 
 pub use anchors::*;
+use bevy_render::RenderStage;
 pub use flex::*;
 pub use focus::*;
 pub use margins::*;
@@ -21,9 +22,9 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::{
-    IntoSystem, ParallelSystemDescriptorCoercion, StageLabel, SystemLabel, SystemStage,
+    schedule::{ParallelSystemDescriptorCoercion, StageLabel, SystemLabel, SystemStage},
+    system::IntoSystem,
 };
-use bevy_render::{render_graph::RenderGraph, RenderStage};
 use update::ui_z_system;
 
 #[derive(Default)]
@@ -61,8 +62,6 @@ impl Plugin for UiPlugin {
             .add_system_to_stage(UiStage::Ui, ui_z_system.system())
             .add_system_to_stage(RenderStage::Draw, widget::draw_text_system.system());
 
-        let resources = app.resources();
-        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-        render_graph.add_ui_graph(resources);
+        crate::render::add_ui_graph(app.world_mut());
     }
 }

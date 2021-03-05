@@ -1,211 +1,62 @@
-use super::SystemId;
 use crate::{
-    resource::{Resource, Resources},
-    Bundle, Component, ComponentError, DynamicBundle, Entity, EntityReserver, World,
+    bundle::Bundle,
+    component::Component,
+    entity::{Entities, Entity},
+    world::World,
 };
-use bevy_utils::tracing::{debug, warn};
+use bevy_utils::tracing::debug;
 use std::marker::PhantomData;
 
 /// A [World] mutation
-pub trait Command: Send + Sync {
-    fn write(self: Box<Self>, world: &mut World, resources: &mut Resources);
+pub trait Command: Send + Sync + 'static {
+    fn write(self: Box<Self>, world: &mut World);
 }
 
-#[derive(Debug)]
-pub(crate) struct Spawn<T>
-where
-    T: DynamicBundle + Send + Sync + 'static,
-{
-    bundle: T,
-}
-
-impl<T> Command for Spawn<T>
-where
-    T: DynamicBundle + Send + Sync + 'static,
-{
-    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
-        world.spawn(self.bundle);
-    }
-}
-
-pub(crate) struct SpawnBatch<I>
-where
-    I: IntoIterator,
-    I::Item: Bundle,
-{
-    bundles_iter: I,
-}
-
-impl<I> Command for SpawnBatch<I>
-where
-    I: IntoIterator + Send + Sync,
-    I::Item: Bundle,
-{
-    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
-        world.spawn_batch(self.bundles_iter);
-    }
-}
-
-#[derive(Debug)]
-pub(crate) struct Despawn {
-    entity: Entity,
-}
-
-impl Command for Despawn {
-    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
-        if let Err(e) = world.despawn(self.entity) {
-            debug!("Failed to despawn entity {:?}: {}", self.entity, e);
-        }
-    }
-}
-
-pub struct Insert<T>
-where
-    T: DynamicBundle + Send + Sync + 'static,
-{
-    entity: Entity,
-    bundle: T,
-}
-
-impl<T> Command for Insert<T>
-where
-    T: DynamicBundle + Send + Sync + 'static,
-{
-    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
-        world.insert(self.entity, self.bundle).unwrap();
-    }
-}
-
-#[derive(Debug)]
-pub(crate) struct InsertOne<T>
-where
-    T: Component,
-{
-    entity: Entity,
-    component: T,
-}
-
-impl<T> Command for InsertOne<T>
-where
-    T: Component,
-{
-    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
-        world.insert(self.entity, (self.component,)).unwrap();
-    }
-}
-
-#[derive(Debug)]
-pub(crate) struct RemoveOne<T>
-where
-    T: Component,
-{
-    entity: Entity,
-    phantom: PhantomData<T>,
-}
-
-impl<T> Command for RemoveOne<T>
-where
-    T: Component,
-{
-    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
-        if world.get::<T>(self.entity).is_ok() {
-            world.remove_one::<T>(self.entity).unwrap();
-        }
-    }
-}
-
-#[derive(Debug)]
-pub(crate) struct Remove<T>
-where
-    T: Bundle + Send + Sync + 'static,
-{
-    entity: Entity,
-    phantom: PhantomData<T>,
-}
-
-impl<T> Command for Remove<T>
-where
-    T: Bundle + Send + Sync + 'static,
-{
-    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
-        match world.remove::<T>(self.entity) {
-            Ok(_) => (),
-            Err(ComponentError::MissingComponent(e)) => {
-                warn!(
-                    "Failed to remove components {:?} with error: {}. Falling back to inefficient one-by-one component removing.",
-                    std::any::type_name::<T>(),
-                    e
-                );
-                if let Err(e) = world.remove_one_by_one::<T>(self.entity) {
-                    debug!(
-                        "Failed to remove components {:?} with error: {}",
-                        std::any::type_name::<T>(),
-                        e
-                    );
-                }
-            }
-            Err(e) => {
-                debug!(
-                    "Failed to remove components {:?} with error: {}",
-                    std::any::type_name::<T>(),
-                    e
-                );
-            }
-        }
-    }
-}
-
-pub struct InsertResource<T: Resource> {
-    resource: T,
-}
-
-impl<T: Resource> Command for InsertResource<T> {
-    fn write(self: Box<Self>, _world: &mut World, resources: &mut Resources) {
-        resources.insert(self.resource);
-    }
-}
-
-pub struct RemoveResource<T: Resource> {
-    phantom: PhantomData<T>,
-}
-
-impl<T: Resource> Command for RemoveResource<T> {
-    fn write(self: Box<Self>, _world: &mut World, resources: &mut Resources) {
-        resources.remove::<T>();
-    }
-}
-
-#[derive(Debug)]
-pub(crate) struct InsertLocalResource<T: Resource> {
-    resource: T,
-    system_id: SystemId,
-}
-
-impl<T: Resource> Command for InsertLocalResource<T> {
-    fn write(self: Box<Self>, _world: &mut World, resources: &mut Resources) {
-        resources.insert_local(self.system_id, self.resource);
-    }
-}
-
-/// A list of commands that will be run to populate a `World` and `Resources`.
 #[derive(Default)]
-pub struct Commands {
+pub struct CommandQueue {
     commands: Vec<Box<dyn Command>>,
-    current_entity: Option<Entity>,
-    entity_reserver: Option<EntityReserver>,
 }
 
-impl Commands {
+impl CommandQueue {
+    pub fn apply(&mut self, world: &mut World) {
+        world.flush();
+        for command in self.commands.drain(..) {
+            command.write(world);
+        }
+    }
+
+    #[inline]
+    pub fn push(&mut self, command: Box<dyn Command>) {
+        self.commands.push(command);
+    }
+}
+
+/// A list of commands that will be run to modify a `World`
+pub struct Commands<'a> {
+    queue: &'a mut CommandQueue,
+    entities: &'a Entities,
+    current_entity: Option<Entity>,
+}
+
+impl<'a> Commands<'a> {
+    pub fn new(queue: &'a mut CommandQueue, world: &'a World) -> Self {
+        Self {
+            queue,
+            entities: world.entities(),
+            current_entity: None,
+        }
+    }
+
     /// Creates a new entity with the components contained in `bundle`.
     ///
-    /// Note that `bundle` is a [DynamicBundle], which is a collection of components. [DynamicBundle] is automatically implemented for tuples of components. You can also create your own bundle types by deriving [`derive@Bundle`]. If you would like to spawn an entity with a single component, consider wrapping the component in a tuple (which [DynamicBundle] is implemented for).
+    /// Note that `bundle` is a [Bundle], which is a collection of components. [Bundle] is automatically implemented for tuples of components. You can also create your own bundle types by deriving [`derive@Bundle`]. If you would like to spawn an entity with a single component, consider wrapping the component in a tuple (which [Bundle] is implemented for).
     ///
     /// See [`Self::set_current_entity`], [`Self::insert`].
     ///
     /// # Example
     ///
     /// ```
-    /// # use bevy_ecs::prelude::*;
+    /// use bevy_ecs::prelude::*;
     ///
     /// struct Component1;
     /// struct Component2;
@@ -216,7 +67,7 @@ impl Commands {
     ///     b: Component2,
     /// }
     ///
-    /// fn example_system(commands: &mut Commands) {
+    /// fn example_system(mut commands: Commands) {
     ///     // Create a new entity with a component bundle.
     ///     commands.spawn(ExampleBundle {
     ///         a: Component1,
@@ -228,17 +79,12 @@ impl Commands {
     ///     // Create a new entity with two components.
     ///     commands.spawn((Component1, Component2));
     /// }
-    ///
     /// # example_system.system();
     /// ```
-    pub fn spawn(&mut self, bundle: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
-        let entity = self
-            .entity_reserver
-            .as_ref()
-            .expect("Entity reserver has not been set.")
-            .reserve_entity();
+    pub fn spawn(&mut self, bundle: impl Bundle) -> &mut Self {
+        let entity = self.entities.reserve_entity();
         self.set_current_entity(entity);
-        self.insert(entity, bundle);
+        self.insert_bundle(entity, bundle);
         self
     }
 
@@ -258,55 +104,22 @@ impl Commands {
 
     /// Inserts a bundle of components into `entity`.
     ///
-    /// See [`World::insert`].
-    pub fn insert(
-        &mut self,
-        entity: Entity,
-        bundle: impl DynamicBundle + Send + Sync + 'static,
-    ) -> &mut Self {
-        self.add_command(Insert { entity, bundle })
+    /// See [crate::world::EntityMut::insert_bundle].
+    pub fn insert_bundle(&mut self, entity: Entity, bundle: impl Bundle) -> &mut Self {
+        self.add_command(InsertBundle { entity, bundle })
     }
 
     /// Inserts a single component into `entity`.
     ///
-    /// See [`World::insert_one`].
-    pub fn insert_one(&mut self, entity: Entity, component: impl Component) -> &mut Self {
-        self.add_command(InsertOne { entity, component })
+    /// See [crate::world::EntityMut::insert].
+    pub fn insert(&mut self, entity: Entity, component: impl Component) -> &mut Self {
+        self.add_command(Insert { entity, component })
     }
 
-    pub fn insert_resource<T: Resource>(&mut self, resource: T) -> &mut Self {
-        self.add_command(InsertResource { resource })
-    }
-
-    /// Insert a resource that is local to a specific system.
-    ///
-    /// See [`crate::System::id`].
-    pub fn insert_local_resource<T: Resource>(
-        &mut self,
-        system_id: SystemId,
-        resource: T,
-    ) -> &mut Self {
-        self.add_command(InsertLocalResource {
-            system_id,
-            resource,
-        })
-    }
-
-    /// See [`World::remove_one`].
-    pub fn remove_one<T>(&mut self, entity: Entity) -> &mut Self
-    where
-        T: Component,
-    {
-        self.add_command(RemoveOne::<T> {
-            entity,
-            phantom: PhantomData,
-        })
-    }
-
-    /// See [`World::remove`].
+    /// See [crate::world::EntityMut::remove].
     pub fn remove<T>(&mut self, entity: Entity) -> &mut Self
     where
-        T: Bundle + Send + Sync + 'static,
+        T: Component,
     {
         self.add_command(Remove::<T> {
             entity,
@@ -314,7 +127,23 @@ impl Commands {
         })
     }
 
-    pub fn remove_resource<T: Resource>(&mut self) -> &mut Self {
+    /// See [World::insert_resource].
+    pub fn insert_resource<T: Component>(&mut self, resource: T) -> &mut Self {
+        self.add_command(InsertResource { resource })
+    }
+
+    /// See [crate::world::EntityMut::remove_bundle].
+    pub fn remove_bundle<T>(&mut self, entity: Entity) -> &mut Self
+    where
+        T: Bundle,
+    {
+        self.add_command(RemoveBundle::<T> {
+            entity,
+            phantom: PhantomData,
+        })
+    }
+
+    pub fn remove_resource<T: Component>(&mut self) -> &mut Self {
         self.add_command(RemoveResource::<T> {
             phantom: PhantomData,
         })
@@ -323,9 +152,9 @@ impl Commands {
     /// Adds a bundle of components to the current entity.
     ///
     /// See [`Self::with`], [`Self::current_entity`].
-    pub fn with_bundle(&mut self, bundle: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
+    pub fn with_bundle(&mut self, bundle: impl Bundle) -> &mut Self {
         let current_entity =  self.current_entity.expect("Cannot add bundle because the 'current entity' is not set. You should spawn an entity first.");
-        self.commands.push(Box::new(Insert {
+        self.queue.push(Box::new(InsertBundle {
             entity: current_entity,
             bundle,
         }));
@@ -345,12 +174,12 @@ impl Commands {
     /// `with` can be chained with [`Self::spawn`].
     ///
     /// ```
-    /// # use bevy_ecs::prelude::*;
+    /// use bevy_ecs::prelude::*;
     ///
     /// struct Component1;
     /// struct Component2;
     ///
-    /// fn example_system(commands: &mut Commands) {
+    /// fn example_system(mut commands: Commands) {
     ///     // Create a new entity with a `Component1` and `Component2`.
     ///     commands.spawn((Component1,)).with(Component2);
     ///
@@ -367,12 +196,11 @@ impl Commands {
     ///         b: Component2,
     ///     });
     /// }
-    ///
     /// # example_system.system();
     /// ```
     pub fn with(&mut self, component: impl Component) -> &mut Self {
         let current_entity =  self.current_entity.expect("Cannot add component because the 'current entity' is not set. You should spawn an entity first.");
-        self.commands.push(Box::new(InsertOne {
+        self.queue.push(Box::new(Insert {
             entity: current_entity,
             component,
         }));
@@ -380,22 +208,15 @@ impl Commands {
     }
 
     /// Adds a command directly to the command list. Prefer this to [`Self::add_command_boxed`] if the type of `command` is statically known.
-    pub fn add_command<C: Command + 'static>(&mut self, command: C) -> &mut Self {
-        self.commands.push(Box::new(command));
+    pub fn add_command<C: Command>(&mut self, command: C) -> &mut Self {
+        self.queue.push(Box::new(command));
         self
     }
 
     /// See [`Self::add_command`].
     pub fn add_command_boxed(&mut self, command: Box<dyn Command>) -> &mut Self {
-        self.commands.push(command);
+        self.queue.push(command);
         self
-    }
-
-    /// Runs all the stored commands on `world` and `resources`. The command buffer is emptied as a part of this call.
-    pub fn apply(&mut self, world: &mut World, resources: &mut Resources) {
-        for command in self.commands.drain(..) {
-            command.write(world, resources);
-        }
     }
 
     /// Returns the current entity, set by [`Self::spawn`] or with [`Self::set_current_entity`].
@@ -418,40 +239,169 @@ impl Commands {
         f(current_entity);
         self
     }
+}
 
-    pub fn set_entity_reserver(&mut self, entity_reserver: EntityReserver) {
-        self.entity_reserver = Some(entity_reserver);
+#[derive(Debug)]
+pub(crate) struct Spawn<T> {
+    bundle: T,
+}
+
+impl<T> Command for Spawn<T>
+where
+    T: Bundle,
+{
+    fn write(self: Box<Self>, world: &mut World) {
+        world.spawn().insert_bundle(self.bundle);
+    }
+}
+
+pub(crate) struct SpawnBatch<I>
+where
+    I: IntoIterator,
+    I::Item: Bundle,
+{
+    bundles_iter: I,
+}
+
+impl<I> Command for SpawnBatch<I>
+where
+    I: IntoIterator + Send + Sync + 'static,
+    I::Item: Bundle,
+{
+    fn write(self: Box<Self>, world: &mut World) {
+        world.spawn_batch(self.bundles_iter);
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct Despawn {
+    entity: Entity,
+}
+
+impl Command for Despawn {
+    fn write(self: Box<Self>, world: &mut World) {
+        if !world.despawn(self.entity) {
+            debug!("Failed to despawn non-existent entity {:?}", self.entity);
+        }
+    }
+}
+
+pub struct InsertBundle<T> {
+    entity: Entity,
+    bundle: T,
+}
+
+impl<T> Command for InsertBundle<T>
+where
+    T: Bundle + 'static,
+{
+    fn write(self: Box<Self>, world: &mut World) {
+        world.entity_mut(self.entity).insert_bundle(self.bundle);
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct Insert<T> {
+    entity: Entity,
+    component: T,
+}
+
+impl<T> Command for Insert<T>
+where
+    T: Component,
+{
+    fn write(self: Box<Self>, world: &mut World) {
+        world.entity_mut(self.entity).insert(self.component);
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct Remove<T> {
+    entity: Entity,
+    phantom: PhantomData<T>,
+}
+
+impl<T> Command for Remove<T>
+where
+    T: Component,
+{
+    fn write(self: Box<Self>, world: &mut World) {
+        if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
+            entity_mut.remove::<T>();
+        }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct RemoveBundle<T> {
+    entity: Entity,
+    phantom: PhantomData<T>,
+}
+
+impl<T> Command for RemoveBundle<T>
+where
+    T: Bundle,
+{
+    fn write(self: Box<Self>, world: &mut World) {
+        if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
+            // remove intersection to gracefully handle components that were removed before running this command
+            entity_mut.remove_bundle_intersection::<T>();
+        }
+    }
+}
+
+pub struct InsertResource<T: Component> {
+    resource: T,
+}
+
+impl<T: Component> Command for InsertResource<T> {
+    fn write(self: Box<Self>, world: &mut World) {
+        world.insert_resource(self.resource);
+    }
+}
+
+pub struct RemoveResource<T: Component> {
+    phantom: PhantomData<T>,
+}
+
+impl<T: Component> Command for RemoveResource<T> {
+    fn write(self: Box<Self>, world: &mut World) {
+        world.remove_resource::<T>();
     }
 }
 
 #[cfg(test)]
 #[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
-    use crate::{resource::Resources, Commands, World};
-    use core::any::TypeId;
+    use crate::{
+        system::{CommandQueue, Commands},
+        world::World,
+    };
 
     #[test]
-    fn command_buffer() {
+    fn commands() {
         let mut world = World::default();
-        let mut resources = Resources::default();
-        let mut command_buffer = Commands::default();
-        command_buffer.set_entity_reserver(world.get_entity_reserver());
-        command_buffer.spawn((1u32, 2u64));
-        let entity = command_buffer.current_entity().unwrap();
-        command_buffer.insert_resource(3.14f32);
-        command_buffer.apply(&mut world, &mut resources);
+        let mut command_queue = CommandQueue::default();
+        let entity = Commands::new(&mut command_queue, &world)
+            .spawn((1u32, 2u64))
+            .current_entity()
+            .unwrap();
+        command_queue.apply(&mut world);
+        assert!(world.entities().len() == 1);
         let results = world
             .query::<(&u32, &u64)>()
+            .iter(&world)
             .map(|(a, b)| (*a, *b))
             .collect::<Vec<_>>();
         assert_eq!(results, vec![(1u32, 2u64)]);
-        assert_eq!(*resources.get::<f32>().unwrap(), 3.14f32);
         // test entity despawn
-        command_buffer.despawn(entity);
-        command_buffer.despawn(entity); // double despawn shouldn't panic
-        command_buffer.apply(&mut world, &mut resources);
+        Commands::new(&mut command_queue, &world)
+            .despawn(entity)
+            .despawn(entity); // double despawn shouldn't panic
+        command_queue.apply(&mut world);
         let results2 = world
             .query::<(&u32, &u64)>()
+            .iter(&world)
             .map(|(a, b)| (*a, *b))
             .collect::<Vec<_>>();
         assert_eq!(results2, vec![]);
@@ -460,58 +410,59 @@ mod tests {
     #[test]
     fn remove_components() {
         let mut world = World::default();
-        let mut resources = Resources::default();
-        let mut command_buffer = Commands::default();
-        command_buffer.set_entity_reserver(world.get_entity_reserver());
-        command_buffer.spawn((1u32, 2u64));
-        let entity = command_buffer.current_entity().unwrap();
-        command_buffer.apply(&mut world, &mut resources);
+        let mut command_queue = CommandQueue::default();
+        let entity = Commands::new(&mut command_queue, &world)
+            .spawn((1u32, 2u64))
+            .current_entity()
+            .unwrap();
+        command_queue.apply(&mut world);
         let results_before = world
             .query::<(&u32, &u64)>()
+            .iter(&world)
             .map(|(a, b)| (*a, *b))
             .collect::<Vec<_>>();
         assert_eq!(results_before, vec![(1u32, 2u64)]);
 
         // test component removal
-        command_buffer.remove_one::<u32>(entity);
-        command_buffer.remove::<(u32, u64)>(entity);
-        command_buffer.apply(&mut world, &mut resources);
+        Commands::new(&mut command_queue, &world)
+            .remove::<u32>(entity)
+            .remove_bundle::<(u32, u64)>(entity);
+        command_queue.apply(&mut world);
         let results_after = world
             .query::<(&u32, &u64)>()
+            .iter(&world)
             .map(|(a, b)| (*a, *b))
             .collect::<Vec<_>>();
         assert_eq!(results_after, vec![]);
-        let results_after_u64 = world.query::<&u64>().copied().collect::<Vec<_>>();
+        let results_after_u64 = world
+            .query::<&u64>()
+            .iter(&world)
+            .copied()
+            .collect::<Vec<_>>();
         assert_eq!(results_after_u64, vec![]);
     }
 
     #[test]
     fn remove_resources() {
         let mut world = World::default();
-        let mut resources = Resources::default();
-        let mut command_buffer = Commands::default();
-        command_buffer.insert_resource(123);
-        command_buffer.insert_resource(456.0);
-        command_buffer.apply(&mut world, &mut resources);
-        assert_eq!(
-            resources.resource_data.contains_key(&TypeId::of::<i32>()),
-            true
-        );
-        assert_eq!(
-            resources.resource_data.contains_key(&TypeId::of::<f64>()),
-            true
-        );
+        let mut queue = CommandQueue::default();
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.insert_resource(123);
+            commands.insert_resource(456.0);
+        }
 
-        // test resource removal
-        command_buffer.remove_resource::<i32>();
-        command_buffer.apply(&mut world, &mut resources);
-        assert_eq!(
-            resources.resource_data.contains_key(&TypeId::of::<i32>()),
-            false
-        );
-        assert_eq!(
-            resources.resource_data.contains_key(&TypeId::of::<f64>()),
-            true
-        );
+        queue.apply(&mut world);
+        assert!(world.contains_resource::<i32>());
+        assert!(world.contains_resource::<f64>());
+
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            // test resource removal
+            commands.remove_resource::<i32>();
+        }
+        queue.apply(&mut world);
+        assert!(!world.contains_resource::<i32>());
+        assert!(world.contains_resource::<f64>());
     }
 }
