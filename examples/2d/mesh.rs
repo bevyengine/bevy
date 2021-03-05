@@ -20,7 +20,6 @@ fn main() {
 }
 
 fn star(
-    // Commands are used to spawn a new entity
     mut commands: Commands,
     // We will add a new Mesh for the star being created
     mut meshes: ResMut<Assets<Mesh>>,
@@ -79,7 +78,7 @@ fn star(
     // And a RGB color attribute as well
     let mut v_color = vec![[0.0, 0.0, 0.0]];
     v_color.extend_from_slice(&[[1.0, 1.0, 0.0]; 10]);
-    star.set_attribute("Color", v_color);
+    star.set_attribute("Vertex_Color", v_color);
 
     // Now, we specify the indices of the vertex that are going to compose the
     // triangles in our star. Vertices in triangles have to be specified in CCW
@@ -113,7 +112,7 @@ const VERTEX_SHADER: &str = r"
 #version 450
 
 layout(location = 0) in vec3 Vertex_Position;
-layout(location = 1) in vec3 Color;
+layout(location = 1) in vec3 Vertex_Color;
 
 layout(location = 1) out vec3 v_Color;
 
@@ -126,7 +125,7 @@ layout(set = 1, binding = 0) uniform Transform {
 };
 
 void main() {
-    v_Color = Color;
+    v_Color = Vertex_Color;
     gl_Position = ViewProj * Model * vec4(Vertex_Position, 1.0);
 }
 ";
