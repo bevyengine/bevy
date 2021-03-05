@@ -12,7 +12,7 @@ pub(super) trait SystemContainer {
     fn dependencies(&self) -> &[usize];
     fn set_dependencies(&mut self, dependencies: impl IntoIterator<Item = usize>);
     fn system_set(&self) -> usize;
-    fn label(&self) -> &Option<BoxedSystemLabel>;
+    fn labels(&self) -> &[BoxedSystemLabel];
     fn before(&self) -> &[BoxedSystemLabel];
     fn after(&self) -> &[BoxedSystemLabel];
     fn ambiguity_sets(&self) -> &[BoxedAmbiguitySetLabel];
@@ -23,7 +23,7 @@ pub(super) struct ExclusiveSystemContainer {
     system: Box<dyn ExclusiveSystem>,
     dependencies: Vec<usize>,
     set: usize,
-    label: Option<BoxedSystemLabel>,
+    labels: Vec<BoxedSystemLabel>,
     before: Vec<BoxedSystemLabel>,
     after: Vec<BoxedSystemLabel>,
     ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
@@ -35,7 +35,7 @@ impl ExclusiveSystemContainer {
             system: descriptor.system,
             dependencies: Vec::new(),
             set,
-            label: descriptor.label,
+            labels: descriptor.labels,
             before: descriptor.before,
             after: descriptor.after,
             ambiguity_sets: descriptor.ambiguity_sets,
@@ -49,8 +49,9 @@ impl ExclusiveSystemContainer {
 
 impl SystemContainer for ExclusiveSystemContainer {
     fn display_name(&self) -> Cow<'static, str> {
-        self.label
-            .as_ref()
+        // TODO: sensible display names.
+        self.labels
+            .get(0)
             .map(|l| Cow::Owned(format!("{:?}", l)))
             .unwrap_or_else(|| self.system.name())
     }
@@ -68,8 +69,8 @@ impl SystemContainer for ExclusiveSystemContainer {
         self.set
     }
 
-    fn label(&self) -> &Option<BoxedSystemLabel> {
-        &self.label
+    fn labels(&self) -> &[BoxedSystemLabel] {
+        &self.labels
     }
 
     fn before(&self) -> &[BoxedSystemLabel] {
@@ -94,7 +95,7 @@ pub struct ParallelSystemContainer {
     pub(crate) should_run: bool,
     dependencies: Vec<usize>,
     set: usize,
-    label: Option<BoxedSystemLabel>,
+    labels: Vec<BoxedSystemLabel>,
     before: Vec<BoxedSystemLabel>,
     after: Vec<BoxedSystemLabel>,
     ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
@@ -102,8 +103,9 @@ pub struct ParallelSystemContainer {
 
 impl SystemContainer for ParallelSystemContainer {
     fn display_name(&self) -> Cow<'static, str> {
-        self.label
-            .as_ref()
+        // TODO: sensible display names.
+        self.labels
+            .get(0)
             .map(|l| Cow::Owned(format!("{:?}", l)))
             .unwrap_or_else(|| self.system().name())
     }
@@ -121,8 +123,8 @@ impl SystemContainer for ParallelSystemContainer {
         self.set
     }
 
-    fn label(&self) -> &Option<BoxedSystemLabel> {
-        &self.label
+    fn labels(&self) -> &[BoxedSystemLabel] {
+        &self.labels
     }
 
     fn before(&self) -> &[BoxedSystemLabel] {
@@ -154,7 +156,7 @@ impl ParallelSystemContainer {
             should_run: false,
             set,
             dependencies: Vec::new(),
-            label: descriptor.label,
+            labels: descriptor.labels,
             before: descriptor.before,
             after: descriptor.after,
             ambiguity_sets: descriptor.ambiguity_sets,

@@ -79,7 +79,7 @@ impl From<ExclusiveSystemCoerced> for SystemDescriptor {
 /// Encapsulates a parallel system and information on when it run in a `SystemStage`.
 pub struct ParallelSystemDescriptor {
     pub(crate) system: BoxedSystem<(), ()>,
-    pub(crate) label: Option<BoxedSystemLabel>,
+    pub(crate) labels: Vec<BoxedSystemLabel>,
     pub(crate) before: Vec<BoxedSystemLabel>,
     pub(crate) after: Vec<BoxedSystemLabel>,
     pub(crate) ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
@@ -88,7 +88,7 @@ pub struct ParallelSystemDescriptor {
 fn new_parallel_descriptor(system: BoxedSystem<(), ()>) -> ParallelSystemDescriptor {
     ParallelSystemDescriptor {
         system,
-        label: None,
+        labels: Vec::new(),
         before: Vec::new(),
         after: Vec::new(),
         ambiguity_sets: Vec::new(),
@@ -112,7 +112,7 @@ pub trait ParallelSystemDescriptorCoercion {
 
 impl ParallelSystemDescriptorCoercion for ParallelSystemDescriptor {
     fn label(mut self, label: impl SystemLabel) -> ParallelSystemDescriptor {
-        self.label = Some(Box::new(label));
+        self.labels.push(Box::new(label));
         self
     }
 
@@ -181,7 +181,7 @@ pub(crate) enum InsertionPoint {
 /// Encapsulates an exclusive system and information on when it run in a `SystemStage`.
 pub struct ExclusiveSystemDescriptor {
     pub(crate) system: Box<dyn ExclusiveSystem>,
-    pub(crate) label: Option<BoxedSystemLabel>,
+    pub(crate) labels: Vec<BoxedSystemLabel>,
     pub(crate) before: Vec<BoxedSystemLabel>,
     pub(crate) after: Vec<BoxedSystemLabel>,
     pub(crate) ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
@@ -191,7 +191,7 @@ pub struct ExclusiveSystemDescriptor {
 fn new_exclusive_descriptor(system: Box<dyn ExclusiveSystem>) -> ExclusiveSystemDescriptor {
     ExclusiveSystemDescriptor {
         system,
-        label: None,
+        labels: Vec::new(),
         before: Vec::new(),
         after: Vec::new(),
         ambiguity_sets: Vec::new(),
@@ -226,7 +226,7 @@ pub trait ExclusiveSystemDescriptorCoercion {
 
 impl ExclusiveSystemDescriptorCoercion for ExclusiveSystemDescriptor {
     fn label(mut self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
-        self.label = Some(Box::new(label));
+        self.labels.push(Box::new(label));
         self
     }
 

@@ -229,9 +229,6 @@ impl SystemStage {
             Err(LabelNotFound(label)) => {
                 panic!("No parallel system with label {:?} in stage.", label)
             }
-            Err(DuplicateLabel(label)) => {
-                panic!("Label {:?} already used by a parallel system.", label)
-            }
             Err(GraphCycles(labels)) => {
                 panic!(
                     "Found a dependency cycle in parallel systems: {:?}.",
@@ -244,12 +241,6 @@ impl SystemStage {
             Err(LabelNotFound(label)) => {
                 panic!(
                     "No exclusive system with label {:?} at start of stage.",
-                    label
-                )
-            }
-            Err(DuplicateLabel(label)) => {
-                panic!(
-                    "Label {:?} already used by an exclusive system at start of stage.",
                     label
                 )
             }
@@ -268,12 +259,6 @@ impl SystemStage {
                     label
                 )
             }
-            Err(DuplicateLabel(label)) => {
-                panic!(
-                    "Label {:?} already used by an exclusive system before commands of stage.",
-                    label
-                )
-            }
             Err(GraphCycles(labels)) => {
                 panic!(
                     "Found a dependency cycle in exclusive systems before commands of stage: {:?}.",
@@ -286,12 +271,6 @@ impl SystemStage {
             Err(LabelNotFound(label)) => {
                 panic!(
                     "No exclusive system with label {:?} at end of stage.",
-                    label
-                )
-            }
-            Err(DuplicateLabel(label)) => {
-                panic!(
-                    "Label {:?} already used by an exclusive system at end of stage.",
                     label
                 )
             }
@@ -362,7 +341,6 @@ impl SystemStage {
 
 enum DependencyGraphError {
     LabelNotFound(Box<dyn SystemLabel>),
-    DuplicateLabel(Box<dyn SystemLabel>),
     GraphCycles(Vec<Cow<'static, str>>),
 }
 
@@ -392,45 +370,48 @@ fn sort_systems(systems: &mut Vec<impl SystemContainer>) -> Result<(), Dependenc
 fn build_dependency_graph(
     systems: &[impl SystemContainer],
 ) -> Result<HashMap<usize, Vec<usize>>, DependencyGraphError> {
-    let mut labels = HashMap::<BoxedSystemLabel, usize>::default();
-    for (label, index) in systems.iter().enumerate().filter_map(|(index, container)| {
+    let mut labels = HashMap::<BoxedSystemLabel, FixedBitSet>::default();
+    for (label, index) in systems.iter().enumerate().flat_map(|(index, container)| {
         container
-            .label()
-            .as_ref()
+            .labels()
+            .iter()
             .cloned()
-            .map(|label| (label, index))
+            .map(move |label| (label, index))
     }) {
-        if labels.contains_key(&label) {
-            return Err(DependencyGraphError::DuplicateLabel(label));
-        }
-        labels.insert(label, index);
+        labels
+            .entry(label)
+            .or_insert_with(|| FixedBitSet::with_capacity(systems.len()))
+            .insert(index);
     }
-    let mut graph = HashMap::default();
+    let mut graph = HashMap::with_capacity_and_hasher(systems.len(), Default::default());
     for (system_index, container) in systems.iter().enumerate() {
-        let dependencies = graph.entry(system_index).or_insert_with(Vec::new);
+        let dependencies = graph
+            .entry(system_index)
+            .or_insert_with(|| FixedBitSet::with_capacity(systems.len()));
         for label in container.after() {
             match labels.get(label) {
-                Some(dependency) => {
-                    if !dependencies.contains(dependency) {
-                        dependencies.push(*dependency);
-                    }
-                }
+                Some(new_dependencies) => dependencies.extend(new_dependencies.ones()),
                 None => return Err(DependencyGraphError::LabelNotFound(label.clone())),
             }
         }
         for label in container.before() {
             match labels.get(label) {
-                Some(dependant) => {
-                    let dependencies = graph.entry(*dependant).or_insert_with(Vec::new);
-                    if !dependencies.contains(&system_index) {
-                        dependencies.push(system_index);
+                Some(dependants) => {
+                    for dependant in dependants.ones() {
+                        graph
+                            .entry(dependant)
+                            .or_insert_with(|| FixedBitSet::with_capacity(systems.len()))
+                            .insert(system_index);
                     }
                 }
                 None => return Err(DependencyGraphError::LabelNotFound(label.clone())),
             }
         }
     }
-    Ok(graph)
+    Ok(graph
+        .drain()
+        .map(|(system, dependencies)| (system, dependencies.ones().collect()))
+        .collect())
 }
 
 /// Generates a topological order for the given graph.
@@ -749,20 +730,30 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "Label \"empty\" already used by an exclusive system at start of stage."
-    )]
-    fn exclusive_duplicate_label() {
+    fn exclusive_multiple_labels() {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
-            .with_system(empty.exclusive_system().at_end().label("empty"))
-            .with_system(empty.exclusive_system().before_commands().label("empty"));
+            .with_system(
+                make_exclusive(1)
+                    .exclusive_system()
+                    .label("first")
+                    .after("0"),
+            )
+            .with_system(make_exclusive(2).exclusive_system().after("first"))
+            .with_system(
+                make_exclusive(0)
+                    .exclusive_system()
+                    .label("first")
+                    .label("0"),
+            );
         stage.run(&mut world);
-        let mut stage = SystemStage::parallel()
-            .with_system(empty.exclusive_system().label("empty"))
-            .with_system(empty.exclusive_system().label("empty"));
+        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
+        assert_eq!(
+            *world.get_resource::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 0, 1, 2]
+        );
     }
 
     #[test]
@@ -949,14 +940,20 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Label \"empty\" already used by a parallel system.")]
-    fn parallel_duplicate_label() {
+    fn parallel_multiple_labels() {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
         let mut stage = SystemStage::parallel()
-            .with_system(empty.system().label("empty"))
-            .with_system(empty.system().label("empty"));
+            .with_system(make_parallel!(1).system().label("first").after("0"))
+            .with_system(make_parallel!(2).system().after("first"))
+            .with_system(make_parallel!(0).system().label("first").label("0"));
         stage.run(&mut world);
+        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.run(&mut world);
+        assert_eq!(
+            *world.get_resource::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 0, 1, 2]
+        );
     }
 
     #[test]
@@ -1140,8 +1137,8 @@ mod tests {
                 .drain(..)
                 .map(|(index_a, index_b)| {
                     (
-                        systems[index_a].label().clone().unwrap(),
-                        systems[index_b].label().clone().unwrap(),
+                        systems[index_a].labels()[0].clone(),
+                        systems[index_b].labels()[0].clone(),
                     )
                 })
                 .collect()
