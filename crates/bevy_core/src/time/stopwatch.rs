@@ -1,4 +1,5 @@
-use bevy_reflect::{Reflect, ReflectComponent};
+use bevy_ecs::reflect::ReflectComponent;
+use bevy_reflect::Reflect;
 use bevy_utils::Duration;
 
 /// A Stopwatch is a struct that track elapsed time when started.
