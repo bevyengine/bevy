@@ -8,10 +8,10 @@ use bevy_render::{color::Color, renderer::RenderResources, shader::ShaderDefs, t
 #[uuid = "dace545e-4bc6-4595-a79d-c224fc694975"]
 pub struct StandardMaterial {
     pub albedo: Color,
-    /// Represented as roughness/metallic.
-    pub pbr: Vec2,
     #[shader_def]
     pub albedo_texture: Option<Handle<Texture>>,
+    /// Represented as roughness/metallic.
+    pub pbr: Vec2,
     #[render_resources(ignore)]
     #[shader_def]
     pub unlit: bool,
