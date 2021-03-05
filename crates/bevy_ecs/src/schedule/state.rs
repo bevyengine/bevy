@@ -1,11 +1,9 @@
-use std::any::{Any, TypeId};
-
 use crate::{
-    In, IntoChainSystem, IntoSystem, Local, Res, ResMut, Resource, ShouldRun, System, SystemSet,
+    component::Component,
+    schedule::{ShouldRun, SystemSet},
+    system::{In, IntoChainSystem, IntoSystem, Local, Res, ResMut, System},
 };
 use thiserror::Error;
-
-type Something = Box<dyn Any + Send + Sync>;
 
 /// ### Stack based state machine
 ///
@@ -14,47 +12,47 @@ type Something = Box<dyn Any + Send + Sync>;
 /// * Pop removes the current state, and unpauses the last paused state.
 /// * Next unwinds the state stack, and replaces the entire stack with a single new state
 #[derive(Debug)]
-pub struct State {
-    transition: Option<StateTransition>,
-    stack: Vec<Something>,
-    scheduled: Option<ScheduledOperation>,
+pub struct State<T: Component + Clone + Eq> {
+    transition: Option<StateTransition<T>>,
+    stack: Vec<T>,
+    scheduled: Option<ScheduledOperation<T>>,
     ran_update: bool,
 }
 
 #[derive(Debug)]
-enum StateTransition {
+enum StateTransition<T: Component + Clone + Eq> {
     PreStartup,
     Startup,
     // The parameter order is always (leaving, entering)
-    ExitingToResume(TypeId, TypeId),
-    ExitingFull(TypeId, Something),
-    Entering(TypeId, TypeId),
-    Resuming(TypeId, TypeId),
-    Pausing(TypeId, Something),
+    ExitingToResume(T, T),
+    ExitingFull(T, T /**/),
+    Entering(T, T),
+    Resuming(T, T),
+    Pausing(T, T /**/),
 }
 
 #[derive(Debug)]
-enum ScheduledOperation {
-    Next(Something),
+enum ScheduledOperation<T: Component + Clone + Eq> {
+    Next(T),
     Pop,
-    Push(Something),
+    Push(T),
 }
 
-impl State {
-    pub fn on_update<T: Resource>() -> impl System<In = (), Out = ShouldRun> {
-        (|state: Res<State>| {
-            state.stack.last().unwrap().as_ref().type_id() == TypeId::of::<T>()
-                && state.transition.is_none()
+impl<T: Component + Clone + Eq> State<T> {
+    pub fn on_update(s: T) -> impl System<In = (), Out = ShouldRun> {
+        (|state: Res<State<T>>, pred: Local<T>| {
+            state.stack.last().unwrap() == &*pred && state.transition.is_none()
         })
         .system()
-        .chain(should_run_adapter.system())
+        .config(|(_, pred)| *pred = s)
+        .chain(should_run_adapter::<T>.system())
     }
 
-    pub fn on_inactive_update<T: Resource>() -> impl System<In = (), Out = ShouldRun> {
-        (|state: Res<State>, mut is_inactive: Local<bool>| match &state.transition {
+    pub fn on_inactive_update(s: T) -> impl System<In = (), Out = ShouldRun> {
+        (|state: Res<State<T>>, mut is_inactive: Local<bool>, pred: Local<T>| match &state.transition {
             Some(StateTransition::Pausing(ref relevant, _))
             | Some(StateTransition::Resuming(_, ref relevant)) => {
-                if relevant == &TypeId::of::<T>() {
+                if relevant == &*pred {
                     *is_inactive = !*is_inactive;
                 }
                 false
@@ -63,26 +61,27 @@ impl State {
             None => *is_inactive,
         })
         .system()
+        .config(|(_, _, pred)| *pred = s)
         .chain(should_run_adapter.system())
     }
 
-    pub fn on_in_stack_update<T: Resource>() -> impl System<In = (), Out = ShouldRun> {
-        (|state: Res<State>, mut is_in_stack: Local<bool>| match &state.transition {
+    pub fn on_in_stack_update(s: T) -> impl System<In = (), Out = ShouldRun> {
+        (|state: Res<State<T>>, mut is_in_stack: Local<bool>, pred: Local<T>| match &state.transition {
             Some(StateTransition::Entering(ref relevant, _))
             | Some(StateTransition::ExitingToResume(_, ref relevant)) => {
-                if relevant == &TypeId::of::<T>() {
+                if relevant == &*pred {
                     *is_in_stack = !*is_in_stack;
                 }
                 false
             }
             Some(StateTransition::ExitingFull(_, ref relevant)) => {
-                if relevant.type_id() == TypeId::of::<T>() {
+                if relevant == &*pred {
                     *is_in_stack = !*is_in_stack;
                 }
                 false
             }
             Some(StateTransition::Startup) => {
-                if state.stack.last().unwrap().as_ref().type_id() == TypeId::of::<T>() {
+                if state.stack.last().unwrap() == &*pred {
                     *is_in_stack = !*is_in_stack;
                 }
                 false
@@ -91,66 +90,71 @@ impl State {
             None => *is_in_stack,
         })
         .system()
+        .config(|(_, _, pred)| *pred = s)
         .chain(should_run_adapter.system())
     }
 
-    pub fn on_enter<T: Resource>() -> impl System<In = (), Out = ShouldRun> {
-        (|state: Res<State>| {
+    pub fn on_enter(s: T) -> impl System<In = (), Out = ShouldRun> {
+        (|state: Res<State<T>>, pred: Local<T>| {
             state
                 .transition
                 .as_ref()
                 .map_or(false, |transition| match transition {
-                    StateTransition::Entering(_, entering) => entering == &TypeId::of::<T>(),
+                    StateTransition::Entering(_, entering) => entering == &*pred,
                     StateTransition::Startup => {
-                        state.stack.last().unwrap().as_ref().type_id() == TypeId::of::<T>()
+                        state.stack.last().unwrap() == &*pred
                     }
                     _ => false,
                 })
         })
         .system()
+        .config(|(_, pred)| *pred = s)
         .chain(should_run_adapter.system())
     }
 
-    pub fn on_exit<T: Resource>() -> impl System<In = (), Out = ShouldRun> {
-        (|state: Res<State>| {
+    pub fn on_exit(s: T) -> impl System<In = (), Out = ShouldRun> {
+        (|state: Res<State<T>>, pred: Local<T>| {
             state
                 .transition
                 .as_ref()
                 .map_or(false, |transition| match transition {
                     StateTransition::ExitingToResume(exiting, _)
-                    | StateTransition::ExitingFull(exiting, _) => exiting == &TypeId::of::<T>(),
+                    | StateTransition::ExitingFull(exiting, _) => exiting == &*pred,
                     _ => false,
                 })
         })
         .system()
+        .config(|(_, pred)| *pred = s)
         .chain(should_run_adapter.system())
     }
 
-    pub fn on_pause<T: Resource>() -> impl System<In = (), Out = ShouldRun> {
-        (|state: Res<State>| {
+    pub fn on_pause(s: T) -> impl System<In = (), Out = ShouldRun> {
+        (|state: Res<State<T>>, pred: Local<T>| {
             state
                 .transition
                 .as_ref()
                 .map_or(false, |transition| match transition {
-                    StateTransition::Pausing(pausing, _) => pausing == &TypeId::of::<T>(),
+                    StateTransition::Pausing(pausing, _) => pausing == &*pred,
                     _ => false,
                 })
         })
         .system()
+        .config(|(_, pred)| *pred = s)
         .chain(should_run_adapter.system())
     }
 
-    pub fn on_resume<T: Resource>() -> impl System<In = (), Out = ShouldRun> {
-        (|state: Res<State>| {
+    pub fn on_resume(s: T) -> impl System<In = (), Out = ShouldRun> {
+        (|state: Res<State<T>>, pred: Local<T>| {
             state
                 .transition
                 .as_ref()
                 .map_or(false, |transition| match transition {
-                    StateTransition::Resuming(_, resuming) => resuming == &TypeId::of::<T>(),
+                    StateTransition::Resuming(_, resuming) => resuming == &*pred,
                     _ => false,
                 })
         })
         .system()
+        .config(|(_, pred)| *pred = s)
         .chain(should_run_adapter.system())
     }
 
@@ -158,12 +162,12 @@ impl State {
     ///
     /// Important note: this set must be inserted **before** all other state-dependant sets to work properly!
     pub fn make_driver() -> SystemSet {
-        SystemSet::default().with_run_criteria(state_cleaner.system())
+        SystemSet::default().with_run_criteria(state_cleaner::<T>.system())
     }
 
-    pub fn new<T: Any + Resource>(initial: T) -> Self {
+    pub fn new(initial: T) -> Self {
         Self {
-            stack: vec![Box::new(initial)],
+            stack: vec![initial],
             transition: Some(StateTransition::PreStartup),
             scheduled: None,
             ran_update: false,
@@ -172,8 +176,8 @@ impl State {
 
     /// Schedule a state change that replaces the full stack with the given state.
     /// This will fail if there is a scheduled operation, or if the given `state` matches the current state
-    pub fn set_next<T: Resource>(&mut self, state: T) -> Result<(), StateError> {
-        if self.stack.last().unwrap().as_ref().type_id() == TypeId::of::<T>() {
+    pub fn set_next(&mut self, state: T) -> Result<(), StateError> {
+        if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
 
@@ -181,23 +185,23 @@ impl State {
             return Err(StateError::StateAlreadyQueued);
         }
 
-        self.scheduled = Some(ScheduledOperation::Next(Box::new(state)));
+        self.scheduled = Some(ScheduledOperation::Next(state));
         Ok(())
     }
 
     /// Same as [Self::set_next], but if there is already a next state, it will be overwritten instead of failing
-    pub fn overwrite_next<T: Any + Resource>(&mut self, state: T) -> Result<(), StateError> {
-        if self.stack.last().unwrap().as_ref().type_id() == TypeId::of::<T>() {
+    pub fn overwrite_next(&mut self, state: T) -> Result<(), StateError> {
+        if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
 
-        self.scheduled = Some(ScheduledOperation::Next(Box::new(state)));
+        self.scheduled = Some(ScheduledOperation::Next(state));
         Ok(())
     }
 
     /// Same as [Self::set_next], but does a push operation instead of a next operation
-    pub fn set_push<T: Any + Resource>(&mut self, state: T) -> Result<(), StateError> {
-        if self.stack.last().unwrap().as_ref().type_id() == TypeId::of::<T>() {
+    pub fn set_push(&mut self, state: T) -> Result<(), StateError> {
+        if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
 
@@ -205,17 +209,17 @@ impl State {
             return Err(StateError::StateAlreadyQueued);
         }
 
-        self.scheduled = Some(ScheduledOperation::Push(Box::new(state)));
+        self.scheduled = Some(ScheduledOperation::Push(state));
         Ok(())
     }
 
     /// Same as [Self::set_push], but if there is already a next state, it will be overwritten instead of failing
-    pub fn overwrite_push<T: Any + Resource>(&mut self, state: T) -> Result<(), StateError> {
-        if self.stack.last().unwrap().as_ref().type_id() == TypeId::of::<T>() {
+    pub fn overwrite_push(&mut self, state: T) -> Result<(), StateError> {
+        if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
 
-        self.scheduled = Some(ScheduledOperation::Push(Box::new(state)));
+        self.scheduled = Some(ScheduledOperation::Push(state));
         Ok(())
     }
 
@@ -242,24 +246,12 @@ impl State {
         Ok(())
     }
 
-    pub fn current<T: Any + Resource>(&self) -> Option<&T> {
-        self.stack.last().unwrap().downcast_ref::<T>()
-    }
-
-    pub fn current_as_any(&self) -> &dyn Any {
+    pub fn current(&self) -> &T {
         self.stack.last().unwrap()
     }
 
-    pub fn is<T: Any + Resource>(&self) -> bool {
-        self.stack.last().unwrap().downcast_ref::<T>().is_some()
-    }
-
-    pub fn current_mut<T: Any + Resource>(&mut self) -> Option<&mut T> {
-        self.stack.last_mut().unwrap().downcast_mut()
-    }
-
-    pub fn inactives(&self) -> &[Box<dyn Any + Send + Sync>] {
-        &self.stack[0..self.stack.len() - 1]
+    pub fn inactives(&self) -> &[T] {
+        &self.stack[0..self.stack.len() - 2]
     }
 }
 
@@ -273,7 +265,10 @@ pub enum StateError {
     StackEmpty,
 }
 
-fn should_run_adapter(In(cmp_result): In<bool>, state: Res<State>) -> ShouldRun {
+fn should_run_adapter<T: Component + Clone + Eq>(
+    In(cmp_result): In<bool>,
+    state: Res<State<T>>,
+) -> ShouldRun {
     if state.ran_update {
         return ShouldRun::No;
     }
@@ -284,7 +279,10 @@ fn should_run_adapter(In(cmp_result): In<bool>, state: Res<State>) -> ShouldRun 
     }
 }
 
-fn state_cleaner(mut state: ResMut<State>, mut lra: Local<bool>) -> ShouldRun {
+fn state_cleaner<T: Component + Clone + Eq>(
+    mut state: ResMut<State<T>>,
+    mut lra: Local<bool>,
+) -> ShouldRun {
     if *lra {
         state.ran_update = true;
         *lra = false;
@@ -297,7 +295,7 @@ fn state_cleaner(mut state: ResMut<State>, mut lra: Local<bool>) -> ShouldRun {
         Some(ScheduledOperation::Next(next)) => {
             if state.stack.len() <= 1 {
                 state.transition = Some(StateTransition::ExitingFull(
-                    state.stack.last().unwrap().as_ref().type_id(),
+                    state.stack.last().unwrap().clone(),
                     next,
                 ));
             } else {
@@ -309,30 +307,30 @@ fn state_cleaner(mut state: ResMut<State>, mut lra: Local<bool>) -> ShouldRun {
                     }
                     _ => {
                         state.transition = Some(StateTransition::ExitingToResume(
-                            state.stack[state.stack.len() - 1].as_ref().type_id(),
-                            state.stack[state.stack.len() - 2].as_ref().type_id(),
+                            state.stack[state.stack.len() - 1].clone(),
+                            state.stack[state.stack.len() - 2].clone(),
                         ));
                     }
                 }
             }
         }
         Some(ScheduledOperation::Push(next)) => {
-            let last_type_id = state.stack.last().unwrap().as_ref().type_id();
+            let last_type_id = state.stack.last().unwrap().clone();
             state.transition = Some(StateTransition::Pausing(last_type_id, next));
         }
         Some(ScheduledOperation::Pop) => {
             state.transition = Some(StateTransition::ExitingToResume(
-                state.stack[state.stack.len() - 1].as_ref().type_id(),
-                state.stack[state.stack.len() - 2].as_ref().type_id(),
+                state.stack[state.stack.len() - 1].clone(),
+                state.stack[state.stack.len() - 2].clone(),
             ));
         }
         None => match state.transition.take() {
             Some(StateTransition::ExitingFull(p, n)) => {
-                state.transition = Some(StateTransition::Entering(p, n.as_ref().type_id()));
+                state.transition = Some(StateTransition::Entering(p, n.clone()));
                 state.stack[0] = n;
             }
             Some(StateTransition::Pausing(p, n)) => {
-                state.transition = Some(StateTransition::Entering(p, n.as_ref().type_id()));
+                state.transition = Some(StateTransition::Entering(p, n.clone()));
                 state.stack.push(n);
             }
             Some(StateTransition::ExitingToResume(p, n)) => {
@@ -354,25 +352,26 @@ fn state_cleaner(mut state: ResMut<State>, mut lra: Local<bool>) -> ShouldRun {
 
 #[cfg(test)]
 mod test {
+    use super::*; 
     use crate::prelude::*;
 
-    mod my_state {
-        pub struct S1;
-        pub struct S2;
-        pub struct S3;
-        pub struct S4;
-        pub struct S5;
-        pub struct S6;
-        pub struct Final;
+    #[derive(Copy, Clone, Eq, PartialEq)]
+    enum MyState {
+        S1,
+        S2,
+        S3,
+        S4,
+        S5,
+        S6,
+        Final,
     }
 
     #[test]
     fn state_test() {
         let mut world = World::default();
-        let mut resources = Resources::default();
 
-        resources.insert(Vec::<&'static str>::new());
-        resources.insert(State::new(my_state::S1));
+        world.insert_resource(Vec::<&'static str>::new());
+        world.insert_resource(State::new(MyState::S1));
 
         let mut stage = SystemStage::parallel();
 
@@ -381,117 +380,117 @@ mod test {
             .add_system_set(
                 SystemSet::default()
                     .with_system((|mut r: ResMut<Vec<&'static str>>| r.push("startup")).system())
-                    .with_run_criteria(State::on_enter::<my_state::S1>()),
+                    .with_run_criteria(State::on_enter(MyState::S1)),
             )
             .add_system_set(
                 SystemSet::default()
                     .with_system(
-                        (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State>| {
+                        (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                             r.push("update S1");
-                            s.overwrite_next(my_state::S2).unwrap();
+                            s.overwrite_next(MyState::S2).unwrap();
                         })
                         .system(),
                     )
-                    .with_run_criteria(State::on_update::<my_state::S1>()),
+                    .with_run_criteria(State::on_update(MyState::S1)),
             )
             .add_system_set(
                 SystemSet::default()
                     .with_system((|mut r: ResMut<Vec<&'static str>>| r.push("enter S2")).system())
-                    .with_run_criteria(State::on_enter::<my_state::S2>()),
+                    .with_run_criteria(State::on_enter(MyState::S2)),
             )
             .add_system_set(
                 SystemSet::default()
                     .with_system(
-                        (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State>| {
+                        (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                             r.push("update S2");
-                            s.overwrite_next(my_state::S3).unwrap();
+                            s.overwrite_next(MyState::S3).unwrap();
                         })
                         .system(),
                     )
-                    .with_run_criteria(State::on_update::<my_state::S2>()),
+                    .with_run_criteria(State::on_update(MyState::S2)),
             )
             .add_system_set(
                 SystemSet::default()
                     .with_system((|mut r: ResMut<Vec<&'static str>>| r.push("exit S2")).system())
-                    .with_run_criteria(State::on_exit::<my_state::S2>()),
+                    .with_run_criteria(State::on_exit(MyState::S2)),
             )
             .add_system_set(
                 SystemSet::default()
                     .with_system((|mut r: ResMut<Vec<&'static str>>| r.push("enter S3")).system())
-                    .with_run_criteria(State::on_enter::<my_state::S3>()),
+                    .with_run_criteria(State::on_enter(MyState::S3)),
             )
             .add_system_set(
                 SystemSet::default()
                     .with_system(
-                        (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State>| {
+                        (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                             r.push("update S3");
-                            s.overwrite_push(my_state::S4).unwrap();
+                            s.overwrite_push(MyState::S4).unwrap();
                         })
                         .system(),
                     )
-                    .with_run_criteria(State::on_update::<my_state::S3>()),
+                    .with_run_criteria(State::on_update(MyState::S3)),
             )
             .add_system_set(
                 SystemSet::default()
                     .with_system((|mut r: ResMut<Vec<&'static str>>| r.push("pause S3")).system())
-                    .with_run_criteria(State::on_pause::<my_state::S3>()),
+                    .with_run_criteria(State::on_pause(MyState::S35)),
             )
             .add_system_set(
                 SystemSet::default()
                     .with_system(
-                        (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State>| {
+                        (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                             r.push("update S4");
-                            s.overwrite_push(my_state::S5).unwrap();
+                            s.overwrite_push(MyState::S5).unwrap();
                         })
                         .system(),
                     )
-                    .with_run_criteria(State::on_update::<my_state::S4>()),
+                    .with_run_criteria(State::on_update(MyState::S4)),
             )
             .add_system_set(
                 SystemSet::default()
                     .with_system(
                         (|mut r: ResMut<Vec<&'static str>>| r.push("inactive S4")).system(),
                     )
-                    .with_run_criteria(State::on_inactive_update::<my_state::S4>()),
+                    .with_run_criteria(State::on_inactive_update(MyState::S4)),
             )
             .add_system_set(
                 SystemSet::default()
                     .with_system(
-                        (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State>| {
+                        (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                             r.push("update S5");
-                            s.overwrite_push(my_state::S6).unwrap();
+                            s.overwrite_push(MyState::S6).unwrap();
                         })
                         .system(),
                     )
-                    .with_run_criteria(State::on_update::<my_state::S5>()),
+                    .with_run_criteria(State::on_update(MyState::S5)),
             )
             .add_system_set(
                 SystemSet::default()
                     .with_system(
                         (|mut r: ResMut<Vec<&'static str>>| r.push("inactive S5")).system(),
                     )
-                    .with_run_criteria(State::on_inactive_update::<my_state::S5>()),
+                    .with_run_criteria(State::on_inactive_update(MyState::S5)),
             )
             .add_system_set(
                 SystemSet::default()
                     .with_system(
-                        (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State>| {
+                        (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                             r.push("update S6");
-                            s.overwrite_push(my_state::Final).unwrap();
+                            s.overwrite_push(MyState::Final).unwrap();
                         })
                         .system(),
                     )
-                    .with_run_criteria(State::on_update::<my_state::S6>()),
+                    .with_run_criteria(State::on_update(MyState::S6)),
             )
             .add_system_set(
                 SystemSet::default()
                     .with_system((|mut r: ResMut<Vec<&'static str>>| r.push("resume S4")).system())
-                    .with_run_criteria(State::on_resume::<my_state::S4>()),
+                    .with_run_criteria(State::on_resume(MyState::S4)),
             )
             .add_system_set(
                 SystemSet::default()
                     .with_system((|mut r: ResMut<Vec<&'static str>>| r.push("exit S4")).system())
-                    .with_run_criteria(State::on_exit::<my_state::S5>()),
+                    .with_run_criteria(State::on_exit(MyState::S5)),
             );
 
         const EXPECTED: &[&[&str]] = &[
@@ -508,9 +507,9 @@ mod test {
 
         loop {
             println!("new run!");
-            stage.run(&mut world, &mut resources);
+            stage.run(&mut world);
             let mut expected: Vec<_> = iterator.next().unwrap().into_iter().collect();
-            let mut collected = resources.get_mut::<Vec<&'static str>>().unwrap();
+            let mut collected = world.get_resource_mut::<Vec<&'static str>>().unwrap();
             for found in collected.drain(..) {
                 let index = expected
                     .iter()
@@ -522,7 +521,7 @@ mod test {
             }
             // If not zero, some elements weren't executed
             assert_eq!(expected.len(), 0);
-            if resources.get::<State>().unwrap().is::<my_state::Final>() {
+            if world.get_resource::<State>().unwrap() = MyState::Final {
                 break;
             }
         }
