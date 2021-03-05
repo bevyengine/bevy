@@ -340,8 +340,8 @@ mod tests {
         clear_trackers_system,
         resource::{Res, ResMut, Resources},
         schedule::Schedule,
-        ChangedRes, Entity, IntoExclusiveSystem, Local, Or, Query, QuerySet, Stage, System,
-        SystemStage, With, World,
+        Entity, IntoExclusiveSystem, Local, Query, QuerySet, Stage, System, SystemStage, With,
+        World,
     };
 
     #[derive(Debug, Eq, PartialEq, Default)]
@@ -444,7 +444,11 @@ mod tests {
 
     #[test]
     fn changed_resource_system() {
-        fn incr_e_on_flip(_run_on_flip: ChangedRes<bool>, mut query: Query<&mut i32>) {
+        fn incr_e_on_flip(run_on_flip: Res<bool>, mut query: Query<&mut i32>) {
+            if !Res::changed(&run_on_flip) {
+                return;
+            }
+
             for mut i in query.iter_mut() {
                 *i += 1;
             }
@@ -473,50 +477,6 @@ mod tests {
         *resources.get_mut::<bool>().unwrap() = true;
         schedule.run(&mut world, &mut resources);
         assert_eq!(*(world.get::<i32>(ent).unwrap()), 2);
-    }
-
-    #[test]
-    fn changed_resource_or_system() {
-        fn incr_e_on_flip(
-            _or: Or<(Option<ChangedRes<bool>>, Option<ChangedRes<i32>>)>,
-            mut query: Query<&mut i32>,
-        ) {
-            for mut i in query.iter_mut() {
-                *i += 1;
-            }
-        }
-
-        let mut world = World::default();
-        let mut resources = Resources::default();
-        resources.insert(false);
-        resources.insert::<i32>(10);
-        let ent = world.spawn((0,));
-
-        let mut schedule = Schedule::default();
-        let mut update = SystemStage::parallel();
-        update.add_system(incr_e_on_flip.system());
-        schedule.add_stage("update", update);
-        schedule.add_stage(
-            "clear_trackers",
-            SystemStage::single(clear_trackers_system.exclusive_system()),
-        );
-
-        schedule.run(&mut world, &mut resources);
-        assert_eq!(*(world.get::<i32>(ent).unwrap()), 1);
-
-        schedule.run(&mut world, &mut resources);
-        assert_eq!(*(world.get::<i32>(ent).unwrap()), 1);
-
-        *resources.get_mut::<bool>().unwrap() = true;
-        schedule.run(&mut world, &mut resources);
-        assert_eq!(*(world.get::<i32>(ent).unwrap()), 2);
-
-        schedule.run(&mut world, &mut resources);
-        assert_eq!(*(world.get::<i32>(ent).unwrap()), 2);
-
-        *resources.get_mut::<i32>().unwrap() = 20;
-        schedule.run(&mut world, &mut resources);
-        assert_eq!(*(world.get::<i32>(ent).unwrap()), 3);
     }
 
     #[test]
@@ -621,14 +581,6 @@ mod tests {
     #[should_panic]
     fn conflicting_system_resources_multiple_mutable() {
         fn sys(_: ResMut<BufferRes>, _: ResMut<BufferRes>) {}
-        test_for_conflicting_resources(sys.system())
-    }
-
-    #[test]
-    #[should_panic]
-    fn conflicting_changed_and_mutable_resource() {
-        // A tempting pattern, but unsound if allowed.
-        fn sys(_: ResMut<BufferRes>, _: ChangedRes<BufferRes>) {}
         test_for_conflicting_resources(sys.system())
     }
 

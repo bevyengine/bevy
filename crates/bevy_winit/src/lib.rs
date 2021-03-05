@@ -25,6 +25,7 @@ use winit::{
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
 
+use winit::dpi::LogicalSize;
 #[cfg(any(
     target_os = "linux",
     target_os = "dragonfly",
@@ -138,6 +139,24 @@ fn change_window(_: &mut World, resources: &mut Resources) {
                         x: position[0],
                         y: position[1],
                     });
+                }
+                bevy_window::WindowCommand::SetResizeConstraints { resize_constraints } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    let constraints = resize_constraints.check_constraints();
+                    let min_inner_size = LogicalSize {
+                        width: constraints.min_width,
+                        height: constraints.min_height,
+                    };
+                    let max_inner_size = LogicalSize {
+                        width: constraints.max_width,
+                        height: constraints.max_height,
+                    };
+                    if constraints.max_width.is_finite() && constraints.max_height.is_finite() {
+                        window.set_min_inner_size(Some(min_inner_size));
+                        window.set_max_inner_size(Some(max_inner_size));
+                    } else {
+                        window.set_min_inner_size(Some(min_inner_size));
+                    }
                 }
             }
         }
@@ -407,6 +426,7 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                         );
                     }
                     WindowEvent::Focused(focused) => {
+                        window.update_focused_status_from_backend(focused);
                         let mut focused_events =
                             app.resources.get_mut::<Events<WindowFocused>>().unwrap();
                         focused_events.send(WindowFocused {

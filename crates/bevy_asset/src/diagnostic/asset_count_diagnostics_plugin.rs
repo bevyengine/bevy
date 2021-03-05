@@ -24,7 +24,7 @@ impl<T: Asset> AssetCountDiagnosticsPlugin<T> {
     pub fn setup_system(mut diagnostics: ResMut<Diagnostics>) {
         diagnostics.add(Diagnostic::new(
             Self::diagnostic_id(),
-            &format!("asset_count {}", std::any::type_name::<T>()),
+            format!("asset_count {}", std::any::type_name::<T>()),
             20,
         ));
     }

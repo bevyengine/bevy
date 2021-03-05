@@ -1,7 +1,8 @@
-use super::image_texture_conversion::image_to_texture;
+use super::texture::{ImageType, Texture, TextureError};
 use anyhow::Result;
 use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
 use bevy_utils::BoxedFuture;
+use thiserror::Error;
 
 /// Loader for images that can be read by the `image` crate.
 #[derive(Clone, Default)]
@@ -16,36 +17,40 @@ impl AssetLoader for ImageTextureLoader {
         load_context: &'a mut LoadContext,
     ) -> BoxedFuture<'a, Result<()>> {
         Box::pin(async move {
-            // Find the image type we expect. A file with the extension "png" should
-            // probably load as a PNG.
-
+            // use the file extension for the image type
             let ext = load_context.path().extension().unwrap().to_str().unwrap();
 
-            let img_format = image::ImageFormat::from_extension(ext)
-                .ok_or_else(|| {
-                    format!(
-                    "Unexpected image format {:?} for file {}, this is an error in `bevy_render`.",
-                    ext,
-                    load_context.path().display()
-                )
-                })
-                .unwrap();
+            let dyn_img =
+                Texture::from_buffer(bytes, ImageType::Extension(ext)).map_err(|err| {
+                    FileTextureError {
+                        error: err,
+                        path: format!("{}", load_context.path().display()),
+                    }
+                })?;
 
-            // Load the image in the expected format.
-            // Some formats like PNG allow for R or RG textures too, so the texture
-            // format needs to be determined. For RGB textures an alpha channel
-            // needs to be added, so the image data needs to be converted in those
-            // cases.
-
-            let dyn_img = image::load_from_memory_with_format(bytes, img_format)?;
-
-            load_context.set_default_asset(LoadedAsset::new(image_to_texture(dyn_img)));
+            load_context.set_default_asset(LoadedAsset::new(dyn_img));
             Ok(())
         })
     }
 
     fn extensions(&self) -> &[&str] {
         FILE_EXTENSIONS
+    }
+}
+
+/// An error that occurs when loading a texture from a file
+#[derive(Error, Debug)]
+pub struct FileTextureError {
+    error: TextureError,
+    path: String,
+}
+impl std::fmt::Display for FileTextureError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        write!(
+            f,
+            "Error reading image file {}: {}, this is an error in `bevy_render`.",
+            self.path, self.error
+        )
     }
 }
 

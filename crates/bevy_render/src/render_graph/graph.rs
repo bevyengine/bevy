@@ -1,5 +1,5 @@
 use super::{Edge, Node, NodeId, NodeLabel, NodeState, RenderGraphError, SlotLabel, SystemNode};
-use bevy_ecs::{Commands, Schedule, SystemStage};
+use bevy_ecs::{Commands, Schedule, StageLabel, SystemStage};
 use bevy_utils::HashMap;
 use std::{borrow::Cow, fmt::Debug};
 pub struct RenderGraph {
@@ -9,10 +9,13 @@ pub struct RenderGraph {
     commands: Commands,
 }
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+struct RenderGraphUpdate;
+
 impl Default for RenderGraph {
     fn default() -> Self {
         let mut schedule = Schedule::default();
-        schedule.add_stage("update", SystemStage::parallel());
+        schedule.add_stage(RenderGraphUpdate, SystemStage::parallel());
         Self {
             nodes: Default::default(),
             node_names: Default::default(),
@@ -41,7 +44,9 @@ impl RenderGraph {
         T: SystemNode + 'static,
     {
         let schedule = self.system_node_schedule.as_mut().unwrap();
-        let stage = schedule.get_stage_mut::<SystemStage>("update").unwrap();
+        let stage = schedule
+            .get_stage_mut::<SystemStage>(&RenderGraphUpdate)
+            .unwrap();
         stage.add_system(node.get_system(&mut self.commands));
         self.add_node(name, node)
     }

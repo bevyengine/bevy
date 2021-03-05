@@ -154,12 +154,13 @@ impl AssetServer {
                 extensions: Vec::new(),
             })?
             .to_str()
+            .map(|s| s.to_lowercase())
             .ok_or(AssetServerError::MissingAssetLoader {
                 extensions: Vec::new(),
             })?;
 
         let mut exts = Vec::new();
-        let mut ext = s;
+        let mut ext = s.as_str();
         while let Some(idx) = ext.find('.') {
             ext = &ext[idx + 1..];
             exts.push(ext);
@@ -549,6 +550,13 @@ mod test {
     fn extensions() {
         let asset_server = setup();
         let t = asset_server.get_path_asset_loader("test.png");
+        assert_eq!(t.unwrap().extensions()[0], "png");
+    }
+
+    #[test]
+    fn case_insensitive_extensions() {
+        let asset_server = setup();
+        let t = asset_server.get_path_asset_loader("test.PNG");
         assert_eq!(t.unwrap().extensions()[0], "png");
     }
 

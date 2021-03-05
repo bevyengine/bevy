@@ -1,10 +1,29 @@
 use crate::{
-    ArchetypeComponent, ChangedRes, Commands, Fetch, FromResources, Local, NonSend, Or, Query,
-    QueryAccess, QueryFilter, QuerySet, QueryTuple, Res, ResMut, Resource, ResourceIndex,
-    Resources, SystemState, TypeAccess, World, WorldQuery,
+    ArchetypeComponent, Commands, Fetch, FromResources, Local, NonSend, Or, Query, QueryAccess,
+    QueryFilter, QuerySet, QueryTuple, Res, ResMut, Resource, ResourceIndex, Resources,
+    SystemState, TypeAccess, World, WorldQuery,
 };
 use parking_lot::Mutex;
 use std::{any::TypeId, marker::PhantomData, sync::Arc};
+
+/// A parameter that can be used in a system function
+///
+/// # Derive
+/// This trait can be derived.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// use bevy_ecs::SystemParam;
+///
+/// #[derive(SystemParam)]
+/// pub struct MyParam<'a> {
+///     foo: Res<'a, usize>,
+/// }
+///
+/// fn my_system(param: MyParam) {
+///     // Access the resource through `param.foo`
+/// }
+/// ```
 pub trait SystemParam: Sized {
     type Fetch: for<'a> FetchSystemParam<'a>;
 }
@@ -173,9 +192,8 @@ impl<'a, T: Resource> FetchSystemParam<'a> for FetchRes<T> {
         _world: &'a World,
         resources: &'a Resources,
     ) -> Option<Self::Item> {
-        Some(Res::new(
-            resources.get_unsafe_ref::<T>(ResourceIndex::Global),
-        ))
+        let result = resources.get_unsafe_ref_with_added_and_mutated::<T>(ResourceIndex::Global);
+        Some(Res::new(result.0, *result.1.as_ptr(), *result.2.as_ptr()))
     }
 }
 
@@ -210,46 +228,9 @@ impl<'a, T: Resource> FetchSystemParam<'a> for FetchResMut<T> {
         _world: &'a World,
         resources: &'a Resources,
     ) -> Option<Self::Item> {
-        let (value, _added, mutated) =
-            resources.get_unsafe_ref_with_added_and_mutated::<T>(ResourceIndex::Global);
-        Some(ResMut::new(value, mutated))
-    }
-}
-
-pub struct FetchChangedRes<T>(PhantomData<T>);
-
-impl<'a, T: Resource> SystemParam for ChangedRes<'a, T> {
-    type Fetch = FetchChangedRes<T>;
-}
-
-impl<'a, T: Resource> FetchSystemParam<'a> for FetchChangedRes<T> {
-    type Item = ChangedRes<'a, T>;
-
-    fn init(system_state: &mut SystemState, _world: &World, _resources: &mut Resources) {
-        if system_state.resource_access.is_write(&TypeId::of::<T>()) {
-            panic!(
-                "System `{}` has a `ChangedRes<{res}>` parameter that conflicts with \
-                another parameter with mutable access to the same `{res}` resource.",
-                system_state.name,
-                res = std::any::type_name::<T>()
-            );
-        }
-        system_state.resource_access.add_read(TypeId::of::<T>());
-    }
-
-    #[inline]
-    unsafe fn get_param(
-        _system_state: &'a SystemState,
-        _world: &'a World,
-        resources: &'a Resources,
-    ) -> Option<Self::Item> {
         let (value, added, mutated) =
             resources.get_unsafe_ref_with_added_and_mutated::<T>(ResourceIndex::Global);
-        if *added.as_ptr() || *mutated.as_ptr() {
-            Some(ChangedRes::new(value))
-        } else {
-            None
-        }
+        Some(ResMut::new(value, *added.as_ptr(), mutated))
     }
 }
 

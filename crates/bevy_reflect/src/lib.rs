@@ -56,6 +56,7 @@ pub use bevy_reflect_derive::*;
 pub use erased_serde;
 
 #[cfg(test)]
+#[allow(clippy::blacklisted_name, clippy::approx_constant)]
 mod tests {
     use ::serde::de::DeserializeSeed;
     use bevy_utils::HashMap;
@@ -67,6 +68,7 @@ mod tests {
     use crate::serde::{ReflectDeserializer, ReflectSerializer};
 
     use super::*;
+
     #[test]
     fn reflect_struct() {
         #[derive(Reflect)]
@@ -145,6 +147,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::blacklisted_name)]
     fn reflect_unit_struct() {
         #[derive(Reflect)]
         struct Foo(u32, u64);

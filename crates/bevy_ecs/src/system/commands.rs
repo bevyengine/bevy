@@ -165,6 +165,16 @@ impl<T: Resource> Command for InsertResource<T> {
     }
 }
 
+pub struct RemoveResource<T: Resource> {
+    phantom: PhantomData<T>,
+}
+
+impl<T: Resource> Command for RemoveResource<T> {
+    fn write(self: Box<Self>, _world: &mut World, resources: &mut Resources) {
+        resources.remove::<T>();
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct InsertLocalResource<T: Resource> {
     resource: T,
@@ -304,6 +314,12 @@ impl Commands {
         })
     }
 
+    pub fn remove_resource<T: Resource>(&mut self) -> &mut Self {
+        self.add_command(RemoveResource::<T> {
+            phantom: PhantomData,
+        })
+    }
+
     /// Adds a bundle of components to the current entity.
     ///
     /// See [`Self::with`], [`Self::current_entity`].
@@ -409,8 +425,10 @@ impl Commands {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
     use crate::{resource::Resources, Commands, World};
+    use core::any::TypeId;
 
     #[test]
     fn command_buffer() {
@@ -463,7 +481,37 @@ mod tests {
             .map(|(a, b)| (*a, *b))
             .collect::<Vec<_>>();
         assert_eq!(results_after, vec![]);
-        let results_after_u64 = world.query::<&u64>().map(|a| *a).collect::<Vec<_>>();
+        let results_after_u64 = world.query::<&u64>().copied().collect::<Vec<_>>();
         assert_eq!(results_after_u64, vec![]);
+    }
+
+    #[test]
+    fn remove_resources() {
+        let mut world = World::default();
+        let mut resources = Resources::default();
+        let mut command_buffer = Commands::default();
+        command_buffer.insert_resource(123);
+        command_buffer.insert_resource(456.0);
+        command_buffer.apply(&mut world, &mut resources);
+        assert_eq!(
+            resources.resource_data.contains_key(&TypeId::of::<i32>()),
+            true
+        );
+        assert_eq!(
+            resources.resource_data.contains_key(&TypeId::of::<f64>()),
+            true
+        );
+
+        // test resource removal
+        command_buffer.remove_resource::<i32>();
+        command_buffer.apply(&mut world, &mut resources);
+        assert_eq!(
+            resources.resource_data.contains_key(&TypeId::of::<i32>()),
+            false
+        );
+        assert_eq!(
+            resources.resource_data.contains_key(&TypeId::of::<f64>()),
+            true
+        );
     }
 }
