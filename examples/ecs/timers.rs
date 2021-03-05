@@ -39,7 +39,7 @@ fn setup_system(mut commands: Commands) {
 /// using bevy's `Time` resource to get the delta between each update.
 fn timer_system(time: Res<Time>, mut query: Query<&mut Timer>) {
     for mut timer in query.iter_mut() {
-        if timer.tick(time.delta_seconds()).just_finished() {
+        if timer.tick(time.delta()).just_finished() {
             info!("Entity timer just finished")
         }
     }
@@ -48,16 +48,12 @@ fn timer_system(time: Res<Time>, mut query: Query<&mut Timer>) {
 /// This system controls ticking the timer within the countdown resource and
 /// handling its state.
 fn countdown_system(time: Res<Time>, mut countdown: ResMut<Countdown>) {
-    countdown.main_timer.tick(time.delta_seconds());
+    countdown.main_timer.tick(time.delta());
 
     // The API encourages this kind of timer state checking (if you're only checking for one value)
     // Additionally, `finished()` would accomplish the same thing as `just_finished` due to the timer
     // being repeating, however this makes more sense visually.
-    if countdown
-        .percent_trigger
-        .tick(time.delta_seconds())
-        .just_finished()
-    {
+    if countdown.percent_trigger.tick(time.delta()).just_finished() {
         if !countdown.main_timer.finished() {
             // Print the percent complete the main timer is.
             info!(
