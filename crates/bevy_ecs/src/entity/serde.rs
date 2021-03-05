@@ -1,6 +1,4 @@
-// modified by Bevy contributors
-
-use crate::Entity;
+use crate::entity::Entity;
 use serde::{de::Visitor, Deserialize, Serialize, Serializer};
 
 impl Serialize for Entity {

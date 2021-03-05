@@ -1,5 +1,10 @@
 use bevy_asset::Assets;
-use bevy_ecs::{Bundle, Changed, Entity, Local, Query, QuerySet, Res, ResMut, With};
+use bevy_ecs::{
+    bundle::Bundle,
+    entity::Entity,
+    query::{Changed, With},
+    system::{Local, Query, QuerySet, Res, ResMut},
+};
 use bevy_math::{Size, Vec3};
 use bevy_render::{
     draw::{DrawContext, Drawable},

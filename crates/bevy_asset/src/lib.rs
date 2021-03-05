@@ -12,21 +12,24 @@ mod io;
 mod loader;
 mod path;
 
+pub mod prelude {
+    pub use crate::{AddAsset, AssetEvent, AssetServer, Assets, Handle, HandleUntyped};
+}
+
 pub use asset_server::*;
 pub use assets::*;
+pub use bevy_utils::BoxedFuture;
 pub use handle::*;
 pub use info::*;
 pub use io::*;
 pub use loader::*;
 pub use path::*;
 
-pub mod prelude {
-    pub use crate::{AddAsset, AssetEvent, AssetServer, Assets, Handle, HandleUntyped};
-}
-
 use bevy_app::{prelude::Plugin, AppBuilder};
-use bevy_ecs::{IntoSystem, StageLabel, SystemStage};
-use bevy_reflect::RegisterTypeBuilder;
+use bevy_ecs::{
+    schedule::{StageLabel, SystemStage},
+    system::IntoSystem,
+};
 use bevy_tasks::IoTaskPool;
 
 /// The names of asset stages in an App Schedule
@@ -59,8 +62,8 @@ impl Default for AssetServerSettings {
 /// delegate to the default `AssetIo` for the platform.
 pub fn create_platform_default_asset_io(app: &mut AppBuilder) -> Box<dyn AssetIo> {
     let settings = app
-        .resources_mut()
-        .get_or_insert_with(AssetServerSettings::default);
+        .world_mut()
+        .get_resource_or_insert_with(AssetServerSettings::default);
 
     #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
     let source = FileAssetIo::new(&settings.asset_folder);
@@ -74,10 +77,10 @@ pub fn create_platform_default_asset_io(app: &mut AppBuilder) -> Box<dyn AssetIo
 
 impl Plugin for AssetPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        if app.resources().get::<AssetServer>().is_none() {
+        if app.world().get_resource::<AssetServer>().is_none() {
             let task_pool = app
-                .resources()
-                .get::<IoTaskPool>()
+                .world()
+                .get_resource::<IoTaskPool>()
                 .expect("`IoTaskPool` resource not found.")
                 .0
                 .clone();

@@ -10,7 +10,10 @@ pub use wgpu_renderer::*;
 pub use wgpu_resources::*;
 
 use bevy_app::prelude::*;
-use bevy_ecs::{IntoExclusiveSystem, IntoSystem, Resources, World};
+use bevy_ecs::{
+    system::{IntoExclusiveSystem, IntoSystem},
+    world::World,
+};
 use bevy_render::{
     renderer::{shared_buffers_update_system, RenderResourceContext, SharedBuffers},
     RenderStage,
@@ -86,7 +89,7 @@ pub struct WgpuPlugin;
 
 impl Plugin for WgpuPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        let render_system = get_wgpu_render_system(app.resources_mut());
+        let render_system = get_wgpu_render_system(app.world_mut());
         app.add_system_to_stage(RenderStage::Render, render_system.exclusive_system())
             .add_system_to_stage(
                 RenderStage::PostRender,
@@ -94,17 +97,19 @@ impl Plugin for WgpuPlugin {
             );
     }
 }
-pub fn get_wgpu_render_system(resources: &mut Resources) -> impl FnMut(&mut World, &mut Resources) {
-    let options = resources
-        .get_cloned::<WgpuOptions>()
+
+pub fn get_wgpu_render_system(world: &mut World) -> impl FnMut(&mut World) {
+    let options = world
+        .get_resource::<WgpuOptions>()
+        .cloned()
         .unwrap_or_else(WgpuOptions::default);
     let mut wgpu_renderer = future::block_on(WgpuRenderer::new(options));
 
     let resource_context = WgpuRenderResourceContext::new(wgpu_renderer.device.clone());
-    resources.insert::<Box<dyn RenderResourceContext>>(Box::new(resource_context));
-    resources.insert(SharedBuffers::new(4096));
-    move |world, resources| {
-        wgpu_renderer.update(world, resources);
+    world.insert_resource::<Box<dyn RenderResourceContext>>(Box::new(resource_context));
+    world.insert_resource(SharedBuffers::new(4096));
+    move |world| {
+        wgpu_renderer.update(world);
     }
 }
 
@@ -124,7 +129,7 @@ pub enum WgpuBackend {
     Metal,
     Dx12,
     Dx11,
-    GL,
+    Gl,
     BrowserWgpu,
 }
 
@@ -136,7 +141,7 @@ impl WgpuBackend {
                 "metal" => WgpuBackend::Metal,
                 "dx12" => WgpuBackend::Dx12,
                 "dx11" => WgpuBackend::Dx11,
-                "gl" => WgpuBackend::GL,
+                "gl" => WgpuBackend::Gl,
                 "webgpu" => WgpuBackend::BrowserWgpu,
                 other => panic!("Unknown backend: {}", other),
             }

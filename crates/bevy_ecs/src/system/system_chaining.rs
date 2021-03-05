@@ -1,14 +1,19 @@
-use crate::{ArchetypeComponent, Resources, System, SystemId, TypeAccess, World};
-use std::{any::TypeId, borrow::Cow};
+use crate::{
+    archetype::{Archetype, ArchetypeComponentId},
+    component::ComponentId,
+    query::Access,
+    system::{System, SystemId},
+    world::World,
+};
+use std::borrow::Cow;
 
 pub struct ChainSystem<SystemA, SystemB> {
     system_a: SystemA,
     system_b: SystemB,
     name: Cow<'static, str>,
     id: SystemId,
-    archetype_component_access: TypeAccess<ArchetypeComponent>,
-    component_access: TypeAccess<TypeId>,
-    resource_access: TypeAccess<TypeId>,
+    component_access: Access<ComponentId>,
+    archetype_component_access: Access<ArchetypeComponentId>,
 }
 
 impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem<SystemA, SystemB> {
@@ -23,59 +28,45 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
         self.id
     }
 
-    fn update_access(&mut self, world: &World) {
-        self.archetype_component_access.clear();
-        self.component_access.clear();
-        self.resource_access.clear();
-        self.system_a.update_access(world);
-        self.system_b.update_access(world);
+    fn new_archetype(&mut self, archetype: &Archetype) {
+        self.system_a.new_archetype(archetype);
+        self.system_b.new_archetype(archetype);
 
         self.archetype_component_access
             .extend(self.system_a.archetype_component_access());
         self.archetype_component_access
             .extend(self.system_b.archetype_component_access());
+    }
+
+    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+        &self.archetype_component_access
+    }
+
+    fn component_access(&self) -> &Access<ComponentId> {
+        &self.component_access
+    }
+
+    fn is_send(&self) -> bool {
+        self.system_a.is_send() && self.system_b.is_send()
+    }
+
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
+        let out = self.system_a.run_unsafe(input, world);
+        self.system_b.run_unsafe(out, world)
+    }
+
+    fn apply_buffers(&mut self, world: &mut World) {
+        self.system_a.apply_buffers(world);
+        self.system_b.apply_buffers(world);
+    }
+
+    fn initialize(&mut self, world: &mut World) {
+        self.system_a.initialize(world);
+        self.system_b.initialize(world);
         self.component_access
             .extend(self.system_a.component_access());
         self.component_access
             .extend(self.system_b.component_access());
-        self.resource_access.extend(self.system_a.resource_access());
-        self.resource_access.extend(self.system_b.resource_access());
-    }
-
-    fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent> {
-        &self.archetype_component_access
-    }
-
-    fn component_access(&self) -> &TypeAccess<TypeId> {
-        &self.component_access
-    }
-
-    fn resource_access(&self) -> &TypeAccess<TypeId> {
-        &self.resource_access
-    }
-
-    fn is_non_send(&self) -> bool {
-        self.system_a.is_non_send() || self.system_b.is_non_send()
-    }
-
-    unsafe fn run_unsafe(
-        &mut self,
-        input: Self::In,
-        world: &World,
-        resources: &Resources,
-    ) -> Option<Self::Out> {
-        let out = self.system_a.run_unsafe(input, world, resources).unwrap();
-        self.system_b.run_unsafe(out, world, resources)
-    }
-
-    fn apply_buffers(&mut self, world: &mut World, resources: &mut Resources) {
-        self.system_a.apply_buffers(world, resources);
-        self.system_b.apply_buffers(world, resources);
-    }
-
-    fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
-        self.system_a.initialize(world, resources);
-        self.system_b.initialize(world, resources);
     }
 }
 
@@ -98,7 +89,6 @@ where
             system_b: system,
             archetype_component_access: Default::default(),
             component_access: Default::default(),
-            resource_access: Default::default(),
             id: SystemId::new(),
         }
     }

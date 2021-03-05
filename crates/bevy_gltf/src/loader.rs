@@ -1,7 +1,9 @@
 use anyhow::Result;
-use bevy_asset::{AssetIoError, AssetLoader, AssetPath, Handle, LoadContext, LoadedAsset};
+use bevy_asset::{
+    AssetIoError, AssetLoader, AssetPath, BoxedFuture, Handle, LoadContext, LoadedAsset,
+};
 use bevy_core::Name;
-use bevy_ecs::{bevy_utils::BoxedFuture, World, WorldBuilderSource};
+use bevy_ecs::world::World;
 use bevy_math::Mat4;
 use bevy_pbr::prelude::{PbrBundle, StandardMaterial};
 use bevy_render::{
@@ -207,9 +209,9 @@ async fn load_gltf<'a, 'b>(
     for scene in gltf.scenes() {
         let mut err = None;
         let mut world = World::default();
-        let world_builder = &mut world.build();
-        world_builder
-            .spawn((Transform::default(), GlobalTransform::default()))
+        world
+            .spawn()
+            .insert_bundle((Transform::default(), GlobalTransform::default()))
             .with_children(|parent| {
                 for node in scene.nodes() {
                     let result = load_node(&node, parent, load_context, &buffer_data);

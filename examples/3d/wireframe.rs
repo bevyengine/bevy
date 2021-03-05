@@ -22,7 +22,7 @@ fn main() {
 
 /// set up a simple 3D scene
 fn setup(
-    commands: &mut Commands,
+    mut commands: Commands,
     mut wireframe_config: ResMut<WireframeConfig>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,

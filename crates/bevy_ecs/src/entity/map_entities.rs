@@ -1,4 +1,4 @@
-use crate::Entity;
+use crate::entity::Entity;
 use bevy_utils::HashMap;
 use std::collections::hash_map::Entry;
 use thiserror::Error;
