@@ -76,12 +76,10 @@ fn star(
     }
     // Set the position attribute
     star.set_attribute(Mesh::ATTRIBUTE_POSITION, v_pos);
-    // Each vertex has also normal (pointing out of the screen)
-    star.set_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]; 11]);
-    // And a UV mapping attribute as well, here used to color the star
-    let mut v_uv = vec![[0.0, 0.0]];
-    v_uv.extend_from_slice(&[[1.0, 1.0]; 10]);
-    star.set_attribute(Mesh::ATTRIBUTE_UV_0, v_uv);
+    // And a RGB color attribute as well
+    let mut v_color = vec![[0.0, 0.0, 0.0]];
+    v_color.extend_from_slice(&[[1.0, 1.0, 0.0]; 10]);
+    star.set_attribute("Color", v_color);
 
     // Now, we specify the indices of the vertex that are going to compose the
     // triangles in our star. Vertices in triangles have to be specified in CCW
@@ -115,10 +113,9 @@ const VERTEX_SHADER: &str = r"
 #version 450
 
 layout(location = 0) in vec3 Vertex_Position;
-layout(location = 1) in vec3 Vertex_Normal;
-layout(location = 2) in vec2 Vertex_Uv;
+layout(location = 1) in vec3 Color;
 
-layout(location = 1) out vec2 v_Uv;
+layout(location = 1) out vec3 v_Color;
 
 layout(set = 0, binding = 0) uniform Camera {
     mat4 ViewProj;
@@ -129,7 +126,7 @@ layout(set = 1, binding = 0) uniform Transform {
 };
 
 void main() {
-    v_Uv = Vertex_Uv;
+    v_Color = Color;
     gl_Position = ViewProj * Model * vec4(Vertex_Position, 1.0);
 }
 ";
@@ -137,12 +134,11 @@ void main() {
 const FRAGMENT_SHADER: &str = r"
 #version 450
 
-layout(location = 0) in vec4 v_Position;
-layout(location = 1) in vec2 v_Uv;
+layout(location = 1) in vec3 v_Color;
 
 layout(location = 0) out vec4 o_Target;
 
 void main() {
-    o_Target = vec4(v_Uv.x, v_Uv.y, 0.0, 1.0);
+    o_Target = vec4(v_Color, 1.0);
 }
 ";
