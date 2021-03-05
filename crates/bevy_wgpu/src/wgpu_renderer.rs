@@ -4,7 +4,7 @@ use crate::{
     WgpuBackend, WgpuOptions, WgpuPowerOptions,
 };
 use bevy_app::{prelude::*, ManualEventReader};
-use bevy_ecs::world::World;
+use bevy_ecs::world::{Mut, World};
 use bevy_render::{
     render_graph::{DependentNodeStager, RenderGraph, RenderGraphStager},
     renderer::RenderResourceContext,
@@ -101,12 +101,12 @@ impl WgpuRenderer {
     }
 
     pub fn run_graph(&mut self, world: &mut World) {
-        world.resource_scope(|render_graph: &mut RenderGraph, world| {
+        world.resource_scope(|mut render_graph: Mut<RenderGraph>, world| {
             render_graph.prepare(world);
             // stage nodes
             let mut stager = DependentNodeStager::loose_grouping();
             let stages = stager.get_stages(&render_graph).unwrap();
-            let mut borrowed = stages.borrow(render_graph);
+            let mut borrowed = stages.borrow(&mut render_graph);
 
             // execute stages
             let graph_executor = WgpuRenderGraphExecutor {

@@ -4,7 +4,7 @@ use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityMap},
     reflect::{ReflectComponent, ReflectMapEntities},
-    world::World,
+    world::{Mut, World},
 };
 use bevy_reflect::TypeRegistryArc;
 use bevy_transform::prelude::Parent;
@@ -114,7 +114,7 @@ impl SceneSpawner {
         scene_handle: &Handle<DynamicScene>,
         entity_map: &mut EntityMap,
     ) -> Result<(), SceneSpawnError> {
-        world.resource_scope(|scenes: &mut Assets<DynamicScene>, world| {
+        world.resource_scope(|scenes: Mut<Assets<DynamicScene>>, world| {
             let scene =
                 scenes
                     .get(scene_handle)
@@ -144,7 +144,7 @@ impl SceneSpawner {
         };
         let type_registry = world.get_resource::<TypeRegistryArc>().unwrap().clone();
         let type_registry = type_registry.read();
-        world.resource_scope(|scenes: &mut Assets<Scene>, world| {
+        world.resource_scope(|scenes: Mut<Assets<Scene>>, world| {
             let scene =
                 scenes
                     .get(&scene_handle)
@@ -290,7 +290,7 @@ impl SceneSpawner {
 }
 
 pub fn scene_spawner_system(world: &mut World) {
-    world.resource_scope(|scene_spawner: &mut SceneSpawner, world| {
+    world.resource_scope(|mut scene_spawner: Mut<SceneSpawner>, world| {
         let scene_asset_events = world
             .get_resource::<Events<AssetEvent<DynamicScene>>>()
             .unwrap();

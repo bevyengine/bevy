@@ -31,16 +31,15 @@ pub mod prelude {
 
 #[cfg(test)]
 mod tests {
-    use bevy_tasks::TaskPool;
-    use parking_lot::Mutex;
-
     use crate::{
         bundle::Bundle,
         component::{Component, ComponentDescriptor, StorageType, TypeInfo},
         entity::Entity,
         query::{Added, Changed, FilterFetch, Flags, Mutated, Or, With, Without, WorldQuery},
-        world::World,
+        world::{Mut, World},
     };
+    use bevy_tasks::TaskPool;
+    use parking_lot::Mutex;
     use std::{any::TypeId, sync::Arc};
 
     #[derive(Debug, PartialEq, Eq)]
@@ -1148,5 +1147,16 @@ mod tests {
         let mut query = world_a.query::<&i32>();
         query.for_each(&world_a, |_| {});
         query.for_each(&world_b, |_| {});
+    }
+
+    #[test]
+    fn resource_scope() {
+        let mut world = World::default();
+        world.insert_resource::<i32>(0);
+        world.resource_scope(|mut value: Mut<i32>, world: &mut World| {
+            *value += 1;
+            assert!(!world.contains_resource::<i32>());
+        });
+        assert_eq!(*world.get_resource::<i32>().unwrap(), 1);
     }
 }

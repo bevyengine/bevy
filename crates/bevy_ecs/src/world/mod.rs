@@ -606,13 +606,42 @@ impl World {
     /// ```
     pub fn resource_scope<T: Component, U>(
         &mut self,
-        f: impl FnOnce(&mut T, &mut World) -> U,
+        f: impl FnOnce(Mut<T>, &mut World) -> U,
     ) -> U {
-        let mut resource = self
-            .remove_resource::<T>()
+        let component_id = self
+            .components
+            .get_resource_id(TypeId::of::<T>())
             .expect("resource does not exist");
-        let result = f(&mut resource, self);
-        self.insert_resource(resource);
+        let (ptr, mut flags) = {
+            let resource_archetype = self.archetypes.resource_mut();
+            let unique_components = resource_archetype.unique_components_mut();
+            let column = unique_components
+                .get_mut(component_id)
+                .expect("resource does not exist");
+            if column.is_empty() {
+                panic!("resource does not exist");
+            }
+            // SAFE: if a resource column exists, row 0 exists as well. caller takes ownership of the ptr value / drop is called when
+            // T is dropped
+            unsafe { column.swap_remove_and_forget_unchecked(0) }
+        };
+        // SAFE: pointer is of type T
+        let value = Mut {
+            value: unsafe { &mut *ptr.cast::<T>() },
+            flags: &mut flags,
+        };
+        let result = f(value, self);
+        let resource_archetype = self.archetypes.resource_mut();
+        let unique_components = resource_archetype.unique_components_mut();
+        let column = unique_components
+            .get_mut(component_id)
+            .expect("resource does not exist");
+        // SAFE: new location is immediately written to below
+        let row = unsafe { column.push_uninit() };
+        // SAFE: row was just allocated above
+        unsafe { column.set_unchecked(row, ptr) };
+        // SAFE: row was just allocated above
+        unsafe { *column.get_flags_unchecked_mut(row) = flags };
         result
     }
 
