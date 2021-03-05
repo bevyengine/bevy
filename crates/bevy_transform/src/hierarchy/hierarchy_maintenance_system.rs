@@ -45,6 +45,7 @@ pub fn parent_update_system(
         } else {
             commands.insert(entity, PreviousParent(parent.0));
         };
+    }
 }
 #[cfg(test)]
 mod test {
