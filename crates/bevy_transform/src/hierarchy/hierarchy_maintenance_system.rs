@@ -24,9 +24,6 @@ pub fn parent_update_system(
         }
     }
 
-    // Tracks all newly created `Children` Components this frame.
-    let mut children_additions = HashMap::<Entity, SmallVec<[Entity; 8]>>::default();
-
     // Entities with a changed Parent (that also have a PreviousParent, even if None)
     for (entity, parent, possible_previous_parent) in parent_query.iter_mut() {
         if let Some(mut previous_parent) = possible_previous_parent {
