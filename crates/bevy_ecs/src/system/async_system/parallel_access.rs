@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     future::Future,
+    marker::PhantomData,
     sync::Arc,
     task::{Poll, Waker},
 };
@@ -20,13 +21,11 @@ use crate::{
     system::{SystemId, SystemParam, SystemParamFetch, SystemParamState, SystemState},
 };
 
-use super::{
-    AccessorTrait, AsyncSystemHandle, AsyncSystemOutput, AsyncSystemOutputError, OpaquePhantomData,
-};
+use super::{AccessorTrait, AsyncSystemHandle, AsyncSystemOutput, AsyncSystemOutputError};
 
 pub struct Accessor<P: SystemParam> {
     channel: Sender<Box<dyn GenericAccess<P>>>,
-    _marker: OpaquePhantomData<P>,
+    _marker: PhantomData<fn() -> P>,
 }
 
 impl<P: SystemParam> AccessorTrait for Accessor<P> {
@@ -58,7 +57,7 @@ impl<P: SystemParam> Clone for Accessor<P> {
     }
 }
 
-pub trait AccessFn<'a, Out, Param: SystemParam>: Send + Sync {
+pub trait AccessFn<'env, 'a, Out, Param: SystemParam>: Send + Sync + 'env {
     fn run(
         self: Box<Self>,
         state: &'a mut Param::Fetch,
@@ -70,12 +69,12 @@ pub trait AccessFn<'a, Out, Param: SystemParam>: Send + Sync {
 macro_rules! impl_system_function {
     ($($param: ident),*) => {
         #[allow(non_snake_case)]
-        impl<'a, Out, Func, $($param: SystemParam),*> AccessFn<'a, Out, ($($param,)*)> for Func
+        impl<'a, 'env, Out, Func, $($param: SystemParam),*> AccessFn<'env, 'a, Out, ($($param,)*)> for Func
         where
             Func:
                 FnOnce($($param),*) -> Out +
-                FnOnce($(<<$param as SystemParam>::Fetch as SystemParamFetch<'a>>::Item),*) -> Out + Send + Sync, 
-            Out: 'static
+                FnOnce($(<<$param as SystemParam>::Fetch as SystemParamFetch<'a>>::Item),*) -> Out + Send + Sync + 'env,
+            Out: 'env
         {
             #[inline]
             fn run(self: Box<Self>, state: &'a mut <($($param,)*) as SystemParam>::Fetch, system_state: &'a SystemState, world: &'a World) -> Out {
@@ -91,13 +90,10 @@ macro_rules! impl_system_function {
 all_tuples!(impl_system_function, 0, 12, F);
 
 impl<P: SystemParam> Accessor<P> {
-    pub fn access<'env, R: Send + Sync + 'static>(
-        &mut self,
-        sync: impl for<'a> AccessFn<'a, R, P> + Send + Sync + 'env,
-    ) -> impl Future<Output = R> + Send + Sync + 'env
-    where
-        P: 'env,
-    {
+    pub fn access<'env, R: Send + Sync + 'env>(
+        &'env mut self,
+        sync: impl for<'a> AccessFn<'env, 'a, R, P> + Send + Sync + 'env,
+    ) -> impl Future<Output = R> + Send + Sync + 'env {
         AccessFuture {
             state: AccessFutureState::FirstPoll {
                 boxed: Box::new(sync),
@@ -108,7 +104,7 @@ impl<P: SystemParam> Accessor<P> {
 }
 
 struct ParallelAccess<'env, P: SystemParam, Out> {
-    inner: Arc<Mutex<Option<Box<dyn for<'a> AccessFn<'a, Out, P> + Send + Sync + 'env>>>>,
+    inner: Arc<Mutex<Option<Box<dyn for<'a> AccessFn<'env, 'a, Out, P> + Send + Sync>>>>,
     tx: Sender<Out>,
     waker: Waker,
 }
@@ -122,7 +118,7 @@ trait GenericAccess<P: SystemParam>: Send + Sync {
     );
 }
 
-impl<'env, P: SystemParam, Out: Send + Sync + 'env> GenericAccess<P>
+impl<'env, P: SystemParam + 'env, Out: Send + Sync + 'env> GenericAccess<P>
     for ParallelAccess<'env, P, Out>
 {
     unsafe fn run(self: Box<Self>, param_state: &mut P::Fetch, state: &SystemState, world: &World) {
@@ -137,12 +133,12 @@ impl<'env, P: SystemParam, Out: Send + Sync + 'env> GenericAccess<P>
 
 enum AccessFutureState<'env, P, R> {
     FirstPoll {
-        boxed: Box<dyn for<'a> AccessFn<'a, R, P> + Send + Sync + 'env>,
+        boxed: Box<dyn for<'a> AccessFn<'env, 'a, R, P> + Send + Sync + 'env>,
         tx: Sender<Box<dyn GenericAccess<P>>>,
     },
     WaitingForCompletion(
         Receiver<R>,
-        Arc<Mutex<Option<Box<dyn for<'a> AccessFn<'a, R, P> + Send + Sync + 'env>>>>,
+        Arc<Mutex<Option<Box<dyn for<'a> AccessFn<'env, 'a, R, P> + Send + Sync + 'env>>>>,
     ),
 }
 
@@ -202,7 +198,7 @@ pub struct AccessorRunnerSystem<P: SystemParam> {
     system_state: SystemState,
     param_state: Option<P::Fetch>,
     channel: Receiver<Box<dyn GenericAccess<P>>>,
-    _marker: OpaquePhantomData<P>,
+    _marker: PhantomData<fn() -> P>,
 }
 
 impl<P: SystemParam + 'static> System for AccessorRunnerSystem<P> {

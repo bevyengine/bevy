@@ -4,7 +4,7 @@
 //! thread_local! {
 //!     static TEST: std::cell::RefCell<Option<ResMut<'static, String>>> = Default::default();
 //! }
-//! async fn compile_fail(mut access: Accessor<ResMut<'_, String>>) {
+//! async fn compile_fail(mut access: Accessor<(ResMut<'_, String>,)>) {
 //!     access
 //!         .access(|res: ResMut<'_, _>| {
 //!             TEST.with(|mut cell| {
@@ -23,7 +23,6 @@ use async_channel::{Receiver, Sender};
 use std::{
     borrow::Cow,
     future::Future,
-    marker::PhantomData,
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
@@ -323,22 +322,6 @@ pub mod impls {
     impl_async_system!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
 }
 
-#[derive(Clone)]
-struct OpaquePhantomData<T> {
-    _phantom: PhantomData<T>,
-}
-
-unsafe impl<T> Send for OpaquePhantomData<T> {}
-unsafe impl<T> Sync for OpaquePhantomData<T> {}
-
-impl<T> Default for OpaquePhantomData<T> {
-    fn default() -> Self {
-        Self {
-            _phantom: Default::default(),
-        }
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::{Accessor, AsyncSystem};
@@ -368,7 +351,9 @@ mod test {
         }
     }
 
-    async fn simple_async_system(mut accessor: Accessor<(Query<'_, (&u32, &i64)>,)>) {
+    async fn simple_async_system(
+        mut accessor: Accessor<(Query<'_, (&'static u32, &'static i64)>,)>,
+    ) {
         accessor
             .access(|query: Query<'_, (&u32, &i64)>| {
                 for res in query.iter() {
@@ -385,7 +370,7 @@ mod test {
     fn run_async_system() {
         let mut world = World::new();
 
-        let cq = CommandQueue::default();
+        let mut cq = CommandQueue::default();
         let mut commands = Commands::new(&mut cq, &world);
 
         commands
@@ -427,7 +412,12 @@ mod test {
                 .after("2"),
             )
             .add_system(sync_2.label("4").after("3"))
-            .add_system(simple_async_system.system().after("4"));
+            .add_system(
+                simple_async_system
+                    .system()
+                    .chain((|_: In<_>| {}).system())
+                    .after("4"),
+            );
 
         stage.run(&mut world);
     }

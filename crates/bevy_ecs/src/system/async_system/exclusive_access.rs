@@ -11,7 +11,10 @@ use bevy_utils::BoxedFuture;
 use futures_lite::pin;
 use parking_lot::Mutex;
 
-use crate::{prelude::World, system::{ExclusiveSystem, SystemId}};
+use crate::{
+    prelude::World,
+    system::{ExclusiveSystem, SystemId},
+};
 
 use super::{AccessorTrait, AsyncSystemHandle, AsyncSystemOutput, AsyncSystemOutputError};
 

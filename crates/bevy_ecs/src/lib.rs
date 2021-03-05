@@ -22,8 +22,9 @@ pub mod prelude {
             Schedule, Stage, StageLabel, State, StateStage, SystemLabel, SystemStage,
         },
         system::{
-            Commands, In, IntoChainSystem, IntoExclusiveSystem, IntoSystem, Local, NonSend,
-            NonSendMut, Query, QuerySet, RemovedComponents, Res, ResMut, System,
+            Accessor, AsyncSystem, AsyncSystemHandle, AsyncSystemOutput, Commands,
+            ExclusiveAccessor, In, IntoChainSystem, IntoExclusiveSystem, IntoSystem, Local,
+            NonSend, NonSendMut, Query, QuerySet, RemovedComponents, Res, ResMut, System,
         },
         world::{FromWorld, Mut, World},
     };
