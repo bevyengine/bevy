@@ -40,19 +40,21 @@ enum ScheduledOperation<T: Component + Clone + Eq> {
 
 impl<T: Component + Clone + Eq> State<T> {
     pub fn on_update(s: T) -> impl System<In = (), Out = ShouldRun> {
-        (|state: Res<State<T>>, pred: Local<T>| {
-            state.stack.last().unwrap() == &*pred && state.transition.is_none()
+        (|state: Res<State<T>>, pred: Local<Option<T>>| {
+            state.stack.last().unwrap() == pred.as_ref().unwrap() && state.transition.is_none()
         })
         .system()
-        .config(|(_, pred)| *pred = s)
+        .config(|(_, pred)| *pred = Some(Some(s)))
         .chain(should_run_adapter::<T>.system())
     }
 
     pub fn on_inactive_update(s: T) -> impl System<In = (), Out = ShouldRun> {
-        (|state: Res<State<T>>, mut is_inactive: Local<bool>, pred: Local<T>| match &state.transition {
+        (|state: Res<State<T>>, mut is_inactive: Local<bool>, pred: Local<Option<T>>| match &state
+            .transition
+        {
             Some(StateTransition::Pausing(ref relevant, _))
             | Some(StateTransition::Resuming(_, ref relevant)) => {
-                if relevant == &*pred {
+                if relevant == pred.as_ref().unwrap() {
                     *is_inactive = !*is_inactive;
                 }
                 false
@@ -61,27 +63,29 @@ impl<T: Component + Clone + Eq> State<T> {
             None => *is_inactive,
         })
         .system()
-        .config(|(_, _, pred)| *pred = s)
-        .chain(should_run_adapter.system())
+        .config(|(_, _, pred)| *pred = Some(Some(s)))
+        .chain(should_run_adapter::<T>.system())
     }
 
     pub fn on_in_stack_update(s: T) -> impl System<In = (), Out = ShouldRun> {
-        (|state: Res<State<T>>, mut is_in_stack: Local<bool>, pred: Local<T>| match &state.transition {
+        (|state: Res<State<T>>, mut is_in_stack: Local<bool>, pred: Local<Option<T>>| match &state
+            .transition
+        {
             Some(StateTransition::Entering(ref relevant, _))
             | Some(StateTransition::ExitingToResume(_, ref relevant)) => {
-                if relevant == &*pred {
+                if relevant == pred.as_ref().unwrap() {
                     *is_in_stack = !*is_in_stack;
                 }
                 false
             }
             Some(StateTransition::ExitingFull(_, ref relevant)) => {
-                if relevant == &*pred {
+                if relevant == pred.as_ref().unwrap() {
                     *is_in_stack = !*is_in_stack;
                 }
                 false
             }
             Some(StateTransition::Startup) => {
-                if state.stack.last().unwrap() == &*pred {
+                if state.stack.last().unwrap() == pred.as_ref().unwrap() {
                     *is_in_stack = !*is_in_stack;
                 }
                 false
@@ -90,72 +94,72 @@ impl<T: Component + Clone + Eq> State<T> {
             None => *is_in_stack,
         })
         .system()
-        .config(|(_, _, pred)| *pred = s)
-        .chain(should_run_adapter.system())
+        .config(|(_, _, pred)| *pred = Some(Some(s)))
+        .chain(should_run_adapter::<T>.system())
     }
 
     pub fn on_enter(s: T) -> impl System<In = (), Out = ShouldRun> {
-        (|state: Res<State<T>>, pred: Local<T>| {
+        (|state: Res<State<T>>, pred: Local<Option<T>>| {
             state
                 .transition
                 .as_ref()
                 .map_or(false, |transition| match transition {
-                    StateTransition::Entering(_, entering) => entering == &*pred,
+                    StateTransition::Entering(_, entering) => entering == pred.as_ref().unwrap(),
                     StateTransition::Startup => {
-                        state.stack.last().unwrap() == &*pred
+                        state.stack.last().unwrap() == pred.as_ref().unwrap()
                     }
                     _ => false,
                 })
         })
         .system()
-        .config(|(_, pred)| *pred = s)
-        .chain(should_run_adapter.system())
+        .config(|(_, pred)| *pred = Some(Some(s)))
+        .chain(should_run_adapter::<T>.system())
     }
 
     pub fn on_exit(s: T) -> impl System<In = (), Out = ShouldRun> {
-        (|state: Res<State<T>>, pred: Local<T>| {
+        (|state: Res<State<T>>, pred: Local<Option<T>>| {
             state
                 .transition
                 .as_ref()
                 .map_or(false, |transition| match transition {
                     StateTransition::ExitingToResume(exiting, _)
-                    | StateTransition::ExitingFull(exiting, _) => exiting == &*pred,
+                    | StateTransition::ExitingFull(exiting, _) => exiting == pred.as_ref().unwrap(),
                     _ => false,
                 })
         })
         .system()
-        .config(|(_, pred)| *pred = s)
-        .chain(should_run_adapter.system())
+        .config(|(_, pred)| *pred = Some(Some(s)))
+        .chain(should_run_adapter::<T>.system())
     }
 
     pub fn on_pause(s: T) -> impl System<In = (), Out = ShouldRun> {
-        (|state: Res<State<T>>, pred: Local<T>| {
+        (|state: Res<State<T>>, pred: Local<Option<T>>| {
             state
                 .transition
                 .as_ref()
                 .map_or(false, |transition| match transition {
-                    StateTransition::Pausing(pausing, _) => pausing == &*pred,
+                    StateTransition::Pausing(pausing, _) => pausing == pred.as_ref().unwrap(),
                     _ => false,
                 })
         })
         .system()
-        .config(|(_, pred)| *pred = s)
-        .chain(should_run_adapter.system())
+        .config(|(_, pred)| *pred = Some(Some(s)))
+        .chain(should_run_adapter::<T>.system())
     }
 
     pub fn on_resume(s: T) -> impl System<In = (), Out = ShouldRun> {
-        (|state: Res<State<T>>, pred: Local<T>| {
+        (|state: Res<State<T>>, pred: Local<Option<T>>| {
             state
                 .transition
                 .as_ref()
                 .map_or(false, |transition| match transition {
-                    StateTransition::Resuming(_, resuming) => resuming == &*pred,
+                    StateTransition::Resuming(_, resuming) => resuming == pred.as_ref().unwrap(),
                     _ => false,
                 })
         })
         .system()
-        .config(|(_, pred)| *pred = s)
-        .chain(should_run_adapter.system())
+        .config(|(_, pred)| *pred = Some(Some(s)))
+        .chain(should_run_adapter::<T>.system())
     }
 
     /// Creates a driver set for the State.
@@ -352,7 +356,7 @@ fn state_cleaner<T: Component + Clone + Eq>(
 
 #[cfg(test)]
 mod test {
-    use super::*; 
+    use super::*;
     use crate::prelude::*;
 
     #[derive(Copy, Clone, Eq, PartialEq)]
@@ -375,7 +379,7 @@ mod test {
 
         let mut stage = SystemStage::parallel();
 
-        stage.add_system_set(State::make_driver());
+        stage.add_system_set(State::<MyState>::make_driver());
         stage
             .add_system_set(
                 SystemSet::default()
@@ -433,7 +437,7 @@ mod test {
             .add_system_set(
                 SystemSet::default()
                     .with_system((|mut r: ResMut<Vec<&'static str>>| r.push("pause S3")).system())
-                    .with_run_criteria(State::on_pause(MyState::S35)),
+                    .with_run_criteria(State::on_pause(MyState::S3)),
             )
             .add_system_set(
                 SystemSet::default()
@@ -521,7 +525,7 @@ mod test {
             }
             // If not zero, some elements weren't executed
             assert_eq!(expected.len(), 0);
-            if world.get_resource::<State>().unwrap() = MyState::Final {
+            if world.get_resource::<State<MyState>>().unwrap().current() == &MyState::Final {
                 break;
             }
         }
