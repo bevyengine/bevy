@@ -12,7 +12,12 @@ use std::{any::TypeId, collections::HashMap};
 
 You cannot query for a bundle, only individual components within it.
 
-Typically, you will simply use `#[derive(Bundle)]` when creating your own `Bundle`. You can nest bundles like so:
+Typically, you will simply use `#[derive(Bundle)]` when creating your own `Bundle`.
+The `Bundle` trait is automatically implemented for tuples of components:
+`(ComponentA, ComponentB)` is a very convenient shorthand when working with one-off collections of components.
+Note that both `()` and `(ComponentA, )` are valid tuples.
+
+You can nest bundles like so:
 ```
 use bevy::ecs::bundle::Bundle;
 use bevy::bevy_ecs_macros::Bundle;
