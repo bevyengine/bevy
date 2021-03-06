@@ -204,7 +204,7 @@ impl From<&Indices> for IndexFormat {
 }
 
 // TODO: allow values to be unloaded after been submitting to the GPU to conserve memory
-#[derive(Debug, TypeUuid)]
+#[derive(Debug, TypeUuid, Clone)]
 #[uuid = "8ecbac0f-f545-4473-ad43-e1f4243af51e"]
 pub struct Mesh {
     primitive_topology: PrimitiveTopology,
