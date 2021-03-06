@@ -1,6 +1,6 @@
 use crate::{
-    map_partial_eq, serde::Serializable, DynamicMap, List, ListIter, Map, MapIter, Reflect,
-    ReflectDeserialize, ReflectMut, ReflectRef,
+    map_partial_eq, serde::Serializable, DynamicMap, FromType, GetTypeRegistration, List, ListIter,
+    Map, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef, TypeRegistration,
 };
 
 use bevy_reflect_derive::impl_reflect_value;
@@ -109,6 +109,20 @@ impl<T: Reflect> Reflect for Vec<T> {
 
     fn serializable(&self) -> Option<Serializable> {
         None
+    }
+}
+
+impl<T: Reflect + Clone> GetTypeRegistration for Vec<T> {
+    fn get_type_registration() -> TypeRegistration {
+        let mut registration = TypeRegistration::of::<Vec<T>>();
+        registration.insert::<Vec<T>>(FromType::<Vec<T>>::from_type());
+        registration
+    }
+}
+
+impl<T> FromType<Vec<T>> for Vec<T> {
+    fn from_type() -> Self {
+        vec![]
     }
 }
 
