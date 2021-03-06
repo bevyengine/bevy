@@ -218,7 +218,9 @@ where
             }
         }
 
-        self.required_staging_buffer_size = new_size;
+        if new_size > self.required_staging_buffer_size {
+            self.required_staging_buffer_size = new_size;
+        }
     }
 
     /// Update the staging buffer to provide enough space to copy data to target buffers.
@@ -697,6 +699,12 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
 
     let resized = uniform_buffer_arrays.resize_buffer_arrays(render_resource_context);
     if resized {
+        // full asset copy needed, make sure there is also space for unchanged assets
+        for (asset_handle, asset) in assets.iter() {
+            if !changed_assets.contains_key(&asset_handle) {
+                uniform_buffer_arrays.prepare_uniform_buffers(asset_handle, asset);
+            }
+        }
         uniform_buffer_arrays.set_required_staging_buffer_size_to_max()
     }
     uniform_buffer_arrays.resize_staging_buffer(render_resource_context);
