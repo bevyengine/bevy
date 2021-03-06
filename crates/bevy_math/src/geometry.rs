@@ -27,14 +27,15 @@ impl<T: Default + Reflect + PartialEq> Default for Size<T> {
 
 /// A rect, as defined by its "side" locations
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-pub struct Rect<T: Reflect> {
+#[reflect(PartialEq)]
+pub struct Rect<T: Reflect + PartialEq> {
     pub left: T,
     pub right: T,
     pub top: T,
     pub bottom: T,
 }
 
-impl<T: Reflect> Rect<T> {
+impl<T: Reflect + PartialEq> Rect<T> {
     pub fn all(value: T) -> Self
     where
         T: Clone,
@@ -48,7 +49,7 @@ impl<T: Reflect> Rect<T> {
     }
 }
 
-impl<T: Default + Reflect> Default for Rect<T> {
+impl<T: Default + Reflect + PartialEq> Default for Rect<T> {
     fn default() -> Self {
         Self {
             left: Default::default(),

@@ -9,7 +9,7 @@ pub mod update;
 pub mod widget;
 
 pub use anchors::*;
-use bevy_math::Size;
+use bevy_math::{Rect, Size};
 use bevy_render::RenderStage;
 pub use flex::*;
 pub use focus::*;
@@ -60,6 +60,7 @@ impl Plugin for UiPlugin {
             .register_type::<PositionType>()
             .register_type::<Size<f32>>()
             .register_type::<Size<Val>>()
+            .register_type::<Rect<Val>>()
             .register_type::<Style>()
             .register_type::<Val>()
             .add_stage_before(CoreStage::PostUpdate, UiStage::Ui, SystemStage::parallel())
