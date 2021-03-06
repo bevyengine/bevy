@@ -19,7 +19,7 @@ use std::{any::TypeId, collections::HashMap};
 ///
 ///You can nest bundles like so:
 ///```
-///use bevy::ecs::bundle::Bundle;
+///use bevy_ecs::bundle::Bundle;
 ///
 ///#[derive(Bundle)]
 ///struct A {
