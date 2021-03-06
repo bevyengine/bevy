@@ -1,35 +1,17 @@
-use bevy::{ecs::schedule::SystemSet, prelude::*};
+use bevy::prelude::*;
 
 /// This example illustrates how to use States to control transitioning from a Menu state to an InGame state.
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .init_resource::<ButtonMaterials>()
-        .insert_resource(State::new(AppState::Menu))
-        .add_system_set(State::<AppState>::make_driver())
+        .add_state(AppState::Menu)
+        .add_system_set(State::on_enter_set(AppState::Menu).with_system(setup_menu.system()))
+        .add_system_set(State::on_update_set(AppState::Menu).with_system(menu.system()))
+        .add_system_set(State::on_exit_set(AppState::Menu).with_system(cleanup_menu.system()))
+        .add_system_set(State::on_enter_set(AppState::InGame).with_system(setup_game.system()))
         .add_system_set(
-            SystemSet::new()
-                .with_run_criteria(State::on_enter(AppState::Menu))
-                .with_system(setup_menu.system()),
-        )
-        .add_system_set(
-            SystemSet::new()
-                .with_run_criteria(State::on_update(AppState::Menu))
-                .with_system(menu.system()),
-        )
-        .add_system_set(
-            SystemSet::new()
-                .with_run_criteria(State::on_exit(AppState::Menu))
-                .with_system(cleanup_menu.system()),
-        )
-        .add_system_set(
-            SystemSet::new()
-                .with_run_criteria(State::on_enter(AppState::InGame))
-                .with_system(setup_game.system()),
-        )
-        .add_system_set(
-            SystemSet::new()
-                .with_run_criteria(State::on_update(AppState::InGame))
+            State::on_update_set(AppState::InGame)
                 .with_system(movement.system())
                 .with_system(change_color.system()),
         )

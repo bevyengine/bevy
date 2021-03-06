@@ -1,27 +1,14 @@
-use bevy::{asset::LoadState, ecs::schedule::SystemSet, prelude::*, sprite::TextureAtlasBuilder};
+use bevy::{asset::LoadState, prelude::*, sprite::TextureAtlasBuilder};
 
 /// In this example we generate a new texture atlas (sprite sheet) from a folder containing individual sprites
 fn main() {
     App::build()
         .init_resource::<RpgSpriteHandles>()
         .add_plugins(DefaultPlugins)
-        .insert_resource(State::new(AppState::Setup))
-        .add_system_set(State::<AppState>::make_driver())
-        .add_system_set(
-            SystemSet::new()
-                .with_run_criteria(State::on_enter(AppState::Setup))
-                .with_system(load_textures.system()),
-        )
-        .add_system_set(
-            SystemSet::new()
-                .with_run_criteria(State::on_update(AppState::Setup))
-                .with_system(check_textures.system()),
-        )
-        .add_system_set(
-            SystemSet::new()
-                .with_run_criteria(State::on_enter(AppState::Finished))
-                .with_system(setup.system()),
-        )
+        .add_state(AppState::Setup)
+        .add_system_set(State::on_enter_set(AppState::Setup).with_system(load_textures.system()))
+        .add_system_set(State::on_update_set(AppState::Setup).with_system(check_textures.system()))
+        .add_system_set(State::on_enter_set(AppState::Finished).with_system(setup.system()))
         .run();
 }
 

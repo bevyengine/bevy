@@ -1,5 +1,4 @@
 use bevy::{
-    ecs::schedule::SystemSet,
     prelude::*,
     render::{
         camera::{ActiveCameras, Camera},
@@ -17,18 +16,13 @@ use bevy::{
 fn main() {
     App::build()
         .insert_resource(Msaa { samples: 4 })
-        .insert_resource(State::new(AppState::CreateWindow))
+        .add_state(AppState::CreateWindow)
         .add_plugins(DefaultPlugins)
-        .add_system_set(State::<AppState>::make_driver())
         .add_system_set(
-            SystemSet::new()
-                .with_run_criteria(State::on_update(AppState::CreateWindow))
-                .with_system(setup_window.system()),
+            State::on_update_set(AppState::CreateWindow).with_system(setup_window.system()),
         )
         .add_system_set(
-            SystemSet::new()
-                .with_run_criteria(State::on_enter(AppState::CreateWindow))
-                .with_system(setup_pipeline.system()),
+            State::on_enter_set(AppState::CreateWindow).with_system(setup_pipeline.system()),
         )
         .run();
 }

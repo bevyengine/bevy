@@ -6,7 +6,9 @@ use crate::{
 };
 use bevy_ecs::{
     component::Component,
-    schedule::{RunOnce, Schedule, Stage, StageLabel, SystemDescriptor, SystemSet, SystemStage},
+    schedule::{
+        RunOnce, Schedule, Stage, StageLabel, State, SystemDescriptor, SystemSet, SystemStage,
+    },
     system::{IntoExclusiveSystem, IntoSystem},
     world::{FromWorld, World},
 };
@@ -173,6 +175,20 @@ impl AppBuilder {
                 schedule.add_system_to_stage(stage_label, system)
             });
         self
+    }
+
+    pub fn add_state<T: Component + Clone + Eq>(&mut self, initial: T) -> &mut Self {
+        self.insert_resource(State::new(initial))
+            .add_system_set(State::<T>::make_driver())
+    }
+
+    pub fn add_state_to_stage<T: Component + Clone + Eq>(
+        &mut self,
+        stage: impl StageLabel,
+        initial: T,
+    ) -> &mut Self {
+        self.insert_resource(State::new(initial))
+            .add_system_set_to_stage(stage, State::<T>::make_driver())
     }
 
     pub fn add_default_stages(&mut self) -> &mut Self {
