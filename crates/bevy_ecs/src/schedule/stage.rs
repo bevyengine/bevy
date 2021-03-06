@@ -244,7 +244,7 @@ impl SystemStage {
                     .unwrap();
                 }
                 writeln!(string, " - {}", cycle[0].0).unwrap();
-                panic!(string);
+                panic!("{}", string);
             }
         }
         sort_systems_unwrap(&mut self.parallel, "parallel systems");
