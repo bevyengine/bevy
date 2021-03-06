@@ -20,7 +20,7 @@ layout(set = 2, binding = 0) uniform Transform {
 
 void main() {
     v_Normal = mat3(Model) * Vertex_Normal;
-    v_Position = Vertex_Position; 
+    v_Position = Vertex_Position;
     w_Position = (Model * vec4(Vertex_Position, 1.0)).xyz;
     v_Uv = Vertex_Uv;
     gl_Position = ViewProj * Model * vec4(v_Position, 1.0);
