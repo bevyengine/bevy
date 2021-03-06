@@ -158,18 +158,21 @@ mod test {
         // "truth" from https://en.wikipedia.org/wiki/HSL_and_HSV#Examples
 
         // black
-        let (hue, saturation, lightness) = HslRepresentation::nonlinear_srgb_to_hsl([0.0, 0.0, 0.0]);
+        let (hue, saturation, lightness) =
+            HslRepresentation::nonlinear_srgb_to_hsl([0.0, 0.0, 0.0]);
         assert_eq!(hue.round() as u32, 0);
         assert_eq!((saturation * 100.0).round() as u32, 0);
         assert_eq!((lightness * 100.0).round() as u32, 0);
 
         // white
-        let (hue, saturation, lightness) = HslRepresentation::nonlinear_srgb_to_hsl([1.0, 1.0, 1.0]);
+        let (hue, saturation, lightness) =
+            HslRepresentation::nonlinear_srgb_to_hsl([1.0, 1.0, 1.0]);
         assert_eq!(hue.round() as u32, 0);
         assert_eq!((saturation * 100.0).round() as u32, 0);
         assert_eq!((lightness * 100.0).round() as u32, 100);
 
-        let (hue, saturation, lightness) = HslRepresentation::nonlinear_srgb_to_hsl([0.75, 0.25, 0.75]);
+        let (hue, saturation, lightness) =
+            HslRepresentation::nonlinear_srgb_to_hsl([0.75, 0.25, 0.75]);
         assert_eq!(hue.round() as u32, 300);
         assert_eq!((saturation * 100.0).round() as u32, 50);
         assert_eq!((lightness * 100.0).round() as u32, 50);
