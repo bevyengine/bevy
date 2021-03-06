@@ -4,18 +4,19 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 /// A two dimensional "size" as defined by a width and height
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-pub struct Size<T: Reflect = f32> {
+#[reflect(PartialEq)]
+pub struct Size<T: Reflect + PartialEq = f32> {
     pub width: T,
     pub height: T,
 }
 
-impl<T: Reflect> Size<T> {
+impl<T: Reflect + PartialEq> Size<T> {
     pub fn new(width: T, height: T) -> Self {
         Size { width, height }
     }
 }
 
-impl<T: Default + Reflect> Default for Size<T> {
+impl<T: Default + Reflect + PartialEq> Default for Size<T> {
     fn default() -> Self {
         Self {
             width: Default::default(),
@@ -58,7 +59,7 @@ impl<T: Default + Reflect> Default for Rect<T> {
     }
 }
 
-impl<T: Reflect> Add<Vec2> for Size<T>
+impl<T: Reflect + PartialEq> Add<Vec2> for Size<T>
 where
     T: Add<f32, Output = T>,
 {
@@ -72,7 +73,7 @@ where
     }
 }
 
-impl<T: Reflect> AddAssign<Vec2> for Size<T>
+impl<T: Reflect + PartialEq> AddAssign<Vec2> for Size<T>
 where
     T: AddAssign<f32>,
 {
@@ -82,7 +83,7 @@ where
     }
 }
 
-impl<T: Reflect> Sub<Vec2> for Size<T>
+impl<T: Reflect + PartialEq> Sub<Vec2> for Size<T>
 where
     T: Sub<f32, Output = T>,
 {
@@ -96,7 +97,7 @@ where
     }
 }
 
-impl<T: Reflect> SubAssign<Vec2> for Size<T>
+impl<T: Reflect + PartialEq> SubAssign<Vec2> for Size<T>
 where
     T: SubAssign<f32>,
 {
@@ -106,7 +107,7 @@ where
     }
 }
 
-impl<T: Reflect> Mul<f32> for Size<T>
+impl<T: Reflect + PartialEq> Mul<f32> for Size<T>
 where
     T: Mul<f32, Output = T>,
 {
@@ -120,7 +121,7 @@ where
     }
 }
 
-impl<T: Reflect> MulAssign<f32> for Size<T>
+impl<T: Reflect + PartialEq> MulAssign<f32> for Size<T>
 where
     T: MulAssign<f32>,
 {
@@ -130,7 +131,7 @@ where
     }
 }
 
-impl<T: Reflect> Div<f32> for Size<T>
+impl<T: Reflect + PartialEq> Div<f32> for Size<T>
 where
     T: Div<f32, Output = T>,
 {
@@ -144,7 +145,7 @@ where
     }
 }
 
-impl<T: Reflect> DivAssign<f32> for Size<T>
+impl<T: Reflect + PartialEq> DivAssign<f32> for Size<T>
 where
     T: DivAssign<f32>,
 {
