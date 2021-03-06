@@ -10,34 +10,34 @@ use std::{any::TypeId, collections::HashMap};
 
 /// An ordered collection of components, commonly used for spawning entities, and adding and removing components in bulk.
 ///
-///You cannot query for a bundle, only individual components within it.
+/// You cannot query for a bundle, only individual components within it.
 ///
-///Typically, you will simply use `#[derive(Bundle)]` when creating your own `Bundle`.
-///The `Bundle` trait is automatically implemented for tuples of components:
-///`(ComponentA, ComponentB)` is a very convenient shorthand when working with one-off collections of components.
-///Note that both `()` and `(ComponentA, )` are valid tuples.
+/// Typically, you will simply use `#[derive(Bundle)]` when creating your own `Bundle`.
+/// The `Bundle` trait is automatically implemented for tuples of components:
+/// `(ComponentA, ComponentB)` is a very convenient shorthand when working with one-off collections of components.
+/// Note that both `()` and `(ComponentA, )` are valid tuples.
 ///
-///You can nest bundles like so:
-///```
-///use bevy_ecs::bundle::Bundle;
+/// You can nest bundles like so:
+/// ```
+/// # use bevy_ecs::bundle::Bundle;
 ///
-///#[derive(Bundle)]
-///struct A {
-///    x: i32,
-///    y: u64,
-///}
+/// #[derive(Bundle)]
+/// struct A {
+///     x: i32,
+///     y: u64,
+/// }
 ///
-///#[derive(Bundle)]
-///struct B {
-///    #[bundle]
-///    a: A,
-///    z: String,
-///  }
-///```
-///# Safety
-///[Bundle::type_info] must return the TypeInfo for each component type in the bundle, in the _exact_
-///order that [Bundle::get_components] is called.
-///[Bundle::from_components] must call `func` exactly once for each [TypeInfo] returned by [Bundle::type_info]
+/// #[derive(Bundle)]
+/// struct B {
+///     #[bundle]
+///     a: A,
+///     z: String,
+///   }
+/// ```
+/// # Safety
+/// [Bundle::type_info] must return the TypeInfo for each component type in the bundle, in the _exact_
+/// order that [Bundle::get_components] is called.
+/// [Bundle::from_components] must call `func` exactly once for each [TypeInfo] returned by [Bundle::type_info]
 pub unsafe trait Bundle: Send + Sync + 'static {
     /// Gets this [Bundle]'s components type info, in the order of this bundle's Components
     fn type_info() -> Vec<TypeInfo>;
