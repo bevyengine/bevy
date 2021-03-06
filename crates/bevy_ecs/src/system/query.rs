@@ -7,7 +7,7 @@ use crate::{
     world::{Mut, World},
 };
 use bevy_tasks::TaskPool;
-use std::any::TypeId;
+use std::{any::TypeId, fmt::Debug};
 use thiserror::Error;
 
 /// Provides scoped access to a World according to a given [WorldQuery] and query filter
@@ -212,6 +212,42 @@ where
             Err(QueryComponentError::MissingWriteAccess)
         }
     }
+
+    pub fn get_unique(&self) -> Result<<Q::Fetch as Fetch<'_>>::Item, UniqueQueryError<'_, Q>>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        let mut query = self.iter();
+        let first = query.next();
+        let extra = query.next().is_some();
+
+        match (first, extra) {
+            (Some(r), false) => Ok(r),
+            (None, _) => Err(UniqueQueryError::NoEntities(std::any::type_name::<Self>())),
+            (Some(r), _) => Err(UniqueQueryError::MultipleEntities {
+                result: r,
+                query_name: std::any::type_name::<Self>(),
+            }),
+        }
+    }
+
+    /// See [`Query::get_unique`]
+    pub fn get_unique_mut(
+        &mut self,
+    ) -> Result<<Q::Fetch as Fetch<'_>>::Item, UniqueQueryError<'_, Q>> {
+        let mut query = self.iter_mut();
+        let first = query.next();
+        let extra = query.next().is_some();
+
+        match (first, extra) {
+            (Some(r), false) => Ok(r),
+            (None, _) => Err(UniqueQueryError::NoEntities(std::any::type_name::<Self>())),
+            (Some(r), _) => Err(UniqueQueryError::MultipleEntities {
+                result: r,
+                query_name: std::any::type_name::<Self>(),
+            }),
+        }
+    }
 }
 
 /// An error that occurs when retrieving a specific [Entity]'s component from a [Query]
@@ -225,4 +261,24 @@ pub enum QueryComponentError {
     MissingComponent,
     #[error("The requested entity does not exist.")]
     NoSuchEntity,
+}
+
+#[derive(Error)]
+pub enum UniqueQueryError<'a, Q: WorldQuery> {
+    #[error("No entities fit the query {0}")]
+    NoEntities(&'static str),
+    #[error("Multiple entities fit the query {query_name}!")]
+    MultipleEntities {
+        result: <Q::Fetch as Fetch<'a>>::Item,
+        query_name: &'static str,
+    },
+}
+
+impl<'a, Q: WorldQuery> Debug for UniqueQueryError<'a, Q> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NoEntities(_) => f.debug_tuple("NoEntities").finish(),
+            Self::MultipleEntities { .. } => f.debug_tuple("MultipleEntities").finish(),
+        }
+    }
 }
