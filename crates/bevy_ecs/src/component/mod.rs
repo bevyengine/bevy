@@ -11,6 +11,14 @@ use std::{
 };
 use thiserror::Error;
 
+/// The `Component` trait is very simple, and does not need to be derived or implemented for types in order for them to be used as a component.
+///
+/// Any Rust object, from a raw data type to an enum to a custom struct can be used as a `Component` without any extra boilerplate
+/// if and only if it fulfills the `Send + Sync + `static` bounds.
+///
+/// Components are commonly added to entities using `Commands::spawn`, `Commands::insert` or the `World` equivalents.
+///
+/// A collection of components is known as a [Bundle].
 pub trait Component: Send + Sync + 'static {}
 impl<T: Send + Sync + 'static> Component for T {}
 
