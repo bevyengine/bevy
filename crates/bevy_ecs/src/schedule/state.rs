@@ -166,19 +166,19 @@ impl<T: Component + Clone + Eq> State<T> {
         SystemSet::new().with_run_criteria(Self::on_update(s))
     }
     pub fn on_inactive_update_set(s: T) -> SystemSet {
-        SystemSet::new().with_run_criteria(Self::on_update(s))
+        SystemSet::new().with_run_criteria(Self::on_inactive_update(s))
     }
     pub fn on_enter_set(s: T) -> SystemSet {
-        SystemSet::new().with_run_criteria(Self::on_update(s))
+        SystemSet::new().with_run_criteria(Self::on_enter(s))
     }
     pub fn on_exit_set(s: T) -> SystemSet {
-        SystemSet::new().with_run_criteria(Self::on_update(s))
+        SystemSet::new().with_run_criteria(Self::on_exit(s))
     }
     pub fn on_pause_set(s: T) -> SystemSet {
-        SystemSet::new().with_run_criteria(Self::on_update(s))
+        SystemSet::new().with_run_criteria(Self::on_pause(s))
     }
     pub fn on_resume_set(s: T) -> SystemSet {
-        SystemSet::new().with_run_criteria(Self::on_update(s))
+        SystemSet::new().with_run_criteria(Self::on_resume(s))
     }
 
     /// Creates a driver set for the State.
@@ -401,97 +401,90 @@ mod test {
         stage.add_system_set(State::<MyState>::make_driver());
         stage
             .add_system_set(
-                State::on_enter_set(MyState::S1)
-                    .with_system((|mut r: ResMut<Vec<&'static str>>| r.push("startup")).system()),
+                State::on_enter_set(MyState::S1).with_system(
+                    (|mut r: ResMut<Vec<&'static str>>| r.push(dbg!("startup"))).system(),
+                ),
             )
             .add_system_set(
                 State::on_update_set(MyState::S1).with_system(
                     (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
-                        r.push("update S1");
+                        r.push(dbg!("update S1"));
                         s.overwrite_next(MyState::S2).unwrap();
                     })
                     .system(),
                 ),
             )
-            .add_system_set(
-                State::on_enter_set(MyState::S2)
-                    .with_system((|mut r: ResMut<Vec<&'static str>>| r.push("enter S2")).system()),
-            )
+            .add_system_set(State::on_enter_set(MyState::S2).with_system(
+                (|mut r: ResMut<Vec<&'static str>>| r.push(dbg!("enter S2"))).system(),
+            ))
             .add_system_set(
                 State::on_update_set(MyState::S2).with_system(
                     (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
-                        r.push("update S2");
+                        r.push(dbg!("update S2"));
                         s.overwrite_next(MyState::S3).unwrap();
                     })
                     .system(),
                 ),
             )
             .add_system_set(
-                State::on_exit_set(MyState::S2)
-                    .with_system((|mut r: ResMut<Vec<&'static str>>| r.push("exit S2")).system()),
+                State::on_exit_set(MyState::S2).with_system(
+                    (|mut r: ResMut<Vec<&'static str>>| r.push(dbg!("exit S2"))).system(),
+                ),
             )
-            .add_system_set(
-                State::on_enter_set(MyState::S3)
-                    .with_system((|mut r: ResMut<Vec<&'static str>>| r.push("enter S3")).system()),
-            )
+            .add_system_set(State::on_enter_set(MyState::S3).with_system(
+                (|mut r: ResMut<Vec<&'static str>>| r.push(dbg!("enter S3"))).system(),
+            ))
             .add_system_set(
                 State::on_update_set(MyState::S3).with_system(
                     (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
-                        r.push("update S3");
+                        r.push(dbg!("update S3"));
                         s.overwrite_push(MyState::S4).unwrap();
                     })
                     .system(),
                 ),
             )
-            .add_system_set(
-                State::on_pause_set(MyState::S3)
-                    .with_system((|mut r: ResMut<Vec<&'static str>>| r.push("pause S3")).system()),
-            )
+            .add_system_set(State::on_pause_set(MyState::S3).with_system(
+                (|mut r: ResMut<Vec<&'static str>>| r.push(dbg!("pause S3"))).system(),
+            ))
             .add_system_set(
                 State::on_update_set(MyState::S4).with_system(
                     (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
-                        r.push("update S4");
+                        r.push(dbg!("update S4"));
                         s.overwrite_push(MyState::S5).unwrap();
                     })
                     .system(),
                 ),
             )
-            .add_system_set(
-                State::on_inactive_update_set(MyState::S4).with_system(
-                    (|mut r: ResMut<Vec<&'static str>>| r.push("inactive S4")).system(),
-                ),
-            )
+            .add_system_set(State::on_inactive_update_set(MyState::S4).with_system(
+                (|mut r: ResMut<Vec<&'static str>>| r.push(dbg!("inactive S4"))).system(),
+            ))
             .add_system_set(
                 State::on_update_set(MyState::S5).with_system(
                     (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
-                        r.push("update S5");
+                        r.push(dbg!("update S5"));
                         s.overwrite_push(MyState::S6).unwrap();
                     })
                     .system(),
                 ),
             )
-            .add_system_set(
-                State::on_inactive_update_set(MyState::S5).with_system(
-                    (|mut r: ResMut<Vec<&'static str>>| r.push("inactive S5")).system(),
-                ),
-            )
+            .add_system_set(State::on_inactive_update_set(MyState::S5).with_system(
+                (|mut r: ResMut<Vec<&'static str>>| r.push(dbg!("inactive S5"))).system(),
+            ))
             .add_system_set(
                 State::on_update_set(MyState::S6).with_system(
                     (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
-                        r.push("update S6");
+                        r.push(dbg!("update S6"));
                         s.overwrite_push(MyState::Final).unwrap();
                     })
                     .system(),
                 ),
             )
-            .add_system_set(
-                State::on_resume_set(MyState::S4)
-                    .with_system((|mut r: ResMut<Vec<&'static str>>| r.push("resume S4")).system()),
-            )
-            .add_system_set(
-                State::on_exit_set(MyState::S5)
-                    .with_system((|mut r: ResMut<Vec<&'static str>>| r.push("exit S4")).system()),
-            );
+            .add_system_set(State::on_resume_set(MyState::S4).with_system(
+                (|mut r: ResMut<Vec<&'static str>>| r.push(dbg!("resume S4"))).system(),
+            ))
+            .add_system_set(State::on_exit_set(MyState::S5).with_system(
+                (|mut r: ResMut<Vec<&'static str>>| r.push(dbg!("exit S4"))).system(),
+            ));
 
         const EXPECTED: &[&[&str]] = &[
             &["startup", "update S1"],
