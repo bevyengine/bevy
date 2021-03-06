@@ -13,8 +13,9 @@ use crate::{
 /// * At end, accepts exclusive systems; runs after parallel systems' command buffers have
 /// been applied.
 ///
-/// All systems can have a label attached to them; other systems in the same group can then specify
-/// that they have to run before or after the system with that label using the `before` and `after` methods.
+/// All systems can have one or several labels attached to them; other systems in the same group
+/// can then specify that they have to run before or after systems with that label using the
+/// `before` and `after` methods.
 ///
 /// # Example
 /// ```
@@ -96,13 +97,13 @@ fn new_parallel_descriptor(system: BoxedSystem<(), ()>) -> ParallelSystemDescrip
 }
 
 pub trait ParallelSystemDescriptorCoercion {
-    /// Assigns a label to the system.
+    /// Assigns a label to the system; there can be more than one, and it doesn't have to be unique.
     fn label(self, label: impl SystemLabel) -> ParallelSystemDescriptor;
 
-    /// Specifies that the system should run before the system with given label.
+    /// Specifies that the system should run before systems with the  given label.
     fn before(self, label: impl SystemLabel) -> ParallelSystemDescriptor;
 
-    /// Specifies that the system should run after the system with given label.
+    /// Specifies that the system should run after systems with the given label.
     fn after(self, label: impl SystemLabel) -> ParallelSystemDescriptor;
 
     /// Specifies that the system is exempt from execution order ambiguity detection
@@ -200,13 +201,13 @@ fn new_exclusive_descriptor(system: Box<dyn ExclusiveSystem>) -> ExclusiveSystem
 }
 
 pub trait ExclusiveSystemDescriptorCoercion {
-    /// Assigns a label to the system.
+    /// Assigns a label to the system; there can be more than one, and it doesn't have to be unique.
     fn label(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor;
 
-    /// Specifies that the system should run before the system with given label.
+    /// Specifies that the system should run before systems with the given label.
     fn before(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor;
 
-    /// Specifies that the system should run after the system with given label.
+    /// Specifies that the system should run after systems with the given label.
     fn after(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor;
 
     /// Specifies that the system is exempt from execution order ambiguity detection

@@ -406,7 +406,7 @@ fn build_dependency_graph(
 
 /// Generates a topological order for the given graph.
 fn topological_order(
-    _systems: &[impl SystemContainer],
+    systems: &[impl SystemContainer],
     graph: &HashMap<usize, HashMap<usize, HashSet<BoxedSystemLabel>>>,
 ) -> Result<Vec<usize>, DependencyGraphError> {
     fn check_if_cycles_and_visit(
@@ -440,7 +440,7 @@ fn topological_order(
             let mut cycle = Vec::new();
             for index in 0..current.len() - 1 {
                 cycle.push((
-                    _systems[current[index]].name(),
+                    systems[current[index]].name(),
                     graph[&current[index]][&current[index + 1]]
                         .iter()
                         .cloned()
@@ -449,7 +449,7 @@ fn topological_order(
             }
             let last = *current.last().unwrap();
             cycle.push((
-                _systems[last].name(),
+                systems[last].name(),
                 graph[&last][&current[0]].iter().cloned().collect(),
             ));
             return Err(DependencyGraphError::GraphCycles(cycle));
@@ -717,33 +717,6 @@ mod tests {
     }
 
     #[test]
-    fn exclusive_multiple_labels() {
-        let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
-        let mut stage = SystemStage::parallel()
-            .with_system(
-                make_exclusive(1)
-                    .exclusive_system()
-                    .label("first")
-                    .after("0"),
-            )
-            .with_system(make_exclusive(2).exclusive_system().after("first"))
-            .with_system(
-                make_exclusive(0)
-                    .exclusive_system()
-                    .label("first")
-                    .label("0"),
-            );
-        stage.run(&mut world);
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
-        stage.run(&mut world);
-        assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
-            vec![0, 1, 2, 0, 1, 2]
-        );
-    }
-
-    #[test]
     fn exclusive_after() {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
@@ -787,6 +760,74 @@ mod tests {
             .with_system(make_exclusive(0).exclusive_system().label("0"))
             .with_system(make_exclusive(4).exclusive_system().label("4"))
             .with_system(make_exclusive(3).exclusive_system().after("2").before("4"));
+        stage.run(&mut world);
+        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.run(&mut world);
+        assert_eq!(
+            *world.get_resource::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
+        );
+    }
+
+    #[test]
+    fn exclusive_multiple_labels() {
+        let mut world = World::new();
+        world.insert_resource(Vec::<usize>::new());
+        let mut stage = SystemStage::parallel()
+            .with_system(
+                make_exclusive(1)
+                    .exclusive_system()
+                    .label("first")
+                    .after("0"),
+            )
+            .with_system(make_exclusive(2).exclusive_system().after("first"))
+            .with_system(
+                make_exclusive(0)
+                    .exclusive_system()
+                    .label("first")
+                    .label("0"),
+            );
+        stage.run(&mut world);
+        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.run(&mut world);
+        assert_eq!(
+            *world.get_resource::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 0, 1, 2]
+        );
+
+        world.get_resource_mut::<Vec<usize>>().unwrap().clear();
+        let mut stage = SystemStage::parallel()
+            .with_system(make_exclusive(2).exclusive_system().after("01").label("2"))
+            .with_system(make_exclusive(1).exclusive_system().label("01").after("0"))
+            .with_system(make_exclusive(0).exclusive_system().label("01").label("0"))
+            .with_system(make_exclusive(4).exclusive_system().label("4"))
+            .with_system(make_exclusive(3).exclusive_system().after("2").before("4"));
+        stage.run(&mut world);
+        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.run(&mut world);
+        assert_eq!(
+            *world.get_resource::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
+        );
+
+        world.get_resource_mut::<Vec<usize>>().unwrap().clear();
+        let mut stage = SystemStage::parallel()
+            .with_system(make_exclusive(2).exclusive_system().label("234").label("2"))
+            .with_system(
+                make_exclusive(1)
+                    .exclusive_system()
+                    .before("234")
+                    .after("0"),
+            )
+            .with_system(make_exclusive(0).exclusive_system().label("0"))
+            .with_system(make_exclusive(4).exclusive_system().label("234").label("4"))
+            .with_system(
+                make_exclusive(3)
+                    .exclusive_system()
+                    .label("234")
+                    .after("2")
+                    .before("4"),
+            );
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
@@ -916,23 +957,6 @@ mod tests {
     }
 
     #[test]
-    fn parallel_multiple_labels() {
-        let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
-        let mut stage = SystemStage::parallel()
-            .with_system(make_parallel!(1).system().label("first").after("0"))
-            .with_system(make_parallel!(2).system().after("first"))
-            .with_system(make_parallel!(0).system().label("first").label("0"));
-        stage.run(&mut world);
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
-        stage.run(&mut world);
-        assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
-            vec![0, 1, 2, 0, 1, 2]
-        );
-    }
-
-    #[test]
     fn parallel_after() {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
@@ -976,6 +1000,59 @@ mod tests {
             .with_system(make_parallel!(0).system().label("0"))
             .with_system(make_parallel!(4).system().label("4"))
             .with_system(make_parallel!(3).system().after("2").before("4"));
+        stage.run(&mut world);
+        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.run(&mut world);
+        assert_eq!(
+            *world.get_resource::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
+        );
+    }
+
+    #[test]
+    fn parallel_multiple_labels() {
+        let mut world = World::new();
+        world.insert_resource(Vec::<usize>::new());
+        let mut stage = SystemStage::parallel()
+            .with_system(make_parallel!(1).system().label("first").after("0"))
+            .with_system(make_parallel!(2).system().after("first"))
+            .with_system(make_parallel!(0).system().label("first").label("0"));
+        stage.run(&mut world);
+        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.run(&mut world);
+        assert_eq!(
+            *world.get_resource::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 0, 1, 2]
+        );
+
+        world.get_resource_mut::<Vec<usize>>().unwrap().clear();
+        let mut stage = SystemStage::parallel()
+            .with_system(make_parallel!(2).system().after("01").label("2"))
+            .with_system(make_parallel!(1).system().label("01").after("0"))
+            .with_system(make_parallel!(0).system().label("01").label("0"))
+            .with_system(make_parallel!(4).system().label("4"))
+            .with_system(make_parallel!(3).system().after("2").before("4"));
+        stage.run(&mut world);
+        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.run(&mut world);
+        assert_eq!(
+            *world.get_resource::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
+        );
+
+        world.get_resource_mut::<Vec<usize>>().unwrap().clear();
+        let mut stage = SystemStage::parallel()
+            .with_system(make_parallel!(2).system().label("234").label("2"))
+            .with_system(make_parallel!(1).system().before("234").after("0"))
+            .with_system(make_parallel!(0).system().label("0"))
+            .with_system(make_parallel!(4).system().label("234").label("4"))
+            .with_system(
+                make_parallel!(3)
+                    .system()
+                    .label("234")
+                    .after("2")
+                    .before("4"),
+            );
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
