@@ -13,7 +13,10 @@ use std::{
 
 /// Lightweight unique ID of an entity
 ///
-/// Obtained from `World::spawn`. Can be stored to refer to an entity in the future.
+/// Obtained from `World::spawn`, typically via `Commands::spawn`. Can be stored to refer to an entity in the future.
+///
+/// You can get the `Entity` ID of entities returned in your queries by using `Query<(Entity, &MyComponent)>`.
+/// Use `Query::get` and related methods to extract the components of a specific entity.
 #[derive(Clone, Copy, Hash, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Entity {
     pub(crate) generation: u32,
