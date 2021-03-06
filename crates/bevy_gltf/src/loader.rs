@@ -282,6 +282,7 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
             roughness_factor: pbr.roughness_factor(),
             metallic_factor: pbr.metallic_factor(),
             unlit: material.unlit(),
+            ..Default::default()
         })
         .with_dependencies(dependencies),
     )

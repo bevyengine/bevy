@@ -11,6 +11,7 @@ pub struct StandardMaterial {
     pub base_color_texture: Option<Handle<Texture>>,
     pub roughness_factor: f32,
     pub metallic_factor: f32,
+    pub reflectance: f32,
     #[render_resources(ignore)]
     #[shader_def]
     pub unlit: bool,
@@ -21,8 +22,11 @@ impl Default for StandardMaterial {
         StandardMaterial {
             base_color_factor: Color::rgb(1.0, 1.0, 1.0),
             base_color_texture: None,
-            roughness_factor: 0.01,
-            metallic_factor: 0.08,
+            // TODO document defaults
+            roughness_factor: 0.089,
+            metallic_factor: 0.01,
+            // equivalent to 4% reflectance see https://google.github.io/filament/Material%20Properties.pdf
+            reflectance: 0.5,
             unlit: false,
         }
     }

@@ -82,6 +82,10 @@ layout(set = 3, binding = 4) uniform StandardMaterial_metallic_factor {
     float metallic;
 };
 
+layout(set = 3, binding = 5) uniform StandardMaterial_reflectance {
+    float reflectance;
+};
+
 #    define saturate(x) clamp(x, 0.0, 1.0)
 const float PI = 3.141592653589793;
 
@@ -205,9 +209,6 @@ void main() {
 
     vec3 N = normalize(v_Normal);
     vec3 V = normalize(CameraPos.xyz - w_Position.xyz);
-
-    // TODO reflectance material property
-    float reflectance = 0.02;
 
     // Remapping [0,1] reflectance to F0
     // See https://google.github.io/filament/Filament.html#materialsystem/parameterization/remapping
