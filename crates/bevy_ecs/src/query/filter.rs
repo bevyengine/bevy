@@ -574,6 +574,29 @@ macro_rules! impl_flag_filter {
 
 impl_flag_filter!(
     /// Filter that retrieves components of type `T` that have been added since the start of the frame
+    ///
+    /// This filter is useful as a performance optimization as it means that the query contains fewer items
+    /// for a system to iterate over.
+    ///
+    /// Because the ordering of systems can change and this filter is only effective on changes before the query executes
+    /// you need to use explicit dependency ordering or ordered stages for these query filters to be useful.
+    ///
+    ///
+    /// Example:
+    /// ```
+    /// # use bevy_ecs::system::Query;
+    /// # use bevy_ecs::query::Added;
+    /// #
+    /// # #[derive(Debug)]
+    /// # struct Name {};
+    /// # struct Transform {};
+    /// #
+    /// fn print_add_name_component(query: Query<&Name, Added<Name>>) {
+    ///     for name in query.iter() {
+    ///         println!("Named entity created: {:?}", name)
+    ///     }
+    /// }
+    /// ```
     Added,
     AddedState,
     AddedFetch,
@@ -583,6 +606,28 @@ impl_flag_filter!(
 impl_flag_filter!(
     /// Filter that retrieves components of type `T` that have been mutated since the start of the frame.
     /// Added components do not count as mutated.
+    ///
+    /// This filter is useful as a performance optimization as it means that the query contains fewer items
+    /// for a system to iterate over.
+    ///
+    /// Because the ordering of systems can change and this filter is only effective on changes before the query executes
+    /// you need to use explicit dependency ordering or ordered stages for these query filters to be useful.
+    ///
+    /// Example:
+    /// ```
+    /// # use bevy_ecs::system::Query;
+    /// # use bevy_ecs::query::Mutated;
+    /// #
+    /// # #[derive(Debug)]
+    /// # struct Name {};
+    /// # struct Transform {};
+    /// #
+    /// fn print_moving_objects_system(query: Query<&Name, Mutated<Transform>>) {
+    ///     for name in query.iter() {
+    ///         println!("Entity Moved: {:?}", name)
+    ///     }
+    /// }
+    /// ```
     Mutated,
     MutatedState,
     MutatedFetch,
@@ -591,6 +636,14 @@ impl_flag_filter!(
 
 impl_flag_filter!(
     /// Filter that retrieves components of type `T` that have been added or mutated since the start of the frame
+    ///
+    /// This filter is useful as a performance optimization as it means that the query contains fewer items
+    /// for a system to iterate over.
+    ///
+    /// Because the ordering of systems can change and this filter is only effective on changes before the query executes
+    /// you need to use explicit dependency ordering or ordered stages for these query filters to be useful.
+    ///
+    /// Also see the documentation for [`Mutated<T>`] and [`Added`] as this filter is a logical OR of them.
     Changed,
     ChangedState,
     ChangedFetch,
