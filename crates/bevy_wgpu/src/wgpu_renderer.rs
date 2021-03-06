@@ -3,7 +3,7 @@ use crate::{
     wgpu_type_converter::WgpuInto,
     WgpuBackend, WgpuOptions, WgpuPowerOptions,
 };
-use bevy_app::{prelude::*, ManualEventReader};
+use bevy_app::{Events, ManualEventReader};
 use bevy_ecs::world::{Mut, World};
 use bevy_render::{
     render_graph::{DependentNodeStager, RenderGraph, RenderGraphStager},

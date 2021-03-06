@@ -1,5 +1,5 @@
 use crate::{Axis, Input};
-use bevy_app::{EventReader, Events};
+use bevy_app::{EventReader, EventWriter};
 use bevy_ecs::system::{Res, ResMut};
 use bevy_utils::HashMap;
 
@@ -206,7 +206,7 @@ pub fn gamepad_event_system(
     mut axis: ResMut<Axis<GamepadAxis>>,
     mut button_axis: ResMut<Axis<GamepadButton>>,
     mut raw_events: EventReader<GamepadEventRaw>,
-    mut events: ResMut<Events<GamepadEvent>>,
+    mut events: EventWriter<GamepadEvent>,
     settings: Res<GamepadSettings>,
 ) {
     button_input.update();

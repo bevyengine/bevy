@@ -131,6 +131,22 @@ pub struct EventReader<'a, T: Component> {
     events: Res<'a, Events<T>>,
 }
 
+/// Sends events of type `T`.
+#[derive(SystemParam)]
+pub struct EventWriter<'a, T: Component> {
+    events: ResMut<'a, Events<T>>,
+}
+
+impl<'a, T: Component> EventWriter<'a, T> {
+    pub fn send(&mut self, event: T) {
+        self.events.send(event);
+    }
+
+    pub fn send_batch(&mut self, events: impl Iterator<Item = T>) {
+        self.events.extend(events);
+    }
+}
+
 pub struct ManualEventReader<T> {
     last_event_count: usize,
     _marker: PhantomData<T>,

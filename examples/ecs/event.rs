@@ -32,7 +32,7 @@ impl Default for EventTriggerState {
 fn event_trigger_system(
     time: Res<Time>,
     mut state: ResMut<EventTriggerState>,
-    mut my_events: ResMut<Events<MyEvent>>,
+    mut my_events: EventWriter<MyEvent>,
 ) {
     if state.event_timer.tick(time.delta_seconds()).finished() {
         my_events.send(MyEvent {
