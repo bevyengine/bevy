@@ -8,7 +8,7 @@ fn main() {
         .insert_resource(GreetMessage("Hello".to_owned()))
         .insert_resource(NextGreetDelay(0.))
         .insert_resource(ExecutionTime(0.))
-        .add_system(async_system.system())
+        .add_system(async_system.system().chain((|_| ()).system()))
         .add_system(execution_time_counter.system())
         .run();
 }

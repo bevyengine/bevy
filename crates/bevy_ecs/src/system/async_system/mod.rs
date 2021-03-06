@@ -330,7 +330,7 @@ mod test {
 
     async fn complex_async_system(
         mut access_1: Accessor<(Res<'_, u32>, ResMut<'_, String>)>,
-        mut access_2: Accessor<(Res<'_, String>,)>,
+        mut access_2: Accessor<Res<'_, String>>,
     ) {
         loop {
             let mut x = None;
