@@ -8,9 +8,32 @@ use crate::{
 use bevy_ecs_macros::all_tuples;
 use std::{any::TypeId, collections::HashMap};
 
-/// An ordered collection of components
+/// An ordered collection of components, commonly used for spawning entities, and adding and removing components in bulk.
 ///
-/// See [Bundle]
+/// You cannot query for a bundle, only individual components within it.
+///
+/// Typically, you will simply use `#[derive(Bundle)]` when creating your own `Bundle`.
+/// The `Bundle` trait is automatically implemented for tuples of components:
+/// `(ComponentA, ComponentB)` is a very convenient shorthand when working with one-off collections of components.
+/// Note that both `()` and `(ComponentA, )` are valid tuples.
+///
+/// You can nest bundles like so:
+/// ```
+/// # use bevy_ecs::bundle::Bundle;
+///
+/// #[derive(Bundle)]
+/// struct A {
+///     x: i32,
+///     y: u64,
+/// }
+///
+/// #[derive(Bundle)]
+/// struct B {
+///     #[bundle]
+///     a: A,
+///     z: String,
+///   }
+/// ```
 /// # Safety
 /// [Bundle::type_info] must return the TypeInfo for each component type in the bundle, in the _exact_
 /// order that [Bundle::get_components] is called.
