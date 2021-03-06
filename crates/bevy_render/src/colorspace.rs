@@ -68,15 +68,15 @@ impl HslColorSpace {
         let lightness = (x_max + x_min) / 2.0;
         let hue = if chroma == 0.0 {
             0.0
-        } else if x_max == red {
+        } else if red > green && red > blue {
             60.0 * (green - blue) / chroma
-        } else if x_max == green {
+        } else if green > red && green > blue {
             60.0 * (2.0 + (blue - red) / chroma)
         } else {
             60.0 * (4.0 + (red - green) / chroma)
         };
         let hue = if hue < 0.0 { 360.0 + hue } else { hue };
-        let saturation = if lightness == 0.0 || lightness == 1.0 {
+        let saturation = if lightness <= 0.0 || lightness >= 1.0 {
             0.0
         } else {
             (x_max - lightness) / lightness.min(1.0 - lightness)

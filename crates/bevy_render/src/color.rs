@@ -218,7 +218,7 @@ impl Color {
     /// Converts a `Color` to variant `Color::Rgba`
     pub fn as_rgba(self: &Color) -> Color {
         match self {
-            Color::Rgba { .. } => self.clone(),
+            Color::Rgba { .. } => *self,
             Color::RgbaLinear {
                 red,
                 green,
@@ -262,7 +262,7 @@ impl Color {
                 blue: blue.nonlinear_to_linear_srgb(),
                 alpha: *alpha,
             },
-            Color::RgbaLinear { .. } => self.clone(),
+            Color::RgbaLinear { .. } => *self,
             Color::Hsla {
                 hue,
                 saturation,
@@ -317,7 +317,7 @@ impl Color {
                     alpha: *alpha,
                 }
             }
-            Color::Hsla { .. } => self.clone(),
+            Color::Hsla { .. } => *self,
         }
     }
 
