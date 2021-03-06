@@ -15,16 +15,18 @@ pub struct Light {
     pub color: Color,
     pub fov: f32,
     pub depth: Range<f32>,
-    pub attenuation: f32,
+    pub intensity: f32,
+    pub radius: f32,
 }
 
 impl Default for Light {
     fn default() -> Self {
         Light {
-            color: Color::rgba(1.0, 1.0, 1.0, 100.0),
+            color: Color::rgb(1.0, 1.0, 1.0),
             depth: 0.1..50.0,
             fov: f32::to_radians(60.0),
-            attenuation: 100.0,
+            intensity: 100.0,
+            radius: 10.0,
         }
     }
 }
@@ -50,10 +52,13 @@ impl LightRaw {
 
         let proj = perspective.get_projection_matrix() * global_transform.compute_matrix();
         let (x, y, z) = global_transform.translation.into();
+
+        let mut color: [f32; 4] = light.color.into();
+        color[3] = light.intensity;
         LightRaw {
             proj: proj.to_cols_array_2d(),
-            pos: [x, y, z, light.attenuation], // pos.w is the attenuation.
-            color: light.color.into(),
+            pos: [x, y, z, 1.0 / (light.radius * light.radius)], // pos.w is the attenuation.
+            color,
         }
     }
 }

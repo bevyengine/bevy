@@ -1,3 +1,37 @@
+// From the Filament design doc
+// https://google.github.io/filament/Filament.html#table_symbols
+// Symbol Definition
+// v    View unit vector
+// l    Incident light unit vector
+// n    Surface normal unit vector
+// h    Half unit vector between l and v
+// f    BRDF
+// f_d    Diffuse component of a BRDF
+// f_r    Specular component of a BRDF
+// α    Roughness, remapped from using input perceptualRoughness
+// σ    Diffuse reflectance
+// Ω    Spherical domain
+// f0    Reflectance at normal incidence
+// f90    Reflectance at grazing angle
+// χ+(a)    Heaviside function (1 if a>0 and 0 otherwise)
+// nior    Index of refraction (IOR) of an interface
+// ⟨n⋅l⟩    Dot product clamped to [0..1]
+// ⟨a⟩    Saturated value (clamped to [0..1])
+
+// The Bidirectional Reflectance Distribution Function (BRDF) describes the surface response of a standard material
+// and consists of two components, the diffuse component (f_d) and the specular component (f_r):
+// f(v,l) = f_d(v,l) + f_r(v,l)
+//
+// The form of the microfacet model is the same for diffuse and specular
+// f_r(v,l) = f_d(v,l) = 1 / { |n⋅v||n⋅l| } ∫_Ω D(m,α) G(v,l,m) f_m(v,l,m) (v⋅m) (l⋅m) dm
+//
+// In which:
+// D, also called the Normal Distribution Function (NDF) models the distribution of the microfacets
+// G models the visibility (or occlusion or shadow-masking) of the microfacets
+// f_m is the microfacet BRDF and differs between specular and diffuse components
+//
+// The above integration needs to be approximated.
+
 #version 450
 
 const int MAX_LIGHTS = 10;
@@ -5,8 +39,9 @@ const int MAX_LIGHTS = 10;
 struct Light {
     mat4 proj;
     vec3 pos;
-    float attenuation;
-    vec4 color;
+    float inverseRadiusSquared;
+    vec3 color;
+    float intensity;
 };
 
 layout(location = 0) in vec3 v_Position;
@@ -27,7 +62,9 @@ layout(set = 1, binding = 0) uniform Lights {
     Light SceneLights[MAX_LIGHTS];
 };
 
-layout(set = 3, binding = 0) uniform StandardMaterial_albedo { vec4 Albedo; };
+layout(set = 3, binding = 0) uniform StandardMaterial_albedo {
+    vec4 Albedo;
+};
 
 #ifdef STANDARDMATERIAL_ALBEDO_TEXTURE
 layout(set = 3, binding = 1) uniform texture2D StandardMaterial_albedo_texture;
@@ -37,9 +74,11 @@ layout(set = 3,
 
 #ifndef STANDARDMATERIAL_UNLIT
 
-layout(set = 3, binding = 3) uniform StandardMaterial_pbr { vec2 pbr; };
+layout(set = 3, binding = 3) uniform StandardMaterial_pbr {
+    vec2 pbr;
+};
 
-#define saturate(x) clamp(x, 0.0, 1.0)
+#    define saturate(x) clamp(x, 0.0, 1.0)
 const float PI = 3.141592653589793;
 
 float pow5(float x) {
@@ -47,18 +86,21 @@ float pow5(float x) {
     return x2 * x2 * x;
 }
 
-float getSquareFalloffAttenuation(float distanceSquare, float falloff) {
-    float factor = distanceSquare * falloff;
-    float smoothFactor = saturate(1.0 - factor * factor);
-    return smoothFactor * smoothFactor;
-}
-
-float getDistanceAttenuation(const vec3 posToLight, float falloff) {
+float getDistanceAttenuation(const vec3 posToLight, float inverseRadiusSquared) {
     float distanceSquare = dot(posToLight, posToLight);
-    float attenuation = getSquareFalloffAttenuation(distanceSquare, falloff);
+    float factor = distanceSquare * inverseRadiusSquared;
+    float smoothFactor = saturate(1.0 - factor * factor);
+    float attenuation = smoothFactor * smoothFactor;
     return attenuation * 1.0 / max(distanceSquare, 1e-4);
 }
 
+// Normal distribution function (specular D)
+// Based on https://google.github.io/filament/Filament.html#citation-walter07
+
+// D_GGX(h,α) = α^2 / { π ((n⋅h)^2 (α2−1) + 1)^2 }
+
+// Simple implementation, has precision problems when using fp16 instead of fp32
+// see https://google.github.io/filament/Filament.html#listing_speculardfp16
 float D_GGX(float roughness, float NoH, const vec3 h) {
     float oneMinusNoHSquared = 1.0 - NoH * NoH;
     float a = NoH * roughness;
@@ -67,6 +109,13 @@ float D_GGX(float roughness, float NoH, const vec3 h) {
     return d;
 }
 
+// Visibility function (Specular G)
+// V(v,l,a) = G(v,l,α) / { 4 (n⋅v) (n⋅l) }
+// such that f_r becomes
+// f_r(v,l) = D(h,α) V(v,l,α) F(v,h,f0)
+// where
+// V(v,l,α) = 0.5 / { n⋅l sqrt((n⋅v)^2 (1−α2) + α2) + n⋅v sqrt((n⋅l)^2 (1−α2) + α2) }
+// Note the two sqrt's, that may be slow on mobile, see https://google.github.io/filament/Filament.html#listing_approximatedspecularv
 float V_SmithGGXCorrelated(float roughness, float NoV, float NoL) {
     float a2 = roughness * roughness;
     float lambdaV = NoL * sqrt((NoV - a2 * NoV) * NoV + a2);
@@ -75,6 +124,9 @@ float V_SmithGGXCorrelated(float roughness, float NoV, float NoL) {
     return v;
 }
 
+// Fresnel function
+// see https://google.github.io/filament/Filament.html#citation-schlick94
+// F_Schlick(v,h,f_0,f_90) = f_0 + (f_90 − f_0) (1 − v⋅h)^5
 vec3 F_Schlick(const vec3 f0, float f90, float VoH) {
     return f0 + (f90 - f0) * pow5(1.0 - VoH);
 }
@@ -84,13 +136,19 @@ float F_Schlick(float f0, float f90, float VoH) {
 }
 
 vec3 fresnel(vec3 f0, float LoH) {
+    // f_90 suitable for ambient occlusion
+    // see https://google.github.io/filament/Filament.html#lighting/occlusion
     float f90 = saturate(dot(f0, vec3(50.0 * 0.33)));
     return F_Schlick(f0, f90, LoH);
 }
 
-vec3 isotropicLobe(vec3 f0, float roughness, const vec3 h, float NoV, float NoL,
-                   float NoH, float LoH) {
+// Specular BRDF
+// https://google.github.io/filament/Filament.html#materialsystem/specularbrdf
 
+// Cook-Torrance approximation of the microfacet model integration using Fresnel law F to model f_m
+// f_r(v,l) = { D(h,α) G(v,l,α) F(v,h,f0) } / { 4 (n⋅v) (n⋅l) }
+vec3 specular(vec3 f0, float roughness, const vec3 h, float NoV, float NoL,
+              float NoH, float LoH) {
     float D = D_GGX(roughness, NoH, h);
     float V = V_SmithGGXCorrelated(roughness, NoV, NoL);
     vec3 F = fresnel(f0, LoH);
@@ -98,6 +156,20 @@ vec3 isotropicLobe(vec3 f0, float roughness, const vec3 h, float NoV, float NoL,
     return (D * V) * F;
 }
 
+// Diffuse BRDF
+// https://google.github.io/filament/Filament.html#materialsystem/diffusebrdf
+// fd(v,l) = σ/π * 1 / { |n⋅v||n⋅l| } ∫Ω D(m,α) G(v,l,m) (v⋅m) (l⋅m) dm
+
+// simplest approximation
+// float Fd_Lambert() {
+//     return 1.0 / PI;
+// }
+//
+// vec3 Fd = diffuseColor * Fd_Lambert();
+
+// Disney approximation
+// See https://google.github.io/filament/Filament.html#citation-burley12
+// minimal quality difference
 float Fd_Burley(float roughness, float NoV, float NoL, float LoH) {
     float f90 = 0.5 + 2.0 * roughness * LoH * LoH;
     float lightScatter = F_Schlick(1.0, f90, NoL);
@@ -105,31 +177,13 @@ float Fd_Burley(float roughness, float NoV, float NoL, float LoH) {
     return lightScatter * viewScatter * (1.0 / PI);
 }
 
-vec3 computeDiffuseColor(const vec3 baseColor, float metallic) {
-    return baseColor * (1.0 - metallic);
-}
-
-#define MIN_N_DOT_V 1e-4
-
-float clampNoV(float NoV) {
-    // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The
-    // Order: 1886"
-    return max(NoV, MIN_N_DOT_V);
-}
-
 float perceptualRoughnessToRoughness(float perceptualRoughness) {
-    return perceptualRoughness * perceptualRoughness;
+    // clamp perceptual roughness to prevent precision problems
+    // According to Filament design 0.089 is recommended for mobile
+    // Filament uses 0.045 for non-mobile
+    float clampedPerceptualRoughness = clamp(perceptualRoughness, 0.089, 1.0);
+    return clampedPerceptualRoughness * clampedPerceptualRoughness;
 }
-
-#if defined(TARGET_MOBILE)
-// min roughness such that (MIN_PERCEPTUAL_ROUGHNESS^4) > 0 in fp16 (i.e.
-// 2^(-14/4), rounded up)
-#define MIN_PERCEPTUAL_ROUGHNESS 0.089
-#define MIN_ROUGHNESS 0.007921
-#else
-#define MIN_PERCEPTUAL_ROUGHNESS 0.045
-#define MIN_ROUGHNESS 0.002025
-#endif
 
 #endif
 
@@ -143,18 +197,23 @@ void main() {
 
 #ifndef STANDARDMATERIAL_UNLIT
     float perceptual_roughness = pbr.x;
-    perceptual_roughness =
-        clamp(perceptual_roughness, MIN_PERCEPTUAL_ROUGHNESS, 1.0);
+    // calculate non-linear roughness from linear perceptualRoughness
     float roughness = perceptualRoughnessToRoughness(perceptual_roughness);
 
     float metallic = pbr.y;
+
     vec3 N = normalize(v_Normal);
     vec3 V = normalize(CameraPos.xyz - w_Position.xyz);
 
-    vec3 F0 = vec3(0.04);
-    F0 = mix(F0, output_color.rgb, metallic);
+    // TODO reflectance material property
+    float reflectance = 0.02;
 
-    vec3 diffuseColor = computeDiffuseColor(output_color.rgb, metallic);
+    // Remapping [0,1] reflectance to F0
+    // See https://google.github.io/filament/Filament.html#materialsystem/parameterization/remapping
+    vec3 F0 = 0.16 * reflectance * reflectance * (1.0 - metallic) + output_color.rgb * metallic;
+
+    // Diffuse strength inversely related to metallicity
+    vec3 diffuseColor = output_color.rgb * (1.0 - metallic);
 
     // accumulate color
     vec3 light_accum = vec3(0.0);
@@ -165,25 +224,24 @@ void main() {
         vec3 L = normalize(lightDir);
 
         float rangeAttenuation =
-            getDistanceAttenuation(lightDir, light.attenuation);
+            getDistanceAttenuation(lightDir, light.inverseRadiusSquared);
 
         vec3 H = normalize(L + V);
 
-        float NdotL = clampNoV(dot(N, L));
-        float NdotV = clampNoV(dot(N, V));
-        float NoL = saturate(NdotL);
+        // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
+        float NdotV = max(dot(N, V), 1e-4);
+
+        float NoL = saturate(dot(N, L));
         float NoH = saturate(dot(N, H));
         float LoH = saturate(dot(L, H));
 
-        vec3 specular = isotropicLobe(F0, roughness, H, NdotV, NoL, NoH, LoH);
+        vec3 specular = specular(F0, roughness, H, NdotV, NoL, NoH, LoH);
         vec3 diffuse = diffuseColor * Fd_Burley(roughness, NdotV, NoL, LoH);
 
+        // f = (f_d + f_r) * light_color * light_intensity * attenuation * ⟨n⋅l⟩
         light_accum +=
-            ((diffuse + specular) * light.color.xyz) * (light.color.w * NdotL);
+            ((diffuse + specular) * light.color.xyz) * (light.intensity * rangeAttenuation * NoL);
     }
-
-    // average the lights so that we will never get something with > 1.0
-    // color /= max(float(NumLights.x), 1.0);
 
     output_color.xyz = light_accum;
 

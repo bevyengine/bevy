@@ -1,4 +1,10 @@
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    render::{
+        pipeline::{PipelineDescriptor, RenderPipeline, RenderPipelines},
+        shader::ShaderStages,
+    },
+};
 
 /// This example shows how to configure Physically Based Rendering (PBR) parameters.
 fn main() {
@@ -40,7 +46,12 @@ fn setup(
     commands
         // light
         .spawn(LightBundle {
-            transform: Transform::from_translation(Vec3::new(0.0, 1000.0, 1000.0)),
+            light: Light {
+                radius: 20.0,
+                intensity: 100.0,
+                ..Default::default()
+            },
+            transform: Transform::from_translation(Vec3::new(0.0, 10.0, 10.0)),
             ..Default::default()
         })
         // camera
