@@ -357,7 +357,8 @@ fn rotate_bonus(game: Res<Game>, time: Res<Time>, mut transforms: Query<&mut Tra
 
 // update the score displayed during the game
 fn scoreboard_system(game: Res<Game>, mut query: Query<&mut Text>) {
-    query.get_unique_mut().unwrap().sections[0].value = format!("Sugar Rush: {}", game.score);
+    let mut text = query.get_unique_mut().unwrap();
+    text.sections[0].value = format!("Sugar Rush: {}", game.score);
 }
 
 // restart the game when pressing spacebar
