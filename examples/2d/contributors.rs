@@ -74,8 +74,7 @@ fn setup(
         // some sprites should be flipped
         let flipped = rnd.gen_bool(0.5);
 
-        let mut transform = Transform::from_xyz(pos.0, pos.1, 0.0);
-        transform.scale.x *= if flipped { -1.0 } else { 1.0 };
+        let transform = Transform::from_xyz(pos.0, pos.1, 0.0);
 
         commands
             .spawn((Contributor { color: col },))
@@ -87,6 +86,7 @@ fn setup(
                 sprite: Sprite {
                     size: Vec2::new(1.0, 1.0) * SPRITE_SIZE,
                     resize_mode: SpriteResizeMode::Manual,
+                    flip_x: flipped,
                     ..Default::default()
                 },
                 material: materials.add(ColorMaterial {
