@@ -276,6 +276,10 @@ path = "examples/ecs/system_param.rs"
 name = "timers"
 path = "examples/ecs/timers.rs"
 
+[[example]]
+name = "indexing"
+path = "examples/ecs/indexing.rs"
+
 # Games
 [[example]]
 name = "alien_cake_addict"

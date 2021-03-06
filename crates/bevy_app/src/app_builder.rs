@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use crate::{
     app::{App, AppExit},
     event::Events,
@@ -6,6 +8,8 @@ use crate::{
 };
 use bevy_ecs::{
     component::Component,
+    prelude::Index,
+    query::indexing::index_maintanance_system,
     schedule::{
         RunOnce, Schedule, Stage, StageLabel, StateStage, SystemDescriptor, SystemSet, SystemStage,
     },
@@ -208,6 +212,19 @@ impl AppBuilder {
         self.stage(stage, |stage: &mut StateStage<T>| {
             stage.on_state_exit(state, system)
         })
+    }
+
+    pub fn add_index<T: Component + Hash + Eq + Clone>(&mut self) -> &mut Self {
+        self.insert_resource(Index::<T>::default())
+            .add_system(index_maintanance_system::<T>.exclusive_system())
+            .add_startup_system_to_stage(StartupStage::PostStartup, index_maintanance_system::<T>.exclusive_system())
+    }
+
+    pub fn add_index_sync_at<T: Component + Hash + Eq + Clone, L: StageLabel>(
+        &mut self,
+        label: L,
+    ) -> &mut Self {
+        self.add_system_to_stage(label, index_maintanance_system::<T>.exclusive_system())
     }
 
     pub fn add_default_stages(&mut self) -> &mut Self {
