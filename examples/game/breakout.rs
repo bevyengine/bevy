@@ -203,7 +203,8 @@ fn ball_movement_system(time: Res<Time>, mut ball_query: Query<(&Ball, &mut Tran
 
 fn scoreboard_system(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
     let mut text = query.get_unique_mut().unwrap();
-    text.sections[0].value = format!("Score: {}", scoreboard.score);}
+    text.sections[0].value = format!("Score: {}", scoreboard.score);
+}
 
 fn ball_collision_system(
     mut commands: Commands,
