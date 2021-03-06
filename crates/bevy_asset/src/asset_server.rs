@@ -436,10 +436,11 @@ impl AssetServer {
                 asset_lifecycle.create_asset(asset_path.into(), asset_value, load_context.version);
             } else {
                 panic!(
-                    "Failed to find AssetLifecycle for label '{:?}', which has an asset type {}. \
+                    "Failed to find AssetLifecycle for label '{:?}', which has an asset type {} (UUID {:?}). \
                         Are you sure this asset type has been added to your app builder?",
                     label,
-                    asset_value.display_type()
+                    asset_value.type_name(),
+                    asset_value.type_uuid(),
                 );
             }
         }
