@@ -1,6 +1,6 @@
 use crate::{AssetIo, AssetIoError};
 use anyhow::Result;
-use bevy_ecs::bevy_utils::BoxedFuture;
+use bevy_utils::BoxedFuture;
 use std::{
     ffi::CString,
     path::{Path, PathBuf},

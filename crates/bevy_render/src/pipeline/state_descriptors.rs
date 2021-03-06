@@ -87,6 +87,7 @@ pub enum CompareFunction {
     Always = 7,
 }
 
+/// Describes how the VertexAttributes should be interpreted while rendering
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect_value(Serialize, Deserialize, PartialEq, Hash)]
 pub enum PrimitiveTopology {

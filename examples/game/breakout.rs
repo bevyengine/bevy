@@ -37,7 +37,7 @@ enum Collider {
 }
 
 fn setup(
-    commands: &mut Commands,
+    mut commands: Commands,
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
@@ -208,7 +208,7 @@ fn scoreboard_system(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
 }
 
 fn ball_collision_system(
-    commands: &mut Commands,
+    mut commands: Commands,
     mut scoreboard: ResMut<Scoreboard>,
     mut ball_query: Query<(&mut Ball, &Transform, &Sprite)>,
     collider_query: Query<(Entity, &Collider, &Transform, &Sprite)>,

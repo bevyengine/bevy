@@ -1,6 +1,6 @@
 use super::{Edge, RenderGraphError, ResourceSlotInfo, ResourceSlots};
 use crate::renderer::RenderContext;
-use bevy_ecs::{BoxedSystem, Commands, Resources, World};
+use bevy_ecs::{system::BoxedSystem, world::World};
 use bevy_utils::Uuid;
 use downcast_rs::{impl_downcast, Downcast};
 use std::{borrow::Cow, fmt::Debug};
@@ -28,10 +28,13 @@ pub trait Node: Downcast + Send + Sync + 'static {
         &[]
     }
 
+    /// Prepare the graph node with unique world access. This runs once per graph run before [Node::update] is called.
+    fn prepare(&mut self, _world: &mut World) {}
+
+    /// Run the graph node logic. This runs once per graph run after [Node::prepare] has been called on all nodes.
     fn update(
         &mut self,
         world: &World,
-        resources: &Resources,
         render_context: &mut dyn RenderContext,
         input: &ResourceSlots,
         output: &mut ResourceSlots,
@@ -41,7 +44,7 @@ pub trait Node: Downcast + Send + Sync + 'static {
 impl_downcast!(Node);
 
 pub trait SystemNode: Node {
-    fn get_system(&self, commands: &mut Commands) -> BoxedSystem;
+    fn get_system(&self) -> BoxedSystem;
 }
 
 #[derive(Debug)]

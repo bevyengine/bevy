@@ -1,7 +1,7 @@
 use crate::{filesystem_watcher::FilesystemWatcher, AssetIo, AssetIoError, AssetServer};
 use anyhow::Result;
-use bevy_ecs::{bevy_utils::BoxedFuture, Res};
-use bevy_utils::HashSet;
+use bevy_ecs::system::Res;
+use bevy_utils::{BoxedFuture, HashSet};
 use crossbeam_channel::TryRecvError;
 use fs::File;
 use io::Read;

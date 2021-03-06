@@ -37,9 +37,9 @@ struct ComponentB {
     pub time_since_startup: Duration,
 }
 
-impl FromResources for ComponentB {
-    fn from_resources(resources: &Resources) -> Self {
-        let time = resources.get::<Time>().unwrap();
+impl FromWorld for ComponentB {
+    fn from_world(world: &mut World) -> Self {
+        let time = world.get_resource::<Time>().unwrap();
         ComponentB {
             time_since_startup: time.time_since_startup(),
             value: "Default Value".to_string(),
@@ -72,22 +72,23 @@ fn print_system(query: Query<(Entity, &ComponentA), Changed<ComponentA>>) {
     }
 }
 
-fn save_scene_system(_world: &mut World, resources: &mut Resources) {
+fn save_scene_system(world: &mut World) {
     // Scenes can be created from any ECS World. You can either create a new one for the scene or use the current World.
-    let mut world = World::new();
-    world.spawn((
+    let mut scene_world = World::new();
+    let mut component_b = ComponentB::from_world(world);
+    component_b.value = "hello".to_string();
+    scene_world.spawn().insert_bundle((
+        component_b,
         ComponentA { x: 1.0, y: 2.0 },
-        ComponentB {
-            value: "hello".to_string(),
-            ..ComponentB::from_resources(resources)
-        },
         Transform::default(),
     ));
-    world.spawn((ComponentA { x: 3.0, y: 4.0 },));
+    scene_world
+        .spawn()
+        .insert_bundle((ComponentA { x: 3.0, y: 4.0 },));
 
     // The TypeRegistry resource contains information about all registered types (including components). This is used to construct scenes.
-    let type_registry = resources.get::<TypeRegistry>().unwrap();
-    let scene = DynamicScene::from_world(&world, &type_registry);
+    let type_registry = world.get_resource::<TypeRegistry>().unwrap();
+    let scene = DynamicScene::from_world(&scene_world, &type_registry);
 
     // Scenes can be serialized like this:
     println!("{}", scene.serialize_ron(&type_registry).unwrap());
@@ -96,7 +97,7 @@ fn save_scene_system(_world: &mut World, resources: &mut Resources) {
 }
 
 // This is only necessary for the info message in the UI. See examples/ui/text.rs for a standalone text example.
-fn infotext_system(commands: &mut Commands, asset_server: Res<AssetServer>) {
+fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(UiCameraBundle::default()).spawn(TextBundle {
         style: Style {
             align_self: AlignSelf::FlexEnd,

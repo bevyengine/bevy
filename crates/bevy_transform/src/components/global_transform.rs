@@ -1,6 +1,7 @@
 use super::Transform;
+use bevy_ecs::reflect::ReflectComponent;
 use bevy_math::{Mat3, Mat4, Quat, Vec3};
-use bevy_reflect::{Reflect, ReflectComponent};
+use bevy_reflect::Reflect;
 use std::ops::Mul;
 
 #[derive(Debug, PartialEq, Clone, Copy, Reflect)]

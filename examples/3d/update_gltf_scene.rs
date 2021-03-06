@@ -19,7 +19,7 @@ struct SceneInstance(Option<InstanceId>);
 struct EntityInMyScene;
 
 fn setup(
-    commands: &mut Commands,
+    mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut scene_spawner: ResMut<SceneSpawner>,
     mut scene_instance: ResMut<SceneInstance>,
@@ -56,7 +56,7 @@ fn setup(
 // the scene with `EntityInMyScene`. All entities from the second scene will be
 // tagged
 fn scene_update(
-    commands: &mut Commands,
+    mut commands: Commands,
     scene_spawner: Res<SceneSpawner>,
     scene_instance: Res<SceneInstance>,
     mut done: Local<bool>,
@@ -65,7 +65,7 @@ fn scene_update(
         if let Some(instance_id) = scene_instance.0 {
             if let Some(entity_iter) = scene_spawner.iter_instance_entities(instance_id) {
                 entity_iter.for_each(|entity| {
-                    commands.insert_one(entity, EntityInMyScene);
+                    commands.insert(entity, EntityInMyScene);
                 });
                 *done = true;
             }

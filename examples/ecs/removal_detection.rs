@@ -26,7 +26,7 @@ fn main() {
 struct MyComponent;
 
 fn setup(
-    commands: &mut Commands,
+    mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
@@ -43,31 +43,32 @@ fn setup(
 
 fn remove_component(
     time: Res<Time>,
-    commands: &mut Commands,
+    mut commands: Commands,
     query: Query<Entity, With<MyComponent>>,
 ) {
     // After two seconds have passed the `Component` is removed.
     if time.seconds_since_startup() > 2.0 {
         if let Some(entity) = query.iter().next() {
-            commands.remove_one::<MyComponent>(entity);
+            commands.remove::<MyComponent>(entity);
         }
     }
 }
 
 fn react_on_removal(
     mut materials: ResMut<Assets<ColorMaterial>>,
+    removed: RemovedComponents<MyComponent>,
     query: Query<(Entity, &Handle<ColorMaterial>)>,
 ) {
     // Note: usually this isn't how you would handle a `Query`. In this example it makes things
     // a bit easier to read.
     let (query_entity, material) = query.iter().next().unwrap();
 
-    // `Query.removed<T>` returns an array with the `Entity`s in the `Query` that had its
+    // `RemovedComponents<T>::iter()` returns an interator with the `Entity`s that had their
     // `Component` `T` (in this case `MyComponent`) removed at some point earlier during the frame.
-    for entity in query.removed::<MyComponent>() {
+    for entity in removed.iter() {
         // We compare the `Entity` that had its `MyComponent` `Component` removed with the `Entity`
         // in the current `Query`. If they match all red is removed from the material.
-        if query_entity == *entity {
+        if query_entity == entity {
             materials.get_mut(material).unwrap().color.set_r(0.0);
         }
     }

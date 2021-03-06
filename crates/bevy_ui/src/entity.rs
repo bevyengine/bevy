@@ -5,7 +5,7 @@ use crate::{
     FocusPolicy, Interaction, Style,
 };
 use bevy_asset::Handle;
-use bevy_ecs::Bundle;
+use bevy_ecs::bundle::Bundle;
 use bevy_render::{
     camera::{Camera, DepthCalculation, OrthographicProjection, VisibleEntities, WindowOrigin},
     draw::Draw,

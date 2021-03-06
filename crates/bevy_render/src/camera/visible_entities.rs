@@ -1,8 +1,8 @@
 use super::{Camera, DepthCalculation};
 use crate::prelude::Visible;
 use bevy_core::FloatOrd;
-use bevy_ecs::{Entity, Query, With};
-use bevy_reflect::{Reflect, ReflectComponent};
+use bevy_ecs::{entity::Entity, query::With, reflect::ReflectComponent, system::Query};
+use bevy_reflect::Reflect;
 use bevy_transform::prelude::GlobalTransform;
 
 #[derive(Debug)]

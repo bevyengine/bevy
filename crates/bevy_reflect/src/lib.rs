@@ -8,20 +8,12 @@ mod tuple_struct;
 mod type_registry;
 mod type_uuid;
 mod impls {
-    #[cfg(feature = "bevy_app")]
-    mod bevy_app;
-    #[cfg(feature = "bevy_ecs")]
-    mod bevy_ecs;
     #[cfg(feature = "glam")]
     mod glam;
     #[cfg(feature = "smallvec")]
     mod smallvec;
     mod std;
 
-    #[cfg(feature = "bevy_app")]
-    pub use self::bevy_app::*;
-    #[cfg(feature = "bevy_ecs")]
-    pub use self::bevy_ecs::*;
     #[cfg(feature = "glam")]
     pub use self::glam::*;
     #[cfg(feature = "smallvec")]
@@ -31,10 +23,6 @@ mod impls {
 
 pub mod serde;
 pub mod prelude {
-    #[cfg(feature = "bevy_ecs")]
-    pub use crate::ReflectComponent;
-    #[cfg(feature = "bevy_app")]
-    pub use crate::RegisterTypeBuilder;
     pub use crate::{
         reflect_trait, GetField, GetTupleStructField, Reflect, ReflectDeserialize, Struct,
         TupleStruct,

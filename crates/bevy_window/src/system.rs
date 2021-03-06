@@ -3,7 +3,7 @@ use bevy_app::{
     prelude::{EventReader, Events},
     AppExit,
 };
-use bevy_ecs::ResMut;
+use bevy_ecs::system::ResMut;
 
 pub fn exit_on_window_close_system(
     mut app_exit_events: ResMut<Events<AppExit>>,

@@ -1,3 +1,5 @@
+pub use bevy_ecs_macros::{AmbiguitySetLabel, StageLabel, SystemLabel};
+
 use std::{
     any::Any,
     borrow::Cow,

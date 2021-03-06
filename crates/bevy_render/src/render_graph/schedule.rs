@@ -267,7 +267,7 @@ mod tests {
         render_graph::{Node, NodeId, RenderGraph, ResourceSlotInfo, ResourceSlots},
         renderer::{RenderContext, RenderResourceType},
     };
-    use bevy_ecs::{Resources, World};
+    use bevy_ecs::world::World;
 
     struct TestNode {
         inputs: Vec<ResourceSlotInfo>,
@@ -305,7 +305,6 @@ mod tests {
         fn update(
             &mut self,
             _: &World,
-            _: &Resources,
             _: &mut dyn RenderContext,
             _: &ResourceSlots,
             _: &mut ResourceSlots,
