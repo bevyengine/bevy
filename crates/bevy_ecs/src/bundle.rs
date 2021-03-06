@@ -15,6 +15,8 @@ You cannot query for a bundle, only individual components within it.
 Typically, you will simply use `#[derive(Bundle)]` when creating your own `Bundle`. You can nest bundles like so:
 ```
 use bevy::ecs::bundle::Bundle;
+use bevy::bevy_ecs_macros::Bundle;
+
 #[derive(Bundle)]
 struct A {
     x: i32,
