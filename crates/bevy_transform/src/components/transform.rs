@@ -22,9 +22,9 @@ impl Transform {
     #[inline]
     pub fn identity() -> Self {
         Transform {
-            translation: Vec3::zero(),
-            rotation: Quat::identity(),
-            scale: Vec3::one(),
+            translation: Vec3::ZERO,
+            rotation: Quat::IDENTITY,
+            scale: Vec3::ONE,
         }
     }
 
@@ -78,19 +78,19 @@ impl Transform {
     #[inline]
     /// Get the unit vector in the local x direction
     pub fn local_x(&self) -> Vec3 {
-        self.rotation * Vec3::unit_x()
+        self.rotation * Vec3::X
     }
 
     #[inline]
     /// Get the unit vector in the local y direction
     pub fn local_y(&self) -> Vec3 {
-        self.rotation * Vec3::unit_y()
+        self.rotation * Vec3::Y
     }
 
     #[inline]
     /// Get the unit vector in the local z direction
     pub fn local_z(&self) -> Vec3 {
-        self.rotation * Vec3::unit_z()
+        self.rotation * Vec3::Z
     }
 
     #[inline]

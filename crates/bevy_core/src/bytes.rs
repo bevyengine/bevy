@@ -231,6 +231,6 @@ mod tests {
 
     #[test]
     fn test_mat4_round_trip() {
-        test_round_trip(Mat4::identity());
+        test_round_trip(Mat4::IDENTITY);
     }
 }
