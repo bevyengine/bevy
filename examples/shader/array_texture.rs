@@ -80,7 +80,7 @@ struct LoadingTexture(Option<Handle<Texture>>);
 struct MyPipeline(Handle<PipelineDescriptor>);
 
 fn setup(
-    commands: &mut Commands,
+    mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut pipelines: ResMut<Assets<PipelineDescriptor>>,
     mut shaders: ResMut<Assets<Shader>>,
@@ -110,13 +110,13 @@ fn setup(
         .unwrap();
 
     commands.spawn(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::default(), Vec3::unit_y()),
+        transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::default(), Vec3::Y),
         ..Default::default()
     });
 }
 
 fn create_array_texture(
-    commands: &mut Commands,
+    mut commands: Commands,
     my_pipeline: Res<MyPipeline>,
     mut loading_texture: ResMut<LoadingTexture>,
     mut textures: ResMut<Assets<Texture>>,

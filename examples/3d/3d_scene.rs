@@ -10,7 +10,7 @@ fn main() {
 
 /// set up a simple 3D scene
 fn setup(
-    commands: &mut Commands,
+    mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
@@ -36,8 +36,7 @@ fn setup(
         })
         // camera
         .spawn(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(-2.0, 2.5, 5.0)
-                .looking_at(Vec3::default(), Vec3::unit_y()),
+            transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::default(), Vec3::Y),
             ..Default::default()
         });
 }

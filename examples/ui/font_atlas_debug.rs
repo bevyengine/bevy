@@ -30,7 +30,7 @@ impl Default for State {
 }
 
 fn atlas_render_system(
-    commands: &mut Commands,
+    mut commands: Commands,
     mut state: ResMut<State>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     font_atlas_sets: Res<Assets<FontAtlasSet>>,
@@ -64,7 +64,7 @@ fn atlas_render_system(
 }
 
 fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Query<&mut Text>) {
-    if state.timer.tick(time.delta_seconds()).finished() {
+    if state.timer.tick(time.delta()).finished() {
         for mut text in query.iter_mut() {
             let c = rand::random::<u8>() as char;
             if !text.sections[0].value.contains(c) {
@@ -76,7 +76,7 @@ fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Quer
     }
 }
 
-fn setup(commands: &mut Commands, asset_server: Res<AssetServer>, mut state: ResMut<State>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResMut<State>) {
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
     state.handle = font_handle.clone();
     commands.spawn(UiCameraBundle::default()).spawn(TextBundle {

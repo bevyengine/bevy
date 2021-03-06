@@ -1,3 +1,6 @@
+<!-- MD024 - We want repeated headings in a changelog file -->
+<!-- markdownlint-disable-file MD024 -->
+
 # Changelog
 
 While we try to keep the `Unreleased` changes updated, it is often behind and does not include
@@ -6,16 +9,16 @@ current changes on git with [previous release tags][git_tag_comparison].
 
 [git_tag_comparison]: https://github.com/bevyengine/bevy/compare/v0.4.0...main
 
-
 ## Version 0.4.0 (2020-12-19)
 
 ### Added
+
 - [add bevymark benchmark example][273]
-- [gltf: support camera and fix hierarchy][772] 
+- [gltf: support camera and fix hierarchy][772]
 - [Add tracing spans to schedules, stages, systems][789]
 - [add example that represents contributors as bevy icons][801]
 - [Add received character][805]
-- [Add bevy_dylib to force dynamic linking of bevy][808] 
+- [Add bevy_dylib to force dynamic linking of bevy][808]
 - [Added RenderPass::set_scissor_rect][815]
 - [`bevy_log`][836]
   - Adds logging functionality as a Plugin.
@@ -33,7 +36,7 @@ current changes on git with [previous release tags][git_tag_comparison].
   - Replaces the properties system
 - [Add support for Apple Silicon][928]
 - [Live reloading of shaders][937]
-- [ Store mouse cursor position in Window][940]
+- [Store mouse cursor position in Window][940]
 - [Add removal_detection example][945]
 - [Additional vertex attribute value types][946]
 - [Added WindowFocused event][956]
@@ -46,9 +49,9 @@ current changes on git with [previous release tags][git_tag_comparison].
 
 ### Changed
 
-- [delegate layout reflection to RenderResourceContext][691] 
+- [delegate layout reflection to RenderResourceContext][691]
 - [Fall back to remove components one by one when failing to remove a bundle][719]
-- [Port hecs derive macro improvements][761] 
+- [Port hecs derive macro improvements][761]
 - [Use glyph_brush_layout and add text alignment support][765]
 - [upgrade glam and hexasphere][791]
 - [Flexible ECS Params][798]
@@ -242,7 +245,7 @@ current changes on git with [previous release tags][git_tag_comparison].
 - [`FrameTimeDiagnosticsPlugin` now shows "frame count" in addition to "frame time" and "fps"][678]
 - [Add hierarchy example][565]
 - [`WgpuPowerOptions` for choosing between low power, high performance, and adaptive power][397]
-- Derive `Debug` for more types: [#597][597], [#632][632] 
+- Derive `Debug` for more types: [#597][597], [#632][632]
 - Index buffer specialization
   - [Allows the use of U32 indices in Mesh index buffers in addition to the usual U16 indices][568]
   - [Switch to u32 indices by default][572]
@@ -286,7 +289,7 @@ current changes on git with [previous release tags][git_tag_comparison].
 - [Migrated to Rodio 0.12][692]
   - New method of playing audio can be found in the examples.
 - Added support for inserting custom initial values for `Local<T>` system resources [#745][745]
-  
+
 ### Fixed
 
 - [Properly update bind group ids when setting dynamic bindings][560]
@@ -358,7 +361,6 @@ current changes on git with [previous release tags][git_tag_comparison].
 [744]: https://github.com/bevyengine/bevy/pull/744
 [745]: https://github.com/bevyengine/bevy/pull/745
 [752]: https://github.com/bevyengine/bevy/pull/752
-
 
 ## Version 0.2.1 (2020-9-20)
 

@@ -27,7 +27,7 @@ struct MyMaterial {
 }
 
 fn setup(
-    commands: &mut Commands,
+    mut commands: Commands,
     asset_server: ResMut<AssetServer>,
     mut pipelines: ResMut<Assets<PipelineDescriptor>>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -73,8 +73,7 @@ fn setup(
         .with(material)
         // camera
         .spawn(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(3.0, 5.0, -8.0)
-                .looking_at(Vec3::default(), Vec3::unit_y()),
+            transform: Transform::from_xyz(3.0, 5.0, -8.0).looking_at(Vec3::default(), Vec3::Y),
             ..Default::default()
         });
 }

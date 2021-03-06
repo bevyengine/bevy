@@ -7,7 +7,7 @@ pub mod system;
 pub mod touch;
 
 pub use axis::*;
-use bevy_ecs::IntoSystem;
+use bevy_ecs::system::IntoSystem;
 pub use input::*;
 
 pub mod prelude {
@@ -62,7 +62,8 @@ impl Plugin for InputPlugin {
 }
 
 /// The current "press" state of an element
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum ElementState {
     Pressed,
     Released,

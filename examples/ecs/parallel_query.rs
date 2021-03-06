@@ -4,7 +4,7 @@ use rand::random;
 struct Velocity(Vec2);
 
 fn spawn_system(
-    commands: &mut Commands,
+    mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
@@ -34,11 +34,9 @@ fn move_system(pool: Res<ComputeTaskPool>, mut sprites: Query<(&mut Transform, &
     // elements will not typically be faster than just using a normal Iterator.
     // See the ParallelIterator documentation for more information on when
     // to use or not use ParallelIterator over a normal Iterator.
-    sprites
-        .par_iter_mut(32)
-        .for_each(&pool, |(mut transform, velocity)| {
-            transform.translation += velocity.0.extend(0.0);
-        });
+    sprites.par_for_each_mut(&pool, 32, |(mut transform, velocity)| {
+        transform.translation += velocity.0.extend(0.0);
+    });
 }
 
 // Bounce sprites outside the window
@@ -57,17 +55,15 @@ fn bounce_system(
     sprites
         // Batch size of 32 is chosen to limit the overhead of
         // ParallelIterator, since negating a vector is very inexpensive.
-        .par_iter_mut(32)
-        // Filter out sprites that don't need to be bounced
-        .filter(|(transform, _)| {
-            !(left < transform.translation.x
+        .par_for_each_mut(&pool, 32, |(transform, mut v)| {
+            if !(left < transform.translation.x
                 && transform.translation.x < right
                 && bottom < transform.translation.y
                 && transform.translation.y < top)
-        })
-        // For simplicity, just reverse the velocity; don't use realistic bounces
-        .for_each(&pool, |(_, mut v)| {
-            v.0 = -v.0;
+            {
+                // For simplicity, just reverse the velocity; don't use realistic bounces
+                v.0 = -v.0;
+            }
         });
 }
 

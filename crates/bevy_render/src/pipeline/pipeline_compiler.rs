@@ -235,7 +235,9 @@ impl PipelineCompiler {
 
         //TODO: add other buffers (like instancing) here
         let mut vertex_buffer_descriptors = Vec::<VertexBufferLayout>::default();
-        vertex_buffer_descriptors.push(compiled_vertex_buffer_descriptor);
+        if !pipeline_layout.vertex_buffer_descriptors.is_empty() {
+            vertex_buffer_descriptors.push(compiled_vertex_buffer_descriptor);
+        }
 
         pipeline_layout.vertex_buffer_descriptors = vertex_buffer_descriptors;
         specialized_descriptor.multisample.count = pipeline_specialization.sample_count;
