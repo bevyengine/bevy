@@ -129,7 +129,7 @@ impl Color {
         }
     }
 
-    /// New `Color` from HSL colorspace.
+    /// New `Color` with HSL representation in sRGB colorspace.
     pub const fn hsl(hue: f32, saturation: f32, lightness: f32) -> Color {
         Color::Hsla {
             hue,
@@ -139,7 +139,7 @@ impl Color {
         }
     }
 
-    /// New `Color` from linear colorspace.
+    /// New `Color` with HSL representation in sRGB colorspace.
     pub const fn hsla(hue: f32, saturation: f32, lightness: f32, alpha: f32) -> Color {
         Color::Hsla {
             hue,
@@ -237,7 +237,7 @@ impl Color {
                 alpha,
             } => {
                 let [red, green, blue] =
-                    HslColorSpace::hsl_to_nonlinear_srgb(*hue, *saturation, *lightness);
+                    HslRepresentation::hsl_to_nonlinear_srgb(*hue, *saturation, *lightness);
                 Color::Rgba {
                     red,
                     green,
@@ -270,7 +270,7 @@ impl Color {
                 alpha,
             } => {
                 let [red, green, blue] =
-                    HslColorSpace::hsl_to_nonlinear_srgb(*hue, *saturation, *lightness);
+                    HslRepresentation::hsl_to_nonlinear_srgb(*hue, *saturation, *lightness);
                 Color::RgbaLinear {
                     red: red.nonlinear_to_linear_srgb(),
                     green: green.nonlinear_to_linear_srgb(),
@@ -291,7 +291,7 @@ impl Color {
                 alpha,
             } => {
                 let (hue, saturation, lightness) =
-                    HslColorSpace::nonlinear_srgb_to_hsl([*red, *green, *blue]);
+                    HslRepresentation::nonlinear_srgb_to_hsl([*red, *green, *blue]);
                 Color::Hsla {
                     hue,
                     saturation,
@@ -305,7 +305,7 @@ impl Color {
                 blue,
                 alpha,
             } => {
-                let (hue, saturation, lightness) = HslColorSpace::nonlinear_srgb_to_hsl([
+                let (hue, saturation, lightness) = HslRepresentation::nonlinear_srgb_to_hsl([
                     red.linear_to_nonlinear_srgb(),
                     green.linear_to_nonlinear_srgb(),
                     blue.linear_to_nonlinear_srgb(),
@@ -348,7 +348,7 @@ impl Color {
                 alpha,
             } => {
                 let [red, green, blue] =
-                    HslColorSpace::hsl_to_nonlinear_srgb(hue, saturation, lightness);
+                    HslRepresentation::hsl_to_nonlinear_srgb(hue, saturation, lightness);
                 [red, green, blue, alpha]
             }
         }
@@ -381,7 +381,7 @@ impl Color {
                 alpha,
             } => {
                 let [red, green, blue] =
-                    HslColorSpace::hsl_to_nonlinear_srgb(hue, saturation, lightness);
+                    HslRepresentation::hsl_to_nonlinear_srgb(hue, saturation, lightness);
                 [
                     red.nonlinear_to_linear_srgb(),
                     green.nonlinear_to_linear_srgb(),
@@ -402,7 +402,7 @@ impl Color {
                 alpha,
             } => {
                 let (hue, saturation, lightness) =
-                    HslColorSpace::nonlinear_srgb_to_hsl([red, green, blue]);
+                    HslRepresentation::nonlinear_srgb_to_hsl([red, green, blue]);
                 [hue, saturation, lightness, alpha]
             }
             Color::RgbaLinear {
@@ -411,7 +411,7 @@ impl Color {
                 blue,
                 alpha,
             } => {
-                let (hue, saturation, lightness) = HslColorSpace::nonlinear_srgb_to_hsl([
+                let (hue, saturation, lightness) = HslRepresentation::nonlinear_srgb_to_hsl([
                     red.linear_to_nonlinear_srgb(),
                     green.linear_to_nonlinear_srgb(),
                     blue.linear_to_nonlinear_srgb(),
@@ -992,7 +992,7 @@ impl Bytes for Color {
                 alpha,
             } => {
                 let [red, green, blue] =
-                    HslColorSpace::hsl_to_nonlinear_srgb(hue, saturation, lightness);
+                    HslRepresentation::hsl_to_nonlinear_srgb(hue, saturation, lightness);
                 red.nonlinear_to_linear_srgb()
                     .write_bytes_with_offset(buffer, offset);
                 green

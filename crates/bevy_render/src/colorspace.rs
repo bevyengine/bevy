@@ -29,8 +29,8 @@ impl SrgbColorSpace for f32 {
     }
 }
 
-pub struct HslColorSpace;
-impl HslColorSpace {
+pub struct HslRepresentation;
+impl HslRepresentation {
     /// converts a color in HLS space to sRGB space
     pub fn hsl_to_nonlinear_srgb(hue: f32, saturation: f32, lightness: f32) -> [f32; 3] {
         // https://en.wikipedia.org/wiki/HSL_and_HSV#HSL_to_RGB
@@ -113,41 +113,41 @@ mod test {
 
         // black
         let (hue, saturation, lightness) = (0.0, 0.0, 0.0);
-        let [r, g, b] = HslColorSpace::hsl_to_nonlinear_srgb(hue, saturation, lightness);
+        let [r, g, b] = HslRepresentation::hsl_to_nonlinear_srgb(hue, saturation, lightness);
         assert_eq!((r * 100.0).round() as u32, 0);
         assert_eq!((g * 100.0).round() as u32, 0);
         assert_eq!((b * 100.0).round() as u32, 0);
 
         // white
         let (hue, saturation, lightness) = (0.0, 0.0, 1.0);
-        let [r, g, b] = HslColorSpace::hsl_to_nonlinear_srgb(hue, saturation, lightness);
+        let [r, g, b] = HslRepresentation::hsl_to_nonlinear_srgb(hue, saturation, lightness);
         assert_eq!((r * 100.0).round() as u32, 100);
         assert_eq!((g * 100.0).round() as u32, 100);
         assert_eq!((b * 100.0).round() as u32, 100);
 
         let (hue, saturation, lightness) = (300.0, 0.5, 0.5);
-        let [r, g, b] = HslColorSpace::hsl_to_nonlinear_srgb(hue, saturation, lightness);
+        let [r, g, b] = HslRepresentation::hsl_to_nonlinear_srgb(hue, saturation, lightness);
         assert_eq!((r * 100.0).round() as u32, 75);
         assert_eq!((g * 100.0).round() as u32, 25);
         assert_eq!((b * 100.0).round() as u32, 75);
 
         // a red
         let (hue, saturation, lightness) = (283.7, 0.775, 0.543);
-        let [r, g, b] = HslColorSpace::hsl_to_nonlinear_srgb(hue, saturation, lightness);
+        let [r, g, b] = HslRepresentation::hsl_to_nonlinear_srgb(hue, saturation, lightness);
         assert_eq!((r * 100.0).round() as u32, 70);
         assert_eq!((g * 100.0).round() as u32, 19);
         assert_eq!((b * 100.0).round() as u32, 90);
 
         // a green
         let (hue, saturation, lightness) = (162.4, 0.779, 0.447);
-        let [r, g, b] = HslColorSpace::hsl_to_nonlinear_srgb(hue, saturation, lightness);
+        let [r, g, b] = HslRepresentation::hsl_to_nonlinear_srgb(hue, saturation, lightness);
         assert_eq!((r * 100.0).round() as u32, 10);
         assert_eq!((g * 100.0).round() as u32, 80);
         assert_eq!((b * 100.0).round() as u32, 59);
 
         // a blue
         let (hue, saturation, lightness) = (251.1, 0.832, 0.511);
-        let [r, g, b] = HslColorSpace::hsl_to_nonlinear_srgb(hue, saturation, lightness);
+        let [r, g, b] = HslRepresentation::hsl_to_nonlinear_srgb(hue, saturation, lightness);
         assert_eq!((r * 100.0).round() as u32, 25);
         assert_eq!((g * 100.0).round() as u32, 10);
         assert_eq!((b * 100.0).round() as u32, 92);
@@ -158,39 +158,39 @@ mod test {
         // "truth" from https://en.wikipedia.org/wiki/HSL_and_HSV#Examples
 
         // black
-        let (hue, saturation, lightness) = HslColorSpace::nonlinear_srgb_to_hsl([0.0, 0.0, 0.0]);
+        let (hue, saturation, lightness) = HslRepresentation::nonlinear_srgb_to_hsl([0.0, 0.0, 0.0]);
         assert_eq!(hue.round() as u32, 0);
         assert_eq!((saturation * 100.0).round() as u32, 0);
         assert_eq!((lightness * 100.0).round() as u32, 0);
 
         // white
-        let (hue, saturation, lightness) = HslColorSpace::nonlinear_srgb_to_hsl([1.0, 1.0, 1.0]);
+        let (hue, saturation, lightness) = HslRepresentation::nonlinear_srgb_to_hsl([1.0, 1.0, 1.0]);
         assert_eq!(hue.round() as u32, 0);
         assert_eq!((saturation * 100.0).round() as u32, 0);
         assert_eq!((lightness * 100.0).round() as u32, 100);
 
-        let (hue, saturation, lightness) = HslColorSpace::nonlinear_srgb_to_hsl([0.75, 0.25, 0.75]);
+        let (hue, saturation, lightness) = HslRepresentation::nonlinear_srgb_to_hsl([0.75, 0.25, 0.75]);
         assert_eq!(hue.round() as u32, 300);
         assert_eq!((saturation * 100.0).round() as u32, 50);
         assert_eq!((lightness * 100.0).round() as u32, 50);
 
         // a red
         let (hue, saturation, lightness) =
-            HslColorSpace::nonlinear_srgb_to_hsl([0.704, 0.187, 0.897]);
+            HslRepresentation::nonlinear_srgb_to_hsl([0.704, 0.187, 0.897]);
         assert_eq!(hue.round() as u32, 284);
         assert_eq!((saturation * 100.0).round() as u32, 78);
         assert_eq!((lightness * 100.0).round() as u32, 54);
 
         // a green
         let (hue, saturation, lightness) =
-            HslColorSpace::nonlinear_srgb_to_hsl([0.099, 0.795, 0.591]);
+            HslRepresentation::nonlinear_srgb_to_hsl([0.099, 0.795, 0.591]);
         assert_eq!(hue.round() as u32, 162);
         assert_eq!((saturation * 100.0).round() as u32, 78);
         assert_eq!((lightness * 100.0).round() as u32, 45);
 
         // a blue
         let (hue, saturation, lightness) =
-            HslColorSpace::nonlinear_srgb_to_hsl([0.255, 0.104, 0.918]);
+            HslRepresentation::nonlinear_srgb_to_hsl([0.255, 0.104, 0.918]);
         assert_eq!(hue.round() as u32, 251);
         assert_eq!((saturation * 100.0).round() as u32, 83);
         assert_eq!((lightness * 100.0).round() as u32, 51);
