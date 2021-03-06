@@ -17,6 +17,11 @@ impl SystemId {
 }
 
 /// An ECS system that can be added to a [Schedule](crate::schedule::Schedule)
+///
+/// Systems are just ordinary Rust functions, each of whose parameters implement the [IntoSystem] trait.
+/// You can add systems to your app by including `.add_system(my_system.system())` in your `AppBuilder`.
+/// In Bevy apps, the scheduler will automatically run systems in parallel, coordinate resource access
+/// and call your systems each pass of the main loop.
 pub trait System: Send + Sync + 'static {
     type In;
     type Out;
