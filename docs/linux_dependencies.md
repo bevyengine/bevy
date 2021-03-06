@@ -13,7 +13,6 @@ sudo apt-get install pkg-config libx11-dev libasound2-dev libudev-dev
 Depending on your graphics card, you may have to install one of the following:
 `vulkan-radeon`, `vulkan-intel`, or `mesa-vulkan-drivers`
 
-
 If you want to enable fast compiles
 
 ```bash
