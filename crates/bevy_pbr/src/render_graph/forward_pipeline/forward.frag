@@ -149,7 +149,7 @@ void main() {
 
     float metallic = pbr.y;
     vec3 N = normalize(v_Normal);
-    vec3 V = normalize(CameraPos.xyz - v_Position.xyz);
+    vec3 V = normalize(CameraPos.xyz - w_Position.xyz);
 
     vec3 F0 = vec3(0.04);
     F0 = mix(F0, output_color.rgb, metallic);
@@ -161,7 +161,7 @@ void main() {
     for (int i = 0; i < int(NumLights.x) && i < MAX_LIGHTS; ++i) {
         Light light = SceneLights[i];
 
-        vec3 lightDir = light.pos.xyz - v_Position.xyz;
+        vec3 lightDir = light.pos.xyz - w_Position.xyz;
         vec3 L = normalize(lightDir);
 
         float rangeAttenuation =
