@@ -92,3 +92,11 @@ jobs:
           DEFAULT_BRANCH: master
           # Not needed here as only one Linter is used.
           #GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deadlinks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Checks dead doc links
+        run: cargo install cargo-deadlinks
+        run: cargo deadlinks
