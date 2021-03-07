@@ -97,6 +97,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Checks dead doc links
+      - name: Installs cargo-deadlinks
         run: cargo install cargo-deadlinks
+      - name: Checks dead doc links
         run: cargo deadlinks
