@@ -9,6 +9,7 @@ use bevy_render::{
     texture::Texture,
 };
 use serde::{Deserialize, Serialize};
+
 #[derive(Debug, Default, Clone, TypeUuid, Reflect, RenderResources)]
 #[render_resources(from_self)]
 #[uuid = "7233c597-ccfa-411f-bd59-9af349432ada"]
