@@ -119,13 +119,6 @@ impl<T: Reflect + Clone> GetTypeRegistration for Vec<T> {
         registration
     }
 }
-
-impl<T> FromType<Vec<T>> for Vec<T> {
-    fn from_type() -> Self {
-        vec![]
-    }
-}
-
 impl<K: Reflect + Clone + Eq + Hash, V: Reflect + Clone> Map for HashMap<K, V> {
     fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect> {
         key.downcast_ref::<K>()
