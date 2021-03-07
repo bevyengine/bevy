@@ -94,6 +94,11 @@ float pow5(float x) {
     return x2 * x2 * x;
 }
 
+// distanceAttenuation is simply the square falloff of light intensity
+// combined with a smooth attenuation at the edge of the light radius
+//
+// light radius is a non-physical construct for efficiency purposes,
+// because otherwise every light affects every fragment in the scene
 float getDistanceAttenuation(const vec3 posToLight, float inverseRadiusSquared) {
     float distanceSquare = dot(posToLight, posToLight);
     float factor = distanceSquare * inverseRadiusSquared;
@@ -240,9 +245,17 @@ void main() {
         vec3 specular = specular(F0, roughness, H, NdotV, NoL, NoH, LoH);
         vec3 diffuse = diffuseColor * Fd_Burley(roughness, NdotV, NoL, LoH);
 
-        // f = (f_d + f_r) * light_color * light_intensity * attenuation * ⟨n⋅l⟩
+        // Lout = f(v,l) Φ / { 4 π d^2 }⟨n⋅l⟩
+        // where
+        // f(v,l) = (f_d(v,l) + f_r(v,l)) * light_color
+        // Φ is light intensity
+
+        // our rangeAttentuation = 1 / d^2 multiplied with an attenuation factor for smoothing at the edge of the non-physical maximum light radius
+
+        // See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminanceEquation
+        // TODO compensate for energy loss https://google.github.io/filament/Filament.html#materialsystem/improvingthebrdfs/energylossinspecularreflectance
         light_accum +=
-            ((diffuse + specular) * light.color.rgb) * (light.intensity * rangeAttenuation * NoL);
+            ((diffuse + specular) * light.color.rgb) * (light.intensity * 1 / (4 * PI) * rangeAttenuation * NoL);
     }
 
     output_color.rgb = light_accum;
