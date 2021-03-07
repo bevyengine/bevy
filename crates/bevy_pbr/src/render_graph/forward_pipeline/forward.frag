@@ -286,11 +286,12 @@ void main() {
         // Φ is light intensity
 
         // our rangeAttentuation = 1 / d^2 multiplied with an attenuation factor for smoothing at the edge of the non-physical maximum light radius
+        // It's not 100% clear where the 1/4π goes in the derivation, but we follow the filament shader and leave it out
 
         // See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminanceEquation
         // TODO compensate for energy loss https://google.github.io/filament/Filament.html#materialsystem/improvingthebrdfs/energylossinspecularreflectance
         light_accum +=
-            ((diffuse + specular) * light.color.rgb) * (light.intensity * 1 / (4 * PI) * rangeAttenuation * NoL);
+            ((diffuse + specular) * light.color.rgb) * (light.intensity * rangeAttenuation * NoL);
     }
 
     output_color.rgb = light_accum;
