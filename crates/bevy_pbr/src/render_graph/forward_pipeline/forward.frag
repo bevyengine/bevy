@@ -62,20 +62,24 @@ layout(set = 1, binding = 0) uniform Lights {
     Light SceneLights[MAX_LIGHTS];
 };
 
-layout(set = 3, binding = 0) uniform StandardMaterial_albedo {
-    vec4 Albedo;
+layout(set = 3, binding = 0) uniform StandardMaterial_base_color_factor {
+    vec4 base_color_factor;
 };
 
 #ifdef STANDARDMATERIAL_ALBEDO_TEXTURE
-layout(set = 3, binding = 1) uniform texture2D StandardMaterial_albedo_texture;
+layout(set = 3, binding = 1) uniform texture2D StandardMaterial_base_color_texture;
 layout(set = 3,
-       binding = 2) uniform sampler StandardMaterial_albedo_texture_sampler;
+       binding = 2) uniform sampler StandardMaterial_base_color_texture_sampler;
 #endif
 
 #ifndef STANDARDMATERIAL_UNLIT
 
-layout(set = 3, binding = 3) uniform StandardMaterial_pbr {
-    vec2 pbr;
+layout(set = 3, binding = 3) uniform StandardMaterial_roughness_factor {
+    float perceptual_roughness;
+};
+
+layout(set = 3, binding = 4) uniform StandardMaterial_metallic_factor {
+    float metallic;
 };
 
 #    define saturate(x) clamp(x, 0.0, 1.0)
@@ -188,19 +192,16 @@ float perceptualRoughnessToRoughness(float perceptualRoughness) {
 #endif
 
 void main() {
-    vec4 output_color = Albedo;
+    vec4 output_color = base_color_factor;
 #ifdef STANDARDMATERIAL_ALBEDO_TEXTURE
-    output_color *= texture(sampler2D(StandardMaterial_albedo_texture,
-                                      StandardMaterial_albedo_texture_sampler),
+    output_color *= texture(sampler2D(StandardMaterial_base_color_texture,
+                                      StandardMaterial_base_color_texture_sampler),
                             v_Uv);
 #endif
 
 #ifndef STANDARDMATERIAL_UNLIT
-    float perceptual_roughness = pbr.x;
     // calculate non-linear roughness from linear perceptualRoughness
     float roughness = perceptualRoughnessToRoughness(perceptual_roughness);
-
-    float metallic = pbr.y;
 
     vec3 N = normalize(v_Normal);
     vec3 V = normalize(CameraPos.xyz - w_Position.xyz);

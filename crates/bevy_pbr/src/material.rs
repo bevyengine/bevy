@@ -1,5 +1,4 @@
 use bevy_asset::{self, Handle};
-use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;
 use bevy_render::{color::Color, renderer::RenderResources, shader::ShaderDefs, texture::Texture};
 
@@ -7,11 +6,11 @@ use bevy_render::{color::Color, renderer::RenderResources, shader::ShaderDefs, t
 #[derive(Debug, RenderResources, ShaderDefs, TypeUuid)]
 #[uuid = "dace545e-4bc6-4595-a79d-c224fc694975"]
 pub struct StandardMaterial {
-    pub albedo: Color,
+    pub base_color_factor: Color,
     #[shader_def]
-    pub albedo_texture: Option<Handle<Texture>>,
-    /// Represented as roughness/metallic.
-    pub pbr: Vec2,
+    pub base_color_texture: Option<Handle<Texture>>,
+    pub roughness_factor: f32,
+    pub metallic_factor: f32,
     #[render_resources(ignore)]
     #[shader_def]
     pub unlit: bool,
@@ -20,9 +19,10 @@ pub struct StandardMaterial {
 impl Default for StandardMaterial {
     fn default() -> Self {
         StandardMaterial {
-            albedo: Color::rgb(1.0, 1.0, 1.0),
-            pbr: Vec2::new(0.01, 0.08),
-            albedo_texture: None,
+            base_color_factor: Color::rgb(1.0, 1.0, 1.0),
+            base_color_texture: None,
+            roughness_factor: 0.01,
+            metallic_factor: 0.08,
             unlit: false,
         }
     }
@@ -31,7 +31,7 @@ impl Default for StandardMaterial {
 impl From<Color> for StandardMaterial {
     fn from(color: Color) -> Self {
         StandardMaterial {
-            albedo: color,
+            base_color_factor: color,
             ..Default::default()
         }
     }
@@ -40,7 +40,7 @@ impl From<Color> for StandardMaterial {
 impl From<Handle<Texture>> for StandardMaterial {
     fn from(texture: Handle<Texture>) -> Self {
         StandardMaterial {
-            albedo_texture: Some(texture),
+            base_color_texture: Some(texture),
             ..Default::default()
         }
     }

@@ -17,7 +17,7 @@ fn main() {
 
 /// set up a simple 3D scene
 fn setup(
-    commands: &mut Commands,
+    mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
@@ -34,8 +34,10 @@ fn setup(
                         subdivisions: 32,
                     })),
                     material: materials.add(StandardMaterial {
-                        albedo: Color::rgb(0.2, 0.2, 1.0),
-                        pbr: Vec2::new(x01, y01), // vary key PBR parameters on a grid of spheres to show the effect
+                        base_color_factor: Color::rgb(0.2, 0.2, 1.0),
+                        // vary key PBR parameters on a grid of spheres to show the effect
+                        metallic_factor: y01,
+                        roughness_factor: x01,
                         ..Default::default()
                     }),
                     transform: Transform::from_xyz(x as f32, y as f32, 0.0),
@@ -57,7 +59,7 @@ fn setup(
         // camera
         .spawn(PerspectiveCameraBundle {
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 8.0))
-                .looking_at(Vec3::default(), Vec3::unit_y()),
+                .looking_at(Vec3::default(), Vec3::Y),
             ..Default::default()
         });
 }
