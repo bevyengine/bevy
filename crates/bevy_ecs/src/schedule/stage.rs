@@ -1528,4 +1528,49 @@ mod tests {
         stage.run(&mut world_a);
         stage.run(&mut world_b);
     }
+
+    #[test]
+    fn archetype_update_single_executor() {
+        fn query_count_system(
+            mut entity_count: ResMut<usize>,
+            query: Query<crate::entity::Entity>,
+        ) {
+            *entity_count = query.iter().count();
+        }
+
+        let mut world = World::new();
+        world.insert_resource(0_usize);
+        let mut stage = SystemStage::single(query_count_system.system());
+
+        let entity = world.spawn().insert_bundle(()).id();
+        stage.run(&mut world);
+        assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
+
+        world.get_entity_mut(entity).unwrap().insert(1);
+        stage.run(&mut world);
+        assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
+    }
+
+    #[test]
+    fn archetype_update_parallel_executor() {
+        fn query_count_system(
+            mut entity_count: ResMut<usize>,
+            query: Query<crate::entity::Entity>,
+        ) {
+            *entity_count = query.iter().count();
+        }
+
+        let mut world = World::new();
+        world.insert_resource(0_usize);
+        let mut stage = SystemStage::parallel();
+        stage.add_system(query_count_system.system());
+
+        let entity = world.spawn().insert_bundle(()).id();
+        stage.run(&mut world);
+        assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
+
+        world.get_entity_mut(entity).unwrap().insert(1);
+        stage.run(&mut world);
+        assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
+    }
 }
