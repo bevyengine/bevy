@@ -6,7 +6,7 @@ use crate::{
         RenderResourceContext,
     },
 };
-use bevy_core::AsBytes;
+use bevy_core::{AsBytes, Bytes};
 use bevy_ecs::{
     system::{BoxedSystem, IntoSystem, Local, Query, Res, ResMut},
     world::World,

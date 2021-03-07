@@ -4,7 +4,7 @@ use bevy_asset::{
 };
 use bevy_core::Name;
 use bevy_ecs::world::World;
-use bevy_math::Mat4;
+use bevy_math::{Mat4, Vec2};
 use bevy_pbr::prelude::{PbrBundle, StandardMaterial};
 use bevy_render::{
     camera::{
@@ -280,6 +280,7 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
             albedo: Color::rgba(color[0], color[1], color[2], color[3]),
             albedo_texture: texture_handle,
             unlit: material.unlit(),
+            pbr: Vec2::new(pbr.roughness_factor(), pbr.metallic_factor()),
         })
         .with_dependencies(dependencies),
     )

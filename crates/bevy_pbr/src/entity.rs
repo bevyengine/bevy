@@ -26,6 +26,28 @@ pub struct PbrBundle {
 impl Default for PbrBundle {
     fn default() -> Self {
         Self {
+            // render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
+            //     FORWARD_PIPELINE_HANDLE,
+            //     PipelineSpecialization {
+            //         dynamic_bindings: vec![
+            //             // Transform
+            //             DynamicBinding {
+            //                 bind_group: 2,
+            //                 binding: 0,
+            //             },
+            //             // StandardMaterial_albedo
+            //             DynamicBinding {
+            //                 bind_group: 3,
+            //                 binding: 0,
+            //             },
+            //             // StandardMaterial_pbr
+            //             DynamicBinding {
+            //                 bind_group: 3,
+            //                 binding: 3,
+            //             },
+            //         ],
+            //         ..Default::default()
+            //     },
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 FORWARD_PIPELINE_HANDLE.typed(),
             )]),

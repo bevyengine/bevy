@@ -1,4 +1,5 @@
 use bevy_asset::{self, Handle};
+use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;
 use bevy_render::{color::Color, renderer::RenderResources, shader::ShaderDefs, texture::Texture};
 
@@ -7,6 +8,8 @@ use bevy_render::{color::Color, renderer::RenderResources, shader::ShaderDefs, t
 #[uuid = "dace545e-4bc6-4595-a79d-c224fc694975"]
 pub struct StandardMaterial {
     pub albedo: Color,
+    /// Represented as roughness/metallic.
+    pub pbr: Vec2,
     #[shader_def]
     pub albedo_texture: Option<Handle<Texture>>,
     #[render_resources(ignore)]
@@ -18,6 +21,7 @@ impl Default for StandardMaterial {
     fn default() -> Self {
         StandardMaterial {
             albedo: Color::rgb(1.0, 1.0, 1.0),
+            pbr: Vec2::new(1.0, 0.95),
             albedo_texture: None,
             unlit: false,
         }
