@@ -16,7 +16,7 @@ pub struct Light {
     pub fov: f32,
     pub depth: Range<f32>,
     pub intensity: f32,
-    pub radius: f32,
+    pub range: f32,
 }
 
 impl Default for Light {
@@ -26,7 +26,7 @@ impl Default for Light {
             depth: 0.1..50.0,
             fov: f32::to_radians(60.0),
             intensity: 100.0,
-            radius: 10.0,
+            range: 10.0,
         }
     }
 }
@@ -57,7 +57,7 @@ impl LightRaw {
         color[3] = light.intensity;
         LightRaw {
             proj: proj.to_cols_array_2d(),
-            pos: [x, y, z, 1.0 / (light.radius * light.radius)], // pos.w is the attenuation.
+            pos: [x, y, z, 1.0 / (light.range * light.range)], // pos.w is the attenuation.
             color,
         }
     }

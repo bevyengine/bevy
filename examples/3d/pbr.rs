@@ -49,7 +49,7 @@ fn setup(
         // light
         .spawn(LightBundle {
             light: Light {
-                radius: 20.0,
+                range: 20.0,
                 intensity: 100.0,
                 ..Default::default()
             },

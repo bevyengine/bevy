@@ -49,7 +49,7 @@ fn setup(
         .spawn(LightBundle {
             transform: Transform::from_xyz(4.0, 8.0, 4.0),
             light: Light {
-                radius: 20.0,
+                range: 20.0,
                 ..Default::default()
             },
             ..Default::default()
