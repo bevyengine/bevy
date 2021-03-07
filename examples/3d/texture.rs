@@ -38,6 +38,7 @@ fn setup(
         base_color_factor: Color::rgba(1.0, 0.0, 0.0, 0.5),
         base_color_texture: Some(texture_handle.clone()),
         unlit: true,
+        ..Default::default()
     });
 
     // and lets make this one blue! (and also slightly transparent)
@@ -45,6 +46,7 @@ fn setup(
         base_color_factor: Color::rgba(0.0, 0.0, 1.0, 0.5),
         base_color_texture: Some(texture_handle),
         unlit: true,
+        ..Default::default()
     });
 
     // add entities to the world
