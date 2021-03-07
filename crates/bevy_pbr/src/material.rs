@@ -7,6 +7,7 @@ use bevy_render::{color::Color, renderer::RenderResources, shader::ShaderDefs, t
 #[derive(Debug, RenderResources, ShaderDefs, TypeUuid)]
 #[uuid = "dace545e-4bc6-4595-a79d-c224fc694975"]
 pub struct StandardMaterial {
+    /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything in between
     pub base_color_factor: Color,
     #[shader_def]
     pub base_color_texture: Option<Handle<Texture>>,
