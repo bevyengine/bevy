@@ -14,7 +14,7 @@ use bevy_render::{
     renderer::RenderResourceBindings,
 };
 use bevy_sprite::{TextureAtlas, QUAD_HANDLE};
-use bevy_transform::prelude::{GlobalTransform, Transform};
+use bevy_transform::{components::GlobalTransform, TransformBundle};
 use bevy_window::Windows;
 use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
 
@@ -28,8 +28,8 @@ pub struct Text2dBundle {
     pub draw: Draw,
     pub visible: Visible,
     pub text: Text,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    #[bundle]
+    pub transforms: TransformBundle,
     pub main_pass: MainPass,
     pub calculated_size: CalculatedSize,
 }
@@ -45,8 +45,7 @@ impl Default for Text2dBundle {
                 ..Default::default()
             },
             text: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
+            transforms: Default::default(),
             main_pass: MainPass {},
             calculated_size: CalculatedSize {
                 size: Size::default(),

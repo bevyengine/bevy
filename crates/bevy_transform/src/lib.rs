@@ -3,11 +3,12 @@ pub mod hierarchy;
 pub mod transform_propagate_system;
 
 pub mod prelude {
-    pub use crate::{components::*, hierarchy::*, TransformPlugin};
+    pub use crate::{components::*, hierarchy::*, TransformBundle, TransformPlugin};
 }
 
 use bevy_app::prelude::*;
 use bevy_ecs::{
+    bundle::Bundle,
     schedule::{ParallelSystemDescriptorCoercion, SystemLabel},
     system::IntoSystem,
 };
@@ -20,6 +21,13 @@ pub struct TransformPlugin;
 pub enum TransformSystem {
     TransformPropagate,
     ParentUpdate,
+}
+
+// TODO: Bikeshed this name
+#[derive(Default, Bundle, Clone, Debug)]
+pub struct TransformBundle {
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
 }
 
 impl Plugin for TransformPlugin {

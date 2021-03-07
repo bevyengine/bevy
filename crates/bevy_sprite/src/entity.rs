@@ -5,43 +5,34 @@ use crate::{
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
-    mesh::Mesh,
     pipeline::{RenderPipeline, RenderPipelines},
-    prelude::{Draw, Visible},
-    render_graph::base::MainPass,
+    prelude::{MeshBundle, Visible},
 };
-use bevy_transform::prelude::{GlobalTransform, Transform};
 
 #[derive(Bundle, Clone)]
 pub struct SpriteBundle {
     pub sprite: Sprite,
-    pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
     pub material: Handle<ColorMaterial>,
-    pub main_pass: MainPass,
-    pub draw: Draw,
-    pub visible: Visible,
-    pub render_pipelines: RenderPipelines,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    #[bundle]
+    pub mesh: MeshBundle,
 }
 
 impl Default for SpriteBundle {
     fn default() -> Self {
         Self {
-            mesh: QUAD_HANDLE.typed(),
-            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
-                SPRITE_PIPELINE_HANDLE.typed(),
-            )]),
-            visible: Visible {
-                is_transparent: true,
+            mesh: MeshBundle {
+                mesh: QUAD_HANDLE.typed(),
+                render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
+                    SPRITE_PIPELINE_HANDLE.typed(),
+                )]),
+                visible: Visible {
+                    is_transparent: true,
+                    ..Default::default()
+                },
                 ..Default::default()
             },
-            main_pass: MainPass,
-            draw: Default::default(),
             sprite: Default::default(),
             material: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
         }
     }
 }
@@ -54,33 +45,26 @@ pub struct SpriteSheetBundle {
     pub sprite: TextureAtlasSprite,
     /// A handle to the texture atlas that holds the sprite images
     pub texture_atlas: Handle<TextureAtlas>,
-    /// Data pertaining to how the sprite is drawn on the screen
-    pub draw: Draw,
-    pub visible: Visible,
-    pub render_pipelines: RenderPipelines,
-    pub main_pass: MainPass,
-    pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    #[bundle]
+    pub mesh: MeshBundle,
 }
 
 impl Default for SpriteSheetBundle {
     fn default() -> Self {
         Self {
-            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
-                SPRITE_SHEET_PIPELINE_HANDLE.typed(),
-            )]),
-            visible: Visible {
-                is_transparent: true,
+            mesh: MeshBundle {
+                mesh: QUAD_HANDLE.typed(),
+                render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
+                    SPRITE_SHEET_PIPELINE_HANDLE.typed(),
+                )]),
+                visible: Visible {
+                    is_transparent: true,
+                    ..Default::default()
+                },
                 ..Default::default()
             },
-            main_pass: MainPass,
-            mesh: QUAD_HANDLE.typed(),
-            draw: Default::default(),
             sprite: Default::default(),
             texture_atlas: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
         }
     }
 }

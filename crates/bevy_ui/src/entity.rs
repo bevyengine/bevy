@@ -15,7 +15,7 @@ use bevy_render::{
 };
 use bevy_sprite::{ColorMaterial, QUAD_HANDLE};
 use bevy_text::{CalculatedSize, Text};
-use bevy_transform::prelude::{GlobalTransform, Transform};
+use bevy_transform::{prelude::Transform, TransformBundle};
 
 #[derive(Bundle, Clone, Debug)]
 pub struct NodeBundle {
@@ -26,8 +26,8 @@ pub struct NodeBundle {
     pub draw: Draw,
     pub visible: Visible,
     pub render_pipelines: RenderPipelines,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    #[bundle]
+    pub transforms: TransformBundle,
 }
 
 impl Default for NodeBundle {
@@ -45,46 +45,25 @@ impl Default for NodeBundle {
             style: Default::default(),
             material: Default::default(),
             draw: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
+            transforms: Default::default(),
         }
     }
 }
 
 #[derive(Bundle, Clone, Debug)]
 pub struct ImageBundle {
-    pub node: Node,
-    pub style: Style,
     pub image: Image,
     pub calculated_size: CalculatedSize,
-    pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
-    pub material: Handle<ColorMaterial>,
-    pub draw: Draw,
-    pub visible: Visible,
-    pub render_pipelines: RenderPipelines,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    #[bundle]
+    pub node: NodeBundle,
 }
 
 impl Default for ImageBundle {
     fn default() -> Self {
         ImageBundle {
-            mesh: QUAD_HANDLE.typed(),
-            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
-                UI_PIPELINE_HANDLE.typed(),
-            )]),
             node: Default::default(),
             image: Default::default(),
             calculated_size: Default::default(),
-            style: Default::default(),
-            material: Default::default(),
-            draw: Default::default(),
-            visible: Visible {
-                is_transparent: true,
-                ..Default::default()
-            },
-            transform: Default::default(),
-            global_transform: Default::default(),
         }
     }
 }
@@ -98,8 +77,8 @@ pub struct TextBundle {
     pub text: Text,
     pub calculated_size: CalculatedSize,
     pub focus_policy: FocusPolicy,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    #[bundle]
+    pub transforms: TransformBundle,
 }
 
 impl Default for TextBundle {
@@ -117,48 +96,27 @@ impl Default for TextBundle {
             node: Default::default(),
             calculated_size: Default::default(),
             style: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
+            transforms: Default::default(),
         }
     }
 }
 
 #[derive(Bundle, Clone, Debug)]
 pub struct ButtonBundle {
-    pub node: Node,
     pub button: Button,
-    pub style: Style,
     pub interaction: Interaction,
     pub focus_policy: FocusPolicy,
-    pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
-    pub material: Handle<ColorMaterial>,
-    pub draw: Draw,
-    pub visible: Visible,
-    pub render_pipelines: RenderPipelines,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    #[bundle]
+    pub node: NodeBundle,
 }
 
 impl Default for ButtonBundle {
     fn default() -> Self {
         ButtonBundle {
             button: Button,
-            mesh: QUAD_HANDLE.typed(),
-            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
-                UI_PIPELINE_HANDLE.typed(),
-            )]),
             interaction: Default::default(),
             focus_policy: Default::default(),
             node: Default::default(),
-            style: Default::default(),
-            material: Default::default(),
-            draw: Default::default(),
-            visible: Visible {
-                is_transparent: true,
-                ..Default::default()
-            },
-            transform: Default::default(),
-            global_transform: Default::default(),
         }
     }
 }
@@ -168,8 +126,8 @@ pub struct UiCameraBundle {
     pub camera: Camera,
     pub orthographic_projection: OrthographicProjection,
     pub visible_entities: VisibleEntities,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    #[bundle]
+    pub transforms: TransformBundle,
 }
 
 impl Default for UiCameraBundle {
@@ -189,8 +147,10 @@ impl Default for UiCameraBundle {
                 ..Default::default()
             },
             visible_entities: Default::default(),
-            transform: Transform::from_xyz(0.0, 0.0, far - 0.1),
-            global_transform: Default::default(),
+            transforms: TransformBundle {
+                transform: Transform::from_xyz(0.0, 0.0, far - 0.1),
+                global_transform: Default::default(),
+            },
         }
     }
 }
