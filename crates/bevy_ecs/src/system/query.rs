@@ -213,7 +213,7 @@ where
         }
     }
 
-    pub fn get_unique(&self) -> Result<<Q::Fetch as Fetch<'_>>::Item, UniqueQueryError<'_, Q>>
+    pub fn single(&self) -> Result<<Q::Fetch as Fetch<'_>>::Item, UniqueQueryError<'_, Q>>
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -231,8 +231,8 @@ where
         }
     }
 
-    /// See [`Query::get_unique`]
-    pub fn get_unique_mut(
+    /// See [`Query::single`]
+    pub fn single_mut(
         &mut self,
     ) -> Result<<Q::Fetch as Fetch<'_>>::Item, UniqueQueryError<'_, Q>> {
         let mut query = self.iter_mut();
