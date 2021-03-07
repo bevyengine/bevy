@@ -10,7 +10,6 @@ pub trait ParallelSystemExecutor: Downcast + Send + Sync {
 
 impl_downcast!(ParallelSystemExecutor);
 
-// #[derive(Default)]
 pub struct SingleThreadedExecutor {
     /// Last archetypes generation observed by parallel systems.
     archetype_generation: ArchetypeGeneration,
