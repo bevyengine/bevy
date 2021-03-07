@@ -449,7 +449,6 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
 
 pub struct Index<T: Component> {
     forward: HashMap<T, HashSet<Entity>>,
-    reverse: HashMap<Entity, T>,
 }
 
 pub mod indexing {
@@ -462,7 +461,6 @@ pub mod indexing {
     ) {
         for (t, e) in query.iter() {
             index.forward.entry(t.clone()).or_default().insert(e);
-            index.reverse.insert(e, t.clone());
         }
     }
 
@@ -476,7 +474,6 @@ pub mod indexing {
         fn default() -> Self {
             Self {
                 forward: Default::default(),
-                reverse: Default::default(),
             }
         }
     }
@@ -540,6 +537,7 @@ impl<'a, T: Component + Eq + Hash + Clone> WorldQuery for Indexed<'a, T> {
 impl<'a, T: Component + Eq + Hash + Clone> Indexed<'a, T> {
     pub fn deref<'b: 'a>(&'b mut self, index: &'b mut Index<T>) -> ActiveIndexed<'b, T> {
         ActiveIndexed {
+            orig_value: self.inner.clone(),
             indexed: self,
             index,
         }
@@ -547,6 +545,7 @@ impl<'a, T: Component + Eq + Hash + Clone> Indexed<'a, T> {
 }
 pub struct ActiveIndexed<'a, T: Component + Eq + Hash + Clone> {
     indexed: &'a mut Indexed<'a, T>,
+    orig_value: T,
     index: &'a mut Index<T>,
 }
 
@@ -569,10 +568,9 @@ impl<'a, T: Component + Eq + Hash + Clone> Drop for ActiveIndexed<'a, T> {
         // Sync back to the index
         let new_value = self.value.clone();
         let index = &mut self.index;
-        let orig_value = index.reverse.get_mut(&self.indexed.entity).unwrap();
         index
             .forward
-            .get_mut(orig_value)
+            .get_mut(&self.orig_value)
             .unwrap()
             .remove(&self.indexed.entity);
         index
@@ -580,7 +578,6 @@ impl<'a, T: Component + Eq + Hash + Clone> Drop for ActiveIndexed<'a, T> {
             .entry(new_value.clone())
             .or_default()
             .insert(self.indexed.entity);
-        *orig_value = new_value;
     }
 }
 
