@@ -217,7 +217,10 @@ impl AppBuilder {
     pub fn add_index<T: Component + Hash + Eq + Clone>(&mut self) -> &mut Self {
         self.insert_resource(Index::<T>::default())
             .add_system(index_maintanance_system::<T>.exclusive_system())
-            .add_startup_system_to_stage(StartupStage::PostStartup, index_maintanance_system::<T>.exclusive_system())
+            .add_startup_system_to_stage(
+                StartupStage::PostStartup,
+                index_maintanance_system::<T>.exclusive_system(),
+            )
     }
 
     pub fn add_index_sync_at<T: Component + Hash + Eq + Clone, L: StageLabel>(

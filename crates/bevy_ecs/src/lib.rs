@@ -16,7 +16,10 @@ pub mod prelude {
     pub use crate::{
         bundle::Bundle,
         entity::Entity,
-        query::{Added, Changed, Flags, Mutated, Or, QueryState, With, WithBundle, Without, Index, Indexed},
+        query::{
+            Added, Changed, Flags, Index, Indexed, Mutated, Or, QueryState, With, WithBundle,
+            Without,
+        },
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
             Schedule, Stage, StageLabel, State, StateStage, SystemLabel, SystemStage,
