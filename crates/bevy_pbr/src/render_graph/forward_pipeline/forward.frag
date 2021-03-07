@@ -242,14 +242,14 @@ void main() {
 
         // f = (f_d + f_r) * light_color * light_intensity * attenuation * ⟨n⋅l⟩
         light_accum +=
-            ((diffuse + specular) * light.color.xyz) * (light.intensity * rangeAttenuation * NoL);
+            ((diffuse + specular) * light.color.rgb) * (light.intensity * rangeAttenuation * NoL);
     }
 
-    output_color.xyz = light_accum;
+    output_color.rgb = light_accum;
 
     // Gamma correction.
-    output_color.xyz = output_color.xyz / (output_color.xyz + vec3(1.0));
-    output_color.xyz = pow(output_color.xyz, vec3(1.0 / 2.2));
+    output_color.rgb = output_color.rgb / (output_color.rgb + vec3(1.0));
+    output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
 #endif
 
     // multiply the light by material color
