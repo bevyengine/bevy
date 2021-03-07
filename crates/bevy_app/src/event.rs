@@ -1,6 +1,7 @@
 use bevy_ecs::{
     component::Component,
-    system::{Local, Res, ResMut, SystemParam},
+    prelude::IntoSystem,
+    system::{AccessorTrait, BoxedSystem, Local, Res, ResMut, SystemParam},
 };
 use bevy_utils::tracing::trace;
 use std::{fmt, marker::PhantomData};
@@ -113,6 +114,37 @@ impl<T> Default for Events<T> {
             events_b: Vec::new(),
             state: State::A,
         }
+    }
+}
+
+#[derive(Clone)]
+pub struct EventAccessor<T: Component + Clone> {
+    rx: async_channel::Receiver<T>,
+}
+
+impl<T: Component + Clone> EventAccessor<T> {
+    pub async fn recv(&self) -> T {
+        self.rx.recv().await.unwrap()
+    }
+}
+
+impl<T: Component + Clone> AccessorTrait for EventAccessor<T> {
+    type AccessSystem = BoxedSystem;
+
+    fn new() -> (Self, Self::AccessSystem) {
+        let (tx, rx) = async_channel::unbounded();
+        (
+            Self { rx },
+            Box::new(
+                (|tx: Local<Option<async_channel::Sender<T>>>, mut events: EventReader<T>| {
+                    for e in events.iter() {
+                        tx.as_ref().unwrap().try_send(e.clone()).unwrap();
+                    }
+                })
+                .system()
+                .config(|c| c.0 = Some(Some(tx))),
+            ),
+        )
     }
 }
 
