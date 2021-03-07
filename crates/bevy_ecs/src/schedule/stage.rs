@@ -438,20 +438,16 @@ fn topological_order(
     while let Some(node) = unvisited.iter().next().cloned() {
         if check_if_cycles_and_visit(&node, graph, &mut sorted, &mut unvisited, &mut current) {
             let mut cycle = Vec::new();
-            for index in 0..current.len() - 1 {
+            let last_window = [*current.last().unwrap(), current[0]];
+            let mut windows = current
+                .windows(2)
+                .chain(std::iter::once(&last_window as &[usize]));
+            while let Some(&[dependant, dependency]) = windows.next() {
                 cycle.push((
-                    systems[current[index]].name(),
-                    graph[&current[index]][&current[index + 1]]
-                        .iter()
-                        .cloned()
-                        .collect(),
+                    systems[dependant].name(),
+                    graph[&dependant][&dependency].iter().cloned().collect(),
                 ));
             }
-            let last = *current.last().unwrap();
-            cycle.push((
-                systems[last].name(),
-                graph[&last][&current[0]].iter().cloned().collect(),
-            ));
             return Err(DependencyGraphError::GraphCycles(cycle));
         }
     }
