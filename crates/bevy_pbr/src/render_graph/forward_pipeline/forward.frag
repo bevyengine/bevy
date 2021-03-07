@@ -66,7 +66,7 @@ layout(set = 3, binding = 0) uniform StandardMaterial_base_color_factor {
     vec4 base_color_factor;
 };
 
-#ifdef STANDARDMATERIAL_ALBEDO_TEXTURE
+#ifdef STANDARDMATERIAL_BASE_COLOR_TEXTURE
 layout(set = 3, binding = 1) uniform texture2D StandardMaterial_base_color_texture;
 layout(set = 3,
        binding = 2) uniform sampler StandardMaterial_base_color_texture_sampler;
@@ -202,7 +202,7 @@ float perceptualRoughnessToRoughness(float perceptualRoughness) {
 
 void main() {
     vec4 output_color = base_color_factor;
-#ifdef STANDARDMATERIAL_ALBEDO_TEXTURE
+#ifdef STANDARDMATERIAL_BASE_COLOR_TEXTURE
     output_color *= texture(sampler2D(StandardMaterial_base_color_texture,
                                       StandardMaterial_base_color_texture_sampler),
                             v_Uv);
