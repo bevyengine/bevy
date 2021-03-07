@@ -213,7 +213,7 @@ where
         }
     }
 
-    pub fn single(&self) -> Result<<Q::Fetch as Fetch<'_>>::Item, UniqueQueryError<'_, Q>>
+    pub fn single(&self) -> Result<<Q::Fetch as Fetch<'_>>::Item, QuerySingleError<'_, Q>>
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -223,8 +223,8 @@ where
 
         match (first, extra) {
             (Some(r), false) => Ok(r),
-            (None, _) => Err(UniqueQueryError::NoEntities(std::any::type_name::<Self>())),
-            (Some(r), _) => Err(UniqueQueryError::MultipleEntities {
+            (None, _) => Err(QuerySingleError::NoEntities(std::any::type_name::<Self>())),
+            (Some(r), _) => Err(QuerySingleError::MultipleEntities {
                 result: r,
                 query_name: std::any::type_name::<Self>(),
             }),
@@ -234,15 +234,15 @@ where
     /// See [`Query::single`]
     pub fn single_mut(
         &mut self,
-    ) -> Result<<Q::Fetch as Fetch<'_>>::Item, UniqueQueryError<'_, Q>> {
+    ) -> Result<<Q::Fetch as Fetch<'_>>::Item, QuerySingleError<'_, Q>> {
         let mut query = self.iter_mut();
         let first = query.next();
         let extra = query.next().is_some();
 
         match (first, extra) {
             (Some(r), false) => Ok(r),
-            (None, _) => Err(UniqueQueryError::NoEntities(std::any::type_name::<Self>())),
-            (Some(r), _) => Err(UniqueQueryError::MultipleEntities {
+            (None, _) => Err(QuerySingleError::NoEntities(std::any::type_name::<Self>())),
+            (Some(r), _) => Err(QuerySingleError::MultipleEntities {
                 result: r,
                 query_name: std::any::type_name::<Self>(),
             }),
@@ -264,7 +264,7 @@ pub enum QueryComponentError {
 }
 
 #[derive(Error)]
-pub enum UniqueQueryError<'a, Q: WorldQuery> {
+pub enum QuerySingleError<'a, Q: WorldQuery> {
     #[error("No entities fit the query {0}")]
     NoEntities(&'static str),
     #[error("Multiple entities fit the query {query_name}!")]
@@ -274,7 +274,7 @@ pub enum UniqueQueryError<'a, Q: WorldQuery> {
     },
 }
 
-impl<'a, Q: WorldQuery> Debug for UniqueQueryError<'a, Q> {
+impl<'a, Q: WorldQuery> Debug for QuerySingleError<'a, Q> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::NoEntities(_) => f.debug_tuple("NoEntities").finish(),
