@@ -198,6 +198,41 @@ float perceptualRoughnessToRoughness(float perceptualRoughness) {
     return clampedPerceptualRoughness * clampedPerceptualRoughness;
 }
 
+// from https://64.github.io/tonemapping/
+// reinhard on RGB oversaturates colors
+vec3 reinhard(vec3 color) {
+    return color / (1.0 + color);
+}
+
+vec3 reinhard_extended(vec3 color, float max_white) {
+    vec3 numerator = color * (1.0f + (color / vec3(max_white * max_white)));
+    return numerator / (1.0 + color);
+}
+
+// luminance coefficients from Rec. 709.
+// https://en.wikipedia.org/wiki/Rec._709
+float luminance(vec3 v) {
+    return dot(v, vec3(0.2126, 0.7152, 0.0722));
+}
+
+vec3 change_luminance(vec3 c_in, float l_out) {
+    float l_in = luminance(c_in);
+    return c_in * (l_out / l_in);
+}
+
+vec3 reinhard_luminance(vec3 color) {
+    float l_old = luminance(color);
+    float l_new = l_old / (1.0f + l_old);
+    return change_luminance(color, l_new);
+}
+
+vec3 reinhard_extended_luminance(vec3 color, float max_white_l) {
+    float l_old = luminance(color);
+    float numerator = l_old * (1.0f + (l_old / (max_white_l * max_white_l)));
+    float l_new = numerator / (1.0f + l_old);
+    return change_luminance(color, l_new);
+}
+
 #endif
 
 void main() {
@@ -260,11 +295,11 @@ void main() {
 
     output_color.rgb = light_accum;
 
+    // tone_mapping
+    output_color.rgb = reinhard_luminance(output_color.rgb);
     // Gamma correction.
-    output_color.rgb = output_color.rgb / (output_color.rgb + vec3(1.0));
     output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
 #endif
 
-    // multiply the light by material color
     o_Target = output_color;
 }
