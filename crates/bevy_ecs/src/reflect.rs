@@ -1,7 +1,7 @@
 use std::ops::{Deref, DerefMut};
 
 use crate::{
-    component::{Component, ComponentFlags},
+    component::{Component, ComponentCounters},
     entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
     world::{FromWorld, World},
 };
@@ -102,7 +102,9 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                     .get_unchecked_mut::<C>()
                     .map(|c| ReflectMut {
                         value: c.value as &mut dyn Reflect,
-                        flags: c.flags,
+                        component_counters: c.component_counters,
+                        system_counter: world.get_exclusive_system_counter(),
+                        global_system_counter: world.get_global_system_counter(),
                     })
             },
         }
@@ -112,7 +114,9 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
 /// Unique borrow of a Reflected component
 pub struct ReflectMut<'a> {
     pub(crate) value: &'a mut dyn Reflect,
-    pub(crate) flags: &'a mut ComponentFlags,
+    pub(crate) component_counters: &'a mut ComponentCounters,
+    pub(crate) system_counter: Option<u32>,
+    pub(crate) global_system_counter: u32,
 }
 
 impl<'a> Deref for ReflectMut<'a> {
@@ -127,8 +131,29 @@ impl<'a> Deref for ReflectMut<'a> {
 impl<'a> DerefMut for ReflectMut<'a> {
     #[inline]
     fn deref_mut(&mut self) -> &mut dyn Reflect {
-        self.flags.insert(ComponentFlags::MUTATED);
+        self.component_counters
+            .set_changed(self.global_system_counter);
         self.value
+    }
+}
+
+impl<'a> ReflectMut<'a> {
+    /// Returns true if (and only if) this component been added since the start of the frame.
+    pub fn is_added(&self) -> bool {
+        self.component_counters
+            .is_added(self.system_counter, self.global_system_counter)
+    }
+
+    /// Returns true if (and only if) this component been mutated since the start of the frame.
+    pub fn is_mutated(&self) -> bool {
+        self.component_counters
+            .is_mutated(self.system_counter, self.global_system_counter)
+    }
+
+    /// Returns true if (and only if) this component been either mutated or added since the start of the frame.
+    pub fn is_changed(&self) -> bool {
+        self.component_counters
+            .is_changed(self.system_counter, self.global_system_counter)
     }
 }
 

@@ -16,7 +16,7 @@ pub mod prelude {
     pub use crate::{
         bundle::Bundle,
         entity::Entity,
-        query::{Added, Changed, Flags, Mutated, Or, QueryState, With, WithBundle, Without},
+        query::{Added, Changed, Counters, Mutated, Or, QueryState, With, WithBundle, Without},
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
             Schedule, Stage, StageLabel, State, StateStage, SystemLabel, SystemStage,
@@ -35,7 +35,7 @@ mod tests {
         bundle::Bundle,
         component::{Component, ComponentDescriptor, StorageType, TypeInfo},
         entity::Entity,
-        query::{Added, Changed, FilterFetch, Flags, Mutated, Or, With, Without, WorldQuery},
+        query::{Added, Changed, Counters, FilterFetch, Mutated, Or, With, Without, WorldQuery},
         world::{Mut, World},
     };
     use bevy_tasks::TaskPool;
@@ -187,7 +187,7 @@ mod tests {
 
         let ents = world
             .query::<(Entity, &i32, &&str)>()
-            .iter(&world)
+            .iter()
             .map(|(e, &i, &s)| (e, i, s))
             .collect::<Vec<_>>();
         assert_eq!(ents, &[(e, 123, "abc"), (f, 456, "def")]);
@@ -202,7 +202,7 @@ mod tests {
         let mut results = Vec::new();
         world
             .query::<(Entity, &i32, &&str)>()
-            .for_each(&world, |(e, &i, &s)| results.push((e, i, s)));
+            .for_each(|(e, &i, &s)| results.push((e, i, s)));
         assert_eq!(results, &[(e, 123, "abc"), (f, 456, "def")]);
     }
 
@@ -213,7 +213,7 @@ mod tests {
         let f = world.spawn().insert_bundle(("def", 456, true)).id();
         let ents = world
             .query::<(Entity, &i32)>()
-            .iter(&world)
+            .iter()
             .map(|(e, &i)| (e, i))
             .collect::<Vec<_>>();
         assert_eq!(ents, &[(e, 123), (f, 456)]);
@@ -223,13 +223,20 @@ mod tests {
     fn stateful_query_handles_new_archetype() {
         let mut world = World::new();
         let e = world.spawn().insert_bundle(("abc", 123)).id();
-        let mut query = world.query::<(Entity, &i32)>();
 
-        let ents = query.iter(&world).map(|(e, &i)| (e, i)).collect::<Vec<_>>();
+        let ents = world
+            .query::<(Entity, &i32)>()
+            .iter()
+            .map(|(e, &i)| (e, i))
+            .collect::<Vec<_>>();
         assert_eq!(ents, &[(e, 123)]);
 
         let f = world.spawn().insert_bundle(("def", 456, true)).id();
-        let ents = query.iter(&world).map(|(e, &i)| (e, i)).collect::<Vec<_>>();
+        let ents = world
+            .query::<(Entity, &i32)>()
+            .iter()
+            .map(|(e, &i)| (e, i))
+            .collect::<Vec<_>>();
         assert_eq!(ents, &[(e, 123), (f, 456)]);
     }
 
@@ -241,7 +248,7 @@ mod tests {
         let mut results = Vec::new();
         world
             .query::<(Entity, &i32)>()
-            .for_each(&world, |(e, &i)| results.push((e, i)));
+            .for_each(|(e, &i)| results.push((e, i)));
         assert_eq!(results, &[(e, 123), (f, 456)]);
     }
 
@@ -257,7 +264,7 @@ mod tests {
         let results = Arc::new(Mutex::new(Vec::new()));
         world
             .query::<(Entity, &i32)>()
-            .par_for_each(&world, &task_pool, 2, |(e, &i)| results.lock().push((e, i)));
+            .par_for_each(&task_pool, 2, |(e, &i)| results.lock().push((e, i)));
         results.lock().sort();
         assert_eq!(
             &*results.lock(),
@@ -270,7 +277,7 @@ mod tests {
         let mut world = World::new();
         world.spawn().insert_bundle(("abc", 123));
         world.spawn().insert_bundle(("def", 456));
-        assert!(world.query::<(&bool, &i32)>().iter(&world).next().is_none());
+        assert!(world.query::<(&bool, &i32)>().iter().next().is_none());
     }
 
     #[test]
@@ -280,7 +287,7 @@ mod tests {
         let f = world.spawn().insert_bundle(("def", 456, true)).id();
         let ents = world
             .query::<(Entity, &bool)>()
-            .iter(&world)
+            .iter()
             .map(|(e, &b)| (e, b))
             .collect::<Vec<_>>();
         assert_eq!(ents, &[(f, true)]);
@@ -293,7 +300,7 @@ mod tests {
         world.spawn().insert(456u32);
         let result = world
             .query_filtered::<&u32, With<f32>>()
-            .iter(&world)
+            .iter()
             .cloned()
             .collect::<Vec<_>>();
         assert_eq!(result, vec![123]);
@@ -308,7 +315,7 @@ mod tests {
         let mut results = Vec::new();
         world
             .query_filtered::<&u32, With<f32>>()
-            .for_each(&world, |i| results.push(*i));
+            .for_each(|i| results.push(*i));
         assert_eq!(results, vec![123]);
     }
 
@@ -322,7 +329,7 @@ mod tests {
         world.spawn().insert(456u32);
         let result = world
             .query_filtered::<&u32, With<f32>>()
-            .iter(&world)
+            .iter()
             .cloned()
             .collect::<Vec<_>>();
         assert_eq!(result, vec![123]);
@@ -339,7 +346,7 @@ mod tests {
         let mut results = Vec::new();
         world
             .query_filtered::<&u32, With<f32>>()
-            .for_each(&world, |i| results.push(*i));
+            .for_each(|i| results.push(*i));
         assert_eq!(results, vec![123]);
     }
 
@@ -350,7 +357,7 @@ mod tests {
         world.spawn().insert(456u32);
         let result = world
             .query_filtered::<&u32, Without<f32>>()
-            .iter(&world)
+            .iter()
             .cloned()
             .collect::<Vec<_>>();
         assert_eq!(result, vec![456]);
@@ -365,7 +372,7 @@ mod tests {
         world.spawn().insert("abc");
         let ents = world
             .query::<(Entity, Option<&bool>, &i32)>()
-            .iter(&world)
+            .iter()
             .map(|(e, b, &i)| (e, b.copied(), i))
             .collect::<Vec<_>>();
         assert_eq!(ents, &[(e, None, 123), (f, Some(true), 456)]);
@@ -383,7 +390,7 @@ mod tests {
         // world.spawn().insert("abc");
         let ents = world
             .query::<(Entity, Option<&bool>, &i32)>()
-            .iter(&world)
+            .iter()
             .map(|(e, b, &i)| (e, b.copied(), i))
             .collect::<Vec<_>>();
         assert_eq!(ents, &[(e, None, 123), (f, Some(true), 456)]);
@@ -401,7 +408,7 @@ mod tests {
         world.spawn().insert("abc");
         let ents = world
             .query::<(Entity, Option<&bool>, &i32)>()
-            .iter(&world)
+            .iter()
             .map(|(e, b, &i)| (e, b.copied(), i))
             .collect::<Vec<_>>();
         assert_eq!(ents, &[(e, None, 123), (f, None, 456)]);
@@ -416,7 +423,7 @@ mod tests {
         assert_eq!(
             world
                 .query::<(Entity, &i32, &bool)>()
-                .iter(&world)
+                .iter()
                 .map(|(e, &i, &b)| (e, i, b))
                 .collect::<Vec<_>>(),
             &[(e1, 42, true), (e2, 0, false)]
@@ -426,7 +433,7 @@ mod tests {
         assert_eq!(
             world
                 .query::<(Entity, &i32, &bool)>()
-                .iter(&world)
+                .iter()
                 .map(|(e, &i, &b)| (e, i, b))
                 .collect::<Vec<_>>(),
             &[(e2, 0, false)]
@@ -434,7 +441,7 @@ mod tests {
         assert_eq!(
             world
                 .query::<(Entity, &bool, &&str)>()
-                .iter(&world)
+                .iter()
                 .map(|(e, &b, &s)| (e, b, s))
                 .collect::<Vec<_>>(),
             &[(e2, false, "xyz"), (e1, true, "abc")]
@@ -443,7 +450,7 @@ mod tests {
         assert_eq!(
             world
                 .query::<(Entity, &i32, &bool)>()
-                .iter(&world)
+                .iter()
                 .map(|(e, &i, &b)| (e, i, b))
                 .collect::<Vec<_>>(),
             &[(e2, 0, false), (e1, 43, true)]
@@ -452,7 +459,7 @@ mod tests {
         assert_eq!(
             world
                 .query::<(Entity, &f32)>()
-                .iter(&world)
+                .iter()
                 .map(|(e, &f)| (e, f))
                 .collect::<Vec<_>>(),
             &[(e1, 1.0)]
@@ -507,11 +514,7 @@ mod tests {
     fn spawn_batch() {
         let mut world = World::new();
         world.spawn_batch((0..100).map(|x| (x, "abc")));
-        let values = world
-            .query::<&i32>()
-            .iter(&world)
-            .copied()
-            .collect::<Vec<_>>();
+        let values = world.query::<&i32>().iter().copied().collect::<Vec<_>>();
         let expected = (0..100).collect::<Vec<_>>();
         assert_eq!(values, expected);
     }
@@ -523,15 +526,16 @@ mod tests {
         let b = world.spawn().insert_bundle(("def", 456)).id();
         let c = world.spawn().insert_bundle(("ghi", 789, true)).id();
 
-        let mut i32_query = world.query::<&i32>();
-        assert_eq!(i32_query.get(&world, a).unwrap(), &123);
-        assert_eq!(i32_query.get(&world, b).unwrap(), &456);
+        assert_eq!(world.query::<&i32>().get(a).unwrap(), &123);
+        assert_eq!(world.query::<&i32>().get(b).unwrap(), &456);
 
-        let mut i32_bool_query = world.query::<(&i32, &bool)>();
-        assert!(i32_bool_query.get(&world, a).is_err());
-        assert_eq!(i32_bool_query.get(&world, c).unwrap(), (&789, &true));
+        assert!(world.query::<(&i32, &bool)>().get(a).is_err());
+        assert_eq!(
+            world.query::<(&i32, &bool)>().get(c).unwrap(),
+            (&789, &true)
+        );
         assert!(world.despawn(a));
-        assert!(i32_query.get(&world, a).is_err());
+        assert!(world.query::<&i32>().get(a).is_err());
     }
 
     #[test]
@@ -614,61 +618,26 @@ mod tests {
         let mut world = World::new();
         let a = world.spawn().insert(123i32).id();
 
-        assert_eq!(world.query::<&i32>().iter(&world).count(), 1);
-        assert_eq!(
-            world
-                .query_filtered::<(), Added<i32>>()
-                .iter(&world)
-                .count(),
-            1
-        );
-        assert_eq!(world.query::<&i32>().iter(&world).count(), 1);
-        assert_eq!(
-            world
-                .query_filtered::<(), Added<i32>>()
-                .iter(&world)
-                .count(),
-            1
-        );
-        assert!(world.query::<&i32>().get(&world, a).is_ok());
-        assert!(world
-            .query_filtered::<(), Added<i32>>()
-            .get(&world, a)
-            .is_ok());
-        assert!(world.query::<&i32>().get(&world, a).is_ok());
-        assert!(world
-            .query_filtered::<(), Added<i32>>()
-            .get(&world, a)
-            .is_ok());
+        assert_eq!(world.query::<&i32>().iter().count(), 1);
+        assert_eq!(world.query_filtered::<(), Added<i32>>().iter().count(), 1);
+        assert_eq!(world.query::<&i32>().iter().count(), 1);
+        assert_eq!(world.query_filtered::<(), Added<i32>>().iter().count(), 1);
+        assert!(world.query::<&i32>().get(a).is_ok());
+        assert!(world.query_filtered::<(), Added<i32>>().get(a).is_ok());
+        assert!(world.query::<&i32>().get(a).is_ok());
+        assert!(world.query_filtered::<(), Added<i32>>().get(a).is_ok());
 
         world.clear_trackers();
+        world.exclusive_system_counter = Some(world.increment_global_system_counter());
 
-        assert_eq!(world.query::<&i32>().iter(&world).count(), 1);
-        assert_eq!(
-            world
-                .query_filtered::<(), Added<i32>>()
-                .iter(&world)
-                .count(),
-            0
-        );
-        assert_eq!(world.query::<&i32>().iter(&world).count(), 1);
-        assert_eq!(
-            world
-                .query_filtered::<(), Added<i32>>()
-                .iter(&world)
-                .count(),
-            0
-        );
-        assert!(world.query::<&i32>().get(&world, a).is_ok());
-        assert!(world
-            .query_filtered::<(), Added<i32>>()
-            .get(&world, a)
-            .is_err());
-        assert!(world.query::<&i32>().get(&world, a).is_ok());
-        assert!(world
-            .query_filtered::<(), Added<i32>>()
-            .get(&world, a)
-            .is_err());
+        assert_eq!(world.query::<&i32>().iter().count(), 1);
+        assert_eq!(world.query_filtered::<(), Added<i32>>().iter().count(), 0);
+        assert_eq!(world.query::<&i32>().iter().count(), 1);
+        assert_eq!(world.query_filtered::<(), Added<i32>>().iter().count(), 0);
+        assert!(world.query::<&i32>().get(a).is_ok());
+        assert!(world.query_filtered::<(), Added<i32>>().get(a).is_err());
+        assert!(world.query::<&i32>().get(a).is_ok());
+        assert!(world.query_filtered::<(), Added<i32>>().get(a).is_err());
     }
 
     #[test]
@@ -679,7 +648,7 @@ mod tests {
         fn get_added<Com: Component>(world: &mut World) -> Vec<Entity> {
             world
                 .query_filtered::<Entity, Added<Com>>()
-                .iter(&world)
+                .iter()
                 .collect::<Vec<Entity>>()
         }
 
@@ -689,6 +658,7 @@ mod tests {
         assert_eq!(get_added::<B>(&mut world), vec![e1]);
 
         world.clear_trackers();
+        world.exclusive_system_counter = Some(world.increment_global_system_counter());
         assert!(get_added::<A>(&mut world).is_empty());
         let e2 = world.spawn().insert_bundle((A(1), B(1))).id();
         assert_eq!(get_added::<A>(&mut world), vec![e2]);
@@ -696,7 +666,7 @@ mod tests {
 
         let added = world
             .query_filtered::<Entity, (Added<A>, Added<B>)>()
-            .iter(&world)
+            .iter()
             .collect::<Vec<Entity>>();
         assert_eq!(added, vec![e2]);
     }
@@ -708,8 +678,10 @@ mod tests {
         let e2 = world.spawn().insert_bundle((A(0), B(0))).id();
         let e3 = world.spawn().insert_bundle((A(0), B(0))).id();
         world.spawn().insert_bundle((A(0), B));
+        world.clear_trackers();
+        world.exclusive_system_counter = Some(world.increment_global_system_counter());
 
-        for (i, mut a) in world.query::<&mut A>().iter_mut(&mut world).enumerate() {
+        for (i, mut a) in world.query::<&mut A>().iter_mut().enumerate() {
             if i % 2 == 0 {
                 a.0 += 1;
             }
@@ -721,7 +693,7 @@ mod tests {
         {
             world
                 .query_filtered::<Entity, F>()
-                .iter(&world)
+                .iter()
                 .collect::<Vec<Entity>>()
         }
 
@@ -757,6 +729,7 @@ mod tests {
         );
 
         world.clear_trackers();
+        world.exclusive_system_counter = Some(world.increment_global_system_counter());
 
         assert!(get_filtered::<Mutated<A>>(&mut world).is_empty());
 
@@ -767,9 +740,10 @@ mod tests {
         assert_eq!(get_filtered::<Added<A>>(&mut world), vec![e4]);
 
         world.entity_mut(e4).insert(A(1));
-        assert_eq!(get_filtered::<Mutated<A>>(&mut world), vec![e4]);
+        // assert_eq!(get_filtered::<Mutated<A>>(&mut world), vec![e4]); // This case is no longer possible to detect
 
         world.clear_trackers();
+        world.exclusive_system_counter = Some(world.increment_global_system_counter());
 
         // ensure inserting multiple components set mutated state for
         // already existing components and set added state for
@@ -807,18 +781,20 @@ mod tests {
         world.spawn().insert_bundle((A(0), B(0))).id();
         let e2 = world.spawn().insert_bundle((A(0), B(0))).id();
         world.spawn().insert_bundle((A(0), B(0)));
+        world.clear_trackers();
+        world.exclusive_system_counter = Some(world.increment_global_system_counter());
 
-        for mut a in world.query::<&mut A>().iter_mut(&mut world) {
+        for mut a in world.query::<&mut A>().iter_mut() {
             a.0 += 1;
         }
 
-        for mut b in world.query::<&mut B>().iter_mut(&mut world).skip(1).take(1) {
+        for mut b in world.query::<&mut B>().iter_mut().skip(1).take(1) {
             b.0 += 1;
         }
 
         let a_b_mutated = world
             .query_filtered::<Entity, (Mutated<A>, Mutated<B>)>()
-            .iter(&world)
+            .iter()
             .collect::<Vec<Entity>>();
         assert_eq!(a_b_mutated, vec![e2]);
     }
@@ -830,6 +806,8 @@ mod tests {
         let e2 = world.spawn().insert_bundle((A(0), B(0))).id();
         let _e3 = world.spawn().insert_bundle((A(0), B(0))).id();
         let e4 = world.spawn().insert(A(0)).id(); // ensure filters work for archetypes with only one of the Or filter items
+        world.clear_trackers();
+        world.exclusive_system_counter = Some(world.increment_global_system_counter());
 
         *world.entity_mut(e1).get_mut::<A>().unwrap() = A(1);
         *world.entity_mut(e2).get_mut::<B>().unwrap() = B(1);
@@ -837,7 +815,7 @@ mod tests {
 
         let a_b_mutated = world
             .query_filtered::<Entity, Or<(Mutated<A>, Mutated<B>)>>()
-            .iter(&world)
+            .iter()
             .collect::<Vec<Entity>>();
         // e1 has mutated A, e3 has mutated B, e2 has mutated A and B, _e4 has no mutated component
         assert_eq!(a_b_mutated, vec![e1, e2, e4]);
@@ -851,11 +829,12 @@ mod tests {
         fn get_changed(world: &mut World) -> Vec<Entity> {
             world
                 .query_filtered::<Entity, Changed<A>>()
-                .iter(&world)
+                .iter()
                 .collect::<Vec<Entity>>()
         }
         assert_eq!(get_changed(&mut world), vec![e1]);
         world.clear_trackers();
+        world.exclusive_system_counter = Some(world.increment_global_system_counter());
         assert_eq!(get_changed(&mut world), vec![]);
         *world.get_mut(e1).unwrap() = A(1);
         assert_eq!(get_changed(&mut world), vec![e1]);
@@ -997,9 +976,9 @@ mod tests {
         let e2 = world.spawn().insert_bundle((2, 2.0, 2usize)).id();
         world.spawn().insert_bundle((3, 3.0, 3usize)).id();
 
-        let mut query = world.query::<(&f64, &usize)>();
-        let results = query
-            .iter(&world)
+        let results = world
+            .query::<(&f64, &usize)>()
+            .iter()
             .map(|(a, b)| (*a, *b))
             .collect::<Vec<_>>();
         assert_eq!(results, vec![(1.0, 1usize), (2.0, 2usize), (3.0, 3usize),]);
@@ -1010,14 +989,14 @@ mod tests {
             .unwrap();
         assert_eq!(removed_bundle, (2.0, 2usize));
 
-        let results = query
-            .iter(&world)
+        let results = world
+            .query::<(&f64, &usize)>()
+            .iter()
             .map(|(a, b)| (*a, *b))
             .collect::<Vec<_>>();
         assert_eq!(results, vec![(1.0, 1usize), (3.0, 3usize),]);
 
-        let mut i32_query = world.query::<&i32>();
-        let results = i32_query.iter(&world).cloned().collect::<Vec<_>>();
+        let results = world.query::<&i32>().iter().cloned().collect::<Vec<_>>();
         assert_eq!(results, vec![1, 3, 2]);
 
         let entity_ref = world.entity(e2);
@@ -1060,30 +1039,39 @@ mod tests {
     }
 
     #[test]
-    fn flags_query() {
+    fn counters_query() {
         let mut world = World::default();
         let e1 = world.spawn().insert_bundle((A(0), B(0))).id();
         world.spawn().insert(B(0));
 
-        let mut flags_query = world.query::<Option<Flags<A>>>();
-        let flags = flags_query.iter(&world).collect::<Vec<_>>();
-        let a_flags = flags[0].as_ref().unwrap();
-        assert!(flags[1].is_none());
-        assert!(a_flags.added());
-        assert!(!a_flags.mutated());
-        assert!(a_flags.changed());
+        let counters = world
+            .query::<Option<Counters<A>>>()
+            .iter()
+            .collect::<Vec<_>>();
+        let a_counters = counters[0].as_ref().unwrap();
+        assert!(counters[1].is_none());
+        assert!(a_counters.is_added());
+        assert!(!a_counters.is_mutated());
+        assert!(a_counters.is_changed());
         world.clear_trackers();
-        let flags = flags_query.iter(&world).collect::<Vec<_>>();
-        let a_flags = flags[0].as_ref().unwrap();
-        assert!(!a_flags.added());
-        assert!(!a_flags.mutated());
-        assert!(!a_flags.changed());
+        world.exclusive_system_counter = Some(world.increment_global_system_counter());
+        let counters = world
+            .query::<Option<Counters<A>>>()
+            .iter()
+            .collect::<Vec<_>>();
+        let a_counters = counters[0].as_ref().unwrap();
+        assert!(!a_counters.is_added());
+        assert!(!a_counters.is_mutated());
+        assert!(!a_counters.is_changed());
         *world.get_mut(e1).unwrap() = A(1);
-        let flags = flags_query.iter(&world).collect::<Vec<_>>();
-        let a_flags = flags[0].as_ref().unwrap();
-        assert!(!a_flags.added());
-        assert!(a_flags.mutated());
-        assert!(a_flags.changed());
+        let counters = world
+            .query::<Option<Counters<A>>>()
+            .iter()
+            .collect::<Vec<_>>();
+        let a_counters = counters[0].as_ref().unwrap();
+        assert!(!a_counters.is_added());
+        assert!(a_counters.is_changed());
+        assert!(a_counters.is_mutated());
     }
 
     #[test]
@@ -1094,8 +1082,8 @@ mod tests {
         world.spawn().insert_bundle((A(0), B(0), C));
         world.spawn().insert(C);
 
-        let mut query = world.query::<(&A, &B)>();
-        assert_eq!(query.iter(&world).len(), 3);
+        let query = world.query::<(&A, &B)>();
+        assert_eq!(query.iter().len(), 3);
     }
 
     #[test]
@@ -1124,9 +1112,9 @@ mod tests {
     fn multiple_worlds_same_query_iter() {
         let mut world_a = World::new();
         let world_b = World::new();
-        let mut query = world_a.query::<&i32>();
-        query.iter(&world_a);
-        query.iter(&world_b);
+        let mut query = world_a.query_state::<&i32>();
+        query.iter(&world_a, None, 0);
+        query.iter(&world_b, None, 0);
     }
 
     #[test]
@@ -1134,9 +1122,9 @@ mod tests {
     fn multiple_worlds_same_query_get() {
         let mut world_a = World::new();
         let world_b = World::new();
-        let mut query = world_a.query::<&i32>();
-        let _ = query.get(&world_a, Entity::new(0));
-        let _ = query.get(&world_b, Entity::new(0));
+        let mut query = world_a.query_state::<&i32>();
+        let _ = query.get(&world_a, Entity::new(0), None, 0);
+        let _ = query.get(&world_b, Entity::new(0), None, 0);
     }
 
     #[test]
@@ -1144,9 +1132,9 @@ mod tests {
     fn multiple_worlds_same_query_for_each() {
         let mut world_a = World::new();
         let world_b = World::new();
-        let mut query = world_a.query::<&i32>();
-        query.for_each(&world_a, |_| {});
-        query.for_each(&world_b, |_| {});
+        let mut query = world_a.query_state::<&i32>();
+        query.for_each(&world_a, |_| {}, None, 0);
+        query.for_each(&world_b, |_| {}, None, 0);
     }
 
     #[test]

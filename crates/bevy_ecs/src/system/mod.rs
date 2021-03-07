@@ -162,11 +162,11 @@ mod tests {
             mut changed: ResMut<Changed>,
             mut added: ResMut<Added>,
         ) {
-            if value.added() {
+            if value.is_added() {
                 added.0 += 1;
             }
 
-            if value.changed() {
+            if value.is_changed() {
                 changed.0 += 1;
             }
         }

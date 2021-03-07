@@ -128,7 +128,7 @@ mod tests {
 
         let mut actual_result = world
             .query::<(&String, &Transform)>()
-            .iter(&world)
+            .iter()
             .map(|(name, transform)| (name.clone(), get_steps(transform)))
             .collect::<Vec<(String, u32)>>();
         actual_result.sort_unstable_by_key(|(name, _)| name.clone());

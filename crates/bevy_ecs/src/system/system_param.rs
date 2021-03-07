@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
-    component::{Component, ComponentFlags, ComponentId, Components},
+    component::{Component, ComponentCounters, ComponentId, Components},
     entity::{Entities, Entity},
     query::{FilterFetch, FilteredAccess, FilteredAccessSet, QueryState, WorldQuery},
     system::{CommandQueue, Commands, Query, SystemState},
@@ -58,6 +58,7 @@ pub trait SystemParamFetch<'a>: SystemParamState {
         state: &'a mut Self,
         system_state: &'a SystemState,
         world: &'a World,
+        global_system_counter: u32,
     ) -> Self::Item;
 }
 
@@ -114,10 +115,16 @@ where
     #[inline]
     unsafe fn get_param(
         state: &'a mut Self,
-        _system_state: &'a SystemState,
+        system_state: &'a SystemState,
         world: &'a World,
+        global_system_counter: u32,
     ) -> Self::Item {
-        Query::new(world, state)
+        Query::new(
+            world,
+            state,
+            system_state.system_counter,
+            global_system_counter,
+        )
     }
 }
 
@@ -154,24 +161,28 @@ impl_query_set!();
 /// Use `Option<Res<T>>` if the resource might not always exist.
 pub struct Res<'w, T> {
     value: &'w T,
-    flags: ComponentFlags,
+    counters: &'w ComponentCounters,
+    system_counter: Option<u32>,
+    global_system_counter: u32,
 }
 
 impl<'w, T: Component> Res<'w, T> {
     /// Returns true if (and only if) this resource been added since the start of the frame.
-    pub fn added(&self) -> bool {
-        self.flags.contains(ComponentFlags::ADDED)
+    pub fn is_added(&self) -> bool {
+        self.counters
+            .is_added(self.system_counter, self.global_system_counter)
     }
 
     /// Returns true if (and only if) this resource been mutated since the start of the frame.
-    pub fn mutated(&self) -> bool {
-        self.flags.contains(ComponentFlags::MUTATED)
+    pub fn is_mutated(&self) -> bool {
+        self.counters
+            .is_mutated(self.system_counter, self.global_system_counter)
     }
 
     /// Returns true if (and only if) this resource been either mutated or added since the start of the frame.
-    pub fn changed(&self) -> bool {
-        self.flags
-            .intersects(ComponentFlags::ADDED | ComponentFlags::MUTATED)
+    pub fn is_changed(&self) -> bool {
+        self.counters
+            .is_changed(self.system_counter, self.global_system_counter)
     }
 }
 
@@ -227,15 +238,18 @@ impl<'a, T: Component> SystemParamFetch<'a> for ResState<T> {
     #[inline]
     unsafe fn get_param(
         state: &'a mut Self,
-        _system_state: &'a SystemState,
+        system_state: &'a SystemState,
         world: &'a World,
+        global_system_counter: u32,
     ) -> Self::Item {
         let column = world
             .get_populated_resource_column(state.component_id)
             .expect("Requested resource does not exist");
         Res {
             value: &*column.get_ptr().as_ptr().cast::<T>(),
-            flags: *column.get_flags_mut_ptr(),
+            counters: &*column.get_counters_mut_ptr(),
+            system_counter: system_state.system_counter,
+            global_system_counter,
         }
     }
 }
@@ -278,24 +292,28 @@ impl<'a, T: Component> SystemParamFetch<'a> for OptionResState<T> {
 /// Use `Option<ResMut<T>>` if the resource might not always exist.
 pub struct ResMut<'w, T> {
     value: &'w mut T,
-    flags: &'w mut ComponentFlags,
+    counters: &'w mut ComponentCounters,
+    system_counter: Option<u32>,
+    global_system_counter: u32,
 }
 
 impl<'w, T: Component> ResMut<'w, T> {
     /// Returns true if (and only if) this resource been added since the start of the frame.
-    pub fn added(&self) -> bool {
-        self.flags.contains(ComponentFlags::ADDED)
+    pub fn is_added(&self) -> bool {
+        self.counters
+            .is_added(self.system_counter, self.global_system_counter)
     }
 
     /// Returns true if (and only if) this resource been mutated since the start of the frame.
-    pub fn mutated(&self) -> bool {
-        self.flags.contains(ComponentFlags::MUTATED)
+    pub fn is_mutated(&self) -> bool {
+        self.counters
+            .is_mutated(self.system_counter, self.global_system_counter)
     }
 
     /// Returns true if (and only if) this resource been either mutated or added since the start of the frame.
-    pub fn changed(&self) -> bool {
-        self.flags
-            .intersects(ComponentFlags::ADDED | ComponentFlags::MUTATED)
+    pub fn is_changed(&self) -> bool {
+        self.counters
+            .is_changed(self.system_counter, self.global_system_counter)
     }
 }
 
@@ -309,7 +327,7 @@ impl<'w, T: Component> Deref for ResMut<'w, T> {
 
 impl<'w, T: Component> DerefMut for ResMut<'w, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.flags.insert(ComponentFlags::MUTATED);
+        self.counters.set_changed(self.global_system_counter);
         self.value
     }
 }
@@ -362,15 +380,18 @@ impl<'a, T: Component> SystemParamFetch<'a> for ResMutState<T> {
     #[inline]
     unsafe fn get_param(
         state: &'a mut Self,
-        _system_state: &'a SystemState,
+        system_state: &'a SystemState,
         world: &'a World,
+        global_system_counter: u32,
     ) -> Self::Item {
         let value = world
             .get_resource_unchecked_mut_with_id(state.component_id)
             .expect("Requested resource does not exist");
         ResMut {
             value: value.value,
-            flags: value.flags,
+            counters: value.component_counters,
+            system_counter: system_state.system_counter,
+            global_system_counter,
         }
     }
 }
@@ -431,6 +452,7 @@ impl<'a> SystemParamFetch<'a> for CommandQueue {
         state: &'a mut Self,
         _system_state: &'a SystemState,
         world: &'a World,
+        _global_system_counter: u32,
     ) -> Self::Item {
         Commands::new(state, world)
     }
@@ -477,6 +499,7 @@ impl<'a, T: Component + FromWorld> SystemParamFetch<'a> for LocalState<T> {
         state: &'a mut Self,
         _system_state: &'a SystemState,
         _world: &'a World,
+        _global_system_counter: u32,
     ) -> Self::Item {
         Local(&mut state.0)
     }
@@ -524,6 +547,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for RemovedComponentsState<T> {
         state: &'a mut Self,
         _system_state: &'a SystemState,
         world: &'a World,
+        _global_system_counter: u32,
     ) -> Self::Item {
         RemovedComponents {
             world,
@@ -536,6 +560,29 @@ impl<'a, T: Component> SystemParamFetch<'a> for RemovedComponentsState<T> {
 /// Shared borrow of a NonSend resource
 pub struct NonSend<'w, T> {
     pub(crate) value: &'w T,
+    counters: ComponentCounters,
+    system_counter: Option<u32>,
+    global_system_counter: u32,
+}
+
+impl<'w, T: Component> NonSend<'w, T> {
+    /// Returns true if (and only if) this resource been added since the start of the frame.
+    pub fn is_added(&self) -> bool {
+        self.counters
+            .is_added(self.system_counter, self.global_system_counter)
+    }
+
+    /// Returns true if (and only if) this resource been mutated since the start of the frame.
+    pub fn is_mutated(&self) -> bool {
+        self.counters
+            .is_mutated(self.system_counter, self.global_system_counter)
+    }
+
+    /// Returns true if (and only if) this resource been either mutated or added since the start of the frame.
+    pub fn is_changed(&self) -> bool {
+        self.counters
+            .is_changed(self.system_counter, self.global_system_counter)
+    }
 }
 
 impl<'w, T: 'static> Deref for NonSend<'w, T> {
@@ -592,13 +639,19 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendState<T> {
     #[inline]
     unsafe fn get_param(
         state: &'a mut Self,
-        _system_state: &'a SystemState,
+        system_state: &'a SystemState,
         world: &'a World,
+        global_system_counter: u32,
     ) -> Self::Item {
+        world.validate_non_send_access::<T>();
+        let column = world
+            .get_populated_resource_column(state.component_id)
+            .expect("Requested non-send resource does not exist");
         NonSend {
-            value: world
-                .get_non_send_with_id::<T>(state.component_id)
-                .expect("Requested non-send resource does not exist"),
+            value: &*column.get_ptr().as_ptr().cast::<T>(),
+            counters: *column.get_counters_mut_ptr(),
+            system_counter: system_state.system_counter,
+            global_system_counter,
         }
     }
 }
@@ -606,7 +659,29 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendState<T> {
 /// Unique borrow of a NonSend resource
 pub struct NonSendMut<'a, T: 'static> {
     pub(crate) value: &'a mut T,
-    pub(crate) flags: &'a mut ComponentFlags,
+    counters: &'a mut ComponentCounters,
+    system_counter: Option<u32>,
+    global_system_counter: u32,
+}
+
+impl<'w, T: Component> NonSendMut<'w, T> {
+    /// Returns true if (and only if) this resource been added since the start of the frame.
+    pub fn is_added(&self) -> bool {
+        self.counters
+            .is_added(self.system_counter, self.global_system_counter)
+    }
+
+    /// Returns true if (and only if) this resource been mutated since the start of the frame.
+    pub fn is_mutated(&self) -> bool {
+        self.counters
+            .is_mutated(self.system_counter, self.global_system_counter)
+    }
+
+    /// Returns true if (and only if) this resource been either mutated or added since the start of the frame.
+    pub fn is_changed(&self) -> bool {
+        self.counters
+            .is_changed(self.system_counter, self.global_system_counter)
+    }
 }
 
 impl<'a, T: 'static> Deref for NonSendMut<'a, T> {
@@ -621,7 +696,7 @@ impl<'a, T: 'static> Deref for NonSendMut<'a, T> {
 impl<'a, T: 'static> DerefMut for NonSendMut<'a, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut T {
-        self.flags.insert(ComponentFlags::MUTATED);
+        self.counters.set_changed(self.global_system_counter);
         self.value
     }
 }
@@ -682,15 +757,19 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendMutState<T> {
     #[inline]
     unsafe fn get_param(
         state: &'a mut Self,
-        _system_state: &'a SystemState,
+        system_state: &'a SystemState,
         world: &'a World,
+        global_system_counter: u32,
     ) -> Self::Item {
-        let value = world
-            .get_non_send_unchecked_mut_with_id(state.component_id)
+        world.validate_non_send_access::<T>();
+        let column = world
+            .get_populated_resource_column(state.component_id)
             .expect("Requested non-send resource does not exist");
         NonSendMut {
-            value: value.value,
-            flags: value.flags,
+            value: &mut *column.get_ptr().as_ptr().cast::<T>(),
+            counters: &mut *column.get_counters_mut_ptr(),
+            system_counter: system_state.system_counter,
+            global_system_counter,
         }
     }
 }
@@ -720,6 +799,7 @@ impl<'a> SystemParamFetch<'a> for ArchetypesState {
         _state: &'a mut Self,
         _system_state: &'a SystemState,
         world: &'a World,
+        _global_system_counter: u32,
     ) -> Self::Item {
         world.archetypes()
     }
@@ -748,6 +828,7 @@ impl<'a> SystemParamFetch<'a> for ComponentsState {
         _state: &'a mut Self,
         _system_state: &'a SystemState,
         world: &'a World,
+        _global_system_counter: u32,
     ) -> Self::Item {
         world.components()
     }
@@ -776,6 +857,7 @@ impl<'a> SystemParamFetch<'a> for EntitiesState {
         _state: &'a mut Self,
         _system_state: &'a SystemState,
         world: &'a World,
+        _global_system_counter: u32,
     ) -> Self::Item {
         world.entities()
     }
@@ -804,8 +886,45 @@ impl<'a> SystemParamFetch<'a> for BundlesState {
         _state: &'a mut Self,
         _system_state: &'a SystemState,
         world: &'a World,
+        _global_system_counter: u32,
     ) -> Self::Item {
         world.bundles()
+    }
+}
+
+#[derive(Debug)]
+pub struct SystemCounter {
+    pub system_counter: Option<u32>,
+    pub global_system_counter: u32,
+}
+
+impl SystemParam for SystemCounter {
+    type Fetch = SystemCounterState;
+}
+
+pub struct SystemCounterState {}
+
+unsafe impl SystemParamState for SystemCounterState {
+    type Config = ();
+
+    fn init(_world: &mut World, _system_state: &mut SystemState, _config: Self::Config) -> Self {
+        Self {}
+    }
+}
+
+impl<'a> SystemParamFetch<'a> for SystemCounterState {
+    type Item = SystemCounter;
+
+    unsafe fn get_param(
+        _state: &mut Self,
+        system_state: &SystemState,
+        _world: &World,
+        global_system_counter: u32,
+    ) -> Self::Item {
+        SystemCounter {
+            system_counter: system_state.system_counter,
+            global_system_counter,
+        }
     }
 }
 
@@ -824,10 +943,11 @@ macro_rules! impl_system_param_tuple {
                 state: &'a mut Self,
                 system_state: &'a SystemState,
                 world: &'a World,
+                global_system_counter: u32,
             ) -> Self::Item {
 
                 let ($($param,)*) = state;
-                ($($param::get_param($param, system_state, world),)*)
+                ($($param::get_param($param, system_state, world, global_system_counter),)*)
             }
         }
 

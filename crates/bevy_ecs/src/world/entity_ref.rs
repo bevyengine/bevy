@@ -1,7 +1,7 @@
 use crate::{
-    archetype::{Archetype, ArchetypeId, Archetypes},
+    archetype::{Archetype, ArchetypeId, Archetypes, ComponentStatus},
     bundle::{Bundle, BundleInfo},
-    component::{Component, ComponentFlags, ComponentId, Components, StorageType},
+    component::{Component, ComponentCounters, ComponentId, Components, StorageType},
     entity::{Entity, EntityLocation},
     storage::{SparseSet, Storages},
     world::{Mut, World},
@@ -79,11 +79,18 @@ impl<'w> EntityRef<'w> {
     /// This allows aliased mutability. You must make sure this call does not result in multiple mutable references to the same component
     #[inline]
     pub unsafe fn get_unchecked_mut<T: Component>(&self) -> Option<Mut<'w, T>> {
-        get_component_and_flags_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
-            .map(|(value, flags)| Mut {
-                value: &mut *value.cast::<T>(),
-                flags: &mut *flags,
-            })
+        get_component_and_counters_with_type(
+            self.world,
+            TypeId::of::<T>(),
+            self.entity,
+            self.location,
+        )
+        .map(|(value, counters)| Mut {
+            value: &mut *value.cast::<T>(),
+            component_counters: &mut *counters,
+            system_counter: self.world.get_exclusive_system_counter(),
+            global_system_counter: self.world.get_global_system_counter(),
+        })
     }
 }
 
@@ -159,15 +166,17 @@ impl<'w> EntityMut<'w> {
     pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'w, T>> {
         // SAFE: world access is unique, entity location is valid, and returned component is of type T
         unsafe {
-            get_component_and_flags_with_type(
+            get_component_and_counters_with_type(
                 self.world,
                 TypeId::of::<T>(),
                 self.entity,
                 self.location,
             )
-            .map(|(value, flags)| Mut {
+            .map(|(value, counters)| Mut {
                 value: &mut *value.cast::<T>(),
-                flags: &mut *flags,
+                component_counters: &mut *counters,
+                system_counter: self.world.get_exclusive_system_counter(),
+                global_system_counter: self.world.get_global_system_counter_unordered(),
             })
         }
     }
@@ -176,17 +185,25 @@ impl<'w> EntityMut<'w> {
     /// This allows aliased mutability. You must make sure this call does not result in multiple mutable references to the same component
     #[inline]
     pub unsafe fn get_unchecked_mut<T: Component>(&self) -> Option<Mut<'w, T>> {
-        get_component_and_flags_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
-            .map(|(value, flags)| Mut {
-                value: &mut *value.cast::<T>(),
-                flags: &mut *flags,
-            })
+        get_component_and_counters_with_type(
+            self.world,
+            TypeId::of::<T>(),
+            self.entity,
+            self.location,
+        )
+        .map(|(value, counters)| Mut {
+            value: &mut *value.cast::<T>(),
+            component_counters: &mut *counters,
+            system_counter: self.world.get_exclusive_system_counter(),
+            global_system_counter: self.world.get_global_system_counter(),
+        })
     }
 
     // TODO: factor out non-generic part to cut down on monomorphization (just check perf)
     // TODO: move relevant methods to World (add/remove bundle)
     pub fn insert_bundle<T: Bundle>(&mut self, bundle: T) -> &mut Self {
         let entity = self.entity;
+        let global_system_counter = self.world.get_global_system_counter_unordered();
         let entities = &mut self.world.entities;
         let archetypes = &mut self.world.archetypes;
         let components = &mut self.world.components;
@@ -262,8 +279,9 @@ impl<'w> EntityMut<'w> {
                 entity,
                 table,
                 table_row,
-                &from_bundle.bundle_flags,
+                &from_bundle.bundle_status,
                 bundle,
+                global_system_counter,
             )
         };
         self
@@ -551,12 +569,12 @@ unsafe fn get_component(
 /// # Safety
 /// Caller must ensure that `component_id` is valid
 #[inline]
-unsafe fn get_component_and_flags(
+unsafe fn get_component_and_counters(
     world: &World,
     component_id: ComponentId,
     entity: Entity,
     location: EntityLocation,
-) -> Option<(*mut u8, *mut ComponentFlags)> {
+) -> Option<(*mut u8, *mut ComponentCounters)> {
     let archetype = world.archetypes.get_unchecked(location.archetype_id);
     let component_info = world.components.get_info_unchecked(component_id);
     match component_info.storage_type() {
@@ -568,14 +586,14 @@ unsafe fn get_component_and_flags(
             // SAFE: archetypes only store valid table_rows and the stored component type is T
             Some((
                 components.get_unchecked(table_row),
-                components.get_flags_unchecked(table_row),
+                components.get_counters_unchecked(table_row),
             ))
         }
         StorageType::SparseSet => world
             .storages
             .sparse_sets
             .get(component_id)
-            .and_then(|sparse_set| sparse_set.get_with_flags(entity)),
+            .and_then(|sparse_set| sparse_set.get_with_counters(entity)),
     }
 }
 
@@ -629,14 +647,14 @@ unsafe fn get_component_with_type(
 
 /// # Safety
 /// `entity_location` must be within bounds of an archetype that exists.
-pub(crate) unsafe fn get_component_and_flags_with_type(
+pub(crate) unsafe fn get_component_and_counters_with_type(
     world: &World,
     type_id: TypeId,
     entity: Entity,
     location: EntityLocation,
-) -> Option<(*mut u8, *mut ComponentFlags)> {
+) -> Option<(*mut u8, *mut ComponentCounters)> {
     let component_id = world.components.get_id(type_id)?;
-    get_component_and_flags(world, component_id, entity, location)
+    get_component_and_counters(world, component_id, entity, location)
 }
 
 /// # Safety
@@ -687,14 +705,14 @@ pub(crate) unsafe fn add_bundle_to_archetype(
     }
     let mut new_table_components = Vec::new();
     let mut new_sparse_set_components = Vec::new();
-    let mut tracking_flags = Vec::with_capacity(bundle_info.component_ids.len());
+    let mut bundle_status = Vec::with_capacity(bundle_info.component_ids.len());
 
     let current_archetype = archetypes.get_unchecked_mut(archetype_id);
     for component_id in bundle_info.component_ids.iter().cloned() {
         if current_archetype.contains(component_id) {
-            tracking_flags.push(ComponentFlags::MUTATED);
+            bundle_status.push(ComponentStatus::Mutated);
         } else {
-            tracking_flags.push(ComponentFlags::ADDED);
+            bundle_status.push(ComponentStatus::Added);
             let component_info = components.get_info_unchecked(component_id);
             match component_info.storage_type() {
                 StorageType::Table => new_table_components.push(component_id),
@@ -710,7 +728,7 @@ pub(crate) unsafe fn add_bundle_to_archetype(
         let edges = current_archetype.edges_mut();
         // the archetype does not change when we add this bundle
         edges.set_add_bundle(bundle_info.id, archetype_id);
-        edges.set_from_bundle(bundle_info.id, archetype_id, tracking_flags);
+        edges.set_from_bundle(bundle_info.id, archetype_id, bundle_status);
         archetype_id
     } else {
         let table_id;
@@ -755,7 +773,7 @@ pub(crate) unsafe fn add_bundle_to_archetype(
         archetypes
             .get_unchecked_mut(new_archetype_id)
             .edges_mut()
-            .set_from_bundle(bundle_info.id, new_archetype_id, tracking_flags);
+            .set_from_bundle(bundle_info.id, new_archetype_id, bundle_status);
         new_archetype_id
     }
 }

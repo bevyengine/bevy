@@ -4,7 +4,7 @@ use crate::{Node, Style};
 use bevy_app::EventReader;
 use bevy_ecs::{
     entity::Entity,
-    query::{Changed, FilterFetch, Flags, With, Without, WorldQuery},
+    query::{Changed, Counters, FilterFetch, With, Without, WorldQuery},
     system::{Query, Res, ResMut},
 };
 use bevy_log::warn;
@@ -205,8 +205,8 @@ pub fn flex_node_system(
         Entity,
         &mut Node,
         &mut Transform,
-        Option<(&Parent, Flags<Parent>)>,
-        Flags<Transform>,
+        Option<(&Parent, Counters<Parent>)>,
+        Counters<Transform>,
     )>,
 ) {
     // update window root nodes
@@ -272,7 +272,7 @@ pub fn flex_node_system(
 
     let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
 
-    for (entity, mut node, mut transform, parent, transform_flags) in
+    for (entity, mut node, mut transform, parent, transform_counters) in
         node_transform_query.iter_mut()
     {
         let layout = flex_surface.get_layout(entity).unwrap();
@@ -283,8 +283,8 @@ pub fn flex_node_system(
         let position = &mut transform.translation;
         position.x = to_logical(layout.location.x + layout.size.width / 2.0);
         position.y = to_logical(layout.location.y + layout.size.height / 2.0);
-        if let Some((parent, parent_flags)) = parent {
-            if parent_flags.changed() || transform_flags.changed() {
+        if let Some((parent, parent_counters)) = parent {
+            if parent_counters.is_changed() || transform_counters.is_changed() {
                 if let Ok(parent_layout) = flex_surface.get_layout(parent.0) {
                     position.x -= to_logical(parent_layout.size.width / 2.0);
                     position.y -= to_logical(parent_layout.size.height / 2.0);

@@ -12,14 +12,18 @@ use crate::{
     archetype::{ArchetypeComponentId, ArchetypeComponentInfo, ArchetypeId, Archetypes},
     bundle::{Bundle, Bundles},
     component::{
-        Component, ComponentDescriptor, ComponentFlags, ComponentId, Components, ComponentsError,
-        StorageType,
+        Component, ComponentCounters, ComponentDescriptor, ComponentId, Components,
+        ComponentsError, StorageType,
     },
     entity::{Entities, Entity},
-    query::{FilterFetch, QueryState, WorldQuery},
+    query::{DirectQuery, FilterFetch, QueryState, WorldQuery},
     storage::{Column, SparseSet, Storages},
 };
-use std::{any::TypeId, fmt};
+use std::{
+    any::TypeId,
+    fmt,
+    sync::atomic::{AtomicU32, Ordering},
+};
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct WorldId(u64);
@@ -33,7 +37,6 @@ impl Default for WorldId {
 /// [World] stores and exposes operations on [entities](Entity), [components](Component), and their associated metadata.
 /// Each [Entity] has a set of components. Each component can have up to one instance of each component type.
 /// Entity components can be created, updated, removed, and queried using a given [World].
-#[derive(Default)]
 pub struct World {
     id: WorldId,
     pub(crate) entities: Entities,
@@ -45,6 +48,27 @@ pub struct World {
     /// Access cache used by [WorldCell].
     pub(crate) archetype_component_access: ArchetypeComponentAccess,
     main_thread_validator: MainThreadValidator,
+    pub(crate) global_system_counter: AtomicU32,
+    pub(crate) exclusive_system_counter: Option<u32>,
+}
+
+impl Default for World {
+    fn default() -> Self {
+        Self {
+            id: Default::default(),
+            entities: Default::default(),
+            components: Default::default(),
+            archetypes: Default::default(),
+            storages: Default::default(),
+            bundles: Default::default(),
+            removed_components: Default::default(),
+            archetype_component_access: Default::default(),
+            main_thread_validator: Default::default(),
+            global_system_counter: Default::default(),
+            // Default value is -1 so that direct queries outside of exclusive systems properly detect changes
+            exclusive_system_counter: Some(u32::MAX),
+        }
+    }
 }
 
 impl World {
@@ -376,15 +400,19 @@ impl World {
 
     /// Clears all component tracker state, such as "added", "mutated", and "removed".
     pub fn clear_trackers(&mut self) {
-        self.storages.tables.clear_flags();
-        self.storages.sparse_sets.clear_flags();
+        // PERF: parallelize iterations
+        let global_system_counter = self.get_global_system_counter_unordered();
+        self.storages.tables.clear_counters(global_system_counter);
+        self.storages
+            .sparse_sets
+            .clear_counters(global_system_counter);
         for entities in self.removed_components.values_mut() {
             entities.clear();
         }
 
         let resource_archetype = self.archetypes.resource_mut();
         for column in resource_archetype.unique_components.values_mut() {
-            column.clear_flags();
+            column.clear_counters(global_system_counter);
         }
     }
 
@@ -411,8 +439,10 @@ impl World {
     ///     (Position { x: 0.0, y: 0.0}, Velocity { x: 0.0, y: 1.0 }),    
     /// ]).collect::<Vec<Entity>>();
     ///
-    /// let mut query = world.query::<(&mut Position, &Velocity)>();
-    /// for (mut position, velocity) in query.iter_mut(&mut world) {
+    /// let mut query = world.query_state::<(&mut Position, &Velocity)>();
+    /// let system_counter = world.get_exclusive_system_counter();
+    /// let global_system_counter = world.get_global_system_counter();
+    /// for (mut position, velocity) in query.iter_mut(&mut world, system_counter, global_system_counter) {
     ///    position.x += velocity.x;
     ///    position.y += velocity.y;
     /// }     
@@ -421,7 +451,7 @@ impl World {
     /// assert_eq!(world.get::<Position>(entities[1]).unwrap(), &Position { x: 0.0, y: 1.0 });
     /// ```
     #[inline]
-    pub fn query<Q: WorldQuery>(&mut self) -> QueryState<Q, ()> {
+    pub fn query_state<Q: WorldQuery>(&mut self) -> QueryState<Q, ()> {
         QueryState::new(self)
     }
 
@@ -437,17 +467,50 @@ impl World {
     /// let e1 = world.spawn().insert(A).id();
     /// let e2 = world.spawn().insert_bundle((A, B)).id();
     ///
-    /// let mut query = world.query_filtered::<Entity, With<B>>();
-    /// let matching_entities = query.iter(&world).collect::<Vec<Entity>>();
+    /// let mut query = world.query_state_filtered::<Entity, With<B>>();
+    /// let system_counter = world.get_exclusive_system_counter();
+    /// let global_system_counter = world.get_global_system_counter();
+    /// let matching_entities = query.iter(&world, system_counter, global_system_counter).collect::<Vec<Entity>>();
     ///
     /// assert_eq!(matching_entities, vec![e2]);
     /// ```
     #[inline]
-    pub fn query_filtered<Q: WorldQuery, F: WorldQuery>(&mut self) -> QueryState<Q, F>
+    pub fn query_state_filtered<Q: WorldQuery, F: WorldQuery>(&mut self) -> QueryState<Q, F>
     where
         F::Fetch: FilterFetch,
     {
         QueryState::new(self)
+    }
+
+    #[inline]
+    pub fn query<Q: WorldQuery>(&mut self) -> DirectQuery<Q, ()> {
+        let state = QueryState::new(self);
+        let global_system_counter = self.get_global_system_counter_unordered();
+        unsafe {
+            DirectQuery::new(
+                self,
+                state,
+                self.get_exclusive_system_counter(),
+                global_system_counter,
+            )
+        }
+    }
+
+    #[inline]
+    pub fn query_filtered<Q: WorldQuery, F: WorldQuery>(&mut self) -> DirectQuery<Q, F>
+    where
+        F::Fetch: FilterFetch,
+    {
+        let state = QueryState::new(self);
+        let global_system_counter = self.get_global_system_counter_unordered();
+        unsafe {
+            DirectQuery::new(
+                self,
+                state,
+                self.get_exclusive_system_counter(),
+                global_system_counter,
+            )
+        }
     }
 
     /// Returns an iterator of entities that had components of type `T` removed since the last call to [World::clear_trackers].
@@ -612,7 +675,7 @@ impl World {
             .components
             .get_resource_id(TypeId::of::<T>())
             .expect("resource does not exist");
-        let (ptr, mut flags) = {
+        let (ptr, mut counters) = {
             let resource_archetype = self.archetypes.resource_mut();
             let unique_components = resource_archetype.unique_components_mut();
             let column = unique_components
@@ -628,7 +691,9 @@ impl World {
         // SAFE: pointer is of type T
         let value = Mut {
             value: unsafe { &mut *ptr.cast::<T>() },
-            flags: &mut flags,
+            component_counters: &mut counters,
+            system_counter: self.get_exclusive_system_counter(),
+            global_system_counter: self.get_global_system_counter_unordered(),
         };
         let result = f(value, self);
         let resource_archetype = self.archetypes.resource_mut();
@@ -641,7 +706,7 @@ impl World {
         // SAFE: row was just allocated above
         unsafe { column.set_unchecked(row, ptr) };
         // SAFE: row was just allocated above
-        unsafe { *column.get_flags_unchecked_mut(row) = flags };
+        unsafe { *column.get_counters_unchecked_mut(row) = counters };
         result
     }
 
@@ -667,7 +732,9 @@ impl World {
         let column = self.get_populated_resource_column(component_id)?;
         Some(Mut {
             value: &mut *column.get_ptr().as_ptr().cast::<T>(),
-            flags: &mut *column.get_flags_mut_ptr(),
+            component_counters: &mut *column.get_counters_mut_ptr(),
+            system_counter: self.get_exclusive_system_counter(),
+            global_system_counter: self.get_global_system_counter(),
         })
     }
 
@@ -698,6 +765,7 @@ impl World {
     /// `component_id` must be valid and correspond to a resource component of type T
     #[inline]
     unsafe fn insert_resource_with_id<T>(&mut self, component_id: ComponentId, mut value: T) {
+        let global_system_counter = self.get_global_system_counter_unordered();
         let column = self.initialize_resource_internal(component_id);
         if column.is_empty() {
             // SAFE: column is of type T and has been allocated above
@@ -706,16 +774,17 @@ impl World {
             let row = column.push_uninit();
             // SAFE: index was just allocated above
             column.set_unchecked(row, data);
+            // SAFE: index was just allocated above
+            *column.counters.get_mut().get_unchecked_mut(row) =
+                ComponentCounters::new(global_system_counter);
             std::mem::forget(value);
-            column
-                .get_flags_unchecked_mut(row)
-                .set(ComponentFlags::ADDED, true);
+            *column.get_counters_unchecked_mut(row) = ComponentCounters::new(global_system_counter);
         } else {
             // SAFE: column is of type T and has already been allocated
             *column.get_unchecked(0).cast::<T>() = value;
             column
-                .get_flags_unchecked_mut(0)
-                .set(ComponentFlags::MUTATED, true);
+                .get_counters_unchecked_mut(0)
+                .set_changed(global_system_counter);
         }
     }
 
@@ -779,7 +848,7 @@ impl World {
         })
     }
 
-    fn validate_non_send_access<T: 'static>(&self) {
+    pub(crate) fn validate_non_send_access<T: 'static>(&self) {
         if !self.main_thread_validator.is_main_thread() {
             panic!(
                 "attempted to access NonSend resource {} off of the main thread",
@@ -805,6 +874,22 @@ impl World {
                 *location = empty_archetype.allocate(entity, table.allocate(entity));
             });
         }
+    }
+
+    pub fn increment_global_system_counter(&self) -> u32 {
+        self.global_system_counter.fetch_add(1, Ordering::SeqCst) // TODO: can this be relaxed?
+    }
+
+    pub fn get_global_system_counter(&self) -> u32 {
+        self.global_system_counter.load(Ordering::Acquire) // FIXME: is this ordering correct?
+    }
+
+    pub fn get_global_system_counter_unordered(&mut self) -> u32 {
+        *self.global_system_counter.get_mut()
+    }
+
+    pub fn get_exclusive_system_counter(&self) -> Option<u32> {
+        self.exclusive_system_counter
     }
 }
 

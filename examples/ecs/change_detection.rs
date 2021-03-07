@@ -8,7 +8,7 @@ fn main() {
         .add_startup_system(setup.system())
         .add_system(change_component.system())
         .add_system(change_detection.system())
-        .add_system(flags_monitoring.system())
+        .add_system(counters_monitoring.system())
         .run();
 }
 
@@ -37,9 +37,11 @@ fn change_detection(query: Query<(Entity, &MyComponent), Changed<MyComponent>>) 
     }
 }
 
-// By looking at flags, the query is not filtered but the information is available
-fn flags_monitoring(query: Query<(Entity, Option<&MyComponent>, Option<Flags<MyComponent>>)>) {
-    for (entity, component, flags) in query.iter() {
-        info!("{:?}: {:?} -> {:?}", entity, component, flags,);
+// By looking at counters, the query is not filtered but the information is available
+fn counters_monitoring(
+    query: Query<(Entity, Option<&MyComponent>, Option<Counters<MyComponent>>)>,
+) {
+    for (entity, component, counters) in query.iter() {
+        info!("{:?}: {:?} -> {:?}", entity, component, counters,);
     }
 }

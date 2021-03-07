@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     bundle::Bundle,
-    component::{Component, ComponentFlags, ComponentId, StorageType},
+    component::{Component, ComponentCounters, ComponentId, StorageType},
     entity::Entity,
     query::{Access, Fetch, FetchState, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, Tables},
@@ -102,7 +102,12 @@ impl<'a, T: Component> Fetch<'a> for WithFetch<T> {
     type Item = bool;
     type State = WithState<T>;
 
-    unsafe fn init(_world: &World, state: &Self::State) -> Self {
+    unsafe fn init(
+        _world: &World,
+        state: &Self::State,
+        _system_counter: Option<u32>,
+        _global_system_counter: u32,
+    ) -> Self {
         Self {
             storage_type: state.storage_type,
             marker: PhantomData,
@@ -193,7 +198,12 @@ impl<'a, T: Component> Fetch<'a> for WithoutFetch<T> {
     type Item = bool;
     type State = WithoutState<T>;
 
-    unsafe fn init(_world: &World, state: &Self::State) -> Self {
+    unsafe fn init(
+        _world: &World,
+        state: &Self::State,
+        _system_counter: Option<u32>,
+        _global_system_counter: u32,
+    ) -> Self {
         Self {
             storage_type: state.storage_type,
             marker: PhantomData,
@@ -283,7 +293,12 @@ impl<'a, T: Bundle> Fetch<'a> for WithBundleFetch<T> {
     type Item = bool;
     type State = WithBundleState<T>;
 
-    unsafe fn init(_world: &World, state: &Self::State) -> Self {
+    unsafe fn init(
+        _world: &World,
+        state: &Self::State,
+        _system_counter: Option<u32>,
+        _global_system_counter: u32,
+    ) -> Self {
         Self {
             is_dense: state.is_dense,
             marker: PhantomData,
@@ -356,10 +371,10 @@ macro_rules! impl_query_filter_tuple {
             type State = Or<($(<$filter as Fetch<'a>>::State,)*)>;
             type Item = bool;
 
-            unsafe fn init(world: &World, state: &Self::State) -> Self {
+            unsafe fn init(world: &World, state: &Self::State, system_counter: Option<u32>, global_system_counter: u32) -> Self {
                 let ($($filter,)*) = &state.0;
                 Or(($(OrFetch {
-                    fetch: $filter::init(world, $filter),
+                    fetch: $filter::init(world, $filter, system_counter, global_system_counter),
                     matches: false,
                 },)*))
             }
@@ -440,20 +455,22 @@ macro_rules! impl_query_filter_tuple {
 
 all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
 
-macro_rules! impl_flag_filter {
+macro_rules! impl_counter_filter {
     (
         $(#[$meta:meta])*
-        $name: ident, $state_name: ident, $fetch_name: ident, $($flags: expr),+) => {
+        $name: ident, $state_name: ident, $fetch_name: ident, $($counters: expr),+) => {
         $(#[$meta])*
         pub struct $name<T>(PhantomData<T>);
 
         pub struct $fetch_name<T> {
             storage_type: StorageType,
-            table_flags: *mut ComponentFlags,
+            table_counters: *mut ComponentCounters,
             entity_table_rows: *const usize,
             marker: PhantomData<T>,
             entities: *const Entity,
             sparse_set: *const ComponentSparseSet,
+            system_counter: Option<u32>,
+            global_system_counter: u32,
         }
 
         pub struct $state_name<T> {
@@ -508,14 +525,16 @@ macro_rules! impl_flag_filter {
             type State = $state_name<T>;
             type Item = bool;
 
-            unsafe fn init(world: &World, state: &Self::State) -> Self {
+            unsafe fn init(world: &World, state: &Self::State, system_counter: Option<u32>, global_system_counter: u32) -> Self {
                 let mut value = Self {
                     storage_type: state.storage_type,
-                    table_flags: ptr::null_mut::<ComponentFlags>(),
+                    table_counters: ptr::null_mut::<ComponentCounters>(),
                     entities: ptr::null::<Entity>(),
                     entity_table_rows: ptr::null::<usize>(),
                     sparse_set: ptr::null::<ComponentSparseSet>(),
                     marker: PhantomData,
+                    system_counter,
+                    global_system_counter,
                 };
                 if state.storage_type == StorageType::SparseSet {
                     value.sparse_set = world
@@ -532,9 +551,9 @@ macro_rules! impl_flag_filter {
             }
 
             unsafe fn set_table(&mut self, state: &Self::State, table: &Table) {
-                self.table_flags = table
+                self.table_counters = table
                     .get_column(state.component_id).unwrap()
-                    .get_flags_mut_ptr();
+                    .get_counters_mut_ptr();
             }
 
             unsafe fn set_archetype(&mut self, state: &Self::State, archetype: &Archetype, tables: &Tables) {
@@ -543,28 +562,28 @@ macro_rules! impl_flag_filter {
                         self.entity_table_rows = archetype.entity_table_rows().as_ptr();
                         // SAFE: archetype tables always exist
                         let table = tables.get_unchecked(archetype.table_id());
-                        self.table_flags = table
+                        self.table_counters = table
                             .get_column(state.component_id).unwrap()
-                            .get_flags_mut_ptr();
+                            .get_counters_mut_ptr();
                     }
                     StorageType::SparseSet => self.entities = archetype.entities().as_ptr(),
                 }
             }
 
             unsafe fn table_fetch(&mut self, table_row: usize) -> bool {
-                false $(|| (*self.table_flags.add(table_row)).contains($flags))+
+                false $(|| $counters(&*self.table_counters.add(table_row), self.system_counter, self.global_system_counter))+
             }
 
             unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> bool {
                 match self.storage_type {
                     StorageType::Table => {
                         let table_row = *self.entity_table_rows.add(archetype_index);
-                        false $(|| (*self.table_flags.add(table_row)).contains($flags))+
+                        false $(|| $counters(&*self.table_counters.add(table_row), self.system_counter, self.global_system_counter))+
                     }
                     StorageType::SparseSet => {
                         let entity = *self.entities.add(archetype_index);
-                        let flags = (*(*self.sparse_set).get_flags(entity).unwrap());
-                        false $(|| flags.contains($flags))+
+                        let counters = (*(*self.sparse_set).get_counters(entity).unwrap());
+                        false $(|| $counters(&counters, self.system_counter, self.global_system_counter))+
                     }
                 }
             }
@@ -572,7 +591,7 @@ macro_rules! impl_flag_filter {
     };
 }
 
-impl_flag_filter!(
+impl_counter_filter!(
     /// Filter that retrieves components of type `T` that have been added since the start of the frame
     ///
     /// This filter is useful as a performance optimization as it means that the query contains fewer items
@@ -600,10 +619,10 @@ impl_flag_filter!(
     Added,
     AddedState,
     AddedFetch,
-    ComponentFlags::ADDED
+    ComponentCounters::is_added
 );
 
-impl_flag_filter!(
+impl_counter_filter!(
     /// Filter that retrieves components of type `T` that have been mutated since the start of the frame.
     /// Added components do not count as mutated.
     ///
@@ -631,10 +650,10 @@ impl_flag_filter!(
     Mutated,
     MutatedState,
     MutatedFetch,
-    ComponentFlags::MUTATED
+    ComponentCounters::is_mutated
 );
 
-impl_flag_filter!(
+impl_counter_filter!(
     /// Filter that retrieves components of type `T` that have been added or mutated since the start of the frame
     ///
     /// This filter is useful as a performance optimization as it means that the query contains fewer items
@@ -647,6 +666,5 @@ impl_flag_filter!(
     Changed,
     ChangedState,
     ChangedFetch,
-    ComponentFlags::ADDED,
-    ComponentFlags::MUTATED
+    ComponentCounters::is_changed
 );

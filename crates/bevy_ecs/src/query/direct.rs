@@ -4,24 +4,24 @@ use crate::{
     query::{
         Fetch, FilterFetch, QueryEntityError, QueryIter, QueryState, ReadOnlyFetch, WorldQuery,
     },
+    system::QueryComponentError,
     world::{Mut, World},
 };
 use bevy_tasks::TaskPool;
-use std::{any::TypeId, fmt::Debug};
-use thiserror::Error;
+use std::any::TypeId;
 
-/// Provides scoped access to a World according to a given [WorldQuery] and query filter
-pub struct Query<'w, Q: WorldQuery, F: WorldQuery = ()>
+// FIXME: this is a copy of [Query] that owns its [QueryState]. They should be merged.
+pub struct DirectQuery<'w, Q: WorldQuery, F: WorldQuery = ()>
 where
     F::Fetch: FilterFetch,
 {
     pub(crate) world: &'w World,
-    pub(crate) state: &'w QueryState<Q, F>,
+    pub(crate) state: QueryState<Q, F>,
     pub(crate) system_counter: Option<u32>,
     pub(crate) global_system_counter: u32,
 }
 
-impl<'w, Q: WorldQuery, F: WorldQuery> Query<'w, Q, F>
+impl<'w, Q: WorldQuery, F: WorldQuery> DirectQuery<'w, Q, F>
 where
     F::Fetch: FilterFetch,
 {
@@ -31,7 +31,7 @@ where
     #[inline]
     pub(crate) unsafe fn new(
         world: &'w World,
-        state: &'w QueryState<Q, F>,
+        state: QueryState<Q, F>,
         system_counter: Option<u32>,
         global_system_counter: u32,
     ) -> Self {
@@ -45,7 +45,7 @@ where
 
     /// Iterates over the query results. This can only be called for read-only queries
     #[inline]
-    pub fn iter(&self) -> QueryIter<'_, '_, Q, F>
+    pub fn iter(&self) -> QueryIter<'w, '_, Q, F>
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -61,7 +61,7 @@ where
 
     /// Iterates over the query results
     #[inline]
-    pub fn iter_mut(&mut self) -> QueryIter<'_, '_, Q, F> {
+    pub fn iter_mut(&mut self) -> QueryIter<'w, '_, Q, F> {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
         unsafe {
             self.state.iter_unchecked_manual(
@@ -280,68 +280,9 @@ where
         {
             entity_ref
                 .get_unchecked_mut::<T>()
-                .map(|component| Mut {
-                    value: component.value,
-                    component_counters: component.component_counters,
-                    system_counter: self.system_counter,
-                    global_system_counter: self.global_system_counter,
-                })
                 .ok_or(QueryComponentError::MissingComponent)
         } else {
             Err(QueryComponentError::MissingWriteAccess)
         }
     }
-
-    pub fn single(&self) -> Result<<Q::Fetch as Fetch<'_>>::Item, QuerySingleError>
-    where
-        Q::Fetch: ReadOnlyFetch,
-    {
-        let mut query = self.iter();
-        let first = query.next();
-        let extra = query.next().is_some();
-
-        match (first, extra) {
-            (Some(r), false) => Ok(r),
-            (None, _) => Err(QuerySingleError::NoEntities(std::any::type_name::<Self>())),
-            (Some(_), _) => Err(QuerySingleError::MultipleEntities(std::any::type_name::<
-                Self,
-            >())),
-        }
-    }
-
-    /// See [`Query::single`]
-    pub fn single_mut(&mut self) -> Result<<Q::Fetch as Fetch<'_>>::Item, QuerySingleError> {
-        let mut query = self.iter_mut();
-        let first = query.next();
-        let extra = query.next().is_some();
-
-        match (first, extra) {
-            (Some(r), false) => Ok(r),
-            (None, _) => Err(QuerySingleError::NoEntities(std::any::type_name::<Self>())),
-            (Some(_), _) => Err(QuerySingleError::MultipleEntities(std::any::type_name::<
-                Self,
-            >())),
-        }
-    }
-}
-
-/// An error that occurs when retrieving a specific [Entity]'s component from a [Query]
-#[derive(Error, Debug)]
-pub enum QueryComponentError {
-    #[error("This query does not have read access to the requested component.")]
-    MissingReadAccess,
-    #[error("This query does not have read access to the requested component.")]
-    MissingWriteAccess,
-    #[error("The given entity does not have the requested component.")]
-    MissingComponent,
-    #[error("The requested entity does not exist.")]
-    NoSuchEntity,
-}
-
-#[derive(Debug, Error)]
-pub enum QuerySingleError {
-    #[error("No entities fit the query {0}")]
-    NoEntities(&'static str),
-    #[error("Multiple entities fit the query {0}!")]
-    MultipleEntities(&'static str),
 }

@@ -17,6 +17,7 @@ where
     table: &'w mut Table,
     sparse_sets: &'w mut SparseSets,
     bundle_info: &'w BundleInfo,
+    global_system_counter: u32,
 }
 
 impl<'w, I> SpawnBatchIter<'w, I>
@@ -64,6 +65,7 @@ where
             table,
             sparse_sets: &mut world.storages.sparse_sets,
             bundle_info,
+            global_system_counter: *world.global_system_counter.get_mut(),
         }
     }
 }
@@ -102,8 +104,9 @@ where
                 entity,
                 self.table,
                 table_row,
-                &from_bundle.bundle_flags,
+                &from_bundle.bundle_status,
                 bundle,
+                self.global_system_counter,
             );
             self.entities.meta[entity.id as usize].location = location;
         }

@@ -15,6 +15,7 @@ pub struct SystemState {
     pub(crate) archetype_component_access: Access<ArchetypeComponentId>,
     // NOTE: this must be kept private. making a SystemState non-send is irreversible to prevent SystemParams from overriding each other
     is_send: bool,
+    pub(crate) system_counter: Option<u32>,
 }
 
 impl SystemState {
@@ -25,6 +26,7 @@ impl SystemState {
             component_access_set: FilteredAccessSet::default(),
             is_send: true,
             id: SystemId::new(),
+            system_counter: None,
         }
     }
 
@@ -138,12 +140,16 @@ where
 
     #[inline]
     unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
-        self.func.run(
+        let global_system_counter = world.increment_global_system_counter();
+        let out = self.func.run(
             input,
             self.param_state.as_mut().unwrap(),
             &self.system_state,
             world,
-        )
+            global_system_counter,
+        );
+        self.system_state.system_counter = Some(global_system_counter);
+        out
     }
 
     #[inline]
@@ -169,6 +175,7 @@ pub trait SystemParamFunction<In, Out, Param: SystemParam, Marker>: Send + Sync 
         state: &mut Param::Fetch,
         system_state: &SystemState,
         world: &World,
+        global_system_counter: u32,
     ) -> Out;
 }
 
@@ -182,9 +189,9 @@ macro_rules! impl_system_function {
                 FnMut($(<<$param as SystemParam>::Fetch as SystemParamFetch>::Item),*) -> Out + Send + Sync + 'static, Out: 'static
         {
             #[inline]
-            fn run(&mut self, _input: (), state: &mut <($($param,)*) as SystemParam>::Fetch, system_state: &SystemState, world: &World) -> Out {
+            fn run(&mut self, _input: (), state: &mut <($($param,)*) as SystemParam>::Fetch, system_state: &SystemState, world: &World, global_system_counter: u32) -> Out {
                 unsafe {
-                    let ($($param,)*) = <<($($param,)*) as SystemParam>::Fetch as SystemParamFetch>::get_param(state, system_state, world);
+                    let ($($param,)*) = <<($($param,)*) as SystemParam>::Fetch as SystemParamFetch>::get_param(state, system_state, world, global_system_counter);
                     self($($param),*)
                 }
             }
@@ -198,9 +205,9 @@ macro_rules! impl_system_function {
                 FnMut(In<Input>, $(<<$param as SystemParam>::Fetch as SystemParamFetch>::Item),*) -> Out + Send + Sync + 'static, Out: 'static
         {
             #[inline]
-            fn run(&mut self, input: Input, state: &mut <($($param,)*) as SystemParam>::Fetch, system_state: &SystemState, world: &World) -> Out {
+            fn run(&mut self, input: Input, state: &mut <($($param,)*) as SystemParam>::Fetch, system_state: &SystemState, world: &World, global_system_counter: u32) -> Out {
                 unsafe {
-                    let ($($param,)*) = <<($($param,)*) as SystemParam>::Fetch as SystemParamFetch>::get_param(state, system_state, world);
+                    let ($($param,)*) = <<($($param,)*) as SystemParam>::Fetch as SystemParamFetch>::get_param(state, system_state, world, global_system_counter);
                     self(In(input), $($param),*)
                 }
             }

@@ -26,9 +26,24 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> QueryIter<'w, 's, Q, F>
 where
     F::Fetch: FilterFetch,
 {
-    pub(crate) unsafe fn new(world: &'w World, query_state: &'s QueryState<Q, F>) -> Self {
-        let fetch = <Q::Fetch as Fetch>::init(world, &query_state.fetch_state);
-        let filter = <F::Fetch as Fetch>::init(world, &query_state.filter_state);
+    pub(crate) unsafe fn new(
+        world: &'w World,
+        query_state: &'s QueryState<Q, F>,
+        system_counter: Option<u32>,
+        global_system_counter: u32,
+    ) -> Self {
+        let fetch = <Q::Fetch as Fetch>::init(
+            world,
+            &query_state.fetch_state,
+            system_counter,
+            global_system_counter,
+        );
+        let filter = <F::Fetch as Fetch>::init(
+            world,
+            &query_state.filter_state,
+            system_counter,
+            global_system_counter,
+        );
         QueryIter {
             is_dense: fetch.is_dense() && filter.is_dense(),
             world,

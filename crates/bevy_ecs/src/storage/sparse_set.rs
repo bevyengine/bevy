@@ -1,5 +1,5 @@
 use crate::{
-    component::{ComponentFlags, ComponentId, ComponentInfo},
+    component::{ComponentCounters, ComponentId, ComponentInfo},
     entity::Entity,
     storage::BlobVec,
 };
@@ -87,7 +87,7 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
 #[derive(Debug)]
 pub struct ComponentSparseSet {
     dense: BlobVec,
-    flags: UnsafeCell<Vec<ComponentFlags>>,
+    counters: UnsafeCell<Vec<ComponentCounters>>,
     entities: Vec<Entity>,
     sparse: SparseArray<Entity, usize>,
 }
@@ -96,7 +96,7 @@ impl ComponentSparseSet {
     pub fn new(component_info: &ComponentInfo, capacity: usize) -> Self {
         Self {
             dense: BlobVec::new(component_info.layout(), component_info.drop(), capacity),
-            flags: UnsafeCell::new(Vec::with_capacity(capacity)),
+            counters: UnsafeCell::new(Vec::with_capacity(capacity)),
             entities: Vec::with_capacity(capacity),
             sparse: Default::default(),
         }
@@ -117,20 +117,18 @@ impl ComponentSparseSet {
     /// # Safety
     /// The `value` pointer must point to a valid address that matches the `Layout` inside the `ComponentInfo` given
     /// when constructing this sparse set.
-    pub unsafe fn insert(&mut self, entity: Entity, value: *mut u8, flags: ComponentFlags) {
+    pub unsafe fn insert(&mut self, entity: Entity, value: *mut u8, counters: ComponentCounters) {
         let dense = &mut self.dense;
         let entities = &mut self.entities;
-        let flag_list = self.flags.get_mut();
+        let counters_list = self.counters.get_mut();
         let dense_index = *self.sparse.get_or_insert_with(entity, move || {
-            flag_list.push(ComponentFlags::empty());
+            counters_list.push(counters);
             entities.push(entity);
             dense.push_uninit()
         });
         // SAFE: dense_index exists thanks to the call above
         self.dense.set_unchecked(dense_index, value);
-        (*self.flags.get())
-            .get_unchecked_mut(dense_index)
-            .insert(flags);
+        *(*self.counters.get()).get_unchecked_mut(dense_index) = counters;
     }
 
     #[inline]
@@ -151,14 +149,17 @@ impl ComponentSparseSet {
     /// # Safety
     /// ensure the same entity is not accessed twice at the same time
     #[inline]
-    pub unsafe fn get_with_flags(&self, entity: Entity) -> Option<(*mut u8, *mut ComponentFlags)> {
-        let flags = &mut *self.flags.get();
+    pub unsafe fn get_with_counters(
+        &self,
+        entity: Entity,
+    ) -> Option<(*mut u8, *mut ComponentCounters)> {
+        let counters = &mut *self.counters.get();
         self.sparse.get(entity).map(move |dense_index| {
             let dense_index = *dense_index;
             // SAFE: if the sparse index points to something in the dense vec, it exists
             (
                 self.dense.get_unchecked(dense_index),
-                flags.get_unchecked_mut(dense_index) as *mut ComponentFlags,
+                counters.get_unchecked_mut(dense_index) as *mut ComponentCounters,
             )
         })
     }
@@ -166,12 +167,12 @@ impl ComponentSparseSet {
     /// # Safety
     /// ensure the same entity is not accessed twice at the same time
     #[inline]
-    pub unsafe fn get_flags(&self, entity: Entity) -> Option<&mut ComponentFlags> {
-        let flags = &mut *self.flags.get();
+    pub unsafe fn get_counters(&self, entity: Entity) -> Option<&mut ComponentCounters> {
+        let counters = &mut *self.counters.get();
         self.sparse.get(entity).map(move |dense_index| {
             let dense_index = *dense_index;
             // SAFE: if the sparse index points to something in the dense vec, it exists
-            flags.get_unchecked_mut(dense_index)
+            counters.get_unchecked_mut(dense_index)
         })
     }
 
@@ -181,7 +182,7 @@ impl ComponentSparseSet {
         self.sparse.remove(entity).map(|dense_index| {
             // SAFE: unique access to flags
             unsafe {
-                (*self.flags.get()).swap_remove(dense_index);
+                (*self.counters.get()).swap_remove(dense_index);
             }
             self.entities.swap_remove(dense_index);
             let is_last = dense_index == self.dense.len() - 1;
@@ -197,7 +198,7 @@ impl ComponentSparseSet {
 
     pub fn remove(&mut self, entity: Entity) -> bool {
         if let Some(dense_index) = self.sparse.remove(entity) {
-            self.flags.get_mut().swap_remove(dense_index);
+            self.counters.get_mut().swap_remove(dense_index);
             self.entities.swap_remove(dense_index);
             let is_last = dense_index == self.dense.len() - 1;
             // SAFE: if the sparse index points to something in the dense vec, it exists
@@ -212,10 +213,10 @@ impl ComponentSparseSet {
         }
     }
 
-    pub(crate) fn clear_flags(&mut self) {
-        let flags = self.flags.get_mut().iter_mut();
-        for component_flags in flags {
-            *component_flags = ComponentFlags::empty();
+    pub(crate) fn clear_counters(&mut self, global_system_counter: u32) {
+        let counters = self.counters.get_mut().iter_mut();
+        for component_counters in counters {
+            component_counters.clear(global_system_counter);
         }
     }
 }
@@ -442,9 +443,9 @@ impl SparseSets {
         self.sets.get_mut(component_id)
     }
 
-    pub(crate) fn clear_flags(&mut self) {
+    pub(crate) fn clear_counters(&mut self, global_system_counter: u32) {
         for set in self.sets.values_mut() {
-            set.clear_flags();
+            set.clear_counters(global_system_counter);
         }
     }
 }

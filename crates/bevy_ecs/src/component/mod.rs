@@ -3,7 +3,6 @@ mod type_info;
 pub use type_info::*;
 
 use crate::storage::SparseSetIndex;
-use bitflags::bitflags;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
@@ -288,9 +287,52 @@ impl Components {
     }
 }
 
-bitflags! {
-    pub struct ComponentFlags: u8 {
-        const ADDED = 1;
-        const MUTATED = 2;
+#[derive(Copy, Clone, Debug)]
+pub struct ComponentCounters {
+    added: u32,
+    changed: u32,
+}
+
+impl ComponentCounters {
+    pub fn is_added(&self, system_counter: Option<u32>, global_system_counter: u32) -> bool {
+        if let Some(system_counter) = system_counter {
+            let component_age = global_system_counter.wrapping_sub(self.added);
+            let system_age = global_system_counter.wrapping_sub(system_counter);
+
+            component_age < system_age
+        } else {
+            true
+        }
+    }
+
+    pub fn is_changed(&self, system_counter: Option<u32>, global_system_counter: u32) -> bool {
+        if let Some(system_counter) = system_counter {
+            let component_age = global_system_counter.wrapping_sub(self.changed);
+            let system_age = global_system_counter.wrapping_sub(system_counter);
+
+            component_age < system_age
+        } else {
+            true
+        }
+    }
+
+    pub fn is_mutated(&self, system_counter: Option<u32>, global_system_counter: u32) -> bool {
+        self.is_changed(system_counter, global_system_counter)
+            && !self.is_added(system_counter, global_system_counter)
+    }
+
+    pub(crate) fn new(global_system_counter: u32) -> Self {
+        Self {
+            added: global_system_counter,
+            changed: global_system_counter,
+        }
+    }
+
+    pub(crate) fn clear(&mut self, _global_system_counter: u32) {
+        // TODO: advance old component counters before they are passed by the global counter
+    }
+
+    pub(crate) fn set_changed(&mut self, global_system_counter: u32) {
+        self.changed = global_system_counter;
     }
 }
