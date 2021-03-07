@@ -368,6 +368,10 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
     }
 
     unsafe fn init(world: &World, state: &Self::State) -> Self {
+        assert!(
+            world.get_resource::<Index<T>>().is_none(),
+            "You can't directly mutate an indexed component. Use `Indexed<T>` instead of `&mut T`."
+        );
         let mut value = Self {
             storage_type: state.storage_type,
             table_components: NonNull::dangling(),
@@ -443,7 +447,7 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
     }
 }
 
-pub struct Index<T: Component + Eq + Hash + Clone> {
+pub struct Index<T: Component> {
     forward: HashMap<T, HashSet<Entity>>,
     reverse: HashMap<Entity, T>,
 }
