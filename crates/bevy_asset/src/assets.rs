@@ -2,7 +2,7 @@ use crate::{
     update_asset_storage_system, Asset, AssetLoader, AssetServer, AssetStage, Handle, HandleId,
     RefChange,
 };
-use bevy_app::{prelude::Events, AppBuilder};
+use bevy_app::{AppBuilder, EventWriter, Events};
 use bevy_ecs::{
     system::{IntoSystem, ResMut},
     world::FromWorld,
@@ -182,10 +182,10 @@ impl<T: Asset> Assets<T> {
     }
 
     pub fn asset_event_system(
-        mut events: ResMut<Events<AssetEvent<T>>>,
+        mut events: EventWriter<AssetEvent<T>>,
         mut assets: ResMut<Assets<T>>,
     ) {
-        events.extend(assets.events.drain())
+        events.send_batch(assets.events.drain())
     }
 
     pub fn len(&self) -> usize {

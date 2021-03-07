@@ -37,7 +37,7 @@ enum AppState {
 
 fn setup_window(
     mut app_state: ResMut<State<AppState>>,
-    mut create_window_events: ResMut<Events<CreateWindow>>,
+    mut create_window_events: EventWriter<CreateWindow>,
 ) {
     let window_id = WindowId::new();
 

@@ -17,7 +17,7 @@ pub mod prelude {
     pub use crate::{
         app::App,
         app_builder::AppBuilder,
-        event::{EventReader, Events},
+        event::{EventReader, EventWriter},
         CoreStage, DynamicPlugin, Plugin, PluginGroup, StartupStage,
     };
 }
