@@ -46,7 +46,7 @@ fn button_system(
                 text.sections[0].value = "Hover".to_string();
                 *material = button_materials.hovered.clone();
             }
-            Interaction::None => {
+            Interaction::NoInteraction => {
                 text.sections[0].value = "Button".to_string();
                 *material = button_materials.normal.clone();
             }
