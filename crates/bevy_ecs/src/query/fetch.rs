@@ -575,7 +575,7 @@ impl<'a, T: Component + Eq + Hash + Clone> Drop for ActiveIndexed<'a, T> {
             .remove(&self.indexed.entity);
         index
             .forward
-            .entry(new_value.clone())
+            .entry(new_value)
             .or_default()
             .insert(self.indexed.entity);
     }
