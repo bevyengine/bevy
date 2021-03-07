@@ -232,9 +232,7 @@ where
     }
 
     /// See [`Query::single`]
-    pub fn single_mut(
-        &mut self,
-    ) -> Result<<Q::Fetch as Fetch<'_>>::Item, QuerySingleError<'_, Q>> {
+    pub fn single_mut(&mut self) -> Result<<Q::Fetch as Fetch<'_>>::Item, QuerySingleError<'_, Q>> {
         let mut query = self.iter_mut();
         let first = query.next();
         let extra = query.next().is_some();
