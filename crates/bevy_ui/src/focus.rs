@@ -10,12 +10,12 @@ use smallvec::SmallVec;
 pub enum Interaction {
     Clicked,
     Hovered,
-    None,
+    NoInteraction,
 }
 
 impl Default for Interaction {
     fn default() -> Self {
-        Interaction::None
+        Interaction::NoInteraction
     }
 }
 
@@ -61,7 +61,7 @@ pub fn ui_focus_system(
     // reset entities that were both clicked and released in the last frame
     for entity in state.entities_to_reset.drain(..) {
         if let Ok(mut interaction) = node_query.get_component_mut::<Interaction>(entity) {
-            *interaction = Interaction::None;
+            *interaction = Interaction::NoInteraction;
         }
     }
 
@@ -72,7 +72,7 @@ pub fn ui_focus_system(
         {
             if let Some(mut interaction) = interaction {
                 if *interaction == Interaction::Clicked {
-                    *interaction = Interaction::None;
+                    *interaction = Interaction::NoInteraction;
                 }
             }
         }
@@ -98,7 +98,7 @@ pub fn ui_focus_system(
                 } else {
                     if let Some(mut interaction) = interaction {
                         if *interaction == Interaction::Hovered {
-                            *interaction = Interaction::None;
+                            *interaction = Interaction::NoInteraction;
                         }
                     }
                     None
@@ -122,7 +122,7 @@ pub fn ui_focus_system(
                         state.entities_to_reset.push(entity);
                     }
                 }
-            } else if *interaction == Interaction::None {
+            } else if *interaction == Interaction::NoInteraction {
                 *interaction = Interaction::Hovered;
             }
         }
@@ -137,8 +137,8 @@ pub fn ui_focus_system(
     // reset lower nodes to None
     for (_entity, _focus_policy, interaction, _) in moused_over_z_sorted_nodes {
         if let Some(mut interaction) = interaction {
-            if *interaction != Interaction::None {
-                *interaction = Interaction::None;
+            if *interaction != Interaction::NoInteraction {
+                *interaction = Interaction::NoInteraction;
             }
         }
     }
