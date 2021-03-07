@@ -87,7 +87,7 @@ fn menu(
             Interaction::Hovered => {
                 *material = button_materials.hovered.clone();
             }
-            Interaction::None => {
+            Interaction::NoInteraction => {
                 *material = button_materials.normal.clone();
             }
         }
