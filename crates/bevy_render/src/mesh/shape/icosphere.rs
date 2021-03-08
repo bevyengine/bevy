@@ -1,7 +1,4 @@
-use bevy_hexasphere::{
-    shapes::IcoSphere,
-    Vec3 as V3,
-};
+use bevy_hexasphere::{shapes::IcoSphere, Vec3 as V3};
 
 use bevy_math::Vec3;
 
