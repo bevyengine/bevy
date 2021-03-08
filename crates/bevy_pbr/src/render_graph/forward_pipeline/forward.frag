@@ -294,7 +294,7 @@ void main() {
             ((diffuse + specular) * light.color.rgb) * (light.intensity * rangeAttenuation * NoL);
     }
 
-    output_color.rgb = light_accum;
+    output_color.rgb = light_accum + output_color.rgb * AmbientColor;
 
     // tone_mapping
     output_color.rgb = reinhard_luminance(output_color.rgb);
