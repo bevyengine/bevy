@@ -581,7 +581,7 @@ impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
     }
 }
 
-/// Flags on component `T` that happened since the start of the frame.
+/// Flags on component `T` that happened since the last execution of this system.
 #[derive(Clone)]
 pub struct Counters<T: Component> {
     component_counters: ComponentCounters,
@@ -606,13 +606,7 @@ impl<T: Component> Counters<T> {
             .is_added(self.system_counter, self.global_system_counter)
     }
 
-    /// Has this component been mutated since the last execution of this system.
-    pub fn is_mutated(&self) -> bool {
-        self.component_counters
-            .is_mutated(self.system_counter, self.global_system_counter)
-    }
-
-    /// Has this component been mutated since the last execution of this system.
+    /// Has this component been changed since the last execution of this system.
     pub fn is_changed(&self) -> bool {
         self.component_counters
             .is_changed(self.system_counter, self.global_system_counter)

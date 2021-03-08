@@ -29,7 +29,7 @@ fn change_component(time: Res<Time>, mut query: Query<(Entity, &mut MyComponent)
     }
 }
 
-// There are query filters for `Changed<T>`, `Added<T>` and `Mutated<T>`
+// There are query filters for `Changed<T>` and `Added<T>`
 // Only entities matching the filters will be in the query
 fn change_detection(query: Query<(Entity, &MyComponent), Changed<MyComponent>>) {
     for (entity, component) in query.iter() {

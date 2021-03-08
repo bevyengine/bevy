@@ -138,19 +138,13 @@ impl<'a> DerefMut for ReflectMut<'a> {
 }
 
 impl<'a> ReflectMut<'a> {
-    /// Returns true if (and only if) this component been added since the start of the frame.
+    /// Returns true if (and only if) this component been added since the last execution of this system.
     pub fn is_added(&self) -> bool {
         self.component_counters
             .is_added(self.system_counter, self.global_system_counter)
     }
 
-    /// Returns true if (and only if) this component been mutated since the start of the frame.
-    pub fn is_mutated(&self) -> bool {
-        self.component_counters
-            .is_mutated(self.system_counter, self.global_system_counter)
-    }
-
-    /// Returns true if (and only if) this component been either mutated or added since the start of the frame.
+    /// Returns true if (and only if) this component been changed since the last execution of this system.
     pub fn is_changed(&self) -> bool {
         self.component_counters
             .is_changed(self.system_counter, self.global_system_counter)

@@ -688,13 +688,13 @@ macro_rules! impl_counter_filter {
 }
 
 impl_counter_filter!(
-    /// Filter that retrieves components of type `T` that have been added since the start of the frame
+    /// Filter that retrieves components of type `T` that have been added since the last execution of this system
     ///
     /// This filter is useful as a performance optimization as it means that the query contains fewer items
     /// for a system to iterate over.
     ///
     /// Because the ordering of systems can change and this filter is only effective on changes before the query executes
-    /// you need to use explicit dependency ordering or ordered stages for these query filters to be useful.
+    /// you need to use explicit dependency ordering or ordered stages to avoid frame delays.
     ///
     ///
     /// Example:
@@ -719,46 +719,29 @@ impl_counter_filter!(
 );
 
 impl_counter_filter!(
-    /// Filter that retrieves components of type `T` that have been mutated since the start of the frame.
-    /// Added components do not count as mutated.
+    /// Filter that retrieves components of type `T` that have been changed since the last execution of this system
     ///
     /// This filter is useful as a performance optimization as it means that the query contains fewer items
     /// for a system to iterate over.
     ///
     /// Because the ordering of systems can change and this filter is only effective on changes before the query executes
-    /// you need to use explicit dependency ordering or ordered stages for these query filters to be useful.
+    /// you need to use explicit dependency ordering or ordered stages to avoid frame delays.
     ///
     /// Example:
     /// ```
     /// # use bevy_ecs::system::Query;
-    /// # use bevy_ecs::query::Mutated;
+    /// # use bevy_ecs::query::Changed;
     /// #
     /// # #[derive(Debug)]
     /// # struct Name {};
     /// # struct Transform {};
     /// #
-    /// fn print_moving_objects_system(query: Query<&Name, Mutated<Transform>>) {
+    /// fn print_moving_objects_system(query: Query<&Name, Changed<Transform>>) {
     ///     for name in query.iter() {
-    ///         println!("Entity Moved: {:?}", name)
+    ///         println!("Entity Moved: {:?}", name);
     ///     }
     /// }
     /// ```
-    Mutated,
-    MutatedState,
-    MutatedFetch,
-    ComponentCounters::is_mutated
-);
-
-impl_counter_filter!(
-    /// Filter that retrieves components of type `T` that have been added or mutated since the start of the frame
-    ///
-    /// This filter is useful as a performance optimization as it means that the query contains fewer items
-    /// for a system to iterate over.
-    ///
-    /// Because the ordering of systems can change and this filter is only effective on changes before the query executes
-    /// you need to use explicit dependency ordering or ordered stages for these query filters to be useful.
-    ///
-    /// Also see the documentation for [`Mutated<T>`] and [`Added`] as this filter is a logical OR of them.
     Changed,
     ChangedState,
     ChangedFetch,

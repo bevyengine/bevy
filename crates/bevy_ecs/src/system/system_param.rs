@@ -167,19 +167,13 @@ pub struct Res<'w, T> {
 }
 
 impl<'w, T: Component> Res<'w, T> {
-    /// Returns true if (and only if) this resource been added since the start of the frame.
+    /// Returns true if (and only if) this resource been added since the last execution of this system.
     pub fn is_added(&self) -> bool {
         self.counters
             .is_added(self.system_counter, self.global_system_counter)
     }
 
-    /// Returns true if (and only if) this resource been mutated since the start of the frame.
-    pub fn is_mutated(&self) -> bool {
-        self.counters
-            .is_mutated(self.system_counter, self.global_system_counter)
-    }
-
-    /// Returns true if (and only if) this resource been either mutated or added since the start of the frame.
+    /// Returns true if (and only if) this resource been changed since the last execution of this system.
     pub fn is_changed(&self) -> bool {
         self.counters
             .is_changed(self.system_counter, self.global_system_counter)
@@ -298,19 +292,13 @@ pub struct ResMut<'w, T> {
 }
 
 impl<'w, T: Component> ResMut<'w, T> {
-    /// Returns true if (and only if) this resource been added since the start of the frame.
+    /// Returns true if (and only if) this resource been added since the last execution of this system.
     pub fn is_added(&self) -> bool {
         self.counters
             .is_added(self.system_counter, self.global_system_counter)
     }
 
-    /// Returns true if (and only if) this resource been mutated since the start of the frame.
-    pub fn is_mutated(&self) -> bool {
-        self.counters
-            .is_mutated(self.system_counter, self.global_system_counter)
-    }
-
-    /// Returns true if (and only if) this resource been either mutated or added since the start of the frame.
+    /// Returns true if (and only if) this resource been changed since the last execution of this system.
     pub fn is_changed(&self) -> bool {
         self.counters
             .is_changed(self.system_counter, self.global_system_counter)
@@ -566,19 +554,13 @@ pub struct NonSend<'w, T> {
 }
 
 impl<'w, T: Component> NonSend<'w, T> {
-    /// Returns true if (and only if) this resource been added since the start of the frame.
+    /// Returns true if (and only if) this resource been added since the last execution of this system.
     pub fn is_added(&self) -> bool {
         self.counters
             .is_added(self.system_counter, self.global_system_counter)
     }
 
-    /// Returns true if (and only if) this resource been mutated since the start of the frame.
-    pub fn is_mutated(&self) -> bool {
-        self.counters
-            .is_mutated(self.system_counter, self.global_system_counter)
-    }
-
-    /// Returns true if (and only if) this resource been either mutated or added since the start of the frame.
+    /// Returns true if (and only if) this resource been changed since the last execution of this system.
     pub fn is_changed(&self) -> bool {
         self.counters
             .is_changed(self.system_counter, self.global_system_counter)
@@ -665,19 +647,13 @@ pub struct NonSendMut<'a, T: 'static> {
 }
 
 impl<'w, T: Component> NonSendMut<'w, T> {
-    /// Returns true if (and only if) this resource been added since the start of the frame.
+    /// Returns true if (and only if) this resource been added since the last execution of this system.
     pub fn is_added(&self) -> bool {
         self.counters
             .is_added(self.system_counter, self.global_system_counter)
     }
 
-    /// Returns true if (and only if) this resource been mutated since the start of the frame.
-    pub fn is_mutated(&self) -> bool {
-        self.counters
-            .is_mutated(self.system_counter, self.global_system_counter)
-    }
-
-    /// Returns true if (and only if) this resource been either mutated or added since the start of the frame.
+    /// Returns true if (and only if) this resource been changed since the last execution of this system.
     pub fn is_changed(&self) -> bool {
         self.counters
             .is_changed(self.system_counter, self.global_system_counter)

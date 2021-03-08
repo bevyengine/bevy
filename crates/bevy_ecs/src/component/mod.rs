@@ -308,11 +308,6 @@ impl ComponentCounters {
         component_age < system_age
     }
 
-    pub fn is_mutated(&self, system_counter: u32, global_system_counter: u32) -> bool {
-        self.is_changed(system_counter, global_system_counter)
-            && !self.is_added(system_counter, global_system_counter)
-    }
-
     pub(crate) fn new(global_system_counter: u32) -> Self {
         Self {
             added: global_system_counter,

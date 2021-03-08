@@ -22,7 +22,7 @@ mod tests {
         bundle::Bundles,
         component::Components,
         entity::{Entities, Entity},
-        query::{Added, Changed, Mutated, Or, With, Without},
+        query::{Added, Changed, Not, Or, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
             IntoExclusiveSystem, IntoSystem, Local, Query, QuerySet, RemovedComponents, Res,
@@ -130,7 +130,7 @@ mod tests {
             set: QuerySet<(
                 Query<(), Or<(Changed<A>, Changed<B>)>>,
                 Query<(), Or<(Added<A>, Added<B>)>>,
-                Query<(), Or<(Mutated<A>, Mutated<B>)>>,
+                Query<(), Or<((Changed<A>, Not<Added<A>>), (Changed<B>, Not<Added<B>>))>>,
             )>,
         ) {
             let changed = set.q0().iter().count();

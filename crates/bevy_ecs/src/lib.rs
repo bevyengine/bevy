@@ -16,7 +16,7 @@ pub mod prelude {
     pub use crate::{
         bundle::Bundle,
         entity::Entity,
-        query::{Added, Changed, Counters, Mutated, Or, QueryState, With, WithBundle, Without},
+        query::{Added, Changed, Counters, Or, QueryState, With, WithBundle, Without},
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
             Schedule, Stage, StageLabel, State, StateStage, SystemLabel, SystemStage,
@@ -35,7 +35,7 @@ mod tests {
         bundle::Bundle,
         component::{Component, ComponentDescriptor, StorageType, TypeInfo},
         entity::Entity,
-        query::{Added, Changed, Counters, FilterFetch, Mutated, Or, With, Without, WorldQuery},
+        query::{Added, Changed, Counters, FilterFetch, Not, Or, With, Without, WorldQuery},
         world::{Mut, World},
     };
     use bevy_tasks::TaskPool;
@@ -697,17 +697,20 @@ mod tests {
                 .collect::<Vec<Entity>>()
         }
 
-        assert_eq!(get_filtered::<Mutated<A>>(&mut world), vec![e1, e3]);
+        assert_eq!(
+            get_filtered::<(Changed<A>, Not<Added<A>>)>(&mut world),
+            vec![e1, e3]
+        );
 
         // ensure changing an entity's archetypes also moves its mutated state
         world.entity_mut(e1).insert(C);
 
-        assert_eq!(get_filtered::<Mutated<A>>(&mut world), vec![e3, e1], "changed entities list should not change (although the order will due to archetype moves)");
+        assert_eq!(get_filtered::<(Changed<A>, Not<Added<A>>)>(&mut world), vec![e3, e1], "changed entities list should not change (although the order will due to archetype moves)");
 
         // spawning a new A entity should not change existing mutated state
         world.entity_mut(e1).insert_bundle((A(0), B));
         assert_eq!(
-            get_filtered::<Mutated<A>>(&mut world),
+            get_filtered::<(Changed<A>, Not<Added<A>>)>(&mut world),
             vec![e3, e1],
             "changed entities list should not change"
         );
@@ -715,7 +718,7 @@ mod tests {
         // removing an unchanged entity should not change mutated state
         assert!(world.despawn(e2));
         assert_eq!(
-            get_filtered::<Mutated<A>>(&mut world),
+            get_filtered::<(Changed<A>, Not<Added<A>>)>(&mut world),
             vec![e3, e1],
             "changed entities list should not change"
         );
@@ -723,7 +726,7 @@ mod tests {
         // removing a changed entity should remove it from enumeration
         assert!(world.despawn(e1));
         assert_eq!(
-            get_filtered::<Mutated<A>>(&mut world),
+            get_filtered::<(Changed<A>, Not<Added<A>>)>(&mut world),
             vec![e3],
             "e1 should no longer be returned"
         );
@@ -731,16 +734,16 @@ mod tests {
         world.clear_trackers();
         world.exclusive_system_counter = world.increment_global_system_counter();
 
-        assert!(get_filtered::<Mutated<A>>(&mut world).is_empty());
+        assert!(get_filtered::<(Changed<A>, Not<Added<A>>)>(&mut world).is_empty());
 
         let e4 = world.spawn().id();
 
         world.entity_mut(e4).insert(A(0));
-        assert!(get_filtered::<Mutated<A>>(&mut world).is_empty());
+        assert!(get_filtered::<(Changed<A>, Not<Added<A>>)>(&mut world).is_empty());
         assert_eq!(get_filtered::<Added<A>>(&mut world), vec![e4]);
 
         world.entity_mut(e4).insert(A(1));
-        // assert_eq!(get_filtered::<Mutated<A>>(&mut world), vec![e4]); // This case is no longer possible to detect
+        // assert_eq!(get_filtered::<(Changed<A>, Not<Added<A>>)>(&mut world), vec![e4]); // This case is no longer possible to detect
 
         world.clear_trackers();
         world.exclusive_system_counter = world.increment_global_system_counter();
@@ -751,9 +754,12 @@ mod tests {
         world.entity_mut(e4).insert_bundle((A(0), B(0)));
 
         assert!(get_filtered::<Added<A>>(&mut world).is_empty());
-        assert_eq!(get_filtered::<Mutated<A>>(&mut world), vec![e4]);
+        assert_eq!(
+            get_filtered::<(Changed<A>, Not<Added<A>>)>(&mut world),
+            vec![e4]
+        );
         assert_eq!(get_filtered::<Added<B>>(&mut world), vec![e4]);
-        assert!(get_filtered::<Mutated<B>>(&mut world).is_empty());
+        assert!(get_filtered::<(Changed<B>, Not<Added<B>>)>(&mut world).is_empty());
     }
 
     #[test]
@@ -793,7 +799,7 @@ mod tests {
         }
 
         let a_b_mutated = world
-            .query_filtered::<Entity, (Mutated<A>, Mutated<B>)>()
+            .query_filtered::<Entity, ((Changed<A>, Not<Added<A>>), (Changed<B>, Not<Added<B>>))>()
             .iter()
             .collect::<Vec<Entity>>();
         assert_eq!(a_b_mutated, vec![e2]);
@@ -814,7 +820,7 @@ mod tests {
         *world.entity_mut(e4).get_mut::<A>().unwrap() = A(1);
 
         let a_b_mutated = world
-            .query_filtered::<Entity, Or<(Mutated<A>, Mutated<B>)>>()
+            .query_filtered::<Entity, Or<((Changed<A>, Not<Added<A>>), (Changed<B>, Not<Added<B>>))>>()
             .iter()
             .collect::<Vec<Entity>>();
         // e1 has mutated A, e3 has mutated B, e2 has mutated A and B, _e4 has no mutated component
@@ -1051,7 +1057,6 @@ mod tests {
         let a_counters = counters[0].as_ref().unwrap();
         assert!(counters[1].is_none());
         assert!(a_counters.is_added());
-        assert!(!a_counters.is_mutated());
         assert!(a_counters.is_changed());
         world.clear_trackers();
         world.exclusive_system_counter = world.increment_global_system_counter();
@@ -1061,7 +1066,6 @@ mod tests {
             .collect::<Vec<_>>();
         let a_counters = counters[0].as_ref().unwrap();
         assert!(!a_counters.is_added());
-        assert!(!a_counters.is_mutated());
         assert!(!a_counters.is_changed());
         *world.get_mut(e1).unwrap() = A(1);
         let counters = world
@@ -1071,7 +1075,6 @@ mod tests {
         let a_counters = counters[0].as_ref().unwrap();
         assert!(!a_counters.is_added());
         assert!(a_counters.is_changed());
-        assert!(a_counters.is_mutated());
     }
 
     #[test]
