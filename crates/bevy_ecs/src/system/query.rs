@@ -213,7 +213,7 @@ where
         }
     }
 
-    pub fn single(&self) -> Result<<Q::Fetch as Fetch<'_>>::Item, QuerySingleError<'_, Q>>
+    pub fn single(&self) -> Result<<Q::Fetch as Fetch<'_>>::Item, QuerySingleError>
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -224,15 +224,14 @@ where
         match (first, extra) {
             (Some(r), false) => Ok(r),
             (None, _) => Err(QuerySingleError::NoEntities(std::any::type_name::<Self>())),
-            (Some(r), _) => Err(QuerySingleError::MultipleEntities {
-                result: r,
-                query_name: std::any::type_name::<Self>(),
-            }),
+            (Some(_), _) => Err(QuerySingleError::MultipleEntities(std::any::type_name::<
+                Self,
+            >())),
         }
     }
 
     /// See [`Query::single`]
-    pub fn single_mut(&mut self) -> Result<<Q::Fetch as Fetch<'_>>::Item, QuerySingleError<'_, Q>> {
+    pub fn single_mut(&mut self) -> Result<<Q::Fetch as Fetch<'_>>::Item, QuerySingleError> {
         let mut query = self.iter_mut();
         let first = query.next();
         let extra = query.next().is_some();
@@ -240,10 +239,9 @@ where
         match (first, extra) {
             (Some(r), false) => Ok(r),
             (None, _) => Err(QuerySingleError::NoEntities(std::any::type_name::<Self>())),
-            (Some(r), _) => Err(QuerySingleError::MultipleEntities {
-                result: r,
-                query_name: std::any::type_name::<Self>(),
-            }),
+            (Some(_), _) => Err(QuerySingleError::MultipleEntities(std::any::type_name::<
+                Self,
+            >())),
         }
     }
 }
@@ -261,22 +259,10 @@ pub enum QueryComponentError {
     NoSuchEntity,
 }
 
-#[derive(Error)]
-pub enum QuerySingleError<'a, Q: WorldQuery> {
+#[derive(Debug, Error)]
+pub enum QuerySingleError {
     #[error("No entities fit the query {0}")]
     NoEntities(&'static str),
-    #[error("Multiple entities fit the query {query_name}!")]
-    MultipleEntities {
-        result: <Q::Fetch as Fetch<'a>>::Item,
-        query_name: &'static str,
-    },
-}
-
-impl<'a, Q: WorldQuery> Debug for QuerySingleError<'a, Q> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::NoEntities(_) => f.debug_tuple("NoEntities").finish(),
-            Self::MultipleEntities { .. } => f.debug_tuple("MultipleEntities").finish(),
-        }
-    }
+    #[error("Multiple entities fit the query {0}!")]
+    MultipleEntities(&'static str),
 }
