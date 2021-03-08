@@ -15,8 +15,9 @@ use std::{
 ///
 /// Obtained from [World::spawn](crate::world::World::spawn), typically via [Commands::spawn](crate::system::Commands::spawn). Can be stored to refer to an entity in the future.
 ///
-/// You can get the `Entity` ID of entities returned in your queries by using `Query<(Entity, &MyComponent)>`.
-/// Use [Query::get](crate::system::Query::get) and related methods to extract the components of a specific entity.
+/// `Entity` can be a part of a query, e.g. `Query<(Entity, &MyComponent)>`.
+/// Components of a specific entity can be accessed using
+/// [Query::get](crate::system::Query::get) and related methods.
 #[derive(Clone, Copy, Hash, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Entity {
     pub(crate) generation: u32,
