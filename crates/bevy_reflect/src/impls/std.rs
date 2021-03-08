@@ -112,7 +112,7 @@ impl<T: Reflect> Reflect for Vec<T> {
     }
 }
 
-impl<'a, T: Reflect + Deserialize<'a>> GetTypeRegistration for Vec<T> {
+impl<T: Reflect + for<'de> Deserialize<'de>> GetTypeRegistration for Vec<T> {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Vec<T>>();
         registration.insert::<ReflectDeserialize>(FromType::<Vec<T>>::from_type());
