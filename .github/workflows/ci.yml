@@ -104,3 +104,4 @@ jobs:
         run: cargo install cargo-deadlinks
       - name: Checks dead doc links
         run: cargo deadlinks
+        continue-on-error: true
