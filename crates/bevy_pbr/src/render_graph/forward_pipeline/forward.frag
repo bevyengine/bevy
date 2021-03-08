@@ -299,7 +299,8 @@ void main() {
     // tone_mapping
     output_color.rgb = reinhard_luminance(output_color.rgb);
     // Gamma correction.
-    output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
+    // Not needed with sRGB buffer
+    // output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
 #endif
 
     o_Target = output_color;
