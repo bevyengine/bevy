@@ -75,7 +75,8 @@ layout(set = 3,
 #ifndef STANDARDMATERIAL_UNLIT
 
 layout(set = 3, binding = 3) uniform StandardMaterial_roughness_factor {
-    float perceptual_roughness;
+    // perceptual roughness is remapped to roughness on the CPU
+    float roughness;
 };
 
 layout(set = 3, binding = 4) uniform StandardMaterial_metallic_factor {
@@ -83,6 +84,7 @@ layout(set = 3, binding = 4) uniform StandardMaterial_metallic_factor {
 };
 
 layout(set = 3, binding = 5) uniform StandardMaterial_reflectance {
+    // reflectance is remapped on the CPU
     float reflectance;
 };
 
@@ -190,14 +192,6 @@ float Fd_Burley(float roughness, float NoV, float NoL, float LoH) {
     return lightScatter * viewScatter * (1.0 / PI);
 }
 
-float perceptualRoughnessToRoughness(float perceptualRoughness) {
-    // clamp perceptual roughness to prevent precision problems
-    // According to Filament design 0.089 is recommended for mobile
-    // Filament uses 0.045 for non-mobile
-    float clampedPerceptualRoughness = clamp(perceptualRoughness, 0.089, 1.0);
-    return clampedPerceptualRoughness * clampedPerceptualRoughness;
-}
-
 // from https://64.github.io/tonemapping/
 // reinhard on RGB oversaturates colors
 vec3 reinhard(vec3 color) {
@@ -244,15 +238,12 @@ void main() {
 #endif
 
 #ifndef STANDARDMATERIAL_UNLIT
-    // calculate non-linear roughness from linear perceptualRoughness
-    float roughness = perceptualRoughnessToRoughness(perceptual_roughness);
-
     vec3 N = normalize(v_Normal);
     vec3 V = normalize(CameraPos.xyz - w_Position.xyz);
 
-    // Remapping [0,1] reflectance to F0
+    // Reflectance is remapped before being passed to the GPU
     // See https://google.github.io/filament/Filament.html#materialsystem/parameterization/remapping
-    vec3 F0 = 0.16 * reflectance * reflectance * (1.0 - metallic) + output_color.rgb * metallic;
+    vec3 F0 = reflectance * (1.0 - metallic) + output_color.rgb * metallic;
 
     // Diffuse strength inversely related to metallicity
     vec3 diffuseColor = output_color.rgb * (1.0 - metallic);

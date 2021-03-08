@@ -36,8 +36,8 @@ fn setup(
                     material: materials.add(StandardMaterial {
                         base_color_factor: Color::rgb(0.2, 0.2, 1.0),
                         // vary key PBR parameters on a grid of spheres to show the effect
-                        metallic_factor: y01,
-                        roughness_factor: x01,
+                        metallic_factor: y01.into(),
+                        roughness_factor: x01.into(),
                         ..Default::default()
                     }),
                     transform: Transform::from_xyz(x as f32, y as f32, 0.0),
@@ -53,7 +53,7 @@ fn setup(
                 intensity: 100.0,
                 ..Default::default()
             },
-            transform: Transform::from_translation(Vec3::new(0.0, 10.0, 10.0)),
+            transform: Transform::from_translation(Vec3::new(0.0, 5.0, 5.0)),
             ..Default::default()
         })
         // camera
