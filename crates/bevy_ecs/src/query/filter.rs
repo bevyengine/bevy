@@ -554,7 +554,7 @@ unsafe impl<T: FetchState> FetchState for Not<T> {
 macro_rules! impl_counter_filter {
     (
         $(#[$meta:meta])*
-        $name: ident, $state_name: ident, $fetch_name: ident, $($counters: expr),+) => {
+        $name: ident, $state_name: ident, $fetch_name: ident, $is_detected: expr) => {
         $(#[$meta])*
         pub struct $name<T>(PhantomData<T>);
 
@@ -667,19 +667,19 @@ macro_rules! impl_counter_filter {
             }
 
             unsafe fn table_fetch(&mut self, table_row: usize) -> bool {
-                false $(|| $counters(&*self.table_counters.add(table_row), self.system_counter, self.global_system_counter))+
+                $is_detected(&*self.table_counters.add(table_row), self.system_counter, self.global_system_counter)
             }
 
             unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> bool {
                 match self.storage_type {
                     StorageType::Table => {
                         let table_row = *self.entity_table_rows.add(archetype_index);
-                        false $(|| $counters(&*self.table_counters.add(table_row), self.system_counter, self.global_system_counter))+
+                        $is_detected(&*self.table_counters.add(table_row), self.system_counter, self.global_system_counter)
                     }
                     StorageType::SparseSet => {
                         let entity = *self.entities.add(archetype_index);
                         let counters = (*(*self.sparse_set).get_counters(entity).unwrap());
-                        false $(|| $counters(&counters, self.system_counter, self.global_system_counter))+
+                        $is_detected(&counters, self.system_counter, self.global_system_counter)
                     }
                 }
             }
