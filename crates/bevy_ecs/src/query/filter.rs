@@ -47,7 +47,7 @@ where
     }
 }
 
-/// Filter that retrieves components of type `T` that have either been mutated or added since the start of the frame.
+/// Filter that selects entities with a component `T`
 pub struct With<T>(PhantomData<T>);
 
 impl<T: Component> WorldQuery for With<T> {
@@ -142,7 +142,7 @@ impl<'a, T: Component> Fetch<'a> for WithFetch<T> {
     }
 }
 
-/// Filter that retrieves components of type `T` that have either been mutated or added since the start of the frame.
+/// Filter that selects entities without a component `T`
 pub struct Without<T>(PhantomData<T>);
 
 impl<T: Component> WorldQuery for Without<T> {
@@ -454,6 +454,102 @@ macro_rules! impl_query_filter_tuple {
 }
 
 all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
+
+/// Query trnasformer that inverses its inner filter.
+/// For example, `Not<With<T>>` is equivalent to `Without<T>`
+pub struct Not<T>(pub T);
+
+pub struct NotFetch<T: FilterFetch> {
+    fetch: T,
+    matches: bool,
+}
+
+impl<T: WorldQuery> WorldQuery for Not<T>
+where
+    T::Fetch: FilterFetch,
+{
+    type Fetch = Not<NotFetch<T::Fetch>>;
+    type State = Not<T::State>;
+}
+
+impl<'a, T: FilterFetch> Fetch<'a> for Not<NotFetch<T>> {
+    type Item = bool;
+    type State = Not<<T as Fetch<'a>>::State>;
+
+    unsafe fn init(
+        world: &World,
+        state: &Self::State,
+        system_counter: u32,
+        global_system_counter: u32,
+    ) -> Self {
+        Not(NotFetch {
+            fetch: T::init(world, &state.0, system_counter, global_system_counter),
+            matches: false,
+        })
+    }
+
+    fn is_dense(&self) -> bool {
+        self.0.fetch.is_dense()
+    }
+
+    unsafe fn set_table(&mut self, state: &Self::State, table: &Table) {
+        self.0.matches = state.0.matches_table(table);
+        if self.0.matches {
+            self.0.fetch.set_table(&state.0, table);
+        }
+    }
+
+    unsafe fn set_archetype(
+        &mut self,
+        state: &Self::State,
+        archetype: &Archetype,
+        tables: &Tables,
+    ) {
+        self.0.matches = state.0.matches_archetype(archetype);
+        if self.0.matches {
+            self.0.fetch.set_archetype(&state.0, archetype, tables);
+        }
+    }
+
+    unsafe fn table_fetch(&mut self, table_row: usize) -> bool {
+        dbg!((&self.0.matches, self.0.fetch.table_filter_fetch(table_row)));
+        !(self.0.matches && self.0.fetch.table_filter_fetch(table_row))
+    }
+
+    unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> bool {
+        dbg!((
+            &self.0.matches,
+            self.0.fetch.archetype_filter_fetch(archetype_index)
+        ));
+        !(self.0.matches && self.0.fetch.archetype_filter_fetch(archetype_index))
+    }
+}
+
+unsafe impl<T: FetchState> FetchState for Not<T> {
+    fn init(world: &mut World) -> Self {
+        Not(T::init(world))
+    }
+
+    fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
+        self.0.update_component_access(access);
+    }
+
+    fn update_archetype_component_access(
+        &self,
+        archetype: &Archetype,
+        access: &mut Access<ArchetypeComponentId>,
+    ) {
+        self.0.update_archetype_component_access(archetype, access);
+    }
+
+    fn matches_archetype(&self, _archetype: &Archetype) -> bool {
+        true
+    }
+
+    fn matches_table(&self, _table: &Table) -> bool {
+        true
+    }
+}
 
 macro_rules! impl_counter_filter {
     (
