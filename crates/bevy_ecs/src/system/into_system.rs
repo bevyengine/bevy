@@ -1,6 +1,6 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
-    component::ComponentId,
+    component::{check_counter_impl, ComponentId},
     query::{Access, FilteredAccessSet},
     system::{System, SystemId, SystemParam, SystemParamFetch, SystemParamState},
     world::World,
@@ -166,6 +166,11 @@ where
             &mut self.system_state,
             self.config.take().unwrap(),
         ));
+    }
+
+    #[inline]
+    fn check_system_counter(&mut self, global_system_counter: u32) {
+        check_counter_impl(&mut self.system_state.system_counter, global_system_counter);
     }
 }
 

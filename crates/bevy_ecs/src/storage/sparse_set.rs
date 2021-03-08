@@ -213,10 +213,10 @@ impl ComponentSparseSet {
         }
     }
 
-    pub(crate) fn clear_counters(&mut self, global_system_counter: u32) {
+    pub(crate) fn check_counters(&mut self, global_system_counter: u32) {
         let counters = self.counters.get_mut().iter_mut();
         for component_counters in counters {
-            component_counters.clear(global_system_counter);
+            component_counters.check_counters(global_system_counter);
         }
     }
 }
@@ -443,9 +443,9 @@ impl SparseSets {
         self.sets.get_mut(component_id)
     }
 
-    pub(crate) fn clear_counters(&mut self, global_system_counter: u32) {
+    pub(crate) fn check_counters(&mut self, global_system_counter: u32) {
         for set in self.sets.values_mut() {
-            set.clear_counters(global_system_counter);
+            set.check_counters(global_system_counter);
         }
     }
 }

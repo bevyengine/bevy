@@ -399,21 +399,10 @@ impl World {
             .unwrap_or(false)
     }
 
-    /// Clears all component tracker state, such as "added", "mutated", and "removed".
+    /// Clears removed component tracker state
     pub fn clear_trackers(&mut self) {
-        // PERF: parallelize iterations
-        let global_system_counter = self.get_global_system_counter_unordered();
-        self.storages.tables.clear_counters(global_system_counter);
-        self.storages
-            .sparse_sets
-            .clear_counters(global_system_counter);
         for entities in self.removed_components.values_mut() {
             entities.clear();
-        }
-
-        let resource_archetype = self.archetypes.resource_mut();
-        for column in resource_archetype.unique_components.values_mut() {
-            column.clear_counters(global_system_counter);
         }
     }
 
@@ -891,6 +880,20 @@ impl World {
 
     pub fn get_exclusive_system_counter(&self) -> u32 {
         self.exclusive_system_counter
+    }
+
+    pub fn check_component_counters(&mut self) {
+        // Iterate over all component counters, clamping their age to max age
+        // PERF: parallelize
+        let global_system_counter = self.get_global_system_counter_unordered();
+        self.storages.tables.clear_counters(global_system_counter);
+        self.storages
+            .sparse_sets
+            .check_counters(global_system_counter);
+        let resource_archetype = self.archetypes.resource_mut();
+        for column in resource_archetype.unique_components.values_mut() {
+            column.check_counters(global_system_counter);
+        }
     }
 }
 

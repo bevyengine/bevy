@@ -196,4 +196,9 @@ impl System for FixedTimestep {
             );
         }
     }
+
+    fn check_system_counter(&mut self, global_system_counter: u32) {
+        self.internal_system
+            .check_system_counter(global_system_counter);
+    }
 }

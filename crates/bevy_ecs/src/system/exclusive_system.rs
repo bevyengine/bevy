@@ -1,4 +1,5 @@
 use crate::{
+    component::check_counter_impl,
     system::{BoxedSystem, IntoSystem, System, SystemId},
     world::World,
 };
@@ -12,6 +13,8 @@ pub trait ExclusiveSystem: Send + Sync + 'static {
     fn run(&mut self, world: &mut World);
 
     fn initialize(&mut self, world: &mut World);
+
+    fn check_system_counter(&mut self, global_system_counter: u32);
 }
 
 pub struct ExclusiveSystemFn {
@@ -45,6 +48,10 @@ impl ExclusiveSystem for ExclusiveSystemFn {
     }
 
     fn initialize(&mut self, _: &mut World) {}
+
+    fn check_system_counter(&mut self, global_system_counter: u32) {
+        check_counter_impl(&mut self.system_counter, global_system_counter);
+    }
 }
 
 pub trait IntoExclusiveSystem<Params, SystemType> {
@@ -86,6 +93,10 @@ impl ExclusiveSystem for ExclusiveSystemCoerced {
 
     fn initialize(&mut self, world: &mut World) {
         self.system.initialize(world);
+    }
+
+    fn check_system_counter(&mut self, global_system_counter: u32) {
+        self.system.check_system_counter(global_system_counter);
     }
 }
 

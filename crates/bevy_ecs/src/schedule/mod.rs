@@ -326,4 +326,6 @@ impl System for RunOnce {
     fn apply_buffers(&mut self, _world: &mut World) {}
 
     fn initialize(&mut self, _world: &mut World) {}
+
+    fn check_system_counter(&mut self, _global_system_counter: u32) {}
 }

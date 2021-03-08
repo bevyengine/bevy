@@ -37,6 +37,7 @@ pub trait System: Send + Sync + 'static {
     }
     fn apply_buffers(&mut self, world: &mut World);
     fn initialize(&mut self, _world: &mut World);
+    fn check_system_counter(&mut self, global_system_counter: u32);
 }
 
 pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;

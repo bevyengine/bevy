@@ -78,6 +78,8 @@ pub struct SystemStage {
     uninitialized_at_end: Vec<usize>,
     /// Newly inserted systems that will be initialized at the next opportunity.
     uninitialized_parallel: Vec<usize>,
+    /// Saves the value of the global system counter during the last counter check
+    last_counter_check: u32,
 }
 
 impl SystemStage {
@@ -100,6 +102,7 @@ impl SystemStage {
             uninitialized_at_start: vec![],
             uninitialized_before_commands: vec![],
             uninitialized_at_end: vec![],
+            last_counter_check: Default::default(),
         }
     }
 
@@ -167,6 +170,15 @@ impl SystemStage {
 
     // TODO: consider exposing
     fn add_system_to_set(&mut self, system: impl Into<SystemDescriptor>, set: usize) -> &mut Self {
+        // This assertion is there to document that a maximum of `u32::MAX / 8` systems should be added to a stage
+        // to guarantee that change detection has no false positive, but it can be circumvented using exclusive or chained systems
+        assert!(
+            self.exclusive_at_start.len()
+                + self.exclusive_before_commands.len()
+                + self.exclusive_at_end.len()
+                + self.parallel.len()
+                < (u32::MAX / 8) as usize
+        );
         self.systems_modified = true;
         match system.into() {
             SystemDescriptor::Exclusive(descriptor) => {
@@ -314,6 +326,43 @@ impl SystemStage {
                 write_display_names_of_pairs(&mut string, &self.exclusive_at_end, at_end);
             }
             info!("{}", string);
+        }
+    }
+
+    /// Checks for old component and system counters
+    fn check_counters(&mut self, world: &mut World) {
+        let global_system_counter = world.get_global_system_counter_unordered();
+        let time_since_last_check = global_system_counter.wrapping_sub(self.last_counter_check);
+        // Only check after at least `u32::MAX / 8` counts, and at most `u32::MAX / 4` counts
+        // since the max number of [System] in a [SystemStage] is limited to `u32::MAX / 8`
+        // and this function is called at the end of each [SystemStage] loop
+        if time_since_last_check > (u32::MAX / 8) {
+            // Check all system counters
+            for exclusive_system in &mut self.exclusive_at_start {
+                exclusive_system
+                    .system_mut()
+                    .check_system_counter(global_system_counter);
+            }
+            for exclusive_system in &mut self.exclusive_before_commands {
+                exclusive_system
+                    .system_mut()
+                    .check_system_counter(global_system_counter);
+            }
+            for exclusive_system in &mut self.exclusive_at_end {
+                exclusive_system
+                    .system_mut()
+                    .check_system_counter(global_system_counter);
+            }
+            for parallel_system in &mut self.parallel {
+                parallel_system
+                    .system_mut()
+                    .check_system_counter(global_system_counter);
+            }
+
+            // Check component counters
+            world.check_component_counters();
+
+            self.last_counter_check = global_system_counter;
         }
     }
 }
@@ -600,6 +649,9 @@ impl Stage for SystemStage {
                     container.system_mut().run(world);
                 }
             }
+
+            // Check for old component and system counters
+            self.check_counters(world);
 
             // Reevaluate system sets' run criteria.
             has_work = false;

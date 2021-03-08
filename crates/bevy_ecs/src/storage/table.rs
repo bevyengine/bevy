@@ -140,10 +140,10 @@ impl Column {
     }
 
     #[inline]
-    pub(crate) fn clear_counters(&mut self, global_system_counter: u32) {
+    pub(crate) fn check_counters(&mut self, global_system_counter: u32) {
         let counters = unsafe { (*self.counters.get()).iter_mut() };
         for component_counters in counters {
-            component_counters.clear(global_system_counter);
+            component_counters.check_counters(global_system_counter);
         }
     }
 }
@@ -356,7 +356,7 @@ impl Table {
 
     pub(crate) fn clear_counters(&mut self, global_system_counter: u32) {
         for column in self.columns.values_mut() {
-            column.clear_counters(global_system_counter);
+            column.check_counters(global_system_counter);
         }
     }
 

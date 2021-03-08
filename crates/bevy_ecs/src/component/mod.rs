@@ -320,11 +320,21 @@ impl ComponentCounters {
         }
     }
 
-    pub(crate) fn clear(&mut self, _global_system_counter: u32) {
-        // TODO: advance old component counters before they are passed by the global counter
+    pub(crate) fn check_counters(&mut self, global_system_counter: u32) {
+        check_counter_impl(&mut self.added, global_system_counter);
+        check_counter_impl(&mut self.changed, global_system_counter);
     }
 
     pub(crate) fn set_changed(&mut self, global_system_counter: u32) {
         self.changed = global_system_counter;
+    }
+}
+
+pub(crate) fn check_counter_impl(counter: &mut u32, global_system_counter: u32) {
+    let counter_age = global_system_counter.wrapping_sub(*counter);
+    let max_age = (u32::MAX / 4) * 3;
+    // Clamp to max age
+    if counter_age > max_age {
+        *counter = global_system_counter.wrapping_sub(max_age);
     }
 }
