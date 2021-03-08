@@ -1,9 +1,59 @@
-use hexasphere::shapes::IcoSphere;
+use bevy_hexasphere::{
+    shapes::IcoSphere,
+    Vec3 as V3,
+};
+
+use bevy_math::Vec3;
 
 use crate::{
     mesh::{Indices, Mesh},
     pipeline::PrimitiveTopology,
 };
+use std::ops::{Add, Mul};
+
+#[derive(Copy, Clone)]
+struct Vec3Hack(Vec3);
+
+impl Add<Vec3Hack> for Vec3Hack {
+    type Output = Self;
+
+    fn add(self, rhs: Vec3Hack) -> Self::Output {
+        Self(self.0 + rhs.0)
+    }
+}
+
+impl Mul<f32> for Vec3Hack {
+    type Output = Self;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Self(self.0 * rhs)
+    }
+}
+
+impl V3 for Vec3Hack {
+    const ZERO: Self = Vec3Hack(Vec3::ZERO);
+
+    #[inline]
+    fn dot(self, other: Self) -> f32 {
+        self.0.dot(other.0)
+    }
+
+    #[inline]
+    fn normalize(self) -> Self {
+        Self(self.0.normalize())
+    }
+
+    #[inline]
+    fn from_arr3([x, y, z]: [f32; 3]) -> Self {
+        Self(Vec3::new(x, y, z))
+    }
+}
+
+impl From<Vec3Hack> for [f32; 3] {
+    fn from(Vec3Hack(v): Vec3Hack) -> Self {
+        [v.x, v.y, v.z]
+    }
+}
 
 /// A sphere made from a subdivided Icosahedron.
 #[derive(Debug)]
@@ -63,7 +113,8 @@ impl From<Icosphere> for Mesh {
                 number_of_resulting_points
             );
         }
-        let generated = IcoSphere::new(sphere.subdivisions, |point| {
+        let generated = IcoSphere::new(sphere.subdivisions, |point: Vec3Hack| {
+            let point = point.0;
             let inclination = point.z.acos();
             let azumith = point.y.atan2(point.x);
 
@@ -86,13 +137,9 @@ impl From<Icosphere> for Mesh {
             .map(Into::into)
             .collect::<Vec<[f32; 3]>>();
 
-        let uvs = generated.raw_data().to_owned();
+        let uvs = generated.raw_user_data().to_owned();
 
-        let mut indices = Vec::with_capacity(generated.indices_per_main_triangle() * 20);
-
-        for i in 0..20 {
-            generated.get_indices(i, &mut indices);
-        }
+        let indices = generated.get_all_indices();
 
         let indices = Indices::U32(indices);
 
