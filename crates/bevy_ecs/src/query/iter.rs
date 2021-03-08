@@ -29,7 +29,7 @@ where
     pub(crate) unsafe fn new(
         world: &'w World,
         query_state: &'s QueryState<Q, F>,
-        system_counter: Option<u32>,
+        system_counter: u32,
         global_system_counter: u32,
     ) -> Self {
         let fetch = <Q::Fetch as Fetch>::init(

@@ -115,7 +115,7 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
 pub struct ReflectMut<'a> {
     pub(crate) value: &'a mut dyn Reflect,
     pub(crate) component_counters: &'a mut ComponentCounters,
-    pub(crate) system_counter: Option<u32>,
+    pub(crate) system_counter: u32,
     pub(crate) global_system_counter: u32,
 }
 

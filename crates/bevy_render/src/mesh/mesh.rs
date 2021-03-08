@@ -233,13 +233,10 @@ pub struct Mesh {
 impl Mesh {
     /// Per vertex coloring. Use in conjunction with [`Mesh::set_attribute`]
     pub const ATTRIBUTE_COLOR: &'static str = "Vertex_Color";
-
     /// The direction the vertex normal is facing in. Use in conjunction with [`Mesh::set_attribute`]
     pub const ATTRIBUTE_NORMAL: &'static str = "Vertex_Normal";
-
     /// Where the vertex is located in space. Use in conjunction with [`Mesh::set_attribute`]
     pub const ATTRIBUTE_POSITION: &'static str = "Vertex_Position";
-
     /// Texture coordinates for the vertex. Use in conjunction with [`Mesh::set_attribute`]
     pub const ATTRIBUTE_UV_0: &'static str = "Vertex_Uv";
 

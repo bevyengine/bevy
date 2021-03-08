@@ -628,7 +628,7 @@ mod tests {
         assert!(world.query_filtered::<(), Added<i32>>().get(a).is_ok());
 
         world.clear_trackers();
-        world.exclusive_system_counter = Some(world.increment_global_system_counter());
+        world.exclusive_system_counter = world.increment_global_system_counter();
 
         assert_eq!(world.query::<&i32>().iter().count(), 1);
         assert_eq!(world.query_filtered::<(), Added<i32>>().iter().count(), 0);
@@ -658,7 +658,7 @@ mod tests {
         assert_eq!(get_added::<B>(&mut world), vec![e1]);
 
         world.clear_trackers();
-        world.exclusive_system_counter = Some(world.increment_global_system_counter());
+        world.exclusive_system_counter = world.increment_global_system_counter();
         assert!(get_added::<A>(&mut world).is_empty());
         let e2 = world.spawn().insert_bundle((A(1), B(1))).id();
         assert_eq!(get_added::<A>(&mut world), vec![e2]);
@@ -679,7 +679,7 @@ mod tests {
         let e3 = world.spawn().insert_bundle((A(0), B(0))).id();
         world.spawn().insert_bundle((A(0), B));
         world.clear_trackers();
-        world.exclusive_system_counter = Some(world.increment_global_system_counter());
+        world.exclusive_system_counter = world.increment_global_system_counter();
 
         for (i, mut a) in world.query::<&mut A>().iter_mut().enumerate() {
             if i % 2 == 0 {
@@ -729,7 +729,7 @@ mod tests {
         );
 
         world.clear_trackers();
-        world.exclusive_system_counter = Some(world.increment_global_system_counter());
+        world.exclusive_system_counter = world.increment_global_system_counter();
 
         assert!(get_filtered::<Mutated<A>>(&mut world).is_empty());
 
@@ -743,7 +743,7 @@ mod tests {
         // assert_eq!(get_filtered::<Mutated<A>>(&mut world), vec![e4]); // This case is no longer possible to detect
 
         world.clear_trackers();
-        world.exclusive_system_counter = Some(world.increment_global_system_counter());
+        world.exclusive_system_counter = world.increment_global_system_counter();
 
         // ensure inserting multiple components set mutated state for
         // already existing components and set added state for
@@ -782,7 +782,7 @@ mod tests {
         let e2 = world.spawn().insert_bundle((A(0), B(0))).id();
         world.spawn().insert_bundle((A(0), B(0)));
         world.clear_trackers();
-        world.exclusive_system_counter = Some(world.increment_global_system_counter());
+        world.exclusive_system_counter = world.increment_global_system_counter();
 
         for mut a in world.query::<&mut A>().iter_mut() {
             a.0 += 1;
@@ -807,7 +807,7 @@ mod tests {
         let _e3 = world.spawn().insert_bundle((A(0), B(0))).id();
         let e4 = world.spawn().insert(A(0)).id(); // ensure filters work for archetypes with only one of the Or filter items
         world.clear_trackers();
-        world.exclusive_system_counter = Some(world.increment_global_system_counter());
+        world.exclusive_system_counter = world.increment_global_system_counter();
 
         *world.entity_mut(e1).get_mut::<A>().unwrap() = A(1);
         *world.entity_mut(e2).get_mut::<B>().unwrap() = B(1);
@@ -834,7 +834,7 @@ mod tests {
         }
         assert_eq!(get_changed(&mut world), vec![e1]);
         world.clear_trackers();
-        world.exclusive_system_counter = Some(world.increment_global_system_counter());
+        world.exclusive_system_counter = world.increment_global_system_counter();
         assert_eq!(get_changed(&mut world), vec![]);
         *world.get_mut(e1).unwrap() = A(1);
         assert_eq!(get_changed(&mut world), vec![e1]);
@@ -1054,7 +1054,7 @@ mod tests {
         assert!(!a_counters.is_mutated());
         assert!(a_counters.is_changed());
         world.clear_trackers();
-        world.exclusive_system_counter = Some(world.increment_global_system_counter());
+        world.exclusive_system_counter = world.increment_global_system_counter();
         let counters = world
             .query::<Option<Counters<A>>>()
             .iter()
@@ -1113,8 +1113,8 @@ mod tests {
         let mut world_a = World::new();
         let world_b = World::new();
         let mut query = world_a.query_state::<&i32>();
-        query.iter(&world_a, None, 0);
-        query.iter(&world_b, None, 0);
+        query.iter(&world_a, u32::MAX, 0);
+        query.iter(&world_b, u32::MAX, 0);
     }
 
     #[test]
@@ -1123,8 +1123,8 @@ mod tests {
         let mut world_a = World::new();
         let world_b = World::new();
         let mut query = world_a.query_state::<&i32>();
-        let _ = query.get(&world_a, Entity::new(0), None, 0);
-        let _ = query.get(&world_b, Entity::new(0), None, 0);
+        let _ = query.get(&world_a, Entity::new(0), u32::MAX, 0);
+        let _ = query.get(&world_b, Entity::new(0), u32::MAX, 0);
     }
 
     #[test]
@@ -1133,8 +1133,8 @@ mod tests {
         let mut world_a = World::new();
         let world_b = World::new();
         let mut query = world_a.query_state::<&i32>();
-        query.for_each(&world_a, |_| {}, None, 0);
-        query.for_each(&world_b, |_| {}, None, 0);
+        query.for_each(&world_a, |_| {}, u32::MAX, 0);
+        query.for_each(&world_b, |_| {}, u32::MAX, 0);
     }
 
     #[test]

@@ -49,7 +49,7 @@ pub struct World {
     pub(crate) archetype_component_access: ArchetypeComponentAccess,
     main_thread_validator: MainThreadValidator,
     pub(crate) global_system_counter: AtomicU32,
-    pub(crate) exclusive_system_counter: Option<u32>,
+    pub(crate) exclusive_system_counter: u32,
 }
 
 impl Default for World {
@@ -66,7 +66,8 @@ impl Default for World {
             main_thread_validator: Default::default(),
             global_system_counter: Default::default(),
             // Default value is -1 so that direct queries outside of exclusive systems properly detect changes
-            exclusive_system_counter: Some(u32::MAX),
+            // That value will not be used in any exclusive system
+            exclusive_system_counter: u32::MAX,
         }
     }
 }
@@ -888,7 +889,7 @@ impl World {
         *self.global_system_counter.get_mut()
     }
 
-    pub fn get_exclusive_system_counter(&self) -> Option<u32> {
+    pub fn get_exclusive_system_counter(&self) -> u32 {
         self.exclusive_system_counter
     }
 }

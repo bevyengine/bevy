@@ -15,7 +15,7 @@ pub struct SystemState {
     pub(crate) archetype_component_access: Access<ArchetypeComponentId>,
     // NOTE: this must be kept private. making a SystemState non-send is irreversible to prevent SystemParams from overriding each other
     is_send: bool,
-    pub(crate) system_counter: Option<u32>,
+    pub(crate) system_counter: u32,
 }
 
 impl SystemState {
@@ -26,7 +26,8 @@ impl SystemState {
             component_access_set: FilteredAccessSet::default(),
             is_send: true,
             id: SystemId::new(),
-            system_counter: None,
+            // The value of -1 means that everything should be detected as added/changed
+            system_counter: u32::MAX,
         }
     }
 
@@ -148,7 +149,7 @@ where
             world,
             global_system_counter,
         );
-        self.system_state.system_counter = Some(global_system_counter);
+        self.system_state.system_counter = global_system_counter;
         out
     }
 

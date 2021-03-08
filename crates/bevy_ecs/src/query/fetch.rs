@@ -27,7 +27,7 @@ pub trait Fetch<'w>: Sized {
     unsafe fn init(
         world: &World,
         state: &Self::State,
-        system_counter: Option<u32>,
+        system_counter: u32,
         global_system_counter: u32,
     ) -> Self;
 
@@ -132,7 +132,7 @@ impl<'w> Fetch<'w> for EntityFetch {
     unsafe fn init(
         _world: &World,
         _state: &Self::State,
-        _system_counter: Option<u32>,
+        _system_counter: u32,
         _global_system_counter: u32,
     ) -> Self {
         Self {
@@ -239,7 +239,7 @@ impl<'w, T: Component> Fetch<'w> for ReadFetch<T> {
     unsafe fn init(
         world: &World,
         state: &Self::State,
-        _system_counter: Option<u32>,
+        _system_counter: u32,
         _global_system_counter: u32,
     ) -> Self {
         let mut value = Self {
@@ -319,7 +319,7 @@ pub struct WriteFetch<T> {
     entities: *const Entity,
     entity_table_rows: *const usize,
     sparse_set: *const ComponentSparseSet,
-    system_counter: Option<u32>,
+    system_counter: u32,
     global_system_counter: u32,
 }
 
@@ -384,7 +384,7 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
     unsafe fn init(
         world: &World,
         state: &Self::State,
-        system_counter: Option<u32>,
+        system_counter: u32,
         global_system_counter: u32,
     ) -> Self {
         let mut value = Self {
@@ -532,7 +532,7 @@ impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
     unsafe fn init(
         world: &World,
         state: &Self::State,
-        system_counter: Option<u32>,
+        system_counter: u32,
         global_system_counter: u32,
     ) -> Self {
         Self {
@@ -585,7 +585,7 @@ impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
 #[derive(Clone)]
 pub struct Counters<T: Component> {
     component_counters: ComponentCounters,
-    system_counter: Option<u32>,
+    system_counter: u32,
     global_system_counter: u32,
     marker: PhantomData<T>,
 }
@@ -673,7 +673,7 @@ pub struct CountersFetch<T> {
     entities: *const Entity,
     sparse_set: *const ComponentSparseSet,
     marker: PhantomData<T>,
-    system_counter: Option<u32>,
+    system_counter: u32,
     global_system_counter: u32,
 }
 
@@ -695,7 +695,7 @@ impl<'w, T: Component> Fetch<'w> for CountersFetch<T> {
     unsafe fn init(
         world: &World,
         state: &Self::State,
-        system_counter: Option<u32>,
+        system_counter: u32,
         global_system_counter: u32,
     ) -> Self {
         let mut value = Self {
@@ -788,7 +788,7 @@ macro_rules! impl_tuple_fetch {
             type Item = ($($name::Item,)*);
             type State = ($($name::State,)*);
 
-            unsafe fn init(_world: &World, state: &Self::State, _system_counter: Option<u32>, _global_system_counter: u32) -> Self {
+            unsafe fn init(_world: &World, state: &Self::State, _system_counter: u32, _global_system_counter: u32) -> Self {
                 let ($($name,)*) = state;
                 ($($name::init(_world, $name, _system_counter, _global_system_counter),)*)
             }

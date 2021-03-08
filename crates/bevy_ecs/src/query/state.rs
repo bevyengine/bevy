@@ -106,7 +106,7 @@ where
         &mut self,
         world: &'w World,
         entity: Entity,
-        system_counter: Option<u32>,
+        system_counter: u32,
         global_system_counter: u32,
     ) -> Result<<Q::Fetch as Fetch<'w>>::Item, QueryEntityError>
     where
@@ -121,7 +121,7 @@ where
         &mut self,
         world: &'w mut World,
         entity: Entity,
-        system_counter: Option<u32>,
+        system_counter: u32,
         global_system_counter: u32,
     ) -> Result<<Q::Fetch as Fetch<'w>>::Item, QueryEntityError> {
         // SAFE: query has unique world access
@@ -136,7 +136,7 @@ where
         &mut self,
         world: &'w World,
         entity: Entity,
-        system_counter: Option<u32>,
+        system_counter: u32,
         global_system_counter: u32,
     ) -> Result<<Q::Fetch as Fetch<'w>>::Item, QueryEntityError> {
         self.validate_world_and_update_archetypes(world);
@@ -150,7 +150,7 @@ where
         &self,
         world: &'w World,
         entity: Entity,
-        system_counter: Option<u32>,
+        system_counter: u32,
         global_system_counter: u32,
     ) -> Result<<Q::Fetch as Fetch<'w>>::Item, QueryEntityError> {
         let location = world
@@ -191,7 +191,7 @@ where
     pub fn iter<'w, 's>(
         &'s mut self,
         world: &'w World,
-        system_counter: Option<u32>,
+        system_counter: u32,
         global_system_counter: u32,
     ) -> QueryIter<'w, 's, Q, F>
     where
@@ -205,7 +205,7 @@ where
     pub fn iter_mut<'w, 's>(
         &'s mut self,
         world: &'w mut World,
-        system_counter: Option<u32>,
+        system_counter: u32,
         global_system_counter: u32,
     ) -> QueryIter<'w, 's, Q, F> {
         // SAFE: query has unique world access
@@ -219,7 +219,7 @@ where
     pub unsafe fn iter_unchecked<'w, 's>(
         &'s mut self,
         world: &'w World,
-        system_counter: Option<u32>,
+        system_counter: u32,
         global_system_counter: u32,
     ) -> QueryIter<'w, 's, Q, F> {
         self.validate_world_and_update_archetypes(world);
@@ -235,7 +235,7 @@ where
     pub(crate) unsafe fn iter_unchecked_manual<'w, 's>(
         &'s self,
         world: &'w World,
-        system_counter: Option<u32>,
+        system_counter: u32,
         global_system_counter: u32,
     ) -> QueryIter<'w, 's, Q, F> {
         QueryIter::new(world, self, system_counter, global_system_counter)
@@ -246,7 +246,7 @@ where
         &mut self,
         world: &'w World,
         func: impl FnMut(<Q::Fetch as Fetch<'w>>::Item),
-        system_counter: Option<u32>,
+        system_counter: u32,
         global_system_counter: u32,
     ) where
         Q::Fetch: ReadOnlyFetch,
@@ -262,7 +262,7 @@ where
         &mut self,
         world: &'w mut World,
         func: impl FnMut(<Q::Fetch as Fetch<'w>>::Item),
-        system_counter: Option<u32>,
+        system_counter: u32,
         global_system_counter: u32,
     ) {
         // SAFE: query has unique world access
@@ -279,7 +279,7 @@ where
         &mut self,
         world: &'w World,
         func: impl FnMut(<Q::Fetch as Fetch<'w>>::Item),
-        system_counter: Option<u32>,
+        system_counter: u32,
         global_system_counter: u32,
     ) {
         self.validate_world_and_update_archetypes(world);
@@ -293,7 +293,7 @@ where
         task_pool: &TaskPool,
         batch_size: usize,
         func: impl Fn(<Q::Fetch as Fetch<'w>>::Item) + Send + Sync + Clone,
-        system_counter: Option<u32>,
+        system_counter: u32,
         global_system_counter: u32,
     ) where
         Q::Fetch: ReadOnlyFetch,
@@ -318,7 +318,7 @@ where
         task_pool: &TaskPool,
         batch_size: usize,
         func: impl Fn(<Q::Fetch as Fetch<'w>>::Item) + Send + Sync + Clone,
-        system_counter: Option<u32>,
+        system_counter: u32,
         global_system_counter: u32,
     ) {
         // SAFE: query has unique world access
@@ -344,7 +344,7 @@ where
         task_pool: &TaskPool,
         batch_size: usize,
         func: impl Fn(<Q::Fetch as Fetch<'w>>::Item) + Send + Sync + Clone,
-        system_counter: Option<u32>,
+        system_counter: u32,
         global_system_counter: u32,
     ) {
         self.validate_world_and_update_archetypes(world);
@@ -367,7 +367,7 @@ where
         &'s self,
         world: &'w World,
         mut func: impl FnMut(<Q::Fetch as Fetch<'w>>::Item),
-        system_counter: Option<u32>,
+        system_counter: u32,
         global_system_counter: u32,
     ) {
         let mut fetch = <Q::Fetch as Fetch>::init(
@@ -426,7 +426,7 @@ where
         task_pool: &TaskPool,
         batch_size: usize,
         func: impl Fn(<Q::Fetch as Fetch<'w>>::Item) + Send + Sync + Clone,
-        system_counter: Option<u32>,
+        system_counter: u32,
         global_system_counter: u32,
     ) {
         task_pool.scope(|scope| {

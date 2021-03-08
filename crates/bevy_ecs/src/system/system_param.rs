@@ -162,7 +162,7 @@ impl_query_set!();
 pub struct Res<'w, T> {
     value: &'w T,
     counters: &'w ComponentCounters,
-    system_counter: Option<u32>,
+    system_counter: u32,
     global_system_counter: u32,
 }
 
@@ -293,7 +293,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for OptionResState<T> {
 pub struct ResMut<'w, T> {
     value: &'w mut T,
     counters: &'w mut ComponentCounters,
-    system_counter: Option<u32>,
+    system_counter: u32,
     global_system_counter: u32,
 }
 
@@ -561,7 +561,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for RemovedComponentsState<T> {
 pub struct NonSend<'w, T> {
     pub(crate) value: &'w T,
     counters: ComponentCounters,
-    system_counter: Option<u32>,
+    system_counter: u32,
     global_system_counter: u32,
 }
 
@@ -660,7 +660,7 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendState<T> {
 pub struct NonSendMut<'a, T: 'static> {
     pub(crate) value: &'a mut T,
     counters: &'a mut ComponentCounters,
-    system_counter: Option<u32>,
+    system_counter: u32,
     global_system_counter: u32,
 }
 
@@ -894,7 +894,7 @@ impl<'a> SystemParamFetch<'a> for BundlesState {
 
 #[derive(Debug)]
 pub struct SystemCounter {
-    pub system_counter: Option<u32>,
+    pub system_counter: u32,
     pub global_system_counter: u32,
 }
 

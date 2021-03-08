@@ -105,7 +105,7 @@ impl<'a, T: Component> Fetch<'a> for WithFetch<T> {
     unsafe fn init(
         _world: &World,
         state: &Self::State,
-        _system_counter: Option<u32>,
+        _system_counter: u32,
         _global_system_counter: u32,
     ) -> Self {
         Self {
@@ -201,7 +201,7 @@ impl<'a, T: Component> Fetch<'a> for WithoutFetch<T> {
     unsafe fn init(
         _world: &World,
         state: &Self::State,
-        _system_counter: Option<u32>,
+        _system_counter: u32,
         _global_system_counter: u32,
     ) -> Self {
         Self {
@@ -296,7 +296,7 @@ impl<'a, T: Bundle> Fetch<'a> for WithBundleFetch<T> {
     unsafe fn init(
         _world: &World,
         state: &Self::State,
-        _system_counter: Option<u32>,
+        _system_counter: u32,
         _global_system_counter: u32,
     ) -> Self {
         Self {
@@ -371,7 +371,7 @@ macro_rules! impl_query_filter_tuple {
             type State = Or<($(<$filter as Fetch<'a>>::State,)*)>;
             type Item = bool;
 
-            unsafe fn init(world: &World, state: &Self::State, system_counter: Option<u32>, global_system_counter: u32) -> Self {
+            unsafe fn init(world: &World, state: &Self::State, system_counter: u32, global_system_counter: u32) -> Self {
                 let ($($filter,)*) = &state.0;
                 Or(($(OrFetch {
                     fetch: $filter::init(world, $filter, system_counter, global_system_counter),
@@ -469,7 +469,7 @@ macro_rules! impl_counter_filter {
             marker: PhantomData<T>,
             entities: *const Entity,
             sparse_set: *const ComponentSparseSet,
-            system_counter: Option<u32>,
+            system_counter: u32,
             global_system_counter: u32,
         }
 
@@ -525,7 +525,7 @@ macro_rules! impl_counter_filter {
             type State = $state_name<T>;
             type Item = bool;
 
-            unsafe fn init(world: &World, state: &Self::State, system_counter: Option<u32>, global_system_counter: u32) -> Self {
+            unsafe fn init(world: &World, state: &Self::State, system_counter: u32, global_system_counter: u32) -> Self {
                 let mut value = Self {
                     storage_type: state.storage_type,
                     table_counters: ptr::null_mut::<ComponentCounters>(),

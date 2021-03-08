@@ -18,7 +18,7 @@ pub struct ExclusiveSystemFn {
     func: Box<dyn FnMut(&mut World) + Send + Sync + 'static>,
     name: Cow<'static, str>,
     id: SystemId,
-    system_counter: Option<u32>,
+    system_counter: u32,
 }
 
 impl ExclusiveSystem for ExclusiveSystemFn {
@@ -38,7 +38,7 @@ impl ExclusiveSystem for ExclusiveSystemFn {
         (self.func)(world);
 
         let global_system_counter = world.global_system_counter.get_mut();
-        self.system_counter = Some(*global_system_counter);
+        self.system_counter = *global_system_counter;
         *global_system_counter += 1;
 
         world.exclusive_system_counter = saved_counter;
@@ -60,7 +60,8 @@ where
             func: Box::new(self),
             name: core::any::type_name::<F>().into(),
             id: SystemId::new(),
-            system_counter: None,
+            // The value of -1 means that everything should be detected as added/changed
+            system_counter: u32::MAX,
         }
     }
 }

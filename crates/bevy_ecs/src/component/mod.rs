@@ -294,29 +294,21 @@ pub struct ComponentCounters {
 }
 
 impl ComponentCounters {
-    pub fn is_added(&self, system_counter: Option<u32>, global_system_counter: u32) -> bool {
-        if let Some(system_counter) = system_counter {
-            let component_age = global_system_counter.wrapping_sub(self.added);
-            let system_age = global_system_counter.wrapping_sub(system_counter);
+    pub fn is_added(&self, system_counter: u32, global_system_counter: u32) -> bool {
+        let component_age = global_system_counter.wrapping_sub(self.added);
+        let system_age = global_system_counter.wrapping_sub(system_counter);
 
-            component_age < system_age
-        } else {
-            true
-        }
+        component_age < system_age
     }
 
-    pub fn is_changed(&self, system_counter: Option<u32>, global_system_counter: u32) -> bool {
-        if let Some(system_counter) = system_counter {
-            let component_age = global_system_counter.wrapping_sub(self.changed);
-            let system_age = global_system_counter.wrapping_sub(system_counter);
+    pub fn is_changed(&self, system_counter: u32, global_system_counter: u32) -> bool {
+        let component_age = global_system_counter.wrapping_sub(self.changed);
+        let system_age = global_system_counter.wrapping_sub(system_counter);
 
-            component_age < system_age
-        } else {
-            true
-        }
+        component_age < system_age
     }
 
-    pub fn is_mutated(&self, system_counter: Option<u32>, global_system_counter: u32) -> bool {
+    pub fn is_mutated(&self, system_counter: u32, global_system_counter: u32) -> bool {
         self.is_changed(system_counter, global_system_counter)
             && !self.is_added(system_counter, global_system_counter)
     }

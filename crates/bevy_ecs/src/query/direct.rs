@@ -17,7 +17,7 @@ where
 {
     pub(crate) world: &'w World,
     pub(crate) state: QueryState<Q, F>,
-    pub(crate) system_counter: Option<u32>,
+    pub(crate) system_counter: u32,
     pub(crate) global_system_counter: u32,
 }
 
@@ -32,7 +32,7 @@ where
     pub(crate) unsafe fn new(
         world: &'w World,
         state: QueryState<Q, F>,
-        system_counter: Option<u32>,
+        system_counter: u32,
         global_system_counter: u32,
     ) -> Self {
         Self {
