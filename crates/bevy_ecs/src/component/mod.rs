@@ -294,6 +294,7 @@ pub struct ComponentCounters {
 }
 
 impl ComponentCounters {
+    #[inline]
     pub fn is_added(&self, system_counter: u32, global_system_counter: u32) -> bool {
         let component_age = global_system_counter.wrapping_sub(self.added);
         let system_age = global_system_counter.wrapping_sub(system_counter);
@@ -301,6 +302,7 @@ impl ComponentCounters {
         component_age < system_age
     }
 
+    #[inline]
     pub fn is_changed(&self, system_counter: u32, global_system_counter: u32) -> bool {
         let component_age = global_system_counter.wrapping_sub(self.changed);
         let system_age = global_system_counter.wrapping_sub(system_counter);
@@ -320,6 +322,7 @@ impl ComponentCounters {
         check_counter_impl(&mut self.changed, global_system_counter);
     }
 
+    #[inline]
     pub(crate) fn set_changed(&mut self, global_system_counter: u32) {
         self.changed = global_system_counter;
     }

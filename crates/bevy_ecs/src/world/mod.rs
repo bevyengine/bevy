@@ -866,18 +866,22 @@ impl World {
         }
     }
 
+    #[inline]
     pub fn increment_global_system_counter(&self) -> u32 {
         self.global_system_counter.fetch_add(1, Ordering::SeqCst) // TODO: can this be relaxed?
     }
 
+    #[inline]
     pub fn get_global_system_counter(&self) -> u32 {
         self.global_system_counter.load(Ordering::Acquire) // FIXME: is this ordering correct?
     }
 
+    #[inline]
     pub fn get_global_system_counter_unordered(&mut self) -> u32 {
         *self.global_system_counter.get_mut()
     }
 
+    #[inline]
     pub fn get_exclusive_system_counter(&self) -> u32 {
         self.exclusive_system_counter
     }
