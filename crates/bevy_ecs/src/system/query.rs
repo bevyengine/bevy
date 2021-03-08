@@ -7,7 +7,7 @@ use crate::{
     world::{Mut, World},
 };
 use bevy_tasks::TaskPool;
-use std::any::TypeId;
+use std::{any::TypeId, fmt::Debug};
 use thiserror::Error;
 
 /// Provides scoped access to a World according to a given [WorldQuery] and query filter
@@ -212,6 +212,38 @@ where
             Err(QueryComponentError::MissingWriteAccess)
         }
     }
+
+    pub fn single(&self) -> Result<<Q::Fetch as Fetch<'_>>::Item, QuerySingleError>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        let mut query = self.iter();
+        let first = query.next();
+        let extra = query.next().is_some();
+
+        match (first, extra) {
+            (Some(r), false) => Ok(r),
+            (None, _) => Err(QuerySingleError::NoEntities(std::any::type_name::<Self>())),
+            (Some(_), _) => Err(QuerySingleError::MultipleEntities(std::any::type_name::<
+                Self,
+            >())),
+        }
+    }
+
+    /// See [`Query::single`]
+    pub fn single_mut(&mut self) -> Result<<Q::Fetch as Fetch<'_>>::Item, QuerySingleError> {
+        let mut query = self.iter_mut();
+        let first = query.next();
+        let extra = query.next().is_some();
+
+        match (first, extra) {
+            (Some(r), false) => Ok(r),
+            (None, _) => Err(QuerySingleError::NoEntities(std::any::type_name::<Self>())),
+            (Some(_), _) => Err(QuerySingleError::MultipleEntities(std::any::type_name::<
+                Self,
+            >())),
+        }
+    }
 }
 
 /// An error that occurs when retrieving a specific [Entity]'s component from a [Query]
@@ -225,4 +257,12 @@ pub enum QueryComponentError {
     MissingComponent,
     #[error("The requested entity does not exist.")]
     NoSuchEntity,
+}
+
+#[derive(Debug, Error)]
+pub enum QuerySingleError {
+    #[error("No entities fit the query {0}")]
+    NoEntities(&'static str),
+    #[error("Multiple entities fit the query {0}!")]
+    MultipleEntities(&'static str),
 }
