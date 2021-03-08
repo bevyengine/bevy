@@ -11,19 +11,19 @@ use std::{
 };
 use thiserror::Error;
 
-/// Components are used to store the data for each `Entity` in a straightforward and efficient fashion.
+/// A component is data associated with an `Entity`. Each entity can have multiple different types
+/// of components, but only one of them per type.
 ///
-/// The `Component` trait is very simple, and does not need to be derived or implemented for types in order for them to be used as a component.
-/// Any Rust object, from a raw data type to an enum to a custom struct can be used as a `Component` without any extra boilerplate
-/// if and only if it fulfills the `Send + Sync + `static` bounds.
+/// Any type that is `Send + Sync + 'static` automatically implements `Component`.
 ///
-/// Components are commonly added to entities using [Commands::spawn](crate::system::Commands::spawn),
-/// [Commands::insert](crate::system::Commands::insert) or the [World](crate::world::World) equivalents.
+/// Components are added with new entities using [Commands::spawn](crate::system::Commands::spawn),
+/// or to existing entities with [Commands::insert](crate::system::Commands::insert),
+/// or their [World](crate::world::World) equivalents.
 ///
-/// You can query for components in your systems by including a [Query](crate::system::Query)-type function argument in your system,
-/// which will be automatically fetched from the [World](crate::world::World) by the scheduler.
+/// Components can be accessed in systems by using a [Query](crate::system::Query)
+/// as one of the arguments.
 ///
-/// A collection of components is known as a [Bundle](crate::bundle::Bundle).
+/// Components can be grouped together into a [Bundle](crate::bundle::Bundle).
 pub trait Component: Send + Sync + 'static {}
 impl<T: Send + Sync + 'static> Component for T {}
 
