@@ -43,7 +43,7 @@ pub type Layer = u8;
 ///
 /// Entities without this component belong to layer `0`.
 #[derive(Copy, Clone, Reflect, PartialEq, Eq, PartialOrd, Ord)]
-#[reflect(Component)]
+#[reflect(Component, PartialEq)]
 pub struct RenderLayers(LayerMask);
 
 impl std::fmt::Debug for RenderLayers {

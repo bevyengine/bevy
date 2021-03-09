@@ -1,6 +1,6 @@
 use crate::{
-    map_partial_eq, serde::Serializable, DynamicMap, List, ListIter, Map, MapIter, Reflect,
-    ReflectDeserialize, ReflectMut, ReflectRef,
+    map_partial_eq, serde::Serializable, DynamicMap, FromType, GetTypeRegistration, List, ListIter,
+    Map, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef, TypeRegistration,
 };
 
 use bevy_reflect_derive::impl_reflect_value;
@@ -112,6 +112,14 @@ impl<T: Reflect> Reflect for Vec<T> {
     }
 }
 
+impl<T: Reflect + for<'de> Deserialize<'de>> GetTypeRegistration for Vec<T> {
+    fn get_type_registration() -> TypeRegistration {
+        let mut registration = TypeRegistration::of::<Vec<T>>();
+        registration.insert::<ReflectDeserialize>(FromType::<Vec<T>>::from_type());
+        registration
+    }
+}
+
 impl<K: Reflect + Clone + Eq + Hash, V: Reflect + Clone> Map for HashMap<K, V> {
     fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect> {
         key.downcast_ref::<K>()
@@ -207,6 +215,18 @@ impl<K: Reflect + Clone + Eq + Hash, V: Reflect + Clone> Reflect for HashMap<K, 
     }
 }
 
+impl<K, V> GetTypeRegistration for HashMap<K, V>
+where
+    K: Reflect + Clone + Eq + Hash + for<'de> Deserialize<'de>,
+    V: Reflect + Clone + for<'de> Deserialize<'de>,
+{
+    fn get_type_registration() -> TypeRegistration {
+        let mut registration = TypeRegistration::of::<HashMap<K, V>>();
+        registration.insert::<ReflectDeserialize>(FromType::<HashMap<K, V>>::from_type());
+        registration
+    }
+}
+
 impl Reflect for Cow<'static, str> {
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
@@ -264,5 +284,13 @@ impl Reflect for Cow<'static, str> {
 
     fn serializable(&self) -> Option<Serializable> {
         Some(Serializable::Borrowed(self))
+    }
+}
+
+impl GetTypeRegistration for Cow<'static, str> {
+    fn get_type_registration() -> TypeRegistration {
+        let mut registration = TypeRegistration::of::<Cow<'static, str>>();
+        registration.insert::<ReflectDeserialize>(FromType::<Cow<'static, str>>::from_type());
+        registration
     }
 }

@@ -50,6 +50,7 @@ impl AddAssign<f32> for Val {
 }
 
 #[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(Component, PartialEq)]
 pub struct Style {
     pub display: Display,
     pub position_type: PositionType,

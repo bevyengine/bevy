@@ -5,7 +5,7 @@ use bevy_reflect::Reflect;
 use std::ops::Mul;
 
 #[derive(Debug, PartialEq, Clone, Copy, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, PartialEq)]
 pub struct Transform {
     pub translation: Vec3,
     pub rotation: Quat,

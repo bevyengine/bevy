@@ -1,5 +1,5 @@
 use crate::texture::TextureFormat;
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, ReflectDeserialize};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug)]
@@ -89,6 +89,7 @@ pub enum CompareFunction {
 
 /// Describes how the VertexAttributes should be interpreted while rendering
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Reflect)]
+#[reflect_value(Serialize, Deserialize, PartialEq, Hash)]
 pub enum PrimitiveTopology {
     PointList = 0,
     LineList = 1,
@@ -227,6 +228,7 @@ impl Default for BlendOperation {
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Reflect)]
+#[reflect_value(Hash, PartialEq, Serialize, Deserialize)]
 pub enum IndexFormat {
     Uint16 = 0,
     Uint32 = 1,
