@@ -764,10 +764,8 @@ impl World {
             let row = column.push_uninit();
             // SAFE: index was just allocated above
             column.set_unchecked(row, data);
-            // SAFE: index was just allocated above
-            *column.counters.get_mut().get_unchecked_mut(row) =
-                ComponentCounters::new(global_system_counter);
             std::mem::forget(value);
+            // SAFE: index was just allocated above
             *column.get_counters_unchecked_mut(row) = ComponentCounters::new(global_system_counter);
         } else {
             // SAFE: column is of type T and has already been allocated
