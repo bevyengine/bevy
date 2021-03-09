@@ -251,6 +251,8 @@ void main() {
 
     vec3 N = normalize(v_Normal);
     vec3 V = normalize(CameraPos.xyz - w_Position.xyz);
+    // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
+    float NdotV = max(dot(N, V), 1e-4);
 
     // Remapping [0,1] reflectance to F0
     // See https://google.github.io/filament/Filament.html#materialsystem/parameterization/remapping
@@ -271,10 +273,6 @@ void main() {
             getDistanceAttenuation(lightDir, light.inverseRadiusSquared);
 
         vec3 H = normalize(L + V);
-
-        // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
-        float NdotV = max(dot(N, V), 1e-4);
-
         float NoL = saturate(dot(N, L));
         float NoH = saturate(dot(N, H));
         float LoH = saturate(dot(L, H));
