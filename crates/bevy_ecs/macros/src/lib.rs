@@ -415,6 +415,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(SystemLabel)]
 pub fn derive_system_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
+
     derive_label(input, Ident::new("SystemLabel", Span::call_site())).into()
 }
 
@@ -434,8 +435,15 @@ fn derive_label(input: DeriveInput, label_type: Ident) -> TokenStream2 {
     let ident = input.ident;
     let ecs_path: Path = bevy_ecs_path();
 
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    let mut where_clause = where_clause.cloned().unwrap_or_else(|| syn::WhereClause {
+        where_token: Default::default(),
+        predicates: Default::default(),
+    });
+    where_clause.predicates.push(syn::parse2(quote! { Self: Eq + ::std::fmt::Debug + ::std::hash::Hash + Clone + Send + Sync + 'static }).unwrap());
+
     quote! {
-        impl #ecs_path::schedule::#label_type for #ident {
+        impl #impl_generics #ecs_path::schedule::#label_type for #ident #ty_generics #where_clause {
             fn dyn_clone(&self) -> Box<dyn #ecs_path::schedule::#label_type> {
                 Box::new(Clone::clone(self))
             }
