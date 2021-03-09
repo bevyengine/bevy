@@ -8,3 +8,4 @@ newline_style = "Unix"
 #reorder_impl_items = true
 #wrap_comments = true
 #comment_width = 100
+#normalize_comments = true
