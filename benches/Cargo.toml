@@ -1,18 +1,15 @@
 [package]
 name = "benches"
 version = "0.1.0"
-authors = ["Carter Anderson <mcanders1@gmail.com>"]
+authors = [
+    "Bevy Contributors <bevyengine@gmail.com>",
+    "Carter Anderson <mcanders1@gmail.com>",
+]
 edition = "2018"
 
 [dev-dependencies]
 criterion = "0.3"
 bevy = { path = "../" }
-
-[[bench]]
-name = "bench"
-path = "benches/bevy_ecs/bench.rs"
-harness = false
-required-features = ["macros"]
 
 [[bench]]
 name = "system_stage"

@@ -1,4 +1,7 @@
-use bevy_ecs::{Local, Res, ResMut, SystemParam};
+use bevy_ecs::{
+    component::Component,
+    system::{Local, Res, ResMut, SystemParam},
+};
 use bevy_utils::tracing::trace;
 use std::{fmt, marker::PhantomData};
 
@@ -123,9 +126,25 @@ fn map_instance_event<T>(event_instance: &EventInstance<T>) -> &T {
 
 /// Reads events of type `T` in order and tracks which events have already been read.
 #[derive(SystemParam)]
-pub struct EventReader<'a, T: bevy_ecs::Resource> {
+pub struct EventReader<'a, T: Component> {
     last_event_count: Local<'a, (usize, PhantomData<T>)>,
     events: Res<'a, Events<T>>,
+}
+
+/// Sends events of type `T`.
+#[derive(SystemParam)]
+pub struct EventWriter<'a, T: Component> {
+    events: ResMut<'a, Events<T>>,
+}
+
+impl<'a, T: Component> EventWriter<'a, T> {
+    pub fn send(&mut self, event: T) {
+        self.events.send(event);
+    }
+
+    pub fn send_batch(&mut self, events: impl Iterator<Item = T>) {
+        self.events.extend(events);
+    }
 }
 
 pub struct ManualEventReader<T> {
@@ -207,7 +226,7 @@ fn internal_event_reader<'a, T>(
     }
 }
 
-impl<'a, T: bevy_ecs::Resource> EventReader<'a, T> {
+impl<'a, T: Component> EventReader<'a, T> {
     /// Iterates over the events this EventReader has not seen yet. This updates the EventReader's
     /// event counter, which means subsequent event reads will not include events that happened before now.
     pub fn iter(&mut self) -> impl DoubleEndedIterator<Item = &T> {
@@ -223,7 +242,7 @@ impl<'a, T: bevy_ecs::Resource> EventReader<'a, T> {
     }
 }
 
-impl<T: bevy_ecs::Resource> Events<T> {
+impl<T: Component> Events<T> {
     /// "Sends" an `event` by writing it to the current event buffer. [EventReader]s can then read the event.
     pub fn send(&mut self, event: T) {
         let event_id = EventId {

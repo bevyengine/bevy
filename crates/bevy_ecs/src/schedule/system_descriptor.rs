@@ -1,6 +1,6 @@
 use crate::{
-    AmbiguitySetLabel, BoxedAmbiguitySetLabel, BoxedSystem, BoxedSystemLabel, ExclusiveSystem,
-    ExclusiveSystemCoerced, ExclusiveSystemFn, System, SystemLabel,
+    schedule::{AmbiguitySetLabel, BoxedAmbiguitySetLabel, BoxedSystemLabel, SystemLabel},
+    system::{BoxedSystem, ExclusiveSystem, ExclusiveSystemCoerced, ExclusiveSystemFn, System},
 };
 
 /// Encapsulates a system and information on when it run in a `SystemStage`.

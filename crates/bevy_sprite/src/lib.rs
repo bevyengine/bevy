@@ -26,13 +26,14 @@ pub use texture_atlas_builder::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets, Handle, HandleUntyped};
-use bevy_ecs::IntoSystem;
+use bevy_ecs::system::IntoSystem;
 use bevy_math::Vec2;
-use bevy_reflect::{RegisterTypeBuilder, TypeUuid};
+use bevy_reflect::TypeUuid;
 use bevy_render::{
     mesh::{shape, Mesh},
+    pipeline::PipelineDescriptor,
     render_graph::RenderGraph,
-    shader::asset_shader_defs_system,
+    shader::{asset_shader_defs_system, Shader},
 };
 use sprite::sprite_system;
 
@@ -53,13 +54,16 @@ impl Plugin for SpritePlugin {
                 asset_shader_defs_system::<ColorMaterial>.system(),
             );
 
-        let resources = app.resources_mut();
-        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-        render_graph.add_sprite_graph(resources);
+        let world = app.world_mut().cell();
+        let mut render_graph = world.get_resource_mut::<RenderGraph>().unwrap();
+        let mut pipelines = world
+            .get_resource_mut::<Assets<PipelineDescriptor>>()
+            .unwrap();
+        let mut shaders = world.get_resource_mut::<Assets<Shader>>().unwrap();
+        crate::render::add_sprite_graph(&mut render_graph, &mut pipelines, &mut shaders);
 
-        let mut meshes = resources.get_mut::<Assets<Mesh>>().unwrap();
-
-        let mut color_materials = resources.get_mut::<Assets<ColorMaterial>>().unwrap();
+        let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
+        let mut color_materials = world.get_resource_mut::<Assets<ColorMaterial>>().unwrap();
         color_materials.set_untracked(Handle::<ColorMaterial>::default(), ColorMaterial::default());
         meshes.set_untracked(
             QUAD_HANDLE,

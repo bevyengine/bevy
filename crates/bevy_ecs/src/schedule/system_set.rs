@@ -1,4 +1,7 @@
-use crate::{RunCriteria, ShouldRun, System, SystemDescriptor};
+use crate::{
+    schedule::{RunCriteria, ShouldRun, SystemDescriptor},
+    system::System,
+};
 
 /// Describes a group of systems sharing one run criterion.
 pub struct SystemSet {

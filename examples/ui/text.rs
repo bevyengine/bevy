@@ -22,7 +22,7 @@ struct FpsText;
 // A unit struct to help identify the color-changing Text component
 struct ColorText;
 
-fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         // UI camera
         .spawn(UiCameraBundle::default())

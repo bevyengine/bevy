@@ -68,6 +68,7 @@ Example | Main | Description
 `sprite` | [`2d/sprite.rs`](./2d/sprite.rs) | Renders a sprite
 `sprite_sheet` | [`2d/sprite_sheet.rs`](./2d/sprite_sheet.rs) | Renders an animated sprite
 `text2d` | [`2d/text2d.rs`](./2d/text2d.rs) | Generates text in 2d
+`sprite_flipping` | [`2d/sprite_flipping.rs`](./2d/sprite_flipping.rs) | Renders a sprite flipped along an axis
 `texture_atlas` | [`2d/texture_atlas.rs`](./2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
 
 ## 3D Rendering
@@ -135,6 +136,7 @@ Example | File | Description
 `startup_system` | [`ecs/startup_system.rs`](./ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)
 `state` | [`ecs/state.rs`](./ecs/state.rs) | Illustrates how to use States to control transitioning from a Menu state to an InGame state
 `system_chaining` | [`ecs/system_chaining.rs`](./ecs/system_chaining.rs) | Chain two systems together, specifying a return type in a system (such as `Result`)
+`system_param` | [`ecs/system_param.rs`](./ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
 `timers` | [`ecs/timers.rs`](./ecs/timers.rs) | Illustrates ticking `Timer` resources inside systems and handling their state
 
 ## Games

@@ -4,9 +4,8 @@ use bevy_app::{AppBuilder, CreatePlugin, Plugin};
 
 /// Dynamically links a plugin a the given path. The plugin must export the [CreatePlugin] function.
 pub fn dynamically_load_plugin(path: &str) -> (Library, Box<dyn Plugin>) {
-    let lib = Library::new(path).unwrap();
-
     unsafe {
+        let lib = Library::new(path).unwrap();
         let func: Symbol<CreatePlugin> = lib.get(b"_create_plugin").unwrap();
         let plugin = Box::from_raw(func());
         (lib, plugin)

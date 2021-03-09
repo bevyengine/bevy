@@ -14,14 +14,12 @@ keywords = ["bevy"]
 readme = "README.md"
 
 [features]
-bevy = ["bevy_ecs", "bevy_app", "glam", "smallvec"]
+bevy = ["glam", "smallvec"]
 
 [dependencies]
 # bevy
 bevy_reflect_derive = { path = "bevy_reflect_derive", version = "0.4.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.4.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.4.0", optional = true }
-bevy_app = { path = "../bevy_app", version = "0.4.0", optional = true }
 
 # other
 erased-serde = "0.3"
@@ -30,7 +28,7 @@ parking_lot = "0.11.0"
 thiserror = "1.0"
 serde = "1"
 smallvec = { version = "1.4", features = ["serde"], optional = true }
-glam = { version = "0.12.0", features = ["serde"], optional = true }
+glam = { version = "0.13.0", features = ["serde"], optional = true }
 
 [dev-dependencies]
 ron = "0.6.2"

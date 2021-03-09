@@ -25,8 +25,10 @@ pub struct WgpuRenderResourceContext {
     pub resources: WgpuResources,
 }
 
-pub const BIND_BUFFER_ALIGNMENT: usize = 256;
-pub const TEXTURE_ALIGNMENT: usize = 256;
+pub const COPY_BYTES_PER_ROW_ALIGNMENT: usize = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
+pub const BIND_BUFFER_ALIGNMENT: usize = wgpu::BIND_BUFFER_ALIGNMENT as usize;
+pub const COPY_BUFFER_ALIGNMENT: usize = wgpu::COPY_BUFFER_ALIGNMENT as usize;
+pub const PUSH_CONSTANT_ALIGNMENT: u32 = wgpu::PUSH_CONSTANT_ALIGNMENT;
 
 impl WgpuRenderResourceContext {
     pub fn new(device: Arc<wgpu::Device>) -> Self {
@@ -657,7 +659,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
     }
 
     fn get_aligned_texture_size(&self, size: usize) -> usize {
-        (size + TEXTURE_ALIGNMENT - 1) & !(TEXTURE_ALIGNMENT - 1)
+        (size + COPY_BYTES_PER_ROW_ALIGNMENT - 1) & !(COPY_BYTES_PER_ROW_ALIGNMENT - 1)
     }
 
     fn get_aligned_uniform_size(&self, size: usize, dynamic: bool) -> usize {

@@ -10,7 +10,7 @@ fn main() {
         .run();
 }
 
-fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Load our mesh:
     let scene_handle = asset_server.load("models/monkey/Monkey.gltf#Scene0");
 
@@ -31,8 +31,7 @@ fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
         })
         // camera
         .spawn(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(2.0, 2.0, 6.0)
-                .looking_at(Vec3::default(), Vec3::unit_y()),
+            transform: Transform::from_xyz(2.0, 2.0, 6.0).looking_at(Vec3::default(), Vec3::Y),
             ..Default::default()
         });
 }
