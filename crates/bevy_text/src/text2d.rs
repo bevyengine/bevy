@@ -96,14 +96,14 @@ pub fn draw_text2d_system(
         if let Some(text_glyphs) = text_pipeline.get_glyphs(&entity) {
             let position = global_transform.translation
                 + match text.alignment.vertical {
-                    VerticalAlign::Top => Vec3::zero(),
+                    VerticalAlign::Top => Vec3::ZERO,
                     VerticalAlign::Center => Vec3::new(0.0, -height * 0.5, 0.0),
                     VerticalAlign::Bottom => Vec3::new(0.0, -height, 0.0),
                 }
                 + match text.alignment.horizontal {
                     HorizontalAlign::Left => Vec3::new(-width, 0.0, 0.0),
                     HorizontalAlign::Center => Vec3::new(-width * 0.5, 0.0, 0.0),
-                    HorizontalAlign::Right => Vec3::zero(),
+                    HorizontalAlign::Right => Vec3::ZERO,
                 };
 
             let mut drawable_text = DrawableText {

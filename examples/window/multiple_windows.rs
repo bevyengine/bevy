@@ -37,7 +37,7 @@ enum AppState {
 
 fn setup_window(
     mut app_state: ResMut<State<AppState>>,
-    mut create_window_events: ResMut<Events<CreateWindow>>,
+    mut create_window_events: EventWriter<CreateWindow>,
 ) {
     let window_id = WindowId::new();
 
@@ -190,8 +190,7 @@ fn setup_pipeline(
         })
         // main camera
         .spawn(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(0.0, 0.0, 6.0)
-                .looking_at(Vec3::default(), Vec3::unit_y()),
+            transform: Transform::from_xyz(0.0, 0.0, 6.0).looking_at(Vec3::default(), Vec3::Y),
             ..Default::default()
         })
         // second window camera
@@ -201,8 +200,7 @@ fn setup_pipeline(
                 window: window_id,
                 ..Default::default()
             },
-            transform: Transform::from_xyz(6.0, 0.0, 0.0)
-                .looking_at(Vec3::default(), Vec3::unit_y()),
+            transform: Transform::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::default(), Vec3::Y),
             ..Default::default()
         });
 }

@@ -174,7 +174,7 @@ fn paddle_movement_system(
     keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<(&Paddle, &mut Transform)>,
 ) {
-    for (paddle, mut transform) in query.iter_mut() {
+    if let Ok((paddle, mut transform)) = query.single_mut() {
         let mut direction = 0.0;
         if keyboard_input.pressed(KeyCode::Left) {
             direction -= 1.0;
@@ -196,15 +196,14 @@ fn ball_movement_system(time: Res<Time>, mut ball_query: Query<(&Ball, &mut Tran
     // clamp the timestep to stop the ball from escaping when the game starts
     let delta_seconds = f32::min(0.2, time.delta_seconds());
 
-    for (ball, mut transform) in ball_query.iter_mut() {
+    if let Ok((ball, mut transform)) = ball_query.single_mut() {
         transform.translation += ball.velocity * delta_seconds;
     }
 }
 
 fn scoreboard_system(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
-    for mut text in query.iter_mut() {
-        text.sections[1].value = scoreboard.score.to_string();
-    }
+    let mut text = query.single_mut().unwrap();
+    text.sections[0].value = format!("Score: {}", scoreboard.score);
 }
 
 fn ball_collision_system(
@@ -213,7 +212,7 @@ fn ball_collision_system(
     mut ball_query: Query<(&mut Ball, &Transform, &Sprite)>,
     collider_query: Query<(Entity, &Collider, &Transform, &Sprite)>,
 ) {
-    for (mut ball, ball_transform, sprite) in ball_query.iter_mut() {
+    if let Ok((mut ball, ball_transform, sprite)) = ball_query.single_mut() {
         let ball_size = sprite.size;
         let velocity = &mut ball.velocity;
 

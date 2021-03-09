@@ -147,6 +147,11 @@ pub struct QuerySetState<T>(T);
 
 impl_query_set!();
 
+/// Shared borrow of a Resource
+///
+/// When used as a system parameter, panics if resource does not exist.
+///
+/// Use `Option<Res<T>>` if the resource might not always exist.
 pub struct Res<'w, T> {
     value: &'w T,
     flags: ComponentFlags,
@@ -235,6 +240,42 @@ impl<'a, T: Component> SystemParamFetch<'a> for ResState<T> {
     }
 }
 
+pub struct OptionResState<T>(ResState<T>);
+
+impl<'a, T: Component> SystemParam for Option<Res<'a, T>> {
+    type Fetch = OptionResState<T>;
+}
+
+unsafe impl<T: Component> SystemParamState for OptionResState<T> {
+    type Config = ();
+    fn init(world: &mut World, system_state: &mut SystemState, _config: Self::Config) -> Self {
+        Self(ResState::init(world, system_state, ()))
+    }
+}
+
+impl<'a, T: Component> SystemParamFetch<'a> for OptionResState<T> {
+    type Item = Option<Res<'a, T>>;
+
+    #[inline]
+    unsafe fn get_param(
+        state: &'a mut Self,
+        _system_state: &'a SystemState,
+        world: &'a World,
+    ) -> Self::Item {
+        world
+            .get_populated_resource_column(state.0.component_id)
+            .map(|column| Res {
+                value: &*column.get_ptr().as_ptr().cast::<T>(),
+                flags: *column.get_flags_mut_ptr(),
+            })
+    }
+}
+
+/// Unique borrow of a Resource
+///
+/// When used as a system parameter, panics if resource does not exist.
+///
+/// Use `Option<ResMut<T>>` if the resource might not always exist.
 pub struct ResMut<'w, T> {
     value: &'w mut T,
     flags: &'w mut ComponentFlags,
@@ -331,6 +372,37 @@ impl<'a, T: Component> SystemParamFetch<'a> for ResMutState<T> {
             value: value.value,
             flags: value.flags,
         }
+    }
+}
+
+pub struct OptionResMutState<T>(ResMutState<T>);
+
+impl<'a, T: Component> SystemParam for Option<ResMut<'a, T>> {
+    type Fetch = OptionResMutState<T>;
+}
+
+unsafe impl<T: Component> SystemParamState for OptionResMutState<T> {
+    type Config = ();
+    fn init(world: &mut World, system_state: &mut SystemState, _config: Self::Config) -> Self {
+        Self(ResMutState::init(world, system_state, ()))
+    }
+}
+
+impl<'a, T: Component> SystemParamFetch<'a> for OptionResMutState<T> {
+    type Item = Option<ResMut<'a, T>>;
+
+    #[inline]
+    unsafe fn get_param(
+        state: &'a mut Self,
+        _system_state: &'a SystemState,
+        world: &'a World,
+    ) -> Self::Item {
+        world
+            .get_resource_unchecked_mut_with_id(state.0.component_id)
+            .map(|value| ResMut {
+                value: value.value,
+                flags: value.flags,
+            })
     }
 }
 

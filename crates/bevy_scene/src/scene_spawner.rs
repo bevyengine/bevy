@@ -1,5 +1,5 @@
 use crate::{DynamicScene, Scene};
-use bevy_app::{prelude::*, ManualEventReader};
+use bevy_app::{Events, ManualEventReader};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityMap},

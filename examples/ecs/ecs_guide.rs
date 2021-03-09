@@ -124,7 +124,7 @@ fn score_check_system(
 fn game_over_system(
     game_rules: Res<GameRules>,
     game_state: Res<GameState>,
-    mut app_exit_events: ResMut<Events<AppExit>>,
+    mut app_exit_events: EventWriter<AppExit>,
 ) {
     if let Some(ref player) = game_state.winning_player {
         println!("{} won the game!", player);

@@ -150,7 +150,7 @@ impl TypeRegistration {
         self.name
     }
 
-    fn get_short_name(full_name: &str) -> String {
+    pub fn get_short_name(full_name: &str) -> String {
         let mut short_name = String::new();
 
         {

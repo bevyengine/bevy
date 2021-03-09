@@ -109,7 +109,7 @@ fn setup_cameras(mut commands: Commands, mut game: ResMut<Game>) {
                 2.0 * BOARD_SIZE_J as f32 / 3.0,
                 BOARD_SIZE_J as f32 / 2.0 - 0.5,
             )
-            .looking_at(game.camera_is_focus, Vec3::unit_y()),
+            .looking_at(game.camera_is_focus, Vec3::Y),
             ..Default::default()
         })
         .spawn(UiCameraBundle::default());
@@ -301,7 +301,7 @@ fn focus_camera(
     // look at that new camera's actual focus
     for (mut transform, camera) in transforms.q0_mut().iter_mut() {
         if camera.name == Some(CAMERA_3D.to_string()) {
-            *transform = transform.looking_at(game.camera_is_focus, Vec3::unit_y());
+            *transform = transform.looking_at(game.camera_is_focus, Vec3::Y);
         }
     }
 }
@@ -357,9 +357,8 @@ fn rotate_bonus(game: Res<Game>, time: Res<Time>, mut transforms: Query<&mut Tra
 
 // update the score displayed during the game
 fn scoreboard_system(game: Res<Game>, mut query: Query<&mut Text>) {
-    for mut text in query.iter_mut() {
-        text.sections[0].value = format!("Sugar Rush: {}", game.score);
-    }
+    let mut text = query.single_mut().unwrap();
+    text.sections[0].value = format!("Sugar Rush: {}", game.score);
 }
 
 // restart the game when pressing spacebar
