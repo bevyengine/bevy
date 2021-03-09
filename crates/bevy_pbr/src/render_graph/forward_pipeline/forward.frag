@@ -141,10 +141,12 @@ float V_SmithGGXCorrelated(float roughness, float NoV, float NoL) {
 // see https://google.github.io/filament/Filament.html#citation-schlick94
 // F_Schlick(v,h,f_0,f_90) = f_0 + (f_90 − f_0) (1 − v⋅h)^5
 vec3 F_Schlick(const vec3 f0, float f90, float VoH) {
+    // not using mix to keep the vec3 and float versions identical
     return f0 + (f90 - f0) * pow5(1.0 - VoH);
 }
 
 float F_Schlick(float f0, float f90, float VoH) {
+    // not using mix to keep the vec3 and float versions identical
     return f0 + (f90 - f0) * pow5(1.0 - VoH);
 }
 
