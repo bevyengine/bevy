@@ -13,7 +13,7 @@ use crate::{
 /// * At end, accepts exclusive systems; runs after parallel systems' command buffers have
 /// been applied.
 ///
-/// All systems can have one or several labels attached to them; other systems in the same group
+/// Systems can have one or more labels attached to them; other systems in the same group
 /// can then specify that they have to run before or after systems with that label using the
 /// `before` and `after` methods.
 ///

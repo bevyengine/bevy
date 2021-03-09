@@ -232,19 +232,19 @@ impl SystemStage {
         ) {
             if let Err(DependencyGraphError::GraphCycles(cycle)) = sort_systems(systems) {
                 use std::fmt::Write;
-                let mut string = format!("Found a dependency cycle in {}:", systems_description);
-                writeln!(string).unwrap();
+                let mut message = format!("Found a dependency cycle in {}:", systems_description);
+                writeln!(message).unwrap();
                 for (name, labels) in &cycle {
-                    writeln!(string, " - {}", name).unwrap();
+                    writeln!(message, " - {}", name).unwrap();
                     writeln!(
-                        string,
+                        message,
                         "    wants to be after (because of labels {:?})",
                         labels
                     )
                     .unwrap();
                 }
-                writeln!(string, " - {}", cycle[0].0).unwrap();
-                panic!("{}", string);
+                writeln!(message, " - {}", cycle[0].0).unwrap();
+                panic!("{}", message);
             }
         }
         sort_systems_unwrap(&mut self.parallel, "parallel systems");
