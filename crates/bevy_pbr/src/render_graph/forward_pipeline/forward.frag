@@ -192,6 +192,16 @@ float Fd_Burley(float roughness, float NoV, float NoL, float LoH) {
     return lightScatter * viewScatter * (1.0 / PI);
 }
 
+// From https://www.unrealengine.com/en-US/blog/physically-based-shading-on-mobile
+vec3 EnvBRDFApprox(vec3 f0, float perceptual_roughness, float NoV) {
+    const vec4 c0 = { -1, -0.0275, -0.572, 0.022 };
+    const vec4 c1 = { 1, 0.0425, 1.04, -0.04 };
+    vec4 r = perceptual_roughness * c0 + c1;
+    float a004 = min(r.x * r.x, exp2(-9.28 * NoV)) * r.x + r.y;
+    vec2 AB = vec2(-1.04, 1.04) * a004 + r.zw;
+    return f0 * AB.x + AB.y;
+}
+
 float perceptualRoughnessToRoughness(float perceptualRoughness) {
     // clamp perceptual roughness to prevent precision problems
     // According to Filament design 0.089 is recommended for mobile
@@ -294,7 +304,10 @@ void main() {
             ((diffuse + specular) * light.color.rgb) * (light.intensity * rangeAttenuation * NoL);
     }
 
-    output_color.rgb = light_accum + output_color.rgb * AmbientColor;
+    vec3 diffuse_ambient = EnvBRDFApprox(diffuseColor, 1.0, NdotV);
+    vec3 specular_ambient = EnvBRDFApprox(F0, perceptual_roughness, NdotV);
+
+    output_color.rgb = light_accum + (diffuse_ambient + specular_ambient) * AmbientColor;
 
     // tone_mapping
     output_color.rgb = reinhard_luminance(output_color.rgb);
