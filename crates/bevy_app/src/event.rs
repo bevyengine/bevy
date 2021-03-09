@@ -3,7 +3,11 @@ use bevy_ecs::{
     system::{Local, Res, ResMut, SystemParam},
 };
 use bevy_utils::tracing::trace;
-use std::{fmt, marker::PhantomData};
+use std::{
+    fmt::{self},
+    hash::Hash,
+    marker::PhantomData,
+};
 
 /// An `EventId` uniquely identifies an event.
 ///

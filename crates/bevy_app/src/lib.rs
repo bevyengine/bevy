@@ -31,10 +31,6 @@ pub enum CoreStage {
     Startup,
     /// Name of app stage that runs before all other app stages
     First,
-    /// Name of app stage that runs before EVENT
-    PreEvent,
-    /// Name of app stage that updates events. Runs before UPDATE
-    Event,
     /// Name of app stage responsible for performing setup before an update. Runs before UPDATE.
     PreUpdate,
     /// Name of app stage responsible for doing most app logic. Systems should be registered here by default.
