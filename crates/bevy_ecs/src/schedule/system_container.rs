@@ -8,11 +8,11 @@ use crate::{
 use std::{borrow::Cow, ptr::NonNull};
 
 pub(super) trait SystemContainer {
-    fn display_name(&self) -> Cow<'static, str>;
+    fn name(&self) -> Cow<'static, str>;
     fn dependencies(&self) -> &[usize];
     fn set_dependencies(&mut self, dependencies: impl IntoIterator<Item = usize>);
     fn system_set(&self) -> usize;
-    fn label(&self) -> &Option<BoxedSystemLabel>;
+    fn labels(&self) -> &[BoxedSystemLabel];
     fn before(&self) -> &[BoxedSystemLabel];
     fn after(&self) -> &[BoxedSystemLabel];
     fn ambiguity_sets(&self) -> &[BoxedAmbiguitySetLabel];
@@ -23,7 +23,7 @@ pub(super) struct ExclusiveSystemContainer {
     system: Box<dyn ExclusiveSystem>,
     dependencies: Vec<usize>,
     set: usize,
-    label: Option<BoxedSystemLabel>,
+    labels: Vec<BoxedSystemLabel>,
     before: Vec<BoxedSystemLabel>,
     after: Vec<BoxedSystemLabel>,
     ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
@@ -35,7 +35,7 @@ impl ExclusiveSystemContainer {
             system: descriptor.system,
             dependencies: Vec::new(),
             set,
-            label: descriptor.label,
+            labels: descriptor.labels,
             before: descriptor.before,
             after: descriptor.after,
             ambiguity_sets: descriptor.ambiguity_sets,
@@ -48,11 +48,8 @@ impl ExclusiveSystemContainer {
 }
 
 impl SystemContainer for ExclusiveSystemContainer {
-    fn display_name(&self) -> Cow<'static, str> {
-        self.label
-            .as_ref()
-            .map(|l| Cow::Owned(format!("{:?}", l)))
-            .unwrap_or_else(|| self.system.name())
+    fn name(&self) -> Cow<'static, str> {
+        self.system.name()
     }
 
     fn dependencies(&self) -> &[usize] {
@@ -68,8 +65,8 @@ impl SystemContainer for ExclusiveSystemContainer {
         self.set
     }
 
-    fn label(&self) -> &Option<BoxedSystemLabel> {
-        &self.label
+    fn labels(&self) -> &[BoxedSystemLabel] {
+        &self.labels
     }
 
     fn before(&self) -> &[BoxedSystemLabel] {
@@ -94,54 +91,10 @@ pub struct ParallelSystemContainer {
     pub(crate) should_run: bool,
     dependencies: Vec<usize>,
     set: usize,
-    label: Option<BoxedSystemLabel>,
+    labels: Vec<BoxedSystemLabel>,
     before: Vec<BoxedSystemLabel>,
     after: Vec<BoxedSystemLabel>,
     ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
-}
-
-impl SystemContainer for ParallelSystemContainer {
-    fn display_name(&self) -> Cow<'static, str> {
-        self.label
-            .as_ref()
-            .map(|l| Cow::Owned(format!("{:?}", l)))
-            .unwrap_or_else(|| self.system().name())
-    }
-
-    fn dependencies(&self) -> &[usize] {
-        &self.dependencies
-    }
-
-    fn set_dependencies(&mut self, dependencies: impl IntoIterator<Item = usize>) {
-        self.dependencies.clear();
-        self.dependencies.extend(dependencies);
-    }
-
-    fn system_set(&self) -> usize {
-        self.set
-    }
-
-    fn label(&self) -> &Option<BoxedSystemLabel> {
-        &self.label
-    }
-
-    fn before(&self) -> &[BoxedSystemLabel] {
-        &self.before
-    }
-
-    fn after(&self) -> &[BoxedSystemLabel] {
-        &self.after
-    }
-
-    fn ambiguity_sets(&self) -> &[BoxedAmbiguitySetLabel] {
-        &self.ambiguity_sets
-    }
-
-    fn is_compatible(&self, other: &Self) -> bool {
-        self.system()
-            .component_access()
-            .is_compatible(other.system().component_access())
-    }
 }
 
 unsafe impl Send for ParallelSystemContainer {}
@@ -154,15 +107,15 @@ impl ParallelSystemContainer {
             should_run: false,
             set,
             dependencies: Vec::new(),
-            label: descriptor.label,
+            labels: descriptor.labels,
             before: descriptor.before,
             after: descriptor.after,
             ambiguity_sets: descriptor.ambiguity_sets,
         }
     }
 
-    pub fn display_name(&self) -> Cow<'static, str> {
-        SystemContainer::display_name(self)
+    pub fn name(&self) -> Cow<'static, str> {
+        SystemContainer::name(self)
     }
 
     pub fn system(&self) -> &dyn System<In = (), Out = ()> {
@@ -188,5 +141,46 @@ impl ParallelSystemContainer {
 
     pub fn dependencies(&self) -> &[usize] {
         &self.dependencies
+    }
+}
+
+impl SystemContainer for ParallelSystemContainer {
+    fn name(&self) -> Cow<'static, str> {
+        self.system().name()
+    }
+
+    fn dependencies(&self) -> &[usize] {
+        &self.dependencies
+    }
+
+    fn set_dependencies(&mut self, dependencies: impl IntoIterator<Item = usize>) {
+        self.dependencies.clear();
+        self.dependencies.extend(dependencies);
+    }
+
+    fn system_set(&self) -> usize {
+        self.set
+    }
+
+    fn labels(&self) -> &[BoxedSystemLabel] {
+        &self.labels
+    }
+
+    fn before(&self) -> &[BoxedSystemLabel] {
+        &self.before
+    }
+
+    fn after(&self) -> &[BoxedSystemLabel] {
+        &self.after
+    }
+
+    fn ambiguity_sets(&self) -> &[BoxedAmbiguitySetLabel] {
+        &self.ambiguity_sets
+    }
+
+    fn is_compatible(&self, other: &Self) -> bool {
+        self.system()
+            .component_access()
+            .is_compatible(other.system().component_access())
     }
 }
