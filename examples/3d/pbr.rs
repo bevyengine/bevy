@@ -1,10 +1,4 @@
-use bevy::{
-    prelude::*,
-    render::{
-        pipeline::{PipelineDescriptor, RenderPipeline, RenderPipelines},
-        shader::ShaderStages,
-    },
-};
+use bevy::prelude::*;
 
 /// This example shows how to configure Physically Based Rendering (PBR) parameters.
 fn main() {
