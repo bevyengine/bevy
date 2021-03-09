@@ -13,7 +13,7 @@ pub struct StandardMaterial {
     pub base_color_texture: Option<Handle<Texture>>,
     /// Linear perceptual roughness, clamped to [0.089, 1.0] in the shader
     /// Defaults to minimum of 0.089
-    pub roughness_factor: PerceptualRoughness,
+    pub roughness_factor: f32,
     /// From [0.0, 1.0], dielectric to pure metallic
     pub metallic_factor: f32,
     /// Specular intensity for non-metals on a linear scale of [0.0, 1.0]
