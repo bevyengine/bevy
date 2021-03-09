@@ -227,6 +227,14 @@ impl Reflect for DynamicStruct {
     fn serializable(&self) -> Option<Serializable> {
         None
     }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
 }
 
 #[inline]
