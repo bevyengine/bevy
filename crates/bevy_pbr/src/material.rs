@@ -2,8 +2,6 @@ use bevy_asset::{self, Handle};
 use bevy_reflect::TypeUuid;
 use bevy_render::{color::Color, renderer::RenderResources, shader::ShaderDefs, texture::Texture};
 
-use crate::parameters::*;
-
 /// A material with "standard" properties used in PBR lighting
 /// Standard property values with pictures here https://google.github.io/filament/Material%20Properties.pdf
 #[derive(Debug, RenderResources, ShaderDefs, TypeUuid)]
@@ -15,9 +13,9 @@ pub struct StandardMaterial {
     pub base_color_texture: Option<Handle<Texture>>,
     /// Linear perceptual roughness, clamped to [0.089, 1.0] in the shader
     /// Defaults to minimum of 0.089
-    pub roughness_factor: Roughness,
+    pub roughness_factor: PerceptualRoughness,
     /// From [0.0, 1.0], dielectric to pure metallic
-    pub metallic_factor: Metallic,
+    pub metallic_factor: f32,
     /// Specular intensity for non-metals on a linear scale of [0.0, 1.0]
     /// defaults to 0.5 which is mapped to 4% reflectance in the shader
     pub reflectance: f32,
@@ -32,13 +30,13 @@ impl Default for StandardMaterial {
             base_color_factor: Color::rgb(1.0, 1.0, 1.0),
             base_color_texture: None,
             // This is the minimum the roughness is clamped to in shader code
-            roughness_factor: 0.089.into(),
+            roughness_factor: 0.089,
             // Few materials are purely dielectric or metallic
             // This is just a default for mostly-dielectric
-            metallic_factor: 0.01.into(),
+            metallic_factor: 0.01,
             // Minimum real-world reflectance is 2%, most materials between 2-5%
             // Expressed in a linear scale and equivalent to 4% reflectance see https://google.github.io/filament/Material%20Properties.pdf
-            reflectance: 0.5.into(),
+            reflectance: 0.5,
             unlit: false,
         }
     }

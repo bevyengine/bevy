@@ -3,15 +3,13 @@ pub mod render_graph;
 mod entity;
 mod light;
 mod material;
-mod parameters;
 
 pub use entity::*;
 pub use light::*;
 pub use material::*;
-pub use parameters::*;
 
 pub mod prelude {
-    pub use crate::{entity::*, light::Light, material::StandardMaterial, parameters::*};
+    pub use crate::{entity::*, light::Light, material::StandardMaterial};
 }
 
 use bevy_app::prelude::*;

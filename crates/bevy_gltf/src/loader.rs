@@ -279,8 +279,8 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
         LoadedAsset::new(StandardMaterial {
             base_color_factor: Color::rgba(color[0], color[1], color[2], color[3]),
             base_color_texture: texture_handle,
-            roughness_factor: pbr.roughness_factor().into(),
-            metallic_factor: pbr.metallic_factor().into(),
+            roughness_factor: pbr.roughness_factor(),
+            metallic_factor: pbr.metallic_factor(),
             unlit: material.unlit(),
             ..Default::default()
         })
