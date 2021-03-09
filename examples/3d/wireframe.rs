@@ -1,5 +1,5 @@
-use bevy::prelude::*;
-use bevy_internal::{
+use bevy::{
+    prelude::*,
     render::wireframe::{Wireframe, WireframeConfig, WireframePlugin},
     wgpu::{WgpuFeature, WgpuFeatures, WgpuOptions},
 };
