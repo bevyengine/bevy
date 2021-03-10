@@ -162,7 +162,7 @@ fn reflect_binding(
 
     let name = name.to_string();
 
-    if name == "Camera" {
+    if let Some(0usize) = name.find("Camera") {
         shader_stage = BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT;
     }
 
@@ -327,7 +327,6 @@ mod tests {
             layout(location = 0) out vec4 v_Position;
             layout(set = 0, binding = 0) uniform CameraViewProj {
                 mat4 ViewProj;
-                mat4 View;
             };
             layout(set = 1, binding = 0) uniform texture2D Texture;
 
@@ -382,7 +381,7 @@ mod tests {
                         0,
                         vec![BindingDescriptor {
                             index: 0,
-                            name: "Camera".into(),
+                            name: "CameraViewProj".into(),
                             bind_type: BindType::Uniform {
                                 has_dynamic_offset: false,
                                 property: UniformProperty::Struct(vec![UniformProperty::Mat4]),
