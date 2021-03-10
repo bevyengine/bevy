@@ -26,7 +26,7 @@ impl Default for Light {
             depth: 0.1..50.0,
             fov: f32::to_radians(60.0),
             intensity: 100.0,
-            range: 10.0,
+            range: 20.0,
         }
     }
 }

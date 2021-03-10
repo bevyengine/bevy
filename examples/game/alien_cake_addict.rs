@@ -107,10 +107,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
 
     commands.spawn(LightBundle {
         transform: Transform::from_xyz(4.0, 5.0, 4.0),
-        light: Light {
-            range: 20.0,
-            ..Default::default()
-        },
         ..Default::default()
     });
 

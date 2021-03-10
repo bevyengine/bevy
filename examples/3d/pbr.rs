@@ -42,11 +42,6 @@ fn setup(
     commands
         // light
         .spawn(LightBundle {
-            light: Light {
-                range: 20.0,
-                intensity: 100.0,
-                ..Default::default()
-            },
             transform: Transform::from_translation(Vec3::new(0.0, 5.0, 5.0)),
             ..Default::default()
         })

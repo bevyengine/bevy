@@ -55,10 +55,6 @@ fn setup(
         // light
         .spawn(LightBundle {
             transform: Transform::from_xyz(3.0, 8.0, 5.0),
-            light: Light {
-                range: 20.0,
-                ..Default::default()
-            },
             ..Default::default()
         })
         // camera
