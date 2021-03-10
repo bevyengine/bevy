@@ -204,6 +204,7 @@ impl Touches {
                     if raw_force.unwrap_or(f64::MAX) == 0.0 {
                         self.just_released.insert(event.id, event.into());
                         self.pressed.remove_entry(&event.id);
+                        return;
                     }
                     new_touch.previous_position = new_touch.position;
                     new_touch.previous_force = new_touch.force;
