@@ -469,7 +469,8 @@ fn topological_order(
     Ok(sorted)
 }
 
-/// Returns vector containing all pairs of indices of systems with ambiguous execution order.
+/// Returns vector containing all pairs of indices of systems with ambiguous execution order,
+/// along with specific components that have triggered the warning.
 /// Systems must be topologically sorted beforehand.
 fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize, Vec<ComponentId>)> {
     let mut ambiguity_set_labels = HashMap::default();
