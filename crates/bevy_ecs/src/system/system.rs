@@ -1,3 +1,5 @@
+use bevy_utils::tracing::warn;
+
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     component::ComponentId,
@@ -41,3 +43,20 @@ pub trait System: Send + Sync + 'static {
 }
 
 pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;
+
+pub(crate) fn check_system_counter_impl(
+    counter: &mut u32,
+    global_system_counter: u32,
+    system_name: &str,
+) {
+    let counter_age = global_system_counter.wrapping_sub(*counter);
+    let max_age = (u32::MAX / 4) * 3;
+    // Clamp to max age
+    if counter_age > max_age {
+        warn!(
+            "System '{}' was not run for too long, it may fail to detect changes.",
+            system_name
+        );
+        *counter = global_system_counter.wrapping_sub(max_age);
+    }
+}

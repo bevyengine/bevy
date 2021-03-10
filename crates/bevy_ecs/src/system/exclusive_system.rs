@@ -1,6 +1,5 @@
 use crate::{
-    component::check_counter_impl,
-    system::{BoxedSystem, IntoSystem, System, SystemId},
+    system::{check_system_counter_impl, BoxedSystem, IntoSystem, System, SystemId},
     world::World,
 };
 use std::borrow::Cow;
@@ -50,7 +49,11 @@ impl ExclusiveSystem for ExclusiveSystemFn {
     fn initialize(&mut self, _: &mut World) {}
 
     fn check_system_counter(&mut self, global_system_counter: u32) {
-        check_counter_impl(&mut self.system_counter, global_system_counter);
+        check_system_counter_impl(
+            &mut self.system_counter,
+            global_system_counter,
+            self.name.as_ref(),
+        );
     }
 }
 

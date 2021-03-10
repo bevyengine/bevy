@@ -328,7 +328,7 @@ impl ComponentCounters {
     }
 }
 
-pub(crate) fn check_counter_impl(counter: &mut u32, global_system_counter: u32) {
+fn check_counter_impl(counter: &mut u32, global_system_counter: u32) {
     let counter_age = global_system_counter.wrapping_sub(*counter);
     let max_age = (u32::MAX / 4) * 3;
     // Clamp to max age

@@ -521,6 +521,7 @@ impl World {
             )
         }
     }
+
     /// Returns a [DirectQuery] for the given filtered [WorldQuery], which is used to directly query the [World],
     /// usually in exclusive systems.
     /// ```

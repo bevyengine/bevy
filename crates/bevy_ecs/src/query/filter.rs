@@ -720,7 +720,7 @@ impl_counter_filter!(
 impl_counter_filter!(
     /// Filter that retrieves components of type `T` that have been changed since the last execution of this system
     ///
-    /// This filter is useful for synchronizing components, and as a performance optimization as it means that the query 
+    /// This filter is useful for synchronizing components, and as a performance optimization as it means that the query
     /// contains fewer items for a system to iterate over.
     ///
     /// Because the ordering of systems can change and this filter is only effective on changes before the query executes
