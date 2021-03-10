@@ -180,7 +180,7 @@ impl ComponentSparseSet {
     /// It is the caller's responsibility to drop the returned ptr (if Some is returned).
     pub fn remove_and_forget(&mut self, entity: Entity) -> Option<*mut u8> {
         self.sparse.remove(entity).map(|dense_index| {
-            // SAFE: unique access to flags
+            // SAFE: unique access to counters
             unsafe {
                 (*self.counters.get()).swap_remove(dense_index);
             }
