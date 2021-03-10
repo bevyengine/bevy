@@ -7,7 +7,7 @@ layout(location = 2) in vec2 Vertex_Uv;
 layout(location = 0) out vec2 v_Uv;
 layout(location = 1) out vec4 v_Color;
 
-layout(set = 0, binding = 0) uniform Camera {
+layout(set = 0, binding = 0) uniform CameraViewProj {
     mat4 ViewProj;
     mat4 View;
 };
@@ -25,7 +25,6 @@ struct Rect {
 layout(set = 1, binding = 1) buffer TextureAtlas_textures {
     Rect[] Textures;
 };
-
 
 layout(set = 2, binding = 0) uniform Transform {
     mat4 SpriteTransform;
@@ -76,8 +75,7 @@ void main() {
         bottom_left,
         top_left,
         top_right,
-        bottom_right
-    );
+        bottom_right);
 
     v_Uv = (atlas_positions[gl_VertexIndex]) / AtlasSize;
 
