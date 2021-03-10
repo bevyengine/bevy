@@ -194,12 +194,27 @@ impl Touches {
                 self.just_pressed.insert(event.id, event.into());
             }
             TouchPhase::Moved => {
+                let raw_force = event.force.map(|e| {
+                    match e {
+                        ForceTouch::Calibrated { force, .. } => force,
+                        ForceTouch::Normalized(force) => force,
+                    }
+                });
                 if let Some(mut new_touch) = self.pressed.get(&event.id).cloned() {
+                    if raw_force.unwrap_or(f64::MAX) == 0.0 {
+                        self.just_released.insert(event.id, event.into());
+                        self.pressed.remove_entry(&event.id);
+                    }
                     new_touch.previous_position = new_touch.position;
                     new_touch.previous_force = new_touch.force;
                     new_touch.position = event.position;
                     new_touch.force = event.force;
                     self.pressed.insert(event.id, new_touch);
+                } else {
+                    if raw_force.unwrap_or(f64::MIN) > 0.0 {
+                        self.pressed.insert(event.id, event.into());
+                        self.just_pressed.insert(event.id, event.into());
+                    }
                 }
             }
             TouchPhase::Ended => {
