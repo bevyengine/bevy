@@ -208,7 +208,7 @@ where
                 TextureAttachment::Id(input.get(input_index).unwrap().get_texture().unwrap());
         }
 
-        for camera_info in self.cameras.iter_mut() {
+        'outer: for camera_info in self.cameras.iter_mut() {
             let camera_name = &camera_info.name;
 
             if render_context
@@ -217,22 +217,23 @@ where
             {
                 let mut camera_bind_group_builder = BindGroup::build();
 
-                for binding_name in self
+                for (index, binding_name) in self
                     .camera_bind_group_descriptor
                     .bindings
                     .iter()
                     .map(|binding| &binding.name)
+                    .enumerate()
                 {
                     let camera_binding = if let Some(camera_binding) = render_resource_bindings.get(
                         &format!("{}{}", &camera_name, binding_name.replace("Camera", "")),
                     ) {
                         camera_binding.clone()
                     } else {
-                        continue;
+                        continue 'outer;
                     };
 
                     camera_bind_group_builder =
-                        camera_bind_group_builder.add_binding(0, camera_binding);
+                        camera_bind_group_builder.add_binding(index as u32, camera_binding);
                 }
 
                 let camera_bind_group = camera_bind_group_builder.finish();
