@@ -108,18 +108,30 @@ impl<Q: WorldQuery> PassNode<Q> {
 
         let camera_bind_group_descriptor = BindGroupDescriptor::new(
             0,
-            vec![BindingDescriptor {
-                name: "Camera".to_string(),
-                index: 0,
-                bind_type: BindType::Uniform {
-                    has_dynamic_offset: false,
-                    property: UniformProperty::Struct(vec![
-                        UniformProperty::Mat4, // View Projection
-                        UniformProperty::Mat4, // View
-                    ]),
+            vec![
+                BindingDescriptor {
+                    name: "CameraViewProj".to_string(),
+                    index: 0,
+                    bind_type: BindType::Uniform {
+                        has_dynamic_offset: false,
+                        property: UniformProperty::Struct(vec![
+                            UniformProperty::Mat4, // View Projection
+                        ]),
+                    },
+                    shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
                 },
-                shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
-            }],
+                BindingDescriptor {
+                    name: "CameraView".to_string(),
+                    index: 1,
+                    bind_type: BindType::Uniform {
+                        has_dynamic_offset: false,
+                        property: UniformProperty::Struct(vec![
+                            UniformProperty::Mat4, // View
+                        ]),
+                    },
+                    shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
+                },
+            ],
         );
 
         PassNode {
@@ -195,18 +207,36 @@ where
                 .attachment =
                 TextureAttachment::Id(input.get(input_index).unwrap().get_texture().unwrap());
         }
+
         for camera_info in self.cameras.iter_mut() {
-            let camera_binding =
-                if let Some(camera_binding) = render_resource_bindings.get(&camera_info.name) {
-                    camera_binding.clone()
-                } else {
-                    continue;
-                };
+            let camera_name = &camera_info.name;
+
             if render_context
                 .resources()
                 .bind_group_descriptor_exists(self.camera_bind_group_descriptor.id)
             {
-                let camera_bind_group = BindGroup::build().add_binding(0, camera_binding).finish();
+                let mut camera_bind_group_builder = BindGroup::build();
+
+                for binding_name in self
+                    .camera_bind_group_descriptor
+                    .bindings
+                    .iter()
+                    .map(|binding| &binding.name)
+                {
+                    let camera_binding = if let Some(camera_binding) = render_resource_bindings.get(
+                        &format!("{}{}", &camera_name, binding_name.replace("Camera", "")),
+                    ) {
+                        camera_binding.clone()
+                    } else {
+                        continue;
+                    };
+
+                    camera_bind_group_builder =
+                        camera_bind_group_builder.add_binding(0, camera_binding);
+                }
+
+                let camera_bind_group = camera_bind_group_builder.finish();
+
                 render_context
                     .resources()
                     .create_bind_group(self.camera_bind_group_descriptor.id, &camera_bind_group);

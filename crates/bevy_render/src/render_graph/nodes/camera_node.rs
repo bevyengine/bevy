@@ -6,11 +6,12 @@ use crate::{
         RenderResourceBindings, RenderResourceContext,
     },
 };
-use bevy_core::AsBytes;
+use bevy_core::{AsBytes, Bytes};
 use bevy_ecs::{
     system::{BoxedSystem, IntoSystem, Local, Query, Res, ResMut},
     world::World,
 };
+
 use bevy_transform::prelude::*;
 use std::borrow::Cow;
 
@@ -83,28 +84,42 @@ pub fn camera_node_system(
         return;
     };
 
+    let view_matrix = global_transform.compute_matrix().inverse();
+    let camera_matrix = [
+        (camera.projection_matrix * view_matrix).to_cols_array(),
+        view_matrix.to_cols_array(),
+    ];
+    let buffer_size = camera_matrix.byte_len();
+
     let staging_buffer = if let Some(staging_buffer) = state.staging_buffer {
         render_resource_context.map_buffer(staging_buffer, BufferMapMode::Write);
         staging_buffer
     } else {
-        let size = std::mem::size_of::<[[[f32; 4]; 4]; 2]>();
         let buffer = render_resource_context.create_buffer(BufferInfo {
-            size,
+            size: buffer_size,
             buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
             ..Default::default()
         });
         render_resource_bindings.set(
-            &state.camera_name,
+            &format!("{}ViewProj", &state.camera_name),
             RenderResourceBinding::Buffer {
                 buffer,
-                range: 0..size as u64,
+                range: 0..view_matrix.byte_len() as u64,
+                dynamic_index: None,
+            },
+        );
+        render_resource_bindings.set(
+            &format!("{}View", &state.camera_name),
+            RenderResourceBinding::Buffer {
+                buffer,
+                range: view_matrix.byte_len() as u64..buffer_size as u64,
                 dynamic_index: None,
             },
         );
         state.camera_buffer = Some(buffer);
 
         let staging_buffer = render_resource_context.create_buffer(BufferInfo {
-            size,
+            size: buffer_size,
             buffer_usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
             mapped_at_creation: true,
         });
@@ -113,18 +128,11 @@ pub fn camera_node_system(
         staging_buffer
     };
 
-    let matrix_size = std::mem::size_of::<[[[f32; 4]; 4]; 2]>();
-    let view_matrix = global_transform.compute_matrix().inverse();
-    let camera_matrix: [[f32; 16]; 2] = [
-        (camera.projection_matrix * view_matrix).to_cols_array(),
-        view_matrix.to_cols_array()
-    ];
-
     render_resource_context.write_mapped_buffer(
         staging_buffer,
-        0..matrix_size as u64,
+        0..buffer_size as u64,
         &mut |data, _renderer| {
-            data[0..matrix_size].copy_from_slice(camera_matrix.as_bytes());
+            data[0..buffer_size].copy_from_slice(camera_matrix.as_bytes());
         },
     );
     render_resource_context.unmap_buffer(staging_buffer);
@@ -135,6 +143,6 @@ pub fn camera_node_system(
         0,
         camera_buffer,
         0,
-        matrix_size as u64,
+        buffer_size as u64,
     );
 }

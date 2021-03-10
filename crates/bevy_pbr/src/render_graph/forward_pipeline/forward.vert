@@ -8,8 +8,10 @@ layout(location = 0) out vec3 v_Position;
 layout(location = 1) out vec3 v_Normal;
 layout(location = 2) out vec2 v_Uv;
 
-layout(set = 0, binding = 0) uniform Camera {
+layout(set = 0, binding = 0) uniform CameraViewProj {
     mat4 ViewProj;
+};
+layout(set = 0, binding = 1) uniform CameraView {
     mat4 View;
 };
 
