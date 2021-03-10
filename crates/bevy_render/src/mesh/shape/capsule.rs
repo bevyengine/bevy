@@ -39,7 +39,8 @@ pub enum CapsuleUvProfile {
     Aspect,
     /// Hemispheres get UV space according to the ratio of latitudes to rings.
     Uniform,
-    /// Upper third of the texture goes to the northern hemisphere, middle third to the cylinder and lower third to the southern one.
+    /// Upper third of the texture goes to the northern hemisphere, middle third to the cylinder
+    /// and lower third to the southern one.
     Fixed,
 }
 

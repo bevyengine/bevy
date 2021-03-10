@@ -65,13 +65,15 @@ fn setup(
         fragment: Some(shaders.add(Shader::from_glsl(ShaderStage::Fragment, FRAGMENT_SHADER))),
     }));
 
-    // Add an AssetRenderResourcesNode to our Render Graph. This will bind MyMaterialWithVertexColorSupport resources to our shader
+    // Add an AssetRenderResourcesNode to our Render Graph. This will bind
+    // MyMaterialWithVertexColorSupport resources to our shader
     render_graph.add_system_node(
         "my_material_with_vertex_color_support",
         AssetRenderResourcesNode::<MyMaterialWithVertexColorSupport>::new(true),
     );
 
-    // Add a Render Graph edge connecting our new "my_material" node to the main pass node. This ensures "my_material" runs before the main pass
+    // Add a Render Graph edge connecting our new "my_material" node to the main pass node. This
+    // ensures "my_material" runs before the main pass
     render_graph
         .add_node_edge(
             "my_material_with_vertex_color_support",
@@ -90,7 +92,8 @@ fn setup(
         // name of the attribute
         "Vertex_Color",
         // the vertex attributes, represented by `VertexAttributeValues`
-        // NOTE: the attribute count has to be consistent across all attributes, otherwise bevy will panic.
+        // NOTE: the attribute count has to be consistent across all attributes, otherwise bevy
+        // will panic.
         VertexAttributeValues::from(vec![
             // top
             [0.79, 0.73, 0.07],

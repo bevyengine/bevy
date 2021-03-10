@@ -41,7 +41,8 @@ impl ScheduleRunnerSettings {
     }
 }
 
-/// Configures an App to run its [Schedule](bevy_ecs::schedule::Schedule) according to a given [RunMode]
+/// Configures an App to run its [Schedule](bevy_ecs::schedule::Schedule) according to a given
+/// [RunMode]
 #[derive(Default)]
 pub struct ScheduleRunnerPlugin {}
 

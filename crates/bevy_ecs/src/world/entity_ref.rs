@@ -36,7 +36,8 @@ impl<'w> EntityRef<'w> {
 
     #[inline]
     pub fn archetype(&self) -> &Archetype {
-        // SAFE: EntityRefs always point to valid entities. Valid entities always have valid archetypes
+        // SAFE: EntityRefs always point to valid entities. Valid entities always have valid
+        // archetypes
         unsafe {
             self.world
                 .archetypes
@@ -76,7 +77,8 @@ impl<'w> EntityRef<'w> {
     }
 
     /// # Safety
-    /// This allows aliased mutability. You must make sure this call does not result in multiple mutable references to the same component
+    /// This allows aliased mutability. You must make sure this call does not result in multiple
+    /// mutable references to the same component
     #[inline]
     pub unsafe fn get_unchecked_mut<T: Component>(&self) -> Option<Mut<'w, T>> {
         get_component_and_flags_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
@@ -121,7 +123,8 @@ impl<'w> EntityMut<'w> {
 
     #[inline]
     pub fn archetype(&self) -> &Archetype {
-        // SAFE: EntityRefs always point to valid entities. Valid entities always have valid archetypes
+        // SAFE: EntityRefs always point to valid entities. Valid entities always have valid
+        // archetypes
         unsafe {
             self.world
                 .archetypes
@@ -157,7 +160,8 @@ impl<'w> EntityMut<'w> {
 
     #[inline]
     pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'w, T>> {
-        // SAFE: world access is unique, entity location is valid, and returned component is of type T
+        // SAFE: world access is unique, entity location is valid, and returned component is of type
+        // T
         unsafe {
             get_component_and_flags_with_type(
                 self.world,
@@ -173,7 +177,8 @@ impl<'w> EntityMut<'w> {
     }
 
     /// # Safety
-    /// This allows aliased mutability. You must make sure this call does not result in multiple mutable references to the same component
+    /// This allows aliased mutability. You must make sure this call does not result in multiple
+    /// mutable references to the same component
     #[inline]
     pub unsafe fn get_unchecked_mut<T: Component>(&self) -> Option<Mut<'w, T>> {
         get_component_and_flags_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
@@ -227,7 +232,8 @@ impl<'w> EntityMut<'w> {
                     let (old_table, new_table) = storages
                         .tables
                         .get_2_mut(old_table_id, new_archetype.table_id());
-                    // PERF: store "non bundle" components in edge, then just move those to avoid redundant copies
+                    // PERF: store "non bundle" components in edge, then just move those to avoid
+                    // redundant copies
                     let move_result =
                         old_table.move_to_superset_unchecked(old_table_row, new_table);
 
@@ -235,7 +241,8 @@ impl<'w> EntityMut<'w> {
                     // if an entity was moved into this entity's table spot, update its table row
                     if let Some(swapped_entity) = move_result.swapped_entity {
                         let swapped_location = entities.get(swapped_entity).unwrap();
-                        // SAFE: entity is live and is therefore contained in an archetype that exists
+                        // SAFE: entity is live and is therefore contained in an archetype that
+                        // exists
                         archetypes
                             .get_unchecked_mut(swapped_location.archetype_id)
                             .set_entity_table_row(swapped_location.index, old_table_row);
@@ -297,7 +304,8 @@ impl<'w> EntityMut<'w> {
         let old_archetype = unsafe { archetypes.get_unchecked_mut(old_location.archetype_id) };
         let mut bundle_components = bundle_info.component_ids.iter().cloned();
         let entity = self.entity;
-        // SAFE: bundle components are iterated in order, which guarantees that the component type matches
+        // SAFE: bundle components are iterated in order, which guarantees that the component type
+        // matches
         let result = unsafe {
             T::from_components(|| {
                 let component_id = bundle_components.next().unwrap();
@@ -330,7 +338,8 @@ impl<'w> EntityMut<'w> {
                 .tables
                 .get_2_mut(old_table_id, new_archetype.table_id());
 
-            // SAFE: table_row exists. All "missing" components have been extracted into the bundle above and the caller takes ownership
+            // SAFE: table_row exists. All "missing" components have been extracted into the bundle
+            // above and the caller takes ownership
             let move_result =
                 unsafe { old_table.move_to_and_forget_missing_unchecked(old_table_row, new_table) };
 
@@ -505,22 +514,24 @@ impl<'w> EntityMut<'w> {
 
     /// # Safety
     /// Caller must not modify the world in a way that changes the current entity's location
-    /// If the caller _does_ do something that could change the location, self.update_location() must be
-    /// called before using any other methods in EntityMut
+    /// If the caller _does_ do something that could change the location, self.update_location()
+    /// must be called before using any other methods in EntityMut
     #[inline]
     pub unsafe fn world_mut(&mut self) -> &mut World {
         self.world
     }
 
     /// Updates the internal entity location to match the current location in the internal [World].
-    /// This is only needed if the user called [EntityMut::world], which enables the location to change.
+    /// This is only needed if the user called [EntityMut::world], which enables the location to
+    /// change.
     pub fn update_location(&mut self) {
         self.location = self.world.entities().get(self.entity).unwrap();
     }
 }
 
 /// # Safety
-/// `entity_location` must be within bounds of the given archetype and `entity` must exist inside the archetype
+/// `entity_location` must be within bounds of the given archetype and `entity` must exist inside
+/// the archetype
 #[inline]
 unsafe fn get_component(
     world: &World,
@@ -580,7 +591,8 @@ unsafe fn get_component_and_flags(
 }
 
 /// # Safety
-// `entity_location` must be within bounds of the given archetype and `entity` must exist inside the archetype
+// `entity_location` must be within bounds of the given archetype and `entity` must exist inside the
+// archetype
 /// The relevant table row must be removed separately
 /// `component_id` must be valid
 #[inline]
@@ -666,9 +678,10 @@ unsafe fn contains_component_with_id(
         .contains(component_id)
 }
 
-/// Adds a bundle to the given archetype and returns the resulting archetype. This could be the same [ArchetypeId],
-/// in the event that adding the given bundle does not result in an Archetype change. Results are cached in the
-/// Archetype Graph to avoid redundant work.
+/// Adds a bundle to the given archetype and returns the resulting archetype. This could be the same
+/// [ArchetypeId], in the event that adding the given bundle does not result in an Archetype change.
+/// Results are cached in the Archetype Graph to avoid redundant work.
+///
 /// # Safety
 /// `archetype_id` must exist and components in `bundle_info` must exist
 pub(crate) unsafe fn add_bundle_to_archetype(
@@ -760,11 +773,13 @@ pub(crate) unsafe fn add_bundle_to_archetype(
     }
 }
 
-/// Removes a bundle from the given archetype and returns the resulting archetype (or None if the removal was invalid).
-/// in the event that adding the given bundle does not result in an Archetype change. Results are cached in the
-/// Archetype Graph to avoid redundant work.
-/// if `intersection` is false, attempting to remove a bundle with components _not_ contained in the current archetype will fail,
-/// returning None. if `intersection` is true, components in the bundle but not in the current archetype will be ignored
+/// Removes a bundle from the given archetype and returns the resulting archetype (or None if the
+/// removal was invalid). in the event that adding the given bundle does not result in an Archetype
+/// change. Results are cached in the Archetype Graph to avoid redundant work.
+/// if `intersection` is false, attempting to remove a bundle with components _not_ contained in the
+/// current archetype will fail, returning None. if `intersection` is true, components in the bundle
+/// but not in the current archetype will be ignored
+///
 /// # Safety
 /// `archetype_id` must exist and components in `bundle_info` must exist
 unsafe fn remove_bundle_from_archetype(
@@ -775,7 +790,8 @@ unsafe fn remove_bundle_from_archetype(
     bundle_info: &BundleInfo,
     intersection: bool,
 ) -> Option<ArchetypeId> {
-    // check the archetype graph to see if the Bundle has been removed from this archetype in the past
+    // check the archetype graph to see if the Bundle has been removed from this archetype in the
+    // past
     let remove_bundle_result = {
         // SAFE: entity location is valid and therefore the archetype exists
         let current_archetype = archetypes.get_unchecked_mut(archetype_id);
@@ -808,8 +824,9 @@ unsafe fn remove_bundle_from_archetype(
                         StorageType::SparseSet => removed_sparse_set_components.push(component_id),
                     }
                 } else if !intersection {
-                    // a component in the bundle was not present in the entity's archetype, so this removal is invalid
-                    // cache the result in the archetype graph
+                    // a component in the bundle was not present in the entity's archetype, so this
+                    // removal is invalid cache the result in the archetype
+                    // graph
                     current_archetype
                         .edges_mut()
                         .set_remove_bundle(bundle_info.id, None);
@@ -817,7 +834,8 @@ unsafe fn remove_bundle_from_archetype(
                 }
             }
 
-            // sort removed components so we can do an efficient "sorted remove". archetype components are already sorted
+            // sort removed components so we can do an efficient "sorted remove". archetype
+            // components are already sorted
             removed_table_components.sort();
             removed_sparse_set_components.sort();
             next_table_components = current_archetype.table_components().to_vec();

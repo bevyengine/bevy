@@ -10,8 +10,8 @@ use crate::{
 use bevy_ecs_macros::all_tuples;
 use std::{marker::PhantomData, ptr};
 
-// TODO: uncomment this and use as shorthand (remove where F::Fetch: FilterFetch everywhere) when this bug is fixed in Rust 1.51:
-// https://github.com/rust-lang/rust/pull/81671
+// TODO: uncomment this and use as shorthand (remove where F::Fetch: FilterFetch everywhere) when
+// this bug is fixed in Rust 1.51: https://github.com/rust-lang/rust/pull/81671
 // pub trait QueryFilter: WorldQuery
 // where
 //     Self::Fetch: FilterFetch,
@@ -21,14 +21,17 @@ use std::{marker::PhantomData, ptr};
 // impl<T: WorldQuery> QueryFilter for T where T::Fetch: FilterFetch {
 // }
 
-/// Fetch methods used by query filters. This trait exists to allow "short circuit" behaviors for relevant query filter fetches.
+/// Fetch methods used by query filters. This trait exists to allow "short circuit" behaviors for
+/// relevant query filter fetches.
 pub trait FilterFetch: for<'a> Fetch<'a> {
     /// # Safety
-    /// Must always be called _after_ [Fetch::set_archetype]. `archetype_index` must be in the range of the current archetype
+    /// Must always be called _after_ [Fetch::set_archetype]. `archetype_index` must be in the range
+    /// of the current archetype
     unsafe fn archetype_filter_fetch(&mut self, archetype_index: usize) -> bool;
 
     /// # Safety
-    /// Must always be called _after_ [Fetch::set_table]. `table_row` must be in the range of the current table
+    /// Must always be called _after_ [Fetch::set_table]. `table_row` must be in the range of the
+    /// current table
     unsafe fn table_filter_fetch(&mut self, table_row: usize) -> bool;
 }
 
@@ -47,7 +50,8 @@ where
     }
 }
 
-/// Filter that retrieves components of type `T` that have either been mutated or added since the start of the frame.
+/// Filter that retrieves components of type `T` that have either been mutated or added since the
+/// start of the frame.
 pub struct With<T>(PhantomData<T>);
 
 impl<T: Component> WorldQuery for With<T> {
@@ -137,7 +141,8 @@ impl<'a, T: Component> Fetch<'a> for WithFetch<T> {
     }
 }
 
-/// Filter that retrieves components of type `T` that have either been mutated or added since the start of the frame.
+/// Filter that retrieves components of type `T` that have either been mutated or added since the
+/// start of the frame.
 pub struct Without<T>(PhantomData<T>);
 
 impl<T: Component> WorldQuery for Without<T> {
@@ -573,13 +578,15 @@ macro_rules! impl_flag_filter {
 }
 
 impl_flag_filter!(
-    /// Filter that retrieves components of type `T` that have been added since the start of the frame
+    /// Filter that retrieves components of type `T` that have been added since the start of the
+    /// frame
     ///
-    /// This filter is useful as a performance optimization as it means that the query contains fewer items
-    /// for a system to iterate over.
+    /// This filter is useful as a performance optimization as it means that the query contains
+    /// fewer items for a system to iterate over.
     ///
-    /// Because the ordering of systems can change and this filter is only effective on changes before the query executes
-    /// you need to use explicit dependency ordering or ordered stages for these query filters to be useful.
+    /// Because the ordering of systems can change and this filter is only effective on changes
+    /// before the query executes you need to use explicit dependency ordering or ordered
+    /// stages for these query filters to be useful.
     ///
     ///
     /// Example:
@@ -604,14 +611,15 @@ impl_flag_filter!(
 );
 
 impl_flag_filter!(
-    /// Filter that retrieves components of type `T` that have been mutated since the start of the frame.
-    /// Added components do not count as mutated.
+    /// Filter that retrieves components of type `T` that have been mutated since the start of the
+    /// frame. Added components do not count as mutated.
     ///
-    /// This filter is useful as a performance optimization as it means that the query contains fewer items
-    /// for a system to iterate over.
+    /// This filter is useful as a performance optimization as it means that the query contains
+    /// fewer items for a system to iterate over.
     ///
-    /// Because the ordering of systems can change and this filter is only effective on changes before the query executes
-    /// you need to use explicit dependency ordering or ordered stages for these query filters to be useful.
+    /// Because the ordering of systems can change and this filter is only effective on changes
+    /// before the query executes you need to use explicit dependency ordering or ordered
+    /// stages for these query filters to be useful.
     ///
     /// Example:
     /// ```
@@ -635,15 +643,18 @@ impl_flag_filter!(
 );
 
 impl_flag_filter!(
-    /// Filter that retrieves components of type `T` that have been added or mutated since the start of the frame
+    /// Filter that retrieves components of type `T` that have been added or mutated since the
+    /// start of the frame
     ///
-    /// This filter is useful as a performance optimization as it means that the query contains fewer items
-    /// for a system to iterate over.
+    /// This filter is useful as a performance optimization as it means that the query contains
+    /// fewer items for a system to iterate over.
     ///
-    /// Because the ordering of systems can change and this filter is only effective on changes before the query executes
-    /// you need to use explicit dependency ordering or ordered stages for these query filters to be useful.
+    /// Because the ordering of systems can change and this filter is only effective on changes
+    /// before the query executes you need to use explicit dependency ordering or ordered
+    /// stages for these query filters to be useful.
     ///
-    /// Also see the documentation for [`Mutated<T>`] and [`Added`] as this filter is a logical OR of them.
+    /// Also see the documentation for [`Mutated<T>`] and [`Added`] as this filter is a logical OR
+    /// of them.
     Changed,
     ChangedState,
     ChangedFetch,

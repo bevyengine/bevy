@@ -48,7 +48,8 @@ fn setup(
 
     // Another way to create a hierarchy is to add a Parent component to an entity,
     // which would be added automatically to parents with other methods.
-    // Similarly, adding a Parent component will automatically add a Children component to the parent.
+    // Similarly, adding a Parent component will automatically add a Children component to the
+    // parent.
     commands
         .spawn(SpriteBundle {
             transform: Transform {
@@ -108,7 +109,8 @@ fn rotate(
             }
         }
 
-        // To demonstrate removing children, we'll start to remove the children after a couple of seconds
+        // To demonstrate removing children, we'll start to remove the children after a couple of
+        // seconds
         if time.seconds_since_startup() >= 2.0 && children.len() == 3 {
             let child = children.last().copied().unwrap();
             commands.despawn(child);

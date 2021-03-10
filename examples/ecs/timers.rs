@@ -51,8 +51,8 @@ fn countdown_system(time: Res<Time>, mut countdown: ResMut<Countdown>) {
     countdown.main_timer.tick(time.delta());
 
     // The API encourages this kind of timer state checking (if you're only checking for one value)
-    // Additionally, `finished()` would accomplish the same thing as `just_finished` due to the timer
-    // being repeating, however this makes more sense visually.
+    // Additionally, `finished()` would accomplish the same thing as `just_finished` due to the
+    // timer being repeating, however this makes more sense visually.
     if countdown.percent_trigger.tick(time.delta()).just_finished() {
         if !countdown.main_timer.finished() {
             // Print the percent complete the main timer is.

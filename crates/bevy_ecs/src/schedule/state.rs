@@ -217,7 +217,8 @@ impl<T: Clone> State<T> {
         self.next.as_ref()
     }
 
-    /// Queue a state change. This will fail if there is already a state in the queue, or if the given `state` matches the current state
+    /// Queue a state change. This will fail if there is already a state in the queue, or if the
+    /// given `state` matches the current state
     pub fn set_next(&mut self, state: T) -> Result<(), StateError> {
         if std::mem::discriminant(&self.current) == std::mem::discriminant(&state) {
             return Err(StateError::AlreadyInState);
@@ -231,7 +232,8 @@ impl<T: Clone> State<T> {
         Ok(())
     }
 
-    /// Same as [Self::set_next], but if there is already a next state, it will be overwritten instead of failing
+    /// Same as [Self::set_next], but if there is already a next state, it will be overwritten
+    /// instead of failing
     pub fn overwrite_next(&mut self, state: T) -> Result<(), StateError> {
         if std::mem::discriminant(&self.current) == std::mem::discriminant(&state) {
             return Err(StateError::AlreadyInState);

@@ -63,7 +63,8 @@ impl GlobalTransform {
         }
     }
 
-    /// Returns transform with the same translation and scale, but rotation so that transform.forward() points at target
+    /// Returns transform with the same translation and scale, but rotation so that
+    /// transform.forward() points at target
     #[inline]
     pub fn looking_at(mut self, target: Vec3, up: Vec3) -> Self {
         self.look_at(target, up);

@@ -92,9 +92,9 @@ impl Default for BaseRenderGraphConfig {
     }
 }
 
-/// The "base render graph" provides a core set of render graph nodes which can be used to build any graph.
-/// By itself this graph doesn't do much, but it allows Render plugins to interop with each other by having a common
-/// set of nodes. It can be customized using `BaseRenderGraphConfig`.
+/// The "base render graph" provides a core set of render graph nodes which can be used to build any
+/// graph. By itself this graph doesn't do much, but it allows Render plugins to interop with each
+/// other by having a common set of nodes. It can be customized using `BaseRenderGraphConfig`.
 pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) {
     let world = world.cell();
     let mut graph = world.get_resource_mut::<RenderGraph>().unwrap();
@@ -124,7 +124,8 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
                     mip_level_count: 1,
                     sample_count: msaa.samples,
                     dimension: TextureDimension::D2,
-                    format: TextureFormat::Depth32Float, // PERF: vulkan docs recommend using 24 bit depth for better performance
+                    format: TextureFormat::Depth32Float, /* PERF: vulkan docs recommend using 24
+                                                          * bit depth for better performance */
                     usage: TextureUsage::OUTPUT_ATTACHMENT,
                 },
             ),

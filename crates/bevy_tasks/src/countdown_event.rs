@@ -114,7 +114,8 @@ pub fn event_resets_if_listeners_are_cleared() {
     event.notify(std::usize::MAX);
     futures_lite::future::block_on(listener1);
 
-    // If all listeners are notified, the structure should now be cleared. We're free to listen again
+    // If all listeners are notified, the structure should now be cleared. We're free to listen
+    // again
     let listener2 = event.listen();
     let listener3 = event.listen();
 

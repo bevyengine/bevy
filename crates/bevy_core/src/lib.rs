@@ -31,7 +31,8 @@ pub struct CorePlugin;
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash, SystemLabel)]
 pub enum CoreSystem {
-    /// Updates the elapsed time. Any system that interacts with [Time] component should run after this.
+    /// Updates the elapsed time. Any system that interacts with [Time] component should run after
+    /// this.
     Time,
 }
 
@@ -54,7 +55,8 @@ impl Plugin for CorePlugin {
             .register_type::<Labels>()
             .register_type::<Range<f32>>()
             .register_type::<Timer>()
-            // time system is added as an "exclusive system" to ensure it runs before other systems in CoreStage::First
+            // time system is added as an "exclusive system" to ensure it runs before other systems
+            // in CoreStage::First
             .add_system_to_stage(
                 CoreStage::First,
                 time_system.exclusive_system().label(CoreSystem::Time),

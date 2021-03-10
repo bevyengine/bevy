@@ -12,8 +12,8 @@ pub struct Parent(pub Entity);
 
 // TODO: We need to impl either FromWorld or Default so Parent can be registered as Properties.
 // This is because Properties deserialize by creating an instance and apply a patch on top.
-// However Parent should only ever be set with a real user-defined entity.  Its worth looking into better
-// ways to handle cases like this.
+// However Parent should only ever be set with a real user-defined entity.  Its worth looking into
+// better ways to handle cases like this.
 impl FromWorld for Parent {
     fn from_world(_world: &mut World) -> Self {
         Parent(Entity::new(u32::MAX))
