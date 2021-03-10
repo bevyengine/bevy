@@ -41,7 +41,7 @@ struct Light {
     vec3 pos;
     float inverseRadiusSquared;
     vec3 color;
-    float intensity;
+    // float unused; // unused 4th element of vec4;
 };
 
 layout(location = 0) in vec3 v_Position;
@@ -300,8 +300,9 @@ void main() {
 
         // See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminanceEquation
         // TODO compensate for energy loss https://google.github.io/filament/Filament.html#materialsystem/improvingthebrdfs/energylossinspecularreflectance
+        // light.color.rgb is premultiplied with light.intensity on the CPU
         light_accum +=
-            ((diffuse + specular) * light.color.rgb) * (light.intensity * rangeAttenuation * NoL);
+            ((diffuse + specular) * light.color.rgb) * (rangeAttenuation * NoL);
     }
 
     vec3 diffuse_ambient = EnvBRDFApprox(diffuseColor, 1.0, NdotV);
