@@ -194,6 +194,7 @@ impl Touches {
                 self.just_pressed.insert(event.id, event.into());
             }
             TouchPhase::Moved => {
+                #[cfg(target_os = "linux")]
                 let raw_force = event.force.map(|e| {
                     match e {
                         ForceTouch::Calibrated { force, .. } => force,
@@ -201,6 +202,7 @@ impl Touches {
                     }
                 });
                 if let Some(mut new_touch) = self.pressed.get(&event.id).cloned() {
+                    #[cfg(target_os = "linux")]
                     if raw_force.unwrap_or(f64::MAX) == 0.0 {
                         self.just_released.insert(event.id, event.into());
                         self.pressed.remove_entry(&event.id);
@@ -211,11 +213,12 @@ impl Touches {
                     new_touch.position = event.position;
                     new_touch.force = event.force;
                     self.pressed.insert(event.id, new_touch);
-                } else {
-                    if raw_force.unwrap_or(f64::MIN) > 0.0 {
-                        self.pressed.insert(event.id, event.into());
-                        self.just_pressed.insert(event.id, event.into());
-                    }
+                    return;
+                }
+                #[cfg(target_os = "linux")]
+                if raw_force.unwrap_or(f64::MIN) > 0.0 {
+                    self.pressed.insert(event.id, event.into());
+                    self.just_pressed.insert(event.id, event.into());
                 }
             }
             TouchPhase::Ended => {
