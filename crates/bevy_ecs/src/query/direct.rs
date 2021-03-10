@@ -10,7 +10,8 @@ use crate::{
 use bevy_tasks::TaskPool;
 use std::any::TypeId;
 
-// FIXME: this is a copy of [Query] that owns its [QueryState]. They should be merged.
+/// [DirectQuery] is a wrapper for [QueryState] that owns it. It is used for one-time direct queries
+/// on the [World].
 pub struct DirectQuery<'w, Q: WorldQuery, F: WorldQuery = ()>
 where
     F::Fetch: FilterFetch,

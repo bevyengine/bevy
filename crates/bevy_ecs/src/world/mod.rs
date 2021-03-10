@@ -407,7 +407,9 @@ impl World {
     }
 
     /// Returns [QueryState] for the given [WorldQuery], which is used to efficiently
-    /// run queries on the [World].
+    /// run queries on the [World] by storing and reusing the [QueryState]. The current system counter
+    /// and global system counter must be given when accessing the query.
+    /// For one-time queries, see [World::query].
     /// ```
     ///
     /// use bevy_ecs::{entity::Entity, world::World};
@@ -445,8 +447,10 @@ impl World {
         QueryState::new(self)
     }
 
-    /// Returns [QueryState] for the given [WorldQuery] and filter, which is used to efficiently
-    /// run filtered queries on the [World].
+    /// Returns [QueryState] for the given filtered [WorldQuery], which is used to efficiently
+    /// run queries on the [World] by storing and reusing the [QueryState]. The current system counter
+    /// and global system counter must be given when accessing the query.
+    /// For one-time queries, see [World::query_filtered].
     /// ```
     /// use bevy_ecs::{entity::Entity, world::World, query::With};
     ///
@@ -472,6 +476,38 @@ impl World {
         QueryState::new(self)
     }
 
+    /// Returns a [DirectQuery] for the given [WorldQuery], which is used to directly query the [World],
+    /// usually in exclusive systems.
+    /// ```
+    ///
+    /// use bevy_ecs::{entity::Entity, world::World};
+    ///
+    /// #[derive(Debug, PartialEq)]
+    /// struct Position {
+    ///   x: f32,
+    ///   y: f32,
+    /// }
+    ///
+    /// struct Velocity {
+    ///   x: f32,
+    ///   y: f32,
+    /// }
+    ///
+    /// let mut world = World::new();
+    /// let entities = world.spawn_batch(vec![
+    ///     (Position { x: 0.0, y: 0.0}, Velocity { x: 1.0, y: 0.0 }),    
+    ///     (Position { x: 0.0, y: 0.0}, Velocity { x: 0.0, y: 1.0 }),    
+    /// ]).collect::<Vec<Entity>>();
+    ///
+    /// let mut query = world.query::<(&mut Position, &Velocity)>();
+    /// for (mut position, velocity) in query.iter_mut() {
+    ///    position.x += velocity.x;
+    ///    position.y += velocity.y;
+    /// }     
+    ///
+    /// assert_eq!(world.get::<Position>(entities[0]).unwrap(), &Position { x: 1.0, y: 0.0 });
+    /// assert_eq!(world.get::<Position>(entities[1]).unwrap(), &Position { x: 0.0, y: 1.0 });
+    /// ```
     #[inline]
     pub fn query<Q: WorldQuery>(&mut self) -> DirectQuery<Q, ()> {
         let state = QueryState::new(self);
@@ -485,7 +521,23 @@ impl World {
             )
         }
     }
-
+    /// Returns a [DirectQuery] for the given filtered [WorldQuery], which is used to directly query the [World],
+    /// usually in exclusive systems.
+    /// ```
+    /// use bevy_ecs::{entity::Entity, world::World, query::With};
+    ///
+    /// struct A;
+    /// struct B;
+    ///
+    /// let mut world = World::new();
+    /// let e1 = world.spawn().insert(A).id();
+    /// let e2 = world.spawn().insert_bundle((A, B)).id();
+    ///
+    /// let mut query = world.query_filtered::<Entity, With<B>>();
+    /// let matching_entities = query.iter().collect::<Vec<Entity>>();
+    ///
+    /// assert_eq!(matching_entities, vec![e2]);
+    /// ```
     #[inline]
     pub fn query_filtered<Q: WorldQuery, F: WorldQuery>(&mut self) -> DirectQuery<Q, F>
     where
