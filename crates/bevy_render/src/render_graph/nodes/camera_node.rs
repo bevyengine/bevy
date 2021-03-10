@@ -6,7 +6,7 @@ use crate::{
         RenderResourceContext,
     },
 };
-use bevy_core::AsBytes;
+use bevy_core::{AsBytes, Bytes};
 use bevy_ecs::{
     system::{BoxedSystem, IntoSystem, Local, Query, Res, ResMut},
     world::World,
@@ -87,6 +87,16 @@ pub fn camera_node_system(
         } else {
             return;
         };
+
+    let camera_pos = &[
+        global_transform.translation.x,
+        global_transform.translation.y,
+        global_transform.translation.z,
+        1.0,
+    ];
+    let camera_matrix_array =
+        (camera.projection_matrix * global_transform.compute_matrix().inverse()).to_cols_array();
+    let buffer_size = camera_pos.byte_len() + camera_matrix_array.byte_len();
 
     let staging_buffer = if let Some(staging_buffer) = state.staging_buffer {
         render_resource_context.map_buffer(staging_buffer, BufferMapMode::Write);
