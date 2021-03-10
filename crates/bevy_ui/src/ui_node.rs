@@ -250,3 +250,8 @@ impl Default for FlexWrap {
         FlexWrap::NoWrap
     }
 }
+
+#[derive(Default, Copy, Clone, Debug)]
+pub struct CalculatedSize {
+    pub size: Size,
+}

@@ -18,9 +18,7 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_window::Windows;
 use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
 
-use crate::{
-    CalculatedSize, DefaultTextPipeline, DrawableText, Font, FontAtlasSet, Text, TextError,
-};
+use crate::{DefaultTextPipeline, DrawableText, Font, FontAtlasSet, Text, Text2dSize, TextError};
 
 /// The bundle of components needed to draw text in a 2D scene via the Camera2dBundle.
 #[derive(Bundle, Clone, Debug)]
@@ -31,7 +29,7 @@ pub struct Text2dBundle {
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     pub main_pass: MainPass,
-    pub calculated_size: CalculatedSize,
+    pub text_2d_size: Text2dSize,
 }
 
 impl Default for Text2dBundle {
@@ -48,7 +46,7 @@ impl Default for Text2dBundle {
             transform: Default::default(),
             global_transform: Default::default(),
             main_pass: MainPass {},
-            calculated_size: CalculatedSize {
+            text_2d_size: Text2dSize {
                 size: Size::default(),
             },
         }
@@ -72,7 +70,7 @@ pub fn draw_text2d_system(
             &Visible,
             &Text,
             &GlobalTransform,
-            &CalculatedSize,
+            &Text2dSize,
         ),
         With<MainPass>,
     >,
@@ -138,7 +136,7 @@ pub fn text2d_system(
     mut text_pipeline: ResMut<DefaultTextPipeline>,
     mut text_queries: QuerySet<(
         Query<Entity, (With<MainPass>, Changed<Text>)>,
-        Query<(&Text, &mut CalculatedSize), With<MainPass>>,
+        Query<(&Text, &mut Text2dSize), With<MainPass>>,
     )>,
 ) {
     // Adds all entities where the text or the style has changed to the local queue

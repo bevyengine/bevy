@@ -1,4 +1,6 @@
 use crate::{
+    component::ComponentId,
+    query::Access,
     schedule::{
         BoxedAmbiguitySetLabel, BoxedSystemLabel, ExclusiveSystemDescriptor,
         ParallelSystemDescriptor,
@@ -16,7 +18,7 @@ pub(super) trait SystemContainer {
     fn before(&self) -> &[BoxedSystemLabel];
     fn after(&self) -> &[BoxedSystemLabel];
     fn ambiguity_sets(&self) -> &[BoxedAmbiguitySetLabel];
-    fn is_compatible(&self, other: &Self) -> bool;
+    fn component_access(&self) -> Option<&Access<ComponentId>>;
 }
 
 pub(super) struct ExclusiveSystemContainer {
@@ -81,8 +83,8 @@ impl SystemContainer for ExclusiveSystemContainer {
         &self.ambiguity_sets
     }
 
-    fn is_compatible(&self, _: &Self) -> bool {
-        false
+    fn component_access(&self) -> Option<&Access<ComponentId>> {
+        None
     }
 }
 
@@ -178,9 +180,7 @@ impl SystemContainer for ParallelSystemContainer {
         &self.ambiguity_sets
     }
 
-    fn is_compatible(&self, other: &Self) -> bool {
-        self.system()
-            .component_access()
-            .is_compatible(other.system().component_access())
+    fn component_access(&self) -> Option<&Access<ComponentId>> {
+        Some(self.system().component_access())
     }
 }

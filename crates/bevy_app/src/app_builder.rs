@@ -211,21 +211,19 @@ impl AppBuilder {
     }
 
     pub fn add_default_stages(&mut self) -> &mut Self {
-        self.add_stage(
-            CoreStage::Startup,
-            Schedule::default()
-                .with_run_criteria(RunOnce::default())
-                .with_stage(StartupStage::PreStartup, SystemStage::parallel())
-                .with_stage(StartupStage::Startup, SystemStage::parallel())
-                .with_stage(StartupStage::PostStartup, SystemStage::parallel()),
-        )
-        .add_stage(CoreStage::First, SystemStage::parallel())
-        .add_stage(CoreStage::PreEvent, SystemStage::parallel())
-        .add_stage(CoreStage::Event, SystemStage::parallel())
-        .add_stage(CoreStage::PreUpdate, SystemStage::parallel())
-        .add_stage(CoreStage::Update, SystemStage::parallel())
-        .add_stage(CoreStage::PostUpdate, SystemStage::parallel())
-        .add_stage(CoreStage::Last, SystemStage::parallel())
+        self.add_stage(CoreStage::First, SystemStage::parallel())
+            .add_stage(
+                CoreStage::Startup,
+                Schedule::default()
+                    .with_run_criteria(RunOnce::default())
+                    .with_stage(StartupStage::PreStartup, SystemStage::parallel())
+                    .with_stage(StartupStage::Startup, SystemStage::parallel())
+                    .with_stage(StartupStage::PostStartup, SystemStage::parallel()),
+            )
+            .add_stage(CoreStage::PreUpdate, SystemStage::parallel())
+            .add_stage(CoreStage::Update, SystemStage::parallel())
+            .add_stage(CoreStage::PostUpdate, SystemStage::parallel())
+            .add_stage(CoreStage::Last, SystemStage::parallel())
     }
 
     pub fn add_event<T>(&mut self) -> &mut Self
@@ -233,7 +231,7 @@ impl AppBuilder {
         T: Component,
     {
         self.insert_resource(Events::<T>::default())
-            .add_system_to_stage(CoreStage::Event, Events::<T>::update_system.system())
+            .add_system_to_stage(CoreStage::First, Events::<T>::update_system.system())
     }
 
     /// Inserts a resource to the current [App] and overwrites any resource previously added of the same type.

@@ -7,7 +7,10 @@ pub mod system;
 pub mod touch;
 
 pub use axis::*;
-use bevy_ecs::system::IntoSystem;
+use bevy_ecs::{
+    schedule::{ParallelSystemDescriptorCoercion, SystemLabel},
+    system::IntoSystem,
+};
 pub use input::*;
 
 pub mod prelude {
@@ -37,27 +40,46 @@ use gamepad::{
 #[derive(Default)]
 pub struct InputPlugin;
 
+#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemLabel)]
+pub struct InputSystem;
+
 impl Plugin for InputPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_event::<KeyboardInput>()
+        app
+            // keyboard
+            .add_event::<KeyboardInput>()
+            .init_resource::<Input<KeyCode>>()
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                keyboard_input_system.system().label(InputSystem),
+            )
+            // mouse
             .add_event::<MouseButtonInput>()
             .add_event::<MouseMotion>()
             .add_event::<MouseWheel>()
-            .init_resource::<Input<KeyCode>>()
-            .add_system_to_stage(CoreStage::Event, keyboard_input_system.system())
             .init_resource::<Input<MouseButton>>()
-            .add_system_to_stage(CoreStage::Event, mouse_button_input_system.system())
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                mouse_button_input_system.system().label(InputSystem),
+            )
+            // gamepad
             .add_event::<GamepadEvent>()
             .add_event::<GamepadEventRaw>()
             .init_resource::<GamepadSettings>()
             .init_resource::<Input<GamepadButton>>()
             .init_resource::<Axis<GamepadAxis>>()
             .init_resource::<Axis<GamepadButton>>()
-            .add_system_to_stage(CoreStage::Event, gamepad_event_system.system())
-            .add_startup_system_to_stage(StartupStage::Startup, gamepad_event_system.system())
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                gamepad_event_system.system().label(InputSystem),
+            )
+            // touch
             .add_event::<TouchInput>()
             .init_resource::<Touches>()
-            .add_system_to_stage(CoreStage::Event, touch_screen_input_system.system());
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                touch_screen_input_system.system().label(InputSystem),
+            );
     }
 }
 

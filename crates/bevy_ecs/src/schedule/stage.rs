@@ -1,4 +1,5 @@
 use crate::{
+    component::ComponentId,
     schedule::{
         BoxedSystemLabel, ExclusiveSystemContainer, InsertionPoint, ParallelExecutor,
         ParallelSystemContainer, ParallelSystemExecutor, RunCriteria, ShouldRun,
@@ -263,15 +264,16 @@ impl SystemStage {
     }
 
     /// Logs execution order ambiguities between systems. System orders must be fresh.
-    fn report_ambiguities(&self) {
+    fn report_ambiguities(&self, world: &World) {
         debug_assert!(!self.systems_modified);
         use std::fmt::Write;
         fn write_display_names_of_pairs(
             string: &mut String,
             systems: &[impl SystemContainer],
-            mut ambiguities: Vec<(usize, usize)>,
+            mut ambiguities: Vec<(usize, usize, Vec<ComponentId>)>,
+            world: &World,
         ) {
-            for (index_a, index_b) in ambiguities.drain(..) {
+            for (index_a, index_b, conflicts) in ambiguities.drain(..) {
                 writeln!(
                     string,
                     " -- {:?} and {:?}",
@@ -279,6 +281,13 @@ impl SystemStage {
                     systems[index_b].name()
                 )
                 .unwrap();
+                if !conflicts.is_empty() {
+                    let names = conflicts
+                        .iter()
+                        .map(|id| world.components().get_info(*id).unwrap().name())
+                        .collect::<Vec<_>>();
+                    writeln!(string, "    conflicts: {:?}", names).unwrap();
+                }
             }
         }
         let parallel = find_ambiguities(&self.parallel);
@@ -295,11 +304,16 @@ impl SystemStage {
                 .to_owned();
             if !parallel.is_empty() {
                 writeln!(string, " * Parallel systems:").unwrap();
-                write_display_names_of_pairs(&mut string, &self.parallel, parallel);
+                write_display_names_of_pairs(&mut string, &self.parallel, parallel, world);
             }
             if !at_start.is_empty() {
                 writeln!(string, " * Exclusive systems at start of stage:").unwrap();
-                write_display_names_of_pairs(&mut string, &self.exclusive_at_start, at_start);
+                write_display_names_of_pairs(
+                    &mut string,
+                    &self.exclusive_at_start,
+                    at_start,
+                    world,
+                );
             }
             if !before_commands.is_empty() {
                 writeln!(string, " * Exclusive systems before commands of stage:").unwrap();
@@ -307,11 +321,12 @@ impl SystemStage {
                     &mut string,
                     &self.exclusive_before_commands,
                     before_commands,
+                    world,
                 );
             }
             if !at_end.is_empty() {
                 writeln!(string, " * Exclusive systems at end of stage:").unwrap();
-                write_display_names_of_pairs(&mut string, &self.exclusive_at_end, at_end);
+                write_display_names_of_pairs(&mut string, &self.exclusive_at_end, at_end, world);
             }
             info!("{}", string);
         }
@@ -454,9 +469,10 @@ fn topological_order(
     Ok(sorted)
 }
 
-/// Returns vector containing all pairs of indices of systems with ambiguous execution order.
+/// Returns vector containing all pairs of indices of systems with ambiguous execution order,
+/// along with specific components that have triggered the warning.
 /// Systems must be topologically sorted beforehand.
-fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize)> {
+fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize, Vec<ComponentId>)> {
     let mut ambiguity_set_labels = HashMap::default();
     for set in systems.iter().flat_map(|c| c.ambiguity_sets()) {
         let len = ambiguity_set_labels.len();
@@ -511,9 +527,17 @@ fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize)> {
         {
             if !processed.contains(index_b)
                 && all_ambiguity_sets[index_a].is_disjoint(&all_ambiguity_sets[index_b])
-                && !systems[index_a].is_compatible(&systems[index_b])
             {
-                ambiguities.push((index_a, index_b));
+                let a_access = systems[index_a].component_access();
+                let b_access = systems[index_b].component_access();
+                if let (Some(a), Some(b)) = (a_access, b_access) {
+                    let conflicts = a.get_conflicts(b);
+                    if !conflicts.is_empty() {
+                        ambiguities.push((index_a, index_b, conflicts))
+                    }
+                } else {
+                    ambiguities.push((index_a, index_b, Vec::new()));
+                }
             }
         }
         processed.insert(index_a);
@@ -549,7 +573,7 @@ impl Stage for SystemStage {
             self.executor.rebuild_cached_data(&self.parallel);
             self.executor_modified = false;
             if world.contains_resource::<ReportExecutionOrderAmbiguities>() {
-                self.report_ambiguities();
+                self.report_ambiguities(world);
             }
         } else if self.executor_modified {
             self.executor.rebuild_cached_data(&self.parallel);
@@ -1184,7 +1208,7 @@ mod tests {
         ) -> Vec<(BoxedSystemLabel, BoxedSystemLabel)> {
             find_ambiguities(systems)
                 .drain(..)
-                .map(|(index_a, index_b)| {
+                .map(|(index_a, index_b, _conflicts)| {
                     (
                         systems[index_a].labels()[0].clone(),
                         systems[index_b].labels()[0].clone(),

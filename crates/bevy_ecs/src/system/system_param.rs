@@ -248,6 +248,7 @@ impl<'a, T: Component> SystemParam for Option<Res<'a, T>> {
 
 unsafe impl<T: Component> SystemParamState for OptionResState<T> {
     type Config = ();
+
     fn init(world: &mut World, system_state: &mut SystemState, _config: Self::Config) -> Self {
         Self(ResState::init(world, system_state, ()))
     }
@@ -383,6 +384,7 @@ impl<'a, T: Component> SystemParam for Option<ResMut<'a, T>> {
 
 unsafe impl<T: Component> SystemParamState for OptionResMutState<T> {
     type Config = ();
+
     fn init(world: &mut World, system_state: &mut SystemState, _config: Self::Config) -> Self {
         Self(ResMutState::init(world, system_state, ()))
     }

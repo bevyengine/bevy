@@ -13,9 +13,10 @@ pub mod texture;
 pub mod wireframe;
 
 use bevy_ecs::{
-    schedule::SystemStage,
+    schedule::{ParallelSystemDescriptorCoercion, SystemStage},
     system::{IntoExclusiveSystem, IntoSystem},
 };
+use bevy_transform::TransformSystem;
 use draw::Visible;
 pub use once_cell;
 
@@ -37,7 +38,7 @@ use crate::prelude::*;
 use base::Msaa;
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, AssetStage};
-use bevy_ecs::schedule::StageLabel;
+use bevy_ecs::schedule::{StageLabel, SystemLabel};
 use camera::{
     ActiveCameras, Camera, DepthCalculation, OrthographicProjection, PerspectiveProjection,
     RenderLayers, ScalingMode, VisibleEntities, WindowOrigin,
@@ -56,6 +57,11 @@ use shader::ShaderLoader;
 use texture::HdrTextureLoader;
 #[cfg(feature = "png")]
 use texture::ImageTextureLoader;
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+pub enum RenderSystem {
+    VisibleEntities,
+}
 
 /// The names of "render" App stages
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
@@ -157,16 +163,22 @@ impl Plugin for RenderPlugin {
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
-            camera::camera_system::<OrthographicProjection>.system(),
+            camera::camera_system::<OrthographicProjection>
+                .system()
+                .before(RenderSystem::VisibleEntities),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
-            camera::camera_system::<PerspectiveProjection>.system(),
+            camera::camera_system::<PerspectiveProjection>
+                .system()
+                .before(RenderSystem::VisibleEntities),
         )
-        // registration order matters here. this must come after all camera_system::<T> systems
         .add_system_to_stage(
             CoreStage::PostUpdate,
-            camera::visible_entities_system.system(),
+            camera::visible_entities_system
+                .system()
+                .label(RenderSystem::VisibleEntities)
+                .after(TransformSystem::TransformPropagate),
         )
         .add_system_to_stage(
             RenderStage::RenderResource,
