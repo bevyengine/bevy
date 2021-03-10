@@ -195,11 +195,9 @@ impl Touches {
             }
             TouchPhase::Moved => {
                 #[cfg(target_os = "linux")]
-                let raw_force = event.force.map(|e| {
-                    match e {
-                        ForceTouch::Calibrated { force, .. } => force,
-                        ForceTouch::Normalized(force) => force,
-                    }
+                let raw_force = event.force.map(|e| match e {
+                    ForceTouch::Calibrated { force, .. } => force,
+                    ForceTouch::Normalized(force) => force,
                 });
                 if let Some(mut new_touch) = self.pressed.get(&event.id).cloned() {
                     #[cfg(target_os = "linux")]
