@@ -54,7 +54,7 @@ pub(crate) fn check_system_counter_impl(
     // Clamp to max age
     if counter_age > max_age {
         warn!(
-            "System '{}' was not run for too long, it may fail to detect changes.",
+            "Too many intervening systems have run since the last time System '{}' was last run; it may fail to detect changes.",
             system_name
         );
         *counter = global_system_counter.wrapping_sub(max_age);

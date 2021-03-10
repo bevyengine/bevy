@@ -330,9 +330,9 @@ impl ComponentCounters {
 
 fn check_counter_impl(counter: &mut u32, global_system_counter: u32) {
     let counter_age = global_system_counter.wrapping_sub(*counter);
-    let max_age = (u32::MAX / 4) * 3;
+    const MAX_AGE: u32 = (u32::MAX / 4) * 3;
     // Clamp to max age
-    if counter_age > max_age {
-        *counter = global_system_counter.wrapping_sub(max_age);
+    if counter_age > MAX_AGE {
+        *counter = global_system_counter.wrapping_sub(MAX_AGE);
     }
 }

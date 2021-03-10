@@ -336,7 +336,9 @@ impl SystemStage {
         // Only check after at least `u32::MAX / 8` counts, and at most `u32::MAX / 4` counts
         // since the max number of [System] in a [SystemStage] is limited to `u32::MAX / 8`
         // and this function is called at the end of each [SystemStage] loop
-        if time_since_last_check > (u32::MAX / 8) {
+        const MAX_TIME_SINCE_LAST_CHECK: u32 = u32::MAX / 8;
+
+        if time_since_last_check > MAX_TIME_SINCE_LAST_CHECK {
             // Check all system counters
             for exclusive_system in &mut self.exclusive_at_start {
                 exclusive_system

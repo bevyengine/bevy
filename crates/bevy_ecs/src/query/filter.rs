@@ -455,7 +455,7 @@ macro_rules! impl_query_filter_tuple {
 
 all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
 
-/// Query trnasformer that inverses its inner filter.
+/// Query transformer that inverses its inner filter.
 /// For example, `Not<With<T>>` is equivalent to `Without<T>`
 pub struct Not<T>(pub T);
 
@@ -690,7 +690,7 @@ macro_rules! impl_counter_filter {
 impl_counter_filter!(
     /// Filter that retrieves components of type `T` that have been added since the last execution of this system
     ///
-    /// This filter is useful to do one-time post-processings on components.
+    /// This filter is useful to do one-time post-processing on components.
     ///
     /// Because the ordering of systems can change and this filter is only effective on changes before the query executes
     /// you need to use explicit dependency ordering or ordered stages to avoid frame delays.
