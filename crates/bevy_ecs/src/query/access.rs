@@ -198,3 +198,35 @@ impl<T: SparseSetIndex> Default for FilteredAccessSet<T> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::query::Access;
+
+    #[test]
+    fn access_get_conflicts() {
+        let mut access_a = Access::<usize>::default();
+        access_a.add_read(0);
+        access_a.add_read(1);
+
+        let mut access_b = Access::<usize>::default();
+        access_b.add_read(0);
+        access_b.add_write(1);
+
+        assert_eq!(access_a.get_conflicts(&access_b), vec![1]);
+
+        let mut access_c = Access::<usize>::default();
+        access_c.add_write(0);
+        access_c.add_write(1);
+
+        assert_eq!(access_a.get_conflicts(&access_c), vec![0, 1]);
+        assert_eq!(access_b.get_conflicts(&access_c), vec![0, 1]);
+
+        let mut access_d = Access::<usize>::default();
+        access_d.add_read(0);
+
+        assert_eq!(access_d.get_conflicts(&access_a), vec![]);
+        assert_eq!(access_d.get_conflicts(&access_b), vec![]);
+        assert_eq!(access_d.get_conflicts(&access_c), vec![0]);
+    }
+}
