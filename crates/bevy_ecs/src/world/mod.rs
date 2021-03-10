@@ -918,12 +918,12 @@ impl World {
 
     #[inline]
     pub fn increment_global_system_counter(&self) -> u32 {
-        self.global_system_counter.fetch_add(1, Ordering::SeqCst) // TODO: can this be relaxed?
+        self.global_system_counter.fetch_add(1, Ordering::AcqRel)
     }
 
     #[inline]
     pub fn get_global_system_counter(&self) -> u32 {
-        self.global_system_counter.load(Ordering::Acquire) // FIXME: is this ordering correct?
+        self.global_system_counter.load(Ordering::Acquire)
     }
 
     #[inline]
