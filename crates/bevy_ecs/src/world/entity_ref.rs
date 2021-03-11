@@ -36,13 +36,7 @@ impl<'w> EntityRef<'w> {
 
     #[inline]
     pub fn archetype(&self) -> &Archetype {
-        // SAFE: EntityRefs always point to valid entities. Valid entities always have valid
-        // archetypes
-        unsafe {
-            self.world
-                .archetypes
-                .get_unchecked(self.location.archetype_id)
-        }
+        &self.world.archetypes[self.location.archetype_id]
     }
 
     #[inline]
@@ -57,14 +51,12 @@ impl<'w> EntityRef<'w> {
 
     #[inline]
     pub fn contains_id(&self, component_id: ComponentId) -> bool {
-        // SAFE: entity location is valid
-        unsafe { contains_component_with_id(self.world, component_id, self.location) }
+        contains_component_with_id(self.world, component_id, self.location)
     }
 
     #[inline]
     pub fn contains_type_id(&self, type_id: TypeId) -> bool {
-        // SAFE: entity location is valid
-        unsafe { contains_component_with_type(self.world, type_id, self.location) }
+        contains_component_with_type(self.world, type_id, self.location)
     }
 
     #[inline]
@@ -123,13 +115,7 @@ impl<'w> EntityMut<'w> {
 
     #[inline]
     pub fn archetype(&self) -> &Archetype {
-        // SAFE: EntityRefs always point to valid entities. Valid entities always have valid
-        // archetypes
-        unsafe {
-            self.world
-                .archetypes
-                .get_unchecked(self.location.archetype_id)
-        }
+        &self.world.archetypes[self.location.archetype_id]
     }
 
     #[inline]
@@ -139,14 +125,12 @@ impl<'w> EntityMut<'w> {
 
     #[inline]
     pub fn contains_id(&self, component_id: ComponentId) -> bool {
-        // SAFE: entity location is valid
-        unsafe { contains_component_with_id(self.world, component_id, self.location) }
+        contains_component_with_id(self.world, component_id, self.location)
     }
 
     #[inline]
     pub fn contains_type_id(&self, type_id: TypeId) -> bool {
-        // SAFE: entity location is valid
-        unsafe { contains_component_with_type(self.world, type_id, self.location) }
+        contains_component_with_type(self.world, type_id, self.location)
     }
 
     #[inline]
@@ -215,7 +199,7 @@ impl<'w> EntityMut<'w> {
                 let old_table_row;
                 let old_table_id;
                 {
-                    let old_archetype = archetypes.get_unchecked_mut(current_location.archetype_id);
+                    let old_archetype = &mut archetypes[current_location.archetype_id];
                     let result = old_archetype.swap_remove(current_location.index);
                     if let Some(swapped_entity) = result.swapped_entity {
                         // SAFE: entity is live and is contained in an archetype that exists
@@ -224,7 +208,7 @@ impl<'w> EntityMut<'w> {
                     old_table_row = result.table_row;
                     old_table_id = old_archetype.table_id()
                 }
-                let new_archetype = archetypes.get_unchecked_mut(new_archetype_id);
+                let new_archetype = &mut archetypes[new_archetype_id];
 
                 if old_table_id == new_archetype.table_id() {
                     new_archetype.allocate(entity, old_table_row)
@@ -243,8 +227,7 @@ impl<'w> EntityMut<'w> {
                         let swapped_location = entities.get(swapped_entity).unwrap();
                         // SAFE: entity is live and is therefore contained in an archetype that
                         // exists
-                        archetypes
-                            .get_unchecked_mut(swapped_location.archetype_id)
+                        archetypes[swapped_location.archetype_id]
                             .set_entity_table_row(swapped_location.index, old_table_row);
                     }
                     new_location
@@ -256,10 +239,8 @@ impl<'w> EntityMut<'w> {
         self.location = new_location;
         entities.meta[self.entity.id as usize].location = new_location;
 
-        // SAFE: archetype was created if it didn't already exist
-        let archetype = unsafe { archetypes.get_unchecked_mut(new_location.archetype_id) };
-        // SAFE: archetype tables always exists
-        let table = unsafe { storages.tables.get_unchecked_mut(archetype.table_id()) };
+        let archetype = &archetypes[new_location.archetype_id];
+        let table = &storages.tables[archetype.table_id()];
         let table_row = archetype.entity_table_row(new_location.index);
         let from_bundle = archetype.edges().get_from_bundle(bundle_info.id).unwrap();
         // SAFE: table row is valid
@@ -300,8 +281,7 @@ impl<'w> EntityMut<'w> {
             return None;
         }
 
-        // SAFE: current entity archetype is valid
-        let old_archetype = unsafe { archetypes.get_unchecked_mut(old_location.archetype_id) };
+        let old_archetype = &mut archetypes[old_location.archetype_id];
         let mut bundle_components = bundle_info.component_ids.iter().cloned();
         let entity = self.entity;
         // SAFE: bundle components are iterated in order, which guarantees that the component type
@@ -328,8 +308,7 @@ impl<'w> EntityMut<'w> {
         }
         let old_table_row = remove_result.table_row;
         let old_table_id = old_archetype.table_id();
-        // SAFE: new archetype exists thanks to remove_bundle_from_archetype
-        let new_archetype = unsafe { archetypes.get_unchecked_mut(new_archetype_id) };
+        let new_archetype = &mut archetypes[new_archetype_id];
 
         let new_location = if old_table_id == new_archetype.table_id() {
             unsafe { new_archetype.allocate(entity, old_table_row) }
@@ -349,9 +328,7 @@ impl<'w> EntityMut<'w> {
             // if an entity was moved into this entity's table spot, update its table row
             if let Some(swapped_entity) = move_result.swapped_entity {
                 let swapped_location = entities.get(swapped_entity).unwrap();
-                // SAFE: entity is live and is contained in an archetype that exists
-                let archetype =
-                    unsafe { archetypes.get_unchecked_mut(swapped_location.archetype_id) };
+                let archetype = &mut archetypes[swapped_location.archetype_id];
                 archetype.set_entity_table_row(swapped_location.index, old_table_row);
             }
 
@@ -390,8 +367,7 @@ impl<'w> EntityMut<'w> {
             return;
         }
 
-        // SAFE: current entity archetype is valid
-        let old_archetype = unsafe { archetypes.get_unchecked_mut(old_location.archetype_id) };
+        let old_archetype = &mut archetypes[old_location.archetype_id];
         let entity = self.entity;
         for component_id in bundle_info.component_ids.iter().cloned() {
             if old_archetype.contains(component_id) {
@@ -416,8 +392,7 @@ impl<'w> EntityMut<'w> {
         }
         let old_table_row = remove_result.table_row;
         let old_table_id = old_archetype.table_id();
-        // SAFE: new archetype exists thanks to remove_bundle_from_archetype
-        let new_archetype = unsafe { archetypes.get_unchecked_mut(new_archetype_id) };
+        let new_archetype = &mut archetypes[new_archetype_id];
 
         let new_location = if old_table_id == new_archetype.table_id() {
             unsafe { new_archetype.allocate(entity, old_table_row) }
@@ -436,10 +411,8 @@ impl<'w> EntityMut<'w> {
             // if an entity was moved into this entity's table spot, update its table row
             if let Some(swapped_entity) = move_result.swapped_entity {
                 let swapped_location = entities.get(swapped_entity).unwrap();
-                // SAFE: entity is live and is contained in an archetype that exists
-                let archetype =
-                    unsafe { archetypes.get_unchecked_mut(swapped_location.archetype_id) };
-                archetype.set_entity_table_row(swapped_location.index, old_table_row);
+                archetypes[swapped_location.archetype_id]
+                    .set_entity_table_row(swapped_location.index, old_table_row);
             }
 
             new_location
@@ -467,8 +440,7 @@ impl<'w> EntityMut<'w> {
         let table_row;
         let moved_entity;
         {
-            // SAFE: entity is live and is contained in an archetype that exists
-            let archetype = unsafe { world.archetypes.get_unchecked_mut(location.archetype_id) };
+            let archetype = &mut world.archetypes[location.archetype_id];
             for component_id in archetype.components() {
                 let removed_components = world
                     .removed_components
@@ -485,25 +457,16 @@ impl<'w> EntityMut<'w> {
                 let sparse_set = world.storages.sparse_sets.get_mut(*component_id).unwrap();
                 sparse_set.remove(self.entity);
             }
-            // SAFE: tables and table rows stored in archetypes always exist
+            // SAFE: table rows stored in archetypes always exist
             moved_entity = unsafe {
-                world
-                    .storages
-                    .tables
-                    .get_unchecked_mut(archetype.table_id())
-                    .swap_remove_unchecked(table_row)
+                world.storages.tables[archetype.table_id()].swap_remove_unchecked(table_row)
             };
         };
 
         if let Some(moved_entity) = moved_entity {
             let moved_location = world.entities.get(moved_entity).unwrap();
-            // SAFE: entity is live and is contained in an archetype that exists
-            let archetype = unsafe {
-                world
-                    .archetypes
-                    .get_unchecked_mut(moved_location.archetype_id)
-            };
-            archetype.set_entity_table_row(moved_location.index, table_row);
+            world.archetypes[moved_location.archetype_id]
+                .set_entity_table_row(moved_location.index, table_row);
         }
     }
 
@@ -539,13 +502,12 @@ unsafe fn get_component(
     entity: Entity,
     location: EntityLocation,
 ) -> Option<*mut u8> {
-    let archetype = world.archetypes.get_unchecked(location.archetype_id);
+    let archetype = &world.archetypes[location.archetype_id];
     // SAFE: component_id exists and is therefore valid
     let component_info = world.components.get_info_unchecked(component_id);
     match component_info.storage_type() {
         StorageType::Table => {
-            // SAFE: tables stored in archetype always exist
-            let table = world.storages.tables.get_unchecked(archetype.table_id());
+            let table = &world.storages.tables[archetype.table_id()];
             let components = table.get_column(component_id)?;
             let table_row = archetype.entity_table_row(location.index);
             // SAFE: archetypes only store valid table_rows and the stored component type is T
@@ -568,12 +530,11 @@ unsafe fn get_component_and_flags(
     entity: Entity,
     location: EntityLocation,
 ) -> Option<(*mut u8, *mut ComponentFlags)> {
-    let archetype = world.archetypes.get_unchecked(location.archetype_id);
+    let archetype = &world.archetypes[location.archetype_id];
     let component_info = world.components.get_info_unchecked(component_id);
     match component_info.storage_type() {
         StorageType::Table => {
-            // SAFE: tables stored in archetype always exist
-            let table = world.storages.tables.get_unchecked(archetype.table_id());
+            let table = &world.storages.tables[archetype.table_id()];
             let components = table.get_column(component_id)?;
             let table_row = archetype.entity_table_row(location.index);
             // SAFE: archetypes only store valid table_rows and the stored component type is T
@@ -610,8 +571,7 @@ unsafe fn remove_component(
     removed_components.push(entity);
     match component_info.storage_type() {
         StorageType::Table => {
-            // SAFE: tables stored in archetype always exist
-            let table = storages.tables.get_unchecked(archetype.table_id());
+            let table = &storages.tables[archetype.table_id()];
             // SAFE: archetypes will always point to valid columns
             let components = table.get_column(component_id).unwrap();
             let table_row = archetype.entity_table_row(location.index);
@@ -651,13 +611,7 @@ pub(crate) unsafe fn get_component_and_flags_with_type(
     get_component_and_flags(world, component_id, entity, location)
 }
 
-/// # Safety
-/// `entity_location` must be within bounds of an archetype that exists.
-unsafe fn contains_component_with_type(
-    world: &World,
-    type_id: TypeId,
-    location: EntityLocation,
-) -> bool {
+fn contains_component_with_type(world: &World, type_id: TypeId, location: EntityLocation) -> bool {
     if let Some(component_id) = world.components.get_id(type_id) {
         contains_component_with_id(world, component_id, location)
     } else {
@@ -665,17 +619,12 @@ unsafe fn contains_component_with_type(
     }
 }
 
-/// # Safety
-/// `entity_location` must be within bounds of an archetype that exists.
-unsafe fn contains_component_with_id(
+fn contains_component_with_id(
     world: &World,
     component_id: ComponentId,
     location: EntityLocation,
 ) -> bool {
-    world
-        .archetypes
-        .get_unchecked(location.archetype_id)
-        .contains(component_id)
+    world.archetypes[location.archetype_id].contains(component_id)
 }
 
 /// Adds a bundle to the given archetype and returns the resulting archetype. This could be the same
@@ -683,7 +632,7 @@ unsafe fn contains_component_with_id(
 /// Results are cached in the Archetype Graph to avoid redundant work.
 ///
 /// # Safety
-/// `archetype_id` must exist and components in `bundle_info` must exist
+/// components in `bundle_info` must exist
 pub(crate) unsafe fn add_bundle_to_archetype(
     archetypes: &mut Archetypes,
     storages: &mut Storages,
@@ -691,8 +640,7 @@ pub(crate) unsafe fn add_bundle_to_archetype(
     archetype_id: ArchetypeId,
     bundle_info: &BundleInfo,
 ) -> ArchetypeId {
-    if let Some(archetype_id) = archetypes
-        .get_unchecked(archetype_id)
+    if let Some(archetype_id) = archetypes[archetype_id]
         .edges()
         .get_add_bundle(bundle_info.id)
     {
@@ -702,7 +650,7 @@ pub(crate) unsafe fn add_bundle_to_archetype(
     let mut new_sparse_set_components = Vec::new();
     let mut tracking_flags = Vec::with_capacity(bundle_info.component_ids.len());
 
-    let current_archetype = archetypes.get_unchecked_mut(archetype_id);
+    let current_archetype = &mut archetypes[archetype_id];
     for component_id in bundle_info.component_ids.iter().cloned() {
         if current_archetype.contains(component_id) {
             tracking_flags.push(ComponentFlags::MUTATED);
@@ -731,7 +679,7 @@ pub(crate) unsafe fn add_bundle_to_archetype(
         let sparse_set_components;
         // the archetype changes when we add this bundle. prepare the new archetype and storages
         {
-            let current_archetype = archetypes.get_unchecked_mut(archetype_id);
+            let current_archetype = &archetypes[archetype_id];
             table_components = if new_table_components.is_empty() {
                 // if there are no new table components, we can keep using this table
                 table_id = current_archetype.table_id();
@@ -760,15 +708,15 @@ pub(crate) unsafe fn add_bundle_to_archetype(
         let new_archetype_id =
             archetypes.get_id_or_insert(table_id, table_components, sparse_set_components);
         // add an edge from the old archetype to the new archetype
-        archetypes
-            .get_unchecked_mut(archetype_id)
+        archetypes[archetype_id]
             .edges_mut()
             .set_add_bundle(bundle_info.id, new_archetype_id);
         // add a "from bundle" edge from the new archetype to the old archetype
-        archetypes
-            .get_unchecked_mut(new_archetype_id)
-            .edges_mut()
-            .set_from_bundle(bundle_info.id, new_archetype_id, tracking_flags);
+        archetypes[new_archetype_id].edges_mut().set_from_bundle(
+            bundle_info.id,
+            new_archetype_id,
+            tracking_flags,
+        );
         new_archetype_id
     }
 }
@@ -793,8 +741,7 @@ unsafe fn remove_bundle_from_archetype(
     // check the archetype graph to see if the Bundle has been removed from this archetype in the
     // past
     let remove_bundle_result = {
-        // SAFE: entity location is valid and therefore the archetype exists
-        let current_archetype = archetypes.get_unchecked_mut(archetype_id);
+        let current_archetype = &mut archetypes[archetype_id];
         if intersection {
             current_archetype
                 .edges()
@@ -811,8 +758,7 @@ unsafe fn remove_bundle_from_archetype(
         let mut next_sparse_set_components;
         let next_table_id;
         {
-            // SAFE: entity location is valid and therefore the archetype exists
-            let current_archetype = archetypes.get_unchecked_mut(archetype_id);
+            let current_archetype = &mut archetypes[archetype_id];
             let mut removed_table_components = Vec::new();
             let mut removed_sparse_set_components = Vec::new();
             for component_id in bundle_info.component_ids.iter().cloned() {
@@ -863,8 +809,7 @@ unsafe fn remove_bundle_from_archetype(
         );
         Some(new_archetype_id)
     };
-    // SAFE: entity location is valid and therefore the archetype exists
-    let current_archetype = archetypes.get_unchecked_mut(archetype_id);
+    let current_archetype = &mut archetypes[archetype_id];
     // cache the result in an edge
     if intersection {
         current_archetype

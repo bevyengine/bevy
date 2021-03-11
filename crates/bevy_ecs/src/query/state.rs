@@ -75,9 +75,7 @@ where
             }
         };
         for archetype_index in archetype_index_range {
-            // SAFE: archetype indices less than the archetype generation are guaranteed to exist
-            let archetype = unsafe { archetypes.get_unchecked(ArchetypeId::new(archetype_index)) };
-            self.new_archetype(archetype);
+            self.new_archetype(&archetypes[ArchetypeId::new(archetype_index)]);
         }
     }
 
@@ -155,8 +153,7 @@ where
         {
             return Err(QueryEntityError::QueryDoesNotMatch);
         }
-        // SAFE: live entities always exist in an archetype
-        let archetype = world.archetypes.get_unchecked(location.archetype_id);
+        let archetype = &world.archetypes[location.archetype_id];
         let mut fetch = <Q::Fetch as Fetch>::init(world, &self.fetch_state);
         let mut filter = <F::Fetch as Fetch>::init(world, &self.filter_state);
 
@@ -308,7 +305,7 @@ where
         if fetch.is_dense() && filter.is_dense() {
             let tables = &world.storages().tables;
             for table_id in self.matched_table_ids.iter() {
-                let table = tables.get_unchecked(*table_id);
+                let table = &tables[*table_id];
                 fetch.set_table(&self.fetch_state, table);
                 filter.set_table(&self.filter_state, table);
 
@@ -324,7 +321,7 @@ where
             let archetypes = &world.archetypes;
             let tables = &world.storages().tables;
             for archetype_id in self.matched_archetype_ids.iter() {
-                let archetype = archetypes.get_unchecked(*archetype_id);
+                let archetype = &archetypes[*archetype_id];
                 fetch.set_archetype(&self.fetch_state, archetype, tables);
                 filter.set_archetype(&self.filter_state, archetype, tables);
 
@@ -357,7 +354,7 @@ where
             if fetch.is_dense() && filter.is_dense() {
                 let tables = &world.storages().tables;
                 for table_id in self.matched_table_ids.iter() {
-                    let table = tables.get_unchecked(*table_id);
+                    let table = &tables[*table_id];
                     let mut offset = 0;
                     while offset < table.len() {
                         let func = func.clone();
@@ -365,7 +362,7 @@ where
                             let mut fetch = <Q::Fetch as Fetch>::init(world, &self.fetch_state);
                             let mut filter = <F::Fetch as Fetch>::init(world, &self.filter_state);
                             let tables = &world.storages().tables;
-                            let table = tables.get_unchecked(*table_id);
+                            let table = &tables[*table_id];
                             fetch.set_table(&self.fetch_state, table);
                             filter.set_table(&self.filter_state, table);
                             let len = batch_size.min(table.len() - offset);
@@ -384,14 +381,14 @@ where
                 let archetypes = &world.archetypes;
                 for archetype_id in self.matched_archetype_ids.iter() {
                     let mut offset = 0;
-                    let archetype = archetypes.get_unchecked(*archetype_id);
+                    let archetype = &archetypes[*archetype_id];
                     while offset < archetype.len() {
                         let func = func.clone();
                         scope.spawn(async move {
                             let mut fetch = <Q::Fetch as Fetch>::init(world, &self.fetch_state);
                             let mut filter = <F::Fetch as Fetch>::init(world, &self.filter_state);
                             let tables = &world.storages().tables;
-                            let archetype = world.archetypes.get_unchecked(*archetype_id);
+                            let archetype = &world.archetypes[*archetype_id];
                             fetch.set_archetype(&self.fetch_state, archetype, tables);
                             filter.set_archetype(&self.filter_state, archetype, tables);
 

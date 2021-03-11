@@ -45,15 +45,8 @@ where
                 bundle_info,
             )
         };
-        // SAFE: archetype exists
-        let archetype = unsafe { world.archetypes.get_unchecked_mut(archetype_id) };
-        // SAFE: table exists
-        let table = unsafe {
-            world
-                .storages
-                .tables
-                .get_unchecked_mut(archetype.table_id())
-        };
+        let archetype = &mut world.archetypes[archetype_id];
+        let table = &mut world.storages.tables[archetype.table_id()];
         archetype.reserve(length);
         table.reserve(length);
         world.entities.reserve(length as u32);

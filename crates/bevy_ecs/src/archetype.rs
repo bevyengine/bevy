@@ -4,7 +4,12 @@ use crate::{
     entity::{Entity, EntityLocation},
     storage::{Column, SparseArray, SparseSet, SparseSetIndex, TableId},
 };
-use std::{borrow::Cow, collections::HashMap, hash::Hash};
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    hash::Hash,
+    ops::{Index, IndexMut},
+};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ArchetypeId(usize);
@@ -443,25 +448,9 @@ impl Archetypes {
         self.archetypes.get(id.index())
     }
 
-    /// # Safety
-    /// `id` must be valid
-    #[inline]
-    pub unsafe fn get_unchecked(&self, id: ArchetypeId) -> &Archetype {
-        debug_assert!(id.index() < self.archetypes.len());
-        self.archetypes.get_unchecked(id.index())
-    }
-
     #[inline]
     pub fn get_mut(&mut self, id: ArchetypeId) -> Option<&mut Archetype> {
         self.archetypes.get_mut(id.index())
-    }
-
-    /// # Safety
-    /// `id` must be valid
-    #[inline]
-    pub unsafe fn get_unchecked_mut(&mut self, id: ArchetypeId) -> &mut Archetype {
-        debug_assert!(id.index() < self.archetypes.len());
-        self.archetypes.get_unchecked_mut(id.index())
     }
 
     #[inline]
@@ -520,5 +509,21 @@ impl Archetypes {
     #[inline]
     pub fn archetype_components_len(&self) -> usize {
         self.archetype_component_count
+    }
+}
+
+impl Index<ArchetypeId> for Archetypes {
+    type Output = Archetype;
+
+    #[inline]
+    fn index(&self, index: ArchetypeId) -> &Self::Output {
+        &self.archetypes[index.index()]
+    }
+}
+
+impl IndexMut<ArchetypeId> for Archetypes {
+    #[inline]
+    fn index_mut(&mut self, index: ArchetypeId) -> &mut Self::Output {
+        &mut self.archetypes[index.index()]
     }
 }

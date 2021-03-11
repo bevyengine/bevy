@@ -58,7 +58,7 @@ where
                 loop {
                     if self.current_index == self.current_len {
                         let table_id = self.table_id_iter.next()?;
-                        let table = self.tables.get_unchecked(*table_id);
+                        let table = &self.tables[*table_id];
                         self.fetch.set_table(&self.query_state.fetch_state, table);
                         self.filter.set_table(&self.query_state.filter_state, table);
                         self.current_len = table.len();
@@ -80,7 +80,7 @@ where
                 loop {
                     if self.current_index == self.current_len {
                         let archetype_id = self.archetype_id_iter.next()?;
-                        let archetype = self.archetypes.get_unchecked(*archetype_id);
+                        let archetype = &self.archetypes[*archetype_id];
                         self.fetch.set_archetype(
                             &self.query_state.fetch_state,
                             archetype,
@@ -120,12 +120,7 @@ impl<'w, 's, Q: WorldQuery> ExactSizeIterator for QueryIter<'w, 's, Q, ()> {
         self.query_state
             .matched_archetypes
             .ones()
-            .map(|index| {
-                // SAFE: matched archetypes always exist
-                let archetype =
-                    unsafe { self.world.archetypes.get_unchecked(ArchetypeId::new(index)) };
-                archetype.len()
-            })
+            .map(|index| self.world.archetypes[ArchetypeId::new(index)].len())
             .sum()
     }
 }

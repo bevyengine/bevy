@@ -8,6 +8,7 @@ use bevy_utils::{AHasher, HashMap};
 use std::{
     cell::UnsafeCell,
     hash::{Hash, Hasher},
+    ops::{Index, IndexMut},
     ptr::NonNull,
 };
 
@@ -408,29 +409,13 @@ impl Tables {
     }
 
     #[inline]
-    pub fn get_mut(&mut self, id: TableId) -> Option<&mut Table> {
-        self.tables.get_mut(id.index())
-    }
-
-    #[inline]
     pub fn get(&self, id: TableId) -> Option<&Table> {
         self.tables.get(id.index())
     }
 
-    /// # Safety
-    /// `id` must be a valid table
     #[inline]
-    pub unsafe fn get_unchecked_mut(&mut self, id: TableId) -> &mut Table {
-        debug_assert!(id.index() < self.tables.len());
-        self.tables.get_unchecked_mut(id.index())
-    }
-
-    /// # Safety
-    /// `id` must be a valid table
-    #[inline]
-    pub unsafe fn get_unchecked(&self, id: TableId) -> &Table {
-        debug_assert!(id.index() < self.tables.len());
-        self.tables.get_unchecked(id.index())
+    pub fn get_mut(&mut self, id: TableId) -> Option<&mut Table> {
+        self.tables.get_mut(id.index())
     }
 
     #[inline]
@@ -473,6 +458,22 @@ impl Tables {
         for table in self.tables.iter_mut() {
             table.clear_flags();
         }
+    }
+}
+
+impl Index<TableId> for Tables {
+    type Output = Table;
+
+    #[inline]
+    fn index(&self, index: TableId) -> &Self::Output {
+        &self.tables[index.index()]
+    }
+}
+
+impl IndexMut<TableId> for Tables {
+    #[inline]
+    fn index_mut(&mut self, index: TableId) -> &mut Self::Output {
+        &mut self.tables[index.index()]
     }
 }
 

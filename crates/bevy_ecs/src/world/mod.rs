@@ -269,11 +269,10 @@ impl World {
         let archetype = self.archetypes.empty_mut();
         unsafe {
             // PERF: consider avoiding allocating entities in the empty archetype unless needed
-            // SAFE: archetype tables always exist
-            let table = self.storages.tables.get_unchecked_mut(archetype.table_id());
+            let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
             // SAFE: no components are allocated by archetype.allocate() because the archetype is
             // empty
-            let location = archetype.allocate(entity, table.allocate(entity));
+            let location = archetype.allocate(entity, table_row);
             // SAFE: entity index was just allocated
             self.entities
                 .meta
@@ -801,11 +800,7 @@ impl World {
     pub(crate) fn flush(&mut self) {
         let empty_archetype = self.archetypes.empty_mut();
         unsafe {
-            // SAFE: archetype tables always exist
-            let table = self
-                .storages
-                .tables
-                .get_unchecked_mut(empty_archetype.table_id());
+            let table = &mut self.storages.tables[empty_archetype.table_id()];
             // PERF: consider pre-allocating space for flushed entities
             self.entities.flush(|entity, location| {
                 // SAFE: no components are allocated by archetype.allocate() because the archetype
