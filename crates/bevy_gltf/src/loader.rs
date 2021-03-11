@@ -485,7 +485,9 @@ async fn load_buffers(
             gltf::buffer::Source::Uri(uri) => {
                 if uri.starts_with("data:") {
                     if uri.starts_with(OCTET_STREAM_URI) {
-                        buffer_data.push(base64::decode(&uri[OCTET_STREAM_URI.len()..])?);
+                        buffer_data.push(base64::decode(
+                            &uri.strip_prefix(OCTET_STREAM_URI).unwrap(),
+                        )?);
                     } else {
                         return Err(GltfError::BufferFormatUnsupported);
                     }
