@@ -8,19 +8,15 @@ use bevy_ecs::{
 use bevy_log::info;
 use bevy_math::*;
 use bevy_reflect::TypeUuid;
-
 use bevy_render::{
     mesh::*,
-    pipeline::{CullMode, PipelineDescriptor, PrimitiveTopology, RenderPipeline},
-    prelude::{Color, MeshBundle, RenderPipelines},
+    pipeline::{CullMode, PipelineDescriptor, PrimitiveTopology},
+    prelude::{Color, MeshBundle},
     render_graph::{base, AssetRenderResourcesNode, RenderGraph},
     renderer::RenderResources,
     shader::{Shader, ShaderStage, ShaderStages},
 };
-use bevy_transform::{
-    components::{GlobalTransform, Transform},
-    TransformSystem,
-};
+use bevy_transform::{components::GlobalTransform, TransformSystem};
 /// Bevy immediate mode debug drawing:
 /// This crate introduces a DebugDraw3D resource which provides functions such as `draw_line(start, end, color)`
 /// Whenever such a draw_line function is called, a set of vertices is added to the DebugDraw3D objects data.

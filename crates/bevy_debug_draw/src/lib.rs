@@ -1,2 +1,2 @@
-mod debug_draw_3d;
-mod gizmo;
+pub mod debug_draw_3d;
+pub mod gizmo;
