@@ -4,7 +4,7 @@ use crate::{
     query::{
         Fetch, FilterFetch, QueryEntityError, QueryIter, QueryState, ReadOnlyFetch, WorldQuery,
     },
-    system::QueryComponentError,
+    system::{QueryComponentError, QuerySingleError},
     world::{Mut, World},
 };
 use bevy_tasks::TaskPool;
@@ -300,6 +300,37 @@ where
                 .ok_or(QueryComponentError::MissingComponent)
         } else {
             Err(QueryComponentError::MissingWriteAccess)
+        }
+    }
+
+    pub fn single(&self) -> Result<<Q::Fetch as Fetch<'_>>::Item, QuerySingleError>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        let mut query = self.iter();
+        let first = query.next();
+        let extra = query.next().is_some();
+
+        match (first, extra) {
+            (Some(r), false) => Ok(r),
+            (None, _) => Err(QuerySingleError::NoEntities(std::any::type_name::<Self>())),
+            (Some(_), _) => Err(QuerySingleError::MultipleEntities(std::any::type_name::<
+                Self,
+            >())),
+        }
+    }
+
+    pub fn single_mut(&mut self) -> Result<<Q::Fetch as Fetch<'_>>::Item, QuerySingleError> {
+        let mut query = self.iter_mut();
+        let first = query.next();
+        let extra = query.next().is_some();
+
+        match (first, extra) {
+            (Some(r), false) => Ok(r),
+            (None, _) => Err(QuerySingleError::NoEntities(std::any::type_name::<Self>())),
+            (Some(_), _) => Err(QuerySingleError::MultipleEntities(std::any::type_name::<
+                Self,
+            >())),
         }
     }
 }

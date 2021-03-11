@@ -483,7 +483,7 @@ impl World {
     /// which is used to directly query the [World],
     /// usually in exclusive systems.
     /// ```
-    /// 
+    ///
     /// use bevy_ecs::{entity::Entity, world::World};
     ///
     /// #[derive(Debug, PartialEq)]
