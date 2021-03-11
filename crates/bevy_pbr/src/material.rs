@@ -30,6 +30,9 @@ impl Default for StandardMaterial {
             base_color_factor: Color::rgb(1.0, 1.0, 1.0),
             base_color_texture: None,
             // This is the minimum the roughness is clamped to in shader code
+            // See https://google.github.io/filament/Filament.html#materialsystem/parameterization/
+            // It's the minimum floating point value that won't be rounded down to 0 in the calculations used.
+            // Although technically for 32-bit floats, 0.045 could be used.
             roughness_factor: 0.089,
             // Few materials are purely dielectric or metallic
             // This is just a default for mostly-dielectric
