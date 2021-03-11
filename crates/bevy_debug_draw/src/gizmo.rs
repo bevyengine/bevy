@@ -11,13 +11,13 @@ impl CoordinateGizmo {
 }
 
 impl Default for CoordinateGizmo {
-    fn default() -> Self {
+    pub fn default() -> Self {
         CoordinateGizmo { size: 1.0 }
     }
 }
 
 impl From<CoordinateGizmo> for Mesh {
-    fn from(shape: CoordinateGizmo) -> Self {
+    pub fn from(shape: CoordinateGizmo) -> Self {
         let mut mesh = Mesh::new(PrimitiveTopology::LineList);
         let vertices = vec![
             [0.0, 0.0, 0.0],
