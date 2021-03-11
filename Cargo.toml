@@ -51,6 +51,7 @@ bevy_winit = ["bevy_internal/bevy_winit"]
 trace_chrome = ["bevy_internal/trace_chrome"]
 trace = ["bevy_internal/trace"]
 wgpu_trace = ["bevy_internal/wgpu_trace"]
+debug_draw = ["bevy_internal/debug_draw"]
 
 # Image format support for texture loading (PNG and HDR are enabled by default)
 hdr = ["bevy_internal/hdr"]
@@ -122,6 +123,7 @@ path = "examples/3d/3d_scene.rs"
 [[example]]
 name = "debug_draw_3d"
 path = "examples/3d/debug_draw_3d.rs"
+required-features = ["debug_draw"]
 
 [[example]]
 name = "load_gltf"
