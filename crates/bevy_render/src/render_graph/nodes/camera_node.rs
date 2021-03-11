@@ -53,7 +53,6 @@ impl SystemNode for CameraNode {
                 camera_name: self.camera_name.clone(),
                 command_queue: self.command_queue.clone(),
                 buffers: HashMap::default(),
-                // staging_buffer: None,
             });
         });
         Box::new(system)
@@ -65,7 +64,6 @@ pub struct CameraNodeState {
     command_queue: CommandQueue,
     camera_name: Cow<'static, str>,
     buffers: HashMap<String, (BufferId, BufferId)>,
-    // staging_buffer: Option<BufferId>,
 }
 
 pub fn camera_node_system(
