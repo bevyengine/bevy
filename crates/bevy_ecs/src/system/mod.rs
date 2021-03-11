@@ -17,6 +17,8 @@ pub use system_param::*;
 
 #[cfg(test)]
 mod tests {
+    use std::any::TypeId;
+
     use crate::{
         archetype::Archetypes,
         bundle::Bundles,
@@ -414,5 +416,26 @@ mod tests {
 
         // ensure the system actually ran
         assert_eq!(*world.get_resource::<bool>().unwrap(), true);
+    }
+
+    #[test]
+    fn get_system_conflicts() {
+        fn sys_x(_: Res<A>, _: Res<B>, _: Query<(&C, &D)>) {}
+
+        fn sys_y(_: Res<A>, _: ResMut<B>, _: Query<(&C, &mut D)>) {}
+
+        let mut world = World::default();
+        let mut x = sys_x.system();
+        let mut y = sys_y.system();
+        x.initialize(&mut world);
+        y.initialize(&mut world);
+
+        let conflicts = x.component_access().get_conflicts(y.component_access());
+        let b_id = world
+            .components()
+            .get_resource_id(TypeId::of::<B>())
+            .unwrap();
+        let d_id = world.components().get_id(TypeId::of::<D>()).unwrap();
+        assert_eq!(conflicts, vec![b_id, d_id]);
     }
 }

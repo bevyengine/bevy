@@ -1,6 +1,6 @@
 mod convert;
 
-use crate::{Node, Style};
+use crate::{CalculatedSize, Node, Style};
 use bevy_app::EventReader;
 use bevy_ecs::{
     entity::Entity,
@@ -9,7 +9,6 @@ use bevy_ecs::{
 };
 use bevy_log::warn;
 use bevy_math::Vec2;
-use bevy_text::CalculatedSize;
 use bevy_transform::prelude::{Children, Parent, Transform};
 use bevy_utils::HashMap;
 use bevy_window::{Window, WindowId, WindowScaleFactorChanged, Windows};
@@ -272,6 +271,7 @@ pub fn flex_node_system(
 
     let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
 
+    // PERF: try doing this incrementally
     for (entity, mut node, mut transform, parent, transform_counters) in
         node_transform_query.iter_mut()
     {

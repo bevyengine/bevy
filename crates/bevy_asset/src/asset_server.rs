@@ -226,7 +226,8 @@ impl AssetServer {
         let asset_loader = self.get_path_asset_loader(asset_path.path())?;
         let asset_path_id: AssetPathId = asset_path.get_id();
 
-        // load metadata and update source info. this is done in a scope to ensure we release the locks before loading
+        // load metadata and update source info. this is done in a scope to ensure we release the
+        // locks before loading
         let version = {
             let mut asset_sources = self.server.asset_sources.write();
             let source_info = match asset_sources.entry(asset_path_id.source_path_id()) {
@@ -282,7 +283,8 @@ impl AssetServer {
             .await
             .map_err(AssetServerError::AssetLoaderError)?;
 
-        // if version has changed since we loaded and grabbed a lock, return. theres is a newer version being loaded
+        // if version has changed since we loaded and grabbed a lock, return. theres is a newer
+        // version being loaded
         let mut asset_sources = self.server.asset_sources.write();
         let source_info = asset_sources
             .get_mut(&asset_path_id.source_path_id())

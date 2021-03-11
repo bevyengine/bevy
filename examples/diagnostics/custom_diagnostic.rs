@@ -7,14 +7,16 @@ use bevy::{
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        // The "print diagnostics" plugin is optional. It just visualizes our diagnostics in the console
+        // The "print diagnostics" plugin is optional. It just visualizes our diagnostics in the
+        // console
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_startup_system(setup_diagnostic_system.system())
         .add_system(my_system.system())
         .run();
 }
 
-// All diagnostics should have a unique DiagnosticId. for each new diagnostic, generate a new random number
+// All diagnostics should have a unique DiagnosticId. for each new diagnostic, generate a new random
+// number
 pub const SYSTEM_ITERATION_COUNT: DiagnosticId =
     DiagnosticId::from_u128(337040787172757619024841343456040760896);
 

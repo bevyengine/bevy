@@ -34,8 +34,8 @@ pub type Layer = u8;
 /// Cameras with this component will only render entities with intersecting
 /// layers.
 ///
-/// There are 32 layers numbered `0` - [`TOTAL_LAYERS`](RenderLayers::TOTAL_LAYERS). Entities may belong to one or more
-/// layers, or no layer at all.
+/// There are 32 layers numbered `0` - [`TOTAL_LAYERS`](RenderLayers::TOTAL_LAYERS). Entities may
+/// belong to one or more layers, or no layer at all.
 ///
 /// The [`Default`] instance of `RenderLayers` contains layer `0`, the first layer.
 ///
@@ -228,7 +228,8 @@ pub fn visible_entities_system(
 
             let order = if let Ok(global_transform) = visible_transform_query.get(entity) {
                 let position = global_transform.translation;
-                // smaller distances are sorted to lower indices by using the distance from the camera
+                // smaller distances are sorted to lower indices by using the distance from the
+                // camera
                 FloatOrd(match camera.depth_calculation {
                     DepthCalculation::ZDifference => camera_position.z - position.z,
                     DepthCalculation::Distance => (camera_position - position).length_squared(),
@@ -253,6 +254,7 @@ pub fn visible_entities_system(
         transparent_entities.sort_by_key(|e| -e.order);
         visible_entities.value.extend(transparent_entities);
 
-        // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize to prevent holding unneeded memory
+        // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize
+        // to prevent holding unneeded memory
     }
 }

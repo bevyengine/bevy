@@ -70,8 +70,8 @@ pub fn camera_node_system(
     mut state: Local<CameraNodeState>,
     active_cameras: Res<ActiveCameras>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
-    // PERF: this write on RenderResourceAssignments will prevent this system from running in parallel
-    // with other systems that do the same
+    // PERF: this write on RenderResourceAssignments will prevent this system from running in
+    // parallel with other systems that do the same
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
     query: Query<(&Camera, &GlobalTransform)>,
 ) {

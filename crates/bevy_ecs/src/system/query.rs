@@ -26,8 +26,8 @@ where
     F::Fetch: FilterFetch,
 {
     /// # Safety
-    /// This will create a Query that could violate memory safety rules. Make sure that this is only called in
-    /// ways that ensure the Queries have unique mutable access.
+    /// This will create a Query that could violate memory safety rules. Make sure that this is only
+    /// called in ways that ensure the Queries have unique mutable access.
     #[inline]
     pub(crate) unsafe fn new(
         world: &'w World,
@@ -49,7 +49,8 @@ where
     where
         Q::Fetch: ReadOnlyFetch,
     {
-        // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
+        // SAFE: system runs without conflicts with other systems. 
+        // same-system queries have runtime borrow checks when they conflict
         unsafe {
             self.state.iter_unchecked_manual(
                 self.world,
@@ -62,7 +63,8 @@ where
     /// Iterates over the query results
     #[inline]
     pub fn iter_mut(&mut self) -> QueryIter<'_, '_, Q, F> {
-        // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
+        // SAFE: system runs without conflicts with other systems. 
+        // same-system queries have runtime borrow checks when they conflict
         unsafe {
             self.state.iter_unchecked_manual(
                 self.world,
@@ -73,11 +75,14 @@ where
     }
 
     /// Iterates over the query results
+    ///
     /// # Safety
-    /// This allows aliased mutability. You must make sure this call does not result in multiple mutable references to the same component
+    /// This allows aliased mutability. You must make sure this call does not result in multiple
+    /// mutable references to the same component
     #[inline]
     pub unsafe fn iter_unsafe(&self) -> QueryIter<'_, '_, Q, F> {
-        // SEMI-SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
+        // SEMI-SAFE: system runs without conflicts with other systems. 
+        // same-system queries have runtime borrow checks when they conflict
         self.state.iter_unchecked_manual(
             self.world,
             self.system_counter,
@@ -85,14 +90,15 @@ where
         )
     }
 
-    /// Runs `f` on each query result. This is faster than the equivalent iter() method, but cannot be chained like a normal iterator.
-    /// This can only be called for read-only queries
+    /// Runs `f` on each query result. This is faster than the equivalent iter() method, but cannot
+    /// be chained like a normal iterator. This can only be called for read-only queries
     #[inline]
     pub fn for_each(&self, f: impl FnMut(<Q::Fetch as Fetch<'w>>::Item))
     where
         Q::Fetch: ReadOnlyFetch,
     {
-        // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
+        // SAFE: system runs without conflicts with other systems. 
+        // same-system queries have runtime borrow checks when they conflict
         unsafe {
             self.state.for_each_unchecked_manual(
                 self.world,
@@ -103,10 +109,12 @@ where
         };
     }
 
-    /// Runs `f` on each query result. This is faster than the equivalent iter() method, but cannot be chained like a normal iterator.
+    /// Runs `f` on each query result. This is faster than the equivalent iter() method, but cannot
+    /// be chained like a normal iterator.
     #[inline]
     pub fn for_each_mut(&self, f: impl FnMut(<Q::Fetch as Fetch<'w>>::Item)) {
-        // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
+        // SAFE: system runs without conflicts with other systems. 
+        // same-system queries have runtime borrow checks when they conflict
         unsafe {
             self.state.for_each_unchecked_manual(
                 self.world,
@@ -127,7 +135,8 @@ where
     ) where
         Q::Fetch: ReadOnlyFetch,
     {
-        // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
+        // SAFE: system runs without conflicts with other systems. same-system queries have runtime
+        // borrow checks when they conflict
         unsafe {
             self.state.par_for_each_unchecked_manual(
                 self.world,
@@ -148,7 +157,8 @@ where
         batch_size: usize,
         f: impl Fn(<Q::Fetch as Fetch<'w>>::Item) + Send + Sync + Clone,
     ) {
-        // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
+        // SAFE: system runs without conflicts with other systems. same-system queries have runtime
+        // borrow checks when they conflict
         unsafe {
             self.state.par_for_each_unchecked_manual(
                 self.world,
@@ -167,7 +177,8 @@ where
     where
         Q::Fetch: ReadOnlyFetch,
     {
-        // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
+        // SAFE: system runs without conflicts with other systems. 
+        // same-system queries have runtime borrow checks when they conflict
         unsafe {
             self.state.get_unchecked_manual(
                 self.world,
@@ -184,7 +195,8 @@ where
         &mut self,
         entity: Entity,
     ) -> Result<<Q::Fetch as Fetch>::Item, QueryEntityError> {
-        // // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
+        // SAFE: system runs without conflicts with other systems. 
+        // same-system queries have runtime borrow checks when they conflict
         unsafe {
             self.state.get_unchecked_manual(
                 self.world,
@@ -196,14 +208,17 @@ where
     }
 
     /// Gets the query result for the given `entity`
+    ///
     /// # Safety
-    /// This allows aliased mutability. You must make sure this call does not result in multiple mutable references to the same component
+    /// This allows aliased mutability. You must make sure this call does not result in multiple
+    /// mutable references to the same component
     #[inline]
     pub unsafe fn get_unchecked(
         &self,
         entity: Entity,
     ) -> Result<<Q::Fetch as Fetch>::Item, QueryEntityError> {
-        // SEMI-SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
+        // SEMI-SAFE: system runs without conflicts with other systems. 
+        // same-system queries have runtime borrow checks when they conflict
         self.state.get_unchecked_manual(
             self.world,
             entity,
@@ -212,8 +227,9 @@ where
         )
     }
 
-    /// Gets a reference to the entity's component of the given type. This will fail if the entity does not have
-    /// the given component type or if the given component type does not match this query.
+    /// Gets a reference to the entity's component of the given type. This will fail if the entity
+    /// does not have the given component type or if the given component type does not match
+    /// this query.
     #[inline]
     pub fn get_component<T: Component>(&self, entity: Entity) -> Result<&T, QueryComponentError> {
         let world = self.world;
@@ -241,8 +257,9 @@ where
         }
     }
 
-    /// Gets a mutable reference to the entity's component of the given type. This will fail if the entity does not have
-    /// the given component type or if the given component type does not match this query.
+    /// Gets a mutable reference to the entity's component of the given type. This will fail if the
+    /// entity does not have the given component type or if the given component type does not
+    /// match this query.
     #[inline]
     pub fn get_component_mut<T: Component>(
         &mut self,
@@ -252,10 +269,12 @@ where
         unsafe { self.get_component_unchecked_mut(entity) }
     }
 
-    /// Gets a mutable reference to the entity's component of the given type. This will fail if the entity does not have
-    /// the given component type or the component does not match the query.
+    /// Gets a mutable reference to the entity's component of the given type. This will fail if the
+    /// entity does not have the given component type or the component does not match the query.
+    ///
     /// # Safety
-    /// This allows aliased mutability. You must make sure this call does not result in multiple mutable references to the same component
+    /// This allows aliased mutability. You must make sure this call does not result in multiple
+    /// mutable references to the same component
     #[inline]
     pub unsafe fn get_component_unchecked_mut<T: Component>(
         &self,

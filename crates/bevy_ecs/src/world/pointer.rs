@@ -40,7 +40,8 @@ impl<'w, T> Mut<'w, T> {
             .is_added(self.system_counter, self.global_system_counter)
     }
 
-    /// Returns true if (and only if) this component been changed since the last execution of this system.
+    /// Returns true if (and only if) this component been changed 
+    /// since the last execution of this system.
     pub fn is_changed(&self) -> bool {
         self.component_counters
             .is_changed(self.system_counter, self.global_system_counter)

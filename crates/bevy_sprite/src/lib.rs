@@ -68,7 +68,8 @@ impl Plugin for SpritePlugin {
         color_materials.set_untracked(Handle::<ColorMaterial>::default(), ColorMaterial::default());
         meshes.set_untracked(
             QUAD_HANDLE,
-            // Use a flipped quad because the camera is facing "forward" but quads should face backward
+            // Use a flipped quad because the camera is facing "forward" but quads should face
+            // backward
             Mesh::from(shape::Quad::new(Vec2::new(1.0, 1.0))),
         )
     }

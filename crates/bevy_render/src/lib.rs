@@ -13,9 +13,10 @@ pub mod texture;
 pub mod wireframe;
 
 use bevy_ecs::{
-    schedule::SystemStage,
+    schedule::{ParallelSystemDescriptorCoercion, SystemStage},
     system::{IntoExclusiveSystem, IntoSystem},
 };
+use bevy_transform::TransformSystem;
 use draw::Visible;
 pub use once_cell;
 
@@ -37,7 +38,7 @@ use crate::prelude::*;
 use base::Msaa;
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, AssetStage};
-use bevy_ecs::schedule::StageLabel;
+use bevy_ecs::schedule::{StageLabel, SystemLabel};
 use camera::{
     ActiveCameras, Camera, DepthCalculation, OrthographicProjection, PerspectiveProjection,
     RenderLayers, ScalingMode, VisibleEntities, WindowOrigin,
@@ -57,12 +58,18 @@ use texture::HdrTextureLoader;
 #[cfg(feature = "png")]
 use texture::ImageTextureLoader;
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+pub enum RenderSystem {
+    VisibleEntities,
+}
+
 /// The names of "render" App stages
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum RenderStage {
     /// Stage where render resources are set up
     RenderResource,
-    /// Stage where Render Graph systems are run. In general you shouldn't add systems to this stage manually.
+    /// Stage where Render Graph systems are run. In general you shouldn't add systems to this
+    /// stage manually.
     RenderGraphSystems,
     // Stage where draw systems are executed. This is generally where Draw components are setup
     Draw,
@@ -72,7 +79,8 @@ pub enum RenderStage {
 
 /// Adds core render types and systems to an App
 pub struct RenderPlugin {
-    /// configures the "base render graph". If this is not `None`, the "base render graph" will be added
+    /// configures the "base render graph". If this is not `None`, the "base render graph" will be
+    /// added
     pub base_render_graph_config: Option<BaseRenderGraphConfig>,
 }
 
@@ -157,16 +165,22 @@ impl Plugin for RenderPlugin {
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
-            camera::camera_system::<OrthographicProjection>.system(),
+            camera::camera_system::<OrthographicProjection>
+                .system()
+                .before(RenderSystem::VisibleEntities),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
-            camera::camera_system::<PerspectiveProjection>.system(),
+            camera::camera_system::<PerspectiveProjection>
+                .system()
+                .before(RenderSystem::VisibleEntities),
         )
-        // registration order matters here. this must come after all camera_system::<T> systems
         .add_system_to_stage(
             CoreStage::PostUpdate,
-            camera::visible_entities_system.system(),
+            camera::visible_entities_system
+                .system()
+                .label(RenderSystem::VisibleEntities)
+                .after(TransformSystem::TransformPropagate),
         )
         .add_system_to_stage(
             RenderStage::RenderResource,

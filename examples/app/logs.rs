@@ -14,7 +14,8 @@ fn main() {
 }
 
 fn log_system() {
-    // here is how you write new logs at each "log level" (in "least important" to "most important" order)
+    // here is how you write new logs at each "log level" (in "least important" to "most important"
+    // order)
     trace!("very noisy");
     debug!("helpful for debugging");
     info!("helpful information that is worth printing by default");

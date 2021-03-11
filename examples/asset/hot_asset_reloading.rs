@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
-/// Hot reloading allows you to modify assets on disk and they will be "live reloaded" while your game is running.
-/// This lets you immediately see the results of your changes without restarting the game.
-/// This example illustrates hot reloading mesh changes.
+/// Hot reloading allows you to modify assets on disk and they will be "live reloaded" while your
+/// game is running. This lets you immediately see the results of your changes without restarting
+/// the game. This example illustrates hot reloading mesh changes.
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)

@@ -29,7 +29,8 @@ impl Command for InsertChildren {
                 added = true;
             }
 
-            // NOTE: ideally this is just an else statement, but currently that _incorrectly_ fails borrow-checking
+            // NOTE: ideally this is just an else statement, but currently that _incorrectly_ fails
+            // borrow-checking
             if !added {
                 world
                     .entity_mut(self.parent)
@@ -64,7 +65,8 @@ impl Command for PushChildren {
                 added = true;
             }
 
-            // NOTE: ideally this is just an else statement, but currently that _incorrectly_ fails borrow-checking
+            // NOTE: ideally this is just an else statement, but currently that _incorrectly_ fails
+            // borrow-checking
             if !added {
                 world
                     .entity_mut(self.parent)
@@ -270,8 +272,8 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
             let mut builder = WorldChildBuilder {
                 current_entity: None,
                 parent_entities: vec![entity],
-                // SAFE: self.update_location() is called below. It is impossible to make EntityMut function calls on `self`
-                // within the scope defined here
+                // SAFE: self.update_location() is called below. It is impossible to make EntityMut
+                // function calls on `self` within the scope defined here
                 world: unsafe { self.world_mut() },
             };
 

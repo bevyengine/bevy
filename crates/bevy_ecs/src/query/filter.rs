@@ -10,8 +10,8 @@ use crate::{
 use bevy_ecs_macros::all_tuples;
 use std::{marker::PhantomData, ptr};
 
-// TODO: uncomment this and use as shorthand (remove where F::Fetch: FilterFetch everywhere) when this bug is fixed in Rust 1.51:
-// https://github.com/rust-lang/rust/pull/81671
+// TODO: uncomment this and use as shorthand (remove where F::Fetch: FilterFetch everywhere) when
+// this bug is fixed in Rust 1.51: https://github.com/rust-lang/rust/pull/81671
 // pub trait QueryFilter: WorldQuery
 // where
 //     Self::Fetch: FilterFetch,
@@ -21,14 +21,17 @@ use std::{marker::PhantomData, ptr};
 // impl<T: WorldQuery> QueryFilter for T where T::Fetch: FilterFetch {
 // }
 
-/// Fetch methods used by query filters. This trait exists to allow "short circuit" behaviors for relevant query filter fetches.
+/// Fetch methods used by query filters. This trait exists to allow "short circuit" behaviors for
+/// relevant query filter fetches.
 pub trait FilterFetch: for<'a> Fetch<'a> {
     /// # Safety
-    /// Must always be called _after_ [Fetch::set_archetype]. `archetype_index` must be in the range of the current archetype
+    /// Must always be called _after_ [Fetch::set_archetype]. `archetype_index` must be in the range
+    /// of the current archetype
     unsafe fn archetype_filter_fetch(&mut self, archetype_index: usize) -> bool;
 
     /// # Safety
-    /// Must always be called _after_ [Fetch::set_table]. `table_row` must be in the range of the current table
+    /// Must always be called _after_ [Fetch::set_table]. `table_row` must be in the range of the
+    /// current table
     unsafe fn table_filter_fetch(&mut self, table_row: usize) -> bool;
 }
 
@@ -692,8 +695,8 @@ impl_counter_filter!(
     ///
     /// This filter is useful to do one-time post-processing on components.
     ///
-    /// Because the ordering of systems can change and this filter is only effective on changes before the query executes
-    /// you need to use explicit dependency ordering or ordered stages to avoid frame delays.
+    /// Because the ordering of systems can change and this filter is only effective on changes 
+    /// before the query executes you need to use explicit dependency ordering or ordered stages to avoid frame delays.
     ///
     ///
     /// Example:
@@ -741,8 +744,8 @@ impl_counter_filter!(
     ///     }
     /// }
     /// ```
-    Changed,
-    ChangedState,
-    ChangedFetch,
-    ComponentCounters::is_changed
+    Mutated,
+    MutatedState,
+    MutatedFetch,
+    ComponentFlags::MUTATED
 );

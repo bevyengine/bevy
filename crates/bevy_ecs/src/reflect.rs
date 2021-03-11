@@ -43,8 +43,10 @@ impl ReflectComponent {
     }
 
     /// # Safety
-    /// This method does not prevent you from having two mutable pointers to the same data, violating Rust's aliasing rules. To avoid this:
-    /// * Only call this method in an exclusive system to avoid sharing across threads (or use a scheduler that enforces safe memory access).
+    /// This method does not prevent you from having two mutable pointers to the same data,
+    /// violating Rust's aliasing rules. To avoid this:
+    /// * Only call this method in an exclusive system to avoid sharing across threads (or use a
+    ///   scheduler that enforces safe memory access).
     /// * Don't call this method more than once in the same scope for a given component.
     pub unsafe fn reflect_component_unchecked_mut<'a>(
         &self,

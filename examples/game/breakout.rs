@@ -235,7 +235,8 @@ fn ball_collision_system(
                 let mut reflect_x = false;
                 let mut reflect_y = false;
 
-                // only reflect if the ball's velocity is going in the opposite direction of the collision
+                // only reflect if the ball's velocity is going in the opposite direction of the
+                // collision
                 match collision {
                     Collision::Left => reflect_x = velocity.x > 0.0,
                     Collision::Right => reflect_x = velocity.x < 0.0,
@@ -253,7 +254,8 @@ fn ball_collision_system(
                     velocity.y = -velocity.y;
                 }
 
-                // break if this collide is on a solid, otherwise continue check whether a solid is also in collision
+                // break if this collide is on a solid, otherwise continue check whether a solid is
+                // also in collision
                 if let Collider::Solid = *collider {
                     break;
                 }

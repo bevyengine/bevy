@@ -15,10 +15,10 @@ fn main() {
 
 // Registered components must implement the `Reflect` and `FromResources` traits.
 // The `Reflect` trait enables serialization, deserialization, and dynamic property access.
-// `Reflect` enable a bunch of cool behaviors, so its worth checking out the dedicated `reflect.rs` example.
-// The `FromResources` trait determines how your component is constructed when it loads. For simple use cases you can just
-// implement the `Default` trait (which automatically implements FromResources). The simplest registered component just needs
-// these two derives:
+// `Reflect` enable a bunch of cool behaviors, so its worth checking out the dedicated `reflect.rs`
+// example. The `FromResources` trait determines how your component is constructed when it loads.
+// For simple use cases you can just implement the `Default` trait (which automatically implements
+// FromResources). The simplest registered component just needs these two derives:
 #[derive(Reflect, Default)]
 #[reflect(Component)] // this tells the reflect derive to also reflect component behaviors
 struct ComponentA {
@@ -26,9 +26,10 @@ struct ComponentA {
     pub y: f32,
 }
 
-// Some components have fields that cannot (or should not) be written to scene files. These can be ignored with
-// the #[reflect(ignore)] attribute. This is also generally where the `FromResources` trait comes into play.
-// `FromResources` gives you access to your App's current ECS `Resources` when you construct your component.
+// Some components have fields that cannot (or should not) be written to scene files. These can be
+// ignored with the #[reflect(ignore)] attribute. This is also generally where the `FromResources`
+// trait comes into play. `FromResources` gives you access to your App's current ECS `Resources`
+// when you construct your component.
 #[derive(Reflect)]
 #[reflect(Component)]
 struct ComponentB {
@@ -51,8 +52,9 @@ fn load_scene_system(asset_server: Res<AssetServer>, mut scene_spawner: ResMut<S
     // Scenes are loaded just like any other asset.
     let scene_handle: Handle<DynamicScene> = asset_server.load("scenes/load_scene_example.scn.ron");
 
-    // SceneSpawner can "spawn" scenes. "Spawning" a scene creates a new instance of the scene in the World with new entity ids.
-    // This guarantees that it will not overwrite existing entities.
+    // SceneSpawner can "spawn" scenes. "Spawning" a scene creates a new instance of the scene in
+    // the World with new entity ids. This guarantees that it will not overwrite existing
+    // entities.
     scene_spawner.spawn_dynamic(scene_handle);
 
     // This tells the AssetServer to watch for changes to assets.
@@ -60,8 +62,8 @@ fn load_scene_system(asset_server: Res<AssetServer>, mut scene_spawner: ResMut<S
     asset_server.watch_for_changes().unwrap();
 }
 
-// This system prints all ComponentA components in our world. Try making a change to a ComponentA in load_scene_example.scn.
-// You should immediately see the changes appear in the console.
+// This system prints all ComponentA components in our world. Try making a change to a ComponentA in
+// load_scene_example.scn. You should immediately see the changes appear in the console.
 fn print_system(query: Query<(Entity, &ComponentA), Changed<ComponentA>>) {
     for (entity, component_a) in query.iter() {
         println!("  Entity({})", entity.id());
@@ -73,7 +75,8 @@ fn print_system(query: Query<(Entity, &ComponentA), Changed<ComponentA>>) {
 }
 
 fn save_scene_system(world: &mut World) {
-    // Scenes can be created from any ECS World. You can either create a new one for the scene or use the current World.
+    // Scenes can be created from any ECS World. You can either create a new one for the scene or
+    // use the current World.
     let mut scene_world = World::new();
     let mut component_b = ComponentB::from_world(world);
     component_b.value = "hello".to_string();
@@ -86,7 +89,8 @@ fn save_scene_system(world: &mut World) {
         .spawn()
         .insert_bundle((ComponentA { x: 3.0, y: 4.0 },));
 
-    // The TypeRegistry resource contains information about all registered types (including components). This is used to construct scenes.
+    // The TypeRegistry resource contains information about all registered types (including
+    // components). This is used to construct scenes.
     let type_registry = world.get_resource::<TypeRegistry>().unwrap();
     let scene = DynamicScene::from_world(&scene_world, &type_registry);
 
@@ -96,7 +100,8 @@ fn save_scene_system(world: &mut World) {
     // TODO: save scene
 }
 
-// This is only necessary for the info message in the UI. See examples/ui/text.rs for a standalone text example.
+// This is only necessary for the info message in the UI. See examples/ui/text.rs for a standalone
+// text example.
 fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(UiCameraBundle::default()).spawn(TextBundle {
         style: Style {

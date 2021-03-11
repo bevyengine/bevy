@@ -277,7 +277,8 @@ impl<'a> DrawContext<'a> {
                 }
             }
 
-            // if none of the given RenderResourceBindings have the current bind group, try their assets
+            // if none of the given RenderResourceBindings have the current bind group, try their
+            // assets
             let asset_render_resource_bindings =
                 if let Some(value) = asset_render_resource_bindings.as_mut() {
                     value

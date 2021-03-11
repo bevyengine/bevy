@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
-/// This example illustrates how to create parent->child relationships between entities how parent transforms
-/// are propagated to their descendants
+/// This example illustrates how to create parent->child relationships between entities how parent
+/// transforms are propagated to their descendants
 fn main() {
     App::build()
         .insert_resource(Msaa { samples: 4 })

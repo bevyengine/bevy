@@ -49,7 +49,10 @@ impl<'a> Commands<'a> {
 
     /// Creates a new entity with the components contained in `bundle`.
     ///
-    /// Note that `bundle` is a [Bundle], which is a collection of components. [Bundle] is automatically implemented for tuples of components. You can also create your own bundle types by deriving [`derive@Bundle`]. If you would like to spawn an entity with a single component, consider wrapping the component in a tuple (which [Bundle] is implemented for).
+    /// Note that `bundle` is a [Bundle], which is a collection of components. [Bundle] is
+    /// automatically implemented for tuples of components. You can also create your own bundle
+    /// types by deriving [`derive@Bundle`]. If you would like to spawn an entity with a single
+    /// component, consider wrapping the component in a tuple (which [Bundle] is implemented for).
     ///
     /// See [`Self::set_current_entity`], [`Self::insert`].
     ///
@@ -88,7 +91,8 @@ impl<'a> Commands<'a> {
         self
     }
 
-    /// Equivalent to iterating `bundles_iter` and calling [`Self::spawn`] on each bundle, but slightly more performant.
+    /// Equivalent to iterating `bundles_iter` and calling [`Self::spawn`] on each bundle, but
+    /// slightly more performant.
     pub fn spawn_batch<I>(&mut self, bundles_iter: I) -> &mut Self
     where
         I: IntoIterator + Send + Sync + 'static,
@@ -167,7 +171,10 @@ impl<'a> Commands<'a> {
     ///
     /// # Warning
     ///
-    /// It's possible to call this with a bundle, but this is likely not intended and [`Self::with_bundle`] should be used instead. If `with` is called with a bundle, the bundle itself will be added as a component instead of the bundles' inner components each being added.
+    /// It's possible to call this with a bundle, but this is likely not intended and
+    /// [`Self::with_bundle`] should be used instead. If `with` is called with a bundle, the bundle
+    /// itself will be added as a component instead of the bundles' inner components each being
+    /// added.
     ///
     /// # Example
     ///
@@ -207,7 +214,8 @@ impl<'a> Commands<'a> {
         self
     }
 
-    /// Adds a command directly to the command list. Prefer this to [`Self::add_command_boxed`] if the type of `command` is statically known.
+    /// Adds a command directly to the command list. Prefer this to [`Self::add_command_boxed`] if
+    /// the type of `command` is statically known.
     pub fn add_command<C: Command>(&mut self, command: C) -> &mut Self {
         self.queue.push(Box::new(command));
         self
@@ -344,7 +352,8 @@ where
 {
     fn write(self: Box<Self>, world: &mut World) {
         if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
-            // remove intersection to gracefully handle components that were removed before running this command
+            // remove intersection to gracefully handle components that were removed before running
+            // this command
             entity_mut.remove_bundle_intersection::<T>();
         }
     }

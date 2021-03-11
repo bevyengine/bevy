@@ -36,9 +36,11 @@ impl TaskPoolThreadAssignmentPolicy {
 /// this helper will do nothing.
 #[derive(Clone)]
 pub struct DefaultTaskPoolOptions {
-    /// If the number of physical cores is less than min_total_threads, force using min_total_threads
+    /// If the number of physical cores is less than min_total_threads, force using
+    /// min_total_threads
     pub min_total_threads: usize,
-    /// If the number of physical cores is grater than max_total_threads, force using max_total_threads
+    /// If the number of physical cores is grater than max_total_threads, force using
+    /// max_total_threads
     pub max_total_threads: usize,
 
     /// Used to determine number of IO threads to allocate

@@ -106,7 +106,8 @@ mod tests {
         {
             let mut commands = Commands::new(&mut queue, &world);
             commands.despawn_recursive(parent_entity);
-            commands.despawn_recursive(parent_entity); // despawning the same entity twice should not panic
+            commands.despawn_recursive(parent_entity); // despawning the same entity twice should
+                                                       // not panic
         }
         queue.apply(&mut world);
 
