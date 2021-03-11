@@ -29,6 +29,11 @@ pub mod ecs {
     pub use bevy_ecs::*;
 }
 
+pub mod geometry {
+    //! Geometric primitives
+    pub use bevy_geometry::*;
+}
+
 pub mod input {
     //! Resources and events for inputs, e.g. mouse/keyboard, touch, gamepads, etc.
     pub use bevy_input::*;

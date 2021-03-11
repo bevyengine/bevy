@@ -1,9 +1,9 @@
 [package]
 name = "bevy_geometry"
-version = "0.1.0"
+version = "0.4.0"
 authors = [
-  "Bevy Contributors <bevyengine@gmail.com>",
-  "Aevyrie Roessler <aevyrie@gmail.com>",
+    "Bevy Contributors <bevyengine@gmail.com>",
+    "Aevyrie Roessler <aevyrie@gmail.com>",
 ]
 edition = "2018"
 
@@ -11,3 +11,4 @@ edition = "2018"
 
 [dependencies]
 bevy_math = { path = "../bevy_math", version = "0.4.0" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.4.0" }
