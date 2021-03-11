@@ -63,6 +63,7 @@ impl SystemNode for CameraNode {
 pub struct CameraNodeState {
     command_queue: CommandQueue,
     camera_name: Cow<'static, str>,
+    /// This mas from `binding_name` -> `(staging_buffer_id, buffer_id)`
     buffers: HashMap<String, (BufferId, BufferId)>,
 }
 
