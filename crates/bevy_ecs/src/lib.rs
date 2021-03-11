@@ -743,7 +743,8 @@ mod tests {
         assert_eq!(get_filtered::<Added<A>>(&mut world), vec![e4]);
 
         world.entity_mut(e4).insert(A(1));
-        // assert_eq!(get_filtered::<(Changed<A>, Not<Added<A>>)>(&mut world), vec![e4]); // This case is no longer possible to detect
+        // assert_eq!(get_filtered::<(Changed<A>, Not<Added<A>>)>(&mut world), vec![e4]); // This
+        // case is no longer possible to detect
 
         world.clear_trackers();
         world.exclusive_system_counter = world.increment_global_system_counter();

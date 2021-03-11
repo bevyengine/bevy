@@ -38,10 +38,9 @@ pub trait SystemParam: Sized {
 
 /// # Safety
 /// It is the implementor's responsibility to ensure `system_state` is populated with the _exact_
-/// [World] access used by the SystemParamState (and associated FetchSystemParam). 
-/// Additionally, it is the implementor's responsibility to ensure there is no 
+/// [World] access used by the SystemParamState (and associated FetchSystemParam).
+/// Additionally, it is the implementor's responsibility to ensure there is no
 /// conflicting access across all SystemParams.
-/// 
 pub unsafe trait SystemParamState: Send + Sync + 'static {
     type Config: Default + Send + Sync;
     fn init(world: &mut World, system_state: &mut SystemState, config: Self::Config) -> Self;
@@ -169,13 +168,15 @@ pub struct Res<'w, T> {
 }
 
 impl<'w, T: Component> Res<'w, T> {
-    /// Returns true if (and only if) this resource been added since the last execution of this system.
+    /// Returns true if (and only if) this resource been added since the last execution of this
+    /// system.
     pub fn is_added(&self) -> bool {
         self.counters
             .is_added(self.system_counter, self.global_system_counter)
     }
 
-    /// Returns true if (and only if) this resource been changed since the last execution of this system.
+    /// Returns true if (and only if) this resource been changed since the last execution of this
+    /// system.
     pub fn is_changed(&self) -> bool {
         self.counters
             .is_changed(self.system_counter, self.global_system_counter)
@@ -298,13 +299,15 @@ pub struct ResMut<'w, T> {
 }
 
 impl<'w, T: Component> ResMut<'w, T> {
-    /// Returns true if (and only if) this resource been added since the last execution of this system.
+    /// Returns true if (and only if) this resource been added since the last execution of this
+    /// system.
     pub fn is_added(&self) -> bool {
         self.counters
             .is_added(self.system_counter, self.global_system_counter)
     }
 
-    /// Returns true if (and only if) this resource been changed since the last execution of this system.
+    /// Returns true if (and only if) this resource been changed since the last execution of this
+    /// system.
     pub fn is_changed(&self) -> bool {
         self.counters
             .is_changed(self.system_counter, self.global_system_counter)
@@ -564,13 +567,15 @@ pub struct NonSend<'w, T> {
 }
 
 impl<'w, T: Component> NonSend<'w, T> {
-    /// Returns true if (and only if) this resource been added since the last execution of this system.
+    /// Returns true if (and only if) this resource been added since the last execution of this
+    /// system.
     pub fn is_added(&self) -> bool {
         self.counters
             .is_added(self.system_counter, self.global_system_counter)
     }
 
-    /// Returns true if (and only if) this resource been changed since the last execution of this system.
+    /// Returns true if (and only if) this resource been changed since the last execution of this
+    /// system.
     pub fn is_changed(&self) -> bool {
         self.counters
             .is_changed(self.system_counter, self.global_system_counter)
@@ -657,13 +662,15 @@ pub struct NonSendMut<'a, T: 'static> {
 }
 
 impl<'w, T: Component> NonSendMut<'w, T> {
-    /// Returns true if (and only if) this resource been added since the last execution of this system.
+    /// Returns true if (and only if) this resource been added since the last execution of this
+    /// system.
     pub fn is_added(&self) -> bool {
         self.counters
             .is_added(self.system_counter, self.global_system_counter)
     }
 
-    /// Returns true if (and only if) this resource been changed since the last execution of this system.
+    /// Returns true if (and only if) this resource been changed since the last execution of this
+    /// system.
     pub fn is_changed(&self) -> bool {
         self.counters
             .is_changed(self.system_counter, self.global_system_counter)

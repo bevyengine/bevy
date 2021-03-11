@@ -68,7 +68,7 @@ impl Column {
 
     /// # Safety
     /// Assumes data has already been allocated for the given row/column.
-    /// Allows aliased mutable accesses to the row's ComponentCounters. 
+    /// Allows aliased mutable accesses to the row's ComponentCounters.
     /// Caller must ensure that this does not happen.
     #[inline]
     #[allow(clippy::mut_from_ref)]

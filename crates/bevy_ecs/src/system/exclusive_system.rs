@@ -33,7 +33,8 @@ impl ExclusiveSystem for ExclusiveSystemFn {
     }
 
     fn run(&mut self, world: &mut World) {
-        // The previous value is saved in case this exclusive system is run by another exclusive system
+        // The previous value is saved in case this exclusive system is run by another exclusive
+        // system
         let saved_counter = world.exclusive_system_counter;
         world.exclusive_system_counter = self.system_counter;
 

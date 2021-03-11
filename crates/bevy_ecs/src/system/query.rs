@@ -49,7 +49,7 @@ where
     where
         Q::Fetch: ReadOnlyFetch,
     {
-        // SAFE: system runs without conflicts with other systems. 
+        // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
             self.state.iter_unchecked_manual(
@@ -63,7 +63,7 @@ where
     /// Iterates over the query results
     #[inline]
     pub fn iter_mut(&mut self) -> QueryIter<'_, '_, Q, F> {
-        // SAFE: system runs without conflicts with other systems. 
+        // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
             self.state.iter_unchecked_manual(
@@ -81,7 +81,7 @@ where
     /// mutable references to the same component
     #[inline]
     pub unsafe fn iter_unsafe(&self) -> QueryIter<'_, '_, Q, F> {
-        // SEMI-SAFE: system runs without conflicts with other systems. 
+        // SEMI-SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         self.state.iter_unchecked_manual(
             self.world,
@@ -97,7 +97,7 @@ where
     where
         Q::Fetch: ReadOnlyFetch,
     {
-        // SAFE: system runs without conflicts with other systems. 
+        // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
             self.state.for_each_unchecked_manual(
@@ -113,7 +113,7 @@ where
     /// be chained like a normal iterator.
     #[inline]
     pub fn for_each_mut(&self, f: impl FnMut(<Q::Fetch as Fetch<'w>>::Item)) {
-        // SAFE: system runs without conflicts with other systems. 
+        // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
             self.state.for_each_unchecked_manual(
@@ -177,7 +177,7 @@ where
     where
         Q::Fetch: ReadOnlyFetch,
     {
-        // SAFE: system runs without conflicts with other systems. 
+        // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
             self.state.get_unchecked_manual(
@@ -195,7 +195,7 @@ where
         &mut self,
         entity: Entity,
     ) -> Result<<Q::Fetch as Fetch>::Item, QueryEntityError> {
-        // SAFE: system runs without conflicts with other systems. 
+        // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
             self.state.get_unchecked_manual(
@@ -217,7 +217,7 @@ where
         &self,
         entity: Entity,
     ) -> Result<<Q::Fetch as Fetch>::Item, QueryEntityError> {
-        // SEMI-SAFE: system runs without conflicts with other systems. 
+        // SEMI-SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         self.state.get_unchecked_manual(
             self.world,

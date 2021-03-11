@@ -172,8 +172,9 @@ impl SystemStage {
 
     // TODO: consider exposing
     fn add_system_to_set(&mut self, system: impl Into<SystemDescriptor>, set: usize) -> &mut Self {
-        // This assertion is there to document that a maximum of `u32::MAX / 8` systems should be added to a stage
-        // to guarantee that change detection has no false positive, but it can be circumvented using exclusive or chained systems
+        // This assertion is there to document that a maximum of `u32::MAX / 8` systems should be
+        // added to a stage to guarantee that change detection has no false positive, but it
+        // can be circumvented using exclusive or chained systems
         assert!(
             self.exclusive_at_start.len()
                 + self.exclusive_before_commands.len()

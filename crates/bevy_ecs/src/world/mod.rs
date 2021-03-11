@@ -36,8 +36,9 @@ impl Default for WorldId {
 
 /// [World] stores and exposes operations on [entities](Entity), [components](Component),
 /// and their associated metadata.
-/// Each [Entity] has a set of components. Each component can have up to one instance of each component type.
-/// Entity components can be created, updated, removed, and queried using a given [World].
+/// Each [Entity] has a set of components. Each component can have up to one instance of each
+/// component type. Entity components can be created, updated, removed, and queried using a given
+/// [World].
 pub struct World {
     id: WorldId,
     pub(crate) entities: Entities,
@@ -66,8 +67,8 @@ impl Default for World {
             archetype_component_access: Default::default(),
             main_thread_validator: Default::default(),
             global_system_counter: Default::default(),
-            // Default value is -1 so that direct queries outside of exclusive systems properly detect changes
-            // That value will not be used in any exclusive system
+            // Default value is -1 so that direct queries outside of exclusive systems properly
+            // detect changes That value will not be used in any exclusive system
             exclusive_system_counter: u32::MAX,
         }
     }
@@ -410,8 +411,8 @@ impl World {
     }
 
     /// Returns [QueryState] for the given [WorldQuery], which is used to efficiently
-    /// run queries on the [World] by storing and reusing the [QueryState]. The current system counter
-    /// and global system counter must be given when accessing the query.
+    /// run queries on the [World] by storing and reusing the [QueryState]. The current system
+    /// counter and global system counter must be given when accessing the query.
     /// For one-time queries, see [World::query].
     /// ```
     /// use bevy_ecs::{entity::Entity, world::World};
@@ -450,8 +451,8 @@ impl World {
     }
 
     /// Returns [QueryState] for the given filtered [WorldQuery], which is used to efficiently
-    /// run queries on the [World] by storing and reusing the [QueryState]. The current system counter
-    /// and global system counter must be given when accessing the query.
+    /// run queries on the [World] by storing and reusing the [QueryState]. The current system
+    /// counter and global system counter must be given when accessing the query.
     /// For one-time queries, see [World::query_filtered].
     /// ```
     /// use bevy_ecs::{entity::Entity, world::World, query::With};
@@ -482,7 +483,7 @@ impl World {
     /// which is used to directly query the [World],
     /// usually in exclusive systems.
     /// ```
-    ///
+    /// 
     /// use bevy_ecs::{entity::Entity, world::World};
     ///
     /// #[derive(Debug, PartialEq)]

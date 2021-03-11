@@ -691,12 +691,14 @@ macro_rules! impl_counter_filter {
 }
 
 impl_counter_filter!(
-    /// Filter that retrieves components of type `T` that have been added since the last execution of this system
+    /// Filter that retrieves components of type `T` that have been added since the last execution
+    /// of this system
     ///
     /// This filter is useful to do one-time post-processing on components.
     ///
     /// Because the ordering of systems can change and this filter is only effective on changes
-    /// before the query executes you need to use explicit dependency ordering or ordered stages to avoid frame delays.
+    /// before the query executes you need to use explicit dependency ordering or ordered stages to
+    /// avoid frame delays.
     ///
     ///
     /// Example:
@@ -721,13 +723,15 @@ impl_counter_filter!(
 );
 
 impl_counter_filter!(
-    /// Filter that retrieves components of type `T` that have been changed since the last execution of this system
+    /// Filter that retrieves components of type `T` that have been changed since the last
+    /// execution of this system
     ///
-    /// This filter is useful for synchronizing components, and as a performance optimization as it means that the query
-    /// contains fewer items for a system to iterate over.
+    /// This filter is useful for synchronizing components, and as a performance optimization as it
+    /// means that the query contains fewer items for a system to iterate over.
     ///
-    /// Because the ordering of systems can change and this filter is only effective on changes before the query executes
-    /// you need to use explicit dependency ordering or ordered stages to avoid frame delays.
+    /// Because the ordering of systems can change and this filter is only effective on changes
+    /// before the query executes you need to use explicit dependency ordering or ordered
+    /// stages to avoid frame delays.
     ///
     /// Example:
     /// ```
