@@ -1,10 +1,12 @@
 use bevy::prelude::*;
+use bevy::debug_draw::*;
 
 fn main() {
     App::build()
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
+        .add_system(debug_draw_all_gizmos.system()) //add the system to draw a coordinate gizmo for all Objects
         .run();
 }
 
