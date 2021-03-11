@@ -30,6 +30,7 @@ crates=(
     bevy_wgpu
     bevy_internal
     bevy_dylib
+    bevy_geometry
 )
 
 cd crates
