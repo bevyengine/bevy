@@ -106,6 +106,12 @@ pub mod render {
     pub use bevy_render::*;
 }
 
+#[cfg(feature = "bevy_debug_draw")]
+pub mod debug_draw {
+    //! Immediate mode debug drawing, like a visual println.
+    pub use bevy_debug_draw::*;
+}
+
 #[cfg(feature = "bevy_sprite")]
 pub mod sprite {
     //! Items for sprites, rects, texture atlases, etc.

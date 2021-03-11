@@ -120,6 +120,10 @@ name = "3d_scene"
 path = "examples/3d/3d_scene.rs"
 
 [[example]]
+name = "debug_draw_3d"
+path = "examples/3d/debug_draw_3d.rs"
+
+[[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
 

@@ -63,6 +63,7 @@ bevy_audio = { path = "../bevy_audio", optional = true, version = "0.4.0" }
 bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.4.0" }
 bevy_pbr = { path = "../bevy_pbr", optional = true, version = "0.4.0" }
 bevy_render = { path = "../bevy_render", optional = true, version = "0.4.0" }
+bevy_debug_draw = { path = "../bevy_debug_draw", optional = true, version = "0.4.0" }
 bevy_dynamic_plugin = { path = "../bevy_dynamic_plugin", optional = true, version = "0.4.0" }
 bevy_sprite = { path = "../bevy_sprite", optional = true, version = "0.4.0" }
 bevy_text = { path = "../bevy_text", optional = true, version = "0.4.0" }

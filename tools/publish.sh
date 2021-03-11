@@ -18,6 +18,7 @@ crates=(
     bevy_transform
     bevy_window
     bevy_render
+    bevy_debug_draw
     bevy_input
     bevy_gilrs
     bevy_pbr
