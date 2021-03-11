@@ -37,7 +37,7 @@ pub trait SystemParam: Sized {
 }
 
 /// # Safety
-/// it is the implementors responsibility to ensure `system_state` is populated with the _exact_
+/// it is the implementor's responsibility to ensure `system_state` is populated with the _exact_
 /// [World] access used by the SystemParamState (and associated FetchSystemParam). Additionally, it is the
 /// implementor's responsibility to ensure there is no conflicting access across all SystemParams.
 pub unsafe trait SystemParamState: Send + Sync + 'static {
@@ -267,14 +267,17 @@ impl<'a, T: Component> SystemParamFetch<'a> for OptionResState<T> {
     #[inline]
     unsafe fn get_param(
         state: &'a mut Self,
-        _system_state: &'a SystemState,
+        system_state: &'a SystemState,
         world: &'a World,
+        global_system_counter: u32,
     ) -> Self::Item {
         world
             .get_populated_resource_column(state.0.component_id)
             .map(|column| Res {
                 value: &*column.get_ptr().as_ptr().cast::<T>(),
-                flags: *column.get_flags_mut_ptr(),
+                counters: &*column.get_counters_mut_ptr(),
+                system_counter: system_state.system_counter,
+                global_system_counter,
             })
     }
 }
@@ -403,14 +406,17 @@ impl<'a, T: Component> SystemParamFetch<'a> for OptionResMutState<T> {
     #[inline]
     unsafe fn get_param(
         state: &'a mut Self,
-        _system_state: &'a SystemState,
+        system_state: &'a SystemState,
         world: &'a World,
+        global_system_counter: u32,
     ) -> Self::Item {
         world
             .get_resource_unchecked_mut_with_id(state.0.component_id)
             .map(|value| ResMut {
                 value: value.value,
-                flags: value.flags,
+                counters: value.component_counters,
+                system_counter: system_state.system_counter,
+                global_system_counter,
             })
     }
 }
