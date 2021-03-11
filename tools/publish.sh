@@ -3,6 +3,7 @@ crates=(
     bevy_utils
     bevy_derive
     bevy_math
+    bevy_geometry
     bevy_tasks
     bevy_ecs/macros
     bevy_ecs
@@ -30,7 +31,6 @@ crates=(
     bevy_wgpu
     bevy_internal
     bevy_dylib
-    bevy_geometry
 )
 
 cd crates
