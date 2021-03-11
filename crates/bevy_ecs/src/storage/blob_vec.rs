@@ -98,7 +98,9 @@ impl BlobVec {
         std::ptr::copy_nonoverlapping(value, ptr, self.item_layout.size());
     }
 
-    /// increases the length by one (and grows the vec if needed) with uninitialized memory and returns the index
+    /// increases the length by one (and grows the vec if needed) with uninitialized memory and
+    /// returns the index
+    ///
     /// # Safety
     /// the newly allocated space must be immediately populated with a valid value
     #[inline]
@@ -110,17 +112,19 @@ impl BlobVec {
     }
 
     /// # Safety
-    /// len must be <= capacity. if length is decreased, "out of bounds" items must be dropped. Newly added items must be
-    /// immediately populated with valid values and length must be increased. For better unwind safety, call [BlobVec::set_len]
-    /// _after_ populating a new value.
+    /// len must be <= capacity. if length is decreased, "out of bounds" items must be dropped.
+    /// Newly added items must be immediately populated with valid values and length must be
+    /// increased. For better unwind safety, call [BlobVec::set_len] _after_ populating a new
+    /// value.
     pub unsafe fn set_len(&mut self, len: usize) {
         debug_assert!(len <= self.capacity());
         self.len = len;
     }
 
-    /// Performs a "swap remove" at the given `index`, which removes the item at `index` and moves the last item
-    /// in the [BlobVec] to `index` (if `index` is not the last item). It is the caller's responsibility to
-    /// drop the returned pointer, if that is desirable.
+    /// Performs a "swap remove" at the given `index`, which removes the item at `index` and moves
+    /// the last item in the [BlobVec] to `index` (if `index` is not the last item). It is the
+    /// caller's responsibility to drop the returned pointer, if that is desirable.
+    ///
     /// # Safety
     /// It is the caller's responsibility to ensure that `index` is < self.len()
     /// Callers should _only_ access the returned pointer immediately after calling this function.
@@ -161,6 +165,7 @@ impl BlobVec {
     }
 
     /// Gets a pointer to the start of the vec
+    ///
     /// # Safety
     /// must ensure rust mutability rules are not violated
     #[inline]
@@ -170,13 +175,13 @@ impl BlobVec {
 
     pub fn clear(&mut self) {
         let len = self.len;
-        // We set len to 0 _before_ dropping elements for unwind safety. This ensures we don't accidentally
-        // drop elements twice in the event of a drop impl panicking.
+        // We set len to 0 _before_ dropping elements for unwind safety. This ensures we don't
+        // accidentally drop elements twice in the event of a drop impl panicking.
         self.len = 0;
         for i in 0..len {
             unsafe {
-                // NOTE: this doesn't use self.get_unchecked(i) because the debug_assert on index will
-                // panic here due to self.len being set to 0
+                // NOTE: this doesn't use self.get_unchecked(i) because the debug_assert on index
+                // will panic here due to self.len being set to 0
                 let ptr = self.get_ptr().as_ptr().add(i * self.item_layout.size());
                 (self.drop)(ptr);
             }
@@ -260,7 +265,8 @@ mod tests {
     use crate::component::TypeInfo;
     use std::{alloc::Layout, cell::RefCell, rc::Rc};
 
-    /// # Safety:
+    /// # Safety
+    ///
     /// `blob_vec` must have a layout that matches Layout::new::<T>()
     unsafe fn push<T>(blob_vec: &mut BlobVec, mut value: T) {
         let index = blob_vec.push_uninit();
@@ -268,7 +274,8 @@ mod tests {
         std::mem::forget(value);
     }
 
-    /// # Safety:
+    /// # Safety
+    ///
     /// `blob_vec` must have a layout that matches Layout::new::<T>()
     unsafe fn swap_remove<T>(blob_vec: &mut BlobVec, index: usize) -> T {
         assert!(index < blob_vec.len());
@@ -276,9 +283,10 @@ mod tests {
         value.cast::<T>().read()
     }
 
-    /// # Safety:
-    /// `blob_vec` must have a layout that matches Layout::new::<T>(), it most store a valid T value at
-    /// the given `index`
+    /// # Safety
+    ///
+    /// `blob_vec` must have a layout that matches Layout::new::<T>(), it most store a valid T value
+    /// at the given `index`
     unsafe fn get_mut<T>(blob_vec: &mut BlobVec, index: usize) -> &mut T {
         assert!(index < blob_vec.len());
         &mut *blob_vec.get_unchecked(index).cast::<T>()

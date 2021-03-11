@@ -105,7 +105,8 @@ pub fn text_system(
                 &mut *textures,
             ) {
                 Err(TextError::NoSuchFont) => {
-                    // There was an error processing the text layout, let's add this entity to the queue for further processing
+                    // There was an error processing the text layout, let's add this entity to the
+                    // queue for further processing
                     new_queue.push(entity);
                 }
                 Err(e @ TextError::FailedToAddGlyph(_)) => {

@@ -13,7 +13,8 @@ pub struct SystemState {
     pub(crate) name: Cow<'static, str>,
     pub(crate) component_access_set: FilteredAccessSet<ComponentId>,
     pub(crate) archetype_component_access: Access<ArchetypeComponentId>,
-    // NOTE: this must be kept private. making a SystemState non-send is irreversible to prevent SystemParams from overriding each other
+    // NOTE: this must be kept private. making a SystemState non-send is irreversible to prevent
+    // SystemParams from overriding each other
     is_send: bool,
 }
 

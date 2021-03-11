@@ -35,13 +35,14 @@ impl_downcast!(Stage);
 /// This occurs because, in the absence of explicit constraints, systems are executed in
 /// an unstable, arbitrary order within each stage that may vary between runs and frames.
 ///
-/// Some ambiguities reported by the ambiguity checker may be warranted (to allow two systems to run without blocking each other)
-/// or spurious, as the exact combination of archetypes used may prevent them from ever conflicting during actual gameplay.
-/// You can resolve the warnings produced by the ambiguity checker by adding `.before` or `.after` to one of the conflicting systems
+/// Some ambiguities reported by the ambiguity checker may be warranted (to allow two systems to run
+/// without blocking each other) or spurious, as the exact combination of archetypes used may
+/// prevent them from ever conflicting during actual gameplay. You can resolve the warnings produced
+/// by the ambiguity checker by adding `.before` or `.after` to one of the conflicting systems
 /// referencing the other system to force a specific ordering.
 ///
-/// The checker may report a system more times than the amount of constraints it would actually need to have
-/// unambiguous order with regards to a group of already-constrained systems.
+/// The checker may report a system more times than the amount of constraints it would actually need
+/// to have unambiguous order with regards to a group of already-constrained systems.
 pub struct ReportExecutionOrderAmbiguities;
 
 struct VirtualSystemSet {
@@ -523,7 +524,7 @@ fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize, Vec<
     for (index_a, relations) in all_relations.drain(..).enumerate() {
         // TODO: prove that `.take(index_a)` would be correct here, and uncomment it if so.
         for index_b in full_bitset.difference(&relations)
-        /*.take(index_a)*/
+        // .take(index_a)
         {
             if !processed.contains(index_b)
                 && all_ambiguity_sets[index_a].is_disjoint(&all_ambiguity_sets[index_b])

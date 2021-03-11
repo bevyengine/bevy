@@ -10,7 +10,8 @@ use bevy::{
     },
 };
 
-/// This example illustrates how to create a texture for use with a texture2DArray shader uniform variable.
+/// This example illustrates how to create a texture for use with a texture2DArray shader uniform
+/// variable.
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
@@ -98,13 +99,14 @@ fn setup(
     }));
     commands.insert_resource(MyPipeline(pipeline_handle));
 
-    // Add an AssetRenderResourcesNode to our Render Graph. This will bind MyArrayTexture resources to our shader.
+    // Add an AssetRenderResourcesNode to our Render Graph. This will bind MyArrayTexture resources
+    // to our shader.
     render_graph.add_system_node(
         "my_array_texture",
         AssetRenderResourcesNode::<MyArrayTexture>::new(true),
     );
-    // Add a Render Graph edge connecting our new "my_array_texture" node to the main pass node. This ensures "my_array_texture"
-    // runs before the main pass.
+    // Add a Render Graph edge connecting our new "my_array_texture" node to the main pass node.
+    // This ensures "my_array_texture" runs before the main pass.
     render_graph
         .add_node_edge("my_array_texture", base::node::MAIN_PASS)
         .unwrap();

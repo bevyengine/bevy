@@ -20,7 +20,8 @@ fn main() {
             SystemStage::parallel()
                 .with_run_criteria(
                     FixedTimestep::step(2.0)
-                        // labels are optional. they provide a way to access the current FixedTimestep state from within a system
+                        // labels are optional. they provide a way to access the current
+                        // FixedTimestep state from within a system
                         .with_label(LABEL),
                 )
                 .with_system(fixed_update.system()),

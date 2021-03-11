@@ -171,7 +171,8 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
     }
 
     pub fn get_conflicts(&self, filtered_access: &FilteredAccess<T>) -> Vec<T> {
-        // if combined unfiltered access is incompatible, check each filtered access for compatibility
+        // if combined unfiltered access is incompatible, check each filtered access for
+        // compatibility
         if !filtered_access.access.is_compatible(&self.combined_access) {
             for current_filtered_access in self.filtered_accesses.iter() {
                 if !current_filtered_access.is_compatible(&filtered_access) {

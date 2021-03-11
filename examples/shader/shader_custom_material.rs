@@ -10,7 +10,8 @@ use bevy::{
     },
 };
 
-/// This example illustrates how to create a custom material asset and a shader that uses that material
+/// This example illustrates how to create a custom material asset and a shader that uses that
+/// material
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
@@ -64,13 +65,15 @@ fn setup(
         fragment: Some(shaders.add(Shader::from_glsl(ShaderStage::Fragment, FRAGMENT_SHADER))),
     }));
 
-    // Add an AssetRenderResourcesNode to our Render Graph. This will bind MyMaterial resources to our shader
+    // Add an AssetRenderResourcesNode to our Render Graph. This will bind MyMaterial resources to
+    // our shader
     render_graph.add_system_node(
         "my_material",
         AssetRenderResourcesNode::<MyMaterial>::new(true),
     );
 
-    // Add a Render Graph edge connecting our new "my_material" node to the main pass node. This ensures "my_material" runs before the main pass
+    // Add a Render Graph edge connecting our new "my_material" node to the main pass node. This
+    // ensures "my_material" runs before the main pass
     render_graph
         .add_node_edge("my_material", base::node::MAIN_PASS)
         .unwrap();

@@ -73,7 +73,8 @@ pub fn camera_system<T: CameraProjection + Component>(
     )>,
 ) {
     let mut changed_window_ids = Vec::new();
-    // handle resize events. latest events are handled first because we only want to resize each window once
+    // handle resize events. latest events are handled first because we only want to resize each
+    // window once
     for event in window_resized_events.iter().rev() {
         if changed_window_ids.contains(&event.id) {
             continue;
@@ -82,7 +83,8 @@ pub fn camera_system<T: CameraProjection + Component>(
         changed_window_ids.push(event.id);
     }
 
-    // handle resize events. latest events are handled first because we only want to resize each window once
+    // handle resize events. latest events are handled first because we only want to resize each
+    // window once
     for event in window_created_events.iter().rev() {
         if changed_window_ids.contains(&event.id) {
             continue;

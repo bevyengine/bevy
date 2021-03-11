@@ -234,7 +234,8 @@ impl AppBuilder {
             .add_system_to_stage(CoreStage::First, Events::<T>::update_system.system())
     }
 
-    /// Inserts a resource to the current [App] and overwrites any resource previously added of the same type.
+    /// Inserts a resource to the current [App] and overwrites any resource previously added of the
+    /// same type.
     pub fn insert_resource<T>(&mut self, resource: T) -> &mut Self
     where
         T: Component,
@@ -255,9 +256,9 @@ impl AppBuilder {
     where
         R: FromWorld + Send + Sync + 'static,
     {
-        // PERF: We could avoid double hashing here, since the `from_resources` call is guaranteed not to
-        // modify the map. However, we would need to be borrowing resources both mutably and immutably,
-        // so we would need to be extremely certain this is correct
+        // PERF: We could avoid double hashing here, since the `from_resources` call is guaranteed
+        // not to modify the map. However, we would need to be borrowing resources both
+        // mutably and immutably, so we would need to be extremely certain this is correct
         if !self.world_mut().contains_resource::<R>() {
             let resource = R::from_world(self.world_mut());
             self.insert_resource(resource);

@@ -81,7 +81,8 @@ impl SceneSpawner {
             for instance_id in instance_ids {
                 if let Some(instance) = self.spawned_instances.get(&instance_id) {
                     for entity in instance.entity_map.values() {
-                        let _ = world.despawn(entity); // Ignore the result, despawn only cares if it exists.
+                        let _ = world.despawn(entity); // Ignore the result, despawn only cares if
+                                                       // it exists.
                     }
                 }
             }

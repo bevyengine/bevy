@@ -88,7 +88,8 @@ where
     fn next(&mut self) -> Option<Entity> {
         let bundle = self.inner.next()?;
         let entity = self.entities.alloc();
-        // SAFE: component values are immediately written to relevant storages (which have been allocated)
+        // SAFE: component values are immediately written to relevant storages (which have been
+        // allocated)
         unsafe {
             let table_row = self.table.allocate(entity);
             let location = self.archetype.allocate(entity, table_row);

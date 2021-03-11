@@ -208,7 +208,8 @@ impl From<&Indices> for IndexFormat {
 #[uuid = "8ecbac0f-f545-4473-ad43-e1f4243af51e"]
 pub struct Mesh {
     primitive_topology: PrimitiveTopology,
-    /// `bevy_utils::HashMap` with all defined vertex attributes (Positions, Normals, ...) for this mesh. Attribute name maps to attribute values.
+    /// `bevy_utils::HashMap` with all defined vertex attributes (Positions, Normals, ...) for this
+    /// mesh. Attribute name maps to attribute values.
     attributes: HashMap<Cow<'static, str>, VertexAttributeValues>,
     indices: Option<Indices>,
 }
@@ -233,7 +234,8 @@ pub struct Mesh {
 impl Mesh {
     /// Per vertex coloring. Use in conjunction with [`Mesh::set_attribute`]
     pub const ATTRIBUTE_COLOR: &'static str = "Vertex_Color";
-    /// The direction the vertex normal is facing in. Use in conjunction with [`Mesh::set_attribute`]
+    /// The direction the vertex normal is facing in. Use in conjunction with
+    /// [`Mesh::set_attribute`]
     pub const ATTRIBUTE_NORMAL: &'static str = "Vertex_Normal";
     /// Where the vertex is located in space. Use in conjunction with [`Mesh::set_attribute`]
     pub const ATTRIBUTE_POSITION: &'static str = "Vertex_Position";
@@ -279,7 +281,8 @@ impl Mesh {
     }
 
     /// Indices describe how triangles are constructed out of the vertex attributes.
-    /// They are only useful for the [`crate::pipeline::PrimitiveTopology`] variants that use triangles
+    /// They are only useful for the [`crate::pipeline::PrimitiveTopology`] variants that use
+    /// triangles
     pub fn set_indices(&mut self, indices: Option<Indices>) {
         self.indices = indices;
     }

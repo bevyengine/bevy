@@ -27,9 +27,10 @@ pub trait System: Send + Sync + 'static {
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId>;
     fn is_send(&self) -> bool;
     /// # Safety
-    /// This might access World and Resources in an unsafe manner. This should only be called in one of the following contexts:
-    /// 1. This system is the only system running on the given World across all threads
-    /// 2. This system only runs in parallel with other systems that do not conflict with the `archetype_component_access()`
+    /// This might access World and Resources in an unsafe manner. This should only be called in one
+    /// of the following contexts: 1. This system is the only system running on the given World
+    /// across all threads 2. This system only runs in parallel with other systems that do not
+    /// conflict with the `archetype_component_access()`
     unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out;
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
         // SAFE: world and resources are exclusively borrowed

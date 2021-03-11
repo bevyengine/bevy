@@ -49,7 +49,8 @@ impl Column {
 
     /// # Safety
     /// Assumes data has already been allocated for the given row/column.
-    /// Allows aliased mutable accesses to the data at the given `row`. Caller must ensure that this does not happen.
+    /// Allows aliased mutable accesses to the data at the given `row`. Caller must ensure that this
+    /// does not happen.
     #[inline]
     pub unsafe fn set_unchecked(&self, row: usize, data: *mut u8) {
         self.data.set_unchecked(row, data);
@@ -67,7 +68,8 @@ impl Column {
 
     /// # Safety
     /// Assumes data has already been allocated for the given row/column.
-    /// Allows aliased mutable accesses to the row's ComponentFlags. Caller must ensure that this does not happen.
+    /// Allows aliased mutable accesses to the row's ComponentFlags. Caller must ensure that this
+    /// does not happen.
     #[inline]
     #[allow(clippy::mut_from_ref)]
     pub unsafe fn get_flags_unchecked_mut(&self, row: usize) -> &mut ComponentFlags {
@@ -193,7 +195,9 @@ impl Table {
         )
     }
 
-    /// Removes the entity at the given row and returns the entity swapped in to replace it (if an entity was swapped in)
+    /// Removes the entity at the given row and returns the entity swapped in to replace it (if an
+    /// entity was swapped in)
+    ///
     /// # Safety
     /// `row` must be in-bounds
     pub unsafe fn swap_remove_unchecked(&mut self, row: usize) -> Option<Entity> {
@@ -209,9 +213,11 @@ impl Table {
         }
     }
 
-    /// Moves the `row` column values to `new_table`, for the columns shared between both tables. Returns the index of the
-    /// new row in `new_table` and the entity in this table swapped in to replace it (if an entity was swapped in).
-    /// missing columns will be "forgotten". It is the caller's responsibility to drop them
+    /// Moves the `row` column values to `new_table`, for the columns shared between both tables.
+    /// Returns the index of the new row in `new_table` and the entity in this table swapped in
+    /// to replace it (if an entity was swapped in). missing columns will be "forgotten". It is
+    /// the caller's responsibility to drop them
+    ///
     /// # Safety
     /// Row must be in-bounds
     pub unsafe fn move_to_and_forget_missing_unchecked(
@@ -239,8 +245,10 @@ impl Table {
         }
     }
 
-    /// Moves the `row` column values to `new_table`, for the columns shared between both tables. Returns the index of the
-    /// new row in `new_table` and the entity in this table swapped in to replace it (if an entity was swapped in).
+    /// Moves the `row` column values to `new_table`, for the columns shared between both tables.
+    /// Returns the index of the new row in `new_table` and the entity in this table swapped in
+    /// to replace it (if an entity was swapped in).
+    ///
     /// # Safety
     /// row must be in-bounds
     pub unsafe fn move_to_and_drop_missing_unchecked(
@@ -270,8 +278,10 @@ impl Table {
         }
     }
 
-    /// Moves the `row` column values to `new_table`, for the columns shared between both tables. Returns the index of the
-    /// new row in `new_table` and the entity in this table swapped in to replace it (if an entity was swapped in).
+    /// Moves the `row` column values to `new_table`, for the columns shared between both tables.
+    /// Returns the index of the new row in `new_table` and the entity in this table swapped in
+    /// to replace it (if an entity was swapped in).
+    ///
     /// # Safety
     /// `row` must be in-bounds. `new_table` must contain every component this table has
     pub unsafe fn move_to_superset_unchecked(
@@ -326,6 +336,7 @@ impl Table {
     }
 
     /// Allocates space for a new entity
+    ///
     /// # Safety
     /// the allocated row must be written to immediately with valid values in each column
     pub unsafe fn allocate(&mut self, entity: Entity) -> usize {

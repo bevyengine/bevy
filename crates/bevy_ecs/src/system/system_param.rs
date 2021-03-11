@@ -38,8 +38,9 @@ pub trait SystemParam: Sized {
 
 /// # Safety
 /// it is the implementors responsibility to ensure `system_state` is populated with the _exact_
-/// [World] access used by the SystemParamState (and associated FetchSystemParam). Additionally, it is the
-/// implementor's responsibility to ensure there is no conflicting access across all SystemParams.
+/// [World] access used by the SystemParamState (and associated FetchSystemParam). Additionally, it
+/// is the implementor's responsibility to ensure there is no conflicting access across all
+/// SystemParams.
 pub unsafe trait SystemParamState: Send + Sync + 'static {
     type Config: Default + Send + Sync;
     fn init(world: &mut World, system_state: &mut SystemState, config: Self::Config) -> Self;
@@ -52,8 +53,8 @@ pub unsafe trait SystemParamState: Send + Sync + 'static {
 pub trait SystemParamFetch<'a>: SystemParamState {
     type Item;
     /// # Safety
-    /// This call might access any of the input parameters in an unsafe way. Make sure the data access is safe in
-    /// the context of the system scheduler
+    /// This call might access any of the input parameters in an unsafe way. Make sure the data
+    /// access is safe in the context of the system scheduler
     unsafe fn get_param(
         state: &'a mut Self,
         system_state: &'a SystemState,
@@ -70,8 +71,8 @@ where
     type Fetch = QueryState<Q, F>;
 }
 
-// SAFE: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemState. If this QueryState conflicts
-// with any prior access, a panic will occur.
+// SAFE: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemState. If
+// this QueryState conflicts with any prior access, a panic will occur.
 unsafe impl<Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamState for QueryState<Q, F>
 where
     F::Fetch: FilterFetch,
@@ -168,7 +169,8 @@ impl<'w, T: Component> Res<'w, T> {
         self.flags.contains(ComponentFlags::MUTATED)
     }
 
-    /// Returns true if (and only if) this resource been either mutated or added since the start of the frame.
+    /// Returns true if (and only if) this resource been either mutated or added since the start of
+    /// the frame.
     pub fn changed(&self) -> bool {
         self.flags
             .intersects(ComponentFlags::ADDED | ComponentFlags::MUTATED)
@@ -192,8 +194,8 @@ impl<'a, T: Component> SystemParam for Res<'a, T> {
     type Fetch = ResState<T>;
 }
 
-// SAFE: Res ComponentId and ArchetypeComponentId access is applied to SystemState. If this Res conflicts
-// with any prior access, a panic will occur.
+// SAFE: Res ComponentId and ArchetypeComponentId access is applied to SystemState. If this Res
+// conflicts with any prior access, a panic will occur.
 unsafe impl<T: Component> SystemParamState for ResState<T> {
     type Config = ();
 
@@ -293,7 +295,8 @@ impl<'w, T: Component> ResMut<'w, T> {
         self.flags.contains(ComponentFlags::MUTATED)
     }
 
-    /// Returns true if (and only if) this resource been either mutated or added since the start of the frame.
+    /// Returns true if (and only if) this resource been either mutated or added since the start of
+    /// the frame.
     pub fn changed(&self) -> bool {
         self.flags
             .intersects(ComponentFlags::ADDED | ComponentFlags::MUTATED)
@@ -324,8 +327,8 @@ impl<'a, T: Component> SystemParam for ResMut<'a, T> {
     type Fetch = ResMutState<T>;
 }
 
-// SAFE: Res ComponentId and ArchetypeComponentId access is applied to SystemState. If this Res conflicts
-// with any prior access, a panic will occur.
+// SAFE: Res ComponentId and ArchetypeComponentId access is applied to SystemState. If this Res
+// conflicts with any prior access, a panic will occur.
 unsafe impl<T: Component> SystemParamState for ResMutState<T> {
     type Config = ();
 
@@ -505,8 +508,8 @@ impl<'a, T: Component> SystemParam for RemovedComponents<'a, T> {
     type Fetch = RemovedComponentsState<T>;
 }
 
-// SAFE: no component access. removed component entity collections can be read in parallel and are never mutably borrowed
-// during system execution
+// SAFE: no component access. removed component entity collections can be read in parallel and are
+// never mutably borrowed during system execution
 unsafe impl<T: Component> SystemParamState for RemovedComponentsState<T> {
     type Config = ();
 
@@ -557,8 +560,8 @@ impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     type Fetch = NonSendState<T>;
 }
 
-// SAFE: NonSendComponentId and ArchetypeComponentId access is applied to SystemState. If this NonSend conflicts
-// with any prior access, a panic will occur.
+// SAFE: NonSendComponentId and ArchetypeComponentId access is applied to SystemState. If this
+// NonSend conflicts with any prior access, a panic will occur.
 unsafe impl<T: 'static> SystemParamState for NonSendState<T> {
     type Config = ();
 
@@ -643,8 +646,8 @@ impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     type Fetch = NonSendMutState<T>;
 }
 
-// SAFE: NonSendMut ComponentId and ArchetypeComponentId access is applied to SystemState. If this NonSendMut conflicts
-// with any prior access, a panic will occur.
+// SAFE: NonSendMut ComponentId and ArchetypeComponentId access is applied to SystemState. If this
+// NonSendMut conflicts with any prior access, a panic will occur.
 unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
     type Config = ();
 
@@ -858,6 +861,6 @@ macro_rules! impl_system_param_tuple {
     };
 }
 
-// TODO: consider creating a Config trait with a default() function, then implementing that for tuples.
-// that would allow us to go past tuples of len 12
+// TODO: consider creating a Config trait with a default() function, then implementing that for
+// tuples. that would allow us to go past tuples of len 12
 all_tuples!(impl_system_param_tuple, 0, 12, P);

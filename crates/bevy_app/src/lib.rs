@@ -33,7 +33,8 @@ pub enum CoreStage {
     First,
     /// Name of app stage responsible for performing setup before an update. Runs before UPDATE.
     PreUpdate,
-    /// Name of app stage responsible for doing most app logic. Systems should be registered here by default.
+    /// Name of app stage responsible for doing most app logic. Systems should be registered here
+    /// by default.
     Update,
     /// Name of app stage responsible for processing the results of UPDATE. Runs after UPDATE.
     PostUpdate,

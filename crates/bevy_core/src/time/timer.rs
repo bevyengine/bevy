@@ -6,7 +6,8 @@ use bevy_utils::Duration;
 /// Tracks elapsed time. Enters the finished state once `duration` is reached.
 ///
 /// Non repeating timers will stop tracking and stay in the finished state until reset.
-/// Repeating timers will only be in the finished state on each tick `duration` is reached or exceeded, and can still be reset at any given point.
+/// Repeating timers will only be in the finished state on each tick `duration` is reached or
+/// exceeded, and can still be reset at any given point.
 ///
 /// Paused timers will not have elapsed time increased.
 #[derive(Clone, Debug, Default, Reflect)]

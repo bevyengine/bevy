@@ -68,7 +68,8 @@ pub enum RenderSystem {
 pub enum RenderStage {
     /// Stage where render resources are set up
     RenderResource,
-    /// Stage where Render Graph systems are run. In general you shouldn't add systems to this stage manually.
+    /// Stage where Render Graph systems are run. In general you shouldn't add systems to this
+    /// stage manually.
     RenderGraphSystems,
     // Stage where draw systems are executed. This is generally where Draw components are setup
     Draw,
@@ -78,7 +79,8 @@ pub enum RenderStage {
 
 /// Adds core render types and systems to an App
 pub struct RenderPlugin {
-    /// configures the "base render graph". If this is not `None`, the "base render graph" will be added
+    /// configures the "base render graph". If this is not `None`, the "base render graph" will be
+    /// added
     pub base_render_graph_config: Option<BaseRenderGraphConfig>,
 }
 

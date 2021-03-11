@@ -182,7 +182,8 @@ where
         self.current_staging_buffer_offset = 0;
     }
 
-    /// Find a spot for the given RenderResources in each uniform's BufferArray and prepare space in the staging buffer
+    /// Find a spot for the given RenderResources in each uniform's BufferArray and prepare space in
+    /// the staging buffer
     fn prepare_uniform_buffers(&mut self, id: I, render_resources: &T) {
         for (i, render_resource) in render_resources.iter().enumerate() {
             if let Some(RenderResourceType::Buffer) = render_resource.resource_type() {
@@ -497,7 +498,8 @@ fn render_resources_node_system<T: RenderResources>(
             staging_buffer,
             0..state.uniform_buffer_arrays.staging_buffer_size as u64,
             &mut |mut staging_buffer, _render_resource_context| {
-                // if the buffer array was resized, write all entities to the new buffer, otherwise only write changes
+                // if the buffer array was resized, write all entities to the new buffer, otherwise
+                // only write changes
                 if resized {
                     for (entity, uniforms, visible, mut render_pipelines) in
                         queries.q1_mut().iter_mut()

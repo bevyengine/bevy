@@ -199,8 +199,8 @@ where
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
-    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world` with
-    /// a mismatched WorldId is unsafe.
+    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
+    /// with a mismatched WorldId is unsafe.
     #[inline]
     pub(crate) unsafe fn iter_unchecked_manual<'w, 's>(
         &'s self,
@@ -296,8 +296,8 @@ where
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
-    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world` with
-    /// a mismatched WorldId is unsafe.
+    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
+    /// with a mismatched WorldId is unsafe.
     pub(crate) unsafe fn for_each_unchecked_manual<'w, 's>(
         &'s self,
         world: &'w World,
@@ -341,8 +341,8 @@ where
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
-    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world` with
-    /// a mismatched WorldId is unsafe.
+    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
+    /// with a mismatched WorldId is unsafe.
     pub unsafe fn par_for_each_unchecked_manual<'w, 's>(
         &'s self,
         world: &'w World,
