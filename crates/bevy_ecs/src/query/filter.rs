@@ -695,7 +695,7 @@ impl_counter_filter!(
     ///
     /// This filter is useful to do one-time post-processing on components.
     ///
-    /// Because the ordering of systems can change and this filter is only effective on changes 
+    /// Because the ordering of systems can change and this filter is only effective on changes
     /// before the query executes you need to use explicit dependency ordering or ordered stages to avoid frame delays.
     ///
     ///
@@ -744,8 +744,8 @@ impl_counter_filter!(
     ///     }
     /// }
     /// ```
-    Mutated,
-    MutatedState,
-    MutatedFetch,
-    ComponentFlags::MUTATED
+    Changed,
+    ChangedState,
+    ChangedFetch,
+    ComponentCounters::is_changed
 );

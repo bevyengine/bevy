@@ -34,11 +34,10 @@ impl Default for WorldId {
     }
 }
 
-/// [World] stores and exposes operations on [entities](Entity), [components](Component), 
+/// [World] stores and exposes operations on [entities](Entity), [components](Component),
 /// and their associated metadata.
 /// Each [Entity] has a set of components. Each component can have up to one instance of each component type.
 /// Entity components can be created, updated, removed, and queried using a given [World].
-#[derive(Default)]
 pub struct World {
     id: WorldId,
     pub(crate) entities: Entities,
@@ -479,7 +478,7 @@ impl World {
         QueryState::new(self)
     }
 
-    /// Returns a [DirectQuery] for the given [WorldQuery], 
+    /// Returns a [DirectQuery] for the given [WorldQuery],
     /// which is used to directly query the [World],
     /// usually in exclusive systems.
     /// ```
@@ -526,7 +525,7 @@ impl World {
         }
     }
 
-    /// Returns a [DirectQuery] for the given filtered [WorldQuery], 
+    /// Returns a [DirectQuery] for the given filtered [WorldQuery],
     /// which is used to directly query the [World],
     /// usually in exclusive systems.
     /// ```
@@ -561,7 +560,7 @@ impl World {
         }
     }
 
-    /// Returns an iterator of entities that had components of type `T` removed 
+    /// Returns an iterator of entities that had components of type `T` removed
     /// since the last call to [World::clear_trackers].
     pub fn removed<T: Component>(&self) -> std::iter::Cloned<std::slice::Iter<'_, Entity>> {
         if let Some(component_id) = self.components.get_id(TypeId::of::<T>()) {
