@@ -1,7 +1,7 @@
 use bevy_app::{AppBuilder, CoreStage, Plugin};
 use bevy_asset::{AddAsset, Assets, Handle};
 use bevy_ecs::{
-    prelude::{Commands, Query, ResMut},
+    prelude::{Commands, Query, ResMut, With},
     schedule::*,
     system::*,
 };
