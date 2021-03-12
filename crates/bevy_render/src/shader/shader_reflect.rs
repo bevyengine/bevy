@@ -3,7 +3,7 @@ use crate::{
         BindGroupDescriptor, BindType, BindingDescriptor, BindingShaderStage, InputStepMode,
         UniformProperty, VertexAttribute, VertexBufferLayout, VertexFormat,
     },
-    shader::{ShaderLayout, GL_INSTANCE_INDEX, GL_VERTEX_INDEX},
+    shader::{ShaderLayout, GL_FRONT_FACING, GL_INSTANCE_INDEX, GL_VERTEX_INDEX},
     texture::{TextureSampleType, TextureViewDimension},
 };
 use bevy_core::AsBytes;
@@ -33,6 +33,7 @@ impl ShaderLayout {
                 for input_variable in module.enumerate_input_variables(None).unwrap() {
                     if input_variable.name == GL_VERTEX_INDEX
                         || input_variable.name == GL_INSTANCE_INDEX
+                        || input_variable.name == GL_FRONT_FACING
                     {
                         continue;
                     }

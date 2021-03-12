@@ -275,8 +275,18 @@ void main() {
 #    ifdef STANDARDMATERIAL_NORMAL_MAP
     vec3 T = v_WorldTangent.xyz;
     vec3 B = cross(T, N) * sign(v_WorldTangent.w);
+#    endif
+
+#    ifdef STANDARDMATERIAL_DOUBLE_SIDED
+    N = gl_FrontFacing ? N : -N;
+#        ifdef STANDARDMATERIAL_NORMAL_MAP
+    T = gl_FrontFacing ? T : -T;
+    B = gl_FrontFacing ? B : -B;
+#        endif
+#    endif
+
+#    ifdef STANDARDMATERIAL_NORMAL_MAP
     mat3 TBN = mat3(T, B, N);
-    // TODO deal with double-sided
     N = normalize(TBN * texture(sampler2D(StandardMaterial_normal_map, StandardMaterial_normal_map_sampler), v_Uv).rgb);
 #    endif
 

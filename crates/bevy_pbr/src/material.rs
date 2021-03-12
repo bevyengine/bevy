@@ -29,6 +29,9 @@ pub struct StandardMaterial {
     pub normal_map: Option<Handle<Texture>>,
     #[render_resources(ignore)]
     #[shader_def]
+    pub double_sided: bool,
+    #[render_resources(ignore)]
+    #[shader_def]
     pub unlit: bool,
 }
 
@@ -49,6 +52,7 @@ impl Default for StandardMaterial {
             // Expressed in a linear scale and equivalent to 4% reflectance see https://google.github.io/filament/Material%20Properties.pdf
             reflectance: 0.5,
             normal_map: None,
+            double_sided: false,
             unlit: false,
         }
     }
