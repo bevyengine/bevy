@@ -17,6 +17,15 @@ impl SystemId {
 }
 
 /// An ECS system that can be added to a [Schedule](crate::schedule::Schedule)
+///
+/// Systems are functions with all arguments implementing [SystemParam].
+///
+/// Systems are added to an application using `AppBuilder::add_system(my_system.system())`
+/// or similar methods, and will generally run once per pass of the main loop.
+///
+/// Systems are executed in parallel, in opportunistic order; data access is managed automatically.
+/// It's possible to specify explicit execution order between specific systems,
+/// see [SystemDescriptor](crate::schedule::SystemDescriptor).
 pub trait System: Send + Sync + 'static {
     type In;
     type Out;
