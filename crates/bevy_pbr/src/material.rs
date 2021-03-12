@@ -8,14 +8,20 @@ use bevy_render::{color::Color, renderer::RenderResources, shader::ShaderDefs, t
 #[uuid = "dace545e-4bc6-4595-a79d-c224fc694975"]
 pub struct StandardMaterial {
     /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything in between
-    pub base_color_factor: Color,
+    /// If used together with a base_color_texture, this is factored into the final base color
+    /// as `base_color * base_color_texture_value`
+    pub base_color: Color,
     #[shader_def]
     pub base_color_texture: Option<Handle<Texture>>,
     /// Linear perceptual roughness, clamped to [0.089, 1.0] in the shader
     /// Defaults to minimum of 0.089
-    pub roughness_factor: f32,
+    /// If used together with a roughness/metallic texture, this is factored into the final base color
+    /// as `roughness * roughness_texture_value`
+    pub roughness: f32,
     /// From [0.0, 1.0], dielectric to pure metallic
-    pub metallic_factor: f32,
+    /// If used together with a roughness/metallic texture, this is factored into the final base color
+    /// as `metallic * metallic_texture_value`
+    pub metallic: f32,
     /// Specular intensity for non-metals on a linear scale of [0.0, 1.0]
     /// defaults to 0.5 which is mapped to 4% reflectance in the shader
     pub reflectance: f32,
@@ -27,16 +33,16 @@ pub struct StandardMaterial {
 impl Default for StandardMaterial {
     fn default() -> Self {
         StandardMaterial {
-            base_color_factor: Color::rgb(1.0, 1.0, 1.0),
+            base_color: Color::rgb(1.0, 1.0, 1.0),
             base_color_texture: None,
             // This is the minimum the roughness is clamped to in shader code
             // See https://google.github.io/filament/Filament.html#materialsystem/parameterization/
             // It's the minimum floating point value that won't be rounded down to 0 in the calculations used.
             // Although technically for 32-bit floats, 0.045 could be used.
-            roughness_factor: 0.089,
+            roughness: 0.089,
             // Few materials are purely dielectric or metallic
             // This is just a default for mostly-dielectric
-            metallic_factor: 0.01,
+            metallic: 0.01,
             // Minimum real-world reflectance is 2%, most materials between 2-5%
             // Expressed in a linear scale and equivalent to 4% reflectance see https://google.github.io/filament/Material%20Properties.pdf
             reflectance: 0.5,
@@ -48,7 +54,7 @@ impl Default for StandardMaterial {
 impl From<Color> for StandardMaterial {
     fn from(color: Color) -> Self {
         StandardMaterial {
-            base_color_factor: color,
+            base_color: color,
             ..Default::default()
         }
     }

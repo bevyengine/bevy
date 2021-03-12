@@ -277,10 +277,10 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
     load_context.set_labeled_asset(
         &material_label,
         LoadedAsset::new(StandardMaterial {
-            base_color_factor: Color::rgba(color[0], color[1], color[2], color[3]),
+            base_color: Color::rgba(color[0], color[1], color[2], color[3]),
             base_color_texture: texture_handle,
-            roughness_factor: pbr.roughness_factor(),
-            metallic_factor: pbr.metallic_factor(),
+            roughness: pbr.roughness_factor(),
+            metallic: pbr.metallic_factor(),
             unlit: material.unlit(),
             ..Default::default()
         })

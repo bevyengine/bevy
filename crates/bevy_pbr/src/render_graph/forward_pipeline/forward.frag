@@ -62,8 +62,8 @@ layout(set = 1, binding = 0) uniform Lights {
     Light SceneLights[MAX_LIGHTS];
 };
 
-layout(set = 3, binding = 0) uniform StandardMaterial_base_color_factor {
-    vec4 base_color_factor;
+layout(set = 3, binding = 0) uniform StandardMaterial_base_color {
+    vec4 base_color;
 };
 
 #ifdef STANDARDMATERIAL_BASE_COLOR_TEXTURE
@@ -74,11 +74,11 @@ layout(set = 3,
 
 #ifndef STANDARDMATERIAL_UNLIT
 
-layout(set = 3, binding = 3) uniform StandardMaterial_roughness_factor {
+layout(set = 3, binding = 3) uniform StandardMaterial_roughness {
     float perceptual_roughness;
 };
 
-layout(set = 3, binding = 4) uniform StandardMaterial_metallic_factor {
+layout(set = 3, binding = 4) uniform StandardMaterial_metallic {
     float metallic;
 };
 
@@ -248,7 +248,7 @@ vec3 reinhard_extended_luminance(vec3 color, float max_white_l) {
 #endif
 
 void main() {
-    vec4 output_color = base_color_factor;
+    vec4 output_color = base_color;
 #ifdef STANDARDMATERIAL_BASE_COLOR_TEXTURE
     output_color *= texture(sampler2D(StandardMaterial_base_color_texture,
                                       StandardMaterial_base_color_texture_sampler),
