@@ -10,13 +10,18 @@ use bevy_math::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     mesh::*,
-    pipeline::{CullMode, PipelineDescriptor, PrimitiveTopology},
-    prelude::{Color, MeshBundle},
+    pipeline::{CullMode, PipelineDescriptor, PrimitiveTopology, RenderPipeline},
+    prelude::{Color, MeshBundle, RenderPipelines},
     render_graph::{base, AssetRenderResourcesNode, RenderGraph},
     renderer::RenderResources,
     shader::{Shader, ShaderStage, ShaderStages},
 };
-use bevy_transform::{components::GlobalTransform, TransformSystem};
+use bevy_transform::{
+    components::{GlobalTransform, Transform},
+    TransformSystem,
+};
+
+use crate::gizmo::CoordinateGizmo;
 /// Bevy immediate mode debug drawing:
 /// This crate introduces a DebugDraw3D resource which provides functions such as `draw_line(start, end, color)`
 /// Whenever such a draw_line function is called, a set of vertices is added to the DebugDraw3D objects data.
@@ -77,20 +82,27 @@ impl DebugDraw3D {
         self.set_dirty();
     }
 
-    pub fn set_dirty(&mut self) {
+    /// Turning this off results in lines not being cleared anymore.
+    /// You will have to use clear() manually.
+    pub fn automatic(&mut self, clear: bool) {
+        self.clear = clear;
+    }
+
+    /// You do not have to call this in automatic mode.
+    pub fn clear(&mut self) {
+        self.vertices.clear();
+        self.colors.clear();
+    }
+
+    fn set_dirty(&mut self) {
         self.dirty = true;
     }
 
-    pub fn reset(&mut self) {
+    fn reset(&mut self) {
         if self.clear {
-            self.vertices.clear();
-            self.colors.clear();
+            self.clear();
         }
         self.dirty = false;
-    }
-
-    pub fn set_clear(&mut self, clear: bool) {
-        self.clear = clear;
     }
 }
 /// This component marks the internal entity that does the mesh drawing.
@@ -105,7 +117,9 @@ pub struct DebugDraw3DMaterial;
 ///This system sets up the entity holding the actual mesh for drawing as well as the render pipeline step for the shader.
 fn setup_debug_draw_3d(
     mut commands: Commands,
+    mut pipelines: ResMut<Assets<PipelineDescriptor>>,
     mut shaders: ResMut<Assets<Shader>>,
+    mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<DebugDraw3DMaterial>>,
     mut render_graph: ResMut<RenderGraph>,
 ) {
@@ -122,6 +136,8 @@ fn setup_debug_draw_3d(
     });
     p.primitive.topology = PrimitiveTopology::LineList;
     p.primitive.cull_mode = CullMode::None;
+    let pipeline_handle = pipelines.add(p);
+    let pipeline = RenderPipelines::from_pipelines(vec![RenderPipeline::new(pipeline_handle)]);
 
     // add the material to the pipeline
     render_graph.add_system_node(
@@ -137,7 +153,12 @@ fn setup_debug_draw_3d(
 
     // Spawn a entity that will do the debug drawing with its mesh
     commands
-        .spawn(MeshBundle::default())
+        .spawn(MeshBundle {
+            mesh: meshes.add(Mesh::from(CoordinateGizmo { size: 1.0 })),
+            render_pipelines: pipeline, //we have to tell our mesh what pipeline to render in...
+            transform: Transform::from_translation(Vec3::ZERO),
+            ..Default::default()
+        })
         .with(material_instance)
         .with(DebugDraw3DComponent::default());
 
