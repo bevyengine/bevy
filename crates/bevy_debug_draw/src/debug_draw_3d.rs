@@ -139,9 +139,7 @@ fn setup_debug_draw_3d(
     commands
         .spawn(MeshBundle::default())
         .with(material_instance)
-        .with(DebugDraw3DComponent::default())
-        .current_entity()
-        .unwrap();
+        .with(DebugDraw3DComponent::default());
 
     info!("Loaded debug lines plugin.");
 }
