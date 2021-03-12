@@ -10,7 +10,7 @@ use bevy_log::warn;
 use bevy_tasks::TaskPool;
 use bevy_utils::{HashMap, Uuid};
 use crossbeam_channel::TryRecvError;
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use std::{collections::hash_map::Entry, path::Path, sync::Arc};
 use thiserror::Error;
 
@@ -41,6 +41,16 @@ fn format_missing_asset_ext(exts: &[String]) -> String {
     }
 }
 
+pub struct AssetErrorIter(HashMap<HandleId, AssetServerError>);
+
+impl Iterator for AssetErrorIter {
+    type Item = (HandleId, AssetServerError);
+    fn next(&mut self) -> Option<Self::Item> {
+        // pull one entry out of the map
+        self.0.keys().next().cloned().and_then(|k| self.0.remove(&k).map(|v| (k, v)))
+    }
+}
+
 #[derive(Default)]
 pub(crate) struct AssetRefCounter {
     pub(crate) channel: Arc<RefChangeChannel>,
@@ -52,6 +62,7 @@ pub struct AssetServerInternal {
     pub(crate) asset_ref_counter: AssetRefCounter,
     pub(crate) asset_sources: Arc<RwLock<HashMap<SourcePathId, SourceInfo>>>,
     pub(crate) asset_lifecycles: Arc<RwLock<HashMap<Uuid, Box<dyn AssetLifecycle>>>>,
+    errors: Arc<Mutex<HashMap<HandleId, AssetServerError>>>,
     loaders: RwLock<Vec<Arc<Box<dyn AssetLoader>>>>,
     extension_to_loader_index: RwLock<HashMap<String, usize>>,
     handle_to_path: Arc<RwLock<HashMap<HandleId, AssetPath<'static>>>>,
@@ -85,6 +96,7 @@ impl AssetServer {
                 asset_ref_counter: Default::default(),
                 handle_to_path: Default::default(),
                 asset_lifecycles: Default::default(),
+                errors: Default::default(),
                 task_pool,
                 asset_io,
             }),
@@ -341,8 +353,9 @@ impl AssetServer {
         self.server
             .task_pool
             .spawn(async move {
-                if let Err(err) = server.load_async(owned_path, force).await {
+                if let Err(err) = server.load_async(owned_path.clone(), force).await {
                     warn!("{}", err);
+                    server.server.errors.lock().insert(owned_path.into(), err);
                 }
             })
             .detach();
@@ -486,6 +499,28 @@ impl AssetServer {
                 Err(TryRecvError::Disconnected) => panic!("AssetChannel disconnected."),
             }
         }
+    }
+
+    /// Check if there is an error for a specific asset handle
+    ///
+    /// The error is removed from the collection. Subsequent calls will not return it.
+    pub fn get_error<P: Into<HandleId>>(&self, handle: P) -> Option<AssetServerError> {
+        self.server.errors.lock().remove(&handle.into())
+    }
+
+    /// Drop any accumulated errors
+    pub fn clear_errors(&self) {
+        self.server.errors.lock().clear()
+    }
+
+    /// Iterate over any accumulated errors
+    ///
+    /// When this method is called, all errors are removed from the collection.
+    /// If you don't handle them, they will be lost.
+    ///
+    pub fn iter_errors(&self) -> AssetErrorIter {
+        // FIXME: we should allow iterating multiple times; how to do this?
+        AssetErrorIter(std::mem::take(&mut self.server.errors.lock()))
     }
 }
 
