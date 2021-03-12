@@ -47,7 +47,11 @@ impl Iterator for AssetErrorIter {
     type Item = (HandleId, AssetServerError);
     fn next(&mut self) -> Option<Self::Item> {
         // pull one entry out of the map
-        self.0.keys().next().cloned().and_then(|k| self.0.remove(&k).map(|v| (k, v)))
+        self.0
+            .keys()
+            .next()
+            .cloned()
+            .and_then(|k| self.0.remove(&k).map(|v| (k, v)))
     }
 }
 

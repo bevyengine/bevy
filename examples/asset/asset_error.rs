@@ -1,5 +1,5 @@
+use bevy::asset::{AssetIoError, AssetServerError};
 use bevy::prelude::*;
-use bevy::asset::{AssetServerError, AssetIoError};
 
 fn main() {
     App::build()
@@ -10,7 +10,7 @@ fn main() {
 }
 
 struct MySpecialSprite {
-    handle: Handle<Texture>
+    handle: Handle<Texture>,
 }
 
 /// What to use if the sprite errored
@@ -33,7 +33,7 @@ fn setup(
 
     // store the handle in a resource to track it later
     commands.insert_resource(MySpecialSprite {
-        handle: texture_handle.clone()
+        handle: texture_handle.clone(),
     });
 
     // prepare our fallbacks
