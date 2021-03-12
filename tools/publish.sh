@@ -3,7 +3,6 @@ crates=(
     bevy_utils
     bevy_derive
     bevy_math
-    bevy_geometry
     bevy_tasks
     bevy_ecs/macros
     bevy_ecs
@@ -17,6 +16,7 @@ crates=(
     bevy_core
     bevy_diagnostic
     bevy_transform
+    bevy_geometry
     bevy_window
     bevy_render
     bevy_input
