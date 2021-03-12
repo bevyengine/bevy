@@ -95,6 +95,12 @@ async fn load_gltf<'a, 'b>(
         if let Some(texture) = material.occlusion_texture() {
             linear_textures.insert(texture.texture().index());
         }
+        if let Some(texture) = material
+            .pbr_metallic_roughness()
+            .metallic_roughness_texture()
+        {
+            linear_textures.insert(texture.texture().index());
+        }
     }
 
     let mut meshes = vec![];
@@ -288,6 +294,7 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
     let material_label = material_label(&material);
 
     let pbr = material.pbr_metallic_roughness();
+
     let color = pbr.base_color_factor();
     let base_color_texture = if let Some(info) = pbr.base_color_texture() {
         // TODO handle info.tex_coord() (the *set* index for the right texcoords)
@@ -308,6 +315,15 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
         None
     };
 
+    let metallic_roughness_texture = if let Some(info) = pbr.metallic_roughness_texture() {
+        // TODO handle info.tex_coord() (the *set* index for the right texcoords)
+        let label = texture_label(&info.texture());
+        let path = AssetPath::new_ref(load_context.path(), Some(&label));
+        Some(load_context.get_handle(path))
+    } else {
+        None
+    };
+
     load_context.set_labeled_asset(
         &material_label,
         LoadedAsset::new(StandardMaterial {
@@ -315,6 +331,7 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
             base_color_texture,
             roughness: pbr.roughness_factor(),
             metallic: pbr.metallic_factor(),
+            metallic_roughness_texture,
             unlit: material.unlit(),
             normal_map,
             double_sided: material.double_sided(),

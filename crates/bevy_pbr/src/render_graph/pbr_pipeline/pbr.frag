@@ -77,12 +77,6 @@ layout(set = 3,
        binding = 2) uniform sampler StandardMaterial_base_color_texture_sampler;
 #endif
 
-#ifdef STANDARDMATERIAL_NORMAL_MAP
-layout(set = 3, binding = 6) uniform texture2D StandardMaterial_normal_map;
-layout(set = 3,
-       binding = 7) uniform sampler StandardMaterial_normal_map_sampler;
-#endif
-
 #ifndef STANDARDMATERIAL_UNLIT
 
 layout(set = 3, binding = 3) uniform StandardMaterial_roughness {
@@ -93,9 +87,21 @@ layout(set = 3, binding = 4) uniform StandardMaterial_metallic {
     float metallic;
 };
 
-layout(set = 3, binding = 5) uniform StandardMaterial_reflectance {
+#    ifdef STANDARDMATERIAL_METALLIC_ROUGHNESS_TEXTURE
+layout(set = 3, binding = 5) uniform texture2D StandardMaterial_metallic_roughness_texture;
+layout(set = 3,
+       binding = 6) uniform sampler StandardMaterial_metallic_roughness_texture_sampler;
+#    endif
+
+layout(set = 3, binding = 7) uniform StandardMaterial_reflectance {
     float reflectance;
 };
+
+#    ifdef STANDARDMATERIAL_NORMAL_MAP
+layout(set = 3, binding = 8) uniform texture2D StandardMaterial_normal_map;
+layout(set = 3,
+       binding = 9) uniform sampler StandardMaterial_normal_map_sampler;
+#    endif
 
 #    define saturate(x) clamp(x, 0.0, 1.0)
 const float PI = 3.141592653589793;
@@ -268,6 +274,13 @@ void main() {
 
 #ifndef STANDARDMATERIAL_UNLIT
     // calculate non-linear roughness from linear perceptualRoughness
+#    ifdef STANDARDMATERIAL_METALLIC_ROUGHNESS_TEXTURE
+    vec4 metallic_roughness = texture(sampler2D(StandardMaterial_metallic_roughness_texture, StandardMaterial_metallic_roughness_texture_sampler), v_Uv);
+    // Sampling from GLTF standard channels for now
+    float metallic = metallic * metallic_roughness.b;
+    float perceptual_roughness = perceptual_roughness * metallic_roughness.g;
+#    endif
+
     float roughness = perceptualRoughnessToRoughness(perceptual_roughness);
 
     vec3 N = normalize(v_WorldNormal);
