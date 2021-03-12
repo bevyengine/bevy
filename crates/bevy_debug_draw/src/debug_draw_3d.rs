@@ -148,12 +148,12 @@ fn setup_debug_draw_3d(
 fn update_debug_draw_3d(
     mut debug_draw: ResMut<DebugDraw3D>,
     mut meshes: ResMut<Assets<Mesh>>,
-    query: Query<(&DebugDraw3DComponent, &Handle<Mesh>)>,
+    query: Query<&Handle<Mesh>, With<DebugDraw3DComponent>>,
 ) {
     if !debug_draw.dirty {
         return;
     } else {
-        for (_, mesh) in query.iter() {
+        for mesh in query.iter() {
             if let Some(mesh) = meshes.get_mut(mesh) {
                 mesh.set_attribute(
                     Mesh::ATTRIBUTE_POSITION,
