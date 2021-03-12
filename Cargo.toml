@@ -198,6 +198,10 @@ path = "examples/app/thread_pool_resources.rs"
 
 # Assets
 [[example]]
+name = "asset_error"
+path = "examples/asset/asset_error.rs"
+
+[[example]]
 name = "asset_loading"
 path = "examples/asset/asset_loading.rs"
 
