@@ -440,24 +440,25 @@ fn texture_sampler(texture: &gltf::Texture) -> Result<SamplerDescriptor, GltfErr
         min_filter: gltf_sampler
             .min_filter()
             .map(|mf| match mf {
-                MinFilter::Nearest |
-                MinFilter::NearestMipmapNearest |
-                MinFilter::NearestMipmapLinear => FilterMode::Nearest,
-                MinFilter::Linear |
-                MinFilter::LinearMipmapNearest |
-                MinFilter::LinearMipmapLinear => FilterMode::Linear,
+                MinFilter::Nearest
+                | MinFilter::NearestMipmapNearest
+                | MinFilter::NearestMipmapLinear => FilterMode::Nearest,
+                MinFilter::Linear
+                | MinFilter::LinearMipmapNearest
+                | MinFilter::LinearMipmapLinear => FilterMode::Linear,
             })
             .unwrap_or(SamplerDescriptor::default().min_filter),
 
         mipmap_filter: gltf_sampler
             .min_filter()
             .map(|mf| match mf {
-                MinFilter::Nearest |
-                MinFilter::Linear |
-                MinFilter::NearestMipmapNearest |
-                MinFilter::LinearMipmapNearest => FilterMode::Nearest,
-                MinFilter::NearestMipmapLinear |
-                MinFilter::LinearMipmapLinear => FilterMode::Linear,
+                MinFilter::Nearest
+                | MinFilter::Linear
+                | MinFilter::NearestMipmapNearest
+                | MinFilter::LinearMipmapNearest => FilterMode::Nearest,
+                MinFilter::NearestMipmapLinear | MinFilter::LinearMipmapLinear => {
+                    FilterMode::Linear
+                }
             })
             .unwrap_or(SamplerDescriptor::default().mipmap_filter),
 
