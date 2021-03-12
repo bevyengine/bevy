@@ -45,9 +45,9 @@ struct Light {
 };
 
 layout(location = 0) in vec3 v_Position;
-layout(location = 1) in vec3 v_Normal;
+layout(location = 1) in vec3 v_WorldNormal;
 layout(location = 2) in vec2 v_Uv;
-layout(location = 3) in vec3 w_Position;
+layout(location = 3) in vec3 v_WorldPosition;
 
 layout(location = 0) out vec4 o_Target;
 
@@ -259,8 +259,9 @@ void main() {
     // calculate non-linear roughness from linear perceptualRoughness
     float roughness = perceptualRoughnessToRoughness(perceptual_roughness);
 
-    vec3 N = normalize(v_Normal);
-    vec3 V = normalize(CameraPos.xyz - w_Position.xyz);
+    vec3 N = normalize(v_WorldNormal);
+
+    vec3 V = normalize(CameraPos.xyz - v_WorldPosition.xyz);
     // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
     float NdotV = max(dot(N, V), 1e-4);
 
@@ -276,7 +277,7 @@ void main() {
     for (int i = 0; i < int(NumLights.x) && i < MAX_LIGHTS; ++i) {
         Light light = SceneLights[i];
 
-        vec3 lightDir = light.pos.xyz - w_Position.xyz;
+        vec3 lightDir = light.pos.xyz - v_WorldPosition.xyz;
         vec3 L = normalize(lightDir);
 
         float rangeAttenuation =
