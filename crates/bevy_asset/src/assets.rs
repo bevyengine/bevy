@@ -72,18 +72,10 @@ impl<T: Asset> Assets<T> {
         self.get_handle(id)
     }
 
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn set<H: Into<HandleId>>(&mut self, handle: H, asset: T) -> Handle<T> {
         let id: HandleId = handle.into();
-        if self.assets.insert(id, asset).is_some() {
-            self.events.send(AssetEvent::Modified {
-                handle: Handle::weak(id),
-            });
-        } else {
-            self.events.send(AssetEvent::Created {
-                handle: Handle::weak(id),
-            });
-        }
-
+        self.set_untracked(id, asset);
         self.get_handle(id)
     }
 
