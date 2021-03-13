@@ -16,7 +16,7 @@ pub struct State<T: Component + Clone + Eq> {
     transition: Option<StateTransition<T>>,
     stack: Vec<T>,
     scheduled: Option<ScheduledOperation<T>>,
-    ran_update: bool,
+    end_next_loop: bool,
 }
 
 #[derive(Debug)]
@@ -165,18 +165,23 @@ impl<T: Component + Clone + Eq> State<T> {
     pub fn on_update_set(s: T) -> SystemSet {
         SystemSet::new().with_run_criteria(Self::on_update(s))
     }
+
     pub fn on_inactive_update_set(s: T) -> SystemSet {
         SystemSet::new().with_run_criteria(Self::on_inactive_update(s))
     }
+
     pub fn on_enter_set(s: T) -> SystemSet {
         SystemSet::new().with_run_criteria(Self::on_enter(s))
     }
+
     pub fn on_exit_set(s: T) -> SystemSet {
         SystemSet::new().with_run_criteria(Self::on_exit(s))
     }
+
     pub fn on_pause_set(s: T) -> SystemSet {
         SystemSet::new().with_run_criteria(Self::on_pause(s))
     }
+
     pub fn on_resume_set(s: T) -> SystemSet {
         SystemSet::new().with_run_criteria(Self::on_resume(s))
     }
@@ -193,7 +198,7 @@ impl<T: Component + Clone + Eq> State<T> {
             stack: vec![initial],
             transition: Some(StateTransition::PreStartup),
             scheduled: None,
-            ran_update: false,
+            end_next_loop: false,
         }
     }
 
@@ -292,7 +297,7 @@ fn should_run_adapter<T: Component + Clone + Eq>(
     In(cmp_result): In<bool>,
     state: Res<State<T>>,
 ) -> ShouldRun {
-    if state.ran_update {
+    if state.end_next_loop {
         return ShouldRun::No;
     }
     if cmp_result {
@@ -304,14 +309,16 @@ fn should_run_adapter<T: Component + Clone + Eq>(
 
 fn state_cleaner<T: Component + Clone + Eq>(
     mut state: ResMut<State<T>>,
-    mut lra: Local<bool>,
+    mut prep_exit: Local<bool>,
 ) -> ShouldRun {
-    if *lra {
-        state.ran_update = true;
-        *lra = false;
-        return ShouldRun::YesAndCheckAgain;
-    } else if state.ran_update {
-        state.ran_update = false;
+    if *prep_exit {
+        *prep_exit = false;
+        if state.scheduled.is_none() {
+            state.end_next_loop = true;
+            return ShouldRun::YesAndCheckAgain;
+        }
+    } else if state.end_next_loop {
+        state.end_next_loop = false;
         return ShouldRun::No;
     }
     match state.scheduled.take() {
@@ -367,7 +374,7 @@ fn state_cleaner<T: Component + Clone + Eq>(
         },
     };
     if state.transition.is_none() {
-        *lra = true;
+        *prep_exit = true;
     }
 
     ShouldRun::YesAndCheckAgain
@@ -378,7 +385,7 @@ mod test {
     use super::*;
     use crate::prelude::*;
 
-    #[derive(Copy, Clone, Eq, PartialEq)]
+    #[derive(Copy, Clone, Eq, PartialEq, Debug)]
     enum MyState {
         S1,
         S2,
@@ -402,123 +409,182 @@ mod test {
         stage
             .add_system_set(
                 State::on_enter_set(MyState::S1).with_system(
-                    (|mut r: ResMut<Vec<&'static str>>| r.push(dbg!("startup"))).system(),
+                    (|mut r: ResMut<Vec<&'static str>>| r.push("startup"))
+                        .system()
+                        .label("0"),
                 ),
             )
             .add_system_set(
                 State::on_update_set(MyState::S1).with_system(
                     (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
-                        r.push(dbg!("update S1"));
+                        r.push("update S1");
                         s.overwrite_next(MyState::S2).unwrap();
                     })
-                    .system(),
+                    .system()
+                    .label("1")
+                    .before("0"),
                 ),
             )
-            .add_system_set(State::on_enter_set(MyState::S2).with_system(
-                (|mut r: ResMut<Vec<&'static str>>| r.push(dbg!("enter S2"))).system(),
-            ))
+            .add_system_set(
+                State::on_enter_set(MyState::S2).with_system(
+                    (|mut r: ResMut<Vec<&'static str>>| r.push("enter S2"))
+                        .system()
+                        .label("2")
+                        .before("1"),
+                ),
+            )
             .add_system_set(
                 State::on_update_set(MyState::S2).with_system(
                     (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
-                        r.push(dbg!("update S2"));
+                        r.push("update S2");
                         s.overwrite_next(MyState::S3).unwrap();
                     })
-                    .system(),
+                    .system()
+                    .label("3")
+                    .before("2"),
                 ),
             )
             .add_system_set(
                 State::on_exit_set(MyState::S2).with_system(
-                    (|mut r: ResMut<Vec<&'static str>>| r.push(dbg!("exit S2"))).system(),
+                    (|mut r: ResMut<Vec<&'static str>>| r.push("exit S2"))
+                        .system()
+                        .label("4")
+                        .before("3"),
                 ),
             )
-            .add_system_set(State::on_enter_set(MyState::S3).with_system(
-                (|mut r: ResMut<Vec<&'static str>>| r.push(dbg!("enter S3"))).system(),
-            ))
+            .add_system_set(
+                State::on_enter_set(MyState::S3).with_system(
+                    (|mut r: ResMut<Vec<&'static str>>| r.push("enter S3"))
+                        .system()
+                        .label("5")
+                        .before("4"),
+                ),
+            )
             .add_system_set(
                 State::on_update_set(MyState::S3).with_system(
                     (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
-                        r.push(dbg!("update S3"));
+                        r.push("update S3");
                         s.overwrite_push(MyState::S4).unwrap();
                     })
-                    .system(),
+                    .system()
+                    .label("6")
+                    .before("5"),
                 ),
             )
-            .add_system_set(State::on_pause_set(MyState::S3).with_system(
-                (|mut r: ResMut<Vec<&'static str>>| r.push(dbg!("pause S3"))).system(),
-            ))
+            .add_system_set(
+                State::on_pause_set(MyState::S3).with_system(
+                    (|mut r: ResMut<Vec<&'static str>>| r.push("pause S3"))
+                        .system()
+                        .label("7")
+                        .before("6"),
+                ),
+            )
             .add_system_set(
                 State::on_update_set(MyState::S4).with_system(
                     (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
-                        r.push(dbg!("update S4"));
+                        r.push("update S4");
                         s.overwrite_push(MyState::S5).unwrap();
                     })
-                    .system(),
+                    .system()
+                    .label("8")
+                    .before("7"),
                 ),
             )
-            .add_system_set(State::on_inactive_update_set(MyState::S4).with_system(
-                (|mut r: ResMut<Vec<&'static str>>| r.push(dbg!("inactive S4"))).system(),
-            ))
+            .add_system_set(
+                State::on_inactive_update_set(MyState::S4).with_system(
+                    (|mut r: ResMut<Vec<&'static str>>| r.push("inactive S4"))
+                        .system()
+                        .label("9")
+                        .before("8"),
+                ),
+            )
             .add_system_set(
                 State::on_update_set(MyState::S5).with_system(
                     (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
-                        r.push(dbg!("update S5"));
+                        r.push("update S5");
                         s.overwrite_push(MyState::S6).unwrap();
                     })
-                    .system(),
+                    .system()
+                    .label("10")
+                    .before("9"),
                 ),
             )
-            .add_system_set(State::on_inactive_update_set(MyState::S5).with_system(
-                (|mut r: ResMut<Vec<&'static str>>| r.push(dbg!("inactive S5"))).system(),
-            ))
+            .add_system_set(
+                State::on_inactive_update_set(MyState::S5).with_system(
+                    (|mut r: ResMut<Vec<&'static str>>| r.push("inactive S5"))
+                        .system()
+                        .label("11")
+                        .before("10"),
+                ),
+            )
             .add_system_set(
                 State::on_update_set(MyState::S6).with_system(
                     (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
-                        r.push(dbg!("update S6"));
+                        r.push("update S6");
                         s.overwrite_push(MyState::Final).unwrap();
                     })
-                    .system(),
+                    .system()
+                    .label("12")
+                    .before("11"),
                 ),
             )
-            .add_system_set(State::on_resume_set(MyState::S4).with_system(
-                (|mut r: ResMut<Vec<&'static str>>| r.push(dbg!("resume S4"))).system(),
-            ))
-            .add_system_set(State::on_exit_set(MyState::S5).with_system(
-                (|mut r: ResMut<Vec<&'static str>>| r.push(dbg!("exit S4"))).system(),
-            ));
+            .add_system_set(
+                State::on_resume_set(MyState::S4).with_system(
+                    (|mut r: ResMut<Vec<&'static str>>| r.push("resume S4"))
+                        .system()
+                        .label("13")
+                        .before("12"),
+                ),
+            )
+            .add_system_set(
+                State::on_exit_set(MyState::S5).with_system(
+                    (|mut r: ResMut<Vec<&'static str>>| r.push("exit S4"))
+                        .system()
+                        .label("14")
+                        .before("13"),
+                ),
+            );
 
-        const EXPECTED: &[&[&str]] = &[
-            &["startup", "update S1"],
-            &["enter S2", "update S2"],
-            &["exit S2", "enter S3", "update S3"],
-            &["pause S3", "update S4"],
-            &["inactive S4", "update S5"],
-            &["inactive S4", "inactive S5", "update S6"],
-            &["inactive S4", "inactive S5"],
+        const EXPECTED: &[&str] = &[
+            //
+            "startup",
+            "update S1",
+            //
+            "enter S2",
+            "update S2",
+            //
+            "exit S2",
+            "enter S3",
+            "update S3",
+            //
+            "pause S3",
+            "update S4",
+            //
+            "update S5",
+            "inactive S4",
+            //
+            "update S6",
+            "inactive S5",
+            "inactive S4",
+            //
+            "inactive S5",
+            "inactive S4",
         ];
 
-        let mut iterator = EXPECTED.iter();
-
-        loop {
-            println!("new run!");
-            stage.run(&mut world);
-            let mut expected: Vec<_> = iterator.next().unwrap().iter().collect();
-            let mut collected = world.get_resource_mut::<Vec<&'static str>>().unwrap();
-            for found in collected.drain(..) {
-                let index = expected
-                    .iter()
-                    .enumerate()
-                    .find(|(_, &&v)| v == found)
-                    .map(|(i, _)| i)
-                    .expect("Unexpected execution");
-                expected.swap_remove(index);
-            }
-            // If not zero, some elements weren't executed
-            assert_eq!(expected.len(), 0);
-            if world.get_resource::<State<MyState>>().unwrap().current() == &MyState::Final {
-                break;
-            }
+        println!("new run!");
+        stage.run(&mut world);
+        let mut collected = world.get_resource_mut::<Vec<&'static str>>().unwrap();
+        let mut count = 0;
+        for (found, expected) in collected.drain(..).zip(EXPECTED) {
+            println!("{:?} ?= {:?}", found, expected);
+            assert_eq!(found, *expected);
+            count += 1;
         }
-        // If not empty, some stages were skipped
-        assert_eq!(iterator.next(), None);
+        // If not equal, some elements weren't executed
+        assert_eq!(EXPECTED.len(), count);
+        assert_eq!(
+            world.get_resource::<State<MyState>>().unwrap().current(),
+            &MyState::Final
+        );
     }
 }
