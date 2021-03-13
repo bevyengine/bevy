@@ -64,7 +64,7 @@ mod tests {
     use super::{ui_z_system, UI_Z_STEP};
 
     fn node_with_transform(name: &str) -> (String, Node, Transform) {
-        (name.to_owned(), Node::default(), Transform::default())
+        (name.to_owned(), Node::default(), Transform::identity())
     }
 
     fn node_without_transform(name: &str) -> (String, Node) {
