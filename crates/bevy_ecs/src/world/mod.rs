@@ -432,10 +432,8 @@ impl World {
     ///     (Position { x: 0.0, y: 0.0}, Velocity { x: 0.0, y: 1.0 }),    
     /// ]).collect::<Vec<Entity>>();
     ///
-    /// let mut query = world.query_state::<(&mut Position, &Velocity)>();
-    /// let system_counter = world.get_exclusive_system_counter();
-    /// let global_system_counter = world.get_global_system_counter();
-    /// for (mut position, velocity) in query.iter_mut(&mut world, system_counter, global_system_counter) {
+    /// let mut query = world.query::<(&mut Position, &Velocity)>();
+    /// for (mut position, velocity) in query.iter_mut(&mut world) {
     ///    position.x += velocity.x;
     ///    position.y += velocity.y;
     /// }     
@@ -460,10 +458,8 @@ impl World {
     /// let e1 = world.spawn().insert(A).id();
     /// let e2 = world.spawn().insert_bundle((A, B)).id();
     ///
-    /// let mut query = world.query_state_filtered::<Entity, With<B>>();
-    /// let system_counter = world.get_exclusive_system_counter();
-    /// let global_system_counter = world.get_global_system_counter();
-    /// let matching_entities = query.iter(&world, system_counter, global_system_counter).collect::<Vec<Entity>>();
+    /// let mut query = world.query_filtered::<Entity, With<B>>();
+    /// let matching_entities = query.iter(&world).collect::<Vec<Entity>>();
     ///
     /// assert_eq!(matching_entities, vec![e2]);
     /// ```
