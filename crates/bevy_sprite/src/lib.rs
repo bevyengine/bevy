@@ -48,6 +48,7 @@ impl Plugin for SpritePlugin {
         app.add_asset::<ColorMaterial>()
             .add_asset::<TextureAtlas>()
             .register_type::<Sprite>()
+            .register_type::<SpriteResizeMode>()
             .add_system_to_stage(CoreStage::PostUpdate, sprite_system.system())
             .add_system_to_stage(
                 CoreStage::PostUpdate,
@@ -67,7 +68,8 @@ impl Plugin for SpritePlugin {
         color_materials.set_untracked(Handle::<ColorMaterial>::default(), ColorMaterial::default());
         meshes.set_untracked(
             QUAD_HANDLE,
-            // Use a flipped quad because the camera is facing "forward" but quads should face backward
+            // Use a flipped quad because the camera is facing "forward" but quads should face
+            // backward
             Mesh::from(shape::Quad::new(Vec2::new(1.0, 1.0))),
         )
     }

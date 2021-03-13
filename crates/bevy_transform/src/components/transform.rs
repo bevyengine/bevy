@@ -5,7 +5,7 @@ use bevy_reflect::Reflect;
 use std::ops::Mul;
 
 #[derive(Debug, PartialEq, Clone, Copy, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, PartialEq)]
 pub struct Transform {
     pub translation: Vec3,
     pub rotation: Quat,
@@ -63,7 +63,8 @@ impl Transform {
         }
     }
 
-    /// Returns transform with the same translation and scale, but rotation so that transform.forward() points at target
+    /// Returns transform with the same translation and scale, but rotation so that
+    /// transform.forward() points at target
     #[inline]
     pub fn looking_at(mut self, target: Vec3, up: Vec3) -> Self {
         self.look_at(target, up);

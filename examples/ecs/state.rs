@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
-/// This example illustrates how to use States to control transitioning from a Menu state to an InGame state.
+/// This example illustrates how to use States to control transitioning from a Menu state to an
+/// InGame state.
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)

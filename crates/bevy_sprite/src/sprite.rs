@@ -86,7 +86,8 @@ pub fn sprite_system(
                 if let Some(ref texture_handle) = material.texture {
                     if let Some(texture) = textures.get(texture_handle) {
                         let texture_size = texture.size.as_vec3().truncate();
-                        // only set sprite size if it has changed (this check prevents change detection from triggering)
+                        // only set sprite size if it has changed (this check prevents change
+                        // detection from triggering)
                         if sprite.size != texture_size {
                             sprite.size = texture_size;
                         }

@@ -60,12 +60,15 @@ impl LightRaw {
 #[derive(Debug)]
 pub struct AmbientLight {
     pub color: Color,
+    /// Color is premultiplied by brightness before being passed to the shader
+    pub brightness: f32,
 }
 
 impl Default for AmbientLight {
     fn default() -> Self {
         Self {
-            color: Color::rgb(0.05, 0.05, 0.05),
+            color: Color::rgb(1.0, 1.0, 1.0),
+            brightness: 0.05,
         }
     }
 }

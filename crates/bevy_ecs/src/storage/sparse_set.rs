@@ -113,10 +113,12 @@ impl ComponentSparseSet {
     }
 
     /// Inserts the `entity` key and component `value` pair into this sparse set.
-    /// The caller is responsible for ensuring the value is not dropped. This collection will drop the value when needed.
+    /// The caller is responsible for ensuring the value is not dropped. This collection will drop
+    /// the value when needed.
+    ///
     /// # Safety
-    /// The `value` pointer must point to a valid address that matches the `Layout` inside the `ComponentInfo` given
-    /// when constructing this sparse set.
+    /// The `value` pointer must point to a valid address that matches the `Layout` inside the
+    /// `ComponentInfo` given when constructing this sparse set.
     pub unsafe fn insert(&mut self, entity: Entity, value: *mut u8, flags: ComponentFlags) {
         let dense = &mut self.dense;
         let entities = &mut self.entities;
@@ -175,8 +177,9 @@ impl ComponentSparseSet {
         })
     }
 
-    /// Removes the `entity` from this sparse set and returns a pointer to the associated value (if it exists).
-    /// It is the caller's responsibility to drop the returned ptr (if Some is returned).
+    /// Removes the `entity` from this sparse set and returns a pointer to the associated value (if
+    /// it exists). It is the caller's responsibility to drop the returned ptr (if Some is
+    /// returned).
     pub fn remove_and_forget(&mut self, entity: Entity) -> Option<*mut u8> {
         self.sparse.remove(entity).map(|dense_index| {
             // SAFE: unique access to flags
@@ -268,8 +271,8 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
             self.dense.push(value);
         }
 
-        // PERF: switch to this. it's faster but it has an invalid memory access on table_add_remove_many
-        // let dense = &mut self.dense;
+        // PERF: switch to this. it's faster but it has an invalid memory access on
+        // table_add_remove_many let dense = &mut self.dense;
         // let indices = &mut self.indices;
         // let dense_index = *self.sparse.get_or_insert_with(index.clone(), move || {
         //     if dense.len() == dense.capacity() {

@@ -33,7 +33,8 @@ pub enum MouseScrollUnit {
     Pixel,
 }
 
-/// A mouse scroll wheel event, where x represents horizontal scroll and y represents vertical scroll.
+/// A mouse scroll wheel event, where x represents horizontal scroll and y represents vertical
+/// scroll.
 #[derive(Debug, Clone)]
 pub struct MouseWheel {
     pub unit: MouseScrollUnit,

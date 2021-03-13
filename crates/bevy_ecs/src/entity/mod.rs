@@ -13,7 +13,11 @@ use std::{
 
 /// Lightweight unique ID of an entity
 ///
-/// Obtained from `World::spawn`. Can be stored to refer to an entity in the future.
+/// Obtained from [World::spawn](crate::world::World::spawn), typically via [Commands::spawn](crate::system::Commands::spawn). Can be stored to refer to an entity in the future.
+///
+/// `Entity` can be a part of a query, e.g. `Query<(Entity, &MyComponent)>`.
+/// Components of a specific entity can be accessed using
+/// [Query::get](crate::system::Query::get) and related methods.
 #[derive(Clone, Copy, Hash, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Entity {
     pub(crate) generation: u32,
@@ -56,9 +60,9 @@ impl Entity {
         self.id
     }
 
-    /// Returns the generation of this Entity's id. The generation is incremented each time an entity with
-    /// a given id is despawned. This serves as a "count" of the number of times a given id has been reused
-    /// (id, generation) pairs uniquely identify a given Entity.
+    /// Returns the generation of this Entity's id. The generation is incremented each time an
+    /// entity with a given id is despawned. This serves as a "count" of the number of times a
+    /// given id has been reused (id, generation) pairs uniquely identify a given Entity.
     #[inline]
     pub fn generation(self) -> u32 {
         self.generation
@@ -121,16 +125,16 @@ pub struct Entities {
     /// The `pending` and `free_cursor` fields describe three sets of Entity IDs
     /// that have been freed or are in the process of being allocated:
     ///
-    /// - The `freelist` IDs, previously freed by `free()`. These IDs are available to any
-    ///   of `alloc()`, `reserve_entity()` or `reserve_entities()`. Allocation will
-    ///   always prefer these over brand new IDs.
+    /// - The `freelist` IDs, previously freed by `free()`. These IDs are available to any of
+    ///   `alloc()`, `reserve_entity()` or `reserve_entities()`. Allocation will always prefer
+    ///   these over brand new IDs.
     ///
-    /// - The `reserved` list of IDs that were once in the freelist, but got
-    ///   reserved by `reserve_entities` or `reserve_entity()`. They are now waiting
-    ///   for `flush()` to make them fully allocated.
+    /// - The `reserved` list of IDs that were once in the freelist, but got reserved by
+    ///   `reserve_entities` or `reserve_entity()`. They are now waiting for `flush()` to make them
+    ///   fully allocated.
     ///
-    /// - The count of new IDs that do not yet exist in `self.meta()`, but which
-    ///   we have handed out and reserved. `flush()` will allocate room for them in `self.meta()`.
+    /// - The count of new IDs that do not yet exist in `self.meta()`, but which we have handed out
+    ///   and reserved. `flush()` will allocate room for them in `self.meta()`.
     ///
     /// The contents of `pending` look like this:
     ///
@@ -257,7 +261,8 @@ impl Entities {
 
     /// Allocate a specific entity ID, overwriting its generation
     ///
-    /// Returns the location of the entity currently using the given ID, if any. Location should be written immediately.
+    /// Returns the location of the entity currently using the given ID, if any. Location should be
+    /// written immediately.
     pub fn alloc_at(&mut self, entity: Entity) -> Option<EntityLocation> {
         self.verify_flushed();
 

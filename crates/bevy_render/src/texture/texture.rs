@@ -101,7 +101,8 @@ impl Texture {
             .resize(size.volume() * self.format.pixel_size(), 0);
     }
 
-    /// Changes the `size`, asserting that the total number of data elements (pixels) remains the same.
+    /// Changes the `size`, asserting that the total number of data elements (pixels) remains the
+    /// same.
     pub fn reinterpret_size(&mut self, new_size: Extent3d) {
         assert!(
             new_size.volume() == self.size.volume(),
@@ -113,9 +114,9 @@ impl Texture {
         self.size = new_size;
     }
 
-    /// Takes a 2D texture containing vertically stacked images of the same size, and reinterprets it as a 2D array texture,
-    /// where each of the stacked images becomes one layer of the array. This is primarily for use with the `texture2DArray`
-    /// shader uniform type.
+    /// Takes a 2D texture containing vertically stacked images of the same size, and reinterprets
+    /// it as a 2D array texture, where each of the stacked images becomes one layer of the
+    /// array. This is primarily for use with the `texture2DArray` shader uniform type.
     pub fn reinterpret_stacked_2d_as_array(&mut self, layers: u32) {
         // Must be a stacked image, and the height must be divisible by layers.
         assert!(self.dimension == TextureDimension::D2);
@@ -171,8 +172,9 @@ impl Texture {
                 }
                 AssetEvent::Removed { handle } => {
                     Self::remove_current_texture_resources(render_resource_context, handle);
-                    // if texture was modified and removed in the same update, ignore the modification
-                    // events are ordered so future modification events are ok
+                    // if texture was modified and removed in the same update, ignore the
+                    // modification events are ordered so future modification
+                    // events are ok
                     changed_textures.remove(handle);
                 }
             }
@@ -217,7 +219,8 @@ impl Texture {
         }
     }
 
-    /// Load a bytes buffer in a [`Texture`], according to type `image_type`, using the `image` crate`
+    /// Load a bytes buffer in a [`Texture`], according to type `image_type`, using the `image`
+    /// crate`
     pub fn from_buffer(buffer: &[u8], image_type: ImageType) -> Result<Texture, TextureError> {
         let format = match image_type {
             ImageType::MimeType(mime_type) => match mime_type {

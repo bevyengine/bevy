@@ -6,3 +6,6 @@ newline_style = "Unix"
 #unstable_features = true
 #imports_granularity = "Crate"
 #reorder_impl_items = true
+#wrap_comments = true
+#comment_width = 100
+#normalize_comments = true

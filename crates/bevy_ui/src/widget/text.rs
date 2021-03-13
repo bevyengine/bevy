@@ -1,4 +1,4 @@
-use crate::{Node, Style, Val};
+use crate::{CalculatedSize, Node, Style, Val};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
@@ -14,9 +14,7 @@ use bevy_render::{
     texture::Texture,
 };
 use bevy_sprite::{TextureAtlas, QUAD_HANDLE};
-use bevy_text::{
-    CalculatedSize, DefaultTextPipeline, DrawableText, Font, FontAtlasSet, Text, TextError,
-};
+use bevy_text::{DefaultTextPipeline, DrawableText, Font, FontAtlasSet, Text, TextError};
 use bevy_transform::prelude::GlobalTransform;
 use bevy_window::Windows;
 
@@ -107,7 +105,8 @@ pub fn text_system(
                 &mut *textures,
             ) {
                 Err(TextError::NoSuchFont) => {
-                    // There was an error processing the text layout, let's add this entity to the queue for further processing
+                    // There was an error processing the text layout, let's add this entity to the
+                    // queue for further processing
                     new_queue.push(entity);
                 }
                 Err(e @ TextError::FailedToAddGlyph(_)) => {

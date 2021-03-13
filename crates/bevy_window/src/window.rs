@@ -304,13 +304,15 @@ impl Window {
 
     /// Modifies the position of the window in physical pixels.
     ///
-    /// Note that the top-left hand corner of the desktop is not necessarily the same as the screen. If the user uses a desktop with multiple monitors,
-    /// the top-left hand corner of the desktop is the top-left hand corner of the monitor at the top-left of the desktop. This automatically un-maximizes
-    /// the window if it's maximized.
+    /// Note that the top-left hand corner of the desktop is not necessarily the same as the screen.
+    /// If the user uses a desktop with multiple monitors, the top-left hand corner of the
+    /// desktop is the top-left hand corner of the monitor at the top-left of the desktop. This
+    /// automatically un-maximizes the window if it's maximized.
     ///
     /// # Platform-specific
     ///
-    /// - iOS: Can only be called on the main thread. Sets the top left coordinates of the window in the screen space coordinate system.
+    /// - iOS: Can only be called on the main thread. Sets the top left coordinates of the window in
+    ///   the screen space coordinate system.
     /// - Web: Sets the top-left coordinates relative to the viewport.
     /// - Android / Wayland: Unsupported.
     #[inline]

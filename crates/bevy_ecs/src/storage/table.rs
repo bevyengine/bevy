@@ -8,6 +8,7 @@ use bevy_utils::{AHasher, HashMap};
 use std::{
     cell::UnsafeCell,
     hash::{Hash, Hasher},
+    ops::{Index, IndexMut},
     ptr::NonNull,
 };
 
@@ -49,7 +50,8 @@ impl Column {
 
     /// # Safety
     /// Assumes data has already been allocated for the given row/column.
-    /// Allows aliased mutable accesses to the data at the given `row`. Caller must ensure that this does not happen.
+    /// Allows aliased mutable accesses to the data at the given `row`. Caller must ensure that this
+    /// does not happen.
     #[inline]
     pub unsafe fn set_unchecked(&self, row: usize, data: *mut u8) {
         self.data.set_unchecked(row, data);
@@ -67,7 +69,8 @@ impl Column {
 
     /// # Safety
     /// Assumes data has already been allocated for the given row/column.
-    /// Allows aliased mutable accesses to the row's ComponentFlags. Caller must ensure that this does not happen.
+    /// Allows aliased mutable accesses to the row's ComponentFlags. Caller must ensure that this
+    /// does not happen.
     #[inline]
     #[allow(clippy::mut_from_ref)]
     pub unsafe fn get_flags_unchecked_mut(&self, row: usize) -> &mut ComponentFlags {
@@ -193,7 +196,9 @@ impl Table {
         )
     }
 
-    /// Removes the entity at the given row and returns the entity swapped in to replace it (if an entity was swapped in)
+    /// Removes the entity at the given row and returns the entity swapped in to replace it (if an
+    /// entity was swapped in)
+    ///
     /// # Safety
     /// `row` must be in-bounds
     pub unsafe fn swap_remove_unchecked(&mut self, row: usize) -> Option<Entity> {
@@ -209,9 +214,11 @@ impl Table {
         }
     }
 
-    /// Moves the `row` column values to `new_table`, for the columns shared between both tables. Returns the index of the
-    /// new row in `new_table` and the entity in this table swapped in to replace it (if an entity was swapped in).
-    /// missing columns will be "forgotten". It is the caller's responsibility to drop them
+    /// Moves the `row` column values to `new_table`, for the columns shared between both tables.
+    /// Returns the index of the new row in `new_table` and the entity in this table swapped in
+    /// to replace it (if an entity was swapped in). missing columns will be "forgotten". It is
+    /// the caller's responsibility to drop them
+    ///
     /// # Safety
     /// Row must be in-bounds
     pub unsafe fn move_to_and_forget_missing_unchecked(
@@ -239,8 +246,10 @@ impl Table {
         }
     }
 
-    /// Moves the `row` column values to `new_table`, for the columns shared between both tables. Returns the index of the
-    /// new row in `new_table` and the entity in this table swapped in to replace it (if an entity was swapped in).
+    /// Moves the `row` column values to `new_table`, for the columns shared between both tables.
+    /// Returns the index of the new row in `new_table` and the entity in this table swapped in
+    /// to replace it (if an entity was swapped in).
+    ///
     /// # Safety
     /// row must be in-bounds
     pub unsafe fn move_to_and_drop_missing_unchecked(
@@ -270,8 +279,10 @@ impl Table {
         }
     }
 
-    /// Moves the `row` column values to `new_table`, for the columns shared between both tables. Returns the index of the
-    /// new row in `new_table` and the entity in this table swapped in to replace it (if an entity was swapped in).
+    /// Moves the `row` column values to `new_table`, for the columns shared between both tables.
+    /// Returns the index of the new row in `new_table` and the entity in this table swapped in
+    /// to replace it (if an entity was swapped in).
+    ///
     /// # Safety
     /// `row` must be in-bounds. `new_table` must contain every component this table has
     pub unsafe fn move_to_superset_unchecked(
@@ -326,6 +337,7 @@ impl Table {
     }
 
     /// Allocates space for a new entity
+    ///
     /// # Safety
     /// the allocated row must be written to immediately with valid values in each column
     pub unsafe fn allocate(&mut self, entity: Entity) -> usize {
@@ -397,29 +409,13 @@ impl Tables {
     }
 
     #[inline]
-    pub fn get_mut(&mut self, id: TableId) -> Option<&mut Table> {
-        self.tables.get_mut(id.index())
-    }
-
-    #[inline]
     pub fn get(&self, id: TableId) -> Option<&Table> {
         self.tables.get(id.index())
     }
 
-    /// # Safety
-    /// `id` must be a valid table
     #[inline]
-    pub unsafe fn get_unchecked_mut(&mut self, id: TableId) -> &mut Table {
-        debug_assert!(id.index() < self.tables.len());
-        self.tables.get_unchecked_mut(id.index())
-    }
-
-    /// # Safety
-    /// `id` must be a valid table
-    #[inline]
-    pub unsafe fn get_unchecked(&self, id: TableId) -> &Table {
-        debug_assert!(id.index() < self.tables.len());
-        self.tables.get_unchecked(id.index())
+    pub fn get_mut(&mut self, id: TableId) -> Option<&mut Table> {
+        self.tables.get_mut(id.index())
     }
 
     #[inline]
@@ -462,6 +458,22 @@ impl Tables {
         for table in self.tables.iter_mut() {
             table.clear_flags();
         }
+    }
+}
+
+impl Index<TableId> for Tables {
+    type Output = Table;
+
+    #[inline]
+    fn index(&self, index: TableId) -> &Self::Output {
+        &self.tables[index.index()]
+    }
+}
+
+impl IndexMut<TableId> for Tables {
+    #[inline]
+    fn index_mut(&mut self, index: TableId) -> &mut Self::Output {
+        &mut self.tables[index.index()]
     }
 }
 

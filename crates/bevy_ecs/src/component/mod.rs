@@ -11,6 +11,19 @@ use std::{
 };
 use thiserror::Error;
 
+/// A component is data associated with an `Entity`. Each entity can have multiple different types
+/// of components, but only one of them per type.
+///
+/// Any type that is `Send + Sync + 'static` automatically implements `Component`.
+///
+/// Components are added with new entities using [Commands::spawn](crate::system::Commands::spawn),
+/// or to existing entities with [Commands::insert](crate::system::Commands::insert),
+/// or their [World](crate::world::World) equivalents.
+///
+/// Components can be accessed in systems by using a [Query](crate::system::Query)
+/// as one of the arguments.
+///
+/// Components can be grouped together into a [Bundle](crate::bundle::Bundle).
 pub trait Component: Send + Sync + 'static {}
 impl<T: Send + Sync + 'static> Component for T {}
 
@@ -31,7 +44,8 @@ pub struct ComponentInfo {
     name: String,
     id: ComponentId,
     type_id: Option<TypeId>,
-    // SAFETY: This must remain private. It must only be set to "true" if this component is actually Send + Sync
+    // SAFETY: This must remain private. It must only be set to "true" if this component is
+    // actually Send + Sync
     is_send_and_sync: bool,
     layout: Layout,
     drop: unsafe fn(*mut u8),
@@ -116,7 +130,8 @@ impl SparseSetIndex for ComponentId {
 pub struct ComponentDescriptor {
     name: String,
     storage_type: StorageType,
-    // SAFETY: This must remain private. It must only be set to "true" if this component is actually Send + Sync
+    // SAFETY: This must remain private. It must only be set to "true" if this component is
+    // actually Send + Sync
     is_send_and_sync: bool,
     type_id: Option<TypeId>,
     layout: Layout,

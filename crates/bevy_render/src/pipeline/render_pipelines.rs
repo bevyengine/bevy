@@ -17,7 +17,8 @@ use bevy_utils::HashSet;
 pub struct RenderPipeline {
     pub pipeline: Handle<PipelineDescriptor>,
     pub specialization: PipelineSpecialization,
-    /// used to track if PipelineSpecialization::dynamic_bindings is in sync with RenderResourceBindings
+    /// used to track if PipelineSpecialization::dynamic_bindings is in sync with
+    /// RenderResourceBindings
     pub dynamic_bindings_generation: usize,
 }
 
