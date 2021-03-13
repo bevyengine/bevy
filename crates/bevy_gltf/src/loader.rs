@@ -197,7 +197,7 @@ async fn load_gltf<'a, 'b>(
             let buffer = &buffer_data[view.buffer().index()][start..end];
             let texture_label = texture_label(&gltf_texture);
             let mut texture = Texture::from_buffer(buffer, ImageType::MimeType(mime_type))?;
-            texture.sampler = texture_sampler(&gltf_texture)?;
+            texture.sampler = texture_sampler(&gltf_texture);
             load_context.set_labeled_asset::<Texture>(&texture_label, LoadedAsset::new(texture));
         }
     }
@@ -422,10 +422,10 @@ fn scene_label(scene: &gltf::Scene) -> String {
     format!("Scene{}", scene.index())
 }
 
-fn texture_sampler(texture: &gltf::Texture) -> Result<SamplerDescriptor, GltfError> {
+fn texture_sampler(texture: &gltf::Texture) -> SamplerDescriptor {
     let gltf_sampler = texture.sampler();
 
-    Ok(SamplerDescriptor {
+    SamplerDescriptor {
         address_mode_u: texture_address_mode(&gltf_sampler.wrap_s()),
         address_mode_v: texture_address_mode(&gltf_sampler.wrap_t()),
 
@@ -463,7 +463,7 @@ fn texture_sampler(texture: &gltf::Texture) -> Result<SamplerDescriptor, GltfErr
             .unwrap_or(SamplerDescriptor::default().mipmap_filter),
 
         ..Default::default()
-    })
+    }
 }
 
 fn texture_address_mode(gltf_address_mode: &gltf::texture::WrappingMode) -> AddressMode {
