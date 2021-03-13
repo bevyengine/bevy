@@ -44,10 +44,9 @@ struct Light {
     // float unused; // unused 4th element of vec4;
 };
 
-layout(location = 0) in vec3 v_Position;
+layout(location = 0) in vec3 v_WorldPosition;
 layout(location = 1) in vec3 v_WorldNormal;
 layout(location = 2) in vec2 v_Uv;
-layout(location = 3) in vec3 v_WorldPosition;
 
 layout(location = 0) out vec4 o_Target;
 
