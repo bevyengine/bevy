@@ -101,12 +101,15 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
             reflect_component_mut: |world, entity| unsafe {
                 world
                     .get_entity(entity)?
-                    .get_unchecked_mut::<C>()
+                    .get_unchecked_mut::<C>(
+                        world.get_exclusive_system_counter(),
+                        world.get_global_system_counter(),
+                    )
                     .map(|c| ReflectMut {
                         value: c.value as &mut dyn Reflect,
                         component_counters: c.component_counters,
-                        system_counter: world.get_exclusive_system_counter(),
-                        global_system_counter: world.get_global_system_counter(),
+                        system_counter: c.system_counter,
+                        global_system_counter: c.global_system_counter,
                     })
             },
         }

@@ -80,7 +80,11 @@ impl<'w> EntityRef<'w> {
     /// This allows aliased mutability. You must make sure this call does not result in multiple
     /// mutable references to the same component
     #[inline]
-    pub unsafe fn get_unchecked_mut<T: Component>(&self) -> Option<Mut<'w, T>> {
+    pub unsafe fn get_unchecked_mut<T: Component>(
+        &self,
+        system_counter: u32,
+        global_system_counter: u32,
+    ) -> Option<Mut<'w, T>> {
         get_component_and_counters_with_type(
             self.world,
             TypeId::of::<T>(),
@@ -90,8 +94,8 @@ impl<'w> EntityRef<'w> {
         .map(|(value, counters)| Mut {
             value: &mut *value.cast::<T>(),
             component_counters: &mut *counters,
-            system_counter: self.world.get_exclusive_system_counter(),
-            global_system_counter: self.world.get_global_system_counter(),
+            system_counter,
+            global_system_counter,
         })
     }
 }

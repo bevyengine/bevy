@@ -1,12 +1,10 @@
 mod access;
-mod direct;
 mod fetch;
 mod filter;
 mod iter;
 mod state;
 
 pub use access::*;
-pub use direct::*;
 pub use fetch::*;
 pub use filter::*;
 pub use iter::*;
@@ -30,13 +28,13 @@ mod tests {
         let mut world = World::new();
         world.spawn().insert_bundle((A(1), B(1)));
         world.spawn().insert_bundle((A(2),));
-        let values = world.query::<&A>().iter().collect::<Vec<&A>>();
+        let values = world.query::<&A>().iter(&world).collect::<Vec<&A>>();
         assert_eq!(values, vec![&A(1), &A(2)]);
 
-        for (_a, mut b) in world.query::<(&A, &mut B)>().iter_mut() {
+        for (_a, mut b) in world.query::<(&A, &mut B)>().iter_mut(&mut world) {
             b.0 = 3;
         }
-        let values = world.query::<&B>().iter().collect::<Vec<&B>>();
+        let values = world.query::<&B>().iter(&world).collect::<Vec<&B>>();
         assert_eq!(values, vec![&B(3)]);
     }
 
@@ -50,14 +48,14 @@ mod tests {
         world.spawn().insert_bundle((A(1), B(2)));
         world.spawn().insert_bundle((A(2),));
 
-        let values = world.query::<&A>().iter().collect::<Vec<&A>>();
+        let values = world.query::<&A>().iter(&world).collect::<Vec<&A>>();
         assert_eq!(values, vec![&A(1), &A(2)]);
 
-        for (_a, mut b) in world.query::<(&A, &mut B)>().iter_mut() {
+        for (_a, mut b) in world.query::<(&A, &mut B)>().iter_mut(&mut world) {
             b.0 = 3;
         }
 
-        let values = world.query::<&B>().iter().collect::<Vec<&B>>();
+        let values = world.query::<&B>().iter(&world).collect::<Vec<&B>>();
         assert_eq!(values, vec![&B(3)]);
     }
 
@@ -70,7 +68,7 @@ mod tests {
 
         let values = world
             .query_filtered::<&A, Not<With<B>>>()
-            .iter()
+            .iter(&world)
             .collect::<Vec<&A>>();
         assert_eq!(values, vec![&A(2)]);
     }

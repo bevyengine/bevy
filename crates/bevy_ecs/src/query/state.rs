@@ -106,14 +106,12 @@ where
         &mut self,
         world: &'w World,
         entity: Entity,
-        system_counter: u32,
-        global_system_counter: u32,
     ) -> Result<<Q::Fetch as Fetch<'w>>::Item, QueryEntityError>
     where
         Q::Fetch: ReadOnlyFetch,
     {
         // SAFE: query is read only
-        unsafe { self.get_unchecked(world, entity, system_counter, global_system_counter) }
+        unsafe { self.get_unchecked(world, entity) }
     }
 
     #[inline]
@@ -121,11 +119,9 @@ where
         &mut self,
         world: &'w mut World,
         entity: Entity,
-        system_counter: u32,
-        global_system_counter: u32,
     ) -> Result<<Q::Fetch as Fetch<'w>>::Item, QueryEntityError> {
         // SAFE: query has unique world access
-        unsafe { self.get_unchecked(world, entity, system_counter, global_system_counter) }
+        unsafe { self.get_unchecked(world, entity) }
     }
 
     /// # Safety
@@ -136,11 +132,14 @@ where
         &mut self,
         world: &'w World,
         entity: Entity,
-        system_counter: u32,
-        global_system_counter: u32,
     ) -> Result<<Q::Fetch as Fetch<'w>>::Item, QueryEntityError> {
         self.validate_world_and_update_archetypes(world);
-        self.get_unchecked_manual(world, entity, system_counter, global_system_counter)
+        self.get_unchecked_manual(
+            world,
+            entity,
+            world.get_exclusive_system_counter(),
+            world.get_global_system_counter(),
+        )
     }
 
     /// # Safety
@@ -188,28 +187,18 @@ where
     }
 
     #[inline]
-    pub fn iter<'w, 's>(
-        &'s mut self,
-        world: &'w World,
-        system_counter: u32,
-        global_system_counter: u32,
-    ) -> QueryIter<'w, 's, Q, F>
+    pub fn iter<'w, 's>(&'s mut self, world: &'w World) -> QueryIter<'w, 's, Q, F>
     where
         Q::Fetch: ReadOnlyFetch,
     {
         // SAFE: query is read only
-        unsafe { self.iter_unchecked(world, system_counter, global_system_counter) }
+        unsafe { self.iter_unchecked(world) }
     }
 
     #[inline]
-    pub fn iter_mut<'w, 's>(
-        &'s mut self,
-        world: &'w mut World,
-        system_counter: u32,
-        global_system_counter: u32,
-    ) -> QueryIter<'w, 's, Q, F> {
+    pub fn iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryIter<'w, 's, Q, F> {
         // SAFE: query has unique world access
-        unsafe { self.iter_unchecked(world, system_counter, global_system_counter) }
+        unsafe { self.iter_unchecked(world) }
     }
 
     /// # Safety
@@ -219,11 +208,13 @@ where
     pub unsafe fn iter_unchecked<'w, 's>(
         &'s mut self,
         world: &'w World,
-        system_counter: u32,
-        global_system_counter: u32,
     ) -> QueryIter<'w, 's, Q, F> {
         self.validate_world_and_update_archetypes(world);
-        self.iter_unchecked_manual(world, system_counter, global_system_counter)
+        self.iter_unchecked_manual(
+            world,
+            world.get_exclusive_system_counter(),
+            world.get_global_system_counter(),
+        )
     }
 
     /// # Safety
@@ -246,14 +237,12 @@ where
         &mut self,
         world: &'w World,
         func: impl FnMut(<Q::Fetch as Fetch<'w>>::Item),
-        system_counter: u32,
-        global_system_counter: u32,
     ) where
         Q::Fetch: ReadOnlyFetch,
     {
         // SAFE: query is read only
         unsafe {
-            self.for_each_unchecked(world, func, system_counter, global_system_counter);
+            self.for_each_unchecked(world, func);
         }
     }
 
@@ -262,12 +251,10 @@ where
         &mut self,
         world: &'w mut World,
         func: impl FnMut(<Q::Fetch as Fetch<'w>>::Item),
-        system_counter: u32,
-        global_system_counter: u32,
     ) {
         // SAFE: query has unique world access
         unsafe {
-            self.for_each_unchecked(world, func, system_counter, global_system_counter);
+            self.for_each_unchecked(world, func);
         }
     }
 
@@ -279,11 +266,14 @@ where
         &mut self,
         world: &'w World,
         func: impl FnMut(<Q::Fetch as Fetch<'w>>::Item),
-        system_counter: u32,
-        global_system_counter: u32,
     ) {
         self.validate_world_and_update_archetypes(world);
-        self.for_each_unchecked_manual(world, func, system_counter, global_system_counter);
+        self.for_each_unchecked_manual(
+            world,
+            func,
+            world.get_exclusive_system_counter(),
+            world.get_global_system_counter(),
+        );
     }
 
     #[inline]
@@ -293,21 +283,12 @@ where
         task_pool: &TaskPool,
         batch_size: usize,
         func: impl Fn(<Q::Fetch as Fetch<'w>>::Item) + Send + Sync + Clone,
-        system_counter: u32,
-        global_system_counter: u32,
     ) where
         Q::Fetch: ReadOnlyFetch,
     {
         // SAFE: query is read only
         unsafe {
-            self.par_for_each_unchecked(
-                world,
-                task_pool,
-                batch_size,
-                func,
-                system_counter,
-                global_system_counter,
-            );
+            self.par_for_each_unchecked(world, task_pool, batch_size, func);
         }
     }
 
@@ -318,19 +299,10 @@ where
         task_pool: &TaskPool,
         batch_size: usize,
         func: impl Fn(<Q::Fetch as Fetch<'w>>::Item) + Send + Sync + Clone,
-        system_counter: u32,
-        global_system_counter: u32,
     ) {
         // SAFE: query has unique world access
         unsafe {
-            self.par_for_each_unchecked(
-                world,
-                task_pool,
-                batch_size,
-                func,
-                system_counter,
-                global_system_counter,
-            );
+            self.par_for_each_unchecked(world, task_pool, batch_size, func);
         }
     }
 
@@ -344,8 +316,6 @@ where
         task_pool: &TaskPool,
         batch_size: usize,
         func: impl Fn(<Q::Fetch as Fetch<'w>>::Item) + Send + Sync + Clone,
-        system_counter: u32,
-        global_system_counter: u32,
     ) {
         self.validate_world_and_update_archetypes(world);
         self.par_for_each_unchecked_manual(
@@ -353,8 +323,8 @@ where
             task_pool,
             batch_size,
             func,
-            system_counter,
-            global_system_counter,
+            world.get_exclusive_system_counter(),
+            world.get_global_system_counter(),
         );
     }
 

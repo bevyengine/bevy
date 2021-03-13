@@ -113,7 +113,7 @@ mod tests {
 
         let mut results = world
             .query::<(&String, &u32)>()
-            .iter()
+            .iter(&world)
             .map(|(a, b)| (a.clone(), *b))
             .collect::<Vec<_>>();
         results.sort_unstable_by_key(|(_, index)| *index);

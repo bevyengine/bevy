@@ -153,7 +153,7 @@ where
     }
 
     fn prepare(&mut self, world: &mut World) {
-        self.query_state.get_or_insert_with(|| world.query_state());
+        self.query_state.get_or_insert_with(|| world.query());
     }
 
     fn update(
@@ -235,7 +235,7 @@ where
                     // attempt to draw each visible entity
                     let mut draw_state = DrawState::default();
                     for visible_entity in visible_entities.iter() {
-                        if query_state.get(world, visible_entity.entity, world.get_exclusive_system_counter(), world.get_global_system_counter()).is_err() {
+                        if query_state.get(world, visible_entity.entity).is_err() {
                             // visible entity does not match the Pass query
                             continue;
                         }

@@ -298,13 +298,7 @@ where
             .has_write(archetype_component)
         {
             entity_ref
-                .get_unchecked_mut::<T>()
-                .map(|component| Mut {
-                    value: component.value,
-                    component_counters: component.component_counters,
-                    system_counter: self.system_counter,
-                    global_system_counter: self.global_system_counter,
-                })
+                .get_unchecked_mut::<T>(self.system_counter, self.global_system_counter)
                 .ok_or(QueryComponentError::MissingComponent)
         } else {
             Err(QueryComponentError::MissingWriteAccess)
