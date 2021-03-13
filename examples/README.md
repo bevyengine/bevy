@@ -72,7 +72,7 @@ git checkout v0.4.0
 <!-- markdownlint-disable-next-line MD026 -->
 ## Hello, World!
 
-Example | Main | Description
+Example | File | Description
 --- | --- | ---
 `hello_world` | [`hello_world.rs`](./hello_world.rs) | Runs a minimal example that outputs "hello world"
 
@@ -80,7 +80,7 @@ Example | Main | Description
 
 ## 2D Rendering
 
-Example | Main | Description
+Example | File | Description
 --- | --- | ---
 `contributors` | [`2d/contributors.rs`](./2d/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
 `many_sprites` | [`2d/many_sprites.rs`](./2d/many_sprites.rs) | Displays many sprites in a grid arragement! Used for performance testing.
@@ -197,10 +197,10 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
-`reflection` | [`reflection/reflection.rs`](reflection/reflection.rs) | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types
-`generic_reflection` | [`reflection/generic_reflection.rs`](reflection/generic_reflection.rs) | Registers concrete instances of generic types that may be used with reflection
-`reflection_types` | [`reflection/reflection_types.rs`](reflection/reflection_types.rs) | Illustrates the various reflection types available
-`trait_reflection` | [`reflection/trait_reflection.rs`](reflection/trait_reflection.rs) | Allows reflection with trait objects
+`reflection` | [`reflection/reflection.rs`](./reflection/reflection.rs) | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types
+`generic_reflection` | [`reflection/generic_reflection.rs`](./reflection/generic_reflection.rs) | Registers concrete instances of generic types that may be used with reflection
+`reflection_types` | [`reflection/reflection_types.rs`](./reflection/reflection_types.rs) | Illustrates the various reflection types available
+`trait_reflection` | [`reflection/trait_reflection.rs`](./reflection/trait_reflection.rs) | Allows reflection with trait objects
 
 ## Scene
 
