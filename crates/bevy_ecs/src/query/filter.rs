@@ -459,7 +459,7 @@ macro_rules! impl_query_filter_tuple {
 all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
 
 /// Query transformer that inverses its inner filter.
-/// For example, `Not<With<T>>` is equivalent to `Without<T>`
+/// For example, you can use Not<Changed> to filter for components that have not changed since the last time this system ran.
 pub struct Not<T>(pub T);
 
 pub struct NotFetch<T: FilterFetch> {
