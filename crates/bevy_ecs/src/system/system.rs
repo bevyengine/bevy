@@ -18,7 +18,7 @@ impl SystemId {
 
 /// An ECS system that can be added to a [Schedule](crate::schedule::Schedule)
 ///
-/// Systems are functions with all arguments implementing [SystemParam].
+/// Systems are functions with all arguments implementing [SystemParam](crate::system::SystemParam).
 ///
 /// Systems are added to an application using `AppBuilder::add_system(my_system.system())`
 /// or similar methods, and will generally run once per pass of the main loop.

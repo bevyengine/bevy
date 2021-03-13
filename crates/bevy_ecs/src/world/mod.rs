@@ -351,7 +351,8 @@ impl World {
 
     /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
     /// [Component]s. Returns `true` if the `entity` is successfully despawned and `false` if
-    /// the `entity` does not exist. ```
+    /// the `entity` does not exist.
+    /// ```
     /// use bevy_ecs::world::World;
     ///
     /// struct Position {
@@ -366,6 +367,7 @@ impl World {
     /// assert!(world.despawn(entity));
     /// assert!(world.get_entity(entity).is_none());
     /// assert!(world.get::<Position>(entity).is_none());
+    /// ```
     #[inline]
     pub fn despawn(&mut self, entity: Entity) -> bool {
         self.get_entity_mut(entity)
@@ -596,7 +598,8 @@ impl World {
 
     /// Temporarily removes the requested resource from this [World], then re-adds it before
     /// returning. This enables safe mutable access to a resource while still providing mutable
-    /// world access ```
+    /// world access
+    /// ```
     /// use bevy_ecs::world::{World, Mut};
     /// struct A(u32);
     /// struct B(u32);
