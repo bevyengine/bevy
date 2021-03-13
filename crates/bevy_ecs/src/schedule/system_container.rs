@@ -9,7 +9,7 @@ use crate::{
 };
 use std::{borrow::Cow, ptr::NonNull};
 
-pub(super) trait SystemContainer {
+pub trait SystemContainer {
     fn name(&self) -> Cow<'static, str>;
     fn dependencies(&self) -> &[usize];
     fn set_dependencies(&mut self, dependencies: impl IntoIterator<Item = usize>);

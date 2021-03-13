@@ -167,6 +167,24 @@ impl SystemStage {
         self.add_system_to_set(system, 0)
     }
 
+    /// Topologically sorted parallel systems.
+    pub fn parallel_systems(&self) -> &[impl SystemContainer] {
+        &self.parallel
+    }
+    /// Topologically sorted exclusive systems that want to be ran at the start of the stage.
+    pub fn exclusive_at_start_systems(&self) -> &[impl SystemContainer] {
+        &self.exclusive_at_start
+    }
+    /// Topologically sorted exclusive systems that want to be ran at the end of the stage.
+    pub fn exclusive_at_end_systems(&self) -> &[impl SystemContainer] {
+        &self.exclusive_at_end
+    }
+    /// Topologically sorted exclusive systems that want to be ran after parallel systems but
+    /// before the application of their command buffers.
+    pub fn exclusive_before_commands_systems(&self) -> &[impl SystemContainer] {
+        &self.exclusive_before_commands
+    }
+
     // TODO: consider exposing
     fn add_system_to_set(&mut self, system: impl Into<SystemDescriptor>, set: usize) -> &mut Self {
         self.systems_modified = true;
