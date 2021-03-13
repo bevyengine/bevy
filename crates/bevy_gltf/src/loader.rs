@@ -36,8 +36,6 @@ use crate::{Gltf, GltfNode};
 pub enum GltfError {
     #[error("unsupported primitive mode")]
     UnsupportedPrimitive { mode: Mode },
-    #[error("unsupported min filter")]
-    UnsupportedMinFilter { filter: MinFilter },
     #[error("invalid GLTF file")]
     Gltf(#[from] gltf::Error),
     #[error("binary blob is missing")]
@@ -199,7 +197,7 @@ async fn load_gltf<'a, 'b>(
             let buffer = &buffer_data[view.buffer().index()][start..end];
             let texture_label = texture_label(&gltf_texture);
             let mut texture = Texture::from_buffer(buffer, ImageType::MimeType(mime_type))?;
-            texture.sampler = texture_sampler(&gltf_texture)?;
+            texture.sampler = texture_sampler(&gltf_texture);
             load_context.set_labeled_asset::<Texture>(&texture_label, LoadedAsset::new(texture));
         }
     }
@@ -424,10 +422,10 @@ fn scene_label(scene: &gltf::Scene) -> String {
     format!("Scene{}", scene.index())
 }
 
-fn texture_sampler(texture: &gltf::Texture) -> Result<SamplerDescriptor, GltfError> {
+fn texture_sampler(texture: &gltf::Texture) -> SamplerDescriptor {
     let gltf_sampler = texture.sampler();
 
-    Ok(SamplerDescriptor {
+    SamplerDescriptor {
         address_mode_u: texture_address_mode(&gltf_sampler.wrap_s()),
         address_mode_v: texture_address_mode(&gltf_sampler.wrap_t()),
 
@@ -442,15 +440,30 @@ fn texture_sampler(texture: &gltf::Texture) -> Result<SamplerDescriptor, GltfErr
         min_filter: gltf_sampler
             .min_filter()
             .map(|mf| match mf {
-                MinFilter::Nearest => Ok(FilterMode::Nearest),
-                MinFilter::Linear => Ok(FilterMode::Linear),
-                filter => Err(GltfError::UnsupportedMinFilter { filter }),
+                MinFilter::Nearest
+                | MinFilter::NearestMipmapNearest
+                | MinFilter::NearestMipmapLinear => FilterMode::Nearest,
+                MinFilter::Linear
+                | MinFilter::LinearMipmapNearest
+                | MinFilter::LinearMipmapLinear => FilterMode::Linear,
             })
-            .transpose()?
             .unwrap_or(SamplerDescriptor::default().min_filter),
 
+        mipmap_filter: gltf_sampler
+            .min_filter()
+            .map(|mf| match mf {
+                MinFilter::Nearest
+                | MinFilter::Linear
+                | MinFilter::NearestMipmapNearest
+                | MinFilter::LinearMipmapNearest => FilterMode::Nearest,
+                MinFilter::NearestMipmapLinear | MinFilter::LinearMipmapLinear => {
+                    FilterMode::Linear
+                }
+            })
+            .unwrap_or(SamplerDescriptor::default().mipmap_filter),
+
         ..Default::default()
-    })
+    }
 }
 
 fn texture_address_mode(gltf_address_mode: &gltf::texture::WrappingMode) -> AddressMode {
