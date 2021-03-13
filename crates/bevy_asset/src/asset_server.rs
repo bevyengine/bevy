@@ -357,9 +357,23 @@ impl AssetServer {
         self.server
             .task_pool
             .spawn(async move {
-                if let Err(err) = server.load_async(owned_path.clone(), force).await {
-                    warn!("{}", err);
-                    server.server.errors.lock().insert(owned_path.into(), err);
+                match server.load_async(owned_path.clone(), force).await {
+                    Ok(_) => {
+                        // remove any error from previous failed attempt
+                        server
+                            .server
+                            .errors
+                            .lock()
+                            .remove(&HandleId::from(owned_path));
+                    }
+                    Err(err) => {
+                        warn!("{}", err);
+                        server
+                            .server
+                            .errors
+                            .lock()
+                            .insert(HandleId::from(owned_path), err);
+                    }
                 }
             })
             .detach();
