@@ -211,7 +211,7 @@ async fn load_gltf<'a, 'b>(
         let mut world = World::default();
         world
             .spawn()
-            .insert_bundle((Transform::default(), GlobalTransform::default()))
+            .insert_bundle((Transform::identity(), GlobalTransform::identity()))
             .with_children(|parent| {
                 for node in scene.nodes() {
                     let result = load_node(&node, parent, load_context, &buffer_data);
@@ -297,7 +297,7 @@ fn load_node(
     let mut gltf_error = None;
     let node = world_builder.spawn((
         Transform::from_matrix(Mat4::from_cols_array_2d(&transform.matrix())),
-        GlobalTransform::default(),
+        GlobalTransform::identity(),
     ));
 
     if let Some(name) = gltf_node.name() {
@@ -564,7 +564,7 @@ mod test {
             GltfNode {
                 children: vec![],
                 mesh: None,
-                transform: bevy_transform::prelude::Transform::default(),
+                transform: bevy_transform::prelude::Transform::identity(),
             }
         }
     }

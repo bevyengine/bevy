@@ -20,7 +20,7 @@ impl Transform {
     }
 
     #[inline]
-    pub fn identity() -> Self {
+    pub const fn identity() -> Self {
         Transform {
             translation: Vec3::ZERO,
             rotation: Quat::IDENTITY,

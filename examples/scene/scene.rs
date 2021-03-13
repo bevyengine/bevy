@@ -83,7 +83,7 @@ fn save_scene_system(world: &mut World) {
     scene_world.spawn().insert_bundle((
         component_b,
         ComponentA { x: 1.0, y: 2.0 },
-        Transform::default(),
+        Transform::identity(),
     ));
     scene_world
         .spawn()
