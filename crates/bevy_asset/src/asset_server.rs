@@ -579,6 +579,7 @@ mod test {
                 handle_to_path: Default::default(),
                 asset_lifecycles: Default::default(),
                 task_pool: Default::default(),
+                errors: Default::default(),
                 asset_io: Box::new(FileAssetIo::new(&".")),
             }),
         };
