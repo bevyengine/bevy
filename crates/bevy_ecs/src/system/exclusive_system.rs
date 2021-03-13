@@ -71,7 +71,7 @@ where
             func: Box::new(self),
             name: core::any::type_name::<F>().into(),
             id: SystemId::new(),
-            // The value of -1 means that everything should be detected as added/changed
+            // The value of `u32::MAX` means that everything should be detected as added/changed
             system_counter: u32::MAX,
         }
     }
