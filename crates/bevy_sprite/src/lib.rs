@@ -26,7 +26,7 @@ pub use texture_atlas_builder::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets, Handle, HandleUntyped};
-use bevy_ecs::IntoSystem;
+use bevy_ecs::system::IntoSystem;
 use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;
 use bevy_render::{

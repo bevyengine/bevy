@@ -1,6 +1,6 @@
 use bevy_app::{EventReader, Events, ManualEventReader};
 use bevy_asset::{self, AssetEvent, Assets, Handle};
-use bevy_ecs::{Local, Res, ResMut};
+use bevy_ecs::system::{Local, Res, ResMut};
 use bevy_reflect::TypeUuid;
 use bevy_render::{color::Color, renderer::RenderResources, shader::ShaderDefs, texture::Texture};
 use bevy_utils::{HashMap, HashSet};
