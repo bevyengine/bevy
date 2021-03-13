@@ -515,15 +515,10 @@ impl<'a, T: FilterFetch> Fetch<'a> for Not<NotFetch<T>> {
     }
 
     unsafe fn table_fetch(&mut self, table_row: usize) -> bool {
-        dbg!((&self.0.matches, self.0.fetch.table_filter_fetch(table_row)));
         !(self.0.matches && self.0.fetch.table_filter_fetch(table_row))
     }
 
     unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> bool {
-        dbg!((
-            &self.0.matches,
-            self.0.fetch.archetype_filter_fetch(archetype_index)
-        ));
         !(self.0.matches && self.0.fetch.archetype_filter_fetch(archetype_index))
     }
 }
