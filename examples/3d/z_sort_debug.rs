@@ -6,7 +6,8 @@ use bevy::{
     },
 };
 
-/// This example visualizes camera z-ordering by setting the material of rotating cubes to their distance from the camera
+/// This example visualizes camera z-ordering by setting the material of rotating cubes to their
+/// distance from the camera
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
@@ -83,8 +84,7 @@ fn setup(
         })
         // camera
         .spawn(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(5.0, 10.0, 10.0)
-                .looking_at(Vec3::default(), Vec3::unit_y()),
+            transform: Transform::from_xyz(5.0, 10.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..Default::default()
         });
 }

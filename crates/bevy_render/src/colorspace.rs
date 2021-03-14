@@ -3,7 +3,7 @@ pub trait SrgbColorSpace {
     fn nonlinear_to_linear_srgb(self) -> Self;
 }
 
-//source: https://entropymine.com/imageworsener/srgbformula/
+// source: https://entropymine.com/imageworsener/srgbformula/
 impl SrgbColorSpace for f32 {
     fn linear_to_nonlinear_srgb(self) -> f32 {
         if self <= 0.0 {
@@ -13,7 +13,7 @@ impl SrgbColorSpace for f32 {
         if self <= 0.0031308 {
             self * 12.92 // linear falloff in dark values
         } else {
-            (1.055 * self.powf(1.0 / 2.4)) - 0.055 //gamma curve in other area
+            (1.055 * self.powf(1.0 / 2.4)) - 0.055 // gamma curve in other area
         }
     }
 
@@ -24,7 +24,7 @@ impl SrgbColorSpace for f32 {
         if self <= 0.04045 {
             self / 12.92 // linear falloff in dark values
         } else {
-            ((self + 0.055) / 1.055).powf(2.4) //gamma curve in other area
+            ((self + 0.055) / 1.055).powf(2.4) // gamma curve in other area
         }
     }
 }

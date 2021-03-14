@@ -41,7 +41,8 @@ impl<'w, T> Mut<'w, T> {
         self.flags.contains(ComponentFlags::MUTATED)
     }
 
-    /// Returns true if (and only if) this component been either mutated or added since the start of the frame.
+    /// Returns true if (and only if) this component been either mutated or added since the start of
+    /// the frame.
     pub fn changed(&self) -> bool {
         self.flags
             .intersects(ComponentFlags::ADDED | ComponentFlags::MUTATED)

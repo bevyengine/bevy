@@ -31,7 +31,7 @@ fn setup(
         })
         .spawn(PerspectiveCameraBundle {
             transform: Transform::from_xyz(1.05, 0.9, 1.5)
-                .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::unit_y()),
+                .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
             ..Default::default()
         });
 
@@ -40,7 +40,7 @@ fn setup(
     commands
         .spawn((
             Transform::from_xyz(0.0, 0.0, -1.0),
-            GlobalTransform::default(),
+            GlobalTransform::identity(),
         ))
         .with_children(|parent| {
             parent.spawn_scene(asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"));

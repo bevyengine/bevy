@@ -1,13 +1,17 @@
 use crate::{
+    component::ComponentId,
     schedule::{
         BoxedSystemLabel, ExclusiveSystemContainer, InsertionPoint, ParallelExecutor,
         ParallelSystemContainer, ParallelSystemExecutor, RunCriteria, ShouldRun,
-        SingleThreadedExecutor, SystemContainer, SystemDescriptor, SystemLabel, SystemSet,
+        SingleThreadedExecutor, SystemContainer, SystemDescriptor, SystemSet,
     },
     system::System,
     world::{World, WorldId},
 };
-use bevy_utils::{tracing::info, HashMap, HashSet};
+use bevy_utils::{
+    tracing::{info, warn},
+    HashMap, HashSet,
+};
 use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
 use std::borrow::Cow;
@@ -31,13 +35,14 @@ impl_downcast!(Stage);
 /// This occurs because, in the absence of explicit constraints, systems are executed in
 /// an unstable, arbitrary order within each stage that may vary between runs and frames.
 ///
-/// Some ambiguities reported by the ambiguity checker may be warranted (to allow two systems to run without blocking each other)
-/// or spurious, as the exact combination of archetypes used may prevent them from ever conflicting during actual gameplay.
-/// You can resolve the warnings produced by the ambiguity checker by adding `.before` or `.after` to one of the conflicting systems
+/// Some ambiguities reported by the ambiguity checker may be warranted (to allow two systems to run
+/// without blocking each other) or spurious, as the exact combination of archetypes used may
+/// prevent them from ever conflicting during actual gameplay. You can resolve the warnings produced
+/// by the ambiguity checker by adding `.before` or `.after` to one of the conflicting systems
 /// referencing the other system to force a specific ordering.
 ///
-/// The checker may report a system more times than the amount of constraints it would actually need to have
-/// unambiguous order with regards to a group of already-constrained systems.
+/// The checker may report a system more times than the amount of constraints it would actually need
+/// to have unambiguous order with regards to a group of already-constrained systems.
 pub struct ReportExecutionOrderAmbiguities;
 
 struct VirtualSystemSet {
@@ -223,104 +228,67 @@ impl SystemStage {
                 && self.uninitialized_before_commands.is_empty()
                 && self.uninitialized_at_end.is_empty()
         );
-        use DependencyGraphError::*;
-        match sort_systems(&mut self.parallel) {
-            Ok(()) => (),
-            Err(LabelNotFound(label)) => {
-                panic!("No parallel system with label {:?} in stage.", label)
-            }
-            Err(DuplicateLabel(label)) => {
-                panic!("Label {:?} already used by a parallel system.", label)
-            }
-            Err(GraphCycles(labels)) => {
-                panic!(
-                    "Found a dependency cycle in parallel systems: {:?}.",
-                    labels
-                )
-            }
-        }
-        match sort_systems(&mut self.exclusive_at_start) {
-            Ok(()) => (),
-            Err(LabelNotFound(label)) => {
-                panic!(
-                    "No exclusive system with label {:?} at start of stage.",
-                    label
-                )
-            }
-            Err(DuplicateLabel(label)) => {
-                panic!(
-                    "Label {:?} already used by an exclusive system at start of stage.",
-                    label
-                )
-            }
-            Err(GraphCycles(labels)) => {
-                panic!(
-                    "Found a dependency cycle in exclusive systems at start of stage: {:?}.",
-                    labels
-                )
+        fn sort_systems_unwrap(
+            systems: &mut Vec<impl SystemContainer>,
+            systems_description: &'static str,
+        ) {
+            if let Err(DependencyGraphError::GraphCycles(cycle)) = sort_systems(systems) {
+                use std::fmt::Write;
+                let mut message = format!("Found a dependency cycle in {}:", systems_description);
+                writeln!(message).unwrap();
+                for (name, labels) in &cycle {
+                    writeln!(message, " - {}", name).unwrap();
+                    writeln!(
+                        message,
+                        "    wants to be after (because of labels {:?})",
+                        labels
+                    )
+                    .unwrap();
+                }
+                writeln!(message, " - {}", cycle[0].0).unwrap();
+                panic!("{}", message);
             }
         }
-        match sort_systems(&mut self.exclusive_before_commands) {
-            Ok(()) => (),
-            Err(LabelNotFound(label)) => {
-                panic!(
-                    "No exclusive system with label {:?} before commands of stage.",
-                    label
-                )
-            }
-            Err(DuplicateLabel(label)) => {
-                panic!(
-                    "Label {:?} already used by an exclusive system before commands of stage.",
-                    label
-                )
-            }
-            Err(GraphCycles(labels)) => {
-                panic!(
-                    "Found a dependency cycle in exclusive systems before commands of stage: {:?}.",
-                    labels
-                )
-            }
-        }
-        match sort_systems(&mut self.exclusive_at_end) {
-            Ok(()) => (),
-            Err(LabelNotFound(label)) => {
-                panic!(
-                    "No exclusive system with label {:?} at end of stage.",
-                    label
-                )
-            }
-            Err(DuplicateLabel(label)) => {
-                panic!(
-                    "Label {:?} already used by an exclusive system at end of stage.",
-                    label
-                )
-            }
-            Err(GraphCycles(labels)) => {
-                panic!(
-                    "Found a dependency cycle in exclusive systems at end of stage: {:?}.",
-                    labels
-                )
-            }
-        }
+        sort_systems_unwrap(&mut self.parallel, "parallel systems");
+        sort_systems_unwrap(
+            &mut self.exclusive_at_start,
+            "exclusive systems at start of stage",
+        );
+        sort_systems_unwrap(
+            &mut self.exclusive_before_commands,
+            "exclusive systems before commands of stage",
+        );
+        sort_systems_unwrap(
+            &mut self.exclusive_at_end,
+            "exclusive systems at end of stage",
+        );
     }
 
     /// Logs execution order ambiguities between systems. System orders must be fresh.
-    fn report_ambiguities(&self) {
+    fn report_ambiguities(&self, world: &World) {
         debug_assert!(!self.systems_modified);
         use std::fmt::Write;
         fn write_display_names_of_pairs(
             string: &mut String,
             systems: &[impl SystemContainer],
-            mut ambiguities: Vec<(usize, usize)>,
+            mut ambiguities: Vec<(usize, usize, Vec<ComponentId>)>,
+            world: &World,
         ) {
-            for (index_a, index_b) in ambiguities.drain(..) {
+            for (index_a, index_b, conflicts) in ambiguities.drain(..) {
                 writeln!(
                     string,
                     " -- {:?} and {:?}",
-                    systems[index_a].display_name(),
-                    systems[index_b].display_name()
+                    systems[index_a].name(),
+                    systems[index_b].name()
                 )
                 .unwrap();
+                if !conflicts.is_empty() {
+                    let names = conflicts
+                        .iter()
+                        .map(|id| world.components().get_info(*id).unwrap().name())
+                        .collect::<Vec<_>>();
+                    writeln!(string, "    conflicts: {:?}", names).unwrap();
+                }
             }
         }
         let parallel = find_ambiguities(&self.parallel);
@@ -337,11 +305,16 @@ impl SystemStage {
                 .to_owned();
             if !parallel.is_empty() {
                 writeln!(string, " * Parallel systems:").unwrap();
-                write_display_names_of_pairs(&mut string, &self.parallel, parallel);
+                write_display_names_of_pairs(&mut string, &self.parallel, parallel, world);
             }
             if !at_start.is_empty() {
                 writeln!(string, " * Exclusive systems at start of stage:").unwrap();
-                write_display_names_of_pairs(&mut string, &self.exclusive_at_start, at_start);
+                write_display_names_of_pairs(
+                    &mut string,
+                    &self.exclusive_at_start,
+                    at_start,
+                    world,
+                );
             }
             if !before_commands.is_empty() {
                 writeln!(string, " * Exclusive systems before commands of stage:").unwrap();
@@ -349,11 +322,12 @@ impl SystemStage {
                     &mut string,
                     &self.exclusive_before_commands,
                     before_commands,
+                    world,
                 );
             }
             if !at_end.is_empty() {
                 writeln!(string, " * Exclusive systems at end of stage:").unwrap();
-                write_display_names_of_pairs(&mut string, &self.exclusive_at_end, at_end);
+                write_display_names_of_pairs(&mut string, &self.exclusive_at_end, at_end, world);
             }
             info!("{}", string);
         }
@@ -361,14 +335,12 @@ impl SystemStage {
 }
 
 enum DependencyGraphError {
-    LabelNotFound(Box<dyn SystemLabel>),
-    DuplicateLabel(Box<dyn SystemLabel>),
-    GraphCycles(Vec<Cow<'static, str>>),
+    GraphCycles(Vec<(Cow<'static, str>, Vec<BoxedSystemLabel>)>),
 }
 
 /// Sorts given system containers topologically and populates their resolved dependencies.
 fn sort_systems(systems: &mut Vec<impl SystemContainer>) -> Result<(), DependencyGraphError> {
-    let mut graph = build_dependency_graph(systems)?;
+    let mut graph = build_dependency_graph(systems);
     let order = topological_order(systems, &graph)?;
     let mut order_inverted = order.iter().enumerate().collect::<Vec<_>>();
     order_inverted.sort_unstable_by_key(|(_, &key)| key);
@@ -377,8 +349,8 @@ fn sort_systems(systems: &mut Vec<impl SystemContainer>) -> Result<(), Dependenc
             graph
                 .get_mut(&index)
                 .unwrap()
-                .drain(..)
-                .map(|index| order_inverted[index].0),
+                .drain()
+                .map(|(index, _)| order_inverted[index].0),
         );
     }
     let mut temp = systems.drain(..).map(Some).collect::<Vec<_>>();
@@ -391,95 +363,117 @@ fn sort_systems(systems: &mut Vec<impl SystemContainer>) -> Result<(), Dependenc
 /// Constructs a dependency graph of given system containers.
 fn build_dependency_graph(
     systems: &[impl SystemContainer],
-) -> Result<HashMap<usize, Vec<usize>>, DependencyGraphError> {
-    let mut labels = HashMap::<BoxedSystemLabel, usize>::default();
-    for (label, index) in systems.iter().enumerate().filter_map(|(index, container)| {
+) -> HashMap<usize, HashMap<usize, HashSet<BoxedSystemLabel>>> {
+    let mut labelled_systems = HashMap::<BoxedSystemLabel, FixedBitSet>::default();
+    for (label, index) in systems.iter().enumerate().flat_map(|(index, container)| {
         container
-            .label()
-            .as_ref()
+            .labels()
+            .iter()
             .cloned()
-            .map(|label| (label, index))
+            .map(move |label| (label, index))
     }) {
-        if labels.contains_key(&label) {
-            return Err(DependencyGraphError::DuplicateLabel(label));
-        }
-        labels.insert(label, index);
+        labelled_systems
+            .entry(label)
+            .or_insert_with(|| FixedBitSet::with_capacity(systems.len()))
+            .insert(index);
     }
-    let mut graph = HashMap::default();
+    let mut graph = HashMap::with_capacity_and_hasher(systems.len(), Default::default());
     for (system_index, container) in systems.iter().enumerate() {
-        let dependencies = graph.entry(system_index).or_insert_with(Vec::new);
+        let dependencies = graph.entry(system_index).or_insert_with(HashMap::default);
         for label in container.after() {
-            match labels.get(label) {
-                Some(dependency) => {
-                    if !dependencies.contains(dependency) {
-                        dependencies.push(*dependency);
+            match labelled_systems.get(label) {
+                Some(new_dependencies) => {
+                    for dependency in new_dependencies.ones() {
+                        dependencies
+                            .entry(dependency)
+                            .or_insert_with(HashSet::default)
+                            .insert(label.clone());
                     }
                 }
-                None => return Err(DependencyGraphError::LabelNotFound(label.clone())),
+                None => warn!(
+                    "System {} wants to be after unknown system label: {:?}",
+                    systems[system_index].name(),
+                    label
+                ),
             }
         }
         for label in container.before() {
-            match labels.get(label) {
-                Some(dependant) => {
-                    let dependencies = graph.entry(*dependant).or_insert_with(Vec::new);
-                    if !dependencies.contains(&system_index) {
-                        dependencies.push(system_index);
+            match labelled_systems.get(label) {
+                Some(dependants) => {
+                    for dependant in dependants.ones() {
+                        graph
+                            .entry(dependant)
+                            .or_insert_with(HashMap::default)
+                            .entry(system_index)
+                            .or_insert_with(HashSet::default)
+                            .insert(label.clone());
                     }
                 }
-                None => return Err(DependencyGraphError::LabelNotFound(label.clone())),
+                None => warn!(
+                    "System {} wants to be before unknown system label: {:?}",
+                    systems[system_index].name(),
+                    label
+                ),
             }
         }
     }
-    Ok(graph)
+    graph
 }
 
 /// Generates a topological order for the given graph.
 fn topological_order(
     systems: &[impl SystemContainer],
-    graph: &HashMap<usize, Vec<usize>>,
+    graph: &HashMap<usize, HashMap<usize, HashSet<BoxedSystemLabel>>>,
 ) -> Result<Vec<usize>, DependencyGraphError> {
     fn check_if_cycles_and_visit(
         node: &usize,
-        graph: &HashMap<usize, Vec<usize>>,
+        graph: &HashMap<usize, HashMap<usize, HashSet<BoxedSystemLabel>>>,
         sorted: &mut Vec<usize>,
         unvisited: &mut HashSet<usize>,
-        current: &mut HashSet<usize>,
+        current: &mut Vec<usize>,
     ) -> bool {
         if current.contains(node) {
             return true;
         } else if !unvisited.remove(node) {
             return false;
         }
-        current.insert(*node);
-        for dependency in graph.get(node).unwrap() {
+        current.push(*node);
+        for dependency in graph.get(node).unwrap().keys() {
             if check_if_cycles_and_visit(dependency, &graph, sorted, unvisited, current) {
                 return true;
             }
         }
         sorted.push(*node);
-        current.remove(node);
+        current.pop();
         false
     }
     let mut sorted = Vec::with_capacity(graph.len());
-    let mut current = HashSet::with_capacity_and_hasher(graph.len(), Default::default());
+    let mut current = Vec::with_capacity(graph.len());
     let mut unvisited = HashSet::with_capacity_and_hasher(graph.len(), Default::default());
     unvisited.extend(graph.keys().cloned());
     while let Some(node) = unvisited.iter().next().cloned() {
         if check_if_cycles_and_visit(&node, graph, &mut sorted, &mut unvisited, &mut current) {
-            return Err(DependencyGraphError::GraphCycles(
-                current
-                    .iter()
-                    .map(|index| systems[*index].display_name())
-                    .collect::<Vec<_>>(),
-            ));
+            let mut cycle = Vec::new();
+            let last_window = [*current.last().unwrap(), current[0]];
+            let mut windows = current
+                .windows(2)
+                .chain(std::iter::once(&last_window as &[usize]));
+            while let Some(&[dependant, dependency]) = windows.next() {
+                cycle.push((
+                    systems[dependant].name(),
+                    graph[&dependant][&dependency].iter().cloned().collect(),
+                ));
+            }
+            return Err(DependencyGraphError::GraphCycles(cycle));
         }
     }
     Ok(sorted)
 }
 
-/// Returns vector containing all pairs of indices of systems with ambiguous execution order.
+/// Returns vector containing all pairs of indices of systems with ambiguous execution order,
+/// along with specific components that have triggered the warning.
 /// Systems must be topologically sorted beforehand.
-fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize)> {
+fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize, Vec<ComponentId>)> {
     let mut ambiguity_set_labels = HashMap::default();
     for set in systems.iter().flat_map(|c| c.ambiguity_sets()) {
         let len = ambiguity_set_labels.len();
@@ -530,13 +524,21 @@ fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize)> {
     for (index_a, relations) in all_relations.drain(..).enumerate() {
         // TODO: prove that `.take(index_a)` would be correct here, and uncomment it if so.
         for index_b in full_bitset.difference(&relations)
-        /*.take(index_a)*/
+        // .take(index_a)
         {
             if !processed.contains(index_b)
                 && all_ambiguity_sets[index_a].is_disjoint(&all_ambiguity_sets[index_b])
-                && !systems[index_a].is_compatible(&systems[index_b])
             {
-                ambiguities.push((index_a, index_b));
+                let a_access = systems[index_a].component_access();
+                let b_access = systems[index_b].component_access();
+                if let (Some(a), Some(b)) = (a_access, b_access) {
+                    let conflicts = a.get_conflicts(b);
+                    if !conflicts.is_empty() {
+                        ambiguities.push((index_a, index_b, conflicts))
+                    }
+                } else {
+                    ambiguities.push((index_a, index_b, Vec::new()));
+                }
             }
         }
         processed.insert(index_a);
@@ -572,7 +574,7 @@ impl Stage for SystemStage {
             self.executor.rebuild_cached_data(&self.parallel);
             self.executor_modified = false;
             if world.contains_resource::<ReportExecutionOrderAmbiguities>() {
-                self.report_ambiguities();
+                self.report_ambiguities(world);
             }
         } else if self.executor_modified {
             self.executor.rebuild_cached_data(&self.parallel);
@@ -669,8 +671,6 @@ mod tests {
         }};
     }
 
-    fn empty() {}
-
     fn resettable_run_once(mut has_ran: ResMut<bool>) -> ShouldRun {
         if !*has_ran {
             *has_ran = true;
@@ -738,34 +738,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "No exclusive system with label \"empty\" at start of stage.")]
-    fn exclusive_unknown_label() {
-        let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
-        let mut stage = SystemStage::parallel()
-            .with_system(empty.exclusive_system().at_end().label("empty"))
-            .with_system(empty.exclusive_system().after("empty"));
-        stage.run(&mut world);
-    }
-
-    #[test]
-    #[should_panic(
-        expected = "Label \"empty\" already used by an exclusive system at start of stage."
-    )]
-    fn exclusive_duplicate_label() {
-        let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
-        let mut stage = SystemStage::parallel()
-            .with_system(empty.exclusive_system().at_end().label("empty"))
-            .with_system(empty.exclusive_system().before_commands().label("empty"));
-        stage.run(&mut world);
-        let mut stage = SystemStage::parallel()
-            .with_system(empty.exclusive_system().label("empty"))
-            .with_system(empty.exclusive_system().label("empty"));
-        stage.run(&mut world);
-    }
-
-    #[test]
     fn exclusive_after() {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
@@ -809,6 +781,74 @@ mod tests {
             .with_system(make_exclusive(0).exclusive_system().label("0"))
             .with_system(make_exclusive(4).exclusive_system().label("4"))
             .with_system(make_exclusive(3).exclusive_system().after("2").before("4"));
+        stage.run(&mut world);
+        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.run(&mut world);
+        assert_eq!(
+            *world.get_resource::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
+        );
+    }
+
+    #[test]
+    fn exclusive_multiple_labels() {
+        let mut world = World::new();
+        world.insert_resource(Vec::<usize>::new());
+        let mut stage = SystemStage::parallel()
+            .with_system(
+                make_exclusive(1)
+                    .exclusive_system()
+                    .label("first")
+                    .after("0"),
+            )
+            .with_system(make_exclusive(2).exclusive_system().after("first"))
+            .with_system(
+                make_exclusive(0)
+                    .exclusive_system()
+                    .label("first")
+                    .label("0"),
+            );
+        stage.run(&mut world);
+        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.run(&mut world);
+        assert_eq!(
+            *world.get_resource::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 0, 1, 2]
+        );
+
+        world.get_resource_mut::<Vec<usize>>().unwrap().clear();
+        let mut stage = SystemStage::parallel()
+            .with_system(make_exclusive(2).exclusive_system().after("01").label("2"))
+            .with_system(make_exclusive(1).exclusive_system().label("01").after("0"))
+            .with_system(make_exclusive(0).exclusive_system().label("01").label("0"))
+            .with_system(make_exclusive(4).exclusive_system().label("4"))
+            .with_system(make_exclusive(3).exclusive_system().after("2").before("4"));
+        stage.run(&mut world);
+        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.run(&mut world);
+        assert_eq!(
+            *world.get_resource::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
+        );
+
+        world.get_resource_mut::<Vec<usize>>().unwrap().clear();
+        let mut stage = SystemStage::parallel()
+            .with_system(make_exclusive(2).exclusive_system().label("234").label("2"))
+            .with_system(
+                make_exclusive(1)
+                    .exclusive_system()
+                    .before("234")
+                    .after("0"),
+            )
+            .with_system(make_exclusive(0).exclusive_system().label("0"))
+            .with_system(make_exclusive(4).exclusive_system().label("234").label("4"))
+            .with_system(
+                make_exclusive(3)
+                    .exclusive_system()
+                    .label("234")
+                    .after("2")
+                    .before("4"),
+            );
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
@@ -938,28 +978,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "No parallel system with label \"empty\" in stage.")]
-    fn parallel_unknown_label() {
-        let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
-        let mut stage = SystemStage::parallel()
-            .with_system(empty.system())
-            .with_system(empty.system().after("empty"));
-        stage.run(&mut world);
-    }
-
-    #[test]
-    #[should_panic(expected = "Label \"empty\" already used by a parallel system.")]
-    fn parallel_duplicate_label() {
-        let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
-        let mut stage = SystemStage::parallel()
-            .with_system(empty.system().label("empty"))
-            .with_system(empty.system().label("empty"));
-        stage.run(&mut world);
-    }
-
-    #[test]
     fn parallel_after() {
         let mut world = World::new();
         world.insert_resource(Vec::<usize>::new());
@@ -1003,6 +1021,59 @@ mod tests {
             .with_system(make_parallel!(0).system().label("0"))
             .with_system(make_parallel!(4).system().label("4"))
             .with_system(make_parallel!(3).system().after("2").before("4"));
+        stage.run(&mut world);
+        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.run(&mut world);
+        assert_eq!(
+            *world.get_resource::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
+        );
+    }
+
+    #[test]
+    fn parallel_multiple_labels() {
+        let mut world = World::new();
+        world.insert_resource(Vec::<usize>::new());
+        let mut stage = SystemStage::parallel()
+            .with_system(make_parallel!(1).system().label("first").after("0"))
+            .with_system(make_parallel!(2).system().after("first"))
+            .with_system(make_parallel!(0).system().label("first").label("0"));
+        stage.run(&mut world);
+        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.run(&mut world);
+        assert_eq!(
+            *world.get_resource::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 0, 1, 2]
+        );
+
+        world.get_resource_mut::<Vec<usize>>().unwrap().clear();
+        let mut stage = SystemStage::parallel()
+            .with_system(make_parallel!(2).system().after("01").label("2"))
+            .with_system(make_parallel!(1).system().label("01").after("0"))
+            .with_system(make_parallel!(0).system().label("01").label("0"))
+            .with_system(make_parallel!(4).system().label("4"))
+            .with_system(make_parallel!(3).system().after("2").before("4"));
+        stage.run(&mut world);
+        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.run(&mut world);
+        assert_eq!(
+            *world.get_resource::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
+        );
+
+        world.get_resource_mut::<Vec<usize>>().unwrap().clear();
+        let mut stage = SystemStage::parallel()
+            .with_system(make_parallel!(2).system().label("234").label("2"))
+            .with_system(make_parallel!(1).system().before("234").after("0"))
+            .with_system(make_parallel!(0).system().label("0"))
+            .with_system(make_parallel!(4).system().label("234").label("4"))
+            .with_system(
+                make_parallel!(3)
+                    .system()
+                    .label("234")
+                    .after("2")
+                    .before("4"),
+            );
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
@@ -1133,15 +1204,15 @@ mod tests {
     fn ambiguity_detection() {
         use super::{find_ambiguities, SystemContainer};
 
-        fn find_ambiguities_labels(
+        fn find_ambiguities_first_labels(
             systems: &[impl SystemContainer],
         ) -> Vec<(BoxedSystemLabel, BoxedSystemLabel)> {
             find_ambiguities(systems)
                 .drain(..)
-                .map(|(index_a, index_b)| {
+                .map(|(index_a, index_b, _conflicts)| {
                     (
-                        systems[index_a].label().clone().unwrap(),
-                        systems[index_b].label().clone().unwrap(),
+                        systems[index_a].labels()[0].clone(),
+                        systems[index_b].labels()[0].clone(),
                     )
                 })
                 .collect()
@@ -1171,7 +1242,7 @@ mod tests {
             .with_system(component.system().label("4"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("4")))
                 || ambiguities.contains(&(Box::new("4"), Box::new("1")))
@@ -1186,7 +1257,7 @@ mod tests {
             .with_system(resource.system().label("4"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("4")))
                 || ambiguities.contains(&(Box::new("4"), Box::new("1")))
@@ -1211,7 +1282,7 @@ mod tests {
             .with_system(resource.system().label("4"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("0"), Box::new("3")))
                 || ambiguities.contains(&(Box::new("3"), Box::new("0")))
@@ -1236,7 +1307,7 @@ mod tests {
             .with_system(resource.system().label("4").in_ambiguity_set("a"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("0"), Box::new("3")))
                 || ambiguities.contains(&(Box::new("3"), Box::new("0")))
@@ -1249,7 +1320,7 @@ mod tests {
             .with_system(component.system().label("2"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("0"), Box::new("1")))
                 || ambiguities.contains(&(Box::new("1"), Box::new("0")))
@@ -1262,7 +1333,7 @@ mod tests {
             .with_system(component.system().label("2").after("0"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("2")))
                 || ambiguities.contains(&(Box::new("2"), Box::new("1")))
@@ -1276,7 +1347,7 @@ mod tests {
             .with_system(component.system().label("3").after("1").after("2"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("2")))
                 || ambiguities.contains(&(Box::new("2"), Box::new("1")))
@@ -1290,7 +1361,7 @@ mod tests {
             .with_system(component.system().label("3").after("1").after("2"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
         assert_eq!(ambiguities.len(), 0);
 
         let mut stage = SystemStage::parallel()
@@ -1300,7 +1371,7 @@ mod tests {
             .with_system(component.system().label("3").after("1").after("2"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("2")))
                 || ambiguities.contains(&(Box::new("2"), Box::new("1")))
@@ -1332,7 +1403,7 @@ mod tests {
             );
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("2")))
                 || ambiguities.contains(&(Box::new("2"), Box::new("1")))
@@ -1384,7 +1455,7 @@ mod tests {
             );
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
         assert_eq!(ambiguities.len(), 0);
 
         let mut stage = SystemStage::parallel()
@@ -1418,7 +1489,7 @@ mod tests {
             );
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("4")))
                 || ambiguities.contains(&(Box::new("4"), Box::new("1")))
@@ -1452,7 +1523,7 @@ mod tests {
             .with_system(empty.exclusive_system().label("6").after("2").after("5"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_labels(&stage.exclusive_at_start);
+        let ambiguities = find_ambiguities_first_labels(&stage.exclusive_at_start);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("3")))
                 || ambiguities.contains(&(Box::new("3"), Box::new("1")))
@@ -1489,7 +1560,7 @@ mod tests {
             .with_system(empty.exclusive_system().label("6").after("2").after("5"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_labels(&stage.exclusive_at_start);
+        let ambiguities = find_ambiguities_first_labels(&stage.exclusive_at_start);
         assert!(
             ambiguities.contains(&(Box::new("2"), Box::new("3")))
                 || ambiguities.contains(&(Box::new("3"), Box::new("2")))
@@ -1515,7 +1586,7 @@ mod tests {
             .with_system(empty.exclusive_system().label("3").in_ambiguity_set("a"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_labels(&stage.exclusive_at_start);
+        let ambiguities = find_ambiguities_first_labels(&stage.exclusive_at_start);
         assert_eq!(ambiguities.len(), 0);
     }
 
@@ -1527,5 +1598,50 @@ mod tests {
         let mut stage = SystemStage::parallel();
         stage.run(&mut world_a);
         stage.run(&mut world_b);
+    }
+
+    #[test]
+    fn archetype_update_single_executor() {
+        fn query_count_system(
+            mut entity_count: ResMut<usize>,
+            query: Query<crate::entity::Entity>,
+        ) {
+            *entity_count = query.iter().count();
+        }
+
+        let mut world = World::new();
+        world.insert_resource(0_usize);
+        let mut stage = SystemStage::single(query_count_system.system());
+
+        let entity = world.spawn().insert_bundle(()).id();
+        stage.run(&mut world);
+        assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
+
+        world.get_entity_mut(entity).unwrap().insert(1);
+        stage.run(&mut world);
+        assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
+    }
+
+    #[test]
+    fn archetype_update_parallel_executor() {
+        fn query_count_system(
+            mut entity_count: ResMut<usize>,
+            query: Query<crate::entity::Entity>,
+        ) {
+            *entity_count = query.iter().count();
+        }
+
+        let mut world = World::new();
+        world.insert_resource(0_usize);
+        let mut stage = SystemStage::parallel();
+        stage.add_system(query_count_system.system());
+
+        let entity = world.spawn().insert_bundle(()).id();
+        stage.run(&mut world);
+        assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
+
+        world.get_entity_mut(entity).unwrap().insert(1);
+        stage.run(&mut world);
+        assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
     }
 }

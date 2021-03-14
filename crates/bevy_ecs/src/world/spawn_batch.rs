@@ -45,15 +45,8 @@ where
                 bundle_info,
             )
         };
-        // SAFE: archetype exists
-        let archetype = unsafe { world.archetypes.get_unchecked_mut(archetype_id) };
-        // SAFE: table exists
-        let table = unsafe {
-            world
-                .storages
-                .tables
-                .get_unchecked_mut(archetype.table_id())
-        };
+        let archetype = &mut world.archetypes[archetype_id];
+        let table = &mut world.storages.tables[archetype.table_id()];
         archetype.reserve(length);
         table.reserve(length);
         world.entities.reserve(length as u32);
@@ -88,7 +81,8 @@ where
     fn next(&mut self) -> Option<Entity> {
         let bundle = self.inner.next()?;
         let entity = self.entities.alloc();
-        // SAFE: component values are immediately written to relevant storages (which have been allocated)
+        // SAFE: component values are immediately written to relevant storages (which have been
+        // allocated)
         unsafe {
             let table_row = self.table.allocate(entity);
             let location = self.archetype.allocate(entity, table_row);

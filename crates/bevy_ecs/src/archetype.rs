@@ -4,7 +4,12 @@ use crate::{
     entity::{Entity, EntityLocation},
     storage::{Column, SparseArray, SparseSet, SparseSetIndex, TableId},
 };
-use std::{borrow::Cow, collections::HashMap, hash::Hash};
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    hash::Hash,
+    ops::{Index, IndexMut},
+};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ArchetypeId(usize);
@@ -264,7 +269,8 @@ impl Archetype {
         self.table_info.entity_rows.reserve(additional);
     }
 
-    /// Removes the entity at `index` by swapping it out. Returns the table row the entity is stored in.
+    /// Removes the entity at `index` by swapping it out. Returns the table row the entity is stored
+    /// in.
     pub(crate) fn swap_remove(&mut self, index: usize) -> ArchetypeSwapRemoveResult {
         let is_last = index == self.entities.len() - 1;
         self.entities.swap_remove(index);
@@ -374,8 +380,8 @@ impl Default for Archetypes {
         };
         archetypes.get_id_or_insert(TableId::empty(), Vec::new(), Vec::new());
 
-        // adds the resource archetype. it is "special" in that it is inaccessible via a "hash", which prevents entities from
-        // being added to it
+        // adds the resource archetype. it is "special" in that it is inaccessible via a "hash",
+        // which prevents entities from being added to it
         archetypes.archetypes.push(Archetype::new(
             ArchetypeId::resource(),
             TableId::empty(),
@@ -442,25 +448,9 @@ impl Archetypes {
         self.archetypes.get(id.index())
     }
 
-    /// # Safety
-    /// `id` must be valid
-    #[inline]
-    pub unsafe fn get_unchecked(&self, id: ArchetypeId) -> &Archetype {
-        debug_assert!(id.index() < self.archetypes.len());
-        self.archetypes.get_unchecked(id.index())
-    }
-
     #[inline]
     pub fn get_mut(&mut self, id: ArchetypeId) -> Option<&mut Archetype> {
         self.archetypes.get_mut(id.index())
-    }
-
-    /// # Safety
-    /// `id` must be valid
-    #[inline]
-    pub unsafe fn get_unchecked_mut(&mut self, id: ArchetypeId) -> &mut Archetype {
-        debug_assert!(id.index() < self.archetypes.len());
-        self.archetypes.get_unchecked_mut(id.index())
     }
 
     #[inline]
@@ -470,6 +460,7 @@ impl Archetypes {
 
     /// Gets the archetype id matching the given inputs or inserts a new one if it doesn't exist.
     /// `table_components` and `sparse_set_components` must be sorted
+    ///
     /// # Safety
     /// TableId must exist in tables
     pub(crate) fn get_id_or_insert(
@@ -518,5 +509,21 @@ impl Archetypes {
     #[inline]
     pub fn archetype_components_len(&self) -> usize {
         self.archetype_component_count
+    }
+}
+
+impl Index<ArchetypeId> for Archetypes {
+    type Output = Archetype;
+
+    #[inline]
+    fn index(&self, index: ArchetypeId) -> &Self::Output {
+        &self.archetypes[index.index()]
+    }
+}
+
+impl IndexMut<ArchetypeId> for Archetypes {
+    #[inline]
+    fn index_mut(&mut self, index: ArchetypeId) -> &mut Self::Output {
+        &mut self.archetypes[index.index()]
     }
 }

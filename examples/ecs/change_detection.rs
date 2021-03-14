@@ -17,7 +17,7 @@ struct MyComponent(f64);
 
 fn setup(mut commands: Commands) {
     commands.spawn((MyComponent(0.),));
-    commands.spawn((Transform::default(),));
+    commands.spawn((Transform::identity(),));
 }
 
 fn change_component(time: Res<Time>, mut query: Query<(Entity, &mut MyComponent)>) {

@@ -5,12 +5,13 @@ use crate::{
     shader::{Shader, ShaderError},
 };
 use bevy_asset::{Assets, Handle};
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_utils::{HashMap, HashSet};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Eq, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq)]
 pub struct PipelineSpecialization {
     pub shader_specialization: ShaderSpecialization,
     pub primitive_topology: PrimitiveTopology,
@@ -41,6 +42,7 @@ impl PipelineSpecialization {
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, Reflect, Serialize, Deserialize)]
+#[reflect(PartialEq, Serialize, Deserialize)]
 pub struct ShaderSpecialization {
     pub shader_defs: HashSet<String>,
 }
@@ -195,7 +197,8 @@ impl PipelineCompiler {
         }
         specialized_descriptor.layout = Some(layout);
 
-        // create a vertex layout that provides all attributes from either the specialized vertex buffers or a zero buffer
+        // create a vertex layout that provides all attributes from either the specialized vertex
+        // buffers or a zero buffer
         let mut pipeline_layout = specialized_descriptor.layout.as_mut().unwrap();
         // the vertex buffer descriptor of the mesh
         let mesh_vertex_buffer_layout = &pipeline_specialization.vertex_buffer_layout;
@@ -233,7 +236,7 @@ impl PipelineCompiler {
             }
         }
 
-        //TODO: add other buffers (like instancing) here
+        // TODO: add other buffers (like instancing) here
         let mut vertex_buffer_descriptors = Vec::<VertexBufferLayout>::default();
         if !pipeline_layout.vertex_buffer_descriptors.is_empty() {
             vertex_buffer_descriptors.push(compiled_vertex_buffer_descriptor);

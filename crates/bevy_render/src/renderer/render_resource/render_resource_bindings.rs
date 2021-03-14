@@ -61,13 +61,15 @@ pub enum BindGroupStatus {
     NoMatch,
 }
 
-// PERF: if the bindings are scoped to a specific pipeline layout, then names could be replaced with indices here for a perf boost
+// PERF: if the bindings are scoped to a specific pipeline layout, then names could be replaced with
+// indices here for a perf boost
 #[derive(Eq, PartialEq, Debug, Default, Clone)]
 pub struct RenderResourceBindings {
     pub bindings: HashMap<String, RenderResourceBinding>,
     /// A Buffer that contains all attributes a mesh has defined
     pub vertex_attribute_buffer: Option<BufferId>,
-    /// A Buffer that is filled with zeros that will be used for attributes required by the shader, but undefined by the mesh.
+    /// A Buffer that is filled with zeros that will be used for attributes required by the shader,
+    /// but undefined by the mesh.
     pub vertex_fallback_buffer: Option<BufferId>,
     pub index_buffer: Option<(BufferId, IndexFormat)>,
     assets: HashSet<(HandleUntyped, TypeId)>,
@@ -87,7 +89,8 @@ impl RenderResourceBindings {
         self.bindings.insert(name.to_string(), binding);
     }
 
-    /// The current "generation" of dynamic bindings. This number increments every time a dynamic binding changes
+    /// The current "generation" of dynamic bindings. This number increments every time a dynamic
+    /// binding changes
     pub fn dynamic_bindings_generation(&self) -> usize {
         self.dynamic_bindings_generation
     }
@@ -182,8 +185,9 @@ impl RenderResourceBindings {
                 Some(bind_group)
             }
             BindGroupStatus::Unchanged(id) => {
-                // PERF: this is only required because RenderResourceContext::remove_stale_bind_groups doesn't inform RenderResourceBindings
-                // when a stale bind group has been removed
+                // PERF: this is only required because
+                // RenderResourceContext::remove_stale_bind_groups doesn't inform
+                // RenderResourceBindings when a stale bind group has been removed
                 let bind_group = self
                     .get_bind_group(id)
                     .expect("`RenderResourceSet` was just changed, so it should exist.");

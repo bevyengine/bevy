@@ -11,8 +11,8 @@ use std::{
     rc::Rc,
 };
 
-/// Exposes safe mutable access to multiple resources at a time in a World. Attempting to access World in a way that violates
-/// Rust's mutability rules will panic thanks to runtime checks.
+/// Exposes safe mutable access to multiple resources at a time in a World. Attempting to access
+/// World in a way that violates Rust's mutability rules will panic thanks to runtime checks.
 pub struct WorldCell<'w> {
     pub(crate) world: &'w mut World,
     pub(crate) access: Rc<RefCell<ArchetypeComponentAccess>>,

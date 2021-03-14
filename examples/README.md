@@ -12,12 +12,19 @@ cargo run --features wayland --example hello_world
 
 **⚠️ Note: for users of releases on crates.io!**
 
-Due to changes and additions to APIs, there are often differences between the development examples and the released versions of Bevy on crates.io.
-If you are using a release version from [crates.io](https://crates.io/crates/bevy), view the examples by checking out the appropriate git tag, e.g., users of `0.4` should use the examples on [https://github.com/bevyengine/bevy/tree/v0.4.0/examples](https://github.com/bevyengine/bevy/tree/v0.4.0/examples)
+There are often large differences and incompatible API changes between the latest [crates.io](https://crates.io/crates/bevy) release and the development version of Bevy in the git main branch!
 
-If you have cloned bevy's repo locally, `git checkout` with the appropriate version tag.
+If you are using a released version of bevy, you need to make sure you are viewing the correct version of the examples!
+
+ - Latest release: [https://github.com/bevyengine/bevy/tree/latest/examples](https://github.com/bevyengine/bevy/tree/latest/examples)
+ - Specific version, such as `0.4`: [https://github.com/bevyengine/bevy/tree/v0.4.0/examples](https://github.com/bevyengine/bevy/tree/v0.4.0/examples)
+
+When you clone the repo locally to run the examples, use `git checkout` to get the correct version:
 
 ```bash
+# `latest` always points to the newest release
+git checkout latest
+# or use a specific version
 git checkout v0.4.0
 ```
 
@@ -83,6 +90,7 @@ Example | File | Description
 `spawner` | [`3d/spawner.rs`](./3d/spawner.rs) | Renders a large number of cubes with changing position and material
 `texture` | [`3d/texture.rs`](./3d/texture.rs) | Shows configuration of texture materials
 `update_gltf_scene` | [`3d/update_gltf_scene.rs`](./3d/update_gltf_scene.rs) | Update a scene from a gltf file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
+`wireframe` | [`3d/wireframe.rs`](./3d/wireframe.rs) | Showcases wireframe rendering
 `z_sort_debug` | [`3d/z_sort_debug.rs`](./3d/z_sort_debug.rs) | Visualizes camera Z-ordering
 
 ## Application

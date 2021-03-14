@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
-/// This example illustrates how to use States to control transitioning from a Menu state to an InGame state.
+/// This example illustrates how to use States to control transitioning from a Menu state to an
+/// InGame state.
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
@@ -118,7 +119,7 @@ fn movement(
     mut query: Query<&mut Transform, With<Sprite>>,
 ) {
     for mut transform in query.iter_mut() {
-        let mut direction = Vec3::default();
+        let mut direction = Vec3::ZERO;
         if input.pressed(KeyCode::Left) {
             direction.x += 1.0;
         }
@@ -132,7 +133,7 @@ fn movement(
             direction.y -= 1.0;
         }
 
-        if direction != Vec3::default() {
+        if direction != Vec3::ZERO {
             transform.translation += direction.normalize() * SPEED * time.delta_seconds();
         }
     }

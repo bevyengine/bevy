@@ -79,14 +79,17 @@ pub fn lights_node_system(
     mut state: Local<LightsNodeSystemState>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     ambient_light_resource: Res<AmbientLight>,
-    // TODO: this write on RenderResourceBindings will prevent this system from running in parallel with other systems that do the same
+    // TODO: this write on RenderResourceBindings will prevent this system from running in parallel
+    // with other systems that do the same
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
     query: Query<(&Light, &GlobalTransform)>,
 ) {
     let state = &mut state;
     let render_resource_context = &**render_resource_context;
 
-    let ambient_light: [f32; 4] = ambient_light_resource.color.into();
+    // premultiply ambient brightness
+    let ambient_light: [f32; 4] =
+        (ambient_light_resource.color * ambient_light_resource.brightness).into();
     let ambient_light_size = std::mem::size_of::<[f32; 4]>();
     let light_count = query.iter().count();
     let size = std::mem::size_of::<LightRaw>();

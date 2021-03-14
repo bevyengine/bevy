@@ -194,6 +194,7 @@ mod tests {
     #[test]
     fn reflect_complex_patch() {
         #[derive(Reflect, Eq, PartialEq, Debug)]
+        #[reflect(PartialEq)]
         struct Foo {
             a: u32,
             #[reflect(ignore)]
@@ -205,6 +206,7 @@ mod tests {
         }
 
         #[derive(Reflect, Eq, PartialEq, Debug)]
+        #[reflect(PartialEq)]
         struct Bar {
             x: u32,
         }
@@ -317,6 +319,7 @@ mod tests {
     #[test]
     fn reflect_take() {
         #[derive(Reflect, Debug, PartialEq)]
+        #[reflect(PartialEq)]
         struct Bar {
             x: u32,
         }

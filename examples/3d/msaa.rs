@@ -1,8 +1,9 @@
 use bevy::prelude::*;
 
-/// This example shows how to configure Multi-Sample Anti-Aliasing. Setting the sample count higher will result in smoother edges,
-/// but it will also increase the cost to render those edges. The range should generally be somewhere between 1 (no multi sampling,
-/// but cheap) to 8 (crisp but expensive)
+/// This example shows how to configure Multi-Sample Anti-Aliasing. Setting the sample count higher
+/// will result in smoother edges, but it will also increase the cost to render those edges. The
+/// range should generally be somewhere between 1 (no multi sampling, but cheap) to 8 (crisp but
+/// expensive)
 fn main() {
     App::build()
         .insert_resource(Msaa { samples: 4 })
@@ -32,8 +33,7 @@ fn setup(
         })
         // camera
         .spawn(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(-3.0, 3.0, 5.0)
-                .looking_at(Vec3::default(), Vec3::unit_y()),
+            transform: Transform::from_xyz(-3.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..Default::default()
         });
 }

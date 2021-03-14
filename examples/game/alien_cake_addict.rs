@@ -92,7 +92,7 @@ fn setup_cameras(mut commands: Commands, mut game: ResMut<Game>) {
                 2.0 * BOARD_SIZE_J as f32 / 3.0,
                 BOARD_SIZE_J as f32 / 2.0 - 0.5,
             )
-            .looking_at(game.camera_is_focus, Vec3::unit_y()),
+            .looking_at(game.camera_is_focus, Vec3::Y),
             ..Default::default()
         })
         .spawn(UiCameraBundle::default());
@@ -120,7 +120,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                     commands
                         .spawn((
                             Transform::from_xyz(i as f32, height - 0.2, j as f32),
-                            GlobalTransform::default(),
+                            GlobalTransform::identity(),
                         ))
                         .with_children(|cell| {
                             cell.spawn_scene(cell_scene.clone());
@@ -143,7 +143,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                 rotation: Quat::from_rotation_y(-std::f32::consts::FRAC_PI_2),
                 ..Default::default()
             },
-            GlobalTransform::default(),
+            GlobalTransform::identity(),
         ))
         .with_children(|cell| {
             cell.spawn_scene(asset_server.load("models/AlienCake/alien.glb#Scene0"));
@@ -284,7 +284,7 @@ fn focus_camera(
     // look at that new camera's actual focus
     for (mut transform, camera) in transforms.q0_mut().iter_mut() {
         if camera.name == Some(CAMERA_3D.to_string()) {
-            *transform = transform.looking_at(game.camera_is_focus, Vec3::unit_y());
+            *transform = transform.looking_at(game.camera_is_focus, Vec3::Y);
         }
     }
 }
@@ -319,7 +319,7 @@ fn spawn_bonus(
                 ),
                 ..Default::default()
             },
-            GlobalTransform::default(),
+            GlobalTransform::identity(),
         ))
         .with_children(|cell| {
             cell.spawn_scene(game.bonus.handle.clone());
@@ -340,9 +340,8 @@ fn rotate_bonus(game: Res<Game>, time: Res<Time>, mut transforms: Query<&mut Tra
 
 // update the score displayed during the game
 fn scoreboard_system(game: Res<Game>, mut query: Query<&mut Text>) {
-    for mut text in query.iter_mut() {
-        text.sections[0].value = format!("Sugar Rush: {}", game.score);
-    }
+    let mut text = query.single_mut().unwrap();
+    text.sections[0].value = format!("Sugar Rush: {}", game.score);
 }
 
 // restart the game when pressing spacebar
