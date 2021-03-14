@@ -168,9 +168,15 @@ impl SceneSpawner {
 
                         let reflect_component = type_registry
                             .get(component_info.type_id().unwrap())
-                            .and_then(|registration| registration.data::<ReflectComponent>())
-                            .ok_or_else(|| SceneSpawnError::UnregisteredComponent {
+                            .ok_or_else(|| SceneSpawnError::UnregisteredType {
                                 type_name: component_info.name().to_string(),
+                            })
+                            .and_then(|registration| {
+                                registration.data::<ReflectComponent>().ok_or_else(|| {
+                                    SceneSpawnError::UnregisteredComponent {
+                                        type_name: component_info.name().to_string(),
+                                    }
+                                })
                             })?;
                         reflect_component.copy_component(
                             &scene.world,
