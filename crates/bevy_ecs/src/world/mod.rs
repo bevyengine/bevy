@@ -620,15 +620,15 @@ impl World {
         let component_id = self
             .components
             .get_resource_id(TypeId::of::<T>())
-            .expect("resource does not exist");
+            .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<T>()));
         let (ptr, mut flags) = {
             let resource_archetype = self.archetypes.resource_mut();
             let unique_components = resource_archetype.unique_components_mut();
-            let column = unique_components
-                .get_mut(component_id)
-                .expect("resource does not exist");
+            let column = unique_components.get_mut(component_id).unwrap_or_else(|| {
+                panic!("resource does not exist: {}", std::any::type_name::<T>())
+            });
             if column.is_empty() {
-                panic!("resource does not exist");
+                panic!("resource does not exist: {}", std::any::type_name::<T>());
             }
             // SAFE: if a resource column exists, row 0 exists as well. caller takes ownership of
             // the ptr value / drop is called when T is dropped
@@ -644,7 +644,7 @@ impl World {
         let unique_components = resource_archetype.unique_components_mut();
         let column = unique_components
             .get_mut(component_id)
-            .expect("resource does not exist");
+            .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<T>()));
         // SAFE: new location is immediately written to below
         let row = unsafe { column.push_uninit() };
         // SAFE: row was just allocated above
