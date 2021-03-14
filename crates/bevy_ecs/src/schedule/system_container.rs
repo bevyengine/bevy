@@ -9,9 +9,12 @@ use crate::{
 };
 use std::{borrow::Cow, ptr::NonNull};
 
-pub(super) trait SystemContainer {
+/// System metadata like its name, labels, order requirements and component access.
+pub trait SystemContainer {
     fn name(&self) -> Cow<'static, str>;
+    #[doc(hidden)]
     fn dependencies(&self) -> &[usize];
+    #[doc(hidden)]
     fn set_dependencies(&mut self, dependencies: impl IntoIterator<Item = usize>);
     fn system_set(&self) -> usize;
     fn labels(&self) -> &[BoxedSystemLabel];
