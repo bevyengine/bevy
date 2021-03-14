@@ -202,7 +202,7 @@ impl Schedule {
         }
     }
 
-    /// All the schedule stages in insertion order
+    /// Iterates over all of schedule's stages and their labels, in execution order.
     pub fn iter_stages(&self) -> impl Iterator<Item = (&dyn StageLabel, &dyn Stage)> {
         self.stage_order
             .iter()
