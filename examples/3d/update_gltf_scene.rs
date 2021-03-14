@@ -40,7 +40,7 @@ fn setup(
     commands
         .spawn((
             Transform::from_xyz(0.0, 0.0, -1.0),
-            GlobalTransform::default(),
+            GlobalTransform::identity(),
         ))
         .with_children(|parent| {
             parent.spawn_scene(asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"));

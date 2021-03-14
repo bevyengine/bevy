@@ -137,7 +137,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                     commands
                         .spawn((
                             Transform::from_xyz(i as f32, height - 0.2, j as f32),
-                            GlobalTransform::default(),
+                            GlobalTransform::identity(),
                         ))
                         .with_children(|cell| {
                             cell.spawn_scene(cell_scene.clone());
@@ -160,7 +160,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                 rotation: Quat::from_rotation_y(-std::f32::consts::FRAC_PI_2),
                 ..Default::default()
             },
-            GlobalTransform::default(),
+            GlobalTransform::identity(),
         ))
         .with_children(|cell| {
             cell.spawn_scene(asset_server.load("models/AlienCake/alien.glb#Scene0"));
@@ -336,7 +336,7 @@ fn spawn_bonus(
                 ),
                 ..Default::default()
             },
-            GlobalTransform::default(),
+            GlobalTransform::identity(),
         ))
         .with_children(|cell| {
             cell.spawn_scene(game.bonus.handle.clone());

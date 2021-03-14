@@ -241,7 +241,12 @@ impl<'a, T: Component> SystemParamFetch<'a> for ResState<T> {
     ) -> Self::Item {
         let column = world
             .get_populated_resource_column(state.component_id)
-            .expect("Requested resource does not exist");
+            .unwrap_or_else(|| {
+                panic!(
+                    "Requested resource does not exist: {}",
+                    std::any::type_name::<T>()
+                )
+            });
         Res {
             value: &*column.get_ptr().as_ptr().cast::<T>(),
             counters: &*column.get_counters_mut_ptr(),
@@ -383,7 +388,12 @@ impl<'a, T: Component> SystemParamFetch<'a> for ResMutState<T> {
     ) -> Self::Item {
         let value = world
             .get_resource_unchecked_mut_with_id(state.component_id)
-            .expect("Requested resource does not exist");
+            .unwrap_or_else(|| {
+                panic!(
+                    "Requested resource does not exist: {}",
+                    std::any::type_name::<T>()
+                )
+            });
         ResMut {
             value: value.value,
             counters: value.component_counters,
@@ -643,7 +653,12 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendState<T> {
         world.validate_non_send_access::<T>();
         let column = world
             .get_populated_resource_column(state.component_id)
-            .expect("Requested non-send resource does not exist");
+            .unwrap_or_else(|| {
+                panic!(
+                    "Requested non-send resource does not exist: {}",
+                    std::any::type_name::<T>()
+                )
+            });
         NonSend {
             value: &*column.get_ptr().as_ptr().cast::<T>(),
             counters: *column.get_counters_mut_ptr(),
@@ -757,7 +772,12 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendMutState<T> {
         world.validate_non_send_access::<T>();
         let column = world
             .get_populated_resource_column(state.component_id)
-            .expect("Requested non-send resource does not exist");
+            .unwrap_or_else(|| {
+                panic!(
+                    "Requested non-send resource does not exist: {}",
+                    std::any::type_name::<T>()
+                )
+            });
         NonSendMut {
             value: &mut *column.get_ptr().as_ptr().cast::<T>(),
             counters: &mut *column.get_counters_mut_ptr(),

@@ -563,8 +563,7 @@ macro_rules! impl_counter_filter {
                 match state.storage_type {
                     StorageType::Table => {
                         self.entity_table_rows = archetype.entity_table_rows().as_ptr();
-                        // SAFE: archetype tables always exist
-                        let table = tables.get_unchecked(archetype.table_id());
+                        let table = &tables[archetype.table_id()];
                         self.table_counters = table
                             .get_column(state.component_id).unwrap()
                             .get_counters_mut_ptr();

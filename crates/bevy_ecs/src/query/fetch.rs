@@ -286,9 +286,9 @@ impl<'w, T: Component> Fetch<'w> for ReadFetch<T> {
         match state.storage_type {
             StorageType::Table => {
                 self.entity_table_rows = archetype.entity_table_rows().as_ptr();
-                // SAFE: archetype tables always exist
-                let table = tables.get_unchecked(archetype.table_id());
-                let column = table.get_column(state.component_id).unwrap();
+                let column = tables[archetype.table_id()]
+                    .get_column(state.component_id)
+                    .unwrap();
                 self.table_components = column.get_ptr().cast::<T>();
             }
             StorageType::SparseSet => self.entities = archetype.entities().as_ptr(),
@@ -435,9 +435,9 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
         match state.storage_type {
             StorageType::Table => {
                 self.entity_table_rows = archetype.entity_table_rows().as_ptr();
-                // SAFE: archetype tables always exist
-                let table = tables.get_unchecked(archetype.table_id());
-                let column = table.get_column(state.component_id).unwrap();
+                let column = tables[archetype.table_id()]
+                    .get_column(state.component_id)
+                    .unwrap();
                 self.table_components = column.get_ptr().cast::<T>();
                 self.table_counters = column.get_counters_mut_ptr();
             }
@@ -742,9 +742,9 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
         match state.storage_type {
             StorageType::Table => {
                 self.entity_table_rows = archetype.entity_table_rows().as_ptr();
-                // SAFE: archetype tables always exist
-                let table = tables.get_unchecked(archetype.table_id());
-                let column = table.get_column(state.component_id).unwrap();
+                let column = tables[archetype.table_id()]
+                    .get_column(state.component_id)
+                    .unwrap();
                 self.table_counters = column.get_counters_mut_ptr().cast::<ComponentCounters>();
             }
             StorageType::SparseSet => self.entities = archetype.entities().as_ptr(),

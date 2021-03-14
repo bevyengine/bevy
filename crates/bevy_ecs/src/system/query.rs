@@ -113,8 +113,8 @@ where
     /// be chained like a normal iterator.
     #[inline]
     pub fn for_each_mut(&self, f: impl FnMut(<Q::Fetch as Fetch<'w>>::Item)) {
-        // SAFE: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
+        // SAFE: system runs without conflicts with other systems. same-system queries have runtime
+        // borrow checks when they conflict
         unsafe {
             self.state.for_each_unchecked_manual(
                 self.world,

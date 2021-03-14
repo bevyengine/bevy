@@ -295,11 +295,10 @@ impl World {
         let archetype = self.archetypes.empty_mut();
         unsafe {
             // PERF: consider avoiding allocating entities in the empty archetype unless needed
-            // SAFE: archetype tables always exist
-            let table = self.storages.tables.get_unchecked_mut(archetype.table_id());
+            let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
             // SAFE: no components are allocated by archetype.allocate() because the archetype is
             // empty
-            let location = archetype.allocate(entity, table.allocate(entity));
+            let location = archetype.allocate(entity, table_row);
             // SAFE: entity index was just allocated
             self.entities
                 .meta
@@ -378,7 +377,8 @@ impl World {
 
     /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
     /// [Component]s. Returns `true` if the `entity` is successfully despawned and `false` if
-    /// the `entity` does not exist. ```
+    /// the `entity` does not exist.
+    /// ```
     /// use bevy_ecs::world::World;
     ///
     /// struct Position {
@@ -393,6 +393,7 @@ impl World {
     /// assert!(world.despawn(entity));
     /// assert!(world.get_entity(entity).is_none());
     /// assert!(world.get::<Position>(entity).is_none());
+    /// ```
     #[inline]
     pub fn despawn(&mut self, entity: Entity) -> bool {
         self.get_entity_mut(entity)
@@ -616,7 +617,8 @@ impl World {
 
     /// Temporarily removes the requested resource from this [World], then re-adds it before
     /// returning. This enables safe mutable access to a resource while still providing mutable
-    /// world access ```
+    /// world access
+    /// ```
     /// use bevy_ecs::world::{World, Mut};
     /// struct A(u32);
     /// struct B(u32);
@@ -637,15 +639,15 @@ impl World {
         let component_id = self
             .components
             .get_resource_id(TypeId::of::<T>())
-            .expect("resource does not exist");
+            .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<T>()));
         let (ptr, mut counters) = {
             let resource_archetype = self.archetypes.resource_mut();
             let unique_components = resource_archetype.unique_components_mut();
-            let column = unique_components
-                .get_mut(component_id)
-                .expect("resource does not exist");
+            let column = unique_components.get_mut(component_id).unwrap_or_else(|| {
+                panic!("resource does not exist: {}", std::any::type_name::<T>())
+            });
             if column.is_empty() {
-                panic!("resource does not exist");
+                panic!("resource does not exist: {}", std::any::type_name::<T>());
             }
             // SAFE: if a resource column exists, row 0 exists as well. caller takes ownership of
             // the ptr value / drop is called when T is dropped
@@ -663,7 +665,7 @@ impl World {
         let unique_components = resource_archetype.unique_components_mut();
         let column = unique_components
             .get_mut(component_id)
-            .expect("resource does not exist");
+            .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<T>()));
         // SAFE: new location is immediately written to below
         let row = unsafe { column.push_uninit() };
         // SAFE: row was just allocated above
@@ -824,11 +826,7 @@ impl World {
     pub(crate) fn flush(&mut self) {
         let empty_archetype = self.archetypes.empty_mut();
         unsafe {
-            // SAFE: archetype tables always exist
-            let table = self
-                .storages
-                .tables
-                .get_unchecked_mut(empty_archetype.table_id());
+            let table = &mut self.storages.tables[empty_archetype.table_id()];
             // PERF: consider pre-allocating space for flushed entities
             self.entities.flush(|entity, location| {
                 // SAFE: no components are allocated by archetype.allocate() because the archetype

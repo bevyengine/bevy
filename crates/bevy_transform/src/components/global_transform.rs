@@ -20,7 +20,7 @@ impl GlobalTransform {
     }
 
     #[inline]
-    pub fn identity() -> Self {
+    pub const fn identity() -> Self {
         GlobalTransform {
             translation: Vec3::ZERO,
             rotation: Quat::IDENTITY,
