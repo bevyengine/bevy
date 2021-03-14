@@ -12,7 +12,6 @@ pub use state::*;
 
 #[cfg(test)]
 mod tests {
-    use super::{Not, With};
     use crate::{
         component::{ComponentDescriptor, StorageType},
         world::World,
@@ -57,19 +56,5 @@ mod tests {
 
         let values = world.query::<&B>().iter(&world).collect::<Vec<&B>>();
         assert_eq!(values, vec![&B(3)]);
-    }
-
-    #[test]
-    fn not_transformer() {
-        let mut world = World::new();
-
-        world.spawn().insert_bundle((A(1), B(2)));
-        world.spawn().insert_bundle((A(2),));
-
-        let values = world
-            .query_filtered::<&A, Not<With<B>>>()
-            .iter(&world)
-            .collect::<Vec<&A>>();
-        assert_eq!(values, vec![&A(2)]);
     }
 }

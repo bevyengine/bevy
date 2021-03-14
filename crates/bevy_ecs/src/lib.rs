@@ -35,7 +35,7 @@ mod tests {
         bundle::Bundle,
         component::{Component, ComponentDescriptor, StorageType, TypeInfo},
         entity::Entity,
-        query::{Added, Changed, Counters, FilterFetch, Not, Or, With, Without, WorldQuery},
+        query::{Added, Changed, Counters, With, Without},
         world::{Mut, World},
     };
     use bevy_tasks::TaskPool;
@@ -704,96 +704,6 @@ mod tests {
     }
 
     #[test]
-    fn mutated_trackers() {
-        let mut world = World::default();
-        let e1 = world.spawn().insert_bundle((A(0), B(0))).id();
-        let e2 = world.spawn().insert_bundle((A(0), B(0))).id();
-        let e3 = world.spawn().insert_bundle((A(0), B(0))).id();
-        world.spawn().insert_bundle((A(0), B));
-        world.clear_trackers();
-        world.exclusive_system_counter = world.increment_global_system_counter();
-
-        for (i, mut a) in world.query::<&mut A>().iter_mut(&mut world).enumerate() {
-            if i % 2 == 0 {
-                a.0 += 1;
-            }
-        }
-
-        fn get_filtered<F: WorldQuery>(world: &mut World) -> Vec<Entity>
-        where
-            F::Fetch: FilterFetch,
-        {
-            world
-                .query_filtered::<Entity, F>()
-                .iter(&world)
-                .collect::<Vec<Entity>>()
-        }
-
-        assert_eq!(
-            get_filtered::<(Changed<A>, Not<Added<A>>)>(&mut world),
-            vec![e1, e3]
-        );
-
-        // ensure changing an entity's archetypes also moves its mutated state
-        world.entity_mut(e1).insert(C);
-
-        assert_eq!(get_filtered::<(Changed<A>, Not<Added<A>>)>(&mut world), vec![e3, e1], "changed entities list should not change (although the order will due to archetype moves)");
-
-        // spawning a new A entity should not change existing mutated state
-        world.entity_mut(e1).insert_bundle((A(0), B));
-        assert_eq!(
-            get_filtered::<(Changed<A>, Not<Added<A>>)>(&mut world),
-            vec![e3, e1],
-            "changed entities list should not change"
-        );
-
-        // removing an unchanged entity should not change mutated state
-        assert!(world.despawn(e2));
-        assert_eq!(
-            get_filtered::<(Changed<A>, Not<Added<A>>)>(&mut world),
-            vec![e3, e1],
-            "changed entities list should not change"
-        );
-
-        // removing a changed entity should remove it from enumeration
-        assert!(world.despawn(e1));
-        assert_eq!(
-            get_filtered::<(Changed<A>, Not<Added<A>>)>(&mut world),
-            vec![e3],
-            "e1 should no longer be returned"
-        );
-
-        world.clear_trackers();
-        world.exclusive_system_counter = world.increment_global_system_counter();
-
-        assert!(get_filtered::<(Changed<A>, Not<Added<A>>)>(&mut world).is_empty());
-
-        let e4 = world.spawn().id();
-
-        world.entity_mut(e4).insert(A(0));
-        assert!(get_filtered::<(Changed<A>, Not<Added<A>>)>(&mut world).is_empty());
-        assert_eq!(get_filtered::<Added<A>>(&mut world), vec![e4]);
-
-        world.entity_mut(e4).insert(A(1));
-
-        world.clear_trackers();
-        world.exclusive_system_counter = world.increment_global_system_counter();
-
-        // ensure inserting multiple components set mutated state for
-        // already existing components and set added state for
-        // non existing components even when changing archetype.
-        world.entity_mut(e4).insert_bundle((A(0), B(0)));
-
-        assert!(get_filtered::<Added<A>>(&mut world).is_empty());
-        assert_eq!(
-            get_filtered::<(Changed<A>, Not<Added<A>>)>(&mut world),
-            vec![e4]
-        );
-        assert_eq!(get_filtered::<Added<B>>(&mut world), vec![e4]);
-        assert!(get_filtered::<(Changed<B>, Not<Added<B>>)>(&mut world).is_empty());
-    }
-
-    #[test]
     fn empty_spawn() {
         let mut world = World::default();
         let e = world.spawn().id();
@@ -810,52 +720,6 @@ mod tests {
         let mut e_mut = world.entity_mut(e);
         e_mut.insert(A(0));
         assert_eq!(e_mut.get::<A>().unwrap(), &A(0));
-    }
-
-    #[test]
-    fn multiple_mutated_query() {
-        let mut world = World::default();
-        world.spawn().insert_bundle((A(0), B(0))).id();
-        let e2 = world.spawn().insert_bundle((A(0), B(0))).id();
-        world.spawn().insert_bundle((A(0), B(0)));
-        world.clear_trackers();
-        world.exclusive_system_counter = world.increment_global_system_counter();
-
-        for mut a in world.query::<&mut A>().iter_mut(&mut world) {
-            a.0 += 1;
-        }
-
-        for mut b in world.query::<&mut B>().iter_mut(&mut world).skip(1).take(1) {
-            b.0 += 1;
-        }
-
-        let a_b_mutated = world
-            .query_filtered::<Entity, ((Changed<A>, Not<Added<A>>), (Changed<B>, Not<Added<B>>))>()
-            .iter(&world)
-            .collect::<Vec<Entity>>();
-        assert_eq!(a_b_mutated, vec![e2]);
-    }
-
-    #[test]
-    fn or_mutated_query() {
-        let mut world = World::default();
-        let e1 = world.spawn().insert_bundle((A(0), B(0))).id();
-        let e2 = world.spawn().insert_bundle((A(0), B(0))).id();
-        let _e3 = world.spawn().insert_bundle((A(0), B(0))).id();
-        let e4 = world.spawn().insert(A(0)).id(); // ensure filters work for archetypes with only one of the Or filter items
-        world.clear_trackers();
-        world.exclusive_system_counter = world.increment_global_system_counter();
-
-        *world.entity_mut(e1).get_mut::<A>().unwrap() = A(1);
-        *world.entity_mut(e2).get_mut::<B>().unwrap() = B(1);
-        *world.entity_mut(e4).get_mut::<A>().unwrap() = A(1);
-
-        let a_b_mutated = world
-            .query_filtered::<Entity, Or<((Changed<A>, Not<Added<A>>), (Changed<B>, Not<Added<B>>))>>()
-            .iter(&world)
-            .collect::<Vec<Entity>>();
-        // e1 has mutated A, e3 has mutated B, e2 has mutated A and B, _e4 has no mutated component
-        assert_eq!(a_b_mutated, vec![e1, e2, e4]);
     }
 
     #[test]
