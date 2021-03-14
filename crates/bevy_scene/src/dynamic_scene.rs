@@ -72,7 +72,7 @@ impl DynamicScene {
             for component in scene_entity.components.iter() {
                 let registration = type_registry
                     .get_with_name(component.type_name())
-                    .ok_or_else(|| SceneSpawnError::UnregisteredComponent {
+                    .ok_or_else(|| SceneSpawnError::UnregisteredType {
                         type_name: component.type_name().to_string(),
                     })?;
                 let reflect_component =
