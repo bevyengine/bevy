@@ -5,7 +5,7 @@ use crate::{
 use bevy_math::Vec3;
 
 /// A torus (donut) shape.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Torus {
     pub radius: f32,
     pub ring_radius: f32,

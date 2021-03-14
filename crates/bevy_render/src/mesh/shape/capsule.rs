@@ -5,6 +5,7 @@ use crate::{
 use bevy_math::{Vec2, Vec3};
 
 /// A cylinder with hemispheres at the top and bottom
+#[derive(Debug, Copy, Clone)]
 pub struct Capsule {
     /// Radius on the xz plane.
     pub radius: f32,
@@ -32,7 +33,7 @@ impl Default for Capsule {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 /// Manner in which UV coordinates are distributed vertically.
 pub enum CapsuleUvProfile {
     /// UV space is distributed by how much of the capsule consists of the hemispheres.
