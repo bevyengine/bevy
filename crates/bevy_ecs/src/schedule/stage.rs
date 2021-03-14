@@ -168,6 +168,8 @@ impl SystemStage {
     }
 
     /// Topologically sorted parallel systems.
+    ///
+    /// Note that this method won't output fully-formed data until the stage has been ran at least once.
     pub fn parallel_systems(&self) -> &[impl SystemContainer] {
         &self.parallel
     }
