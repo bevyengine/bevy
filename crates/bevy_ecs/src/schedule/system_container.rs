@@ -9,6 +9,7 @@ use crate::{
 };
 use std::{borrow::Cow, ptr::NonNull};
 
+/// System metadata like its name, labels, order requirements and component access.
 pub trait SystemContainer {
     fn name(&self) -> Cow<'static, str>;
     fn dependencies(&self) -> &[usize];
