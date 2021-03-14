@@ -6,7 +6,7 @@ use crate::{
 };
 
 /// A sphere made from a subdivided Icosahedron.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Icosphere {
     /// The radius of the sphere.
     pub radius: f32,
