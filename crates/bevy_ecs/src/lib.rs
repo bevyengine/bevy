@@ -16,7 +16,7 @@ pub mod prelude {
     pub use crate::{
         bundle::Bundle,
         entity::Entity,
-        query::{Added, Changed, Counters, Or, QueryState, With, WithBundle, Without},
+        query::{Added, ChangeTrackers, Changed, Or, QueryState, With, WithBundle, Without},
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
             Schedule, Stage, StageLabel, State, StateStage, SystemLabel, SystemStage,
@@ -35,7 +35,7 @@ mod tests {
         bundle::Bundle,
         component::{Component, ComponentDescriptor, StorageType, TypeInfo},
         entity::Entity,
-        query::{Added, Changed, Counters, With, Without},
+        query::{Added, ChangeTrackers, Changed, With, Without},
         world::{Mut, World},
     };
     use bevy_tasks::TaskPool;
@@ -945,7 +945,7 @@ mod tests {
         let e1 = world.spawn().insert_bundle((A(0), B(0))).id();
         world.spawn().insert(B(0));
 
-        let mut counters_query = world.query::<Option<Counters<A>>>();
+        let mut counters_query = world.query::<Option<ChangeTrackers<A>>>();
         let counters = counters_query.iter(&world).collect::<Vec<_>>();
         let a_counters = counters[0].as_ref().unwrap();
         assert!(counters[1].is_none());

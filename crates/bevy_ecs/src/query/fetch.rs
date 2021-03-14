@@ -600,17 +600,17 @@ impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
     }
 }
 
-/// Flags on component `T` that happened since the last execution of this system.
+/// Change trackers for component `T`
 #[derive(Clone)]
-pub struct Counters<T: Component> {
+pub struct ChangeTrackers<T: Component> {
     component_counters: ComponentCounters,
     system_counter: u32,
     global_system_counter: u32,
     marker: PhantomData<T>,
 }
-impl<T: Component> std::fmt::Debug for Counters<T> {
+impl<T: Component> std::fmt::Debug for ChangeTrackers<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Counters")
+        f.debug_struct("ChangeTrackers")
             .field("component_counters", &self.component_counters)
             .field("system_counter", &self.system_counter)
             .field("global_system_counter", &self.global_system_counter)
@@ -618,7 +618,7 @@ impl<T: Component> std::fmt::Debug for Counters<T> {
     }
 }
 
-impl<T: Component> Counters<T> {
+impl<T: Component> ChangeTrackers<T> {
     /// Has this component been added since the last execution of this system.
     pub fn is_added(&self) -> bool {
         self.component_counters
@@ -632,12 +632,12 @@ impl<T: Component> Counters<T> {
     }
 }
 
-impl<T: Component> WorldQuery for Counters<T> {
-    type Fetch = CountersFetch<T>;
-    type State = CountersState<T>;
+impl<T: Component> WorldQuery for ChangeTrackers<T> {
+    type Fetch = ChangeTrackersFetch<T>;
+    type State = ChangeTrackersState<T>;
 }
 
-pub struct CountersState<T> {
+pub struct ChangeTrackersState<T> {
     component_id: ComponentId,
     storage_type: StorageType,
     marker: PhantomData<T>,
@@ -645,7 +645,7 @@ pub struct CountersState<T> {
 
 // SAFE: component access and archetype component access are properly updated to reflect that T is
 // read
-unsafe impl<T: Component> FetchState for CountersState<T> {
+unsafe impl<T: Component> FetchState for ChangeTrackersState<T> {
     fn init(world: &mut World) -> Self {
         let component_info = world.components.get_or_insert_info::<T>();
         Self {
@@ -680,7 +680,7 @@ unsafe impl<T: Component> FetchState for CountersState<T> {
     }
 }
 
-pub struct CountersFetch<T> {
+pub struct ChangeTrackersFetch<T> {
     storage_type: StorageType,
     table_counters: *const ComponentCounters,
     entity_table_rows: *const usize,
@@ -692,11 +692,11 @@ pub struct CountersFetch<T> {
 }
 
 /// SAFE: access is read only  
-unsafe impl<T> ReadOnlyFetch for CountersFetch<T> {}
+unsafe impl<T> ReadOnlyFetch for ChangeTrackersFetch<T> {}
 
-impl<'w, T: Component> Fetch<'w> for CountersFetch<T> {
-    type Item = Counters<T>;
-    type State = CountersState<T>;
+impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
+    type Item = ChangeTrackers<T>;
+    type State = ChangeTrackersState<T>;
 
     #[inline]
     fn is_dense(&self) -> bool {
@@ -765,7 +765,7 @@ impl<'w, T: Component> Fetch<'w> for CountersFetch<T> {
         match self.storage_type {
             StorageType::Table => {
                 let table_row = *self.entity_table_rows.add(archetype_index);
-                Counters {
+                ChangeTrackers {
                     component_counters: *self.table_counters.add(table_row),
                     marker: PhantomData,
                     system_counter: self.system_counter,
@@ -774,7 +774,7 @@ impl<'w, T: Component> Fetch<'w> for CountersFetch<T> {
             }
             StorageType::SparseSet => {
                 let entity = *self.entities.add(archetype_index);
-                Counters {
+                ChangeTrackers {
                     component_counters: *(*self.sparse_set).get_counters(entity).unwrap(),
                     marker: PhantomData,
                     system_counter: self.system_counter,
@@ -786,7 +786,7 @@ impl<'w, T: Component> Fetch<'w> for CountersFetch<T> {
 
     #[inline]
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
-        Counters {
+        ChangeTrackers {
             component_counters: *self.table_counters.add(table_row),
             marker: PhantomData,
             system_counter: self.system_counter,

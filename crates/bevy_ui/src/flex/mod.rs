@@ -4,7 +4,7 @@ use crate::{CalculatedSize, Node, Style};
 use bevy_app::EventReader;
 use bevy_ecs::{
     entity::Entity,
-    query::{Changed, Counters, FilterFetch, With, Without, WorldQuery},
+    query::{ChangeTrackers, Changed, FilterFetch, With, Without, WorldQuery},
     system::{Query, Res, ResMut},
 };
 use bevy_log::warn;
@@ -204,8 +204,8 @@ pub fn flex_node_system(
         Entity,
         &mut Node,
         &mut Transform,
-        Option<(&Parent, Counters<Parent>)>,
-        Counters<Transform>,
+        Option<(&Parent, ChangeTrackers<Parent>)>,
+        ChangeTrackers<Transform>,
     )>,
 ) {
     // update window root nodes

@@ -39,7 +39,11 @@ fn change_detection(query: Query<(Entity, &MyComponent), Changed<MyComponent>>) 
 
 // By looking at counters, the query is not filtered but the information is available
 fn counters_monitoring(
-    query: Query<(Entity, Option<&MyComponent>, Option<Counters<MyComponent>>)>,
+    query: Query<(
+        Entity,
+        Option<&MyComponent>,
+        Option<ChangeTrackers<MyComponent>>,
+    )>,
 ) {
     for (entity, component, counters) in query.iter() {
         info!("{:?}: {:?} -> {:?}", entity, component, counters,);
