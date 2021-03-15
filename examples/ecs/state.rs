@@ -7,12 +7,12 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .init_resource::<ButtonMaterials>()
         .add_state(AppState::Menu)
-        .add_system_set(State::on_enter_set(AppState::Menu).with_system(setup_menu.system()))
-        .add_system_set(State::on_update_set(AppState::Menu).with_system(menu.system()))
-        .add_system_set(State::on_exit_set(AppState::Menu).with_system(cleanup_menu.system()))
-        .add_system_set(State::on_enter_set(AppState::InGame).with_system(setup_game.system()))
+        .add_system_set(SystemSet::on_enter(AppState::Menu).with_system(setup_menu.system()))
+        .add_system_set(SystemSet::on_update(AppState::Menu).with_system(menu.system()))
+        .add_system_set(SystemSet::on_exit(AppState::Menu).with_system(cleanup_menu.system()))
+        .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(setup_game.system()))
         .add_system_set(
-            State::on_update_set(AppState::InGame)
+            SystemSet::on_update(AppState::InGame)
                 .with_system(movement.system())
                 .with_system(change_color.system()),
         )

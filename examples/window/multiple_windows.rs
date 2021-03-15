@@ -19,10 +19,10 @@ fn main() {
         .add_state(AppState::CreateWindow)
         .add_plugins(DefaultPlugins)
         .add_system_set(
-            State::on_update_set(AppState::CreateWindow).with_system(setup_window.system()),
+            SystemSet::on_update(AppState::CreateWindow).with_system(setup_window.system()),
         )
         .add_system_set(
-            State::on_enter_set(AppState::CreateWindow).with_system(setup_pipeline.system()),
+            SystemSet::on_enter(AppState::CreateWindow).with_system(setup_pipeline.system()),
         )
         .run();
 }

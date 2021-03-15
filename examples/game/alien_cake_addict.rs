@@ -19,22 +19,22 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_state(GameState::Playing)
         .add_startup_system(setup_cameras.system())
-        .add_system_set(State::on_enter_set(GameState::Playing).with_system(setup.system()))
+        .add_system_set(SystemSet::on_enter(GameState::Playing).with_system(setup.system()))
         .add_system_set(
-            State::on_update_set(GameState::Playing)
+            SystemSet::on_update(GameState::Playing)
                 .with_system(move_player.system())
                 .with_system(focus_camera.system())
                 .with_system(rotate_bonus.system())
                 .with_system(scoreboard_system.system()),
         )
-        .add_system_set(State::on_exit_set(GameState::Playing).with_system(teardown.system()))
+        .add_system_set(SystemSet::on_exit(GameState::Playing).with_system(teardown.system()))
         .add_system_set(
-            State::on_enter_set(GameState::GameOver).with_system(display_score.system()),
+            SystemSet::on_enter(GameState::GameOver).with_system(display_score.system()),
         )
         .add_system_set(
-            State::on_update_set(GameState::GameOver).with_system(gameover_keyboard.system()),
+            SystemSet::on_update(GameState::GameOver).with_system(gameover_keyboard.system()),
         )
-        .add_system_set(State::on_exit_set(GameState::GameOver).with_system(teardown.system()))
+        .add_system_set(SystemSet::on_exit(GameState::GameOver).with_system(teardown.system()))
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(5.0))
