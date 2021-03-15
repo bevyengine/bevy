@@ -533,7 +533,6 @@ mod test {
             "inactive S5",
         ];
 
-        println!("new run!");
         stage.run(&mut world);
         let mut collected = world.get_resource_mut::<Vec<&'static str>>().unwrap();
         let mut count = 0;
