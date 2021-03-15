@@ -31,7 +31,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         // camera
         .spawn(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(2.0, 2.0, 6.0).looking_at(Vec3::default(), Vec3::Y),
+            transform: Transform::from_xyz(2.0, 2.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..Default::default()
         });
 }

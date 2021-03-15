@@ -435,7 +435,13 @@ impl AssetServer {
                     AssetPath::new_ref(&load_context.path, label.as_ref().map(|l| l.as_str()));
                 asset_lifecycle.create_asset(asset_path.into(), asset_value, load_context.version);
             } else {
-                panic!("Failed to find AssetLifecycle for label {:?}, which has an asset type {:?}. Are you sure that is a registered asset type?", label, asset_value.type_uuid());
+                panic!(
+                    "Failed to find AssetLifecycle for label '{:?}', which has an asset type {} (UUID {:?}). \
+                        Are you sure this asset type has been added to your app builder?",
+                    label,
+                    asset_value.type_name(),
+                    asset_value.type_uuid(),
+                );
             }
         }
     }
@@ -465,7 +471,7 @@ impl AssetServer {
                         }
                     }
 
-                    assets.set(result.id, result.asset);
+                    let _ = assets.set(result.id, result.asset);
                 }
                 Ok(AssetLifecycleEvent::Free(handle_id)) => {
                     if let HandleId::AssetPathId(id) = handle_id {

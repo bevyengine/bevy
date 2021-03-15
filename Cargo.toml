@@ -303,6 +303,10 @@ name = "keyboard_input"
 path = "examples/input/keyboard_input.rs"
 
 [[example]]
+name = "keyboard_modifiers"
+path = "examples/input/keyboard_modifiers.rs"
+
+[[example]]
 name = "keyboard_input_events"
 path = "examples/input/keyboard_input_events.rs"
 

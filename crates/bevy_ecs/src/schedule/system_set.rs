@@ -1,5 +1,6 @@
 use crate::{
-    schedule::{RunCriteria, ShouldRun, SystemDescriptor},
+    component::Component,
+    schedule::{RunCriteria, ShouldRun, State, SystemDescriptor},
     system::System,
 };
 
@@ -44,5 +45,29 @@ impl SystemSet {
     pub fn add_system(&mut self, system: impl Into<SystemDescriptor>) -> &mut Self {
         self.descriptors.push(system.into());
         self
+    }
+
+    pub fn on_update<T: Component + Clone + Eq>(s: T) -> SystemSet {
+        Self::new().with_run_criteria(State::<T>::on_update(s))
+    }
+
+    pub fn on_inactive_update<T: Component + Clone + Eq>(s: T) -> SystemSet {
+        Self::new().with_run_criteria(State::<T>::on_inactive_update(s))
+    }
+
+    pub fn on_enter<T: Component + Clone + Eq>(s: T) -> SystemSet {
+        Self::new().with_run_criteria(State::<T>::on_enter(s))
+    }
+
+    pub fn on_exit<T: Component + Clone + Eq>(s: T) -> SystemSet {
+        Self::new().with_run_criteria(State::<T>::on_exit(s))
+    }
+
+    pub fn on_pause<T: Component + Clone + Eq>(s: T) -> SystemSet {
+        Self::new().with_run_criteria(State::<T>::on_pause(s))
+    }
+
+    pub fn on_resume<T: Component + Clone + Eq>(s: T) -> SystemSet {
+        Self::new().with_run_criteria(State::<T>::on_resume(s))
     }
 }

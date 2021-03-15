@@ -59,12 +59,12 @@ pub struct SystemStage {
     executor: Box<dyn ParallelSystemExecutor>,
     /// Groups of systems; each set has its own run criterion.
     system_sets: Vec<VirtualSystemSet>,
-    /// Topologically sorted exclusive systems that want to be ran at the start of the stage.
+    /// Topologically sorted exclusive systems that want to be run at the start of the stage.
     exclusive_at_start: Vec<ExclusiveSystemContainer>,
-    /// Topologically sorted exclusive systems that want to be ran after parallel systems but
+    /// Topologically sorted exclusive systems that want to be run after parallel systems but
     /// before the application of their command buffers.
     exclusive_before_commands: Vec<ExclusiveSystemContainer>,
-    /// Topologically sorted exclusive systems that want to be ran at the end of the stage.
+    /// Topologically sorted exclusive systems that want to be run at the end of the stage.
     exclusive_at_end: Vec<ExclusiveSystemContainer>,
     /// Topologically sorted parallel systems.
     parallel: Vec<ParallelSystemContainer>,
@@ -165,6 +165,32 @@ impl SystemStage {
 
     pub fn add_system(&mut self, system: impl Into<SystemDescriptor>) -> &mut Self {
         self.add_system_to_set(system, 0)
+    }
+
+    /// Topologically sorted parallel systems.
+    ///
+    /// Note that systems won't be fully-formed until the stage has been run at least once.
+    pub fn parallel_systems(&self) -> &[impl SystemContainer] {
+        &self.parallel
+    }
+    /// Topologically sorted exclusive systems that want to be run at the start of the stage.
+    ///
+    /// Note that systems won't be fully-formed until the stage has been run at least once.
+    pub fn exclusive_at_start_systems(&self) -> &[impl SystemContainer] {
+        &self.exclusive_at_start
+    }
+    /// Topologically sorted exclusive systems that want to be run at the end of the stage.
+    ///
+    /// Note that systems won't be fully-formed until the stage has been run at least once.
+    pub fn exclusive_at_end_systems(&self) -> &[impl SystemContainer] {
+        &self.exclusive_at_end
+    }
+    /// Topologically sorted exclusive systems that want to be run after parallel systems but
+    /// before the application of their command buffers.
+    ///
+    /// Note that systems won't be fully-formed until the stage has been run at least once.
+    pub fn exclusive_before_commands_systems(&self) -> &[impl SystemContainer] {
+        &self.exclusive_before_commands
     }
 
     // TODO: consider exposing

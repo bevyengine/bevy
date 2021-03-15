@@ -7,7 +7,7 @@ use crate::{
 use bevy_ecs::{
     component::Component,
     schedule::{
-        RunOnce, Schedule, Stage, StageLabel, StateStage, SystemDescriptor, SystemSet, SystemStage,
+        RunOnce, Schedule, Stage, StageLabel, State, SystemDescriptor, SystemSet, SystemStage,
     },
     system::{IntoExclusiveSystem, IntoSystem},
     world::{FromWorld, World},
@@ -177,37 +177,18 @@ impl AppBuilder {
         self
     }
 
-    pub fn on_state_enter<T: Clone + Component>(
-        &mut self,
-        stage: impl StageLabel,
-        state: T,
-        system: impl Into<SystemDescriptor>,
-    ) -> &mut Self {
-        self.stage(stage, |stage: &mut StateStage<T>| {
-            stage.on_state_enter(state, system)
-        })
+    pub fn add_state<T: Component + Clone + Eq>(&mut self, initial: T) -> &mut Self {
+        self.insert_resource(State::new(initial))
+            .add_system_set(State::<T>::make_driver())
     }
 
-    pub fn on_state_update<T: Clone + Component>(
+    pub fn add_state_to_stage<T: Component + Clone + Eq>(
         &mut self,
         stage: impl StageLabel,
-        state: T,
-        system: impl Into<SystemDescriptor>,
+        initial: T,
     ) -> &mut Self {
-        self.stage(stage, |stage: &mut StateStage<T>| {
-            stage.on_state_update(state, system)
-        })
-    }
-
-    pub fn on_state_exit<T: Clone + Component>(
-        &mut self,
-        stage: impl StageLabel,
-        state: T,
-        system: impl Into<SystemDescriptor>,
-    ) -> &mut Self {
-        self.stage(stage, |stage: &mut StateStage<T>| {
-            stage.on_state_exit(state, system)
-        })
+        self.insert_resource(State::new(initial))
+            .add_system_set_to_stage(stage, State::<T>::make_driver())
     }
 
     pub fn add_default_stages(&mut self) -> &mut Self {

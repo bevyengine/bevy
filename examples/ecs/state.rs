@@ -6,21 +6,20 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .init_resource::<ButtonMaterials>()
-        .insert_resource(State::new(AppState::Menu))
-        .add_stage_after(CoreStage::Update, Stage, StateStage::<AppState>::default())
-        .on_state_enter(Stage, AppState::Menu, setup_menu.system())
-        .on_state_update(Stage, AppState::Menu, menu.system())
-        .on_state_exit(Stage, AppState::Menu, cleanup_menu.system())
-        .on_state_enter(Stage, AppState::InGame, setup_game.system())
-        .on_state_update(Stage, AppState::InGame, movement.system())
-        .on_state_update(Stage, AppState::InGame, change_color.system())
+        .add_state(AppState::Menu)
+        .add_system_set(SystemSet::on_enter(AppState::Menu).with_system(setup_menu.system()))
+        .add_system_set(SystemSet::on_update(AppState::Menu).with_system(menu.system()))
+        .add_system_set(SystemSet::on_exit(AppState::Menu).with_system(cleanup_menu.system()))
+        .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(setup_game.system()))
+        .add_system_set(
+            SystemSet::on_update(AppState::InGame)
+                .with_system(movement.system())
+                .with_system(change_color.system()),
+        )
         .run();
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-struct Stage;
-
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 enum AppState {
     Menu,
     InGame,
@@ -120,7 +119,7 @@ fn movement(
     mut query: Query<&mut Transform, With<Sprite>>,
 ) {
     for mut transform in query.iter_mut() {
-        let mut direction = Vec3::default();
+        let mut direction = Vec3::ZERO;
         if input.pressed(KeyCode::Left) {
             direction.x += 1.0;
         }
@@ -134,7 +133,7 @@ fn movement(
             direction.y -= 1.0;
         }
 
-        if direction != Vec3::default() {
+        if direction != Vec3::ZERO {
             transform.translation += direction.normalize() * SPEED * time.delta_seconds();
         }
     }

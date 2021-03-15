@@ -201,6 +201,13 @@ impl Schedule {
             stage.run(world);
         }
     }
+
+    /// Iterates over all of schedule's stages and their labels, in execution order.
+    pub fn iter_stages(&self) -> impl Iterator<Item = (&dyn StageLabel, &dyn Stage)> {
+        self.stage_order
+            .iter()
+            .map(move |label| (&**label, &*self.stages[label]))
+    }
 }
 
 impl Stage for Schedule {
