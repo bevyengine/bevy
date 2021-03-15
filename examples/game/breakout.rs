@@ -16,9 +16,7 @@ fn main() {
         .add_stage(
             FixedUpdateStage,
             SystemStage::parallel()
-                .with_run_criteria(
-                    FixedTimestep::step(TIME_STEP as f64)
-                )
+                .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
                 .with_system(paddle_movement_system.system())
                 .with_system(ball_collision_system.system())
                 .with_system(ball_movement_system.system()),
@@ -202,7 +200,7 @@ fn paddle_movement_system(
 
         let translation = &mut transform.translation;
         // move the paddle horizontally
-        translation.x += direction * paddle.speed;
+        translation.x += direction * paddle.speed * TIME_STEP;
         // bound the paddle within the walls
         translation.x = translation.x.min(380.0).max(-380.0);
     }
@@ -210,7 +208,7 @@ fn paddle_movement_system(
 
 fn ball_movement_system(mut ball_query: Query<(&Ball, &mut Transform)>) {
     if let Ok((ball, mut transform)) = ball_query.single_mut() {
-        transform.translation += ball.velocity;
+        transform.translation += ball.velocity * TIME_STEP;
     }
 }
 
