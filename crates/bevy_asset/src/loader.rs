@@ -158,8 +158,8 @@ pub struct AssetResult<T> {
 /// A channel to send and receive [`AssetResult`]s
 #[derive(Debug)]
 pub struct AssetLifecycleChannel<T> {
-    pub sender: Sender<AssetLifecycleEvent<T>>,
-    pub receiver: Receiver<AssetLifecycleEvent<T>>,
+    pub to_system: Sender<AssetLifecycleEvent<T>>,
+    pub from_asset_server: Receiver<AssetLifecycleEvent<T>>,
 }
 
 pub enum AssetLifecycleEvent<T> {
@@ -176,7 +176,7 @@ impl_downcast!(AssetLifecycle);
 impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
     fn create_asset(&self, id: HandleId, asset: Box<dyn AssetDynamic>, version: usize) {
         if let Ok(asset) = asset.downcast::<T>() {
-            self.sender
+            self.to_system
                 .send(AssetLifecycleEvent::Create(AssetResult {
                     asset,
                     id,
@@ -192,14 +192,17 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
     }
 
     fn free_asset(&self, id: HandleId) {
-        self.sender.send(AssetLifecycleEvent::Free(id)).unwrap();
+        self.to_system.send(AssetLifecycleEvent::Free(id)).unwrap();
     }
 }
 
 impl<T> Default for AssetLifecycleChannel<T> {
     fn default() -> Self {
-        let (sender, receiver) = crossbeam_channel::unbounded();
-        AssetLifecycleChannel { sender, receiver }
+        let (to_system, from_asset_server) = crossbeam_channel::unbounded();
+        AssetLifecycleChannel {
+            to_system,
+            from_asset_server,
+        }
     }
 }
 

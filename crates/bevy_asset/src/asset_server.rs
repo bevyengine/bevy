@@ -507,7 +507,7 @@ impl AssetServer {
             .unwrap();
 
         loop {
-            match channel.receiver.try_recv() {
+            match channel.from_asset_server.try_recv() {
                 Ok(AssetLifecycleEvent::Create(result)) => {
                     // update SourceInfo if this asset was loaded from an AssetPath
                     if let HandleId::AssetPathId(id) = result.id {
