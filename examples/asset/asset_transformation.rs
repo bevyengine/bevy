@@ -29,7 +29,7 @@ fn setup(
 ) {
     let texture_handle = asset_server.load("branding/icon.png");
 
-    // new texture with one pixel every three removed
+    // new texture with every third pixel removed
     let texture_handle_1 = asset_server.create_from(texture_handle.clone(), |texture: &Texture| {
         Some(Texture {
             data: filter_pixels(3, texture),
@@ -37,7 +37,7 @@ fn setup(
         })
     });
 
-    // new texture with one pixel every two removed
+    // new texture with every second pixel removed
     let texture_handle_2 = asset_server.create_from(texture_handle.clone(), |texture: &Texture| {
         Some(Texture {
             data: filter_pixels(2, texture),
