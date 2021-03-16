@@ -271,6 +271,10 @@ name = "asset_loading"
 path = "examples/asset/asset_loading.rs"
 
 [[example]]
+name = "asset_transformation"
+path = "examples/asset/asset_transformation.rs"
+
+[[example]]
 name = "custom_asset"
 path = "examples/asset/custom_asset.rs"
 

@@ -237,7 +237,38 @@ impl AssetServer {
         self.load_untyped(path).typed()
     }
 
-    async fn load_async(
+    /// Create a new asset from another one of the same type
+    pub fn create_new_from<T: Asset, F>(
+        &self,
+        original_handle: Handle<T>,
+        transform: F,
+    ) -> Handle<T>
+    where
+        F: FnOnce(&T) -> T,
+        F: Send + 'static,
+    {
+        let new_handle = HandleId::random::<T>();
+        let ret = self.get_handle_untyped(new_handle).typed();
+
+        let asset_lifecycles = self.server.asset_lifecycles.read();
+        if let Some(asset_lifecycle) = asset_lifecycles.get(&T::TYPE_UUID) {
+            asset_lifecycle.create_asset_from(
+                original_handle.into(),
+                new_handle,
+                Box::new(|asset| {
+                    Box::new(transform(
+                        Box::new(asset)
+                            .downcast_ref::<T>()
+                            .expect("This can't happen as asset is of type T"),
+                    ))
+                }),
+            );
+        }
+
+        ret
+    }
+
+    async fn load_async<'a>(
         &self,
         asset_path: AssetPath<'_>,
         force: bool,
@@ -506,6 +537,7 @@ impl AssetServer {
             .downcast_ref::<AssetLifecycleChannel<T>>()
             .unwrap();
 
+        let mut rerun = vec![];
         loop {
             match channel.from_asset_server.try_recv() {
                 Ok(AssetLifecycleEvent::Create(result)) => {
@@ -536,11 +568,37 @@ impl AssetServer {
                     }
                     assets.remove(handle_id);
                 }
+                Ok(AssetLifecycleEvent::CreateNewFrom {
+                    from,
+                    to,
+                    transform,
+                }) => {
+                    if let Some(original) = assets.get(from) {
+                        // `transform` can fail if it's result is not the expected type
+                        // this should happen as public API to reach this point is stronly typed
+                        // traits are only used in flight for communication
+                        if let Ok(new) = transform(original) {
+                            let _ = assets.set(to, *new);
+                        } else {
+                            warn!("Error converting an asset to it's type, please open an issue in Bevy GitHub repository");
+                        }
+                    } else {
+                        rerun.push(AssetLifecycleEvent::CreateNewFrom {
+                            from,
+                            to,
+                            transform,
+                        });
+                    }
+                }
                 Err(TryRecvError::Empty) => {
                     break;
                 }
                 Err(TryRecvError::Disconnected) => panic!("AssetChannel disconnected."),
             }
+        }
+
+        for message in rerun.into_iter() {
+            channel.to_system.send(message).unwrap();
         }
     }
 }

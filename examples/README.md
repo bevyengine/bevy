@@ -136,6 +136,7 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `asset_loading` | [`asset/asset_loading.rs`](./asset/asset_loading.rs) | Demonstrates various methods to load assets
+`asset_transformation` | [`asset/asset_transformation.rs`](./asset/asset_transformation.rs) | Create new assets from an existing one, with some transformation
 `custom_asset` | [`asset/custom_asset.rs`](./asset/custom_asset.rs) | Implements a custom asset loader
 `custom_asset_io` | [`asset/custom_asset_io.rs`](./asset/custom_asset_io.rs) | Implements a custom asset io loader
 `hot_asset_reloading` | [`asset/hot_asset_reloading.rs`](./asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk

@@ -164,11 +164,22 @@ pub struct AssetLifecycleChannel<T> {
 
 pub enum AssetLifecycleEvent<T> {
     Create(AssetResult<T>),
+    CreateNewFrom {
+        from: HandleId,
+        to: HandleId,
+        transform: Box<dyn (FnOnce(&T) -> Result<Box<T>, ()>) + Send>,
+    },
     Free(HandleId),
 }
 
 pub trait AssetLifecycle: Downcast + Send + Sync + 'static {
     fn create_asset(&self, id: HandleId, asset: Box<dyn AssetDynamic>, version: usize);
+    fn create_asset_from(
+        &self,
+        from: HandleId,
+        to: HandleId,
+        transform: Box<dyn (FnOnce(&dyn AssetDynamic) -> Box<dyn AssetDynamic>) + Send>,
+    );
     fn free_asset(&self, id: HandleId);
 }
 impl_downcast!(AssetLifecycle);
@@ -189,6 +200,21 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
                 std::any::type_name::<T>()
             );
         }
+    }
+
+    fn create_asset_from(
+        &self,
+        from: HandleId,
+        to: HandleId,
+        transform: Box<dyn (FnOnce(&dyn AssetDynamic) -> Box<dyn AssetDynamic>) + Send>,
+    ) {
+        self.to_system
+            .send(AssetLifecycleEvent::CreateNewFrom {
+                from,
+                to,
+                transform: Box::new(|asset: &T| transform(asset).downcast::<T>().map_err(|_| ())),
+            })
+            .unwrap();
     }
 
     fn free_asset(&self, id: HandleId) {
