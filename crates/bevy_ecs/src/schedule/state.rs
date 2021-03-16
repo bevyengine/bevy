@@ -378,7 +378,10 @@ where
     }
 
     pub fn inactives(&self) -> &[T] {
-        self.stack.split_last().map(|(_last, rest)| rest).unwrap_or(&[])
+        self.stack
+            .split_last()
+            .map(|(_last, rest)| rest)
+            .unwrap()
     }
 }
 
