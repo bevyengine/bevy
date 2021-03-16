@@ -4,6 +4,7 @@ use crate::{
 };
 use anyhow::Result;
 use bevy_ecs::system::{Res, ResMut};
+use bevy_log::warn;
 use bevy_reflect::{TypeUuid, TypeUuidDynamic, Uuid};
 use bevy_tasks::TaskPool;
 use bevy_utils::{BoxedFuture, HashMap};
@@ -167,8 +168,8 @@ pub enum AssetLifecycleEvent<T> {
     CreateFrom {
         from: HandleId,
         to: HandleId,
-        to_uuid: Uuid,
-        transform: Box<dyn (FnOnce(&T) -> Box<dyn AssetDynamic>) + Send>,
+        to_type_uuid: Uuid,
+        transform: Box<dyn (FnOnce(&T) -> Option<Box<dyn AssetDynamic>>) + Send>,
     },
     Free(HandleId),
 }
@@ -180,7 +181,7 @@ pub trait AssetLifecycle: Downcast + Send + Sync + 'static {
         from: HandleId,
         to: HandleId,
         to_uuid: Uuid,
-        transform: Box<dyn (FnOnce(&dyn AssetDynamic) -> Box<dyn AssetDynamic>) + Send>,
+        transform: Box<dyn (FnOnce(&dyn AssetDynamic) -> Option<Box<dyn AssetDynamic>>) + Send>,
     );
     fn free_asset(&self, id: HandleId);
 }
@@ -197,25 +198,28 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
                 }))
                 .unwrap()
         } else {
-            panic!(
+            warn!(
                 "Failed to downcast asset to {}.",
                 std::any::type_name::<T>()
             );
         }
     }
 
+    /// Convert an asset from type `T` to type with `T_TO::TYPE_UUID == to_uuid`.
+    /// It is the responsibility of the caller to ensure that input/output of `transform`
+    /// matches those types
     fn create_asset_from(
         &self,
         from: HandleId,
         to: HandleId,
-        to_uuid: Uuid,
-        transform: Box<dyn (FnOnce(&dyn AssetDynamic) -> Box<dyn AssetDynamic>) + Send>,
+        to_type_uuid: Uuid,
+        transform: Box<dyn (FnOnce(&dyn AssetDynamic) -> Option<Box<dyn AssetDynamic>>) + Send>,
     ) {
         self.to_system
             .send(AssetLifecycleEvent::CreateFrom {
                 from,
                 to,
-                to_uuid,
+                to_type_uuid,
                 transform: Box::new(|asset: &T| transform(asset)),
             })
             .unwrap();

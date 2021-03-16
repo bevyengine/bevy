@@ -6,7 +6,7 @@ use crate::{
 };
 use anyhow::Result;
 use bevy_ecs::system::{Res, ResMut};
-use bevy_log::warn;
+use bevy_log::{debug, warn};
 use bevy_tasks::TaskPool;
 use bevy_utils::{HashMap, Uuid};
 use crossbeam_channel::TryRecvError;
@@ -244,7 +244,7 @@ impl AssetServer {
         transform: F,
     ) -> Handle<TO>
     where
-        F: FnOnce(&FROM) -> TO,
+        F: FnOnce(&FROM) -> Option<TO>,
         F: Send + 'static,
     {
         let new_handle = HandleId::random::<TO>();
@@ -257,11 +257,17 @@ impl AssetServer {
                 new_handle,
                 TO::TYPE_UUID,
                 Box::new(|asset: &dyn AssetDynamic| {
-                    Box::new(transform(
+                    if let Some(transformed) = transform(
                         asset
                             .downcast_ref::<FROM>()
+                            // this downcast can't fail as we know the actual types here
                             .expect("Error converting an asset to it's type, please open an issue in Bevy GitHub repository"),
-                    ))
+                    ) {
+                        Some(Box::new(transformed))
+                    } else {
+                        warn!("Error creating a new asset from {} to {}", std::any::type_name::<FROM>(), std::any::type_name::<TO>());
+                        None
+                    }
                 }),
             );
         }
@@ -572,20 +578,41 @@ impl AssetServer {
                 Ok(AssetLifecycleEvent::CreateFrom {
                     from,
                     to,
-                    to_uuid,
+                    to_type_uuid,
                     transform,
                 }) => {
                     if let Some(original) = assets.get(from) {
-                        let new = transform(original);
-                        asset_lifecycles
-                            .get(&to_uuid)
-                            .unwrap()
-                            .create_asset(to, new, 0);
+                        if let Some(new) = transform(original) {
+                            if T::TYPE_UUID == to_type_uuid {
+                                // New asset is of same type as original, add it to the `assets`
+                                if let Ok(new_asset) = new.downcast::<T>() {
+                                    let _ = assets.set(to, *new_asset);
+                                } else {
+                                    warn!(
+                                        "Failed to downcast transformed asset to {}.",
+                                        std::any::type_name::<T>()
+                                    );
+                                }
+                            } else {
+                                // Converting to another asset type, use its `asset_lifecycle` to create it
+                                asset_lifecycles
+                                    .get(&to_type_uuid)
+                                    .unwrap()
+                                    .create_asset(to, new, 0);
+                            }
+                        } else {
+                            // Log as debug here, it should have already been logged as warn
+                            debug!(
+                                "Failed to transform asset from {}.",
+                                std::any::type_name::<T>()
+                            );
+                        }
                     } else {
+                        // Asset is not yet ready, retry next frame
                         rerun.push(AssetLifecycleEvent::CreateFrom {
                             from,
                             to,
-                            to_uuid,
+                            to_type_uuid,
                             transform,
                         });
                     }
