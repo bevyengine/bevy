@@ -83,15 +83,51 @@ impl Transform {
     }
 
     #[inline]
+    /// Equivalent to -local_x()
+    pub fn left(&self) -> Vec3 {
+        -self.local_x()
+    }
+
+    #[inline]
+    /// Equivalent to local_x()
+    pub fn right(&self) -> Vec3 {
+        self.local_x()
+    }
+
+    #[inline]
     /// Get the unit vector in the local y direction
     pub fn local_y(&self) -> Vec3 {
         self.rotation * Vec3::Y
     }
 
     #[inline]
+    /// Equivalent to local_y()
+    pub fn up(&self) -> Vec3 {
+        self.local_y()
+    }
+
+    #[inline]
+    /// Equivalent to -local_y()
+    pub fn down(&self) -> Vec3 {
+        -self.local_y()
+    }
+
+    #[inline]
     /// Get the unit vector in the local z direction
     pub fn local_z(&self) -> Vec3 {
         self.rotation * Vec3::Z
+    }
+
+    #[inline]
+    /// Equivalent to -local_z()
+    pub fn forward(&self) -> Vec3 {
+        -self.local_z()
+    }
+
+    #[inline]
+    /// Equivalent to local_z()
+    pub fn back(&self) -> Vec3 {
+        self.local_z()
     }
 
     #[inline]
