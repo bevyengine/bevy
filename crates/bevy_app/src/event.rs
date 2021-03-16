@@ -56,18 +56,18 @@ enum State {
 }
 
 /// An event collection that represents the events that occurred within the last two
-/// [Events::update] calls.
-/// Events can be written to in parallel using an [EventWriter]
-/// and are typically cheaply read using an [EventReader].
+/// [`Events::update`] calls.
+/// Events can be written to in parallel using an [`EventWriter`]
+/// and are typically cheaply read using an [`EventReader`].
 ///
 /// Each event can be consumed by multiple systems, in parallel,
-/// with consumption tracked by the [EventReader] on a per-system basis.
+/// with consumption tracked by the [`EventReader`] on a per-system basis.
 ///
 /// This collection is meant to be paired with a system that calls
-/// [Events::update] exactly once per update/frame.
+/// [`Events::update`] exactly once per update/frame.
 ///
-/// [Events::update_system] is a system that does this, typically intialized automatically using
-/// `[AppBuilder::add_event]. [EventReader]s are expected to read events from this collection at
+/// [`Events::update_system`] is a system that does this, typically intialized automatically using
+/// [`AppBuilder::add_event`]. [EventReader]s are expected to read events from this collection at
 /// least once per loop/frame.  
 /// Events will persist across a single frame boundary and so ordering of event producers and
 /// consumers is not critical (although poorly-planned ordering may cause accumulating lag).
@@ -114,7 +114,7 @@ enum State {
 /// An alternative call pattern would be to call [Events::update] manually across frames to control
 /// when events are cleared.
 /// This complicates consumption and risks ever-expanding memory usage if not cleaned up,
-/// but can be done by adding your event as a resource instead of using `[AppBuilder::add_event].
+/// but can be done by adding your event as a resource instead of using [`AppBuilder::add_event`].
 #[derive(Debug)]
 pub struct Events<T> {
     events_a: Vec<EventInstance<T>>,
