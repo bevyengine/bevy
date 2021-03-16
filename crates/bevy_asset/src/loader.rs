@@ -216,7 +216,7 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
                     transform(asset)
                         .downcast::<T>()
                         // `downcast` can fail if `transform` result is not the expected type
-                        // this should not happen as public API to reach this point is stronly typed
+                        // this should not happen as public API to reach this point is strongly typed
                         // traits are only used in flight for communication
                         .map_err(|_| ())
                 }),
