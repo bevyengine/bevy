@@ -257,7 +257,7 @@ impl AssetServer {
                 new_handle,
                 Box::new(|asset| {
                     Box::new(transform(
-                        Box::new(asset)
+                        asset
                             .downcast_ref::<T>()
                             .expect("This can't happen as asset is of type T"),
                     ))
