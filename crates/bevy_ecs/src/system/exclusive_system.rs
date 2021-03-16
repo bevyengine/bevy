@@ -13,7 +13,7 @@ pub trait ExclusiveSystem: Send + Sync + 'static {
 
     fn initialize(&mut self, world: &mut World);
 
-    fn check_system_counter(&mut self, global_system_counter: u32);
+    fn check_system_counter(&mut self, change_tick: u32);
 }
 
 pub struct ExclusiveSystemFn {
@@ -40,19 +40,19 @@ impl ExclusiveSystem for ExclusiveSystemFn {
 
         (self.func)(world);
 
-        let global_system_counter = world.global_system_counter.get_mut();
-        self.system_counter = *global_system_counter;
-        *global_system_counter += 1;
+        let change_tick = world.change_tick.get_mut();
+        self.system_counter = *change_tick;
+        *change_tick += 1;
 
         world.exclusive_system_counter = saved_counter;
     }
 
     fn initialize(&mut self, _: &mut World) {}
 
-    fn check_system_counter(&mut self, global_system_counter: u32) {
+    fn check_system_counter(&mut self, change_tick: u32) {
         check_system_counter_impl(
             &mut self.system_counter,
-            global_system_counter,
+            change_tick,
             self.name.as_ref(),
         );
     }
@@ -99,8 +99,8 @@ impl ExclusiveSystem for ExclusiveSystemCoerced {
         self.system.initialize(world);
     }
 
-    fn check_system_counter(&mut self, global_system_counter: u32) {
-        self.system.check_system_counter(global_system_counter);
+    fn check_system_counter(&mut self, change_tick: u32) {
+        self.system.check_system_counter(change_tick);
     }
 }
 

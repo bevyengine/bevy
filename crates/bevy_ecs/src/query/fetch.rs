@@ -30,7 +30,7 @@ pub trait Fetch<'w>: Sized {
         world: &World,
         state: &Self::State,
         system_counter: u32,
-        global_system_counter: u32,
+        change_tick: u32,
     ) -> Self;
 
     /// Returns true if (and only if) every table of every archetype matched by this Fetch contains
@@ -337,7 +337,7 @@ pub struct WriteFetch<T> {
     entity_table_rows: *const usize,
     sparse_set: *const ComponentSparseSet,
     system_counter: u32,
-    global_system_counter: u32,
+    change_tick: u32,
 }
 
 pub struct WriteState<T> {
@@ -403,7 +403,7 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
         world: &World,
         state: &Self::State,
         system_counter: u32,
-        global_system_counter: u32,
+        change_tick: u32,
     ) -> Self {
         let mut value = Self {
             storage_type: state.storage_type,
@@ -413,7 +413,7 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
             sparse_set: ptr::null::<ComponentSparseSet>(),
             table_counters: ptr::null_mut::<ComponentCounters>(),
             system_counter,
-            global_system_counter,
+            change_tick,
         };
         if state.storage_type == StorageType::SparseSet {
             value.sparse_set = world
@@ -460,7 +460,7 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
                 Mut {
                     value: &mut *self.table_components.as_ptr().add(table_row),
                     component_counters: &mut *self.table_counters.add(table_row),
-                    global_system_counter: self.global_system_counter,
+                    change_tick: self.change_tick,
                     system_counter: self.system_counter,
                 }
             }
@@ -471,7 +471,7 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
                 Mut {
                     value: &mut *component.cast::<T>(),
                     component_counters: &mut *component_counters,
-                    global_system_counter: self.global_system_counter,
+                    change_tick: self.change_tick,
                     system_counter: self.system_counter,
                 }
             }
@@ -483,7 +483,7 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
         Mut {
             value: &mut *self.table_components.as_ptr().add(table_row),
             component_counters: &mut *self.table_counters.add(table_row),
-            global_system_counter: self.global_system_counter,
+            change_tick: self.change_tick,
             system_counter: self.system_counter,
         }
     }
@@ -552,10 +552,10 @@ impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
         world: &World,
         state: &Self::State,
         system_counter: u32,
-        global_system_counter: u32,
+        change_tick: u32,
     ) -> Self {
         Self {
-            fetch: T::init(world, &state.state, system_counter, global_system_counter),
+            fetch: T::init(world, &state.state, system_counter, change_tick),
             matches: false,
         }
     }
@@ -605,7 +605,7 @@ impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
 pub struct ChangeTrackers<T: Component> {
     component_counters: ComponentCounters,
     system_counter: u32,
-    global_system_counter: u32,
+    change_tick: u32,
     marker: PhantomData<T>,
 }
 impl<T: Component> std::fmt::Debug for ChangeTrackers<T> {
@@ -613,7 +613,7 @@ impl<T: Component> std::fmt::Debug for ChangeTrackers<T> {
         f.debug_struct("ChangeTrackers")
             .field("component_counters", &self.component_counters)
             .field("system_counter", &self.system_counter)
-            .field("global_system_counter", &self.global_system_counter)
+            .field("change_tick", &self.change_tick)
             .finish()
     }
 }
@@ -622,13 +622,13 @@ impl<T: Component> ChangeTrackers<T> {
     /// Has this component been added since the last execution of this system.
     pub fn is_added(&self) -> bool {
         self.component_counters
-            .is_added(self.system_counter, self.global_system_counter)
+            .is_added(self.system_counter, self.change_tick)
     }
 
     /// Has this component been changed since the last execution of this system.
     pub fn is_changed(&self) -> bool {
         self.component_counters
-            .is_changed(self.system_counter, self.global_system_counter)
+            .is_changed(self.system_counter, self.change_tick)
     }
 }
 
@@ -688,7 +688,7 @@ pub struct ChangeTrackersFetch<T> {
     sparse_set: *const ComponentSparseSet,
     marker: PhantomData<T>,
     system_counter: u32,
-    global_system_counter: u32,
+    change_tick: u32,
 }
 
 /// SAFE: access is read only  
@@ -710,7 +710,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
         world: &World,
         state: &Self::State,
         system_counter: u32,
-        global_system_counter: u32,
+        change_tick: u32,
     ) -> Self {
         let mut value = Self {
             storage_type: state.storage_type,
@@ -720,7 +720,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
             sparse_set: ptr::null::<ComponentSparseSet>(),
             marker: PhantomData,
             system_counter,
-            global_system_counter,
+            change_tick,
         };
         if state.storage_type == StorageType::SparseSet {
             value.sparse_set = world
@@ -769,7 +769,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
                     component_counters: *self.table_counters.add(table_row),
                     marker: PhantomData,
                     system_counter: self.system_counter,
-                    global_system_counter: self.global_system_counter,
+                    change_tick: self.change_tick,
                 }
             }
             StorageType::SparseSet => {
@@ -778,7 +778,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
                     component_counters: *(*self.sparse_set).get_counters(entity).unwrap(),
                     marker: PhantomData,
                     system_counter: self.system_counter,
-                    global_system_counter: self.global_system_counter,
+                    change_tick: self.change_tick,
                 }
             }
         }
@@ -790,7 +790,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
             component_counters: *self.table_counters.add(table_row),
             marker: PhantomData,
             system_counter: self.system_counter,
-            global_system_counter: self.global_system_counter,
+            change_tick: self.change_tick,
         }
     }
 }

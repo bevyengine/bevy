@@ -310,44 +310,44 @@ pub struct ComponentCounters {
 
 impl ComponentCounters {
     #[inline]
-    pub fn is_added(&self, system_counter: u32, global_system_counter: u32) -> bool {
-        let component_age = global_system_counter.wrapping_sub(self.added);
-        let system_age = global_system_counter.wrapping_sub(system_counter);
+    pub fn is_added(&self, system_counter: u32, change_tick: u32) -> bool {
+        let component_age = change_tick.wrapping_sub(self.added);
+        let system_age = change_tick.wrapping_sub(system_counter);
 
         component_age < system_age
     }
 
     #[inline]
-    pub fn is_changed(&self, system_counter: u32, global_system_counter: u32) -> bool {
-        let component_age = global_system_counter.wrapping_sub(self.changed);
-        let system_age = global_system_counter.wrapping_sub(system_counter);
+    pub fn is_changed(&self, system_counter: u32, change_tick: u32) -> bool {
+        let component_age = change_tick.wrapping_sub(self.changed);
+        let system_age = change_tick.wrapping_sub(system_counter);
 
         component_age < system_age
     }
 
-    pub(crate) fn new(global_system_counter: u32) -> Self {
+    pub(crate) fn new(change_tick: u32) -> Self {
         Self {
-            added: global_system_counter,
-            changed: global_system_counter,
+            added: change_tick,
+            changed: change_tick,
         }
     }
 
-    pub(crate) fn check_counters(&mut self, global_system_counter: u32) {
-        check_counter_impl(&mut self.added, global_system_counter);
-        check_counter_impl(&mut self.changed, global_system_counter);
+    pub(crate) fn check_counters(&mut self, change_tick: u32) {
+        check_counter_impl(&mut self.added, change_tick);
+        check_counter_impl(&mut self.changed, change_tick);
     }
 
     #[inline]
-    pub(crate) fn set_changed(&mut self, global_system_counter: u32) {
-        self.changed = global_system_counter;
+    pub(crate) fn set_changed(&mut self, change_tick: u32) {
+        self.changed = change_tick;
     }
 }
 
-fn check_counter_impl(counter: &mut u32, global_system_counter: u32) {
-    let counter_age = global_system_counter.wrapping_sub(*counter);
+fn check_counter_impl(counter: &mut u32, change_tick: u32) {
+    let counter_age = change_tick.wrapping_sub(*counter);
     const MAX_AGE: u32 = (u32::MAX / 4) * 3;
     // Clamp to max age
     if counter_age > MAX_AGE {
-        *counter = global_system_counter.wrapping_sub(MAX_AGE);
+        *counter = change_tick.wrapping_sub(MAX_AGE);
     }
 }

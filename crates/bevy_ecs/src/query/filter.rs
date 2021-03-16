@@ -374,10 +374,10 @@ macro_rules! impl_query_filter_tuple {
             type State = Or<($(<$filter as Fetch<'a>>::State,)*)>;
             type Item = bool;
 
-            unsafe fn init(world: &World, state: &Self::State, system_counter: u32, global_system_counter: u32) -> Self {
+            unsafe fn init(world: &World, state: &Self::State, system_counter: u32, change_tick: u32) -> Self {
                 let ($($filter,)*) = &state.0;
                 Or(($(OrFetch {
-                    fetch: $filter::init(world, $filter, system_counter, global_system_counter),
+                    fetch: $filter::init(world, $filter, system_counter, change_tick),
                     matches: false,
                 },)*))
             }
@@ -473,7 +473,7 @@ macro_rules! impl_counter_filter {
             entities: *const Entity,
             sparse_set: *const ComponentSparseSet,
             system_counter: u32,
-            global_system_counter: u32,
+            change_tick: u32,
         }
 
         pub struct $state_name<T> {
@@ -528,7 +528,7 @@ macro_rules! impl_counter_filter {
             type State = $state_name<T>;
             type Item = bool;
 
-            unsafe fn init(world: &World, state: &Self::State, system_counter: u32, global_system_counter: u32) -> Self {
+            unsafe fn init(world: &World, state: &Self::State, system_counter: u32, change_tick: u32) -> Self {
                 let mut value = Self {
                     storage_type: state.storage_type,
                     table_counters: ptr::null_mut::<ComponentCounters>(),
@@ -537,7 +537,7 @@ macro_rules! impl_counter_filter {
                     sparse_set: ptr::null::<ComponentSparseSet>(),
                     marker: PhantomData,
                     system_counter,
-                    global_system_counter,
+                    change_tick,
                 };
                 if state.storage_type == StorageType::SparseSet {
                     value.sparse_set = world
@@ -573,19 +573,19 @@ macro_rules! impl_counter_filter {
             }
 
             unsafe fn table_fetch(&mut self, table_row: usize) -> bool {
-                $is_detected(&*self.table_counters.add(table_row), self.system_counter, self.global_system_counter)
+                $is_detected(&*self.table_counters.add(table_row), self.system_counter, self.change_tick)
             }
 
             unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> bool {
                 match self.storage_type {
                     StorageType::Table => {
                         let table_row = *self.entity_table_rows.add(archetype_index);
-                        $is_detected(&*self.table_counters.add(table_row), self.system_counter, self.global_system_counter)
+                        $is_detected(&*self.table_counters.add(table_row), self.system_counter, self.change_tick)
                     }
                     StorageType::SparseSet => {
                         let entity = *self.entities.add(archetype_index);
                         let counters = (*(*self.sparse_set).get_counters(entity).unwrap());
-                        $is_detected(&counters, self.system_counter, self.global_system_counter)
+                        $is_detected(&counters, self.system_counter, self.change_tick)
                     }
                 }
             }

@@ -272,10 +272,10 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                     state: &'a mut Self,
                     system_state: &'a SystemState,
                     world: &'a World,
-                    global_system_counter: u32,
+                    change_tick: u32,
                 ) -> Self::Item {
                     let (#(#query,)*) = &state.0;
-                    QuerySet((#(Query::new(world, #query, system_state.system_counter, global_system_counter),)*))
+                    QuerySet((#(Query::new(world, #query, system_state.system_counter, change_tick),)*))
                 }
             }
 
@@ -403,10 +403,10 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 state: &'a mut Self,
                 system_state: &'a #path::system::SystemState,
                 world: &'a #path::world::World,
-                global_system_counter: u32,
+                change_tick: u32,
             ) -> Self::Item {
                 #struct_name {
-                    #(#fields: <<#field_types as SystemParam>::Fetch as #path::system::SystemParamFetch>::get_param(&mut state.state.#field_indices, system_state, world, global_system_counter),)*
+                    #(#fields: <<#field_types as SystemParam>::Fetch as #path::system::SystemParamFetch>::get_param(&mut state.state.#field_indices, system_state, world, change_tick),)*
                     #(#ignored_fields: <#ignored_field_types>::default(),)*
                 }
             }

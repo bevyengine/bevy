@@ -348,8 +348,8 @@ impl SystemStage {
 
     /// Checks for old component and system counters
     fn check_counters(&mut self, world: &mut World) {
-        let global_system_counter = world.get_global_system_counter_unordered();
-        let time_since_last_check = global_system_counter.wrapping_sub(self.last_counter_check);
+        let change_tick = world.get_global_system_counter_unordered();
+        let time_since_last_check = change_tick.wrapping_sub(self.last_counter_check);
         // Only check after at least `u32::MAX / 8` counts, and at most `u32::MAX / 4` counts
         // since the max number of [System] in a [SystemStage] is limited to `u32::MAX / 8`
         // and this function is called at the end of each [SystemStage] loop
@@ -360,28 +360,28 @@ impl SystemStage {
             for exclusive_system in &mut self.exclusive_at_start {
                 exclusive_system
                     .system_mut()
-                    .check_system_counter(global_system_counter);
+                    .check_system_counter(change_tick);
             }
             for exclusive_system in &mut self.exclusive_before_commands {
                 exclusive_system
                     .system_mut()
-                    .check_system_counter(global_system_counter);
+                    .check_system_counter(change_tick);
             }
             for exclusive_system in &mut self.exclusive_at_end {
                 exclusive_system
                     .system_mut()
-                    .check_system_counter(global_system_counter);
+                    .check_system_counter(change_tick);
             }
             for parallel_system in &mut self.parallel {
                 parallel_system
                     .system_mut()
-                    .check_system_counter(global_system_counter);
+                    .check_system_counter(change_tick);
             }
 
             // Check component counters
             world.check_component_counters();
 
-            self.last_counter_check = global_system_counter;
+            self.last_counter_check = change_tick;
         }
     }
 }

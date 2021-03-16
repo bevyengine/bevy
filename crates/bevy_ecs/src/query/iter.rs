@@ -30,19 +30,19 @@ where
         world: &'w World,
         query_state: &'s QueryState<Q, F>,
         system_counter: u32,
-        global_system_counter: u32,
+        change_tick: u32,
     ) -> Self {
         let fetch = <Q::Fetch as Fetch>::init(
             world,
             &query_state.fetch_state,
             system_counter,
-            global_system_counter,
+            change_tick,
         );
         let filter = <F::Fetch as Fetch>::init(
             world,
             &query_state.filter_state,
             system_counter,
-            global_system_counter,
+            change_tick,
         );
         QueryIter {
             is_dense: fetch.is_dense() && filter.is_dense(),

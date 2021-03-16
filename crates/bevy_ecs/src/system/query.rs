@@ -18,7 +18,7 @@ where
     pub(crate) world: &'w World,
     pub(crate) state: &'w QueryState<Q, F>,
     pub(crate) system_counter: u32,
-    pub(crate) global_system_counter: u32,
+    pub(crate) change_tick: u32,
 }
 
 impl<'w, Q: WorldQuery, F: WorldQuery> Query<'w, Q, F>
@@ -33,13 +33,13 @@ where
         world: &'w World,
         state: &'w QueryState<Q, F>,
         system_counter: u32,
-        global_system_counter: u32,
+        change_tick: u32,
     ) -> Self {
         Self {
             world,
             state,
             system_counter,
-            global_system_counter,
+            change_tick,
         }
     }
 
@@ -55,7 +55,7 @@ where
             self.state.iter_unchecked_manual(
                 self.world,
                 self.system_counter,
-                self.global_system_counter,
+                self.change_tick,
             )
         }
     }
@@ -69,7 +69,7 @@ where
             self.state.iter_unchecked_manual(
                 self.world,
                 self.system_counter,
-                self.global_system_counter,
+                self.change_tick,
             )
         }
     }
@@ -86,7 +86,7 @@ where
         self.state.iter_unchecked_manual(
             self.world,
             self.system_counter,
-            self.global_system_counter,
+            self.change_tick,
         )
     }
 
@@ -104,7 +104,7 @@ where
                 self.world,
                 f,
                 self.system_counter,
-                self.global_system_counter,
+                self.change_tick,
             )
         };
     }
@@ -120,7 +120,7 @@ where
                 self.world,
                 f,
                 self.system_counter,
-                self.global_system_counter,
+                self.change_tick,
             )
         };
     }
@@ -144,7 +144,7 @@ where
                 batch_size,
                 f,
                 self.system_counter,
-                self.global_system_counter,
+                self.change_tick,
             )
         };
     }
@@ -166,7 +166,7 @@ where
                 batch_size,
                 f,
                 self.system_counter,
-                self.global_system_counter,
+                self.change_tick,
             )
         };
     }
@@ -184,7 +184,7 @@ where
                 self.world,
                 entity,
                 self.system_counter,
-                self.global_system_counter,
+                self.change_tick,
             )
         }
     }
@@ -202,7 +202,7 @@ where
                 self.world,
                 entity,
                 self.system_counter,
-                self.global_system_counter,
+                self.change_tick,
             )
         }
     }
@@ -223,7 +223,7 @@ where
             self.world,
             entity,
             self.system_counter,
-            self.global_system_counter,
+            self.change_tick,
         )
     }
 
@@ -298,7 +298,7 @@ where
             .has_write(archetype_component)
         {
             entity_ref
-                .get_unchecked_mut::<T>(self.system_counter, self.global_system_counter)
+                .get_unchecked_mut::<T>(self.system_counter, self.change_tick)
                 .ok_or(QueryComponentError::MissingComponent)
         } else {
             Err(QueryComponentError::MissingWriteAccess)

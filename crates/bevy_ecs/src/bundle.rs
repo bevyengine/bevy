@@ -134,7 +134,7 @@ impl BundleInfo {
         table_row: usize,
         bundle_status: &[ComponentStatus],
         bundle: T,
-        global_system_counter: u32,
+        change_tick: u32,
     ) {
         // NOTE: get_components calls this closure on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
@@ -150,10 +150,10 @@ impl BundleInfo {
                     let column_status = column.get_counters_unchecked_mut(table_row);
                     match component_status {
                         ComponentStatus::Added => {
-                            *column_status = ComponentCounters::new(global_system_counter);
+                            *column_status = ComponentCounters::new(change_tick);
                         }
                         ComponentStatus::Mutated => {
-                            column_status.set_changed(global_system_counter);
+                            column_status.set_changed(change_tick);
                         }
                     }
                 }
@@ -164,14 +164,14 @@ impl BundleInfo {
                             sparse_set.insert(
                                 entity,
                                 component_ptr,
-                                ComponentCounters::new(global_system_counter),
+                                ComponentCounters::new(change_tick),
                             );
                         }
                         ComponentStatus::Mutated => {
                             sparse_set
                                 .get_counters(entity)
                                 .unwrap()
-                                .set_changed(global_system_counter);
+                                .set_changed(change_tick);
                         }
                     }
                 }

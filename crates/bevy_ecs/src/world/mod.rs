@@ -50,7 +50,7 @@ pub struct World {
     /// Access cache used by [WorldCell].
     pub(crate) archetype_component_access: ArchetypeComponentAccess,
     main_thread_validator: MainThreadValidator,
-    pub(crate) global_system_counter: AtomicU32,
+    pub(crate) change_tick: AtomicU32,
     pub(crate) exclusive_system_counter: u32,
 }
 
@@ -66,7 +66,7 @@ impl Default for World {
             removed_components: Default::default(),
             archetype_component_access: Default::default(),
             main_thread_validator: Default::default(),
-            global_system_counter: Default::default(),
+            change_tick: Default::default(),
             // Default value is `u32::MAX` so that direct queries outside of exclusive systems properly
             // detect changes. That value will not be used in any exclusive system.
             exclusive_system_counter: u32::MAX,
@@ -658,7 +658,7 @@ impl World {
             value: unsafe { &mut *ptr.cast::<T>() },
             component_counters: &mut counters,
             system_counter: self.get_exclusive_system_counter(),
-            global_system_counter: self.get_global_system_counter_unordered(),
+            change_tick: self.get_global_system_counter_unordered(),
         };
         let result = f(value, self);
         let resource_archetype = self.archetypes.resource_mut();
@@ -699,7 +699,7 @@ impl World {
             value: &mut *column.get_ptr().as_ptr().cast::<T>(),
             component_counters: &mut *column.get_counters_mut_ptr(),
             system_counter: self.get_exclusive_system_counter(),
-            global_system_counter: self.get_global_system_counter(),
+            change_tick: self.get_global_system_counter(),
         })
     }
 
@@ -730,7 +730,7 @@ impl World {
     /// `component_id` must be valid and correspond to a resource component of type T
     #[inline]
     unsafe fn insert_resource_with_id<T>(&mut self, component_id: ComponentId, mut value: T) {
-        let global_system_counter = self.get_global_system_counter_unordered();
+        let change_tick = self.get_global_system_counter_unordered();
         let column = self.initialize_resource_internal(component_id);
         if column.is_empty() {
             // SAFE: column is of type T and has been allocated above
@@ -741,13 +741,13 @@ impl World {
             column.set_unchecked(row, data);
             std::mem::forget(value);
             // SAFE: index was just allocated above
-            *column.get_counters_unchecked_mut(row) = ComponentCounters::new(global_system_counter);
+            *column.get_counters_unchecked_mut(row) = ComponentCounters::new(change_tick);
         } else {
             // SAFE: column is of type T and has already been allocated
             *column.get_unchecked(0).cast::<T>() = value;
             column
                 .get_counters_unchecked_mut(0)
-                .set_changed(global_system_counter);
+                .set_changed(change_tick);
         }
     }
 
@@ -838,17 +838,17 @@ impl World {
 
     #[inline]
     pub fn increment_global_system_counter(&self) -> u32 {
-        self.global_system_counter.fetch_add(1, Ordering::AcqRel)
+        self.change_tick.fetch_add(1, Ordering::AcqRel)
     }
 
     #[inline]
     pub fn get_global_system_counter(&self) -> u32 {
-        self.global_system_counter.load(Ordering::Acquire)
+        self.change_tick.load(Ordering::Acquire)
     }
 
     #[inline]
     pub fn get_global_system_counter_unordered(&mut self) -> u32 {
-        *self.global_system_counter.get_mut()
+        *self.change_tick.get_mut()
     }
 
     #[inline]
@@ -859,14 +859,14 @@ impl World {
     pub fn check_component_counters(&mut self) {
         // Iterate over all component counters, clamping their age to max age
         // PERF: parallelize
-        let global_system_counter = self.get_global_system_counter_unordered();
-        self.storages.tables.clear_counters(global_system_counter);
+        let change_tick = self.get_global_system_counter_unordered();
+        self.storages.tables.clear_counters(change_tick);
         self.storages
             .sparse_sets
-            .check_counters(global_system_counter);
+            .check_counters(change_tick);
         let resource_archetype = self.archetypes.resource_mut();
         for column in resource_archetype.unique_components.values_mut() {
-            column.check_counters(global_system_counter);
+            column.check_counters(change_tick);
         }
     }
 }

@@ -148,7 +148,7 @@ where
         world: &'w World,
         entity: Entity,
         system_counter: u32,
-        global_system_counter: u32,
+        change_tick: u32,
     ) -> Result<<Q::Fetch as Fetch<'w>>::Item, QueryEntityError> {
         let location = world
             .entities
@@ -165,13 +165,13 @@ where
             world,
             &self.fetch_state,
             system_counter,
-            global_system_counter,
+            change_tick,
         );
         let mut filter = <F::Fetch as Fetch>::init(
             world,
             &self.filter_state,
             system_counter,
-            global_system_counter,
+            change_tick,
         );
 
         fetch.set_archetype(&self.fetch_state, archetype, &world.storages().tables);
@@ -224,9 +224,9 @@ where
         &'s self,
         world: &'w World,
         system_counter: u32,
-        global_system_counter: u32,
+        change_tick: u32,
     ) -> QueryIter<'w, 's, Q, F> {
-        QueryIter::new(world, self, system_counter, global_system_counter)
+        QueryIter::new(world, self, system_counter, change_tick)
     }
 
     #[inline]
@@ -335,19 +335,19 @@ where
         world: &'w World,
         mut func: impl FnMut(<Q::Fetch as Fetch<'w>>::Item),
         system_counter: u32,
-        global_system_counter: u32,
+        change_tick: u32,
     ) {
         let mut fetch = <Q::Fetch as Fetch>::init(
             world,
             &self.fetch_state,
             system_counter,
-            global_system_counter,
+            change_tick,
         );
         let mut filter = <F::Fetch as Fetch>::init(
             world,
             &self.filter_state,
             system_counter,
-            global_system_counter,
+            change_tick,
         );
         if fetch.is_dense() && filter.is_dense() {
             let tables = &world.storages().tables;
@@ -394,20 +394,20 @@ where
         batch_size: usize,
         func: impl Fn(<Q::Fetch as Fetch<'w>>::Item) + Send + Sync + Clone,
         system_counter: u32,
-        global_system_counter: u32,
+        change_tick: u32,
     ) {
         task_pool.scope(|scope| {
             let fetch = <Q::Fetch as Fetch>::init(
                 world,
                 &self.fetch_state,
                 system_counter,
-                global_system_counter,
+                change_tick,
             );
             let filter = <F::Fetch as Fetch>::init(
                 world,
                 &self.filter_state,
                 system_counter,
-                global_system_counter,
+                change_tick,
             );
 
             if fetch.is_dense() && filter.is_dense() {
@@ -422,13 +422,13 @@ where
                                 world,
                                 &self.fetch_state,
                                 system_counter,
-                                global_system_counter,
+                                change_tick,
                             );
                             let mut filter = <F::Fetch as Fetch>::init(
                                 world,
                                 &self.filter_state,
                                 system_counter,
-                                global_system_counter,
+                                change_tick,
                             );
                             let tables = &world.storages().tables;
                             let table = &tables[*table_id];
@@ -458,13 +458,13 @@ where
                                 world,
                                 &self.fetch_state,
                                 system_counter,
-                                global_system_counter,
+                                change_tick,
                             );
                             let mut filter = <F::Fetch as Fetch>::init(
                                 world,
                                 &self.filter_state,
                                 system_counter,
-                                global_system_counter,
+                                change_tick,
                             );
                             let tables = &world.storages().tables;
                             let archetype = &world.archetypes[*archetype_id];

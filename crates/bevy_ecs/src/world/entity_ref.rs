@@ -75,7 +75,7 @@ impl<'w> EntityRef<'w> {
     pub unsafe fn get_unchecked_mut<T: Component>(
         &self,
         system_counter: u32,
-        global_system_counter: u32,
+        change_tick: u32,
     ) -> Option<Mut<'w, T>> {
         get_component_and_counters_with_type(
             self.world,
@@ -87,7 +87,7 @@ impl<'w> EntityRef<'w> {
             value: &mut *value.cast::<T>(),
             component_counters: &mut *counters,
             system_counter,
-            global_system_counter,
+            change_tick,
         })
     }
 }
@@ -168,7 +168,7 @@ impl<'w> EntityMut<'w> {
                 value: &mut *value.cast::<T>(),
                 component_counters: &mut *counters,
                 system_counter: self.world.get_exclusive_system_counter(),
-                global_system_counter: self.world.get_global_system_counter_unordered(),
+                change_tick: self.world.get_global_system_counter_unordered(),
             })
         }
     }
@@ -188,7 +188,7 @@ impl<'w> EntityMut<'w> {
             value: &mut *value.cast::<T>(),
             component_counters: &mut *counters,
             system_counter: self.world.get_exclusive_system_counter(),
-            global_system_counter: self.world.get_global_system_counter(),
+            change_tick: self.world.get_global_system_counter(),
         })
     }
 
@@ -196,7 +196,7 @@ impl<'w> EntityMut<'w> {
     // TODO: move relevant methods to World (add/remove bundle)
     pub fn insert_bundle<T: Bundle>(&mut self, bundle: T) -> &mut Self {
         let entity = self.entity;
-        let global_system_counter = self.world.get_global_system_counter_unordered();
+        let change_tick = self.world.get_global_system_counter_unordered();
         let entities = &mut self.world.entities;
         let archetypes = &mut self.world.archetypes;
         let components = &mut self.world.components;
@@ -271,7 +271,7 @@ impl<'w> EntityMut<'w> {
                 table_row,
                 &from_bundle.bundle_status,
                 bundle,
-                global_system_counter,
+                change_tick,
             )
         };
         self
