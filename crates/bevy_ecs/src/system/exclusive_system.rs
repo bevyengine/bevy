@@ -20,7 +20,7 @@ pub struct ExclusiveSystemFn {
     func: Box<dyn FnMut(&mut World) + Send + Sync + 'static>,
     name: Cow<'static, str>,
     id: SystemId,
-    system_counter: u32,
+    last_change_tick: u32,
 }
 
 impl ExclusiveSystem for ExclusiveSystemFn {
@@ -35,23 +35,23 @@ impl ExclusiveSystem for ExclusiveSystemFn {
     fn run(&mut self, world: &mut World) {
         // The previous value is saved in case this exclusive system is run by another exclusive
         // system
-        let saved_counter = world.last_change_tick;
-        world.last_change_tick = self.system_counter;
+        let saved_last_tick = world.last_change_tick;
+        world.last_change_tick = self.last_change_tick;
 
         (self.func)(world);
 
         let change_tick = world.change_tick.get_mut();
-        self.system_counter = *change_tick;
+        self.last_change_tick = *change_tick;
         *change_tick += 1;
 
-        world.last_change_tick = saved_counter;
+        world.last_change_tick = saved_last_tick;
     }
 
     fn initialize(&mut self, _: &mut World) {}
 
     fn check_system_counter(&mut self, change_tick: u32) {
         check_system_counter_impl(
-            &mut self.system_counter,
+            &mut self.last_change_tick,
             change_tick,
             self.name.as_ref(),
         );
@@ -72,7 +72,7 @@ where
             name: core::any::type_name::<F>().into(),
             id: SystemId::new(),
             // The value of `u32::MAX` means that everything should be detected as added/changed
-            system_counter: u32::MAX,
+            last_change_tick: u32::MAX,
         }
     }
 }

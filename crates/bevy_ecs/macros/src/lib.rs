@@ -275,7 +275,7 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                     change_tick: u32,
                 ) -> Self::Item {
                     let (#(#query,)*) = &state.0;
-                    QuerySet((#(Query::new(world, #query, system_state.system_counter, change_tick),)*))
+                    QuerySet((#(Query::new(world, #query, system_state.last_change_tick, change_tick),)*))
                 }
             }
 

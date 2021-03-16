@@ -657,7 +657,7 @@ impl World {
         let value = Mut {
             value: unsafe { &mut *ptr.cast::<T>() },
             component_counters: &mut counters,
-            system_counter: self.last_change_tick(),
+            last_change_tick: self.last_change_tick(),
             change_tick: self.change_tick(),
         };
         let result = f(value, self);
@@ -698,7 +698,7 @@ impl World {
         Some(Mut {
             value: &mut *column.get_ptr().as_ptr().cast::<T>(),
             component_counters: &mut *column.get_counters_mut_ptr(),
-            system_counter: self.last_change_tick(),
+            last_change_tick: self.last_change_tick(),
             change_tick: self.read_change_tick(),
         })
     }

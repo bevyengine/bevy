@@ -17,7 +17,7 @@ where
 {
     pub(crate) world: &'w World,
     pub(crate) state: &'w QueryState<Q, F>,
-    pub(crate) system_counter: u32,
+    pub(crate) last_change_tick: u32,
     pub(crate) change_tick: u32,
 }
 
@@ -32,13 +32,13 @@ where
     pub(crate) unsafe fn new(
         world: &'w World,
         state: &'w QueryState<Q, F>,
-        system_counter: u32,
+        last_change_tick: u32,
         change_tick: u32,
     ) -> Self {
         Self {
             world,
             state,
-            system_counter,
+            last_change_tick,
             change_tick,
         }
     }
@@ -54,7 +54,7 @@ where
         unsafe {
             self.state.iter_unchecked_manual(
                 self.world,
-                self.system_counter,
+                self.last_change_tick,
                 self.change_tick,
             )
         }
@@ -68,7 +68,7 @@ where
         unsafe {
             self.state.iter_unchecked_manual(
                 self.world,
-                self.system_counter,
+                self.last_change_tick,
                 self.change_tick,
             )
         }
@@ -85,7 +85,7 @@ where
         // same-system queries have runtime borrow checks when they conflict
         self.state.iter_unchecked_manual(
             self.world,
-            self.system_counter,
+            self.last_change_tick,
             self.change_tick,
         )
     }
@@ -103,7 +103,7 @@ where
             self.state.for_each_unchecked_manual(
                 self.world,
                 f,
-                self.system_counter,
+                self.last_change_tick,
                 self.change_tick,
             )
         };
@@ -119,7 +119,7 @@ where
             self.state.for_each_unchecked_manual(
                 self.world,
                 f,
-                self.system_counter,
+                self.last_change_tick,
                 self.change_tick,
             )
         };
@@ -143,7 +143,7 @@ where
                 task_pool,
                 batch_size,
                 f,
-                self.system_counter,
+                self.last_change_tick,
                 self.change_tick,
             )
         };
@@ -165,7 +165,7 @@ where
                 task_pool,
                 batch_size,
                 f,
-                self.system_counter,
+                self.last_change_tick,
                 self.change_tick,
             )
         };
@@ -183,7 +183,7 @@ where
             self.state.get_unchecked_manual(
                 self.world,
                 entity,
-                self.system_counter,
+                self.last_change_tick,
                 self.change_tick,
             )
         }
@@ -201,7 +201,7 @@ where
             self.state.get_unchecked_manual(
                 self.world,
                 entity,
-                self.system_counter,
+                self.last_change_tick,
                 self.change_tick,
             )
         }
@@ -222,7 +222,7 @@ where
         self.state.get_unchecked_manual(
             self.world,
             entity,
-            self.system_counter,
+            self.last_change_tick,
             self.change_tick,
         )
     }
@@ -298,7 +298,7 @@ where
             .has_write(archetype_component)
         {
             entity_ref
-                .get_unchecked_mut::<T>(self.system_counter, self.change_tick)
+                .get_unchecked_mut::<T>(self.last_change_tick, self.change_tick)
                 .ok_or(QueryComponentError::MissingComponent)
         } else {
             Err(QueryComponentError::MissingWriteAccess)

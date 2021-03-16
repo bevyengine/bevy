@@ -29,7 +29,7 @@ pub trait Fetch<'w>: Sized {
     unsafe fn init(
         world: &World,
         state: &Self::State,
-        system_counter: u32,
+        last_change_tick: u32,
         change_tick: u32,
     ) -> Self;
 
@@ -336,7 +336,7 @@ pub struct WriteFetch<T> {
     entities: *const Entity,
     entity_table_rows: *const usize,
     sparse_set: *const ComponentSparseSet,
-    system_counter: u32,
+    last_change_tick: u32,
     change_tick: u32,
 }
 
@@ -402,7 +402,7 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
     unsafe fn init(
         world: &World,
         state: &Self::State,
-        system_counter: u32,
+        last_change_tick: u32,
         change_tick: u32,
     ) -> Self {
         let mut value = Self {
@@ -412,7 +412,7 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
             entity_table_rows: ptr::null::<usize>(),
             sparse_set: ptr::null::<ComponentSparseSet>(),
             table_counters: ptr::null_mut::<ComponentCounters>(),
-            system_counter,
+            last_change_tick,
             change_tick,
         };
         if state.storage_type == StorageType::SparseSet {
@@ -461,7 +461,7 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
                     value: &mut *self.table_components.as_ptr().add(table_row),
                     component_counters: &mut *self.table_counters.add(table_row),
                     change_tick: self.change_tick,
-                    system_counter: self.system_counter,
+                    last_change_tick: self.last_change_tick,
                 }
             }
             StorageType::SparseSet => {
@@ -472,7 +472,7 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
                     value: &mut *component.cast::<T>(),
                     component_counters: &mut *component_counters,
                     change_tick: self.change_tick,
-                    system_counter: self.system_counter,
+                    last_change_tick: self.last_change_tick,
                 }
             }
         }
@@ -484,7 +484,7 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
             value: &mut *self.table_components.as_ptr().add(table_row),
             component_counters: &mut *self.table_counters.add(table_row),
             change_tick: self.change_tick,
-            system_counter: self.system_counter,
+            last_change_tick: self.last_change_tick,
         }
     }
 }
@@ -551,11 +551,11 @@ impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
     unsafe fn init(
         world: &World,
         state: &Self::State,
-        system_counter: u32,
+        last_change_tick: u32,
         change_tick: u32,
     ) -> Self {
         Self {
-            fetch: T::init(world, &state.state, system_counter, change_tick),
+            fetch: T::init(world, &state.state, last_change_tick, change_tick),
             matches: false,
         }
     }
@@ -604,7 +604,7 @@ impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
 #[derive(Clone)]
 pub struct ChangeTrackers<T: Component> {
     component_counters: ComponentCounters,
-    system_counter: u32,
+    last_change_tick: u32,
     change_tick: u32,
     marker: PhantomData<T>,
 }
@@ -612,7 +612,7 @@ impl<T: Component> std::fmt::Debug for ChangeTrackers<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ChangeTrackers")
             .field("component_counters", &self.component_counters)
-            .field("system_counter", &self.system_counter)
+            .field("last_change_tick", &self.last_change_tick)
             .field("change_tick", &self.change_tick)
             .finish()
     }
@@ -622,13 +622,13 @@ impl<T: Component> ChangeTrackers<T> {
     /// Has this component been added since the last execution of this system.
     pub fn is_added(&self) -> bool {
         self.component_counters
-            .is_added(self.system_counter, self.change_tick)
+            .is_added(self.last_change_tick, self.change_tick)
     }
 
     /// Has this component been changed since the last execution of this system.
     pub fn is_changed(&self) -> bool {
         self.component_counters
-            .is_changed(self.system_counter, self.change_tick)
+            .is_changed(self.last_change_tick, self.change_tick)
     }
 }
 
@@ -687,7 +687,7 @@ pub struct ChangeTrackersFetch<T> {
     entities: *const Entity,
     sparse_set: *const ComponentSparseSet,
     marker: PhantomData<T>,
-    system_counter: u32,
+    last_change_tick: u32,
     change_tick: u32,
 }
 
@@ -709,7 +709,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
     unsafe fn init(
         world: &World,
         state: &Self::State,
-        system_counter: u32,
+        last_change_tick: u32,
         change_tick: u32,
     ) -> Self {
         let mut value = Self {
@@ -719,7 +719,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
             entity_table_rows: ptr::null::<usize>(),
             sparse_set: ptr::null::<ComponentSparseSet>(),
             marker: PhantomData,
-            system_counter,
+            last_change_tick,
             change_tick,
         };
         if state.storage_type == StorageType::SparseSet {
@@ -768,7 +768,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
                 ChangeTrackers {
                     component_counters: *self.table_counters.add(table_row),
                     marker: PhantomData,
-                    system_counter: self.system_counter,
+                    last_change_tick: self.last_change_tick,
                     change_tick: self.change_tick,
                 }
             }
@@ -777,7 +777,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
                 ChangeTrackers {
                     component_counters: *(*self.sparse_set).get_counters(entity).unwrap(),
                     marker: PhantomData,
-                    system_counter: self.system_counter,
+                    last_change_tick: self.last_change_tick,
                     change_tick: self.change_tick,
                 }
             }
@@ -789,7 +789,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
         ChangeTrackers {
             component_counters: *self.table_counters.add(table_row),
             marker: PhantomData,
-            system_counter: self.system_counter,
+            last_change_tick: self.last_change_tick,
             change_tick: self.change_tick,
         }
     }

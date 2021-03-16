@@ -5,7 +5,7 @@ use std::ops::{Deref, DerefMut};
 pub struct Mut<'a, T> {
     pub(crate) value: &'a mut T,
     pub(crate) component_counters: &'a mut ComponentCounters,
-    pub(crate) system_counter: u32,
+    pub(crate) last_change_tick: u32,
     pub(crate) change_tick: u32,
 }
 
@@ -38,13 +38,13 @@ impl<'w, T> Mut<'w, T> {
     /// system.
     pub fn is_added(&self) -> bool {
         self.component_counters
-            .is_added(self.system_counter, self.change_tick)
+            .is_added(self.last_change_tick, self.change_tick)
     }
 
     /// Returns true if (and only if) this component been changed
     /// since the last execution of this system.
     pub fn is_changed(&self) -> bool {
         self.component_counters
-            .is_changed(self.system_counter, self.change_tick)
+            .is_changed(self.last_change_tick, self.change_tick)
     }
 }

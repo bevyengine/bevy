@@ -123,7 +123,7 @@ where
         Query::new(
             world,
             state,
-            system_state.system_counter,
+            system_state.last_change_tick,
             change_tick,
         )
     }
@@ -163,7 +163,7 @@ impl_query_set!();
 pub struct Res<'w, T> {
     value: &'w T,
     counters: &'w ComponentCounters,
-    system_counter: u32,
+    last_change_tick: u32,
     change_tick: u32,
 }
 
@@ -172,14 +172,14 @@ impl<'w, T: Component> Res<'w, T> {
     /// system.
     pub fn is_added(&self) -> bool {
         self.counters
-            .is_added(self.system_counter, self.change_tick)
+            .is_added(self.last_change_tick, self.change_tick)
     }
 
     /// Returns true if (and only if) this resource been changed since the last execution of this
     /// system.
     pub fn is_changed(&self) -> bool {
         self.counters
-            .is_changed(self.system_counter, self.change_tick)
+            .is_changed(self.last_change_tick, self.change_tick)
     }
 }
 
@@ -250,7 +250,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for ResState<T> {
         Res {
             value: &*column.get_ptr().as_ptr().cast::<T>(),
             counters: &*column.get_counters_mut_ptr(),
-            system_counter: system_state.system_counter,
+            last_change_tick: system_state.last_change_tick,
             change_tick,
         }
     }
@@ -285,7 +285,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for OptionResState<T> {
             .map(|column| Res {
                 value: &*column.get_ptr().as_ptr().cast::<T>(),
                 counters: &*column.get_counters_mut_ptr(),
-                system_counter: system_state.system_counter,
+                last_change_tick: system_state.last_change_tick,
                 change_tick,
             })
     }
@@ -299,7 +299,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for OptionResState<T> {
 pub struct ResMut<'w, T> {
     value: &'w mut T,
     counters: &'w mut ComponentCounters,
-    system_counter: u32,
+    last_change_tick: u32,
     change_tick: u32,
 }
 
@@ -308,14 +308,14 @@ impl<'w, T: Component> ResMut<'w, T> {
     /// system.
     pub fn is_added(&self) -> bool {
         self.counters
-            .is_added(self.system_counter, self.change_tick)
+            .is_added(self.last_change_tick, self.change_tick)
     }
 
     /// Returns true if (and only if) this resource been changed since the last execution of this
     /// system.
     pub fn is_changed(&self) -> bool {
         self.counters
-            .is_changed(self.system_counter, self.change_tick)
+            .is_changed(self.last_change_tick, self.change_tick)
     }
 }
 
@@ -397,7 +397,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for ResMutState<T> {
         ResMut {
             value: value.value,
             counters: value.component_counters,
-            system_counter: system_state.system_counter,
+            last_change_tick: system_state.last_change_tick,
             change_tick,
         }
     }
@@ -432,7 +432,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for OptionResMutState<T> {
             .map(|value| ResMut {
                 value: value.value,
                 counters: value.component_counters,
-                system_counter: system_state.system_counter,
+                last_change_tick: system_state.last_change_tick,
                 change_tick,
             })
     }
@@ -572,7 +572,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for RemovedComponentsState<T> {
 pub struct NonSend<'w, T> {
     pub(crate) value: &'w T,
     counters: ComponentCounters,
-    system_counter: u32,
+    last_change_tick: u32,
     change_tick: u32,
 }
 
@@ -581,14 +581,14 @@ impl<'w, T: Component> NonSend<'w, T> {
     /// system.
     pub fn is_added(&self) -> bool {
         self.counters
-            .is_added(self.system_counter, self.change_tick)
+            .is_added(self.last_change_tick, self.change_tick)
     }
 
     /// Returns true if (and only if) this resource been changed since the last execution of this
     /// system.
     pub fn is_changed(&self) -> bool {
         self.counters
-            .is_changed(self.system_counter, self.change_tick)
+            .is_changed(self.last_change_tick, self.change_tick)
     }
 }
 
@@ -662,7 +662,7 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendState<T> {
         NonSend {
             value: &*column.get_ptr().as_ptr().cast::<T>(),
             counters: *column.get_counters_mut_ptr(),
-            system_counter: system_state.system_counter,
+            last_change_tick: system_state.last_change_tick,
             change_tick,
         }
     }
@@ -672,7 +672,7 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendState<T> {
 pub struct NonSendMut<'a, T: 'static> {
     pub(crate) value: &'a mut T,
     counters: &'a mut ComponentCounters,
-    system_counter: u32,
+    last_change_tick: u32,
     change_tick: u32,
 }
 
@@ -681,14 +681,14 @@ impl<'w, T: Component> NonSendMut<'w, T> {
     /// system.
     pub fn is_added(&self) -> bool {
         self.counters
-            .is_added(self.system_counter, self.change_tick)
+            .is_added(self.last_change_tick, self.change_tick)
     }
 
     /// Returns true if (and only if) this resource been changed since the last execution of this
     /// system.
     pub fn is_changed(&self) -> bool {
         self.counters
-            .is_changed(self.system_counter, self.change_tick)
+            .is_changed(self.last_change_tick, self.change_tick)
     }
 }
 
@@ -781,7 +781,7 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendMutState<T> {
         NonSendMut {
             value: &mut *column.get_ptr().as_ptr().cast::<T>(),
             counters: &mut *column.get_counters_mut_ptr(),
-            system_counter: system_state.system_counter,
+            last_change_tick: system_state.last_change_tick,
             change_tick,
         }
     }
@@ -907,7 +907,7 @@ impl<'a> SystemParamFetch<'a> for BundlesState {
 
 #[derive(Debug)]
 pub struct SystemCounter {
-    pub system_counter: u32,
+    pub last_change_tick: u32,
     pub change_tick: u32,
 }
 
@@ -935,7 +935,7 @@ impl<'a> SystemParamFetch<'a> for SystemCounterState {
         change_tick: u32,
     ) -> Self::Item {
         SystemCounter {
-            system_counter: system_state.system_counter,
+            last_change_tick: system_state.last_change_tick,
             change_tick,
         }
     }

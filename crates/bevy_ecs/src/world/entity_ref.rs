@@ -74,7 +74,7 @@ impl<'w> EntityRef<'w> {
     #[inline]
     pub unsafe fn get_unchecked_mut<T: Component>(
         &self,
-        system_counter: u32,
+        last_change_tick: u32,
         change_tick: u32,
     ) -> Option<Mut<'w, T>> {
         get_component_and_counters_with_type(
@@ -86,7 +86,7 @@ impl<'w> EntityRef<'w> {
         .map(|(value, counters)| Mut {
             value: &mut *value.cast::<T>(),
             component_counters: &mut *counters,
-            system_counter,
+            last_change_tick,
             change_tick,
         })
     }
@@ -167,7 +167,7 @@ impl<'w> EntityMut<'w> {
             .map(|(value, counters)| Mut {
                 value: &mut *value.cast::<T>(),
                 component_counters: &mut *counters,
-                system_counter: self.world.last_change_tick(),
+                last_change_tick: self.world.last_change_tick(),
                 change_tick: self.world.change_tick(),
             })
         }
@@ -187,7 +187,7 @@ impl<'w> EntityMut<'w> {
         .map(|(value, counters)| Mut {
             value: &mut *value.cast::<T>(),
             component_counters: &mut *counters,
-            system_counter: self.world.last_change_tick(),
+            last_change_tick: self.world.last_change_tick(),
             change_tick: self.world.read_change_tick(),
         })
     }

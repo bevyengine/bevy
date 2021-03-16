@@ -310,17 +310,17 @@ pub struct ComponentCounters {
 
 impl ComponentCounters {
     #[inline]
-    pub fn is_added(&self, system_counter: u32, change_tick: u32) -> bool {
+    pub fn is_added(&self, last_change_tick: u32, change_tick: u32) -> bool {
         let component_age = change_tick.wrapping_sub(self.added);
-        let system_age = change_tick.wrapping_sub(system_counter);
+        let system_age = change_tick.wrapping_sub(last_change_tick);
 
         component_age < system_age
     }
 
     #[inline]
-    pub fn is_changed(&self, system_counter: u32, change_tick: u32) -> bool {
+    pub fn is_changed(&self, last_change_tick: u32, change_tick: u32) -> bool {
         let component_age = change_tick.wrapping_sub(self.changed);
-        let system_age = change_tick.wrapping_sub(system_counter);
+        let system_age = change_tick.wrapping_sub(last_change_tick);
 
         component_age < system_age
     }

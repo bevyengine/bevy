@@ -29,19 +29,19 @@ where
     pub(crate) unsafe fn new(
         world: &'w World,
         query_state: &'s QueryState<Q, F>,
-        system_counter: u32,
+        last_change_tick: u32,
         change_tick: u32,
     ) -> Self {
         let fetch = <Q::Fetch as Fetch>::init(
             world,
             &query_state.fetch_state,
-            system_counter,
+            last_change_tick,
             change_tick,
         );
         let filter = <F::Fetch as Fetch>::init(
             world,
             &query_state.filter_state,
-            system_counter,
+            last_change_tick,
             change_tick,
         );
         QueryIter {

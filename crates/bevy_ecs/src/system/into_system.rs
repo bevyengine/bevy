@@ -19,7 +19,7 @@ pub struct SystemState {
     // NOTE: this must be kept private. making a SystemState non-send is irreversible to prevent
     // SystemParams from overriding each other
     is_send: bool,
-    pub(crate) system_counter: u32,
+    pub(crate) last_change_tick: u32,
 }
 
 impl SystemState {
@@ -31,7 +31,7 @@ impl SystemState {
             is_send: true,
             id: SystemId::new(),
             // The value of `u32::MAX` means that everything should be detected as added/changed
-            system_counter: u32::MAX,
+            last_change_tick: u32::MAX,
         }
     }
 
@@ -153,7 +153,7 @@ where
             world,
             change_tick,
         );
-        self.system_state.system_counter = change_tick;
+        self.system_state.last_change_tick = change_tick;
         out
     }
 
@@ -175,7 +175,7 @@ where
     #[inline]
     fn check_system_counter(&mut self, change_tick: u32) {
         check_system_counter_impl(
-            &mut self.system_state.system_counter,
+            &mut self.system_state.last_change_tick,
             change_tick,
             self.system_state.name.as_ref(),
         );

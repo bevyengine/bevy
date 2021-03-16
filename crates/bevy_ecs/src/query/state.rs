@@ -147,7 +147,7 @@ where
         &self,
         world: &'w World,
         entity: Entity,
-        system_counter: u32,
+        last_change_tick: u32,
         change_tick: u32,
     ) -> Result<<Q::Fetch as Fetch<'w>>::Item, QueryEntityError> {
         let location = world
@@ -164,13 +164,13 @@ where
         let mut fetch = <Q::Fetch as Fetch>::init(
             world,
             &self.fetch_state,
-            system_counter,
+            last_change_tick,
             change_tick,
         );
         let mut filter = <F::Fetch as Fetch>::init(
             world,
             &self.filter_state,
-            system_counter,
+            last_change_tick,
             change_tick,
         );
 
@@ -223,10 +223,10 @@ where
     pub(crate) unsafe fn iter_unchecked_manual<'w, 's>(
         &'s self,
         world: &'w World,
-        system_counter: u32,
+        last_change_tick: u32,
         change_tick: u32,
     ) -> QueryIter<'w, 's, Q, F> {
-        QueryIter::new(world, self, system_counter, change_tick)
+        QueryIter::new(world, self, last_change_tick, change_tick)
     }
 
     #[inline]
@@ -334,19 +334,19 @@ where
         &'s self,
         world: &'w World,
         mut func: impl FnMut(<Q::Fetch as Fetch<'w>>::Item),
-        system_counter: u32,
+        last_change_tick: u32,
         change_tick: u32,
     ) {
         let mut fetch = <Q::Fetch as Fetch>::init(
             world,
             &self.fetch_state,
-            system_counter,
+            last_change_tick,
             change_tick,
         );
         let mut filter = <F::Fetch as Fetch>::init(
             world,
             &self.filter_state,
-            system_counter,
+            last_change_tick,
             change_tick,
         );
         if fetch.is_dense() && filter.is_dense() {
@@ -393,20 +393,20 @@ where
         task_pool: &TaskPool,
         batch_size: usize,
         func: impl Fn(<Q::Fetch as Fetch<'w>>::Item) + Send + Sync + Clone,
-        system_counter: u32,
+        last_change_tick: u32,
         change_tick: u32,
     ) {
         task_pool.scope(|scope| {
             let fetch = <Q::Fetch as Fetch>::init(
                 world,
                 &self.fetch_state,
-                system_counter,
+                last_change_tick,
                 change_tick,
             );
             let filter = <F::Fetch as Fetch>::init(
                 world,
                 &self.filter_state,
-                system_counter,
+                last_change_tick,
                 change_tick,
             );
 
@@ -421,13 +421,13 @@ where
                             let mut fetch = <Q::Fetch as Fetch>::init(
                                 world,
                                 &self.fetch_state,
-                                system_counter,
+                                last_change_tick,
                                 change_tick,
                             );
                             let mut filter = <F::Fetch as Fetch>::init(
                                 world,
                                 &self.filter_state,
-                                system_counter,
+                                last_change_tick,
                                 change_tick,
                             );
                             let tables = &world.storages().tables;
@@ -457,13 +457,13 @@ where
                             let mut fetch = <Q::Fetch as Fetch>::init(
                                 world,
                                 &self.fetch_state,
-                                system_counter,
+                                last_change_tick,
                                 change_tick,
                             );
                             let mut filter = <F::Fetch as Fetch>::init(
                                 world,
                                 &self.filter_state,
-                                system_counter,
+                                last_change_tick,
                                 change_tick,
                             );
                             let tables = &world.storages().tables;
