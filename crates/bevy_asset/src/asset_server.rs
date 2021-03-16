@@ -264,11 +264,15 @@ impl AssetServer {
                         asset
                             .downcast_ref::<FROM>()
                             // this downcast can't fail as we know the actual types here
-                            .expect("Error converting an asset to it's type, please open an issue in Bevy GitHub repository"),
+                            .expect("Error converting an asset to its type, please open an issue in Bevy GitHub repository"),
                     ) {
                         Some(Box::new(transformed))
                     } else {
-                        warn!("Error creating a new asset from {} to {}", std::any::type_name::<FROM>(), std::any::type_name::<TO>());
+                        warn!(
+                            "Error creating a new asset from {}, attempting to convert to {}",
+                            std::any::type_name::<FROM>(),
+                            std::any::type_name::<TO>()
+                        );
                         None
                     }
                 }),
