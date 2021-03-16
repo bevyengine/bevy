@@ -212,7 +212,14 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
             .send(AssetLifecycleEvent::CreateNewFrom {
                 from,
                 to,
-                transform: Box::new(|asset: &T| transform(asset).downcast::<T>().map_err(|_| ())),
+                transform: Box::new(|asset: &T| {
+                    transform(asset)
+                        .downcast::<T>()
+                        // `downcast` can fail if `transform` result is not the expected type
+                        // this should not happen as public API to reach this point is stronly typed
+                        // traits are only used in flight for communication
+                        .map_err(|_| ())
+                }),
             })
             .unwrap();
     }

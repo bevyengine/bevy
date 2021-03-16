@@ -574,8 +574,8 @@ impl AssetServer {
                     transform,
                 }) => {
                     if let Some(original) = assets.get(from) {
-                        // `transform` can fail if it's result is not the expected type
-                        // this should happen as public API to reach this point is stronly typed
+                        // `transform` can fail if its result is not the expected type
+                        // this should not happen as public API to reach this point is stronly typed
                         // traits are only used in flight for communication
                         if let Ok(new) = transform(original) {
                             let _ = assets.set(to, *new);
