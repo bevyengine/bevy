@@ -1,8 +1,8 @@
 use crate::{
     path::{AssetPath, AssetPathId, SourcePathId},
-    Asset, AssetIo, AssetIoError, AssetLifecycle, AssetLifecycleChannel, AssetLifecycleEvent,
-    AssetLoader, Assets, Handle, HandleId, HandleUntyped, LabelId, LoadContext, LoadState,
-    RefChange, RefChangeChannel, SourceInfo, SourceMeta,
+    Asset, AssetDynamic, AssetIo, AssetIoError, AssetLifecycle, AssetLifecycleChannel,
+    AssetLifecycleEvent, AssetLoader, Assets, Handle, HandleId, HandleUntyped, LabelId,
+    LoadContext, LoadState, RefChange, RefChangeChannel, SourceInfo, SourceMeta,
 };
 use anyhow::Result;
 use bevy_ecs::system::{Res, ResMut};
@@ -255,7 +255,7 @@ impl AssetServer {
             asset_lifecycle.create_asset_from(
                 original_handle.into(),
                 new_handle,
-                Box::new(|asset| {
+                Box::new(|asset: &dyn AssetDynamic| {
                     Box::new(transform(
                         asset
                             .downcast_ref::<T>()
