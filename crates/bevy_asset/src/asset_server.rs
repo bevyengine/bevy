@@ -238,7 +238,7 @@ impl AssetServer {
     }
 
     /// Create a new asset from another one
-    pub fn create_new_from<FROM: Asset, TO: Asset, F>(
+    pub fn create_from<FROM: Asset, TO: Asset, F>(
         &self,
         original_handle: Handle<FROM>,
         transform: F,
@@ -569,7 +569,7 @@ impl AssetServer {
                     }
                     assets.remove(handle_id);
                 }
-                Ok(AssetLifecycleEvent::CreateNewFrom {
+                Ok(AssetLifecycleEvent::CreateFrom {
                     from,
                     to,
                     to_uuid,
@@ -582,7 +582,7 @@ impl AssetServer {
                             .unwrap()
                             .create_asset(to, new, 0);
                     } else {
-                        rerun.push(AssetLifecycleEvent::CreateNewFrom {
+                        rerun.push(AssetLifecycleEvent::CreateFrom {
                             from,
                             to,
                             to_uuid,
