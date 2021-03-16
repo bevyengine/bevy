@@ -207,6 +207,8 @@ impl AppBuilder {
             .add_stage(CoreStage::Last, SystemStage::parallel())
     }
 
+    /// Adds an event as a [Resource] using [AppBuilder::insert_resource]
+    /// And inserts a an appropriate [Events::update_system] system into `CoreStage::First`.
     pub fn add_event<T>(&mut self) -> &mut Self
     where
         T: Component,
