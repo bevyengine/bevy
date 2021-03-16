@@ -14,10 +14,10 @@ Why are we doing this? What use cases does it support?
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-Explain the proposal as if it was already included in the language and you were teaching it to another Bevy user. That generally means:
+Explain the proposal as if it was already included in the engine and you were teaching it to another Bevy user. That generally means:
 
 - Introducing new named concepts.
-- Explaining the feature, largely in terms of examples grounded in simple and common game constructs.
+- Explaining the feature, ideally through simple examples of solutions to concrete problems.
 - Explaining how Bevy users should *think* about the feature, and how it should impact the way they use Bevy. It should explain the impact as concretely as possible.
 - If applicable, provide sample error messages, deprecation warnings, or migration guidance.
 
@@ -51,16 +51,13 @@ Why should we *not* do this?
 Discuss prior art, both the good and the bad, in relation to this proposal.
 A few examples of what this can include are:
 
-- For language, library, cargo, tools, and compiler proposals: Does this feature exist in other programming languages and what experience have their community had?
-- For community proposals: Is this done by some other community and what were their experiences with it?
-- For other teams: What lessons can we learn from what other communities have done here?
+- Does this feature exist in other libraries and what experiences have their community had?
 - Papers: Are there any published papers or great posts that discuss this? If you have some relevant papers to refer to, this can serve as a more detailed theoretical background.
 
 This section is intended to encourage you as an author to think about the lessons from other languages, provide readers of your RFC with a fuller picture.
 If there is no prior art, that is fine - your ideas are interesting to us whether they are brand new or if it is an adaptation from other languages.
 
-Note that while precedent set by other languages is some motivation, it does not on its own motivate an RFC.
-Please also take into consideration that rust sometimes intentionally diverges from common language features.
+Note that while precedent set by other engines is some motivation, it does not on its own motivate an RFC.
 
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
@@ -73,11 +70,10 @@ Please also take into consideration that rust sometimes intentionally diverges f
 [future-possibilities]: #future-possibilities
 
 Think about what the natural extension and evolution of your proposal would
-be and how it would affect the language and project as a whole in a holistic
+be and how it would affect Bevy as a whole in a holistic
 way. Try to use this section as a tool to more fully consider all possible
-interactions with the project and language in your proposal.
-Also consider how this all fits into the roadmap for the project
-and of the relevant sub-team.
+interactions with the engine in your proposal.
+Also consider how this all fits into the roadmap for the project.
 
 This is also a good place to "dump ideas", if they are out of scope for the
 RFC you are writing but otherwise related.
