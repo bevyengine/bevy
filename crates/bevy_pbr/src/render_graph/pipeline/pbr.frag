@@ -41,7 +41,7 @@ struct Light {
     vec3 pos;
     float inverseRadiusSquared;
     vec3 color;
-    // float unused; // unused 4th element of vec4;
+    float unused; // unused 4th element of vec4;
 };
 
 layout(location = 0) in vec3 v_WorldPosition;
