@@ -348,7 +348,7 @@ impl SystemStage {
 
     /// Checks for old component and system counters
     fn check_counters(&mut self, world: &mut World) {
-        let change_tick = world.get_global_system_counter_unordered();
+        let change_tick = world.change_tick();
         let time_since_last_check = change_tick.wrapping_sub(self.last_counter_check);
         // Only check after at least `u32::MAX / 8` counts, and at most `u32::MAX / 4` counts
         // since the max number of [System] in a [SystemStage] is limited to `u32::MAX / 8`

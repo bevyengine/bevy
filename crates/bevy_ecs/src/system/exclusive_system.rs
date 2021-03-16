@@ -35,8 +35,8 @@ impl ExclusiveSystem for ExclusiveSystemFn {
     fn run(&mut self, world: &mut World) {
         // The previous value is saved in case this exclusive system is run by another exclusive
         // system
-        let saved_counter = world.exclusive_system_counter;
-        world.exclusive_system_counter = self.system_counter;
+        let saved_counter = world.last_change_tick;
+        world.last_change_tick = self.system_counter;
 
         (self.func)(world);
 
@@ -44,7 +44,7 @@ impl ExclusiveSystem for ExclusiveSystemFn {
         self.system_counter = *change_tick;
         *change_tick += 1;
 
-        world.exclusive_system_counter = saved_counter;
+        world.last_change_tick = saved_counter;
     }
 
     fn initialize(&mut self, _: &mut World) {}

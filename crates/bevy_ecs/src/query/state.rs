@@ -135,8 +135,8 @@ where
         self.get_unchecked_manual(
             world,
             entity,
-            world.get_exclusive_system_counter(),
-            world.get_global_system_counter(),
+            world.last_change_tick(),
+            world.read_change_tick(),
         )
     }
 
@@ -209,8 +209,8 @@ where
         self.validate_world_and_update_archetypes(world);
         self.iter_unchecked_manual(
             world,
-            world.get_exclusive_system_counter(),
-            world.get_global_system_counter(),
+            world.last_change_tick(),
+            world.read_change_tick(),
         )
     }
 
@@ -268,8 +268,8 @@ where
         self.for_each_unchecked_manual(
             world,
             func,
-            world.get_exclusive_system_counter(),
-            world.get_global_system_counter(),
+            world.last_change_tick(),
+            world.read_change_tick(),
         );
     }
 
@@ -320,8 +320,8 @@ where
             task_pool,
             batch_size,
             func,
-            world.get_exclusive_system_counter(),
-            world.get_global_system_counter(),
+            world.last_change_tick(),
+            world.read_change_tick(),
         );
     }
 

@@ -145,7 +145,7 @@ where
 
     #[inline]
     unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
-        let change_tick = world.increment_global_system_counter();
+        let change_tick = world.increment_change_tick();
         let out = self.func.run(
             input,
             self.param_state.as_mut().unwrap(),

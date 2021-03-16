@@ -51,7 +51,7 @@ pub struct World {
     pub(crate) archetype_component_access: ArchetypeComponentAccess,
     main_thread_validator: MainThreadValidator,
     pub(crate) change_tick: AtomicU32,
-    pub(crate) exclusive_system_counter: u32,
+    pub(crate) last_change_tick: u32,
 }
 
 impl Default for World {
@@ -69,7 +69,7 @@ impl Default for World {
             change_tick: Default::default(),
             // Default value is `u32::MAX` so that direct queries outside of exclusive systems properly
             // detect changes. That value will not be used in any exclusive system.
-            exclusive_system_counter: u32::MAX,
+            last_change_tick: u32::MAX,
         }
     }
 }
@@ -657,8 +657,8 @@ impl World {
         let value = Mut {
             value: unsafe { &mut *ptr.cast::<T>() },
             component_counters: &mut counters,
-            system_counter: self.get_exclusive_system_counter(),
-            change_tick: self.get_global_system_counter_unordered(),
+            system_counter: self.last_change_tick(),
+            change_tick: self.change_tick(),
         };
         let result = f(value, self);
         let resource_archetype = self.archetypes.resource_mut();
@@ -698,8 +698,8 @@ impl World {
         Some(Mut {
             value: &mut *column.get_ptr().as_ptr().cast::<T>(),
             component_counters: &mut *column.get_counters_mut_ptr(),
-            system_counter: self.get_exclusive_system_counter(),
-            change_tick: self.get_global_system_counter(),
+            system_counter: self.last_change_tick(),
+            change_tick: self.read_change_tick(),
         })
     }
 
@@ -730,7 +730,7 @@ impl World {
     /// `component_id` must be valid and correspond to a resource component of type T
     #[inline]
     unsafe fn insert_resource_with_id<T>(&mut self, component_id: ComponentId, mut value: T) {
-        let change_tick = self.get_global_system_counter_unordered();
+        let change_tick = self.change_tick();
         let column = self.initialize_resource_internal(component_id);
         if column.is_empty() {
             // SAFE: column is of type T and has been allocated above
@@ -837,29 +837,29 @@ impl World {
     }
 
     #[inline]
-    pub fn increment_global_system_counter(&self) -> u32 {
+    pub fn increment_change_tick(&self) -> u32 {
         self.change_tick.fetch_add(1, Ordering::AcqRel)
     }
 
     #[inline]
-    pub fn get_global_system_counter(&self) -> u32 {
+    pub fn read_change_tick(&self) -> u32 {
         self.change_tick.load(Ordering::Acquire)
     }
 
     #[inline]
-    pub fn get_global_system_counter_unordered(&mut self) -> u32 {
+    pub fn change_tick(&mut self) -> u32 {
         *self.change_tick.get_mut()
     }
 
     #[inline]
-    pub fn get_exclusive_system_counter(&self) -> u32 {
-        self.exclusive_system_counter
+    pub fn last_change_tick(&self) -> u32 {
+        self.last_change_tick
     }
 
     pub fn check_component_counters(&mut self) {
         // Iterate over all component counters, clamping their age to max age
         // PERF: parallelize
-        let change_tick = self.get_global_system_counter_unordered();
+        let change_tick = self.change_tick();
         self.storages.tables.clear_counters(change_tick);
         self.storages
             .sparse_sets

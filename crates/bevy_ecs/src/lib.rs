@@ -642,7 +642,7 @@ mod tests {
             .is_ok());
 
         world.clear_trackers();
-        world.exclusive_system_counter = world.increment_global_system_counter();
+        world.last_change_tick = world.increment_change_tick();
 
         assert_eq!(world.query::<&i32>().iter(&world).count(), 1);
         assert_eq!(
@@ -690,7 +690,7 @@ mod tests {
         assert_eq!(get_added::<B>(&mut world), vec![e1]);
 
         world.clear_trackers();
-        world.exclusive_system_counter = world.increment_global_system_counter();
+        world.last_change_tick = world.increment_change_tick();
         assert!(get_added::<A>(&mut world).is_empty());
         let e2 = world.spawn().insert_bundle((A(1), B(1))).id();
         assert_eq!(get_added::<A>(&mut world), vec![e2]);
@@ -735,7 +735,7 @@ mod tests {
         }
         assert_eq!(get_changed(&mut world), vec![e1]);
         world.clear_trackers();
-        world.exclusive_system_counter = world.increment_global_system_counter();
+        world.last_change_tick = world.increment_change_tick();
         assert_eq!(get_changed(&mut world), vec![]);
         *world.get_mut(e1).unwrap() = A(1);
         assert_eq!(get_changed(&mut world), vec![e1]);
@@ -952,7 +952,7 @@ mod tests {
         assert!(a_counters.is_added());
         assert!(a_counters.is_changed());
         world.clear_trackers();
-        world.exclusive_system_counter = world.increment_global_system_counter();
+        world.last_change_tick = world.increment_change_tick();
         let counters = counters_query.iter(&world).collect::<Vec<_>>();
         let a_counters = counters[0].as_ref().unwrap();
         assert!(!a_counters.is_added());

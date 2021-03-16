@@ -167,8 +167,8 @@ impl<'w> EntityMut<'w> {
             .map(|(value, counters)| Mut {
                 value: &mut *value.cast::<T>(),
                 component_counters: &mut *counters,
-                system_counter: self.world.get_exclusive_system_counter(),
-                change_tick: self.world.get_global_system_counter_unordered(),
+                system_counter: self.world.last_change_tick(),
+                change_tick: self.world.change_tick(),
             })
         }
     }
@@ -187,8 +187,8 @@ impl<'w> EntityMut<'w> {
         .map(|(value, counters)| Mut {
             value: &mut *value.cast::<T>(),
             component_counters: &mut *counters,
-            system_counter: self.world.get_exclusive_system_counter(),
-            change_tick: self.world.get_global_system_counter(),
+            system_counter: self.world.last_change_tick(),
+            change_tick: self.world.read_change_tick(),
         })
     }
 
@@ -196,7 +196,7 @@ impl<'w> EntityMut<'w> {
     // TODO: move relevant methods to World (add/remove bundle)
     pub fn insert_bundle<T: Bundle>(&mut self, bundle: T) -> &mut Self {
         let entity = self.entity;
-        let change_tick = self.world.get_global_system_counter_unordered();
+        let change_tick = self.world.change_tick();
         let entities = &mut self.world.entities;
         let archetypes = &mut self.world.archetypes;
         let components = &mut self.world.components;

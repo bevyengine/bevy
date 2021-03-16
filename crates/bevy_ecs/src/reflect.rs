@@ -102,8 +102,8 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                 world
                     .get_entity(entity)?
                     .get_unchecked_mut::<C>(
-                        world.get_exclusive_system_counter(),
-                        world.get_global_system_counter(),
+                        world.last_change_tick(),
+                        world.read_change_tick(),
                     )
                     .map(|c| ReflectMut {
                         value: c.value as &mut dyn Reflect,
