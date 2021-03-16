@@ -240,7 +240,7 @@ impl AssetServer {
     /// Create a new asset from another one
     pub fn create_from<FROM: Asset, TO: Asset, F>(
         &self,
-        original_handle: Handle<FROM>,
+        from_handle: Handle<FROM>,
         transform: F,
     ) -> Handle<TO>
     where
@@ -248,12 +248,15 @@ impl AssetServer {
         F: Send + 'static,
     {
         let new_handle = HandleId::random::<TO>();
-        let ret = self.get_handle_untyped(new_handle).typed();
+        let to_handle = Handle::strong(
+            new_handle,
+            self.server.asset_ref_counter.channel.sender.clone(),
+        );
 
         let asset_lifecycles = self.server.asset_lifecycles.read();
         if let Some(asset_lifecycle) = asset_lifecycles.get(&FROM::TYPE_UUID) {
             asset_lifecycle.create_asset_from(
-                original_handle.into(),
+                from_handle.into(),
                 new_handle,
                 TO::TYPE_UUID,
                 Box::new(|asset: &dyn AssetDynamic| {
@@ -272,7 +275,7 @@ impl AssetServer {
             );
         }
 
-        ret
+        to_handle
     }
 
     async fn load_async<'a>(
