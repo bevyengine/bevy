@@ -379,7 +379,7 @@ impl SystemStage {
             }
 
             // Check component counters
-            world.check_component_counters();
+            world.check_change_ticks();
 
             self.last_counter_check = change_tick;
         }

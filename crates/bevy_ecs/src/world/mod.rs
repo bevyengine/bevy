@@ -404,11 +404,14 @@ impl World {
             .unwrap_or(false)
     }
 
-    /// Clears removed component tracker state
+    /// Clears component tracker state
     pub fn clear_trackers(&mut self) {
         for entities in self.removed_components.values_mut() {
             entities.clear();
         }
+
+        self.last_change_tick = self.change_tick();
+        self.increment_change_tick();
     }
 
     /// Returns [QueryState] for the given [WorldQuery], which is used to efficiently
@@ -856,7 +859,7 @@ impl World {
         self.last_change_tick
     }
 
-    pub fn check_component_counters(&mut self) {
+    pub fn check_change_ticks(&mut self) {
         // Iterate over all component counters, clamping their age to max age
         // PERF: parallelize
         let change_tick = self.change_tick();
