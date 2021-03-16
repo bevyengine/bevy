@@ -378,11 +378,7 @@ where
     }
 
     pub fn inactives(&self) -> &[T] {
-        if let Some(idx) = self.stack.len().checked_sub(2) {
-            &self.stack[0..idx]
-        } else {
-            &[]
-        }
+        self.stack.split_last().map(|(_last, rest)| rest).unwrap_or(&[])
     }
 }
 
