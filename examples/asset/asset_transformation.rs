@@ -7,52 +7,43 @@ fn main() {
         .run();
 }
 
+fn filter_pixels(filter: usize, texture: &Texture) -> Vec<u8> {
+    texture
+        .data
+        .iter()
+        .enumerate()
+        .map(|(i, v)| {
+            if i / texture.format.pixel_size() % filter == 0 {
+                0
+            } else {
+                *v
+            }
+        })
+        .collect()
+}
+
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     let texture_handle = asset_server.load("branding/icon.png");
+
     // new texture with one pixel every three removed
-    let texture_handle_1 =
-        asset_server.create_new_from(texture_handle.clone(), |texture: &Texture| {
-            let new_data = texture
-                .data
-                .iter()
-                .enumerate()
-                .map(|(i, v)| {
-                    if i / texture.format.pixel_size() % 3 == 0 {
-                        0
-                    } else {
-                        *v
-                    }
-                })
-                .collect();
-            Texture {
-                data: new_data,
-                ..*texture
-            }
-        });
+    let texture_handle_1 = asset_server.create_from(texture_handle.clone(), |texture: &Texture| {
+        Some(Texture {
+            data: filter_pixels(3, texture),
+            ..*texture
+        })
+    });
+
     // new texture with one pixel every two removed
-    let texture_handle_2 =
-        asset_server.create_new_from(texture_handle.clone(), |texture: &Texture| {
-            let new_data = texture
-                .data
-                .iter()
-                .enumerate()
-                .map(|(i, v)| {
-                    if i / texture.format.pixel_size() % 2 == 0 {
-                        0
-                    } else {
-                        *v
-                    }
-                })
-                .collect();
-            Texture {
-                data: new_data,
-                ..*texture
-            }
-        });
+    let texture_handle_2 = asset_server.create_from(texture_handle.clone(), |texture: &Texture| {
+        Some(Texture {
+            data: filter_pixels(2, texture),
+            ..*texture
+        })
+    });
 
     commands
         .spawn(OrthographicCameraBundle::new_2d())
