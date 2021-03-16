@@ -4,7 +4,7 @@ use crate::{
 };
 use anyhow::Result;
 use bevy_ecs::system::{Res, ResMut};
-use bevy_reflect::{TypeUuid, TypeUuidDynamic};
+use bevy_reflect::{TypeUuid, TypeUuidDynamic, Uuid};
 use bevy_tasks::TaskPool;
 use bevy_utils::{BoxedFuture, HashMap};
 use crossbeam_channel::{Receiver, Sender};
@@ -167,7 +167,8 @@ pub enum AssetLifecycleEvent<T> {
     CreateNewFrom {
         from: HandleId,
         to: HandleId,
-        transform: Box<dyn (FnOnce(&T) -> Result<Box<T>, ()>) + Send>,
+        to_uuid: Uuid,
+        transform: Box<dyn (FnOnce(&T) -> Box<dyn AssetDynamic>) + Send>,
     },
     Free(HandleId),
 }
@@ -178,6 +179,7 @@ pub trait AssetLifecycle: Downcast + Send + Sync + 'static {
         &self,
         from: HandleId,
         to: HandleId,
+        to_uuid: Uuid,
         transform: Box<dyn (FnOnce(&dyn AssetDynamic) -> Box<dyn AssetDynamic>) + Send>,
     );
     fn free_asset(&self, id: HandleId);
@@ -206,20 +208,15 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
         &self,
         from: HandleId,
         to: HandleId,
+        to_uuid: Uuid,
         transform: Box<dyn (FnOnce(&dyn AssetDynamic) -> Box<dyn AssetDynamic>) + Send>,
     ) {
         self.to_system
             .send(AssetLifecycleEvent::CreateNewFrom {
                 from,
                 to,
-                transform: Box::new(|asset: &T| {
-                    transform(asset)
-                        .downcast::<T>()
-                        // `downcast` can fail if `transform` result is not the expected type
-                        // this should not happen as public API to reach this point is strongly typed
-                        // traits are only used in flight for communication
-                        .map_err(|_| ())
-                }),
+                to_uuid,
+                transform: Box::new(|asset: &T| transform(asset)),
             })
             .unwrap();
     }

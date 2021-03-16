@@ -237,29 +237,30 @@ impl AssetServer {
         self.load_untyped(path).typed()
     }
 
-    /// Create a new asset from another one of the same type
-    pub fn create_new_from<T: Asset, F>(
+    /// Create a new asset from another one
+    pub fn create_new_from<FROM: Asset, TO: Asset, F>(
         &self,
-        original_handle: Handle<T>,
+        original_handle: Handle<FROM>,
         transform: F,
-    ) -> Handle<T>
+    ) -> Handle<TO>
     where
-        F: FnOnce(&T) -> T,
+        F: FnOnce(&FROM) -> TO,
         F: Send + 'static,
     {
-        let new_handle = HandleId::random::<T>();
+        let new_handle = HandleId::random::<TO>();
         let ret = self.get_handle_untyped(new_handle).typed();
 
         let asset_lifecycles = self.server.asset_lifecycles.read();
-        if let Some(asset_lifecycle) = asset_lifecycles.get(&T::TYPE_UUID) {
+        if let Some(asset_lifecycle) = asset_lifecycles.get(&FROM::TYPE_UUID) {
             asset_lifecycle.create_asset_from(
                 original_handle.into(),
                 new_handle,
+                TO::TYPE_UUID,
                 Box::new(|asset: &dyn AssetDynamic| {
                     Box::new(transform(
                         asset
-                            .downcast_ref::<T>()
-                            .expect("This can't happen as asset is of type T"),
+                            .downcast_ref::<FROM>()
+                            .expect("Error converting an asset to it's type, please open an issue in Bevy GitHub repository"),
                     ))
                 }),
             );
@@ -571,21 +572,20 @@ impl AssetServer {
                 Ok(AssetLifecycleEvent::CreateNewFrom {
                     from,
                     to,
+                    to_uuid,
                     transform,
                 }) => {
                     if let Some(original) = assets.get(from) {
-                        // `transform` can fail if its result is not the expected type
-                        // this should not happen as public API to reach this point is strongly typed
-                        // traits are only used in flight for communication
-                        if let Ok(new) = transform(original) {
-                            let _ = assets.set(to, *new);
-                        } else {
-                            warn!("Error converting an asset to it's type, please open an issue in Bevy GitHub repository");
-                        }
+                        let new = transform(original);
+                        asset_lifecycles
+                            .get(&to_uuid)
+                            .unwrap()
+                            .create_asset(to, new, 0);
                     } else {
                         rerun.push(AssetLifecycleEvent::CreateNewFrom {
                             from,
                             to,
+                            to_uuid,
                             transform,
                         });
                     }
