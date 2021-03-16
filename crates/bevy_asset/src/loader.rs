@@ -154,7 +154,7 @@ pub struct AssetLifecycleChannel<T: Component> {
 
 pub enum AssetLifecycleEvent<T: Component> {
     Create(AssetResult<T>),
-    CreateNewFrom {
+    CreateFrom {
         from: HandleId,
         to: HandleId,
         to_uuid: Uuid,
@@ -202,7 +202,7 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
         transform: Box<dyn (FnOnce(&dyn AssetDynamic) -> Box<dyn AssetDynamic>) + Send>,
     ) {
         self.to_system
-            .send(AssetLifecycleEvent::CreateNewFrom {
+            .send(AssetLifecycleEvent::CreateFrom {
                 from,
                 to,
                 to_uuid,
