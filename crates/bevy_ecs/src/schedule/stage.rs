@@ -173,18 +173,21 @@ impl SystemStage {
     pub fn parallel_systems(&self) -> &[impl SystemContainer] {
         &self.parallel
     }
+
     /// Topologically sorted exclusive systems that want to be run at the start of the stage.
     ///
     /// Note that systems won't be fully-formed until the stage has been run at least once.
     pub fn exclusive_at_start_systems(&self) -> &[impl SystemContainer] {
         &self.exclusive_at_start
     }
+
     /// Topologically sorted exclusive systems that want to be run at the end of the stage.
     ///
     /// Note that systems won't be fully-formed until the stage has been run at least once.
     pub fn exclusive_at_end_systems(&self) -> &[impl SystemContainer] {
         &self.exclusive_at_end
     }
+
     /// Topologically sorted exclusive systems that want to be run after parallel systems but
     /// before the application of their command buffers.
     ///
