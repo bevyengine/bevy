@@ -528,7 +528,7 @@ impl AssetServer {
                         // this should not happen as public API to reach this point is stronly typed
                         // traits are only used in flight for communication
                         if let Ok(new) = transform(original) {
-                            assets.set(to, *new);
+                            let _ = assets.set(to, *new);
                         } else {
                             warn!("Error converting an asset to it's type, please open an issue in Bevy GitHub repository");
                         }
