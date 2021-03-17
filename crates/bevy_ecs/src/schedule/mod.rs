@@ -327,5 +327,5 @@ impl System for RunOnce {
 
     fn initialize(&mut self, _world: &mut World) {}
 
-    fn check_system_counter(&mut self, _global_system_counter: u32) {}
+    fn check_change_tick(&mut self, _change_tick: u32) {}
 }

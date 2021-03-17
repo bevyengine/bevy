@@ -108,8 +108,8 @@ impl<'a, T: Component> Fetch<'a> for WithFetch<T> {
     unsafe fn init(
         _world: &World,
         state: &Self::State,
-        _system_counter: u32,
-        _global_system_counter: u32,
+        _last_change_tick: u32,
+        _change_tick: u32,
     ) -> Self {
         Self {
             storage_type: state.storage_type,
@@ -204,8 +204,8 @@ impl<'a, T: Component> Fetch<'a> for WithoutFetch<T> {
     unsafe fn init(
         _world: &World,
         state: &Self::State,
-        _system_counter: u32,
-        _global_system_counter: u32,
+        _last_change_tick: u32,
+        _change_tick: u32,
     ) -> Self {
         Self {
             storage_type: state.storage_type,
@@ -299,8 +299,8 @@ impl<'a, T: Bundle> Fetch<'a> for WithBundleFetch<T> {
     unsafe fn init(
         _world: &World,
         state: &Self::State,
-        _system_counter: u32,
-        _global_system_counter: u32,
+        _last_change_tick: u32,
+        _change_tick: u32,
     ) -> Self {
         Self {
             is_dense: state.is_dense,
@@ -458,7 +458,7 @@ macro_rules! impl_query_filter_tuple {
 
 all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
 
-macro_rules! impl_counter_filter {
+macro_rules! impl_tick_filter {
     (
         $(#[$meta:meta])*
         $name: ident, $state_name: ident, $fetch_name: ident, $is_detected: expr) => {
@@ -593,7 +593,7 @@ macro_rules! impl_counter_filter {
     };
 }
 
-impl_counter_filter!(
+impl_tick_filter!(
     /// Filter that retrieves components of type `T` that have been added since the last execution
     /// of this system
     ///
@@ -625,7 +625,7 @@ impl_counter_filter!(
     ComponentTicks::is_added
 );
 
-impl_counter_filter!(
+impl_tick_filter!(
     /// Filter that retrieves components of type `T` that have been changed since the last
     /// execution of this system
     ///

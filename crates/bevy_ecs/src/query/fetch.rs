@@ -148,8 +148,8 @@ impl<'w> Fetch<'w> for EntityFetch {
     unsafe fn init(
         _world: &World,
         _state: &Self::State,
-        _system_counter: u32,
-        _global_system_counter: u32,
+        _last_change_tick: u32,
+        _change_tick: u32,
     ) -> Self {
         Self {
             entities: std::ptr::null::<Entity>(),
@@ -256,8 +256,8 @@ impl<'w, T: Component> Fetch<'w> for ReadFetch<T> {
     unsafe fn init(
         world: &World,
         state: &Self::State,
-        _system_counter: u32,
-        _global_system_counter: u32,
+        _last_change_tick: u32,
+        _change_tick: u32,
     ) -> Self {
         let mut value = Self {
             storage_type: state.storage_type,
@@ -802,9 +802,9 @@ macro_rules! impl_tuple_fetch {
             type Item = ($($name::Item,)*);
             type State = ($($name::State,)*);
 
-            unsafe fn init(_world: &World, state: &Self::State, _system_counter: u32, _global_system_counter: u32) -> Self {
+            unsafe fn init(_world: &World, state: &Self::State, _last_change_tick: u32, _change_tick: u32) -> Self {
                 let ($($name,)*) = state;
-                ($($name::init(_world, $name, _system_counter, _global_system_counter),)*)
+                ($($name::init(_world, $name, _last_change_tick, _change_tick),)*)
             }
 
 

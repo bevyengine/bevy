@@ -3,8 +3,7 @@ use crate::{
     component::ComponentId,
     query::{Access, FilteredAccessSet},
     system::{
-        check_system_counter_impl, System, SystemId, SystemParam, SystemParamFetch,
-        SystemParamState,
+        check_system_change_tick, System, SystemId, SystemParam, SystemParamFetch, SystemParamState,
     },
     world::World,
 };
@@ -173,8 +172,8 @@ where
     }
 
     #[inline]
-    fn check_system_counter(&mut self, change_tick: u32) {
-        check_system_counter_impl(
+    fn check_change_tick(&mut self, change_tick: u32) {
+        check_system_change_tick(
             &mut self.system_state.last_change_tick,
             change_tick,
             self.system_state.name.as_ref(),

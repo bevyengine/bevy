@@ -80,8 +80,8 @@ pub struct SystemStage {
     uninitialized_at_end: Vec<usize>,
     /// Newly inserted systems that will be initialized at the next opportunity.
     uninitialized_parallel: Vec<usize>,
-    /// Saves the value of the global system counter during the last counter check
-    last_counter_check: u32,
+    /// Saves the value of the World change_tick during the last tick check
+    last_tick_check: u32,
 }
 
 impl SystemStage {
@@ -104,7 +104,7 @@ impl SystemStage {
             uninitialized_at_start: vec![],
             uninitialized_before_commands: vec![],
             uninitialized_at_end: vec![],
-            last_counter_check: Default::default(),
+            last_tick_check: Default::default(),
         }
     }
 
@@ -349,7 +349,7 @@ impl SystemStage {
     /// Checks for old component and system change ticks
     fn check_change_ticks(&mut self, world: &mut World) {
         let change_tick = world.change_tick();
-        let time_since_last_check = change_tick.wrapping_sub(self.last_counter_check);
+        let time_since_last_check = change_tick.wrapping_sub(self.last_tick_check);
         // Only check after at least `u32::MAX / 8` counts, and at most `u32::MAX / 4` counts
         // since the max number of [System] in a [SystemStage] is limited to `u32::MAX / 8`
         // and this function is called at the end of each [SystemStage] loop
@@ -358,30 +358,22 @@ impl SystemStage {
         if time_since_last_check > MAX_TIME_SINCE_LAST_CHECK {
             // Check all system change ticks
             for exclusive_system in &mut self.exclusive_at_start {
-                exclusive_system
-                    .system_mut()
-                    .check_system_counter(change_tick);
+                exclusive_system.system_mut().check_change_tick(change_tick);
             }
             for exclusive_system in &mut self.exclusive_before_commands {
-                exclusive_system
-                    .system_mut()
-                    .check_system_counter(change_tick);
+                exclusive_system.system_mut().check_change_tick(change_tick);
             }
             for exclusive_system in &mut self.exclusive_at_end {
-                exclusive_system
-                    .system_mut()
-                    .check_system_counter(change_tick);
+                exclusive_system.system_mut().check_change_tick(change_tick);
             }
             for parallel_system in &mut self.parallel {
-                parallel_system
-                    .system_mut()
-                    .check_system_counter(change_tick);
+                parallel_system.system_mut().check_change_tick(change_tick);
             }
 
             // Check component ticks
             world.check_change_ticks();
 
-            self.last_counter_check = change_tick;
+            self.last_tick_check = change_tick;
         }
     }
 }

@@ -343,11 +343,11 @@ impl ComponentTicks {
     }
 }
 
-fn check_tick(counter: &mut u32, change_tick: u32) {
-    let counter_age = change_tick.wrapping_sub(*counter);
-    const MAX_AGE: u32 = (u32::MAX / 4) * 3;
-    // Clamp to max age
-    if counter_age > MAX_AGE {
-        *counter = change_tick.wrapping_sub(MAX_AGE);
+fn check_tick(last_change_tick: &mut u32, change_tick: u32) {
+    let tick_delta = change_tick.wrapping_sub(*last_change_tick);
+    const MAX_DELTA: u32 = (u32::MAX / 4) * 3;
+    // Clamp to max delta
+    if tick_delta > MAX_DELTA {
+        *last_change_tick = change_tick.wrapping_sub(MAX_DELTA);
     }
 }

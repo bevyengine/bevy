@@ -456,7 +456,7 @@ impl<'a> SystemParamFetch<'a> for CommandQueue {
         state: &'a mut Self,
         _system_state: &'a SystemState,
         world: &'a World,
-        _global_system_counter: u32,
+        _change_tick: u32,
     ) -> Self::Item {
         Commands::new(state, world)
     }
@@ -503,7 +503,7 @@ impl<'a, T: Component + FromWorld> SystemParamFetch<'a> for LocalState<T> {
         state: &'a mut Self,
         _system_state: &'a SystemState,
         _world: &'a World,
-        _global_system_counter: u32,
+        _change_tick: u32,
     ) -> Self::Item {
         Local(&mut state.0)
     }
@@ -551,7 +551,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for RemovedComponentsState<T> {
         state: &'a mut Self,
         _system_state: &'a SystemState,
         world: &'a World,
-        _global_system_counter: u32,
+        _change_tick: u32,
     ) -> Self::Item {
         RemovedComponents {
             world,
@@ -803,7 +803,7 @@ impl<'a> SystemParamFetch<'a> for ArchetypesState {
         _state: &'a mut Self,
         _system_state: &'a SystemState,
         world: &'a World,
-        _global_system_counter: u32,
+        _change_tick: u32,
     ) -> Self::Item {
         world.archetypes()
     }
@@ -832,7 +832,7 @@ impl<'a> SystemParamFetch<'a> for ComponentsState {
         _state: &'a mut Self,
         _system_state: &'a SystemState,
         world: &'a World,
-        _global_system_counter: u32,
+        _change_tick: u32,
     ) -> Self::Item {
         world.components()
     }
@@ -861,7 +861,7 @@ impl<'a> SystemParamFetch<'a> for EntitiesState {
         _state: &'a mut Self,
         _system_state: &'a SystemState,
         world: &'a World,
-        _global_system_counter: u32,
+        _change_tick: u32,
     ) -> Self::Item {
         world.entities()
     }
@@ -890,7 +890,7 @@ impl<'a> SystemParamFetch<'a> for BundlesState {
         _state: &'a mut Self,
         _system_state: &'a SystemState,
         world: &'a World,
-        _global_system_counter: u32,
+        _change_tick: u32,
     ) -> Self::Item {
         world.bundles()
     }

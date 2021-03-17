@@ -69,9 +69,9 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
             .extend(self.system_b.component_access());
     }
 
-    fn check_system_counter(&mut self, change_tick: u32) {
-        self.system_a.check_system_counter(change_tick);
-        self.system_b.check_system_counter(change_tick);
+    fn check_change_tick(&mut self, change_tick: u32) {
+        self.system_a.check_change_tick(change_tick);
+        self.system_b.check_change_tick(change_tick);
     }
 }
 
