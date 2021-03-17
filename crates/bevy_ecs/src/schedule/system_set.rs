@@ -1,9 +1,9 @@
 use crate::{
     component::Component,
     schedule::{
-        AmbiguitySetLabel, BoxedAmbiguitySetLabel, BoxedSystemLabel,
-        IntoRunCriterionDescriptor, RunCriterionDescriptor, SystemDescriptor, SystemLabel,
-    }
+        AmbiguitySetLabel, BoxedAmbiguitySetLabel, BoxedSystemLabel, IntoRunCriterionDescriptor,
+        RunCriterionDescriptor, State, SystemDescriptor, SystemLabel,
+    },
 };
 
 /// A builder for describing several systems at the same time.
@@ -35,27 +35,27 @@ impl SystemSet {
     }
 
     pub fn on_update<T: Component + Clone + Eq>(s: T) -> SystemSet {
-        Self::new().with_run_criteria(State::<T>::on_update(s))
+        Self::new().with_run_criterion(State::<T>::on_update(s))
     }
 
     pub fn on_inactive_update<T: Component + Clone + Eq>(s: T) -> SystemSet {
-        Self::new().with_run_criteria(State::<T>::on_inactive_update(s))
+        Self::new().with_run_criterion(State::<T>::on_inactive_update(s))
     }
 
     pub fn on_enter<T: Component + Clone + Eq>(s: T) -> SystemSet {
-        Self::new().with_run_criteria(State::<T>::on_enter(s))
+        Self::new().with_run_criterion(State::<T>::on_enter(s))
     }
 
     pub fn on_exit<T: Component + Clone + Eq>(s: T) -> SystemSet {
-        Self::new().with_run_criteria(State::<T>::on_exit(s))
+        Self::new().with_run_criterion(State::<T>::on_exit(s))
     }
 
     pub fn on_pause<T: Component + Clone + Eq>(s: T) -> SystemSet {
-        Self::new().with_run_criteria(State::<T>::on_pause(s))
+        Self::new().with_run_criterion(State::<T>::on_pause(s))
     }
 
     pub fn on_resume<T: Component + Clone + Eq>(s: T) -> SystemSet {
-        Self::new().with_run_criteria(State::<T>::on_resume(s))
+        Self::new().with_run_criterion(State::<T>::on_resume(s))
     }
 
     pub fn in_ambiguity_set(mut self, set: impl AmbiguitySetLabel) -> Self {
