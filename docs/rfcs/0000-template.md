@@ -1,5 +1,4 @@
 - Feature Name: (fill me in with a unique ident, `my_awesome_feature`)
-- Start Date: (fill me in with today's date, YYYY-MM-DD)
 
 # Summary
 [summary]: #summary
@@ -80,8 +79,6 @@ Also consider how this all fits into the roadmap for the project.
 This is also a good place to "dump ideas", if they are out of scope for the
 RFC you are writing but otherwise related.
 
-If you have tried and cannot think of any future possibilities,
-you may simply state that you cannot think of anything.
 
 Note that having something written down in the future-possibilities section
 is not a reason to accept the current or a future RFC; such notes should be
