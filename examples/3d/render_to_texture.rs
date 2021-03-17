@@ -174,7 +174,7 @@ fn setup(
             ..Default::default()
         },
         transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
-            .looking_at(Vec3::default(), Vec3::Y),
+            .looking_at(Vec3::default(), Vec3::UP),
         ..Default::default()
     };
     active_cameras.add(FIRST_PASS_CAMERA);
@@ -218,7 +218,7 @@ fn setup(
 
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
-            .looking_at(Vec3::default(), Vec3::Y),
+            .looking_at(Vec3::default(), Vec3::UP),
         ..Default::default()
     });
 }

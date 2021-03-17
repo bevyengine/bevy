@@ -191,7 +191,7 @@ fn setup_pipeline(
     });
     // main camera
     commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(0.0, 0.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(0.0, 0.0, 6.0).looking_at(Vec3::ZERO, Vec3::UP),
         ..Default::default()
     });
     // second window camera
@@ -201,7 +201,7 @@ fn setup_pipeline(
             window: window_id,
             ..Default::default()
         },
-        transform: Transform::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::UP),
         ..Default::default()
     });
 

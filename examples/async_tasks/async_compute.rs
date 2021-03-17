@@ -114,7 +114,7 @@ fn setup_env(mut commands: Commands) {
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_translation(Vec3::new(offset, offset, 15.0))
-            .looking_at(Vec3::new(offset, offset, 0.0), Vec3::Y),
+            .looking_at(Vec3::new(offset, offset, 0.0), Vec3::UP),
         ..Default::default()
     });
 }
