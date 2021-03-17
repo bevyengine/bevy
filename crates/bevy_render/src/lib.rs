@@ -32,7 +32,7 @@ pub mod prelude {
         pass::ClearColor,
         pipeline::RenderPipelines,
         shader::Shader,
-        texture::Texture,
+        texture::{FilterMode, Texture},
     };
 }
 
