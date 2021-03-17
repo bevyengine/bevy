@@ -126,6 +126,8 @@ pub struct Quad {
     pub size: Vec2,
     /// Flips the texture coords of the resulting vertices.
     pub flip: bool,
+    /// Scale the texture to tile it.
+    pub uv_scale: Vec2,
 }
 
 impl Default for Quad {
@@ -136,11 +138,19 @@ impl Default for Quad {
 
 impl Quad {
     pub fn new(size: Vec2) -> Self {
-        Self { size, flip: false }
+        Self {
+            size,
+            flip: false,
+            uv_scale: Vec2::splat(1.0),
+        }
     }
 
     pub fn flipped(size: Vec2) -> Self {
-        Self { size, flip: true }
+        Self {
+            size,
+            flip: true,
+            uv_scale: Vec2::splat(1.0),
+        }
     }
 }
 
@@ -158,12 +168,12 @@ impl From<Quad> for Mesh {
                 (
                     [south_east.x, south_east.y, 0.0],
                     [0.0, 0.0, 1.0],
-                    [1.0, 1.0],
+                    [quad.uv_scale.x, quad.uv_scale.y],
                 ),
                 (
                     [north_east.x, north_east.y, 0.0],
                     [0.0, 0.0, 1.0],
-                    [1.0, 0.0],
+                    [quad.uv_scale.x, 0.0],
                 ),
                 (
                     [north_west.x, north_west.y, 0.0],
@@ -173,7 +183,7 @@ impl From<Quad> for Mesh {
                 (
                     [south_west.x, south_west.y, 0.0],
                     [0.0, 0.0, 1.0],
-                    [0.0, 1.0],
+                    [0.0, quad.uv_scale.y],
                 ),
             ]
         } else {
@@ -181,7 +191,7 @@ impl From<Quad> for Mesh {
                 (
                     [south_west.x, south_west.y, 0.0],
                     [0.0, 0.0, 1.0],
-                    [0.0, 1.0],
+                    [0.0, quad.uv_scale.y],
                 ),
                 (
                     [north_west.x, north_west.y, 0.0],
@@ -191,12 +201,12 @@ impl From<Quad> for Mesh {
                 (
                     [north_east.x, north_east.y, 0.0],
                     [0.0, 0.0, 1.0],
-                    [1.0, 0.0],
+                    [quad.uv_scale.x, 0.0],
                 ),
                 (
                     [south_east.x, south_east.y, 0.0],
                     [0.0, 0.0, 1.0],
-                    [1.0, 1.0],
+                    [quad.uv_scale.x, quad.uv_scale.y],
                 ),
             ]
         };
