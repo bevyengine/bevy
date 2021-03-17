@@ -54,7 +54,7 @@ fn main() {
             CoreStage::Update,
             GameStage::BonusUpdate,
             SystemStage::parallel()
-                .with_run_criteria(FixedTimestep::step(5.0))
+                .with_run_criterion(FixedTimestep::step(5.0))
                 .with_system(spawn_bonus.system()),
         )
         .run();
