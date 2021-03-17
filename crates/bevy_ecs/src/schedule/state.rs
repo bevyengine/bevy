@@ -34,6 +34,7 @@ enum StateTransition<T: Component + Clone + Eq> {
 #[derive(Debug)]
 enum ScheduledOperation<T: Component + Clone + Eq> {
     Next(T),
+    Replace(T),
     Pop,
     Push(T),
 }
@@ -202,7 +203,7 @@ impl<T: Component + Clone + Eq> State<T> {
         }
     }
 
-    /// Schedule a state change that replaces the full stack with the given state.
+    /// Schedule a state change that changes the top of the stack with the given state.
     /// This will fail if there is a scheduled operation, or if the given `state` matches the current state
     pub fn set_next(&mut self, state: T) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
@@ -224,6 +225,31 @@ impl<T: Component + Clone + Eq> State<T> {
         }
 
         self.scheduled = Some(ScheduledOperation::Next(state));
+        Ok(())
+    }
+
+    /// Schedule a state change that replaces the full stack with the given state.
+    /// This will fail if there is a scheduled operation, or if the given `state` matches the current state
+    pub fn set_replace(&mut self, state: T) -> Result<(), StateError> {
+        if self.stack.last().unwrap() == &state {
+            return Err(StateError::AlreadyInState);
+        }
+
+        if self.scheduled.is_some() {
+            return Err(StateError::StateAlreadyQueued);
+        }
+
+        self.scheduled = Some(ScheduledOperation::Replace(state));
+        Ok(())
+    }
+
+    /// Same as [Self::set_replace], but if there is already a next state, it will be overwritten instead of failing
+    pub fn overwrite_replace(&mut self, state: T) -> Result<(), StateError> {
+        if self.stack.last().unwrap() == &state {
+            return Err(StateError::AlreadyInState);
+        }
+
+        self.scheduled = Some(ScheduledOperation::Replace(state));
         Ok(())
     }
 
@@ -323,13 +349,19 @@ fn state_cleaner<T: Component + Clone + Eq>(
     }
     match state.scheduled.take() {
         Some(ScheduledOperation::Next(next)) => {
+            state.transition = Some(StateTransition::ExitingFull(
+                state.stack.last().unwrap().clone(),
+                next,
+            ));
+        }
+        Some(ScheduledOperation::Replace(next)) => {
             if state.stack.len() <= 1 {
                 state.transition = Some(StateTransition::ExitingFull(
                     state.stack.last().unwrap().clone(),
                     next,
                 ));
             } else {
-                state.scheduled = Some(ScheduledOperation::Next(next));
+                state.scheduled = Some(ScheduledOperation::Replace(next));
                 match state.transition.take() {
                     Some(StateTransition::ExitingToResume(p, n)) => {
                         state.stack.pop();
@@ -357,7 +389,7 @@ fn state_cleaner<T: Component + Clone + Eq>(
         None => match state.transition.take() {
             Some(StateTransition::ExitingFull(p, n)) => {
                 state.transition = Some(StateTransition::Entering(p, n.clone()));
-                state.stack[0] = n;
+                *state.stack.last_mut().unwrap() = n;
             }
             Some(StateTransition::Pausing(p, n)) => {
                 state.transition = Some(StateTransition::Entering(p, n.clone()));
@@ -415,7 +447,7 @@ mod test {
                 State::on_update_set(MyState::S1).with_system(
                     (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                         r.push("update S1");
-                        s.overwrite_next(MyState::S2).unwrap();
+                        s.overwrite_replace(MyState::S2).unwrap();
                     })
                     .system(),
                 ),
@@ -428,7 +460,7 @@ mod test {
                 State::on_update_set(MyState::S2).with_system(
                     (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                         r.push("update S2");
-                        s.overwrite_next(MyState::S3).unwrap();
+                        s.overwrite_replace(MyState::S3).unwrap();
                     })
                     .system(),
                 ),
