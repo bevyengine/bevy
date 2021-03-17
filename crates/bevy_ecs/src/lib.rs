@@ -20,7 +20,7 @@ pub mod prelude {
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
             RunCriteriaChaining, RunCriteriaLabelling, RunCriterionLabel, Schedule, Stage,
-            StageLabel, State, StateStage, SystemLabel, SystemStage,
+            StageLabel, State, SystemLabel, SystemSet, SystemStage,
         },
         system::{
             Commands, In, IntoChainSystem, IntoExclusiveSystem, IntoSystem, Local, NonSend,

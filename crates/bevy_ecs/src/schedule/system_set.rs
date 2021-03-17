@@ -1,6 +1,9 @@
-use crate::schedule::{
-    AmbiguitySetLabel, BoxedAmbiguitySetLabel, BoxedSystemLabel, IntoRunCriterionDescriptor,
-    RunCriterionDescriptor, SystemDescriptor, SystemLabel,
+use crate::{
+    component::Component,
+    schedule::{
+        AmbiguitySetLabel, BoxedAmbiguitySetLabel, BoxedSystemLabel,
+        IntoRunCriterionDescriptor, RunCriterionDescriptor, SystemDescriptor, SystemLabel,
+    }
 };
 
 /// A builder for describing several systems at the same time.
@@ -31,6 +34,35 @@ impl SystemSet {
         Default::default()
     }
 
+    pub fn on_update<T: Component + Clone + Eq>(s: T) -> SystemSet {
+        Self::new().with_run_criteria(State::<T>::on_update(s))
+    }
+
+    pub fn on_inactive_update<T: Component + Clone + Eq>(s: T) -> SystemSet {
+        Self::new().with_run_criteria(State::<T>::on_inactive_update(s))
+    }
+
+    pub fn on_enter<T: Component + Clone + Eq>(s: T) -> SystemSet {
+        Self::new().with_run_criteria(State::<T>::on_enter(s))
+    }
+
+    pub fn on_exit<T: Component + Clone + Eq>(s: T) -> SystemSet {
+        Self::new().with_run_criteria(State::<T>::on_exit(s))
+    }
+
+    pub fn on_pause<T: Component + Clone + Eq>(s: T) -> SystemSet {
+        Self::new().with_run_criteria(State::<T>::on_pause(s))
+    }
+
+    pub fn on_resume<T: Component + Clone + Eq>(s: T) -> SystemSet {
+        Self::new().with_run_criteria(State::<T>::on_resume(s))
+    }
+
+    pub fn in_ambiguity_set(mut self, set: impl AmbiguitySetLabel) -> Self {
+        self.ambiguity_sets.push(Box::new(set));
+        self
+    }
+
     pub fn with_system(mut self, system: impl Into<SystemDescriptor>) -> Self {
         self.systems.push(system.into());
         self
@@ -56,11 +88,6 @@ impl SystemSet {
 
     pub fn after(mut self, label: impl SystemLabel) -> Self {
         self.after.push(Box::new(label));
-        self
-    }
-
-    pub fn in_ambiguity_set(mut self, set: impl AmbiguitySetLabel) -> Self {
-        self.ambiguity_sets.push(Box::new(set));
         self
     }
 
