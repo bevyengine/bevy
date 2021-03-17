@@ -203,7 +203,7 @@ impl<T: Component + Clone + Eq> State<T> {
         }
     }
 
-    /// Schedule a state change that changes the top of the stack with the given state.
+    /// Schedule a state change that changes the top of the stack to the given state.
     /// This will fail if there is a scheduled operation, or if the given `state` matches the current state
     pub fn set_next(&mut self, state: T) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
