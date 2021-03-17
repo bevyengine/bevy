@@ -57,7 +57,7 @@ enum State {
 
 /// An event collection that represents the events that occurred within the last two
 /// [`Events::update`] calls.
-/// Events can be written to in parallel using an [`EventWriter`]
+/// Events can be written to using an [`EventWriter`]
 /// and are typically cheaply read using an [`EventReader`].
 ///
 /// Each event can be consumed by multiple systems, in parallel,
