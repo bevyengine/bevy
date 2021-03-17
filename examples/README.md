@@ -94,6 +94,7 @@ Example | File | Description
 `render_to_texture` | [`3d/render_to_texture.rs`](./3d/render_to_texture.rs) | Shows how to render to texture
 `spawner` | [`3d/spawner.rs`](./3d/spawner.rs) | Renders a large number of cubes with changing position and material
 `texture` | [`3d/texture.rs`](./3d/texture.rs) | Shows configuration of texture materials
+`texture_filtering` | [`3d/texture_filtering.rs`](./3d/texture_filtering.rs) | Showcases different GPU texture filtering modes (nearest, linear, mipmaps, anisotropic); WARNING: possible epilepsy trigger from extreme aliasing artifacts in Nearest mode. The example uses Anisotropic by default for this reason.
 `update_gltf_scene` | [`3d/update_gltf_scene.rs`](./3d/update_gltf_scene.rs) | Update a scene from a gltf file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 `wireframe` | [`3d/wireframe.rs`](./3d/wireframe.rs) | Showcases wireframe rendering
 `z_sort_debug` | [`3d/z_sort_debug.rs`](./3d/z_sort_debug.rs) | Visualizes camera Z-ordering
