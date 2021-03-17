@@ -203,6 +203,69 @@ impl Color {
         )
     }
 
+    /// Get red in sRGB colorspace.
+    pub fn r(&self) -> f32 {
+        match self.as_rgba() {
+            Color::Rgba { red, .. } => red,
+            _ => unreachable!(),
+        }
+    }
+
+    /// Get green in sRGB colorspace.
+    pub fn g(&self) -> f32 {
+        match self.as_rgba() {
+            Color::Rgba { green, .. } => green,
+            _ => unreachable!(),
+        }
+    }
+
+    /// Get blue in sRGB colorspace.
+    pub fn b(&self) -> f32 {
+        match self.as_rgba() {
+            Color::Rgba { blue, .. } => blue,
+            _ => unreachable!(),
+        }
+    }
+
+    /// Set red in sRGB colorspace.
+    pub fn set_r(&mut self, r: f32) -> &mut Self {
+        *self = self.as_rgba();
+        match self {
+            Color::Rgba { red, .. } => *red = r,
+            _ => unreachable!(),
+        }
+        self
+    }
+
+    /// Set green in sRGB colorspace.
+    pub fn set_g(&mut self, g: f32) -> &mut Self {
+        *self = self.as_rgba();
+        match self {
+            Color::Rgba { green, .. } => *green = g,
+            _ => unreachable!(),
+        }
+        self
+    }
+
+    /// Set blue in sRGB colorspace.
+    pub fn set_b(&mut self, b: f32) -> &mut Self {
+        *self = self.as_rgba();
+        match self {
+            Color::Rgba { blue, .. } => *blue = b,
+            _ => unreachable!(),
+        }
+        self
+    }
+
+    /// Get alpha.
+    pub fn a(&self) -> f32 {
+        match self {
+            Color::Rgba { alpha, .. }
+            | Color::RgbaLinear { alpha, .. }
+            | Color::Hsla { alpha, .. } => *alpha,
+        }
+    }
+
     /// Set alpha.
     pub fn set_a(&mut self, a: f32) -> &mut Self {
         match self {

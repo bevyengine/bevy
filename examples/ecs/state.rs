@@ -147,9 +147,9 @@ fn change_color(
 ) {
     for handle in query.iter() {
         let material = assets.get_mut(handle).unwrap();
-        if let Color::Rgba { blue, .. } = &mut material.color {
-            *blue = (time.seconds_since_startup() * 5.0).sin() as f32 + 2.0;
-        };
+        material
+            .color
+            .set_b((time.seconds_since_startup() * 5.0).sin() as f32 + 2.0);
     }
 }
 
