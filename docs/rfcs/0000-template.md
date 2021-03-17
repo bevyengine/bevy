@@ -20,6 +20,7 @@ Explain the proposal as if it was already included in the engine and you were te
 - Explaining the feature, ideally through simple examples of solutions to concrete problems.
 - Explaining how Bevy users should *think* about the feature, and how it should impact the way they use Bevy. It should explain the impact as concretely as possible.
 - If applicable, provide sample error messages, deprecation warnings, or migration guidance.
+- If applicable, explain how this feature compares to similar existing features, and in what situations the user would use each one.
 
 
 # Reference-level explanation
@@ -44,6 +45,7 @@ Why should we *not* do this?
 - Why is this design the best in the space of possible designs?
 - What other designs have been considered and what is the rationale for not choosing them?
 - What is the impact of not doing this?
+- Why must this be a feature of Bevy itself, rather than an ecosystem crate?
 
 # Prior art
 [prior-art]: #prior-art
