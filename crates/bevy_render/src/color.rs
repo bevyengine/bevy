@@ -954,10 +954,6 @@ impl MulAssign<[f32; 3]> for Color {
 
 impl Bytes for Color {
     fn write_bytes(&self, buffer: &mut [u8]) {
-        self.write_bytes_with_offset(buffer, 0);
-    }
-
-    fn write_bytes_with_offset(&self, buffer: &mut [u8], offset: usize) {
         match *self {
             Color::Rgba {
                 red,
@@ -965,14 +961,13 @@ impl Bytes for Color {
                 blue,
                 alpha,
             } => {
-                red.nonlinear_to_linear_srgb()
-                    .write_bytes_with_offset(buffer, offset);
+                red.nonlinear_to_linear_srgb().write_bytes(buffer);
                 green
                     .nonlinear_to_linear_srgb()
-                    .write_bytes_with_offset(buffer, offset + std::mem::size_of::<f32>());
+                    .write_bytes(&mut buffer[std::mem::size_of::<f32>()..]);
                 blue.nonlinear_to_linear_srgb()
-                    .write_bytes_with_offset(buffer, offset + std::mem::size_of::<f32>() * 2);
-                alpha.write_bytes_with_offset(buffer, offset + std::mem::size_of::<f32>() * 3);
+                    .write_bytes(&mut buffer[2 * std::mem::size_of::<f32>()..]);
+                alpha.write_bytes(&mut buffer[3 * std::mem::size_of::<f32>()..]);
             }
             Color::RgbaLinear {
                 red,
@@ -980,10 +975,10 @@ impl Bytes for Color {
                 blue,
                 alpha,
             } => {
-                red.write_bytes_with_offset(buffer, offset);
-                green.write_bytes_with_offset(buffer, offset + std::mem::size_of::<f32>());
-                blue.write_bytes_with_offset(buffer, offset + std::mem::size_of::<f32>() * 2);
-                alpha.write_bytes_with_offset(buffer, offset + std::mem::size_of::<f32>() * 3);
+                red.write_bytes(buffer);
+                green.write_bytes(&mut buffer[std::mem::size_of::<f32>()..]);
+                blue.write_bytes(&mut buffer[2 * std::mem::size_of::<f32>()..]);
+                alpha.write_bytes(&mut buffer[3 * std::mem::size_of::<f32>()..]);
             }
             Color::Hsla {
                 hue,
@@ -993,14 +988,13 @@ impl Bytes for Color {
             } => {
                 let [red, green, blue] =
                     HslRepresentation::hsl_to_nonlinear_srgb(hue, saturation, lightness);
-                red.nonlinear_to_linear_srgb()
-                    .write_bytes_with_offset(buffer, offset);
+                red.nonlinear_to_linear_srgb().write_bytes(buffer);
                 green
                     .nonlinear_to_linear_srgb()
-                    .write_bytes_with_offset(buffer, offset + std::mem::size_of::<f32>());
+                    .write_bytes(&mut buffer[std::mem::size_of::<f32>()..]);
                 blue.nonlinear_to_linear_srgb()
-                    .write_bytes_with_offset(buffer, offset + std::mem::size_of::<f32>() * 2);
-                alpha.write_bytes_with_offset(buffer, offset + std::mem::size_of::<f32>() * 3);
+                    .write_bytes(&mut buffer[std::mem::size_of::<f32>() * 2..]);
+                alpha.write_bytes(&mut buffer[std::mem::size_of::<f32>() * 3..]);
             }
         }
     }

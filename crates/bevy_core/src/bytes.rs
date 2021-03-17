@@ -7,9 +7,6 @@ pub trait Bytes {
     /// Converts the implementing type to bytes by writing them to a given buffer
     fn write_bytes(&self, buffer: &mut [u8]);
 
-    /// Converts the implementing type to bytes by writing them to a given buffer, starting at offset
-    fn write_bytes_with_offset(&self, buffer: &mut [u8], offset: usize);
-
     /// The number of bytes that will be written when calling `write_bytes`
     fn byte_len(&self) -> usize;
 }
@@ -26,12 +23,8 @@ where
     T: Byteable,
 {
     fn write_bytes(&self, buffer: &mut [u8]) {
-        self.write_bytes_with_offset(buffer, 0);
-    }
-
-    fn write_bytes_with_offset(&self, buffer: &mut [u8], offset: usize) {
         let bytes = self.as_bytes();
-        buffer[offset..(self.byte_len() + offset)].copy_from_slice(bytes)
+        buffer[0..self.byte_len()].copy_from_slice(bytes)
     }
 
     fn byte_len(&self) -> usize {
@@ -115,12 +108,8 @@ unsafe impl Byteable for Vec4 {}
 
 impl Bytes for Mat4 {
     fn write_bytes(&self, buffer: &mut [u8]) {
-        self.write_bytes_with_offset(buffer, 0);
-    }
-
-    fn write_bytes_with_offset(&self, buffer: &mut [u8], offset: usize) {
         let array = self.to_cols_array();
-        array.write_bytes_with_offset(buffer, offset);
+        array.write_bytes(buffer);
     }
 
     fn byte_len(&self) -> usize {
@@ -140,12 +129,8 @@ where
     T: Bytes,
 {
     fn write_bytes(&self, buffer: &mut [u8]) {
-        self.write_bytes_with_offset(buffer, 0);
-    }
-
-    fn write_bytes_with_offset(&self, buffer: &mut [u8], offset: usize) {
         if let Some(val) = self {
-            val.write_bytes_with_offset(buffer, offset)
+            val.write_bytes(buffer)
         }
     }
 
@@ -172,12 +157,8 @@ where
     T: Sized + Byteable,
 {
     fn write_bytes(&self, buffer: &mut [u8]) {
-        self.write_bytes_with_offset(buffer, 0);
-    }
-
-    fn write_bytes_with_offset(&self, buffer: &mut [u8], offset: usize) {
         let bytes = self.as_slice().as_bytes();
-        buffer[offset..(self.byte_len() + offset)].copy_from_slice(bytes)
+        buffer[0..self.byte_len()].copy_from_slice(bytes)
     }
 
     fn byte_len(&self) -> usize {
