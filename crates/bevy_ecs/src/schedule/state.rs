@@ -270,7 +270,7 @@ impl<T: Component + Clone + Eq> State<T> {
     }
 
     /// Same as [Self::set_pop], but if there is already a next state, it will be overwritten
-    /// instead of failing
+    /// instead of failing.
     pub fn overwrite_pop(&mut self) -> Result<(), StateError> {
         if self.stack.len() == 1 {
             return Err(StateError::StackEmpty);
