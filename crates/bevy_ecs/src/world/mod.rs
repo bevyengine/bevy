@@ -12,8 +12,8 @@ use crate::{
     archetype::{ArchetypeComponentId, ArchetypeComponentInfo, ArchetypeId, Archetypes},
     bundle::{Bundle, Bundles},
     component::{
-        Component, ComponentCounters, ComponentDescriptor, ComponentId, Components,
-        ComponentsError, StorageType,
+        Component, ComponentDescriptor, ComponentId, ComponentTicks, Components, ComponentsError,
+        StorageType,
     },
     entity::{Entities, Entity},
     query::{FilterFetch, QueryState, WorldQuery},
@@ -643,7 +643,7 @@ impl World {
             .components
             .get_resource_id(TypeId::of::<T>())
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<T>()));
-        let (ptr, mut counters) = {
+        let (ptr, mut ticks) = {
             let resource_archetype = self.archetypes.resource_mut();
             let unique_components = resource_archetype.unique_components_mut();
             let column = unique_components.get_mut(component_id).unwrap_or_else(|| {
@@ -659,7 +659,7 @@ impl World {
         // SAFE: pointer is of type T
         let value = Mut {
             value: unsafe { &mut *ptr.cast::<T>() },
-            component_counters: &mut counters,
+            component_ticks: &mut ticks,
             last_change_tick: self.last_change_tick(),
             change_tick: self.change_tick(),
         };
@@ -674,7 +674,7 @@ impl World {
         // SAFE: row was just allocated above
         unsafe { column.set_unchecked(row, ptr) };
         // SAFE: row was just allocated above
-        unsafe { *column.get_counters_unchecked_mut(row) = counters };
+        unsafe { *column.get_ticks_unchecked_mut(row) = ticks };
         result
     }
 
@@ -700,7 +700,7 @@ impl World {
         let column = self.get_populated_resource_column(component_id)?;
         Some(Mut {
             value: &mut *column.get_ptr().as_ptr().cast::<T>(),
-            component_counters: &mut *column.get_counters_mut_ptr(),
+            component_ticks: &mut *column.get_ticks_mut_ptr(),
             last_change_tick: self.last_change_tick(),
             change_tick: self.read_change_tick(),
         })
@@ -744,13 +744,11 @@ impl World {
             column.set_unchecked(row, data);
             std::mem::forget(value);
             // SAFE: index was just allocated above
-            *column.get_counters_unchecked_mut(row) = ComponentCounters::new(change_tick);
+            *column.get_ticks_unchecked_mut(row) = ComponentTicks::new(change_tick);
         } else {
             // SAFE: column is of type T and has already been allocated
             *column.get_unchecked(0).cast::<T>() = value;
-            column
-                .get_counters_unchecked_mut(0)
-                .set_changed(change_tick);
+            column.get_ticks_unchecked_mut(0).set_changed(change_tick);
         }
     }
 
@@ -860,16 +858,14 @@ impl World {
     }
 
     pub fn check_change_ticks(&mut self) {
-        // Iterate over all component counters, clamping their age to max age
+        // Iterate over all component change ticks, clamping their age to max age
         // PERF: parallelize
         let change_tick = self.change_tick();
-        self.storages.tables.clear_counters(change_tick);
-        self.storages
-            .sparse_sets
-            .check_counters(change_tick);
+        self.storages.tables.check_change_ticks(change_tick);
+        self.storages.sparse_sets.check_change_ticks(change_tick);
         let resource_archetype = self.archetypes.resource_mut();
         for column in resource_archetype.unique_components.values_mut() {
-            column.check_counters(change_tick);
+            column.check_change_ticks(change_tick);
         }
     }
 }

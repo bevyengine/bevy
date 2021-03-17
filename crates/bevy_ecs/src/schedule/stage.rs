@@ -346,8 +346,8 @@ impl SystemStage {
         }
     }
 
-    /// Checks for old component and system counters
-    fn check_counters(&mut self, world: &mut World) {
+    /// Checks for old component and system change ticks
+    fn check_change_ticks(&mut self, world: &mut World) {
         let change_tick = world.change_tick();
         let time_since_last_check = change_tick.wrapping_sub(self.last_counter_check);
         // Only check after at least `u32::MAX / 8` counts, and at most `u32::MAX / 4` counts
@@ -356,7 +356,7 @@ impl SystemStage {
         const MAX_TIME_SINCE_LAST_CHECK: u32 = u32::MAX / 8;
 
         if time_since_last_check > MAX_TIME_SINCE_LAST_CHECK {
-            // Check all system counters
+            // Check all system change ticks
             for exclusive_system in &mut self.exclusive_at_start {
                 exclusive_system
                     .system_mut()
@@ -378,7 +378,7 @@ impl SystemStage {
                     .check_system_counter(change_tick);
             }
 
-            // Check component counters
+            // Check component ticks
             world.check_change_ticks();
 
             self.last_counter_check = change_tick;
@@ -678,8 +678,8 @@ impl Stage for SystemStage {
                 }
             }
 
-            // Check for old component and system counters
-            self.check_counters(world);
+            // Check for old component and system change ticks
+            self.check_change_ticks(world);
 
             // Reevaluate system sets' run criteria.
             has_work = false;

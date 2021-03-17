@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
-    component::{Component, ComponentCounters, ComponentId, Components},
+    component::{Component, ComponentId, ComponentTicks, Components},
     entity::{Entities, Entity},
     query::{FilterFetch, FilteredAccess, FilteredAccessSet, QueryState, WorldQuery},
     system::{CommandQueue, Commands, Query, SystemState},
@@ -120,12 +120,7 @@ where
         world: &'a World,
         change_tick: u32,
     ) -> Self::Item {
-        Query::new(
-            world,
-            state,
-            system_state.last_change_tick,
-            change_tick,
-        )
+        Query::new(world, state, system_state.last_change_tick, change_tick)
     }
 }
 
@@ -162,7 +157,7 @@ impl_query_set!();
 /// Use `Option<Res<T>>` if the resource might not always exist.
 pub struct Res<'w, T> {
     value: &'w T,
-    counters: &'w ComponentCounters,
+    ticks: &'w ComponentTicks,
     last_change_tick: u32,
     change_tick: u32,
 }
@@ -171,14 +166,13 @@ impl<'w, T: Component> Res<'w, T> {
     /// Returns true if (and only if) this resource been added since the last execution of this
     /// system.
     pub fn is_added(&self) -> bool {
-        self.counters
-            .is_added(self.last_change_tick, self.change_tick)
+        self.ticks.is_added(self.last_change_tick, self.change_tick)
     }
 
     /// Returns true if (and only if) this resource been changed since the last execution of this
     /// system.
     pub fn is_changed(&self) -> bool {
-        self.counters
+        self.ticks
             .is_changed(self.last_change_tick, self.change_tick)
     }
 }
@@ -249,7 +243,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for ResState<T> {
             });
         Res {
             value: &*column.get_ptr().as_ptr().cast::<T>(),
-            counters: &*column.get_counters_mut_ptr(),
+            ticks: &*column.get_ticks_mut_ptr(),
             last_change_tick: system_state.last_change_tick,
             change_tick,
         }
@@ -284,7 +278,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for OptionResState<T> {
             .get_populated_resource_column(state.0.component_id)
             .map(|column| Res {
                 value: &*column.get_ptr().as_ptr().cast::<T>(),
-                counters: &*column.get_counters_mut_ptr(),
+                ticks: &*column.get_ticks_mut_ptr(),
                 last_change_tick: system_state.last_change_tick,
                 change_tick,
             })
@@ -298,7 +292,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for OptionResState<T> {
 /// Use `Option<ResMut<T>>` if the resource might not always exist.
 pub struct ResMut<'w, T> {
     value: &'w mut T,
-    counters: &'w mut ComponentCounters,
+    ticks: &'w mut ComponentTicks,
     last_change_tick: u32,
     change_tick: u32,
 }
@@ -307,14 +301,13 @@ impl<'w, T: Component> ResMut<'w, T> {
     /// Returns true if (and only if) this resource been added since the last execution of this
     /// system.
     pub fn is_added(&self) -> bool {
-        self.counters
-            .is_added(self.last_change_tick, self.change_tick)
+        self.ticks.is_added(self.last_change_tick, self.change_tick)
     }
 
     /// Returns true if (and only if) this resource been changed since the last execution of this
     /// system.
     pub fn is_changed(&self) -> bool {
-        self.counters
+        self.ticks
             .is_changed(self.last_change_tick, self.change_tick)
     }
 }
@@ -329,7 +322,7 @@ impl<'w, T: Component> Deref for ResMut<'w, T> {
 
 impl<'w, T: Component> DerefMut for ResMut<'w, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.counters.set_changed(self.change_tick);
+        self.ticks.set_changed(self.change_tick);
         self.value
     }
 }
@@ -396,7 +389,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for ResMutState<T> {
             });
         ResMut {
             value: value.value,
-            counters: value.component_counters,
+            ticks: value.component_ticks,
             last_change_tick: system_state.last_change_tick,
             change_tick,
         }
@@ -431,7 +424,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for OptionResMutState<T> {
             .get_resource_unchecked_mut_with_id(state.0.component_id)
             .map(|value| ResMut {
                 value: value.value,
-                counters: value.component_counters,
+                ticks: value.component_ticks,
                 last_change_tick: system_state.last_change_tick,
                 change_tick,
             })
@@ -571,7 +564,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for RemovedComponentsState<T> {
 /// Shared borrow of a NonSend resource
 pub struct NonSend<'w, T> {
     pub(crate) value: &'w T,
-    counters: ComponentCounters,
+    ticks: ComponentTicks,
     last_change_tick: u32,
     change_tick: u32,
 }
@@ -580,14 +573,13 @@ impl<'w, T: Component> NonSend<'w, T> {
     /// Returns true if (and only if) this resource been added since the last execution of this
     /// system.
     pub fn is_added(&self) -> bool {
-        self.counters
-            .is_added(self.last_change_tick, self.change_tick)
+        self.ticks.is_added(self.last_change_tick, self.change_tick)
     }
 
     /// Returns true if (and only if) this resource been changed since the last execution of this
     /// system.
     pub fn is_changed(&self) -> bool {
-        self.counters
+        self.ticks
             .is_changed(self.last_change_tick, self.change_tick)
     }
 }
@@ -661,7 +653,7 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendState<T> {
             });
         NonSend {
             value: &*column.get_ptr().as_ptr().cast::<T>(),
-            counters: *column.get_counters_mut_ptr(),
+            ticks: *column.get_ticks_mut_ptr(),
             last_change_tick: system_state.last_change_tick,
             change_tick,
         }
@@ -671,7 +663,7 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendState<T> {
 /// Unique borrow of a NonSend resource
 pub struct NonSendMut<'a, T: 'static> {
     pub(crate) value: &'a mut T,
-    counters: &'a mut ComponentCounters,
+    ticks: &'a mut ComponentTicks,
     last_change_tick: u32,
     change_tick: u32,
 }
@@ -680,14 +672,13 @@ impl<'w, T: Component> NonSendMut<'w, T> {
     /// Returns true if (and only if) this resource been added since the last execution of this
     /// system.
     pub fn is_added(&self) -> bool {
-        self.counters
-            .is_added(self.last_change_tick, self.change_tick)
+        self.ticks.is_added(self.last_change_tick, self.change_tick)
     }
 
     /// Returns true if (and only if) this resource been changed since the last execution of this
     /// system.
     pub fn is_changed(&self) -> bool {
-        self.counters
+        self.ticks
             .is_changed(self.last_change_tick, self.change_tick)
     }
 }
@@ -704,7 +695,7 @@ impl<'a, T: 'static> Deref for NonSendMut<'a, T> {
 impl<'a, T: 'static> DerefMut for NonSendMut<'a, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut T {
-        self.counters.set_changed(self.change_tick);
+        self.ticks.set_changed(self.change_tick);
         self.value
     }
 }
@@ -780,7 +771,7 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendMutState<T> {
             });
         NonSendMut {
             value: &mut *column.get_ptr().as_ptr().cast::<T>(),
-            counters: &mut *column.get_counters_mut_ptr(),
+            ticks: &mut *column.get_ticks_mut_ptr(),
             last_change_tick: system_state.last_change_tick,
             change_tick,
         }
@@ -906,18 +897,18 @@ impl<'a> SystemParamFetch<'a> for BundlesState {
 }
 
 #[derive(Debug)]
-pub struct SystemCounter {
+pub struct SystemChangeTick {
     pub last_change_tick: u32,
     pub change_tick: u32,
 }
 
-impl SystemParam for SystemCounter {
-    type Fetch = SystemCounterState;
+impl SystemParam for SystemChangeTick {
+    type Fetch = SystemChangeTickState;
 }
 
-pub struct SystemCounterState {}
+pub struct SystemChangeTickState {}
 
-unsafe impl SystemParamState for SystemCounterState {
+unsafe impl SystemParamState for SystemChangeTickState {
     type Config = ();
 
     fn init(_world: &mut World, _system_state: &mut SystemState, _config: Self::Config) -> Self {
@@ -925,8 +916,8 @@ unsafe impl SystemParamState for SystemCounterState {
     }
 }
 
-impl<'a> SystemParamFetch<'a> for SystemCounterState {
-    type Item = SystemCounter;
+impl<'a> SystemParamFetch<'a> for SystemChangeTickState {
+    type Item = SystemChangeTick;
 
     unsafe fn get_param(
         _state: &mut Self,
@@ -934,7 +925,7 @@ impl<'a> SystemParamFetch<'a> for SystemCounterState {
         _world: &World,
         change_tick: u32,
     ) -> Self::Item {
-        SystemCounter {
+        SystemChangeTick {
             last_change_tick: system_state.last_change_tick,
             change_tick,
         }

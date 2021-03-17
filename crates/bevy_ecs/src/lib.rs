@@ -937,27 +937,27 @@ mod tests {
     }
 
     #[test]
-    fn counters_query() {
+    fn trackers_query() {
         let mut world = World::default();
         let e1 = world.spawn().insert_bundle((A(0), B(0))).id();
         world.spawn().insert(B(0));
 
-        let mut counters_query = world.query::<Option<ChangeTrackers<A>>>();
-        let counters = counters_query.iter(&world).collect::<Vec<_>>();
-        let a_counters = counters[0].as_ref().unwrap();
-        assert!(counters[1].is_none());
-        assert!(a_counters.is_added());
-        assert!(a_counters.is_changed());
+        let mut trackers_query = world.query::<Option<ChangeTrackers<A>>>();
+        let trackers = trackers_query.iter(&world).collect::<Vec<_>>();
+        let a_trackers = trackers[0].as_ref().unwrap();
+        assert!(trackers[1].is_none());
+        assert!(a_trackers.is_added());
+        assert!(a_trackers.is_changed());
         world.clear_trackers();
-        let counters = counters_query.iter(&world).collect::<Vec<_>>();
-        let a_counters = counters[0].as_ref().unwrap();
-        assert!(!a_counters.is_added());
-        assert!(!a_counters.is_changed());
+        let trackers = trackers_query.iter(&world).collect::<Vec<_>>();
+        let a_trackers = trackers[0].as_ref().unwrap();
+        assert!(!a_trackers.is_added());
+        assert!(!a_trackers.is_changed());
         *world.get_mut(e1).unwrap() = A(1);
-        let counters = counters_query.iter(&world).collect::<Vec<_>>();
-        let a_counters = counters[0].as_ref().unwrap();
-        assert!(!a_counters.is_added());
-        assert!(a_counters.is_changed());
+        let trackers = trackers_query.iter(&world).collect::<Vec<_>>();
+        let a_trackers = trackers[0].as_ref().unwrap();
+        assert!(!a_trackers.is_added());
+        assert!(a_trackers.is_changed());
     }
 
     #[test]

@@ -50,11 +50,7 @@ impl ExclusiveSystem for ExclusiveSystemFn {
     fn initialize(&mut self, _: &mut World) {}
 
     fn check_system_counter(&mut self, change_tick: u32) {
-        check_system_counter_impl(
-            &mut self.last_change_tick,
-            change_tick,
-            self.name.as_ref(),
-        );
+        check_system_counter_impl(&mut self.last_change_tick, change_tick, self.name.as_ref());
     }
 }
 

@@ -198,7 +198,6 @@ impl System for FixedTimestep {
     }
 
     fn check_system_counter(&mut self, change_tick: u32) {
-        self.internal_system
-            .check_system_counter(change_tick);
+        self.internal_system.check_system_counter(change_tick);
     }
 }

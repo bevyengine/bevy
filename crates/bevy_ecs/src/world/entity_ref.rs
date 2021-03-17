@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes, ComponentStatus},
     bundle::{Bundle, BundleInfo},
-    component::{Component, ComponentCounters, ComponentId, Components, StorageType},
+    component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entity, EntityLocation},
     storage::{SparseSet, Storages},
     world::{Mut, World},
@@ -77,18 +77,13 @@ impl<'w> EntityRef<'w> {
         last_change_tick: u32,
         change_tick: u32,
     ) -> Option<Mut<'w, T>> {
-        get_component_and_counters_with_type(
-            self.world,
-            TypeId::of::<T>(),
-            self.entity,
-            self.location,
-        )
-        .map(|(value, counters)| Mut {
-            value: &mut *value.cast::<T>(),
-            component_counters: &mut *counters,
-            last_change_tick,
-            change_tick,
-        })
+        get_component_and_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
+            .map(|(value, ticks)| Mut {
+                value: &mut *value.cast::<T>(),
+                component_ticks: &mut *ticks,
+                last_change_tick,
+                change_tick,
+            })
     }
 }
 
@@ -158,15 +153,15 @@ impl<'w> EntityMut<'w> {
         // SAFE: world access is unique, entity location is valid, and returned component is of type
         // T
         unsafe {
-            get_component_and_counters_with_type(
+            get_component_and_ticks_with_type(
                 self.world,
                 TypeId::of::<T>(),
                 self.entity,
                 self.location,
             )
-            .map(|(value, counters)| Mut {
+            .map(|(value, ticks)| Mut {
                 value: &mut *value.cast::<T>(),
-                component_counters: &mut *counters,
+                component_ticks: &mut *ticks,
                 last_change_tick: self.world.last_change_tick(),
                 change_tick: self.world.change_tick(),
             })
@@ -178,18 +173,13 @@ impl<'w> EntityMut<'w> {
     /// mutable references to the same component
     #[inline]
     pub unsafe fn get_unchecked_mut<T: Component>(&self) -> Option<Mut<'w, T>> {
-        get_component_and_counters_with_type(
-            self.world,
-            TypeId::of::<T>(),
-            self.entity,
-            self.location,
-        )
-        .map(|(value, counters)| Mut {
-            value: &mut *value.cast::<T>(),
-            component_counters: &mut *counters,
-            last_change_tick: self.world.last_change_tick(),
-            change_tick: self.world.read_change_tick(),
-        })
+        get_component_and_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
+            .map(|(value, ticks)| Mut {
+                value: &mut *value.cast::<T>(),
+                component_ticks: &mut *ticks,
+                last_change_tick: self.world.last_change_tick(),
+                change_tick: self.world.read_change_tick(),
+            })
     }
 
     // TODO: factor out non-generic part to cut down on monomorphization (just check perf)
@@ -544,12 +534,12 @@ unsafe fn get_component(
 /// # Safety
 /// Caller must ensure that `component_id` is valid
 #[inline]
-unsafe fn get_component_and_counters(
+unsafe fn get_component_and_ticks(
     world: &World,
     component_id: ComponentId,
     entity: Entity,
     location: EntityLocation,
-) -> Option<(*mut u8, *mut ComponentCounters)> {
+) -> Option<(*mut u8, *mut ComponentTicks)> {
     let archetype = &world.archetypes[location.archetype_id];
     let component_info = world.components.get_info_unchecked(component_id);
     match component_info.storage_type() {
@@ -560,14 +550,14 @@ unsafe fn get_component_and_counters(
             // SAFE: archetypes only store valid table_rows and the stored component type is T
             Some((
                 components.get_unchecked(table_row),
-                components.get_counters_unchecked(table_row),
+                components.get_ticks_unchecked(table_row),
             ))
         }
         StorageType::SparseSet => world
             .storages
             .sparse_sets
             .get(component_id)
-            .and_then(|sparse_set| sparse_set.get_with_counters(entity)),
+            .and_then(|sparse_set| sparse_set.get_with_ticks(entity)),
     }
 }
 
@@ -621,14 +611,14 @@ unsafe fn get_component_with_type(
 
 /// # Safety
 /// `entity_location` must be within bounds of an archetype that exists.
-pub(crate) unsafe fn get_component_and_counters_with_type(
+pub(crate) unsafe fn get_component_and_ticks_with_type(
     world: &World,
     type_id: TypeId,
     entity: Entity,
     location: EntityLocation,
-) -> Option<(*mut u8, *mut ComponentCounters)> {
+) -> Option<(*mut u8, *mut ComponentTicks)> {
     let component_id = world.components.get_id(type_id)?;
-    get_component_and_counters(world, component_id, entity, location)
+    get_component_and_ticks(world, component_id, entity, location)
 }
 
 fn contains_component_with_type(world: &World, type_id: TypeId, location: EntityLocation) -> bool {

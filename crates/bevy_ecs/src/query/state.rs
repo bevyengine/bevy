@@ -161,18 +161,10 @@ where
             return Err(QueryEntityError::QueryDoesNotMatch);
         }
         let archetype = &world.archetypes[location.archetype_id];
-        let mut fetch = <Q::Fetch as Fetch>::init(
-            world,
-            &self.fetch_state,
-            last_change_tick,
-            change_tick,
-        );
-        let mut filter = <F::Fetch as Fetch>::init(
-            world,
-            &self.filter_state,
-            last_change_tick,
-            change_tick,
-        );
+        let mut fetch =
+            <Q::Fetch as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);
+        let mut filter =
+            <F::Fetch as Fetch>::init(world, &self.filter_state, last_change_tick, change_tick);
 
         fetch.set_archetype(&self.fetch_state, archetype, &world.storages().tables);
         filter.set_archetype(&self.filter_state, archetype, &world.storages().tables);
@@ -207,11 +199,7 @@ where
         world: &'w World,
     ) -> QueryIter<'w, 's, Q, F> {
         self.validate_world_and_update_archetypes(world);
-        self.iter_unchecked_manual(
-            world,
-            world.last_change_tick(),
-            world.read_change_tick(),
-        )
+        self.iter_unchecked_manual(world, world.last_change_tick(), world.read_change_tick())
     }
 
     /// # Safety
@@ -337,18 +325,10 @@ where
         last_change_tick: u32,
         change_tick: u32,
     ) {
-        let mut fetch = <Q::Fetch as Fetch>::init(
-            world,
-            &self.fetch_state,
-            last_change_tick,
-            change_tick,
-        );
-        let mut filter = <F::Fetch as Fetch>::init(
-            world,
-            &self.filter_state,
-            last_change_tick,
-            change_tick,
-        );
+        let mut fetch =
+            <Q::Fetch as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);
+        let mut filter =
+            <F::Fetch as Fetch>::init(world, &self.filter_state, last_change_tick, change_tick);
         if fetch.is_dense() && filter.is_dense() {
             let tables = &world.storages().tables;
             for table_id in self.matched_table_ids.iter() {
@@ -397,18 +377,10 @@ where
         change_tick: u32,
     ) {
         task_pool.scope(|scope| {
-            let fetch = <Q::Fetch as Fetch>::init(
-                world,
-                &self.fetch_state,
-                last_change_tick,
-                change_tick,
-            );
-            let filter = <F::Fetch as Fetch>::init(
-                world,
-                &self.filter_state,
-                last_change_tick,
-                change_tick,
-            );
+            let fetch =
+                <Q::Fetch as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);
+            let filter =
+                <F::Fetch as Fetch>::init(world, &self.filter_state, last_change_tick, change_tick);
 
             if fetch.is_dense() && filter.is_dense() {
                 let tables = &world.storages().tables;

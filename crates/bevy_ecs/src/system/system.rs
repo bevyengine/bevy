@@ -54,11 +54,7 @@ pub trait System: Send + Sync + 'static {
 
 pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;
 
-pub(crate) fn check_system_counter_impl(
-    counter: &mut u32,
-    change_tick: u32,
-    system_name: &str,
-) {
+pub(crate) fn check_system_counter_impl(counter: &mut u32, change_tick: u32, system_name: &str) {
     let counter_age = change_tick.wrapping_sub(*counter);
     let max_age = (u32::MAX / 4) * 3;
     // Clamp to max age

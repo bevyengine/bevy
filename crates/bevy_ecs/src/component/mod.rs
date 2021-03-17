@@ -303,12 +303,12 @@ impl Components {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct ComponentCounters {
+pub struct ComponentTicks {
     added: u32,
     changed: u32,
 }
 
-impl ComponentCounters {
+impl ComponentTicks {
     #[inline]
     pub fn is_added(&self, last_change_tick: u32, change_tick: u32) -> bool {
         let component_age = change_tick.wrapping_sub(self.added);
@@ -332,9 +332,9 @@ impl ComponentCounters {
         }
     }
 
-    pub(crate) fn check_counters(&mut self, change_tick: u32) {
-        check_counter_impl(&mut self.added, change_tick);
-        check_counter_impl(&mut self.changed, change_tick);
+    pub(crate) fn check_ticks(&mut self, change_tick: u32) {
+        check_tick(&mut self.added, change_tick);
+        check_tick(&mut self.changed, change_tick);
     }
 
     #[inline]
@@ -343,7 +343,7 @@ impl ComponentCounters {
     }
 }
 
-fn check_counter_impl(counter: &mut u32, change_tick: u32) {
+fn check_tick(counter: &mut u32, change_tick: u32) {
     let counter_age = change_tick.wrapping_sub(*counter);
     const MAX_AGE: u32 = (u32::MAX / 4) * 3;
     // Clamp to max age

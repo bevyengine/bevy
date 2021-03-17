@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     bundle::Bundle,
-    component::{Component, ComponentCounters, ComponentId, StorageType},
+    component::{Component, ComponentId, ComponentTicks, StorageType},
     entity::Entity,
     query::{Access, Fetch, FetchState, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, Tables},
@@ -467,7 +467,7 @@ macro_rules! impl_counter_filter {
 
         pub struct $fetch_name<T> {
             storage_type: StorageType,
-            table_counters: *mut ComponentCounters,
+            table_ticks: *mut ComponentTicks,
             entity_table_rows: *const usize,
             marker: PhantomData<T>,
             entities: *const Entity,
@@ -531,7 +531,7 @@ macro_rules! impl_counter_filter {
             unsafe fn init(world: &World, state: &Self::State, last_change_tick: u32, change_tick: u32) -> Self {
                 let mut value = Self {
                     storage_type: state.storage_type,
-                    table_counters: ptr::null_mut::<ComponentCounters>(),
+                    table_ticks: ptr::null_mut::<ComponentTicks>(),
                     entities: ptr::null::<Entity>(),
                     entity_table_rows: ptr::null::<usize>(),
                     sparse_set: ptr::null::<ComponentSparseSet>(),
@@ -554,9 +554,9 @@ macro_rules! impl_counter_filter {
             }
 
             unsafe fn set_table(&mut self, state: &Self::State, table: &Table) {
-                self.table_counters = table
+                self.table_ticks = table
                     .get_column(state.component_id).unwrap()
-                    .get_counters_mut_ptr();
+                    .get_ticks_mut_ptr();
             }
 
             unsafe fn set_archetype(&mut self, state: &Self::State, archetype: &Archetype, tables: &Tables) {
@@ -564,28 +564,28 @@ macro_rules! impl_counter_filter {
                     StorageType::Table => {
                         self.entity_table_rows = archetype.entity_table_rows().as_ptr();
                         let table = &tables[archetype.table_id()];
-                        self.table_counters = table
+                        self.table_ticks = table
                             .get_column(state.component_id).unwrap()
-                            .get_counters_mut_ptr();
+                            .get_ticks_mut_ptr();
                     }
                     StorageType::SparseSet => self.entities = archetype.entities().as_ptr(),
                 }
             }
 
             unsafe fn table_fetch(&mut self, table_row: usize) -> bool {
-                $is_detected(&*self.table_counters.add(table_row), self.last_change_tick, self.change_tick)
+                $is_detected(&*self.table_ticks.add(table_row), self.last_change_tick, self.change_tick)
             }
 
             unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> bool {
                 match self.storage_type {
                     StorageType::Table => {
                         let table_row = *self.entity_table_rows.add(archetype_index);
-                        $is_detected(&*self.table_counters.add(table_row), self.last_change_tick, self.change_tick)
+                        $is_detected(&*self.table_ticks.add(table_row), self.last_change_tick, self.change_tick)
                     }
                     StorageType::SparseSet => {
                         let entity = *self.entities.add(archetype_index);
-                        let counters = (*(*self.sparse_set).get_counters(entity).unwrap());
-                        $is_detected(&counters, self.last_change_tick, self.change_tick)
+                        let ticks = (*(*self.sparse_set).get_ticks(entity).unwrap());
+                        $is_detected(&ticks, self.last_change_tick, self.change_tick)
                     }
                 }
             }
@@ -622,7 +622,7 @@ impl_counter_filter!(
     Added,
     AddedState,
     AddedFetch,
-    ComponentCounters::is_added
+    ComponentTicks::is_added
 );
 
 impl_counter_filter!(
@@ -654,5 +654,5 @@ impl_counter_filter!(
     Changed,
     ChangedState,
     ChangedFetch,
-    ComponentCounters::is_changed
+    ComponentTicks::is_changed
 );

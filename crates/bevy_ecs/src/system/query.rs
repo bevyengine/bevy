@@ -52,11 +52,8 @@ where
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
-            self.state.iter_unchecked_manual(
-                self.world,
-                self.last_change_tick,
-                self.change_tick,
-            )
+            self.state
+                .iter_unchecked_manual(self.world, self.last_change_tick, self.change_tick)
         }
     }
 
@@ -66,11 +63,8 @@ where
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
-            self.state.iter_unchecked_manual(
-                self.world,
-                self.last_change_tick,
-                self.change_tick,
-            )
+            self.state
+                .iter_unchecked_manual(self.world, self.last_change_tick, self.change_tick)
         }
     }
 
@@ -83,11 +77,8 @@ where
     pub unsafe fn iter_unsafe(&self) -> QueryIter<'_, '_, Q, F> {
         // SEMI-SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
-        self.state.iter_unchecked_manual(
-            self.world,
-            self.last_change_tick,
-            self.change_tick,
-        )
+        self.state
+            .iter_unchecked_manual(self.world, self.last_change_tick, self.change_tick)
     }
 
     /// Runs `f` on each query result. This is faster than the equivalent iter() method, but cannot
@@ -219,12 +210,8 @@ where
     ) -> Result<<Q::Fetch as Fetch>::Item, QueryEntityError> {
         // SEMI-SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
-        self.state.get_unchecked_manual(
-            self.world,
-            entity,
-            self.last_change_tick,
-            self.change_tick,
-        )
+        self.state
+            .get_unchecked_manual(self.world, entity, self.last_change_tick, self.change_tick)
     }
 
     /// Gets a reference to the entity's component of the given type. This will fail if the entity

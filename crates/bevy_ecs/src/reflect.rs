@@ -1,7 +1,7 @@
 use std::ops::{Deref, DerefMut};
 
 use crate::{
-    component::{Component, ComponentCounters},
+    component::{Component, ComponentTicks},
     entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
     world::{FromWorld, World},
 };
@@ -101,13 +101,10 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
             reflect_component_mut: |world, entity| unsafe {
                 world
                     .get_entity(entity)?
-                    .get_unchecked_mut::<C>(
-                        world.last_change_tick(),
-                        world.read_change_tick(),
-                    )
+                    .get_unchecked_mut::<C>(world.last_change_tick(), world.read_change_tick())
                     .map(|c| ReflectMut {
                         value: c.value as &mut dyn Reflect,
-                        component_counters: c.component_counters,
+                        component_ticks: c.component_ticks,
                         last_change_tick: c.last_change_tick,
                         change_tick: c.change_tick,
                     })
@@ -119,7 +116,7 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
 /// Unique borrow of a Reflected component
 pub struct ReflectMut<'a> {
     pub(crate) value: &'a mut dyn Reflect,
-    pub(crate) component_counters: &'a mut ComponentCounters,
+    pub(crate) component_ticks: &'a mut ComponentTicks,
     pub(crate) last_change_tick: u32,
     pub(crate) change_tick: u32,
 }
@@ -136,8 +133,7 @@ impl<'a> Deref for ReflectMut<'a> {
 impl<'a> DerefMut for ReflectMut<'a> {
     #[inline]
     fn deref_mut(&mut self) -> &mut dyn Reflect {
-        self.component_counters
-            .set_changed(self.change_tick);
+        self.component_ticks.set_changed(self.change_tick);
         self.value
     }
 }
@@ -146,14 +142,14 @@ impl<'a> ReflectMut<'a> {
     /// Returns true if (and only if) this component been added since the last execution of this
     /// system.
     pub fn is_added(&self) -> bool {
-        self.component_counters
+        self.component_ticks
             .is_added(self.last_change_tick, self.change_tick)
     }
 
     /// Returns true if (and only if) this component been changed since the last execution of this
     /// system.
     pub fn is_changed(&self) -> bool {
-        self.component_counters
+        self.component_ticks
             .is_changed(self.last_change_tick, self.change_tick)
     }
 }

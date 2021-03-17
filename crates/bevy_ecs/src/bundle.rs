@@ -2,7 +2,7 @@ pub use bevy_ecs_macros::Bundle;
 
 use crate::{
     archetype::ComponentStatus,
-    component::{Component, ComponentCounters, ComponentId, Components, StorageType, TypeInfo},
+    component::{Component, ComponentId, ComponentTicks, Components, StorageType, TypeInfo},
     entity::Entity,
     storage::{SparseSetIndex, SparseSets, Table},
 };
@@ -147,10 +147,10 @@ impl BundleInfo {
                 StorageType::Table => {
                     let column = table.get_column(component_id).unwrap();
                     column.set_unchecked(table_row, component_ptr);
-                    let column_status = column.get_counters_unchecked_mut(table_row);
+                    let column_status = column.get_ticks_unchecked_mut(table_row);
                     match component_status {
                         ComponentStatus::Added => {
-                            *column_status = ComponentCounters::new(change_tick);
+                            *column_status = ComponentTicks::new(change_tick);
                         }
                         ComponentStatus::Mutated => {
                             column_status.set_changed(change_tick);
@@ -164,12 +164,12 @@ impl BundleInfo {
                             sparse_set.insert(
                                 entity,
                                 component_ptr,
-                                ComponentCounters::new(change_tick),
+                                ComponentTicks::new(change_tick),
                             );
                         }
                         ComponentStatus::Mutated => {
                             sparse_set
-                                .get_counters(entity)
+                                .get_ticks(entity)
                                 .unwrap()
                                 .set_changed(change_tick);
                         }
