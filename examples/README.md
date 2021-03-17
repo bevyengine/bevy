@@ -112,6 +112,7 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
+`asset_deserialization` | [`asset/asset_deserialization.rs`](./asset/asset_deserialization.rs) | Deserialize a ron file to a struct as an asset
 `asset_loading` | [`asset/asset_loading.rs`](./asset/asset_loading.rs) | Demonstrates various methods to load assets
 `custom_asset` | [`asset/custom_asset.rs`](./asset/custom_asset.rs) | Implements a custom asset loader
 `custom_asset_io` | [`asset/custom_asset_io.rs`](./asset/custom_asset_io.rs) | Implements a custom asset io loader

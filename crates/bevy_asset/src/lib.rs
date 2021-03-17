@@ -11,9 +11,12 @@ mod info;
 mod io;
 mod loader;
 mod path;
+mod ron_asset;
 
 pub mod prelude {
-    pub use crate::{AddAsset, AssetEvent, AssetServer, Assets, Handle, HandleUntyped};
+    pub use crate::{
+        AddAsset, AssetEvent, AssetServer, Assets, Handle, HandleUntyped, RonAssetDeserializer,
+    };
 }
 
 pub use asset_server::*;
@@ -24,6 +27,7 @@ pub use info::*;
 pub use io::*;
 pub use loader::*;
 pub use path::*;
+pub use ron_asset::*;
 
 use bevy_app::{prelude::Plugin, AppBuilder};
 use bevy_ecs::{
@@ -107,6 +111,9 @@ impl Plugin for AssetPlugin {
             bevy_app::CoreStage::PreUpdate,
             asset_server::free_unused_assets_system.system(),
         );
+
+        app.add_asset::<RonAsset>()
+            .init_asset_loader::<RonAssetLoader>();
 
         #[cfg(all(
             feature = "filesystem_watcher",

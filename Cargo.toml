@@ -198,6 +198,10 @@ path = "examples/app/thread_pool_resources.rs"
 
 # Assets
 [[example]]
+name = "asset_deserialization"
+path = "examples/asset/asset_deserialization.rs"
+
+[[example]]
 name = "asset_loading"
 path = "examples/asset/asset_loading.rs"
 
