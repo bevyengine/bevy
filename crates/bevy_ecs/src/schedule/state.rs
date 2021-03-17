@@ -245,7 +245,7 @@ impl<T: Component + Clone + Eq> State<T> {
     }
 
     /// Same as [Self::set_push], but if there is already a next state, it will be overwritten
-    /// instead of failing
+    /// instead of failing.
     pub fn overwrite_push(&mut self, state: T) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
