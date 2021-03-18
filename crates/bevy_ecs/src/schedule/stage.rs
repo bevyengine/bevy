@@ -330,7 +330,7 @@ impl SystemStage {
             && at_end.is_empty())
         {
             let mut string = "Execution order ambiguities detected, you might want to \
-                    add an explicit dependency relation between some these systems:\n"
+                    add an explicit dependency relation between some of these systems:\n"
                 .to_owned();
             if !parallel.is_empty() {
                 writeln!(string, " * Parallel systems:").unwrap();
