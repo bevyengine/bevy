@@ -168,7 +168,10 @@ fn generate_texture(size: u32, cx: f32, cy: f32) -> Texture {
     // should produce the prettiest-looking results.
     let mut data = Vec::new();
     let mut mip_size = size;
-    while mip_size > 1 {
+
+    // Limiting the smallest mipmap size to 4x4 helps avoid the texture looking
+    // plain white/grey when viewed at very far away distances.
+    while mip_size >= 4 {
         // copied from the wgpu-rs mipmap example:
         // https://github.com/gfx-rs/wgpu-rs/blob/master/examples/mipmap/main.rs
         let texels = (0..mip_size * mip_size)
@@ -204,24 +207,21 @@ fn generate_texture(size: u32, cx: f32, cy: f32) -> Texture {
         ..Default::default()
     };
 
-    let tex = Texture {
-        //data: vec![texels],
+    Texture {
         data,
         size: Extent3d::new(size, size, 1),
         mip_levels: 0,
         format: TextureFormat::Rgba8UnormSrgb,
         dimension: TextureDimension::D2,
         sampler,
-    };
+    }
 
     // Alternatively, if we hadn't generated our own mipmaps above, we could
-    // have asked Bevy to make some for us by downscaling the base image level:
-    //tex.generate_mipmaps(None);
+    // have asked Bevy to make them for us by downscaling the base image level:
+    //texture.generate_mipmaps(None);
 
     // You can try to remove the while loop earlier (to only generate one image)
     // and uncomment the line above, if you want to see how it looks and compare
-
-    tex
 }
 
 impl TextureFiltering {
