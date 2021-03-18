@@ -95,11 +95,11 @@ mod test {
         );
 
         // Parent `e1` to `e2`.
-        let mut commands = Commands::default();
+        let mut commands = Commands::new(&mut command_queue, &world);
         commands.push_children(children[1], &[children[0]]);
 
-        commands.apply(&mut world, &mut resources);
-        schedule.run(&mut world, &mut resources);
+        command_queue.apply(&mut world);
+        schedule.run(&mut world);
 
         assert_eq!(
             world
