@@ -1,4 +1,4 @@
-use crate::{use crate::{
+use crate::{
     component::Component,
     schedule::{ShouldRun, SystemSet},
     system::{In, IntoChainSystem, IntoSystem, Local, Res, ResMut, System},
