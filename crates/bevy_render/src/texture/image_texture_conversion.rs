@@ -1,7 +1,10 @@
 use super::{Extent3d, Texture, TextureDimension, TextureFormat};
 
-/// Helper method to convert a `DynamicImage` to a `Texture`
-pub(crate) fn image_to_texture(dyn_img: image::DynamicImage) -> Texture {
+/// Helper method to create data for a `Texture` from a `DynamicImage`
+/// Returns (dimensions, format, data).
+pub(crate) fn image_to_texture_data(
+    dyn_img: image::DynamicImage,
+) -> (Extent3d, TextureFormat, Vec<u8>) {
     use bevy_core::AsBytes;
 
     let width;
@@ -111,42 +114,36 @@ pub(crate) fn image_to_texture(dyn_img: image::DynamicImage) -> Texture {
         }
     }
 
-    Texture::new(
-        Extent3d::new(width, height, 1),
-        TextureDimension::D2,
-        data,
-        format,
-    )
+    (Extent3d::new(width, height, 1), format, data)
+}
+
+/// Helper method to convert a `DynamicImage` to a `Texture`
+pub(crate) fn image_to_texture(dyn_img: image::DynamicImage) -> Texture {
+    let (size, format, data) = image_to_texture_data(dyn_img);
+    Texture::new(size, TextureDimension::D2, data, format)
 }
 
 /// Helper method to convert a `Texture` to a `DynamicImage`. Not all `Texture` formats are
 /// covered, it will return `None` if the format is not supported
-pub(crate) fn texture_to_image(texture: &Texture) -> Option<image::DynamicImage> {
+pub(crate) fn texture_to_image(texture: &Texture, mip_level: usize) -> Option<image::DynamicImage> {
+    let size = texture.mip_size(mip_level);
     match texture.format {
-        TextureFormat::R8Unorm => image::ImageBuffer::from_raw(
-            texture.size.width,
-            texture.size.height,
-            texture.data[0].clone(),
-        )
-        .map(image::DynamicImage::ImageLuma8),
-        TextureFormat::Rg8Unorm => image::ImageBuffer::from_raw(
-            texture.size.width,
-            texture.size.height,
-            texture.data[0].clone(),
-        )
-        .map(image::DynamicImage::ImageLumaA8),
-        TextureFormat::Rgba8UnormSrgb => image::ImageBuffer::from_raw(
-            texture.size.width,
-            texture.size.height,
-            texture.data[0].clone(),
-        )
-        .map(image::DynamicImage::ImageRgba8),
-        TextureFormat::Bgra8UnormSrgb => image::ImageBuffer::from_raw(
-            texture.size.width,
-            texture.size.height,
-            texture.data[0].clone(),
-        )
-        .map(image::DynamicImage::ImageBgra8),
+        TextureFormat::R8Unorm => {
+            image::ImageBuffer::from_raw(size.width, size.height, texture.data[mip_level].clone())
+                .map(image::DynamicImage::ImageLuma8)
+        }
+        TextureFormat::Rg8Unorm => {
+            image::ImageBuffer::from_raw(size.width, size.height, texture.data[mip_level].clone())
+                .map(image::DynamicImage::ImageLumaA8)
+        }
+        TextureFormat::Rgba8UnormSrgb => {
+            image::ImageBuffer::from_raw(size.width, size.height, texture.data[mip_level].clone())
+                .map(image::DynamicImage::ImageRgba8)
+        }
+        TextureFormat::Bgra8UnormSrgb => {
+            image::ImageBuffer::from_raw(size.width, size.height, texture.data[mip_level].clone())
+                .map(image::DynamicImage::ImageBgra8)
+        }
         _ => None,
     }
 }

@@ -11,6 +11,10 @@ use bevy_reflect::TypeUuid;
 use bevy_utils::HashSet;
 use thiserror::Error;
 
+/// Reexport to allow users to import it via Bevy and not require depending on `image`
+/// Rename it to avoid confusion with GPU texture sampler filtering modes.
+pub use image::imageops::FilterType as ImageResizeFilter;
+
 pub const TEXTURE_ASSET_INDEX: u64 = 0;
 pub const SAMPLER_ASSET_INDEX: u64 = 1;
 
@@ -159,14 +163,67 @@ impl Texture {
         });
     }
 
+    /// Generate mipmap images by downscaling the texture
+    ///
+    /// Currently this operation is performed on the CPU.
+    ///
+    /// It will generate images up to `max_mip_level` (or all levels, if
+    /// unspecified), by downscaling the previous larger level.
+    ///
+    /// This method uses the `Triangle` image resizing filter. This is the
+    /// fastest algorithm that produces acceptable results.
+    ///
+    /// To override this and use another image resizing filter, see
+    /// `generate_mip_level_with_filter`.
+    ///
+    /// Currently only supports 2D textures in a few pixel formats. Will panic
+    /// if used on an unsupported texture.
+    pub fn generate_mipmaps(&mut self, max_mip_level: Option<usize>) {
+        self.generate_mipmaps_with_filter(max_mip_level, ImageResizeFilter::Triangle)
+    }
+
+    /// Variant of `generate_mipmaps` to allow specifying the filtering algorithm
+    ///
+    /// See that method's documentation for details
+    pub fn generate_mipmaps_with_filter(
+        &mut self,
+        max_mip_level: Option<usize>,
+        filter: ImageResizeFilter,
+    ) {
+        if self.dimension != TextureDimension::D2 {
+            panic!("Generating mipmaps is only supported for 2D textures.");
+        }
+
+        let mut mip_level = self.data.len();
+        debug_assert!(mip_level > 0);
+
+        let mut mip_size = self.mip_size(mip_level);
+
+        // PERF: this is inefficient: `texture_to_image` does a `.clone()` of the source data
+        let base_image = super::image_texture_conversion::texture_to_image(self, 0).unwrap();
+
+        while mip_size.volume() > 1 && mip_level <= max_mip_level.unwrap_or(mip_level + 1) {
+            let resized = base_image.resize_exact(mip_size.width, mip_size.height, filter);
+
+            let (_, _, new_data) = super::image_texture_conversion::image_to_texture_data(resized);
+
+            self.data.push(new_data);
+
+            mip_level += 1;
+            mip_size = self.mip_size(mip_level);
+        }
+    }
+
     /// Convert a texture from a format to another
     /// Only a few formats are supported as input and output:
     /// - `TextureFormat::R8Unorm`
     /// - `TextureFormat::Rg8Unorm`
     /// - `TextureFormat::Rgba8UnormSrgb`
     /// - `TextureFormat::Bgra8UnormSrgb`
+    ///
+    /// (TODO) this method currently discards all mipmap levels except the base image
     pub fn convert(&self, new_format: TextureFormat) -> Option<Self> {
-        super::image_texture_conversion::texture_to_image(self)
+        super::image_texture_conversion::texture_to_image(self, 0)
             .and_then(|img| match new_format {
                 TextureFormat::R8Unorm => Some(image::DynamicImage::ImageLuma8(img.into_luma8())),
                 TextureFormat::Rg8Unorm => {
