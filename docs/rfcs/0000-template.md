@@ -21,7 +21,6 @@ Explain the proposal as if it was already included in the engine and you were te
 - If applicable, provide sample error messages, deprecation warnings, or migration guidance.
 - If applicable, explain how this feature compares to similar existing features, and in what situations the user would use each one.
 
-
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
@@ -50,13 +49,12 @@ Why should we *not* do this?
 [prior-art]: #prior-art
 
 Discuss prior art, both the good and the bad, in relation to this proposal.
-A few examples of what this can include are:
+This can include:
 
 - Does this feature exist in other libraries and what experiences have their community had?
-- Papers: Are there any published papers or great posts that discuss this? If you have some relevant papers to refer to, this can serve as a more detailed theoretical background.
+- Papers: Are there any published papers or great posts that discuss this?
 
-This section is intended to encourage you as an author to think about the lessons from other languages, provide readers of your RFC with a fuller picture.
-If there is no prior art, that is fine - your ideas are interesting to us whether they are brand new or if it is an adaptation from other languages.
+This section is intended to encourage you as an author to think about the lessons from other tools and provide readers of your RFC with a fuller picture.
 
 Note that while precedent set by other engines is some motivation, it does not on its own motivate an RFC.
 
@@ -78,8 +76,7 @@ interactions with the engine in your proposal.
 This is also a good place to "dump ideas", if they are out of scope for the
 RFC you are writing but otherwise related.
 
-
 Note that having something written down in the future-possibilities section
 is not a reason to accept the current or a future RFC; such notes should be
 in the section on motivation or rationale in this or subsequent RFCs.
-The section merely provides additional information.
+If a feature or change has no direct value on its own, expand your RFC to include the first valuable feature that would build on it.
