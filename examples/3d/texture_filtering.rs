@@ -123,7 +123,7 @@ fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>, mode: Res<Te
 fn swing_camera(t: Res<Time>, mut q: Query<&mut Transform, With<MainCamera>>) {
     let secs = t.seconds_since_startup();
 
-    let translation = Vec3::new(secs.sin() as f32, 2.0 + (secs * 0.3).sin() as f32, 5.0);
+    let translation = Vec3::new(secs.sin() as f32, 1.5 + (secs * 0.3).sin() as f32, 5.0);
 
     for mut transform in q.iter_mut() {
         *transform = Transform::from_translation(translation).looking_at(Vec3::ZERO, Vec3::Y);
@@ -163,25 +163,35 @@ fn switch_filter_mode(
 fn generate_texture(size: u32, cx: f32, cy: f32) -> Texture {
     use std::iter;
 
-    // copied from the wgpu-rs mipmap example:
-    // https://github.com/gfx-rs/wgpu-rs/blob/master/examples/mipmap/main.rs
-    let texels = (0..size * size)
-        .flat_map(|id| {
-            let mut x = 4.0 * (id % size) as f32 / (size - 1) as f32 - 2.0;
-            let mut y = 2.0 * (id / size) as f32 / (size - 1) as f32 - 1.0;
-            let mut count = 0;
-            while count < 0xFF && x * x + y * y < 4.0 {
-                let old_x = x;
-                x = x * x - y * y + cx;
-                y = 2.0 * old_x * y + cy;
-                count += 1;
-            }
-            iter::once(0xFF - (count * 2) as u8)
-                .chain(iter::once(0xFF - (count * 5) as u8))
-                .chain(iter::once(0xFF - (count * 13) as u8))
-                .chain(iter::once(std::u8::MAX))
-        })
-        .collect();
+    // This is a procedurally-generated texture, so we can generate the image
+    // directly at any size we want. Generating each mipmap level like this
+    // should produce the prettiest-looking results.
+    let mut data = Vec::new();
+    let mut mip_size = size;
+    while mip_size > 1 {
+        // copied from the wgpu-rs mipmap example:
+        // https://github.com/gfx-rs/wgpu-rs/blob/master/examples/mipmap/main.rs
+        let texels = (0..mip_size * mip_size)
+            .flat_map(|id| {
+                let mut x = 4.0 * (id % mip_size) as f32 / (mip_size - 1) as f32 - 2.0;
+                let mut y = 2.0 * (id / mip_size) as f32 / (mip_size - 1) as f32 - 1.0;
+                let mut count = 0;
+                while count < 0xFF && x * x + y * y < 4.0 {
+                    let old_x = x;
+                    x = x * x - y * y + cx;
+                    y = 2.0 * old_x * y + cy;
+                    count += 1;
+                }
+                iter::once(0xFF - (count * 2) as u8)
+                    .chain(iter::once(0xFF - (count * 5) as u8))
+                    .chain(iter::once(0xFF - (count * 13) as u8))
+                    .chain(iter::once(std::u8::MAX))
+            })
+            .collect();
+
+        data.push(texels);
+        mip_size /= 2;
+    }
 
     use bevy::render::texture::{
         AddressMode, Extent3d, SamplerDescriptor, TextureDimension, TextureFormat,
@@ -194,8 +204,9 @@ fn generate_texture(size: u32, cx: f32, cy: f32) -> Texture {
         ..Default::default()
     };
 
-    let mut tex = Texture {
-        data: vec![texels],
+    let tex = Texture {
+        //data: vec![texels],
+        data,
         size: Extent3d::new(size, size, 1),
         mip_levels: 0,
         format: TextureFormat::Rgba8UnormSrgb,
@@ -203,7 +214,12 @@ fn generate_texture(size: u32, cx: f32, cy: f32) -> Texture {
         sampler,
     };
 
-    tex.generate_mipmaps(None);
+    // Alternatively, if we hadn't generated our own mipmaps above, we could
+    // have asked Bevy to make some for us by downscaling the base image level:
+    //tex.generate_mipmaps(None);
+
+    // You can try to remove the while loop earlier (to only generate one image)
+    // and uncomment the line above, if you want to see how it looks and compare
 
     tex
 }
