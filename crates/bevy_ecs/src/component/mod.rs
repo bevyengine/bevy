@@ -311,18 +311,18 @@ pub struct ComponentTicks {
 impl ComponentTicks {
     #[inline]
     pub fn is_added(&self, last_change_tick: u32, change_tick: u32) -> bool {
-        let component_age = change_tick.wrapping_sub(self.added);
-        let system_age = change_tick.wrapping_sub(last_change_tick);
+        let component_delta = change_tick.wrapping_sub(self.added);
+        let system_delta = change_tick.wrapping_sub(last_change_tick);
 
-        component_age < system_age
+        component_delta < system_delta
     }
 
     #[inline]
     pub fn is_changed(&self, last_change_tick: u32, change_tick: u32) -> bool {
-        let component_age = change_tick.wrapping_sub(self.changed);
-        let system_age = change_tick.wrapping_sub(last_change_tick);
+        let component_delta = change_tick.wrapping_sub(self.changed);
+        let system_delta = change_tick.wrapping_sub(last_change_tick);
 
-        component_age < system_age
+        component_delta < system_delta
     }
 
     pub(crate) fn new(change_tick: u32) -> Self {
