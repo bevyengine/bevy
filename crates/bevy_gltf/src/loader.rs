@@ -270,6 +270,23 @@ async fn load_gltf<'a, 'b>(
                 )?
             }
         };
+
+        let needs_mipmaps = gltf_texture
+            .sampler()
+            .min_filter()
+            .map(|mf| match mf {
+                MinFilter::NearestMipmapNearest
+                | MinFilter::NearestMipmapLinear
+                | MinFilter::LinearMipmapNearest
+                | MinFilter::LinearMipmapLinear => true,
+                MinFilter::Linear | MinFilter::Nearest => false,
+            })
+            .unwrap_or(false);
+
+        if needs_mipmaps {
+            texture.generate_mipmaps(None);
+        }
+
         let texture_label = texture_label(&gltf_texture);
         texture.sampler = texture_sampler(&gltf_texture);
         if linear_textures.contains(&gltf_texture.index()) {
