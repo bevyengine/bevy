@@ -35,7 +35,7 @@ mod tests {
         bundle::Bundle,
         component::{Component, ComponentDescriptor, StorageType, TypeInfo},
         entity::Entity,
-        query::{Added, ChangeTrackers, Changed, With, Without},
+        query::{Added, ChangeTrackers, Changed, FilterFetch, With, Without, WorldQuery},
         world::{Mut, World},
     };
     use bevy_tasks::TaskPool;
@@ -699,6 +699,88 @@ mod tests {
             .iter(&world)
             .collect::<Vec<Entity>>();
         assert_eq!(added, vec![e2]);
+    }
+
+    #[test]
+    fn changed_trackers() {
+        let mut world = World::default();
+        let e1 = world.spawn().insert_bundle((A(0), B(0))).id();
+        let e2 = world.spawn().insert_bundle((A(0), B(0))).id();
+        let e3 = world.spawn().insert_bundle((A(0), B(0))).id();
+        world.spawn().insert_bundle((A(0), B));
+
+        world.clear_trackers();
+
+        for (i, mut a) in world.query::<&mut A>().iter_mut(&mut world).enumerate() {
+            if i % 2 == 0 {
+                a.0 += 1;
+            }
+        }
+
+        fn get_filtered<F: WorldQuery>(world: &mut World) -> Vec<Entity>
+        where
+            F::Fetch: FilterFetch,
+        {
+            world
+                .query_filtered::<Entity, F>()
+                .iter(&world)
+                .collect::<Vec<Entity>>()
+        }
+
+        assert_eq!(get_filtered::<Changed<A>>(&mut world), vec![e1, e3]);
+
+        // ensure changing an entity's archetypes also moves its changed state
+        world.entity_mut(e1).insert(C);
+
+        assert_eq!(get_filtered::<Changed<A>>(&mut world), vec![e3, e1], "changed entities list should not change (although the order will due to archetype moves)");
+
+        // spawning a new A entity should not change existing changed state
+        world.entity_mut(e1).insert_bundle((A(0), B));
+        assert_eq!(
+            get_filtered::<Changed<A>>(&mut world),
+            vec![e3, e1],
+            "changed entities list should not change"
+        );
+
+        // removing an unchanged entity should not change changed state
+        assert!(world.despawn(e2));
+        assert_eq!(
+            get_filtered::<Changed<A>>(&mut world),
+            vec![e3, e1],
+            "changed entities list should not change"
+        );
+
+        // removing a changed entity should remove it from enumeration
+        assert!(world.despawn(e1));
+        assert_eq!(
+            get_filtered::<Changed<A>>(&mut world),
+            vec![e3],
+            "e1 should no longer be returned"
+        );
+
+        world.clear_trackers();
+
+        assert!(get_filtered::<Changed<A>>(&mut world).is_empty());
+
+        let e4 = world.spawn().id();
+
+        world.entity_mut(e4).insert(A(0));
+        assert_eq!(get_filtered::<Changed<A>>(&mut world), vec![e4]);
+        assert_eq!(get_filtered::<Added<A>>(&mut world), vec![e4]);
+
+        world.entity_mut(e4).insert(A(1));
+        assert_eq!(get_filtered::<Changed<A>>(&mut world), vec![e4]);
+
+        world.clear_trackers();
+
+        // ensure inserting multiple components set changed state for all components and set added
+        // state for non existing components even when changing archetype.
+        world.entity_mut(e4).insert_bundle((A(0), B(0)));
+
+        assert!(get_filtered::<Added<A>>(&mut world).is_empty());
+        assert_eq!(get_filtered::<Changed<A>>(&mut world), vec![e4]);
+        assert_eq!(get_filtered::<Added<B>>(&mut world), vec![e4]);
+        assert_eq!(get_filtered::<Changed<B>>(&mut world), vec![e4]);
     }
 
     #[test]

@@ -312,7 +312,8 @@ impl ComponentTicks {
     #[inline]
     pub fn is_added(&self, last_change_tick: u32, change_tick: u32) -> bool {
         // The comparison is relative to `change_tick` so that we can detect changes over the whole
-        // `u32` range. Comparing directly the ticks would limit to half that due to overflow handling.
+        // `u32` range. Comparing directly the ticks would limit to half that due to overflow
+        // handling.
         let component_delta = change_tick.wrapping_sub(self.added);
         let system_delta = change_tick.wrapping_sub(last_change_tick);
 
