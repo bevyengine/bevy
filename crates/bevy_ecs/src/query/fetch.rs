@@ -603,9 +603,9 @@ impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
 /// Change trackers for component `T`
 #[derive(Clone)]
 pub struct ChangeTrackers<T: Component> {
-    component_ticks: ComponentTicks,
-    last_change_tick: u32,
-    change_tick: u32,
+    pub(crate) component_ticks: ComponentTicks,
+    pub(crate) last_change_tick: u32,
+    pub(crate) change_tick: u32,
     marker: PhantomData<T>,
 }
 impl<T: Component> std::fmt::Debug for ChangeTrackers<T> {

@@ -304,8 +304,8 @@ impl Components {
 
 #[derive(Copy, Clone, Debug)]
 pub struct ComponentTicks {
-    added: u32,
-    changed: u32,
+    pub(crate) added: u32,
+    pub(crate) changed: u32,
 }
 
 impl ComponentTicks {

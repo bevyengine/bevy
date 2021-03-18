@@ -701,6 +701,7 @@ mod tests {
             ShouldRun, SingleThreadedExecutor, Stage, SystemSet, SystemStage,
         },
         system::{IntoExclusiveSystem, IntoSystem, Query, ResMut},
+        query::ChangeTrackers,
         world::World,
     };
 
@@ -1690,5 +1691,32 @@ mod tests {
         world.get_entity_mut(entity).unwrap().insert(1);
         stage.run(&mut world);
         assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
+    }
+
+    #[test]
+    fn change_ticks_wrapover() {
+        const MAX_TIME_SINCE_LAST_CHECK: u32 = u32::MAX / 8;
+        const MAX_DELTA: u32 = (u32::MAX / 4) * 3;
+
+        let mut world = World::new();
+        world.spawn().insert(0usize);
+        *world.change_tick.get_mut() += MAX_DELTA + 1;
+
+        let mut stage = SystemStage::parallel();
+        fn work() {}
+        stage.add_system(work.system());
+
+        // Overflow twice
+        for _ in 0..10 {
+            stage.run(&mut world);
+            for tracker in world.query::<ChangeTrackers<usize>>().iter(&world) {
+                let time_since_last_check = tracker.change_tick.wrapping_sub(tracker.component_ticks.added);
+                assert!(time_since_last_check <= MAX_DELTA);
+                let time_since_last_check = tracker.change_tick.wrapping_sub(tracker.component_ticks.changed);
+                assert!(time_since_last_check <= MAX_DELTA);
+            }
+            let change_tick = world.change_tick.get_mut();
+            *change_tick = change_tick.wrapping_add(MAX_TIME_SINCE_LAST_CHECK + 1);
+        }
     }
 }
