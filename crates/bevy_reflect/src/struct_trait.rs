@@ -167,7 +167,8 @@ impl Struct for DynamicStruct {
     }
 }
 
-impl Reflect for DynamicStruct {
+// SAFE: any and any_mut both return self
+unsafe impl Reflect for DynamicStruct {
     #[inline]
     fn type_name(&self) -> &str {
         &self.name

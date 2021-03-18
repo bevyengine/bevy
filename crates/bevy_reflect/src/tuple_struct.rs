@@ -123,7 +123,8 @@ impl TupleStruct for DynamicTupleStruct {
     }
 }
 
-impl Reflect for DynamicTupleStruct {
+// SAFE: any and any_mut both return self
+unsafe impl Reflect for DynamicTupleStruct {
     #[inline]
     fn type_name(&self) -> &str {
         self.name.as_str()

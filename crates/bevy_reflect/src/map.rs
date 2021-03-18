@@ -98,7 +98,8 @@ impl Map for DynamicMap {
     }
 }
 
-impl Reflect for DynamicMap {
+// SAFE: any and any_mut both return self
+unsafe impl Reflect for DynamicMap {
     fn type_name(&self) -> &str {
         &self.name
     }

@@ -207,6 +207,10 @@ impl AppBuilder {
             .add_stage(CoreStage::Last, SystemStage::parallel())
     }
 
+    /// Setup the application to manage events of type `T`.
+    ///
+    /// This is done by adding a `Resource` of type `Events::<T>`,
+    /// and inserting a `Events::<T>::update_system` system into `CoreStage::First`.
     pub fn add_event<T>(&mut self) -> &mut Self
     where
         T: Component,

@@ -58,7 +58,8 @@ pub enum StorageTextureAccess {
     /// ```
     WriteOnly,
     /// The texture can be both read and written in the shader.
-    /// `wgpu::Features::STORAGE_TEXTURE_ACCESS_READ_WRITE` must be enabled to use this access mode.
+    /// `wgpu::Features::STORAGE_TEXTURE_ACCESS_READ_WRITE` must be enabled to use this access
+    /// mode.
     ///
     /// Example GLSL syntax:
     /// ```cpp,ignore
