@@ -22,7 +22,7 @@ use std::ops::Mul;
 /// [`transform_propagate_system`](crate::transform_propagate_system::transform_propagate_system).
 ///
 /// In pseudo code:
-/// ```
+/// ```ignore
 /// for entity in entities_without_parent:
 ///     set entity.global_transform to entity.transform
 ///     recursively:
