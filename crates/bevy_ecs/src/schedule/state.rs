@@ -1,4 +1,5 @@
-use crate::{
+
+use crate::{use crate::{
     component::Component,
     schedule::{ShouldRun, SystemSet},
     system::{In, IntoChainSystem, IntoSystem, Local, Res, ResMut, System},
@@ -203,7 +204,6 @@ impl<T: Component + Clone + Eq> State<T> {
             end_next_loop: false,
         }
     }
-
 
     /// Schedule a state change that replaces the full stack with the given state.
     /// This will fail if there is a scheduled operation, or if the given `state` matches the
