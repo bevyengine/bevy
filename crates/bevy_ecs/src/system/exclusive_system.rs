@@ -67,8 +67,7 @@ where
             func: Box::new(self),
             name: core::any::type_name::<F>().into(),
             id: SystemId::new(),
-            // The value of `u32::MAX` means that everything should be detected as added/changed
-            last_change_tick: u32::MAX,
+            last_change_tick: 0,
         }
     }
 }

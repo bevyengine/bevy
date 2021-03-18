@@ -66,11 +66,10 @@ impl Default for World {
             removed_components: Default::default(),
             archetype_component_access: Default::default(),
             main_thread_validator: Default::default(),
-            change_tick: Default::default(),
-            // Default value is `u32::MAX` so that direct queries outside of exclusive systems
-            // properly detect changes. That value will not be used in any exclusive
-            // system.
-            last_change_tick: u32::MAX,
+            // Default value is `1`, and `last_change_tick`s default to `0`, such that changes
+            // are detected on first system runs and for direct world queries.
+            change_tick: AtomicU32::new(1),
+            last_change_tick: 0,
         }
     }
 }
