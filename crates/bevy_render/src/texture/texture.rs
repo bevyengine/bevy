@@ -17,8 +17,16 @@ pub const SAMPLER_ASSET_INDEX: u64 = 1;
 #[derive(Debug, Clone, TypeUuid)]
 #[uuid = "6ea26da6-6cf8-4ea2-9986-1d7bf6c17d6f"]
 pub struct Texture {
-    pub data: Vec<u8>,
+    /// Data for each mipmap level
+    ///
+    /// Must contain at least one (the base texture)
+    pub data: Vec<Vec<u8>>,
     pub size: Extent3d,
+    /// Maximum number of mipmap levels to use
+    ///
+    /// The actual number of mipmaps used is either this, or `data.len()`,
+    /// whichever is less. If 0, all available levels are used.
+    pub mip_levels: u32,
     pub format: TextureFormat,
     pub dimension: TextureDimension,
     pub sampler: SamplerDescriptor,
@@ -27,12 +35,13 @@ pub struct Texture {
 impl Default for Texture {
     fn default() -> Self {
         Texture {
-            data: Default::default(),
+            data: vec![Vec::new()],
             size: Extent3d {
                 width: 1,
                 height: 1,
                 depth: 1,
             },
+            mip_levels: 1,
             format: TextureFormat::Rgba8UnormSrgb,
             dimension: TextureDimension::D2,
             sampler: Default::default(),
@@ -41,6 +50,7 @@ impl Default for Texture {
 }
 
 impl Texture {
+    /// Create a new texture without mipmaps
     pub fn new(
         size: Extent3d,
         dimension: TextureDimension,
@@ -53,10 +63,11 @@ impl Texture {
             "Pixel data, size and format have to match",
         );
         Self {
-            data,
+            data: vec![data],
             size,
-            format,
+            mip_levels: 1,
             dimension,
+            format,
             ..Default::default()
         }
     }
@@ -80,11 +91,11 @@ impl Texture {
             "Must not have incomplete pixel data."
         );
         debug_assert!(
-            pixel.len() <= value.data.len(),
+            pixel.len() <= value.data[0].len(),
             "Fill data must fit within pixel buffer."
         );
 
-        for current_pixel in value.data.chunks_exact_mut(pixel.len()) {
+        for current_pixel in value.data[0].chunks_exact_mut(pixel.len()) {
             current_pixel.copy_from_slice(&pixel);
         }
         value
@@ -94,10 +105,29 @@ impl Texture {
         self.size.height as f32 / self.size.width as f32
     }
 
+    pub fn mip_size(&self, level: usize) -> Extent3d {
+        Extent3d {
+            width: (self.size.width >> level).max(1),
+            height: (self.size.height >> level).max(1),
+            depth: (self.size.depth >> level).max(1),
+        }
+    }
+
     pub fn resize(&mut self, size: Extent3d) {
         self.size = size;
-        self.data
-            .resize(size.volume() * self.format.pixel_size(), 0);
+
+        for level in 0..self.data.len() {
+            let volume = self.mip_size(level).volume();
+
+            self.data[level].resize(volume * self.format.pixel_size(), 0);
+
+            if volume == 1 {
+                // This was the last mip level, remove any extras
+                self.data.truncate(level + 1);
+                self.mip_levels = self.mip_levels.min(level as u32);
+                break;
+            }
+        }
     }
 
     /// Changes the `size`, asserting that the total number of data elements (pixels) remains the
