@@ -4,7 +4,7 @@ use crate::{CalculatedSize, Node, Style};
 use bevy_app::EventReader;
 use bevy_ecs::{
     entity::Entity,
-    query::{ChangeTrackers, Changed, FilterFetch, With, Without, WorldQuery},
+    query::{Changed, FilterFetch, With, Without, WorldQuery},
     system::{Query, Res, ResMut},
 };
 use bevy_log::warn;
@@ -200,13 +200,7 @@ pub fn flex_node_system(
         (With<Node>, Changed<CalculatedSize>),
     >,
     children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
-    mut node_transform_query: Query<(
-        Entity,
-        &mut Node,
-        &mut Transform,
-        Option<(&Parent, ChangeTrackers<Parent>)>,
-        ChangeTrackers<Transform>,
-    )>,
+    mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
 ) {
     // update window root nodes
     for window in windows.iter() {
@@ -272,9 +266,7 @@ pub fn flex_node_system(
     let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
 
     // PERF: try doing this incrementally
-    for (entity, mut node, mut transform, parent, transform_trackers) in
-        node_transform_query.iter_mut()
-    {
+    for (entity, mut node, mut transform, parent) in node_transform_query.iter_mut() {
         let layout = flex_surface.get_layout(entity).unwrap();
         node.size = Vec2::new(
             to_logical(layout.size.width),
@@ -283,12 +275,10 @@ pub fn flex_node_system(
         let position = &mut transform.translation;
         position.x = to_logical(layout.location.x + layout.size.width / 2.0);
         position.y = to_logical(layout.location.y + layout.size.height / 2.0);
-        if let Some((parent, parent_trackers)) = parent {
-            if parent_trackers.is_changed() || transform_trackers.is_changed() {
-                if let Ok(parent_layout) = flex_surface.get_layout(parent.0) {
-                    position.x -= to_logical(parent_layout.size.width / 2.0);
-                    position.y -= to_logical(parent_layout.size.height / 2.0);
-                }
+        if let Some(parent) = parent {
+            if let Ok(parent_layout) = flex_surface.get_layout(parent.0) {
+                position.x -= to_logical(parent_layout.size.width / 2.0);
+                position.y -= to_logical(parent_layout.size.height / 2.0);
             }
         }
     }
