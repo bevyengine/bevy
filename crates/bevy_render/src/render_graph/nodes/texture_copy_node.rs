@@ -42,22 +42,32 @@ impl Node for TextureCopyNode {
                             let aligned_width =
                                 render_context.resources().get_aligned_texture_size(width);
                             let format_size = texture.format.pixel_size();
-                            let mut aligned_data = vec![
-                                0;
-                                format_size
-                                    * aligned_width
-                                    * mip_size.height as usize
-                                    * mip_size.depth as usize
-                            ];
-                            texture
-                                .data[mip_level as usize]
-                                .chunks_exact(format_size * width)
-                                .enumerate()
-                                .for_each(|(index, row)| {
-                                    let offset = index * aligned_width * format_size;
-                                    aligned_data[offset..(offset + width * format_size)]
-                                        .copy_from_slice(row);
-                                });
+
+                            let mut temporary_buffer;
+                            let aligned_data = if aligned_width != width {
+                                // must create a temporary buffer with the proper alignment
+                                temporary_buffer = vec![
+                                    0;
+                                    format_size
+                                        * aligned_width
+                                        * mip_size.height as usize
+                                        * mip_size.depth as usize
+                                ];
+                                texture
+                                    .data[mip_level as usize]
+                                    .chunks_exact(format_size * width)
+                                    .enumerate()
+                                    .for_each(|(index, row)| {
+                                        let offset = index * aligned_width * format_size;
+                                        temporary_buffer[offset..(offset + width * format_size)]
+                                            .copy_from_slice(row);
+                                    });
+                                &temporary_buffer
+                            } else {
+                                // source data already has the correct alignment
+                                &texture.data[mip_level as usize]
+                            };
+
                             let texture_buffer = render_context.resources().create_buffer_with_data(
                                 BufferInfo {
                                     buffer_usage: BufferUsage::COPY_SRC,
