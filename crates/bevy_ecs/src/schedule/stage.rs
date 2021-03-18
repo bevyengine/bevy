@@ -353,9 +353,9 @@ impl SystemStage {
         // Only check after at least `u32::MAX / 8` counts, and at most `u32::MAX / 4` counts
         // since the max number of [System] in a [SystemStage] is limited to `u32::MAX / 8`
         // and this function is called at the end of each [SystemStage] loop
-        const MAX_TIME_SINCE_LAST_CHECK: u32 = u32::MAX / 8;
+        const MIN_TIME_SINCE_LAST_CHECK: u32 = u32::MAX / 8;
 
-        if time_since_last_check > MAX_TIME_SINCE_LAST_CHECK {
+        if time_since_last_check > MIN_TIME_SINCE_LAST_CHECK {
             // Check all system change ticks
             for exclusive_system in &mut self.exclusive_at_start {
                 exclusive_system.system_mut().check_change_tick(change_tick);
@@ -1695,7 +1695,7 @@ mod tests {
 
     #[test]
     fn change_ticks_wrapover() {
-        const MAX_TIME_SINCE_LAST_CHECK: u32 = u32::MAX / 8;
+        const MIN_TIME_SINCE_LAST_CHECK: u32 = u32::MAX / 8;
         const MAX_DELTA: u32 = (u32::MAX / 4) * 3;
 
         let mut world = World::new();
@@ -1716,7 +1716,7 @@ mod tests {
                 assert!(time_since_last_check <= MAX_DELTA);
             }
             let change_tick = world.change_tick.get_mut();
-            *change_tick = change_tick.wrapping_add(MAX_TIME_SINCE_LAST_CHECK + 1);
+            *change_tick = change_tick.wrapping_add(MIN_TIME_SINCE_LAST_CHECK + 1);
         }
     }
 }
