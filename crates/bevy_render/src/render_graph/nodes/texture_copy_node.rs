@@ -53,8 +53,7 @@ impl Node for TextureCopyNode {
                                         * mip_size.height as usize
                                         * mip_size.depth as usize
                                 ];
-                                texture
-                                    .data[mip_level as usize]
+                                texture.data[mip_level as usize]
                                     .chunks_exact(format_size * width)
                                     .enumerate()
                                     .for_each(|(index, row)| {
@@ -68,13 +67,14 @@ impl Node for TextureCopyNode {
                                 &texture.data[mip_level as usize]
                             };
 
-                            let texture_buffer = render_context.resources().create_buffer_with_data(
-                                BufferInfo {
-                                    buffer_usage: BufferUsage::COPY_SRC,
-                                    ..Default::default()
-                                },
-                                &aligned_data,
-                            );
+                            let texture_buffer =
+                                render_context.resources().create_buffer_with_data(
+                                    BufferInfo {
+                                        buffer_usage: BufferUsage::COPY_SRC,
+                                        ..Default::default()
+                                    },
+                                    &aligned_data,
+                                );
 
                             let texture_resource = render_context
                                 .resources()

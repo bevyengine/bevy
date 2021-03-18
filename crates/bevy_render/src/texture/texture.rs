@@ -41,7 +41,7 @@ impl Default for Texture {
                 height: 1,
                 depth: 1,
             },
-            mip_levels: 1,
+            mip_levels: 0,
             format: TextureFormat::Rgba8UnormSrgb,
             dimension: TextureDimension::D2,
             sampler: Default::default(),
