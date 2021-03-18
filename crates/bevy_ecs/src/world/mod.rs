@@ -410,8 +410,7 @@ impl World {
             entities.clear();
         }
 
-        self.last_change_tick = self.change_tick();
-        self.increment_change_tick();
+        self.last_change_tick = self.increment_change_tick();
     }
 
     /// Returns [QueryState] for the given [WorldQuery], which is used to efficiently
