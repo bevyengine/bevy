@@ -194,43 +194,53 @@ fn generate_texture(size: u32, cx: f32, cy: f32) -> Texture {
         ..Default::default()
     };
 
-    Texture {
-        data: texels,
+    let mut tex = Texture {
+        data: vec![texels],
         size: Extent3d::new(size, size, 1),
+        mip_levels: 0,
         format: TextureFormat::Rgba8UnormSrgb,
         dimension: TextureDimension::D2,
         sampler,
-    }
+    };
+
+    tex.generate_mipmaps(None);
+
+    tex
 }
 
 impl TextureFiltering {
     fn apply(&self, tex: &mut Texture) {
         match self {
             TextureFiltering::Nearest => {
+                tex.mip_levels = 1;
                 tex.sampler.mag_filter = FilterMode::Nearest;
                 tex.sampler.min_filter = FilterMode::Nearest;
                 tex.sampler.mipmap_filter = FilterMode::Nearest;
                 tex.sampler.anisotropy_clamp = None;
             }
             TextureFiltering::Linear => {
+                tex.mip_levels = 1;
                 tex.sampler.mag_filter = FilterMode::Linear;
                 tex.sampler.min_filter = FilterMode::Linear;
                 tex.sampler.mipmap_filter = FilterMode::Nearest;
                 tex.sampler.anisotropy_clamp = None;
             }
             TextureFiltering::NearestMipmap => {
+                tex.mip_levels = 0;
                 tex.sampler.mag_filter = FilterMode::Linear;
                 tex.sampler.min_filter = FilterMode::Linear;
                 tex.sampler.mipmap_filter = FilterMode::Nearest;
                 tex.sampler.anisotropy_clamp = None;
             }
             TextureFiltering::LinearMipmap => {
+                tex.mip_levels = 0;
                 tex.sampler.mag_filter = FilterMode::Linear;
                 tex.sampler.min_filter = FilterMode::Linear;
                 tex.sampler.mipmap_filter = FilterMode::Linear;
                 tex.sampler.anisotropy_clamp = None;
             }
             TextureFiltering::Anisotropic => {
+                tex.mip_levels = 0;
                 tex.sampler.mag_filter = FilterMode::Linear;
                 tex.sampler.min_filter = FilterMode::Linear;
                 tex.sampler.mipmap_filter = FilterMode::Linear;
