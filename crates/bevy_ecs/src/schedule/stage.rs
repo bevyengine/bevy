@@ -696,12 +696,12 @@ impl Stage for SystemStage {
 #[cfg(test)]
 mod tests {
     use crate::{
+        query::ChangeTrackers,
         schedule::{
             BoxedSystemLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
             ShouldRun, SingleThreadedExecutor, Stage, SystemSet, SystemStage,
         },
         system::{IntoExclusiveSystem, IntoSystem, Query, ResMut},
-        query::ChangeTrackers,
         world::World,
     };
 
@@ -1710,9 +1710,13 @@ mod tests {
         for _ in 0..10 {
             stage.run(&mut world);
             for tracker in world.query::<ChangeTrackers<usize>>().iter(&world) {
-                let time_since_last_check = tracker.change_tick.wrapping_sub(tracker.component_ticks.added);
+                let time_since_last_check = tracker
+                    .change_tick
+                    .wrapping_sub(tracker.component_ticks.added);
                 assert!(time_since_last_check <= MAX_DELTA);
-                let time_since_last_check = tracker.change_tick.wrapping_sub(tracker.component_ticks.changed);
+                let time_since_last_check = tracker
+                    .change_tick
+                    .wrapping_sub(tracker.component_ticks.changed);
                 assert!(time_since_last_check <= MAX_DELTA);
             }
             let change_tick = world.change_tick.get_mut();

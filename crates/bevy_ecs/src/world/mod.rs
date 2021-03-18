@@ -67,8 +67,9 @@ impl Default for World {
             archetype_component_access: Default::default(),
             main_thread_validator: Default::default(),
             change_tick: Default::default(),
-            // Default value is `u32::MAX` so that direct queries outside of exclusive systems properly
-            // detect changes. That value will not be used in any exclusive system.
+            // Default value is `u32::MAX` so that direct queries outside of exclusive systems
+            // properly detect changes. That value will not be used in any exclusive
+            // system.
             last_change_tick: u32::MAX,
         }
     }
