@@ -173,18 +173,21 @@ impl SystemStage {
     pub fn parallel_systems(&self) -> &[impl SystemContainer] {
         &self.parallel
     }
+
     /// Topologically sorted exclusive systems that want to be run at the start of the stage.
     ///
     /// Note that systems won't be fully-formed until the stage has been run at least once.
     pub fn exclusive_at_start_systems(&self) -> &[impl SystemContainer] {
         &self.exclusive_at_start
     }
+
     /// Topologically sorted exclusive systems that want to be run at the end of the stage.
     ///
     /// Note that systems won't be fully-formed until the stage has been run at least once.
     pub fn exclusive_at_end_systems(&self) -> &[impl SystemContainer] {
         &self.exclusive_at_end
     }
+
     /// Topologically sorted exclusive systems that want to be run after parallel systems but
     /// before the application of their command buffers.
     ///
@@ -327,7 +330,7 @@ impl SystemStage {
             && at_end.is_empty())
         {
             let mut string = "Execution order ambiguities detected, you might want to \
-                    add an explicit dependency relation between some these systems:\n"
+                    add an explicit dependency relation between some of these systems:\n"
                 .to_owned();
             if !parallel.is_empty() {
                 writeln!(string, " * Parallel systems:").unwrap();

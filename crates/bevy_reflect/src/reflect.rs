@@ -22,7 +22,11 @@ pub enum ReflectMut<'a> {
 }
 
 /// A reflected rust type.
-pub trait Reflect: Any + Send + Sync {
+///
+/// # Safety
+/// Implementors _must_ ensure that [Reflect::any] and [Reflect::any_mut] both return the `self` value passed in
+/// If this is not done, [Reflect::downcast] will be UB (and also just logically broken).
+pub unsafe trait Reflect: Any + Send + Sync {
     fn type_name(&self) -> &str;
     fn any(&self) -> &dyn Any;
     fn any_mut(&mut self) -> &mut dyn Any;

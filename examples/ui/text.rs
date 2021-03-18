@@ -106,11 +106,11 @@ fn text_color_system(time: Res<Time>, mut query: Query<&mut Text, With<ColorText
         let seconds = time.seconds_since_startup() as f32;
         // We used the `Text::with_section` helper method, but it is still just a `Text`,
         // so to update it, we are still updating the one and only section
-        text.sections[0]
-            .style
-            .color
-            .set_r((1.25 * seconds).sin() / 2.0 + 0.5)
-            .set_g((0.75 * seconds).sin() / 2.0 + 0.5)
-            .set_b((0.50 * seconds).sin() / 2.0 + 0.5);
+        text.sections[0].style.color = Color::Rgba {
+            red: (1.25 * seconds).sin() / 2.0 + 0.5,
+            green: (0.75 * seconds).sin() / 2.0 + 0.5,
+            blue: (0.50 * seconds).sin() / 2.0 + 0.5,
+            alpha: 1.0,
+        };
     }
 }

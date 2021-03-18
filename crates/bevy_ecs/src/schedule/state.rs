@@ -189,7 +189,8 @@ impl<T: Component + Clone + Eq> State<T> {
 
     /// Creates a driver set for the State.
     ///
-    /// Important note: this set must be inserted **before** all other state-dependant sets to work properly!
+    /// Important note: this set must be inserted **before** all other state-dependant sets to work
+    /// properly!
     pub fn make_driver() -> SystemSet {
         SystemSet::default().with_run_criteria(state_cleaner::<T>.system())
     }
@@ -203,8 +204,10 @@ impl<T: Component + Clone + Eq> State<T> {
         }
     }
 
-    /// Schedule a state change that changes the top of the stack to the given state.
-    /// This will fail if there is a scheduled operation, or if the given `state` matches the current state
+
+    /// Schedule a state change that replaces the full stack with the given state.
+    /// This will fail if there is a scheduled operation, or if the given `state` matches the
+    /// current state
     pub fn set_next(&mut self, state: T) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
@@ -218,7 +221,8 @@ impl<T: Component + Clone + Eq> State<T> {
         Ok(())
     }
 
-    /// Same as [Self::set_next], but if there is already a next state, it will be overwritten instead of failing
+    /// Same as [Self::set_next], but if there is already a next state, it will be overwritten
+    /// instead of failing
     pub fn overwrite_next(&mut self, state: T) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
@@ -267,7 +271,8 @@ impl<T: Component + Clone + Eq> State<T> {
         Ok(())
     }
 
-    /// Same as [Self::set_push], but if there is already a next state, it will be overwritten instead of failing
+    /// Same as [Self::set_push], but if there is already a next state, it will be overwritten
+    /// instead of failing
     pub fn overwrite_push(&mut self, state: T) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
@@ -291,7 +296,8 @@ impl<T: Component + Clone + Eq> State<T> {
         Ok(())
     }
 
-    /// Same as [Self::set_pop], but if there is already a next state, it will be overwritten instead of failing
+    /// Same as [Self::set_pop], but if there is already a next state, it will be overwritten
+    /// instead of failing
     pub fn overwrite_pop(&mut self) -> Result<(), StateError> {
         if self.stack.len() == 1 {
             return Err(StateError::StackEmpty);
