@@ -482,7 +482,7 @@ fn process_run_criteria(
         .map(|(index, criteria)| (criteria.label.clone(), order_inverted[index].0))
         .collect();
     for criteria in run_criteria.iter_mut() {
-        if let RunCriteriaInner::Chained { parent, .. } = &mut criteria.inner {
+        if let RunCriteriaInner::Chained { input: parent, .. } = &mut criteria.inner {
             *parent = labels[&criteria.after[0]];
         }
     }
@@ -606,9 +606,11 @@ impl Stage for SystemStage {
             let mut criteria = &mut tail[0];
             match &mut criteria.inner {
                 RunCriteriaInner::Single(system) => criteria.should_run = system.run((), world),
-                RunCriteriaInner::Chained { parent, system, .. } => {
-                    criteria.should_run = system.run(run_criteria[*parent].should_run, world)
-                }
+                RunCriteriaInner::Chained {
+                    input: parent,
+                    system,
+                    ..
+                } => criteria.should_run = system.run(run_criteria[*parent].should_run, world),
             }
         }
 
@@ -676,7 +678,11 @@ impl Stage for SystemStage {
                             RunCriteriaInner::Single(system) => {
                                 criteria.should_run = system.run((), world)
                             }
-                            RunCriteriaInner::Chained { parent, system, .. } => {
+                            RunCriteriaInner::Chained {
+                                input: parent,
+                                system,
+                                ..
+                            } => {
                                 criteria.should_run =
                                     system.run(run_criteria[*parent].should_run, world)
                             }
@@ -697,7 +703,7 @@ mod tests {
     use crate::{
         schedule::{
             BoxedSystemLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
-            RunCriteriaChaining, RunCriteriaDescriptorCoercion, ShouldRun, SingleThreadedExecutor,
+            RunCriteriaDescriptorCoercion, RunCriteriaPiping, ShouldRun, SingleThreadedExecutor,
             Stage, SystemSet, SystemStage,
         },
         system::{In, IntoExclusiveSystem, IntoSystem, Local, Query, ResMut},
@@ -1241,7 +1247,7 @@ mod tests {
             )
             .with_system(
                 make_parallel!(2).system().after("1").with_run_criteria(
-                    "every other time".chain(
+                    "every other time".pipe(
                         (|input: In<ShouldRun>, has_ran: Local<bool>| {
                             if let ShouldRun::Yes | ShouldRun::YesAndCheckAgain = input.0 {
                                 every_other_time(has_ran)

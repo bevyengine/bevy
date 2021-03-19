@@ -202,7 +202,7 @@ impl SystemContainer for ParallelSystemContainer {
     }
 
     fn set_run_criteria(&mut self, index: usize) {
-        self.run_criteria = Some(criteria);
+        self.run_criteria = Some(index);
     }
 
     fn run_criteria_label(&self) -> Option<&BoxedRunCriteriaLabel> {

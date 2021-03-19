@@ -19,7 +19,7 @@ pub mod prelude {
         query::{Added, Changed, Flags, Mutated, Or, QueryState, With, WithBundle, Without},
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
-            RunCriteriaChaining, RunCriteriaDescriptorCoercion, RunCriteriaLabel, Schedule, Stage,
+            RunCriteriaDescriptorCoercion, RunCriteriaLabel, RunCriteriaPiping, Schedule, Stage,
             StageLabel, State, SystemLabel, SystemSet, SystemStage,
         },
         system::{

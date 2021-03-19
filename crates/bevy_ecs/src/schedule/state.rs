@@ -1,8 +1,12 @@
 use crate::{
     component::Component,
-    schedule::{ShouldRun, SystemSet},
-    system::{In, IntoChainSystem, IntoSystem, Local, Res, ResMut, System},
+    schedule::{
+        RunCriteriaDescriptor, RunCriteriaDescriptorCoercion, RunCriteriaLabel, ShouldRun,
+        SystemSet,
+    },
+    system::{In, IntoChainSystem, IntoSystem, Local, Res, ResMut},
 };
+use std::any::TypeId;
 use thiserror::Error;
 
 /// ### Stack based state machine
@@ -38,17 +42,33 @@ enum ScheduledOperation<T: Component + Clone + Eq> {
     Push(T),
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+struct DriverLabel(TypeId);
+
+impl DriverLabel {
+    fn of<T: Component + Clone + Eq>() -> Self {
+        Self(TypeId::of::<T>())
+    }
+}
+
+impl RunCriteriaLabel for DriverLabel {
+    fn dyn_clone(&self) -> Box<dyn RunCriteriaLabel> {
+        Box::new(self.clone())
+    }
+}
+
 impl<T: Component + Clone + Eq> State<T> {
-    pub fn on_update(s: T) -> impl System<In = (), Out = ShouldRun> {
+    pub fn on_update(s: T) -> RunCriteriaDescriptor {
         (|state: Res<State<T>>, pred: Local<Option<T>>| {
             state.stack.last().unwrap() == pred.as_ref().unwrap() && state.transition.is_none()
         })
         .system()
         .config(|(_, pred)| *pred = Some(Some(s)))
         .chain(should_run_adapter::<T>.system())
+        .after(DriverLabel::of::<T>())
     }
 
-    pub fn on_inactive_update(s: T) -> impl System<In = (), Out = ShouldRun> {
+    pub fn on_inactive_update(s: T) -> RunCriteriaDescriptor {
         (|state: Res<State<T>>, mut is_inactive: Local<bool>, pred: Local<Option<T>>| match &state
             .transition
         {
@@ -65,9 +85,10 @@ impl<T: Component + Clone + Eq> State<T> {
         .system()
         .config(|(_, _, pred)| *pred = Some(Some(s)))
         .chain(should_run_adapter::<T>.system())
+        .after(DriverLabel::of::<T>())
     }
 
-    pub fn on_in_stack_update(s: T) -> impl System<In = (), Out = ShouldRun> {
+    pub fn on_in_stack_update(s: T) -> RunCriteriaDescriptor {
         (|state: Res<State<T>>, mut is_in_stack: Local<bool>, pred: Local<Option<T>>| match &state
             .transition
         {
@@ -96,9 +117,10 @@ impl<T: Component + Clone + Eq> State<T> {
         .system()
         .config(|(_, _, pred)| *pred = Some(Some(s)))
         .chain(should_run_adapter::<T>.system())
+        .after(DriverLabel::of::<T>())
     }
 
-    pub fn on_enter(s: T) -> impl System<In = (), Out = ShouldRun> {
+    pub fn on_enter(s: T) -> RunCriteriaDescriptor {
         (|state: Res<State<T>>, pred: Local<Option<T>>| {
             state
                 .transition
@@ -114,9 +136,10 @@ impl<T: Component + Clone + Eq> State<T> {
         .system()
         .config(|(_, pred)| *pred = Some(Some(s)))
         .chain(should_run_adapter::<T>.system())
+        .after(DriverLabel::of::<T>())
     }
 
-    pub fn on_exit(s: T) -> impl System<In = (), Out = ShouldRun> {
+    pub fn on_exit(s: T) -> RunCriteriaDescriptor {
         (|state: Res<State<T>>, pred: Local<Option<T>>| {
             state
                 .transition
@@ -130,9 +153,10 @@ impl<T: Component + Clone + Eq> State<T> {
         .system()
         .config(|(_, pred)| *pred = Some(Some(s)))
         .chain(should_run_adapter::<T>.system())
+        .after(DriverLabel::of::<T>())
     }
 
-    pub fn on_pause(s: T) -> impl System<In = (), Out = ShouldRun> {
+    pub fn on_pause(s: T) -> RunCriteriaDescriptor {
         (|state: Res<State<T>>, pred: Local<Option<T>>| {
             state
                 .transition
@@ -145,9 +169,10 @@ impl<T: Component + Clone + Eq> State<T> {
         .system()
         .config(|(_, pred)| *pred = Some(Some(s)))
         .chain(should_run_adapter::<T>.system())
+        .after(DriverLabel::of::<T>())
     }
 
-    pub fn on_resume(s: T) -> impl System<In = (), Out = ShouldRun> {
+    pub fn on_resume(s: T) -> RunCriteriaDescriptor {
         (|state: Res<State<T>>, pred: Local<Option<T>>| {
             state
                 .transition
@@ -160,6 +185,7 @@ impl<T: Component + Clone + Eq> State<T> {
         .system()
         .config(|(_, pred)| *pred = Some(Some(s)))
         .chain(should_run_adapter::<T>.system())
+        .after(DriverLabel::of::<T>())
     }
 
     pub fn on_update_set(s: T) -> SystemSet {
@@ -190,7 +216,8 @@ impl<T: Component + Clone + Eq> State<T> {
     ///
     /// Important note: this set must be inserted **before** all other state-dependant sets to work properly!
     pub fn make_driver() -> SystemSet {
-        SystemSet::default().with_run_criteria(state_cleaner::<T>.system())
+        SystemSet::default()
+            .with_run_criteria(state_cleaner::<T>.system().label(DriverLabel::of::<T>()))
     }
 
     pub fn new(initial: T) -> Self {

@@ -58,7 +58,7 @@ impl BoxedRunCriteria {
 pub(crate) enum RunCriteriaInner {
     Single(BoxedSystem<(), ShouldRun>),
     Chained {
-        parent: usize,
+        input: usize,
         system: BoxedSystem<ShouldRun, ShouldRun>,
     },
 }
@@ -73,27 +73,20 @@ pub(crate) struct RunCriteriaContainer {
 
 impl RunCriteriaContainer {
     pub fn from_descriptor(
-        mut descriptor: RunCriteriaDescriptor,
+        descriptor: RunCriteriaDescriptor,
         label: BoxedRunCriteriaLabel,
     ) -> Self {
-        match descriptor.system {
-            RunCriteriaSystem::Single(system) => Self {
-                should_run: ShouldRun::Yes,
-                inner: RunCriteriaInner::Single(system),
-                label,
-                before: descriptor.before,
-                after: descriptor.after,
-            },
-            RunCriteriaSystem::Chained(parent_label, system) => {
-                descriptor.after.insert(0, parent_label);
-                Self {
-                    should_run: ShouldRun::Yes,
-                    inner: RunCriteriaInner::Chained { parent: 0, system },
-                    label,
-                    before: descriptor.before,
-                    after: descriptor.after,
+        Self {
+            should_run: ShouldRun::Yes,
+            inner: match descriptor.system {
+                RunCriteriaSystem::Single(system) => RunCriteriaInner::Single(system),
+                RunCriteriaSystem::Chained(system) => {
+                    RunCriteriaInner::Chained { input: 0, system }
                 }
-            }
+            },
+            label,
+            before: descriptor.before,
+            after: descriptor.after,
         }
     }
     pub fn initialize(&mut self, world: &mut World) {
@@ -139,7 +132,7 @@ pub struct RunCriteriaDescriptor {
 
 pub(crate) enum RunCriteriaSystem {
     Single(BoxedSystem<(), ShouldRun>),
-    Chained(BoxedRunCriteriaLabel, BoxedSystem<ShouldRun, ShouldRun>),
+    Chained(BoxedSystem<ShouldRun, ShouldRun>),
 }
 
 pub trait IntoRunCriteria<Marker> {
@@ -256,31 +249,31 @@ where
     }
 }
 
-pub trait RunCriteriaChaining {
-    fn chain(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor;
+pub trait RunCriteriaPiping {
+    fn pipe(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor;
 }
 
-impl RunCriteriaChaining for BoxedRunCriteriaLabel {
-    fn chain(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor {
+impl RunCriteriaPiping for BoxedRunCriteriaLabel {
+    fn pipe(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor {
         RunCriteriaDescriptor {
-            system: RunCriteriaSystem::Chained(self, Box::new(system)),
+            system: RunCriteriaSystem::Chained(Box::new(system)),
             label: None,
             before: vec![],
-            after: vec![],
+            after: vec![self],
         }
     }
 }
 
-impl<L> RunCriteriaChaining for L
+impl<L> RunCriteriaPiping for L
 where
     L: RunCriteriaLabel,
 {
-    fn chain(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor {
+    fn pipe(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor {
         RunCriteriaDescriptor {
-            system: RunCriteriaSystem::Chained(Box::new(self), Box::new(system)),
+            system: RunCriteriaSystem::Chained(Box::new(system)),
             label: None,
             before: vec![],
-            after: vec![],
+            after: vec![Box::new(self)],
         }
     }
 }
