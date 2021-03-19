@@ -38,12 +38,12 @@ pub struct Sphere {
 }
 
 impl Sphere {
-    /// Get a reference to the sphere's origin.
+    /// Get the sphere's origin.
     pub fn origin(&self) -> Vec3 {
         self.origin
     }
 
-    /// Get a reference to the sphere's radius.
+    /// Get the sphere's radius.
     pub fn radius(&self) -> f32 {
         self.radius
     }
@@ -136,7 +136,7 @@ pub struct AABB {
 impl Primitive3d for AABB {
     fn outside_plane(&self, plane: Plane) -> bool {
         for vertex in self.vertices().iter() {
-            if plane.distance_to_point(vertex) <= 0.0 {
+            if plane.distance_to_point(*vertex) <= 0.0 {
                 return false;
             }
         }
@@ -212,7 +212,7 @@ pub struct Frustum {
 impl Primitive3d for Frustum {
     fn outside_plane(&self, plane: Plane) -> bool {
         for vertex in self.vertices().iter() {
-            if plane.distance_to_point(vertex) <= 0.0 {
+            if plane.distance_to_point(*vertex) <= 0.0 {
                 return false;
             }
         }
@@ -344,13 +344,13 @@ impl Plane {
         self.normal.dot(point) + -self.normal.dot(self.point)
     }
 
-    /// Get a reference to the plane's point.
-    pub fn point(&self) -> &Vec3 {
-        &self.point
+    /// Get the plane's point.
+    pub fn point(&self) -> Vec3 {
+        self.point
     }
 
-    /// Get a reference to the plane's normal.
-    pub fn normal(&self) -> &Vec3 {
-        &self.normal
+    /// Get the plane's normal.
+    pub fn normal(&self) -> Vec3 {
+        self.normal
     }
 }
