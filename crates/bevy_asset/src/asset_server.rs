@@ -238,31 +238,31 @@ impl AssetServer {
     }
 
     /// Create a new asset from another one
-    pub fn create_from<FROM: Asset, TO: Asset, F>(
+    pub fn create_from<From: Asset, To: Asset, Func>(
         &self,
-        from_handle: Handle<FROM>,
-        transform: F,
-    ) -> Handle<TO>
+        from_handle: Handle<From>,
+        transform: Func,
+    ) -> Handle<To>
     where
-        F: FnOnce(&FROM) -> Option<TO>,
-        F: Send + 'static,
+        Func: FnOnce(&From) -> Option<To>,
+        Func: Send + 'static,
     {
-        let new_handle = HandleId::random::<TO>();
+        let new_handle = HandleId::random::<To>();
         let to_handle = Handle::strong(
             new_handle,
             self.server.asset_ref_counter.channel.sender.clone(),
         );
 
         let asset_lifecycles = self.server.asset_lifecycles.read();
-        if let Some(asset_lifecycle) = asset_lifecycles.get(&FROM::TYPE_UUID) {
+        if let Some(asset_lifecycle) = asset_lifecycles.get(&From::TYPE_UUID) {
             asset_lifecycle.create_asset_from(
                 from_handle.into(),
                 new_handle,
-                TO::TYPE_UUID,
+                To::TYPE_UUID,
                 Box::new(|asset: &dyn AssetDynamic| {
                     if let Some(transformed) = transform(
                         asset
-                            .downcast_ref::<FROM>()
+                            .downcast_ref::<From>()
                             // this downcast can't fail as we know the actual types here
                             .expect("Error converting an asset to its type, please open an issue in Bevy GitHub repository"),
                     ) {
@@ -270,8 +270,8 @@ impl AssetServer {
                     } else {
                         warn!(
                             "Error creating a new asset from {}, attempting to convert to {}",
-                            std::any::type_name::<FROM>(),
-                            std::any::type_name::<TO>()
+                            std::any::type_name::<From>(),
+                            std::any::type_name::<To>()
                         );
                         None
                     }
