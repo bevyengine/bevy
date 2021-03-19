@@ -100,8 +100,8 @@ impl TextureAtlasBuilder {
             let end = begin + rect_width * format_size;
             let texture_begin = texture_y * rect_width * format_size;
             let texture_end = texture_begin + rect_width * format_size;
-            atlas_texture.data[0][begin..end]
-                .copy_from_slice(&texture.data[0][texture_begin..texture_end]);
+            atlas_texture.data[begin..end]
+                .copy_from_slice(&texture.data[texture_begin..texture_end]);
         }
     }
 

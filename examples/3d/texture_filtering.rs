@@ -166,7 +166,7 @@ fn generate_texture(size: u32, cx: f32, cy: f32) -> Texture {
     // This is a procedurally-generated texture, so we can generate the image
     // directly at any size we want. Generating each mipmap level like this
     // should produce the prettiest-looking results.
-    let mut data = Vec::new();
+    let mut mipmaps = Vec::new();
     let mut mip_size = size;
 
     // Limiting the smallest mipmap size to 4x4 helps avoid the texture looking
@@ -192,7 +192,7 @@ fn generate_texture(size: u32, cx: f32, cy: f32) -> Texture {
             })
             .collect();
 
-        data.push(texels);
+        mipmaps.push(texels);
         mip_size /= 2;
     }
 
@@ -207,10 +207,13 @@ fn generate_texture(size: u32, cx: f32, cy: f32) -> Texture {
         ..Default::default()
     };
 
+    let data = mipmaps.remove(0);
+
     Texture {
         data,
+        mipmaps,
         size: Extent3d::new(size, size, 1),
-        mip_levels: 0,
+        max_mip_level: None,
         format: TextureFormat::Rgba8UnormSrgb,
         dimension: TextureDimension::D2,
         sampler,
@@ -228,35 +231,35 @@ impl TextureFiltering {
     fn apply(&self, tex: &mut Texture) {
         match self {
             TextureFiltering::Nearest => {
-                tex.mip_levels = 1;
+                tex.max_mip_level = Some(0);
                 tex.sampler.mag_filter = FilterMode::Nearest;
                 tex.sampler.min_filter = FilterMode::Nearest;
                 tex.sampler.mipmap_filter = FilterMode::Nearest;
                 tex.sampler.anisotropy_clamp = None;
             }
             TextureFiltering::Linear => {
-                tex.mip_levels = 1;
+                tex.max_mip_level = Some(0);
                 tex.sampler.mag_filter = FilterMode::Linear;
                 tex.sampler.min_filter = FilterMode::Linear;
                 tex.sampler.mipmap_filter = FilterMode::Nearest;
                 tex.sampler.anisotropy_clamp = None;
             }
             TextureFiltering::NearestMipmap => {
-                tex.mip_levels = 0;
+                tex.max_mip_level = None;
                 tex.sampler.mag_filter = FilterMode::Linear;
                 tex.sampler.min_filter = FilterMode::Linear;
                 tex.sampler.mipmap_filter = FilterMode::Nearest;
                 tex.sampler.anisotropy_clamp = None;
             }
             TextureFiltering::LinearMipmap => {
-                tex.mip_levels = 0;
+                tex.max_mip_level = None;
                 tex.sampler.mag_filter = FilterMode::Linear;
                 tex.sampler.min_filter = FilterMode::Linear;
                 tex.sampler.mipmap_filter = FilterMode::Linear;
                 tex.sampler.anisotropy_clamp = None;
             }
             TextureFiltering::Anisotropic => {
-                tex.mip_levels = 0;
+                tex.max_mip_level = None;
                 tex.sampler.mag_filter = FilterMode::Linear;
                 tex.sampler.min_filter = FilterMode::Linear;
                 tex.sampler.mipmap_filter = FilterMode::Linear;

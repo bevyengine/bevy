@@ -125,25 +125,32 @@ pub(crate) fn image_to_texture(dyn_img: image::DynamicImage) -> Texture {
 
 /// Helper method to convert a `Texture` to a `DynamicImage`. Not all `Texture` formats are
 /// covered, it will return `None` if the format is not supported
-pub(crate) fn texture_to_image(texture: &Texture, mip_level: usize) -> Option<image::DynamicImage> {
-    let size = texture.mip_size(mip_level);
+pub(crate) fn texture_to_image(texture: &Texture) -> Option<image::DynamicImage> {
     match texture.format {
-        TextureFormat::R8Unorm => {
-            image::ImageBuffer::from_raw(size.width, size.height, texture.data[mip_level].clone())
-                .map(image::DynamicImage::ImageLuma8)
-        }
-        TextureFormat::Rg8Unorm => {
-            image::ImageBuffer::from_raw(size.width, size.height, texture.data[mip_level].clone())
-                .map(image::DynamicImage::ImageLumaA8)
-        }
-        TextureFormat::Rgba8UnormSrgb => {
-            image::ImageBuffer::from_raw(size.width, size.height, texture.data[mip_level].clone())
-                .map(image::DynamicImage::ImageRgba8)
-        }
-        TextureFormat::Bgra8UnormSrgb => {
-            image::ImageBuffer::from_raw(size.width, size.height, texture.data[mip_level].clone())
-                .map(image::DynamicImage::ImageBgra8)
-        }
+        TextureFormat::R8Unorm => image::ImageBuffer::from_raw(
+            texture.size.width,
+            texture.size.height,
+            texture.data.clone(),
+        )
+        .map(image::DynamicImage::ImageLuma8),
+        TextureFormat::Rg8Unorm => image::ImageBuffer::from_raw(
+            texture.size.width,
+            texture.size.height,
+            texture.data.clone(),
+        )
+        .map(image::DynamicImage::ImageLumaA8),
+        TextureFormat::Rgba8UnormSrgb => image::ImageBuffer::from_raw(
+            texture.size.width,
+            texture.size.height,
+            texture.data.clone(),
+        )
+        .map(image::DynamicImage::ImageRgba8),
+        TextureFormat::Bgra8UnormSrgb => image::ImageBuffer::from_raw(
+            texture.size.width,
+            texture.size.height,
+            texture.data.clone(),
+        )
+        .map(image::DynamicImage::ImageBgra8),
         _ => None,
     }
 }

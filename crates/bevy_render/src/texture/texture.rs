@@ -21,16 +21,13 @@ pub const SAMPLER_ASSET_INDEX: u64 = 1;
 #[derive(Debug, Clone, TypeUuid)]
 #[uuid = "6ea26da6-6cf8-4ea2-9986-1d7bf6c17d6f"]
 pub struct Texture {
-    /// Data for each mipmap level
-    ///
-    /// Must contain at least one (the base texture)
-    pub data: Vec<Vec<u8>>,
+    /// Data of the texture's main image (base mipmap level)
+    pub data: Vec<u8>,
+    /// Data of any additional mipmap levels
+    pub mipmaps: Vec<Vec<u8>>,
     pub size: Extent3d,
-    /// Maximum number of mipmap levels to use
-    ///
-    /// The actual number of mipmaps used is either this, or `data.len()`,
-    /// whichever is less. If 0, all available levels are used.
-    pub mip_levels: u32,
+    /// How many mipmap levels to copy into the GPU
+    pub max_mip_level: Option<usize>,
     pub format: TextureFormat,
     pub dimension: TextureDimension,
     pub sampler: SamplerDescriptor,
@@ -39,13 +36,14 @@ pub struct Texture {
 impl Default for Texture {
     fn default() -> Self {
         Texture {
-            data: vec![Vec::new()],
+            data: Vec::new(),
+            mipmaps: Vec::new(),
             size: Extent3d {
                 width: 1,
                 height: 1,
                 depth: 1,
             },
-            mip_levels: 0,
+            max_mip_level: None,
             format: TextureFormat::Rgba8UnormSrgb,
             dimension: TextureDimension::D2,
             sampler: Default::default(),
@@ -67,9 +65,8 @@ impl Texture {
             "Pixel data, size and format have to match",
         );
         Self {
-            data: vec![data],
+            data,
             size,
-            mip_levels: 1,
             dimension,
             format,
             ..Default::default()
@@ -95,11 +92,11 @@ impl Texture {
             "Must not have incomplete pixel data."
         );
         debug_assert!(
-            pixel.len() <= value.data[0].len(),
+            pixel.len() <= value.data.len(),
             "Fill data must fit within pixel buffer."
         );
 
-        for current_pixel in value.data[0].chunks_exact_mut(pixel.len()) {
+        for current_pixel in value.data.chunks_exact_mut(pixel.len()) {
             current_pixel.copy_from_slice(&pixel);
         }
         value
@@ -120,15 +117,19 @@ impl Texture {
     pub fn resize(&mut self, size: Extent3d) {
         self.size = size;
 
-        for level in 0..self.data.len() {
-            let volume = self.mip_size(level).volume();
+        self.data
+            .resize(size.volume() * self.format.pixel_size(), 0);
 
-            self.data[level].resize(volume * self.format.pixel_size(), 0);
+        // resize mipmaps
+        for level in 0..self.mipmaps.len() {
+            let mip_volume = self.mip_size(level + 1).volume();
 
-            if volume == 1 {
+            self.mipmaps[level].resize(mip_volume * self.format.pixel_size(), 0);
+
+            if mip_volume == 1 {
                 // This was the last mip level, remove any extras
-                self.data.truncate(level + 1);
-                self.mip_levels = self.mip_levels.min(level as u32);
+                self.mipmaps.truncate(level + 1);
+                self.max_mip_level = self.max_mip_level.map(|old| old.min(level + 1));
                 break;
             }
         }
@@ -163,6 +164,11 @@ impl Texture {
         });
     }
 
+    /// Iterator that gives the texel data for each mipmap level to use in rendering
+    pub(crate) fn iter_mipmaps(&self) -> impl Iterator<Item = &[u8]> {
+        std::iter::once(self.data.as_slice()).chain(self.mipmaps.iter().map(|vec| vec.as_slice()))
+    }
+
     /// Generate mipmap images by downscaling the texture
     ///
     /// Currently this operation is performed on the CPU.
@@ -194,20 +200,19 @@ impl Texture {
             panic!("Generating mipmaps is only supported for 2D textures.");
         }
 
-        let mut mip_level = self.data.len();
-        debug_assert!(mip_level > 0);
+        let mut mip_level = self.mipmaps.len() + 1;
 
         let mut mip_size = self.mip_size(mip_level);
 
         // PERF: this is inefficient: `texture_to_image` does a `.clone()` of the source data
-        let base_image = super::image_texture_conversion::texture_to_image(self, 0).unwrap();
+        let base_image = super::image_texture_conversion::texture_to_image(self).unwrap();
 
         while mip_size.volume() > 1 && mip_level <= max_mip_level.unwrap_or(mip_level + 1) {
             let resized = base_image.resize_exact(mip_size.width, mip_size.height, filter);
 
             let (_, _, new_data) = super::image_texture_conversion::image_to_texture_data(resized);
 
-            self.data.push(new_data);
+            self.mipmaps.push(new_data);
 
             mip_level += 1;
             mip_size = self.mip_size(mip_level);
@@ -223,7 +228,7 @@ impl Texture {
     ///
     /// (TODO) this method currently discards all mipmap levels except the base image
     pub fn convert(&self, new_format: TextureFormat) -> Option<Self> {
-        super::image_texture_conversion::texture_to_image(self, 0)
+        super::image_texture_conversion::texture_to_image(self)
             .and_then(|img| match new_format {
                 TextureFormat::R8Unorm => Some(image::DynamicImage::ImageLuma8(img.into_luma8())),
                 TextureFormat::Rg8Unorm => {

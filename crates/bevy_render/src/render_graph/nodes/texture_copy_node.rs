@@ -36,7 +36,13 @@ impl Node for TextureCopyNode {
 
                         debug_assert!(texture_descriptor.mip_level_count > 0);
 
-                        for mip_level in 0..texture_descriptor.mip_level_count {
+                        for (mip_level, data) in texture.iter_mipmaps().enumerate() {
+                            if let Some(max_level) = texture.max_mip_level {
+                                if mip_level > max_level {
+                                    break;
+                                }
+                            }
+
                             let mip_size = texture.mip_size(mip_level as usize);
                             let width = mip_size.width as usize;
                             let aligned_width =
@@ -53,18 +59,17 @@ impl Node for TextureCopyNode {
                                         * mip_size.height as usize
                                         * mip_size.depth as usize
                                 ];
-                                texture.data[mip_level as usize]
-                                    .chunks_exact(format_size * width)
-                                    .enumerate()
-                                    .for_each(|(index, row)| {
+                                data.chunks_exact(format_size * width).enumerate().for_each(
+                                    |(index, row)| {
                                         let offset = index * aligned_width * format_size;
                                         temporary_buffer[offset..(offset + width * format_size)]
                                             .copy_from_slice(row);
-                                    });
-                                &temporary_buffer
+                                    },
+                                );
+                                temporary_buffer.as_slice()
                             } else {
                                 // source data already has the correct alignment
-                                &texture.data[mip_level as usize]
+                                data
                             };
 
                             let texture_buffer =
@@ -87,7 +92,7 @@ impl Node for TextureCopyNode {
                                 (format_size * aligned_width) as u32,
                                 texture_resource.get_texture().unwrap(),
                                 [0, 0, 0],
-                                mip_level,
+                                mip_level as u32,
                                 mip_size,
                             );
                             render_context.resources().remove_buffer(texture_buffer);
