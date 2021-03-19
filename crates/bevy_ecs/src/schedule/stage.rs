@@ -1730,7 +1730,7 @@ mod tests {
     fn change_query_wrapover() {
         struct C;
         let mut world = World::new();
-        
+
         // Spawn entities at various ticks
         let component_ticks = [0, u32::MAX / 4, u32::MAX / 2, u32::MAX / 4 * 3, u32::MAX];
         let ids = component_ticks
