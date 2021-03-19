@@ -5,6 +5,8 @@ use bevy_ecs::{
     system::Query,
 };
 
+/// Update [`GlobalTransform`] component of entities based on entity hierarchy and
+/// [`Transform`] component.
 pub fn transform_propagate_system(
     mut root_query: Query<
         (Entity, Option<&Children>, &Transform, &mut GlobalTransform),
