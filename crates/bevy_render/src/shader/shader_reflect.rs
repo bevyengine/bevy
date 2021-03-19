@@ -153,23 +153,17 @@ fn reflect_binding(
         _ => panic!("Unsupported bind type {:?}.", binding.descriptor_type),
     };
 
-    let mut shader_stage = match shader_stage {
+    let shader_stage = match shader_stage {
         ReflectShaderStageFlags::COMPUTE => BindingShaderStage::COMPUTE,
         ReflectShaderStageFlags::VERTEX => BindingShaderStage::VERTEX,
         ReflectShaderStageFlags::FRAGMENT => BindingShaderStage::FRAGMENT,
         _ => panic!("Only one specified shader stage is supported."),
     };
 
-    let name = name.to_string();
-
-    if name == "Camera" {
-        shader_stage = BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT;
-    }
-
     BindingDescriptor {
         index: binding.binding,
         bind_type,
-        name,
+        name: name.to_string(),
         shader_stage,
     }
 }
@@ -325,7 +319,7 @@ mod tests {
             layout(location = 2) in uvec4 I_TestInstancing_Property;
 
             layout(location = 0) out vec4 v_Position;
-            layout(set = 0, binding = 0) uniform Camera {
+            layout(set = 0, binding = 0) uniform CameraViewProj {
                 mat4 ViewProj;
             };
             layout(set = 1, binding = 0) uniform texture2D Texture;
@@ -381,12 +375,12 @@ mod tests {
                         0,
                         vec![BindingDescriptor {
                             index: 0,
-                            name: "Camera".into(),
+                            name: "CameraViewProj".into(),
                             bind_type: BindType::Uniform {
                                 has_dynamic_offset: false,
                                 property: UniformProperty::Struct(vec![UniformProperty::Mat4]),
                             },
-                            shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
+                            shader_stage: BindingShaderStage::VERTEX,
                         }]
                     ),
                     BindGroupDescriptor::new(

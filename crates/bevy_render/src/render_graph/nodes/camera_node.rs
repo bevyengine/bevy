@@ -3,7 +3,7 @@ use crate::{
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     renderer::{
         BufferId, BufferInfo, BufferMapMode, BufferUsage, RenderContext, RenderResourceBinding,
-        RenderResourceBindings, RenderResourceContext,
+        RenderResourceContext,
     },
 };
 use bevy_core::AsBytes;
@@ -50,7 +50,6 @@ impl SystemNode for CameraNode {
             config.0 = Some(CameraNodeState {
                 camera_name: self.camera_name.clone(),
                 command_queue: self.command_queue.clone(),
-                camera_buffer: None,
                 staging_buffer: None,
             })
         });
@@ -58,53 +57,43 @@ impl SystemNode for CameraNode {
     }
 }
 
+const CAMERA_VIEW_PROJ: &str = "CameraViewProj";
+const CAMERA_VIEW: &str = "CameraView";
+
 #[derive(Debug, Default)]
 pub struct CameraNodeState {
     command_queue: CommandQueue,
     camera_name: Cow<'static, str>,
-    camera_buffer: Option<BufferId>,
     staging_buffer: Option<BufferId>,
 }
 
+const MATRIX_SIZE: usize = std::mem::size_of::<[[f32; 4]; 4]>();
+
 pub fn camera_node_system(
     mut state: Local<CameraNodeState>,
-    active_cameras: Res<ActiveCameras>,
+    mut active_cameras: ResMut<ActiveCameras>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
-    // PERF: this write on RenderResourceAssignments will prevent this system from running in
-    // parallel with other systems that do the same
-    mut render_resource_bindings: ResMut<RenderResourceBindings>,
-    query: Query<(&Camera, &GlobalTransform)>,
+    mut query: Query<(&Camera, &GlobalTransform)>,
 ) {
     let render_resource_context = &**render_resource_context;
 
-    let (camera, global_transform) = if let Some(entity) = active_cameras.get(&state.camera_name) {
-        query.get(entity).unwrap()
-    } else {
-        return;
-    };
+    let ((camera, global_transform), bindings) =
+        if let Some(active_camera) = active_cameras.get_mut(&state.camera_name) {
+            if let Some(entity) = active_camera.entity {
+                (query.get_mut(entity).unwrap(), &mut active_camera.bindings)
+            } else {
+                return;
+            }
+        } else {
+            return;
+        };
 
     let staging_buffer = if let Some(staging_buffer) = state.staging_buffer {
         render_resource_context.map_buffer(staging_buffer, BufferMapMode::Write);
         staging_buffer
     } else {
-        let size = std::mem::size_of::<[[f32; 4]; 4]>();
-        let buffer = render_resource_context.create_buffer(BufferInfo {
-            size,
-            buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
-            ..Default::default()
-        });
-        render_resource_bindings.set(
-            &state.camera_name,
-            RenderResourceBinding::Buffer {
-                buffer,
-                range: 0..size as u64,
-                dynamic_index: None,
-            },
-        );
-        state.camera_buffer = Some(buffer);
-
         let staging_buffer = render_resource_context.create_buffer(BufferInfo {
-            size,
+            size: MATRIX_SIZE * 2,
             buffer_usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
             mapped_at_creation: true,
         });
@@ -113,25 +102,74 @@ pub fn camera_node_system(
         staging_buffer
     };
 
-    let matrix_size = std::mem::size_of::<[[f32; 4]; 4]>();
-    let camera_matrix: [f32; 16] =
-        (camera.projection_matrix * global_transform.compute_matrix().inverse()).to_cols_array();
+    if bindings.get(CAMERA_VIEW_PROJ).is_none() {
+        let buffer = render_resource_context.create_buffer(BufferInfo {
+            size: MATRIX_SIZE,
+            buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
+            ..Default::default()
+        });
+        bindings.set(
+            CAMERA_VIEW_PROJ,
+            RenderResourceBinding::Buffer {
+                buffer,
+                range: 0..MATRIX_SIZE as u64,
+                dynamic_index: None,
+            },
+        );
+    }
 
-    render_resource_context.write_mapped_buffer(
-        staging_buffer,
-        0..matrix_size as u64,
-        &mut |data, _renderer| {
-            data[0..matrix_size].copy_from_slice(camera_matrix.as_bytes());
-        },
-    );
+    if bindings.get(CAMERA_VIEW).is_none() {
+        let buffer = render_resource_context.create_buffer(BufferInfo {
+            size: MATRIX_SIZE,
+            buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
+            ..Default::default()
+        });
+        bindings.set(
+            CAMERA_VIEW,
+            RenderResourceBinding::Buffer {
+                buffer,
+                range: 0..MATRIX_SIZE as u64,
+                dynamic_index: None,
+            },
+        );
+    }
+
+    let view = global_transform.compute_matrix();
+
+    if let Some(RenderResourceBinding::Buffer { buffer, .. }) = bindings.get(CAMERA_VIEW) {
+        render_resource_context.write_mapped_buffer(
+            staging_buffer,
+            0..MATRIX_SIZE as u64,
+            &mut |data, _renderer| {
+                data[0..MATRIX_SIZE].copy_from_slice(view.to_cols_array_2d().as_bytes());
+            },
+        );
+        state.command_queue.copy_buffer_to_buffer(
+            staging_buffer,
+            0,
+            *buffer,
+            0,
+            MATRIX_SIZE as u64,
+        );
+    }
+
+    if let Some(RenderResourceBinding::Buffer { buffer, .. }) = bindings.get(CAMERA_VIEW_PROJ) {
+        let view_proj = camera.projection_matrix * view.inverse();
+        render_resource_context.write_mapped_buffer(
+            staging_buffer,
+            MATRIX_SIZE as u64..(2 * MATRIX_SIZE) as u64,
+            &mut |data, _renderer| {
+                data[0..MATRIX_SIZE].copy_from_slice(view_proj.to_cols_array_2d().as_bytes());
+            },
+        );
+        state.command_queue.copy_buffer_to_buffer(
+            staging_buffer,
+            MATRIX_SIZE as u64,
+            *buffer,
+            0,
+            MATRIX_SIZE as u64,
+        );
+    }
+
     render_resource_context.unmap_buffer(staging_buffer);
-
-    let camera_buffer = state.camera_buffer.unwrap();
-    state.command_queue.copy_buffer_to_buffer(
-        staging_buffer,
-        0,
-        camera_buffer,
-        0,
-        matrix_size as u64,
-    );
 }
