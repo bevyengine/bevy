@@ -152,6 +152,14 @@ impl Quad {
             uv_scale: Vec2::splat(1.0),
         }
     }
+
+    pub fn tiled(size: Vec2, uv_scale: Vec2) -> Self {
+        Self {
+            size,
+            flip: false,
+            uv_scale,
+        }
+    }
 }
 
 impl From<Quad> for Mesh {
