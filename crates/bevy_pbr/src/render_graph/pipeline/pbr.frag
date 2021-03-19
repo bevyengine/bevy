@@ -52,7 +52,9 @@ layout(location = 0) out vec4 o_Target;
 
 layout(set = 0, binding = 0) uniform CameraViewProj {
     mat4 ViewProj;
-    vec4 CameraPos;
+};
+layout(set = 0, binding = 1) uniform CameraPosition {
+    vec3 CameraPos;
 };
 
 layout(set = 1, binding = 0) uniform Lights {

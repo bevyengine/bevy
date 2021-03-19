@@ -59,6 +59,7 @@ impl SystemNode for CameraNode {
 
 const CAMERA_VIEW_PROJ: &str = "CameraViewProj";
 const CAMERA_VIEW: &str = "CameraView";
+const CAMERA_POSITION: &str = "CameraPosition";
 
 #[derive(Debug, Default)]
 pub struct CameraNodeState {
@@ -68,6 +69,7 @@ pub struct CameraNodeState {
 }
 
 const MATRIX_SIZE: usize = std::mem::size_of::<[[f32; 4]; 4]>();
+const VEC3_SIZE: usize = std::mem::size_of::<[f32; 3]>();
 
 pub fn camera_node_system(
     mut state: Local<CameraNodeState>,
@@ -88,22 +90,18 @@ pub fn camera_node_system(
             return;
         };
 
-    let camera_pos = &[
-        global_transform.translation.x,
-        global_transform.translation.y,
-        global_transform.translation.z,
-        1.0,
-    ];
-    let camera_matrix_array =
-        (camera.projection_matrix * global_transform.compute_matrix().inverse()).to_cols_array();
-    let buffer_size = camera_pos.byte_len() + camera_matrix_array.byte_len();
-
     let staging_buffer = if let Some(staging_buffer) = state.staging_buffer {
         render_resource_context.map_buffer(staging_buffer, BufferMapMode::Write);
         staging_buffer
     } else {
         let staging_buffer = render_resource_context.create_buffer(BufferInfo {
-            size: MATRIX_SIZE * 2,
+            size:
+                // ViewProj
+                MATRIX_SIZE +
+                // View
+                MATRIX_SIZE +
+                // Position
+                VEC3_SIZE,
             buffer_usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
             mapped_at_creation: true,
         });
@@ -143,8 +141,25 @@ pub fn camera_node_system(
             },
         );
     }
+    
+    if bindings.get(CAMERA_POSITION).is_none() {
+        let buffer = render_resource_context.create_buffer(BufferInfo {
+            size: VEC3_SIZE,
+            buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
+            ..Default::default()
+        });
+        bindings.set(
+            CAMERA_POSITION,
+            RenderResourceBinding::Buffer {
+                buffer,
+                range: 0..VEC3_SIZE as u64,
+                dynamic_index: None,
+            },
+        );
+    }
 
     let view = global_transform.compute_matrix();
+    let mut offset = 0;
 
     if let Some(RenderResourceBinding::Buffer { buffer, .. }) = bindings.get(CAMERA_VIEW) {
         render_resource_context.write_mapped_buffer(
@@ -161,23 +176,43 @@ pub fn camera_node_system(
             0,
             MATRIX_SIZE as u64,
         );
+        offset += MATRIX_SIZE as u64;
     }
 
     if let Some(RenderResourceBinding::Buffer { buffer, .. }) = bindings.get(CAMERA_VIEW_PROJ) {
         let view_proj = camera.projection_matrix * view.inverse();
         render_resource_context.write_mapped_buffer(
             staging_buffer,
-            MATRIX_SIZE as u64..(2 * MATRIX_SIZE) as u64,
+            offset..(offset + MATRIX_SIZE as u64),
             &mut |data, _renderer| {
                 data[0..MATRIX_SIZE].copy_from_slice(view_proj.to_cols_array_2d().as_bytes());
             },
         );
         state.command_queue.copy_buffer_to_buffer(
             staging_buffer,
-            MATRIX_SIZE as u64,
+            offset,
             *buffer,
             0,
             MATRIX_SIZE as u64,
+        );
+        offset += MATRIX_SIZE as u64;
+    }
+
+    if let Some(RenderResourceBinding::Buffer { buffer, .. }) = bindings.get(CAMERA_POSITION) {
+        let position: [f32; 3] = global_transform.translation.into();
+        render_resource_context.write_mapped_buffer(
+            staging_buffer,
+            offset..(offset + VEC3_SIZE as u64),
+            &mut |data, _renderer| {
+                data[0..VEC3_SIZE].copy_from_slice(position.as_bytes());
+            },
+        );
+        state.command_queue.copy_buffer_to_buffer(
+            staging_buffer,
+            offset,
+            *buffer,
+            0,
+            VEC3_SIZE as u64,
         );
     }
 
