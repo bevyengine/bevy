@@ -696,7 +696,9 @@ impl Stage for SystemStage {
 #[cfg(test)]
 mod tests {
     use crate::{
+        entity::Entity,
         query::ChangeTrackers,
+        query::Changed,
         schedule::{
             BoxedSystemLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
             ShouldRun, SingleThreadedExecutor, Stage, SystemSet, SystemStage,
@@ -1721,6 +1723,41 @@ mod tests {
             }
             let change_tick = world.change_tick.get_mut();
             *change_tick = change_tick.wrapping_add(MIN_TIME_SINCE_LAST_CHECK + 1);
+        }
+    }
+
+    #[test]
+    fn change_query_wrapover() {
+        struct C;
+        let mut world = World::new();
+        
+        // Spawn entities at various ticks
+        let component_ticks = [0, u32::MAX / 4, u32::MAX / 2, u32::MAX / 4 * 3, u32::MAX];
+        let ids = component_ticks
+            .iter()
+            .map(|tick| {
+                *world.change_tick.get_mut() = *tick;
+                world.spawn().insert(C).id()
+            })
+            .collect::<Vec<Entity>>();
+
+        let test_cases = [
+            // normal
+            (0, u32::MAX / 2, vec![ids[1], ids[2]]),
+            // just wrapped over
+            (u32::MAX / 2, 0, vec![ids[0], ids[3], ids[4]]),
+        ];
+        for (last_change_tick, change_tick, changed_entities) in test_cases.iter() {
+            *world.change_tick.get_mut() = *change_tick;
+            world.last_change_tick = *last_change_tick;
+
+            assert_eq!(
+                world
+                    .query_filtered::<Entity, Changed<C>>()
+                    .iter(&world)
+                    .collect::<Vec<Entity>>(),
+                *changed_entities
+            );
         }
     }
 }
