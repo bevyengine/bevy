@@ -39,13 +39,13 @@ pub struct Sphere {
 
 impl Sphere {
     /// Get a reference to the sphere's origin.
-    pub fn origin(&self) -> &Vec3 {
-        &self.origin
+    pub fn origin(&self) -> Vec3 {
+        self.origin
     }
 
     /// Get a reference to the sphere's radius.
-    pub fn radius(&self) -> &f32 {
-        &self.radius
+    pub fn radius(&self) -> f32 {
+        self.radius
     }
 
     /// Set the sphere's origin.
@@ -62,7 +62,7 @@ impl Primitive3d for Sphere {
     /// Use the sphere's position and radius to determin eif it is entirely on the outside of the
     /// the supplied plane.
     fn outside_plane(&self, plane: Plane) -> bool {
-        plane.distance_to_point(&self.origin) > self.radius
+        plane.distance_to_point(self.origin) > self.radius
     }
 }
 
@@ -70,21 +70,21 @@ impl Primitive3d for Sphere {
 /// orientation of the coordinate system it is defined in. Internally, this is represented as an
 /// axis aligned box with some rotation ([Quat]) applied.
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-pub struct OrientedBox {
-    aab: AxisAlignedBox,
+pub struct OBB {
+    aab: AABB,
     transform: Mat4,
 }
-impl Primitive3d for OrientedBox {
+impl Primitive3d for OBB {
     fn outside_plane(&self, plane: Plane) -> bool {
         for vertex in self.vertices().iter() {
-            if plane.distance_to_point(vertex) <= 0.0 {
+            if plane.distance_to_point(*vertex) <= 0.0 {
                 return false;
             }
         }
         true
     }
 }
-impl OrientedBox {
+impl OBB {
     /// An ordered list of the vertices that form the 8 corners of the [AxisAlignedBox].
     /// ```none
     ///     (5)------(1)
@@ -105,7 +105,7 @@ impl OrientedBox {
     }
 
     /// Set the oriented box's aab.
-    pub fn set_aab(&mut self, aab: AxisAlignedBox) {
+    pub fn set_aabb(&mut self, aab: AABB) {
         self.aab = aab;
     }
 
@@ -113,7 +113,7 @@ impl OrientedBox {
     pub fn set_transform(&mut self, transform: Mat4) {
         self.transform = transform;
     }
-    pub fn fast_aabb(&self) -> AxisAlignedBox {
+    pub fn fast_aabb(&self) -> AABB {
         let vertices = self.vertices();
         let mut max = Vec3::splat(f32::MIN);
         let mut min = Vec3::splat(f32::MAX);
@@ -122,18 +122,18 @@ impl OrientedBox {
             min = vertex.min(min);
         }
         // Unwrap is okay here because min < max
-        AxisAlignedBox::from_min_max(min, max).unwrap()
+        AABB::from_min_max(min, max).unwrap()
     }
 }
 
 /// An axis aligned box is a box whose axes lie in the x/y/z directions of the coordinate system
 /// the box is defined in.
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-pub struct AxisAlignedBox {
+pub struct AABB {
     min: Vec3,
     max: Vec3,
 }
-impl Primitive3d for AxisAlignedBox {
+impl Primitive3d for AABB {
     fn outside_plane(&self, plane: Plane) -> bool {
         for vertex in self.vertices().iter() {
             if plane.distance_to_point(vertex) <= 0.0 {
@@ -143,7 +143,7 @@ impl Primitive3d for AxisAlignedBox {
         true
     }
 }
-impl AxisAlignedBox {
+impl AABB {
     /// An ordered list of the vertices that form the 8 corners of the [AxisAlignedBox].
     /// ```none
     ///          (5)------(1)               Y
@@ -169,21 +169,18 @@ impl AxisAlignedBox {
         ]
     }
     /// Construct an [AxisAlignedBox] given the coordinates of the minimum and maximum corners.
-    pub fn from_min_max(min: Vec3, max: Vec3) -> Result<AxisAlignedBox, PrimitiveError> {
+    pub fn from_min_max(min: Vec3, max: Vec3) -> Result<AABB, PrimitiveError> {
         if (max - min).min_element() >= 0.0 {
-            Ok(AxisAlignedBox { min, max })
+            Ok(AABB { min, max })
         } else {
             Err(PrimitiveError::MinGreaterThanMax)
         }
     }
     /// Construct an [AxisALignedBox] from the origin at the minimum corner, and the extents - the
     /// dimensions of the box in each axis.
-    pub fn from_extents_origin(
-        extents: Vec3,
-        origin: Vec3,
-    ) -> Result<AxisAlignedBox, PrimitiveError> {
+    pub fn from_extents_origin(extents: Vec3, origin: Vec3) -> Result<AABB, PrimitiveError> {
         if extents.min_element() > 0.0 {
-            Ok(AxisAlignedBox {
+            Ok(AABB {
                 min: origin,
                 max: extents + origin,
             })
@@ -192,7 +189,7 @@ impl AxisAlignedBox {
         }
     }
     /// Computes the AAB that
-    pub fn from_points(points: Vec<Vec3>) -> AxisAlignedBox {
+    pub fn from_points(points: &[Vec3]) -> AABB {
         let mut max = Vec3::splat(f32::MIN);
         let mut min = Vec3::splat(f32::MAX);
         for &point in points.iter() {
@@ -200,7 +197,7 @@ impl AxisAlignedBox {
             min = point.min(min);
         }
         // Unwrap is okay here because min < max
-        AxisAlignedBox::from_min_max(min, max).unwrap()
+        AABB::from_min_max(min, max).unwrap()
     }
 }
 
@@ -223,8 +220,8 @@ impl Primitive3d for Frustum {
     }
 }
 impl Frustum {
-    fn compute_vertices(camera_position: Mat4, projection_matrix: Mat4) -> [Vec3; 8] {
-        let ndc_to_world: Mat4 = camera_position * projection_matrix.inverse();
+    fn compute_vertices(camera_position: &Mat4, projection_matrix: &Mat4) -> [Vec3; 8] {
+        let ndc_to_world: Mat4 = *camera_position * projection_matrix.inverse();
         [
             ndc_to_world.project_point3(Vec3::new(-1.0, -1.0, -1.0)),
             ndc_to_world.project_point3(Vec3::new(1.0, -1.0, -1.0)),
@@ -237,7 +234,7 @@ impl Frustum {
         ]
     }
 
-    pub fn from_camera_properties(camera_position: Mat4, projection_matrix: Mat4) -> Frustum {
+    pub fn from_camera_properties(camera_position: &Mat4, projection_matrix: &Mat4) -> Frustum {
         let vertices = Frustum::compute_vertices(camera_position, projection_matrix);
         let [nbl_world, nbr_world, ntl_world, ntr_world, fbl_world, fbr_world, ftl_world, ftr_world] =
             vertices;
@@ -343,8 +340,8 @@ impl Plane {
     /// Returns the nearest distance from the supplied point to this plane. Positive values are in
     /// the direction of the plane's normal (outside), negative values are opposite the direction
     /// of the planes normal (inside).
-    pub fn distance_to_point(&self, point: &Vec3) -> f32 {
-        self.normal.dot(*point) + -self.normal.dot(self.point)
+    pub fn distance_to_point(&self, point: Vec3) -> f32 {
+        self.normal.dot(point) + -self.normal.dot(self.point)
     }
 
     /// Get a reference to the plane's point.
