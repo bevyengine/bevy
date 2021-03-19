@@ -1,5 +1,6 @@
 mod executor;
 mod executor_parallel;
+pub mod graph_utils;
 mod label;
 mod run_criteria;
 mod stage;
@@ -10,6 +11,7 @@ mod system_set;
 
 pub use executor::*;
 pub use executor_parallel::*;
+pub use graph_utils::GraphNode;
 pub use label::*;
 pub use run_criteria::*;
 pub use stage::*;
@@ -28,7 +30,7 @@ use bevy_utils::HashMap;
 pub struct Schedule {
     stages: HashMap<BoxedStageLabel, Box<dyn Stage>>,
     stage_order: Vec<BoxedStageLabel>,
-    run_criteria: RunCriterion,
+    run_criteria: BoxedRunCriteria,
 }
 
 impl Schedule {

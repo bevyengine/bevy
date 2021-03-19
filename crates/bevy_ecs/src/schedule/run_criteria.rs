@@ -2,7 +2,7 @@ use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     component::ComponentId,
     query::Access,
-    schedule::{BoxedRunCriterionLabel, RunCriterionLabel},
+    schedule::{BoxedRunCriteriaLabel, GraphNode, RunCriteriaLabel},
     system::{BoxedSystem, System, SystemId},
     world::World,
 };
@@ -20,12 +20,12 @@ pub enum ShouldRun {
     NoAndCheckAgain,
 }
 
-pub(crate) struct RunCriterion {
+pub(crate) struct BoxedRunCriteria {
     criteria_system: Option<BoxedSystem<(), ShouldRun>>,
     initialized: bool,
 }
 
-impl Default for RunCriterion {
+impl Default for BoxedRunCriteria {
     fn default() -> Self {
         Self {
             criteria_system: None,
@@ -34,7 +34,7 @@ impl Default for RunCriterion {
     }
 }
 
-impl RunCriterion {
+impl BoxedRunCriteria {
     pub fn set(&mut self, criteria_system: BoxedSystem<(), ShouldRun>) {
         self.criteria_system = Some(criteria_system);
         self.initialized = false;
@@ -55,132 +55,232 @@ impl RunCriterion {
     }
 }
 
-pub enum RunCriterionDescriptor {
-    Label(BoxedRunCriterionLabel),
-    System {
-        system: BoxedSystem<(), ShouldRun>,
-        label: Option<BoxedRunCriterionLabel>,
-    },
-    Chain {
-        parent: BoxedRunCriterionLabel,
+pub(crate) enum RunCriteriaInner {
+    Single(BoxedSystem<(), ShouldRun>),
+    Chained {
+        parent: usize,
         system: BoxedSystem<ShouldRun, ShouldRun>,
-        label: Option<BoxedRunCriterionLabel>,
     },
 }
 
-pub trait IntoRunCriterionDescriptor<Marker> {
-    fn into(self) -> RunCriterionDescriptor;
+pub(crate) struct RunCriteriaContainer {
+    pub should_run: ShouldRun,
+    pub inner: RunCriteriaInner,
+    pub label: BoxedRunCriteriaLabel,
+    pub before: Vec<BoxedRunCriteriaLabel>,
+    pub after: Vec<BoxedRunCriteriaLabel>,
 }
 
-impl IntoRunCriterionDescriptor<()> for RunCriterionDescriptor {
-    fn into(self) -> RunCriterionDescriptor {
+impl RunCriteriaContainer {
+    pub fn from_descriptor(
+        mut descriptor: RunCriteriaDescriptor,
+        label: BoxedRunCriteriaLabel,
+    ) -> Self {
+        match descriptor.system {
+            RunCriteriaSystem::Single(system) => Self {
+                should_run: ShouldRun::Yes,
+                inner: RunCriteriaInner::Single(system),
+                label,
+                before: descriptor.before,
+                after: descriptor.after,
+            },
+            RunCriteriaSystem::Chained(parent_label, system) => {
+                descriptor.after.insert(0, parent_label);
+                Self {
+                    should_run: ShouldRun::Yes,
+                    inner: RunCriteriaInner::Chained { parent: 0, system },
+                    label,
+                    before: descriptor.before,
+                    after: descriptor.after,
+                }
+            }
+        }
+    }
+    pub fn initialize(&mut self, world: &mut World) {
+        match &mut self.inner {
+            RunCriteriaInner::Single(system) => system.initialize(world),
+            RunCriteriaInner::Chained { system, .. } => system.initialize(world),
+        }
+    }
+}
+
+impl GraphNode<BoxedRunCriteriaLabel> for RunCriteriaContainer {
+    fn name(&self) -> Cow<'static, str> {
+        match &self.inner {
+            RunCriteriaInner::Single(system) => system.name(),
+            RunCriteriaInner::Chained { system, .. } => system.name(),
+        }
+    }
+
+    fn labels(&self) -> &[BoxedRunCriteriaLabel] {
+        std::slice::from_ref(&self.label)
+    }
+
+    fn before(&self) -> &[BoxedRunCriteriaLabel] {
+        &self.before
+    }
+
+    fn after(&self) -> &[BoxedRunCriteriaLabel] {
+        &self.after
+    }
+}
+
+pub enum RunCriteriaDescriptorOrLabel {
+    Descriptor(RunCriteriaDescriptor),
+    Label(BoxedRunCriteriaLabel),
+}
+
+pub struct RunCriteriaDescriptor {
+    pub(crate) system: RunCriteriaSystem,
+    pub(crate) label: Option<BoxedRunCriteriaLabel>,
+    pub(crate) before: Vec<BoxedRunCriteriaLabel>,
+    pub(crate) after: Vec<BoxedRunCriteriaLabel>,
+}
+
+pub(crate) enum RunCriteriaSystem {
+    Single(BoxedSystem<(), ShouldRun>),
+    Chained(BoxedRunCriteriaLabel, BoxedSystem<ShouldRun, ShouldRun>),
+}
+
+pub trait IntoRunCriteria<Marker> {
+    fn into(self) -> RunCriteriaDescriptorOrLabel;
+}
+
+impl IntoRunCriteria<RunCriteriaDescriptor> for RunCriteriaDescriptorOrLabel {
+    fn into(self) -> RunCriteriaDescriptorOrLabel {
         self
     }
 }
 
-pub struct SystemMarker;
-pub struct LabelMarker;
-
-impl IntoRunCriterionDescriptor<SystemMarker> for BoxedSystem<(), ShouldRun> {
-    fn into(self) -> RunCriterionDescriptor {
-        RunCriterionDescriptor::System {
-            system: self,
-            label: None,
-        }
+impl IntoRunCriteria<RunCriteriaDescriptorOrLabel> for RunCriteriaDescriptor {
+    fn into(self) -> RunCriteriaDescriptorOrLabel {
+        RunCriteriaDescriptorOrLabel::Descriptor(self)
     }
 }
 
-impl<S> IntoRunCriterionDescriptor<SystemMarker> for S
+impl IntoRunCriteria<BoxedSystem<(), ShouldRun>> for BoxedSystem<(), ShouldRun> {
+    fn into(self) -> RunCriteriaDescriptorOrLabel {
+        RunCriteriaDescriptorOrLabel::Descriptor(new_run_criteria_descriptor(self))
+    }
+}
+
+impl<S> IntoRunCriteria<BoxedSystem<(), ShouldRun>> for S
 where
     S: System<In = (), Out = ShouldRun>,
 {
-    fn into(self) -> RunCriterionDescriptor {
-        RunCriterionDescriptor::System {
-            system: Box::new(self),
-            label: None,
-        }
+    fn into(self) -> RunCriteriaDescriptorOrLabel {
+        RunCriteriaDescriptorOrLabel::Descriptor(new_run_criteria_descriptor(Box::new(self)))
     }
 }
 
-impl IntoRunCriterionDescriptor<LabelMarker> for BoxedRunCriterionLabel {
-    fn into(self) -> RunCriterionDescriptor {
-        RunCriterionDescriptor::Label(self)
+impl IntoRunCriteria<BoxedRunCriteriaLabel> for BoxedRunCriteriaLabel {
+    fn into(self) -> RunCriteriaDescriptorOrLabel {
+        RunCriteriaDescriptorOrLabel::Label(self)
     }
 }
 
-impl<L> IntoRunCriterionDescriptor<LabelMarker> for L
+impl<L> IntoRunCriteria<BoxedRunCriteriaLabel> for L
 where
-    L: RunCriterionLabel,
+    L: RunCriteriaLabel,
 {
-    fn into(self) -> RunCriterionDescriptor {
-        RunCriterionDescriptor::Label(Box::new(self))
+    fn into(self) -> RunCriteriaDescriptorOrLabel {
+        RunCriteriaDescriptorOrLabel::Label(Box::new(self))
     }
 }
 
-pub trait RunCriteriaLabelling {
-    fn label(self, label: impl RunCriterionLabel) -> RunCriterionDescriptor;
+pub trait RunCriteriaDescriptorCoercion {
+    /// Assigns a label to the criteria. Must be unique.
+    fn label(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor;
+
+    /// Specifies that this criteria must be evaluated before a criteria with the given label.
+    fn before(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor;
+
+    /// Specifies that this criteria must be evaluated after a criteria with the given label.
+    fn after(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor;
 }
 
-impl RunCriteriaLabelling for RunCriterionDescriptor {
-    fn label(self, label: impl RunCriterionLabel) -> RunCriterionDescriptor {
-        let label = Some(Box::new(label) as Box<dyn RunCriterionLabel>);
-        use RunCriterionDescriptor::*;
-        match self {
-            Label(_) => unreachable!(),
-            System { system, .. } => System { system, label },
-            Chain { parent, system, .. } => Chain {
-                parent,
-                system,
-                label,
-            },
-        }
+impl RunCriteriaDescriptorCoercion for RunCriteriaDescriptor {
+    fn label(mut self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
+        self.label = Some(Box::new(label));
+        self
+    }
+
+    fn before(mut self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
+        self.before.push(Box::new(label));
+        self
+    }
+
+    fn after(mut self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
+        self.after.push(Box::new(label));
+        self
     }
 }
 
-impl RunCriteriaLabelling for BoxedSystem<(), ShouldRun> {
-    fn label(self, label: impl RunCriterionLabel) -> RunCriterionDescriptor {
-        RunCriterionDescriptor::System {
-            system: self,
-            label: Some(Box::new(label)),
-        }
+fn new_run_criteria_descriptor(system: BoxedSystem<(), ShouldRun>) -> RunCriteriaDescriptor {
+    RunCriteriaDescriptor {
+        system: RunCriteriaSystem::Single(system),
+        label: None,
+        before: vec![],
+        after: vec![],
     }
 }
 
-impl<S> RunCriteriaLabelling for S
+impl RunCriteriaDescriptorCoercion for BoxedSystem<(), ShouldRun> {
+    fn label(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
+        new_run_criteria_descriptor(self).label(label)
+    }
+
+    fn before(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
+        new_run_criteria_descriptor(self).before(label)
+    }
+
+    fn after(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
+        new_run_criteria_descriptor(self).after(label)
+    }
+}
+
+impl<S> RunCriteriaDescriptorCoercion for S
 where
     S: System<In = (), Out = ShouldRun>,
 {
-    fn label(self, label: impl RunCriterionLabel) -> RunCriterionDescriptor {
-        RunCriterionDescriptor::System {
-            system: Box::new(self),
-            label: Some(Box::new(label)),
-        }
+    fn label(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
+        new_run_criteria_descriptor(Box::new(self)).label(label)
+    }
+
+    fn before(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
+        new_run_criteria_descriptor(Box::new(self)).before(label)
+    }
+
+    fn after(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
+        new_run_criteria_descriptor(Box::new(self)).after(label)
     }
 }
 
 pub trait RunCriteriaChaining {
-    fn chain(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriterionDescriptor;
+    fn chain(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor;
 }
 
-impl RunCriteriaChaining for BoxedRunCriterionLabel {
-    fn chain(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriterionDescriptor {
-        RunCriterionDescriptor::Chain {
-            parent: self,
-            system: Box::new(system),
+impl RunCriteriaChaining for BoxedRunCriteriaLabel {
+    fn chain(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor {
+        RunCriteriaDescriptor {
+            system: RunCriteriaSystem::Chained(self, Box::new(system)),
             label: None,
+            before: vec![],
+            after: vec![],
         }
     }
 }
 
 impl<L> RunCriteriaChaining for L
 where
-    L: RunCriterionLabel,
+    L: RunCriteriaLabel,
 {
-    fn chain(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriterionDescriptor {
-        RunCriterionDescriptor::Chain {
-            parent: Box::new(self),
-            system: Box::new(system),
+    fn chain(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor {
+        RunCriteriaDescriptor {
+            system: RunCriteriaSystem::Chained(Box::new(self), Box::new(system)),
             label: None,
+            before: vec![],
+            after: vec![],
         }
     }
 }

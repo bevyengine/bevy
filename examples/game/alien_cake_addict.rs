@@ -37,7 +37,7 @@ fn main() {
         .add_system_set(SystemSet::on_exit(GameState::GameOver).with_system(teardown.system()))
         .add_system_set(
             SystemSet::new()
-                .with_run_criterion(FixedTimestep::step(5.0))
+                .with_run_criteria(FixedTimestep::step(5.0))
                 .with_system(spawn_bonus.system()),
         )
         .run();

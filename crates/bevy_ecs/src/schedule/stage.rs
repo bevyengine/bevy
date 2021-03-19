@@ -1,21 +1,20 @@
 use crate::{
     component::ComponentId,
     schedule::{
-        BoxedRunCriterionLabel, BoxedSystemLabel, ExclusiveSystemContainer, InsertionPoint,
-        ParallelExecutor, ParallelSystemContainer, ParallelSystemExecutor,
-        RunCriterion as StageRunCriterion, RunCriterionDescriptor, RunCriterionLabel, ShouldRun,
-        SingleThreadedExecutor, SystemContainer, SystemDescriptor, SystemSet,
+        graph_utils::{self, DependencyGraphError},
+        BoxedRunCriteria, BoxedRunCriteriaLabel, BoxedSystemLabel, ExclusiveSystemContainer,
+        InsertionPoint, ParallelExecutor, ParallelSystemContainer, ParallelSystemExecutor,
+        RunCriteriaContainer, RunCriteriaDescriptor, RunCriteriaDescriptorOrLabel,
+        RunCriteriaInner, RunCriteriaLabel, ShouldRun, SingleThreadedExecutor, SystemContainer,
+        SystemDescriptor, SystemSet,
     },
-    system::{BoxedSystem, System},
+    system::System,
     world::{World, WorldId},
 };
-use bevy_utils::{
-    tracing::{info, warn},
-    HashMap, HashSet,
-};
+use bevy_utils::{tracing::info, HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
-use std::hash::Hash;
+use std::{fmt::Debug, hash::Hash};
 
 pub trait Stage: Downcast + Send + Sync {
     /// Runs the stage; this happens once per update.
@@ -46,34 +45,10 @@ impl_downcast!(Stage);
 /// to have unambiguous order with regards to a group of already-constrained systems.
 pub struct ReportExecutionOrderAmbiguities;
 
-enum RunCriterionInner {
-    Single(BoxedSystem<(), ShouldRun>),
-    Chained {
-        parent: usize,
-        parent_label: BoxedRunCriterionLabel,
-        system: BoxedSystem<ShouldRun, ShouldRun>,
-    },
-}
-
-struct RunCriterion {
-    label: BoxedRunCriterionLabel,
-    should_run: ShouldRun,
-    inner: RunCriterionInner,
-}
-
-impl RunCriterion {
-    fn initialize(&mut self, world: &mut World) {
-        match &mut self.inner {
-            RunCriterionInner::Single(system) => system.initialize(world),
-            RunCriterionInner::Chained { system, .. } => system.initialize(world),
-        }
-    }
-}
-
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 struct RunCriteriaIndexLabel(usize);
-impl RunCriterionLabel for RunCriteriaIndexLabel {
-    fn dyn_clone(&self) -> Box<dyn RunCriterionLabel> {
+impl RunCriteriaLabel for RunCriteriaIndexLabel {
+    fn dyn_clone(&self) -> Box<dyn RunCriteriaLabel> {
         Box::new(self.clone())
     }
 }
@@ -86,9 +61,9 @@ pub struct SystemStage {
     /// Instance of a scheduling algorithm for running the systems.
     executor: Box<dyn ParallelSystemExecutor>,
     /// Determines whether the stage should run.
-    stage_run_criterion: StageRunCriterion,
+    stage_run_criteria: BoxedRunCriteria,
     /// Topologically sorted run criteria of systems.
-    run_criteria: Vec<RunCriterion>,
+    run_criteria: Vec<RunCriteriaContainer>,
     /// Topologically sorted exclusive systems that want to be run at the start of the stage.
     exclusive_at_start: Vec<ExclusiveSystemContainer>,
     /// Topologically sorted exclusive systems that want to be run after parallel systems but
@@ -119,7 +94,7 @@ impl SystemStage {
         SystemStage {
             world_id: None,
             executor,
-            stage_run_criterion: Default::default(),
+            stage_run_criteria: Default::default(),
             run_criteria: vec![],
             uninitialized_run_criteria: vec![],
             exclusive_at_start: Default::default(),
@@ -174,19 +149,19 @@ impl SystemStage {
     fn add_system_inner(
         &mut self,
         system: impl Into<SystemDescriptor>,
-        set_run_criterion_label: Option<BoxedRunCriterionLabel>,
+        set_run_criteria_label: Option<BoxedRunCriteriaLabel>,
     ) {
         self.systems_modified = true;
         match system.into() {
             SystemDescriptor::Exclusive(mut descriptor) => {
                 let insertion_point = descriptor.insertion_point;
-                let run_criterion_label = descriptor
-                    .run_criterion
+                let run_criteria_label = descriptor
+                    .run_criteria
                     .take()
-                    .map(|criterion| self.process_run_criterion(criterion))
-                    .or(set_run_criterion_label);
+                    .map(|criteria| self.process_run_criteria(criteria))
+                    .or(set_run_criteria_label);
                 let container =
-                    ExclusiveSystemContainer::from_descriptor(descriptor, run_criterion_label);
+                    ExclusiveSystemContainer::from_descriptor(descriptor, run_criteria_label);
                 match insertion_point {
                     InsertionPoint::AtStart => {
                         let index = self.exclusive_at_start.len();
@@ -206,15 +181,15 @@ impl SystemStage {
                 }
             }
             SystemDescriptor::Parallel(mut descriptor) => {
-                let run_criterion_label = descriptor
-                    .run_criterion
+                let run_criteria_label = descriptor
+                    .run_criteria
                     .take()
-                    .map(|criterion| self.process_run_criterion(criterion))
-                    .or(set_run_criterion_label);
+                    .map(|criteria| self.process_run_criteria(criteria))
+                    .or(set_run_criteria_label);
                 self.uninitialized_parallel.push(self.parallel.len());
                 self.parallel.push(ParallelSystemContainer::from_descriptor(
                     descriptor,
-                    run_criterion_label,
+                    run_criteria_label,
                 ));
             }
         }
@@ -253,62 +228,61 @@ impl SystemStage {
 
     pub fn add_system_set(&mut self, system_set: SystemSet) -> &mut Self {
         self.systems_modified = true;
-        let (run_criterion, mut systems) = system_set.bake();
-        let set_run_criterion_label =
-            run_criterion.map(|criterion| self.process_run_criterion(criterion));
+        let (run_criteria, mut systems) = system_set.bake();
+        let set_run_criteria_label =
+            run_criteria.map(|criteria| self.process_run_criteria(criteria));
         for system in systems.drain(..) {
-            self.add_system_inner(system, set_run_criterion_label.clone());
+            self.add_system_inner(system, set_run_criteria_label.clone());
         }
         self
     }
 
-    fn process_run_criterion(
-        &mut self,
-        run_criterion: RunCriterionDescriptor,
-    ) -> BoxedRunCriterionLabel {
-        let (inner, label) = match run_criterion {
-            RunCriterionDescriptor::Label(label) => return label,
-            RunCriterionDescriptor::System { system, label } => {
-                (RunCriterionInner::Single(system), label)
-            }
-            RunCriterionDescriptor::Chain {
-                parent,
-                system,
-                label,
-            } => (
-                RunCriterionInner::Chained {
-                    parent: 0,
-                    parent_label: parent,
-                    system,
-                },
-                label,
-            ),
-        };
-        let index = self.run_criteria.len();
-        self.uninitialized_run_criteria.push(index);
-        let label = label.unwrap_or_else(|| Box::new(RunCriteriaIndexLabel(index)));
-        self.run_criteria.push(RunCriterion {
-            label: label.clone(),
-            should_run: ShouldRun::Yes,
-            inner,
-        });
-        label
-    }
-
-    pub fn with_stage_run_criterion<S: System<In = (), Out = ShouldRun>>(
+    pub fn with_stage_run_criteria<S: System<In = (), Out = ShouldRun>>(
         mut self,
         system: S,
     ) -> Self {
-        self.set_stage_run_criterion(system);
+        self.set_stage_run_criteria(system);
         self
     }
 
-    pub fn set_stage_run_criterion<S: System<In = (), Out = ShouldRun>>(
+    pub fn set_stage_run_criteria<S: System<In = (), Out = ShouldRun>>(
         &mut self,
         system: S,
     ) -> &mut Self {
-        self.stage_run_criterion.set(Box::new(system));
+        self.stage_run_criteria.set(Box::new(system));
         self
+    }
+
+    pub fn with_run_criteria(mut self, run_criteria: RunCriteriaDescriptor) -> Self {
+        self.add_run_criteria(run_criteria);
+        self
+    }
+
+    pub fn add_run_criteria(&mut self, run_criteria: RunCriteriaDescriptor) -> &mut Self {
+        self.process_run_criteria(RunCriteriaDescriptorOrLabel::Descriptor(run_criteria));
+        self
+    }
+
+    fn process_run_criteria(
+        &mut self,
+        run_criteria: RunCriteriaDescriptorOrLabel,
+    ) -> BoxedRunCriteriaLabel {
+        let mut descriptor = match run_criteria {
+            RunCriteriaDescriptorOrLabel::Label(label) => return label,
+            RunCriteriaDescriptorOrLabel::Descriptor(descriptor) => descriptor,
+        };
+        let index = self.run_criteria.len();
+        self.uninitialized_run_criteria.push(index);
+        let label = descriptor
+            .label
+            .take()
+            .unwrap_or_else(|| Box::new(RunCriteriaIndexLabel(index)));
+        self.run_criteria
+            .push(RunCriteriaContainer::from_descriptor(
+                descriptor,
+                label.clone(),
+            ));
+        label
     }
 
     fn initialize_systems(&mut self, world: &mut World) {
@@ -342,16 +316,16 @@ impl SystemStage {
                 && self.uninitialized_before_commands.is_empty()
                 && self.uninitialized_at_end.is_empty()
         );
-        let run_criteria_labels = sort_run_criteria(&mut self.run_criteria)
+        let run_criteria_labels = process_run_criteria(&mut self.run_criteria)
             // TODO: proper error.
             .unwrap_or_else(|_| panic!("bleeeehhhh ded"));
-        fn sort_systems_unwrap(
+        fn process_systems_unwrap(
             systems: &mut Vec<impl SystemContainer>,
-            run_criteria_labels: &HashMap<BoxedRunCriterionLabel, usize>,
+            run_criteria_labels: &HashMap<BoxedRunCriteriaLabel, usize>,
             systems_description: &'static str,
         ) {
             if let Err(DependencyGraphError::GraphCycles(cycle)) =
-                sort_systems(systems, run_criteria_labels)
+                process_systems(systems, run_criteria_labels)
             {
                 use std::fmt::Write;
                 let mut message = format!("Found a dependency cycle in {}:", systems_description);
@@ -370,18 +344,18 @@ impl SystemStage {
                 panic!("{}", message);
             }
         }
-        sort_systems_unwrap(&mut self.parallel, &run_criteria_labels, "parallel systems");
-        sort_systems_unwrap(
+        process_systems_unwrap(&mut self.parallel, &run_criteria_labels, "parallel systems");
+        process_systems_unwrap(
             &mut self.exclusive_at_start,
             &run_criteria_labels,
             "exclusive systems at start of stage",
         );
-        sort_systems_unwrap(
+        process_systems_unwrap(
             &mut self.exclusive_before_commands,
             &run_criteria_labels,
             "exclusive systems before commands of stage",
         );
-        sort_systems_unwrap(
+        process_systems_unwrap(
             &mut self.exclusive_at_end,
             &run_criteria_labels,
             "exclusive systems at end of stage",
@@ -458,27 +432,23 @@ impl SystemStage {
     }
 }
 
-enum DependencyGraphError<Labels> {
-    GraphCycles(Vec<(usize, Labels)>),
-}
-
 /// Sorts given system containers topologically, populates their resolved dependencies
 /// and run criteria.
-fn sort_systems(
+fn process_systems(
     systems: &mut Vec<impl SystemContainer>,
-    run_criteria_labels: &HashMap<BoxedRunCriterionLabel, usize>,
+    run_criteria_labels: &HashMap<BoxedRunCriteriaLabel, usize>,
 ) -> Result<(), DependencyGraphError<HashSet<BoxedSystemLabel>>> {
-    let mut graph = build_dependency_graph(systems);
-    let order = topological_order(&graph)?;
+    let mut graph = graph_utils::build_dependency_graph(systems);
+    let order = graph_utils::topological_order(&graph)?;
     let mut order_inverted = order.iter().enumerate().collect::<Vec<_>>();
     order_inverted.sort_unstable_by_key(|(_, &key)| key);
     for (index, container) in systems.iter_mut().enumerate() {
         if let Some(index) = container
-            .run_criterion_label()
+            .run_criteria_label()
             // TODO: proper error.
             .map(|label| *run_criteria_labels.get(label).unwrap())
         {
-            container.set_run_criterion(index);
+            container.set_run_criteria(index);
         }
         container.set_dependencies(
             graph
@@ -495,153 +465,32 @@ fn sort_systems(
     Ok(())
 }
 
-fn sort_run_criteria(
-    criteria: &mut Vec<RunCriterion>,
-) -> Result<HashMap<BoxedRunCriterionLabel, usize>, DependencyGraphError<()>> {
-    let mut labels: HashMap<_, _> = criteria
-        .iter()
-        .enumerate()
-        .map(|(index, criterion)| (criterion.label.clone(), index))
-        .collect();
-    let graph: HashMap<_, HashMap<_, _>> = criteria
-        .iter()
-        .enumerate()
-        .map(|(index, criterion)| match &criterion.inner {
-            RunCriterionInner::Chained { parent_label, .. } => (
-                index,
-                // TODO: proper error.
-                std::iter::once((*labels.get(parent_label).unwrap(), ())).collect(),
-            ),
-            RunCriterionInner::Single(_) => (index, HashMap::default()),
-        })
-        .collect();
-    let order = topological_order(&graph)?;
+/// Sorts run criteria and populates their resolved parent-criteria.
+fn process_run_criteria(
+    run_criteria: &mut Vec<RunCriteriaContainer>,
+) -> Result<
+    HashMap<BoxedRunCriteriaLabel, usize>,
+    DependencyGraphError<HashSet<BoxedRunCriteriaLabel>>,
+> {
+    let graph = graph_utils::build_dependency_graph(run_criteria);
+    let order = graph_utils::topological_order(&graph)?;
     let mut order_inverted = order.iter().enumerate().collect::<Vec<_>>();
     order_inverted.sort_unstable_by_key(|(_, &key)| key);
-    for index in labels.values_mut() {
-        *index = order_inverted[*index].0;
-    }
-    for criterion in criteria.iter_mut() {
-        if let RunCriterionInner::Chained {
-            parent,
-            parent_label,
-            ..
-        } = &mut criterion.inner
-        {
-            *parent = labels[parent_label];
+    let labels: HashMap<_, _> = run_criteria
+        .iter()
+        .enumerate()
+        .map(|(index, criteria)| (criteria.label.clone(), order_inverted[index].0))
+        .collect();
+    for criteria in run_criteria.iter_mut() {
+        if let RunCriteriaInner::Chained { parent, .. } = &mut criteria.inner {
+            *parent = labels[&criteria.after[0]];
         }
     }
-    let mut temp = criteria.drain(..).map(Some).collect::<Vec<_>>();
+    let mut temp = run_criteria.drain(..).map(Some).collect::<Vec<_>>();
     for index in order {
-        criteria.push(temp[index].take().unwrap());
+        run_criteria.push(temp[index].take().unwrap());
     }
     Ok(labels)
-}
-
-/// Constructs a dependency graph of given system containers.
-fn build_dependency_graph(
-    systems: &[impl SystemContainer],
-) -> HashMap<usize, HashMap<usize, HashSet<BoxedSystemLabel>>> {
-    let mut labelled_systems = HashMap::<BoxedSystemLabel, FixedBitSet>::default();
-    for (label, index) in systems.iter().enumerate().flat_map(|(index, container)| {
-        container
-            .labels()
-            .iter()
-            .cloned()
-            .map(move |label| (label, index))
-    }) {
-        labelled_systems
-            .entry(label)
-            .or_insert_with(|| FixedBitSet::with_capacity(systems.len()))
-            .insert(index);
-    }
-    let mut graph = HashMap::with_capacity_and_hasher(systems.len(), Default::default());
-    for (system_index, container) in systems.iter().enumerate() {
-        let dependencies = graph.entry(system_index).or_insert_with(HashMap::default);
-        for label in container.after() {
-            match labelled_systems.get(label) {
-                Some(new_dependencies) => {
-                    for dependency in new_dependencies.ones() {
-                        dependencies
-                            .entry(dependency)
-                            .or_insert_with(HashSet::default)
-                            .insert(label.clone());
-                    }
-                }
-                None => warn!(
-                    "System {} wants to be after unknown system label: {:?}",
-                    systems[system_index].name(),
-                    label
-                ),
-            }
-        }
-        for label in container.before() {
-            match labelled_systems.get(label) {
-                Some(dependants) => {
-                    for dependant in dependants.ones() {
-                        graph
-                            .entry(dependant)
-                            .or_insert_with(HashMap::default)
-                            .entry(system_index)
-                            .or_insert_with(HashSet::default)
-                            .insert(label.clone());
-                    }
-                }
-                None => warn!(
-                    "System {} wants to be before unknown system label: {:?}",
-                    systems[system_index].name(),
-                    label
-                ),
-            }
-        }
-    }
-    graph
-}
-
-/// Generates a topological order for the given graph.
-fn topological_order<Labels: Clone>(
-    graph: &HashMap<usize, HashMap<usize, Labels>>,
-) -> Result<Vec<usize>, DependencyGraphError<Labels>> {
-    fn check_if_cycles_and_visit<L>(
-        node: &usize,
-        graph: &HashMap<usize, HashMap<usize, L>>,
-        sorted: &mut Vec<usize>,
-        unvisited: &mut HashSet<usize>,
-        current: &mut Vec<usize>,
-    ) -> bool {
-        if current.contains(node) {
-            return true;
-        } else if !unvisited.remove(node) {
-            return false;
-        }
-        current.push(*node);
-        for dependency in graph.get(node).unwrap().keys() {
-            if check_if_cycles_and_visit(dependency, &graph, sorted, unvisited, current) {
-                return true;
-            }
-        }
-        sorted.push(*node);
-        current.pop();
-        false
-    }
-    let mut sorted = Vec::with_capacity(graph.len());
-    let mut current = Vec::with_capacity(graph.len());
-    let mut unvisited = HashSet::with_capacity_and_hasher(graph.len(), Default::default());
-    unvisited.extend(graph.keys().cloned());
-    while let Some(node) = unvisited.iter().next().cloned() {
-        if check_if_cycles_and_visit(&node, graph, &mut sorted, &mut unvisited, &mut current) {
-            let mut cycle = Vec::new();
-            let last_window = [*current.last().unwrap(), current[0]];
-            let mut windows = current
-                .windows(2)
-                .chain(std::iter::once(&last_window as &[usize]));
-            while let Some(&[dependant, dependency]) = windows.next() {
-                cycle.push((dependant, graph[&dependant][&dependency].clone()));
-            }
-            return Err(DependencyGraphError::GraphCycles(cycle));
-        }
-    }
-    Ok(sorted)
 }
 
 /// Returns vector containing all pairs of indices of systems with ambiguous execution order,
@@ -732,7 +581,7 @@ impl Stage for SystemStage {
         }
 
         if let ShouldRun::No | ShouldRun::NoAndCheckAgain =
-            self.stage_run_criterion.should_run(world)
+            self.stage_run_criteria.should_run(world)
         {
             return;
         }
@@ -754,11 +603,11 @@ impl Stage for SystemStage {
         // Evaluate run criteria.
         for index in 0..self.run_criteria.len() {
             let (run_criteria, tail) = self.run_criteria.split_at_mut(index);
-            let mut criterion = &mut tail[0];
-            match &mut criterion.inner {
-                RunCriterionInner::Single(system) => criterion.should_run = system.run((), world),
-                RunCriterionInner::Chained { parent, system, .. } => {
-                    criterion.should_run = system.run(run_criteria[*parent].should_run, world)
+            let mut criteria = &mut tail[0];
+            match &mut criteria.inner {
+                RunCriteriaInner::Single(system) => criteria.should_run = system.run((), world),
+                RunCriteriaInner::Chained { parent, system, .. } => {
+                    criteria.should_run = system.run(run_criteria[*parent].should_run, world)
                 }
             }
         }
@@ -767,10 +616,13 @@ impl Stage for SystemStage {
         while has_work {
             let run_criteria = &mut self.run_criteria;
 
-            fn should_run(container: &impl SystemContainer, run_criteria: &[RunCriterion]) -> bool {
+            fn should_run(
+                container: &impl SystemContainer,
+                run_criteria: &[RunCriteriaContainer],
+            ) -> bool {
                 matches!(
                     container
-                        .run_criterion()
+                        .run_criteria()
                         .map(|index| run_criteria[index].should_run),
                     None | Some(ShouldRun::Yes) | Some(ShouldRun::YesAndCheckAgain)
                 )
@@ -815,21 +667,21 @@ impl Stage for SystemStage {
             has_work = false;
             for index in 0..run_criteria.len() {
                 let (run_criteria, tail) = run_criteria.split_at_mut(index);
-                let criterion = &mut tail[0];
-                match criterion.should_run {
+                let criteria = &mut tail[0];
+                match criteria.should_run {
                     ShouldRun::No => (),
-                    ShouldRun::Yes => criterion.should_run = ShouldRun::No,
+                    ShouldRun::Yes => criteria.should_run = ShouldRun::No,
                     ShouldRun::YesAndCheckAgain | ShouldRun::NoAndCheckAgain => {
-                        match &mut criterion.inner {
-                            RunCriterionInner::Single(system) => {
-                                criterion.should_run = system.run((), world)
+                        match &mut criteria.inner {
+                            RunCriteriaInner::Single(system) => {
+                                criteria.should_run = system.run((), world)
                             }
-                            RunCriterionInner::Chained { parent, system, .. } => {
-                                criterion.should_run =
+                            RunCriteriaInner::Chained { parent, system, .. } => {
+                                criteria.should_run =
                                     system.run(run_criteria[*parent].should_run, world)
                             }
                         }
-                        match criterion.should_run {
+                        match criteria.should_run {
                             ShouldRun::Yes | ShouldRun::YesAndCheckAgain => has_work = true,
                             ShouldRun::No | ShouldRun::NoAndCheckAgain => (),
                         }
@@ -845,8 +697,8 @@ mod tests {
     use crate::{
         schedule::{
             BoxedSystemLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
-            RunCriteriaChaining, RunCriteriaLabelling, ShouldRun, SingleThreadedExecutor, Stage,
-            SystemSet, SystemStage,
+            RunCriteriaChaining, RunCriteriaDescriptorCoercion, ShouldRun, SingleThreadedExecutor,
+            Stage, SystemSet, SystemStage,
         },
         system::{In, IntoExclusiveSystem, IntoSystem, Local, Query, ResMut},
         world::World,
@@ -1123,7 +975,7 @@ mod tests {
             .with_system(make_exclusive(0).exclusive_system().before("1"))
             .with_system_set(
                 SystemSet::new()
-                    .with_run_criterion(every_other_time.system())
+                    .with_run_criteria(every_other_time.system())
                     .with_system(make_exclusive(1).exclusive_system().label("1")),
             )
             .with_system(make_exclusive(2).exclusive_system().after("1"));
@@ -1345,7 +1197,7 @@ mod tests {
                 make_parallel!(0)
                     .system()
                     .label("0")
-                    .with_run_criterion(every_other_time.system()),
+                    .with_run_criteria(every_other_time.system()),
             )
             .with_system(make_parallel!(1).system().after("0"));
         stage.run(&mut world);
@@ -1363,7 +1215,7 @@ mod tests {
             .with_system(make_parallel!(0).system().before("1"))
             .with_system_set(
                 SystemSet::new()
-                    .with_run_criterion(every_other_time.system())
+                    .with_run_criteria(every_other_time.system())
                     .with_system(make_parallel!(1).system().label("1")),
             )
             .with_system(make_parallel!(2).system().after("1"));
@@ -1385,10 +1237,10 @@ mod tests {
                     .system()
                     .label("1")
                     .after("0")
-                    .with_run_criterion(every_other_time.system().label("every other time")),
+                    .with_run_criteria(every_other_time.system().label("every other time")),
             )
             .with_system(
-                make_parallel!(2).system().after("1").with_run_criterion(
+                make_parallel!(2).system().after("1").with_run_criteria(
                     "every other time".chain(
                         (|input: In<ShouldRun>, has_ran: Local<bool>| {
                             if let ShouldRun::Yes | ShouldRun::YesAndCheckAgain = input.0 {

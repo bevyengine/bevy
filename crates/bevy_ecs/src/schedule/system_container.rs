@@ -2,36 +2,32 @@ use crate::{
     component::ComponentId,
     query::Access,
     schedule::{
-        BoxedAmbiguitySetLabel, BoxedRunCriterionLabel, BoxedSystemLabel,
-        ExclusiveSystemDescriptor, ParallelSystemDescriptor,
+        BoxedAmbiguitySetLabel, BoxedRunCriteriaLabel, BoxedSystemLabel, ExclusiveSystemDescriptor,
+        GraphNode, ParallelSystemDescriptor,
     },
     system::{ExclusiveSystem, System},
 };
 use std::{borrow::Cow, ptr::NonNull};
 
 /// System metadata like its name, labels, order requirements and component access.
-pub trait SystemContainer {
-    fn name(&self) -> Cow<'static, str>;
+pub trait SystemContainer: GraphNode<BoxedSystemLabel> {
     #[doc(hidden)]
     fn dependencies(&self) -> &[usize];
     #[doc(hidden)]
     fn set_dependencies(&mut self, dependencies: impl IntoIterator<Item = usize>);
     #[doc(hidden)]
-    fn run_criterion(&self) -> Option<usize>;
+    fn run_criteria(&self) -> Option<usize>;
     #[doc(hidden)]
-    fn set_run_criterion(&mut self, criterion: usize);
-    fn run_criterion_label(&self) -> Option<&BoxedRunCriterionLabel>;
-    fn labels(&self) -> &[BoxedSystemLabel];
-    fn before(&self) -> &[BoxedSystemLabel];
-    fn after(&self) -> &[BoxedSystemLabel];
+    fn set_run_criteria(&mut self, index: usize);
+    fn run_criteria_label(&self) -> Option<&BoxedRunCriteriaLabel>;
     fn ambiguity_sets(&self) -> &[BoxedAmbiguitySetLabel];
     fn component_access(&self) -> Option<&Access<ComponentId>>;
 }
 
 pub(super) struct ExclusiveSystemContainer {
     system: Box<dyn ExclusiveSystem>,
-    run_criterion: Option<usize>,
-    run_criterion_label: Option<BoxedRunCriterionLabel>,
+    run_criteria: Option<usize>,
+    run_criteria_label: Option<BoxedRunCriteriaLabel>,
     dependencies: Vec<usize>,
     labels: Vec<BoxedSystemLabel>,
     before: Vec<BoxedSystemLabel>,
@@ -42,12 +38,12 @@ pub(super) struct ExclusiveSystemContainer {
 impl ExclusiveSystemContainer {
     pub fn from_descriptor(
         descriptor: ExclusiveSystemDescriptor,
-        run_criterion_label: Option<BoxedRunCriterionLabel>,
+        run_criteria_label: Option<BoxedRunCriteriaLabel>,
     ) -> Self {
         ExclusiveSystemContainer {
             system: descriptor.system,
-            run_criterion: None,
-            run_criterion_label,
+            run_criteria: None,
+            run_criteria_label,
             dependencies: Vec::new(),
             labels: descriptor.labels,
             before: descriptor.before,
@@ -61,30 +57,9 @@ impl ExclusiveSystemContainer {
     }
 }
 
-impl SystemContainer for ExclusiveSystemContainer {
+impl GraphNode<BoxedSystemLabel> for ExclusiveSystemContainer {
     fn name(&self) -> Cow<'static, str> {
         self.system.name()
-    }
-
-    fn dependencies(&self) -> &[usize] {
-        &self.dependencies
-    }
-
-    fn set_dependencies(&mut self, dependencies: impl IntoIterator<Item = usize>) {
-        self.dependencies.clear();
-        self.dependencies.extend(dependencies);
-    }
-
-    fn run_criterion(&self) -> Option<usize> {
-        self.run_criterion
-    }
-
-    fn set_run_criterion(&mut self, criterion: usize) {
-        self.run_criterion = Some(criterion);
-    }
-
-    fn run_criterion_label(&self) -> Option<&BoxedRunCriterionLabel> {
-        self.run_criterion_label.as_ref()
     }
 
     fn labels(&self) -> &[BoxedSystemLabel] {
@@ -98,6 +73,29 @@ impl SystemContainer for ExclusiveSystemContainer {
     fn after(&self) -> &[BoxedSystemLabel] {
         &self.after
     }
+}
+
+impl SystemContainer for ExclusiveSystemContainer {
+    fn dependencies(&self) -> &[usize] {
+        &self.dependencies
+    }
+
+    fn set_dependencies(&mut self, dependencies: impl IntoIterator<Item = usize>) {
+        self.dependencies.clear();
+        self.dependencies.extend(dependencies);
+    }
+
+    fn run_criteria(&self) -> Option<usize> {
+        self.run_criteria
+    }
+
+    fn set_run_criteria(&mut self, index: usize) {
+        self.run_criteria = Some(index);
+    }
+
+    fn run_criteria_label(&self) -> Option<&BoxedRunCriteriaLabel> {
+        self.run_criteria_label.as_ref()
+    }
 
     fn ambiguity_sets(&self) -> &[BoxedAmbiguitySetLabel] {
         &self.ambiguity_sets
@@ -110,8 +108,8 @@ impl SystemContainer for ExclusiveSystemContainer {
 
 pub struct ParallelSystemContainer {
     system: NonNull<dyn System<In = (), Out = ()>>,
-    run_criterion: Option<usize>,
-    run_criterion_label: Option<BoxedRunCriterionLabel>,
+    run_criteria: Option<usize>,
+    run_criteria_label: Option<BoxedRunCriteriaLabel>,
     pub(crate) should_run: bool,
     dependencies: Vec<usize>,
     labels: Vec<BoxedSystemLabel>,
@@ -126,13 +124,13 @@ unsafe impl Sync for ParallelSystemContainer {}
 impl ParallelSystemContainer {
     pub(crate) fn from_descriptor(
         descriptor: ParallelSystemDescriptor,
-        run_criterion_label: Option<BoxedRunCriterionLabel>,
+        run_criteria_label: Option<BoxedRunCriteriaLabel>,
     ) -> Self {
         ParallelSystemContainer {
             system: unsafe { NonNull::new_unchecked(Box::into_raw(descriptor.system)) },
             should_run: false,
-            run_criterion: None,
-            run_criterion_label,
+            run_criteria: None,
+            run_criteria_label,
             dependencies: Vec::new(),
             labels: descriptor.labels,
             before: descriptor.before,
@@ -142,7 +140,7 @@ impl ParallelSystemContainer {
     }
 
     pub fn name(&self) -> Cow<'static, str> {
-        SystemContainer::name(self)
+        GraphNode::name(self)
     }
 
     pub fn system(&self) -> &dyn System<In = (), Out = ()> {
@@ -171,30 +169,9 @@ impl ParallelSystemContainer {
     }
 }
 
-impl SystemContainer for ParallelSystemContainer {
+impl GraphNode<BoxedSystemLabel> for ParallelSystemContainer {
     fn name(&self) -> Cow<'static, str> {
         self.system().name()
-    }
-
-    fn dependencies(&self) -> &[usize] {
-        &self.dependencies
-    }
-
-    fn set_dependencies(&mut self, dependencies: impl IntoIterator<Item = usize>) {
-        self.dependencies.clear();
-        self.dependencies.extend(dependencies);
-    }
-
-    fn run_criterion(&self) -> Option<usize> {
-        self.run_criterion
-    }
-
-    fn set_run_criterion(&mut self, criterion: usize) {
-        self.run_criterion = Some(criterion);
-    }
-
-    fn run_criterion_label(&self) -> Option<&BoxedRunCriterionLabel> {
-        self.run_criterion_label.as_ref()
     }
 
     fn labels(&self) -> &[BoxedSystemLabel] {
@@ -207,6 +184,29 @@ impl SystemContainer for ParallelSystemContainer {
 
     fn after(&self) -> &[BoxedSystemLabel] {
         &self.after
+    }
+}
+
+impl SystemContainer for ParallelSystemContainer {
+    fn dependencies(&self) -> &[usize] {
+        &self.dependencies
+    }
+
+    fn set_dependencies(&mut self, dependencies: impl IntoIterator<Item = usize>) {
+        self.dependencies.clear();
+        self.dependencies.extend(dependencies);
+    }
+
+    fn run_criteria(&self) -> Option<usize> {
+        self.run_criteria
+    }
+
+    fn set_run_criteria(&mut self, index: usize) {
+        self.run_criteria = Some(criteria);
+    }
+
+    fn run_criteria_label(&self) -> Option<&BoxedRunCriteriaLabel> {
+        self.run_criteria_label.as_ref()
     }
 
     fn ambiguity_sets(&self) -> &[BoxedAmbiguitySetLabel] {

@@ -163,34 +163,34 @@ impl<T: Component + Clone + Eq> State<T> {
     }
 
     pub fn on_update_set(s: T) -> SystemSet {
-        SystemSet::new().with_run_criterion(Self::on_update(s))
+        SystemSet::new().with_run_criteria(Self::on_update(s))
     }
 
     pub fn on_inactive_update_set(s: T) -> SystemSet {
-        SystemSet::new().with_run_criterion(Self::on_inactive_update(s))
+        SystemSet::new().with_run_criteria(Self::on_inactive_update(s))
     }
 
     pub fn on_enter_set(s: T) -> SystemSet {
-        SystemSet::new().with_run_criterion(Self::on_enter(s))
+        SystemSet::new().with_run_criteria(Self::on_enter(s))
     }
 
     pub fn on_exit_set(s: T) -> SystemSet {
-        SystemSet::new().with_run_criterion(Self::on_exit(s))
+        SystemSet::new().with_run_criteria(Self::on_exit(s))
     }
 
     pub fn on_pause_set(s: T) -> SystemSet {
-        SystemSet::new().with_run_criterion(Self::on_pause(s))
+        SystemSet::new().with_run_criteria(Self::on_pause(s))
     }
 
     pub fn on_resume_set(s: T) -> SystemSet {
-        SystemSet::new().with_run_criterion(Self::on_resume(s))
+        SystemSet::new().with_run_criteria(Self::on_resume(s))
     }
 
     /// Creates a driver set for the State.
     ///
     /// Important note: this set must be inserted **before** all other state-dependant sets to work properly!
     pub fn make_driver() -> SystemSet {
-        SystemSet::default().with_run_criterion(state_cleaner::<T>.system())
+        SystemSet::default().with_run_criteria(state_cleaner::<T>.system())
     }
 
     pub fn new(initial: T) -> Self {

@@ -18,7 +18,7 @@ fn main() {
             CoreStage::Update,
             FixedUpdateStage,
             SystemStage::parallel()
-                .with_run_criterion(
+                .with_run_criteria(
                     FixedTimestep::step(2.0)
                         // labels are optional. they provide a way to access the current
                         // FixedTimestep state from within a system

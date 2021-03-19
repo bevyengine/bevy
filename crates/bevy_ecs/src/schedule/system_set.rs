@@ -1,15 +1,15 @@
 use crate::{
     component::Component,
     schedule::{
-        AmbiguitySetLabel, BoxedAmbiguitySetLabel, BoxedSystemLabel, IntoRunCriterionDescriptor,
-        RunCriterionDescriptor, State, SystemDescriptor, SystemLabel,
+        AmbiguitySetLabel, BoxedAmbiguitySetLabel, BoxedSystemLabel, IntoRunCriteria,
+        RunCriteriaDescriptorOrLabel, State, SystemDescriptor, SystemLabel,
     },
 };
 
 /// A builder for describing several systems at the same time.
 pub struct SystemSet {
     pub(crate) systems: Vec<SystemDescriptor>,
-    pub(crate) run_criterion: Option<RunCriterionDescriptor>,
+    pub(crate) run_criteria: Option<RunCriteriaDescriptorOrLabel>,
     pub(crate) labels: Vec<BoxedSystemLabel>,
     pub(crate) before: Vec<BoxedSystemLabel>,
     pub(crate) after: Vec<BoxedSystemLabel>,
@@ -20,7 +20,7 @@ impl Default for SystemSet {
     fn default() -> SystemSet {
         SystemSet {
             systems: Vec::new(),
-            run_criterion: None,
+            run_criteria: None,
             labels: Vec::new(),
             before: Vec::new(),
             after: Vec::new(),
@@ -35,27 +35,27 @@ impl SystemSet {
     }
 
     pub fn on_update<T: Component + Clone + Eq>(s: T) -> SystemSet {
-        Self::new().with_run_criterion(State::<T>::on_update(s))
+        Self::new().with_run_criteria(State::<T>::on_update(s))
     }
 
     pub fn on_inactive_update<T: Component + Clone + Eq>(s: T) -> SystemSet {
-        Self::new().with_run_criterion(State::<T>::on_inactive_update(s))
+        Self::new().with_run_criteria(State::<T>::on_inactive_update(s))
     }
 
     pub fn on_enter<T: Component + Clone + Eq>(s: T) -> SystemSet {
-        Self::new().with_run_criterion(State::<T>::on_enter(s))
+        Self::new().with_run_criteria(State::<T>::on_enter(s))
     }
 
     pub fn on_exit<T: Component + Clone + Eq>(s: T) -> SystemSet {
-        Self::new().with_run_criterion(State::<T>::on_exit(s))
+        Self::new().with_run_criteria(State::<T>::on_exit(s))
     }
 
     pub fn on_pause<T: Component + Clone + Eq>(s: T) -> SystemSet {
-        Self::new().with_run_criterion(State::<T>::on_pause(s))
+        Self::new().with_run_criteria(State::<T>::on_pause(s))
     }
 
     pub fn on_resume<T: Component + Clone + Eq>(s: T) -> SystemSet {
-        Self::new().with_run_criterion(State::<T>::on_resume(s))
+        Self::new().with_run_criteria(State::<T>::on_resume(s))
     }
 
     pub fn in_ambiguity_set(mut self, set: impl AmbiguitySetLabel) -> Self {
@@ -68,11 +68,8 @@ impl SystemSet {
         self
     }
 
-    pub fn with_run_criterion<Marker>(
-        mut self,
-        run_criteria: impl IntoRunCriterionDescriptor<Marker>,
-    ) -> Self {
-        self.run_criterion = Some(run_criteria.into());
+    pub fn with_run_criteria<Marker>(mut self, run_criteria: impl IntoRunCriteria<Marker>) -> Self {
+        self.run_criteria = Some(run_criteria.into());
         self
     }
 
@@ -91,10 +88,10 @@ impl SystemSet {
         self
     }
 
-    pub(crate) fn bake(self) -> (Option<RunCriterionDescriptor>, Vec<SystemDescriptor>) {
+    pub(crate) fn bake(self) -> (Option<RunCriteriaDescriptorOrLabel>, Vec<SystemDescriptor>) {
         let SystemSet {
             mut systems,
-            run_criterion: run_criteria,
+            run_criteria,
             labels,
             before,
             after,
