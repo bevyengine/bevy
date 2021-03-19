@@ -46,7 +46,7 @@ pub struct Transform {
 }
 
 impl Transform {
-    /// Create a new [`Transform`] at the position `(x, y, z)`. In 2d, the `z` component
+    /// Creates a new [`Transform`] at the position `(x, y, z)`. In 2d, the `z` component
     /// is used for z-ordering elements: higher `z`-value will be in front of lower
     /// `z`-value.
     #[inline]
@@ -54,7 +54,7 @@ impl Transform {
         Self::from_translation(Vec3::new(x, y, z))
     }
 
-    /// Create a new identity [`Transform`], with no translation, rotation, and a scale of 1 on
+    /// Creates a new identity [`Transform`], with no translation, rotation, and a scale of 1 on
     /// all axes.
     #[inline]
     pub const fn identity() -> Self {
@@ -78,7 +78,7 @@ impl Transform {
         }
     }
 
-    /// Create a new [`Transform`], with `translation`. Rotation will be 0 and scale 1 on
+    /// Creates a new [`Transform`], with `translation`. Rotation will be 0 and scale 1 on
     /// all axes.
     #[inline]
     pub fn from_translation(translation: Vec3) -> Self {
@@ -88,7 +88,7 @@ impl Transform {
         }
     }
 
-    /// Create a new [`Transform`], with `rotation`. Translation will be 0 and scale 1 on
+    /// Creates a new [`Transform`], with `rotation`. Translation will be 0 and scale 1 on
     /// all axes.
     #[inline]
     pub fn from_rotation(rotation: Quat) -> Self {
@@ -98,7 +98,7 @@ impl Transform {
         }
     }
 
-    /// Create a new [`Transform`], with `scale`. Translation will be 0 and rotation 0 on
+    /// Creates a new [`Transform`], with `scale`. Translation will be 0 and rotation 0 on
     /// all axes.
     #[inline]
     pub fn from_scale(scale: Vec3) -> Self {
@@ -108,7 +108,7 @@ impl Transform {
         }
     }
 
-    /// Update and return this [`Transform`] by rotating it so that its unit vector in the
+    /// Updates and returns this [`Transform`] by rotating it so that its unit vector in the
     /// local z direction is toward `target` and its unit vector in the local y direction
     /// is toward `up`.
     #[inline]
@@ -142,13 +142,13 @@ impl Transform {
         self.rotation * Vec3::Z
     }
 
-    /// Rotate the transform by the given rotation.
+    /// Rotates the transform by the given rotation.
     #[inline]
     pub fn rotate(&mut self, rotation: Quat) {
         self.rotation *= rotation;
     }
 
-    /// Multiply `self` with `transform` component by component, returning the
+    /// Multiplies `self` with `transform` component by component, returning the
     /// resulting [`Transform`]
     #[inline]
     pub fn mul_transform(&self, transform: Transform) -> Self {
@@ -171,14 +171,14 @@ impl Transform {
         value
     }
 
-    /// Change the `scale` of this [`Transform`], multiplying the current `scale` by
+    /// Changes the `scale` of this [`Transform`], multiplying the current `scale` by
     /// `scale_factor`.
     #[inline]
     pub fn apply_non_uniform_scale(&mut self, scale_factor: Vec3) {
         self.scale *= scale_factor;
     }
 
-    /// Rotate this [`Transform`] so that its unit vector in the local z direction is toward
+    /// Rotates this [`Transform`] so that its unit vector in the local z direction is toward
     /// `target` and its unit vector in the local y direction is toward `up`.
     #[inline]
     pub fn look_at(&mut self, target: Vec3, up: Vec3) {

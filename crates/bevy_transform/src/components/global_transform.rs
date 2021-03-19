@@ -48,7 +48,7 @@ impl GlobalTransform {
         Self::from_translation(Vec3::new(x, y, z))
     }
 
-    /// Create a new identity [`GlobalTransform`], with no translation, rotation, and a scale of 1
+    /// Creates a new identity [`GlobalTransform`], with no translation, rotation, and a scale of 1
     /// on all axes.
     #[inline]
     pub const fn identity() -> Self {
@@ -136,7 +136,7 @@ impl GlobalTransform {
         self.rotation *= rotation;
     }
 
-    /// Multiply `self` with `transform` component by component, returning the
+    /// Multiplies `self` with `transform` component by component, returning the
     /// resulting [`GlobalTransform`]
     #[inline]
     pub fn mul_transform(&self, transform: Transform) -> GlobalTransform {
