@@ -48,8 +48,8 @@ impl GlobalTransform {
         Self::from_translation(Vec3::new(x, y, z))
     }
 
-    /// Crate a new identity [`GlobalTransform`], with no translation, rotation, and a scale of 1
-    /// on all axis.
+    /// Create a new identity [`GlobalTransform`], with no translation, rotation, and a scale of 1
+    /// on all axes.
     #[inline]
     pub const fn identity() -> Self {
         GlobalTransform {
@@ -105,8 +105,8 @@ impl GlobalTransform {
         self
     }
 
-    /// Returns the 3d affine transformation matrix from this transform translation,
-    /// rotation and scale.
+    /// Returns the 3d affine transformation matrix from this transforms translation,
+    /// rotation, and scale.
     #[inline]
     pub fn compute_matrix(&self) -> Mat4 {
         Mat4::from_scale_rotation_translation(self.scale, self.rotation, self.translation)

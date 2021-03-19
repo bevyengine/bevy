@@ -54,8 +54,8 @@ impl Transform {
         Self::from_translation(Vec3::new(x, y, z))
     }
 
-    /// Crate a new identity [`Transform`], with no translation, rotation, and a scale of 1 on
-    /// all axis.
+    /// Create a new identity [`Transform`], with no translation, rotation, and a scale of 1 on
+    /// all axes.
     #[inline]
     pub const fn identity() -> Self {
         Transform {
@@ -65,7 +65,7 @@ impl Transform {
         }
     }
 
-    /// Extracts the translation, rotation and scale from `matrix`. It must be a 3d affine
+    /// Extracts the translation, rotation, and scale from `matrix`. It must be a 3d affine
     /// transformation matrix.
     #[inline]
     pub fn from_matrix(matrix: Mat4) -> Self {
@@ -79,7 +79,7 @@ impl Transform {
     }
 
     /// Create a new [`Transform`], with `translation`. Rotation will be 0 and scale 1 on
-    /// all axis.
+    /// all axes.
     #[inline]
     pub fn from_translation(translation: Vec3) -> Self {
         Transform {
@@ -89,7 +89,7 @@ impl Transform {
     }
 
     /// Create a new [`Transform`], with `rotation`. Translation will be 0 and scale 1 on
-    /// all axis.
+    /// all axes.
     #[inline]
     pub fn from_rotation(rotation: Quat) -> Self {
         Transform {
@@ -99,7 +99,7 @@ impl Transform {
     }
 
     /// Create a new [`Transform`], with `scale`. Translation will be 0 and rotation 0 on
-    /// all axis.
+    /// all axes.
     #[inline]
     pub fn from_scale(scale: Vec3) -> Self {
         Transform {
@@ -109,7 +109,7 @@ impl Transform {
     }
 
     /// Update and return this [`Transform`] by rotating it so that its unit vector in the
-    /// local x direction is toward `target` and its unit vector in the local y direction
+    /// local z direction is toward `target` and its unit vector in the local y direction
     /// is toward `up`.
     #[inline]
     pub fn looking_at(mut self, target: Vec3, up: Vec3) -> Self {
@@ -117,8 +117,8 @@ impl Transform {
         self
     }
 
-    /// Returns the 3d affine transformation matrix from this transform translation,
-    /// rotation and scale.
+    /// Returns the 3d affine transformation matrix from this transforms translation,
+    /// rotation, and scale.
     #[inline]
     pub fn compute_matrix(&self) -> Mat4 {
         Mat4::from_scale_rotation_translation(self.scale, self.rotation, self.translation)
@@ -171,13 +171,14 @@ impl Transform {
         value
     }
 
-    /// Change the `scale` of this [`Transform`].
+    /// Change the `scale` of this [`Transform`], multiplying the current `scale` by
+    /// `scale_factor`.
     #[inline]
-    pub fn apply_non_uniform_scale(&mut self, scale: Vec3) {
-        self.scale *= scale;
+    pub fn apply_non_uniform_scale(&mut self, scale_factor: Vec3) {
+        self.scale *= scale_factor;
     }
 
-    /// Rotate this [`Transform`] so that its unit vector in the local x direction is toward
+    /// Rotate this [`Transform`] so that its unit vector in the local z direction is toward
     /// `target` and its unit vector in the local y direction is toward `up`.
     #[inline]
     pub fn look_at(&mut self, target: Vec3, up: Vec3) {
