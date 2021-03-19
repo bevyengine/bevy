@@ -25,7 +25,7 @@ impl Default for Light {
             color: Color::rgb(1.0, 1.0, 1.0),
             depth: 0.1..50.0,
             fov: f32::to_radians(60.0),
-            intensity: 100.0,
+            intensity: 200.0,
             range: 20.0,
         }
     }
