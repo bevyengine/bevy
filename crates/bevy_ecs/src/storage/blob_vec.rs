@@ -59,7 +59,7 @@ impl BlobVec {
     pub fn reserve(&mut self, amount: usize) {
         let available_space = self.capacity - self.len;
         if available_space < amount {
-            self.grow(amount - available_space);
+            self.grow(amount);
         }
     }
 
