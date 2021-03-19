@@ -154,7 +154,6 @@ impl Transform {
         self.local_y()
     }
 
-    
     /// Equivalent to -local_y()
     #[inline]
     pub fn down(&self) -> Vec3 {

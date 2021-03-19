@@ -147,7 +147,7 @@ impl GlobalTransform {
     pub fn down(&self) -> Vec3 {
         -self.local_y()
     }
-  
+
     /// Get the unit vector in the local z direction
     #[inline]
     pub fn local_z(&self) -> Vec3 {
@@ -165,7 +165,7 @@ impl GlobalTransform {
     pub fn back(&self) -> Vec3 {
         self.local_z()
     }
-  
+
     #[doc(hidden)]
     #[inline]
     pub fn rotate(&mut self, rotation: Quat) {
