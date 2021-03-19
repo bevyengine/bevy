@@ -14,7 +14,7 @@ layout(location = 2) in vec2 v_Uv;
 
 layout(location = 0) out vec4 o_Target;
 
-layout(set = 0, binding = 0) uniform Camera {
+layout(set = 0, binding = 0) uniform CameraViewProj {
     mat4 ViewProj;
 };
 

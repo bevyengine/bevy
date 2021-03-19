@@ -9,33 +9,29 @@ use crate::{
     prelude::Visible,
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
     renderer::{
-        BindGroup, BindGroupId, BufferId, RenderContext, RenderResourceBindings, RenderResourceType,
+        BindGroupId, BufferId, RenderContext, RenderResourceBindings, RenderResourceContext,
+        RenderResourceType,
     },
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{
     query::{QueryState, ReadOnlyFetch, WorldQuery},
-    world::World,
+    world::{Mut, World},
 };
-use bevy_utils::tracing::debug;
-use std::{fmt, ops::Deref};
-
-#[derive(Debug)]
-struct CameraInfo {
-    name: String,
-    bind_group_id: Option<BindGroupId>,
-}
+use bevy_utils::{tracing::debug, HashMap};
+use std::fmt;
 
 pub struct PassNode<Q: WorldQuery> {
     descriptor: PassDescriptor,
     inputs: Vec<ResourceSlotInfo>,
-    cameras: Vec<CameraInfo>,
+    cameras: Vec<String>,
     color_attachment_input_indices: Vec<Option<usize>>,
     color_resolve_target_indices: Vec<Option<usize>>,
     depth_stencil_attachment_input_index: Option<usize>,
     default_clear_color_inputs: Vec<usize>,
     camera_bind_group_descriptor: BindGroupDescriptor,
     query_state: Option<QueryState<Q>>,
+    commands: Vec<RenderCommand>,
 }
 
 impl<Q: WorldQuery> fmt::Debug for PassNode<Q> {
@@ -129,14 +125,12 @@ impl<Q: WorldQuery> PassNode<Q> {
             default_clear_color_inputs: Vec::new(),
             camera_bind_group_descriptor,
             query_state: None,
+            commands: Vec::new(),
         }
     }
 
     pub fn add_camera(&mut self, camera_name: &str) {
-        self.cameras.push(CameraInfo {
-            name: camera_name.to_string(),
-            bind_group_id: None,
-        });
+        self.cameras.push(camera_name.to_string());
     }
 
     pub fn use_default_clear_color(&mut self, color_attachment_index: usize) {
@@ -153,7 +147,81 @@ where
     }
 
     fn prepare(&mut self, world: &mut World) {
-        self.query_state.get_or_insert_with(|| world.query());
+        let query_state = self.query_state.get_or_insert_with(|| world.query());
+        let cameras = &self.cameras;
+        let commands = &mut self.commands;
+        world.resource_scope(|mut active_cameras: Mut<ActiveCameras>, world| {
+            let mut pipeline_camera_commands = HashMap::default();
+            let pipelines = world.get_resource::<Assets<PipelineDescriptor>>().unwrap();
+            let render_resource_context = &**world
+                .get_resource::<Box<dyn RenderResourceContext>>()
+                .unwrap();
+
+            for camera_name in cameras.iter() {
+                let active_camera = if let Some(active_camera) = active_cameras.get_mut(camera_name)
+                {
+                    active_camera
+                } else {
+                    continue;
+                };
+
+                let visible_entities = if let Some(entity) = active_camera.entity {
+                    world.get::<VisibleEntities>(entity).unwrap()
+                } else {
+                    continue;
+                };
+                for visible_entity in visible_entities.iter() {
+                    if query_state.get(world, visible_entity.entity).is_err() {
+                        // visible entity does not match the Pass query
+                        continue;
+                    }
+
+                    let draw = if let Some(draw) = world.get::<Draw>(visible_entity.entity) {
+                        draw
+                    } else {
+                        continue;
+                    };
+
+                    if let Some(visible) = world.get::<Visible>(visible_entity.entity) {
+                        if !visible.is_visible {
+                            continue;
+                        }
+                    }
+                    for render_command in draw.render_commands.iter() {
+                        commands.push(render_command.clone());
+                        // whenever a new pipeline is set, ensure the relevant camera bind groups are set
+                        if let RenderCommand::SetPipeline { pipeline } = render_command {
+                            let bind_groups = pipeline_camera_commands
+                                .entry(pipeline.clone_weak())
+                                .or_insert_with(|| {
+                                    let descriptor = pipelines.get(pipeline).unwrap();
+                                    let layout = descriptor.get_layout().unwrap();
+                                    let mut commands = Vec::new();
+                                    for bind_group_descriptor in layout.bind_groups.iter() {
+                                        if let Some(bind_group) =
+                                            active_camera.bindings.update_bind_group(
+                                                bind_group_descriptor,
+                                                render_resource_context,
+                                            )
+                                        {
+                                            commands.push(RenderCommand::SetBindGroup {
+                                                index: bind_group_descriptor.index,
+                                                bind_group: bind_group.id,
+                                                dynamic_uniform_indices: bind_group
+                                                    .dynamic_uniform_indices
+                                                    .clone(),
+                                            })
+                                        }
+                                    }
+                                    commands
+                                });
+
+                            commands.extend(bind_groups.iter().cloned());
+                        }
+                    }
+                }
+            }
+        });
     }
 
     fn update(
@@ -163,10 +231,6 @@ where
         input: &ResourceSlots,
         _output: &mut ResourceSlots,
     ) {
-        let render_resource_bindings = world.get_resource::<RenderResourceBindings>().unwrap();
-        let pipelines = world.get_resource::<Assets<PipelineDescriptor>>().unwrap();
-        let active_cameras = world.get_resource::<ActiveCameras>().unwrap();
-
         for (i, color_attachment) in self.descriptor.color_attachments.iter_mut().enumerate() {
             if self.default_clear_color_inputs.contains(&i) {
                 if let Some(default_clear_color) = world.get_resource::<ClearColor>() {
@@ -192,158 +256,88 @@ where
                 .attachment =
                 TextureAttachment::Id(input.get(input_index).unwrap().get_texture().unwrap());
         }
-        for camera_info in self.cameras.iter_mut() {
-            let camera_binding =
-                if let Some(camera_binding) = render_resource_bindings.get(&camera_info.name) {
-                    camera_binding.clone()
-                } else {
-                    continue;
-                };
-            if render_context
-                .resources()
-                .bind_group_descriptor_exists(self.camera_bind_group_descriptor.id)
-            {
-                let camera_bind_group = BindGroup::build().add_binding(0, camera_binding).finish();
-                render_context
-                    .resources()
-                    .create_bind_group(self.camera_bind_group_descriptor.id, &camera_bind_group);
-                camera_info.bind_group_id = Some(camera_bind_group.id);
-            }
-        }
 
-        let query_state = self.query_state.as_mut().unwrap();
-        let cameras = &self.cameras;
-        let camera_bind_group_descriptor = &self.camera_bind_group_descriptor;
+        let render_resource_bindings = world.get_resource::<RenderResourceBindings>().unwrap();
+        let pipelines = world.get_resource::<Assets<PipelineDescriptor>>().unwrap();
+
+        let mut draw_state = DrawState::default();
+        let commands = &mut self.commands;
         render_context.begin_pass(
             &self.descriptor,
             &render_resource_bindings,
             &mut |render_pass| {
-                for camera_info in cameras.iter() {
-                    let camera_bind_group_id= if let Some(bind_group_id) = camera_info.bind_group_id {
-                        bind_group_id
-                    } else {
-                        continue;
-                    };
-
-                    // get an ordered list of entities visible to the camera
-                    let visible_entities = if let Some(camera_entity) = active_cameras.get(&camera_info.name) {
-                        world.get::<VisibleEntities>(camera_entity).unwrap()
-                    } else {
-                        continue;
-                    };
-
-                    // attempt to draw each visible entity
-                    let mut draw_state = DrawState::default();
-                    for visible_entity in visible_entities.iter() {
-                        if query_state.get(world, visible_entity.entity).is_err() {
-                            // visible entity does not match the Pass query
+            for render_command in commands.drain(..) {
+                match render_command {
+                    RenderCommand::SetPipeline { pipeline } => {
+                        if draw_state.is_pipeline_set(pipeline.clone_weak()) {
                             continue;
                         }
-
-                        let draw = if let Some(draw) = world.get::<Draw>(visible_entity.entity) {
-                            draw
+                        render_pass.set_pipeline(&pipeline);
+                        let descriptor = pipelines.get(&pipeline).unwrap();
+                        draw_state.set_pipeline(&pipeline, descriptor);
+                    }
+                    RenderCommand::DrawIndexed {
+                        base_vertex,
+                        indices,
+                        instances,
+                    } => {
+                        if draw_state.can_draw_indexed() {
+                            render_pass.draw_indexed(
+                                indices.clone(),
+                                base_vertex,
+                                instances.clone(),
+                            );
                         } else {
-                            continue;
-                        };
-
-                        if let Some(visible) = world.get::<Visible>(visible_entity.entity) {
-                            if !visible.is_visible {
-                                continue;
-                            }
-                        }
-
-                        // each Draw component contains an ordered list of render commands. we turn those into actual render commands here
-                        for render_command in draw.render_commands.iter() {
-                            match render_command {
-                                RenderCommand::SetPipeline { pipeline } => {
-                                    if draw_state.is_pipeline_set(pipeline.clone_weak()) {
-                                        continue;
-                                    }
-                                    render_pass.set_pipeline(pipeline);
-                                    let descriptor = pipelines.get(pipeline).unwrap();
-                                    draw_state.set_pipeline(pipeline, descriptor);
-
-                                    // try to set current camera bind group
-                                    let layout = descriptor.get_layout().unwrap();
-                                    if let Some(descriptor) = layout.get_bind_group(0) {
-                                        if descriptor == camera_bind_group_descriptor {
-                                            draw_state.set_bind_group(0, camera_bind_group_id);
-                                            render_pass.set_bind_group(
-                                                0,
-                                                descriptor.id,
-                                                camera_bind_group_id,
-                                                None
-                                            );
-                                        }
-                                    }
-                                }
-                                RenderCommand::DrawIndexed {
-                                    base_vertex,
-                                    indices,
-                                    instances,
-                                } => {
-                                    if draw_state.can_draw_indexed() {
-                                        render_pass.draw_indexed(
-                                            indices.clone(),
-                                            *base_vertex,
-                                            instances.clone(),
-                                        );
-                                    } else {
-                                        debug!("Could not draw indexed because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
-                                    }
-                                }
-                                RenderCommand::Draw { vertices, instances } => {
-                                    if draw_state.can_draw() {
-                                        render_pass.draw(vertices.clone(), instances.clone());
-                                    } else {
-                                        debug!("Could not draw because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
-                                    }
-                                }
-                                RenderCommand::SetVertexBuffer {
-                                    buffer,
-                                    offset,
-                                    slot,
-                                } => {
-                                    if draw_state.is_vertex_buffer_set(*slot, *buffer, *offset) {
-                                        continue;
-                                    }
-                                    render_pass.set_vertex_buffer(*slot, *buffer, *offset);
-                                    draw_state.set_vertex_buffer(*slot, *buffer, *offset);
-                                }
-                                RenderCommand::SetIndexBuffer { buffer, offset, index_format } => {
-                                    if draw_state.is_index_buffer_set(*buffer, *offset, *index_format) {
-                                        continue;
-                                    }
-                                    render_pass.set_index_buffer(*buffer, *offset, *index_format);
-                                    draw_state.set_index_buffer(*buffer, *offset, *index_format);
-                                }
-                                RenderCommand::SetBindGroup {
-                                    index,
-                                    bind_group,
-                                    dynamic_uniform_indices,
-                                } => {
-                                    if dynamic_uniform_indices.is_none() && draw_state.is_bind_group_set(*index, *bind_group) {
-                                        continue;
-                                    }
-                                    let pipeline = pipelines.get(draw_state.pipeline.as_ref().unwrap()).unwrap();
-                                    let layout = pipeline.get_layout().unwrap();
-                                    let bind_group_descriptor = layout.get_bind_group(*index).unwrap();
-                                    render_pass.set_bind_group(
-                                        *index,
-                                        bind_group_descriptor.id,
-                                        *bind_group,
-                                        dynamic_uniform_indices
-                                            .as_ref()
-                                            .map(|indices| indices.deref()),
-                                    );
-                                    draw_state.set_bind_group(*index, *bind_group);
-                                }
-                            }
+                            debug!("Could not draw indexed because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
                         }
                     }
+                    RenderCommand::Draw { vertices, instances } => {
+                        if draw_state.can_draw() {
+                            render_pass.draw(vertices.clone(), instances.clone());
+                        } else {
+                            debug!("Could not draw because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
+                        }
+                    }
+                    RenderCommand::SetVertexBuffer {
+                        buffer,
+                        offset,
+                        slot,
+                    } => {
+                        if draw_state.is_vertex_buffer_set(slot, buffer, offset) {
+                            continue;
+                        }
+                        render_pass.set_vertex_buffer(slot, buffer, offset);
+                        draw_state.set_vertex_buffer(slot, buffer, offset);
+                    }
+                    RenderCommand::SetIndexBuffer { buffer, offset, index_format } => {
+                        if draw_state.is_index_buffer_set(buffer, offset, index_format) {
+                            continue;
+                        }
+                        render_pass.set_index_buffer(buffer, offset, index_format);
+                        draw_state.set_index_buffer(buffer, offset, index_format);
+                    }
+                    RenderCommand::SetBindGroup {
+                        index,
+                        bind_group,
+                        dynamic_uniform_indices,
+                    } => {
+                        if dynamic_uniform_indices.is_none() && draw_state.is_bind_group_set(index, bind_group) {
+                            continue;
+                        }
+                        let pipeline = pipelines.get(draw_state.pipeline.as_ref().unwrap()).unwrap();
+                        let layout = pipeline.get_layout().unwrap();
+                        let bind_group_descriptor = layout.get_bind_group(index).unwrap();
+                        render_pass.set_bind_group(
+                            index,
+                            bind_group_descriptor.id,
+                            bind_group,
+                            dynamic_uniform_indices.as_deref()
+                        );
+                        draw_state.set_bind_group(index, bind_group);
+                    }
                 }
-            },
-        );
+            }
+        });
     }
 }
 
