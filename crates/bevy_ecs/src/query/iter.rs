@@ -123,6 +123,20 @@ where
             }
         }
     }
+
+    // NOTE: For unfiltered Queries this should actually return a exact size hint,
+    // to fulfil the ExactSizeIterator invariant, but this isn't practical without specialization.
+    // For more information see Issue #1686.
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let max_size = self
+            .query_state
+            .matched_archetypes
+            .ones()
+            .map(|index| self.world.archetypes[ArchetypeId::new(index)].len())
+            .sum();
+
+        (0, Some(max_size))
+    }
 }
 
 // NOTE: We can cheaply implement this for unfiltered Queries because we have:
