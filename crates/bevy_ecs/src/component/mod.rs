@@ -3,7 +3,6 @@ mod type_info;
 pub use type_info::*;
 
 use crate::storage::SparseSetIndex;
-use bitflags::bitflags;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
@@ -303,9 +302,55 @@ impl Components {
     }
 }
 
-bitflags! {
-    pub struct ComponentFlags: u8 {
-        const ADDED = 1;
-        const MUTATED = 2;
+#[derive(Copy, Clone, Debug)]
+pub struct ComponentTicks {
+    pub(crate) added: u32,
+    pub(crate) changed: u32,
+}
+
+impl ComponentTicks {
+    #[inline]
+    pub fn is_added(&self, last_change_tick: u32, change_tick: u32) -> bool {
+        // The comparison is relative to `change_tick` so that we can detect changes over the whole
+        // `u32` range. Comparing directly the ticks would limit to half that due to overflow
+        // handling.
+        let component_delta = change_tick.wrapping_sub(self.added);
+        let system_delta = change_tick.wrapping_sub(last_change_tick);
+
+        component_delta < system_delta
+    }
+
+    #[inline]
+    pub fn is_changed(&self, last_change_tick: u32, change_tick: u32) -> bool {
+        let component_delta = change_tick.wrapping_sub(self.changed);
+        let system_delta = change_tick.wrapping_sub(last_change_tick);
+
+        component_delta < system_delta
+    }
+
+    pub(crate) fn new(change_tick: u32) -> Self {
+        Self {
+            added: change_tick,
+            changed: change_tick,
+        }
+    }
+
+    pub(crate) fn check_ticks(&mut self, change_tick: u32) {
+        check_tick(&mut self.added, change_tick);
+        check_tick(&mut self.changed, change_tick);
+    }
+
+    #[inline]
+    pub(crate) fn set_changed(&mut self, change_tick: u32) {
+        self.changed = change_tick;
+    }
+}
+
+fn check_tick(last_change_tick: &mut u32, change_tick: u32) {
+    let tick_delta = change_tick.wrapping_sub(*last_change_tick);
+    const MAX_DELTA: u32 = (u32::MAX / 4) * 3;
+    // Clamp to max delta
+    if tick_delta > MAX_DELTA {
+        *last_change_tick = change_tick.wrapping_sub(MAX_DELTA);
     }
 }

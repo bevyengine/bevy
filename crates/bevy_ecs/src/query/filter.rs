@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     bundle::Bundle,
-    component::{Component, ComponentFlags, ComponentId, StorageType},
+    component::{Component, ComponentId, ComponentTicks, StorageType},
     entity::Entity,
     query::{Access, Fetch, FetchState, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, Tables},
@@ -50,8 +50,7 @@ where
     }
 }
 
-/// Filter that retrieves components of type `T` that have either been mutated or added since the
-/// start of the frame.
+/// Filter that selects entities with a component `T`
 pub struct With<T>(PhantomData<T>);
 
 impl<T: Component> WorldQuery for With<T> {
@@ -106,7 +105,12 @@ impl<'a, T: Component> Fetch<'a> for WithFetch<T> {
     type Item = bool;
     type State = WithState<T>;
 
-    unsafe fn init(_world: &World, state: &Self::State) -> Self {
+    unsafe fn init(
+        _world: &World,
+        state: &Self::State,
+        _last_change_tick: u32,
+        _change_tick: u32,
+    ) -> Self {
         Self {
             storage_type: state.storage_type,
             marker: PhantomData,
@@ -141,8 +145,7 @@ impl<'a, T: Component> Fetch<'a> for WithFetch<T> {
     }
 }
 
-/// Filter that retrieves components of type `T` that have either been mutated or added since the
-/// start of the frame.
+/// Filter that selects entities without a component `T`
 pub struct Without<T>(PhantomData<T>);
 
 impl<T: Component> WorldQuery for Without<T> {
@@ -198,7 +201,12 @@ impl<'a, T: Component> Fetch<'a> for WithoutFetch<T> {
     type Item = bool;
     type State = WithoutState<T>;
 
-    unsafe fn init(_world: &World, state: &Self::State) -> Self {
+    unsafe fn init(
+        _world: &World,
+        state: &Self::State,
+        _last_change_tick: u32,
+        _change_tick: u32,
+    ) -> Self {
         Self {
             storage_type: state.storage_type,
             marker: PhantomData,
@@ -288,7 +296,12 @@ impl<'a, T: Bundle> Fetch<'a> for WithBundleFetch<T> {
     type Item = bool;
     type State = WithBundleState<T>;
 
-    unsafe fn init(_world: &World, state: &Self::State) -> Self {
+    unsafe fn init(
+        _world: &World,
+        state: &Self::State,
+        _last_change_tick: u32,
+        _change_tick: u32,
+    ) -> Self {
         Self {
             is_dense: state.is_dense,
             marker: PhantomData,
@@ -361,10 +374,10 @@ macro_rules! impl_query_filter_tuple {
             type State = Or<($(<$filter as Fetch<'a>>::State,)*)>;
             type Item = bool;
 
-            unsafe fn init(world: &World, state: &Self::State) -> Self {
+            unsafe fn init(world: &World, state: &Self::State, last_change_tick: u32, change_tick: u32) -> Self {
                 let ($($filter,)*) = &state.0;
                 Or(($(OrFetch {
-                    fetch: $filter::init(world, $filter),
+                    fetch: $filter::init(world, $filter, last_change_tick, change_tick),
                     matches: false,
                 },)*))
             }
@@ -445,20 +458,22 @@ macro_rules! impl_query_filter_tuple {
 
 all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
 
-macro_rules! impl_flag_filter {
+macro_rules! impl_tick_filter {
     (
         $(#[$meta:meta])*
-        $name: ident, $state_name: ident, $fetch_name: ident, $($flags: expr),+) => {
+        $name: ident, $state_name: ident, $fetch_name: ident, $is_detected: expr) => {
         $(#[$meta])*
         pub struct $name<T>(PhantomData<T>);
 
         pub struct $fetch_name<T> {
             storage_type: StorageType,
-            table_flags: *mut ComponentFlags,
+            table_ticks: *mut ComponentTicks,
             entity_table_rows: *const usize,
             marker: PhantomData<T>,
             entities: *const Entity,
             sparse_set: *const ComponentSparseSet,
+            last_change_tick: u32,
+            change_tick: u32,
         }
 
         pub struct $state_name<T> {
@@ -513,14 +528,16 @@ macro_rules! impl_flag_filter {
             type State = $state_name<T>;
             type Item = bool;
 
-            unsafe fn init(world: &World, state: &Self::State) -> Self {
+            unsafe fn init(world: &World, state: &Self::State, last_change_tick: u32, change_tick: u32) -> Self {
                 let mut value = Self {
                     storage_type: state.storage_type,
-                    table_flags: ptr::null_mut::<ComponentFlags>(),
+                    table_ticks: ptr::null_mut::<ComponentTicks>(),
                     entities: ptr::null::<Entity>(),
                     entity_table_rows: ptr::null::<usize>(),
                     sparse_set: ptr::null::<ComponentSparseSet>(),
                     marker: PhantomData,
+                    last_change_tick,
+                    change_tick,
                 };
                 if state.storage_type == StorageType::SparseSet {
                     value.sparse_set = world
@@ -537,9 +554,9 @@ macro_rules! impl_flag_filter {
             }
 
             unsafe fn set_table(&mut self, state: &Self::State, table: &Table) {
-                self.table_flags = table
+                self.table_ticks = table
                     .get_column(state.component_id).unwrap()
-                    .get_flags_mut_ptr();
+                    .get_ticks_mut_ptr();
             }
 
             unsafe fn set_archetype(&mut self, state: &Self::State, archetype: &Archetype, tables: &Tables) {
@@ -547,28 +564,28 @@ macro_rules! impl_flag_filter {
                     StorageType::Table => {
                         self.entity_table_rows = archetype.entity_table_rows().as_ptr();
                         let table = &tables[archetype.table_id()];
-                        self.table_flags = table
+                        self.table_ticks = table
                             .get_column(state.component_id).unwrap()
-                            .get_flags_mut_ptr();
+                            .get_ticks_mut_ptr();
                     }
                     StorageType::SparseSet => self.entities = archetype.entities().as_ptr(),
                 }
             }
 
             unsafe fn table_fetch(&mut self, table_row: usize) -> bool {
-                false $(|| (*self.table_flags.add(table_row)).contains($flags))+
+                $is_detected(&*self.table_ticks.add(table_row), self.last_change_tick, self.change_tick)
             }
 
             unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> bool {
                 match self.storage_type {
                     StorageType::Table => {
                         let table_row = *self.entity_table_rows.add(archetype_index);
-                        false $(|| (*self.table_flags.add(table_row)).contains($flags))+
+                        $is_detected(&*self.table_ticks.add(table_row), self.last_change_tick, self.change_tick)
                     }
                     StorageType::SparseSet => {
                         let entity = *self.entities.add(archetype_index);
-                        let flags = (*(*self.sparse_set).get_flags(entity).unwrap());
-                        false $(|| flags.contains($flags))+
+                        let ticks = (*(*self.sparse_set).get_ticks(entity).unwrap());
+                        $is_detected(&ticks, self.last_change_tick, self.change_tick)
                     }
                 }
             }
@@ -576,16 +593,15 @@ macro_rules! impl_flag_filter {
     };
 }
 
-impl_flag_filter!(
-    /// Filter that retrieves components of type `T` that have been added since the start of the
-    /// frame
+impl_tick_filter!(
+    /// Filter that retrieves components of type `T` that have been added since the last execution
+    /// of this system
     ///
-    /// This filter is useful as a performance optimization as it means that the query contains
-    /// fewer items for a system to iterate over.
+    /// This filter is useful to do one-time post-processing on components.
     ///
     /// Because the ordering of systems can change and this filter is only effective on changes
-    /// before the query executes you need to use explicit dependency ordering or ordered
-    /// stages for these query filters to be useful.
+    /// before the query executes you need to use explicit dependency ordering or ordered stages to
+    /// avoid frame delays.
     ///
     ///
     /// Example:
@@ -606,57 +622,37 @@ impl_flag_filter!(
     Added,
     AddedState,
     AddedFetch,
-    ComponentFlags::ADDED
+    ComponentTicks::is_added
 );
 
-impl_flag_filter!(
-    /// Filter that retrieves components of type `T` that have been mutated since the start of the
-    /// frame. Added components do not count as mutated.
+impl_tick_filter!(
+    /// Filter that retrieves components of type `T` that have been changed since the last
+    /// execution of this system
     ///
-    /// This filter is useful as a performance optimization as it means that the query contains
-    /// fewer items for a system to iterate over.
+    /// This filter is useful for synchronizing components, and as a performance optimization as it
+    /// means that the query contains fewer items for a system to iterate over.
     ///
     /// Because the ordering of systems can change and this filter is only effective on changes
     /// before the query executes you need to use explicit dependency ordering or ordered
-    /// stages for these query filters to be useful.
+    /// stages to avoid frame delays.
     ///
     /// Example:
     /// ```
     /// # use bevy_ecs::system::Query;
-    /// # use bevy_ecs::query::Mutated;
+    /// # use bevy_ecs::query::Changed;
     /// #
     /// # #[derive(Debug)]
     /// # struct Name {};
     /// # struct Transform {};
     /// #
-    /// fn print_moving_objects_system(query: Query<&Name, Mutated<Transform>>) {
+    /// fn print_moving_objects_system(query: Query<&Name, Changed<Transform>>) {
     ///     for name in query.iter() {
-    ///         println!("Entity Moved: {:?}", name)
+    ///         println!("Entity Moved: {:?}", name);
     ///     }
     /// }
     /// ```
-    Mutated,
-    MutatedState,
-    MutatedFetch,
-    ComponentFlags::MUTATED
-);
-
-impl_flag_filter!(
-    /// Filter that retrieves components of type `T` that have been added or mutated since the
-    /// start of the frame
-    ///
-    /// This filter is useful as a performance optimization as it means that the query contains
-    /// fewer items for a system to iterate over.
-    ///
-    /// Because the ordering of systems can change and this filter is only effective on changes
-    /// before the query executes you need to use explicit dependency ordering or ordered
-    /// stages for these query filters to be useful.
-    ///
-    /// Also see the documentation for [`Mutated<T>`] and [`Added`] as this filter is a logical OR
-    /// of them.
     Changed,
     ChangedState,
     ChangedFetch,
-    ComponentFlags::ADDED,
-    ComponentFlags::MUTATED
+    ComponentTicks::is_changed
 );

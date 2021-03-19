@@ -1,6 +1,6 @@
 use crate::{
     archetype::ArchetypeId,
-    component::{ComponentFlags, ComponentId, ComponentInfo, Components},
+    component::{ComponentId, ComponentInfo, ComponentTicks, Components},
     entity::Entity,
     storage::{BlobVec, SparseSet},
 };
@@ -35,7 +35,7 @@ impl TableId {
 pub struct Column {
     pub(crate) component_id: ComponentId,
     pub(crate) data: BlobVec,
-    pub(crate) flags: UnsafeCell<Vec<ComponentFlags>>,
+    pub(crate) ticks: UnsafeCell<Vec<ComponentTicks>>,
 }
 
 impl Column {
@@ -44,7 +44,7 @@ impl Column {
         Column {
             component_id: component_info.id(),
             data: BlobVec::new(component_info.layout(), component_info.drop(), capacity),
-            flags: UnsafeCell::new(Vec::with_capacity(capacity)),
+            ticks: UnsafeCell::new(Vec::with_capacity(capacity)),
         }
     }
 
@@ -69,36 +69,36 @@ impl Column {
 
     /// # Safety
     /// Assumes data has already been allocated for the given row/column.
-    /// Allows aliased mutable accesses to the row's ComponentFlags. Caller must ensure that this
-    /// does not happen.
+    /// Allows aliased mutable accesses to the row's [ComponentTicks].
+    /// Caller must ensure that this does not happen.
     #[inline]
     #[allow(clippy::mut_from_ref)]
-    pub unsafe fn get_flags_unchecked_mut(&self, row: usize) -> &mut ComponentFlags {
+    pub unsafe fn get_ticks_unchecked_mut(&self, row: usize) -> &mut ComponentTicks {
         debug_assert!(row < self.len());
-        (*self.flags.get()).get_unchecked_mut(row)
+        (*self.ticks.get()).get_unchecked_mut(row)
     }
 
     #[inline]
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: usize) {
         self.data.swap_remove_and_drop_unchecked(row);
-        (*self.flags.get()).swap_remove(row);
+        (*self.ticks.get()).swap_remove(row);
     }
 
     #[inline]
     pub(crate) unsafe fn swap_remove_and_forget_unchecked(
         &mut self,
         row: usize,
-    ) -> (*mut u8, ComponentFlags) {
+    ) -> (*mut u8, ComponentTicks) {
         let data = self.data.swap_remove_and_forget_unchecked(row);
-        let flags = (*self.flags.get()).swap_remove(row);
-        (data, flags)
+        let ticks = (*self.ticks.get()).swap_remove(row);
+        (data, ticks)
     }
 
     /// # Safety
     /// allocated value must be immediately set at the returned row
     pub(crate) unsafe fn push_uninit(&mut self) -> usize {
         let row = self.data.push_uninit();
-        (*self.flags.get()).push(ComponentFlags::empty());
+        (*self.ticks.get()).push(ComponentTicks::new(0));
         row
     }
 
@@ -107,8 +107,8 @@ impl Column {
         self.data.reserve(additional);
         // SAFE: unique access to self
         unsafe {
-            let flags = &mut (*self.flags.get());
-            flags.reserve(additional);
+            let ticks = &mut (*self.ticks.get());
+            ticks.reserve(additional);
         }
     }
 
@@ -122,8 +122,8 @@ impl Column {
     /// # Safety
     /// must ensure rust mutability rules are not violated
     #[inline]
-    pub unsafe fn get_flags_mut_ptr(&self) -> *mut ComponentFlags {
-        (*self.flags.get()).as_mut_ptr()
+    pub unsafe fn get_ticks_mut_ptr(&self) -> *mut ComponentTicks {
+        (*self.ticks.get()).as_mut_ptr()
     }
 
     /// # Safety
@@ -137,16 +137,16 @@ impl Column {
     /// # Safety
     /// must ensure rust mutability rules are not violated
     #[inline]
-    pub unsafe fn get_flags_unchecked(&self, row: usize) -> *mut ComponentFlags {
-        debug_assert!(row < (*self.flags.get()).len());
-        self.get_flags_mut_ptr().add(row)
+    pub unsafe fn get_ticks_unchecked(&self, row: usize) -> *mut ComponentTicks {
+        debug_assert!(row < (*self.ticks.get()).len());
+        self.get_ticks_mut_ptr().add(row)
     }
 
     #[inline]
-    pub(crate) fn clear_flags(&mut self) {
-        let flags = unsafe { (*self.flags.get()).iter_mut() };
-        for component_flags in flags {
-            *component_flags = ComponentFlags::empty();
+    pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
+        let ticks = unsafe { (*self.ticks.get()).iter_mut() };
+        for component_ticks in ticks {
+            component_ticks.check_ticks(change_tick);
         }
     }
 }
@@ -230,10 +230,10 @@ impl Table {
         let is_last = row == self.entities.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row));
         for column in self.columns.values_mut() {
-            let (data, flags) = column.swap_remove_and_forget_unchecked(row);
+            let (data, ticks) = column.swap_remove_and_forget_unchecked(row);
             if let Some(new_column) = new_table.get_column_mut(column.component_id) {
                 new_column.set_unchecked(new_row, data);
-                *new_column.get_flags_unchecked_mut(new_row) = flags;
+                *new_column.get_ticks_unchecked_mut(new_row) = ticks;
             }
         }
         TableMoveResult {
@@ -262,9 +262,9 @@ impl Table {
         let new_row = new_table.allocate(self.entities.swap_remove(row));
         for column in self.columns.values_mut() {
             if let Some(new_column) = new_table.get_column_mut(column.component_id) {
-                let (data, flags) = column.swap_remove_and_forget_unchecked(row);
+                let (data, ticks) = column.swap_remove_and_forget_unchecked(row);
                 new_column.set_unchecked(new_row, data);
-                *new_column.get_flags_unchecked_mut(new_row) = flags;
+                *new_column.get_ticks_unchecked_mut(new_row) = ticks;
             } else {
                 column.swap_remove_unchecked(row);
             }
@@ -295,9 +295,9 @@ impl Table {
         let new_row = new_table.allocate(self.entities.swap_remove(row));
         for column in self.columns.values_mut() {
             let new_column = new_table.get_column_mut(column.component_id).unwrap();
-            let (data, flags) = column.swap_remove_and_forget_unchecked(row);
+            let (data, ticks) = column.swap_remove_and_forget_unchecked(row);
             new_column.set_unchecked(new_row, data);
-            *new_column.get_flags_unchecked_mut(new_row) = flags;
+            *new_column.get_ticks_unchecked_mut(new_row) = ticks;
         }
         TableMoveResult {
             new_row,
@@ -346,7 +346,7 @@ impl Table {
         self.entities.push(entity);
         for column in self.columns.values_mut() {
             column.data.set_len(self.entities.len());
-            (*column.flags.get()).push(ComponentFlags::empty());
+            (*column.ticks.get()).push(ComponentTicks::new(0));
         }
         index
     }
@@ -366,9 +366,9 @@ impl Table {
         self.entities.is_empty()
     }
 
-    pub(crate) fn clear_flags(&mut self) {
+    pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
         for column in self.columns.values_mut() {
-            column.clear_flags();
+            column.check_change_ticks(change_tick);
         }
     }
 
@@ -454,9 +454,9 @@ impl Tables {
         self.tables.iter()
     }
 
-    pub(crate) fn clear_flags(&mut self) {
+    pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
         for table in self.tables.iter_mut() {
-            table.clear_flags();
+            table.check_change_ticks(change_tick);
         }
     }
 }

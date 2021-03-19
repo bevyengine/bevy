@@ -1,3 +1,5 @@
+use bevy_utils::tracing::warn;
+
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     component::ComponentId,
@@ -47,6 +49,24 @@ pub trait System: Send + Sync + 'static {
     }
     fn apply_buffers(&mut self, world: &mut World);
     fn initialize(&mut self, _world: &mut World);
+    fn check_change_tick(&mut self, change_tick: u32);
 }
 
 pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;
+
+pub(crate) fn check_system_change_tick(
+    last_change_tick: &mut u32,
+    change_tick: u32,
+    system_name: &str,
+) {
+    let tick_delta = change_tick.wrapping_sub(*last_change_tick);
+    const MAX_DELTA: u32 = (u32::MAX / 4) * 3;
+    // Clamp to max delta
+    if tick_delta > MAX_DELTA {
+        warn!(
+            "Too many intervening systems have run since the last time System '{}' was last run; it may fail to detect changes.",
+            system_name
+        );
+        *last_change_tick = change_tick.wrapping_sub(MAX_DELTA);
+    }
+}
