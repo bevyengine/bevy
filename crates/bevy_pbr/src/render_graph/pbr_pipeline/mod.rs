@@ -9,10 +9,10 @@ use bevy_render::{
     texture::TextureFormat,
 };
 
-pub const PIPELINE_HANDLE: HandleUntyped =
+pub const PBR_PIPELINE_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 13148362314012771389);
 
-pub(crate) fn build_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
+pub(crate) fn build_pbr_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
     PipelineDescriptor {
         depth_stencil: Some(DepthStencilState {
             format: TextureFormat::Depth32Float,

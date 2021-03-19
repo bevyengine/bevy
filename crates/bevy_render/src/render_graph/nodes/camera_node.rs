@@ -6,7 +6,7 @@ use crate::{
         RenderResourceContext,
     },
 };
-use bevy_core::{AsBytes, Bytes};
+use bevy_core::AsBytes;
 use bevy_ecs::{
     system::{BoxedSystem, IntoSystem, Local, Query, Res, ResMut},
     world::World,
@@ -141,7 +141,7 @@ pub fn camera_node_system(
             },
         );
     }
-    
+
     if bindings.get(CAMERA_POSITION).is_none() {
         let buffer = render_resource_context.create_buffer(BufferInfo {
             size: VEC3_SIZE,
