@@ -116,7 +116,6 @@ impl Texture {
 
     pub fn resize(&mut self, size: Extent3d) {
         self.size = size;
-
         self.data
             .resize(size.volume() * self.format.pixel_size(), 0);
 
@@ -204,7 +203,6 @@ impl Texture {
         }
 
         let mut mip_level = self.mipmaps.len() + 1;
-
         let mut mip_size = self.mip_size(mip_level);
 
         // PERF: this is inefficient: `texture_to_image` does a `.clone()` of the source data
@@ -224,9 +222,7 @@ impl Texture {
             }
 
             let resized = base_image.resize_exact(mip_size.width, mip_size.height, filter);
-
             let (_, _, new_data) = super::image_texture_conversion::image_to_texture_data(resized);
-
             self.mipmaps.push(new_data);
 
             mip_level += 1;

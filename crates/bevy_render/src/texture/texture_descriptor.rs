@@ -16,6 +16,7 @@ impl From<&Texture> for TextureDescriptor {
         TextureDescriptor {
             size: texture.size,
             mip_level_count: if let Some(max_level) = texture.max_mip_level {
+                // note: + 1 is to account for the base texture image
                 (max_level as u32 + 1).min(texture.mipmaps.len() as u32 + 1)
             } else {
                 texture.mipmaps.len() as u32 + 1
