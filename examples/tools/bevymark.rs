@@ -5,7 +5,7 @@ use bevy::{
 use rand::Rng;
 
 const BIRDS_PER_SECOND: u32 = 1000;
-const BASE_COLOR: Color = Color::rgb_linear(5.0, 5.0, 5.0);
+const BASE_COLOR: Color = Color::rgb(5.0, 5.0, 5.0);
 const GRAVITY: f32 = -9.8 * 100.0;
 const MAX_VELOCITY: f32 = 750.;
 const BIRD_SCALE: f32 = 0.15;
