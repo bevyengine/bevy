@@ -123,6 +123,13 @@ async fn load_gltf<'a, 'b>(
             }
 
             if let Some(vertex_attribute) = reader
+                .read_tangents()
+                .map(|v| VertexAttributeValues::Float4(v.collect()))
+            {
+                mesh.set_attribute(Mesh::ATTRIBUTE_TANGENT, vertex_attribute);
+            }
+
+            if let Some(vertex_attribute) = reader
                 .read_tex_coords(0)
                 .map(|v| VertexAttributeValues::Float2(v.into_f32().collect()))
             {
@@ -279,8 +286,11 @@ async fn load_gltf<'a, 'b>(
 
 fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<StandardMaterial> {
     let material_label = material_label(&material);
+
     let pbr = material.pbr_metallic_roughness();
-    let texture_handle = if let Some(info) = pbr.base_color_texture() {
+    let color = pbr.base_color_factor();
+    let base_color_texture = if let Some(info) = pbr.base_color_texture() {
+        // TODO handle info.tex_coord() (the *set* index for the right texcoords)
         let label = texture_label(&info.texture());
         let path = AssetPath::new_ref(load_context.path(), Some(&label));
         Some(load_context.get_handle(path))
@@ -288,15 +298,25 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
         None
     };
 
-    let color = pbr.base_color_factor();
+    let normal_map = if let Some(normal_texture) = material.normal_texture() {
+        // TODO handle normal_texture.scale
+        // TODO handle normal_texture.tex_coord() (the *set* index for the right texcoords)
+        let label = texture_label(&normal_texture.texture());
+        let path = AssetPath::new_ref(load_context.path(), Some(&label));
+        Some(load_context.get_handle(path))
+    } else {
+        None
+    };
+
     load_context.set_labeled_asset(
         &material_label,
         LoadedAsset::new(StandardMaterial {
             base_color: Color::rgba(color[0], color[1], color[2], color[3]),
-            base_color_texture: texture_handle,
+            base_color_texture,
             roughness: pbr.roughness_factor(),
             metallic: pbr.metallic_factor(),
             unlit: material.unlit(),
+            normal_map,
             ..Default::default()
         }),
     )

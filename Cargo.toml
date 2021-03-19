@@ -132,6 +132,10 @@ name = "msaa"
 path = "examples/3d/msaa.rs"
 
 [[example]]
+name = "normal_maps"
+path = "examples/3d/normal_maps.rs"
+
+[[example]]
 name = "orthographic"
 path = "examples/3d/orthographic.rs"
 

@@ -48,6 +48,10 @@ layout(location = 0) in vec3 v_WorldPosition;
 layout(location = 1) in vec3 v_WorldNormal;
 layout(location = 2) in vec2 v_Uv;
 
+#ifdef STANDARDMATERIAL_NORMAL_MAP
+layout(location = 3) in vec4 v_WorldTangent;
+#endif
+
 layout(location = 0) out vec4 o_Target;
 
 layout(set = 0, binding = 0) uniform CameraViewProj {
@@ -71,6 +75,12 @@ layout(set = 3, binding = 0) uniform StandardMaterial_base_color {
 layout(set = 3, binding = 1) uniform texture2D StandardMaterial_base_color_texture;
 layout(set = 3,
        binding = 2) uniform sampler StandardMaterial_base_color_texture_sampler;
+#endif
+
+#ifdef STANDARDMATERIAL_NORMAL_MAP
+layout(set = 3, binding = 6) uniform texture2D StandardMaterial_normal_map;
+layout(set = 3,
+       binding = 7) uniform sampler StandardMaterial_normal_map_sampler;
 #endif
 
 #ifndef STANDARDMATERIAL_UNLIT
@@ -261,6 +271,14 @@ void main() {
     float roughness = perceptualRoughnessToRoughness(perceptual_roughness);
 
     vec3 N = normalize(v_WorldNormal);
+
+#    ifdef STANDARDMATERIAL_NORMAL_MAP
+    vec3 T = v_WorldTangent.xyz;
+    vec3 B = cross(T, N) * sign(v_WorldTangent.w);
+    mat3 TBN = mat3(T, B, N);
+    // TODO deal with double-sided
+    N = normalize(TBN * texture(sampler2D(StandardMaterial_normal_map, StandardMaterial_normal_map_sampler), v_Uv).rgb);
+#    endif
 
     vec3 V = normalize(CameraPos.xyz - v_WorldPosition.xyz);
     // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
