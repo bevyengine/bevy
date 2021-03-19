@@ -205,7 +205,7 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
         }
     }
 
-    /// Convert an asset from type `T` to type with `T_TO::TYPE_UUID == to_uuid`.
+    /// Convert an asset from type `T` to type with `To::TYPE_UUID == to_uuid`.
     /// It is the responsibility of the caller to ensure that input/output of `transform`
     /// matches those types
     fn create_asset_from(
