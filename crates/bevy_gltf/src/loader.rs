@@ -284,7 +284,7 @@ async fn load_gltf<'a, 'b>(
             .unwrap_or(false);
 
         if needs_mipmaps {
-            texture.generate_mipmaps(None);
+            texture.generate_mipmaps(None, None);
         }
 
         let texture_label = texture_label(&gltf_texture);

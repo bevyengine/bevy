@@ -221,7 +221,7 @@ fn generate_texture(size: u32, cx: f32, cy: f32) -> Texture {
 
     // Alternatively, if we hadn't generated our own mipmaps above, we could
     // have asked Bevy to make them for us by downscaling the base image level:
-    //texture.generate_mipmaps(None);
+    //texture.generate_mipmaps(None, Some(4));
 
     // You can try to remove the while loop earlier (to only generate one image)
     // and uncomment the line above, if you want to see how it looks and compare
