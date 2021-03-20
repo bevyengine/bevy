@@ -315,6 +315,16 @@ impl SystemStage {
 
     /// Rearranges all systems in topological orders. Systems must be initialized.
     fn rebuild_orders_and_dependencies(&mut self) {
+        // This assertion is there to document that a maximum of `u32::MAX / 8` systems should be
+        // added to a stage to guarantee that change detection has no false positive, but it
+        // can be circumvented using exclusive or chained systems
+        assert!(
+            self.exclusive_at_start.len()
+                + self.exclusive_before_commands.len()
+                + self.exclusive_at_end.len()
+                + self.parallel.len()
+                < (u32::MAX / 8) as usize
+        );
         debug_assert!(
             self.uninitialized_run_criteria.is_empty()
                 && self.uninitialized_parallel.is_empty()
@@ -661,8 +671,6 @@ impl Stage for SystemStage {
 
         let mut has_work = true;
         while has_work {
-            let run_criteria = &mut self.run_criteria;
-
             fn should_run(
                 container: &impl SystemContainer,
                 run_criteria: &[RunCriteriaContainer],
@@ -677,7 +685,7 @@ impl Stage for SystemStage {
 
             // Run systems that want to be at the start of stage.
             for container in &mut self.exclusive_at_start {
-                if should_run(container, run_criteria) {
+                if should_run(container, &mut self.run_criteria) {
                     container.system_mut().run(world);
                 }
             }
@@ -685,13 +693,13 @@ impl Stage for SystemStage {
             // Run parallel systems using the executor.
             // TODO: hard dependencies, nested sets, whatever... should be evaluated here.
             for container in &mut self.parallel {
-                container.should_run = should_run(container, run_criteria);
+                container.should_run = should_run(container, &mut self.run_criteria);
             }
             self.executor.run_systems(&mut self.parallel, world);
 
             // Run systems that want to be between parallel systems and their command buffers.
             for container in &mut self.exclusive_before_commands {
-                if should_run(container, run_criteria) {
+                if should_run(container, &mut self.run_criteria) {
                     container.system_mut().run(world);
                 }
             }
@@ -705,7 +713,7 @@ impl Stage for SystemStage {
 
             // Run systems that want to be at the end of stage.
             for container in &mut self.exclusive_at_end {
-                if should_run(container, run_criteria) {
+                if should_run(container, &mut self.run_criteria) {
                     container.system_mut().run(world);
                 }
             }
@@ -715,6 +723,7 @@ impl Stage for SystemStage {
 
             // Reevaluate run criteria.
             has_work = false;
+            let run_criteria = &mut self.run_criteria;
             for index in 0..run_criteria.len() {
                 let (run_criteria, tail) = run_criteria.split_at_mut(index);
                 let criteria = &mut tail[0];
