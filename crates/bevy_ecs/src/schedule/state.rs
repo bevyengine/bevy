@@ -6,7 +6,7 @@ use crate::{
     },
     system::{In, IntoChainSystem, IntoSystem, Local, Res, ResMut},
 };
-use std::any::TypeId;
+use std::{any::TypeId, fmt::Debug, hash::Hash};
 use thiserror::Error;
 
 /// ### Stack based state machine
@@ -16,7 +16,7 @@ use thiserror::Error;
 /// * Pop removes the current state, and unpauses the last paused state.
 /// * Next unwinds the state stack, and replaces the entire stack with a single new state
 #[derive(Debug)]
-pub struct State<T: Component + Clone + Eq> {
+pub struct State<T> {
     transition: Option<StateTransition<T>>,
     stack: Vec<T>,
     scheduled: Option<ScheduledOperation<T>>,
@@ -24,7 +24,7 @@ pub struct State<T: Component + Clone + Eq> {
 }
 
 #[derive(Debug)]
-enum StateTransition<T: Component + Clone + Eq> {
+enum StateTransition<T> {
     PreStartup,
     Startup,
     // The parameter order is always (leaving, entering)
@@ -36,36 +36,70 @@ enum StateTransition<T: Component + Clone + Eq> {
 }
 
 #[derive(Debug)]
-enum ScheduledOperation<T: Component + Clone + Eq> {
+enum ScheduledOperation<T> {
     Next(T),
     Pop,
     Push(T),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
-struct DriverLabel(TypeId);
+enum StateCallback {
+    OnUpdate,
+    OnInactiveUpdate,
+    OnInStackUpdate,
+    OnEnter,
+    OnExit,
+    OnPause,
+    OnResume,
+}
 
-impl DriverLabel {
-    fn of<T: Component + Clone + Eq>() -> Self {
-        Self(TypeId::of::<T>())
+impl StateCallback {
+    fn into_label<T>(self, state: T) -> StateRunCriteriaLabel<T>
+    where
+        T: Component + Debug + Clone + Eq + Hash,
+    {
+        StateRunCriteriaLabel(state, self)
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+struct StateRunCriteriaLabel<T>(T, StateCallback);
+impl<T> RunCriteriaLabel for StateRunCriteriaLabel<T>
+where
+    T: Component + Debug + Clone + Eq + Hash,
+{
+    fn dyn_clone(&self) -> Box<dyn RunCriteriaLabel> {
+        Box::new(self.clone())
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+struct DriverLabel(TypeId);
 impl RunCriteriaLabel for DriverLabel {
     fn dyn_clone(&self) -> Box<dyn RunCriteriaLabel> {
         Box::new(self.clone())
     }
 }
 
-impl<T: Component + Clone + Eq> State<T> {
+impl DriverLabel {
+    fn of<T: 'static>() -> Self {
+        Self(TypeId::of::<T>())
+    }
+}
+
+impl<T> State<T>
+where
+    T: Component + Debug + Clone + Eq + Hash,
+{
     pub fn on_update(s: T) -> RunCriteriaDescriptor {
         (|state: Res<State<T>>, pred: Local<Option<T>>| {
             state.stack.last().unwrap() == pred.as_ref().unwrap() && state.transition.is_none()
         })
         .system()
-        .config(|(_, pred)| *pred = Some(Some(s)))
+        .config(|(_, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>.system())
         .after(DriverLabel::of::<T>())
+        .label(StateCallback::OnUpdate.into_label(s))
     }
 
     pub fn on_inactive_update(s: T) -> RunCriteriaDescriptor {
@@ -83,9 +117,10 @@ impl<T: Component + Clone + Eq> State<T> {
             None => *is_inactive,
         })
         .system()
-        .config(|(_, _, pred)| *pred = Some(Some(s)))
+        .config(|(_, _, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>.system())
         .after(DriverLabel::of::<T>())
+        .label(StateCallback::OnInactiveUpdate.into_label(s))
     }
 
     pub fn on_in_stack_update(s: T) -> RunCriteriaDescriptor {
@@ -115,9 +150,10 @@ impl<T: Component + Clone + Eq> State<T> {
             None => *is_in_stack,
         })
         .system()
-        .config(|(_, _, pred)| *pred = Some(Some(s)))
+        .config(|(_, _, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>.system())
         .after(DriverLabel::of::<T>())
+        .label(StateCallback::OnInStackUpdate.into_label(s))
     }
 
     pub fn on_enter(s: T) -> RunCriteriaDescriptor {
@@ -134,9 +170,10 @@ impl<T: Component + Clone + Eq> State<T> {
                 })
         })
         .system()
-        .config(|(_, pred)| *pred = Some(Some(s)))
+        .config(|(_, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>.system())
         .after(DriverLabel::of::<T>())
+        .label(StateCallback::OnEnter.into_label(s))
     }
 
     pub fn on_exit(s: T) -> RunCriteriaDescriptor {
@@ -151,9 +188,10 @@ impl<T: Component + Clone + Eq> State<T> {
                 })
         })
         .system()
-        .config(|(_, pred)| *pred = Some(Some(s)))
+        .config(|(_, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>.system())
         .after(DriverLabel::of::<T>())
+        .label(StateCallback::OnExit.into_label(s))
     }
 
     pub fn on_pause(s: T) -> RunCriteriaDescriptor {
@@ -167,9 +205,10 @@ impl<T: Component + Clone + Eq> State<T> {
                 })
         })
         .system()
-        .config(|(_, pred)| *pred = Some(Some(s)))
+        .config(|(_, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>.system())
         .after(DriverLabel::of::<T>())
+        .label(StateCallback::OnPause.into_label(s))
     }
 
     pub fn on_resume(s: T) -> RunCriteriaDescriptor {
@@ -183,9 +222,10 @@ impl<T: Component + Clone + Eq> State<T> {
                 })
         })
         .system()
-        .config(|(_, pred)| *pred = Some(Some(s)))
+        .config(|(_, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>.system())
         .after(DriverLabel::of::<T>())
+        .label(StateCallback::OnResume.into_label(s))
     }
 
     pub fn on_update_set(s: T) -> SystemSet {
@@ -412,7 +452,7 @@ mod test {
     use super::*;
     use crate::prelude::*;
 
-    #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+    #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
     enum MyState {
         S1,
         S2,

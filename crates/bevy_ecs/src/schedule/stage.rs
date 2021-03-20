@@ -465,13 +465,21 @@ fn process_systems(
     Ok(())
 }
 
-/// Sorts run criteria and populates their resolved parent-criteria.
+/// Deduplicates and sorts run criteria, and populates resolved input-criteria for piping.
 fn process_run_criteria(
     run_criteria: &mut Vec<RunCriteriaContainer>,
 ) -> Result<
     HashMap<BoxedRunCriteriaLabel, usize>,
     DependencyGraphError<HashSet<BoxedRunCriteriaLabel>>,
 > {
+    // This throws away all but the first criteria with identical labels.
+    *run_criteria = run_criteria
+        .drain(..)
+        .map(|container| (container.label.clone(), container))
+        .collect::<HashMap<_, _>>()
+        .drain()
+        .map(|(_, container)| container)
+        .collect();
     let graph = graph_utils::build_dependency_graph(run_criteria);
     let order = graph_utils::topological_order(&graph)?;
     let mut order_inverted = order.iter().enumerate().collect::<Vec<_>>();
@@ -1270,6 +1278,35 @@ mod tests {
             *world.get_resource::<Vec<usize>>().unwrap(),
             vec![0, 1, 2, 0, 0, 1, 0, 0, 1, 2, 0, 0, 1, 0, 0, 1, 2]
         );
+
+        // Tests discarding extra criteria with matching labels.
+        world.get_resource_mut::<Vec<usize>>().unwrap().clear();
+        let mut stage = SystemStage::parallel()
+            .with_system(make_parallel!(0).system().before("1"))
+            .with_system(
+                make_parallel!(1)
+                    .system()
+                    .label("1")
+                    .with_run_criteria(every_other_time.system().label("every other time")),
+            )
+            .with_system(
+                make_parallel!(2)
+                    .system()
+                    .label("2")
+                    .after("1")
+                    .with_run_criteria(every_other_time.system().label("every other time")),
+            )
+            .with_system(make_parallel!(3).system().after("2"));
+        stage.run(&mut world);
+        stage.run(&mut world);
+        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.run(&mut world);
+        stage.run(&mut world);
+        assert_eq!(
+            *world.get_resource::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 3, 0, 3, 0, 1, 2, 3, 0, 3]
+        );
+        assert_eq!(stage.run_criteria.len(), 1);
     }
 
     #[test]
