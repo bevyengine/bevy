@@ -28,23 +28,25 @@ fn setup(
 
     // this material renders the texture normally
     let material_handle = materials.add(StandardMaterial {
-        albedo_texture: Some(texture_handle.clone()),
+        base_color_texture: Some(texture_handle.clone()),
         unlit: true,
         ..Default::default()
     });
 
     // this material modulates the texture to make it red (and slightly transparent)
     let red_material_handle = materials.add(StandardMaterial {
-        albedo: Color::rgba(1.0, 0.0, 0.0, 0.5),
-        albedo_texture: Some(texture_handle.clone()),
+        base_color: Color::rgba(1.0, 0.0, 0.0, 0.5),
+        base_color_texture: Some(texture_handle.clone()),
         unlit: true,
+        ..Default::default()
     });
 
     // and lets make this one blue! (and also slightly transparent)
     let blue_material_handle = materials.add(StandardMaterial {
-        albedo: Color::rgba(0.0, 0.0, 1.0, 0.5),
-        albedo_texture: Some(texture_handle),
+        base_color: Color::rgba(0.0, 0.0, 1.0, 0.5),
+        base_color_texture: Some(texture_handle),
         unlit: true,
+        ..Default::default()
     });
 
     // add entities to the world

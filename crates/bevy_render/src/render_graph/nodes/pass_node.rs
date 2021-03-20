@@ -2,10 +2,7 @@ use crate::{
     camera::{ActiveCameras, VisibleEntities},
     draw::{Draw, RenderCommand},
     pass::{ClearColor, LoadOp, PassDescriptor, TextureAttachment},
-    pipeline::{
-        BindGroupDescriptor, BindType, BindingDescriptor, BindingShaderStage, IndexFormat,
-        PipelineDescriptor, UniformProperty,
-    },
+    pipeline::{IndexFormat, PipelineDescriptor},
     prelude::Visible,
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
     renderer::{
@@ -29,7 +26,6 @@ pub struct PassNode<Q: WorldQuery> {
     color_resolve_target_indices: Vec<Option<usize>>,
     depth_stencil_attachment_input_index: Option<usize>,
     default_clear_color_inputs: Vec<usize>,
-    camera_bind_group_descriptor: BindGroupDescriptor,
     query_state: Option<QueryState<Q>>,
     commands: Vec<RenderCommand>,
 }
@@ -55,10 +51,6 @@ impl<Q: WorldQuery> fmt::Debug for PassNode<Q> {
             .field(
                 "default_clear_color_inputs",
                 &self.default_clear_color_inputs,
-            )
-            .field(
-                "camera_bind_group_descriptor",
-                &self.camera_bind_group_descriptor,
             )
             .finish()
     }
@@ -102,19 +94,6 @@ impl<Q: WorldQuery> PassNode<Q> {
             }
         }
 
-        let camera_bind_group_descriptor = BindGroupDescriptor::new(
-            0,
-            vec![BindingDescriptor {
-                name: "Camera".to_string(),
-                index: 0,
-                bind_type: BindType::Uniform {
-                    has_dynamic_offset: false,
-                    property: UniformProperty::Struct(vec![UniformProperty::Mat4]),
-                },
-                shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
-            }],
-        );
-
         PassNode {
             descriptor,
             inputs,
@@ -123,7 +102,6 @@ impl<Q: WorldQuery> PassNode<Q> {
             color_resolve_target_indices,
             depth_stencil_attachment_input_index,
             default_clear_color_inputs: Vec::new(),
-            camera_bind_group_descriptor,
             query_state: None,
             commands: Vec::new(),
         }

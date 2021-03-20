@@ -1,9 +1,9 @@
-mod forward_pipeline;
 mod lights_node;
+mod pbr_pipeline;
 
 use bevy_ecs::world::World;
-pub use forward_pipeline::*;
 pub use lights_node::*;
+pub use pbr_pipeline::*;
 
 /// the names of pbr graph nodes
 pub mod node {
@@ -50,10 +50,9 @@ pub(crate) fn add_pbr_graph(world: &mut World) {
             .add_node_edge(node::LIGHTS, base::node::MAIN_PASS)
             .unwrap();
     }
-    let forward_pipeline =
-        build_forward_pipeline(&mut world.get_resource_mut::<Assets<Shader>>().unwrap());
+    let pipeline = build_pbr_pipeline(&mut world.get_resource_mut::<Assets<Shader>>().unwrap());
     let mut pipelines = world
         .get_resource_mut::<Assets<PipelineDescriptor>>()
         .unwrap();
-    pipelines.set_untracked(FORWARD_PIPELINE_HANDLE, forward_pipeline);
+    pipelines.set_untracked(PBR_PIPELINE_HANDLE, pipeline);
 }

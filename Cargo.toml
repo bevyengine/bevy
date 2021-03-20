@@ -136,6 +136,10 @@ name = "parenting"
 path = "examples/3d/parenting.rs"
 
 [[example]]
+name = "pbr"
+path = "examples/3d/pbr.rs"
+
+[[example]]
 name = "spawner"
 path = "examples/3d/spawner.rs"
 

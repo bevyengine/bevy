@@ -15,6 +15,8 @@ pub struct Light {
     pub color: Color,
     pub fov: f32,
     pub depth: Range<f32>,
+    pub intensity: f32,
+    pub range: f32,
 }
 
 impl Default for Light {
@@ -23,6 +25,8 @@ impl Default for Light {
             color: Color::rgb(1.0, 1.0, 1.0),
             depth: 0.1..50.0,
             fov: f32::to_radians(60.0),
+            intensity: 200.0,
+            range: 20.0,
         }
     }
 }
@@ -48,10 +52,14 @@ impl LightRaw {
 
         let proj = perspective.get_projection_matrix() * global_transform.compute_matrix();
         let (x, y, z) = global_transform.translation.into();
+
+        // premultiply color by intensity
+        // we don't use the alpha at all, so no reason to multiply only [0..3]
+        let color: [f32; 4] = (light.color * light.intensity).into();
         LightRaw {
             proj: proj.to_cols_array_2d(),
-            pos: [x, y, z, 1.0],
-            color: light.color.into(),
+            pos: [x, y, z, 1.0 / (light.range * light.range)], // pos.w is the attenuation.
+            color,
         }
     }
 }
