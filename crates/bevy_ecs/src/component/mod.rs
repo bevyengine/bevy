@@ -341,7 +341,7 @@ impl ComponentTicks {
     }
 
     #[inline]
-    pub(crate) fn set_changed(&mut self, change_tick: u32) {
+    pub fn set_changed(&mut self, change_tick: u32) {
         self.changed = change_tick;
     }
 }
