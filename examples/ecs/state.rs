@@ -19,7 +19,7 @@ fn main() {
         .run();
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum AppState {
     Menu,
     InGame,

@@ -32,7 +32,7 @@ pub struct Stage;
 
 // NOTE: this "state based" approach to multiple windows is a short term workaround.
 // Future Bevy releases shouldn't require such a strict order of operations.
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum AppState {
     CreateWindow,
     Setup,

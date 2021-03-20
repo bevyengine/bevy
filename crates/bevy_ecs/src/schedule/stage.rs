@@ -3,10 +3,10 @@ use crate::{
     schedule::{
         graph_utils::{self, DependencyGraphError},
         BoxedRunCriteria, BoxedRunCriteriaLabel, BoxedSystemLabel, ExclusiveSystemContainer,
-        InsertionPoint, ParallelExecutor, ParallelSystemContainer, ParallelSystemExecutor,
-        RunCriteriaContainer, RunCriteriaDescriptor, RunCriteriaDescriptorOrLabel,
-        RunCriteriaInner, RunCriteriaLabel, ShouldRun, SingleThreadedExecutor, SystemContainer,
-        SystemDescriptor, SystemSet,
+        GraphNode, InsertionPoint, ParallelExecutor, ParallelSystemContainer,
+        ParallelSystemExecutor, RunCriteriaContainer, RunCriteriaDescriptor,
+        RunCriteriaDescriptorOrLabel, RunCriteriaInner, RunCriteriaLabel, ShouldRun,
+        SingleThreadedExecutor, SystemContainer, SystemDescriptor, SystemSet,
     },
     system::System,
     world::{World, WorldId},
@@ -332,48 +332,54 @@ impl SystemStage {
                 && self.uninitialized_before_commands.is_empty()
                 && self.uninitialized_at_end.is_empty()
         );
-        let run_criteria_labels = process_run_criteria(&mut self.run_criteria)
-            // TODO: proper error.
-            .unwrap_or_else(|_| panic!("bleeeehhhh ded"));
-        fn process_systems_unwrap(
-            systems: &mut Vec<impl SystemContainer>,
-            run_criteria_labels: &HashMap<BoxedRunCriteriaLabel, usize>,
-            systems_description: &'static str,
-        ) {
-            if let Err(DependencyGraphError::GraphCycles(cycle)) =
-                process_systems(systems, run_criteria_labels)
-            {
-                use std::fmt::Write;
-                let mut message = format!("Found a dependency cycle in {}:", systems_description);
-                writeln!(message).unwrap();
-                for (index, labels) in &cycle {
-                    writeln!(message, " - {}", systems[*index].name()).unwrap();
-                    writeln!(
-                        message,
-                        "    wants to be after (because of labels {:?})",
-                        // This is solely to format them as [a, b, c] instead of {a, b, c}.
-                        labels.iter().collect::<Vec<_>>(),
-                    )
-                    .unwrap();
+        fn unwrap_dependency_cycle_error<Output, Label, Labels: Debug>(
+            result: Result<Output, DependencyGraphError<Labels>>,
+            nodes: &[impl GraphNode<Label>],
+            nodes_description: &'static str,
+        ) -> Output {
+            match result {
+                Ok(output) => output,
+                Err(DependencyGraphError::GraphCycles(cycle)) => {
+                    use std::fmt::Write;
+                    let mut message = format!("Found a dependency cycle in {}:", nodes_description);
+                    writeln!(message).unwrap();
+                    for (index, labels) in &cycle {
+                        writeln!(message, " - {}", nodes[*index].name()).unwrap();
+                        writeln!(
+                            message,
+                            "    wants to be after (because of labels: {:?})",
+                            labels,
+                        )
+                        .unwrap();
+                    }
+                    writeln!(message, " - {}", cycle[0].0).unwrap();
+                    panic!("{}", message);
                 }
-                writeln!(message, " - {}", cycle[0].0).unwrap();
-                panic!("{}", message);
             }
         }
-        process_systems_unwrap(&mut self.parallel, &run_criteria_labels, "parallel systems");
-        process_systems_unwrap(
-            &mut self.exclusive_at_start,
-            &run_criteria_labels,
+        let run_criteria_labels = unwrap_dependency_cycle_error(
+            process_run_criteria(&mut self.run_criteria),
+            &self.run_criteria,
+            "run criteria",
+        );
+        unwrap_dependency_cycle_error(
+            process_systems(&mut self.parallel, &run_criteria_labels),
+            &self.parallel,
+            "parallel systems",
+        );
+        unwrap_dependency_cycle_error(
+            process_systems(&mut self.exclusive_at_start, &run_criteria_labels),
+            &self.exclusive_at_start,
             "exclusive systems at start of stage",
         );
-        process_systems_unwrap(
-            &mut self.exclusive_before_commands,
-            &run_criteria_labels,
+        unwrap_dependency_cycle_error(
+            process_systems(&mut self.exclusive_before_commands, &run_criteria_labels),
+            &self.exclusive_before_commands,
             "exclusive systems before commands of stage",
         );
-        process_systems_unwrap(
-            &mut self.exclusive_at_end,
-            &run_criteria_labels,
+        unwrap_dependency_cycle_error(
+            process_systems(&mut self.exclusive_at_end, &run_criteria_labels),
+            &self.exclusive_at_end,
             "exclusive systems at end of stage",
         );
     }
@@ -490,11 +496,11 @@ fn process_systems(
     let mut order_inverted = order.iter().enumerate().collect::<Vec<_>>();
     order_inverted.sort_unstable_by_key(|(_, &key)| key);
     for (index, container) in systems.iter_mut().enumerate() {
-        if let Some(index) = container
-            .run_criteria_label()
-            // TODO: proper error.
-            .map(|label| *run_criteria_labels.get(label).unwrap())
-        {
+        if let Some(index) = container.run_criteria_label().map(|label| {
+            *run_criteria_labels
+                .get(label)
+                .unwrap_or_else(|| panic!("No run criteria with label {:?} found.", label))
+        }) {
             container.set_run_criteria(index);
         }
         container.set_dependencies(
@@ -513,6 +519,7 @@ fn process_systems(
 }
 
 /// Deduplicates and sorts run criteria, and populates resolved input-criteria for piping.
+/// Returns a map of run criteria labels to their indices.
 fn process_run_criteria(
     run_criteria: &mut Vec<RunCriteriaContainer>,
 ) -> Result<
@@ -538,7 +545,13 @@ fn process_run_criteria(
         .collect();
     for criteria in run_criteria.iter_mut() {
         if let RunCriteriaInner::Chained { input: parent, .. } = &mut criteria.inner {
-            *parent = labels[&criteria.after[0]];
+            let label = &criteria.after[0];
+            *parent = *labels.get(label).unwrap_or_else(|| {
+                panic!(
+                    "Couldn't find run criteria labelled {:?} to pipe from.",
+                    label
+                )
+            });
         }
     }
     let mut temp = run_criteria.drain(..).map(Some).collect::<Vec<_>>();
@@ -685,7 +698,7 @@ impl Stage for SystemStage {
 
             // Run systems that want to be at the start of stage.
             for container in &mut self.exclusive_at_start {
-                if should_run(container, &mut self.run_criteria) {
+                if should_run(container, &self.run_criteria) {
                     container.system_mut().run(world);
                 }
             }
@@ -693,13 +706,13 @@ impl Stage for SystemStage {
             // Run parallel systems using the executor.
             // TODO: hard dependencies, nested sets, whatever... should be evaluated here.
             for container in &mut self.parallel {
-                container.should_run = should_run(container, &mut self.run_criteria);
+                container.should_run = should_run(container, &self.run_criteria);
             }
             self.executor.run_systems(&mut self.parallel, world);
 
             // Run systems that want to be between parallel systems and their command buffers.
             for container in &mut self.exclusive_before_commands {
-                if should_run(container, &mut self.run_criteria) {
+                if should_run(container, &self.run_criteria) {
                     container.system_mut().run(world);
                 }
             }
@@ -713,7 +726,7 @@ impl Stage for SystemStage {
 
             // Run systems that want to be at the end of stage.
             for container in &mut self.exclusive_at_end {
-                if should_run(container, &mut self.run_criteria) {
+                if should_run(container, &self.run_criteria) {
                     container.system_mut().run(world);
                 }
             }
