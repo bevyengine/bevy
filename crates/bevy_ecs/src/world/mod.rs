@@ -19,6 +19,7 @@ use crate::{
     query::{FilterFetch, QueryState, WorldQuery},
     storage::{Column, SparseSet, Storages},
 };
+use bevy_utils::tracing::warn;
 use std::{
     any::TypeId,
     fmt,
@@ -237,7 +238,13 @@ impl World {
     /// ```
     #[inline]
     pub fn get_entity(&self, entity: Entity) -> Option<EntityRef> {
-        let location = self.entities.get(entity)?;
+        let location = match self.entities.get(entity) {
+            Ok(entity_location) => entity_location,
+            Err(err) => {
+                warn!("Error getting entity {:?}: {:?}", entity, err,);
+                return None;
+            }
+        };
         Some(EntityRef::new(self, entity, location))
     }
 
@@ -264,7 +271,13 @@ impl World {
     /// ```
     #[inline]
     pub fn get_entity_mut(&mut self, entity: Entity) -> Option<EntityMut> {
-        let location = self.entities.get(entity)?;
+        let location = match self.entities.get(entity) {
+            Ok(entity_location) => entity_location,
+            Err(err) => {
+                warn!("Error getting entity {:?}: {:?}", entity, err,);
+                return None;
+            }
+        };
         // SAFE: `entity` exists and `location` is that entity's location
         Some(unsafe { EntityMut::new(self, entity, location) })
     }
@@ -431,15 +444,15 @@ impl World {
     ///
     /// let mut world = World::new();
     /// let entities = world.spawn_batch(vec![
-    ///     (Position { x: 0.0, y: 0.0}, Velocity { x: 1.0, y: 0.0 }),    
-    ///     (Position { x: 0.0, y: 0.0}, Velocity { x: 0.0, y: 1.0 }),    
+    ///     (Position { x: 0.0, y: 0.0}, Velocity { x: 1.0, y: 0.0 }),
+    ///     (Position { x: 0.0, y: 0.0}, Velocity { x: 0.0, y: 1.0 }),
     /// ]).collect::<Vec<Entity>>();
     ///
     /// let mut query = world.query::<(&mut Position, &Velocity)>();
     /// for (mut position, velocity) in query.iter_mut(&mut world) {
     ///    position.x += velocity.x;
     ///    position.y += velocity.y;
-    /// }     
+    /// }
     ///
     /// assert_eq!(world.get::<Position>(entities[0]).unwrap(), &Position { x: 1.0, y: 0.0 });
     /// assert_eq!(world.get::<Position>(entities[1]).unwrap(), &Position { x: 0.0, y: 1.0 });

@@ -153,7 +153,7 @@ where
         let location = world
             .entities
             .get(entity)
-            .ok_or(QueryEntityError::NoSuchEntity)?;
+            .map_err(|_| QueryEntityError::NoSuchEntity)?;
         if !self
             .matched_archetypes
             .contains(location.archetype_id.index())

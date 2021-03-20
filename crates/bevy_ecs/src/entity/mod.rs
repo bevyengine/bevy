@@ -164,6 +164,15 @@ pub struct Entities {
     len: u32,
 }
 
+/// Error getting the location of an entity.
+#[derive(Debug)]
+pub enum EntityLocationError {
+    /// This entity has not yet been spawned.
+    NotYetSpawned,
+    /// This entity has already been despawned.
+    AlreadyDespawned,
+}
+
 impl Entities {
     /// Reserve entity IDs concurrently
     ///
@@ -353,15 +362,16 @@ impl Entities {
     }
 
     /// Returns `Ok(Location { archetype: 0, index: undefined })` for pending entities
-    pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
+    pub fn get(&self, entity: Entity) -> Result<EntityLocation, EntityLocationError> {
         if (entity.id as usize) < self.meta.len() {
             let meta = &self.meta[entity.id as usize];
-            if meta.generation != entity.generation {
-                return None;
+            match meta.generation.cmp(&entity.generation) {
+                std::cmp::Ordering::Equal => Ok(meta.location),
+                std::cmp::Ordering::Less => Err(EntityLocationError::NotYetSpawned),
+                std::cmp::Ordering::Greater => Err(EntityLocationError::AlreadyDespawned),
             }
-            Some(meta.location)
         } else {
-            None
+            Err(EntityLocationError::NotYetSpawned)
         }
     }
 
