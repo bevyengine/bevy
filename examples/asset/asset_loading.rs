@@ -43,37 +43,35 @@ fn setup(
         ..Default::default()
     });
 
-    // Add entities to the world:
-    commands
-        // monkey
-        .spawn(PbrBundle {
-            mesh: monkey_handle,
-            material: material_handle.clone(),
-            transform: Transform::from_xyz(-3.0, 0.0, 0.0),
-            ..Default::default()
-        })
-        // cube
-        .spawn(PbrBundle {
-            mesh: cube_handle,
-            material: material_handle.clone(),
-            transform: Transform::from_xyz(0.0, 0.0, 0.0),
-            ..Default::default()
-        })
-        // sphere
-        .spawn(PbrBundle {
-            mesh: sphere_handle,
-            material: material_handle,
-            transform: Transform::from_xyz(3.0, 0.0, 0.0),
-            ..Default::default()
-        })
-        // light
-        .spawn(LightBundle {
-            transform: Transform::from_xyz(4.0, 5.0, 4.0),
-            ..Default::default()
-        })
-        // camera
-        .spawn(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(0.0, 3.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..Default::default()
-        });
+    // monkey
+    commands.spawn_bundle(PbrBundle {
+        mesh: monkey_handle,
+        material: material_handle.clone(),
+        transform: Transform::from_xyz(-3.0, 0.0, 0.0),
+        ..Default::default()
+    });
+    // cube
+    commands.spawn_bundle(PbrBundle {
+        mesh: cube_handle,
+        material: material_handle.clone(),
+        transform: Transform::from_xyz(0.0, 0.0, 0.0),
+        ..Default::default()
+    });
+    // sphere
+    commands.spawn_bundle(PbrBundle {
+        mesh: sphere_handle,
+        material: material_handle,
+        transform: Transform::from_xyz(3.0, 0.0, 0.0),
+        ..Default::default()
+    });
+    // light
+    commands.spawn_bundle(LightBundle {
+        transform: Transform::from_xyz(4.0, 5.0, 4.0),
+        ..Default::default()
+    });
+    // camera
+    commands.spawn_bundle(PerspectiveCameraBundle {
+        transform: Transform::from_xyz(0.0, 3.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..Default::default()
+    });
 }

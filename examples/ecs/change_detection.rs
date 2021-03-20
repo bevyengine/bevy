@@ -16,8 +16,8 @@ fn main() {
 struct MyComponent(f64);
 
 fn setup(mut commands: Commands) {
-    commands.spawn((MyComponent(0.),));
-    commands.spawn((Transform::identity(),));
+    commands.spawn().insert(MyComponent(0.));
+    commands.spawn().insert(Transform::identity());
 }
 
 fn change_component(time: Res<Time>, mut query: Query<(Entity, &mut MyComponent)>) {

@@ -8,17 +8,17 @@ fn spawn_system(
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     let texture_handle = asset_server.load("branding/icon.png");
     let material = materials.add(texture_handle.into());
     for _ in 0..128 {
         commands
-            .spawn(SpriteBundle {
+            .spawn_bundle(SpriteBundle {
                 material: material.clone(),
                 transform: Transform::from_scale(Vec3::splat(0.1)),
                 ..Default::default()
             })
-            .with(Velocity(
+            .insert(Velocity(
                 20.0 * Vec2::new(random::<f32>() - 0.5, random::<f32>() - 0.5),
             ));
     }

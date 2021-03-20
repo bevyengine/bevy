@@ -60,10 +60,10 @@ fn setup(
     asset_server: Res<AssetServer>,
     button_materials: Res<ButtonMaterials>,
 ) {
+    // ui camera
+    commands.spawn_bundle(UiCameraBundle::default());
     commands
-        // ui camera
-        .spawn(UiCameraBundle::default())
-        .spawn(ButtonBundle {
+        .spawn_bundle(ButtonBundle {
             style: Style {
                 size: Size::new(Val::Px(150.0), Val::Px(65.0)),
                 // center button
@@ -78,7 +78,7 @@ fn setup(
             ..Default::default()
         })
         .with_children(|parent| {
-            parent.spawn(TextBundle {
+            parent.spawn_bundle(TextBundle {
                 text: Text::with_section(
                     "Button",
                     TextStyle {

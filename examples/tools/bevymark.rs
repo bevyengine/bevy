@@ -53,58 +53,57 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands
-        .spawn(OrthographicCameraBundle::new_2d())
-        .spawn(UiCameraBundle::default())
-        .spawn(TextBundle {
-            text: Text {
-                sections: vec![
-                    TextSection {
-                        value: "Bird Count: ".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 40.0,
-                            color: Color::rgb(0.0, 1.0, 0.0),
-                        },
+    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(UiCameraBundle::default());
+    commands.spawn_bundle(TextBundle {
+        text: Text {
+            sections: vec![
+                TextSection {
+                    value: "Bird Count: ".to_string(),
+                    style: TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 40.0,
+                        color: Color::rgb(0.0, 1.0, 0.0),
                     },
-                    TextSection {
-                        value: "".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 40.0,
-                            color: Color::rgb(0.0, 1.0, 1.0),
-                        },
-                    },
-                    TextSection {
-                        value: "\nAverage FPS: ".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 40.0,
-                            color: Color::rgb(0.0, 1.0, 0.0),
-                        },
-                    },
-                    TextSection {
-                        value: "".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 40.0,
-                            color: Color::rgb(0.0, 1.0, 1.0),
-                        },
-                    },
-                ],
-                ..Default::default()
-            },
-            style: Style {
-                position_type: PositionType::Absolute,
-                position: Rect {
-                    top: Val::Px(5.0),
-                    left: Val::Px(5.0),
-                    ..Default::default()
                 },
+                TextSection {
+                    value: "".to_string(),
+                    style: TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 40.0,
+                        color: Color::rgb(0.0, 1.0, 1.0),
+                    },
+                },
+                TextSection {
+                    value: "\nAverage FPS: ".to_string(),
+                    style: TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 40.0,
+                        color: Color::rgb(0.0, 1.0, 0.0),
+                    },
+                },
+                TextSection {
+                    value: "".to_string(),
+                    style: TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 40.0,
+                        color: Color::rgb(0.0, 1.0, 1.0),
+                    },
+                },
+            ],
+            ..Default::default()
+        },
+        style: Style {
+            position_type: PositionType::Absolute,
+            position: Rect {
+                top: Val::Px(5.0),
+                left: Val::Px(5.0),
                 ..Default::default()
             },
             ..Default::default()
-        });
+        },
+        ..Default::default()
+    });
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -138,7 +137,7 @@ fn mouse_handler(
         for count in 0..spawn_count {
             let bird_z = (counter.count + count) as f32 * 0.00001;
             commands
-                .spawn(SpriteBundle {
+                .spawn_bundle(SpriteBundle {
                     material: bird_material.0.clone(),
                     transform: Transform {
                         translation: Vec3::new(bird_x, bird_y, bird_z),
@@ -147,7 +146,7 @@ fn mouse_handler(
                     },
                     ..Default::default()
                 })
-                .with(Bird {
+                .insert(Bird {
                     velocity: Vec3::new(
                         rand::random::<f32>() * MAX_VELOCITY - (MAX_VELOCITY * 0.5),
                         0.,

@@ -1,9 +1,8 @@
 use crate::prelude::{Children, Parent, PreviousParent};
 use bevy_ecs::{
     bundle::Bundle,
-    component::Component,
     entity::Entity,
-    system::{Command, Commands},
+    system::{Command, Commands, EntityCommands},
     world::{EntityMut, World},
 };
 use smallvec::SmallVec;
@@ -47,7 +46,7 @@ pub struct PushChildren {
 }
 
 pub struct ChildBuilder<'a, 'b> {
-    commands: &'a mut Commands<'b>,
+    commands: &'b mut Commands<'a>,
     push_children: PushChildren,
 }
 
@@ -77,124 +76,65 @@ impl Command for PushChildren {
 }
 
 impl<'a, 'b> ChildBuilder<'a, 'b> {
-    pub fn spawn(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.commands.spawn(bundle);
-        self.push_children
-            .children
-            .push(self.commands.current_entity().unwrap());
-        self
+    pub fn spawn_bundle(&mut self, bundle: impl Bundle) -> EntityCommands<'a, '_> {
+        let e = self.commands.spawn_bundle(bundle);
+        self.push_children.children.push(e.id());
+        e
     }
 
-    pub fn current_entity(&self) -> Option<Entity> {
-        self.commands.current_entity()
+    pub fn spawn(&mut self) -> EntityCommands<'a, '_> {
+        let e = self.commands.spawn();
+        self.push_children.children.push(e.id());
+        e
     }
 
     pub fn parent_entity(&self) -> Entity {
         self.push_children.parent
     }
 
-    pub fn with_bundle(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.commands.with_bundle(bundle);
-        self
-    }
-
-    pub fn with(&mut self, component: impl Component) -> &mut Self {
-        self.commands.with(component);
-        self
-    }
-
-    pub fn for_current_entity(&mut self, func: impl FnOnce(Entity)) -> &mut Self {
-        let current_entity = self
-            .commands
-            .current_entity()
-            .expect("The 'current entity' is not set. You should spawn an entity first.");
-        func(current_entity);
-        self
-    }
-
     pub fn add_command<C: Command + 'static>(&mut self, command: C) -> &mut Self {
-        self.commands.add_command(command);
+        self.commands.add(command);
         self
     }
 }
 
 pub trait BuildChildren {
     fn with_children(&mut self, f: impl FnOnce(&mut ChildBuilder)) -> &mut Self;
-    fn push_children(&mut self, parent: Entity, children: &[Entity]) -> &mut Self;
-    fn insert_children(&mut self, parent: Entity, index: usize, children: &[Entity]) -> &mut Self;
+    fn push_children(&mut self, children: &[Entity]) -> &mut Self;
+    fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self;
 }
 
-impl<'a> BuildChildren for Commands<'a> {
-    fn with_children(&mut self, parent: impl FnOnce(&mut ChildBuilder)) -> &mut Self {
-        let current_entity = self.current_entity().expect("Cannot add children because the 'current entity' is not set. You should spawn an entity first.");
-        self.clear_current_entity();
-        let push_children = {
-            let mut builder = ChildBuilder {
-                commands: self,
-                push_children: PushChildren {
-                    children: SmallVec::default(),
-                    parent: current_entity,
-                },
-            };
-            parent(&mut builder);
-            builder.push_children
-        };
-
-        self.set_current_entity(current_entity);
-        self.add_command(push_children);
-        self
-    }
-
-    fn push_children(&mut self, parent: Entity, children: &[Entity]) -> &mut Self {
-        self.add_command(PushChildren {
-            children: SmallVec::from(children),
-            parent,
-        });
-        self
-    }
-
-    fn insert_children(&mut self, parent: Entity, index: usize, children: &[Entity]) -> &mut Self {
-        self.add_command(InsertChildren {
-            children: SmallVec::from(children),
-            index,
-            parent,
-        });
-        self
-    }
-}
-
-impl<'a, 'b> BuildChildren for ChildBuilder<'a, 'b> {
+impl<'a, 'b> BuildChildren for EntityCommands<'a, 'b> {
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut ChildBuilder)) -> &mut Self {
-        let current_entity = self.commands.current_entity().expect("Cannot add children because the 'current entity' is not set. You should spawn an entity first.");
-        self.commands.clear_current_entity();
+        let parent = self.id();
         let push_children = {
             let mut builder = ChildBuilder {
-                commands: self.commands,
+                commands: self.commands(),
                 push_children: PushChildren {
                     children: SmallVec::default(),
-                    parent: current_entity,
+                    parent,
                 },
             };
-
             spawn_children(&mut builder);
             builder.push_children
         };
 
-        self.commands.set_current_entity(current_entity);
-        self.commands.add_command(push_children);
+        self.commands().add(push_children);
         self
     }
 
-    fn push_children(&mut self, parent: Entity, children: &[Entity]) -> &mut Self {
-        self.commands.add_command(PushChildren {
+    fn push_children(&mut self, children: &[Entity]) -> &mut Self {
+        let parent = self.id();
+        self.commands().add(PushChildren {
             children: SmallVec::from(children),
             parent,
         });
         self
     }
 
-    fn insert_children(&mut self, parent: Entity, index: usize, children: &[Entity]) -> &mut Self {
-        self.commands.add_command(InsertChildren {
+    fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
+        let parent = self.id();
+        self.commands().add(InsertChildren {
             children: SmallVec::from(children),
             index,
             parent,
@@ -211,12 +151,8 @@ pub struct WorldChildBuilder<'w> {
 }
 
 impl<'w> WorldChildBuilder<'w> {
-    pub fn spawn(&mut self, bundle: impl Bundle + Send + Sync + 'static) -> &mut Self {
-        let parent_entity = self
-            .parent_entities
-            .last()
-            .cloned()
-            .expect("There should always be a parent at this point.");
+    pub fn spawn_bundle(&mut self, bundle: impl Bundle + Send + Sync + 'static) -> EntityMut<'_> {
+        let parent_entity = self.parent_entity();
         let entity = self
             .world
             .spawn()
@@ -231,33 +167,32 @@ impl<'w> WorldChildBuilder<'w> {
                 parent.insert(Children(smallvec::smallvec![entity]));
             }
         }
-        self
+        self.world.entity_mut(entity)
     }
 
-    pub fn with_bundle(&mut self, bundle: impl Bundle + Send + Sync + 'static) -> &mut Self {
-        self.world
-            .entity_mut(self.current_entity.unwrap())
-            .insert_bundle(bundle);
-        self
+    pub fn spawn(&mut self) -> EntityMut<'_> {
+        let parent_entity = self.parent_entity();
+        let entity = self
+            .world
+            .spawn()
+            .insert_bundle((Parent(parent_entity), PreviousParent(parent_entity)))
+            .id();
+        self.current_entity = Some(entity);
+        if let Some(mut parent) = self.world.get_entity_mut(parent_entity) {
+            if let Some(mut children) = parent.get_mut::<Children>() {
+                children.0.push(entity);
+            } else {
+                parent.insert(Children(smallvec::smallvec![entity]));
+            }
+        }
+        self.world.entity_mut(entity)
     }
 
-    pub fn with(&mut self, component: impl Component) -> &mut Self {
-        self.world
-            .entity_mut(self.current_entity.unwrap())
-            .insert(component);
-        self
-    }
-
-    pub fn current_entity(&self) -> Option<Entity> {
-        self.current_entity
-    }
-
-    pub fn for_current_entity(&mut self, func: impl FnOnce(Entity)) -> &mut Self {
-        let current_entity = self
-            .current_entity()
-            .expect("The 'current entity' is not set. You should spawn an entity first.");
-        func(current_entity);
-        self
+    pub fn parent_entity(&self) -> Entity {
+        self.parent_entities
+            .last()
+            .cloned()
+            .expect("There should always be a parent at this point.")
     }
 }
 
@@ -319,45 +254,28 @@ mod tests {
         let mut queue = CommandQueue::default();
         let mut commands = Commands::new(&mut queue, &world);
 
-        let mut parent = None;
-        let mut child1 = None;
-        let mut child2 = None;
-        let mut child3 = None;
-
-        commands
-            .spawn((1,))
-            .for_current_entity(|e| parent = Some(e))
-            .with_children(|parent| {
-                parent
-                    .spawn((2,))
-                    .for_current_entity(|e| child1 = Some(e))
-                    .spawn((3,))
-                    .for_current_entity(|e| child2 = Some(e))
-                    .spawn((4,));
-
-                child3 = parent.current_entity();
-            });
+        let mut children = Vec::new();
+        let parent = commands.spawn().insert(1).id();
+        commands.entity(parent).with_children(|parent| {
+            children.push(parent.spawn().insert(2).id());
+            children.push(parent.spawn().insert(3).id());
+            children.push(parent.spawn().insert(4).id());
+        });
 
         queue.apply(&mut world);
-        let parent = parent.expect("parent should exist");
-        let child1 = child1.expect("child1 should exist");
-        let child2 = child2.expect("child2 should exist");
-        let child3 = child3.expect("child3 should exist");
-        let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child2, child3];
-
         assert_eq!(
-            world.get::<Children>(parent).unwrap().0.clone(),
-            expected_children
+            world.get::<Children>(parent).unwrap().0.as_slice(),
+            children.as_slice(),
         );
-        assert_eq!(*world.get::<Parent>(child1).unwrap(), Parent(parent));
-        assert_eq!(*world.get::<Parent>(child2).unwrap(), Parent(parent));
+        assert_eq!(*world.get::<Parent>(children[0]).unwrap(), Parent(parent));
+        assert_eq!(*world.get::<Parent>(children[1]).unwrap(), Parent(parent));
 
         assert_eq!(
-            *world.get::<PreviousParent>(child1).unwrap(),
+            *world.get::<PreviousParent>(children[0]).unwrap(),
             PreviousParent(parent)
         );
         assert_eq!(
-            *world.get::<PreviousParent>(child2).unwrap(),
+            *world.get::<PreviousParent>(children[1]).unwrap(),
             PreviousParent(parent)
         );
     }
@@ -373,7 +291,7 @@ mod tests {
         let mut queue = CommandQueue::default();
         {
             let mut commands = Commands::new(&mut queue, &world);
-            commands.push_children(entities[0], &entities[1..3]);
+            commands.entity(entities[0]).push_children(&entities[1..3]);
         }
         queue.apply(&mut world);
 
@@ -402,7 +320,7 @@ mod tests {
 
         {
             let mut commands = Commands::new(&mut queue, &world);
-            commands.insert_children(parent, 1, &entities[3..]);
+            commands.entity(parent).insert_children(1, &entities[3..]);
         }
         queue.apply(&mut world);
 
