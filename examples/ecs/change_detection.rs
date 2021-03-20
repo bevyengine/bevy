@@ -8,7 +8,7 @@ fn main() {
         .add_startup_system(setup.system())
         .add_system(change_component.system())
         .add_system(change_detection.system())
-        .add_system(flags_monitoring.system())
+        .add_system(tracker_monitoring.system())
         .run();
 }
 
@@ -29,7 +29,7 @@ fn change_component(time: Res<Time>, mut query: Query<(Entity, &mut MyComponent)
     }
 }
 
-// There are query filters for `Changed<T>`, `Added<T>` and `Mutated<T>`
+// There are query filters for `Changed<T>` and `Added<T>`
 // Only entities matching the filters will be in the query
 fn change_detection(query: Query<(Entity, &MyComponent), Changed<MyComponent>>) {
     for (entity, component) in query.iter() {
@@ -37,9 +37,15 @@ fn change_detection(query: Query<(Entity, &MyComponent), Changed<MyComponent>>) 
     }
 }
 
-// By looking at flags, the query is not filtered but the information is available
-fn flags_monitoring(query: Query<(Entity, Option<&MyComponent>, Option<Flags<MyComponent>>)>) {
-    for (entity, component, flags) in query.iter() {
-        info!("{:?}: {:?} -> {:?}", entity, component, flags,);
+// By looking at trackers, the query is not filtered but the information is available
+fn tracker_monitoring(
+    query: Query<(
+        Entity,
+        Option<&MyComponent>,
+        Option<ChangeTrackers<MyComponent>>,
+    )>,
+) {
+    for (entity, component, trackers) in query.iter() {
+        info!("{:?}: {:?} -> {:?}", entity, component, trackers);
     }
 }

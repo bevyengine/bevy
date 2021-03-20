@@ -36,7 +36,7 @@ fn camera_order_color_system(
             if let Ok(material_handle) = material_query.get(visible_entity.entity) {
                 let material = materials.get_mut(&*material_handle).unwrap();
                 let value = 1.0 - (visible_entity.order.0.sqrt() - 10.0) / 7.0;
-                material.albedo = Color::rgb(value, value, value);
+                material.base_color = Color::rgb(value, value, value);
             }
         }
     }

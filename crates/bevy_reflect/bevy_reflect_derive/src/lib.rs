@@ -261,7 +261,8 @@ fn impl_struct(
             }
         }
 
-        impl #impl_generics #bevy_reflect_path::Reflect for #struct_name#ty_generics #where_clause {
+        // SAFE: any and any_mut both return self
+        unsafe impl #impl_generics #bevy_reflect_path::Reflect for #struct_name#ty_generics #where_clause {
             #[inline]
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
@@ -382,7 +383,8 @@ fn impl_tuple_struct(
             }
         }
 
-        impl #impl_generics #bevy_reflect_path::Reflect for #struct_name#ty_generics {
+        // SAFE: any and any_mut both return self
+        unsafe impl #impl_generics #bevy_reflect_path::Reflect for #struct_name#ty_generics {
             #[inline]
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
@@ -457,7 +459,8 @@ fn impl_value(
     TokenStream::from(quote! {
         #get_type_registration_impl
 
-        impl #impl_generics #bevy_reflect_path::Reflect for #type_name#ty_generics #where_clause  {
+        // SAFE: any and any_mut both return self
+        unsafe impl #impl_generics #bevy_reflect_path::Reflect for #type_name#ty_generics #where_clause  {
             #[inline]
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()

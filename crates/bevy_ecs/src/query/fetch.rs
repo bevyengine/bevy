@@ -1,6 +1,6 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
-    component::{Component, ComponentFlags, ComponentId, StorageType},
+    component::{Component, ComponentId, ComponentTicks, StorageType},
     entity::Entity,
     query::{Access, FilteredAccess},
     storage::{ComponentSparseSet, Table, Tables},
@@ -26,7 +26,12 @@ pub trait Fetch<'w>: Sized {
     /// # Safety
     /// `state` must have been initialized (via [FetchState::init]) using the same `world` passed in
     /// to this function.
-    unsafe fn init(world: &World, state: &Self::State) -> Self;
+    unsafe fn init(
+        world: &World,
+        state: &Self::State,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> Self;
 
     /// Returns true if (and only if) every table of every archetype matched by this Fetch contains
     /// all of the matched components. This is used to select a more efficient "table iterator"
@@ -140,7 +145,12 @@ impl<'w> Fetch<'w> for EntityFetch {
         true
     }
 
-    unsafe fn init(_world: &World, _state: &Self::State) -> Self {
+    unsafe fn init(
+        _world: &World,
+        _state: &Self::State,
+        _last_change_tick: u32,
+        _change_tick: u32,
+    ) -> Self {
         Self {
             entities: std::ptr::null::<Entity>(),
         }
@@ -243,7 +253,12 @@ impl<'w, T: Component> Fetch<'w> for ReadFetch<T> {
         }
     }
 
-    unsafe fn init(world: &World, state: &Self::State) -> Self {
+    unsafe fn init(
+        world: &World,
+        state: &Self::State,
+        _last_change_tick: u32,
+        _change_tick: u32,
+    ) -> Self {
         let mut value = Self {
             storage_type: state.storage_type,
             table_components: NonNull::dangling(),
@@ -317,10 +332,12 @@ impl<T: Component> WorldQuery for &mut T {
 pub struct WriteFetch<T> {
     storage_type: StorageType,
     table_components: NonNull<T>,
-    table_flags: *mut ComponentFlags,
+    table_ticks: *mut ComponentTicks,
     entities: *const Entity,
     entity_table_rows: *const usize,
     sparse_set: *const ComponentSparseSet,
+    last_change_tick: u32,
+    change_tick: u32,
 }
 
 pub struct WriteState<T> {
@@ -382,14 +399,21 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
         }
     }
 
-    unsafe fn init(world: &World, state: &Self::State) -> Self {
+    unsafe fn init(
+        world: &World,
+        state: &Self::State,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> Self {
         let mut value = Self {
             storage_type: state.storage_type,
             table_components: NonNull::dangling(),
             entities: ptr::null::<Entity>(),
             entity_table_rows: ptr::null::<usize>(),
             sparse_set: ptr::null::<ComponentSparseSet>(),
-            table_flags: ptr::null_mut::<ComponentFlags>(),
+            table_ticks: ptr::null_mut::<ComponentTicks>(),
+            last_change_tick,
+            change_tick,
         };
         if state.storage_type == StorageType::SparseSet {
             value.sparse_set = world
@@ -415,7 +439,7 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
                     .get_column(state.component_id)
                     .unwrap();
                 self.table_components = column.get_ptr().cast::<T>();
-                self.table_flags = column.get_flags_mut_ptr();
+                self.table_ticks = column.get_ticks_mut_ptr();
             }
             StorageType::SparseSet => self.entities = archetype.entities().as_ptr(),
         }
@@ -425,7 +449,7 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
     unsafe fn set_table(&mut self, state: &Self::State, table: &Table) {
         let column = table.get_column(state.component_id).unwrap();
         self.table_components = column.get_ptr().cast::<T>();
-        self.table_flags = column.get_flags_mut_ptr();
+        self.table_ticks = column.get_ticks_mut_ptr();
     }
 
     #[inline]
@@ -435,15 +459,20 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
                 let table_row = *self.entity_table_rows.add(archetype_index);
                 Mut {
                     value: &mut *self.table_components.as_ptr().add(table_row),
-                    flags: &mut *self.table_flags.add(table_row),
+                    component_ticks: &mut *self.table_ticks.add(table_row),
+                    change_tick: self.change_tick,
+                    last_change_tick: self.last_change_tick,
                 }
             }
             StorageType::SparseSet => {
                 let entity = *self.entities.add(archetype_index);
-                let (component, flags) = (*self.sparse_set).get_with_flags(entity).unwrap();
+                let (component, component_ticks) =
+                    (*self.sparse_set).get_with_ticks(entity).unwrap();
                 Mut {
                     value: &mut *component.cast::<T>(),
-                    flags: &mut *flags,
+                    component_ticks: &mut *component_ticks,
+                    change_tick: self.change_tick,
+                    last_change_tick: self.last_change_tick,
                 }
             }
         }
@@ -453,7 +482,9 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
         Mut {
             value: &mut *self.table_components.as_ptr().add(table_row),
-            flags: &mut *self.table_flags.add(table_row),
+            component_ticks: &mut *self.table_ticks.add(table_row),
+            change_tick: self.change_tick,
+            last_change_tick: self.last_change_tick,
         }
     }
 }
@@ -517,9 +548,14 @@ impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
         self.fetch.is_dense()
     }
 
-    unsafe fn init(world: &World, state: &Self::State) -> Self {
+    unsafe fn init(
+        world: &World,
+        state: &Self::State,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> Self {
         Self {
-            fetch: T::init(world, &state.state),
+            fetch: T::init(world, &state.state, last_change_tick, change_tick),
             matches: false,
         }
     }
@@ -564,45 +600,44 @@ impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
     }
 }
 
-/// Flags on component `T` that happened since the start of the frame.
+/// Change trackers for component `T`
 #[derive(Clone)]
-pub struct Flags<T: Component> {
-    flags: ComponentFlags,
+pub struct ChangeTrackers<T: Component> {
+    pub(crate) component_ticks: ComponentTicks,
+    pub(crate) last_change_tick: u32,
+    pub(crate) change_tick: u32,
     marker: PhantomData<T>,
 }
-impl<T: Component> std::fmt::Debug for Flags<T> {
+impl<T: Component> std::fmt::Debug for ChangeTrackers<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Flags")
-            .field("added", &self.added())
-            .field("mutated", &self.mutated())
+        f.debug_struct("ChangeTrackers")
+            .field("component_ticks", &self.component_ticks)
+            .field("last_change_tick", &self.last_change_tick)
+            .field("change_tick", &self.change_tick)
             .finish()
     }
 }
 
-impl<T: Component> Flags<T> {
-    /// Has this component been added since the start of the frame.
-    pub fn added(&self) -> bool {
-        self.flags.contains(ComponentFlags::ADDED)
+impl<T: Component> ChangeTrackers<T> {
+    /// Has this component been added since the last execution of this system.
+    pub fn is_added(&self) -> bool {
+        self.component_ticks
+            .is_added(self.last_change_tick, self.change_tick)
     }
 
-    /// Has this component been mutated since the start of the frame.
-    pub fn mutated(&self) -> bool {
-        self.flags.contains(ComponentFlags::MUTATED)
-    }
-
-    /// Has this component been either mutated or added since the start of the frame.
-    pub fn changed(&self) -> bool {
-        self.flags
-            .intersects(ComponentFlags::ADDED | ComponentFlags::MUTATED)
+    /// Has this component been changed since the last execution of this system.
+    pub fn is_changed(&self) -> bool {
+        self.component_ticks
+            .is_changed(self.last_change_tick, self.change_tick)
     }
 }
 
-impl<T: Component> WorldQuery for Flags<T> {
-    type Fetch = FlagsFetch<T>;
-    type State = FlagsState<T>;
+impl<T: Component> WorldQuery for ChangeTrackers<T> {
+    type Fetch = ChangeTrackersFetch<T>;
+    type State = ChangeTrackersState<T>;
 }
 
-pub struct FlagsState<T> {
+pub struct ChangeTrackersState<T> {
     component_id: ComponentId,
     storage_type: StorageType,
     marker: PhantomData<T>,
@@ -610,7 +645,7 @@ pub struct FlagsState<T> {
 
 // SAFE: component access and archetype component access are properly updated to reflect that T is
 // read
-unsafe impl<T: Component> FetchState for FlagsState<T> {
+unsafe impl<T: Component> FetchState for ChangeTrackersState<T> {
     fn init(world: &mut World) -> Self {
         let component_info = world.components.get_or_insert_info::<T>();
         Self {
@@ -645,21 +680,23 @@ unsafe impl<T: Component> FetchState for FlagsState<T> {
     }
 }
 
-pub struct FlagsFetch<T> {
+pub struct ChangeTrackersFetch<T> {
     storage_type: StorageType,
-    table_flags: *const ComponentFlags,
+    table_ticks: *const ComponentTicks,
     entity_table_rows: *const usize,
     entities: *const Entity,
     sparse_set: *const ComponentSparseSet,
     marker: PhantomData<T>,
+    last_change_tick: u32,
+    change_tick: u32,
 }
 
 /// SAFE: access is read only  
-unsafe impl<T> ReadOnlyFetch for FlagsFetch<T> {}
+unsafe impl<T> ReadOnlyFetch for ChangeTrackersFetch<T> {}
 
-impl<'w, T: Component> Fetch<'w> for FlagsFetch<T> {
-    type Item = Flags<T>;
-    type State = FlagsState<T>;
+impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
+    type Item = ChangeTrackers<T>;
+    type State = ChangeTrackersState<T>;
 
     #[inline]
     fn is_dense(&self) -> bool {
@@ -669,14 +706,21 @@ impl<'w, T: Component> Fetch<'w> for FlagsFetch<T> {
         }
     }
 
-    unsafe fn init(world: &World, state: &Self::State) -> Self {
+    unsafe fn init(
+        world: &World,
+        state: &Self::State,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> Self {
         let mut value = Self {
             storage_type: state.storage_type,
-            table_flags: ptr::null::<ComponentFlags>(),
+            table_ticks: ptr::null::<ComponentTicks>(),
             entities: ptr::null::<Entity>(),
             entity_table_rows: ptr::null::<usize>(),
             sparse_set: ptr::null::<ComponentSparseSet>(),
             marker: PhantomData,
+            last_change_tick,
+            change_tick,
         };
         if state.storage_type == StorageType::SparseSet {
             value.sparse_set = world
@@ -701,7 +745,7 @@ impl<'w, T: Component> Fetch<'w> for FlagsFetch<T> {
                 let column = tables[archetype.table_id()]
                     .get_column(state.component_id)
                     .unwrap();
-                self.table_flags = column.get_flags_mut_ptr().cast::<ComponentFlags>();
+                self.table_ticks = column.get_ticks_mut_ptr().cast::<ComponentTicks>();
             }
             StorageType::SparseSet => self.entities = archetype.entities().as_ptr(),
         }
@@ -709,11 +753,11 @@ impl<'w, T: Component> Fetch<'w> for FlagsFetch<T> {
 
     #[inline]
     unsafe fn set_table(&mut self, state: &Self::State, table: &Table) {
-        self.table_flags = table
+        self.table_ticks = table
             .get_column(state.component_id)
             .unwrap()
-            .get_flags_mut_ptr()
-            .cast::<ComponentFlags>();
+            .get_ticks_mut_ptr()
+            .cast::<ComponentTicks>();
     }
 
     #[inline]
@@ -721,16 +765,20 @@ impl<'w, T: Component> Fetch<'w> for FlagsFetch<T> {
         match self.storage_type {
             StorageType::Table => {
                 let table_row = *self.entity_table_rows.add(archetype_index);
-                Flags {
-                    flags: *self.table_flags.add(table_row),
+                ChangeTrackers {
+                    component_ticks: *self.table_ticks.add(table_row),
                     marker: PhantomData,
+                    last_change_tick: self.last_change_tick,
+                    change_tick: self.change_tick,
                 }
             }
             StorageType::SparseSet => {
                 let entity = *self.entities.add(archetype_index);
-                Flags {
-                    flags: *(*self.sparse_set).get_flags(entity).unwrap(),
+                ChangeTrackers {
+                    component_ticks: *(*self.sparse_set).get_ticks(entity).unwrap(),
                     marker: PhantomData,
+                    last_change_tick: self.last_change_tick,
+                    change_tick: self.change_tick,
                 }
             }
         }
@@ -738,9 +786,11 @@ impl<'w, T: Component> Fetch<'w> for FlagsFetch<T> {
 
     #[inline]
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
-        Flags {
-            flags: *self.table_flags.add(table_row),
+        ChangeTrackers {
+            component_ticks: *self.table_ticks.add(table_row),
             marker: PhantomData,
+            last_change_tick: self.last_change_tick,
+            change_tick: self.change_tick,
         }
     }
 }
@@ -752,9 +802,9 @@ macro_rules! impl_tuple_fetch {
             type Item = ($($name::Item,)*);
             type State = ($($name::State,)*);
 
-            unsafe fn init(_world: &World, state: &Self::State) -> Self {
+            unsafe fn init(_world: &World, state: &Self::State, _last_change_tick: u32, _change_tick: u32) -> Self {
                 let ($($name,)*) = state;
-                ($($name::init(_world, $name),)*)
+                ($($name::init(_world, $name, _last_change_tick, _change_tick),)*)
             }
 
 

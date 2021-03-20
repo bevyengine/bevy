@@ -65,7 +65,8 @@ impl<T: Reflect> List for Vec<T> {
     }
 }
 
-impl<T: Reflect> Reflect for Vec<T> {
+// SAFE: any and any_mut both return self
+unsafe impl<T: Reflect> Reflect for Vec<T> {
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
     }
@@ -160,7 +161,8 @@ impl<K: Reflect + Clone + Eq + Hash, V: Reflect + Clone> Map for HashMap<K, V> {
     }
 }
 
-impl<K: Reflect + Clone + Eq + Hash, V: Reflect + Clone> Reflect for HashMap<K, V> {
+// SAFE: any and any_mut both return self
+unsafe impl<K: Reflect + Clone + Eq + Hash, V: Reflect + Clone> Reflect for HashMap<K, V> {
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
     }
@@ -227,7 +229,8 @@ where
     }
 }
 
-impl Reflect for Cow<'static, str> {
+// SAFE: any and any_mut both return self
+unsafe impl Reflect for Cow<'static, str> {
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
     }

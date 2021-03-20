@@ -29,7 +29,7 @@ struct SelectTimer;
 struct ContributorDisplay;
 
 struct Contributor {
-    color: [f32; 3],
+    hue: f32,
 }
 
 struct Velocity {
@@ -40,8 +40,11 @@ struct Velocity {
 const GRAVITY: f32 = -9.821 * 100.0;
 const SPRITE_SIZE: f32 = 75.0;
 
-const COL_DESELECTED: Color = Color::rgba_linear(0.03, 0.03, 0.03, 0.92);
-const COL_SELECTED: Color = Color::WHITE;
+const SATURATION_DESELECTED: f32 = 0.3;
+const LIGHTNESS_DESELECTED: f32 = 0.2;
+const SATURATION_SELECTED: f32 = 0.9;
+const LIGHTNESS_SELECTED: f32 = 0.7;
+const ALPHA: f32 = 0.92;
 
 const SHOWCASE_TIMER_SECS: f32 = 3.0;
 
@@ -69,7 +72,7 @@ fn setup(
         let pos = (rnd.gen_range(-400.0..400.0), rnd.gen_range(0.0..400.0));
         let dir = rnd.gen_range(-1.0..1.0);
         let velocity = Vec3::new(dir * 500.0, 0.0, 0.0);
-        let col = gen_color(&mut rnd);
+        let hue = rnd.gen_range(0.0..=360.0);
 
         // some sprites should be flipped
         let flipped = rnd.gen_bool(0.5);
@@ -77,7 +80,7 @@ fn setup(
         let transform = Transform::from_xyz(pos.0, pos.1, 0.0);
 
         commands
-            .spawn((Contributor { color: col },))
+            .spawn((Contributor { hue },))
             .with(Velocity {
                 translation: velocity,
                 rotation: -dir * 5.0,
@@ -90,12 +93,12 @@ fn setup(
                     ..Default::default()
                 },
                 material: materials.add(ColorMaterial {
-                    color: COL_DESELECTED * col,
+                    color: Color::hsla(hue, SATURATION_DESELECTED, LIGHTNESS_DESELECTED, ALPHA),
                     texture: Some(texture_handle.clone()),
                 }),
+                transform,
                 ..Default::default()
-            })
-            .with(transform);
+            });
 
         let e = commands.current_entity().unwrap();
 
@@ -180,15 +183,8 @@ fn select_system(
     let (name, e) = &sel.order[sel.idx];
 
     if let Ok((c, handle, mut tr)) = q.get_mut(*e) {
-        for mut text in dq.iter_mut() {
-            select(
-                &mut *materials,
-                handle.clone(),
-                c,
-                &mut *tr,
-                &mut *text,
-                name,
-            );
+        if let Some(mut text) = dq.iter_mut().next() {
+            select(&mut *materials, handle, c, &mut *tr, &mut *text, name);
         }
     }
 }
@@ -197,14 +193,14 @@ fn select_system(
 /// bring the object to the front and display the name.
 fn select(
     materials: &mut Assets<ColorMaterial>,
-    mat_handle: Handle<ColorMaterial>,
+    mat_handle: &Handle<ColorMaterial>,
     cont: &Contributor,
     trans: &mut Transform,
     text: &mut Text,
     name: &str,
 ) -> Option<()> {
     let mat = materials.get_mut(mat_handle)?;
-    mat.color = COL_SELECTED * cont.color;
+    mat.color = Color::hsla(cont.hue, SATURATION_SELECTED, LIGHTNESS_SELECTED, ALPHA);
 
     trans.translation.z = 100.0;
 
@@ -224,7 +220,7 @@ fn deselect(
     trans: &mut Transform,
 ) -> Option<()> {
     let mat = materials.get_mut(mat_handle)?;
-    mat.color = COL_DESELECTED * cont.color;
+    mat.color = Color::hsla(cont.hue, SATURATION_DESELECTED, LIGHTNESS_DESELECTED, ALPHA);
 
     trans.translation.z = 0.0;
 
@@ -320,21 +316,4 @@ fn contributors() -> Contributors {
         .lines()
         .filter_map(|x| x.ok())
         .collect()
-}
-
-/// Generate a color modulation
-///
-/// Because there is no `Mul<Color> for Color` instead `[f32; 3]` is
-/// used.
-fn gen_color(rng: &mut impl Rng) -> [f32; 3] {
-    loop {
-        let rgb = rng.gen();
-        if luminance(rgb) >= 0.6 {
-            break rgb;
-        }
-    }
-}
-
-fn luminance([r, g, b]: [f32; 3]) -> f32 {
-    0.299 * r + 0.587 * g + 0.114 * b
 }

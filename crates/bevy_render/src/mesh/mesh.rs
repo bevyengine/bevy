@@ -234,8 +234,8 @@ pub struct Mesh {
 impl Mesh {
     /// Per vertex coloring. Use in conjunction with [`Mesh::set_attribute`]
     pub const ATTRIBUTE_COLOR: &'static str = "Vertex_Color";
-    /// The direction the vertex normal is facing in. Use in conjunction with
-    /// [`Mesh::set_attribute`]
+    /// The direction the vertex normal is facing in.
+    /// Use in conjunction with [`Mesh::set_attribute`]
     pub const ATTRIBUTE_NORMAL: &'static str = "Vertex_Normal";
     /// Where the vertex is located in space. Use in conjunction with [`Mesh::set_attribute`]
     pub const ATTRIBUTE_POSITION: &'static str = "Vertex_Position";

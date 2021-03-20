@@ -1,5 +1,5 @@
 use crate::{
-    system::{BoxedSystem, IntoSystem, System, SystemId},
+    system::{check_system_change_tick, BoxedSystem, IntoSystem, System, SystemId},
     world::World,
 };
 use std::borrow::Cow;
@@ -12,12 +12,15 @@ pub trait ExclusiveSystem: Send + Sync + 'static {
     fn run(&mut self, world: &mut World);
 
     fn initialize(&mut self, world: &mut World);
+
+    fn check_change_tick(&mut self, change_tick: u32);
 }
 
 pub struct ExclusiveSystemFn {
     func: Box<dyn FnMut(&mut World) + Send + Sync + 'static>,
     name: Cow<'static, str>,
     id: SystemId,
+    last_change_tick: u32,
 }
 
 impl ExclusiveSystem for ExclusiveSystemFn {
@@ -30,10 +33,25 @@ impl ExclusiveSystem for ExclusiveSystemFn {
     }
 
     fn run(&mut self, world: &mut World) {
+        // The previous value is saved in case this exclusive system is run by another exclusive
+        // system
+        let saved_last_tick = world.last_change_tick;
+        world.last_change_tick = self.last_change_tick;
+
         (self.func)(world);
+
+        let change_tick = world.change_tick.get_mut();
+        self.last_change_tick = *change_tick;
+        *change_tick += 1;
+
+        world.last_change_tick = saved_last_tick;
     }
 
     fn initialize(&mut self, _: &mut World) {}
+
+    fn check_change_tick(&mut self, change_tick: u32) {
+        check_system_change_tick(&mut self.last_change_tick, change_tick, self.name.as_ref());
+    }
 }
 
 pub trait IntoExclusiveSystem<Params, SystemType> {
@@ -49,6 +67,7 @@ where
             func: Box::new(self),
             name: core::any::type_name::<F>().into(),
             id: SystemId::new(),
+            last_change_tick: 0,
         }
     }
 }
@@ -73,6 +92,10 @@ impl ExclusiveSystem for ExclusiveSystemCoerced {
 
     fn initialize(&mut self, world: &mut World) {
         self.system.initialize(world);
+    }
+
+    fn check_change_tick(&mut self, change_tick: u32) {
+        self.system.check_change_tick(change_tick);
     }
 }
 

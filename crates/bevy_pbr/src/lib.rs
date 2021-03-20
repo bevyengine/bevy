@@ -42,9 +42,9 @@ impl Plugin for PbrPlugin {
         materials.set_untracked(
             Handle::<StandardMaterial>::default(),
             StandardMaterial {
-                albedo: Color::PINK,
+                base_color: Color::PINK,
                 unlit: true,
-                albedo_texture: None,
+                ..Default::default()
             },
         );
     }

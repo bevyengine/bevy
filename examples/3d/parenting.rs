@@ -29,7 +29,7 @@ fn setup(
 ) {
     let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 2.0 }));
     let cube_material_handle = materials.add(StandardMaterial {
-        albedo: Color::rgb(0.8, 0.7, 0.6),
+        base_color: Color::rgb(0.8, 0.7, 0.6),
         ..Default::default()
     });
 

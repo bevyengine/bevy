@@ -1,6 +1,6 @@
 use crate::{
     bundle::BundleId,
-    component::{ComponentFlags, ComponentId, StorageType},
+    component::{ComponentId, StorageType},
     entity::{Entity, EntityLocation},
     storage::{Column, SparseArray, SparseSet, SparseSetIndex, TableId},
 };
@@ -36,9 +36,14 @@ impl ArchetypeId {
     }
 }
 
+pub enum ComponentStatus {
+    Added,
+    Mutated,
+}
+
 pub struct FromBundle {
     pub archetype_id: ArchetypeId,
-    pub bundle_flags: Vec<ComponentFlags>,
+    pub bundle_status: Vec<ComponentStatus>,
 }
 
 #[derive(Default)]
@@ -70,13 +75,13 @@ impl Edges {
         &mut self,
         bundle_id: BundleId,
         archetype_id: ArchetypeId,
-        bundle_flags: Vec<ComponentFlags>,
+        bundle_status: Vec<ComponentStatus>,
     ) {
         self.from_bundle.insert(
             bundle_id,
             FromBundle {
                 archetype_id,
-                bundle_flags,
+                bundle_status,
             },
         );
     }

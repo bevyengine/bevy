@@ -183,7 +183,7 @@ pub enum WindowCommand {
 /// defines whether a videomode is chosen that best fits the width and height
 /// in the Window structure, or if these are ignored.
 /// E.g. when use_size is set to false the best video mode possible is chosen.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum WindowMode {
     Windowed,
     BorderlessFullscreen,

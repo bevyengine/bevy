@@ -45,7 +45,8 @@ where
     }
 }
 
-impl<T: Array + Send + Sync + 'static> Reflect for SmallVec<T>
+// SAFE: any and any_mut both return self
+unsafe impl<T: Array + Send + Sync + 'static> Reflect for SmallVec<T>
 where
     T::Item: Reflect + Clone,
 {
