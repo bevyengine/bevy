@@ -31,7 +31,7 @@ fn spawn_enemy(mut commands: Commands, character_template: Res<CharacterTemplate
 }
 
 #[test]
-fn did_hurt_ennemy() {
+fn did_hurt_enemy() {
     // Setup world and commands
     let mut world = World::default();
     let mut queue = CommandQueue::default();
