@@ -290,7 +290,12 @@ where
     L: RunCriteriaLabel,
 {
     fn pipe(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor {
-        RunCriteria::pipe(self, system)
+        RunCriteriaDescriptor {
+            system: RunCriteriaSystem::Chained(Box::new(system)),
+            label: None,
+            before: vec![],
+            after: vec![Box::new(self)],
+        }
     }
 }
 
