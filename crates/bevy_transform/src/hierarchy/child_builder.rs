@@ -263,6 +263,8 @@ impl<'w> WorldChildBuilder<'w> {
 
 pub trait BuildWorldChildren {
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self;
+    fn push_children(&mut self, children: &[Entity]) -> &mut Self;
+    fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self;
 }
 
 impl<'w> BuildWorldChildren for EntityMut<'w> {
@@ -282,6 +284,43 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
         self.update_location();
         self
     }
+
+    fn push_children(&mut self, children: &[Entity]) -> &mut Self {
+        let parent = self.id();
+        // SAFETY: update_location is called after the entity is modified
+        let world = unsafe { self.world_mut() };
+        for child in children.iter() {
+            world
+                .entity_mut(*child)
+                .insert_bundle((Parent(parent), PreviousParent(parent))); // FIXME: dom't erase the previous parent (see #1545)
+        }
+        if let Some(mut children_component) = world.get_mut::<Children>(parent) {
+            children_component.0.extend(children.iter().cloned());
+        } else {
+            world.entity_mut(parent).insert(Children::with(children));
+            self.update_location()
+        }
+        self
+    }
+
+    fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
+        let parent = self.id();
+        // SAFETY: update_location is called after the entity is modified
+        let world = unsafe { self.world_mut() };
+        for child in children.iter() {
+            world
+                .entity_mut(*child)
+                .insert_bundle((Parent(parent), PreviousParent(parent))); // FIXME: dom't erase the previous parent (see #1545)
+        }
+
+        if let Some(mut children_component) = world.get_mut::<Children>(parent) {
+            children_component.0.insert_from_slice(index, children);
+        } else {
+            world.entity_mut(parent).insert(Children::with(children));
+            self.update_location()
+        }
+        self
+    }
 }
 
 impl<'w> BuildWorldChildren for WorldChildBuilder<'w> {
@@ -298,6 +337,48 @@ impl<'w> BuildWorldChildren for WorldChildBuilder<'w> {
         spawn_children(self);
 
         self.current_entity = self.parent_entities.pop();
+        self
+    }
+
+    fn push_children(&mut self, children: &[Entity]) -> &mut Self {
+        let parent = self
+            .current_entity
+            .expect("Cannot add children without a parent. Try creating an entity first.");
+        self.parent_entities.push(parent);
+
+        for child in children.iter() {
+            self.world
+                .entity_mut(*child)
+                .insert_bundle((Parent(parent), PreviousParent(parent))); // FIXME: dom't erase the previous parent (see #1545)
+        }
+        if let Some(mut children_component) = self.world.get_mut::<Children>(parent) {
+            children_component.0.extend(children.iter().cloned());
+        } else {
+            self.world
+                .entity_mut(parent)
+                .insert(Children::with(children));
+        }
+        self
+    }
+
+    fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
+        let parent = self
+            .current_entity
+            .expect("Cannot add children without a parent. Try creating an entity first.");
+        self.parent_entities.push(parent);
+
+        for child in children.iter() {
+            self.world
+                .entity_mut(*child)
+                .insert_bundle((Parent(parent), PreviousParent(parent))); // FIXME: dom't erase the previous parent (see #1545)
+        }
+        if let Some(mut children_component) = self.world.get_mut::<Children>(parent) {
+            children_component.0.insert_from_slice(index, children);
+        } else {
+            self.world
+                .entity_mut(parent)
+                .insert(Children::with(children));
+        }
         self
     }
 }
