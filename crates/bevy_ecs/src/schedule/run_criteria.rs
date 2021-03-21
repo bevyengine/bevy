@@ -260,22 +260,13 @@ pub struct RunCriteria {
 }
 
 impl RunCriteria {
-    pub fn from_label(label: impl RunCriteriaLabel) -> Self {
-        Self {
-            label: Box::new(label),
-        }
-    }
-
+    /// Constructs a new run criteria that will retrieve the result of the criteria `label`
+    /// and pipe it as input to `system`.
     pub fn pipe(
-        self,
+        label: impl RunCriteriaLabel,
         system: impl System<In = ShouldRun, Out = ShouldRun>,
     ) -> RunCriteriaDescriptor {
-        RunCriteriaDescriptor {
-            system: RunCriteriaSystem::Chained(Box::new(system)),
-            label: None,
-            before: vec![],
-            after: vec![self.label],
-        }
+        label.pipe(system)
     }
 }
 
@@ -285,7 +276,12 @@ pub trait RunCriteriaPiping {
 
 impl RunCriteriaPiping for BoxedRunCriteriaLabel {
     fn pipe(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor {
-        RunCriteria { label: self }.pipe(system)
+        RunCriteriaDescriptor {
+            system: RunCriteriaSystem::Chained(Box::new(system)),
+            label: None,
+            before: vec![],
+            after: vec![self],
+        }
     }
 }
 
@@ -294,7 +290,7 @@ where
     L: RunCriteriaLabel,
 {
     fn pipe(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor {
-        RunCriteria::from_label(self).pipe(system)
+        RunCriteria::pipe(self, system)
     }
 }
 

@@ -1317,7 +1317,7 @@ mod tests {
                 make_parallel!(1)
                     .system()
                     .label("1")
-                    .with_run_criteria(RunCriteria::from_label("every other time")),
+                    .with_run_criteria("every other time"),
             )
             .with_system(
                 make_parallel!(2)
@@ -1361,9 +1361,7 @@ mod tests {
                     .system()
                     .label("2")
                     .after("1")
-                    .with_run_criteria(
-                        RunCriteria::from_label("every other time").pipe(eot_piped.system()),
-                    ),
+                    .with_run_criteria(RunCriteria::pipe("every other time", eot_piped.system())),
             )
             .with_system(
                 make_parallel!(3)

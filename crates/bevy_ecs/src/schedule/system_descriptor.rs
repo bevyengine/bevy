@@ -102,6 +102,8 @@ fn new_parallel_descriptor(system: BoxedSystem<(), ()>) -> ParallelSystemDescrip
 }
 
 pub trait ParallelSystemDescriptorCoercion {
+    /// Assigns a run criteria to the system. Can be a new descriptor or a label of a
+    /// run criteria defined elsewhere.
     fn with_run_criteria<Marker>(
         self,
         run_criteria: impl IntoRunCriteria<Marker>,
@@ -235,6 +237,8 @@ fn new_exclusive_descriptor(system: Box<dyn ExclusiveSystem>) -> ExclusiveSystem
 }
 
 pub trait ExclusiveSystemDescriptorCoercion {
+    /// Assigns a run criteria to the system. Can be a new descriptor or a label of a
+    /// run criteria defined elsewhere.
     fn with_run_criteria<Marker>(
         self,
         run_criteria: impl IntoRunCriteria<Marker>,
