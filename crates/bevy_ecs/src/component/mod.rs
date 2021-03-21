@@ -340,6 +340,17 @@ impl ComponentTicks {
         check_tick(&mut self.changed, change_tick);
     }
 
+    /// Manually sets the change tick.
+    /// Usually, this is done automatically via the [`Deref`](std::ops::Deref) implementation on [`Mut`](crate::world::Mut) or [`ResMut`](crate::system::ResMut) etc.
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// # use bevy_ecs::{world::World, component::ComponentTicks};
+    /// let world: World = todo!();
+    /// let component_ticks: ComponentTicks = todo!();
+    ///
+    /// component_ticks.set_changed(world.read_change_tick());
+    /// ```
     #[inline]
     pub fn set_changed(&mut self, change_tick: u32) {
         self.changed = change_tick;
