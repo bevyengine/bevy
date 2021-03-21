@@ -776,8 +776,8 @@ mod tests {
         query::Changed,
         schedule::{
             BoxedSystemLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
-            RunCriteriaDescriptorCoercion, RunCriteriaPiping, ShouldRun, SingleThreadedExecutor,
-            Stage, SystemSet, SystemStage,
+            RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaPiping, ShouldRun,
+            SingleThreadedExecutor, Stage, SystemSet, SystemStage,
         },
         system::{In, IntoExclusiveSystem, IntoSystem, Local, Query, ResMut},
         world::World,
@@ -1308,7 +1308,45 @@ mod tests {
             vec![0, 1, 2, 0, 2, 0, 1, 2, 0, 2]
         );
 
+        // Reusing criteria.
         world.get_resource_mut::<Vec<usize>>().unwrap().clear();
+        let mut stage = SystemStage::parallel()
+            .with_run_criteria(every_other_time.system().label("every other time"))
+            .with_system(make_parallel!(0).system().before("1"))
+            .with_system(
+                make_parallel!(1)
+                    .system()
+                    .label("1")
+                    .with_run_criteria(RunCriteria::from_label("every other time")),
+            )
+            .with_system(
+                make_parallel!(2)
+                    .system()
+                    .label("2")
+                    .after("1")
+                    .with_run_criteria("every other time"),
+            )
+            .with_system(make_parallel!(3).system().after("2"));
+        stage.run(&mut world);
+        stage.run(&mut world);
+        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.run(&mut world);
+        stage.run(&mut world);
+        assert_eq!(
+            *world.get_resource::<Vec<usize>>().unwrap(),
+            vec![0, 1, 2, 3, 0, 3, 0, 1, 2, 3, 0, 3]
+        );
+        assert_eq!(stage.run_criteria.len(), 1);
+
+        // Piping criteria.
+        world.get_resource_mut::<Vec<usize>>().unwrap().clear();
+        fn eot_piped(input: In<ShouldRun>, has_ran: Local<bool>) -> ShouldRun {
+            if let ShouldRun::Yes | ShouldRun::YesAndCheckAgain = input.0 {
+                every_other_time(has_ran)
+            } else {
+                ShouldRun::No
+            }
+        }
         let mut stage = SystemStage::parallel()
             .with_system(make_parallel!(0).system().label("0"))
             .with_system(
@@ -1319,18 +1357,26 @@ mod tests {
                     .with_run_criteria(every_other_time.system().label("every other time")),
             )
             .with_system(
-                make_parallel!(2).system().after("1").with_run_criteria(
-                    "every other time".pipe(
-                        (|input: In<ShouldRun>, has_ran: Local<bool>| {
-                            if let ShouldRun::Yes | ShouldRun::YesAndCheckAgain = input.0 {
-                                every_other_time(has_ran)
-                            } else {
-                                ShouldRun::No
-                            }
-                        })
-                        .system(),
+                make_parallel!(2)
+                    .system()
+                    .label("2")
+                    .after("1")
+                    .with_run_criteria(
+                        RunCriteria::from_label("every other time").pipe(eot_piped.system()),
                     ),
-                ),
+            )
+            .with_system(
+                make_parallel!(3)
+                    .system()
+                    .label("3")
+                    .after("2")
+                    .with_run_criteria("every other time".pipe(eot_piped.system()).label("piped")),
+            )
+            .with_system(
+                make_parallel!(4)
+                    .system()
+                    .after("3")
+                    .with_run_criteria("piped"),
             );
         for _ in 0..4 {
             stage.run(&mut world);
@@ -1341,10 +1387,11 @@ mod tests {
         }
         assert_eq!(
             *world.get_resource::<Vec<usize>>().unwrap(),
-            vec![0, 1, 2, 0, 0, 1, 0, 0, 1, 2, 0, 0, 1, 0, 0, 1, 2]
+            vec![0, 1, 2, 3, 4, 0, 0, 1, 0, 0, 1, 2, 3, 4, 0, 0, 1, 0, 0, 1, 2, 3, 4]
         );
+        assert_eq!(stage.run_criteria.len(), 3);
 
-        // Tests discarding extra criteria with matching labels.
+        // Discarding extra criteria with matching labels.
         world.get_resource_mut::<Vec<usize>>().unwrap().clear();
         let mut stage = SystemStage::parallel()
             .with_system(make_parallel!(0).system().before("1"))

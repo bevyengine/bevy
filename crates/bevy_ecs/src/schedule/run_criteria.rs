@@ -181,6 +181,12 @@ where
     }
 }
 
+impl IntoRunCriteria<RunCriteria> for RunCriteria {
+    fn into(self) -> RunCriteriaDescriptorOrLabel {
+        RunCriteriaDescriptorOrLabel::Label(self.label)
+    }
+}
+
 pub trait RunCriteriaDescriptorCoercion {
     /// Assigns a label to the criteria. Must be unique.
     fn label(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor;
@@ -249,18 +255,37 @@ where
     }
 }
 
+pub struct RunCriteria {
+    label: BoxedRunCriteriaLabel,
+}
+
+impl RunCriteria {
+    pub fn from_label(label: impl RunCriteriaLabel) -> Self {
+        Self {
+            label: Box::new(label),
+        }
+    }
+
+    pub fn pipe(
+        self,
+        system: impl System<In = ShouldRun, Out = ShouldRun>,
+    ) -> RunCriteriaDescriptor {
+        RunCriteriaDescriptor {
+            system: RunCriteriaSystem::Chained(Box::new(system)),
+            label: None,
+            before: vec![],
+            after: vec![self.label],
+        }
+    }
+}
+
 pub trait RunCriteriaPiping {
     fn pipe(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor;
 }
 
 impl RunCriteriaPiping for BoxedRunCriteriaLabel {
     fn pipe(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor {
-        RunCriteriaDescriptor {
-            system: RunCriteriaSystem::Chained(Box::new(system)),
-            label: None,
-            before: vec![],
-            after: vec![self],
-        }
+        RunCriteria { label: self }.pipe(system)
     }
 }
 
@@ -269,12 +294,7 @@ where
     L: RunCriteriaLabel,
 {
     fn pipe(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor {
-        RunCriteriaDescriptor {
-            system: RunCriteriaSystem::Chained(Box::new(system)),
-            label: None,
-            before: vec![],
-            after: vec![Box::new(self)],
-        }
+        RunCriteria::from_label(self).pipe(system)
     }
 }
 
