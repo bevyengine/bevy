@@ -5,6 +5,7 @@ use crate::texture::{
 
 bitflags::bitflags! {
     pub struct BindingShaderStage: u32 {
+        const NONE = 0;
         const VERTEX = 1;
         const FRAGMENT = 2;
         const COMPUTE = 4;

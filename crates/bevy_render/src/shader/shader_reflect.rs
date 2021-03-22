@@ -1,7 +1,7 @@
 use crate::{
     pipeline::{
         BindGroupDescriptor, BindType, BindingDescriptor, BindingShaderStage, InputStepMode,
-        UniformProperty, VertexAttribute, VertexBufferLayout, VertexFormat,
+        PushConstantRange, UniformProperty, VertexAttribute, VertexBufferLayout, VertexFormat,
     },
     shader::{ShaderLayout, GL_INSTANCE_INDEX, GL_VERTEX_INDEX},
     texture::{TextureSampleType, TextureViewDimension},
@@ -26,6 +26,22 @@ impl ShaderLayout {
                 for descriptor_set in module.enumerate_descriptor_sets(None).unwrap() {
                     let bind_group = reflect_bind_group(&descriptor_set, shader_stage);
                     bind_groups.push(bind_group);
+                }
+
+                let mut push_constant_ranges = Vec::new();
+                for push_constant_block in module.enumerate_push_constant_blocks(None).unwrap() {
+                    let range = push_constant_block.offset..push_constant_block.size;
+                    let mut stages = BindingShaderStage::NONE;
+                    if shader_stage.contains(ReflectShaderStageFlags::VERTEX) {
+                        stages.insert(BindingShaderStage::VERTEX);
+                    }
+                    if shader_stage.contains(ReflectShaderStageFlags::FRAGMENT) {
+                        stages.insert(BindingShaderStage::FRAGMENT);
+                    }
+                    if shader_stage.contains(ReflectShaderStageFlags::COMPUTE) {
+                        stages.insert(BindingShaderStage::COMPUTE);
+                    }
+                    push_constant_ranges.push(PushConstantRange { stages, range })
                 }
 
                 // obtain attribute descriptors from reflection
@@ -83,6 +99,7 @@ impl ShaderLayout {
                     bind_groups,
                     vertex_buffer_layout,
                     entry_point: entry_point_name,
+                    push_constant_ranges,
                 }
             }
             Err(err) => panic!("Failed to reflect shader layout: {:?}.", err),
@@ -323,6 +340,9 @@ mod tests {
                 mat4 ViewProj;
             };
             layout(set = 1, binding = 0) uniform texture2D Texture;
+            layout(push_constant) uniform SomeTestUniform {
+                vec3 SomeTestField;
+            };
 
             void main() {
                 v_Position = Vertex_Position;
@@ -396,7 +416,11 @@ mod tests {
                             shader_stage: BindingShaderStage::VERTEX,
                         }]
                     ),
-                ]
+                ],
+                push_constant_ranges: vec![PushConstantRange {
+                    stages: BindingShaderStage::VERTEX,
+                    range: 0..16
+                }],
             }
         );
     }

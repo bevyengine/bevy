@@ -63,11 +63,16 @@ impl PipelineLayout {
         // with bevy and not with wgpu TODO: try removing this
         bind_groups_result.sort_by(|a, b| a.index.partial_cmp(&b.index).unwrap());
 
+        let push_constant_ranges = shader_layouts
+            .iter()
+            .flat_map(|shader_layout| shader_layout.push_constant_ranges.clone())
+            .collect::<Vec<_>>();
+
         PipelineLayout {
             bind_groups: bind_groups_result,
             vertex_buffer_descriptors,
             // TODO: get push constant ranges from shader layout
-            push_constant_ranges: vec![],
+            push_constant_ranges,
         }
     }
 }
@@ -107,7 +112,7 @@ impl UniformProperty {
     }
 }
 
-#[derive(Hash, Clone, Debug)]
+#[derive(Hash, Clone, Debug, PartialEq, Eq)]
 pub struct PushConstantRange {
     /// Stage push constant range is visible from. Each stage can only be served by at most one range.
     /// One range can serve multiple stages however.
