@@ -169,15 +169,8 @@ impl<'a> Iterator for MapIter<'a> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let mut index = 0;
-
-        loop {
-            if self.map.get_at(index).is_some() {
-                index += 1;
-            } else {
-                return (index, Some(index));
-            }
-        }
+        let size = self.map.len();
+        (size, Some(size))
     }
 }
 

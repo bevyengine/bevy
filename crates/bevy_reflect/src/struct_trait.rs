@@ -39,15 +39,8 @@ impl<'a> Iterator for FieldIter<'a> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let mut index = 0;
-
-        loop {
-            if self.struct_val.field_at(index).is_some() {
-                index += 1;
-            } else {
-                return (index, Some(index));
-            }
-        }
+        let size = self.struct_val.field_len();
+        (size, Some(size))
     }
 }
 

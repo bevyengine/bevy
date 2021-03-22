@@ -34,15 +34,8 @@ impl<'a> Iterator for TupleFieldIter<'a> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let mut index = 0;
-
-        loop {
-            if self.tuple.field(index).is_some() {
-                index += 1;
-            } else {
-                return (index, Some(index));
-            }
-        }
+        let size = self.tuple.field_len();
+        (size, Some(size))
     }
 }
 
