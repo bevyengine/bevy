@@ -346,8 +346,8 @@ impl ComponentTicks {
     /// # Example
     /// ```rust,no_run
     /// # use bevy_ecs::{world::World, component::ComponentTicks};
-    /// let world: World = todo!();
-    /// let component_ticks: ComponentTicks = todo!();
+    /// let world: World = unimplemented!();
+    /// let component_ticks: ComponentTicks = unimplemented!();
     ///
     /// component_ticks.set_changed(world.read_change_tick());
     /// ```
