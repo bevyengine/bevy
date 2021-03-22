@@ -230,9 +230,14 @@ impl<'a> Iterator for ShaderStagesIterator<'a> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (1, Some(2))
+        if self.shader_stages.fragment.is_some() {
+            return (2, Some(2));
+        }
+        (1, Some(1))
     }
 }
+
+impl<'a> ExactSizeIterator for ShaderStagesIterator<'a> {}
 
 impl ShaderStages {
     pub fn new(vertex_shader: Handle<Shader>) -> Self {
