@@ -19,13 +19,15 @@ use bevy_window::{
     WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
     WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
 };
+
+pub use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize, Pixel};
+pub use winit::monitor::{MonitorHandle, VideoMode};
+
 use winit::{
-    dpi::PhysicalPosition,
     event::{self, DeviceEvent, Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
 
-use winit::dpi::LogicalSize;
 #[cfg(any(
     target_os = "linux",
     target_os = "dragonfly",
