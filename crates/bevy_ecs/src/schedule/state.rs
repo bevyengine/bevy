@@ -99,7 +99,7 @@ where
         .config(|(_, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>.system())
         .after(DriverLabel::of::<T>())
-        .label(StateCallback::Update.into_label(s))
+        .label_discard_if_duplicate(StateCallback::Update.into_label(s))
     }
 
     pub fn on_inactive_update(s: T) -> RunCriteriaDescriptor {
@@ -120,7 +120,7 @@ where
         .config(|(_, _, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>.system())
         .after(DriverLabel::of::<T>())
-        .label(StateCallback::InactiveUpdate.into_label(s))
+        .label_discard_if_duplicate(StateCallback::InactiveUpdate.into_label(s))
     }
 
     pub fn on_in_stack_update(s: T) -> RunCriteriaDescriptor {
@@ -153,7 +153,7 @@ where
         .config(|(_, _, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>.system())
         .after(DriverLabel::of::<T>())
-        .label(StateCallback::InStackUpdate.into_label(s))
+        .label_discard_if_duplicate(StateCallback::InStackUpdate.into_label(s))
     }
 
     pub fn on_enter(s: T) -> RunCriteriaDescriptor {
@@ -173,7 +173,7 @@ where
         .config(|(_, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>.system())
         .after(DriverLabel::of::<T>())
-        .label(StateCallback::Enter.into_label(s))
+        .label_discard_if_duplicate(StateCallback::Enter.into_label(s))
     }
 
     pub fn on_exit(s: T) -> RunCriteriaDescriptor {
@@ -191,7 +191,7 @@ where
         .config(|(_, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>.system())
         .after(DriverLabel::of::<T>())
-        .label(StateCallback::Exit.into_label(s))
+        .label_discard_if_duplicate(StateCallback::Exit.into_label(s))
     }
 
     pub fn on_pause(s: T) -> RunCriteriaDescriptor {
@@ -208,7 +208,7 @@ where
         .config(|(_, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>.system())
         .after(DriverLabel::of::<T>())
-        .label(StateCallback::Pause.into_label(s))
+        .label_discard_if_duplicate(StateCallback::Pause.into_label(s))
     }
 
     pub fn on_resume(s: T) -> RunCriteriaDescriptor {
@@ -225,7 +225,7 @@ where
         .config(|(_, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>.system())
         .after(DriverLabel::of::<T>())
-        .label(StateCallback::Resume.into_label(s))
+        .label_discard_if_duplicate(StateCallback::Resume.into_label(s))
     }
 
     pub fn on_update_set(s: T) -> SystemSet {

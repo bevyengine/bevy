@@ -2,11 +2,11 @@ use crate::{
     component::ComponentId,
     schedule::{
         graph_utils::{self, DependencyGraphError},
-        BoxedRunCriteria, BoxedRunCriteriaLabel, BoxedSystemLabel, ExclusiveSystemContainer,
-        GraphNode, InsertionPoint, ParallelExecutor, ParallelSystemContainer,
-        ParallelSystemExecutor, RunCriteriaContainer, RunCriteriaDescriptor,
-        RunCriteriaDescriptorOrLabel, RunCriteriaInner, RunCriteriaLabel, ShouldRun,
-        SingleThreadedExecutor, SystemContainer, SystemDescriptor, SystemSet,
+        BoxedRunCriteria, BoxedRunCriteriaLabel, BoxedSystemLabel, DuplicateLabelStrategy,
+        ExclusiveSystemContainer, GraphNode, InsertionPoint, ParallelExecutor,
+        ParallelSystemContainer, ParallelSystemExecutor, RunCriteriaContainer,
+        RunCriteriaDescriptor, RunCriteriaDescriptorOrLabel, RunCriteriaInner, RunCriteriaLabel,
+        ShouldRun, SingleThreadedExecutor, SystemContainer, SystemDescriptor, SystemSet,
     },
     system::System,
     world::{World, WorldId},
@@ -78,7 +78,7 @@ pub struct SystemStage {
     /// Determines if the stage's executor was changed.
     executor_modified: bool,
     /// Newly inserted run criteria that will be initialized at the next opportunity.
-    uninitialized_run_criteria: Vec<usize>,
+    uninitialized_run_criteria: Vec<(usize, DuplicateLabelStrategy)>,
     /// Newly inserted systems that will be initialized at the next opportunity.
     uninitialized_at_start: Vec<usize>,
     /// Newly inserted systems that will be initialized at the next opportunity.
@@ -278,7 +278,8 @@ impl SystemStage {
             RunCriteriaDescriptorOrLabel::Descriptor(descriptor) => descriptor,
         };
         let index = self.run_criteria.len();
-        self.uninitialized_run_criteria.push(index);
+        self.uninitialized_run_criteria
+            .push((index, descriptor.duplicate_label_strategy));
         let label = descriptor
             .label
             .take()
@@ -292,9 +293,36 @@ impl SystemStage {
     }
 
     fn initialize_systems(&mut self, world: &mut World) {
-        for index in self.uninitialized_run_criteria.drain(..) {
-            self.run_criteria[index].initialize(world);
-        }
+        let mut criteria_labels = HashSet::default();
+        let uninitialized_criteria: HashMap<_, _> =
+            self.uninitialized_run_criteria.drain(..).collect();
+        self.run_criteria = self
+            .run_criteria
+            .drain(..)
+            .enumerate()
+            .filter_map(|(index, mut container)| {
+                if let Some(strategy) = uninitialized_criteria.get(&index) {
+                    if criteria_labels.insert(container.label.clone()) {
+                        container.initialize(world);
+                        Some(container)
+                    } else {
+                        match strategy {
+                            DuplicateLabelStrategy::Panic => panic!(
+                                "Run criteria {} is labelled with {:?}, which \
+                                is already in use. Consider using \
+                                `RunCriteriaDescriptorCoercion::label_discard_if_duplicate().",
+                                container.name(),
+                                container.label
+                            ),
+                            DuplicateLabelStrategy::Discard => None,
+                        }
+                    }
+                } else {
+                    criteria_labels.insert(container.label.clone());
+                    Some(container)
+                }
+            })
+            .collect();
         for index in self.uninitialized_at_start.drain(..) {
             self.exclusive_at_start[index]
                 .system_mut()
@@ -518,7 +546,7 @@ fn process_systems(
     Ok(())
 }
 
-/// Deduplicates and sorts run criteria, and populates resolved input-criteria for piping.
+/// Sorts run criteria and populates resolved input-criteria for piping.
 /// Returns a map of run criteria labels to their indices.
 fn process_run_criteria(
     run_criteria: &mut Vec<RunCriteriaContainer>,
@@ -526,14 +554,6 @@ fn process_run_criteria(
     HashMap<BoxedRunCriteriaLabel, usize>,
     DependencyGraphError<HashSet<BoxedRunCriteriaLabel>>,
 > {
-    // This throws away all but the first criteria with identical labels.
-    *run_criteria = run_criteria
-        .drain(..)
-        .map(|container| (container.label.clone(), container))
-        .collect::<HashMap<_, _>>()
-        .drain()
-        .map(|(_, container)| container)
-        .collect();
     let graph = graph_utils::build_dependency_graph(run_criteria);
     let order = graph_utils::topological_order(&graph)?;
     let mut order_inverted = order.iter().enumerate().collect::<Vec<_>>();
@@ -544,7 +564,7 @@ fn process_run_criteria(
         .map(|(index, criteria)| (criteria.label.clone(), order_inverted[index].0))
         .collect();
     for criteria in run_criteria.iter_mut() {
-        if let RunCriteriaInner::Chained { input: parent, .. } = &mut criteria.inner {
+        if let RunCriteriaInner::Piped { input: parent, .. } = &mut criteria.inner {
             let label = &criteria.after[0];
             *parent = *labels.get(label).unwrap_or_else(|| {
                 panic!(
@@ -674,7 +694,7 @@ impl Stage for SystemStage {
             let mut criteria = &mut tail[0];
             match &mut criteria.inner {
                 RunCriteriaInner::Single(system) => criteria.should_run = system.run((), world),
-                RunCriteriaInner::Chained {
+                RunCriteriaInner::Piped {
                     input: parent,
                     system,
                     ..
@@ -748,7 +768,7 @@ impl Stage for SystemStage {
                             RunCriteriaInner::Single(system) => {
                                 criteria.should_run = system.run((), world)
                             }
-                            RunCriteriaInner::Chained {
+                            RunCriteriaInner::Piped {
                                 input: parent,
                                 system,
                                 ..
@@ -1394,17 +1414,22 @@ mod tests {
         let mut stage = SystemStage::parallel()
             .with_system(make_parallel!(0).system().before("1"))
             .with_system(
-                make_parallel!(1)
-                    .system()
-                    .label("1")
-                    .with_run_criteria(every_other_time.system().label("every other time")),
+                make_parallel!(1).system().label("1").with_run_criteria(
+                    every_other_time
+                        .system()
+                        .label_discard_if_duplicate("every other time"),
+                ),
             )
             .with_system(
                 make_parallel!(2)
                     .system()
                     .label("2")
                     .after("1")
-                    .with_run_criteria(every_other_time.system().label("every other time")),
+                    .with_run_criteria(
+                        every_other_time
+                            .system()
+                            .label_discard_if_duplicate("every other time"),
+                    ),
             )
             .with_system(make_parallel!(3).system().after("2"));
         stage.run(&mut world);
@@ -1417,6 +1442,16 @@ mod tests {
             vec![0, 1, 2, 3, 0, 3, 0, 1, 2, 3, 0, 3]
         );
         assert_eq!(stage.run_criteria.len(), 1);
+    }
+
+    #[test]
+    #[should_panic]
+    fn duplicate_run_criteria_label_panic() {
+        let mut world = World::new();
+        let mut stage = SystemStage::parallel()
+            .with_run_criteria(every_other_time.system().label("every other time"))
+            .with_run_criteria(every_other_time.system().label("every other time"));
+        stage.run(&mut world);
     }
 
     #[test]

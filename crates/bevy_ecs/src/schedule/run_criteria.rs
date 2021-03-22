@@ -57,7 +57,7 @@ impl BoxedRunCriteria {
 
 pub(crate) enum RunCriteriaInner {
     Single(BoxedSystem<(), ShouldRun>),
-    Chained {
+    Piped {
         input: usize,
         system: BoxedSystem<ShouldRun, ShouldRun>,
     },
@@ -80,19 +80,25 @@ impl RunCriteriaContainer {
             should_run: ShouldRun::Yes,
             inner: match descriptor.system {
                 RunCriteriaSystem::Single(system) => RunCriteriaInner::Single(system),
-                RunCriteriaSystem::Chained(system) => {
-                    RunCriteriaInner::Chained { input: 0, system }
-                }
+                RunCriteriaSystem::Piped(system) => RunCriteriaInner::Piped { input: 0, system },
             },
             label,
             before: descriptor.before,
             after: descriptor.after,
         }
     }
+
+    pub fn name(&self) -> Cow<'static, str> {
+        match &self.inner {
+            RunCriteriaInner::Single(system) => system.name(),
+            RunCriteriaInner::Piped { system, .. } => system.name(),
+        }
+    }
+
     pub fn initialize(&mut self, world: &mut World) {
         match &mut self.inner {
             RunCriteriaInner::Single(system) => system.initialize(world),
-            RunCriteriaInner::Chained { system, .. } => system.initialize(world),
+            RunCriteriaInner::Piped { system, .. } => system.initialize(world),
         }
     }
 }
@@ -101,7 +107,7 @@ impl GraphNode<BoxedRunCriteriaLabel> for RunCriteriaContainer {
     fn name(&self) -> Cow<'static, str> {
         match &self.inner {
             RunCriteriaInner::Single(system) => system.name(),
-            RunCriteriaInner::Chained { system, .. } => system.name(),
+            RunCriteriaInner::Piped { system, .. } => system.name(),
         }
     }
 
@@ -123,16 +129,23 @@ pub enum RunCriteriaDescriptorOrLabel {
     Label(BoxedRunCriteriaLabel),
 }
 
+#[derive(Clone, Copy)]
+pub(crate) enum DuplicateLabelStrategy {
+    Panic,
+    Discard,
+}
+
 pub struct RunCriteriaDescriptor {
     pub(crate) system: RunCriteriaSystem,
     pub(crate) label: Option<BoxedRunCriteriaLabel>,
+    pub(crate) duplicate_label_strategy: DuplicateLabelStrategy,
     pub(crate) before: Vec<BoxedRunCriteriaLabel>,
     pub(crate) after: Vec<BoxedRunCriteriaLabel>,
 }
 
 pub(crate) enum RunCriteriaSystem {
     Single(BoxedSystem<(), ShouldRun>),
-    Chained(BoxedSystem<ShouldRun, ShouldRun>),
+    Piped(BoxedSystem<ShouldRun, ShouldRun>),
 }
 
 pub trait IntoRunCriteria<Marker> {
@@ -191,6 +204,10 @@ pub trait RunCriteriaDescriptorCoercion {
     /// Assigns a label to the criteria. Must be unique.
     fn label(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor;
 
+    /// Assigns a label to the criteria. If the given label is already in use,
+    /// this criteria will be discarded before initialization.
+    fn label_discard_if_duplicate(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor;
+
     /// Specifies that this criteria must be evaluated before a criteria with the given label.
     fn before(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor;
 
@@ -201,6 +218,13 @@ pub trait RunCriteriaDescriptorCoercion {
 impl RunCriteriaDescriptorCoercion for RunCriteriaDescriptor {
     fn label(mut self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
         self.label = Some(Box::new(label));
+        self.duplicate_label_strategy = DuplicateLabelStrategy::Panic;
+        self
+    }
+
+    fn label_discard_if_duplicate(mut self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
+        self.label = Some(Box::new(label));
+        self.duplicate_label_strategy = DuplicateLabelStrategy::Discard;
         self
     }
 
@@ -219,6 +243,7 @@ fn new_run_criteria_descriptor(system: BoxedSystem<(), ShouldRun>) -> RunCriteri
     RunCriteriaDescriptor {
         system: RunCriteriaSystem::Single(system),
         label: None,
+        duplicate_label_strategy: DuplicateLabelStrategy::Panic,
         before: vec![],
         after: vec![],
     }
@@ -227,6 +252,10 @@ fn new_run_criteria_descriptor(system: BoxedSystem<(), ShouldRun>) -> RunCriteri
 impl RunCriteriaDescriptorCoercion for BoxedSystem<(), ShouldRun> {
     fn label(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
         new_run_criteria_descriptor(self).label(label)
+    }
+
+    fn label_discard_if_duplicate(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
+        new_run_criteria_descriptor(self).label_discard_if_duplicate(label)
     }
 
     fn before(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
@@ -244,6 +273,10 @@ where
 {
     fn label(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
         new_run_criteria_descriptor(Box::new(self)).label(label)
+    }
+
+    fn label_discard_if_duplicate(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
+        new_run_criteria_descriptor(Box::new(self)).label_discard_if_duplicate(label)
     }
 
     fn before(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
@@ -277,8 +310,9 @@ pub trait RunCriteriaPiping {
 impl RunCriteriaPiping for BoxedRunCriteriaLabel {
     fn pipe(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor {
         RunCriteriaDescriptor {
-            system: RunCriteriaSystem::Chained(Box::new(system)),
+            system: RunCriteriaSystem::Piped(Box::new(system)),
             label: None,
+            duplicate_label_strategy: DuplicateLabelStrategy::Panic,
             before: vec![],
             after: vec![self],
         }
@@ -291,8 +325,9 @@ where
 {
     fn pipe(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor {
         RunCriteriaDescriptor {
-            system: RunCriteriaSystem::Chained(Box::new(system)),
+            system: RunCriteriaSystem::Piped(Box::new(system)),
             label: None,
+            duplicate_label_strategy: DuplicateLabelStrategy::Panic,
             before: vec![],
             after: vec![Box::new(self)],
         }
