@@ -308,6 +308,7 @@ fn spawn_bonus(
             return;
         }
     }
+
     // ensure bonus doesn't spawn on the player
     loop {
         game.bonus.i = rand::thread_rng().gen_range(0..BOARD_SIZE_I);

@@ -64,9 +64,9 @@ impl<'a> Commands<'a> {
     ///     // Create another empty entity, then add some component to it
     ///     commands.spawn()
     ///         // adds a new component bundle to the entity
-    ///         .insert_bundle((1usize, 2u32)) 
+    ///         .insert_bundle((1usize, 2u32))
     ///         // adds a single component to the entity
-    ///         .insert("hello world"); 
+    ///         .insert("hello world");
     /// }
     /// # example_system.system();
     /// ```
@@ -82,7 +82,7 @@ impl<'a> Commands<'a> {
     ///
     /// This returns an [EntityCommands] builder, which enables inserting more components and bundles
     /// using a "builder pattern".
-    /// 
+    ///
     /// Note that `bundle` is a [Bundle], which is a collection of components. [Bundle] is
     /// automatically implemented for tuples of components. You can also create your own bundle
     /// types by deriving [`derive@Bundle`].
@@ -112,9 +112,9 @@ impl<'a> Commands<'a> {
     ///         // Create a new entity with two components using a "tuple bundle".
     ///         .spawn_bundle((Component1, Component2))
     ///         // spawn_bundle returns a builder, so you can insert more bundles like this:
-    ///         .insert_bundle((1usize, 2u32)) 
+    ///         .insert_bundle((1usize, 2u32))
     ///         // or insert single components like this:
-    ///         .insert("hello world"); 
+    ///         .insert("hello world");
     /// }
     /// # example_system.system();
     /// ```
@@ -137,9 +137,9 @@ impl<'a> Commands<'a> {
     ///
     ///     commands.entity(entity)
     ///         // adds a new component bundle to the entity
-    ///         .insert_bundle((1usize, 2u32)) 
+    ///         .insert_bundle((1usize, 2u32))
     ///         // adds a single component to the entity
-    ///         .insert("hello world"); 
+    ///         .insert("hello world");
     /// }
     /// # example_system.system();
     /// ```
@@ -184,7 +184,7 @@ pub struct EntityCommands<'a, 'b> {
 }
 
 impl<'a, 'b> EntityCommands<'a, 'b> {
-    /// Retrieves the current entity's unique [Entity] id. 
+    /// Retrieves the current entity's unique [Entity] id.
     #[inline]
     pub fn id(&self) -> Entity {
         self.entity
