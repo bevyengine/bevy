@@ -53,7 +53,7 @@ impl<'a> Iterator for ShaderDefIterator<'a> {
 
         loop {
             if index == self.shader_defs.shader_defs_len() {
-                break;
+                return (size, Some(size));
             }
 
             if self.shader_defs.get_shader_def(index).is_some() {
@@ -61,8 +61,6 @@ impl<'a> Iterator for ShaderDefIterator<'a> {
             }
             index += 1;
         }
-
-        (size, Some(size))
     }
 }
 
