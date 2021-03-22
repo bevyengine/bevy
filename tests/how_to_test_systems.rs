@@ -60,7 +60,7 @@ fn did_hurt_enemy() {
 }
 
 #[test]
-fn did_despawn_ennemy() {
+fn did_despawn_enemy() {
     // Setup world and commands
     let mut world = World::default();
     let mut queue = CommandQueue::default();
