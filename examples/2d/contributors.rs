@@ -79,7 +79,8 @@ fn setup(
         let transform = Transform::from_xyz(pos.0, pos.1, 0.0);
 
         let e = commands
-            .spawn_bundle((
+            .spawn()
+            .insert_bundle((
                 Contributor { hue },
                 Velocity {
                     translation: velocity,
