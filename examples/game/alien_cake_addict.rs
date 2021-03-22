@@ -307,8 +307,15 @@ fn spawn_bonus(
             return;
         }
     }
-    game.bonus.i = rand::thread_rng().gen_range(0..BOARD_SIZE_I);
-    game.bonus.j = rand::thread_rng().gen_range(0..BOARD_SIZE_J);
+
+    // ensure bonus doesn't spawn on the player
+    loop {
+        game.bonus.i = rand::thread_rng().gen_range(0..BOARD_SIZE_I);
+        game.bonus.j = rand::thread_rng().gen_range(0..BOARD_SIZE_J);
+        if game.bonus.i != game.player.i || game.bonus.j != game.player.j {
+            break;
+        }
+    }
     game.bonus.entity = commands
         .spawn((
             Transform {
