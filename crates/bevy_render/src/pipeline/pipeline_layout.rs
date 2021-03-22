@@ -71,7 +71,6 @@ impl PipelineLayout {
         PipelineLayout {
             bind_groups: bind_groups_result,
             vertex_buffer_descriptors,
-            // TODO: get push constant ranges from shader layout
             push_constant_ranges,
         }
     }
