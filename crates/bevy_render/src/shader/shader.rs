@@ -228,6 +228,10 @@ impl<'a> Iterator for ShaderStagesIterator<'a> {
         self.state += 1;
         ret
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (1, Some(2))
+    }
 }
 
 impl ShaderStages {

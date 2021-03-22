@@ -46,7 +46,27 @@ impl<'a> Iterator for ShaderDefIterator<'a> {
             }
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let mut index = 0;
+        let mut size = 0;
+
+        loop {
+            if index == self.shader_defs.shader_defs_len() {
+                break;
+            }
+
+            if self.shader_defs.get_shader_def(index).is_some() {
+                size += 1;
+            }
+            index += 1;
+        }
+
+        (size, Some(size))
+    }
 }
+
+impl<'a> ExactSizeIterator for ShaderDefIterator<'a> {}
 
 impl ShaderDef for bool {
     fn is_defined(&self) -> bool {
