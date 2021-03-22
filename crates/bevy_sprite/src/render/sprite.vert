@@ -8,7 +8,6 @@ layout(location = 0) out vec2 v_Uv;
 
 layout(set = 0, binding = 0) uniform CameraViewProj {
     mat4 ViewProj;
-    vec4 CameraPos;
 };
 
 layout(set = 2, binding = 0) uniform Transform {
@@ -26,7 +25,7 @@ void main() {
 
     uint x_flip_bit = 1; // The X flip bit
     uint y_flip_bit = 2; // The Y flip bit
-    
+
     // Note: Here we subtract f32::EPSILON from the flipped UV coord. This is due to reasons unknown
     // to me (@zicklag ) that causes the uv's to be slightly offset and causes over/under running of
     // the sprite UV sampling which is visible when resizing the screen.
