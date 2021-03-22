@@ -373,6 +373,10 @@ path = "examples/shader/shader_custom_material.rs"
 name = "shader_defs"
 path = "examples/shader/shader_defs.rs"
 
+[[example]]
+name = "push_constants"
+path = "examples/shader/push_constants.rs"
+
 # Tools
 [[example]]
 name = "bevymark"
