@@ -50,14 +50,42 @@ impl<'a> Commands<'a> {
         }
     }
 
+    /// Creates a new empty entity and returns an [EntityCommands] builder for it.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// fn example_system(mut commands: Commands) {
+    ///     // Create a new empty entity and retrieve its id.
+    ///     let empty_entity = commands.spawn().id();
+    ///
+    ///     // Create another empty entity, then add some component to it
+    ///     commands.spawn()
+    ///         // adds a new component bundle to the entity
+    ///         .insert_bundle((1usize, 2u32)) 
+    ///         // adds a single component to the entity
+    ///         .insert("hello world"); 
+    /// }
+    /// # example_system.system();
+    /// ```
+    pub fn spawn(&mut self) -> EntityCommands<'a, '_> {
+        let entity = self.entities.reserve_entity();
+        EntityCommands {
+            entity,
+            commands: self,
+        }
+    }
+
     /// Creates a new entity with the components contained in `bundle`.
     ///
+    /// This returns an [EntityCommands] builder, which enables inserting more components and bundles
+    /// using a "builder pattern".
+    /// 
     /// Note that `bundle` is a [Bundle], which is a collection of components. [Bundle] is
     /// automatically implemented for tuples of components. You can also create your own bundle
-    /// types by deriving [`derive@Bundle`]. If you would like to spawn an entity with a single
-    /// component, consider wrapping the component in a tuple (which [Bundle] is implemented for).
-    ///
-    /// See [`Self::set_current_entity`], [`Self::insert`].
+    /// types by deriving [`derive@Bundle`].
     ///
     /// # Example
     ///
@@ -75,32 +103,46 @@ impl<'a> Commands<'a> {
     ///
     /// fn example_system(mut commands: Commands) {
     ///     // Create a new entity with a component bundle.
-    ///     commands.spawn(ExampleBundle {
+    ///     commands.spawn_bundle(ExampleBundle {
     ///         a: Component1,
     ///         b: Component2,
     ///     });
     ///
-    ///     // Create a new entity with a single component.
-    ///     commands.spawn((Component1,));
-    ///     // Create a new entity with two components.
-    ///     commands.spawn((Component1, Component2));
+    ///     commands
+    ///         // Create a new entity with two components using a "tuple bundle".
+    ///         .spawn_bundle((Component1, Component2))
+    ///         // spawn_bundle returns a builder, so you can insert more bundles like this:
+    ///         .insert_bundle((1usize, 2u32)) 
+    ///         // or insert single components like this:
+    ///         .insert("hello world"); 
     /// }
     /// # example_system.system();
     /// ```
-    pub fn spawn(&mut self) -> EntityCommands<'a, '_> {
-        let entity = self.entities.reserve_entity();
-        EntityCommands {
-            entity,
-            commands: self,
-        }
-    }
-
     pub fn spawn_bundle<'b, T: Bundle>(&'b mut self, bundle: T) -> EntityCommands<'a, 'b> {
         let mut e = self.spawn();
         e.insert_bundle(bundle);
         e
     }
 
+    /// Returns an [EntityCommands] builder for the requested `entity`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// fn example_system(mut commands: Commands) {
+    ///     // Create a new, empty entity
+    ///     let entity = commands.spawn().id();
+    ///
+    ///     commands.entity(entity)
+    ///         // adds a new component bundle to the entity
+    ///         .insert_bundle((1usize, 2u32)) 
+    ///         // adds a single component to the entity
+    ///         .insert("hello world"); 
+    /// }
+    /// # example_system.system();
+    /// ```
     pub fn entity(&mut self, entity: Entity) -> EntityCommands<'a, '_> {
         EntityCommands {
             entity,
@@ -142,6 +184,7 @@ pub struct EntityCommands<'a, 'b> {
 }
 
 impl<'a, 'b> EntityCommands<'a, 'b> {
+    /// Retrieves the current entity's unique [Entity] id. 
     #[inline]
     pub fn id(&self) -> Entity {
         self.entity
@@ -160,18 +203,18 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
 
     /// Adds a single component to the current entity.
     ///
-    /// See [`Self::with_bundle`], [`Self::current_entity`].
+    /// See [`Self::insert_bundle`], [`Self::id`].
     ///
     /// # Warning
     ///
     /// It's possible to call this with a bundle, but this is likely not intended and
-    /// [`Self::with_bundle`] should be used instead. If `with` is called with a bundle, the bundle
+    /// [`Self::insert_bundle`] should be used instead. If `with` is called with a bundle, the bundle
     /// itself will be added as a component instead of the bundles' inner components each being
     /// added.
     ///
     /// # Example
     ///
-    /// `with` can be chained with [`Self::spawn`].
+    /// [`Self::insert`] can be chained with [`Self::spawn`].
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
@@ -180,21 +223,14 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
     /// struct Component2;
     ///
     /// fn example_system(mut commands: Commands) {
-    ///     // Create a new entity with a `Component1` and `Component2`.
-    ///     commands.spawn((Component1,)).with(Component2);
+    ///     // Create a new entity with `Component1` and `Component2`
+    ///     commands.spawn()
+    ///         .insert(Component1)
+    ///         .insert(Component2);
     ///
-    ///     // Psst! These are also equivalent to the line above!
-    ///     commands.spawn((Component1, Component2));
-    ///     commands.spawn(()).with(Component1).with(Component2);
-    ///     #[derive(Bundle)]
-    ///     struct ExampleBundle {
-    ///         a: Component1,
-    ///         b: Component2,
-    ///     }
-    ///     commands.spawn(()).with_bundle(ExampleBundle {
-    ///         a: Component1,
-    ///         b: Component2,
-    ///     });
+    ///     // Psst! These are also equivalent to the expression above!
+    ///     commands.spawn().insert_bundle((Component1, Component2));
+    ///     commands.spawn_bundle((Component1, Component2));
     /// }
     /// # example_system.system();
     /// ```
