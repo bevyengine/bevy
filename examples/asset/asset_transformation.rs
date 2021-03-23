@@ -45,20 +45,20 @@ fn setup(
         })
     });
 
-    commands
-        .spawn(OrthographicCameraBundle::new_2d())
-        .spawn(SpriteBundle {
-            material: materials.add(texture_handle.into()),
-            transform: Transform::from_xyz(-300.0, 0.0, 0.0),
-            ..Default::default()
-        })
-        .spawn(SpriteBundle {
-            material: materials.add(texture_handle_1.into()),
-            ..Default::default()
-        })
-        .spawn(SpriteBundle {
-            material: materials.add(texture_handle_2.into()),
-            transform: Transform::from_xyz(300.0, 0.0, 0.0),
-            ..Default::default()
-        });
+    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+
+    commands.spawn_bundle(SpriteBundle {
+        material: materials.add(texture_handle.into()),
+        transform: Transform::from_xyz(-300.0, 0.0, 0.0),
+        ..Default::default()
+    });
+    commands.spawn_bundle(SpriteBundle {
+        material: materials.add(texture_handle_1.into()),
+        ..Default::default()
+    });
+    commands.spawn_bundle(SpriteBundle {
+        material: materials.add(texture_handle_2.into()),
+        transform: Transform::from_xyz(300.0, 0.0, 0.0),
+        ..Default::default()
+    });
 }
