@@ -5,8 +5,8 @@ use crate::{
         BoxedRunCriteria, BoxedRunCriteriaLabel, BoxedSystemLabel, DuplicateLabelStrategy,
         ExclusiveSystemContainer, GraphNode, InsertionPoint, ParallelExecutor,
         ParallelSystemContainer, ParallelSystemExecutor, RunCriteriaContainer,
-        RunCriteriaDescriptor, RunCriteriaDescriptorOrLabel, RunCriteriaInner, RunCriteriaLabel,
-        ShouldRun, SingleThreadedExecutor, SystemContainer, SystemDescriptor, SystemSet,
+        RunCriteriaDescriptor, RunCriteriaDescriptorOrLabel, RunCriteriaInner, ShouldRun,
+        SingleThreadedExecutor, SystemContainer, SystemDescriptor, SystemSet,
     },
     system::System,
     world::{World, WorldId},
@@ -14,7 +14,7 @@ use crate::{
 use bevy_utils::{tracing::info, HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
-use std::{fmt::Debug, hash::Hash};
+use std::fmt::Debug;
 
 pub trait Stage: Downcast + Send + Sync {
     /// Runs the stage; this happens once per update.
@@ -44,14 +44,6 @@ impl_downcast!(Stage);
 /// The checker may report a system more times than the amount of constraints it would actually need
 /// to have unambiguous order with regards to a group of already-constrained systems.
 pub struct ReportExecutionOrderAmbiguities;
-
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
-struct RunCriteriaIndexLabel(usize);
-impl RunCriteriaLabel for RunCriteriaIndexLabel {
-    fn dyn_clone(&self) -> Box<dyn RunCriteriaLabel> {
-        Box::new(self.clone())
-    }
-}
 
 /// Stores and executes systems. Execution order is not defined unless explicitly specified;
 /// see `SystemDescriptor` documentation.
@@ -152,19 +144,27 @@ impl SystemStage {
     fn add_system_inner(
         &mut self,
         system: impl Into<SystemDescriptor>,
-        set_run_criteria_label: Option<BoxedRunCriteriaLabel>,
+        default_run_criteria: Option<usize>,
     ) {
         self.systems_modified = true;
         match system.into() {
             SystemDescriptor::Exclusive(mut descriptor) => {
                 let insertion_point = descriptor.insertion_point;
-                let run_criteria_label = descriptor
-                    .run_criteria
-                    .take()
-                    .map(|criteria| self.process_run_criteria(criteria))
-                    .or(set_run_criteria_label);
-                let container =
-                    ExclusiveSystemContainer::from_descriptor(descriptor, run_criteria_label);
+                let criteria = descriptor.run_criteria.take();
+                let mut container = ExclusiveSystemContainer::from_descriptor(descriptor);
+                match criteria {
+                    Some(RunCriteriaDescriptorOrLabel::Label(label)) => {
+                        container.run_criteria_label = Some(label);
+                    }
+                    Some(RunCriteriaDescriptorOrLabel::Descriptor(criteria_descriptor)) => {
+                        container.run_criteria_label = criteria_descriptor.label.clone();
+                        container.run_criteria_index =
+                            Some(self.add_run_criteria_internal(criteria_descriptor));
+                    }
+                    None => {
+                        container.run_criteria_index = default_run_criteria;
+                    }
+                }
                 match insertion_point {
                     InsertionPoint::AtStart => {
                         let index = self.exclusive_at_start.len();
@@ -184,16 +184,23 @@ impl SystemStage {
                 }
             }
             SystemDescriptor::Parallel(mut descriptor) => {
-                let run_criteria_label = descriptor
-                    .run_criteria
-                    .take()
-                    .map(|criteria| self.process_run_criteria(criteria))
-                    .or(set_run_criteria_label);
+                let criteria = descriptor.run_criteria.take();
+                let mut container = ParallelSystemContainer::from_descriptor(descriptor);
+                match criteria {
+                    Some(RunCriteriaDescriptorOrLabel::Label(label)) => {
+                        container.run_criteria_label = Some(label);
+                    }
+                    Some(RunCriteriaDescriptorOrLabel::Descriptor(criteria_descriptor)) => {
+                        container.run_criteria_label = criteria_descriptor.label.clone();
+                        container.run_criteria_index =
+                            Some(self.add_run_criteria_internal(criteria_descriptor));
+                    }
+                    None => {
+                        container.run_criteria_index = default_run_criteria;
+                    }
+                }
                 self.uninitialized_parallel.push(self.parallel.len());
-                self.parallel.push(ParallelSystemContainer::from_descriptor(
-                    descriptor,
-                    run_criteria_label,
-                ));
+                self.parallel.push(container);
             }
         }
     }
@@ -235,10 +242,46 @@ impl SystemStage {
     pub fn add_system_set(&mut self, system_set: SystemSet) -> &mut Self {
         self.systems_modified = true;
         let (run_criteria, mut systems) = system_set.bake();
-        let set_run_criteria_label =
-            run_criteria.map(|criteria| self.process_run_criteria(criteria));
+        let set_run_criteria_index = run_criteria.and_then(|criteria| {
+            // validate that no systems have criteria
+            for system in systems.iter_mut() {
+                match system {
+                    SystemDescriptor::Exclusive(descriptor) => {
+                        if descriptor.run_criteria.is_some() {
+                            panic!("The system {} has a run criteria, but its SystemSet also has a run criteria. This is not supported. Consider moving the system into a different SystemSet or calling `add_system()` instead.",
+                                descriptor.system.name())
+                        }
+                    }
+                    SystemDescriptor::Parallel(descriptor) => {
+                        if descriptor.run_criteria.is_some() {
+                            panic!("The exclusive system {} has a run criteria, but its SystemSet also has a run criteria. This is not supported. Consider moving the system into a different SystemSet or calling `add_system()` instead.",
+                                descriptor.system.name())
+                        }
+                    }
+                }
+            }
+            match criteria {
+                RunCriteriaDescriptorOrLabel::Descriptor(descriptor) => {
+                    Some(self.add_run_criteria_internal(descriptor))
+                },
+                RunCriteriaDescriptorOrLabel::Label(label) => {
+                    for system in systems.iter_mut() {
+                        match system {
+                            SystemDescriptor::Exclusive(descriptor) => {
+                                descriptor.run_criteria = Some(RunCriteriaDescriptorOrLabel::Label(label.clone()))
+                            }
+                            SystemDescriptor::Parallel(descriptor) => {
+                                descriptor.run_criteria = Some(RunCriteriaDescriptorOrLabel::Label(label.clone()))
+                            }
+                        }
+                    }
+
+                    None
+                }
+            }
+        });
         for system in systems.drain(..) {
-            self.add_system_inner(system, set_run_criteria_label.clone());
+            self.add_system_inner(system, set_run_criteria_index);
         }
         self
     }
@@ -265,79 +308,90 @@ impl SystemStage {
     }
 
     pub fn add_run_criteria(&mut self, run_criteria: RunCriteriaDescriptor) -> &mut Self {
-        self.process_run_criteria(RunCriteriaDescriptorOrLabel::Descriptor(run_criteria));
+        self.add_run_criteria_internal(run_criteria);
         self
     }
 
-    fn process_run_criteria(
-        &mut self,
-        run_criteria: RunCriteriaDescriptorOrLabel,
-    ) -> BoxedRunCriteriaLabel {
-        let mut descriptor = match run_criteria {
-            RunCriteriaDescriptorOrLabel::Label(label) => return label,
-            RunCriteriaDescriptorOrLabel::Descriptor(descriptor) => descriptor,
-        };
+    pub(crate) fn add_run_criteria_internal(&mut self, descriptor: RunCriteriaDescriptor) -> usize {
         let index = self.run_criteria.len();
         self.uninitialized_run_criteria
             .push((index, descriptor.duplicate_label_strategy));
-        let label = descriptor
-            .label
-            .take()
-            .unwrap_or_else(|| Box::new(RunCriteriaIndexLabel(index)));
+
         self.run_criteria
-            .push(RunCriteriaContainer::from_descriptor(
-                descriptor,
-                label.clone(),
-            ));
-        label
+            .push(RunCriteriaContainer::from_descriptor(descriptor));
+        index
     }
 
     fn initialize_systems(&mut self, world: &mut World) {
-        let mut criteria_labels = HashSet::default();
+        let mut criteria_labels = HashMap::default();
         let uninitialized_criteria: HashMap<_, _> =
             self.uninitialized_run_criteria.drain(..).collect();
+        // track the number of filtered criteria to correct run criteria indices
+        let mut filtered_criteria = 0;
+        let mut new_indices = Vec::new();
         self.run_criteria = self
             .run_criteria
             .drain(..)
             .enumerate()
             .filter_map(|(index, mut container)| {
+                let new_index = index - filtered_criteria;
+                let label = container.label.clone();
                 if let Some(strategy) = uninitialized_criteria.get(&index) {
-                    if criteria_labels.insert(container.label.clone()) {
-                        container.initialize(world);
-                        Some(container)
-                    } else {
-                        match strategy {
-                            DuplicateLabelStrategy::Panic => panic!(
-                                "Run criteria {} is labelled with {:?}, which \
-                                is already in use. Consider using \
-                                `RunCriteriaDescriptorCoercion::label_discard_if_duplicate().",
-                                container.name(),
-                                container.label
-                            ),
-                            DuplicateLabelStrategy::Discard => None,
+                    if let Some(ref label) = label {
+                        if let Some(duplicate_index) = criteria_labels.get(label) {
+                            match strategy {
+                                DuplicateLabelStrategy::Panic => panic!(
+                                    "Run criteria {} is labelled with {:?}, which \
+                            is already in use. Consider using \
+                            `RunCriteriaDescriptorCoercion::label_discard_if_duplicate().",
+                                    container.name(),
+                                    container.label
+                                ),
+                                DuplicateLabelStrategy::Discard => {
+                                    new_indices.push(*duplicate_index);
+                                    filtered_criteria += 1;
+                                    return None;
+                                }
+                            }
                         }
                     }
-                } else {
-                    criteria_labels.insert(container.label.clone());
-                    Some(container)
+                    container.initialize(world);
                 }
+                if let Some(label) = label {
+                    criteria_labels.insert(label, new_index);
+                }
+                new_indices.push(new_index);
+                Some(container)
             })
             .collect();
+
         for index in self.uninitialized_at_start.drain(..) {
-            self.exclusive_at_start[index]
-                .system_mut()
-                .initialize(world);
+            let container = &mut self.exclusive_at_start[index];
+            if let Some(index) = container.run_criteria() {
+                container.set_run_criteria(new_indices[index]);
+            }
+            container.system_mut().initialize(world);
         }
         for index in self.uninitialized_before_commands.drain(..) {
-            self.exclusive_before_commands[index]
-                .system_mut()
-                .initialize(world);
+            let container = &mut self.exclusive_before_commands[index];
+            if let Some(index) = container.run_criteria() {
+                container.set_run_criteria(new_indices[index]);
+            }
+            container.system_mut().initialize(world);
         }
         for index in self.uninitialized_at_end.drain(..) {
-            self.exclusive_at_end[index].system_mut().initialize(world);
+            let container = &mut self.exclusive_at_end[index];
+            if let Some(index) = container.run_criteria() {
+                container.set_run_criteria(new_indices[index]);
+            }
+            container.system_mut().initialize(world);
         }
         for index in self.uninitialized_parallel.drain(..) {
-            self.parallel[index].system_mut().initialize(world);
+            let container = &mut self.parallel[index];
+            if let Some(index) = container.run_criteria() {
+                container.set_run_criteria(new_indices[index]);
+            }
+            container.system_mut().initialize(world);
         }
     }
 
@@ -386,7 +440,7 @@ impl SystemStage {
             }
         }
         let run_criteria_labels = unwrap_dependency_cycle_error(
-            process_run_criteria(&mut self.run_criteria),
+            self.process_run_criteria(),
             &self.run_criteria,
             "run criteria",
         );
@@ -511,6 +565,64 @@ impl SystemStage {
             self.last_tick_check = change_tick;
         }
     }
+
+    /// Sorts run criteria and populates resolved input-criteria for piping.
+    /// Returns a map of run criteria labels to their indices.
+    fn process_run_criteria(
+        &mut self,
+    ) -> Result<
+        HashMap<BoxedRunCriteriaLabel, usize>,
+        DependencyGraphError<HashSet<BoxedRunCriteriaLabel>>,
+    > {
+        let graph = graph_utils::build_dependency_graph(&self.run_criteria);
+        let order = graph_utils::topological_order(&graph)?;
+        let mut order_inverted = order.iter().enumerate().collect::<Vec<_>>();
+        order_inverted.sort_unstable_by_key(|(_, &key)| key);
+        let labels: HashMap<_, _> = self
+            .run_criteria
+            .iter()
+            .enumerate()
+            .filter_map(|(index, criteria)| {
+                criteria
+                    .label
+                    .as_ref()
+                    .map(|label| (label.clone(), order_inverted[index].0))
+            })
+            .collect();
+        for criteria in self.run_criteria.iter_mut() {
+            if let RunCriteriaInner::Piped { input: parent, .. } = &mut criteria.inner {
+                let label = &criteria.after[0];
+                *parent = *labels.get(label).unwrap_or_else(|| {
+                    panic!(
+                        "Couldn't find run criteria labelled {:?} to pipe from.",
+                        label
+                    )
+                });
+            }
+        }
+
+        fn update_run_criteria_indices<T: SystemContainer>(
+            systems: &mut [T],
+            order_inverted: &[(usize, &usize)],
+        ) {
+            for system in systems {
+                if let Some(index) = system.run_criteria() {
+                    system.set_run_criteria(order_inverted[index].0);
+                }
+            }
+        }
+
+        update_run_criteria_indices(&mut self.exclusive_at_end, &order_inverted);
+        update_run_criteria_indices(&mut self.exclusive_at_start, &order_inverted);
+        update_run_criteria_indices(&mut self.exclusive_before_commands, &order_inverted);
+        update_run_criteria_indices(&mut self.parallel, &order_inverted);
+
+        let mut temp = self.run_criteria.drain(..).map(Some).collect::<Vec<_>>();
+        for index in order {
+            self.run_criteria.push(temp[index].take().unwrap());
+        }
+        Ok(labels)
+    }
 }
 
 /// Sorts given system containers topologically, populates their resolved dependencies
@@ -544,41 +656,6 @@ fn process_systems(
         systems.push(temp[index].take().unwrap());
     }
     Ok(())
-}
-
-/// Sorts run criteria and populates resolved input-criteria for piping.
-/// Returns a map of run criteria labels to their indices.
-fn process_run_criteria(
-    run_criteria: &mut Vec<RunCriteriaContainer>,
-) -> Result<
-    HashMap<BoxedRunCriteriaLabel, usize>,
-    DependencyGraphError<HashSet<BoxedRunCriteriaLabel>>,
-> {
-    let graph = graph_utils::build_dependency_graph(run_criteria);
-    let order = graph_utils::topological_order(&graph)?;
-    let mut order_inverted = order.iter().enumerate().collect::<Vec<_>>();
-    order_inverted.sort_unstable_by_key(|(_, &key)| key);
-    let labels: HashMap<_, _> = run_criteria
-        .iter()
-        .enumerate()
-        .map(|(index, criteria)| (criteria.label.clone(), order_inverted[index].0))
-        .collect();
-    for criteria in run_criteria.iter_mut() {
-        if let RunCriteriaInner::Piped { input: parent, .. } = &mut criteria.inner {
-            let label = &criteria.after[0];
-            *parent = *labels.get(label).unwrap_or_else(|| {
-                panic!(
-                    "Couldn't find run criteria labelled {:?} to pipe from.",
-                    label
-                )
-            });
-        }
-    }
-    let mut temp = run_criteria.drain(..).map(Some).collect::<Vec<_>>();
-    for index in order {
-        run_criteria.push(temp[index].take().unwrap());
-    }
-    Ok(labels)
 }
 
 /// Returns vector containing all pairs of indices of systems with ambiguous execution order,

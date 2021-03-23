@@ -26,8 +26,8 @@ pub trait SystemContainer: GraphNode<BoxedSystemLabel> {
 
 pub(super) struct ExclusiveSystemContainer {
     system: Box<dyn ExclusiveSystem>,
-    run_criteria: Option<usize>,
-    run_criteria_label: Option<BoxedRunCriteriaLabel>,
+    pub(super) run_criteria_index: Option<usize>,
+    pub(super) run_criteria_label: Option<BoxedRunCriteriaLabel>,
     dependencies: Vec<usize>,
     labels: Vec<BoxedSystemLabel>,
     before: Vec<BoxedSystemLabel>,
@@ -36,14 +36,11 @@ pub(super) struct ExclusiveSystemContainer {
 }
 
 impl ExclusiveSystemContainer {
-    pub fn from_descriptor(
-        descriptor: ExclusiveSystemDescriptor,
-        run_criteria_label: Option<BoxedRunCriteriaLabel>,
-    ) -> Self {
+    pub fn from_descriptor(descriptor: ExclusiveSystemDescriptor) -> Self {
         ExclusiveSystemContainer {
             system: descriptor.system,
-            run_criteria: None,
-            run_criteria_label,
+            run_criteria_index: None,
+            run_criteria_label: None,
             dependencies: Vec::new(),
             labels: descriptor.labels,
             before: descriptor.before,
@@ -86,11 +83,11 @@ impl SystemContainer for ExclusiveSystemContainer {
     }
 
     fn run_criteria(&self) -> Option<usize> {
-        self.run_criteria
+        self.run_criteria_index
     }
 
     fn set_run_criteria(&mut self, index: usize) {
-        self.run_criteria = Some(index);
+        self.run_criteria_index = Some(index);
     }
 
     fn run_criteria_label(&self) -> Option<&BoxedRunCriteriaLabel> {
@@ -108,8 +105,8 @@ impl SystemContainer for ExclusiveSystemContainer {
 
 pub struct ParallelSystemContainer {
     system: NonNull<dyn System<In = (), Out = ()>>,
-    run_criteria: Option<usize>,
-    run_criteria_label: Option<BoxedRunCriteriaLabel>,
+    pub(crate) run_criteria_index: Option<usize>,
+    pub(crate) run_criteria_label: Option<BoxedRunCriteriaLabel>,
     pub(crate) should_run: bool,
     dependencies: Vec<usize>,
     labels: Vec<BoxedSystemLabel>,
@@ -122,15 +119,12 @@ unsafe impl Send for ParallelSystemContainer {}
 unsafe impl Sync for ParallelSystemContainer {}
 
 impl ParallelSystemContainer {
-    pub(crate) fn from_descriptor(
-        descriptor: ParallelSystemDescriptor,
-        run_criteria_label: Option<BoxedRunCriteriaLabel>,
-    ) -> Self {
+    pub(crate) fn from_descriptor(descriptor: ParallelSystemDescriptor) -> Self {
         ParallelSystemContainer {
             system: unsafe { NonNull::new_unchecked(Box::into_raw(descriptor.system)) },
             should_run: false,
-            run_criteria: None,
-            run_criteria_label,
+            run_criteria_index: None,
+            run_criteria_label: None,
             dependencies: Vec::new(),
             labels: descriptor.labels,
             before: descriptor.before,
@@ -198,11 +192,11 @@ impl SystemContainer for ParallelSystemContainer {
     }
 
     fn run_criteria(&self) -> Option<usize> {
-        self.run_criteria
+        self.run_criteria_index
     }
 
     fn set_run_criteria(&mut self, index: usize) {
-        self.run_criteria = Some(index);
+        self.run_criteria_index = Some(index);
     }
 
     fn run_criteria_label(&self) -> Option<&BoxedRunCriteriaLabel> {

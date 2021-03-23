@@ -66,23 +66,20 @@ pub(crate) enum RunCriteriaInner {
 pub(crate) struct RunCriteriaContainer {
     pub should_run: ShouldRun,
     pub inner: RunCriteriaInner,
-    pub label: BoxedRunCriteriaLabel,
+    pub label: Option<BoxedRunCriteriaLabel>,
     pub before: Vec<BoxedRunCriteriaLabel>,
     pub after: Vec<BoxedRunCriteriaLabel>,
 }
 
 impl RunCriteriaContainer {
-    pub fn from_descriptor(
-        descriptor: RunCriteriaDescriptor,
-        label: BoxedRunCriteriaLabel,
-    ) -> Self {
+    pub fn from_descriptor(descriptor: RunCriteriaDescriptor) -> Self {
         Self {
             should_run: ShouldRun::Yes,
             inner: match descriptor.system {
                 RunCriteriaSystem::Single(system) => RunCriteriaInner::Single(system),
                 RunCriteriaSystem::Piped(system) => RunCriteriaInner::Piped { input: 0, system },
             },
-            label,
+            label: descriptor.label,
             before: descriptor.before,
             after: descriptor.after,
         }
@@ -112,7 +109,11 @@ impl GraphNode<BoxedRunCriteriaLabel> for RunCriteriaContainer {
     }
 
     fn labels(&self) -> &[BoxedRunCriteriaLabel] {
-        std::slice::from_ref(&self.label)
+        if let Some(ref label) = self.label {
+            std::slice::from_ref(label)
+        } else {
+            &[]
+        }
     }
 
     fn before(&self) -> &[BoxedRunCriteriaLabel] {
