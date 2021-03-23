@@ -57,9 +57,8 @@ fn setup(
 
     let texture_handle = asset_server.load("branding/icon.png");
 
-    commands
-        .spawn(OrthographicCameraBundle::new_2d())
-        .spawn(UiCameraBundle::default());
+    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(UiCameraBundle::default());
 
     let mut sel = ContributorSelection {
         order: vec![],
@@ -79,13 +78,16 @@ fn setup(
 
         let transform = Transform::from_xyz(pos.0, pos.1, 0.0);
 
-        commands
-            .spawn((Contributor { hue },))
-            .with(Velocity {
-                translation: velocity,
-                rotation: -dir * 5.0,
-            })
-            .with_bundle(SpriteBundle {
+        let e = commands
+            .spawn()
+            .insert_bundle((
+                Contributor { hue },
+                Velocity {
+                    translation: velocity,
+                    rotation: -dir * 5.0,
+                },
+            ))
+            .insert_bundle(SpriteBundle {
                 sprite: Sprite {
                     size: Vec2::new(1.0, 1.0) * SPRITE_SIZE,
                     resize_mode: SpriteResizeMode::Manual,
@@ -98,20 +100,20 @@ fn setup(
                 }),
                 transform,
                 ..Default::default()
-            });
-
-        let e = commands.current_entity().unwrap();
+            })
+            .id();
 
         sel.order.push((name, e));
     }
 
     sel.order.shuffle(&mut rnd);
 
-    commands.spawn((SelectTimer, Timer::from_seconds(SHOWCASE_TIMER_SECS, true)));
+    commands.spawn_bundle((SelectTimer, Timer::from_seconds(SHOWCASE_TIMER_SECS, true)));
 
     commands
-        .spawn((ContributorDisplay,))
-        .with_bundle(TextBundle {
+        .spawn()
+        .insert(ContributorDisplay)
+        .insert_bundle(TextBundle {
             style: Style {
                 align_self: AlignSelf::FlexEnd,
                 ..Default::default()

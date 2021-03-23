@@ -127,10 +127,9 @@ fn setup(
             [0.20, 0.27, 0.29],
         ]),
     );
-    // Setup our world
+    // cube
     commands
-        // cube
-        .spawn(MeshBundle {
+        .spawn_bundle(MeshBundle {
             mesh: meshes.add(cube_with_vertex_colors), // use our cube with vertex colors
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 pipeline_handle,
@@ -138,10 +137,10 @@ fn setup(
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
             ..Default::default()
         })
-        .with(material)
-        // camera
-        .spawn(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(3.0, 5.0, -8.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..Default::default()
-        });
+        .insert(material);
+    // camera
+    commands.spawn_bundle(PerspectiveCameraBundle {
+        transform: Transform::from_xyz(3.0, 5.0, -8.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..Default::default()
+    });
 }

@@ -34,10 +34,10 @@ fn setup_menu(
     asset_server: Res<AssetServer>,
     button_materials: Res<ButtonMaterials>,
 ) {
-    commands
-        // ui camera
-        .spawn(UiCameraBundle::default())
-        .spawn(ButtonBundle {
+    // ui camera
+    commands.spawn_bundle(UiCameraBundle::default());
+    let button_entity = commands
+        .spawn_bundle(ButtonBundle {
             style: Style {
                 size: Size::new(Val::Px(150.0), Val::Px(65.0)),
                 // center button
@@ -52,7 +52,7 @@ fn setup_menu(
             ..Default::default()
         })
         .with_children(|parent| {
-            parent.spawn(TextBundle {
+            parent.spawn_bundle(TextBundle {
                 text: Text::with_section(
                     "Play",
                     TextStyle {
@@ -64,10 +64,9 @@ fn setup_menu(
                 ),
                 ..Default::default()
             });
-        });
-    commands.insert_resource(MenuData {
-        button_entity: commands.current_entity().unwrap(),
-    });
+        })
+        .id();
+    commands.insert_resource(MenuData { button_entity });
 }
 
 fn menu(
@@ -95,7 +94,7 @@ fn menu(
 }
 
 fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
-    commands.despawn_recursive(menu_data.button_entity);
+    commands.entity(menu_data.button_entity).despawn_recursive();
 }
 
 fn setup_game(
@@ -104,12 +103,11 @@ fn setup_game(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     let texture_handle = asset_server.load("branding/icon.png");
-    commands
-        .spawn(OrthographicCameraBundle::new_2d())
-        .spawn(SpriteBundle {
-            material: materials.add(texture_handle.into()),
-            ..Default::default()
-        });
+    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(SpriteBundle {
+        material: materials.add(texture_handle.into()),
+        ..Default::default()
+    });
 }
 
 const SPEED: f32 = 100.0;

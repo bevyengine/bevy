@@ -49,56 +49,54 @@ fn setup(
         ..Default::default()
     });
 
-    // add entities to the world
-    commands
-        // textured quad - normal
-        .spawn(PbrBundle {
-            mesh: quad_handle.clone(),
-            material: material_handle,
-            transform: Transform {
-                translation: Vec3::new(0.0, 0.0, 1.5),
-                rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
-                ..Default::default()
-            },
-            visible: Visible {
-                is_transparent: true,
-                ..Default::default()
-            },
+    // textured quad - normal
+    commands.spawn_bundle(PbrBundle {
+        mesh: quad_handle.clone(),
+        material: material_handle,
+        transform: Transform {
+            translation: Vec3::new(0.0, 0.0, 1.5),
+            rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
             ..Default::default()
-        })
-        // textured quad - modulated
-        .spawn(PbrBundle {
-            mesh: quad_handle.clone(),
-            material: red_material_handle,
-            transform: Transform {
-                translation: Vec3::new(0.0, 0.0, 0.0),
-                rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
-                ..Default::default()
-            },
-            visible: Visible {
-                is_transparent: true,
-                ..Default::default()
-            },
+        },
+        visible: Visible {
+            is_transparent: true,
             ..Default::default()
-        })
-        // textured quad - modulated
-        .spawn(PbrBundle {
-            mesh: quad_handle,
-            material: blue_material_handle,
-            transform: Transform {
-                translation: Vec3::new(0.0, 0.0, -1.5),
-                rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
-                ..Default::default()
-            },
-            visible: Visible {
-                is_transparent: true,
-                ..Default::default()
-            },
+        },
+        ..Default::default()
+    });
+    // textured quad - modulated
+    commands.spawn_bundle(PbrBundle {
+        mesh: quad_handle.clone(),
+        material: red_material_handle,
+        transform: Transform {
+            translation: Vec3::new(0.0, 0.0, 0.0),
+            rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
             ..Default::default()
-        })
-        // camera
-        .spawn(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(3.0, 5.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
+        },
+        visible: Visible {
+            is_transparent: true,
             ..Default::default()
-        });
+        },
+        ..Default::default()
+    });
+    // textured quad - modulated
+    commands.spawn_bundle(PbrBundle {
+        mesh: quad_handle,
+        material: blue_material_handle,
+        transform: Transform {
+            translation: Vec3::new(0.0, 0.0, -1.5),
+            rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
+            ..Default::default()
+        },
+        visible: Visible {
+            is_transparent: true,
+            ..Default::default()
+        },
+        ..Default::default()
+    });
+    // camera
+    commands.spawn_bundle(PerspectiveCameraBundle {
+        transform: Transform::from_xyz(3.0, 5.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..Default::default()
+    });
 }

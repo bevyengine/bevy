@@ -111,7 +111,7 @@ fn setup(
         .add_node_edge("my_array_texture", base::node::MAIN_PASS)
         .unwrap();
 
-    commands.spawn(PerspectiveCameraBundle {
+    commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..Default::default()
     });
@@ -143,12 +143,12 @@ fn create_array_texture(
 
     // Spawn a cube that's shaded using the array texture.
     commands
-        .spawn(MeshBundle {
+        .spawn_bundle(MeshBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 my_pipeline.0.clone(),
             )]),
             ..Default::default()
         })
-        .with(array_texture);
+        .insert(array_texture);
 }

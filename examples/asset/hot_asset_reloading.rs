@@ -20,18 +20,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Any changes to the mesh will be reloaded automatically! Try making a change to Monkey.gltf.
     // You should see the changes immediately show up in your app.
 
-    // Add entities to the world:
-    commands
-        // mesh
-        .spawn_scene(scene_handle)
-        // light
-        .spawn(LightBundle {
-            transform: Transform::from_xyz(4.0, 5.0, 4.0),
-            ..Default::default()
-        })
-        // camera
-        .spawn(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(2.0, 2.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..Default::default()
-        });
+    // mesh
+    commands.spawn_scene(scene_handle);
+    // light
+    commands.spawn_bundle(LightBundle {
+        transform: Transform::from_xyz(4.0, 5.0, 4.0),
+        ..Default::default()
+    });
+    // camera
+    commands.spawn_bundle(PerspectiveCameraBundle {
+        transform: Transform::from_xyz(2.0, 2.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..Default::default()
+    });
 }

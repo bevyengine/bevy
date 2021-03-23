@@ -109,17 +109,22 @@ mod test {
                 GlobalTransform::identity(),
             ))
             .with_children(|parent| {
-                parent
-                    .spawn((
-                        Transform::from_xyz(0.0, 2.0, 0.),
-                        GlobalTransform::identity(),
-                    ))
-                    .for_current_entity(|entity| children.push(entity))
-                    .spawn((
-                        Transform::from_xyz(0.0, 0.0, 3.),
-                        GlobalTransform::identity(),
-                    ))
-                    .for_current_entity(|entity| children.push(entity));
+                children.push(
+                    parent
+                        .spawn_bundle((
+                            Transform::from_xyz(0.0, 2.0, 0.),
+                            GlobalTransform::identity(),
+                        ))
+                        .id(),
+                );
+                children.push(
+                    parent
+                        .spawn_bundle((
+                            Transform::from_xyz(0.0, 0.0, 3.),
+                            GlobalTransform::identity(),
+                        ))
+                        .id(),
+                );
             });
         schedule.run(&mut world);
 
@@ -150,22 +155,27 @@ mod test {
         let mut commands = Commands::new(&mut queue, &world);
         let mut children = Vec::new();
         commands
-            .spawn((
+            .spawn_bundle((
                 Transform::from_xyz(1.0, 0.0, 0.0),
                 GlobalTransform::identity(),
             ))
             .with_children(|parent| {
-                parent
-                    .spawn((
-                        Transform::from_xyz(0.0, 2.0, 0.0),
-                        GlobalTransform::identity(),
-                    ))
-                    .for_current_entity(|entity| children.push(entity))
-                    .spawn((
-                        Transform::from_xyz(0.0, 0.0, 3.0),
-                        GlobalTransform::identity(),
-                    ))
-                    .for_current_entity(|entity| children.push(entity));
+                children.push(
+                    parent
+                        .spawn_bundle((
+                            Transform::from_xyz(0.0, 2.0, 0.0),
+                            GlobalTransform::identity(),
+                        ))
+                        .id(),
+                );
+                children.push(
+                    parent
+                        .spawn_bundle((
+                            Transform::from_xyz(0.0, 0.0, 3.0),
+                            GlobalTransform::identity(),
+                        ))
+                        .id(),
+                );
             });
         queue.apply(&mut world);
         schedule.run(&mut world);
