@@ -339,7 +339,7 @@ fn main() {
             game_over_system.system().after(MyLabels::ScoreCheck),
         )
         // We can check our systems for execution order ambiguities by examining the output produced
-        // in the console by using the `LogPlugin` adding the following Resource to our App :)
+        // in the console by using the `LogPlugin` and adding the following Resource to our App :)
         // Be aware that not everything reported by this checker is a potential problem, you'll have
         // to make that judgement yourself.
         .add_plugin(LogPlugin::default())
