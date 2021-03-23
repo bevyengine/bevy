@@ -520,6 +520,22 @@ impl World {
     /// Resources are "unique" data of a given type.
     #[inline]
     pub fn remove_resource<T: Component>(&mut self) -> Option<T> {
+        // SAFE: T is Send + Sync
+        unsafe { self.remove_resource_unchecked() }
+    }
+
+    #[inline]
+    pub fn remove_non_send<T: 'static>(&mut self) -> Option<T> {
+        self.validate_non_send_access::<T>();
+        // SAFE: we are on main thread
+        unsafe { self.remove_resource_unchecked() }
+    }
+
+    #[inline]
+    /// # Safety
+    /// make sure you're on main thread if T isn't Send + Sync
+    #[allow(unused_unsafe)]
+    pub unsafe fn remove_resource_unchecked<T: 'static>(&mut self) -> Option<T> {
         let component_id = self.components.get_resource_id(TypeId::of::<T>())?;
         let resource_archetype = self.archetypes.resource_mut();
         let unique_components = resource_archetype.unique_components_mut();
