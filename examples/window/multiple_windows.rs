@@ -70,11 +70,10 @@ fn setup_pipeline(
         .find(|w| w.id() != WindowId::default())
         .map(|w| w.id());
 
-    if window_id.is_none() {
-        return;
-    }
-
-    let window_id = window_id.unwrap();
+    let window_id = match window_id {
+        Some(window_id) => window_id,
+        None => return,
+    };
 
     // here we setup our render graph to draw our second camera to the new window's swap chain
 
