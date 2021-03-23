@@ -181,7 +181,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
 // remove all entities that are not a camera
 fn teardown(mut commands: Commands, entities: Query<Entity, Without<Camera>>) {
     for entity in entities.iter() {
-        commands.despawn_recursive(entity);
+        commands.entity(entity).despawn_recursive();
     }
 }
 
@@ -241,7 +241,7 @@ fn move_player(
         if game.player.i == game.bonus.i && game.player.j == game.bonus.j {
             game.score += 2;
             game.cake_eaten += 1;
-            commands.despawn_recursive(entity);
+            commands.entity(entity).despawn_recursive();
             game.bonus.entity = None;
         }
     }
@@ -301,7 +301,7 @@ fn spawn_bonus(
     }
     if let Some(entity) = game.bonus.entity {
         game.score -= 3;
-        commands.despawn_recursive(entity);
+        commands.entity(entity).despawn_recursive();
         game.bonus.entity = None;
         if game.score <= -5 {
             state.set_next(GameState::GameOver).unwrap();

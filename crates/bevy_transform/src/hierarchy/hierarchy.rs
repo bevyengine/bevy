@@ -1,7 +1,7 @@
 use crate::components::{Children, Parent};
 use bevy_ecs::{
     entity::Entity,
-    system::{Command, Commands},
+    system::{Command, EntityCommands},
     world::World,
 };
 use bevy_utils::tracing::debug;
@@ -44,13 +44,14 @@ impl Command for DespawnRecursive {
 
 pub trait DespawnRecursiveExt {
     /// Despawns the provided entity and its children.
-    fn despawn_recursive(&mut self, entity: Entity);
+    fn despawn_recursive(&mut self);
 }
 
-impl<'a> DespawnRecursiveExt for Commands<'a> {
+impl<'a, 'b> DespawnRecursiveExt for EntityCommands<'a, 'b> {
     /// Despawns the provided entity and its children.
-    fn despawn_recursive(&mut self, entity: Entity) {
-        self.add(DespawnRecursive { entity });
+    fn despawn_recursive(&mut self) {
+        let entity = self.id();
+        self.commands().add(DespawnRecursive { entity });
     }
 }
 
@@ -107,9 +108,9 @@ mod tests {
 
         {
             let mut commands = Commands::new(&mut queue, &world);
-            commands.despawn_recursive(parent_entity);
-            commands.despawn_recursive(parent_entity); // despawning the same entity twice should
-                                                       // not panic
+            commands.entity(parent_entity).despawn_recursive();
+            // despawning the same entity twice should not panic
+            commands.entity(parent_entity).despawn_recursive();
         }
         queue.apply(&mut world);
 

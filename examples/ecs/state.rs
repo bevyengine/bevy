@@ -94,7 +94,7 @@ fn menu(
 }
 
 fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
-    commands.despawn_recursive(menu_data.button_entity);
+    commands.entity(menu_data.button_entity).despawn_recursive();
 }
 
 fn setup_game(

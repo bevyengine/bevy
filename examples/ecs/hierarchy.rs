@@ -117,7 +117,7 @@ fn rotate(
         if time.seconds_since_startup() >= 4.0 {
             // This will remove the entity from its parent's list of children, as well as despawn
             // any children the entity has.
-            commands.despawn_recursive(parent);
+            commands.entity(parent).despawn_recursive();
         }
     }
 }
