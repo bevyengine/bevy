@@ -532,7 +532,7 @@ impl World {
     }
 
     #[inline]
-    /// Safety:
+    /// # Safety
     /// make sure you're on main thread if T isn't Send + Sync
     #[allow(unused_unsafe)]
     pub unsafe fn remove_resource_unchecked<T: 'static>(&mut self) -> Option<T> {
