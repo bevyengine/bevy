@@ -70,7 +70,7 @@ fn setup_pipeline(
         .find(|w| w.id() != WindowId::default())
         .map(|w| w.id());
 
-    if !window_id.is_some() {
+    if window_id.is_none() {
         return;
     }
 
