@@ -13,7 +13,7 @@ struct CharacterTemplate {
 fn despawn_dead_enemies(mut commands: Commands, enemies: Query<(Entity, &Enemy)>) {
     for (entity, enemy) in enemies.iter() {
         if enemy.hit_points == 0 {
-            commands.despawn_recursive(entity);
+            commands.entity(entity).despawn_recursive();
         }
     }
 }
@@ -25,9 +25,9 @@ fn hurt_enemies(mut enemies: Query<&mut Enemy>) {
 }
 
 fn spawn_enemy(mut commands: Commands, character_template: Res<CharacterTemplate>) {
-    commands.spawn((Enemy {
+    commands.spawn().insert(Enemy {
         hit_points: *character_template.hit_points.get("enemy").unwrap(),
-    },));
+    });
 }
 
 #[test]
@@ -45,10 +45,7 @@ fn did_hurt_enemy() {
     schedule.add_stage("update", update_stage);
 
     // Setup test entities
-    let ennemy_id = commands
-        .spawn((Enemy { hit_points: 5 },))
-        .current_entity()
-        .unwrap();
+    let ennemy_id = commands.spawn().insert(Enemy { hit_points: 5 }).id();
     queue.apply(&mut world);
 
     // Run systems
@@ -74,10 +71,7 @@ fn did_despawn_enemy() {
     schedule.add_stage("update", update_stage);
 
     // Setup test entities
-    let ennemy_id = commands
-        .spawn((Enemy { hit_points: 1 },))
-        .current_entity()
-        .unwrap();
+    let ennemy_id = commands.spawn().insert(Enemy { hit_points: 1 }).id();
     queue.apply(&mut world);
 
     // Run systems
