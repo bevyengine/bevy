@@ -66,6 +66,12 @@ impl Default for Visible {
     }
 }
 
+/// Viewable is used for frustum culling.
+/// Any Sprite or AtlasTextureSprite will have this removed if they are outside the camera frustum and thus not be rendered.
+#[derive(Debug, Default, Clone, Reflect)]
+#[reflect(Component)]
+pub struct WithinFrustum;
+
 /// A component that indicates how to draw an entity.
 #[derive(Debug, Clone, Reflect)]
 #[reflect(Component)]

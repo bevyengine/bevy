@@ -7,7 +7,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Size, Vec3};
 use bevy_render::{
-    draw::{DrawContext, Drawable},
+    draw::{DrawContext, Drawable, WithinFrustum},
     mesh::Mesh,
     prelude::{Draw, Msaa, Texture, Visible},
     render_graph::base::MainPass,
@@ -72,7 +72,7 @@ pub fn draw_text2d_system(
             &GlobalTransform,
             &Text2dSize,
         ),
-        With<MainPass>,
+        (With<MainPass>, With<WithinFrustum>),
     >,
 ) {
     let font_quad = meshes.get(&QUAD_HANDLE).unwrap();

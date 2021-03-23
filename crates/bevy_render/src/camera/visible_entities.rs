@@ -1,5 +1,5 @@
 use super::{Camera, DepthCalculation};
-use crate::prelude::Visible;
+use crate::{draw::WithinFrustum, prelude::Visible};
 use bevy_core::FloatOrd;
 use bevy_ecs::{entity::Entity, query::With, reflect::ReflectComponent, system::Query};
 use bevy_reflect::Reflect;
@@ -204,8 +204,8 @@ pub fn visible_entities_system(
         &mut VisibleEntities,
         Option<&RenderLayers>,
     )>,
-    visible_query: Query<(Entity, &Visible, Option<&RenderLayers>)>,
-    visible_transform_query: Query<&GlobalTransform, With<Visible>>,
+    visible_query: Query<(Entity, &Visible, Option<&RenderLayers>), With<WithinFrustum>>,
+    visible_transform_query: Query<&GlobalTransform, With<WithinFrustum>>,
 ) {
     for (camera, camera_global_transform, mut visible_entities, maybe_camera_mask) in
         camera_query.iter_mut()
