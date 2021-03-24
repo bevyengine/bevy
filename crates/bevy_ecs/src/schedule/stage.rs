@@ -245,33 +245,38 @@ impl SystemStage {
         let set_run_criteria_index = run_criteria.and_then(|criteria| {
             // validate that no systems have criteria
             for system in systems.iter_mut() {
-                match system {
-                    SystemDescriptor::Exclusive(descriptor) => {
-                        if descriptor.run_criteria.is_some() {
-                            panic!("The system {} has a run criteria, but its SystemSet also has a run criteria. This is not supported. Consider moving the system into a different SystemSet or calling `add_system()` instead.",
-                                descriptor.system.name())
-                        }
-                    }
-                    SystemDescriptor::Parallel(descriptor) => {
-                        if descriptor.run_criteria.is_some() {
-                            panic!("The exclusive system {} has a run criteria, but its SystemSet also has a run criteria. This is not supported. Consider moving the system into a different SystemSet or calling `add_system()` instead.",
-                                descriptor.system.name())
-                        }
-                    }
+                if let Some(name) = match system {
+                    SystemDescriptor::Exclusive(descriptor) => descriptor
+                        .run_criteria
+                        .is_some()
+                        .then(|| descriptor.system.name()),
+                    SystemDescriptor::Parallel(descriptor) => descriptor
+                        .run_criteria
+                        .is_some()
+                        .then(|| descriptor.system.name()),
+                } {
+                    panic!(
+                        "The system {} has a run criteria, but its `SystemSet` also has a run \
+                        criteria. This is not supported. Consider moving the system into a \
+                        different `SystemSet` or calling `add_system()` instead.",
+                        name
+                    )
                 }
             }
             match criteria {
                 RunCriteriaDescriptorOrLabel::Descriptor(descriptor) => {
                     Some(self.add_run_criteria_internal(descriptor))
-                },
+                }
                 RunCriteriaDescriptorOrLabel::Label(label) => {
                     for system in systems.iter_mut() {
                         match system {
                             SystemDescriptor::Exclusive(descriptor) => {
-                                descriptor.run_criteria = Some(RunCriteriaDescriptorOrLabel::Label(label.clone()))
+                                descriptor.run_criteria =
+                                    Some(RunCriteriaDescriptorOrLabel::Label(label.clone()))
                             }
                             SystemDescriptor::Parallel(descriptor) => {
-                                descriptor.run_criteria = Some(RunCriteriaDescriptorOrLabel::Label(label.clone()))
+                                descriptor.run_criteria =
+                                    Some(RunCriteriaDescriptorOrLabel::Label(label.clone()))
                             }
                         }
                     }
@@ -286,15 +291,12 @@ impl SystemStage {
         self
     }
 
-    pub fn with_stage_run_criteria<S: System<In = (), Out = ShouldRun>>(
-        mut self,
-        system: S,
-    ) -> Self {
-        self.set_stage_run_criteria(system);
+    pub fn with_run_criteria<S: System<In = (), Out = ShouldRun>>(mut self, system: S) -> Self {
+        self.set_run_criteria(system);
         self
     }
 
-    pub fn set_stage_run_criteria<S: System<In = (), Out = ShouldRun>>(
+    pub fn set_run_criteria<S: System<In = (), Out = ShouldRun>>(
         &mut self,
         system: S,
     ) -> &mut Self {
@@ -302,12 +304,12 @@ impl SystemStage {
         self
     }
 
-    pub fn with_run_criteria(mut self, run_criteria: RunCriteriaDescriptor) -> Self {
-        self.add_run_criteria(run_criteria);
+    pub fn with_system_run_criteria(mut self, run_criteria: RunCriteriaDescriptor) -> Self {
+        self.add_system_run_criteria(run_criteria);
         self
     }
 
-    pub fn add_run_criteria(&mut self, run_criteria: RunCriteriaDescriptor) -> &mut Self {
+    pub fn add_system_run_criteria(&mut self, run_criteria: RunCriteriaDescriptor) -> &mut Self {
         self.add_run_criteria_internal(run_criteria);
         self
     }
@@ -1408,7 +1410,7 @@ mod tests {
         // Reusing criteria.
         world.get_resource_mut::<Vec<usize>>().unwrap().clear();
         let mut stage = SystemStage::parallel()
-            .with_run_criteria(every_other_time.system().label("every other time"))
+            .with_system_run_criteria(every_other_time.system().label("every other time"))
             .with_system(make_parallel!(0).system().before("1"))
             .with_system(
                 make_parallel!(1)
@@ -1526,8 +1528,8 @@ mod tests {
     fn duplicate_run_criteria_label_panic() {
         let mut world = World::new();
         let mut stage = SystemStage::parallel()
-            .with_run_criteria(every_other_time.system().label("every other time"))
-            .with_run_criteria(every_other_time.system().label("every other time"));
+            .with_system_run_criteria(every_other_time.system().label("every other time"))
+            .with_system_run_criteria(every_other_time.system().label("every other time"));
         stage.run(&mut world);
     }
 

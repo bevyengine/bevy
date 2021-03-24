@@ -305,6 +305,7 @@ impl RunCriteria {
 }
 
 pub trait RunCriteriaPiping {
+    /// See [`RunCriteria::pipe()`].
     fn pipe(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor;
 }
 
