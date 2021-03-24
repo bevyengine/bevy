@@ -80,6 +80,8 @@ pub struct SystemStage {
     uninitialized_at_end: Vec<usize>,
     /// Newly inserted systems that will be initialized at the next opportunity.
     uninitialized_parallel: Vec<usize>,
+    /// Saves the value of the World change_tick during the last tick check
+    last_tick_check: u32,
 }
 
 impl SystemStage {
@@ -102,6 +104,7 @@ impl SystemStage {
             uninitialized_at_start: vec![],
             uninitialized_before_commands: vec![],
             uninitialized_at_end: vec![],
+            last_tick_check: Default::default(),
         }
     }
 
@@ -198,6 +201,16 @@ impl SystemStage {
 
     // TODO: consider exposing
     fn add_system_to_set(&mut self, system: impl Into<SystemDescriptor>, set: usize) -> &mut Self {
+        // This assertion is there to document that a maximum of `u32::MAX / 8` systems should be
+        // added to a stage to guarantee that change detection has no false positive, but it
+        // can be circumvented using exclusive or chained systems
+        assert!(
+            self.exclusive_at_start.len()
+                + self.exclusive_before_commands.len()
+                + self.exclusive_at_end.len()
+                + self.parallel.len()
+                < (u32::MAX / 8) as usize
+        );
         self.systems_modified = true;
         match system.into() {
             SystemDescriptor::Exclusive(descriptor) => {
@@ -359,6 +372,37 @@ impl SystemStage {
                 write_display_names_of_pairs(&mut string, &self.exclusive_at_end, at_end, world);
             }
             info!("{}", string);
+        }
+    }
+
+    /// Checks for old component and system change ticks
+    fn check_change_ticks(&mut self, world: &mut World) {
+        let change_tick = world.change_tick();
+        let time_since_last_check = change_tick.wrapping_sub(self.last_tick_check);
+        // Only check after at least `u32::MAX / 8` counts, and at most `u32::MAX / 4` counts
+        // since the max number of [System] in a [SystemStage] is limited to `u32::MAX / 8`
+        // and this function is called at the end of each [SystemStage] loop
+        const MIN_TIME_SINCE_LAST_CHECK: u32 = u32::MAX / 8;
+
+        if time_since_last_check > MIN_TIME_SINCE_LAST_CHECK {
+            // Check all system change ticks
+            for exclusive_system in &mut self.exclusive_at_start {
+                exclusive_system.system_mut().check_change_tick(change_tick);
+            }
+            for exclusive_system in &mut self.exclusive_before_commands {
+                exclusive_system.system_mut().check_change_tick(change_tick);
+            }
+            for exclusive_system in &mut self.exclusive_at_end {
+                exclusive_system.system_mut().check_change_tick(change_tick);
+            }
+            for parallel_system in &mut self.parallel {
+                parallel_system.system_mut().check_change_tick(change_tick);
+            }
+
+            // Check component ticks
+            world.check_change_ticks();
+
+            self.last_tick_check = change_tick;
         }
     }
 }
@@ -655,6 +699,9 @@ impl Stage for SystemStage {
                 }
             }
 
+            // Check for old component and system change ticks
+            self.check_change_ticks(world);
+
             // Reevaluate system sets' run criteria.
             has_work = false;
             for system_set in self.system_sets.iter_mut() {
@@ -678,6 +725,9 @@ impl Stage for SystemStage {
 #[cfg(test)]
 mod tests {
     use crate::{
+        entity::Entity,
+        query::ChangeTrackers,
+        query::Changed,
         schedule::{
             BoxedSystemLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
             ShouldRun, SingleThreadedExecutor, Stage, SystemSet, SystemStage,
@@ -1672,5 +1722,71 @@ mod tests {
         world.get_entity_mut(entity).unwrap().insert(1);
         stage.run(&mut world);
         assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
+    }
+
+    #[test]
+    fn change_ticks_wrapover() {
+        const MIN_TIME_SINCE_LAST_CHECK: u32 = u32::MAX / 8;
+        const MAX_DELTA: u32 = (u32::MAX / 4) * 3;
+
+        let mut world = World::new();
+        world.spawn().insert(0usize);
+        *world.change_tick.get_mut() += MAX_DELTA + 1;
+
+        let mut stage = SystemStage::parallel();
+        fn work() {}
+        stage.add_system(work.system());
+
+        // Overflow twice
+        for _ in 0..10 {
+            stage.run(&mut world);
+            for tracker in world.query::<ChangeTrackers<usize>>().iter(&world) {
+                let time_since_last_check = tracker
+                    .change_tick
+                    .wrapping_sub(tracker.component_ticks.added);
+                assert!(time_since_last_check <= MAX_DELTA);
+                let time_since_last_check = tracker
+                    .change_tick
+                    .wrapping_sub(tracker.component_ticks.changed);
+                assert!(time_since_last_check <= MAX_DELTA);
+            }
+            let change_tick = world.change_tick.get_mut();
+            *change_tick = change_tick.wrapping_add(MIN_TIME_SINCE_LAST_CHECK + 1);
+        }
+    }
+
+    #[test]
+    fn change_query_wrapover() {
+        struct C;
+        let mut world = World::new();
+
+        // Spawn entities at various ticks
+        let component_ticks = [0, u32::MAX / 4, u32::MAX / 2, u32::MAX / 4 * 3, u32::MAX];
+        let ids = component_ticks
+            .iter()
+            .map(|tick| {
+                *world.change_tick.get_mut() = *tick;
+                world.spawn().insert(C).id()
+            })
+            .collect::<Vec<Entity>>();
+
+        let test_cases = [
+            // normal
+            (0, u32::MAX / 2, vec![ids[1], ids[2]]),
+            // just wrapped over
+            (u32::MAX / 2, 0, vec![ids[0], ids[3], ids[4]]),
+        ];
+        for (last_change_tick, change_tick, changed_entities) in test_cases.iter() {
+            *world.change_tick.get_mut() = *change_tick;
+            world.last_change_tick = *last_change_tick;
+
+            assert_eq!(
+                world
+                    .query_filtered::<Entity, Changed<C>>()
+                    .iter(&world)
+                    .collect::<Vec<Entity>>(),
+                *changed_entities
+            );
+        }
     }
 }

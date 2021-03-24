@@ -29,7 +29,7 @@ layout(location = 0) in vec3 Vertex_Position;
 layout(location = 1) in vec3 Vertex_Color;
 layout(location = 0) out vec3 v_color;
 
-layout(set = 0, binding = 0) uniform Camera {
+layout(set = 0, binding = 0) uniform CameraViewProj {
     mat4 ViewProj;
 };
 layout(set = 1, binding = 0) uniform Transform {
@@ -127,10 +127,9 @@ fn setup(
             [0.20, 0.27, 0.29],
         ]),
     );
-    // Setup our world
+    // cube
     commands
-        // cube
-        .spawn(MeshBundle {
+        .spawn_bundle(MeshBundle {
             mesh: meshes.add(cube_with_vertex_colors), // use our cube with vertex colors
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 pipeline_handle,
@@ -138,10 +137,10 @@ fn setup(
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
             ..Default::default()
         })
-        .with(material)
-        // camera
-        .spawn(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(3.0, 5.0, -8.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..Default::default()
-        });
+        .insert(material);
+    // camera
+    commands.spawn_bundle(PerspectiveCameraBundle {
+        transform: Transform::from_xyz(3.0, 5.0, -8.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..Default::default()
+    });
 }

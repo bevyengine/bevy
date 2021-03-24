@@ -132,7 +132,12 @@ where
         entity: Entity,
     ) -> Result<<Q::Fetch as Fetch<'w>>::Item, QueryEntityError> {
         self.validate_world_and_update_archetypes(world);
-        self.get_unchecked_manual(world, entity)
+        self.get_unchecked_manual(
+            world,
+            entity,
+            world.last_change_tick(),
+            world.read_change_tick(),
+        )
     }
 
     /// # Safety
@@ -142,6 +147,8 @@ where
         &self,
         world: &'w World,
         entity: Entity,
+        last_change_tick: u32,
+        change_tick: u32,
     ) -> Result<<Q::Fetch as Fetch<'w>>::Item, QueryEntityError> {
         let location = world
             .entities
@@ -154,8 +161,10 @@ where
             return Err(QueryEntityError::QueryDoesNotMatch);
         }
         let archetype = &world.archetypes[location.archetype_id];
-        let mut fetch = <Q::Fetch as Fetch>::init(world, &self.fetch_state);
-        let mut filter = <F::Fetch as Fetch>::init(world, &self.filter_state);
+        let mut fetch =
+            <Q::Fetch as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);
+        let mut filter =
+            <F::Fetch as Fetch>::init(world, &self.filter_state, last_change_tick, change_tick);
 
         fetch.set_archetype(&self.fetch_state, archetype, &world.storages().tables);
         filter.set_archetype(&self.filter_state, archetype, &world.storages().tables);
@@ -190,7 +199,7 @@ where
         world: &'w World,
     ) -> QueryIter<'w, 's, Q, F> {
         self.validate_world_and_update_archetypes(world);
-        self.iter_unchecked_manual(world)
+        self.iter_unchecked_manual(world, world.last_change_tick(), world.read_change_tick())
     }
 
     /// # Safety
@@ -202,8 +211,10 @@ where
     pub(crate) unsafe fn iter_unchecked_manual<'w, 's>(
         &'s self,
         world: &'w World,
+        last_change_tick: u32,
+        change_tick: u32,
     ) -> QueryIter<'w, 's, Q, F> {
-        QueryIter::new(world, self)
+        QueryIter::new(world, self, last_change_tick, change_tick)
     }
 
     #[inline]
@@ -242,7 +253,12 @@ where
         func: impl FnMut(<Q::Fetch as Fetch<'w>>::Item),
     ) {
         self.validate_world_and_update_archetypes(world);
-        self.for_each_unchecked_manual(world, func);
+        self.for_each_unchecked_manual(
+            world,
+            func,
+            world.last_change_tick(),
+            world.read_change_tick(),
+        );
     }
 
     #[inline]
@@ -287,7 +303,14 @@ where
         func: impl Fn(<Q::Fetch as Fetch<'w>>::Item) + Send + Sync + Clone,
     ) {
         self.validate_world_and_update_archetypes(world);
-        self.par_for_each_unchecked_manual(world, task_pool, batch_size, func);
+        self.par_for_each_unchecked_manual(
+            world,
+            task_pool,
+            batch_size,
+            func,
+            world.last_change_tick(),
+            world.read_change_tick(),
+        );
     }
 
     /// # Safety
@@ -299,9 +322,13 @@ where
         &'s self,
         world: &'w World,
         mut func: impl FnMut(<Q::Fetch as Fetch<'w>>::Item),
+        last_change_tick: u32,
+        change_tick: u32,
     ) {
-        let mut fetch = <Q::Fetch as Fetch>::init(world, &self.fetch_state);
-        let mut filter = <F::Fetch as Fetch>::init(world, &self.filter_state);
+        let mut fetch =
+            <Q::Fetch as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);
+        let mut filter =
+            <F::Fetch as Fetch>::init(world, &self.filter_state, last_change_tick, change_tick);
         if fetch.is_dense() && filter.is_dense() {
             let tables = &world.storages().tables;
             for table_id in self.matched_table_ids.iter() {
@@ -346,10 +373,14 @@ where
         task_pool: &TaskPool,
         batch_size: usize,
         func: impl Fn(<Q::Fetch as Fetch<'w>>::Item) + Send + Sync + Clone,
+        last_change_tick: u32,
+        change_tick: u32,
     ) {
         task_pool.scope(|scope| {
-            let fetch = <Q::Fetch as Fetch>::init(world, &self.fetch_state);
-            let filter = <F::Fetch as Fetch>::init(world, &self.filter_state);
+            let fetch =
+                <Q::Fetch as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);
+            let filter =
+                <F::Fetch as Fetch>::init(world, &self.filter_state, last_change_tick, change_tick);
 
             if fetch.is_dense() && filter.is_dense() {
                 let tables = &world.storages().tables;
@@ -359,8 +390,18 @@ where
                     while offset < table.len() {
                         let func = func.clone();
                         scope.spawn(async move {
-                            let mut fetch = <Q::Fetch as Fetch>::init(world, &self.fetch_state);
-                            let mut filter = <F::Fetch as Fetch>::init(world, &self.filter_state);
+                            let mut fetch = <Q::Fetch as Fetch>::init(
+                                world,
+                                &self.fetch_state,
+                                last_change_tick,
+                                change_tick,
+                            );
+                            let mut filter = <F::Fetch as Fetch>::init(
+                                world,
+                                &self.filter_state,
+                                last_change_tick,
+                                change_tick,
+                            );
                             let tables = &world.storages().tables;
                             let table = &tables[*table_id];
                             fetch.set_table(&self.fetch_state, table);
@@ -385,8 +426,18 @@ where
                     while offset < archetype.len() {
                         let func = func.clone();
                         scope.spawn(async move {
-                            let mut fetch = <Q::Fetch as Fetch>::init(world, &self.fetch_state);
-                            let mut filter = <F::Fetch as Fetch>::init(world, &self.filter_state);
+                            let mut fetch = <Q::Fetch as Fetch>::init(
+                                world,
+                                &self.fetch_state,
+                                last_change_tick,
+                                change_tick,
+                            );
+                            let mut filter = <F::Fetch as Fetch>::init(
+                                world,
+                                &self.filter_state,
+                                last_change_tick,
+                                change_tick,
+                            );
                             let tables = &world.storages().tables;
                             let archetype = &world.archetypes[*archetype_id];
                             fetch.set_archetype(&self.fetch_state, archetype, tables);

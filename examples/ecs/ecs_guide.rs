@@ -1,6 +1,7 @@
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin, ScheduleRunnerSettings},
     ecs::schedule::ReportExecutionOrderAmbiguities,
+    log::LogPlugin,
     prelude::*,
     utils::Duration,
 };
@@ -184,7 +185,7 @@ fn new_player_system(
     let add_new_player = random::<bool>();
     if add_new_player && game_state.total_players < game_rules.max_players {
         game_state.total_players += 1;
-        commands.spawn((
+        commands.spawn_bundle((
             Player {
                 name: format!("Player {}", game_state.total_players),
             },
@@ -338,9 +339,10 @@ fn main() {
             game_over_system.system().after(MyLabels::ScoreCheck),
         )
         // We can check our systems for execution order ambiguities by examining the output produced
-        // in the console by adding the following Resource to our App :)
+        // in the console by using the `LogPlugin` and adding the following Resource to our App :)
         // Be aware that not everything reported by this checker is a potential problem, you'll have
         // to make that judgement yourself.
+        .add_plugin(LogPlugin::default())
         .insert_resource(ReportExecutionOrderAmbiguities)
         // This call to run() starts the app we just built!
         .run();

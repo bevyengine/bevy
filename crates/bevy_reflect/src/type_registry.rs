@@ -237,7 +237,7 @@ impl ReflectDeserialize {
     where
         D: serde::Deserializer<'de>,
     {
-        let mut erased = erased_serde::Deserializer::erase(deserializer);
+        let mut erased = <dyn erased_serde::Deserializer>::erase(deserializer);
         (self.func)(&mut erased)
             .map_err(<<D as serde::Deserializer<'de>>::Error as serde::de::Error>::custom)
     }

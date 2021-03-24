@@ -277,9 +277,12 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
     load_context.set_labeled_asset(
         &material_label,
         LoadedAsset::new(StandardMaterial {
-            albedo: Color::rgba(color[0], color[1], color[2], color[3]),
-            albedo_texture: texture_handle,
+            base_color: Color::rgba(color[0], color[1], color[2], color[3]),
+            base_color_texture: texture_handle,
+            roughness: pbr.roughness_factor(),
+            metallic: pbr.metallic_factor(),
             unlit: material.unlit(),
+            ..Default::default()
         })
         .with_dependencies(dependencies),
     )
@@ -293,18 +296,18 @@ fn load_node(
 ) -> Result<(), GltfError> {
     let transform = gltf_node.transform();
     let mut gltf_error = None;
-    let node = world_builder.spawn((
+    let mut node = world_builder.spawn_bundle((
         Transform::from_matrix(Mat4::from_cols_array_2d(&transform.matrix())),
         GlobalTransform::identity(),
     ));
 
     if let Some(name) = gltf_node.name() {
-        node.with(Name::new(name.to_string()));
+        node.insert(Name::new(name.to_string()));
     }
 
     // create camera node
     if let Some(camera) = gltf_node.camera() {
-        node.with(VisibleEntities {
+        node.insert(VisibleEntities {
             ..Default::default()
         });
 
@@ -322,12 +325,12 @@ fn load_node(
                     ..Default::default()
                 };
 
-                node.with(Camera {
+                node.insert(Camera {
                     name: Some(base::camera::CAMERA_2D.to_owned()),
                     projection_matrix: orthographic_projection.get_projection_matrix(),
                     ..Default::default()
                 });
-                node.with(orthographic_projection);
+                node.insert(orthographic_projection);
             }
             gltf::camera::Projection::Perspective(perspective) => {
                 let mut perspective_projection: PerspectiveProjection = PerspectiveProjection {
@@ -341,12 +344,12 @@ fn load_node(
                 if let Some(aspect_ratio) = perspective.aspect_ratio() {
                     perspective_projection.aspect_ratio = aspect_ratio;
                 }
-                node.with(Camera {
+                node.insert(Camera {
                     name: Some(base::camera::CAMERA_3D.to_owned()),
                     projection_matrix: perspective_projection.get_projection_matrix(),
                     ..Default::default()
                 });
-                node.with(perspective_projection);
+                node.insert(perspective_projection);
             }
         }
     }
@@ -371,7 +374,7 @@ fn load_node(
                 let material_asset_path =
                     AssetPath::new_ref(load_context.path(), Some(&material_label));
 
-                parent.spawn(PbrBundle {
+                parent.spawn_bundle(PbrBundle {
                     mesh: load_context.get_handle(mesh_asset_path),
                     material: load_context.get_handle(material_asset_path),
                     ..Default::default()

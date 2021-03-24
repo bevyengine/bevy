@@ -196,4 +196,8 @@ impl System for FixedTimestep {
             );
         }
     }
+
+    fn check_change_tick(&mut self, change_tick: u32) {
+        self.internal_system.check_change_tick(change_tick);
+    }
 }

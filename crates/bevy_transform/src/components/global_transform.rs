@@ -4,6 +4,35 @@ use bevy_math::{Mat3, Mat4, Quat, Vec3};
 use bevy_reflect::Reflect;
 use std::ops::Mul;
 
+/// Describe the position of an entity relative to the reference frame.
+///
+/// * To place or move an entity, you should set its [`Transform`].
+/// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
+/// * To get the global position of an entity, you should get its [`GlobalTransform`].
+///
+/// ## [`Transform`] and [`GlobalTransform`]
+///
+/// [`Transform`] is the position of an entity relative to its parent position, or the reference
+/// frame if it doesn't have a [`Parent`](super::Parent).
+///
+/// [`GlobalTransform`] is the position of an entity relative to the reference frame.
+///
+/// [`GlobalTransform`] is updated from [`Transform`] in the system
+/// [`transform_propagate_system`](crate::transform_propagate_system::transform_propagate_system).
+///
+/// In pseudo code:
+/// ```ignore
+/// for entity in entities_without_parent:
+///     set entity.global_transform to entity.transform
+///     recursively:
+///         set parent to current entity
+///         for child in parent.children:
+///             set child.global_transform to parent.global_transform * child.transform
+/// ```
+///
+/// This system runs in stage [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate). If you
+/// update the[`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
+/// before the [`GlobalTransform`] is updated.
 #[derive(Debug, PartialEq, Clone, Copy, Reflect)]
 #[reflect(Component, PartialEq)]
 pub struct GlobalTransform {
@@ -13,12 +42,14 @@ pub struct GlobalTransform {
 }
 
 impl GlobalTransform {
-    /// Create a new [`GlobalTransform`] at the position `(x, y, z)`
+    #[doc(hidden)]
     #[inline]
     pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
         Self::from_translation(Vec3::new(x, y, z))
     }
 
+    /// Creates a new identity [`GlobalTransform`], with no translation, rotation, and a scale of 1
+    /// on all axes.
     #[inline]
     pub const fn identity() -> Self {
         GlobalTransform {
@@ -28,6 +59,7 @@ impl GlobalTransform {
         }
     }
 
+    #[doc(hidden)]
     #[inline]
     pub fn from_matrix(matrix: Mat4) -> Self {
         let (scale, rotation, translation) = matrix.to_scale_rotation_translation();
@@ -39,6 +71,7 @@ impl GlobalTransform {
         }
     }
 
+    #[doc(hidden)]
     #[inline]
     pub fn from_translation(translation: Vec3) -> Self {
         GlobalTransform {
@@ -47,6 +80,7 @@ impl GlobalTransform {
         }
     }
 
+    #[doc(hidden)]
     #[inline]
     pub fn from_rotation(rotation: Quat) -> Self {
         GlobalTransform {
@@ -55,6 +89,7 @@ impl GlobalTransform {
         }
     }
 
+    #[doc(hidden)]
     #[inline]
     pub fn from_scale(scale: Vec3) -> Self {
         GlobalTransform {
@@ -63,43 +98,46 @@ impl GlobalTransform {
         }
     }
 
-    /// Returns transform with the same translation and scale, but rotation so that
-    /// transform.forward() points at target
+    #[doc(hidden)]
     #[inline]
     pub fn looking_at(mut self, target: Vec3, up: Vec3) -> Self {
         self.look_at(target, up);
         self
     }
 
+    /// Returns the 3d affine transformation matrix from this transforms translation,
+    /// rotation, and scale.
     #[inline]
     pub fn compute_matrix(&self) -> Mat4 {
         Mat4::from_scale_rotation_translation(self.scale, self.rotation, self.translation)
     }
 
-    #[inline]
     /// Get the unit vector in the local x direction
+    #[inline]
     pub fn local_x(&self) -> Vec3 {
         self.rotation * Vec3::X
     }
 
-    #[inline]
     /// Get the unit vector in the local y direction
+    #[inline]
     pub fn local_y(&self) -> Vec3 {
         self.rotation * Vec3::Y
     }
 
-    #[inline]
     /// Get the unit vector in the local z direction
+    #[inline]
     pub fn local_z(&self) -> Vec3 {
         self.rotation * Vec3::Z
     }
 
+    #[doc(hidden)]
     #[inline]
-    /// Rotate the transform by the given rotation
     pub fn rotate(&mut self, rotation: Quat) {
         self.rotation *= rotation;
     }
 
+    /// Multiplies `self` with `transform` component by component, returning the
+    /// resulting [`GlobalTransform`]
     #[inline]
     pub fn mul_transform(&self, transform: Transform) -> GlobalTransform {
         let translation = self.mul_vec3(transform.translation);
@@ -112,6 +150,7 @@ impl GlobalTransform {
         }
     }
 
+    /// Returns a [`Vec3`] of this [`Transform`] applied to `value`.
     #[inline]
     pub fn mul_vec3(&self, mut value: Vec3) -> Vec3 {
         value = self.rotation * value;
@@ -120,11 +159,13 @@ impl GlobalTransform {
         value
     }
 
+    #[doc(hidden)]
     #[inline]
     pub fn apply_non_uniform_scale(&mut self, scale: Vec3) {
         self.scale *= scale;
     }
 
+    #[doc(hidden)]
     #[inline]
     pub fn look_at(&mut self, target: Vec3, up: Vec3) {
         let forward = Vec3::normalize(self.translation - target);

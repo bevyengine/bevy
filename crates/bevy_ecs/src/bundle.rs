@@ -1,7 +1,8 @@
 pub use bevy_ecs_macros::Bundle;
 
 use crate::{
-    component::{Component, ComponentFlags, ComponentId, Components, StorageType, TypeInfo},
+    archetype::ComponentStatus,
+    component::{Component, ComponentId, ComponentTicks, Components, StorageType, TypeInfo},
     entity::Entity,
     storage::{SparseSetIndex, SparseSets, Table},
 };
@@ -123,6 +124,7 @@ pub struct BundleInfo {
 impl BundleInfo {
     /// # Safety
     /// table row must exist, entity must be valid
+    #[allow(clippy::clippy::too_many_arguments)]
     #[inline]
     pub(crate) unsafe fn write_components<T: Bundle>(
         &self,
@@ -130,8 +132,9 @@ impl BundleInfo {
         entity: Entity,
         table: &Table,
         table_row: usize,
-        bundle_flags: &[ComponentFlags],
+        bundle_status: &[ComponentStatus],
         bundle: T,
+        change_tick: u32,
     ) {
         // NOTE: get_components calls this closure on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
@@ -139,16 +142,38 @@ impl BundleInfo {
         bundle.get_components(|component_ptr| {
             // SAFE: component_id was initialized by get_dynamic_bundle_info
             let component_id = *self.component_ids.get_unchecked(bundle_component);
-            let flags = *bundle_flags.get_unchecked(bundle_component);
+            let component_status = bundle_status.get_unchecked(bundle_component);
             match self.storage_types[bundle_component] {
                 StorageType::Table => {
                     let column = table.get_column(component_id).unwrap();
                     column.set_unchecked(table_row, component_ptr);
-                    column.get_flags_unchecked_mut(table_row).insert(flags);
+                    let column_status = column.get_ticks_unchecked_mut(table_row);
+                    match component_status {
+                        ComponentStatus::Added => {
+                            *column_status = ComponentTicks::new(change_tick);
+                        }
+                        ComponentStatus::Mutated => {
+                            column_status.set_changed(change_tick);
+                        }
+                    }
                 }
                 StorageType::SparseSet => {
                     let sparse_set = sparse_sets.get_mut(component_id).unwrap();
-                    sparse_set.insert(entity, component_ptr, flags);
+                    match component_status {
+                        ComponentStatus::Added => {
+                            sparse_set.insert(
+                                entity,
+                                component_ptr,
+                                ComponentTicks::new(change_tick),
+                            );
+                        }
+                        ComponentStatus::Mutated => {
+                            sparse_set
+                                .get_ticks(entity)
+                                .unwrap()
+                                .set_changed(change_tick);
+                        }
+                    }
                 }
             }
             bundle_component += 1;

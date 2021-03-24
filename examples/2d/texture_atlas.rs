@@ -61,23 +61,22 @@ fn setup(
     let atlas_handle = texture_atlases.add(texture_atlas);
 
     // set up a scene to display our texture atlas
-    commands
-        .spawn(OrthographicCameraBundle::new_2d())
-        // draw a sprite from the atlas
-        .spawn(SpriteSheetBundle {
-            transform: Transform {
-                translation: Vec3::new(150.0, 0.0, 0.0),
-                scale: Vec3::splat(4.0),
-                ..Default::default()
-            },
-            sprite: TextureAtlasSprite::new(vendor_index as u32),
-            texture_atlas: atlas_handle,
+    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    // draw a sprite from the atlas
+    commands.spawn_bundle(SpriteSheetBundle {
+        transform: Transform {
+            translation: Vec3::new(150.0, 0.0, 0.0),
+            scale: Vec3::splat(4.0),
             ..Default::default()
-        })
-        // draw the atlas itself
-        .spawn(SpriteBundle {
-            material: materials.add(texture_atlas_texture.into()),
-            transform: Transform::from_xyz(-300.0, 0.0, 0.0),
-            ..Default::default()
-        });
+        },
+        sprite: TextureAtlasSprite::new(vendor_index as u32),
+        texture_atlas: atlas_handle,
+        ..Default::default()
+    });
+    // draw the atlas itself
+    commands.spawn_bundle(SpriteBundle {
+        material: materials.add(texture_atlas_texture.into()),
+        transform: Transform::from_xyz(-300.0, 0.0, 0.0),
+        ..Default::default()
+    });
 }

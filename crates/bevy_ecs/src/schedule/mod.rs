@@ -333,4 +333,6 @@ impl System for RunOnce {
     fn apply_buffers(&mut self, _world: &mut World) {}
 
     fn initialize(&mut self, _world: &mut World) {}
+
+    fn check_change_tick(&mut self, _change_tick: u32) {}
 }

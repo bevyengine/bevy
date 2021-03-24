@@ -163,7 +163,7 @@ impl TextureAtlasBuilder {
             target_bins.insert(0, TargetBin::new(current_width, current_height, 1));
             rect_placements = match pack_rects(
                 &self.rects_to_place,
-                target_bins,
+                &mut target_bins,
                 &volume_heuristic,
                 &contains_smallest_box,
             ) {
