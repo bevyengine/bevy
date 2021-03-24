@@ -1,4 +1,4 @@
-use super::{BufferId, SamplerId, TextureId};
+use super::{BufferId, SamplerId, SwapChainTextureId, TextureId, TextureViewId};
 use crate::texture::Texture;
 use bevy_asset::Handle;
 
@@ -11,13 +11,15 @@ use bevy_transform::components::GlobalTransform;
 pub enum RenderResourceType {
     Buffer,
     Texture,
+    SwapChain,
     Sampler,
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum RenderResourceId {
     Buffer(BufferId),
-    Texture(TextureId),
+    Texture(TextureViewId),
+    SwapChain(SwapChainTextureId),
     Sampler(SamplerId),
 }
 
@@ -27,9 +29,15 @@ impl From<BufferId> for RenderResourceId {
     }
 }
 
-impl From<TextureId> for RenderResourceId {
-    fn from(value: TextureId) -> Self {
+impl From<TextureViewId> for RenderResourceId {
+    fn from(value: TextureViewId) -> Self {
         RenderResourceId::Texture(value)
+    }
+}
+
+impl From<SwapChainTextureId> for RenderResourceId {
+    fn from(value: SwapChainTextureId) -> Self {
+        RenderResourceId::SwapChain(value)
     }
 }
 
@@ -40,8 +48,16 @@ impl From<SamplerId> for RenderResourceId {
 }
 
 impl RenderResourceId {
-    pub fn get_texture(&self) -> Option<TextureId> {
+    pub fn get_texture(&self) -> Option<TextureViewId> {
         if let RenderResourceId::Texture(id) = self {
+            Some(*id)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_swap_chain_texture(&self) -> Option<SwapChainTextureId> {
+        if let RenderResourceId::SwapChain(id) = self {
             Some(*id)
         } else {
             None

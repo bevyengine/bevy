@@ -1,22 +1,37 @@
 use super::Operations;
-use crate::{renderer::TextureId, Color};
+use crate::{
+    renderer::{RenderResourceId, SwapChainTextureId, TextureId, TextureViewId},
+    Color,
+};
 
 #[derive(Debug, Clone)]
 pub enum TextureAttachment {
-    Id(TextureId),
+    View(TextureViewId),
+    SwapChain(SwapChainTextureId),
     Name(String),
     Input(String),
 }
 
-impl TextureAttachment {
-    pub fn get_texture_id(&self) -> Option<TextureId> {
-        if let TextureAttachment::Id(texture_id) = self {
-            Some(*texture_id)
-        } else {
-            None
+impl From<RenderResourceId> for TextureAttachment {
+    fn from(resource_id: RenderResourceId) -> Self {
+        match resource_id {
+            RenderResourceId::Texture(texture_view) => TextureAttachment::View(texture_view),
+            RenderResourceId::SwapChain(texture_id) => TextureAttachment::SwapChain(texture_id),
+            _ => panic!(),
         }
     }
 }
+
+// impl TextureAttachment {
+//     pub fn get_texture_id(&self) -> Option<TextureId> {
+//         // TODO View
+//         if let TextureAttachment::SwapChain(texture_id) = self {
+//             Some(*texture_id)
+//         } else {
+//             None
+//         }
+//     }
+// }
 
 #[derive(Clone, Debug)]
 pub struct ClearColor(pub Color);

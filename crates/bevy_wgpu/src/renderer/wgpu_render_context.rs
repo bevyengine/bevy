@@ -231,7 +231,10 @@ fn get_texture_view<'a>(
                 panic!("Color attachment {} does not exist.", name);
             }
         },
-        TextureAttachment::Id(render_resource) => refs.textures.get(&render_resource).unwrap_or_else(|| &refs.swap_chain_frames.get(&render_resource).unwrap().output.view),
+        TextureAttachment::SwapChain(swap_chain_texture) => &refs.swap_chain_frames.get(&swap_chain_texture).unwrap().output.view,
+        TextureAttachment::View(texture_view_id) => {
+            refs.textures.get(texture_view_id).unwrap()
+        }
         TextureAttachment::Input(_) => panic!("Encountered unset `TextureAttachment::Input`. The `RenderGraph` executor should always set `TextureAttachment::Inputs` to `TextureAttachment::RenderResource` before running. This is a bug, please report it!"),
     }
 }

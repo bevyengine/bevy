@@ -1,4 +1,4 @@
-use super::{BindGroup, BindGroupId, BufferId, SamplerId, TextureId};
+use super::{BindGroup, BindGroupId, BufferId, SamplerId, TextureId, TextureViewId};
 use crate::{
     pipeline::{BindGroupDescriptor, BindGroupDescriptorId, IndexFormat, PipelineDescriptor},
     renderer::RenderResourceContext,
@@ -14,14 +14,14 @@ pub enum RenderResourceBinding {
         range: Range<u64>,
         dynamic_index: Option<u32>,
     },
-    Texture(TextureId),
+    Texture(TextureViewId),
     Sampler(SamplerId),
 }
 
 impl RenderResourceBinding {
-    pub fn get_texture(&self) -> Option<TextureId> {
-        if let RenderResourceBinding::Texture(texture) = self {
-            Some(*texture)
+    pub fn get_texture(&self) -> Option<TextureViewId> {
+        if let RenderResourceBinding::Texture(texture_view) = self {
+            Some(*texture_view)
         } else {
             None
         }

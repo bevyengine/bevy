@@ -1,11 +1,11 @@
-use super::RenderResourceContext;
+use super::{RenderResourceContext, SwapChainTextureId, TextureViewId};
 use crate::{
     pipeline::{BindGroupDescriptorId, PipelineDescriptor},
     renderer::{
         BindGroup, BufferId, BufferInfo, BufferMapMode, RenderResourceId, SamplerId, TextureId,
     },
     shader::{Shader, ShaderError},
-    texture::{SamplerDescriptor, TextureDescriptor},
+    texture::{SamplerDescriptor, TextureDescriptor, TextureViewDescriptor},
 };
 use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_utils::HashMap;
@@ -17,6 +17,8 @@ use std::{ops::Range, sync::Arc};
 pub struct HeadlessRenderResourceContext {
     buffer_info: Arc<RwLock<HashMap<BufferId, BufferInfo>>>,
     texture_descriptors: Arc<RwLock<HashMap<TextureId, TextureDescriptor>>>,
+    texture_view_descriptors: Arc<RwLock<HashMap<TextureViewId, TextureViewDescriptor>>>,
+    texture_texture_views: Arc<RwLock<HashMap<TextureId, Vec<TextureViewId>>>>,
     pub asset_resources: Arc<RwLock<HashMap<(HandleUntyped, u64), RenderResourceId>>>,
 }
 
@@ -28,16 +30,26 @@ impl HeadlessRenderResourceContext {
     pub fn add_texture_descriptor(&self, texture: TextureId, descriptor: TextureDescriptor) {
         self.texture_descriptors.write().insert(texture, descriptor);
     }
+
+    pub fn add_texture_view_descriptor(
+        &self,
+        texture_view: TextureViewId,
+        descriptor: TextureViewDescriptor,
+    ) {
+        self.texture_view_descriptors
+            .write()
+            .insert(texture_view, descriptor);
+    }
 }
 
 impl RenderResourceContext for HeadlessRenderResourceContext {
     fn create_swap_chain(&self, _window: &Window) {}
 
-    fn next_swap_chain_texture(&self, _window: &Window) -> TextureId {
-        TextureId::new()
+    fn next_swap_chain_texture(&self, _window: &Window) -> SwapChainTextureId {
+        SwapChainTextureId::new()
     }
 
-    fn drop_swap_chain_texture(&self, _render_resource: TextureId) {}
+    fn drop_swap_chain_texture(&self, _render_resource: SwapChainTextureId) {}
 
     fn drop_all_swap_chain_textures(&self) {}
 
@@ -49,6 +61,25 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         let texture = TextureId::new();
         self.add_texture_descriptor(texture, texture_descriptor);
         texture
+    }
+
+    fn create_default_texture_view(&self, texture_id: TextureId) -> TextureViewId {
+        self.create_texture_view(texture_id, TextureViewDescriptor::default())
+    }
+
+    fn create_texture_view(
+        &self,
+        texture_id: TextureId,
+        texture_view_descriptor: TextureViewDescriptor,
+    ) -> TextureViewId {
+        let texture_view = TextureViewId::new(texture_id);
+        self.add_texture_view_descriptor(texture_view, texture_view_descriptor);
+        self.texture_texture_views
+            .write()
+            .entry(texture_id)
+            .or_insert(vec![])
+            .push(texture_view);
+        texture_view
     }
 
     fn create_buffer(&self, buffer_info: BufferInfo) -> BufferId {
@@ -97,6 +128,13 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
 
     fn remove_texture(&self, texture: TextureId) {
         self.texture_descriptors.write().remove(&texture);
+        for texture_view in self.texture_texture_views.write().remove(&texture).unwrap() {
+            self.texture_view_descriptors.write().remove(&texture_view);
+        }
+    }
+
+    fn remove_texture_view(&self, texture_view: TextureViewId) {
+        self.texture_view_descriptors.write().remove(&texture_view);
     }
 
     fn remove_sampler(&self, _sampler: SamplerId) {}

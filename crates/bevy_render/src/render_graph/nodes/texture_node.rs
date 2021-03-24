@@ -48,10 +48,11 @@ impl Node for TextureNode {
         if output.get(0).is_none() {
             let render_resource_context = render_context.resources_mut();
             let texture_id = render_resource_context.create_texture(self.texture_descriptor);
+            let texture_view_id = render_resource_context.create_default_texture_view(texture_id);
             if let Some(handle) = &self.handle {
                 render_resource_context.set_asset_resource_untyped(
                     handle.clone(),
-                    RenderResourceId::Texture(texture_id),
+                    RenderResourceId::Texture(texture_view_id),
                     TEXTURE_ASSET_INDEX,
                 );
                 if let Some(sampler_descriptor) = self.sampler_descriptor {
@@ -63,7 +64,7 @@ impl Node for TextureNode {
                     );
                 }
             }
-            output.set(0, RenderResourceId::Texture(texture_id));
+            output.set(0, RenderResourceId::Texture(texture_view_id));
         }
     }
 }

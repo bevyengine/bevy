@@ -1,4 +1,6 @@
-use super::{BufferId, RenderResourceBinding, RenderResourceId, SamplerId, TextureId};
+use super::{
+    BufferId, RenderResourceBinding, RenderResourceId, SamplerId, TextureId, TextureViewId,
+};
 use bevy_utils::AHasher;
 use std::{
     hash::{Hash, Hasher},
@@ -53,8 +55,8 @@ impl BindGroupBuilder {
         self
     }
 
-    pub fn add_texture(self, index: u32, texture: TextureId) -> Self {
-        self.add_binding(index, RenderResourceBinding::Texture(texture))
+    pub fn add_texture(self, index: u32, texture_view: TextureViewId) -> Self {
+        self.add_binding(index, RenderResourceBinding::Texture(texture_view))
     }
 
     pub fn add_sampler(self, index: u32, sampler: SamplerId) -> Self {
