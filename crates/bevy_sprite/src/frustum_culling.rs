@@ -56,7 +56,7 @@ pub fn sprites(
                 if culled_sprites.get(entity).is_ok() {
                     commands.entity(entity).remove::<OutsideFrustum>();
                 }
-            } else {
+            } else if culled_sprites.get(entity).is_err() {
                 commands.entity(entity).insert(OutsideFrustum);
             }
         }
@@ -101,7 +101,7 @@ pub fn atlases(
                         if culled_sprites.get(entity).is_ok() {
                             commands.entity(entity).remove::<OutsideFrustum>();
                         }
-                    } else {
+                    } else if culled_sprites.get(entity).is_err() {
                         commands.entity(entity).insert(OutsideFrustum);
                     }
                 }
