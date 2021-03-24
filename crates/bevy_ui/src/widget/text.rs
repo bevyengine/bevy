@@ -2,12 +2,12 @@ use crate::{CalculatedSize, Node, Style, Val};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
-    query::{Changed, Or},
+    query::{Changed, Or, Without},
     system::{Local, Query, QuerySet, Res, ResMut},
 };
 use bevy_math::Size;
 use bevy_render::{
-    draw::{Draw, DrawContext, Drawable},
+    draw::{Draw, DrawContext, Drawable, OutsideFrustum},
     mesh::Mesh,
     prelude::{Msaa, Visible},
     renderer::RenderResourceBindings,
@@ -136,7 +136,10 @@ pub fn draw_text_system(
     meshes: Res<Assets<Mesh>>,
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
     text_pipeline: Res<DefaultTextPipeline>,
-    mut query: Query<(Entity, &mut Draw, &Visible, &Text, &Node, &GlobalTransform)>,
+    mut query: Query<
+        (Entity, &mut Draw, &Visible, &Text, &Node, &GlobalTransform),
+        Without<OutsideFrustum>,
+    >,
 ) {
     let scale_factor = if let Some(window) = windows.get_primary() {
         window.scale_factor()

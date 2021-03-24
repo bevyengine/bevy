@@ -66,6 +66,17 @@ impl Default for Visible {
     }
 }
 
+/// A component that indicates that an entity is outside the view frustum.
+/// Any entity with this component will be ignored during rendering.
+///
+/// # Note
+/// This does not handle multiple "views" properly as it is a "global" filter.
+/// This will be resolved in the future. For now, disable frustum culling if you
+/// need to support multiple views (ex: set the `SpriteSettings::frustum_culling_enabled` resource).
+#[derive(Debug, Default, Clone, Reflect)]
+#[reflect(Component)]
+pub struct OutsideFrustum;
+
 /// A component that indicates how to draw an entity.
 #[derive(Debug, Clone, Reflect)]
 #[reflect(Component)]

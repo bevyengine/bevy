@@ -2,12 +2,12 @@ use bevy_asset::Assets;
 use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
-    query::{Changed, With},
+    query::{Changed, With, Without},
     system::{Local, Query, QuerySet, Res, ResMut},
 };
 use bevy_math::{Size, Vec3};
 use bevy_render::{
-    draw::{DrawContext, Drawable},
+    draw::{DrawContext, Drawable, OutsideFrustum},
     mesh::Mesh,
     prelude::{Draw, Msaa, Texture, Visible},
     render_graph::base::MainPass,
@@ -72,7 +72,7 @@ pub fn draw_text2d_system(
             &GlobalTransform,
             &Text2dSize,
         ),
-        With<MainPass>,
+        (With<MainPass>, Without<OutsideFrustum>),
     >,
 ) {
     let font_quad = meshes.get(&QUAD_HANDLE).unwrap();

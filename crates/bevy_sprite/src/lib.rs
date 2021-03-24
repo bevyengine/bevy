@@ -3,6 +3,7 @@ pub mod entity;
 
 mod color_material;
 mod dynamic_texture_atlas_builder;
+mod frustum_culling;
 mod rect;
 mod render;
 mod sprite;
@@ -26,16 +27,33 @@ pub use texture_atlas_builder::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets, Handle, HandleUntyped};
-use bevy_ecs::system::IntoSystem;
+use bevy_ecs::{
+    component::{ComponentDescriptor, StorageType},
+    system::IntoSystem,
+};
 use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
+    draw::OutsideFrustum,
     mesh::{shape, Mesh},
     pipeline::PipelineDescriptor,
     render_graph::RenderGraph,
     shader::{asset_shader_defs_system, Shader},
 };
 use sprite::sprite_system;
+
+#[derive(Debug, Clone)]
+pub struct SpriteSettings {
+    pub frustum_culling_enabled: bool,
+}
+
+impl Default for SpriteSettings {
+    fn default() -> Self {
+        Self {
+            frustum_culling_enabled: true,
+        }
+    }
+}
 
 #[derive(Default)]
 pub struct SpritePlugin;
@@ -59,16 +77,39 @@ impl Plugin for SpritePlugin {
                 asset_shader_defs_system::<ColorMaterial>.system(),
             );
 
-        let world = app.world_mut().cell();
-        let mut render_graph = world.get_resource_mut::<RenderGraph>().unwrap();
-        let mut pipelines = world
+        let sprite_settings = app
+            .world_mut()
+            .get_resource_or_insert_with(SpriteSettings::default)
+            .clone();
+        if sprite_settings.frustum_culling_enabled {
+            app.add_system_to_stage(
+                CoreStage::PostUpdate,
+                frustum_culling::sprite_frustum_culling_system.system(),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                frustum_culling::atlas_frustum_culling_system.system(),
+            );
+        }
+        let world = app.world_mut();
+        world
+            .register_component(ComponentDescriptor::new::<OutsideFrustum>(
+                StorageType::SparseSet,
+            ))
+            .unwrap();
+
+        let world_cell = world.cell();
+        let mut render_graph = world_cell.get_resource_mut::<RenderGraph>().unwrap();
+        let mut pipelines = world_cell
             .get_resource_mut::<Assets<PipelineDescriptor>>()
             .unwrap();
-        let mut shaders = world.get_resource_mut::<Assets<Shader>>().unwrap();
+        let mut shaders = world_cell.get_resource_mut::<Assets<Shader>>().unwrap();
         crate::render::add_sprite_graph(&mut render_graph, &mut pipelines, &mut shaders);
 
-        let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
-        let mut color_materials = world.get_resource_mut::<Assets<ColorMaterial>>().unwrap();
+        let mut meshes = world_cell.get_resource_mut::<Assets<Mesh>>().unwrap();
+        let mut color_materials = world_cell
+            .get_resource_mut::<Assets<ColorMaterial>>()
+            .unwrap();
         color_materials.set_untracked(Handle::<ColorMaterial>::default(), ColorMaterial::default());
         meshes.set_untracked(
             QUAD_HANDLE,

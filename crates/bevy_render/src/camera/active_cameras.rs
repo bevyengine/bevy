@@ -9,6 +9,7 @@ use bevy_utils::HashMap;
 
 #[derive(Debug, Default)]
 pub struct ActiveCamera {
+    pub name: String,
     pub entity: Option<Entity>,
     pub bindings: RenderResourceBindings,
 }
@@ -20,8 +21,13 @@ pub struct ActiveCameras {
 
 impl ActiveCameras {
     pub fn add(&mut self, name: &str) {
-        self.cameras
-            .insert(name.to_string(), ActiveCamera::default());
+        self.cameras.insert(
+            name.to_string(),
+            ActiveCamera {
+                name: name.to_string(),
+                ..Default::default()
+            },
+        );
     }
 
     pub fn get(&self, name: &str) -> Option<&ActiveCamera> {
@@ -30,6 +36,14 @@ impl ActiveCameras {
 
     pub fn get_mut(&mut self, name: &str) -> Option<&mut ActiveCamera> {
         self.cameras.get_mut(name)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &ActiveCamera> {
+        self.cameras.values()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut ActiveCamera> {
+        self.cameras.values_mut()
     }
 }
 
