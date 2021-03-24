@@ -433,6 +433,12 @@ pub fn derive_ambiguity_set_label(input: TokenStream) -> TokenStream {
     derive_label(input, Ident::new("AmbiguitySetLabel", Span::call_site())).into()
 }
 
+#[proc_macro_derive(RunCriteriaLabel)]
+pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    derive_label(input, Ident::new("RunCriteriaLabel", Span::call_site())).into()
+}
+
 fn derive_label(input: DeriveInput, label_type: Ident) -> TokenStream2 {
     let ident = input.ident;
     let ecs_path: Path = bevy_ecs_path();
