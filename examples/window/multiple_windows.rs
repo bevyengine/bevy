@@ -21,14 +21,9 @@ fn main() {
         .add_system_set(
             SystemSet::on_update(AppState::CreateWindow).with_system(setup_window.system()),
         )
-        .add_system_set(
-            SystemSet::on_enter(AppState::CreateWindow).with_system(setup_pipeline.system()),
-        )
+        .add_system_set(SystemSet::on_update(AppState::Setup).with_system(setup_pipeline.system()))
         .run();
 }
-
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-pub struct Stage;
 
 // NOTE: this "state based" approach to multiple windows is a short term workaround.
 // Future Bevy releases shouldn't require such a strict order of operations.
@@ -36,6 +31,7 @@ pub struct Stage;
 enum AppState {
     CreateWindow,
     Setup,
+    Done,
 }
 
 fn setup_window(
@@ -66,13 +62,18 @@ fn setup_pipeline(
     mut render_graph: ResMut<RenderGraph>,
     asset_server: Res<AssetServer>,
     msaa: Res<Msaa>,
+    mut app_state: ResMut<State<AppState>>,
 ) {
     // get the non-default window id
     let window_id = windows
         .iter()
         .find(|w| w.id() != WindowId::default())
-        .map(|w| w.id())
-        .unwrap();
+        .map(|w| w.id());
+
+    let window_id = match window_id {
+        Some(window_id) => window_id,
+        None => return,
+    };
 
     // here we setup our render graph to draw our second camera to the new window's swap chain
 
@@ -205,4 +206,6 @@ fn setup_pipeline(
         transform: Transform::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..Default::default()
     });
+
+    app_state.set_next(AppState::Done).unwrap();
 }
