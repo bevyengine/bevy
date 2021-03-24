@@ -1,7 +1,7 @@
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::prelude::{Commands, Entity, Query, Res, With, Without};
+use bevy_ecs::prelude::{Commands, Entity, Query, Res, With};
 use bevy_math::Vec2;
-use bevy_render::{camera::Camera, draw::WithinFrustum, render_graph::base::MainPass};
+use bevy_render::{camera::Camera, draw::OutsideFrustum};
 use bevy_transform::components::Transform;
 use bevy_window::Windows;
 
@@ -29,7 +29,7 @@ pub fn sprites(
     mut commands: Commands,
     windows: Res<Windows>,
     cameras: Query<&Transform, With<Camera>>,
-    visible: Query<&WithinFrustum, With<Sprite>>,
+    culled_sprites: Query<&OutsideFrustum, With<Sprite>>,
     sprites: Query<(Entity, &Transform, &Sprite)>,
 ) {
     let window_size = if let Some(window) = windows.get_primary() {
@@ -53,11 +53,11 @@ pub fn sprites(
             };
 
             if rect.is_intersecting(sprite_rect) {
-                if visible.get(entity).is_err() {
-                    commands.entity(entity).insert(WithinFrustum);
+                if culled_sprites.get(entity).is_ok() {
+                    commands.entity(entity).remove::<OutsideFrustum>();
                 }
-            } else if visible.get(entity).is_ok() {
-                commands.entity(entity).remove::<WithinFrustum>();
+            } else {
+                commands.entity(entity).insert(OutsideFrustum);
             }
         }
     }
@@ -68,7 +68,7 @@ pub fn atlases(
     windows: Res<Windows>,
     textures: Res<Assets<TextureAtlas>>,
     cameras: Query<&Transform, With<Camera>>,
-    visible: Query<&WithinFrustum, With<TextureAtlasSprite>>,
+    culled_sprites: Query<&OutsideFrustum, With<TextureAtlasSprite>>,
     sprites: Query<(
         Entity,
         &Transform,
@@ -98,23 +98,14 @@ pub fn atlases(
                     };
 
                     if rect.is_intersecting(sprite_rect) {
-                        if visible.get(entity).is_err() {
-                            commands.entity(entity).insert(WithinFrustum);
+                        if culled_sprites.get(entity).is_ok() {
+                            commands.entity(entity).remove::<OutsideFrustum>();
                         }
-                    } else if visible.get(entity).is_ok() {
-                        commands.entity(entity).remove::<WithinFrustum>();
+                    } else {
+                        commands.entity(entity).insert(OutsideFrustum);
                     }
                 }
             }
         }
-    }
-}
-
-pub fn other(
-    mut commands: Commands,
-    query: Query<Entity, (With<MainPass>, Without<Sprite>, Without<TextureAtlasSprite>)>,
-) {
-    for entity in query.iter() {
-        commands.entity(entity).insert(WithinFrustum);
     }
 }

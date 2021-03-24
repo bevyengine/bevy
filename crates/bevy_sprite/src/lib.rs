@@ -34,7 +34,7 @@ use bevy_ecs::{
 use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    draw::WithinFrustum,
+    draw::OutsideFrustum,
     mesh::{shape, Mesh},
     pipeline::PipelineDescriptor,
     render_graph::RenderGraph,
@@ -57,7 +57,6 @@ impl Plugin for SpritePlugin {
             .add_system_to_stage(CoreStage::PostUpdate, sprite_system.system())
             .add_system_to_stage(CoreStage::PostUpdate, frustum_culling::sprites.system())
             .add_system_to_stage(CoreStage::PostUpdate, frustum_culling::atlases.system())
-            .add_system_to_stage(CoreStage::PostUpdate, frustum_culling::other.system())
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 material_texture_detection_system.system(),
@@ -69,7 +68,7 @@ impl Plugin for SpritePlugin {
 
         let world = app.world_mut();
         world
-            .register_component(ComponentDescriptor::new::<WithinFrustum>(
+            .register_component(ComponentDescriptor::new::<OutsideFrustum>(
                 StorageType::SparseSet,
             ))
             .unwrap();

@@ -17,7 +17,7 @@ use bevy_ecs::{
     system::{IntoExclusiveSystem, IntoSystem},
 };
 use bevy_transform::TransformSystem;
-use draw::{Visible, WithinFrustum};
+use draw::{OutsideFrustum, Visible};
 
 pub use once_cell;
 
@@ -138,7 +138,7 @@ impl Plugin for RenderPlugin {
         .register_type::<DepthCalculation>()
         .register_type::<Draw>()
         .register_type::<Visible>()
-        .register_type::<WithinFrustum>()
+        .register_type::<OutsideFrustum>()
         .register_type::<RenderPipelines>()
         .register_type::<OrthographicProjection>()
         .register_type::<PerspectiveProjection>()
