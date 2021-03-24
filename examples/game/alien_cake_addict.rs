@@ -358,7 +358,7 @@ fn scoreboard_system(game: Res<Game>, mut query: Query<&mut Text>) {
 // restart the game when pressing spacebar
 fn gameover_keyboard(mut state: ResMut<State<GameState>>, keyboard_input: Res<Input<KeyCode>>) {
     if keyboard_input.just_pressed(KeyCode::Space) {
-        state.set_next(GameState::Playing).unwrap();
+        state.set(GameState::Playing).unwrap();
     }
 }
 
