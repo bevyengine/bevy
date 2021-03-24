@@ -42,6 +42,19 @@ use bevy_render::{
 };
 use sprite::sprite_system;
 
+#[derive(Debug, Clone)]
+pub struct SpriteSettings {
+    pub frustum_culling_enabled: bool,
+}
+
+impl Default for SpriteSettings {
+    fn default() -> Self {
+        Self {
+            frustum_culling_enabled: true,
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct SpritePlugin;
 
@@ -55,8 +68,6 @@ impl Plugin for SpritePlugin {
             .register_type::<Sprite>()
             .register_type::<SpriteResizeMode>()
             .add_system_to_stage(CoreStage::PostUpdate, sprite_system.system())
-            .add_system_to_stage(CoreStage::PostUpdate, frustum_culling::sprites.system())
-            .add_system_to_stage(CoreStage::PostUpdate, frustum_culling::atlases.system())
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 material_texture_detection_system.system(),
@@ -66,6 +77,20 @@ impl Plugin for SpritePlugin {
                 asset_shader_defs_system::<ColorMaterial>.system(),
             );
 
+        let sprite_settings = app
+            .world_mut()
+            .get_resource_or_insert_with(SpriteSettings::default)
+            .clone();
+        if sprite_settings.frustum_culling_enabled {
+            app.add_system_to_stage(
+                CoreStage::PostUpdate,
+                frustum_culling::sprite_frustum_culling_system.system(),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                frustum_culling::atlas_frustum_culling_system.system(),
+            );
+        }
         let world = app.world_mut();
         world
             .register_component(ComponentDescriptor::new::<OutsideFrustum>(
