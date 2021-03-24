@@ -570,6 +570,20 @@ impl World {
         unsafe { self.get_resource_with_id(component_id) }
     }
 
+    pub fn is_resource_added<T: Component>(&self) -> bool {
+        let component_id = self.components.get_resource_id(TypeId::of::<T>()).unwrap();
+        let column = self.get_populated_resource_column(component_id).unwrap();
+        let ticks = unsafe { &*column.get_ticks_mut_ptr() };
+        ticks.is_added(self.last_change_tick(), self.read_change_tick())
+    }
+
+    pub fn is_resource_changed<T: Component>(&self) -> bool {
+        let component_id = self.components.get_resource_id(TypeId::of::<T>()).unwrap();
+        let column = self.get_populated_resource_column(component_id).unwrap();
+        let ticks = unsafe { &*column.get_ticks_mut_ptr() };
+        ticks.is_changed(self.last_change_tick(), self.read_change_tick())
+    }
+
     /// Gets a mutable reference to the resource of the given type, if it exists. Otherwise returns
     /// [None] Resources are "unique" data of a given type.
     #[inline]
