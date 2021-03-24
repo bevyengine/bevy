@@ -36,7 +36,7 @@ fn check_textures(
     if let LoadState::Loaded =
         asset_server.get_group_load_state(rpg_sprite_handles.handles.iter().map(|handle| handle.id))
     {
-        state.set_next(AppState::Finished).unwrap();
+        state.set(AppState::Finished).unwrap();
     }
 }
 

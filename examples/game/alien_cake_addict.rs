@@ -303,7 +303,7 @@ fn spawn_bonus(
         commands.despawn_recursive(entity);
         game.bonus.entity = None;
         if game.score <= -5 {
-            state.set_next(GameState::GameOver).unwrap();
+            state.set(GameState::GameOver).unwrap();
             return;
         }
     }
