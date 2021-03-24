@@ -1,6 +1,8 @@
 mod executor;
 mod executor_parallel;
+pub mod graph_utils;
 mod label;
+mod run_criteria;
 mod stage;
 mod state;
 mod system_container;
@@ -9,7 +11,9 @@ mod system_set;
 
 pub use executor::*;
 pub use executor_parallel::*;
+pub use graph_utils::GraphNode;
 pub use label::*;
+pub use run_criteria::*;
 pub use stage::*;
 pub use state::*;
 pub use system_container::*;
@@ -17,20 +21,16 @@ pub use system_descriptor::*;
 pub use system_set::*;
 
 use crate::{
-    archetype::{Archetype, ArchetypeComponentId},
-    component::ComponentId,
-    query::Access,
-    system::{BoxedSystem, IntoSystem, System, SystemId},
+    system::{IntoSystem, System},
     world::World,
 };
 use bevy_utils::HashMap;
-use std::borrow::Cow;
 
 #[derive(Default)]
 pub struct Schedule {
     stages: HashMap<BoxedStageLabel, Box<dyn Stage>>,
     stage_order: Vec<BoxedStageLabel>,
-    run_criteria: RunCriteria,
+    run_criteria: BoxedRunCriteria,
 }
 
 impl Schedule {
@@ -228,111 +228,4 @@ impl Stage for Schedule {
             }
         }
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ShouldRun {
-    /// Yes, the system should run.
-    Yes,
-    /// No, the system should not run.
-    No,
-    /// Yes, the system should run, and afterwards the criteria should be checked again.
-    YesAndCheckAgain,
-    /// No, the system should not run right now, but the criteria should be checked again later.
-    NoAndCheckAgain,
-}
-
-pub(crate) struct RunCriteria {
-    criteria_system: Option<BoxedSystem<(), ShouldRun>>,
-    initialized: bool,
-}
-
-impl Default for RunCriteria {
-    fn default() -> Self {
-        Self {
-            criteria_system: None,
-            initialized: false,
-        }
-    }
-}
-
-impl RunCriteria {
-    pub fn set(&mut self, criteria_system: BoxedSystem<(), ShouldRun>) {
-        self.criteria_system = Some(criteria_system);
-        self.initialized = false;
-    }
-
-    pub fn should_run(&mut self, world: &mut World) -> ShouldRun {
-        if let Some(ref mut run_criteria) = self.criteria_system {
-            if !self.initialized {
-                run_criteria.initialize(world);
-                self.initialized = true;
-            }
-            let should_run = run_criteria.run((), world);
-            run_criteria.apply_buffers(world);
-            should_run
-        } else {
-            ShouldRun::Yes
-        }
-    }
-}
-
-pub struct RunOnce {
-    ran: bool,
-    system_id: SystemId,
-    archetype_component_access: Access<ArchetypeComponentId>,
-    component_access: Access<ComponentId>,
-}
-
-impl Default for RunOnce {
-    fn default() -> Self {
-        Self {
-            ran: false,
-            system_id: SystemId::new(),
-            archetype_component_access: Default::default(),
-            component_access: Default::default(),
-        }
-    }
-}
-
-impl System for RunOnce {
-    type In = ();
-    type Out = ShouldRun;
-
-    fn name(&self) -> Cow<'static, str> {
-        Cow::Borrowed(std::any::type_name::<RunOnce>())
-    }
-
-    fn id(&self) -> SystemId {
-        self.system_id
-    }
-
-    fn new_archetype(&mut self, _archetype: &Archetype) {}
-
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        &self.archetype_component_access
-    }
-
-    fn component_access(&self) -> &Access<ComponentId> {
-        &self.component_access
-    }
-
-    fn is_send(&self) -> bool {
-        true
-    }
-
-    unsafe fn run_unsafe(&mut self, _input: Self::In, _world: &World) -> Self::Out {
-        if self.ran {
-            ShouldRun::No
-        } else {
-            self.ran = true;
-            ShouldRun::Yes
-        }
-    }
-
-    fn apply_buffers(&mut self, _world: &mut World) {}
-
-    fn initialize(&mut self, _world: &mut World) {}
-
-    fn check_change_tick(&mut self, _change_tick: u32) {}
 }

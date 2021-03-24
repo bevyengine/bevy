@@ -13,6 +13,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_utils::tracing::debug;
+use std::{fmt::Debug, hash::Hash};
 
 /// Configure [App]s using the builder pattern
 pub struct AppBuilder {
@@ -177,16 +178,18 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_state<T: Component + Clone + Eq>(&mut self, initial: T) -> &mut Self {
+    pub fn add_state<T>(&mut self, initial: T) -> &mut Self
+    where
+        T: Component + Debug + Clone + Eq + Hash,
+    {
         self.insert_resource(State::new(initial))
             .add_system_set(State::<T>::make_driver())
     }
 
-    pub fn add_state_to_stage<T: Component + Clone + Eq>(
-        &mut self,
-        stage: impl StageLabel,
-        initial: T,
-    ) -> &mut Self {
+    pub fn add_state_to_stage<T>(&mut self, stage: impl StageLabel, initial: T) -> &mut Self
+    where
+        T: Component + Debug + Clone + Eq + Hash,
+    {
         self.insert_resource(State::new(initial))
             .add_system_set_to_stage(stage, State::<T>::make_driver())
     }

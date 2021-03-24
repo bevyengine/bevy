@@ -6,7 +6,7 @@ use bevy::{
 };
 use rand::Rng;
 
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Hash)]
 enum GameState {
     Playing,
     GameOver,
