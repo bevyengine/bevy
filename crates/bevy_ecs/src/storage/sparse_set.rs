@@ -119,23 +119,18 @@ impl ComponentSparseSet {
     /// # Safety
     /// The `value` pointer must point to a valid address that matches the `Layout`
     ///  inside the `ComponentInfo` given when constructing this sparse set.
-    pub unsafe fn insert(
-        &mut self,
-        entity: Entity,
-        value: *mut u8,
-        component_ticks: ComponentTicks,
-    ) {
+    pub unsafe fn insert(&mut self, entity: Entity, value: *mut u8, change_tick: u32) {
         let dense = &mut self.dense;
         let entities = &mut self.entities;
         let ticks_list = self.ticks.get_mut();
         let dense_index = *self.sparse.get_or_insert_with(entity, move || {
-            ticks_list.push(component_ticks);
+            ticks_list.push(ComponentTicks::new(change_tick));
             entities.push(entity);
             dense.push_uninit()
         });
         // SAFE: dense_index exists thanks to the call above
         self.dense.set_unchecked(dense_index, value);
-        *(*self.ticks.get()).get_unchecked_mut(dense_index) = component_ticks;
+        ((*self.ticks.get()).get_unchecked_mut(dense_index)).set_changed(change_tick);
     }
 
     #[inline]
