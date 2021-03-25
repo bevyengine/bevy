@@ -661,7 +661,7 @@ mod test {
         }
 
         fn should_run_once(mut flag: ResMut<bool>, test_name: Res<&'static str>) {
-            assert!(!*flag, *test_name);
+            assert!(!*flag, format!("{:?}", *test_name));
             *flag = true;
         }
 
@@ -679,6 +679,6 @@ mod test {
             .with_system_set(State::<AppState>::get_driver())
             .with_system(should_run_once.system());
         stage.run(&mut world);
-        assert!(*world.get_resource::<bool>().unwrap(), "after test")
+        assert!(*world.get_resource::<bool>().unwrap(), "after test");
     }
 }
