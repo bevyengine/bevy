@@ -302,8 +302,8 @@ void main() {
     vec3 N = normalize(v_WorldNormal);
 
 #    ifdef STANDARDMATERIAL_NORMAL_MAP
-    vec3 T = v_WorldTangent.xyz;
-    vec3 B = cross(T, N) * sign(v_WorldTangent.w);
+    vec3 T = normalize(v_WorldTangent.xyz);
+    vec3 B = cross(N, T) * v_WorldTangent.w;
 #    endif
 
 #    ifdef STANDARDMATERIAL_DOUBLE_SIDED
@@ -316,7 +316,7 @@ void main() {
 
 #    ifdef STANDARDMATERIAL_NORMAL_MAP
     mat3 TBN = mat3(T, B, N);
-    N = normalize(TBN * texture(sampler2D(StandardMaterial_normal_map, StandardMaterial_normal_map_sampler), v_Uv).rgb);
+    N = TBN * normalize(texture(sampler2D(StandardMaterial_normal_map, StandardMaterial_normal_map_sampler), v_Uv).rgb * 2.0 - 1.0);
 #    endif
 
 #    ifdef STANDARDMATERIAL_OCCLUSION_TEXTURE
