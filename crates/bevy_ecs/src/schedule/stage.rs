@@ -847,9 +847,6 @@ impl Stage for SystemStage {
                     }
                 }
             }
-            if let ShouldRun::YesAndCheckAgain = stage_should_run {
-                stage_should_run = self.stage_run_criteria.should_run(world);
-            }
             let run_criteria = &mut self.run_criteria;
             for index in 0..run_criteria.len() {
                 let (run_criteria, tail) = run_criteria.split_at_mut(index);
