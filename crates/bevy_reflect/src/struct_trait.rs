@@ -109,11 +109,9 @@ impl DynamicStruct {
 impl Struct for DynamicStruct {
     #[inline]
     fn field(&self, name: &str) -> Option<&dyn Reflect> {
-        if let Some(index) = self.field_indices.get(name) {
-            Some(&*self.fields[*index])
-        } else {
-            None
-        }
+        self.field_indices
+            .get(name)
+            .map(|index| &*self.fields[*index])
     }
 
     #[inline]

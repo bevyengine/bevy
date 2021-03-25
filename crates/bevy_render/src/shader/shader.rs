@@ -142,7 +142,7 @@ pub struct Shader {
 
 impl Shader {
     pub fn new(stage: ShaderStage, source: ShaderSource) -> Shader {
-        Shader { stage, source }
+        Shader { source, stage }
     }
 
     #[cfg(not(target_arch = "wasm32"))]

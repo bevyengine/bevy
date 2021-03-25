@@ -284,15 +284,13 @@ impl PipelineCompiler {
         &self,
         pipeline_handle: Handle<PipelineDescriptor>,
     ) -> Option<impl Iterator<Item = &Handle<PipelineDescriptor>>> {
-        if let Some(compiled_pipelines) = self.specialized_pipelines.get(&pipeline_handle) {
-            Some(
+        self.specialized_pipelines
+            .get(&pipeline_handle)
+            .map(|compiled_pipelines| {
                 compiled_pipelines
                     .iter()
-                    .map(|specialized_pipeline| &specialized_pipeline.pipeline),
-            )
-        } else {
-            None
-        }
+                    .map(|specialized_pipeline| &specialized_pipeline.pipeline)
+            })
     }
 
     pub fn iter_all_compiled_pipelines(&self) -> impl Iterator<Item = &Handle<PipelineDescriptor>> {

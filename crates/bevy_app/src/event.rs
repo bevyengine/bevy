@@ -276,7 +276,7 @@ impl<T: Component> Events<T> {
         };
         trace!("Events::send() -> {}", event_id);
 
-        let event_instance = EventInstance { event, event_id };
+        let event_instance = EventInstance { event_id, event };
 
         match self.state {
             State::A => self.events_a.push(event_instance),

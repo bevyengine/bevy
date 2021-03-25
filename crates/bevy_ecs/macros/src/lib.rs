@@ -28,8 +28,7 @@ impl Parse for AllTuples {
         input.parse::<Comma>()?;
         let end = input.parse::<LitInt>()?.base10_parse()?;
         input.parse::<Comma>()?;
-        let mut idents = Vec::new();
-        idents.push(input.parse::<Ident>()?);
+        let mut idents = vec![input.parse::<Ident>()?];
         while input.parse::<Comma>().is_ok() {
             idents.push(input.parse::<Ident>()?);
         }

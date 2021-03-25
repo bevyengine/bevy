@@ -156,9 +156,9 @@ impl Transform {
         let rotation = self.rotation * transform.rotation;
         let scale = self.scale * transform.scale;
         Transform {
-            scale,
-            rotation,
             translation,
+            rotation,
+            scale,
         }
     }
 
