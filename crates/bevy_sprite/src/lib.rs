@@ -44,13 +44,17 @@ use sprite::sprite_system;
 
 #[derive(Debug, Clone)]
 pub struct SpriteSettings {
+    /// Enable sprite frustum culling.
+    ///
+    /// # Warning
+    /// This is currently experimental. It does not work correctly in all cases.
     pub frustum_culling_enabled: bool,
 }
 
 impl Default for SpriteSettings {
     fn default() -> Self {
         Self {
-            frustum_culling_enabled: true,
+            frustum_culling_enabled: false,
         }
     }
 }
