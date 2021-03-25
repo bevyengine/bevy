@@ -661,7 +661,7 @@ mod test {
         }
 
         fn should_run_once(mut flag: ResMut<bool>, test_name: Res<&'static str>) {
-            assert!(!*flag, format!("{:?}", *test_name));
+            assert!(!*flag, "{:?}", *test_name);
             *flag = true;
         }
 
