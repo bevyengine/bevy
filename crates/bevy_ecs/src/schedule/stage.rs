@@ -747,9 +747,8 @@ impl Stage for SystemStage {
             self.world_id = Some(world.id());
         }
 
-        if let ShouldRun::No | ShouldRun::NoAndCheckAgain =
-            self.stage_run_criteria.should_run(world)
-        {
+        let mut stage_should_run = self.stage_run_criteria.should_run(world);
+        if let ShouldRun::No | ShouldRun::NoAndCheckAgain = stage_should_run {
             return;
         }
 
@@ -784,20 +783,22 @@ impl Stage for SystemStage {
         let mut has_work = true;
         while has_work {
             fn should_run(
+                stage_should_run: ShouldRun,
                 container: &impl SystemContainer,
                 run_criteria: &[RunCriteriaContainer],
             ) -> bool {
                 matches!(
                     container
                         .run_criteria()
-                        .map(|index| run_criteria[index].should_run),
-                    None | Some(ShouldRun::Yes) | Some(ShouldRun::YesAndCheckAgain)
+                        .map(|index| run_criteria[index].should_run)
+                        .unwrap_or(stage_should_run),
+                    ShouldRun::Yes | ShouldRun::YesAndCheckAgain
                 )
             }
 
             // Run systems that want to be at the start of stage.
             for container in &mut self.exclusive_at_start {
-                if should_run(container, &self.run_criteria) {
+                if should_run(stage_should_run, container, &self.run_criteria) {
                     container.system_mut().run(world);
                 }
             }
@@ -805,13 +806,13 @@ impl Stage for SystemStage {
             // Run parallel systems using the executor.
             // TODO: hard dependencies, nested sets, whatever... should be evaluated here.
             for container in &mut self.parallel {
-                container.should_run = should_run(container, &self.run_criteria);
+                container.should_run = should_run(stage_should_run, container, &self.run_criteria);
             }
             self.executor.run_systems(&mut self.parallel, world);
 
             // Run systems that want to be between parallel systems and their command buffers.
             for container in &mut self.exclusive_before_commands {
-                if should_run(container, &self.run_criteria) {
+                if should_run(stage_should_run, container, &self.run_criteria) {
                     container.system_mut().run(world);
                 }
             }
@@ -825,7 +826,7 @@ impl Stage for SystemStage {
 
             // Run systems that want to be at the end of stage.
             for container in &mut self.exclusive_at_end {
-                if should_run(container, &self.run_criteria) {
+                if should_run(stage_should_run, container, &self.run_criteria) {
                     container.system_mut().run(world);
                 }
             }
@@ -835,6 +836,20 @@ impl Stage for SystemStage {
 
             // Reevaluate run criteria.
             has_work = false;
+            match stage_should_run {
+                ShouldRun::No => (),
+                ShouldRun::Yes => stage_should_run = ShouldRun::No,
+                ShouldRun::YesAndCheckAgain | ShouldRun::NoAndCheckAgain => {
+                    stage_should_run = self.stage_run_criteria.should_run(world);
+                    match stage_should_run {
+                        ShouldRun::Yes | ShouldRun::YesAndCheckAgain => has_work = true,
+                        ShouldRun::No | ShouldRun::NoAndCheckAgain => (),
+                    }
+                }
+            }
+            if let ShouldRun::YesAndCheckAgain = stage_should_run {
+                stage_should_run = self.stage_run_criteria.should_run(world);
+            }
             let run_criteria = &mut self.run_criteria;
             for index in 0..run_criteria.len() {
                 let (run_criteria, tail) = run_criteria.split_at_mut(index);
