@@ -327,7 +327,7 @@ void main() {
 
 #    ifdef STANDARDMATERIAL_EMISSIVE_TEXTURE
     // TODO use .a for exposure compensation in HDR
-    vec3 emissive.rgb *= texture(sampler2D(StandardMaterial_emissive_texture, StandardMaterial_emissive_texture_sampler), v_Uv).rgb;
+    emissive.rgb *= texture(sampler2D(StandardMaterial_emissive_texture, StandardMaterial_emissive_texture_sampler), v_Uv).rgb;
 #    endif
 
     vec3 V = normalize(CameraPos.xyz - v_WorldPosition.xyz);
