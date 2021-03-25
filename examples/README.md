@@ -88,8 +88,8 @@ Example | File | Description
 `msaa` | [`3d/msaa.rs`](./3d/msaa.rs) | Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges
 `orthographic` | [`3d/orthographic.rs`](./3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look games or CAD applications)
 `parenting` | [`3d/parenting.rs`](./3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
-`pbr` | [`3d/pbr.rs`](./3d/[pbr].rs) | Demonstrates PBR properties Roughness/Metallic
-`pbr_textures` | [`3d/pbr_textures.rs`](./3d/[pbr].rs) | Demonstrates PBR textures (normals/roughness/metallic/occlusion)
+`pbr` | [`3d/pbr.rs`](./3d/[pbr].rs) | Demonstrates use of Physically Based Rendering (PBR) properties
+`pbr_textures` | [`3d/pbr_textures.rs`](./3d/[pbr].rs) | Demonstrates setting PBR properties as a texture, allowing you to vary the properties across your model
 `spawner` | [`3d/spawner.rs`](./3d/spawner.rs) | Renders a large number of cubes with changing position and material
 `texture` | [`3d/texture.rs`](./3d/texture.rs) | Shows configuration of texture materials
 `update_gltf_scene` | [`3d/update_gltf_scene.rs`](./3d/update_gltf_scene.rs) | Update a scene from a gltf file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
