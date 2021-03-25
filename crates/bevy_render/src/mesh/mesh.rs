@@ -237,7 +237,7 @@ impl Mesh {
     /// The direction the vertex normal is facing in.
     /// Use in conjunction with [`Mesh::set_attribute`]
     pub const ATTRIBUTE_NORMAL: &'static str = "Vertex_Normal";
-    ///
+    /// The direction of the vertex tangent. Used for normal mapping
     pub const ATTRIBUTE_TANGENT: &'static str = "Vertex_Tangent";
 
     /// Where the vertex is located in space. Use in conjunction with [`Mesh::set_attribute`]
