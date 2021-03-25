@@ -816,7 +816,8 @@ impl Stage for SystemStage {
                 // Run parallel systems using the executor.
                 // TODO: hard dependencies, nested sets, whatever... should be evaluated here.
                 for container in &mut self.parallel {
-                    container.should_run = should_run(container, &self.run_criteria, default_should_run);
+                    container.should_run =
+                        should_run(container, &self.run_criteria, default_should_run);
                 }
                 self.executor.run_systems(&mut self.parallel, world);
 
