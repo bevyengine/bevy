@@ -763,7 +763,8 @@ impl Stage for SystemStage {
 
         let mut run_stage_loop = true;
         while run_stage_loop {
-            match self.stage_run_criteria.should_run(world) {
+            let should_run = self.stage_run_criteria.should_run(world);
+            match should_run {
                 ShouldRun::No => return,
                 ShouldRun::NoAndCheckAgain => continue,
                 ShouldRun::YesAndCheckAgain => (),
@@ -790,6 +791,7 @@ impl Stage for SystemStage {
             let mut default_should_run = ShouldRun::Yes;
             while run_system_loop {
                 run_system_loop = false;
+
                 fn should_run(
                     container: &impl SystemContainer,
                     run_criteria: &[RunCriteriaContainer],
@@ -865,10 +867,13 @@ impl Stage for SystemStage {
                                 }
                             }
                             match criteria.should_run {
-                                ShouldRun::Yes | ShouldRun::YesAndCheckAgain => {
+                                ShouldRun::Yes => {
                                     run_system_loop = true;
                                 }
-                                ShouldRun::No | ShouldRun::NoAndCheckAgain => (),
+                                ShouldRun::YesAndCheckAgain | ShouldRun::NoAndCheckAgain => {
+                                    run_system_loop = true;
+                                }
+                                ShouldRun::No => (),
                             }
                         }
                     }
