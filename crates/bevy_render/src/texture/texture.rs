@@ -56,8 +56,8 @@ impl Texture {
         Self {
             data,
             size,
-            dimension,
             format,
+            dimension,
             ..Default::default()
         }
     }

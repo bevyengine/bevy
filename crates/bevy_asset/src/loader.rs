@@ -64,10 +64,9 @@ pub(crate) struct BoxedLoadedAsset {
 impl<T: Asset> From<LoadedAsset<T>> for BoxedLoadedAsset {
     fn from(asset: LoadedAsset<T>) -> Self {
         BoxedLoadedAsset {
-            value: match asset.value {
-                Some(value) => Some(Box::new(value)),
-                None => None,
-            },
+            value: asset
+                .value
+                .map(|value| Box::new(value) as Box<dyn AssetDynamic>),
             dependencies: asset.dependencies,
         }
     }
