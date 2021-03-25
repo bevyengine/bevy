@@ -256,7 +256,7 @@ where
     ///
     /// Important note: this set must be inserted **before** all other state-dependant sets to work
     /// properly!
-    pub fn make_driver() -> SystemSet {
+    pub fn get_driver() -> SystemSet {
         SystemSet::default()
             .with_run_criteria(state_cleaner::<T>.system().label(DriverLabel::of::<T>()))
     }
@@ -477,7 +477,7 @@ mod test {
 
         let mut stage = SystemStage::parallel();
 
-        stage.add_system_set(State::<MyState>::make_driver());
+        stage.add_system_set(State::<MyState>::get_driver());
         stage
             .add_system_set(
                 State::on_enter_set(MyState::S1)
