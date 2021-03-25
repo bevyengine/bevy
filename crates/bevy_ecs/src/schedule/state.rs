@@ -17,7 +17,7 @@ use thiserror::Error;
 /// * Set replaces the active state with a new one
 /// * Replace unwinds the state stack, and replaces the entire stack with a single new state
 #[derive(Debug)]
-pub struct State<T> {
+pub struct State<T: Component + Clone + Eq> {
     transition: Option<StateTransition<T>>,
     stack: Vec<T>,
     scheduled: Option<ScheduledOperation<T>>,
@@ -25,7 +25,7 @@ pub struct State<T> {
 }
 
 #[derive(Debug)]
-enum StateTransition<T> {
+enum StateTransition<T: Component + Clone + Eq> {
     PreStartup,
     Startup,
     // The parameter order is always (leaving, entering)
