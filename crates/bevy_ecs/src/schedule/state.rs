@@ -11,12 +11,13 @@ use thiserror::Error;
 
 /// ### Stack based state machine
 ///
-/// This state machine has three operations: Push, Pop, and Next.
+/// This state machine has four operations: Push, Pop, Next and Replace.
 /// * Push pushes a new state to the state stack, pausing the previous state
-/// * Pop removes the current state, and unpauses the last paused state.
-/// * Next unwinds the state stack, and replaces the entire stack with a single new state
+/// * Pop removes the current state, and unpauses the last paused state
+/// * Set replaces the active state with a new one
+/// * Replace unwinds the state stack, and replaces the entire stack with a single new state
 #[derive(Debug)]
-pub struct State<T> {
+pub struct State<T: Component + Clone + Eq> {
     transition: Option<StateTransition<T>>,
     stack: Vec<T>,
     scheduled: Option<ScheduledOperation<T>>,
@@ -24,7 +25,7 @@ pub struct State<T> {
 }
 
 #[derive(Debug)]
-enum StateTransition<T> {
+enum StateTransition<T: Component + Clone + Eq> {
     PreStartup,
     Startup,
     // The parameter order is always (leaving, entering)
@@ -36,8 +37,9 @@ enum StateTransition<T> {
 }
 
 #[derive(Debug)]
-enum ScheduledOperation<T> {
-    Next(T),
+enum ScheduledOperation<T: Component + Clone + Eq> {
+    Set(T),
+    Replace(T),
     Pop,
     Push(T),
 }
@@ -270,10 +272,10 @@ where
         }
     }
 
-    /// Schedule a state change that replaces the full stack with the given state.
+    /// Schedule a state change that replaces the active state with the given state.
     /// This will fail if there is a scheduled operation, or if the given `state` matches the
     /// current state
-    pub fn set_next(&mut self, state: T) -> Result<(), StateError> {
+    pub fn set(&mut self, state: T) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
@@ -282,23 +284,48 @@ where
             return Err(StateError::StateAlreadyQueued);
         }
 
-        self.scheduled = Some(ScheduledOperation::Next(state));
+        self.scheduled = Some(ScheduledOperation::Set(state));
         Ok(())
     }
 
-    /// Same as [Self::set_next], but if there is already a next state, it will be overwritten
+    /// Same as [Self::set], but if there is already a next state, it will be overwritten
     /// instead of failing
-    pub fn overwrite_next(&mut self, state: T) -> Result<(), StateError> {
+    pub fn overwrite_set(&mut self, state: T) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
 
-        self.scheduled = Some(ScheduledOperation::Next(state));
+        self.scheduled = Some(ScheduledOperation::Set(state));
         Ok(())
     }
 
-    /// Same as [Self::set_next], but does a push operation instead of a next operation
-    pub fn set_push(&mut self, state: T) -> Result<(), StateError> {
+    /// Schedule a state change that replaces the full stack with the given state.
+    /// This will fail if there is a scheduled operation, or if the given `state` matches the current state
+    pub fn replace(&mut self, state: T) -> Result<(), StateError> {
+        if self.stack.last().unwrap() == &state {
+            return Err(StateError::AlreadyInState);
+        }
+
+        if self.scheduled.is_some() {
+            return Err(StateError::StateAlreadyQueued);
+        }
+
+        self.scheduled = Some(ScheduledOperation::Replace(state));
+        Ok(())
+    }
+
+    /// Same as [Self::replace], but if there is already a next state, it will be overwritten instead of failing
+    pub fn overwrite_replace(&mut self, state: T) -> Result<(), StateError> {
+        if self.stack.last().unwrap() == &state {
+            return Err(StateError::AlreadyInState);
+        }
+
+        self.scheduled = Some(ScheduledOperation::Replace(state));
+        Ok(())
+    }
+
+    /// Same as [Self::set], but does a push operation instead of a next operation
+    pub fn push(&mut self, state: T) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
@@ -311,7 +338,7 @@ where
         Ok(())
     }
 
-    /// Same as [Self::set_push], but if there is already a next state, it will be overwritten
+    /// Same as [Self::push], but if there is already a next state, it will be overwritten
     /// instead of failing
     pub fn overwrite_push(&mut self, state: T) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
@@ -322,8 +349,8 @@ where
         Ok(())
     }
 
-    /// Same as [Self::set_next], but does a pop operation instead of a next operation
-    pub fn set_pop(&mut self) -> Result<(), StateError> {
+    /// Same as [Self::next], but does a pop operation instead of a set operation
+    pub fn pop(&mut self) -> Result<(), StateError> {
         if self.scheduled.is_some() {
             return Err(StateError::StateAlreadyQueued);
         }
@@ -336,7 +363,7 @@ where
         Ok(())
     }
 
-    /// Same as [Self::set_pop], but if there is already a next state, it will be overwritten
+    /// Same as [Self::pop], but if there is already a next state, it will be overwritten
     /// instead of failing
     pub fn overwrite_pop(&mut self) -> Result<(), StateError> {
         if self.stack.len() == 1 {
@@ -394,14 +421,20 @@ fn state_cleaner<T: Component + Clone + Eq>(
         return ShouldRun::No;
     }
     match state.scheduled.take() {
-        Some(ScheduledOperation::Next(next)) => {
+        Some(ScheduledOperation::Set(next)) => {
+            state.transition = Some(StateTransition::ExitingFull(
+                state.stack.last().unwrap().clone(),
+                next,
+            ));
+        }
+        Some(ScheduledOperation::Replace(next)) => {
             if state.stack.len() <= 1 {
                 state.transition = Some(StateTransition::ExitingFull(
                     state.stack.last().unwrap().clone(),
                     next,
                 ));
             } else {
-                state.scheduled = Some(ScheduledOperation::Next(next));
+                state.scheduled = Some(ScheduledOperation::Replace(next));
                 match state.transition.take() {
                     Some(StateTransition::ExitingToResume(p, n)) => {
                         state.stack.pop();
@@ -429,7 +462,7 @@ fn state_cleaner<T: Component + Clone + Eq>(
         None => match state.transition.take() {
             Some(StateTransition::ExitingFull(p, n)) => {
                 state.transition = Some(StateTransition::Entering(p, n.clone()));
-                state.stack[0] = n;
+                *state.stack.last_mut().unwrap() = n;
             }
             Some(StateTransition::Pausing(p, n)) => {
                 state.transition = Some(StateTransition::Entering(p, n.clone()));
@@ -487,7 +520,7 @@ mod test {
                 State::on_update_set(MyState::S1).with_system(
                     (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                         r.push("update S1");
-                        s.overwrite_next(MyState::S2).unwrap();
+                        s.overwrite_replace(MyState::S2).unwrap();
                     })
                     .system(),
                 ),
@@ -500,7 +533,7 @@ mod test {
                 State::on_update_set(MyState::S2).with_system(
                     (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                         r.push("update S2");
-                        s.overwrite_next(MyState::S3).unwrap();
+                        s.overwrite_replace(MyState::S3).unwrap();
                     })
                     .system(),
                 ),
