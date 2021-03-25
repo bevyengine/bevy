@@ -187,8 +187,8 @@ pub struct Components {
 
 #[derive(Debug, Error)]
 pub enum ComponentsError {
-    #[error("A component of type {0:?} already exists")]
-    ComponentAlreadyExists(TypeId),
+    #[error("A component of type {name:?} ({type_id:?}) already exists")]
+    ComponentAlreadyExists { type_id: TypeId, name: String },
 }
 
 impl Components {
@@ -200,7 +200,10 @@ impl Components {
         if let Some(type_id) = descriptor.type_id {
             let index_entry = self.indices.entry(type_id);
             if let Entry::Occupied(_) = index_entry {
-                return Err(ComponentsError::ComponentAlreadyExists(type_id));
+                return Err(ComponentsError::ComponentAlreadyExists {
+                    type_id,
+                    name: descriptor.name,
+                });
             }
             self.indices.insert(type_id, index);
         }
