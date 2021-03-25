@@ -41,45 +41,34 @@ pub enum ComponentStatus {
     Mutated,
 }
 
-pub struct FromBundle {
+pub struct AddBundle {
     pub archetype_id: ArchetypeId,
     pub bundle_status: Vec<ComponentStatus>,
 }
 
 #[derive(Default)]
 pub struct Edges {
-    pub add_bundle: SparseArray<BundleId, ArchetypeId>,
+    pub add_bundle: SparseArray<BundleId, AddBundle>,
     pub remove_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
     pub remove_bundle_intersection: SparseArray<BundleId, Option<ArchetypeId>>,
-    pub from_bundle: SparseArray<BundleId, FromBundle>,
 }
 
 impl Edges {
     #[inline]
-    pub fn get_add_bundle(&self, bundle_id: BundleId) -> Option<ArchetypeId> {
-        self.add_bundle.get(bundle_id).cloned()
+    pub fn get_add_bundle(&self, bundle_id: BundleId) -> Option<&AddBundle> {
+        self.add_bundle.get(bundle_id)
     }
 
     #[inline]
-    pub fn set_add_bundle(&mut self, bundle_id: BundleId, archetype_id: ArchetypeId) {
-        self.add_bundle.insert(bundle_id, archetype_id);
-    }
-
-    #[inline]
-    pub fn get_from_bundle(&self, bundle_id: BundleId) -> Option<&FromBundle> {
-        self.from_bundle.get(bundle_id)
-    }
-
-    #[inline]
-    pub fn set_from_bundle(
+    pub fn set_add_bundle(
         &mut self,
         bundle_id: BundleId,
         archetype_id: ArchetypeId,
         bundle_status: Vec<ComponentStatus>,
     ) {
-        self.from_bundle.insert(
+        self.add_bundle.insert(
             bundle_id,
-            FromBundle {
+            AddBundle {
                 archetype_id,
                 bundle_status,
             },
@@ -456,6 +445,21 @@ impl Archetypes {
     #[inline]
     pub fn get_mut(&mut self, id: ArchetypeId) -> Option<&mut Archetype> {
         self.archetypes.get_mut(id.index())
+    }
+
+    #[inline]
+    pub(crate) fn get_2_mut(
+        &mut self,
+        a: ArchetypeId,
+        b: ArchetypeId,
+    ) -> (&mut Archetype, &mut Archetype) {
+        if a.index() > b.index() {
+            let (b_slice, a_slice) = self.archetypes.split_at_mut(a.index());
+            (&mut a_slice[0], &mut b_slice[b.index()])
+        } else {
+            let (a_slice, b_slice) = self.archetypes.split_at_mut(b.index());
+            (&mut a_slice[a.index()], &mut b_slice[0])
+        }
     }
 
     #[inline]

@@ -195,7 +195,7 @@ impl<'w> EntityMut<'w> {
         let bundle_info = self.world.bundles.init_info::<T>(components);
         let current_location = self.location;
 
-        let new_location = unsafe {
+        let (archetype, bundle_status, archetype_index) = unsafe {
             // SAFE: component ids in `bundle_info` and self.location are valid
             let new_archetype_id = add_bundle_to_archetype(
                 archetypes,
@@ -205,34 +205,33 @@ impl<'w> EntityMut<'w> {
                 bundle_info,
             );
             if new_archetype_id == current_location.archetype_id {
-                current_location
+                let archetype = &archetypes[current_location.archetype_id];
+                let edge = archetype.edges().get_add_bundle(bundle_info.id).unwrap();
+                (archetype, &edge.bundle_status, current_location.index)
             } else {
-                let old_table_row;
-                let old_table_id;
-                {
+                let (old_table_row, old_table_id) = {
                     let old_archetype = &mut archetypes[current_location.archetype_id];
                     let result = old_archetype.swap_remove(current_location.index);
                     if let Some(swapped_entity) = result.swapped_entity {
-                        // SAFE: entity is live and is contained in an archetype that exists
                         entities.meta[swapped_entity.id as usize].location = current_location;
                     }
-                    old_table_row = result.table_row;
-                    old_table_id = old_archetype.table_id()
-                }
-                let new_archetype = &mut archetypes[new_archetype_id];
+                    (result.table_row, old_archetype.table_id())
+                };
 
-                if old_table_id == new_archetype.table_id() {
-                    new_archetype.allocate(entity, old_table_row)
+                let new_table_id = archetypes[new_archetype_id].table_id();
+
+                let new_location = if old_table_id == new_table_id {
+                    archetypes[new_archetype_id].allocate(entity, old_table_row)
                 } else {
-                    let (old_table, new_table) = storages
-                        .tables
-                        .get_2_mut(old_table_id, new_archetype.table_id());
+                    let (old_table, new_table) =
+                        storages.tables.get_2_mut(old_table_id, new_table_id);
                     // PERF: store "non bundle" components in edge, then just move those to avoid
                     // redundant copies
                     let move_result =
                         old_table.move_to_superset_unchecked(old_table_row, new_table);
 
-                    let new_location = new_archetype.allocate(entity, move_result.new_row);
+                    let new_location =
+                        archetypes[new_archetype_id].allocate(entity, move_result.new_row);
                     // if an entity was moved into this entity's table spot, update its table row
                     if let Some(swapped_entity) = move_result.swapped_entity {
                         let swapped_location = entities.get(swapped_entity).unwrap();
@@ -240,18 +239,24 @@ impl<'w> EntityMut<'w> {
                             .set_entity_table_row(swapped_location.index, old_table_row);
                     }
                     new_location
-                }
+                };
+
+                self.location = new_location;
+                entities.meta[self.entity.id as usize].location = new_location;
+                let (old_archetype, new_archetype) =
+                    archetypes.get_2_mut(current_location.archetype_id, new_archetype_id);
+                let edge = old_archetype
+                    .edges()
+                    .get_add_bundle(bundle_info.id)
+                    .unwrap();
+                (&*new_archetype, &edge.bundle_status, new_location.index)
 
                 // Sparse set components are intentionally ignored here. They don't need to move
             }
         };
-        self.location = new_location;
-        entities.meta[self.entity.id as usize].location = new_location;
 
-        let archetype = &archetypes[new_location.archetype_id];
         let table = &storages.tables[archetype.table_id()];
-        let table_row = archetype.entity_table_row(new_location.index);
-        let from_bundle = archetype.edges().get_from_bundle(bundle_info.id).unwrap();
+        let table_row = archetype.entity_table_row(archetype_index);
         // SAFE: table row is valid
         unsafe {
             bundle_info.write_components(
@@ -259,7 +264,7 @@ impl<'w> EntityMut<'w> {
                 entity,
                 table,
                 table_row,
-                &from_bundle.bundle_status,
+                bundle_status,
                 bundle,
                 change_tick,
             )
@@ -650,11 +655,11 @@ pub(crate) unsafe fn add_bundle_to_archetype(
     archetype_id: ArchetypeId,
     bundle_info: &BundleInfo,
 ) -> ArchetypeId {
-    if let Some(archetype_id) = archetypes[archetype_id]
+    if let Some(add_bundle) = archetypes[archetype_id]
         .edges()
         .get_add_bundle(bundle_info.id)
     {
-        return archetype_id;
+        return add_bundle.archetype_id;
     }
     let mut new_table_components = Vec::new();
     let mut new_sparse_set_components = Vec::new();
@@ -680,8 +685,7 @@ pub(crate) unsafe fn add_bundle_to_archetype(
     if new_table_components.is_empty() && new_sparse_set_components.is_empty() {
         let edges = current_archetype.edges_mut();
         // the archetype does not change when we add this bundle
-        edges.set_add_bundle(bundle_info.id, archetype_id);
-        edges.set_from_bundle(bundle_info.id, archetype_id, bundle_status);
+        edges.set_add_bundle(bundle_info.id, archetype_id, bundle_status);
         archetype_id
     } else {
         let table_id;
@@ -718,11 +722,7 @@ pub(crate) unsafe fn add_bundle_to_archetype(
         let new_archetype_id =
             archetypes.get_id_or_insert(table_id, table_components, sparse_set_components);
         // add an edge from the old archetype to the new archetype
-        archetypes[archetype_id]
-            .edges_mut()
-            .set_add_bundle(bundle_info.id, new_archetype_id);
-        // add a "from bundle" edge from the new archetype to the old archetype
-        archetypes[new_archetype_id].edges_mut().set_from_bundle(
+        archetypes[archetype_id].edges_mut().set_add_bundle(
             bundle_info.id,
             new_archetype_id,
             bundle_status,
