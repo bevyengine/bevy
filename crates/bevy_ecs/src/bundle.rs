@@ -159,21 +159,7 @@ impl BundleInfo {
                 }
                 StorageType::SparseSet => {
                     let sparse_set = sparse_sets.get_mut(component_id).unwrap();
-                    match component_status {
-                        ComponentStatus::Added => {
-                            sparse_set.insert(
-                                entity,
-                                component_ptr,
-                                ComponentTicks::new(change_tick),
-                            );
-                        }
-                        ComponentStatus::Mutated => {
-                            sparse_set
-                                .get_ticks(entity)
-                                .unwrap()
-                                .set_changed(change_tick);
-                        }
-                    }
+                    sparse_set.insert(entity, component_ptr, change_tick);
                 }
             }
             bundle_component += 1;
