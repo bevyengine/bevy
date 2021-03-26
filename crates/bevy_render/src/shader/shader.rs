@@ -24,12 +24,12 @@ pub enum ShaderStage {
 #[derive(Error, Debug)]
 pub enum ShaderError {
     /// Shader compilation error.
-    #[error("Shader compilation error: {0}")]
+    #[error("Shader compilation error:\n{0}")]
     Compilation(String),
 
     #[cfg(any(target_os = "ios", all(target_arch = "aarch64", target_os = "macos")))]
     /// shaderc error.
-    #[error("shaderc error")]
+    #[error("shaderc error: {}")]
     ShaderC(#[from] shaderc::Error),
 
     #[cfg(any(target_os = "ios", all(target_arch = "aarch64", target_os = "macos")))]
