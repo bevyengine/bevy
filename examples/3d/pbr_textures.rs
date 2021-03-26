@@ -1,9 +1,13 @@
 use std::f32::consts::PI;
 
-use bevy::prelude::*;
+use bevy::{pbr::AmbientLight, prelude::*};
 
 fn main() {
     App::build()
+        .insert_resource(AmbientLight {
+            color: Color::WHITE,
+            brightness: 1.0 / 5.0f32,
+        })
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
@@ -17,18 +21,19 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    commands.spawn_scene(asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"));
+
+    // Add a rotating light with a sphere to show it's position
     commands
-        .spawn_scene(asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"))
-        // Add a rotating light with a sphere to show it's position
-        .spawn((Transform::default(), GlobalTransform::default(), Rotator))
+        .spawn_bundle((Transform::default(), GlobalTransform::default(), Rotator))
         .with_children(|parent| {
             parent
-                .spawn(LightBundle {
+                .spawn_bundle(LightBundle {
                     transform: Transform::from_translation(Vec3::new(0.0, 0.7, 2.0)),
                     ..Default::default()
                 })
                 .with_children(|parent| {
-                    parent.spawn(PbrBundle {
+                    parent.spawn_bundle(PbrBundle {
                         mesh: meshes.add(Mesh::from(shape::Icosphere {
                             radius: 0.05,
                             subdivisions: 32,
@@ -41,12 +46,12 @@ fn setup(
                         ..Default::default()
                     });
                 });
-        })
-        .spawn(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(0.7, 0.7, 1.0)
-                .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
-            ..Default::default()
         });
+
+    commands.spawn_bundle(PerspectiveCameraBundle {
+        transform: Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+        ..Default::default()
+    });
 }
 
 /// this component indicates what entities should rotate

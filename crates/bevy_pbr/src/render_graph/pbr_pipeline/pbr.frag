@@ -103,6 +103,12 @@ layout(set = 3,
        binding = 9) uniform sampler StandardMaterial_normal_map_sampler;
 #    endif
 
+#    if defined(STANDARDMATERIAL_OCCLUSION_TEXTURE)
+layout(set = 3, binding = 10) uniform texture2D StandardMaterial_occlusion_texture;
+layout(set = 3,
+       binding = 11) uniform sampler StandardMaterial_occlusion_texture_sampler;
+#    endif
+
 #    define saturate(x) clamp(x, 0.0, 1.0)
 const float PI = 3.141592653589793;
 
@@ -303,6 +309,12 @@ void main() {
     N = normalize(TBN * texture(sampler2D(StandardMaterial_normal_map, StandardMaterial_normal_map_sampler), v_Uv).rgb);
 #    endif
 
+#    ifdef STANDARDMATERIAL_OCCLUSION_TEXTURE
+    float occlusion = texture(sampler2D(StandardMaterial_occlusion_texture, StandardMaterial_occlusion_texture_sampler), v_Uv).r;
+#    else
+    float occlusion = 1.0;
+#    endif
+
     vec3 V = normalize(CameraPos.xyz - v_WorldPosition.xyz);
     // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
     float NdotV = max(dot(N, V), 1e-4);
@@ -351,7 +363,7 @@ void main() {
     vec3 diffuse_ambient = EnvBRDFApprox(diffuseColor, 1.0, NdotV);
     vec3 specular_ambient = EnvBRDFApprox(F0, perceptual_roughness, NdotV);
 
-    output_color.rgb = light_accum + (diffuse_ambient + specular_ambient) * AmbientColor;
+    output_color.rgb = light_accum + (diffuse_ambient + specular_ambient) * AmbientColor * occlusion;
 
     // tone_mapping
     output_color.rgb = reinhard_luminance(output_color.rgb);

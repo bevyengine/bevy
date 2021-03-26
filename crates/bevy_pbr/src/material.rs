@@ -32,6 +32,9 @@ pub struct StandardMaterial {
     #[render_resources(ignore)]
     #[shader_def]
     pub double_sided: bool,
+    #[shader_def]
+    pub occlusion_texture: Option<Handle<Texture>>,
+    #[shader_def]
     #[render_resources(ignore)]
     #[shader_def]
     pub unlit: bool,
@@ -56,6 +59,7 @@ impl Default for StandardMaterial {
             reflectance: 0.5,
             normal_map: None,
             double_sided: false,
+            occlusion_texture: None,
             unlit: false,
         }
     }

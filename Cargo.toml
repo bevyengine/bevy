@@ -132,10 +132,6 @@ name = "msaa"
 path = "examples/3d/msaa.rs"
 
 [[example]]
-name = "normal_maps"
-path = "examples/3d/normal_maps.rs"
-
-[[example]]
 name = "orthographic"
 path = "examples/3d/orthographic.rs"
 
@@ -146,6 +142,10 @@ path = "examples/3d/parenting.rs"
 [[example]]
 name = "pbr"
 path = "examples/3d/pbr.rs"
+
+[[example]]
+name = "pbr_textures"
+path = "examples/3d/pbr_textures.rs"
 
 [[example]]
 name = "spawner"
