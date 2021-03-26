@@ -334,6 +334,17 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
         None
     };
 
+    let emissive = material.emissive_factor();
+    let emissive_texture = if let Some(info) = material.emissive_texture() {
+        // TODO handle occlusion_texture.tex_coord() (the *set* index for the right texcoords)
+        // TODO handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
+        let label = texture_label(&info.texture());
+        let path = AssetPath::new_ref(load_context.path(), Some(&label));
+        Some(load_context.get_handle(path))
+    } else {
+        None
+    };
+
     load_context.set_labeled_asset(
         &material_label,
         LoadedAsset::new(StandardMaterial {
@@ -345,6 +356,8 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
             normal_map,
             double_sided: material.double_sided(),
             occlusion_texture,
+            emissive: Color::rgba(emissive[0], emissive[1], emissive[2], 1.0),
+            emissive_texture,
             unlit: material.unlit(),
             ..Default::default()
         }),

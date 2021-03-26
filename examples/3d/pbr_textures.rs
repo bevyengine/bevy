@@ -40,6 +40,7 @@ fn setup(
                         })),
                         material: materials.add(StandardMaterial {
                             base_color: Color::YELLOW,
+                            emissive: Color::WHITE * 10.0f32,
                             ..Default::default()
                         }),
                         transform: Transform::default(),

@@ -109,6 +109,16 @@ layout(set = 3,
        binding = 11) uniform sampler StandardMaterial_occlusion_texture_sampler;
 #    endif
 
+layout(set = 3, binding = 12) uniform StandardMaterial_emissive {
+    vec4 emissive;
+};
+
+#    if defined(STANDARDMATERIAL_EMISSIVE_TEXTURE)
+layout(set = 3, binding = 13) uniform texture2D StandardMaterial_emissive_texture;
+layout(set = 3,
+       binding = 14) uniform sampler StandardMaterial_emissive_texture_sampler;
+#    endif
+
 #    define saturate(x) clamp(x, 0.0, 1.0)
 const float PI = 3.141592653589793;
 
@@ -315,6 +325,11 @@ void main() {
     float occlusion = 1.0;
 #    endif
 
+#    ifdef STANDARDMATERIAL_EMISSIVE_TEXTURE
+    // TODO use .a for exposure compensation in HDR
+    vec3 emissive.rgb *= texture(sampler2D(StandardMaterial_emissive_texture, StandardMaterial_emissive_texture_sampler), v_Uv).rgb;
+#    endif
+
     vec3 V = normalize(CameraPos.xyz - v_WorldPosition.xyz);
     // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
     float NdotV = max(dot(N, V), 1e-4);
@@ -363,7 +378,9 @@ void main() {
     vec3 diffuse_ambient = EnvBRDFApprox(diffuseColor, 1.0, NdotV);
     vec3 specular_ambient = EnvBRDFApprox(F0, perceptual_roughness, NdotV);
 
-    output_color.rgb = light_accum + (diffuse_ambient + specular_ambient) * AmbientColor * occlusion;
+    output_color.rgb = light_accum;
+    output_color.rgb += (diffuse_ambient + specular_ambient) * AmbientColor * occlusion;
+    output_color.rgb += emissive.rgb * output_color.a;
 
     // tone_mapping
     output_color.rgb = reinhard_luminance(output_color.rgb);
