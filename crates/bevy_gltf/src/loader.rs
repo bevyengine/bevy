@@ -297,7 +297,7 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
 
     let color = pbr.base_color_factor();
     let base_color_texture = if let Some(info) = pbr.base_color_texture() {
-        // TODO handle info.tex_coord() (the *set* index for the right texcoords)
+        // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
         let label = texture_label(&info.texture());
         let path = AssetPath::new_ref(load_context.path(), Some(&label));
         Some(load_context.get_handle(path))
@@ -306,8 +306,8 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
     };
 
     let normal_map = if let Some(normal_texture) = material.normal_texture() {
-        // TODO handle normal_texture.scale
-        // TODO handle normal_texture.tex_coord() (the *set* index for the right texcoords)
+        // TODO: handle normal_texture.scale
+        // TODO: handle normal_texture.tex_coord() (the *set* index for the right texcoords)
         let label = texture_label(&normal_texture.texture());
         let path = AssetPath::new_ref(load_context.path(), Some(&label));
         Some(load_context.get_handle(path))
@@ -316,7 +316,7 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
     };
 
     let metallic_roughness_texture = if let Some(info) = pbr.metallic_roughness_texture() {
-        // TODO handle info.tex_coord() (the *set* index for the right texcoords)
+        // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
         let label = texture_label(&info.texture());
         let path = AssetPath::new_ref(load_context.path(), Some(&label));
         Some(load_context.get_handle(path))
@@ -325,8 +325,8 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
     };
 
     let occlusion_texture = if let Some(occlusion_texture) = material.occlusion_texture() {
-        // TODO handle occlusion_texture.tex_coord() (the *set* index for the right texcoords)
-        // TODO handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
+        // TODO: handle occlusion_texture.tex_coord() (the *set* index for the right texcoords)
+        // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
         let label = texture_label(&occlusion_texture.texture());
         let path = AssetPath::new_ref(load_context.path(), Some(&label));
         Some(load_context.get_handle(path))
@@ -336,8 +336,8 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
 
     let emissive = material.emissive_factor();
     let emissive_texture = if let Some(info) = material.emissive_texture() {
-        // TODO handle occlusion_texture.tex_coord() (the *set* index for the right texcoords)
-        // TODO handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
+        // TODO: handle occlusion_texture.tex_coord() (the *set* index for the right texcoords)
+        // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
         let label = texture_label(&info.texture());
         let path = AssetPath::new_ref(load_context.path(), Some(&label));
         Some(load_context.get_handle(path))
