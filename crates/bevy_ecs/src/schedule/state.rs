@@ -11,7 +11,7 @@ use thiserror::Error;
 
 /// ### Stack based state machine
 ///
-/// This state machine has four operations: Push, Pop, Next and Replace.
+/// This state machine has four operations: Push, Pop, Set and Replace.
 /// * Push pushes a new state to the state stack, pausing the previous state
 /// * Pop removes the current state, and unpauses the last paused state
 /// * Set replaces the active state with a new one
@@ -349,7 +349,7 @@ where
         Ok(())
     }
 
-    /// Same as [Self::next], but does a pop operation instead of a set operation
+    /// Same as [Self::set], but does a pop operation instead of a set operation
     pub fn pop(&mut self) -> Result<(), StateError> {
         if self.scheduled.is_some() {
             return Err(StateError::StateAlreadyQueued);
