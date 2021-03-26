@@ -2,7 +2,7 @@
 name: Docs Improvement
 about: Help us write better docs to catch common issues!
 title: ''
-labels: documentation
+labels: documentation, needs-triage
 assignees: ''
 ---
 
