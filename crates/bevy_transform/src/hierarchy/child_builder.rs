@@ -19,6 +19,7 @@ impl Command for InsertChildren {
         for child in self.children.iter() {
             world
                 .entity_mut(*child)
+                // FIXME: don't erase the previous parent (see #1545)
                 .insert_bundle((Parent(self.parent), PreviousParent(self.parent)));
         }
         {
@@ -55,6 +56,7 @@ impl Command for PushChildren {
         for child in self.children.iter() {
             world
                 .entity_mut(*child)
+                // FIXME: don't erase the previous parent (see #1545)
                 .insert_bundle((Parent(self.parent), PreviousParent(self.parent)));
         }
         {
@@ -198,6 +200,8 @@ impl<'w> WorldChildBuilder<'w> {
 
 pub trait BuildWorldChildren {
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self;
+    fn push_children(&mut self, children: &[Entity]) -> &mut Self;
+    fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self;
 }
 
 impl<'w> BuildWorldChildren for EntityMut<'w> {
@@ -215,6 +219,47 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
             spawn_children(&mut builder);
         }
         self.update_location();
+        self
+    }
+
+    fn push_children(&mut self, children: &[Entity]) -> &mut Self {
+        let parent = self.id();
+        {
+            // SAFE: parent entity is not modified
+            let world = unsafe { self.world_mut() };
+            for child in children.iter() {
+                world
+                    .entity_mut(*child)
+                    // FIXME: don't erase the previous parent (see #1545)
+                    .insert_bundle((Parent(parent), PreviousParent(parent)));
+            }
+        }
+        if let Some(mut children_component) = self.get_mut::<Children>() {
+            children_component.0.extend(children.iter().cloned());
+        } else {
+            self.insert(Children::with(children));
+        }
+        self
+    }
+
+    fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
+        let parent = self.id();
+        {
+            // SAFE: parent entity is not modified
+            let world = unsafe { self.world_mut() };
+            for child in children.iter() {
+                world
+                    .entity_mut(*child)
+                    // FIXME: don't erase the previous parent (see #1545)
+                    .insert_bundle((Parent(parent), PreviousParent(parent)));
+            }
+        }
+
+        if let Some(mut children_component) = self.get_mut::<Children>() {
+            children_component.0.insert_from_slice(index, children);
+        } else {
+            self.insert(Children::with(children));
+        }
         self
     }
 }
@@ -235,11 +280,52 @@ impl<'w> BuildWorldChildren for WorldChildBuilder<'w> {
         self.current_entity = self.parent_entities.pop();
         self
     }
+
+    fn push_children(&mut self, children: &[Entity]) -> &mut Self {
+        let parent = self
+            .current_entity
+            .expect("Cannot add children without a parent. Try creating an entity first.");
+        for child in children.iter() {
+            self.world
+                .entity_mut(*child)
+                // FIXME: don't erase the previous parent (see #1545)
+                .insert_bundle((Parent(parent), PreviousParent(parent)));
+        }
+        if let Some(mut children_component) = self.world.get_mut::<Children>(parent) {
+            children_component.0.extend(children.iter().cloned());
+        } else {
+            self.world
+                .entity_mut(parent)
+                .insert(Children::with(children));
+        }
+        self
+    }
+
+    fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
+        let parent = self
+            .current_entity
+            .expect("Cannot add children without a parent. Try creating an entity first.");
+
+        for child in children.iter() {
+            self.world
+                .entity_mut(*child)
+                // FIXME: don't erase the previous parent (see #1545)
+                .insert_bundle((Parent(parent), PreviousParent(parent)));
+        }
+        if let Some(mut children_component) = self.world.get_mut::<Children>(parent) {
+            children_component.0.insert_from_slice(index, children);
+        } else {
+            self.world
+                .entity_mut(parent)
+                .insert(Children::with(children));
+        }
+        self
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::BuildChildren;
+    use super::{BuildChildren, BuildWorldChildren};
     use crate::prelude::{Children, Parent, PreviousParent};
     use bevy_ecs::{
         entity::Entity,
@@ -281,7 +367,7 @@ mod tests {
     }
 
     #[test]
-    fn push_and_insert_children() {
+    fn push_and_insert_children_commands() {
         let mut world = World::default();
 
         let entities = world
@@ -324,6 +410,57 @@ mod tests {
         }
         queue.apply(&mut world);
 
+        let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child3, child4, child2];
+        assert_eq!(
+            world.get::<Children>(parent).unwrap().0.clone(),
+            expected_children
+        );
+        assert_eq!(*world.get::<Parent>(child3).unwrap(), Parent(parent));
+        assert_eq!(*world.get::<Parent>(child4).unwrap(), Parent(parent));
+        assert_eq!(
+            *world.get::<PreviousParent>(child3).unwrap(),
+            PreviousParent(parent)
+        );
+        assert_eq!(
+            *world.get::<PreviousParent>(child4).unwrap(),
+            PreviousParent(parent)
+        );
+    }
+
+    #[test]
+    fn push_and_insert_children_world() {
+        let mut world = World::default();
+
+        let entities = world
+            .spawn_batch(vec![(1,), (2,), (3,), (4,), (5,)])
+            .collect::<Vec<Entity>>();
+
+        world.entity_mut(entities[0]).push_children(&entities[1..3]);
+
+        let parent = entities[0];
+        let child1 = entities[1];
+        let child2 = entities[2];
+        let child3 = entities[3];
+        let child4 = entities[4];
+
+        let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child2];
+        assert_eq!(
+            world.get::<Children>(parent).unwrap().0.clone(),
+            expected_children
+        );
+        assert_eq!(*world.get::<Parent>(child1).unwrap(), Parent(parent));
+        assert_eq!(*world.get::<Parent>(child2).unwrap(), Parent(parent));
+
+        assert_eq!(
+            *world.get::<PreviousParent>(child1).unwrap(),
+            PreviousParent(parent)
+        );
+        assert_eq!(
+            *world.get::<PreviousParent>(child2).unwrap(),
+            PreviousParent(parent)
+        );
+
+        world.entity_mut(parent).insert_children(1, &entities[3..]);
         let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child3, child4, child2];
         assert_eq!(
             world.get::<Children>(parent).unwrap().0.clone(),
