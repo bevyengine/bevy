@@ -652,4 +652,33 @@ mod test {
             &MyState::Final
         );
     }
+
+    #[test]
+    fn issue_1753() {
+        #[derive(Clone, PartialEq, Eq, Debug, Hash)]
+        enum AppState {
+            Main,
+        }
+
+        fn should_run_once(mut flag: ResMut<bool>, test_name: Res<&'static str>) {
+            assert!(!*flag, "{:?}", *test_name);
+            *flag = true;
+        }
+
+        let mut world = World::new();
+        world.insert_resource(State::new(AppState::Main));
+        world.insert_resource(false);
+        world.insert_resource("control");
+        let mut stage = SystemStage::parallel().with_system(should_run_once.system());
+        stage.run(&mut world);
+        assert!(*world.get_resource::<bool>().unwrap(), "after control");
+
+        world.insert_resource(false);
+        world.insert_resource("test");
+        let mut stage = SystemStage::parallel()
+            .with_system_set(State::<AppState>::get_driver())
+            .with_system(should_run_once.system());
+        stage.run(&mut world);
+        assert!(*world.get_resource::<bool>().unwrap(), "after test");
+    }
 }
