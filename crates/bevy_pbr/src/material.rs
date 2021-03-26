@@ -24,7 +24,21 @@ pub struct StandardMaterial {
     pub metallic: f32,
     /// Specular intensity for non-metals on a linear scale of [0.0, 1.0]
     /// defaults to 0.5 which is mapped to 4% reflectance in the shader
+    #[shader_def]
+    pub metallic_roughness_texture: Option<Handle<Texture>>,
     pub reflectance: f32,
+    #[shader_def]
+    pub normal_map: Option<Handle<Texture>>,
+    #[render_resources(ignore)]
+    #[shader_def]
+    pub double_sided: bool,
+    #[shader_def]
+    pub occlusion_texture: Option<Handle<Texture>>,
+    // Use a color for user friendliness even though we technically don't use the alpha channel
+    // Might be used in the future for exposure correction in HDR
+    pub emissive: Color,
+    #[shader_def]
+    pub emissive_texture: Option<Handle<Texture>>,
     #[render_resources(ignore)]
     #[shader_def]
     pub unlit: bool,
@@ -45,7 +59,13 @@ impl Default for StandardMaterial {
             metallic: 0.01,
             // Minimum real-world reflectance is 2%, most materials between 2-5%
             // Expressed in a linear scale and equivalent to 4% reflectance see https://google.github.io/filament/Material%20Properties.pdf
+            metallic_roughness_texture: None,
             reflectance: 0.5,
+            normal_map: None,
+            double_sided: false,
+            occlusion_texture: None,
+            emissive: Color::BLACK,
+            emissive_texture: None,
             unlit: false,
         }
     }

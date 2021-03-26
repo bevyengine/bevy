@@ -48,6 +48,10 @@ layout(location = 0) in vec3 v_WorldPosition;
 layout(location = 1) in vec3 v_WorldNormal;
 layout(location = 2) in vec2 v_Uv;
 
+#ifdef STANDARDMATERIAL_NORMAL_MAP
+layout(location = 3) in vec4 v_WorldTangent;
+#endif
+
 layout(location = 0) out vec4 o_Target;
 
 layout(set = 0, binding = 0) uniform CameraViewProj {
@@ -83,9 +87,37 @@ layout(set = 3, binding = 4) uniform StandardMaterial_metallic {
     float metallic;
 };
 
-layout(set = 3, binding = 5) uniform StandardMaterial_reflectance {
+#    ifdef STANDARDMATERIAL_METALLIC_ROUGHNESS_TEXTURE
+layout(set = 3, binding = 5) uniform texture2D StandardMaterial_metallic_roughness_texture;
+layout(set = 3,
+       binding = 6) uniform sampler StandardMaterial_metallic_roughness_texture_sampler;
+#    endif
+
+layout(set = 3, binding = 7) uniform StandardMaterial_reflectance {
     float reflectance;
 };
+
+#    ifdef STANDARDMATERIAL_NORMAL_MAP
+layout(set = 3, binding = 8) uniform texture2D StandardMaterial_normal_map;
+layout(set = 3,
+       binding = 9) uniform sampler StandardMaterial_normal_map_sampler;
+#    endif
+
+#    if defined(STANDARDMATERIAL_OCCLUSION_TEXTURE)
+layout(set = 3, binding = 10) uniform texture2D StandardMaterial_occlusion_texture;
+layout(set = 3,
+       binding = 11) uniform sampler StandardMaterial_occlusion_texture_sampler;
+#    endif
+
+layout(set = 3, binding = 12) uniform StandardMaterial_emissive {
+    vec4 emissive;
+};
+
+#    if defined(STANDARDMATERIAL_EMISSIVE_TEXTURE)
+layout(set = 3, binding = 13) uniform texture2D StandardMaterial_emissive_texture;
+layout(set = 3,
+       binding = 14) uniform sampler StandardMaterial_emissive_texture_sampler;
+#    endif
 
 #    define saturate(x) clamp(x, 0.0, 1.0)
 const float PI = 3.141592653589793;
@@ -258,9 +290,45 @@ void main() {
 
 #ifndef STANDARDMATERIAL_UNLIT
     // calculate non-linear roughness from linear perceptualRoughness
+#    ifdef STANDARDMATERIAL_METALLIC_ROUGHNESS_TEXTURE
+    vec4 metallic_roughness = texture(sampler2D(StandardMaterial_metallic_roughness_texture, StandardMaterial_metallic_roughness_texture_sampler), v_Uv);
+    // Sampling from GLTF standard channels for now
+    float metallic = metallic * metallic_roughness.b;
+    float perceptual_roughness = perceptual_roughness * metallic_roughness.g;
+#    endif
+
     float roughness = perceptualRoughnessToRoughness(perceptual_roughness);
 
     vec3 N = normalize(v_WorldNormal);
+
+#    ifdef STANDARDMATERIAL_NORMAL_MAP
+    vec3 T = normalize(v_WorldTangent.xyz);
+    vec3 B = cross(N, T) * v_WorldTangent.w;
+#    endif
+
+#    ifdef STANDARDMATERIAL_DOUBLE_SIDED
+    N = gl_FrontFacing ? N : -N;
+#        ifdef STANDARDMATERIAL_NORMAL_MAP
+    T = gl_FrontFacing ? T : -T;
+    B = gl_FrontFacing ? B : -B;
+#        endif
+#    endif
+
+#    ifdef STANDARDMATERIAL_NORMAL_MAP
+    mat3 TBN = mat3(T, B, N);
+    N = TBN * normalize(texture(sampler2D(StandardMaterial_normal_map, StandardMaterial_normal_map_sampler), v_Uv).rgb * 2.0 - 1.0);
+#    endif
+
+#    ifdef STANDARDMATERIAL_OCCLUSION_TEXTURE
+    float occlusion = texture(sampler2D(StandardMaterial_occlusion_texture, StandardMaterial_occlusion_texture_sampler), v_Uv).r;
+#    else
+    float occlusion = 1.0;
+#    endif
+
+#    ifdef STANDARDMATERIAL_EMISSIVE_TEXTURE
+    // TODO use .a for exposure compensation in HDR
+    emissive.rgb *= texture(sampler2D(StandardMaterial_emissive_texture, StandardMaterial_emissive_texture_sampler), v_Uv).rgb;
+#    endif
 
     vec3 V = normalize(CameraPos.xyz - v_WorldPosition.xyz);
     // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
@@ -310,7 +378,9 @@ void main() {
     vec3 diffuse_ambient = EnvBRDFApprox(diffuseColor, 1.0, NdotV);
     vec3 specular_ambient = EnvBRDFApprox(F0, perceptual_roughness, NdotV);
 
-    output_color.rgb = light_accum + (diffuse_ambient + specular_ambient) * AmbientColor;
+    output_color.rgb = light_accum;
+    output_color.rgb += (diffuse_ambient + specular_ambient) * AmbientColor * occlusion;
+    output_color.rgb += emissive.rgb * output_color.a;
 
     // tone_mapping
     output_color.rgb = reinhard_luminance(output_color.rgb);
