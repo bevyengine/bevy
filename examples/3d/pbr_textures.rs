@@ -25,7 +25,7 @@ fn setup(
 
     // Add a rotating light with a sphere to show it's position
     commands
-        .spawn_bundle((Transform::default(), GlobalTransform::default(), Rotator))
+        .spawn_bundle((Transform::default(), GlobalTransform::default(), Rotates))
         .with_children(|parent| {
             parent
                 .spawn_bundle(LightBundle {
@@ -56,10 +56,10 @@ fn setup(
 }
 
 /// this component indicates what entities should rotate
-struct Rotator;
+struct Rotates;
 
 /// rotates the parent, which will result in the child also rotating
-fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Rotator>>) {
+fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Rotates>>) {
     for mut transform in query.iter_mut() {
         transform.rotation *= Quat::from_rotation_y((2.0 * PI / 20.0) * time.delta_seconds());
     }
