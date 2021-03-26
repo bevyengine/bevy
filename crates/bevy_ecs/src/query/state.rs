@@ -3,8 +3,8 @@ use crate::{
     component::ComponentId,
     entity::Entity,
     query::{
-        Access, Fetch, FetchState, FilterFetch, FilteredAccess, QueryIter, ReadOnlyFetch,
-        WorldQuery,
+        Access, Fetch, FetchState, FilterFetch, FilteredAccess, QueryIter, QueryPermutationIter,
+        ReadOnlyFetch, WorldQuery,
     },
     storage::TableId,
     world::{World, WorldId},
@@ -205,6 +205,27 @@ where
         unsafe { self.iter_unchecked(world) }
     }
 
+    #[inline]
+    pub fn k_iter<'w, 's, const K: usize>(
+        &'s mut self,
+        world: &'w World,
+    ) -> QueryPermutationIter<'w, 's, Q, F, K>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        // SAFE: query is read only
+        unsafe { self.k_iter_unchecked(world) }
+    }
+
+    #[inline]
+    pub fn k_iter_mut<'w, 's, const K: usize>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> QueryPermutationIter<'w, 's, Q, F, K> {
+        // SAFE: query has unique world access
+        unsafe { self.k_iter_unchecked(world) }
+    }
+
     /// # Safety
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
@@ -222,6 +243,18 @@ where
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
+    #[inline]
+    pub unsafe fn k_iter_unchecked<'w, 's, const K: usize>(
+        &'s mut self,
+        world: &'w World,
+    ) -> QueryPermutationIter<'w, 's, Q, F, K> {
+        self.validate_world_and_update_archetypes(world);
+        self.k_iter_unchecked_manual(world, world.last_change_tick(), world.read_change_tick())
+    }
+
+    /// # Safety
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
     /// with a mismatched WorldId is unsound.
     #[inline]
@@ -232,6 +265,21 @@ where
         change_tick: u32,
     ) -> QueryIter<'w, 's, Q, F> {
         QueryIter::new(world, self, last_change_tick, change_tick)
+    }
+
+    /// # Safety
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
+    /// with a mismatched WorldId is unsafe.
+    #[inline]
+    pub(crate) unsafe fn k_iter_unchecked_manual<'w, 's, const K: usize>(
+        &'s self,
+        world: &'w World,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> QueryPermutationIter<'w, 's, Q, F, K> {
+        QueryPermutationIter::new(world, self, last_change_tick, change_tick)
     }
 
     #[inline]

@@ -2,7 +2,8 @@ use crate::{
     component::Component,
     entity::Entity,
     query::{
-        Fetch, FilterFetch, QueryEntityError, QueryIter, QueryState, ReadOnlyFetch, WorldQuery,
+        Fetch, FilterFetch, QueryEntityError, QueryIter, QueryPermutationIter, QueryState,
+        ReadOnlyFetch, WorldQuery,
     },
     world::{Mut, World},
 };
@@ -157,6 +158,32 @@ where
         }
     }
 
+    /// Returns an [`Iterator`] over all possible combinations of `K` query results without repetition.
+    /// This can only be called for read-only queries
+    ///
+    ///  When you ask for permutations of size K of query returning N results, you will get:
+    /// - if K == N: one result of all results
+    /// - if K < N: all possible subsets of N with size K, without repetition
+    /// - if K > N: empty set (no permutation of size K exist)
+    ///
+    /// ```
+    ///
+    ///
+    ///
+    /// ```
+    #[inline]
+    pub fn k_iter<const K: usize>(&self) -> QueryPermutationIter<'_, '_, Q, F, K>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        // SAFE: system runs without conflicts with other systems.
+        // same-system queries have runtime borrow checks when they conflict
+        unsafe {
+            self.state
+                .k_iter_unchecked_manual(self.world, self.last_change_tick, self.change_tick)
+        }
+    }
+
     /// Returns an [`Iterator`] over the query results.
     #[inline]
     pub fn iter_mut(&mut self) -> QueryIter<'_, '_, Q, F> {
@@ -165,6 +192,18 @@ where
         unsafe {
             self.state
                 .iter_unchecked_manual(self.world, self.last_change_tick, self.change_tick)
+        }
+    }
+
+    /// Iterates over all possible combinations of `K` query results without repetition.
+    /// See [`Query::k_iter`].
+    #[inline]
+    pub fn k_iter_mut<const K: usize>(&mut self) -> QueryPermutationIter<'_, '_, Q, F, K> {
+        // SAFE: system runs without conflicts with other systems.
+        // same-system queries have runtime borrow checks when they conflict
+        unsafe {
+            self.state
+                .k_iter_unchecked_manual(self.world, self.last_change_tick, self.change_tick)
         }
     }
 
@@ -180,6 +219,20 @@ where
         // same-system queries have runtime borrow checks when they conflict
         self.state
             .iter_unchecked_manual(self.world, self.last_change_tick, self.change_tick)
+    }
+
+    /// Iterates over all possible combinations of `K` query results without repetition.
+    /// See [`Query::k_iter`].
+    ///
+    /// # Safety
+    /// This allows aliased mutability. You must make sure this call does not result in multiple
+    /// mutable references to the same component
+    #[inline]
+    pub unsafe fn k_iter_unsafe<const K: usize>(&self) -> QueryPermutationIter<'_, '_, Q, F, K> {
+        // SEMI-SAFE: system runs without conflicts with other systems.
+        // same-system queries have runtime borrow checks when they conflict
+        self.state
+            .k_iter_unchecked_manual(self.world, self.last_change_tick, self.change_tick)
     }
 
     /// Runs `f` on each query result. This is faster than the equivalent iter() method, but cannot
