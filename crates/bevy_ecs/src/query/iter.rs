@@ -191,12 +191,19 @@ where
             .map(|index| self.world.archetypes[ArchetypeId::new(index)].len())
             .sum();
 
-        // n! / k!(n-k)! = (n*n-1*...*n-k+1) / k!
-        let k_factorial: usize = (1..=K).product();
-        let max_permutations =
-            (0..K).fold(1, |n, i| n * (max_size.saturating_sub(i))) / k_factorial;
+        if max_size < K {
+            return (0, Some(0));
+        }
 
-        (0, Some(max_permutations))
+        // n! / k!(n-k)! = (n*n-1*...*n-k+1) / k!
+        let max_permutations = (0..K)
+            .try_fold(1usize, |n, i| n.checked_mul(max_size - i))
+            .map(|n| {
+                let k_factorial: usize = (1..=K).product();
+                n / k_factorial
+            });
+
+        (0, max_permutations)
     }
 }
 
