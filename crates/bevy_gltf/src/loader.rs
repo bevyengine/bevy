@@ -14,7 +14,7 @@ use bevy_render::{
     pipeline::PrimitiveTopology,
     prelude::{Color, Texture},
     render_graph::base,
-    texture::{AddressMode, FilterMode, ImageType, SamplerDescriptor, TextureError},
+    texture::{AddressMode, FilterMode, ImageType, SamplerDescriptor, TextureError, TextureFormat},
 };
 use bevy_scene::Scene;
 use bevy_transform::{
@@ -26,7 +26,10 @@ use gltf::{
     texture::{MagFilter, MinFilter, WrappingMode},
     Material, Primitive,
 };
-use std::{collections::HashMap, path::Path};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+};
 use thiserror::Error;
 
 use crate::{Gltf, GltfNode};
@@ -79,12 +82,19 @@ async fn load_gltf<'a, 'b>(
 
     let mut materials = vec![];
     let mut named_materials = HashMap::new();
+    let mut linear_textures = HashSet::new();
     for material in gltf.materials() {
         let handle = load_material(&material, load_context);
         if let Some(name) = material.name() {
             named_materials.insert(name.to_string(), handle.clone());
         }
         materials.push(handle);
+        if let Some(texture) = material.normal_texture() {
+            linear_textures.insert(texture.texture().index());
+        }
+        if let Some(texture) = material.occlusion_texture() {
+            linear_textures.insert(texture.texture().index());
+        }
     }
 
     let mut meshes = vec![];
@@ -191,15 +201,33 @@ async fn load_gltf<'a, 'b>(
         .collect();
 
     for gltf_texture in gltf.textures() {
-        if let gltf::image::Source::View { view, mime_type } = gltf_texture.source().source() {
-            let start = view.offset() as usize;
-            let end = (view.offset() + view.length()) as usize;
-            let buffer = &buffer_data[view.buffer().index()][start..end];
-            let texture_label = texture_label(&gltf_texture);
-            let mut texture = Texture::from_buffer(buffer, ImageType::MimeType(mime_type))?;
-            texture.sampler = texture_sampler(&gltf_texture);
-            load_context.set_labeled_asset::<Texture>(&texture_label, LoadedAsset::new(texture));
+        let mut texture = match gltf_texture.source().source() {
+            gltf::image::Source::View { view, mime_type } => {
+                let start = view.offset() as usize;
+                let end = (view.offset() + view.length()) as usize;
+                let buffer = &buffer_data[view.buffer().index()][start..end];
+                Texture::from_buffer(buffer, ImageType::MimeType(mime_type))?
+            }
+            gltf::image::Source::Uri { uri, mime_type } => {
+                let parent = load_context.path().parent().unwrap();
+                let image_path = parent.join(uri);
+                let bytes = load_context.read_asset_bytes(image_path.clone()).await?;
+                Texture::from_buffer(
+                    &bytes,
+                    mime_type
+                        .map(|mt| ImageType::MimeType(mt))
+                        .unwrap_or_else(|| {
+                            ImageType::Extension(image_path.extension().unwrap().to_str().unwrap())
+                        }),
+                )?
+            }
+        };
+        let texture_label = texture_label(&gltf_texture);
+        texture.sampler = texture_sampler(&gltf_texture);
+        if linear_textures.contains(&gltf_texture.index()) {
+            texture.format = TextureFormat::Rgba8Unorm;
         }
+        load_context.set_labeled_asset::<Texture>(&texture_label, LoadedAsset::new(texture));
     }
 
     let mut scenes = vec![];
@@ -252,23 +280,10 @@ async fn load_gltf<'a, 'b>(
 fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<StandardMaterial> {
     let material_label = material_label(&material);
     let pbr = material.pbr_metallic_roughness();
-    let mut dependencies = Vec::new();
     let texture_handle = if let Some(info) = pbr.base_color_texture() {
-        match info.texture().source().source() {
-            gltf::image::Source::View { .. } => {
-                let label = texture_label(&info.texture());
-                let path = AssetPath::new_ref(load_context.path(), Some(&label));
-                Some(load_context.get_handle(path))
-            }
-            gltf::image::Source::Uri { uri, .. } => {
-                let parent = load_context.path().parent().unwrap();
-                let image_path = parent.join(uri);
-                let asset_path = AssetPath::new(image_path, None);
-                let handle = load_context.get_handle(asset_path.clone());
-                dependencies.push(asset_path);
-                Some(handle)
-            }
-        }
+        let label = texture_label(&info.texture());
+        let path = AssetPath::new_ref(load_context.path(), Some(&label));
+        Some(load_context.get_handle(path))
     } else {
         None
     };
@@ -283,8 +298,7 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
             metallic: pbr.metallic_factor(),
             unlit: material.unlit(),
             ..Default::default()
-        })
-        .with_dependencies(dependencies),
+        }),
     )
 }
 
