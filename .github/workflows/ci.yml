@@ -165,4 +165,3 @@ jobs:
           file-types: '["rs"]'
           exclude-folders: '["./examples/ios"]'
           exclude-files: '[]'
-          
