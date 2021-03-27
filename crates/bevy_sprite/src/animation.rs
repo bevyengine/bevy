@@ -1,6 +1,7 @@
 //! Animation Example
 //! ```rust
 //! use bevy::prelude::*;
+//! use bevy::sprite::*;
 //!
 //! fn main() {
 //!     App::build()
@@ -28,46 +29,17 @@
 //!             ..Default::default()
 //!         })
 //!         .with_bundle(SpriteAnimationBundle{
-//!             animations: SpriteAnimations{
-//!                 animations: vec![SpriteAnimation {
-//!                     frames: vec![
-//!                         SpriteFrame {
-//!                             atlas_handle: texture_atlas_handle.clone(),
-//!                             atlas_index: 0,
-//!                             duration: 0.2,
-//!                         },
-//!                         SpriteFrame {
-//!                             atlas_handle: texture_atlas_handle.clone(),
-//!                             atlas_index: 1,
-//!                             duration: 0.2,
-//!                         }
-//!                         SpriteFrame {
-//!                             atlas_handle: texture_atlas_handle.clone(),
-//!                             atlas_index: 2,
-//!                             duration: 0.2,
-//!                         },
-//!                         SpriteFrame {
-//!                             atlas_handle: texture_atlas_handle.clone(),
-//!                             atlas_index: 3,
-//!                             duration: 0.2,
-//!                         },
-//!                         SpriteFrame {
-//!                             atlas_handle: texture_atlas_handle.clone(),
-//!                             atlas_index: 4,
-//!                             duration: 0.2,
-//!                         },
-//!                         SpriteFrame {
-//!                             atlas_handle: texture_atlas_handle.clone(),
-//!                             atlas_index: 5,
-//!                             duration: 0.2,
-//!                         },
-//!                         SpriteFrame {
-//!                             atlas_handle: texture_atlas_handle.clone(),
-//!                             atlas_index: 6,
-//!                             duration: 0.2,
-//!                         },
-//!                     ]
-//!                 }]
+//!             animations: SpriteAnimations {
+//!                 animations: vec![SpriteAnimationBuilder::build(texture_atlas_handle.clone(), 0, 0.2)
+//!                     .set_atlas_index(0).add_frame()
+//!                     .set_atlas_index(1).add_frame()
+//!                     .set_atlas_index(2).add_frame()
+//!                     .set_atlas_index(3).add_frame()
+//!                     .set_atlas_index(4).add_frame()
+//!                     .set_atlas_index(5).add_frame()
+//!                     .set_atlas_index(6).add_frame()
+//!                     .finish(),
+//!                 ]//!
 //!             },
 //!             ..Default::default()
 //!         })
@@ -161,6 +133,64 @@ pub struct SpriteAnimationFrame {
     pub atlas_index: u32,
     /// Duration to set for frame timer
     pub duration: f32,
+}
+
+/// A Builder to help create an animation
+pub struct SpriteAnimationBuilder {
+    frames: Vec<SpriteAnimationFrame>,
+    atlas_handle: Handle<TextureAtlas>,
+    atlas_index: u32,
+    duration: f32,
+}
+
+impl SpriteAnimationBuilder {
+    /// Begin building a new Sprite Animation
+    pub fn build(
+        atlas_handle: Handle<TextureAtlas>,
+        atlas_index: u32,
+        duration: f32,
+    ) -> SpriteAnimationBuilder {
+        SpriteAnimationBuilder {
+            frames: Vec::new(),
+            atlas_handle,
+            atlas_index,
+            duration,
+        }
+    }
+    /// Set current Atlas Handle
+    pub fn set_atlas_handle(&mut self, atlas_handle: Handle<TextureAtlas>) -> &mut Self {
+        self.atlas_handle = atlas_handle;
+        self
+    }
+    /// Set current Atlas Index
+    pub fn set_atlas_index(&mut self, atlas_index: u32) -> &mut Self {
+        self.atlas_index = atlas_index;
+        self
+    }
+    /// Set current Frame Duration
+    pub fn set_duration(&mut self, duration: f32) -> &mut Self {
+        self.duration = duration;
+        self
+    }
+    /// Create new frame from current builder state.
+    pub fn add_frame(&mut self) -> &mut Self {
+        self.frames.push(SpriteAnimationFrame {
+            atlas_handle: self.atlas_handle.clone(),
+            atlas_index: self.atlas_index,
+            duration: self.duration,
+        });
+        self
+    }
+    /// Get current count of frames in animation.
+    pub fn frame_count(&self) -> usize {
+        self.frames.len()
+    }
+    /// Create animation from current frames.
+    pub fn finish(self) -> SpriteAnimation {
+        SpriteAnimation {
+            frames: self.frames,
+        }
+    }
 }
 
 pub fn sprite_animation_system(
