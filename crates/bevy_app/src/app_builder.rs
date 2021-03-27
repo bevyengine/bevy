@@ -2,7 +2,7 @@ use crate::{
     app::{App, AppExit},
     event::Events,
     plugin::Plugin,
-    CoreStage, PluginGroup, PluginGroupBuilder, StartupStage,
+    CoreStage, EventSubscriptions, PluginGroup, PluginGroupBuilder, StartupStage,
 };
 use bevy_ecs::{
     component::{Component, ComponentDescriptor},
@@ -228,6 +228,7 @@ impl AppBuilder {
         T: Component,
     {
         self.insert_resource(Events::<T>::default())
+            .insert_resource(EventSubscriptions::<T>::default())
             .add_system_to_stage(CoreStage::First, Events::<T>::update_system.system())
     }
 
