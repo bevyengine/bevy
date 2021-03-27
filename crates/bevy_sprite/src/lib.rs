@@ -1,6 +1,7 @@
 pub mod collide_aabb;
 pub mod entity;
 
+mod animation;
 mod color_material;
 mod dynamic_texture_atlas_builder;
 mod frustum_culling;
@@ -17,6 +18,7 @@ pub mod prelude {
     };
 }
 
+pub use animation::*;
 pub use color_material::*;
 pub use dynamic_texture_atlas_builder::*;
 pub use rect::*;
