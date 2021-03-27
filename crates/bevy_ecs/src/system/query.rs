@@ -2,7 +2,7 @@ use crate::{
     component::Component,
     entity::Entity,
     query::{
-        Fetch, FilterFetch, QueryEntityError, QueryIter, QueryPermutationIter, QueryState,
+        Fetch, FilterFetch, QueryCombinationIter, QueryEntityError, QueryIter, QueryState,
         ReadOnlyFetch, WorldQuery,
     },
     world::{Mut, World},
@@ -166,14 +166,14 @@ where
     /// - if K < N: all possible K-sized combinations of query results, without repetition
     /// - if K > N: empty set (no K-sized combinations exist)
     #[inline]
-    pub fn iter_permutations<const K: usize>(&self) -> QueryPermutationIter<'_, '_, Q, F, K>
+    pub fn iter_combinations<const K: usize>(&self) -> QueryCombinationIter<'_, '_, Q, F, K>
     where
         Q::Fetch: ReadOnlyFetch,
     {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
-            self.state.iter_permutations_unchecked_manual(
+            self.state.iter_combinations_unchecked_manual(
                 self.world,
                 self.last_change_tick,
                 self.change_tick,
@@ -193,15 +193,15 @@ where
     }
 
     /// Iterates over all possible combinations of `K` query results without repetition.
-    /// See [`Query::iter_permutations`].
+    /// See [`Query::iter_combinations`].
     #[inline]
-    pub fn iter_permutations_mut<const K: usize>(
+    pub fn iter_combinations_mut<const K: usize>(
         &mut self,
-    ) -> QueryPermutationIter<'_, '_, Q, F, K> {
+    ) -> QueryCombinationIter<'_, '_, Q, F, K> {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
-            self.state.iter_permutations_unchecked_manual(
+            self.state.iter_combinations_unchecked_manual(
                 self.world,
                 self.last_change_tick,
                 self.change_tick,
@@ -224,18 +224,18 @@ where
     }
 
     /// Iterates over all possible combinations of `K` query results without repetition.
-    /// See [`Query::iter_permutations`].
+    /// See [`Query::iter_combinations`].
     ///
     /// # Safety
     /// This allows aliased mutability. You must make sure this call does not result in multiple
     /// mutable references to the same component
     #[inline]
-    pub unsafe fn iter_permutations_unsafe<const K: usize>(
+    pub unsafe fn iter_combinations_unsafe<const K: usize>(
         &self,
-    ) -> QueryPermutationIter<'_, '_, Q, F, K> {
+    ) -> QueryCombinationIter<'_, '_, Q, F, K> {
         // SEMI-SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
-        self.state.iter_permutations_unchecked_manual(
+        self.state.iter_combinations_unchecked_manual(
             self.world,
             self.last_change_tick,
             self.change_tick,

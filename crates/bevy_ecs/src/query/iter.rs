@@ -70,7 +70,7 @@ where
     }
 }
 
-pub struct QueryPermutationIter<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize>
+pub struct QueryCombinationIter<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize>
 where
     F::Fetch: FilterFetch,
 {
@@ -81,7 +81,7 @@ where
     cursors: [QueryIterationCursor<'s, Q, F>; K],
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryPermutationIter<'w, 's, Q, F, K>
+impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<'w, 's, Q, F, K>
 where
     F::Fetch: FilterFetch,
 {
@@ -118,7 +118,7 @@ where
         let cursors: [QueryIterationCursor<'s, Q, F>; K] =
             (&cursors as *const _ as *const [QueryIterationCursor<'s, Q, F>; K]).read();
 
-        QueryPermutationIter {
+        QueryCombinationIter {
             world,
             query_state,
             tables: &world.storages().tables,
@@ -129,7 +129,7 @@ where
 }
 
 impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> Iterator
-    for QueryPermutationIter<'w, 's, Q, F, K>
+    for QueryCombinationIter<'w, 's, Q, F, K>
 where
     F::Fetch: FilterFetch,
     Q::Fetch: Clone,

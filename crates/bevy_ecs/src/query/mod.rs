@@ -38,7 +38,7 @@ mod tests {
     }
 
     #[test]
-    fn query_iter_permutations() {
+    fn query_iter_combinations() {
         let mut world = World::new();
         world.spawn().insert_bundle((A(1), B(1)));
         world.spawn().insert_bundle((A(2),));
@@ -46,43 +46,43 @@ mod tests {
         world.spawn().insert_bundle((A(4),));
 
         let mut a_query = world.query::<&A>();
-        assert_eq!(a_query.iter_permutations::<0>(&world).count(), 0);
+        assert_eq!(a_query.iter_combinations::<0>(&world).count(), 0);
         assert_eq!(
-            a_query.iter_permutations::<0>(&world).size_hint(),
+            a_query.iter_combinations::<0>(&world).size_hint(),
             (0, Some(0))
         );
-        assert_eq!(a_query.iter_permutations::<1>(&world).count(), 4);
+        assert_eq!(a_query.iter_combinations::<1>(&world).count(), 4);
         assert_eq!(
-            a_query.iter_permutations::<1>(&world).size_hint(),
+            a_query.iter_combinations::<1>(&world).size_hint(),
             (0, Some(4))
         );
-        assert_eq!(a_query.iter_permutations::<2>(&world).count(), 6);
+        assert_eq!(a_query.iter_combinations::<2>(&world).count(), 6);
         assert_eq!(
-            a_query.iter_permutations::<2>(&world).size_hint(),
+            a_query.iter_combinations::<2>(&world).size_hint(),
             (0, Some(6))
         );
-        assert_eq!(a_query.iter_permutations::<3>(&world).count(), 4);
+        assert_eq!(a_query.iter_combinations::<3>(&world).count(), 4);
         assert_eq!(
-            a_query.iter_permutations::<3>(&world).size_hint(),
+            a_query.iter_combinations::<3>(&world).size_hint(),
             (0, Some(4))
         );
-        assert_eq!(a_query.iter_permutations::<4>(&world).count(), 1);
+        assert_eq!(a_query.iter_combinations::<4>(&world).count(), 1);
         assert_eq!(
-            a_query.iter_permutations::<4>(&world).size_hint(),
+            a_query.iter_combinations::<4>(&world).size_hint(),
             (0, Some(1))
         );
-        assert_eq!(a_query.iter_permutations::<5>(&world).count(), 0);
+        assert_eq!(a_query.iter_combinations::<5>(&world).count(), 0);
         assert_eq!(
-            a_query.iter_permutations::<5>(&world).size_hint(),
+            a_query.iter_combinations::<5>(&world).size_hint(),
             (0, Some(0))
         );
-        assert_eq!(a_query.iter_permutations::<1024>(&world).count(), 0);
+        assert_eq!(a_query.iter_combinations::<1024>(&world).count(), 0);
         assert_eq!(
-            a_query.iter_permutations::<1024>(&world).size_hint(),
+            a_query.iter_combinations::<1024>(&world).size_hint(),
             (0, Some(0))
         );
 
-        let values: Vec<[&A; 2]> = world.query::<&A>().iter_permutations(&world).collect();
+        let values: Vec<[&A; 2]> = world.query::<&A>().iter_combinations(&world).collect();
         assert_eq!(
             values,
             vec![
@@ -94,9 +94,9 @@ mod tests {
                 [&A(3), &A(4)],
             ]
         );
-        let size = a_query.iter_permutations::<3>(&world).size_hint();
+        let size = a_query.iter_combinations::<3>(&world).size_hint();
         assert_eq!(size.1, Some(4));
-        let values: Vec<[&A; 3]> = a_query.iter_permutations(&world).collect();
+        let values: Vec<[&A; 3]> = a_query.iter_combinations(&world).collect();
         assert_eq!(
             values,
             vec![
@@ -107,13 +107,13 @@ mod tests {
             ]
         );
 
-        for [mut a, mut b, mut c] in world.query::<&mut A>().iter_permutations_mut(&mut world) {
+        for [mut a, mut b, mut c] in world.query::<&mut A>().iter_combinations_mut(&mut world) {
             a.0 += 10;
             b.0 += 100;
             c.0 += 1000;
         }
 
-        let values: Vec<[&A; 3]> = a_query.iter_permutations(&world).collect();
+        let values: Vec<[&A; 3]> = a_query.iter_combinations(&world).collect();
         assert_eq!(
             values,
             vec![
@@ -126,10 +126,10 @@ mod tests {
 
         let mut b_query = world.query::<&B>();
         assert_eq!(
-            b_query.iter_permutations::<2>(&world).size_hint(),
+            b_query.iter_combinations::<2>(&world).size_hint(),
             (0, Some(0))
         );
-        let values: Vec<[&B; 2]> = b_query.iter_permutations(&world).collect();
+        let values: Vec<[&B; 2]> = b_query.iter_combinations(&world).collect();
         assert_eq!(values, Vec::<[&B; 2]>::new());
     }
 

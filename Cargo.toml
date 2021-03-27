@@ -271,8 +271,8 @@ name = "hierarchy"
 path = "examples/ecs/hierarchy.rs"
 
 [[example]]
-name = "iter_permutations"
-path = "examples/ecs/iter_permutations.rs"
+name = "iter_combinations"
+path = "examples/ecs/iter_combinations.rs"
 
 [[example]]
 name = "parallel_query"

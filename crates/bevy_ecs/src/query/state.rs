@@ -3,7 +3,7 @@ use crate::{
     component::ComponentId,
     entity::Entity,
     query::{
-        Access, Fetch, FetchState, FilterFetch, FilteredAccess, QueryIter, QueryPermutationIter,
+        Access, Fetch, FetchState, FilterFetch, FilteredAccess, QueryCombinationIter, QueryIter,
         ReadOnlyFetch, WorldQuery,
     },
     storage::TableId,
@@ -206,24 +206,24 @@ where
     }
 
     #[inline]
-    pub fn iter_permutations<'w, 's, const K: usize>(
+    pub fn iter_combinations<'w, 's, const K: usize>(
         &'s mut self,
         world: &'w World,
-    ) -> QueryPermutationIter<'w, 's, Q, F, K>
+    ) -> QueryCombinationIter<'w, 's, Q, F, K>
     where
         Q::Fetch: ReadOnlyFetch,
     {
         // SAFE: query is read only
-        unsafe { self.iter_permutations_unchecked(world) }
+        unsafe { self.iter_combinations_unchecked(world) }
     }
 
     #[inline]
-    pub fn iter_permutations_mut<'w, 's, const K: usize>(
+    pub fn iter_combinations_mut<'w, 's, const K: usize>(
         &'s mut self,
         world: &'w mut World,
-    ) -> QueryPermutationIter<'w, 's, Q, F, K> {
+    ) -> QueryCombinationIter<'w, 's, Q, F, K> {
         // SAFE: query has unique world access
-        unsafe { self.iter_permutations_unchecked(world) }
+        unsafe { self.iter_combinations_unchecked(world) }
     }
 
     /// # Safety
@@ -244,12 +244,12 @@ where
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
-    pub unsafe fn iter_permutations_unchecked<'w, 's, const K: usize>(
+    pub unsafe fn iter_combinations_unchecked<'w, 's, const K: usize>(
         &'s mut self,
         world: &'w World,
-    ) -> QueryPermutationIter<'w, 's, Q, F, K> {
+    ) -> QueryCombinationIter<'w, 's, Q, F, K> {
         self.validate_world_and_update_archetypes(world);
-        self.iter_permutations_unchecked_manual(
+        self.iter_combinations_unchecked_manual(
             world,
             world.last_change_tick(),
             world.read_change_tick(),
@@ -277,13 +277,13 @@ where
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
     /// with a mismatched WorldId is unsafe.
     #[inline]
-    pub(crate) unsafe fn iter_permutations_unchecked_manual<'w, 's, const K: usize>(
+    pub(crate) unsafe fn iter_combinations_unchecked_manual<'w, 's, const K: usize>(
         &'s self,
         world: &'w World,
         last_change_tick: u32,
         change_tick: u32,
-    ) -> QueryPermutationIter<'w, 's, Q, F, K> {
-        QueryPermutationIter::new(world, self, last_change_tick, change_tick)
+    ) -> QueryCombinationIter<'w, 's, Q, F, K> {
+        QueryCombinationIter::new(world, self, last_change_tick, change_tick)
     }
 
     #[inline]
