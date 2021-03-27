@@ -45,8 +45,22 @@ mod tests {
         world.spawn().insert_bundle((A(3),));
         world.spawn().insert_bundle((A(4),));
 
-        let size = world.query::<&A>().k_iter::<2>(&world).size_hint();
-        assert_eq!(size.1, Some(6));
+        let mut a_query = world.query::<&A>();
+        assert_eq!(a_query.k_iter::<0>(&world).count(), 0);
+        assert_eq!(a_query.k_iter::<0>(&world).size_hint(), (0, Some(0)));
+        assert_eq!(a_query.k_iter::<1>(&world).count(), 4);
+        assert_eq!(a_query.k_iter::<1>(&world).size_hint(), (0, Some(4)));
+        assert_eq!(a_query.k_iter::<2>(&world).count(), 6);
+        assert_eq!(a_query.k_iter::<2>(&world).size_hint(), (0, Some(6)));
+        assert_eq!(a_query.k_iter::<3>(&world).count(), 4);
+        assert_eq!(a_query.k_iter::<3>(&world).size_hint(), (0, Some(4)));
+        assert_eq!(a_query.k_iter::<4>(&world).count(), 1);
+        assert_eq!(a_query.k_iter::<4>(&world).size_hint(), (0, Some(1)));
+        assert_eq!(a_query.k_iter::<5>(&world).count(), 0);
+        assert_eq!(a_query.k_iter::<5>(&world).size_hint(), (0, Some(0)));
+        assert_eq!(a_query.k_iter::<1024>(&world).count(), 0);
+        assert_eq!(a_query.k_iter::<1024>(&world).size_hint(), (0, Some(0)));
+
         let values: Vec<[&A; 2]> = world.query::<&A>().k_iter(&world).collect();
         assert_eq!(
             values,
@@ -59,9 +73,9 @@ mod tests {
                 [&A(3), &A(4)],
             ]
         );
-        let size = world.query::<&A>().k_iter::<3>(&world).size_hint();
+        let size = a_query.k_iter::<3>(&world).size_hint();
         assert_eq!(size.1, Some(4));
-        let values: Vec<[&A; 3]> = world.query::<&A>().k_iter(&world).collect();
+        let values: Vec<[&A; 3]> = a_query.k_iter(&world).collect();
         assert_eq!(
             values,
             vec![
@@ -78,7 +92,7 @@ mod tests {
             c.0 += 1000;
         }
 
-        let values: Vec<[&A; 3]> = world.query::<&A>().k_iter(&world).collect();
+        let values: Vec<[&A; 3]> = a_query.k_iter(&world).collect();
         assert_eq!(
             values,
             vec![
@@ -89,9 +103,9 @@ mod tests {
             ]
         );
 
-        let size = world.query::<&B>().k_iter::<2>(&world).size_hint();
-        assert_eq!(size.1, Some(0));
-        let values: Vec<[&B; 2]> = world.query::<&B>().k_iter(&world).collect();
+        let mut b_query = world.query::<&B>();
+        assert_eq!(b_query.k_iter::<2>(&world).size_hint(), (0, Some(0)));
+        let values: Vec<[&B; 2]> = b_query.k_iter(&world).collect();
         assert_eq!(values, Vec::<[&B; 2]>::new());
     }
 

@@ -139,6 +139,10 @@ where
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
+        if K == 0 {
+            return None;
+        }
+
         unsafe {
             // first, iterate from last to first until next item is found
             'outer: for i in (0..K).rev() {
@@ -184,6 +188,10 @@ where
     // to fulfil the ExactSizeIterator invariant, but this isn't practical without specialization.
     // For more information see Issue #1686.
     fn size_hint(&self) -> (usize, Option<usize>) {
+        if K == 0 {
+            return (0, Some(0));
+        }
+
         let max_size: usize = self
             .query_state
             .matched_archetypes
