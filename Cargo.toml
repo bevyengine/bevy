@@ -142,10 +142,6 @@ name = "msaa"
 path = "examples/3d/msaa.rs"
 
 [[example]]
-name = "n_body"
-path = "examples/3d/n_body.rs"
-
-[[example]]
 name = "orthographic"
 path = "examples/3d/orthographic.rs"
 
@@ -273,6 +269,10 @@ path = "examples/ecs/fixed_timestep.rs"
 [[example]]
 name = "hierarchy"
 path = "examples/ecs/hierarchy.rs"
+
+[[example]]
+name = "iter_permutations"
+path = "examples/ecs/iter_permutations.rs"
 
 [[example]]
 name = "parallel_query"
