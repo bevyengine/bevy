@@ -142,6 +142,10 @@ name = "msaa"
 path = "examples/3d/msaa.rs"
 
 [[example]]
+name = "n_body"
+path = "examples/3d/n_body.rs"
+
+[[example]]
 name = "orthographic"
 path = "examples/3d/orthographic.rs"
 
