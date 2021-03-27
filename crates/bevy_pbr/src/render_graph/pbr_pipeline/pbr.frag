@@ -326,6 +326,7 @@ void main() {
 #    endif
 
 #    ifdef STANDARDMATERIAL_EMISSIVE_TEXTURE
+    vec4 emissive = emissive;
     // TODO use .a for exposure compensation in HDR
     emissive.rgb *= texture(sampler2D(StandardMaterial_emissive_texture, StandardMaterial_emissive_texture_sampler), v_Uv).rgb;
 #    endif
