@@ -206,7 +206,7 @@ where
     }
 
     #[inline]
-    pub fn k_iter<'w, 's, const K: usize>(
+    pub fn iter_permutations<'w, 's, const K: usize>(
         &'s mut self,
         world: &'w World,
     ) -> QueryPermutationIter<'w, 's, Q, F, K>
@@ -214,16 +214,16 @@ where
         Q::Fetch: ReadOnlyFetch,
     {
         // SAFE: query is read only
-        unsafe { self.k_iter_unchecked(world) }
+        unsafe { self.iter_permutations_unchecked(world) }
     }
 
     #[inline]
-    pub fn k_iter_mut<'w, 's, const K: usize>(
+    pub fn iter_permutations_mut<'w, 's, const K: usize>(
         &'s mut self,
         world: &'w mut World,
     ) -> QueryPermutationIter<'w, 's, Q, F, K> {
         // SAFE: query has unique world access
-        unsafe { self.k_iter_unchecked(world) }
+        unsafe { self.iter_permutations_unchecked(world) }
     }
 
     /// # Safety
@@ -244,12 +244,16 @@ where
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
-    pub unsafe fn k_iter_unchecked<'w, 's, const K: usize>(
+    pub unsafe fn iter_permutations_unchecked<'w, 's, const K: usize>(
         &'s mut self,
         world: &'w World,
     ) -> QueryPermutationIter<'w, 's, Q, F, K> {
         self.validate_world_and_update_archetypes(world);
-        self.k_iter_unchecked_manual(world, world.last_change_tick(), world.read_change_tick())
+        self.iter_permutations_unchecked_manual(
+            world,
+            world.last_change_tick(),
+            world.read_change_tick(),
+        )
     }
 
     /// # Safety
@@ -273,7 +277,7 @@ where
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
     /// with a mismatched WorldId is unsafe.
     #[inline]
-    pub(crate) unsafe fn k_iter_unchecked_manual<'w, 's, const K: usize>(
+    pub(crate) unsafe fn iter_permutations_unchecked_manual<'w, 's, const K: usize>(
         &'s self,
         world: &'w World,
         last_change_tick: u32,
