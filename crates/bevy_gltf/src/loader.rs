@@ -142,6 +142,13 @@ async fn load_gltf<'a, 'b>(
                 mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, vertex_attribute);
             }
 
+            if let Some(vertex_attribute) = reader
+                .read_colors(0)
+                .map(|v| VertexAttributeValues::Float4(v.into_rgba_f32().collect()))
+            {
+                mesh.set_attribute(Mesh::ATTRIBUTE_COLOR, vertex_attribute);
+            }
+
             if let Some(indices) = reader.read_indices() {
                 mesh.set_indices(Some(Indices::U32(indices.into_u32().collect())));
             };
