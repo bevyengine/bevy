@@ -30,7 +30,7 @@ impl Node for TextureCopyNode {
         let textures = world.get_resource::<Assets<Texture>>().unwrap();
         let mut copied_textures = HashSet::default();
         let texture_event_reader = texture_events.get_reader(self.name);
-        for event in texture_event_reader.iter(&texture_events) {
+        for event in texture_event_reader.iter() {
             match event {
                 AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
                     if let Some(texture) = textures.get(handle) {

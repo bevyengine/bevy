@@ -84,7 +84,7 @@ struct EventInstance<T> {
 ///
 /// // setup
 /// let mut events = Events::<MyEvent>::default();
-/// let mut reader = events.get_reader();
+/// let reader = events.get_reader("unique_id");
 ///
 /// // run this once per update/frame
 /// events.update();
@@ -216,28 +216,27 @@ impl<'a, T: Component> EventWriter<'a, T> {
     }
 }
 
-pub struct ManualEventReader<T> {
+pub struct ManualEventReader<'a, T> {
     subscriber_id: usize,
-    _marker: PhantomData<T>,
+    events: &'a Events<T>,
 }
 
-impl<T: Component> ManualEventReader<T> {
+impl<'a, T: Component> ManualEventReader<'a, T> {
     /// See [`EventReader::iter`]
-    pub fn iter<'a>(&self, events: &'a Events<T>) -> impl DoubleEndedIterator<Item = &'a T> {
-        let mut last_event_count = events.get_subscriber_read_count(self.subscriber_id);
-        let result = internal_event_reader(&mut last_event_count, events).map(|(e, _)| e);
-        events.set_subscriber_read_count(self.subscriber_id, last_event_count);
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &'a T> {
+        let mut last_event_count = self.events.get_subscriber_read_count(self.subscriber_id);
+        let result = internal_event_reader(&mut last_event_count, self.events).map(|(e, _)| e);
+        self.events
+            .set_subscriber_read_count(self.subscriber_id, last_event_count);
         result
     }
 
     /// See [`EventReader::iter_with_id`]
-    pub fn iter_with_id<'a>(
-        &self,
-        events: &'a Events<T>,
-    ) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> {
-        let mut last_event_count = events.get_subscriber_read_count(self.subscriber_id);
-        let result = internal_event_reader(&mut last_event_count, events);
-        events.set_subscriber_read_count(self.subscriber_id, last_event_count);
+    pub fn iter_with_id(&self) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> {
+        let mut last_event_count = self.events.get_subscriber_read_count(self.subscriber_id);
+        let result = internal_event_reader(&mut last_event_count, self.events);
+        self.events
+            .set_subscriber_read_count(self.subscriber_id, last_event_count);
         result
     }
 }
@@ -275,15 +274,11 @@ impl<'a, T: Component> EventReader<'a, T> {
     /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
     pub fn iter_with_id(&mut self) -> impl DoubleEndedIterator<Item = (&T, EventId<T>)> {
         let subscriber_id = self.subscriber_id.0 .0;
-        let mut last_event_count = self.events.get_subscriber_read_count(subscriber_id);
-        let result =
-            internal_event_reader(&mut last_event_count, &self.events).map(|(event, id)| {
-                trace!("EventReader::iter() -> {}", id);
-                (event, id)
-            });
-        self.events
-            .set_subscriber_read_count(subscriber_id, last_event_count);
-        result
+        let manual_reader = ManualEventReader {
+            subscriber_id,
+            events: &*self.events,
+        };
+        manual_reader.iter_with_id()
     }
 }
 
@@ -311,6 +306,14 @@ impl<T: Component> Events<T> {
         id
     }
 
+    pub fn get_subscriber_read_count(&self, subscription_id: usize) -> usize {
+        self.subscriber_last_counts.read()[subscription_id]
+    }
+
+    pub fn set_subscriber_read_count(&self, subscription_id: usize, count: usize) {
+        self.subscriber_last_counts.write()[subscription_id] = count;
+    }
+
     pub fn get_reader(&self, name: &str) -> ManualEventReader<T> {
         let manual_subscriber_ids_read = self.manual_subscriber_ids.read();
         let id = if let Some(id) = manual_subscriber_ids_read.get(name) {
@@ -325,16 +328,8 @@ impl<T: Component> Events<T> {
         };
         ManualEventReader {
             subscriber_id: id,
-            _marker: Default::default(),
+            events: self,
         }
-    }
-
-    pub fn get_subscriber_read_count(&self, subscription_id: usize) -> usize {
-        self.subscriber_last_counts.read()[subscription_id]
-    }
-
-    pub fn set_subscriber_read_count(&self, subscription_id: usize, count: usize) {
-        self.subscriber_last_counts.write()[subscription_id] = count;
     }
 
     /// Swaps the event buffers and clears the oldest event buffer. In general, this should be
@@ -461,18 +456,17 @@ mod tests {
         let event_1 = TestEvent { i: 1 };
         let event_2 = TestEvent { i: 2 };
 
-        let reader_slow = events.get_reader("slow");
+        events.send(event_0);
+        let _reader_slow = events.get_reader("slow");
         let reader_a = events.get_reader("a");
 
-        events.send(event_0);
-
         assert_eq!(
-            get_events(&mut events, &reader_a),
+            get_events(&reader_a),
             vec![event_0],
             "reader_a created before event receives event"
         );
         assert_eq!(
-            get_events(&mut events, &reader_a),
+            get_events(&reader_a),
             vec![],
             "second iteration of reader_a created before event results in zero events"
         );
@@ -480,83 +474,88 @@ mod tests {
         let reader_b = events.get_reader("b");
 
         assert_eq!(
-            get_events(&mut events, &reader_b),
+            get_events(&reader_b),
             vec![event_0],
             "reader_b created after event receives event"
         );
         assert_eq!(
-            get_events(&mut events, &reader_b),
+            get_events(&reader_b),
             vec![],
             "second iteration of reader_b created after event results in zero events"
         );
 
         events.send(event_1);
 
+        let reader_a = events.get_reader("a");
         let reader_c = events.get_reader("c");
 
         assert_eq!(
-            get_events(&mut events, &reader_c),
+            get_events(&reader_c),
             vec![event_0, event_1],
             "reader_c created after two events receives both events"
         );
         assert_eq!(
-            get_events(&mut events, &reader_c),
+            get_events(&reader_c),
             vec![],
             "second iteration of reader_c created after two event results in zero events"
         );
 
         assert_eq!(
-            get_events(&mut events, &reader_a),
+            get_events(&reader_a),
             vec![event_1],
             "reader_a receives next unread event"
         );
 
         events.update();
 
+        events.send(event_2);
+        let reader_a = events.get_reader("a");
+        let reader_b = events.get_reader("b");
+        let reader_c = events.get_reader("c");
         let reader_d = events.get_reader("d");
 
-        events.send(event_2);
-
         assert_eq!(
-            get_events(&mut events, &reader_a),
+            get_events(&reader_a),
             vec![event_2],
             "reader_a receives event created after update"
         );
         assert_eq!(
-            get_events(&mut events, &reader_b),
+            get_events(&reader_b),
             vec![event_1, event_2],
             "reader_b receives events sent since its last read"
         );
         assert_eq!(
-            get_events(&mut events, &reader_c),
+            get_events(&reader_c),
             vec![event_2],
             "reader_c receives event created since last fetch"
         );
         assert_eq!(
-            get_events(&mut events, &reader_d),
+            get_events(&reader_d),
             vec![event_0, event_1, event_2],
             "reader_d receives all events created so far because reader_slow is locking up the old events"
         );
 
         events.update();
+        let reader_slow = events.get_reader("slow");
 
         assert_eq!(
-            get_events(&mut events, &reader_slow),
+            get_events(&reader_slow),
             vec![event_0, event_1, event_2],
             "reader_slow receives all events"
         );
 
         events.update();
+        let reader_slow = events.get_reader("slow");
 
         assert_eq!(
-            get_events(&mut events, &reader_slow),
+            get_events(&reader_slow),
             vec![],
             "reader slow has read all the events"
         );
 
         let slowest_reader = events.get_reader("slowest_reader");
         assert_eq!(
-            get_events(&mut events, &slowest_reader),
+            get_events(&slowest_reader),
             vec![],
             "the events have all been read, so this reader is too late"
         );
@@ -570,10 +569,7 @@ mod tests {
         assert_eq!(events.buffer.is_empty(), true, "event buffer is empty");
     }
 
-    fn get_events(
-        events: &mut Events<TestEvent>,
-        reader: &ManualEventReader<TestEvent>,
-    ) -> Vec<TestEvent> {
-        reader.iter(events).cloned().collect::<Vec<TestEvent>>()
+    fn get_events(reader: &ManualEventReader<TestEvent>) -> Vec<TestEvent> {
+        reader.iter().cloned().collect::<Vec<TestEvent>>()
     }
 }

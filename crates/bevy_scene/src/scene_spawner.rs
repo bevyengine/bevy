@@ -303,7 +303,7 @@ pub fn scene_spawner_system(world: &mut World) {
 
         let mut updated_spawned_scenes = Vec::new();
         let scene_asset_event_reader = scene_asset_events.get_reader("scene_spawner_system");
-        for event in scene_asset_event_reader.iter(&scene_asset_events) {
+        for event in scene_asset_event_reader.iter() {
             if let AssetEvent::Modified { handle } = event {
                 if scene_spawner.spawned_dynamic_scenes.contains_key(handle) {
                     updated_spawned_scenes.push(handle.clone_weak());

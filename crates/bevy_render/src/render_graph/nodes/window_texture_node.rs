@@ -54,10 +54,10 @@ impl Node for WindowTextureNode {
             .expect("Window texture node refers to a non-existent window.");
 
         if window_created_event_reader
-            .iter(&window_created_events)
+            .iter()
             .any(|e| e.id == window.id())
             || window_resized_event_reader
-                .iter(&window_resized_events)
+                .iter()
                 .any(|e| e.id == window.id())
         {
             let render_resource_context = render_context.resources_mut();

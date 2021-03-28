@@ -53,10 +53,10 @@ impl Node for WindowSwapChainNode {
 
         // create window swapchain when window is resized or created
         if window_created_event_reader
-            .iter(&window_created_events)
+            .iter()
             .any(|e| e.id == window.id())
             || window_resized_event_reader
-                .iter(&window_resized_events)
+                .iter()
                 .any(|e| e.id == window.id())
         {
             render_resource_context.create_swap_chain(window);

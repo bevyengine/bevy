@@ -81,7 +81,7 @@ impl WgpuRenderer {
         let window_created_events = world.get_resource::<Events<WindowCreated>>().unwrap();
         let window_created_event_reader =
             window_created_events.get_reader("renderer_window_created");
-        for window_created_event in window_created_event_reader.iter(&window_created_events) {
+        for window_created_event in window_created_event_reader.iter() {
             let window = windows
                 .get(window_created_event.id)
                 .expect("Received window created event for non-existent window.");

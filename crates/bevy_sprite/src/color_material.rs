@@ -67,7 +67,7 @@ pub(crate) fn material_texture_detection_system(
     mut material_events: ResMut<Events<AssetEvent<ColorMaterial>>>,
 ) {
     let material_events_reader = material_events.get_reader("material_texture_detection");
-    for event in material_events_reader.iter(&material_events) {
+    for event in material_events_reader.iter() {
         match event {
             AssetEvent::Created { handle } => {
                 if let Some(texture) = materials.get(handle).and_then(|mat| mat.texture.as_ref()) {
