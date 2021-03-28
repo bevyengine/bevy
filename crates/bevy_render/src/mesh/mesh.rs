@@ -301,9 +301,9 @@ impl Mesh {
                 let name = name.into();
                 // update or verify the vertex count
                 if self.vertex_count == 0 {
-                    self.vertex_count = values.len().clone() as u32;
+                    self.vertex_count = values.len() as u32;
                 } else {
-                    assert_eq!(values.len().clone() as u32, self.vertex_count,
+                    assert_eq!(values.len() as u32, self.vertex_count,
                               "Attribute {} has a different vertex count ({}) than other attributes ({}) in this mesh.", &name, values.len(), self.vertex_count);
                 }
 
@@ -453,12 +453,9 @@ impl Mesh {
         );
     }
 
-    /// Whether a local copy of the mesh exists. See also [`MeshDataState`].
-    pub fn has_local_copy(&self) -> bool {
-        match &self.mesh_data {
-            MeshDataState::Dynamic(_, _) => true,
-            _ => false,
-        }
+    /// Whether a local copy of the mesh exists. See also [`MeshDataState`]. Not that any mesh is dynamic for at least one frame.
+    pub fn is_dynamic(&self) -> bool {
+        matches!(&self.mesh_data, MeshDataState::Dynamic(_, _))
     }
 }
 
@@ -514,7 +511,7 @@ pub fn mesh_resource_provider_system(
                 if let Some(mesh) = meshes.get(handle) {
                     // don't unload buffers from meshes without a local copy
                     // since they won't be re added anymore.
-                    if mesh.has_local_copy() {
+                    if mesh.is_dynamic() {
                         changed_meshes.insert(handle.clone_weak());
                         remove_current_mesh_resources(render_resource_context, handle);
                     }
@@ -532,10 +529,10 @@ pub fn mesh_resource_provider_system(
     // update changed mesh data
     for changed_mesh_handle in changed_meshes.iter() {
         if let Some(mesh) = meshes.get(changed_mesh_handle) {
-            if mesh.allow_local_unload && mesh.has_local_copy() {
+            if mesh.allow_local_unload && mesh.is_dynamic() {
                 meshes_to_unload_locally.insert(changed_mesh_handle.clone_weak());
             }
-            if !mesh.has_local_copy() {
+            if !mesh.is_dynamic() {
                 continue;
             }
             // TODO: check for individual buffer changes in non-interleaved mode

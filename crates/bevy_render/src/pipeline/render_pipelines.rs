@@ -1,7 +1,7 @@
 use super::{PipelineDescriptor, PipelineSpecialization};
 use crate::{
     draw::{Draw, DrawContext, OutsideFrustum},
-    mesh::{Indices, Mesh},
+    mesh::Mesh,
     prelude::{Msaa, Visible},
     renderer::RenderResourceBindings,
 };
