@@ -584,7 +584,7 @@ mod tests {
             *event_reads = 0;
             let mut defer = Vec::new();
             for event in event_reader.iter().chain(deferred_events.iter()) {
-                *event_reads = *event_reads + 1;
+                *event_reads += 1;
                 defer.push(*event);
             }
             std::mem::swap(&mut defer, &mut *deferred_events);
