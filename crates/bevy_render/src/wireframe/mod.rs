@@ -117,7 +117,7 @@ pub fn draw_wireframes_system(
         match mesh.indices() {
             Some(Indices::U32(indices)) => draw.draw_indexed(0..indices.len() as u32, 0, 0..1),
             Some(Indices::U16(indices)) => draw.draw_indexed(0..indices.len() as u32, 0, 0..1),
-            None => draw.draw(0..mesh.count_vertices() as u32, 0..1),
+            None => draw.draw(0..mesh.get_vertices_count() as u32, 0..1),
         };
     };
 

@@ -104,12 +104,6 @@ pub fn draw_render_pipelines_system(
             continue;
         };
 
-        let index_range = match mesh.indices() {
-            Some(Indices::U32(indices)) => Some(0..indices.len() as u32),
-            Some(Indices::U16(indices)) => Some(0..indices.len() as u32),
-            None => None,
-        };
-
         let render_pipelines = &mut *render_pipelines;
         for pipeline in render_pipelines.pipelines.iter_mut() {
             pipeline.specialization.sample_count = msaa.samples;
@@ -158,10 +152,10 @@ pub fn draw_render_pipelines_system(
                 .set_vertex_buffers_from_bindings(&mut draw, &[&render_pipelines.bindings])
                 .unwrap();
 
-            if let Some(indices) = index_range.clone() {
-                draw.draw_indexed(indices, 0, 0..1);
+            if let Some(indices) = mesh.get_indices_count() {
+                draw.draw_indexed(0..indices, 0, 0..1);
             } else {
-                draw.draw(0..mesh.count_vertices() as u32, 0..1)
+                draw.draw(0..mesh.get_vertices_count() as u32, 0..1)
             }
         }
     }

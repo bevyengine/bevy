@@ -16,6 +16,7 @@ use bevy_reflect::TypeUuid;
 use std::borrow::Cow;
 
 use crate::pipeline::{InputStepMode, VertexAttribute, VertexBufferLayout};
+use bevy_ecs::prelude::ResMut;
 use bevy_utils::{HashMap, HashSet};
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
@@ -203,15 +204,29 @@ impl From<&Indices> for IndexFormat {
     }
 }
 
-// TODO: allow values to be unloaded after been submitting to the GPU to conserve memory
+/// `bevy_utils::HashMap` with all defined vertex attributes (Positions, Normals, ...) for this
+/// mesh. Attribute name maps to attribute values.
+pub type MeshAttribues = HashMap<Cow<'static, str>, VertexAttributeValues>;
+
 #[derive(Debug, TypeUuid, Clone)]
 #[uuid = "8ecbac0f-f545-4473-ad43-e1f4243af51e"]
 pub struct Mesh {
     primitive_topology: PrimitiveTopology,
-    /// `bevy_utils::HashMap` with all defined vertex attributes (Positions, Normals, ...) for this
-    /// mesh. Attribute name maps to attribute values.
-    attributes: HashMap<Cow<'static, str>, VertexAttributeValues>,
-    indices: Option<Indices>,
+    vertex_layout: VertexBufferLayout,
+    vertex_count: u32,
+    indices_format: Option<IndexFormat>,
+    indices_count: Option<u32>,
+
+    mesh_data: MeshDataState,
+    allow_local_unload: bool,
+}
+
+#[derive(Debug, Clone)]
+pub enum MeshDataState {
+    /// A local copy exists and is available for realtime modification. Note that this is also the case if the mesh was just created.
+    Dynamic(MeshAttribues, Option<Indices>),
+    /// Data only exists on the Gpu.
+    StaticGpuOnly,
 }
 
 /// Contains geometry in the form of a mesh.
@@ -247,13 +262,25 @@ impl Mesh {
 
     /// Construct a new mesh. You need to provide a PrimitiveTopology so that the
     /// renderer knows how to treat the vertex data. Most of the time this will be
-    /// `PrimitiveTopology::TriangleList`.
+    /// `PrimitiveTopology::TriangleList`. The mesh will not be editable after the next frame.
+    /// If you want to edit the mesh further, use [`Mesh::new_runtime_editable`]
     pub fn new(primitive_topology: PrimitiveTopology) -> Self {
         Mesh {
             primitive_topology,
-            attributes: Default::default(),
-            indices: None,
+            vertex_layout: Default::default(),
+            vertex_count: 0,
+            indices_count: None,
+            indices_format: None,
+            mesh_data: MeshDataState::Dynamic(Default::default(), None),
+            allow_local_unload: true,
         }
+    }
+
+    /// Like [`Mesh::new`], but the data will not be locally unloaded and can be modified at runtime. Consumes additional RAM.
+    pub fn new_dynamic(primitive_topology: PrimitiveTopology) -> Self {
+        let mut mesh = Self::new(primitive_topology);
+        mesh.allow_local_unload = false;
+        mesh
     }
 
     pub fn primitive_topology(&self) -> PrimitiveTopology {
@@ -267,107 +294,171 @@ impl Mesh {
         name: impl Into<Cow<'static, str>>,
         values: impl Into<VertexAttributeValues>,
     ) {
-        let values: VertexAttributeValues = values.into();
-        self.attributes.insert(name.into(), values);
+        match &mut self.mesh_data {
+            MeshDataState::Dynamic(attributes_data, _) => {
+                let values: VertexAttributeValues = values.into();
+
+                let name = name.into();
+                // update or verify the vertex count
+                if self.vertex_count == 0 {
+                    self.vertex_count = values.len().clone() as u32;
+                } else {
+                    assert_eq!(values.len().clone() as u32, self.vertex_count,
+                              "Attribute {} has a different vertex count ({}) than other attributes ({}) in this mesh.", &name, values.len(), self.vertex_count);
+                }
+
+                attributes_data.insert(name, values);
+
+                // update the vertex layout
+                // TODO: this *might* be an b
+                let mut attributes = Vec::new();
+                let mut accumulated_offset = 0;
+                for (attribute_name, attribute_values) in attributes_data.iter() {
+                    let vertex_format = VertexFormat::from(attribute_values);
+                    attributes.push(VertexAttribute {
+                        name: attribute_name.clone(),
+                        offset: accumulated_offset,
+                        format: vertex_format,
+                        shader_location: 0,
+                    });
+                    accumulated_offset += vertex_format.get_size();
+                }
+
+                self.vertex_layout = VertexBufferLayout {
+                    name: Default::default(),
+                    stride: accumulated_offset,
+                    step_mode: InputStepMode::Vertex,
+                    attributes,
+                }
+            }
+            MeshDataState::StaticGpuOnly => {
+                Self::print_gpu_only_warning("set_attribute");
+            }
+        }
     }
 
     /// Retrieve the data currently set behind a vertex attribute.
     pub fn attribute(&self, name: impl Into<Cow<'static, str>>) -> Option<&VertexAttributeValues> {
-        self.attributes.get(&name.into())
-    }
-
-    pub fn attribute_mut(
-        &mut self,
-        name: impl Into<Cow<'static, str>>,
-    ) -> Option<&mut VertexAttributeValues> {
-        self.attributes.get_mut(&name.into())
+        match &self.mesh_data {
+            MeshDataState::Dynamic(attributes_data, _) => attributes_data.get(&name.into()),
+            MeshDataState::StaticGpuOnly => {
+                Self::print_gpu_only_warning("attribute");
+                None
+            }
+        }
     }
 
     /// Indices describe how triangles are constructed out of the vertex attributes.
     /// They are only useful for the [`crate::pipeline::PrimitiveTopology`] variants that use
     /// triangles
-    pub fn set_indices(&mut self, indices: Option<Indices>) {
-        self.indices = indices;
+    pub fn set_indices(&mut self, new_indices: Option<Indices>) {
+        match &mut self.mesh_data {
+            MeshDataState::Dynamic(_, indices_data) => {
+                self.indices_count = None;
+
+                if let Some(new_indices) = &new_indices {
+                    match new_indices {
+                        Indices::U16(new_indices) => {
+                            self.indices_count = Some(new_indices.len() as u32)
+                        }
+                        Indices::U32(new_indices) => {
+                            self.indices_count = Some(new_indices.len() as u32)
+                        }
+                    }
+                }
+
+                *indices_data = new_indices;
+            }
+            MeshDataState::StaticGpuOnly => {
+                Self::print_gpu_only_warning("set_indices");
+            }
+        }
     }
 
     pub fn indices(&self) -> Option<&Indices> {
-        self.indices.as_ref()
+        match &self.mesh_data {
+            MeshDataState::Dynamic(_, indices_data) => indices_data.as_ref(),
+            MeshDataState::StaticGpuOnly => {
+                Self::print_gpu_only_warning("indices");
+                None
+            }
+        }
     }
 
-    pub fn indices_mut(&mut self) -> Option<&mut Indices> {
-        self.indices.as_mut()
+    pub fn get_indices_buffer_bytes(&self) -> Option<Vec<u8>> {
+        match &self.mesh_data {
+            MeshDataState::Dynamic(_, indices_data) => {
+                indices_data.as_ref().map(|indices| match &indices {
+                    Indices::U16(indices) => indices.as_slice().as_bytes().to_vec(),
+                    Indices::U32(indices) => indices.as_slice().as_bytes().to_vec(),
+                })
+            }
+            MeshDataState::StaticGpuOnly => None,
+        }
     }
 
-    pub fn get_index_buffer_bytes(&self) -> Option<Vec<u8>> {
-        self.indices.as_ref().map(|indices| match &indices {
-            Indices::U16(indices) => indices.as_slice().as_bytes().to_vec(),
-            Indices::U32(indices) => indices.as_slice().as_bytes().to_vec(),
-        })
+    pub fn get_indices_count(&self) -> Option<u32> {
+        self.indices_count
     }
 
     pub fn get_vertex_buffer_layout(&self) -> VertexBufferLayout {
-        let mut attributes = Vec::new();
-        let mut accumulated_offset = 0;
-        for (attribute_name, attribute_values) in self.attributes.iter() {
-            let vertex_format = VertexFormat::from(attribute_values);
-            attributes.push(VertexAttribute {
-                name: attribute_name.clone(),
-                offset: accumulated_offset,
-                format: vertex_format,
-                shader_location: 0,
-            });
-            accumulated_offset += vertex_format.get_size();
-        }
+        self.vertex_layout.clone()
+    }
 
-        VertexBufferLayout {
-            name: Default::default(),
-            stride: accumulated_offset,
-            step_mode: InputStepMode::Vertex,
-            attributes,
+    pub fn get_vertices_count(&self) -> usize {
+        self.vertex_count as usize
+    }
+
+    pub fn get_vertex_buffer_data(&self) -> Option<Vec<u8>> {
+        match &self.mesh_data {
+            MeshDataState::Dynamic(attributes_data, _) => {
+                let mut vertex_size = 0;
+                for attribute_values in attributes_data.values() {
+                    let vertex_format = VertexFormat::from(attribute_values);
+                    vertex_size += vertex_format.get_size() as usize;
+                }
+
+                let vertex_count = self.get_vertices_count();
+                let mut attributes_interleaved_buffer = vec![0; vertex_count * vertex_size];
+
+                // bundle into interleaved buffers
+                let mut attribute_offset = 0;
+                for attribute_values in attributes_data.values() {
+                    let vertex_format = VertexFormat::from(attribute_values);
+                    let attribute_size = vertex_format.get_size() as usize;
+                    let attributes_bytes = attribute_values.get_bytes();
+                    for (vertex_index, attribute_bytes) in
+                        attributes_bytes.chunks_exact(attribute_size).enumerate()
+                    {
+                        let offset = vertex_index * vertex_size + attribute_offset;
+                        attributes_interleaved_buffer[offset..offset + attribute_size]
+                            .copy_from_slice(attribute_bytes);
+                    }
+
+                    attribute_offset += attribute_size;
+                }
+                Some(attributes_interleaved_buffer)
+            }
+            MeshDataState::StaticGpuOnly => {
+                Self::print_gpu_only_warning("get_vertex_buffer_data");
+                None
+            }
         }
     }
 
-    pub fn count_vertices(&self) -> usize {
-        let mut vertex_count: Option<usize> = None;
-        for (attribute_name, attribute_data) in self.attributes.iter() {
-            let attribute_len = attribute_data.len();
-            if let Some(previous_vertex_count) = vertex_count {
-                assert_eq!(previous_vertex_count, attribute_len,
-                        "Attribute {} has a different vertex count ({}) than other attributes ({}) in this mesh.", attribute_name, attribute_len, previous_vertex_count);
-            }
-            vertex_count = Some(attribute_len);
-        }
-
-        vertex_count.unwrap_or(0)
+    fn print_gpu_only_warning(fn_name: &str) {
+        println!(
+            "Warning: {}() is called on a Gpu-Only mesh. Changes won't apply.",
+            fn_name
+        );
     }
 
-    pub fn get_vertex_buffer_data(&self) -> Vec<u8> {
-        let mut vertex_size = 0;
-        for attribute_values in self.attributes.values() {
-            let vertex_format = VertexFormat::from(attribute_values);
-            vertex_size += vertex_format.get_size() as usize;
+    /// Whether a local copy of the mesh exists. See also [`MeshDataState`].
+    pub fn has_local_copy(&self) -> bool {
+        match &self.mesh_data {
+            MeshDataState::Dynamic(_, _) => true,
+            _ => false,
         }
-
-        let vertex_count = self.count_vertices();
-        let mut attributes_interleaved_buffer = vec![0; vertex_count * vertex_size];
-        // bundle into interleaved buffers
-        let mut attribute_offset = 0;
-        for attribute_values in self.attributes.values() {
-            let vertex_format = VertexFormat::from(attribute_values);
-            let attribute_size = vertex_format.get_size() as usize;
-            let attributes_bytes = attribute_values.get_bytes();
-            for (vertex_index, attribute_bytes) in
-                attributes_bytes.chunks_exact(attribute_size).enumerate()
-            {
-                let offset = vertex_index * vertex_size + attribute_offset;
-                attributes_interleaved_buffer[offset..offset + attribute_size]
-                    .copy_from_slice(attribute_bytes);
-            }
-
-            attribute_offset += attribute_size;
-        }
-
-        attributes_interleaved_buffer
     }
 }
 
@@ -404,7 +495,7 @@ pub struct MeshResourceProviderState {
 pub fn mesh_resource_provider_system(
     mut state: Local<MeshResourceProviderState>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
-    meshes: Res<Assets<Mesh>>,
+    mut meshes: ResMut<Assets<Mesh>>,
     mut mesh_events: EventReader<AssetEvent<Mesh>>,
     mut queries: QuerySet<(
         Query<&mut RenderPipelines, With<Handle<Mesh>>>,
@@ -412,6 +503,7 @@ pub fn mesh_resource_provider_system(
     )>,
 ) {
     let mut changed_meshes = HashSet::default();
+    let mut meshes_to_unload_locally = HashSet::default();
     let render_resource_context = &**render_resource_context;
     for event in mesh_events.iter() {
         match event {
@@ -419,8 +511,14 @@ pub fn mesh_resource_provider_system(
                 changed_meshes.insert(handle.clone_weak());
             }
             AssetEvent::Modified { ref handle } => {
-                changed_meshes.insert(handle.clone_weak());
-                remove_current_mesh_resources(render_resource_context, handle);
+                if let Some(mesh) = meshes.get(handle) {
+                    // don't unload buffers from meshes without a local copy
+                    // since they won't be re added anymore.
+                    if mesh.has_local_copy() {
+                        changed_meshes.insert(handle.clone_weak());
+                        remove_current_mesh_resources(render_resource_context, handle);
+                    }
+                }
             }
             AssetEvent::Removed { ref handle } => {
                 remove_current_mesh_resources(render_resource_context, handle);
@@ -434,8 +532,14 @@ pub fn mesh_resource_provider_system(
     // update changed mesh data
     for changed_mesh_handle in changed_meshes.iter() {
         if let Some(mesh) = meshes.get(changed_mesh_handle) {
+            if mesh.allow_local_unload && mesh.has_local_copy() {
+                meshes_to_unload_locally.insert(changed_mesh_handle.clone_weak());
+            }
+            if !mesh.has_local_copy() {
+                continue;
+            }
             // TODO: check for individual buffer changes in non-interleaved mode
-            if let Some(data) = mesh.get_index_buffer_bytes() {
+            if let Some(data) = mesh.get_indices_buffer_bytes() {
                 let index_buffer = render_resource_context.create_buffer_with_data(
                     BufferInfo {
                         buffer_usage: BufferUsage::INDEX,
@@ -451,7 +555,7 @@ pub fn mesh_resource_provider_system(
                 );
             }
 
-            let interleaved_buffer = mesh.get_vertex_buffer_data();
+            let interleaved_buffer = mesh.get_vertex_buffer_data().unwrap();
 
             render_resource_context.set_asset_resource(
                 changed_mesh_handle,
@@ -491,6 +595,13 @@ pub fn mesh_resource_provider_system(
             update_entity_mesh(render_resource_context, mesh, handle, render_pipelines);
         }
     }
+
+    // unload local copies of meshes
+    for mesh in meshes_to_unload_locally.iter() {
+        if let Some(mesh) = meshes.get_mut(mesh) {
+            mesh.mesh_data = MeshDataState::StaticGpuOnly;
+        }
+    }
 }
 
 fn update_entity_mesh(
@@ -501,7 +612,6 @@ fn update_entity_mesh(
 ) {
     for render_pipeline in render_pipelines.pipelines.iter_mut() {
         render_pipeline.specialization.primitive_topology = mesh.primitive_topology;
-        // TODO: don't allocate a new vertex buffer descriptor for every entity
         render_pipeline.specialization.vertex_buffer_layout = mesh.get_vertex_buffer_layout();
         if let PrimitiveTopology::LineStrip | PrimitiveTopology::TriangleStrip =
             mesh.primitive_topology
