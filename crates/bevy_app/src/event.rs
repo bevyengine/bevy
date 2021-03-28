@@ -1,13 +1,13 @@
-use bevy_ecs::system::{Command, Commands, SystemParamFetch, SystemParamState, SystemState};
-use bevy_ecs::world::{FromWorld, World};
+use bevy_ecs::system::{SystemParamFetch, SystemParamState, SystemState};
+use bevy_ecs::world::World;
 use bevy_ecs::{
     component::Component,
-    system::{Local, Res, ResMut, SystemParam},
+    system::{Res, ResMut, SystemParam},
 };
 use bevy_utils::tracing::trace;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::RwLock;
 use std::cmp::min;
-use std::ops::{Add, Deref, DerefMut};
+use std::ops::{Deref, DerefMut};
 use std::{
     fmt::{self},
     hash::Hash,
@@ -164,7 +164,7 @@ impl<T: Component> EventSubscriptions<T> {
         self.subscriber_last_counts.read()[subscription_id]
     }
 
-    pub fn set_subscriber_count(&mut self, subscription_id: usize, count: usize) {
+    pub fn set_subscriber_count(&self, subscription_id: usize, count: usize) {
         self.subscriber_last_counts.write()[subscription_id] = count;
     }
 }
@@ -217,23 +217,9 @@ impl<'a, T: Component> SystemParamFetch<'a> for SubscriberIdState<T> {
     }
 }
 
-struct UpdateSubscriberCount<T: Component> {
-    subscriber_id: usize,
-    new_count: usize,
-    phantom_data: PhantomData<T>,
-}
-
-impl<T: Component> Command for UpdateSubscriberCount<T> {
-    fn write(self: Box<Self>, world: &mut World) {
-        let mut subscriptions = world.get_resource_mut::<EventSubscriptions<T>>().unwrap();
-        subscriptions.set_subscriber_count(self.subscriber_id, self.new_count);
-    }
-}
-
 /// Reads events of type `T` in order and tracks which events have already been read.
 #[derive(SystemParam)]
 pub struct EventReader<'a, T: Component> {
-    commands: Commands<'a>,
     subscriber_id: SubscriberId<'a, T>,
     event_subscriptions: Res<'a, EventSubscriptions<T>>,
     events: Res<'a, Events<T>>,
@@ -318,15 +304,14 @@ impl<'a, T: Component> EventReader<'a, T> {
     pub fn iter_with_id(&mut self) -> impl DoubleEndedIterator<Item = (&T, EventId<T>)> {
         let subscriber_id = self.subscriber_id.0 .0;
         let mut last_event_count = self.event_subscriptions.get_subscriber_count(subscriber_id);
-        self.commands.add(UpdateSubscriberCount::<T> {
-            subscriber_id,
-            new_count: self.events.event_count,
-            phantom_data: Default::default(),
-        });
-        internal_event_reader(&mut last_event_count, &self.events).map(|(event, id)| {
-            trace!("EventReader::iter() -> {}", id);
-            (event, id)
-        })
+        let result =
+            internal_event_reader(&mut last_event_count, &self.events).map(|(event, id)| {
+                trace!("EventReader::iter() -> {}", id);
+                (event, id)
+            });
+        self.event_subscriptions
+            .set_subscriber_count(subscriber_id, last_event_count);
+        result
     }
 }
 
@@ -428,7 +413,6 @@ impl<T: Component> EventSubscriptions<T> {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::App;
     use bevy_ecs::schedule::{Schedule, SystemStage};
     use bevy_ecs::system::IntoSystem;
     use bevy_ecs::world::World;
@@ -452,13 +436,16 @@ mod tests {
         }
         fn event_reader_system1(mut event_reader: EventReader<TestEvent>) {
             for _event in event_reader.iter() {
-                println!("{}", _event.i)
+                // hi
             }
         }
 
         let mut schedule = Schedule::default();
         let update1 = SystemStage::single(event_writer_system1.system());
-        let update2 = SystemStage::single(event_reader_system1.system());
+        let mut update2 = SystemStage::parallel();
+        update2
+            .add_system(event_reader_system1.system())
+            .add_system(event_reader_system1.system());
         let update3 = SystemStage::single(event_writer_system2.system());
         let update4 = SystemStage::single(event_reader_system1.system());
         let update5 = SystemStage::single(Events::<TestEvent>::update_system.system());
@@ -474,14 +461,14 @@ mod tests {
         schedule.run_once(&mut world);
         let events = world.get_resource::<Events<TestEvent>>().unwrap();
         assert_eq!(
-            events.event_offset, 0,
+            events.event_offset, 2,
             "All subscribed systems read the first two events."
         );
 
         schedule.run_once(&mut world);
         let events = world.get_resource::<Events<TestEvent>>().unwrap();
         assert_eq!(
-            events.event_offset, 0,
+            events.event_offset, 5,
             "All subscribed systems read all events from last frame plus 2 new events from this frame"
         );
     }
