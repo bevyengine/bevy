@@ -447,8 +447,9 @@ impl Mesh {
     }
 
     fn print_gpu_only_warning(fn_name: &str) {
+        // TODO: use proper warning API once available
         println!(
-            "Warning: {}() is called on a Gpu-Only mesh. Changes won't apply.",
+            "Warning: {}() is called on a static/gpu-only mesh. Changes won't apply. Use `Mesh::new_dynamic` if you wish to make changes at runtime.",
             fn_name
         );
     }
