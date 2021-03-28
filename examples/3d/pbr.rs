@@ -39,7 +39,7 @@ fn setup(
         }
     }
     // light
-    commands.spawn_bundle(LightBundle {
+    commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_translation(Vec3::new(0.0, 5.0, 5.0)),
         ..Default::default()
     });
