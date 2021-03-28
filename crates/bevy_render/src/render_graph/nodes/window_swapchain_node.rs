@@ -2,26 +2,20 @@ use crate::{
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
     renderer::{RenderContext, RenderResourceId, RenderResourceType},
 };
-use bevy_app::{Events, ManualEventReader};
+use bevy_app::Events;
 use bevy_ecs::world::World;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use std::borrow::Cow;
 
 pub struct WindowSwapChainNode {
     window_id: WindowId,
-    window_created_event_reader: ManualEventReader<WindowCreated>,
-    window_resized_event_reader: ManualEventReader<WindowResized>,
 }
 
 impl WindowSwapChainNode {
     pub const OUT_TEXTURE: &'static str = "texture";
 
     pub fn new(window_id: WindowId) -> Self {
-        WindowSwapChainNode {
-            window_id,
-            window_created_event_reader: Default::default(),
-            window_resized_event_reader: Default::default(),
-        }
+        WindowSwapChainNode { window_id }
     }
 }
 
@@ -44,6 +38,11 @@ impl Node for WindowSwapChainNode {
         const WINDOW_TEXTURE: usize = 0;
         let window_created_events = world.get_resource::<Events<WindowCreated>>().unwrap();
         let window_resized_events = world.get_resource::<Events<WindowResized>>().unwrap();
+        let window_created_event_reader = window_created_events
+            .get_reader(format!("swapchain_window_{}", self.window_id).as_str());
+        let window_resized_event_reader = window_resized_events
+            .get_reader(format!("swapchain_window_{}", self.window_id).as_str());
+
         let windows = world.get_resource::<Windows>().unwrap();
 
         let window = windows
@@ -53,12 +52,10 @@ impl Node for WindowSwapChainNode {
         let render_resource_context = render_context.resources_mut();
 
         // create window swapchain when window is resized or created
-        if self
-            .window_created_event_reader
+        if window_created_event_reader
             .iter(&window_created_events)
             .any(|e| e.id == window.id())
-            || self
-                .window_resized_event_reader
+            || window_resized_event_reader
                 .iter(&window_resized_events)
                 .any(|e| e.id == window.id())
         {

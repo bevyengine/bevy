@@ -3,21 +3,19 @@ use crate::{
     wgpu_type_converter::WgpuInto,
     WgpuBackend, WgpuOptions, WgpuPowerOptions,
 };
-use bevy_app::{Events, ManualEventReader};
+use bevy_app::Events;
 use bevy_ecs::world::{Mut, World};
 use bevy_render::{
     render_graph::{DependentNodeStager, RenderGraph, RenderGraphStager},
     renderer::RenderResourceContext,
 };
-use bevy_window::{WindowCreated, WindowResized, Windows};
+use bevy_window::{WindowCreated, Windows};
 use std::{ops::Deref, sync::Arc};
 
 pub struct WgpuRenderer {
     pub instance: wgpu::Instance,
     pub device: Arc<wgpu::Device>,
     pub queue: wgpu::Queue,
-    pub window_resized_event_reader: ManualEventReader<WindowResized>,
-    pub window_created_event_reader: ManualEventReader<WindowCreated>,
     pub initialized: bool,
 }
 
@@ -67,8 +65,6 @@ impl WgpuRenderer {
             instance,
             device,
             queue,
-            window_resized_event_reader: Default::default(),
-            window_created_event_reader: Default::default(),
             initialized: false,
         }
     }
@@ -83,10 +79,9 @@ impl WgpuRenderer {
             .unwrap();
         let windows = world.get_resource::<Windows>().unwrap();
         let window_created_events = world.get_resource::<Events<WindowCreated>>().unwrap();
-        for window_created_event in self
-            .window_created_event_reader
-            .iter(&window_created_events)
-        {
+        let window_created_event_reader =
+            window_created_events.get_reader("renderer_window_created");
+        for window_created_event in window_created_event_reader.iter(&window_created_events) {
             let window = windows
                 .get(window_created_event.id)
                 .expect("Received window created event for non-existent window.");

@@ -10,7 +10,7 @@ use bevy_input::{
 pub use winit_config::*;
 pub use winit_windows::*;
 
-use bevy_app::{App, AppBuilder, AppExit, CoreStage, Events, ManualEventReader, Plugin};
+use bevy_app::{App, AppBuilder, AppExit, CoreStage, Events, Plugin};
 use bevy_ecs::{system::IntoExclusiveSystem, world::World};
 use bevy_math::{ivec2, Vec2};
 use bevy_utils::tracing::{error, trace, warn};
@@ -223,8 +223,6 @@ pub fn winit_runner_any_thread(app: App) {
 }
 
 pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
-    let mut create_window_event_reader = ManualEventReader::<CreateWindow>::default();
-    let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
     app.world.insert_non_send(event_loop.create_proxy());
 
     trace!("Entering winit event loop");
@@ -240,6 +238,7 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
         *control_flow = ControlFlow::Poll;
 
         if let Some(app_exit_events) = app.world.get_resource_mut::<Events<AppExit>>() {
+            let app_exit_event_reader = app_exit_events.get_reader("winit_runner");
             if app_exit_event_reader
                 .iter(&app_exit_events)
                 .next_back()
@@ -477,11 +476,7 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                 });
             }
             event::Event::MainEventsCleared => {
-                handle_create_window_events(
-                    &mut app.world,
-                    event_loop,
-                    &mut create_window_event_reader,
-                );
+                handle_create_window_events(&mut app.world, event_loop);
                 app.update();
             }
             _ => (),
@@ -494,16 +489,13 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
     }
 }
 
-fn handle_create_window_events(
-    world: &mut World,
-    event_loop: &EventLoopWindowTarget<()>,
-    create_window_event_reader: &mut ManualEventReader<CreateWindow>,
-) {
+fn handle_create_window_events(world: &mut World, event_loop: &EventLoopWindowTarget<()>) {
     let world = world.cell();
     let mut winit_windows = world.get_resource_mut::<WinitWindows>().unwrap();
     let mut windows = world.get_resource_mut::<Windows>().unwrap();
     let create_window_events = world.get_resource::<Events<CreateWindow>>().unwrap();
     let mut window_created_events = world.get_resource_mut::<Events<WindowCreated>>().unwrap();
+    let create_window_event_reader = create_window_events.get_reader("create_window_events");
     for create_window_event in create_window_event_reader.iter(&create_window_events) {
         let window = winit_windows.create_window(
             event_loop,

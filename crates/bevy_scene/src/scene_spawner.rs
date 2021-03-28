@@ -1,5 +1,5 @@
 use crate::{DynamicScene, Scene};
-use bevy_app::{Events, ManualEventReader};
+use bevy_app::Events;
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityMap},
@@ -31,7 +31,6 @@ pub struct SceneSpawner {
     spawned_scenes: HashMap<Handle<Scene>, Vec<InstanceId>>,
     spawned_dynamic_scenes: HashMap<Handle<DynamicScene>, Vec<InstanceId>>,
     spawned_instances: HashMap<InstanceId, InstanceInfo>,
-    scene_asset_event_reader: ManualEventReader<AssetEvent<DynamicScene>>,
     dynamic_scenes_to_spawn: Vec<Handle<DynamicScene>>,
     scenes_to_spawn: Vec<(Handle<Scene>, InstanceId)>,
     scenes_to_despawn: Vec<Handle<DynamicScene>>,
@@ -303,10 +302,8 @@ pub fn scene_spawner_system(world: &mut World) {
             .unwrap();
 
         let mut updated_spawned_scenes = Vec::new();
-        for event in scene_spawner
-            .scene_asset_event_reader
-            .iter(&scene_asset_events)
-        {
+        let scene_asset_event_reader = scene_asset_events.get_reader("scene_spawner_system");
+        for event in scene_asset_event_reader.iter(&scene_asset_events) {
             if let AssetEvent::Modified { handle } = event {
                 if scene_spawner.spawned_dynamic_scenes.contains_key(handle) {
                     updated_spawned_scenes.push(handle.clone_weak());

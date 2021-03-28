@@ -3,14 +3,19 @@ use crate::{
     renderer::{BufferInfo, BufferUsage, RenderContext},
     texture::{Texture, TextureDescriptor, TEXTURE_ASSET_INDEX},
 };
-use bevy_app::{Events, ManualEventReader};
+use bevy_app::Events;
 use bevy_asset::{AssetEvent, Assets};
 use bevy_ecs::world::World;
 use bevy_utils::HashSet;
 
-#[derive(Default)]
 pub struct TextureCopyNode {
-    pub texture_event_reader: ManualEventReader<AssetEvent<Texture>>,
+    pub name: &'static str,
+}
+
+impl TextureCopyNode {
+    pub fn new(name: &'static str) -> Self {
+        TextureCopyNode { name }
+    }
 }
 
 impl Node for TextureCopyNode {
@@ -24,7 +29,8 @@ impl Node for TextureCopyNode {
         let texture_events = world.get_resource::<Events<AssetEvent<Texture>>>().unwrap();
         let textures = world.get_resource::<Assets<Texture>>().unwrap();
         let mut copied_textures = HashSet::default();
-        for event in self.texture_event_reader.iter(&texture_events) {
+        let texture_event_reader = texture_events.get_reader(self.name);
+        for event in texture_event_reader.iter(&texture_events) {
             match event {
                 AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
                     if let Some(texture) = textures.get(handle) {

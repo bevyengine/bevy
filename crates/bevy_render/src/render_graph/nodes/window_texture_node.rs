@@ -3,7 +3,7 @@ use crate::{
     renderer::{RenderContext, RenderResourceId, RenderResourceType},
     texture::TextureDescriptor,
 };
-use bevy_app::{Events, ManualEventReader};
+use bevy_app::Events;
 use bevy_ecs::world::World;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use std::borrow::Cow;
@@ -11,8 +11,6 @@ use std::borrow::Cow;
 pub struct WindowTextureNode {
     window_id: WindowId,
     descriptor: TextureDescriptor,
-    window_created_event_reader: ManualEventReader<WindowCreated>,
-    window_resized_event_reader: ManualEventReader<WindowResized>,
 }
 
 impl WindowTextureNode {
@@ -22,8 +20,6 @@ impl WindowTextureNode {
         WindowTextureNode {
             window_id,
             descriptor,
-            window_created_event_reader: Default::default(),
-            window_resized_event_reader: Default::default(),
         }
     }
 }
@@ -47,18 +43,20 @@ impl Node for WindowTextureNode {
         const WINDOW_TEXTURE: usize = 0;
         let window_created_events = world.get_resource::<Events<WindowCreated>>().unwrap();
         let window_resized_events = world.get_resource::<Events<WindowResized>>().unwrap();
+        let window_created_event_reader =
+            window_created_events.get_reader(format!("texture_window_{}", self.window_id).as_str());
+        let window_resized_event_reader =
+            window_resized_events.get_reader(format!("texture_window_{}", self.window_id).as_str());
         let windows = world.get_resource::<Windows>().unwrap();
 
         let window = windows
             .get(self.window_id)
             .expect("Window texture node refers to a non-existent window.");
 
-        if self
-            .window_created_event_reader
+        if window_created_event_reader
             .iter(&window_created_events)
             .any(|e| e.id == window.id())
-            || self
-                .window_resized_event_reader
+            || window_resized_event_reader
                 .iter(&window_resized_events)
                 .any(|e| e.id == window.id())
         {

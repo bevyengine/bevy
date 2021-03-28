@@ -1,4 +1,4 @@
-use bevy_app::{EventReader, Events, ManualEventReader};
+use bevy_app::{EventReader, Events};
 use bevy_asset::{self, AssetEvent, Assets, Handle};
 use bevy_ecs::system::{Local, Res, ResMut};
 use bevy_reflect::TypeUuid;
@@ -64,11 +64,9 @@ pub(crate) fn material_texture_detection_system(
     mut material_to_texture: Local<HashMap<Handle<ColorMaterial>, Handle<Texture>>>,
     materials: Res<Assets<ColorMaterial>>,
     mut texture_events: EventReader<AssetEvent<Texture>>,
-    (mut material_events_reader, mut material_events): (
-        Local<ManualEventReader<AssetEvent<ColorMaterial>>>,
-        ResMut<Events<AssetEvent<ColorMaterial>>>,
-    ),
+    mut material_events: ResMut<Events<AssetEvent<ColorMaterial>>>,
 ) {
+    let material_events_reader = material_events.get_reader("material_texture_detection");
     for event in material_events_reader.iter(&material_events) {
         match event {
             AssetEvent::Created { handle } => {

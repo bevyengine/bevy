@@ -100,7 +100,7 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
     let mut graph = world.get_resource_mut::<RenderGraph>().unwrap();
     let msaa = world.get_resource::<Msaa>().unwrap();
 
-    graph.add_node(node::TEXTURE_COPY, TextureCopyNode::default());
+    graph.add_node(node::TEXTURE_COPY, TextureCopyNode::new("texture_copy"));
     if config.add_3d_camera {
         graph.add_system_node(node::CAMERA_3D, CameraNode::new(camera::CAMERA_3D));
     }

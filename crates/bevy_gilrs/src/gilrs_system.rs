@@ -1,5 +1,5 @@
 use crate::converter::{convert_axis, convert_button, convert_gamepad_id};
-use bevy_app::{EventSubscriptions, Events};
+use bevy_app::Events;
 use bevy_ecs::world::World;
 use bevy_input::{gamepad::GamepadEventRaw, prelude::*};
 use gilrs::{EventType, Gilrs};
@@ -20,10 +20,7 @@ pub fn gilrs_event_system(world: &mut World) {
     let world = world.cell();
     let mut gilrs = world.get_non_send_mut::<Gilrs>().unwrap();
     let mut event = world.get_resource_mut::<Events<GamepadEventRaw>>().unwrap();
-    let mut event_subscriptions = world
-        .get_resource_mut::<EventSubscriptions<GamepadEventRaw>>()
-        .unwrap();
-    event.update(&mut *event_subscriptions);
+    event.update();
     while let Some(gilrs_event) = gilrs.next_event() {
         match gilrs_event.event {
             EventType::Connected => {
