@@ -391,7 +391,7 @@ impl<T: Component> Events<T> {
 mod tests {
     use super::*;
     use bevy_ecs::schedule::{Schedule, SystemStage};
-    use bevy_ecs::system::IntoSystem;
+    use bevy_ecs::system::{IntoSystem, Local};
     use bevy_ecs::world::World;
 
     #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -568,6 +568,45 @@ mod tests {
             "all subscribed readers have read all events"
         );
         assert_eq!(events.buffer.is_empty(), true, "event buffer is empty");
+    }
+
+    #[test]
+    fn event_deferral() {
+        fn event_writer_system(mut event_writer: EventWriter<TestEvent>) {
+            let event = TestEvent { i: 2 };
+            event_writer.send(event);
+        }
+        fn event_reader_system(
+            mut event_reader: EventReader<TestEvent>,
+            mut deferred_events: Local<Vec<TestEvent>>,
+            mut event_reads: ResMut<usize>,
+        ) {
+            *event_reads = 0;
+            let mut defer = Vec::new();
+            for event in event_reader.iter().chain(deferred_events.iter()) {
+                *event_reads = *event_reads + 1;
+                defer.push(*event);
+            }
+            std::mem::swap(&mut defer, &mut *deferred_events);
+        }
+        let mut schedule = Schedule::default();
+        let update1 = SystemStage::single(event_writer_system.system());
+        let update2 = SystemStage::single(event_reader_system.system());
+        schedule.add_stage("update1", update1);
+        schedule.add_stage("update2", update2);
+
+        let mut world = World::default();
+        world.insert_resource(Events::<TestEvent>::default());
+        world.insert_resource(0usize);
+        schedule.run_once(&mut world);
+        let event_reads = world.get_resource::<usize>().unwrap();
+        assert_eq!(*event_reads, 1usize, "Only one event was fired.");
+        schedule.run_once(&mut world);
+        let event_reads = world.get_resource::<usize>().unwrap();
+        assert_eq!(
+            *event_reads, 2usize,
+            "One new event was fired, and one was deferred from last time."
+        );
     }
 
     fn get_events(reader: &ManualEventReader<TestEvent>) -> Vec<TestEvent> {
