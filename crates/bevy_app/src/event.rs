@@ -1,9 +1,13 @@
+use bevy_ecs::system::{Command, Commands, SystemParamFetch, SystemParamState, SystemState};
+use bevy_ecs::world::{FromWorld, World};
 use bevy_ecs::{
     component::Component,
     system::{Local, Res, ResMut, SystemParam},
 };
 use bevy_utils::tracing::trace;
+use parking_lot::{Mutex, RwLock};
 use std::cmp::min;
+use std::ops::{Add, Deref, DerefMut};
 use std::{
     fmt::{self},
     hash::Hash,
@@ -136,26 +140,102 @@ fn map_instance_event<T>(event_instance: &EventInstance<T>) -> &T {
 }
 
 pub struct EventSubscriptions<T: Component> {
-    last_event_counts: Vec<usize>,
-    last_event_count: usize,
+    subscriber_last_counts: RwLock<Vec<usize>>,
     _phantom: PhantomData<T>,
 }
 
 impl<T: Component> Default for EventSubscriptions<T> {
     fn default() -> Self {
         EventSubscriptions::<T> {
-            last_event_counts: Vec::new(),
-            last_event_count: 0,
+            subscriber_last_counts: RwLock::default(),
             _phantom: Default::default(),
         }
+    }
+}
+
+impl<T: Component> EventSubscriptions<T> {
+    pub fn add_subscriber(&self) -> usize {
+        let id = self.subscriber_last_counts.read().len();
+        self.subscriber_last_counts.write().push(0);
+        id
+    }
+
+    pub fn get_subscriber_count(&self, subscription_id: usize) -> usize {
+        self.subscriber_last_counts.read()[subscription_id]
+    }
+
+    pub fn set_subscriber_count(&mut self, subscription_id: usize, count: usize) {
+        self.subscriber_last_counts.write()[subscription_id] = count;
+    }
+}
+pub struct SubscriberId<'a, T: Component>(&'a mut (usize, PhantomData<T>));
+
+impl<'a, T: Component> Deref for SubscriberId<'a, T> {
+    type Target = usize;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0 .0
+    }
+}
+
+impl<'a, T: Component> DerefMut for SubscriberId<'a, T> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0 .0
+    }
+}
+
+pub struct SubscriberIdState<T: Component>((usize, PhantomData<T>));
+
+impl<'a, T: Component> SystemParam for SubscriberId<'a, T> {
+    type Fetch = SubscriberIdState<T>;
+}
+
+// SAFE: only local state is accessed
+unsafe impl<T: Component> SystemParamState for SubscriberIdState<T> {
+    type Config = Option<T>;
+
+    fn init(world: &mut World, _system_state: &mut SystemState, _config: Self::Config) -> Self {
+        let event_subscriptions = world.get_resource::<EventSubscriptions<T>>().unwrap();
+        let subscription_id = event_subscriptions.add_subscriber();
+        Self((subscription_id, PhantomData::<T>::default()))
+    }
+}
+
+impl<'a, T: Component> SystemParamFetch<'a> for SubscriberIdState<T> {
+    type Item = SubscriberId<'a, T>;
+
+    #[inline]
+    unsafe fn get_param(
+        state: &'a mut Self,
+        _system_state: &'a SystemState,
+        _world: &'a World,
+        _change_tick: u32,
+    ) -> Self::Item {
+        SubscriberId(&mut state.0)
+    }
+}
+
+struct UpdateSubscriberCount<T: Component> {
+    subscriber_id: usize,
+    new_count: usize,
+    phantom_data: PhantomData<T>,
+}
+
+impl<T: Component> Command for UpdateSubscriberCount<T> {
+    fn write(self: Box<Self>, world: &mut World) {
+        let mut subscriptions = world.get_resource_mut::<EventSubscriptions<T>>().unwrap();
+        subscriptions.set_subscriber_count(self.subscriber_id, self.new_count);
     }
 }
 
 /// Reads events of type `T` in order and tracks which events have already been read.
 #[derive(SystemParam)]
 pub struct EventReader<'a, T: Component> {
-    subscription_id: Local<'a, (Option<usize>, PhantomData<T>)>,
-    event_subscriptions: ResMut<'a, EventSubscriptions<T>>,
+    commands: Commands<'a>,
+    subscriber_id: SubscriberId<'a, T>,
+    event_subscriptions: Res<'a, EventSubscriptions<T>>,
     events: Res<'a, Events<T>>,
 }
 
@@ -234,29 +314,15 @@ impl<'a, T: Component> EventReader<'a, T> {
         self.iter_with_id().map(|(event, _id)| event)
     }
 
-    fn get_subscription_id(
-        subscription_id: &mut Option<usize>,
-        event_subscriptions: &mut EventSubscriptions<T>,
-        event_count: usize,
-    ) -> usize {
-        *subscription_id.get_or_insert_with(|| {
-            event_subscriptions.last_event_counts.push(event_count);
-            event_subscriptions.last_event_counts.len() - 1
-        })
-    }
-
     /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
     pub fn iter_with_id(&mut self) -> impl DoubleEndedIterator<Item = (&T, EventId<T>)> {
-        let subscription_id = Self::get_subscription_id(
-            &mut self.subscription_id.0,
-            &mut *self.event_subscriptions,
-            self.events.event_offset,
-        );
-        let mut last_event_count = self
-            .event_subscriptions
-            .last_event_counts
-            .get_mut(subscription_id)
-            .unwrap();
+        let subscriber_id = self.subscriber_id.0 .0;
+        let mut last_event_count = self.event_subscriptions.get_subscriber_count(subscriber_id);
+        self.commands.add(UpdateSubscriberCount::<T> {
+            subscriber_id,
+            new_count: self.events.event_count,
+            phantom_data: Default::default(),
+        });
         internal_event_reader(&mut last_event_count, &self.events).map(|(event, id)| {
             trace!("EventReader::iter() -> {}", id);
             (event, id)
@@ -301,19 +367,18 @@ impl<T: Component> Events<T> {
     /// Swaps the event buffers and clears the oldest event buffer. In general, this should be
     /// called once per frame/update.
     pub fn update(&mut self, event_subscriptions: &mut EventSubscriptions<T>) {
-        if event_subscriptions.last_event_counts.is_empty() {
-            event_subscriptions.last_event_count = self.event_count;
+        if event_subscriptions.subscriber_last_counts.read().is_empty() {
             self.event_offset = self.event_count;
             self.buffer.clear();
         } else {
             let read_count = event_subscriptions
-                .last_event_counts
+                .subscriber_last_counts
+                .read()
                 .iter()
                 .fold(usize::max_value(), |count, next| min(count, *next));
             let remove_index = read_count - self.event_offset;
             self.event_offset = read_count;
             self.buffer.drain(0..remove_index);
-            event_subscriptions.last_event_count = self.event_count;
         }
     }
 
@@ -363,6 +428,7 @@ impl<T: Component> EventSubscriptions<T> {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::App;
     use bevy_ecs::schedule::{Schedule, SystemStage};
     use bevy_ecs::system::IntoSystem;
     use bevy_ecs::world::World;
@@ -386,9 +452,10 @@ mod tests {
         }
         fn event_reader_system1(mut event_reader: EventReader<TestEvent>) {
             for _event in event_reader.iter() {
-                // hi
+                println!("{}", _event.i)
             }
         }
+
         let mut schedule = Schedule::default();
         let update1 = SystemStage::single(event_writer_system1.system());
         let update2 = SystemStage::single(event_reader_system1.system());
@@ -407,14 +474,14 @@ mod tests {
         schedule.run_once(&mut world);
         let events = world.get_resource::<Events<TestEvent>>().unwrap();
         assert_eq!(
-            events.event_offset, 2,
+            events.event_offset, 0,
             "All subscribed systems read the first two events."
         );
 
         schedule.run_once(&mut world);
         let events = world.get_resource::<Events<TestEvent>>().unwrap();
         assert_eq!(
-            events.event_offset, 5,
+            events.event_offset, 0,
             "All subscribed systems read all events from last frame plus 2 new events from this frame"
         );
     }

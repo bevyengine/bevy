@@ -229,7 +229,7 @@ impl AppBuilder {
     {
         self.insert_resource(Events::<T>::default())
             .insert_resource(EventSubscriptions::<T>::default())
-            .add_system_to_stage(CoreStage::First, Events::<T>::update_system.system())
+            .add_system_to_stage(CoreStage::Last, Events::<T>::update_system.system())
     }
 
     /// Inserts a resource to the current [App] and overwrites any resource previously added of the
