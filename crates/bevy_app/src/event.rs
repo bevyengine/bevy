@@ -93,12 +93,12 @@ struct EventInstance<T> {
 /// events.send(MyEvent { value: 1 });
 ///
 /// // somewhere else: read the events
-/// for event in reader.iter(&events) {
+/// for event in reader.iter() {
 ///     assert_eq!(event.value, 1)
 /// }
 ///
 /// // events are only processed once per reader
-/// assert_eq!(reader.iter(&events).count(), 0);
+/// assert_eq!(reader.iter().count(), 0);
 /// ```
 ///
 /// # Details
@@ -457,6 +457,7 @@ mod tests {
         let event_2 = TestEvent { i: 2 };
 
         events.send(event_0);
+        // _reader_slow sets up the subscription, even though it won't be used till later.
         let _reader_slow = events.get_reader("slow");
         let reader_a = events.get_reader("a");
 
