@@ -3,7 +3,7 @@ use std::hash::Hash;
 
 // unused import, but needed for intra doc link to work
 #[allow(unused_imports)]
-use bevy_ecs;
+use bevy_ecs::schedule::State;
 
 /// A "press-able" input of type `T`.
 ///
@@ -16,8 +16,7 @@ use bevy_ecs;
 ///
 /// In case multiple systems are checking for [`Input::just_pressed`] or [`Input::just_released`]
 /// but only one should react, for example in the case of triggering
-/// [`State`](bevy_ecs::schedule::State) change, you should consider clearing the input state,
-/// either by:
+/// [`State`] change, you should consider clearing the input state, either by:
 ///
 /// * Using [`Input::just_pressed_and_clear`] or [`Input::just_released_and_clear`] instead.
 /// * Calling [`Input::clear`] or [`Input::reset`] immediately after the state change.
