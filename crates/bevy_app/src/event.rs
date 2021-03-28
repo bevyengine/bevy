@@ -587,7 +587,7 @@ mod tests {
                 *event_reads += 1;
                 defer.push(*event);
             }
-            std::mem::swap(&mut defer, &mut *deferred_events);
+            *deferred_events = defer;
         }
         let mut schedule = Schedule::default();
         let update1 = SystemStage::single(event_writer_system.system());
