@@ -183,7 +183,7 @@ fn get_lifetimes(fmt_string: fn(usize) -> String, count: usize) -> Vec<Lifetime>
 #[proc_macro]
 pub fn impl_query_set(_input: TokenStream) -> TokenStream {
     let mut tokens = TokenStream::new();
-    let max_queries = 4;
+    let max_queries = 8;
     let queries = get_idents(|i| format!("Q{}", i), max_queries);
     let filters = get_idents(|i| format!("F{}", i), max_queries);
     let lifetimes = get_lifetimes(|i| format!("'q{}", i), max_queries);
