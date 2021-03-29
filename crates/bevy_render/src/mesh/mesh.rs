@@ -263,7 +263,7 @@ impl Mesh {
     /// Construct a new mesh. You need to provide a PrimitiveTopology so that the
     /// renderer knows how to treat the vertex data. Most of the time this will be
     /// `PrimitiveTopology::TriangleList`. The mesh will not be editable after the next frame.
-    /// If you want to edit the mesh further, use [`Mesh::new_runtime_editable`]
+    /// If you want to edit the mesh further, use [`Mesh::new_dynamic`]
     pub fn new(primitive_topology: PrimitiveTopology) -> Self {
         Mesh {
             primitive_topology,
