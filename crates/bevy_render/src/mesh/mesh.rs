@@ -15,7 +15,7 @@ use bevy_ecs::{
 };
 use bevy_math::*;
 use bevy_reflect::TypeUuid;
-use bevy_utils::tracing::warn;
+use bevy_utils::tracing::error;
 use bevy_utils::{HashMap, HashSet};
 use std::borrow::Cow;
 
@@ -224,7 +224,7 @@ pub struct Mesh {
 #[derive(Debug, Clone)]
 pub enum MeshDataState {
     /// A local copy exists and is available for realtime modification. Note that this is always the case if the mesh was just created.
-    Local(MeshAttributes, Option<Indices>),
+    GpuAndLocal(MeshAttributes, Option<Indices>),
     /// Data only exists on the Gpu.
     GpuOnly,
 }
@@ -271,7 +271,7 @@ impl Mesh {
             vertex_count: 0,
             indices_count: None,
             indices_format: None,
-            mesh_data: MeshDataState::Local(Default::default(), None),
+            mesh_data: MeshDataState::GpuAndLocal(Default::default(), None),
             unload_after_gpu_upload: true,
         }
     }
@@ -295,7 +295,7 @@ impl Mesh {
         values: impl Into<VertexAttributeValues>,
     ) {
         match &mut self.mesh_data {
-            MeshDataState::Local(attributes_data, _) => {
+            MeshDataState::GpuAndLocal(attributes_data, _) => {
                 let values: VertexAttributeValues = values.into();
 
                 let name = name.into();
@@ -310,7 +310,6 @@ impl Mesh {
                 attributes_data.insert(name, values);
 
                 // update the vertex layout
-                // TODO: this *might* be an b
                 let mut attributes = Vec::new();
                 let mut accumulated_offset = 0;
                 for (attribute_name, attribute_values) in attributes_data.iter() {
@@ -332,7 +331,7 @@ impl Mesh {
                 }
             }
             MeshDataState::GpuOnly => {
-                Self::print_gpu_only_warning("set_attribute");
+                Self::print_error_gpu_only("set_attribute");
             }
         }
     }
@@ -340,9 +339,9 @@ impl Mesh {
     /// Retrieve the data currently set behind a vertex attribute.
     pub fn attribute(&self, name: impl Into<Cow<'static, str>>) -> Option<&VertexAttributeValues> {
         match &self.mesh_data {
-            MeshDataState::Local(attributes_data, _) => attributes_data.get(&name.into()),
+            MeshDataState::GpuAndLocal(attributes_data, _) => attributes_data.get(&name.into()),
             MeshDataState::GpuOnly => {
-                Self::print_gpu_only_warning("attribute");
+                Self::print_error_gpu_only("attribute");
                 None
             }
         }
@@ -353,7 +352,7 @@ impl Mesh {
     /// triangles
     pub fn set_indices(&mut self, new_indices: Option<Indices>) {
         match &mut self.mesh_data {
-            MeshDataState::Local(_, indices_data) => {
+            MeshDataState::GpuAndLocal(_, indices_data) => {
                 self.indices_count = None;
 
                 if let Some(new_indices) = &new_indices {
@@ -370,16 +369,16 @@ impl Mesh {
                 *indices_data = new_indices;
             }
             MeshDataState::GpuOnly => {
-                Self::print_gpu_only_warning("set_indices");
+                Self::print_error_gpu_only("set_indices");
             }
         }
     }
 
     pub fn indices(&self) -> Option<&Indices> {
         match &self.mesh_data {
-            MeshDataState::Local(_, indices_data) => indices_data.as_ref(),
+            MeshDataState::GpuAndLocal(_, indices_data) => indices_data.as_ref(),
             MeshDataState::GpuOnly => {
-                Self::print_gpu_only_warning("indices");
+                Self::print_error_gpu_only("indices");
                 None
             }
         }
@@ -387,7 +386,7 @@ impl Mesh {
 
     pub fn get_indices_buffer_bytes(&self) -> Option<Vec<u8>> {
         match &self.mesh_data {
-            MeshDataState::Local(_, indices_data) => {
+            MeshDataState::GpuAndLocal(_, indices_data) => {
                 indices_data.as_ref().map(|indices| match &indices {
                     Indices::U16(indices) => indices.as_slice().as_bytes().to_vec(),
                     Indices::U32(indices) => indices.as_slice().as_bytes().to_vec(),
@@ -411,7 +410,7 @@ impl Mesh {
 
     pub fn get_vertex_buffer_data(&self) -> Option<Vec<u8>> {
         match &self.mesh_data {
-            MeshDataState::Local(attributes_data, _) => {
+            MeshDataState::GpuAndLocal(attributes_data, _) => {
                 let mut vertex_size = 0;
                 for attribute_values in attributes_data.values() {
                     let vertex_format = VertexFormat::from(attribute_values);
@@ -440,20 +439,20 @@ impl Mesh {
                 Some(attributes_interleaved_buffer)
             }
             MeshDataState::GpuOnly => {
-                Self::print_gpu_only_warning("get_vertex_buffer_data");
+                Self::print_error_gpu_only("get_vertex_buffer_data");
                 None
             }
         }
     }
 
-    fn print_gpu_only_warning(fn_name: &str) {
-        warn!("{}() is called on a static/gpu-only mesh. Changes won't apply. Use `Mesh::new_dynamic` if you wish to make changes at runtime.",
+    fn print_error_gpu_only(fn_name: &str) {
+        error!("{}() is called on a static/gpu-only mesh. Changes won't apply. Use `Mesh::new_dynamic` if you wish to make changes at runtime.",
             fn_name);
     }
 
     /// Whether a local/mutable copy of the mesh exists. Not that any mesh has a copy of it's local data for at least one frame. See also [`MeshDataState`].
     pub fn has_local_data(&self) -> bool {
-        matches!(&self.mesh_data, MeshDataState::Local(_, _))
+        matches!(&self.mesh_data, MeshDataState::GpuAndLocal(_, _))
     }
 
     /// Whether the mesh data is intend to be edited an runtime
