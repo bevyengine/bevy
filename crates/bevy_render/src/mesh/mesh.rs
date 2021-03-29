@@ -1,3 +1,4 @@
+use crate::pipeline::{InputStepMode, VertexAttribute, VertexBufferLayout};
 use crate::{
     pipeline::{IndexFormat, PrimitiveTopology, RenderPipelines, VertexFormat},
     renderer::{BufferInfo, BufferUsage, RenderResourceContext, RenderResourceId},
@@ -5,6 +6,7 @@ use crate::{
 use bevy_app::prelude::EventReader;
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::AsBytes;
+use bevy_ecs::prelude::ResMut;
 use bevy_ecs::{
     entity::Entity,
     query::{Changed, With},
@@ -13,11 +15,9 @@ use bevy_ecs::{
 };
 use bevy_math::*;
 use bevy_reflect::TypeUuid;
-use std::borrow::Cow;
-
-use crate::pipeline::{InputStepMode, VertexAttribute, VertexBufferLayout};
-use bevy_ecs::prelude::ResMut;
+use bevy_utils::tracing::warn;
 use bevy_utils::{HashMap, HashSet};
+use std::borrow::Cow;
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
@@ -206,7 +206,7 @@ impl From<&Indices> for IndexFormat {
 
 /// `bevy_utils::HashMap` with all defined vertex attributes (Positions, Normals, ...) for this
 /// mesh. Attribute name maps to attribute values.
-pub type MeshAttribues = HashMap<Cow<'static, str>, VertexAttributeValues>;
+pub type MeshAttributes = HashMap<Cow<'static, str>, VertexAttributeValues>;
 
 #[derive(Debug, TypeUuid, Clone)]
 #[uuid = "8ecbac0f-f545-4473-ad43-e1f4243af51e"]
@@ -218,15 +218,15 @@ pub struct Mesh {
     indices_count: Option<u32>,
 
     mesh_data: MeshDataState,
-    allow_local_unload: bool,
+    unload_after_gpu_upload: bool,
 }
 
 #[derive(Debug, Clone)]
 pub enum MeshDataState {
-    /// A local copy exists and is available for realtime modification. Note that this is also the case if the mesh was just created.
-    Dynamic(MeshAttribues, Option<Indices>),
+    /// A local copy exists and is available for realtime modification. Note that this is always the case if the mesh was just created.
+    Local(MeshAttributes, Option<Indices>),
     /// Data only exists on the Gpu.
-    StaticGpuOnly,
+    GpuOnly,
 }
 
 /// Contains geometry in the form of a mesh.
@@ -271,15 +271,15 @@ impl Mesh {
             vertex_count: 0,
             indices_count: None,
             indices_format: None,
-            mesh_data: MeshDataState::Dynamic(Default::default(), None),
-            allow_local_unload: true,
+            mesh_data: MeshDataState::Local(Default::default(), None),
+            unload_after_gpu_upload: true,
         }
     }
 
     /// Like [`Mesh::new`], but the data will not be locally unloaded and can be modified at runtime. Consumes additional RAM.
     pub fn new_dynamic(primitive_topology: PrimitiveTopology) -> Self {
         let mut mesh = Self::new(primitive_topology);
-        mesh.allow_local_unload = false;
+        mesh.unload_after_gpu_upload = false;
         mesh
     }
 
@@ -295,7 +295,7 @@ impl Mesh {
         values: impl Into<VertexAttributeValues>,
     ) {
         match &mut self.mesh_data {
-            MeshDataState::Dynamic(attributes_data, _) => {
+            MeshDataState::Local(attributes_data, _) => {
                 let values: VertexAttributeValues = values.into();
 
                 let name = name.into();
@@ -331,7 +331,7 @@ impl Mesh {
                     attributes,
                 }
             }
-            MeshDataState::StaticGpuOnly => {
+            MeshDataState::GpuOnly => {
                 Self::print_gpu_only_warning("set_attribute");
             }
         }
@@ -340,8 +340,8 @@ impl Mesh {
     /// Retrieve the data currently set behind a vertex attribute.
     pub fn attribute(&self, name: impl Into<Cow<'static, str>>) -> Option<&VertexAttributeValues> {
         match &self.mesh_data {
-            MeshDataState::Dynamic(attributes_data, _) => attributes_data.get(&name.into()),
-            MeshDataState::StaticGpuOnly => {
+            MeshDataState::Local(attributes_data, _) => attributes_data.get(&name.into()),
+            MeshDataState::GpuOnly => {
                 Self::print_gpu_only_warning("attribute");
                 None
             }
@@ -353,7 +353,7 @@ impl Mesh {
     /// triangles
     pub fn set_indices(&mut self, new_indices: Option<Indices>) {
         match &mut self.mesh_data {
-            MeshDataState::Dynamic(_, indices_data) => {
+            MeshDataState::Local(_, indices_data) => {
                 self.indices_count = None;
 
                 if let Some(new_indices) = &new_indices {
@@ -369,7 +369,7 @@ impl Mesh {
 
                 *indices_data = new_indices;
             }
-            MeshDataState::StaticGpuOnly => {
+            MeshDataState::GpuOnly => {
                 Self::print_gpu_only_warning("set_indices");
             }
         }
@@ -377,8 +377,8 @@ impl Mesh {
 
     pub fn indices(&self) -> Option<&Indices> {
         match &self.mesh_data {
-            MeshDataState::Dynamic(_, indices_data) => indices_data.as_ref(),
-            MeshDataState::StaticGpuOnly => {
+            MeshDataState::Local(_, indices_data) => indices_data.as_ref(),
+            MeshDataState::GpuOnly => {
                 Self::print_gpu_only_warning("indices");
                 None
             }
@@ -387,13 +387,13 @@ impl Mesh {
 
     pub fn get_indices_buffer_bytes(&self) -> Option<Vec<u8>> {
         match &self.mesh_data {
-            MeshDataState::Dynamic(_, indices_data) => {
+            MeshDataState::Local(_, indices_data) => {
                 indices_data.as_ref().map(|indices| match &indices {
                     Indices::U16(indices) => indices.as_slice().as_bytes().to_vec(),
                     Indices::U32(indices) => indices.as_slice().as_bytes().to_vec(),
                 })
             }
-            MeshDataState::StaticGpuOnly => None,
+            MeshDataState::GpuOnly => None,
         }
     }
 
@@ -411,7 +411,7 @@ impl Mesh {
 
     pub fn get_vertex_buffer_data(&self) -> Option<Vec<u8>> {
         match &self.mesh_data {
-            MeshDataState::Dynamic(attributes_data, _) => {
+            MeshDataState::Local(attributes_data, _) => {
                 let mut vertex_size = 0;
                 for attribute_values in attributes_data.values() {
                     let vertex_format = VertexFormat::from(attribute_values);
@@ -439,7 +439,7 @@ impl Mesh {
                 }
                 Some(attributes_interleaved_buffer)
             }
-            MeshDataState::StaticGpuOnly => {
+            MeshDataState::GpuOnly => {
                 Self::print_gpu_only_warning("get_vertex_buffer_data");
                 None
             }
@@ -447,16 +447,18 @@ impl Mesh {
     }
 
     fn print_gpu_only_warning(fn_name: &str) {
-        // TODO: use proper warning API once available
-        println!(
-            "Warning: {}() is called on a static/gpu-only mesh. Changes won't apply. Use `Mesh::new_dynamic` if you wish to make changes at runtime.",
-            fn_name
-        );
+        warn!("{}() is called on a static/gpu-only mesh. Changes won't apply. Use `Mesh::new_dynamic` if you wish to make changes at runtime.",
+            fn_name);
     }
 
-    /// Whether a local copy of the mesh exists. See also [`MeshDataState`]. Not that any mesh is dynamic for at least one frame.
+    /// Whether a local/mutable copy of the mesh exists. Not that any mesh has a copy of it's local data for at least one frame. See also [`MeshDataState`].
+    pub fn has_local_data(&self) -> bool {
+        matches!(&self.mesh_data, MeshDataState::Local(_, _))
+    }
+
+    /// Whether the mesh data is intend to be edited an runtime
     pub fn is_dynamic(&self) -> bool {
-        matches!(&self.mesh_data, MeshDataState::Dynamic(_, _))
+        !self.unload_after_gpu_upload
     }
 }
 
@@ -512,7 +514,7 @@ pub fn mesh_resource_provider_system(
                 if let Some(mesh) = meshes.get(handle) {
                     // don't unload buffers from meshes without a local copy
                     // since they won't be re added anymore.
-                    if mesh.is_dynamic() {
+                    if mesh.has_local_data() {
                         changed_meshes.insert(handle.clone_weak());
                         remove_current_mesh_resources(render_resource_context, handle);
                     }
@@ -530,10 +532,10 @@ pub fn mesh_resource_provider_system(
     // update changed mesh data
     for changed_mesh_handle in changed_meshes.iter() {
         if let Some(mesh) = meshes.get(changed_mesh_handle) {
-            if mesh.allow_local_unload && mesh.is_dynamic() {
+            if mesh.unload_after_gpu_upload && mesh.has_local_data() {
                 meshes_to_unload_locally.insert(changed_mesh_handle.clone_weak());
             }
-            if !mesh.is_dynamic() {
+            if !mesh.has_local_data() {
                 continue;
             }
             // TODO: check for individual buffer changes in non-interleaved mode
@@ -597,7 +599,7 @@ pub fn mesh_resource_provider_system(
     // unload local copies of meshes
     for mesh in meshes_to_unload_locally.iter() {
         if let Some(mesh) = meshes.get_mut(mesh) {
-            mesh.mesh_data = MeshDataState::StaticGpuOnly;
+            mesh.mesh_data = MeshDataState::GpuOnly;
         }
     }
 }
