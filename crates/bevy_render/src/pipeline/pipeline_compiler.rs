@@ -359,7 +359,9 @@ impl PipelineCompiler {
 
 fn panic_shader_error(error: ShaderError) -> ! {
     let msg = error.to_string();
-    let msg = msg.trim_end().trim_end_matches("Debug log:"); // if this matches, then there wasn't a debug log anyways
-    let msg = msg.trim_end();
+    let msg = msg
+        .trim_end()
+        .trim_end_matches("Debug log:") // if this matches, then there wasn't a debug log anyways
+        .trim_end();
     panic!("{}\n", msg);
 }
