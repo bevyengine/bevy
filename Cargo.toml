@@ -79,6 +79,9 @@ subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
 bevy_dylib = {path = "crates/bevy_dylib", version = "0.4.0", default-features = false, optional = true}
 bevy_internal = {path = "crates/bevy_internal", version = "0.4.0", default-features = false}
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+syn = "=1.0.65"
+
 [dev-dependencies]
 anyhow = "1.0"
 rand = "0.8.0"
