@@ -395,7 +395,7 @@ impl MeshData {
 ///
 /// Example of constructing a mesh:
 /// ```
-/// # use bevy_render::mesh::{Mesh, Indices};
+/// # use bevy_render::mesh::{Mesh, Indices, MeshData};
 /// # use bevy_render::pipeline::PrimitiveTopology;
 /// fn create_triangle() -> Mesh {
 ///     
