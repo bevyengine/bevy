@@ -80,7 +80,6 @@ where
     }
 
     pub fn new_archetype(&mut self, archetype: &Archetype) {
-        let table_index = archetype.table_id().index();
         if self.fetch_state.matches_archetype(archetype)
             && self.filter_state.matches_archetype(archetype)
         {
@@ -88,9 +87,13 @@ where
                 .update_archetype_component_access(archetype, &mut self.archetype_component_access);
             self.filter_state
                 .update_archetype_component_access(archetype, &mut self.archetype_component_access);
-            self.matched_archetypes.grow(archetype.id().index() + 1);
-            self.matched_archetypes.set(archetype.id().index(), true);
-            self.matched_archetype_ids.push(archetype.id());
+            let archetype_index = archetype.id().index();
+            if !self.matched_archetypes.contains(archetype_index) {
+                self.matched_archetypes.grow(archetype_index + 1);
+                self.matched_archetypes.set(archetype_index, true);
+                self.matched_archetype_ids.push(archetype.id());
+            }
+            let table_index = archetype.table_id().index();
             if !self.matched_tables.contains(table_index) {
                 self.matched_tables.grow(table_index + 1);
                 self.matched_tables.set(table_index, true);
