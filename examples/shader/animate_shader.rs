@@ -11,7 +11,7 @@ use bevy::{
 };
 
 /// This example shows how to animate a shader, by passing the global `time.seconds_since_startup()`
-/// via a 'TimeComponent` to the shader
+/// via a 'TimeComponent` to the shader.
 pub fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
@@ -78,30 +78,30 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut render_graph: ResMut<RenderGraph>,
 ) {
-    // Create a new shader pipeline
+    // Create a new shader pipeline.
     let pipeline_handle = pipelines.add(PipelineDescriptor::default_config(ShaderStages {
         vertex: shaders.add(Shader::from_glsl(ShaderStage::Vertex, VERTEX_SHADER)),
         fragment: Some(shaders.add(Shader::from_glsl(ShaderStage::Fragment, FRAGMENT_SHADER))),
     }));
 
-    // Add a `RenderResourcesNode` to our `RenderGraph`. This will bind `TimeComponent` to our shader
+    // Add a `RenderResourcesNode` to our `RenderGraph`. This will bind `TimeComponent` to our shader.
     render_graph.add_system_node(
         "time_component",
         RenderResourcesNode::<TimeComponent>::new(true),
     );
 
     // Add a `RenderGraph` edge connecting our new "time_component" node to the main pass node. This
-    // ensures that "time_component" runs before the main pass
+    // ensures that "time_component" runs before the main pass.
     render_graph
         .add_node_edge("time_component", base::node::MAIN_PASS)
         .unwrap();
 
-    // Spawn a quad and insert the `TimeComponent`
+    // Spawn a quad and insert the `TimeComponent`.
     commands
         .spawn_bundle(MeshBundle {
             mesh: meshes.add(Mesh::from(shape::Quad {
-                size: Vec2::new(5.0, 5.0),
-                flip: true,
+                size: Vec2::new(400.0, 400.0),
+                flip: false,
             })),
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 pipeline_handle,
@@ -111,11 +111,8 @@ fn setup(
         })
         .insert(TimeComponent { value: 0.0 });
 
-    // Spawn a camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(0.0, 0.0, -8.0).looking_at(Vec3::ZERO, -Vec3::Y),
-        ..Default::default()
-    });
+    // Spawn a camera.
+    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
 }
 
 /// In this system we query for the `TimeComponent` and global `Time` resource, and set `time.seconds_since_startup()`
