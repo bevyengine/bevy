@@ -399,7 +399,7 @@ impl MeshData {
 /// # use bevy_render::pipeline::PrimitiveTopology;
 /// fn create_triangle() -> Mesh {
 ///     
-///     let mut mesh = MeshData::default();
+///     let mut mesh_data = MeshData::default();
 ///     mesh_data.set_attribute(MeshData::ATTRIBUTE_POSITION, vec![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]]);
 ///     mesh_data.set_indices(Some(Indices::U32(vec![0,1,2])));
 ///     Mesh::new_static(PrimitiveTopology::TriangleList, mesh_data)
