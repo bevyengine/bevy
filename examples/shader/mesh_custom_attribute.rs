@@ -88,45 +88,48 @@ fn setup(
     let mut cube_with_vertex_colors = Mesh::from(shape::Cube { size: 2.0 });
 
     // insert our custom color attribute with some nice colors!
-    cube_with_vertex_colors.set_attribute(
-        // name of the attribute
-        "Vertex_Color",
-        // the vertex attributes, represented by `VertexAttributeValues`
-        // NOTE: the attribute count has to be consistent across all attributes, otherwise bevy
-        // will panic.
-        VertexAttributeValues::from(vec![
-            // top
-            [0.79, 0.73, 0.07],
-            [0.74, 0.14, 0.29],
-            [0.08, 0.55, 0.74],
-            [0.20, 0.27, 0.29],
-            // bottom
-            [0.79, 0.73, 0.07],
-            [0.74, 0.14, 0.29],
-            [0.08, 0.55, 0.74],
-            [0.20, 0.27, 0.29],
-            // right
-            [0.79, 0.73, 0.07],
-            [0.74, 0.14, 0.29],
-            [0.08, 0.55, 0.74],
-            [0.20, 0.27, 0.29],
-            // left
-            [0.79, 0.73, 0.07],
-            [0.74, 0.14, 0.29],
-            [0.08, 0.55, 0.74],
-            [0.20, 0.27, 0.29],
-            // front
-            [0.79, 0.73, 0.07],
-            [0.74, 0.14, 0.29],
-            [0.08, 0.55, 0.74],
-            [0.20, 0.27, 0.29],
-            // back
-            [0.79, 0.73, 0.07],
-            [0.74, 0.14, 0.29],
-            [0.08, 0.55, 0.74],
-            [0.20, 0.27, 0.29],
-        ]),
-    );
+    cube_with_vertex_colors
+        .get_mesh_data_mut()
+        .unwrap()
+        .set_attribute(
+            // name of the attribute
+            "Vertex_Color",
+            // the vertex attributes, represented by `VertexAttributeValues`
+            // NOTE: the attribute count has to be consistent across all attributes, otherwise bevy
+            // will panic.
+            VertexAttributeValues::from(vec![
+                // top
+                [0.79, 0.73, 0.07],
+                [0.74, 0.14, 0.29],
+                [0.08, 0.55, 0.74],
+                [0.20, 0.27, 0.29],
+                // bottom
+                [0.79, 0.73, 0.07],
+                [0.74, 0.14, 0.29],
+                [0.08, 0.55, 0.74],
+                [0.20, 0.27, 0.29],
+                // right
+                [0.79, 0.73, 0.07],
+                [0.74, 0.14, 0.29],
+                [0.08, 0.55, 0.74],
+                [0.20, 0.27, 0.29],
+                // left
+                [0.79, 0.73, 0.07],
+                [0.74, 0.14, 0.29],
+                [0.08, 0.55, 0.74],
+                [0.20, 0.27, 0.29],
+                // front
+                [0.79, 0.73, 0.07],
+                [0.74, 0.14, 0.29],
+                [0.08, 0.55, 0.74],
+                [0.20, 0.27, 0.29],
+                // back
+                [0.79, 0.73, 0.07],
+                [0.74, 0.14, 0.29],
+                [0.08, 0.55, 0.74],
+                [0.20, 0.27, 0.29],
+            ]),
+        );
     // cube
     commands
         .spawn_bundle(MeshBundle {

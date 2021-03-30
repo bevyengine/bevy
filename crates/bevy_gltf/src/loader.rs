@@ -33,6 +33,7 @@ use std::{
 use thiserror::Error;
 
 use crate::{Gltf, GltfNode};
+use bevy_render::mesh::MeshData;
 
 /// An error that occurs when loading a GLTF file
 #[derive(Error, Debug)]
@@ -112,40 +113,41 @@ async fn load_gltf<'a, 'b>(
             let reader = primitive.reader(|buffer| Some(&buffer_data[buffer.index()]));
             let primitive_topology = get_primitive_topology(primitive.mode())?;
 
-            let mut mesh = Mesh::new(primitive_topology);
+            let mut mesh_data = MeshData::default();
 
             if let Some(vertex_attribute) = reader
                 .read_positions()
                 .map(|v| VertexAttributeValues::Float3(v.collect()))
             {
-                mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, vertex_attribute);
+                mesh_data.set_attribute(MeshData::ATTRIBUTE_POSITION, vertex_attribute);
             }
 
             if let Some(vertex_attribute) = reader
                 .read_normals()
                 .map(|v| VertexAttributeValues::Float3(v.collect()))
             {
-                mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, vertex_attribute);
+                mesh_data.set_attribute(MeshData::ATTRIBUTE_NORMAL, vertex_attribute);
             }
 
             if let Some(vertex_attribute) = reader
                 .read_tangents()
                 .map(|v| VertexAttributeValues::Float4(v.collect()))
             {
-                mesh.set_attribute(Mesh::ATTRIBUTE_TANGENT, vertex_attribute);
+                mesh_data.set_attribute(MeshData::ATTRIBUTE_TANGENT, vertex_attribute);
             }
 
             if let Some(vertex_attribute) = reader
                 .read_tex_coords(0)
                 .map(|v| VertexAttributeValues::Float2(v.into_f32().collect()))
             {
-                mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, vertex_attribute);
+                mesh_data.set_attribute(MeshData::ATTRIBUTE_UV_0, vertex_attribute);
             }
 
             if let Some(indices) = reader.read_indices() {
-                mesh.set_indices(Some(Indices::U32(indices.into_u32().collect())));
+                mesh_data.set_indices(Some(Indices::U32(indices.into_u32().collect())));
             };
 
+            let mesh = Mesh::new_static(primitive_topology, mesh_data);
             let mesh = load_context.set_labeled_asset(&primitive_label, LoadedAsset::new(mesh));
             primitives.push(super::GltfPrimitive {
                 mesh,

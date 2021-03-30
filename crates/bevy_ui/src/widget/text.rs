@@ -159,7 +159,7 @@ pub fn draw_text_system(
     };
 
     let font_quad = meshes.get(&QUAD_HANDLE).unwrap();
-    let vertex_buffer_layout = font_quad.get_vertex_buffer_layout();
+    let vertex_buffer_layout = font_quad.meta().get_vertex_buffer_layout();
 
     for (entity, mut draw, visible, text, node, global_transform) in query.iter_mut() {
         if !visible.is_visible {

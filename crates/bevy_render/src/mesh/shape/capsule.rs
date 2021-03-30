@@ -1,5 +1,5 @@
 use crate::{
-    mesh::{Indices, Mesh},
+    mesh::{Indices, Mesh, MeshData},
     pipeline::PrimitiveTopology,
 };
 use bevy_math::{Vec2, Vec3};
@@ -371,11 +371,11 @@ impl From<Capsule> for Mesh {
         assert_eq!(vs.len(), vert_len);
         assert_eq!(tris.len(), fs_len);
 
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-        mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, vs);
-        mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, vns);
-        mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, vts);
-        mesh.set_indices(Some(Indices::U32(tris)));
-        mesh
+        let mut data = MeshData::default();
+        data.set_attribute(MeshData::ATTRIBUTE_POSITION, vs);
+        data.set_attribute(MeshData::ATTRIBUTE_NORMAL, vns);
+        data.set_attribute(MeshData::ATTRIBUTE_UV_0, vts);
+        data.set_indices(Some(Indices::U32(tris)));
+        Mesh::new_dynamic(PrimitiveTopology::TriangleList, data)
     }
 }

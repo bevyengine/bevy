@@ -1,3 +1,4 @@
+use crate::mesh::MeshData;
 use crate::{
     mesh::{Indices, Mesh},
     pipeline::PrimitiveTopology,
@@ -84,11 +85,12 @@ impl From<Torus> for Mesh {
             }
         }
 
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-        mesh.set_indices(Some(Indices::U32(indices)));
-        mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-        mesh
+        let mut data = MeshData::default();
+        data.set_attribute(MeshData::ATTRIBUTE_POSITION, positions);
+        data.set_attribute(MeshData::ATTRIBUTE_NORMAL, normals);
+        data.set_attribute(MeshData::ATTRIBUTE_UV_0, uvs);
+        data.set_indices(Some(Indices::U32(indices)));
+
+        Mesh::new_dynamic(PrimitiveTopology::TriangleList, data)
     }
 }

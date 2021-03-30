@@ -1,6 +1,5 @@
 use crate::{
     draw::DrawContext,
-    mesh::Indices,
     pipeline::{PipelineDescriptor, PipelineSpecialization, RenderPipeline},
     prelude::*,
     shader::Shader,
@@ -94,7 +93,7 @@ pub fn draw_wireframes_system(
                     .iter_dynamic_bindings()
                     .map(|name| name.to_string())
                     .collect::<HashSet<String>>(),
-                vertex_buffer_layout: mesh.get_vertex_buffer_layout(),
+                vertex_buffer_layout: mesh.meta().get_vertex_buffer_layout(),
             },
         );
         render_pipeline.dynamic_bindings_generation =
@@ -114,10 +113,9 @@ pub fn draw_wireframes_system(
             .set_vertex_buffers_from_bindings(&mut draw, &[&render_pipelines.bindings])
             .unwrap();
 
-        match mesh.indices() {
-            Some(Indices::U32(indices)) => draw.draw_indexed(0..indices.len() as u32, 0, 0..1),
-            Some(Indices::U16(indices)) => draw.draw_indexed(0..indices.len() as u32, 0, 0..1),
-            None => draw.draw(0..mesh.get_vertices_count() as u32, 0..1),
+        match mesh.meta().get_index_count() {
+            Some(index_count) => draw.draw_indexed(0..index_count, 0, 0..1),
+            None => draw.draw(0..mesh.meta().get_vertices_count() as u32, 0..1),
         };
     };
 

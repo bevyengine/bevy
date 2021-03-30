@@ -152,10 +152,10 @@ pub fn draw_render_pipelines_system(
                 .set_vertex_buffers_from_bindings(&mut draw, &[&render_pipelines.bindings])
                 .unwrap();
 
-            if let Some(indices) = mesh.get_indices_count() {
-                draw.draw_indexed(0..indices, 0, 0..1);
+            if let Some(indices_count) = mesh.meta().get_index_count() {
+                draw.draw_indexed(0..indices_count, 0, 0..1);
             } else {
-                draw.draw(0..mesh.get_vertices_count() as u32, 0..1)
+                draw.draw(0..mesh.meta().get_vertices_count() as u32, 0..1)
             }
         }
     }
