@@ -74,9 +74,9 @@ fn setup(
                 TextSection {
                     value: "Score: ".to_string(),
                     style: TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 40.0,
                         color: Color::rgb(0.5, 0.5, 1.0),
+                        ..Default::default()
                     },
                 },
                 TextSection {

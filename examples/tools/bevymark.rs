@@ -61,33 +61,33 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextSection {
                     value: "Bird Count: ".to_string(),
                     style: TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 40.0,
                         color: Color::rgb(0.0, 1.0, 0.0),
+                        ..Default::default()
                     },
                 },
                 TextSection {
                     value: "".to_string(),
                     style: TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 40.0,
                         color: Color::rgb(0.0, 1.0, 1.0),
+                        ..Default::default()
                     },
                 },
                 TextSection {
                     value: "\nAverage FPS: ".to_string(),
                     style: TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 40.0,
                         color: Color::rgb(0.0, 1.0, 0.0),
+                        ..Default::default()
                     },
                 },
                 TextSection {
                     value: "".to_string(),
                     style: TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 40.0,
                         color: Color::rgb(0.0, 1.0, 1.0),
+                        ..Default::default()
                     },
                 },
             ],

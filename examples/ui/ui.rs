@@ -60,9 +60,9 @@ fn setup(
                                 text: Text::with_section(
                                     "Text Example",
                                     TextStyle {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                         font_size: 30.0,
                                         color: Color::WHITE,
+                                        ..Default::default()
                                     },
                                     Default::default(),
                                 ),

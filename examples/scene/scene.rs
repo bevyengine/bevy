@@ -112,9 +112,9 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         text: Text::with_section(
             "Nothing to see in this window! Check the console output!",
             TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 50.0,
                 color: Color::WHITE,
+                ..Default::default()
             },
             Default::default(),
         ),

@@ -43,9 +43,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 // Accepts a `String` or any type that converts into a `String`, such as `&str`
                 "hello\nbevy!",
                 TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 100.0,
                     color: Color::WHITE,
+                    ..Default::default()
                 },
                 // Note: You can use `Default::default()` in place of the `TextAlignment`
                 TextAlignment {
@@ -70,9 +70,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TextSection {
                         value: "FPS: ".to_string(),
                         style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 60.0,
                             color: Color::WHITE,
+                            ..Default::default()
                         },
                     },
                     TextSection {

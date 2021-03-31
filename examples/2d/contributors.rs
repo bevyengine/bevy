@@ -123,17 +123,17 @@ fn setup(
                     TextSection {
                         value: "Contributor showcase".to_string(),
                         style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 60.0,
                             color: Color::WHITE,
+                            ..Default::default()
                         },
                     },
                     TextSection {
                         value: "".to_string(),
                         style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 60.0,
                             color: Color::WHITE,
+                            ..Default::default()
                         },
                     },
                 ],

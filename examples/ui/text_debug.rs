@@ -1,3 +1,4 @@
+use bevy::text::DEFAULT_FONT_HANDLE;
 use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
@@ -19,8 +20,8 @@ fn main() {
 
 struct TextChanges;
 
-fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+fn infotext_system(mut commands: Commands) {
+    let font = DEFAULT_FONT_HANDLE.typed();
     commands.spawn_bundle(UiCameraBundle::default());
     commands.spawn_bundle(TextBundle {
         style: Style {

@@ -82,9 +82,9 @@ fn setup(
                 text: Text::with_section(
                     "Button",
                     TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 40.0,
                         color: Color::rgb(0.9, 0.9, 0.9),
+                        ..Default::default()
                     },
                     Default::default(),
                 ),
