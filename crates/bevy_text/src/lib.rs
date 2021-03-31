@@ -43,5 +43,8 @@ impl Plugin for TextPlugin {
             .insert_resource(DefaultTextPipeline::default())
             .add_system_to_stage(CoreStage::PostUpdate, text2d_system.system())
             .add_system_to_stage(RenderStage::Draw, text2d::draw_text2d_system.system());
+
+        #[cfg(feature = "bevy_default_assets")]
+        text::default_font::load_default_font(app);
     }
 }

@@ -41,6 +41,9 @@ x11 = ["bevy_winit/x11"]
 # enable rendering of font glyphs using subpixel accuracy
 subpixel_glyph_atlas = ["bevy_text/subpixel_glyph_atlas"]
 
+# include default bevy assets
+bevy_default_assets = ["bevy_text/bevy_default_assets"]
+
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.4.0" }

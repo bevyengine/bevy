@@ -14,6 +14,7 @@ keywords = ["bevy"]
 
 [features]
 subpixel_glyph_atlas = []
+bevy_default_assets = []
 
 [dependencies]
 # bevy

@@ -1,5 +1,6 @@
-use bevy_asset::Handle;
+use bevy_asset::{Handle, HandleUntyped};
 use bevy_math::Size;
+use bevy_reflect::TypeUuid;
 use bevy_render::color::Color;
 use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
 
@@ -91,9 +92,16 @@ pub struct TextStyle {
     pub color: Color,
 }
 
+#[cfg(feature = "bevy_default_assets")]
+pub const DEFAULT_FONT_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(crate::font::Font::TYPE_UUID, 12210261929130131812);
+
 impl Default for TextStyle {
     fn default() -> Self {
         Self {
+            #[cfg(feature = "bevy_default_assets")]
+            font: DEFAULT_FONT_HANDLE.typed(),
+            #[cfg(not(feature = "bevy_default_assets"))]
             font: Default::default(),
             font_size: 12.0,
             color: Color::WHITE,
@@ -104,4 +112,23 @@ impl Default for TextStyle {
 #[derive(Default, Copy, Clone, Debug)]
 pub struct Text2dSize {
     pub size: Size,
+}
+
+#[cfg(feature = "bevy_default_assets")]
+pub(crate) mod default_font {
+    use crate::{Font, DEFAULT_FONT_HANDLE};
+    use ab_glyph::{FontArc, FontRef};
+    use bevy_app::AppBuilder;
+    use bevy_asset::Assets;
+
+    pub(crate) fn load_default_font(app: &mut AppBuilder) {
+        let world = app.world_mut();
+        let world_cell = world.cell();
+        let mut fonts = world_cell.get_resource_mut::<Assets<Font>>().unwrap();
+        let font_bytes = include_bytes!("assets/fonts/FiraSans-Bold.ttf");
+        let font = FontRef::try_from_slice(font_bytes).unwrap();
+        let font = FontArc::new(font);
+        let font = Font { font };
+        fonts.set_untracked(DEFAULT_FONT_HANDLE, font);
+    }
 }
