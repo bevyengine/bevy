@@ -39,6 +39,7 @@ anyhow = "1.0"
 hex = "0.4.2"
 hexasphere = "3.4"
 parking_lot = "0.11.0"
+mikktspace = { git = "https://github.com/gltf-rs/mikktspace", default-features = false, features = ["glam"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 spirv-reflect = "0.2.3"
