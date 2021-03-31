@@ -49,6 +49,13 @@ impl SystemSet {
         Self::new().with_run_criteria(State::<T>::on_inactive_update(s))
     }
 
+    pub fn on_in_stack_update<T>(s: T) -> SystemSet
+    where
+        T: Component + Debug + Clone + Eq + Hash,
+    {
+        Self::new().with_run_criteria(State::<T>::on_in_stack_update(s))
+    }
+
     pub fn on_enter<T>(s: T) -> SystemSet
     where
         T: Component + Debug + Clone + Eq + Hash,
