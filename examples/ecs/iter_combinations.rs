@@ -114,8 +114,9 @@ fn generate_bodies(
 }
 
 fn interact_bodies(mut query: Query<(&Mass, &GlobalTransform, &mut Velocity)>) {
-    for [(Mass(m1), transform1, mut vel1), (Mass(m2), transform2, mut vel2)] in
-        query.iter_combinations_mut()
+    let mut iter = query.iter_combinations_mut();
+    while let Some([(Mass(m1), transform1, mut vel1), (Mass(m2), transform2, mut vel2)]) =
+        iter.next()
     {
         let delta = transform2.translation - transform1.translation;
         let distance_sq: f32 = delta.length_squared();

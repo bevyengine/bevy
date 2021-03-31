@@ -1,6 +1,6 @@
 use crate::{
     archetype::{ArchetypeId, Archetypes},
-    query::{Fetch, FilterFetch, QueryState, WorldQuery},
+    query::{Fetch, FilterFetch, QueryState, ReadOnlyFetch, WorldQuery},
     storage::{TableId, Tables},
     world::World,
 };
@@ -126,62 +126,101 @@ where
             cursors,
         }
     }
+
+    /// Safety:
+    /// The lifetime here is not restrictive enough for Fetch with &mut access,
+    /// as calling `next_aliased_unchecked` multiple times can produce multiple
+    /// references to the same component, leading to unique reference aliasing.
+    ///.
+    /// It is always safe for shared access.
+    unsafe fn next_aliased_unchecked<'a>(&mut self) -> Option<[<Q::Fetch as Fetch<'a>>::Item; K]>
+    where
+        Q::Fetch: Clone,
+        F::Fetch: Clone,
+    {
+        if K == 0 {
+            return None;
+        }
+
+        // first, iterate from last to first until next item is found
+        'outer: for i in (0..K).rev() {
+            match self.cursors[i].next(&self.tables, &self.archetypes, &self.query_state) {
+                Some(_) => {
+                    // walk forward up to last element, propagating cursor state forward
+                    for j in (i + 1)..K {
+                        self.cursors[j] = self.cursors[j - 1].clone();
+                        match self.cursors[j].next(
+                            &self.tables,
+                            &self.archetypes,
+                            &self.query_state,
+                        ) {
+                            Some(_) => {}
+                            None if i > 0 => continue 'outer,
+                            None => return None,
+                        }
+                    }
+                    break;
+                }
+                None if i > 0 => continue,
+                None => return None,
+            }
+        }
+
+        // MaybeUninit::uninit_array is unstable
+        let mut values: [MaybeUninit<<Q::Fetch as Fetch<'a>>::Item>; K] =
+            MaybeUninit::uninit().assume_init();
+
+        for (value, cursor) in values.iter_mut().zip(&mut self.cursors) {
+            value.as_mut_ptr().write(cursor.peek_last().unwrap());
+        }
+
+        // MaybeUninit::array_assume_init is unstable
+        let values: [<Q::Fetch as Fetch<'a>>::Item; K] =
+            (&values as *const _ as *const [<Q::Fetch as Fetch<'a>>::Item; K]).read();
+
+        Some(values)
+    }
+
+    /// Get next combination of queried components
+    pub fn next<'a>(&'a mut self) -> Option<[<Q::Fetch as Fetch<'a>>::Item; K]>
+    where
+        Q::Fetch: Clone,
+        F::Fetch: Clone,
+    {
+        // safety: we are limiting the returned reference to self,
+        // making sure this method cannot be called multiple times without getting rid
+        // of any previously returned unique references first, thus preventing aliasing.
+        unsafe { self.next_aliased_unchecked() }
+    }
+
+    /// Iterate over all combinations of queried components.
+    pub fn for_each(mut self, mut f: impl FnMut([<Q::Fetch as Fetch<'_>>::Item; K]))
+    where
+        Q::Fetch: Clone,
+        F::Fetch: Clone,
+    {
+        // safety: the fetch lifetime is limited to the closure, preventing aliasing
+        while let Some(next) = unsafe { self.next_aliased_unchecked() } {
+            f(next)
+        }
+    }
 }
 
+// Iterator type is intentionally implemented only for read-only access.
+// Doing so for mutable references would be unsound, because
+// calling `next` multiple times would allow
 impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> Iterator
     for QueryCombinationIter<'w, 's, Q, F, K>
 where
-    F::Fetch: FilterFetch,
-    Q::Fetch: Clone,
-    F::Fetch: Clone,
+    Q::Fetch: Clone + ReadOnlyFetch,
+    F::Fetch: Clone + FilterFetch + ReadOnlyFetch,
 {
     type Item = [<Q::Fetch as Fetch<'w>>::Item; K];
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        if K == 0 {
-            return None;
-        }
-
-        unsafe {
-            // first, iterate from last to first until next item is found
-            'outer: for i in (0..K).rev() {
-                match self.cursors[i].next(&self.tables, &self.archetypes, &self.query_state) {
-                    Some(_) => {
-                        // walk forward up to last element, propagating cursor state forward
-                        for j in (i + 1)..K {
-                            self.cursors[j] = self.cursors[j - 1].clone();
-                            match self.cursors[j].next(
-                                &self.tables,
-                                &self.archetypes,
-                                &self.query_state,
-                            ) {
-                                Some(_) => {}
-                                None if i > 0 => continue 'outer,
-                                None => return None,
-                            }
-                        }
-                        break;
-                    }
-                    None if i > 0 => continue,
-                    None => return None,
-                }
-            }
-
-            // MaybeUninit::uninit_array is unstable
-            let mut values: [MaybeUninit<<Q::Fetch as Fetch<'w>>::Item>; K] =
-                MaybeUninit::uninit().assume_init();
-
-            for (value, cursor) in values.iter_mut().zip(&mut self.cursors) {
-                value.as_mut_ptr().write(cursor.peek_last().unwrap());
-            }
-
-            // MaybeUninit::array_assume_init is unstable
-            let values: [<Q::Fetch as Fetch<'w>>::Item; K] =
-                (&values as *const _ as *const [<Q::Fetch as Fetch<'w>>::Item; K]).read();
-
-            Some(values)
-        }
+        // Safety: it is safe to alias for ReadOnlyFetch
+        unsafe { QueryCombinationIter::next_aliased_unchecked(self) }
     }
 
     // NOTE: For unfiltered Queries this should actually return a exact size hint,

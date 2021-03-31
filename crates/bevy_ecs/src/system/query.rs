@@ -193,7 +193,23 @@ where
     }
 
     /// Iterates over all possible combinations of `K` query results without repetition.
-    /// See [`Query::iter_combinations`].
+    ///
+    /// The returned value is not an `Iterator`, because that would lead to aliasing of mutable references.
+    /// In order to iterate it, use `for_each` method or `while let Some(..)` pattern.
+    ///
+    /// ```rust,no_run
+    /// // iterate using for_each
+    /// query.iter_combinations_mut().for_each(|[components_a, components_b]| {
+    ///    // mutably access components data
+    /// });
+    ///
+    /// // iterate using while loop
+    /// let mut combinations = query.iter_combinations_mut();
+    /// while let Some([components_a, components_b]) = combinations.next() {
+    ///    // mutably access components data
+    /// }
+    /// ```
+    /// For immutable access see [`Query::iter_combinations`].
     #[inline]
     pub fn iter_combinations_mut<const K: usize>(
         &mut self,

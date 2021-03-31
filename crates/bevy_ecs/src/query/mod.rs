@@ -107,11 +107,23 @@ mod tests {
             ]
         );
 
-        for [mut a, mut b, mut c] in world.query::<&mut A>().iter_combinations_mut(&mut world) {
+        let mut query = world.query::<&mut A>();
+        let mut combinations = query.iter_combinations_mut::<3>(&mut world);
+
+        while let Some([mut a, mut b, mut c]) = combinations.next() {
             a.0 += 10;
             b.0 += 100;
             c.0 += 1000;
         }
+
+        world
+            .query::<&mut A>()
+            .iter_combinations_mut(&mut world)
+            .for_each(|[mut a, mut b, mut c]| {
+                a.0 += 10;
+                b.0 += 100;
+                c.0 += 1000;
+            });
 
         let values: Vec<[&A; 3]> = a_query.iter_combinations(&world).collect();
         assert_eq!(
