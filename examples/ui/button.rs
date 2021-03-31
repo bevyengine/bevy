@@ -55,11 +55,7 @@ fn button_system(
     }
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    button_materials: Res<ButtonMaterials>,
-) {
+fn setup(mut commands: Commands, button_materials: Res<ButtonMaterials>) {
     // ui camera
     commands.spawn_bundle(UiCameraBundle::default());
     commands

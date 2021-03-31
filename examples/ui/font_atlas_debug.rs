@@ -1,3 +1,4 @@
+use bevy::text::DEFAULT_FONT_HANDLE;
 use bevy::{prelude::*, text::FontAtlasSet};
 
 // TODO: This is now broken. See #1243
@@ -77,8 +78,8 @@ fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Quer
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResMut<State>) {
-    state.handle = font_handle.clone();
+fn setup(mut commands: Commands, mut state: ResMut<State>) {
+    state.handle = DEFAULT_FONT_HANDLE.typed();
     commands.spawn_bundle(UiCameraBundle::default());
     commands.spawn_bundle(TextBundle {
         text: Text::with_section(

@@ -29,11 +29,7 @@ struct MenuData {
     button_entity: Entity,
 }
 
-fn setup_menu(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    button_materials: Res<ButtonMaterials>,
-) {
+fn setup_menu(mut commands: Commands, button_materials: Res<ButtonMaterials>) {
     // ui camera
     commands.spawn_bundle(UiCameraBundle::default());
     let button_entity = commands

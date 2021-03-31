@@ -87,9 +87,6 @@ impl Plugin for UiPlugin {
             )
             .add_system_to_stage(RenderStage::Draw, widget::draw_text_system.system());
 
-        #[cfg(feature = "bevy_default_assets")]
-        default_font::load_default_font(app);
-
         crate::render::add_ui_graph(app.world_mut());
     }
 }
