@@ -115,7 +115,7 @@ impl SceneSpawner {
         scene_handle: &Handle<DynamicScene>,
         entity_map: &mut EntityMap,
     ) -> Result<(), SceneSpawnError> {
-        world.resource_scope(|scenes: Mut<Assets<DynamicScene>>, world| {
+        world.resource_scope(|world, scenes: Mut<Assets<DynamicScene>>| {
             let scene =
                 scenes
                     .get(scene_handle)
@@ -145,7 +145,7 @@ impl SceneSpawner {
         };
         let type_registry = world.get_resource::<TypeRegistryArc>().unwrap().clone();
         let type_registry = type_registry.read();
-        world.resource_scope(|scenes: Mut<Assets<Scene>>, world| {
+        world.resource_scope(|world, scenes: Mut<Assets<Scene>>| {
             let scene =
                 scenes
                     .get(&scene_handle)
@@ -297,7 +297,7 @@ impl SceneSpawner {
 }
 
 pub fn scene_spawner_system(world: &mut World) {
-    world.resource_scope(|mut scene_spawner: Mut<SceneSpawner>, world| {
+    world.resource_scope(|world, mut scene_spawner: Mut<SceneSpawner>| {
         let scene_asset_events = world
             .get_resource::<Events<AssetEvent<DynamicScene>>>()
             .unwrap();

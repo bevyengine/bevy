@@ -128,7 +128,7 @@ where
         let query_state = self.query_state.get_or_insert_with(|| world.query());
         let cameras = &self.cameras;
         let commands = &mut self.commands;
-        world.resource_scope(|mut active_cameras: Mut<ActiveCameras>, world| {
+        world.resource_scope(|world, mut active_cameras: Mut<ActiveCameras>| {
             let mut pipeline_camera_commands = HashMap::default();
             let pipelines = world.get_resource::<Assets<PipelineDescriptor>>().unwrap();
             let render_resource_context = &**world

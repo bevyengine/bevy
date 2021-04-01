@@ -658,7 +658,7 @@ impl World {
     /// world.insert_resource(A(1));
     /// let entity = world.spawn().insert(B(1)).id();
     ///
-    /// world.resource_scope(|mut a: Mut<A>, world| {
+    /// world.resource_scope(|world, mut a: Mut<A>| {
     ///     let b = world.get_mut::<B>(entity).unwrap();
     ///     a.0 += b.0;
     /// });
@@ -666,7 +666,7 @@ impl World {
     /// ```
     pub fn resource_scope<T: Component, U>(
         &mut self,
-        f: impl FnOnce(Mut<T>, &mut World) -> U,
+        f: impl FnOnce(&mut World, Mut<T>) -> U,
     ) -> U {
         let component_id = self
             .components
@@ -692,7 +692,7 @@ impl World {
             last_change_tick: self.last_change_tick(),
             change_tick: self.change_tick(),
         };
-        let result = f(value, self);
+        let result = f(self, value);
         let resource_archetype = self.archetypes.resource_mut();
         let unique_components = resource_archetype.unique_components_mut();
         let column = unique_components
