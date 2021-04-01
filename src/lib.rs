@@ -1,6 +1,14 @@
 mod generated;
 
-use nalgebra::{Vector2, Vector3};
+#[cfg(feature = "nalgebra")]
+type Vec3 = nalgebra::Vector3<f32>;
+#[cfg(feature = "nalgebra")]
+type Vec2 = nalgebra::Vector2<f32>;
+
+#[cfg(feature = "glam")]
+type Vec3 = glam::Vec3;
+#[cfg(feature = "glam")]
+type Vec2 = glam::Vec2;
 
 /// The interface by which mikktspace interacts with your geometry.
 pub trait Geometry {
@@ -57,18 +65,22 @@ pub fn generate_tangents<I: Geometry>(geometry: &mut I) -> bool {
     unsafe { generated::genTangSpace(geometry, 180.0) }
 }
 
-fn get_position<I: Geometry>(geometry: &mut I, index: usize) -> Vector3<f32> {
+fn get_position<I: Geometry>(geometry: &mut I, index: usize) -> Vec3 {
     let (face, vert) = index_to_face_vert(index);
     geometry.position(face, vert).into()
 }
 
-fn get_tex_coord<I: Geometry>(geometry: &mut I, index: usize) -> Vector3<f32> {
+fn get_tex_coord<I: Geometry>(geometry: &mut I, index: usize) -> Vec3 {
     let (face, vert) = index_to_face_vert(index);
-    let tex_coord: Vector2<f32> = geometry.tex_coord(face, vert).into();
-    tex_coord.insert_row(2, 1.0)
+    let tex_coord: Vec2 = geometry.tex_coord(face, vert).into();
+    #[cfg(feature = "nalgebra")]
+    let val = tex_coord.insert_row(2, 1.0);
+    #[cfg(feature = "glam")]
+    let val = tex_coord.extend(1.0);
+    val
 }
 
-fn get_normal<I: Geometry>(geometry: &mut I, index: usize) -> Vector3<f32> {
+fn get_normal<I: Geometry>(geometry: &mut I, index: usize) -> Vec3 {
     let (face, vert) = index_to_face_vert(index);
     geometry.normal(face, vert).into()
 }
