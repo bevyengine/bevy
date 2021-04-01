@@ -1,5 +1,5 @@
 use crate::{DynamicScene, Scene};
-use bevy_app::{prelude::*, ManualEventReader};
+use bevy_app::{Events, ManualEventReader};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityMap},
@@ -81,7 +81,8 @@ impl SceneSpawner {
             for instance_id in instance_ids {
                 if let Some(instance) = self.spawned_instances.get(&instance_id) {
                     for entity in instance.entity_map.values() {
-                        let _ = world.despawn(entity); // Ignore the result, despawn only cares if it exists.
+                        let _ = world.despawn(entity); // Ignore the result, despawn only cares if
+                                                       // it exists.
                     }
                 }
             }
@@ -114,7 +115,7 @@ impl SceneSpawner {
         scene_handle: &Handle<DynamicScene>,
         entity_map: &mut EntityMap,
     ) -> Result<(), SceneSpawnError> {
-        world.resource_scope(|scenes: Mut<Assets<DynamicScene>>, world| {
+        world.resource_scope(|world, scenes: Mut<Assets<DynamicScene>>| {
             let scene =
                 scenes
                     .get(scene_handle)
@@ -144,7 +145,7 @@ impl SceneSpawner {
         };
         let type_registry = world.get_resource::<TypeRegistryArc>().unwrap().clone();
         let type_registry = type_registry.read();
-        world.resource_scope(|scenes: Mut<Assets<Scene>>, world| {
+        world.resource_scope(|world, scenes: Mut<Assets<Scene>>| {
             let scene =
                 scenes
                     .get(&scene_handle)
@@ -167,9 +168,15 @@ impl SceneSpawner {
 
                         let reflect_component = type_registry
                             .get(component_info.type_id().unwrap())
-                            .and_then(|registration| registration.data::<ReflectComponent>())
-                            .ok_or_else(|| SceneSpawnError::UnregisteredComponent {
+                            .ok_or_else(|| SceneSpawnError::UnregisteredType {
                                 type_name: component_info.name().to_string(),
+                            })
+                            .and_then(|registration| {
+                                registration.data::<ReflectComponent>().ok_or_else(|| {
+                                    SceneSpawnError::UnregisteredComponent {
+                                        type_name: component_info.name().to_string(),
+                                    }
+                                })
                             })?;
                         reflect_component.copy_component(
                             &scene.world,
@@ -290,7 +297,7 @@ impl SceneSpawner {
 }
 
 pub fn scene_spawner_system(world: &mut World) {
-    world.resource_scope(|mut scene_spawner: Mut<SceneSpawner>, world| {
+    world.resource_scope(|world, mut scene_spawner: Mut<SceneSpawner>| {
         let scene_asset_events = world
             .get_resource::<Events<AssetEvent<DynamicScene>>>()
             .unwrap();

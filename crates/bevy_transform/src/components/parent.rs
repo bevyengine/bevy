@@ -7,13 +7,13 @@ use bevy_reflect::Reflect;
 use std::ops::{Deref, DerefMut};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Reflect)]
-#[reflect(Component, MapEntities)]
+#[reflect(Component, MapEntities, PartialEq)]
 pub struct Parent(pub Entity);
 
 // TODO: We need to impl either FromWorld or Default so Parent can be registered as Properties.
 // This is because Properties deserialize by creating an instance and apply a patch on top.
-// However Parent should only ever be set with a real user-defined entity.  Its worth looking into better
-// ways to handle cases like this.
+// However Parent should only ever be set with a real user-defined entity.  Its worth looking into
+// better ways to handle cases like this.
 impl FromWorld for Parent {
     fn from_world(_world: &mut World) -> Self {
         Parent(Entity::new(u32::MAX))
@@ -42,7 +42,7 @@ impl DerefMut for Parent {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Reflect)]
-#[reflect(Component, MapEntities)]
+#[reflect(Component, MapEntities, PartialEq)]
 pub struct PreviousParent(pub(crate) Entity);
 
 impl MapEntities for PreviousParent {

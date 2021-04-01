@@ -12,14 +12,18 @@ use crate::{
     archetype::{ArchetypeComponentId, ArchetypeComponentInfo, ArchetypeId, Archetypes},
     bundle::{Bundle, Bundles},
     component::{
-        Component, ComponentDescriptor, ComponentFlags, ComponentId, Components, ComponentsError,
+        Component, ComponentDescriptor, ComponentId, ComponentTicks, Components, ComponentsError,
         StorageType,
     },
     entity::{Entities, Entity},
     query::{FilterFetch, QueryState, WorldQuery},
     storage::{Column, SparseSet, Storages},
 };
-use std::{any::TypeId, fmt};
+use std::{
+    any::TypeId,
+    fmt,
+    sync::atomic::{AtomicU32, Ordering},
+};
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct WorldId(u64);
@@ -30,10 +34,11 @@ impl Default for WorldId {
     }
 }
 
-/// [World] stores and exposes operations on [entities](Entity), [components](Component), and their associated metadata.
-/// Each [Entity] has a set of components. Each component can have up to one instance of each component type.
-/// Entity components can be created, updated, removed, and queried using a given [World].
-#[derive(Default)]
+/// [World] stores and exposes operations on [entities](Entity), [components](Component),
+/// and their associated metadata.
+/// Each [Entity] has a set of components. Each component can have up to one instance of each
+/// component type. Entity components can be created, updated, removed, and queried using a given
+/// [World].
 pub struct World {
     id: WorldId,
     pub(crate) entities: Entities,
@@ -45,6 +50,28 @@ pub struct World {
     /// Access cache used by [WorldCell].
     pub(crate) archetype_component_access: ArchetypeComponentAccess,
     main_thread_validator: MainThreadValidator,
+    pub(crate) change_tick: AtomicU32,
+    pub(crate) last_change_tick: u32,
+}
+
+impl Default for World {
+    fn default() -> Self {
+        Self {
+            id: Default::default(),
+            entities: Default::default(),
+            components: Default::default(),
+            archetypes: Default::default(),
+            storages: Default::default(),
+            bundles: Default::default(),
+            removed_components: Default::default(),
+            archetype_component_access: Default::default(),
+            main_thread_validator: Default::default(),
+            // Default value is `1`, and `last_change_tick`s default to `0`, such that changes
+            // are detected on first system runs and for direct world queries.
+            change_tick: AtomicU32::new(1),
+            last_change_tick: 0,
+        }
+    }
 }
 
 impl World {
@@ -96,16 +123,17 @@ impl World {
         &self.bundles
     }
 
-    /// Retrieves a [WorldCell], which safely enables multiple mutable World accesses at the same time,
-    /// provided those accesses do not conflict with each other.
+    /// Retrieves a [WorldCell], which safely enables multiple mutable World accesses at the same
+    /// time, provided those accesses do not conflict with each other.
     #[inline]
     pub fn cell(&mut self) -> WorldCell<'_> {
         WorldCell::new(self)
     }
 
-    /// Registers a new component using the given [ComponentDescriptor]. Components do not need to be manually
-    /// registered. This just provides a way to override default configuration. Attempting to register a component
-    /// with a type that has already been used by [World] will result in an error.
+    /// Registers a new component using the given [ComponentDescriptor]. Components do not need to
+    /// be manually registered. This just provides a way to override default configuration.
+    /// Attempting to register a component with a type that has already been used by [World]
+    /// will result in an error.
     ///
     /// The default component storage type can be overridden like this:
     ///
@@ -267,10 +295,10 @@ impl World {
         let archetype = self.archetypes.empty_mut();
         unsafe {
             // PERF: consider avoiding allocating entities in the empty archetype unless needed
-            // SAFE: archetype tables always exist
-            let table = self.storages.tables.get_unchecked_mut(archetype.table_id());
-            // SAFE: no components are allocated by archetype.allocate() because the archetype is empty
-            let location = archetype.allocate(entity, table.allocate(entity));
+            let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
+            // SAFE: no components are allocated by archetype.allocate() because the archetype is
+            // empty
+            let location = archetype.allocate(entity, table_row);
             // SAFE: entity index was just allocated
             self.entities
                 .meta
@@ -347,8 +375,9 @@ impl World {
         self.get_entity_mut(entity)?.get_mut()
     }
 
-    /// Despawns the given `entity`, if it exists. This will also remove all of the entity's [Component]s.
-    /// Returns `true` if the `entity` is successfully despawned and `false` if the `entity` does not exist.
+    /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
+    /// [Component]s. Returns `true` if the `entity` is successfully despawned and `false` if
+    /// the `entity` does not exist.
     /// ```
     /// use bevy_ecs::world::World;
     ///
@@ -364,6 +393,7 @@ impl World {
     /// assert!(world.despawn(entity));
     /// assert!(world.get_entity(entity).is_none());
     /// assert!(world.get::<Position>(entity).is_none());
+    /// ```
     #[inline]
     pub fn despawn(&mut self, entity: Entity) -> bool {
         self.get_entity_mut(entity)
@@ -374,24 +404,18 @@ impl World {
             .unwrap_or(false)
     }
 
-    /// Clears all component tracker state, such as "added", "mutated", and "removed".
+    /// Clears component tracker state
     pub fn clear_trackers(&mut self) {
-        self.storages.tables.clear_flags();
-        self.storages.sparse_sets.clear_flags();
         for entities in self.removed_components.values_mut() {
             entities.clear();
         }
 
-        let resource_archetype = self.archetypes.resource_mut();
-        for column in resource_archetype.unique_components.values_mut() {
-            column.clear_flags();
-        }
+        self.last_change_tick = self.increment_change_tick();
     }
 
     /// Returns [QueryState] for the given [WorldQuery], which is used to efficiently
-    /// run queries on the [World].
+    /// run queries on the [World] by storing and reusing the [QueryState].
     /// ```
-    ///
     /// use bevy_ecs::{entity::Entity, world::World};
     ///
     /// #[derive(Debug, PartialEq)]
@@ -425,8 +449,8 @@ impl World {
         QueryState::new(self)
     }
 
-    /// Returns [QueryState] for the given [WorldQuery] and filter, which is used to efficiently
-    /// run filtered queries on the [World].
+    /// Returns [QueryState] for the given filtered [WorldQuery], which is used to efficiently
+    /// run queries on the [World] by storing and reusing the [QueryState].
     /// ```
     /// use bevy_ecs::{entity::Entity, world::World, query::With};
     ///
@@ -450,7 +474,8 @@ impl World {
         QueryState::new(self)
     }
 
-    /// Returns an iterator of entities that had components of type `T` removed since the last call to [World::clear_trackers].
+    /// Returns an iterator of entities that had components of type `T` removed
+    /// since the last call to [World::clear_trackers].
     pub fn removed<T: Component>(&self) -> std::iter::Cloned<std::slice::Iter<'_, Entity>> {
         if let Some(component_id) = self.components.get_id(TypeId::of::<T>()) {
             self.removed_with_id(component_id)
@@ -459,7 +484,8 @@ impl World {
         }
     }
 
-    /// Returns an iterator of entities that had components with the given `component_id` removed since the last call to [World::clear_trackers].
+    /// Returns an iterator of entities that had components with the given `component_id` removed
+    /// since the last call to [World::clear_trackers].
     pub fn removed_with_id(
         &self,
         component_id: ComponentId,
@@ -494,6 +520,22 @@ impl World {
     /// Resources are "unique" data of a given type.
     #[inline]
     pub fn remove_resource<T: Component>(&mut self) -> Option<T> {
+        // SAFE: T is Send + Sync
+        unsafe { self.remove_resource_unchecked() }
+    }
+
+    #[inline]
+    pub fn remove_non_send<T: 'static>(&mut self) -> Option<T> {
+        self.validate_non_send_access::<T>();
+        // SAFE: we are on main thread
+        unsafe { self.remove_resource_unchecked() }
+    }
+
+    #[inline]
+    /// # Safety
+    /// make sure you're on main thread if T isn't Send + Sync
+    #[allow(unused_unsafe)]
+    pub unsafe fn remove_resource_unchecked<T: 'static>(&mut self) -> Option<T> {
         let component_id = self.components.get_resource_id(TypeId::of::<T>())?;
         let resource_archetype = self.archetypes.resource_mut();
         let unique_components = resource_archetype.unique_components_mut();
@@ -501,8 +543,8 @@ impl World {
         if column.is_empty() {
             return None;
         }
-        // SAFE: if a resource column exists, row 0 exists as well. caller takes ownership of the ptr value / drop is called when
-        // T is dropped
+        // SAFE: if a resource column exists, row 0 exists as well. caller takes ownership of the
+        // ptr value / drop is called when T is dropped
         let (ptr, _) = unsafe { column.swap_remove_and_forget_unchecked(0) };
         // SAFE: column is of type T
         Some(unsafe { ptr.cast::<T>().read() })
@@ -528,8 +570,22 @@ impl World {
         unsafe { self.get_resource_with_id(component_id) }
     }
 
-    /// Gets a mutable reference to the resource of the given type, if it exists. Otherwise returns [None]
-    /// Resources are "unique" data of a given type.
+    pub fn is_resource_added<T: Component>(&self) -> bool {
+        let component_id = self.components.get_resource_id(TypeId::of::<T>()).unwrap();
+        let column = self.get_populated_resource_column(component_id).unwrap();
+        let ticks = unsafe { &*column.get_ticks_mut_ptr() };
+        ticks.is_added(self.last_change_tick(), self.read_change_tick())
+    }
+
+    pub fn is_resource_changed<T: Component>(&self) -> bool {
+        let component_id = self.components.get_resource_id(TypeId::of::<T>()).unwrap();
+        let column = self.get_populated_resource_column(component_id).unwrap();
+        let ticks = unsafe { &*column.get_ticks_mut_ptr() };
+        ticks.is_changed(self.last_change_tick(), self.read_change_tick())
+    }
+
+    /// Gets a mutable reference to the resource of the given type, if it exists. Otherwise returns
+    /// [None] Resources are "unique" data of a given type.
     #[inline]
     pub fn get_resource_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
         // SAFE: unique world access
@@ -537,7 +593,8 @@ impl World {
     }
 
     // PERF: optimize this to avoid redundant lookups
-    /// Gets a resource of type `T` if it exists, otherwise inserts the resource using the result of calling `func`.
+    /// Gets a resource of type `T` if it exists, otherwise inserts the resource using the result of
+    /// calling `func`.
     #[inline]
     pub fn get_resource_or_insert_with<T: Component>(
         &mut self,
@@ -549,19 +606,20 @@ impl World {
         self.get_resource_mut().unwrap()
     }
 
-    /// Gets a mutable reference to the resource of the given type, if it exists. Otherwise returns [None]
-    /// Resources are "unique" data of a given type.
+    /// Gets a mutable reference to the resource of the given type, if it exists. Otherwise returns
+    /// [None] Resources are "unique" data of a given type.
+    ///
     /// # Safety
-    /// This will allow aliased mutable access to the given resource type. The caller must ensure that only
-    /// one mutable access exists at a time.
+    /// This will allow aliased mutable access to the given resource type. The caller must ensure
+    /// that only one mutable access exists at a time.
     #[inline]
     pub unsafe fn get_resource_unchecked_mut<T: Component>(&self) -> Option<Mut<'_, T>> {
         let component_id = self.components.get_resource_id(TypeId::of::<T>())?;
         self.get_resource_unchecked_mut_with_id(component_id)
     }
 
-    /// Gets a reference to the non-send resource of the given type, if it exists. Otherwise returns [None]
-    /// Resources are "unique" data of a given type.
+    /// Gets a reference to the non-send resource of the given type, if it exists. Otherwise returns
+    /// [None] Resources are "unique" data of a given type.
     #[inline]
     pub fn get_non_send_resource<T: 'static>(&self) -> Option<&T> {
         let component_id = self.components.get_resource_id(TypeId::of::<T>())?;
@@ -569,27 +627,29 @@ impl World {
         unsafe { self.get_non_send_with_id(component_id) }
     }
 
-    /// Gets a mutable reference to the non-send resource of the given type, if it exists. Otherwise returns [None]
-    /// Resources are "unique" data of a given type.
+    /// Gets a mutable reference to the non-send resource of the given type, if it exists. Otherwise
+    /// returns [None] Resources are "unique" data of a given type.
     #[inline]
     pub fn get_non_send_resource_mut<T: 'static>(&mut self) -> Option<Mut<'_, T>> {
         // SAFE: unique world access
         unsafe { self.get_non_send_resource_unchecked_mut() }
     }
 
-    /// Gets a mutable reference to the non-send resource of the given type, if it exists. Otherwise returns [None]
-    /// Resources are "unique" data of a given type.
+    /// Gets a mutable reference to the non-send resource of the given type, if it exists. Otherwise
+    /// returns [None] Resources are "unique" data of a given type.
+    ///
     /// # Safety
-    /// This will allow aliased mutable access to the given non-send resource type. The caller must ensure that only
-    /// one mutable access exists at a time.
+    /// This will allow aliased mutable access to the given non-send resource type. The caller must
+    /// ensure that only one mutable access exists at a time.
     #[inline]
     pub unsafe fn get_non_send_resource_unchecked_mut<T: 'static>(&self) -> Option<Mut<'_, T>> {
         let component_id = self.components.get_resource_id(TypeId::of::<T>())?;
         self.get_non_send_unchecked_mut_with_id(component_id)
     }
 
-    /// Temporarily removes the requested resource from this [World], then re-adds it before returning.
-    /// This enables safe mutable access to a resource while still providing mutable world access
+    /// Temporarily removes the requested resource from this [World], then re-adds it before
+    /// returning. This enables safe mutable access to a resource while still providing mutable
+    /// world access
     /// ```
     /// use bevy_ecs::world::{World, Mut};
     /// struct A(u32);
@@ -598,7 +658,7 @@ impl World {
     /// world.insert_resource(A(1));
     /// let entity = world.spawn().insert(B(1)).id();
     ///
-    /// world.resource_scope(|mut a: Mut<A>, world| {
+    /// world.resource_scope(|world, mut a: Mut<A>| {
     ///     let b = world.get_mut::<B>(entity).unwrap();
     ///     a.0 += b.0;
     /// });
@@ -606,42 +666,44 @@ impl World {
     /// ```
     pub fn resource_scope<T: Component, U>(
         &mut self,
-        f: impl FnOnce(Mut<T>, &mut World) -> U,
+        f: impl FnOnce(&mut World, Mut<T>) -> U,
     ) -> U {
         let component_id = self
             .components
             .get_resource_id(TypeId::of::<T>())
-            .expect("resource does not exist");
-        let (ptr, mut flags) = {
+            .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<T>()));
+        let (ptr, mut ticks) = {
             let resource_archetype = self.archetypes.resource_mut();
             let unique_components = resource_archetype.unique_components_mut();
-            let column = unique_components
-                .get_mut(component_id)
-                .expect("resource does not exist");
+            let column = unique_components.get_mut(component_id).unwrap_or_else(|| {
+                panic!("resource does not exist: {}", std::any::type_name::<T>())
+            });
             if column.is_empty() {
-                panic!("resource does not exist");
+                panic!("resource does not exist: {}", std::any::type_name::<T>());
             }
-            // SAFE: if a resource column exists, row 0 exists as well. caller takes ownership of the ptr value / drop is called when
-            // T is dropped
+            // SAFE: if a resource column exists, row 0 exists as well. caller takes ownership of
+            // the ptr value / drop is called when T is dropped
             unsafe { column.swap_remove_and_forget_unchecked(0) }
         };
         // SAFE: pointer is of type T
         let value = Mut {
             value: unsafe { &mut *ptr.cast::<T>() },
-            flags: &mut flags,
+            component_ticks: &mut ticks,
+            last_change_tick: self.last_change_tick(),
+            change_tick: self.change_tick(),
         };
-        let result = f(value, self);
+        let result = f(self, value);
         let resource_archetype = self.archetypes.resource_mut();
         let unique_components = resource_archetype.unique_components_mut();
         let column = unique_components
             .get_mut(component_id)
-            .expect("resource does not exist");
+            .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<T>()));
         // SAFE: new location is immediately written to below
         let row = unsafe { column.push_uninit() };
         // SAFE: row was just allocated above
         unsafe { column.set_unchecked(row, ptr) };
         // SAFE: row was just allocated above
-        unsafe { *column.get_flags_unchecked_mut(row) = flags };
+        unsafe { *column.get_ticks_unchecked_mut(row) = ticks };
         result
     }
 
@@ -667,7 +729,9 @@ impl World {
         let column = self.get_populated_resource_column(component_id)?;
         Some(Mut {
             value: &mut *column.get_ptr().as_ptr().cast::<T>(),
-            flags: &mut *column.get_flags_mut_ptr(),
+            component_ticks: &mut *column.get_ticks_mut_ptr(),
+            last_change_tick: self.last_change_tick(),
+            change_tick: self.read_change_tick(),
         })
     }
 
@@ -698,6 +762,7 @@ impl World {
     /// `component_id` must be valid and correspond to a resource component of type T
     #[inline]
     unsafe fn insert_resource_with_id<T>(&mut self, component_id: ComponentId, mut value: T) {
+        let change_tick = self.change_tick();
         let column = self.initialize_resource_internal(component_id);
         if column.is_empty() {
             // SAFE: column is of type T and has been allocated above
@@ -707,15 +772,12 @@ impl World {
             // SAFE: index was just allocated above
             column.set_unchecked(row, data);
             std::mem::forget(value);
-            column
-                .get_flags_unchecked_mut(row)
-                .set(ComponentFlags::ADDED, true);
+            // SAFE: index was just allocated above
+            *column.get_ticks_unchecked_mut(row) = ComponentTicks::new(change_tick);
         } else {
             // SAFE: column is of type T and has already been allocated
             *column.get_unchecked(0).cast::<T>() = value;
-            column
-                .get_flags_unchecked_mut(0)
-                .set(ComponentFlags::MUTATED, true);
+            column.get_ticks_unchecked_mut(0).set_changed(change_tick);
         }
     }
 
@@ -779,7 +841,7 @@ impl World {
         })
     }
 
-    fn validate_non_send_access<T: 'static>(&self) {
+    pub(crate) fn validate_non_send_access<T: 'static>(&self) {
         if !self.main_thread_validator.is_main_thread() {
             panic!(
                 "attempted to access NonSend resource {} off of the main thread",
@@ -794,16 +856,45 @@ impl World {
     pub(crate) fn flush(&mut self) {
         let empty_archetype = self.archetypes.empty_mut();
         unsafe {
-            // SAFE: archetype tables always exist
-            let table = self
-                .storages
-                .tables
-                .get_unchecked_mut(empty_archetype.table_id());
+            let table = &mut self.storages.tables[empty_archetype.table_id()];
             // PERF: consider pre-allocating space for flushed entities
             self.entities.flush(|entity, location| {
-                // SAFE: no components are allocated by archetype.allocate() because the archetype is empty
+                // SAFE: no components are allocated by archetype.allocate() because the archetype
+                // is empty
                 *location = empty_archetype.allocate(entity, table.allocate(entity));
             });
+        }
+    }
+
+    #[inline]
+    pub fn increment_change_tick(&self) -> u32 {
+        self.change_tick.fetch_add(1, Ordering::AcqRel)
+    }
+
+    #[inline]
+    pub fn read_change_tick(&self) -> u32 {
+        self.change_tick.load(Ordering::Acquire)
+    }
+
+    #[inline]
+    pub fn change_tick(&mut self) -> u32 {
+        *self.change_tick.get_mut()
+    }
+
+    #[inline]
+    pub fn last_change_tick(&self) -> u32 {
+        self.last_change_tick
+    }
+
+    pub fn check_change_ticks(&mut self) {
+        // Iterate over all component change ticks, clamping their age to max age
+        // PERF: parallelize
+        let change_tick = self.change_tick();
+        self.storages.tables.check_change_ticks(change_tick);
+        self.storages.sparse_sets.check_change_ticks(change_tick);
+        let resource_archetype = self.archetypes.resource_mut();
+        for column in resource_archetype.unique_components.values_mut() {
+            column.check_change_ticks(change_tick);
         }
     }
 }

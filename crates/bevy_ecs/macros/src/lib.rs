@@ -28,8 +28,7 @@ impl Parse for AllTuples {
         input.parse::<Comma>()?;
         let end = input.parse::<LitInt>()?.base10_parse()?;
         input.parse::<Comma>()?;
-        let mut idents = Vec::new();
-        idents.push(input.parse::<Ident>()?);
+        let mut idents = vec![input.parse::<Ident>()?];
         while input.parse::<Comma>().is_ok() {
             idents.push(input.parse::<Ident>()?);
         }
@@ -270,11 +269,12 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                 #[inline]
                 unsafe fn get_param(
                     state: &'a mut Self,
-                    _system_state: &'a SystemState,
+                    system_state: &'a SystemState,
                     world: &'a World,
+                    change_tick: u32,
                 ) -> Self::Item {
                     let (#(#query,)*) = &state.0;
-                    QuerySet((#(Query::new(world, #query),)*))
+                    QuerySet((#(Query::new(world, #query, system_state.last_change_tick, change_tick),)*))
                 }
             }
 
@@ -402,9 +402,10 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 state: &'a mut Self,
                 system_state: &'a #path::system::SystemState,
                 world: &'a #path::world::World,
+                change_tick: u32,
             ) -> Self::Item {
                 #struct_name {
-                    #(#fields: <<#field_types as SystemParam>::Fetch as #path::system::SystemParamFetch>::get_param(&mut state.state.#field_indices, system_state, world),)*
+                    #(#fields: <<#field_types as SystemParam>::Fetch as #path::system::SystemParamFetch>::get_param(&mut state.state.#field_indices, system_state, world, change_tick),)*
                     #(#ignored_fields: <#ignored_field_types>::default(),)*
                 }
             }
@@ -415,6 +416,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(SystemLabel)]
 pub fn derive_system_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
+
     derive_label(input, Ident::new("SystemLabel", Span::call_site())).into()
 }
 
@@ -430,12 +432,25 @@ pub fn derive_ambiguity_set_label(input: TokenStream) -> TokenStream {
     derive_label(input, Ident::new("AmbiguitySetLabel", Span::call_site())).into()
 }
 
+#[proc_macro_derive(RunCriteriaLabel)]
+pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    derive_label(input, Ident::new("RunCriteriaLabel", Span::call_site())).into()
+}
+
 fn derive_label(input: DeriveInput, label_type: Ident) -> TokenStream2 {
     let ident = input.ident;
     let ecs_path: Path = bevy_ecs_path();
 
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    let mut where_clause = where_clause.cloned().unwrap_or_else(|| syn::WhereClause {
+        where_token: Default::default(),
+        predicates: Default::default(),
+    });
+    where_clause.predicates.push(syn::parse2(quote! { Self: Eq + ::std::fmt::Debug + ::std::hash::Hash + Clone + Send + Sync + 'static }).unwrap());
+
     quote! {
-        impl #ecs_path::schedule::#label_type for #ident {
+        impl #impl_generics #ecs_path::schedule::#label_type for #ident #ty_generics #where_clause {
             fn dyn_clone(&self) -> Box<dyn #ecs_path::schedule::#label_type> {
                 Box::new(Clone::clone(self))
             }

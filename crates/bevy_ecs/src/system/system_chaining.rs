@@ -68,6 +68,11 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
         self.component_access
             .extend(self.system_b.component_access());
     }
+
+    fn check_change_tick(&mut self, change_tick: u32) {
+        self.system_a.check_change_tick(change_tick);
+        self.system_b.check_change_tick(change_tick);
+    }
 }
 
 pub trait IntoChainSystem<SystemB>: System + Sized

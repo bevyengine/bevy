@@ -1,5 +1,5 @@
 use crate::{
-    archetype::{Archetype, ArchetypeId},
+    archetype::{Archetype, ArchetypeId, ComponentStatus},
     bundle::{Bundle, BundleInfo},
     entity::{Entities, Entity},
     storage::{SparseSets, Table},
@@ -17,6 +17,8 @@ where
     table: &'w mut Table,
     sparse_sets: &'w mut SparseSets,
     bundle_info: &'w BundleInfo,
+    bundle_status: &'w [ComponentStatus],
+    change_tick: u32,
 }
 
 impl<'w, I> SpawnBatchIter<'w, I>
@@ -45,18 +47,17 @@ where
                 bundle_info,
             )
         };
-        // SAFE: archetype exists
-        let archetype = unsafe { world.archetypes.get_unchecked_mut(archetype_id) };
-        // SAFE: table exists
-        let table = unsafe {
-            world
-                .storages
-                .tables
-                .get_unchecked_mut(archetype.table_id())
-        };
+        let (empty_archetype, archetype) = world
+            .archetypes
+            .get_2_mut(ArchetypeId::empty(), archetype_id);
+        let table = &mut world.storages.tables[archetype.table_id()];
         archetype.reserve(length);
         table.reserve(length);
         world.entities.reserve(length as u32);
+        let edge = empty_archetype
+            .edges()
+            .get_add_bundle(bundle_info.id())
+            .unwrap();
         Self {
             inner: iter,
             entities: &mut world.entities,
@@ -64,6 +65,8 @@ where
             table,
             sparse_sets: &mut world.storages.sparse_sets,
             bundle_info,
+            change_tick: *world.change_tick.get_mut(),
+            bundle_status: &edge.bundle_status,
         }
     }
 }
@@ -88,22 +91,19 @@ where
     fn next(&mut self) -> Option<Entity> {
         let bundle = self.inner.next()?;
         let entity = self.entities.alloc();
-        // SAFE: component values are immediately written to relevant storages (which have been allocated)
+        // SAFE: component values are immediately written to relevant storages (which have been
+        // allocated)
         unsafe {
             let table_row = self.table.allocate(entity);
             let location = self.archetype.allocate(entity, table_row);
-            let from_bundle = self
-                .archetype
-                .edges()
-                .get_from_bundle(self.bundle_info.id)
-                .unwrap();
             self.bundle_info.write_components(
                 self.sparse_sets,
                 entity,
                 self.table,
                 table_row,
-                &from_bundle.bundle_flags,
+                self.bundle_status,
                 bundle,
+                self.change_tick,
             );
             self.entities.meta[entity.id as usize].location = location;
         }

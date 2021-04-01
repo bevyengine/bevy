@@ -28,10 +28,12 @@ pub trait Node: Downcast + Send + Sync + 'static {
         &[]
     }
 
-    /// Prepare the graph node with unique world access. This runs once per graph run before [Node::update] is called.
+    /// Prepare the graph node with unique world access. This runs once per graph run before
+    /// [Node::update] is called.
     fn prepare(&mut self, _world: &mut World) {}
 
-    /// Run the graph node logic. This runs once per graph run after [Node::prepare] has been called on all nodes.
+    /// Run the graph node logic. This runs once per graph run after [Node::prepare] has been called
+    /// on all nodes.
     fn update(
         &mut self,
         world: &World,

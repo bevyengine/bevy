@@ -1,4 +1,4 @@
-pub use bevy_ecs_macros::{AmbiguitySetLabel, StageLabel, SystemLabel};
+pub use bevy_ecs_macros::{AmbiguitySetLabel, RunCriteriaLabel, StageLabel, SystemLabel};
 
 use std::{
     any::Any,
@@ -67,6 +67,12 @@ pub trait AmbiguitySetLabel: DynHash + Debug + Send + Sync + 'static {
 }
 pub(crate) type BoxedAmbiguitySetLabel = Box<dyn AmbiguitySetLabel>;
 
+pub trait RunCriteriaLabel: DynHash + Debug + Send + Sync + 'static {
+    #[doc(hidden)]
+    fn dyn_clone(&self) -> Box<dyn RunCriteriaLabel>;
+}
+pub(crate) type BoxedRunCriteriaLabel = Box<dyn RunCriteriaLabel>;
+
 macro_rules! impl_label {
     ($trait_name:ident) => {
         impl PartialEq for dyn $trait_name {
@@ -106,3 +112,4 @@ macro_rules! impl_label {
 impl_label!(StageLabel);
 impl_label!(SystemLabel);
 impl_label!(AmbiguitySetLabel);
+impl_label!(RunCriteriaLabel);

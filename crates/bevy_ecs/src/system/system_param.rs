@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
-    component::{Component, ComponentFlags, ComponentId, Components},
+    component::{Component, ComponentId, ComponentTicks, Components},
     entity::{Entities, Entity},
     query::{FilterFetch, FilteredAccess, FilteredAccessSet, QueryState, WorldQuery},
     system::{CommandQueue, Commands, Query, SystemState},
@@ -37,9 +37,10 @@ pub trait SystemParam: Sized {
 }
 
 /// # Safety
-/// it is the implementors responsibility to ensure `system_state` is populated with the _exact_
-/// [World] access used by the SystemParamState (and associated FetchSystemParam). Additionally, it is the
-/// implementor's responsibility to ensure there is no conflicting access across all SystemParams.
+/// It is the implementor's responsibility to ensure `system_state` is populated with the _exact_
+/// [World] access used by the SystemParamState (and associated FetchSystemParam).
+/// Additionally, it is the implementor's responsibility to ensure there is no
+/// conflicting access across all SystemParams.
 pub unsafe trait SystemParamState: Send + Sync + 'static {
     type Config: Default + Send + Sync;
     fn init(world: &mut World, system_state: &mut SystemState, config: Self::Config) -> Self;
@@ -52,12 +53,13 @@ pub unsafe trait SystemParamState: Send + Sync + 'static {
 pub trait SystemParamFetch<'a>: SystemParamState {
     type Item;
     /// # Safety
-    /// This call might access any of the input parameters in an unsafe way. Make sure the data access is safe in
-    /// the context of the system scheduler
+    /// This call might access any of the input parameters in an unsafe way. Make sure the data
+    /// access is safe in the context of the system scheduler
     unsafe fn get_param(
         state: &'a mut Self,
         system_state: &'a SystemState,
         world: &'a World,
+        change_tick: u32,
     ) -> Self::Item;
 }
 
@@ -70,8 +72,8 @@ where
     type Fetch = QueryState<Q, F>;
 }
 
-// SAFE: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemState. If this QueryState conflicts
-// with any prior access, a panic will occur.
+// SAFE: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemState. If
+// this QueryState conflicts with any prior access, a panic will occur.
 unsafe impl<Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamState for QueryState<Q, F>
 where
     F::Fetch: FilterFetch,
@@ -114,10 +116,11 @@ where
     #[inline]
     unsafe fn get_param(
         state: &'a mut Self,
-        _system_state: &'a SystemState,
+        system_state: &'a SystemState,
         world: &'a World,
+        change_tick: u32,
     ) -> Self::Item {
-        Query::new(world, state)
+        Query::new(world, state, system_state.last_change_tick, change_tick)
     }
 }
 
@@ -147,26 +150,30 @@ pub struct QuerySetState<T>(T);
 
 impl_query_set!();
 
+/// Shared borrow of a Resource
+///
+/// When used as a system parameter, panics if resource does not exist.
+///
+/// Use `Option<Res<T>>` if the resource might not always exist.
 pub struct Res<'w, T> {
     value: &'w T,
-    flags: ComponentFlags,
+    ticks: &'w ComponentTicks,
+    last_change_tick: u32,
+    change_tick: u32,
 }
 
 impl<'w, T: Component> Res<'w, T> {
-    /// Returns true if (and only if) this resource been added since the start of the frame.
-    pub fn added(&self) -> bool {
-        self.flags.contains(ComponentFlags::ADDED)
+    /// Returns true if (and only if) this resource been added since the last execution of this
+    /// system.
+    pub fn is_added(&self) -> bool {
+        self.ticks.is_added(self.last_change_tick, self.change_tick)
     }
 
-    /// Returns true if (and only if) this resource been mutated since the start of the frame.
-    pub fn mutated(&self) -> bool {
-        self.flags.contains(ComponentFlags::MUTATED)
-    }
-
-    /// Returns true if (and only if) this resource been either mutated or added since the start of the frame.
-    pub fn changed(&self) -> bool {
-        self.flags
-            .intersects(ComponentFlags::ADDED | ComponentFlags::MUTATED)
+    /// Returns true if (and only if) this resource been changed since the last execution of this
+    /// system.
+    pub fn is_changed(&self) -> bool {
+        self.ticks
+            .is_changed(self.last_change_tick, self.change_tick)
     }
 }
 
@@ -187,8 +194,8 @@ impl<'a, T: Component> SystemParam for Res<'a, T> {
     type Fetch = ResState<T>;
 }
 
-// SAFE: Res ComponentId and ArchetypeComponentId access is applied to SystemState. If this Res conflicts
-// with any prior access, a panic will occur.
+// SAFE: Res ComponentId and ArchetypeComponentId access is applied to SystemState. If this Res
+// conflicts with any prior access, a panic will occur.
 unsafe impl<T: Component> SystemParamState for ResState<T> {
     type Config = ();
 
@@ -222,39 +229,86 @@ impl<'a, T: Component> SystemParamFetch<'a> for ResState<T> {
     #[inline]
     unsafe fn get_param(
         state: &'a mut Self,
-        _system_state: &'a SystemState,
+        system_state: &'a SystemState,
         world: &'a World,
+        change_tick: u32,
     ) -> Self::Item {
         let column = world
             .get_populated_resource_column(state.component_id)
-            .expect("Requested resource does not exist");
+            .unwrap_or_else(|| {
+                panic!(
+                    "Requested resource does not exist: {}",
+                    std::any::type_name::<T>()
+                )
+            });
         Res {
             value: &*column.get_ptr().as_ptr().cast::<T>(),
-            flags: *column.get_flags_mut_ptr(),
+            ticks: &*column.get_ticks_mut_ptr(),
+            last_change_tick: system_state.last_change_tick,
+            change_tick,
         }
     }
 }
 
+pub struct OptionResState<T>(ResState<T>);
+
+impl<'a, T: Component> SystemParam for Option<Res<'a, T>> {
+    type Fetch = OptionResState<T>;
+}
+
+unsafe impl<T: Component> SystemParamState for OptionResState<T> {
+    type Config = ();
+
+    fn init(world: &mut World, system_state: &mut SystemState, _config: Self::Config) -> Self {
+        Self(ResState::init(world, system_state, ()))
+    }
+}
+
+impl<'a, T: Component> SystemParamFetch<'a> for OptionResState<T> {
+    type Item = Option<Res<'a, T>>;
+
+    #[inline]
+    unsafe fn get_param(
+        state: &'a mut Self,
+        system_state: &'a SystemState,
+        world: &'a World,
+        change_tick: u32,
+    ) -> Self::Item {
+        world
+            .get_populated_resource_column(state.0.component_id)
+            .map(|column| Res {
+                value: &*column.get_ptr().as_ptr().cast::<T>(),
+                ticks: &*column.get_ticks_mut_ptr(),
+                last_change_tick: system_state.last_change_tick,
+                change_tick,
+            })
+    }
+}
+
+/// Unique borrow of a Resource
+///
+/// When used as a system parameter, panics if resource does not exist.
+///
+/// Use `Option<ResMut<T>>` if the resource might not always exist.
 pub struct ResMut<'w, T> {
     value: &'w mut T,
-    flags: &'w mut ComponentFlags,
+    ticks: &'w mut ComponentTicks,
+    last_change_tick: u32,
+    change_tick: u32,
 }
 
 impl<'w, T: Component> ResMut<'w, T> {
-    /// Returns true if (and only if) this resource been added since the start of the frame.
-    pub fn added(&self) -> bool {
-        self.flags.contains(ComponentFlags::ADDED)
+    /// Returns true if (and only if) this resource been added since the last execution of this
+    /// system.
+    pub fn is_added(&self) -> bool {
+        self.ticks.is_added(self.last_change_tick, self.change_tick)
     }
 
-    /// Returns true if (and only if) this resource been mutated since the start of the frame.
-    pub fn mutated(&self) -> bool {
-        self.flags.contains(ComponentFlags::MUTATED)
-    }
-
-    /// Returns true if (and only if) this resource been either mutated or added since the start of the frame.
-    pub fn changed(&self) -> bool {
-        self.flags
-            .intersects(ComponentFlags::ADDED | ComponentFlags::MUTATED)
+    /// Returns true if (and only if) this resource been changed since the last execution of this
+    /// system.
+    pub fn is_changed(&self) -> bool {
+        self.ticks
+            .is_changed(self.last_change_tick, self.change_tick)
     }
 }
 
@@ -268,7 +322,7 @@ impl<'w, T: Component> Deref for ResMut<'w, T> {
 
 impl<'w, T: Component> DerefMut for ResMut<'w, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.flags.insert(ComponentFlags::MUTATED);
+        self.ticks.set_changed(self.change_tick);
         self.value
     }
 }
@@ -282,8 +336,8 @@ impl<'a, T: Component> SystemParam for ResMut<'a, T> {
     type Fetch = ResMutState<T>;
 }
 
-// SAFE: Res ComponentId and ArchetypeComponentId access is applied to SystemState. If this Res conflicts
-// with any prior access, a panic will occur.
+// SAFE: Res ComponentId and ArchetypeComponentId access is applied to SystemState. If this Res
+// conflicts with any prior access, a panic will occur.
 unsafe impl<T: Component> SystemParamState for ResMutState<T> {
     type Config = ();
 
@@ -321,16 +375,59 @@ impl<'a, T: Component> SystemParamFetch<'a> for ResMutState<T> {
     #[inline]
     unsafe fn get_param(
         state: &'a mut Self,
-        _system_state: &'a SystemState,
+        system_state: &'a SystemState,
         world: &'a World,
+        change_tick: u32,
     ) -> Self::Item {
         let value = world
             .get_resource_unchecked_mut_with_id(state.component_id)
-            .expect("Requested resource does not exist");
+            .unwrap_or_else(|| {
+                panic!(
+                    "Requested resource does not exist: {}",
+                    std::any::type_name::<T>()
+                )
+            });
         ResMut {
             value: value.value,
-            flags: value.flags,
+            ticks: value.component_ticks,
+            last_change_tick: system_state.last_change_tick,
+            change_tick,
         }
+    }
+}
+
+pub struct OptionResMutState<T>(ResMutState<T>);
+
+impl<'a, T: Component> SystemParam for Option<ResMut<'a, T>> {
+    type Fetch = OptionResMutState<T>;
+}
+
+unsafe impl<T: Component> SystemParamState for OptionResMutState<T> {
+    type Config = ();
+
+    fn init(world: &mut World, system_state: &mut SystemState, _config: Self::Config) -> Self {
+        Self(ResMutState::init(world, system_state, ()))
+    }
+}
+
+impl<'a, T: Component> SystemParamFetch<'a> for OptionResMutState<T> {
+    type Item = Option<ResMut<'a, T>>;
+
+    #[inline]
+    unsafe fn get_param(
+        state: &'a mut Self,
+        system_state: &'a SystemState,
+        world: &'a World,
+        change_tick: u32,
+    ) -> Self::Item {
+        world
+            .get_resource_unchecked_mut_with_id(state.0.component_id)
+            .map(|value| ResMut {
+                value: value.value,
+                ticks: value.component_ticks,
+                last_change_tick: system_state.last_change_tick,
+                change_tick,
+            })
     }
 }
 
@@ -359,6 +456,7 @@ impl<'a> SystemParamFetch<'a> for CommandQueue {
         state: &'a mut Self,
         _system_state: &'a SystemState,
         world: &'a World,
+        _change_tick: u32,
     ) -> Self::Item {
         Commands::new(state, world)
     }
@@ -405,6 +503,7 @@ impl<'a, T: Component + FromWorld> SystemParamFetch<'a> for LocalState<T> {
         state: &'a mut Self,
         _system_state: &'a SystemState,
         _world: &'a World,
+        _change_tick: u32,
     ) -> Self::Item {
         Local(&mut state.0)
     }
@@ -431,8 +530,8 @@ impl<'a, T: Component> SystemParam for RemovedComponents<'a, T> {
     type Fetch = RemovedComponentsState<T>;
 }
 
-// SAFE: no component access. removed component entity collections can be read in parallel and are never mutably borrowed
-// during system execution
+// SAFE: no component access. removed component entity collections can be read in parallel and are
+// never mutably borrowed during system execution
 unsafe impl<T: Component> SystemParamState for RemovedComponentsState<T> {
     type Config = ();
 
@@ -452,6 +551,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for RemovedComponentsState<T> {
         state: &'a mut Self,
         _system_state: &'a SystemState,
         world: &'a World,
+        _change_tick: u32,
     ) -> Self::Item {
         RemovedComponents {
             world,
@@ -464,6 +564,24 @@ impl<'a, T: Component> SystemParamFetch<'a> for RemovedComponentsState<T> {
 /// Shared borrow of a NonSend resource
 pub struct NonSend<'w, T> {
     pub(crate) value: &'w T,
+    ticks: ComponentTicks,
+    last_change_tick: u32,
+    change_tick: u32,
+}
+
+impl<'w, T: Component> NonSend<'w, T> {
+    /// Returns true if (and only if) this resource been added since the last execution of this
+    /// system.
+    pub fn is_added(&self) -> bool {
+        self.ticks.is_added(self.last_change_tick, self.change_tick)
+    }
+
+    /// Returns true if (and only if) this resource been changed since the last execution of this
+    /// system.
+    pub fn is_changed(&self) -> bool {
+        self.ticks
+            .is_changed(self.last_change_tick, self.change_tick)
+    }
 }
 
 impl<'w, T: 'static> Deref for NonSend<'w, T> {
@@ -483,8 +601,8 @@ impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     type Fetch = NonSendState<T>;
 }
 
-// SAFE: NonSendComponentId and ArchetypeComponentId access is applied to SystemState. If this NonSend conflicts
-// with any prior access, a panic will occur.
+// SAFE: NonSendComponentId and ArchetypeComponentId access is applied to SystemState. If this
+// NonSend conflicts with any prior access, a panic will occur.
 unsafe impl<T: 'static> SystemParamState for NonSendState<T> {
     type Config = ();
 
@@ -520,13 +638,24 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendState<T> {
     #[inline]
     unsafe fn get_param(
         state: &'a mut Self,
-        _system_state: &'a SystemState,
+        system_state: &'a SystemState,
         world: &'a World,
+        change_tick: u32,
     ) -> Self::Item {
+        world.validate_non_send_access::<T>();
+        let column = world
+            .get_populated_resource_column(state.component_id)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Requested non-send resource does not exist: {}",
+                    std::any::type_name::<T>()
+                )
+            });
         NonSend {
-            value: world
-                .get_non_send_with_id::<T>(state.component_id)
-                .expect("Requested non-send resource does not exist"),
+            value: &*column.get_ptr().as_ptr().cast::<T>(),
+            ticks: *column.get_ticks_mut_ptr(),
+            last_change_tick: system_state.last_change_tick,
+            change_tick,
         }
     }
 }
@@ -534,7 +663,24 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendState<T> {
 /// Unique borrow of a NonSend resource
 pub struct NonSendMut<'a, T: 'static> {
     pub(crate) value: &'a mut T,
-    pub(crate) flags: &'a mut ComponentFlags,
+    ticks: &'a mut ComponentTicks,
+    last_change_tick: u32,
+    change_tick: u32,
+}
+
+impl<'w, T: Component> NonSendMut<'w, T> {
+    /// Returns true if (and only if) this resource been added since the last execution of this
+    /// system.
+    pub fn is_added(&self) -> bool {
+        self.ticks.is_added(self.last_change_tick, self.change_tick)
+    }
+
+    /// Returns true if (and only if) this resource been changed since the last execution of this
+    /// system.
+    pub fn is_changed(&self) -> bool {
+        self.ticks
+            .is_changed(self.last_change_tick, self.change_tick)
+    }
 }
 
 impl<'a, T: 'static> Deref for NonSendMut<'a, T> {
@@ -549,7 +695,7 @@ impl<'a, T: 'static> Deref for NonSendMut<'a, T> {
 impl<'a, T: 'static> DerefMut for NonSendMut<'a, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut T {
-        self.flags.insert(ComponentFlags::MUTATED);
+        self.ticks.set_changed(self.change_tick);
         self.value
     }
 }
@@ -569,8 +715,8 @@ impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     type Fetch = NonSendMutState<T>;
 }
 
-// SAFE: NonSendMut ComponentId and ArchetypeComponentId access is applied to SystemState. If this NonSendMut conflicts
-// with any prior access, a panic will occur.
+// SAFE: NonSendMut ComponentId and ArchetypeComponentId access is applied to SystemState. If this
+// NonSendMut conflicts with any prior access, a panic will occur.
 unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
     type Config = ();
 
@@ -610,15 +756,24 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendMutState<T> {
     #[inline]
     unsafe fn get_param(
         state: &'a mut Self,
-        _system_state: &'a SystemState,
+        system_state: &'a SystemState,
         world: &'a World,
+        change_tick: u32,
     ) -> Self::Item {
-        let value = world
-            .get_non_send_unchecked_mut_with_id(state.component_id)
-            .expect("Requested non-send resource does not exist");
+        world.validate_non_send_access::<T>();
+        let column = world
+            .get_populated_resource_column(state.component_id)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Requested non-send resource does not exist: {}",
+                    std::any::type_name::<T>()
+                )
+            });
         NonSendMut {
-            value: value.value,
-            flags: value.flags,
+            value: &mut *column.get_ptr().as_ptr().cast::<T>(),
+            ticks: &mut *column.get_ticks_mut_ptr(),
+            last_change_tick: system_state.last_change_tick,
+            change_tick,
         }
     }
 }
@@ -648,6 +803,7 @@ impl<'a> SystemParamFetch<'a> for ArchetypesState {
         _state: &'a mut Self,
         _system_state: &'a SystemState,
         world: &'a World,
+        _change_tick: u32,
     ) -> Self::Item {
         world.archetypes()
     }
@@ -676,6 +832,7 @@ impl<'a> SystemParamFetch<'a> for ComponentsState {
         _state: &'a mut Self,
         _system_state: &'a SystemState,
         world: &'a World,
+        _change_tick: u32,
     ) -> Self::Item {
         world.components()
     }
@@ -704,6 +861,7 @@ impl<'a> SystemParamFetch<'a> for EntitiesState {
         _state: &'a mut Self,
         _system_state: &'a SystemState,
         world: &'a World,
+        _change_tick: u32,
     ) -> Self::Item {
         world.entities()
     }
@@ -732,8 +890,45 @@ impl<'a> SystemParamFetch<'a> for BundlesState {
         _state: &'a mut Self,
         _system_state: &'a SystemState,
         world: &'a World,
+        _change_tick: u32,
     ) -> Self::Item {
         world.bundles()
+    }
+}
+
+#[derive(Debug)]
+pub struct SystemChangeTick {
+    pub last_change_tick: u32,
+    pub change_tick: u32,
+}
+
+impl SystemParam for SystemChangeTick {
+    type Fetch = SystemChangeTickState;
+}
+
+pub struct SystemChangeTickState {}
+
+unsafe impl SystemParamState for SystemChangeTickState {
+    type Config = ();
+
+    fn init(_world: &mut World, _system_state: &mut SystemState, _config: Self::Config) -> Self {
+        Self {}
+    }
+}
+
+impl<'a> SystemParamFetch<'a> for SystemChangeTickState {
+    type Item = SystemChangeTick;
+
+    unsafe fn get_param(
+        _state: &mut Self,
+        system_state: &SystemState,
+        _world: &World,
+        change_tick: u32,
+    ) -> Self::Item {
+        SystemChangeTick {
+            last_change_tick: system_state.last_change_tick,
+            change_tick,
+        }
     }
 }
 
@@ -752,10 +947,11 @@ macro_rules! impl_system_param_tuple {
                 state: &'a mut Self,
                 system_state: &'a SystemState,
                 world: &'a World,
+                change_tick: u32,
             ) -> Self::Item {
 
                 let ($($param,)*) = state;
-                ($($param::get_param($param, system_state, world),)*)
+                ($($param::get_param($param, system_state, world, change_tick),)*)
             }
         }
 
@@ -784,6 +980,6 @@ macro_rules! impl_system_param_tuple {
     };
 }
 
-// TODO: consider creating a Config trait with a default() function, then implementing that for tuples.
-// that would allow us to go past tuples of len 12
+// TODO: consider creating a Config trait with a default() function, then implementing that for
+// tuples. that would allow us to go past tuples of len 12
 all_tuples!(impl_system_param_tuple, 0, 12, P);
