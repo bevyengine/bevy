@@ -101,7 +101,7 @@ impl WgpuRenderer {
     }
 
     pub fn run_graph(&mut self, world: &mut World) {
-        world.resource_scope(|mut render_graph: Mut<RenderGraph>, world| {
+        world.resource_scope(|world, mut render_graph: Mut<RenderGraph>| {
             render_graph.prepare(world);
             // stage nodes
             let mut stager = DependentNodeStager::loose_grouping();

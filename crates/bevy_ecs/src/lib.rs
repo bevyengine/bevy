@@ -1110,7 +1110,7 @@ mod tests {
     fn resource_scope() {
         let mut world = World::default();
         world.insert_resource::<i32>(0);
-        world.resource_scope(|mut value: Mut<i32>, world: &mut World| {
+        world.resource_scope(|world: &mut World, mut value: Mut<i32>| {
             *value += 1;
             assert!(!world.contains_resource::<i32>());
         });
