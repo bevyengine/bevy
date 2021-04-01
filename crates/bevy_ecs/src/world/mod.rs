@@ -658,7 +658,7 @@ impl World {
     /// world.insert_resource(A(1));
     /// let entity = world.spawn().insert(B(1)).id();
     ///
-    /// world.resource_scope(|mut a: Mut<A>, world| {
+    /// world.resource_scope(|world, mut a: Mut<A>| {
     ///     let b = world.get_mut::<B>(entity).unwrap();
     ///     a.0 += b.0;
     /// });
