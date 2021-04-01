@@ -13,7 +13,7 @@ use bevy_ecs::{
 };
 use bevy_math::*;
 use bevy_reflect::TypeUuid;
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::BTreeMap};
 
 use crate::pipeline::{InputStepMode, VertexAttribute, VertexBufferLayout};
 use bevy_utils::{HashMap, HashSet};
@@ -210,7 +210,7 @@ pub struct Mesh {
     primitive_topology: PrimitiveTopology,
     /// `bevy_utils::HashMap` with all defined vertex attributes (Positions, Normals, ...) for this
     /// mesh. Attribute name maps to attribute values.
-    attributes: HashMap<Cow<'static, str>, VertexAttributeValues>,
+    attributes: BTreeMap<Cow<'static, str>, VertexAttributeValues>,
     indices: Option<Indices>,
 }
 
