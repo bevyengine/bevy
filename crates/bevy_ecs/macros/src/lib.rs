@@ -260,9 +260,7 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                     )*
                 }
 
-                fn default_config() -> () {
-                    ()
-                }
+                fn default_config() {}
             }
 
             impl<'a, #(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParamFetch<'a> for QuerySetState<(#(QueryState<#query, #filter>,)*)>

@@ -107,9 +107,7 @@ where
             .extend(&self.archetype_component_access);
     }
 
-    fn default_config() -> () {
-        ()
-    }
+    fn default_config() {}
 }
 
 impl<'a, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamFetch<'a> for QueryState<Q, F>
@@ -227,9 +225,7 @@ unsafe impl<T: Component> SystemParamState for ResState<T> {
         }
     }
 
-    fn default_config() -> () {
-        ()
-    }
+    fn default_config() {}
 }
 
 impl<'a, T: Component> SystemParamFetch<'a> for ResState<T> {
@@ -272,9 +268,7 @@ unsafe impl<T: Component> SystemParamState for OptionResState<T> {
         Self(ResState::init(world, system_state, ()))
     }
 
-    fn default_config() -> () {
-        ()
-    }
+    fn default_config() {}
 }
 
 impl<'a, T: Component> SystemParamFetch<'a> for OptionResState<T> {
@@ -381,9 +375,7 @@ unsafe impl<T: Component> SystemParamState for ResMutState<T> {
         }
     }
 
-    fn default_config() -> () {
-        ()
-    }
+    fn default_config() {}
 }
 
 impl<'a, T: Component> SystemParamFetch<'a> for ResMutState<T> {
@@ -426,9 +418,7 @@ unsafe impl<T: Component> SystemParamState for OptionResMutState<T> {
         Self(ResMutState::init(world, system_state, ()))
     }
 
-    fn default_config() -> () {
-        ()
-    }
+    fn default_config() {}
 }
 
 impl<'a, T: Component> SystemParamFetch<'a> for OptionResMutState<T> {
@@ -468,9 +458,7 @@ unsafe impl SystemParamState for CommandQueue {
         self.apply(world);
     }
 
-    fn default_config() -> () {
-        ()
-    }
+    fn default_config() {}
 }
 
 impl<'a> SystemParamFetch<'a> for CommandQueue {
@@ -571,9 +559,7 @@ unsafe impl<T: Component> SystemParamState for RemovedComponentsState<T> {
         }
     }
 
-    fn default_config() -> () {
-        ()
-    }
+    fn default_config() {}
 }
 
 impl<'a, T: Component> SystemParamFetch<'a> for RemovedComponentsState<T> {
@@ -664,9 +650,7 @@ unsafe impl<T: 'static> SystemParamState for NonSendState<T> {
         }
     }
 
-    fn default_config() -> () {
-        ()
-    }
+    fn default_config() {}
 }
 
 impl<'a, T: 'static> SystemParamFetch<'a> for NonSendState<T> {
@@ -786,9 +770,7 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
         }
     }
 
-    fn default_config() -> () {
-        ()
-    }
+    fn default_config() {}
 }
 
 impl<'a, T: 'static> SystemParamFetch<'a> for NonSendMutState<T> {
@@ -835,9 +817,7 @@ unsafe impl SystemParamState for ArchetypesState {
         Self
     }
 
-    fn default_config() -> () {
-        ()
-    }
+    fn default_config() {}
 }
 
 impl<'a> SystemParamFetch<'a> for ArchetypesState {
@@ -868,9 +848,7 @@ unsafe impl SystemParamState for ComponentsState {
         Self
     }
 
-    fn default_config() -> () {
-        ()
-    }
+    fn default_config() {}
 }
 
 impl<'a> SystemParamFetch<'a> for ComponentsState {
@@ -901,9 +879,7 @@ unsafe impl SystemParamState for EntitiesState {
         Self
     }
 
-    fn default_config() -> () {
-        ()
-    }
+    fn default_config() {}
 }
 
 impl<'a> SystemParamFetch<'a> for EntitiesState {
@@ -934,9 +910,7 @@ unsafe impl SystemParamState for BundlesState {
         Self
     }
 
-    fn default_config() -> () {
-        ()
-    }
+    fn default_config() {}
 }
 
 impl<'a> SystemParamFetch<'a> for BundlesState {
@@ -972,9 +946,7 @@ unsafe impl SystemParamState for SystemChangeTickState {
         Self {}
     }
 
-    fn default_config() -> () {
-        ()
-    }
+    fn default_config() {}
 }
 
 impl<'a> SystemParamFetch<'a> for SystemChangeTickState {
