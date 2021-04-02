@@ -42,7 +42,7 @@ pub trait SystemParam: Sized {
 /// Additionally, it is the implementor's responsibility to ensure there is no
 /// conflicting access across all SystemParams.
 pub unsafe trait SystemParamState: Send + Sync + 'static {
-    type Config: Default + Send + Sync;
+    type Config: Config + Send + Sync;
     fn init(world: &mut World, system_state: &mut SystemState, config: Self::Config) -> Self;
     #[inline]
     fn new_archetype(&mut self, _archetype: &Archetype, _system_state: &mut SystemState) {}
@@ -980,6 +980,30 @@ macro_rules! impl_system_param_tuple {
     };
 }
 
-// TODO: consider creating a Config trait with a default() function, then implementing that for
-// tuples. that would allow us to go past tuples of len 12
-all_tuples!(impl_system_param_tuple, 0, 12, P);
+/// This trait is equivalent to the `Default` trait from `std`. We use our own trait here
+/// to go past the current (as of Rust 1.51) limitation of `Default` being implemented
+/// for tuples of up to 12 elements.
+pub trait Config {
+    fn default() -> Self;
+}
+
+impl<T> Config for Option<T> {
+    fn default() -> Self {
+        None
+    }
+}
+
+macro_rules! config_tuple {
+    ($($param: ident),*) => {
+        impl<$($param:Config),*> Config for ($($param,)*) {
+            #[inline]
+            fn default() -> ($($param,)*) {
+                ($({ let x: $param = Config::default(); x},)*)
+            }
+        }
+    }
+}
+
+all_tuples!(config_tuple, 0, 16, P);
+
+all_tuples!(impl_system_param_tuple, 0, 16, P);
