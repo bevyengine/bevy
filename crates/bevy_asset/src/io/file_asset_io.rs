@@ -30,7 +30,7 @@ impl FileAssetIo {
         if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
             PathBuf::from(manifest_dir)
         } else {
-            env::current_exe()
+            env::current_dir()
                 .map(|path| {
                     path.parent()
                         .map(|exe_parent_path| exe_parent_path.to_owned())
