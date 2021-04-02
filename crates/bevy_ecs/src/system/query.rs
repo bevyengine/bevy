@@ -197,17 +197,21 @@ where
     /// The returned value is not an `Iterator`, because that would lead to aliasing of mutable references.
     /// In order to iterate it, use `for_each` method or `fetch_next` with `while let Some(..)` pattern.
     ///
-    /// ```rust,no_run
+    /// ```
+    /// # struct A;
+    /// # use bevy_ecs::prelude::*;
+    /// # fn some_system(mut query: Query<&mut A>) {
     /// // iterate using for_each
-    /// query.iter_combinations_mut().for_each(|[components_a, components_b]| {
+    /// query.iter_combinations_mut().for_each(|[mut a, mut b]| {
     ///    // mutably access components data
     /// });
     ///
     /// // iterate using while loop
     /// let mut combinations = query.iter_combinations_mut();
-    /// while let Some([components_a, components_b]) = combinations.fetch_next() {
+    /// while let Some([mut a, mut b]) = combinations.fetch_next() {
     ///    // mutably access components data
     /// }
+    /// # }
     /// ```
     /// For immutable access see [`Query::iter_combinations`].
     #[inline]

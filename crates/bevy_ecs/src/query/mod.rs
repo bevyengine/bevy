@@ -118,7 +118,7 @@ mod tests {
 
         world
             .query::<&mut A>()
-            .iter_combinations_mut::<3>(&mut world)
+            .iter_combinations_mut(&mut world)
             .for_each(|[mut a, mut b, mut c]| {
                 a.0 += 10;
                 b.0 += 100;

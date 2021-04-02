@@ -258,14 +258,14 @@ where
 }
 
 pub trait CombinationCallable<'w, Q: WorldQuery, const K: usize> {
-    fn call(&mut self, items: [<Q::Fetch as Fetch<'w>>::Item; K]);
+    fn call(self, items: [<Q::Fetch as Fetch<'w>>::Item; K]);
 }
 
 impl<'w, T, Q: WorldQuery, const K: usize> CombinationCallable<'w, Q, K> for T
 where
-    T: FnMut([<Q::Fetch as Fetch<'w>>::Item; K]),
+    T: Fn([<Q::Fetch as Fetch<'w>>::Item; K]),
 {
-    fn call(&mut self, items: [<Q::Fetch as Fetch<'w>>::Item; K]) {
+    fn call(self, items: [<Q::Fetch as Fetch<'w>>::Item; K]) {
         (self)(items)
     }
 }
