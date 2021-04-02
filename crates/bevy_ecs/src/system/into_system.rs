@@ -92,7 +92,7 @@ where
         FunctionSystem {
             func: self,
             param_state: None,
-            config: Some(super::Config::default()),
+            config: Some(<Param::Fetch as SystemParamState>::default_config()),
             system_state: SystemState::new::<F>(),
             marker: PhantomData,
         }

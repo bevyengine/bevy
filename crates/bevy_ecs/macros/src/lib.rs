@@ -259,6 +259,10 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                             .extend(&#query.archetype_component_access);
                     )*
                 }
+
+                fn default_config() -> () {
+                    ()
+                }
             }
 
             impl<'a, #(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParamFetch<'a> for QuerySetState<(#(QueryState<#query, #filter>,)*)>
@@ -393,6 +397,10 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
             fn new_archetype(&mut self, archetype: &#path::archetype::Archetype, system_state: &mut #path::system::SystemState) {
                 self.state.new_archetype(archetype, system_state)
+            }
+
+            fn default_config() -> TSystemParamState::Config {
+                TSystemParamState::default_config()
             }
         }
 

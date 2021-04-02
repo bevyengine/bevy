@@ -42,12 +42,13 @@ pub trait SystemParam: Sized {
 /// Additionally, it is the implementor's responsibility to ensure there is no
 /// conflicting access across all SystemParams.
 pub unsafe trait SystemParamState: Send + Sync + 'static {
-    type Config: Config + Send + Sync;
+    type Config: Send + Sync;
     fn init(world: &mut World, system_state: &mut SystemState, config: Self::Config) -> Self;
     #[inline]
     fn new_archetype(&mut self, _archetype: &Archetype, _system_state: &mut SystemState) {}
     #[inline]
     fn apply(&mut self, _world: &mut World) {}
+    fn default_config() -> Self::Config;
 }
 
 pub trait SystemParamFetch<'a>: SystemParamState {
@@ -104,6 +105,10 @@ where
         system_state
             .archetype_component_access
             .extend(&self.archetype_component_access);
+    }
+
+    fn default_config() -> () {
+        ()
     }
 }
 
@@ -221,6 +226,10 @@ unsafe impl<T: Component> SystemParamState for ResState<T> {
             marker: PhantomData,
         }
     }
+
+    fn default_config() -> () {
+        ()
+    }
 }
 
 impl<'a, T: Component> SystemParamFetch<'a> for ResState<T> {
@@ -261,6 +270,10 @@ unsafe impl<T: Component> SystemParamState for OptionResState<T> {
 
     fn init(world: &mut World, system_state: &mut SystemState, _config: Self::Config) -> Self {
         Self(ResState::init(world, system_state, ()))
+    }
+
+    fn default_config() -> () {
+        ()
     }
 }
 
@@ -367,6 +380,10 @@ unsafe impl<T: Component> SystemParamState for ResMutState<T> {
             marker: PhantomData,
         }
     }
+
+    fn default_config() -> () {
+        ()
+    }
 }
 
 impl<'a, T: Component> SystemParamFetch<'a> for ResMutState<T> {
@@ -408,6 +425,10 @@ unsafe impl<T: Component> SystemParamState for OptionResMutState<T> {
     fn init(world: &mut World, system_state: &mut SystemState, _config: Self::Config) -> Self {
         Self(ResMutState::init(world, system_state, ()))
     }
+
+    fn default_config() -> () {
+        ()
+    }
 }
 
 impl<'a, T: Component> SystemParamFetch<'a> for OptionResMutState<T> {
@@ -445,6 +466,10 @@ unsafe impl SystemParamState for CommandQueue {
 
     fn apply(&mut self, world: &mut World) {
         self.apply(world);
+    }
+
+    fn default_config() -> () {
+        ()
     }
 }
 
@@ -493,6 +518,10 @@ unsafe impl<T: Component + FromWorld> SystemParamState for LocalState<T> {
     fn init(world: &mut World, _system_state: &mut SystemState, config: Self::Config) -> Self {
         Self(config.unwrap_or_else(|| T::from_world(world)))
     }
+
+    fn default_config() -> Option<T> {
+        None
+    }
 }
 
 impl<'a, T: Component + FromWorld> SystemParamFetch<'a> for LocalState<T> {
@@ -540,6 +569,10 @@ unsafe impl<T: Component> SystemParamState for RemovedComponentsState<T> {
             component_id: world.components.get_or_insert_id::<T>(),
             marker: PhantomData,
         }
+    }
+
+    fn default_config() -> () {
+        ()
     }
 }
 
@@ -629,6 +662,10 @@ unsafe impl<T: 'static> SystemParamState for NonSendState<T> {
             component_id,
             marker: PhantomData,
         }
+    }
+
+    fn default_config() -> () {
+        ()
     }
 }
 
@@ -748,6 +785,10 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
             marker: PhantomData,
         }
     }
+
+    fn default_config() -> () {
+        ()
+    }
 }
 
 impl<'a, T: 'static> SystemParamFetch<'a> for NonSendMutState<T> {
@@ -793,6 +834,10 @@ unsafe impl SystemParamState for ArchetypesState {
     fn init(_world: &mut World, _system_state: &mut SystemState, _config: Self::Config) -> Self {
         Self
     }
+
+    fn default_config() -> () {
+        ()
+    }
 }
 
 impl<'a> SystemParamFetch<'a> for ArchetypesState {
@@ -821,6 +866,10 @@ unsafe impl SystemParamState for ComponentsState {
 
     fn init(_world: &mut World, _system_state: &mut SystemState, _config: Self::Config) -> Self {
         Self
+    }
+
+    fn default_config() -> () {
+        ()
     }
 }
 
@@ -851,6 +900,10 @@ unsafe impl SystemParamState for EntitiesState {
     fn init(_world: &mut World, _system_state: &mut SystemState, _config: Self::Config) -> Self {
         Self
     }
+
+    fn default_config() -> () {
+        ()
+    }
 }
 
 impl<'a> SystemParamFetch<'a> for EntitiesState {
@@ -879,6 +932,10 @@ unsafe impl SystemParamState for BundlesState {
 
     fn init(_world: &mut World, _system_state: &mut SystemState, _config: Self::Config) -> Self {
         Self
+    }
+
+    fn default_config() -> () {
+        ()
     }
 }
 
@@ -913,6 +970,10 @@ unsafe impl SystemParamState for SystemChangeTickState {
 
     fn init(_world: &mut World, _system_state: &mut SystemState, _config: Self::Config) -> Self {
         Self {}
+    }
+
+    fn default_config() -> () {
+        ()
     }
 }
 
@@ -976,34 +1037,12 @@ macro_rules! impl_system_param_tuple {
                 let ($($param,)*) = self;
                 $($param.apply(_world);)*
             }
+
+            fn default_config() -> ($(<$param as SystemParamState>::Config,)*) {
+                ($(<$param as SystemParamState>::default_config(),)*)
+            }
         }
     };
 }
-
-/// This trait is equivalent to the `Default` trait from `std`. We use our own trait here
-/// to go past the current (as of Rust 1.51) limitation of `Default` being implemented
-/// for tuples of up to 12 elements.
-pub trait Config {
-    fn default() -> Self;
-}
-
-impl<T> Config for Option<T> {
-    fn default() -> Self {
-        None
-    }
-}
-
-macro_rules! config_tuple {
-    ($($param: ident),*) => {
-        impl<$($param:Config),*> Config for ($($param,)*) {
-            #[inline]
-            fn default() -> ($($param,)*) {
-                ($({ let x: $param = Config::default(); x},)*)
-            }
-        }
-    }
-}
-
-all_tuples!(config_tuple, 0, 16, P);
 
 all_tuples!(impl_system_param_tuple, 0, 16, P);
