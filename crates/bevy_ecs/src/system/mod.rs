@@ -459,9 +459,30 @@ mod tests {
             _: Query<(&E, &F)>,
         ) {
         }
-
+        fn sys_y(
+            _: (
+                Res<A>,
+                Res<B>,
+                Res<C>,
+                Res<D>,
+                Res<E>,
+                Res<F>,
+                Query<&A>,
+                Query<&B>,
+                Query<&C>,
+                Query<&D>,
+                Query<&E>,
+                Query<&F>,
+                Query<(&A, &B)>,
+                Query<(&C, &D)>,
+                Query<(&E, &F)>,
+            ),
+        ) {
+        }
         let mut world = World::default();
         let mut x = sys_x.system();
+        let mut y = sys_y.system();
         x.initialize(&mut world);
+        y.initialize(&mut world);
     }
 }
