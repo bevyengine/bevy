@@ -222,8 +222,12 @@ async fn load_gltf<'a, 'b>(
                 Texture::from_buffer(buffer, ImageType::MimeType(mime_type))?
             }
             gltf::image::Source::Uri { uri, mime_type } => {
+                let uri = percent_encoding::percent_decode_str(uri)
+                    .decode_utf8()
+                    .unwrap();
+
                 let parent = load_context.path().parent().unwrap();
-                let image_path = parent.join(uri);
+                let image_path = parent.join(uri.as_ref());
                 let bytes = load_context.read_asset_bytes(image_path.clone()).await?;
                 Texture::from_buffer(
                     &bytes,
@@ -581,8 +585,12 @@ async fn load_buffers(
                             .ok_or(GltfError::BufferFormatUnsupported)?,
                     )?);
                 } else {
+                    let uri = percent_encoding::percent_decode_str(uri)
+                        .decode_utf8()
+                        .unwrap();
+
                     // TODO: Remove this and add dep
-                    let buffer_path = asset_path.parent().unwrap().join(uri);
+                    let buffer_path = asset_path.parent().unwrap().join(uri.as_ref());
                     let buffer_bytes = load_context.read_asset_bytes(buffer_path).await?;
                     buffer_data.push(buffer_bytes);
                 }
