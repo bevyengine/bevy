@@ -194,14 +194,15 @@ where
     }
 
     /// Iterate over all combinations of queried components.
-    pub fn for_each(mut self, mut f: impl FnMut([<Q::Fetch as Fetch<'_>>::Item; K]))
+    pub fn for_each<U>(mut self, f: U)
     where
         Q::Fetch: Clone,
         F::Fetch: Clone,
+        for<'a> &'a U: CombinationCallable<'w, Q, K>,
     {
         // safety: the fetch lifetime is limited to the closure, preventing aliasing
         while let Some(next) = unsafe { self.next_aliased_unchecked() } {
-            f(next)
+            (&f).call(next)
         }
     }
 }
@@ -251,6 +252,19 @@ where
             });
 
         (0, max_permutations)
+    }
+}
+
+pub trait CombinationCallable<'w, Q: WorldQuery, const K: usize> {
+    fn call(&mut self, items: [<Q::Fetch as Fetch<'w>>::Item; K]);
+}
+
+impl<'w, T, Q: WorldQuery, const K: usize> CombinationCallable<'w, Q, K> for T
+where
+    T: FnMut([<Q::Fetch as Fetch<'w>>::Item; K]),
+{
+    fn call(&mut self, items: [<Q::Fetch as Fetch<'w>>::Item; K]) {
+        (self)(items)
     }
 }
 
