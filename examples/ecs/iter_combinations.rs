@@ -114,18 +114,17 @@ fn generate_bodies(
 }
 
 fn interact_bodies(mut query: Query<(&Mass, &GlobalTransform, &mut Velocity)>) {
-    let mut iter = query.iter_combinations_mut();
-    while let Some([(Mass(m1), transform1, mut vel1), (Mass(m2), transform2, mut vel2)]) =
-        iter.next()
-    {
-        let delta = transform2.translation - transform1.translation;
-        let distance_sq: f32 = delta.length_squared();
-        let delta_norm = delta / distance_sq.sqrt();
-        let force = delta_norm * (GRAVITY_CONSTANT * (m1 + m2) / distance_sq.max(0.01));
-        let velocity_change = force;
-        vel1.0 += velocity_change / *m1;
-        vel2.0 -= velocity_change / *m2;
-    }
+    query.iter_combinations_mut().for_each(
+        |[(Mass(m1), transform1, mut vel1), (Mass(m2), transform2, mut vel2)]| {
+            let delta = transform2.translation - transform1.translation;
+            let distance_sq: f32 = delta.length_squared();
+            let delta_norm = delta / distance_sq.sqrt();
+            let force = delta_norm * (GRAVITY_CONSTANT * (m1 + m2) / distance_sq.max(0.01));
+            let velocity_change = force;
+            vel1.0 += velocity_change / *m1;
+            vel2.0 -= velocity_change / *m2;
+        },
+    );
 }
 
 fn apply_velocity(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform)>) {

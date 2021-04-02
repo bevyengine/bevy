@@ -110,7 +110,7 @@ mod tests {
         let mut query = world.query::<&mut A>();
         let mut combinations = query.iter_combinations_mut(&mut world);
 
-        while let Some([mut a, mut b, mut c]) = combinations.next() {
+        while let Some([mut a, mut b, mut c]) = combinations.fetch_next() {
             a.0 += 10;
             b.0 += 100;
             c.0 += 1000;

@@ -195,7 +195,7 @@ where
     /// Iterates over all possible combinations of `K` query results without repetition.
     ///
     /// The returned value is not an `Iterator`, because that would lead to aliasing of mutable references.
-    /// In order to iterate it, use `for_each` method or `while let Some(..)` pattern.
+    /// In order to iterate it, use `for_each` method or `fetch_next` with `while let Some(..)` pattern.
     ///
     /// ```rust,no_run
     /// // iterate using for_each
@@ -205,7 +205,7 @@ where
     ///
     /// // iterate using while loop
     /// let mut combinations = query.iter_combinations_mut();
-    /// while let Some([components_a, components_b]) = combinations.next() {
+    /// while let Some([components_a, components_b]) = combinations.fetch_next() {
     ///    // mutably access components data
     /// }
     /// ```

@@ -133,7 +133,9 @@ where
     /// references to the same component, leading to unique reference aliasing.
     ///.
     /// It is always safe for shared access.
-    unsafe fn next_aliased_unchecked<'a>(&mut self) -> Option<[<Q::Fetch as Fetch<'a>>::Item; K]>
+    unsafe fn fetch_next_aliased_unchecked<'a>(
+        &mut self,
+    ) -> Option<[<Q::Fetch as Fetch<'a>>::Item; K]>
     where
         Q::Fetch: Clone,
         F::Fetch: Clone,
@@ -182,7 +184,7 @@ where
     }
 
     /// Get next combination of queried components
-    pub fn next<'a>(&'a mut self) -> Option<[<Q::Fetch as Fetch<'a>>::Item; K]>
+    pub fn fetch_next(&mut self) -> Option<[<Q::Fetch as Fetch<'_>>::Item; K]>
     where
         Q::Fetch: Clone,
         F::Fetch: Clone,
@@ -190,7 +192,7 @@ where
         // safety: we are limiting the returned reference to self,
         // making sure this method cannot be called multiple times without getting rid
         // of any previously returned unique references first, thus preventing aliasing.
-        unsafe { self.next_aliased_unchecked() }
+        unsafe { self.fetch_next_aliased_unchecked() }
     }
 
     /// Iterate over all combinations of queried components.
@@ -201,7 +203,7 @@ where
         for<'a> &'a U: CombinationCallable<'w, Q, K>,
     {
         // safety: the fetch lifetime is limited to the closure, preventing aliasing
-        while let Some(next) = unsafe { self.next_aliased_unchecked() } {
+        while let Some(next) = unsafe { self.fetch_next_aliased_unchecked() } {
             (&f).call(next)
         }
     }
@@ -221,7 +223,7 @@ where
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         // Safety: it is safe to alias for ReadOnlyFetch
-        unsafe { QueryCombinationIter::next_aliased_unchecked(self) }
+        unsafe { QueryCombinationIter::fetch_next_aliased_unchecked(self) }
     }
 
     // NOTE: For unfiltered Queries this should actually return a exact size hint,
