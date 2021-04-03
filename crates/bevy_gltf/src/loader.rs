@@ -146,6 +146,12 @@ async fn load_gltf<'a, 'b>(
                 mesh.set_indices(Some(Indices::U32(indices.into_u32().collect())));
             };
 
+            if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none() {
+                bevy_log::info!("missing normals, computing them as flat");
+                mesh.duplicate_vertices();
+                mesh.compute_flat_normals();
+            }
+
             let mesh = load_context.set_labeled_asset(&primitive_label, LoadedAsset::new(mesh));
             primitives.push(super::GltfPrimitive {
                 mesh,
