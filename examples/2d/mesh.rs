@@ -96,16 +96,16 @@ fn star(
     star.set_indices(Some(bevy::render::mesh::Indices::U32(indices)));
 
     // We can now spawn the entities for the star and the camera
+    commands.spawn_bundle(MeshBundle {
+        mesh: meshes.add(star),
+        render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
+            pipeline_handle,
+        )]),
+        ..Default::default()
+    });
     commands
-        .spawn(MeshBundle {
-            mesh: meshes.add(star),
-            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
-                pipeline_handle,
-            )]),
-            ..Default::default()
-        })
         // And use an orthographic projection
-        .spawn(OrthographicCameraBundle::new_2d());
+        .spawn_bundle(OrthographicCameraBundle::new_2d());
 }
 
 const VERTEX_SHADER: &str = r"
