@@ -141,12 +141,12 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     }
     let field_len = field.len();
     let generics = ast.generics;
-    let (impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let struct_name = &ast.ident;
 
     TokenStream::from(quote! {
         /// SAFE: TypeInfo is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
-        unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name#ty_generics {
+        unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name#ty_generics #where_clause {
             fn type_info() -> Vec<#ecs_path::component::TypeInfo> {
                 let mut type_info = Vec::with_capacity(#field_len);
                 #(#field_type_infos)*
