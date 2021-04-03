@@ -38,10 +38,8 @@ const int MAX_LIGHTS = 10;
 
 struct Light {
     mat4 proj;
-    vec3 pos;
-    float inverseRadiusSquared;
-    vec3 color;
-    float unused; // unused 4th element of vec4;
+    vec4 pos;
+    vec4 color;
 };
 
 layout(location = 0) in vec3 v_WorldPosition;
@@ -57,12 +55,12 @@ layout(location = 0) out vec4 o_Target;
 layout(set = 0, binding = 0) uniform CameraViewProj {
     mat4 ViewProj;
 };
-layout(set = 0, binding = 1) uniform CameraPosition {
-    vec3 CameraPos;
+layout(std140, set = 0, binding = 1) uniform CameraPosition {
+    vec4 CameraPos;
 };
 
-layout(set = 1, binding = 0) uniform Lights {
-    vec3 AmbientColor;
+layout(std140, set = 1, binding = 0) uniform Lights {
+    vec4 AmbientColor;
     uvec4 NumLights;
     Light SceneLights[MAX_LIGHTS];
 };
@@ -351,7 +349,7 @@ void main() {
         vec3 L = normalize(lightDir);
 
         float rangeAttenuation =
-            getDistanceAttenuation(lightDir, light.inverseRadiusSquared);
+            getDistanceAttenuation(lightDir, light.pos.w);
 
         vec3 H = normalize(L + V);
         float NoL = saturate(dot(N, L));
@@ -380,7 +378,7 @@ void main() {
     vec3 specular_ambient = EnvBRDFApprox(F0, perceptual_roughness, NdotV);
 
     output_color.rgb = light_accum;
-    output_color.rgb += (diffuse_ambient + specular_ambient) * AmbientColor * occlusion;
+    output_color.rgb += (diffuse_ambient + specular_ambient) * AmbientColor.xyz * occlusion;
     output_color.rgb += emissive.rgb * output_color.a;
 
     // tone_mapping
