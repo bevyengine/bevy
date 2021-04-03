@@ -99,10 +99,7 @@ fn setup(
     // Spawn a quad and insert the `TimeComponent`.
     commands
         .spawn_bundle(MeshBundle {
-            mesh: meshes.add(Mesh::from(shape::Quad {
-                size: Vec2::new(400.0, 400.0),
-                flip: false,
-            })),
+            mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(5.0, 5.0)))),
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 pipeline_handle,
             )]),
@@ -112,7 +109,10 @@ fn setup(
         .insert(TimeComponent { value: 0.0 });
 
     // Spawn a camera.
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(PerspectiveCameraBundle {
+        transform: Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..Default::default()
+    });
 }
 
 /// In this system we query for the `TimeComponent` and global `Time` resource, and set `time.seconds_since_startup()`
