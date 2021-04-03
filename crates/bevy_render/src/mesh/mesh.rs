@@ -402,6 +402,7 @@ impl Mesh {
 
     /// Duplicates the vertex attributes so that no vertices are shared.
     ///
+    /// This can dramatically increase the vertex count, so make sure this is what you want.
     /// Does nothing if no [Indices] are set.
     pub fn duplicate_vertices(&mut self) {
         fn duplicate<T: Copy>(values: &[T], indices: impl Iterator<Item = usize>) -> Vec<T> {
@@ -438,12 +439,12 @@ impl Mesh {
     }
 
     /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of a mesh.
-    /// This [duplicates the vertices](Mesh::duplicate_vertices), so any [`Indices`] will be gone if set.
+    ///
+    /// Panics if [`Indices`] are set.
+    /// Consider calling [Mesh::duplicate_vertices] or export your mesh with normal attributes.
     pub fn compute_flat_normals(&mut self) {
         if self.indices().is_some() {
-            self.duplicate_vertices();
-            self.compute_flat_normals();
-            return;
+            panic!("`compute_flat_normals` can't work on indexed geometry. Consider calling `Mesh::duplicate_vertices`.");
         }
 
         let positions = self
