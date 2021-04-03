@@ -38,6 +38,8 @@ mod tests {
     struct B;
     struct C;
     struct D;
+    struct E;
+    struct F;
 
     #[test]
     fn simple_system() {
@@ -434,5 +436,53 @@ mod tests {
             .unwrap();
         let d_id = world.components().get_id(TypeId::of::<D>()).unwrap();
         assert_eq!(conflicts, vec![b_id, d_id]);
+    }
+
+    #[test]
+    #[allow(clippy::too_many_arguments)]
+    fn can_have_16_parameters() {
+        fn sys_x(
+            _: Res<A>,
+            _: Res<B>,
+            _: Res<C>,
+            _: Res<D>,
+            _: Res<E>,
+            _: Res<F>,
+            _: Query<&A>,
+            _: Query<&B>,
+            _: Query<&C>,
+            _: Query<&D>,
+            _: Query<&E>,
+            _: Query<&F>,
+            _: Query<(&A, &B)>,
+            _: Query<(&C, &D)>,
+            _: Query<(&E, &F)>,
+        ) {
+        }
+        fn sys_y(
+            _: (
+                Res<A>,
+                Res<B>,
+                Res<C>,
+                Res<D>,
+                Res<E>,
+                Res<F>,
+                Query<&A>,
+                Query<&B>,
+                Query<&C>,
+                Query<&D>,
+                Query<&E>,
+                Query<&F>,
+                Query<(&A, &B)>,
+                Query<(&C, &D)>,
+                Query<(&E, &F)>,
+            ),
+        ) {
+        }
+        let mut world = World::default();
+        let mut x = sys_x.system();
+        let mut y = sys_y.system();
+        x.initialize(&mut world);
+        y.initialize(&mut world);
     }
 }
