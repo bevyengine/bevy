@@ -75,6 +75,9 @@ x11 = ["bevy_internal/x11"]
 # enable rendering of font glyphs using subpixel accuracy
 subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
 
+# enable debug systems, for Bevy development
+bevy_debug = ["bevy_internal/bevy_debug"]
+
 [dependencies]
 bevy_dylib = {path = "crates/bevy_dylib", version = "0.5.0", default-features = false, optional = true}
 bevy_internal = {path = "crates/bevy_internal", version = "0.5.0", default-features = false}

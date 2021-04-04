@@ -15,6 +15,17 @@ use bevy_ecs::{
 use bevy_utils::tracing::debug;
 use std::{fmt::Debug, hash::Hash};
 
+#[cfg(feature = "bevy_debug")]
+use serde::Deserialize;
+
+#[cfg(feature = "bevy_debug")]
+/// Debug configuration, to help with Bevy development
+#[derive(Deserialize)]
+pub struct DebugConfig {
+    /// Number of frames after wich Bevy should exit
+    pub exit_after: Option<u32>,
+}
+
 /// Configure [App]s using the builder pattern
 pub struct AppBuilder {
     pub app: App,
@@ -33,6 +44,19 @@ impl Default for AppBuilder {
             .add_default_stages()
             .add_event::<AppExit>()
             .add_system_to_stage(CoreStage::Last, World::clear_trackers.exclusive_system());
+
+        #[cfg(feature = "bevy_debug")]
+        {
+            let filename =
+                std::env::var("DEBUG_CONFIG").unwrap_or_else(|_| "debug_config.ron".to_string());
+            let config: DebugConfig = ron::from_str(
+                &std::fs::read_to_string(filename).expect("error reading debug configuration file"),
+            )
+            .expect("error deserializing debug configuration file");
+            app_builder
+                .insert_resource(config)
+                .add_system(debug_exit_after.system());
+        }
         app_builder
     }
 }
@@ -330,4 +354,18 @@ impl AppBuilder {
         }
         self
     }
+}
+
+#[cfg(feature = "bevy_debug")]
+fn debug_exit_after(
+    mut current_frame: bevy_ecs::prelude::Local<u32>,
+    debug_config: bevy_ecs::prelude::Res<DebugConfig>,
+    mut app_exit_events: crate::EventWriter<AppExit>,
+) {
+    if let Some(exit_after) = debug_config.exit_after {
+        if *current_frame > exit_after {
+            app_exit_events.send(AppExit);
+        }
+    }
+    *current_frame += 1;
 }

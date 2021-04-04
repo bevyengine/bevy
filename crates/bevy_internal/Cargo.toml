@@ -41,6 +41,9 @@ x11 = ["bevy_winit/x11"]
 # enable rendering of font glyphs using subpixel accuracy
 subpixel_glyph_atlas = ["bevy_text/subpixel_glyph_atlas"]
 
+# enable debug systems, for Bevy development
+bevy_debug = ["bevy_app/bevy_debug"]
+
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.5.0" }
