@@ -5,14 +5,15 @@ use crate::{
     CoreStage, PluginGroup, PluginGroupBuilder, StartupStage,
 };
 use bevy_ecs::{
-    component::Component,
+    component::{Component, ComponentDescriptor},
     schedule::{
-        RunOnce, Schedule, Stage, StageLabel, StateStage, SystemDescriptor, SystemSet, SystemStage,
+        RunOnce, Schedule, Stage, StageLabel, State, SystemDescriptor, SystemSet, SystemStage,
     },
     system::{IntoExclusiveSystem, IntoSystem},
     world::{FromWorld, World},
 };
 use bevy_utils::tracing::debug;
+use std::{fmt::Debug, hash::Hash};
 
 /// Configure [App]s using the builder pattern
 pub struct AppBuilder {
@@ -177,66 +178,61 @@ impl AppBuilder {
         self
     }
 
-    pub fn on_state_enter<T: Clone + Component>(
-        &mut self,
-        stage: impl StageLabel,
-        state: T,
-        system: impl Into<SystemDescriptor>,
-    ) -> &mut Self {
-        self.stage(stage, |stage: &mut StateStage<T>| {
-            stage.on_state_enter(state, system)
-        })
+    /// Adds a new [State] with the given `initial` value.
+    /// This inserts a new `State<T>` resource and adds a new "driver" to [CoreStage::Update].
+    /// Each stage that uses `State<T>` for system run criteria needs a driver. If you need to use your state in a
+    /// different stage, consider using [Self::add_state_to_stage] or manually adding [State::get_driver] to additional stages
+    /// you need it in.
+    pub fn add_state<T>(&mut self, initial: T) -> &mut Self
+    where
+        T: Component + Debug + Clone + Eq + Hash,
+    {
+        self.add_state_to_stage(CoreStage::Update, initial)
     }
 
-    pub fn on_state_update<T: Clone + Component>(
-        &mut self,
-        stage: impl StageLabel,
-        state: T,
-        system: impl Into<SystemDescriptor>,
-    ) -> &mut Self {
-        self.stage(stage, |stage: &mut StateStage<T>| {
-            stage.on_state_update(state, system)
-        })
-    }
-
-    pub fn on_state_exit<T: Clone + Component>(
-        &mut self,
-        stage: impl StageLabel,
-        state: T,
-        system: impl Into<SystemDescriptor>,
-    ) -> &mut Self {
-        self.stage(stage, |stage: &mut StateStage<T>| {
-            stage.on_state_exit(state, system)
-        })
+    /// Adds a new [State] with the given `initial` value.
+    /// This inserts a new `State<T>` resource and adds a new "driver" to the given stage.
+    /// Each stage that uses `State<T>` for system run criteria needs a driver. If you need to use your state in
+    /// more than one stage, consider manually adding [State::get_driver] to the stages
+    /// you need it in.
+    pub fn add_state_to_stage<T>(&mut self, stage: impl StageLabel, initial: T) -> &mut Self
+    where
+        T: Component + Debug + Clone + Eq + Hash,
+    {
+        self.insert_resource(State::new(initial))
+            .add_system_set_to_stage(stage, State::<T>::get_driver())
     }
 
     pub fn add_default_stages(&mut self) -> &mut Self {
-        self.add_stage(
-            CoreStage::Startup,
-            Schedule::default()
-                .with_run_criteria(RunOnce::default())
-                .with_stage(StartupStage::PreStartup, SystemStage::parallel())
-                .with_stage(StartupStage::Startup, SystemStage::parallel())
-                .with_stage(StartupStage::PostStartup, SystemStage::parallel()),
-        )
-        .add_stage(CoreStage::First, SystemStage::parallel())
-        .add_stage(CoreStage::PreEvent, SystemStage::parallel())
-        .add_stage(CoreStage::Event, SystemStage::parallel())
-        .add_stage(CoreStage::PreUpdate, SystemStage::parallel())
-        .add_stage(CoreStage::Update, SystemStage::parallel())
-        .add_stage(CoreStage::PostUpdate, SystemStage::parallel())
-        .add_stage(CoreStage::Last, SystemStage::parallel())
+        self.add_stage(CoreStage::First, SystemStage::parallel())
+            .add_stage(
+                CoreStage::Startup,
+                Schedule::default()
+                    .with_run_criteria(RunOnce::default())
+                    .with_stage(StartupStage::PreStartup, SystemStage::parallel())
+                    .with_stage(StartupStage::Startup, SystemStage::parallel())
+                    .with_stage(StartupStage::PostStartup, SystemStage::parallel()),
+            )
+            .add_stage(CoreStage::PreUpdate, SystemStage::parallel())
+            .add_stage(CoreStage::Update, SystemStage::parallel())
+            .add_stage(CoreStage::PostUpdate, SystemStage::parallel())
+            .add_stage(CoreStage::Last, SystemStage::parallel())
     }
 
+    /// Setup the application to manage events of type `T`.
+    ///
+    /// This is done by adding a `Resource` of type `Events::<T>`,
+    /// and inserting a `Events::<T>::update_system` system into `CoreStage::First`.
     pub fn add_event<T>(&mut self) -> &mut Self
     where
         T: Component,
     {
         self.insert_resource(Events::<T>::default())
-            .add_system_to_stage(CoreStage::Event, Events::<T>::update_system.system())
+            .add_system_to_stage(CoreStage::First, Events::<T>::update_system.system())
     }
 
-    /// Inserts a resource to the current [App] and overwrites any resource previously added of the same type.
+    /// Inserts a resource to the current [App] and overwrites any resource previously added of the
+    /// same type.
     pub fn insert_resource<T>(&mut self, resource: T) -> &mut Self
     where
         T: Component,
@@ -257,9 +253,9 @@ impl AppBuilder {
     where
         R: FromWorld + Send + Sync + 'static,
     {
-        // PERF: We could avoid double hashing here, since the `from_resources` call is guaranteed not to
-        // modify the map. However, we would need to be borrowing resources both mutably and immutably,
-        // so we would need to be extremely certain this is correct
+        // PERF: We could avoid double hashing here, since the `from_resources` call is guaranteed
+        // not to modify the map. However, we would need to be borrowing resources both
+        // mutably and immutably, so we would need to be extremely certain this is correct
         if !self.world_mut().contains_resource::<R>() {
             let resource = R::from_world(self.world_mut());
             self.insert_resource(resource);
@@ -309,6 +305,17 @@ impl AppBuilder {
         group.build(&mut plugin_group_builder);
         func(&mut plugin_group_builder);
         plugin_group_builder.finish(self);
+        self
+    }
+
+    /// Registers a new component using the given [ComponentDescriptor]. Components do not need to
+    /// be manually registered. This just provides a way to override default configuration.
+    /// Attempting to register a component with a type that has already been used by [World]
+    /// will result in an error.
+    ///
+    /// See [World::register_component]
+    pub fn register_component(&mut self, descriptor: ComponentDescriptor) -> &mut Self {
+        self.world_mut().register_component(descriptor).unwrap();
         self
     }
 

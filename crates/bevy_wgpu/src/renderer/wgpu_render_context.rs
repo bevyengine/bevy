@@ -66,8 +66,9 @@ impl WgpuRenderContext {
         }
     }
 
-    /// Consume this context, finalize the current CommandEncoder (if it exists), and take the current WgpuResources.
-    /// This is intended to be called from a worker thread right before synchronizing with the main thread.   
+    /// Consume this context, finalize the current CommandEncoder (if it exists), and take the
+    /// current WgpuResources. This is intended to be called from a worker thread right before
+    /// synchronizing with the main thread.
     pub fn finish(&mut self) -> Option<wgpu::CommandBuffer> {
         self.command_encoder.take().map(|encoder| encoder.finish())
     }

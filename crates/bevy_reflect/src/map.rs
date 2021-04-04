@@ -4,8 +4,8 @@ use bevy_utils::HashMap;
 
 use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
 
-/// An ordered ReflectValue->ReflectValue mapping. ReflectValue Keys are assumed to return a non-None hash.  
-/// Ideally the ordering is stable across runs, but this is not required.
+/// An ordered ReflectValue->ReflectValue mapping. ReflectValue Keys are assumed to return a
+/// non-None hash. Ideally the ordering is stable across runs, but this is not required.
 /// This corresponds to types like [std::collections::HashMap].
 pub trait Map: Reflect {
     fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect>;
@@ -98,7 +98,8 @@ impl Map for DynamicMap {
     }
 }
 
-impl Reflect for DynamicMap {
+// SAFE: any and any_mut both return self
+unsafe impl Reflect for DynamicMap {
     fn type_name(&self) -> &str {
         &self.name
     }

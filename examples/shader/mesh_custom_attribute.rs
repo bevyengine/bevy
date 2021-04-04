@@ -29,7 +29,7 @@ layout(location = 0) in vec3 Vertex_Position;
 layout(location = 1) in vec3 Vertex_Color;
 layout(location = 0) out vec3 v_color;
 
-layout(set = 0, binding = 0) uniform Camera {
+layout(set = 0, binding = 0) uniform CameraViewProj {
     mat4 ViewProj;
 };
 layout(set = 1, binding = 0) uniform Transform {
@@ -65,13 +65,15 @@ fn setup(
         fragment: Some(shaders.add(Shader::from_glsl(ShaderStage::Fragment, FRAGMENT_SHADER))),
     }));
 
-    // Add an AssetRenderResourcesNode to our Render Graph. This will bind MyMaterialWithVertexColorSupport resources to our shader
+    // Add an AssetRenderResourcesNode to our Render Graph. This will bind
+    // MyMaterialWithVertexColorSupport resources to our shader
     render_graph.add_system_node(
         "my_material_with_vertex_color_support",
         AssetRenderResourcesNode::<MyMaterialWithVertexColorSupport>::new(true),
     );
 
-    // Add a Render Graph edge connecting our new "my_material" node to the main pass node. This ensures "my_material" runs before the main pass
+    // Add a Render Graph edge connecting our new "my_material" node to the main pass node. This
+    // ensures "my_material" runs before the main pass
     render_graph
         .add_node_edge(
             "my_material_with_vertex_color_support",
@@ -90,7 +92,8 @@ fn setup(
         // name of the attribute
         "Vertex_Color",
         // the vertex attributes, represented by `VertexAttributeValues`
-        // NOTE: the attribute count has to be consistent across all attributes, otherwise bevy will panic.
+        // NOTE: the attribute count has to be consistent across all attributes, otherwise bevy
+        // will panic.
         VertexAttributeValues::from(vec![
             // top
             [0.79, 0.73, 0.07],
@@ -124,10 +127,9 @@ fn setup(
             [0.20, 0.27, 0.29],
         ]),
     );
-    // Setup our world
+    // cube
     commands
-        // cube
-        .spawn(MeshBundle {
+        .spawn_bundle(MeshBundle {
             mesh: meshes.add(cube_with_vertex_colors), // use our cube with vertex colors
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 pipeline_handle,
@@ -135,11 +137,10 @@ fn setup(
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
             ..Default::default()
         })
-        .with(material)
-        // camera
-        .spawn(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(3.0, 5.0, -8.0)
-                .looking_at(Vec3::default(), Vec3::unit_y()),
-            ..Default::default()
-        });
+        .insert(material);
+    // camera
+    commands.spawn_bundle(PerspectiveCameraBundle {
+        transform: Transform::from_xyz(3.0, 5.0, -8.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..Default::default()
+    });
 }

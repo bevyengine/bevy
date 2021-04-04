@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
-/// This example illustrates how to create a button that changes color and text based on its interaction state.
+/// This example illustrates how to create a button that changes color and text based on its
+/// interaction state.
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
@@ -31,7 +32,7 @@ fn button_system(
     button_materials: Res<ButtonMaterials>,
     mut interaction_query: Query<
         (&Interaction, &mut Handle<ColorMaterial>, &Children),
-        (Mutated<Interaction>, With<Button>),
+        (Changed<Interaction>, With<Button>),
     >,
     mut text_query: Query<&mut Text>,
 ) {
@@ -59,10 +60,10 @@ fn setup(
     asset_server: Res<AssetServer>,
     button_materials: Res<ButtonMaterials>,
 ) {
+    // ui camera
+    commands.spawn_bundle(UiCameraBundle::default());
     commands
-        // ui camera
-        .spawn(UiCameraBundle::default())
-        .spawn(ButtonBundle {
+        .spawn_bundle(ButtonBundle {
             style: Style {
                 size: Size::new(Val::Px(150.0), Val::Px(65.0)),
                 // center button
@@ -77,7 +78,7 @@ fn setup(
             ..Default::default()
         })
         .with_children(|parent| {
-            parent.spawn(TextBundle {
+            parent.spawn_bundle(TextBundle {
                 text: Text::with_section(
                     "Button",
                     TextStyle {

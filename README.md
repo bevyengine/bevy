@@ -51,9 +51,11 @@ Before contributing or participating in discussions with the community, you shou
 We recommend checking out [The Bevy Book](https://bevyengine.org/learn/book/introduction) for a full tutorial.
 
 Follow the [Setup guide](https://bevyengine.org/learn/book/getting-started/setup/) to ensure your development environment is set up correctly.
-Once set up, you can quickly try out the [examples](/examples) by cloning this repo and running the following command:
+Once set up, you can quickly try out the [examples](https://github.com/bevyengine/bevy/tree/latest/examples) by cloning this repo and running the following commands:
 
 ```sh
+# Switch to the correct version (latest release, default is main development branch)
+git checkout latest
 # Runs the "breakout" example
 cargo run --example breakout
 ```

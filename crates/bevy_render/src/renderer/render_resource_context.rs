@@ -77,13 +77,16 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
     fn remove_stale_bind_groups(&self);
     /// Reflects the pipeline layout from its shaders.
     ///
-    /// If `bevy_conventions` is true, it will be assumed that the shader follows "bevy shader conventions". These allow
-    /// richer reflection, such as inferred Vertex Buffer names and inferred instancing.
+    /// If `bevy_conventions` is true, it will be assumed that the shader follows "bevy shader
+    /// conventions". These allow richer reflection, such as inferred Vertex Buffer names and
+    /// inferred instancing.
     ///
-    /// If `dynamic_bindings` has values, shader uniforms will be set to "dynamic" if there is a matching binding in the list
+    /// If `dynamic_bindings` has values, shader uniforms will be set to "dynamic" if there is a
+    /// matching binding in the list
     ///
     /// If `vertex_buffer_descriptors` is set, the pipeline's vertex buffers
-    /// will inherit their layouts from global descriptors, otherwise the layout will be assumed to be complete / local.
+    /// will inherit their layouts from global descriptors, otherwise the layout will be assumed to
+    /// be complete / local.
     fn reflect_pipeline_layout(
         &self,
         shaders: &Assets<Shader>,

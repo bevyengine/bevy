@@ -1,7 +1,7 @@
 use std::ops::{Deref, DerefMut};
 
 use crate::{
-    component::{Component, ComponentFlags},
+    component::{Component, ComponentTicks},
     entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
     world::{FromWorld, World},
 };
@@ -43,8 +43,10 @@ impl ReflectComponent {
     }
 
     /// # Safety
-    /// This method does not prevent you from having two mutable pointers to the same data, violating Rust's aliasing rules. To avoid this:
-    /// * Only call this method in an exclusive system to avoid sharing across threads (or use a scheduler that enforces safe memory access).
+    /// This method does not prevent you from having two mutable pointers to the same data,
+    /// violating Rust's aliasing rules. To avoid this:
+    /// * Only call this method in an exclusive system to avoid sharing across threads (or use a
+    ///   scheduler that enforces safe memory access).
     /// * Don't call this method more than once in the same scope for a given component.
     pub unsafe fn reflect_component_unchecked_mut<'a>(
         &self,
@@ -99,10 +101,12 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
             reflect_component_mut: |world, entity| unsafe {
                 world
                     .get_entity(entity)?
-                    .get_unchecked_mut::<C>()
+                    .get_unchecked_mut::<C>(world.last_change_tick(), world.read_change_tick())
                     .map(|c| ReflectMut {
                         value: c.value as &mut dyn Reflect,
-                        flags: c.flags,
+                        component_ticks: c.component_ticks,
+                        last_change_tick: c.last_change_tick,
+                        change_tick: c.change_tick,
                     })
             },
         }
@@ -112,7 +116,9 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
 /// Unique borrow of a Reflected component
 pub struct ReflectMut<'a> {
     pub(crate) value: &'a mut dyn Reflect,
-    pub(crate) flags: &'a mut ComponentFlags,
+    pub(crate) component_ticks: &'a mut ComponentTicks,
+    pub(crate) last_change_tick: u32,
+    pub(crate) change_tick: u32,
 }
 
 impl<'a> Deref for ReflectMut<'a> {
@@ -127,8 +133,24 @@ impl<'a> Deref for ReflectMut<'a> {
 impl<'a> DerefMut for ReflectMut<'a> {
     #[inline]
     fn deref_mut(&mut self) -> &mut dyn Reflect {
-        self.flags.insert(ComponentFlags::MUTATED);
+        self.component_ticks.set_changed(self.change_tick);
         self.value
+    }
+}
+
+impl<'a> ReflectMut<'a> {
+    /// Returns true if (and only if) this component been added since the last execution of this
+    /// system.
+    pub fn is_added(&self) -> bool {
+        self.component_ticks
+            .is_added(self.last_change_tick, self.change_tick)
+    }
+
+    /// Returns true if (and only if) this component been changed since the last execution of this
+    /// system.
+    pub fn is_changed(&self) -> bool {
+        self.component_ticks
+            .is_changed(self.last_change_tick, self.change_tick)
     }
 }
 

@@ -1,25 +1,25 @@
 use bevy::prelude::*;
 
-/// This example illustrates how to use States to control transitioning from a Menu state to an InGame state.
+/// This example illustrates how to use States to control transitioning from a Menu state to an
+/// InGame state.
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .init_resource::<ButtonMaterials>()
-        .insert_resource(State::new(AppState::Menu))
-        .add_stage_after(CoreStage::Update, Stage, StateStage::<AppState>::default())
-        .on_state_enter(Stage, AppState::Menu, setup_menu.system())
-        .on_state_update(Stage, AppState::Menu, menu.system())
-        .on_state_exit(Stage, AppState::Menu, cleanup_menu.system())
-        .on_state_enter(Stage, AppState::InGame, setup_game.system())
-        .on_state_update(Stage, AppState::InGame, movement.system())
-        .on_state_update(Stage, AppState::InGame, change_color.system())
+        .add_state(AppState::Menu)
+        .add_system_set(SystemSet::on_enter(AppState::Menu).with_system(setup_menu.system()))
+        .add_system_set(SystemSet::on_update(AppState::Menu).with_system(menu.system()))
+        .add_system_set(SystemSet::on_exit(AppState::Menu).with_system(cleanup_menu.system()))
+        .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(setup_game.system()))
+        .add_system_set(
+            SystemSet::on_update(AppState::InGame)
+                .with_system(movement.system())
+                .with_system(change_color.system()),
+        )
         .run();
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-struct Stage;
-
-#[derive(Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum AppState {
     Menu,
     InGame,
@@ -34,10 +34,10 @@ fn setup_menu(
     asset_server: Res<AssetServer>,
     button_materials: Res<ButtonMaterials>,
 ) {
-    commands
-        // ui camera
-        .spawn(UiCameraBundle::default())
-        .spawn(ButtonBundle {
+    // ui camera
+    commands.spawn_bundle(UiCameraBundle::default());
+    let button_entity = commands
+        .spawn_bundle(ButtonBundle {
             style: Style {
                 size: Size::new(Val::Px(150.0), Val::Px(65.0)),
                 // center button
@@ -52,7 +52,7 @@ fn setup_menu(
             ..Default::default()
         })
         .with_children(|parent| {
-            parent.spawn(TextBundle {
+            parent.spawn_bundle(TextBundle {
                 text: Text::with_section(
                     "Play",
                     TextStyle {
@@ -64,10 +64,9 @@ fn setup_menu(
                 ),
                 ..Default::default()
             });
-        });
-    commands.insert_resource(MenuData {
-        button_entity: commands.current_entity().unwrap(),
-    });
+        })
+        .id();
+    commands.insert_resource(MenuData { button_entity });
 }
 
 fn menu(
@@ -75,14 +74,14 @@ fn menu(
     button_materials: Res<ButtonMaterials>,
     mut interaction_query: Query<
         (&Interaction, &mut Handle<ColorMaterial>),
-        (Mutated<Interaction>, With<Button>),
+        (Changed<Interaction>, With<Button>),
     >,
 ) {
     for (interaction, mut material) in interaction_query.iter_mut() {
         match *interaction {
             Interaction::Clicked => {
                 *material = button_materials.pressed.clone();
-                state.set_next(AppState::InGame).unwrap();
+                state.set(AppState::InGame).unwrap();
             }
             Interaction::Hovered => {
                 *material = button_materials.hovered.clone();
@@ -95,7 +94,7 @@ fn menu(
 }
 
 fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
-    commands.despawn_recursive(menu_data.button_entity);
+    commands.entity(menu_data.button_entity).despawn_recursive();
 }
 
 fn setup_game(
@@ -104,12 +103,11 @@ fn setup_game(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     let texture_handle = asset_server.load("branding/icon.png");
-    commands
-        .spawn(OrthographicCameraBundle::new_2d())
-        .spawn(SpriteBundle {
-            material: materials.add(texture_handle.into()),
-            ..Default::default()
-        });
+    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(SpriteBundle {
+        material: materials.add(texture_handle.into()),
+        ..Default::default()
+    });
 }
 
 const SPEED: f32 = 100.0;
@@ -119,7 +117,7 @@ fn movement(
     mut query: Query<&mut Transform, With<Sprite>>,
 ) {
     for mut transform in query.iter_mut() {
-        let mut direction = Vec3::default();
+        let mut direction = Vec3::ZERO;
         if input.pressed(KeyCode::Left) {
             direction.x += 1.0;
         }
@@ -133,7 +131,7 @@ fn movement(
             direction.y -= 1.0;
         }
 
-        if direction != Vec3::default() {
+        if direction != Vec3::ZERO {
             transform.translation += direction.normalize() * SPEED * time.delta_seconds();
         }
     }

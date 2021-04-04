@@ -79,6 +79,9 @@ subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
 bevy_dylib = {path = "crates/bevy_dylib", version = "0.4.0", default-features = false, optional = true}
 bevy_internal = {path = "crates/bevy_internal", version = "0.4.0", default-features = false}
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+syn = "=1.0.65"
+
 [dev-dependencies]
 anyhow = "1.0"
 rand = "0.8.0"
@@ -94,6 +97,10 @@ path = "examples/hello_world.rs"
 [[example]]
 name = "contributors"
 path = "examples/2d/contributors.rs"
+
+[[example]]
+name = "many_sprites"
+path = "examples/2d/many_sprites.rs"
 
 [[example]]
 name = "sprite"
@@ -135,6 +142,10 @@ path = "examples/3d/orthographic.rs"
 [[example]]
 name = "parenting"
 path = "examples/3d/parenting.rs"
+
+[[example]]
+name = "pbr"
+path = "examples/3d/pbr.rs"
 
 [[example]]
 name = "spawner"
@@ -306,6 +317,10 @@ path = "examples/input/gamepad_input_events.rs"
 [[example]]
 name = "keyboard_input"
 path = "examples/input/keyboard_input.rs"
+
+[[example]]
+name = "keyboard_modifiers"
+path = "examples/input/keyboard_modifiers.rs"
 
 [[example]]
 name = "keyboard_input_events"

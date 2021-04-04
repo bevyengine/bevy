@@ -22,14 +22,16 @@ fn setup(
 
     // All assets end up in their Assets<T> collection once they are done loading:
     if let Some(sphere) = meshes.get(&sphere_handle) {
-        // You might notice that this doesn't run! This is because assets load in parallel without blocking.
-        // When an asset has loaded, it will appear in relevant Assets<T> collection.
+        // You might notice that this doesn't run! This is because assets load in parallel without
+        // blocking. When an asset has loaded, it will appear in relevant Assets<T>
+        // collection.
         println!("{:?}", sphere.primitive_topology());
     } else {
         println!("sphere hasn't loaded yet");
     }
 
-    // You can load all assets in a folder like this. They will be loaded in parallel without blocking
+    // You can load all assets in a folder like this. They will be loaded in parallel without
+    // blocking
     let _scenes: Vec<HandleUntyped> = asset_server.load_folder("models/monkey").unwrap();
 
     // Then any asset in the folder can be accessed like this:
@@ -37,42 +39,39 @@ fn setup(
 
     // You can also add assets directly to their Assets<T> storage:
     let material_handle = materials.add(StandardMaterial {
-        albedo: Color::rgb(0.8, 0.7, 0.6),
+        base_color: Color::rgb(0.8, 0.7, 0.6),
         ..Default::default()
     });
 
-    // Add entities to the world:
-    commands
-        // monkey
-        .spawn(PbrBundle {
-            mesh: monkey_handle,
-            material: material_handle.clone(),
-            transform: Transform::from_xyz(-3.0, 0.0, 0.0),
-            ..Default::default()
-        })
-        // cube
-        .spawn(PbrBundle {
-            mesh: cube_handle,
-            material: material_handle.clone(),
-            transform: Transform::from_xyz(0.0, 0.0, 0.0),
-            ..Default::default()
-        })
-        // sphere
-        .spawn(PbrBundle {
-            mesh: sphere_handle,
-            material: material_handle,
-            transform: Transform::from_xyz(3.0, 0.0, 0.0),
-            ..Default::default()
-        })
-        // light
-        .spawn(LightBundle {
-            transform: Transform::from_xyz(4.0, 5.0, 4.0),
-            ..Default::default()
-        })
-        // camera
-        .spawn(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(0.0, 3.0, 10.0)
-                .looking_at(Vec3::default(), Vec3::unit_y()),
-            ..Default::default()
-        });
+    // monkey
+    commands.spawn_bundle(PbrBundle {
+        mesh: monkey_handle,
+        material: material_handle.clone(),
+        transform: Transform::from_xyz(-3.0, 0.0, 0.0),
+        ..Default::default()
+    });
+    // cube
+    commands.spawn_bundle(PbrBundle {
+        mesh: cube_handle,
+        material: material_handle.clone(),
+        transform: Transform::from_xyz(0.0, 0.0, 0.0),
+        ..Default::default()
+    });
+    // sphere
+    commands.spawn_bundle(PbrBundle {
+        mesh: sphere_handle,
+        material: material_handle,
+        transform: Transform::from_xyz(3.0, 0.0, 0.0),
+        ..Default::default()
+    });
+    // light
+    commands.spawn_bundle(LightBundle {
+        transform: Transform::from_xyz(4.0, 5.0, 4.0),
+        ..Default::default()
+    });
+    // camera
+    commands.spawn_bundle(PerspectiveCameraBundle {
+        transform: Transform::from_xyz(0.0, 3.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..Default::default()
+    });
 }

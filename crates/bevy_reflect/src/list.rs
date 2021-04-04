@@ -80,7 +80,8 @@ impl List for DynamicList {
     }
 }
 
-impl Reflect for DynamicList {
+// SAFE: any and any_mut both return self
+unsafe impl Reflect for DynamicList {
     #[inline]
     fn type_name(&self) -> &str {
         self.name.as_str()

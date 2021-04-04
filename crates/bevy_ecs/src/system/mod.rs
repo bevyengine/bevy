@@ -19,12 +19,14 @@ pub use system_param::*;
 
 #[cfg(test)]
 mod tests {
+    use std::any::TypeId;
+
     use crate::{
         archetype::Archetypes,
         bundle::Bundles,
         component::Components,
         entity::{Entities, Entity},
-        query::{Added, Changed, Mutated, Or, With, Without},
+        query::{Added, Changed, Or, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
             IntoExclusiveSystem, IntoSystem, Local, Query, QuerySet, RemovedComponents, Res,
@@ -38,6 +40,8 @@ mod tests {
     struct B;
     struct C;
     struct D;
+    struct E;
+    struct F;
 
     #[test]
     fn simple_system() {
@@ -132,16 +136,13 @@ mod tests {
             set: QuerySet<(
                 Query<(), Or<(Changed<A>, Changed<B>)>>,
                 Query<(), Or<(Added<A>, Added<B>)>>,
-                Query<(), Or<(Mutated<A>, Mutated<B>)>>,
             )>,
         ) {
             let changed = set.q0().iter().count();
             let added = set.q1().iter().count();
-            let mutated = set.q2().iter().count();
 
             assert_eq!(changed, 1);
             assert_eq!(added, 1);
-            assert_eq!(mutated, 0);
 
             *ran = true;
         }
@@ -164,11 +165,11 @@ mod tests {
             mut changed: ResMut<Changed>,
             mut added: ResMut<Added>,
         ) {
-            if value.added() {
+            if value.is_added() {
                 added.0 += 1;
             }
 
-            if value.changed() {
+            if value.is_changed() {
                 changed.0 += 1;
             }
         }
@@ -416,5 +417,74 @@ mod tests {
 
         // ensure the system actually ran
         assert_eq!(*world.get_resource::<bool>().unwrap(), true);
+    }
+
+    #[test]
+    fn get_system_conflicts() {
+        fn sys_x(_: Res<A>, _: Res<B>, _: Query<(&C, &D)>) {}
+
+        fn sys_y(_: Res<A>, _: ResMut<B>, _: Query<(&C, &mut D)>) {}
+
+        let mut world = World::default();
+        let mut x = sys_x.system();
+        let mut y = sys_y.system();
+        x.initialize(&mut world);
+        y.initialize(&mut world);
+
+        let conflicts = x.component_access().get_conflicts(y.component_access());
+        let b_id = world
+            .components()
+            .get_resource_id(TypeId::of::<B>())
+            .unwrap();
+        let d_id = world.components().get_id(TypeId::of::<D>()).unwrap();
+        assert_eq!(conflicts, vec![b_id, d_id]);
+    }
+
+    #[test]
+    #[allow(clippy::too_many_arguments)]
+    fn can_have_16_parameters() {
+        fn sys_x(
+            _: Res<A>,
+            _: Res<B>,
+            _: Res<C>,
+            _: Res<D>,
+            _: Res<E>,
+            _: Res<F>,
+            _: Query<&A>,
+            _: Query<&B>,
+            _: Query<&C>,
+            _: Query<&D>,
+            _: Query<&E>,
+            _: Query<&F>,
+            _: Query<(&A, &B)>,
+            _: Query<(&C, &D)>,
+            _: Query<(&E, &F)>,
+        ) {
+        }
+        fn sys_y(
+            _: (
+                Res<A>,
+                Res<B>,
+                Res<C>,
+                Res<D>,
+                Res<E>,
+                Res<F>,
+                Query<&A>,
+                Query<&B>,
+                Query<&C>,
+                Query<&D>,
+                Query<&E>,
+                Query<&F>,
+                Query<(&A, &B)>,
+                Query<(&C, &D)>,
+                Query<(&E, &F)>,
+            ),
+        ) {
+        }
+        let mut world = World::default();
+        let mut x = sys_x.system();
+        let mut y = sys_y.system();
+        x.initialize(&mut world);
+        y.initialize(&mut world);
     }
 }

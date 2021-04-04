@@ -16,7 +16,7 @@ pub mod prelude {
     };
 }
 
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, Events};
 
 pub struct WindowPlugin {
     pub add_primary_window: bool,

@@ -28,8 +28,7 @@ impl Parse for AllTuples {
         input.parse::<Comma>()?;
         let end = input.parse::<LitInt>()?.base10_parse()?;
         input.parse::<Comma>()?;
-        let mut idents = Vec::new();
-        idents.push(input.parse::<Ident>()?);
+        let mut idents = vec![input.parse::<Ident>()?];
         while input.parse::<Comma>().is_ok() {
             idents.push(input.parse::<Ident>()?);
         }
@@ -46,9 +45,9 @@ impl Parse for AllTuples {
 #[proc_macro]
 pub fn all_tuples(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as AllTuples);
-    let len = input.end - input.start;
+    let len = (input.start..=input.end).count();
     let mut ident_tuples = Vec::with_capacity(len);
-    for i in input.start..input.end {
+    for i in input.start..=input.end {
         let idents = input
             .idents
             .iter()
@@ -65,7 +64,7 @@ pub fn all_tuples(input: TokenStream) -> TokenStream {
     }
 
     let macro_ident = &input.macro_ident;
-    let invocations = (input.start..input.end).map(|i| {
+    let invocations = (input.start..=input.end).map(|i| {
         let ident_tuples = &ident_tuples[0..i];
         quote! {
             #macro_ident!(#(#ident_tuples),*);
@@ -142,12 +141,12 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     }
     let field_len = field.len();
     let generics = ast.generics;
-    let (impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let struct_name = &ast.ident;
 
     TokenStream::from(quote! {
         /// SAFE: TypeInfo is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
-        unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name#ty_generics {
+        unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name#ty_generics #where_clause {
             fn type_info() -> Vec<#ecs_path::component::TypeInfo> {
                 let mut type_info = Vec::with_capacity(#field_len);
                 #(#field_type_infos)*
@@ -260,6 +259,8 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                             .extend(&#query.archetype_component_access);
                     )*
                 }
+
+                fn default_config() {}
             }
 
             impl<'a, #(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParamFetch<'a> for QuerySetState<(#(QueryState<#query, #filter>,)*)>
@@ -270,11 +271,12 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                 #[inline]
                 unsafe fn get_param(
                     state: &'a mut Self,
-                    _system_state: &'a SystemState,
+                    system_state: &'a SystemState,
                     world: &'a World,
+                    change_tick: u32,
                 ) -> Self::Item {
                     let (#(#query,)*) = &state.0;
-                    QuerySet((#(Query::new(world, #query),)*))
+                    QuerySet((#(Query::new(world, #query, system_state.last_change_tick, change_tick),)*))
                 }
             }
 
@@ -394,6 +396,10 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             fn new_archetype(&mut self, archetype: &#path::archetype::Archetype, system_state: &mut #path::system::SystemState) {
                 self.state.new_archetype(archetype, system_state)
             }
+
+            fn default_config() -> TSystemParamState::Config {
+                TSystemParamState::default_config()
+            }
         }
 
         impl #impl_generics #path::system::SystemParamFetch<'a> for #fetch_struct_name <(#(<#field_types as SystemParam>::Fetch,)*), #punctuated_generic_idents> {
@@ -402,9 +408,10 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 state: &'a mut Self,
                 system_state: &'a #path::system::SystemState,
                 world: &'a #path::world::World,
+                change_tick: u32,
             ) -> Self::Item {
                 #struct_name {
-                    #(#fields: <<#field_types as SystemParam>::Fetch as #path::system::SystemParamFetch>::get_param(&mut state.state.#field_indices, system_state, world),)*
+                    #(#fields: <<#field_types as SystemParam>::Fetch as #path::system::SystemParamFetch>::get_param(&mut state.state.#field_indices, system_state, world, change_tick),)*
                     #(#ignored_fields: <#ignored_field_types>::default(),)*
                 }
             }
@@ -415,6 +422,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(SystemLabel)]
 pub fn derive_system_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
+
     derive_label(input, Ident::new("SystemLabel", Span::call_site())).into()
 }
 
@@ -430,12 +438,25 @@ pub fn derive_ambiguity_set_label(input: TokenStream) -> TokenStream {
     derive_label(input, Ident::new("AmbiguitySetLabel", Span::call_site())).into()
 }
 
+#[proc_macro_derive(RunCriteriaLabel)]
+pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    derive_label(input, Ident::new("RunCriteriaLabel", Span::call_site())).into()
+}
+
 fn derive_label(input: DeriveInput, label_type: Ident) -> TokenStream2 {
     let ident = input.ident;
     let ecs_path: Path = bevy_ecs_path();
 
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    let mut where_clause = where_clause.cloned().unwrap_or_else(|| syn::WhereClause {
+        where_token: Default::default(),
+        predicates: Default::default(),
+    });
+    where_clause.predicates.push(syn::parse2(quote! { Self: Eq + ::std::fmt::Debug + ::std::hash::Hash + Clone + Send + Sync + 'static }).unwrap());
+
     quote! {
-        impl #ecs_path::schedule::#label_type for #ident {
+        impl #impl_generics #ecs_path::schedule::#label_type for #ident #ty_generics #where_clause {
             fn dyn_clone(&self) -> Box<dyn #ecs_path::schedule::#label_type> {
                 Box::new(Clone::clone(self))
             }

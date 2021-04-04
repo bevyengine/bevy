@@ -5,9 +5,13 @@ use bevy::{
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 /// This example spawns a large number of cubes, each with its own changing position and material
-/// This is intended to be a stress test of bevy's ability to render many objects with different properties
-/// For the best results, run it in release mode: ```cargo run --example spawner --release
-/// NOTE: Bevy still has a number of optimizations to do in this area. Expect the performance here to go way up in the future
+/// This is intended to be a stress test of bevy's ability to render many objects with different
+/// properties For the best results, run it in release mode:
+/// ```
+/// cargo run --example spawner --release
+/// ```
+/// NOTE: Bevy still has a number of optimizations to do in this area. Expect the
+/// performance here to go way up in the future
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
@@ -26,7 +30,7 @@ fn move_cubes(
     for (mut transform, material_handle) in query.iter_mut() {
         let material = materials.get_mut(material_handle).unwrap();
         transform.translation += Vec3::new(1.0, 0.0, 0.0) * time.delta_seconds();
-        material.albedo =
+        material.base_color =
             Color::BLUE * Vec3::splat((3.0 * time.seconds_since_startup() as f32).sin());
     }
 }
@@ -36,26 +40,24 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands
-        // light
-        .spawn(LightBundle {
-            transform: Transform::from_xyz(4.0, -4.0, 5.0),
-            ..Default::default()
-        })
-        // camera
-        .spawn(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(0.0, 15.0, 150.0)
-                .looking_at(Vec3::default(), Vec3::unit_y()),
-            ..Default::default()
-        });
+    // light
+    commands.spawn_bundle(LightBundle {
+        transform: Transform::from_xyz(4.0, -4.0, 5.0),
+        ..Default::default()
+    });
+    // camera
+    commands.spawn_bundle(PerspectiveCameraBundle {
+        transform: Transform::from_xyz(0.0, 15.0, 150.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..Default::default()
+    });
 
     let mut rng = StdRng::from_entropy();
     let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
     for _ in 0..10000 {
-        commands.spawn(PbrBundle {
+        commands.spawn_bundle(PbrBundle {
             mesh: cube_handle.clone(),
             material: materials.add(StandardMaterial {
-                albedo: Color::rgb(
+                base_color: Color::rgb(
                     rng.gen_range(0.0..1.0),
                     rng.gen_range(0.0..1.0),
                     rng.gen_range(0.0..1.0),

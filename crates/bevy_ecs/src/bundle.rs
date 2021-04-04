@@ -1,33 +1,64 @@
 pub use bevy_ecs_macros::Bundle;
 
 use crate::{
-    component::{Component, ComponentFlags, ComponentId, Components, StorageType, TypeInfo},
+    archetype::ComponentStatus,
+    component::{Component, ComponentId, ComponentTicks, Components, StorageType, TypeInfo},
     entity::Entity,
     storage::{SparseSetIndex, SparseSets, Table},
 };
 use bevy_ecs_macros::all_tuples;
 use std::{any::TypeId, collections::HashMap};
 
-/// An ordered collection of components
+/// An ordered collection of components, commonly used for spawning entities, and adding and
+/// removing components in bulk.
 ///
-/// See [Bundle]
+/// You cannot query for a bundle, only individual components within it.
+///
+/// Typically, you will simply use `#[derive(Bundle)]` when creating your own `Bundle`.
+/// The `Bundle` trait is automatically implemented for tuples of components:
+/// `(ComponentA, ComponentB)` is a very convenient shorthand when working with one-off collections
+/// of components. Note that both `()` and `(ComponentA, )` are valid tuples.
+///
+/// You can nest bundles like so:
+/// ```
+/// # use bevy_ecs::bundle::Bundle;
+///
+/// #[derive(Bundle)]
+/// struct A {
+///     x: i32,
+///     y: u64,
+/// }
+///
+/// #[derive(Bundle)]
+/// struct B {
+///     #[bundle]
+///     a: A,
+///     z: String,
+///   }
+/// ```
+///
 /// # Safety
-/// [Bundle::type_info] must return the TypeInfo for each component type in the bundle, in the _exact_
-/// order that [Bundle::get_components] is called.
-/// [Bundle::from_components] must call `func` exactly once for each [TypeInfo] returned by [Bundle::type_info]
+/// [Bundle::type_info] must return the TypeInfo for each component type in the bundle, in the
+/// _exact_ order that [Bundle::get_components] is called.
+/// [Bundle::from_components] must call `func` exactly once for each [TypeInfo] returned by
+/// [Bundle::type_info]
 pub unsafe trait Bundle: Send + Sync + 'static {
     /// Gets this [Bundle]'s components type info, in the order of this bundle's Components
     fn type_info() -> Vec<TypeInfo>;
 
-    /// Calls `func`, which should return data for each component in the bundle, in the order of this bundle's Components
+    /// Calls `func`, which should return data for each component in the bundle, in the order of
+    /// this bundle's Components
+    ///
     /// # Safety
-    /// Caller must return data for each component in the bundle, in the order of this bundle's Components
+    /// Caller must return data for each component in the bundle, in the order of this bundle's
+    /// Components
     unsafe fn from_components(func: impl FnMut() -> *mut u8) -> Self
     where
         Self: Sized;
 
-    /// Calls `func` on each value, in the order of this bundle's Components. This will "mem::forget" the bundle
-    /// fields, so callers are responsible for dropping the fields if that is desirable.
+    /// Calls `func` on each value, in the order of this bundle's Components. This will
+    /// "mem::forget" the bundle fields, so callers are responsible for dropping the fields if
+    /// that is desirable.
     fn get_components(self, func: impl FnMut(*mut u8));
 }
 
@@ -93,6 +124,7 @@ pub struct BundleInfo {
 impl BundleInfo {
     /// # Safety
     /// table row must exist, entity must be valid
+    #[allow(clippy::clippy::too_many_arguments)]
     #[inline]
     pub(crate) unsafe fn write_components<T: Bundle>(
         &self,
@@ -100,24 +132,34 @@ impl BundleInfo {
         entity: Entity,
         table: &Table,
         table_row: usize,
-        bundle_flags: &[ComponentFlags],
+        bundle_status: &[ComponentStatus],
         bundle: T,
+        change_tick: u32,
     ) {
-        // NOTE: get_components calls this closure on each component in "bundle order". bundle_info.component_ids are also in "bundle order"
+        // NOTE: get_components calls this closure on each component in "bundle order".
+        // bundle_info.component_ids are also in "bundle order"
         let mut bundle_component = 0;
         bundle.get_components(|component_ptr| {
             // SAFE: component_id was initialized by get_dynamic_bundle_info
             let component_id = *self.component_ids.get_unchecked(bundle_component);
-            let flags = *bundle_flags.get_unchecked(bundle_component);
+            let component_status = bundle_status.get_unchecked(bundle_component);
             match self.storage_types[bundle_component] {
                 StorageType::Table => {
                     let column = table.get_column(component_id).unwrap();
                     column.set_unchecked(table_row, component_ptr);
-                    column.get_flags_unchecked_mut(table_row).insert(flags);
+                    let column_status = column.get_ticks_unchecked_mut(table_row);
+                    match component_status {
+                        ComponentStatus::Added => {
+                            *column_status = ComponentTicks::new(change_tick);
+                        }
+                        ComponentStatus::Mutated => {
+                            column_status.set_changed(change_tick);
+                        }
+                    }
                 }
                 StorageType::SparseSet => {
                     let sparse_set = sparse_sets.get_mut(component_id).unwrap();
-                    sparse_set.insert(entity, component_ptr, flags);
+                    sparse_set.insert(entity, component_ptr, change_tick);
                 }
             }
             bundle_component += 1;

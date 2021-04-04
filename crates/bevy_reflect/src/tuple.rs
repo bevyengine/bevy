@@ -139,7 +139,8 @@ impl Tuple for DynamicTuple {
     }
 }
 
-impl Reflect for DynamicTuple {
+// SAFE: any and any_mut both return self
+unsafe impl Reflect for DynamicTuple {
     #[inline]
     fn type_name(&self) -> &str {
         self.name()
@@ -274,7 +275,8 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl<$($name: Reflect),*> Reflect for ($($name,)*) {
+        // SAFE: any and any_mut both return self
+        unsafe impl<$($name: Reflect),*> Reflect for ($($name,)*) {
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
             }

@@ -3,7 +3,6 @@ mod type_info;
 pub use type_info::*;
 
 use crate::storage::SparseSetIndex;
-use bitflags::bitflags;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
@@ -11,6 +10,19 @@ use std::{
 };
 use thiserror::Error;
 
+/// A component is data associated with an `Entity`. Each entity can have multiple different types
+/// of components, but only one of them per type.
+///
+/// Any type that is `Send + Sync + 'static` automatically implements `Component`.
+///
+/// Components are added with new entities using [Commands::spawn](crate::system::Commands::spawn),
+/// or to existing entities with [Commands::insert](crate::system::Commands::insert),
+/// or their [World](crate::world::World) equivalents.
+///
+/// Components can be accessed in systems by using a [Query](crate::system::Query)
+/// as one of the arguments.
+///
+/// Components can be grouped together into a [Bundle](crate::bundle::Bundle).
 pub trait Component: Send + Sync + 'static {}
 impl<T: Send + Sync + 'static> Component for T {}
 
@@ -31,7 +43,8 @@ pub struct ComponentInfo {
     name: String,
     id: ComponentId,
     type_id: Option<TypeId>,
-    // SAFETY: This must remain private. It must only be set to "true" if this component is actually Send + Sync
+    // SAFETY: This must remain private. It must only be set to "true" if this component is
+    // actually Send + Sync
     is_send_and_sync: bool,
     layout: Layout,
     drop: unsafe fn(*mut u8),
@@ -116,7 +129,8 @@ impl SparseSetIndex for ComponentId {
 pub struct ComponentDescriptor {
     name: String,
     storage_type: StorageType,
-    // SAFETY: This must remain private. It must only be set to "true" if this component is actually Send + Sync
+    // SAFETY: This must remain private. It must only be set to "true" if this component is
+    // actually Send + Sync
     is_send_and_sync: bool,
     type_id: Option<TypeId>,
     layout: Layout,
@@ -173,8 +187,8 @@ pub struct Components {
 
 #[derive(Debug, Error)]
 pub enum ComponentsError {
-    #[error("A component of type {0:?} already exists")]
-    ComponentAlreadyExists(TypeId),
+    #[error("A component of type {name:?} ({type_id:?}) already exists")]
+    ComponentAlreadyExists { type_id: TypeId, name: String },
 }
 
 impl Components {
@@ -186,7 +200,10 @@ impl Components {
         if let Some(type_id) = descriptor.type_id {
             let index_entry = self.indices.entry(type_id);
             if let Entry::Occupied(_) = index_entry {
-                return Err(ComponentsError::ComponentAlreadyExists(type_id));
+                return Err(ComponentsError::ComponentAlreadyExists {
+                    type_id,
+                    name: descriptor.name,
+                });
             }
             self.indices.insert(type_id, index);
         }
@@ -288,9 +305,66 @@ impl Components {
     }
 }
 
-bitflags! {
-    pub struct ComponentFlags: u8 {
-        const ADDED = 1;
-        const MUTATED = 2;
+#[derive(Copy, Clone, Debug)]
+pub struct ComponentTicks {
+    pub(crate) added: u32,
+    pub(crate) changed: u32,
+}
+
+impl ComponentTicks {
+    #[inline]
+    pub fn is_added(&self, last_change_tick: u32, change_tick: u32) -> bool {
+        // The comparison is relative to `change_tick` so that we can detect changes over the whole
+        // `u32` range. Comparing directly the ticks would limit to half that due to overflow
+        // handling.
+        let component_delta = change_tick.wrapping_sub(self.added);
+        let system_delta = change_tick.wrapping_sub(last_change_tick);
+
+        component_delta < system_delta
+    }
+
+    #[inline]
+    pub fn is_changed(&self, last_change_tick: u32, change_tick: u32) -> bool {
+        let component_delta = change_tick.wrapping_sub(self.changed);
+        let system_delta = change_tick.wrapping_sub(last_change_tick);
+
+        component_delta < system_delta
+    }
+
+    pub(crate) fn new(change_tick: u32) -> Self {
+        Self {
+            added: change_tick,
+            changed: change_tick,
+        }
+    }
+
+    pub(crate) fn check_ticks(&mut self, change_tick: u32) {
+        check_tick(&mut self.added, change_tick);
+        check_tick(&mut self.changed, change_tick);
+    }
+
+    /// Manually sets the change tick.
+    /// Usually, this is done automatically via the [`DerefMut`](std::ops::DerefMut) implementation on [`Mut`](crate::world::Mut) or [`ResMut`](crate::system::ResMut) etc.
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// # use bevy_ecs::{world::World, component::ComponentTicks};
+    /// let world: World = unimplemented!();
+    /// let component_ticks: ComponentTicks = unimplemented!();
+    ///
+    /// component_ticks.set_changed(world.read_change_tick());
+    /// ```
+    #[inline]
+    pub fn set_changed(&mut self, change_tick: u32) {
+        self.changed = change_tick;
+    }
+}
+
+fn check_tick(last_change_tick: &mut u32, change_tick: u32) {
+    let tick_delta = change_tick.wrapping_sub(*last_change_tick);
+    const MAX_DELTA: u32 = (u32::MAX / 4) * 3;
+    // Clamp to max delta
+    if tick_delta > MAX_DELTA {
+        *last_change_tick = change_tick.wrapping_sub(MAX_DELTA);
     }
 }

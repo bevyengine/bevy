@@ -22,7 +22,8 @@ impl<T> Task<T> {
         Self(task)
     }
 
-    /// Detaches the task to let it keep running in the background. See `async_executor::Task::detach`
+    /// Detaches the task to let it keep running in the background. See
+    /// `async_executor::Task::detach`
     pub fn detach(self) {
         self.0.detach();
     }

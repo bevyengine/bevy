@@ -7,6 +7,7 @@ pub trait TypeUuid {
 
 pub trait TypeUuidDynamic {
     fn type_uuid(&self) -> Uuid;
+    fn type_name(&self) -> &'static str;
 }
 
 impl<T> TypeUuidDynamic for T
@@ -15,5 +16,9 @@ where
 {
     fn type_uuid(&self) -> Uuid {
         Self::TYPE_UUID
+    }
+
+    fn type_name(&self) -> &'static str {
+        std::any::type_name::<Self>()
     }
 }

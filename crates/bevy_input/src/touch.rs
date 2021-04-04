@@ -194,12 +194,13 @@ impl Touches {
                 self.just_pressed.insert(event.id, event.into());
             }
             TouchPhase::Moved => {
-                let mut new_touch = self.pressed.get(&event.id).cloned().unwrap();
-                new_touch.previous_position = new_touch.position;
-                new_touch.previous_force = new_touch.force;
-                new_touch.position = event.position;
-                new_touch.force = event.force;
-                self.pressed.insert(event.id, new_touch);
+                if let Some(mut new_touch) = self.pressed.get(&event.id).cloned() {
+                    new_touch.previous_position = new_touch.position;
+                    new_touch.previous_force = new_touch.force;
+                    new_touch.position = event.position;
+                    new_touch.force = event.force;
+                    self.pressed.insert(event.id, new_touch);
+                }
             }
             TouchPhase::Ended => {
                 self.just_released.insert(event.id, event.into());
