@@ -333,7 +333,7 @@ where
         }
     }
 
-    /// retreive last returned item again
+    /// retrieve item returned from most recent `next` call again.
     #[inline]
     unsafe fn peek_last<'w>(&mut self) -> Option<<Q::Fetch as Fetch<'w>>::Item> {
         if self.current_index > 0 {
