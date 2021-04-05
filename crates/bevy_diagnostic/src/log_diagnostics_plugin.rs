@@ -1,7 +1,7 @@
 use super::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_app::prelude::*;
 use bevy_core::{Time, Timer};
-use bevy_ecs::{IntoSystem, Res, ResMut};
+use bevy_ecs::system::{IntoSystem, Res, ResMut};
 use bevy_log::{debug, info};
 use bevy_utils::Duration;
 
@@ -90,7 +90,7 @@ impl LogDiagnosticsPlugin {
         time: Res<Time>,
         diagnostics: Res<Diagnostics>,
     ) {
-        if state.timer.tick(time.delta_seconds()).finished() {
+        if state.timer.tick(time.delta()).finished() {
             if let Some(ref filter) = state.filter {
                 for diagnostic in filter.iter().map(|id| diagnostics.get(*id).unwrap()) {
                     Self::log_diagnostic(diagnostic);
@@ -108,7 +108,7 @@ impl LogDiagnosticsPlugin {
         time: Res<Time>,
         diagnostics: Res<Diagnostics>,
     ) {
-        if state.timer.tick(time.delta_seconds()).finished() {
+        if state.timer.tick(time.delta()).finished() {
             if let Some(ref filter) = state.filter {
                 for diagnostic in filter.iter().map(|id| diagnostics.get(*id).unwrap()) {
                     debug!("{:#?}\n", diagnostic);

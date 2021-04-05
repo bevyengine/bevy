@@ -1,4 +1,5 @@
-use bevy_reflect::{Reflect, ReflectComponent};
+use bevy_ecs::reflect::ReflectComponent;
+use bevy_reflect::Reflect;
 use bevy_utils::AHasher;
 use std::{
     borrow::Cow,

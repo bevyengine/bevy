@@ -1,6 +1,6 @@
 use crate::{ElementState, Input};
 use bevy_app::prelude::EventReader;
-use bevy_ecs::ResMut;
+use bevy_ecs::system::ResMut;
 use bevy_math::Vec2;
 
 /// A mouse button input event
@@ -33,7 +33,8 @@ pub enum MouseScrollUnit {
     Pixel,
 }
 
-/// A mouse scroll wheel event, where x represents horizontal scroll and y represents vertical scroll.
+/// A mouse scroll wheel event, where x represents horizontal scroll and y represents vertical
+/// scroll.
 #[derive(Debug, Clone)]
 pub struct MouseWheel {
     pub unit: MouseScrollUnit,

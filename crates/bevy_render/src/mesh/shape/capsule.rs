@@ -5,6 +5,7 @@ use crate::{
 use bevy_math::{Vec2, Vec3};
 
 /// A cylinder with hemispheres at the top and bottom
+#[derive(Debug, Copy, Clone)]
 pub struct Capsule {
     /// Radius on the xz plane.
     pub radius: f32,
@@ -32,14 +33,15 @@ impl Default for Capsule {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 /// Manner in which UV coordinates are distributed vertically.
 pub enum CapsuleUvProfile {
     /// UV space is distributed by how much of the capsule consists of the hemispheres.
     Aspect,
     /// Hemispheres get UV space according to the ratio of latitudes to rings.
     Uniform,
-    /// Upper third of the texture goes to the northern hemisphere, middle third to the cylinder and lower third to the southern one.
+    /// Upper third of the texture goes to the northern hemisphere, middle third to the cylinder
+    /// and lower third to the southern one.
     Fixed,
 }
 
@@ -88,9 +90,9 @@ impl From<Capsule> for Mesh {
         // Initialize arrays.
         let vert_len = vert_offset_south_cap + longitudes;
 
-        let mut vs: Vec<Vec3> = vec![Vec3::default(); vert_len];
-        let mut vts: Vec<Vec2> = vec![Vec2::default(); vert_len];
-        let mut vns: Vec<Vec3> = vec![Vec3::default(); vert_len];
+        let mut vs: Vec<Vec3> = vec![Vec3::ZERO; vert_len];
+        let mut vts: Vec<Vec2> = vec![Vec2::ZERO; vert_len];
+        let mut vns: Vec<Vec3> = vec![Vec3::ZERO; vert_len];
 
         let to_theta = 2.0 * std::f32::consts::PI / longitudes as f32;
         let to_phi = std::f32::consts::PI / latitudes as f32;
@@ -105,8 +107,8 @@ impl From<Capsule> for Mesh {
         let vt_aspect_north = 1.0 - vt_aspect_ratio;
         let vt_aspect_south = vt_aspect_ratio;
 
-        let mut theta_cartesian: Vec<Vec2> = vec![Vec2::default(); longitudes];
-        let mut rho_theta_cartesian: Vec<Vec2> = vec![Vec2::default(); longitudes];
+        let mut theta_cartesian: Vec<Vec2> = vec![Vec2::ZERO; longitudes];
+        let mut rho_theta_cartesian: Vec<Vec2> = vec![Vec2::ZERO; longitudes];
         let mut s_texture_cache: Vec<f32> = vec![0.0; lonsp1];
 
         for j in 0..longitudes {

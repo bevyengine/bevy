@@ -1,8 +1,14 @@
 use super::CameraProjection;
 use bevy_app::prelude::EventReader;
-use bevy_ecs::{Added, Component, Entity, Query, QuerySet, Res};
+use bevy_ecs::{
+    component::Component,
+    entity::Entity,
+    query::Added,
+    reflect::ReflectComponent,
+    system::{Query, QuerySet, Res},
+};
 use bevy_math::{Mat4, Vec2, Vec3};
-use bevy_reflect::{Reflect, ReflectComponent, ReflectDeserialize};
+use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_transform::components::GlobalTransform;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use serde::{Deserialize, Serialize};
@@ -46,13 +52,13 @@ impl Camera {
         // Build a transform to convert from world to NDC using camera data
         let world_to_ndc: Mat4 =
             self.projection_matrix * camera_transform.compute_matrix().inverse();
-        let ndc_space_coords: Vec3 = world_to_ndc.transform_point3(world_position);
+        let ndc_space_coords: Vec3 = world_to_ndc.project_point3(world_position);
         // NDC z-values outside of 0 < z < 1 are behind the camera and are thus not in screen space
         if ndc_space_coords.z < 0.0 || ndc_space_coords.z > 1.0 {
             return None;
         }
         // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
-        let screen_space_coords = (ndc_space_coords.truncate() + Vec2::one()) / 2.0 * window_size;
+        let screen_space_coords = (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * window_size;
         Some(screen_space_coords)
     }
 }
@@ -67,7 +73,8 @@ pub fn camera_system<T: CameraProjection + Component>(
     )>,
 ) {
     let mut changed_window_ids = Vec::new();
-    // handle resize events. latest events are handled first because we only want to resize each window once
+    // handle resize events. latest events are handled first because we only want to resize each
+    // window once
     for event in window_resized_events.iter().rev() {
         if changed_window_ids.contains(&event.id) {
             continue;
@@ -76,7 +83,8 @@ pub fn camera_system<T: CameraProjection + Component>(
         changed_window_ids.push(event.id);
     }
 
-    // handle resize events. latest events are handled first because we only want to resize each window once
+    // handle resize events. latest events are handled first because we only want to resize each
+    // window once
     for event in window_created_events.iter().rev() {
         if changed_window_ids.contains(&event.id) {
             continue;

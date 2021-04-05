@@ -1,20 +1,25 @@
 use super::{PipelineDescriptor, PipelineSpecialization};
 use crate::{
-    draw::{Draw, DrawContext},
+    draw::{Draw, DrawContext, OutsideFrustum},
     mesh::{Indices, Mesh},
     prelude::{Msaa, Visible},
     renderer::RenderResourceBindings,
 };
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::{Query, Res, ResMut};
-use bevy_reflect::{Reflect, ReflectComponent};
+use bevy_ecs::{
+    query::Without,
+    reflect::ReflectComponent,
+    system::{Query, Res, ResMut},
+};
+use bevy_reflect::Reflect;
 use bevy_utils::HashSet;
 
 #[derive(Debug, Default, Clone, Reflect)]
 pub struct RenderPipeline {
     pub pipeline: Handle<PipelineDescriptor>,
     pub specialization: PipelineSpecialization,
-    /// used to track if PipelineSpecialization::dynamic_bindings is in sync with RenderResourceBindings
+    /// used to track if PipelineSpecialization::dynamic_bindings is in sync with
+    /// RenderResourceBindings
     pub dynamic_bindings_generation: usize,
 }
 
@@ -82,7 +87,10 @@ pub fn draw_render_pipelines_system(
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
     msaa: Res<Msaa>,
     meshes: Res<Assets<Mesh>>,
-    mut query: Query<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>, &Visible)>,
+    mut query: Query<
+        (&mut Draw, &mut RenderPipelines, &Handle<Mesh>, &Visible),
+        Without<OutsideFrustum>,
+    >,
 ) {
     for (mut draw, mut render_pipelines, mesh_handle, visible) in query.iter_mut() {
         if !visible.is_visible {

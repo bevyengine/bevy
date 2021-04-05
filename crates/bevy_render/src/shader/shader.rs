@@ -6,7 +6,7 @@ use crate::{
 use super::ShaderLayout;
 use bevy_app::EventReader;
 use bevy_asset::{AssetEvent, AssetLoader, Assets, Handle, LoadContext, LoadedAsset};
-use bevy_ecs::{Res, ResMut};
+use bevy_ecs::system::{Res, ResMut};
 use bevy_reflect::TypeUuid;
 use bevy_utils::{tracing::error, BoxedFuture};
 use std::marker::Copy;
@@ -142,7 +142,7 @@ pub struct Shader {
 
 impl Shader {
     pub fn new(stage: ShaderStage, source: ShaderSource) -> Shader {
-        Shader { stage, source }
+        Shader { source, stage }
     }
 
     #[cfg(not(target_arch = "wasm32"))]

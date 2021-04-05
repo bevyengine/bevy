@@ -12,8 +12,10 @@ use crate::{
 use bevy_app::EventReader;
 use bevy_asset::{Asset, AssetEvent, Assets, Handle, HandleId};
 use bevy_ecs::{
-    BoxedSystem, Changed, Commands, Entity, IntoSystem, Local, Or, Query, QuerySet, Res, ResMut,
-    Resources, System, With, World,
+    entity::Entity,
+    query::{Changed, Or, With},
+    system::{BoxedSystem, IntoSystem, Local, Query, QuerySet, RemovedComponents, Res, ResMut},
+    world::World,
 };
 use bevy_utils::HashMap;
 use renderer::{AssetRenderResourceBindings, BufferId, RenderResourceType, RenderResources};
@@ -180,7 +182,8 @@ where
         self.current_staging_buffer_offset = 0;
     }
 
-    /// Find a spot for the given RenderResources in each uniform's BufferArray and prepare space in the staging buffer
+    /// Find a spot for the given RenderResources in each uniform's BufferArray and prepare space in
+    /// the staging buffer
     fn prepare_uniform_buffers(&mut self, id: I, render_resources: &T) {
         for (i, render_resource) in render_resources.iter().enumerate() {
             if let Some(RenderResourceType::Buffer) = render_resource.resource_type() {
@@ -199,10 +202,8 @@ where
         render_resource_context: &dyn RenderResourceContext,
     ) -> bool {
         let mut resized = false;
-        for buffer_array in self.buffer_arrays.iter_mut() {
-            if let Some(buffer_array) = buffer_array {
-                resized |= buffer_array.resize(render_resource_context);
-            }
+        for buffer_array in self.buffer_arrays.iter_mut().flatten() {
+            resized |= buffer_array.resize(render_resource_context);
         }
 
         resized
@@ -210,13 +211,13 @@ where
 
     fn set_required_staging_buffer_size_to_max(&mut self) {
         let mut new_size = 0;
-        for buffer_array in self.buffer_arrays.iter() {
-            if let Some(buffer_array) = buffer_array {
-                new_size += buffer_array.item_size * buffer_array.len;
-            }
+        for buffer_array in self.buffer_arrays.iter().flatten() {
+            new_size += buffer_array.item_size * buffer_array.len;
         }
 
-        self.required_staging_buffer_size = new_size;
+        if new_size > self.required_staging_buffer_size {
+            self.required_staging_buffer_size = new_size;
+        }
     }
 
     /// Update the staging buffer to provide enough space to copy data to target buffers.
@@ -243,10 +244,8 @@ where
     }
 
     fn remove_bindings(&mut self, id: I) {
-        for buffer_array in self.buffer_arrays.iter_mut() {
-            if let Some(buffer_array) = buffer_array {
-                buffer_array.remove_binding(id);
-            }
+        for buffer_array in self.buffer_arrays.iter_mut().flatten() {
+            buffer_array.remove_binding(id);
         }
     }
 
@@ -388,7 +387,6 @@ where
     fn update(
         &mut self,
         _world: &World,
-        _resources: &Resources,
         render_context: &mut dyn RenderContext,
         _input: &ResourceSlots,
         _output: &mut ResourceSlots,
@@ -401,16 +399,14 @@ impl<T> SystemNode for RenderResourcesNode<T>
 where
     T: renderer::RenderResources,
 {
-    fn get_system(&self, commands: &mut Commands) -> BoxedSystem {
-        let system = render_resources_node_system::<T>.system();
-        commands.insert_local_resource(
-            system.id(),
-            RenderResourcesNodeState {
+    fn get_system(&self) -> BoxedSystem {
+        let system = render_resources_node_system::<T>.system().config(|config| {
+            config.0 = Some(RenderResourcesNodeState {
                 command_queue: self.command_queue.clone(),
                 uniform_buffer_arrays: UniformBufferArrays::<Entity, T>::default(),
                 dynamic_uniforms: self.dynamic_uniforms,
-            },
-        );
+            })
+        });
 
         Box::new(system)
     }
@@ -436,6 +432,7 @@ fn render_resources_node_system<T: RenderResources>(
     mut state: Local<RenderResourcesNodeState<Entity, T>>,
     mut entities_waiting_for_textures: Local<Vec<Entity>>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
+    removed: RemovedComponents<T>,
     mut queries: QuerySet<(
         Query<(Entity, &T, &Visible, &mut RenderPipelines), Or<(Changed<T>, Changed<Visible>)>>,
         Query<(Entity, &T, &Visible, &mut RenderPipelines)>,
@@ -450,8 +447,8 @@ fn render_resources_node_system<T: RenderResources>(
         uniform_buffer_arrays.initialize(first, render_resource_context);
     }
 
-    for entity in queries.q0().removed::<T>() {
-        uniform_buffer_arrays.remove_bindings(*entity);
+    for entity in removed.iter() {
+        uniform_buffer_arrays.remove_bindings(entity);
     }
 
     // handle entities that were waiting for texture loads on the last update
@@ -495,7 +492,8 @@ fn render_resources_node_system<T: RenderResources>(
             staging_buffer,
             0..state.uniform_buffer_arrays.staging_buffer_size as u64,
             &mut |mut staging_buffer, _render_resource_context| {
-                // if the buffer array was resized, write all entities to the new buffer, otherwise only write changes
+                // if the buffer array was resized, write all entities to the new buffer, otherwise
+                // only write changes
                 if resized {
                     for (entity, uniforms, visible, mut render_pipelines) in
                         queries.q1_mut().iter_mut()
@@ -571,7 +569,6 @@ where
     fn update(
         &mut self,
         _world: &World,
-        _resources: &Resources,
         render_context: &mut dyn RenderContext,
         _input: &ResourceSlots,
         _output: &mut ResourceSlots,
@@ -584,16 +581,16 @@ impl<T> SystemNode for AssetRenderResourcesNode<T>
 where
     T: renderer::RenderResources + Asset,
 {
-    fn get_system(&self, commands: &mut Commands) -> BoxedSystem {
-        let system = asset_render_resources_node_system::<T>.system();
-        commands.insert_local_resource(
-            system.id(),
-            RenderResourcesNodeState {
-                command_queue: self.command_queue.clone(),
-                uniform_buffer_arrays: UniformBufferArrays::<HandleId, T>::default(),
-                dynamic_uniforms: self.dynamic_uniforms,
-            },
-        );
+    fn get_system(&self) -> BoxedSystem {
+        let system = asset_render_resources_node_system::<T>
+            .system()
+            .config(|config| {
+                config.0 = Some(RenderResourcesNodeState {
+                    command_queue: self.command_queue.clone(),
+                    uniform_buffer_arrays: UniformBufferArrays::<HandleId, T>::default(),
+                    dynamic_uniforms: self.dynamic_uniforms,
+                })
+            });
 
         Box::new(system)
     }
@@ -621,11 +618,11 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
     mut asset_events: EventReader<AssetEvent<T>>,
     mut asset_render_resource_bindings: ResMut<AssetRenderResourceBindings>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
+    removed_handles: RemovedComponents<Handle<T>>,
     mut queries: QuerySet<(
         Query<(&Handle<T>, &mut RenderPipelines), Changed<Handle<T>>>,
         Query<&mut RenderPipelines, With<Handle<T>>>,
     )>,
-    entity_query: Query<Entity>,
 ) {
     let state = state.deref_mut();
     let uniform_buffer_arrays = &mut state.uniform_buffer_arrays;
@@ -698,6 +695,12 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
 
     let resized = uniform_buffer_arrays.resize_buffer_arrays(render_resource_context);
     if resized {
+        // full asset copy needed, make sure there is also space for unchanged assets
+        for (asset_handle, asset) in assets.iter() {
+            if !changed_assets.contains_key(&asset_handle) {
+                uniform_buffer_arrays.prepare_uniform_buffers(asset_handle, asset);
+            }
+        }
         uniform_buffer_arrays.set_required_staging_buffer_size_to_max()
     }
     uniform_buffer_arrays.resize_staging_buffer(render_resource_context);
@@ -747,8 +750,8 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
     }
 
     // update removed entity asset mapping
-    for entity in entity_query.removed::<Handle<T>>() {
-        if let Ok(mut render_pipelines) = queries.q1_mut().get_mut(*entity) {
+    for entity in removed_handles.iter() {
+        if let Ok(mut render_pipelines) = queries.q1_mut().get_mut(entity) {
             render_pipelines
                 .bindings
                 .remove_asset_with_type(TypeId::of::<T>())

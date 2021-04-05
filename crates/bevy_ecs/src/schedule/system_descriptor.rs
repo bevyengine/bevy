@@ -1,6 +1,9 @@
 use crate::{
-    AmbiguitySetLabel, BoxedAmbiguitySetLabel, BoxedSystem, BoxedSystemLabel, ExclusiveSystem,
-    ExclusiveSystemCoerced, ExclusiveSystemFn, System, SystemLabel,
+    schedule::{
+        AmbiguitySetLabel, BoxedAmbiguitySetLabel, BoxedSystemLabel, IntoRunCriteria,
+        RunCriteriaDescriptorOrLabel, SystemLabel,
+    },
+    system::{BoxedSystem, ExclusiveSystem, ExclusiveSystemCoerced, ExclusiveSystemFn, System},
 };
 
 /// Encapsulates a system and information on when it run in a `SystemStage`.
@@ -13,8 +16,9 @@ use crate::{
 /// * At end, accepts exclusive systems; runs after parallel systems' command buffers have
 /// been applied.
 ///
-/// All systems can have a label attached to them; other systems in the same group can then specify
-/// that they have to run before or after the system with that label using the `before` and `after` methods.
+/// Systems can have one or more labels attached to them; other systems in the same group
+/// can then specify that they have to run before or after systems with that label using the
+/// `before` and `after` methods.
 ///
 /// # Example
 /// ```
@@ -76,10 +80,11 @@ impl From<ExclusiveSystemCoerced> for SystemDescriptor {
     }
 }
 
-/// Encapsulates a parallel system and information on when it run in a `SystemStage`.
+/// Encapsulates a parallel system and information on when it runs in a `SystemStage`.
 pub struct ParallelSystemDescriptor {
     pub(crate) system: BoxedSystem<(), ()>,
-    pub(crate) label: Option<BoxedSystemLabel>,
+    pub(crate) run_criteria: Option<RunCriteriaDescriptorOrLabel>,
+    pub(crate) labels: Vec<BoxedSystemLabel>,
     pub(crate) before: Vec<BoxedSystemLabel>,
     pub(crate) after: Vec<BoxedSystemLabel>,
     pub(crate) ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
@@ -88,7 +93,8 @@ pub struct ParallelSystemDescriptor {
 fn new_parallel_descriptor(system: BoxedSystem<(), ()>) -> ParallelSystemDescriptor {
     ParallelSystemDescriptor {
         system,
-        label: None,
+        run_criteria: None,
+        labels: Vec::new(),
         before: Vec::new(),
         after: Vec::new(),
         ambiguity_sets: Vec::new(),
@@ -96,13 +102,20 @@ fn new_parallel_descriptor(system: BoxedSystem<(), ()>) -> ParallelSystemDescrip
 }
 
 pub trait ParallelSystemDescriptorCoercion {
-    /// Assigns a label to the system.
+    /// Assigns a run criteria to the system. Can be a new descriptor or a label of a
+    /// run criteria defined elsewhere.
+    fn with_run_criteria<Marker>(
+        self,
+        run_criteria: impl IntoRunCriteria<Marker>,
+    ) -> ParallelSystemDescriptor;
+
+    /// Assigns a label to the system; there can be more than one, and it doesn't have to be unique.
     fn label(self, label: impl SystemLabel) -> ParallelSystemDescriptor;
 
-    /// Specifies that the system should run before the system with given label.
+    /// Specifies that the system should run before systems with the given label.
     fn before(self, label: impl SystemLabel) -> ParallelSystemDescriptor;
 
-    /// Specifies that the system should run after the system with given label.
+    /// Specifies that the system should run after systems with the given label.
     fn after(self, label: impl SystemLabel) -> ParallelSystemDescriptor;
 
     /// Specifies that the system is exempt from execution order ambiguity detection
@@ -111,8 +124,16 @@ pub trait ParallelSystemDescriptorCoercion {
 }
 
 impl ParallelSystemDescriptorCoercion for ParallelSystemDescriptor {
+    fn with_run_criteria<Marker>(
+        mut self,
+        run_criteria: impl IntoRunCriteria<Marker>,
+    ) -> ParallelSystemDescriptor {
+        self.run_criteria = Some(run_criteria.into());
+        self
+    }
+
     fn label(mut self, label: impl SystemLabel) -> ParallelSystemDescriptor {
-        self.label = Some(Box::new(label));
+        self.labels.push(Box::new(label));
         self
     }
 
@@ -136,6 +157,13 @@ impl<S> ParallelSystemDescriptorCoercion for S
 where
     S: System<In = (), Out = ()>,
 {
+    fn with_run_criteria<Marker>(
+        self,
+        run_criteria: impl IntoRunCriteria<Marker>,
+    ) -> ParallelSystemDescriptor {
+        new_parallel_descriptor(Box::new(self)).with_run_criteria(run_criteria)
+    }
+
     fn label(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
         new_parallel_descriptor(Box::new(self)).label(label)
     }
@@ -154,6 +182,13 @@ where
 }
 
 impl ParallelSystemDescriptorCoercion for BoxedSystem<(), ()> {
+    fn with_run_criteria<Marker>(
+        self,
+        run_criteria: impl IntoRunCriteria<Marker>,
+    ) -> ParallelSystemDescriptor {
+        new_parallel_descriptor(self).with_run_criteria(run_criteria)
+    }
+
     fn label(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
         new_parallel_descriptor(self).label(label)
     }
@@ -178,10 +213,11 @@ pub(crate) enum InsertionPoint {
     AtEnd,
 }
 
-/// Encapsulates an exclusive system and information on when it run in a `SystemStage`.
+/// Encapsulates an exclusive system and information on when it runs in a `SystemStage`.
 pub struct ExclusiveSystemDescriptor {
     pub(crate) system: Box<dyn ExclusiveSystem>,
-    pub(crate) label: Option<BoxedSystemLabel>,
+    pub(crate) run_criteria: Option<RunCriteriaDescriptorOrLabel>,
+    pub(crate) labels: Vec<BoxedSystemLabel>,
     pub(crate) before: Vec<BoxedSystemLabel>,
     pub(crate) after: Vec<BoxedSystemLabel>,
     pub(crate) ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
@@ -191,7 +227,8 @@ pub struct ExclusiveSystemDescriptor {
 fn new_exclusive_descriptor(system: Box<dyn ExclusiveSystem>) -> ExclusiveSystemDescriptor {
     ExclusiveSystemDescriptor {
         system,
-        label: None,
+        run_criteria: None,
+        labels: Vec::new(),
         before: Vec::new(),
         after: Vec::new(),
         ambiguity_sets: Vec::new(),
@@ -200,13 +237,20 @@ fn new_exclusive_descriptor(system: Box<dyn ExclusiveSystem>) -> ExclusiveSystem
 }
 
 pub trait ExclusiveSystemDescriptorCoercion {
-    /// Assigns a label to the system.
+    /// Assigns a run criteria to the system. Can be a new descriptor or a label of a
+    /// run criteria defined elsewhere.
+    fn with_run_criteria<Marker>(
+        self,
+        run_criteria: impl IntoRunCriteria<Marker>,
+    ) -> ExclusiveSystemDescriptor;
+
+    /// Assigns a label to the system; there can be more than one, and it doesn't have to be unique.
     fn label(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor;
 
-    /// Specifies that the system should run before the system with given label.
+    /// Specifies that the system should run before systems with the given label.
     fn before(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor;
 
-    /// Specifies that the system should run after the system with given label.
+    /// Specifies that the system should run after systems with the given label.
     fn after(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor;
 
     /// Specifies that the system is exempt from execution order ambiguity detection
@@ -225,8 +269,16 @@ pub trait ExclusiveSystemDescriptorCoercion {
 }
 
 impl ExclusiveSystemDescriptorCoercion for ExclusiveSystemDescriptor {
+    fn with_run_criteria<Marker>(
+        mut self,
+        run_criteria: impl IntoRunCriteria<Marker>,
+    ) -> ExclusiveSystemDescriptor {
+        self.run_criteria = Some(run_criteria.into());
+        self
+    }
+
     fn label(mut self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
-        self.label = Some(Box::new(label));
+        self.labels.push(Box::new(label));
         self
     }
 
@@ -265,6 +317,13 @@ impl<T> ExclusiveSystemDescriptorCoercion for T
 where
     T: ExclusiveSystem + 'static,
 {
+    fn with_run_criteria<Marker>(
+        self,
+        run_criteria: impl IntoRunCriteria<Marker>,
+    ) -> ExclusiveSystemDescriptor {
+        new_exclusive_descriptor(Box::new(self)).with_run_criteria(run_criteria)
+    }
+
     fn label(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
         new_exclusive_descriptor(Box::new(self)).label(label)
     }

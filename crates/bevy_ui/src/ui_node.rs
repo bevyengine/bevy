@@ -1,5 +1,6 @@
+use bevy_ecs::reflect::ReflectComponent;
 use bevy_math::{Rect, Size, Vec2};
-use bevy_reflect::{Reflect, ReflectComponent, ReflectDeserialize};
+use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_render::renderer::RenderResources;
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign};
@@ -49,6 +50,7 @@ impl AddAssign<f32> for Val {
 }
 
 #[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(Component, PartialEq)]
 pub struct Style {
     pub display: Display,
     pub position_type: PositionType,
@@ -153,8 +155,8 @@ impl Default for AlignContent {
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum Direction {
     Inherit,
-    LTR,
-    RTL,
+    Ltr,
+    Rtl,
 }
 
 impl Default for Direction {
@@ -247,4 +249,9 @@ impl Default for FlexWrap {
     fn default() -> FlexWrap {
         FlexWrap::NoWrap
     }
+}
+
+#[derive(Default, Copy, Clone, Debug)]
+pub struct CalculatedSize {
+    pub size: Size,
 }

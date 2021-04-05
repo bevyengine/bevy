@@ -1,33 +1,36 @@
 use crate::app_builder::AppBuilder;
-use bevy_ecs::{Resources, Schedule, Stage, World};
+use bevy_ecs::{
+    schedule::{Schedule, Stage},
+    world::World,
+};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
 #[allow(clippy::needless_doctest_main)]
 /// Containers of app logic and data
 ///
-/// App store the ECS World, Resources, Schedule, and Executor. They also store the "run" function of the App, which
-/// by default executes the App schedule once. Apps are constructed using the builder pattern.
+/// App store the ECS World, Resources, Schedule, and Executor. They also store the "run" function
+/// of the App, which by default executes the App schedule once. Apps are constructed using the
+/// builder pattern.
 ///
 /// ## Example
 /// Here is a simple "Hello World" Bevy app:
 /// ```
-///# use bevy_app::prelude::*;
-///# use bevy_ecs::prelude::*;
+/// # use bevy_app::prelude::*;
+/// # use bevy_ecs::prelude::*;
 ///
-///fn main() {
+/// fn main() {
 ///    App::build()
 ///        .add_system(hello_world_system.system())
 ///        .run();
-///}
+/// }
 ///
-///fn hello_world_system() {
+/// fn hello_world_system() {
 ///    println!("hello world");
-///}
+/// }
 /// ```
 pub struct App {
     pub world: World,
-    pub resources: Resources,
     pub runner: Box<dyn Fn(App)>,
     pub schedule: Schedule,
 }
@@ -36,7 +39,6 @@ impl Default for App {
     fn default() -> Self {
         Self {
             world: Default::default(),
-            resources: Default::default(),
             schedule: Default::default(),
             runner: Box::new(run_once),
         }
@@ -53,7 +55,7 @@ impl App {
     }
 
     pub fn update(&mut self) {
-        self.schedule.run(&mut self.world, &mut self.resources);
+        self.schedule.run(&mut self.world);
     }
 
     pub fn run(mut self) {

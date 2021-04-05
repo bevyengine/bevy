@@ -2,10 +2,10 @@ use super::Node;
 use crate::{
     render::UI_PIPELINE_HANDLE,
     widget::{Button, Image},
-    FocusPolicy, Interaction, Style,
+    CalculatedSize, FocusPolicy, Interaction, Style,
 };
 use bevy_asset::Handle;
-use bevy_ecs::Bundle;
+use bevy_ecs::bundle::Bundle;
 use bevy_render::{
     camera::{Camera, DepthCalculation, OrthographicProjection, VisibleEntities, WindowOrigin},
     draw::Draw,
@@ -14,7 +14,7 @@ use bevy_render::{
     prelude::Visible,
 };
 use bevy_sprite::{ColorMaterial, QUAD_HANDLE};
-use bevy_text::{CalculatedSize, Text};
+use bevy_text::Text;
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 #[derive(Bundle, Clone, Debug)]
