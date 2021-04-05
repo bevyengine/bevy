@@ -337,7 +337,11 @@ where
     #[inline]
     unsafe fn peek_last<'w>(&mut self) -> Option<<Q::Fetch as Fetch<'w>>::Item> {
         if self.current_index > 0 {
-            Some(self.fetch.table_fetch(self.current_index - 1))
+            if self.is_dense {
+                Some(self.fetch.table_fetch(self.current_index - 1))
+            } else {
+                Some(self.fetch.archetype_fetch(self.current_index - 1))
+            }
         } else {
             None
         }

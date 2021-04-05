@@ -40,6 +40,7 @@ mod tests {
     #[test]
     fn query_iter_combinations() {
         let mut world = World::new();
+
         world.spawn().insert_bundle((A(1), B(1)));
         world.spawn().insert_bundle((A(2),));
         world.spawn().insert_bundle((A(3),));
@@ -108,9 +109,7 @@ mod tests {
         );
 
         let mut query = world.query::<&mut A>();
-
         let mut combinations = query.iter_combinations_mut(&mut world);
-
         while let Some([mut a, mut b, mut c]) = combinations.fetch_next() {
             a.0 += 10;
             b.0 += 100;
@@ -135,6 +134,36 @@ mod tests {
         );
         let values: Vec<[&B; 2]> = b_query.iter_combinations(&world).collect();
         assert_eq!(values, Vec::<[&B; 2]>::new());
+    }
+
+    #[test]
+    fn query_iter_combinations_sparse() {
+        let mut world = World::new();
+        world
+            .register_component(ComponentDescriptor::new::<A>(StorageType::SparseSet))
+            .unwrap();
+
+        world.spawn_batch((1..=4).map(|i| (A(i),)));
+
+        let mut query = world.query::<&mut A>();
+        let mut combinations = query.iter_combinations_mut(&mut world);
+        while let Some([mut a, mut b, mut c]) = combinations.fetch_next() {
+            a.0 += 10;
+            b.0 += 100;
+            c.0 += 1000;
+        }
+
+        let mut query = world.query::<&A>();
+        let values: Vec<[&A; 3]> = query.iter_combinations(&world).collect();
+        assert_eq!(
+            values,
+            vec![
+                [&A(31), &A(212), &A(1203)],
+                [&A(31), &A(212), &A(3004)],
+                [&A(31), &A(1203), &A(3004)],
+                [&A(212), &A(1203), &A(3004)]
+            ]
+        );
     }
 
     #[test]
