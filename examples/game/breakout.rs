@@ -1,5 +1,5 @@
 use bevy::{
-    core::{FixedTimestep},
+    core::FixedTimestep,
     prelude::*,
     render::pass::ClearColor,
     sprite::collide_aabb::{collide, Collision},
