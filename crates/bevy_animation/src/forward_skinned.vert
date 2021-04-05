@@ -3,8 +3,8 @@
 layout(location = 0) in vec3 Vertex_Position;
 layout(location = 1) in vec3 Vertex_Normal;
 layout(location = 2) in vec2 Vertex_Uv;
-layout(location = 3) in vec4 Vertex_Weight;
-layout(location = 4) in uvec4 Vertex_Join;
+layout(location = 3) in vec4 Vertex_JointWeight;
+layout(location = 4) in uvec4 Vertex_JointIndex;
 
 layout(location = 0) out vec3 v_Position;
 layout(location = 1) out vec3 v_Normal;
@@ -19,10 +19,10 @@ layout(set = 2, binding = 0) buffer SkinInstance_joint_matrices {
 };
 
 void main() {
-    mat4 Mat = Vertex_Weight.x * Joints[Vertex_Join.x]
-        + Vertex_Weight.y * Joints[Vertex_Join.y]
-        + Vertex_Weight.z * Joints[Vertex_Join.z]
-        + Vertex_Weight.w * Joints[Vertex_Join.w];
+    mat4 Mat = Vertex_JointWeight.x * Joints[Vertex_JointIndex.x]
+        + Vertex_JointWeight.y * Joints[Vertex_JointIndex.y]
+        + Vertex_JointWeight.z * Joints[Vertex_JointIndex.z]
+        + Vertex_JointWeight.w * Joints[Vertex_JointIndex.w];
 
     v_Normal = (Mat * vec4(Vertex_Normal, 1.0)).xyz;
     v_Normal = mat3(Mat) * Vertex_Normal;
