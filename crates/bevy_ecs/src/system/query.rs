@@ -195,24 +195,23 @@ where
     /// Iterates over all possible combinations of `K` query results without repetition.
     ///
     /// The returned value is not an `Iterator`, because that would lead to aliasing of mutable references.
-    /// In order to iterate it, use `for_each` method or `fetch_next` with `while let Some(..)` pattern.
+    /// In order to iterate it, use `fetch_next` method with `while let Some(..)` loop pattern.
     ///
     /// ```
     /// # struct A;
     /// # use bevy_ecs::prelude::*;
     /// # fn some_system(mut query: Query<&mut A>) {
-    /// // iterate using for_each
-    /// query.iter_combinations_mut().for_each(|[mut a, mut b]| {
-    ///    // mutably access components data
-    /// });
-    ///
-    /// // iterate using while loop
+    /// // iterate using `fetch_next` in while loop
     /// let mut combinations = query.iter_combinations_mut();
     /// while let Some([mut a, mut b]) = combinations.fetch_next() {
     ///    // mutably access components data
     /// }
     /// # }
     /// ```
+    ///
+    /// There is no `for_each` method, because it cannot be safely implemented
+    /// due to a [compiler bug](https://github.com/rust-lang/rust/issues/62529).
+    ///
     /// For immutable access see [`Query::iter_combinations`].
     #[inline]
     pub fn iter_combinations_mut<const K: usize>(
