@@ -222,16 +222,25 @@ async fn load_gltf<'a, 'b>(
                 Texture::from_buffer(buffer, ImageType::MimeType(mime_type))?
             }
             gltf::image::Source::Uri { uri, mime_type } => {
-                let parent = load_context.path().parent().unwrap();
-                let image_path = parent.join(uri);
-                let bytes = load_context.read_asset_bytes(image_path.clone()).await?;
+                let (bytes, image_type) = match DataUri::parse(uri) {
+                    Ok(data_uri) => (data_uri.decode()?, ImageType::MimeType(data_uri.mime_type)),
+                    Err(()) => {
+                        let parent = load_context.path().parent().unwrap();
+                        let image_path = parent.join(uri);
+                        let bytes = load_context.read_asset_bytes(image_path.clone()).await?;
+
+                        let extension = Path::new(uri).extension().unwrap().to_str().unwrap();
+                        let image_type = ImageType::Extension(extension);
+
+                        (bytes, image_type)
+                    }
+                };
+
                 Texture::from_buffer(
                     &bytes,
                     mime_type
                         .map(|mt| ImageType::MimeType(mt))
-                        .unwrap_or_else(|| {
-                            ImageType::Extension(image_path.extension().unwrap().to_str().unwrap())
-                        }),
+                        .unwrap_or(image_type),
                 )?
             }
         };
@@ -644,6 +653,37 @@ fn resolve_node_hierarchy(
         .into_iter()
         .map(|(_, resolved)| resolved)
         .collect()
+}
+
+struct DataUri<'a> {
+    mime_type: &'a str,
+    base64: bool,
+    data: &'a str,
+}
+
+impl<'a> DataUri<'a> {
+    fn parse(uri: &'a str) -> Result<DataUri<'a>, ()> {
+        let uri = uri.strip_prefix("data:").ok_or(())?;
+        let (mime_type, data) = uri.split_once(',').ok_or(())?;
+        let (mime_type, base64) = match mime_type.strip_suffix(";base64") {
+            Some(mime_type) => (mime_type, true),
+            None => (mime_type, false),
+        };
+
+        Ok(DataUri {
+            mime_type,
+            base64,
+            data,
+        })
+    }
+
+    fn decode(&self) -> Result<Vec<u8>, base64::DecodeError> {
+        if self.base64 {
+            base64::decode(self.data)
+        } else {
+            Ok(self.data.as_bytes().to_owned())
+        }
+    }
 }
 
 #[cfg(test)]
