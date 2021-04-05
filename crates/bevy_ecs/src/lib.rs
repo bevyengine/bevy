@@ -2,6 +2,7 @@ pub mod archetype;
 pub mod bundle;
 pub mod component;
 pub mod entity;
+pub mod event;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
@@ -16,6 +17,7 @@ pub mod prelude {
     pub use crate::{
         bundle::Bundle,
         entity::Entity,
+        event::{EventReader, EventWriter},
         query::{Added, ChangeTrackers, Changed, Or, QueryState, With, WithBundle, Without},
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,

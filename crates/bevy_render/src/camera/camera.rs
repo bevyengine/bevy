@@ -1,8 +1,8 @@
 use super::CameraProjection;
-use bevy_app::prelude::EventReader;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    event::EventReader,
     query::Added,
     reflect::ReflectComponent,
     system::{Query, QuerySet, Res},

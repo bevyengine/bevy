@@ -2,11 +2,11 @@ use crate::{
     pipeline::{IndexFormat, PrimitiveTopology, RenderPipelines, VertexFormat},
     renderer::{BufferInfo, BufferUsage, RenderResourceContext, RenderResourceId},
 };
-use bevy_app::prelude::EventReader;
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::AsBytes;
 use bevy_ecs::{
     entity::Entity,
+    event::EventReader,
     query::{Changed, With},
     system::{Local, Query, QuerySet, Res},
     world::Mut,

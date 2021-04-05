@@ -1,9 +1,10 @@
 extern crate proc_macro;
 
-use find_crate::{Dependencies, Manifest};
+use cargo_manifest::{DepsSet, Manifest};
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
+use std::{env, path::PathBuf};
 use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input,
@@ -465,24 +466,45 @@ fn derive_label(input: DeriveInput, label_type: Ident) -> TokenStream2 {
 }
 
 fn bevy_ecs_path() -> syn::Path {
-    fn find_in_manifest(manifest: &mut Manifest, dependencies: Dependencies) -> Option<String> {
-        manifest.dependencies = dependencies;
-        if let Some(package) = manifest.find(|name| name == "bevy") {
-            Some(format!("{}::ecs", package.name))
-        } else if let Some(package) = manifest.find(|name| name == "bevy_internal") {
-            Some(format!("{}::ecs", package.name))
-        } else if let Some(package) = manifest.find(|name| name == "bevy_ecs") {
-            Some(package.name)
+    const BEVY: &str = "bevy";
+    const BEVY_ECS: &str = "bevy_ecs";
+    const BEVY_INTERNAL: &str = "bevy_internal";
+
+    fn find_in_deps(deps: DepsSet) -> Option<String> {
+        if let Some(dep) = deps.get(BEVY) {
+            Some(format!("{}::ecs", dep.package().unwrap_or(BEVY)))
+        } else if let Some(dep) = deps.get(BEVY_INTERNAL) {
+            Some(format!("{}::ecs", dep.package().unwrap_or(BEVY_INTERNAL)))
+        } else if let Some(dep) = deps.get(BEVY_ECS) {
+            Some(dep.package().unwrap_or(BEVY_ECS).to_string())
         } else {
             None
         }
     }
 
-    let mut manifest = Manifest::new().unwrap();
-    let path_str = find_in_manifest(&mut manifest, Dependencies::Release)
-        .or_else(|| find_in_manifest(&mut manifest, Dependencies::Dev))
-        .unwrap_or_else(|| "bevy_ecs".to_string());
+    let manifest = env::var_os("CARGO_MANIFEST_DIR")
+        .map(PathBuf::from)
+        .map(
+        |mut path| {
+            path.push("Cargo.toml");
+            Manifest::from_path(path).unwrap()
+        })
+        .unwrap();
+    let deps = manifest.dependencies;
+    let deps_dev = manifest.dev_dependencies;
+    let path_stream = manifest.package
+        .and_then(|p|
+            if p.name == BEVY_ECS {
+                Some("crate".to_string())
+            } else {
+                None
+            })
+        .or_else(|| deps.and_then(find_in_deps))
+        .or_else(|| deps_dev.and_then(find_in_deps))
+        .unwrap_or_else(|| BEVY_ECS.to_string())
+        .parse::<TokenStream>()
+        .unwrap();
 
-    let path: Path = syn::parse(path_str.parse::<TokenStream>().unwrap()).unwrap();
+    let path: Path = syn::parse(path_stream).unwrap();
     path
 }
