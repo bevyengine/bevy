@@ -578,23 +578,23 @@ async fn load_buffers(
     load_context: &LoadContext<'_>,
     asset_path: &Path,
 ) -> Result<Vec<Vec<u8>>, GltfError> {
-    const OCTET_STREAM_URI: &str = "data:application/octet-stream;base64,";
+    const OCTET_STREAM_URI: &str = "application/octet-stream";
 
     let mut buffer_data = Vec::new();
     for buffer in gltf.buffers() {
         match buffer.source() {
             gltf::buffer::Source::Uri(uri) => {
-                if uri.starts_with("data:") {
-                    buffer_data.push(base64::decode(
-                        uri.strip_prefix(OCTET_STREAM_URI)
-                            .ok_or(GltfError::BufferFormatUnsupported)?,
-                    )?);
-                } else {
-                    // TODO: Remove this and add dep
-                    let buffer_path = asset_path.parent().unwrap().join(uri);
-                    let buffer_bytes = load_context.read_asset_bytes(buffer_path).await?;
-                    buffer_data.push(buffer_bytes);
-                }
+                let buffer_bytes = match DataUri::parse(uri) {
+                    Ok(data_uri) if data_uri.mime_type == OCTET_STREAM_URI => data_uri.decode()?,
+                    Ok(_) => return Err(GltfError::BufferFormatUnsupported),
+                    Err(()) => {
+                        // TODO: Remove this and add dep
+                        let buffer_path = asset_path.parent().unwrap().join(uri);
+                        let buffer_bytes = load_context.read_asset_bytes(buffer_path).await?;
+                        buffer_bytes
+                    }
+                };
+                buffer_data.push(buffer_bytes);
             }
             gltf::buffer::Source::Bin => {
                 if let Some(blob) = gltf.blob.as_deref() {
