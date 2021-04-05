@@ -30,3 +30,4 @@ gltf = { version = "0.15.2", default-features = false, features = ["utils", "nam
 thiserror = "1.0"
 anyhow = "1.0"
 base64 = "0.13.0"
+percent-encoding = "2.1"

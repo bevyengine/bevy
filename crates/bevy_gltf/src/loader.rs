@@ -222,6 +222,10 @@ async fn load_gltf<'a, 'b>(
                 Texture::from_buffer(buffer, ImageType::MimeType(mime_type))?
             }
             gltf::image::Source::Uri { uri, mime_type } => {
+                let uri = percent_encoding::percent_decode_str(uri)
+                    .decode_utf8()
+                    .unwrap();
+                let uri = uri.as_ref();
                 let (bytes, image_type) = match DataUri::parse(uri) {
                     Ok(data_uri) => (data_uri.decode()?, ImageType::MimeType(data_uri.mime_type)),
                     Err(()) => {
@@ -584,6 +588,10 @@ async fn load_buffers(
     for buffer in gltf.buffers() {
         match buffer.source() {
             gltf::buffer::Source::Uri(uri) => {
+                let uri = percent_encoding::percent_decode_str(uri)
+                    .decode_utf8()
+                    .unwrap();
+                let uri = uri.as_ref();
                 let buffer_bytes = match DataUri::parse(uri) {
                     Ok(data_uri) if data_uri.mime_type == OCTET_STREAM_URI => data_uri.decode()?,
                     Ok(_) => return Err(GltfError::BufferFormatUnsupported),
