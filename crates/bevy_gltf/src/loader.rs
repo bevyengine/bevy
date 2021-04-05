@@ -669,10 +669,16 @@ struct DataUri<'a> {
     data: &'a str,
 }
 
+fn split_once(input: &str, delimiter: char) -> Option<(&str, &str)> {
+    let mut iter = input.splitn(2, delimiter);
+    Some((iter.next()?, iter.next()?))
+}
+
 impl<'a> DataUri<'a> {
     fn parse(uri: &'a str) -> Result<DataUri<'a>, ()> {
         let uri = uri.strip_prefix("data:").ok_or(())?;
-        let (mime_type, data) = uri.split_once(',').ok_or(())?;
+        let (mime_type, data) = split_once(uri, ',').ok_or(())?;
+
         let (mime_type, base64) = match mime_type.strip_suffix(";base64") {
             Some(mime_type) => (mime_type, true),
             None => (mime_type, false),
