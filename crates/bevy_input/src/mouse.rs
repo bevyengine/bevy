@@ -1,5 +1,5 @@
 use crate::{ElementState, Input};
-use bevy_ecs::{system::ResMut, event::EventReader};
+use bevy_ecs::{event::EventReader, system::ResMut};
 use bevy_math::Vec2;
 
 /// A mouse button input event

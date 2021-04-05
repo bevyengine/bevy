@@ -484,21 +484,22 @@ fn bevy_ecs_path() -> syn::Path {
 
     let manifest = env::var_os("CARGO_MANIFEST_DIR")
         .map(PathBuf::from)
-        .map(
-        |mut path| {
+        .map(|mut path| {
             path.push("Cargo.toml");
             Manifest::from_path(path).unwrap()
         })
         .unwrap();
     let deps = manifest.dependencies;
     let deps_dev = manifest.dev_dependencies;
-    let path_stream = manifest.package
-        .and_then(|p|
+    let path_stream = manifest
+        .package
+        .and_then(|p| {
             if p.name == BEVY_ECS {
                 Some("crate".to_string())
             } else {
                 None
-            })
+            }
+        })
         .or_else(|| deps.and_then(find_in_deps))
         .or_else(|| deps_dev.and_then(find_in_deps))
         .unwrap_or_else(|| BEVY_ECS.to_string())
