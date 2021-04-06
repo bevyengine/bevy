@@ -7,20 +7,18 @@ use smallvec::{smallvec, SmallVec};
 use crate::{Children, Parent};
 
 // TODO: Panic if the root entity is not defined prior to a query
-// TODO: Create a simplified version without the children ?!
-// TODO: Should I just use usize? and get done with it?
 
 /// Provides a way of describing a hierarchy or named entities
 /// and means for finding then in the world
 ///
-/// By default and to save memory the nodes are indexed using `u16`
-/// but you can change it when needed.
+/// By default and to save memory the nodes are indexed using [`u16`],
+/// but you can change to any unsigned type.
 #[derive(Debug, Clone)]
 pub struct NamedHierarchy<I: Index = u16> {
     /// Entity identification made by parent index and name
     entities: Vec<(I, Name)>,
     // ? NOTE: SmallVec<[u16; 10]> occupy the same 32 bytes as the SmallVec<[u16; 8]>, but the latter
-    // ? should be only take 24 bytes using the "union" feature
+    // ? should be only take 24 bytes (same as Vec<u16>) using the "union" feature
     children: Vec<SmallVec<[I; 10]>>,
 }
 
@@ -28,13 +26,16 @@ impl<I: Index> Default for NamedHierarchy<I> {
     fn default() -> Self {
         Self {
             // ? NOTE: Since the root has no parent in this context it points to a place outside the vec bounds
-            entities: vec![(I::MAX_VALUE, Name::default())],
+            entities: vec![(Self::NO_PARENT, Name::default())],
             children: vec![smallvec![]],
         }
     }
 }
 
 impl<I: Index> NamedHierarchy<I> {
+    /// Defines the parent of a root entity
+    pub const NO_PARENT: I = I::MAX_VALUE;
+
     pub fn new() -> Self {
         Default::default()
     }
@@ -43,18 +44,25 @@ impl<I: Index> NamedHierarchy<I> {
     /// this function takes an vec of entities defined by their parent index
     /// (on the same vec) and name.
     ///
-    /// Any root entity should be indexed using `I::MAX_VALUE` or `I::MAX`.
+    /// Root entities should have a parent as [`NamedHierarchy::NO_PARENT`] or [`I::MAX_VALUE`].
+    ///
+    /// ```rust,ignore
+    /// NamedHierarchy::from_ordered_entities(vec![
+    ///     (NamedHierarchy::NO_PARENT, Name::new("root")),
+    ///     ...
+    /// ])
+    /// ```
     ///
     /// Many different root nodes are supported although having other roots
     /// make hard to search entities, please refer to the documentation of
-    /// `find_entity` or `find_entity_in_world` to see how.
+    /// [`find_entity`] or [`find_entity_in_world`] to see how.
     ///
     /// **WARNING** Be caution when using this function because it may create a
     /// an invalid hierarchy
     pub fn from_ordered_entities(entities: Vec<(I, Name)>) -> Self {
         assert_eq!(
             entities[0].0,
-            I::MAX_VALUE,
+            Self::NO_PARENT,
             "first entry must be an root entity"
         );
 
@@ -74,10 +82,10 @@ impl<I: Index> NamedHierarchy<I> {
     /// new entities indexes of merged hierarchy.
     pub fn merge(&mut self, other_hierarchy: &NamedHierarchy<I>, mapped_entities: &mut Vec<I>) {
         mapped_entities.clear();
-        mapped_entities.resize(other_hierarchy.len(), I::MAX_VALUE);
+        mapped_entities.resize(other_hierarchy.len(), Self::NO_PARENT);
 
         assert!(
-            other_hierarchy.entities[0].0 == I::MAX_VALUE,
+            other_hierarchy.entities[0].0 == Self::NO_PARENT,
             "first element isn't the root"
         );
 
@@ -88,7 +96,8 @@ impl<I: Index> NamedHierarchy<I> {
         self.internal_merge(other_hierarchy, root_index, root_index, mapped_entities);
     }
 
-    // TODO: Expose to allow for merging hierarchies with multiple roots
+    // TODO: Merging hierarchies with multiple roots
+
     fn internal_merge(
         &mut self,
         other_hierarchy: &NamedHierarchy<I>,
@@ -220,7 +229,7 @@ impl<I: Index> NamedHierarchy<I> {
     /// ```rust,ignore
     /// let mut entities_table_cache = vec![];
     /// entities_table_cache.resize(named_hierarchy.len(), None);
-    /// // Assign the root entity as the first element
+    /// // Assign the root entity as the first element (all roots if more than one must be assigned)
     /// entities_table_cache[0] = Some(root);
     ///
     /// let found_entity = named_hierarchy.find_entity(2, &mut entities_table_cache, &children_query, &name_query);
@@ -236,6 +245,7 @@ impl<I: Index> NamedHierarchy<I> {
         children_query: &Query<&Children>,
         name_query: &Query<(&Parent, &Name)>,
     ) -> Option<Entity> {
+        assert!(entity_index != Self::NO_PARENT, "root not assigned");
         if let Some(entity) = &entities_table_cache[entity_index.as_usize()] {
             Some(*entity)
         } else {
@@ -275,13 +285,13 @@ impl<I: Index> NamedHierarchy<I> {
         }
     }
 
-    /// Finds an entity given a reference to the (`World`)[bevy_ecs::World], see the example bellow
+    /// Finds an entity given a reference to the [`World`], see the example bellow
     /// how to proper call this function,
     ///
     /// ```rust,ignore
     /// let mut entities_table_cache = vec![];
     /// entities_table_cache.resize(named_hierarchy.len(), None);
-    /// // Assign the root entity as the first element
+    /// // Assign the root entity as the first element (all roots if more than one must be assigned)
     /// entities_table_cache[0] = Some(root);
     ///
     /// let found_entity = named_hierarchy.find_entity_in_world(2, &mut entities_table_cache, &world);
@@ -296,6 +306,7 @@ impl<I: Index> NamedHierarchy<I> {
         entities_table_cache: &mut Vec<Option<Entity>>,
         world: &World,
     ) -> Option<Entity> {
+        assert!(entity_index != Self::NO_PARENT, "root not assigned");
         if let Some(entity) = &entities_table_cache[entity_index.as_usize()] {
             Some(*entity)
         } else {
