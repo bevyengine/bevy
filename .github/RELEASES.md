@@ -7,7 +7,10 @@
 5. Create migration guide.
 6. Write blog post.
 7. Update book.
-8. Announce on:
+8. Create tag on GitHub.
+9. Bump `latest` tag to most recent release.
+10. Release on crates.io
+11. Announce on:
    1. HackerNews
    2. Twitter
    3. Reddit: /r/bevy, /r/rust, /r/rust
