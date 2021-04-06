@@ -3,6 +3,8 @@ use crate::{
     interpolation::{Interpolate, Interpolation},
 };
 
+// TODO: Smooth interpolation are untested
+
 // TODO: Curve/Clip need a validation during deserialization because they are
 // structured as SOA (struct of arrays), so the vec's length must match
 
@@ -15,6 +17,11 @@ use crate::{
 // https://github.com/nfrechette/acl
 
 // TODO: impl Serialize, Deserialize
+/// Curve with sparse keyframes frames, in another words a curve with variable frame rate;
+///
+/// Similar in design to the [`CurveVariableLinear`](super::CurveVariableLinear) but allows
+/// for smoother catmull-rom interpolations using tangents, which can further reduce the number of keyframes at
+/// the cost of performance.
 #[derive(Default, Debug)]
 pub struct CurveVariable<T: Interpolate> {
     time_stamps: Vec<f32>,

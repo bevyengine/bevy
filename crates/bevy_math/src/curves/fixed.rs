@@ -1,7 +1,10 @@
 use crate::{curves::Curve, interpolation::Lerp};
 
 // TODO: impl Serialize, Deserialize
-/// Fixed frame rate curve, each keyframe is evenly spaced
+/// Curve with evenly spaced keyframes, in another words a curve with a fixed frame rate.
+///
+/// This curve maintains the faster sampling rate over a wide range of frame rates, because
+/// it doesn't rely on keyframe cursor. But as a downside it will have the bigger memory foot print;
 #[derive(Default, Debug)]
 pub struct CurveFixed<T> {
     // ? NOTE: Has I learned from benches casting to f32 is quite expensive

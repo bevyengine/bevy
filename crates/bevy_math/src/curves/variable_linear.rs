@@ -5,6 +5,11 @@ use crate::interpolation::Lerp;
 // structured as SOA (struct of arrays), so the vec's length must match
 
 // TODO: impl Serialize, Deserialize
+/// Curve with sparse keyframes frames, in another words a curve with variable frame rate;
+///
+/// Very useful curve, because can accommodate the output of a linear reduction keyframe algorithm
+/// to lower the memory foot print. But as a down side require the use of keyframe cursor, and
+/// loses performance when the curve frame rate is higher than the curve sampling frame rate
 #[derive(Default, Debug)]
 pub struct CurveVariableLinear<T> {
     time_stamps: Vec<f32>,
