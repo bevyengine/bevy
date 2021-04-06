@@ -465,10 +465,10 @@ mod tests {
             "some entities weren't mapped or merged"
         );
 
-        for i in 0..hierarchy_b.len() {
+        for (index, mapped_index) in mapped_entities.iter().copied().enumerate() {
             assert_eq!(
-                hierarchy_a.get_entity_path_at(mapped_entities[i]),
-                hierarchy_b.get_entity_path_at(i as u16)
+                hierarchy_a.get_entity_path_at(mapped_index),
+                hierarchy_b.get_entity_path_at(index as u16)
             );
         }
     }
@@ -495,10 +495,10 @@ mod tests {
             "some entities weren't mapped or merged"
         );
 
-        for i in 0..hierarchy_b.len() {
+        for (index, mapped_index) in mapped_entities.iter().copied().enumerate() {
             assert_eq!(
-                hierarchy_a.get_entity_path_at(mapped_entities[i]),
-                hierarchy_b.get_entity_path_at(i as u16)
+                hierarchy_a.get_entity_path_at(mapped_index),
+                hierarchy_b.get_entity_path_at(index as u16)
             );
         }
     }
