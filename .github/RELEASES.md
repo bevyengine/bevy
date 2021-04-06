@@ -13,6 +13,6 @@
 11. Announce on:
    1. HackerNews
    2. Twitter
-   3. Reddit: /r/bevy, /r/rust, /r/rust
+   3. Reddit: /r/bevy, /r/rust, /r/rust_gamedev
    4. Discord: Bevy, Game Development in Rust, Rust Programming Language Community
    5. This Month in Rust Game Development newsletter
