@@ -11,8 +11,6 @@ struct FixedUpdateStage;
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        // this system will run once every update (it should match your screen's refresh rate)
-        .add_system(update.system())
         // add a new stage that runs every two seconds
         .add_stage_after(
             CoreStage::Update,
@@ -27,11 +25,6 @@ fn main() {
                 .with_system(fixed_update.system()),
         )
         .run();
-}
-
-fn update(mut last_time: Local<f64>, time: Res<Time>) {
-    println!("update: {}", time.seconds_since_startup() - *last_time);
-    *last_time = time.seconds_since_startup();
 }
 
 fn fixed_update(mut last_time: Local<f64>, time: Res<Time>, fixed_timesteps: Res<FixedTimesteps>) {
