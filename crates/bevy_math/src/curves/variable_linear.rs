@@ -158,7 +158,7 @@ where
             "t = {} but should be normalized",
             t
         ); // Checks if it's required to normalize t
-        let value = T::lerp(
+        let value = T::lerp_unclamped(
             &self.keyframes[i as usize],
             &self.keyframes[cursor as usize],
             t,
@@ -178,14 +178,14 @@ mod tests {
             vec![0.0, 0.25, 0.5, 0.75, 1.0],
             vec![0.0, 0.5, 1.0, 1.5, 2.0],
         );
-        assert_eq!(curve.sample(0.5), 1.0);
+        assert!((curve.sample(0.5) - 1.0).abs() < f32::EPSILON);
 
         let mut i0 = 0;
         let mut e0 = 0.0;
         for v in &[0.1, 0.3, 0.7, 0.4, 0.2, 0.0, 0.4, 0.85, 1.0] {
             let v = *v;
             let (i1, e1) = curve.sample_with_cursor(i0, v);
-            assert_eq!(e1, 2.0 * v);
+            assert!((e1 - (2.0 * v)).abs() < f32::EPSILON);
             if e1 > e0 {
                 assert!(i1 >= i0);
             } else {

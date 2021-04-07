@@ -111,7 +111,7 @@ where
         }
 
         // Lerp the value
-        T::lerp(&self.keyframes[f], &self.keyframes[f + 1], t)
+        T::lerp_unclamped(&self.keyframes[f], &self.keyframes[f + 1], t)
     }
 
     /// Same as `sample` function
