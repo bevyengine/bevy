@@ -4,6 +4,9 @@ mod plugin;
 mod plugin_group;
 mod schedule_runner;
 
+#[cfg(feature = "bevy_ci_testing")]
+mod ci_testing;
+
 pub use app::*;
 pub use app_builder::*;
 pub use bevy_derive::DynamicPlugin;

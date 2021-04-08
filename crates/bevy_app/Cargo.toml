@@ -14,7 +14,7 @@ keywords = ["bevy"]
 
 [features]
 trace = []
-bevy_debug = ["ron"]
+bevy_ci_testing = ["ron"]
 default = ["bevy_reflect"]
 
 [dependencies]
