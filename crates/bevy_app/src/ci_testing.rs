@@ -3,7 +3,7 @@ use serde::Deserialize;
 use crate::{app::AppExit, AppBuilder};
 use bevy_ecs::system::IntoSystem;
 
-/// Debug configuration, to help with Bevy development
+/// Configuration for automated testing on CI
 #[derive(Deserialize)]
 pub struct CiTestingConfig {
     /// Number of frames after wich Bevy should exit
