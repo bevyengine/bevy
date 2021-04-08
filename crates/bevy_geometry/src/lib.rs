@@ -59,7 +59,7 @@ impl Sphere {
     }
 }
 impl Primitive3d for Sphere {
-    /// Use the sphere's position and radius to determin eif it is entirely on the outside of the
+    /// Use the sphere's position and radius to determine if it is entirely on the outside of the
     /// the supplied plane.
     fn outside_plane(&self, plane: Plane) -> bool {
         plane.distance_to_point(self.origin) > self.radius
@@ -188,7 +188,7 @@ impl AABB {
             Err(PrimitiveError::NonPositiveExtents)
         }
     }
-    /// Computes the AAB that
+    /// Computes the [AxisAlignedBox] whose extents are determined by the minimum and maximum of the points given.
     pub fn from_points(points: &[Vec3]) -> AABB {
         let mut max = Vec3::splat(f32::MIN);
         let mut min = Vec3::splat(f32::MAX);
