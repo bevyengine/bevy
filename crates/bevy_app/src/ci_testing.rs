@@ -5,14 +5,14 @@ use bevy_ecs::system::IntoSystem;
 
 /// Debug configuration, to help with Bevy development
 #[derive(Deserialize)]
-pub struct DebugConfig {
+pub struct CiTestingConfig {
     /// Number of frames after wich Bevy should exit
     pub exit_after: Option<u32>,
 }
 
 fn debug_exit_after(
     mut current_frame: bevy_ecs::prelude::Local<u32>,
-    debug_config: bevy_ecs::prelude::Res<DebugConfig>,
+    debug_config: bevy_ecs::prelude::Res<CiTestingConfig>,
     mut app_exit_events: crate::EventWriter<AppExit>,
 ) {
     if let Some(exit_after) = debug_config.exit_after {
@@ -26,7 +26,7 @@ fn debug_exit_after(
 pub(crate) fn setup_app(app_builder: &mut AppBuilder) -> &mut AppBuilder {
     let filename =
         std::env::var("DEBUG_CONFIG").unwrap_or_else(|_| "ci_testing_config.ron".to_string());
-    let config: DebugConfig = ron::from_str(
+    let config: CiTestingConfig = ron::from_str(
         &std::fs::read_to_string(filename).expect("error reading CI testing configuration file"),
     )
     .expect("error deserializing CI testing configuration file");
