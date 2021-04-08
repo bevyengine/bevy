@@ -176,7 +176,7 @@ impl AABB {
             Err(PrimitiveError::MinGreaterThanMax)
         }
     }
-    /// Construct an [AxisALignedBox] from the origin at the minimum corner, and the extents - the
+    /// Construct an [AxisAlignedBox] from the origin at the minimum corner, and the extents - the
     /// dimensions of the box in each axis.
     pub fn from_extents_origin(extents: Vec3, origin: Vec3) -> Result<AABB, PrimitiveError> {
         if extents.min_element() > 0.0 {
