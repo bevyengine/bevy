@@ -10,7 +10,7 @@ pub struct CiTestingConfig {
     pub exit_after: Option<u32>,
 }
 
-fn debug_exit_after(
+fn ci_testing_exit_after(
     mut current_frame: bevy_ecs::prelude::Local<u32>,
     debug_config: bevy_ecs::prelude::Res<CiTestingConfig>,
     mut app_exit_events: crate::EventWriter<AppExit>,
@@ -32,7 +32,7 @@ pub(crate) fn setup_app(app_builder: &mut AppBuilder) -> &mut AppBuilder {
     .expect("error deserializing CI testing configuration file");
     app_builder
         .insert_resource(config)
-        .add_system(debug_exit_after.system());
+        .add_system(ci_testing_exit_after.system());
 
     app_builder
 }
