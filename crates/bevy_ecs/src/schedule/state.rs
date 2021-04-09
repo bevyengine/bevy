@@ -152,11 +152,6 @@ where
             .run_full_search
         {
             StateFullSearchState::Started | StateFullSearchState::InProgress => {
-                eprintln!(
-                    "Running full search for on_in_stack_update on {}",
-                    std::any::type_name::<T>()
-                );
-
                 let is_in_stack_search = state.stack.contains(pred.as_ref().unwrap());
                 *is_in_stack = is_in_stack_search;
 
