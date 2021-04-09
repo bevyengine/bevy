@@ -22,6 +22,7 @@ pub struct State<T: Component + Clone + Eq> {
     stack: Vec<T>,
     scheduled: Option<ScheduledOperation<T>>,
     end_next_loop: bool,
+    run_full_search: StateFullSearchState,
 }
 
 #[derive(Debug)]
@@ -53,6 +54,13 @@ enum StateCallback {
     Exit,
     Pause,
     Resume,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+enum StateFullSearchState {
+    Disabled,
+    Started,
+    InProgress,
 }
 
 impl StateCallback {
@@ -105,18 +113,32 @@ where
     }
 
     pub fn on_inactive_update(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, mut is_inactive: Local<bool>, pred: Local<Option<T>>| match &state
-            .transition
+        (|state: Res<State<T>>, mut is_inactive: Local<bool>, pred: Local<Option<T>>| match state
+            .run_full_search
         {
-            Some(StateTransition::Pausing(ref relevant, _))
-            | Some(StateTransition::Resuming(_, ref relevant)) => {
-                if relevant == pred.as_ref().unwrap() {
-                    *is_inactive = !*is_inactive;
-                }
-                false
+            StateFullSearchState::Started | StateFullSearchState::InProgress => {
+                // TODO: Replace with `state.inactives()` when PR #1668 is merged
+                let is_inactive_search = state
+                    .stack
+                    .split_last()
+                    .map(|(_, rest)| rest)
+                    .unwrap()
+                    .contains(pred.as_ref().unwrap());
+                *is_inactive = is_inactive_search;
+
+                is_inactive_search
             }
-            Some(_) => false,
-            None => *is_inactive,
+            StateFullSearchState::Disabled => match &state.transition {
+                Some(StateTransition::Pausing(ref relevant, _))
+                | Some(StateTransition::Resuming(_, ref relevant)) => {
+                    if relevant == pred.as_ref().unwrap() {
+                        *is_inactive = !*is_inactive;
+                    }
+                    false
+                }
+                Some(_) => false,
+                None => *is_inactive,
+            },
         })
         .system()
         .config(|(_, _, pred)| *pred = Some(Some(s.clone())))
@@ -126,30 +148,43 @@ where
     }
 
     pub fn on_in_stack_update(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, mut is_in_stack: Local<bool>, pred: Local<Option<T>>| match &state
-            .transition
+        (|state: Res<State<T>>, mut is_in_stack: Local<bool>, pred: Local<Option<T>>| match state
+            .run_full_search
         {
-            Some(StateTransition::Entering(ref relevant, _))
-            | Some(StateTransition::ExitingToResume(_, ref relevant)) => {
-                if relevant == pred.as_ref().unwrap() {
-                    *is_in_stack = !*is_in_stack;
-                }
-                false
+            StateFullSearchState::Started | StateFullSearchState::InProgress => {
+                eprintln!(
+                    "Running full search for on_in_stack_update on {}",
+                    std::any::type_name::<T>()
+                );
+
+                let is_in_stack_search = state.stack.contains(pred.as_ref().unwrap());
+                *is_in_stack = is_in_stack_search;
+
+                is_in_stack_search
             }
-            Some(StateTransition::ExitingFull(_, ref relevant)) => {
-                if relevant == pred.as_ref().unwrap() {
-                    *is_in_stack = !*is_in_stack;
+            StateFullSearchState::Disabled => match &state.transition {
+                Some(StateTransition::Entering(ref relevant, _))
+                | Some(StateTransition::ExitingToResume(_, ref relevant)) => {
+                    if relevant == pred.as_ref().unwrap() {
+                        *is_in_stack = !*is_in_stack;
+                    }
+                    false
                 }
-                false
-            }
-            Some(StateTransition::Startup) => {
-                if state.stack.last().unwrap() == pred.as_ref().unwrap() {
-                    *is_in_stack = !*is_in_stack;
+                Some(StateTransition::ExitingFull(_, ref relevant)) => {
+                    if relevant == pred.as_ref().unwrap() {
+                        *is_in_stack = !*is_in_stack;
+                    }
+                    false
                 }
-                false
-            }
-            Some(_) => false,
-            None => *is_in_stack,
+                Some(StateTransition::Startup) => {
+                    if state.stack.last().unwrap() == pred.as_ref().unwrap() {
+                        *is_in_stack = !*is_in_stack;
+                    }
+                    false
+                }
+                Some(_) => false,
+                None => *is_in_stack,
+            },
         })
         .system()
         .config(|(_, _, pred)| *pred = Some(Some(s.clone())))
@@ -269,6 +304,7 @@ where
             transition: Some(StateTransition::PreStartup),
             scheduled: None,
             end_next_loop: false,
+            run_full_search: StateFullSearchState::Disabled,
         }
     }
 
@@ -380,6 +416,10 @@ where
     pub fn inactives(&self) -> &[T] {
         self.stack.split_last().map(|(_, rest)| rest).unwrap()
     }
+
+    pub fn run_full_search(&mut self) {
+        self.run_full_search = StateFullSearchState::Started;
+    }
 }
 
 #[derive(Debug, Error)]
@@ -410,6 +450,18 @@ fn state_cleaner<T: Component + Clone + Eq>(
     mut state: ResMut<State<T>>,
     mut prep_exit: Local<bool>,
 ) -> ShouldRun {
+    // The full search should only stay enabled for one loop, but since the
+    // cleaner runs before the systems, we have to disable it in two stages.
+    match state.run_full_search {
+        StateFullSearchState::Started => {
+            state.run_full_search = StateFullSearchState::InProgress;
+        }
+        StateFullSearchState::InProgress => {
+            state.run_full_search = StateFullSearchState::Disabled;
+        }
+        StateFullSearchState::Disabled => (),
+    }
+
     if *prep_exit {
         *prep_exit = false;
         if state.scheduled.is_none() {
