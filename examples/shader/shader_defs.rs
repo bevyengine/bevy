@@ -92,13 +92,13 @@ fn setup(
 
     // Create a green material
     let green_material = materials.add(MyMaterial {
-        color: Color::rgb(0.0, 0.8, 0.0),
+        color: rgba!(0.0, 0.8, 0.0),
         always_blue: false,
     });
 
     // Create a blue material, which uses our "always_blue" shader def
     let blue_material = materials.add(MyMaterial {
-        color: Color::rgb(0.0, 0.0, 0.0),
+        color: rgba!(0.0, 0.0, 0.0),
         always_blue: true,
     });
 

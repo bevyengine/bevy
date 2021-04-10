@@ -26,52 +26,52 @@ pub struct LinSrgba {
 unsafe impl Byteable for LinSrgba {}
 
 impl LinSrgba {
-    pub const ALICE_BLUE: LinSrgba = LinSrgba::rgb(0.8689, 0.9331, 1.0);
-    pub const ANTIQUE_WHITE: LinSrgba = LinSrgba::rgb(0.9551, 0.8276, 0.674);
-    pub const AQUAMARINE: LinSrgba = LinSrgba::rgb(0.2049, 1.0, 0.656);
-    pub const AZURE: LinSrgba = LinSrgba::rgb(0.8689, 1.0, 1.0);
-    pub const BEIGE: LinSrgba = LinSrgba::rgb(0.9114, 0.9114, 0.711);
-    pub const BISQUE: LinSrgba = LinSrgba::rgb(1.0, 0.7678, 0.554);
-    pub const BLACK: LinSrgba = LinSrgba::rgb(0.0, 0.0, 0.0);
-    pub const BLUE: LinSrgba = LinSrgba::rgb(0.0, 0.0, 1.0);
-    pub const CRIMSON: LinSrgba = LinSrgba::rgb(0.7106, 0.0072, 0.047);
-    pub const CYAN: LinSrgba = LinSrgba::rgb(0.0, 1.0, 1.0);
-    pub const DARK_GRAY: LinSrgba = LinSrgba::rgb(0.0509, 0.0509, 0.051);
-    pub const DARK_GREEN: LinSrgba = LinSrgba::rgb(0.0, 0.2140, 0.0);
-    pub const FUCHSIA: LinSrgba = LinSrgba::rgb(1.0, 0.0, 1.0);
-    pub const GOLD: LinSrgba = LinSrgba::rgb(1.0, 0.6739, 0.0);
-    pub const GRAY: LinSrgba = LinSrgba::rgb(0.2140, 0.2140, 0.214);
-    pub const GREEN: LinSrgba = LinSrgba::rgb(0.0, 1.0, 0.0);
-    pub const INDIGO: LinSrgba = LinSrgba::rgb(0.0684, 0.0, 0.223);
-    pub const LIME_GREEN: LinSrgba = LinSrgba::rgb(0.0331, 0.6038, 0.033);
-    pub const MAROON: LinSrgba = LinSrgba::rgb(0.2140, 0.0, 0.0);
-    pub const MIDNIGHT_BLUE: LinSrgba = LinSrgba::rgb(0.0100, 0.0100, 0.163);
-    pub const NAVY: LinSrgba = LinSrgba::rgb(0.0, 0.0, 0.214);
-    pub const NONE: LinSrgba = LinSrgba::rgba(0.0, 0.0, 0.0, 0.0);
-    pub const OLIVE: LinSrgba = LinSrgba::rgb(0.2140, 0.2140, 0.0);
-    pub const ORANGE: LinSrgba = LinSrgba::rgb(1.0, 0.3801, 0.0);
-    pub const ORANGE_RED: LinSrgba = LinSrgba::rgb(1.0, 0.0593, 0.0);
-    pub const PINK: LinSrgba = LinSrgba::rgb(1.0, 0.0072, 0.296);
-    pub const PURPLE: LinSrgba = LinSrgba::rgb(0.2140, 0.0, 0.214);
-    pub const RED: LinSrgba = LinSrgba::rgb(1.0, 0.0, 0.0);
-    pub const SALMON: LinSrgba = LinSrgba::rgb(0.9551, 0.2140, 0.171);
-    pub const SEA_GREEN: LinSrgba = LinSrgba::rgb(0.0272, 0.2633, 0.095);
-    pub const SILVER: LinSrgba = LinSrgba::rgb(0.5225, 0.5225, 0.523);
-    pub const TEAL: LinSrgba = LinSrgba::rgb(0.0, 0.2140, 0.214);
-    pub const TOMATO: LinSrgba = LinSrgba::rgb(1.0, 0.1260, 0.064);
-    pub const TURQUOISE: LinSrgba = LinSrgba::rgb(0.0509, 0.7484, 0.638);
-    pub const VIOLET: LinSrgba = LinSrgba::rgb(0.8481, 0.2234, 0.848);
-    pub const WHITE: LinSrgba = LinSrgba::rgb(1.0, 1.0, 1.0);
-    pub const YELLOW: LinSrgba = LinSrgba::rgb(1.0, 1.0, 0.0);
-    pub const YELLOW_GREEN: LinSrgba = LinSrgba::rgb(0.3185, 0.6038, 0.033);
+    pub const ALICE_BLUE: LinSrgba = LinSrgba::new(0.8689, 0.9331, 1.0);
+    pub const ANTIQUE_WHITE: LinSrgba = LinSrgba::new(0.9551, 0.8276, 0.674);
+    pub const AQUAMARINE: LinSrgba = LinSrgba::new(0.2049, 1.0, 0.656);
+    pub const AZURE: LinSrgba = LinSrgba::new(0.8689, 1.0, 1.0);
+    pub const BEIGE: LinSrgba = LinSrgba::new(0.9114, 0.9114, 0.711);
+    pub const BISQUE: LinSrgba = LinSrgba::new(1.0, 0.7678, 0.554);
+    pub const BLACK: LinSrgba = LinSrgba::new(0.0, 0.0, 0.0);
+    pub const BLUE: LinSrgba = LinSrgba::new(0.0, 0.0, 1.0);
+    pub const CRIMSON: LinSrgba = LinSrgba::new(0.7106, 0.0072, 0.047);
+    pub const CYAN: LinSrgba = LinSrgba::new(0.0, 1.0, 1.0);
+    pub const DARK_GRAY: LinSrgba = LinSrgba::new(0.0509, 0.0509, 0.051);
+    pub const DARK_GREEN: LinSrgba = LinSrgba::new(0.0, 0.2140, 0.0);
+    pub const FUCHSIA: LinSrgba = LinSrgba::new(1.0, 0.0, 1.0);
+    pub const GOLD: LinSrgba = LinSrgba::new(1.0, 0.6739, 0.0);
+    pub const GRAY: LinSrgba = LinSrgba::new(0.2140, 0.2140, 0.214);
+    pub const GREEN: LinSrgba = LinSrgba::new(0.0, 1.0, 0.0);
+    pub const INDIGO: LinSrgba = LinSrgba::new(0.0684, 0.0, 0.223);
+    pub const LIME_GREEN: LinSrgba = LinSrgba::new(0.0331, 0.6038, 0.033);
+    pub const MAROON: LinSrgba = LinSrgba::new(0.2140, 0.0, 0.0);
+    pub const MIDNIGHT_BLUE: LinSrgba = LinSrgba::new(0.0100, 0.0100, 0.163);
+    pub const NAVY: LinSrgba = LinSrgba::new(0.0, 0.0, 0.214);
+    pub const NONE: LinSrgba = LinSrgba::with_alpha(0.0, 0.0, 0.0, 0.0);
+    pub const OLIVE: LinSrgba = LinSrgba::new(0.2140, 0.2140, 0.0);
+    pub const ORANGE: LinSrgba = LinSrgba::new(1.0, 0.3801, 0.0);
+    pub const ORANGE_RED: LinSrgba = LinSrgba::new(1.0, 0.0593, 0.0);
+    pub const PINK: LinSrgba = LinSrgba::new(1.0, 0.0072, 0.296);
+    pub const PURPLE: LinSrgba = LinSrgba::new(0.2140, 0.0, 0.214);
+    pub const RED: LinSrgba = LinSrgba::new(1.0, 0.0, 0.0);
+    pub const SALMON: LinSrgba = LinSrgba::new(0.9551, 0.2140, 0.171);
+    pub const SEA_GREEN: LinSrgba = LinSrgba::new(0.0272, 0.2633, 0.095);
+    pub const SILVER: LinSrgba = LinSrgba::new(0.5225, 0.5225, 0.523);
+    pub const TEAL: LinSrgba = LinSrgba::new(0.0, 0.2140, 0.214);
+    pub const TOMATO: LinSrgba = LinSrgba::new(1.0, 0.1260, 0.064);
+    pub const TURQUOISE: LinSrgba = LinSrgba::new(0.0509, 0.7484, 0.638);
+    pub const VIOLET: LinSrgba = LinSrgba::new(0.8481, 0.2234, 0.848);
+    pub const WHITE: LinSrgba = LinSrgba::new(1.0, 1.0, 1.0);
+    pub const YELLOW: LinSrgba = LinSrgba::new(1.0, 1.0, 0.0);
+    pub const YELLOW_GREEN: LinSrgba = LinSrgba::new(0.3185, 0.6038, 0.033);
 
     /// New [`Color`] from linear colorspace.
-    pub const fn rgb(r: f32, g: f32, b: f32) -> LinSrgba {
-        LinSrgba::rgba(r, g, b, 1.0)
+    pub const fn new(r: f32, g: f32, b: f32) -> LinSrgba {
+        LinSrgba::with_alpha(r, g, b, 1.0)
     }
 
     /// New [`Color`] from linear colorspace.
-    pub const fn rgba(r: f32, g: f32, b: f32, a: f32) -> LinSrgba {
+    pub const fn with_alpha(r: f32, g: f32, b: f32, a: f32) -> LinSrgba {
         LinSrgba { r, g, b, a }
     }
 }
@@ -146,13 +146,13 @@ impl From<LinSrgba> for [f32; 4] {
 
 impl From<[f32; 3]> for LinSrgba {
     fn from([r, g, b]: [f32; 3]) -> Self {
-        LinSrgba::rgba(r, g, b, 1.0)
+        LinSrgba::with_alpha(r, g, b, 1.0)
     }
 }
 
 impl From<[f32; 4]> for LinSrgba {
     fn from([r, g, b, a]: [f32; 4]) -> Self {
-        LinSrgba::rgba(r, g, b, a)
+        LinSrgba::with_alpha(r, g, b, a)
     }
 }
 
@@ -164,13 +164,13 @@ impl From<LinSrgba> for Vec4 {
 
 impl From<Vec3> for LinSrgba {
     fn from(vec4: Vec3) -> Self {
-        LinSrgba::rgba(vec4.x, vec4.y, vec4.z, 1.0)
+        LinSrgba::with_alpha(vec4.x, vec4.y, vec4.z, 1.0)
     }
 }
 
 impl From<Vec4> for LinSrgba {
     fn from(vec4: Vec4) -> Self {
-        LinSrgba::rgba(vec4.x, vec4.y, vec4.z, vec4.w)
+        LinSrgba::with_alpha(vec4.x, vec4.y, vec4.z, vec4.w)
     }
 }
 
@@ -186,9 +186,9 @@ fn test_conversions_vec4() {
 
 #[test]
 fn test_mul_and_mulassign_f32() {
-    let starting_color = LinSrgba::rgba(0.4, 0.5, 0.6, 1.0);
+    let starting_color = LinSrgba::with_alpha(0.4, 0.5, 0.6, 1.0);
     assert_eq!(
         starting_color * 0.5,
-        LinSrgba::rgba(0.4 * 0.5, 0.5 * 0.5, 0.6 * 0.5, 1.0),
+        LinSrgba::with_alpha(0.4 * 0.5, 0.5 * 0.5, 0.6 * 0.5, 1.0),
     );
 }

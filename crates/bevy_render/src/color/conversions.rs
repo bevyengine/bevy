@@ -69,7 +69,7 @@ impl From<Hsla> for Srgba {
         };
         let lightness_match = hsla.l - chroma / 2.0;
 
-        Srgba::rgba(
+        Srgba::with_alpha(
             r + lightness_match,
             g + lightness_match,
             b + lightness_match,
@@ -118,7 +118,7 @@ impl From<Srgba> for Hsla {
             (x_max - lightness) / lightness.min(1.0 - lightness)
         };
 
-        Hsla::hsla(hue, saturation, lightness, srgba.a)
+        Hsla::with_alpha(hue, saturation, lightness, srgba.a)
     }
 }
 
@@ -149,41 +149,41 @@ mod test {
 
         // black
         let (hue, saturation, lightness) = (0.0, 0.0, 0.0);
-        let color = Srgba::from(Hsla::hsl(hue, saturation, lightness));
+        let color = Srgba::from(Hsla::new(hue, saturation, lightness));
         assert_eq!((color.r * 100.0).round() as u32, 0);
         assert_eq!((color.g * 100.0).round() as u32, 0);
         assert_eq!((color.b * 100.0).round() as u32, 0);
 
         // white
         let (hue, saturation, lightness) = (0.0, 0.0, 1.0);
-        let color = Srgba::from(Hsla::hsl(hue, saturation, lightness));
+        let color = Srgba::from(Hsla::new(hue, saturation, lightness));
         assert_eq!((color.r * 100.0).round() as u32, 100);
         assert_eq!((color.g * 100.0).round() as u32, 100);
         assert_eq!((color.b * 100.0).round() as u32, 100);
 
         let (hue, saturation, lightness) = (300.0, 0.5, 0.5);
-        let color = Srgba::from(Hsla::hsl(hue, saturation, lightness));
+        let color = Srgba::from(Hsla::new(hue, saturation, lightness));
         assert_eq!((color.r * 100.0).round() as u32, 75);
         assert_eq!((color.g * 100.0).round() as u32, 25);
         assert_eq!((color.b * 100.0).round() as u32, 75);
 
         // a red
         let (hue, saturation, lightness) = (283.7, 0.775, 0.543);
-        let color = Srgba::from(Hsla::hsl(hue, saturation, lightness));
+        let color = Srgba::from(Hsla::new(hue, saturation, lightness));
         assert_eq!((color.r * 100.0).round() as u32, 70);
         assert_eq!((color.g * 100.0).round() as u32, 19);
         assert_eq!((color.b * 100.0).round() as u32, 90);
 
         // a green
         let (hue, saturation, lightness) = (162.4, 0.779, 0.447);
-        let color = Srgba::from(Hsla::hsl(hue, saturation, lightness));
+        let color = Srgba::from(Hsla::new(hue, saturation, lightness));
         assert_eq!((color.r * 100.0).round() as u32, 10);
         assert_eq!((color.g * 100.0).round() as u32, 80);
         assert_eq!((color.b * 100.0).round() as u32, 59);
 
         // a blue
         let (hue, saturation, lightness) = (251.1, 0.832, 0.511);
-        let color = Srgba::from(Hsla::hsl(hue, saturation, lightness));
+        let color = Srgba::from(Hsla::new(hue, saturation, lightness));
         assert_eq!((color.r * 100.0).round() as u32, 25);
         assert_eq!((color.g * 100.0).round() as u32, 10);
         assert_eq!((color.b * 100.0).round() as u32, 92);
@@ -194,36 +194,36 @@ mod test {
         // "truth" from https://en.wikipedia.org/wiki/HSL_and_HSV#Examples
 
         // black
-        let color = Hsla::from(Srgba::rgb(0.0, 0.0, 0.0));
+        let color = Hsla::from(Srgba::new(0.0, 0.0, 0.0));
         assert_eq!(color.h.round() as u32, 0);
         assert_eq!((color.s * 100.0).round() as u32, 0);
         assert_eq!((color.l * 100.0).round() as u32, 0);
 
         // white
-        let color = Hsla::from(Srgba::rgb(1.0, 1.0, 1.0));
+        let color = Hsla::from(Srgba::new(1.0, 1.0, 1.0));
         assert_eq!(color.h.round() as u32, 0);
         assert_eq!((color.s * 100.0).round() as u32, 0);
         assert_eq!((color.l * 100.0).round() as u32, 100);
 
-        let color = Hsla::from(Srgba::rgb(0.75, 0.25, 0.75));
+        let color = Hsla::from(Srgba::new(0.75, 0.25, 0.75));
         assert_eq!(color.h.round() as u32, 300);
         assert_eq!((color.s * 100.0).round() as u32, 50);
         assert_eq!((color.l * 100.0).round() as u32, 50);
 
         // a red
-        let color = Hsla::from(Srgba::rgb(0.704, 0.187, 0.897));
+        let color = Hsla::from(Srgba::new(0.704, 0.187, 0.897));
         assert_eq!(color.h.round() as u32, 284);
         assert_eq!((color.s * 100.0).round() as u32, 78);
         assert_eq!((color.l * 100.0).round() as u32, 54);
 
         // a green
-        let color = Hsla::from(Srgba::rgb(0.099, 0.795, 0.591));
+        let color = Hsla::from(Srgba::new(0.099, 0.795, 0.591));
         assert_eq!(color.h.round() as u32, 162);
         assert_eq!((color.s * 100.0).round() as u32, 78);
         assert_eq!((color.l * 100.0).round() as u32, 45);
 
         // a blue
-        let color = Hsla::from(Srgba::rgb(0.255, 0.104, 0.918));
+        let color = Hsla::from(Srgba::new(0.255, 0.104, 0.918));
         assert_eq!(color.h.round() as u32, 251);
         assert_eq!((color.s * 100.0).round() as u32, 83);
         assert_eq!((color.l * 100.0).round() as u32, 51);

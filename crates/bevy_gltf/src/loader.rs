@@ -348,7 +348,7 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
     load_context.set_labeled_asset(
         &material_label,
         LoadedAsset::new(StandardMaterial {
-            base_color: Srgba::rgba(color[0], color[1], color[2], color[3]).into(),
+            base_color: Srgba::with_alpha(color[0], color[1], color[2], color[3]).into(),
             base_color_texture,
             roughness: pbr.roughness_factor(),
             metallic: pbr.metallic_factor(),
@@ -356,7 +356,7 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
             normal_map,
             double_sided: material.double_sided(),
             occlusion_texture,
-            emissive: Srgba::rgba(emissive[0], emissive[1], emissive[2], 1.0).into(),
+            emissive: Srgba::with_alpha(emissive[0], emissive[1], emissive[2], 1.0).into(),
             emissive_texture,
             unlit: material.unlit(),
             ..Default::default()

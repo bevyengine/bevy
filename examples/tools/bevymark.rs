@@ -5,7 +5,7 @@ use bevy::{
 use rand::Rng;
 
 const BIRDS_PER_SECOND: u32 = 1000;
-const BASE_COLOR: Color = Color::rgb(5.0, 5.0, 5.0);
+const BASE_COLOR: Color = rgba!(5.0, 5.0, 5.0);
 const GRAVITY: f32 = -9.8 * 100.0;
 const MAX_VELOCITY: f32 = 750.;
 const BIRD_SCALE: f32 = 0.15;
@@ -63,7 +63,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 40.0,
-                        color: Color::rgb(0.0, 1.0, 0.0),
+                        color: rgba!(0.0, 1.0, 0.0),
                     },
                 },
                 TextSection {
@@ -71,7 +71,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 40.0,
-                        color: Color::rgb(0.0, 1.0, 1.0),
+                        color: rgba!(0.0, 1.0, 1.0),
                     },
                 },
                 TextSection {
@@ -79,7 +79,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 40.0,
-                        color: Color::rgb(0.0, 1.0, 0.0),
+                        color: rgba!(0.0, 1.0, 0.0),
                     },
                 },
                 TextSection {
@@ -87,7 +87,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 40.0,
-                        color: Color::rgb(0.0, 1.0, 1.0),
+                        color: rgba!(0.0, 1.0, 1.0),
                     },
                 },
             ],

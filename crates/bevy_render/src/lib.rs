@@ -20,10 +20,11 @@ use draw::{OutsideFrustum, Visible};
 
 pub use once_cell;
 
+#[macro_use]
 pub mod prelude {
     pub use crate::{
         base::Msaa,
-        color::{Color, Hsla, Srgba},
+        color::{Color, Hsla, LinSrgba, Srgba},
         draw::{Draw, Visible},
         entity::*,
         mesh::{shape, Mesh},
@@ -32,6 +33,7 @@ pub mod prelude {
         shader::Shader,
         texture::Texture,
     };
+    pub use crate::{hsla, rgba, srgba};
 }
 
 use crate::prelude::*;

@@ -9,7 +9,7 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .insert_resource(Scoreboard { score: 0 })
-        .insert_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
+        .insert_resource(ClearColor(rgba!(0.9, 0.9, 0.9)))
         .add_startup_system(setup.system())
         .add_system(paddle_movement_system.system())
         .add_system(ball_collision_system.system())
@@ -49,7 +49,7 @@ fn setup(
     // paddle
     commands
         .spawn_bundle(SpriteBundle {
-            material: materials.add(Color::rgb(0.5, 0.5, 1.0).into()),
+            material: materials.add(rgba!(0.5, 0.5, 1.0).into()),
             transform: Transform::from_xyz(0.0, -215.0, 0.0),
             sprite: Sprite::new(Vec2::new(120.0, 30.0)),
             ..Default::default()
@@ -59,7 +59,7 @@ fn setup(
     // ball
     commands
         .spawn_bundle(SpriteBundle {
-            material: materials.add(Color::rgb(1.0, 0.5, 0.5).into()),
+            material: materials.add(rgba!(1.0, 0.5, 0.5).into()),
             transform: Transform::from_xyz(0.0, -50.0, 1.0),
             sprite: Sprite::new(Vec2::new(30.0, 30.0)),
             ..Default::default()
@@ -76,7 +76,7 @@ fn setup(
                     style: TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 40.0,
-                        color: Color::rgb(0.5, 0.5, 1.0),
+                        color: rgba!(0.5, 0.5, 1.0),
                     },
                 },
                 TextSection {
@@ -84,7 +84,7 @@ fn setup(
                     style: TextStyle {
                         font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                         font_size: 40.0,
-                        color: Color::rgb(1.0, 0.5, 0.5),
+                        color: rgba!(1.0, 0.5, 0.5),
                     },
                 },
             ],
@@ -103,7 +103,7 @@ fn setup(
     });
 
     // Add walls
-    let wall_material = materials.add(Color::rgb(0.8, 0.8, 0.8).into());
+    let wall_material = materials.add(rgba!(0.8, 0.8, 0.8).into());
     let wall_thickness = 10.0;
     let bounds = Vec2::new(900.0, 600.0);
 
@@ -152,7 +152,7 @@ fn setup(
     let bricks_width = brick_columns as f32 * (brick_size.x + brick_spacing) - brick_spacing;
     // center the bricks and move them up a bit
     let bricks_offset = Vec3::new(-(bricks_width - brick_size.x) / 2.0, 100.0, 0.0);
-    let brick_material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
+    let brick_material = materials.add(rgba!(0.5, 0.5, 1.0).into());
     for row in 0..brick_rows {
         let y_position = row as f32 * (brick_size.y + brick_spacing);
         for column in 0..brick_columns {

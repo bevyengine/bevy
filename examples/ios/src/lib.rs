@@ -24,13 +24,13 @@ fn setup(
     // plane
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
-        material: materials.add(Color::rgb(0.1, 0.2, 0.1).into()),
+        material: materials.add(rgba!(0.1, 0.2, 0.1).into()),
         ..Default::default()
     });
     // cube
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
+        material: materials.add(rgba!(0.5, 0.4, 0.3).into()),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..Default::default()
     });
@@ -40,7 +40,7 @@ fn setup(
             subdivisions: 4,
             radius: 0.5,
         })),
-        material: materials.add(Color::rgb(0.1, 0.4, 0.8).into()),
+        material: materials.add(rgba!(0.1, 0.4, 0.8).into()),
         transform: Transform::from_xyz(1.5, 1.5, 1.5),
         ..Default::default()
     });

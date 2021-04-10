@@ -25,20 +25,20 @@ pub struct Hsla {
 unsafe impl Byteable for Hsla {}
 
 impl Hsla {
-    /// New [`Color`] from linear colorspace.
-    pub const fn hsl(h: f32, s: f32, l: f32) -> Hsla {
-        Hsla::hsla(h, s, l, 1.0)
+    /// New [`Color`] with alpha equal to 1.0
+    pub const fn new(h: f32, s: f32, l: f32) -> Hsla {
+        Hsla::with_alpha(h, s, l, 1.0)
     }
 
-    /// New [`Color`] from linear colorspace.
-    pub const fn hsla(h: f32, s: f32, l: f32, a: f32) -> Hsla {
+    /// New [`Color`]
+    pub const fn with_alpha(h: f32, s: f32, l: f32, a: f32) -> Hsla {
         Hsla { h, s, l, a }
     }
 }
 
 impl Default for Hsla {
     fn default() -> Self {
-        Hsla::hsl(0.0, 0.0, 1.0)
+        Hsla::new(0.0, 0.0, 1.0)
     }
 }
 
@@ -106,13 +106,13 @@ impl From<Hsla> for [f32; 4] {
 
 impl From<[f32; 3]> for Hsla {
     fn from([h, s, l]: [f32; 3]) -> Self {
-        Hsla::hsla(h, s, l, 1.0)
+        Hsla::with_alpha(h, s, l, 1.0)
     }
 }
 
 impl From<[f32; 4]> for Hsla {
     fn from([h, s, l, a]: [f32; 4]) -> Self {
-        Hsla::hsla(h, s, l, a)
+        Hsla::with_alpha(h, s, l, a)
     }
 }
 
@@ -124,13 +124,13 @@ impl From<Hsla> for Vec4 {
 
 impl From<Vec3> for Hsla {
     fn from(vec4: Vec3) -> Self {
-        Hsla::hsla(vec4.x, vec4.y, vec4.z, 1.0)
+        Hsla::with_alpha(vec4.x, vec4.y, vec4.z, 1.0)
     }
 }
 
 impl From<Vec4> for Hsla {
     fn from(vec4: Vec4) -> Self {
-        Hsla::hsla(vec4.x, vec4.y, vec4.z, vec4.w)
+        Hsla::with_alpha(vec4.x, vec4.y, vec4.z, vec4.w)
     }
 }
 
@@ -146,9 +146,9 @@ fn test_conversions_vec4() {
 
 #[test]
 fn test_mul_and_mulassign_f32() {
-    let starting_color = Hsla::hsla(0.4, 0.5, 0.6, 1.0);
+    let starting_color = Hsla::with_alpha(0.4, 0.5, 0.6, 1.0);
     assert_eq!(
         starting_color * 0.5,
-        Hsla::hsla(0.4 * 0.5, 0.5 * 0.5, 0.6 * 0.5, 1.0),
+        Hsla::with_alpha(0.4 * 0.5, 0.5 * 0.5, 0.6 * 0.5, 1.0),
     );
 }

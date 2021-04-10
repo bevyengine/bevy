@@ -23,7 +23,7 @@ pub struct ClearColor(pub Color);
 
 impl Default for ClearColor {
     fn default() -> Self {
-        Self(Srgba::rgb(0.4, 0.4, 0.4).into())
+        Self(Srgba::new(0.4, 0.4, 0.4).into())
     }
 }
 

@@ -59,10 +59,10 @@ fn setup(
         commands.spawn_bundle(PbrBundle {
             mesh: cube_handle.clone(),
             material: materials.add(StandardMaterial {
-                base_color: Color::rgb(
+                base_color: rgba!(
                     rng.gen_range(0.0..1.0),
                     rng.gen_range(0.0..1.0),
-                    rng.gen_range(0.0..1.0),
+                    rng.gen_range(0.0..1.0)
                 ),
                 ..Default::default()
             }),
