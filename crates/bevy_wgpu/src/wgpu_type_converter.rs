@@ -127,12 +127,11 @@ impl<'a> From<&'a OwnedWgpuVertexBufferLayout> for wgpu::VertexBufferLayout<'a> 
 
 impl WgpuFrom<Color> for wgpu::Color {
     fn from(color: Color) -> Self {
-        let linear = color.as_linear_rgba_f32();
         wgpu::Color {
-            r: linear[0] as f64,
-            g: linear[1] as f64,
-            b: linear[2] as f64,
-            a: linear[3] as f64,
+            r: color.r as f64,
+            g: color.g as f64,
+            b: color.b as f64,
+            a: color.a as f64,
         }
     }
 }
