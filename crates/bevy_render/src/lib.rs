@@ -1,6 +1,5 @@
 pub mod camera;
 pub mod color;
-pub mod colorspace;
 pub mod draw;
 pub mod entity;
 pub mod mesh;
@@ -24,7 +23,7 @@ pub use once_cell;
 pub mod prelude {
     pub use crate::{
         base::Msaa,
-        color::Color,
+        color::{Color, Hsla, Srgba},
         draw::{Draw, Visible},
         entity::*,
         mesh::{shape, Mesh},

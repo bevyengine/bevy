@@ -8,7 +8,7 @@ use crate::{
         RenderPassDepthStencilAttachmentDescriptor, TextureAttachment,
     },
     texture::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage},
-    Color,
+    Color, Srgba,
 };
 use bevy_ecs::{reflect::ReflectComponent, world::World};
 use bevy_reflect::Reflect;
@@ -138,7 +138,7 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
                 TextureAttachment::Input("color_attachment".to_string()),
                 TextureAttachment::Input("color_resolve_target".to_string()),
                 Operations {
-                    load: LoadOp::Clear(Color::rgb(0.1, 0.1, 0.1)),
+                    load: LoadOp::Clear(Srgba::rgb(0.1, 0.1, 0.1).into()),
                     store: true,
                 },
             )],

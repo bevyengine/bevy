@@ -23,7 +23,7 @@ impl ColorMaterial {
 
     pub fn texture(texture: Handle<Texture>) -> Self {
         ColorMaterial {
-            color: Color::WHITE,
+            color: Color::default(),
             texture: Some(texture),
         }
     }
@@ -39,7 +39,7 @@ impl ColorMaterial {
 impl Default for ColorMaterial {
     fn default() -> Self {
         ColorMaterial {
-            color: Color::rgb(1.0, 1.0, 1.0),
+            color: Color::default(),
             texture: None,
         }
     }

@@ -1,5 +1,5 @@
 use super::Operations;
-use crate::{renderer::TextureId, Color};
+use crate::{renderer::TextureId, Color, Srgba};
 
 #[derive(Debug, Clone)]
 pub enum TextureAttachment {
@@ -23,7 +23,7 @@ pub struct ClearColor(pub Color);
 
 impl Default for ClearColor {
     fn default() -> Self {
-        Self(Color::rgb(0.4, 0.4, 0.4))
+        Self(Srgba::rgb(0.4, 0.4, 0.4).into())
     }
 }
 

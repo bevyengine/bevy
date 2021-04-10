@@ -27,7 +27,7 @@ fn setup(
                     subdivisions: 32,
                 })),
                 material: materials.add(StandardMaterial {
-                    base_color: Color::hex("ffd891").unwrap(),
+                    base_color: Srgba::from_hex("ffd891").unwrap().into(),
                     // vary key PBR parameters on a grid of spheres to show the effect
                     metallic: y01,
                     roughness: x01,

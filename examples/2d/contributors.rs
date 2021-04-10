@@ -95,7 +95,8 @@ fn setup(
                     ..Default::default()
                 },
                 material: materials.add(ColorMaterial {
-                    color: Color::hsla(hue, SATURATION_DESELECTED, LIGHTNESS_DESELECTED, ALPHA),
+                    color: Hsla::hsla(hue, SATURATION_DESELECTED, LIGHTNESS_DESELECTED, ALPHA)
+                        .into(),
                     texture: Some(texture_handle.clone()),
                 }),
                 transform,
@@ -202,7 +203,7 @@ fn select(
     name: &str,
 ) -> Option<()> {
     let mat = materials.get_mut(mat_handle)?;
-    mat.color = Color::hsla(cont.hue, SATURATION_SELECTED, LIGHTNESS_SELECTED, ALPHA);
+    mat.color = Hsla::hsla(cont.hue, SATURATION_SELECTED, LIGHTNESS_SELECTED, ALPHA).into();
 
     trans.translation.z = 100.0;
 
@@ -222,7 +223,7 @@ fn deselect(
     trans: &mut Transform,
 ) -> Option<()> {
     let mat = materials.get_mut(mat_handle)?;
-    mat.color = Color::hsla(cont.hue, SATURATION_DESELECTED, LIGHTNESS_DESELECTED, ALPHA);
+    mat.color = Hsla::hsla(cont.hue, SATURATION_DESELECTED, LIGHTNESS_DESELECTED, ALPHA).into();
 
     trans.translation.z = 0.0;
 

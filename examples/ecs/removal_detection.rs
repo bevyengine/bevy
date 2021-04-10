@@ -69,7 +69,7 @@ fn react_on_removal(
         // We compare the `Entity` that had its `MyComponent` `Component` removed with the `Entity`
         // in the current `Query`. If they match all red is removed from the material.
         if query_entity == entity {
-            materials.get_mut(material).unwrap().color.set_r(0.0);
+            materials.get_mut(material).unwrap().color.r = 0.0;
         }
     }
 }

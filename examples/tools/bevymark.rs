@@ -207,7 +207,7 @@ fn counter_system(
 ///
 /// Because there is no `Mul<Color> for Color` instead `[f32; 3]` is
 /// used.
-fn gen_color(rng: &mut impl Rng) -> [f32; 3] {
+fn gen_color(rng: &mut impl Rng) -> Color {
     let r = rng.gen_range(0.2..1.0);
     let g = rng.gen_range(0.2..1.0);
     let b = rng.gen_range(0.2..1.0);

@@ -144,9 +144,7 @@ fn change_color(
 ) {
     for handle in query.iter() {
         let material = assets.get_mut(handle).unwrap();
-        material
-            .color
-            .set_b((time.seconds_since_startup() * 5.0).sin() as f32 + 2.0);
+        material.color.b = (time.seconds_since_startup() * 5.0).sin() as f32 + 2.0;
     }
 }
 
