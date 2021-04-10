@@ -54,7 +54,7 @@ pub fn get_modules() -> Modules {
         .unwrap();
     let deps = manifest.dependencies;
     let deps_dev = manifest.dev_dependencies;
-    
+
     manifest
         .package
         .and_then(|p| {
