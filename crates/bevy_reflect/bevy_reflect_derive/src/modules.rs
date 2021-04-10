@@ -1,5 +1,6 @@
-use find_crate::{Dependencies, Manifest};
+use cargo_manifest::{DepsSet, Manifest};
 use proc_macro::TokenStream;
+use std::{env, path::PathBuf};
 use syn::Path;
 
 #[derive(Debug)]
@@ -28,31 +29,44 @@ impl Modules {
 }
 
 pub fn get_modules() -> Modules {
-    let mut manifest = Manifest::new().unwrap();
-    // Only look for regular dependencies in the first pass.
-    manifest.dependencies = Dependencies::Release;
+    const BEVY: &str = "bevy";
+    const BEVY_EXTERNAL: &str = "bevy_reflect";
+    const BEVY_INTERNAL: &str = "bevy_internal";
 
-    if let Some(package) = manifest.find(|name| name == "bevy") {
-        Modules::meta(&package.name)
-    } else if let Some(package) = manifest.find(|name| name == "bevy_internal") {
-        Modules::meta(&package.name)
-    } else if let Some(_package) = manifest.find(|name| name == "bevy_reflect") {
-        Modules::external()
-    } else {
-        // If reflect is not found as a regular dependency,
-        // try dev-dependencies.
-        manifest.dependencies = Dependencies::Dev;
-
-        if let Some(package) = manifest.find(|name| name == "bevy") {
-            Modules::meta(&package.name)
-        } else if let Some(package) = manifest.find(|name| name == "bevy_internal") {
-            Modules::meta(&package.name)
-        } else if let Some(_package) = manifest.find(|name| name == "bevy_reflect") {
-            Modules::external()
+    fn find_in_deps(deps: DepsSet) -> Option<Modules> {
+        if let Some(dep) = deps.get(BEVY) {
+            Some(Modules::meta(dep.package().unwrap_or(BEVY)))
+        } else if let Some(dep) = deps.get(BEVY_INTERNAL) {
+            Some(Modules::meta(dep.package().unwrap_or(BEVY_INTERNAL)))
+        } else if let Some(_) = deps.get(BEVY_EXTERNAL) {
+            Some(Modules::external())
         } else {
-            Modules::internal()
+            None
         }
     }
+
+    let manifest = env::var_os("CARGO_MANIFEST_DIR")
+        .map(PathBuf::from)
+        .map(|mut path| {
+            path.push("Cargo.toml");
+            Manifest::from_path(path).unwrap()
+        })
+        .unwrap();
+    let deps = manifest.dependencies;
+    let deps_dev = manifest.dev_dependencies;
+    
+    manifest
+        .package
+        .and_then(|p| {
+            if p.name == BEVY_EXTERNAL {
+                Some(Modules::internal())
+            } else {
+                None
+            }
+        })
+        .or_else(|| deps.and_then(find_in_deps))
+        .or_else(|| deps_dev.and_then(find_in_deps))
+        .unwrap_or_else(|| Modules::external())
 }
 
 pub fn get_path(path_str: &str) -> Path {
