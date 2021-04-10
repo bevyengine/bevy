@@ -242,7 +242,8 @@ impl<'a, T: Component> SystemParamFetch<'a> for ResState<T> {
             .get_populated_resource_column(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
-                    "Requested resource does not exist: {}",
+                    "Resource requested by {} does not exist: {}",
+                    system_state.name,
                     std::any::type_name::<T>()
                 )
             });
