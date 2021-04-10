@@ -230,12 +230,12 @@ impl_render_resource_bytes!(Color);
 #[derive(Debug)]
 pub enum HexColorError {
     Length,
-    Hex(hex::FromHexError),
+    Hex(base16::DecodeError),
 }
 
 fn decode_rgb(data: &[u8]) -> Result<Color, HexColorError> {
     let mut buf = [0; 3];
-    match hex::decode_to_slice(data, &mut buf) {
+    match base16::decode_slice(data, &mut buf) {
         Ok(_) => {
             let r = buf[0] as f32 / 255.0;
             let g = buf[1] as f32 / 255.0;
@@ -248,7 +248,7 @@ fn decode_rgb(data: &[u8]) -> Result<Color, HexColorError> {
 
 fn decode_rgba(data: &[u8]) -> Result<Color, HexColorError> {
     let mut buf = [0; 4];
-    match hex::decode_to_slice(data, &mut buf) {
+    match base16::decode_slice(data, &mut buf) {
         Ok(_) => {
             let r = buf[0] as f32 / 255.0;
             let g = buf[1] as f32 / 255.0;
