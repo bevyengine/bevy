@@ -3,8 +3,8 @@ use bevy::{
     reflect::TypeUuid,
     render::{
         pipeline::{PipelineDescriptor, RenderPipeline},
-        shader::{ShaderStage},
-        texture::{Extent3d,TextureDimension,TextureFormat},
+        shader::ShaderStage,
+        texture::{Extent3d, TextureDimension, TextureFormat},
     },
 };
 fn main() {
@@ -24,9 +24,9 @@ struct CustomSpriteBundle {
     #[bundle]
     sprite: SpriteBundle,
 }
-impl Default for CustomSpriteBundle{
+impl Default for CustomSpriteBundle {
     fn default() -> Self {
-        Self{
+        Self {
             sprite: SpriteBundle {
                 //We make sure the sprite is rendered in our custom pipeline
                 render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
@@ -38,15 +38,17 @@ impl Default for CustomSpriteBundle{
     }
 }
 impl CustomSpriteBundle {
-    fn new(material_handle: Handle<ColorMaterial>) -> Self {
+    fn new(material_handle: Handle<ColorMaterial>, transform: Transform) -> Self {
         let mut default = Self::default();
         default.sprite.material = material_handle;
+        default.sprite.transform = transform;
         return default;
     }
 }
-//We're copying everything from the original fragment shader, but changing stuff in the main() function of the shader
-//If the shader isn't working, probably something changed in the original vertex and fragment shaders in the version you are using
-//In your own shader, you could write it in a 'your-shader-name'.frag file and do like what is done in bevy_sprite/src/render/mod.rs (it's prettier, and you can get syntax highlighting for glsl, but i don't want to clutter the examples folder) 
+//We're copying everything from the original fragment shader, but changing stuff in the main() function of the shader.
+//We're expecting to see a green triangle on the left side of the screen, and a green triangle on a checkerboard pattern on the right side of the screen.
+//If this isn't the result you are getting, something probably changed in the original vertex and fragment shaders in the bevy version you are using.
+//For your own shaders, consider writing them in their own files so you could get syntax highlighting for glsl (see e.g. bevy_sprite/src/render/)
 const FRAGMENT_SHADER: &str = r#"
 #version 450
 
@@ -112,19 +114,27 @@ fn setup(
         //Adding our custom pipeline and making it untracked so it won't get removed automatically when no sprite uses it
         render_pipelines.set_untracked(CUSTOM_SPRITE_PIPELINE_HANDLE, pipeline_clone);
 
-        //Spawning our custom sprite
-        let texture_size = 1000;
+        //Creating our texture
+        let texture_size = 20;
         //The vec's size is 4 times our texture's area, since every pixel is built out of 4 u8s (R,G,B,A)
         let mut transparent_texture_vec: Vec<u8> =
             Vec::with_capacity(texture_size * texture_size * 4);
-        for _y in 0..texture_size {
-            for _x in 0..texture_size {
-                //The first three don't really matter in this case, since we set the alpha to zero in the 4th row, and our shader will thus ignore the rgb values we give here
-                //If you want to play with it, you can change the values here to see what will happen
-                transparent_texture_vec.push(255); //r
-                transparent_texture_vec.push(255); //g
-                transparent_texture_vec.push(255); //b
-                transparent_texture_vec.push(0); //a
+        for y in 0..texture_size {
+            for x in 0..texture_size {
+                //Make the pixel green, if y is bigger than x
+                if y > x {
+                    transparent_texture_vec.push(0); //r
+                    transparent_texture_vec.push(255); //g
+                    transparent_texture_vec.push(0); //b
+                    transparent_texture_vec.push(255); //a
+                }
+                //Else, we don't need to draw this pixel(make it transparent by setting the alpha to zero)
+                else {
+                    transparent_texture_vec.push(255); //r
+                    transparent_texture_vec.push(255); //g
+                    transparent_texture_vec.push(255); //b
+                    transparent_texture_vec.push(0); //a
+                }
             }
         }
         let texture = Texture::new(
@@ -134,14 +144,29 @@ fn setup(
             //At the moment of writing, only 4 formats are supported so make sure you use one of them and not others
             TextureFormat::Rgba8UnormSrgb,
         );
+        //Adding the texture to the Texture assets and getting it's handle
         let texture_handle = textures.add(texture);
+        //Creating our shared material
         let material_handle = materials.add(ColorMaterial::texture(texture_handle));
-        //Actually spawning our custom sprite bundle
-        commands.spawn_bundle(CustomSpriteBundle::new(material_handle));
+        //Actually spawning our custom sprite bundle, we send it a clone of our material handle since we also want to render the same material in a regular sprite to compare the two
+        commands.spawn_bundle(CustomSpriteBundle::new(
+            material_handle.to_owned(),
+            Transform::from_translation(Vec3::new(texture_size as f32 / 2.0, 0.0, 0.0)),
+        ));
+        //Spawning a regular sprite bundle to compare the two visually
+        commands.spawn_bundle(SpriteBundle {
+            material: material_handle,
+            transform: Transform::from_translation(Vec3::new(
+                texture_size as f32 / 2.0 * -1.0,
+                0.0,
+                0.0,
+            )),
+            ..Default::default()
+        });
         //Creating a camera so we could see our sprite
         let mut camera = OrthographicCameraBundle::new_2d();
         //The scale is small so we could actually see the pixels(small scale = zooming in)
-        camera.transform.scale = Vec3::new(0.1,0.1,1.0); 
+        camera.transform.scale = Vec3::new(0.05, 0.05, 1.0);
         //Spawning the camera
         commands.spawn_bundle(camera);
     }
