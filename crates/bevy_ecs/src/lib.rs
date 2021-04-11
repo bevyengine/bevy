@@ -13,10 +13,15 @@ pub use system::{Query, *};
 pub mod prelude {
     pub use crate::{
         core::WorldBuilderSource,
-        resource::{ChangedRes, FromResources, Local, Res, ResMut, Resource, Resources},
-        schedule::{Schedule, State, StateStage, SystemStage},
-        system::{Commands, IntoSystem, Query, System},
-        Added, Bundle, Changed, Component, Entity, Flags, In, IntoChainSystem, Mut, Mutated, Or,
-        QuerySet, Ref, RefMut, With, Without, World,
+        resource::{ChangedRes, FromResources, Local, NonSend, Res, ResMut, Resource, Resources},
+        schedule::{
+            ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
+            ReportExecutionOrderAmbiguities, RunOnce, Schedule, Stage, State, StateStage,
+            SystemSet, SystemStage,
+        },
+        system::{Commands, ExclusiveSystem, IntoExclusiveSystem, IntoSystem, Query, System},
+        Added, AmbiguitySetLabel, Bundle, Changed, Component, Entity, Flags, In, IntoChainSystem,
+        Mut, Mutated, Or, QuerySet, Ref, RefMut, ShouldRun, StageLabel, SystemLabel, With, Without,
+        World,
     };
 }

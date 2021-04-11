@@ -29,7 +29,7 @@ impl Plugin for PbrPlugin {
         app.add_asset::<StandardMaterial>()
             .register_type::<Light>()
             .add_system_to_stage(
-                stage::POST_UPDATE,
+                CoreStage::PostUpdate,
                 shader::asset_shader_defs_system::<StandardMaterial>.system(),
             )
             .init_resource::<AmbientLight>();

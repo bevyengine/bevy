@@ -37,11 +37,11 @@ impl Plugin for LogDiagnosticsPlugin {
 
         if self.debug {
             app.add_system_to_stage(
-                stage::POST_UPDATE,
+                CoreStage::PostUpdate,
                 Self::log_diagnostics_debug_system.system(),
             );
         } else {
-            app.add_system_to_stage(stage::POST_UPDATE, Self::log_diagnostics_system.system());
+            app.add_system_to_stage(CoreStage::PostUpdate, Self::log_diagnostics_system.system());
         }
     }
 }

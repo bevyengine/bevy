@@ -1,13 +1,6 @@
 use crate::{ArchetypeComponent, Resources, TypeAccess, World};
 use std::{any::TypeId, borrow::Cow};
 
-/// Determines the strategy used to run the `run_thread_local` function in a [System]
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum ThreadLocalExecution {
-    Immediate,
-    NextFlush,
-}
-
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct SystemId(pub usize);
 
@@ -24,10 +17,11 @@ pub trait System: Send + Sync + 'static {
     type Out;
     fn name(&self) -> Cow<'static, str>;
     fn id(&self) -> SystemId;
-    fn update(&mut self, world: &World);
+    fn update_access(&mut self, world: &World);
     fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent>;
+    fn component_access(&self) -> &TypeAccess<TypeId>;
     fn resource_access(&self) -> &TypeAccess<TypeId>;
-    fn thread_local_execution(&self) -> ThreadLocalExecution;
+    fn is_non_send(&self) -> bool;
     /// # Safety
     /// This might access World and Resources in an unsafe manner. This should only be called in one of the following contexts:
     /// 1. This system is the only system running on the given World and Resources across all threads
@@ -47,8 +41,8 @@ pub trait System: Send + Sync + 'static {
         // SAFE: world and resources are exclusively borrowed
         unsafe { self.run_unsafe(input, world, resources) }
     }
-    fn run_thread_local(&mut self, world: &mut World, resources: &mut Resources);
-    fn initialize(&mut self, _world: &mut World, _resources: &mut Resources);
+    fn apply_buffers(&mut self, world: &mut World, resources: &mut Resources);
+    fn initialize(&mut self, world: &mut World, resources: &mut Resources);
 }
 
 pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;

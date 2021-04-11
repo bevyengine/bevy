@@ -1,10 +1,11 @@
 use bevy_utils::HashSet;
+use fixedbitset::FixedBitSet;
 use std::{any::TypeId, boxed::Box, hash::Hash, vec::Vec};
 
 use super::{Archetype, World};
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-pub enum Access {
+enum ArchetypeAccess {
     None,
     Read,
     Write,
@@ -81,6 +82,22 @@ impl QueryAccess {
         }
     }
 
+    pub fn get_component_access(&self, type_access: &mut TypeAccess<TypeId>) {
+        match self {
+            QueryAccess::None => {}
+            QueryAccess::Read(ty, _) => type_access.add_read(*ty),
+            QueryAccess::Write(ty, _) => type_access.add_write(*ty),
+            QueryAccess::Optional(access) => access.get_component_access(type_access),
+            QueryAccess::With(_, access) => access.get_component_access(type_access),
+            QueryAccess::Without(_, access) => access.get_component_access(type_access),
+            QueryAccess::Union(accesses) => {
+                for access in accesses {
+                    access.get_component_access(type_access);
+                }
+            }
+        }
+    }
+
     pub fn get_type_name(&self, type_id: TypeId) -> Option<&'static str> {
         match self {
             QueryAccess::None => None,
@@ -115,20 +132,20 @@ impl QueryAccess {
 
     /// Returns how this [QueryAccess] accesses the given `archetype`.
     /// If `type_access` is set, it will populate type access with the types this query reads/writes
-    pub fn get_access(
+    fn get_access(
         &self,
         archetype: &Archetype,
         archetype_index: u32,
         type_access: Option<&mut TypeAccess<ArchetypeComponent>>,
-    ) -> Option<Access> {
+    ) -> Option<ArchetypeAccess> {
         match self {
-            QueryAccess::None => Some(Access::None),
+            QueryAccess::None => Some(ArchetypeAccess::None),
             QueryAccess::Read(ty, _) => {
                 if archetype.has_type(*ty) {
                     if let Some(type_access) = type_access {
                         type_access.add_read(ArchetypeComponent::new_ty(archetype_index, *ty));
                     }
-                    Some(Access::Read)
+                    Some(ArchetypeAccess::Read)
                 } else {
                     None
                 }
@@ -138,7 +155,7 @@ impl QueryAccess {
                     if let Some(type_access) = type_access {
                         type_access.add_write(ArchetypeComponent::new_ty(archetype_index, *ty));
                     }
-                    Some(Access::Write)
+                    Some(ArchetypeAccess::Write)
                 } else {
                     None
                 }
@@ -152,7 +169,7 @@ impl QueryAccess {
                         Some(access)
                     }
                 } else {
-                    Some(Access::Read)
+                    Some(ArchetypeAccess::Read)
                 }
             }
             QueryAccess::With(ty, query_access) => {
@@ -174,7 +191,7 @@ impl QueryAccess {
                 for query_access in query_accesses {
                     if let Some(access) = query_access.get_access(archetype, archetype_index, None)
                     {
-                        result = Some(result.unwrap_or(Access::Read).max(access));
+                        result = Some(result.unwrap_or(ArchetypeAccess::Read).max(access));
                     } else {
                         return None;
                     }
@@ -198,17 +215,17 @@ impl QueryAccess {
 /// Provides information about the types a [System] reads and writes
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct TypeAccess<T: Hash + Eq + PartialEq> {
+    reads_all: bool,
     reads_and_writes: HashSet<T>,
     writes: HashSet<T>,
-    reads: HashSet<T>,
 }
 
 impl<T: Hash + Eq + PartialEq> Default for TypeAccess<T> {
     fn default() -> Self {
         Self {
+            reads_all: false,
             reads_and_writes: Default::default(),
             writes: Default::default(),
-            reads: Default::default(),
         }
     }
 }
@@ -219,36 +236,44 @@ impl<T: Hash + Eq + PartialEq + Copy> TypeAccess<T> {
         for write in writes {
             type_access.add_write(write);
         }
-
         for read in reads {
             type_access.add_read(read);
         }
-
         type_access
     }
 
     pub fn is_compatible(&self, other: &TypeAccess<T>) -> bool {
-        self.writes.is_disjoint(&other.reads_and_writes)
-            && self.reads_and_writes.is_disjoint(&other.writes)
+        if self.reads_all {
+            other.writes.is_empty()
+        } else if other.reads_all {
+            self.writes.is_empty()
+        } else {
+            self.writes.is_disjoint(&other.reads_and_writes)
+                && self.reads_and_writes.is_disjoint(&other.writes)
+        }
     }
 
     pub fn get_conflict<'a>(&'a self, other: &'a TypeAccess<T>) -> Option<&'a T> {
-        let conflict = self.writes.intersection(&other.reads_and_writes).next();
-        if conflict.is_some() {
-            return conflict;
+        if self.reads_all {
+            other.writes.iter().next()
+        } else if other.reads_all {
+            self.writes.iter().next()
+        } else {
+            match self.writes.intersection(&other.reads_and_writes).next() {
+                Some(element) => Some(element),
+                None => other.writes.intersection(&self.reads_and_writes).next(),
+            }
         }
-        self.reads_and_writes.intersection(&other.writes).next()
     }
 
-    pub fn union(&mut self, other: &TypeAccess<T>) {
+    pub fn extend(&mut self, other: &TypeAccess<T>) {
+        self.reads_all = self.reads_all || other.reads_all;
         self.writes.extend(&other.writes);
-        self.reads.extend(&other.reads);
         self.reads_and_writes.extend(&other.reads_and_writes);
     }
 
     pub fn add_read(&mut self, ty: T) {
         self.reads_and_writes.insert(ty);
-        self.reads.insert(ty);
     }
 
     pub fn add_write(&mut self, ty: T) {
@@ -256,26 +281,108 @@ impl<T: Hash + Eq + PartialEq + Copy> TypeAccess<T> {
         self.writes.insert(ty);
     }
 
+    pub fn read_all(&mut self) {
+        self.reads_all = true;
+    }
+
     pub fn clear(&mut self) {
+        self.reads_all = false;
         self.reads_and_writes.clear();
-        self.reads.clear();
         self.writes.clear();
     }
 
     pub fn is_read_or_write(&self, ty: &T) -> bool {
-        self.reads_and_writes.contains(ty)
+        self.reads_all || self.reads_and_writes.contains(ty)
     }
 
     pub fn is_write(&self, ty: &T) -> bool {
         self.writes.contains(ty)
     }
 
-    pub fn iter_reads(&self) -> impl Iterator<Item = &T> {
-        self.reads.iter()
+    pub fn reads_all(&self) -> bool {
+        self.reads_all
     }
 
-    pub fn iter_writes(&self) -> impl Iterator<Item = &T> {
-        self.writes.iter()
+    /// Returns an iterator of distinct accessed types if only some types are accessed.
+    pub fn all_distinct_types(&self) -> Option<impl Iterator<Item = &T>> {
+        if !self.reads_all {
+            return Some(self.reads_and_writes.iter());
+        }
+        None
+    }
+
+    pub fn condense(&self, all_types: &[T]) -> CondensedTypeAccess {
+        if self.reads_all {
+            let mut writes = FixedBitSet::with_capacity(all_types.len());
+            for (index, access_type) in all_types.iter().enumerate() {
+                if self.writes.contains(access_type) {
+                    writes.insert(index);
+                }
+            }
+            CondensedTypeAccess {
+                reads_all: true,
+                reads_and_writes: Default::default(),
+                writes,
+            }
+        } else {
+            let mut reads_and_writes = FixedBitSet::with_capacity(all_types.len());
+            let mut writes = FixedBitSet::with_capacity(all_types.len());
+            for (index, access_type) in all_types.iter().enumerate() {
+                if self.writes.contains(access_type) {
+                    reads_and_writes.insert(index);
+                    writes.insert(index);
+                } else if self.reads_and_writes.contains(access_type) {
+                    reads_and_writes.insert(index);
+                }
+            }
+            CondensedTypeAccess {
+                reads_all: false,
+                reads_and_writes,
+                writes,
+            }
+        }
+    }
+}
+
+// TODO: consider making it typed, to enable compiler helping with bug hunting?
+#[derive(Default, Debug, Eq, PartialEq, Clone)]
+pub struct CondensedTypeAccess {
+    reads_all: bool,
+    reads_and_writes: FixedBitSet,
+    writes: FixedBitSet,
+}
+
+impl CondensedTypeAccess {
+    pub fn grow(&mut self, bits: usize) {
+        self.reads_and_writes.grow(bits);
+        self.writes.grow(bits);
+    }
+
+    pub fn reads_all(&self) -> bool {
+        self.reads_all
+    }
+
+    pub fn clear(&mut self) {
+        self.reads_all = false;
+        self.reads_and_writes.clear();
+        self.writes.clear();
+    }
+
+    pub fn extend(&mut self, other: &CondensedTypeAccess) {
+        self.reads_all = self.reads_all || other.reads_all;
+        self.reads_and_writes.union_with(&other.reads_and_writes);
+        self.writes.union_with(&other.writes);
+    }
+
+    pub fn is_compatible(&self, other: &CondensedTypeAccess) -> bool {
+        if self.reads_all {
+            0 == other.writes.count_ones(..)
+        } else if other.reads_all {
+            0 == self.writes.count_ones(..)
+        } else {
+            self.writes.is_disjoint(&other.reads_and_writes)
+                && self.reads_and_writes.is_disjoint(&other.writes)
+        }
     }
 }
 
