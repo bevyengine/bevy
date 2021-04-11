@@ -32,6 +32,10 @@ impl Default for CustomSpriteBundle {
                 render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                     CUSTOM_SPRITE_PIPELINE_HANDLE.typed(),
                 )]),
+                sprite:Sprite{
+                    flip_y:true,
+                    ..Default::default()
+                },
                 ..Default::default()
             },
         }
@@ -161,6 +165,10 @@ fn setup(
                 0.0,
                 0.0,
             )),
+            sprite:Sprite{
+                flip_y:true,
+                ..Default::default()
+            },
             ..Default::default()
         });
         //Creating a camera so we could see our sprite
