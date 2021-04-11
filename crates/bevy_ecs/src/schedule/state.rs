@@ -117,13 +117,7 @@ where
             .run_full_search
         {
             StateFullSearchState::Started | StateFullSearchState::InProgress => {
-                // TODO: Replace with `state.inactives()` when PR #1668 is merged
-                let is_inactive_search = state
-                    .stack
-                    .split_last()
-                    .map(|(_, rest)| rest)
-                    .unwrap()
-                    .contains(pred.as_ref().unwrap());
+                let is_inactive_search = state.inactives().contains(pred.as_ref().unwrap());
                 *is_inactive = is_inactive_search;
 
                 is_inactive_search
