@@ -34,7 +34,7 @@ impl Default for WindowPlugin {
 }
 
 impl Plugin for WindowPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.add_event::<WindowResized>()
             .add_event::<CreateWindow>()
             .add_event::<WindowCreated>()
@@ -52,12 +52,15 @@ impl Plugin for WindowPlugin {
             .init_resource::<Windows>();
 
         if self.add_primary_window {
-            let world = app.world_mut();
-            let window_descriptor = world
+            let window_descriptor = app
+                .world
                 .get_resource::<WindowDescriptor>()
                 .map(|descriptor| (*descriptor).clone())
                 .unwrap_or_else(WindowDescriptor::default);
-            let mut create_window_event = world.get_resource_mut::<Events<CreateWindow>>().unwrap();
+            let mut create_window_event = app
+                .world
+                .get_resource_mut::<Events<CreateWindow>>()
+                .unwrap();
             create_window_event.send(CreateWindow {
                 id: WindowId::primary(),
                 descriptor: window_descriptor,

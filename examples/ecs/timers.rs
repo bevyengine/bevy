@@ -1,7 +1,7 @@
 use bevy::{log::info, prelude::*};
 
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(Countdown::default())
         .add_startup_system(setup_system.system())

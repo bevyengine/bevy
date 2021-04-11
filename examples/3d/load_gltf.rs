@@ -1,7 +1,7 @@
 use bevy::{pbr::AmbientLight, prelude::*};
 
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 1.0 / 5.0f32,

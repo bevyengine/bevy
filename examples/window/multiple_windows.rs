@@ -14,7 +14,7 @@ use bevy::{
 
 /// This example creates a second window and draws a mesh from two different cameras.
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(Msaa { samples: 4 })
         .add_state(AppState::CreateWindow)
         .add_plugins(DefaultPlugins)

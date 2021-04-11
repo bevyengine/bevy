@@ -9,7 +9,7 @@ use bevy::{
 
 /// This example illustrates how to add a custom attribute to a mesh and use it in a custom shader.
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
         .run();

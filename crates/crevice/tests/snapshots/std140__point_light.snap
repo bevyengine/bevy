@@ -1,0 +1,40 @@
+---
+source: tests/std140.rs
+expression: "<<PointLight as AsStd140>::Std140Type as TypeLayout>::type_layout()"
+---
+name: Std140PointLight
+size: 48
+alignment: 4
+fields:
+  - Field:
+      name: _position_align
+      ty: "[u8 ; Std140PointLightAlignment :: _position_align()]"
+      size: 0
+  - Field:
+      name: position
+      ty: "< Vec3 as :: crevice :: std140 :: AsStd140 > :: Std140Type"
+      size: 12
+  - Field:
+      name: _diffuse_align
+      ty: "[u8 ; Std140PointLightAlignment :: _diffuse_align()]"
+      size: 4
+  - Field:
+      name: diffuse
+      ty: "< Vec3 as :: crevice :: std140 :: AsStd140 > :: Std140Type"
+      size: 12
+  - Field:
+      name: _specular_align
+      ty: "[u8 ; Std140PointLightAlignment :: _specular_align()]"
+      size: 4
+  - Field:
+      name: specular
+      ty: "< Vec3 as :: crevice :: std140 :: AsStd140 > :: Std140Type"
+      size: 12
+  - Field:
+      name: _brightness_align
+      ty: "[u8 ; Std140PointLightAlignment :: _brightness_align()]"
+      size: 0
+  - Field:
+      name: brightness
+      ty: "< f32 as :: crevice :: std140 :: AsStd140 > :: Std140Type"
+      size: 4

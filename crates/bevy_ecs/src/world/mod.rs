@@ -917,6 +917,13 @@ impl World {
             column.check_change_ticks(change_tick);
         }
     }
+
+    pub fn clear_entities(&mut self) {
+        self.storages.tables.clear();
+        self.storages.sparse_sets.clear();
+        self.archetypes.clear_entities();
+        self.entities.clear();
+    }
 }
 
 impl fmt::Debug for World {

@@ -38,13 +38,13 @@ pub enum CoreSystem {
 }
 
 impl Plugin for CorePlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         // Setup the default bevy task pools
-        app.world_mut()
+        app.world
             .get_resource::<DefaultTaskPoolOptions>()
             .cloned()
             .unwrap_or_else(DefaultTaskPoolOptions::default)
-            .create_default_pools(app.world_mut());
+            .create_default_pools(&mut app.world);
 
         app.init_resource::<Time>()
             .init_resource::<EntityLabels>()
@@ -70,7 +70,7 @@ impl Plugin for CorePlugin {
     }
 }
 
-fn register_rust_types(app: &mut AppBuilder) {
+fn register_rust_types(app: &mut App) {
     app.register_type::<bool>()
         .register_type::<u8>()
         .register_type::<u16>()
@@ -90,7 +90,7 @@ fn register_rust_types(app: &mut AppBuilder) {
         .register_type::<Option<String>>();
 }
 
-fn register_math_types(app: &mut AppBuilder) {
+fn register_math_types(app: &mut App) {
     app.register_type::<bevy_math::IVec2>()
         .register_type::<bevy_math::IVec3>()
         .register_type::<bevy_math::IVec4>()

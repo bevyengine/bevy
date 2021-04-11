@@ -105,10 +105,22 @@ pub mod render {
     pub use bevy_render::*;
 }
 
+#[cfg(feature = "bevy_render2")]
+pub mod render2 {
+    //! Cameras, meshes, textures, shaders, and pipelines.
+    pub use bevy_render2::*;
+}
+
 #[cfg(feature = "bevy_sprite")]
 pub mod sprite {
     //! Items for sprites, rects, texture atlases, etc.
     pub use bevy_sprite::*;
+}
+
+#[cfg(feature = "bevy_sprite2")]
+pub mod sprite2 {
+    //! Items for sprites, rects, texture atlases, etc.
+    pub use bevy_sprite2::*;
 }
 
 #[cfg(feature = "bevy_text")]
@@ -132,6 +144,12 @@ pub mod winit {
 pub mod wgpu {
     //! A render backend utilizing [wgpu](https://wgpu.rs/).
     pub use bevy_wgpu::*;
+}
+
+#[cfg(feature = "bevy_wgpu2")]
+pub mod wgpu2 {
+    //! A render backend utilizing [wgpu](https://github.com/gfx-rs/wgpu-rs).
+    pub use bevy_wgpu2::*;
 }
 
 #[cfg(feature = "bevy_dynamic_plugin")]

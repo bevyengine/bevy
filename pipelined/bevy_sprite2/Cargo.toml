@@ -1,0 +1,35 @@
+[package]
+name = "bevy_sprite2"
+version = "0.5.0"
+edition = "2018"
+authors = [
+    "Bevy Contributors <bevyengine@gmail.com>",
+    "Carter Anderson <mcanders1@gmail.com>",
+]
+description = "Provides sprite functionality for Bevy Engine"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT"
+keywords = ["bevy"]
+
+[dependencies]
+# bevy
+bevy_app = { path = "../../crates/bevy_app", version = "0.5.0" }
+bevy_asset = { path = "../../crates/bevy_asset", version = "0.5.0" }
+bevy_core = { path = "../../crates/bevy_core", version = "0.5.0" }
+bevy_ecs = { path = "../../crates/bevy_ecs", version = "0.5.0" }
+bevy_log = { path = "../../crates/bevy_log", version = "0.5.0" }
+bevy_math = { path = "../../crates/bevy_math", version = "0.5.0" }
+bevy_reflect = { path = "../../crates/bevy_reflect", version = "0.5.0", features = ["bevy"] }
+bevy_render2 = { path = "../bevy_render2", version = "0.5.0" }
+bevy_transform = { path = "../../crates/bevy_transform", version = "0.5.0" }
+bevy_utils = { path = "../../crates/bevy_utils", version = "0.5.0" }
+bevy_window = { path = "../../crates/bevy_window", version = "0.5.0" }
+
+# other
+rectangle-pack = "0.3"
+thiserror = "1.0"
+guillotiere = "0.6.0"
+serde = { version = "1", features = ["derive"] }
+parking_lot= "0.11.0"
+bytemuck = "1.5"

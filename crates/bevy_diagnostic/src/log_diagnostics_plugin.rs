@@ -29,7 +29,7 @@ impl Default for LogDiagnosticsPlugin {
 }
 
 impl Plugin for LogDiagnosticsPlugin {
-    fn build(&self, app: &mut bevy_app::AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.insert_resource(LogDiagnosticsState {
             timer: Timer::new(self.wait_duration, true),
             filter: self.filter.clone(),

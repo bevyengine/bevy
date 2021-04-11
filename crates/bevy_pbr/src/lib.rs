@@ -29,7 +29,7 @@ use render_graph::add_pbr_graph;
 pub struct PbrPlugin;
 
 impl Plugin for PbrPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.add_asset::<StandardMaterial>()
             .register_type::<PointLight>()
             .add_system_to_stage(
@@ -37,11 +37,11 @@ impl Plugin for PbrPlugin {
                 shader::asset_shader_defs_system::<StandardMaterial>.system(),
             )
             .init_resource::<AmbientLight>();
-        add_pbr_graph(app.world_mut());
+        add_pbr_graph(&mut app.world);
 
         // add default StandardMaterial
         let mut materials = app
-            .world_mut()
+            .world
             .get_resource_mut::<Assets<StandardMaterial>>()
             .unwrap();
         materials.set_untracked(

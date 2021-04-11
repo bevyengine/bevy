@@ -1,0 +1,24 @@
+---
+source: tests/std140.rs
+expression: "<<PrimitiveF32 as AsStd140>::Std140Type as TypeLayout>::layout()"
+---
+name: Std140PrimitiveF32
+size: 8
+alignment: 4
+fields:
+  - Field:
+      name: _x_align
+      ty: "[u8 ; Std140PrimitiveF32Alignment :: _x_align()]"
+      size: 0
+  - Field:
+      name: x
+      ty: "< f32 as :: crevice :: std140 :: AsStd140 > :: Std140Type"
+      size: 4
+  - Field:
+      name: _y_align
+      ty: "[u8 ; Std140PrimitiveF32Alignment :: _y_align()]"
+      size: 0
+  - Field:
+      name: y
+      ty: "< f32 as :: crevice :: std140 :: AsStd140 > :: Std140Type"
+      size: 4

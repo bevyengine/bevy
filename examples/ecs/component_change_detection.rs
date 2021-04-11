@@ -3,7 +3,7 @@ use rand::Rng;
 
 // This example illustrates how to react to component change
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
         .add_system(change_component.system())

@@ -5,7 +5,7 @@ use bevy::{
 };
 
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         .add_system(print_mouse_events_system.system())
         .run();

@@ -1,0 +1,16 @@
+---
+source: tests/std140.rs
+expression: "<<MoreThan16Alignment as AsStd140>::Std140Type as TypeLayout>::type_layout()"
+---
+name: Std140MoreThan16Alignment
+size: 32
+alignment: 8
+fields:
+  - Field:
+      name: _doubles_align
+      ty: "[u8 ; Std140MoreThan16AlignmentAlignment :: _doubles_align()]"
+      size: 0
+  - Field:
+      name: doubles
+      ty: "< DVec4 as :: crevice :: std140 :: AsStd140 > :: Std140Type"
+      size: 32

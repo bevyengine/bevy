@@ -339,6 +339,7 @@ impl Entities {
         self.meta.clear();
         self.pending.clear();
         *self.free_cursor.get_mut() = 0;
+        self.len = 0;
     }
 
     /// Access the location storage of an entity.

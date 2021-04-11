@@ -228,8 +228,8 @@ impl Plugin for RenderPlugin {
         );
 
         if let Some(ref config) = self.base_render_graph_config {
-            crate::base::add_base_graph(config, app.world_mut());
-            let mut active_cameras = app.world_mut().get_resource_mut::<ActiveCameras>().unwrap();
+            crate::base::add_base_graph(config, &mut app.world);
+            let mut active_cameras = app.world.get_resource_mut::<ActiveCameras>().unwrap();
             if config.add_3d_camera {
                 active_cameras.add(base::camera::CAMERA_3D);
             }

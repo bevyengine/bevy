@@ -104,8 +104,8 @@ impl Default for WgpuLimits {
 pub struct WgpuPlugin;
 
 impl Plugin for WgpuPlugin {
-    fn build(&self, app: &mut AppBuilder) {
-        let render_system = get_wgpu_render_system(app.world_mut());
+    fn build(&self, app: &mut App) {
+        let render_system = get_wgpu_render_system(&mut app.world);
         app.add_system_to_stage(RenderStage::Render, render_system.exclusive_system())
             .add_system_to_stage(
                 RenderStage::PostRender,

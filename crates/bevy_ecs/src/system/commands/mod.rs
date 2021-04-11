@@ -58,6 +58,13 @@ impl<'a> Commands<'a> {
         }
     }
 
+    // TODO: this is a hack to work around the "multiple worlds" limitations:
+    // Right now Commands must allocate entities from their "scheduled" world, but Commands might be applied to other worlds,
+    // such as the "render world"
+    pub fn spawn_and_forget(&mut self, bundle: impl Bundle) {
+        self.queue.push(Spawn { bundle })
+    }
+
     /// Creates a new entity with the components contained in `bundle`.
     ///
     /// This returns an [`EntityCommands`] builder, which enables inserting more components and

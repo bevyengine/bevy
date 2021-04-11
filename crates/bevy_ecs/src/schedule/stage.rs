@@ -83,6 +83,7 @@ pub struct SystemStage {
     uninitialized_parallel: Vec<usize>,
     /// Saves the value of the World change_tick during the last tick check
     last_tick_check: u32,
+    apply_buffers: bool,
 }
 
 impl SystemStage {
@@ -104,6 +105,7 @@ impl SystemStage {
             uninitialized_before_commands: vec![],
             uninitialized_at_end: vec![],
             last_tick_check: Default::default(),
+            apply_buffers: true,
         }
     }
 
@@ -201,6 +203,16 @@ impl SystemStage {
                 self.parallel.push(container);
             }
         }
+    }
+
+    pub fn apply_buffers(&mut self, world: &mut World) {
+        for container in self.parallel.iter_mut() {
+            container.system_mut().apply_buffers(world);
+        }
+    }
+
+    pub fn set_apply_buffers(&mut self, apply_buffers: bool) {
+        self.apply_buffers = apply_buffers;
     }
 
     /// Topologically sorted parallel systems.
@@ -828,9 +840,11 @@ impl Stage for SystemStage {
                 }
 
                 // Apply parallel systems' buffers.
-                for container in &mut self.parallel {
-                    if container.should_run {
-                        container.system_mut().apply_buffers(world);
+                if self.apply_buffers {
+                    for container in &mut self.parallel {
+                        if container.should_run {
+                            container.system_mut().apply_buffers(world);
+                        }
                     }
                 }
 

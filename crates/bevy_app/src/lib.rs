@@ -1,5 +1,4 @@
 mod app;
-mod app_builder;
 mod plugin;
 mod plugin_group;
 mod schedule_runner;
@@ -8,7 +7,6 @@ mod schedule_runner;
 mod ci_testing;
 
 pub use app::*;
-pub use app_builder::*;
 pub use bevy_derive::DynamicPlugin;
 pub use bevy_ecs::event::*;
 pub use plugin::*;
@@ -18,7 +16,7 @@ pub use schedule_runner::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        app::App, app_builder::AppBuilder, CoreStage, DynamicPlugin, Plugin, PluginGroup,
+        app::App, CoreStage, DynamicPlugin, Plugin, PluginGroup,
         StartupStage,
     };
 }

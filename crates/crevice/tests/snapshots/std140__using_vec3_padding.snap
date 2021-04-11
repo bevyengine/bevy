@@ -1,0 +1,24 @@
+---
+source: tests/std140.rs
+expression: "<<UsingVec3Padding as AsStd140>::Std140Type as TypeLayout>::layout()"
+---
+name: Std140UsingVec3Padding
+size: 16
+alignment: 4
+fields:
+  - Field:
+      name: _pos_align
+      ty: "[u8 ; Std140UsingVec3PaddingAlignment :: _pos_align()]"
+      size: 0
+  - Field:
+      name: pos
+      ty: "< Vec3 as :: crevice :: std140 :: AsStd140 > :: Std140Type"
+      size: 12
+  - Field:
+      name: _brightness_align
+      ty: "[u8 ; Std140UsingVec3PaddingAlignment :: _brightness_align()]"
+      size: 0
+  - Field:
+      name: brightness
+      ty: "< f32 as :: crevice :: std140 :: AsStd140 > :: Std140Type"
+      size: 4

@@ -5,7 +5,7 @@ use bevy::{
 
 /// This example is for debugging text layout
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(WindowDescriptor {
             vsync: false,
             ..Default::default()

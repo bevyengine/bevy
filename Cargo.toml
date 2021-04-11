@@ -17,7 +17,7 @@ repository = "https://github.com/bevyengine/bevy"
 
 [workspace]
 exclude = ["benches"]
-members = ["crates/*", "examples/ios", "tools/ci"]
+members = ["crates/*", "pipelined/*", "examples/ios", "tools/ci"]
 
 [features]
 default = [
@@ -26,6 +26,9 @@ default = [
   "bevy_gilrs",
   "bevy_gltf",
   "bevy_wgpu",
+  "bevy_wgpu2",
+  "bevy_sprite2",
+  "bevy_render2",
   "bevy_winit",
   "render",
   "png",
@@ -47,6 +50,10 @@ bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 bevy_gltf = ["bevy_internal/bevy_gltf"]
 bevy_wgpu = ["bevy_internal/bevy_wgpu"]
 bevy_winit = ["bevy_internal/bevy_winit"]
+
+bevy_wgpu2 = ["bevy_internal/bevy_wgpu2"]
+bevy_render2 = ["bevy_internal/bevy_render2"]
+bevy_sprite2 = ["bevy_internal/bevy_sprite2"]
 
 trace_chrome = ["bevy_internal/trace_chrome"]
 trace = ["bevy_internal/trace"]
@@ -418,6 +425,10 @@ path = "examples/shader/shader_defs.rs"
 [[example]]
 name = "bevymark"
 path = "examples/tools/bevymark.rs"
+
+[[example]]
+name = "bevymark_pipelined"
+path = "examples/tools/bevymark_pipelined.rs"
 
 # UI (User Interface)
 [[example]]

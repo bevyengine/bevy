@@ -2,7 +2,7 @@ use bevy::{prelude::*, render::pass::ClearColor, winit::WinitConfig};
 
 fn main() {
     println!("Running first App.");
-    App::build()
+    App::new()
         .insert_resource(WinitConfig {
             return_from_run: true,
         })
@@ -11,7 +11,7 @@ fn main() {
         .add_system(system1.system())
         .run();
     println!("Running another App.");
-    App::build()
+    App::new()
         .insert_resource(WinitConfig {
             return_from_run: true,
         })

@@ -1,0 +1,37 @@
+[package]
+name = "bevy_wgpu2"
+version = "0.5.0"
+edition = "2018"
+authors = [
+    "Bevy Contributors <bevyengine@gmail.com>",
+    "Carter Anderson <mcanders1@gmail.com>",
+]
+description = "A wgpu render backend for Bevy Engine"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT"
+keywords = ["bevy"]
+
+[features]
+default = ["bevy_winit"]
+trace = ["wgpu/trace"]
+
+[dependencies]
+# bevy
+bevy_app = { path = "../../crates/bevy_app", version = "0.5.0" }
+bevy_asset = { path = "../../crates/bevy_asset", version = "0.5.0" }
+bevy_core = { path = "../../crates/bevy_core", version = "0.5.0" }
+bevy_diagnostic = { path = "../../crates/bevy_diagnostic", version = "0.5.0" }
+bevy_ecs = { path = "../../crates/bevy_ecs", version = "0.5.0" }
+bevy_render2 = { path = "../bevy_render2", version = "0.5.0" }
+bevy_window = { path = "../../crates/bevy_window", version = "0.5.0" }
+bevy_winit = { path = "../../crates/bevy_winit", optional = true, version = "0.5.0" }
+bevy_utils = { path = "../../crates/bevy_utils", version = "0.5.0" }
+
+# other
+wgpu = "0.8"
+futures-lite = "1.4.0"
+crossbeam-channel = "0.5.0"
+crossbeam-utils = "0.8.1"
+parking_lot = "0.11.0"
+raw-window-handle = "0.3"

@@ -12,7 +12,7 @@ pub use bevy_utils::tracing::{
     Level,
 };
 
-use bevy_app::{AppBuilder, Plugin};
+use bevy_app::{App, Plugin};
 #[cfg(feature = "tracing-chrome")]
 use tracing_subscriber::fmt::{format::DefaultFields, FormattedFields};
 use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
@@ -81,11 +81,9 @@ impl Default for LogSettings {
 }
 
 impl Plugin for LogPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         let default_filter = {
-            let settings = app
-                .world_mut()
-                .get_resource_or_insert_with(LogSettings::default);
+            let settings = app.world.get_resource_or_insert_with(LogSettings::default);
             format!("{},{}", settings.level, settings.filter)
         };
 
