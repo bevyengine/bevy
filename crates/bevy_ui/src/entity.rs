@@ -163,6 +163,10 @@ impl Default for ButtonBundle {
     }
 }
 
+/// Marker component used in [UiCameraBundle].
+#[derive(Default, Debug)]
+pub struct UiCamera;
+
 #[derive(Bundle, Debug)]
 pub struct UiCameraBundle {
     pub camera: Camera,
@@ -170,6 +174,7 @@ pub struct UiCameraBundle {
     pub visible_entities: VisibleEntities,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
+    pub marker: UiCamera,
 }
 
 impl Default for UiCameraBundle {
@@ -191,6 +196,7 @@ impl Default for UiCameraBundle {
             visible_entities: Default::default(),
             transform: Transform::from_xyz(0.0, 0.0, far - 0.1),
             global_transform: Default::default(),
+            marker: Default::default(),
         }
     }
 }

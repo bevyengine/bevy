@@ -25,6 +25,11 @@ pub struct MeshBundle {
     pub global_transform: GlobalTransform,
 }
 
+/// Marker component used in [PerspectiveCameraBundle] and
+/// [OrthographicCameraBundle].
+#[derive(Default)]
+pub struct GameplayCamera;
+
 /// Component bundle for camera entities with perspective projection
 ///
 /// Use this for 3D rendering.
@@ -35,6 +40,7 @@ pub struct PerspectiveCameraBundle {
     pub visible_entities: VisibleEntities,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
+    pub marker: GameplayCamera,
 }
 
 impl PerspectiveCameraBundle {
@@ -52,6 +58,7 @@ impl PerspectiveCameraBundle {
             visible_entities: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
+            marker: Default::default(),
         }
     }
 }
@@ -67,6 +74,7 @@ impl Default for PerspectiveCameraBundle {
             visible_entities: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
+            marker: Default::default(),
         }
     }
 }
@@ -81,6 +89,7 @@ pub struct OrthographicCameraBundle {
     pub visible_entities: VisibleEntities,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
+    pub marker: GameplayCamera,
 }
 
 impl OrthographicCameraBundle {
@@ -101,6 +110,7 @@ impl OrthographicCameraBundle {
             visible_entities: Default::default(),
             transform: Transform::from_xyz(0.0, 0.0, far - 0.1),
             global_transform: Default::default(),
+            marker: Default::default(),
         }
     }
 
@@ -118,6 +128,7 @@ impl OrthographicCameraBundle {
             visible_entities: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
+            marker: Default::default(),
         }
     }
 
@@ -131,6 +142,7 @@ impl OrthographicCameraBundle {
             visible_entities: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
+            marker: Default::default(),
         }
     }
 }

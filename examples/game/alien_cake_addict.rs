@@ -1,9 +1,4 @@
-use bevy::{
-    core::FixedTimestep,
-    ecs::schedule::SystemSet,
-    prelude::*,
-    render::{camera::Camera, render_graph::base::camera::CAMERA_3D},
-};
+use bevy::{core::FixedTimestep, ecs::schedule::SystemSet, prelude::*, render::camera::Camera};
 use rand::Rng;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
@@ -251,7 +246,10 @@ fn move_player(
 fn focus_camera(
     time: Res<Time>,
     mut game: ResMut<Game>,
-    mut transforms: QuerySet<(Query<(&mut Transform, &Camera)>, Query<&Transform>)>,
+    mut transforms: QuerySet<(
+        Query<&mut Transform, With<GameplayCamera>>,
+        Query<&Transform>,
+    )>,
 ) {
     const SPEED: f32 = 2.0;
     // if there is both a player and a bonus, target the mid-point of them
@@ -283,11 +281,8 @@ fn focus_camera(
         game.camera_is_focus += camera_motion;
     }
     // look at that new camera's actual focus
-    for (mut transform, camera) in transforms.q0_mut().iter_mut() {
-        if camera.name == Some(CAMERA_3D.to_string()) {
-            *transform = transform.looking_at(game.camera_is_focus, Vec3::Y);
-        }
-    }
+    let mut transform = transforms.q0_mut().single_mut().unwrap();
+    *transform = transform.looking_at(game.camera_is_focus, Vec3::Y);
 }
 
 // despawn the bonus if there is one, then spawn a new one at a random location
