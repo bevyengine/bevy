@@ -256,10 +256,7 @@ async fn load_gltf<'a, 'b>(
 
         let reader = skin.reader(|buffer| Some(&buffer_data[buffer.index()]));
         if let Some(inverse_bind_matrices) = reader.read_inverse_bind_matrices() {
-            let mut entities_parent_and_name = vec![];
-
-            // Skeleton root node
-            entities_parent_and_name.push((u16::MAX, Name::new("")));
+            let mut entities_parent_and_name = vec![(u16::MAX, Name::new(""))];
 
             for joint in skin.joints() {
                 entities_parent_and_name.push((
