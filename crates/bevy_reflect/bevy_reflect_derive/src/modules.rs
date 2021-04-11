@@ -38,7 +38,7 @@ pub fn get_modules() -> Modules {
             Some(Modules::meta(dep.package().unwrap_or(BEVY)))
         } else if let Some(dep) = deps.get(BEVY_INTERNAL) {
             Some(Modules::meta(dep.package().unwrap_or(BEVY_INTERNAL)))
-        } else if let Some(_) = deps.get(BEVY_EXTERNAL) {
+        } else if deps.get(BEVY_EXTERNAL).is_some() {
             Some(Modules::external())
         } else {
             None
@@ -66,7 +66,7 @@ pub fn get_modules() -> Modules {
         })
         .or_else(|| deps.and_then(find_in_deps))
         .or_else(|| deps_dev.and_then(find_in_deps))
-        .unwrap_or_else(|| Modules::external())
+        .unwrap_or_else(Modules::external)
 }
 
 pub fn get_path(path_str: &str) -> Path {
