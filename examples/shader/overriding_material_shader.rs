@@ -32,10 +32,6 @@ impl Default for CustomSpriteBundle {
                 render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                     CUSTOM_SPRITE_PIPELINE_HANDLE.typed(),
                 )]),
-                sprite:Sprite{
-                    flip_y:true,
-                    ..Default::default()
-                },
                 ..Default::default()
             },
         }
@@ -123,7 +119,8 @@ fn setup(
         //The vec's size is 4 times our texture's area, since every pixel is built out of 4 u8s (R,G,B,A)
         let mut transparent_texture_vec: Vec<u8> =
             Vec::with_capacity(texture_size * texture_size * 4);
-        for y in 0..texture_size {
+        //In textures, y is the opposite of bevy's, and so we need to go in reverse (the bottom pixels have the highest y)
+        for y in (0..texture_size).rev() {
             for x in 0..texture_size {
                 //Make the pixel green, if y is bigger than x
                 if y > x {
@@ -153,28 +150,27 @@ fn setup(
         //Creating our shared material
         let material_handle = materials.add(ColorMaterial::texture(texture_handle));
         //Actually spawning our custom sprite bundle, we send it a clone of our material handle since we also want to render the same material in a regular sprite to compare the two
+        let scale = Vec3::new(10.0, 10.0, 1.);
         commands.spawn_bundle(CustomSpriteBundle::new(
             material_handle.to_owned(),
-            Transform::from_translation(Vec3::new(texture_size as f32 / 2.0, 0.0, 0.0)),
+            Transform {
+                translation: Vec3::new(texture_size as f32 / 2.0 * scale.x, 0.0, 0.0),
+                scale: scale.to_owned(),
+                ..Default::default()
+            },
         ));
         //Spawning a regular sprite bundle to compare the two visually
         commands.spawn_bundle(SpriteBundle {
             material: material_handle,
-            transform: Transform::from_translation(Vec3::new(
-                texture_size as f32 / 2.0 * -1.0,
-                0.0,
-                0.0,
-            )),
-            sprite:Sprite{
-                flip_y:true,
+            transform: Transform {
+                translation: Vec3::new(texture_size as f32 / 2.0 * scale.x * -1.0, 0.0, 0.0),
+                scale,
                 ..Default::default()
             },
             ..Default::default()
         });
         //Creating a camera so we could see our sprite
-        let mut camera = OrthographicCameraBundle::new_2d();
-        //The scale is small so we could actually see the pixels(small scale = zooming in)
-        camera.transform.scale = Vec3::new(0.05, 0.05, 1.0);
+        let camera = OrthographicCameraBundle::new_2d();
         //Spawning the camera
         commands.spawn_bundle(camera);
     }
