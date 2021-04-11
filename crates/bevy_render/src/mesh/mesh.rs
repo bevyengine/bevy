@@ -24,8 +24,6 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// An array where each entry describes a property of a single vertex.
 #[derive(Clone, Debug)]
 pub enum VertexAttributeValues {
-    Uchar4(Vec<[u8; 4]>),
-    Ushort4(Vec<[u16; 4]>),
     Float(Vec<f32>),
     Int(Vec<i32>),
     Uint(Vec<u32>),
@@ -39,6 +37,7 @@ pub enum VertexAttributeValues {
     Int4(Vec<[i32; 4]>),
     Uint4(Vec<[u32; 4]>),
     Uchar4Norm(Vec<[u8; 4]>),
+    Ushort4(Vec<[u16; 4]>),
 }
 
 impl VertexAttributeValues {
@@ -61,6 +60,7 @@ impl VertexAttributeValues {
             VertexAttributeValues::Int4(ref values) => values.len(),
             VertexAttributeValues::Uint4(ref values) => values.len(),
             VertexAttributeValues::Uchar4Norm(ref values) => values.len(),
+            VertexAttributeValues::Ushort4(ref values) => values.len(),
         }
     }
 
@@ -89,6 +89,7 @@ impl VertexAttributeValues {
             VertexAttributeValues::Int4(values) => values.as_slice().as_bytes(),
             VertexAttributeValues::Uint4(values) => values.as_slice().as_bytes(),
             VertexAttributeValues::Uchar4Norm(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Ushort4(values) => values.as_slice().as_bytes(),
         }
     }
 }
@@ -111,6 +112,7 @@ impl From<&VertexAttributeValues> for VertexFormat {
             VertexAttributeValues::Int4(_) => VertexFormat::Int4,
             VertexAttributeValues::Uint4(_) => VertexFormat::Uint4,
             VertexAttributeValues::Uchar4Norm(_) => VertexFormat::Uchar4Norm,
+            VertexAttributeValues::Ushort4(_) => VertexFormat::Ushort4,
         }
     }
 }
@@ -264,9 +266,9 @@ impl Mesh {
     pub const ATTRIBUTE_UV_0: &'static str = "Vertex_Uv";
 
     /// Per vertex joint transform matrix weight. Use in conjunction with [`Mesh::set_attribute`]
-    pub const ATTRIBUTE_WEIGHT: &'static str = "Vertex_JointWeight";
+    pub const ATTRIBUTE_JOINT_WEIGHT: &'static str = "Vertex_JointWeight";
     /// Per vertex joint transform matrix index. Use in conjunction with [`Mesh::set_attribute`]
-    pub const ATTRIBUTE_JOINT: &'static str = "Vertex_JointIndex";
+    pub const ATTRIBUTE_JOINT_INDEX: &'static str = "Vertex_JointIndex";
 
     /// Construct a new mesh. You need to provide a PrimitiveTopology so that the
     /// renderer knows how to treat the vertex data. Most of the time this will be
