@@ -1281,7 +1281,7 @@ mod tests {
             KEYFRAMES_PER_CACHE + 3
         );
         assert_eq!(
-            clip.add_track_at_path("zb@T.t", curve.clone()),
+            clip.add_track_at_path("zb@T.t", curve),
             KEYFRAMES_PER_CACHE * 2 + 1
         );
     }
