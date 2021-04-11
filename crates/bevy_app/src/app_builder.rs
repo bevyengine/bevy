@@ -168,7 +168,7 @@ impl AppBuilder {
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// #
-    /// fn my_system(_commands: &mut Commands) {
+    /// fn my_system(_commands: Commands) {
     ///     println!("My system, triggered once per frame");
     /// }
     ///
@@ -216,7 +216,7 @@ impl AppBuilder {
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// #
-    /// fn my_startup_system(_commands: &mut Commands) {
+    /// fn my_startup_system(_commands: Commands) {
     ///     println!("My startup system");
     /// }
     ///
