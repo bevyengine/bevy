@@ -818,7 +818,7 @@ mod tests {
                 .add_plugin(bevy_transform::TransformPlugin::default())
                 .add_plugin(crate::AnimationPlugin { skinning: false });
 
-            let mut world = World::new();
+            let world = app_builder.world_mut();
             let base = (
                 GlobalTransform::default(),
                 Transform::from_translation(Vec3::new(0.0, 1.0, 0.0)),
@@ -852,10 +852,7 @@ mod tests {
                 clip_b.add_track_at_path("/Node1@Transform.rotation", rot.clone());
                 clip_b.add_track_at_path("/Node1/Node2@Transform.rotation", rot);
 
-                let mut clips = app_builder
-                    .world_mut()
-                    .get_resource_mut::<Assets<Clip>>()
-                    .unwrap();
+                let mut clips = world.get_resource_mut::<Assets<Clip>>().unwrap();
                 let clip_a = clips.add(clip_a);
                 let clip_b = clips.add(clip_b);
 
@@ -903,7 +900,6 @@ mod tests {
                 });
             });
 
-            app_builder.set_world(world);
             app_builder.app.update();
 
             Self {
