@@ -319,6 +319,16 @@ impl AppBuilder {
         self
     }
 
+    /// Registers multiple new components using the given [ComponentDescriptor]s.
+    /// See [World::register_components].
+    pub fn register_components<I>(&mut self, descriptors: I) -> &mut Self
+    where
+        I: IntoIterator<Item = ComponentDescriptor>,
+    {
+        self.world_mut().register_components(descriptors).unwrap();
+        self
+    }
+
     #[cfg(feature = "bevy_reflect")]
     pub fn register_type<T: bevy_reflect::GetTypeRegistration>(&mut self) -> &mut Self {
         {

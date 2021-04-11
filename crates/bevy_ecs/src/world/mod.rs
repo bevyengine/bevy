@@ -164,6 +164,45 @@ impl World {
         Ok(component_id)
     }
 
+    /// Registers multiple components using the given [ComponentDescriptor]s.
+    /// See [register_component](World::register_component).
+    ///
+    /// ```
+    /// use bevy_ecs::{component::{Component, ComponentDescriptor, StorageType}, world::World};
+    ///
+    /// struct Position {
+    ///   x: f32,
+    ///   y: f32,
+    /// }
+    ///
+    /// struct Velocity(f32);
+    /// struct Hostility(f32);
+    ///
+    /// // Local helper for getting a sparse set descriptor
+    /// fn cd<T: Component>() -> ComponentDescriptor {
+    ///     ComponentDescriptor::new::<T>(StorageType::SparseSet)
+    /// }
+    ///
+    /// let mut world = World::new();
+    /// let descriptors = vec![cd::<Position>(), cd::<Velocity>(), cd::<Hostility>()];
+    /// world.register_components(descriptors).unwrap();
+    /// ```
+    pub fn register_components<I>(
+        &mut self,
+        descriptors: I,
+    ) -> Result<Vec<ComponentId>, ComponentsError>
+    where
+        I: IntoIterator<Item = ComponentDescriptor>,
+    {
+        let mut ids = vec![];
+
+        for descriptor in descriptors {
+            ids.push(self.register_component(descriptor)?);
+        }
+
+        Ok(ids)
+    }
+
     /// Retrieves an [EntityRef] that exposes read-only operations for the given `entity`.
     /// This will panic if the `entity` does not exist. Use [World::get_entity] if you want
     /// to check for entity existence instead of implicitly panic-ing.

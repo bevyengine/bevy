@@ -1116,4 +1116,29 @@ mod tests {
         });
         assert_eq!(*world.get_resource::<i32>().unwrap(), 1);
     }
+
+    #[test]
+    fn register_components() {
+        let mut world = World::new();
+
+        fn cd<T: Component>() -> ComponentDescriptor {
+            ComponentDescriptor::new::<T>(StorageType::SparseSet)
+        }
+
+        let ents = world
+            .register_components(vec![cd::<i32>(), cd::<u32>()])
+            .unwrap();
+        assert_eq!(ents.len(), 2);
+        assert_ne!(ents[0], ents[1]);
+
+        let e = world.spawn().insert_bundle(("abc", 123i32)).id();
+        let f = world.spawn().insert_bundle(("def", 456u32)).id();
+        assert_eq!(*world.get::<i32>(e).unwrap(), 123);
+        assert_eq!(*world.get::<u32>(f).unwrap(), 456);
+
+        // Can't add i32 twice
+        world
+            .register_components(vec![cd::<f32>(), cd::<i32>()])
+            .unwrap_err();
+    }
 }
