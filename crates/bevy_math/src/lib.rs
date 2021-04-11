@@ -1,6 +1,9 @@
 mod face_toward;
 mod geometry;
 
+pub mod curves;
+pub mod interpolation;
+
 pub use face_toward::*;
 pub use geometry::*;
 pub use glam::*;

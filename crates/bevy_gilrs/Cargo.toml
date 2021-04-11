@@ -1,6 +1,6 @@
 [package]
 name = "bevy_gilrs"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2018"
 authors = ["Bevy Contributors <bevyengine@gmail.com>", "Carter Anderson <mcanders1@gmail.com>"]
 description = "Gamepad system made using Gilrs for Bevy Engine"
@@ -11,10 +11,10 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.4.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.4.0" }
-bevy_input = { path = "../bevy_input", version = "0.4.0" }
-bevy_utils = { path = "../bevy_utils", version = "0.4.0" }
+bevy_app = { path = "../bevy_app", version = "0.5.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.5.0" }
+bevy_input = { path = "../bevy_input", version = "0.5.0" }
+bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 
 # other
 gilrs = "0.8.0"

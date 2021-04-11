@@ -10,6 +10,7 @@ use crate::{
     Asset, Assets,
 };
 use bevy_ecs::reflect::ReflectComponent;
+use bevy_math::interpolation::{utils::step, Lerp};
 use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_utils::Uuid;
 use crossbeam_channel::{Receiver, Sender};
@@ -233,6 +234,13 @@ impl<T: Asset> Clone for Handle<T> {
 unsafe impl<T: Asset> Send for Handle<T> {}
 unsafe impl<T: Asset> Sync for Handle<T> {}
 
+impl<T: Asset + 'static> Lerp for Handle<T> {
+    #[inline(always)]
+    fn lerp_unclamped(a: &Self, b: &Self, t: f32) -> Self {
+        step(a, b, t)
+    }
+}
+
 /// A non-generic version of [Handle]
 ///
 /// This allows handles to be mingled in a cross asset context. For example, storing `Handle<A>` and
@@ -337,6 +345,13 @@ impl Clone for HandleUntyped {
             HandleType::Strong(ref sender) => HandleUntyped::strong(self.id, sender.clone()),
             HandleType::Weak => HandleUntyped::weak(self.id),
         }
+    }
+}
+
+impl Lerp for HandleUntyped {
+    #[inline(always)]
+    fn lerp_unclamped(a: &Self, b: &Self, t: f32) -> Self {
+        step(a, b, t)
     }
 }
 
