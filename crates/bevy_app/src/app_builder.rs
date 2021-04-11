@@ -49,7 +49,7 @@ impl AppBuilder {
     ///
     /// Runs the application main loop.
     ///
-    /// Usually the main loop is handled by bevy integrated plugins (`winit`), but
+    /// Usually the main loop is handled by Bevy integrated plugins (`winit`), but
     /// but one can also set the runner function through [`AppBuilder::set_runner`].
     ///
     /// ## Example
@@ -144,11 +144,12 @@ impl AppBuilder {
 
     /// Adds a system that runs every time `app.update()` is called by the runner
     ///
-    /// Systems are the main building block in bevy ECS model. You can define
-    /// normal rust functions, and call `.system()` to make them be bevy systems.
+    /// Systems are the main building block in the Bevy ECS app model. You can define
+    /// normal rust functions, and call `.system()` to make them be Bevy systems.
     ///
     /// System functions can have parameters, through which one can query and
-    /// mutate bevy ECS states. See bevy book for extra information.
+    /// mutate Bevy ECS states.
+    /// See [The Bevy Book](https://bevyengine.org/learn/book/introduction/) for more information.
     ///
     /// Systems are run in parallel, and the execution order is not deterministic.
     /// If you want more fine-grained control for order, see [`AppBuilder::add_system_to_stage`].
@@ -293,10 +294,8 @@ impl AppBuilder {
 
     /// Inserts a resource to the current [App] and overwrites any resource previously added of the same type.
     ///
-    /// A resource in bevy represents globally unique data. The resources must be added to bevy application
+    /// A resource in Bevy represents globally unique data. Resources must be added to Bevy Apps
     /// before using them. This happens with [`AppBuilder::insert_resource`].
-    ///
-    /// For adding a main-thread only accessible resource, see [`AppBuilder::insert_non_send_resource`].
     ///
     /// See also `init_resource` for resources that implement `Default` or [`FromResources`].
     ///
@@ -304,12 +303,12 @@ impl AppBuilder {
     /// ```
     /// # use bevy_app::prelude::*;
     /// #
-    /// struct State {
+    /// struct MyCounter {
     ///     counter: usize,
     /// }
     ///
     /// App::build()
-    ///    .insert_resource(State { counter: 0 });
+    ///    .insert_resource(MyCounter { counter: 0 });
     /// ```
     pub fn insert_resource<T>(&mut self, resource: T) -> &mut Self
     where
@@ -328,12 +327,12 @@ impl AppBuilder {
     /// ```
     /// # use bevy_app::prelude::*;
     /// #
-    /// struct State {
+    /// struct MyCounter {
     ///     counter: usize,
     /// }
     ///
     /// App::build()
-    ///     .insert_non_send_resource(State { counter: 0 });
+    ///     .insert_non_send_resource(MyCounter { counter: 0 });
     /// ```
     pub fn insert_non_send_resource<T>(&mut self, resource: T) -> &mut Self
     where
@@ -343,7 +342,7 @@ impl AppBuilder {
         self
     }
 
-    /// Init a resource to the current [App], if it does not exist yet
+    /// Initialize a resource in the current [App], if it does not exist yet
     ///
     /// Adds a resource that implements `Default` or [`FromResources`] trait.
     /// If the resource already exists, `init_resource` does nothing.
@@ -352,20 +351,20 @@ impl AppBuilder {
     /// ```
     /// # use bevy_app::prelude::*;
     /// #
-    /// struct State {
+    /// struct MyCounter {
     ///     counter: usize,
     /// }
     ///
-    /// impl Default for State {
-    ///     fn default() -> State {
-    ///         State {
+    /// impl Default for MyCounter {
+    ///     fn default() -> MyCounter {
+    ///         MyCounter {
     ///             counter: 100
     ///         }
     ///     }
     /// }
     ///
     /// App::build()
-    ///     .init_resource::<State>();
+    ///     .init_resource::<MyCounter>();
     /// ```
     pub fn init_resource<R>(&mut self) -> &mut Self
     where
@@ -393,9 +392,9 @@ impl AppBuilder {
         self
     }
 
-    /// Sets the main runner loop function for bevy application
+    /// Sets the main runner loop function for this Bevy App
     ///
-    /// Usually the main loop is handled by bevy integrated plugins (`winit`), but
+    /// Usually the main loop is handled by Bevy integrated plugins ([`WinitPlugin`]), but
     /// in some cases one wants to implement an own main loop.
     ///
     /// This method sets the main loop function, overwriting a previous runner if any.
@@ -421,7 +420,7 @@ impl AppBuilder {
 
     /// Adds a single plugin
     ///
-    /// One of Bevy's core principles is modularity. All bevy engine features are implemented
+    /// One of Bevy's core principles is modularity. All Bevy engine features are implemented
     /// as plugins. This includes internal features like the renderer.
     ///
     /// Bevy also provides a few sets of default plugins. See [`AppBuilder::add_plugins`].
@@ -443,11 +442,10 @@ impl AppBuilder {
 
     /// Adds a group of plugins
     ///
-    /// Bevy plugins can be grouped into a set of plugins. By default
-    /// bevy provides a few lists of plugins that can be used to kickstart
-    /// the development.
+    /// Bevy plugins can be grouped into a set of plugins. Bevy provides
+    /// built-in PluginGroups that provide core engine functionality.
     ///
-    /// Current plugins offered are [`DefaultPlugins`] and [`MinimalPlugins`].
+    /// The plugin groups available by default are [`DefaultPlugins`] and [`MinimalPlugins`].
     ///
     /// ## Example
     /// ```
