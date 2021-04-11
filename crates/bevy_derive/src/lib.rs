@@ -11,8 +11,8 @@ mod shader_defs;
 
 use proc_macro::TokenStream;
 
-/// Derives the FromResources trait. Each field must also implement the FromResources trait or this will fail. FromResources is
-/// automatically implemented for types that implement Default.
+/// Derives the FromResources trait. Each field must also implement the FromResources trait or this
+/// will fail. FromResources is automatically implemented for types that implement Default.
 #[proc_macro_derive(FromResources, attributes(as_crate))]
 pub fn derive_from_resources(input: TokenStream) -> TokenStream {
     resource::derive_from_resources(input)

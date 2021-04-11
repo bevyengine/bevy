@@ -25,8 +25,10 @@ pub struct WgpuRenderResourceContext {
     pub resources: WgpuResources,
 }
 
-pub const BIND_BUFFER_ALIGNMENT: usize = 256;
-pub const TEXTURE_ALIGNMENT: usize = 256;
+pub const COPY_BYTES_PER_ROW_ALIGNMENT: usize = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
+pub const BIND_BUFFER_ALIGNMENT: usize = wgpu::BIND_BUFFER_ALIGNMENT as usize;
+pub const COPY_BUFFER_ALIGNMENT: usize = wgpu::COPY_BUFFER_ALIGNMENT as usize;
+pub const PUSH_CONSTANT_ALIGNMENT: u32 = wgpu::PUSH_CONSTANT_ALIGNMENT;
 
 impl WgpuRenderResourceContext {
     pub fn new(device: Arc<wgpu::Device>) -> Self {
@@ -474,10 +476,11 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             .get(&pipeline_descriptor.shader_stages.vertex)
             .unwrap();
 
-        let fragment_shader_module = match pipeline_descriptor.shader_stages.fragment {
-            Some(ref fragment_handle) => Some(shader_modules.get(fragment_handle).unwrap()),
-            None => None,
-        };
+        let fragment_shader_module = pipeline_descriptor
+            .shader_stages
+            .fragment
+            .as_ref()
+            .map(|fragment_handle| shader_modules.get(fragment_handle).unwrap());
         let render_pipeline_descriptor = wgpu::RenderPipelineDescriptor {
             label: None,
             layout: Some(&pipeline_layout),
@@ -489,14 +492,15 @@ impl RenderResourceContext for WgpuRenderResourceContext {
                     .map(|v| v.into())
                     .collect::<Vec<wgpu::VertexBufferLayout>>(),
             },
-            fragment: match pipeline_descriptor.shader_stages.fragment {
-                Some(_) => Some(wgpu::FragmentState {
+            fragment: pipeline_descriptor
+                .shader_stages
+                .fragment
+                .as_ref()
+                .map(|_| wgpu::FragmentState {
                     entry_point: "main",
                     module: fragment_shader_module.as_ref().unwrap(),
                     targets: color_states.as_slice(),
                 }),
-                None => None,
-            },
             primitive: pipeline_descriptor.primitive.clone().wgpu_into(),
             depth_stencil: pipeline_descriptor
                 .depth_stencil
@@ -657,7 +661,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
     }
 
     fn get_aligned_texture_size(&self, size: usize) -> usize {
-        (size + TEXTURE_ALIGNMENT - 1) & !(TEXTURE_ALIGNMENT - 1)
+        (size + COPY_BYTES_PER_ROW_ALIGNMENT - 1) & !(COPY_BYTES_PER_ROW_ALIGNMENT - 1)
     }
 
     fn get_aligned_uniform_size(&self, size: usize, dynamic: bool) -> usize {

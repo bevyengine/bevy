@@ -1,11 +1,11 @@
 use crate::Rect;
 use bevy_asset::Handle;
-use bevy_core::Byteable;
+use bevy_core::Bytes;
 use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     color::Color,
-    renderer::{RenderResource, RenderResources},
+    renderer::{RenderResource, RenderResourceType, RenderResources},
     texture::Texture,
 };
 use bevy_utils::HashMap;
@@ -25,11 +25,44 @@ pub struct TextureAtlas {
     pub texture_handles: Option<HashMap<Handle<Texture>, usize>>,
 }
 
-#[derive(Debug, RenderResources, RenderResource, Clone)]
+#[derive(Debug, Clone, RenderResources)]
 #[render_resources(from_self)]
+#[repr(C)]
 pub struct TextureAtlasSprite {
     pub color: Color,
     pub index: u32,
+    pub flip_x: bool,
+    pub flip_y: bool,
+}
+
+impl RenderResource for TextureAtlasSprite {
+    fn resource_type(&self) -> Option<RenderResourceType> {
+        Some(RenderResourceType::Buffer)
+    }
+
+    fn buffer_byte_len(&self) -> Option<usize> {
+        Some(24)
+    }
+
+    fn write_buffer_bytes(&self, buffer: &mut [u8]) {
+        // Write the color buffer
+        let (color_buf, rest) = buffer.split_at_mut(16);
+        self.color.write_bytes(color_buf);
+
+        // Write the index buffer
+        let (index_buf, flip_buf) = rest.split_at_mut(4);
+        self.index.write_bytes(index_buf);
+
+        // First bit means flip x, second bit means flip y
+        flip_buf[0] = if self.flip_x { 0b01 } else { 0 } | if self.flip_y { 0b10 } else { 0 };
+        flip_buf[1] = 0;
+        flip_buf[2] = 0;
+        flip_buf[3] = 0;
+    }
+
+    fn texture(&self) -> Option<&Handle<Texture>> {
+        None
+    }
 }
 
 impl Default for TextureAtlasSprite {
@@ -37,11 +70,11 @@ impl Default for TextureAtlasSprite {
         Self {
             index: 0,
             color: Color::WHITE,
+            flip_x: false,
+            flip_y: false,
         }
     }
 }
-
-unsafe impl Byteable for TextureAtlasSprite {}
 
 impl TextureAtlasSprite {
     pub fn new(index: u32) -> TextureAtlasSprite {

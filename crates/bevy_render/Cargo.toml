@@ -1,6 +1,6 @@
 [package]
 name = "bevy_render"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2018"
 authors = [
     "Bevy Contributors <bevyengine@gmail.com>",
@@ -14,16 +14,16 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.4.0" }
-bevy_asset = { path = "../bevy_asset", version = "0.4.0" }
-bevy_core = { path = "../bevy_core", version = "0.4.0" }
-bevy_derive = { path = "../bevy_derive", version = "0.4.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.4.0" }
-bevy_math = { path = "../bevy_math", version = "0.4.0" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.4.0", features = ["bevy"] }
-bevy_transform = { path = "../bevy_transform", version = "0.4.0" }
-bevy_window = { path = "../bevy_window", version = "0.4.0" }
-bevy_utils = { path = "../bevy_utils", version = "0.4.0" }
+bevy_app = { path = "../bevy_app", version = "0.5.0" }
+bevy_asset = { path = "../bevy_asset", version = "0.5.0" }
+bevy_core = { path = "../bevy_core", version = "0.5.0" }
+bevy_derive = { path = "../bevy_derive", version = "0.5.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.5.0" }
+bevy_math = { path = "../bevy_math", version = "0.5.0" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.5.0", features = ["bevy"] }
+bevy_transform = { path = "../bevy_transform", version = "0.5.0" }
+bevy_window = { path = "../bevy_window", version = "0.5.0" }
+bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 
 # rendering
 image = { version = "0.23.12", default-features = false }
@@ -38,7 +38,7 @@ downcast-rs = "1.2.0"
 thiserror = "1.0"
 anyhow = "1.0"
 hex = "0.4.2"
-hexasphere = "3.1"
+hexasphere = "3.2"
 parking_lot = "0.11.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

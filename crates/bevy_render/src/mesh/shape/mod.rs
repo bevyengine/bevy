@@ -2,6 +2,7 @@ use super::{Indices, Mesh};
 use crate::pipeline::PrimitiveTopology;
 use bevy_math::*;
 
+#[derive(Debug, Copy, Clone)]
 pub struct Cube {
     pub size: f32,
 }
@@ -24,6 +25,7 @@ impl From<Cube> for Mesh {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct Box {
     pub min_x: f32,
     pub max_x: f32,
@@ -118,12 +120,18 @@ impl From<Box> for Mesh {
 }
 
 /// A rectangle on the XY plane.
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Quad {
     /// Full width and height of the rectangle.
     pub size: Vec2,
     /// Flips the texture coords of the resulting vertices.
     pub flip: bool,
+}
+
+impl Default for Quad {
+    fn default() -> Self {
+        Quad::new(Vec2::ONE)
+    }
 }
 
 impl Quad {
@@ -214,10 +222,16 @@ impl From<Quad> for Mesh {
 }
 
 /// A square on the XZ plane.
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Plane {
     /// The total side length of the square.
     pub size: f32,
+}
+
+impl Default for Plane {
+    fn default() -> Self {
+        Plane { size: 1.0 }
+    }
 }
 
 impl From<Plane> for Mesh {

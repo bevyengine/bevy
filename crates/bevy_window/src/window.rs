@@ -1,5 +1,5 @@
 use bevy_math::{IVec2, Vec2};
-use bevy_utils::Uuid;
+use bevy_utils::{tracing::warn, Uuid};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct WindowId(Uuid);
@@ -32,6 +32,64 @@ impl Default for WindowId {
     }
 }
 
+/// The size limits on a window.
+/// These values are measured in logical pixels, so the user's
+/// scale factor does affect the size limits on the window.
+/// Please note that if the window is resizable, then when the window is
+/// maximized it may have a size outside of these limits. The functionality
+/// required to disable maximizing is not yet exposed by winit.
+#[derive(Debug, Clone, Copy)]
+pub struct WindowResizeConstraints {
+    pub min_width: f32,
+    pub min_height: f32,
+    pub max_width: f32,
+    pub max_height: f32,
+}
+
+impl Default for WindowResizeConstraints {
+    fn default() -> Self {
+        Self {
+            min_width: 180.,
+            min_height: 120.,
+            max_width: f32::INFINITY,
+            max_height: f32::INFINITY,
+        }
+    }
+}
+
+impl WindowResizeConstraints {
+    pub fn check_constraints(&self) -> WindowResizeConstraints {
+        let WindowResizeConstraints {
+            mut min_width,
+            mut min_height,
+            mut max_width,
+            mut max_height,
+        } = self;
+        min_width = min_width.max(1.);
+        min_height = min_height.max(1.);
+        if max_width < min_width {
+            warn!(
+                "The given maximum width {} is smaller than the minimum width {}",
+                max_width, min_width
+            );
+            max_width = min_width;
+        }
+        if max_height < min_height {
+            warn!(
+                "The given maximum height {} is smaller than the minimum height {}",
+                max_height, min_height
+            );
+            max_height = min_height;
+        }
+        WindowResizeConstraints {
+            min_width,
+            min_height,
+            max_width,
+            max_height,
+        }
+    }
+}
+
 /// An operating system window that can present content and receive user input.
 ///
 /// ## Window Sizes
@@ -54,6 +112,7 @@ pub struct Window {
     requested_height: f32,
     physical_width: u32,
     physical_height: u32,
+    resize_constraints: WindowResizeConstraints,
     position: Option<IVec2>,
     scale_factor_override: Option<f64>,
     backend_scale_factor: f64,
@@ -114,6 +173,9 @@ pub enum WindowCommand {
     SetPosition {
         position: IVec2,
     },
+    SetResizeConstraints {
+        resize_constraints: WindowResizeConstraints,
+    },
 }
 
 /// Defines the way a window is displayed
@@ -121,7 +183,7 @@ pub enum WindowCommand {
 /// defines whether a videomode is chosen that best fits the width and height
 /// in the Window structure, or if these are ignored.
 /// E.g. when use_size is set to false the best video mode possible is chosen.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum WindowMode {
     Windowed,
     BorderlessFullscreen,
@@ -144,6 +206,7 @@ impl Window {
             position,
             physical_width,
             physical_height,
+            resize_constraints: window_descriptor.resize_constraints,
             scale_factor_override: window_descriptor.scale_factor_override,
             backend_scale_factor: scale_factor,
             title: window_descriptor.title.clone(),
@@ -210,6 +273,12 @@ impl Window {
         self.physical_height
     }
 
+    /// The window's client resize constraint in logical pixels.
+    #[inline]
+    pub fn resize_constraints(&self) -> WindowResizeConstraints {
+        self.resize_constraints
+    }
+
     /// The window's client position in physical pixels.
     #[inline]
     pub fn position(&self) -> Option<IVec2> {
@@ -235,19 +304,28 @@ impl Window {
 
     /// Modifies the position of the window in physical pixels.
     ///
-    /// Note that the top-left hand corner of the desktop is not necessarily the same as the screen. If the user uses a desktop with multiple monitors,
-    /// the top-left hand corner of the desktop is the top-left hand corner of the monitor at the top-left of the desktop. This automatically un-maximizes
-    /// the window if it's maximized.
+    /// Note that the top-left hand corner of the desktop is not necessarily the same as the screen.
+    /// If the user uses a desktop with multiple monitors, the top-left hand corner of the
+    /// desktop is the top-left hand corner of the monitor at the top-left of the desktop. This
+    /// automatically un-maximizes the window if it's maximized.
     ///
     /// # Platform-specific
     ///
-    /// - iOS: Can only be called on the main thread. Sets the top left coordinates of the window in the screen space coordinate system.
+    /// - iOS: Can only be called on the main thread. Sets the top left coordinates of the window in
+    ///   the screen space coordinate system.
     /// - Web: Sets the top-left coordinates relative to the viewport.
     /// - Android / Wayland: Unsupported.
     #[inline]
     pub fn set_position(&mut self, position: IVec2) {
         self.command_queue
             .push(WindowCommand::SetPosition { position })
+    }
+
+    /// Modifies the minimum and maximum window bounds for resizing in logical pixels.
+    #[inline]
+    pub fn set_resize_constraints(&mut self, resize_constraints: WindowResizeConstraints) {
+        self.command_queue
+            .push(WindowCommand::SetResizeConstraints { resize_constraints });
     }
 
     /// Request the OS to resize the window such the the client area matches the
@@ -257,6 +335,7 @@ impl Window {
         if self.requested_width == width && self.requested_height == height {
             return;
         }
+
         self.requested_width = width;
         self.requested_height = height;
         self.command_queue.push(WindowCommand::SetResolution {
@@ -437,6 +516,7 @@ impl Window {
 pub struct WindowDescriptor {
     pub width: f32,
     pub height: f32,
+    pub resize_constraints: WindowResizeConstraints,
     pub scale_factor_override: Option<f64>,
     pub title: String,
     pub vsync: bool,
@@ -455,6 +535,7 @@ impl Default for WindowDescriptor {
             title: "bevy".to_string(),
             width: 1280.,
             height: 720.,
+            resize_constraints: WindowResizeConstraints::default(),
             scale_factor_override: None,
             vsync: true,
             resizable: true,

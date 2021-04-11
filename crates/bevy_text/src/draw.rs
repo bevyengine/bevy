@@ -72,6 +72,8 @@ impl<'a> Drawable for DrawableText<'a> {
             let sprite = TextureAtlasSprite {
                 index: tv.atlas_info.glyph_index,
                 color: self.sections[tv.section_index].style.color,
+                flip_x: false,
+                flip_y: false,
             };
 
             // To get the rendering right for non-one scaling factors, we need

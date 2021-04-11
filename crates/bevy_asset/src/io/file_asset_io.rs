@@ -1,7 +1,7 @@
 use crate::{filesystem_watcher::FilesystemWatcher, AssetIo, AssetIoError, AssetServer};
 use anyhow::Result;
-use bevy_ecs::{bevy_utils::BoxedFuture, Res};
-use bevy_utils::HashSet;
+use bevy_ecs::system::Res;
+use bevy_utils::{BoxedFuture, HashSet};
 use crossbeam_channel::TryRecvError;
 use fs::File;
 use io::Read;
@@ -133,7 +133,7 @@ pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
                 for path in paths.iter() {
                     if !changed.contains(path) {
                         let relative_path = path.strip_prefix(&asset_io.root_path).unwrap();
-                        let _ = asset_server.load_untracked(relative_path, true);
+                        let _ = asset_server.load_untracked(relative_path.into(), true);
                     }
                 }
                 changed.extend(paths);

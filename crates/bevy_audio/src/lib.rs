@@ -12,7 +12,7 @@ pub use audio_source::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
-use bevy_ecs::IntoExclusiveSystem;
+use bevy_ecs::system::IntoExclusiveSystem;
 
 /// Adds support for audio playback to an App
 #[derive(Default)]

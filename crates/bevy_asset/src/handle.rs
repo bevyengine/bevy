@@ -9,7 +9,8 @@ use crate::{
     path::{AssetPath, AssetPathId},
     Asset, Assets,
 };
-use bevy_reflect::{Reflect, ReflectComponent, ReflectDeserialize};
+use bevy_ecs::reflect::ReflectComponent;
+use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_utils::Uuid;
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
@@ -55,7 +56,8 @@ impl HandleId {
 
 /// A handle into a specific Asset of type `T`
 ///
-/// Handles contain a unique id that corresponds to a specific asset in the [Assets](crate::Assets) collection.
+/// Handles contain a unique id that corresponds to a specific asset in the [Assets](crate::Assets)
+/// collection.
 #[derive(Reflect)]
 #[reflect(Component)]
 pub struct Handle<T>
@@ -146,7 +148,8 @@ impl<T: Asset> Drop for Handle<T> {
     fn drop(&mut self) {
         match self.handle_type {
             HandleType::Strong(ref sender) => {
-                // ignore send errors because this means the channel is shut down / the game has stopped
+                // ignore send errors because this means the channel is shut down / the game has
+                // stopped
                 let _ = sender.send(RefChange::Decrement(self.id));
             }
             HandleType::Weak => {}
@@ -232,7 +235,8 @@ unsafe impl<T: Asset> Sync for Handle<T> {}
 
 /// A non-generic version of [Handle]
 ///
-/// This allows handles to be mingled in a cross asset context. For example, storing `Handle<A>` and `Handle<B>` in the same `HashSet<HandleUntyped>`.
+/// This allows handles to be mingled in a cross asset context. For example, storing `Handle<A>` and
+/// `Handle<B>` in the same `HashSet<HandleUntyped>`.
 #[derive(Debug)]
 pub struct HandleUntyped {
     pub id: HandleId,
@@ -298,7 +302,8 @@ impl Drop for HandleUntyped {
     fn drop(&mut self) {
         match self.handle_type {
             HandleType::Strong(ref sender) => {
-                // ignore send errors because this means the channel is shut down / the game has stopped
+                // ignore send errors because this means the channel is shut down / the game has
+                // stopped
                 let _ = sender.send(RefChange::Decrement(self.id));
             }
             HandleType::Weak => {}

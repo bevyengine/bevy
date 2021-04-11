@@ -9,8 +9,11 @@ use crate::{
     shader::Shader,
 };
 use bevy_asset::{Asset, Assets, Handle};
-use bevy_ecs::{Query, Res, ResMut, SystemParam};
-use bevy_reflect::{Reflect, ReflectComponent};
+use bevy_ecs::{
+    reflect::ReflectComponent,
+    system::{Query, Res, ResMut, SystemParam},
+};
+use bevy_reflect::Reflect;
 use std::{ops::Range, sync::Arc};
 use thiserror::Error;
 
@@ -62,6 +65,17 @@ impl Default for Visible {
         }
     }
 }
+
+/// A component that indicates that an entity is outside the view frustum.
+/// Any entity with this component will be ignored during rendering.
+///
+/// # Note
+/// This does not handle multiple "views" properly as it is a "global" filter.
+/// This will be resolved in the future. For now, disable frustum culling if you
+/// need to support multiple views (ex: set the `SpriteSettings::frustum_culling_enabled` resource).
+#[derive(Debug, Default, Clone, Reflect)]
+#[reflect(Component)]
+pub struct OutsideFrustum;
 
 /// A component that indicates how to draw an entity.
 #[derive(Debug, Clone, Reflect)]
@@ -274,7 +288,8 @@ impl<'a> DrawContext<'a> {
                 }
             }
 
-            // if none of the given RenderResourceBindings have the current bind group, try their assets
+            // if none of the given RenderResourceBindings have the current bind group, try their
+            // assets
             let asset_render_resource_bindings =
                 if let Some(value) = asset_render_resource_bindings.as_mut() {
                     value

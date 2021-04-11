@@ -1,12 +1,16 @@
-use super::{Extent3d, SamplerDescriptor, TextureDescriptor, TextureDimension, TextureFormat};
+use super::{
+    image_texture_conversion::image_to_texture, Extent3d, SamplerDescriptor, TextureDescriptor,
+    TextureDimension, TextureFormat,
+};
 use crate::renderer::{
     RenderResource, RenderResourceContext, RenderResourceId, RenderResourceType,
 };
 use bevy_app::prelude::EventReader;
 use bevy_asset::{AssetEvent, Assets, Handle};
-use bevy_ecs::Res;
+use bevy_ecs::system::Res;
 use bevy_reflect::TypeUuid;
 use bevy_utils::HashSet;
+use thiserror::Error;
 
 pub const TEXTURE_ASSET_INDEX: u64 = 0;
 pub const SAMPLER_ASSET_INDEX: u64 = 1;
@@ -52,8 +56,8 @@ impl Texture {
         Self {
             data,
             size,
-            dimension,
             format,
+            dimension,
             ..Default::default()
         }
     }
@@ -97,7 +101,8 @@ impl Texture {
             .resize(size.volume() * self.format.pixel_size(), 0);
     }
 
-    /// Changes the `size`, asserting that the total number of data elements (pixels) remains the same.
+    /// Changes the `size`, asserting that the total number of data elements (pixels) remains the
+    /// same.
     pub fn reinterpret_size(&mut self, new_size: Extent3d) {
         assert!(
             new_size.volume() == self.size.volume(),
@@ -109,9 +114,9 @@ impl Texture {
         self.size = new_size;
     }
 
-    /// Takes a 2D texture containing vertically stacked images of the same size, and reinterprets it as a 2D array texture,
-    /// where each of the stacked images becomes one layer of the array. This is primarily for use with the `texture2DArray`
-    /// shader uniform type.
+    /// Takes a 2D texture containing vertically stacked images of the same size, and reinterprets
+    /// it as a 2D array texture, where each of the stacked images becomes one layer of the
+    /// array. This is primarily for use with the `texture2DArray` shader uniform type.
     pub fn reinterpret_stacked_2d_as_array(&mut self, layers: u32) {
         // Must be a stacked image, and the height must be divisible by layers.
         assert!(self.dimension == TextureDimension::D2);
@@ -167,8 +172,9 @@ impl Texture {
                 }
                 AssetEvent::Removed { handle } => {
                     Self::remove_current_texture_resources(render_resource_context, handle);
-                    // if texture was modified and removed in the same update, ignore the modification
-                    // events are ordered so future modification events are ok
+                    // if texture was modified and removed in the same update, ignore the
+                    // modification events are ordered so future modification
+                    // events are ok
                     changed_textures.remove(handle);
                 }
             }
@@ -212,6 +218,34 @@ impl Texture {
             render_resource_context.remove_asset_resource(handle, SAMPLER_ASSET_INDEX);
         }
     }
+
+    /// Load a bytes buffer in a [`Texture`], according to type `image_type`, using the `image`
+    /// crate`
+    pub fn from_buffer(buffer: &[u8], image_type: ImageType) -> Result<Texture, TextureError> {
+        let format = match image_type {
+            ImageType::MimeType(mime_type) => match mime_type {
+                "image/png" => Ok(image::ImageFormat::Png),
+                "image/vnd-ms.dds" => Ok(image::ImageFormat::Dds),
+                "image/x-targa" => Ok(image::ImageFormat::Tga),
+                "image/x-tga" => Ok(image::ImageFormat::Tga),
+                "image/jpeg" => Ok(image::ImageFormat::Jpeg),
+                "image/bmp" => Ok(image::ImageFormat::Bmp),
+                "image/x-bmp" => Ok(image::ImageFormat::Bmp),
+                _ => Err(TextureError::InvalidImageMimeType(mime_type.to_string())),
+            },
+            ImageType::Extension(extension) => image::ImageFormat::from_extension(extension)
+                .ok_or_else(|| TextureError::InvalidImageMimeType(extension.to_string())),
+        }?;
+
+        // Load the image in the expected format.
+        // Some formats like PNG allow for R or RG textures too, so the texture
+        // format needs to be determined. For RGB textures an alpha channel
+        // needs to be added, so the image data needs to be converted in those
+        // cases.
+
+        let dyn_img = image::load_from_memory_with_format(buffer, format)?;
+        Ok(image_to_texture(dyn_img))
+    }
 }
 
 impl RenderResource for Option<Handle<Texture>> {
@@ -244,4 +278,23 @@ impl RenderResource for Handle<Texture> {
     fn texture(&self) -> Option<&Handle<Texture>> {
         Some(self)
     }
+}
+
+/// An error that occurs when loading a texture
+#[derive(Error, Debug)]
+pub enum TextureError {
+    #[error("invalid image mime type")]
+    InvalidImageMimeType(String),
+    #[error("invalid image extension")]
+    InvalidImageExtension(String),
+    #[error("failed to load an image")]
+    ImageError(#[from] image::ImageError),
+}
+
+/// Type of a raw image buffer
+pub enum ImageType<'a> {
+    /// Mime type of an image, for example `"image/png"`
+    MimeType(&'a str),
+    /// Extension of an image file, for example `"png"`
+    Extension(&'a str),
 }

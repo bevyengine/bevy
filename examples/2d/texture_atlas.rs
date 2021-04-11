@@ -1,22 +1,19 @@
 use bevy::{asset::LoadState, prelude::*, sprite::TextureAtlasBuilder};
 
-/// In this example we generate a new texture atlas (sprite sheet) from a folder containing individual sprites
+/// In this example we generate a new texture atlas (sprite sheet) from a folder containing
+/// individual sprites
 fn main() {
     App::build()
         .init_resource::<RpgSpriteHandles>()
         .add_plugins(DefaultPlugins)
-        .insert_resource(State::new(AppState::Setup))
-        .add_stage_after(CoreStage::Update, Stage, StateStage::<AppState>::default())
-        .on_state_enter(Stage, AppState::Setup, load_textures.system())
-        .on_state_update(Stage, AppState::Setup, check_textures.system())
-        .on_state_enter(Stage, AppState::Finished, setup.system())
+        .add_state(AppState::Setup)
+        .add_system_set(SystemSet::on_enter(AppState::Setup).with_system(load_textures.system()))
+        .add_system_set(SystemSet::on_update(AppState::Setup).with_system(check_textures.system()))
+        .add_system_set(SystemSet::on_enter(AppState::Finished).with_system(setup.system()))
         .run();
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-struct Stage;
-
-#[derive(Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum AppState {
     Setup,
     Finished,
@@ -39,12 +36,12 @@ fn check_textures(
     if let LoadState::Loaded =
         asset_server.get_group_load_state(rpg_sprite_handles.handles.iter().map(|handle| handle.id))
     {
-        state.set_next(AppState::Finished).unwrap();
+        state.set(AppState::Finished).unwrap();
     }
 }
 
 fn setup(
-    commands: &mut Commands,
+    mut commands: Commands,
     rpg_sprite_handles: Res<RpgSpriteHandles>,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
@@ -64,23 +61,22 @@ fn setup(
     let atlas_handle = texture_atlases.add(texture_atlas);
 
     // set up a scene to display our texture atlas
-    commands
-        .spawn(OrthographicCameraBundle::new_2d())
-        // draw a sprite from the atlas
-        .spawn(SpriteSheetBundle {
-            transform: Transform {
-                translation: Vec3::new(150.0, 0.0, 0.0),
-                scale: Vec3::splat(4.0),
-                ..Default::default()
-            },
-            sprite: TextureAtlasSprite::new(vendor_index as u32),
-            texture_atlas: atlas_handle,
+    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    // draw a sprite from the atlas
+    commands.spawn_bundle(SpriteSheetBundle {
+        transform: Transform {
+            translation: Vec3::new(150.0, 0.0, 0.0),
+            scale: Vec3::splat(4.0),
             ..Default::default()
-        })
-        // draw the atlas itself
-        .spawn(SpriteBundle {
-            material: materials.add(texture_atlas_texture.into()),
-            transform: Transform::from_xyz(-300.0, 0.0, 0.0),
-            ..Default::default()
-        });
+        },
+        sprite: TextureAtlasSprite::new(vendor_index as u32),
+        texture_atlas: atlas_handle,
+        ..Default::default()
+    });
+    // draw the atlas itself
+    commands.spawn_bundle(SpriteBundle {
+        material: materials.add(texture_atlas_texture.into()),
+        transform: Transform::from_xyz(-300.0, 0.0, 0.0),
+        ..Default::default()
+    });
 }

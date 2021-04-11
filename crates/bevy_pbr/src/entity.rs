@@ -1,6 +1,6 @@
-use crate::{light::Light, material::StandardMaterial, render_graph::FORWARD_PIPELINE_HANDLE};
+use crate::{light::Light, material::StandardMaterial, render_graph::PBR_PIPELINE_HANDLE};
 use bevy_asset::Handle;
-use bevy_ecs::Bundle;
+use bevy_ecs::bundle::Bundle;
 use bevy_render::{
     draw::Draw,
     mesh::Mesh,
@@ -27,7 +27,7 @@ impl Default for PbrBundle {
     fn default() -> Self {
         Self {
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
-                FORWARD_PIPELINE_HANDLE.typed(),
+                PBR_PIPELINE_HANDLE.typed(),
             )]),
             mesh: Default::default(),
             visible: Default::default(),
