@@ -864,7 +864,7 @@ mod tests {
 
             let root = world
                 .spawn()
-                .insert_bundle(base.clone())
+                .insert_bundle(base)
                 .insert(Name::new("Root"))
                 .insert(animator)
                 .id();
@@ -874,7 +874,7 @@ mod tests {
             world.entity_mut(root).with_children(|world_builder| {
                 entities.push(
                     world_builder
-                        .spawn_bundle(base.clone())
+                        .spawn_bundle(base)
                         .insert(Name::new("Node1"))
                         .id(),
                 );
@@ -883,7 +883,7 @@ mod tests {
                     entities.push(
                         world_builder
                             .spawn()
-                            .insert_bundle(base.clone())
+                            .insert_bundle(base)
                             .insert(Name::new("Node2"))
                             .id(),
                     );
@@ -892,7 +892,7 @@ mod tests {
                         entities.push(
                             world_builder
                                 .spawn()
-                                .insert_bundle(base.clone())
+                                .insert_bundle(base)
                                 .insert(Name::new("Node3"))
                                 .id(),
                         );

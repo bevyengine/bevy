@@ -460,9 +460,10 @@ path = "examples/animations/run_animation.rs"
 name = "mesh_swap_animation"
 path = "examples/animations/mesh_swap_animation.rs"
 
-[[example]]
-name = "material_animation"
-path = "examples/animations/material_animation.rs"
+# TODO: Enable once Color is sort out
+# [[example]]
+# name = "material_animation"
+# path = "examples/animations/material_animation.rs"
 
 [package.metadata.android]
 apk_label = "Bevy Example"
