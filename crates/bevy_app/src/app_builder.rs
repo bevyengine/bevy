@@ -450,10 +450,16 @@ impl AppBuilder {
     ///
     /// ## Example
     /// ```
-    /// # use bevy_app::prelude::*;
+    /// # use bevy_app::{prelude::*, PluginGroupBuilder};
     /// #
-    /// App::build();
-    ///     //.add_plugins(MinimalPlugins)
+    /// # // Dummy created to avoid using bevy_internal, which pulls in to many dependencies.
+    /// # struct MinimalPlugins;
+    /// # impl PluginGroup for MinimalPlugins {
+    /// #     fn build(&mut self, group: &mut PluginGroupBuilder){;}
+    /// # }
+    /// #
+    /// App::build()
+    ///     .add_plugins(MinimalPlugins);
     /// ```
     pub fn add_plugins<T: PluginGroup>(&mut self, mut group: T) -> &mut Self {
         let mut plugin_group_builder = PluginGroupBuilder::default();
@@ -471,12 +477,25 @@ impl AppBuilder {
     ///
     /// ## Example
     /// ```
-    /// # use bevy_app::prelude::*;
+    /// # use bevy_app::{prelude::*, PluginGroupBuilder};
     /// #
-    /// App::build();
-    ///     // .add_plugins_with(DefaultPlugins, |group| {
-    ///            // group.add_before::<bevy::asset::AssetPlugin, _>(MyOwnPlugin)
-    ///        // })
+    /// # // Dummies created to avoid using bevy_internal which pulls in to many dependencies.
+    /// # struct DefaultPlugins;
+    /// # impl PluginGroup for DefaultPlugins {
+    /// #     fn build(&mut self, group: &mut PluginGroupBuilder){
+    /// #         group.add(bevy_log::LogPlugin::default());
+    /// #     }
+    /// # }
+    /// #
+    /// # struct MyOwnPlugin;
+    /// # impl Plugin for MyOwnPlugin {
+    /// #     fn build(&self, app: &mut AppBuilder){;}
+    /// # }
+    /// #
+    /// App::build()
+    ///      .add_plugins_with(DefaultPlugins, |group| {
+    ///             group.add_before::<bevy_log::LogPlugin, _>(MyOwnPlugin)
+    ///         });
     /// ```
     pub fn add_plugins_with<T, F>(&mut self, mut group: T, func: F) -> &mut Self
     where
