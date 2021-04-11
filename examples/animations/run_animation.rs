@@ -1,7 +1,13 @@
-use bevy::{animation::Animator, prelude::*};
+use bevy::{animation::Animator, asset::AssetServerSettings, prelude::*};
 
 fn main() {
     App::build()
+        .insert_resource(AssetServerSettings {
+            asset_folder: format!(
+                "{}/assets",
+                std::env::current_dir().unwrap().to_str().unwrap()
+            ),
+        })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
         .add_system(anim_set.system().label("anim_set"))

@@ -159,13 +159,12 @@ async fn load_gltf<'a, 'b>(
                     mesh.set_indices(Some(Indices::U32(indices.into_u32().collect())));
                 };
 
-                // TODO: Missing Uchar4
-                // if let Some(color_attribute) = reader
-                //     .read_colors(0)
-                //     .map(|v| VertexAttributeValues::Uchar4(v.into_rgba_u8().collect()))
-                // {
-                //     mesh.set_attribute(Mesh::ATTRIBUTE_COLOR, color_attribute);
-                // }
+                if let Some(color_attribute) = reader
+                    .read_colors(0)
+                    .map(|v| VertexAttributeValues::Uchar4Norm(v.into_rgba_u8().collect()))
+                {
+                    mesh.set_attribute(Mesh::ATTRIBUTE_COLOR, color_attribute);
+                }
 
                 if let Some(weight_attribute) = reader
                     .read_weights(0)
@@ -403,13 +402,13 @@ async fn load_gltf<'a, 'b>(
         clips_handles.push(load_context.get_handle(path));
     }
 
+    // Each node will be mapped to a slot inside this `entity_lookup`
+    let mut entity_lookup = vec![];
+    entity_lookup.resize_with(gltf.nodes().count(), || None);
+
     let mut scenes = vec![];
     let mut named_scenes = HashMap::new();
     for scene in gltf.scenes() {
-        // Each node will be mapped to a slot inside this `entity_lookup`
-        let mut entity_lookup = vec![];
-        entity_lookup.resize_with(gltf.nodes().count(), || None);
-
         let mut world = World::default();
 
         // Scene root
@@ -428,34 +427,12 @@ async fn load_gltf<'a, 'b>(
         });
 
         // Scene animator component
-        if clips_handles.len() > 0 {
-            let mut animator = Animator::default();
-            for clip_handle in &clips_handles {
-                animator.add_clip(clip_handle.clone());
-            }
-            root.insert(animator);
+        // ? NOTE: Animation clips may be inside another file, so always add an Animator component
+        let mut animator = Animator::default();
+        for clip_handle in &clips_handles {
+            animator.add_clip(clip_handle.clone());
         }
-
-        // Scene skins
-        for node in scene.nodes() {
-            if let Some(skin) = node.skin() {
-                let mut active = world.entity_mut(entity_lookup[node.index()].unwrap());
-
-                let skin_label = skin_label(&skin);
-                let skin_asset_path = AssetPath::new_ref(load_context.path(), Some(&skin_label));
-                let skin_handle: Handle<SkinAsset> = load_context.get_handle(skin_asset_path);
-                active.insert(skin_handle);
-
-                // TODO: Mesh skinner needs a at least a reference to the skeleton root for it to work
-                // for this reason it need to keep track of all entities created by their index in the gltf node vec
-                let skeleton_root = skin.skeleton().map_or(0, |n| n.index());
-                active.insert(SkinComponent::with_root(
-                    entity_lookup[skeleton_root].expect("missing skeleton root entity"),
-                ));
-
-                active.insert(SkinDebugger::default());
-            }
-        }
+        root.insert(animator);
 
         let scene_handle = load_context
             .set_labeled_asset(&scene_label(&scene), LoadedAsset::new(Scene::new(world)));
@@ -586,6 +563,24 @@ fn load_node(
 
     if let Some(name) = node.name() {
         active.insert(Name::new(name.to_string()));
+    }
+
+    if let Some(skin) = node.skin() {
+        let skin_label = skin_label(&skin);
+        let skin_asset_path = AssetPath::new_ref(load_context.path(), Some(&skin_label));
+        let skin_handle: Handle<SkinAsset> = load_context.get_handle(skin_asset_path);
+        active.insert(skin_handle);
+
+        // TODO: Mesh skinner needs a at least a reference to the skeleton root for it to work
+        // for this reason it need to keep track of all entities created by their index in the gltf node vec
+        let skeleton_root = skin
+            .skeleton()
+            .map_or_else(|| root_node.index(), |n| n.index());
+        active.insert(SkinComponent::with_root(
+            entity_lookup[skeleton_root].expect("missing skeleton root entity"),
+        ));
+
+        active.insert(SkinDebugger::default());
     }
 
     // create camera node

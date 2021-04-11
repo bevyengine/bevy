@@ -10,7 +10,8 @@ use std::{
 };
 
 use crate::{
-    animator::AnimatorRegistry, blending::Blend, reflect, AnimationStage, AnimatorPropertyRegistry,
+    animator::AnimatorRegistry, blending::Blend, reflect, AnimationStage, AnimationSystem,
+    AnimatorPropertyRegistry,
 };
 
 // TODO: Find a way of lifting the `Default` bound on `register_animated_component` and `register_animated_asset` functions
@@ -57,7 +58,7 @@ impl AddAnimated for AppBuilder {
                 AnimationStage::Animate,
                 reflect::animate_component_system::<T>
                     .system()
-                    .after("animator_update"),
+                    .after(AnimationSystem::Animate),
             );
             self
         } else {
@@ -97,7 +98,7 @@ impl AddAnimated for AppBuilder {
                 AnimationStage::Animate,
                 reflect::animate_asset_system::<T>
                     .system()
-                    .after("animator_update"),
+                    .after(AnimationSystem::Animate),
             );
             self
         } else {
