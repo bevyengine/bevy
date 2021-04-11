@@ -83,7 +83,7 @@ void main() {
     }
     //Mutliply the ColorMaterial's color with: 
     //  If the alpha is zero, by our chckerboard pattern
-    //  If the alpha is non-zero, by the the texture's pixel color
+    //  If the alpha is non-zero, by the texture's pixel color
     color *= texture_pixel_color;
 # endif
     o_Target = color;
@@ -97,11 +97,11 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     //If the sprite's original render pipeline already exists
-    if let Some(original_sprite_render_graph) =
+    if let Some(original_sprite_render_pipeline) =
         render_pipelines.get(bevy::sprite::SPRITE_PIPELINE_HANDLE)
     {
         //We can clone the pipeline so we won't have to copy the code for setting it up
-        let mut pipeline_clone = original_sprite_render_graph.clone();
+        let mut pipeline_clone = original_sprite_render_pipeline.clone();
         //In this example, we only want to override the fragment shader and so:
         pipeline_clone.shader_stages.fragment =
             Some(shaders.add(Shader::from_glsl(ShaderStage::Fragment, FRAGMENT_SHADER)));
