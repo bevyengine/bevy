@@ -1,6 +1,7 @@
 use bevy_app::AppBuilder;
 use bevy_asset::{Asset, Handle};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{component::Component, prelude::*};
+use bevy_math::interpolation::Lerp;
 use bevy_reflect::prelude::*;
 use std::{
     any::{type_name, TypeId},
@@ -9,8 +10,7 @@ use std::{
 };
 
 use crate::{
-    animator::AnimatorRegistry, blending::Blend, interpolation::Lerp, reflect, stage,
-    AnimatorPropertyRegistry,
+    animator::AnimatorRegistry, blending::Blend, reflect, AnimationStage, AnimatorPropertyRegistry,
 };
 
 // TODO: Find a way of lifting the `Default` bound on `register_animated_component` and `register_animated_asset` functions
@@ -25,8 +25,8 @@ impl AddAnimated for AppBuilder {
     /// Registry an property type that can be animated
     fn register_animated_property_type<T: Lerp + Blend + Clone + 'static>(&mut self) -> &mut Self {
         let mut property_registry = self
-            .resources_mut()
-            .get_or_insert_with(AnimatorPropertyRegistry::default);
+            .world_mut()
+            .get_resource_or_insert_with(AnimatorPropertyRegistry::default);
 
         property_registry.register::<T>();
         drop(property_registry);
@@ -37,8 +37,8 @@ impl AddAnimated for AppBuilder {
     /// Registry an component `T` to be animated
     fn register_animated_component<T: Component + Struct + Default>(&mut self) -> &mut Self {
         let mut registry = self
-            .resources_mut()
-            .get_or_insert_with(AnimatorRegistry::default);
+            .world_mut()
+            .get_resource_or_insert_with(AnimatorRegistry::default);
 
         if registry.targets.insert(TypeId::of::<T>()) {
             let component = T::default();
@@ -54,7 +54,7 @@ impl AddAnimated for AppBuilder {
 
             self.insert_resource(descriptor);
             self.add_system_to_stage(
-                stage::ANIMATE,
+                AnimationStage::Animate,
                 reflect::animate_component_system::<T>
                     .system()
                     .after("animator_update"),
@@ -73,8 +73,8 @@ impl AddAnimated for AppBuilder {
     /// **NOTE** `Handle<T>` and `Option<Handle<T>>` are also registered as animated properties
     fn register_animated_asset<T: Asset + Struct + Default>(&mut self) -> &mut Self {
         let mut registry = self
-            .resources_mut()
-            .get_or_insert_with(AnimatorRegistry::default);
+            .world_mut()
+            .get_resource_or_insert_with(AnimatorRegistry::default);
 
         if registry.targets.insert(TypeId::of::<T>()) {
             let asset = T::default();
@@ -94,7 +94,7 @@ impl AddAnimated for AppBuilder {
 
             self.insert_resource(descriptor);
             self.add_system_to_stage(
-                stage::ANIMATE,
+                AnimationStage::Animate,
                 reflect::animate_asset_system::<T>
                     .system()
                     .after("animator_update"),

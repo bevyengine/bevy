@@ -2,29 +2,24 @@ use std::{
     any::{type_name, Any, TypeId},
     borrow::Cow,
     collections::{HashMap, HashSet},
-    convert::{TryFrom, TryInto},
     fmt,
 };
 
 use anyhow::Result;
-use bevy_app::{prelude::Events, ManualEventReader};
+use bevy_app::{Events, ManualEventReader};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_math::prelude::*;
-use bevy_reflect::{Reflect, ReflectComponent, TypeUuid};
+use bevy_math::{curves::Curve, interpolation::Lerp};
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_transform::prelude::*;
 use fnv::FnvBuildHasher;
 use smallvec::{smallvec, SmallVec};
 use tracing::warn;
 
-use crate::{
-    blending::AnimatorBlending,
-    hierarchy::Hierarchy,
-    interpolation::Lerp,
-    tracks::{ArrayN, Track, TrackBase, TrackFixed, TrackFixedN, TrackNBase, ValueN},
-    wide::{Quatx8, Vec3x8},
-};
+use crate::blending::AnimatorBlending;
+
+pub type TrackBase<T> = Box<dyn Curve<Output = T> + Send + Sync + 'static>;
 
 // TODO: Load Clip name from gltf
 
@@ -53,10 +48,6 @@ pub struct Tracks<T> {
     outputs: SmallVec<[u16; 8]>,
     /// Tuple of track and it's index
     tracks: Vec<(usize, TrackBase<T>)>,
-    /// Similar to `tracks` but simultaneously has many outputs
-    ///
-    /// **NOTE** It has its own `outputs` stored inside
-    n: Vec<(usize, TrackNBase<T>)>,
 }
 
 impl<T> fmt::Debug for Tracks<T> {
@@ -73,13 +64,12 @@ impl<T> Tracks<T> {
         self.tracks
             .iter()
             .map(|(_, track)| track.duration())
-            .chain(self.n.iter().map(|(_, track)| track.duration()))
             .fold(0.0f32, |acc, d| acc.max(d))
     }
 
     /// Number of curves inside
     pub fn len(&self) -> usize {
-        self.tracks.len() + self.n.iter().map(|(_, t)| t.len()).sum::<usize>()
+        self.tracks.len()
     }
 
     #[inline]
@@ -88,16 +78,8 @@ impl<T> Tracks<T> {
     }
 
     #[inline]
-    pub fn iter(
-        &self,
-    ) -> (
-        impl Iterator<Item = (u16, &(usize, TrackBase<T>))>,
-        &[(usize, TrackNBase<T>)],
-    ) {
-        (
-            self.outputs.iter().copied().zip(self.tracks.iter()),
-            &self.n,
-        )
+    pub fn iter(&self) -> impl Iterator<Item = (u16, &(usize, TrackBase<T>))> {
+        self.outputs.iter().copied().zip(self.tracks.iter())
     }
 }
 
@@ -159,25 +141,6 @@ impl TracksUntyped {
     }
 }
 
-// Pros:
-//  - Can limit to only the entities that we really want to animate, from deep nested hierarchies
-//  - Entities names don't matter
-//  - Hierarchy don't matter with can be nice if you keep changing it
-//  - Easer to design a LayerMask around it
-//  - Bit less memory
-// Cons:
-//  - Harder to modify and manipulate clips
-//  - Harder to find entities
-//  - Harder to mix clips with different hierarchies
-//  - Hierarchy don't matter which can lead to a giant mess, and will make impossible to parallelize
-//    over Animators
-// /// Defines a reusable entity hierarchy
-// #[derive(Debug, TypeUuid)]
-// #[uuid = "9d524787-1fbf-46c6-b34f-f2ae196664c5"]
-// pub struct AnimatorHierarchy {
-//     pub entities: Vec<String>,
-// }
-
 // TODO: impl Serialize, Deserialize using bevy reflect for that
 // the hierarchy, this animated entity asset must match the one been used in the animator
 // this could help retarget animations, but will mess the clip
@@ -195,7 +158,7 @@ pub struct Clip {
     duration: f32,
     // ! FIXME: Limit to only entities that have animations to avoid
     // ! fetching extra components that aren't been used
-    hierarchy: Hierarchy,
+    hierarchy: NamedHierarchy,
     // ? NOTE: AHash performed worse than FnvHasher
     // TODO: Change to the hashbrown::raw::RawTable and use a `label!()` to make hashes constants
     /// Each curve and keyframe cache index mapped by property name
@@ -217,7 +180,7 @@ impl Default for Clip {
             name: String::new(),
             warp: true,
             duration: 0.0,
-            hierarchy: Hierarchy::default(),
+            hierarchy: NamedHierarchy::default(),
             properties: HashMap::default(),
             len: 0,
             keyframes_cache_buckets: 0,
@@ -238,8 +201,8 @@ impl Clip {
     /// The return value is the assigned curve index in cache line bucket.
     pub fn add_track_at_path<T>(&mut self, path: &str, track: T) -> usize
     where
-        T: Track + Send + Sync + 'static,
-        <T as Track>::Output: Lerp + Clone + Send + Sync + 'static,
+        T: Curve + Send + Sync + 'static,
+        <T as Curve>::Output: Lerp + Clone + Send + Sync + 'static,
     {
         // Split in entity and attribute path,
         // NOTE: use rfind because it's expected the latter to be generally shorter
@@ -258,7 +221,7 @@ impl Clip {
 
         if let Some((cache_index, tracks_untyped)) = self.properties.get_mut(property_path) {
             let tracks = tracks_untyped
-                .downcast_mut::<<T as Track>::Output>()
+                .downcast_mut::<<T as Curve>::Output>()
                 .expect("properties can't have the same name and different curve types");
 
             let search = tracks
@@ -271,7 +234,7 @@ impl Clip {
                 let (kf_index, source) = &mut tracks.tracks[track_index];
                 let k_index = *kf_index;
 
-                let mut track: TrackBase<<T as Track>::Output> = Box::new(track);
+                let mut track: TrackBase<<T as Curve>::Output> = Box::new(track);
 
                 // Found a property equal to the one been inserted, next replace the curve
                 std::mem::swap(source, &mut track);
@@ -286,17 +249,6 @@ impl Clip {
                 self.duration = self.calculate_duration();
 
                 return k_index;
-            }
-
-            let search_n = tracks.n.iter().enumerate().find_map(|(i, (_, t))| {
-                t.lanes()
-                    .iter()
-                    .position(|index| *index == entity_index)
-                    .map(|o| (i, o))
-            });
-
-            if let Some((_track_index, _lane_index)) = search_n {
-                panic!("replacing a single lane in multi lane track isn't supported");
             }
 
             *cache_index += 1;
@@ -332,93 +284,11 @@ impl Clip {
                 TracksUntyped::new(Tracks {
                     outputs: smallvec![entity_index],
                     tracks: vec![(cache_index, Box::new(track))],
-                    n: vec![],
                 }),
             ),
         );
 
         cache_index
-    }
-
-    #[inline]
-    fn pack_by_type<V>(sampling_rate: f32, tracks: &mut Tracks<V::Value>) -> usize
-    where
-        V: ValueN + Lerp + Clone + Send + Sync + 'static,
-        <V as ValueN>::Value: Default + Send + Sync + 'static,
-        <V as ValueN>::Outputs: Default + Copy + Send + Sync + 'static,
-        <V as ValueN>::Lanes: for<'a> TryFrom<&'a [u16]> + Send + Sync + 'static,
-    {
-        let mut total = 0;
-        let mut left = tracks.tracks.len();
-
-        while left >= V::size() {
-            let lanes: V::Lanes = if let Ok(lanes) = tracks.outputs[0..V::size()].try_into() {
-                lanes
-            } else {
-                panic!("not enough output lanes");
-            };
-
-            let group = &tracks.tracks[0..8];
-            let d = group
-                .iter()
-                .fold(0.0f32, |acc, (_, t)| acc.max(t.duration()));
-
-            let f = (d * sampling_rate).trunc();
-            // Actual frame rate, is approximated the desired sampling rate,
-            // but isn't always equal to avoid loop seams
-            let frame_rate = d / f;
-            let frame_count = f as usize;
-
-            let mut v = V::Outputs::default();
-            let mut keyframes: Vec<V> = Vec::with_capacity(frame_count);
-            for frame_index in 0..frame_count {
-                let time = (frame_index as f32) * frame_rate;
-
-                for (i, (_, t)) in group.iter().enumerate() {
-                    *v.get_mut(i) = t.sample(time);
-                }
-
-                keyframes.push(V::pack(v));
-            }
-
-            let track_packed = TrackFixedN {
-                lanes,
-                len: V::size() as u16,
-                track: TrackFixed::from_keyframes(1.0 / frame_rate, 0, keyframes),
-            };
-
-            tracks.n.push((group[0].0, Box::new(track_packed)));
-
-            tracks.outputs.drain(0..V::size());
-            tracks.tracks.drain(0..V::size());
-            left -= V::size();
-
-            total += 1;
-        }
-
-        total
-    }
-
-    /// Packs single lane tracks into multi lane tracks, increases the performance trading memory
-    /// so the sampling mechanism can issue as many SIMD instruction as possible;
-    ///
-    /// **NOTE** Only a handful of types can be packed, like `Vec3` and `Quat`, more should
-    /// be added in the future;
-    ///
-    /// **NOTE** This is a very expensive function, it works by re-sampling each
-    /// curve at approximately the desired `sampling_rate`, it will preserve the clip total duration
-    /// but can't handle start offsets, so make sure all the tracks starts at time 0.0;
-    pub fn pack(&mut self, sampling_rate: f32) {
-        // println!("packing clip '{}'", self.name);
-
-        for (_, (_, tracks_untyped)) in self.properties.iter_mut() {
-            // TODO: Support more types
-            if let Some(tracks) = tracks_untyped.downcast_mut::<Vec3>() {
-                Self::pack_by_type::<Vec3x8>(sampling_rate, tracks);
-            } else if let Some(tracks) = tracks_untyped.downcast_mut::<Quat>() {
-                Self::pack_by_type::<Quatx8>(sampling_rate, tracks);
-            }
-        }
     }
 
     /// Number of animated properties in this clip
@@ -465,7 +335,7 @@ impl Clip {
     }
 
     #[inline]
-    pub fn hierarchy(&self) -> &Hierarchy {
+    pub fn hierarchy(&self) -> &NamedHierarchy {
         &self.hierarchy
     }
 
@@ -581,7 +451,7 @@ pub struct Animator {
     #[reflect(ignore)]
     bind_clips: Vec<Option<Bind>>,
     #[reflect(ignore)]
-    hierarchy: Hierarchy,
+    hierarchy: NamedHierarchy,
     #[reflect(ignore)]
     missing_entities: bool,
     #[reflect(ignore)]
@@ -595,7 +465,7 @@ impl Default for Animator {
         Self {
             clips: vec![],
             bind_clips: vec![],
-            hierarchy: Hierarchy::default(),
+            hierarchy: NamedHierarchy::default(),
             missing_entities: false,
             entities: vec![],
             time_scale: 1.0,
@@ -701,7 +571,7 @@ pub(crate) struct BindingState {
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn animator_update_system(
-    commands: &mut Commands,
+    mut commands: Commands,
     mut state: Local<BindingState>,
     clip_events: Res<Events<AssetEvent<Clip>>>,
     animator_registry: Res<AnimatorRegistry>,
@@ -736,7 +606,9 @@ pub(crate) fn animator_update_system(
         let animator = &mut *animator;
 
         if animator_blending.is_none() {
-            commands.insert_one(animator_entity, AnimatorBlending::default());
+            commands
+                .entity(animator_entity)
+                .insert(AnimatorBlending::default());
         }
 
         // Time scales by component
@@ -924,9 +796,8 @@ pub(crate) fn animator_update_system(
 #[allow(dead_code)]
 mod tests {
     use super::*;
-    use crate::tracks::TrackVariableLinear;
     use bevy_asset::AddAsset;
-    use bevy_math::prelude::{Quat, Vec3};
+    use bevy_math::{curves::CurveVariableLinear, Quat, Vec3};
     use bevy_pbr::prelude::StandardMaterial;
     use bevy_render::prelude::Mesh;
 
@@ -939,7 +810,6 @@ mod tests {
         fn new() -> Self {
             let mut app_builder = bevy_app::App::build();
             app_builder
-                .add_plugin(bevy_reflect::ReflectPlugin::default())
                 .add_plugin(bevy_core::CorePlugin::default())
                 .add_plugin(bevy_app::ScheduleRunnerPlugin::default())
                 .add_plugin(bevy_asset::AssetPlugin::default())
@@ -949,7 +819,6 @@ mod tests {
                 .add_plugin(crate::AnimationPlugin { skinning: false });
 
             let mut world = World::new();
-            let mut world_builder = world.build();
             let base = (
                 GlobalTransform::default(),
                 Transform::from_translation(Vec3::new(0.0, 1.0, 0.0)),
@@ -961,9 +830,9 @@ mod tests {
                 let mut clip_a = Clip::default();
                 clip_a.add_track_at_path(
                     "@Transform.translation",
-                    TrackVariableLinear::from_line(0.0, 1.0, Vec3::unit_x(), -Vec3::unit_x()),
+                    CurveVariableLinear::from_line(0.0, 1.0, Vec3::X, -Vec3::X),
                 );
-                let rot = TrackVariableLinear::from_constant(Quat::identity());
+                let rot = CurveVariableLinear::from_constant(Quat::IDENTITY);
                 clip_a.add_track_at_path("@Transform.rotation", rot.clone());
                 clip_a.add_track_at_path("/Node1@Transform.rotation", rot.clone());
                 clip_a.add_track_at_path("/Node1/Node2@Transform.rotation", rot);
@@ -971,21 +840,21 @@ mod tests {
                 let mut clip_b = Clip::default();
                 clip_b.add_track_at_path(
                     "@Transform.translation",
-                    TrackVariableLinear::from_constant(Vec3::zero()),
+                    CurveVariableLinear::from_constant(Vec3::ZERO),
                 );
-                let rot = TrackVariableLinear::from_line(
+                let rot = CurveVariableLinear::from_line(
                     0.0,
                     1.0,
-                    Quat::from_axis_angle(Vec3::unit_z(), 0.1),
-                    Quat::from_axis_angle(Vec3::unit_z(), -0.1),
+                    Quat::from_axis_angle(Vec3::Z, 0.1),
+                    Quat::from_axis_angle(Vec3::Z, -0.1),
                 );
                 clip_b.add_track_at_path("@Transform.rotation", rot.clone());
                 clip_b.add_track_at_path("/Node1@Transform.rotation", rot.clone());
                 clip_b.add_track_at_path("/Node1/Node2@Transform.rotation", rot);
 
                 let mut clips = app_builder
-                    .resources_mut()
-                    .get_mut::<Assets<Clip>>()
+                    .world_mut()
+                    .get_resource_mut::<Assets<Clip>>()
                     .unwrap();
                 let clip_a = clips.add(clip_a);
                 let clip_b = clips.add(clip_b);
@@ -995,39 +864,40 @@ mod tests {
             }
 
             let mut entities = vec![];
-            entities.push(
-                world_builder
-                    .spawn(base.clone())
-                    .with(Name::new("Root"))
-                    .with(animator)
-                    .current_entity
-                    .unwrap(),
-            );
-            world_builder.with_children(|world_builder| {
+
+            let root = world
+                .spawn()
+                .insert_bundle(base.clone())
+                .insert(Name::new("Root"))
+                .insert(animator)
+                .id();
+
+            entities.push(root);
+
+            world.entity_mut(root).with_children(|world_builder| {
                 entities.push(
                     world_builder
-                        .spawn(base.clone())
-                        .with(Name::new("Node1"))
-                        .current_entity()
-                        .unwrap(),
+                        .spawn_bundle(base.clone())
+                        .insert(Name::new("Node1"))
+                        .id(),
                 );
 
                 world_builder.with_children(|world_builder| {
                     entities.push(
                         world_builder
-                            .spawn(base.clone())
-                            .with(Name::new("Node2"))
-                            .current_entity()
-                            .unwrap(),
+                            .spawn()
+                            .insert_bundle(base.clone())
+                            .insert(Name::new("Node2"))
+                            .id(),
                     );
 
                     world_builder.with_children(|world_builder| {
                         entities.push(
                             world_builder
-                                .spawn(base.clone())
-                                .with(Name::new("Node3"))
-                                .current_entity()
-                                .unwrap(),
+                                .spawn()
+                                .insert_bundle(base.clone())
+                                .insert(Name::new("Node3"))
+                                .id(),
                         );
                     });
                 });
@@ -1067,11 +937,7 @@ mod tests {
             .for_each(|(index, entity)| assert!(entity.is_some(), "missing entity {}", index,));
 
         // delete "Node1"
-        test_bench
-            .app
-            .world
-            .despawn(test_bench.entities[1])
-            .unwrap();
+        test_bench.app.world.despawn(test_bench.entities[1]);
 
         // Tick
         test_bench.run();
@@ -1090,15 +956,14 @@ mod tests {
         test_bench.entities[1] = test_bench
             .app
             .world
-            .build()
-            .spawn((
+            .spawn()
+            .insert_bundle((
                 GlobalTransform::default(),
                 Transform::from_translation(Vec3::new(0.0, 1.0, 0.0)),
                 Name::new("Node1"),
                 Parent(test_bench.entities[0]),
             ))
-            .current_entity
-            .unwrap();
+            .id();
 
         *test_bench
             .app
@@ -1133,13 +998,7 @@ mod tests {
             .for_each(|(index, entity)| assert!(entity.is_some(), "missing entity {}", index,));
 
         // Change parent of node "Node1"
-        let new_parent = test_bench
-            .app
-            .world
-            .build()
-            .spawn(())
-            .current_entity
-            .unwrap();
+        let new_parent = test_bench.app.world.spawn().id();
 
         *test_bench
             .app
@@ -1196,7 +1055,8 @@ mod tests {
         test_bench
             .app
             .world
-            .remove_one::<Parent>(test_bench.entities[1])
+            .entity_mut(test_bench.entities[1])
+            .remove::<Parent>()
             .unwrap();
 
         // Tick
@@ -1216,8 +1076,8 @@ mod tests {
         test_bench
             .app
             .world
-            .insert_one(test_bench.entities[1], Parent(test_bench.entities[0]))
-            .unwrap();
+            .entity_mut(test_bench.entities[1])
+            .insert(Parent(test_bench.entities[0]));
 
         // Tick
         // ! FIXME: Takes one frame to bind the missing properties because
@@ -1299,7 +1159,8 @@ mod tests {
         test_bench
             .app
             .world
-            .remove_one::<Name>(test_bench.entities[1])
+            .entity_mut(test_bench.entities[1])
+            .remove::<Name>()
             .unwrap();
 
         // Tick
@@ -1318,8 +1179,8 @@ mod tests {
         test_bench
             .app
             .world
-            .insert_one(test_bench.entities[1], Name::new("Node1"))
-            .unwrap();
+            .entity_mut(test_bench.entities[1])
+            .insert(Name::new("Node1"));
 
         // Tick
         // ! FIXME: Takes one frame to bind the missing properties because
@@ -1352,11 +1213,15 @@ mod tests {
         // Modify clip
         {
             let clip_a_handle = test_bench.animator().clips()[0].clone();
-            let mut clips = test_bench.app.resources.get_mut::<Assets<Clip>>().unwrap();
+            let mut clips = test_bench
+                .app
+                .world
+                .get_resource_mut::<Assets<Clip>>()
+                .unwrap();
             let clip_a = clips.get_mut(clip_a_handle).unwrap();
             clip_a.add_track_at_path(
                 "/Node3/@Transform.translation",
-                TrackVariableLinear::from_line(0.0, 1.0, Vec3::unit_z(), -Vec3::unit_z()),
+                CurveVariableLinear::from_line(0.0, 1.0, Vec3::Z, -Vec3::Z),
             );
         }
 
@@ -1365,7 +1230,7 @@ mod tests {
         assert_eq!(test_bench.animator().entities().len(), 4);
 
         // Spawn entity
-        test_bench.app.world.build().spawn((
+        test_bench.app.world.spawn().insert_bundle((
             GlobalTransform::default(),
             Transform::from_translation(Vec3::new(0.0, 1.0, 0.0)),
             Name::new("Node3"),
@@ -1385,7 +1250,7 @@ mod tests {
 
     #[test]
     fn clip_property_index_are_grouped_into_cache_line_buckets() {
-        let curve = TrackVariableLinear::from_constant(0.0);
+        let curve = CurveVariableLinear::from_constant(0.0);
         let mut clip = Clip::default();
         assert_eq!(clip.add_track_at_path("a@T.t", curve.clone()), 0);
         assert_eq!(clip.add_track_at_path("b@T.t", curve.clone()), 1);

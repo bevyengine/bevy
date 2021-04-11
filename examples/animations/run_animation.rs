@@ -10,35 +10,37 @@ fn main() {
 }
 
 fn setup(
-    commands: &mut Commands,
+    mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands
-        // plane
-        .spawn(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane { size: 20.0 })),
-            transform: Transform::from_translation(Vec3::new(0.0, -1.0, 0.0)),
-            material: materials.add(Color::rgb(0.1, 0.05, 0.0).into()),
-            ..Default::default()
-        })
-        // light
-        .spawn(LightBundle {
-            transform: Transform::from_translation(Vec3::new(4.0, 8.0, 4.0)),
-            ..Default::default()
-        })
-        // camera
-        .spawn(PerspectiveCameraBundle {
-            transform: Transform::from_matrix(Mat4::face_toward(
-                Vec3::new(-3.0, 5.0, 8.0),
-                Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(0.0, 1.0, 0.0),
-            )),
-            ..Default::default()
-        })
-        // character
-        .spawn_scene(asset_server.load("models/character_medium/character_medium.gltf#Scene0"));
+    // plane
+    commands.spawn_bundle(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Plane { size: 20.0 })),
+        transform: Transform::from_translation(Vec3::new(0.0, -1.0, 0.0)),
+        material: materials.add(Color::rgb(0.1, 0.05, 0.0).into()),
+        ..Default::default()
+    });
+
+    // light
+    commands.spawn_bundle(LightBundle {
+        transform: Transform::from_translation(Vec3::new(4.0, 8.0, 4.0)),
+        ..Default::default()
+    });
+
+    // camera
+    commands.spawn_bundle(PerspectiveCameraBundle {
+        transform: Transform::from_matrix(Mat4::face_toward(
+            Vec3::new(-3.0, 5.0, 8.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        )),
+        ..Default::default()
+    });
+
+    // character
+    commands.spawn_scene(asset_server.load("models/character_medium/character_medium.gltf#Scene0"));
 }
 
 fn anim_set(asset_server: Res<AssetServer>, mut animators_query: Query<(&mut Animator,)>) {

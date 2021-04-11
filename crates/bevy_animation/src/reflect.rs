@@ -8,17 +8,16 @@ use std::{
 };
 
 use bevy_asset::{prelude::*, Asset};
-use bevy_ecs::prelude::*;
-use bevy_math::prelude::*;
+use bevy_ecs::{component::Component, prelude::*};
+use bevy_math::{interpolation::Lerp, prelude::*};
 use bevy_reflect::prelude::*;
-use bevy_render::prelude::Color;
+//use bevy_render::prelude::Color;
 use tracing::warn;
 
 use crate::{
     animator::{Animator, Clip},
     blending::{AnimatorBlendGroup, AnimatorBlending, Blend, Mask, MASK_LIMIT},
     help::shorten_name,
-    interpolation::Lerp,
 };
 
 // ? NOTE: Generic types like `Option<T>` must be specialized and registered with `register_animated_property_type`
@@ -61,7 +60,8 @@ impl Default for AnimatorPropertyRegistry {
                 (TypeId::of::<Vec3>(), animate::<Vec3>),
                 (TypeId::of::<Vec4>(), animate::<Vec4>),
                 (TypeId::of::<Quat>(), animate::<Quat>),
-                (TypeId::of::<Color>(), animate::<Color>),
+                // TODO: Color can't be animated right now :(
+                //(TypeId::of::<Color>(), animate::<Color>),
             ],
         }
     }
@@ -121,7 +121,7 @@ unsafe fn animate<T>(
         .map(|curve_untyped| curve_untyped.downcast_ref::<T>())
         .flatten()
     {
-        let (tracks, tracks_n) = tracks.iter();
+        let tracks = tracks.iter();
 
         for (entity_index, (curve_index, track)) in tracks {
             let entity_index = entities_map[entity_index as usize] as usize;
@@ -141,31 +141,6 @@ unsafe fn animate<T>(
                     w,
                     additive,
                 );
-            }
-        }
-
-        // Handle N lane tracks
-        if !tracks_n.is_empty() {
-            let assign = &mut |output_lane: u16, v: T| {
-                let entity_index = entities_map[output_lane as usize] as usize;
-                if let Some(component) = (get_mut)(entity_index) {
-                    // Unsafe portion
-                    let value = &mut *(component.offset(prop.offset) as *mut T);
-                    value.blend(
-                        entity_index,
-                        prop.mask,
-                        prop.slot,
-                        blend_group,
-                        v,
-                        w,
-                        additive,
-                    );
-                }
-            };
-
-            for (curve_index, track_n) in tracks_n {
-                let cursor = &mut keyframes[*curve_index];
-                *cursor = track_n.sample(*cursor, time, assign);
             }
         }
     }
@@ -333,7 +308,7 @@ pub(crate) fn animate_component_system<T: Component>(
             for entity in animator.entities() {
                 cached_components.push(
                     entity
-                        .map(|entity| components_query.get_unsafe(entity).ok())
+                        .map(|entity| components_query.get_unchecked(entity).ok())
                         .flatten(),
                 );
             }
@@ -448,7 +423,7 @@ pub(crate) fn animate_asset_system<T: Asset>(
             for entity in animator.entities() {
                 cached_components.push(
                     entity
-                        .map(|entity| components_query.get_unsafe(entity).ok())
+                        .map(|entity| components_query.get_unchecked(entity).ok())
                         .flatten(),
                 );
             }
@@ -503,7 +478,7 @@ pub(crate) fn animate_asset_system<T: Asset>(
                     .map(|curve_untyped| curve_untyped.downcast_ref::<Handle<T>>())
                     .flatten()
                 {
-                    let (tracks, tracks_n) = tracks.iter();
+                    let tracks = tracks.iter();
 
                     for (entity_index, (curve_index, curve)) in tracks {
                         let entity_index = entities_map[entity_index as usize] as usize;
@@ -522,31 +497,6 @@ pub(crate) fn animate_asset_system<T: Asset>(
                                 w,
                                 layer.additive,
                             );
-                        }
-                    }
-
-                    // Handle N lane tracks
-                    // ? NOTE: Currently Handle<T> isn't supported but still be implemented where
-                    if !tracks_n.is_empty() {
-                        let assign = &mut |output_lane: u16, v: Handle<T>| {
-                            let entity_index = entities_map[output_lane as usize] as usize;
-                            if let Some(ref mut component) = cached_components[entity_index] {
-                                let value = &mut **component;
-                                value.blend(
-                                    entity_index,
-                                    prop_mask,
-                                    prop_slot,
-                                    &mut blend_group,
-                                    v,
-                                    w,
-                                    layer.additive,
-                                );
-                            }
-                        };
-
-                        for (curve_index, curve) in tracks_n {
-                            let cursor = &mut keyframes[*curve_index];
-                            *cursor = curve.sample(*cursor, time, assign);
                         }
                     }
                 }

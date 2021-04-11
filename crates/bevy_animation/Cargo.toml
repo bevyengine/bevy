@@ -1,22 +1,22 @@
 [package]
 name = "bevy_animation"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Felipe Jorge <felipe.jorge.pereira@gmail.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy_app = { path = "../bevy_app", version = "0.4.0" }
-bevy_asset = { path = "../bevy_asset", version = "0.4.0" }
-bevy_core = { path = "../bevy_core", version = "0.4.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.4.0" }
-bevy_pbr = { path = "../bevy_pbr", version = "0.4.0" }
-bevy_math = { path = "../bevy_math", version = "0.4.0" }
-bevy_render = { path = "../bevy_render", version = "0.4.0" }
-bevy_tasks = { path = "../bevy_tasks", version = "0.4.0" }
-bevy_transform = { path = "../bevy_transform", version = "0.4.0" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.4.0", features = ["bevy"] }
+bevy_app = { path = "../bevy_app", version = "0.5.0" }
+bevy_asset = { path = "../bevy_asset", version = "0.5.0" }
+bevy_core = { path = "../bevy_core", version = "0.5.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.5.0" }
+bevy_pbr = { path = "../bevy_pbr", version = "0.5.0" }
+bevy_math = { path = "../bevy_math", version = "0.5.0" }
+bevy_render = { path = "../bevy_render", version = "0.5.0" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.5.0" }
+bevy_transform = { path = "../bevy_transform", version = "0.5.0" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.5.0", features = ["bevy"] }
 
 # other
 serde = { version = "1.0", features = ["derive"] }
@@ -25,9 +25,6 @@ anyhow = "1.0"
 float-cmp = "0.8.0"
 fnv = "1.0.7"
 tracing = "0.1.21"
-
-ultraviolet = "0.7.5"
-wide = "0.5.5" # not the latest version of wide but maches the one used by ultravilet
 
 [features]
 default = []

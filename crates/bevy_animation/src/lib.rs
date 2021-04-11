@@ -1,7 +1,10 @@
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets};
-use bevy_ecs::{IntoSystem, SystemStage};
-use bevy_reflect::RegisterTypeBuilder;
+use bevy_ecs::{
+    schedule::{ParallelSystemDescriptorCoercion, StageLabel, SystemLabel, SystemStage},
+    system::IntoSystem,
+};
+//use bevy_reflect::TypeRegistration;
 
 mod animator;
 mod app;
@@ -9,16 +12,12 @@ mod help;
 mod reflect;
 //mod experimental;
 mod bench;
-mod hierarchy;
 mod skinned_mesh;
 
 pub mod blending;
-pub mod interpolation;
-pub mod tracks;
 
 pub use crate::{
-    animator::*, app::*, bench::*, blending::AnimatorBlending, hierarchy::Hierarchy,
-    reflect::AnimatorPropertyRegistry,
+    animator::*, app::*, bench::*, blending::AnimatorBlending, reflect::AnimatorPropertyRegistry,
 };
 
 pub mod prelude {
@@ -26,26 +25,23 @@ pub mod prelude {
         animator::{Animator, Clip},
         app::AddAnimated,
         blending::AnimatorBlending,
-        hierarchy::Hierarchy,
-        interpolation::Lerp,
         reflect::AnimatorPropertyRegistry,
         skinned_mesh::{SkinAsset, SkinComponent, SkinDebugger},
     };
 }
 
-/// Exports wide types
-pub mod wide {
-    pub use crate::interpolation::utils::{Quatx4, Quatx8};
-    pub use ultraviolet::vec::{Vec2x4, Vec2x8, Vec3x4, Vec3x8, Vec4x4, Vec4x8};
-    pub use wide::*;
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+pub enum AnimationStage {
+    Animate,
+    Skinning,
 }
 
-pub mod stage {
-    pub const ANIMATE: &str = "animate";
-    pub const SKINNING: &str = "skinning";
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+pub enum AnimationSystem {
+    Animate,
+    ClipEvents,
+    Skinning,
 }
-
-use bevy_ecs::ParallelSystemDescriptorCoercion;
 
 pub struct AnimationPlugin {
     /// Enables or disables the built in skinning
@@ -60,10 +56,14 @@ impl Default for AnimationPlugin {
 
 impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_stage_after(CoreStage::Update, stage::ANIMATE, SystemStage::parallel());
+        app.add_stage_after(
+            CoreStage::Update,
+            AnimationStage::Animate,
+            SystemStage::parallel(),
+        );
         app.add_stage_after(
             CoreStage::PostUpdate,
-            stage::SKINNING,
+            AnimationStage::Skinning,
             SystemStage::parallel(),
         );
 
@@ -73,17 +73,17 @@ impl Plugin for AnimationPlugin {
             //.add_asset_loader(ClipLoader)
             .register_type::<Animator>()
             .add_system_to_stage(
-                stage::ANIMATE,
+                AnimationStage::Animate,
                 Assets::<Clip>::asset_event_system
                     .system()
-                    .label("clip_event_system"),
+                    .label(AnimationSystem::ClipEvents),
             ) // ? NOTE: Fix asset event handle
             .add_system_to_stage(
-                stage::ANIMATE,
+                AnimationStage::Animate,
                 animator::animator_update_system
                     .system()
-                    .label("animator_update")
-                    .after("clip_event_system"),
+                    .label(AnimationSystem::Animate)
+                    .after(AnimationSystem::ClipEvents),
             );
 
         // ! FIXME: Each added animated component or asset will add a bit of overhead in the animation
@@ -100,16 +100,16 @@ impl Plugin for AnimationPlugin {
         if self.skinning {
             app.add_startup_system(skinned_mesh::skinning_setup.system())
                 .add_system_to_stage(
-                    stage::SKINNING,
+                    AnimationStage::Skinning,
                     skinned_mesh::skinning_update
                         .system()
-                        .label("skinning_update"),
+                        .label(AnimationSystem::Skinning),
                 )
                 .add_system_to_stage(
-                    stage::SKINNING,
+                    AnimationStage::Skinning,
                     skinned_mesh::skinning_debugger_update
                         .system()
-                        .after("skinning_update"),
+                        .after(AnimationSystem::Skinning),
                 );
         }
     }

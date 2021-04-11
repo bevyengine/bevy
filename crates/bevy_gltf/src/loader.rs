@@ -1,11 +1,11 @@
 use anyhow::Result;
-use bevy_animation::{prelude::*, tracks::*};
+use bevy_animation::prelude::*;
 use bevy_asset::{
     AssetIoError, AssetLoader, AssetPath, BoxedFuture, Handle, LoadContext, LoadedAsset,
 };
 use bevy_core::Name;
-use bevy_ecs::world::World;
-use bevy_math::Mat4;
+use bevy_ecs::{prelude::Entity, world::World};
+use bevy_math::{curves::CurveVariableLinear, Mat4, Quat, Vec3};
 use bevy_pbr::prelude::{PbrBundle, StandardMaterial};
 use bevy_render::{
     camera::{
@@ -19,7 +19,7 @@ use bevy_render::{
 };
 use bevy_scene::Scene;
 use bevy_transform::{
-    hierarchy::{BuildWorldChildren, WorldChildBuilder},
+    hierarchy::{BuildWorldChildren, NamedHierarchy, WorldChildBuilder},
     prelude::{GlobalTransform, Transform},
 };
 use gltf::{
@@ -159,25 +159,26 @@ async fn load_gltf<'a, 'b>(
                     mesh.set_indices(Some(Indices::U32(indices.into_u32().collect())));
                 };
 
-                if let Some(color_attribute) = reader
-                    .read_colors(0)
-                    .map(|v| VertexAttributeValues::Uchar4(v.into_rgba_u8().collect()))
-                {
-                    mesh.set_attribute(Mesh::ATTRIBUTE_COLOR, color_attribute);
-                }
+                // TODO: Missing Uchar4
+                // if let Some(color_attribute) = reader
+                //     .read_colors(0)
+                //     .map(|v| VertexAttributeValues::Uchar4(v.into_rgba_u8().collect()))
+                // {
+                //     mesh.set_attribute(Mesh::ATTRIBUTE_COLOR, color_attribute);
+                // }
 
                 if let Some(weight_attribute) = reader
                     .read_weights(0)
                     .map(|v| VertexAttributeValues::Float4(v.into_f32().collect()))
                 {
-                    mesh.set_attribute(Mesh::ATTRIBUTE_WEIGHT, weight_attribute);
+                    mesh.set_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, weight_attribute);
                 }
 
                 if let Some(joint_attribute) = reader
                     .read_joints(0)
                     .map(|v| VertexAttributeValues::Ushort4(v.into_u16().collect()))
                 {
-                    mesh.set_attribute(Mesh::ATTRIBUTE_JOINT, joint_attribute);
+                    mesh.set_attribute(Mesh::ATTRIBUTE_JOINT_INDEX, joint_attribute);
                 }
 
                 let mesh = load_context.set_labeled_asset(&primitive_label, LoadedAsset::new(mesh));
@@ -277,7 +278,7 @@ async fn load_gltf<'a, 'b>(
                     inverse_bind_matrices: inverse_bind_matrices
                         .map(|x| Mat4::from_cols_array_2d(&x))
                         .collect(),
-                    hierarchy: Hierarchy::from_ordered_entities(entities_parent_and_name),
+                    hierarchy: NamedHierarchy::from_ordered_entities(entities_parent_and_name),
                 }),
             );
         }
@@ -362,7 +363,7 @@ async fn load_gltf<'a, 'b>(
                     let values = values.map(Vec3::from).collect::<Vec<_>>();
                     property_path += "@Transform.translation";
                     clip_curves_translation_and_scale
-                        .push((property_path, TrackVariableLinear::new(time_stamps, values)));
+                        .push((property_path, CurveVariableLinear::new(time_stamps, values)));
 
                     // TODO: This is a runtime importer so here's no place for further optimizations
                 }
@@ -370,14 +371,14 @@ async fn load_gltf<'a, 'b>(
                     let values = values.into_f32().map(Quat::from).collect::<Vec<_>>();
                     property_path += "@Transform.rotation";
                     clip_curves_rotation
-                        .push((property_path, TrackVariableLinear::new(time_stamps, values)));
+                        .push((property_path, CurveVariableLinear::new(time_stamps, values)));
                 }
                 ReadOutputs::Scales(values) => {
                     let values = values.map(Vec3::from).collect::<Vec<_>>();
 
                     property_path += "@Transform.scale";
                     clip_curves_translation_and_scale
-                        .push((property_path, TrackVariableLinear::new(time_stamps, values)));
+                        .push((property_path, CurveVariableLinear::new(time_stamps, values)));
                 }
                 ReadOutputs::MorphTargetWeights(_) => {
                     unimplemented!("morph targets aren't current supported")
@@ -387,20 +388,14 @@ async fn load_gltf<'a, 'b>(
 
         // Make sure the start frame is always 0.0
         for (property_path, mut curve) in clip_curves_rotation {
-            TrackVariableLinear::<Quat>::add_offset_time(&mut curve, -start_time);
-            //curve.add_time_offset(-start_time);
+            curve.add_offset_time(-start_time);
             clip.add_track_at_path(&property_path, curve);
         }
 
         for (property_path, mut curve) in clip_curves_translation_and_scale {
-            TrackVariableLinear::<Vec3>::add_offset_time(&mut curve, -start_time);
-            //curve.add_time_offset(-start_time);
+            curve.add_offset_time(-start_time);
             clip.add_track_at_path(&property_path, curve);
         }
-
-        // TODO: Should I use a linear curve fit algorithm to estimate a good sample rate
-        // (probably not, 30 fps is the default sampling rate for many export programs)
-        clip.pack(30.0);
 
         load_context.set_labeled_asset(&anim_label, LoadedAsset::new(clip));
 
@@ -408,43 +403,59 @@ async fn load_gltf<'a, 'b>(
         clips_handles.push(load_context.get_handle(path));
     }
 
-    // Each node will be mapped to a slot inside this `entity_lookup`
-    let mut entity_lookup = vec![];
-    entity_lookup.resize_with(gltf.nodes().count(), || None);
-
     let mut scenes = vec![];
     let mut named_scenes = HashMap::new();
     for scene in gltf.scenes() {
+        // Each node will be mapped to a slot inside this `entity_lookup`
+        let mut entity_lookup = vec![];
+        entity_lookup.resize_with(gltf.nodes().count(), || None);
+
         let mut world = World::default();
-        world
-            .spawn()
-            .insert_bundle((Transform::identity(), GlobalTransform::identity()))
-            .insert(Name::new(name.to_string()))
-            .with_children(|parent| {
-                for node in scene.nodes() {
-                    let result = load_node(&node, parent, load_context, &buffer_data);
-                    if result.is_err() {
-                        err = Some(result);
-                        return;
-                    }
-                }
-            });
-        if let Some(Err(err)) = err {
-            return Err(err);
+
+        // Scene root
+        let mut root = world.spawn();
+        root.insert_bundle((Transform::identity(), GlobalTransform::identity()));
+
+        // Named scene
+        if let Some(name) = scene.name() {
+            root.insert(Name::new(name.to_string()));
         }
 
-        // Animator component
-        let mut animator = Animator::default();
-        for clip_handle in &clips_handles {
-            animator.add_clip(clip_handle.clone());
-        }
-        world_builder.with(animator);
-
-        world_builder.with_children(|parent| {
+        root.with_children(|parent| {
             for node in scene.nodes() {
                 load_node(&node, &node, parent, load_context, &mut entity_lookup, 0);
             }
         });
+
+        // Scene animator component
+        if clips_handles.len() > 0 {
+            let mut animator = Animator::default();
+            for clip_handle in &clips_handles {
+                animator.add_clip(clip_handle.clone());
+            }
+            root.insert(animator);
+        }
+
+        // Scene skins
+        for node in scene.nodes() {
+            if let Some(skin) = node.skin() {
+                let mut active = world.entity_mut(entity_lookup[node.index()].unwrap());
+
+                let skin_label = skin_label(&skin);
+                let skin_asset_path = AssetPath::new_ref(load_context.path(), Some(&skin_label));
+                let skin_handle: Handle<SkinAsset> = load_context.get_handle(skin_asset_path);
+                active.insert(skin_handle);
+
+                // TODO: Mesh skinner needs a at least a reference to the skeleton root for it to work
+                // for this reason it need to keep track of all entities created by their index in the gltf node vec
+                let skeleton_root = skin.skeleton().map_or(0, |n| n.index());
+                active.insert(SkinComponent::with_root(
+                    entity_lookup[skeleton_root].expect("missing skeleton root entity"),
+                ));
+
+                active.insert(SkinDebugger::default());
+            }
+        }
 
         let scene_handle = load_context
             .set_labeled_asset(&scene_label(&scene), LoadedAsset::new(Scene::new(world)));
@@ -550,7 +561,7 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
 fn load_node(
     root_node: &gltf::Node,
     node: &gltf::Node,
-    world_builder: &mut WorldChildBuilder,
+    parent: &mut WorldChildBuilder,
     load_context: &mut LoadContext,
     entity_lookup: &mut Vec<Option<Entity>>,
     mut depth: usize, // Used to debug (uncomment the prints)
@@ -562,7 +573,7 @@ fn load_node(
     // ? NOTE: Avoid heavy computations when possible, also the blender exporter likes to
     // output decomposed matrixes with is better for us
     let (translation, rotation, scale) = node.transform().decomposed();
-    world_builder.spawn_bundle((
+    let mut active = parent.spawn_bundle((
         Transform {
             translation: translation.into(),
             rotation: rotation.into(),
@@ -571,34 +582,15 @@ fn load_node(
         GlobalTransform::default(),
     ));
 
-    let node_entity = world_builder
-        .current_entity()
-        .expect("entity wasn't created");
-    entity_lookup[node.index()] = Some(node_entity);
+    entity_lookup[node.index()] = Some(active.id());
 
     if let Some(name) = node.name() {
-        world_builder.insert(Name::new(name.to_string()));
-    }
-
-    if let Some(skin) = node.skin() {
-        let skin_label = skin_label(&skin);
-        let skin_asset_path = AssetPath::new_ref(load_context.path(), Some(&skin_label));
-        let skin_handle: Handle<SkinAsset> = load_context.get_handle(skin_asset_path);
-        world_builder.insert(skin_handle);
-
-        // TODO: Mesh skinner needs a at least a reference to the skeleton root for it to work
-        // for this reason it need to keep track of all entities created by their index in the gltf node vec
-        let skeleton_root = skin.skeleton().map_or(root_node.index(), |n| n.index());
-        world_builder.insert(SkinComponent::with_root(
-            entity_lookup[skeleton_root].expect("missing skeleton root entity"),
-        ));
-
-        world_builder.insert(SkinDebugger::default());
+        active.insert(Name::new(name.to_string()));
     }
 
     // create camera node
     if let Some(camera) = node.camera() {
-        world_builder.insert(VisibleEntities {
+        active.insert(VisibleEntities {
             ..Default::default()
         });
 
@@ -616,12 +608,12 @@ fn load_node(
                     ..Default::default()
                 };
 
-                world_builder.insert(Camera {
+                active.insert(Camera {
                     name: Some(base::camera::CAMERA_2D.to_owned()),
                     projection_matrix: orthographic_projection.get_projection_matrix(),
                     ..Default::default()
                 });
-                world_builder.insert(orthographic_projection);
+                active.insert(orthographic_projection);
             }
             gltf::camera::Projection::Perspective(perspective) => {
                 let mut perspective_projection: PerspectiveProjection = PerspectiveProjection {
@@ -635,17 +627,17 @@ fn load_node(
                 if let Some(aspect_ratio) = perspective.aspect_ratio() {
                     perspective_projection.aspect_ratio = aspect_ratio;
                 }
-                world_builder.insert(Camera {
+                active.insert(Camera {
                     name: Some(base::camera::CAMERA_3D.to_owned()),
                     projection_matrix: perspective_projection.get_projection_matrix(),
                     ..Default::default()
                 });
-                world_builder.insert(perspective_projection);
+                active.insert(perspective_projection);
             }
         }
     }
 
-    world_builder.with_children(|parent| {
+    active.with_children(|parent| {
         if let Some(mesh) = node.mesh() {
             // append primitives
             for primitive in mesh.primitives() {

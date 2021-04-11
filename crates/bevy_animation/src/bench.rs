@@ -1,9 +1,14 @@
-use crate::{app::AddAnimated, stage::ANIMATE};
 use bevy_app::{App, AppBuilder};
 use bevy_asset::{Asset, AssetServerSettings};
-use bevy_ecs::{Component, IntoSystem, ParallelSystemDescriptorCoercion, Schedule, SystemStage};
+use bevy_ecs::{
+    component::Component,
+    schedule::{ParallelSystemDescriptorCoercion, Schedule, SystemStage},
+    system::IntoSystem,
+};
 use bevy_reflect::Struct;
 use bevy_transform::prelude::*;
+
+use crate::{app::AddAnimated, AnimationStage};
 
 /// Bench utility
 pub struct Bench {
@@ -26,7 +31,6 @@ impl Bench {
         let mut builder = App::build();
         builder
             .insert_resource(AssetServerSettings { asset_folder })
-            .add_plugin(bevy_reflect::ReflectPlugin::default())
             .add_plugin(bevy_core::CorePlugin::default())
             .add_plugin(bevy_app::ScheduleRunnerPlugin::default())
             .add_plugin(bevy_asset::AssetPlugin::default())
@@ -34,15 +38,15 @@ impl Bench {
             .add_plugin(crate::AnimationPlugin { skinning: false });
 
         let mut schedule = Schedule::default();
-        schedule.add_stage(ANIMATE, SystemStage::parallel());
+        schedule.add_stage(AnimationStage::Animate, SystemStage::parallel());
         schedule.add_system_to_stage(
-            ANIMATE,
+            AnimationStage::Animate,
             crate::animator::animator_update_system
                 .system()
                 .label("animator_update"),
         );
         schedule.add_system_to_stage(
-            ANIMATE,
+            AnimationStage::Animate,
             crate::reflect::animate_component_system::<Transform>
                 .system()
                 .after("animator_update"),
@@ -61,7 +65,7 @@ impl Bench {
     pub fn register_animated_asset<T: Asset + Struct + Default>(&mut self) -> &mut Self {
         self.builder.register_animated_asset::<T>();
         self.schedule.add_system_to_stage(
-            ANIMATE,
+            AnimationStage::Animate,
             crate::reflect::animate_asset_system::<T>
                 .system()
                 .after("animator_update"),
@@ -73,7 +77,7 @@ impl Bench {
     pub fn register_animated_component<T: Component + Struct + Default>(&mut self) -> &mut Self {
         self.builder.register_animated_component::<T>();
         self.schedule.add_system_to_stage(
-            ANIMATE,
+            AnimationStage::Animate,
             crate::reflect::animate_component_system::<T>
                 .system()
                 .after("animator_update"),
@@ -86,10 +90,9 @@ impl Bench {
     pub fn run(&mut self, iterations: usize) -> &mut Self {
         let app = &mut self.builder.app;
         let world = &mut app.world;
-        let resources = &mut app.resources;
 
         for _ in 0..iterations {
-            self.schedule.run_once(world, resources);
+            self.schedule.run_once(world);
         }
 
         self

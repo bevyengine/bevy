@@ -1,11 +1,14 @@
 // TODO: Later merge with bevy_animation
-use crate::hierarchy::Hierarchy;
 use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_core::Name;
-use bevy_ecs::{prelude::*, MapEntities};
+use bevy_ecs::{
+    entity::{EntityMap, MapEntities, MapEntitiesError},
+    prelude::*,
+    reflect::{ReflectComponent, ReflectMapEntities},
+};
 use bevy_math::Mat4;
 use bevy_pbr::prelude::*;
-use bevy_reflect::{Reflect, ReflectComponent, ReflectMapEntities, TypeUuid};
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     mesh::{shape, Indices, Mesh, VertexAttributeValues},
     pipeline::{PipelineDescriptor, PrimitiveTopology, RenderPipelines},
@@ -30,7 +33,7 @@ pub struct SkinAsset {
     /// Inverse bind matrices in root node space
     pub inverse_bind_matrices: Vec<Mat4>,
     /// Skin joint hierarchy, plus one extra the root node as the first entry.
-    pub hierarchy: Hierarchy,
+    pub hierarchy: NamedHierarchy,
 }
 
 #[derive(Default, Debug, Clone, TypeUuid, RenderResources)]
@@ -87,17 +90,14 @@ impl SkinComponent {
     }
 }
 
-impl FromResources for SkinComponent {
-    fn from_resources(_resources: &bevy_ecs::Resources) -> Self {
+impl Default for SkinComponent {
+    fn default() -> Self {
         SkinComponent::with_root(Entity::new(u32::MAX))
     }
 }
 
 impl MapEntities for SkinComponent {
-    fn map_entities(
-        &mut self,
-        entity_map: &bevy_ecs::EntityMap,
-    ) -> Result<(), bevy_ecs::MapEntitiesError> {
+    fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
         for renderer in &mut self.renderers {
             *renderer = entity_map.get(*renderer)?;
         }
@@ -115,7 +115,7 @@ pub(crate) fn skinning_setup(
     let __guard = __span.enter();
 
     let mut forward_skinned_pipeline = pipelines
-        .get(bevy_pbr::render_graph::FORWARD_PIPELINE_HANDLE)
+        .get(bevy_pbr::render_graph::PBR_PIPELINE_HANDLE)
         .expect("missing forward pipeline")
         .clone();
 
@@ -145,7 +145,7 @@ pub(crate) fn skinning_setup(
 // ? https://github.com/KhronosGroup/glTF-Tutorials/blob/master/gltfTutorial/gltfTutorial_020_Skins.md
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn skinning_update(
-    commands: &mut Commands,
+    mut commands: Commands,
     skin_assets: Res<Assets<SkinAsset>>,
     mut skin_instances: ResMut<Assets<SkinInstance>>,
     mut binds_query: Query<(&Handle<SkinAsset>, &mut SkinComponent, &Children)>,
@@ -188,7 +188,7 @@ pub(crate) fn skinning_update(
                 let mut joint_matrices = vec![];
                 joint_matrices.resize(
                     skin_asset.inverse_bind_matrices.len(),
-                    Mat4::identity().to_cols_array(),
+                    Mat4::IDENTITY.to_cols_array(),
                 );
                 skin_bind.instance = Some(skin_instances.add(SkinInstance { joint_matrices }));
             }
@@ -202,7 +202,9 @@ pub(crate) fn skinning_update(
 
             for renderer_entity in skin_bind.renderers.iter().chain(skin_children.iter()) {
                 // Insert right skinning info
-                commands.insert_one(*renderer_entity, skin_instance_handle.clone());
+                commands
+                    .entity(*renderer_entity)
+                    .insert(skin_instance_handle.clone());
 
                 // Change render pipeline
                 if let Ok(mut renderer) = renderers_query.get_mut(*renderer_entity) {
@@ -256,7 +258,7 @@ pub struct SkinDebugger {
 }
 
 pub(crate) fn skinning_debugger_update(
-    commands: &mut Commands,
+    mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     skins: Res<Assets<SkinAsset>>,
     mut debugger_query: Query<(&Handle<SkinAsset>, &SkinComponent, &mut SkinDebugger)>,
@@ -285,11 +287,11 @@ pub(crate) fn skinning_debugger_update(
                 for bone in skinner.joint_entities.iter() {
                     if let Some(entity) = bone {
                         commands
-                            .spawn(PbrBundle {
+                            .spawn_bundle(PbrBundle {
                                 mesh: bone_mesh.clone(),
                                 ..Default::default()
                             })
-                            .with(Parent(*entity));
+                            .insert(Parent(*entity));
                     }
                 }
 
@@ -300,13 +302,15 @@ pub(crate) fn skinning_debugger_update(
             let mesh = meshes.get_mut(mesh_handle).unwrap();
 
             if debugger.entity.is_none() {
-                debugger.entity = commands
-                    .spawn(PbrBundle {
-                        mesh: mesh_handle.clone(),
-                        // TODO: Ignore depth test and draw skeleton on top of everything
-                        ..Default::default()
-                    })
-                    .current_entity()
+                debugger.entity = Some(
+                    commands
+                        .spawn_bundle(PbrBundle {
+                            mesh: mesh_handle.clone(),
+                            // TODO: Ignore depth test and draw skeleton on top of everything
+                            ..Default::default()
+                        })
+                        .id(),
+                )
             }
 
             let positions = skinner

@@ -1,5 +1,5 @@
-use bevy::animation::{tracks::TrackVariableLinear, AddAnimated, Animator, Clip};
-use bevy::prelude::*;
+use bevy::animation::{AddAnimated, Animator, Clip};
+use bevy::{math::curves::CurveVariableLinear, prelude::*};
 
 fn main() {
     App::build()
@@ -10,7 +10,7 @@ fn main() {
 }
 
 fn setup(
-    commands: &mut Commands,
+    mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut clips: ResMut<Assets<Clip>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -19,7 +19,7 @@ fn setup(
     let mut clip = Clip::default();
     clip.add_track_at_path(
         "@Handle<StandardMaterial>.albedo",
-        TrackVariableLinear::from_line(0.0, 1.0, Color::WHITE, Color::ORANGE_RED),
+        CurveVariableLinear::from_line(0.0, 1.0, Color::WHITE, Color::ORANGE_RED),
     );
     let clip_handle = clips.add(clip);
 
@@ -29,7 +29,7 @@ fn setup(
 
     // Animated sphere
     commands
-        .spawn(PbrBundle {
+        .spawn_bundle(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Icosphere {
                 radius: 1.0,
                 subdivisions: 5,
@@ -38,20 +38,20 @@ fn setup(
             material: materials.add(Color::rgb(0.1, 0.05, 0.0).into()),
             ..Default::default()
         })
-        .with(animator);
+        .insert(animator);
 
     // Camera and Light
-    commands
-        .spawn(LightBundle {
-            transform: Transform::from_translation(Vec3::new(4.0, 8.0, 4.0)),
-            ..Default::default()
-        })
-        .spawn(PerspectiveCameraBundle {
-            transform: Transform::from_matrix(Mat4::face_toward(
-                Vec3::new(-3.0, 5.0, 8.0),
-                Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(0.0, 1.0, 0.0),
-            )),
-            ..Default::default()
-        });
+    commands.spawn_bundle(LightBundle {
+        transform: Transform::from_translation(Vec3::new(4.0, 8.0, 4.0)),
+        ..Default::default()
+    });
+
+    commands.spawn_bundle(PerspectiveCameraBundle {
+        transform: Transform::from_matrix(Mat4::face_toward(
+            Vec3::new(-3.0, 5.0, 8.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        )),
+        ..Default::default()
+    });
 }

@@ -45,8 +45,6 @@ impl VertexAttributeValues {
     /// mesh, all of the VertexAttributeValues must have the same length.
     pub fn len(&self) -> usize {
         match *self {
-            VertexAttributeValues::Uchar4(ref values) => values.len(),
-            VertexAttributeValues::Ushort4(ref values) => values.len(),
             VertexAttributeValues::Float(ref values) => values.len(),
             VertexAttributeValues::Int(ref values) => values.len(),
             VertexAttributeValues::Uint(ref values) => values.len(),
@@ -74,8 +72,6 @@ impl VertexAttributeValues {
     /// useful for serialization and sending to the GPU.
     pub fn get_bytes(&self) -> &[u8] {
         match self {
-            VertexAttributeValues::Uchar4(values) => values.as_slice().as_bytes(),
-            VertexAttributeValues::Ushort4(values) => values.as_slice().as_bytes(),
             VertexAttributeValues::Float(values) => values.as_slice().as_bytes(),
             VertexAttributeValues::Int(values) => values.as_slice().as_bytes(),
             VertexAttributeValues::Uint(values) => values.as_slice().as_bytes(),
@@ -97,8 +93,6 @@ impl VertexAttributeValues {
 impl From<&VertexAttributeValues> for VertexFormat {
     fn from(values: &VertexAttributeValues) -> Self {
         match values {
-            VertexAttributeValues::Uchar4(_) => VertexFormat::Uchar4,
-            VertexAttributeValues::Ushort4(_) => VertexFormat::Ushort4,
             VertexAttributeValues::Float(_) => VertexFormat::Float,
             VertexAttributeValues::Int(_) => VertexFormat::Int,
             VertexAttributeValues::Uint(_) => VertexFormat::Uint,

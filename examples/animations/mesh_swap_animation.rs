@@ -1,5 +1,5 @@
-use bevy::animation::{tracks::TrackVariableLinear, AddAnimated, Animator, Clip};
-use bevy::prelude::*;
+use bevy::animation::{AddAnimated, Animator, Clip};
+use bevy::{math::curves::CurveVariableLinear, prelude::*};
 
 fn main() {
     App::build()
@@ -10,7 +10,7 @@ fn main() {
 }
 
 fn setup(
-    commands: &mut Commands,
+    mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut clips: ResMut<Assets<Clip>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -27,7 +27,7 @@ fn setup(
     let mut clip = Clip::default();
     clip.add_track_at_path(
         "@Handle<Mesh>",
-        TrackVariableLinear::new(
+        CurveVariableLinear::new(
             vec![0.0, 0.5, 1.0],
             vec![cube.clone(), sphere, cube.clone()],
         ),
@@ -39,25 +39,25 @@ fn setup(
     animator.add_layer(clip_handle, 1.0);
 
     commands
-        .spawn(PbrBundle {
+        .spawn_bundle(PbrBundle {
             mesh: cube,
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)),
             material: materials.add(Color::ANTIQUE_WHITE.into()),
             ..Default::default()
         })
-        .with(animator);
+        .insert(animator);
 
-    commands
-        .spawn(LightBundle {
-            transform: Transform::from_translation(Vec3::new(4.0, 8.0, 4.0)),
-            ..Default::default()
-        })
-        .spawn(PerspectiveCameraBundle {
-            transform: Transform::from_matrix(Mat4::face_toward(
-                Vec3::new(-3.0, 5.0, 8.0),
-                Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(0.0, 1.0, 0.0),
-            )),
-            ..Default::default()
-        });
+    commands.spawn_bundle(LightBundle {
+        transform: Transform::from_translation(Vec3::new(4.0, 8.0, 4.0)),
+        ..Default::default()
+    });
+
+    commands.spawn_bundle(PerspectiveCameraBundle {
+        transform: Transform::from_matrix(Mat4::face_toward(
+            Vec3::new(-3.0, 5.0, 8.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        )),
+        ..Default::default()
+    });
 }

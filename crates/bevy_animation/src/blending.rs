@@ -1,13 +1,8 @@
 use std::mem::size_of;
 
 use bevy_asset::{Asset, Handle, HandleUntyped};
-use bevy_math::prelude::*;
-use bevy_render::color::Color;
-
-use crate::interpolation::{
-    utils::{Scale2, Scale3},
-    Lerp,
-};
+use bevy_math::{interpolation::Lerp, prelude::*};
+//use bevy_render::color::Color;
 
 /// Mask size used to blend properties, each bit corresponds to a single property
 pub type Mask = u32;
@@ -115,20 +110,20 @@ fn additive_blend_quat(a: &Quat, b: &Quat, w: f32) -> Quat {
     (*b * w) * *a
 }
 
-#[inline]
-fn additive_blend_scale2(a: &Scale2, b: &Scale2, w: f32) -> Scale2 {
-    Scale2((Vec2::one() + (b.0 * w)) * a.0)
-}
+// #[inline]
+// fn additive_blend_scale2(a: &Scale2, b: &Scale2, w: f32) -> Scale2 {
+//     Scale2((Vec2::one() + (b.0 * w)) * a.0)
+// }
 
-#[inline]
-fn additive_blend_scale3(a: &Scale3, b: &Scale3, w: f32) -> Scale3 {
-    Scale3((Vec3::one() + (b.0 * w)) * a.0)
-}
+// #[inline]
+// fn additive_blend_scale3(a: &Scale3, b: &Scale3, w: f32) -> Scale3 {
+//     Scale3((Vec3::one() + (b.0 * w)) * a.0)
+// }
 
-#[inline]
-fn additive_blend_color(a: &Color, b: &Color, w: f32) -> Color {
-    (Vec4::from(*a) + (Vec4::from(*b) * w)).into()
-}
+// #[inline]
+// fn additive_blend_color(a: &Color, b: &Color, w: f32) -> Color {
+//     (Vec4::from(*a) + (Vec4::from(*b) * w)).into()
+// }
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -210,9 +205,10 @@ impl_blend!(Vec2, Lerp::lerp, additive_blend_vec2);
 impl_blend!(Vec3, Lerp::lerp, additive_blend_vec3);
 impl_blend!(Vec4, Lerp::lerp, additive_blend_vec4);
 impl_blend!(Quat, Lerp::lerp, additive_blend_quat);
-impl_blend!(Scale2, Lerp::lerp, additive_blend_scale2);
-impl_blend!(Scale3, Lerp::lerp, additive_blend_scale3);
-impl_blend!(Color, Lerp::lerp, additive_blend_color);
+// impl_blend!(Scale2, Lerp::lerp, additive_blend_scale2);
+// impl_blend!(Scale3, Lerp::lerp, additive_blend_scale3);
+// TODO: impl Blend for Color
+//impl_blend!(Color, Lerp::lerp, additive_blend_color);
 
 ///////////////////////////////////////////////////////////////////////////////
 
