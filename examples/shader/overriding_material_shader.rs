@@ -19,25 +19,29 @@ pub const CUSTOM_SPRITE_PIPELINE_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 2785347850338765446);
 
 //This bundle exists to make spawning shader-overriden sprites easier
-#[derive(Bundle, Default)]
+#[derive(Bundle)]
 struct CustomSpriteBundle {
     #[bundle]
     sprite: SpriteBundle,
 }
-impl CustomSpriteBundle {
-    fn new(material_handle: Handle<ColorMaterial>) -> Self {
-        Self {
+impl Default for CustomSpriteBundle{
+    fn default() -> Self {
+        Self{
             sprite: SpriteBundle {
-                //We set the material for the sprite
-                material: material_handle,
                 //We make sure the sprite is rendered in our custom pipeline
                 render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                     CUSTOM_SPRITE_PIPELINE_HANDLE.typed(),
                 )]),
                 ..Default::default()
             },
-            ..Default::default()
         }
+    }
+}
+impl CustomSpriteBundle {
+    fn new(material_handle: Handle<ColorMaterial>) -> Self {
+        let mut default = Self::default();
+        default.sprite.material = material_handle;
+        return default;
     }
 }
 //We're copying everything from the original fragment shader, but changing stuff in the main() function of the shader
