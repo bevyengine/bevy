@@ -1,3 +1,5 @@
+#version 450
+
 // From the Filament design doc
 // https://google.github.io/filament/Filament.html#table_symbols
 // Symbol Definition
@@ -31,8 +33,6 @@
 // f_m is the microfacet BRDF and differs between specular and diffuse components
 //
 // The above integration needs to be approximated.
-
-#version 450
 
 const int MAX_LIGHTS = 10;
 
