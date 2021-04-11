@@ -377,6 +377,10 @@ name = "shader_custom_material"
 path = "examples/shader/shader_custom_material.rs"
 
 [[example]]
+name = "overriding_material_shader"
+path = "examples/shader/overriding_material_shader.rs"
+
+[[example]]
 name = "shader_defs"
 path = "examples/shader/shader_defs.rs"
 
