@@ -268,7 +268,9 @@ impl From<Plane> for Mesh {
 mod capsule;
 mod icosphere;
 mod torus;
+mod uvsphere;
 
 pub use capsule::{Capsule, CapsuleUvProfile};
 pub use icosphere::Icosphere;
 pub use torus::Torus;
+pub use uvsphere::UVSphere;
