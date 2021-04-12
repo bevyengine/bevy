@@ -13,9 +13,8 @@ fn main() {
         .insert_resource(Scoreboard { score: 0 })
         .insert_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
         .add_startup_system(setup.system())
-        .add_stage(
-            FixedUpdateStage,
-            SystemStage::parallel()
+        .add_system_set(
+            SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
                 .with_system(paddle_movement_system.system())
                 .with_system(ball_collision_system.system())
@@ -24,9 +23,6 @@ fn main() {
         .add_system(scoreboard_system.system())
         .run();
 }
-
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-struct FixedUpdateStage;
 
 struct Paddle {
     speed: f32,
