@@ -41,15 +41,13 @@ fn did_hurt_enemy() {
     let mut update_stage = SystemStage::parallel();
     update_stage.add_system(hurt_enemies.system().before("death"));
     update_stage.add_system(despawn_dead_enemies.system().label("death"));
-    let mut schedule = Schedule::default();
-    schedule.add_stage("update", update_stage);
 
     // Setup test entities
     let ennemy_id = commands.spawn().insert(Enemy { hit_points: 5 }).id();
     queue.apply(&mut world);
 
     // Run systems
-    schedule.run(&mut world);
+    update_stage.run(&mut world);
 
     // Check resulting changes
     assert!(world.get::<Enemy>(ennemy_id).is_some());
@@ -67,15 +65,13 @@ fn did_despawn_enemy() {
     let mut update_stage = SystemStage::parallel();
     update_stage.add_system(hurt_enemies.system().before("death"));
     update_stage.add_system(despawn_dead_enemies.system().label("death"));
-    let mut schedule = Schedule::default();
-    schedule.add_stage("update", update_stage);
 
     // Setup test entities
     let ennemy_id = commands.spawn().insert(Enemy { hit_points: 1 }).id();
     queue.apply(&mut world);
 
     // Run systems
-    schedule.run(&mut world);
+    update_stage.run(&mut world);
 
     // Check resulting changes
     assert!(world.get::<Enemy>(ennemy_id).is_none());
@@ -91,8 +87,6 @@ fn spawned_from_resource() {
     // Setup stage with a system
     let mut update_stage = SystemStage::parallel();
     update_stage.add_system(spawn_enemy.system());
-    let mut schedule = Schedule::default();
-    schedule.add_stage("update", update_stage);
 
     // Setup test resource
     let mut hit_points = HashMap::new();
@@ -101,7 +95,7 @@ fn spawned_from_resource() {
     queue.apply(&mut world);
 
     // Run systems
-    schedule.run(&mut world);
+    update_stage.run(&mut world);
 
     // Check resulting changes
     let mut query = world.query::<&Enemy>();
