@@ -57,11 +57,13 @@ impl LightRaw {
 
         // premultiply color by intensity
         // we don't use the alpha at all, so no reason to multiply only [0..3]
-        let color: [f32; 4] = (light.color * light.intensity).into();
+        let mut color: [f32; 4] = (light.color * light.intensity).into();
+        color[3] = light.radius;
+        
         LightRaw {
             proj: proj.to_cols_array_2d(),
             pos: [x, y, z, 1.0 / (light.range * light.range)], // pos.w is the attenuation.
-            color: [color[0], color[1], color[2], light.radius],
+            color,
         }
     }
 }

@@ -194,12 +194,12 @@ vec3 fresnel(vec3 f0, float LoH) {
 // Cook-Torrance approximation of the microfacet model integration using Fresnel law F to model f_m
 // f_r(v,l) = { D(h,α) G(v,l,α) F(v,h,f0) } / { 4 (n⋅v) (n⋅l) }
 vec3 specular(vec3 f0, float roughness, const vec3 h, float NoV, float NoL,
-              float NoH, float LoH) {
+              float NoH, float LoH, float specularIntensity) {
     float D = D_GGX(roughness, NoH, h);
     float V = V_SmithGGXCorrelated(roughness, NoV, NoL);
     vec3 F = fresnel(f0, LoH);
 
-    return (D * V) * F;
+    return (specularIntensity * D * V) * F;
 }
 
 // Diffuse BRDF
@@ -362,12 +362,12 @@ void main() {
 
         // Specular.
         // Representative Point Area Lights.
-        // cf http://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf p14-16
+        // see http://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf p14-16
+        float a = roughness;
         float radius = light.color.a;
         vec3 centerToRay = dot(lightDir, R) * R - lightDir;
         vec3 closestPoint = lightDir + centerToRay * saturate(radius * inversesqrt(dot(centerToRay, centerToRay)));
         float LspecLengthInverse = inversesqrt(dot(closestPoint, closestPoint));
-        float a = roughness;
         float normalizationFactor = a / saturate(a + (radius * 0.5 * LspecLengthInverse));
         float specularIntensity = normalizationFactor * normalizationFactor;
 
@@ -377,7 +377,7 @@ void main() {
         NoH = saturate(dot(N, H));
         LoH = saturate(dot(L, H));
 
-        vec3 specular = specularIntensity * specular(F0, roughness, H, NdotV, NoL, NoH, LoH);
+        vec3 specular = specular(F0, roughness, H, NdotV, NoL, NoH, LoH, specularIntensity);
 
         // Lout = f(v,l) Φ / { 4 π d^2 }⟨n⋅l⟩
         // where
