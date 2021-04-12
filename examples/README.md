@@ -132,7 +132,7 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `custom_diagnostic` | [`diagnostics/custom_diagnostic.rs`](./diagnostics/custom_diagnostic.rs) | Shows how to create a custom diagnostic
-`how_to_test_systems` | [`../tests/how_to_test_systems.rs`](../tests/how_to_test_systems.rs) | How to tests systems with commands, queries or resources
+`how_to_test_systems` | [`../tests/how_to_test_systems.rs`](../tests/how_to_test_systems.rs) | How to test systems with commands, queries or resources
 `log_diagnostics` | [`diagnostics/log_diagnostics.rs`](./diagnostics/log_diagnostics.rs) | Add a plugin that logs diagnostics to the console
 
 ## ECS (Entity Component System)
