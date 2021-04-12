@@ -1,7 +1,7 @@
-use crate::{path::AssetPath, LabelId};
+use crate::{path::AssetPath, AssetServerError, LabelId};
 use bevy_utils::{HashMap, HashSet, Uuid};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SourceMeta {
@@ -39,10 +39,11 @@ impl SourceInfo {
 }
 
 /// The load state of an asset
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Debug)]
 pub enum LoadState {
     NotLoaded,
     Loading,
     Loaded,
-    Failed,
+    Failed(Arc<AssetServerError>),
+    Removing,
 }

@@ -187,7 +187,7 @@ impl AssetServer {
                 let asset_sources = self.server.asset_sources.read();
                 asset_sources
                     .get(&id.source_path_id())
-                    .map_or(LoadState::NotLoaded, |info| info.load_state)
+                    .map_or(LoadState::NotLoaded, |info| info.load_state.clone())
             }
             HandleId::Id(_, _) => LoadState::NotLoaded,
         }
@@ -202,8 +202,9 @@ impl AssetServer {
                     LoadState::Loading => {
                         load_state = LoadState::Loading;
                     }
-                    LoadState::Failed => return LoadState::Failed,
                     LoadState::NotLoaded => return LoadState::NotLoaded,
+                    LoadState::Failed(err) => return LoadState::Failed(err),
+                    LoadState::Removing => return LoadState::Removing,
                 },
                 HandleId::Id(_, _) => return LoadState::NotLoaded,
             }
@@ -216,12 +217,11 @@ impl AssetServer {
         self.load_untyped(path).typed()
     }
 
-    // TODO: properly set failed LoadState in all failure cases
     async fn load_async(
         &self,
         asset_path: AssetPath<'_>,
         force: bool,
-    ) -> Result<AssetPathId, AssetServerError> {
+    ) -> Result<AssetPathId, Arc<AssetServerError>> {
         let asset_loader = self.get_path_asset_loader(asset_path.path())?;
         let asset_path_id: AssetPathId = asset_path.get_id();
 
@@ -257,18 +257,23 @@ impl AssetServer {
             source_info.version
         };
 
-        // load the asset bytes
-        let bytes = match self.server.asset_io.load_path(asset_path.path()).await {
-            Ok(bytes) => bytes,
-            Err(err) => {
-                let mut asset_sources = self.server.asset_sources.write();
-                let source_info = asset_sources
-                    .get_mut(&asset_path_id.source_path_id())
-                    .expect("`AssetSource` should exist at this point.");
-                source_info.load_state = LoadState::Failed;
-                return Err(AssetServerError::AssetIoError(err));
-            }
+        let set_load_state = |err| {
+            let err: Arc<AssetServerError> = Arc::new(err);
+            let mut asset_sources = self.server.asset_sources.write();
+            let source_info = asset_sources
+                .get_mut(&asset_path_id.source_path_id())
+                .expect("`AssetSource` should exist at this point.");
+            source_info.load_state = LoadState::Failed(err.clone());
+            err
         };
+
+        // load the asset bytes
+        let bytes = self
+            .server
+            .asset_io
+            .load_path(asset_path.path())
+            .await
+            .map_err(|err| set_load_state(AssetServerError::AssetIoError(err)))?;
 
         // load the asset source using the corresponding AssetLoader
         let mut load_context = LoadContext::new(
@@ -277,10 +282,11 @@ impl AssetServer {
             &*self.server.asset_io,
             version,
         );
+
         asset_loader
             .load(&bytes, &mut load_context)
             .await
-            .map_err(AssetServerError::AssetLoaderError)?;
+            .map_err(|err| set_load_state(AssetServerError::AssetLoaderError(err)))?;
 
         // if version has changed since we loaded and grabbed a lock, return. theres is a newer
         // version being loaded
@@ -336,7 +342,7 @@ impl AssetServer {
             .task_pool
             .spawn(async move {
                 if let Err(err) = server.load_async(owned_path, force).await {
-                    warn!("{}", err);
+                    warn!("{}", *err);
                 }
             })
             .detach();
@@ -374,7 +380,7 @@ impl AssetServer {
     pub fn free_unused_assets(&self) {
         let receiver = &self.server.asset_ref_counter.channel.receiver;
         let mut ref_counts = self.server.asset_ref_counter.ref_counts.write();
-        let asset_sources = self.server.asset_sources.read();
+        let mut asset_sources = self.server.asset_sources.write();
         let mut potential_frees = Vec::new();
         loop {
             let ref_change = match receiver.try_recv() {
@@ -402,8 +408,11 @@ impl AssetServer {
                         let type_uuid = match potential_free {
                             HandleId::Id(type_uuid, _) => Some(type_uuid),
                             HandleId::AssetPathId(id) => asset_sources
-                                .get(&id.source_path_id())
-                                .and_then(|source_info| source_info.get_asset_type(id.label_id())),
+                                .get_mut(&id.source_path_id())
+                                .and_then(|info| {
+                                    info.load_state = LoadState::Removing;
+                                    info.get_asset_type(id.label_id())
+                                }),
                         };
 
                         if let Some(type_uuid) = type_uuid {
@@ -468,17 +477,28 @@ impl AssetServer {
                     let _ = assets.set(result.id, result.asset);
                 }
                 Ok(AssetLifecycleEvent::Free(handle_id)) => {
-                    if let HandleId::AssetPathId(id) = handle_id {
-                        let asset_sources = asset_sources_guard
-                            .get_or_insert_with(|| self.server.asset_sources.write());
-                        if let Some(source_info) = asset_sources.get_mut(&id.source_path_id()) {
-                            source_info.committed_assets.remove(&id.label_id());
-                            if source_info.is_loaded() {
-                                source_info.load_state = LoadState::Loaded;
+                    let should_remove = match &handle_id {
+                        HandleId::AssetPathId(id) => {
+                            let asset_sources = asset_sources_guard
+                                .get_or_insert_with(|| self.server.asset_sources.write());
+                            match asset_sources.entry(id.source_path_id()) {
+                                Entry::Occupied(o) => match o.get().load_state {
+                                    LoadState::Removing => {
+                                        o.remove();
+                                        true
+                                    }
+                                    _ => false,
+                                },
+                                Entry::Vacant(_) => false,
                             }
                         }
+                        HandleId::Id(..) => true,
+                    };
+
+                    if should_remove {
+                        self.server.handle_to_path.write().remove(&handle_id);
+                        assets.remove(handle_id);
                     }
-                    assets.remove(handle_id);
                 }
                 Err(TryRecvError::Empty) => {
                     break;
