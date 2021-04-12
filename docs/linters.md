@@ -2,7 +2,7 @@
 
 ## Code Format Linting with [rustfmt](https://github.com/rust-lang/rustfmt)
 
-Can be automatically run with [`cargo ci`](../tools/ci) (which also runs other checks) or manually with this command:
+Can be automatically validated with [`cargo run -p ci`](../tools/ci) (which also runs other checks). Running this command will actually format the code:
 
 ```bash
 cargo fmt --all
@@ -10,7 +10,7 @@ cargo fmt --all
 
 ## Code Linting with [Clippy](https://github.com/rust-lang/rust-clippy)
 
-Can be automatically run with [`cargo ci`](../tools/ci) (which also runs other checks) or manually with this command:
+Can be automatically run with [`cargo run -p ci`](../tools/ci) (which also runs other checks) or manually with this command:
 
 ```bash
 cargo clippy --workspace --all-targets --all-features -- -D warnings -A clippy::type_complexity -A clippy::manual-strip
