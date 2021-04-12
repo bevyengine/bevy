@@ -367,7 +367,7 @@ void main() {
         vec3 centerToRay = dot(lightDir, R) * R - lightDir;
         vec3 closestPoint = lightDir + centerToRay * saturate(radius * inversesqrt(dot(centerToRay, centerToRay)));
         float LspecLengthInverse = inversesqrt(dot(closestPoint, closestPoint));
-        float a = roughness * roughness;
+        float a = roughness;
         float normalizationFactor = a / saturate(a + (radius * 0.5 * LspecLengthInverse));
         float specularIntensity = normalizationFactor * normalizationFactor;
 
