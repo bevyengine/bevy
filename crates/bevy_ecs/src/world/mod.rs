@@ -194,13 +194,10 @@ impl World {
     where
         I: IntoIterator<Item = ComponentDescriptor>,
     {
-        let mut ids = vec![];
-
-        for descriptor in descriptors {
-            ids.push(self.register_component(descriptor)?);
-        }
-
-        Ok(ids)
+        descriptors
+            .into_iter()
+            .map(|descriptor| self.register_component(descriptor))
+            .collect()
     }
 
     /// Retrieves an [EntityRef] that exposes read-only operations for the given `entity`.
