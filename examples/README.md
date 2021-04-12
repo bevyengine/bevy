@@ -40,7 +40,7 @@ git checkout v0.4.0
   - [Application](#application)
   - [Assets](#assets)
   - [Audio](#audio)
-  - [Diagnostics](#diagnostics)
+  - [Development](#development)
   - [ECS (Entity Component System)](#ecs-entity-component-system)
   - [Games](#games)
   - [Input](#input)
@@ -127,12 +127,13 @@ Example | File | Description
 --- | --- | ---
 `audio` | [`audio/audio.rs`](./audio/audio.rs) | Shows how to load and play an audio file
 
-## Diagnostics
+## Development
 
 Example | File | Description
 --- | --- | ---
-`log_diagnostics` | [`diagnostics/log_diagnostics.rs`](./diagnostics/log_diagnostics.rs) | Add a plugin that logs diagnostics to the console
 `custom_diagnostic` | [`diagnostics/custom_diagnostic.rs`](./diagnostics/custom_diagnostic.rs) | Shows how to create a custom diagnostic
+`how_to_test_systems` | [`../tests/how_to_test_systems.rs`](../tests/how_to_test_systems.rs) | How to tests systems with commands, queries or resources
+`log_diagnostics` | [`diagnostics/log_diagnostics.rs`](./diagnostics/log_diagnostics.rs) | Add a plugin that logs diagnostics to the console
 
 ## ECS (Entity Component System)
 
@@ -197,14 +198,6 @@ Example | File | Description
 `mesh_custom_attribute` | [`shader/mesh_custom_attribute.rs`](./shader/mesh_custom_attribute.rs) | Illustrates how to add a custom attribute to a mesh and use it in a custom shader
 `shader_custom_material` | [`shader/shader_custom_material.rs`](./shader/shader_custom_material.rs) | Illustrates creating a custom material and a shader that uses it
 `shader_defs` | [`shader/shader_defs.rs`](./shader/shader_defs.rs) | Demonstrates creating a custom material that uses "shaders defs" (a tool to selectively toggle parts of a shader)
-
-## Tests
-
-Those are not in examples, but in the tests folder.
-
-Example | File | Description
---- | --- | ---
-`how_to_test_systems` | [`../tests/how_to_test_systems.rs`](../tests/how_to_test_systems.rs) | How to tests systems with commands, queries or resources
 
 ## Tools
 
