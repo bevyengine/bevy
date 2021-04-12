@@ -1,3 +1,4 @@
+mod accessor;
 mod commands;
 mod exclusive_system;
 mod into_system;
@@ -7,6 +8,7 @@ mod system;
 mod system_chaining;
 mod system_param;
 
+pub use accessor::*;
 pub use commands::*;
 pub use exclusive_system::*;
 pub use into_system::*;

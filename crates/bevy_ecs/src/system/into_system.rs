@@ -33,6 +33,17 @@ impl SystemState {
         }
     }
 
+    pub fn with_name(name: Cow<'static, str>) -> Self {
+        Self {
+            name,
+            archetype_component_access: Access::default(),
+            component_access_set: FilteredAccessSet::default(),
+            is_send: true,
+            id: SystemId::new(),
+            last_change_tick: 0,
+        }
+    }
+
     #[inline]
     pub fn is_send(&self) -> bool {
         self.is_send
