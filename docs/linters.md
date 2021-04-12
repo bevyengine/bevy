@@ -1,20 +1,22 @@
 # Linters in this Repository
 
-## [rustfmt](https://github.com/rust-lang/rustfmt)
+## Code Format Linting with [rustfmt](https://github.com/rust-lang/rustfmt)
 
-Can be automatically be run with the [CI Script](../tools/ci) together with `Clippy` or manually with this command:
-
-```bash
-cargo +nightly fmt --all
-```
-
-## [Clippy](https://github.com/rust-lang/rust-clippy)
-
-Can be automatically be run with the [CI Script](../tools/ci) together with `rustfmt` or manually with this command:
+Can be automatically validated with [`cargo run -p ci`](../tools/ci) (which also runs other checks). Running this command will actually format the code:
 
 ```bash
-cargo clippy --all-targets --all-features -- -D warnings -A clippy::type_complexity -A clippy::manual-strip
+cargo fmt --all
 ```
+
+## Code Linting with [Clippy](https://github.com/rust-lang/rust-clippy)
+
+Can be automatically run with [`cargo run -p ci`](../tools/ci) (which also runs other checks) or manually with this command:
+
+```bash
+cargo clippy --workspace --all-targets --all-features -- -D warnings -A clippy::type_complexity -A clippy::manual-strip
+```
+
+Explanation:
 
 * `-D warnings`: No warnings are allowed in the codebase.
 * `-A clippy::type_complexity`: type complexity must be ignored because we use huge templates for queries.
