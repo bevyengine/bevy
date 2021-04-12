@@ -8,12 +8,6 @@ use bevy::{
 
 fn main() {
     App::build()
-        .insert_resource(WindowDescriptor {
-            title: "A Shaded Star".to_owned(),
-            width: 500.0,
-            height: 500.0,
-            ..Default::default()
-        })
         .add_plugins(DefaultPlugins)
         .add_startup_system(star.system())
         .run();
@@ -116,7 +110,7 @@ layout(location = 1) in vec3 Vertex_Color;
 
 layout(location = 1) out vec3 v_Color;
 
-layout(set = 0, binding = 0) uniform Camera {
+layout(set = 0, binding = 0) uniform CameraViewProj {
     mat4 ViewProj;
 };
 
