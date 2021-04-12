@@ -57,7 +57,10 @@ impl<P: SystemParam> Clone for Accessor<P> {
     }
 }
 
+#[doc(hidden)]
 pub trait AccessFn<'a, Out, Param: SystemParam, M>: Send + Sync + 'static {
+    /// # Safety
+    /// this is an internal trait that exists to bypass some limitations of rustc, please ignore it.
     unsafe fn run(
         self: Box<Self>,
         state: &'a mut Param::Fetch,
