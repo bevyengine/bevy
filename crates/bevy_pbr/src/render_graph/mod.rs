@@ -37,7 +37,7 @@ pub(crate) fn add_pbr_graph(world: &mut World) {
             node::STANDARD_MATERIAL,
             AssetRenderResourcesNode::<StandardMaterial>::new(true),
         );
-        graph.add_system_node(node::LIGHTS, LightsNode::new(256));
+        graph.add_system_node(node::LIGHTS, LightsNode::new(10));
 
         // TODO: replace these with "autowire" groups
         graph
