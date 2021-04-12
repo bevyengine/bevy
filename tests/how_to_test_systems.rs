@@ -43,15 +43,15 @@ fn did_hurt_enemy() {
     update_stage.add_system(despawn_dead_enemies.system().label("death"));
 
     // Setup test entities
-    let ennemy_id = commands.spawn().insert(Enemy { hit_points: 5 }).id();
+    let enemy_id = commands.spawn().insert(Enemy { hit_points: 5 }).id();
     queue.apply(&mut world);
 
     // Run systems
     update_stage.run(&mut world);
 
     // Check resulting changes
-    assert!(world.get::<Enemy>(ennemy_id).is_some());
-    assert_eq!(world.get::<Enemy>(ennemy_id).unwrap().hit_points, 4);
+    assert!(world.get::<Enemy>(enemy_id).is_some());
+    assert_eq!(world.get::<Enemy>(enemy_id).unwrap().hit_points, 4);
 }
 
 #[test]
@@ -67,14 +67,14 @@ fn did_despawn_enemy() {
     update_stage.add_system(despawn_dead_enemies.system().label("death"));
 
     // Setup test entities
-    let ennemy_id = commands.spawn().insert(Enemy { hit_points: 1 }).id();
+    let enemy_id = commands.spawn().insert(Enemy { hit_points: 1 }).id();
     queue.apply(&mut world);
 
     // Run systems
     update_stage.run(&mut world);
 
     // Check resulting changes
-    assert!(world.get::<Enemy>(ennemy_id).is_none());
+    assert!(world.get::<Enemy>(enemy_id).is_none());
 }
 
 #[test]
