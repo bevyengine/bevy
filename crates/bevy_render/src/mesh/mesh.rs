@@ -208,8 +208,10 @@ impl From<&Indices> for IndexFormat {
 #[uuid = "8ecbac0f-f545-4473-ad43-e1f4243af51e"]
 pub struct Mesh {
     primitive_topology: PrimitiveTopology,
-    /// `bevy_utils::HashMap` with all defined vertex attributes (Positions, Normals, ...) for this
+    /// `std::collections::BTreeMap` with all defined vertex attributes (Positions, Normals, ...) for this
     /// mesh. Attribute name maps to attribute values.
+    /// Uses a BTreeMap because, unlike HashMap, it has a defined iteration order,
+    /// which allows easy stable VertexBuffers (i.e. same buffer order)
     attributes: BTreeMap<Cow<'static, str>, VertexAttributeValues>,
     indices: Option<Indices>,
 }
