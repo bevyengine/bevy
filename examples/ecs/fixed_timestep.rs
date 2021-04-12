@@ -11,13 +11,15 @@ struct FixedUpdateStage;
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
+        // this system will run once every update (it should match your screen's refresh rate)
+        .add_system(frame_update.system())
         // add a new stage that runs every two seconds
         .add_stage_after(
             CoreStage::Update,
             FixedUpdateStage,
             SystemStage::parallel()
                 .with_run_criteria(
-                    FixedTimestep::step(2.0)
+                    FixedTimestep::step(0.5)
                         // labels are optional. they provide a way to access the current
                         // FixedTimestep state from within a system
                         .with_label(LABEL),
@@ -25,6 +27,11 @@ fn main() {
                 .with_system(fixed_update.system()),
         )
         .run();
+}
+
+fn frame_update(mut last_time: Local<f64>, time: Res<Time>) {
+    println!("update: {}", time.seconds_since_startup() - *last_time);
+    *last_time = time.seconds_since_startup();
 }
 
 fn fixed_update(mut last_time: Local<f64>, time: Res<Time>, fixed_timesteps: Res<FixedTimesteps>) {
