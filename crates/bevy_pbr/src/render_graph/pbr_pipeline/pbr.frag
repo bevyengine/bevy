@@ -340,24 +340,44 @@ void main() {
     // Diffuse strength inversely related to metallicity
     vec3 diffuseColor = output_color.rgb * (1.0 - metallic);
 
+    vec3 R = reflect(-V, N);
+
     // accumulate color
     vec3 light_accum = vec3(0.0);
     for (int i = 0; i < int(NumLights.x) && i < MAX_LIGHTS; ++i) {
         Light light = SceneLights[i];
 
         vec3 lightDir = light.pos.xyz - v_WorldPosition.xyz;
-        vec3 L = normalize(lightDir);
-
         float rangeAttenuation =
             getDistanceAttenuation(lightDir, light.pos.w);
 
+        // Diffuse.
+        vec3 L = normalize(lightDir);
         vec3 H = normalize(L + V);
         float NoL = saturate(dot(N, L));
         float NoH = saturate(dot(N, H));
         float LoH = saturate(dot(L, H));
 
-        vec3 specular = specular(F0, roughness, H, NdotV, NoL, NoH, LoH);
         vec3 diffuse = diffuseColor * Fd_Burley(roughness, NdotV, NoL, LoH);
+
+        // Specular.
+        // Representative Point Area Lights.
+        // cf http://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf p14-16
+        float radius = light.color.a;
+        vec3 centerToRay = dot(lightDir, R) * R - lightDir;
+        vec3 closestPoint = lightDir + centerToRay * saturate(radius * inversesqrt(dot(centerToRay, centerToRay)));
+        float LspecLengthInverse = inversesqrt(dot(closestPoint, closestPoint));
+        float a = roughness * roughness;
+        float normalizationFactor = a / saturate(a + (radius * 0.5 * LspecLengthInverse));
+        float specularIntensity = normalizationFactor * normalizationFactor;
+
+        L = normalize(closestPoint * LspecLengthInverse);
+        H = normalize(L + V);
+        NoL = saturate(dot(N, L));
+        NoH = saturate(dot(N, H));
+        LoH = saturate(dot(L, H));
+
+        vec3 specular = specularIntensity * specular(F0, roughness, H, NdotV, NoL, NoH, LoH);
 
         // Lout = f(v,l) Φ / { 4 π d^2 }⟨n⋅l⟩
         // where
