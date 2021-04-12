@@ -400,6 +400,10 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             fn default_config() -> TSystemParamState::Config {
                 TSystemParamState::default_config()
             }
+
+            fn apply(&mut self, world: &mut #path::world::World) {
+                self.state.apply(world)
+            }
         }
 
         impl #impl_generics #path::system::SystemParamFetch<'a> for #fetch_struct_name <(#(<#field_types as SystemParam>::Fetch,)*), #punctuated_generic_idents> {
