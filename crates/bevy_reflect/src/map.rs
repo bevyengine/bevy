@@ -167,7 +167,14 @@ impl<'a> Iterator for MapIter<'a> {
         self.index += 1;
         value
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let size = self.map.len();
+        (size, Some(size))
+    }
 }
+
+impl<'a> ExactSizeIterator for MapIter<'a> {}
 
 #[inline]
 pub fn map_partial_eq<M: Map>(a: &M, b: &dyn Reflect) -> Option<bool> {

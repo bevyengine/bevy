@@ -37,7 +37,14 @@ impl<'a> Iterator for FieldIter<'a> {
         self.index += 1;
         value
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let size = self.struct_val.field_len();
+        (size, Some(size))
+    }
 }
+
+impl<'a> ExactSizeIterator for FieldIter<'a> {}
 
 pub trait GetField {
     fn get_field<T: Reflect>(&self, name: &str) -> Option<&T>;

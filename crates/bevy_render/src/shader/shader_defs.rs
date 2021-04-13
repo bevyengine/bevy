@@ -49,6 +49,10 @@ impl<'a> Iterator for ShaderDefIterator<'a> {
             }
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, Some(self.shader_defs.shader_defs_len()))
+    }
 }
 
 impl ShaderDef for bool {
