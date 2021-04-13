@@ -1,14 +1,15 @@
-use crate::{curves::Curve, interpolation::Lerp};
+use crate::{
+    curves::{Curve, CurveCursor},
+    interpolation::Lerp,
+};
 
 // TODO: impl Serialize, Deserialize
 /// Curve with evenly spaced keyframes, in another words a curve with a fixed frame rate.
 ///
 /// This curve maintains the faster sampling rate over a wide range of frame rates, because
-/// it doesn't rely on keyframe cursor. But as a downside it will have the bigger memory foot print;
+/// it doesn't rely on keyframe cursor. As a downside, it will have a bigger memory foot print.
 #[derive(Default, Debug)]
 pub struct CurveFixed<T> {
-    // ? NOTE: Has I learned from benches casting to f32 is quite expensive
-    // ? so frame rate and offset values must be stored as f32
     frame_rate: f32,
     /// Negative number of frames before the curve starts
     negative_offset: f32,
@@ -42,42 +43,56 @@ impl<T> CurveFixed<T> {
         }
     }
 
+    pub fn keyframes(&self) -> &[T] {
+        &self.keyframes[..]
+    }
+
     pub fn keyframes_mut(&mut self) -> &mut [T] {
         &mut self.keyframes[..]
     }
 
-    // pub fn insert(&mut self, time_sample: f32, value: T) {
-    // }
+    pub fn insert_keyframe(&mut self, index: usize, value: T) {
+        self.keyframes.insert(index, value);
+    }
 
-    // pub fn remove(&mut self, index: usize) {
-    //assert!(samples.len() > 1, "curve can't be empty");
-    // }
+    pub fn remove_keyframe(&mut self, index: usize) -> T {
+        assert!(self.keyframes.len() > 1, "curve can't be empty");
+        self.keyframes.remove(index)
+    }
+
+    pub fn frame_rate(&self) -> f32 {
+        self.frame_rate
+    }
+
+    pub fn set_frame_rate(&mut self, frame_rate: f32) {
+        self.frame_rate = frame_rate;
+    }
+
+    pub fn set_offset(&mut self, offset: isize) {
+        self.negative_offset = -offset as f32;
+    }
+
+    pub fn offset(&self) -> isize {
+        -self.negative_offset as isize
+    }
 
     /// Number of keyframes
     pub fn len(&self) -> usize {
         self.keyframes.len()
     }
 
-    /// True when doesn't have any keyframe
+    /// `true` when this `CurveFixed` doesn't have any keyframe
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
-    pub const fn frame_rate(&self) -> usize {
-        self.frame_rate as usize
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
+        self.keyframes.iter()
     }
 
-    pub fn offset(&self) -> isize {
-        (-self.negative_offset) as isize
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
+        self.keyframes.iter_mut()
     }
-
-    // pub fn iter(&self) -> impl Iterator<Item = (f32, &T)> {
-    //     self.samples.iter().copied().zip(self.keyframes.iter())
-    // }
-
-    // pub fn iter_mut(&mut self) -> impl Iterator<Item = (f32, &mut T)> {
-    //     self.samples.iter().copied().zip(self.keyframes.iter_mut())
-    // }
 }
 
 impl<T> Curve for CurveFixed<T>
@@ -116,7 +131,7 @@ where
 
     /// Same as `sample` function
     #[inline]
-    fn sample_with_cursor(&self, cursor: u16, time: f32) -> (u16, Self::Output) {
+    fn sample_with_cursor(&self, cursor: CurveCursor, time: f32) -> (CurveCursor, Self::Output) {
         let _ = cursor;
         (0, self.sample(time))
     }

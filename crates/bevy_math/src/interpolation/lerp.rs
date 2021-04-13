@@ -7,7 +7,7 @@ pub trait Lerp: Sized {
 
     /// Lerp, `t` is clamped in [0; 1] range
     fn lerp(a: &Self, b: &Self, t: f32) -> Self {
-        let t = t.min(1.0).max(0.0);
+        let t = t.clamp(0.0, 1.0);
         Self::lerp_unclamped(a, b, t)
     }
 }
@@ -51,15 +51,17 @@ impl Lerp for Vec4 {
     }
 }
 
+// TODO: Color can't be interpolated because color operations are undefined, see pr #1870
 // impl Lerp for Color {
 //     #[inline]
 //     fn lerp_unclamped(a: &Self, b: &Self, t: f32) -> Self {
+//         // ? NOTE: Make sure alpha is interpolated (pr #1870 Mul and Add doesn't include alpha)
 //         (*a) * (1.0 - t) + (*b) * t
 //     }
 // }
 
 impl Lerp for Quat {
-    /// Performs an nlerp, because it's much cheaper and easer to combine with other animations,
+    /// Performs an nlerp, because it's cheaper and easier to combine with other animations,
     /// reference: http://number-none.com/product/Understanding%20Slerp,%20Then%20Not%20Using%20It/
     #[inline]
     fn lerp_unclamped(a: &Self, b: &Self, t: f32) -> Self {

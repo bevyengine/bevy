@@ -17,7 +17,7 @@ pub fn inv_sqrt(x: f32) -> f32 {
 }
 
 #[inline]
-pub fn step<T: Clone>(k0: &T, k1: &T, u: f32) -> T {
+pub fn step_unclamped<T: Clone>(k0: &T, k1: &T, u: f32) -> T {
     if u > 0.999 {
         k0.clone()
     } else {
@@ -26,7 +26,7 @@ pub fn step<T: Clone>(k0: &T, k1: &T, u: f32) -> T {
 }
 
 #[inline]
-pub fn lerp<T>(k0: T, k1: T, u: f32) -> T
+pub fn lerp_unclamped<T>(k0: T, k1: T, u: f32) -> T
 where
     T: Add<Output = T> + Mul<f32, Output = T>,
 {
@@ -37,7 +37,7 @@ where
 ///
 /// Source: http://archive.gamedev.net/archive/reference/articles/article1497.html
 #[inline]
-pub fn catmull_rom<T>(k0: T, t0: T, k1: T, t1: T, u: f32) -> T
+pub fn catmull_rom_unclamped<T>(k0: T, t0: T, k1: T, t1: T, u: f32) -> T
 where
     T: Add<Output = T> + Sub<Output = T> + Mul<f32, Output = T>,
 {

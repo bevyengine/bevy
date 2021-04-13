@@ -16,18 +16,38 @@ use crate::{
 // http://nfrechette.github.io/2016/12/07/anim_compression_key_reduction/
 // https://github.com/nfrechette/acl
 
+/// Keyframe tangents control mode
+#[derive(Debug, Copy, Clone)]
+pub enum TangentControl {
+    Auto,
+    Free,
+    Broken,
+    InBroken,
+    OutBroken,
+}
+
+impl Default for TangentControl {
+    fn default() -> Self {
+        TangentControl::Auto
+    }
+}
+
 // TODO: impl Serialize, Deserialize
 /// Curve with sparse keyframes frames, in another words a curve with variable frame rate;
 ///
 /// Similar in design to the [`CurveVariableLinear`](super::CurveVariableLinear) but allows
 /// for smoother catmull-rom interpolations using tangents, which can further reduce the number of keyframes at
 /// the cost of performance.
+///
+/// **NOTE** Keyframes count is limited by the [`CurveCursor`] size.
 #[derive(Default, Debug)]
 pub struct CurveVariable<T: Interpolate> {
     time_stamps: Vec<f32>,
     keyframes: Vec<T>,
-    /// Defines the interpolation for each keyframe pair
-    interpolations: Vec<Interpolation<T::Tangent>>,
+    modes: Vec<Interpolation>,
+    tangents_control: Vec<TangentControl>,
+    tangents_in: Vec<T::Tangent>,
+    tangents_out: Vec<T::Tangent>,
 }
 
 impl<T> Clone for CurveVariable<T>
@@ -39,79 +59,134 @@ where
         Self {
             time_stamps: self.time_stamps.clone(),
             keyframes: self.keyframes.clone(),
-            interpolations: self.interpolations.clone(),
+            modes: self.modes.clone(),
+            tangents_control: self.tangents_control.clone(),
+            tangents_in: self.tangents_in.clone(),
+            tangents_out: self.tangents_out.clone(),
         }
     }
 }
 
-// impl<T> CurveVariableInterpolated<T> {
-//     pub fn new(samples: Vec<f32>, values: Vec<T>) -> Self {
-//         // TODO: Result?
+impl<T> CurveVariable<T>
+where
+    T: Interpolate + Clone,
+{
+    pub fn with_auto_tangents(samples: Vec<f32>, values: Vec<T>) -> Self {
+        // TODO: Result?
 
-//         // Make sure both have the same length
-//         assert!(
-//             samples.len() == values.len(),
-//             "samples and values must have the same length"
-//         );
+        let length = samples.len();
 
-//         assert!(
-//             values.len() <= u16::MAX as usize,
-//             "limit of {} keyframes exceeded",
-//             u16::MAX
-//         );
+        // Make sure both have the same length
+        assert!(
+            length == values.len(),
+            "samples and values must have the same length"
+        );
 
-//         assert!(samples.len() > 0, "empty curve");
+        assert!(
+            values.len() <= u16::MAX as usize,
+            "limit of {} keyframes exceeded",
+            u16::MAX
+        );
 
-//         // Make sure the
-//         assert!(
-//             samples
-//                 .iter()
-//                 .zip(samples.iter().skip(1))
-//                 .all(|(a, b)| a < b),
-//             "time samples must be on ascending order"
-//         );
-//         Self {
-//             time_stamps: samples,
-//             keyframes: values,
-//         }
-//     }
+        assert!(length > 0, "empty curve");
 
-//     pub fn from_line(t0: f32, t1: f32, v0: T, v1: T) -> Self {
-//         Self {
-//             time_stamps: if t1 >= t0 { vec![t0, t1] } else { vec![t1, t0] },
-//             keyframes: vec![v0, v1],
-//         }
-//     }
+        // Make sure the
+        assert!(
+            samples
+                .iter()
+                .zip(samples.iter().skip(1))
+                .all(|(a, b)| a < b),
+            "time samples must be on ascending order"
+        );
 
-//     pub fn from_constant(v: T) -> Self {
-//         Self {
-//             time_stamps: vec![0.0],
-//             keyframes: vec![v],
-//         }
-//     }
+        let mut tangents = Vec::with_capacity(length);
+        if length == 1 {
+            tangents.push(T::FLAT_TANGENT);
+        } else {
+            for i in 0..length {
+                let p = if i > 0 { i - 1 } else { length - 1 };
+                let n = if (i + 1) < length { i + 1 } else { 0 };
+                tangents.push(T::auto_tangent(
+                    samples[p],
+                    samples[i],
+                    samples[n],
+                    values[p].clone(),
+                    values[i].clone(),
+                    values[n].clone(),
+                ));
+            }
+        }
 
-//     // pub fn insert(&mut self, time_sample: f32, value: T) {
-//     // }
+        let mut tangents_control = Vec::with_capacity(length);
+        tangents_control.resize(length, TangentControl::Auto);
 
-//     // pub fn remove(&mut self, index: usize) {
-//     //assert!(samples.len() > 1, "curve can't be empty");
-//     // }
+        let mut modes = Vec::with_capacity(length);
+        modes.resize(length, Interpolation::CatmullRom);
 
-//     pub fn add_offset_time(&mut self, time_offset: f32) {
-//         self.time_stamps.iter_mut().for_each(|t| *t += time_offset);
-//     }
+        Self {
+            time_stamps: samples,
+            keyframes: values,
+            modes,
+            tangents_control,
+            tangents_in: tangents.clone(),
+            tangents_out: tangents,
+        }
+    }
 
-//     pub fn iter(&self) -> impl Iterator<Item = (f32, &T)> {
-//         self.time_stamps.iter().copied().zip(self.keyframes.iter())
-//     }
+    pub fn from_line(t0: f32, t1: f32, v0: T, v1: T) -> Self {
+        let mut modes = Vec::with_capacity(2);
+        modes.resize(2, Interpolation::Linear);
 
-//     pub fn iter_mut(&mut self) -> impl Iterator<Item = (f32, &mut T)> {
-//         self.time_stamps
-//             .iter()
-//             .copied()
-//             .zip(self.keyframes.iter_mut())
-//     }
-// }
+        let mut tangents_control = Vec::with_capacity(2);
+        tangents_control.resize(2, TangentControl::Auto);
+
+        let mut tangents = Vec::with_capacity(2);
+        tangents.resize(2, T::FLAT_TANGENT);
+
+        if t0 < t1 {
+            Self {
+                time_stamps: vec![t0, t1],
+                keyframes: vec![v0, v1],
+                modes,
+                tangents_control,
+                tangents_in: tangents.clone(),
+                tangents_out: tangents,
+            }
+        } else {
+            Self {
+                time_stamps: vec![t1, t0],
+                keyframes: vec![v1, v0],
+                modes,
+                tangents_control,
+                tangents_in: tangents.clone(),
+                tangents_out: tangents,
+            }
+        }
+    }
+
+    pub fn from_constant(v: T) -> Self {
+        Self {
+            time_stamps: vec![0.0],
+            keyframes: vec![v],
+            modes: vec![Interpolation::CatmullRom],
+            tangents_control: vec![TangentControl::Auto],
+            tangents_in: vec![T::FLAT_TANGENT],
+            tangents_out: vec![T::FLAT_TANGENT],
+        }
+    }
+
+    // TODO: Edit methods
+
+    /// Make sure the first keyframe starts at time `0.0`
+    #[inline]
+    pub fn remove_time_offset(&mut self) {
+        self.apply_time_offset(-self.time_stamps[0]);
+    }
+
+    pub fn apply_time_offset(&mut self, time_offset: f32) {
+        self.time_stamps.iter_mut().for_each(|t| *t += time_offset);
+    }
+}
 
 impl<T> Curve for CurveVariable<T>
 where
@@ -177,10 +252,14 @@ where
             t
         ); // Checks if it's required to normalize t
 
-        let value = T::interpolate(
-            &self.keyframes[i as usize],
-            &self.keyframes[cursor as usize],
-            &self.interpolations[i as usize],
+        let a = i as usize;
+        let b = cursor as usize;
+        let value = T::interpolate_unclamped(
+            &self.keyframes[a],
+            &self.tangents_out[a],
+            &self.keyframes[b],
+            &self.tangents_in[b],
+            self.modes[a as usize],
             t,
         );
 

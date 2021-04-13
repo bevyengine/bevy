@@ -1,5 +1,7 @@
-use super::Curve;
-use crate::interpolation::Lerp;
+use crate::{
+    curves::{Curve, CurveCursor},
+    interpolation::Lerp,
+};
 
 // TODO: Curve/Clip need a validation during deserialization because they are
 // structured as SOA (struct of arrays), so the vec's length must match
@@ -7,9 +9,11 @@ use crate::interpolation::Lerp;
 // TODO: impl Serialize, Deserialize
 /// Curve with sparse keyframes frames, in another words a curve with variable frame rate;
 ///
-/// Very useful curve, because can accommodate the output of a linear reduction keyframe algorithm
-/// to lower the memory foot print. But as a down side require the use of keyframe cursor, and
-/// loses performance when the curve frame rate is higher than the curve sampling frame rate
+/// This is a very useful curve, because it can accommodate the output of a linear reduction keyframe algorithm
+/// to lower the memory foot print. As a down side it requires the use of a keyframe cursor, and
+/// loses performance when the curve frame rate is higher than the curve sampling frame rate;
+///
+/// **NOTE** Keyframes count is limited by the [`CurveCursor`] size.
 #[derive(Default, Debug)]
 pub struct CurveVariableLinear<T> {
     time_stamps: Vec<f32>,
@@ -36,9 +40,9 @@ impl<T> CurveVariableLinear<T> {
         );
 
         assert!(
-            values.len() <= u16::MAX as usize,
+            values.len() <= CurveCursor::MAX as usize,
             "limit of {} keyframes exceeded",
-            u16::MAX
+            CurveCursor::MAX
         );
 
         assert!(!samples.is_empty(), "empty curve");
@@ -59,9 +63,16 @@ impl<T> CurveVariableLinear<T> {
     }
 
     pub fn from_line(t0: f32, t1: f32, v0: T, v1: T) -> Self {
-        Self {
-            time_stamps: if t1 >= t0 { vec![t0, t1] } else { vec![t1, t0] },
-            keyframes: vec![v0, v1],
+        if t0 < t1 {
+            Self {
+                time_stamps: vec![t0, t1],
+                keyframes: vec![v0, v1],
+            }
+        } else {
+            Self {
+                time_stamps: vec![t1, t0],
+                keyframes: vec![v1, v0],
+            }
         }
     }
 
@@ -72,14 +83,34 @@ impl<T> CurveVariableLinear<T> {
         }
     }
 
-    // pub fn insert(&mut self, time_sample: f32, value: T) {
-    // }
+    pub fn insert(&mut self, time: f32, value: T) {
+        // Keyframe length is limited by the cursor size yype that is 2 bytes,
+        assert!(
+            self.keyframes.len() < CurveCursor::MAX as usize,
+            "reached keyframe limit"
+        );
 
-    // pub fn remove(&mut self, index: usize) {
-    //assert!(samples.len() > 1, "curve can't be empty");
-    // }
+        if let Some(index) = self.time_stamps.iter().position(|t| time < *t) {
+            self.time_stamps.insert(index, time);
+            self.keyframes.insert(index, value);
+        } else {
+            self.time_stamps.push(time);
+            self.keyframes.push(value);
+        }
+    }
 
-    pub fn add_offset_time(&mut self, time_offset: f32) {
+    pub fn remove(&mut self, index: usize) -> (f32, T) {
+        assert!(self.time_stamps.len() > 1, "curve can't be empty");
+        (self.time_stamps.remove(index), self.keyframes.remove(index))
+    }
+
+    /// Make sure the first keyframe starts at time `0.0`
+    #[inline]
+    pub fn remove_time_offset(&mut self) {
+        self.apply_time_offset(-self.time_stamps[0]);
+    }
+
+    pub fn apply_time_offset(&mut self, time_offset: f32) {
         self.time_stamps.iter_mut().for_each(|t| *t += time_offset);
     }
 
@@ -113,12 +144,16 @@ where
             self.time_stamps.len() - 1
         };
 
-        self.sample_with_cursor(index as u16, time).1
+        self.sample_with_cursor(index as CurveCursor, time).1
     }
 
-    fn sample_with_cursor(&self, mut cursor: u16, time: f32) -> (u16, Self::Output) {
+    fn sample_with_cursor(
+        &self,
+        mut cursor: CurveCursor,
+        time: f32,
+    ) -> (CurveCursor, Self::Output) {
         // Adjust for the current keyframe index
-        let last_cursor = (self.time_stamps.len() - 1) as u16;
+        let last_cursor = (self.time_stamps.len() - 1) as CurveCursor;
 
         cursor = cursor.max(0).min(last_cursor);
         if self.time_stamps[cursor as usize] < time {
