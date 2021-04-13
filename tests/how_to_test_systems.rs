@@ -86,6 +86,7 @@ fn spawn_enemy_using_input_resource() {
     // Check resulting changes, one entity has been spawned with `Enemy` component
     assert_eq!(world.query::<&Enemy>().iter(&world).len(), 1);
 
+    // Clear the `just_pressed` status for all `KeyCode`s
     world.get_resource_mut::<Input<KeyCode>>().unwrap().update();
 
     // Run systems
