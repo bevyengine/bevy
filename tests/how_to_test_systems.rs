@@ -1,13 +1,8 @@
-use std::collections::HashMap;
-
 use bevy::prelude::*;
 
+#[derive(Default)]
 struct Enemy {
     hit_points: u32,
-}
-
-struct CharacterTemplate {
-    hit_points: HashMap<&'static str, u32>,
 }
 
 fn despawn_dead_enemies(mut commands: Commands, enemies: Query<(Entity, &Enemy)>) {
@@ -24,10 +19,10 @@ fn hurt_enemies(mut enemies: Query<&mut Enemy>) {
     }
 }
 
-fn spawn_enemy(mut commands: Commands, character_template: Res<CharacterTemplate>) {
-    commands.spawn().insert(Enemy {
-        hit_points: *character_template.hit_points.get("enemy").unwrap(),
-    });
+fn spawn_enemy(mut commands: Commands, keyboard_input: Res<Input<KeyCode>>) {
+    if keyboard_input.just_pressed(KeyCode::Space) {
+        commands.spawn().insert(Enemy { hit_points: 5 });
+    }
 }
 
 #[test]
@@ -72,7 +67,7 @@ fn did_despawn_enemy() {
 }
 
 #[test]
-fn spawned_from_resource() {
+fn spawn_enemy_using_input_resource() {
     // Setup world
     let mut world = World::default();
 
@@ -81,18 +76,21 @@ fn spawned_from_resource() {
     update_stage.add_system(spawn_enemy.system());
 
     // Setup test resource
-    let mut hit_points = HashMap::new();
-    hit_points.insert("enemy", 25);
-    world.insert_resource(CharacterTemplate { hit_points });
+    let mut input = Input::<KeyCode>::default();
+    input.press(KeyCode::Space);
+    world.insert_resource(input);
 
     // Run systems
     update_stage.run(&mut world);
 
-    // Check resulting changes
-    let mut query = world.query::<&Enemy>();
-    let results = query
-        .iter(&world)
-        .map(|enemy| enemy.hit_points)
-        .collect::<Vec<_>>();
-    assert_eq!(results, vec![25]);
+    // Check resulting changes, one entity has been spawned with `Enemy` component
+    assert_eq!(world.query::<&Enemy>().iter(&world).len(), 1);
+
+    world.get_resource_mut::<Input<KeyCode>>().unwrap().update();
+
+    // Run systems
+    update_stage.run(&mut world);
+
+    // Check resulting changes, no new entity has been spawned
+    assert_eq!(world.query::<&Enemy>().iter(&world).len(), 1);
 }
