@@ -87,14 +87,15 @@ fn main() {
                 .after(Physics)
                 // This shows that we can modify existing run criteria results.
                 // Here we create a _not done_ criteria by piping the output of
-                // the `done` system and inverting the output.
-                .with_run_criteria(RunCriteria::pipe("done", inverse.system())),
+                // the `is_done` system and inverting the output.
+                // Notice a string literal also works as a label.
+                .with_run_criteria(RunCriteria::pipe("is_done_label", inverse.system())),
         )
         .add_system(
             exit.system()
                 .after(PostPhysics)
                 // Label the run criteria such that the `PostPhysics` set can reference it
-                .with_run_criteria(done.system().label("done")),
+                .with_run_criteria(is_done.system().label("is_done_label")),
         )
         .run();
 }
@@ -117,7 +118,7 @@ fn run_for_a_second(time: Res<Time>, mut done: ResMut<Done>) -> ShouldRun {
 }
 
 /// Another run criteria, simply using a resource.
-fn done(done: Res<Done>) -> ShouldRun {
+fn is_done(done: Res<Done>) -> ShouldRun {
     if done.0 {
         ShouldRun::Yes
     } else {
