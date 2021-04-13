@@ -143,7 +143,7 @@ impl PipelineCompiler {
                 &specialized_descriptor.shader_stages.vertex,
                 &pipeline_specialization.shader_specialization,
             )
-            .unwrap();
+            .unwrap_or_else(|e| panic_shader_error(e));
         specialized_descriptor.shader_stages.vertex = specialized_vertex_shader.clone_weak();
         let mut specialized_fragment_shader = None;
         specialized_descriptor.shader_stages.fragment = specialized_descriptor
@@ -158,7 +158,7 @@ impl PipelineCompiler {
                         fragment,
                         &pipeline_specialization.shader_specialization,
                     )
-                    .unwrap();
+                    .unwrap_or_else(|e| panic_shader_error(e));
                 specialized_fragment_shader = Some(shader.clone_weak());
                 shader
             });
@@ -355,4 +355,13 @@ impl PipelineCompiler {
 
         Ok(())
     }
+}
+
+fn panic_shader_error(error: ShaderError) -> ! {
+    let msg = error.to_string();
+    let msg = msg
+        .trim_end()
+        .trim_end_matches("Debug log:") // if this matches, then there wasn't a debug log anyways
+        .trim_end();
+    panic!("{}\n", msg);
 }

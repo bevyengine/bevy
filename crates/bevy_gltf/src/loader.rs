@@ -39,7 +39,7 @@ use crate::{Gltf, GltfNode};
 pub enum GltfError {
     #[error("unsupported primitive mode")]
     UnsupportedPrimitive { mode: Mode },
-    #[error("invalid GLTF file")]
+    #[error("invalid GLTF file: {0}")]
     Gltf(#[from] gltf::Error),
     #[error("binary blob is missing")]
     MissingBlob,
@@ -47,11 +47,11 @@ pub enum GltfError {
     Base64Decode(#[from] base64::DecodeError),
     #[error("unsupported buffer format")]
     BufferFormatUnsupported,
-    #[error("invalid image mime type")]
+    #[error("invalid image mime type: {0}")]
     InvalidImageMimeType(String),
-    #[error("failed to load an image")]
+    #[error("{0}")]
     ImageError(#[from] TextureError),
-    #[error("failed to load an asset path")]
+    #[error("failed to load an asset path: {0}")]
     AssetIoError(#[from] AssetIoError),
 }
 

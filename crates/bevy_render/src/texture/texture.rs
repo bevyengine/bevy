@@ -287,7 +287,7 @@ pub enum TextureError {
     InvalidImageMimeType(String),
     #[error("invalid image extension")]
     InvalidImageExtension(String),
-    #[error("failed to load an image")]
+    #[error("failed to load an image: {0}")]
     ImageError(#[from] image::ImageError),
 }
 
