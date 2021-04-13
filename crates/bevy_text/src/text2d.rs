@@ -76,7 +76,7 @@ pub fn draw_text2d_system(
     >,
 ) {
     let font_quad = meshes.get(&QUAD_HANDLE).unwrap();
-    let font_quad_vertex_layout = font_quad.get_vertex_buffer_layout();
+    let font_quad_vertex_layout = font_quad.meta().get_vertex_buffer_layout();
 
     let scale_factor = if let Some(window) = windows.get_primary() {
         window.scale_factor() as f32

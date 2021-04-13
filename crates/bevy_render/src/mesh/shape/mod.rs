@@ -110,12 +110,13 @@ impl From<Box> for Mesh {
             20, 21, 22, 22, 23, 20, // back
         ]);
 
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-        mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-        mesh.set_indices(Some(indices));
-        mesh
+        let mut data = MeshData::default();
+        data.set_attribute(MeshData::ATTRIBUTE_POSITION, positions);
+        data.set_attribute(MeshData::ATTRIBUTE_NORMAL, normals);
+        data.set_attribute(MeshData::ATTRIBUTE_UV_0, uvs);
+        data.set_indices(Some(indices));
+
+        Mesh::new_dynamic(PrimitiveTopology::TriangleList, data)
     }
 }
 
@@ -212,12 +213,13 @@ impl From<Quad> for Mesh {
             uvs.push(*uv);
         }
 
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-        mesh.set_indices(Some(indices));
-        mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-        mesh
+        let mut data = MeshData::default();
+        data.set_attribute(MeshData::ATTRIBUTE_POSITION, positions);
+        data.set_attribute(MeshData::ATTRIBUTE_NORMAL, normals);
+        data.set_attribute(MeshData::ATTRIBUTE_UV_0, uvs);
+        data.set_indices(Some(indices));
+
+        Mesh::new_dynamic(PrimitiveTopology::TriangleList, data)
     }
 }
 
@@ -256,12 +258,13 @@ impl From<Plane> for Mesh {
             uvs.push(*uv);
         }
 
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-        mesh.set_indices(Some(indices));
-        mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-        mesh
+        let mut data = MeshData::default();
+        data.set_attribute(MeshData::ATTRIBUTE_POSITION, positions);
+        data.set_attribute(MeshData::ATTRIBUTE_NORMAL, normals);
+        data.set_attribute(MeshData::ATTRIBUTE_UV_0, uvs);
+        data.set_indices(Some(indices));
+
+        Mesh::new_dynamic(PrimitiveTopology::TriangleList, data)
     }
 }
 
@@ -269,6 +272,7 @@ mod capsule;
 mod icosphere;
 mod torus;
 
+use crate::mesh::MeshData;
 pub use capsule::{Capsule, CapsuleUvProfile};
 pub use icosphere::Icosphere;
 pub use torus::Torus;
