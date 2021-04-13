@@ -292,6 +292,31 @@ where
         }
     }
 
+    /// Gets the result of a single-result query
+    ///
+    /// If the query has exactly one result, returns the result inside `Ok`
+    /// otherwise returns either `Err(QuerySingleError::NoEntities(...))`
+    /// or `Err(QuerySingleError::MultipleEntities(...))`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    ///  # use bevy_ecs::system::{Query, QuerySingleError};
+    ///  # use bevy_render::camera::Camera;
+    /// fn do_something_with_camera(query: Query<&Camera>) {
+    ///     match query.single() {
+    ///         Ok(camera) => {
+    ///             // do something with our camera
+    ///         }
+    ///         Err(QuerySingleError::NoEntities(_)) => {
+    ///             // no camera
+    ///         }
+    ///         Err(QuerySingleError::MultipleEntities(_)) => {
+    ///             // multiple cameras
+    ///         }
+    ///     }
+    /// }
+    /// ```
     pub fn single(&self) -> Result<<Q::Fetch as Fetch<'_>>::Item, QuerySingleError>
     where
         Q::Fetch: ReadOnlyFetch,
