@@ -35,7 +35,7 @@ fn setup(
                         border: Rect::all(Val::Px(2.0)),
                         ..Default::default()
                     },
-                    material: materials.add(Color::rgb(0.65, 0.65, 0.65).into()),
+                    material: materials.add(rgba!(0.65, 0.65, 0.65).into()),
                     ..Default::default()
                 })
                 .with_children(|parent| {
@@ -47,7 +47,7 @@ fn setup(
                                 align_items: AlignItems::FlexEnd,
                                 ..Default::default()
                             },
-                            material: materials.add(Color::rgb(0.15, 0.15, 0.15).into()),
+                            material: materials.add(rgba!(0.15, 0.15, 0.15).into()),
                             ..Default::default()
                         })
                         .with_children(|parent| {
@@ -76,7 +76,7 @@ fn setup(
                     size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
                     ..Default::default()
                 },
-                material: materials.add(Color::rgb(0.15, 0.15, 0.15).into()),
+                material: materials.add(rgba!(0.15, 0.15, 0.15).into()),
                 ..Default::default()
             });
             // absolute positioning
@@ -93,7 +93,7 @@ fn setup(
                         border: Rect::all(Val::Px(20.0)),
                         ..Default::default()
                     },
-                    material: materials.add(Color::rgb(0.4, 0.4, 1.0).into()),
+                    material: materials.add(rgba!(0.4, 0.4, 1.0).into()),
                     ..Default::default()
                 })
                 .with_children(|parent| {
@@ -102,7 +102,7 @@ fn setup(
                             size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                             ..Default::default()
                         },
-                        material: materials.add(Color::rgb(0.8, 0.8, 1.0).into()),
+                        material: materials.add(rgba!(0.8, 0.8, 1.0).into()),
                         ..Default::default()
                     });
                 });
@@ -126,7 +126,7 @@ fn setup(
                                 size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                 ..Default::default()
                             },
-                            material: materials.add(Color::rgb(1.0, 0.0, 0.0).into()),
+                            material: materials.add(rgba!(1.0, 0.0, 0.0).into()),
                             ..Default::default()
                         })
                         .with_children(|parent| {
@@ -141,7 +141,7 @@ fn setup(
                                     },
                                     ..Default::default()
                                 },
-                                material: materials.add(Color::rgb(1.0, 0.3, 0.3).into()),
+                                material: materials.add(rgba!(1.0, 0.3, 0.3).into()),
                                 ..Default::default()
                             });
                             parent.spawn_bundle(NodeBundle {
@@ -155,7 +155,7 @@ fn setup(
                                     },
                                     ..Default::default()
                                 },
-                                material: materials.add(Color::rgb(1.0, 0.5, 0.5).into()),
+                                material: materials.add(rgba!(1.0, 0.5, 0.5).into()),
                                 ..Default::default()
                             });
                             parent.spawn_bundle(NodeBundle {
@@ -169,7 +169,7 @@ fn setup(
                                     },
                                     ..Default::default()
                                 },
-                                material: materials.add(Color::rgb(1.0, 0.7, 0.7).into()),
+                                material: materials.add(rgba!(1.0, 0.7, 0.7).into()),
                                 ..Default::default()
                             });
                             // alpha test
@@ -184,7 +184,7 @@ fn setup(
                                     },
                                     ..Default::default()
                                 },
-                                material: materials.add(Color::rgba(1.0, 0.9, 0.9, 0.4).into()),
+                                material: materials.add(rgba!(1.0, 0.9, 0.9, 0.4).into()),
                                 ..Default::default()
                             });
                         });

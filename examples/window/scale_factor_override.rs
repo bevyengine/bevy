@@ -42,7 +42,7 @@ fn setup(
                         border: Rect::all(Val::Px(2.0)),
                         ..Default::default()
                     },
-                    material: materials.add(Color::rgb(0.65, 0.65, 0.65).into()),
+                    material: materials.add(rgba!(0.65, 0.65, 0.65).into()),
                     ..Default::default()
                 })
                 .with_children(|parent| {

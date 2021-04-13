@@ -47,7 +47,7 @@ pub struct StandardMaterial {
 impl Default for StandardMaterial {
     fn default() -> Self {
         StandardMaterial {
-            base_color: Color::rgb(1.0, 1.0, 1.0),
+            base_color: Color::default(),
             base_color_texture: None,
             // This is the minimum the roughness is clamped to in shader code
             // See https://google.github.io/filament/Filament.html#materialsystem/parameterization/

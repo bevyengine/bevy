@@ -106,7 +106,7 @@ fn setup_pipeline(
             TextureAttachment::Input("color_attachment".to_string()),
             TextureAttachment::Input("color_resolve_target".to_string()),
             Operations {
-                load: LoadOp::Clear(Color::rgb(0.5, 0.5, 0.8)),
+                load: LoadOp::Clear(rgba!(0.5, 0.5, 0.8)),
                 store: true,
             },
         )],

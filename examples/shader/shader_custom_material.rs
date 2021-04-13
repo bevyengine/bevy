@@ -80,7 +80,7 @@ fn setup(
 
     // Create a new material
     let material = materials.add(MyMaterial {
-        color: Color::rgb(0.0, 0.8, 0.0),
+        color: rgba!(0.0, 0.8, 0.0),
     });
 
     // cube

@@ -25,31 +25,31 @@ fn setup(
     // plane
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        material: materials.add(rgba!(0.3, 0.5, 0.3).into()),
         ..Default::default()
     });
     // cubes
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+        material: materials.add(rgba!(0.8, 0.7, 0.6).into()),
         transform: Transform::from_xyz(1.5, 0.5, 1.5),
         ..Default::default()
     });
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+        material: materials.add(rgba!(0.8, 0.7, 0.6).into()),
         transform: Transform::from_xyz(1.5, 0.5, -1.5),
         ..Default::default()
     });
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+        material: materials.add(rgba!(0.8, 0.7, 0.6).into()),
         transform: Transform::from_xyz(-1.5, 0.5, 1.5),
         ..Default::default()
     });
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+        material: materials.add(rgba!(0.8, 0.7, 0.6).into()),
         transform: Transform::from_xyz(-1.5, 0.5, -1.5),
         ..Default::default()
     });

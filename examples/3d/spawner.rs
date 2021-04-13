@@ -30,8 +30,10 @@ fn move_cubes(
     for (mut transform, material_handle) in query.iter_mut() {
         let material = materials.get_mut(material_handle).unwrap();
         transform.translation += Vec3::new(1.0, 0.0, 0.0) * time.delta_seconds();
-        material.base_color =
-            Color::BLUE * Vec3::splat((3.0 * time.seconds_since_startup() as f32).sin());
+        material.base_color = Color::BLUE
+            * Color::from(Vec3::splat(
+                (3.0 * time.seconds_since_startup() as f32).sin(),
+            ));
     }
 }
 
@@ -57,10 +59,10 @@ fn setup(
         commands.spawn_bundle(PbrBundle {
             mesh: cube_handle.clone(),
             material: materials.add(StandardMaterial {
-                base_color: Color::rgb(
+                base_color: rgba!(
                     rng.gen_range(0.0..1.0),
                     rng.gen_range(0.0..1.0),
-                    rng.gen_range(0.0..1.0),
+                    rng.gen_range(0.0..1.0)
                 ),
                 ..Default::default()
             }),

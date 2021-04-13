@@ -64,7 +64,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextStyle {
                     font: font.clone(),
                     font_size: 50.0,
-                    color: Color::rgb(0.8, 0.2, 0.7),
+                    color: rgba!(0.8, 0.2, 0.7),
                 },
             TextAlignment {
                 horizontal: HorizontalAlign::Center,

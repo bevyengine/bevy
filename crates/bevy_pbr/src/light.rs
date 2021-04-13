@@ -22,7 +22,7 @@ pub struct Light {
 impl Default for Light {
     fn default() -> Self {
         Light {
-            color: Color::rgb(1.0, 1.0, 1.0),
+            color: Color::new(1.0, 1.0, 1.0),
             depth: 0.1..50.0,
             fov: f32::to_radians(60.0),
             intensity: 200.0,
@@ -75,7 +75,7 @@ pub struct AmbientLight {
 impl Default for AmbientLight {
     fn default() -> Self {
         Self {
-            color: Color::rgb(1.0, 1.0, 1.0),
+            color: Color::new(1.0, 1.0, 1.0),
             brightness: 0.05,
         }
     }
