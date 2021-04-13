@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use bevy::{ecs::system::CommandQueue, prelude::*};
+use bevy::prelude::*;
 
 struct Enemy {
     hit_points: u32,
@@ -32,10 +32,8 @@ fn spawn_enemy(mut commands: Commands, character_template: Res<CharacterTemplate
 
 #[test]
 fn did_hurt_enemy() {
-    // Setup world and commands
+    // Setup world
     let mut world = World::default();
-    let mut queue = CommandQueue::default();
-    let mut commands = Commands::new(&mut queue, &world);
 
     // Setup stage with our two systems
     let mut update_stage = SystemStage::parallel();
@@ -43,8 +41,7 @@ fn did_hurt_enemy() {
     update_stage.add_system(despawn_dead_enemies.system().label("death"));
 
     // Setup test entities
-    let enemy_id = commands.spawn().insert(Enemy { hit_points: 5 }).id();
-    queue.apply(&mut world);
+    let enemy_id = world.spawn().insert(Enemy { hit_points: 5 }).id();
 
     // Run systems
     update_stage.run(&mut world);
@@ -56,10 +53,8 @@ fn did_hurt_enemy() {
 
 #[test]
 fn did_despawn_enemy() {
-    // Setup world and commands
+    // Setup world
     let mut world = World::default();
-    let mut queue = CommandQueue::default();
-    let mut commands = Commands::new(&mut queue, &world);
 
     // Setup stage with our two systems
     let mut update_stage = SystemStage::parallel();
@@ -67,8 +62,7 @@ fn did_despawn_enemy() {
     update_stage.add_system(despawn_dead_enemies.system().label("death"));
 
     // Setup test entities
-    let enemy_id = commands.spawn().insert(Enemy { hit_points: 1 }).id();
-    queue.apply(&mut world);
+    let enemy_id = world.spawn().insert(Enemy { hit_points: 1 }).id();
 
     // Run systems
     update_stage.run(&mut world);
@@ -79,10 +73,8 @@ fn did_despawn_enemy() {
 
 #[test]
 fn spawned_from_resource() {
-    // Setup world and commands
+    // Setup world
     let mut world = World::default();
-    let mut queue = CommandQueue::default();
-    let mut commands = Commands::new(&mut queue, &world);
 
     // Setup stage with a system
     let mut update_stage = SystemStage::parallel();
@@ -91,8 +83,7 @@ fn spawned_from_resource() {
     // Setup test resource
     let mut hit_points = HashMap::new();
     hit_points.insert("enemy", 25);
-    commands.insert_resource(CharacterTemplate { hit_points });
-    queue.apply(&mut world);
+    world.insert_resource(CharacterTemplate { hit_points });
 
     // Run systems
     update_stage.run(&mut world);
