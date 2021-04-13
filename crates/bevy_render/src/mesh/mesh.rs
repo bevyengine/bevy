@@ -13,7 +13,7 @@ use bevy_ecs::{
 };
 use bevy_math::*;
 use bevy_reflect::TypeUuid;
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::BTreeMap};
 
 use crate::pipeline::{InputStepMode, VertexAttribute, VertexBufferLayout};
 use bevy_utils::{HashMap, HashSet};
@@ -208,9 +208,11 @@ impl From<&Indices> for IndexFormat {
 #[uuid = "8ecbac0f-f545-4473-ad43-e1f4243af51e"]
 pub struct Mesh {
     primitive_topology: PrimitiveTopology,
-    /// `bevy_utils::HashMap` with all defined vertex attributes (Positions, Normals, ...) for this
+    /// `std::collections::BTreeMap` with all defined vertex attributes (Positions, Normals, ...) for this
     /// mesh. Attribute name maps to attribute values.
-    attributes: HashMap<Cow<'static, str>, VertexAttributeValues>,
+    /// Uses a BTreeMap because, unlike HashMap, it has a defined iteration order,
+    /// which allows easy stable VertexBuffers (i.e. same buffer order)
+    attributes: BTreeMap<Cow<'static, str>, VertexAttributeValues>,
     indices: Option<Indices>,
 }
 
