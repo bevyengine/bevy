@@ -15,7 +15,7 @@ pub fn keyboard_input_system(
     mut keyboard_input: ResMut<Input<KeyCode>>,
     mut keyboard_input_events: EventReader<KeyboardInput>,
 ) {
-    keyboard_input.update();
+    keyboard_input.clear();
     for event in keyboard_input_events.iter() {
         if let KeyboardInput {
             key_code: Some(key_code),
