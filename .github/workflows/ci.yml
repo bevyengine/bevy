@@ -85,7 +85,7 @@ jobs:
           fetch-depth: 0
 
       - name: Run Markdown Lint
-        uses: github/super-linter@v3.15.2
+        uses: github/super-linter@v3.15.5
         env:
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_MARKDOWN: true

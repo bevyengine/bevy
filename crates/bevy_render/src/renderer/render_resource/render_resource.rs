@@ -118,7 +118,14 @@ impl<'a> Iterator for RenderResourceIterator<'a> {
             Some(render_resource)
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let size = self.render_resources.render_resources_len();
+        (size, Some(size))
+    }
 }
+
+impl<'a> ExactSizeIterator for RenderResourceIterator<'a> {}
 
 #[macro_export]
 macro_rules! impl_render_resource_bytes {
