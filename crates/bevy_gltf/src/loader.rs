@@ -143,6 +143,7 @@ async fn load_gltf<'a, 'b>(
             } else {
                 let len = mesh.count_vertices();
                 let uvs = vec![[0.0, 0.0]; len];
+                bevy_log::warn!("missing `TEXCOORD_0` vertex attribute, loading zeroed out UVs");
                 mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
             }
 
