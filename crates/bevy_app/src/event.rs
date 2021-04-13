@@ -1,8 +1,14 @@
+use bevy_ecs::system::{SystemParamFetch, SystemParamState, SystemState};
+use bevy_ecs::world::World;
 use bevy_ecs::{
     component::Component,
-    system::{Local, Res, ResMut, SystemParam},
+    system::{Res, ResMut, SystemParam},
 };
 use bevy_utils::tracing::trace;
+use bevy_utils::HashMap;
+use parking_lot::RwLock;
+use std::cmp::min;
+use std::ops::{Deref, DerefMut};
 use std::{
     fmt::{self},
     hash::Hash,
@@ -49,12 +55,6 @@ struct EventInstance<T> {
     pub event: T,
 }
 
-#[derive(Debug)]
-enum State {
-    A,
-    B,
-}
-
 /// An event collection that represents the events that occurred within the last two
 /// [`Events::update`] calls.
 /// Events can be written to using an [`EventWriter`]
@@ -84,7 +84,7 @@ enum State {
 ///
 /// // setup
 /// let mut events = Events::<MyEvent>::default();
-/// let mut reader = events.get_reader();
+/// let reader = events.get_reader("unique_id");
 ///
 /// // run this once per update/frame
 /// events.update();
@@ -93,12 +93,12 @@ enum State {
 /// events.send(MyEvent { value: 1 });
 ///
 /// // somewhere else: read the events
-/// for event in reader.iter(&events) {
+/// for event in reader.iter() {
 ///     assert_eq!(event.value, 1)
 /// }
 ///
 /// // events are only processed once per reader
-/// assert_eq!(reader.iter(&events).count(), 0);
+/// assert_eq!(reader.iter().count(), 0);
 /// ```
 ///
 /// # Details
@@ -117,23 +117,21 @@ enum State {
 /// but can be done by adding your event as a resource instead of using [`AppBuilder::add_event`].
 #[derive(Debug)]
 pub struct Events<T> {
-    events_a: Vec<EventInstance<T>>,
-    events_b: Vec<EventInstance<T>>,
-    a_start_event_count: usize,
-    b_start_event_count: usize,
+    buffer: Vec<EventInstance<T>>,
+    subscriber_last_counts: RwLock<Vec<usize>>,
+    manual_subscriber_ids: RwLock<HashMap<String, usize>>,
     event_count: usize,
-    state: State,
+    event_offset: usize,
 }
 
 impl<T> Default for Events<T> {
     fn default() -> Self {
         Events {
-            a_start_event_count: 0,
-            b_start_event_count: 0,
+            buffer: Vec::new(),
+            subscriber_last_counts: RwLock::default(),
+            manual_subscriber_ids: Default::default(),
             event_count: 0,
-            events_a: Vec::new(),
-            events_b: Vec::new(),
-            state: State::A,
+            event_offset: 0,
         }
     }
 }
@@ -146,10 +144,59 @@ fn map_instance_event<T>(event_instance: &EventInstance<T>) -> &T {
     &event_instance.event
 }
 
+pub struct SubscriberId<'a, T: Component>(&'a mut (usize, PhantomData<T>));
+
+impl<'a, T: Component> Deref for SubscriberId<'a, T> {
+    type Target = usize;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0 .0
+    }
+}
+
+impl<'a, T: Component> DerefMut for SubscriberId<'a, T> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0 .0
+    }
+}
+
+pub struct SubscriberIdState<T: Component>((usize, PhantomData<T>));
+
+impl<'a, T: Component> SystemParam for SubscriberId<'a, T> {
+    type Fetch = SubscriberIdState<T>;
+}
+
+// SAFE: only local state is accessed
+unsafe impl<T: Component> SystemParamState for SubscriberIdState<T> {
+    type Config = Option<T>;
+
+    fn init(world: &mut World, _system_state: &mut SystemState, _config: Self::Config) -> Self {
+        let events = world.get_resource::<Events<T>>().unwrap();
+        let subscription_id = events.add_subscriber();
+        Self((subscription_id, PhantomData::<T>::default()))
+    }
+}
+
+impl<'a, T: Component> SystemParamFetch<'a> for SubscriberIdState<T> {
+    type Item = SubscriberId<'a, T>;
+
+    #[inline]
+    unsafe fn get_param(
+        state: &'a mut Self,
+        _system_state: &'a SystemState,
+        _world: &'a World,
+        _change_tick: u32,
+    ) -> Self::Item {
+        SubscriberId(&mut state.0)
+    }
+}
+
 /// Reads events of type `T` in order and tracks which events have already been read.
 #[derive(SystemParam)]
 pub struct EventReader<'a, T: Component> {
-    last_event_count: Local<'a, (usize, PhantomData<T>)>,
+    subscriber_id: SubscriberId<'a, T>,
     events: Res<'a, Events<T>>,
 }
 
@@ -169,32 +216,28 @@ impl<'a, T: Component> EventWriter<'a, T> {
     }
 }
 
-pub struct ManualEventReader<T> {
-    last_event_count: usize,
-    _marker: PhantomData<T>,
+pub struct ManualEventReader<'a, T> {
+    subscriber_id: usize,
+    events: &'a Events<T>,
 }
 
-impl<T> Default for ManualEventReader<T> {
-    fn default() -> Self {
-        ManualEventReader {
-            last_event_count: 0,
-            _marker: Default::default(),
-        }
-    }
-}
-
-impl<T> ManualEventReader<T> {
+impl<'a, T: Component> ManualEventReader<'a, T> {
     /// See [`EventReader::iter`]
-    pub fn iter<'a>(&mut self, events: &'a Events<T>) -> impl DoubleEndedIterator<Item = &'a T> {
-        internal_event_reader(&mut self.last_event_count, events).map(|(e, _)| e)
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &'a T> {
+        let mut last_event_count = self.events.get_subscriber_read_count(self.subscriber_id);
+        let result = internal_event_reader(&mut last_event_count, self.events).map(|(e, _)| e);
+        self.events
+            .set_subscriber_read_count(self.subscriber_id, last_event_count);
+        result
     }
 
     /// See [`EventReader::iter_with_id`]
-    pub fn iter_with_id<'a>(
-        &mut self,
-        events: &'a Events<T>,
-    ) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> {
-        internal_event_reader(&mut self.last_event_count, events)
+    pub fn iter_with_id(&self) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> {
+        let mut last_event_count = self.events.get_subscriber_read_count(self.subscriber_id);
+        let result = internal_event_reader(&mut last_event_count, self.events);
+        self.events
+            .set_subscriber_read_count(self.subscriber_id, last_event_count);
+        result
     }
 }
 
@@ -206,47 +249,18 @@ fn internal_event_reader<'a, T>(
 ) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> {
     // if the reader has seen some of the events in a buffer, find the proper index offset.
     // otherwise read all events in the buffer
-    let a_index = if *last_event_count > events.a_start_event_count {
-        *last_event_count - events.a_start_event_count
-    } else {
-        0
-    };
-    let b_index = if *last_event_count > events.b_start_event_count {
-        *last_event_count - events.b_start_event_count
+    let index = if *last_event_count > events.event_offset {
+        *last_event_count - events.event_offset
     } else {
         0
     };
     *last_event_count = events.event_count;
-    match events.state {
-        State::A => events
-            .events_b
-            .get(b_index..)
-            .unwrap_or_else(|| &[])
-            .iter()
-            .map(map_instance_event_with_id)
-            .chain(
-                events
-                    .events_a
-                    .get(a_index..)
-                    .unwrap_or_else(|| &[])
-                    .iter()
-                    .map(map_instance_event_with_id),
-            ),
-        State::B => events
-            .events_a
-            .get(a_index..)
-            .unwrap_or_else(|| &[])
-            .iter()
-            .map(map_instance_event_with_id)
-            .chain(
-                events
-                    .events_b
-                    .get(b_index..)
-                    .unwrap_or_else(|| &[])
-                    .iter()
-                    .map(map_instance_event_with_id),
-            ),
-    }
+    events
+        .buffer
+        .get(index..)
+        .unwrap_or_else(|| &[])
+        .iter()
+        .map(map_instance_event_with_id)
 }
 
 impl<'a, T: Component> EventReader<'a, T> {
@@ -259,10 +273,12 @@ impl<'a, T: Component> EventReader<'a, T> {
 
     /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
     pub fn iter_with_id(&mut self) -> impl DoubleEndedIterator<Item = (&T, EventId<T>)> {
-        internal_event_reader(&mut self.last_event_count.0, &self.events).map(|(event, id)| {
-            trace!("EventReader::iter() -> {}", id);
-            (event, id)
-        })
+        let subscriber_id = self.subscriber_id.0 .0;
+        let manual_reader = ManualEventReader {
+            subscriber_id,
+            events: &*self.events,
+        };
+        manual_reader.iter_with_id()
     }
 }
 
@@ -278,45 +294,58 @@ impl<T: Component> Events<T> {
 
         let event_instance = EventInstance { event_id, event };
 
-        match self.state {
-            State::A => self.events_a.push(event_instance),
-            State::B => self.events_b.push(event_instance),
-        }
+        self.buffer.push(event_instance);
 
         self.event_count += 1;
     }
 
-    /// Gets a new [ManualEventReader]. This will include all events already in the event buffers.
-    pub fn get_reader(&self) -> ManualEventReader<T> {
-        ManualEventReader {
-            last_event_count: 0,
-            _marker: PhantomData,
-        }
+    pub fn add_subscriber(&self) -> usize {
+        let mut subscriber_last_counts_write = self.subscriber_last_counts.write();
+        let id = subscriber_last_counts_write.len();
+        subscriber_last_counts_write.push(0);
+        id
     }
 
-    /// Gets a new [ManualEventReader]. This will ignore all events already in the event buffers. It
-    /// will read all future events.
-    pub fn get_reader_current(&self) -> ManualEventReader<T> {
+    pub fn get_subscriber_read_count(&self, subscription_id: usize) -> usize {
+        self.subscriber_last_counts.read()[subscription_id]
+    }
+
+    pub fn set_subscriber_read_count(&self, subscription_id: usize, count: usize) {
+        self.subscriber_last_counts.write()[subscription_id] = count;
+    }
+
+    pub fn get_reader(&self, name: &str) -> ManualEventReader<T> {
+        let manual_subscriber_ids_read = self.manual_subscriber_ids.read();
+        let id = if let Some(id) = manual_subscriber_ids_read.get(name) {
+            *id
+        } else {
+            let id = self.add_subscriber();
+            drop(manual_subscriber_ids_read);
+            self.manual_subscriber_ids
+                .write()
+                .insert(name.to_string(), id);
+            id
+        };
         ManualEventReader {
-            last_event_count: self.event_count,
-            _marker: PhantomData,
+            subscriber_id: id,
+            events: self,
         }
     }
 
     /// Swaps the event buffers and clears the oldest event buffer. In general, this should be
     /// called once per frame/update.
     pub fn update(&mut self) {
-        match self.state {
-            State::A => {
-                self.events_b = Vec::new();
-                self.state = State::B;
-                self.b_start_event_count = self.event_count;
-            }
-            State::B => {
-                self.events_a = Vec::new();
-                self.state = State::A;
-                self.a_start_event_count = self.event_count;
-            }
+        if self.subscriber_last_counts.read().is_empty() {
+            // todo: what should happen here?
+        } else {
+            let read_count = self
+                .subscriber_last_counts
+                .read()
+                .iter()
+                .fold(usize::max_value(), |count, next| min(count, *next));
+            let remove_index = read_count - self.event_offset;
+            self.event_offset = read_count;
+            self.buffer.drain(0..remove_index);
         }
     }
 
@@ -327,25 +356,15 @@ impl<T: Component> Events<T> {
 
     /// Removes all events.
     pub fn clear(&mut self) {
-        self.events_a.clear();
-        self.events_b.clear();
+        self.buffer.clear();
+        self.event_offset = self.event_count;
     }
 
     /// Creates a draining iterator that removes all events.
     pub fn drain(&mut self) -> impl Iterator<Item = T> + '_ {
+        self.event_offset = self.event_count;
         let map = |i: EventInstance<T>| i.event;
-        match self.state {
-            State::A => self
-                .events_b
-                .drain(..)
-                .map(map)
-                .chain(self.events_a.drain(..).map(map)),
-            State::B => self
-                .events_a
-                .drain(..)
-                .map(map)
-                .chain(self.events_b.drain(..).map(map)),
-        }
+        self.buffer.drain(..).map(map)
     }
 
     pub fn extend<I>(&mut self, events: I)
@@ -364,16 +383,16 @@ impl<T: Component> Events<T> {
     /// If events happen outside that window, they will not be handled. For example, any events that
     /// happen after this call and before the next `update()` call will be dropped.
     pub fn iter_current_update_events(&self) -> impl DoubleEndedIterator<Item = &T> {
-        match self.state {
-            State::A => self.events_a.iter().map(map_instance_event),
-            State::B => self.events_b.iter().map(map_instance_event),
-        }
+        self.buffer.iter().map(map_instance_event)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy_ecs::schedule::{Schedule, SystemStage};
+    use bevy_ecs::system::{IntoSystem, Local};
+    use bevy_ecs::world::World;
 
     #[derive(Copy, Clone, PartialEq, Eq, Debug)]
     struct TestEvent {
@@ -382,99 +401,215 @@ mod tests {
 
     #[test]
     fn test_events() {
+        fn event_writer_system1(mut event_writer: EventWriter<TestEvent>) {
+            let event_0 = TestEvent { i: 0 };
+            let event_1 = TestEvent { i: 1 };
+            event_writer.send(event_0);
+            event_writer.send(event_1);
+        }
+        fn event_writer_system2(mut event_writer: EventWriter<TestEvent>) {
+            let event_2 = TestEvent { i: 2 };
+            event_writer.send(event_2);
+        }
+        fn event_reader_system1(mut event_reader: EventReader<TestEvent>) {
+            for _event in event_reader.iter() {
+                // hi
+            }
+        }
+
+        let mut schedule = Schedule::default();
+        let update1 = SystemStage::single(event_writer_system1.system());
+        let mut update2 = SystemStage::parallel();
+        update2
+            .add_system(event_reader_system1.system())
+            .add_system(event_reader_system1.system());
+        let update3 = SystemStage::single(event_writer_system2.system());
+        let update4 = SystemStage::single(event_reader_system1.system());
+        let update5 = SystemStage::single(Events::<TestEvent>::update_system.system());
+        schedule.add_stage("update1", update1);
+        schedule.add_stage("update2", update2);
+        schedule.add_stage("update3", update3);
+        schedule.add_stage("update4", update4);
+        schedule.add_stage("update5", update5);
+
+        let mut world = World::default();
+        world.insert_resource(Events::<TestEvent>::default());
+        schedule.run_once(&mut world);
+        let events = world.get_resource::<Events<TestEvent>>().unwrap();
+        assert_eq!(
+            events.event_offset, 2,
+            "All subscribed systems read the first two events."
+        );
+
+        schedule.run_once(&mut world);
+        let events = world.get_resource::<Events<TestEvent>>().unwrap();
+        assert_eq!(
+            events.event_offset, 5,
+            "All subscribed systems read all events from last frame plus 2 new events from this frame"
+        );
+    }
+
+    #[test]
+    fn test_manual_events() {
         let mut events = Events::<TestEvent>::default();
         let event_0 = TestEvent { i: 0 };
         let event_1 = TestEvent { i: 1 };
         let event_2 = TestEvent { i: 2 };
 
-        // this reader will miss event_0 and event_1 because it wont read them over the course of
-        // two updates
-        let mut reader_missed = events.get_reader();
-
-        let mut reader_a = events.get_reader();
-
         events.send(event_0);
+        // _reader_slow sets up the subscription, even though it won't be used till later.
+        let _reader_slow = events.get_reader("slow");
+        let reader_a = events.get_reader("a");
 
         assert_eq!(
-            get_events(&events, &mut reader_a),
+            get_events(&reader_a),
             vec![event_0],
             "reader_a created before event receives event"
         );
         assert_eq!(
-            get_events(&events, &mut reader_a),
+            get_events(&reader_a),
             vec![],
             "second iteration of reader_a created before event results in zero events"
         );
 
-        let mut reader_b = events.get_reader();
+        let reader_b = events.get_reader("b");
 
         assert_eq!(
-            get_events(&events, &mut reader_b),
+            get_events(&reader_b),
             vec![event_0],
             "reader_b created after event receives event"
         );
         assert_eq!(
-            get_events(&events, &mut reader_b),
+            get_events(&reader_b),
             vec![],
             "second iteration of reader_b created after event results in zero events"
         );
 
         events.send(event_1);
 
-        let mut reader_c = events.get_reader();
+        let reader_a = events.get_reader("a");
+        let reader_c = events.get_reader("c");
 
         assert_eq!(
-            get_events(&events, &mut reader_c),
+            get_events(&reader_c),
             vec![event_0, event_1],
             "reader_c created after two events receives both events"
         );
         assert_eq!(
-            get_events(&events, &mut reader_c),
+            get_events(&reader_c),
             vec![],
             "second iteration of reader_c created after two event results in zero events"
         );
 
         assert_eq!(
-            get_events(&events, &mut reader_a),
+            get_events(&reader_a),
             vec![event_1],
             "reader_a receives next unread event"
         );
 
         events.update();
 
-        let mut reader_d = events.get_reader();
-
         events.send(event_2);
+        let reader_a = events.get_reader("a");
+        let reader_b = events.get_reader("b");
+        let reader_c = events.get_reader("c");
+        let reader_d = events.get_reader("d");
 
         assert_eq!(
-            get_events(&events, &mut reader_a),
+            get_events(&reader_a),
             vec![event_2],
             "reader_a receives event created after update"
         );
         assert_eq!(
-            get_events(&events, &mut reader_b),
+            get_events(&reader_b),
             vec![event_1, event_2],
-            "reader_b receives events created before and after update"
+            "reader_b receives events sent since its last read"
         );
         assert_eq!(
-            get_events(&events, &mut reader_d),
+            get_events(&reader_c),
+            vec![event_2],
+            "reader_c receives event created since last fetch"
+        );
+        assert_eq!(
+            get_events(&reader_d),
             vec![event_0, event_1, event_2],
-            "reader_d receives all events created before and after update"
+            "reader_d receives all events created so far because reader_slow is locking up the old events"
         );
 
         events.update();
+        let reader_slow = events.get_reader("slow");
 
         assert_eq!(
-            get_events(&events, &mut reader_missed),
-            vec![event_2],
-            "reader_missed missed events unread after to update() calls"
+            get_events(&reader_slow),
+            vec![event_0, event_1, event_2],
+            "reader_slow receives all events"
+        );
+
+        events.update();
+        let reader_slow = events.get_reader("slow");
+
+        assert_eq!(
+            get_events(&reader_slow),
+            vec![],
+            "reader slow has read all the events"
+        );
+
+        let slowest_reader = events.get_reader("slowest_reader");
+        assert_eq!(
+            get_events(&slowest_reader),
+            vec![],
+            "the events have all been read, so this reader is too late"
+        );
+
+        // At this point, the event buffer should be emptied and the count and offset
+        // should be the same since all subscribed readers have read all the events.
+        assert_eq!(
+            events.event_count, events.event_offset,
+            "all subscribed readers have read all events"
+        );
+        assert_eq!(events.buffer.is_empty(), true, "event buffer is empty");
+    }
+
+    #[test]
+    fn event_deferral() {
+        fn event_writer_system(mut event_writer: EventWriter<TestEvent>) {
+            let event = TestEvent { i: 2 };
+            event_writer.send(event);
+        }
+        fn event_reader_system(
+            mut event_reader: EventReader<TestEvent>,
+            mut deferred_events: Local<Vec<TestEvent>>,
+            mut event_reads: ResMut<usize>,
+        ) {
+            *event_reads = 0;
+            let mut defer = Vec::new();
+            for event in event_reader.iter().chain(deferred_events.iter()) {
+                *event_reads += 1;
+                defer.push(*event);
+            }
+            *deferred_events = defer;
+        }
+        let mut schedule = Schedule::default();
+        let update1 = SystemStage::single(event_writer_system.system());
+        let update2 = SystemStage::single(event_reader_system.system());
+        schedule.add_stage("update1", update1);
+        schedule.add_stage("update2", update2);
+
+        let mut world = World::default();
+        world.insert_resource(Events::<TestEvent>::default());
+        world.insert_resource(0usize);
+        schedule.run_once(&mut world);
+        let event_reads = world.get_resource::<usize>().unwrap();
+        assert_eq!(*event_reads, 1usize, "Only one event was fired.");
+        schedule.run_once(&mut world);
+        let event_reads = world.get_resource::<usize>().unwrap();
+        assert_eq!(
+            *event_reads, 2usize,
+            "One new event was fired, and one was deferred from last time."
         );
     }
 
-    fn get_events(
-        events: &Events<TestEvent>,
-        reader: &mut ManualEventReader<TestEvent>,
-    ) -> Vec<TestEvent> {
-        reader.iter(events).cloned().collect::<Vec<TestEvent>>()
+    fn get_events(reader: &ManualEventReader<TestEvent>) -> Vec<TestEvent> {
+        reader.iter().cloned().collect::<Vec<TestEvent>>()
     }
 }
