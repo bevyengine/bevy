@@ -1,5 +1,5 @@
 use crate::{
-    light::{AmbientLight, Light, LightRaw},
+    light::{AmbientLight, PointLight, PointLightUniform},
     render_graph::uniform,
 };
 use bevy_core::{AsBytes, Byteable};
@@ -20,13 +20,13 @@ use bevy_transform::prelude::*;
 #[derive(Debug, Default)]
 pub struct LightsNode {
     command_queue: CommandQueue,
-    max_lights: usize,
+    max_point_lights: usize,
 }
 
 impl LightsNode {
     pub fn new(max_lights: usize) -> Self {
         LightsNode {
-            max_lights,
+            max_point_lights: max_lights,
             command_queue: CommandQueue::default(),
         }
     }
@@ -57,7 +57,7 @@ impl SystemNode for LightsNode {
         let system = lights_node_system.system().config(|config| {
             config.0 = Some(LightsNodeSystemState {
                 command_queue: self.command_queue.clone(),
-                max_lights: self.max_lights,
+                max_point_lights: self.max_point_lights,
                 light_buffer: None,
                 staging_buffer: None,
             })
@@ -72,7 +72,7 @@ pub struct LightsNodeSystemState {
     light_buffer: Option<BufferId>,
     staging_buffer: Option<BufferId>,
     command_queue: CommandQueue,
-    max_lights: usize,
+    max_point_lights: usize,
 }
 
 pub fn lights_node_system(
@@ -82,7 +82,7 @@ pub fn lights_node_system(
     // TODO: this write on RenderResourceBindings will prevent this system from running in parallel
     // with other systems that do the same
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
-    query: Query<(&Light, &GlobalTransform)>,
+    query: Query<(&PointLight, &GlobalTransform)>,
 ) {
     let state = &mut state;
     let render_resource_context = &**render_resource_context;
@@ -91,16 +91,16 @@ pub fn lights_node_system(
     let ambient_light: [f32; 4] =
         (ambient_light_resource.color * ambient_light_resource.brightness).into();
     let ambient_light_size = std::mem::size_of::<[f32; 4]>();
-    let light_count = query.iter().count();
-    let size = std::mem::size_of::<LightRaw>();
+    let point_light_count = query.iter().count();
+    let size = std::mem::size_of::<PointLightUniform>();
     let light_count_size = ambient_light_size + std::mem::size_of::<LightCount>();
-    let light_array_size = size * light_count;
-    let light_array_max_size = size * state.max_lights;
-    let current_light_uniform_size = light_count_size + light_array_size;
-    let max_light_uniform_size = light_count_size + light_array_max_size;
+    let point_light_array_size = size * point_light_count;
+    let point_light_array_max_size = size * state.max_point_lights;
+    let current_point_light_uniform_size = light_count_size + point_light_array_size;
+    let max_light_uniform_size = light_count_size + point_light_array_max_size;
 
     if let Some(staging_buffer) = state.staging_buffer {
-        if light_count == 0 {
+        if point_light_count == 0 {
             return;
         }
 
@@ -132,21 +132,22 @@ pub fn lights_node_system(
     let staging_buffer = state.staging_buffer.unwrap();
     render_resource_context.write_mapped_buffer(
         staging_buffer,
-        0..current_light_uniform_size as u64,
+        0..current_point_light_uniform_size as u64,
         &mut |data, _renderer| {
             // ambient light
             data[0..ambient_light_size].copy_from_slice(ambient_light.as_bytes());
 
             // light count
             data[ambient_light_size..light_count_size]
-                .copy_from_slice([light_count as u32, 0, 0, 0].as_bytes());
+                .copy_from_slice([point_light_count as u32, 0, 0, 0].as_bytes());
 
             // light array
-            for ((light, global_transform), slot) in query
-                .iter()
-                .zip(data[light_count_size..current_light_uniform_size].chunks_exact_mut(size))
-            {
-                slot.copy_from_slice(LightRaw::from(&light, &global_transform).as_bytes());
+            for ((point_light, global_transform), slot) in query.iter().zip(
+                data[light_count_size..current_point_light_uniform_size].chunks_exact_mut(size),
+            ) {
+                slot.copy_from_slice(
+                    PointLightUniform::from(&point_light, &global_transform).as_bytes(),
+                );
             }
         },
     );

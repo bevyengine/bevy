@@ -9,7 +9,7 @@ pub use light::*;
 pub use material::*;
 
 pub mod prelude {
-    pub use crate::{entity::*, light::Light, material::StandardMaterial};
+    pub use crate::{entity::*, light::PointLight, material::StandardMaterial};
 }
 
 use bevy_app::prelude::*;
@@ -26,7 +26,7 @@ pub struct PbrPlugin;
 impl Plugin for PbrPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_asset::<StandardMaterial>()
-            .register_type::<Light>()
+            .register_type::<PointLight>()
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 shader::asset_shader_defs_system::<StandardMaterial>.system(),

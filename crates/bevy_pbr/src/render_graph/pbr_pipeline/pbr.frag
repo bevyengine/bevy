@@ -36,10 +36,10 @@
 
 const int MAX_LIGHTS = 10;
 
-struct Light {
-    mat4 proj;
+struct PointLight {
     vec4 pos;
     vec4 color;
+    float inverseRangeSquared;
 };
 
 layout(location = 0) in vec3 v_WorldPosition;
@@ -62,7 +62,7 @@ layout(std140, set = 0, binding = 1) uniform CameraPosition {
 layout(std140, set = 1, binding = 0) uniform Lights {
     vec4 AmbientColor;
     uvec4 NumLights;
-    Light SceneLights[MAX_LIGHTS];
+    PointLight PointLights[MAX_LIGHTS];
 };
 
 layout(set = 3, binding = 0) uniform StandardMaterial_base_color {
@@ -130,9 +130,8 @@ float pow5(float x) {
 //
 // light radius is a non-physical construct for efficiency purposes,
 // because otherwise every light affects every fragment in the scene
-float getDistanceAttenuation(const vec3 posToLight, float inverseRadiusSquared) {
-    float distanceSquare = dot(posToLight, posToLight);
-    float factor = distanceSquare * inverseRadiusSquared;
+float getDistanceAttenuation(float distanceSquare, float inverseRangeSquared) {
+    float factor = distanceSquare * inverseRangeSquared;
     float smoothFactor = saturate(1.0 - factor * factor);
     float attenuation = smoothFactor * smoothFactor;
     return attenuation * 1.0 / max(distanceSquare, 1e-4);
@@ -343,13 +342,14 @@ void main() {
     // accumulate color
     vec3 light_accum = vec3(0.0);
     for (int i = 0; i < int(NumLights.x) && i < MAX_LIGHTS; ++i) {
-        Light light = SceneLights[i];
+        PointLight light = PointLights[i];
 
-        vec3 lightDir = light.pos.xyz - v_WorldPosition.xyz;
-        vec3 L = normalize(lightDir);
+        vec3 light_to_frag = light.pos.xyz - v_WorldPosition.xyz;
+        vec3 L = normalize(light_to_frag);
+        float distance_square = dot(light_to_frag, light_to_frag);
 
         float rangeAttenuation =
-            getDistanceAttenuation(lightDir, light.pos.w);
+            getDistanceAttenuation(distance_square, light.inverseRangeSquared);
 
         vec3 H = normalize(L + V);
         float NoL = saturate(dot(N, L));

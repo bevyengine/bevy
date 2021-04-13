@@ -20,7 +20,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..Default::default()
     });
     commands
-        .spawn_bundle(LightBundle {
+        .spawn_bundle(PointLightBundle {
             transform: Transform::from_xyz(3.0, 5.0, 3.0),
             ..Default::default()
         })
