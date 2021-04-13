@@ -43,7 +43,7 @@ impl Default for PbrBundle {
 /// A component bundle for "light" entities
 #[derive(Debug, Bundle, Default)]
 pub struct PointLightBundle {
-    pub light: PointLight,
+    pub point_light: PointLight,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 }

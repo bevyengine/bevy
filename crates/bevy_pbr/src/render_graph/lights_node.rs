@@ -20,13 +20,13 @@ use bevy_transform::prelude::*;
 #[derive(Debug, Default)]
 pub struct LightsNode {
     command_queue: CommandQueue,
-    max_lights: usize,
+    max_point_lights: usize,
 }
 
 impl LightsNode {
     pub fn new(max_lights: usize) -> Self {
         LightsNode {
-            max_lights,
+            max_point_lights: max_lights,
             command_queue: CommandQueue::default(),
         }
     }
@@ -57,7 +57,7 @@ impl SystemNode for LightsNode {
         let system = lights_node_system.system().config(|config| {
             config.0 = Some(LightsNodeSystemState {
                 command_queue: self.command_queue.clone(),
-                max_point_lights: self.max_lights,
+                max_point_lights: self.max_point_lights,
                 light_buffer: None,
                 staging_buffer: None,
             })
