@@ -19,6 +19,7 @@ fn main() {
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .insert_resource(SpriteSettings {
+            // NOTE: this is an experimental feature that doesn't work in all cases
             frustum_culling_enabled: true,
         })
         .add_plugins(DefaultPlugins)
