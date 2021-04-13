@@ -12,10 +12,10 @@ pub struct CiTestingConfig {
 
 fn ci_testing_exit_after(
     mut current_frame: bevy_ecs::prelude::Local<u32>,
-    debug_config: bevy_ecs::prelude::Res<CiTestingConfig>,
+    ci_testing_config: bevy_ecs::prelude::Res<CiTestingConfig>,
     mut app_exit_events: crate::EventWriter<AppExit>,
 ) {
-    if let Some(exit_after) = debug_config.exit_after {
+    if let Some(exit_after) = ci_testing_config.exit_after {
         if *current_frame > exit_after {
             app_exit_events.send(AppExit);
         }
@@ -25,7 +25,7 @@ fn ci_testing_exit_after(
 
 pub(crate) fn setup_app(app_builder: &mut AppBuilder) -> &mut AppBuilder {
     let filename =
-        std::env::var("DEBUG_CONFIG").unwrap_or_else(|_| "ci_testing_config.ron".to_string());
+        std::env::var("CI_TESTING_CONFIG").unwrap_or_else(|_| "ci_testing_config.ron".to_string());
     let config: CiTestingConfig = ron::from_str(
         &std::fs::read_to_string(filename).expect("error reading CI testing configuration file"),
     )
