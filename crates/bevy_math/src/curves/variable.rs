@@ -69,7 +69,7 @@ where
 
 impl<T> CurveVariable<T>
 where
-    T: Interpolate + Clone,
+    T: Interpolate,
 {
     pub fn with_auto_tangents(samples: Vec<f32>, values: Vec<T>) -> Self {
         // TODO: Result?
@@ -107,12 +107,7 @@ where
                 let p = if i > 0 { i - 1 } else { length - 1 };
                 let n = if (i + 1) < length { i + 1 } else { 0 };
                 tangents.push(T::auto_tangent(
-                    samples[p],
-                    samples[i],
-                    samples[n],
-                    values[p].clone(),
-                    values[i].clone(),
-                    values[n].clone(),
+                    samples[p], samples[i], samples[n], &values[p], &values[i], &values[n],
                 ));
             }
         }
@@ -176,6 +171,32 @@ where
     }
 
     // TODO: Edit methods
+
+    /// Updates keyframes marked with `TangentControl::Auto`
+    pub fn update_tangents(&mut self) {
+        let length = self.keyframes.len();
+        if length == 1 {
+            self.tangents_in[0] = T::FLAT_TANGENT;
+            self.tangents_out[0] = T::FLAT_TANGENT;
+        } else {
+            for i in 0..length {
+                let p = if i > 0 { i - 1 } else { length - 1 };
+                let n = if (i + 1) < length { i + 1 } else { 0 };
+
+                let tangent = T::auto_tangent(
+                    self.time_stamps[p],
+                    self.time_stamps[i],
+                    self.time_stamps[n],
+                    &self.keyframes[p].clone(),
+                    &self.keyframes[i].clone(),
+                    &self.keyframes[n].clone(),
+                );
+
+                self.tangents_in[i] = tangent;
+                self.tangents_out[i] = tangent;
+            }
+        }
+    }
 
     /// Make sure the first keyframe starts at time `0.0`
     #[inline]

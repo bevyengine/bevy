@@ -256,7 +256,7 @@ impl<T: Asset + 'static> Interpolate for Handle<T> {
         step_unclamped(k0, k1, t)
     }
 
-    fn auto_tangent(_: f32, _: f32, _: f32, _: Self, _: Self, _: Self) -> Self::Tangent {
+    fn auto_tangent(_: f32, _: f32, _: f32, _: &Self, _: &Self, _: &Self) -> Self::Tangent {
         TangentIgnore
     }
 }
@@ -390,7 +390,7 @@ impl Interpolate for HandleUntyped {
         step_unclamped(k0, k1, t)
     }
 
-    fn auto_tangent(_: f32, _: f32, _: f32, _: Self, _: Self, _: Self) -> Self::Tangent {
+    fn auto_tangent(_: f32, _: f32, _: f32, _: &Self, _: &Self, _: &Self) -> Self::Tangent {
         TangentIgnore
     }
 }

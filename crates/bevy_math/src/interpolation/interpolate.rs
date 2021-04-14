@@ -39,7 +39,7 @@ pub trait Interpolate: Lerp + Clone {
         t: f32,
     ) -> Self;
 
-    fn auto_tangent(t0: f32, t1: f32, t2: f32, k0: Self, k1: Self, k2: Self) -> Self::Tangent;
+    fn auto_tangent(t0: f32, t1: f32, t2: f32, k0: &Self, k1: &Self, k2: &Self) -> Self::Tangent;
 }
 
 impl Interpolate for bool {
@@ -62,7 +62,7 @@ impl Interpolate for bool {
         }
     }
 
-    fn auto_tangent(_: f32, _: f32, _: f32, _: Self, _: Self, _: Self) -> Self::Tangent {
+    fn auto_tangent(_: f32, _: f32, _: f32, _: &Self, _: &Self, _: &Self) -> Self::Tangent {
         TangentIgnore
     }
 }
@@ -90,15 +90,16 @@ macro_rules! interpolate {
                 }
             }
 
+            #[inline]
             fn auto_tangent(
                 t0: f32,
                 t1: f32,
                 t2: f32,
-                k0: Self,
-                k1: Self,
-                k2: Self,
+                k0: &Self,
+                k1: &Self,
+                k2: &Self,
             ) -> Self::Tangent {
-                utils::auto_tangent(t0, t1, t2, k0, k1, k2)
+                utils::auto_tangent(t0, t1, t2, *k0, *k1, *k2)
             }
         }
     };
@@ -180,7 +181,8 @@ impl Interpolate for Quat {
         }
     }
 
-    fn auto_tangent(t0: f32, t1: f32, t2: f32, k0: Self, k1: Self, k2: Self) -> Self::Tangent {
-        utils::auto_tangent(t0, t1, t2, k0, k1, k2)
+    #[inline]
+    fn auto_tangent(t0: f32, t1: f32, t2: f32, k0: &Self, k1: &Self, k2: &Self) -> Self::Tangent {
+        utils::auto_tangent(t0, t1, t2, *k0, *k1, *k2)
     }
 }
