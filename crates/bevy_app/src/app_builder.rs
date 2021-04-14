@@ -33,6 +33,11 @@ impl Default for AppBuilder {
             .add_default_stages()
             .add_event::<AppExit>()
             .add_system_to_stage(CoreStage::Last, World::clear_trackers.exclusive_system());
+
+        #[cfg(feature = "bevy_ci_testing")]
+        {
+            crate::ci_testing::setup_app(&mut app_builder);
+        }
         app_builder
     }
 }
