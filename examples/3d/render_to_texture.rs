@@ -216,8 +216,8 @@ fn setup(
 
     commands
         .spawn_bundle(PbrBundle {
-            mesh: cube_handle.clone(),
-            material: cube_material_handle.clone(),
+            mesh: cube_handle,
+            material: cube_material_handle,
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
             ..Default::default()
         })
@@ -255,7 +255,7 @@ fn setup(
     let cube_handle = meshes.add(Mesh::from(shape::Box::new(cube_size, cube_size, cube_size)));
 
     let material_handle = materials.add(StandardMaterial {
-        base_color_texture: Some(texture_handle.clone()),
+        base_color_texture: Some(texture_handle),
         reflectance: 0.02,
         unlit: false,
         ..Default::default()
@@ -264,7 +264,7 @@ fn setup(
     // add entities to the world
     commands
         .spawn_bundle(PbrBundle {
-            mesh: cube_handle.clone(),
+            mesh: cube_handle,
             material: material_handle,
             transform: Transform {
                 translation: Vec3::new(0.0, 0.0, 1.5),
