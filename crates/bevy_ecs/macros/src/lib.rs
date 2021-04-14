@@ -118,7 +118,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     {
         if *is_bundle {
             field_type_infos.push(quote! {
-                type_info.extend(<#field_type>::type_info());
+                type_info.extend(<#field_type as #ecs_path::bundle::Bundle>::type_info());
             });
             field_get_components.push(quote! {
                 self.#field.get_components(&mut func);
