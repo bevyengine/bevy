@@ -288,8 +288,7 @@ fn setup(
 
 fn main() {
     let mut app = App::build();
-    app
-        .add_plugins(DefaultPlugins)
+    app.add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
         .add_system(cube_rotator_system.system())
         .add_system(rotator_system.system());
