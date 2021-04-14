@@ -124,7 +124,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 self.#field.get_components(&mut func);
             });
             field_from_components.push(quote! {
-                #field: <#field_type>::from_components(&mut func),
+                #field: <#field_type as #ecs_path::bundle::Bundle>::from_components(&mut func),
             });
         } else {
             field_type_infos.push(quote! {
