@@ -128,12 +128,37 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
         }
     }
 
+    let kind_literal = match &ast.data {
+        Data::Struct(DataStruct { fields, .. }) => match fields {
+            Fields::Named(fields) => {
+                let (names, types) = fields
+                    .named
+                    .iter()
+                    .map(|f| (f.ident.as_ref().unwrap().to_string(), &f.ty))
+                    .unzip::<_, _, Vec<_>, Vec<_>>();
+                quote! { {
+                    let mut hashmap = #bevy_reflect_path::__macro_reexports::HashMap::default();
+                    #(hashmap.insert(#names, ::std::any::TypeId::of::<#types>());)*
+                    #bevy_reflect_path::TypeKind::Struct(hashmap)
+                } }
+            }
+            Fields::Unnamed(fields) => {
+                let fields = fields.unnamed.iter().map(|f| &f.ty);
+                quote! { #bevy_reflect_path::TypeKind::TupleStruct(vec![#(::std::any::TypeId::of::<#fields>(),)*]) }
+            }
+            Fields::Unit => quote! { #bevy_reflect_path::TypeKind::ReflectPrimitive },
+        },
+        Data::Enum(_) => quote! { #bevy_reflect_path::TypeKind::ReflectPrimitive },
+        _ => panic!("unions not supported"),
+    };
+
     let registration_data = &reflect_attrs.data;
     let get_type_registration_impl = impl_get_type_registration(
         type_name,
         &bevy_reflect_path,
         registration_data,
         &ast.generics,
+        kind_literal,
     );
 
     match derive_type {
@@ -577,6 +602,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
         &bevy_reflect_path,
         registration_data,
         &reflect_value_def.generics,
+        quote! { #bevy_reflect_path::TypeKind::ReflectPrimitive },
     );
     impl_value(
         ty,
@@ -724,13 +750,14 @@ fn impl_get_type_registration(
     bevy_reflect_path: &Path,
     registration_data: &[Ident],
     generics: &Generics,
+    kind_literal: proc_macro2::TokenStream,
 ) -> proc_macro2::TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     quote! {
         #[allow(unused_mut)]
         impl #impl_generics #bevy_reflect_path::GetTypeRegistration for #type_name#ty_generics #where_clause {
             fn get_type_registration() -> #bevy_reflect_path::TypeRegistration {
-                let mut registration = #bevy_reflect_path::TypeRegistration::of::<#type_name#ty_generics>();
+                let mut registration = #bevy_reflect_path::TypeRegistration::of::<#type_name#ty_generics>(#kind_literal);
                 #(registration.insert::<#registration_data>(#bevy_reflect_path::FromType::<#type_name#ty_generics>::from_type());)*
                 registration
             }

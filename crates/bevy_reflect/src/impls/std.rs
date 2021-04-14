@@ -1,13 +1,13 @@
 use crate::{
     map_partial_eq, serde::Serializable, DynamicMap, FromType, GetTypeRegistration, List, ListIter,
-    Map, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef, TypeRegistration,
+    Map, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef, TypeKind, TypeRegistration,
 };
 
 use bevy_reflect_derive::impl_reflect_value;
 use bevy_utils::{Duration, HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use std::{
-    any::Any,
+    any::{Any, TypeId},
     borrow::Cow,
     hash::{Hash, Hasher},
     ops::Range,
@@ -115,7 +115,7 @@ unsafe impl<T: Reflect> Reflect for Vec<T> {
 
 impl<T: Reflect + for<'de> Deserialize<'de>> GetTypeRegistration for Vec<T> {
     fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<Vec<T>>();
+        let mut registration = TypeRegistration::of::<Vec<T>>(TypeKind::Vec(TypeId::of::<T>()));
         registration.insert::<ReflectDeserialize>(FromType::<Vec<T>>::from_type());
         registration
     }
@@ -223,7 +223,10 @@ where
     V: Reflect + Clone + for<'de> Deserialize<'de>,
 {
     fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<HashMap<K, V>>();
+        let mut registration = TypeRegistration::of::<HashMap<K, V>>(TypeKind::HashMap(
+            TypeId::of::<K>(),
+            TypeId::of::<V>(),
+        ));
         registration.insert::<ReflectDeserialize>(FromType::<HashMap<K, V>>::from_type());
         registration
     }
@@ -292,7 +295,8 @@ unsafe impl Reflect for Cow<'static, str> {
 
 impl GetTypeRegistration for Cow<'static, str> {
     fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<Cow<'static, str>>();
+        let mut registration =
+            TypeRegistration::of::<Cow<'static, str>>(TypeKind::ReflectPrimitive);
         registration.insert::<ReflectDeserialize>(FromType::<Cow<'static, str>>::from_type());
         registration
     }
