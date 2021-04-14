@@ -187,6 +187,27 @@ where
     }
 }
 
+impl<T, const N: usize> RenderResource for [T; N]
+where
+    T: Sized + Byteable,
+{
+    fn resource_type(&self) -> Option<RenderResourceType> {
+        Some(RenderResourceType::Buffer)
+    }
+
+    fn write_buffer_bytes(&self, buffer: &mut [u8]) {
+        self.write_bytes(buffer);
+    }
+
+    fn buffer_byte_len(&self) -> Option<usize> {
+        Some(self.byte_len())
+    }
+
+    fn texture(&self) -> Option<&Handle<Texture>> {
+        None
+    }
+}
+
 impl RenderResource for GlobalTransform {
     fn resource_type(&self) -> Option<RenderResourceType> {
         Some(RenderResourceType::Buffer)
