@@ -29,7 +29,7 @@ pub enum ShaderError {
 
     #[cfg(any(target_os = "ios", all(target_arch = "aarch64", target_os = "macos")))]
     /// shaderc error.
-    #[error("shaderc error: {}")]
+    #[error("shaderc error: {0}")]
     ShaderC(#[from] shaderc::Error),
 
     #[cfg(any(target_os = "ios", all(target_arch = "aarch64", target_os = "macos")))]
