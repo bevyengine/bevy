@@ -1,11 +1,11 @@
 use crate::{
     app::{App, AppExit},
-    event::Events,
     plugin::Plugin,
     CoreStage, PluginGroup, PluginGroupBuilder, StartupStage,
 };
 use bevy_ecs::{
     component::{Component, ComponentDescriptor},
+    event::Events,
     schedule::{
         RunOnce, Schedule, Stage, StageLabel, State, SystemDescriptor, SystemSet, SystemStage,
     },
