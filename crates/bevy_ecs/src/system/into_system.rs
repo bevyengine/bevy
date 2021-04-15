@@ -10,6 +10,7 @@ use crate::{
 use bevy_ecs_macros::all_tuples;
 use std::{borrow::Cow, marker::PhantomData};
 
+/// The state of a [`System`].
 pub struct SystemState {
     pub(crate) id: SystemId,
     pub(crate) name: Cow<'static, str>,
@@ -33,18 +34,37 @@ impl SystemState {
         }
     }
 
+    /// Returns true if the system is [`Send`].
     #[inline]
     pub fn is_send(&self) -> bool {
         self.is_send
     }
 
+    /// Sets the system to be not [`Send`].
+    ///
+    /// This is irreversible.
     #[inline]
     pub fn set_non_send(&mut self) {
         self.is_send = false;
     }
 }
 
+/// Conversion trait to turn something into a [`System`].
+///
+/// Use this to get a system from a function. Also note that every system implements this trait as well.
+///
+/// # Examples
+///
+/// ```
+/// use bevy_ecs::system::IntoSystem;
+/// use bevy_ecs::system::Res;
+///
+/// fn my_system_function(an_usize_resource: Res<usize>) {}
+///
+/// let system = my_system_function.system();
+/// ```
 pub trait IntoSystem<Params, SystemType: System> {
+    /// Turns this value into its corresponding [`System`].
     fn system(self) -> SystemType;
 }
 
@@ -55,9 +75,40 @@ impl<Sys: System> IntoSystem<(), Sys> for Sys {
     }
 }
 
+/// Wrapper type to mark a [`SystemParam`] as an input.
+///
+/// [`System`]s may take an optional input which they require to be passed to them when they
+/// are being [`run`](System::run). For [`FunctionSystems`](FunctionSystem) the input may be marked
+/// with this `In` type, but only the first param of a function may be tagged as an input. This also
+/// means a system can only have one or zero input paramaters.
+///
+/// # Examples
+///
+/// Here is a simple example of a system that takes a [`usize`] returning the square of it.
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+///
+/// fn main() {
+///     let mut square_system = square.system();
+///
+///     let mut world = World::default();
+///     square_system.initialize(&mut world);
+///     assert_eq!(square_system.run(12, &mut world), 144);
+/// }
+///
+/// fn square(In(input): In<usize>) -> usize {
+///     input * input
+/// }
+/// ```
 pub struct In<In>(pub In);
 pub struct InputMarker;
 
+/// The [`System`] counter part of an ordinary function.
+///
+/// You get this by calling [`IntoSystem::system`]  on a function that only accepts [`SystemParam`]s.
+/// The output of the system becomes the functions return type, while the input becomes the functions
+/// [`In`] tagged parameter or `()` if no such paramater exists.
 pub struct FunctionSystem<In, Out, Param, Marker, F>
 where
     Param: SystemParam,
@@ -71,6 +122,21 @@ where
 }
 
 impl<In, Out, Param: SystemParam, Marker, F> FunctionSystem<In, Out, Param, Marker, F> {
+    /// Gives mutable access to the systems config via a callback. This is useful to set up system
+    /// [`Local`](crate::system::Local)s.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let world = &mut World::default();
+    /// fn local_is_42(local: Local<usize>) {
+    ///     assert_eq!(*local, 42);
+    /// }
+    /// let mut system = local_is_42.system().config(|config| config.0 = Some(42));
+    /// system.initialize(world);
+    /// system.run((), world);
+    /// ```
     pub fn config(
         mut self,
         f: impl FnOnce(&mut <Param::Fetch as SystemParamState>::Config),
@@ -180,6 +246,7 @@ where
     }
 }
 
+/// A trait implemented for all functions that can be used as [`System`]s.
 pub trait SystemParamFunction<In, Out, Param: SystemParam, Marker>: Send + Sync + 'static {
     fn run(
         &mut self,
