@@ -1073,6 +1073,13 @@ mod tests {
 
     #[test]
     #[should_panic]
+    fn mut_and_ref_query_panic() {
+        let mut world = World::new();
+        world.query::<(&mut A, &A)>();
+    }
+
+    #[test]
+    #[should_panic]
     fn mut_and_mut_query_panic() {
         let mut world = World::new();
         world.query::<(&mut A, &mut A)>();
