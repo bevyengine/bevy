@@ -153,6 +153,21 @@ async fn load_gltf<'a, 'b>(
                 mesh.set_indices(Some(Indices::U32(indices.into_u32().collect())));
             };
 
+            if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none() {
+                let vertex_count_before = mesh.count_vertices();
+                mesh.duplicate_vertices();
+                mesh.compute_flat_normals();
+                let vertex_count_after = mesh.count_vertices();
+
+                if vertex_count_before != vertex_count_after {
+                    bevy_log::debug!("Missing vertex normals in indexed geometry, computing them as flat. Vertex count increased from {} to {}", vertex_count_before, vertex_count_after);
+                } else {
+                    bevy_log::debug!(
+                        "Missing vertex normals in indexed geometry, computing them as flat."
+                    );
+                }
+            }
+
             let mesh = load_context.set_labeled_asset(&primitive_label, LoadedAsset::new(mesh));
             primitives.push(super::GltfPrimitive {
                 mesh,

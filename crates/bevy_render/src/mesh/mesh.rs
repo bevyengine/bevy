@@ -95,6 +95,13 @@ impl VertexAttributeValues {
         self.len() == 0
     }
 
+    fn as_float3(&self) -> Option<&[[f32; 3]]> {
+        match self {
+            VertexAttributeValues::Float3(values) => Some(values),
+            _ => None,
+        }
+    }
+
     // TODO: add vertex format as parameter here and perform type conversions
     /// Flattens the VertexAttributeArray into a sequence of bytes. This is
     /// useful for serialization and sending to the GPU.
@@ -252,6 +259,29 @@ impl From<Vec<[u8; 4]>> for VertexAttributeValues {
 pub enum Indices {
     U16(Vec<u16>),
     U32(Vec<u32>),
+}
+
+impl Indices {
+    fn iter(&self) -> impl Iterator<Item = usize> + '_ {
+        match self {
+            Indices::U16(vec) => IndicesIter::U16(vec.iter()),
+            Indices::U32(vec) => IndicesIter::U32(vec.iter()),
+        }
+    }
+}
+enum IndicesIter<'a> {
+    U16(std::slice::Iter<'a, u16>),
+    U32(std::slice::Iter<'a, u32>),
+}
+impl Iterator for IndicesIter<'_> {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            IndicesIter::U16(iter) => iter.next().map(|val| *val as usize),
+            IndicesIter::U32(iter) => iter.next().map(|val| *val as usize),
+        }
+    }
 }
 
 impl From<&Indices> for IndexFormat {
@@ -431,6 +461,88 @@ impl Mesh {
 
         attributes_interleaved_buffer
     }
+
+    /// Duplicates the vertex attributes so that no vertices are shared.
+    ///
+    /// This can dramatically increase the vertex count, so make sure this is what you want.
+    /// Does nothing if no [Indices] are set.
+    pub fn duplicate_vertices(&mut self) {
+        fn duplicate<T: Copy>(values: &[T], indices: impl Iterator<Item = usize>) -> Vec<T> {
+            indices.map(|i| values[i]).collect()
+        }
+
+        assert!(
+            matches!(self.primitive_topology, PrimitiveTopology::TriangleList),
+            "can only duplicate vertices for `TriangleList`s"
+        );
+
+        let indices = match self.indices.take() {
+            Some(indices) => indices,
+            None => return,
+        };
+        for (_, attributes) in self.attributes.iter_mut() {
+            let indices = indices.iter();
+            match attributes {
+                VertexAttributeValues::Float(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Int(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Uint(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Float2(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Int2(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Uint2(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Float3(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Int3(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Uint3(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Int4(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Uint4(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Float4(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Short2(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Short2Norm(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Ushort2(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Ushort2Norm(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Short4(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Short4Norm(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Ushort4(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Ushort4Norm(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Char2(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Char2Norm(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Uchar2(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Uchar2Norm(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Char4(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Char4Norm(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Uchar4(vec) => *vec = duplicate(&vec, indices),
+                VertexAttributeValues::Uchar4Norm(vec) => *vec = duplicate(&vec, indices),
+            }
+        }
+    }
+
+    /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of a mesh.
+    ///
+    /// Panics if [`Indices`] are set.
+    /// Consider calling [Mesh::duplicate_vertices] or export your mesh with normal attributes.
+    pub fn compute_flat_normals(&mut self) {
+        if self.indices().is_some() {
+            panic!("`compute_flat_normals` can't work on indexed geometry. Consider calling `Mesh::duplicate_vertices`.");
+        }
+
+        let positions = self
+            .attribute(Mesh::ATTRIBUTE_POSITION)
+            .unwrap()
+            .as_float3()
+            .expect("`Mesh::ATTRIBUTE_POSITION` vertex attributes should be of type `float3`");
+
+        let normals: Vec<_> = positions
+            .chunks_exact(3)
+            .map(|p| face_normal(p[0], p[1], p[2]))
+            .flat_map(|normal| std::array::IntoIter::new([normal, normal, normal]))
+            .collect();
+
+        self.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    }
+}
+
+fn face_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
+    let (a, b, c) = (Vec3::from(a), Vec3::from(b), Vec3::from(c));
+    (b - a).cross(c - a).normalize().into()
 }
 
 fn remove_resource_save(
