@@ -20,7 +20,6 @@ bevy = ["glam", "smallvec"]
 # bevy
 bevy_reflect_derive = { path = "bevy_reflect_derive", version = "0.5.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
-
 # other
 erased-serde = "0.3"
 downcast-rs = "1.2"
@@ -28,7 +27,9 @@ parking_lot = "0.11.0"
 thiserror = "1.0"
 serde = "1"
 smallvec = { version = "1.4", features = ["serde"], optional = true }
-glam = { version = "0.13.0", features = ["serde"], optional = true }
+glam = { version = "0.14.0", features = [
+    "serde"
+], optional = true, path = "../../../glam-rs" }
 
 [dev-dependencies]
 ron = "0.6.2"

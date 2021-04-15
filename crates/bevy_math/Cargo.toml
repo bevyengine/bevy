@@ -13,5 +13,12 @@ license = "MIT"
 keywords = ["bevy"]
 
 [dependencies]
-glam = { version = "0.13.0", features = ["serde"] }
-bevy_reflect = { path = "../bevy_reflect", version = "0.5.0", features = ["bevy"] }
+glam = { version = "0.14.0", features = ["serde"], path = "../../../glam-rs" }
+crevice = { version = "0.6", optional = true, path = "../../../crevice" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.5.0", features = [
+    "bevy"
+] }
+
+[features]
+default = ["crevice_traits"]
+crevice_traits = ["crevice", "glam/crevice_traits"]
