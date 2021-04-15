@@ -22,7 +22,7 @@ pub fn main() {
 
 #[derive(RenderResources, Default, TypeUuid)]
 #[uuid = "463e4b8a-d555-4fc2-ba9f-4c880063ba92"]
-struct TimeComponent {
+struct TimeUniform {
     value: f32,
 }
 
@@ -53,13 +53,13 @@ const FRAGMENT_SHADER: &str = r#"
 layout(location = 0) in vec2 v_Uv;
 layout(location = 0) out vec4 o_Target;
 
-layout(set = 2, binding = 0) uniform TimeComponent_value {
-    float u_time;
+layout(set = 2, binding = 0) uniform TimeUniform_value {
+    float time;
 };
 
 void main() {
     float speed = 0.7;
-    float translation = sin(u_time * speed);
+    float translation = sin(time * speed);
     float percentage = 0.6;
     float threshold = v_Uv.x + translation * percentage;
 
@@ -86,14 +86,14 @@ fn setup(
 
     // Add a `RenderResourcesNode` to our `RenderGraph`. This will bind `TimeComponent` to our shader.
     render_graph.add_system_node(
-        "time_component",
-        RenderResourcesNode::<TimeComponent>::new(true),
+        "time_uniform",
+        RenderResourcesNode::<TimeUniform>::new(true),
     );
 
     // Add a `RenderGraph` edge connecting our new "time_component" node to the main pass node. This
     // ensures that "time_component" runs before the main pass.
     render_graph
-        .add_node_edge("time_component", base::node::MAIN_PASS)
+        .add_node_edge("time_uniform", base::node::MAIN_PASS)
         .unwrap();
 
     // Spawn a quad and insert the `TimeComponent`.
@@ -106,7 +106,7 @@ fn setup(
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
             ..Default::default()
         })
-        .insert(TimeComponent { value: 0.0 });
+        .insert(TimeUniform { value: 0.0 });
 
     // Spawn a camera.
     commands.spawn_bundle(PerspectiveCameraBundle {
@@ -118,8 +118,7 @@ fn setup(
 /// In this system we query for the `TimeComponent` and global `Time` resource, and set `time.seconds_since_startup()`
 /// as the `value` of the `TimeComponent`. This value will be accessed by the fragment shader and used
 /// to animate the shader.
-fn animate_shader(time: Res<Time>, mut query: Query<&mut TimeComponent>) {
-    for mut time_component in query.iter_mut() {
-        time_component.value = time.seconds_since_startup() as f32;
-    }
+fn animate_shader(time: Res<Time>, mut query: Query<&mut TimeUniform>) {
+    let mut time_uniform = query.single_mut().unwrap();
+    time_uniform.value = time.seconds_since_startup() as f32;
 }
