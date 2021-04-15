@@ -21,6 +21,7 @@ use crate::{
 pub enum TangentControl {
     Auto,
     Free,
+    Flat,
     Broken,
     InBroken,
     OutBroken,
@@ -37,7 +38,9 @@ impl Default for TangentControl {
 ///
 /// Similar in design to the [`CurveVariableLinear`](super::CurveVariableLinear) but allows
 /// for smoother catmull-rom interpolations using tangents, which can further reduce the number of keyframes at
-/// the cost of performance.
+/// the cost of performance;
+///
+/// It can't handle discontinuities, as in two keyframes with the same timestamp.
 ///
 /// **NOTE** Keyframes count is limited by the [`CurveCursor`] size.
 #[derive(Default, Debug)]
@@ -180,16 +183,16 @@ where
             self.tangents_out[0] = T::FLAT_TANGENT;
         } else {
             for i in 0..length {
-                let p = if i > 0 { i - 1 } else { length - 1 };
-                let n = if (i + 1) < length { i + 1 } else { 0 };
+                let p = if i > 0 { i - 1 } else { 0 };
+                let n = if (i + 1) < length { i + 1 } else { length - 1 };
 
                 let tangent = T::auto_tangent(
                     self.time_stamps[p],
                     self.time_stamps[i],
                     self.time_stamps[n],
-                    &self.keyframes[p].clone(),
-                    &self.keyframes[i].clone(),
-                    &self.keyframes[n].clone(),
+                    &self.keyframes[p],
+                    &self.keyframes[i],
+                    &self.keyframes[n],
                 );
 
                 self.tangents_in[i] = tangent;

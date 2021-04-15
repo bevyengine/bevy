@@ -13,6 +13,8 @@ use crate::{
 /// to lower the memory foot print. As a down side it requires the use of a keyframe cursor, and
 /// loses performance when the curve frame rate is higher than the curve sampling frame rate;
 ///
+/// It can't handle discontinuities, as in two keyframes with the same timestamp.
+///
 /// **NOTE** Keyframes count is limited by the [`CurveCursor`] size.
 #[derive(Default, Debug)]
 pub struct CurveVariableLinear<T> {

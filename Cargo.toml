@@ -450,6 +450,11 @@ crate-type = ["cdylib"]
 name = "android"
 path = "examples/android/android.rs"
 
+# Animation
+[[example]]
+name = "smooth_curves"
+path = "examples/animations/smooth_curves.rs"
+
 [package.metadata.android]
 apk_label = "Bevy Example"
 assets = "assets"

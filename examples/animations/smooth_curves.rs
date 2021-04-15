@@ -1,0 +1,156 @@
+use bevy::{
+    math::curves::{Curve, CurveVariable},
+    prelude::*,
+    render::pipeline::PrimitiveTopology,
+};
+
+struct CurveCursor;
+
+struct CurveTarget;
+
+#[derive(Default)]
+struct CurveMesh {
+    timer: Timer,
+    curve: CurveVariable<f32>,
+    mesh: Handle<Mesh>,
+}
+
+fn main() {
+    App::build()
+        .insert_resource(CurveMesh::default())
+        .add_plugins(DefaultPlugins)
+        .add_startup_system(setup.system())
+        .add_system(animate.system())
+        .run();
+}
+
+fn values<T: Copy>(length: usize, default: T) -> Vec<T> {
+    let mut v = vec![];
+    v.resize(length, default);
+    v
+}
+
+fn setup(
+    mut commands: Commands,
+    mut curve_mesh: ResMut<CurveMesh>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let samples = vec![0.0, 1.0, 1.3, 1.6, 1.7, 1.8, 1.9, 2.0];
+    let keyframes = vec![3.0, 0.0, 1.0, 0.0, 0.5, 0.0, 0.25, 0.0];
+
+    // Create curve
+    curve_mesh.curve = CurveVariable::with_auto_tangents(samples.clone(), keyframes.clone());
+    // Create timer
+    curve_mesh.timer = Timer::from_seconds(2.5, true);
+
+    // Create curve mesh
+    const DIVS: usize = 1024;
+    let mut mesh = Mesh::new(PrimitiveTopology::LineStrip);
+    mesh.set_attribute(
+        Mesh::ATTRIBUTE_POSITION,
+        (0..DIVS)
+            .into_iter()
+            .map(|i| {
+                let time = (i as f32 / (DIVS - 1) as f32) * curve_mesh.curve.duration();
+                [time, curve_mesh.curve.sample(time), 0.0]
+            })
+            .collect::<Vec<_>>(),
+    );
+    mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, values(DIVS, [0.0f32, 0.0, 1.0]));
+    mesh.set_attribute(Mesh::ATTRIBUTE_TANGENT, values(DIVS, [0.0f32, 1.0, 0.0]));
+    mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, values(DIVS, [0.0f32; 2]));
+    let mesh = meshes.add(mesh);
+    curve_mesh.mesh = mesh.clone();
+
+    let material = materials.add(Color::RED.into());
+    let keyframe_mesh = meshes.add(Mesh::from(shape::Cube { size: 0.05 }));
+
+    // Animated sphere
+    commands
+        .spawn_bundle(PbrBundle {
+            mesh,
+            transform: Transform::from_translation(Vec3::new(-3.5, 0.0, 0.0)),
+            material: material.clone(),
+            ..Default::default()
+        })
+        .with_children(|parent| {
+            // Create keyframes
+            for (t, k) in samples.iter().zip(keyframes.iter()) {
+                parent.spawn_bundle(PbrBundle {
+                    mesh: keyframe_mesh.clone(),
+                    transform: Transform::from_translation(Vec3::new(*t, *k, 0.0)),
+                    material: material.clone(),
+                    ..Default::default()
+                });
+            }
+
+            // Create time cursor
+            let mut mesh = Mesh::new(PrimitiveTopology::LineStrip);
+            mesh.set_attribute(
+                Mesh::ATTRIBUTE_POSITION,
+                vec![[0.0f32, 4.0, 0.0], [0.0, -2.0, 0.0]],
+            );
+            mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, values(2, [0.0f32, 0.0, 1.0]));
+            mesh.set_attribute(Mesh::ATTRIBUTE_TANGENT, values(2, [0.0f32, 1.0, 0.0]));
+            mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, values(2, [0.0f32; 2]));
+            let mesh = meshes.add(mesh);
+
+            parent
+                .spawn_bundle(PbrBundle {
+                    mesh,
+                    material: materials.add(Color::BLUE.into()),
+                    ..Default::default()
+                })
+                .insert(CurveCursor);
+        });
+
+    commands
+        .spawn_bundle(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Icosphere {
+                radius: 0.5,
+                subdivisions: 3,
+            })),
+            transform: Transform::from_translation(Vec3::new(2.0, 0.0, 0.0)),
+            material: materials.add(Color::BEIGE.into()),
+            ..Default::default()
+        })
+        .insert(CurveTarget);
+
+    // Camera and Light
+    commands.spawn_bundle(LightBundle {
+        transform: Transform::from_translation(Vec3::new(4.0, 8.0, 4.0)),
+        ..Default::default()
+    });
+
+    commands.spawn_bundle(PerspectiveCameraBundle {
+        transform: Transform::from_matrix(Mat4::face_toward(
+            Vec3::new(-3.0, 5.0, 8.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        )),
+        ..Default::default()
+    });
+}
+
+fn animate(
+    mut curve_mesh: ResMut<CurveMesh>,
+    time: Res<Time>,
+    mut query_set: QuerySet<(
+        Query<(&mut Transform, &CurveTarget)>,
+        Query<(&mut Transform, &CurveCursor)>,
+    )>,
+) {
+    let t = curve_mesh.timer.elapsed_secs();
+
+    for (mut transform, _) in query_set.q0_mut().iter_mut() {
+        let y = curve_mesh.curve.sample(t);
+        transform.translation.y = y;
+    }
+
+    for (mut transform, _) in query_set.q1_mut().iter_mut() {
+        transform.translation.x = t;
+    }
+
+    curve_mesh.timer.tick(time.delta());
+}
