@@ -29,7 +29,7 @@ serde = "1"
 smallvec = { version = "1.4", features = ["serde"], optional = true }
 glam = { version = "0.14.0", features = [
     "serde"
-], optional = true, path = "../../../glam-rs" }
+], optional = true, git = "https://github.com/mtsr/glam-rs.git", branch = "implement-crevice-asstd140" }
 
 [dev-dependencies]
 ron = "0.6.2"
