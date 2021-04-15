@@ -2,18 +2,18 @@ use crate::{
     pipeline::{IndexFormat, PrimitiveTopology, RenderPipelines, VertexFormat},
     renderer::{BufferInfo, BufferUsage, RenderResourceContext, RenderResourceId},
 };
-use bevy_app::prelude::EventReader;
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::AsBytes;
 use bevy_ecs::{
     entity::Entity,
+    event::EventReader,
     query::{Changed, With},
     system::{Local, Query, QuerySet, Res},
     world::Mut,
 };
 use bevy_math::*;
 use bevy_reflect::TypeUuid;
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::BTreeMap};
 
 use crate::pipeline::{InputStepMode, VertexAttribute, VertexBufferLayout};
 use bevy_utils::{HashMap, HashSet};
@@ -36,6 +36,21 @@ pub enum VertexAttributeValues {
     Float4(Vec<[f32; 4]>),
     Int4(Vec<[i32; 4]>),
     Uint4(Vec<[u32; 4]>),
+    Short2(Vec<[i16; 2]>),
+    Short2Norm(Vec<[i16; 2]>),
+    Ushort2(Vec<[u16; 2]>),
+    Ushort2Norm(Vec<[u16; 2]>),
+    Short4(Vec<[i16; 4]>),
+    Short4Norm(Vec<[i16; 4]>),
+    Ushort4(Vec<[u16; 4]>),
+    Ushort4Norm(Vec<[u16; 4]>),
+    Char2(Vec<[i8; 2]>),
+    Char2Norm(Vec<[i8; 2]>),
+    Uchar2(Vec<[u8; 2]>),
+    Uchar2Norm(Vec<[u8; 2]>),
+    Char4(Vec<[i8; 4]>),
+    Char4Norm(Vec<[i8; 4]>),
+    Uchar4(Vec<[u8; 4]>),
     Uchar4Norm(Vec<[u8; 4]>),
 }
 
@@ -56,6 +71,21 @@ impl VertexAttributeValues {
             VertexAttributeValues::Float4(ref values) => values.len(),
             VertexAttributeValues::Int4(ref values) => values.len(),
             VertexAttributeValues::Uint4(ref values) => values.len(),
+            VertexAttributeValues::Short2(ref values) => values.len(),
+            VertexAttributeValues::Short2Norm(ref values) => values.len(),
+            VertexAttributeValues::Ushort2(ref values) => values.len(),
+            VertexAttributeValues::Ushort2Norm(ref values) => values.len(),
+            VertexAttributeValues::Short4(ref values) => values.len(),
+            VertexAttributeValues::Short4Norm(ref values) => values.len(),
+            VertexAttributeValues::Ushort4(ref values) => values.len(),
+            VertexAttributeValues::Ushort4Norm(ref values) => values.len(),
+            VertexAttributeValues::Char2(ref values) => values.len(),
+            VertexAttributeValues::Char2Norm(ref values) => values.len(),
+            VertexAttributeValues::Uchar2(ref values) => values.len(),
+            VertexAttributeValues::Uchar2Norm(ref values) => values.len(),
+            VertexAttributeValues::Char4(ref values) => values.len(),
+            VertexAttributeValues::Char4Norm(ref values) => values.len(),
+            VertexAttributeValues::Uchar4(ref values) => values.len(),
             VertexAttributeValues::Uchar4Norm(ref values) => values.len(),
         }
     }
@@ -89,6 +119,21 @@ impl VertexAttributeValues {
             VertexAttributeValues::Float4(values) => values.as_slice().as_bytes(),
             VertexAttributeValues::Int4(values) => values.as_slice().as_bytes(),
             VertexAttributeValues::Uint4(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Short2(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Short2Norm(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Ushort2(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Ushort2Norm(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Short4(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Short4Norm(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Ushort4(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Ushort4Norm(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Char2(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Char2Norm(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Uchar2(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Uchar2Norm(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Char4(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Char4Norm(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Uchar4(values) => values.as_slice().as_bytes(),
             VertexAttributeValues::Uchar4Norm(values) => values.as_slice().as_bytes(),
         }
     }
@@ -109,6 +154,21 @@ impl From<&VertexAttributeValues> for VertexFormat {
             VertexAttributeValues::Float4(_) => VertexFormat::Float4,
             VertexAttributeValues::Int4(_) => VertexFormat::Int4,
             VertexAttributeValues::Uint4(_) => VertexFormat::Uint4,
+            VertexAttributeValues::Short2(_) => VertexFormat::Short2,
+            VertexAttributeValues::Short2Norm(_) => VertexFormat::Short2Norm,
+            VertexAttributeValues::Ushort2(_) => VertexFormat::Ushort2,
+            VertexAttributeValues::Ushort2Norm(_) => VertexFormat::Ushort2Norm,
+            VertexAttributeValues::Short4(_) => VertexFormat::Short4,
+            VertexAttributeValues::Short4Norm(_) => VertexFormat::Short4Norm,
+            VertexAttributeValues::Ushort4(_) => VertexFormat::Ushort4,
+            VertexAttributeValues::Ushort4Norm(_) => VertexFormat::Ushort4Norm,
+            VertexAttributeValues::Char2(_) => VertexFormat::Char2,
+            VertexAttributeValues::Char2Norm(_) => VertexFormat::Char2Norm,
+            VertexAttributeValues::Uchar2(_) => VertexFormat::Uchar2,
+            VertexAttributeValues::Uchar2Norm(_) => VertexFormat::Uchar2Norm,
+            VertexAttributeValues::Char4(_) => VertexFormat::Char4,
+            VertexAttributeValues::Char4Norm(_) => VertexFormat::Char4Norm,
+            VertexAttributeValues::Uchar4(_) => VertexFormat::Uchar4,
             VertexAttributeValues::Uchar4Norm(_) => VertexFormat::Uchar4Norm,
         }
     }
@@ -238,9 +298,11 @@ impl From<&Indices> for IndexFormat {
 #[uuid = "8ecbac0f-f545-4473-ad43-e1f4243af51e"]
 pub struct Mesh {
     primitive_topology: PrimitiveTopology,
-    /// `bevy_utils::HashMap` with all defined vertex attributes (Positions, Normals, ...) for this
+    /// `std::collections::BTreeMap` with all defined vertex attributes (Positions, Normals, ...) for this
     /// mesh. Attribute name maps to attribute values.
-    attributes: HashMap<Cow<'static, str>, VertexAttributeValues>,
+    /// Uses a BTreeMap because, unlike HashMap, it has a defined iteration order,
+    /// which allows easy stable VertexBuffers (i.e. same buffer order)
+    attributes: BTreeMap<Cow<'static, str>, VertexAttributeValues>,
     indices: Option<Indices>,
 }
 

@@ -23,7 +23,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // mesh
     commands.spawn_scene(scene_handle);
     // light
-    commands.spawn_bundle(LightBundle {
+    commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_xyz(4.0, 5.0, 4.0),
         ..Default::default()
     });

@@ -217,12 +217,11 @@ impl AssetServer {
     }
 
     // TODO: properly set failed LoadState in all failure cases
-    async fn load_async<'a, P: Into<AssetPath<'a>>>(
+    async fn load_async(
         &self,
-        path: P,
+        asset_path: AssetPath<'_>,
         force: bool,
     ) -> Result<AssetPathId, AssetServerError> {
-        let asset_path: AssetPath = path.into();
         let asset_loader = self.get_path_asset_loader(asset_path.path())?;
         let asset_path_id: AssetPathId = asset_path.get_id();
 
@@ -326,16 +325,11 @@ impl AssetServer {
     }
 
     pub fn load_untyped<'a, P: Into<AssetPath<'a>>>(&self, path: P) -> HandleUntyped {
-        let handle_id = self.load_untracked(path, false);
+        let handle_id = self.load_untracked(path.into(), false);
         self.get_handle_untyped(handle_id)
     }
 
-    pub(crate) fn load_untracked<'a, P: Into<AssetPath<'a>>>(
-        &self,
-        path: P,
-        force: bool,
-    ) -> HandleId {
-        let asset_path: AssetPath<'a> = path.into();
+    pub(crate) fn load_untracked(&self, asset_path: AssetPath<'_>, force: bool) -> HandleId {
         let server = self.clone();
         let owned_path = asset_path.to_owned();
         self.server

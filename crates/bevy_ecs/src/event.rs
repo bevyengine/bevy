@@ -1,4 +1,5 @@
-use bevy_ecs::{
+use crate as bevy_ecs;
+use crate::{
     component::Component,
     system::{Local, Res, ResMut, SystemParam},
 };
@@ -76,7 +77,7 @@ enum State {
 ///
 /// # Example
 /// ```
-/// use bevy_app::Events;
+/// use bevy_ecs::event::Events;
 ///
 /// struct MyEvent {
 ///     value: usize

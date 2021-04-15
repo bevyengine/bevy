@@ -69,7 +69,7 @@ pub struct CameraNodeState {
 }
 
 const MATRIX_SIZE: usize = std::mem::size_of::<[[f32; 4]; 4]>();
-const VEC3_SIZE: usize = std::mem::size_of::<[f32; 3]>();
+const VEC4_SIZE: usize = std::mem::size_of::<[f32; 4]>();
 
 pub fn camera_node_system(
     mut state: Local<CameraNodeState>,
@@ -101,7 +101,7 @@ pub fn camera_node_system(
                 // View
                 MATRIX_SIZE +
                 // Position
-                VEC3_SIZE,
+                VEC4_SIZE,
             buffer_usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
             mapped_at_creation: true,
         });
@@ -144,7 +144,7 @@ pub fn camera_node_system(
 
     if bindings.get(CAMERA_POSITION).is_none() {
         let buffer = render_resource_context.create_buffer(BufferInfo {
-            size: VEC3_SIZE,
+            size: VEC4_SIZE,
             buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
             ..Default::default()
         });
@@ -152,7 +152,7 @@ pub fn camera_node_system(
             CAMERA_POSITION,
             RenderResourceBinding::Buffer {
                 buffer,
-                range: 0..VEC3_SIZE as u64,
+                range: 0..VEC4_SIZE as u64,
                 dynamic_index: None,
             },
         );
@@ -200,11 +200,12 @@ pub fn camera_node_system(
 
     if let Some(RenderResourceBinding::Buffer { buffer, .. }) = bindings.get(CAMERA_POSITION) {
         let position: [f32; 3] = global_transform.translation.into();
+        let position: [f32; 4] = [position[0], position[1], position[2], 0.0];
         render_resource_context.write_mapped_buffer(
             staging_buffer,
-            offset..(offset + VEC3_SIZE as u64),
+            offset..(offset + VEC4_SIZE as u64),
             &mut |data, _renderer| {
-                data[0..VEC3_SIZE].copy_from_slice(position.as_bytes());
+                data[0..VEC4_SIZE].copy_from_slice(position.as_bytes());
             },
         );
         state.command_queue.copy_buffer_to_buffer(
@@ -212,7 +213,7 @@ pub fn camera_node_system(
             offset,
             *buffer,
             0,
-            VEC3_SIZE as u64,
+            VEC4_SIZE as u64,
         );
     }
 

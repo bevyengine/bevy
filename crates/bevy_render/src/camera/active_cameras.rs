@@ -38,6 +38,10 @@ impl ActiveCameras {
         self.cameras.get_mut(name)
     }
 
+    pub fn remove(&mut self, name: &str) -> Option<ActiveCamera> {
+        self.cameras.remove(name)
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = &ActiveCamera> {
         self.cameras.values()
     }
@@ -52,6 +56,13 @@ pub fn active_cameras_system(
     query: Query<(Entity, &Camera)>,
 ) {
     for (name, active_camera) in active_cameras.cameras.iter_mut() {
+        if active_camera
+            .entity
+            .map_or(false, |entity| query.get(entity).is_err())
+        {
+            active_camera.entity = None;
+        }
+
         if active_camera.entity.is_none() {
             for (camera_entity, camera) in query.iter() {
                 if let Some(ref current_name) = camera.name {

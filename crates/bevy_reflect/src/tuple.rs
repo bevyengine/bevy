@@ -32,7 +32,14 @@ impl<'a> Iterator for TupleFieldIter<'a> {
         self.index += 1;
         value
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let size = self.tuple.field_len();
+        (size, Some(size))
+    }
 }
+
+impl<'a> ExactSizeIterator for TupleFieldIter<'a> {}
 
 pub trait GetTupleField {
     fn get_field<T: Reflect>(&self, index: usize) -> Option<&T>;

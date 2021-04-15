@@ -45,9 +45,9 @@ impl Parse for AllTuples {
 #[proc_macro]
 pub fn all_tuples(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as AllTuples);
-    let len = input.end - input.start;
+    let len = (input.start..=input.end).count();
     let mut ident_tuples = Vec::with_capacity(len);
-    for i in input.start..input.end {
+    for i in input.start..=input.end {
         let idents = input
             .idents
             .iter()
@@ -64,7 +64,7 @@ pub fn all_tuples(input: TokenStream) -> TokenStream {
     }
 
     let macro_ident = &input.macro_ident;
-    let invocations = (input.start..input.end).map(|i| {
+    let invocations = (input.start..=input.end).map(|i| {
         let ident_tuples = &ident_tuples[0..i];
         quote! {
             #macro_ident!(#(#ident_tuples),*);
@@ -118,13 +118,13 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     {
         if *is_bundle {
             field_type_infos.push(quote! {
-                type_info.extend(#field_type::type_info());
+                type_info.extend(<#field_type as #ecs_path::bundle::Bundle>::type_info());
             });
             field_get_components.push(quote! {
                 self.#field.get_components(&mut func);
             });
             field_from_components.push(quote! {
-                #field: #field_type::from_components(&mut func),
+                #field: <#field_type as #ecs_path::bundle::Bundle>::from_components(&mut func),
             });
         } else {
             field_type_infos.push(quote! {
@@ -141,12 +141,12 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     }
     let field_len = field.len();
     let generics = ast.generics;
-    let (impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let struct_name = &ast.ident;
 
     TokenStream::from(quote! {
         /// SAFE: TypeInfo is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
-        unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name#ty_generics {
+        unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name#ty_generics #where_clause {
             fn type_info() -> Vec<#ecs_path::component::TypeInfo> {
                 let mut type_info = Vec::with_capacity(#field_len);
                 #(#field_type_infos)*
@@ -259,6 +259,8 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                             .extend(&#query.archetype_component_access);
                     )*
                 }
+
+                fn default_config() {}
             }
 
             impl<'a, #(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParamFetch<'a> for QuerySetState<(#(QueryState<#query, #filter>,)*)>
@@ -393,6 +395,14 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
             fn new_archetype(&mut self, archetype: &#path::archetype::Archetype, system_state: &mut #path::system::SystemState) {
                 self.state.new_archetype(archetype, system_state)
+            }
+
+            fn default_config() -> TSystemParamState::Config {
+                TSystemParamState::default_config()
+            }
+
+            fn apply(&mut self, world: &mut #path::world::World) {
+                self.state.apply(world)
             }
         }
 

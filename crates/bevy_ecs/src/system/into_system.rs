@@ -92,7 +92,7 @@ where
         FunctionSystem {
             func: self,
             param_state: None,
-            config: Some(Default::default()),
+            config: Some(<Param::Fetch as SystemParamState>::default_config()),
             system_state: SystemState::new::<F>(),
             marker: PhantomData,
         }
@@ -227,4 +227,4 @@ macro_rules! impl_system_function {
     };
 }
 
-all_tuples!(impl_system_function, 0, 12, F);
+all_tuples!(impl_system_function, 0, 16, F);

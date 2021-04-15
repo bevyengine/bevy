@@ -5,9 +5,8 @@ use super::{
 use crate::renderer::{
     RenderResource, RenderResourceContext, RenderResourceId, RenderResourceType,
 };
-use bevy_app::prelude::EventReader;
 use bevy_asset::{AssetEvent, Assets, Handle};
-use bevy_ecs::system::Res;
+use bevy_ecs::{event::EventReader, system::Res};
 use bevy_reflect::TypeUuid;
 use bevy_utils::HashSet;
 use thiserror::Error;
@@ -287,7 +286,7 @@ pub enum TextureError {
     InvalidImageMimeType(String),
     #[error("invalid image extension")]
     InvalidImageExtension(String),
-    #[error("failed to load an image")]
+    #[error("failed to load an image: {0}")]
     ImageError(#[from] image::ImageError),
 }
 

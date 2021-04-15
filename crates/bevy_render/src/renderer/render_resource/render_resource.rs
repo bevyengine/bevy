@@ -118,7 +118,14 @@ impl<'a> Iterator for RenderResourceIterator<'a> {
             Some(render_resource)
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let size = self.render_resources.render_resources_len();
+        (size, Some(size))
+    }
 }
+
+impl<'a> ExactSizeIterator for RenderResourceIterator<'a> {}
 
 #[macro_export]
 macro_rules! impl_render_resource_bytes {
@@ -159,7 +166,49 @@ impl_render_resource_bytes!(i64);
 impl_render_resource_bytes!(f32);
 impl_render_resource_bytes!(f64);
 
+impl<T> RenderResource for Box<T>
+where
+    T: RenderResource,
+{
+    fn resource_type(&self) -> Option<RenderResourceType> {
+        self.as_ref().resource_type()
+    }
+
+    fn write_buffer_bytes(&self, buffer: &mut [u8]) {
+        self.as_ref().write_buffer_bytes(buffer);
+    }
+
+    fn buffer_byte_len(&self) -> Option<usize> {
+        self.as_ref().buffer_byte_len()
+    }
+
+    fn texture(&self) -> Option<&Handle<Texture>> {
+        self.as_ref().texture()
+    }
+}
+
 impl<T> RenderResource for Vec<T>
+where
+    T: Sized + Byteable,
+{
+    fn resource_type(&self) -> Option<RenderResourceType> {
+        Some(RenderResourceType::Buffer)
+    }
+
+    fn write_buffer_bytes(&self, buffer: &mut [u8]) {
+        self.write_bytes(buffer);
+    }
+
+    fn buffer_byte_len(&self) -> Option<usize> {
+        Some(self.byte_len())
+    }
+
+    fn texture(&self) -> Option<&Handle<Texture>> {
+        None
+    }
+}
+
+impl<T, const N: usize> RenderResource for [T; N]
 where
     T: Sized + Byteable,
 {

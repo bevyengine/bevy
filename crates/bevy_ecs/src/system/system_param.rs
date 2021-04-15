@@ -42,12 +42,13 @@ pub trait SystemParam: Sized {
 /// Additionally, it is the implementor's responsibility to ensure there is no
 /// conflicting access across all SystemParams.
 pub unsafe trait SystemParamState: Send + Sync + 'static {
-    type Config: Default + Send + Sync;
+    type Config: Send + Sync;
     fn init(world: &mut World, system_state: &mut SystemState, config: Self::Config) -> Self;
     #[inline]
     fn new_archetype(&mut self, _archetype: &Archetype, _system_state: &mut SystemState) {}
     #[inline]
     fn apply(&mut self, _world: &mut World) {}
+    fn default_config() -> Self::Config;
 }
 
 pub trait SystemParamFetch<'a>: SystemParamState {
@@ -105,6 +106,8 @@ where
             .archetype_component_access
             .extend(&self.archetype_component_access);
     }
+
+    fn default_config() {}
 }
 
 impl<'a, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamFetch<'a> for QueryState<Q, F>
@@ -221,6 +224,8 @@ unsafe impl<T: Component> SystemParamState for ResState<T> {
             marker: PhantomData,
         }
     }
+
+    fn default_config() {}
 }
 
 impl<'a, T: Component> SystemParamFetch<'a> for ResState<T> {
@@ -237,7 +242,8 @@ impl<'a, T: Component> SystemParamFetch<'a> for ResState<T> {
             .get_populated_resource_column(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
-                    "Requested resource does not exist: {}",
+                    "Resource requested by {} does not exist: {}",
+                    system_state.name,
                     std::any::type_name::<T>()
                 )
             });
@@ -262,6 +268,8 @@ unsafe impl<T: Component> SystemParamState for OptionResState<T> {
     fn init(world: &mut World, system_state: &mut SystemState, _config: Self::Config) -> Self {
         Self(ResState::init(world, system_state, ()))
     }
+
+    fn default_config() {}
 }
 
 impl<'a, T: Component> SystemParamFetch<'a> for OptionResState<T> {
@@ -367,6 +375,8 @@ unsafe impl<T: Component> SystemParamState for ResMutState<T> {
             marker: PhantomData,
         }
     }
+
+    fn default_config() {}
 }
 
 impl<'a, T: Component> SystemParamFetch<'a> for ResMutState<T> {
@@ -408,6 +418,8 @@ unsafe impl<T: Component> SystemParamState for OptionResMutState<T> {
     fn init(world: &mut World, system_state: &mut SystemState, _config: Self::Config) -> Self {
         Self(ResMutState::init(world, system_state, ()))
     }
+
+    fn default_config() {}
 }
 
 impl<'a, T: Component> SystemParamFetch<'a> for OptionResMutState<T> {
@@ -446,6 +458,8 @@ unsafe impl SystemParamState for CommandQueue {
     fn apply(&mut self, world: &mut World) {
         self.apply(world);
     }
+
+    fn default_config() {}
 }
 
 impl<'a> SystemParamFetch<'a> for CommandQueue {
@@ -492,6 +506,10 @@ unsafe impl<T: Component + FromWorld> SystemParamState for LocalState<T> {
 
     fn init(world: &mut World, _system_state: &mut SystemState, config: Self::Config) -> Self {
         Self(config.unwrap_or_else(|| T::from_world(world)))
+    }
+
+    fn default_config() -> Option<T> {
+        None
     }
 }
 
@@ -541,6 +559,8 @@ unsafe impl<T: Component> SystemParamState for RemovedComponentsState<T> {
             marker: PhantomData,
         }
     }
+
+    fn default_config() {}
 }
 
 impl<'a, T: Component> SystemParamFetch<'a> for RemovedComponentsState<T> {
@@ -630,6 +650,8 @@ unsafe impl<T: 'static> SystemParamState for NonSendState<T> {
             marker: PhantomData,
         }
     }
+
+    fn default_config() {}
 }
 
 impl<'a, T: 'static> SystemParamFetch<'a> for NonSendState<T> {
@@ -748,6 +770,8 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
             marker: PhantomData,
         }
     }
+
+    fn default_config() {}
 }
 
 impl<'a, T: 'static> SystemParamFetch<'a> for NonSendMutState<T> {
@@ -793,6 +817,8 @@ unsafe impl SystemParamState for ArchetypesState {
     fn init(_world: &mut World, _system_state: &mut SystemState, _config: Self::Config) -> Self {
         Self
     }
+
+    fn default_config() {}
 }
 
 impl<'a> SystemParamFetch<'a> for ArchetypesState {
@@ -822,6 +848,8 @@ unsafe impl SystemParamState for ComponentsState {
     fn init(_world: &mut World, _system_state: &mut SystemState, _config: Self::Config) -> Self {
         Self
     }
+
+    fn default_config() {}
 }
 
 impl<'a> SystemParamFetch<'a> for ComponentsState {
@@ -851,6 +879,8 @@ unsafe impl SystemParamState for EntitiesState {
     fn init(_world: &mut World, _system_state: &mut SystemState, _config: Self::Config) -> Self {
         Self
     }
+
+    fn default_config() {}
 }
 
 impl<'a> SystemParamFetch<'a> for EntitiesState {
@@ -880,6 +910,8 @@ unsafe impl SystemParamState for BundlesState {
     fn init(_world: &mut World, _system_state: &mut SystemState, _config: Self::Config) -> Self {
         Self
     }
+
+    fn default_config() {}
 }
 
 impl<'a> SystemParamFetch<'a> for BundlesState {
@@ -914,6 +946,8 @@ unsafe impl SystemParamState for SystemChangeTickState {
     fn init(_world: &mut World, _system_state: &mut SystemState, _config: Self::Config) -> Self {
         Self {}
     }
+
+    fn default_config() {}
 }
 
 impl<'a> SystemParamFetch<'a> for SystemChangeTickState {
@@ -976,10 +1010,12 @@ macro_rules! impl_system_param_tuple {
                 let ($($param,)*) = self;
                 $($param.apply(_world);)*
             }
+
+            fn default_config() -> ($(<$param as SystemParamState>::Config,)*) {
+                ($(<$param as SystemParamState>::default_config(),)*)
+            }
         }
     };
 }
 
-// TODO: consider creating a Config trait with a default() function, then implementing that for
-// tuples. that would allow us to go past tuples of len 12
-all_tuples!(impl_system_param_tuple, 0, 12, P);
+all_tuples!(impl_system_param_tuple, 0, 16, P);

@@ -209,7 +209,7 @@ pub fn gamepad_event_system(
     mut events: EventWriter<GamepadEvent>,
     settings: Res<GamepadSettings>,
 ) {
-    button_input.update();
+    button_input.clear();
     for event in raw_events.iter() {
         let (gamepad, event) = (event.0, &event.1);
         match event {

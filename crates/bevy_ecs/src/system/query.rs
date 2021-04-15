@@ -292,6 +292,33 @@ where
         }
     }
 
+    /// Gets the result of a single-result query
+    ///
+    /// If the query has exactly one result, returns the result inside `Ok`
+    /// otherwise returns either `Err(QuerySingleError::NoEntities(...))`
+    /// or `Err(QuerySingleError::MultipleEntities(...))`, as appropriate
+    ///
+    /// # Examples
+    ///
+    /// ```
+    ///  # use bevy_ecs::system::{Query, QuerySingleError};
+    ///  # use bevy_ecs::prelude::IntoSystem;
+    /// struct PlayerScore(i32);
+    /// fn player_scoring_system(query: Query<&PlayerScore>) {
+    ///     match query.single() {
+    ///         Ok(PlayerScore(score)) => {
+    ///             // do something with score
+    ///         }
+    ///         Err(QuerySingleError::NoEntities(_)) => {
+    ///             // no PlayerScore
+    ///         }
+    ///         Err(QuerySingleError::MultipleEntities(_)) => {
+    ///             // multiple PlayerScore
+    ///         }
+    ///     }
+    /// }
+    /// # let _check_that_its_a_system = player_scoring_system.system();
+    /// ```
     pub fn single(&self) -> Result<<Q::Fetch as Fetch<'_>>::Item, QuerySingleError>
     where
         Q::Fetch: ReadOnlyFetch,
