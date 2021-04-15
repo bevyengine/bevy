@@ -160,7 +160,12 @@ async fn load_gltf<'a, 'b>(
                 let vertex_count_after = mesh.count_vertices();
 
                 if vertex_count_before != vertex_count_after {
-                    bevy_log::warn!("Missing vertex normals in indexed geometry, computing them as flat. Vertex count increased from {} to {}", vertex_count_before, vertex_count_after);
+                    bevy_log::debug!("Missing vertex normals in indexed geometry, computing them as flat. Vertex count increased from {} to {}", vertex_count_before, vertex_count_after);
+                }
+                if vertex_count_before != vertex_count_after {
+                    bevy_log::debug!(
+                        "Missing vertex normals in indexed geometry, computing them as flat."
+                    );
                 }
             }
 
