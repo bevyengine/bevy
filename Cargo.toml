@@ -368,6 +368,10 @@ path = "examples/scene/scene.rs"
 
 # Shaders
 [[example]]
+name = "animate_shader"
+path = "examples/shader/animate_shader.rs"
+
+[[example]]
 name = "array_texture"
 path = "examples/shader/array_texture.rs"
 

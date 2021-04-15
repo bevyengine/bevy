@@ -192,6 +192,7 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
+`animate_shader` | [`shader/animate_shader.rs`](./shader/animate_shader.rs) | Shows how to animate a shader by accessing a time uniform variable
 `array_texture` | [`shader/array_texture.rs`](./shader/array_texture.rs) | Illustrates how to create a texture for use with a texture2DArray shader uniform variable
 `hot_shader_reloading` | [`shader/hot_shader_reloading.rs`](./shader/hot_shader_reloading.rs) | Illustrates how to load shaders such that they can be edited while the example is still running
 `mesh_custom_attribute` | [`shader/mesh_custom_attribute.rs`](./shader/mesh_custom_attribute.rs) | Illustrates how to add a custom attribute to a mesh and use it in a custom shader
