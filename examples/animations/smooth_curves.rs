@@ -1,12 +1,12 @@
 use bevy::{
-    math::curves::{Curve, CurveVariable},
+    math::curves::{Curve, CurveCursor, CurveVariable},
     prelude::*,
     render::pipeline::PrimitiveTopology,
 };
 
-struct CurveCursor;
+struct CurveCursorTag;
 
-struct CurveTarget;
+struct CurveTargetTag;
 
 #[derive(Default)]
 struct CurveMesh {
@@ -30,17 +30,26 @@ fn values<T: Copy>(length: usize, default: T) -> Vec<T> {
     v
 }
 
+fn line(a: [f32; 3], b: [f32; 3]) -> Mesh {
+    let mut mesh = Mesh::new(PrimitiveTopology::LineStrip);
+    mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, vec![a, b]);
+    mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, values(2, [0.0f32, 0.0, 1.0]));
+    mesh.set_attribute(Mesh::ATTRIBUTE_TANGENT, values(2, [0.0f32, 1.0, 0.0]));
+    mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, values(2, [0.0f32; 2]));
+    mesh
+}
+
 fn setup(
     mut commands: Commands,
     mut curve_mesh: ResMut<CurveMesh>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let samples = vec![0.0, 1.0, 1.3, 1.6, 1.7, 1.8, 1.9, 2.0];
-    let keyframes = vec![3.0, 0.0, 1.0, 0.0, 0.5, 0.0, 0.25, 0.0];
-
     // Create curve
-    curve_mesh.curve = CurveVariable::with_auto_tangents(samples.clone(), keyframes.clone());
+    curve_mesh.curve = CurveVariable::with_auto_tangents(
+        vec![0.0, 1.0, 1.3, 1.6, 1.7, 1.8, 1.9, 2.0],
+        vec![3.0, 0.0, 1.0, 0.0, 0.5, 0.0, 0.25, 0.0],
+    );
     // Create timer
     curve_mesh.timer = Timer::from_seconds(2.5, true);
 
@@ -76,33 +85,41 @@ fn setup(
         })
         .with_children(|parent| {
             // Create keyframes
-            for (t, k) in samples.iter().zip(keyframes.iter()) {
-                parent.spawn_bundle(PbrBundle {
-                    mesh: keyframe_mesh.clone(),
-                    transform: Transform::from_translation(Vec3::new(*t, *k, 0.0)),
-                    material: material.clone(),
-                    ..Default::default()
-                });
+            let tangent_material = materials.add(Color::BLACK.into());
+            for (index, (t, k)) in curve_mesh.curve.iter().enumerate() {
+                parent
+                    .spawn_bundle(PbrBundle {
+                        mesh: keyframe_mesh.clone(),
+                        transform: Transform::from_translation(Vec3::new(t, *k, 0.0)),
+                        material: material.clone(),
+                        ..Default::default()
+                    })
+                    .with_children(|parent| {
+                        // tangents
+                        let (a, b) = curve_mesh.curve.get_in_out_tangent(index as CurveCursor);
+                        let (ay, ax) = a.atan().sin_cos();
+                        let (by, bx) = b.atan().sin_cos();
+                        parent.spawn_bundle(PbrBundle {
+                            mesh: meshes.add(line([0.0, 0.0, 0.0], [ax * -0.2, ay * -0.2, 0.0])),
+                            material: tangent_material.clone(),
+                            ..Default::default()
+                        });
+                        parent.spawn_bundle(PbrBundle {
+                            mesh: meshes.add(line([0.0, 0.0, 0.0], [bx * 0.2, by * 0.2, 0.0])),
+                            material: tangent_material.clone(),
+                            ..Default::default()
+                        });
+                    });
             }
 
             // Create time cursor
-            let mut mesh = Mesh::new(PrimitiveTopology::LineStrip);
-            mesh.set_attribute(
-                Mesh::ATTRIBUTE_POSITION,
-                vec![[0.0f32, 4.0, 0.0], [0.0, -2.0, 0.0]],
-            );
-            mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, values(2, [0.0f32, 0.0, 1.0]));
-            mesh.set_attribute(Mesh::ATTRIBUTE_TANGENT, values(2, [0.0f32, 1.0, 0.0]));
-            mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, values(2, [0.0f32; 2]));
-            let mesh = meshes.add(mesh);
-
             parent
                 .spawn_bundle(PbrBundle {
-                    mesh,
+                    mesh: meshes.add(line([0.0, 4.0, 0.0], [0.0, -2.0, 0.0])),
                     material: materials.add(Color::BLUE.into()),
                     ..Default::default()
                 })
-                .insert(CurveCursor);
+                .insert(CurveCursorTag);
         });
 
     commands
@@ -115,7 +132,7 @@ fn setup(
             material: materials.add(Color::BEIGE.into()),
             ..Default::default()
         })
-        .insert(CurveTarget);
+        .insert(CurveTargetTag);
 
     // Camera and Light
     commands.spawn_bundle(LightBundle {
@@ -137,8 +154,8 @@ fn animate(
     mut curve_mesh: ResMut<CurveMesh>,
     time: Res<Time>,
     mut query_set: QuerySet<(
-        Query<(&mut Transform, &CurveTarget)>,
-        Query<(&mut Transform, &CurveCursor)>,
+        Query<(&mut Transform, &CurveTargetTag)>,
+        Query<(&mut Transform, &CurveCursorTag)>,
     )>,
 ) {
     let t = curve_mesh.timer.elapsed_secs();

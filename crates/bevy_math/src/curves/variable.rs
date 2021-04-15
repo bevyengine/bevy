@@ -1,5 +1,5 @@
 use crate::{
-    curves::Curve,
+    curves::{Curve, CurveCursor},
     interpolation::{Interpolate, Interpolation},
 };
 
@@ -17,7 +17,7 @@ use crate::{
 // https://github.com/nfrechette/acl
 
 /// Keyframe tangents control mode
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum TangentControl {
     Auto,
     Free,
@@ -175,6 +175,11 @@ where
 
     // TODO: Edit methods
 
+    pub fn get_in_out_tangent(&self, index: CurveCursor) -> (T::Tangent, T::Tangent) {
+        let index = index as usize;
+        (self.tangents_in[index], self.tangents_out[index])
+    }
+
     /// Updates keyframes marked with `TangentControl::Auto`
     pub fn update_tangents(&mut self) {
         let length = self.keyframes.len();
@@ -185,6 +190,10 @@ where
             for i in 0..length {
                 let p = if i > 0 { i - 1 } else { 0 };
                 let n = if (i + 1) < length { i + 1 } else { length - 1 };
+
+                if self.tangents_control[i] != TangentControl::Auto {
+                    continue;
+                }
 
                 let tangent = T::auto_tangent(
                     self.time_stamps[p],
@@ -201,14 +210,35 @@ where
         }
     }
 
-    /// Make sure the first keyframe starts at time `0.0`
-    #[inline]
-    pub fn remove_time_offset(&mut self) {
-        self.apply_time_offset(-self.time_stamps[0]);
+    /// Number of keyframes
+    pub fn len(&self) -> usize {
+        self.keyframes.len()
     }
 
-    pub fn apply_time_offset(&mut self, time_offset: f32) {
+    /// `true` when this `CurveFixed` doesn't have any keyframe
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    pub fn set_offset(&mut self, mut time_offset: f32) {
+        time_offset -= self.offset(); // Removes current offset
         self.time_stamps.iter_mut().for_each(|t| *t += time_offset);
+    }
+
+    #[inline]
+    pub fn offset(&self) -> f32 {
+        self.time_stamps[0]
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (f32, &T)> {
+        self.time_stamps.iter().copied().zip(self.keyframes.iter())
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (f32, &mut T)> {
+        self.time_stamps
+            .iter()
+            .copied()
+            .zip(self.keyframes.iter_mut())
     }
 }
 
@@ -269,7 +299,8 @@ where
         // Lerp the value
         let i = cursor - 1;
         let previous_time = self.time_stamps[i as usize];
-        let t = (time - previous_time) / (self.time_stamps[cursor as usize] - previous_time);
+        let dt = self.time_stamps[cursor as usize] - previous_time;
+        let t = (time - previous_time) / dt;
         debug_assert!(
             (0.0..=1.0).contains(&t),
             "t = {} but should be normalized",
@@ -285,6 +316,7 @@ where
             &self.tangents_in[b],
             self.modes[a as usize],
             t,
+            dt,
         );
 
         (cursor, value)

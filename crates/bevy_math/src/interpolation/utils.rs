@@ -37,16 +37,19 @@ where
 ///
 /// Source: http://archive.gamedev.net/archive/reference/articles/article1497.html
 #[inline]
-pub fn catmull_rom_unclamped<T>(k0: T, t0: T, k1: T, t1: T, u: f32) -> T
+pub fn catmull_rom_unclamped<T>(k0: T, t0: T, k1: T, t1: T, u: f32, dx: f32) -> T
 where
     T: Add<Output = T> + Sub<Output = T> + Mul<f32, Output = T>,
 {
-    let u2 = u * u;
-    let u3 = u2 * u;
-    let _3u2 = 3.0 * u2;
-    let _2u3 = 2.0 * u3;
+    let v_u2 = u * u;
+    let v_u3 = v_u2 * u;
+    let v_3u2 = 3.0 * v_u2;
+    let v_2u3 = 2.0 * v_u3;
 
-    k0 * (_2u3 - _3u2 + 1.0) + k1 * (_3u2 - _2u3) + t0 * (u3 - 2.0 * u2 + u) + t1 * (u3 - u2)
+    k0 * (v_2u3 - v_3u2 + 1.0)
+        + k1 * (v_3u2 - v_2u3)
+        + t0 * dx * (v_u3 - 2.0 * v_u2 + u)
+        + t1 * dx * (v_u3 - v_u2)
 }
 
 /// Finds the tangent gradients for the Catmull-Rom spline

@@ -26,8 +26,9 @@ pub trait Interpolate: Lerp + Clone {
         t1: &Self::Tangent,
         interp: Interpolation,
         t: f32,
+        dt: f32,
     ) -> Self {
-        Self::interpolate_unclamped(k0, t0, k1, t1, interp, t.clamp(0.0, 1.0))
+        Self::interpolate_unclamped(k0, t0, k1, t1, interp, t.clamp(0.0, 1.0), dt)
     }
 
     fn interpolate_unclamped(
@@ -37,6 +38,7 @@ pub trait Interpolate: Lerp + Clone {
         t1: &Self::Tangent,
         interp: Interpolation,
         t: f32,
+        dt: f32,
     ) -> Self;
 
     fn auto_tangent(t0: f32, t1: f32, t2: f32, k0: &Self, k1: &Self, k2: &Self) -> Self::Tangent;
@@ -54,12 +56,9 @@ impl Interpolate for bool {
         _: &Self::Tangent,
         _: Interpolation,
         t: f32,
+        _: f32,
     ) -> Self {
-        if t > 0.99 {
-            *k0
-        } else {
-            *k1
-        }
+        utils::step_unclamped(k0, k1, t)
     }
 
     fn auto_tangent(_: f32, _: f32, _: f32, _: &Self, _: &Self, _: &Self) -> Self::Tangent {
@@ -80,12 +79,13 @@ macro_rules! interpolate {
                 t1: &Self::Tangent,
                 interp: Interpolation,
                 t: f32,
+                dt: f32,
             ) -> Self {
                 match interp {
                     Interpolation::Step => utils::step_unclamped(k0, k1, t),
                     Interpolation::Linear => utils::lerp_unclamped(*k0, *k1, t),
                     Interpolation::CatmullRom => {
-                        utils::catmull_rom_unclamped(*k0, *t0, *k1, *t1, t)
+                        utils::catmull_rom_unclamped(*k0, *t0, *k1, *t1, t, dt)
                     }
                 }
             }
@@ -147,6 +147,7 @@ impl Interpolate for Quat {
         t1: &Self::Tangent,
         interp: Interpolation,
         t: f32,
+        dt: f32,
     ) -> Self {
         match interp {
             Interpolation::Step => utils::step_unclamped(k0, k1, t),
@@ -174,6 +175,7 @@ impl Interpolate for Quat {
                     k1.into(),
                     (*t1).into(),
                     t,
+                    dt,
                 );
                 let d = utils::inv_sqrt(q.dot(q));
                 (q * d).into()

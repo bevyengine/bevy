@@ -252,6 +252,7 @@ impl<T: Asset + 'static> Interpolate for Handle<T> {
         _: &Self::Tangent,
         _: bevy_math::interpolation::Interpolation,
         t: f32,
+        _: f32,
     ) -> Self {
         step_unclamped(k0, k1, t)
     }
@@ -386,6 +387,7 @@ impl Interpolate for HandleUntyped {
         _: &Self::Tangent,
         _: bevy_math::interpolation::Interpolation,
         t: f32,
+        _: f32,
     ) -> Self {
         step_unclamped(k0, k1, t)
     }
