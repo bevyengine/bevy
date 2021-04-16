@@ -446,7 +446,8 @@ where
                             fetch.set_archetype(&self.fetch_state, archetype, tables);
                             filter.set_archetype(&self.filter_state, archetype, tables);
 
-                            for archetype_index in 0..archetype.len() {
+                            let len = batch_size.min(archetype.len() - offset);
+                            for archetype_index in offset..offset + len {
                                 if !filter.archetype_filter_fetch(archetype_index) {
                                     continue;
                                 }
