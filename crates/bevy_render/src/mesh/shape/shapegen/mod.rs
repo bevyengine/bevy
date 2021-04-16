@@ -68,11 +68,11 @@ impl TriangleContents {
         assert_eq!(ab.len(), 3);
 
         match self {
-            &mut One(x) => {
+            One(x) => {
                 points.extend_default(2);
 
                 *self = Three {
-                    a: x,
+                    a: *x,
                     b: points.len() as u32 - 2,
                     c: points.len() as u32 - 1,
                 };
@@ -89,7 +89,7 @@ impl TriangleContents {
         assert_eq!(ab.len(), 4);
 
         match self {
-            &mut Three {
+            Three {
                 a: a_index,
                 b: b_index,
                 c: c_index,
@@ -97,9 +97,9 @@ impl TriangleContents {
                 points.extend_default(3);
 
                 *self = Six {
-                    a: a_index,
-                    b: b_index,
-                    c: c_index,
+                    a: *a_index,
+                    b: *b_index,
+                    c: *c_index,
                     ab: points.len() as u32 - 3,
                     bc: points.len() as u32 - 2,
                     ca: points.len() as u32 - 1,
@@ -439,6 +439,9 @@ impl TriangleContents {
 
 // The logic in this function has been worked out mostly on pen and paper
 // and therefore it is difficult to read.
+//
+// Hush, bot. It has exactly how many arguments it should.
+#[allow(clippy::too_many_arguments)]
 fn add_indices_triangular(
     a: u32,
     b: u32,
@@ -875,7 +878,7 @@ fn generate_triangles(indices: &[u32], is_iota: bool) -> (Box<[Triangle]>, Box<[
     }
 }
 
-pub fn subdivide<I: Interpolator>(
+pub(crate) fn subdivide<I: Interpolator>(
     mesh: &mut Mesh,
     iterations: usize,
     interpolator: I,
