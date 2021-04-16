@@ -373,13 +373,14 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
     let struct_name = &ast.ident;
     let fetch_struct_name = Ident::new(&format!("{}State", struct_name), Span::call_site());
+    let fetch_struct_visibility = &ast.vis;
 
     TokenStream::from(quote! {
         impl #impl_generics #path::system::SystemParam for #struct_name#ty_generics #where_clause {
             type Fetch = #fetch_struct_name <(#(<#field_types as SystemParam>::Fetch,)*), #punctuated_generic_idents>;
         }
 
-        pub struct #fetch_struct_name<TSystemParamState, #punctuated_generic_idents> {
+        #fetch_struct_visibility struct #fetch_struct_name<TSystemParamState, #punctuated_generic_idents> {
             state: TSystemParamState,
             marker: std::marker::PhantomData<(#punctuated_generic_idents)>
         }

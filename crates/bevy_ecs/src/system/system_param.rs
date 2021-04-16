@@ -25,7 +25,7 @@ use std::{
 /// use bevy_ecs::system::SystemParam;
 ///
 /// #[derive(SystemParam)]
-/// pub struct MyParam<'a> {
+/// struct MyParam<'a> {
 ///     foo: Res<'a, usize>,
 /// }
 ///
