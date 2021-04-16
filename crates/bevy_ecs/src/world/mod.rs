@@ -445,7 +445,8 @@ impl World {
     /// assert_eq!(world.get::<Position>(entities[1]).unwrap(), &Position { x: 0.0, y: 1.0 });
     /// ```
     ///
-    /// To iterate over entities in a deterministic order sort results using the required component as a key.
+    /// To iterate over entities in a deterministic order,
+    /// sort the results of the query using the desired component as a key.
     ///
     /// ```
     /// use bevy_ecs::world::World;
