@@ -34,7 +34,7 @@ use std::{any::TypeId, collections::HashMap};
 ///     #[bundle]
 ///     a: A,
 ///     z: String,
-///   }
+/// }
 /// ```
 ///
 /// # Safety
