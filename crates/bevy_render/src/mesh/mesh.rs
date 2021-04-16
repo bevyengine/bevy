@@ -369,6 +369,18 @@ impl Mesh {
 
         attributes_interleaved_buffer
     }
+
+    pub fn attribute_iter(&self) -> impl Iterator<Item = (&str, &VertexAttributeValues)> {
+        self.attributes.iter().map(|(name, attr)| (&**name, attr))
+    }
+
+    pub fn attribute_iter_mut(
+        &mut self,
+    ) -> impl Iterator<Item = (&str, &mut VertexAttributeValues)> {
+        self.attributes
+            .iter_mut()
+            .map(|(name, attr)| (&**name, attr))
+    }
 }
 
 fn remove_resource_save(
