@@ -2,10 +2,9 @@ use crate::storage::SparseSetIndex;
 use fixedbitset::FixedBitSet;
 use std::marker::PhantomData;
 
-/// `Access` keeps track of read and write accesses to [`SparseSetIndices`](SparseSetIndex).
+/// `Access` keeps track of read and write accesses to values within a collection.
 ///
-/// This type is useful for calculating whether two different `Access`es collide and what the
-/// collisions are.
+/// This is used for ensuring systems are executed soundly.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Access<T: SparseSetIndex> {
     reads_all: bool,
@@ -86,8 +85,8 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns true if this `Access` is compatible with `other`.
     ///
-    /// Two `Access`es are incompatible with each other if one `Access` has a write for which the
-    /// other also has a write or a read.
+    /// Two `Access` instances are incompatible with each other if one `Access` has a write for
+    /// which the other also has a write or a read.
     pub fn is_compatible(&self, other: &Access<T>) -> bool {
         if self.reads_all {
             0 == other.writes.count_ones(..)

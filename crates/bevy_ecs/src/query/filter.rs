@@ -59,11 +59,12 @@ where
 ///
 /// This is the negation of [`Without`].
 ///
-/// Example:
+/// # Examples
 ///
 /// ```
 /// # use bevy_ecs::system::Query;
 /// # use bevy_ecs::query::With;
+/// # use bevy_ecs::system::IntoSystem;
 /// #
 /// # #[derive(Debug)]
 /// # struct IsBeautiful {};
@@ -74,6 +75,7 @@ where
 ///         println!("{} is looking lovely today!", name.name);
 ///     }
 /// }
+/// # compliment_entity_system.system();
 /// ```
 pub struct With<T>(PhantomData<T>);
 
@@ -176,11 +178,12 @@ impl<'a, T: Component> Fetch<'a> for WithFetch<T> {
 ///
 /// This is the negation of [`With`].
 ///
-/// Example:
+/// # Examples
 ///
 /// ```
 /// # use bevy_ecs::system::Query;
 /// # use bevy_ecs::query::Without;
+/// # use bevy_ecs::system::IntoSystem;
 /// #
 /// # #[derive(Debug)]
 /// # struct Permit;
@@ -191,6 +194,7 @@ impl<'a, T: Component> Fetch<'a> for WithFetch<T> {
 ///         println!("{} has no permit!", name.name);
 ///     }
 /// }
+/// # no_permit_system.system();
 /// ```
 pub struct Without<T>(PhantomData<T>);
 
@@ -389,11 +393,15 @@ impl<'a, T: Bundle> Fetch<'a> for WithBundleFetch<T> {
 /// This is useful for example if a system with multiple components in a query only wants to run
 /// when one or more of the components have changed.
 ///
-/// Example:
+/// The `And` equivalent to this filter is a [`prim@tuple`] testing that all the contained filters
+/// apply instead.
+///
+/// # Examples
 ///
 /// ```
 /// # use bevy_ecs::entity::Entity;
 /// # use bevy_ecs::system::Query;
+/// # use bevy_ecs::system::IntoSystem;
 /// # use bevy_ecs::query::Changed;
 /// # use bevy_ecs::query::Or;
 /// #
@@ -406,6 +414,7 @@ impl<'a, T: Bundle> Fetch<'a> for WithBundleFetch<T> {
 ///         println!("Entity {:?} got a new style or color", entity);
 ///     }
 /// }
+/// # print_cool_entity_system.system();
 /// ```
 pub struct Or<T>(pub T);
 
@@ -691,7 +700,8 @@ impl_tick_filter!(
     /// If instead behavior is meant to change on whether the component changed or not
     /// [`ChangeTrackers`](crate::query::ChangeTrackers) may be used.
     ///
-    /// Example:
+    /// # Examples
+    ///
     /// ```
     /// # use bevy_ecs::system::Query;
     /// # use bevy_ecs::query::Added;
@@ -728,7 +738,8 @@ impl_tick_filter!(
     /// If instead behavior is meant to change on whether the component changed or not
     /// [`ChangeTrackers`](crate::query::ChangeTrackers) may be used.
     ///
-    /// Example:
+    /// # Examples
+    ///
     /// ```
     /// # use bevy_ecs::system::Query;
     /// # use bevy_ecs::query::Changed;

@@ -28,11 +28,16 @@ use std::{
 /// - `Option<WQ>`: Queries the inner WorldQuery `WQ` but instead of discarding the entity if the world
 ///     query fails it returns [`None`]. See [`Query`](crate::system::Query).
 /// - `(WQ1, WQ2, ...)`: Queries all contained world queries allowing to query for more than one thing.
+///     This is the `And` operator for filters. See [`Or`].
 /// - `ChangeTrackers<C>`: See the docs of [`ChangeTrackers`].
+/// - [`Entity`]: Using the entity type as a world query will grant access to the entity that is
+///     being queried for. See [`Entity`].
 ///
-/// Bevy also offers a few filters like [`Added`](crate::query::Added), [`Changed`](crate::query::Changed)
-/// [`With`](crate::query::With), [`Without`](crate::query::Without) and [`Or`](crate::query::Or).
+/// Bevy also offers a few filters like [`Added`](crate::query::Added), [`Changed`](crate::query::Changed),
+/// [`With`](crate::query::With), [`Without`](crate::query::Without) and [`Or`].
 /// For more information on these consult the item's corresponding documentation.
+///
+/// [`Or`]: crate::query::Or
 pub trait WorldQuery {
     type Fetch: for<'a> Fetch<'a, State = Self::State>;
     type State: FetchState;
@@ -643,16 +648,17 @@ impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
 /// [`WorldQuery`] that tracks changes and additions for component `T`.
 ///
 /// Wraps a [`Component`] to track whether the component changed for the corresponding entities in
-/// a query since the last time the component has been observed.
+/// a query since the last time the system that includes these queries ran.
 ///
 /// If you only care about entities that changed or that got added use the
 /// [`Changed`](crate::query::Changed) and [`Added`](crate::query::Added) filters instead.
 ///
-/// Example:
+/// # Examples
 ///
 /// ```
 /// # use bevy_ecs::system::Query;
 /// # use bevy_ecs::query::ChangeTrackers;
+/// # use bevy_ecs::system::IntoSystem;
 /// #
 /// # #[derive(Debug)]
 /// # struct Name {};
@@ -667,6 +673,7 @@ impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
 ///         }
 ///     }
 /// }
+/// # print_moving_objects_system.system();
 /// ```
 #[derive(Clone)]
 pub struct ChangeTrackers<T: Component> {

@@ -19,20 +19,22 @@ use thiserror::Error;
 ///
 /// ### Basic Component Access
 ///
-/// A basic query looks like `Query<&MyComponent>` and all it does is grant immutable access to all
-/// `MyComponent` components. Similarly using `&mut MyComponent` instead grants mutable access instead.
+/// A basic query looks like `Query<&UnitHealth>` and all it does is grant immutable access to all
+/// `UnitHealth` components. Similarly using `&mut UnitHealth` instead grants mutable access instead.
 ///
 /// The main way to access the components of a query is through the [`Query::iter`] and [`Query::iter_mut`]
 /// functions which return a [`QueryIter`] to iterate over:
 ///
 /// ```
+/// # use bevy_ecs::system::IntoSystem;
 /// # use bevy_ecs::system::Query;
-/// struct MyComponent(usize);
-/// fn system(query: Query<&MyComponent>) {
-///     for MyComponent(number) in query.iter() {
-///         println!("We got the number {}!", number);
+/// struct UnitHealth(pub u32);
+/// fn system(query: Query<&UnitHealth>) {
+///     for UnitHealth(health) in query.iter() {
+///         println!("We got {} health points left!", health);
 ///     }
 /// }
+/// # system.system();
 /// ```
 ///
 /// ### Multiple Component Access
@@ -42,6 +44,28 @@ use thiserror::Error;
 /// immutable references to the `Shape` and `Color` component and a mutable reference to the `Size`
 /// component.
 ///
+/// ```
+/// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
+/// #[derive(Debug)]
+/// enum Shape {
+///     Circle,
+///     Box,
+/// };
+/// struct Color(pub String);
+/// struct Size(pub u32);
+/// fn system(mut query: Query<(&Shape, &Color, &mut Size)>) {
+///     for (shape, color, mut size) in query.iter_mut() {
+///         *size = Size(1);
+///         println!("We got a {} colored {:?} and made it one unit big!", color.0, shape);
+///     }
+/// }
+/// # system.system();
+/// ```
+///
+/// Note the use of [`Query::iter_mut`] here, as our query is not read-only anymore due to the use
+/// of the `&mut` [`WorldQuery`] we aren't able to use the `iter` method any longer.
+///
 /// ### Filtering Query Results
 ///
 /// Queries also support filters. A filter is a [`WorldQuery`] that can be used as a predicate to
@@ -50,6 +74,7 @@ use thiserror::Error;
 /// it requests. Let's look at an example on how to use this filter.
 ///
 /// ```
+/// # use bevy_ecs::system::IntoSystem;
 /// # use bevy_ecs::system::Query;
 /// # use bevy_ecs::query::With;
 /// struct Person(String);
@@ -59,13 +84,11 @@ use thiserror::Error;
 ///         println!("{} is tall enough!", person.0);
 ///     }
 /// }
+/// # system.system();
 /// ```
 ///
-/// Here we can see a few things, first of all the filter goes into the second type parameter of the
-/// query. This goes for all filters and if not specified defaults to `()`, which is a filter that
-/// lets everything through. The second observation we can make is that the component specified in
-/// the `With` filter is not returned when accessing the query. Filters do not grant access to
-/// components, all they do is filter the query results.
+/// As shown above, the filter is a second type parameter of the query. It is optional (defaults to
+/// ()). Filters do not give access to the component data, only limit the entities that the query will match.
 ///
 /// ### Optional Components
 ///
@@ -77,10 +100,9 @@ use thiserror::Error;
 /// `Option` but a [`WorldQuery`], `&mut T` in this case. This means we can also do the following
 /// just fine, `Query<Option<(&Size, &Color)>>`.
 ///
-/// There is one thing to be careful about when it comes to optional components and that it if the
-/// query only consists of optional components it will return __all__ entities of the [`World`]
-/// which can have severe performance implications. It's best to design your queries in such a way
-/// that they at least contain one non-optional part.
+/// Do take care when handling optional components though, as iterating a query that solely consists
+/// of optional components will go over all the entities of the [`World`]. Therefore it's best to
+/// design your queries in such a way that they at least contain one non-optional [`WorldQuery`].
 ///
 /// This touches all the basics of queries, make sure to check out all the [`WorldQueries`](WorldQuery)
 /// bevy has to offer.
