@@ -566,21 +566,18 @@ impl Triangle {
     }
 
     fn subdivide_edges(&mut self, edges: &mut [Edge], points: &mut Attributes) -> usize {
-        let mut divide = |edge_idx: usize, forward: &mut bool| {
+        let mut divide = |edge_idx: usize| {
             if !edges[edge_idx].done {
                 edges[edge_idx].points.push(points.len() as u32);
                 points.extend_default(1);
 
                 edges[edge_idx].done = true;
-                *forward = true;
-            } else {
-                *forward = false;
             }
         };
 
-        divide(self.ab_edge, &mut self.ab_forward);
-        divide(self.bc_edge, &mut self.bc_forward);
-        divide(self.ca_edge, &mut self.ca_forward);
+        divide(self.ab_edge);
+        divide(self.bc_edge);
+        divide(self.ca_edge);
 
         edges[self.ab_edge].points.len()
     }
@@ -614,7 +611,7 @@ impl Triangle {
         attributes: &mut [A],
         edges: &mut [Edge],
     ) {
-        let mut calculate = |p1: u32, p2: u32, edge_idx: usize, forward: &mut bool| {
+        let mut calculate = |p1: u32, p2: u32, edge_idx: usize| {
             if !edges[edge_idx].done {
                 interpolator.interpolate_multiple(
                     attributes[p1 as usize],
@@ -624,15 +621,12 @@ impl Triangle {
                 );
 
                 edges[edge_idx].done = true;
-                *forward = true;
-            } else {
-                *forward = false;
             }
         };
 
-        calculate(self.a, self.b, self.ab_edge, &mut self.ab_forward);
-        calculate(self.b, self.c, self.bc_edge, &mut self.bc_forward);
-        calculate(self.c, self.a, self.ca_edge, &mut self.ca_forward);
+        calculate(self.a, self.b, self.ab_edge);
+        calculate(self.b, self.c, self.bc_edge);
+        calculate(self.c, self.a, self.ca_edge);
 
         let abbcca = self.get_edge_slices(edges);
 
@@ -641,7 +635,9 @@ impl Triangle {
             layer.calculate(ab, bc, ca, interpolator, attributes)
         });
 
-        assert!(result.is_none());
+        if self.contents.len() != 0 {
+            assert!(result.is_none());
+        }
     }
 
     fn add_indices(&self, buffer: &mut Vec<u32>, edges: &[Edge]) {
@@ -752,8 +748,8 @@ impl<'a> Attributes<'a> {
         ) {
             for triangle in triangles {
                 triangle.calculate(&mut interpolator, attributes, edges);
-                edges.iter_mut().for_each(|Edge { done, .. }| *done = false);
             }
+            edges.iter_mut().for_each(|Edge { done, .. }| *done = false);
         }
 
         for (name, attr) in &mut self.attributes {
@@ -820,14 +816,18 @@ fn generate_triangles(indices: &[u32], is_iota: bool) -> (Box<[Triangle]>, Box<[
         let triangles = indices
             .chunks(3)
             .map(|x| {
-                Triangle::new(
-                    x[0],
-                    x[1],
-                    x[2],
-                    x[0] as usize,
-                    x[1] as usize,
-                    x[2] as usize,
-                )
+                Triangle {
+                    a: x[0],
+                    b: x[1],
+                    c: x[2],
+                    ab_edge: x[0] as usize,
+                    bc_edge: x[1] as usize,
+                    ca_edge: x[2] as usize,
+                    ab_forward: true,
+                    bc_forward: true,
+                    ca_forward: true,
+                    contents: vec![],
+                }
             })
             .collect::<Vec<_>>();
         let edges = indices
@@ -850,7 +850,7 @@ fn generate_triangles(indices: &[u32], is_iota: bool) -> (Box<[Triangle]>, Box<[
             // and just add another edge.
             let index = edge_map.get(&(j, i));
             match index {
-                Some(x) => *x,
+                Some(x) => (*x, false),
                 None => {
                     let x = edges.len();
                     edge_map.insert((i, j), x);
@@ -858,7 +858,7 @@ fn generate_triangles(indices: &[u32], is_iota: bool) -> (Box<[Triangle]>, Box<[
                         points: Vec::new(),
                         done: false,
                     });
-                    x
+                    (x, true)
                 }
             }
         };
@@ -867,10 +867,21 @@ fn generate_triangles(indices: &[u32], is_iota: bool) -> (Box<[Triangle]>, Box<[
             .chunks(3)
             .map(move |x| {
                 let [a, b, c] = [x[0], x[1], x[2]];
-                let ab = make_edge(a, b);
-                let bc = make_edge(b, c);
-                let ca = make_edge(c, a);
-                Triangle::new(a, b, c, ab, bc, ca)
+                let (ab, ab_forward) = make_edge(a, b);
+                let (bc, bc_forward) = make_edge(b, c);
+                let (ca, ca_forward) = make_edge(c, a);
+                Triangle {
+                    a,
+                    b,
+                    c,
+                    ab_edge: ab,
+                    bc_edge: bc,
+                    ca_edge: ca,
+                    ab_forward,
+                    bc_forward,
+                    ca_forward,
+                    contents: vec![]
+                }
             })
             .collect::<Vec<_>>();
 

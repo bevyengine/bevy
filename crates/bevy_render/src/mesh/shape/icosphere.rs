@@ -73,6 +73,7 @@ impl From<Icosphere> for Mesh {
         let uvs = consts::RAW_POINTS
             .iter()
             .map(|point| {
+                let point = Vec3::from(*point);
                 let inclination = point.y.acos();
                 let azimuth = point.z.atan2(point.x);
 
