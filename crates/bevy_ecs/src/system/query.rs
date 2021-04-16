@@ -11,6 +11,79 @@ use std::{any::TypeId, fmt::Debug};
 use thiserror::Error;
 
 /// Provides scoped access to a [`World`] according to a given [`WorldQuery`] and query filter.
+///
+/// Queries are a powerful tool enabling the programmer to iterate over entities and their components
+/// as well as filtering them on certain conditions.
+///
+/// # Query Building Primer
+///
+/// ### Basic Component Access
+///
+/// A basic query looks like `Query<&MyComponent>` and all it does is grant immutable access to all
+/// `MyComponent` components. Similarly using `&mut MyComponent` instead grants mutable access instead.
+///
+/// The main way to access the components of a query is through the [`Query::iter`] and [`Query::iter_mut`]
+/// functions which return a [`QueryIter`] to iterate over:
+///
+/// ```
+/// # use bevy_ecs::system::Query;
+/// struct MyComponent(usize);
+/// fn system(query: Query<&MyComponent>) {
+///     for MyComponent(number) in query.iter() {
+///         println!("We got the number {}!", number);
+///     }
+/// }
+/// ```
+///
+/// ### Multiple Component Access
+///
+/// Instead of asking for just one component like before we can build a query that queries for multiple
+/// components with the help of tuples,`Query<(&Shape, &Color, &mut Size)>`. This query retrieves
+/// immutable references to the `Shape` and `Color` component and a mutable reference to the `Size`
+/// component.
+///
+/// ### Filtering Query Results
+///
+/// Queries also support filters. A filter is a [`WorldQuery`] that can be used as a predicate to
+/// filter out entities that do not meet the requirement set by the predicate. [`With`](crate::query::With)
+/// is one such filter and all it does is filter out all entities that do not contain the component
+/// it requests. Let's look at an example on how to use this filter.
+///
+/// ```
+/// # use bevy_ecs::system::Query;
+/// # use bevy_ecs::query::With;
+/// struct Person(String);
+/// struct IsTallEnough;
+/// fn system(query: Query<&Person, With<IsTallEnough>>) {
+///     for person in query.iter() {
+///         println!("{} is tall enough!", person.0);
+///     }
+/// }
+/// ```
+///
+/// Here we can see a few things, first of all the filter goes into the second type parameter of the
+/// query. This goes for all filters and if not specified defaults to `()`, which is a filter that
+/// lets everything through. The second observation we can make is that the component specified in
+/// the `With` filter is not returned when accessing the query. Filters do not grant access to
+/// components, all they do is filter the query results.
+///
+/// ### Optional Components
+///
+/// Now we've seen how to narrow down results of a query, but what if we want to act on entities that
+/// may have a component but not always. This is where [`Option`] comes into play, with `Option` we
+/// can specify just that. The result of the following query, `Query<&Color, Option<&mut Size>>`, is
+/// the tuple `(&Color, Option<&mut Size>)` containing all entities that have the `Color` component,
+/// some of which also have a `Size` component. Note that we didn't put a [`Component`] inside the
+/// `Option` but a [`WorldQuery`], `&mut T` in this case. This means we can also do the following
+/// just fine, `Query<Option<(&Size, &Color)>>`.
+///
+/// There is one thing to be careful about when it comes to optional components and that it if the
+/// query only consists of optional components it will return __all__ entities of the [`World`]
+/// which can have severe performance implications. It's best to design your queries in such a way
+/// that they at least contain one non-optional part.
+///
+/// This touches all the basics of queries, make sure to check out all the [`WorldQueries`](WorldQuery)
+/// bevy has to offer.
 pub struct Query<'w, Q: WorldQuery, F: WorldQuery = ()>
 where
     F::Fetch: FilterFetch,

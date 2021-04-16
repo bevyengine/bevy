@@ -5,6 +5,10 @@ use crate::{
     world::World,
 };
 
+/// An [`Iterator`] over query results of a [`Query`](crate::system::Query).
+///
+/// This struct is created by the [`Query::iter`](crate::system::Query::iter) and
+/// [`Query::iter_mut`](crate::system::Query::iter_mut) methods.
 pub struct QueryIter<'w, 's, Q: WorldQuery, F: WorldQuery>
 where
     F::Fetch: FilterFetch,
