@@ -1,3 +1,12 @@
+mod capsule;
+mod icosphere;
+pub mod shapegen;
+mod torus;
+
+pub use capsule::{Capsule, CapsuleUvProfile};
+pub use icosphere::Icosphere;
+pub use torus::Torus;
+
 use super::{Indices, Mesh};
 use crate::pipeline::PrimitiveTopology;
 use bevy_math::*;
@@ -264,13 +273,3 @@ impl From<Plane> for Mesh {
         mesh
     }
 }
-
-mod capsule;
-mod icosphere;
-mod torus;
-mod uvsphere;
-
-pub use capsule::{Capsule, CapsuleUvProfile};
-pub use icosphere::Icosphere;
-pub use torus::Torus;
-pub use uvsphere::UVSphere;
