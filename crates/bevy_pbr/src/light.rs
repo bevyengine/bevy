@@ -28,6 +28,7 @@ impl Default for PointLight {
 pub(crate) struct PointLightUniform {
     pub pos: [f32; 4],
     pub color: [f32; 4],
+    // storing as a `[f32; 4]` for memory alignement
     pub inverse_range_squared: [f32; 4],
 }
 

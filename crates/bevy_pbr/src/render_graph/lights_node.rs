@@ -47,6 +47,7 @@ impl Node for LightsNode {
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 struct LightCount {
+    // storing as a `[u32; 4]` for memory alignement
     pub num_lights: [u32; 4],
 }
 
