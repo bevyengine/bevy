@@ -7,7 +7,7 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 /// This example spawns a large number of cubes, each with its own changing position and material
 /// This is intended to be a stress test of bevy's ability to render many objects with different
 /// properties For the best results, run it in release mode:
-/// ```
+/// ```bash
 /// cargo run --example spawner --release
 /// ```
 /// NOTE: Bevy still has a number of optimizations to do in this area. Expect the

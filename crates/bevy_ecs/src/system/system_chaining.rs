@@ -7,6 +7,43 @@ use crate::{
 };
 use std::borrow::Cow;
 
+/// A [`System`] that chains two systems together, creating a new system that routes the output of
+/// the first system into the input of the second system, yielding the output of the second system.
+///
+/// Given two systems A and B, A may be chained with B as `A.chain(B)` if the output type of A is
+/// equal to the input type of B.
+///
+/// Note that for [`FunctionSystem`](crate::system::FunctionSystem)s the output is the return value
+/// of the function and the input is the first [`SystemParam`](crate::system::SystemParam) if it is
+/// tagged with [`In`](crate::system::In) or `()` if the function has no designated input parameter.
+///
+/// # Examples
+///
+/// ```
+/// use std::num::ParseIntError;
+///
+/// use bevy_ecs::prelude::*;
+///
+/// fn main() {
+///     let mut world = World::default();
+///     world.insert_resource(Message("42".to_string()));
+///
+///     // chain the `parse_message_system`'s output into the `filter_system`s input
+///     let mut chained_system = parse_message_system.system().chain(filter_system.system());
+///     chained_system.initialize(&mut world);
+///     assert_eq!(chained_system.run((), &mut world), Some(42));
+/// }
+///
+/// struct Message(String);
+///
+/// fn parse_message_system(message: Res<Message>) -> Result<usize, ParseIntError> {
+///     message.0.parse::<usize>()
+/// }
+///
+/// fn filter_system(In(result): In<Result<usize, ParseIntError>>) -> Option<usize> {
+///     result.ok().filter(|&n| n < 100)
+/// }
+/// ```
 pub struct ChainSystem<SystemA, SystemB> {
     system_a: SystemA,
     system_b: SystemB,
@@ -75,10 +112,18 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
     }
 }
 
+/// An extension trait providing the [`IntoChainSystem::chain`] method for convenient [`System`]
+/// chaining.
+///
+/// This trait is blanket implemented for all system pairs that fulfill the chaining requirement.
+///
+/// See [`ChainSystem`].
 pub trait IntoChainSystem<SystemB>: System + Sized
 where
     SystemB: System<In = Self::Out>,
 {
+    /// Chain this system `A` with another system `B` creating a new system that feeds system A's
+    /// output into system `B`, returning the output of system `B`.
     fn chain(self, system: SystemB) -> ChainSystem<Self, SystemB>;
 }
 

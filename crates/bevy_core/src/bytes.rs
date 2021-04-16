@@ -83,10 +83,8 @@ where
     T: Byteable,
 {
 }
-unsafe impl<T> Byteable for [T; 2] where T: Byteable {}
-unsafe impl<T> Byteable for [T; 3] where T: Byteable {}
-unsafe impl<T> Byteable for [T; 4] where T: Byteable {}
-unsafe impl<T> Byteable for [T; 16] where T: Byteable {}
+
+unsafe impl<T, const N: usize> Byteable for [T; N] where T: Byteable {}
 
 unsafe impl Byteable for u8 {}
 unsafe impl Byteable for u16 {}
@@ -232,5 +230,11 @@ mod tests {
     #[test]
     fn test_mat4_round_trip() {
         test_round_trip(Mat4::IDENTITY);
+    }
+
+    #[test]
+    fn test_array_round_trip() {
+        test_round_trip([-10i32; 200]);
+        test_round_trip([Vec2::ZERO, Vec2::ONE, Vec2::Y, Vec2::X]);
     }
 }

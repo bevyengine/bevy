@@ -206,6 +206,10 @@ unsafe impl<T: Component> FetchState for ReadState<T> {
     }
 
     fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
+        if access.access().has_write(self.component_id) {
+            panic!("&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
+                std::any::type_name::<T>());
+        }
         access.add_read(self.component_id)
     }
 
@@ -656,6 +660,10 @@ unsafe impl<T: Component> FetchState for ChangeTrackersState<T> {
     }
 
     fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
+        if access.access().has_write(self.component_id) {
+            panic!("ChangeTrackers<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
+                std::any::type_name::<T>());
+        }
         access.add_read(self.component_id)
     }
 

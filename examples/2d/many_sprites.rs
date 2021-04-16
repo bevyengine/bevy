@@ -2,6 +2,7 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::Quat,
     prelude::*,
+    sprite::SpriteSettings,
 };
 
 use rand::Rng;
@@ -17,9 +18,9 @@ fn main() {
     App::build()
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .insert_resource(bevy::log::LogSettings {
-            level: bevy::log::Level::DEBUG,
-            ..Default::default()
+        .insert_resource(SpriteSettings {
+            // NOTE: this is an experimental feature that doesn't work in all cases
+            frustum_culling_enabled: true,
         })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
