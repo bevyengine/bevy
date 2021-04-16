@@ -28,7 +28,7 @@ impl Default for PointLight {
 pub(crate) struct PointLightUniform {
     pub pos: [f32; 4],
     pub color: [f32; 4],
-    pub inverse_range_squared: f32,
+    pub inverse_range_squared: [f32; 4],
 }
 
 unsafe impl Byteable for PointLightUniform {}
@@ -43,7 +43,7 @@ impl PointLightUniform {
         PointLightUniform {
             pos: [x, y, z, 1.0],
             color,
-            inverse_range_squared: 1.0 / (light.range * light.range),
+            inverse_range_squared: [1.0 / (light.range * light.range), 0., 0., 0.],
         }
     }
 }
