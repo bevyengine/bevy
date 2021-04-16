@@ -3,19 +3,6 @@ use crate::{
     interpolation::{Interpolate, Interpolation},
 };
 
-// TODO: Smooth interpolation are untested
-
-// TODO: Curve/Clip need a validation during deserialization because they are
-// structured as SOA (struct of arrays), so the vec's length must match
-
-// https://github.com/niklasfrykholm/blog
-// https://bitsquid.blogspot.com/search?q=animation
-// http://bitsquid.blogspot.com/2009/11/bitsquid-low-level-animation-system.html
-// http://archive.gamedev.net/archive/reference/articles/article1497.html (bit old)
-
-// http://nfrechette.github.io/2016/12/07/anim_compression_key_reduction/
-// https://github.com/nfrechette/acl
-
 /// Keyframe tangents control mode
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum TangentControl {
@@ -23,8 +10,6 @@ pub enum TangentControl {
     Free,
     Flat,
     Broken,
-    InBroken,
-    OutBroken,
 }
 
 impl Default for TangentControl {
@@ -34,6 +19,7 @@ impl Default for TangentControl {
 }
 
 // TODO: impl Serialize, Deserialize
+// TODO: How better handling of SOA? the length for instance is repeated and extra checks are need on deserialization
 /// Curve with sparse keyframes frames, in another words a curve with variable frame rate;
 ///
 /// Similar in design to the [`CurveVariableLinear`](super::CurveVariableLinear) but allows
@@ -41,6 +27,9 @@ impl Default for TangentControl {
 /// the cost of performance;
 ///
 /// It can't handle discontinuities, as in two keyframes with the same timestamp.
+///
+/// Interpolation is based on this [article](http://archive.gamedev.net/archive/reference/articles/article1497.html),
+/// it's very similar to the implementation used by Unity, except that tangents doesn't have weighted mode;
 ///
 /// **NOTE** Keyframes count is limited by the [`CurveCursor`] size.
 #[derive(Default, Debug)]
@@ -173,41 +162,176 @@ where
         }
     }
 
-    // TODO: Edit methods
-
-    pub fn get_in_out_tangent(&self, index: CurveCursor) -> (T::Tangent, T::Tangent) {
-        let index = index as usize;
-        (self.tangents_in[index], self.tangents_out[index])
+    /// Insert a new keyframe
+    ///
+    /// ```rust
+    /// # fn main() {
+    /// let mut curve = CurveVariable::from_constant(0.0f32);
+    /// curve.insert()
+    ///     .set_time(1.0)
+    ///     .set_value(2.0)
+    ///     .set_tangent_control(TangentControl::Flat)
+    ///     .done();
+    ///
+    /// assert_eq!(curve.len(), 2);
+    /// # }
+    /// ```
+    pub fn insert(&mut self) -> CurveVariableKeyframeBuilder<T> {
+        CurveVariableKeyframeBuilder {
+            time: self
+                .time_stamps
+                .last()
+                .copied()
+                .map_or(0.0, |t| t + 0.03333),
+            value: self.keyframes.last().unwrap().clone(),
+            mode: self.modes.last().unwrap().clone(),
+            tangent_control: TangentControl::Auto,
+            tangent_in: T::FLAT_TANGENT,
+            tangent_out: T::FLAT_TANGENT,
+            curve: self,
+        }
     }
 
-    /// Updates keyframes marked with `TangentControl::Auto`
-    pub fn update_tangents(&mut self) {
-        let length = self.keyframes.len();
-        if length == 1 {
-            self.tangents_in[0] = T::FLAT_TANGENT;
-            self.tangents_out[0] = T::FLAT_TANGENT;
+    pub fn remove(&mut self, index: CurveCursor) {
+        let i = index as usize;
+
+        self.time_stamps.remove(i);
+        self.keyframes.remove(i);
+        self.modes.remove(i);
+        self.tangents_control.remove(i);
+        self.tangents_in.remove(i);
+        self.tangents_out.remove(i);
+
+        if i < self.keyframes.len() {
+            self.adjust_tangents(i);
+        }
+        if i > 0 {
+            self.adjust_tangents(i - 1);
+        }
+    }
+
+    pub fn set_value(&mut self, index: CurveCursor, value: T) {
+        let i = index as usize;
+        self.keyframes[i] = value;
+        self.adjust_tangents_with_neighbors(i);
+    }
+
+    pub fn set_time(&mut self, index: CurveCursor, time: f32) {
+        let i = index as usize;
+        let j = self
+            .time_stamps
+            .iter()
+            .position(|t| *t < time)
+            .unwrap_or_else(|| self.time_stamps.len() - 1);
+
+        if i != j {
+            let k = j + 1;
+            self.time_stamps[i..k].rotate_left(0);
+            self.keyframes[i..k].rotate_left(0);
+            self.modes[i..k].rotate_left(0);
+            self.tangents_control[i..k].rotate_left(0);
+            self.tangents_in[i..k].rotate_left(0);
+            self.tangents_out[i..k].rotate_left(0);
+
+            self.adjust_tangents_with_neighbors(j);
         } else {
-            for i in 0..length {
-                let p = if i > 0 { i - 1 } else { 0 };
-                let n = if (i + 1) < length { i + 1 } else { length - 1 };
+            self.time_stamps[i] = time;
+        }
 
-                if self.tangents_control[i] != TangentControl::Auto {
-                    continue;
+        self.adjust_tangents_with_neighbors(i);
+    }
+
+    #[inline]
+    pub fn set_interpolation(&mut self, index: CurveCursor, interpolation: Interpolation) {
+        self.modes[index as usize] = interpolation;
+    }
+
+    #[inline]
+    pub fn set_in_tangent(&mut self, index: CurveCursor, tangent: T::Tangent) {
+        let i = index as usize;
+        self.tangents_control[i] = TangentControl::Broken;
+        self.tangents_in[i] = tangent;
+    }
+
+    #[inline]
+    pub fn set_out_tangent(&mut self, index: CurveCursor, tangent: T::Tangent) {
+        let i = index as usize;
+        self.tangents_control[i] = TangentControl::Broken;
+        self.tangents_out[i] = tangent;
+    }
+
+    #[inline]
+    pub fn set_in_out_tangent(&mut self, index: CurveCursor, tangent: T::Tangent) {
+        let i = index as usize;
+        self.tangents_control[i] = TangentControl::Free;
+        self.tangents_in[i] = tangent;
+        self.tangents_out[i] = tangent;
+    }
+
+    pub fn set_tangent_control(&mut self, index: CurveCursor, tangent_control: TangentControl) {
+        let i = index as usize;
+        self.tangents_control[i] = tangent_control;
+        self.adjust_tangents(i);
+    }
+
+    /// Adjust tangents for self and neighbors keyframes
+    pub(crate) fn adjust_tangents_with_neighbors(&mut self, i: usize) {
+        if i > 0 {
+            self.adjust_tangents(i - 1);
+        }
+
+        self.adjust_tangents(i);
+
+        if i < self.keyframes.len() - 1 {
+            self.adjust_tangents(i + 1);
+        }
+    }
+
+    /// Adjust tangents for a single keyframe according with their [`TangentControl`]
+    fn adjust_tangents(&mut self, i: usize) {
+        let length = self.keyframes.len();
+        let mut tangent = T::FLAT_TANGENT;
+
+        match self.tangents_control[i] {
+            TangentControl::Auto => {
+                if length > 2 {
+                    let p = if i > 0 { i - 1 } else { 0 };
+                    let n = if (i + 1) < length { i + 1 } else { length - 1 };
+
+                    tangent = T::auto_tangent(
+                        self.time_stamps[p],
+                        self.time_stamps[i],
+                        self.time_stamps[n],
+                        &self.keyframes[p],
+                        &self.keyframes[i],
+                        &self.keyframes[n],
+                    );
                 }
-
-                let tangent = T::auto_tangent(
-                    self.time_stamps[p],
-                    self.time_stamps[i],
-                    self.time_stamps[n],
-                    &self.keyframes[p],
-                    &self.keyframes[i],
-                    &self.keyframes[n],
-                );
-
-                self.tangents_in[i] = tangent;
-                self.tangents_out[i] = tangent;
+            }
+            TangentControl::Flat => {}
+            _ => {
+                // Do nothing
+                return;
             }
         }
+
+        self.tangents_in[i] = tangent;
+        self.tangents_out[i] = tangent;
+    }
+
+    /// Rebuilds tangents for the entire curve based on each keyframe [`TangentControl`] mode
+    pub fn rebuild_curve_tangents(&mut self) {
+        for i in 0..self.len() {
+            self.adjust_tangents(i);
+        }
+    }
+
+    // TODO: More getters
+
+    #[inline]
+    pub fn get_in_out_tangent(&self, index: CurveCursor) -> (T::Tangent, T::Tangent) {
+        let i = index as usize;
+        (self.tangents_in[i], self.tangents_out[i])
     }
 
     /// Number of keyframes
@@ -320,6 +444,91 @@ where
         );
 
         (cursor, value)
+    }
+}
+
+pub struct CurveVariableKeyframeBuilder<'a, T: Interpolate> {
+    curve: &'a mut CurveVariable<T>,
+    time: f32,
+    value: T,
+    mode: Interpolation,
+    tangent_control: TangentControl,
+    tangent_in: T::Tangent,
+    tangent_out: T::Tangent,
+}
+
+impl<'a, T: Interpolate> CurveVariableKeyframeBuilder<'a, T> {
+    #[inline]
+    pub fn set_time(mut self, time: f32) -> Self {
+        self.time = time;
+        self
+    }
+
+    #[inline]
+    pub fn set_value(mut self, value: T) -> Self {
+        self.value = value;
+        self
+    }
+
+    #[inline]
+    pub fn set_mode(mut self, mode: Interpolation) -> Self {
+        self.mode = mode;
+        self
+    }
+
+    #[inline]
+    pub fn set_tangent_control(mut self, tangent_control: TangentControl) -> Self {
+        if tangent_control == TangentControl::Flat {
+            self.tangent_in = T::FLAT_TANGENT;
+            self.tangent_out = T::FLAT_TANGENT;
+        }
+
+        self.tangent_control = tangent_control;
+        self
+    }
+
+    #[inline]
+    pub fn set_in_tangent(mut self, tangent: T::Tangent) -> Self {
+        self.tangent_control = TangentControl::Broken;
+        self.tangent_in = tangent;
+        self
+    }
+
+    #[inline]
+    pub fn set_out_tangent(mut self, tangent: T::Tangent) -> Self {
+        self.tangent_control = TangentControl::Broken;
+        self.tangent_out = tangent;
+        self
+    }
+
+    #[inline]
+    pub fn set_in_out_tangent(&mut self, tangent: T::Tangent) {
+        self.tangent_control = TangentControl::Free;
+        self.tangent_in = tangent;
+        self.tangent_out = tangent;
+    }
+
+    pub fn done(self) {
+        if let Some(i) = self.curve.time_stamps.iter().position(|t| *t < self.time) {
+            self.curve.time_stamps.insert(i, self.time);
+            self.curve.keyframes.insert(i, self.value);
+            self.curve.modes.insert(i, self.mode);
+            self.curve.tangents_control.insert(i, self.tangent_control);
+            self.curve.tangents_in.insert(i, self.tangent_in);
+            self.curve.tangents_out.insert(i, self.tangent_out);
+
+            self.curve.adjust_tangents_with_neighbors(i);
+        } else {
+            self.curve.time_stamps.push(self.time);
+            self.curve.keyframes.push(self.value);
+            self.curve.modes.push(self.mode);
+            self.curve.tangents_control.push(self.tangent_control);
+            self.curve.tangents_in.push(self.tangent_in);
+            self.curve.tangents_out.push(self.tangent_out);
+
+            self.curve
+                .adjust_tangents_with_neighbors(self.curve.keyframes.len() - 1);
+        }
     }
 }
 

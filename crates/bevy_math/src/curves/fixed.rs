@@ -13,7 +13,7 @@ pub struct CurveFixed<T> {
     frame_rate: f32,
     /// Negative number of frames before the curve starts
     negative_offset: f32,
-    keyframes: Vec<T>,
+    pub keyframes: Vec<T>,
 }
 
 impl<T: Clone> Clone for CurveFixed<T> {
@@ -41,23 +41,6 @@ impl<T> CurveFixed<T> {
             negative_offset: 0.0,
             keyframes: vec![v],
         }
-    }
-
-    pub fn keyframes(&self) -> &[T] {
-        &self.keyframes[..]
-    }
-
-    pub fn keyframes_mut(&mut self) -> &mut [T] {
-        &mut self.keyframes[..]
-    }
-
-    pub fn insert_keyframe(&mut self, index: usize, value: T) {
-        self.keyframes.insert(index, value);
-    }
-
-    pub fn remove_keyframe(&mut self, index: usize) -> T {
-        assert!(self.keyframes.len() > 1, "curve can't be empty");
-        self.keyframes.remove(index)
     }
 
     pub fn frame_rate(&self) -> f32 {
