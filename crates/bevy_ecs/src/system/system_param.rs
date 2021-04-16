@@ -32,6 +32,8 @@ use std::{
 /// fn my_system(param: MyParam) {
 ///     // Access the resource through `param.foo`
 /// }
+///
+/// # my_system.system();
 /// ```
 pub trait SystemParam: Sized {
     type Fetch: for<'a> SystemParamFetch<'a>;
@@ -573,10 +575,17 @@ impl<'a, T: Component + FromWorld> SystemParamFetch<'a> for LocalState<T> {
 ///
 /// Basic usage:
 ///
-/// ```ignore
+/// ```
+/// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::RemovedComponents;
+/// #
+/// # struct MyComponent;
+///
 /// fn react_on_removal(removed: RemovedComponents<MyComponent>) {
-///     removed.iter().for_each(|removed_entity| println!("{}", removed_entity));
+///     removed.iter().for_each(|removed_entity| println!("{:?}", removed_entity));
 /// }
+///
+/// # react_on_removal.system();
 /// ```
 pub struct RemovedComponents<'a, T> {
     world: &'a World,
