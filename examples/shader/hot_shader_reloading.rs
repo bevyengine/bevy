@@ -43,13 +43,15 @@ fn setup(
         fragment: Some(asset_server.load::<Shader, _>("shaders/hot.frag")),
     }));
 
-    // Add an AssetRenderResourcesNode to our Render Graph. This will bind MyMaterial resources to our shader
+    // Add an AssetRenderResourcesNode to our Render Graph. This will bind MyMaterial resources to
+    // our shader
     render_graph.add_system_node(
         "my_material",
         AssetRenderResourcesNode::<MyMaterial>::new(true),
     );
 
-    // Add a Render Graph edge connecting our new "my_material" node to the main pass node. This ensures "my_material" runs before the main pass
+    // Add a Render Graph edge connecting our new "my_material" node to the main pass node. This
+    // ensures "my_material" runs before the main pass
     render_graph
         .add_node_edge("my_material", base::node::MAIN_PASS)
         .unwrap();
@@ -59,10 +61,9 @@ fn setup(
         color: Color::rgb(0.0, 0.8, 0.0),
     });
 
-    // Setup our world
+    // cube
     commands
-        // cube
-        .spawn(MeshBundle {
+        .spawn_bundle(MeshBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 2.0 })),
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 pipeline_handle,
@@ -70,11 +71,10 @@ fn setup(
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
             ..Default::default()
         })
-        .with(material)
-        // camera
-        .spawn(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(3.0, 5.0, -8.0)
-                .looking_at(Vec3::default(), Vec3::unit_y()),
-            ..Default::default()
-        });
+        .insert(material);
+    // camera
+    commands.spawn_bundle(PerspectiveCameraBundle {
+        transform: Transform::from_xyz(3.0, 5.0, -8.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..Default::default()
+    });
 }

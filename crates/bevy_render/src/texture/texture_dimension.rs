@@ -95,7 +95,8 @@ pub struct PixelInfo {
 /// Underlying texture data format.
 ///
 /// If there is a conversion in the format (such as srgb -> linear), The conversion listed is for
-/// loading from texture in a shader. When writing to the texture, the opposite conversion takes place.
+/// loading from texture in a shader. When writing to the texture, the opposite conversion takes
+/// place.
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub enum TextureFormat {
     // Normal 8 bit formats

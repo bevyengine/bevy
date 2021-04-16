@@ -32,7 +32,14 @@ impl<'a> Iterator for TupleFieldIter<'a> {
         self.index += 1;
         value
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let size = self.tuple.field_len();
+        (size, Some(size))
+    }
 }
+
+impl<'a> ExactSizeIterator for TupleFieldIter<'a> {}
 
 pub trait GetTupleField {
     fn get_field<T: Reflect>(&self, index: usize) -> Option<&T>;
@@ -139,7 +146,8 @@ impl Tuple for DynamicTuple {
     }
 }
 
-impl Reflect for DynamicTuple {
+// SAFE: any and any_mut both return self
+unsafe impl Reflect for DynamicTuple {
     #[inline]
     fn type_name(&self) -> &str {
         self.name()
@@ -274,7 +282,8 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl<$($name: Reflect),*> Reflect for ($($name,)*) {
+        // SAFE: any and any_mut both return self
+        unsafe impl<$($name: Reflect),*> Reflect for ($($name,)*) {
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
             }

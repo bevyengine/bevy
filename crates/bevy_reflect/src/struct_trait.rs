@@ -37,7 +37,14 @@ impl<'a> Iterator for FieldIter<'a> {
         self.index += 1;
         value
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let size = self.struct_val.field_len();
+        (size, Some(size))
+    }
 }
+
+impl<'a> ExactSizeIterator for FieldIter<'a> {}
 
 pub trait GetField {
     fn get_field<T: Reflect>(&self, name: &str) -> Option<&T>;
@@ -109,11 +116,9 @@ impl DynamicStruct {
 impl Struct for DynamicStruct {
     #[inline]
     fn field(&self, name: &str) -> Option<&dyn Reflect> {
-        if let Some(index) = self.field_indices.get(name) {
-            Some(&*self.fields[*index])
-        } else {
-            None
-        }
+        self.field_indices
+            .get(name)
+            .map(|index| &*self.fields[*index])
     }
 
     #[inline]
@@ -167,7 +172,8 @@ impl Struct for DynamicStruct {
     }
 }
 
-impl Reflect for DynamicStruct {
+// SAFE: any and any_mut both return self
+unsafe impl Reflect for DynamicStruct {
     #[inline]
     fn type_name(&self) -> &str {
         &self.name

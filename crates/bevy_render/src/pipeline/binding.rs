@@ -30,8 +30,8 @@ pub enum BindType {
         readonly: bool,
     },
     Sampler {
-        /// The sampling result is produced based on more than a single color sample from a texture,
-        /// e.g. when bilinear interpolation is enabled.
+        /// The sampling result is produced based on more than a single color sample from a
+        /// texture, e.g. when bilinear interpolation is enabled.
         ///
         /// A filtering sampler can only be used with a filterable texture.
         filtering: bool,

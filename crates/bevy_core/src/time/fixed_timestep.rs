@@ -169,8 +169,8 @@ impl System for FixedTimestep {
     }
 
     unsafe fn run_unsafe(&mut self, _input: Self::In, world: &World) -> Self::Out {
-        // SAFE: this system inherits the internal system's component access and archetype component access,
-        // which means the caller has ensured running the internal system is safe
+        // SAFE: this system inherits the internal system's component access and archetype component
+        // access, which means the caller has ensured running the internal system is safe
         self.internal_system.run_unsafe((), world)
     }
 
@@ -195,5 +195,9 @@ impl System for FixedTimestep {
                 },
             );
         }
+    }
+
+    fn check_change_tick(&mut self, change_tick: u32) {
+        self.internal_system.check_change_tick(change_tick);
     }
 }

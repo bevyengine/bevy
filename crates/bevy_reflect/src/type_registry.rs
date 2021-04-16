@@ -13,7 +13,8 @@ pub struct TypeRegistry {
     ambiguous_names: HashSet<String>,
 }
 
-// TODO:  remove this wrapper once we migrate to Atelier Assets and the Scene AssetLoader doesn't need a TypeRegistry ref
+// TODO:  remove this wrapper once we migrate to Atelier Assets and the Scene AssetLoader doesn't
+// need a TypeRegistry ref
 #[derive(Clone, Default)]
 pub struct TypeRegistryArc {
     pub internal: Arc<RwLock<TypeRegistry>>,
@@ -150,7 +151,7 @@ impl TypeRegistration {
         self.name
     }
 
-    fn get_short_name(full_name: &str) -> String {
+    pub fn get_short_name(full_name: &str) -> String {
         let mut short_name = String::new();
 
         {
@@ -236,7 +237,7 @@ impl ReflectDeserialize {
     where
         D: serde::Deserializer<'de>,
     {
-        let mut erased = erased_serde::Deserializer::erase(deserializer);
+        let mut erased = <dyn erased_serde::Deserializer>::erase(deserializer);
         (self.func)(&mut erased)
             .map_err(<<D as serde::Deserializer<'de>>::Error as serde::de::Error>::custom)
     }

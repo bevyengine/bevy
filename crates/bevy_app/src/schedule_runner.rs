@@ -1,5 +1,6 @@
 use super::{App, AppBuilder};
-use crate::{app::AppExit, event::Events, plugin::Plugin, ManualEventReader};
+use crate::{app::AppExit, plugin::Plugin, ManualEventReader};
+use bevy_ecs::event::Events;
 use bevy_utils::{Duration, Instant};
 
 #[cfg(target_arch = "wasm32")]
@@ -41,7 +42,8 @@ impl ScheduleRunnerSettings {
     }
 }
 
-/// Configures an App to run its [Schedule](bevy_ecs::schedule::Schedule) according to a given [RunMode]
+/// Configures an App to run its [Schedule](bevy_ecs::schedule::Schedule) according to a given
+/// [RunMode]
 #[derive(Default)]
 pub struct ScheduleRunnerPlugin {}
 

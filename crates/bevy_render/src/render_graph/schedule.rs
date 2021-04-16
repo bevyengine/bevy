@@ -67,7 +67,8 @@ impl Stages {
     }
 
     pub fn borrow<'a>(&self, render_graph: &'a mut RenderGraph) -> Vec<StageBorrow<'a>> {
-        // unfortunately borrowing render graph nodes in a specific order takes a little bit of gymnastics
+        // unfortunately borrowing render graph nodes in a specific order takes a little bit of
+        // gymnastics
         let mut stage_borrows = Vec::with_capacity(self.stages.len());
 
         let mut node_borrows = Vec::new();
@@ -101,13 +102,15 @@ impl Stages {
     }
 }
 
-/// Produces a collection of `Stages`, which are sets of OrderedJobs that must be run before moving on to the next stage
+/// Produces a collection of `Stages`, which are sets of OrderedJobs that must be run before moving
+/// on to the next stage
 pub trait RenderGraphStager {
     fn get_stages(&mut self, render_graph: &RenderGraph) -> Result<Stages, RenderGraphError>;
 }
 
 // TODO: remove this
-/// This scheduler ignores dependencies and puts everything in one stage. It shouldn't be used for anything :)
+/// This scheduler ignores dependencies and puts everything in one stage. It shouldn't be used for
+/// anything :)
 #[derive(Debug, Default)]
 pub struct LinearStager;
 
@@ -229,8 +232,9 @@ fn stage_node(
             })
             .count();
 
-        // if the current node has more than one parent on the highest stage (aka requires synchronization), then move it to the next
-        // stage and start a new job on that stage
+        // if the current node has more than one parent on the highest stage (aka requires
+        // synchronization), then move it to the next stage and start a new job on that
+        // stage
         if max_stage_parent_count > 1 {
             stage_index = max_parent_stage + 1;
         } else {
@@ -492,7 +496,8 @@ mod tests {
 
         assert_eq!(job.nodes.len(), 7, "expect exactly 7 nodes in the job");
 
-        // its hard to test the exact order of this job's nodes because of hashing, so instead we'll test the constraints that must hold true
+        // its hard to test the exact order of this job's nodes because of hashing, so instead we'll
+        // test the constraints that must hold true
         let index =
             |node_id: NodeId| -> usize { job.nodes.iter().position(|id| *id == node_id).unwrap() };
 

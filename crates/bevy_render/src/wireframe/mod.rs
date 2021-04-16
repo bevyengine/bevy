@@ -33,7 +33,7 @@ impl Plugin for WireframePlugin {
         let mut pipelines = world
             .get_resource_mut::<Assets<PipelineDescriptor>>()
             .unwrap();
-        pipelines.set(
+        pipelines.set_untracked(
             WIREFRAME_PIPELINE_HANDLE,
             pipeline::build_wireframe_pipeline(&mut shaders),
         );

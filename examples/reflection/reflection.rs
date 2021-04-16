@@ -7,9 +7,9 @@ use bevy::{
 };
 use serde::de::DeserializeSeed;
 
-/// This example illustrates how "reflection" works in Bevy. Reflection provide a way to dynamically interact with Rust types,
-/// such as accessing fields by their string name. Reflection is a core part of Bevy and enables a number of interesting scenarios
-/// (like scenes).
+/// This example illustrates how "reflection" works in Bevy. Reflection provide a way to dynamically
+/// interact with Rust types, such as accessing fields by their string name. Reflection is a core
+/// part of Bevy and enables a number of interesting scenarios (like scenes).
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
@@ -19,8 +19,9 @@ fn main() {
         .run();
 }
 
-/// Deriving `Reflect` implements the relevant reflection traits. In this case, it implements the `Reflect` trait and the `Struct` trait
-/// `derive(Reflect)` assumes that all fields also implement Reflect.
+/// Deriving `Reflect` implements the relevant reflection traits. In this case, it implements the
+/// `Reflect` trait and the `Struct` trait `derive(Reflect)` assumes that all fields also implement
+/// Reflect.
 #[derive(Reflect)]
 pub struct Foo {
     a: usize,
@@ -29,7 +30,8 @@ pub struct Foo {
     _ignored: NonReflectedValue,
 }
 
-/// This `Bar` type is used in the `nested` field on the `Test` type. We must derive `Reflect` here too (or ignore it)
+/// This `Bar` type is used in the `nested` field on the `Test` type. We must derive `Reflect` here
+/// too (or ignore it)
 #[derive(Reflect)]
 pub struct Bar {
     b: usize,
@@ -68,7 +70,8 @@ fn setup(type_registry: Res<TypeRegistry>) {
     assert_eq!(value.a, 4);
 
     let type_registry = type_registry.read();
-    // By default, all derived `Reflect` types can be Serialized using serde. No need to derive Serialize!
+    // By default, all derived `Reflect` types can be Serialized using serde. No need to derive
+    // Serialize!
     let serializer = ReflectSerializer::new(&value, &type_registry);
     let ron_string =
         ron::ser::to_string_pretty(&serializer, ron::ser::PrettyConfig::default()).unwrap();
@@ -79,13 +82,14 @@ fn setup(type_registry: Res<TypeRegistry>) {
     let mut deserializer = ron::de::Deserializer::from_str(&ron_string).unwrap();
     let reflect_value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-    // Deserializing returns a Box<dyn Reflect> value. Generally, deserializing a value will return the "dynamic" variant
-    // of a type. For example, deserializing a struct will return the DynamicStruct type. "Value types" will be deserialized
-    // as themselves.
+    // Deserializing returns a Box<dyn Reflect> value. Generally, deserializing a value will return
+    // the "dynamic" variant of a type. For example, deserializing a struct will return the
+    // DynamicStruct type. "Value types" will be deserialized as themselves.
     let _deserialized_struct = reflect_value.downcast_ref::<DynamicStruct>();
 
-    // Reflect has its own `partial_eq` implementation, named `reflect_partial_eq`. This behaves like normal `partial_eq`, but it treats "dynamic" and
-    // "non-dynamic" types the same. The `Foo` struct and deserialized `DynamicStruct` are considered equal for this reason:
+    // Reflect has its own `partial_eq` implementation, named `reflect_partial_eq`. This behaves
+    // like normal `partial_eq`, but it treats "dynamic" and "non-dynamic" types the same. The
+    // `Foo` struct and deserialized `DynamicStruct` are considered equal for this reason:
     assert!(reflect_value.reflect_partial_eq(&value).unwrap());
 
     // By "patching" `Foo` with the deserialized DynamicStruct, we can "Deserialize" Foo.

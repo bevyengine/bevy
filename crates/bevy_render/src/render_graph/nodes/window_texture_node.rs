@@ -3,7 +3,7 @@ use crate::{
     renderer::{RenderContext, RenderResourceId, RenderResourceType},
     texture::TextureDescriptor,
 };
-use bevy_app::{prelude::Events, ManualEventReader};
+use bevy_app::{Events, ManualEventReader};
 use bevy_ecs::world::World;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use std::borrow::Cow;

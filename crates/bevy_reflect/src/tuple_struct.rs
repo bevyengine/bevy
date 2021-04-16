@@ -32,7 +32,14 @@ impl<'a> Iterator for TupleStructFieldIter<'a> {
         self.index += 1;
         value
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let size = self.tuple_struct.field_len();
+        (size, Some(size))
+    }
 }
+
+impl<'a> ExactSizeIterator for TupleStructFieldIter<'a> {}
 
 pub trait GetTupleStructField {
     fn get_field<T: Reflect>(&self, index: usize) -> Option<&T>;
@@ -123,7 +130,8 @@ impl TupleStruct for DynamicTupleStruct {
     }
 }
 
-impl Reflect for DynamicTupleStruct {
+// SAFE: any and any_mut both return self
+unsafe impl Reflect for DynamicTupleStruct {
     #[inline]
     fn type_name(&self) -> &str {
         self.name.as_str()

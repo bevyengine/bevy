@@ -19,18 +19,10 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
-use bevy_ecs::{
-    schedule::{StageLabel, SystemStage},
-    system::IntoExclusiveSystem,
-};
+use bevy_ecs::{schedule::ExclusiveSystemDescriptorCoercion, system::IntoExclusiveSystem};
 
 #[derive(Default)]
 pub struct ScenePlugin;
-
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-enum SceneStage {
-    SceneStage,
-}
 
 impl Plugin for ScenePlugin {
     fn build(&self, app: &mut AppBuilder) {
@@ -38,14 +30,9 @@ impl Plugin for ScenePlugin {
             .add_asset::<Scene>()
             .init_asset_loader::<SceneLoader>()
             .init_resource::<SceneSpawner>()
-            .add_stage_after(
-                CoreStage::Event,
-                SceneStage::SceneStage,
-                SystemStage::parallel(),
-            )
             .add_system_to_stage(
-                SceneStage::SceneStage,
-                scene_spawner_system.exclusive_system(),
+                CoreStage::PreUpdate,
+                scene_spawner_system.exclusive_system().at_end(),
             );
     }
 }

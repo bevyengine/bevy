@@ -24,12 +24,12 @@ pub enum ShaderStage {
 #[derive(Error, Debug)]
 pub enum ShaderError {
     /// Shader compilation error.
-    #[error("Shader compilation error: {0}")]
+    #[error("Shader compilation error:\n{0}")]
     Compilation(String),
 
     #[cfg(any(target_os = "ios", all(target_arch = "aarch64", target_os = "macos")))]
     /// shaderc error.
-    #[error("shaderc error")]
+    #[error("shaderc error: {0}")]
     ShaderC(#[from] shaderc::Error),
 
     #[cfg(any(target_os = "ios", all(target_arch = "aarch64", target_os = "macos")))]
@@ -142,7 +142,7 @@ pub struct Shader {
 
 impl Shader {
     pub fn new(stage: ShaderStage, source: ShaderSource) -> Shader {
-        Shader { stage, source }
+        Shader { source, stage }
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -228,7 +228,16 @@ impl<'a> Iterator for ShaderStagesIterator<'a> {
         self.state += 1;
         ret
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        if self.shader_stages.fragment.is_some() {
+            return (2, Some(2));
+        }
+        (1, Some(1))
+    }
 }
+
+impl<'a> ExactSizeIterator for ShaderStagesIterator<'a> {}
 
 impl ShaderStages {
     pub fn new(vertex_shader: Handle<Shader>) -> Self {

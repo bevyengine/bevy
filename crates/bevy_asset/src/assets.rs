@@ -2,7 +2,7 @@ use crate::{
     update_asset_storage_system, Asset, AssetLoader, AssetServer, AssetStage, Handle, HandleId,
     RefChange,
 };
-use bevy_app::{prelude::Events, AppBuilder};
+use bevy_app::{AppBuilder, EventWriter, Events};
 use bevy_ecs::{
     system::{IntoSystem, ResMut},
     world::FromWorld,
@@ -72,18 +72,10 @@ impl<T: Asset> Assets<T> {
         self.get_handle(id)
     }
 
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn set<H: Into<HandleId>>(&mut self, handle: H, asset: T) -> Handle<T> {
         let id: HandleId = handle.into();
-        if self.assets.insert(id, asset).is_some() {
-            self.events.send(AssetEvent::Modified {
-                handle: Handle::weak(id),
-            });
-        } else {
-            self.events.send(AssetEvent::Created {
-                handle: Handle::weak(id),
-            });
-        }
-
+        self.set_untracked(id, asset);
         self.get_handle(id)
     }
 
@@ -182,10 +174,10 @@ impl<T: Asset> Assets<T> {
     }
 
     pub fn asset_event_system(
-        mut events: ResMut<Events<AssetEvent<T>>>,
+        mut events: EventWriter<AssetEvent<T>>,
         mut assets: ResMut<Assets<T>>,
     ) {
-        events.extend(assets.events.drain())
+        events.send_batch(assets.events.drain())
     }
 
     pub fn len(&self) -> usize {

@@ -10,7 +10,7 @@ use bevy_input::{
 pub use winit_config::*;
 pub use winit_windows::*;
 
-use bevy_app::{App, AppBuilder, AppExit, Events, ManualEventReader, Plugin};
+use bevy_app::{App, AppBuilder, AppExit, CoreStage, Events, ManualEventReader, Plugin};
 use bevy_ecs::{system::IntoExclusiveSystem, world::World};
 use bevy_math::{ivec2, Vec2};
 use bevy_utils::tracing::{error, trace, warn};
@@ -42,7 +42,7 @@ impl Plugin for WinitPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<WinitWindows>()
             .set_runner(winit_runner)
-            .add_system(change_window.exclusive_system());
+            .add_system_to_stage(CoreStage::PostUpdate, change_window.exclusive_system());
     }
 }
 
@@ -365,7 +365,8 @@ pub fn winit_runner_with(mut app: App, mut event_loop: EventLoop<()>) {
                         let winit_window = winit_windows.get_window(window_id).unwrap();
                         let mut location = touch.location.to_logical(winit_window.scale_factor());
 
-                        // On a mobile window, the start is from the top while on PC/Linux/OSX from bottom
+                        // On a mobile window, the start is from the top while on PC/Linux/OSX from
+                        // bottom
                         if cfg!(target_os = "android") || cfg!(target_os = "ios") {
                             let window_height = windows.get_primary().unwrap().height();
                             location.y = window_height - location.y;

@@ -108,7 +108,7 @@ pub fn build_sprite_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor
             topology: PrimitiveTopology::TriangleList,
             strip_index_format: None,
             front_face: FrontFace::Ccw,
-            cull_mode: CullMode::Back,
+            cull_mode: CullMode::None,
             polygon_mode: PolygonMode::Fill,
         },
         ..PipelineDescriptor::new(ShaderStages {

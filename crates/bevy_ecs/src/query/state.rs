@@ -75,14 +75,11 @@ where
             }
         };
         for archetype_index in archetype_index_range {
-            // SAFE: archetype indices less than the archetype generation are guaranteed to exist
-            let archetype = unsafe { archetypes.get_unchecked(ArchetypeId::new(archetype_index)) };
-            self.new_archetype(archetype);
+            self.new_archetype(&archetypes[ArchetypeId::new(archetype_index)]);
         }
     }
 
     pub fn new_archetype(&mut self, archetype: &Archetype) {
-        let table_index = archetype.table_id().index();
         if self.fetch_state.matches_archetype(archetype)
             && self.filter_state.matches_archetype(archetype)
         {
@@ -90,9 +87,13 @@ where
                 .update_archetype_component_access(archetype, &mut self.archetype_component_access);
             self.filter_state
                 .update_archetype_component_access(archetype, &mut self.archetype_component_access);
-            self.matched_archetypes.grow(archetype.id().index() + 1);
-            self.matched_archetypes.set(archetype.id().index(), true);
-            self.matched_archetype_ids.push(archetype.id());
+            let archetype_index = archetype.id().index();
+            if !self.matched_archetypes.contains(archetype_index) {
+                self.matched_archetypes.grow(archetype_index + 1);
+                self.matched_archetypes.set(archetype_index, true);
+                self.matched_archetype_ids.push(archetype.id());
+            }
+            let table_index = archetype.table_id().index();
             if !self.matched_tables.contains(table_index) {
                 self.matched_tables.grow(table_index + 1);
                 self.matched_tables.set(table_index, true);
@@ -134,7 +135,12 @@ where
         entity: Entity,
     ) -> Result<<Q::Fetch as Fetch<'w>>::Item, QueryEntityError> {
         self.validate_world_and_update_archetypes(world);
-        self.get_unchecked_manual(world, entity)
+        self.get_unchecked_manual(
+            world,
+            entity,
+            world.last_change_tick(),
+            world.read_change_tick(),
+        )
     }
 
     /// # Safety
@@ -144,6 +150,8 @@ where
         &self,
         world: &'w World,
         entity: Entity,
+        last_change_tick: u32,
+        change_tick: u32,
     ) -> Result<<Q::Fetch as Fetch<'w>>::Item, QueryEntityError> {
         let location = world
             .entities
@@ -155,10 +163,11 @@ where
         {
             return Err(QueryEntityError::QueryDoesNotMatch);
         }
-        // SAFE: live entities always exist in an archetype
-        let archetype = world.archetypes.get_unchecked(location.archetype_id);
-        let mut fetch = <Q::Fetch as Fetch>::init(world, &self.fetch_state);
-        let mut filter = <F::Fetch as Fetch>::init(world, &self.filter_state);
+        let archetype = &world.archetypes[location.archetype_id];
+        let mut fetch =
+            <Q::Fetch as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);
+        let mut filter =
+            <F::Fetch as Fetch>::init(world, &self.filter_state, last_change_tick, change_tick);
 
         fetch.set_archetype(&self.fetch_state, archetype, &world.storages().tables);
         filter.set_archetype(&self.filter_state, archetype, &world.storages().tables);
@@ -193,20 +202,22 @@ where
         world: &'w World,
     ) -> QueryIter<'w, 's, Q, F> {
         self.validate_world_and_update_archetypes(world);
-        self.iter_unchecked_manual(world)
+        self.iter_unchecked_manual(world, world.last_change_tick(), world.read_change_tick())
     }
 
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
-    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world` with
-    /// a mismatched WorldId is unsafe.
+    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
+    /// with a mismatched WorldId is unsafe.
     #[inline]
     pub(crate) unsafe fn iter_unchecked_manual<'w, 's>(
         &'s self,
         world: &'w World,
+        last_change_tick: u32,
+        change_tick: u32,
     ) -> QueryIter<'w, 's, Q, F> {
-        QueryIter::new(world, self)
+        QueryIter::new(world, self, last_change_tick, change_tick)
     }
 
     #[inline]
@@ -245,7 +256,12 @@ where
         func: impl FnMut(<Q::Fetch as Fetch<'w>>::Item),
     ) {
         self.validate_world_and_update_archetypes(world);
-        self.for_each_unchecked_manual(world, func);
+        self.for_each_unchecked_manual(
+            world,
+            func,
+            world.last_change_tick(),
+            world.read_change_tick(),
+        );
     }
 
     #[inline]
@@ -290,25 +306,36 @@ where
         func: impl Fn(<Q::Fetch as Fetch<'w>>::Item) + Send + Sync + Clone,
     ) {
         self.validate_world_and_update_archetypes(world);
-        self.par_for_each_unchecked_manual(world, task_pool, batch_size, func);
+        self.par_for_each_unchecked_manual(
+            world,
+            task_pool,
+            batch_size,
+            func,
+            world.last_change_tick(),
+            world.read_change_tick(),
+        );
     }
 
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
-    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world` with
-    /// a mismatched WorldId is unsafe.
+    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
+    /// with a mismatched WorldId is unsafe.
     pub(crate) unsafe fn for_each_unchecked_manual<'w, 's>(
         &'s self,
         world: &'w World,
         mut func: impl FnMut(<Q::Fetch as Fetch<'w>>::Item),
+        last_change_tick: u32,
+        change_tick: u32,
     ) {
-        let mut fetch = <Q::Fetch as Fetch>::init(world, &self.fetch_state);
-        let mut filter = <F::Fetch as Fetch>::init(world, &self.filter_state);
+        let mut fetch =
+            <Q::Fetch as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);
+        let mut filter =
+            <F::Fetch as Fetch>::init(world, &self.filter_state, last_change_tick, change_tick);
         if fetch.is_dense() && filter.is_dense() {
             let tables = &world.storages().tables;
             for table_id in self.matched_table_ids.iter() {
-                let table = tables.get_unchecked(*table_id);
+                let table = &tables[*table_id];
                 fetch.set_table(&self.fetch_state, table);
                 filter.set_table(&self.filter_state, table);
 
@@ -324,7 +351,7 @@ where
             let archetypes = &world.archetypes;
             let tables = &world.storages().tables;
             for archetype_id in self.matched_archetype_ids.iter() {
-                let archetype = archetypes.get_unchecked(*archetype_id);
+                let archetype = &archetypes[*archetype_id];
                 fetch.set_archetype(&self.fetch_state, archetype, tables);
                 filter.set_archetype(&self.filter_state, archetype, tables);
 
@@ -341,31 +368,45 @@ where
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
-    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world` with
-    /// a mismatched WorldId is unsafe.
+    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
+    /// with a mismatched WorldId is unsafe.
     pub unsafe fn par_for_each_unchecked_manual<'w, 's>(
         &'s self,
         world: &'w World,
         task_pool: &TaskPool,
         batch_size: usize,
         func: impl Fn(<Q::Fetch as Fetch<'w>>::Item) + Send + Sync + Clone,
+        last_change_tick: u32,
+        change_tick: u32,
     ) {
         task_pool.scope(|scope| {
-            let fetch = <Q::Fetch as Fetch>::init(world, &self.fetch_state);
-            let filter = <F::Fetch as Fetch>::init(world, &self.filter_state);
+            let fetch =
+                <Q::Fetch as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);
+            let filter =
+                <F::Fetch as Fetch>::init(world, &self.filter_state, last_change_tick, change_tick);
 
             if fetch.is_dense() && filter.is_dense() {
                 let tables = &world.storages().tables;
                 for table_id in self.matched_table_ids.iter() {
-                    let table = tables.get_unchecked(*table_id);
+                    let table = &tables[*table_id];
                     let mut offset = 0;
                     while offset < table.len() {
                         let func = func.clone();
                         scope.spawn(async move {
-                            let mut fetch = <Q::Fetch as Fetch>::init(world, &self.fetch_state);
-                            let mut filter = <F::Fetch as Fetch>::init(world, &self.filter_state);
+                            let mut fetch = <Q::Fetch as Fetch>::init(
+                                world,
+                                &self.fetch_state,
+                                last_change_tick,
+                                change_tick,
+                            );
+                            let mut filter = <F::Fetch as Fetch>::init(
+                                world,
+                                &self.filter_state,
+                                last_change_tick,
+                                change_tick,
+                            );
                             let tables = &world.storages().tables;
-                            let table = tables.get_unchecked(*table_id);
+                            let table = &tables[*table_id];
                             fetch.set_table(&self.fetch_state, table);
                             filter.set_table(&self.filter_state, table);
                             let len = batch_size.min(table.len() - offset);
@@ -384,14 +425,24 @@ where
                 let archetypes = &world.archetypes;
                 for archetype_id in self.matched_archetype_ids.iter() {
                     let mut offset = 0;
-                    let archetype = archetypes.get_unchecked(*archetype_id);
+                    let archetype = &archetypes[*archetype_id];
                     while offset < archetype.len() {
                         let func = func.clone();
                         scope.spawn(async move {
-                            let mut fetch = <Q::Fetch as Fetch>::init(world, &self.fetch_state);
-                            let mut filter = <F::Fetch as Fetch>::init(world, &self.filter_state);
+                            let mut fetch = <Q::Fetch as Fetch>::init(
+                                world,
+                                &self.fetch_state,
+                                last_change_tick,
+                                change_tick,
+                            );
+                            let mut filter = <F::Fetch as Fetch>::init(
+                                world,
+                                &self.filter_state,
+                                last_change_tick,
+                                change_tick,
+                            );
                             let tables = &world.storages().tables;
-                            let archetype = world.archetypes.get_unchecked(*archetype_id);
+                            let archetype = &world.archetypes[*archetype_id];
                             fetch.set_archetype(&self.fetch_state, archetype, tables);
                             filter.set_archetype(&self.filter_state, archetype, tables);
 

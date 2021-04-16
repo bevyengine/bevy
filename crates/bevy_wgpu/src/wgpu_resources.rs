@@ -17,27 +17,32 @@ pub struct WgpuBindGroupInfo {
 }
 
 /// Grabs a read lock on all wgpu resources. When paired with WgpuResourceRefs, this allows
-/// you to pass in wgpu resources to wgpu::RenderPass<'a> with the appropriate lifetime. This is accomplished by
-/// grabbing a WgpuResourcesReadLock _before_ creating a wgpu::RenderPass, getting a WgpuResourcesRefs, and storing that
-/// in the pass.
+/// you to pass in wgpu resources to wgpu::RenderPass<'a> with the appropriate lifetime. This is
+/// accomplished by grabbing a WgpuResourcesReadLock _before_ creating a wgpu::RenderPass, getting a
+/// WgpuResourcesRefs, and storing that in the pass.
 ///
-/// This is only a problem because RwLockReadGuard.read() erases the guard's lifetime and creates a new anonymous lifetime. If
-/// you call RwLockReadGuard.read() during a pass, the reference will have an anonymous lifetime that lives for less than the
-/// pass, which violates the lifetime constraints in place.
+/// This is only a problem because RwLockReadGuard.read() erases the guard's lifetime and creates a
+/// new anonymous lifetime. If you call RwLockReadGuard.read() during a pass, the reference will
+/// have an anonymous lifetime that lives for less than the pass, which violates the lifetime
+/// constraints in place.
 ///
-/// The biggest implication of this design (other than the additional boilerplate here) is that beginning a render pass
-/// blocks writes to these resources. This means that if the pass attempts to write any resource, a deadlock will occur. WgpuResourceRefs
-/// only has immutable references, so the only way to make a deadlock happen is to access WgpuResources directly in the pass. It also means
-/// that other threads attempting to write resources will need to wait for pass encoding to finish. Almost all writes should occur before
-/// passes start, so this hopefully won't be a problem.
+/// The biggest implication of this design (other than the additional boilerplate here) is that
+/// beginning a render pass blocks writes to these resources. This means that if the pass attempts
+/// to write any resource, a deadlock will occur. WgpuResourceRefs only has immutable references, so
+/// the only way to make a deadlock happen is to access WgpuResources directly in the pass. It also
+/// means that other threads attempting to write resources will need to wait for pass encoding to
+/// finish. Almost all writes should occur before passes start, so this hopefully won't be a
+/// problem.
 ///
-/// It is worth comparing the performance of this to transactional / copy-based approaches. This lock based design guarantees
-/// consistency, doesn't perform redundant allocations, and only blocks when a write is occurring. A copy based approach would
-/// never block, but would require more allocations / state-synchronization, which I expect will be more expensive. It would also be
+/// It is worth comparing the performance of this to transactional / copy-based approaches. This
+/// lock based design guarantees consistency, doesn't perform redundant allocations, and only blocks
+/// when a write is occurring. A copy based approach would never block, but would require more
+/// allocations / state-synchronization, which I expect will be more expensive. It would also be
 /// "eventually consistent" instead of "strongly consistent".
 ///
-/// Single threaded implementations don't need to worry about these lifetimes constraints at all. RenderPasses can use a RenderContext's
-/// WgpuResources directly. RenderContext already has a lifetime greater than the RenderPass.
+/// Single threaded implementations don't need to worry about these lifetimes constraints at all.
+/// RenderPasses can use a RenderContext's WgpuResources directly. RenderContext already has a
+/// lifetime greater than the RenderPass.
 #[derive(Debug)]
 pub struct WgpuResourcesReadLock<'a> {
     pub buffers: RwLockReadGuard<'a, HashMap<BufferId, Arc<wgpu::Buffer>>>,
@@ -62,7 +67,8 @@ impl<'a> WgpuResourcesReadLock<'a> {
     }
 }
 
-/// Stores read only references to WgpuResource collections. See WgpuResourcesReadLock docs for context on why this exists
+/// Stores read only references to WgpuResource collections. See WgpuResourcesReadLock docs for
+/// context on why this exists
 #[derive(Debug)]
 pub struct WgpuResourceRefs<'a> {
     pub buffers: &'a HashMap<BufferId, Arc<wgpu::Buffer>>,

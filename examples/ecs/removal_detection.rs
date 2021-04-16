@@ -32,13 +32,13 @@ fn setup(
 ) {
     let texture = asset_server.load("branding/icon.png");
 
+    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands
-        .spawn(OrthographicCameraBundle::new_2d())
-        .spawn(SpriteBundle {
+        .spawn_bundle(SpriteBundle {
             material: materials.add(texture.into()),
             ..Default::default()
         })
-        .with(MyComponent); // Add the `Component`.
+        .insert(MyComponent); // Add the `Component`.
 }
 
 fn remove_component(
@@ -49,7 +49,7 @@ fn remove_component(
     // After two seconds have passed the `Component` is removed.
     if time.seconds_since_startup() > 2.0 {
         if let Some(entity) = query.iter().next() {
-            commands.remove::<MyComponent>(entity);
+            commands.entity(entity).remove::<MyComponent>();
         }
     }
 }
