@@ -32,7 +32,7 @@ pub enum ShaderError {
         all(target_arch = "x86_64", target_os = "linux", target_env = "gnu"),
         all(target_arch = "x86_64", target_os = "macos"),
         all(target_arch = "aarch64", target_os = "android"),
-        all(target_arch = "armv7", target_os = "android"),
+        all(target_arch = "armv7", target_os = "androidabi"),
         all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"),
     )))]
     /// shaderc error.
@@ -44,7 +44,7 @@ pub enum ShaderError {
         all(target_arch = "x86_64", target_os = "linux", target_env = "gnu"),
         all(target_arch = "x86_64", target_os = "macos"),
         all(target_arch = "aarch64", target_os = "android"),
-        all(target_arch = "armv7", target_os = "android"),
+        all(target_arch = "armv7", target_os = "androidabi"),
         all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"),
     )))]
     #[error("Error initializing shaderc Compiler")]
@@ -55,7 +55,7 @@ pub enum ShaderError {
         all(target_arch = "x86_64", target_os = "linux", target_env = "gnu"),
         all(target_arch = "x86_64", target_os = "macos"),
         all(target_arch = "aarch64", target_os = "android"),
-        all(target_arch = "armv7", target_os = "android"),
+        all(target_arch = "armv7", target_os = "androidabi"),
         all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"),
     )))]
     #[error("Error initializing shaderc CompileOptions")]
@@ -66,7 +66,7 @@ pub enum ShaderError {
     all(target_arch = "x86_64", target_os = "linux", target_env = "gnu"),
     all(target_arch = "x86_64", target_os = "macos"),
     all(target_arch = "aarch64", target_os = "android"),
-    all(target_arch = "armv7", target_os = "android"),
+    all(target_arch = "armv7", target_os = "androidabi"),
     all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"),
 ))]
 impl From<ShaderStage> for bevy_glsl_to_spirv::ShaderType {
@@ -83,7 +83,7 @@ impl From<ShaderStage> for bevy_glsl_to_spirv::ShaderType {
     all(target_arch = "x86_64", target_os = "linux", target_env = "gnu"),
     all(target_arch = "x86_64", target_os = "macos"),
     all(target_arch = "aarch64", target_os = "android"),
-    all(target_arch = "armv7", target_os = "android"),
+    all(target_arch = "armv7", target_os = "androidabi"),
     all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"),
 ))]
 pub fn glsl_to_spirv(
@@ -100,7 +100,7 @@ pub fn glsl_to_spirv(
     all(target_arch = "x86_64", target_os = "linux", target_env = "gnu"),
     all(target_arch = "x86_64", target_os = "macos"),
     all(target_arch = "aarch64", target_os = "android"),
-    all(target_arch = "armv7", target_os = "android"),
+    all(target_arch = "armv7", target_os = "androidabi"),
     all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"),
 )))]
 impl Into<shaderc::ShaderKind> for ShaderStage {
@@ -118,7 +118,7 @@ impl Into<shaderc::ShaderKind> for ShaderStage {
     all(target_arch = "x86_64", target_os = "linux", target_env = "gnu"),
     all(target_arch = "x86_64", target_os = "macos"),
     all(target_arch = "aarch64", target_os = "android"),
-    all(target_arch = "armv7", target_os = "android"),
+    all(target_arch = "armv7", target_os = "androidabi"),
     all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"),
 )))]
 pub fn glsl_to_spirv(
