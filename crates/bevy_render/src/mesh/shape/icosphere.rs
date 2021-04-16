@@ -1,9 +1,9 @@
-use hexasphere::shapes::IcoSphere;
-
+use crate::mesh::VertexAttributeValues;
 use crate::{
     mesh::{Indices, Mesh},
     pipeline::PrimitiveTopology,
 };
+use bevy_math::Vec3;
 
 /// A sphere made from a subdivided Icosahedron.
 #[derive(Debug, Clone, Copy)]
@@ -12,6 +12,8 @@ pub struct Icosphere {
     pub radius: f32,
     /// The number of subdivisions applied.
     pub subdivisions: usize,
+    // TODO: Generate points/indices for a UV compatible Icosphere.
+    // pub has_uvs: bool,
 }
 
 impl Default for Icosphere {
@@ -63,44 +65,124 @@ impl From<Icosphere> for Mesh {
                 number_of_resulting_points
             );
         }
-        let generated = IcoSphere::new(sphere.subdivisions, |point| {
-            let inclination = point.y.acos();
-            let azimuth = point.z.atan2(point.x);
 
-            let norm_inclination = inclination / std::f32::consts::PI;
-            let norm_azimuth = 0.5 - (azimuth / std::f32::consts::TAU);
+        let mut default_mesh = Mesh::new(PrimitiveTopology::TriangleList);
+        default_mesh.set_indices(Some(Indices::U32(consts::INDICES.into())));
+        default_mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, consts::RAW_POINTS.to_vec());
 
-            [norm_azimuth, norm_inclination]
-        });
-
-        let raw_points = generated.raw_points();
-
-        let points = raw_points
+        let uvs = consts::RAW_POINTS
             .iter()
-            .map(|&p| (p * sphere.radius).into())
-            .collect::<Vec<[f32; 3]>>();
+            .map(|point| {
+                let point = Vec3::from(*point);
+                let inclination = point.z.acos();
+                let azumith = point.y.atan2(point.x);
 
-        let normals = raw_points
-            .iter()
-            .copied()
-            .map(Into::into)
-            .collect::<Vec<[f32; 3]>>();
+                let norm_inclination = 1.0 - (inclination / std::f32::consts::PI);
+                let norm_azumith = (azumith / std::f32::consts::PI) * 0.5;
 
-        let uvs = generated.raw_data().to_owned();
+                [norm_inclination, norm_azumith]
+            })
+            .collect::<Vec<_>>();
 
-        let mut indices = Vec::with_capacity(generated.indices_per_main_triangle() * 20);
+        default_mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
 
-        for i in 0..20 {
-            generated.get_indices(i, &mut indices);
+        default_mesh.subdivide(
+            sphere.subdivisions,
+            crate::shape::shapegen::SphereInterpolatorGroup::default(),
+        );
+
+        default_mesh.set_attribute(
+            Mesh::ATTRIBUTE_NORMAL,
+            default_mesh
+                .attribute(Mesh::ATTRIBUTE_POSITION)
+                .unwrap()
+                .clone(),
+        );
+
+        let positions = default_mesh
+            .attribute_mut(Mesh::ATTRIBUTE_POSITION)
+            .unwrap();
+
+        if let VertexAttributeValues::Float3(positions) = positions {
+            positions.iter_mut().for_each(|p| {
+                *p = [
+                    p[0] * sphere.radius,
+                    p[1] * sphere.radius,
+                    p[2] * sphere.radius,
+                ]
+            });
+        } else {
+            unreachable!();
         }
 
-        let indices = Indices::U32(indices);
-
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-        mesh.set_indices(Some(indices));
-        mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, points);
-        mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-        mesh
+        default_mesh
     }
+}
+
+#[allow(clippy::all)]
+mod consts {
+    pub const RAW_POINTS: [[f32; 3]; 12] = [
+        // North Pole
+        [0.0, 1.0, 0.0],
+        // Top Ring
+        [
+            0.89442719099991585541,
+            0.44721359549995792770,
+            0.00000000000000000000,
+        ],
+        [
+            0.27639320225002106390,
+            0.44721359549995792770,
+            0.85065080835203987775,
+        ],
+        [
+            -0.72360679774997882507,
+            0.44721359549995792770,
+            0.52573111211913370333,
+        ],
+        [
+            -0.72360679774997904712,
+            0.44721359549995792770,
+            -0.52573111211913348129,
+        ],
+        [
+            0.27639320225002084186,
+            0.44721359549995792770,
+            -0.85065080835203998877,
+        ],
+        // Bottom Ring
+        [
+            0.72360679774997871405,
+            -0.44721359549995792770,
+            -0.52573111211913392538,
+        ],
+        [
+            0.72360679774997904712,
+            -0.44721359549995792770,
+            0.52573111211913337026,
+        ],
+        [
+            -0.27639320225002073084,
+            -0.44721359549995792770,
+            0.85065080835203998877,
+        ],
+        [
+            -0.89442719099991585541,
+            -0.44721359549995792770,
+            0.00000000000000000000,
+        ],
+        [
+            -0.27639320225002139697,
+            -0.44721359549995792770,
+            -0.85065080835203976672,
+        ],
+        // South Pole
+        [0.0, -1.0, 0.0],
+    ];
+
+    pub const INDICES: [u32; 60] = [
+        0, 2, 1, 0, 3, 2, 0, 4, 3, 0, 5, 4, 0, 1, 5, 5, 1, 6, 1, 2, 7, 2, 3, 8, 3, 4, 9, 4, 5, 10,
+        5, 6, 10, 1, 7, 6, 2, 8, 7, 3, 9, 8, 4, 10, 9, 10, 6, 11, 6, 7, 11, 7, 8, 11, 8, 9, 11, 9,
+        10, 11,
+    ];
 }

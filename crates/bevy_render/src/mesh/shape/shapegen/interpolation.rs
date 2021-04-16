@@ -57,11 +57,11 @@ pub struct NormalizedLinearInterpolator;
 pub struct SphericalInterpolator;
 
 mod impls {
-    use bevy_math::{Vec2, Vec3, Vec4};
     use super::{
         AttributeInterpolator, IdentityInterpolator, LinearInterpolator,
         NormalizedLinearInterpolator, SphericalInterpolator,
     };
+    use bevy_math::{Vec2, Vec3, Vec4};
     impl<T: Copy> AttributeInterpolator<T> for IdentityInterpolator {
         #[inline(always)]
         fn interpolate(&mut self, a: T, _: T, _: f32) -> T {

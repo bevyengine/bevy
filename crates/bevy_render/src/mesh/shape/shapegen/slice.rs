@@ -45,7 +45,6 @@ mod tests {
         assert_eq!(forward[forward.len() - 1], 4);
         assert_eq!(forward.len(), 5);
 
-
         let backward = Slice::Backward(slice);
         assert_eq!(forward[0], 4);
         assert_eq!(forward[forward.len() - 1], 0);

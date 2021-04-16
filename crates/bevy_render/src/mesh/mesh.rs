@@ -1,6 +1,7 @@
 use crate::{
     pipeline::{IndexFormat, PrimitiveTopology, RenderPipelines, VertexFormat},
     renderer::{BufferInfo, BufferUsage, RenderResourceContext, RenderResourceId},
+    shape::shapegen::Interpolator,
 };
 use bevy_app::prelude::EventReader;
 use bevy_asset::{AssetEvent, Assets, Handle};
@@ -380,6 +381,14 @@ impl Mesh {
         self.attributes
             .iter_mut()
             .map(|(name, attr)| (&**name, attr))
+    }
+
+    pub fn subdivide<I: Interpolator>(
+        &mut self,
+        subdivisions: usize,
+        interpolator: I,
+    ) -> Option<()> {
+        crate::shape::shapegen::subdivide(self, subdivisions, interpolator)
     }
 }
 
