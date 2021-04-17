@@ -229,8 +229,8 @@ fn setup(
         transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
         ..Default::default()
     });
-    // camera
 
+    // camera
     let mut first_pass_camera = PerspectiveCameraBundle {
         camera: Camera {
             name: Some(FIRST_PASS_CAMERA.to_string()),
