@@ -107,13 +107,13 @@ where
 
         // Make sure both have the same length
         if length != values.len() {
-            Err(CurveCreationError::MissMachLength)?;
+            return Err(CurveCreationError::MissMachLength);
         }
 
         if values.len() > CurveCursor::MAX as usize {
-            Err(CurveCreationError::KeyframeLimitReached(
+            return Err(CurveCreationError::KeyframeLimitReached(
                 CurveCursor::MAX as usize,
-            ))?;
+            ));
         }
 
         // Make sure the
@@ -122,7 +122,7 @@ where
             .zip(samples.iter().skip(1))
             .all(|(a, b)| a < b)
         {
-            Err(CurveCreationError::NotSorted)?;
+            return Err(CurveCreationError::NotSorted);
         }
 
         let mut tangents = Vec::with_capacity(length);
@@ -227,7 +227,7 @@ where
                 .copied()
                 .map_or(0.0, |t| t + 0.03333),
             value: self.keyframes.last().unwrap().clone(),
-            mode: self.modes.last().unwrap().clone(),
+            mode: *self.modes.last().unwrap(),
             tangent_control: TangentControl::Auto,
             tangent_in: T::FLAT_TANGENT,
             tangent_out: T::FLAT_TANGENT,

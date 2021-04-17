@@ -37,13 +37,13 @@ impl<T> CurveVariableLinear<T> {
 
         // Make sure both have the same length
         if length != values.len() {
-            Err(CurveCreationError::MissMachLength)?;
+            return Err(CurveCreationError::MissMachLength);
         }
 
         if values.len() > CurveCursor::MAX as usize {
-            Err(CurveCreationError::KeyframeLimitReached(
+            return Err(CurveCreationError::KeyframeLimitReached(
                 CurveCursor::MAX as usize,
-            ))?;
+            ));
         }
 
         // Make sure the
@@ -52,7 +52,7 @@ impl<T> CurveVariableLinear<T> {
             .zip(samples.iter().skip(1))
             .all(|(a, b)| a < b)
         {
-            Err(CurveCreationError::NotSorted)?;
+            return Err(CurveCreationError::NotSorted);
         }
 
         Ok(Self {
