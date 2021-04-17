@@ -459,10 +459,13 @@ impl World {
     ///     .collect::<Vec<_>>();
     /// // Sort by `i32` component
     /// entities.sort_by(|x, y| x.1.cmp(&y.1));
-    /// assert_eq!(entities.len(), 3);
-    /// assert!(entities[0] == (c, 1, "def"));
-    /// assert!(entities[1] == (a, 2, "abc"));
-    /// assert!(entities[2] == (b, 3, "xyz"));
+    /// for (index, entity) in entities.iter().enumerate() {
+    ///     match index {
+    ///         0 => assert!(entity == (c, 1, "def")),
+    ///         1 => assert!(entity == (a, 2, "abc")),
+    ///         2 => assert!(entity == (b, 3, "xyz")),
+    ///     }
+    /// }
     /// ```
     #[inline]
     pub fn query<Q: WorldQuery>(&mut self) -> QueryState<Q, ()> {
