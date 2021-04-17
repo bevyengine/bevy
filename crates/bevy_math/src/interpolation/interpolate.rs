@@ -1,5 +1,5 @@
 use super::{utils, Lerp};
-use crate::{Quat, Vec2, Vec3, Vec4};
+use crate::{Quat, Vec2, Vec3, Vec3A, Vec4};
 
 // http://archive.gamedev.net/archive/reference/articles/article1497.html (bit old)
 
@@ -108,6 +108,7 @@ macro_rules! interpolate {
 interpolate!(f32, 0.0);
 interpolate!(Vec2, Vec2::ZERO);
 interpolate!(Vec3, Vec3::ZERO);
+interpolate!(Vec3A, Vec3A::ZERO);
 interpolate!(Vec4, Vec4::ZERO);
 
 // TODO: Color can't be interpolated because color operations are undefined, see pr #1870

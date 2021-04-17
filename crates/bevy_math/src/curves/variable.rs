@@ -18,7 +18,6 @@ impl Default for TangentControl {
     }
 }
 
-// remove-me
 // TODO: Test performance by packing keyframe runtime info (value, mode, in_tangent, out_tangent)
 // pub struct CurveVariableKeyframe<T: Interpolate> {
 //     pub value: T,
@@ -449,7 +448,11 @@ where
         self.sample_with_cursor(index as u16, time).1
     }
 
-    fn sample_with_cursor(&self, mut cursor: u16, time: f32) -> (u16, Self::Output) {
+    fn sample_with_cursor(
+        &self,
+        mut cursor: CurveCursor,
+        time: f32,
+    ) -> (CurveCursor, Self::Output) {
         // Adjust for the current keyframe cursor
         let last_cursor = (self.time_stamps.len() - 1) as u16;
 

@@ -24,7 +24,7 @@ pub trait Curve {
     /// Samples the curve starting from some keyframe cursor, this make the common case `O(1)`
     ///
     /// **NOTE** Each keyframe is indexed by a `u16` to reduce memory usage when using the keyframe caching
-    fn sample_with_cursor(&self, cursor: u16, time: f32) -> (CurveCursor, Self::Output);
+    fn sample_with_cursor(&self, cursor: CurveCursor, time: f32) -> (CurveCursor, Self::Output);
 }
 
 #[derive(Error, Debug)]

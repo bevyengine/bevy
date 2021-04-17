@@ -9,6 +9,7 @@ edition = "2018"
 
 [dev-dependencies]
 criterion = "0.3"
+rand = "0.8.3"
 bevy = { path = "../" }
 
 [[bench]]
@@ -19,4 +20,9 @@ harness = false
 [[bench]]
 name = "iter"
 path = "benches/bevy_tasks/iter.rs"
+harness = false
+
+[[bench]]
+name = "curves"
+path = "benches/bevy_math/curves.rs"
 harness = false
