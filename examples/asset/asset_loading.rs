@@ -16,7 +16,8 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // By default AssetServer will load assets from inside the "assets" folder
-    // For example, the next line will load "assets/models/cube/cube.gltf#Mesh0/Primitive0"
+    // For example, the next line will load "./assets/models/cube/cube.gltf#Mesh0/Primitive0"
+    // You can set the Root by setting the enviroment variable "CARGO_MANIFEST_DIR" to the new root
     let cube_handle = asset_server.load("models/cube/cube.gltf#Mesh0/Primitive0");
     let sphere_handle = asset_server.load("models/sphere/sphere.gltf#Mesh0/Primitive0");
 
