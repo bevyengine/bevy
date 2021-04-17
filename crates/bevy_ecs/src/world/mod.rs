@@ -447,7 +447,7 @@ impl World {
     ///
     /// To iterate over entities in a deterministic order,
     /// sort the results of the query using the desired component as a key.
-    /// Note that it requires fetching the whole result set from the query
+    /// Note that this requires fetching the whole result set from the query
     /// and allocation of a [Vec] to store it.
     ///
     /// ```
