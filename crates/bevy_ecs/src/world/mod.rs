@@ -449,11 +449,11 @@ impl World {
     /// sort the results of the query using the desired component as a key.
     ///
     /// ```
-    /// use bevy_ecs::world::World;
+    /// use bevy_ecs{entity::Entity, world::World};
     /// let mut world = World::new();
-    /// let a = world.spawn((2, "abc"));
-    /// let b = world.spawn((3, "xyz"));
-    /// let c = world.spawn((1, "def"));
+    /// let a = world.spawn().insert_bundle((2, "abc")).id();
+    /// let b = world.spawn().insert_bundle((3, "xyz")).id();
+    /// let c = world.spawn().insert_bundle((1, "def")).id();
     /// let mut entities = world.query::<(Entity, &i32, &str)>()
     ///     .map(|(e, &i &s)| (e, i, &s)) // Copy out of the world
     ///     .collect::<Vec<_>>();
