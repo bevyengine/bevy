@@ -449,7 +449,7 @@ impl World {
     /// sort the results of the query using the desired component as a key.
     ///
     /// ```
-    /// use bevy_ecs{entity::Entity, world::World};
+    /// use bevy_ecs::{entity::Entity, world::World};
     /// let mut world = World::new();
     /// let a = world.spawn().insert_bundle((2, "abc")).id();
     /// let b = world.spawn().insert_bundle((3, "xyz")).id();
