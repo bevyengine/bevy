@@ -18,6 +18,14 @@ impl Default for TangentControl {
     }
 }
 
+// TODO: Test performance by packing keyframe runtime info (value, mode, in_tangent, out_tangent)
+// pub struct CurveVariableKeyframe<T: Interpolate> {
+//     pub value: T,
+//     pub interpolation: Interpolation,
+//     pub in_tangent: T::Tangent,
+//     pub out_tangent: T::Tangent,
+// }
+
 // TODO: impl Serialize, Deserialize
 // TODO: How better handling of SOA? the length for instance is repeated and extra checks are need on deserialization
 /// Curve with sparse keyframes frames, in another words a curve with variable frame rate;
@@ -63,6 +71,8 @@ impl<T> CurveVariable<T>
 where
     T: Interpolate,
 {
+    // TODO: with_flat_tangents
+
     pub fn with_auto_tangents(samples: Vec<f32>, values: Vec<T>) -> Self {
         // TODO: Result?
 
@@ -326,7 +336,25 @@ where
         }
     }
 
-    // TODO: More getters
+    #[inline]
+    pub fn get_value(&self, index: CurveCursor) -> &T {
+        &self.keyframes[index as usize]
+    }
+
+    #[inline]
+    pub fn get_time(&self, index: CurveCursor) -> f32 {
+        self.time_stamps[index as usize]
+    }
+
+    #[inline]
+    pub fn get_interpolation(&self, index: CurveCursor) -> Interpolation {
+        self.modes[index as usize]
+    }
+
+    #[inline]
+    pub fn get_tangent_control(&self, index: CurveCursor) -> TangentControl {
+        self.tangents_control[index as usize]
+    }
 
     #[inline]
     pub fn get_in_out_tangent(&self, index: CurveCursor) -> (T::Tangent, T::Tangent) {
