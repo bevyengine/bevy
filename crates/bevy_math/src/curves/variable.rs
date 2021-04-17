@@ -1,5 +1,5 @@
 use crate::{
-    curves::{Curve, CurveCursor},
+    curves::{Curve, CurveCreationError, CurveCursor},
     interpolation::{Interpolate, Interpolation},
 };
 
@@ -71,63 +71,94 @@ impl<T> CurveVariable<T>
 where
     T: Interpolate,
 {
-    // TODO: with_flat_tangents
+    #[inline]
+    pub fn with_flat_tangents(
+        samples: Vec<f32>,
+        values: Vec<T>,
+    ) -> Result<Self, CurveCreationError> {
+        Self::with_tangents_and_mode(
+            samples,
+            values,
+            TangentControl::Flat,
+            Interpolation::CatmullRom,
+        )
+    }
 
-    pub fn with_auto_tangents(samples: Vec<f32>, values: Vec<T>) -> Self {
-        // TODO: Result?
+    #[inline]
+    pub fn with_auto_tangents(
+        samples: Vec<f32>,
+        values: Vec<T>,
+    ) -> Result<Self, CurveCreationError> {
+        Self::with_tangents_and_mode(
+            samples,
+            values,
+            TangentControl::Auto,
+            Interpolation::CatmullRom,
+        )
+    }
 
+    pub fn with_tangents_and_mode(
+        samples: Vec<f32>,
+        values: Vec<T>,
+        tangent_control: TangentControl,
+        mode: Interpolation,
+    ) -> Result<Self, CurveCreationError> {
         let length = samples.len();
 
         // Make sure both have the same length
-        assert!(
-            length == values.len(),
-            "samples and values must have the same length"
-        );
+        if length != values.len() {
+            Err(CurveCreationError::MissMachLength)?;
+        }
 
-        assert!(
-            values.len() <= u16::MAX as usize,
-            "limit of {} keyframes exceeded",
-            u16::MAX
-        );
-
-        assert!(length > 0, "empty curve");
+        if values.len() > CurveCursor::MAX as usize {
+            Err(CurveCreationError::KeyframeLimitReached(
+                CurveCursor::MAX as usize,
+            ))?;
+        }
 
         // Make sure the
-        assert!(
-            samples
-                .iter()
-                .zip(samples.iter().skip(1))
-                .all(|(a, b)| a < b),
-            "time samples must be on ascending order"
-        );
+        if !samples
+            .iter()
+            .zip(samples.iter().skip(1))
+            .all(|(a, b)| a < b)
+        {
+            Err(CurveCreationError::NotSorted)?;
+        }
 
         let mut tangents = Vec::with_capacity(length);
-        if length == 1 {
-            tangents.push(T::FLAT_TANGENT);
-        } else {
-            for i in 0..length {
-                let p = if i > 0 { i - 1 } else { length - 1 };
-                let n = if (i + 1) < length { i + 1 } else { 0 };
-                tangents.push(T::auto_tangent(
-                    samples[p], samples[i], samples[n], &values[p], &values[i], &values[n],
-                ));
+        if tangent_control == TangentControl::Auto
+            || tangent_control == TangentControl::Free
+            || tangent_control == TangentControl::Broken
+        {
+            if length == 1 {
+                tangents.push(T::FLAT_TANGENT);
+            } else {
+                for i in 0..length {
+                    let p = if i > 0 { i - 1 } else { length - 1 };
+                    let n = if (i + 1) < length { i + 1 } else { 0 };
+                    tangents.push(T::auto_tangent(
+                        samples[p], samples[i], samples[n], &values[p], &values[i], &values[n],
+                    ));
+                }
             }
+        } else {
+            tangents.resize(length, T::FLAT_TANGENT);
         }
 
         let mut tangents_control = Vec::with_capacity(length);
-        tangents_control.resize(length, TangentControl::Auto);
+        tangents_control.resize(length, tangent_control);
 
         let mut modes = Vec::with_capacity(length);
-        modes.resize(length, Interpolation::CatmullRom);
+        modes.resize(length, mode);
 
-        Self {
+        Ok(Self {
             time_stamps: samples,
             keyframes: values,
             modes,
             tangents_control,
             tangents_in: tangents.clone(),
             tangents_out: tangents,
-        }
+        })
     }
 
     pub fn from_line(t0: f32, t1: f32, v0: T, v1: T) -> Self {
@@ -175,6 +206,8 @@ where
     /// Insert a new keyframe
     ///
     /// ```rust
+    /// use bevy_math::curves::{CurveVariable, TangentControl};
+    ///
     /// # fn main() {
     /// let mut curve = CurveVariable::from_constant(0.0f32);
     /// curve.insert()
@@ -562,41 +595,5 @@ impl<'a, T: Interpolate> CurveVariableKeyframeBuilder<'a, T> {
 
 // #[cfg(test)]
 // mod tests {
-//     use super::*;
-
-//     #[test]
-//     fn curve_evaluation() {
-//         let curve = CurveVariableInterpolated::new(
-//             vec![0.0, 0.25, 0.5, 0.75, 1.0],
-//             vec![0.0, 0.5, 1.0, 1.5, 2.0],
-//         );
-//         assert_eq!(curve.sample(0.5), 1.0);
-
-//         let mut i0 = 0;
-//         let mut e0 = 0.0;
-//         for v in &[0.1, 0.3, 0.7, 0.4, 0.2, 0.0, 0.4, 0.85, 1.0] {
-//             let v = *v;
-//             let (i1, e1) = curve.sample_indexed(i0, v);
-//             assert_eq!(e1, 2.0 * v);
-//             if e1 > e0 {
-//                 assert!(i1 >= i0);
-//             } else {
-//                 assert!(i1 <= i0);
-//             }
-//             e0 = e1;
-//             i0 = i1;
-//         }
-//     }
-
-//     #[test]
-//     #[should_panic]
-//     fn curve_bad_length() {
-//         let _ = CurveVariableInterpolated::new(vec![0.0, 0.5, 1.0], vec![0.0, 1.0]);
-//     }
-
-//     #[test]
-//     #[should_panic]
-//     fn curve_time_samples_not_sorted() {
-//         let _ = CurveVariableInterpolated::new(vec![0.0, 1.5, 1.0], vec![0.0, 1.0, 2.0]);
-//     }
+// TODO: Tests for creating, evaluating and editing the `CurveVariable`
 // }

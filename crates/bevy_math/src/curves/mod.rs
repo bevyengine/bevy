@@ -1,3 +1,5 @@
+use thiserror::Error;
+
 mod fixed;
 mod variable;
 mod variable_linear;
@@ -23,4 +25,14 @@ pub trait Curve {
     ///
     /// **NOTE** Each keyframe is indexed by a `u16` to reduce memory usage when using the keyframe caching
     fn sample_with_cursor(&self, cursor: u16, time: f32) -> (CurveCursor, Self::Output);
+}
+
+#[derive(Error, Debug)]
+pub enum CurveCreationError {
+    #[error("number of keyframes time stamps and values doesn't match")]
+    MissMachLength,
+    #[error("limit of {0} keyframes exceeded")]
+    KeyframeLimitReached(usize),
+    #[error("keyframes aren't sorted by time")]
+    NotSorted,
 }

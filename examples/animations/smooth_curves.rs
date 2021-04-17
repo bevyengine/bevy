@@ -1,5 +1,8 @@
 use bevy::{
-    math::curves::{Curve, CurveCursor, CurveVariable},
+    math::{
+        curves::{Curve, CurveCursor, CurveVariable, TangentControl},
+        interpolation::Interpolation,
+    },
     prelude::*,
     render::pipeline::PrimitiveTopology,
 };
@@ -46,10 +49,13 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Create curve
-    curve_mesh.curve = CurveVariable::with_auto_tangents(
+    curve_mesh.curve = CurveVariable::with_tangents_and_mode(
         vec![0.0, 1.0, 1.3, 1.6, 1.7, 1.8, 1.9, 2.0],
         vec![3.0, 0.0, 1.0, 0.0, 0.5, 0.0, 0.25, 0.0],
-    );
+        TangentControl::Auto,
+        Interpolation::CatmullRom,
+    )
+    .unwrap();
     // Create timer
     curve_mesh.timer = Timer::from_seconds(2.5, true);
 

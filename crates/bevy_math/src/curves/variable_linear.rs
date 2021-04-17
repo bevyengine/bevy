@@ -1,5 +1,5 @@
 use crate::{
-    curves::{Curve, CurveCursor},
+    curves::{Curve, CurveCreationError, CurveCursor},
     interpolation::Lerp,
 };
 
@@ -32,36 +32,33 @@ impl<T: Clone> Clone for CurveVariableLinear<T> {
 }
 
 impl<T> CurveVariableLinear<T> {
-    pub fn new(samples: Vec<f32>, values: Vec<T>) -> Self {
-        // TODO: Result?
+    pub fn new(samples: Vec<f32>, values: Vec<T>) -> Result<Self, CurveCreationError> {
+        let length = samples.len();
 
         // Make sure both have the same length
-        assert!(
-            samples.len() == values.len(),
-            "samples and values must have the same length"
-        );
+        if length != values.len() {
+            Err(CurveCreationError::MissMachLength)?;
+        }
 
-        assert!(
-            values.len() <= CurveCursor::MAX as usize,
-            "limit of {} keyframes exceeded",
-            CurveCursor::MAX
-        );
-
-        assert!(!samples.is_empty(), "empty curve");
+        if values.len() > CurveCursor::MAX as usize {
+            Err(CurveCreationError::KeyframeLimitReached(
+                CurveCursor::MAX as usize,
+            ))?;
+        }
 
         // Make sure the
-        assert!(
-            samples
-                .iter()
-                .zip(samples.iter().skip(1))
-                .all(|(a, b)| a < b),
-            "time samples must be on ascending order"
-        );
+        if !samples
+            .iter()
+            .zip(samples.iter().skip(1))
+            .all(|(a, b)| a < b)
+        {
+            Err(CurveCreationError::NotSorted)?;
+        }
 
-        Self {
+        Ok(Self {
             time_stamps: samples,
             keyframes: values,
-        }
+        })
     }
 
     pub fn from_line(t0: f32, t1: f32, v0: T, v1: T) -> Self {
@@ -214,7 +211,8 @@ mod tests {
         let curve = CurveVariableLinear::new(
             vec![0.0, 0.25, 0.5, 0.75, 1.0],
             vec![0.0, 0.5, 1.0, 1.5, 2.0],
-        );
+        )
+        .unwrap();
         assert!((curve.sample(0.5) - 1.0).abs() < f32::EPSILON);
 
         let mut i0 = 0;
@@ -236,12 +234,12 @@ mod tests {
     #[test]
     #[should_panic]
     fn curve_bad_length() {
-        let _ = CurveVariableLinear::new(vec![0.0, 0.5, 1.0], vec![0.0, 1.0]);
+        let _ = CurveVariableLinear::new(vec![0.0, 0.5, 1.0], vec![0.0, 1.0]).unwrap();
     }
 
     #[test]
     #[should_panic]
     fn curve_time_samples_not_sorted() {
-        let _ = CurveVariableLinear::new(vec![0.0, 1.5, 1.0], vec![0.0, 1.0, 2.0]);
+        let _ = CurveVariableLinear::new(vec![0.0, 1.5, 1.0], vec![0.0, 1.0, 2.0]).unwrap();
     }
 }
