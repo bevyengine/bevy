@@ -14,31 +14,37 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-/// A parameter that can be used in a system function
+/// A parameter that can be used in a [`System`](super::System).
 ///
 /// # Derive
-/// This trait can be derived.
+///
+/// This trait can be derived with the [`derive@super::SystemParam`] macro.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// use bevy_ecs::system::SystemParam;
 ///
 /// #[derive(SystemParam)]
-/// pub struct MyParam<'a> {
+/// struct MyParam<'a> {
 ///     foo: Res<'a, usize>,
 /// }
 ///
 /// fn my_system(param: MyParam) {
 ///     // Access the resource through `param.foo`
 /// }
+///
+/// # my_system.system();
 /// ```
 pub trait SystemParam: Sized {
     type Fetch: for<'a> SystemParamFetch<'a>;
 }
 
+/// The state of a [`SystemParam`].
+///
 /// # Safety
+///
 /// It is the implementor's responsibility to ensure `system_state` is populated with the _exact_
-/// [World] access used by the SystemParamState (and associated FetchSystemParam).
+/// [`World`] access used by the `SystemParamState` (and associated [`SystemParamFetch`]).
 /// Additionally, it is the implementor's responsibility to ensure there is no
 /// conflicting access across all SystemParams.
 pub unsafe trait SystemParamState: Send + Sync + 'static {
@@ -54,8 +60,9 @@ pub unsafe trait SystemParamState: Send + Sync + 'static {
 pub trait SystemParamFetch<'a>: SystemParamState {
     type Item;
     /// # Safety
+    ///
     /// This call might access any of the input parameters in an unsafe way. Make sure the data
-    /// access is safe in the context of the system scheduler
+    /// access is safe in the context of the system scheduler.
     unsafe fn get_param(
         state: &'a mut Self,
         system_state: &'a SystemState,
@@ -153,11 +160,13 @@ pub struct QuerySetState<T>(T);
 
 impl_query_set!();
 
-/// Shared borrow of a Resource
+/// Shared borrow of a resource.
 ///
-/// When used as a system parameter, panics if resource does not exist.
+/// # Panics
 ///
-/// Use `Option<Res<T>>` if the resource might not always exist.
+/// Panics when used as a [`SystemParameter`](SystemParam) if the resource does not exist.
+///
+/// Use `Option<Res<T>>` instead if the resource might not always exist.
 pub struct Res<'w, T> {
     value: &'w T,
     ticks: &'w ComponentTicks,
@@ -188,6 +197,7 @@ impl<'w, T: Component> Deref for Res<'w, T> {
     }
 }
 
+/// The [`SystemParamState`] of [`Res`].
 pub struct ResState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -242,7 +252,8 @@ impl<'a, T: Component> SystemParamFetch<'a> for ResState<T> {
             .get_populated_resource_column(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
-                    "Requested resource does not exist: {}",
+                    "Resource requested by {} does not exist: {}",
+                    system_state.name,
                     std::any::type_name::<T>()
                 )
             });
@@ -255,6 +266,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for ResState<T> {
     }
 }
 
+/// The [`SystemParamState`] of `Option<Res<T>>`.
 pub struct OptionResState<T>(ResState<T>);
 
 impl<'a, T: Component> SystemParam for Option<Res<'a, T>> {
@@ -292,11 +304,13 @@ impl<'a, T: Component> SystemParamFetch<'a> for OptionResState<T> {
     }
 }
 
-/// Unique borrow of a Resource
+/// Unique borrow of a resource.
 ///
-/// When used as a system parameter, panics if resource does not exist.
+/// # Panics
 ///
-/// Use `Option<ResMut<T>>` if the resource might not always exist.
+/// Panics when used as a [`SystemParameter`](SystemParam) if the resource does not exist.
+///
+/// Use `Option<ResMut<T>>` instead if the resource might not always exist.
 pub struct ResMut<'w, T> {
     value: &'w mut T,
     ticks: &'w mut ComponentTicks,
@@ -334,6 +348,7 @@ impl<'w, T: Component> DerefMut for ResMut<'w, T> {
     }
 }
 
+/// The [`SystemParamState`] of [`ResMut`].
 pub struct ResMutState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -405,6 +420,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for ResMutState<T> {
     }
 }
 
+/// The [`SystemParamState`] of `Option<ResMut<T>>`.
 pub struct OptionResMutState<T>(ResMutState<T>);
 
 impl<'a, T: Component> SystemParam for Option<ResMut<'a, T>> {
@@ -475,6 +491,32 @@ impl<'a> SystemParamFetch<'a> for CommandQueue {
     }
 }
 
+/// A system local [`SystemParam`].
+///
+/// A local may only be accessed by the system itself and is therefore not visible to other systems.
+/// If two or more systems specify the same local type each will have their own unique local.
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # let world = &mut World::default();
+/// fn write_to_local(mut local: Local<usize>) {
+///     *local = 42;
+/// }
+/// fn read_from_local(local: Local<usize>) -> usize {
+///     *local
+/// }
+/// let mut write_system = write_to_local.system();
+/// let mut read_system = read_from_local.system();
+/// write_system.initialize(world);
+/// read_system.initialize(world);
+///
+/// assert_eq!(read_system.run((), world), 0);
+/// write_system.run((), world);
+/// // Note how the read local is still 0 due to the locals not being shared.
+/// assert_eq!(read_system.run((), world), 0);
+/// ```
 pub struct Local<'a, T: Component>(&'a mut T);
 
 impl<'a, T: Component> Deref for Local<'a, T> {
@@ -493,6 +535,7 @@ impl<'a, T: Component> DerefMut for Local<'a, T> {
     }
 }
 
+/// The [`SystemParamState`] of [`Local`].
 pub struct LocalState<T: Component>(T);
 
 impl<'a, T: Component + FromWorld> SystemParam for Local<'a, T> {
@@ -526,6 +569,24 @@ impl<'a, T: Component + FromWorld> SystemParamFetch<'a> for LocalState<T> {
     }
 }
 
+/// A [`SystemParam`] that grants access to the entities that had their `T` [`Component`] removed.
+///
+/// # Examples
+///
+/// Basic usage:
+///
+/// ```
+/// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::RemovedComponents;
+/// #
+/// # struct MyComponent;
+///
+/// fn react_on_removal(removed: RemovedComponents<MyComponent>) {
+///     removed.iter().for_each(|removed_entity| println!("{:?}", removed_entity));
+/// }
+///
+/// # react_on_removal.system();
+/// ```
 pub struct RemovedComponents<'a, T> {
     world: &'a World,
     component_id: ComponentId,
@@ -533,11 +594,13 @@ pub struct RemovedComponents<'a, T> {
 }
 
 impl<'a, T> RemovedComponents<'a, T> {
+    /// Returns an iterator over the entities that had their `T` [`Component`] removed.
     pub fn iter(&self) -> std::iter::Cloned<std::slice::Iter<'_, Entity>> {
         self.world.removed_with_id(self.component_id)
     }
 }
 
+/// The [`SystemParamState`] of [`RemovedComponents`].
 pub struct RemovedComponentsState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -580,7 +643,16 @@ impl<'a, T: Component> SystemParamFetch<'a> for RemovedComponentsState<T> {
     }
 }
 
-/// Shared borrow of a NonSend resource
+/// Shared borrow of a non-[`Send`] resource.
+///
+/// Only `Send` resources may be accessed with the [`Res`] [`SystemParam`]. In case that the
+/// resource does not implement `Send`, this `SystemParam` wrapper can be used. This will instruct
+/// the scheduler to instead run the system on the main thread so that it doesn't send the resource
+/// over to another thread.
+///
+/// # Panics
+///
+/// Panics when used as a `SystemParameter` if the resource does not exist.
 pub struct NonSend<'w, T> {
     pub(crate) value: &'w T,
     ticks: ComponentTicks,
@@ -611,6 +683,7 @@ impl<'w, T: 'static> Deref for NonSend<'w, T> {
     }
 }
 
+/// The [`SystemParamState`] of [`NonSend`].
 pub struct NonSendState<T> {
     component_id: ComponentId,
     marker: PhantomData<fn() -> T>,
@@ -681,7 +754,16 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendState<T> {
     }
 }
 
-/// Unique borrow of a NonSend resource
+/// Unique borrow of a non-[`Send`] resource.
+///
+/// Only `Send` resources may be accessed with the [`ResMut`] [`SystemParam`]. In case that the
+/// resource does not implement `Send`, this `SystemParam` wrapper can be used. This will instruct
+/// the scheduler to instead run the system on the main thread so that it doesn't send the resource
+/// over to another thread.
+///
+/// # Panics
+///
+/// Panics when used as a `SystemParameter` if the resource does not exist.
 pub struct NonSendMut<'a, T: 'static> {
     pub(crate) value: &'a mut T,
     ticks: &'a mut ComponentTicks,
@@ -727,6 +809,7 @@ impl<'a, T: 'static + core::fmt::Debug> core::fmt::Debug for NonSendMut<'a, T> {
     }
 }
 
+/// The [`SystemParamState`] of [`NonSendMut`].
 pub struct NonSendMutState<T> {
     component_id: ComponentId,
     marker: PhantomData<fn() -> T>,
@@ -807,6 +890,7 @@ impl<'a> SystemParam for &'a Archetypes {
     type Fetch = ArchetypesState;
 }
 
+/// The [`SystemParamState`] of [`Archetypes`].
 pub struct ArchetypesState;
 
 // SAFE: no component value access
@@ -838,6 +922,7 @@ impl<'a> SystemParam for &'a Components {
     type Fetch = ComponentsState;
 }
 
+/// The [`SystemParamState`] of [`Components`].
 pub struct ComponentsState;
 
 // SAFE: no component value access
@@ -869,6 +954,7 @@ impl<'a> SystemParam for &'a Entities {
     type Fetch = EntitiesState;
 }
 
+/// The [`SystemParamState`] of [`Entities`].
 pub struct EntitiesState;
 
 // SAFE: no component value access
@@ -900,6 +986,7 @@ impl<'a> SystemParam for &'a Bundles {
     type Fetch = BundlesState;
 }
 
+/// The [`SystemParamState`] of [`Bundles`].
 pub struct BundlesState;
 
 // SAFE: no component value access
@@ -937,6 +1024,7 @@ impl SystemParam for SystemChangeTick {
     type Fetch = SystemChangeTickState;
 }
 
+/// The [`SystemParamState`] of [`SystemChangeTickState`].
 pub struct SystemChangeTickState {}
 
 unsafe impl SystemParamState for SystemChangeTickState {

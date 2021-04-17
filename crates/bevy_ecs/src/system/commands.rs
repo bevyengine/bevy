@@ -7,17 +7,20 @@ use crate::{
 use bevy_utils::tracing::debug;
 use std::marker::PhantomData;
 
-/// A [World] mutation
+/// A [`World`] mutation.
 pub trait Command: Send + Sync + 'static {
     fn write(self: Box<Self>, world: &mut World);
 }
 
+/// A queue of [`Command`]s.
 #[derive(Default)]
 pub struct CommandQueue {
     commands: Vec<Box<dyn Command>>,
 }
 
 impl CommandQueue {
+    /// Execute the queued [`Command`]s in the world.
+    /// This clears the queue.
     pub fn apply(&mut self, world: &mut World) {
         world.flush();
         for command in self.commands.drain(..) {
@@ -25,24 +28,27 @@ impl CommandQueue {
         }
     }
 
+    /// Push a boxed [`Command`] onto the queue.
     #[inline]
     pub fn push_boxed(&mut self, command: Box<dyn Command>) {
         self.commands.push(command);
     }
 
+    /// Push a [`Command`] onto the queue.
     #[inline]
     pub fn push<T: Command>(&mut self, command: T) {
         self.push_boxed(Box::new(command));
     }
 }
 
-/// A list of commands that will be run to modify a `World`
+/// A list of commands that will be run to modify a [`World`].
 pub struct Commands<'a> {
     queue: &'a mut CommandQueue,
     entities: &'a Entities,
 }
 
 impl<'a> Commands<'a> {
+    /// Create a new `Commands` from a queue and a world.
     pub fn new(queue: &'a mut CommandQueue, world: &'a World) -> Self {
         Self {
             queue,
@@ -50,7 +56,7 @@ impl<'a> Commands<'a> {
         }
     }
 
-    /// Creates a new empty entity and returns an [EntityCommands] builder for it.
+    /// Creates a new empty [`Entity`] and returns an [`EntityCommands`] builder for it.
     ///
     /// # Example
     ///
@@ -80,10 +86,10 @@ impl<'a> Commands<'a> {
 
     /// Creates a new entity with the components contained in `bundle`.
     ///
-    /// This returns an [EntityCommands] builder, which enables inserting more components and bundles
+    /// This returns an [`EntityCommands`] builder, which enables inserting more components and bundles
     /// using a "builder pattern".
     ///
-    /// Note that `bundle` is a [Bundle], which is a collection of components. [Bundle] is
+    /// Note that `bundle` is a [`Bundle`], which is a collection of components. [`Bundle`] is
     /// automatically implemented for tuples of components. You can also create your own bundle
     /// types by deriving [`derive@Bundle`].
     ///
@@ -124,7 +130,7 @@ impl<'a> Commands<'a> {
         e
     }
 
-    /// Returns an [EntityCommands] builder for the requested `entity`.
+    /// Returns an [`EntityCommands`] builder for the requested [`Entity`].
     ///
     /// # Example
     ///
@@ -160,39 +166,38 @@ impl<'a> Commands<'a> {
         self.queue.push(SpawnBatch { bundles_iter });
     }
 
-    /// See [World::insert_resource].
+    /// See [`World::insert_resource`].
     pub fn insert_resource<T: Component>(&mut self, resource: T) {
         self.queue.push(InsertResource { resource })
     }
 
+    /// Queue a resource removal.
     pub fn remove_resource<T: Component>(&mut self) {
         self.queue.push(RemoveResource::<T> {
             phantom: PhantomData,
         });
     }
 
-    /// Adds a command directly to the command list. Prefer this to [`Self::add_command_boxed`] if
-    /// the type of `command` is statically known.
+    /// Adds a command directly to the command list.
     pub fn add<C: Command>(&mut self, command: C) {
         self.queue.push(command);
     }
 }
 
+/// A list of commands that will be run to modify an [`Entity`].
 pub struct EntityCommands<'a, 'b> {
     entity: Entity,
     commands: &'b mut Commands<'a>,
 }
 
 impl<'a, 'b> EntityCommands<'a, 'b> {
-    /// Retrieves the current entity's unique [Entity] id.
+    /// Retrieves the current entity's unique [`Entity`] id.
     #[inline]
     pub fn id(&self) -> Entity {
         self.entity
     }
 
-    /// Adds a bundle of components to the current entity.
-    ///
-    /// See [`Self::with`], [`Self::current_entity`].
+    /// Adds a [`Bundle`] of components to the current entity.
     pub fn insert_bundle(&mut self, bundle: impl Bundle) -> &mut Self {
         self.commands.add(InsertBundle {
             entity: self.entity,
@@ -201,9 +206,8 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
         self
     }
 
-    /// Adds a single component to the current entity.
+    /// Adds a single [`Component`] to the current entity.
     ///
-    /// See [`Self::insert_bundle`], [`Self::id`].
     ///
     /// # Warning
     ///
@@ -214,7 +218,7 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
     ///
     /// # Example
     ///
-    /// [`Self::insert`] can be chained with [`Self::spawn`].
+    /// `Self::insert` can be chained with [`Commands::spawn`].
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
@@ -242,7 +246,7 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
         self
     }
 
-    /// See [crate::world::EntityMut::remove_bundle].
+    /// See [`EntityMut::remove_bundle`](crate::world::EntityMut::remove_bundle).
     pub fn remove_bundle<T>(&mut self) -> &mut Self
     where
         T: Bundle,
@@ -254,7 +258,7 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
         self
     }
 
-    /// See [crate::world::EntityMut::remove].
+    /// See [`EntityMut::remove`](crate::world::EntityMut::remove).
     pub fn remove<T>(&mut self) -> &mut Self
     where
         T: Component,
@@ -273,6 +277,7 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
         })
     }
 
+    /// Returns the underlying `[Commands]`.
     pub fn commands(&mut self) -> &mut Commands<'a> {
         self.commands
     }
@@ -323,7 +328,7 @@ impl Command for Despawn {
     }
 }
 
-pub struct InsertBundle<T> {
+pub(crate) struct InsertBundle<T> {
     entity: Entity,
     bundle: T,
 }
@@ -388,7 +393,7 @@ where
     }
 }
 
-pub struct InsertResource<T: Component> {
+pub(crate) struct InsertResource<T: Component> {
     resource: T,
 }
 
@@ -398,7 +403,7 @@ impl<T: Component> Command for InsertResource<T> {
     }
 }
 
-pub struct RemoveResource<T: Component> {
+pub(crate) struct RemoveResource<T: Component> {
     phantom: PhantomData<T>,
 }
 

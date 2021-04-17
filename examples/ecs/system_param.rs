@@ -17,7 +17,7 @@ pub struct PlayerCount(usize);
 ///
 /// In this example, it includes a query and a mutable resource.
 #[derive(SystemParam)]
-pub struct PlayerCounter<'a> {
+struct PlayerCounter<'a> {
     players: Query<'a, &'static Player>,
     count: ResMut<'a, PlayerCount>,
 }

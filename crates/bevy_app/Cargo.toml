@@ -14,6 +14,7 @@ keywords = ["bevy"]
 
 [features]
 trace = []
+bevy_ci_testing = ["ron"]
 default = ["bevy_reflect"]
 
 [dependencies]
@@ -25,6 +26,8 @@ bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 
 # other
 serde = { version = "1.0", features = ["derive"] }
+ron = { version = "0.6.2", optional = true }
+
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }

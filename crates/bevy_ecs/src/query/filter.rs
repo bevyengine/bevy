@@ -501,6 +501,10 @@ macro_rules! impl_tick_filter {
 
             #[inline]
             fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
+                if access.access().has_write(self.component_id) {
+                    panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
+                        std::any::type_name::<T>());
+                }
                 access.add_read(self.component_id);
             }
 
@@ -606,18 +610,21 @@ impl_tick_filter!(
     ///
     /// Example:
     /// ```
+    /// # use bevy_ecs::system::IntoSystem;
     /// # use bevy_ecs::system::Query;
     /// # use bevy_ecs::query::Added;
     /// #
     /// # #[derive(Debug)]
     /// # struct Name {};
     /// # struct Transform {};
-    /// #
+    ///
     /// fn print_add_name_component(query: Query<&Name, Added<Name>>) {
     ///     for name in query.iter() {
     ///         println!("Named entity created: {:?}", name)
     ///     }
     /// }
+    ///
+    /// # print_add_name_component.system();
     /// ```
     Added,
     AddedState,
@@ -638,18 +645,21 @@ impl_tick_filter!(
     ///
     /// Example:
     /// ```
+    /// # use bevy_ecs::system::IntoSystem;
     /// # use bevy_ecs::system::Query;
     /// # use bevy_ecs::query::Changed;
     /// #
     /// # #[derive(Debug)]
     /// # struct Name {};
     /// # struct Transform {};
-    /// #
+    ///
     /// fn print_moving_objects_system(query: Query<&Name, Changed<Transform>>) {
     ///     for name in query.iter() {
     ///         println!("Entity Moved: {:?}", name);
     ///     }
     /// }
+    ///
+    /// # print_moving_objects_system.system();
     /// ```
     Changed,
     ChangedState,

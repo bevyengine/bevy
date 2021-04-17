@@ -39,7 +39,7 @@ use crate::{Gltf, GltfNode};
 pub enum GltfError {
     #[error("unsupported primitive mode")]
     UnsupportedPrimitive { mode: Mode },
-    #[error("invalid GLTF file")]
+    #[error("invalid GLTF file: {0}")]
     Gltf(#[from] gltf::Error),
     #[error("binary blob is missing")]
     MissingBlob,
@@ -47,11 +47,11 @@ pub enum GltfError {
     Base64Decode(#[from] base64::DecodeError),
     #[error("unsupported buffer format")]
     BufferFormatUnsupported,
-    #[error("invalid image mime type")]
+    #[error("invalid image mime type: {0}")]
     InvalidImageMimeType(String),
-    #[error("failed to load an image")]
+    #[error("{0}")]
     ImageError(#[from] TextureError),
-    #[error("failed to load an asset path")]
+    #[error("failed to load an asset path: {0}")]
     AssetIoError(#[from] AssetIoError),
 }
 
@@ -142,9 +142,31 @@ async fn load_gltf<'a, 'b>(
                 mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, vertex_attribute);
             }
 
+            if let Some(vertex_attribute) = reader
+                .read_colors(0)
+                .map(|v| VertexAttributeValues::Float4(v.into_rgba_f32().collect()))
+            {
+                mesh.set_attribute(Mesh::ATTRIBUTE_COLOR, vertex_attribute);
+            }
+
             if let Some(indices) = reader.read_indices() {
                 mesh.set_indices(Some(Indices::U32(indices.into_u32().collect())));
             };
+
+            if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none() {
+                let vertex_count_before = mesh.count_vertices();
+                mesh.duplicate_vertices();
+                mesh.compute_flat_normals();
+                let vertex_count_after = mesh.count_vertices();
+
+                if vertex_count_before != vertex_count_after {
+                    bevy_log::debug!("Missing vertex normals in indexed geometry, computing them as flat. Vertex count increased from {} to {}", vertex_count_before, vertex_count_after);
+                } else {
+                    bevy_log::debug!(
+                        "Missing vertex normals in indexed geometry, computing them as flat."
+                    );
+                }
+            }
 
             let mesh = load_context.set_labeled_asset(&primitive_label, LoadedAsset::new(mesh));
             primitives.push(super::GltfPrimitive {
@@ -222,16 +244,29 @@ async fn load_gltf<'a, 'b>(
                 Texture::from_buffer(buffer, ImageType::MimeType(mime_type))?
             }
             gltf::image::Source::Uri { uri, mime_type } => {
-                let parent = load_context.path().parent().unwrap();
-                let image_path = parent.join(uri);
-                let bytes = load_context.read_asset_bytes(image_path.clone()).await?;
+                let uri = percent_encoding::percent_decode_str(uri)
+                    .decode_utf8()
+                    .unwrap();
+                let uri = uri.as_ref();
+                let (bytes, image_type) = match DataUri::parse(uri) {
+                    Ok(data_uri) => (data_uri.decode()?, ImageType::MimeType(data_uri.mime_type)),
+                    Err(()) => {
+                        let parent = load_context.path().parent().unwrap();
+                        let image_path = parent.join(uri);
+                        let bytes = load_context.read_asset_bytes(image_path.clone()).await?;
+
+                        let extension = Path::new(uri).extension().unwrap().to_str().unwrap();
+                        let image_type = ImageType::Extension(extension);
+
+                        (bytes, image_type)
+                    }
+                };
+
                 Texture::from_buffer(
                     &bytes,
                     mime_type
                         .map(|mt| ImageType::MimeType(mt))
-                        .unwrap_or_else(|| {
-                            ImageType::Extension(image_path.extension().unwrap().to_str().unwrap())
-                        }),
+                        .unwrap_or(image_type),
                 )?
             }
         };
@@ -569,23 +604,27 @@ async fn load_buffers(
     load_context: &LoadContext<'_>,
     asset_path: &Path,
 ) -> Result<Vec<Vec<u8>>, GltfError> {
-    const OCTET_STREAM_URI: &str = "data:application/octet-stream;base64,";
+    const OCTET_STREAM_URI: &str = "application/octet-stream";
 
     let mut buffer_data = Vec::new();
     for buffer in gltf.buffers() {
         match buffer.source() {
             gltf::buffer::Source::Uri(uri) => {
-                if uri.starts_with("data:") {
-                    buffer_data.push(base64::decode(
-                        uri.strip_prefix(OCTET_STREAM_URI)
-                            .ok_or(GltfError::BufferFormatUnsupported)?,
-                    )?);
-                } else {
-                    // TODO: Remove this and add dep
-                    let buffer_path = asset_path.parent().unwrap().join(uri);
-                    let buffer_bytes = load_context.read_asset_bytes(buffer_path).await?;
-                    buffer_data.push(buffer_bytes);
-                }
+                let uri = percent_encoding::percent_decode_str(uri)
+                    .decode_utf8()
+                    .unwrap();
+                let uri = uri.as_ref();
+                let buffer_bytes = match DataUri::parse(uri) {
+                    Ok(data_uri) if data_uri.mime_type == OCTET_STREAM_URI => data_uri.decode()?,
+                    Ok(_) => return Err(GltfError::BufferFormatUnsupported),
+                    Err(()) => {
+                        // TODO: Remove this and add dep
+                        let buffer_path = asset_path.parent().unwrap().join(uri);
+                        let buffer_bytes = load_context.read_asset_bytes(buffer_path).await?;
+                        buffer_bytes
+                    }
+                };
+                buffer_data.push(buffer_bytes);
             }
             gltf::buffer::Source::Bin => {
                 if let Some(blob) = gltf.blob.as_deref() {
@@ -644,6 +683,43 @@ fn resolve_node_hierarchy(
         .into_iter()
         .map(|(_, resolved)| resolved)
         .collect()
+}
+
+struct DataUri<'a> {
+    mime_type: &'a str,
+    base64: bool,
+    data: &'a str,
+}
+
+fn split_once(input: &str, delimiter: char) -> Option<(&str, &str)> {
+    let mut iter = input.splitn(2, delimiter);
+    Some((iter.next()?, iter.next()?))
+}
+
+impl<'a> DataUri<'a> {
+    fn parse(uri: &'a str) -> Result<DataUri<'a>, ()> {
+        let uri = uri.strip_prefix("data:").ok_or(())?;
+        let (mime_type, data) = split_once(uri, ',').ok_or(())?;
+
+        let (mime_type, base64) = match mime_type.strip_suffix(";base64") {
+            Some(mime_type) => (mime_type, true),
+            None => (mime_type, false),
+        };
+
+        Ok(DataUri {
+            mime_type,
+            base64,
+            data,
+        })
+    }
+
+    fn decode(&self) -> Result<Vec<u8>, base64::DecodeError> {
+        if self.base64 {
+            base64::decode(self.data)
+        } else {
+            Ok(self.data.as_bytes().to_owned())
+        }
+    }
 }
 
 #[cfg(test)]

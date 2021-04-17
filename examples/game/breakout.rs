@@ -1,19 +1,25 @@
 use bevy::{
+    core::FixedTimestep,
     prelude::*,
     render::pass::ClearColor,
     sprite::collide_aabb::{collide, Collision},
 };
 
 /// An implementation of the classic game "Breakout"
+const TIME_STEP: f32 = 1.0 / 60.0;
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .insert_resource(Scoreboard { score: 0 })
         .insert_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
         .add_startup_system(setup.system())
-        .add_system(paddle_movement_system.system())
-        .add_system(ball_collision_system.system())
-        .add_system(ball_movement_system.system())
+        .add_system_set(
+            SystemSet::new()
+                .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
+                .with_system(paddle_movement_system.system())
+                .with_system(ball_collision_system.system())
+                .with_system(ball_movement_system.system()),
+        )
         .add_system(scoreboard_system.system())
         .run();
 }
@@ -175,7 +181,6 @@ fn setup(
 }
 
 fn paddle_movement_system(
-    time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<(&Paddle, &mut Transform)>,
 ) {
@@ -191,18 +196,15 @@ fn paddle_movement_system(
 
         let translation = &mut transform.translation;
         // move the paddle horizontally
-        translation.x += time.delta_seconds() * direction * paddle.speed;
+        translation.x += direction * paddle.speed * TIME_STEP;
         // bound the paddle within the walls
         translation.x = translation.x.min(380.0).max(-380.0);
     }
 }
 
-fn ball_movement_system(time: Res<Time>, mut ball_query: Query<(&Ball, &mut Transform)>) {
-    // clamp the timestep to stop the ball from escaping when the game starts
-    let delta_seconds = f32::min(0.2, time.delta_seconds());
-
+fn ball_movement_system(mut ball_query: Query<(&Ball, &mut Transform)>) {
     if let Ok((ball, mut transform)) = ball_query.single_mut() {
-        transform.translation += ball.velocity * delta_seconds;
+        transform.translation += ball.velocity * TIME_STEP;
     }
 }
 
