@@ -18,16 +18,10 @@ impl Default for TangentControl {
     }
 }
 
-// TODO: Test performance by packing keyframe runtime info (value, mode, in_tangent, out_tangent)
-// pub struct CurveVariableKeyframe<T: Interpolate> {
-//     pub value: T,
-//     pub interpolation: Interpolation,
-//     pub in_tangent: T::Tangent,
-//     pub out_tangent: T::Tangent,
-// }
-
 // TODO: impl Serialize, Deserialize
 // TODO: How better handling of SOA? the length for instance is repeated and extra checks are need on deserialization
+// ? NOTE: Using a AOS of value, mode and tangents in and out, decreases performance on random sampling by ~15%,
+// ? sequential sampling remains unchanged
 /// Curve with sparse keyframes frames, in another words a curve with variable frame rate;
 ///
 /// Similar in design to the [`CurveVariableLinear`](super::CurveVariableLinear) but allows
@@ -417,13 +411,6 @@ where
 
     pub fn iter(&self) -> impl Iterator<Item = (f32, &T)> {
         self.time_stamps.iter().copied().zip(self.keyframes.iter())
-    }
-
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (f32, &mut T)> {
-        self.time_stamps
-            .iter()
-            .copied()
-            .zip(self.keyframes.iter_mut())
     }
 }
 
