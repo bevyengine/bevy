@@ -451,19 +451,20 @@ impl World {
     /// ```
     /// use bevy_ecs::{entity::Entity, world::World};
     /// let mut world = World::new();
-    /// let a = world.spawn().insert_bundle((2, "abc")).id();
-    /// let b = world.spawn().insert_bundle((3, "xyz")).id();
-    /// let c = world.spawn().insert_bundle((1, "def")).id();
-    /// let mut entities = world.query::<(Entity, &i32, &str)>()
-    ///     .map(|(e, &i &s)| (e, i, &s)) // Copy out of the world
+    /// let a = world.spawn().insert_bundle((2, 4.0)).id();
+    /// let b = world.spawn().insert_bundle((3, 5.0)).id();
+    /// let c = world.spawn().insert_bundle((1, 6.0)).id();
+    /// let mut entities = world.query::<(Entity, &i32, &f32)>()
+    ///     .iter(&world)
     ///     .collect::<Vec<_>>();
     /// // Sort by `i32` component
     /// entities.sort_by(|x, y| x.1.cmp(&y.1));
     /// for (index, entity) in entities.iter().enumerate() {
     ///     match index {
-    ///         0 => assert!(entity == (c, 1, "def")),
-    ///         1 => assert!(entity == (a, 2, "abc")),
-    ///         2 => assert!(entity == (b, 3, "xyz")),
+    ///         0 => assert_eq!(entity, &(c, &1, &6.0)),
+    ///         1 => assert_eq!(entity, &(a, &2, &4.0)),
+    ///         2 => assert_eq!(entity, &(b, &3, &5.0)),
+    ///         _ => panic!("not expected"),
     ///     }
     /// }
     /// ```
