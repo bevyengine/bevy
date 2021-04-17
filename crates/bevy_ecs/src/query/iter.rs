@@ -233,14 +233,14 @@ where
         }
 
         // n! / k!(n-k)! = (n*n-1*...*n-k+1) / k!
-        let max_permutations = (0..K)
+        let max_combinations = (0..K)
             .try_fold(1usize, |n, i| n.checked_mul(max_size - i))
             .map(|n| {
                 let k_factorial: usize = (1..=K).product();
                 n / k_factorial
             });
 
-        (0, max_permutations)
+        (0, max_combinations)
     }
 }
 

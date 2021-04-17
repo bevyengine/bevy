@@ -4,6 +4,8 @@ use rand::{thread_rng, Rng};
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 struct FixedUpdateStage;
 
+const DELTA_TIME: f64 = 0.01;
+
 fn main() {
     App::build()
         .insert_resource(Msaa { samples: 4 })
@@ -13,24 +15,31 @@ fn main() {
             CoreStage::Update,
             FixedUpdateStage,
             SystemStage::parallel()
-                .with_run_criteria(FixedTimestep::step(0.01))
+                .with_run_criteria(FixedTimestep::step(DELTA_TIME))
                 .with_system(interact_bodies.system())
-                .with_system(apply_velocity.system()),
+                .with_system(integrate.system()),
         )
         .run();
 }
 
-const GRAVITY_CONSTANT: f32 = 0.01;
+const GRAVITY_CONSTANT: f32 = 0.001;
+const SOFTENING: f32 = 0.01;
+const NUM_BODIES: usize = 100;
 
+#[derive(Default)]
 struct Mass(f32);
-struct Velocity(Vec3);
+#[derive(Default)]
+struct Acceleration(Vec3);
+#[derive(Default)]
+struct LastPos(Vec3);
 
-#[derive(Bundle)]
+#[derive(Bundle, Default)]
 struct BodyBundle {
     #[bundle]
     pbr: PbrBundle,
     mass: Mass,
-    velocity: Velocity,
+    last_pos: LastPos,
+    acceleration: Acceleration,
 }
 
 fn generate_bodies(
@@ -43,25 +52,27 @@ fn generate_bodies(
         subdivisions: 3,
     }));
 
-    let pos_range = 5.0..20.0;
+    let pos_range = 1.0..15.0;
     let color_range = 0.5..1.0;
     let vel_range = -0.5..0.5;
 
     let mut rng = thread_rng();
-    for _ in 0..200 {
-        let mass_value_cube_root: f32 = rng.gen_range(0.9..8.0);
+    for _ in 0..NUM_BODIES {
+        let mass_value_cube_root: f32 = rng.gen_range(0.5..4.0);
         let mass_value: f32 = mass_value_cube_root * mass_value_cube_root * mass_value_cube_root;
+
+        let position = Vec3::new(
+            rng.gen_range(-1.0..1.0),
+            rng.gen_range(-1.0..1.0),
+            rng.gen_range(-1.0..1.0),
+        )
+        .normalize()
+            * rng.gen_range(pos_range.clone());
 
         commands.spawn_bundle(BodyBundle {
             pbr: PbrBundle {
                 transform: Transform {
-                    translation: Vec3::new(
-                        rng.gen_range(-1.0..1.0),
-                        rng.gen_range(-1.0..1.0),
-                        rng.gen_range(-1.0..1.0),
-                    )
-                    .normalize()
-                        * rng.gen_range(pos_range.clone()),
+                    translation: position,
                     scale: Vec3::splat(mass_value_cube_root * 0.1),
                     ..Default::default()
                 },
@@ -77,11 +88,15 @@ fn generate_bodies(
                 ..Default::default()
             },
             mass: Mass(mass_value),
-            velocity: Velocity(Vec3::new(
-                rng.gen_range(vel_range.clone()),
-                rng.gen_range(vel_range.clone()),
-                rng.gen_range(vel_range.clone()),
-            )),
+            acceleration: Acceleration(Vec3::ZERO),
+            last_pos: LastPos(
+                position
+                    - Vec3::new(
+                        rng.gen_range(vel_range.clone()),
+                        rng.gen_range(vel_range.clone()),
+                        rng.gen_range(vel_range.clone()),
+                    ) * DELTA_TIME as f32,
+            ),
         });
     }
 
@@ -90,7 +105,7 @@ fn generate_bodies(
         .spawn_bundle(BodyBundle {
             pbr: PbrBundle {
                 transform: Transform {
-                    scale: Vec3::splat(3.0),
+                    scale: Vec3::splat(0.5),
                     ..Default::default()
                 },
                 mesh: meshes.add(Mesh::from(shape::Icosphere {
@@ -100,8 +115,8 @@ fn generate_bodies(
                 material: materials.add((Color::ORANGE_RED * 10.0).into()),
                 ..Default::default()
             },
-            mass: Mass(1500.0),
-            velocity: Velocity(Vec3::ZERO),
+            mass: Mass(1000.0),
+            ..Default::default()
         })
         .insert(Light {
             color: Color::ORANGE_RED,
@@ -113,23 +128,31 @@ fn generate_bodies(
     });
 }
 
-fn interact_bodies(mut query: Query<(&Mass, &GlobalTransform, &mut Velocity)>) {
+fn interact_bodies(mut query: Query<(&Mass, &GlobalTransform, &mut Acceleration)>) {
     let mut iter = query.iter_combinations_mut();
-    while let Some([(Mass(m1), transform1, mut vel1), (Mass(m2), transform2, mut vel2)]) =
+    while let Some([(Mass(m1), transform1, mut acc1), (Mass(m2), transform2, mut acc2)]) =
         iter.fetch_next()
     {
         let delta = transform2.translation - transform1.translation;
         let distance_sq: f32 = delta.length_squared();
-        let delta_norm = delta / distance_sq.sqrt();
-        let force = delta_norm * (GRAVITY_CONSTANT * (m1 + m2) / distance_sq.max(0.01));
-        let velocity_change = force;
-        vel1.0 += velocity_change / *m1;
-        vel2.0 -= velocity_change / *m2;
+
+        let f = GRAVITY_CONSTANT / (distance_sq * (distance_sq + SOFTENING).sqrt());
+        let force_unit_mass = delta * f;
+        acc1.0 += force_unit_mass * *m2;
+        acc2.0 -= force_unit_mass * *m1;
     }
 }
 
-fn apply_velocity(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform)>) {
-    for (velocity, mut transform) in query.iter_mut() {
-        transform.translation += velocity.0 * time.delta_seconds()
+fn integrate(mut query: Query<(&mut Acceleration, &mut Transform, &mut LastPos)>) {
+    let dt_sq = (DELTA_TIME * DELTA_TIME) as f32;
+    for (mut acceleration, mut transform, mut last_pos) in query.iter_mut() {
+        // verlet integration
+        // x(t+dt) = 2x(t) - x(t-dt) + a(t)dt^2 + O(dt^4)
+
+        let new_pos =
+            transform.translation + transform.translation - last_pos.0 + acceleration.0 * dt_sq;
+        acceleration.0 = Vec3::ZERO;
+        last_pos.0 = transform.translation;
+        transform.translation = new_pos;
     }
 }
