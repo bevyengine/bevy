@@ -18,6 +18,7 @@ impl Default for TangentControl {
     }
 }
 
+// remove-me
 // TODO: Test performance by packing keyframe runtime info (value, mode, in_tangent, out_tangent)
 // pub struct CurveVariableKeyframe<T: Interpolate> {
 //     pub value: T,
