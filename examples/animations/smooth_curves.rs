@@ -15,7 +15,6 @@ struct CurveTargetTag;
 struct CurveMesh {
     timer: Timer,
     curve: CurveVariable<f32>,
-    mesh: Handle<Mesh>,
 }
 
 fn main() {
@@ -76,7 +75,6 @@ fn setup(
     mesh.set_attribute(Mesh::ATTRIBUTE_TANGENT, values(DIVS, [0.0f32, 1.0, 0.0]));
     mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, values(DIVS, [0.0f32; 2]));
     let mesh = meshes.add(mesh);
-    curve_mesh.mesh = mesh.clone();
 
     let material = materials.add(Color::RED.into());
     let keyframe_mesh = meshes.add(Mesh::from(shape::Cube { size: 0.05 }));
