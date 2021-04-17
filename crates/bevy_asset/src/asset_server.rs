@@ -212,6 +212,18 @@ impl AssetServer {
         load_state
     }
 
+    /// Loads an Asset at the provided relative path.
+    ///
+    /// The absolute Path to the asset is "ROOT/ASSET_FOLDER_NAME/path".
+    ///
+    /// By default the ROOT is the directory of the Application, but this can be overriden by
+    /// setting the `"CARGO_MANIFEST_DIR"` environment variable to another directory.
+    /// When you run your application through Cargo, then is `"CARGO_MANIFEST_DIR"` automatically
+    /// set to the root folder of your crate.
+    ///
+    /// The name of the asset folder is set inside the
+    /// [`AssetServerSettings`](crate::AssetServerSettings) resource. The default name is
+    /// `"assets"`.
     pub fn load<'a, T: Asset, P: Into<AssetPath<'a>>>(&self, path: P) -> Handle<T> {
         self.load_untyped(path).typed()
     }
