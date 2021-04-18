@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use crate::{
     curves::{Curve, CurveCreationError, CurveCursor},
     interpolation::{Interpolate, Interpolation},
@@ -255,13 +257,15 @@ where
 
     pub fn set_time(&mut self, index: CurveCursor, time: f32) -> Option<CurveCursor> {
         let i = index as usize;
-        
+
         let mut j = i;
         let last = self.time_stamps.len() - 1;
         if self.time_stamps[j] < time {
             // Forward search
             loop {
-                if j == last { break; }
+                if j == last {
+                    break;
+                }
 
                 let temp = j + 1;
                 if self.time_stamps[temp] > time {
@@ -273,7 +277,9 @@ where
         } else {
             // Backward search
             loop {
-                if j == 0 { break; }
+                if j == 0 {
+                    break;
+                }
 
                 let temp = j - 1;
                 if self.time_stamps[temp] < time {
@@ -284,38 +290,42 @@ where
             }
         }
 
-        if i < j {
-            // Move forward
-            let k = j + 1;
-            self.time_stamps[i..k].rotate_left(1);
-            self.keyframes[i..k].rotate_left(1);
-            self.modes[i..k].rotate_left(1);
-            self.tangents_control[i..k].rotate_left(1);
-            self.tangents_in[i..k].rotate_left(1);
-            self.tangents_out[i..k].rotate_left(1);
+        match i.cmp(&j) {
+            Ordering::Greater => {
+                // Move backward
+                let k = i + 1;
+                self.time_stamps[j..k].rotate_right(1);
+                self.keyframes[j..k].rotate_right(1);
+                self.modes[j..k].rotate_right(1);
+                self.tangents_control[j..k].rotate_right(1);
+                self.tangents_in[j..k].rotate_right(1);
+                self.tangents_out[j..k].rotate_right(1);
 
-            self.adjust_tangents_with_neighbors(j);
-            self.adjust_tangents_with_neighbors(i);
-        } else if i > j {
-            // Move backward
-            let k = i + 1;
-            self.time_stamps[j..k].rotate_right(1);
-            self.keyframes[j..k].rotate_right(1);
-            self.modes[j..k].rotate_right(1);
-            self.tangents_control[j..k].rotate_right(1);
-            self.tangents_in[j..k].rotate_right(1);
-            self.tangents_out[j..k].rotate_right(1);
+                self.adjust_tangents_with_neighbors(j);
+                self.adjust_tangents_with_neighbors(i);
+            }
+            Ordering::Less => {
+                // Move forward
+                let k = j + 1;
+                self.time_stamps[i..k].rotate_left(1);
+                self.keyframes[i..k].rotate_left(1);
+                self.modes[i..k].rotate_left(1);
+                self.tangents_control[i..k].rotate_left(1);
+                self.tangents_in[i..k].rotate_left(1);
+                self.tangents_out[i..k].rotate_left(1);
 
-            self.adjust_tangents_with_neighbors(j);
-            self.adjust_tangents_with_neighbors(i);
-        } else {
-            // Just update the keyframe time
-            self.time_stamps[i] = time;
-            self.adjust_tangents_with_neighbors(i);
-            return None;
+                self.adjust_tangents_with_neighbors(j);
+                self.adjust_tangents_with_neighbors(i);
+            }
+            Ordering::Equal => {
+                // Just update the keyframe time
+                self.time_stamps[i] = time;
+                self.adjust_tangents_with_neighbors(i);
+                return None;
+            }
         }
 
-        return Some(j as CurveCursor);
+        Some(j as CurveCursor)
     }
 
     #[inline]
