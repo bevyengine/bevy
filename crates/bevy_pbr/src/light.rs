@@ -30,7 +30,7 @@ impl Default for PointLight {
 pub(crate) struct PointLightUniform {
     pub pos: [f32; 4],
     pub color: [f32; 4],
-    pub inverse_range_squared: f32,
+    pub light_params: [f32; 4],
 }
 
 unsafe impl Byteable for PointLightUniform {}
@@ -41,13 +41,12 @@ impl PointLightUniform {
 
         // premultiply color by intensity
         // we don't use the alpha at all, so no reason to multiply only [0..3]
-        let mut color: [f32; 4] = (light.color * light.intensity).into();
-        color[3] = light.radius;
+        let color: [f32; 4] = (light.color * light.intensity).into();
 
         PointLightUniform {
             pos: [x, y, z, 1.0],
             color,
-            inverse_range_squared: 1.0 / (light.range * light.range),
+            light_params: [1.0 / (light.range * light.range), light.radius, 0.0, 0.0],
         }
     }
 }

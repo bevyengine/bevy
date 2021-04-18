@@ -39,7 +39,7 @@ const int MAX_LIGHTS = 10;
 struct PointLight {
     vec4 pos;
     vec4 color;
-    float inverseRangeSquared;
+    vec4 lightParams;
 };
 
 layout(location = 0) in vec3 v_WorldPosition;
@@ -348,19 +348,20 @@ void main() {
         vec3 light_to_frag = light.pos.xyz - v_WorldPosition.xyz;
         float distance_square = dot(light_to_frag, light_to_frag);
         float rangeAttenuation =
-            getDistanceAttenuation(distance_square, light.inverseRangeSquared);
+            getDistanceAttenuation(distance_square, light.lightParams.r);
 
         // Specular.
         // Representative Point Area Lights.
         // see http://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf p14-16
         float a = roughness;
-        float radius = light.color.a;
+        float radius = light.lightParams.g;
         vec3 centerToRay = dot(light_to_frag, R) * R - light_to_frag;
         vec3 closestPoint = light_to_frag + centerToRay * saturate(radius * inversesqrt(dot(centerToRay, centerToRay)));
         float LspecLengthInverse = inversesqrt(dot(closestPoint, closestPoint));
         float normalizationFactor = a / saturate(a + (radius * 0.5 * LspecLengthInverse));
         float specularIntensity = normalizationFactor * normalizationFactor;
 
+        // TODO: This normalize() might be redundant!
         vec3 L = normalize(closestPoint * LspecLengthInverse);
         vec3 H = normalize(L + V);
         float NoL = saturate(dot(N, L));
