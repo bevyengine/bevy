@@ -1,7 +1,7 @@
 use crate::Rect;
 use bevy_asset::Handle;
 use bevy_core::Bytes;
-use bevy_math::Vec2;
+use bevy_math::{Vec2, Vec4};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     color::Color,
@@ -33,6 +33,7 @@ pub struct TextureAtlasSprite {
     pub index: u32,
     pub flip_x: bool,
     pub flip_y: bool,
+    pub bounds: Vec4,
 }
 
 impl RenderResource for TextureAtlasSprite {
@@ -50,7 +51,8 @@ impl RenderResource for TextureAtlasSprite {
         self.color.write_bytes(color_buf);
 
         // Write the index buffer
-        let (index_buf, flip_buf) = rest.split_at_mut(4);
+        let (index_buf, rest) = rest.split_at_mut(4);
+        let (flip_buf, bounds_buf) = rest.split_at_mut(4);
         self.index.write_bytes(index_buf);
 
         // First bit means flip x, second bit means flip y
@@ -58,6 +60,8 @@ impl RenderResource for TextureAtlasSprite {
         flip_buf[1] = 0;
         flip_buf[2] = 0;
         flip_buf[3] = 0;
+
+        self.bounds.write_bytes(bounds_buf);
     }
 
     fn texture(&self) -> Option<&Handle<Texture>> {
@@ -72,6 +76,7 @@ impl Default for TextureAtlasSprite {
             color: Color::WHITE,
             flip_x: false,
             flip_y: false,
+            bounds: Default::default(),
         }
     }
 }

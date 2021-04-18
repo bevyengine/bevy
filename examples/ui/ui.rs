@@ -131,6 +131,28 @@ fn setup(
                             ..Default::default()
                         })
                         .with_children(|parent| {
+                            parent.spawn_bundle(TextBundle {
+                                style: Style {
+                                    margin: Rect::all(Val::Px(5.0)),
+                                    position_type: PositionType::Absolute,
+                                    position: Rect {
+                                        left: Val::Px(20.0),
+                                        bottom: Val::Px(-20.0),
+                                        ..Default::default()
+                                    },
+                                    ..Default::default()
+                                },
+                                text: Text::with_section(
+                                    "Text Example",
+                                    TextStyle {
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font_size: 30.0,
+                                        color: Color::WHITE,
+                                    },
+                                    Default::default(),
+                                ),
+                                ..Default::default()
+                            });
                             parent.spawn_bundle(NodeBundle {
                                 style: Style {
                                     size: Size::new(Val::Px(100.0), Val::Px(100.0)),

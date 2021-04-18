@@ -112,6 +112,7 @@ pub fn draw_text2d_system(
                 font_quad_vertex_layout: &font_quad_vertex_layout,
                 scale_factor,
                 sections: &text.sections,
+                bounds: Default::default(),
             };
 
             drawable_text.draw(&mut draw, &mut context).unwrap();

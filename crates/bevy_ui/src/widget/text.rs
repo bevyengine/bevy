@@ -177,6 +177,7 @@ pub fn draw_text_system(
                 text_glyphs: &text_glyphs.glyphs,
                 font_quad_vertex_layout: &vertex_buffer_layout,
                 sections: &text.sections,
+                bounds: node.bounds,
             };
 
             drawable_text.draw(&mut draw, &mut context).unwrap();
