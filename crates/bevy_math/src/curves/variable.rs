@@ -128,8 +128,8 @@ where
                 tangents.push(T::FLAT_TANGENT);
             } else {
                 for i in 0..length {
-                    let p = if i > 0 { i - 1 } else { length - 1 };
-                    let n = if (i + 1) < length { i + 1 } else { 0 };
+                    let p = if i > 0 { i - 1 } else { 0 };
+                    let n = if (i + 1) < length { i + 1 } else { length - 1 };
                     tangents.push(T::auto_tangent(
                         samples[p], samples[i], samples[n], &values[p], &values[i], &values[n],
                     ));
@@ -253,29 +253,69 @@ where
         self.adjust_tangents_with_neighbors(i);
     }
 
-    pub fn set_time(&mut self, index: CurveCursor, time: f32) {
+    pub fn set_time(&mut self, index: CurveCursor, time: f32) -> Option<CurveCursor> {
         let i = index as usize;
-        let j = self
-            .time_stamps
-            .iter()
-            .position(|t| *t < time)
-            .unwrap_or_else(|| self.time_stamps.len() - 1);
+        
+        let mut j = i;
+        let last = self.time_stamps.len() - 1;
+        if self.time_stamps[j] < time {
+            // Forward search
+            loop {
+                if j == last { break; }
 
-        if i != j {
-            let k = j + 1;
-            self.time_stamps[i..k].rotate_left(0);
-            self.keyframes[i..k].rotate_left(0);
-            self.modes[i..k].rotate_left(0);
-            self.tangents_control[i..k].rotate_left(0);
-            self.tangents_in[i..k].rotate_left(0);
-            self.tangents_out[i..k].rotate_left(0);
+                let temp = j + 1;
+                if self.time_stamps[temp] > time {
+                    break;
+                }
 
-            self.adjust_tangents_with_neighbors(j);
+                j = temp;
+            }
         } else {
-            self.time_stamps[i] = time;
+            // Backward search
+            loop {
+                if j == 0 { break; }
+
+                let temp = j - 1;
+                if self.time_stamps[temp] < time {
+                    break;
+                }
+
+                j = temp;
+            }
         }
 
-        self.adjust_tangents_with_neighbors(i);
+        if i < j {
+            // Move forward
+            let k = j + 1;
+            self.time_stamps[i..k].rotate_left(1);
+            self.keyframes[i..k].rotate_left(1);
+            self.modes[i..k].rotate_left(1);
+            self.tangents_control[i..k].rotate_left(1);
+            self.tangents_in[i..k].rotate_left(1);
+            self.tangents_out[i..k].rotate_left(1);
+
+            self.adjust_tangents_with_neighbors(j);
+            self.adjust_tangents_with_neighbors(i);
+        } else if i > j {
+            // Move backward
+            let k = i + 1;
+            self.time_stamps[j..k].rotate_right(1);
+            self.keyframes[j..k].rotate_right(1);
+            self.modes[j..k].rotate_right(1);
+            self.tangents_control[j..k].rotate_right(1);
+            self.tangents_in[j..k].rotate_right(1);
+            self.tangents_out[j..k].rotate_right(1);
+
+            self.adjust_tangents_with_neighbors(j);
+            self.adjust_tangents_with_neighbors(i);
+        } else {
+            // Just update the keyframe time
+            self.time_stamps[i] = time;
+            self.adjust_tangents_with_neighbors(i);
+            return None;
+        }
+
+        return Some(j as CurveCursor);
     }
 
     #[inline]
@@ -584,7 +624,64 @@ impl<'a, T: Interpolate> CurveVariableKeyframeBuilder<'a, T> {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-// TODO: Tests for creating, evaluating and editing the `CurveVariable`
-// }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    // TODO: Tests for creating, evaluating and editing the `CurveVariable`
+
+    #[test]
+    fn set_keyframe_value() {
+        let mut curve =
+            CurveVariable::with_auto_tangents(vec![0.0, 1.0, 2.0], vec![0.0, 1.0, 0.0]).unwrap();
+        curve.set_value(0, 1.0);
+        curve.set_value(1, 0.0);
+        curve.set_value(2, 1.0);
+
+        let ground_truth: Vec<f32> = vec![
+            1.0,
+            0.80658436,
+            0.5144033,
+            0.22222212,
+            0.028806567,
+            0.028806612,
+            0.22222227,
+            0.5144033,
+            0.80658436,
+            1.0,
+        ];
+        let samples = (0..10)
+            .into_iter()
+            .map(|i| curve.sample(2.0 * i as f32 / 9.0))
+            .collect::<Vec<_>>();
+
+        assert_eq!(ground_truth.len(), samples.len());
+        assert!(ground_truth
+            .iter()
+            .zip(samples.iter())
+            .all(|(a, b)| (a - b).abs() < std::f32::EPSILON));
+    }
+
+    #[test]
+    fn set_keyframe_time() {
+        let mut curve =
+            CurveVariable::with_auto_tangents(vec![0.0, 1.0, 2.0, 3.0], vec![1.0, 0.0, 0.0, 0.0])
+                .unwrap();
+
+        // Don't change keyframe
+        assert_eq!(curve.set_time(0, 0.0), None);
+        assert_eq!(curve.set_time(1, 1.0), None);
+        assert_eq!(curve.set_time(2, 2.0), None);
+        assert_eq!(curve.set_time(3, 3.0), None);
+        assert_eq!(curve.set_time(0, 0.5), None);
+
+        // Change keyframe
+        assert_eq!(curve.set_time(0, 1.5), Some(1));
+        assert!((*curve.get_value(1) - 1.0).abs() < std::f32::EPSILON);
+
+        assert_eq!(curve.set_time(1, 2.5), Some(2));
+        assert!((*curve.get_value(2) - 1.0).abs() < std::f32::EPSILON);
+
+        assert_eq!(curve.set_time(2, 0.0), Some(0));
+        assert!((*curve.get_value(0) - 1.0).abs() < std::f32::EPSILON);
+    }
+}

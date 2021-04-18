@@ -61,5 +61,5 @@ where
     T: Copy + Add<Output = T> + Sub<Output = T> + Mul<f32, Output = T> + Div<f32, Output = T>,
 {
     // k'(t) = ½[k(t) - k(t-1)]/δx1 + ½[k(t+1) - k(t)]/δx2
-    ((k1 - k0) / (t1 - t0) + (k2 - k1) / (t2 - t1)) * 0.5
+    ((k1 - k0) / (t1 - t0).max(1e-9) + (k2 - k1) / (t2 - t1).max(1e-9)) * 0.5
 }
