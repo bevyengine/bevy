@@ -164,6 +164,7 @@ fn setup(
         .remove::<MainPass>();
 
     // light
+    // note: currently lights are shared between passes!
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
         ..Default::default()
@@ -182,7 +183,6 @@ fn setup(
     };
     active_cameras.add(FIRST_PASS_CAMERA);
 
-    // do not use main window size / aspect for calculation of projection matrix
     let camera_projection = &mut first_pass_camera.perspective_projection;
     camera_projection.update(size.width as f32, size.height as f32);
     first_pass_camera.camera.projection_matrix = camera_projection.get_projection_matrix();
