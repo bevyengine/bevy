@@ -124,6 +124,7 @@ fn setup(
                         .spawn_bundle(NodeBundle {
                             style: Style {
                                 size: Size::new(Val::Px(100.0), Val::Px(100.0)),
+                                overflow: Overflow::Hidden,
                                 ..Default::default()
                             },
                             material: materials.add(Color::rgb(1.0, 0.0, 0.0).into()),

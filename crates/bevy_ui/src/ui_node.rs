@@ -1,5 +1,5 @@
 use bevy_ecs::reflect::ReflectComponent;
-use bevy_math::{Rect, Size, Vec2};
+use bevy_math::{Rect, Size, Vec2, Vec4};
 use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_render::renderer::RenderResources;
 use serde::{Deserialize, Serialize};
@@ -9,6 +9,7 @@ use std::ops::{Add, AddAssign};
 #[reflect(Component)]
 pub struct Node {
     pub size: Vec2,
+    pub bounds: Vec4,
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
@@ -72,6 +73,7 @@ pub struct Style {
     pub min_size: Size<Val>,
     pub max_size: Size<Val>,
     pub aspect_ratio: Option<f32>,
+    pub overflow: Overflow,
 }
 
 impl Default for Style {
@@ -97,6 +99,7 @@ impl Default for Style {
             min_size: Size::new(Val::Auto, Val::Auto),
             max_size: Size::new(Val::Auto, Val::Auto),
             aspect_ratio: Default::default(),
+            overflow: Default::default(),
         }
     }
 }
@@ -248,6 +251,19 @@ pub enum FlexWrap {
 impl Default for FlexWrap {
     fn default() -> FlexWrap {
         FlexWrap::NoWrap
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
+#[reflect_value(PartialEq, Serialize, Deserialize)]
+pub enum Overflow {
+    Visible,
+    Hidden,
+}
+
+impl Default for Overflow {
+    fn default() -> Overflow {
+        Overflow::Visible
     }
 }
 
