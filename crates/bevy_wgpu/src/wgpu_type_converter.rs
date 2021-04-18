@@ -507,8 +507,8 @@ impl WgpuFrom<&ColorTargetState> for wgpu::ColorTargetState {
             format: val.format.wgpu_into(),
             write_mask: val.write_mask.wgpu_into(),
             blend: Some(wgpu::BlendState {
-                color: (&val.alpha_blend).wgpu_into(),
-                alpha: (&val.color_blend).wgpu_into(),
+                color: (&val.color_blend).wgpu_into(),
+                alpha: (&val.alpha_blend).wgpu_into(),
             }),
         }
     }
