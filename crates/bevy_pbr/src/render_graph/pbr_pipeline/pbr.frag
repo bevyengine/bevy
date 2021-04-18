@@ -361,8 +361,7 @@ void main() {
         float normalizationFactor = a / saturate(a + (radius * 0.5 * LspecLengthInverse));
         float specularIntensity = normalizationFactor * normalizationFactor;
 
-        // TODO: This normalize() might be redundant!
-        vec3 L = normalize(closestPoint * LspecLengthInverse);
+        vec3 L = closestPoint * LspecLengthInverse; // normalize() equivalent?
         vec3 H = normalize(L + V);
         float NoL = saturate(dot(N, L));
         float NoH = saturate(dot(N, H));
