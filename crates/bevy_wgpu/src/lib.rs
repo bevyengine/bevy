@@ -62,6 +62,14 @@ pub struct WgpuLimits {
     pub max_uniform_buffers_per_shader_stage: u32,
     pub max_uniform_buffer_binding_size: u32,
     pub max_push_constant_size: u32,
+    pub max_texture_dimension_1d: u32,
+    pub max_texture_dimension_2d: u32,
+    pub max_texture_dimension_3d: u32,
+    pub max_texture_array_layers: u32,
+    pub max_storage_buffer_binding_size: u32,
+    pub max_vertex_buffers: u32,
+    pub max_vertex_attributes: u32,
+    pub max_vertex_buffer_array_stride: u32,
 }
 
 impl Default for WgpuLimits {
@@ -80,6 +88,14 @@ impl Default for WgpuLimits {
             max_uniform_buffers_per_shader_stage: default.max_uniform_buffers_per_shader_stage,
             max_uniform_buffer_binding_size: default.max_uniform_buffer_binding_size,
             max_push_constant_size: default.max_push_constant_size,
+            max_texture_dimension_1d: default.max_texture_dimension_1d,
+            max_texture_dimension_2d: default.max_texture_dimension_2d,
+            max_texture_dimension_3d: default.max_texture_dimension_3d,
+            max_texture_array_layers: default.max_texture_array_layers,
+            max_storage_buffer_binding_size: default.max_storage_buffer_binding_size,
+            max_vertex_buffers: default.max_vertex_buffers,
+            max_vertex_attributes: default.max_vertex_attributes,
+            max_vertex_buffer_array_stride: default.max_vertex_buffer_array_stride,
         }
     }
 }

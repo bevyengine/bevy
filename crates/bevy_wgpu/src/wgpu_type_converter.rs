@@ -39,36 +39,36 @@ where
 impl WgpuFrom<VertexFormat> for wgpu::VertexFormat {
     fn from(val: VertexFormat) -> Self {
         match val {
-            VertexFormat::Uchar2 => wgpu::VertexFormat::Uchar2,
-            VertexFormat::Uchar4 => wgpu::VertexFormat::Uchar4,
-            VertexFormat::Char2 => wgpu::VertexFormat::Char2,
-            VertexFormat::Char4 => wgpu::VertexFormat::Char4,
-            VertexFormat::Uchar2Norm => wgpu::VertexFormat::Uchar2Norm,
-            VertexFormat::Uchar4Norm => wgpu::VertexFormat::Uchar4Norm,
-            VertexFormat::Char2Norm => wgpu::VertexFormat::Char2Norm,
-            VertexFormat::Char4Norm => wgpu::VertexFormat::Char4Norm,
-            VertexFormat::Ushort2 => wgpu::VertexFormat::Ushort2,
-            VertexFormat::Ushort4 => wgpu::VertexFormat::Ushort4,
-            VertexFormat::Short2 => wgpu::VertexFormat::Short2,
-            VertexFormat::Short4 => wgpu::VertexFormat::Short4,
-            VertexFormat::Ushort2Norm => wgpu::VertexFormat::Ushort2Norm,
-            VertexFormat::Ushort4Norm => wgpu::VertexFormat::Ushort4Norm,
-            VertexFormat::Short2Norm => wgpu::VertexFormat::Short2Norm,
-            VertexFormat::Short4Norm => wgpu::VertexFormat::Short4Norm,
-            VertexFormat::Half2 => wgpu::VertexFormat::Half2,
-            VertexFormat::Half4 => wgpu::VertexFormat::Half4,
-            VertexFormat::Float => wgpu::VertexFormat::Float,
-            VertexFormat::Float2 => wgpu::VertexFormat::Float2,
-            VertexFormat::Float3 => wgpu::VertexFormat::Float3,
-            VertexFormat::Float4 => wgpu::VertexFormat::Float4,
-            VertexFormat::Uint => wgpu::VertexFormat::Uint,
-            VertexFormat::Uint2 => wgpu::VertexFormat::Uint2,
-            VertexFormat::Uint3 => wgpu::VertexFormat::Uint3,
-            VertexFormat::Uint4 => wgpu::VertexFormat::Uint4,
-            VertexFormat::Int => wgpu::VertexFormat::Int,
-            VertexFormat::Int2 => wgpu::VertexFormat::Int2,
-            VertexFormat::Int3 => wgpu::VertexFormat::Int3,
-            VertexFormat::Int4 => wgpu::VertexFormat::Int4,
+            VertexFormat::Uchar2 => wgpu::VertexFormat::Uint8x2,
+            VertexFormat::Uchar4 => wgpu::VertexFormat::Uint8x4,
+            VertexFormat::Char2 => wgpu::VertexFormat::Sint8x2,
+            VertexFormat::Char4 => wgpu::VertexFormat::Sint8x4,
+            VertexFormat::Uchar2Norm => wgpu::VertexFormat::Unorm8x2,
+            VertexFormat::Uchar4Norm => wgpu::VertexFormat::Unorm8x4,
+            VertexFormat::Char2Norm => wgpu::VertexFormat::Snorm8x2,
+            VertexFormat::Char4Norm => wgpu::VertexFormat::Snorm8x4,
+            VertexFormat::Ushort2 => wgpu::VertexFormat::Uint16x2,
+            VertexFormat::Ushort4 => wgpu::VertexFormat::Uint16x4,
+            VertexFormat::Short2 => wgpu::VertexFormat::Sint16x2,
+            VertexFormat::Short4 => wgpu::VertexFormat::Sint16x4,
+            VertexFormat::Ushort2Norm => wgpu::VertexFormat::Unorm16x2,
+            VertexFormat::Ushort4Norm => wgpu::VertexFormat::Unorm16x4,
+            VertexFormat::Short2Norm => wgpu::VertexFormat::Snorm16x2,
+            VertexFormat::Short4Norm => wgpu::VertexFormat::Snorm16x4,
+            VertexFormat::Half2 => wgpu::VertexFormat::Float16x2,
+            VertexFormat::Half4 => wgpu::VertexFormat::Float16x4,
+            VertexFormat::Float => wgpu::VertexFormat::Float32,
+            VertexFormat::Float2 => wgpu::VertexFormat::Float32x2,
+            VertexFormat::Float3 => wgpu::VertexFormat::Float32x3,
+            VertexFormat::Float4 => wgpu::VertexFormat::Float32x4,
+            VertexFormat::Uint => wgpu::VertexFormat::Uint32,
+            VertexFormat::Uint2 => wgpu::VertexFormat::Uint32x2,
+            VertexFormat::Uint3 => wgpu::VertexFormat::Uint32x3,
+            VertexFormat::Uint4 => wgpu::VertexFormat::Uint32x4,
+            VertexFormat::Int => wgpu::VertexFormat::Sint32,
+            VertexFormat::Int2 => wgpu::VertexFormat::Sint32x2,
+            VertexFormat::Int3 => wgpu::VertexFormat::Sint32x3,
+            VertexFormat::Int4 => wgpu::VertexFormat::Sint32x4,
         }
     }
 }
@@ -257,9 +257,9 @@ impl WgpuFrom<StorageTextureAccess> for wgpu::StorageTextureAccess {
 impl WgpuFrom<Extent3d> for wgpu::Extent3d {
     fn from(val: Extent3d) -> Self {
         wgpu::Extent3d {
-            depth: val.depth,
             height: val.height,
             width: val.width,
+            depth_or_array_layers: val.depth,
         }
     }
 }
@@ -371,7 +371,6 @@ impl WgpuFrom<DepthStencilState> for wgpu::DepthStencilState {
             format: val.format.wgpu_into(),
             stencil: (&val.stencil).wgpu_into(),
             bias: val.bias.wgpu_into(),
-            clamp_depth: val.clamp_depth,
         }
     }
 }
@@ -472,12 +471,12 @@ impl WgpuFrom<FrontFace> for wgpu::FrontFace {
     }
 }
 
-impl WgpuFrom<CullMode> for wgpu::CullMode {
+impl WgpuFrom<CullMode> for Option<wgpu::Face> {
     fn from(val: CullMode) -> Self {
         match val {
-            CullMode::None => wgpu::CullMode::None,
-            CullMode::Front => wgpu::CullMode::Front,
-            CullMode::Back => wgpu::CullMode::Back,
+            CullMode::None => None,
+            CullMode::Front => Some(wgpu::Face::Front),
+            CullMode::Back => Some(wgpu::Face::Back),
         }
     }
 }
@@ -506,9 +505,11 @@ impl WgpuFrom<&ColorTargetState> for wgpu::ColorTargetState {
     fn from(val: &ColorTargetState) -> Self {
         wgpu::ColorTargetState {
             format: val.format.wgpu_into(),
-            alpha_blend: (&val.alpha_blend).wgpu_into(),
-            color_blend: (&val.color_blend).wgpu_into(),
             write_mask: val.write_mask.wgpu_into(),
+            blend: Some(wgpu::BlendState {
+                color: (&val.alpha_blend).wgpu_into(),
+                alpha: (&val.color_blend).wgpu_into(),
+            }),
         }
     }
 }
@@ -523,6 +524,8 @@ impl WgpuFrom<PrimitiveState> for wgpu::PrimitiveState {
             front_face: val.front_face.wgpu_into(),
             cull_mode: val.cull_mode.wgpu_into(),
             polygon_mode: val.polygon_mode.wgpu_into(),
+            clamp_depth: false,
+            conservative: false,
         }
     }
 }
@@ -536,6 +539,23 @@ impl WgpuFrom<ColorWrite> for wgpu::ColorWrite {
 impl WgpuFrom<&BlendState> for wgpu::BlendState {
     fn from(val: &BlendState) -> Self {
         wgpu::BlendState {
+            color: wgpu::BlendComponent {
+                src_factor: val.src_factor.wgpu_into(),
+                dst_factor: val.dst_factor.wgpu_into(),
+                operation: val.operation.wgpu_into(),
+            },
+            alpha: wgpu::BlendComponent {
+                src_factor: val.src_factor.wgpu_into(),
+                dst_factor: val.dst_factor.wgpu_into(),
+                operation: val.operation.wgpu_into(),
+            },
+        }
+    }
+}
+
+impl WgpuFrom<&BlendState> for wgpu::BlendComponent {
+    fn from(val: &BlendState) -> Self {
+        wgpu::BlendComponent {
             src_factor: val.src_factor.wgpu_into(),
             dst_factor: val.dst_factor.wgpu_into(),
             operation: val.operation.wgpu_into(),
@@ -548,17 +568,17 @@ impl WgpuFrom<BlendFactor> for wgpu::BlendFactor {
         match val {
             BlendFactor::Zero => wgpu::BlendFactor::Zero,
             BlendFactor::One => wgpu::BlendFactor::One,
-            BlendFactor::SrcColor => wgpu::BlendFactor::SrcColor,
-            BlendFactor::OneMinusSrcColor => wgpu::BlendFactor::OneMinusSrcColor,
+            BlendFactor::SrcColor => wgpu::BlendFactor::Src,
+            BlendFactor::OneMinusSrcColor => wgpu::BlendFactor::OneMinusSrc,
             BlendFactor::SrcAlpha => wgpu::BlendFactor::SrcAlpha,
             BlendFactor::OneMinusSrcAlpha => wgpu::BlendFactor::OneMinusSrcAlpha,
-            BlendFactor::DstColor => wgpu::BlendFactor::DstColor,
-            BlendFactor::OneMinusDstColor => wgpu::BlendFactor::OneMinusDstColor,
+            BlendFactor::DstColor => wgpu::BlendFactor::Dst,
+            BlendFactor::OneMinusDstColor => wgpu::BlendFactor::OneMinusDst,
             BlendFactor::DstAlpha => wgpu::BlendFactor::DstAlpha,
             BlendFactor::OneMinusDstAlpha => wgpu::BlendFactor::OneMinusDstAlpha,
             BlendFactor::SrcAlphaSaturated => wgpu::BlendFactor::SrcAlphaSaturated,
-            BlendFactor::BlendColor => wgpu::BlendFactor::BlendColor,
-            BlendFactor::OneMinusBlendColor => wgpu::BlendFactor::OneMinusBlendColor,
+            BlendFactor::BlendColor => wgpu::BlendFactor::Constant,
+            BlendFactor::OneMinusBlendColor => wgpu::BlendFactor::OneMinusConstant,
         }
     }
 }
@@ -710,6 +730,14 @@ impl WgpuFrom<WgpuLimits> for wgpu::Limits {
             max_uniform_buffers_per_shader_stage: val.max_uniform_buffers_per_shader_stage,
             max_uniform_buffer_binding_size: val.max_uniform_buffer_binding_size,
             max_push_constant_size: val.max_push_constant_size,
+            max_texture_dimension_1d: val.max_texture_dimension_1d,
+            max_texture_dimension_2d: val.max_texture_dimension_2d,
+            max_texture_dimension_3d: val.max_texture_dimension_3d,
+            max_texture_array_layers: val.max_texture_array_layers,
+            max_storage_buffer_binding_size: val.max_storage_buffer_binding_size,
+            max_vertex_buffers: val.max_vertex_buffers,
+            max_vertex_attributes: val.max_vertex_attributes,
+            max_vertex_buffer_array_stride: val.max_vertex_buffer_array_stride,
         }
     }
 }

@@ -214,7 +214,7 @@ pub fn create_render_pass<'a, 'b>(
             .map(|c| {
                 create_wgpu_color_attachment_descriptor(global_render_resource_bindings, refs, c)
             })
-            .collect::<Vec<wgpu::RenderPassColorAttachmentDescriptor>>(),
+            .collect::<Vec<wgpu::RenderPassColorAttachment>>(),
         depth_stencil_attachment: pass_descriptor.depth_stencil_attachment.as_ref().map(|d| {
             create_wgpu_depth_stencil_attachment_descriptor(
                 global_render_resource_bindings,
@@ -246,8 +246,8 @@ fn create_wgpu_color_attachment_descriptor<'a>(
     global_render_resource_bindings: &RenderResourceBindings,
     refs: &WgpuResourceRefs<'a>,
     color_attachment_descriptor: &RenderPassColorAttachmentDescriptor,
-) -> wgpu::RenderPassColorAttachmentDescriptor<'a> {
-    let attachment = get_texture_view(
+) -> wgpu::RenderPassColorAttachment<'a> {
+    let view = get_texture_view(
         global_render_resource_bindings,
         refs,
         &color_attachment_descriptor.attachment,
@@ -258,9 +258,9 @@ fn create_wgpu_color_attachment_descriptor<'a>(
         .as_ref()
         .map(|target| get_texture_view(global_render_resource_bindings, refs, &target));
 
-    wgpu::RenderPassColorAttachmentDescriptor {
+    wgpu::RenderPassColorAttachment {
         ops: (&color_attachment_descriptor.ops).wgpu_into(),
-        attachment,
+        view,
         resolve_target,
     }
 }
@@ -269,15 +269,15 @@ fn create_wgpu_depth_stencil_attachment_descriptor<'a>(
     global_render_resource_bindings: &RenderResourceBindings,
     refs: &WgpuResourceRefs<'a>,
     depth_stencil_attachment_descriptor: &RenderPassDepthStencilAttachmentDescriptor,
-) -> wgpu::RenderPassDepthStencilAttachmentDescriptor<'a> {
-    let attachment = get_texture_view(
+) -> wgpu::RenderPassDepthStencilAttachment<'a> {
+    let view = get_texture_view(
         global_render_resource_bindings,
         refs,
         &depth_stencil_attachment_descriptor.attachment,
     );
 
-    wgpu::RenderPassDepthStencilAttachmentDescriptor {
-        attachment,
+    wgpu::RenderPassDepthStencilAttachment {
+        view,
         depth_ops: depth_stencil_attachment_descriptor
             .depth_ops
             .as_ref()
