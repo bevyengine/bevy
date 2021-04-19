@@ -456,19 +456,13 @@ impl World {
     /// let a = world.spawn().insert_bundle((2, 4.0)).id();
     /// let b = world.spawn().insert_bundle((3, 5.0)).id();
     /// let c = world.spawn().insert_bundle((1, 6.0)).id();
-    /// let mut entities = world.query::<(Entity, &i32, &f32)>()
+    /// let mut entities = world.query::<(Entity, &i32, &f64)>()
     ///     .iter(&world)
     ///     .collect::<Vec<_>>();
-    /// // Sort by `i32` component
-    /// entities.sort_by(|x, y| x.1.cmp(&y.1));
-    /// for (index, entity) in entities.iter().enumerate() {
-    ///     match index {
-    ///         0 => assert_eq!(entity, &(c, &1, &6.0)),
-    ///         1 => assert_eq!(entity, &(a, &2, &4.0)),
-    ///         2 => assert_eq!(entity, &(b, &3, &5.0)),
-    ///         _ => panic!("not expected"),
-    ///     }
-    /// }
+    /// // Sort the query results by their `i32` component before comparing
+    /// // to expected results. Query iteration order should not be relied on.
+    /// entities.sort_by_key(|e| e.1);
+    /// assert_eq!(entities, vec![(c, &1, &6.0), (a, &2, &4.0), (b, &3, &5.0)]);
     /// ```
     #[inline]
     pub fn query<Q: WorldQuery>(&mut self) -> QueryState<Q, ()> {
