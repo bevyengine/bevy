@@ -38,6 +38,7 @@ pub struct UiPlugin;
 pub enum UiSystem {
     /// After this label, the ui flex state has been updated
     Flex,
+    Focus,
 }
 
 impl Plugin for UiPlugin {
@@ -60,7 +61,10 @@ impl Plugin for UiPlugin {
             .register_type::<Val>()
             .add_system_to_stage(
                 CoreStage::PreUpdate,
-                ui_focus_system.system().after(InputSystem),
+                ui_focus_system
+                    .system()
+                    .label(UiSystem::Focus)
+                    .after(InputSystem),
             )
             // add these stages to front because these must run before transform update systems
             .add_system_to_stage(
