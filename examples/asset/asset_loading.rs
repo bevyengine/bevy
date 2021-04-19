@@ -19,7 +19,8 @@ fn setup(
     // For example, the next line will load "ROOT/assets/models/cube/cube.gltf#Mesh0/Primitive0",
     // where "ROOT" is the directory of the Application.
     //
-    // This can be overridden by setting the "CARGO_MANIFEST_DIR" environment variable (see https://doc.rust-lang.org/cargo/reference/environment-variables.html)
+    // This can be overridden by setting the "CARGO_MANIFEST_DIR" environment variable (see
+    // https://doc.rust-lang.org/cargo/reference/environment-variables.html)
     // to another directory. When the Application is run through Cargo, "CARGO_MANIFEST_DIR" is
     // automatically set to your crate (workspace) root directory.
     let cube_handle = asset_server.load("models/cube/cube.gltf#Mesh0/Primitive0");
