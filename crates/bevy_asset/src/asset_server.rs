@@ -217,9 +217,9 @@ impl AssetServer {
     /// The absolute Path to the asset is "ROOT/ASSET_FOLDER_NAME/path".
     ///
     /// By default the ROOT is the directory of the Application, but this can be overridden by
-    /// setting the `"CARGO_MANIFEST_DIR"` environment variable to another directory.
-    /// When you run your application through Cargo, then `"CARGO_MANIFEST_DIR"` is automatically
-    /// set to the root folder of your crate.
+    /// setting the `"CARGO_MANIFEST_DIR"` environment variable (see https://doc.rust-lang.org/cargo/reference/environment-variables.html)
+    /// to another directory. When the application  is run through Cargo, then
+    /// `"CARGO_MANIFEST_DIR"` is automatically set to the root folder of your crate (workspace).
     ///
     /// The name of the asset folder is set inside the
     /// [`AssetServerSettings`](crate::AssetServerSettings) resource. The default name is
