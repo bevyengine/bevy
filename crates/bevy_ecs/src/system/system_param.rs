@@ -167,7 +167,7 @@ impl_query_set!();
 /// Panics when used as a [`SystemParameter`](SystemParam) if the resource does not exist.
 ///
 /// Use `Option<Res<T>>` instead if the resource might not always exist.
-pub struct Res<'w, T> {
+pub struct Res<'w, T: Component> {
     value: &'w T,
     ticks: &'w ComponentTicks,
     last_change_tick: u32,
@@ -311,7 +311,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for OptionResState<T> {
 /// Panics when used as a [`SystemParameter`](SystemParam) if the resource does not exist.
 ///
 /// Use `Option<ResMut<T>>` instead if the resource might not always exist.
-pub struct ResMut<'w, T> {
+pub struct ResMut<'w, T: Component> {
     value: &'w mut T,
     ticks: &'w mut ComponentTicks,
     last_change_tick: u32,
