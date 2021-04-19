@@ -14,7 +14,7 @@ pub mod wireframe;
 
 use bevy_ecs::{
     schedule::{ParallelSystemDescriptorCoercion, SystemStage},
-    system::{IntoExclusiveSystem, IntoSystem},
+    system::{IntoExclusiveSystem, IntoSystem, Res},
 };
 use bevy_transform::TransformSystem;
 use draw::{OutsideFrustum, Visible};
@@ -52,7 +52,7 @@ use render_graph::{
     base::{self, BaseRenderGraphConfig, MainPass},
     RenderGraph,
 };
-use renderer::{AssetRenderResourceBindings, RenderResourceBindings};
+use renderer::{AssetRenderResourceBindings, RenderResourceBindings, RenderResourceContext};
 use shader::ShaderLoader;
 #[cfg(feature = "hdr")]
 use texture::HdrTextureLoader;
@@ -160,6 +160,10 @@ impl Plugin for RenderPlugin {
         .init_resource::<RenderResourceBindings>()
         .init_resource::<AssetRenderResourceBindings>()
         .init_resource::<ActiveCameras>()
+        .add_startup_system_to_stage(
+            StartupStage::PreStartup,
+            check_for_render_resource_context.system(),
+        )
         .add_system_to_stage(CoreStage::PreUpdate, draw::clear_draw_system.system())
         .add_system_to_stage(
             CoreStage::PostUpdate,
@@ -220,5 +224,13 @@ impl Plugin for RenderPlugin {
                 active_cameras.add(base::camera::CAMERA_2D);
             }
         }
+    }
+}
+
+fn check_for_render_resource_context(context: Option<Res<Box<dyn RenderResourceContext>>>) {
+    if context.is_none() {
+        panic!(
+            "bevy_render couldn't find a render backend. Perhaps try adding the bevy_wgpu plugin!"
+        )
     }
 }
