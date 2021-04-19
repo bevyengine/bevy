@@ -444,6 +444,26 @@ impl World {
     /// assert_eq!(world.get::<Position>(entities[0]).unwrap(), &Position { x: 1.0, y: 0.0 });
     /// assert_eq!(world.get::<Position>(entities[1]).unwrap(), &Position { x: 0.0, y: 1.0 });
     /// ```
+    ///
+    /// To iterate over entities in a deterministic order,
+    /// sort the results of the query using the desired component as a key.
+    /// Note that this requires fetching the whole result set from the query
+    /// and allocation of a [Vec] to store it.
+    ///
+    /// ```
+    /// use bevy_ecs::{entity::Entity, world::World};
+    /// let mut world = World::new();
+    /// let a = world.spawn().insert_bundle((2, 4.0)).id();
+    /// let b = world.spawn().insert_bundle((3, 5.0)).id();
+    /// let c = world.spawn().insert_bundle((1, 6.0)).id();
+    /// let mut entities = world.query::<(Entity, &i32, &f64)>()
+    ///     .iter(&world)
+    ///     .collect::<Vec<_>>();
+    /// // Sort the query results by their `i32` component before comparing
+    /// // to expected results. Query iteration order should not be relied on.
+    /// entities.sort_by_key(|e| e.1);
+    /// assert_eq!(entities, vec![(c, &1, &6.0), (a, &2, &4.0), (b, &3, &5.0)]);
+    /// ```
     #[inline]
     pub fn query<Q: WorldQuery>(&mut self) -> QueryState<Q, ()> {
         QueryState::new(self)
