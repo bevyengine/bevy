@@ -37,9 +37,9 @@
 const int MAX_LIGHTS = 10;
 
 struct PointLight {
-    vec4 pos;
-    vec4 color;
+    vec3 pos;
     float inverseRangeSquared;
+    vec3 color;
 };
 
 layout(location = 0) in vec3 v_WorldPosition;
@@ -59,9 +59,9 @@ layout(std140, set = 0, binding = 1) uniform CameraPosition {
     vec4 CameraPos;
 };
 
-layout(std140, set = 1, binding = 0) uniform Lights {
-    vec4 AmbientColor;
-    uvec4 NumLights;
+layout(std140, set = 1, binding = 0, std140) uniform Lights {
+    vec3 AmbientColor;
+    int NumLights;
     PointLight PointLights[MAX_LIGHTS];
 };
 
@@ -341,7 +341,7 @@ void main() {
 
     // accumulate color
     vec3 light_accum = vec3(0.0);
-    for (int i = 0; i < int(NumLights.x) && i < MAX_LIGHTS; ++i) {
+    for (int i = 0; i < NumLights && i < MAX_LIGHTS; ++i) {
         PointLight light = PointLights[i];
 
         vec3 light_to_frag = light.pos.xyz - v_WorldPosition.xyz;

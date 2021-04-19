@@ -2,7 +2,7 @@ use crate::{
     light::{AmbientLight, PointLight, PointLightUniform},
     render_graph::uniform,
 };
-use bevy_core::{AsBytes, Byteable};
+use arrayvec::ArrayVec;
 use bevy_ecs::{
     system::{BoxedSystem, IntoSystem, Local, Query, Res, ResMut},
     world::World,
@@ -15,6 +15,9 @@ use bevy_render::{
     },
 };
 use bevy_transform::prelude::*;
+use crevice::std140::{self, AsStd140, StaticStd140Size, Std140, WriteStd140};
+
+use super::MAX_POINT_LIGHTS;
 
 /// A Render Graph [Node] that write light data from the ECS to GPU buffers
 #[derive(Debug, Default)]
@@ -44,14 +47,6 @@ impl Node for LightsNode {
     }
 }
 
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
-struct LightCount {
-    pub num_lights: [u32; 4],
-}
-
-unsafe impl Byteable for LightCount {}
-
 impl SystemNode for LightsNode {
     fn get_system(&self) -> BoxedSystem {
         let system = lights_node_system.system().config(|config| {
@@ -63,6 +58,45 @@ impl SystemNode for LightsNode {
             })
         });
         Box::new(system)
+    }
+}
+
+struct LightsUniform<'a> {
+    ambient_light: &'a AmbientLight,
+    point_light_count: u32,
+    point_lights: ArrayVec<PointLightUniform, MAX_POINT_LIGHTS>,
+}
+
+impl<'a> WriteStd140 for LightsUniform<'a> {
+    fn write_std140<W: std::io::Write>(
+        &self,
+        writer: &mut std140::Writer<W>,
+    ) -> std::io::Result<usize> {
+        let offset = writer.write(self.ambient_light)?;
+        writer.write(&self.point_light_count)?;
+        writer.write(self.point_lights.as_slice())?;
+        Ok(offset)
+    }
+}
+
+impl<'a> StaticStd140Size for LightsUniform<'a> {
+    fn std140_size_static() -> usize {
+        let mut offset = 0;
+        offset += crevice::internal::align_offset(
+            offset,
+            <AmbientLight as AsStd140>::Std140Type::ALIGNMENT,
+        ) + std::mem::size_of::<<AmbientLight as AsStd140>::Std140Type>();
+        dbg!(&offset);
+        offset += crevice::internal::align_offset(offset, <u32 as AsStd140>::Std140Type::ALIGNMENT)
+            + std::mem::size_of::<<u32 as AsStd140>::Std140Type>();
+        dbg!(&offset);
+        offset += MAX_POINT_LIGHTS
+            * (crevice::internal::align_offset(
+                offset,
+                <PointLightUniform as AsStd140>::Std140Type::ALIGNMENT,
+            ) + std::mem::size_of::<<PointLightUniform as AsStd140>::Std140Type>());
+        dbg!(&offset);
+        offset
     }
 }
 
@@ -87,17 +121,16 @@ pub fn lights_node_system(
     let state = &mut state;
     let render_resource_context = &**render_resource_context;
 
-    // premultiply ambient brightness
-    let ambient_light: [f32; 4] =
-        (ambient_light_resource.color * ambient_light_resource.brightness).into();
-    let ambient_light_size = std::mem::size_of::<[f32; 4]>();
-    let point_light_count = query.iter().count();
-    let size = std::mem::size_of::<PointLightUniform>();
-    let light_count_size = ambient_light_size + std::mem::size_of::<LightCount>();
-    let point_light_array_size = size * point_light_count;
-    let point_light_array_max_size = size * state.max_point_lights;
-    let current_point_light_uniform_size = light_count_size + point_light_array_size;
-    let max_light_uniform_size = light_count_size + point_light_array_max_size;
+    let point_light_count = query.iter().count() as u32;
+    let lights_uniform = LightsUniform {
+        ambient_light: &ambient_light_resource,
+        point_light_count,
+        point_lights: query
+            .iter()
+            .map(PointLightUniform::from_tuple)
+            .take(MAX_POINT_LIGHTS)
+            .collect(),
+    };
 
     if let Some(staging_buffer) = state.staging_buffer {
         if point_light_count == 0 {
@@ -107,7 +140,7 @@ pub fn lights_node_system(
         render_resource_context.map_buffer(staging_buffer, BufferMapMode::Write);
     } else {
         let buffer = render_resource_context.create_buffer(BufferInfo {
-            size: max_light_uniform_size,
+            size: LightsUniform::std140_size_static(),
             buffer_usage: BufferUsage::UNIFORM | BufferUsage::COPY_SRC | BufferUsage::COPY_DST,
             ..Default::default()
         });
@@ -115,14 +148,14 @@ pub fn lights_node_system(
             uniform::LIGHTS,
             RenderResourceBinding::Buffer {
                 buffer,
-                range: 0..max_light_uniform_size as u64,
+                range: 0..LightsUniform::std140_size_static() as u64,
                 dynamic_index: None,
             },
         );
         state.light_buffer = Some(buffer);
 
         let staging_buffer = render_resource_context.create_buffer(BufferInfo {
-            size: max_light_uniform_size,
+            size: LightsUniform::std140_size_static(),
             buffer_usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
             mapped_at_creation: true,
         });
@@ -132,23 +165,13 @@ pub fn lights_node_system(
     let staging_buffer = state.staging_buffer.unwrap();
     render_resource_context.write_mapped_buffer(
         staging_buffer,
-        0..current_point_light_uniform_size as u64,
+        0..lights_uniform.std140_size() as u64,
         &mut |data, _renderer| {
-            // ambient light
-            data[0..ambient_light_size].copy_from_slice(ambient_light.as_bytes());
+            let mut writer = std140::Writer::new(data);
 
-            // light count
-            data[ambient_light_size..light_count_size]
-                .copy_from_slice([point_light_count as u32, 0, 0, 0].as_bytes());
-
-            // light array
-            for ((point_light, global_transform), slot) in query.iter().zip(
-                data[light_count_size..current_point_light_uniform_size].chunks_exact_mut(size),
-            ) {
-                slot.copy_from_slice(
-                    PointLightUniform::from(&point_light, &global_transform).as_bytes(),
-                );
-            }
+            writer
+                .write(&lights_uniform)
+                .expect("Failed to write lights uniform");
         },
     );
     render_resource_context.unmap_buffer(staging_buffer);
@@ -158,6 +181,6 @@ pub fn lights_node_system(
         0,
         light_buffer,
         0,
-        max_light_uniform_size as u64,
+        lights_uniform.std140_size() as u64,
     );
 }
