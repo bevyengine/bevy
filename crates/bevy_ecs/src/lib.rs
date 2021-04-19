@@ -249,8 +249,31 @@ mod tests {
     }
 
     #[test]
-    fn par_for_each() {
+    fn par_for_each_dense() {
         let mut world = World::new();
+        let task_pool = TaskPool::default();
+        let e1 = world.spawn().insert(1).id();
+        let e2 = world.spawn().insert(2).id();
+        let e3 = world.spawn().insert(3).id();
+        let e4 = world.spawn().insert_bundle((4, true)).id();
+        let e5 = world.spawn().insert_bundle((5, true)).id();
+        let results = Arc::new(Mutex::new(Vec::new()));
+        world
+            .query::<(Entity, &i32)>()
+            .par_for_each(&world, &task_pool, 2, |(e, &i)| results.lock().push((e, i)));
+        results.lock().sort();
+        assert_eq!(
+            &*results.lock(),
+            &[(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)]
+        );
+    }
+
+    #[test]
+    fn par_for_each_sparse() {
+        let mut world = World::new();
+        world
+            .register_component(ComponentDescriptor::new::<i32>(StorageType::SparseSet))
+            .unwrap();
         let task_pool = TaskPool::default();
         let e1 = world.spawn().insert(1).id();
         let e2 = world.spawn().insert(2).id();
