@@ -11,11 +11,14 @@ use bevy_utils::Duration;
 /// use std::time::Duration;
 /// let mut stopwatch = Stopwatch::new();
 /// assert_eq!(stopwatch.elapsed_secs(), 0.0);
+///
 /// stopwatch.tick(Duration::from_secs_f32(1.0)); // tick one second
 /// assert_eq!(stopwatch.elapsed_secs(), 1.0);
+///
 /// stopwatch.pause();
 /// stopwatch.tick(Duration::from_secs_f32(1.0)); // paused stopwatches don't tick
 /// assert_eq!(stopwatch.elapsed_secs(), 1.0);
+///
 /// stopwatch.reset(); // reset the stopwatch
 /// assert!(stopwatch.paused());
 /// assert_eq!(stopwatch.elapsed_secs(), 0.0);

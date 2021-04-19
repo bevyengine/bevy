@@ -80,7 +80,8 @@ impl List for DynamicList {
     }
 }
 
-impl Reflect for DynamicList {
+// SAFE: any and any_mut both return self
+unsafe impl Reflect for DynamicList {
     #[inline]
     fn type_name(&self) -> &str {
         self.name.as_str()
@@ -148,7 +149,14 @@ impl<'a> Iterator for ListIter<'a> {
         self.index += 1;
         value
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let size = self.list.len();
+        (size, Some(size))
+    }
 }
+
+impl<'a> ExactSizeIterator for ListIter<'a> {}
 
 #[inline]
 pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {

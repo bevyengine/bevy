@@ -17,7 +17,7 @@ pub struct PlayerCount(usize);
 ///
 /// In this example, it includes a query and a mutable resource.
 #[derive(SystemParam)]
-pub struct PlayerCounter<'a> {
+struct PlayerCounter<'a> {
     players: Query<'a, &'static Player>,
     count: ResMut<'a, PlayerCount>,
 }
@@ -30,9 +30,9 @@ impl<'a> PlayerCounter<'a> {
 
 /// Spawn some players to count
 fn spawn(mut commands: Commands) {
-    commands.spawn((Player,));
-    commands.spawn((Player,));
-    commands.spawn((Player,));
+    commands.spawn().insert(Player);
+    commands.spawn().insert(Player);
+    commands.spawn().insert(Player);
 }
 
 /// The SystemParam can be used directly in a system argument.

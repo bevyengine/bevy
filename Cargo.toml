@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2018"
 authors = [
   "Bevy Contributors <bevyengine@gmail.com>",
@@ -75,9 +75,15 @@ x11 = ["bevy_internal/x11"]
 # enable rendering of font glyphs using subpixel accuracy
 subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
 
+# enable systems that allow for automated testing on CI
+bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
+
 [dependencies]
-bevy_dylib = {path = "crates/bevy_dylib", version = "0.4.0", default-features = false, optional = true}
-bevy_internal = {path = "crates/bevy_internal", version = "0.4.0", default-features = false}
+bevy_dylib = {path = "crates/bevy_dylib", version = "0.5.0", default-features = false, optional = true}
+bevy_internal = {path = "crates/bevy_internal", version = "0.5.0", default-features = false}
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+syn = "=1.0.65"
 
 [dev-dependencies]
 anyhow = "1.0"
@@ -93,6 +99,14 @@ path = "examples/hello_world.rs"
 [[example]]
 name = "contributors"
 path = "examples/2d/contributors.rs"
+
+[[example]]
+name = "mesh"
+path = "examples/2d/mesh.rs"
+
+[[example]]
+name = "many_sprites"
+path = "examples/2d/many_sprites.rs"
 
 [[example]]
 name = "sprite"
@@ -134,6 +148,14 @@ path = "examples/3d/orthographic.rs"
 [[example]]
 name = "parenting"
 path = "examples/3d/parenting.rs"
+
+[[example]]
+name = "pbr"
+path = "examples/3d/pbr.rs"
+
+[[example]]
+name = "render_to_texture"
+path = "examples/3d/render_to_texture.rs"
 
 [[example]]
 name = "spawner"
@@ -303,6 +325,10 @@ name = "keyboard_input"
 path = "examples/input/keyboard_input.rs"
 
 [[example]]
+name = "keyboard_modifiers"
+path = "examples/input/keyboard_modifiers.rs"
+
+[[example]]
 name = "keyboard_input_events"
 path = "examples/input/keyboard_input_events.rs"
 
@@ -345,6 +371,10 @@ name = "scene"
 path = "examples/scene/scene.rs"
 
 # Shaders
+[[example]]
+name = "animate_shader"
+path = "examples/shader/animate_shader.rs"
+
 [[example]]
 name = "array_texture"
 path = "examples/shader/array_texture.rs"

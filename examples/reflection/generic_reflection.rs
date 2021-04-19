@@ -1,7 +1,5 @@
+use bevy::{prelude::*, reflect::TypeRegistry};
 use std::any::TypeId;
-
-pub use bevy::prelude::*;
-use bevy::reflect::TypeRegistry;
 
 /// You must manually register each instance of a generic type
 fn main() {

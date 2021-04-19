@@ -39,8 +39,8 @@ pub enum AssetStage {
     AssetEvents,
 }
 
-/// Adds support for Assets to an App. Assets are typed collections with change tracking, which are added as App Resources.
-/// Examples of assets: textures, sounds, 3d models, maps, scenes
+/// Adds support for Assets to an App. Assets are typed collections with change tracking, which are
+/// added as App Resources. Examples of assets: textures, sounds, 3d models, maps, scenes
 #[derive(Default)]
 pub struct AssetPlugin;
 

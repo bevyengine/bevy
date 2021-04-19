@@ -26,9 +26,24 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> QueryIter<'w, 's, Q, F>
 where
     F::Fetch: FilterFetch,
 {
-    pub(crate) unsafe fn new(world: &'w World, query_state: &'s QueryState<Q, F>) -> Self {
-        let fetch = <Q::Fetch as Fetch>::init(world, &query_state.fetch_state);
-        let filter = <F::Fetch as Fetch>::init(world, &query_state.filter_state);
+    pub(crate) unsafe fn new(
+        world: &'w World,
+        query_state: &'s QueryState<Q, F>,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> Self {
+        let fetch = <Q::Fetch as Fetch>::init(
+            world,
+            &query_state.fetch_state,
+            last_change_tick,
+            change_tick,
+        );
+        let filter = <F::Fetch as Fetch>::init(
+            world,
+            &query_state.filter_state,
+            last_change_tick,
+            change_tick,
+        );
         QueryIter {
             is_dense: fetch.is_dense() && filter.is_dense(),
             world,
@@ -58,7 +73,7 @@ where
                 loop {
                     if self.current_index == self.current_len {
                         let table_id = self.table_id_iter.next()?;
-                        let table = self.tables.get_unchecked(*table_id);
+                        let table = &self.tables[*table_id];
                         self.fetch.set_table(&self.query_state.fetch_state, table);
                         self.filter.set_table(&self.query_state.filter_state, table);
                         self.current_len = table.len();
@@ -80,7 +95,7 @@ where
                 loop {
                     if self.current_index == self.current_len {
                         let archetype_id = self.archetype_id_iter.next()?;
-                        let archetype = self.archetypes.get_unchecked(*archetype_id);
+                        let archetype = &self.archetypes[*archetype_id];
                         self.fetch.set_archetype(
                             &self.query_state.fetch_state,
                             archetype,
@@ -108,6 +123,20 @@ where
             }
         }
     }
+
+    // NOTE: For unfiltered Queries this should actually return a exact size hint,
+    // to fulfil the ExactSizeIterator invariant, but this isn't practical without specialization.
+    // For more information see Issue #1686.
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let max_size = self
+            .query_state
+            .matched_archetypes
+            .ones()
+            .map(|index| self.world.archetypes[ArchetypeId::new(index)].len())
+            .sum();
+
+        (0, Some(max_size))
+    }
 }
 
 // NOTE: We can cheaply implement this for unfiltered Queries because we have:
@@ -120,12 +149,7 @@ impl<'w, 's, Q: WorldQuery> ExactSizeIterator for QueryIter<'w, 's, Q, ()> {
         self.query_state
             .matched_archetypes
             .ones()
-            .map(|index| {
-                // SAFE: matched archetypes always exist
-                let archetype =
-                    unsafe { self.world.archetypes.get_unchecked(ArchetypeId::new(index)) };
-                archetype.len()
-            })
+            .map(|index| self.world.archetypes[ArchetypeId::new(index)].len())
             .sum()
     }
 }

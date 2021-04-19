@@ -30,18 +30,20 @@ pub struct B;
 pub struct C(usize);
 
 /// Reflect has "built in" support for some common traits like `PartialEq`, `Hash`, and `Serialize`.
-/// These are exposed via methods like `Reflect::hash()`, `Reflect::partial_eq()`, and `Reflect::serialize()`.
-/// You can force these implementations to use the actual trait implementations (instead of their defaults) like this:
+/// These are exposed via methods like `Reflect::hash()`, `Reflect::partial_eq()`, and
+/// `Reflect::serialize()`. You can force these implementations to use the actual trait
+/// implementations (instead of their defaults) like this:
 #[derive(Reflect, Hash, Serialize, PartialEq)]
 #[reflect(Hash, Serialize, PartialEq)]
 pub struct D {
     x: usize,
 }
 
-/// By default, deriving with Reflect assumes the type is a "struct". You can tell reflect to treat your type as a
-/// "value type" by using the `reflect_value` attribute instead of `reflect`. It is generally a good idea to implement
-/// (and reflect) the PartialEq, Serialize, and Deserialize traits on `reflect_value` types to ensure that these values
-/// behave as expected when nested underneath Reflect-ed structs.
+/// By default, deriving with Reflect assumes the type is a "struct". You can tell reflect to treat
+/// your type as a "value type" by using the `reflect_value` attribute instead of `reflect`. It is
+/// generally a good idea to implement (and reflect) the PartialEq, Serialize, and Deserialize
+/// traits on `reflect_value` types to ensure that these values behave as expected when nested
+/// underneath Reflect-ed structs.
 #[derive(Reflect, Copy, Clone, PartialEq, Serialize, Deserialize)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum E {
@@ -58,33 +60,36 @@ fn setup() {
         z,
     });
 
-    // There are a number of different "reflect traits", which each expose different operations on the underlying type
+    // There are a number of different "reflect traits", which each expose different operations on
+    // the underlying type
     match value.reflect_ref() {
-        // `Struct` is a trait automatically implemented for structs that derive Reflect. This trait allows you to interact
-        // with fields via their string names or indices
+        // `Struct` is a trait automatically implemented for structs that derive Reflect. This trait
+        // allows you to interact with fields via their string names or indices
         ReflectRef::Struct(value) => {
             println!(
                 "This is a 'struct' type with an 'x' value of {}",
                 value.get_field::<usize>("x").unwrap()
             )
         }
-        // `TupleStruct` is a trait automatically implemented for tuple structs that derive Reflect. This trait allows you
-        // to interact with fields via their indices
+        // `TupleStruct` is a trait automatically implemented for tuple structs that derive Reflect.
+        // This trait allows you to interact with fields via their indices
         ReflectRef::TupleStruct(_) => {}
-        // `Tuple` is a special trait that can be manually implemented (instead of deriving Reflect). This exposes "tuple"
-        // operations on your type, allowing you to interact with fields via their indices. Tuple is automatically
-        // implemented for tuples of arity 12 or less.
+        // `Tuple` is a special trait that can be manually implemented (instead of deriving
+        // Reflect). This exposes "tuple" operations on your type, allowing you to interact
+        // with fields via their indices. Tuple is automatically implemented for tuples of
+        // arity 12 or less.
         ReflectRef::Tuple(_) => {}
-        // `List` is a special trait that can be manually implemented (instead of deriving Reflect). This exposes "list"
-        // operations on your type, such as indexing and insertion. List is automatically implemented for relevant core
-        // types like Vec<T>
+        // `List` is a special trait that can be manually implemented (instead of deriving Reflect).
+        // This exposes "list" operations on your type, such as indexing and insertion. List
+        // is automatically implemented for relevant core types like Vec<T>
         ReflectRef::List(_) => {}
-        // `Map` is a special trait that can be manually implemented (instead of deriving Reflect). This exposes "map"
-        // operations on your type, such as getting / inserting by key. Map is automatically implemented for relevant core
-        // types like HashMap<K, V>
+        // `Map` is a special trait that can be manually implemented (instead of deriving Reflect).
+        // This exposes "map" operations on your type, such as getting / inserting by key.
+        // Map is automatically implemented for relevant core types like HashMap<K, V>
         ReflectRef::Map(_) => {}
-        // `Value` types do not implement any of the other traits above. They are simply a Reflect implementation. Value
-        // is implemented for core types like i32, usize, f32, and String.
+        // `Value` types do not implement any of the other traits above. They are simply a Reflect
+        // implementation. Value is implemented for core types like i32, usize, f32, and
+        // String.
         ReflectRef::Value(_) => {}
     }
 

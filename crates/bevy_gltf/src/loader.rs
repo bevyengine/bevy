@@ -14,7 +14,7 @@ use bevy_render::{
     pipeline::PrimitiveTopology,
     prelude::{Color, Texture},
     render_graph::base,
-    texture::{AddressMode, FilterMode, ImageType, SamplerDescriptor, TextureError},
+    texture::{AddressMode, FilterMode, ImageType, SamplerDescriptor, TextureError, TextureFormat},
 };
 use bevy_scene::Scene;
 use bevy_transform::{
@@ -26,7 +26,10 @@ use gltf::{
     texture::{MagFilter, MinFilter, WrappingMode},
     Material, Primitive,
 };
-use std::{collections::HashMap, path::Path};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+};
 use thiserror::Error;
 
 use crate::{Gltf, GltfNode};
@@ -36,9 +39,7 @@ use crate::{Gltf, GltfNode};
 pub enum GltfError {
     #[error("unsupported primitive mode")]
     UnsupportedPrimitive { mode: Mode },
-    #[error("unsupported min filter")]
-    UnsupportedMinFilter { filter: MinFilter },
-    #[error("invalid GLTF file")]
+    #[error("invalid GLTF file: {0}")]
     Gltf(#[from] gltf::Error),
     #[error("binary blob is missing")]
     MissingBlob,
@@ -46,11 +47,11 @@ pub enum GltfError {
     Base64Decode(#[from] base64::DecodeError),
     #[error("unsupported buffer format")]
     BufferFormatUnsupported,
-    #[error("invalid image mime type")]
+    #[error("invalid image mime type: {0}")]
     InvalidImageMimeType(String),
-    #[error("failed to load an image")]
+    #[error("{0}")]
     ImageError(#[from] TextureError),
-    #[error("failed to load an asset path")]
+    #[error("failed to load an asset path: {0}")]
     AssetIoError(#[from] AssetIoError),
 }
 
@@ -81,12 +82,25 @@ async fn load_gltf<'a, 'b>(
 
     let mut materials = vec![];
     let mut named_materials = HashMap::new();
+    let mut linear_textures = HashSet::new();
     for material in gltf.materials() {
         let handle = load_material(&material, load_context);
         if let Some(name) = material.name() {
             named_materials.insert(name.to_string(), handle.clone());
         }
         materials.push(handle);
+        if let Some(texture) = material.normal_texture() {
+            linear_textures.insert(texture.texture().index());
+        }
+        if let Some(texture) = material.occlusion_texture() {
+            linear_textures.insert(texture.texture().index());
+        }
+        if let Some(texture) = material
+            .pbr_metallic_roughness()
+            .metallic_roughness_texture()
+        {
+            linear_textures.insert(texture.texture().index());
+        }
     }
 
     let mut meshes = vec![];
@@ -115,15 +129,44 @@ async fn load_gltf<'a, 'b>(
             }
 
             if let Some(vertex_attribute) = reader
+                .read_tangents()
+                .map(|v| VertexAttributeValues::Float4(v.collect()))
+            {
+                mesh.set_attribute(Mesh::ATTRIBUTE_TANGENT, vertex_attribute);
+            }
+
+            if let Some(vertex_attribute) = reader
                 .read_tex_coords(0)
                 .map(|v| VertexAttributeValues::Float2(v.into_f32().collect()))
             {
                 mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, vertex_attribute);
             }
 
+            if let Some(vertex_attribute) = reader
+                .read_colors(0)
+                .map(|v| VertexAttributeValues::Float4(v.into_rgba_f32().collect()))
+            {
+                mesh.set_attribute(Mesh::ATTRIBUTE_COLOR, vertex_attribute);
+            }
+
             if let Some(indices) = reader.read_indices() {
                 mesh.set_indices(Some(Indices::U32(indices.into_u32().collect())));
             };
+
+            if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none() {
+                let vertex_count_before = mesh.count_vertices();
+                mesh.duplicate_vertices();
+                mesh.compute_flat_normals();
+                let vertex_count_after = mesh.count_vertices();
+
+                if vertex_count_before != vertex_count_after {
+                    bevy_log::debug!("Missing vertex normals in indexed geometry, computing them as flat. Vertex count increased from {} to {}", vertex_count_before, vertex_count_after);
+                } else {
+                    bevy_log::debug!(
+                        "Missing vertex normals in indexed geometry, computing them as flat."
+                    );
+                }
+            }
 
             let mesh = load_context.set_labeled_asset(&primitive_label, LoadedAsset::new(mesh));
             primitives.push(super::GltfPrimitive {
@@ -193,15 +236,46 @@ async fn load_gltf<'a, 'b>(
         .collect();
 
     for gltf_texture in gltf.textures() {
-        if let gltf::image::Source::View { view, mime_type } = gltf_texture.source().source() {
-            let start = view.offset() as usize;
-            let end = (view.offset() + view.length()) as usize;
-            let buffer = &buffer_data[view.buffer().index()][start..end];
-            let texture_label = texture_label(&gltf_texture);
-            let mut texture = Texture::from_buffer(buffer, ImageType::MimeType(mime_type))?;
-            texture.sampler = texture_sampler(&gltf_texture)?;
-            load_context.set_labeled_asset::<Texture>(&texture_label, LoadedAsset::new(texture));
+        let mut texture = match gltf_texture.source().source() {
+            gltf::image::Source::View { view, mime_type } => {
+                let start = view.offset() as usize;
+                let end = (view.offset() + view.length()) as usize;
+                let buffer = &buffer_data[view.buffer().index()][start..end];
+                Texture::from_buffer(buffer, ImageType::MimeType(mime_type))?
+            }
+            gltf::image::Source::Uri { uri, mime_type } => {
+                let uri = percent_encoding::percent_decode_str(uri)
+                    .decode_utf8()
+                    .unwrap();
+                let uri = uri.as_ref();
+                let (bytes, image_type) = match DataUri::parse(uri) {
+                    Ok(data_uri) => (data_uri.decode()?, ImageType::MimeType(data_uri.mime_type)),
+                    Err(()) => {
+                        let parent = load_context.path().parent().unwrap();
+                        let image_path = parent.join(uri);
+                        let bytes = load_context.read_asset_bytes(image_path.clone()).await?;
+
+                        let extension = Path::new(uri).extension().unwrap().to_str().unwrap();
+                        let image_type = ImageType::Extension(extension);
+
+                        (bytes, image_type)
+                    }
+                };
+
+                Texture::from_buffer(
+                    &bytes,
+                    mime_type
+                        .map(|mt| ImageType::MimeType(mt))
+                        .unwrap_or(image_type),
+                )?
+            }
+        };
+        let texture_label = texture_label(&gltf_texture);
+        texture.sampler = texture_sampler(&gltf_texture);
+        if linear_textures.contains(&gltf_texture.index()) {
+            texture.format = TextureFormat::Rgba8Unorm;
         }
+        load_context.set_labeled_asset::<Texture>(&texture_label, LoadedAsset::new(texture));
     }
 
     let mut scenes = vec![];
@@ -211,7 +285,7 @@ async fn load_gltf<'a, 'b>(
         let mut world = World::default();
         world
             .spawn()
-            .insert_bundle((Transform::default(), GlobalTransform::default()))
+            .insert_bundle((Transform::identity(), GlobalTransform::identity()))
             .with_children(|parent| {
                 for node in scene.nodes() {
                     let result = load_node(&node, parent, load_context, &buffer_data);
@@ -253,37 +327,75 @@ async fn load_gltf<'a, 'b>(
 
 fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<StandardMaterial> {
     let material_label = material_label(&material);
+
     let pbr = material.pbr_metallic_roughness();
-    let mut dependencies = Vec::new();
-    let texture_handle = if let Some(info) = pbr.base_color_texture() {
-        match info.texture().source().source() {
-            gltf::image::Source::View { .. } => {
-                let label = texture_label(&info.texture());
-                let path = AssetPath::new_ref(load_context.path(), Some(&label));
-                Some(load_context.get_handle(path))
-            }
-            gltf::image::Source::Uri { uri, .. } => {
-                let parent = load_context.path().parent().unwrap();
-                let image_path = parent.join(uri);
-                let asset_path = AssetPath::new(image_path, None);
-                let handle = load_context.get_handle(asset_path.clone());
-                dependencies.push(asset_path);
-                Some(handle)
-            }
-        }
+
+    let color = pbr.base_color_factor();
+    let base_color_texture = if let Some(info) = pbr.base_color_texture() {
+        // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
+        let label = texture_label(&info.texture());
+        let path = AssetPath::new_ref(load_context.path(), Some(&label));
+        Some(load_context.get_handle(path))
     } else {
         None
     };
 
-    let color = pbr.base_color_factor();
+    let normal_map = if let Some(normal_texture) = material.normal_texture() {
+        // TODO: handle normal_texture.scale
+        // TODO: handle normal_texture.tex_coord() (the *set* index for the right texcoords)
+        let label = texture_label(&normal_texture.texture());
+        let path = AssetPath::new_ref(load_context.path(), Some(&label));
+        Some(load_context.get_handle(path))
+    } else {
+        None
+    };
+
+    let metallic_roughness_texture = if let Some(info) = pbr.metallic_roughness_texture() {
+        // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
+        let label = texture_label(&info.texture());
+        let path = AssetPath::new_ref(load_context.path(), Some(&label));
+        Some(load_context.get_handle(path))
+    } else {
+        None
+    };
+
+    let occlusion_texture = if let Some(occlusion_texture) = material.occlusion_texture() {
+        // TODO: handle occlusion_texture.tex_coord() (the *set* index for the right texcoords)
+        // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
+        let label = texture_label(&occlusion_texture.texture());
+        let path = AssetPath::new_ref(load_context.path(), Some(&label));
+        Some(load_context.get_handle(path))
+    } else {
+        None
+    };
+
+    let emissive = material.emissive_factor();
+    let emissive_texture = if let Some(info) = material.emissive_texture() {
+        // TODO: handle occlusion_texture.tex_coord() (the *set* index for the right texcoords)
+        // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
+        let label = texture_label(&info.texture());
+        let path = AssetPath::new_ref(load_context.path(), Some(&label));
+        Some(load_context.get_handle(path))
+    } else {
+        None
+    };
+
     load_context.set_labeled_asset(
         &material_label,
         LoadedAsset::new(StandardMaterial {
-            albedo: Color::rgba(color[0], color[1], color[2], color[3]),
-            albedo_texture: texture_handle,
+            base_color: Color::rgba(color[0], color[1], color[2], color[3]),
+            base_color_texture,
+            roughness: pbr.roughness_factor(),
+            metallic: pbr.metallic_factor(),
+            metallic_roughness_texture,
+            normal_map,
+            double_sided: material.double_sided(),
+            occlusion_texture,
+            emissive: Color::rgba(emissive[0], emissive[1], emissive[2], 1.0),
+            emissive_texture,
             unlit: material.unlit(),
-        })
-        .with_dependencies(dependencies),
+            ..Default::default()
+        }),
     )
 }
 
@@ -295,18 +407,18 @@ fn load_node(
 ) -> Result<(), GltfError> {
     let transform = gltf_node.transform();
     let mut gltf_error = None;
-    let node = world_builder.spawn((
+    let mut node = world_builder.spawn_bundle((
         Transform::from_matrix(Mat4::from_cols_array_2d(&transform.matrix())),
-        GlobalTransform::default(),
+        GlobalTransform::identity(),
     ));
 
     if let Some(name) = gltf_node.name() {
-        node.with(Name::new(name.to_string()));
+        node.insert(Name::new(name.to_string()));
     }
 
     // create camera node
     if let Some(camera) = gltf_node.camera() {
-        node.with(VisibleEntities {
+        node.insert(VisibleEntities {
             ..Default::default()
         });
 
@@ -324,12 +436,12 @@ fn load_node(
                     ..Default::default()
                 };
 
-                node.with(Camera {
+                node.insert(Camera {
                     name: Some(base::camera::CAMERA_2D.to_owned()),
                     projection_matrix: orthographic_projection.get_projection_matrix(),
                     ..Default::default()
                 });
-                node.with(orthographic_projection);
+                node.insert(orthographic_projection);
             }
             gltf::camera::Projection::Perspective(perspective) => {
                 let mut perspective_projection: PerspectiveProjection = PerspectiveProjection {
@@ -343,12 +455,12 @@ fn load_node(
                 if let Some(aspect_ratio) = perspective.aspect_ratio() {
                     perspective_projection.aspect_ratio = aspect_ratio;
                 }
-                node.with(Camera {
+                node.insert(Camera {
                     name: Some(base::camera::CAMERA_3D.to_owned()),
                     projection_matrix: perspective_projection.get_projection_matrix(),
                     ..Default::default()
                 });
-                node.with(perspective_projection);
+                node.insert(perspective_projection);
             }
         }
     }
@@ -373,7 +485,7 @@ fn load_node(
                 let material_asset_path =
                     AssetPath::new_ref(load_context.path(), Some(&material_label));
 
-                parent.spawn(PbrBundle {
+                parent.spawn_bundle(PbrBundle {
                     mesh: load_context.get_handle(mesh_asset_path),
                     material: load_context.get_handle(material_asset_path),
                     ..Default::default()
@@ -424,10 +536,10 @@ fn scene_label(scene: &gltf::Scene) -> String {
     format!("Scene{}", scene.index())
 }
 
-fn texture_sampler(texture: &gltf::Texture) -> Result<SamplerDescriptor, GltfError> {
+fn texture_sampler(texture: &gltf::Texture) -> SamplerDescriptor {
     let gltf_sampler = texture.sampler();
 
-    Ok(SamplerDescriptor {
+    SamplerDescriptor {
         address_mode_u: texture_address_mode(&gltf_sampler.wrap_s()),
         address_mode_v: texture_address_mode(&gltf_sampler.wrap_t()),
 
@@ -442,15 +554,30 @@ fn texture_sampler(texture: &gltf::Texture) -> Result<SamplerDescriptor, GltfErr
         min_filter: gltf_sampler
             .min_filter()
             .map(|mf| match mf {
-                MinFilter::Nearest => Ok(FilterMode::Nearest),
-                MinFilter::Linear => Ok(FilterMode::Linear),
-                filter => Err(GltfError::UnsupportedMinFilter { filter }),
+                MinFilter::Nearest
+                | MinFilter::NearestMipmapNearest
+                | MinFilter::NearestMipmapLinear => FilterMode::Nearest,
+                MinFilter::Linear
+                | MinFilter::LinearMipmapNearest
+                | MinFilter::LinearMipmapLinear => FilterMode::Linear,
             })
-            .transpose()?
             .unwrap_or(SamplerDescriptor::default().min_filter),
 
+        mipmap_filter: gltf_sampler
+            .min_filter()
+            .map(|mf| match mf {
+                MinFilter::Nearest
+                | MinFilter::Linear
+                | MinFilter::NearestMipmapNearest
+                | MinFilter::LinearMipmapNearest => FilterMode::Nearest,
+                MinFilter::NearestMipmapLinear | MinFilter::LinearMipmapLinear => {
+                    FilterMode::Linear
+                }
+            })
+            .unwrap_or(SamplerDescriptor::default().mipmap_filter),
+
         ..Default::default()
-    })
+    }
 }
 
 fn texture_address_mode(gltf_address_mode: &gltf::texture::WrappingMode) -> AddressMode {
@@ -477,24 +604,27 @@ async fn load_buffers(
     load_context: &LoadContext<'_>,
     asset_path: &Path,
 ) -> Result<Vec<Vec<u8>>, GltfError> {
-    const OCTET_STREAM_URI: &str = "data:application/octet-stream;base64,";
+    const OCTET_STREAM_URI: &str = "application/octet-stream";
 
     let mut buffer_data = Vec::new();
     for buffer in gltf.buffers() {
         match buffer.source() {
             gltf::buffer::Source::Uri(uri) => {
-                if uri.starts_with("data:") {
-                    if uri.starts_with(OCTET_STREAM_URI) {
-                        buffer_data.push(base64::decode(&uri[OCTET_STREAM_URI.len()..])?);
-                    } else {
-                        return Err(GltfError::BufferFormatUnsupported);
+                let uri = percent_encoding::percent_decode_str(uri)
+                    .decode_utf8()
+                    .unwrap();
+                let uri = uri.as_ref();
+                let buffer_bytes = match DataUri::parse(uri) {
+                    Ok(data_uri) if data_uri.mime_type == OCTET_STREAM_URI => data_uri.decode()?,
+                    Ok(_) => return Err(GltfError::BufferFormatUnsupported),
+                    Err(()) => {
+                        // TODO: Remove this and add dep
+                        let buffer_path = asset_path.parent().unwrap().join(uri);
+                        let buffer_bytes = load_context.read_asset_bytes(buffer_path).await?;
+                        buffer_bytes
                     }
-                } else {
-                    // TODO: Remove this and add dep
-                    let buffer_path = asset_path.parent().unwrap().join(uri);
-                    let buffer_bytes = load_context.read_asset_bytes(buffer_path).await?;
-                    buffer_data.push(buffer_bytes);
-                }
+                };
+                buffer_data.push(buffer_bytes);
             }
             gltf::buffer::Source::Bin => {
                 if let Some(blob) = gltf.blob.as_deref() {
@@ -555,6 +685,43 @@ fn resolve_node_hierarchy(
         .collect()
 }
 
+struct DataUri<'a> {
+    mime_type: &'a str,
+    base64: bool,
+    data: &'a str,
+}
+
+fn split_once(input: &str, delimiter: char) -> Option<(&str, &str)> {
+    let mut iter = input.splitn(2, delimiter);
+    Some((iter.next()?, iter.next()?))
+}
+
+impl<'a> DataUri<'a> {
+    fn parse(uri: &'a str) -> Result<DataUri<'a>, ()> {
+        let uri = uri.strip_prefix("data:").ok_or(())?;
+        let (mime_type, data) = split_once(uri, ',').ok_or(())?;
+
+        let (mime_type, base64) = match mime_type.strip_suffix(";base64") {
+            Some(mime_type) => (mime_type, true),
+            None => (mime_type, false),
+        };
+
+        Ok(DataUri {
+            mime_type,
+            base64,
+            data,
+        })
+    }
+
+    fn decode(&self) -> Result<Vec<u8>, base64::DecodeError> {
+        if self.base64 {
+            base64::decode(self.data)
+        } else {
+            Ok(self.data.as_bytes().to_owned())
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::resolve_node_hierarchy;
@@ -565,7 +732,7 @@ mod test {
             GltfNode {
                 children: vec![],
                 mesh: None,
-                transform: bevy_transform::prelude::Transform::default(),
+                transform: bevy_transform::prelude::Transform::identity(),
             }
         }
     }

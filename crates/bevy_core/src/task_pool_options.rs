@@ -27,7 +27,7 @@ impl TaskPoolThreadAssignmentPolicy {
         // Clamp by min_threads, max_threads. (This may result in us using more threads than are
         // available, this is intended. An example case where this might happen is a device with
         // <= 2 threads.
-        bevy_math::clamp(desired, self.min_threads, self.max_threads)
+        desired.clamp(self.min_threads, self.max_threads)
     }
 }
 
@@ -36,9 +36,11 @@ impl TaskPoolThreadAssignmentPolicy {
 /// this helper will do nothing.
 #[derive(Clone)]
 pub struct DefaultTaskPoolOptions {
-    /// If the number of physical cores is less than min_total_threads, force using min_total_threads
+    /// If the number of physical cores is less than min_total_threads, force using
+    /// min_total_threads
     pub min_total_threads: usize,
-    /// If the number of physical cores is grater than max_total_threads, force using max_total_threads
+    /// If the number of physical cores is grater than max_total_threads, force using
+    /// max_total_threads
     pub max_total_threads: usize,
 
     /// Used to determine number of IO threads to allocate
@@ -92,11 +94,8 @@ impl DefaultTaskPoolOptions {
 
     /// Inserts the default thread pools into the given resource map based on the configured values
     pub fn create_default_pools(&self, world: &mut World) {
-        let total_threads = bevy_math::clamp(
-            bevy_tasks::logical_core_count(),
-            self.min_total_threads,
-            self.max_total_threads,
-        );
+        let total_threads =
+            bevy_tasks::logical_core_count().clamp(self.min_total_threads, self.max_total_threads);
         trace!("Assigning {} cores to default task pools", total_threads);
 
         let mut remaining_threads = total_threads;

@@ -182,7 +182,8 @@ where
         self.current_staging_buffer_offset = 0;
     }
 
-    /// Find a spot for the given RenderResources in each uniform's BufferArray and prepare space in the staging buffer
+    /// Find a spot for the given RenderResources in each uniform's BufferArray and prepare space in
+    /// the staging buffer
     fn prepare_uniform_buffers(&mut self, id: I, render_resources: &T) {
         for (i, render_resource) in render_resources.iter().enumerate() {
             if let Some(RenderResourceType::Buffer) = render_resource.resource_type() {
@@ -201,10 +202,8 @@ where
         render_resource_context: &dyn RenderResourceContext,
     ) -> bool {
         let mut resized = false;
-        for buffer_array in self.buffer_arrays.iter_mut() {
-            if let Some(buffer_array) = buffer_array {
-                resized |= buffer_array.resize(render_resource_context);
-            }
+        for buffer_array in self.buffer_arrays.iter_mut().flatten() {
+            resized |= buffer_array.resize(render_resource_context);
         }
 
         resized
@@ -212,10 +211,8 @@ where
 
     fn set_required_staging_buffer_size_to_max(&mut self) {
         let mut new_size = 0;
-        for buffer_array in self.buffer_arrays.iter() {
-            if let Some(buffer_array) = buffer_array {
-                new_size += buffer_array.item_size * buffer_array.len;
-            }
+        for buffer_array in self.buffer_arrays.iter().flatten() {
+            new_size += buffer_array.item_size * buffer_array.len;
         }
 
         if new_size > self.required_staging_buffer_size {
@@ -247,10 +244,8 @@ where
     }
 
     fn remove_bindings(&mut self, id: I) {
-        for buffer_array in self.buffer_arrays.iter_mut() {
-            if let Some(buffer_array) = buffer_array {
-                buffer_array.remove_binding(id);
-            }
+        for buffer_array in self.buffer_arrays.iter_mut().flatten() {
+            buffer_array.remove_binding(id);
         }
     }
 
@@ -497,7 +492,8 @@ fn render_resources_node_system<T: RenderResources>(
             staging_buffer,
             0..state.uniform_buffer_arrays.staging_buffer_size as u64,
             &mut |mut staging_buffer, _render_resource_context| {
-                // if the buffer array was resized, write all entities to the new buffer, otherwise only write changes
+                // if the buffer array was resized, write all entities to the new buffer, otherwise
+                // only write changes
                 if resized {
                     for (entity, uniforms, visible, mut render_pipelines) in
                         queries.q1_mut().iter_mut()

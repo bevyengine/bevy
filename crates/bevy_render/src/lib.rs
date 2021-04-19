@@ -13,10 +13,12 @@ pub mod texture;
 pub mod wireframe;
 
 use bevy_ecs::{
-    schedule::SystemStage,
-    system::{IntoExclusiveSystem, IntoSystem},
+    schedule::{ParallelSystemDescriptorCoercion, SystemStage},
+    system::{IntoExclusiveSystem, IntoSystem, Res},
 };
-use draw::Visible;
+use bevy_transform::TransformSystem;
+use draw::{OutsideFrustum, Visible};
+
 pub use once_cell;
 
 pub mod prelude {
@@ -37,31 +39,38 @@ use crate::prelude::*;
 use base::Msaa;
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, AssetStage};
-use bevy_ecs::schedule::StageLabel;
+use bevy_ecs::schedule::{StageLabel, SystemLabel};
 use camera::{
-    ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection, VisibleEntities,
+    ActiveCameras, Camera, DepthCalculation, OrthographicProjection, PerspectiveProjection,
+    RenderLayers, ScalingMode, VisibleEntities, WindowOrigin,
 };
 use pipeline::{
     IndexFormat, PipelineCompiler, PipelineDescriptor, PipelineSpecialization, PrimitiveTopology,
-    ShaderSpecialization,
+    ShaderSpecialization, VertexBufferLayout,
 };
 use render_graph::{
     base::{self, BaseRenderGraphConfig, MainPass},
     RenderGraph,
 };
-use renderer::{AssetRenderResourceBindings, RenderResourceBindings};
+use renderer::{AssetRenderResourceBindings, RenderResourceBindings, RenderResourceContext};
 use shader::ShaderLoader;
 #[cfg(feature = "hdr")]
 use texture::HdrTextureLoader;
 #[cfg(feature = "png")]
 use texture::ImageTextureLoader;
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+pub enum RenderSystem {
+    VisibleEntities,
+}
+
 /// The names of "render" App stages
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum RenderStage {
     /// Stage where render resources are set up
     RenderResource,
-    /// Stage where Render Graph systems are run. In general you shouldn't add systems to this stage manually.
+    /// Stage where Render Graph systems are run. In general you shouldn't add systems to this
+    /// stage manually.
     RenderGraphSystems,
     // Stage where draw systems are executed. This is generally where Draw components are setup
     Draw,
@@ -71,7 +80,8 @@ pub enum RenderStage {
 
 /// Adds core render types and systems to an App
 pub struct RenderPlugin {
-    /// configures the "base render graph". If this is not `None`, the "base render graph" will be added
+    /// configures the "base render graph". If this is not `None`, the "base render graph" will be
+    /// added
     pub base_render_graph_config: Option<BaseRenderGraphConfig>,
 }
 
@@ -125,8 +135,10 @@ impl Plugin for RenderPlugin {
         .add_asset::<Shader>()
         .add_asset::<PipelineDescriptor>()
         .register_type::<Camera>()
+        .register_type::<DepthCalculation>()
         .register_type::<Draw>()
         .register_type::<Visible>()
+        .register_type::<OutsideFrustum>()
         .register_type::<RenderPipelines>()
         .register_type::<OrthographicProjection>()
         .register_type::<PerspectiveProjection>()
@@ -137,6 +149,10 @@ impl Plugin for RenderPlugin {
         .register_type::<PrimitiveTopology>()
         .register_type::<IndexFormat>()
         .register_type::<PipelineSpecialization>()
+        .register_type::<RenderLayers>()
+        .register_type::<ScalingMode>()
+        .register_type::<VertexBufferLayout>()
+        .register_type::<WindowOrigin>()
         .init_resource::<ClearColor>()
         .init_resource::<RenderGraph>()
         .init_resource::<PipelineCompiler>()
@@ -144,6 +160,10 @@ impl Plugin for RenderPlugin {
         .init_resource::<RenderResourceBindings>()
         .init_resource::<AssetRenderResourceBindings>()
         .init_resource::<ActiveCameras>()
+        .add_startup_system_to_stage(
+            StartupStage::PreStartup,
+            check_for_render_resource_context.system(),
+        )
         .add_system_to_stage(CoreStage::PreUpdate, draw::clear_draw_system.system())
         .add_system_to_stage(
             CoreStage::PostUpdate,
@@ -151,16 +171,22 @@ impl Plugin for RenderPlugin {
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
-            camera::camera_system::<OrthographicProjection>.system(),
+            camera::camera_system::<OrthographicProjection>
+                .system()
+                .before(RenderSystem::VisibleEntities),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
-            camera::camera_system::<PerspectiveProjection>.system(),
+            camera::camera_system::<PerspectiveProjection>
+                .system()
+                .before(RenderSystem::VisibleEntities),
         )
-        // registration order matters here. this must come after all camera_system::<T> systems
         .add_system_to_stage(
             CoreStage::PostUpdate,
-            camera::visible_entities_system.system(),
+            camera::visible_entities_system
+                .system()
+                .label(RenderSystem::VisibleEntities)
+                .after(TransformSystem::TransformPropagate),
         )
         .add_system_to_stage(
             RenderStage::RenderResource,
@@ -198,5 +224,13 @@ impl Plugin for RenderPlugin {
                 active_cameras.add(base::camera::CAMERA_2D);
             }
         }
+    }
+}
+
+fn check_for_render_resource_context(context: Option<Res<Box<dyn RenderResourceContext>>>) {
+    if context.is_none() {
+        panic!(
+            "bevy_render couldn't find a render backend. Perhaps try adding the bevy_wgpu plugin!"
+        )
     }
 }

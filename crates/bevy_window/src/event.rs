@@ -30,8 +30,8 @@ pub struct WindowCreated {
     pub id: WindowId,
 }
 
-/// An event that is sent whenever a close was requested for a window. For example: when the "close" button
-/// is pressed on a window.
+/// An event that is sent whenever a close was requested for a window. For example: when the "close"
+/// button is pressed on a window.
 #[derive(Debug, Clone)]
 pub struct WindowCloseRequested {
     pub id: WindowId,

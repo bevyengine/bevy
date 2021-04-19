@@ -1,9 +1,6 @@
 use ab_glyph::{FontArc, FontVec, InvalidFont, OutlinedGlyph};
 use bevy_reflect::TypeUuid;
-use bevy_render::{
-    color::Color,
-    texture::{Extent3d, Texture, TextureDimension, TextureFormat},
-};
+use bevy_render::texture::{Extent3d, Texture, TextureDimension, TextureFormat};
 
 #[derive(Debug, TypeUuid)]
 #[uuid = "97059ac6-c9ba-4da9-95b6-bed82c3ce198"]
@@ -28,25 +25,12 @@ impl Font {
         });
 
         // TODO: make this texture grayscale
-        let color = Color::WHITE;
-        let color_u8 = [
-            (color.r() * 255.0) as u8,
-            (color.g() * 255.0) as u8,
-            (color.b() * 255.0) as u8,
-        ];
         Texture::new(
             Extent3d::new(width as u32, height as u32, 1),
             TextureDimension::D2,
             alpha
                 .iter()
-                .map(|a| {
-                    vec![
-                        color_u8[0],
-                        color_u8[1],
-                        color_u8[2],
-                        (color.a() * a * 255.0) as u8,
-                    ]
-                })
+                .map(|a| vec![255, 255, 255, (*a * 255.0) as u8])
                 .flatten()
                 .collect::<Vec<u8>>(),
             TextureFormat::Rgba8UnormSrgb,

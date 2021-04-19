@@ -86,8 +86,8 @@ pub struct TaskPool {
     /// The executor for the pool
     ///
     /// This has to be separate from TaskPoolInner because we have to create an Arc<Executor> to
-    /// pass into the worker threads, and we must create the worker threads before we can create the
-    /// Vec<Task<T>> contained within TaskPoolInner
+    /// pass into the worker threads, and we must create the worker threads before we can create
+    /// the Vec<Task<T>> contained within TaskPoolInner
     executor: Arc<async_executor::Executor<'static>>,
 
     /// Inner state of the pool
@@ -200,17 +200,18 @@ impl TaskPool {
                 // Pin the futures on the stack.
                 pin!(fut);
 
-                // SAFETY: This function blocks until all futures complete, so we do not read/write the
-                // data from futures outside of the 'scope lifetime. However, rust has no way of knowing
-                // this so we must convert to 'static here to appease the compiler as it is unable to
-                // validate safety.
+                // SAFETY: This function blocks until all futures complete, so we do not read/write
+                // the data from futures outside of the 'scope lifetime. However,
+                // rust has no way of knowing this so we must convert to 'static
+                // here to appease the compiler as it is unable to validate safety.
                 let fut: Pin<&mut (dyn Future<Output = Vec<T>>)> = fut;
                 let fut: Pin<&'static mut (dyn Future<Output = Vec<T>> + 'static)> =
                     unsafe { mem::transmute(fut) };
 
-                // The thread that calls scope() will participate in driving tasks in the pool forward
-                // until the tasks that are spawned by this scope() call complete. (If the caller of scope()
-                // happens to be a thread in this thread pool, and we only have one thread in the pool, then
+                // The thread that calls scope() will participate in driving tasks in the pool
+                // forward until the tasks that are spawned by this scope() call
+                // complete. (If the caller of scope() happens to be a thread in
+                // this thread pool, and we only have one thread in the pool, then
                 // simply calling future::block_on(spawned) would deadlock.)
                 let mut spawned = local_executor.spawn(fut);
                 loop {
@@ -376,7 +377,8 @@ mod tests {
                     scope.spawn_local(async move {
                         inner_count_clone.fetch_add(1, Ordering::Release);
                         if std::thread::current().id() != spawner {
-                            // NOTE: This check is using an atomic rather than simply panicing the thread to avoid deadlocking the barrier on failure
+                            // NOTE: This check is using an atomic rather than simply panicing the
+                            // thread to avoid deadlocking the barrier on failure
                             inner_thread_check_failed.store(true, Ordering::Release);
                         }
                     });

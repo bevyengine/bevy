@@ -58,8 +58,8 @@ impl PipelineLayout {
             .map(|(_, value)| value)
             .collect::<Vec<BindGroupDescriptor>>();
 
-        // NOTE: for some reason bind groups need to be sorted by index. this is likely an issue with bevy and not with wgpu
-        // TODO: try removing this
+        // NOTE: for some reason bind groups need to be sorted by index. this is likely an issue
+        // with bevy and not with wgpu TODO: try removing this
         bind_groups_result.sort_by(|a, b| a.index.partial_cmp(&b.index).unwrap());
 
         PipelineLayout {

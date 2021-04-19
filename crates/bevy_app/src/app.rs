@@ -9,24 +9,25 @@ use bevy_utils::tracing::info_span;
 #[allow(clippy::needless_doctest_main)]
 /// Containers of app logic and data
 ///
-/// App store the ECS World, Resources, Schedule, and Executor. They also store the "run" function of the App, which
-/// by default executes the App schedule once. Apps are constructed using the builder pattern.
+/// App store the ECS World, Resources, Schedule, and Executor. They also store the "run" function
+/// of the App, which by default executes the App schedule once. Apps are constructed using the
+/// builder pattern.
 ///
 /// ## Example
 /// Here is a simple "Hello World" Bevy app:
 /// ```
-///# use bevy_app::prelude::*;
-///# use bevy_ecs::prelude::*;
+/// # use bevy_app::prelude::*;
+/// # use bevy_ecs::prelude::*;
 ///
-///fn main() {
+/// fn main() {
 ///    App::build()
 ///        .add_system(hello_world_system.system())
 ///        .run();
-///}
+/// }
 ///
-///fn hello_world_system() {
+/// fn hello_world_system() {
 ///    println!("hello world");
-///}
+/// }
 /// ```
 pub struct App {
     pub world: World,
