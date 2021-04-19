@@ -139,5 +139,5 @@ jobs:
       - name: Installs cargo-deadlinks
         run: cargo install cargo-deadlinks
       - name: Checks dead doc links
-        run: cargo doc --no-deps && cargo deadlinks --dir target/doc/bevy
+        run: cargo doc --all-features --no-deps && cargo deadlinks --dir target/doc/bevy
         continue-on-error: true
