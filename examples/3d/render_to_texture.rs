@@ -109,7 +109,6 @@ fn add_render_to_texture_graph(graph: &mut RenderGraph, size: Extent3d) {
     graph.add_node_edge("transform", FIRST_PASS).unwrap();
 }
 
-
 struct FirstPassCube;
 struct MainPassCube;
 
