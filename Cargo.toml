@@ -154,6 +154,10 @@ name = "pbr"
 path = "examples/3d/pbr.rs"
 
 [[example]]
+name = "render_to_texture"
+path = "examples/3d/render_to_texture.rs"
+
+[[example]]
 name = "spawner"
 path = "examples/3d/spawner.rs"
 
