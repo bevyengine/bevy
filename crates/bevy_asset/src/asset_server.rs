@@ -216,9 +216,9 @@ impl AssetServer {
     ///
     /// The absolute Path to the asset is "ROOT/ASSET_FOLDER_NAME/path".
     ///
-    /// By default the ROOT is the directory of the Application, but this can be overriden by
+    /// By default the ROOT is the directory of the Application, but this can be overridden by
     /// setting the `"CARGO_MANIFEST_DIR"` environment variable to another directory.
-    /// When you run your application through Cargo, then is `"CARGO_MANIFEST_DIR"` automatically
+    /// When you run your application through Cargo, then `"CARGO_MANIFEST_DIR"` is automatically
     /// set to the root folder of your crate.
     ///
     /// The name of the asset folder is set inside the
