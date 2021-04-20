@@ -51,7 +51,7 @@ fn setup(type_registry: Res<TypeRegistry>) {
     let my_trait: &dyn DoThing = reflect_do_thing.get(&*reflect_value).unwrap();
 
     // Which means we can now call do_thing(). Magic!
-    println!("{}", my_trait.do_thing());
+    info!("{}", my_trait.do_thing());
 
     // This works because the #[reflect(MyTrait)] we put on MyType informed the Reflect derive to
     // insert a new instance of ReflectDoThing into MyType's registration. The instance knows

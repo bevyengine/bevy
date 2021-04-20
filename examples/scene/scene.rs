@@ -9,7 +9,7 @@ fn main() {
         .add_startup_system(save_scene_system.exclusive_system())
         .add_startup_system(load_scene_system.system())
         .add_startup_system(infotext_system.system())
-        .add_system(print_system.system())
+        .add_system(log_system.system())
         .run();
 }
 
@@ -62,12 +62,12 @@ fn load_scene_system(asset_server: Res<AssetServer>, mut scene_spawner: ResMut<S
     asset_server.watch_for_changes().unwrap();
 }
 
-// This system prints all ComponentA components in our world. Try making a change to a ComponentA in
+// This system logs all ComponentA components in our world. Try making a change to a ComponentA in
 // load_scene_example.scn. You should immediately see the changes appear in the console.
-fn print_system(query: Query<(Entity, &ComponentA), Changed<ComponentA>>) {
+fn log_system(query: Query<(Entity, &ComponentA), Changed<ComponentA>>) {
     for (entity, component_a) in query.iter() {
-        println!("  Entity({})", entity.id());
-        println!(
+        info!("  Entity({})", entity.id());
+        info!(
             "    ComponentA: {{ x: {} y: {} }}\n",
             component_a.x, component_a.y
         );
@@ -95,7 +95,7 @@ fn save_scene_system(world: &mut World) {
     let scene = DynamicScene::from_world(&scene_world, &type_registry);
 
     // Scenes can be serialized like this:
-    println!("{}", scene.serialize_ron(&type_registry).unwrap());
+    info!("{}", scene.serialize_ron(&type_registry).unwrap());
 
     // TODO: save scene
 }

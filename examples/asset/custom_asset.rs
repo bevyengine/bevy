@@ -60,6 +60,6 @@ fn print_on_load(mut state: ResMut<State>, custom_assets: ResMut<Assets<CustomAs
         return;
     }
 
-    println!("Custom asset loaded: {:?}", custom_asset.unwrap());
+    info!("Custom asset loaded: {:?}", custom_asset.unwrap());
     state.printed = true;
 }
