@@ -26,9 +26,12 @@
 //! ```
 
 use crate::mesh::VertexAttributeValues;
-use std::convert::{ TryInto, TryFrom };
-use std::error::Error;
-use std::fmt;
+use std::
+{
+    fmt,
+    error::Error,
+    convert::{ TryInto, TryFrom },
+};
 
 #[derive(Debug, Clone)]
 pub struct FromVertexAttributeError
@@ -55,6 +58,21 @@ impl fmt::Display for FromVertexAttributeError
             VertexAttributeValues::Float4(..) => "VertexAttributeValues::Float4",
             VertexAttributeValues::Int4(..) => "VertexAttributeValues::Int4",
             VertexAttributeValues::Uint4(..) => "VertexAttributeValues::Uint4",
+            VertexAttributeValues::Short2(..) => "VertexAttributeValues::Short2",
+            VertexAttributeValues::Short2Norm(..) => "VertexAttributeValues::Short2Norm",
+            VertexAttributeValues::Ushort2(..) => "VertexAttributeValues::Ushort2",
+            VertexAttributeValues::Ushort2Norm(..) => "VertexAttributeValues::Ushort2Norm",
+            VertexAttributeValues::Short4(..) => "VertexAttributeValues::Short4",
+            VertexAttributeValues::Short4Norm(..) => "VertexAttributeValues::Short4Norm",
+            VertexAttributeValues::Ushort4(..) => "VertexAttributeValues::Ushort4",
+            VertexAttributeValues::Ushort4Norm(..) => "VertexAttributeValues::Ushort4Norm",
+            VertexAttributeValues::Char2(..) => "VertexAttributeValues::Char2",
+            VertexAttributeValues::Char2Norm(..) => "VertexAttributeValues::Char2Norm",
+            VertexAttributeValues::Uchar2(..) => "VertexAttributeValues::Uchar2",
+            VertexAttributeValues::Uchar2Norm(..) => "VertexAttributeValues::Uchar2Norm",
+            VertexAttributeValues::Char4(..) => "VertexAttributeValues::Char4",
+            VertexAttributeValues::Char4Norm(..) => "VertexAttributeValues::Char4Norm",
+            VertexAttributeValues::Uchar4(..) => "VertexAttributeValues::Uchar4",
             VertexAttributeValues::Uchar4Norm(..) => "VertexAttributeValues::Uchar4Norm",
         };
         write!(f, "can't convert `{}` to `{}`", value_name, self.into)
@@ -144,8 +162,93 @@ impl TryFrom<VertexAttributeValues> for Vec<[u8; 4]> {
 
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
+            VertexAttributeValues::Uchar4(value) => Ok(value),
             VertexAttributeValues::Uchar4Norm(value) => Ok(value),
-            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[u8; 4]]>" })
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[u8; 4]>" })
+        }
+    }
+}
+
+impl TryFrom<VertexAttributeValues> for Vec<[i8; 4]> {
+    type Error = FromVertexAttributeError;
+
+    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
+        match value {
+            VertexAttributeValues::Char4(value) => Ok(value),
+            VertexAttributeValues::Char4Norm(value) => Ok(value),
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[i8; 4]>" })
+        }
+    }
+}
+
+impl TryFrom<VertexAttributeValues> for Vec<[u8; 2]> {
+    type Error = FromVertexAttributeError;
+
+    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
+        match value {
+            VertexAttributeValues::Uchar2(value) => Ok(value),
+            VertexAttributeValues::Uchar2Norm(value) => Ok(value),
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[u8; 2]>" })
+        }
+    }
+}
+
+impl TryFrom<VertexAttributeValues> for Vec<[i8; 2]> {
+    type Error = FromVertexAttributeError;
+
+    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
+        match value {
+            VertexAttributeValues::Char2(value) => Ok(value),
+            VertexAttributeValues::Char2Norm(value) => Ok(value),
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[i8; 2]>" })
+        }
+    }
+}
+
+impl TryFrom<VertexAttributeValues> for Vec<[i16; 4]> {
+    type Error = FromVertexAttributeError;
+
+    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
+        match value {
+            VertexAttributeValues::Short4(value) => Ok(value),
+            VertexAttributeValues::Short4Norm(value) => Ok(value),
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[i16; 4]>" })
+        }
+    }
+}
+
+impl TryFrom<VertexAttributeValues> for Vec<[u16; 4]> {
+    type Error = FromVertexAttributeError;
+
+    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
+        match value {
+            VertexAttributeValues::Ushort4(value) => Ok(value),
+            VertexAttributeValues::Ushort4Norm(value) => Ok(value),
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[u16; 4]>" })
+        }
+    }
+}
+
+impl TryFrom<VertexAttributeValues> for Vec<[u16; 2]> {
+    type Error = FromVertexAttributeError;
+
+    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
+        match value {
+            VertexAttributeValues::Ushort2(value) => Ok(value),
+            VertexAttributeValues::Ushort2Norm(value) => Ok(value),
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[i16; 2]>" })
+        }
+    }
+}
+
+impl TryFrom<VertexAttributeValues> for Vec<[i16; 2]> {
+    type Error = FromVertexAttributeError;
+
+    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
+        match value {
+            VertexAttributeValues::Short2(value) => Ok(value),
+            VertexAttributeValues::Short2Norm(value) => Ok(value),
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[i16; 2]>" })
         }
     }
 }
@@ -156,7 +259,7 @@ impl TryFrom<VertexAttributeValues> for Vec<[u32; 4]> {
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
             VertexAttributeValues::Uint4(value) => Ok(value),
-            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[u32; 4]]>" })
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[u32; 4]>" })
         }
     }
 }
@@ -167,7 +270,7 @@ impl TryFrom<VertexAttributeValues> for Vec<[i32; 4]> {
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
             VertexAttributeValues::Int4(value) => Ok(value),
-            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[i32; 4]]>" })
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[i32; 4]>" })
         }
     }
 }
@@ -178,7 +281,7 @@ impl TryFrom<VertexAttributeValues> for Vec<[f32; 4]> {
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
             VertexAttributeValues::Float4(value) => Ok(value),
-            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[f32; 4]]>" })
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[f32; 4]>" })
         }
     }
 }
@@ -189,7 +292,7 @@ impl TryFrom<VertexAttributeValues> for Vec<[u32; 3]> {
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
             VertexAttributeValues::Uint3(value) => Ok(value),
-            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[u32; 3]]>" })
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[u32; 3]>" })
         }
     }
 }
@@ -200,7 +303,7 @@ impl TryFrom<VertexAttributeValues> for Vec<[i32; 3]> {
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
             VertexAttributeValues::Int3(value) => Ok(value),
-            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[i32; 3]]>" })
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[i32; 3]>" })
         }
     }
 }
@@ -211,7 +314,7 @@ impl TryFrom<VertexAttributeValues> for Vec<[f32; 3]> {
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
             VertexAttributeValues::Float3(value) => Ok(value),
-            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[f32; 3]]>" })
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[f32; 3]>" })
         }
     }
 }
@@ -222,7 +325,7 @@ impl TryFrom<VertexAttributeValues> for Vec<[u32; 2]> {
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
             VertexAttributeValues::Uint2(value) => Ok(value),
-            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[u32; 2]]>" })
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[u32; 2]>" })
         }
     }
 }
@@ -233,7 +336,7 @@ impl TryFrom<VertexAttributeValues> for Vec<[i32; 2]> {
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
             VertexAttributeValues::Int2(value) => Ok(value),
-            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[i32; 2]]>" })
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[i32; 2]>" })
         }
     }
 }
@@ -244,7 +347,7 @@ impl TryFrom<VertexAttributeValues> for Vec<[f32; 2]> {
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
             VertexAttributeValues::Float2(value) => Ok(value),
-            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[f32; 2]]>" })
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[f32; 2]>" })
         }
     }
 }
