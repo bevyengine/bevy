@@ -230,7 +230,7 @@ impl Plugin for RenderPlugin {
 fn check_for_render_resource_context(context: Option<Res<Box<dyn RenderResourceContext>>>) {
     if context.is_none() {
         panic!(
-            "bevy_render couldn't find a render backend. Perhaps try adding the bevy_wgpu plugin!"
+            "bevy_render couldn't find a render backend. Perhaps try adding the bevy_wgpu feature/plugin!"
         )
     }
 }
