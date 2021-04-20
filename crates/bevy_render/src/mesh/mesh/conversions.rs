@@ -4,20 +4,29 @@
 //! # Examples
 //!
 //! ```rust
-//! use std::convert::TryInto;
 //! use bevy_render::mesh::VertexAttributeValues;
+//! use std::convert::{ TryInto, TryFrom };
 //!
-//! // creating vector of values
-//! let before = vec![[0_u32; 4]; 10];
-//! let values = VertexAttributeValues::from(before.clone());
-//! let after: Vec<[u32; 4]> = values.try_into().unwrap();
+//! // creating std::vec::Vec
+//! let buffer = vec![[0_u32; 4]; 10];
 //!
-//! assert_eq!(before, after);
+//! // converting std::vec::Vec to bevy_render::mesh::VertexAttributeValues
+//! let values = VertexAttributeValues::from(buffer.clone()).clone();
+//!
+//! // converting bevy_render::mesh::VertexAttributeValues to std::vec::Vec with two ways
+//! let result_into: Vec<[u32; 4]> = values.clone().try_into().unwrap();
+//! let result_from: Vec<[u32; 4]> = Vec::try_from(values.clone()).unwrap();
+//!
+//! // getting an error when trying to convert incorrectly
+//! let error: Result<Vec<u32>, _> = values.try_into();
+//!
+//! assert_eq!(buffer, result_into);
+//! assert_eq!(buffer, result_from);
+//! assert!(error.is_err());
 //! ```
 
 use crate::mesh::VertexAttributeValues;
-use std::convert::TryInto;
-use std::convert::TryFrom;
+use std::convert::{ TryInto, TryFrom };
 
 const CANT_CONVERT: &str = "can't convert to ";
 
@@ -246,9 +255,12 @@ impl TryFrom<VertexAttributeValues> for Vec<f32> {
 fn f32()
 {
     let buffer = vec![0.0; 10];
-    let result: Vec<f32> = VertexAttributeValues::from(buffer.clone()).try_into().unwrap();
-    let error: Result<Vec<u32>, _> = VertexAttributeValues::from(buffer.clone()).try_into();
-    assert_eq!(buffer, result);
+    let values = VertexAttributeValues::from(buffer.clone()).clone();
+    let result_into: Vec<f32> = values.clone().try_into().unwrap();
+    let result_from: Vec<f32> = Vec::try_from(values.clone()).unwrap();
+    let error: Result<Vec<u32>, _> = values.try_into();
+    assert_eq!(buffer, result_into);
+    assert_eq!(buffer, result_from);
     assert!(error.is_err());
 }
 
@@ -256,9 +268,12 @@ fn f32()
 fn i32()
 {
     let buffer = vec![0; 10];
-    let result: Vec<i32> = VertexAttributeValues::from(buffer.clone()).try_into().unwrap();
-    let error: Result<Vec<u32>, _> = VertexAttributeValues::from(buffer.clone()).try_into();
-    assert_eq!(buffer, result);
+    let values = VertexAttributeValues::from(buffer.clone()).clone();
+    let result_into: Vec<i32> = values.clone().try_into().unwrap();
+    let result_from: Vec<i32> = Vec::try_from(values.clone()).unwrap();
+    let error: Result<Vec<u32>, _> = values.try_into();
+    assert_eq!(buffer, result_into);
+    assert_eq!(buffer, result_from);
     assert!(error.is_err());
 }
 
@@ -266,9 +281,12 @@ fn i32()
 fn u32()
 {
     let buffer = vec![0_u32; 10];
-    let result: Vec<u32> = VertexAttributeValues::from(buffer.clone()).try_into().unwrap();
-    let error: Result<Vec<f32>, _> = VertexAttributeValues::from(buffer.clone()).try_into();
-    assert_eq!(buffer, result);
+    let values = VertexAttributeValues::from(buffer.clone()).clone();
+    let result_into: Vec<u32> = values.clone().try_into().unwrap();
+    let result_from: Vec<u32> = Vec::try_from(values.clone()).unwrap();
+    let error: Result<Vec<f32>, _> = values.try_into();
+    assert_eq!(buffer, result_into);
+    assert_eq!(buffer, result_from);
     assert!(error.is_err());
 }
 
@@ -276,9 +294,12 @@ fn u32()
 fn f32_2()
 {
     let buffer = vec![[0.0; 2]; 10];
-    let result: Vec<[f32; 2]> = VertexAttributeValues::from(buffer.clone()).try_into().unwrap();
-    let error: Result<Vec<u32>, _> = VertexAttributeValues::from(buffer.clone()).try_into();
-    assert_eq!(buffer, result);
+    let values = VertexAttributeValues::from(buffer.clone()).clone();
+    let result_into: Vec<[f32; 2]> = values.clone().try_into().unwrap();
+    let result_from: Vec<[f32; 2]> = Vec::try_from(values.clone()).unwrap();
+    let error: Result<Vec<u32>, _> = values.try_into();
+    assert_eq!(buffer, result_into);
+    assert_eq!(buffer, result_from);
     assert!(error.is_err());
 }
 
@@ -286,9 +307,12 @@ fn f32_2()
 fn i32_2()
 {
     let buffer = vec![[0; 2]; 10];
-    let result: Vec<[i32; 2]> = VertexAttributeValues::from(buffer.clone()).try_into().unwrap();
-    let error: Result<Vec<u32>, _> = VertexAttributeValues::from(buffer.clone()).try_into();
-    assert_eq!(buffer, result);
+    let values = VertexAttributeValues::from(buffer.clone()).clone();
+    let result_into: Vec<[i32; 2]> = values.clone().try_into().unwrap();
+    let result_from: Vec<[i32; 2]> = Vec::try_from(values.clone()).unwrap();
+    let error: Result<Vec<u32>, _> = values.try_into();
+    assert_eq!(buffer, result_into);
+    assert_eq!(buffer, result_from);
     assert!(error.is_err());
 }
 
@@ -296,9 +320,12 @@ fn i32_2()
 fn u32_2()
 {
     let buffer = vec![[0_u32; 2]; 10];
-    let result: Vec<[u32; 2]> = VertexAttributeValues::from(buffer.clone()).try_into().unwrap();
-    let error: Result<Vec<u32>, _> = VertexAttributeValues::from(buffer.clone()).try_into();
-    assert_eq!(buffer, result);
+    let values = VertexAttributeValues::from(buffer.clone()).clone();
+    let result_into: Vec<[u32; 2]> = values.clone().try_into().unwrap();
+    let result_from: Vec<[u32; 2]> = Vec::try_from(values.clone()).unwrap();
+    let error: Result<Vec<u32>, _> = values.try_into();
+    assert_eq!(buffer, result_into);
+    assert_eq!(buffer, result_from);
     assert!(error.is_err());
 }
 
@@ -306,9 +333,12 @@ fn u32_2()
 fn f32_3()
 {
     let buffer = vec![[0.0; 3]; 10];
-    let result: Vec<[f32; 3]> = VertexAttributeValues::from(buffer.clone()).try_into().unwrap();
-    let error: Result<Vec<u32>, _> = VertexAttributeValues::from(buffer.clone()).try_into();
-    assert_eq!(buffer, result);
+    let values = VertexAttributeValues::from(buffer.clone()).clone();
+    let result_into: Vec<[f32; 3]> = values.clone().try_into().unwrap();
+    let result_from: Vec<[f32; 3]> = Vec::try_from(values.clone()).unwrap();
+    let error: Result<Vec<u32>, _> = values.try_into();
+    assert_eq!(buffer, result_into);
+    assert_eq!(buffer, result_from);
     assert!(error.is_err());
 }
 
@@ -316,9 +346,12 @@ fn f32_3()
 fn i32_3()
 {
     let buffer = vec![[0; 3]; 10];
-    let result: Vec<[i32; 3]> = VertexAttributeValues::from(buffer.clone()).try_into().unwrap();
-    let error: Result<Vec<u32>, _> = VertexAttributeValues::from(buffer.clone()).try_into();
-    assert_eq!(buffer, result);
+    let values = VertexAttributeValues::from(buffer.clone()).clone();
+    let result_into: Vec<[i32; 3]> = values.clone().try_into().unwrap();
+    let result_from: Vec<[i32; 3]> = Vec::try_from(values.clone()).unwrap();
+    let error: Result<Vec<u32>, _> = values.try_into();
+    assert_eq!(buffer, result_into);
+    assert_eq!(buffer, result_from);
     assert!(error.is_err());
 }
 
@@ -326,9 +359,12 @@ fn i32_3()
 fn u32_3()
 {
     let buffer = vec![[0_u32; 3]; 10];
-    let result: Vec<[u32; 3]> = VertexAttributeValues::from(buffer.clone()).try_into().unwrap();
-    let error: Result<Vec<u32>, _> = VertexAttributeValues::from(buffer.clone()).try_into();
-    assert_eq!(buffer, result);
+    let values = VertexAttributeValues::from(buffer.clone()).clone();
+    let result_into: Vec<[u32; 3]> = values.clone().try_into().unwrap();
+    let result_from: Vec<[u32; 3]> = Vec::try_from(values.clone()).unwrap();
+    let error: Result<Vec<u32>, _> = values.try_into();
+    assert_eq!(buffer, result_into);
+    assert_eq!(buffer, result_from);
     assert!(error.is_err());
 }
 
@@ -336,9 +372,12 @@ fn u32_3()
 fn f32_4()
 {
     let buffer = vec![[0.0; 4]; 10];
-    let result: Vec<[f32; 4]> = VertexAttributeValues::from(buffer.clone()).try_into().unwrap();
-    let error: Result<Vec<u32>, _> = VertexAttributeValues::from(buffer.clone()).try_into();
-    assert_eq!(buffer, result);
+    let values = VertexAttributeValues::from(buffer.clone()).clone();
+    let result_into: Vec<[f32; 4]> = values.clone().try_into().unwrap();
+    let result_from: Vec<[f32; 4]> = Vec::try_from(values.clone()).unwrap();
+    let error: Result<Vec<u32>, _> = values.try_into();
+    assert_eq!(buffer, result_into);
+    assert_eq!(buffer, result_from);
     assert!(error.is_err());
 }
 
@@ -346,9 +385,12 @@ fn f32_4()
 fn i32_4()
 {
     let buffer = vec![[0; 4]; 10];
-    let result: Vec<[i32; 4]> = VertexAttributeValues::from(buffer.clone()).try_into().unwrap();
-    let error: Result<Vec<u32>, _> = VertexAttributeValues::from(buffer.clone()).try_into();
-    assert_eq!(buffer, result);
+    let values = VertexAttributeValues::from(buffer.clone()).clone();
+    let result_into: Vec<[i32; 4]> = values.clone().try_into().unwrap();
+    let result_from: Vec<[i32; 4]> = Vec::try_from(values.clone()).unwrap();
+    let error: Result<Vec<u32>, _> = values.try_into();
+    assert_eq!(buffer, result_into);
+    assert_eq!(buffer, result_from);
     assert!(error.is_err());
 }
 
@@ -356,8 +398,11 @@ fn i32_4()
 fn u32_4()
 {
     let buffer = vec![[0_u32; 4]; 10];
-    let result: Vec<[u32; 4]> = VertexAttributeValues::from(buffer.clone()).try_into().unwrap();
-    let error: Result<Vec<u32>, _> = VertexAttributeValues::from(buffer.clone()).try_into();
-    assert_eq!(buffer, result);
+    let values = VertexAttributeValues::from(buffer.clone()).clone();
+    let result_into: Vec<[u32; 4]> = values.clone().try_into().unwrap();
+    let result_from: Vec<[u32; 4]> = Vec::try_from(values.clone()).unwrap();
+    let error: Result<Vec<u32>, _> = values.try_into();
+    assert_eq!(buffer, result_into);
+    assert_eq!(buffer, result_from);
     assert!(error.is_err());
 }
