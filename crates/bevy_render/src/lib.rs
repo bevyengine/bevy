@@ -17,6 +17,7 @@ use bevy_ecs::{
     system::{IntoExclusiveSystem, IntoSystem, Res},
 };
 use bevy_transform::TransformSystem;
+use bevy_utils::tracing::warn;
 use draw::{OutsideFrustum, Visible};
 
 pub use once_cell;
@@ -229,8 +230,8 @@ impl Plugin for RenderPlugin {
 
 fn check_for_render_resource_context(context: Option<Res<Box<dyn RenderResourceContext>>>) {
     if context.is_none() {
-        panic!(
+        warn!(
             "bevy_render couldn't find a render backend. Perhaps try adding the bevy_wgpu feature/plugin!"
-        )
+        );
     }
 }
