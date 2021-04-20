@@ -11,7 +11,7 @@
 //! let buffer = vec![[0_u32; 4]; 10];
 //!
 //! // converting std::vec::Vec to bevy_render::mesh::VertexAttributeValues
-//! let values = VertexAttributeValues::from(buffer.clone()).clone();
+//! let values = VertexAttributeValues::from(buffer.clone());
 //!
 //! // converting bevy_render::mesh::VertexAttributeValues to std::vec::Vec with two ways
 //! let result_into: Vec<[u32; 4]> = values.clone().try_into().unwrap();
@@ -446,7 +446,7 @@ mod tests {
     #[test]
     fn f32() {
         let buffer = vec![0.0; 10];
-        let values = VertexAttributeValues::from(buffer.clone()).clone();
+        let values = VertexAttributeValues::from(buffer.clone());
         let result_into: Vec<f32> = values.clone().try_into().unwrap();
         let result_from: Vec<f32> = Vec::try_from(values.clone()).unwrap();
         let error: Result<Vec<u32>, _> = values.try_into();
@@ -458,7 +458,7 @@ mod tests {
     #[test]
     fn i32() {
         let buffer = vec![0; 10];
-        let values = VertexAttributeValues::from(buffer.clone()).clone();
+        let values = VertexAttributeValues::from(buffer.clone());
         let result_into: Vec<i32> = values.clone().try_into().unwrap();
         let result_from: Vec<i32> = Vec::try_from(values.clone()).unwrap();
         let error: Result<Vec<u32>, _> = values.try_into();
@@ -470,7 +470,7 @@ mod tests {
     #[test]
     fn u32() {
         let buffer = vec![0_u32; 10];
-        let values = VertexAttributeValues::from(buffer.clone()).clone();
+        let values = VertexAttributeValues::from(buffer.clone());
         let result_into: Vec<u32> = values.clone().try_into().unwrap();
         let result_from: Vec<u32> = Vec::try_from(values.clone()).unwrap();
         let error: Result<Vec<f32>, _> = values.try_into();
@@ -482,7 +482,7 @@ mod tests {
     #[test]
     fn f32_2() {
         let buffer = vec![[0.0; 2]; 10];
-        let values = VertexAttributeValues::from(buffer.clone()).clone();
+        let values = VertexAttributeValues::from(buffer.clone());
         let result_into: Vec<[f32; 2]> = values.clone().try_into().unwrap();
         let result_from: Vec<[f32; 2]> = Vec::try_from(values.clone()).unwrap();
         let error: Result<Vec<u32>, _> = values.try_into();
@@ -494,7 +494,7 @@ mod tests {
     #[test]
     fn i32_2() {
         let buffer = vec![[0; 2]; 10];
-        let values = VertexAttributeValues::from(buffer.clone()).clone();
+        let values = VertexAttributeValues::from(buffer.clone());
         let result_into: Vec<[i32; 2]> = values.clone().try_into().unwrap();
         let result_from: Vec<[i32; 2]> = Vec::try_from(values.clone()).unwrap();
         let error: Result<Vec<u32>, _> = values.try_into();
@@ -506,7 +506,7 @@ mod tests {
     #[test]
     fn u32_2() {
         let buffer = vec![[0_u32; 2]; 10];
-        let values = VertexAttributeValues::from(buffer.clone()).clone();
+        let values = VertexAttributeValues::from(buffer.clone());
         let result_into: Vec<[u32; 2]> = values.clone().try_into().unwrap();
         let result_from: Vec<[u32; 2]> = Vec::try_from(values.clone()).unwrap();
         let error: Result<Vec<u32>, _> = values.try_into();
@@ -518,7 +518,7 @@ mod tests {
     #[test]
     fn f32_3() {
         let buffer = vec![[0.0; 3]; 10];
-        let values = VertexAttributeValues::from(buffer.clone()).clone();
+        let values = VertexAttributeValues::from(buffer.clone());
         let result_into: Vec<[f32; 3]> = values.clone().try_into().unwrap();
         let result_from: Vec<[f32; 3]> = Vec::try_from(values.clone()).unwrap();
         let error: Result<Vec<u32>, _> = values.try_into();
@@ -530,7 +530,7 @@ mod tests {
     #[test]
     fn i32_3() {
         let buffer = vec![[0; 3]; 10];
-        let values = VertexAttributeValues::from(buffer.clone()).clone();
+        let values = VertexAttributeValues::from(buffer.clone());
         let result_into: Vec<[i32; 3]> = values.clone().try_into().unwrap();
         let result_from: Vec<[i32; 3]> = Vec::try_from(values.clone()).unwrap();
         let error: Result<Vec<u32>, _> = values.try_into();
@@ -542,7 +542,7 @@ mod tests {
     #[test]
     fn u32_3() {
         let buffer = vec![[0_u32; 3]; 10];
-        let values = VertexAttributeValues::from(buffer.clone()).clone();
+        let values = VertexAttributeValues::from(buffer.clone());
         let result_into: Vec<[u32; 3]> = values.clone().try_into().unwrap();
         let result_from: Vec<[u32; 3]> = Vec::try_from(values.clone()).unwrap();
         let error: Result<Vec<u32>, _> = values.try_into();
@@ -554,7 +554,7 @@ mod tests {
     #[test]
     fn f32_4() {
         let buffer = vec![[0.0; 4]; 10];
-        let values = VertexAttributeValues::from(buffer.clone()).clone();
+        let values = VertexAttributeValues::from(buffer.clone());
         let result_into: Vec<[f32; 4]> = values.clone().try_into().unwrap();
         let result_from: Vec<[f32; 4]> = Vec::try_from(values.clone()).unwrap();
         let error: Result<Vec<u32>, _> = values.try_into();
@@ -566,7 +566,7 @@ mod tests {
     #[test]
     fn i32_4() {
         let buffer = vec![[0; 4]; 10];
-        let values = VertexAttributeValues::from(buffer.clone()).clone();
+        let values = VertexAttributeValues::from(buffer.clone());
         let result_into: Vec<[i32; 4]> = values.clone().try_into().unwrap();
         let result_from: Vec<[i32; 4]> = Vec::try_from(values.clone()).unwrap();
         let error: Result<Vec<u32>, _> = values.try_into();
@@ -578,7 +578,7 @@ mod tests {
     #[test]
     fn u32_4() {
         let buffer = vec![[0_u32; 4]; 10];
-        let values = VertexAttributeValues::from(buffer.clone()).clone();
+        let values = VertexAttributeValues::from(buffer.clone());
         let result_into: Vec<[u32; 4]> = values.clone().try_into().unwrap();
         let result_from: Vec<[u32; 4]> = Vec::try_from(values.clone()).unwrap();
         let error: Result<Vec<u32>, _> = values.try_into();
@@ -590,7 +590,7 @@ mod tests {
     #[test]
     fn correct_message() {
         let buffer = vec![[0_u32; 4]; 3];
-        let values = VertexAttributeValues::from(buffer.clone()).clone();
+        let values = VertexAttributeValues::from(buffer);
         let error_result: Result<Vec<u32>, _> = values.try_into();
         let error = match error_result {
             Ok(..) => unreachable!(),
