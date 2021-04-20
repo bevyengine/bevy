@@ -27,8 +27,39 @@
 
 use crate::mesh::VertexAttributeValues;
 use std::convert::{ TryInto, TryFrom };
+use std::error::Error;
+use std::fmt;
 
-const CANT_CONVERT: &str = "can't convert to ";
+#[derive(Debug, Clone)]
+pub struct FromVertexAttributeError
+{
+    from: VertexAttributeValues,
+    into: &'static str
+}
+
+impl Error for FromVertexAttributeError {}
+
+impl fmt::Display for FromVertexAttributeError
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let value_name = match self.from {
+            VertexAttributeValues::Float(..) => "VertexAttributeValues::Float",
+            VertexAttributeValues::Int(..) => "VertexAttributeValues::Int",
+            VertexAttributeValues::Uint(..) => "VertexAttributeValues::Uint",
+            VertexAttributeValues::Float2(..) => "VertexAttributeValues::Float2",
+            VertexAttributeValues::Int2(..) => "VertexAttributeValues::Int2",
+            VertexAttributeValues::Uint2(..) => "VertexAttributeValues::Uint2",
+            VertexAttributeValues::Float3(..) => "VertexAttributeValues::Float3",
+            VertexAttributeValues::Int3(..) => "VertexAttributeValues::Int3",
+            VertexAttributeValues::Uint3(..) => "VertexAttributeValues::Uint3",
+            VertexAttributeValues::Float4(..) => "VertexAttributeValues::Float4",
+            VertexAttributeValues::Int4(..) => "VertexAttributeValues::Int4",
+            VertexAttributeValues::Uint4(..) => "VertexAttributeValues::Uint4",
+            VertexAttributeValues::Uchar4Norm(..) => "VertexAttributeValues::Uchar4Norm",
+        };
+        write!(f, "can't convert `{}` to `{}`", value_name, self.into)
+    }
+}
 
 impl From<Vec<f32>> for VertexAttributeValues {
     fn from(vec: Vec<f32>) -> Self {
@@ -109,144 +140,144 @@ impl From<Vec<[u8; 4]>> for VertexAttributeValues {
 }
 
 impl TryFrom<VertexAttributeValues> for Vec<[u8; 4]> {
-    type Error = String;
+    type Error = FromVertexAttributeError;
 
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
             VertexAttributeValues::Uchar4Norm(value) => Ok(value),
-            _ => Err(CANT_CONVERT.to_string() + "Vec<[u8; 4]>")
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[u8; 4]]>" })
         }
     }
 }
 
 impl TryFrom<VertexAttributeValues> for Vec<[u32; 4]> {
-    type Error = String;
+    type Error = FromVertexAttributeError;
 
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
             VertexAttributeValues::Uint4(value) => Ok(value),
-            _ => Err(CANT_CONVERT.to_string() + "Vec<[u32; 4]>")
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[u32; 4]]>" })
         }
     }
 }
 
 impl TryFrom<VertexAttributeValues> for Vec<[i32; 4]> {
-    type Error = String;
+    type Error = FromVertexAttributeError;
 
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
             VertexAttributeValues::Int4(value) => Ok(value),
-            _ => Err(CANT_CONVERT.to_string() + "Vec<[i32; 4]>")
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[i32; 4]]>" })
         }
     }
 }
 
 impl TryFrom<VertexAttributeValues> for Vec<[f32; 4]> {
-    type Error = String;
+    type Error = FromVertexAttributeError;
 
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
             VertexAttributeValues::Float4(value) => Ok(value),
-            _ => Err(CANT_CONVERT.to_string() + "Vec<[f32; 4]>")
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[f32; 4]]>" })
         }
     }
 }
 
 impl TryFrom<VertexAttributeValues> for Vec<[u32; 3]> {
-    type Error = String;
+    type Error = FromVertexAttributeError;
 
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
             VertexAttributeValues::Uint3(value) => Ok(value),
-            _ => Err(CANT_CONVERT.to_string() + "Vec<[u32; 3]>")
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[u32; 3]]>" })
         }
     }
 }
 
 impl TryFrom<VertexAttributeValues> for Vec<[i32; 3]> {
-    type Error = String;
+    type Error = FromVertexAttributeError;
 
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
             VertexAttributeValues::Int3(value) => Ok(value),
-            _ => Err(CANT_CONVERT.to_string() + "Vec<[i32; 3]>")
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[i32; 3]]>" })
         }
     }
 }
 
 impl TryFrom<VertexAttributeValues> for Vec<[f32; 3]> {
-    type Error = String;
+    type Error = FromVertexAttributeError;
 
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
             VertexAttributeValues::Float3(value) => Ok(value),
-            _ => Err(CANT_CONVERT.to_string() + "Vec<[f32; 3]>")
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[f32; 3]]>" })
         }
     }
 }
 
 impl TryFrom<VertexAttributeValues> for Vec<[u32; 2]> {
-    type Error = String;
+    type Error = FromVertexAttributeError;
 
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
             VertexAttributeValues::Uint2(value) => Ok(value),
-            _ => Err(CANT_CONVERT.to_string() + "Vec<[u32; 2]>")
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[u32; 2]]>" })
         }
     }
 }
 
 impl TryFrom<VertexAttributeValues> for Vec<[i32; 2]> {
-    type Error = String;
+    type Error = FromVertexAttributeError;
 
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
             VertexAttributeValues::Int2(value) => Ok(value),
-            _ => Err(CANT_CONVERT.to_string() + "Vec<[i32; 2]>")
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[i32; 2]]>" })
         }
     }
 }
 
 impl TryFrom<VertexAttributeValues> for Vec<[f32; 2]> {
-    type Error = String;
+    type Error = FromVertexAttributeError;
 
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
             VertexAttributeValues::Float2(value) => Ok(value),
-            _ => Err(CANT_CONVERT.to_string() + "Vec<[f32; 2]>")
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<[f32; 2]]>" })
         }
     }
 }
 
 impl TryFrom<VertexAttributeValues> for Vec<u32> {
-    type Error = String;
+    type Error = FromVertexAttributeError;
 
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
             VertexAttributeValues::Uint(value) => Ok(value),
-            _ => Err(CANT_CONVERT.to_string() + "Vec<u32>")
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<u32>" })
         }
     }
 }
 
 impl TryFrom<VertexAttributeValues> for Vec<i32> {
-    type Error = String;
+    type Error = FromVertexAttributeError;
 
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
             VertexAttributeValues::Int(value) => Ok(value),
-            _ => Err(CANT_CONVERT.to_string() + "Vec<i32>")
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<i32>" })
         }
     }
 }
 
 impl TryFrom<VertexAttributeValues> for Vec<f32> {
-    type Error = String;
+    type Error = FromVertexAttributeError;
 
     fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
         match value {
             VertexAttributeValues::Float(value) => Ok(value),
-            _ => Err(CANT_CONVERT.to_string() + "Vec<f32>")
+            _ => Err(FromVertexAttributeError{ from: value, into: "Vec<f32>" })
         }
     }
 }
@@ -405,4 +436,20 @@ fn u32_4()
     assert_eq!(buffer, result_into);
     assert_eq!(buffer, result_from);
     assert!(error.is_err());
+}
+
+#[test]
+fn correct_message()
+{
+    let buffer = vec![[0_u32; 4]; 3];
+    let values = VertexAttributeValues::from(buffer.clone()).clone();
+    let error_result: Result<Vec<u32>, _> = values.try_into();
+    let error = match error_result
+    {
+        Ok(..) => unreachable!(),
+        Err(error) => error
+    };
+    assert_eq!(format!("{}", error), "can't convert `VertexAttributeValues::Uint4` to `Vec<u32>`");
+    assert_eq!(format!("{:?}", error),
+               "FromVertexAttributeError { from: Uint4([[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]), into: \"Vec<u32>\" }");
 }
