@@ -51,7 +51,8 @@ impl SystemState {
 
 /// Conversion trait to turn something into a [`System`].
 ///
-/// Use this to get a system from a function. Also note that every system implements this trait as well.
+/// Use this to get a system from a function. Also note that every system implements this trait as
+/// well.
 ///
 /// # Examples
 ///
@@ -106,9 +107,9 @@ pub struct InputMarker;
 
 /// The [`System`] counter part of an ordinary function.
 ///
-/// You get this by calling [`IntoSystem::system`]  on a function that only accepts [`SystemParam`]s.
-/// The output of the system becomes the functions return type, while the input becomes the functions
-/// [`In`] tagged parameter or `()` if no such paramater exists.
+/// You get this by calling [`IntoSystem::system`]  on a function that only accepts
+/// [`SystemParam`]s. The output of the system becomes the functions return type, while the input
+/// becomes the functions [`In`] tagged parameter or `()` if no such paramater exists.
 pub struct FunctionSystem<In, Out, Param, Marker, F>
 where
     Param: SystemParam,

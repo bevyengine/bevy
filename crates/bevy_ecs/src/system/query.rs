@@ -126,7 +126,8 @@ where
 
     /// Runs `f` on each query result in parallel using the given task pool.
     ///
-    /// This can only be called for read-only queries, see [`Self::par_for_each_mut`] for write-queries.
+    /// This can only be called for read-only queries, see [`Self::par_for_each_mut`] for
+    /// write-queries.
     #[inline]
     pub fn par_for_each(
         &self,
@@ -270,7 +271,8 @@ where
     }
 
     /// Gets a mutable reference to the [`Entity`]'s [`Component`] of the given type. This will fail
-    /// if the entity does not have the given component type or the component does not match the query.
+    /// if the entity does not have the given component type or the component does not match the
+    /// query.
     ///
     /// # Safety
     ///
@@ -352,7 +354,8 @@ where
         }
     }
 
-    /// Gets the query result if it is only a single result, otherwise returns a [`QuerySingleError`].
+    /// Gets the query result if it is only a single result, otherwise returns a
+    /// [`QuerySingleError`].
     pub fn single_mut(&mut self) -> Result<<Q::Fetch as Fetch<'_>>::Item, QuerySingleError> {
         let mut query = self.iter_mut();
         let first = query.next();
@@ -381,8 +384,8 @@ pub enum QueryComponentError {
     NoSuchEntity,
 }
 
-/// An error that occurs when evaluating a [`Query`] as a single expected resulted via [`Query::single`]
-/// or [`Query::single_mut`].
+/// An error that occurs when evaluating a [`Query`] as a single expected resulted via
+/// [`Query::single`] or [`Query::single_mut`].
 #[derive(Debug, Error)]
 pub enum QuerySingleError {
     #[error("No entities fit the query {0}")]

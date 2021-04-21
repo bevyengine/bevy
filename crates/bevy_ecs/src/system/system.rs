@@ -31,7 +31,8 @@ impl SystemId {
 /// It's possible to specify explicit execution order between specific systems,
 /// see [SystemDescriptor](crate::schedule::SystemDescriptor).
 pub trait System: Send + Sync + 'static {
-    /// The system's input. See [`In`](crate::system::In) for [`FunctionSystem`](crate::system::FunctionSystem)s.
+    /// The system's input. See [`In`](crate::system::In) for
+    /// [`FunctionSystem`](crate::system::FunctionSystem)s.
     type In;
     /// The system's output.
     type Out;

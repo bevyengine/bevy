@@ -185,9 +185,9 @@ impl AppBuilder {
 
     /// Adds a new [State] with the given `initial` value.
     /// This inserts a new `State<T>` resource and adds a new "driver" to [CoreStage::Update].
-    /// Each stage that uses `State<T>` for system run criteria needs a driver. If you need to use your state in a
-    /// different stage, consider using [Self::add_state_to_stage] or manually adding [State::get_driver] to additional stages
-    /// you need it in.
+    /// Each stage that uses `State<T>` for system run criteria needs a driver. If you need to use
+    /// your state in a different stage, consider using [Self::add_state_to_stage] or manually
+    /// adding [State::get_driver] to additional stages you need it in.
     pub fn add_state<T>(&mut self, initial: T) -> &mut Self
     where
         T: Component + Debug + Clone + Eq + Hash,
@@ -197,9 +197,9 @@ impl AppBuilder {
 
     /// Adds a new [State] with the given `initial` value.
     /// This inserts a new `State<T>` resource and adds a new "driver" to the given stage.
-    /// Each stage that uses `State<T>` for system run criteria needs a driver. If you need to use your state in
-    /// more than one stage, consider manually adding [State::get_driver] to the stages
-    /// you need it in.
+    /// Each stage that uses `State<T>` for system run criteria needs a driver. If you need to use
+    /// your state in more than one stage, consider manually adding [State::get_driver] to the
+    /// stages you need it in.
     pub fn add_state_to_stage<T>(&mut self, stage: impl StageLabel, initial: T) -> &mut Self
     where
         T: Component + Debug + Clone + Eq + Hash,

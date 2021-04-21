@@ -86,8 +86,8 @@ impl<'a> Commands<'a> {
 
     /// Creates a new entity with the components contained in `bundle`.
     ///
-    /// This returns an [`EntityCommands`] builder, which enables inserting more components and bundles
-    /// using a "builder pattern".
+    /// This returns an [`EntityCommands`] builder, which enables inserting more components and
+    /// bundles using a "builder pattern".
     ///
     /// Note that `bundle` is a [`Bundle`], which is a collection of components. [`Bundle`] is
     /// automatically implemented for tuples of components. You can also create your own bundle
@@ -212,9 +212,9 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
     /// # Warning
     ///
     /// It's possible to call this with a bundle, but this is likely not intended and
-    /// [`Self::insert_bundle`] should be used instead. If `with` is called with a bundle, the bundle
-    /// itself will be added as a component instead of the bundles' inner components each being
-    /// added.
+    /// [`Self::insert_bundle`] should be used instead. If `with` is called with a bundle, the
+    /// bundle itself will be added as a component instead of the bundles' inner components each
+    /// being added.
     ///
     /// # Example
     ///

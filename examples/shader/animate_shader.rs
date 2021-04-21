@@ -84,7 +84,8 @@ fn setup(
         fragment: Some(shaders.add(Shader::from_glsl(ShaderStage::Fragment, FRAGMENT_SHADER))),
     }));
 
-    // Add a `RenderResourcesNode` to our `RenderGraph`. This will bind `TimeComponent` to our shader.
+    // Add a `RenderResourcesNode` to our `RenderGraph`. This will bind `TimeComponent` to our
+    // shader.
     render_graph.add_system_node(
         "time_uniform",
         RenderResourcesNode::<TimeUniform>::new(true),
@@ -115,9 +116,9 @@ fn setup(
     });
 }
 
-/// In this system we query for the `TimeComponent` and global `Time` resource, and set `time.seconds_since_startup()`
-/// as the `value` of the `TimeComponent`. This value will be accessed by the fragment shader and used
-/// to animate the shader.
+/// In this system we query for the `TimeComponent` and global `Time` resource, and set
+/// `time.seconds_since_startup()` as the `value` of the `TimeComponent`. This value will be
+/// accessed by the fragment shader and used to animate the shader.
 fn animate_shader(time: Res<Time>, mut query: Query<&mut TimeUniform>) {
     let mut time_uniform = query.single_mut().unwrap();
     time_uniform.value = time.seconds_since_startup() as f32;
