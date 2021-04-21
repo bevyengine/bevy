@@ -344,7 +344,8 @@ impl ComponentTicks {
     }
 
     /// Manually sets the change tick.
-    /// Usually, this is done automatically via the [`DerefMut`](std::ops::DerefMut) implementation on [`Mut`](crate::world::Mut) or [`ResMut`](crate::system::ResMut) etc.
+    /// Usually, this is done automatically via the [`DerefMut`](std::ops::DerefMut) implementation
+    /// on [`Mut`](crate::world::Mut) or [`ResMut`](crate::system::ResMut) etc.
     ///
     /// # Example
     /// ```rust,no_run

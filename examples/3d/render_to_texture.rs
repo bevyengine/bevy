@@ -169,7 +169,8 @@ fn setup(
     let mut first_pass_camera = PerspectiveCameraBundle {
         camera: Camera {
             name: Some(FIRST_PASS_CAMERA.to_string()),
-            window: WindowId::new(), // otherwise it will use main window size / aspect for calculation of projection matrix
+            window: WindowId::new(), /* otherwise it will use main window size / aspect for
+                                      * calculation of projection matrix */
             ..Default::default()
         },
         transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))

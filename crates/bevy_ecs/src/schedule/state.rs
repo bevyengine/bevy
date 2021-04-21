@@ -300,7 +300,8 @@ where
     }
 
     /// Schedule a state change that replaces the full stack with the given state.
-    /// This will fail if there is a scheduled operation, or if the given `state` matches the current state
+    /// This will fail if there is a scheduled operation, or if the given `state` matches the
+    /// current state
     pub fn replace(&mut self, state: T) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
@@ -314,7 +315,8 @@ where
         Ok(())
     }
 
-    /// Same as [Self::replace], but if there is already a next state, it will be overwritten instead of failing
+    /// Same as [Self::replace], but if there is already a next state, it will be overwritten
+    /// instead of failing
     pub fn overwrite_replace(&mut self, state: T) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
