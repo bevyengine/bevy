@@ -101,7 +101,7 @@ impl<T: SparseSetIndex> Access<T> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct FilteredAccess<T: SparseSetIndex> {
     access: Access<T>,
     with: FixedBitSet,
@@ -151,6 +151,12 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
             self.with.intersection(&other.without).next().is_some()
                 || self.without.intersection(&other.with).next().is_some()
         }
+    }
+
+    pub fn extend(&mut self, access: &FilteredAccess<T>) {
+        self.access.extend(&access.access);
+        self.with.union_with(&access.with);
+        self.without.union_with(&access.without);
     }
 }
 
@@ -202,7 +208,7 @@ impl<T: SparseSetIndex> Default for FilteredAccessSet<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::query::Access;
+    use crate::query::{Access, FilteredAccess};
 
     #[test]
     fn access_get_conflicts() {
@@ -229,5 +235,29 @@ mod tests {
         assert_eq!(access_d.get_conflicts(&access_a), vec![]);
         assert_eq!(access_d.get_conflicts(&access_b), vec![]);
         assert_eq!(access_d.get_conflicts(&access_c), vec![0]);
+    }
+
+    #[test]
+    fn filtered_access_extend() {
+        let mut access_a = FilteredAccess::<usize>::default();
+        access_a.add_read(0);
+        access_a.add_read(1);
+        access_a.add_with(2);
+
+        let mut access_b = FilteredAccess::<usize>::default();
+        access_b.add_read(0);
+        access_b.add_write(3);
+        access_b.add_without(4);
+
+        access_a.extend(&access_b);
+
+        let mut expected = FilteredAccess::<usize>::default();
+        expected.add_read(0);
+        expected.add_read(1);
+        expected.add_with(2);
+        expected.add_write(3);
+        expected.add_without(4);
+
+        assert!(access_a.eq(&expected));
     }
 }
