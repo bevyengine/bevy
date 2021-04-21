@@ -1,4 +1,4 @@
-//! These implementations allows you
+//! These implementations allow you to
 //! convert std::vec::Vec<T> to VertexAttributeValues::T and back.
 //!
 //! # Examples
