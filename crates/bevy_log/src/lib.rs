@@ -18,7 +18,12 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 
 /// Adds logging to Apps. This plugin is part of the `DefaultPlugins`. Adding
 /// this plugin will setup a collector appropriate to your target platform:
-/// *
+/// * Using [`tracing-subscriber`](https://crates.io/crates/tracing-subscriber) by default,
+/// logging to `stdout`.
+/// * Using [`android_log-sys`](https://crates.io/crates/android_log-sys) on Android,
+/// logging to Android logs.
+/// * Using [`tracing-wasm`](https://crates.io/crates/tracing-wasm) in WASM, logging
+/// to the browser console.
 ///
 /// You can configure this plugin using the resource [`LogSettings`].
 /// ```no_run
