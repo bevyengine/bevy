@@ -1,4 +1,4 @@
-use crate::modules::{get_modules, get_path};
+use crate::modules::get_modules;
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput, Path};
@@ -7,9 +7,9 @@ pub fn derive_render_resource(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let modules = get_modules(&ast.attrs);
 
-    let bevy_render_path: Path = get_path(&modules.bevy_render);
-    let bevy_asset_path: Path = get_path(&modules.bevy_asset);
-    let bevy_core_path: Path = get_path(&modules.bevy_core);
+    let bevy_render_path: Path = modules.bevy_render;
+    let bevy_asset_path: Path = modules.bevy_asset;
+    let bevy_core_path: Path = modules.bevy_core;
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 

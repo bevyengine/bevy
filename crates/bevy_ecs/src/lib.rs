@@ -78,7 +78,6 @@ mod tests {
 
     #[test]
     fn bundle_derive() {
-        use crate as bevy_ecs;
         #[derive(Bundle, PartialEq, Debug)]
         struct Foo {
             x: &'static str,
