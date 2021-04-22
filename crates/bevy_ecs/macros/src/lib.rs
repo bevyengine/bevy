@@ -380,6 +380,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             type Fetch = #fetch_struct_name <(#(<#field_types as SystemParam>::Fetch,)*), #punctuated_generic_idents>;
         }
 
+        #[doc(hidden)]
         #fetch_struct_visibility struct #fetch_struct_name<TSystemParamState, #punctuated_generic_idents> {
             state: TSystemParamState,
             marker: std::marker::PhantomData<(#punctuated_generic_idents)>
