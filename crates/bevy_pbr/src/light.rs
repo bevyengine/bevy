@@ -11,6 +11,7 @@ pub struct PointLight {
     pub color: Color,
     pub intensity: f32,
     pub range: f32,
+    pub radius: f32,
 }
 
 impl Default for PointLight {
@@ -19,6 +20,7 @@ impl Default for PointLight {
             color: Color::rgb(1.0, 1.0, 1.0),
             intensity: 200.0,
             range: 20.0,
+            radius: 0.0,
         }
     }
 }
@@ -29,7 +31,7 @@ pub(crate) struct PointLightUniform {
     pub pos: [f32; 4],
     pub color: [f32; 4],
     // storing as a `[f32; 4]` for memory alignement
-    pub inverse_range_squared: [f32; 4],
+    pub light_params: [f32; 4],
 }
 
 unsafe impl Byteable for PointLightUniform {}
@@ -41,10 +43,11 @@ impl PointLightUniform {
         // premultiply color by intensity
         // we don't use the alpha at all, so no reason to multiply only [0..3]
         let color: [f32; 4] = (light.color * light.intensity).into();
+
         PointLightUniform {
             pos: [x, y, z, 1.0],
             color,
-            inverse_range_squared: [1.0 / (light.range * light.range), 0., 0., 0.],
+            light_params: [1.0 / (light.range * light.range), light.radius, 0.0, 0.0],
         }
     }
 }
