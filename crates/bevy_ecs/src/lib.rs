@@ -36,9 +36,11 @@ pub mod prelude {
 mod tests {
     use crate::{
         bundle::Bundle,
-        component::{Component, ComponentDescriptor, StorageType, TypeInfo},
+        component::{Component, ComponentDescriptor, ComponentId, StorageType, TypeInfo},
         entity::Entity,
-        query::{Added, ChangeTrackers, Changed, FilterFetch, With, Without, WorldQuery},
+        query::{
+            Added, ChangeTrackers, Changed, FilterFetch, FilteredAccess, With, Without, WorldQuery,
+        },
         world::{Mut, World},
     };
     use bevy_tasks::TaskPool;
@@ -1116,6 +1118,28 @@ mod tests {
         let mut query = world_a.query::<&i32>();
         query.iter(&world_a);
         query.iter(&world_b);
+    }
+
+    #[test]
+    fn query_filters_dont_collide_with_fetches() {
+        let mut world = World::new();
+        world.query_filtered::<&mut i32, Changed<i32>>();
+    }
+
+    #[test]
+    fn filtered_query_access() {
+        let mut world = World::new();
+        let query = world.query_filtered::<&mut i32, Changed<f64>>();
+
+        let mut expected = FilteredAccess::<ComponentId>::default();
+        let i32_id = world.components.get_id(TypeId::of::<i32>()).unwrap();
+        let f64_id = world.components.get_id(TypeId::of::<f64>()).unwrap();
+        expected.add_write(i32_id);
+        expected.add_read(f64_id);
+        assert!(
+            query.component_access.eq(&expected),
+            "ComponentId access from query fetch and query filter should be combined"
+        );
     }
 
     #[test]

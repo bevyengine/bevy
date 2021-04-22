@@ -38,9 +38,20 @@ where
     pub fn new(world: &mut World) -> Self {
         let fetch_state = <Q::State as FetchState>::init(world);
         let filter_state = <F::State as FetchState>::init(world);
-        let mut component_access = Default::default();
+
+        let mut component_access = FilteredAccess::default();
         fetch_state.update_component_access(&mut component_access);
-        filter_state.update_component_access(&mut component_access);
+
+        // Use a temporary empty FilteredAccess for filters. This prevents them from conflicting with the
+        // main Query's `fetch_state` access. Filters are allowed to conflict with the main query fetch
+        // because they are evaluated *before* a specific reference is constructed.
+        let mut filter_component_access = FilteredAccess::default();
+        filter_state.update_component_access(&mut filter_component_access);
+
+        // Merge the temporary filter access with the main access. This ensures that filter access is
+        // properly considered in a global "cross-query" context (both within systems and across systems).
+        component_access.extend(&filter_component_access);
+
         let mut state = Self {
             world_id: world.id(),
             archetype_generation: ArchetypeGeneration::new(usize::MAX),
