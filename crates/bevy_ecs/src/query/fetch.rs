@@ -12,6 +12,32 @@ use std::{
     ptr::{self, NonNull},
 };
 
+/// Types that can be queried from a [`World`].
+///
+/// Notable types that implement this trait are `&T` and `&mut T` where `T` implements [`Component`],
+/// allowing you to query for components immutably and mutably accordingly.
+///
+/// See [`Query`](crate::system::Query) for a primer on queries.
+///
+/// # Basic WorldQueries
+///
+/// Here is a small list of the most important world queries to know about where `C` stands for a
+/// [`Component`] and `WQ` stands for a [`WorldQuery`]:
+/// - `&C`: Queries immutably for the component `C`
+/// - `&mut C`: Queries mutably for the component `C`
+/// - `Option<WQ>`: Queries the inner WorldQuery `WQ` but instead of discarding the entity if the world
+///     query fails it returns [`None`]. See [`Query`](crate::system::Query).
+/// - `(WQ1, WQ2, ...)`: Queries all contained world queries allowing to query for more than one thing.
+///     This is the `And` operator for filters. See [`Or`].
+/// - `ChangeTrackers<C>`: See the docs of [`ChangeTrackers`].
+/// - [`Entity`]: Using the entity type as a world query will grant access to the entity that is
+///     being queried for. See [`Entity`].
+///
+/// Bevy also offers a few filters like [`Added`](crate::query::Added), [`Changed`](crate::query::Changed),
+/// [`With`](crate::query::With), [`Without`](crate::query::Without) and [`Or`].
+/// For more information on these consult the item's corresponding documentation.
+///
+/// [`Or`]: crate::query::Or
 pub trait WorldQuery {
     type Fetch: for<'a> Fetch<'a, State = Self::State>;
     type State: FetchState;
@@ -24,6 +50,7 @@ pub trait Fetch<'w>: Sized {
     /// Creates a new instance of this fetch.
     ///
     /// # Safety
+    ///
     /// `state` must have been initialized (via [FetchState::init]) using the same `world` passed in
     /// to this function.
     unsafe fn init(
@@ -35,52 +62,58 @@ pub trait Fetch<'w>: Sized {
 
     /// Returns true if (and only if) every table of every archetype matched by this Fetch contains
     /// all of the matched components. This is used to select a more efficient "table iterator"
-    /// for "dense" queries. If this returns true, [Fetch::set_table] and [Fetch::table_fetch]
-    /// will be called for iterators If this returns false, [Fetch::set_archetype] and
-    /// [Fetch::archetype_fetch] will be called for iterators
+    /// for "dense" queries. If this returns true, [`Fetch::set_table`] and [`Fetch::table_fetch`]
+    /// will be called for iterators. If this returns false, [`Fetch::set_archetype`] and
+    /// [`Fetch::archetype_fetch`] will be called for iterators.
     fn is_dense(&self) -> bool;
 
-    /// Adjusts internal state to account for the next [Archetype]. This will always be called on
-    /// archetypes that match this [Fetch]
+    /// Adjusts internal state to account for the next [`Archetype`]. This will always be called on
+    /// archetypes that match this [`Fetch`].
     ///
     /// # Safety
-    /// `archetype` and `tables` must be from the [World] [Fetch::init] was called on. `state` must
+    ///
+    /// `archetype` and `tables` must be from the [`World`] [`Fetch::init`] was called on. `state` must
     /// be the [Self::State] this was initialized with.
     unsafe fn set_archetype(&mut self, state: &Self::State, archetype: &Archetype, tables: &Tables);
 
-    /// Adjusts internal state to account for the next [Table]. This will always be called on tables
-    /// that match this [Fetch]
+    /// Adjusts internal state to account for the next [`Table`]. This will always be called on tables
+    /// that match this [`Fetch`].
     ///
     /// # Safety
-    /// `table` must be from the [World] [Fetch::init] was called on. `state` must be the
+    ///
+    /// `table` must be from the [`World`] [`Fetch::init`] was called on. `state` must be the
     /// [Self::State] this was initialized with.
     unsafe fn set_table(&mut self, state: &Self::State, table: &Table);
 
-    /// Fetch [Self::Item] for the given `archetype_index` in the current [Archetype]. This must
-    /// always be called after [Fetch::set_archetype] with an `archetype_index` in the range of
-    /// the current [Archetype]
+    /// Fetch [`Self::Item`] for the given `archetype_index` in the current [`Archetype`]. This must
+    /// always be called after [`Fetch::set_archetype`] with an `archetype_index` in the range of
+    /// the current [`Archetype`]
     ///
     /// # Safety
-    /// Must always be called _after_ [Fetch::set_archetype]. `archetype_index` must be in the range
+    /// Must always be called _after_ [`Fetch::set_archetype`]. `archetype_index` must be in the range
     /// of the current archetype
     unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item;
 
-    /// Fetch [Self::Item] for the given `table_row` in the current [Table]. This must always be
-    /// called after [Fetch::set_table] with a `table_row` in the range of the current [Table]
+    /// Fetch [`Self::Item`] for the given `table_row` in the current [`Table`]. This must always be
+    /// called after [`Fetch::set_table`] with a `table_row` in the range of the current [`Table`]
     ///
     /// # Safety
-    /// Must always be called _after_ [Fetch::set_table]. `table_row` must be in the range of the
+    ///
+    /// Must always be called _after_ [`Fetch::set_table`]. `table_row` must be in the range of the
     /// current table
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item;
 }
 
-/// State used to construct a Fetch. This will be cached inside QueryState, so it is best to move as
-/// much data / computation here as possible to reduce the cost of constructing Fetch.
-/// SAFETY:
-/// Implementor must ensure that [FetchState::update_component_access] and
-/// [FetchState::update_archetype_component_access] exactly reflects the results of
-/// [FetchState::matches_archetype], [FetchState::matches_table], [Fetch::archetype_fetch], and
-/// [Fetch::table_fetch]
+/// State used to construct a Fetch. This will be cached inside [`QueryState`](crate::query::QueryState),
+///  so it is best to move as much data / computation here as possible to reduce the cost of
+/// constructing Fetch.
+///
+/// # Safety
+///
+/// Implementor must ensure that [`FetchState::update_component_access`] and
+/// [`FetchState::update_archetype_component_access`] exactly reflects the results of
+/// [`FetchState::matches_archetype`], [`FetchState::matches_table`], [`Fetch::archetype_fetch`], and
+/// [`Fetch::table_fetch`].
 pub unsafe trait FetchState: Send + Sync + Sized {
     fn init(world: &mut World) -> Self;
     fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>);
@@ -101,16 +134,18 @@ impl WorldQuery for Entity {
     type State = EntityState;
 }
 
+/// The [`Fetch`] of [`Entity`].
 pub struct EntityFetch {
     entities: *const Entity,
 }
 
-/// SAFE: access is read only
+/// SAFETY: access is read only
 unsafe impl ReadOnlyFetch for EntityFetch {}
 
+/// The [`FetchState`] of [`Entity`].
 pub struct EntityState;
 
-// SAFE: no component or archetype access
+// SAFETY: no component or archetype access
 unsafe impl FetchState for EntityState {
     fn init(_world: &mut World) -> Self {
         Self
@@ -187,13 +222,14 @@ impl<T: Component> WorldQuery for &T {
     type State = ReadState<T>;
 }
 
+/// The [`FetchState`] of `&T`.
 pub struct ReadState<T> {
     component_id: ComponentId,
     storage_type: StorageType,
     marker: PhantomData<T>,
 }
 
-// SAFE: component access and archetype component access are properly updated to reflect that T is
+// SAFETY: component access and archetype component access are properly updated to reflect that T is
 // read
 unsafe impl<T: Component> FetchState for ReadState<T> {
     fn init(world: &mut World) -> Self {
@@ -234,6 +270,7 @@ unsafe impl<T: Component> FetchState for ReadState<T> {
     }
 }
 
+/// The [`Fetch`] of `&T`.
 pub struct ReadFetch<T> {
     storage_type: StorageType,
     table_components: NonNull<T>,
@@ -242,7 +279,7 @@ pub struct ReadFetch<T> {
     sparse_set: *const ComponentSparseSet,
 }
 
-/// SAFE: access is read only
+/// SAFETY: access is read only
 unsafe impl<T> ReadOnlyFetch for ReadFetch<T> {}
 
 impl<'w, T: Component> Fetch<'w> for ReadFetch<T> {
@@ -333,6 +370,7 @@ impl<T: Component> WorldQuery for &mut T {
     type State = WriteState<T>;
 }
 
+/// The [`Fetch`] of `&mut T`.
 pub struct WriteFetch<T> {
     storage_type: StorageType,
     table_components: NonNull<T>,
@@ -344,13 +382,14 @@ pub struct WriteFetch<T> {
     change_tick: u32,
 }
 
+/// The [`FetchState`] of `&mut T`.
 pub struct WriteState<T> {
     component_id: ComponentId,
     storage_type: StorageType,
     marker: PhantomData<T>,
 }
 
-// SAFE: component access and archetype component access are properly updated to reflect that T is
+// SAFETY: component access and archetype component access are properly updated to reflect that T is
 // written
 unsafe impl<T: Component> FetchState for WriteState<T> {
     fn init(world: &mut World) -> Self {
@@ -498,19 +537,21 @@ impl<T: WorldQuery> WorldQuery for Option<T> {
     type State = OptionState<T::State>;
 }
 
+/// The [`Fetch`] of `Option<T>`.
 pub struct OptionFetch<T> {
     fetch: T,
     matches: bool,
 }
 
-/// SAFE: OptionFetch is read only because T is read only
+/// SAFETY: OptionFetch is read only because T is read only
 unsafe impl<T: ReadOnlyFetch> ReadOnlyFetch for OptionFetch<T> {}
 
+/// The [`FetchState`] of `Option<T>`.
 pub struct OptionState<T: FetchState> {
     state: T,
 }
 
-// SAFE: component access and archetype component access are properly updated according to the
+// SAFETY: component access and archetype component access are properly updated according to the
 // internal Fetch
 unsafe impl<T: FetchState> FetchState for OptionState<T> {
     fn init(world: &mut World) -> Self {
@@ -604,7 +645,36 @@ impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
     }
 }
 
-/// Change trackers for component `T`
+/// [`WorldQuery`] that tracks changes and additions for component `T`.
+///
+/// Wraps a [`Component`] to track whether the component changed for the corresponding entities in
+/// a query since the last time the system that includes these queries ran.
+///
+/// If you only care about entities that changed or that got added use the
+/// [`Changed`](crate::query::Changed) and [`Added`](crate::query::Added) filters instead.
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_ecs::system::Query;
+/// # use bevy_ecs::query::ChangeTrackers;
+/// # use bevy_ecs::system::IntoSystem;
+/// #
+/// # #[derive(Debug)]
+/// # struct Name {};
+/// # struct Transform {};
+/// #
+/// fn print_moving_objects_system(query: Query<(&Name, ChangeTrackers<Transform>)>) {
+///     for (name, tracker) in query.iter() {
+///         if tracker.is_changed() {
+///             println!("Entity moved: {:?}", name);
+///         } else {
+///             println!("Entity stood still: {:?}", name);
+///         }
+///     }
+/// }
+/// # print_moving_objects_system.system();
+/// ```
 #[derive(Clone)]
 pub struct ChangeTrackers<T: Component> {
     pub(crate) component_ticks: ComponentTicks,
@@ -612,6 +682,7 @@ pub struct ChangeTrackers<T: Component> {
     pub(crate) change_tick: u32,
     marker: PhantomData<T>,
 }
+
 impl<T: Component> std::fmt::Debug for ChangeTrackers<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ChangeTrackers")
@@ -623,13 +694,13 @@ impl<T: Component> std::fmt::Debug for ChangeTrackers<T> {
 }
 
 impl<T: Component> ChangeTrackers<T> {
-    /// Has this component been added since the last execution of this system.
+    /// Returns true if this component has been added since the last execution of this system.
     pub fn is_added(&self) -> bool {
         self.component_ticks
             .is_added(self.last_change_tick, self.change_tick)
     }
 
-    /// Has this component been changed since the last execution of this system.
+    /// Returns true if this component has been changed since the last execution of this system.
     pub fn is_changed(&self) -> bool {
         self.component_ticks
             .is_changed(self.last_change_tick, self.change_tick)
@@ -641,13 +712,14 @@ impl<T: Component> WorldQuery for ChangeTrackers<T> {
     type State = ChangeTrackersState<T>;
 }
 
+/// The [`FetchState`] of [`ChangeTrackers`].
 pub struct ChangeTrackersState<T> {
     component_id: ComponentId,
     storage_type: StorageType,
     marker: PhantomData<T>,
 }
 
-// SAFE: component access and archetype component access are properly updated to reflect that T is
+// SAFETY: component access and archetype component access are properly updated to reflect that T is
 // read
 unsafe impl<T: Component> FetchState for ChangeTrackersState<T> {
     fn init(world: &mut World) -> Self {
@@ -688,6 +760,7 @@ unsafe impl<T: Component> FetchState for ChangeTrackersState<T> {
     }
 }
 
+/// The [`Fetch`] of [`ChangeTrackers`].
 pub struct ChangeTrackersFetch<T> {
     storage_type: StorageType,
     table_ticks: *const ComponentTicks,
@@ -699,7 +772,7 @@ pub struct ChangeTrackersFetch<T> {
     change_tick: u32,
 }
 
-/// SAFE: access is read only  
+/// SAFETY: access is read only
 unsafe impl<T> ReadOnlyFetch for ChangeTrackersFetch<T> {}
 
 impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<T> {
@@ -849,7 +922,7 @@ macro_rules! impl_tuple_fetch {
             }
         }
 
-        // SAFE: update_component_access and update_archetype_component_access are called for each item in the tuple
+        // SAFETY: update_component_access and update_archetype_component_access are called for each item in the tuple
         #[allow(non_snake_case)]
         unsafe impl<$($name: FetchState),*> FetchState for ($($name,)*) {
             fn init(_world: &mut World) -> Self {
@@ -882,7 +955,7 @@ macro_rules! impl_tuple_fetch {
             type State = ($($name::State,)*);
         }
 
-        /// SAFE: each item in the tuple is read only
+        /// SAFETY: each item in the tuple is read only
         unsafe impl<$($name: ReadOnlyFetch),*> ReadOnlyFetch for ($($name,)*) {}
 
     };

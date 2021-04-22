@@ -884,8 +884,6 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendMutState<T> {
     }
 }
 
-pub struct OrState<T>(T);
-
 impl<'a> SystemParam for &'a Archetypes {
     type Fetch = ArchetypesState;
 }

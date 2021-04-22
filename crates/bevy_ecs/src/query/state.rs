@@ -122,7 +122,7 @@ where
     where
         Q::Fetch: ReadOnlyFetch,
     {
-        // SAFE: query is read only
+        // SAFETY: query is read only
         unsafe { self.get_unchecked(world, entity) }
     }
 
@@ -132,11 +132,12 @@ where
         world: &'w mut World,
         entity: Entity,
     ) -> Result<<Q::Fetch as Fetch<'w>>::Item, QueryEntityError> {
-        // SAFE: query has unique world access
+        // SAFETY: query has unique world access
         unsafe { self.get_unchecked(world, entity) }
     }
 
     /// # Safety
+    ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
@@ -194,17 +195,18 @@ where
     where
         Q::Fetch: ReadOnlyFetch,
     {
-        // SAFE: query is read only
+        // SAFETY: query is read only
         unsafe { self.iter_unchecked(world) }
     }
 
     #[inline]
     pub fn iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryIter<'w, 's, Q, F> {
-        // SAFE: query has unique world access
+        // SAFETY: query has unique world access
         unsafe { self.iter_unchecked(world) }
     }
 
     /// # Safety
+    ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
@@ -217,10 +219,11 @@ where
     }
 
     /// # Safety
+    ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
-    /// with a mismatched WorldId is unsafe.
+    /// with a mismatched WorldId is unsound.
     #[inline]
     pub(crate) unsafe fn iter_unchecked_manual<'w, 's>(
         &'s self,
@@ -239,7 +242,7 @@ where
     ) where
         Q::Fetch: ReadOnlyFetch,
     {
-        // SAFE: query is read only
+        // SAFETY: query is read only
         unsafe {
             self.for_each_unchecked(world, func);
         }
@@ -251,13 +254,14 @@ where
         world: &'w mut World,
         func: impl FnMut(<Q::Fetch as Fetch<'w>>::Item),
     ) {
-        // SAFE: query has unique world access
+        // SAFETY: query has unique world access
         unsafe {
             self.for_each_unchecked(world, func);
         }
     }
 
     /// # Safety
+    ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
@@ -285,7 +289,7 @@ where
     ) where
         Q::Fetch: ReadOnlyFetch,
     {
-        // SAFE: query is read only
+        // SAFETY: query is read only
         unsafe {
             self.par_for_each_unchecked(world, task_pool, batch_size, func);
         }
@@ -299,13 +303,14 @@ where
         batch_size: usize,
         func: impl Fn(<Q::Fetch as Fetch<'w>>::Item) + Send + Sync + Clone,
     ) {
-        // SAFE: query has unique world access
+        // SAFETY: query has unique world access
         unsafe {
             self.par_for_each_unchecked(world, task_pool, batch_size, func);
         }
     }
 
     /// # Safety
+    ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
@@ -328,10 +333,11 @@ where
     }
 
     /// # Safety
+    ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
-    /// with a mismatched WorldId is unsafe.
+    /// with a mismatched WorldId is unsound.
     pub(crate) unsafe fn for_each_unchecked_manual<'w, 's>(
         &'s self,
         world: &'w World,
@@ -377,10 +383,11 @@ where
     }
 
     /// # Safety
+    ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
-    /// with a mismatched WorldId is unsafe.
+    /// with a mismatched WorldId is unsound.
     pub unsafe fn par_for_each_unchecked_manual<'w, 's>(
         &'s self,
         world: &'w World,
@@ -473,7 +480,7 @@ where
     }
 }
 
-/// An error that occurs when retrieving a specific [Entity]'s query result.
+/// An error that occurs when retrieving a specific [`Entity`]'s query result.
 #[derive(Error, Debug)]
 pub enum QueryEntityError {
     #[error("The given entity does not have the requested component.")]

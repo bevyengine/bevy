@@ -2,6 +2,9 @@ use crate::storage::SparseSetIndex;
 use fixedbitset::FixedBitSet;
 use std::marker::PhantomData;
 
+/// `Access` keeps track of read and write accesses to values within a collection.
+///
+/// This is used for ensuring systems are executed soundly.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Access<T: SparseSetIndex> {
     reads_all: bool,
@@ -28,11 +31,13 @@ impl<T: SparseSetIndex> Access<T> {
         self.writes.grow(bits);
     }
 
+    /// Adds a read access for the given index.
     pub fn add_read(&mut self, index: T) {
         self.reads_and_writes.grow(index.sparse_set_index() + 1);
         self.reads_and_writes.insert(index.sparse_set_index());
     }
 
+    /// Adds a write access for the given index.
     pub fn add_write(&mut self, index: T) {
         self.reads_and_writes.grow(index.sparse_set_index() + 1);
         self.writes.grow(index.sparse_set_index() + 1);
@@ -40,6 +45,7 @@ impl<T: SparseSetIndex> Access<T> {
         self.writes.insert(index.sparse_set_index());
     }
 
+    /// Returns true if this `Access` contains a read access for the given index.
     pub fn has_read(&self, index: T) -> bool {
         if self.reads_all {
             true
@@ -48,30 +54,39 @@ impl<T: SparseSetIndex> Access<T> {
         }
     }
 
+    /// Returns true if this `Access` contains a write access for the given index.
     pub fn has_write(&self, index: T) -> bool {
         self.writes.contains(index.sparse_set_index())
     }
 
+    /// Sets this `Access` to having read access for all indices.
     pub fn read_all(&mut self) {
         self.reads_all = true;
     }
 
+    /// Returns true if this `Access` has read access to all indices.
     pub fn reads_all(&self) -> bool {
         self.reads_all
     }
 
+    /// Clears all recorded accesses.
     pub fn clear(&mut self) {
         self.reads_all = false;
         self.reads_and_writes.clear();
         self.writes.clear();
     }
 
+    /// Extends this `Access` with another, copying all accesses of `other` into this.
     pub fn extend(&mut self, other: &Access<T>) {
         self.reads_all = self.reads_all || other.reads_all;
         self.reads_and_writes.union_with(&other.reads_and_writes);
         self.writes.union_with(&other.writes);
     }
 
+    /// Returns true if this `Access` is compatible with `other`.
+    ///
+    /// Two `Access` instances are incompatible with each other if one `Access` has a write for
+    /// which the other also has a write or a read.
     pub fn is_compatible(&self, other: &Access<T>) -> bool {
         if self.reads_all {
             0 == other.writes.count_ones(..)
@@ -83,6 +98,7 @@ impl<T: SparseSetIndex> Access<T> {
         }
     }
 
+    /// Calculates conflicting accesses between this `Access` and `other`.
     pub fn get_conflicts(&self, other: &Access<T>) -> Vec<T> {
         let mut conflicts = FixedBitSet::default();
         if self.reads_all {
