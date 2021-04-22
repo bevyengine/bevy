@@ -6,7 +6,7 @@ pub enum Collision {
     Right,
     Top,
     Bottom,
-    Intersecting
+    Intersecting,
 }
 
 // TODO: ideally we can remove this once bevy gets a physics system
@@ -71,7 +71,14 @@ mod tests {
         let b_size = Vec2::new(6.0, 100.0);
 
         let collision = collide(a_pos, a_size, b_pos, b_size);
-        assert!(!collision.is_none(), "Collision not detected a[{:?}, {:?}] b[{:?}, {:?}]", a_pos, a_size, b_pos, b_size);
+        assert!(
+            !collision.is_none(),
+            "Collision not detected a[{:?}, {:?}] b[{:?}, {:?}]",
+            a_pos,
+            a_size,
+            b_pos,
+            b_size
+        );
     }
 
     #[test]
@@ -84,13 +91,27 @@ mod tests {
 
         let collision = collide(a_pos, a_size, b_pos, b_size);
         // println!("a_pos.x {:?} => collision {:?}", a_pos.x, collision);
-        assert!(collision.is_none(), "Wrong collision detection a[{:?}, {:?}] b[{:?}, {:?}]", a_pos, a_size, b_pos, b_size);
+        assert!(
+            collision.is_none(),
+            "Wrong collision detection a[{:?}, {:?}] b[{:?}, {:?}]",
+            a_pos,
+            a_size,
+            b_pos,
+            b_size
+        );
 
         loop {
             a_pos.x += 1.0;
             let collision = collide(a_pos, a_size, b_pos, b_size);
             // println!("a_pos.x {:?} => collision {:?}", a_pos.x, collision);
-            assert!(!collision.is_none(), "Collision not detected a[{:?}, {:?}] b[{:?}, {:?}]", a_pos, a_size, b_pos, b_size);
+            assert!(
+                !collision.is_none(),
+                "Collision not detected a[{:?}, {:?}] b[{:?}, {:?}]",
+                a_pos,
+                a_size,
+                b_pos,
+                b_size
+            );
             if a_pos.x > 14.0 {
                 break;
             }
@@ -99,6 +120,13 @@ mod tests {
         a_pos.x += 1.0;
         let collision = collide(a_pos, a_size, b_pos, b_size);
         // println!("a_pos.x {:?} => collision {:?}", a_pos.x, collision);
-        assert!(collision.is_none(), "Wrong collision detection a[{:?}, {:?}] b[{:?}, {:?}]", a_pos, a_size, b_pos, b_size);
+        assert!(
+            collision.is_none(),
+            "Wrong collision detection a[{:?}, {:?}] b[{:?}, {:?}]",
+            a_pos,
+            a_size,
+            b_pos,
+            b_size
+        );
     }
 }
