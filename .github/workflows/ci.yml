@@ -128,3 +128,16 @@ jobs:
             time CI_TESTING_CONFIG=$example VK_ICD_FILENAMES=$(pwd)/vk_swiftshader_icd.json DRI_PRIME=0 xvfb-run cargo run --example $example_name --no-default-features --features "bevy_dynamic_plugin,bevy_gilrs,bevy_gltf,bevy_wgpu,bevy_winit,render,png,hdr,x11,bevy_ci_testing"
             sleep 10
           done
+
+  deadlinks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install alsa and udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+        if: runner.os == 'linux'
+      - name: Installs cargo-deadlinks
+        run: cargo install cargo-deadlinks
+      - name: Checks dead doc links
+        run: cargo doc --all-features --no-deps && cargo deadlinks --dir target/doc/bevy
+        continue-on-error: true
