@@ -90,7 +90,7 @@ fn tick(time: Res<Time>, sprites: Query<&Sprite>, mut query: Query<&mut PrintTim
         timer.0.tick(time.delta());
 
         if timer.0.just_finished() {
-            println!("Sprites: {}", sprites.iter().count(),);
+            info!("Sprites: {}", sprites.iter().count(),);
         }
     }
 }

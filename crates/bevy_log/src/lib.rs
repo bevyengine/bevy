@@ -16,13 +16,53 @@ use bevy_app::{AppBuilder, Plugin};
 use tracing_subscriber::fmt::{format::DefaultFields, FormattedFields};
 use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 
-/// Adds logging to Apps.
+/// Adds logging to Apps. This plugin is part of the `DefaultPlugins`. Adding
+/// this plugin will setup a collector appropriate to your target platform:
+/// * Using [`tracing-subscriber`](https://crates.io/crates/tracing-subscriber) by default,
+/// logging to `stdout`.
+/// * Using [`android_log-sys`](https://crates.io/crates/android_log-sys) on Android,
+/// logging to Android logs.
+/// * Using [`tracing-wasm`](https://crates.io/crates/tracing-wasm) in WASM, logging
+/// to the browser console.
+///
+/// You can configure this plugin using the resource [`LogSettings`].
+/// ```no_run
+/// # use bevy_internal::DefaultPlugins;
+/// # use bevy_app::App;
+/// # use bevy_log::LogSettings;
+/// # use bevy_utils::tracing::Level;
+/// fn main() {
+///     App::build()
+///         .insert_resource(LogSettings {
+///             level: Level::DEBUG,
+///             filter: "wgpu=error,bevy_render=info".to_string(),
+///         })
+///         .add_plugins(DefaultPlugins)
+///         .run();
+/// }
+/// ```
+///
+/// Log level can also be changed using the `RUST_LOG` environment variable.
+/// It has the same syntax has the field [`LogSettings::filter`], see [`EnvFilter`].
+///
+/// If you want to setup your own tracing collector, you should disable this
+/// plugin from `DefaultPlugins` with [`AppBuilder::add_plugins_with`]:
+/// ```no_run
+/// # use bevy_internal::DefaultPlugins;
+/// # use bevy_app::App;
+/// # use bevy_log::LogPlugin;
+/// fn main() {
+///     App::build()
+///         .add_plugins_with(DefaultPlugins, |group| group.disable::<LogPlugin>())
+///         .run();
+/// }
+/// ```
 #[derive(Default)]
 pub struct LogPlugin;
 
 /// LogPlugin settings
 pub struct LogSettings {
-    /// Filters logs using the [EnvFilter] format
+    /// Filters logs using the [`EnvFilter`] format
     pub filter: String,
 
     /// Filters out logs that are "less than" the given level.

@@ -9,6 +9,6 @@ fn main() {
 
 fn touch_event_system(mut touch_events: EventReader<TouchInput>) {
     for event in touch_events.iter() {
-        println!("{:?}", event);
+        info!("{:?}", event);
     }
 }

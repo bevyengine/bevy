@@ -31,9 +31,9 @@ fn setup(
         // You might notice that this doesn't run! This is because assets load in parallel without
         // blocking. When an asset has loaded, it will appear in relevant Assets<T>
         // collection.
-        println!("{:?}", sphere.primitive_topology());
+        info!("{:?}", sphere.primitive_topology());
     } else {
-        println!("sphere hasn't loaded yet");
+        info!("sphere hasn't loaded yet");
     }
 
     // You can load all assets in a folder like this. They will be loaded in parallel without
