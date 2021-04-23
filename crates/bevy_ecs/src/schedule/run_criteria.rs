@@ -8,15 +8,39 @@ use crate::{
 };
 use std::borrow::Cow;
 
+/// Determines whether a system should be executed or not, and how many times it should be ran each
+/// time the stage is executed.
+///
+/// A stage will loop over its run criteria and systems until no more systems need to be executed
+/// and no more run criteria need to be checked.
+/// - Any systems with run criteria that returns [`Yes`] will be ran exactly one more time during
+///   the stage's execution that tick.
+/// - Any systems with run criteria that returns [`No`] are not ran for the rest of the stage's
+///   execution that tick.
+/// - Any systems with run criteria that returns [`YesAndCheckAgain`] will be ran during this
+///   iteration of the loop. After all the systems that need to run are ran, that criteria will be
+///   checked again.
+/// - Any systems with run criteria that returns [`NoAndCheckAgain`] will not be ran during this
+///   iteration of the loop. After all the systems that need to run are ran, that criteria will be
+///   checked again.
+///
+/// [`Yes`]: ShouldRun::Yes
+/// [`No`]: ShouldRun::No
+/// [`YesAndCheckAgain`]: ShouldRun::YesAndCheckAgain
+/// [`NoAndCheckAgain`]: ShouldRun::NoAndCheckAgain
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ShouldRun {
-    /// Yes, the system should run.
+    /// Yes, the system should run one more time this tick.
     Yes,
-    /// No, the system should not run.
+    /// No, the system should not run for the rest of this tick.
     No,
-    /// Yes, the system should run, and afterwards the criteria should be checked again.
+    /// Yes, the system should run, and after all systems in this stage have run, the criteria
+    /// should be checked again. This will cause the stage to loop over the remaining systems and
+    /// criteria this tick until they no longer need to be checked.
     YesAndCheckAgain,
-    /// No, the system should not run right now, but the criteria should be checked again later.
+    /// No, the system should not run right now, but after all systems in this stage have run, the
+    /// criteria should be checked again. This will cause the stage to loop over the remaining
+    /// systems and criteria this tick until they no longer need to be checked.
     NoAndCheckAgain,
 }
 
