@@ -295,6 +295,10 @@ name = "system_param"
 path = "examples/ecs/system_param.rs"
 
 [[example]]
+name = "system_sets"
+path = "examples/ecs/system_sets.rs"
+
+[[example]]
 name = "timers"
 path = "examples/ecs/timers.rs"
 
