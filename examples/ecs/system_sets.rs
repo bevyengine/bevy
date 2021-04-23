@@ -51,7 +51,7 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .init_resource::<Done>()
-        // Note that the system sets added in this example sets their run criteria explicitly.
+        // Note that the system sets added in this example set their run criteria explicitly.
         // See the `ecs/state.rs` example for a pattern where run criteria are set implicitly for common
         // use cases- typically state transitions.
         // Also note that a system set has a single run criterion at most, which means using `.with_run_criteria(...)`
@@ -61,6 +61,9 @@ fn main() {
                 // This label is added to all systems in this set.
                 // The label can then be referred to elsewhere (other sets).
                 .label(Physics)
+                // This criteria ensures this whole system set only runs when this system's
+                // output says so (ShouldRun::Yes)
+                .with_run_criteria(run_for_a_second.system())
                 .with_system(
                     update_velocity
                         .system()
@@ -74,18 +77,11 @@ fn main() {
                         .label(PhysicsSystem::Movement)
                         // Enforce order within this system by specifying this
                         .after(PhysicsSystem::UpdateVelocity),
-                )
-                // This criteria ensures this whole system set only runs when this system's
-                // output says so (ShouldRun::Yes)
-                .with_run_criteria(run_for_a_second.system()),
+                ),
         )
         .add_system_set(
             SystemSet::new()
                 .label(PostPhysics)
-                // `collision` and `sfx` are not ordered with respect to
-                // each other, and may run in any order
-                .with_system(collision.system())
-                .with_system(sfx.system())
                 // This whole set runs after `Physics` (which in this case is a label for
                 // another set).
                 // There is also `.before(..)`.
@@ -94,7 +90,11 @@ fn main() {
                 // Here we create a _not done_ criteria by piping the output of
                 // the `is_done` system and inverting the output.
                 // Notice a string literal also works as a label.
-                .with_run_criteria(RunCriteria::pipe("is_done_label", inverse.system())),
+                .with_run_criteria(RunCriteria::pipe("is_done_label", inverse.system()))
+                // `collision` and `sfx` are not ordered with respect to
+                // each other, and may run in any order
+                .with_system(collision.system())
+                .with_system(sfx.system()),
         )
         .add_system(
             exit.system()
