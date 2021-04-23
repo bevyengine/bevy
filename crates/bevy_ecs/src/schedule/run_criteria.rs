@@ -10,13 +10,17 @@ use std::borrow::Cow;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ShouldRun {
-    /// Yes, the system should run.
+    /// Yes, the system should run one more time this tick.
     Yes,
-    /// No, the system should not run.
+    /// No, the system should not run for the rest of this tick.
     No,
-    /// Yes, the system should run, and afterwards the criteria should be checked again.
+    /// Yes, the system should run, and after all systems in this stage have run, the criteria
+    /// should be checked again. This will cause the stage to loop over the systems and criteria
+    /// this tick until they no longer need to be checked.
     YesAndCheckAgain,
-    /// No, the system should not run right now, but the criteria should be checked again later.
+    /// No, the system should not run right now, but after all systems in this stage have run, the
+    /// criteria should be checked again. This will cause the stage to loop over the systems and
+    /// criteria this tick until they no longer need to be checked.
     NoAndCheckAgain,
 }
 
