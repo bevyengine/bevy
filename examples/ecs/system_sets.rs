@@ -51,6 +51,11 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .init_resource::<Done>()
+        // Note that the system sets added in this example sets their run criteria explicitly.
+        // See the `ecs/state.rs` example for a pattern where run criteria are set implicitly for common
+        // use cases- typically state transitions.
+        // Also note that a system set has a single run criterion at most, which means using `.with_run_criteria(...)`
+        // after `SystemSet::on_update(...)` would override the state transition criterion.
         .add_system_set(
             SystemSet::new()
                 // This label is added to all systems in this set.
