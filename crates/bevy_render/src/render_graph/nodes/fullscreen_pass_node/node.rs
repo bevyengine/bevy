@@ -291,7 +291,9 @@ impl Node for FullscreenPassNode {
                     },
                 );
 
-                render_pass.draw(0..6, 0..1);
+                // Draw a single triangle without the need for buffers
+                // see fullscreen.vert
+                render_pass.draw(0..3, 0..1);
             },
         );
     }
