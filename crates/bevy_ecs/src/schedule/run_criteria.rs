@@ -8,6 +8,26 @@ use crate::{
 };
 use std::borrow::Cow;
 
+/// Determines whether a system should be executed or not, and how many times it should be ran each
+/// time the stage is executed.
+/// 
+/// A stage will loop over its run criteria and systems until no more systems need to be executed
+/// and no more run criteria need to be checked.
+/// - Any systems with run criteria that returns [`Yes`] will be ran exactly one more time during
+///   the stage's execution that tick.
+/// - Any systems with run criteria that returns [`No`] are not ran for the rest of the stage's
+///   execution that tick.
+/// - Any systems with run criteria that returns [`YesAndCheckAgain`] will be ran during this
+///   iteration of the loop. After all the systems that need to run are ran, that criteria will be
+///   checked again.
+/// - Any systems with run criteria that returns [`NoAndCheckAgain`] will not be ran during this
+///   iteration of the loop. After all the systems that need to run are ran, that criteria will be
+///   checked again.
+/// 
+/// [`Yes`]: ShouldRun::Yes
+/// [`No`]: ShouldRun::No
+/// [`YesAndCheckAgain`]: ShouldRun::YesAndCheckAgain
+/// [`NoAndCheckAgain`]: ShouldRun::NoAndCheckAgain
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ShouldRun {
     /// Yes, the system should run one more time this tick.
