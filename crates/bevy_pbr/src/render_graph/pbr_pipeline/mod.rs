@@ -32,7 +32,7 @@ pub(crate) fn build_pbr_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescri
             clamp_depth: false,
         }),
         color_target_states: vec![ColorTargetState {
-            format: TextureFormat::default(),
+            format: TextureFormat::Bgra8Unorm,
             color_blend: BlendState {
                 src_factor: BlendFactor::SrcAlpha,
                 dst_factor: BlendFactor::OneMinusSrcAlpha,
