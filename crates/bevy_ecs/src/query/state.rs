@@ -275,7 +275,7 @@ where
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
-    /// with a mismatched WorldId is unsafe.
+    /// with a mismatched WorldId is unsound.
     #[inline]
     pub(crate) unsafe fn iter_combinations_unchecked_manual<'w, 's, const K: usize>(
         &'s self,

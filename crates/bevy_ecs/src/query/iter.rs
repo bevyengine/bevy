@@ -25,6 +25,11 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> QueryIter<'w, 's, Q, F>
 where
     F::Fetch: FilterFetch,
 {
+    /// # Safety
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    /// This does not validate that `world.id()` matches `query_state.world_id`. Calling this on a `world`
+    /// with a mismatched WorldId is unsound.
     pub(crate) unsafe fn new(
         world: &'w World,
         query_state: &'s QueryState<Q, F>,
@@ -85,6 +90,11 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<
 where
     F::Fetch: FilterFetch,
 {
+    /// # Safety
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    /// This does not validate that `world.id()` matches `query_state.world_id`. Calling this on a `world`
+    /// with a mismatched WorldId is unsound.
     pub(crate) unsafe fn new(
         world: &'w World,
         query_state: &'s QueryState<Q, F>,
