@@ -1,42 +1,19 @@
-use std::{any::TypeId, borrow::Cow, sync::Arc};
+use std::{borrow::Cow, sync::Arc};
 
 use bevy_asset::{Assets, Handle};
-use bevy_core::Name;
 use bevy_ecs::{prelude::World, world::WorldCell};
 
 use crate::{
-    pass::{
-        LoadOp, Operations, PassDescriptor, RenderPassDepthStencilAttachmentDescriptor,
-        TextureAttachment,
-    },
-    pipeline::{
-        BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrite, CompareFunction,
-        DepthBiasState, DepthStencilState, PipelineCompiler, PipelineDescriptor, PipelineLayout,
-        PipelineSpecialization, StencilFaceState, StencilState,
-    },
-    prelude::{Msaa, Texture},
-    render_graph::{
-        base::{node::MAIN_RENDER_TEXTURE, texture::MAIN_RENDER_TEXTURE_HANDLE},
-        Node, ResourceSlotInfo,
-    },
+    pass::{PassDescriptor, TextureAttachment},
+    pipeline::{BindGroupDescriptor, PipelineCompiler, PipelineDescriptor, PipelineSpecialization},
+    prelude::Msaa,
+    render_graph::{Node, ResourceSlotInfo},
     renderer::{
         BindGroupId, RenderResourceBinding, RenderResourceBindings, RenderResourceContext,
         RenderResourceType,
     },
-    shader::{Shader, ShaderStage, ShaderStages},
-    texture::{self, TextureFormat},
+    shader::Shader,
 };
-
-pub struct NamedTextureInput {
-    name: Cow<'static, str>,
-    handle: Handle<Texture>,
-}
-
-impl NamedTextureInput {
-    pub fn new(name: Cow<'static, str>, handle: Handle<Texture>) -> Self {
-        Self { name, handle }
-    }
-}
 
 pub struct FullscreenPassNode {
     pass_descriptor: PassDescriptor,
@@ -45,10 +22,9 @@ pub struct FullscreenPassNode {
     color_attachment_input_indices: Vec<Option<usize>>,
     color_resolve_target_indices: Vec<Option<usize>>,
     default_clear_color_inputs: Vec<usize>,
+    texture_input_indices: Vec<usize>,
     specialized_pipeline_handle: Option<Handle<PipelineDescriptor>>,
-    bind_groups: Vec<(u32, BindGroupId, Option<Arc<[u32]>>)>,
     render_resource_bindings: RenderResourceBindings,
-    texture_inputs: Vec<NamedTextureInput>,
 }
 
 impl FullscreenPassNode {
@@ -56,11 +32,13 @@ impl FullscreenPassNode {
         pass_descriptor: PassDescriptor,
         pipeline_handle: Handle<PipelineDescriptor>,
         // texture_inputs: Vec<Cow<'static, str>>,
-        texture_inputs: Vec<NamedTextureInput>,
+        texture_inputs: Vec<Cow<'static, str>>,
     ) -> Self {
         let mut inputs = Vec::new();
         let mut color_attachment_input_indices = Vec::new();
         let mut color_resolve_target_indices = Vec::new();
+        let mut texture_indices = Vec::new();
+
         for color_attachment in pass_descriptor.color_attachments.iter() {
             if let TextureAttachment::Input(ref name) = color_attachment.attachment {
                 color_attachment_input_indices.push(Some(inputs.len()));
@@ -83,12 +61,21 @@ impl FullscreenPassNode {
             }
         }
 
-        // for texture_name in texture_inputs {
-        //     inputs.push(ResourceSlotInfo::new(
-        //         texture_name,
-        //         RenderResourceType::Texture,
-        //     ));
-        // }
+        for texture_name in texture_inputs {
+            texture_indices.push(inputs.len());
+
+            let sampler_name = format!("{}_sampler", texture_name);
+
+            inputs.push(ResourceSlotInfo::new(
+                texture_name,
+                RenderResourceType::Texture,
+            ));
+
+            inputs.push(ResourceSlotInfo::new(
+                sampler_name,
+                RenderResourceType::Sampler,
+            ));
+        }
 
         Self {
             pass_descriptor,
@@ -97,10 +84,9 @@ impl FullscreenPassNode {
             color_attachment_input_indices,
             color_resolve_target_indices,
             default_clear_color_inputs: Vec::new(),
+            texture_input_indices: texture_indices,
             specialized_pipeline_handle: None,
-            bind_groups: Vec::new(),
             render_resource_bindings: RenderResourceBindings::default(),
-            texture_inputs,
         }
     }
 }
@@ -164,69 +150,6 @@ impl Node for FullscreenPassNode {
         let mut world = world.cell();
 
         self.setup_specialized_pipeline(&mut world);
-
-        let pipeline_descriptors = world.get_resource::<Assets<PipelineDescriptor>>().unwrap();
-
-        let render_resource_context = world
-            .get_resource::<Box<dyn RenderResourceContext>>()
-            .unwrap();
-
-        let pipeline_descriptor = pipeline_descriptors
-            .get(self.specialized_pipeline_handle.as_ref().unwrap())
-            .unwrap();
-
-        // let mut render_resource_bindings =
-        //     world.get_resource_mut::<RenderResourceBindings>().unwrap();
-
-        for input in &self.texture_inputs {
-            let texture_handle = &input.handle;
-
-            // asset_resource only set after TextureNode has updated once
-            if let Some(texture_resource) = render_resource_context
-                .get_asset_resource(texture_handle, texture::TEXTURE_ASSET_INDEX)
-            {
-                let sampler_resource = render_resource_context
-                    .get_asset_resource(texture_handle, texture::SAMPLER_ASSET_INDEX)
-                    .unwrap();
-
-                let render_resource_name = format!("{}_texture", input.name);
-                let sampler_name = format!("{}_sampler", render_resource_name);
-                // dbg!(&render_resource_name);
-
-                self.render_resource_bindings.set(
-                    &render_resource_name,
-                    RenderResourceBinding::Texture(texture_resource.get_texture().unwrap()),
-                );
-                self.render_resource_bindings.set(
-                    &sampler_name,
-                    RenderResourceBinding::Sampler(sampler_resource.get_sampler().unwrap()),
-                );
-            }
-        }
-
-        // dbg!(pipeline_descriptor);
-
-        self.bind_groups.clear();
-        pipeline_descriptor
-            .layout
-            .as_ref()
-            .unwrap()
-            .bind_groups
-            .iter()
-            .for_each(|bind_group_descriptor| {
-                // dbg!(&bind_group_descriptor);
-                if let Some(bind_group) = self
-                    .render_resource_bindings
-                    .update_bind_group(bind_group_descriptor, render_resource_context.as_ref())
-                {
-                    // dbg!(&bind_group);
-                    self.bind_groups.push((
-                        bind_group_descriptor.index,
-                        bind_group.id,
-                        bind_group.dynamic_uniform_indices.clone(),
-                    ));
-                }
-            });
     }
 
     fn update(
@@ -236,6 +159,7 @@ impl Node for FullscreenPassNode {
         input: &crate::render_graph::ResourceSlots,
         _output: &mut crate::render_graph::ResourceSlots,
     ) {
+        // Set color attachments
         for (i, color_attachment) in self
             .pass_descriptor
             .color_attachments
@@ -264,35 +188,76 @@ impl Node for FullscreenPassNode {
             }
         }
 
+        // Prepare RenderResourceBindings
         let render_resource_bindings = world.get_resource::<RenderResourceBindings>().unwrap();
+
+        // Skip first input, the target texture
+        for index in &self.texture_input_indices {
+            let texture_slot = input.get_slot(*index).unwrap();
+            let texture_name = &texture_slot.info.name;
+            let texture_id = *texture_slot
+                .resource
+                .as_ref()
+                .unwrap()
+                .get_texture()
+                .as_ref()
+                .unwrap();
+
+            let sampler_slot = input.get_slot(*index + 1).unwrap();
+            let sampler_name = &sampler_slot.info.name;
+            let sampler_id = *sampler_slot
+                .resource
+                .as_ref()
+                .unwrap()
+                .get_sampler()
+                .as_ref()
+                .unwrap();
+
+            self.render_resource_bindings
+                .set(&texture_name, RenderResourceBinding::Texture(texture_id));
+            self.render_resource_bindings
+                .set(&sampler_name, RenderResourceBinding::Sampler(sampler_id));
+        }
+
+        // Prepare bind groups
+        type DynamicUniformIndices = Option<Arc<[u32]>>;
+        let mut bind_groups: Vec<(&BindGroupDescriptor, BindGroupId, DynamicUniformIndices)> =
+            Vec::new();
+
         let pipeline_descriptors = world.get_resource::<Assets<PipelineDescriptor>>().unwrap();
         let pipeline_descriptor = pipeline_descriptors
             .get(self.specialized_pipeline_handle.as_ref().unwrap())
             .unwrap();
+        let render_resource_context = render_context.resources_mut();
 
-        // TODO fix better
-        if self.bind_groups.len() != self.texture_inputs.len() {
-            return;
+        for bind_group_descriptor in &pipeline_descriptor.layout.as_ref().unwrap().bind_groups {
+            if let Some(bind_group) = self
+                .render_resource_bindings
+                .update_bind_group(bind_group_descriptor, render_resource_context)
+            {
+                bind_groups.push((
+                    bind_group_descriptor,
+                    bind_group.id,
+                    bind_group.dynamic_uniform_indices.clone(),
+                ))
+            } else {
+                panic!("Failed to bind all inputs");
+            }
         }
 
+        // Begin actual render pass
         render_context.begin_pass(
             &self.pass_descriptor,
             &render_resource_bindings,
             &mut |render_pass| {
+                // Set pipeline
                 render_pass.set_pipeline(self.specialized_pipeline_handle.as_ref().unwrap());
 
-                self.bind_groups.iter().for_each(
-                    |(index, bind_group_id, dynamic_uniform_indices)| {
-                        // dbg!();
-                        let bind_group_descriptor = pipeline_descriptor
-                            .layout
-                            .as_ref()
-                            .unwrap()
-                            .get_bind_group(*index)
-                            .unwrap();
-
+                // Set all prepared bind groups
+                bind_groups.iter().for_each(
+                    |(bind_group_descriptor, bind_group_id, dynamic_uniform_indices)| {
                         render_pass.set_bind_group(
-                            *index,
+                            bind_group_descriptor.index,
                             bind_group_descriptor.id,
                             *bind_group_id,
                             dynamic_uniform_indices.as_deref(),

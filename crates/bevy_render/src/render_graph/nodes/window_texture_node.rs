@@ -19,6 +19,7 @@ pub struct WindowTextureNode {
 
 impl WindowTextureNode {
     pub const OUT_TEXTURE: &'static str = TextureNode::OUT_TEXTURE;
+    pub const OUT_SAMPLER: &'static str = TextureNode::OUT_SAMPLER;
 
     pub fn new(
         window_id: WindowId,

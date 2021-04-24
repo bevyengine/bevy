@@ -8,11 +8,8 @@ use crate::{
         RenderPassDepthStencilAttachmentDescriptor, TextureAttachment,
     },
     pipeline::{
-        BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrite, CompareFunction,
-        DepthBiasState, DepthStencilState, PipelineDescriptor, StencilFaceState, StencilState,
+        BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrite, PipelineDescriptor,
     },
-    render_graph::Node,
-    renderer::RenderResourceBindings,
     shader::{Shader, ShaderStage, ShaderStages},
     texture::{
         Extent3d, SamplerDescriptor, TextureDescriptor, TextureDimension, TextureFormat,
@@ -23,7 +20,7 @@ use crate::{
 use bevy_asset::Assets;
 use bevy_ecs::{reflect::ReflectComponent, world::World};
 use bevy_reflect::Reflect;
-use bevy_window::{WindowId, Windows};
+use bevy_window::WindowId;
 
 /// A component that indicates that an entity should be drawn in the "main pass"
 #[derive(Clone, Debug, Default, Reflect)]
@@ -310,16 +307,30 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
         let post_pass_node = FullscreenPassNode::new(
             pass_descriptor,
             pipeline_handle,
-            vec![fullscreen_pass_node::node::NamedTextureInput::new(
-                "color".into(),
-                texture::MAIN_RENDER_TEXTURE_HANDLE.typed(),
-            )],
+            vec!["color_texture".into()],
         );
 
         graph.add_node(node::POST_PASS, post_pass_node);
 
         graph
             .add_node_edge(node::MAIN_PASS, node::POST_PASS)
+            .unwrap();
+
+        graph
+            .add_slot_edge(
+                node::MAIN_RENDER_TEXTURE,
+                WindowTextureNode::OUT_TEXTURE,
+                node::POST_PASS,
+                "color_texture",
+            )
+            .unwrap();
+        graph
+            .add_slot_edge(
+                node::MAIN_RENDER_TEXTURE,
+                WindowTextureNode::OUT_SAMPLER,
+                node::POST_PASS,
+                "color_texture_sampler",
+            )
             .unwrap();
     }
 
