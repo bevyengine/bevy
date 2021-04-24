@@ -55,6 +55,7 @@ impl Default for WireframeConfig {
     }
 }
 
+#[allow(clippy::type_complexity)]
 pub fn draw_wireframes_system(
     mut draw_context: DrawContext,
     msaa: Res<Msaa>,

@@ -187,7 +187,7 @@ pub enum FlexError {
 unsafe impl Send for FlexSurface {}
 unsafe impl Sync for FlexSurface {}
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn flex_node_system(
     windows: Res<Windows>,
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
