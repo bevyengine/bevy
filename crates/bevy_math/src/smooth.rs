@@ -3,7 +3,7 @@ use crate::{Vec2, Vec3};
 /// Smooths value to a goal using a damped spring.
 pub trait SmoothDamp {
     /// Smooths value to a goal using a damped spring.
-    /// 
+    ///
     /// Returns smoothed value and new velocity.
     fn smooth_damp(
         from: Self,
@@ -25,6 +25,7 @@ impl SmoothDamp for f32 {
         delta_time: f32,
     ) -> (f32, f32) {
         let smooth_time = f32::max(smooth_time, 0.0001); // ensure smooth_time is positive and non-zero
+
         // from game programming gems 4, chapter 1.10
         let omega = 2.0 / smooth_time;
         let x = omega * delta_time;
@@ -50,6 +51,7 @@ impl SmoothDamp for f64 {
     ) -> (f64, f64) {
         let smooth_time = f64::max(smooth_time as f64, 0.0001); // ensure smooth_time is positive and non-zero
         let delta_time = delta_time as f64;
+
         // from game programming gems 4, chapter 1.10
         let omega = 2.0 / smooth_time;
         let x = omega * delta_time;
