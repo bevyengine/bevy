@@ -1,13 +1,12 @@
 use crate::{
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
-    renderer::{RenderContext, RenderResourceId, RenderResourceType},
+    renderer::RenderContext,
     texture::{SamplerDescriptor, TextureDescriptor},
 };
 use bevy_app::{Events, ManualEventReader};
 use bevy_asset::HandleUntyped;
 use bevy_ecs::world::World;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
-use std::borrow::Cow;
 
 use super::TextureNode;
 
@@ -38,11 +37,7 @@ impl WindowTextureNode {
 
 impl Node for WindowTextureNode {
     fn output(&self) -> &[ResourceSlotInfo] {
-        static OUTPUT: &[ResourceSlotInfo] = &[ResourceSlotInfo {
-            name: Cow::Borrowed(WindowTextureNode::OUT_TEXTURE),
-            resource_type: RenderResourceType::Texture,
-        }];
-        OUTPUT
+        self.inner.output()
     }
 
     fn update(
@@ -52,7 +47,6 @@ impl Node for WindowTextureNode {
         input: &ResourceSlots,
         output: &mut ResourceSlots,
     ) {
-        const WINDOW_TEXTURE: usize = 0;
         let window_created_events = world.get_resource::<Events<WindowCreated>>().unwrap();
         let window_resized_events = world.get_resource::<Events<WindowResized>>().unwrap();
         let windows = world.get_resource::<Windows>().unwrap();
@@ -70,14 +64,11 @@ impl Node for WindowTextureNode {
                 .iter(&window_resized_events)
                 .any(|e| e.id == window.id())
         {
-            let render_resource_context = render_context.resources_mut();
-            if let Some(RenderResourceId::Texture(old_texture)) = output.get(WINDOW_TEXTURE) {
-                render_resource_context.remove_texture(old_texture);
-            }
-
+            // Update TextureNode descriptor
             self.inner.texture_descriptor_mut().size.width = window.physical_width();
             self.inner.texture_descriptor_mut().size.height = window.physical_height();
 
+            // Pass through into TextureNode
             self.inner.update(world, render_context, input, output);
         }
     }

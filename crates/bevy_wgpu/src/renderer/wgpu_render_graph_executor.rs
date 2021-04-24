@@ -65,9 +65,11 @@ impl WgpuRenderGraphExecutor {
                                     panic!("Node inputs not set.")
                                 };
 
-                                let output_resource =
-                                    outputs.get(*output_index).expect("Output should be set.");
-                                input_slot.resource = Some(output_resource);
+                                let output_resource = outputs
+                                    .get(*output_index)
+                                    .as_ref()
+                                    .expect("Output should be set.");
+                                input_slot.resource = Some(output_resource.clone());
                             } else {
                                 panic!("No edge connected to input.")
                             }

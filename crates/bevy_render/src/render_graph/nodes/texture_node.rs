@@ -95,37 +95,43 @@ impl Node for TextureNode {
             // First create new texture
             let texture_id = render_resource_context.create_texture(self.texture_descriptor);
 
+            // And remove the old texture
+            if let Some(old_texture) = output
+                .get_mut(Self::OUT_TEXTURE)
+                .replace(RenderResourceId::Texture(texture_id))
+            {
+                render_resource_context.remove_texture(old_texture.get_texture().unwrap());
+            }
+
             // And update handle and output
             if let Some(handle) = &self.handle {
-                // For the texture itself
                 render_resource_context.set_asset_resource_untyped(
                     handle.clone(),
                     RenderResourceId::Texture(texture_id),
                     TEXTURE_ASSET_INDEX,
                 );
+            }
 
-                // And remove the old resource
-                if let Some(old_texture) =
-                    output.get(0).replace(RenderResourceId::Texture(texture_id))
+            // If a sampler is specified
+            if let Some(sampler_descriptor) = self.sampler_descriptor {
+                // Create the sampler
+                let sampler_id = render_resource_context.create_sampler(&sampler_descriptor);
+
+                // And remove the old sampler
+                if let Some(old_sampler) = output
+                    .get_mut(Self::OUT_SAMPLER)
+                    .replace(RenderResourceId::Sampler(sampler_id))
                 {
-                    render_resource_context.remove_texture(old_texture.get_texture().unwrap());
+                    render_resource_context.remove_sampler(old_sampler.get_sampler().unwrap());
                 }
 
-                // And if needed for the sampler
-                if let Some(sampler_descriptor) = self.sampler_descriptor {
-                    let sampler_id = render_resource_context.create_sampler(&sampler_descriptor);
+                // And update handle and output
+                if let Some(handle) = &self.handle {
                     render_resource_context.set_asset_resource_untyped(
                         handle.clone(),
                         RenderResourceId::Sampler(sampler_id),
                         SAMPLER_ASSET_INDEX,
                     );
-
-                    // And remove the old resource
-                    if let Some(old_sampler) =
-                        output.get(1).replace(RenderResourceId::Sampler(sampler_id))
-                    {
-                        render_resource_context.remove_sampler(old_sampler.get_sampler().unwrap());
-                    }
                 }
             }
 
