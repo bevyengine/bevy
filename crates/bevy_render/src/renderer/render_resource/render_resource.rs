@@ -14,7 +14,7 @@ pub enum RenderResourceType {
     Sampler,
 }
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
 pub enum RenderResourceId {
     Buffer(BufferId),
     Texture(TextureId),

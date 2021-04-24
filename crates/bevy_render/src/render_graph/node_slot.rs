@@ -49,9 +49,9 @@ impl ResourceSlots {
         slot.resource = Some(resource);
     }
 
-    pub fn get(&self, label: impl Into<SlotLabel>) -> &Option<RenderResourceId> {
+    pub fn get(&self, label: impl Into<SlotLabel>) -> Option<RenderResourceId> {
         let slot = self.get_slot(label).unwrap();
-        &slot.resource
+        slot.resource
     }
 
     pub fn get_mut(&mut self, label: impl Into<SlotLabel>) -> &mut Option<RenderResourceId> {
