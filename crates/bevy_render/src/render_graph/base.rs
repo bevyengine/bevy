@@ -1,6 +1,6 @@
 use super::{
     fullscreen_pass_node, CameraNode, FullscreenPassNode, PassNode, RenderGraph, SharedBuffersNode,
-    TextureCopyNode, TextureNode, WindowSwapChainNode, WindowTextureNode,
+    TextureCopyNode, WindowSwapChainNode, WindowTextureNode,
 };
 use crate::{
     pass::{
@@ -227,9 +227,10 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
     }
 
     if config.add_post_pass {
-        let main_render_texture_node = TextureNode::new(
+        let main_render_texture_node = WindowTextureNode::new(
+            WindowId::primary(),
             TextureDescriptor {
-                size: Extent3d::new(2560, 1440, 1),
+                size: Extent3d::new(1, 1, 1),
                 mip_level_count: 1,
                 sample_count: msaa.samples,
                 dimension: TextureDimension::D2,
@@ -242,9 +243,10 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
 
         graph.add_node(node::MAIN_RENDER_TEXTURE, main_render_texture_node);
 
-        let main_depth_texture_node = TextureNode::new(
+        let main_depth_texture_node = WindowTextureNode::new(
+            WindowId::primary(),
             TextureDescriptor {
-                size: Extent3d::new(2560, 1440, 1),
+                size: Extent3d::new(1, 1, 1),
                 mip_level_count: 1,
                 sample_count: msaa.samples,
                 dimension: TextureDimension::D2,
@@ -330,7 +332,7 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
         graph
             .add_slot_edge(
                 node::MAIN_RENDER_TEXTURE,
-                TextureNode::TEXTURE,
+                WindowTextureNode::OUT_TEXTURE,
                 node::MAIN_PASS,
                 "color_attachment",
             )
@@ -366,7 +368,8 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
     if msaa.samples > 1 {
         graph.add_node(
             node::MAIN_SAMPLED_COLOR_ATTACHMENT,
-            TextureNode::new(
+            WindowTextureNode::new(
+                WindowId::primary(),
                 TextureDescriptor {
                     size: Extent3d {
                         depth: 1,
@@ -388,7 +391,7 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
             graph
                 .add_slot_edge(
                     node::MAIN_SAMPLED_COLOR_ATTACHMENT,
-                    TextureNode::TEXTURE,
+                    WindowTextureNode::OUT_TEXTURE,
                     node::POST_PASS,
                     "color_attachment",
                 )
@@ -405,16 +408,7 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
         }
     }
 
-    if config.add_post_pass {
-        graph
-            .add_slot_edge(
-                node::MAIN_DEPTH_TEXTURE,
-                TextureNode::TEXTURE,
-                node::MAIN_PASS,
-                "depth",
-            )
-            .unwrap();
-    } else if config.connect_main_pass_to_main_depth_texture {
+    if config.add_post_pass || config.connect_main_pass_to_main_depth_texture {
         graph
             .add_slot_edge(
                 node::MAIN_DEPTH_TEXTURE,

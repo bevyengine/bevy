@@ -165,9 +165,7 @@ impl Node for FullscreenPassNode {
 
         self.setup_specialized_pipeline(&mut world);
 
-        let mut pipeline_descriptors = world
-            .get_resource_mut::<Assets<PipelineDescriptor>>()
-            .unwrap();
+        let pipeline_descriptors = world.get_resource::<Assets<PipelineDescriptor>>().unwrap();
 
         let render_resource_context = world
             .get_resource::<Box<dyn RenderResourceContext>>()
@@ -245,12 +243,23 @@ impl Node for FullscreenPassNode {
             .enumerate()
         {
             if let Some(input_index) = self.color_attachment_input_indices[i] {
-                color_attachment.attachment =
-                    TextureAttachment::Id(input.get(input_index).unwrap().get_texture().unwrap());
+                color_attachment.attachment = TextureAttachment::Id(
+                    input
+                        .get(input_index)
+                        .as_ref()
+                        .unwrap()
+                        .get_texture()
+                        .unwrap(),
+                );
             }
             if let Some(input_index) = self.color_resolve_target_indices[i] {
                 color_attachment.resolve_target = Some(TextureAttachment::Id(
-                    input.get(input_index).unwrap().get_texture().unwrap(),
+                    input
+                        .get(input_index)
+                        .as_ref()
+                        .unwrap()
+                        .get_texture()
+                        .unwrap(),
                 ));
             }
         }
