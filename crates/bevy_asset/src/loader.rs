@@ -139,7 +139,7 @@ impl<'a> LoadContext<'a> {
 /// The result of loading an asset of type `T`
 #[derive(Debug)]
 pub struct AssetResult<T: Component> {
-    pub asset: T,
+    pub asset: Box<T>,
     pub id: HandleId,
     pub version: usize,
 }
@@ -168,7 +168,7 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
             self.sender
                 .send(AssetLifecycleEvent::Create(AssetResult {
                     id,
-                    asset: *asset,
+                    asset,
                     version,
                 }))
                 .unwrap()

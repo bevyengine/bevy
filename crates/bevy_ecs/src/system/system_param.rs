@@ -407,7 +407,8 @@ impl<'a, T: Component> SystemParamFetch<'a> for ResMutState<T> {
             .get_resource_unchecked_mut_with_id(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
-                    "Requested resource does not exist: {}",
+                    "Resource requested by {} does not exist: {}",
+                    system_state.name,
                     std::any::type_name::<T>()
                 )
             });
@@ -741,7 +742,8 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendState<T> {
             .get_populated_resource_column(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
-                    "Requested non-send resource does not exist: {}",
+                    "Non-send resource requested by {} does not exist: {}",
+                    system_state.name,
                     std::any::type_name::<T>()
                 )
             });
@@ -871,7 +873,8 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendMutState<T> {
             .get_populated_resource_column(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
-                    "Requested non-send resource does not exist: {}",
+                    "Non-send resource requested by {} does not exist: {}",
+                    system_state.name,
                     std::any::type_name::<T>()
                 )
             });
