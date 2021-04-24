@@ -3,7 +3,6 @@ use bevy_ecs::world::World;
 use std::borrow::Cow;
 
 use crate::{
-    prelude::Texture,
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
     renderer::{RenderContext, RenderResourceId, RenderResourceType},
     texture::{SamplerDescriptor, TextureDescriptor, SAMPLER_ASSET_INDEX, TEXTURE_ASSET_INDEX},
