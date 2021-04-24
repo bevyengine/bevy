@@ -477,7 +477,7 @@ impl AssetServer {
                         }
                     }
 
-                    let _ = assets.set(result.id, result.asset);
+                    let _ = assets.set(result.id, *result.asset);
                 }
                 Ok(AssetLifecycleEvent::Free(handle_id)) => {
                     if let HandleId::AssetPathId(id) = handle_id {
