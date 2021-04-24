@@ -1,27 +1,35 @@
 use crate::{
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
     renderer::{RenderContext, RenderResourceId, RenderResourceType},
-    texture::TextureDescriptor,
+    texture::{SamplerDescriptor, TextureDescriptor},
 };
 use bevy_app::{Events, ManualEventReader};
+use bevy_asset::HandleUntyped;
 use bevy_ecs::world::World;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use std::borrow::Cow;
 
+use super::TextureNode;
+
 pub struct WindowTextureNode {
+    inner: TextureNode,
     window_id: WindowId,
-    descriptor: TextureDescriptor,
     window_created_event_reader: ManualEventReader<WindowCreated>,
     window_resized_event_reader: ManualEventReader<WindowResized>,
 }
 
 impl WindowTextureNode {
-    pub const OUT_TEXTURE: &'static str = "texture";
+    pub const OUT_TEXTURE: &'static str = TextureNode::OUT_TEXTURE;
 
-    pub fn new(window_id: WindowId, descriptor: TextureDescriptor) -> Self {
+    pub fn new(
+        window_id: WindowId,
+        texture_descriptor: TextureDescriptor,
+        sampler_descriptor: Option<SamplerDescriptor>,
+        handle: Option<HandleUntyped>,
+    ) -> Self {
         WindowTextureNode {
+            inner: TextureNode::new(texture_descriptor, sampler_descriptor, handle),
             window_id,
-            descriptor,
             window_created_event_reader: Default::default(),
             window_resized_event_reader: Default::default(),
         }
@@ -41,7 +49,7 @@ impl Node for WindowTextureNode {
         &mut self,
         world: &World,
         render_context: &mut dyn RenderContext,
-        _input: &ResourceSlots,
+        input: &ResourceSlots,
         output: &mut ResourceSlots,
     ) {
         const WINDOW_TEXTURE: usize = 0;
@@ -67,10 +75,10 @@ impl Node for WindowTextureNode {
                 render_resource_context.remove_texture(old_texture);
             }
 
-            self.descriptor.size.width = window.physical_width();
-            self.descriptor.size.height = window.physical_height();
-            let texture_resource = render_resource_context.create_texture(self.descriptor);
-            output.set(WINDOW_TEXTURE, RenderResourceId::Texture(texture_resource));
+            self.inner.texture_descriptor_mut().size.width = window.physical_width();
+            self.inner.texture_descriptor_mut().size.height = window.physical_height();
+
+            self.inner.update(world, render_context, input, output);
         }
     }
 }

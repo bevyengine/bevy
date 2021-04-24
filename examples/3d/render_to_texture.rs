@@ -92,7 +92,7 @@ fn add_render_to_texture_graph(graph: &mut RenderGraph, size: Extent3d) {
     graph
         .add_slot_edge(
             TEXTURE_NODE,
-            TextureNode::TEXTURE,
+            TextureNode::OUT_TEXTURE,
             FIRST_PASS,
             "color_attachment",
         )
@@ -100,7 +100,7 @@ fn add_render_to_texture_graph(graph: &mut RenderGraph, size: Extent3d) {
     graph
         .add_slot_edge(
             DEPTH_TEXTURE_NODE,
-            TextureNode::TEXTURE,
+            TextureNode::OUT_TEXTURE,
             FIRST_PASS,
             "depth",
         )
