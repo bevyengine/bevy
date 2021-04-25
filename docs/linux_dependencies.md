@@ -40,7 +40,7 @@ If there are errors with linking during the build process such as:
 Add your arch to the end of the package to remove the linker error. For example:
 
 ```bash
-sudo dnf install alsa-lib-devel.x64_86
+sudo dnf install alsa-lib-devel.x86_64
 ```
 
 ## Arch / Manjaro
