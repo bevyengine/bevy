@@ -414,19 +414,17 @@ impl AssetServer {
         if !potential_frees.is_empty() {
             let asset_lifecycles = self.server.asset_lifecycles.read();
             for potential_free in potential_frees {
-                if let Some(i) = ref_counts.get(&potential_free).cloned() {
-                    if i == 0 {
-                        let type_uuid = match potential_free {
-                            HandleId::Id(type_uuid, _) => Some(type_uuid),
-                            HandleId::AssetPathId(id) => asset_sources
-                                .get(&id.source_path_id())
-                                .and_then(|source_info| source_info.get_asset_type(id.label_id())),
-                        };
+                if let Some(&0) = ref_counts.get(&potential_free) {
+                    let type_uuid = match potential_free {
+                        HandleId::Id(type_uuid, _) => Some(type_uuid),
+                        HandleId::AssetPathId(id) => asset_sources
+                            .get(&id.source_path_id())
+                            .and_then(|source_info| source_info.get_asset_type(id.label_id())),
+                    };
 
-                        if let Some(type_uuid) = type_uuid {
-                            if let Some(asset_lifecycle) = asset_lifecycles.get(&type_uuid) {
-                                asset_lifecycle.free_asset(potential_free);
-                            }
+                    if let Some(type_uuid) = type_uuid {
+                        if let Some(asset_lifecycle) = asset_lifecycles.get(&type_uuid) {
+                            asset_lifecycle.free_asset(potential_free);
                         }
                     }
                 }
