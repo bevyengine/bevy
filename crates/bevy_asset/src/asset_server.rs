@@ -254,11 +254,12 @@ impl AssetServer {
                 }),
             };
 
-            // if asset is already loaded (or is loading), don't load again
+            // if asset is already loaded or is loading, don't load again
             if !force
-                && source_info
+                && (source_info
                     .committed_assets
                     .contains(&asset_path_id.label_id())
+                    || source_info.load_state == LoadState::Loading)
             {
                 return Ok(asset_path_id);
             }
