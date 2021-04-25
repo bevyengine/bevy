@@ -224,6 +224,7 @@ impl AssetServer {
     /// The name of the asset folder is set inside the
     /// [`AssetServerSettings`](crate::AssetServerSettings) resource. The default name is
     /// `"assets"`.
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load<'a, T: Asset, P: Into<AssetPath<'a>>>(&self, path: P) -> Handle<T> {
         self.load_untyped(path).typed()
     }
@@ -324,7 +325,8 @@ impl AssetServer {
             let type_uuid = loaded_asset.value.as_ref().unwrap().type_uuid();
             source_info.asset_types.insert(label_id, type_uuid);
             for dependency in loaded_asset.dependencies.iter() {
-                self.load_untyped(dependency.clone());
+                // another handle already exists created from the asset path
+                let _ = self.load_untyped(dependency.clone());
             }
         }
 
@@ -336,6 +338,7 @@ impl AssetServer {
         Ok(asset_path_id)
     }
 
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load_untyped<'a, P: Into<AssetPath<'a>>>(&self, path: P) -> HandleUntyped {
         let handle_id = self.load_untracked(path.into(), false);
         self.get_handle_untyped(handle_id)
@@ -355,6 +358,7 @@ impl AssetServer {
         asset_path.into()
     }
 
+    #[must_use = "not using the returned strong handles may result in the unexpected release of the assets"]
     pub fn load_folder<P: AsRef<Path>>(
         &self,
         path: P,
