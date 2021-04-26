@@ -185,7 +185,7 @@ pub(crate) fn add_ui_graph(world: &mut World) {
 
         graph
             .add_slot_edge(
-                base::node::MAIN_DEPTH_TEXTURE,
+                base::node::MAIN_SAMPLED_DEPTH_STENCIL_ATTACHMENT,
                 WindowTextureNode::OUT_TEXTURE,
                 node::UI_PASS,
                 "depth",

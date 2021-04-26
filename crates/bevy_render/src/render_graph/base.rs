@@ -322,7 +322,18 @@ fn setup_main_pass(config: &BaseRenderGraphConfig, msaa: &Msaa, graph: &mut Rend
                 )
                 .unwrap();
         }
-    } else {
+    } else if config.add_main_pass {
+        if msaa.samples > 1 {
+            graph
+                .add_slot_edge(
+                    node::MAIN_SAMPLED_COLOR_ATTACHMENT,
+                    WindowTextureNode::OUT_TEXTURE,
+                    node::MAIN_PASS,
+                    "color_attachment",
+                )
+                .unwrap();
+        }
+
         if config.connect_main_pass_to_swapchain {
             graph
                 .add_slot_edge(
@@ -337,7 +348,7 @@ fn setup_main_pass(config: &BaseRenderGraphConfig, msaa: &Msaa, graph: &mut Rend
                 )
                 .unwrap();
         }
-        if config.connect_main_pass_to_main_depth_texture {
+        if config.add_main_depth_texture && config.connect_main_pass_to_main_depth_texture {
             graph
                 .add_slot_edge(
                     node::MAIN_DEPTH_TEXTURE,
@@ -395,7 +406,7 @@ fn setup_resolve_pass(config: &BaseRenderGraphConfig, msaa: &Msaa, graph: &mut R
                 node::PRIMARY_SWAP_CHAIN,
                 WindowSwapChainNode::OUT_TEXTURE,
                 node::MAIN_RESOLVE_PASS,
-                "color_attachment",
+                "color_resolve_target",
             )
             .unwrap();
     }
