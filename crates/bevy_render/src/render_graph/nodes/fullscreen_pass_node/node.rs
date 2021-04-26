@@ -98,7 +98,6 @@ impl FullscreenPassNode {
             .unwrap();
 
         if self.specialized_pipeline_handle.is_none() {
-            let msaa = world.get_resource::<Msaa>().unwrap();
             let mut pipeline_compiler = world.get_resource_mut::<PipelineCompiler>().unwrap();
             let mut shaders = world.get_resource_mut::<Assets<Shader>>().unwrap();
             let render_resource_context = world
@@ -111,7 +110,7 @@ impl FullscreenPassNode {
                 .clone();
 
             let pipeline_specialization = PipelineSpecialization {
-                sample_count: msaa.samples,
+                sample_count: 1,
                 ..Default::default()
             };
 
