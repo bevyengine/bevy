@@ -197,7 +197,6 @@ impl SmoothDampMax for Vec2 {
     ) -> (Vec2, Vec2) {
         let max_speed = f32::max(max_speed, 0.0001); // ensure max speed is positive and non-zero
         let smooth_time = f32::max(smooth_time, 0.0001); // ensure smooth_time is positive and non-zero
-        let delta_time = delta_time as f32;
 
         // from game programming gems 4, chapter 1.10
         let omega = 2.0 / smooth_time;
@@ -228,8 +227,7 @@ impl SmoothDampMax for Vec3 {
         delta_time: f32,
     ) -> (Vec3, Vec3) {
         let max_speed = f32::max(max_speed, 0.0001); // ensure max speed is positive and non-zero
-        let smooth_time = f32::max(smooth_time as f32, 0.0001); // ensure smooth_time is positive and non-zero
-        let delta_time = delta_time as f32;
+        let smooth_time = f32::max(smooth_time, 0.0001); // ensure smooth_time is positive and non-zero
 
         // from game programming gems 4, chapter 1.10
         let omega = 2.0 / smooth_time;
