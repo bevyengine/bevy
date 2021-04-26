@@ -5,7 +5,7 @@ pub trait SmoothDamp {
     /// Smooths value to a goal using a damped spring.
     ///
     /// `smooth_time` is the expected time to reach the target when at maximum velocity.
-    /// 
+    ///
     /// Returns smoothed value and new velocity.
     fn smooth_damp(
         from: Self,
@@ -31,10 +31,10 @@ impl SmoothDamp for f32 {
         // from game programming gems 4, chapter 1.10
         let omega = 2.0 / smooth_time;
         let x = omega * delta_time;
-        
+
         let exp = 1.0 / (1.0 + x + 0.48 * x * x + 0.235 * x * x * x);
         // let exp = 1.0 / (1.0 + x * (1.0 + x * (0.48 + 0.235 * x))); // TODO: profile me, both in debug & release
-        
+
         let change = from - to;
         let temp = (velocity + omega * change) * delta_time;
 
@@ -59,10 +59,10 @@ impl SmoothDamp for f64 {
         // from game programming gems 4, chapter 1.10
         let omega = 2.0 / smooth_time;
         let x = omega * delta_time;
-        
+
         let exp = 1.0 / (1.0 + x + 0.48 * x * x + 0.235 * x * x * x);
         // let exp = 1.0 / (1.0 + x * (1.0 + x * (0.48 + 0.235 * x))); // TODO: profile me, both in debug & release
-        
+
         let change = from - to;
         let temp = (velocity + omega * change) * delta_time;
 
@@ -107,7 +107,7 @@ pub trait SmoothDampMax {
     /// Smooths value to a goal using a damped spring limited by a maximum speed.
     ///
     /// `smooth_time` is the expected time to reach the target when at maximum velocity.
-    /// 
+    ///
     /// Returns smoothed value and new velocity.
     fn smooth_damp_max(
         from: Self,
@@ -135,14 +135,14 @@ impl SmoothDampMax for f32 {
         // from game programming gems 4, chapter 1.10
         let omega = 2.0 / smooth_time;
         let x = omega * delta_time;
-        
+
         let exp = 1.0 / (1.0 + x + 0.48 * x * x + 0.235 * x * x * x);
         // let exp = 1.0 / (1.0 + x * (1.0 + x * (0.48 + 0.235 * x))); // TODO: profile me, both in debug & release
-        
+
         let change = from - to;
         let max = max_speed * delta_time;
         let change = f32::clamp(change, -max, max);
-        
+
         let temp = (velocity + omega * change) * delta_time;
 
         (
@@ -167,14 +167,14 @@ impl SmoothDampMax for f64 {
         // from game programming gems 4, chapter 1.10
         let omega = 2.0 / smooth_time;
         let x = omega * delta_time;
-        
+
         let exp = 1.0 / (1.0 + x + 0.48 * x * x + 0.235 * x * x * x);
         // let exp = 1.0 / (1.0 + x * (1.0 + x * (0.48 + 0.235 * x))); // TODO: profile me, both in debug & release
-        
+
         let change = from - to;
         let max = (max_speed as f64) * delta_time;
         let change = f64::clamp(change, -max, max);
-        
+
         let temp = (velocity + omega * change) * delta_time;
 
         (
@@ -199,15 +199,19 @@ impl SmoothDampMax for Vec2 {
         // from game programming gems 4, chapter 1.10
         let omega = 2.0 / smooth_time;
         let x = omega * delta_time;
-        
+
         let exp = 1.0 / (1.0 + x + 0.48 * x * x + 0.235 * x * x * x);
         // let exp = 1.0 / (1.0 + x * (1.0 + x * (0.48 + 0.235 * x))); // TODO: profile me, both in debug & release
-        
+
         let change = from - to;
         let max = max_speed * delta_time;
         let sq_len = change.length_squared();
-        let change = if sq_len > max * max { change * (max / sq_len.sqrt()) } else { change };
-        
+        let change = if sq_len > max * max {
+            change * (max / sq_len.sqrt())
+        } else {
+            change
+        };
+
         let temp = (velocity + omega * change) * delta_time;
 
         (
@@ -232,15 +236,19 @@ impl SmoothDampMax for Vec3 {
         // from game programming gems 4, chapter 1.10
         let omega = 2.0 / smooth_time;
         let x = omega * delta_time;
-        
+
         let exp = 1.0 / (1.0 + x + 0.48 * x * x + 0.235 * x * x * x);
         // let exp = 1.0 / (1.0 + x * (1.0 + x * (0.48 + 0.235 * x))); // TODO: profile me, both in debug & release
-        
+
         let change = from - to;
         let max = max_speed * delta_time;
         let sq_len = change.length_squared();
-        let change = if sq_len > max * max { change * (max / sq_len.sqrt()) } else { change };
-        
+        let change = if sq_len > max * max {
+            change * (max / sq_len.sqrt())
+        } else {
+            change
+        };
+
         let temp = (velocity + omega * change) * delta_time;
 
         (
