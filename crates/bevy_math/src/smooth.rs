@@ -47,7 +47,7 @@ macro_rules! impl_smooth_damp_scalar {
                 )
             }
         }
-    }
+    };
 }
 
 impl_smooth_damp_scalar! {f32, f32}
@@ -107,11 +107,11 @@ macro_rules! impl_smooth_damp_max_scalar {
                 )
             }
         }
-    }
+    };
 }
 
-impl_smooth_damp_max_scalar!{f32}
-impl_smooth_damp_max_scalar!{f64}
+impl_smooth_damp_max_scalar! {f32}
+impl_smooth_damp_max_scalar! {f64}
 
 macro_rules! impl_smooth_damp_max_vec {
     ($t:ty) => {
