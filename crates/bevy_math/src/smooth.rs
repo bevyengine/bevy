@@ -203,14 +203,8 @@ impl SmoothDampMax for Vec2 {
         let exp = 1.0 / (1.0 + x + 0.48 * x * x + 0.235 * x * x * x);
         // let exp = 1.0 / (1.0 + x * (1.0 + x * (0.48 + 0.235 * x))); // TODO: profile me, both in debug & release
 
-        let change = from - to;
         let max = max_speed * delta_time;
-        let sq_len = change.length_squared();
-        let change = if sq_len > max * max {
-            change * (max / sq_len.sqrt())
-        } else {
-            change
-        };
+        let change = (from - to).clamp_length_max(max);
 
         let temp = (velocity + omega * change) * delta_time;
 
@@ -240,14 +234,8 @@ impl SmoothDampMax for Vec3 {
         let exp = 1.0 / (1.0 + x + 0.48 * x * x + 0.235 * x * x * x);
         // let exp = 1.0 / (1.0 + x * (1.0 + x * (0.48 + 0.235 * x))); // TODO: profile me, both in debug & release
 
-        let change = from - to;
         let max = max_speed * delta_time;
-        let sq_len = change.length_squared();
-        let change = if sq_len > max * max {
-            change * (max / sq_len.sqrt())
-        } else {
-            change
-        };
+        let change = (from - to).clamp_length_max(max);
 
         let temp = (velocity + omega * change) * delta_time;
 
