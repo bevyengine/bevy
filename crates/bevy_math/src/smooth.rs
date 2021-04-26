@@ -140,9 +140,8 @@ impl SmoothDampMax for f32 {
         let exp = 1.0 / (1.0 + x + 0.48 * x * x + 0.235 * x * x * x);
         // let exp = 1.0 / (1.0 + x * (1.0 + x * (0.48 + 0.235 * x))); // TODO: profile me, both in debug & release
 
-        let change = from - to;
         let max = max_speed * delta_time;
-        let change = f32::clamp(change, -max, max);
+        let change = f32::clamp(from - to, -max, max);
 
         let temp = (velocity + omega * change) * delta_time;
 
@@ -173,9 +172,8 @@ impl SmoothDampMax for f64 {
         let exp = 1.0 / (1.0 + x + 0.48 * x * x + 0.235 * x * x * x);
         // let exp = 1.0 / (1.0 + x * (1.0 + x * (0.48 + 0.235 * x))); // TODO: profile me, both in debug & release
 
-        let change = from - to;
         let max = (max_speed as f64) * delta_time;
-        let change = f64::clamp(change, -max, max);
+        let change = f64::clamp(from - to, -max, max);
 
         let temp = (velocity + omega * change) * delta_time;
 
