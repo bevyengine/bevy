@@ -4,6 +4,8 @@ use crate::{Vec2, Vec3};
 pub trait SmoothDamp {
     /// Smooths value to a goal using a damped spring.
     ///
+    /// `smooth_time` is the expected time to reach the target when at maximum velocity
+    /// 
     /// Returns smoothed value and new velocity.
     fn smooth_damp(
         from: Self,
