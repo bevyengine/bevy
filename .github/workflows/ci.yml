@@ -129,7 +129,7 @@ jobs:
             sleep 10
           done
 
-  deadlinks:
+  check-doc:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -138,6 +138,8 @@ jobs:
         if: runner.os == 'linux'
       - name: Installs cargo-deadlinks
         run: cargo install cargo-deadlinks
-      - name: Checks dead doc links
-        run: cargo doc --all-features --no-deps && cargo deadlinks --dir target/doc/bevy
+      - name: Build and check doc
+        run: RUSTDOCFLAGS='-D warnings' cargo doc --all-features --no-deps
+      - name: Checks dead links
+        run: cargo deadlinks --dir target/doc/bevy
         continue-on-error: true

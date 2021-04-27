@@ -8,6 +8,7 @@ status = [
     "build-android",
     "markdownlint",
     "run-examples",
+    "check-doc",
 ]
 
 use_squash_merge = true
