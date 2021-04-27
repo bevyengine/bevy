@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{prelude::World, world::WorldCell};
