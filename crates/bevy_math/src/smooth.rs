@@ -65,7 +65,9 @@ macro_rules! impl_smooth_damp {
                 smooth_time: f32,
                 delta_time: f32,
             ) -> ($t, $t) {
-                let smooth_time = <$f>::max(smooth_time as $f, 0.0001); // ensure smooth_time is positive and non-zero
+                assert!(smooth_time > 0.0);
+                let smooth_time = smooth_time as $f;
+
                 let delta_time = delta_time as $f;
 
                 // from game programming gems 4, chapter 1.10
@@ -122,8 +124,12 @@ macro_rules! impl_smooth_damp_max {
                 smooth_time: f32,
                 delta_time: f32,
             ) -> ($t, $t) {
-                let max_speed = <$f>::max(max_speed as $f, 0.0001); // ensure max speed is positive and non-zero
-                let smooth_time = <$f>::max(smooth_time as $f, 0.0001); // ensure smooth_time is positive and non-zero
+                assert!(max_speed > 0.0);
+                let max_speed = max_speed as $f;
+
+                assert!(smooth_time > 0.0);
+                let smooth_time = smooth_time as $f;
+
                 let delta_time = delta_time as $f;
 
                 // from game programming gems 4, chapter 1.10
