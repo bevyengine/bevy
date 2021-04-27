@@ -30,8 +30,8 @@ pub trait SmoothDamp {
     ///     let (p, v) = Vec3::smooth_damp(
     ///         transform.translation,
     ///         smoother.target,
-    ///         smoother.velocity, 
-    ///         smoother.smoothness, 
+    ///         smoother.velocity,
+    ///         smoother.smoothness,
     ///         dt,
     ///     );
     ///     transform.translation = p;
@@ -39,7 +39,7 @@ pub trait SmoothDamp {
     ///     // When destructured assignement will be supported by Rust:
     ///     // (transform.translation, smoother.velocity) =
     ///     //     Vec3::smooth_damp(
-    ///     //         transform.translation, 
+    ///     //         transform.translation,
     ///     //         smoother.target,
     ///     //         smoother.velocity,
     ///     //         smoother.smoothness,
