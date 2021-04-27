@@ -8,6 +8,9 @@ pub trait SmoothDamp {
     ///
     /// Returns smoothed value and new velocity.
     ///
+    /// # Panics
+    /// Panics if `smooth_time <= 0.0`.
+    ///
     /// # Example
     /// ```
     /// # use bevy_math::prelude::{Vec3, Quat};
@@ -101,6 +104,49 @@ pub trait SmoothDampMax {
     /// `smooth_time` is the expected time to reach the target when at maximum velocity.
     ///
     /// Returns smoothed value and new velocity.
+    ///
+    /// # Panics
+    /// Panics if `smooth_time <= 0.0` or `max_speed <= 0.0`.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_math::prelude::{Vec3, Quat};
+    /// # use bevy_math::SmoothDampMax;
+    /// # struct Transform {
+    /// #     translation: Vec3,
+    /// #     rotation: Quat,
+    /// #     scale: Vec3
+    /// # }
+    /// struct SmoothTransform {
+    ///     pub smoothness: f32,
+    ///     pub max_speed: f32,
+    ///     pub target: Vec3,   
+    ///     velocity: Vec3   
+    /// }
+    ///
+    /// fn smooth_transform_update(dt: f32, transform: &mut Transform, smoother: &mut SmoothTransform) {
+    ///     let (p, v) = Vec3::smooth_damp_max(
+    ///         transform.translation,
+    ///         smoother.target,
+    ///         smoother.velocity,
+    ///         smoother.max_speed,
+    ///         smoother.smoothness,
+    ///         dt,
+    ///     );
+    ///     transform.translation = p;
+    ///     smoother.velocity = v;
+    ///     // When destructured assignement will be supported by Rust:
+    ///     // (transform.translation, smoother.velocity) =
+    ///     //     Vec3::smooth_damp_max(
+    ///     //         transform.translation,
+    ///     //         smoother.target,
+    ///     //         smoother.velocity,
+    ///     //         smoother.max_speed,
+    ///     //         smoother.smoothness,
+    ///     //         dt,
+    ///     //      );
+    /// }
+    /// ```
     fn smooth_damp_max(
         from: Self,
         to: Self,
