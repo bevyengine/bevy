@@ -95,12 +95,11 @@ impl Node for TextureNode {
             let texture_id = render_resource_context.create_texture(self.texture_descriptor);
 
             // And remove the old texture
-            if let Some(old_texture) = output
-                .get_mut(Self::OUT_TEXTURE)
-                .replace(RenderResourceId::Texture(texture_id))
-            {
+            if let Some(old_texture) = output.get(Self::OUT_TEXTURE) {
                 render_resource_context.remove_texture(old_texture.get_texture().unwrap());
             }
+
+            output.set(Self::OUT_TEXTURE, RenderResourceId::Texture(texture_id));
 
             // And update handle and output
             if let Some(handle) = &self.handle {
@@ -117,12 +116,11 @@ impl Node for TextureNode {
                 let sampler_id = render_resource_context.create_sampler(&sampler_descriptor);
 
                 // And remove the old sampler
-                if let Some(old_sampler) = output
-                    .get_mut(Self::OUT_SAMPLER)
-                    .replace(RenderResourceId::Sampler(sampler_id))
-                {
+                if let Some(old_sampler) = output.get(Self::OUT_SAMPLER) {
                     render_resource_context.remove_sampler(old_sampler.get_sampler().unwrap());
                 }
+
+                output.set(Self::OUT_SAMPLER, RenderResourceId::Sampler(sampler_id));
 
                 // And update handle and output
                 if let Some(handle) = &self.handle {

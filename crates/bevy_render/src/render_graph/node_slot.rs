@@ -54,11 +54,6 @@ impl ResourceSlots {
         slot.resource
     }
 
-    pub fn get_mut(&mut self, label: impl Into<SlotLabel>) -> &mut Option<RenderResourceId> {
-        let slot = self.get_slot_mut(label).unwrap();
-        &mut slot.resource
-    }
-
     pub fn get_slot(&self, label: impl Into<SlotLabel>) -> Result<&ResourceSlot, RenderGraphError> {
         let label = label.into();
         let index = self.get_slot_index(&label)?;
