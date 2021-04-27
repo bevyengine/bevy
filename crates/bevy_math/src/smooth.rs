@@ -18,9 +18,9 @@ pub trait SmoothDamp {
     /// #     scale: Vec3
     /// # }
     /// struct SmoothTransform {
-    ///     smoothness: f32,
-    ///     target: Vec3,
-    ///     velocity: Vec3
+    ///     pub smoothness: f32,
+    ///     pub target: Vec3,   
+    ///     velocity: Vec3   
     /// }
     ///
     /// fn smooth_transform_update(dt: f32, transform: &mut Transform, smoother: &mut SmoothTransform) {
