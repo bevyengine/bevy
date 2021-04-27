@@ -7,6 +7,46 @@ pub trait SmoothDamp {
     /// `smooth_time` is the expected time to reach the target when at maximum velocity.
     ///
     /// Returns smoothed value and new velocity.
+    ///
+    /// # Example
+    /// ```
+    /// #[doc(hidden)]
+    /// use bevy_math::prelude::{Vec3, Quat};
+    /// use bevy_math::SmoothDamp;
+    ///
+    /// struct SmoothTransform {
+    ///     smoothness: f32,
+    ///     target: Vec3,
+    ///     velocity: Vec3
+    /// }
+    ///
+    /// struct Transform {
+    ///     translation: Vec3,
+    ///     rotation: Quat,
+    ///     scale: Vec3
+    /// }
+    ///
+    /// fn smooth_transform_update(dt: f32, transform: &mut Transform, smoother: &mut SmoothTransform) {
+    ///     let (p, v) = Vec3::smooth_damp(
+    ///         transform.translation,
+    ///         smoother.target,
+    ///         smoother.velocity, 
+    ///         smoother.smoothness, 
+    ///         dt,
+    ///     );
+    ///     transform.translation = p;
+    ///     smoother.velocity = v;
+    ///     // When destructured assignement will be supported by Rust:
+    ///     // (transform.translation, smoother.velocity) =
+    ///     //     Vec3::smooth_damp(
+    ///     //         transform.translation, 
+    ///     //         smoother.target,
+    ///     //         smoother.velocity,
+    ///     //         smoother.smoothness,
+    ///     //         dt,
+    ///     //      );
+    /// }
+    /// ```
     fn smooth_damp(
         from: Self,
         to: Self,
