@@ -65,8 +65,9 @@ impl Node for WindowTextureNode {
                 .any(|e| e.id == window.id())
         {
             // Update TextureNode descriptor
-            self.inner.texture_descriptor_mut().size.width = window.physical_width();
-            self.inner.texture_descriptor_mut().size.height = window.physical_height();
+            let mut texture_descriptor = self.inner.texture_descriptor_mut();
+            texture_descriptor.size.width = window.physical_width();
+            texture_descriptor.size.height = window.physical_height();
 
             // Pass through into TextureNode
             self.inner.update(world, render_context, input, output);
