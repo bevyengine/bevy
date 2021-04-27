@@ -7,8 +7,11 @@ use crate::{
     world::{Mut, World},
 };
 use bevy_ecs_macros::all_tuples;
+use bevy_utils::{HashMap, HashSet};
 use std::{
+    hash::Hash,
     marker::PhantomData,
+    ops::{Deref, DerefMut},
     ptr::{self, NonNull},
 };
 
@@ -448,6 +451,10 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
         last_change_tick: u32,
         change_tick: u32,
     ) -> Self {
+        assert!(
+            world.get_resource::<Index<T>>().is_none(),
+            "You can't directly mutate an indexed component. Use `Indexed<T>` instead of `&mut T`."
+        );
         let mut value = Self {
             storage_type: state.storage_type,
             table_components: NonNull::dangling(),
@@ -529,6 +536,150 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<T> {
             change_tick: self.change_tick,
             last_change_tick: self.last_change_tick,
         }
+    }
+}
+
+pub struct Index<T: Component> {
+    forward: HashMap<T, HashSet<Entity>>,
+}
+
+pub mod indexing {
+    use crate::prelude::{Added, Query, ResMut};
+
+    use super::*;
+    pub fn index_maintanance_system<T: Component + Eq + Hash + Clone>(
+        query: Query<(&T, Entity), Added<T>>,
+        mut index: ResMut<Index<T>>,
+    ) {
+        for (t, e) in query.iter() {
+            index.forward.entry(t.clone()).or_default().insert(e);
+        }
+    }
+
+    impl<T: Component + Eq + Hash + Clone> Index<T> {
+        pub fn get(&self, t: &T) -> Option<&HashSet<Entity>> {
+            self.forward.get(t)
+        }
+    }
+
+    impl<T: Component + Eq + Hash + Clone> Default for Index<T> {
+        fn default() -> Self {
+            Self {
+                forward: Default::default(),
+            }
+        }
+    }
+}
+
+pub struct Indexed<'a, T: Component + Eq + Hash + Clone> {
+    inner: Mut<'a, T>,
+    entity: Entity,
+}
+
+pub struct IndexedFetch<T>(WriteFetch<T>, EntityFetch);
+
+impl<'w, T: Component + Eq + Hash + Clone> Fetch<'w> for IndexedFetch<T> {
+    type Item = Indexed<'w, T>;
+
+    type State = (WriteState<T>, EntityState);
+
+    unsafe fn init(
+        world: &World,
+        state: &Self::State,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> Self {
+        let (a, b) = <(WriteFetch<T>, EntityFetch) as Fetch<'w>>::init(
+            world,
+            state,
+            last_change_tick,
+            change_tick,
+        );
+        Self(a, b)
+    }
+
+    fn is_dense(&self) -> bool {
+        self.0.is_dense()
+    }
+
+    unsafe fn set_archetype(
+        &mut self,
+        state: &Self::State,
+        archetype: &Archetype,
+        tables: &Tables,
+    ) {
+        self.0.set_archetype(&state.0, archetype, tables);
+        self.1.set_archetype(&state.1, archetype, tables);
+    }
+
+    unsafe fn set_table(&mut self, state: &Self::State, table: &Table) {
+        self.0.set_table(&state.0, table);
+        self.1.set_table(&state.1, table);
+    }
+
+    unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item {
+        let inner = self.0.archetype_fetch(archetype_index);
+        let entity = self.1.archetype_fetch(archetype_index);
+
+        Indexed { inner, entity }
+    }
+
+    unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
+        let inner = self.0.table_fetch(table_row);
+        let entity = self.1.table_fetch(table_row);
+        Indexed { inner, entity }
+    }
+}
+
+impl<'a, T: Component + Eq + Hash + Clone> WorldQuery for Indexed<'a, T> {
+    type Fetch = IndexedFetch<T>;
+    type State = (WriteState<T>, EntityState);
+}
+
+impl<'a, T: Component + Eq + Hash + Clone> Indexed<'a, T> {
+    pub fn deref<'b: 'a>(&'b mut self, index: &'b mut Index<T>) -> ActiveIndexed<'b, T> {
+        ActiveIndexed {
+            orig_value: self.inner.clone(),
+            indexed: self,
+            index,
+        }
+    }
+}
+pub struct ActiveIndexed<'a, T: Component + Eq + Hash + Clone> {
+    indexed: &'a mut Indexed<'a, T>,
+    orig_value: T,
+    index: &'a mut Index<T>,
+}
+
+impl<'a, T: Component + Eq + Hash + Clone> Deref for ActiveIndexed<'a, T> {
+    type Target = Mut<'a, T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.indexed.inner
+    }
+}
+
+impl<'a, T: Component + Eq + Hash + Clone> DerefMut for ActiveIndexed<'a, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.indexed.inner
+    }
+}
+
+impl<'a, T: Component + Eq + Hash + Clone> Drop for ActiveIndexed<'a, T> {
+    fn drop(&mut self) {
+        // Sync back to the index
+        let new_value = self.value.clone();
+        let index = &mut self.index;
+        index
+            .forward
+            .get_mut(&self.orig_value)
+            .unwrap()
+            .remove(&self.indexed.entity);
+        index
+            .forward
+            .entry(new_value)
+            .or_default()
+            .insert(self.indexed.entity);
     }
 }
 

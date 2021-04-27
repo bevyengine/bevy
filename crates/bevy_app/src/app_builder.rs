@@ -6,6 +6,8 @@ use crate::{
 use bevy_ecs::{
     component::{Component, ComponentDescriptor},
     event::Events,
+    prelude::Index,
+    query::indexing::index_maintanance_system,
     schedule::{
         RunOnce, Schedule, Stage, StageLabel, State, SystemDescriptor, SystemSet, SystemStage,
     },
@@ -206,6 +208,22 @@ impl AppBuilder {
     {
         self.insert_resource(State::new(initial))
             .add_system_set_to_stage(stage, State::<T>::get_driver())
+    }
+
+    pub fn add_index<T: Component + Hash + Eq + Clone>(&mut self) -> &mut Self {
+        self.insert_resource(Index::<T>::default())
+            .add_system(index_maintanance_system::<T>.exclusive_system())
+            .add_startup_system_to_stage(
+                StartupStage::PostStartup,
+                index_maintanance_system::<T>.exclusive_system(),
+            )
+    }
+
+    pub fn add_index_sync_at<T: Component + Hash + Eq + Clone, L: StageLabel>(
+        &mut self,
+        label: L,
+    ) -> &mut Self {
+        self.add_system_to_stage(label, index_maintanance_system::<T>.exclusive_system())
     }
 
     pub fn add_default_stages(&mut self) -> &mut Self {

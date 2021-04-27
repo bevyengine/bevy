@@ -20,7 +20,7 @@ pub mod prelude {
         bundle::Bundle,
         entity::Entity,
         event::{EventReader, EventWriter},
-        query::{Added, ChangeTrackers, Changed, Or, QueryState, With, WithBundle, Without},
+        query::{Added, ChangeTrackers, Changed, Or,  Index, Indexed,  QueryState, With, WithBundle, Without},
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
             RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel, RunCriteriaPiping,
