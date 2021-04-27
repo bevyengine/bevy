@@ -284,7 +284,7 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
 }
 
 #[derive(Debug)]
-pub(crate) struct Spawn<T> {
+pub struct Spawn<T> {
     bundle: T,
 }
 
@@ -297,7 +297,7 @@ where
     }
 }
 
-pub(crate) struct SpawnBatch<I>
+pub struct SpawnBatch<I>
 where
     I: IntoIterator,
     I::Item: Bundle,
@@ -316,7 +316,7 @@ where
 }
 
 #[derive(Debug)]
-pub(crate) struct Despawn {
+pub struct Despawn {
     entity: Entity,
 }
 
@@ -343,7 +343,7 @@ where
 }
 
 #[derive(Debug)]
-pub(crate) struct Insert<T> {
+pub struct Insert<T> {
     entity: Entity,
     component: T,
 }
@@ -358,7 +358,7 @@ where
 }
 
 #[derive(Debug)]
-pub(crate) struct Remove<T> {
+pub struct Remove<T> {
     entity: Entity,
     phantom: PhantomData<T>,
 }
@@ -375,7 +375,7 @@ where
 }
 
 #[derive(Debug)]
-pub(crate) struct RemoveBundle<T> {
+pub struct RemoveBundle<T> {
     entity: Entity,
     phantom: PhantomData<T>,
 }
