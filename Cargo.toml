@@ -384,6 +384,10 @@ name = "array_texture"
 path = "examples/shader/array_texture.rs"
 
 [[example]]
+name = "fullscreen_pass"
+path = "examples/shader/fullscreen_pass.rs"
+
+[[example]]
 name = "hot_shader_reloading"
 path = "examples/shader/hot_shader_reloading.rs"
 
