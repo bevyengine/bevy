@@ -27,13 +27,12 @@ Bevy ECS uses Rust's type safety to represent systems as "normal" functions and 
 ### Component storage
 
 A unique feature of Bevy ECS is the support for multiple component storage types.
+
 * Tables: fast and cache friendly iteration, slower adding and removing of components
 * Sparse Sets: fast add/remove, slower iteration
 
 ### Resources
 
 A common pattern when working with ECS is the creation of global singleton components. Bevy ECS makes this pattern a first class citizen with `Resource`s. Resources live in `World` and are a special kind of components that do not belong to any entity.
-
-
 
 [bevy]: https://bevyengine.org/
