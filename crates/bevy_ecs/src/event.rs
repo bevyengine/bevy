@@ -1,3 +1,4 @@
+use crate as bevy_ecs;
 use crate::{
     component::Component,
     system::{Local, Res, ResMut, SystemParam},

@@ -35,16 +35,7 @@ pub fn get_module_path(name: &str) -> syn::Path {
     let deps = manifest.dependencies;
     let deps_dev = manifest.dev_dependencies;
 
-    manifest
-        .package
-        .and_then(|p| {
-            if p.name == name && env::var("CARGO_PRIMARY_PACKAGE").is_ok() {
-                Some(get_path("crate"))
-            } else {
-                None
-            }
-        })
-        .or_else(|| deps.and_then(find_in_deps))
+    deps.and_then(find_in_deps)
         .or_else(|| deps_dev.and_then(find_in_deps))
         .unwrap_or_else(|| get_path(name))
 }

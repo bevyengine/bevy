@@ -36,6 +36,7 @@ pub mod prelude {
 
 #[cfg(test)]
 mod tests {
+    use crate as bevy_ecs;
     use crate::{
         bundle::Bundle,
         component::{Component, ComponentDescriptor, ComponentId, StorageType, TypeInfo},

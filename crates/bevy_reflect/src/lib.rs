@@ -55,7 +55,7 @@ mod tests {
     };
 
     use crate::serde::{ReflectDeserializer, ReflectSerializer};
-
+    use crate as bevy_reflect;
     use super::*;
 
     #[test]
