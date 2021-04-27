@@ -4,6 +4,8 @@ mod window;
 mod windows;
 
 use bevy_ecs::system::IntoSystem;
+use bevy_math::Vec2;
+use bevy_utils::HashMap;
 pub use event::*;
 pub use system::*;
 pub use window::*;
@@ -12,8 +14,8 @@ pub use windows::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter, Window,
-        WindowDescriptor, WindowMoved, Windows,
+        CursorEntered, CursorLeft, CursorMoved, CursorPosition, FileDragAndDrop, ReceivedCharacter,
+        Window, WindowDescriptor, WindowMoved, Windows,
     };
 }
 
@@ -33,6 +35,11 @@ impl Default for WindowPlugin {
     }
 }
 
+#[derive(Default, Debug, Clone)]
+pub struct CursorPosition {
+    pub positions: HashMap<WindowId, Vec2>,
+}
+
 impl Plugin for WindowPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_event::<WindowResized>()
@@ -41,6 +48,8 @@ impl Plugin for WindowPlugin {
             .add_event::<WindowCloseRequested>()
             .add_event::<CloseWindow>()
             .add_event::<CursorMoved>()
+            .init_resource::<CursorPosition>()
+            .add_system_to_stage(CoreStage::PreUpdate, cursor_movement_res_system.system())
             .add_event::<CursorEntered>()
             .add_event::<CursorLeft>()
             .add_event::<ReceivedCharacter>()

@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 
-use super::{WindowDescriptor, WindowId};
+use super::{CursorPosition, WindowDescriptor, WindowId};
+use bevy_app::EventReader;
+use bevy_ecs::system::ResMut;
 use bevy_math::{IVec2, Vec2};
 
 /// A window event that is sent whenever a window has been resized.
@@ -95,4 +97,24 @@ pub enum FileDragAndDrop {
 pub struct WindowMoved {
     pub id: WindowId,
     pub position: IVec2,
+}
+
+/// Updates the CursorPosition resource with the latest CursorMoved events
+pub fn cursor_movement_res_system(
+    mut cursor_position: ResMut<CursorPosition>,
+    mut cursor_position_events: EventReader<CursorMoved>,
+    mut window_close_events: EventReader<WindowCloseRequested>,
+    mut cursor_left_events: EventReader<CursorLeft>,
+) {
+    for event in cursor_position_events.iter() {
+        cursor_position.positions.insert(event.id, event.position);
+    }
+
+    for event in window_close_events.iter() {
+        cursor_position.positions.remove(&event.id);
+    }
+
+    for event in cursor_left_events.iter() {
+        cursor_position.positions.remove(&event.id);
+    }
 }
