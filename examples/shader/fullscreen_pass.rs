@@ -113,19 +113,6 @@ fn setup_render_graph(
     let pipeline = { build_pbr_pipeline(&mut *shaders) };
     pipelines.set_untracked(bevy::pbr::render_graph::PBR_PIPELINE_HANDLE, pipeline);
 
-    render_graph
-        .add_slot_edge(
-            node::MAIN_COLOR_TEXTURE,
-            WindowTextureNode::OUT_TEXTURE,
-            base::node::MAIN_PASS,
-            if msaa.samples > 1 {
-                "color_resolve_target"
-            } else {
-                "color_attachment"
-            },
-        )
-        .unwrap();
-
     // Override base MAIN_SAMPLED_COLOR_ATTACHMENT (which cannot be disabled)
     // with one that uses a linear color format
     if msaa.samples > 1 {
@@ -170,6 +157,19 @@ fn setup_render_graph(
             None,
         ),
     );
+
+    render_graph
+        .add_slot_edge(
+            node::MAIN_COLOR_TEXTURE,
+            WindowTextureNode::OUT_TEXTURE,
+            base::node::MAIN_PASS,
+            if msaa.samples > 1 {
+                "color_resolve_target"
+            } else {
+                "color_attachment"
+            },
+        )
+        .unwrap();
 
     // Set up post processing pipeline
     let pipeline_descriptor = PipelineDescriptor {
