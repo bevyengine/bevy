@@ -10,20 +10,17 @@ pub trait SmoothDamp {
     ///
     /// # Example
     /// ```
-    /// #[doc(hidden)]
-    /// use bevy_math::prelude::{Vec3, Quat};
-    /// use bevy_math::SmoothDamp;
-    ///
+    /// # use bevy_math::prelude::{Vec3, Quat};
+    /// # use bevy_math::SmoothDamp;
+    /// # struct Transform {
+    /// #     translation: Vec3,
+    /// #     rotation: Quat,
+    /// #     scale: Vec3
+    /// # }
     /// struct SmoothTransform {
     ///     smoothness: f32,
     ///     target: Vec3,
     ///     velocity: Vec3
-    /// }
-    ///
-    /// struct Transform {
-    ///     translation: Vec3,
-    ///     rotation: Quat,
-    ///     scale: Vec3
     /// }
     ///
     /// fn smooth_transform_update(dt: f32, transform: &mut Transform, smoother: &mut SmoothTransform) {
