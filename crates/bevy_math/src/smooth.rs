@@ -18,7 +18,7 @@ pub trait SmoothDamp {
         Self: Sized;
 }
 
-macro_rules! impl_smooth_damp_scalar {
+macro_rules! impl_smooth_damp {
     ($t:ty, $f:ty) => {
         impl SmoothDamp for $t {
             fn smooth_damp(
@@ -50,10 +50,10 @@ macro_rules! impl_smooth_damp_scalar {
     };
 }
 
-impl_smooth_damp_scalar! {f32, f32}
-impl_smooth_damp_scalar! {f64, f64}
-impl_smooth_damp_scalar! {Vec2, f32}
-impl_smooth_damp_scalar! {Vec3, f32}
+impl_smooth_damp! {f32, f32}
+impl_smooth_damp! {f64, f64}
+impl_smooth_damp! {Vec2, f32}
+impl_smooth_damp! {Vec3, f32}
 
 /// Smooths value to a goal using a damped spring limited by a maximum speed.
 pub trait SmoothDampMax {
@@ -96,8 +96,10 @@ macro_rules! impl_smooth_damp_max {
                 let exp = 1.0 / (1.0 + x + 0.48 * x * x + 0.235 * x * x * x);
                 // let exp = 1.0 / (1.0 + x * (1.0 + x * (0.48 + 0.235 * x))); // TODO: profile me, both in debug & release
 
-                let max = max_speed * delta_time;
-                let change = $clamp(from, to, max); //<$t>::clamp(from - to, -max, max);
+                let max = max_speed * smooth_time;
+                let change = from - to;
+                let change = $clamp(change, max);
+                let to = from - change;
 
                 let temp = (velocity + omega * change) * delta_time;
 
@@ -110,7 +112,7 @@ macro_rules! impl_smooth_damp_max {
     };
 }
 
-impl_smooth_damp_max! {f32, f32, |from, to, max:f32| { f32::clamp(from - to, -max, max) }}
-impl_smooth_damp_max! {f64, f64, |from, to, max:f64| { f64::clamp(from - to, -max, max) }}
-impl_smooth_damp_max! {Vec2, f32, |from:Vec2, to, max| { (from - to).clamp_length_max(max)}}
-impl_smooth_damp_max! {Vec3, f32, |from:Vec3, to, max| { (from - to).clamp_length_max(max)}}
+impl_smooth_damp_max! {f32, f32, |change, max:f32| { f32::clamp(change, -max, max) }}
+impl_smooth_damp_max! {f64, f64, |change, max:f64| { f64::clamp(change, -max, max) }}
+impl_smooth_damp_max! {Vec2, f32, |change:Vec2, max| { change.clamp_length_max(max) }}
+impl_smooth_damp_max! {Vec3, f32, |change:Vec3, max| { change.clamp_length_max(max) }}
