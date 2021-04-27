@@ -35,8 +35,8 @@ macro_rules! impl_smooth_damp {
                 let omega = 2.0 / smooth_time;
                 let x = omega * delta_time;
 
-                let exp = 1.0 / (1.0 + x + 0.48 * x * x + 0.235 * x * x * x);
-                // let exp = 1.0 / (1.0 + x * (1.0 + x * (0.48 + 0.235 * x))); // TODO: profile me, both in debug & release
+                // fast and good enough approximation of exp(x)
+                let exp = 1.0 / (1.0 + x * (1.0 + x * (0.48 + 0.235 * x)));
 
                 let change = from - to;
                 let temp = (velocity + omega * change) * delta_time;
@@ -93,8 +93,8 @@ macro_rules! impl_smooth_damp_max {
                 let omega = 2.0 / smooth_time;
                 let x = omega * delta_time;
 
-                let exp = 1.0 / (1.0 + x + 0.48 * x * x + 0.235 * x * x * x);
-                // let exp = 1.0 / (1.0 + x * (1.0 + x * (0.48 + 0.235 * x))); // TODO: profile me, both in debug & release
+                // fast and good enough approximation of exp(x)
+                let exp = 1.0 / (1.0 + x * (1.0 + x * (0.48 + 0.235 * x)));
 
                 let max = max_speed * smooth_time;
                 let change = from - to;
