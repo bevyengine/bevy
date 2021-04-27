@@ -12,8 +12,10 @@ pub mod system;
 pub mod world;
 
 pub mod prelude {
+    #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
     pub use crate::reflect::ReflectComponent;
+    #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
         entity::Entity,
