@@ -197,6 +197,11 @@ impl ParallelExecutor {
                         .recv()
                         .await
                         .unwrap_or_else(|error| unreachable!(error));
+                    #[cfg(feature = "trace")]
+                    let system_span =
+                        bevy_utils::tracing::info_span!("system", name = &*system.name());
+                    #[cfg(feature = "trace")]
+                    let _system_guard = system_span.enter();
                     unsafe { system.run_unsafe((), world) };
                     finish_sender
                         .send(index)
