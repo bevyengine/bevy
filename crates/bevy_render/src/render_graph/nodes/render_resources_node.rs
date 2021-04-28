@@ -888,6 +888,7 @@ fn global_render_resources_node_system<T: RenderResources>(
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
 ) {
+    // TODO add support for textures
     // No need to do anything if no changes
     if render_resources.is_changed() {
         // Precalculate the aligned size of the whole render resources buffer
