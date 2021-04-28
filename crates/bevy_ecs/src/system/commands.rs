@@ -285,7 +285,7 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
 
 #[derive(Debug)]
 pub struct Spawn<T> {
-    bundle: T,
+    pub bundle: T,
 }
 
 impl<T> Command for Spawn<T>
@@ -302,7 +302,7 @@ where
     I: IntoIterator,
     I::Item: Bundle,
 {
-    bundles_iter: I,
+    pub bundles_iter: I,
 }
 
 impl<I> Command for SpawnBatch<I>
@@ -317,7 +317,7 @@ where
 
 #[derive(Debug)]
 pub struct Despawn {
-    entity: Entity,
+    pub entity: Entity,
 }
 
 impl Command for Despawn {
@@ -328,9 +328,9 @@ impl Command for Despawn {
     }
 }
 
-pub(crate) struct InsertBundle<T> {
-    entity: Entity,
-    bundle: T,
+pub struct InsertBundle<T> {
+    pub entity: Entity,
+    pub bundle: T,
 }
 
 impl<T> Command for InsertBundle<T>
@@ -344,8 +344,8 @@ where
 
 #[derive(Debug)]
 pub struct Insert<T> {
-    entity: Entity,
-    component: T,
+    pub entity: Entity,
+    pub component: T,
 }
 
 impl<T> Command for Insert<T>
@@ -376,8 +376,8 @@ where
 
 #[derive(Debug)]
 pub struct RemoveBundle<T> {
-    entity: Entity,
-    phantom: PhantomData<T>,
+    pub entity: Entity,
+    pub phantom: PhantomData<T>,
 }
 
 impl<T> Command for RemoveBundle<T>
@@ -393,8 +393,8 @@ where
     }
 }
 
-pub(crate) struct InsertResource<T: Component> {
-    resource: T,
+pub struct InsertResource<T: Component> {
+    pub resource: T,
 }
 
 impl<T: Component> Command for InsertResource<T> {
@@ -403,8 +403,8 @@ impl<T: Component> Command for InsertResource<T> {
     }
 }
 
-pub(crate) struct RemoveResource<T: Component> {
-    phantom: PhantomData<T>,
+pub struct RemoveResource<T: Component> {
+    pub phantom: PhantomData<T>,
 }
 
 impl<T: Component> Command for RemoveResource<T> {
