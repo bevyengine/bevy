@@ -1,6 +1,6 @@
 use bevy::{
     ecs::schedule::RunOnce,
-    log::{LogPlugin, LogSettings},
+    log::LogPlugin,
     prelude::*,
 };
 
