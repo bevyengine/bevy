@@ -32,6 +32,8 @@ git checkout v0.4.0
 
 ## Table of Contents
 
+- [Examples](#examples)
+  - [Table of Contents](#table-of-contents)
 - [The Bare Minimum](#the-bare-minimum)
   - [Hello, World!](#hello-world)
 - [Cross-Platform Examples](#cross-platform-examples)
@@ -53,8 +55,15 @@ git checkout v0.4.0
   - [Window](#window)
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
+    - [Setup](#setup)
+    - [Build & Run](#build--run)
+    - [Old phones](#old-phones)
   - [iOS](#ios)
+    - [Setup](#setup-1)
+    - [Build & Run](#build--run-1)
   - [WASM](#wasm)
+    - [Setup](#setup-2)
+    - [Build & Run](#build--run-2)
 
 # The Bare Minimum
 
@@ -145,6 +154,7 @@ Example | File | Description
 `fixed_timestep` | [`ecs/fixed_timestep.rs`](./ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick
 `hierarchy` | [`ecs/hierarchy.rs`](./ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities
 `parallel_query` | [`ecs/parallel_query.rs`](./ecs/parallel_query.rs) | Illustrates parallel queries with `ParallelIterator`
+`query_bundle` | [`ecs/query_bundle.rs`](./ecs/query_bundle.rs) | Shows how to query entities that contain components in a `Bundle`
 `removal_detection` | [`ecs/removal_detection.rs`](./ecs/removal_detection.rs) | Query for entities that had a specific component removed in a previous stage during the current frame.
 `startup_system` | [`ecs/startup_system.rs`](./ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)
 `state` | [`ecs/state.rs`](./ecs/state.rs) | Illustrates how to use States to control transitioning from a Menu state to an InGame state
