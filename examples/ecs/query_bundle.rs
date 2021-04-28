@@ -55,7 +55,7 @@ fn query_component_without_bundle(query: Query<&Name>) {
 }
 fn test_query_bundle(query: Query<&Name, WithBundle<PersonBundle>>) {
     info!("Print component initiated from bundle.");
-    // this should only print `Dummy(222)`.
+    // this should only print `Name("Bob")`.
     query.iter().for_each(|x| {
         info!("{:?}", x);
     });
