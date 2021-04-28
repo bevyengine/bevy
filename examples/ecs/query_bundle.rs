@@ -4,14 +4,10 @@ fn main() {
     App::build()
         .add_plugin(LogPlugin)
         .add_startup_system(setup.system())
-        .add_system(
-            query_component_without_person_bundle
-                .system()
-                .with_run_criteria(RunOnce::default()),
-        )
-        .add_system(
-            query_person_bundle
-                .system()
+        .add_system_set(
+            SystemSet::new()
+                .with_system(query_component_without_person_bundle.system())
+                .with_system(query_person_bundle.system())
                 .with_run_criteria(RunOnce::default()),
         )
         .run();
@@ -41,14 +37,14 @@ fn setup(mut commands: Commands) {
 }
 
 fn query_component_without_person_bundle(query: Query<&Name>) {
-    info!("Show all components");
+    info!("Show all entites with component `Name`");
     // this will necessarily have to print both components.
     query.iter().for_each(|x| {
         info!("{:?}", x);
     });
 }
 fn query_person_bundle(query: Query<&Name, WithBundle<PersonBundle>>) {
-    info!("Print component initiated from bundle.");
+    info!("Print `Name` component residing in entities that are added via `PersonBundle`.");
     // this should only print `Name("Bob")`.
     query.iter().for_each(|x| {
         info!("{:?}", x);
