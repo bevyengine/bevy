@@ -36,7 +36,7 @@ struct PersonBundle {
     age: Age,
 }
 
-/// Sets up entites with [Dummy] component as part of a bundle and isolated.
+/// Sets up entities with [Name] component as part of a bundle and isolated.
 fn setup(mut commands: Commands) {
     commands.spawn().insert(Name("Steve".to_string()));
 
