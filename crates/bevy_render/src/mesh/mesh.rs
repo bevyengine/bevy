@@ -551,18 +551,19 @@ pub fn mesh_resource_provider_system(
             }
 
             let interleaved_buffer = mesh.get_vertex_buffer_data();
-
-            render_resource_context.set_asset_resource(
-                changed_mesh_handle,
-                RenderResourceId::Buffer(render_resource_context.create_buffer_with_data(
-                    BufferInfo {
-                        buffer_usage: BufferUsage::VERTEX,
-                        ..Default::default()
-                    },
-                    &interleaved_buffer,
-                )),
-                VERTEX_ATTRIBUTE_BUFFER_ID,
-            );
+            if !interleaved_buffer.is_empty() {
+                render_resource_context.set_asset_resource(
+                    changed_mesh_handle,
+                    RenderResourceId::Buffer(render_resource_context.create_buffer_with_data(
+                        BufferInfo {
+                            buffer_usage: BufferUsage::VERTEX,
+                            ..Default::default()
+                        },
+                        &interleaved_buffer,
+                    )),
+                    VERTEX_ATTRIBUTE_BUFFER_ID,
+                );
+            }
 
             if let Some(mesh_entities) = state.mesh_entities.get_mut(changed_mesh_handle) {
                 for entity in mesh_entities.entities.iter() {
