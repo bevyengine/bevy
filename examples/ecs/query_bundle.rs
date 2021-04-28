@@ -1,22 +1,15 @@
-use bevy::{
-    ecs::schedule::RunOnce,
-    log::LogPlugin,
-    prelude::*,
-};
+use bevy::{ecs::schedule::RunOnce, log::LogPlugin, prelude::*};
 
 fn main() {
     App::build()
         .add_plugin(LogPlugin)
         .add_startup_system(setup.system())
-        .add_stage("diagnostic", SystemStage::single_threaded())
-        .add_system_to_stage(
-            "diagnostic",
+        .add_system(
             query_component_without_person_bundle
                 .system()
                 .with_run_criteria(RunOnce::default()),
         )
-        .add_system_to_stage(
-            "diagnostic",
+        .add_system(
             query_person_bundle
                 .system()
                 .with_run_criteria(RunOnce::default()),
@@ -36,7 +29,7 @@ struct PersonBundle {
     age: Age,
 }
 
-/// Sets up two entities, one with a [Name] component as part of a bundle, 
+/// Sets up two entities, one with a [Name] component as part of a bundle,
 /// and one entity with [Name] only.
 fn setup(mut commands: Commands) {
     commands.spawn().insert(Name("Steve".to_string()));
