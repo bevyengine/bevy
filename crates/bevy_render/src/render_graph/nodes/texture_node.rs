@@ -42,13 +42,13 @@ impl TextureNode {
         &mut self.texture_descriptor
     }
 
-    pub fn sampler_descriptor(&self) -> &Option<SamplerDescriptor> {
-        &self.sampler_descriptor
+    pub fn sampler_descriptor(&self) -> Option<&SamplerDescriptor> {
+        self.sampler_descriptor.as_ref()
     }
 
-    pub fn sampler_descriptor_mut(&mut self) -> &mut Option<SamplerDescriptor> {
+    pub fn sampler_descriptor_mut(&mut self) -> Option<&mut SamplerDescriptor> {
         self.set_changed();
-        &mut self.sampler_descriptor
+        self.sampler_descriptor.as_mut()
     }
 
     pub fn set_changed(&mut self) {
