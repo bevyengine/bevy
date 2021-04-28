@@ -11,13 +11,13 @@ fn main() {
         .add_stage("diagnostic", SystemStage::single_threaded())
         .add_system_to_stage(
             "diagnostic",
-            query_component_without_bundle
+            query_component_without_person_bundle
                 .system()
                 .with_run_criteria(RunOnce::default()),
         )
         .add_system_to_stage(
             "diagnostic",
-            test_query_bundle
+            query_person_bundle
                 .system()
                 .with_run_criteria(RunOnce::default()),
         )
@@ -36,7 +36,8 @@ struct PersonBundle {
     age: Age,
 }
 
-/// Sets up entities with [Name] component as part of a bundle and isolated.
+/// Sets up two entities, one with a [Name] component as part of a bundle, 
+/// and one entity with [Name] only.
 fn setup(mut commands: Commands) {
     commands.spawn().insert(Name("Steve".to_string()));
 
@@ -46,14 +47,14 @@ fn setup(mut commands: Commands) {
     });
 }
 
-fn query_component_without_bundle(query: Query<&Name>) {
+fn query_component_without_person_bundle(query: Query<&Name>) {
     info!("Show all components");
     // this will necessarily have to print both components.
     query.iter().for_each(|x| {
         info!("{:?}", x);
     });
 }
-fn test_query_bundle(query: Query<&Name, WithBundle<PersonBundle>>) {
+fn query_person_bundle(query: Query<&Name, WithBundle<PersonBundle>>) {
     info!("Print component initiated from bundle.");
     // this should only print `Name("Bob")`.
     query.iter().for_each(|x| {
