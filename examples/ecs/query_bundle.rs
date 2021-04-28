@@ -1,6 +1,6 @@
 use bevy::{
     ecs::schedule::RunOnce,
-    log::{LogPlugin, LogSettings},
+    log::LogPlugin,
     prelude::*,
 };
 
@@ -36,7 +36,7 @@ struct PersonBundle {
     age: Age,
 }
 
-/// Sets up entites with [Dummy] component as part of a bundle and isolated.
+/// Sets up entities with [Name] component as part of a bundle and isolated.
 fn setup(mut commands: Commands) {
     commands.spawn().insert(Name("Steve".to_string()));
 
@@ -55,7 +55,7 @@ fn query_component_without_bundle(query: Query<&Name>) {
 }
 fn test_query_bundle(query: Query<&Name, WithBundle<PersonBundle>>) {
     info!("Print component initiated from bundle.");
-    // this should only print `Dummy(222)`.
+    // this should only print `Name("Bob")`.
     query.iter().for_each(|x| {
         info!("{:?}", x);
     });
