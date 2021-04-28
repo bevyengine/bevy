@@ -124,41 +124,7 @@ fn setup_render_graph(
     shaders: &mut Assets<Shader>,
     msaa: &Msaa,
 ) {
-    // We want to use linear color textures until post processing is done
-
-    // GLTF loader always uses PBR_PIPELINE_HANDLE
-    // so override that to use Bgra8Unorm (non-Srgb)
-    let pipeline = { build_pbr_pipeline(&mut *shaders) };
-    pipelines.set_untracked(bevy::pbr::render_graph::PBR_PIPELINE_HANDLE, pipeline);
-
-    // Override base MAIN_SAMPLED_COLOR_ATTACHMENT (which cannot be disabled)
-    // with one that uses a linear color format
-    if msaa.samples > 1 {
-        let main_sampled_color_attachment: &mut WindowTextureNode = render_graph
-            .get_node_mut(base::node::MAIN_SAMPLED_COLOR_ATTACHMENT)
-            .unwrap();
-
-        *main_sampled_color_attachment = WindowTextureNode::new(
-            WindowId::primary(),
-            TextureDescriptor {
-                size: Extent3d {
-                    depth: 1,
-                    width: 1,
-                    height: 1,
-                },
-                mip_level_count: 1,
-                sample_count: msaa.samples,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::Bgra8Unorm,
-                usage: TextureUsage::OUTPUT_ATTACHMENT,
-            },
-            None,
-            None,
-        );
-    }
-
     // Rendergraph additions
-    // Add new linear color main render texture
     render_graph.add_node(
         node::MAIN_COLOR_TEXTURE,
         WindowTextureNode::new(
@@ -168,7 +134,7 @@ fn setup_render_graph(
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: bevy::render::texture::TextureDimension::D2,
-                format: TextureFormat::Bgra8Unorm,
+                format: TextureFormat::Bgra8UnormSrgb,
                 usage: TextureUsage::OUTPUT_ATTACHMENT | TextureUsage::SAMPLED,
             },
             Some(SamplerDescriptor::default()),
@@ -291,52 +257,6 @@ fn setup_render_graph(
             "color_texture_sampler",
         )
         .unwrap();
-}
-
-pub(crate) fn build_pbr_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
-    PipelineDescriptor {
-        depth_stencil: Some(DepthStencilState {
-            format: TextureFormat::Depth32Float,
-            depth_write_enabled: true,
-            depth_compare: CompareFunction::Less,
-            stencil: StencilState {
-                front: StencilFaceState::IGNORE,
-                back: StencilFaceState::IGNORE,
-                read_mask: 0,
-                write_mask: 0,
-            },
-            bias: DepthBiasState {
-                constant: 0,
-                slope_scale: 0.0,
-                clamp: 0.0,
-            },
-            clamp_depth: false,
-        }),
-        color_target_states: vec![ColorTargetState {
-            format: TextureFormat::Bgra8Unorm,
-            color_blend: BlendState {
-                src_factor: BlendFactor::SrcAlpha,
-                dst_factor: BlendFactor::OneMinusSrcAlpha,
-                operation: BlendOperation::Add,
-            },
-            alpha_blend: BlendState {
-                src_factor: BlendFactor::One,
-                dst_factor: BlendFactor::One,
-                operation: BlendOperation::Add,
-            },
-            write_mask: ColorWrite::ALL,
-        }],
-        ..PipelineDescriptor::new(ShaderStages {
-            vertex: shaders.add(Shader::from_glsl(
-                ShaderStage::Vertex,
-                include_str!("../../crates/bevy_pbr/src/render_graph/pbr_pipeline/pbr.vert"),
-            )),
-            fragment: Some(shaders.add(Shader::from_glsl(
-                ShaderStage::Fragment,
-                include_str!("../../crates/bevy_pbr/src/render_graph/pbr_pipeline/pbr.frag"),
-            ))),
-        })
-    }
 }
 
 /// this component indicates what entities should rotate
