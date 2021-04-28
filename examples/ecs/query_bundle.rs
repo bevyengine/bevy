@@ -1,13 +1,28 @@
 use bevy::{ecs::schedule::RunOnce, log::LogPlugin, prelude::*};
 
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, SystemLabel)]
+enum DiagnosticSteps {
+    AllComponents,
+    BundleComponents,
+}
+
 fn main() {
     App::build()
         .add_plugin(LogPlugin)
         .add_startup_system(setup.system())
         .add_system_set(
             SystemSet::new()
-                .with_system(query_component_without_person_bundle.system())
-                .with_system(query_person_bundle.system())
+                .with_system(
+                    query_component_without_person_bundle
+                        .system()
+                        .label(DiagnosticSteps::AllComponents),
+                )
+                .with_system(
+                    query_person_bundle
+                        .system()
+                        .label(DiagnosticSteps::BundleComponents)
+                        .after(DiagnosticSteps::AllComponents),
+                )
                 .with_run_criteria(RunOnce::default()),
         )
         .run();
