@@ -1,32 +1,16 @@
-use bevy::{ecs::schedule::RunOnce, log::LogPlugin, prelude::*};
-
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, SystemLabel)]
-enum DiagnosticSteps {
-    AllComponents,
-    BundleComponents,
-}
+use bevy::{log::LogPlugin, prelude::*};
 
 fn main() {
     App::build()
         .add_plugin(LogPlugin)
         .add_startup_system(setup.system())
-        .add_system_set(
-            SystemSet::new()
-                .with_system(
-                    query_component_without_person_bundle
-                        .system()
-                        .label(DiagnosticSteps::AllComponents),
-                )
-                .with_system(
-                    query_person_bundle
-                        .system()
-                        .label(DiagnosticSteps::BundleComponents)
-                        .after(DiagnosticSteps::AllComponents),
-                )
-                .with_run_criteria(RunOnce::default()),
-        )
+        .add_system(log_names.system().label(LogNamesSystem))
+        .add_system(log_person_bundles.system().after(LogNamesSystem))
         .run();
 }
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+struct LogNamesSystem;
 
 #[derive(Debug)]
 struct Name(String);
@@ -44,24 +28,23 @@ struct PersonBundle {
 /// and one entity with [Name] only.
 fn setup(mut commands: Commands) {
     commands.spawn().insert(Name("Steve".to_string()));
-
     commands.spawn().insert_bundle(PersonBundle {
         name: Name("Bob".to_string()),
         age: Age(40),
     });
 }
 
-fn query_component_without_person_bundle(query: Query<&Name>) {
-    info!("Show all entites with component `Name`");
+fn log_names(query: Query<&Name>) {
+    info!("Log all entities with `Name` component");
     // this will necessarily have to print both components.
-    query.iter().for_each(|x| {
-        info!("{:?}", x);
-    });
+    for name in query.iter() {
+        info!("{:?}", name);
+    }
 }
-fn query_person_bundle(query: Query<&Name, WithBundle<PersonBundle>>) {
-    info!("Print `Name` component residing in entities that are added via `PersonBundle`.");
+fn log_person_bundles(query: Query<&Name, WithBundle<PersonBundle>>) {
+    info!("Log `Name` components from entities that have all components in `PersonBundle`.");
     // this should only print `Name("Bob")`.
-    query.iter().for_each(|x| {
-        info!("{:?}", x);
-    });
+    for name in query.iter() {
+        info!("{:?}", name);
+    }
 }
