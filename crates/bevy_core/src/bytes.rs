@@ -12,11 +12,7 @@ pub trait Bytes {
 }
 
 /// A trait that indicates that it is safe to cast the type to a byte array reference.
-pub unsafe trait Byteable
-where
-    Self: Sized,
-{
-}
+pub unsafe trait Byteable: Copy + Sized {}
 
 impl<T> Bytes for T
 where
@@ -46,7 +42,7 @@ pub trait FromBytes {
 
 impl<T> FromBytes for T
 where
-    T: Byteable + Copy,
+    T: Byteable,
 {
     fn from_bytes(bytes: &[u8]) -> Self {
         assert_eq!(
@@ -77,13 +73,6 @@ where
         let len = std::mem::size_of_val(self);
         unsafe { core::slice::from_raw_parts(self as *const Self as *const u8, len) }
     }
-}
-
-unsafe impl<T> Byteable for [T]
-where
-    Self: Sized,
-    T: Byteable,
-{
 }
 
 unsafe impl<T, const N: usize> Byteable for [T; N] where T: Byteable {}
@@ -154,7 +143,7 @@ where
 
 impl<T> Bytes for Vec<T>
 where
-    T: Sized + Byteable,
+    T: Byteable,
 {
     fn write_bytes(&self, buffer: &mut [u8]) {
         let bytes = self.as_slice().as_bytes();
@@ -168,7 +157,7 @@ where
 
 impl<T> FromBytes for Vec<T>
 where
-    T: Sized + Copy + Byteable,
+    T: Byteable,
 {
     fn from_bytes(bytes: &[u8]) -> Self {
         assert_eq!(
