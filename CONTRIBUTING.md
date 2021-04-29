@@ -223,7 +223,13 @@ If you're new to Bevy, here's the workflow we use:
 5. If you're a first time contributor to this repo, @cart [will need to manually trigger CI for your PR](https://github.blog/changelog/2021-04-22-github-actions-maintainers-must-approve-first-time-contributor-workflow-runs/). Feel free to ping him for this.
 6. Respond to any CI failures or review feedback.
 
-Please:
+If you end up creating a new crate to the `bevy` repo:
+
+1. Add a "Bevy Contributors <bevyengine@gmail.com>" entry in the Author field of the Cargo.toml.
+2. Add an MIT License to match the main `bevy` crate.
+3. Add the new crate to the ./tools./publish.sh file.
+
+When contributing, please:
 
 * try to loosely follow the workflow in **How we work together**
 * explain what you're doing and why
