@@ -688,6 +688,19 @@ pub struct NonSend<'w, T> {
     change_tick: u32,
 }
 
+impl<'w, T> Debug for NonSend<'w, T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("NonSend(")?;
+        Debug::fmt(self.value, f)?;
+        f.write_str(")")?;
+
+        Ok(())
+    }
+}
+
 impl<'w, T: Component> NonSend<'w, T> {
     /// Returns true if (and only if) this resource been added since the last execution of this
     /// system.
