@@ -162,7 +162,7 @@ To view the current docs on `main` before you contribute, clone the `bevy` repo,
 
 ### Writing examples
 
-Most [examples in Bevy](https://github.com/bevyengine/bevy/tree/main/examples) aim to clearly demonstrate a single feature, group of closely related small features, or show how to accomplish a particular task (such as asset loading, creating a custom shader or how to test your app).
+Most [examples in Bevy](https://github.com/bevyengine/bevy/tree/main/examples) aim to clearly demonstrate a single feature, group of closely related small features, or show how to accomplish a particular task (such as asset loading, creating a custom shader or testing of your app).
 In rare cases, creating new "game" examples is justified to demonstrate new features
 that open a complex class of functionality in a way that's hard to showcase in isolation or requires additional integration testing.
 
