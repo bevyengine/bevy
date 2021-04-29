@@ -847,7 +847,11 @@ impl<'a, T: 'static> DerefMut for NonSendMut<'a, T> {
 
 impl<'a, T: 'static + core::fmt::Debug> core::fmt::Debug for NonSendMut<'a, T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        self.value.fmt(f)
+        f.write_str("NonSendMut(")?;
+        Debug::fmt(self.value, f)?;
+        f.write_str(")")?;
+
+        Ok(())
     }
 }
 
