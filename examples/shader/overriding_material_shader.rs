@@ -45,6 +45,7 @@ impl CustomSpriteBundle {
         return default;
     }
 }
+
 //We're copying everything from the original fragment shader, but changing stuff in the main() function of the shader.
 //We're expecting to see a green triangle on the left side of the screen, and a green triangle on a checkerboard pattern on the right side of the screen.
 //If this isn't the result you are getting, something probably changed in the original vertex and fragment shaders in the bevy version you are using.
