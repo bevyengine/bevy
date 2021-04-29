@@ -217,7 +217,8 @@ If you're new to Bevy, here's the workflow we use:
     2. `cargo clippy --workspace --all-targets --all-features -- -D warnings -A clippy::type_complexity -A clippy::manual-strip`
     3. `cargo test --all-targets --workspace`
 4. Push your changes to your fork and open a Pull Request.
-5. Respond to any CI failures or review feedback.
+5. If you're a first time contributor to this repo, @cart [will need to manually trigger CI for your PR](https://github.blog/changelog/2021-04-22-github-actions-maintainers-must-approve-first-time-contributor-workflow-runs/). Feel free to ping him for this.
+6. Respond to any CI failures or review feedback.
 
 Please:
 
