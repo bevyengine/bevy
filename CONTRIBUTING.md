@@ -230,8 +230,7 @@ To locally lint your files using the same workflow as our CI:
 If you end up creating a new crate to the `bevy` repo:
 
 1. Add a "Bevy Contributors <bevyengine@gmail.com>" entry in the Author field of `Cargo.toml`.
-2. Add an MIT License to match the main `bevy` crate.
-3. Add the new crate to the ./tools./publish.sh file.
+2. Add the new crate to the ./tools./publish.sh file.
 
 When contributing, please:
 
