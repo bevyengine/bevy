@@ -567,11 +567,11 @@ impl RenderResourceContext for WgpuRenderResourceContext {
                             let wgpu_buffer = buffers.get(&buffer).unwrap();
                             let size = NonZeroU64::new(range.end - range.start)
                                 .expect("Size of the buffer needs to be greater than 0!");
-                            wgpu::BindingResource::Buffer {
+                            wgpu::BindingResource::Buffer(wgpu::BufferBinding {
                                 buffer: wgpu_buffer,
                                 offset: range.start,
                                 size: Some(size),
-                            }
+                            })
                         }
                     };
                     wgpu::BindGroupEntry {
