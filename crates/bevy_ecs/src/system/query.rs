@@ -206,7 +206,7 @@ where
     /// Runs `f` on each query result. This is faster than the equivalent iter() method, but cannot
     /// be chained like a normal [`Iterator`].
     #[inline]
-    pub fn for_each_mut(&self, f: impl FnMut(<Q::Fetch as Fetch<'w>>::Item)) {
+    pub fn for_each_mut(&mut self, f: impl FnMut(<Q::Fetch as Fetch<'w>>::Item)) {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime
         // borrow checks when they conflict
         unsafe {
