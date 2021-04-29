@@ -112,6 +112,22 @@ impl GlobalTransform {
         Mat4::from_scale_rotation_translation(self.scale, self.rotation, self.translation)
     }
 
+    /// Returns the inverse of this transform.
+    ///
+    /// The inverse consists of applying the inverse rotation, scale, and
+    /// translation in reverse order.
+    #[inline]
+    pub fn inverse(&self) -> Transform {
+        let rotation = self.rotation.inverse();
+        let scale = rotation * -self.scale;
+        let translation = scale * -self.translation;
+        Transform {
+            rotation,
+            scale,
+            translation,
+        }
+    }
+
     /// Get the unit vector in the local x direction
     #[inline]
     pub fn local_x(&self) -> Vec3 {
