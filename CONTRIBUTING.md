@@ -174,7 +174,7 @@ Examples in Bevy should be:
 4. **Minimal.** They should be no larger or more complex than is needed to meet their other goals.This reduces maintenance burden and improves clarity when used as a reference.
 
 When you add a new example, be sure to update `examples/README.md` with the new example and add it to the root `Cargo.toml` file.
-Use a generous sprinkling of keywords in your description: these are commonly used to locate a specific example using CTRL+F.
+Use a generous sprinkling of keywords in your description: these are commonly used to search for a specific example.
 
 More complex demonstrations of functionality are also welcome, but for now belong in community tutorials or template games.
 
