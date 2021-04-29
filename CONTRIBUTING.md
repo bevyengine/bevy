@@ -192,7 +192,7 @@ If you don't understand why an approach was taken, please ask!
 
 Small changes work well as comments or in-line suggestions on specific lines of codes.
 Larger changes deserve a comment in the main thread, or a pull request to the original author's branch (but mention that you've made one).
-When in doubt about a matter of architectural philosophy, refer back to **What we're trying to build** for guidance.
+When in doubt about a matter of architectural philosophy, refer back to [*What we're trying to build*](https://github.com/bevy-engine/bevy/blob/main/CONTRIBUTING.md#what-were-trying-to-build) for guidance.
 
 Once you're happy with the work and feel you're reasonably qualified to assess quality in this particular area, leave your `Approved` review on the PR so we can mark it as `ready-for-cart`.
 
@@ -206,11 +206,11 @@ Not even our project lead is exempt from reviews and RFCs!
 By giving feedback on this work (and related supporting work), you can help us make sure our releases are both high-quality and timely.
 
 Finally, if nothing brings you more satisfaction than seeing every last issue tagged and all resolved issues closed, feel free to message @cart for a Bevy org role to help us keep things tidy.
-As discussed in **How we're organized**, this is not intended to have a high bar.
+As discussed in [*How we're organized*](https://github.com/bevy-engine/bevy/blob/main/CONTRIBUTING.md#how-were-organized), this is not intended to have a high bar.
 
 ### Contributing your own ideas
 
-As discussed in **How we work together** Bevy is actively open to new ideas and serious contributions from outside community members.
+Bevy is actively open to new ideas and serious contributions from outside community members.
 If you're new to Bevy, here's the workflow we use:
 
 1. Fork the `bevyengine/bevy` repository on GitHub, you'll need to create a GitHub account if you don't have one already.
@@ -235,7 +235,7 @@ If you end up creating a new crate to the `bevy` repo:
 
 When contributing, please:
 
-* try to loosely follow the workflow in **How we work together**
+* try to loosely follow the workflow in [*How we work together*](https://github.com/bevy-engine/bevy/blob/main/CONTRIBUTING.md#how-we-work-together)
 * explain what you're doing and why
 * document new code with doc comments
 * include clear, simple tests
