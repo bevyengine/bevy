@@ -1,4 +1,12 @@
-use bevy::{asset::LoadState, prelude::*, sprite::TextureAtlasBuilder};
+use bevy::{
+    asset::LoadState,
+    prelude::{
+        App, AssetServer, Assets, ColorMaterial, Commands, DefaultPlugins, HandleUntyped,
+        IntoSystem, OrthographicCameraBundle, Res, ResMut, SpriteBundle, SpriteSheetBundle, State,
+        SystemSet, Texture, TextureAtlas, TextureAtlasSprite, Transform, Vec3,
+    },
+    sprite::TextureAtlasBuilder,
+};
 
 /// In this example we generate a new texture atlas (sprite sheet) from a folder containing
 /// individual sprites

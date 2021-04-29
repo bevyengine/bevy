@@ -1,7 +1,12 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    log::info,
     math::Quat,
-    prelude::*,
+    prelude::{
+        App, AssetServer, Assets, ColorMaterial, Commands, DefaultPlugins, IntoSystem,
+        OrthographicCameraBundle, ParallelSystemDescriptorCoercion, Query, Res, ResMut, Sprite,
+        SpriteBundle, Time, Timer, Transform, Vec2, Vec3,
+    },
     sprite::SpriteSettings,
 };
 

@@ -1,4 +1,7 @@
-use bevy::prelude::*;
+use bevy::prelude::{
+    App, AssetServer, Assets, ColorMaterial, Commands, DefaultPlugins, IntoSystem,
+    OrthographicCameraBundle, Res, ResMut, Sprite, SpriteBundle,
+};
 
 fn main() {
     App::build()

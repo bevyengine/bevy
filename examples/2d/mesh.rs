@@ -1,5 +1,8 @@
 use bevy::{
-    prelude::*,
+    prelude::{
+        App, Assets, Commands, DefaultPlugins, IntoSystem, Mesh, MeshBundle,
+        OrthographicCameraBundle, RenderPipelines, ResMut, Shader,
+    },
     render::{
         pipeline::{PipelineDescriptor, RenderPipeline},
         shader::{ShaderStage, ShaderStages},

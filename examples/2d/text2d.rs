@@ -1,4 +1,8 @@
-use bevy::prelude::*;
+use bevy::prelude::{
+    App, AssetServer, Color, Commands, DefaultPlugins, HorizontalAlign, IntoSystem,
+    OrthographicCameraBundle, Query, Res, Text, Text2dBundle, TextAlignment, TextStyle, Time,
+    Transform, VerticalAlign, With,
+};
 
 fn main() {
     App::build()

@@ -1,4 +1,9 @@
-use bevy::prelude::*;
+use bevy::prelude::{
+    AlignSelf, App, AssetServer, Assets, Color, ColorMaterial, Commands, DefaultPlugins, Entity,
+    Handle, IntoSystem, OrthographicCameraBundle, Quat, Query, Res, ResMut, Sprite, SpriteBundle,
+    SpriteResizeMode, Style, Text, TextBundle, TextSection, TextStyle, Time, Timer, Transform,
+    UiCameraBundle, Vec2, Vec3, Windows, With,
+};
 use rand::{prelude::SliceRandom, Rng};
 use std::{
     collections::BTreeSet,

@@ -1,4 +1,8 @@
-use bevy::prelude::*;
+use bevy::prelude::{
+    App, AssetServer, Assets, Commands, DefaultPlugins, Handle, IntoSystem,
+    OrthographicCameraBundle, Query, Res, ResMut, SpriteSheetBundle, TextureAtlas,
+    TextureAtlasSprite, Time, Timer, Transform, Vec2, Vec3,
+};
 
 fn main() {
     App::build()
