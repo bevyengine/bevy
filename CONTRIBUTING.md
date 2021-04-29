@@ -208,11 +208,21 @@ As discussed in **How we're organized**, this is not intended to have a high bar
 ### Contributing your own ideas
 
 As discussed in **How we work together** Bevy is actively open to new ideas and serious contributions from outside community members.
+If you're new to Bevy, here's the workflow we use:
+
+1. Fork the `bevyengine/bevy` repository on GitHub, you'll need to create a GitHub account if you don't have one already.*
+2. Make your changes in a local clone of your fork, typically in its own new branch
+3. For a higher chance of CI passing the first time, consider locally running `cargo run -p ci`. You can run the commands manually:
+    1. `cargo fmt --all -- --check` (remove `--check` to let the command fix found problems)
+    2. `cargo clippy --workspace --all-targets --all-features -- -D warnings -A clippy::type_complexity -A clippy::manual-strip`
+    3. `cargo test --all-targets --workspace`
+4. Push your changes to your fork and open a Pull Request.
+5. Respond to any CI failures or review feedback.
+
 Please:
 
 * try to loosely follow the workflow in **How we work together**
 * explain what you're doing and why
-* use `cargo fmt`, `mdlint` and `clippy` to make sure CI passes (see here for our [project settings](https://github.com/bevyengine/bevy/blob/main/rustfmt.toml))
 * document new code with doc comments
 * include clear, simple tests
 * add or improve the examples for new functionality
