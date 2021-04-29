@@ -134,7 +134,7 @@ Check out our [plugin guidelines](https://github.com/bevyengine/bevy/blob/main/d
 
 ### Fixing bugs
 
-Bugs in Bevy (or our website / books) are filed on the issue tracker corresponding to where they're found [], using the `bug` label.
+Bugs in Bevy (or our website / books) are filed on the issue tracker corresponding to where they're found [], using the [`bug`](https://github.com/bevyengine/bevy/issues?q=is%3Aissue+is%3Aopen+label%3Abug) label.
 
 If you're looking for an easy place to start, take a look at the `good-first-issue` tag, and feel free to ask questions on the issue in question or on Discord.
 You don't need anyone's permission to try fixing a bug or adding a simple feature, but stating that you'd like to tackle an issue can be helpful to avoid duplicated work.
