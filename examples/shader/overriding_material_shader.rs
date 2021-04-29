@@ -24,6 +24,7 @@ struct CustomSpriteBundle {
     #[bundle]
     sprite: SpriteBundle,
 }
+
 impl Default for CustomSpriteBundle {
     fn default() -> Self {
         Self {
