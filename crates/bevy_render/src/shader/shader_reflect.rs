@@ -148,7 +148,7 @@ fn reflect_binding(
             &binding.name,
             BindType::Sampler {
                 comparison: false,
-                filtering: false,
+                filtering: true,
             },
         ),
         _ => panic!("Unsupported bind type {:?}.", binding.descriptor_type),
