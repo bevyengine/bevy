@@ -119,7 +119,7 @@ By teaching others and helping them with their issues, you can learn the engine 
 Some of the best ways to do this are:
 
 * answering questions on [Discord](https://discord.gg/bevy), [GitHub Discussions](https://github.com/bevyengine/bevy/discussions), [reddit](https://www.reddit.com/r/bevy) or [StackOverflow](https://stackoverflow.com/questions/tagged/bevy).
-* writing tutorials, guides and other informal documentation and sharing it on [awesome-bevy]()
+* writing tutorials, guides and other informal documentation and sharing it on [awesome-bevy](https://github.com/bevyengine/awesome-bevy)
 * streaming, writing devlogs or creating videos and sharing them in the `#devlogs` channel on Discord
 
 ### Writing plugins
@@ -128,7 +128,7 @@ If you're interested in contributing to the community ecosystem in a way that do
 feel free to write a plugin or crate for Bevy!
 
 Any useful, reusable and non-trivial pieces of functionality that you've made serves as a good candidate for a plugin.
-If it's closer to a snippet or design pattern, consider creating an [issue]() on the unofficial [`bevy-cheatbook`]() instead.
+If it's closer to a snippet or design pattern, consider creating an [issue](https://github.com/bevy-cheatbook/bevy-cheatbook/issues) on the unofficial [`bevy-cheatbook`](https://bevy-cheatbook.github.io/) instead.
 
 Check out our [plugin guidelines](https://github.com/bevyengine/bevy/blob/main/docs/plugins_guidelines.md) for helpful tips and norms.
 
@@ -214,7 +214,7 @@ As discussed in **How we work together** Bevy is actively open to new ideas and 
 If you're new to Bevy, here's the workflow we use:
 
 1. Fork the `bevyengine/bevy` repository on GitHub, you'll need to create a GitHub account if you don't have one already.*
-2. Make your changes in a local clone of your fork, typically in its own new branch
+2. Make your changes in a local clone of your fork, typically in its own new branch.
 3. For a higher chance of CI passing the first time, consider locally running `cargo run -p ci`. You can run the commands manually:
     1. `cargo fmt --all -- --check` (remove `--check` to let the command fix found problems)
     2. `cargo clippy --workspace --all-targets --all-features -- -D warnings -A clippy::type_complexity`
@@ -225,7 +225,7 @@ If you're new to Bevy, here's the workflow we use:
 
 If you end up creating a new crate to the `bevy` repo:
 
-1. Add a "Bevy Contributors <bevyengine@gmail.com>" entry in the Author field of the Cargo.toml.
+1. Add a "Bevy Contributors <bevyengine@gmail.com>" entry in the Author field of `Cargo.toml`.
 2. Add an MIT License to match the main `bevy` crate.
 3. Add the new crate to the ./tools./publish.sh file.
 
