@@ -120,7 +120,7 @@ Some of the best ways to do this are:
 
 * answering questions on [Discord](https://discord.gg/bevy), [GitHub Discussions](https://github.com/bevyengine/bevy/discussions), [reddit](https://www.reddit.com/r/bevy) or [StackOverflow](https://stackoverflow.com/questions/tagged/bevy).
 * writing tutorials, guides and other informal documentation and sharing it on [awesome-bevy](https://github.com/bevyengine/awesome-bevy)
-* streaming, writing devlogs or creating videos and sharing them in the `#devlogs` channel on Discord
+* streaming, writing blog posts about creating your game or creating videos. Share these in the `#devlogs` channel on Discord!
 
 ### Writing plugins
 
