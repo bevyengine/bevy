@@ -128,7 +128,7 @@ If you're interested in contributing to the community ecosystem in a way that do
 feel free to write a plugin or crate for Bevy!
 
 Any useful, reusable and non-trivial pieces of functionality that you've made serves as a good candidate for a plugin.
-If it's closer to a snippet or design pattern, consider creating an [issue](https://github.com/bevy-cheatbook/bevy-cheatbook/issues) on the unofficial [`bevy-cheatbook`](https://bevy-cheatbook.github.io/) instead.
+If it's closer to a snippet or design pattern, you may want to share it with the community on Discord, Reddit or GitHub Discussions instead.
 
 Check out our [plugin guidelines](https://github.com/bevyengine/bevy/blob/main/docs/plugins_guidelines.md) for helpful tips and norms.
 
