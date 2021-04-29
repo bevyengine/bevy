@@ -38,6 +38,7 @@ impl Default for CustomSpriteBundle {
         }
     }
 }
+
 impl CustomSpriteBundle {
     fn new(material_handle: Handle<ColorMaterial>, transform: Transform) -> Self {
         let mut default = Self::default();
