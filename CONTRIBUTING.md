@@ -69,7 +69,7 @@ But as you may have guessed, that's not *all* that happens.
 Simple changes have a simple process:
 
 1. A community member creates an issue or opens a pull request to fix an issue or add simple functionality.
-2. Other communities review and comment on the work in an ad-hoc fashion.
+2. Other community members review and comment on the work in an ad-hoc fashion.
 3. Once they're content with the quality of the work (code quality, documentation, approach, need for functionality), they individually approve the work.
 4. After consensus has been reached (typically two approvals from the community or one for extremely simple changes) and CI passes, the `ready-for-cart` label is added.
 5. When @cart has a good opportunity to pause from his implementation work, he performs a final code review on these pull requests and then presses the Big Merge Button (actually, he types `bors r+` to make sure we don't break `main` by accident).
