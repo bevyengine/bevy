@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use bevy::{
     asset::AssetPlugin,
     core::CorePlugin,
@@ -14,20 +12,15 @@ use bevy::{
             TextureAttachment,
         },
         pipeline::{
-            BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrite, CompareFunction,
-            DepthBiasState, DepthStencilState, PipelineDescriptor, StencilFaceState, StencilState,
+            BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrite,
+            PipelineDescriptor,
         },
         render_graph::{
             base::{self, BaseRenderGraphConfig},
-            fullscreen_pass_node, FullscreenPassNode, GlobalRenderResourcesNode, RenderGraph,
-            WindowTextureNode,
+            fullscreen_pass_node, FullscreenPassNode, RenderGraph, WindowTextureNode,
         },
-        renderer::RenderResources,
         shader::{ShaderStage, ShaderStages},
-        texture::{
-            Extent3d, SamplerDescriptor, TextureDescriptor, TextureDimension, TextureFormat,
-            TextureUsage,
-        },
+        texture::{Extent3d, SamplerDescriptor, TextureDescriptor, TextureFormat, TextureUsage},
     },
     scene::ScenePlugin,
     window::{WindowId, WindowPlugin},
@@ -38,11 +31,6 @@ mod node {
     pub const MAIN_COLOR_TEXTURE: &str = "main_color_texture_node";
 }
 
-#[derive(Debug, Clone, RenderResources)]
-struct MyResource {
-    value: f32,
-}
-
 fn main() {
     let mut app = App::build();
 
@@ -50,8 +38,7 @@ fn main() {
         color: Color::WHITE,
         brightness: 1.0 / 5.0f32,
     })
-    .insert_resource(Msaa { samples: 4 })
-    .insert_resource(MyResource { value: 1.0 });
+    .insert_resource(Msaa { samples: 4 });
 
     app.add_plugin(LogPlugin::default())
         .add_plugin(CorePlugin::default())
@@ -96,14 +83,6 @@ fn setup(
     msaa: Res<Msaa>,
 ) {
     setup_render_graph(&mut *render_graph, &mut *pipelines, &mut *shaders, &*msaa);
-
-    render_graph.add_system_node(
-        "my_resource_node",
-        GlobalRenderResourcesNode::<MyResource>::new(),
-    );
-    render_graph
-        .add_node_edge("my_resource_node", node::POST_PASS)
-        .unwrap();
 
     commands.spawn_scene(asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"));
     commands.spawn_bundle(PerspectiveCameraBundle {
@@ -186,14 +165,10 @@ fn setup_render_graph(
                 layout(set = 0, binding = 0) uniform texture2D color_texture;
                 layout(set = 0, binding = 1) uniform sampler color_texture_sampler;
 
-                layout(std140, set = 1, binding = 0) uniform MyResource_value {
-                    float value;
-                };
-
                 layout(location=0) out vec4 o_Target;
 
                 void main() {
-                    o_Target = texture(sampler2D(color_texture, color_texture_sampler), v_Uv) * value;
+                    o_Target = texture(sampler2D(color_texture, color_texture_sampler), v_Uv);
                 }
                 ",
             ))),
