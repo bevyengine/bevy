@@ -128,17 +128,11 @@ fn setup(
             for x in 0..texture_size {
                 //Make the pixel green, if y is bigger than x
                 if y > x {
-                    transparent_texture_vec.push(0); //r
-                    transparent_texture_vec.push(255); //g
-                    transparent_texture_vec.push(0); //b
-                    transparent_texture_vec.push(255); //a
+                    transparent_texture_vec.extend_from_slice(&[0, 255, 0, 255]);
                 }
                 //Else, we don't need to draw this pixel(make it transparent by setting the alpha to zero)
                 else {
-                    transparent_texture_vec.push(255); //r
-                    transparent_texture_vec.push(255); //g
-                    transparent_texture_vec.push(255); //b
-                    transparent_texture_vec.push(0); //a
+                    transparent_texture_vec.extend_from_slice(&[255, 255, 255, 0]);
                 }
             }
         }
