@@ -547,6 +547,19 @@ impl<'a> SystemParamFetch<'a> for CommandQueue {
 /// ```
 pub struct Local<'a, T: Component>(&'a mut T);
 
+impl<'a, T: Component> Debug for Local<'a, T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Local(")?;
+        Debug::fmt(self.0, f)?;
+        f.write_str(")")?;
+
+        Ok(())
+    }
+}
+
 impl<'a, T: Component> Deref for Local<'a, T> {
     type Target = T;
 
