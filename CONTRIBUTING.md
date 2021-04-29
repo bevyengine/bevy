@@ -214,7 +214,7 @@ If you're new to Bevy, here's the workflow we use:
 2. Make your changes in a local clone of your fork, typically in its own new branch
 3. For a higher chance of CI passing the first time, consider locally running `cargo run -p ci`. You can run the commands manually:
     1. `cargo fmt --all -- --check` (remove `--check` to let the command fix found problems)
-    2. `cargo clippy --workspace --all-targets --all-features -- -D warnings -A clippy::type_complexity -A clippy::manual-strip`
+    2. `cargo clippy --workspace --all-targets --all-features -- -D warnings -A clippy::type_complexity`
     3. `cargo test --all-targets --workspace`
 4. Push your changes to your fork and open a Pull Request.
 5. If you're a first time contributor to this repo, @cart [will need to manually trigger CI for your PR](https://github.blog/changelog/2021-04-22-github-actions-maintainers-must-approve-first-time-contributor-workflow-runs/). Feel free to ping him for this.
