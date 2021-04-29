@@ -355,7 +355,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_graph_edges() {
+    fn test_graph_edges() {
         let mut graph = RenderGraph::default();
         let a_id = graph.add_node("A", TestNode::new(0, 1));
         let b_id = graph.add_node("B", TestNode::new(0, 1));
@@ -411,7 +411,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_get_node_typed() {
+    fn test_get_node_typed() {
         struct MyNode {
             value: usize,
         }
@@ -443,7 +443,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_slot_already_occupied() {
+    fn test_slot_already_occupied() {
         let mut graph = RenderGraph::default();
 
         graph.add_node("A", TestNode::new(0, 1));
@@ -463,7 +463,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_edge_already_exists() {
+    fn test_edge_already_exists() {
         let mut graph = RenderGraph::default();
 
         graph.add_node("A", TestNode::new(0, 1));
