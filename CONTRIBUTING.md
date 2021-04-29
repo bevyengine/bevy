@@ -19,9 +19,9 @@ The main [Bevy engine org](https://github.com/bevyengine) has 4 important repos:
 4. [`rfcs`](https://github.com/bevyengine/rfcs) a place for informal but detailed discussion and design work for elaborate features and revamps.
 
 The `bevy` repo itself contains many smaller subcrates, each of which can be downloaded on their own, and freely replaced to enable a modular architecture.
-Of particular interest, [`bevy_ecs`] is fully functional as a stand-alone ECS, which can be very valuable if you're looking to integrate it with other game engines or use it for non-game executables.
+Of particular interest, [`bevy_ecs`](./crates/bevy_ecs) is fully functional as a stand-alone ECS, which can be very valuable if you're looking to integrate it with other game engines or use it for non-game executables.
 
-[`bevy_app`] and [`bevy_tasks`] are also worth calling out separately: the former serves as a nice framework to handle various data-piping needs, while the latter is our own lightweight custom async library.
+[`bevy_app`](./crates/bevy_app) and [`bevy_tasks`](./crates/bevy_tasks) are also worth calling out separately: the former serves as a nice framework to handle various data-piping needs, while the latter is our own lightweight custom async library.
 
 ## What we're trying to build
 
