@@ -223,6 +223,24 @@ impl Transform {
         value
     }
 
+    /// Returns the result of applying this [`Transform`] to a [`Vec3`] interpreted as a point.
+    ///
+    /// This applies rotation, scale, and translation. It's the equivalent of using w=1 in
+    /// homogeneous coordinates.
+    #[inline]
+    pub fn transform_point(&self, point: Vec3) -> Vec3 {
+        self.scale * (self.rotation * point)
+    }
+
+    /// Returns the result of applying this [`Transform`] to a [`Vec3`] interpreted as a vector.
+    ///
+    /// This applies rotation and scale, but not translation. It's the equivalent of using w=0 in
+    /// homogeneous coordinates.
+    #[inline]
+    pub fn transform_vector(&self, vector: Vec3) -> Vec3 {
+        self.scale * (self.rotation * point) + self.translation
+    }
+
     /// Changes the `scale` of this [`Transform`], multiplying the current `scale` by
     /// `scale_factor`.
     #[inline]

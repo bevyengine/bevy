@@ -211,6 +211,24 @@ impl GlobalTransform {
         value
     }
 
+    /// Returns the result of applying this [`GlobalTransform`] to a [`Vec3`] interpreted as a point.
+    ///
+    /// This applies rotation, scale, and translation. It's the equivalent of using w=1 in
+    /// homogeneous coordinates.
+    #[inline]
+    pub fn transform_point(&self, point: Vec3) -> Vec3 {
+        self.scale * (self.rotation * point)
+    }
+
+    /// Returns the result of applying this [`GlobalTransform`] to a [`Vec3`] interpreted as a vector.
+    ///
+    /// This applies rotation and scale, but not translation. It's the equivalent of using w=0 in
+    /// homogeneous coordinates.
+    #[inline]
+    pub fn transform_vector(&self, vector: Vec3) -> Vec3 {
+        self.scale * (self.rotation * point) + self.translation
+    }
+
     #[doc(hidden)]
     #[inline]
     pub fn apply_non_uniform_scale(&mut self, scale: Vec3) {
