@@ -224,7 +224,8 @@ To locally lint your files using the same workflow as our CI:
    2. Run `markdownlint -f -c .github/linters/.markdown-lint.yml .` in the root directory of the Bevy project.
 5. Push your changes to your fork and open a Pull Request.
 6. If you're a first time contributor to this repo, @cart [will need to manually trigger CI for your PR](https://github.blog/changelog/2021-04-22-github-actions-maintainers-must-approve-first-time-contributor-workflow-runs/). Feel free to ping him for this.
-7. Respond to any CI failures or review feedback.
+7. Respond to any CI failures or review feedback. While CI failures must be fixed before we can merge your PR; you do not need to *agree* with all feedback from your reviews, merely acknowledge that it was given. If you cannot come to an agreement, leave the thread open and defer to @cart's final judgement.
+8. When your PR is ready to merge, @cart will review it and suggest final changes. If those changes are minimal he may even apply them directly to speed up merging.
 
 If you end up creating a new crate to the `bevy` repo:
 
