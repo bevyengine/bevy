@@ -1,5 +1,5 @@
 use crate::{App, Plugin};
-use bevy_utils::{tracing::debug, HashMap};
+use bevy_utils::{tracing::debug, tracing::warn, HashMap};
 use std::any::TypeId;
 
 /// Combines multiple [`Plugin`]s into a single unit.
@@ -58,17 +58,19 @@ impl PluginGroupBuilder {
     pub fn add<T: Plugin>(&mut self, plugin: T) -> &mut Self {
         let target_index = self.order.len();
         self.order.push(TypeId::of::<T>());
-        if self
-            .plugins
-            .insert(
-                TypeId::of::<T>(),
-                PluginEntry {
-                    plugin: Box::new(plugin),
-                    enabled: true,
-                },
-            )
-            .is_some()
-        {
+        if let Some(entry) = self.plugins.insert(
+            TypeId::of::<T>(),
+            PluginEntry {
+                plugin: Box::new(plugin),
+                enabled: true,
+            },
+        ) {
+            if entry.enabled {
+                warn!(
+                    "You are replacing plugin '{}' that was not disabled.",
+                    entry.plugin.name()
+                );
+            }
             self.remove_when_adding::<T>(target_index);
         }
 
@@ -81,17 +83,19 @@ impl PluginGroupBuilder {
     pub fn add_before<Target: Plugin, T: Plugin>(&mut self, plugin: T) -> &mut Self {
         let target_index = self.index_of::<Target>();
         self.order.insert(target_index, TypeId::of::<T>());
-        if self
-            .plugins
-            .insert(
-                TypeId::of::<T>(),
-                PluginEntry {
-                    plugin: Box::new(plugin),
-                    enabled: true,
-                },
-            )
-            .is_some()
-        {
+        if let Some(entry) = self.plugins.insert(
+            TypeId::of::<T>(),
+            PluginEntry {
+                plugin: Box::new(plugin),
+                enabled: true,
+            },
+        ) {
+            if entry.enabled {
+                warn!(
+                    "You are replacing plugin '{}' that was not disabled.",
+                    entry.plugin.name()
+                );
+            }
             self.remove_when_adding::<T>(target_index);
         }
         self
@@ -103,17 +107,19 @@ impl PluginGroupBuilder {
     pub fn add_after<Target: Plugin, T: Plugin>(&mut self, plugin: T) -> &mut Self {
         let target_index = self.index_of::<Target>() + 1;
         self.order.insert(target_index, TypeId::of::<T>());
-        if self
-            .plugins
-            .insert(
-                TypeId::of::<T>(),
-                PluginEntry {
-                    plugin: Box::new(plugin),
-                    enabled: true,
-                },
-            )
-            .is_some()
-        {
+        if let Some(entry) = self.plugins.insert(
+            TypeId::of::<T>(),
+            PluginEntry {
+                plugin: Box::new(plugin),
+                enabled: true,
+            },
+        ) {
+            if entry.enabled {
+                warn!(
+                    "You are replacing plugin '{}' that was not disabled.",
+                    entry.plugin.name()
+                );
+            }
             self.remove_when_adding::<T>(target_index);
         }
         self
