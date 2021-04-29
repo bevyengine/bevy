@@ -96,6 +96,7 @@ void main() {
     o_Target = color;
 }
 "#;
+
 fn setup(
     mut commands: Commands,
     mut render_pipelines: ResMut<Assets<PipelineDescriptor>>,
