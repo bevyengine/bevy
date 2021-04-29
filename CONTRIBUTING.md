@@ -213,7 +213,7 @@ As discussed in **How we're organized**, this is not intended to have a high bar
 As discussed in **How we work together** Bevy is actively open to new ideas and serious contributions from outside community members.
 If you're new to Bevy, here's the workflow we use:
 
-1. Fork the `bevyengine/bevy` repository on GitHub, you'll need to create a GitHub account if you don't have one already.*
+1. Fork the `bevyengine/bevy` repository on GitHub, you'll need to create a GitHub account if you don't have one already.
 2. Make your changes in a local clone of your fork, typically in its own new branch.
 3. For a higher chance of CI passing the first time, consider locally running `cargo run -p ci`. You can run the commands manually:
     1. `cargo fmt --all -- --check` (remove `--check` to let the command fix found problems)
