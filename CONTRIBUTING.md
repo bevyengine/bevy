@@ -219,9 +219,13 @@ If you're new to Bevy, here's the workflow we use:
     1. `cargo fmt --all -- --check` (remove `--check` to let the command fix found problems)
     2. `cargo clippy --workspace --all-targets --all-features -- -D warnings -A clippy::type_complexity`
     3. `cargo test --all-targets --workspace`
-4. Push your changes to your fork and open a Pull Request.
-5. If you're a first time contributor to this repo, @cart [will need to manually trigger CI for your PR](https://github.blog/changelog/2021-04-22-github-actions-maintainers-must-approve-first-time-contributor-workflow-runs/). Feel free to ping him for this.
-6. Respond to any CI failures or review feedback.
+4. When working with Markdown (`.md`) files, Bevy's CI will check markdown files like this one using [markdownlint](https://github.com/DavidAnson/markdownlint).
+To locally lint your files using the same workflow as our CI:
+   1. Install [markdownlint-cli](https://github.com/igorshubovych/markdownlint-cli).
+   2. Run `markdownlint -f -c .github/linters/.markdown-lint.yml .` in the root directory of the Bevy project.
+5. Push your changes to your fork and open a Pull Request.
+6. If you're a first time contributor to this repo, @cart [will need to manually trigger CI for your PR](https://github.blog/changelog/2021-04-22-github-actions-maintainers-must-approve-first-time-contributor-workflow-runs/). Feel free to ping him for this.
+7. Respond to any CI failures or review feedback.
 
 If you end up creating a new crate to the `bevy` repo:
 
