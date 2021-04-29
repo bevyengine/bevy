@@ -180,11 +180,7 @@ where
     T: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("Res(")?;
-        Debug::fmt(self.value, f)?;
-        f.write_str(")")?;
-
-        Ok(())
+        f.debug_tuple("Res").field(&self.value).finish()
     }
 }
 
@@ -337,11 +333,7 @@ where
     T: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("ResMut(")?;
-        Debug::fmt(self.value, f)?;
-        f.write_str(")")?;
-
-        Ok(())
+        f.debug_tuple("ResMut").field(&self.value).finish()
     }
 }
 
@@ -552,11 +544,7 @@ where
     T: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("Local(")?;
-        Debug::fmt(self.0, f)?;
-        f.write_str(")")?;
-
-        Ok(())
+        f.debug_tuple("Local").field(&self.0).finish()
     }
 }
 
@@ -706,11 +694,7 @@ where
     T: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("NonSend(")?;
-        Debug::fmt(self.value, f)?;
-        f.write_str(")")?;
-
-        Ok(())
+        f.debug_tuple("NonSend").field(&self.value).finish()
     }
 }
 
@@ -860,11 +844,7 @@ impl<'a, T: 'static> DerefMut for NonSendMut<'a, T> {
 
 impl<'a, T: 'static + core::fmt::Debug> core::fmt::Debug for NonSendMut<'a, T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_str("NonSendMut(")?;
-        Debug::fmt(self.value, f)?;
-        f.write_str(")")?;
-
-        Ok(())
+        f.debug_tuple("NonSendMut").field(&self.value).finish()
     }
 }
 
