@@ -68,7 +68,7 @@ If you'd like an up-to-the-minute update on progress, feel free to ask on Discor
 But as you may have guessed, that's not *all* that happens.
 Simple changes have a simple process:
 
-1. A community member creates an issue or opens a pull request to fix an issue or add simple functionality.
+1. A community member (that's you!) creates an issue or opens a pull request to fix an issue or add simple functionality.
 2. Other community members review and comment on the work in an ad-hoc fashion.
 3. Once they're content with the quality of the work (code quality, documentation, approach, need for functionality), they individually approve the work.
 4. After consensus has been reached (typically two approvals from the community or one for extremely simple changes) and CI passes, the `ready-for-cart` label is added.
