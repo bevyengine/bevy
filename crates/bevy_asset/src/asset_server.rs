@@ -338,7 +338,12 @@ impl AssetServer {
     }
 
     pub fn load_untyped<'a, P: Into<AssetPath<'a>>>(&self, path: P) -> HandleUntyped {
-        let handle_id = self.load_untracked(path.into(), false);
+        let path = path.into();
+        let handle_id = self.load_untracked(path.clone(), false);
+        self.server
+            .handle_to_path
+            .write()
+            .insert(handle_id, path.to_owned());
         self.get_handle_untyped(handle_id)
     }
 
