@@ -1,10 +1,20 @@
 # Contributing to Bevy
 
 Hey, so you're interested in contributing to Bevy!
-We're thrilled to have you along as we build!
+Feel free to pitch in on whatever interests you and we'll be happy to help you contribute.
+Ultimately @cart has final say on which changes are merged, but you're welcome to try and convince him.
 
 Check out our community's [Code of Conduct](https://github.com/bevyengine/bevy/blob/main/CODE_OF_CONDUCT.md) and feel free to say hi on [Discord](https://discord.gg/bevy) if you'd like.
 It's a nice place to chat about priorities, ask quick questions and get to know the other contributors and users in a less formal setting.
+
+Read on if you're looking for:
+
+* the high-level design goals of Bevy
+* conventions and informal practices we follow when developing Bevy
+* general advice on good open source collaboration practices
+* concrete ways you can help us, no matter your background or skill level
+
+We're thrilled to have you along as we build!
 
 ## Getting oriented
 
