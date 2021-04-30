@@ -1,4 +1,4 @@
-use bevy_math::{Mat4, Vec3};
+use bevy_math::{Mat4, Vec3, Vec4};
 use bevy_render::{
     draw::{Draw, DrawContext, DrawError, Drawable},
     mesh,
@@ -21,6 +21,7 @@ pub struct DrawableText<'a> {
     pub text_glyphs: &'a Vec<PositionedGlyph>,
     pub msaa: &'a Msaa,
     pub font_quad_vertex_layout: &'a VertexBufferLayout,
+    pub bounds: Vec4,
 }
 
 impl<'a> Drawable for DrawableText<'a> {
@@ -74,6 +75,7 @@ impl<'a> Drawable for DrawableText<'a> {
                 color: self.sections[tv.section_index].style.color,
                 flip_x: false,
                 flip_y: false,
+                bounds: self.bounds,
             };
 
             // To get the rendering right for non-one scaling factors, we need

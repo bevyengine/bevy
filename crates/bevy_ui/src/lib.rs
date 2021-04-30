@@ -60,6 +60,7 @@ impl Plugin for UiPlugin {
             .register_type::<Rect<Val>>()
             .register_type::<Style>()
             .register_type::<Val>()
+            .register_type::<Overflow>()
             .add_system_to_stage(
                 CoreStage::PreUpdate,
                 ui_focus_system
@@ -82,6 +83,12 @@ impl Plugin for UiPlugin {
                     .system()
                     .label(UiSystem::Flex)
                     .before(TransformSystem::TransformPropagate),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                bounds_node_system
+                    .system()
+                    .after(TransformSystem::TransformPropagate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,

@@ -1,15 +1,16 @@
 mod convert;
 
-use crate::{CalculatedSize, Node, Style};
+use crate::{CalculatedSize, Node, Overflow, Style};
 use bevy_app::EventReader;
+use bevy_ecs::system::QuerySet;
 use bevy_ecs::{
     entity::Entity,
     query::{Changed, FilterFetch, With, Without, WorldQuery},
     system::{Query, Res, ResMut},
 };
 use bevy_log::warn;
-use bevy_math::Vec2;
-use bevy_transform::prelude::{Children, Parent, Transform};
+use bevy_math::{Vec2, Vec3, Vec4};
+use bevy_transform::prelude::{Children, GlobalTransform, Parent, Transform};
 use bevy_utils::HashMap;
 use bevy_window::{Window, WindowId, WindowScaleFactorChanged, Windows};
 use std::fmt;
@@ -186,6 +187,53 @@ pub enum FlexError {
 // SAFE: as long as MeasureFunc is Send + Sync. https://github.com/vislyhq/stretch/issues/69
 unsafe impl Send for FlexSurface {}
 unsafe impl Sync for FlexSurface {}
+
+pub fn bounds_node_system(
+    windows: Res<Windows>,
+    mut query_set: QuerySet<(
+        Query<(Option<&Parent>, &Style, &Node, &GlobalTransform)>,
+        Query<&mut Node>,
+    )>,
+    query: Query<Entity, With<Node>>,
+) {
+    // y gets flipped somewhere..
+    let window = windows.get_primary().unwrap();
+    let window_height = window.height();
+    let get_bounds = |position: Vec3, size: Vec2| -> Vec4 {
+        Vec4::new(
+            position.x - size.x / 2.0,
+            window_height - (position.y + size.y / 2.0),
+            position.x + size.x / 2.0,
+            window_height - (position.y - size.y / 2.0),
+        )
+    };
+    for entity in query.iter() {
+        let mut current_entity = entity;
+        let mut bounds = Default::default();
+        loop {
+            if let Ok((parent, style, node, global_transform)) = query_set.q0().get(current_entity)
+            {
+                if current_entity == entity {
+                    bounds = get_bounds(global_transform.translation, node.size);
+                }
+                if style.overflow == Overflow::Hidden {
+                    bounds = get_bounds(global_transform.translation, node.size);
+                    break;
+                }
+                if let Some(parent) = parent {
+                    current_entity = parent.0;
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+        if let Ok(mut node) = query_set.q1_mut().get_mut(entity) {
+            node.bounds = bounds;
+        }
+    }
+}
 
 #[allow(clippy::too_many_arguments)]
 pub fn flex_node_system(

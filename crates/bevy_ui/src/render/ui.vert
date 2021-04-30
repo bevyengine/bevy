@@ -5,6 +5,7 @@ layout(location = 1) in vec3 Vertex_Normal;
 layout(location = 2) in vec2 Vertex_Uv;
 
 layout(location = 0) out vec2 v_Uv;
+layout(location = 1) out vec4 v_Bounds;
 
 layout(set = 0, binding = 0) uniform CameraViewProj {
     mat4 ViewProj;
@@ -17,8 +18,14 @@ layout(set = 1, binding = 1) uniform Node_size {
     vec2 NodeSize;
 };
 
+layout(set = 1, binding = 2) uniform Node_bounds {
+    vec4 Bounds;
+};
+
+
 void main() {
     v_Uv = Vertex_Uv;
+    v_Bounds = Bounds;
     vec3 position = Vertex_Position * vec3(NodeSize, 0.0);
     gl_Position = ViewProj * Object * vec4(position, 1.0);
 }

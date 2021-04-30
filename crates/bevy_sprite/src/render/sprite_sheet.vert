@@ -6,6 +6,7 @@ layout(location = 2) in vec2 Vertex_Uv;
 
 layout(location = 0) out vec2 v_Uv;
 layout(location = 1) out vec4 v_Color;
+layout(location = 2) out vec4 v_Bounds;
 
 layout(set = 0, binding = 0) uniform CameraViewProj {
     mat4 ViewProj;
@@ -34,6 +35,7 @@ layout(set = 2, binding = 1) uniform TextureAtlasSprite {
     vec4 color;
     uint index;
     uint flip;
+    vec4 bounds;
 };
 
 void main() {
@@ -82,4 +84,5 @@ void main() {
 
     v_Color = color;
     gl_Position = ViewProj * SpriteTransform * vec4(vertex_position, 1.0);
+    v_Bounds = bounds;
 }
