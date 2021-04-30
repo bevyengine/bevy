@@ -220,6 +220,7 @@ async fn load_gltf<'a, 'b>(
         })
         .collect();
 
+    // TODO: use the threaded impl on wasm once wasm thread pool doesn't deadlock on it
     #[cfg(target_arch = "wasm32")]
     for gltf_texture in gltf.textures() {
         let (texture, label) =
