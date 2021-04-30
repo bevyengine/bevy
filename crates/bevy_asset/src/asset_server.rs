@@ -288,6 +288,7 @@ impl AssetServer {
             &self.server.asset_ref_counter.channel,
             &*self.server.asset_io,
             version,
+            &self.server.task_pool,
         );
         asset_loader
             .load(&bytes, &mut load_context)
