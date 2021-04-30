@@ -178,11 +178,6 @@ that open a complex class of functionality in a way that's hard to 
 
 Examples in Bevy should be:
 
-1. **Working:** They must compile and run, and should fail in obvious ways.
-2. **Clear:** They must use descriptive variable names, have reasonable code-quality, be formatted, and be appropriately commented.
-3. **Relevant:** They should explain, through comments or variable names, how what they can be useful to a game developer.
-4. **Minimal:** They should be no larger or more complex than is needed to meet their other goals.
-
 1. **Working:** They must compile and run, and should fail in obvious ways.
 2. **Clear:** They must use descriptive variable names, have reasonable code-quality, be formatted, and be appropriately commented.
 3. **Relevant:** They should explain, through comments or variable names, how what they can be useful to a game developer.
