@@ -15,7 +15,12 @@ impl From<&Texture> for TextureDescriptor {
     fn from(texture: &Texture) -> Self {
         TextureDescriptor {
             size: texture.size,
-            mip_level_count: 1,
+            mip_level_count: if let Some(max_level) = texture.max_mip_level {
+                // note: + 1 is to account for the base texture image
+                (max_level as u32 + 1).min(texture.mipmaps.len() as u32 + 1)
+            } else {
+                texture.mipmaps.len() as u32 + 1
+            },
             sample_count: 1,
             dimension: texture.dimension,
             format: texture.format,

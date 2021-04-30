@@ -33,49 +33,70 @@ impl Node for TextureCopyNode {
                         }
 
                         let texture_descriptor: TextureDescriptor = texture.into();
-                        let width = texture.size.width as usize;
-                        let aligned_width =
-                            render_context.resources().get_aligned_texture_size(width);
-                        let format_size = texture.format.pixel_size();
-                        let mut aligned_data = vec![
-                            0;
-                            format_size
-                                * aligned_width
-                                * texture.size.height as usize
-                                * texture.size.depth as usize
-                        ];
-                        texture
-                            .data
-                            .chunks_exact(format_size * width)
-                            .enumerate()
-                            .for_each(|(index, row)| {
-                                let offset = index * aligned_width * format_size;
-                                aligned_data[offset..(offset + width * format_size)]
-                                    .copy_from_slice(row);
-                            });
-                        let texture_buffer = render_context.resources().create_buffer_with_data(
-                            BufferInfo {
-                                buffer_usage: BufferUsage::COPY_SRC,
-                                ..Default::default()
-                            },
-                            &aligned_data,
-                        );
 
-                        let texture_resource = render_context
-                            .resources()
-                            .get_asset_resource(handle, TEXTURE_ASSET_INDEX)
-                            .unwrap();
+                        debug_assert!(texture_descriptor.mip_level_count > 0);
 
-                        render_context.copy_buffer_to_texture(
-                            texture_buffer,
-                            0,
-                            (format_size * aligned_width) as u32,
-                            texture_resource.get_texture().unwrap(),
-                            [0, 0, 0],
-                            0,
-                            texture_descriptor.size,
-                        );
-                        render_context.resources().remove_buffer(texture_buffer);
+                        for (mip_level, data) in texture.iter_mipmaps().enumerate() {
+                            if let Some(max_level) = texture.max_mip_level {
+                                if mip_level > max_level {
+                                    break;
+                                }
+                            }
+
+                            let mip_size = texture.mip_size(mip_level as usize);
+                            let width = mip_size.width as usize;
+                            let aligned_width =
+                                render_context.resources().get_aligned_texture_size(width);
+                            let format_size = texture.format.pixel_size();
+
+                            let mut temporary_buffer;
+                            let aligned_data = if aligned_width != width {
+                                // must create a temporary buffer with the proper alignment
+                                temporary_buffer = vec![
+                                    0;
+                                    format_size
+                                        * aligned_width
+                                        * mip_size.height as usize
+                                        * mip_size.depth as usize
+                                ];
+                                data.chunks_exact(format_size * width).enumerate().for_each(
+                                    |(index, row)| {
+                                        let offset = index * aligned_width * format_size;
+                                        temporary_buffer[offset..(offset + width * format_size)]
+                                            .copy_from_slice(row);
+                                    },
+                                );
+                                temporary_buffer.as_slice()
+                            } else {
+                                // source data already has the correct alignment
+                                data
+                            };
+
+                            let texture_buffer =
+                                render_context.resources().create_buffer_with_data(
+                                    BufferInfo {
+                                        buffer_usage: BufferUsage::COPY_SRC,
+                                        ..Default::default()
+                                    },
+                                    &aligned_data,
+                                );
+
+                            let texture_resource = render_context
+                                .resources()
+                                .get_asset_resource(handle, TEXTURE_ASSET_INDEX)
+                                .unwrap();
+
+                            render_context.copy_buffer_to_texture(
+                                texture_buffer,
+                                0,
+                                (format_size * aligned_width) as u32,
+                                texture_resource.get_texture().unwrap(),
+                                [0, 0, 0],
+                                mip_level as u32,
+                                mip_size,
+                            );
+                            render_context.resources().remove_buffer(texture_buffer);
+                        }
 
                         copied_textures.insert(&handle.id);
                     }

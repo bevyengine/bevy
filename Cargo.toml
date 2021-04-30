@@ -166,6 +166,10 @@ name = "texture"
 path = "examples/3d/texture.rs"
 
 [[example]]
+name = "texture_filtering"
+path = "examples/3d/texture_filtering.rs"
+
+[[example]]
 name = "update_gltf_scene"
 path = "examples/3d/update_gltf_scene.rs"
 
