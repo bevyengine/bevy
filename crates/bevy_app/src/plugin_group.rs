@@ -11,7 +11,7 @@ struct PluginEntry {
     enabled: bool,
 }
 
-/// Builds and customizes a plugin group. A plugin group is an ordered list of plugins that
+/// Builds and customizes a plugin group. A plugin group is an ordered list of plugins
 /// that can be enabled, disabled or reordered.
 #[derive(Default)]
 pub struct PluginGroupBuilder {
@@ -20,24 +20,9 @@ pub struct PluginGroupBuilder {
 }
 
 impl PluginGroupBuilder {
-    // Removes a previous ordering of a plugin that has just been added at `added_at` index
-    fn remove_when_adding<T: Plugin>(&mut self, added_at: usize) {
-        if let Some(to_remove) = self
-            .order
-            .iter()
-            .enumerate()
-            .find(|(i, ty)| *i != added_at && **ty == TypeId::of::<T>())
-            .map(|(i, _)| i)
-        {
-            self.order.remove(to_remove);
-        }
-    }
-
-    /// Adds the plugin `plugin` at the end of this `PluginGroupBuilder`. If the plugin was
-    /// already in the group, it is removed from its previous place.
-    pub fn add<T: Plugin>(&mut self, plugin: T) -> &mut Self {
-        let target_index = self.order.len();
-        self.order.push(TypeId::of::<T>());
+    // Insert the new plugin as enabled, and removes its previous ordering if it was
+    // already present
+    fn upsert_plugin_state<T: Plugin>(&mut self, plugin: T, added_at_index: usize) {
         if let Some(entry) = self.plugins.insert(
             TypeId::of::<T>(),
             PluginEntry {
@@ -51,9 +36,24 @@ impl PluginGroupBuilder {
                     entry.plugin.name()
                 );
             }
-            self.remove_when_adding::<T>(target_index);
+            if let Some(to_remove) = self
+                .order
+                .iter()
+                .enumerate()
+                .find(|(i, ty)| *i != added_at_index && **ty == TypeId::of::<T>())
+                .map(|(i, _)| i)
+            {
+                self.order.remove(to_remove);
+            }
         }
+    }
 
+    /// Adds the plugin `plugin` at the end of this `PluginGroupBuilder`. If the plugin was
+    /// already in the group, it is removed from its previous place.
+    pub fn add<T: Plugin>(&mut self, plugin: T) -> &mut Self {
+        let target_index = self.order.len();
+        self.order.push(TypeId::of::<T>());
+        self.upsert_plugin_state(plugin, target_index);
         self
     }
 
@@ -74,21 +74,7 @@ impl PluginGroupBuilder {
                 )
             });
         self.order.insert(target_index, TypeId::of::<T>());
-        if let Some(entry) = self.plugins.insert(
-            TypeId::of::<T>(),
-            PluginEntry {
-                plugin: Box::new(plugin),
-                enabled: true,
-            },
-        ) {
-            if entry.enabled {
-                warn!(
-                    "You are replacing plugin '{}' that was not disabled.",
-                    entry.plugin.name()
-                );
-            }
-            self.remove_when_adding::<T>(target_index);
-        }
+        self.upsert_plugin_state(plugin, target_index);
         self
     }
 
@@ -110,21 +96,7 @@ impl PluginGroupBuilder {
             })
             + 1;
         self.order.insert(target_index, TypeId::of::<T>());
-        if let Some(entry) = self.plugins.insert(
-            TypeId::of::<T>(),
-            PluginEntry {
-                plugin: Box::new(plugin),
-                enabled: true,
-            },
-        ) {
-            if entry.enabled {
-                warn!(
-                    "You are replacing plugin '{}' that was not disabled.",
-                    entry.plugin.name()
-                );
-            }
-            self.remove_when_adding::<T>(target_index);
-        }
+        self.upsert_plugin_state(plugin, target_index);
         self
     }
 
