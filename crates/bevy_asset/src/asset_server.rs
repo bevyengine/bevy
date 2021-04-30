@@ -1,12 +1,12 @@
 use crate::{
     path::{AssetPath, AssetPathId, SourcePathId},
-    Asset, AssetIo, AssetIoError, AssetLifecycle, AssetLifecycleChannel, AssetLifecycleEvent,
-    AssetLoader, Assets, Handle, HandleId, HandleUntyped, LabelId, LoadContext, LoadState,
-    RefChange, RefChangeChannel, SourceInfo, SourceMeta,
+    Asset, AssetDynamic, AssetIo, AssetIoError, AssetLifecycle, AssetLifecycleChannel,
+    AssetLifecycleEvent, AssetLoader, Assets, Handle, HandleId, HandleUntyped, LabelId,
+    LoadContext, LoadState, RefChange, RefChangeChannel, SourceInfo, SourceMeta,
 };
 use anyhow::Result;
 use bevy_ecs::system::Res;
-use bevy_log::warn;
+use bevy_log::{debug, warn};
 use bevy_tasks::TaskPool;
 use bevy_utils::{HashMap, Uuid};
 use crossbeam_channel::TryRecvError;
@@ -226,6 +226,51 @@ impl AssetServer {
     /// `"assets"`.
     pub fn load<'a, T: Asset, P: Into<AssetPath<'a>>>(&self, path: P) -> Handle<T> {
         self.load_untyped(path).typed()
+    }
+
+    /// Create a new asset from another one
+    pub fn create_from<From: Asset, To: Asset, Func>(
+        &self,
+        from_handle: Handle<From>,
+        transform: Func,
+    ) -> Handle<To>
+    where
+        Func: FnOnce(&From) -> Option<To>,
+        Func: Send + 'static,
+    {
+        let new_handle = HandleId::random::<To>();
+        let to_handle = Handle::strong(
+            new_handle,
+            self.server.asset_ref_counter.channel.sender.clone(),
+        );
+
+        let asset_lifecycles = self.server.asset_lifecycles.read();
+        if let Some(asset_lifecycle) = asset_lifecycles.get(&From::TYPE_UUID) {
+            asset_lifecycle.create_asset_from(
+                from_handle.into(),
+                new_handle,
+                To::TYPE_UUID,
+                Box::new(|asset: &dyn AssetDynamic| {
+                    if let Some(transformed) = transform(
+                        asset
+                            .downcast_ref::<From>()
+                            // this downcast can't fail as we know the actual types here
+                            .expect("Error converting an asset to its type, please open an issue in Bevy GitHub repository"),
+                    ) {
+                        Some(Box::new(transformed))
+                    } else {
+                        warn!(
+                            "Error creating a new asset from {}, attempting to convert to {}",
+                            std::any::type_name::<From>(),
+                            std::any::type_name::<To>()
+                        );
+                        None
+                    }
+                }),
+            );
+        }
+
+        to_handle
     }
 
     // TODO: properly set failed LoadState in all failure cases
@@ -460,8 +505,9 @@ impl AssetServer {
             .downcast_ref::<AssetLifecycleChannel<T>>()
             .unwrap();
 
+        let mut rerun = vec![];
         loop {
-            match channel.receiver.try_recv() {
+            match channel.from_asset_server.try_recv() {
                 Ok(AssetLifecycleEvent::Create(result)) => {
                     // update SourceInfo if this asset was loaded from an AssetPath
                     if let HandleId::AssetPathId(id) = result.id {
@@ -492,11 +538,57 @@ impl AssetServer {
                     }
                     assets.remove(handle_id);
                 }
+                Ok(AssetLifecycleEvent::CreateFrom {
+                    from,
+                    to,
+                    to_type_uuid,
+                    transform,
+                }) => {
+                    if let Some(original) = assets.get(from) {
+                        if let Some(new) = transform(original) {
+                            if T::TYPE_UUID == to_type_uuid {
+                                // New asset is of same type as original, add it to the `assets`
+                                if let Ok(new_asset) = new.downcast::<T>() {
+                                    let _ = assets.set(to, *new_asset);
+                                } else {
+                                    warn!(
+                                        "Failed to downcast transformed asset to {}.",
+                                        std::any::type_name::<T>()
+                                    );
+                                }
+                            } else {
+                                // Converting to another asset type, use its `asset_lifecycle` to create it
+                                asset_lifecycles
+                                    .get(&to_type_uuid)
+                                    .unwrap()
+                                    .create_asset(to, new, 0);
+                            }
+                        } else {
+                            // Log as debug here, it should have already been logged as warn
+                            debug!(
+                                "Failed to transform asset from {}.",
+                                std::any::type_name::<T>()
+                            );
+                        }
+                    } else {
+                        // Asset is not yet ready, retry next frame
+                        rerun.push(AssetLifecycleEvent::CreateFrom {
+                            from,
+                            to,
+                            to_type_uuid,
+                            transform,
+                        });
+                    }
+                }
                 Err(TryRecvError::Empty) => {
                     break;
                 }
                 Err(TryRecvError::Disconnected) => panic!("AssetChannel disconnected."),
             }
+        }
+
+        for message in rerun.into_iter() {
+            channel.to_system.send(message).unwrap();
         }
     }
 }

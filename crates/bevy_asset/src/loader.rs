@@ -7,7 +7,8 @@ use bevy_ecs::{
     component::Component,
     system::{Res, ResMut},
 };
-use bevy_reflect::{TypeUuid, TypeUuidDynamic};
+use bevy_log::warn;
+use bevy_reflect::{TypeUuid, TypeUuidDynamic, Uuid};
 use bevy_utils::{BoxedFuture, HashMap};
 use crossbeam_channel::{Receiver, Sender};
 use downcast_rs::{impl_downcast, Downcast};
@@ -147,17 +148,30 @@ pub struct AssetResult<T: Component> {
 /// A channel to send and receive [AssetResult]s
 #[derive(Debug)]
 pub struct AssetLifecycleChannel<T: Component> {
-    pub sender: Sender<AssetLifecycleEvent<T>>,
-    pub receiver: Receiver<AssetLifecycleEvent<T>>,
+    pub to_system: Sender<AssetLifecycleEvent<T>>,
+    pub from_asset_server: Receiver<AssetLifecycleEvent<T>>,
 }
 
 pub enum AssetLifecycleEvent<T: Component> {
     Create(AssetResult<T>),
+    CreateFrom {
+        from: HandleId,
+        to: HandleId,
+        to_type_uuid: Uuid,
+        transform: Box<dyn (FnOnce(&T) -> Option<Box<dyn AssetDynamic>>) + Send>,
+    },
     Free(HandleId),
 }
 
 pub trait AssetLifecycle: Downcast + Send + Sync + 'static {
     fn create_asset(&self, id: HandleId, asset: Box<dyn AssetDynamic>, version: usize);
+    fn create_asset_from(
+        &self,
+        from: HandleId,
+        to: HandleId,
+        to_uuid: Uuid,
+        transform: Box<dyn (FnOnce(&dyn AssetDynamic) -> Option<Box<dyn AssetDynamic>>) + Send>,
+    );
     fn free_asset(&self, id: HandleId);
 }
 impl_downcast!(AssetLifecycle);
@@ -165,7 +179,7 @@ impl_downcast!(AssetLifecycle);
 impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
     fn create_asset(&self, id: HandleId, asset: Box<dyn AssetDynamic>, version: usize) {
         if let Ok(asset) = asset.downcast::<T>() {
-            self.sender
+            self.to_system
                 .send(AssetLifecycleEvent::Create(AssetResult {
                     id,
                     asset,
@@ -173,22 +187,45 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
                 }))
                 .unwrap()
         } else {
-            panic!(
+            warn!(
                 "Failed to downcast asset to {}.",
                 std::any::type_name::<T>()
             );
         }
     }
 
+    /// Convert an asset from type `T` to type with `To::TYPE_UUID == to_uuid`.
+    /// It is the responsibility of the caller to ensure that input/output of `transform`
+    /// matches those types
+    fn create_asset_from(
+        &self,
+        from: HandleId,
+        to: HandleId,
+        to_type_uuid: Uuid,
+        transform: Box<dyn (FnOnce(&dyn AssetDynamic) -> Option<Box<dyn AssetDynamic>>) + Send>,
+    ) {
+        self.to_system
+            .send(AssetLifecycleEvent::CreateFrom {
+                from,
+                to,
+                to_type_uuid,
+                transform: Box::new(|asset: &T| transform(asset)),
+            })
+            .unwrap();
+    }
+
     fn free_asset(&self, id: HandleId) {
-        self.sender.send(AssetLifecycleEvent::Free(id)).unwrap();
+        self.to_system.send(AssetLifecycleEvent::Free(id)).unwrap();
     }
 }
 
 impl<T: Component> Default for AssetLifecycleChannel<T> {
     fn default() -> Self {
-        let (sender, receiver) = crossbeam_channel::unbounded();
-        AssetLifecycleChannel { sender, receiver }
+        let (to_system, from_asset_server) = crossbeam_channel::unbounded();
+        AssetLifecycleChannel {
+            to_system,
+            from_asset_server,
+        }
     }
 }
 
