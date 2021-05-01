@@ -21,13 +21,11 @@ pub fn derive_bytes(input: TokenStream) -> TokenStream {
         .map(|field| field.ident.as_ref().unwrap())
         .collect::<Vec<_>>();
 
-    let generics = ast.generics;
-    let (impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
-
     let struct_name = &ast.ident;
+    let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
 
     TokenStream::from(quote! {
-        impl #impl_generics #bevy_core_path::Bytes for #struct_name#ty_generics {
+        impl #impl_generics #bevy_core_path::Bytes for #struct_name #ty_generics #where_clause {
             fn write_bytes(&self, buffer: &mut [u8]) {
                 let mut offset: usize = 0;
                 #(let byte_len = self.#fields.byte_len();

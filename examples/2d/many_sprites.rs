@@ -2,6 +2,7 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::Quat,
     prelude::*,
+    sprite::SpriteSettings,
 };
 
 use rand::Rng;
@@ -11,15 +12,15 @@ const CAMERA_SPEED: f32 = 1000.0;
 pub struct PrintTimer(Timer);
 pub struct Position(Transform);
 
-///This example is for performance testing purposes.
-///See https://github.com/bevyengine/bevy/pull/1492
+/// This example is for performance testing purposes.
+/// See https://github.com/bevyengine/bevy/pull/1492
 fn main() {
     App::build()
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .insert_resource(bevy::log::LogSettings {
-            level: bevy::log::Level::DEBUG,
-            ..Default::default()
+        .insert_resource(SpriteSettings {
+            // NOTE: this is an experimental feature that doesn't work in all cases
+            frustum_culling_enabled: true,
         })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
@@ -89,7 +90,7 @@ fn tick(time: Res<Time>, sprites: Query<&Sprite>, mut query: Query<&mut PrintTim
         timer.0.tick(time.delta());
 
         if timer.0.just_finished() {
-            println!("Sprites: {}", sprites.iter().count(),);
+            info!("Sprites: {}", sprites.iter().count(),);
         }
     }
 }

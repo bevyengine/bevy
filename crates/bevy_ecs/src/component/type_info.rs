@@ -1,6 +1,6 @@
 use std::{alloc::Layout, any::TypeId};
 
-/// Metadata required to store a component
+/// Metadata required to store a component.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TypeInfo {
     type_id: TypeId,
@@ -11,7 +11,7 @@ pub struct TypeInfo {
 }
 
 impl TypeInfo {
-    /// Metadata for `T`
+    /// Metadata for `T`.
     pub fn of<T: Send + Sync + 'static>() -> Self {
         Self {
             type_id: TypeId::of::<T>(),

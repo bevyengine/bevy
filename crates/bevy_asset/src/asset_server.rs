@@ -212,17 +212,28 @@ impl AssetServer {
         load_state
     }
 
+    /// Loads an Asset at the provided relative path.
+    ///
+    /// The absolute Path to the asset is "ROOT/ASSET_FOLDER_NAME/path".
+    ///
+    /// By default the ROOT is the directory of the Application, but this can be overridden by
+    /// setting the `"CARGO_MANIFEST_DIR"` environment variable (see https://doc.rust-lang.org/cargo/reference/environment-variables.html)
+    /// to another directory. When the application  is run through Cargo, then
+    /// `"CARGO_MANIFEST_DIR"` is automatically set to the root folder of your crate (workspace).
+    ///
+    /// The name of the asset folder is set inside the
+    /// [`AssetServerSettings`](crate::AssetServerSettings) resource. The default name is
+    /// `"assets"`.
     pub fn load<'a, T: Asset, P: Into<AssetPath<'a>>>(&self, path: P) -> Handle<T> {
         self.load_untyped(path).typed()
     }
 
     // TODO: properly set failed LoadState in all failure cases
-    async fn load_async<'a, P: Into<AssetPath<'a>>>(
+    async fn load_async(
         &self,
-        path: P,
+        asset_path: AssetPath<'_>,
         force: bool,
     ) -> Result<AssetPathId, AssetServerError> {
-        let asset_path: AssetPath = path.into();
         let asset_loader = self.get_path_asset_loader(asset_path.path())?;
         let asset_path_id: AssetPathId = asset_path.get_id();
 
@@ -277,6 +288,7 @@ impl AssetServer {
             &self.server.asset_ref_counter.channel,
             &*self.server.asset_io,
             version,
+            &self.server.task_pool,
         );
         asset_loader
             .load(&bytes, &mut load_context)
@@ -326,16 +338,11 @@ impl AssetServer {
     }
 
     pub fn load_untyped<'a, P: Into<AssetPath<'a>>>(&self, path: P) -> HandleUntyped {
-        let handle_id = self.load_untracked(path, false);
+        let handle_id = self.load_untracked(path.into(), false);
         self.get_handle_untyped(handle_id)
     }
 
-    pub(crate) fn load_untracked<'a, P: Into<AssetPath<'a>>>(
-        &self,
-        path: P,
-        force: bool,
-    ) -> HandleId {
-        let asset_path: AssetPath<'a> = path.into();
+    pub(crate) fn load_untracked(&self, asset_path: AssetPath<'_>, force: bool) -> HandleId {
         let server = self.clone();
         let owned_path = asset_path.to_owned();
         self.server
@@ -471,7 +478,7 @@ impl AssetServer {
                         }
                     }
 
-                    let _ = assets.set(result.id, result.asset);
+                    let _ = assets.set(result.id, *result.asset);
                 }
                 Ok(AssetLifecycleEvent::Free(handle_id)) => {
                     if let HandleId::AssetPathId(id) = handle_id {

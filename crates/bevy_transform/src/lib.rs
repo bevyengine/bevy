@@ -3,6 +3,7 @@ pub mod hierarchy;
 pub mod transform_propagate_system;
 
 pub mod prelude {
+    #[doc(hidden)]
     pub use crate::{components::*, hierarchy::*, TransformPlugin};
 }
 

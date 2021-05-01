@@ -46,14 +46,16 @@ pub trait FromBytes {
 
 impl<T> FromBytes for T
 where
-    T: Byteable + Clone,
+    T: Byteable + Copy,
 {
     fn from_bytes(bytes: &[u8]) -> Self {
-        unsafe {
-            let byte_ptr = bytes.as_ptr();
-            let ptr = byte_ptr as *const Self;
-            (*ptr).clone()
-        }
+        assert_eq!(
+            bytes.len(),
+            std::mem::size_of::<T>(),
+            "Cannot convert byte slice `&[u8]` to type `{}`. They are not the same size.",
+            std::any::type_name::<T>()
+        );
+        unsafe { bytes.as_ptr().cast::<T>().read_unaligned() }
     }
 }
 
@@ -62,7 +64,7 @@ where
     T: Byteable,
 {
     fn as_bytes(&self) -> &[u8] {
-        let len = std::mem::size_of_val(self);
+        let len = std::mem::size_of::<T>();
         unsafe { core::slice::from_raw_parts(self as *const Self as *const u8, len) }
     }
 }
@@ -83,10 +85,8 @@ where
     T: Byteable,
 {
 }
-unsafe impl<T> Byteable for [T; 2] where T: Byteable {}
-unsafe impl<T> Byteable for [T; 3] where T: Byteable {}
-unsafe impl<T> Byteable for [T; 4] where T: Byteable {}
-unsafe impl<T> Byteable for [T; 16] where T: Byteable {}
+
+unsafe impl<T, const N: usize> Byteable for [T; N] where T: Byteable {}
 
 unsafe impl Byteable for u8 {}
 unsafe impl Byteable for u16 {}
@@ -168,15 +168,23 @@ where
 
 impl<T> FromBytes for Vec<T>
 where
-    T: Sized + Clone + Byteable,
+    T: Sized + Copy + Byteable,
 {
     fn from_bytes(bytes: &[u8]) -> Self {
+        assert_eq!(
+            bytes.len() % std::mem::size_of::<T>(),
+            0,
+            "Cannot convert byte slice `&[u8]` to type `Vec<{0}>`. Slice length is not a multiple of std::mem::size_of::<{0}>.",
+            std::any::type_name::<T>(),
+        );
+
+        let len = bytes.len() / std::mem::size_of::<T>();
+        let mut vec = Vec::<T>::with_capacity(len);
         unsafe {
-            let byte_ptr = bytes.as_ptr() as *const T;
-            let len = bytes.len() / std::mem::size_of::<T>();
-            let slice = core::slice::from_raw_parts::<T>(byte_ptr, len);
-            slice.to_vec()
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), vec.as_mut_ptr() as *mut u8, bytes.len());
+            vec.set_len(len);
         }
+        vec
     }
 }
 
@@ -232,5 +240,11 @@ mod tests {
     #[test]
     fn test_mat4_round_trip() {
         test_round_trip(Mat4::IDENTITY);
+    }
+
+    #[test]
+    fn test_array_round_trip() {
+        test_round_trip([-10i32; 200]);
+        test_round_trip([Vec2::ZERO, Vec2::ONE, Vec2::Y, Vec2::X]);
     }
 }

@@ -104,7 +104,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     game.player.i = BOARD_SIZE_I / 2;
     game.player.j = BOARD_SIZE_J / 2;
 
-    commands.spawn_bundle(LightBundle {
+    commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_xyz(4.0, 5.0, 4.0),
         ..Default::default()
     });
@@ -323,7 +323,7 @@ fn spawn_bonus(
                 Transform {
                     translation: Vec3::new(
                         game.bonus.i as f32,
-                        game.board[game.player.j][game.player.i].height + 0.2,
+                        game.board[game.bonus.j][game.bonus.i].height + 0.2,
                         game.bonus.j as f32,
                     ),
                     ..Default::default()

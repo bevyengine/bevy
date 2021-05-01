@@ -328,8 +328,8 @@ impl Table {
         let available_space = self.capacity - self.len();
         if available_space < amount {
             let min_capacity = self.len() + amount;
-            // normally we would check if min_capacity is 0 for the below calculation, but amount > available_space and
-            // available_space > 0, so min_capacity > 1
+            // normally we would check if min_capacity is 0 for the below calculation, but amount >
+            // available_space and available_space > 0, so min_capacity > 1
             let new_capacity =
                 ((min_capacity + self.grow_amount - 1) / self.grow_amount) * self.grow_amount;
             let reserve_amount = new_capacity - self.len();

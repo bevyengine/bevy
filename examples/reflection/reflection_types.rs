@@ -66,7 +66,7 @@ fn setup() {
         // `Struct` is a trait automatically implemented for structs that derive Reflect. This trait
         // allows you to interact with fields via their string names or indices
         ReflectRef::Struct(value) => {
-            println!(
+            info!(
                 "This is a 'struct' type with an 'x' value of {}",
                 value.get_field::<usize>("x").unwrap()
             )

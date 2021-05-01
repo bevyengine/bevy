@@ -7,6 +7,8 @@ status = [
     "build-wasm (nightly, ubuntu-latest)",
     "build-android",
     "markdownlint",
+    "run-examples",
+    "check-doc",
 ]
 
 use_squash_merge = true

@@ -118,13 +118,13 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     {
         if *is_bundle {
             field_type_infos.push(quote! {
-                type_info.extend(#field_type::type_info());
+                type_info.extend(<#field_type as #ecs_path::bundle::Bundle>::type_info());
             });
             field_get_components.push(quote! {
                 self.#field.get_components(&mut func);
             });
             field_from_components.push(quote! {
-                #field: #field_type::from_components(&mut func),
+                #field: <#field_type as #ecs_path::bundle::Bundle>::from_components(&mut func),
             });
         } else {
             field_type_infos.push(quote! {
@@ -373,13 +373,15 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
     let struct_name = &ast.ident;
     let fetch_struct_name = Ident::new(&format!("{}State", struct_name), Span::call_site());
+    let fetch_struct_visibility = &ast.vis;
 
     TokenStream::from(quote! {
         impl #impl_generics #path::system::SystemParam for #struct_name#ty_generics #where_clause {
             type Fetch = #fetch_struct_name <(#(<#field_types as SystemParam>::Fetch,)*), #punctuated_generic_idents>;
         }
 
-        pub struct #fetch_struct_name<TSystemParamState, #punctuated_generic_idents> {
+        #[doc(hidden)]
+        #fetch_struct_visibility struct #fetch_struct_name<TSystemParamState, #punctuated_generic_idents> {
             state: TSystemParamState,
             marker: std::marker::PhantomData<(#punctuated_generic_idents)>
         }
@@ -399,6 +401,10 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
             fn default_config() -> TSystemParamState::Config {
                 TSystemParamState::default_config()
+            }
+
+            fn apply(&mut self, world: &mut #path::world::World) {
+                self.state.apply(world)
             }
         }
 

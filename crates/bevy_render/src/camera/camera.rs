@@ -1,8 +1,8 @@
 use super::CameraProjection;
-use bevy_app::prelude::EventReader;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    event::EventReader,
     query::Added,
     reflect::ReflectComponent,
     system::{Query, QuerySet, Res},
@@ -99,7 +99,10 @@ pub fn camera_system<T: CameraProjection + Component>(
     }
     for (entity, mut camera, mut camera_projection) in queries.q0_mut().iter_mut() {
         if let Some(window) = windows.get(camera.window) {
-            if changed_window_ids.contains(&window.id()) || added_cameras.contains(&entity) {
+            if changed_window_ids.contains(&window.id())
+                || added_cameras.contains(&entity)
+                || camera_projection.is_changed()
+            {
                 camera_projection.update(window.width(), window.height());
                 camera.projection_matrix = camera_projection.get_projection_matrix();
                 camera.depth_calculation = camera_projection.depth_calculation();
