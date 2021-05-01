@@ -10,7 +10,7 @@ Bevy ECS is the Entity Component System used in and developed for the game engin
 
 ## About
 
-Entity component system is an architectural pattern using composition to provide greater flexibility.
+Entity Component System is an architectural pattern using composition to provide greater flexibility.
 
 ### Main concepts
 
@@ -24,6 +24,34 @@ Entities and components are kept in a `World`. Constructing a `Schedule` with sy
 
 Bevy ECS uses Rust's type safety to represent systems as "normal" functions and components as structs. In most cases this does not require any additional effort by the user.
 
+```rust
+fn main() {
+    // Create a world
+    let mut world = World::new();
+
+    // Create a schedule and a stage
+    let mut schedule = Schedule::default();
+    let mut update = SystemStage::parallel();
+
+    // Add a system to the stage
+    update.add_system(print_a_message.system());
+    
+    // Add the prepared stage to the schedule
+    schedule.add_stage("update", update);
+
+    // We will simulate 10 frames
+    for iteration in 1..=10 {
+        println!("Simulating frame {}/10", iteration);
+        schedule.run_once(&mut world);
+    }
+}
+
+// This function serves as a system
+fn print_a_message() {
+    println!("System is running", my_event);
+}
+```
+
 ### Component storage
 
 A unique feature of Bevy ECS is the support for multiple component storage types.
@@ -31,53 +59,20 @@ A unique feature of Bevy ECS is the support for multiple component storage types
 * Tables: fast and cache friendly iteration, but slower adding and removing of components
 * Sparse Sets: fast adding and removing of components, but slower iteration
 
-The used storage type can be configured per component and defaults to table storage.
+The used storage type can be configured per component and defaults to table storage. [`examples/component_storage.rs`](examples/component_storage.rs) shows how to configure the storage type for a component.
 
 ### Resources
 
-A common pattern when working with ECS is the creation of global singleton components. Bevy ECS makes this pattern a first class citizen. `Resource`s are a special kind of component that do not belong to any entity. Bevy makes heavy use of Resources as a way to configure systems.
+A common pattern when working with ECS is the creation of global singleton components. Bevy ECS makes this pattern a first class citizen. `Resource`s are a special kind of component that do not belong to any entity. Bevy itself makes heavy use of Resources as a way to configure systems.
+
+[`examples/resources.rs`] uses a resource to keep a counter that can be increased by a system and read from other systems.
 
 ### Events
 
-Events offer a short-lived communication channel between one to many systems.
+Events offer a short-lived communication channel between one to many systems. Events can be sent using `EventWriter` and received with `EventReader`. Very little boilerplate is required to register a struct as an event. To see a minimal set up to use events, take a look at [`example/events.rs`](examples/events.rs).
 
-To prepare a world for events of type `MyEvent`, the event needs to be registered as a resource. A system managing the event can then be added to your schedule:
+### Change detection
 
-```rust
-// this is our event
-struct MyEvent {
-    pub message: String,
-}
-
-// Create a world and add the event as a resource
-let mut world = World::new();
-world.insert_resource(Events::<MyEvent>::default());
-
-// Create a schedule and a stage
-let mut schedule = Schedule::default();
-let mut update = SystemStage::parallel();
-
-// Add the event managing system to the stage and register the stage in with the schedule
-update.add_system(Events::<MyEvent>::update_system.system());
-schedule.add_stage("update", update);
-```
-
-After preparing your world like above, you can send and receive events in other systems like so:
-
-```rust
-fn sending_system(
-    mut event_writer: EventWriter<MyEvent>,
-) {
-    event_writer.send(MyEvent {
-        message: "MyEvent just happened!".to_string(),
-    });
-}
-
-fn recieving_system(mut event_reader: EventReader<MyEvent>) {
-    for my_event in event_reader.iter() {
-        println!("{}", my_event.message);
-    }
-}
-```
+Bevy ECS includes a simple way of detecting change in resources and entities. Resources have `is_changed` and `is_added` functions and entities can be queried based on changed or added components (see [`examples/change_detection`](examples/change_detection.rs)).
 
 [bevy]: https://bevyengine.org/
