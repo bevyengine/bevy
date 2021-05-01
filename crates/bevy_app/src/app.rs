@@ -1,5 +1,6 @@
 use crate::app_builder::AppBuilder;
 use bevy_ecs::{
+    event::Event,
     schedule::{Schedule, Stage},
     world::World,
 };
@@ -74,5 +75,5 @@ impl App {
 }
 
 /// An event that indicates the app should exit. This will fully exit the app process.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct AppExit;

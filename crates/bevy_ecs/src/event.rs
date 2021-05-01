@@ -3,12 +3,10 @@ use crate::{
     component::Component,
     system::{Local, Res, ResMut, SystemParam},
 };
+pub use bevy_ecs_macros::Event;
 use bevy_utils::tracing::trace;
-use std::{
-    fmt::{self},
-    hash::Hash,
-    marker::PhantomData,
-};
+use smallvec::SmallVec;
+use std::{fmt, hash::Hash, marker::PhantomData};
 
 /// An `EventId` uniquely identifies an event.
 ///
@@ -45,7 +43,8 @@ impl<T> fmt::Debug for EventId<T> {
 }
 
 #[derive(Debug)]
-struct EventInstance<T> {
+#[doc(hidden)]
+pub struct EventInstance<T> {
     pub event_id: EventId<T>,
     pub event: T,
 }
@@ -119,50 +118,104 @@ enum State {
 ///
 /// [`AppBuilder::add_event`]: https://docs.rs/bevy/*/bevy/app/struct.AppBuilder.html#method.add_event
 #[derive(Debug)]
-pub struct Events<T> {
-    events_a: Vec<EventInstance<T>>,
-    events_b: Vec<EventInstance<T>>,
+pub struct Events<T: Event> {
+    events_a: T::Storage,
+    events_b: T::Storage,
     a_start_event_count: usize,
     b_start_event_count: usize,
     event_count: usize,
     state: State,
 }
 
-impl<T> Default for Events<T> {
+pub trait Event: Sized + Component {
+    type Storage: for<'a> Storage<'a, Item = EventInstance<Self>>
+        + Component
+        + std::ops::DerefMut<Target = [EventInstance<Self>]>
+        + Default;
+}
+
+pub trait Storage<'a> {
+    type Item: 'a;
+    type DrainIter: DoubleEndedIterator<Item = Self::Item> + 'a;
+    fn push(&mut self, v: Self::Item);
+    fn drain<R>(&'a mut self, range: R) -> Self::DrainIter
+    where
+        R: std::ops::RangeBounds<usize>;
+    fn clear(&mut self);
+}
+impl<'a, T: 'a> Storage<'a> for Vec<T> {
+    type Item = T;
+    type DrainIter = std::vec::Drain<'a, T>;
+
+    fn push(&mut self, v: T) {
+        self.push(v);
+    }
+
+    fn drain<R>(&'a mut self, range: R) -> Self::DrainIter
+    where
+        R: std::ops::RangeBounds<usize>,
+    {
+        self.drain(range)
+    }
+
+    fn clear(&mut self) {
+        self.clear();
+    }
+}
+impl<'a, T: 'a, const N: usize> Storage<'a> for SmallVec<[T; N]> {
+    type Item = T;
+    type DrainIter = smallvec::Drain<'a, [T; N]>;
+
+    fn push(&mut self, v: T) {
+        self.push(v);
+    }
+
+    fn drain<R>(&'a mut self, range: R) -> Self::DrainIter
+    where
+        R: std::ops::RangeBounds<usize>,
+    {
+        self.drain(range)
+    }
+    fn clear(&mut self) {
+        self.clear();
+    }
+}
+
+impl<T: Event> Default for Events<T> {
     fn default() -> Self {
         Events {
             a_start_event_count: 0,
             b_start_event_count: 0,
             event_count: 0,
-            events_a: Vec::new(),
-            events_b: Vec::new(),
+            events_a: T::Storage::default(),
+            events_b: T::Storage::default(),
             state: State::A,
         }
     }
 }
 
-fn map_instance_event_with_id<T>(event_instance: &EventInstance<T>) -> (&T, EventId<T>) {
+fn map_instance_event_with_id<T: 'static>(event_instance: &EventInstance<T>) -> (&T, EventId<T>) {
     (&event_instance.event, event_instance.event_id)
 }
 
-fn map_instance_event<T>(event_instance: &EventInstance<T>) -> &T {
+fn map_instance_event<T: 'static>(event_instance: &EventInstance<T>) -> &T {
     &event_instance.event
 }
 
 /// Reads events of type `T` in order and tracks which events have already been read.
 #[derive(SystemParam)]
-pub struct EventReader<'a, T: Component> {
+pub struct EventReader<'a, T: Event> {
     last_event_count: Local<'a, (usize, PhantomData<T>)>,
     events: Res<'a, Events<T>>,
 }
 
 /// Sends events of type `T`.
 #[derive(SystemParam)]
-pub struct EventWriter<'a, T: Component> {
+pub struct EventWriter<'a, T: Event> {
     events: ResMut<'a, Events<T>>,
 }
 
-impl<'a, T: Component> EventWriter<'a, T> {
+impl<'a, T: Event> EventWriter<'a, T> {
     pub fn send(&mut self, event: T) {
         self.events.send(event);
     }
@@ -186,7 +239,7 @@ impl<T> Default for ManualEventReader<T> {
     }
 }
 
-impl<T> ManualEventReader<T> {
+impl<T: Event> ManualEventReader<T> {
     /// See [`EventReader::iter`]
     pub fn iter<'a>(&mut self, events: &'a Events<T>) -> impl DoubleEndedIterator<Item = &'a T> {
         internal_event_reader(&mut self.last_event_count, events).map(|(e, _)| e)
@@ -203,7 +256,7 @@ impl<T> ManualEventReader<T> {
 
 /// Like [`iter_with_id`](EventReader::iter_with_id) except not emitting any traces for read
 /// messages.
-fn internal_event_reader<'a, T>(
+fn internal_event_reader<'a, T: Event>(
     last_event_count: &mut usize,
     events: &'a Events<T>,
 ) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> {
@@ -252,7 +305,7 @@ fn internal_event_reader<'a, T>(
     }
 }
 
-impl<'a, T: Component> EventReader<'a, T> {
+impl<'a, T: Event> EventReader<'a, T> {
     /// Iterates over the events this EventReader has not seen yet. This updates the EventReader's
     /// event counter, which means subsequent event reads will not include events that happened
     /// before now.
@@ -269,7 +322,7 @@ impl<'a, T: Component> EventReader<'a, T> {
     }
 }
 
-impl<T: Component> Events<T> {
+impl<T: Event> Events<T> {
     /// "Sends" an `event` by writing it to the current event buffer. [EventReader]s can then read
     /// the event.
     pub fn send(&mut self, event: T) {
@@ -311,12 +364,12 @@ impl<T: Component> Events<T> {
     pub fn update(&mut self) {
         match self.state {
             State::A => {
-                self.events_b = Vec::new();
+                self.events_b.clear();
                 self.state = State::B;
                 self.b_start_event_count = self.event_count;
             }
             State::B => {
-                self.events_a = Vec::new();
+                self.events_a.clear();
                 self.state = State::A;
                 self.a_start_event_count = self.event_count;
             }
@@ -381,6 +434,10 @@ mod tests {
     #[derive(Copy, Clone, PartialEq, Eq, Debug)]
     struct TestEvent {
         i: usize,
+    }
+
+    impl Event for TestEvent {
+        type Storage = Vec<EventInstance<Self>>;
     }
 
     #[test]

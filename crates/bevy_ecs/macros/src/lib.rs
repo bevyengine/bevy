@@ -470,6 +470,33 @@ fn derive_label(input: DeriveInput, label_type: Ident) -> TokenStream2 {
     }
 }
 
+#[proc_macro_derive(Event, attributes(store))]
+pub fn derive_event(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let ident = input.ident;
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    let ecs_path = bevy_ecs_path();
+    let store_attr = input
+        .attrs
+        .into_iter()
+        .find(|v| *v.path.get_ident().as_ref().unwrap() == "store")
+        .map(|v| v.tokens);
+    let out = if let Some(num) = store_attr {
+        quote! {
+            impl #impl_generics #ecs_path::event::Event for #ident #ty_generics #where_clause {
+                type Storage = #ecs_path::__macro_export::SmallVec<[#ecs_path::event::EventInstance<Self>; #num]>;
+            }
+        }
+    } else {
+        quote! {
+            impl #impl_generics #ecs_path::event::Event for #ident #ty_generics #where_clause {
+                type Storage = ::std::vec::Vec<#ecs_path::event::EventInstance<Self>>;
+            }
+        }
+    };
+    out.into()
+}
+
 fn bevy_ecs_path() -> syn::Path {
     fn find_in_manifest(manifest: &mut Manifest, dependencies: Dependencies) -> Option<String> {
         manifest.dependencies = dependencies;

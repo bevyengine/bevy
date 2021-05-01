@@ -19,7 +19,7 @@ pub mod prelude {
     pub use crate::{
         bundle::Bundle,
         entity::Entity,
-        event::{EventReader, EventWriter},
+        event::{Event, EventReader, EventWriter},
         query::{Added, ChangeTrackers, Changed, Or, QueryState, With, WithBundle, Without},
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
@@ -32,6 +32,11 @@ pub mod prelude {
         },
         world::{FromWorld, Mut, World},
     };
+}
+
+#[doc(hidden)]
+pub mod __macro_export {
+    pub use smallvec::SmallVec;
 }
 
 #[cfg(test)]

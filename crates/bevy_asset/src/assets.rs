@@ -4,6 +4,7 @@ use crate::{
 };
 use bevy_app::{AppBuilder, EventWriter, Events};
 use bevy_ecs::{
+    event::Event,
     system::{IntoSystem, ResMut},
     world::FromWorld,
 };
@@ -12,6 +13,7 @@ use crossbeam_channel::Sender;
 use std::fmt::Debug;
 
 /// Events that happen on assets of type `T`
+#[derive(Event)]
 pub enum AssetEvent<T: Asset> {
     Created { handle: Handle<T> },
     Modified { handle: Handle<T> },
