@@ -10,6 +10,7 @@ use crate::{
 pub use bevy_ecs_macros::SystemParam;
 use bevy_ecs_macros::{all_tuples, impl_query_set};
 use std::{
+    fmt::Debug,
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
@@ -174,6 +175,15 @@ pub struct Res<'w, T: Component> {
     change_tick: u32,
 }
 
+impl<'w, T: Component> Debug for Res<'w, T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Res").field(&self.value).finish()
+    }
+}
+
 impl<'w, T: Component> Res<'w, T> {
     /// Returns true if (and only if) this resource been added since the last execution of this
     /// system.
@@ -316,6 +326,15 @@ pub struct ResMut<'w, T: Component> {
     ticks: &'w mut ComponentTicks,
     last_change_tick: u32,
     change_tick: u32,
+}
+
+impl<'w, T: Component> Debug for ResMut<'w, T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("ResMut").field(&self.value).finish()
+    }
 }
 
 impl<'w, T: Component> ResMut<'w, T> {
@@ -520,6 +539,15 @@ impl<'a> SystemParamFetch<'a> for CommandQueue {
 /// ```
 pub struct Local<'a, T: Component>(&'a mut T);
 
+impl<'a, T: Component> Debug for Local<'a, T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Local").field(&self.0).finish()
+    }
+}
+
 impl<'a, T: Component> Deref for Local<'a, T> {
     type Target = T;
 
@@ -659,6 +687,15 @@ pub struct NonSend<'w, T> {
     ticks: ComponentTicks,
     last_change_tick: u32,
     change_tick: u32,
+}
+
+impl<'w, T> Debug for NonSend<'w, T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("NonSend").field(&self.value).finish()
+    }
 }
 
 impl<'w, T: Component> NonSend<'w, T> {
@@ -807,7 +844,7 @@ impl<'a, T: 'static> DerefMut for NonSendMut<'a, T> {
 
 impl<'a, T: 'static + core::fmt::Debug> core::fmt::Debug for NonSendMut<'a, T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        self.value.fmt(f)
+        f.debug_tuple("NonSendMut").field(&self.value).finish()
     }
 }
 
