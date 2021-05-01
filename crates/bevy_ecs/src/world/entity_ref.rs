@@ -231,7 +231,7 @@ impl<'w> EntityMut<'w> {
         let archetypes = &mut self.world.archetypes;
         let components = &mut self.world.components;
         let storages = &mut self.world.storages;
-        
+
         let bundle_info = self.world.bundles.init_info::<T>(components);
         let current_location = self.location;
 

@@ -519,7 +519,46 @@ mod tests {
     }
 
     #[test]
-    fn try_insert_components_not_present() {
+    fn try_insert_component_not_present() {
+        let mut world = World::default();
+        let mut command_queue = CommandQueue::default();
+        let _ = Commands::new(&mut command_queue, &world)
+            .spawn()
+            .try_insert(2u32)
+            .id();
+
+        command_queue.apply(&mut world);
+        assert!(world.entities().len() == 1);
+        let results = world
+            .query::<&u32>()
+            .iter(&world)
+            .copied()
+            .collect::<Vec<_>>();
+        assert_eq!(results, vec![2u32]);
+    }
+
+    #[test]
+    fn try_insert_component_present() {
+        let mut world = World::default();
+        let mut command_queue = CommandQueue::default();
+        let _ = Commands::new(&mut command_queue, &world)
+            .spawn()
+            .insert(1u32)
+            .try_insert(2u32)
+            .id();
+
+        command_queue.apply(&mut world);
+        assert!(world.entities().len() == 1);
+        let results = world
+            .query::<&u32>()
+            .iter(&world)
+            .copied()
+            .collect::<Vec<_>>();
+        assert_eq!(results, vec![1u32]);
+    }
+
+    #[test]
+    fn try_insert_bundle_components_not_present() {
         let mut world = World::default();
         let mut command_queue = CommandQueue::default();
         let _ = Commands::new(&mut command_queue, &world)
@@ -538,7 +577,7 @@ mod tests {
     }
 
     #[test]
-    fn try_insert_components_present() {
+    fn try_insert_bundle_components_all_present() {
         let mut world = World::default();
         let mut command_queue = CommandQueue::default();
         let _ = Commands::new(&mut command_queue, &world)
@@ -557,7 +596,7 @@ mod tests {
     }
 
     #[test]
-    fn try_insert_components_some_present() {
+    fn try_insert_bundle_components_some_present() {
         let mut world = World::default();
         let mut command_queue = CommandQueue::default();
         let _ = Commands::new(&mut command_queue, &world)
