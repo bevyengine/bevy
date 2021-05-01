@@ -99,6 +99,7 @@ impl WgpuRenderer {
             {
                 let winit_windows = world.get_resource::<bevy_winit::WinitWindows>().unwrap();
                 let winit_window = winit_windows.get_window(window.id()).unwrap();
+                // SAFE: The raw window handle created from a `winit::Window` is always valid.
                 let surface = unsafe { self.instance.create_surface(winit_window.deref()) };
                 render_resource_context.set_window_surface(window.id(), surface);
             }
