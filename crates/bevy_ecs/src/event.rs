@@ -78,6 +78,7 @@ enum State {
 /// ```
 /// use bevy_ecs::event::Events;
 ///
+/// #[derive(Event)]
 /// struct MyEvent {
 ///     value: usize
 /// }
