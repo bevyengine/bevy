@@ -12,14 +12,13 @@ use std::{marker::PhantomData, ptr};
 
 // TODO: uncomment this and use as shorthand (remove where F::Fetch: FilterFetch everywhere) when
 // this bug is fixed in Rust 1.51: https://github.com/rust-lang/rust/pull/81671
-// pub trait QueryFilter: WorldQuery
-// where
-//     Self::Fetch: FilterFetch,
-// {
-// }
+pub trait QueryFilter: WorldQuery
+where
+    Self::Fetch: FilterFetch,
+{
+}
 
-// impl<T: WorldQuery> QueryFilter for T where T::Fetch: FilterFetch {
-// }
+impl<T: WorldQuery> QueryFilter for T where T::Fetch: FilterFetch {}
 
 /// Extension trait for [`Fetch`] containing methods used by query filters.
 /// This trait exists to allow "short circuit" behaviors for relevant query filter fetches.
