@@ -1,6 +1,6 @@
 use crate::{
     archetype::{ArchetypeId, Archetypes},
-    query::{Fetch, FilterFetch, QueryFilter, QueryState, WorldQuery},
+    query::{Fetch, QueryFilter, QueryState, WorldQuery},
     storage::{TableId, Tables},
     world::World,
 };

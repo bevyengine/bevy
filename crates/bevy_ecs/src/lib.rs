@@ -40,10 +40,7 @@ mod tests {
         bundle::Bundle,
         component::{Component, ComponentDescriptor, ComponentId, StorageType, TypeInfo},
         entity::Entity,
-        query::{
-            Added, ChangeTrackers, Changed, FilterFetch, FilteredAccess, QueryFilter, With,
-            Without, WorldQuery,
-        },
+        query::{Added, ChangeTrackers, Changed, FilteredAccess, With, Without, WorldQuery},
         world::{Mut, World},
     };
     use bevy_tasks::TaskPool;
@@ -749,8 +746,8 @@ mod tests {
         }
 
         fn get_filtered<F: WorldQuery>(world: &mut World) -> Vec<Entity>
-        where
-            F: QueryFilter,
+// where
+        //     F: QueryFilter,
         {
             world
                 .query_filtered::<Entity, F>()
