@@ -1,7 +1,7 @@
 {
   "ignorePatterns": [
     {
-      "pattern": "^https?://github.com/"
+      "pattern": "^https?://github\\.com/"
     }
   ],
   "replacementPatterns": [],
@@ -9,7 +9,7 @@
     {
       "urls": ["https://crates.io"],
       "headers": {
-        "Accept": "text/html",
+        "Accept": "text/html"
       }
     }
   ],
