@@ -58,8 +58,7 @@ impl<'w, 's, Q: WorldQuery, F: QueryFilter> QueryIter<'w, 's, Q, F> {
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: QueryFilter> Iterator for QueryIter<'w, 's, Q, F>
-{
+impl<'w, 's, Q: WorldQuery, F: QueryFilter> Iterator for QueryIter<'w, 's, Q, F> {
     type Item = <Q::Fetch as Fetch<'w>>::Item;
 
     #[inline]

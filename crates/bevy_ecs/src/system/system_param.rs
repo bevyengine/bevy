@@ -3,7 +3,7 @@ use crate::{
     bundle::Bundles,
     component::{Component, ComponentId, ComponentTicks, Components},
     entity::{Entities, Entity},
-    query::{FilteredAccess, FilteredAccessSet, QueryFilter, WorldQuery, QueryState},
+    query::{FilteredAccess, FilteredAccessSet, QueryFilter, QueryState, WorldQuery},
     system::{CommandQueue, Commands, Query, SystemState},
     world::{FromWorld, World},
 };

@@ -13,8 +13,7 @@ use bevy_tasks::TaskPool;
 use fixedbitset::FixedBitSet;
 use thiserror::Error;
 
-pub struct QueryState<Q: WorldQuery, F: QueryFilter>
-{
+pub struct QueryState<Q: WorldQuery, F: QueryFilter> {
     world_id: WorldId,
     pub(crate) archetype_generation: ArchetypeGeneration,
     pub(crate) matched_tables: FixedBitSet,
@@ -29,8 +28,7 @@ pub struct QueryState<Q: WorldQuery, F: QueryFilter>
     pub(crate) filter_state: F::State,
 }
 
-impl<Q: WorldQuery, F: QueryFilter> QueryState<Q, F>
-{
+impl<Q: WorldQuery, F: QueryFilter> QueryState<Q, F> {
     pub fn new(world: &mut World) -> Self {
         let fetch_state = <Q::State as FetchState>::init(world);
         let filter_state = <F::State as FetchState>::init(world);
