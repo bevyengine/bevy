@@ -34,7 +34,7 @@ The provided rules are documented [here](https://github.com/DavidAnson/markdownl
 
 #### Using [VS Code markdownlint](https://marketplace.visualstudio.com/items?itemName=DavidAnson.vscode-markdownlint)
 
-If you want to use the VS Code Extension with the rules defined in [.markdown-lint.yml](../.github/linters/markdown-lint.yml), then you need to create a local config file in the root of the project with the configuration below.
+If you want to use the VS Code Extension with the rules defined in [.markdown-lint.yml](../.github/linters/.markdown-lint.yml), then you need to create a local config file in the root of the project with the configuration below.
 Currently, this is not needed as the extension already disables the rule `MD013` by default.
 
 ```json
