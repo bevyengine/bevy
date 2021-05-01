@@ -9,10 +9,7 @@ use crate::{
 ///
 /// This struct is created by the [`Query::iter`](crate::system::Query::iter) and
 /// [`Query::iter_mut`](crate::system::Query::iter_mut) methods.
-pub struct QueryIter<'w, 's, Q: WorldQuery, F: WorldQuery>
-where
-    F: QueryFilter,
-{
+pub struct QueryIter<'w, 's, Q: WorldQuery, F: QueryFilter> {
     tables: &'w Tables,
     archetypes: &'w Archetypes,
     query_state: &'s QueryState<Q, F>,
@@ -20,16 +17,13 @@ where
     table_id_iter: std::slice::Iter<'s, TableId>,
     archetype_id_iter: std::slice::Iter<'s, ArchetypeId>,
     fetch: Q::Fetch,
-    filter: F::Fetch,
+    filter: F,
     is_dense: bool,
     current_len: usize,
     current_index: usize,
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery> QueryIter<'w, 's, Q, F>
-where
-    F: QueryFilter,
-{
+impl<'w, 's, Q: WorldQuery, F: QueryFilter> QueryIter<'w, 's, Q, F> {
     pub(crate) unsafe fn new(
         world: &'w World,
         query_state: &'s QueryState<Q, F>,
@@ -42,7 +36,7 @@ where
             last_change_tick,
             change_tick,
         );
-        let filter = <F::Fetch as Fetch>::init(
+        let filter = <F as WorldQuery>::Fetch::init(
             world,
             &query_state.filter_state,
             last_change_tick,
@@ -64,9 +58,7 @@ where
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery> Iterator for QueryIter<'w, 's, Q, F>
-where
-    F: QueryFilter,
+impl<'w, 's, Q: WorldQuery, F: QueryFilter> Iterator for QueryIter<'w, 's, Q, F>
 {
     type Item = <Q::Fetch as Fetch<'w>>::Item;
 

@@ -16,7 +16,7 @@ use crate::{
         StorageType,
     },
     entity::{Entities, Entity},
-    query::{FilterFetch, QueryFilter, QueryState, WorldQuery},
+    query::{QueryFilter, QueryState, WorldQuery},
     storage::{Column, SparseSet, Storages},
 };
 use std::{
@@ -487,9 +487,7 @@ impl World {
     /// assert_eq!(matching_entities, vec![e2]);
     /// ```
     #[inline]
-    pub fn query_filtered<Q: WorldQuery, F: WorldQuery>(&mut self) -> QueryState<Q, F>
-    where
-        F: QueryFilter,
+    pub fn query_filtered<Q: WorldQuery, F: QueryFilter>(&mut self) -> QueryState<Q, F>
     {
         QueryState::new(self)
     }

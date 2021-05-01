@@ -3,10 +3,11 @@ use crate::{
     bundle::Bundles,
     component::{Component, ComponentId, ComponentTicks, Components},
     entity::{Entities, Entity},
-    query::{FilterFetch, FilteredAccess, FilteredAccessSet, QueryFilter, QueryState, WorldQuery},
+    query::{FilteredAccess, FilteredAccessSet, QueryFilter, WorldQuery, QueryState},
     system::{CommandQueue, Commands, Query, SystemState},
     world::{FromWorld, World},
 };
+
 pub use bevy_ecs_macros::SystemParam;
 use bevy_ecs_macros::{all_tuples, impl_query_set};
 use std::{
@@ -83,9 +84,8 @@ where
 
 // SAFE: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemState. If
 // this QueryState conflicts with any prior access, a panic will occur.
-unsafe impl<Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamState for QueryState<Q, F>
-where
-    F: QueryFilter,
+unsafe impl<Q: WorldQuery + 'static, F: QueryFilter + 'static> SystemParamState
+    for QueryState<Q, F>
 {
     type Config = ();
 
@@ -118,9 +118,8 @@ where
     fn default_config() {}
 }
 
-impl<'a, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamFetch<'a> for QueryState<Q, F>
-where
-    F: QueryFilter,
+impl<'a, Q: WorldQuery + 'static, F: QueryFilter + 'static> SystemParamFetch<'a>
+    for QueryState<Q, F>
 {
     type Item = Query<'a, Q, F>;
 

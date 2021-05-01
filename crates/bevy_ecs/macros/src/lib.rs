@@ -215,16 +215,14 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
         let query_fn = &query_fns[0..query_count];
         let query_fn_mut = &query_fn_muts[0..query_count];
         tokens.extend(TokenStream::from(quote! {
-            impl<#(#lifetime,)*  #(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParam for QuerySet<(#(Query<#lifetime, #query, #filter>,)*)>
-                where #(#filter::Fetch: FilterFetch,)*
+            impl<#(#lifetime,)*  #(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + QueryFilter + 'static,)*> SystemParam for QuerySet<(#(Query<#lifetime, #query, #filter>,)*)>
             {
                 type Fetch = QuerySetState<(#(QueryState<#query, #filter>,)*)>;
             }
 
             // SAFE: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemState. If any QueryState conflicts
             // with any prior access, a panic will occur.
-            unsafe impl<#(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParamState for QuerySetState<(#(QueryState<#query, #filter>,)*)>
-                where #(#filter::Fetch: FilterFetch,)*
+            unsafe impl<#(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + QueryFilter + 'static,)*> SystemParamState for QuerySetState<(#(QueryState<#query, #filter>,)*)>
             {
                 type Config = ();
                 fn init(world: &mut World, system_state: &mut SystemState, config: Self::Config) -> Self {
@@ -263,8 +261,7 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                 fn default_config() {}
             }
 
-            impl<'a, #(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParamFetch<'a> for QuerySetState<(#(QueryState<#query, #filter>,)*)>
-                where #(#filter::Fetch: FilterFetch,)*
+            impl<'a, #(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + QueryFilter + 'static,)*> SystemParamFetch<'a> for QuerySetState<(#(QueryState<#query, #filter>,)*)>
             {
                 type Item = QuerySet<(#(Query<'a, #query, #filter>,)*)>;
 
@@ -280,8 +277,7 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                 }
             }
 
-            impl<#(#lifetime,)* #(#query: WorldQuery,)* #(#filter: WorldQuery,)*> QuerySet<(#(Query<#lifetime, #query, #filter>,)*)>
-                where #(#filter::Fetch: FilterFetch,)*
+            impl<#(#lifetime,)* #(#query: WorldQuery,)* #(#filter: WorldQuery + QueryFilter,)*> QuerySet<(#(Query<#lifetime, #query, #filter>,)*)>
             {
                 #(#query_fn)*
                 #(#query_fn_mut)*

@@ -2,7 +2,7 @@ use crate::{
     component::Component,
     entity::Entity,
     query::{
-        Fetch, FilterFetch, QueryEntityError, QueryFilter, QueryIter, QueryState, ReadOnlyFetch,
+        Fetch, QueryEntityError, QueryFilter, QueryIter, QueryState, ReadOnlyFetch,
         WorldQuery,
     },
     world::{Mut, World},
@@ -107,9 +107,7 @@ use thiserror::Error;
 ///
 /// This touches all the basics of queries, make sure to check out all the [`WorldQueries`](WorldQuery)
 /// bevy has to offer.
-pub struct Query<'w, Q: WorldQuery, F: WorldQuery = ()>
-where
-    F: QueryFilter,
+pub struct Query<'w, Q: WorldQuery, F: WorldQuery + QueryFilter = ()>
 {
     pub(crate) world: &'w World,
     pub(crate) state: &'w QueryState<Q, F>,
@@ -117,9 +115,7 @@ where
     pub(crate) change_tick: u32,
 }
 
-impl<'w, Q: WorldQuery, F: WorldQuery> Query<'w, Q, F>
-where
-    F: QueryFilter,
+impl<'w, Q: WorldQuery, F: WorldQuery+QueryFilter> Query<'w, Q, F>
 {
     /// Creates a new query.
     ///
