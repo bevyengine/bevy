@@ -101,7 +101,7 @@ jobs:
       with:
         use-quiet-mode: 'yes'
         use-verbose-mode: 'yes'
-        config-file: '.github/workflows/mlc_config.json'
+        config-file: '.github/linters/markdown-link-check.json'
 
   run-examples:
     runs-on: ubuntu-latest
