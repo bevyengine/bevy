@@ -1,4 +1,4 @@
-use bevy_macro_utils::{get_module_path, get_path};
+use bevy_macro_utils::{get_manifest, get_module_path_by_manifest, get_path};
 use syn::Attribute;
 
 pub struct Modules {
@@ -16,12 +16,13 @@ fn validate_as_crate_attribute(tokens: &str) -> bool {
 }
 
 pub fn get_modules(attributes: &[Attribute]) -> Modules {
+    let manifest = get_manifest();
     let mut modules = Modules {
-        bevy_app: get_module_path("bevy_app"),
-        bevy_asset: get_module_path("bevy_asset"),
-        bevy_core: get_module_path("bevy_core"),
-        bevy_render: get_module_path("bevy_render"),
-        bevy_utils: get_module_path("bevy_utils"),
+        bevy_app: get_module_path_by_manifest("bevy_app", &manifest),
+        bevy_asset: get_module_path_by_manifest("bevy_asset", &manifest),
+        bevy_core: get_module_path_by_manifest("bevy_core", &manifest),
+        bevy_render: get_module_path_by_manifest("bevy_render", &manifest),
+        bevy_utils: get_module_path_by_manifest("bevy_utils", &manifest),
     };
     for attribute in attributes.iter() {
         if *attribute.path.get_ident().as_ref().unwrap() == AS_CRATE_ATTRIBUTE_NAME {
