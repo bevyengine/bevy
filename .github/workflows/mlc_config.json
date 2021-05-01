@@ -1,11 +1,18 @@
 {
   "ignorePatterns": [
     {
-      "pattern": "^https?://"
+      "pattern": "^https?://github.com/"
     }
   ],
   "replacementPatterns": [],
-  "httpHeaders": [],
+  "httpHeaders": [
+    {
+      "urls": ["https://crates.io"],
+      "headers": {
+        "Accept": "text/html",
+      }
+    }
+  ],
   "timeout": "20s",
   "retryOn429": true,
   "retryCount": 5,
