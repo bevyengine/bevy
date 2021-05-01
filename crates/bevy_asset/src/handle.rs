@@ -68,17 +68,8 @@ where
     #[reflect(ignore)]
     handle_type: HandleType,
     #[reflect(ignore)]
-    marker: PhantomData<T>,
-}
-
-// SAFE: T is phantom data and all other fields implement `Send` and `Sync`
-unsafe impl<T: Asset> Send for Handle<T> {}
-unsafe impl<T: Asset> Sync for Handle<T> {}
-
-fn _assert_send_sync_handle_impl_safe() {
-    fn _assert_send_sync<T: Send + Sync>() {}
-    _assert_send_sync::<HandleId>();
-    _assert_send_sync::<HandleType>();
+    // NOTE: PhantomData<fn() -> T> gives this safe Send/Sync impls
+    marker: PhantomData<fn() -> T>,
 }
 
 enum HandleType {
