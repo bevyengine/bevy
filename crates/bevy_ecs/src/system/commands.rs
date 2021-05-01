@@ -206,6 +206,15 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
         self
     }
 
+    /// Adds a bundle of components to the current entity, skipping ones that already exist.
+    pub fn try_insert_bundle(&mut self, bundle: impl Bundle) -> &mut Self {
+        self.commands.add(TryInsertBundle {
+            entity: self.entity,
+            bundle,
+        });
+        self
+    }
+
     /// Adds a single [`Component`] to the current entity.
     ///
     ///
@@ -240,6 +249,15 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
     /// ```
     pub fn insert(&mut self, component: impl Component) -> &mut Self {
         self.commands.add(Insert {
+            entity: self.entity,
+            component,
+        });
+        self
+    }
+
+    /// Like insert, but does not overwrite components which already exist on the entity
+    pub fn try_insert(&mut self, component: impl Component) -> &mut Self {
+        self.commands.add(TryInsert {
             entity: self.entity,
             component,
         });
@@ -342,6 +360,20 @@ where
     }
 }
 
+pub struct TryInsertBundle<T> {
+    entity: Entity,
+    bundle: T,
+}
+
+impl<T> Command for TryInsertBundle<T>
+where
+    T: Bundle + 'static,
+{
+    fn write(self: Box<Self>, world: &mut World) {
+        world.entity_mut(self.entity).try_insert_bundle(self.bundle);
+    }
+}
+
 #[derive(Debug)]
 pub struct Insert<T> {
     pub entity: Entity,
@@ -354,6 +386,21 @@ where
 {
     fn write(self: Box<Self>, world: &mut World) {
         world.entity_mut(self.entity).insert(self.component);
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct TryInsert<T> {
+    entity: Entity,
+    component: T,
+}
+
+impl<T> Command for TryInsert<T>
+where
+    T: Component,
+{
+    fn write(self: Box<Self>, world: &mut World) {
+        world.entity_mut(self.entity).try_insert(self.component);
     }
 }
 
@@ -449,6 +496,64 @@ mod tests {
             .map(|(a, b)| (*a, *b))
             .collect::<Vec<_>>();
         assert_eq!(results2, vec![]);
+    }
+
+    #[test]
+    fn try_insert_components_not_present() {
+        let mut world = World::default();
+        let mut command_queue = CommandQueue::default();
+        let _ = Commands::new(&mut command_queue, &world)
+            .spawn()
+            .try_insert_bundle((2u32, 4u64))
+            .id();
+
+        command_queue.apply(&mut world);
+        assert!(world.entities().len() == 1);
+        let results = world
+            .query::<(&u32, &u64)>()
+            .iter(&world)
+            .map(|(a, b)| (*a, *b))
+            .collect::<Vec<_>>();
+        assert_eq!(results, vec![(2u32, 4u64)]);
+    }
+
+    #[test]
+    fn try_insert_components_present() {
+        let mut world = World::default();
+        let mut command_queue = CommandQueue::default();
+        let _ = Commands::new(&mut command_queue, &world)
+            .spawn_bundle((1u32, 2u64))
+            .try_insert_bundle((2u32, 4u64))
+            .id();
+
+        command_queue.apply(&mut world);
+        assert!(world.entities().len() == 1);
+        let results = world
+            .query::<(&u32, &u64)>()
+            .iter(&world)
+            .map(|(a, b)| (*a, *b))
+            .collect::<Vec<_>>();
+        assert_eq!(results, vec![(1u32, 2u64)]);
+    }
+
+    #[test]
+    fn try_insert_components_some_present() {
+        let mut world = World::default();
+        let mut command_queue = CommandQueue::default();
+        let _ = Commands::new(&mut command_queue, &world)
+            .spawn()
+            .insert(1u32)
+            .try_insert_bundle((2u32, 4u64))
+            .id();
+
+        command_queue.apply(&mut world);
+        assert!(world.entities().len() == 1);
+        let results = world
+            .query::<(&u32, &u64)>()
+            .iter(&world)
+            .map(|(a, b)| (*a, *b))
+            .collect::<Vec<_>>();
+        assert_eq!(results, vec![(1u32, 4u64)]);
     }
 
     #[test]

@@ -517,13 +517,24 @@ impl World {
         }
     }
 
-    /// Inserts a new resource with the given `value`.
+    /// Inserts a new resource with the given `value`,
+    /// overwriting an existing resource of type T.
     /// Resources are "unique" data of a given type.
     #[inline]
     pub fn insert_resource<T: Component>(&mut self, value: T) {
         let component_id = self.components.get_or_insert_resource_id::<T>();
         // SAFE: component_id just initialized and corresponds to resource of type T
-        unsafe { self.insert_resource_with_id(component_id, value) };
+        unsafe { self.insert_resource_with_id(component_id, value, true) };
+    }
+
+    /// Inserts a new resource with the given `value`.
+    /// If a resource of type T already exists, the new resource is not inserted.
+    /// Resources are "unique" data of a given type.
+    #[inline]
+    pub fn try_insert_resource<T: Component>(&mut self, value: T) {
+        let component_id = self.components.get_or_insert_resource_id::<T>();
+        // SAFE: component_id just initialized and corresponds to resource of type T
+        unsafe { self.insert_resource_with_id(component_id, value, false) };
     }
 
     /// Inserts a new non-send resource with the given `value`.
@@ -533,7 +544,7 @@ impl World {
         self.validate_non_send_access::<T>();
         let component_id = self.components.get_or_insert_non_send_resource_id::<T>();
         // SAFE: component_id just initialized and corresponds to resource of type T
-        unsafe { self.insert_resource_with_id(component_id, value) };
+        unsafe { self.insert_resource_with_id(component_id, value, true) };
     }
 
     /// Removes the resource of a given type and returns it, if it exists. Otherwise returns [None].
@@ -781,7 +792,12 @@ impl World {
     /// # Safety
     /// `component_id` must be valid and correspond to a resource component of type T
     #[inline]
-    unsafe fn insert_resource_with_id<T>(&mut self, component_id: ComponentId, mut value: T) {
+    unsafe fn insert_resource_with_id<T>(
+        &mut self,
+        component_id: ComponentId,
+        mut value: T,
+        overwrite_existing: bool,
+    ) {
         let change_tick = self.change_tick();
         let column = self.initialize_resource_internal(component_id);
         if column.is_empty() {
@@ -794,7 +810,7 @@ impl World {
             std::mem::forget(value);
             // SAFE: index was just allocated above
             *column.get_ticks_unchecked_mut(row) = ComponentTicks::new(change_tick);
-        } else {
+        } else if overwrite_existing {
             // SAFE: column is of type T and has already been allocated
             *column.get_unchecked(0).cast::<T>() = value;
             column.get_ticks_unchecked_mut(0).set_changed(change_tick);

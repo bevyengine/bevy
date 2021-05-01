@@ -166,6 +166,50 @@ impl BundleInfo {
         });
     }
 
+    /// Like write_components, but does not overwrite existing components on the entity
+    /// # Safety
+    /// table row must exist, entity must be valid
+    #[allow(clippy::clippy::too_many_arguments)]
+    #[inline]
+    pub(crate) unsafe fn write_additional_components<T: Bundle>(
+        &self,
+        sparse_sets: &mut SparseSets,
+        entity: Entity,
+        table: &Table,
+        table_row: usize,
+        bundle_status: &[ComponentStatus],
+        bundle: T,
+        change_tick: u32,
+    ) {
+        // NOTE: get_components calls this closure on each component in "bundle order".
+        // bundle_info.component_ids are also in "bundle order"
+        let mut bundle_component = 0;
+        bundle.get_components(|component_ptr| {
+            // SAFE: component_id was initialized by get_dynamic_bundle_info
+            let component_id = *self.component_ids.get_unchecked(bundle_component);
+            let component_status = bundle_status.get_unchecked(bundle_component);
+            match self.storage_types[bundle_component] {
+                StorageType::Table => match component_status {
+                    ComponentStatus::Added => {
+                        let column = table.get_column(component_id).unwrap();
+                        column.set_unchecked(table_row, component_ptr);
+                        let column_status = column.get_ticks_unchecked_mut(table_row);
+                        *column_status = ComponentTicks::new(change_tick);
+                    }
+                    ComponentStatus::Mutated => {}
+                },
+                StorageType::SparseSet => match component_status {
+                    ComponentStatus::Added => {
+                        let sparse_set = sparse_sets.get_mut(component_id).unwrap();
+                        sparse_set.insert(entity, component_ptr, change_tick);
+                    }
+                    ComponentStatus::Mutated => {}
+                },
+            }
+            bundle_component += 1;
+        });
+    }
+
     #[inline]
     pub fn id(&self) -> BundleId {
         self.id
