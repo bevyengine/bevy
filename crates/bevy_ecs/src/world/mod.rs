@@ -16,7 +16,7 @@ use crate::{
         StorageType,
     },
     entity::{Entities, Entity},
-    query::{FilterFetch, QueryState, WorldQuery, QueryFilter},
+    query::{FilterFetch, QueryFilter, QueryState, WorldQuery},
     storage::{Column, SparseSet, Storages},
 };
 use std::{

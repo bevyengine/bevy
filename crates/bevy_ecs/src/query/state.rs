@@ -3,8 +3,8 @@ use crate::{
     component::ComponentId,
     entity::Entity,
     query::{
-        Access, Fetch, FetchState, FilterFetch, FilteredAccess, QueryIter, ReadOnlyFetch,
-        WorldQuery, QueryFilter,
+        Access, Fetch, FetchState, FilterFetch, FilteredAccess, QueryFilter, QueryIter,
+        ReadOnlyFetch, WorldQuery,
     },
     storage::TableId,
     world::{World, WorldId},

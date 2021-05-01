@@ -4,7 +4,7 @@ use crate::{CalculatedSize, Node, Style};
 use bevy_app::EventReader;
 use bevy_ecs::{
     entity::Entity,
-    query::{Changed, FilterFetch, With, Without, WorldQuery, QueryFilter},
+    query::{Changed, FilterFetch, QueryFilter, With, Without, WorldQuery},
     system::{Query, Res, ResMut},
 };
 use bevy_log::warn;
