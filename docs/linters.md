@@ -28,7 +28,7 @@ Explanation:
 ### [markdownlint](https://github.com/DavidAnson/markdownlint)
 
 `markdownlint` is provided by `super-linter` and is responsible for `.md` files.
-Its configuration is saved in the [.markdown-lint.yml](../.github/linters/markdown-lint.yml) file.
+Its configuration is saved in the [.markdown-lint.yml](../.github/linters/.markdown-lint.yml) file.
 
 The provided rules are documented [here](https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md) and information about setting the config can be seen [here](https://github.com/DavidAnson/markdownlint#optionsconfig).
 
