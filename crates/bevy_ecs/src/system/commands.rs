@@ -198,6 +198,10 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
     }
 
     /// Adds a [`Bundle`] of components to the current entity.
+    ///
+    /// If any of the components in the [`Bundle`] are already present on the entity,
+    /// those components will be overwritten. To add only the components in the Bundle which
+    /// are not already present on the entity, see [try_insert_bundle](Self::try_insert_bundle()).
     pub fn insert_bundle(&mut self, bundle: impl Bundle) -> &mut Self {
         self.commands.add(InsertBundle {
             entity: self.entity,
@@ -206,7 +210,11 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
         self
     }
 
-    /// Adds a bundle of components to the current entity, skipping ones that already exist.
+    /// Adds a [`Bundle`] of components to the current entity.
+    ///
+    /// If any of the components in the [`Bundle`] are already present on the entity,
+    /// those components will be silenty skipped. To overwrite components already present
+    /// on the entity with the value in the Bundle, see [insert_bundle](Self::insert_bundle()).
     pub fn try_insert_bundle(&mut self, bundle: impl Bundle) -> &mut Self {
         self.commands.add(TryInsertBundle {
             entity: self.entity,
@@ -217,6 +225,8 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
 
     /// Adds a single [`Component`] to the current entity.
     ///
+    /// If an instance of the Component is already present on the entity, that component will be overwritten.
+    /// For adding a [`Component`] to an entity only when an instance is not already present, see [try_insert](Self::try_insert()).
     ///
     /// # Warning
     ///
@@ -255,7 +265,17 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
         self
     }
 
-    /// Like insert, but does not overwrite components which already exist on the entity
+    /// Adds a single [`Component`] to the current entity.
+    ///
+    /// If an instance of the Component is already present on the entity, `try_insert` will silently return without changing it.
+    /// For adding a [`Component`] to an entity and overwriting the existing instance, see [insert](Self::insert()).
+    ///
+    /// # Warning
+    ///
+    /// It's possible to call this with a bundle, but this is likely not intended and
+    /// [`Self::try_insert_bundle`] should be used instead. If `try_insert` is called with a bundle, the
+    /// bundle itself will be added as a component instead of the bundles' inner components each
+    /// being added.
     pub fn try_insert(&mut self, component: impl Component) -> &mut Self {
         self.commands.add(TryInsert {
             entity: self.entity,

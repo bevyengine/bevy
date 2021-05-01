@@ -518,7 +518,7 @@ impl World {
     }
 
     /// Inserts a new resource with the given `value`,
-    /// overwriting an existing resource of type T.
+    /// overwriting any existing resource of type T.
     /// Resources are "unique" data of a given type.
     #[inline]
     pub fn insert_resource<T: Component>(&mut self, value: T) {
@@ -529,7 +529,6 @@ impl World {
 
     /// Inserts a new resource with the given `value`.
     /// If a resource of type T already exists, the new resource is not inserted.
-    /// Resources are "unique" data of a given type.
     #[inline]
     pub fn try_insert_resource<T: Component>(&mut self, value: T) {
         let component_id = self.components.get_or_insert_resource_id::<T>();
