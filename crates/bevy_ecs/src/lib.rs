@@ -41,7 +41,8 @@ mod tests {
         component::{Component, ComponentDescriptor, ComponentId, StorageType, TypeInfo},
         entity::Entity,
         query::{
-            Added, ChangeTrackers, Changed, FilterFetch, FilteredAccess, With, Without, WorldQuery,
+            Added, ChangeTrackers, Changed, FilterFetch, FilteredAccess, QueryFilter, With,
+            Without, WorldQuery,
         },
         world::{Mut, World},
     };
@@ -749,7 +750,7 @@ mod tests {
 
         fn get_filtered<F: WorldQuery>(world: &mut World) -> Vec<Entity>
         where
-            F::Fetch: FilterFetch,
+            F: QueryFilter,
         {
             world
                 .query_filtered::<Entity, F>()

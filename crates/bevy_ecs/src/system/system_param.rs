@@ -3,7 +3,7 @@ use crate::{
     bundle::Bundles,
     component::{Component, ComponentId, ComponentTicks, Components},
     entity::{Entities, Entity},
-    query::{FilterFetch, FilteredAccess, FilteredAccessSet, QueryState, WorldQuery},
+    query::{FilterFetch, FilteredAccess, FilteredAccessSet, QueryState, WorldQuery, QueryFilter},
     system::{CommandQueue, Commands, Query, SystemState},
     world::{FromWorld, World},
 };
@@ -76,7 +76,7 @@ pub struct QueryFetch<Q, F>(PhantomData<(Q, F)>);
 
 impl<'a, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParam for Query<'a, Q, F>
 where
-    F::Fetch: FilterFetch,
+    F: QueryFilter,
 {
     type Fetch = QueryState<Q, F>;
 }
@@ -85,7 +85,7 @@ where
 // this QueryState conflicts with any prior access, a panic will occur.
 unsafe impl<Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamState for QueryState<Q, F>
 where
-    F::Fetch: FilterFetch,
+    F: QueryFilter,
 {
     type Config = ();
 
@@ -120,7 +120,7 @@ where
 
 impl<'a, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamFetch<'a> for QueryState<Q, F>
 where
-    F::Fetch: FilterFetch,
+    F: QueryFilter,
 {
     type Item = Query<'a, Q, F>;
 

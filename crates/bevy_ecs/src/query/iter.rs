@@ -1,6 +1,6 @@
 use crate::{
     archetype::{ArchetypeId, Archetypes},
-    query::{Fetch, FilterFetch, QueryState, WorldQuery},
+    query::{Fetch, FilterFetch, QueryState, WorldQuery, QueryFilter},
     storage::{TableId, Tables},
     world::World,
 };
@@ -11,7 +11,7 @@ use crate::{
 /// [`Query::iter_mut`](crate::system::Query::iter_mut) methods.
 pub struct QueryIter<'w, 's, Q: WorldQuery, F: WorldQuery>
 where
-    F::Fetch: FilterFetch,
+    F: QueryFilter,
 {
     tables: &'w Tables,
     archetypes: &'w Archetypes,
@@ -28,7 +28,7 @@ where
 
 impl<'w, 's, Q: WorldQuery, F: WorldQuery> QueryIter<'w, 's, Q, F>
 where
-    F::Fetch: FilterFetch,
+    F: QueryFilter,
 {
     pub(crate) unsafe fn new(
         world: &'w World,
@@ -66,7 +66,7 @@ where
 
 impl<'w, 's, Q: WorldQuery, F: WorldQuery> Iterator for QueryIter<'w, 's, Q, F>
 where
-    F::Fetch: FilterFetch,
+    F: QueryFilter,
 {
     type Item = <Q::Fetch as Fetch<'w>>::Item;
 

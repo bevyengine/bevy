@@ -3,6 +3,7 @@ use crate::{
     entity::Entity,
     query::{
         Fetch, FilterFetch, QueryEntityError, QueryIter, QueryState, ReadOnlyFetch, WorldQuery,
+        QueryFilter,
     },
     world::{Mut, World},
 };
@@ -108,7 +109,7 @@ use thiserror::Error;
 /// bevy has to offer.
 pub struct Query<'w, Q: WorldQuery, F: WorldQuery = ()>
 where
-    F::Fetch: FilterFetch,
+    F: QueryFilter,
 {
     pub(crate) world: &'w World,
     pub(crate) state: &'w QueryState<Q, F>,
@@ -118,7 +119,7 @@ where
 
 impl<'w, Q: WorldQuery, F: WorldQuery> Query<'w, Q, F>
 where
-    F::Fetch: FilterFetch,
+    F: QueryFilter,
 {
     /// Creates a new query.
     ///

@@ -4,7 +4,7 @@ use crate::{
     entity::Entity,
     query::{
         Access, Fetch, FetchState, FilterFetch, FilteredAccess, QueryIter, ReadOnlyFetch,
-        WorldQuery,
+        WorldQuery, QueryFilter,
     },
     storage::TableId,
     world::{World, WorldId},
@@ -15,7 +15,7 @@ use thiserror::Error;
 
 pub struct QueryState<Q: WorldQuery, F: WorldQuery = ()>
 where
-    F::Fetch: FilterFetch,
+    F: QueryFilter,
 {
     world_id: WorldId,
     pub(crate) archetype_generation: ArchetypeGeneration,
@@ -33,7 +33,7 @@ where
 
 impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F>
 where
-    F::Fetch: FilterFetch,
+    F: QueryFilter,
 {
     pub fn new(world: &mut World) -> Self {
         let fetch_state = <Q::State as FetchState>::init(world);
