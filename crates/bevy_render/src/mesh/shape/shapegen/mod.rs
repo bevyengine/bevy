@@ -684,9 +684,16 @@ impl Triangle {
     }
 }
 
+/// Deals with the attributes in an attribute-agnostic way.
 struct Attributes<'a> {
+
+    /// The current length of the attributes.
     pub len: usize,
+
+    /// The attributes, with their names.
     pub attributes: Vec<(&'a str, &'a mut VertexAttributeValues)>,
+
+    /// The number of extra, default attributes to add.
     pub tail: usize,
 }
 
@@ -698,14 +705,21 @@ impl<'a> Attributes<'a> {
             tail: 0,
         }
     }
+
+    /// Length of the attributes as if the tail had
+    /// already been applied.
     pub fn len(&self) -> usize {
         self.len + self.tail
     }
 
+    /// Lazily adds `len` default values to the end of each
+    /// attribute list.
     pub fn extend_default(&mut self, len: usize) {
         self.tail += len;
     }
 
+    /// Extends all of the attributes associated with the
+    /// mesh by `self.tail` default values.
     pub fn apply_tail(&mut self) {
         macro_rules! fill_default {
             ($len:expr, $list:expr, $t:ty) => {
@@ -734,6 +748,12 @@ impl<'a> Attributes<'a> {
         self.tail = 0;
     }
 
+    /// Calculates the values of each new index after subdivison
+    /// using the interpolator specified. This will query the
+    /// interpolator for the adequate attribute-specific
+    /// interpolator depending on the name and type.
+    ///
+    /// For more information see [`Interpolator`].
     pub fn calculate<I: Interpolator>(
         &mut self,
         triangles: &mut [Triangle],
@@ -798,7 +818,10 @@ impl<'a> Attributes<'a> {
     }
 }
 
-fn ensure_indices_present(mesh: &mut Mesh, len: usize) -> (Vec<u32>, bool) {
+/// If there are already indices present in the mesh, return those
+/// as `u32`s. Otherwise, return `0..len`. The boolean indicates if
+/// the default indices (`0..len`) were generated.
+fn get_indices(mesh: &mut Mesh, len: usize) -> (Vec<u32>, bool) {
     if let Some(indices) = mesh.indices() {
         let i = match indices {
             Indices::U16(x) => x.iter().map(|x| *x as _).collect(),
@@ -810,6 +833,10 @@ fn ensure_indices_present(mesh: &mut Mesh, len: usize) -> (Vec<u32>, bool) {
     }
 }
 
+/// Groups indices into triangles and edges.
+///
+/// `is_iota` is used to indicate if the indices
+/// are linear starting from 0: `[0, 1, 2, 3, 4, 5, etc.]`.
 fn generate_triangles(indices: &[u32], is_iota: bool) -> (Box<[Triangle]>, Box<[Edge]>) {
     assert_eq!(indices.len() % 3, 0);
     if is_iota {
@@ -889,6 +916,10 @@ fn generate_triangles(indices: &[u32], is_iota: bool) -> (Box<[Triangle]>, Box<[
     }
 }
 
+/// Subdivides a mesh N times, progressing through a series of
+/// triangular numbers associated with each original triangle.
+///
+/// ![Series of triangular dots](https://nzmaths.co.nz/sites/default/files/images/uploads/users/3/triangular.PNG)
 pub(crate) fn subdivide<I: Interpolator>(
     mesh: &mut Mesh,
     iterations: usize,
@@ -926,7 +957,7 @@ pub(crate) fn subdivide<I: Interpolator>(
         return Some(());
     };
 
-    let (mut indices, is_iota) = ensure_indices_present(mesh, len);
+    let (mut indices, is_iota) = get_indices(mesh, len);
 
     let attributes = mesh
         .attribute_iter_mut()
