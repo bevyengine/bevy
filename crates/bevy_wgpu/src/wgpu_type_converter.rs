@@ -550,16 +550,6 @@ impl WgpuFrom<BlendState> for wgpu::BlendState {
     }
 }
 
-// impl WgpuFrom<&BlendState> for wgpu::BlendComponent {
-//     fn from(val: &BlendState) -> Self {
-//         wgpu::BlendComponent {
-//             src_factor: val.src_factor.wgpu_into(),
-//             dst_factor: val.dst_factor.wgpu_into(),
-//             operation: val.operation.wgpu_into(),
-//         }
-//     }
-// }
-
 impl WgpuFrom<BlendFactor> for wgpu::BlendFactor {
     fn from(val: BlendFactor) -> Self {
         match val {
