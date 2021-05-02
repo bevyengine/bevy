@@ -3,9 +3,10 @@ use bevy_asset::{Assets, HandleUntyped};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     pipeline::{
-        BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrite, CompareFunction,
-        CullMode, DepthBiasState, DepthStencilState, FrontFace, PipelineDescriptor, PolygonMode,
-        PrimitiveState, PrimitiveTopology, StencilFaceState, StencilState,
+        BlendComponent, BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrite,
+        CompareFunction, CullMode, DepthBiasState, DepthStencilState, FrontFace,
+        PipelineDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology, StencilFaceState,
+        StencilState,
     },
     render_graph::{base, AssetRenderResourcesNode, RenderGraph, RenderResourcesNode},
     shader::{Shader, ShaderStage, ShaderStages},
@@ -38,16 +39,18 @@ pub fn build_sprite_sheet_pipeline(shaders: &mut Assets<Shader>) -> PipelineDesc
         }),
         color_target_states: vec![ColorTargetState {
             format: TextureFormat::default(),
-            color_blend: BlendState {
-                src_factor: BlendFactor::SrcAlpha,
-                dst_factor: BlendFactor::OneMinusSrcAlpha,
-                operation: BlendOperation::Add,
-            },
-            alpha_blend: BlendState {
-                src_factor: BlendFactor::One,
-                dst_factor: BlendFactor::One,
-                operation: BlendOperation::Add,
-            },
+            blend: Some(BlendState {
+                color: BlendComponent {
+                    src_factor: BlendFactor::SrcAlpha,
+                    dst_factor: BlendFactor::OneMinusSrcAlpha,
+                    operation: BlendOperation::Add,
+                },
+                alpha: BlendComponent {
+                    src_factor: BlendFactor::One,
+                    dst_factor: BlendFactor::One,
+                    operation: BlendOperation::Add,
+                },
+            }),
             write_mask: ColorWrite::ALL,
         }],
         primitive: PrimitiveState {
@@ -92,16 +95,18 @@ pub fn build_sprite_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor
         }),
         color_target_states: vec![ColorTargetState {
             format: TextureFormat::default(),
-            color_blend: BlendState {
-                src_factor: BlendFactor::SrcAlpha,
-                dst_factor: BlendFactor::OneMinusSrcAlpha,
-                operation: BlendOperation::Add,
-            },
-            alpha_blend: BlendState {
-                src_factor: BlendFactor::One,
-                dst_factor: BlendFactor::One,
-                operation: BlendOperation::Add,
-            },
+            blend: Some(BlendState {
+                color: BlendComponent {
+                    src_factor: BlendFactor::SrcAlpha,
+                    dst_factor: BlendFactor::OneMinusSrcAlpha,
+                    operation: BlendOperation::Add,
+                },
+                alpha: BlendComponent {
+                    src_factor: BlendFactor::One,
+                    dst_factor: BlendFactor::One,
+                    operation: BlendOperation::Add,
+                },
+            }),
             write_mask: ColorWrite::ALL,
         }],
         primitive: PrimitiveState {

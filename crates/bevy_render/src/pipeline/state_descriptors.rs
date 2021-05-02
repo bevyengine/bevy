@@ -158,24 +158,21 @@ pub struct PrimitiveState {
 #[derive(Clone, Debug)]
 pub struct ColorTargetState {
     pub format: TextureFormat,
-    pub alpha_blend: BlendState,
-    pub color_blend: BlendState,
+    pub blend: Option<BlendState>,
     pub write_mask: ColorWrite,
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct BlendState {
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BlendComponent {
     pub src_factor: BlendFactor,
     pub dst_factor: BlendFactor,
     pub operation: BlendOperation,
 }
 
-impl BlendState {
-    pub const REPLACE: Self = BlendState {
-        src_factor: BlendFactor::One,
-        dst_factor: BlendFactor::Zero,
-        operation: BlendOperation::Add,
-    };
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BlendState {
+    pub alpha: BlendComponent,
+    pub color: BlendComponent,
 }
 
 bitflags::bitflags! {

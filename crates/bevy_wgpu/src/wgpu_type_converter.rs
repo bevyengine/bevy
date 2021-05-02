@@ -506,10 +506,7 @@ impl WgpuFrom<&ColorTargetState> for wgpu::ColorTargetState {
         wgpu::ColorTargetState {
             format: val.format.wgpu_into(),
             write_mask: val.write_mask.wgpu_into(),
-            blend: Some(wgpu::BlendState {
-                color: (&val.color_blend).wgpu_into(),
-                alpha: (&val.alpha_blend).wgpu_into(),
-            }),
+            blend: val.blend.map(|blend| blend.wgpu_into()),
         }
     }
 }
@@ -536,32 +533,32 @@ impl WgpuFrom<ColorWrite> for wgpu::ColorWrite {
     }
 }
 
-impl WgpuFrom<&BlendState> for wgpu::BlendState {
-    fn from(val: &BlendState) -> Self {
+impl WgpuFrom<BlendState> for wgpu::BlendState {
+    fn from(val: BlendState) -> Self {
         wgpu::BlendState {
             color: wgpu::BlendComponent {
-                src_factor: val.src_factor.wgpu_into(),
-                dst_factor: val.dst_factor.wgpu_into(),
-                operation: val.operation.wgpu_into(),
+                src_factor: val.color.src_factor.wgpu_into(),
+                dst_factor: val.color.dst_factor.wgpu_into(),
+                operation: val.color.operation.wgpu_into(),
             },
             alpha: wgpu::BlendComponent {
-                src_factor: val.src_factor.wgpu_into(),
-                dst_factor: val.dst_factor.wgpu_into(),
-                operation: val.operation.wgpu_into(),
+                src_factor: val.alpha.src_factor.wgpu_into(),
+                dst_factor: val.alpha.dst_factor.wgpu_into(),
+                operation: val.alpha.operation.wgpu_into(),
             },
         }
     }
 }
 
-impl WgpuFrom<&BlendState> for wgpu::BlendComponent {
-    fn from(val: &BlendState) -> Self {
-        wgpu::BlendComponent {
-            src_factor: val.src_factor.wgpu_into(),
-            dst_factor: val.dst_factor.wgpu_into(),
-            operation: val.operation.wgpu_into(),
-        }
-    }
-}
+// impl WgpuFrom<&BlendState> for wgpu::BlendComponent {
+//     fn from(val: &BlendState) -> Self {
+//         wgpu::BlendComponent {
+//             src_factor: val.src_factor.wgpu_into(),
+//             dst_factor: val.dst_factor.wgpu_into(),
+//             operation: val.operation.wgpu_into(),
+//         }
+//     }
+// }
 
 impl WgpuFrom<BlendFactor> for wgpu::BlendFactor {
     fn from(val: BlendFactor) -> Self {
