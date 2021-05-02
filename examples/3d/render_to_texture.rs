@@ -4,8 +4,8 @@ use bevy::{
     render::{
         camera::{ActiveCameras, Camera, CameraProjection},
         pass::{
-            LoadOp, Operations, PassDescriptor, RenderPassColorAttachmentDescriptor,
-            RenderPassDepthStencilAttachmentDescriptor, TextureAttachment,
+            LoadOp, Operations, PassDescriptor, RenderPassColorAttachment,
+            RenderPassDepthStencilAttachment, TextureAttachment,
         },
         render_graph::{
             base::{node::MAIN_PASS, MainPass},
@@ -31,7 +31,7 @@ pub const FIRST_PASS_CAMERA: &str = "first_pass_camera";
 
 fn add_render_to_texture_graph(graph: &mut RenderGraph, size: Extent3d) {
     let mut pass_node = PassNode::<&FirstPass>::new(PassDescriptor {
-        color_attachments: vec![RenderPassColorAttachmentDescriptor {
+        color_attachments: vec![RenderPassColorAttachment {
             attachment: TextureAttachment::Input("color_attachment".to_string()),
             resolve_target: None,
             ops: Operations {
@@ -39,7 +39,7 @@ fn add_render_to_texture_graph(graph: &mut RenderGraph, size: Extent3d) {
                 store: true,
             },
         }],
-        depth_stencil_attachment: Some(RenderPassDepthStencilAttachmentDescriptor {
+        depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
             attachment: TextureAttachment::Input("depth".to_string()),
             depth_ops: Some(Operations {
                 load: LoadOp::Clear(1.0),

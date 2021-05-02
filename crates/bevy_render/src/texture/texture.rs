@@ -31,7 +31,7 @@ impl Default for Texture {
             size: Extent3d {
                 width: 1,
                 height: 1,
-                depth: 1,
+                depth_or_array_layers: 1,
             },
             format: TextureFormat::Rgba8UnormSrgb,
             dimension: TextureDimension::D2,
@@ -119,13 +119,13 @@ impl Texture {
     pub fn reinterpret_stacked_2d_as_array(&mut self, layers: u32) {
         // Must be a stacked image, and the height must be divisible by layers.
         assert!(self.dimension == TextureDimension::D2);
-        assert!(self.size.depth == 1);
+        assert!(self.size.depth_or_array_layers == 1);
         assert_eq!(self.size.height % layers, 0);
 
         self.reinterpret_size(Extent3d {
             width: self.size.width,
             height: self.size.height / layers,
-            depth: layers,
+            depth_or_array_layers: layers,
         });
     }
 

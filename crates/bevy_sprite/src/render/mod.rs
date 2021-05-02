@@ -35,7 +35,6 @@ pub fn build_sprite_sheet_pipeline(shaders: &mut Assets<Shader>) -> PipelineDesc
                 slope_scale: 0.0,
                 clamp: 0.0,
             },
-            clamp_depth: false,
         }),
         color_target_states: vec![ColorTargetState {
             format: TextureFormat::default(),
@@ -57,6 +56,8 @@ pub fn build_sprite_sheet_pipeline(shaders: &mut Assets<Shader>) -> PipelineDesc
             front_face: FrontFace::Ccw,
             cull_mode: CullMode::None,
             polygon_mode: PolygonMode::Fill,
+            clamp_depth: false,
+            conservative: false,
         },
         ..PipelineDescriptor::new(ShaderStages {
             vertex: shaders.add(Shader::from_glsl(
@@ -88,7 +89,6 @@ pub fn build_sprite_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor
                 slope_scale: 0.0,
                 clamp: 0.0,
             },
-            clamp_depth: false,
         }),
         color_target_states: vec![ColorTargetState {
             format: TextureFormat::default(),
@@ -110,6 +110,8 @@ pub fn build_sprite_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor
             front_face: FrontFace::Ccw,
             cull_mode: CullMode::None,
             polygon_mode: PolygonMode::Fill,
+            clamp_depth: false,
+            conservative: false,
         },
         ..PipelineDescriptor::new(ShaderStages {
             vertex: shaders.add(Shader::from_glsl(

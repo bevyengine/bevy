@@ -9,7 +9,6 @@ pub struct DepthStencilState {
     pub depth_compare: CompareFunction,
     pub stencil: StencilState,
     pub bias: DepthBiasState,
-    pub clamp_depth: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -152,6 +151,8 @@ pub struct PrimitiveState {
     pub front_face: FrontFace,
     pub cull_mode: CullMode,
     pub polygon_mode: PolygonMode,
+    pub clamp_depth: bool,
+    pub conservative: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -199,17 +200,17 @@ impl Default for ColorWrite {
 pub enum BlendFactor {
     Zero = 0,
     One = 1,
-    SrcColor = 2,
-    OneMinusSrcColor = 3,
+    Src = 2,
+    OneMinusSrc = 3,
     SrcAlpha = 4,
     OneMinusSrcAlpha = 5,
-    DstColor = 6,
-    OneMinusDstColor = 7,
+    Dst = 6,
+    OneMinusDst = 7,
     DstAlpha = 8,
     OneMinusDstAlpha = 9,
     SrcAlphaSaturated = 10,
-    BlendColor = 11,
-    OneMinusBlendColor = 12,
+    Constant = 11,
+    OneMinusConstant = 12,
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]

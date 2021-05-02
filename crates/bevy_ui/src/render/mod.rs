@@ -5,8 +5,7 @@ use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ActiveCameras,
     pass::{
-        LoadOp, Operations, PassDescriptor, RenderPassDepthStencilAttachmentDescriptor,
-        TextureAttachment,
+        LoadOp, Operations, PassDescriptor, RenderPassDepthStencilAttachment, TextureAttachment,
     },
     pipeline::*,
     prelude::Msaa,
@@ -38,7 +37,6 @@ pub fn build_ui_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
                 slope_scale: 0.0,
                 clamp: 0.0,
             },
-            clamp_depth: false,
         }),
         color_target_states: vec![ColorTargetState {
             format: TextureFormat::default(),
@@ -90,7 +88,7 @@ pub(crate) fn add_ui_graph(world: &mut World) {
     pipelines.set_untracked(UI_PIPELINE_HANDLE, build_ui_pipeline(&mut shaders));
 
     let mut ui_pass_node = PassNode::<&Node>::new(PassDescriptor {
-        color_attachments: vec![msaa.color_attachment_descriptor(
+        color_attachments: vec![msaa.color_attachment(
             TextureAttachment::Input("color_attachment".to_string()),
             TextureAttachment::Input("color_resolve_target".to_string()),
             Operations {
@@ -98,7 +96,7 @@ pub(crate) fn add_ui_graph(world: &mut World) {
                 store: true,
             },
         )],
-        depth_stencil_attachment: Some(RenderPassDepthStencilAttachmentDescriptor {
+        depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
             attachment: TextureAttachment::Input("depth".to_string()),
             depth_ops: Some(Operations {
                 load: LoadOp::Clear(1.0),

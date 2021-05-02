@@ -29,7 +29,6 @@ pub(crate) fn build_pbr_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescri
                 slope_scale: 0.0,
                 clamp: 0.0,
             },
-            clamp_depth: false,
         }),
         color_target_states: vec![ColorTargetState {
             format: TextureFormat::default(),

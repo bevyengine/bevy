@@ -43,6 +43,8 @@ impl PipelineDescriptor {
                 front_face: FrontFace::Ccw,
                 cull_mode: CullMode::Back,
                 polygon_mode: PolygonMode::Fill,
+                clamp_depth: false,
+                conservative: false,
             },
             multisample: MultisampleState {
                 count: 1,
@@ -61,6 +63,8 @@ impl PipelineDescriptor {
                 front_face: FrontFace::Ccw,
                 cull_mode: CullMode::Back,
                 polygon_mode: PolygonMode::Fill,
+                clamp_depth: false,
+                conservative: false,
             },
             layout: None,
             depth_stencil: Some(DepthStencilState {
@@ -78,7 +82,6 @@ impl PipelineDescriptor {
                     slope_scale: 0.0,
                     clamp: 0.0,
                 },
-                clamp_depth: false,
             }),
             color_target_states: vec![ColorTargetState {
                 format: TextureFormat::default(),

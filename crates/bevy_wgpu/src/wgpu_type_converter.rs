@@ -259,7 +259,7 @@ impl WgpuFrom<Extent3d> for wgpu::Extent3d {
         wgpu::Extent3d {
             height: val.height,
             width: val.width,
-            depth_or_array_layers: val.depth,
+            depth_or_array_layers: val.depth_or_array_layers,
         }
     }
 }
@@ -524,8 +524,8 @@ impl WgpuFrom<PrimitiveState> for wgpu::PrimitiveState {
             front_face: val.front_face.wgpu_into(),
             cull_mode: val.cull_mode.wgpu_into(),
             polygon_mode: val.polygon_mode.wgpu_into(),
-            clamp_depth: false,
-            conservative: false,
+            clamp_depth: val.clamp_depth,
+            conservative: val.conservative,
         }
     }
 }
@@ -568,17 +568,17 @@ impl WgpuFrom<BlendFactor> for wgpu::BlendFactor {
         match val {
             BlendFactor::Zero => wgpu::BlendFactor::Zero,
             BlendFactor::One => wgpu::BlendFactor::One,
-            BlendFactor::SrcColor => wgpu::BlendFactor::Src,
-            BlendFactor::OneMinusSrcColor => wgpu::BlendFactor::OneMinusSrc,
+            BlendFactor::Src => wgpu::BlendFactor::Src,
+            BlendFactor::OneMinusSrc => wgpu::BlendFactor::OneMinusSrc,
             BlendFactor::SrcAlpha => wgpu::BlendFactor::SrcAlpha,
             BlendFactor::OneMinusSrcAlpha => wgpu::BlendFactor::OneMinusSrcAlpha,
-            BlendFactor::DstColor => wgpu::BlendFactor::Dst,
-            BlendFactor::OneMinusDstColor => wgpu::BlendFactor::OneMinusDst,
+            BlendFactor::Dst => wgpu::BlendFactor::Dst,
+            BlendFactor::OneMinusDst => wgpu::BlendFactor::OneMinusDst,
             BlendFactor::DstAlpha => wgpu::BlendFactor::DstAlpha,
             BlendFactor::OneMinusDstAlpha => wgpu::BlendFactor::OneMinusDstAlpha,
             BlendFactor::SrcAlphaSaturated => wgpu::BlendFactor::SrcAlphaSaturated,
-            BlendFactor::BlendColor => wgpu::BlendFactor::Constant,
-            BlendFactor::OneMinusBlendColor => wgpu::BlendFactor::OneMinusConstant,
+            BlendFactor::Constant => wgpu::BlendFactor::Constant,
+            BlendFactor::OneMinusConstant => wgpu::BlendFactor::OneMinusConstant,
         }
     }
 }

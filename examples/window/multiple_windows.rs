@@ -102,7 +102,7 @@ fn setup_pipeline(
 
     // add a new render pass for our new window / camera
     let mut second_window_pass = PassNode::<&MainPass>::new(PassDescriptor {
-        color_attachments: vec![msaa.color_attachment_descriptor(
+        color_attachments: vec![msaa.color_attachment(
             TextureAttachment::Input("color_attachment".to_string()),
             TextureAttachment::Input("color_resolve_target".to_string()),
             Operations {
@@ -110,7 +110,7 @@ fn setup_pipeline(
                 store: true,
             },
         )],
-        depth_stencil_attachment: Some(RenderPassDepthStencilAttachmentDescriptor {
+        depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
             attachment: TextureAttachment::Input("depth".to_string()),
             depth_ops: Some(Operations {
                 load: LoadOp::Clear(1.0),
@@ -159,7 +159,7 @@ fn setup_pipeline(
                 window_id,
                 TextureDescriptor {
                     size: Extent3d {
-                        depth: 1,
+                        depth_or_array_layers: 1,
                         width: 1,
                         height: 1,
                     },

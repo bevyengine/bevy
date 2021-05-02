@@ -15,6 +15,8 @@ pub(crate) fn build_wireframe_pipeline(shaders: &mut Assets<Shader>) -> Pipeline
             front_face: FrontFace::Ccw,
             cull_mode: CullMode::None,
             polygon_mode: PolygonMode::Line,
+            clamp_depth: false,
+            conservative: false,
         },
         ..PipelineDescriptor::default_config(ShaderStages {
             vertex: shaders.add(Shader::from_glsl(
