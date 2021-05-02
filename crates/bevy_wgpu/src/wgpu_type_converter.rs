@@ -4,7 +4,7 @@ use bevy_render::{
     pass::{LoadOp, Operations},
     pipeline::{
         BindType, BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrite,
-        CompareFunction, CullMode, DepthBiasState, DepthStencilState, FrontFace, IndexFormat,
+        CompareFunction, DepthBiasState, DepthStencilState, Face, FrontFace, IndexFormat,
         InputStepMode, MultisampleState, PolygonMode, PrimitiveState, PrimitiveTopology,
         StencilFaceState, StencilOperation, StencilState, VertexAttribute, VertexBufferLayout,
         VertexFormat,
@@ -471,12 +471,11 @@ impl WgpuFrom<FrontFace> for wgpu::FrontFace {
     }
 }
 
-impl WgpuFrom<CullMode> for Option<wgpu::Face> {
-    fn from(val: CullMode) -> Self {
+impl WgpuFrom<Face> for wgpu::Face {
+    fn from(val: Face) -> Self {
         match val {
-            CullMode::None => None,
-            CullMode::Front => Some(wgpu::Face::Front),
-            CullMode::Back => Some(wgpu::Face::Back),
+            Face::Front => wgpu::Face::Front,
+            Face::Back => wgpu::Face::Back,
         }
     }
 }
@@ -519,7 +518,7 @@ impl WgpuFrom<PrimitiveState> for wgpu::PrimitiveState {
                 .strip_index_format
                 .map(|index_format| index_format.wgpu_into()),
             front_face: val.front_face.wgpu_into(),
-            cull_mode: val.cull_mode.wgpu_into(),
+            cull_mode: val.cull_mode.map(|face| face.wgpu_into()),
             polygon_mode: val.polygon_mode.wgpu_into(),
             clamp_depth: val.clamp_depth,
             conservative: val.conservative,

@@ -116,16 +116,9 @@ impl Default for FrontFace {
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
-pub enum CullMode {
-    None = 0,
-    Front = 1,
-    Back = 2,
-}
-
-impl Default for CullMode {
-    fn default() -> Self {
-        CullMode::None
-    }
+pub enum Face {
+    Front = 0,
+    Back = 1,
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
@@ -149,7 +142,7 @@ pub struct PrimitiveState {
     pub topology: PrimitiveTopology,
     pub strip_index_format: Option<IndexFormat>,
     pub front_face: FrontFace,
-    pub cull_mode: CullMode,
+    pub cull_mode: Option<Face>,
     pub polygon_mode: PolygonMode,
     pub clamp_depth: bool,
     pub conservative: bool,

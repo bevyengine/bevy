@@ -1,6 +1,6 @@
 use super::{
     state_descriptors::{
-        BlendFactor, BlendOperation, ColorWrite, CompareFunction, CullMode, FrontFace,
+        BlendFactor, BlendOperation, ColorWrite, CompareFunction, Face, FrontFace,
         PrimitiveTopology,
     },
     PipelineLayout,
@@ -41,7 +41,7 @@ impl PipelineDescriptor {
                 topology: PrimitiveTopology::TriangleList,
                 strip_index_format: None,
                 front_face: FrontFace::Ccw,
-                cull_mode: CullMode::Back,
+                cull_mode: Some(Face::Back),
                 polygon_mode: PolygonMode::Fill,
                 clamp_depth: false,
                 conservative: false,
@@ -61,7 +61,7 @@ impl PipelineDescriptor {
                 topology: PrimitiveTopology::TriangleList,
                 strip_index_format: None,
                 front_face: FrontFace::Ccw,
-                cull_mode: CullMode::Back,
+                cull_mode: Some(Face::Back),
                 polygon_mode: PolygonMode::Fill,
                 clamp_depth: false,
                 conservative: false,

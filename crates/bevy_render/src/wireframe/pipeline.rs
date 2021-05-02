@@ -1,7 +1,5 @@
 use crate::{
-    pipeline::{
-        CullMode, FrontFace, PipelineDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology,
-    },
+    pipeline::{FrontFace, PipelineDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology},
     shader::{Shader, ShaderStage, ShaderStages},
 };
 use bevy_asset::Assets;
@@ -13,7 +11,7 @@ pub(crate) fn build_wireframe_pipeline(shaders: &mut Assets<Shader>) -> Pipeline
             topology: PrimitiveTopology::TriangleList,
             strip_index_format: None,
             front_face: FrontFace::Ccw,
-            cull_mode: CullMode::None,
+            cull_mode: None,
             polygon_mode: PolygonMode::Line,
             clamp_depth: false,
             conservative: false,
