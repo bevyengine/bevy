@@ -280,7 +280,9 @@ Please reference `cargo-apk` [README](https://crates.io/crates/cargo-apk) for ot
 
 ### Old phones
 
-Bevy by default targets Android API level 29 in its examples which is the [Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). Users of older phones may want to use an older API when testing.
+Bevy by default targets Android API level 29 in its examples which is the <!-- markdown-link-check-disable -->
+[Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). <!-- markdown-link-check-enable -->
+Users of older phones may want to use an older API when testing.
 
 To use a different API, the following fields must be updated in Cargo.toml:
 

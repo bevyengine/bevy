@@ -93,6 +93,16 @@ jobs:
           # Not needed here as only one Linter is used.
           #GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  check-markdown-links:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: gaurav-nelson/github-action-markdown-link-check@0fe4911067fa322422f325b002d2038ba5602170
+      with:
+        use-quiet-mode: 'yes'
+        use-verbose-mode: 'yes'
+        config-file: '.github/linters/markdown-link-check.json'
+
   run-examples:
     runs-on: ubuntu-latest
 
