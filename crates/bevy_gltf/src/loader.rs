@@ -116,35 +116,35 @@ async fn load_gltf<'a, 'b>(
 
             if let Some(vertex_attribute) = reader
                 .read_positions()
-                .map(|v| VertexAttributeValues::Float3(v.collect()))
+                .map(|v| VertexAttributeValues::Float32x3(v.collect()))
             {
                 mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, vertex_attribute);
             }
 
             if let Some(vertex_attribute) = reader
                 .read_normals()
-                .map(|v| VertexAttributeValues::Float3(v.collect()))
+                .map(|v| VertexAttributeValues::Float32x3(v.collect()))
             {
                 mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, vertex_attribute);
             }
 
             if let Some(vertex_attribute) = reader
                 .read_tangents()
-                .map(|v| VertexAttributeValues::Float4(v.collect()))
+                .map(|v| VertexAttributeValues::Float32x4(v.collect()))
             {
                 mesh.set_attribute(Mesh::ATTRIBUTE_TANGENT, vertex_attribute);
             }
 
             if let Some(vertex_attribute) = reader
                 .read_tex_coords(0)
-                .map(|v| VertexAttributeValues::Float2(v.into_f32().collect()))
+                .map(|v| VertexAttributeValues::Float32x2(v.into_f32().collect()))
             {
                 mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, vertex_attribute);
             }
 
             if let Some(vertex_attribute) = reader
                 .read_colors(0)
-                .map(|v| VertexAttributeValues::Float4(v.into_rgba_f32().collect()))
+                .map(|v| VertexAttributeValues::Float32x4(v.into_rgba_f32().collect()))
             {
                 mesh.set_attribute(Mesh::ATTRIBUTE_COLOR, vertex_attribute);
             }
