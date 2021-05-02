@@ -76,7 +76,7 @@ where
             samples,
             values,
             TangentControl::Flat,
-            Interpolation::CatmullRom,
+            Interpolation::Hermite,
         )
     }
 
@@ -89,7 +89,7 @@ where
             samples,
             values,
             TangentControl::Auto,
-            Interpolation::CatmullRom,
+            Interpolation::Hermite,
         )
     }
 
@@ -192,7 +192,7 @@ where
         Self {
             time_stamps: vec![0.0],
             keyframes: vec![v],
-            modes: vec![Interpolation::CatmullRom],
+            modes: vec![Interpolation::Hermite],
             tangents_control: vec![TangentControl::Auto],
             tangents_in: vec![T::FLAT_TANGENT],
             tangents_out: vec![T::FLAT_TANGENT],

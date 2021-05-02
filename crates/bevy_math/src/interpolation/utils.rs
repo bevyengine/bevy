@@ -33,11 +33,11 @@ where
     k0 * (1.0 - u) + k1 * u
 }
 
-/// Catmull-Rom spline interpolation
+/// Cubic hermite spline
 ///
 /// Source: http://archive.gamedev.net/archive/reference/articles/article1497.html
 #[inline]
-pub fn catmull_rom_unclamped<T>(k0: T, t0: T, k1: T, t1: T, u: f32, dx: f32) -> T
+pub fn hermite_unclamped<T>(k0: T, t0: T, k1: T, t1: T, u: f32, dx: f32) -> T
 where
     T: Add<Output = T> + Sub<Output = T> + Mul<f32, Output = T>,
 {
@@ -52,7 +52,7 @@ where
         + t1 * dx * (v_u3 - v_u2)
 }
 
-/// Finds the tangent gradients for the Catmull-Rom spline
+/// Finds the tangent gradients for the hermite spline
 ///
 /// Source: http://archive.gamedev.net/archive/reference/articles/article1497.html
 #[inline]
@@ -63,3 +63,5 @@ where
     // k'(t) = ½[k(t) - k(t-1)]/δx1 + ½[k(t+1) - k(t)]/δx2
     ((k1 - k0) / (t1 - t0).max(1e-9) + (k2 - k1) / (t2 - t1).max(1e-9)) * 0.5
 }
+
+// https://www.cubic.org/docs/hermite.htm

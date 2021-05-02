@@ -10,10 +10,11 @@ pub struct TangentIgnore;
 pub enum Interpolation {
     Step,
     Linear,
-    CatmullRom,
+    Hermite,
 }
 
 pub trait Interpolate: Lerp + Clone {
+    /// Tangent used for the hermite interpolation
     type Tangent: Copy;
 
     const FLAT_TANGENT: Self::Tangent;
@@ -84,9 +85,7 @@ macro_rules! interpolate {
                 match interp {
                     Interpolation::Step => utils::step_unclamped(k0, k1, t),
                     Interpolation::Linear => utils::lerp_unclamped(*k0, *k1, t),
-                    Interpolation::CatmullRom => {
-                        utils::catmull_rom_unclamped(*k0, *t0, *k1, *t1, t, dt)
-                    }
+                    Interpolation::Hermite => utils::hermite_unclamped(*k0, *t0, *k1, *t1, t, dt),
                 }
             }
 
@@ -163,14 +162,14 @@ impl Interpolate for Quat {
                 let d = utils::inv_sqrt(q.dot(q));
                 (q * d).into()
             }
-            Interpolation::CatmullRom => {
+            Interpolation::Hermite => {
                 // Make sure is always the short path, look at this: https://github.com/mgeier/quaternion-nursery
                 let mut k1 = *k1;
                 if k0.dot(k1) < 0.0 {
                     k1 = -k1;
                 }
 
-                let q = utils::catmull_rom_unclamped::<Vec4>(
+                let q = utils::hermite_unclamped::<Vec4>(
                     (*k0).into(),
                     (*t0).into(),
                     k1.into(),
