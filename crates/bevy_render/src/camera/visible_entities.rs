@@ -3,7 +3,7 @@ use crate::{draw::OutsideFrustum, prelude::Visible};
 use bevy_core::FloatOrd;
 use bevy_ecs::{entity::Entity, query::Without, reflect::ReflectComponent, system::Query};
 use bevy_reflect::Reflect;
-use bevy_transform::prelude::GlobalTransform;
+use bevy_transform::prelude::{GlobalTransform, Parent};
 
 #[derive(Debug)]
 pub struct VisibleEntity {
@@ -204,7 +204,7 @@ pub fn visible_entities_system(
         &mut VisibleEntities,
         Option<&RenderLayers>,
     )>,
-    visible_query: Query<(Entity, &Visible, Option<&RenderLayers>), Without<OutsideFrustum>>,
+    visible_query: Query<(Entity, &Visible, Option<&Parent>, Option<&RenderLayers>), Without<OutsideFrustum>>,
     visible_transform_query: Query<&GlobalTransform, Without<OutsideFrustum>>,
 ) {
     for (camera, camera_global_transform, mut visible_entities, maybe_camera_mask) in
@@ -216,9 +216,18 @@ pub fn visible_entities_system(
 
         let mut no_transform_order = 0.0;
         let mut transparent_entities = Vec::new();
-        for (entity, visible, maybe_entity_mask) in visible_query.iter() {
+        'next_enity: for (entity, visible, maybe_parent, maybe_entity_mask) in visible_query.iter() {
             if !visible.is_visible {
                 continue;
+            }
+
+            let mut current_parent = maybe_parent;
+            while let Some(parent) = current_parent {
+                if visible_query.get_component::<Visible>(parent.0).map_or(false, |v| v.is_visible) {
+                    current_parent = visible_query.get_component(parent.0).ok();
+                } else {
+                    continue 'next_enity;
+                }
             }
 
             let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
