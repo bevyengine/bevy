@@ -10,7 +10,7 @@ pub struct AssetCountDiagnosticsPlugin<T: Asset> {
 
 impl<T: Asset> Default for AssetCountDiagnosticsPlugin<T> {
     fn default() -> Self {
-        Self { 
+        Self {
             marker: std::marker::PhantomData,
         }
     }
