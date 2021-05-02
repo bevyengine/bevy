@@ -52,7 +52,7 @@ struct Player {
     entity: Option<Entity>,
     i: usize,
     j: usize,
-    move_cooldown: f32,
+    move_cooldown: Timer,
 }
 
 #[derive(Default)]
@@ -83,8 +83,6 @@ const RESET_FOCUS: [f32; 3] = [
     BOARD_SIZE_J as f32 / 2.0 - 0.5,
 ];
 
-const MOVE_COOLDOWN: f32 = 0.3;
-
 fn setup_cameras(mut commands: Commands, mut game: ResMut<Game>) {
     game.camera_should_focus = Vec3::from(RESET_FOCUS);
     game.camera_is_focus = game.camera_should_focus;
@@ -106,6 +104,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     game.score = 0;
     game.player.i = BOARD_SIZE_I / 2;
     game.player.j = BOARD_SIZE_J / 2;
+    game.player.move_cooldown = Timer::from_seconds(0.3, false);
 
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_xyz(4.0, 5.0, 4.0),
@@ -196,9 +195,7 @@ fn move_player(
     mut transforms: Query<&mut Transform>,
     time: Res<Time>,
 ) {
-    game.player.move_cooldown = f32::max(game.player.move_cooldown - time.delta_seconds(), 0.);
-
-    if game.player.move_cooldown == 0. {
+    if game.player.move_cooldown.tick(time.delta()).finished() {
         let mut moved = false;
         let mut rotation = 0.0;
 
@@ -238,7 +235,7 @@ fn move_player(
 
         // move on the board
         if moved {
-            game.player.move_cooldown += MOVE_COOLDOWN;
+            game.player.move_cooldown.reset();
             *transforms.get_mut(game.player.entity.unwrap()).unwrap() = Transform {
                 translation: Vec3::new(
                     game.player.i as f32,
