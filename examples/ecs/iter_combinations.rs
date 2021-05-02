@@ -118,7 +118,7 @@ fn generate_bodies(
             mass: Mass(1000.0),
             ..Default::default()
         })
-        .insert(Light {
+        .insert(PointLight {
             color: Color::ORANGE_RED,
             ..Default::default()
         });

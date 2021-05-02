@@ -104,7 +104,7 @@ where
         // Initialize array with cursors.
         // There is no FromIterator on arrays, so instead initialize it manually with MaybeUninit
 
-        // MaybeUninit::uninit_array is unstable
+        // TODO: use MaybeUninit::uninit_array if it stabilizes
         let mut cursors: [MaybeUninit<QueryIterationCursor<'s, Q, F>>; K] =
             MaybeUninit::uninit().assume_init();
         for (i, cursor) in cursors.iter_mut().enumerate() {
@@ -124,7 +124,7 @@ where
             }
         }
 
-        // MaybeUninit::array_assume_init is unstable
+        // TODO: use MaybeUninit::array_assume_init if it stabilizes
         let cursors: [QueryIterationCursor<'s, Q, F>; K] =
             (&cursors as *const _ as *const [QueryIterationCursor<'s, Q, F>; K]).read();
 
@@ -139,7 +139,7 @@ where
 
     /// Safety:
     /// The lifetime here is not restrictive enough for Fetch with &mut access,
-    /// as calling `next_aliased_unchecked` multiple times can produce multiple
+    /// as calling `fetch_next_aliased_unchecked` multiple times can produce multiple
     /// references to the same component, leading to unique reference aliasing.
     ///.
     /// It is always safe for shared access.
@@ -178,7 +178,7 @@ where
             }
         }
 
-        // MaybeUninit::uninit_array is unstable
+        // TODO: use MaybeUninit::uninit_array if it stabilizes
         let mut values: [MaybeUninit<<Q::Fetch as Fetch<'a>>::Item>; K] =
             MaybeUninit::uninit().assume_init();
 
@@ -186,7 +186,7 @@ where
             value.as_mut_ptr().write(cursor.peek_last().unwrap());
         }
 
-        // MaybeUninit::array_assume_init is unstable
+        // TODO: use MaybeUninit::array_assume_init if it stabilizes
         let values: [<Q::Fetch as Fetch<'a>>::Item; K] =
             (&values as *const _ as *const [<Q::Fetch as Fetch<'a>>::Item; K]).read();
 
