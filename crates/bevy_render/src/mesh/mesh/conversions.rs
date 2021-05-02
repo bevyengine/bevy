@@ -516,6 +516,6 @@ mod tests {
             "cannot convert VertexAttributeValues::Uint32x4 to alloc::vec::Vec<u32>"
         );
         assert_eq!(format!("{:?}", error),
-               "FromVertexAttributeError { from: Uint4([[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]), variant: \"Uint4\", into: \"alloc::vec::Vec<u32>\" }");
+               "FromVertexAttributeError { from: Uint32x4([[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]), variant: \"Uint32x4\", into: \"alloc::vec::Vec<u32>\" }");
     }
 }
