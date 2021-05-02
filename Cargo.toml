@@ -17,7 +17,38 @@ repository = "https://github.com/bevyengine/bevy"
 
 [workspace]
 exclude = ["benches"]
-members = ["crates/*", "examples/ios", "tools/ci"]
+members = [
+  "crates/bevy_app",
+  "crates/bevy_asset",
+  "crates/bevy_audio",
+  "crates/bevy_core",
+  "crates/bevy_derive",
+  "crates/bevy_diagnostic",
+  "crates/bevy_dylib",
+  "crates/bevy_dynamic_plugin",
+  "crates/bevy_ecs",
+  "crates/bevy_gilrs",
+  "crates/bevy_gltf",
+  "crates/bevy_input",
+  "crates/bevy_internal",
+  "crates/bevy_log",
+  "crates/bevy_math",
+  "crates/bevy_pbr",
+  "crates/bevy_reflect",
+  "crates/bevy_render",
+  "crates/bevy_scene",
+  "crates/bevy_sprite",
+  "crates/bevy_tasks",
+  "crates/bevy_text",
+  "crates/bevy_transform",
+  "crates/bevy_ui",
+  "crates/bevy_utils",
+  "crates/bevy_wgpu",
+  "crates/bevy_window",
+  "crates/bevy_winit",
+  "examples/ios",
+  "tools/ci"
+]
 
 [features]
 default = [
