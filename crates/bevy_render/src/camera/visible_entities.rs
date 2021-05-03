@@ -343,45 +343,58 @@ pub fn visible_entities_system(
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use bevy_ecs::{
-        schedule::{Schedule, SystemStage},
+        schedule::{Schedule, Stage, SystemStage},
+        system::IntoSystem,
         world::World,
     };
+    use bevy_transform::hierarchy::{parent_update_system, BuildWorldChildren};
 
+    #[test]
     fn propagates_visibility() {
         let mut world = World::default();
-        let mut stage = SystemStage::single(visible_entities_system.system());
-        let mut schedule = Schedule::default();
-        schedule.add_stage("update", stage);
+        let mut update_stage = SystemStage::parallel();
+        update_stage.add_system(parent_update_system.system());
+        update_stage.add_system(visible_entities_system.system());
 
-        let child = Option::<Entity>::None;
-        let parent = commands
-            .spawn_bundle(Visible::default())
-            .with_children(|parent| child = parent.spawn_bundle(Visible::default()));
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update", update_stage);
+
+        let mut child = Option::<Entity>::None;
+        let parent = world
+            .spawn()
+            .insert(Visible::default())
+            .with_children(|parent| child = Some(parent.spawn().insert(Visible::default()).id()))
+            .id();
 
         schedule.run(&mut world);
         assert_eq!(
-            Ok(true),
+            Some(true),
             world.get::<VisibleEffective>(parent).map(|v| v.is_visible)
         );
         assert_eq!(
-            Ok(true),
-            world.get::<VisibleEffective>(child).map(|v| v.is_visible)
+            Some(true),
+            world
+                .get::<VisibleEffective>(child.unwrap())
+                .map(|v| v.is_visible)
         );
 
         world
             .get_mut::<Visible>(parent)
-            .and_then(|mut v| v.is_visible = false)
+            .map(|mut v| v.is_visible = false)
             .unwrap();
 
         schedule.run(&mut world);
         assert_eq!(
-            Ok(false),
+            Some(false),
             world.get::<VisibleEffective>(parent).map(|v| v.is_visible)
         );
         assert_eq!(
-            Ok(false),
-            world.get::<VisibleEffective>(child).map(|v| v.is_visible)
+            Some(false),
+            world
+                .get::<VisibleEffective>(child.unwrap())
+                .map(|v| v.is_visible)
         );
     }
 }
