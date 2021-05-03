@@ -92,7 +92,7 @@ pub struct WgpuResources {
     pub swap_chain_frames: Arc<RwLock<HashMap<SwapChainTextureId, wgpu::SwapChainFrame>>>,
     pub buffers: Arc<RwLock<HashMap<BufferId, Arc<wgpu::Buffer>>>>,
     pub texture_views: Arc<RwLock<HashMap<TextureViewId, wgpu::TextureView>>>,
-    pub texture_texture_views: Arc<RwLock<HashMap<TextureId, Vec<TextureViewId>>>>,
+    pub texture_texture_views: Arc<RwLock<HashMap<TextureId, HashMap<Option<BindGroupDescriptorId>, TextureViewId>>>>,
     pub textures: Arc<RwLock<HashMap<TextureId, wgpu::Texture>>>,
     pub samplers: Arc<RwLock<HashMap<SamplerId, wgpu::Sampler>>>,
     pub shader_modules: Arc<RwLock<HashMap<Handle<Shader>, wgpu::ShaderModule>>>,

@@ -25,6 +25,7 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
         &self,
         texture_id: TextureId,
         texture_view_descriptor: TextureViewDescriptor,
+        bind_group_descriptor: Option<BindGroupDescriptorId>,
     ) -> TextureViewId;
     fn create_buffer(&self, buffer_info: BufferInfo) -> BufferId;
     // TODO: remove RenderResourceContext here

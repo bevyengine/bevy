@@ -18,7 +18,7 @@ pub struct HeadlessRenderResourceContext {
     buffer_info: Arc<RwLock<HashMap<BufferId, BufferInfo>>>,
     texture_descriptors: Arc<RwLock<HashMap<TextureId, TextureDescriptor>>>,
     texture_view_descriptors: Arc<RwLock<HashMap<TextureViewId, TextureViewDescriptor>>>,
-    texture_texture_views: Arc<RwLock<HashMap<TextureId, Vec<TextureViewId>>>>,
+    texture_texture_views: Arc<RwLock<HashMap<TextureId, HashMap<Option<BindGroupDescriptorId>, TextureViewId>>>>,
     pub asset_resources: Arc<RwLock<HashMap<(HandleUntyped, u64), RenderResourceId>>>,
 }
 
@@ -64,21 +64,22 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
     }
 
     fn create_default_texture_view(&self, texture_id: TextureId) -> TextureViewId {
-        self.create_texture_view(texture_id, TextureViewDescriptor::default())
+        self.create_texture_view(texture_id, TextureViewDescriptor::default(), None)
     }
 
     fn create_texture_view(
         &self,
         texture_id: TextureId,
         texture_view_descriptor: TextureViewDescriptor,
+        bind_group_descriptor: Option<BindGroupDescriptorId>,
     ) -> TextureViewId {
         let texture_view = TextureViewId::new(texture_id);
         self.add_texture_view_descriptor(texture_view, texture_view_descriptor);
         self.texture_texture_views
             .write()
             .entry(texture_id)
-            .or_insert(vec![])
-            .push(texture_view);
+            .or_insert_with(HashMap::default)
+            .insert(bind_group_descriptor, texture_view);
         texture_view
     }
 
@@ -128,7 +129,7 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
 
     fn remove_texture(&self, texture: TextureId) {
         self.texture_descriptors.write().remove(&texture);
-        for texture_view in self.texture_texture_views.write().remove(&texture).unwrap() {
+        for (_, texture_view) in self.texture_texture_views.write().remove(&texture).unwrap() {
             self.texture_view_descriptors.write().remove(&texture_view);
         }
     }

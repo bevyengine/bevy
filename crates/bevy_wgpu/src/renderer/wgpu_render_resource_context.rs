@@ -24,6 +24,7 @@ use std::{
     sync::Arc,
 };
 use wgpu::util::DeviceExt;
+use bevy_utils::HashMap;
 
 #[derive(Clone, Debug)]
 pub struct WgpuRenderResourceContext {
@@ -274,14 +275,25 @@ impl RenderResourceContext for WgpuRenderResourceContext {
     }
 
     fn create_default_texture_view(&self, texture_id: TextureId) -> TextureViewId {
-        self.create_texture_view(texture_id, TextureViewDescriptor::default())
+        self.create_texture_view(texture_id, TextureViewDescriptor::default(), None)
     }
 
     fn create_texture_view(
         &self,
         texture_id: TextureId,
         texture_view_descriptor: TextureViewDescriptor,
+        bind_group_descriptor: Option<BindGroupDescriptorId>,
     ) -> TextureViewId {
+        let texture_texture_views = self.resources.texture_texture_views.read();
+        if let Some(texture_view_id) = texture_texture_views
+            .get(&texture_id)
+            .and_then(|per_bind_group_ids| per_bind_group_ids
+                .get(&bind_group_descriptor)
+            ) {
+            return *texture_view_id;
+        }
+        drop(texture_texture_views);
+
         let mut textures = self.resources.textures.write();
         let mut texture_texture_views = self.resources.texture_texture_views.write();
         let mut texture_views = self.resources.texture_views.write();
@@ -296,8 +308,8 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
         texture_texture_views
             .entry(texture_id)
-            .or_insert(vec![])
-            .push(texture_view_id);
+            .or_insert_with(HashMap::default)
+            .insert(bind_group_descriptor, texture_view_id);
         texture_views.insert(texture_view_id, texture_view);
         texture_view_descriptors.insert(texture_view_id, texture_view_descriptor);
 
@@ -357,8 +369,8 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
         textures.remove(&texture);
         // remove all views
-        for texture_view in texture_texture_views.remove(&texture).unwrap() {
-            self.remove_texture_view(texture_view);
+        for texture_view in texture_texture_views.remove(&texture).unwrap().values() {
+            self.remove_texture_view(*texture_view);
         }
         texture_descriptors.remove(&texture);
     }

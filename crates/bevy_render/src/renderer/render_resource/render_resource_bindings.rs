@@ -6,6 +6,8 @@ use crate::{
 use bevy_asset::{Asset, Handle, HandleUntyped};
 use bevy_utils::{HashMap, HashSet};
 use std::{any::TypeId, ops::Range};
+use crate::pipeline::BindType;
+use crate::texture::{TextureViewDimension, TextureViewDescriptor};
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum RenderResourceBinding {
@@ -123,8 +125,8 @@ impl RenderResourceBindings {
         self.index_buffer = Some((index_buffer, index_format));
     }
 
-    fn create_bind_group(&mut self, descriptor: &BindGroupDescriptor) -> BindGroupStatus {
-        let bind_group = self.build_bind_group(descriptor);
+    fn create_bind_group(&mut self, descriptor: &BindGroupDescriptor, render_resources: &dyn RenderResourceContext) -> BindGroupStatus {
+        let bind_group = self.build_bind_group(descriptor, render_resources);
         if let Some(bind_group) = bind_group {
             let id = bind_group.id;
             self.bind_groups.insert(id, bind_group);
@@ -139,12 +141,13 @@ impl RenderResourceBindings {
     fn update_bind_group_status(
         &mut self,
         bind_group_descriptor: &BindGroupDescriptor,
+        render_resources: &dyn RenderResourceContext,
     ) -> BindGroupStatus {
         if let Some(id) = self.bind_group_descriptors.get(&bind_group_descriptor.id) {
             if let Some(id) = id {
                 if self.dirty_bind_groups.contains(id) {
                     self.dirty_bind_groups.remove(id);
-                    self.create_bind_group(bind_group_descriptor)
+                    self.create_bind_group(bind_group_descriptor, render_resources)
                 } else {
                     BindGroupStatus::Unchanged(*id)
                 }
@@ -152,7 +155,7 @@ impl RenderResourceBindings {
                 BindGroupStatus::NoMatch
             }
         } else {
-            self.create_bind_group(bind_group_descriptor)
+            self.create_bind_group(bind_group_descriptor, render_resources)
         }
     }
 
@@ -175,7 +178,7 @@ impl RenderResourceBindings {
         bind_group_descriptor: &BindGroupDescriptor,
         render_resource_context: &dyn RenderResourceContext,
     ) -> Option<&BindGroup> {
-        let status = self.update_bind_group_status(bind_group_descriptor);
+        let status = self.update_bind_group_status(bind_group_descriptor, render_resource_context);
         match status {
             BindGroupStatus::Changed(id) => {
                 let bind_group = self
@@ -228,12 +231,38 @@ impl RenderResourceBindings {
             })
     }
 
-    fn build_bind_group(&self, bind_group_descriptor: &BindGroupDescriptor) -> Option<BindGroup> {
+    fn build_bind_group(&mut self, bind_group_descriptor: &BindGroupDescriptor, render_resources: &dyn RenderResourceContext) -> Option<BindGroup> {
         let mut bind_group_builder = BindGroup::build();
         for binding_descriptor in bind_group_descriptor.bindings.iter() {
             if let Some(binding) = self.get(&binding_descriptor.name) {
+                // If the default texture view is not correct, we must correct it.
+                let binding = if let BindType::Texture {
+                    // This case only happens in the Cube and CubeArray cases,
+                    // since their underlying textures are all 2d texture arrays.
+                    view_dimension: view_dimension @ (TextureViewDimension::Cube | TextureViewDimension::CubeArray),
+                    ..
+                } = binding_descriptor.bind_type {
+                    if let RenderResourceBinding::Texture(original_view) = binding {
+                        // This will return a cached one for this particular
+                        // bindgroup.
+                        // TODO: Add support for custom texture views somehow?
+                        let new_view = render_resources.create_texture_view(
+                            original_view.get_texture_id(),
+                            TextureViewDescriptor {
+                                dimension: Some(view_dimension),
+                                ..Default::default()
+                            },
+                            Some(bind_group_descriptor.id)
+                        );
+                        if new_view != *original_view {
+                            self.set(&binding_descriptor.name, RenderResourceBinding::Texture(new_view));
+                            RenderResourceBinding::Texture(new_view)
+                        } else { binding.clone() }
+                    } else { binding.clone() }
+                } else { binding.clone() };
+
                 bind_group_builder =
-                    bind_group_builder.add_binding(binding_descriptor.index, binding.clone());
+                    bind_group_builder.add_binding(binding_descriptor.index, binding);
             } else {
                 return None;
             }
@@ -297,9 +326,11 @@ impl AssetRenderResourceBindings {
 mod tests {
     use super::*;
     use crate::pipeline::{BindType, BindingDescriptor, BindingShaderStage, UniformProperty};
+    use crate::renderer::HeadlessRenderResourceContext;
 
     #[test]
     fn test_bind_groups() {
+        let resource_context = HeadlessRenderResourceContext::default();
         let bind_group_descriptor = BindGroupDescriptor::new(
             0,
             vec![
@@ -324,10 +355,15 @@ mod tests {
             ],
         );
 
-        let resource1 = RenderResourceBinding::Texture(TextureId::new());
-        let resource2 = RenderResourceBinding::Texture(TextureId::new());
-        let resource3 = RenderResourceBinding::Texture(TextureId::new());
-        let resource4 = RenderResourceBinding::Texture(TextureId::new());
+        let resource1_tex = TextureId::new();
+        let resource2_tex = TextureId::new();
+        let resource3_tex = TextureId::new();
+        let resource4_tex = TextureId::new();
+
+        let resource1 = RenderResourceBinding::Texture(TextureViewId::new(resource1_tex));
+        let resource2 = RenderResourceBinding::Texture(TextureViewId::new(resource2_tex));
+        let resource3 = RenderResourceBinding::Texture(TextureViewId::new(resource3_tex));
+        let resource4 = RenderResourceBinding::Texture(TextureViewId::new(resource4_tex));
 
         let mut bindings = RenderResourceBindings::default();
         bindings.set("a", resource1.clone());
@@ -341,7 +377,7 @@ mod tests {
         equal_bindings.set("a", resource1.clone());
         equal_bindings.set("b", resource2);
 
-        let status = bindings.update_bind_group_status(&bind_group_descriptor);
+        let status = bindings.update_bind_group_status(&bind_group_descriptor, &resource_context);
         let id = if let BindGroupStatus::Changed(id) = status {
             id
         } else {
@@ -349,7 +385,7 @@ mod tests {
         };
 
         let different_bind_group_status =
-            different_bindings.update_bind_group_status(&bind_group_descriptor);
+            different_bindings.update_bind_group_status(&bind_group_descriptor, &resource_context);
         if let BindGroupStatus::Changed(different_bind_group_id) = different_bind_group_status {
             assert_ne!(
                 id, different_bind_group_id,
@@ -361,7 +397,7 @@ mod tests {
         };
 
         let equal_bind_group_status =
-            equal_bindings.update_bind_group_status(&bind_group_descriptor);
+            equal_bindings.update_bind_group_status(&bind_group_descriptor, &resource_context);
         if let BindGroupStatus::Changed(equal_bind_group_id) = equal_bind_group_status {
             assert_eq!(
                 id, equal_bind_group_id,
@@ -374,7 +410,7 @@ mod tests {
         let mut unmatched_bindings = RenderResourceBindings::default();
         unmatched_bindings.set("a", resource1);
         let unmatched_bind_group_status =
-            unmatched_bindings.update_bind_group_status(&bind_group_descriptor);
+            unmatched_bindings.update_bind_group_status(&bind_group_descriptor, &resource_context);
         assert_eq!(unmatched_bind_group_status, BindGroupStatus::NoMatch);
     }
 }
