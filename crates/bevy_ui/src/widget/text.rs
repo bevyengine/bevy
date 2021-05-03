@@ -167,16 +167,15 @@ pub fn draw_text_system(
         }
 
         if let Some(text_glyphs) = text_pipeline.get_glyphs(&entity) {
-            let position = global_transform.translation - (node.size / 2.0).extend(0.0);
-
             let mut drawable_text = DrawableText {
                 render_resource_bindings: &mut render_resource_bindings,
-                position,
+                global_transform: *global_transform,
                 scale_factor: scale_factor as f32,
                 msaa: &msaa,
                 text_glyphs: &text_glyphs.glyphs,
                 font_quad_vertex_layout: &vertex_buffer_layout,
                 sections: &text.sections,
+                alignment_offset: (node.size / -2.0).extend(0.0) * (scale_factor as f32),
             };
 
             drawable_text.draw(&mut draw, &mut context).unwrap();

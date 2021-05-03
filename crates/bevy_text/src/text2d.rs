@@ -92,26 +92,25 @@ pub fn draw_text2d_system(
         let (width, height) = (calculated_size.size.width, calculated_size.size.height);
 
         if let Some(text_glyphs) = text_pipeline.get_glyphs(&entity) {
-            let position = global_transform.translation
-                + match text.alignment.vertical {
-                    VerticalAlign::Top => Vec3::ZERO,
-                    VerticalAlign::Center => Vec3::new(0.0, -height * 0.5, 0.0),
-                    VerticalAlign::Bottom => Vec3::new(0.0, -height, 0.0),
-                }
-                + match text.alignment.horizontal {
-                    HorizontalAlign::Left => Vec3::new(-width, 0.0, 0.0),
-                    HorizontalAlign::Center => Vec3::new(-width * 0.5, 0.0, 0.0),
-                    HorizontalAlign::Right => Vec3::ZERO,
-                };
+            let alignment_offset = match text.alignment.vertical {
+                VerticalAlign::Top => Vec3::ZERO,
+                VerticalAlign::Center => Vec3::new(0.0, -height * 0.5, 0.0),
+                VerticalAlign::Bottom => Vec3::new(0.0, -height, 0.0),
+            } + match text.alignment.horizontal {
+                HorizontalAlign::Left => Vec3::new(-width, 0.0, 0.0),
+                HorizontalAlign::Center => Vec3::new(-width * 0.5, 0.0, 0.0),
+                HorizontalAlign::Right => Vec3::ZERO,
+            };
 
             let mut drawable_text = DrawableText {
                 render_resource_bindings: &mut render_resource_bindings,
-                position,
+                global_transform: *global_transform,
+                scale_factor,
                 msaa: &msaa,
                 text_glyphs: &text_glyphs.glyphs,
                 font_quad_vertex_layout: &font_quad_vertex_layout,
-                scale_factor,
                 sections: &text.sections,
+                alignment_offset: alignment_offset * scale_factor,
             };
 
             drawable_text.draw(&mut draw, &mut context).unwrap();

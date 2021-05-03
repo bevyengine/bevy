@@ -1,4 +1,6 @@
+use crate::{PositionedGlyph, TextSection};
 use bevy_math::{Mat4, Vec3};
+use bevy_render::pipeline::IndexFormat;
 use bevy_render::{
     draw::{Draw, DrawContext, DrawError, Drawable},
     mesh,
@@ -8,19 +10,18 @@ use bevy_render::{
     renderer::{BindGroup, RenderResourceBindings, RenderResourceId},
 };
 use bevy_sprite::TextureAtlasSprite;
+use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::tracing::error;
-
-use crate::{PositionedGlyph, TextSection};
-use bevy_render::pipeline::IndexFormat;
 
 pub struct DrawableText<'a> {
     pub render_resource_bindings: &'a mut RenderResourceBindings,
-    pub position: Vec3,
+    pub global_transform: GlobalTransform,
     pub scale_factor: f32,
     pub sections: &'a [TextSection],
     pub text_glyphs: &'a Vec<PositionedGlyph>,
     pub msaa: &'a Msaa,
     pub font_quad_vertex_layout: &'a VertexBufferLayout,
+    pub alignment_offset: Vec3,
 }
 
 impl<'a> Drawable for DrawableText<'a> {
@@ -76,20 +77,12 @@ impl<'a> Drawable for DrawableText<'a> {
                 flip_y: false,
             };
 
-            // To get the rendering right for non-one scaling factors, we need
-            // the sprite to be drawn in "physical" coordinates. This is because
-            // the shader uses the size of the sprite to control the size on
-            // screen. To accomplish this we make the sprite transform
-            // convert from physical coordinates to logical coordinates in
-            // addition to altering the origin. Since individual glyphs will
-            // already be in physical coordinates, we just need to convert the
-            // overall position to physical coordinates to get the sprites
-            // physical position.
-
-            let transform = Mat4::from_scale(Vec3::splat(1. / self.scale_factor))
-                * Mat4::from_translation(
-                    self.position * self.scale_factor + tv.position.extend(0.),
-                );
+            let scale_transform = Mat4::from_scale(Vec3::splat(1. / self.scale_factor));
+            let transform = Mat4::from_rotation_translation(
+                self.global_transform.rotation,
+                self.global_transform.translation,
+            ) * scale_transform
+                * Mat4::from_translation(self.alignment_offset + tv.position.extend(0.));
 
             let transform_buffer = context.get_uniform_buffer(&transform).unwrap();
             let sprite_buffer = context.get_uniform_buffer(&sprite).unwrap();
