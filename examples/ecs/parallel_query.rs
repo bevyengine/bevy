@@ -29,11 +29,11 @@ fn move_system(pool: Res<ComputeTaskPool>, mut sprites: Query<(&mut Transform, &
     // Compute the new location of each sprite in parallel on the
     // ComputeTaskPool using batches of 32 sprites
     //
-    // This example is only for demonstrative purposes.  Using a
-    // ParallelIterator for an inexpensive operation like addition on only 128
+    // This example is only for demonstrative purposes.  Using
+    // `par_for_each_mut` for an inexpensive operation like addition on only 128
     // elements will not typically be faster than just using a normal Iterator.
-    // See the ParallelIterator documentation for more information on when
-    // to use or not use ParallelIterator over a normal Iterator.
+    // See `par_for_each_mut` documentation for more information on when
+    // to use or not use `par_for_each_mut` over a normal Iterator.
     sprites.par_for_each_mut(&pool, 32, |(mut transform, velocity)| {
         transform.translation += velocity.0.extend(0.0);
     });
@@ -54,7 +54,7 @@ fn bounce_system(
     let top = height / 2.0;
     sprites
         // Batch size of 32 is chosen to limit the overhead of
-        // ParallelIterator, since negating a vector is very inexpensive.
+        // `par_for_each_mut`, since negating a vector is very inexpensive.
         .par_for_each_mut(&pool, 32, |(transform, mut v)| {
             if !(left < transform.translation.x
                 && transform.translation.x < right
