@@ -226,7 +226,7 @@ where
     /// workloads. In particular, if the batch size is too small or task being
     /// run in parallel is inexpensive, *a `par_for_each` could take longer
     /// than a normal [`Self::for_each`]*. Therefore, you should profile your code before
-    /// using ParallelIterator.
+    /// using `par_for_each`.
     ///
     /// This can only be called for read-only queries, see [`Self::par_for_each_mut`] for
     /// write-queries.
