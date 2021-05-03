@@ -942,6 +942,27 @@ mod tests {
     }
 
     #[test]
+    fn try_insert_resource_no_collision() {
+        let mut world = World::default();
+        world.try_insert_resource(64u64);
+        assert_eq!(
+            *world.get_resource::<u64>().expect("Resource exists"),
+            64u64
+        );
+    }
+
+    #[test]
+    fn try_insert_resource_collision() {
+        let mut world = World::default();
+        world.insert_resource(32u64);
+        world.try_insert_resource(64u64);
+        assert_eq!(
+            *world.get_resource::<u64>().expect("Resource exists"),
+            32u64
+        );
+    }
+
+    #[test]
     fn remove_intersection() {
         let mut world = World::default();
         let e1 = world.spawn().insert_bundle((1, 1.0, "a")).id();
