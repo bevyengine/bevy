@@ -375,7 +375,7 @@ fn check_tick(last_change_tick: &mut u32, change_tick: u32) {
 /// and [World::write_components](crate::world::World::insert_resource_with_id()) to control
 /// how collisions between newly inserted and existing component types should be handled.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum ComponentCollision {
+pub enum CollisionBehaviour {
     /// Overwrite existing component/resource of the same type.
     Overwrite,
     /// Skip and do not write the new component if it already exists.

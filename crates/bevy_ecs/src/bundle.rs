@@ -3,7 +3,7 @@ pub use bevy_ecs_macros::Bundle;
 use crate::{
     archetype::ComponentStatus,
     component::{
-        Component, ComponentCollision, ComponentId, ComponentTicks, Components, StorageType,
+        CollisionBehaviour, Component, ComponentId, ComponentTicks, Components, StorageType,
         TypeInfo,
     },
     entity::Entity,
@@ -138,7 +138,7 @@ impl BundleInfo {
         bundle_status: &[ComponentStatus],
         bundle: T,
         change_tick: u32,
-        overwrite_existing: ComponentCollision,
+        overwrite_existing: CollisionBehaviour,
     ) {
         // NOTE: get_components calls this closure on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
@@ -151,7 +151,7 @@ impl BundleInfo {
                 StorageType::Table => {
                     if !matches!(
                         (component_status, overwrite_existing),
-                        (ComponentStatus::Mutated, ComponentCollision::Skip),
+                        (ComponentStatus::Mutated, CollisionBehaviour::Skip),
                     ) {
                         let column = table.get_column(component_id).unwrap();
                         column.set_unchecked(table_row, component_ptr);
@@ -168,7 +168,7 @@ impl BundleInfo {
                 }
                 StorageType::SparseSet => {
                     if matches!(component_status, ComponentStatus::Added)
-                        || matches!(overwrite_existing, ComponentCollision::Overwrite)
+                        || matches!(overwrite_existing, CollisionBehaviour::Overwrite)
                     {
                         let sparse_set = sparse_sets.get_mut(component_id).unwrap();
                         sparse_set.insert(entity, component_ptr, change_tick);

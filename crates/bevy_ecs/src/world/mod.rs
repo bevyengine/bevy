@@ -12,7 +12,7 @@ use crate::{
     archetype::{ArchetypeComponentId, ArchetypeComponentInfo, ArchetypeId, Archetypes},
     bundle::{Bundle, Bundles},
     component::{
-        Component, ComponentCollision, ComponentDescriptor, ComponentId, ComponentTicks,
+        CollisionBehaviour, Component, ComponentDescriptor, ComponentId, ComponentTicks,
         Components, ComponentsError, StorageType,
     },
     entity::{Entities, Entity},
@@ -524,7 +524,7 @@ impl World {
     pub fn insert_resource<T: Component>(&mut self, value: T) {
         let component_id = self.components.get_or_insert_resource_id::<T>();
         // SAFE: component_id just initialized and corresponds to resource of type T
-        unsafe { self.insert_resource_with_id(component_id, value, ComponentCollision::Overwrite) };
+        unsafe { self.insert_resource_with_id(component_id, value, CollisionBehaviour::Overwrite) };
     }
 
     /// Inserts a new resource with the given `value`.
@@ -533,7 +533,7 @@ impl World {
     pub fn try_insert_resource<T: Component>(&mut self, value: T) {
         let component_id = self.components.get_or_insert_resource_id::<T>();
         // SAFE: component_id just initialized and corresponds to resource of type T
-        unsafe { self.insert_resource_with_id(component_id, value, ComponentCollision::Skip) };
+        unsafe { self.insert_resource_with_id(component_id, value, CollisionBehaviour::Skip) };
     }
 
     /// Inserts a new non-send resource with the given `value`.
@@ -543,7 +543,7 @@ impl World {
         self.validate_non_send_access::<T>();
         let component_id = self.components.get_or_insert_non_send_resource_id::<T>();
         // SAFE: component_id just initialized and corresponds to resource of type T
-        unsafe { self.insert_resource_with_id(component_id, value, ComponentCollision::Overwrite) };
+        unsafe { self.insert_resource_with_id(component_id, value, CollisionBehaviour::Overwrite) };
     }
 
     /// Removes the resource of a given type and returns it, if it exists. Otherwise returns [None].
@@ -795,7 +795,7 @@ impl World {
         &mut self,
         component_id: ComponentId,
         mut value: T,
-        overwrite_existing: ComponentCollision,
+        overwrite_existing: CollisionBehaviour,
     ) {
         let change_tick = self.change_tick();
         let column = self.initialize_resource_internal(component_id);
@@ -809,7 +809,7 @@ impl World {
             std::mem::forget(value);
             // SAFE: index was just allocated above
             *column.get_ticks_unchecked_mut(row) = ComponentTicks::new(change_tick);
-        } else if matches!(overwrite_existing, ComponentCollision::Overwrite) {
+        } else if matches!(overwrite_existing, CollisionBehaviour::Overwrite) {
             // SAFE: column is of type T and has already been allocated
             *column.get_unchecked(0).cast::<T>() = value;
             column.get_ticks_unchecked_mut(0).set_changed(change_tick);

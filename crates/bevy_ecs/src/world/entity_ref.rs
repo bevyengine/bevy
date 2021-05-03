@@ -2,7 +2,7 @@ use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes, ComponentStatus},
     bundle::{Bundle, BundleInfo},
     component::{
-        Component, ComponentCollision, ComponentId, ComponentTicks, Components, StorageType,
+        CollisionBehaviour, Component, ComponentId, ComponentTicks, Components, StorageType,
     },
     entity::{Entities, Entity, EntityLocation},
     storage::{SparseSet, Storages},
@@ -221,7 +221,7 @@ impl<'w> EntityMut<'w> {
                 bundle_status,
                 bundle,
                 change_tick,
-                ComponentCollision::Overwrite,
+                CollisionBehaviour::Overwrite,
             )
         };
         self
@@ -263,7 +263,7 @@ impl<'w> EntityMut<'w> {
                 bundle_status,
                 bundle,
                 change_tick,
-                ComponentCollision::Skip,
+                CollisionBehaviour::Skip,
             )
         };
         self
