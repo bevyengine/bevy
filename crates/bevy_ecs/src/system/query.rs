@@ -222,7 +222,7 @@ where
     /// Runs `f` on each query result in parallel using the given task pool. This is
     /// the parallel equivalent of [`Self::for_each`]
     ///
-    /// Note that the overhead of ParallelIterator is high relative to some
+    /// Note that the overhead of `par_for_each` is high relative to some
     /// workloads. In particular, if the batch size is too small or task being
     /// run in parallel is inexpensive, *a `par_for_each` could take longer
     /// than a normal [`Self::for_each`]*. Therefore, you should profile your code before
