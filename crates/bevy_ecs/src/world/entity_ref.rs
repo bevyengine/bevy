@@ -1,7 +1,9 @@
 use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes, ComponentStatus},
     bundle::{Bundle, BundleInfo},
-    component::{Component, ComponentId, ComponentTicks, Components, StorageType},
+    component::{
+        Component, ComponentCollision, ComponentId, ComponentTicks, Components, StorageType,
+    },
     entity::{Entities, Entity, EntityLocation},
     storage::{SparseSet, Storages},
     world::{Mut, World},
@@ -219,6 +221,7 @@ impl<'w> EntityMut<'w> {
                 bundle_status,
                 bundle,
                 change_tick,
+                ComponentCollision::Overwrite,
             )
         };
         self
@@ -252,7 +255,7 @@ impl<'w> EntityMut<'w> {
         let table_row = archetype.entity_table_row(new_location.index);
         // SAFE: table row is valid
         unsafe {
-            bundle_info.write_additional_components(
+            bundle_info.write_components(
                 &mut storages.sparse_sets,
                 entity,
                 table,
@@ -260,6 +263,7 @@ impl<'w> EntityMut<'w> {
                 bundle_status,
                 bundle,
                 change_tick,
+                ComponentCollision::Skip,
             )
         };
         self

@@ -370,3 +370,14 @@ fn check_tick(last_change_tick: &mut u32, change_tick: u32) {
         *last_change_tick = change_tick.wrapping_sub(MAX_DELTA);
     }
 }
+
+/// Used by [BundleInfo::write_components](crate::bundle::BundleInfo::write_components())
+/// and [World::write_components](crate::world::World::insert_resource_with_id()) to control
+/// how collisions between newly inserted and existing component types should be handled.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum ComponentCollision {
+    /// Overwrite existing component/resource of the same type.
+    Overwrite,
+    /// Skip and do not write the new component if it already exists.
+    Skip,
+}

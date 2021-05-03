@@ -1,6 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeId, ComponentStatus},
     bundle::{Bundle, BundleInfo},
+    component::ComponentCollision,
     entity::{Entities, Entity},
     storage::{SparseSets, Table},
     world::{add_bundle_to_archetype, World},
@@ -104,6 +105,7 @@ where
                 self.bundle_status,
                 bundle,
                 self.change_tick,
+                ComponentCollision::Overwrite,
             );
             self.entities.meta[entity.id as usize].location = location;
         }
