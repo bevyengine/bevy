@@ -356,7 +356,7 @@ mod test {
         let mut world = World::default();
         let mut update_stage = SystemStage::parallel();
         update_stage.add_system(parent_update_system.system());
-        update_stage.add_system(visible_entities_system.system());
+        update_stage.add_system(visible_effective_system.system());
 
         let mut schedule = Schedule::default();
         schedule.add_stage("update", update_stage);
