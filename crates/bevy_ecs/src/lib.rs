@@ -867,20 +867,26 @@ mod tests {
             .get_archetype_component_id(resource_id)
             .unwrap();
 
-        assert_eq!(*world.get_resource::<i32>().expect("resource exists"), 123);
+        assert_eq!(
+            *world.get_resource::<i32>().expect("Resource not found"),
+            123
+        );
         assert!(world.contains_resource::<i32>());
 
         world.insert_resource(456u64);
         assert_eq!(
-            *world.get_resource::<u64>().expect("resource exists"),
+            *world.get_resource::<u64>().expect("Resource not found"),
             456u64
         );
 
         world.insert_resource(789u64);
-        assert_eq!(*world.get_resource::<u64>().expect("resource exists"), 789);
+        assert_eq!(
+            *world.get_resource::<u64>().expect("Resource not found"),
+            789
+        );
 
         {
-            let mut value = world.get_resource_mut::<u64>().expect("resource exists");
+            let mut value = world.get_resource_mut::<u64>().expect("Resource not found");
             assert_eq!(*value, 789);
             *value = 10;
         }
@@ -946,7 +952,7 @@ mod tests {
         let mut world = World::default();
         world.try_insert_resource(64u64);
         assert_eq!(
-            *world.get_resource::<u64>().expect("Resource exists"),
+            *world.get_resource::<u64>().expect("Resource not found"),
             64u64
         );
     }
@@ -957,7 +963,7 @@ mod tests {
         world.insert_resource(32u64);
         world.try_insert_resource(64u64);
         assert_eq!(
-            *world.get_resource::<u64>().expect("Resource exists"),
+            *world.get_resource::<u64>().expect("Resource not found"),
             32u64
         );
     }
