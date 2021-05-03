@@ -14,7 +14,6 @@ use bevy_render::{
 };
 use serde::{Deserialize, Serialize};
 
-
 /// General Sprite Examples: [Link](https://github.com/bevyengine/bevy/tree/latest/examples/2d)
 #[derive(Debug, Default, Clone, TypeUuid, Reflect, RenderResources)]
 #[render_resources(from_self)]
