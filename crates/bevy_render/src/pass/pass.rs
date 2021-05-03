@@ -1,6 +1,6 @@
 use super::Operations;
 use crate::{
-    renderer::{RenderResourceId, SwapChainTextureId, TextureId, TextureViewId},
+    renderer::{RenderResourceId, SwapChainTextureId, TextureViewId},
     Color,
 };
 

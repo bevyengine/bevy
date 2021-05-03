@@ -1,6 +1,4 @@
-use super::{
-    BufferId, RenderResourceBinding, RenderResourceId, SamplerId, TextureId, TextureViewId,
-};
+use super::{BufferId, RenderResourceBinding, RenderResourceId, SamplerId, TextureViewId};
 use bevy_utils::AHasher;
 use std::{
     hash::{Hash, Hasher},

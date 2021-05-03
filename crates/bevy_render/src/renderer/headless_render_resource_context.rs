@@ -18,7 +18,8 @@ pub struct HeadlessRenderResourceContext {
     buffer_info: Arc<RwLock<HashMap<BufferId, BufferInfo>>>,
     texture_descriptors: Arc<RwLock<HashMap<TextureId, TextureDescriptor>>>,
     texture_view_descriptors: Arc<RwLock<HashMap<TextureViewId, TextureViewDescriptor>>>,
-    texture_texture_views: Arc<RwLock<HashMap<TextureId, HashMap<Option<BindGroupDescriptorId>, TextureViewId>>>>,
+    texture_texture_views:
+        Arc<RwLock<HashMap<TextureId, HashMap<Option<BindGroupDescriptorId>, TextureViewId>>>>,
     pub asset_resources: Arc<RwLock<HashMap<(HandleUntyped, u64), RenderResourceId>>>,
 }
 
@@ -123,6 +124,16 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
 
     fn create_shader_module(&self, _shader_handle: &Handle<Shader>, _shaders: &Assets<Shader>) {}
 
+    fn create_shader_module_from_source(&self, _shader_handle: &Handle<Shader>, _shader: &Shader) {}
+
+    fn get_specialized_shader(
+        &self,
+        shader: &Shader,
+        _macros: Option<&[String]>,
+    ) -> Result<Shader, ShaderError> {
+        Ok(shader.clone())
+    }
+
     fn remove_buffer(&self, buffer: BufferId) {
         self.buffer_info.write().remove(&buffer);
     }
@@ -139,6 +150,18 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
     }
 
     fn remove_sampler(&self, _sampler: SamplerId) {}
+
+    fn get_buffer_info(&self, buffer: BufferId) -> Option<BufferInfo> {
+        self.buffer_info.read().get(&buffer).cloned()
+    }
+
+    fn get_aligned_uniform_size(&self, size: usize, _dynamic: bool) -> usize {
+        size
+    }
+
+    fn get_aligned_texture_size(&self, size: usize) -> usize {
+        size
+    }
 
     fn set_asset_resource_untyped(
         &self,
@@ -159,31 +182,16 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         self.asset_resources.write().get(&(handle, index)).cloned()
     }
 
+    fn remove_asset_resource_untyped(&self, handle: HandleUntyped, index: u64) {
+        self.asset_resources.write().remove(&(handle, index));
+    }
+
     fn create_render_pipeline(
         &self,
         _pipeline_handle: Handle<PipelineDescriptor>,
         _pipeline_descriptor: &PipelineDescriptor,
         _shaders: &Assets<Shader>,
     ) {
-    }
-
-    fn create_bind_group(
-        &self,
-        _bind_group_descriptor_id: BindGroupDescriptorId,
-        _bind_group: &BindGroup,
-    ) {
-    }
-
-    fn create_shader_module_from_source(&self, _shader_handle: &Handle<Shader>, _shader: &Shader) {}
-
-    fn remove_asset_resource_untyped(&self, handle: HandleUntyped, index: u64) {
-        self.asset_resources.write().remove(&(handle, index));
-    }
-
-    fn clear_bind_groups(&self) {}
-
-    fn get_buffer_info(&self, buffer: BufferId) -> Option<BufferInfo> {
-        self.buffer_info.read().get(&buffer).cloned()
     }
 
     fn bind_group_descriptor_exists(
@@ -193,21 +201,14 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         false
     }
 
-    fn get_aligned_uniform_size(&self, size: usize, _dynamic: bool) -> usize {
-        size
-    }
-
-    fn get_aligned_texture_size(&self, size: usize) -> usize {
-        size
-    }
-
-    fn get_specialized_shader(
+    fn create_bind_group(
         &self,
-        shader: &Shader,
-        _macros: Option<&[String]>,
-    ) -> Result<Shader, ShaderError> {
-        Ok(shader.clone())
+        _bind_group_descriptor_id: BindGroupDescriptorId,
+        _bind_group: &BindGroup,
+    ) {
     }
+
+    fn clear_bind_groups(&self) {}
 
     fn remove_stale_bind_groups(&self) {}
 }

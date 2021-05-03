@@ -1,4 +1,6 @@
-use super::{BindGroup, BindGroupId, BufferId, SamplerId, TextureId, TextureViewId};
+use super::{BindGroup, BindGroupId, BufferId, SamplerId, TextureViewId};
+use crate::pipeline::BindType;
+use crate::texture::{TextureViewDescriptor, TextureViewDimension};
 use crate::{
     pipeline::{BindGroupDescriptor, BindGroupDescriptorId, IndexFormat, PipelineDescriptor},
     renderer::RenderResourceContext,
@@ -6,8 +8,6 @@ use crate::{
 use bevy_asset::{Asset, Handle, HandleUntyped};
 use bevy_utils::{HashMap, HashSet};
 use std::{any::TypeId, ops::Range};
-use crate::pipeline::BindType;
-use crate::texture::{TextureViewDimension, TextureViewDescriptor};
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum RenderResourceBinding {
@@ -125,7 +125,11 @@ impl RenderResourceBindings {
         self.index_buffer = Some((index_buffer, index_format));
     }
 
-    fn create_bind_group(&mut self, descriptor: &BindGroupDescriptor, render_resources: &dyn RenderResourceContext) -> BindGroupStatus {
+    fn create_bind_group(
+        &mut self,
+        descriptor: &BindGroupDescriptor,
+        render_resources: &dyn RenderResourceContext,
+    ) -> BindGroupStatus {
         let bind_group = self.build_bind_group(descriptor, render_resources);
         if let Some(bind_group) = bind_group {
             let id = bind_group.id;
@@ -231,7 +235,11 @@ impl RenderResourceBindings {
             })
     }
 
-    fn build_bind_group(&mut self, bind_group_descriptor: &BindGroupDescriptor, render_resources: &dyn RenderResourceContext) -> Option<BindGroup> {
+    fn build_bind_group(
+        &mut self,
+        bind_group_descriptor: &BindGroupDescriptor,
+        render_resources: &dyn RenderResourceContext,
+    ) -> Option<BindGroup> {
         let mut bind_group_builder = BindGroup::build();
         for binding_descriptor in bind_group_descriptor.bindings.iter() {
             if let Some(binding) = self.get(&binding_descriptor.name) {
@@ -239,9 +247,11 @@ impl RenderResourceBindings {
                 let binding = if let BindType::Texture {
                     // This case only happens in the Cube and CubeArray cases,
                     // since their underlying textures are all 2d texture arrays.
-                    view_dimension: view_dimension @ (TextureViewDimension::Cube | TextureViewDimension::CubeArray),
+                    view_dimension:
+                        view_dimension @ (TextureViewDimension::Cube | TextureViewDimension::CubeArray),
                     ..
-                } = binding_descriptor.bind_type {
+                } = binding_descriptor.bind_type
+                {
                     if let RenderResourceBinding::Texture(original_view) = binding {
                         // This will return a cached one for this particular
                         // bindgroup.
@@ -252,14 +262,23 @@ impl RenderResourceBindings {
                                 dimension: Some(view_dimension),
                                 ..Default::default()
                             },
-                            Some(bind_group_descriptor.id)
+                            Some(bind_group_descriptor.id),
                         );
                         if new_view != *original_view {
-                            self.set(&binding_descriptor.name, RenderResourceBinding::Texture(new_view));
+                            self.set(
+                                &binding_descriptor.name,
+                                RenderResourceBinding::Texture(new_view),
+                            );
                             RenderResourceBinding::Texture(new_view)
-                        } else { binding.clone() }
-                    } else { binding.clone() }
-                } else { binding.clone() };
+                        } else {
+                            binding.clone()
+                        }
+                    } else {
+                        binding.clone()
+                    }
+                } else {
+                    binding.clone()
+                };
 
                 bind_group_builder =
                     bind_group_builder.add_binding(binding_descriptor.index, binding);

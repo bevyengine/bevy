@@ -15,6 +15,7 @@ use bevy_render::{
     texture::{Extent3d, SamplerDescriptor, TextureDescriptor, TextureViewDescriptor},
 };
 use bevy_utils::tracing::trace;
+use bevy_utils::HashMap;
 use bevy_window::{Window, WindowId};
 use futures_lite::future;
 use std::{
@@ -24,7 +25,6 @@ use std::{
     sync::Arc,
 };
 use wgpu::util::DeviceExt;
-use bevy_utils::HashMap;
 
 #[derive(Clone, Debug)]
 pub struct WgpuRenderResourceContext {
@@ -248,6 +248,45 @@ impl WgpuRenderResourceContext {
 }
 
 impl RenderResourceContext for WgpuRenderResourceContext {
+    fn create_swap_chain(&self, window: &Window) {
+        let surfaces = self.resources.window_surfaces.read();
+        let mut window_swap_chains = self.resources.window_swap_chains.write();
+
+        let swap_chain_descriptor: wgpu::SwapChainDescriptor = window.wgpu_into();
+        let surface = surfaces
+            .get(&window.id())
+            .expect("No surface found for window.");
+        let swap_chain = self
+            .device
+            .create_swap_chain(surface, &swap_chain_descriptor);
+
+        window_swap_chains.insert(window.id(), swap_chain);
+    }
+
+    fn next_swap_chain_texture(&self, window: &bevy_window::Window) -> SwapChainTextureId {
+        if let Some(texture_id) = self.try_next_swap_chain_texture(window.id()) {
+            texture_id
+        } else {
+            self.resources
+                .window_swap_chains
+                .write()
+                .remove(&window.id());
+            self.create_swap_chain(window);
+            self.try_next_swap_chain_texture(window.id())
+                .expect("Failed to acquire next swap chain texture!")
+        }
+    }
+
+    fn drop_swap_chain_texture(&self, texture: SwapChainTextureId) {
+        let mut swap_chain_outputs = self.resources.swap_chain_frames.write();
+        swap_chain_outputs.remove(&texture);
+    }
+
+    fn drop_all_swap_chain_textures(&self) {
+        let mut swap_chain_outputs = self.resources.swap_chain_frames.write();
+        swap_chain_outputs.clear();
+    }
+
     fn create_sampler(&self, sampler_descriptor: &SamplerDescriptor) -> SamplerId {
         let mut samplers = self.resources.samplers.write();
 
@@ -287,14 +326,13 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         let texture_texture_views = self.resources.texture_texture_views.read();
         if let Some(texture_view_id) = texture_texture_views
             .get(&texture_id)
-            .and_then(|per_bind_group_ids| per_bind_group_ids
-                .get(&bind_group_descriptor)
-            ) {
+            .and_then(|per_bind_group_ids| per_bind_group_ids.get(&bind_group_descriptor))
+        {
             return *texture_view_id;
         }
         drop(texture_texture_views);
 
-        let mut textures = self.resources.textures.write();
+        let textures = self.resources.textures.read();
         let mut texture_texture_views = self.resources.texture_texture_views.write();
         let mut texture_views = self.resources.texture_views.write();
         let mut texture_view_descriptors = self.resources.texture_view_descriptors.write();
@@ -334,6 +372,57 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         id
     }
 
+    fn write_mapped_buffer(
+        &self,
+        id: BufferId,
+        range: Range<u64>,
+        write: &mut dyn FnMut(&mut [u8], &dyn RenderResourceContext),
+    ) {
+        let buffer = {
+            let buffers = self.resources.buffers.read();
+            buffers.get(&id).unwrap().clone()
+        };
+        let buffer_slice = buffer.slice(range);
+        let mut data = buffer_slice.get_mapped_range_mut();
+        write(&mut data, self);
+    }
+
+    fn read_mapped_buffer(
+        &self,
+        id: BufferId,
+        range: Range<u64>,
+        read: &dyn Fn(&[u8], &dyn RenderResourceContext),
+    ) {
+        let buffer = {
+            let buffers = self.resources.buffers.read();
+            buffers.get(&id).unwrap().clone()
+        };
+        let buffer_slice = buffer.slice(range);
+        let data = buffer_slice.get_mapped_range();
+        read(&data, self);
+    }
+
+    fn map_buffer(&self, id: BufferId, mode: BufferMapMode) {
+        let buffers = self.resources.buffers.read();
+        let buffer = buffers.get(&id).unwrap();
+        let buffer_slice = buffer.slice(..);
+        let wgpu_mode = match mode {
+            BufferMapMode::Read => wgpu::MapMode::Read,
+            BufferMapMode::Write => wgpu::MapMode::Write,
+        };
+        let data = buffer_slice.map_async(wgpu_mode);
+        self.device.poll(wgpu::Maintain::Wait);
+        if future::block_on(data).is_err() {
+            panic!("Failed to map buffer to host.");
+        }
+    }
+
+    fn unmap_buffer(&self, id: BufferId) {
+        let buffers = self.resources.buffers.read();
+        let buffer = buffers.get(&id).unwrap();
+        buffer.unmap();
+    }
+
     fn create_buffer_with_data(&self, mut buffer_info: BufferInfo, data: &[u8]) -> BufferId {
         // TODO: consider moving this below "create" for efficiency
         let mut buffer_infos = self.resources.buffer_infos.write();
@@ -352,6 +441,48 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         buffer_infos.insert(id, buffer_info);
         buffers.insert(id, Arc::new(buffer));
         id
+    }
+
+    fn create_shader_module(&self, shader_handle: &Handle<Shader>, shaders: &Assets<Shader>) {
+        if self
+            .resources
+            .shader_modules
+            .read()
+            .get(&shader_handle)
+            .is_some()
+        {
+            return;
+        }
+        let shader = shaders.get(shader_handle).unwrap();
+        self.create_shader_module_from_source(shader_handle, shader);
+    }
+
+    fn create_shader_module_from_source(&self, shader_handle: &Handle<Shader>, shader: &Shader) {
+        let mut shader_modules = self.resources.shader_modules.write();
+        let spirv: Cow<[u32]> = shader.get_spirv(None).unwrap().into();
+        let shader_module = self
+            .device
+            .create_shader_module(&wgpu::ShaderModuleDescriptor {
+                label: None,
+                source: wgpu::ShaderSource::SpirV(spirv),
+                flags: Default::default(),
+            });
+        shader_modules.insert(shader_handle.clone_weak(), shader_module);
+    }
+
+    fn get_specialized_shader(
+        &self,
+        shader: &Shader,
+        macros: Option<&[String]>,
+    ) -> Result<Shader, ShaderError> {
+        let spirv_data = match shader.source {
+            ShaderSource::Spirv(ref bytes) => bytes.clone(),
+            ShaderSource::Glsl(ref source) => glsl_to_spirv(&source, shader.stage, macros)?,
+        };
+        Ok(Shader {
+            source: ShaderSource::Spirv(spirv_data),
+            ..*shader
+        })
     }
 
     fn remove_buffer(&self, buffer: BufferId) {
@@ -388,70 +519,20 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         samplers.remove(&sampler);
     }
 
-    fn create_shader_module_from_source(&self, shader_handle: &Handle<Shader>, shader: &Shader) {
-        let mut shader_modules = self.resources.shader_modules.write();
-        let spirv: Cow<[u32]> = shader.get_spirv(None).unwrap().into();
-        let shader_module = self
-            .device
-            .create_shader_module(&wgpu::ShaderModuleDescriptor {
-                label: None,
-                source: wgpu::ShaderSource::SpirV(spirv),
-                flags: Default::default(),
-            });
-        shader_modules.insert(shader_handle.clone_weak(), shader_module);
+    fn get_buffer_info(&self, buffer: BufferId) -> Option<BufferInfo> {
+        self.resources.buffer_infos.read().get(&buffer).cloned()
     }
 
-    fn create_shader_module(&self, shader_handle: &Handle<Shader>, shaders: &Assets<Shader>) {
-        if self
-            .resources
-            .shader_modules
-            .read()
-            .get(&shader_handle)
-            .is_some()
-        {
-            return;
-        }
-        let shader = shaders.get(shader_handle).unwrap();
-        self.create_shader_module_from_source(shader_handle, shader);
-    }
-
-    fn create_swap_chain(&self, window: &Window) {
-        let surfaces = self.resources.window_surfaces.read();
-        let mut window_swap_chains = self.resources.window_swap_chains.write();
-
-        let swap_chain_descriptor: wgpu::SwapChainDescriptor = window.wgpu_into();
-        let surface = surfaces
-            .get(&window.id())
-            .expect("No surface found for window.");
-        let swap_chain = self
-            .device
-            .create_swap_chain(surface, &swap_chain_descriptor);
-
-        window_swap_chains.insert(window.id(), swap_chain);
-    }
-
-    fn next_swap_chain_texture(&self, window: &bevy_window::Window) -> SwapChainTextureId {
-        if let Some(texture_id) = self.try_next_swap_chain_texture(window.id()) {
-            texture_id
+    fn get_aligned_uniform_size(&self, size: usize, dynamic: bool) -> usize {
+        if dynamic {
+            (size + BIND_BUFFER_ALIGNMENT - 1) & !(BIND_BUFFER_ALIGNMENT - 1)
         } else {
-            self.resources
-                .window_swap_chains
-                .write()
-                .remove(&window.id());
-            self.create_swap_chain(window);
-            self.try_next_swap_chain_texture(window.id())
-                .expect("Failed to acquire next swap chain texture!")
+            size
         }
     }
 
-    fn drop_swap_chain_texture(&self, texture: SwapChainTextureId) {
-        let mut swap_chain_outputs = self.resources.swap_chain_frames.write();
-        swap_chain_outputs.remove(&texture);
-    }
-
-    fn drop_all_swap_chain_textures(&self) {
-        let mut swap_chain_outputs = self.resources.swap_chain_frames.write();
-        swap_chain_outputs.clear();
+    fn get_aligned_texture_size(&self, size: usize) -> usize {
+        (size + COPY_BYTES_PER_ROW_ALIGNMENT - 1) & !(COPY_BYTES_PER_ROW_ALIGNMENT - 1)
     }
 
     fn set_asset_resource_untyped(
@@ -665,87 +746,5 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
     fn remove_stale_bind_groups(&self) {
         self.resources.remove_stale_bind_groups();
-    }
-
-    fn get_buffer_info(&self, buffer: BufferId) -> Option<BufferInfo> {
-        self.resources.buffer_infos.read().get(&buffer).cloned()
-    }
-
-    fn write_mapped_buffer(
-        &self,
-        id: BufferId,
-        range: Range<u64>,
-        write: &mut dyn FnMut(&mut [u8], &dyn RenderResourceContext),
-    ) {
-        let buffer = {
-            let buffers = self.resources.buffers.read();
-            buffers.get(&id).unwrap().clone()
-        };
-        let buffer_slice = buffer.slice(range);
-        let mut data = buffer_slice.get_mapped_range_mut();
-        write(&mut data, self);
-    }
-
-    fn read_mapped_buffer(
-        &self,
-        id: BufferId,
-        range: Range<u64>,
-        read: &dyn Fn(&[u8], &dyn RenderResourceContext),
-    ) {
-        let buffer = {
-            let buffers = self.resources.buffers.read();
-            buffers.get(&id).unwrap().clone()
-        };
-        let buffer_slice = buffer.slice(range);
-        let data = buffer_slice.get_mapped_range();
-        read(&data, self);
-    }
-
-    fn map_buffer(&self, id: BufferId, mode: BufferMapMode) {
-        let buffers = self.resources.buffers.read();
-        let buffer = buffers.get(&id).unwrap();
-        let buffer_slice = buffer.slice(..);
-        let wgpu_mode = match mode {
-            BufferMapMode::Read => wgpu::MapMode::Read,
-            BufferMapMode::Write => wgpu::MapMode::Write,
-        };
-        let data = buffer_slice.map_async(wgpu_mode);
-        self.device.poll(wgpu::Maintain::Wait);
-        if future::block_on(data).is_err() {
-            panic!("Failed to map buffer to host.");
-        }
-    }
-
-    fn unmap_buffer(&self, id: BufferId) {
-        let buffers = self.resources.buffers.read();
-        let buffer = buffers.get(&id).unwrap();
-        buffer.unmap();
-    }
-
-    fn get_aligned_texture_size(&self, size: usize) -> usize {
-        (size + COPY_BYTES_PER_ROW_ALIGNMENT - 1) & !(COPY_BYTES_PER_ROW_ALIGNMENT - 1)
-    }
-
-    fn get_aligned_uniform_size(&self, size: usize, dynamic: bool) -> usize {
-        if dynamic {
-            (size + BIND_BUFFER_ALIGNMENT - 1) & !(BIND_BUFFER_ALIGNMENT - 1)
-        } else {
-            size
-        }
-    }
-
-    fn get_specialized_shader(
-        &self,
-        shader: &Shader,
-        macros: Option<&[String]>,
-    ) -> Result<Shader, ShaderError> {
-        let spirv_data = match shader.source {
-            ShaderSource::Spirv(ref bytes) => bytes.clone(),
-            ShaderSource::Glsl(ref source) => glsl_to_spirv(&source, shader.stage, macros)?,
-        };
-        Ok(Shader {
-            source: ShaderSource::Spirv(spirv_data),
-            ..*shader
-        })
     }
 }

@@ -1,4 +1,4 @@
-use super::{BufferId, SamplerId, SwapChainTextureId, TextureId, TextureViewId};
+use super::{BufferId, SamplerId, SwapChainTextureId, TextureViewId};
 use crate::texture::Texture;
 use bevy_asset::Handle;
 
