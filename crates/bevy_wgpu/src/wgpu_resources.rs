@@ -11,7 +11,7 @@ use bevy_render::{
 use bevy_utils::HashMap;
 use bevy_window::WindowId;
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
-use parking_lot::{RwLock, RwLockReadGuard};
+use parking_lot::{Mutex, RwLock, RwLockReadGuard};
 use std::sync::Arc;
 
 #[derive(Debug, Default)]
@@ -85,15 +85,15 @@ pub struct WgpuResourceRefs<'a> {
 #[derive(Default, Clone, Debug)]
 pub struct WgpuResources {
     pub buffer_infos: Arc<RwLock<HashMap<BufferId, BufferInfo>>>,
-    pub texture_descriptors: Arc<RwLock<HashMap<TextureId, TextureDescriptor>>>,
-    pub texture_view_descriptors: Arc<RwLock<HashMap<TextureViewId, TextureViewDescriptor>>>,
+    pub texture_descriptors: Arc<Mutex<HashMap<TextureId, TextureDescriptor>>>,
+    pub texture_view_descriptors: Arc<Mutex<HashMap<TextureViewId, TextureViewDescriptor>>>,
     pub window_surfaces: Arc<RwLock<HashMap<WindowId, wgpu::Surface>>>,
     pub window_swap_chains: Arc<RwLock<HashMap<WindowId, wgpu::SwapChain>>>,
     pub swap_chain_frames: Arc<RwLock<HashMap<SwapChainTextureId, wgpu::SwapChainFrame>>>,
     pub buffers: Arc<RwLock<HashMap<BufferId, Arc<wgpu::Buffer>>>>,
     pub texture_views: Arc<RwLock<HashMap<TextureViewId, wgpu::TextureView>>>,
     pub texture_texture_views:
-        Arc<RwLock<HashMap<TextureId, HashMap<Option<BindGroupDescriptorId>, TextureViewId>>>>,
+        Arc<Mutex<HashMap<TextureId, HashMap<Option<BindGroupDescriptorId>, TextureViewId>>>>,
     pub textures: Arc<RwLock<HashMap<TextureId, wgpu::Texture>>>,
     pub samplers: Arc<RwLock<HashMap<SamplerId, wgpu::Sampler>>>,
     pub shader_modules: Arc<RwLock<HashMap<Handle<Shader>, wgpu::ShaderModule>>>,

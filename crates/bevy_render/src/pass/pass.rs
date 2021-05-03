@@ -17,7 +17,10 @@ impl From<RenderResourceId> for TextureAttachment {
         match resource_id {
             RenderResourceId::Texture(texture_view) => TextureAttachment::View(texture_view),
             RenderResourceId::SwapChain(texture_id) => TextureAttachment::SwapChain(texture_id),
-            _ => panic!(),
+            _ => panic!(
+                "Could not create `TextureAttachment` from `RenderResourceId`: \
+                    Neither of `Texture` nor `SwapChain` were provided."
+            ),
         }
     }
 }

@@ -244,35 +244,36 @@ impl RenderResourceBindings {
         for binding_descriptor in bind_group_descriptor.bindings.iter() {
             if let Some(binding) = self.get(&binding_descriptor.name) {
                 // If the default texture view is not correct, we must correct it.
-                let binding = if let BindType::Texture {
-                    // This case only happens in the Cube and CubeArray cases,
-                    // since their underlying textures are all 2d texture arrays.
-                    view_dimension:
-                        view_dimension @ (TextureViewDimension::Cube | TextureViewDimension::CubeArray),
-                    ..
-                } = binding_descriptor.bind_type
+                let binding = if let (
+                    BindType::Texture {
+                        // This case only happens in the Cube and CubeArray cases,
+                        // since their underlying textures are all 2d texture arrays.
+                        view_dimension:
+                            view_dimension @ TextureViewDimension::Cube
+                            | view_dimension @ TextureViewDimension::CubeArray,
+                        ..
+                    },
+                    RenderResourceBinding::Texture(original_view),
+                ) = (&binding_descriptor.bind_type, binding)
                 {
-                    if let RenderResourceBinding::Texture(original_view) = binding {
-                        // This will return a cached one for this particular
-                        // bindgroup.
-                        // TODO: Add support for custom texture views somehow?
-                        let new_view = render_resources.create_texture_view(
-                            original_view.get_texture_id(),
-                            TextureViewDescriptor {
-                                dimension: Some(view_dimension),
-                                ..Default::default()
-                            },
-                            Some(bind_group_descriptor.id),
+                    // This will return a cached one for this particular
+                    // bindgroup.
+                    // TODO: Add support for custom texture views somehow?
+                    let new_view = render_resources.create_texture_view(
+                        original_view.get_texture_id(),
+                        TextureViewDescriptor {
+                            dimension: Some(*view_dimension),
+                            ..Default::default()
+                        },
+                        Some(bind_group_descriptor.id),
+                    );
+                    if new_view != *original_view {
+                        self.set(
+                            &binding_descriptor.name,
+                            RenderResourceBinding::Texture(new_view),
                         );
-                        if new_view != *original_view {
-                            self.set(
-                                &binding_descriptor.name,
-                                RenderResourceBinding::Texture(new_view),
-                            );
-                            RenderResourceBinding::Texture(new_view)
-                        } else {
-                            binding.clone()
-                        }
+                        RenderResourceBinding::Texture(new_view)
+                        //TODO: clean this up once polonius comes out.
                     } else {
                         binding.clone()
                     }
@@ -345,7 +346,7 @@ impl AssetRenderResourceBindings {
 mod tests {
     use super::*;
     use crate::pipeline::{BindType, BindingDescriptor, BindingShaderStage, UniformProperty};
-    use crate::renderer::HeadlessRenderResourceContext;
+    use crate::renderer::{HeadlessRenderResourceContext, TextureId};
 
     #[test]
     fn test_bind_groups() {

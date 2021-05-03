@@ -300,7 +300,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
     fn create_texture(&self, texture_descriptor: TextureDescriptor) -> TextureId {
         let mut textures = self.resources.textures.write();
-        let mut texture_descriptors = self.resources.texture_descriptors.write();
+        let mut texture_descriptors = self.resources.texture_descriptors.lock();
 
         let descriptor: wgpu::TextureDescriptor = (&texture_descriptor).wgpu_into();
         let texture = self.device.create_texture(&descriptor);
@@ -323,19 +323,17 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         texture_view_descriptor: TextureViewDescriptor,
         bind_group_descriptor: Option<BindGroupDescriptorId>,
     ) -> TextureViewId {
-        let texture_texture_views = self.resources.texture_texture_views.read();
+        let mut texture_texture_views = self.resources.texture_texture_views.lock();
         if let Some(texture_view_id) = texture_texture_views
             .get(&texture_id)
             .and_then(|per_bind_group_ids| per_bind_group_ids.get(&bind_group_descriptor))
         {
             return *texture_view_id;
         }
-        drop(texture_texture_views);
 
         let textures = self.resources.textures.read();
-        let mut texture_texture_views = self.resources.texture_texture_views.write();
         let mut texture_views = self.resources.texture_views.write();
-        let mut texture_view_descriptors = self.resources.texture_view_descriptors.write();
+        let mut texture_view_descriptors = self.resources.texture_view_descriptors.lock();
 
         let texture = textures.get(&texture_id).unwrap();
 
@@ -495,8 +493,8 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
     fn remove_texture(&self, texture: TextureId) {
         let mut textures = self.resources.textures.write();
-        let mut texture_texture_views = self.resources.texture_texture_views.write();
-        let mut texture_descriptors = self.resources.texture_descriptors.write();
+        let mut texture_texture_views = self.resources.texture_texture_views.lock();
+        let mut texture_descriptors = self.resources.texture_descriptors.lock();
 
         textures.remove(&texture);
         // remove all views
@@ -508,7 +506,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
     fn remove_texture_view(&self, texture_view: TextureViewId) {
         let mut texture_views = self.resources.texture_views.write();
-        let mut texture_view_descriptors = self.resources.texture_view_descriptors.write();
+        let mut texture_view_descriptors = self.resources.texture_view_descriptors.lock();
 
         texture_views.remove(&texture_view);
         texture_view_descriptors.remove(&texture_view);
