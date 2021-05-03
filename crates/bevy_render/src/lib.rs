@@ -44,7 +44,7 @@ use bevy_asset::{AddAsset, AssetStage};
 use bevy_ecs::schedule::{StageLabel, SystemLabel};
 use camera::{
     ActiveCameras, Camera, DepthCalculation, OrthographicProjection, PerspectiveProjection,
-    RenderLayers, ScalingMode, VisibleEntities, WindowOrigin,
+    RenderLayers, ScalingMode, VisibleEffective, VisibleEntities, WindowOrigin,
 };
 use pipeline::{
     IndexFormat, PipelineCompiler, PipelineDescriptor, PipelineSpecialization, PrimitiveTopology,
@@ -140,6 +140,7 @@ impl Plugin for RenderPlugin {
         .register_type::<DepthCalculation>()
         .register_type::<Draw>()
         .register_type::<Visible>()
+        .register_type::<VisibleEffective>()
         .register_type::<OutsideFrustum>()
         .register_type::<RenderPipelines>()
         .register_type::<OrthographicProjection>()
@@ -180,6 +181,12 @@ impl Plugin for RenderPlugin {
         .add_system_to_stage(
             CoreStage::PostUpdate,
             camera::camera_system::<PerspectiveProjection>
+                .system()
+                .before(RenderSystem::VisibleEntities),
+        )
+        .add_system_to_stage(
+            CoreStage::PostUpdate,
+            camera::visible_effective_system
                 .system()
                 .before(RenderSystem::VisibleEntities),
         )

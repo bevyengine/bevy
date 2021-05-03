@@ -1,9 +1,23 @@
 use super::{Camera, DepthCalculation};
 use crate::{draw::OutsideFrustum, prelude::Visible};
 use bevy_core::FloatOrd;
-use bevy_ecs::{entity::Entity, query::Without, reflect::ReflectComponent, system::Query};
+use bevy_ecs::{
+    entity::Entity,
+    query::{Changed, Or, With, Without},
+    reflect::ReflectComponent,
+    system::{Commands, Query},
+};
 use bevy_reflect::Reflect;
-use bevy_transform::prelude::{GlobalTransform, Parent};
+use bevy_transform::prelude::{Children, GlobalTransform, Parent};
+
+#[derive(Default, Debug, Reflect)]
+#[reflect(Component)]
+pub struct VisibleEffective {
+    #[reflect(ignore)]
+    pub is_visible: bool,
+    #[reflect(ignore)]
+    pub is_transparent: bool,
+}
 
 #[derive(Debug)]
 pub struct VisibleEntity {
@@ -197,6 +211,71 @@ mod rendering_mask_tests {
     }
 }
 
+pub fn visible_effective_system(
+    children_query: Query<&Children>,
+    changes_query: Query<
+        (Entity, Option<&Parent>),
+        (With<Visible>, Or<(Changed<Visible>, Changed<Parent>)>),
+    >,
+    mut visible_query: Query<(&Visible, Option<&mut VisibleEffective>)>,
+    mut commands: Commands,
+) {
+    fn update_effective(
+        entity: Entity,
+        is_visible_parent: bool,
+        children_query: &Query<&Children>,
+        mut visible_query: &mut Query<(&Visible, Option<&mut VisibleEffective>)>,
+        mut commands: &mut Commands,
+    ) {
+        if let Ok((visible, maybe_visible_effective)) = visible_query.get_mut(entity) {
+            let is_visible = visible.is_visible & is_visible_parent;
+            if let Some(mut visible_effective) = maybe_visible_effective {
+                visible_effective.is_transparent = visible.is_transparent;
+
+                if visible_effective.is_visible == is_visible {
+                    return;
+                }
+
+                visible_effective.is_visible = is_visible;
+            } else {
+                commands.entity(entity).insert(VisibleEffective {
+                    is_visible,
+                    is_transparent: visible.is_transparent,
+                });
+            }
+
+            if let Ok(children) = children_query.get(entity) {
+                for child in children.iter() {
+                    update_effective(
+                        *child,
+                        is_visible,
+                        &children_query,
+                        &mut visible_query,
+                        &mut commands,
+                    );
+                }
+            }
+        }
+    }
+
+    for (entity, maybe_parent) in changes_query.iter() {
+        if let Ok(is_visible) = match maybe_parent {
+            None => Ok(true),
+            Some(parent) => visible_query
+                .get_component::<VisibleEffective>(parent.0)
+                .map(|v| v.is_visible),
+        } {
+            update_effective(
+                entity,
+                is_visible,
+                &children_query,
+                &mut visible_query,
+                &mut commands,
+            );
+        }
+    }
+}
+
 pub fn visible_entities_system(
     mut camera_query: Query<(
         &Camera,
@@ -204,7 +283,10 @@ pub fn visible_entities_system(
         &mut VisibleEntities,
         Option<&RenderLayers>,
     )>,
-    visible_query: Query<(Entity, &Visible, Option<&Parent>, Option<&RenderLayers>), Without<OutsideFrustum>>,
+    visible_query: Query<
+        (Entity, &VisibleEffective, Option<&RenderLayers>),
+        Without<OutsideFrustum>,
+    >,
     visible_transform_query: Query<&GlobalTransform, Without<OutsideFrustum>>,
 ) {
     for (camera, camera_global_transform, mut visible_entities, maybe_camera_mask) in
@@ -216,18 +298,9 @@ pub fn visible_entities_system(
 
         let mut no_transform_order = 0.0;
         let mut transparent_entities = Vec::new();
-        'next_enity: for (entity, visible, maybe_parent, maybe_entity_mask) in visible_query.iter() {
+        for (entity, visible, maybe_entity_mask) in visible_query.iter() {
             if !visible.is_visible {
                 continue;
-            }
-
-            let mut current_parent = maybe_parent;
-            while let Some(parent) = current_parent {
-                if visible_query.get_component::<Visible>(parent.0).map_or(false, |v| v.is_visible) {
-                    current_parent = visible_query.get_component(parent.0).ok();
-                } else {
-                    continue 'next_enity;
-                }
             }
 
             let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
@@ -265,5 +338,50 @@ pub fn visible_entities_system(
 
         // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize
         // to prevent holding unneeded memory
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use bevy_ecs::{
+        schedule::{Schedule, SystemStage},
+        world::World,
+    };
+
+    fn propagates_visibility() {
+        let mut world = World::default();
+        let mut stage = SystemStage::single(visible_entities_system.system());
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update", stage);
+
+        let child = Option::<Entity>::None;
+        let parent = commands
+            .spawn_bundle(Visible::default())
+            .with_children(|parent| child = parent.spawn_bundle(Visible::default()));
+
+        schedule.run(&mut world);
+        assert_eq!(
+            Ok(true),
+            world.get::<VisibleEffective>(parent).map(|v| v.is_visible)
+        );
+        assert_eq!(
+            Ok(true),
+            world.get::<VisibleEffective>(child).map(|v| v.is_visible)
+        );
+
+        world
+            .get_mut::<Visible>(parent)
+            .and_then(|mut v| v.is_visible = false)
+            .unwrap();
+
+        schedule.run(&mut world);
+        assert_eq!(
+            Ok(false),
+            world.get::<VisibleEffective>(parent).map(|v| v.is_visible)
+        );
+        assert_eq!(
+            Ok(false),
+            world.get::<VisibleEffective>(child).map(|v| v.is_visible)
+        );
     }
 }
