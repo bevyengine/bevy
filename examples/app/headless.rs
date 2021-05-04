@@ -1,4 +1,4 @@
-use bevy::{app::ScheduleRunnerSettings, prelude::*, utils::Duration};
+use bevy::{app::{ScheduleRunnerSettings, ScheduleRunnerPlugin}, prelude::*, utils::Duration};
 
 // This example only enables a minimal set of plugins required for bevy to run.
 // You can also completely remove rendering / windowing Plugin code from bevy
@@ -29,7 +29,7 @@ fn main() {
 
     // this app loops without a fixed timestep
     App::build()
-        .add_plugin(ScheduleRunnerPlugin)
+        .add_plugin(ScheduleRunnerPlugin::default())
         .add_plugins(MinimalPlugins)
         .add_system(counter.system())
         .run();
