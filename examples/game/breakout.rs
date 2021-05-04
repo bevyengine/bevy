@@ -11,10 +11,9 @@ use resources::*;
 
 /// Constants that can be used to fine-tune the behavior of our game
 mod config {
-    // FIXME: add various Transforms to this config module for clarity and consistency
-    // Blocked on https://github.com/bevyengine/bevy/issues/2097
-    use bevy::math::{const_vec2, Vec2};
+    use bevy::math::{const_quat, const_vec2, const_vec3, Vec2};
     use bevy::render::color::Color;
+    use bevy::transform::components::Transform;
     use bevy::ui::Val;
 
     pub const TIME_STEP: f32 = 1.0 / 60.0;
@@ -24,12 +23,25 @@ mod config {
     pub const PADDLE_SPEED: f32 = 500.0;
     pub const PADDLE_SIZE: Vec2 = const_vec2!([120.0, 30.0]);
     pub const PADDLE_BOUND: f32 = 380.0;
+    pub const PADDLE_STARTING_TRANSFORM: Transform = Transform {
+        translation: const_vec3!([0.0, -215.0, 0.0]),
+        // We don't want any rotation
+        rotation: const_quat!([0.0, 0.0, 0.0, 0.0]),
+        // We want the scale to be 1 in all directions
+        scale: const_vec3!([1.0, 1.0, 1.0]),
+    };
 
     pub const BALL_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
     // Our ball is actually a square. Shhh...
     pub const BALL_SIZE: Vec2 = const_vec2!([30.0, 30.0]);
     pub const BALL_STARTING_DIRECTION: Vec2 = const_vec2!([0.5, -0.5]);
     pub const BALL_STARTING_SPEED: f32 = 400.0;
+    // We set the z-value to one to ensure it appears on top of our other objects in case of overlap
+    pub const BALL_STARTING_TRANSFORM: Transform = Transform {
+        translation: const_vec3!([0.0, -50.0, 1.0]),
+        rotation: const_quat!([0.0, 0.0, 0.0, 0.0]),
+        scale: const_vec3!([1.0, 1.0, 1.0]),
+    };
 
     pub const ARENA_BOUNDS: Vec2 = const_vec2!([900.0, 600.0]);
     pub const WALL_THICKNESS: f32 = 10.0;
@@ -115,12 +127,10 @@ fn spawn_cameras(mut commands: Commands) {
 }
 
 fn spawn_paddle(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
-    let paddle_starting_location: Transform = Transform::from_xyz(0.0, -215.0, 0.0);
-
     commands
         .spawn_bundle(SpriteBundle {
             material: materials.add(PADDLE_COLOR.into()),
-            transform: paddle_starting_location,
+            transform: PADDLE_STARTING_TRANSFORM,
             sprite: Sprite::new(PADDLE_SIZE),
             ..Default::default()
         })
@@ -132,9 +142,6 @@ fn spawn_paddle(mut commands: Commands, mut materials: ResMut<Assets<ColorMateri
 }
 
 fn spawn_ball(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
-    // We set the z-value to one to ensure it appears on top of our other objects in case of overlap
-    let ball_starting_location: Transform = Transform::from_xyz(0.0, -50.0, 1.0);
-
     // .normalize is not a const fn, so we have to perform this operation at runtime
     // FIXME: Blocked on https://github.com/bitshifter/glam-rs/issues/76
     let normalized_direction = BALL_STARTING_DIRECTION.normalize();
@@ -146,7 +153,7 @@ fn spawn_ball(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial
     commands
         .spawn_bundle(SpriteBundle {
             material: materials.add(BALL_COLOR.into()),
-            transform: ball_starting_location,
+            transform: BALL_STARTING_TRANSFORM,
             sprite: Sprite::new(BALL_SIZE),
             ..Default::default()
         })
