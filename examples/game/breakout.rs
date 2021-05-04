@@ -158,10 +158,10 @@ impl Side {
 
     fn wall_size(&self, bounds: Vec2, thickness: f32) -> Vec2 {
         match self {
-            Side::Top => Vec2::new(thickness, bounds.y + thickness),
-            Side::Bottom => Vec2::new(thickness, bounds.y + thickness),
-            Side::Left => Vec2::new(bounds.x + thickness, thickness),
-            Side::Right => Vec2::new(bounds.x + thickness, thickness),
+            Side::Top => Vec2::new(bounds.x + thickness, thickness),
+            Side::Bottom => Vec2::new(bounds.x + thickness, thickness),
+            Side::Left => Vec2::new(thickness, bounds.y + thickness),
+            Side::Right => Vec2::new(thickness, bounds.y + thickness),
         }
     }
 }
