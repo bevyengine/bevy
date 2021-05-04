@@ -10,7 +10,7 @@ use bevy_log::warn;
 use bevy_tasks::TaskPool;
 use bevy_utils::{HashMap, Uuid};
 use crossbeam_channel::TryRecvError;
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use std::{collections::hash_map::Entry, path::Path, sync::Arc};
 use thiserror::Error;
 
@@ -45,6 +45,7 @@ fn format_missing_asset_ext(exts: &[String]) -> String {
 pub(crate) struct AssetRefCounter {
     pub(crate) channel: Arc<RefChangeChannel>,
     pub(crate) ref_counts: Arc<RwLock<HashMap<HandleId, usize>>>,
+    pub(crate) mark_unused_assets: Arc<Mutex<Vec<HandleId>>>,
 }
 
 pub struct AssetServerInternal {
@@ -224,6 +225,7 @@ impl AssetServer {
     /// The name of the asset folder is set inside the
     /// [`AssetServerSettings`](crate::AssetServerSettings) resource. The default name is
     /// `"assets"`.
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load<'a, T: Asset, P: Into<AssetPath<'a>>>(&self, path: P) -> Handle<T> {
         self.load_untyped(path).typed()
     }
@@ -253,11 +255,12 @@ impl AssetServer {
                 }),
             };
 
-            // if asset is already loaded (or is loading), don't load again
+            // if asset is already loaded or is loading, don't load again
             if !force
-                && source_info
+                && (source_info
                     .committed_assets
                     .contains(&asset_path_id.label_id())
+                    || source_info.load_state == LoadState::Loading)
             {
                 return Ok(asset_path_id);
             }
@@ -325,7 +328,8 @@ impl AssetServer {
             let type_uuid = loaded_asset.value.as_ref().unwrap().type_uuid();
             source_info.asset_types.insert(label_id, type_uuid);
             for dependency in loaded_asset.dependencies.iter() {
-                self.load_untyped(dependency.clone());
+                // another handle already exists created from the asset path
+                let _ = self.load_untyped(dependency.clone());
             }
         }
 
@@ -337,6 +341,7 @@ impl AssetServer {
         Ok(asset_path_id)
     }
 
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load_untyped<'a, P: Into<AssetPath<'a>>>(&self, path: P) -> HandleUntyped {
         let handle_id = self.load_untracked(path.into(), false);
         self.get_handle_untyped(handle_id)
@@ -356,6 +361,7 @@ impl AssetServer {
         asset_path.into()
     }
 
+    #[must_use = "not using the returned strong handles may result in the unexpected release of the assets"]
     pub fn load_folder<P: AsRef<Path>>(
         &self,
         path: P,
@@ -385,10 +391,35 @@ impl AssetServer {
     }
 
     pub fn free_unused_assets(&self) {
+        let mut potential_frees = self.server.asset_ref_counter.mark_unused_assets.lock();
+
+        if !potential_frees.is_empty() {
+            let ref_counts = self.server.asset_ref_counter.ref_counts.read();
+            let asset_sources = self.server.asset_sources.read();
+            let asset_lifecycles = self.server.asset_lifecycles.read();
+            for potential_free in potential_frees.drain(..) {
+                if let Some(&0) = ref_counts.get(&potential_free) {
+                    let type_uuid = match potential_free {
+                        HandleId::Id(type_uuid, _) => Some(type_uuid),
+                        HandleId::AssetPathId(id) => asset_sources
+                            .get(&id.source_path_id())
+                            .and_then(|source_info| source_info.get_asset_type(id.label_id())),
+                    };
+
+                    if let Some(type_uuid) = type_uuid {
+                        if let Some(asset_lifecycle) = asset_lifecycles.get(&type_uuid) {
+                            asset_lifecycle.free_asset(potential_free);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn mark_unused_assets(&self) {
         let receiver = &self.server.asset_ref_counter.channel.receiver;
         let mut ref_counts = self.server.asset_ref_counter.ref_counts.write();
-        let asset_sources = self.server.asset_sources.read();
-        let mut potential_frees = Vec::new();
+        let mut potential_frees = None;
         loop {
             let ref_change = match receiver.try_recv() {
                 Ok(ref_change) => ref_change,
@@ -401,29 +432,11 @@ impl AssetServer {
                     let entry = ref_counts.entry(handle_id).or_insert(0);
                     *entry -= 1;
                     if *entry == 0 {
-                        potential_frees.push(handle_id);
-                    }
-                }
-            }
-        }
-
-        if !potential_frees.is_empty() {
-            let asset_lifecycles = self.server.asset_lifecycles.read();
-            for potential_free in potential_frees {
-                if let Some(i) = ref_counts.get(&potential_free).cloned() {
-                    if i == 0 {
-                        let type_uuid = match potential_free {
-                            HandleId::Id(type_uuid, _) => Some(type_uuid),
-                            HandleId::AssetPathId(id) => asset_sources
-                                .get(&id.source_path_id())
-                                .and_then(|source_info| source_info.get_asset_type(id.label_id())),
-                        };
-
-                        if let Some(type_uuid) = type_uuid {
-                            if let Some(asset_lifecycle) = asset_lifecycles.get(&type_uuid) {
-                                asset_lifecycle.free_asset(potential_free);
-                            }
-                        }
+                        potential_frees
+                            .get_or_insert_with(|| {
+                                self.server.asset_ref_counter.mark_unused_assets.lock()
+                            })
+                            .push(handle_id);
                     }
                 }
             }
@@ -504,6 +517,7 @@ impl AssetServer {
 
 pub fn free_unused_assets_system(asset_server: Res<AssetServer>) {
     asset_server.free_unused_assets();
+    asset_server.mark_unused_assets();
 }
 
 #[cfg(test)]
