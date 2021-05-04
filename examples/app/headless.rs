@@ -7,6 +7,8 @@ use bevy::{app::ScheduleRunnerSettings, prelude::*, utils::Duration};
 // [dependencies]
 // bevy = { version = "*", default-features = false }
 // # replace "*" with the most recent version of bevy
+// Note that feature/plugin `winnit` provides a scheduler, thus without it,
+// anoter scheduler must be provided.
 
 fn main() {
     // this app runs once
@@ -21,6 +23,13 @@ fn main() {
         .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
             1.0 / 60.0,
         )))
+        .add_plugins(MinimalPlugins)
+        .add_system(counter.system())
+        .run();
+
+    // this app loops without a fixed timestep
+    App::build()
+        .add_plugin(ScheduleRunnerPlugin)
         .add_plugins(MinimalPlugins)
         .add_system(counter.system())
         .run();
