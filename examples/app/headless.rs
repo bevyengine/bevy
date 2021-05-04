@@ -7,8 +7,8 @@ use bevy::{app::{ScheduleRunnerSettings, ScheduleRunnerPlugin}, prelude::*, util
 // [dependencies]
 // bevy = { version = "*", default-features = false }
 // # replace "*" with the most recent version of bevy
-// Note that feature/plugin `winnit` provides a scheduler, thus without it,
-// anoter scheduler must be provided.
+// Note that feature/plugin `winit` provides a scheduler, thus without it,
+// another scheduler must be provided.
 
 fn main() {
     // this app runs once
