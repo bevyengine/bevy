@@ -190,7 +190,7 @@ struct WallBundle {
 }
 
 impl WallBundle {
-    fn new(side: Side, material_handle: &Handle<ColorMaterial>) -> Self {
+    fn new(side: Side, material_handle: Handle<ColorMaterial>) -> Self {
         let arena_bounds: Vec2 = Vec2::new(900.0, 600.0);
 
         let bounds = arena_bounds;
@@ -198,7 +198,7 @@ impl WallBundle {
 
         WallBundle {
             sprite_bundle: SpriteBundle {
-                material: material_handle.clone(),
+                material: material_handle,
                 transform: side.wall_coord(bounds),
                 sprite: Sprite::new(side.wall_size(bounds, thickness)),
                 ..Default::default()
@@ -211,10 +211,10 @@ impl WallBundle {
 fn spawn_walls(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     let material_handle = materials.add(WALL_COLOR.into());
 
-    commands.spawn_bundle(WallBundle::new(Side::Top, &material_handle));
-    commands.spawn_bundle(WallBundle::new(Side::Bottom, &material_handle));
-    commands.spawn_bundle(WallBundle::new(Side::Left, &material_handle));
-    commands.spawn_bundle(WallBundle::new(Side::Right, &material_handle));
+    commands.spawn_bundle(WallBundle::new(Side::Top, material_handle.clone()));
+    commands.spawn_bundle(WallBundle::new(Side::Bottom, material_handle.clone()));
+    commands.spawn_bundle(WallBundle::new(Side::Left, material_handle.clone()));
+    commands.spawn_bundle(WallBundle::new(Side::Right, material_handle.clone()));
 }
 #[derive(Bundle)]
 struct BrickBundle {
@@ -225,10 +225,10 @@ struct BrickBundle {
 }
 
 impl BrickBundle {
-    fn new(x: f32, y: f32, material_handle: &Handle<ColorMaterial>) -> Self {
+    fn new(x: f32, y: f32, material_handle: Handle<ColorMaterial>) -> Self {
         BrickBundle {
             sprite_bundle: SpriteBundle {
-                material: material_handle.clone(),
+                material: material_handle,
                 transform: Transform::from_xyz(x, y, 0.0),
                 sprite: Sprite::new(Vec2::new(BRICK_WIDTH, BRICK_HEIGHT)),
                 ..Default::default()
@@ -250,9 +250,20 @@ fn spawn_bricks(mut commands: Commands, mut materials: ResMut<Assets<ColorMateri
     const OFFSET_Y: f32 = 100.0;
 
     // Add the bricks
+    let brick_iterator = (0..BRICK_ROWS)
+        .flat_map(|row| (0..BRICK_COLUMNS).map(move |col| (row, col)))
+        .map(move |(row, column)| {
+            BrickBundle::new(
+                column as f32 * (BRICK_WIDTH + BRICK_SPACING) + OFFSET_X,
+                row as f32 * (BRICK_HEIGHT + BRICK_SPACING) + OFFSET_Y,
+                brick_material.clone(),
+            )
+        });
+    commands.spawn_batch(brick_iterator);
+
+    /* Equivalently, you could spawn one brick at a time using for loops instead, at a small cost to performance
     for row in 0..BRICK_ROWS {
         for column in 0..BRICK_COLUMNS {
-            // Adding one brick at a time
             commands.spawn_bundle(BrickBundle::new(
                 column as f32 * (BRICK_WIDTH + BRICK_SPACING) + OFFSET_X,
                 row as f32 * (BRICK_HEIGHT + BRICK_SPACING) + OFFSET_Y,
@@ -260,6 +271,7 @@ fn spawn_bricks(mut commands: Commands, mut materials: ResMut<Assets<ColorMateri
             ));
         }
     }
+    */
 }
 
 fn spawn_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) {
