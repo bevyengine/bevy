@@ -56,11 +56,11 @@ fn main() {
         // This adds the Score resource with its default values: 0
         .init_resource::<Score>()
         // These systems run only once, before all other systems
-        .add_startup_system(add_cameras.system())
-        .add_startup_system(add_paddle.system())
-        .add_startup_system(add_ball.system())
-        .add_startup_system(add_walls.system())
-        .add_startup_system(add_scoreboard.system())
+        .add_startup_system(spawn_cameras.system())
+        .add_startup_system(spawn_paddle.system())
+        .add_startup_system(spawn_ball.system())
+        .add_startup_system(spawn_walls.system())
+        .add_startup_system(spawn_scoreboard.system())
         // These systems run repeatedly, whnever the FixedTimeStep's duration has elapsed
         .add_system_set(
             SystemSet::new()
@@ -100,12 +100,12 @@ mod components {
     }
 }
 
-fn add_cameras(mut commands: Commands) {
+fn spawn_cameras(mut commands: Commands) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(UiCameraBundle::default());
 }
 
-fn add_paddle(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
+fn spawn_paddle(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     commands
         .spawn_bundle(SpriteBundle {
             material: materials.add(config::PADDLE_COLOR.into()),
@@ -120,7 +120,7 @@ fn add_paddle(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial
         .insert(Velocity::default());
 }
 
-fn add_ball(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
+fn spawn_ball(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     commands
         .spawn_bundle(SpriteBundle {
             material: materials.add(config::BALL_COLOR.into()),
@@ -188,7 +188,7 @@ impl WallBundle {
     }
 }
 
-fn add_walls(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
+fn spawn_walls(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     let material_handle = materials.add(config::WALL_COLOR.into());
 
     commands.spawn_bundle(WallBundle::new(Side::Top, material_handle));
@@ -233,7 +233,7 @@ fn add_bricks(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial
     }
 }
 
-fn add_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn spawn_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(TextBundle {
         text: Text {
             sections: vec![
