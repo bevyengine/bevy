@@ -10,33 +10,19 @@ use resources::*;
 
 /// Constants that can be used to fine-tune the behavior of our game
 mod config {
-    use super::Velocity;
-    use bevy::math::Vec2;
     use bevy::render::color::Color;
-    use bevy::transform::components::Transform;
     use bevy::ui::Val;
+    // TODO: add various Vec2's and Transforms to this config module for clarity and consistency
+    // Blocked on https://github.com/bitshifter/glam-rs/issues/173
 
     pub const TIME_STEP: f32 = 1.0 / 60.0;
     pub const BACKGROUND_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
 
     pub const PADDLE_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
-    pub const PADDLE_STARTING_LOCATION: Transform = Transform::from_xyz(0.0, -215.0, 0.0);
-    pub const PADDLE_SIZE: Vec2 = Vec2::new(120.0, 30.0);
     pub const PADDLE_SPEED: f32 = 500.0;
 
     pub const BALL_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
-    // We set the z-value to one to ensure it appears on top of our other objects in case of overlap
-    pub const BALL_STARTING_LOCATION: Transform = Transform::from_xyz(0.0, -50.0, 1.0);
-    // Our ball is actually a square. Shhh...
-    pub const BALL_SIZE: Vec2 = Vec2::new(30.0, 30.0);
-    const BALL_STARTING_DIRECTION: Vec2 = Vec2::new(0.5, -0.5).normalize();
-    const BALL_STARTING_SPEED: f32 = 400.0;
-    pub const BALL_STARTING_VELOCITY: Velocity = Velocity {
-        x: BALL_STARTING_DIRECTION.x * BALL_STARTING_SPEED,
-        y: BALL_STARTING_DIRECTION.y * BALL_STARTING_SPEED,
-    };
 
-    pub const ARENA_BOUNDS: Vec2 = Vec2::new(900.0, 600.0);
     pub const WALL_THICKNESS: f32 = 10.0;
     pub const WALL_COLOR: Color = Color::rgb(0.8, 0.8, 0.8);
 
@@ -60,6 +46,7 @@ fn main() {
         .add_startup_system(spawn_paddle.system())
         .add_startup_system(spawn_ball.system())
         .add_startup_system(spawn_walls.system())
+        .add_startup_system(spawn_bricks.system())
         .add_startup_system(spawn_scoreboard.system())
         // These systems run repeatedly, whnever the FixedTimeStep's duration has elapsed
         .add_system_set(
@@ -106,11 +93,14 @@ fn spawn_cameras(mut commands: Commands) {
 }
 
 fn spawn_paddle(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
+    let paddle_starting_location: Transform = Transform::from_xyz(0.0, -215.0, 0.0);
+    let paddle_size: Vec2 = Vec2::new(120.0, 30.0);
+
     commands
         .spawn_bundle(SpriteBundle {
             material: materials.add(config::PADDLE_COLOR.into()),
-            transform: config::PADDLE_STARTING_LOCATION,
-            sprite: Sprite::new(config::PADDLE_SIZE),
+            transform: paddle_starting_location,
+            sprite: Sprite::new(paddle_size),
             ..Default::default()
         })
         .insert(Paddle {
@@ -121,17 +111,29 @@ fn spawn_paddle(mut commands: Commands, mut materials: ResMut<Assets<ColorMateri
 }
 
 fn spawn_ball(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
+    // We set the z-value to one to ensure it appears on top of our other objects in case of overlap
+    let ball_starting_location: Transform = Transform::from_xyz(0.0, -50.0, 1.0);
+    // Our ball is actually a square. Shhh...
+    let ball_size: Vec2 = Vec2::new(30.0, 30.0);
+
+    let ball_starting_direction: Vec2 = Vec2::new(0.5, -0.5).normalize();
+    let ball_starting_speed: f32 = 400.0;
+    let ball_starting_velocity: Velocity = Velocity {
+        x: ball_starting_direction.x * ball_starting_speed,
+        y: ball_starting_direction.y * ball_starting_speed,
+    };
+
     commands
         .spawn_bundle(SpriteBundle {
             material: materials.add(config::BALL_COLOR.into()),
-            transform: config::BALL_STARTING_LOCATION,
-            sprite: Sprite::new(config::BALL_SIZE),
+            transform: ball_starting_location,
+            sprite: Sprite::new(ball_size),
             ..Default::default()
         })
         .insert(Ball)
         .insert(Collides)
         // Adds a `Velocity` component with the value defined in the `config` module
-        .insert(config::BALL_STARTING_VELOCITY);
+        .insert(ball_starting_velocity);
 }
 
 /// Defines which side of the arena a wall is part of
@@ -174,7 +176,9 @@ struct WallBundle {
 
 impl WallBundle {
     fn new(side: Side, material_handle: &Handle<ColorMaterial>) -> Self {
-        let bounds = config::ARENA_BOUNDS;
+        let arena_bounds: Vec2 = Vec2::new(900.0, 600.0);
+
+        let bounds = arena_bounds;
         let thickness = config::WALL_THICKNESS;
 
         WallBundle {
@@ -198,26 +202,27 @@ fn spawn_walls(mut commands: Commands, mut materials: ResMut<Assets<ColorMateria
     commands.spawn_bundle(WallBundle::new(Side::Right, &material_handle));
 }
 
-fn add_bricks(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
+fn spawn_bricks(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     let brick_material = materials.add(config::BRICK_COLOR.into());
 
     // Brick layout constants
-    const brick_rows: i8 = 4;
-    const brick_columns: i8 = 5;
-    const brick_spacing: f32 = 20.0;
-    const brick_size: Vec2 = Vec2::new(150.0, 30.0);
+    const BRICK_ROWS: i8 = 4;
+    const BRICK_COLUMNS: i8 = 5;
+    const BRICK_SPACING: f32 = 20.0;
+    // TODO: change to const when https://github.com/bitshifter/glam-rs/issues/173 is fixed
+    let brick_size: Vec2 = Vec2::new(150.0, 30.0);
 
     // Compute the total width that all of the bricks take
-    let total_width = brick_columns as f32 * (brick_size.x + brick_spacing) - brick_spacing;
+    let total_width = BRICK_COLUMNS as f32 * (brick_size.x + BRICK_SPACING) - BRICK_SPACING;
     // Center the bricks and move them up a bit
     let bricks_offset = Vec3::new(-(total_width - brick_size.x) / 2.0, 100.0, 0.0);
 
     // Add the bricks
-    for row in 0..brick_rows {
-        for column in 0..brick_columns {
+    for row in 0..BRICK_ROWS {
+        for column in 0..BRICK_COLUMNS {
             let brick_position = Vec3::new(
-                column as f32 * (brick_size.x + brick_spacing),
-                row as f32 * (brick_size.y + brick_spacing),
+                column as f32 * (brick_size.x + BRICK_SPACING),
+                row as f32 * (brick_size.y + BRICK_SPACING),
                 0.0,
             ) + bricks_offset;
             // Adding one brick at a time
