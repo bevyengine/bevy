@@ -55,7 +55,7 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .insert_resource(ClearColor(BACKGROUND_COLOR))
-        // This adds the Score resource with its default values: 0
+        // This adds the Score resource with its default value of 0
         .init_resource::<Score>()
         // These systems run only once, before all other systems
         .add_startup_system(spawn_cameras.system())
@@ -260,6 +260,8 @@ fn spawn_bricks(mut commands: Commands, mut materials: ResMut<Assets<ColorMateri
                 brick_material.clone(),
             )
         });
+    // spawn_batch is slightly more efficient than repeatedly calling .spawn_bundle due to memory pre-allocation
+    // This approach is overkill for the small number of entities here, but serves to demonstrate how the function is used
     commands.spawn_batch(brick_iterator);
 
     /* Equivalently, you could spawn one brick at a time using for loops instead, at a small cost to performance
@@ -416,5 +418,7 @@ fn ball_collision(
 /// Updates the Scoreboard entity's Text based on the value of the Score resource
 fn update_scoreboard(score: Res<Score>, mut query: Query<&mut Text, With<Scoreboard>>) {
     let mut scoreboard_text = query.single_mut().unwrap();
+    // We need to access the second section, so we need to access the sections field at the [1] index
+    // (Rust is 0-indexed: https://medium.com/analytics-vidhya/array-indexing-0-based-or-1-based-dd89d631d11c)
     scoreboard_text.sections[1].value = format!("{}", score.0);
 }
