@@ -6,7 +6,7 @@ use bevy::{
 };
 
 use components::*;
-use config::{BRICK_HEIGHT, BRICK_WIDTH};
+use config::*;
 use resources::*;
 
 /// Constants that can be used to fine-tune the behavior of our game
