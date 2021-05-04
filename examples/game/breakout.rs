@@ -1,7 +1,6 @@
 use bevy::{
     core::FixedTimestep,
     prelude::*,
-    render::pass::ClearColor,
     sprite::collide_aabb::{collide, Collision},
 };
 
@@ -10,7 +9,11 @@ use resources::*;
 
 /// Constants that can be used to fine-tune the behavior of our game
 mod config {
-    const TIME_STEP: f64 = 1.0 / 60.0;
+    use bevy::render::color::Color;
+    use bevy::render::pass::ClearColor;
+
+    pub const TIME_STEP: f64 = 1.0 / 60.0;
+    pub const BACKGROUND_COLOR: ClearColor = ClearColor(Color::rgb(0.9, 0.9, 0.9));
 }
 
 /// A simple implementation of the classic game "Breakout"
@@ -18,7 +21,7 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .insert_resource(Scoreboard { score: 0 })
-        .insert_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
+        .insert_resource(config::BACKGROUND_COLOR)
         .add_startup_system(setup.system())
         .add_system_set(
             SystemSet::new()
