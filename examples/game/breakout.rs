@@ -11,14 +11,21 @@ use resources::*;
 /// Constants that can be used to fine-tune the behavior of our game
 mod config {
     use bevy::math::Vec2;
+    use bevy::transform::components::Transform;
     use bevy::render::color::Color;
 
     pub const TIME_STEP: f64 = 1.0 / 60.0;
     pub const BACKGROUND_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
 
     pub const PADDLE_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
+    pub const PADDLE_STARTING_LOCATION: Transform = Transform::from_xyz(0.0, -215.0, 0.0);
+    pub const PADDLE_SIZE: Vec2 = Vec2::new(120.0, 30.0);
     
     pub const BALL_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
+    // We set the z-value to one to ensure it appears on top of our other objects in case of overlap
+    pub const BALL_STARTING_LOCATION: Transform = Transform::from_xyz(0.0, -50.0, 1.0);
+    // Our ball is actually a square. Shhh...
+    pub const BALL_SIZE: Vec2 = Vec2::new(30.0, 30.0);
 
     pub const ARENA_BOUNDS: Vec2 = Vec2::new(900.0, 600.0);
     pub const WALL_THICKNESS: f32 = 10.0;
@@ -89,8 +96,8 @@ fn add_paddle(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial
     commands
         .spawn_bundle(SpriteBundle {
             material: materials.add(config::PADDLE_COLOR.into()),
-            transform: Transform::from_xyz(0.0, -215.0, 0.0),
-            sprite: Sprite::new(Vec2::new(120.0, 30.0)),
+            transform: config::PADDLE_STARTING_LOCATION,
+            sprite: Sprite::new(config::PADDLE_SIZE),
             ..Default::default()
         })
         .insert(Paddle)
@@ -102,8 +109,8 @@ fn add_ball(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>
     commands
         .spawn_bundle(SpriteBundle {
             material: materials.add(config::BALL_COLOR.into()),
-            transform: Transform::from_xyz(0.0, -50.0, 1.0),
-            sprite: Sprite::new(Vec2::new(30.0, 30.0)),
+            transform: config::BALL_STARTING_LOCATION,
+            sprite: Sprite::new(config::BALL_SIZE),
             ..Default::default()
         })
         .insert(Ball);
