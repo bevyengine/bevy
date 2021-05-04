@@ -13,7 +13,7 @@ mod config {
     use bevy::render::color::Color;
     use bevy::ui::Val;
     // TODO: add various Vec2's and Transforms to this config module for clarity and consistency
-    // Blocked on https://github.com/bitshifter/glam-rs/issues/173
+    // Blocked on https://github.com/bitshifter/glam-rs/issues/76
 
     pub const TIME_STEP: f32 = 1.0 / 60.0;
     pub const BACKGROUND_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
@@ -210,7 +210,7 @@ fn spawn_bricks(mut commands: Commands, mut materials: ResMut<Assets<ColorMateri
     const BRICK_ROWS: i8 = 4;
     const BRICK_COLUMNS: i8 = 5;
     const BRICK_SPACING: f32 = 20.0;
-    // TODO: change to const when https://github.com/bitshifter/glam-rs/issues/173 is fixed
+    // TODO: change to const when https://github.com/bitshifter/glam-rs/issues/76 is fixed
     let brick_size: Vec2 = Vec2::new(150.0, 30.0);
 
     // Compute the total width that all of the bricks take
