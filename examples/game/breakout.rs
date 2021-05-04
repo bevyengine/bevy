@@ -15,7 +15,7 @@ mod config {
     use bevy::render::color::Color;
     use bevy::ui::Val;
 
-    pub const TIME_STEP: f64 = 1.0 / 60.0;
+    pub const TIME_STEP: f32 = 1.0 / 60.0;
     pub const BACKGROUND_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
 
     pub const PADDLE_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
@@ -56,11 +56,13 @@ fn main() {
         // These systems run repeatedly, whnever the FixedTimeStep's duration has elapsed
         .add_system_set(
             SystemSet::new()
-                .with_run_criteria(FixedTimestep::step(config::TIME_STEP))
+                .with_run_criteria(FixedTimestep::step(config::TIME_STEP as f64))
+                .with_system(kinematics_system.system())
                 .with_system(paddle_movement_system.system())
                 .with_system(ball_collision_system.system())
                 .with_system(ball_movement_system.system()),
         )
+        // Ordinary systems run every frame
         .add_system(scoreboard_system.system())
         .run();
 }
@@ -85,8 +87,8 @@ mod components {
     // The derived default values of numeric fields in Rust are zero
     #[derive(Default)]
     pub struct Velocity {
-        x: f32,
-        y: f32,
+        pub x: f32,
+        pub y: f32,
     }
 }
 
@@ -253,6 +255,14 @@ fn add_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         ..Default::default()
     });
+}
+
+/// Moves everything with both a Transform and a Velovity accordingly
+fn kinematics_system(mut query: Query<(&mut Transform, &Velocity)>){
+    for (transform, velocity) in query.iter_mut(){
+        transform.translation.x += velocity.x * config::TIME_STEP;
+        transform.translation.y += velocity.y * config::TIME_STEP;
+    }
 }
 
 fn paddle_movement_system(
