@@ -286,10 +286,10 @@ fn spawn_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 /// Moves everything with both a Transform and a Velocity accordingly
 fn kinematics(mut query: Query<(&mut Transform, &Velocity)>) {
-    for (mut transform, velocity) in query.iter_mut() {
+    query.for_each_mut(|(mut transform, velocity)| {
         transform.translation.x += velocity.x * config::TIME_STEP;
         transform.translation.y += velocity.y * config::TIME_STEP;
-    }
+    });
 }
 
 /// Turns left and right arrow key inputs to set paddle velocity
@@ -336,52 +336,53 @@ fn ball_collision(
     let (ball_transform, mut ball_velocity, ball_sprite) = ball_query.single_mut().unwrap();
     let ball_size = ball_sprite.size;
 
-    for (collider_entity, collider_transform, collider_sprite, maybe_brick) in collider_query.iter()
-    {
-        // Check for collisions
-        let collider_size = collider_sprite.size;
-        let potential_collision = collide(
-            ball_transform.translation,
-            ball_size,
-            collider_transform.translation,
-            collider_size,
-        );
+    collider_query.for_each(
+        |(collider_entity, collider_transform, collider_sprite, maybe_brick)| {
+            // Check for collisions
+            let collider_size = collider_sprite.size;
+            let potential_collision = collide(
+                ball_transform.translation,
+                ball_size,
+                collider_transform.translation,
+                collider_size,
+            );
 
-        // Handle collisions
-        if let Some(collision) = potential_collision {
-            // Reflect the ball when it collides
-            let mut reflect_x = false;
-            let mut reflect_y = false;
+            // Handle collisions
+            if let Some(collision) = potential_collision {
+                // Reflect the ball when it collides
+                let mut reflect_x = false;
+                let mut reflect_y = false;
 
-            // Only reflect if the ball's velocity is going
-            // in the opposite direction of the collision
-            match collision {
-                Collision::Left => reflect_x = ball_velocity.x > 0.0,
-                Collision::Right => reflect_x = ball_velocity.x < 0.0,
-                Collision::Top => reflect_y = ball_velocity.y < 0.0,
-                Collision::Bottom => reflect_y = ball_velocity.y > 0.0,
+                // Only reflect if the ball's velocity is going
+                // in the opposite direction of the collision
+                match collision {
+                    Collision::Left => reflect_x = ball_velocity.x > 0.0,
+                    Collision::Right => reflect_x = ball_velocity.x < 0.0,
+                    Collision::Top => reflect_y = ball_velocity.y < 0.0,
+                    Collision::Bottom => reflect_y = ball_velocity.y > 0.0,
+                }
+
+                // Reflect velocity on the x-axis if we hit something on the x-axis
+                if reflect_x {
+                    ball_velocity.x = -ball_velocity.x;
+                }
+
+                // Reflect velocity on the y-axis if we hit something on the y-axis
+                if reflect_y {
+                    ball_velocity.y = -ball_velocity.y;
+                }
+
+                // Perform special brick collision behavior
+                if maybe_brick.is_some() {
+                    // Despawn bricks that are hit
+                    commands.entity(collider_entity).despawn();
+
+                    // Increase the score by 1 for each brick hit
+                    score.0 += 1;
+                }
             }
-
-            // Reflect velocity on the x-axis if we hit something on the x-axis
-            if reflect_x {
-                ball_velocity.x = -ball_velocity.x;
-            }
-
-            // Reflect velocity on the y-axis if we hit something on the y-axis
-            if reflect_y {
-                ball_velocity.y = -ball_velocity.y;
-            }
-
-            // Perform special brick collision behavior
-            if maybe_brick.is_some() {
-                // Despawn bricks that are hit
-                commands.entity(collider_entity).despawn();
-
-                // Increase the score by 1 for each brick hit
-                score.0 += 1;
-            }
-        }
-    }
+        },
+    );
 }
 
 /// Updates the Scoreboard entity's Text based on the value of the Score resource
