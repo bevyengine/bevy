@@ -279,7 +279,7 @@ fn spawn_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) {
         .insert(Scoreboard);
 }
 
-/// Moves everything with both a Transform and a Velovity accordingly
+/// Moves everything with both a Transform and a Velocity accordingly
 fn kinematics(mut query: Query<(&mut Transform, &Velocity)>) {
     for (mut transform, velocity) in query.iter_mut() {
         transform.translation.x += velocity.x * config::TIME_STEP;
