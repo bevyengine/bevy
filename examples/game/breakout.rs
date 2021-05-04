@@ -71,6 +71,7 @@ mod components {
     pub struct Paddle {
         pub speed: f32,
     }
+
     // These are data-less marker components
     // which let us query for the correct entities
     // and specialize behavior
