@@ -304,8 +304,9 @@ fn paddle_input(keyboard_input: Res<Input<KeyCode>>, mut query: Query<(&Paddle, 
 
 /// Ensures our paddle never goes out of bounds
 fn bound_paddle(mut query: Query<&mut Transform, With<Paddle>>) {
+    const BOUND: f32 = 380.0;
     let mut paddle_transform = query.single_mut().unwrap();
-    paddle_transform.translation.x = paddle_transform.translation.x.min(380.0).max(-380.0);
+    paddle_transform.translation.x = paddle_transform.translation.x.min(BOUND).max(-BOUND);
 }
 
 /// Detects and handles ball collisions
