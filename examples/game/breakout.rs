@@ -11,7 +11,8 @@ use resources::*;
 
 /// Constants that can be used to fine-tune the behavior of our game
 mod config {
-    // TODO: add various Transforms to this config module for clarity and consistency
+    // FIXME: add various Transforms to this config module for clarity and consistency
+    // Blocked on https://github.com/bevyengine/bevy/issues/2097
     use bevy::math::{const_vec2, Vec2};
     use bevy::render::color::Color;
     use bevy::ui::Val;
@@ -134,6 +135,7 @@ fn spawn_ball(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial
     let ball_starting_location: Transform = Transform::from_xyz(0.0, -50.0, 1.0);
 
     // .normalize is not a const fn, so we have to perform this operation at runtime
+    // FIXME: Blocked on https://github.com/bitshifter/glam-rs/issues/76
     let normalized_direction = BALL_STARTING_DIRECTION.normalize();
     let ball_starting_velocity: Velocity = Velocity {
         x: normalized_direction.x * BALL_STARTING_SPEED,
