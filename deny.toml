@@ -1,0 +1,70 @@
+# Note that all fields that take a lint level have these possible values:
+# * deny - An error will be produced and the check will fail
+# * warn - A warning will be produced, but the check will not fail
+# * allow - No warning or error will be produced, though in some cases a note
+# will be
+
+# This section is considered when running `cargo deny check advisories`
+# More documentation for the advisories section can be found here:
+# https://embarkstudios.github.io/cargo-deny/checks/advisories/cfg.html
+[advisories]
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+vulnerability = "deny"
+unmaintained = "deny"
+yanked = "deny"
+notice = "deny"
+ignore = [
+    "RUSTSEC-2020-0016", # net2 deprecated - https://github.com/deprecrated/net2-rs/commit/3350e3819adf151709047e93f25583a5df681091
+    "RUSTSEC-2020-0056", # stdwab unmaintained - https://github.com/koute/stdweb/issues/403
+    # "RUSTSEC-2021-0047", # security issue - https://github.com/gnzlbg/slice_deque/issues/90
+]
+
+[licenses]
+# unlicensed = "allow"
+copyleft = "allow"
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "0BSD",
+    "BSD-2-Clause",
+    "CC0-1.0",
+]
+default = "deny"
+
+
+[bans]
+multiple-versions = "deny"
+wildcards = "deny"
+highlight = "all"
+# Certain crates/versions that will be skipped when doing duplicate detection.
+skip = [
+    # { name = "ahash", version = "=0.4.7" },
+    { name = "android_log-sys", version = "=0.1.2" },
+    { name = "cfg-if", version = "=0.1.10" },             # https://github.com/rustwasm/console_error_panic_hook/pull/18
+    { name = "core-foundation", version = "=0.6.4" },
+    { name = "core-foundation", version = "=0.7.0" },
+    { name = "core-foundation-sys", version = "=0.6.2" },
+    { name = "core-foundation-sys", version = "=0.7.0" },
+    { name = "core-graphics", version = "=0.19.2" },
+    { name = "fixedbitset", version = "=0.2.0" },
+    { name = "libm", version = "=0.1.4" },
+    { name = "mach", version = "=0.2.3" },
+    { name = "mio", version = "=0.6.23" },
+    { name = "miow", version = "=0.2.2" },
+    { name = "ndk", version = "=0.2.1" },
+    { name = "ndk-glue", version = "=0.2.1" },
+    { name = "num_enum", version = "=0.4.3" },
+    { name = "num_enum_derive", version = "=0.4.3" },
+    { name = "stdweb", version = "=0.1.3" },
+    { name = "winapi", version = "=0.2.8" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
