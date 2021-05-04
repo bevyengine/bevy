@@ -369,8 +369,8 @@ pub trait SparseSetIndex: Clone {
 }
 
 macro_rules! impl_sparse_set_index {
-    ($ty:ty) => {
-        impl SparseSetIndex for $ty {
+    ($($ty:ty),+) => {
+        $(impl SparseSetIndex for $ty {
             fn sparse_set_index(&self) -> usize {
                 *self as usize
             }
@@ -378,15 +378,11 @@ macro_rules! impl_sparse_set_index {
             fn get_sparse_set_index(value: usize) -> Self {
                 value as $ty
             }
-        }
+        })*
     };
 }
 
-impl_sparse_set_index!(u8);
-impl_sparse_set_index!(u16);
-impl_sparse_set_index!(u32);
-impl_sparse_set_index!(u64);
-impl_sparse_set_index!(usize);
+impl_sparse_set_index!(u8, u16, u32, u64, usize);
 
 #[derive(Default)]
 pub struct SparseSets {
