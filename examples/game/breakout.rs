@@ -6,6 +6,7 @@ use bevy::{
 };
 
 use components::*;
+use config::{BRICK_HEIGHT, BRICK_WIDTH};
 use resources::*;
 
 /// Constants that can be used to fine-tune the behavior of our game
@@ -27,6 +28,8 @@ mod config {
     pub const WALL_COLOR: Color = Color::rgb(0.8, 0.8, 0.8);
 
     pub const BRICK_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
+    pub const BRICK_WIDTH: f32 = 150.0;
+    pub const BRICK_HEIGHT: f32 = 30.0;
 
     pub const SCOREBOARD_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
     pub const SCORE_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
@@ -208,6 +211,28 @@ fn spawn_walls(mut commands: Commands, mut materials: ResMut<Assets<ColorMateria
     commands.spawn_bundle(WallBundle::new(Side::Left, &material_handle));
     commands.spawn_bundle(WallBundle::new(Side::Right, &material_handle));
 }
+#[derive(Bundle)]
+struct BrickBundle {
+    #[bundle]
+    sprite_bundle: SpriteBundle,
+    brick: Brick,
+    collides: Collides,
+}
+
+impl BrickBundle {
+    fn new(x: f32, y: f32, material_handle: &Handle<ColorMaterial>) -> Self {
+        BrickBundle {
+            sprite_bundle: SpriteBundle {
+                material: material_handle.clone(),
+                transform: Transform::from_xyz(x, y, 0.0),
+                sprite: Sprite::new(Vec2::new(BRICK_WIDTH, BRICK_HEIGHT)),
+                ..Default::default()
+            },
+            brick: Brick,
+            collides: Collides,
+        }
+    }
+}
 
 fn spawn_bricks(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     let brick_material = materials.add(config::BRICK_COLOR.into());
@@ -216,32 +241,23 @@ fn spawn_bricks(mut commands: Commands, mut materials: ResMut<Assets<ColorMateri
     const BRICK_ROWS: i8 = 4;
     const BRICK_COLUMNS: i8 = 5;
     const BRICK_SPACING: f32 = 20.0;
-    // TODO: change to const when https://github.com/bitshifter/glam-rs/issues/76 is fixed
-    let brick_size: Vec2 = Vec2::new(150.0, 30.0);
 
     // Compute the total width that all of the bricks take
-    let total_width = BRICK_COLUMNS as f32 * (brick_size.x + BRICK_SPACING) - BRICK_SPACING;
-    // Center the bricks and move them up a bit
-    let bricks_offset = Vec3::new(-(total_width - brick_size.x) / 2.0, 100.0, 0.0);
+    const TOTAL_WIDTH: f32 = BRICK_COLUMNS as f32 * (BRICK_WIDTH + BRICK_SPACING) - BRICK_SPACING;
+    // Center the bricks
+    const OFFSET_X: f32 = -(TOTAL_WIDTH - BRICK_WIDTH) / 2.0;
+    // Move the bricks up slightly
+    const OFFSET_Y: f32 = 100.0;
 
     // Add the bricks
     for row in 0..BRICK_ROWS {
         for column in 0..BRICK_COLUMNS {
-            let brick_position = Vec3::new(
-                column as f32 * (brick_size.x + BRICK_SPACING),
-                row as f32 * (brick_size.y + BRICK_SPACING),
-                0.0,
-            ) + bricks_offset;
             // Adding one brick at a time
-            commands
-                .spawn_bundle(SpriteBundle {
-                    material: brick_material.clone(),
-                    sprite: Sprite::new(brick_size),
-                    transform: Transform::from_translation(brick_position),
-                    ..Default::default()
-                })
-                .insert(Brick)
-                .insert(Collides);
+            commands.spawn_bundle(BrickBundle::new(
+                column as f32 * (BRICK_WIDTH + BRICK_SPACING) + OFFSET_X,
+                row as f32 * (BRICK_HEIGHT + BRICK_SPACING) + OFFSET_Y,
+                &brick_material,
+            ));
         }
     }
 }
