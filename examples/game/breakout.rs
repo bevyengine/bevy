@@ -20,8 +20,8 @@ mod config {
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        // This adds the Scoreboard resource with its default values: 0
-        .init_resource::<Scoreboard>()
+        // This adds the Score resource with its default values: 0
+        .init_resource::<Score>()
         .insert_resource(config::BACKGROUND_COLOR)
         // These systems run only once, before all other systems
         .add_startup_system(add_cameras.system())
@@ -43,14 +43,18 @@ fn main() {
 
 mod resources {
     #[derive(Default)]
-    pub struct Scoreboard {
+    pub struct Score {
         score: usize,
     }
 }
 
 mod components {
+    // These are data-less marker components
+    // Which let us query for the correct entities
     pub struct Paddle;
     pub struct Ball;
+    pub struct Brick;
+    pub struct Scoreboard;
 
     pub struct Velocity {
         x: f32,
@@ -77,7 +81,7 @@ fn add_paddle(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial
             sprite: Sprite::new(Vec2::new(120.0, 30.0)),
             ..Default::default()
         })
-        .insert(Paddle { speed: 500.0 })
+        .insert(Paddle)
         .insert(Collider::Paddle);
 }
 
