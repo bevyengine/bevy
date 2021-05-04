@@ -1,8 +1,8 @@
 use bevy::{
     core::FixedTimestep,
     prelude::*,
+    render::pass::ClearColor,
     sprite::collide_aabb::{collide, Collision},
-    render::pass::ClearColor;
 };
 
 use components::*;
@@ -11,8 +11,8 @@ use resources::*;
 /// Constants that can be used to fine-tune the behavior of our game
 mod config {
     use bevy::math::Vec2;
-    use bevy::transform::components::Transform;
     use bevy::render::color::Color;
+    use bevy::transform::components::Transform;
     use bevy::ui::Val;
 
     pub const TIME_STEP: f32 = 1.0 / 60.0;
@@ -21,7 +21,8 @@ mod config {
     pub const PADDLE_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
     pub const PADDLE_STARTING_LOCATION: Transform = Transform::from_xyz(0.0, -215.0, 0.0);
     pub const PADDLE_SIZE: Vec2 = Vec2::new(120.0, 30.0);
-    
+    pub const PADDLE_SPEED: f32 = 500.0;
+
     pub const BALL_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
     // We set the z-value to one to ensure it appears on top of our other objects in case of overlap
     pub const BALL_STARTING_LOCATION: Transform = Transform::from_xyz(0.0, -50.0, 1.0);
@@ -58,11 +59,11 @@ fn main() {
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(config::TIME_STEP as f64))
                 .with_system(kinematics_system.system())
-                .with_system(paddle_movement_system.system())
-                .with_system(ball_collision_system.system())
-                .with_system(ball_movement_system.system()),
+                .with_system(paddle_input_system.system())
+                .with_system(ball_collision_system.system()),
         )
         // Ordinary systems run every frame
+        .add_system(bound_paddle_system.system())
         .add_system(scoreboard_system.system())
         .run();
 }
@@ -75,10 +76,12 @@ mod resources {
 }
 
 mod components {
+    pub struct Paddle {
+        pub speed: f32,
+    }
     // These are data-less marker components
     // which let us query for the correct entities
     // and specialize behavior
-    pub struct Paddle;
     pub struct Ball;
     pub struct Brick;
     pub struct Scoreboard;
@@ -105,7 +108,9 @@ fn add_paddle(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial
             sprite: Sprite::new(config::PADDLE_SIZE),
             ..Default::default()
         })
-        .insert(Paddle)
+        .insert(Paddle {
+            speed: config::PADDLE_SPEED,
+        })
         .insert(Collides)
         .insert(Velocity::default());
 }
@@ -132,10 +137,10 @@ enum Side {
 impl Side {
     fn wall_coord(self, bounds: Vec2) -> Transform {
         let (x, y) = match self {
-            Side::Top => (0.0, bounds.y/2.0),
-            Side::Bottom => (0.0, -bounds.y/2.0),
-            Side::Left => (-bounds.x/2.0, 0.0),
-            Side::Right => (bounds.x/2.0, 0.0)
+            Side::Top => (0.0, bounds.y / 2.0),
+            Side::Bottom => (0.0, -bounds.y / 2.0),
+            Side::Left => (-bounds.x / 2.0, 0.0),
+            Side::Right => (bounds.x / 2.0, 0.0),
         };
         // We need to convert these coordinates into a 3D transform to add to our SpriteBundle
         Transform::from_xyz(x, y, 0.0)
@@ -187,7 +192,7 @@ fn add_walls(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>
 
 fn add_bricks(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     let brick_material = materials.add(config::BRICK_COLOR.into());
-   
+
     // Brick layout constants
     const brick_rows: i8 = 4;
     const brick_columns: i8 = 5;
@@ -198,7 +203,7 @@ fn add_bricks(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial
     let total_width = brick_columns as f32 * (brick_size.x + brick_spacing) - brick_spacing;
     // Center the bricks and move them up a bit
     let bricks_offset = Vec3::new(-(total_width - brick_size.x) / 2.0, 100.0, 0.0);
-    
+
     // Add the bricks
     for row in 0..brick_rows {
         for column in 0..brick_columns {
@@ -258,41 +263,36 @@ fn add_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 /// Moves everything with both a Transform and a Velovity accordingly
-fn kinematics_system(mut query: Query<(&mut Transform, &Velocity)>){
-    for (transform, velocity) in query.iter_mut(){
+fn kinematics_system(mut query: Query<(&mut Transform, &Velocity)>) {
+    for (transform, velocity) in query.iter_mut() {
         transform.translation.x += velocity.x * config::TIME_STEP;
         transform.translation.y += velocity.y * config::TIME_STEP;
     }
 }
 
-fn paddle_movement_system(
+/// Turns left and right arrow key inputs to set paddle velocity
+fn paddle_input_system(
     keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<(&Paddle, &mut Transform)>,
+    mut query: Query<(&Paddle, &mut Velocity)>,
 ) {
-    if let Ok((paddle, mut transform)) = query.single_mut() {
-        let mut direction = 0.0;
-        if keyboard_input.pressed(KeyCode::Left) {
-            direction -= 1.0;
-        }
+    let (paddle, mut velocity) = query.single_mut().unwrap();
 
-        if keyboard_input.pressed(KeyCode::Right) {
-            direction += 1.0;
-        }
-
-        let translation = &mut transform.translation;
-        // move the paddle horizontally
-        // FIXME: this should use delta_time
-        translation.x += direction * paddle.speed * config::TIME_STEP;
-        // bound the paddle within the walls
-        translation.x = translation.x.min(380.0).max(-380.0);
+    let mut direction = 0.0;
+    if keyboard_input.pressed(KeyCode::Left) {
+        direction -= 1.0;
     }
+
+    if keyboard_input.pressed(KeyCode::Right) {
+        direction += 1.0;
+    }
+
+    velocity.x += direction * paddle.speed;
 }
 
-fn ball_movement_system(mut ball_query: Query<(&Ball, &mut Transform)>) {
-    if let Ok((ball, mut transform)) = ball_query.single_mut() {
-        // FIXME: this should use delta_time
-        transform.translation += ball.velocity * config::TIME_STEP;
-    }
+/// Ensures our paddle never goes out of bounds
+fn bound_paddle_system(mut query: Query<&mut Transform, With<Paddle>>) {
+    let mut paddle_transform = query.single_mut().unwrap();
+    paddle_transform.translation.x = paddle_transform.translation.x.min(380.0).max(-380.0);
 }
 
 fn scoreboard_system(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
