@@ -169,6 +169,7 @@ impl Side {
 // By creating our own bundles, we can avoid duplicating code
 #[derive(Bundle)]
 struct WallBundle {
+    // Use #[bundle] like this to nest bundles correctly
     #[bundle]
     sprite_bundle: SpriteBundle,
     collides: Collides,
@@ -307,6 +308,7 @@ fn bound_paddle(mut query: Query<&mut Transform, With<Paddle>>) {
     paddle_transform.translation.x = paddle_transform.translation.x.min(380.0).max(-380.0);
 }
 
+/// Detects and handles ball collisions
 fn ball_collision(
     mut ball_query: Query<(&Transform, &mut Velocity, &Sprite), With<Ball>>,
     // Option<&C> returns Some(c: C) if the component exists on the entity, and None if it does not
@@ -368,7 +370,7 @@ fn ball_collision(
     }
 }
 
-/// Updates the Scoreboard entity based on the Score resource
+/// Updates the Scoreboard entity's Text based on the value of the Score resource
 fn update_scoreboard(score: Res<Score>, mut query: Query<&mut Text, With<Scoreboard>>) {
     let mut scoreboard_text = query.single_mut().unwrap();
     scoreboard_text.sections[0].value = format!("Score: {}", score.0);
