@@ -19,6 +19,8 @@ mod config {
     pub const ARENA_BOUNDS: Vec2 = Vec2::new(900.0, 600.0);
     pub const WALL_THICKNESS: f32 = 10.0;
     pub const WALL_COLOR: Color = Color::rgb(0.8, 0.8, 0.8);
+
+    pub const BRICK_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
 }
 
 /// A simple implementation of the classic game "Breakout"
@@ -165,24 +167,28 @@ fn add_walls(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>
 }
 
 fn add_bricks(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
-    // Add bricks
-    let brick_rows = 4;
-    let brick_columns = 5;
-    let brick_spacing = 20.0;
-    let brick_size = Vec2::new(150.0, 30.0);
-    let bricks_width = brick_columns as f32 * (brick_size.x + brick_spacing) - brick_spacing;
-    // center the bricks and move them up a bit
-    let bricks_offset = Vec3::new(-(bricks_width - brick_size.x) / 2.0, 100.0, 0.0);
-    let brick_material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
+    let brick_material = materials.add(config::BRICK_COLOR.into());
+   
+    // Brick layout constants
+    const brick_rows: i8 = 4;
+    const brick_columns: i8 = 5;
+    const brick_spacing: f32 = 20.0;
+    const brick_size: Vec2 = Vec2::new(150.0, 30.0);
+
+    // Compute the total width that all of the bricks take
+    let total_width = brick_columns as f32 * (brick_size.x + brick_spacing) - brick_spacing;
+    // Center the bricks and move them up a bit
+    let bricks_offset = Vec3::new(-(total_width - brick_size.x) / 2.0, 100.0, 0.0);
+    
+    // Add the bricks
     for row in 0..brick_rows {
-        let y_position = row as f32 * (brick_size.y + brick_spacing);
         for column in 0..brick_columns {
             let brick_position = Vec3::new(
                 column as f32 * (brick_size.x + brick_spacing),
-                y_position,
+                row as f32 * (brick_size.y + brick_spacing),
                 0.0,
             ) + bricks_offset;
-            // brick
+            // Adding one brick at a time
             commands
                 .spawn_bundle(SpriteBundle {
                     material: brick_material.clone(),
