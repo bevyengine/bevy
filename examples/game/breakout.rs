@@ -10,6 +10,7 @@ use resources::*;
 
 /// Constants that can be used to fine-tune the behavior of our game
 mod config {
+    use super::Velocity;
     use bevy::math::Vec2;
     use bevy::render::color::Color;
     use bevy::transform::components::Transform;
@@ -28,6 +29,12 @@ mod config {
     pub const BALL_STARTING_LOCATION: Transform = Transform::from_xyz(0.0, -50.0, 1.0);
     // Our ball is actually a square. Shhh...
     pub const BALL_SIZE: Vec2 = Vec2::new(30.0, 30.0);
+    const BALL_STARTING_DIRECTION: Vec2 = Vec2::new(0.5, -0.5).normalize();
+    const BALL_STARTING_SPEED: f32 = 400.0;
+    pub const BALL_STARTING_VELOCITY: Velocity = Velocity {
+        x: BALL_STARTING_DIRECTION.x * BALL_STARTING_SPEED,
+        y: BALL_STARTING_DIRECTION.y * BALL_STARTING_SPEED,
+    };
 
     pub const ARENA_BOUNDS: Vec2 = Vec2::new(900.0, 600.0);
     pub const WALL_THICKNESS: f32 = 10.0;
@@ -121,7 +128,9 @@ fn add_ball(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>
             sprite: Sprite::new(config::BALL_SIZE),
             ..Default::default()
         })
-        .insert(Ball);
+        .insert(Ball)
+        // Adds a `Velocity` component with the value defined in the `config` module
+        .insert(config::BALL_STARTING_VELOCITY);
 }
 
 /// Defines which side of the arena a wall is part of
