@@ -11,19 +11,25 @@ use resources::*;
 
 /// Constants that can be used to fine-tune the behavior of our game
 mod config {
+    // TODO: add various Transforms to this config module for clarity and consistency
+    use bevy::math::{const_vec2, Vec2};
     use bevy::render::color::Color;
     use bevy::ui::Val;
-    // TODO: add various Vec2's and Transforms to this config module for clarity and consistency
-    // Blocked on https://github.com/bitshifter/glam-rs/issues/76
 
     pub const TIME_STEP: f32 = 1.0 / 60.0;
     pub const BACKGROUND_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
 
     pub const PADDLE_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
     pub const PADDLE_SPEED: f32 = 500.0;
+    pub const PADDLE_SIZE: Vec2 = const_vec2!([120.0, 30.0]);
 
     pub const BALL_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
+    // Our ball is actually a square. Shhh...
+    pub const BALL_SIZE: Vec2 = const_vec2!([30.0, 30.0]);
+    pub const BALL_STARTING_DIRECTION: Vec2 = const_vec2!([0.5, -0.5]);
+    pub const BALL_STARTING_SPEED: f32 = 400.0;
 
+    pub const ARENA_BOUNDS: Vec2 = const_vec2!([900.0, 600.0]);
     pub const WALL_THICKNESS: f32 = 10.0;
     pub const WALL_COLOR: Color = Color::rgb(0.8, 0.8, 0.8);
 
@@ -108,13 +114,12 @@ fn spawn_cameras(mut commands: Commands) {
 
 fn spawn_paddle(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     let paddle_starting_location: Transform = Transform::from_xyz(0.0, -215.0, 0.0);
-    let paddle_size: Vec2 = Vec2::new(120.0, 30.0);
 
     commands
         .spawn_bundle(SpriteBundle {
             material: materials.add(PADDLE_COLOR.into()),
             transform: paddle_starting_location,
-            sprite: Sprite::new(paddle_size),
+            sprite: Sprite::new(PADDLE_SIZE),
             ..Default::default()
         })
         .insert(Paddle {
@@ -127,26 +132,23 @@ fn spawn_paddle(mut commands: Commands, mut materials: ResMut<Assets<ColorMateri
 fn spawn_ball(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     // We set the z-value to one to ensure it appears on top of our other objects in case of overlap
     let ball_starting_location: Transform = Transform::from_xyz(0.0, -50.0, 1.0);
-    // Our ball is actually a square. Shhh...
-    let ball_size: Vec2 = Vec2::new(30.0, 30.0);
 
-    let ball_starting_direction: Vec2 = Vec2::new(0.5, -0.5).normalize();
-    let ball_starting_speed: f32 = 400.0;
+    // .normalize is not a const fn, so we have to perform this operation at runtime
+    let normalized_direction = BALL_STARTING_DIRECTION.normalize();
     let ball_starting_velocity: Velocity = Velocity {
-        x: ball_starting_direction.x * ball_starting_speed,
-        y: ball_starting_direction.y * ball_starting_speed,
+        x: normalized_direction.x * BALL_STARTING_SPEED,
+        y: normalized_direction.y * BALL_STARTING_SPEED,
     };
 
     commands
         .spawn_bundle(SpriteBundle {
             material: materials.add(BALL_COLOR.into()),
             transform: ball_starting_location,
-            sprite: Sprite::new(ball_size),
+            sprite: Sprite::new(BALL_SIZE),
             ..Default::default()
         })
         .insert(Ball)
         .insert(Collides)
-        // Adds a `Velocity` component with the value defined in the `config` module
         .insert(ball_starting_velocity);
 }
 
@@ -191,16 +193,11 @@ struct WallBundle {
 
 impl WallBundle {
     fn new(side: Side, material_handle: Handle<ColorMaterial>) -> Self {
-        let arena_bounds: Vec2 = Vec2::new(900.0, 600.0);
-
-        let bounds = arena_bounds;
-        let thickness = WALL_THICKNESS;
-
         WallBundle {
             sprite_bundle: SpriteBundle {
                 material: material_handle,
-                transform: side.wall_coord(bounds),
-                sprite: Sprite::new(side.wall_size(bounds, thickness)),
+                transform: side.wall_coord(ARENA_BOUNDS),
+                sprite: Sprite::new(side.wall_size(ARENA_BOUNDS, WALL_THICKNESS)),
                 ..Default::default()
             },
             collides: Collides,
@@ -216,6 +213,7 @@ fn spawn_walls(mut commands: Commands, mut materials: ResMut<Assets<ColorMateria
     commands.spawn_bundle(WallBundle::new(Side::Left, material_handle.clone()));
     commands.spawn_bundle(WallBundle::new(Side::Right, material_handle.clone()));
 }
+
 #[derive(Bundle)]
 struct BrickBundle {
     #[bundle]
