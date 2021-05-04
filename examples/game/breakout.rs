@@ -5,12 +5,15 @@ use bevy::{
     sprite::collide_aabb::{collide, Collision},
 };
 
+use components::*;
+use resources::*;
+
 /// Constants that can be used to fine-tune the behavior of our game
 mod config {
     const TIME_STEP: f64 = 1.0 / 60.0;
 }
 
-/// An implementation of the classic game "Breakout"
+/// A simple implementation of the classic game "Breakout"
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
@@ -28,22 +31,26 @@ fn main() {
         .run();
 }
 
-struct Paddle {
-    speed: f32,
+mod resources {
+    pub struct Scoreboard {
+        score: usize,
+    }
 }
 
-struct Ball {
-    velocity: Vec3,
-}
+mod components {
+    pub struct Paddle;
+    pub struct Ball;
 
-struct Scoreboard {
-    score: usize,
-}
+    pub struct Velocity {
+        x: f32,
+        y: f32,
+    }
 
-enum Collider {
-    Solid,
-    Scorable,
-    Paddle,
+    pub enum Collider {
+        Solid,
+        Scorable,
+        Paddle,
+    }
 }
 
 fn setup(
