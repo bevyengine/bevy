@@ -143,7 +143,7 @@ enum Side {
 }
 
 impl Side {
-    fn wall_coord(self, bounds: Vec2) -> Transform {
+    fn wall_coord(&self, bounds: Vec2) -> Transform {
         let (x, y) = match self {
             Side::Top => (0.0, bounds.y / 2.0),
             Side::Bottom => (0.0, -bounds.y / 2.0),
@@ -154,7 +154,7 @@ impl Side {
         Transform::from_xyz(x, y, 0.0)
     }
 
-    fn wall_size(self, bounds: Vec2, thickness: f32) -> Vec2 {
+    fn wall_size(&self, bounds: Vec2, thickness: f32) -> Vec2 {
         match self {
             Side::Top => Vec2::new(thickness, bounds.y + thickness),
             Side::Bottom => Vec2::new(thickness, bounds.y + thickness),
@@ -173,7 +173,7 @@ struct WallBundle {
 }
 
 impl WallBundle {
-    fn new(side: Side, material_handle: Handle<ColorMaterial>) -> Self {
+    fn new(side: Side, material_handle: &Handle<ColorMaterial>) -> Self {
         let bounds = config::ARENA_BOUNDS;
         let thickness = config::WALL_THICKNESS;
 
@@ -192,10 +192,10 @@ impl WallBundle {
 fn spawn_walls(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     let material_handle = materials.add(config::WALL_COLOR.into());
 
-    commands.spawn_bundle(WallBundle::new(Side::Top, material_handle));
-    commands.spawn_bundle(WallBundle::new(Side::Bottom, material_handle));
-    commands.spawn_bundle(WallBundle::new(Side::Left, material_handle));
-    commands.spawn_bundle(WallBundle::new(Side::Right, material_handle));
+    commands.spawn_bundle(WallBundle::new(Side::Top, &material_handle));
+    commands.spawn_bundle(WallBundle::new(Side::Bottom, &material_handle));
+    commands.spawn_bundle(WallBundle::new(Side::Left, &material_handle));
+    commands.spawn_bundle(WallBundle::new(Side::Right, &material_handle));
 }
 
 fn add_bricks(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
@@ -272,7 +272,7 @@ fn spawn_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 /// Moves everything with both a Transform and a Velovity accordingly
 fn kinematics(mut query: Query<(&mut Transform, &Velocity)>) {
-    for (transform, velocity) in query.iter_mut() {
+    for (mut transform, velocity) in query.iter_mut() {
         transform.translation.x += velocity.x * config::TIME_STEP;
         transform.translation.y += velocity.y * config::TIME_STEP;
     }
