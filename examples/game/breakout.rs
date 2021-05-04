@@ -218,10 +218,11 @@ impl WallBundle {
 fn spawn_walls(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     let material_handle = materials.add(WALL_COLOR.into());
 
+    // Each material handle must be uniquely owned as handles are ref-counted
     commands.spawn_bundle(WallBundle::new(Side::Top, material_handle.clone()));
     commands.spawn_bundle(WallBundle::new(Side::Bottom, material_handle.clone()));
     commands.spawn_bundle(WallBundle::new(Side::Left, material_handle.clone()));
-    commands.spawn_bundle(WallBundle::new(Side::Right, material_handle.clone()));
+    commands.spawn_bundle(WallBundle::new(Side::Right, material_handle));
 }
 
 #[derive(Bundle)]
