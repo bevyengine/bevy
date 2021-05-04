@@ -70,9 +70,7 @@ fn main() {
 
 mod resources {
     #[derive(Default)]
-    pub struct Score {
-        score: usize,
-    }
+    pub struct Score(pub usize);
 }
 
 mod components {
@@ -295,11 +293,6 @@ fn bound_paddle_system(mut query: Query<&mut Transform, With<Paddle>>) {
     paddle_transform.translation.x = paddle_transform.translation.x.min(380.0).max(-380.0);
 }
 
-fn scoreboard_system(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
-    let mut text = query.single_mut().unwrap();
-    text.sections[0].value = format!("Score: {}", scoreboard.score);
-}
-
 fn ball_collision_system(
     mut commands: Commands,
     mut scoreboard: ResMut<Scoreboard>,
@@ -356,4 +349,10 @@ fn ball_collision_system(
             }
         }
     }
+}
+
+/// Updates the Scoreboard entity based on the Score resource
+fn scoreboard_system(score: Res<Score>, mut query: Query<&mut Text, With<Scoreboard>>) {
+    let mut scoreboard_text = query.single_mut().unwrap();
+    scoreboard_text.sections[0].value = format!("Score: {}", score.0);
 }
