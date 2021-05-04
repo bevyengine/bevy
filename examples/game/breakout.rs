@@ -381,5 +381,5 @@ fn ball_collision(
 /// Updates the Scoreboard entity's Text based on the value of the Score resource
 fn update_scoreboard(score: Res<Score>, mut query: Query<&mut Text, With<Scoreboard>>) {
     let mut scoreboard_text = query.single_mut().unwrap();
-    scoreboard_text.sections[0].value = format!("Score: {}", score.0);
+    scoreboard_text.sections[1].value = format!("{}", score.0);
 }
