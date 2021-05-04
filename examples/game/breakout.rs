@@ -129,6 +129,7 @@ fn spawn_ball(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial
             ..Default::default()
         })
         .insert(Ball)
+        .insert(Collides)
         // Adds a `Velocity` component with the value defined in the `config` module
         .insert(config::BALL_STARTING_VELOCITY);
 }
@@ -300,58 +301,61 @@ fn bound_paddle(mut query: Query<&mut Transform, With<Paddle>>) {
 }
 
 fn ball_collision(
+    mut ball_query: Query<(&Transform, &mut Velocity, &Sprite), With<Ball>>,
+    // Option<&C> returns Some(c: C) if the component exists on the entity, and None if it does not
+    collider_query: Query<
+        (Entity, &Transform, &Sprite, Option<&Brick>),
+        (With<Collides>, Without<Ball>),
+    >,
     mut commands: Commands,
-    mut scoreboard: ResMut<Scoreboard>,
-    mut ball_query: Query<(&mut Ball, &Transform, &Sprite)>,
-    collider_query: Query<(Entity, &Collider, &Transform, &Sprite)>,
+    mut score: ResMut<Score>,
 ) {
-    if let Ok((mut ball, ball_transform, sprite)) = ball_query.single_mut() {
-        let ball_size = sprite.size;
-        let velocity = &mut ball.velocity;
+    let (ball_transform, mut ball_velocity, ball_sprite) = ball_query.single_mut().unwrap();
+    let ball_size = ball_sprite.size;
 
-        // check collision with walls
-        for (collider_entity, collider, transform, sprite) in collider_query.iter() {
-            let collision = collide(
-                ball_transform.translation,
-                ball_size,
-                transform.translation,
-                sprite.size,
-            );
-            if let Some(collision) = collision {
-                // scorable colliders should be despawned and increment the scoreboard on collision
-                if let Collider::Scorable = *collider {
-                    scoreboard.score += 1;
-                    commands.entity(collider_entity).despawn();
-                }
+    for (collider_entity, collider_transform, collider_sprite, maybe_brick) in collider_query.iter()
+    {
+        // Check for collisions
+        let collider_size = collider_sprite.size;
+        let potential_collision = collide(
+            ball_transform.translation,
+            ball_size,
+            collider_transform.translation,
+            collider_size,
+        );
 
-                // reflect the ball when it collides
-                let mut reflect_x = false;
-                let mut reflect_y = false;
+        // Handle collisions
+        if let Some(collision) = potential_collision {
+            // Reflect the ball when it collides
+            let mut reflect_x = false;
+            let mut reflect_y = false;
 
-                // only reflect if the ball's velocity is going in the opposite direction of the
-                // collision
-                match collision {
-                    Collision::Left => reflect_x = velocity.x > 0.0,
-                    Collision::Right => reflect_x = velocity.x < 0.0,
-                    Collision::Top => reflect_y = velocity.y < 0.0,
-                    Collision::Bottom => reflect_y = velocity.y > 0.0,
-                }
+            // Only reflect if the ball's velocity is going
+            // in the opposite direction of the collision
+            match collision {
+                Collision::Left => reflect_x = ball_velocity.x > 0.0,
+                Collision::Right => reflect_x = ball_velocity.x < 0.0,
+                Collision::Top => reflect_y = ball_velocity.y < 0.0,
+                Collision::Bottom => reflect_y = ball_velocity.y > 0.0,
+            }
 
-                // reflect velocity on the x-axis if we hit something on the x-axis
-                if reflect_x {
-                    velocity.x = -velocity.x;
-                }
+            // Reflect velocity on the x-axis if we hit something on the x-axis
+            if reflect_x {
+                ball_velocity.x = -ball_velocity.x;
+            }
 
-                // reflect velocity on the y-axis if we hit something on the y-axis
-                if reflect_y {
-                    velocity.y = -velocity.y;
-                }
+            // Reflect velocity on the y-axis if we hit something on the y-axis
+            if reflect_y {
+                ball_velocity.y = -ball_velocity.y;
+            }
 
-                // break if this collide is on a solid, otherwise continue check whether a solid is
-                // also in collision
-                if let Collider::Solid = *collider {
-                    break;
-                }
+            // Perform special brick collision behavior
+            if maybe_brick.is_some() {
+                // Despawn bricks that are hit
+                commands.entity(collider_entity).despawn();
+
+                // Increase the score by 1 for each brick hit
+                score.0 += 1;
             }
         }
     }
