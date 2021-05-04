@@ -16,11 +16,18 @@ mod config {
     pub const TIME_STEP: f64 = 1.0 / 60.0;
     pub const BACKGROUND_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
 
+    pub const PADDLE_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
+    
+    pub const BALL_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
+
     pub const ARENA_BOUNDS: Vec2 = Vec2::new(900.0, 600.0);
     pub const WALL_THICKNESS: f32 = 10.0;
     pub const WALL_COLOR: Color = Color::rgb(0.8, 0.8, 0.8);
 
     pub const BRICK_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
+
+    pub const SCOREBOARD_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
+    pub const SCORE_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
 }
 
 /// A simple implementation of the classic game "Breakout"
@@ -81,7 +88,7 @@ fn add_cameras(mut commands: Commands) {
 fn add_paddle(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     commands
         .spawn_bundle(SpriteBundle {
-            material: materials.add(Color::rgb(0.5, 0.5, 1.0).into()),
+            material: materials.add(config::PADDLE_COLOR.into()),
             transform: Transform::from_xyz(0.0, -215.0, 0.0),
             sprite: Sprite::new(Vec2::new(120.0, 30.0)),
             ..Default::default()
@@ -94,7 +101,7 @@ fn add_paddle(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial
 fn add_ball(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     commands
         .spawn_bundle(SpriteBundle {
-            material: materials.add(Color::rgb(1.0, 0.5, 0.5).into()),
+            material: materials.add(config::BALL_COLOR.into()),
             transform: Transform::from_xyz(0.0, -50.0, 1.0),
             sprite: Sprite::new(Vec2::new(30.0, 30.0)),
             ..Default::default()
@@ -211,7 +218,7 @@ fn add_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 40.0,
-                        color: Color::rgb(0.5, 0.5, 1.0),
+                        color: config::SCOREBOARD_COLOR,
                     },
                 },
                 TextSection {
@@ -219,7 +226,7 @@ fn add_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: TextStyle {
                         font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                         font_size: 40.0,
-                        color: Color::rgb(1.0, 0.5, 0.5),
+                        color: config::SCORE_COLOR,
                     },
                 },
             ],
