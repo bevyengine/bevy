@@ -65,13 +65,13 @@ fn main() {
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(config::TIME_STEP as f64))
-                .with_system(kinematics_system.system())
-                .with_system(paddle_input_system.system())
-                .with_system(ball_collision_system.system()),
+                .with_system(kinematics.system())
+                .with_system(paddle_input.system())
+                .with_system(ball_collision.system()),
         )
         // Ordinary systems run every frame
-        .add_system(bound_paddle_system.system())
-        .add_system(scoreboard_system.system())
+        .add_system(bound_paddle.system())
+        .add_system(update_scoreboard.system())
         .run();
 }
 
@@ -270,7 +270,7 @@ fn spawn_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 /// Moves everything with both a Transform and a Velovity accordingly
-fn kinematics_system(mut query: Query<(&mut Transform, &Velocity)>) {
+fn kinematics(mut query: Query<(&mut Transform, &Velocity)>) {
     for (transform, velocity) in query.iter_mut() {
         transform.translation.x += velocity.x * config::TIME_STEP;
         transform.translation.y += velocity.y * config::TIME_STEP;
@@ -278,10 +278,7 @@ fn kinematics_system(mut query: Query<(&mut Transform, &Velocity)>) {
 }
 
 /// Turns left and right arrow key inputs to set paddle velocity
-fn paddle_input_system(
-    keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<(&Paddle, &mut Velocity)>,
-) {
+fn paddle_input(keyboard_input: Res<Input<KeyCode>>, mut query: Query<(&Paddle, &mut Velocity)>) {
     let (paddle, mut velocity) = query.single_mut().unwrap();
 
     let mut direction = 0.0;
@@ -297,12 +294,12 @@ fn paddle_input_system(
 }
 
 /// Ensures our paddle never goes out of bounds
-fn bound_paddle_system(mut query: Query<&mut Transform, With<Paddle>>) {
+fn bound_paddle(mut query: Query<&mut Transform, With<Paddle>>) {
     let mut paddle_transform = query.single_mut().unwrap();
     paddle_transform.translation.x = paddle_transform.translation.x.min(380.0).max(-380.0);
 }
 
-fn ball_collision_system(
+fn ball_collision(
     mut commands: Commands,
     mut scoreboard: ResMut<Scoreboard>,
     mut ball_query: Query<(&mut Ball, &Transform, &Sprite)>,
@@ -361,7 +358,7 @@ fn ball_collision_system(
 }
 
 /// Updates the Scoreboard entity based on the Score resource
-fn scoreboard_system(score: Res<Score>, mut query: Query<&mut Text, With<Scoreboard>>) {
+fn update_scoreboard(score: Res<Score>, mut query: Query<&mut Text, With<Scoreboard>>) {
     let mut scoreboard_text = query.single_mut().unwrap();
     scoreboard_text.sections[0].value = format!("Score: {}", score.0);
 }
