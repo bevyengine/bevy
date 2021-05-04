@@ -13,6 +13,7 @@ mod config {
     use bevy::math::Vec2;
     use bevy::transform::components::Transform;
     use bevy::render::color::Color;
+    use bevy::ui::Val;
 
     pub const TIME_STEP: f64 = 1.0 / 60.0;
     pub const BACKGROUND_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
@@ -35,6 +36,8 @@ mod config {
 
     pub const SCOREBOARD_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
     pub const SCORE_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
+    pub const SCORE_FONT_SIZE: f32 = 40.0;
+    pub const SCORE_PADDING: Val = Val::Px(5.0);
 }
 
 /// A simple implementation of the classic game "Breakout"
@@ -224,7 +227,7 @@ fn add_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) {
                     value: "Score: ".to_string(),
                     style: TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 40.0,
+                        font_size: config::SCORE_FONT_SIZE,
                         color: config::SCOREBOARD_COLOR,
                     },
                 },
@@ -232,7 +235,7 @@ fn add_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) {
                     value: "".to_string(),
                     style: TextStyle {
                         font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                        font_size: 40.0,
+                        font_size: config::SCORE_FONT_SIZE,
                         color: config::SCORE_COLOR,
                     },
                 },
@@ -242,8 +245,8 @@ fn add_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) {
         style: Style {
             position_type: PositionType::Absolute,
             position: Rect {
-                top: Val::Px(5.0),
-                left: Val::Px(5.0),
+                top: config::SCORE_PADDING,
+                left: config::SCORE_PADDING,
                 ..Default::default()
             },
             ..Default::default()
