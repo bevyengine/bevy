@@ -53,11 +53,11 @@ fn main() {
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(config::TIME_STEP as f64))
                 .with_system(kinematics.system())
-                .with_system(paddle_input.system())
                 .with_system(ball_collision.system()),
         )
         // Ordinary systems run every frame
-        .add_system(bound_paddle.system())
+        .add_system(bound_paddle.system().label("bound_paddle"))
+        .add_system(paddle_input.system().after("bound_paddle"))
         .add_system(update_scoreboard.system())
         .run();
 }
@@ -299,14 +299,21 @@ fn paddle_input(keyboard_input: Res<Input<KeyCode>>, mut query: Query<(&Paddle, 
         direction += 1.0;
     }
 
-    velocity.x += direction * paddle.speed;
+    velocity.x = direction * paddle.speed;
 }
 
 /// Ensures our paddle never goes out of bounds
-fn bound_paddle(mut query: Query<&mut Transform, With<Paddle>>) {
+fn bound_paddle(mut query: Query<(&mut Transform, &mut Velocity), With<Paddle>>) {
     const BOUND: f32 = 380.0;
-    let mut paddle_transform = query.single_mut().unwrap();
-    paddle_transform.translation.x = paddle_transform.translation.x.min(BOUND).max(-BOUND);
+    let (mut paddle_transform, mut paddle_velocity) = query.single_mut().unwrap();
+
+    if paddle_transform.translation.x >= BOUND {
+        paddle_transform.translation.x = BOUND;
+        paddle_velocity.x = 0.0;
+    } else if paddle_transform.translation.x <= -BOUND {
+        paddle_transform.translation.x = -BOUND;
+        paddle_velocity.x = 0.0;
+    }
 }
 
 /// Detects and handles ball collisions
