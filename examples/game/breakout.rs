@@ -23,7 +23,13 @@ fn main() {
         // This adds the Scoreboard resource with its default values: 0
         .init_resource::<Scoreboard>()
         .insert_resource(config::BACKGROUND_COLOR)
-        .add_startup_system(setup.system())
+        // These systems run only once, before all other systems
+        .add_startup_system(add_cameras.system())
+        .add_startup_system(add_paddle.system())
+        .add_startup_system(add_ball.system())
+        .add_startup_system(add_walls.system())
+        .add_startup_system(add_scoreboard.system())
+        // These systems run repeatedly, whnever the FixedTimeStep has elapsed
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(config::TIME_STEP))
@@ -58,17 +64,12 @@ mod components {
     }
 }
 
-fn setup(
-    mut commands: Commands,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    asset_server: Res<AssetServer>,
-) {
-    // Add the game's entities to our world
-
-    // cameras
+fn add_cameras(mut commands: Commands) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(UiCameraBundle::default());
-    // paddle
+}
+
+fn add_paddle(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     commands
         .spawn_bundle(SpriteBundle {
             material: materials.add(Color::rgb(0.5, 0.5, 1.0).into()),
@@ -78,7 +79,9 @@ fn setup(
         })
         .insert(Paddle { speed: 500.0 })
         .insert(Collider::Paddle);
-    // ball
+}
+
+fn add_ball(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     commands
         .spawn_bundle(SpriteBundle {
             material: materials.add(Color::rgb(1.0, 0.5, 0.5).into()),
@@ -89,41 +92,9 @@ fn setup(
         .insert(Ball {
             velocity: 400.0 * Vec3::new(0.5, -0.5, 0.0).normalize(),
         });
-    // scoreboard
-    commands.spawn_bundle(TextBundle {
-        text: Text {
-            sections: vec![
-                TextSection {
-                    value: "Score: ".to_string(),
-                    style: TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 40.0,
-                        color: Color::rgb(0.5, 0.5, 1.0),
-                    },
-                },
-                TextSection {
-                    value: "".to_string(),
-                    style: TextStyle {
-                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                        font_size: 40.0,
-                        color: Color::rgb(1.0, 0.5, 0.5),
-                    },
-                },
-            ],
-            ..Default::default()
-        },
-        style: Style {
-            position_type: PositionType::Absolute,
-            position: Rect {
-                top: Val::Px(5.0),
-                left: Val::Px(5.0),
-                ..Default::default()
-            },
-            ..Default::default()
-        },
-        ..Default::default()
-    });
+}
 
+fn add_walls(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     // Add walls
     let wall_material = materials.add(Color::rgb(0.8, 0.8, 0.8).into());
     let wall_thickness = 10.0;
@@ -165,7 +136,9 @@ fn setup(
             ..Default::default()
         })
         .insert(Collider::Solid);
+}
 
+fn add_bricks(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     // Add bricks
     let brick_rows = 4;
     let brick_columns = 5;
@@ -194,6 +167,42 @@ fn setup(
                 .insert(Collider::Scorable);
         }
     }
+}
+
+fn add_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn_bundle(TextBundle {
+        text: Text {
+            sections: vec![
+                TextSection {
+                    value: "Score: ".to_string(),
+                    style: TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 40.0,
+                        color: Color::rgb(0.5, 0.5, 1.0),
+                    },
+                },
+                TextSection {
+                    value: "".to_string(),
+                    style: TextStyle {
+                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                        font_size: 40.0,
+                        color: Color::rgb(1.0, 0.5, 0.5),
+                    },
+                },
+            ],
+            ..Default::default()
+        },
+        style: Style {
+            position_type: PositionType::Absolute,
+            position: Rect {
+                top: Val::Px(5.0),
+                left: Val::Px(5.0),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        ..Default::default()
+    });
 }
 
 fn paddle_movement_system(
