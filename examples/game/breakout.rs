@@ -23,6 +23,7 @@ mod config {
     pub const PADDLE_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
     pub const PADDLE_SPEED: f32 = 500.0;
     pub const PADDLE_SIZE: Vec2 = const_vec2!([120.0, 30.0]);
+    pub const PADDLE_BOUND: f32 = 380.0;
 
     pub const BALL_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
     // Our ball is actually a square. Shhh...
@@ -338,14 +339,13 @@ fn paddle_input(keyboard_input: Res<Input<KeyCode>>, mut query: Query<(&Paddle, 
 
 /// Ensures our paddle never goes out of bounds
 fn bound_paddle(mut query: Query<(&mut Transform, &mut Velocity), With<Paddle>>) {
-    const BOUND: f32 = 380.0;
     let (mut paddle_transform, mut paddle_velocity) = query.single_mut().unwrap();
 
-    if paddle_transform.translation.x >= BOUND {
-        paddle_transform.translation.x = BOUND;
+    if paddle_transform.translation.x >= PADDLE_BOUND {
+        paddle_transform.translation.x = PADDLE_BOUND;
         paddle_velocity.x = 0.0;
-    } else if paddle_transform.translation.x <= -BOUND {
-        paddle_transform.translation.x = -BOUND;
+    } else if paddle_transform.translation.x <= -PADDLE_BOUND {
+        paddle_transform.translation.x = -PADDLE_BOUND;
         paddle_velocity.x = 0.0;
     }
 }
