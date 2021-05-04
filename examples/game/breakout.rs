@@ -52,8 +52,8 @@ fn main() {
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(config::TIME_STEP as f64))
-                .with_system(kinematics.system())
-                .with_system(ball_collision.system()),
+                .with_system(kinematics.system().label("kinematics"))
+                .with_system(ball_collision.system().before("kinematics")),
         )
         // Ordinary systems run every frame
         .add_system(bound_paddle.system().label("bound_paddle"))
