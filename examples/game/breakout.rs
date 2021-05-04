@@ -29,7 +29,7 @@ fn main() {
         .add_startup_system(add_ball.system())
         .add_startup_system(add_walls.system())
         .add_startup_system(add_scoreboard.system())
-        // These systems run repeatedly, whnever the FixedTimeStep has elapsed
+        // These systems run repeatedly, whnever the FixedTimeStep's duration has elapsed
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(config::TIME_STEP))
