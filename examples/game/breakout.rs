@@ -20,7 +20,8 @@ mod config {
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .insert_resource(Scoreboard { score: 0 })
+        // This adds the Scoreboard resource with its default values: 0
+        .init_resource::<Scoreboard>()
         .insert_resource(config::BACKGROUND_COLOR)
         .add_startup_system(setup.system())
         .add_system_set(
@@ -35,6 +36,7 @@ fn main() {
 }
 
 mod resources {
+    #[derive(Default)]
     pub struct Scoreboard {
         score: usize,
     }
