@@ -240,39 +240,41 @@ fn spawn_bricks(mut commands: Commands, mut materials: ResMut<Assets<ColorMateri
 }
 
 fn spawn_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(TextBundle {
-        text: Text {
-            sections: vec![
-                TextSection {
-                    value: "Score: ".to_string(),
-                    style: TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: config::SCORE_FONT_SIZE,
-                        color: config::SCOREBOARD_COLOR,
+    commands
+        .spawn_bundle(TextBundle {
+            text: Text {
+                sections: vec![
+                    TextSection {
+                        value: "Score: ".to_string(),
+                        style: TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: config::SCORE_FONT_SIZE,
+                            color: config::SCOREBOARD_COLOR,
+                        },
                     },
-                },
-                TextSection {
-                    value: "".to_string(),
-                    style: TextStyle {
-                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                        font_size: config::SCORE_FONT_SIZE,
-                        color: config::SCORE_COLOR,
+                    TextSection {
+                        value: "".to_string(),
+                        style: TextStyle {
+                            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                            font_size: config::SCORE_FONT_SIZE,
+                            color: config::SCORE_COLOR,
+                        },
                     },
+                ],
+                ..Default::default()
+            },
+            style: Style {
+                position_type: PositionType::Absolute,
+                position: Rect {
+                    top: config::SCORE_PADDING,
+                    left: config::SCORE_PADDING,
+                    ..Default::default()
                 },
-            ],
-            ..Default::default()
-        },
-        style: Style {
-            position_type: PositionType::Absolute,
-            position: Rect {
-                top: config::SCORE_PADDING,
-                left: config::SCORE_PADDING,
                 ..Default::default()
             },
             ..Default::default()
-        },
-        ..Default::default()
-    });
+        })
+        .insert(Scoreboard);
 }
 
 /// Moves everything with both a Transform and a Velovity accordingly
