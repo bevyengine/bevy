@@ -56,8 +56,13 @@ fn main() {
                 .with_system(ball_collision.system().before("kinematics")),
         )
         // Ordinary systems run every frame
-        .add_system(bound_paddle.system().label("bound_paddle"))
-        .add_system(paddle_input.system().after("bound_paddle"))
+        .add_system(paddle_input.system().before("bound_paddle"))
+        .add_system(
+            bound_paddle
+                .system()
+                .label("bound_paddle")
+                .after("kinematics"),
+        )
         .add_system(update_scoreboard.system())
         .run();
 }
