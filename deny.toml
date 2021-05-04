@@ -17,11 +17,11 @@ notice = "deny"
 ignore = [
     "RUSTSEC-2020-0016", # net2 deprecated - https://github.com/deprecrated/net2-rs/commit/3350e3819adf151709047e93f25583a5df681091
     "RUSTSEC-2020-0056", # stdwab unmaintained - https://github.com/koute/stdweb/issues/403
-    # "RUSTSEC-2021-0047", # security issue - https://github.com/gnzlbg/slice_deque/issues/90
+    "RUSTSEC-2021-0047", # security issue - https://github.com/gnzlbg/slice_deque/issues/90
 ]
 
 [licenses]
-# unlicensed = "allow"
+unlicensed = "allow"
 copyleft = "allow"
 allow = [
     "MIT",
@@ -42,7 +42,7 @@ wildcards = "deny"
 highlight = "all"
 # Certain crates/versions that will be skipped when doing duplicate detection.
 skip = [
-    # { name = "ahash", version = "=0.4.7" },
+    { name = "ahash", version = "=0.4.7" },
     { name = "android_log-sys", version = "=0.1.2" },
     { name = "cfg-if", version = "=0.1.10" },             # https://github.com/rustwasm/console_error_panic_hook/pull/18
     { name = "core-foundation", version = "=0.6.4" },
