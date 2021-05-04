@@ -30,18 +30,23 @@ mod config {
     pub const BRICK_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
     pub const BRICK_WIDTH: f32 = 150.0;
     pub const BRICK_HEIGHT: f32 = 30.0;
+    pub const BRICK_ROWS: i8 = 4;
+    pub const BRICK_COLUMNS: i8 = 5;
+    pub const BRICK_SPACING: f32 = 20.0;
 
     pub const SCOREBOARD_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
     pub const SCORE_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
     pub const SCORE_FONT_SIZE: f32 = 40.0;
     pub const SCORE_PADDING: Val = Val::Px(5.0);
+    pub const SCOREBOARD_FONT_PATH: &str = "fonts/FiraSans-Bold.ttf";
+    pub const SCORE_FONT_PATH: &str = "fonts/FiraSans-Bold.ttf";
 }
 
 /// A simple implementation of the classic game "Breakout"
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .insert_resource(ClearColor(config::BACKGROUND_COLOR))
+        .insert_resource(ClearColor(BACKGROUND_COLOR))
         // This adds the Score resource with its default values: 0
         .init_resource::<Score>()
         // These systems run only once, before all other systems
@@ -54,7 +59,7 @@ fn main() {
         // These systems run repeatedly, whnever the FixedTimeStep's duration has elapsed
         .add_system_set(
             SystemSet::new()
-                .with_run_criteria(FixedTimestep::step(config::TIME_STEP as f64))
+                .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
                 .with_system(kinematics.system().label("kinematics"))
                 .with_system(ball_collision.system().before("kinematics")),
         )
@@ -107,13 +112,13 @@ fn spawn_paddle(mut commands: Commands, mut materials: ResMut<Assets<ColorMateri
 
     commands
         .spawn_bundle(SpriteBundle {
-            material: materials.add(config::PADDLE_COLOR.into()),
+            material: materials.add(PADDLE_COLOR.into()),
             transform: paddle_starting_location,
             sprite: Sprite::new(paddle_size),
             ..Default::default()
         })
         .insert(Paddle {
-            speed: config::PADDLE_SPEED,
+            speed: PADDLE_SPEED,
         })
         .insert(Collides)
         .insert(Velocity::default());
@@ -134,7 +139,7 @@ fn spawn_ball(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial
 
     commands
         .spawn_bundle(SpriteBundle {
-            material: materials.add(config::BALL_COLOR.into()),
+            material: materials.add(BALL_COLOR.into()),
             transform: ball_starting_location,
             sprite: Sprite::new(ball_size),
             ..Default::default()
@@ -189,7 +194,7 @@ impl WallBundle {
         let arena_bounds: Vec2 = Vec2::new(900.0, 600.0);
 
         let bounds = arena_bounds;
-        let thickness = config::WALL_THICKNESS;
+        let thickness = WALL_THICKNESS;
 
         WallBundle {
             sprite_bundle: SpriteBundle {
@@ -204,7 +209,7 @@ impl WallBundle {
 }
 
 fn spawn_walls(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
-    let material_handle = materials.add(config::WALL_COLOR.into());
+    let material_handle = materials.add(WALL_COLOR.into());
 
     commands.spawn_bundle(WallBundle::new(Side::Top, &material_handle));
     commands.spawn_bundle(WallBundle::new(Side::Bottom, &material_handle));
@@ -235,12 +240,7 @@ impl BrickBundle {
 }
 
 fn spawn_bricks(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
-    let brick_material = materials.add(config::BRICK_COLOR.into());
-
-    // Brick layout constants
-    const BRICK_ROWS: i8 = 4;
-    const BRICK_COLUMNS: i8 = 5;
-    const BRICK_SPACING: f32 = 20.0;
+    let brick_material = materials.add(BRICK_COLOR.into());
 
     // Compute the total width that all of the bricks take
     const TOTAL_WIDTH: f32 = BRICK_COLUMNS as f32 * (BRICK_WIDTH + BRICK_SPACING) - BRICK_SPACING;
@@ -270,17 +270,17 @@ fn spawn_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TextSection {
                         value: "Score: ".to_string(),
                         style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: config::SCORE_FONT_SIZE,
-                            color: config::SCOREBOARD_COLOR,
+                            font: asset_server.load(SCOREBOARD_FONT_PATH),
+                            font_size: SCORE_FONT_SIZE,
+                            color: SCOREBOARD_COLOR,
                         },
                     },
                     TextSection {
                         value: "".to_string(),
                         style: TextStyle {
-                            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                            font_size: config::SCORE_FONT_SIZE,
-                            color: config::SCORE_COLOR,
+                            font: asset_server.load(SCORE_FONT_PATH),
+                            font_size: SCORE_FONT_SIZE,
+                            color: SCORE_COLOR,
                         },
                     },
                 ],
@@ -289,8 +289,8 @@ fn spawn_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) {
             style: Style {
                 position_type: PositionType::Absolute,
                 position: Rect {
-                    top: config::SCORE_PADDING,
-                    left: config::SCORE_PADDING,
+                    top: SCORE_PADDING,
+                    left: SCORE_PADDING,
                     ..Default::default()
                 },
                 ..Default::default()
@@ -303,8 +303,8 @@ fn spawn_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// Moves everything with both a Transform and a Velocity accordingly
 fn kinematics(mut query: Query<(&mut Transform, &Velocity)>) {
     query.for_each_mut(|(mut transform, velocity)| {
-        transform.translation.x += velocity.x * config::TIME_STEP;
-        transform.translation.y += velocity.y * config::TIME_STEP;
+        transform.translation.x += velocity.x * TIME_STEP;
+        transform.translation.y += velocity.y * TIME_STEP;
     });
 }
 
