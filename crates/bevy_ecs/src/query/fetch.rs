@@ -44,7 +44,7 @@ pub trait WorldQuery {
 }
 
 pub trait Fetch<'w>: Sized {
-    type Item;
+    type Item: Send;
     type State: FetchState;
 
     /// Creates a new instance of this fetch.

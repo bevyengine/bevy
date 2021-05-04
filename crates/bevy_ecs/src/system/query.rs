@@ -2,7 +2,8 @@ use crate::{
     component::Component,
     entity::Entity,
     query::{
-        Fetch, FilterFetch, QueryEntityError, QueryIter, QueryState, ReadOnlyFetch, WorldQuery,
+        Fetch, FilterFetch, ParQueryIter, QueryEntityError, QueryIter, QueryState, ReadOnlyFetch,
+        WorldQuery,
     },
     world::{Mut, World},
 };
@@ -165,6 +166,41 @@ where
         unsafe {
             self.state
                 .iter_unchecked_manual(self.world, self.last_change_tick, self.change_tick)
+        }
+    }
+
+    /// Returns an [`bevy_tasks::ParallelIterator`] over the query results.
+    ///
+    /// This can only be called for read-only queries, see [`Self::iter_mut`] for write-queries.
+    #[inline]
+    pub fn par_iter(&self, batch_size: usize) -> ParQueryIter<'_, '_, Q, F>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        // SAFE: system runs without conflicts with other systems.
+        // same-system queries have runtime borrow checks when they conflict
+        unsafe {
+            self.state.par_iter_unchecked_manual(
+                self.world,
+                batch_size,
+                self.last_change_tick,
+                self.change_tick,
+            )
+        }
+    }
+
+    /// Returns an [`bevy_tasks::ParallelIterator`] over the query results.
+    #[inline]
+    pub fn par_iter_mut(&mut self, batch_size: usize) -> ParQueryIter<'_, '_, Q, F> {
+        // SAFE: system runs without conflicts with other systems.
+        // same-system queries have runtime borrow checks when they conflict
+        unsafe {
+            self.state.par_iter_unchecked_manual(
+                self.world,
+                batch_size,
+                self.last_change_tick,
+                self.change_tick,
+            )
         }
     }
 
