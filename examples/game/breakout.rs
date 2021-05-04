@@ -2,6 +2,7 @@ use bevy::{
     core::FixedTimestep,
     prelude::*,
     sprite::collide_aabb::{collide, Collision},
+    render::pass::ClearColor;
 };
 
 use components::*;
@@ -9,20 +10,24 @@ use resources::*;
 
 /// Constants that can be used to fine-tune the behavior of our game
 mod config {
+    use bevy::math::Vec2;
     use bevy::render::color::Color;
-    use bevy::render::pass::ClearColor;
 
     pub const TIME_STEP: f64 = 1.0 / 60.0;
-    pub const BACKGROUND_COLOR: ClearColor = ClearColor(Color::rgb(0.9, 0.9, 0.9));
+    pub const BACKGROUND_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
+
+    pub const ARENA_BOUNDS: Vec2 = Vec2::new(900.0, 600.0);
+    pub const WALL_THICKNESS: f32 = 10.0;
+    pub const WALL_COLOR: Color = Color::rgb(0.8, 0.8, 0.8);
 }
 
 /// A simple implementation of the classic game "Breakout"
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
+        .insert_resource(ClearColor(config::BACKGROUND_COLOR))
         // This adds the Score resource with its default values: 0
         .init_resource::<Score>()
-        .insert_resource(config::BACKGROUND_COLOR)
         // These systems run only once, before all other systems
         .add_startup_system(add_cameras.system())
         .add_startup_system(add_paddle.system())
@@ -50,21 +55,19 @@ mod resources {
 
 mod components {
     // These are data-less marker components
-    // Which let us query for the correct entities
+    // which let us query for the correct entities
+    // and specialize behavior
     pub struct Paddle;
     pub struct Ball;
     pub struct Brick;
     pub struct Scoreboard;
+    pub struct Collides;
 
+    // The derived default values of numeric fields in Rust are zero
+    #[derive(Default)]
     pub struct Velocity {
         x: f32,
         y: f32,
-    }
-
-    pub enum Collider {
-        Solid,
-        Scorable,
-        Paddle,
     }
 }
 
@@ -82,7 +85,8 @@ fn add_paddle(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial
             ..Default::default()
         })
         .insert(Paddle)
-        .insert(Collider::Paddle);
+        .insert(Collides)
+        .insert(Velocity::default());
 }
 
 fn add_ball(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
@@ -93,53 +97,71 @@ fn add_ball(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>
             sprite: Sprite::new(Vec2::new(30.0, 30.0)),
             ..Default::default()
         })
-        .insert(Ball {
-            velocity: 400.0 * Vec3::new(0.5, -0.5, 0.0).normalize(),
-        });
+        .insert(Ball);
+}
+
+/// Defines which side of the arena a wall is part of
+enum Side {
+    Top,
+    Bottom,
+    Left,
+    Right,
+}
+
+impl Side {
+    fn wall_coord(self, bounds: Vec2) -> Transform {
+        let (x, y) = match self {
+            Side::Top => (0.0, bounds.y/2.0),
+            Side::Bottom => (0.0, -bounds.y/2.0),
+            Side::Left => (-bounds.x/2.0, 0.0),
+            Side::Right => (bounds.x/2.0, 0.0)
+        };
+        // We need to convert these coordinates into a 3D transform to add to our SpriteBundle
+        Transform::from_xyz(x, y, 0.0)
+    }
+
+    fn wall_size(self, bounds: Vec2, thickness: f32) -> Vec2 {
+        match self {
+            Side::Top => Vec2::new(thickness, bounds.y + thickness),
+            Side::Bottom => Vec2::new(thickness, bounds.y + thickness),
+            Side::Left => Vec2::new(bounds.x + thickness, thickness),
+            Side::Right => Vec2::new(bounds.x + thickness, thickness),
+        }
+    }
+}
+
+// By creating our own bundles, we can avoid duplicating code
+#[derive(Bundle)]
+struct WallBundle {
+    #[bundle]
+    sprite_bundle: SpriteBundle,
+    collides: Collides,
+}
+
+impl WallBundle {
+    fn new(side: Side, material_handle: Handle<ColorMaterial>) -> Self {
+        let bounds = config::ARENA_BOUNDS;
+        let thickness = config::WALL_THICKNESS;
+
+        WallBundle {
+            sprite_bundle: SpriteBundle {
+                material: material_handle.clone(),
+                transform: side.wall_coord(bounds),
+                sprite: Sprite::new(side.wall_size(bounds, thickness)),
+                ..Default::default()
+            },
+            collides: Collides,
+        }
+    }
 }
 
 fn add_walls(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
-    // Add walls
-    let wall_material = materials.add(Color::rgb(0.8, 0.8, 0.8).into());
-    let wall_thickness = 10.0;
-    let bounds = Vec2::new(900.0, 600.0);
+    let material_handle = materials.add(config::WALL_COLOR.into());
 
-    // left
-    commands
-        .spawn_bundle(SpriteBundle {
-            material: wall_material.clone(),
-            transform: Transform::from_xyz(-bounds.x / 2.0, 0.0, 0.0),
-            sprite: Sprite::new(Vec2::new(wall_thickness, bounds.y + wall_thickness)),
-            ..Default::default()
-        })
-        .insert(Collider::Solid);
-    // right
-    commands
-        .spawn_bundle(SpriteBundle {
-            material: wall_material.clone(),
-            transform: Transform::from_xyz(bounds.x / 2.0, 0.0, 0.0),
-            sprite: Sprite::new(Vec2::new(wall_thickness, bounds.y + wall_thickness)),
-            ..Default::default()
-        })
-        .insert(Collider::Solid);
-    // bottom
-    commands
-        .spawn_bundle(SpriteBundle {
-            material: wall_material.clone(),
-            transform: Transform::from_xyz(0.0, -bounds.y / 2.0, 0.0),
-            sprite: Sprite::new(Vec2::new(bounds.x + wall_thickness, wall_thickness)),
-            ..Default::default()
-        })
-        .insert(Collider::Solid);
-    // top
-    commands
-        .spawn_bundle(SpriteBundle {
-            material: wall_material,
-            transform: Transform::from_xyz(0.0, bounds.y / 2.0, 0.0),
-            sprite: Sprite::new(Vec2::new(bounds.x + wall_thickness, wall_thickness)),
-            ..Default::default()
-        })
-        .insert(Collider::Solid);
+    commands.spawn_bundle(WallBundle::new(Side::Top, material_handle));
+    commands.spawn_bundle(WallBundle::new(Side::Bottom, material_handle));
+    commands.spawn_bundle(WallBundle::new(Side::Left, material_handle));
+    commands.spawn_bundle(WallBundle::new(Side::Right, material_handle));
 }
 
 fn add_bricks(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
@@ -168,7 +190,8 @@ fn add_bricks(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial
                     transform: Transform::from_translation(brick_position),
                     ..Default::default()
                 })
-                .insert(Collider::Scorable);
+                .insert(Brick)
+                .insert(Collides);
         }
     }
 }
