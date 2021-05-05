@@ -124,18 +124,18 @@ fn select_entity(mut query: Query<(Entity, &mut Text), With<Selectable>>, select
 /// Or both "1" and "3" to add 4 all at once to the selected display
 fn input_dispatch(
     mut query: Query<(
-        &EventWriter<CycleColorAction>,
-        &EventWriter<AddNumberAction>,
+        &'static EventWriter<CycleColorAction>,
+        &'static EventWriter<AddNumberAction>,
     )>,
     selected: Res<Selected>,
 ) {
 }
 
 // FIXME: make this work with EventReaders
-fn cycle_color(mut query: Query<(&mut Rainbow, &EventReader<CycleColorAction>)>) {
+fn cycle_color(mut query: Query<(&mut Rainbow, &'static EventReader<CycleColorAction>)>) {
     for (mut rainbow, cycle_color_action_queue) in query.iter_mut() {
         for action in cycle_color_action_queue.iter() {
-            *rainbow = rainbow.next();
+            *rainbow = rainbow.next().unwrap();
         }
     }
 }
@@ -146,7 +146,7 @@ fn update_text_color(mut query: Query<(&mut Text, &Rainbow), Changed<Rainbow>>) 
     }
 }
 
-fn add_number(mut query: Query<(&mut Text, &EventReader<AddNumberAction>)>) {
+fn add_number(mut query: Query<(&mut Text, &'static EventReader<AddNumberAction>)>) {
     for (mut text, add_number_action_queue) in query.iter_mut() {
         for action in add_number_action_queue.iter() {
             // TODO: add the number
