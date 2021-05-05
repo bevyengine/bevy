@@ -208,28 +208,21 @@ fn scale_selected(
 }
 
 // FIXME: make this work using `EventWriter<T>` syntax and specialized behavior
-// FIXME: all input events are duplicated, due to just_pressed behavior
 /// Dispatches actions to entities based on the input
 /// Note that we can store several events at once!
-/// Try pressing both "Enter" and "Space" at the same time to cycle colors twice,
-/// Or both "1" and "3" to add 4 all at the same time to the selected display
+/// Try pressing both "1" and "3" to add 4 to the selected display
 fn input_dispatch(
     mut query: Query<
         (&mut Events<CycleColorAction>, &mut Events<AddNumberAction>),
         With<Selectable>,
     >,
     selected: Res<Selected>,
-    keyboard_input: Res<Input<KeyCode>>,
+    mut keyboard_input: ResMut<Input<KeyCode>>,
 ) {
     let (mut cycle_actions, mut add_actions) = query.get_mut(selected.entity).unwrap();
 
     // Inputs for cycling colors
-    // Normally, you'd probably want to use || on the inputs here,
-    // but we're demonstrating the ability to process multiple events at once
-    if keyboard_input.just_pressed(KeyCode::Return) {
-        cycle_actions.send(CycleColorAction);
-    }
-    if keyboard_input.just_pressed(KeyCode::Space) {
+    if keyboard_input.just_pressed(KeyCode::Return) || keyboard_input.just_pressed(KeyCode::Space) {
         cycle_actions.send(CycleColorAction);
     }
 
@@ -281,6 +274,7 @@ fn update_text_color(mut query: Query<(&mut Text, &Rainbow), Changed<Rainbow>>) 
 
 // Just as when using Events as a resource, you can work with `Events<T>` directly instead
 // EventReader and EventWriter are just convenient wrappers that better communicate intent
+// FIXME: Prevent event duplication by storing a Local resource
 fn add_number(mut query: Query<(&mut Text, &Events<AddNumberAction>)>) {
     // To add events manually, use events.send(MyEvent::new())
     for (mut text, action_queue) in query.iter_mut() {
