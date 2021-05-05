@@ -1,7 +1,4 @@
-use crate::{
-    path::AssetPath, AssetIo, AssetIoError, AssetMeta, AssetServer, Assets, Handle, HandleId,
-    RefChangeChannel,
-};
+use crate::{path::AssetPath, AssetIoError, AssetMeta, AssetServer, Assets, Handle, HandleId};
 use anyhow::Result;
 use bevy_ecs::{
     component::Component,
@@ -74,29 +71,19 @@ impl<T: Asset> From<LoadedAsset<T>> for BoxedLoadedAsset {
 }
 
 pub struct LoadContext<'a> {
-    pub(crate) ref_change_channel: &'a RefChangeChannel,
-    pub(crate) asset_io: &'a dyn AssetIo,
+    pub(crate) asset_server: AssetServer,
     pub(crate) labeled_assets: HashMap<Option<String>, BoxedLoadedAsset>,
     pub(crate) path: &'a Path,
     pub(crate) version: usize,
-    pub(crate) task_pool: &'a TaskPool,
 }
 
 impl<'a> LoadContext<'a> {
-    pub(crate) fn new(
-        path: &'a Path,
-        ref_change_channel: &'a RefChangeChannel,
-        asset_io: &'a dyn AssetIo,
-        version: usize,
-        task_pool: &'a TaskPool,
-    ) -> Self {
+    pub(crate) fn new(path: &'a Path, asset_server: AssetServer, version: usize) -> Self {
         Self {
-            ref_change_channel,
-            asset_io,
+            asset_server,
             labeled_assets: Default::default(),
             version,
             path,
-            task_pool,
         }
     }
 
@@ -120,11 +107,23 @@ impl<'a> LoadContext<'a> {
     }
 
     pub fn get_handle<I: Into<HandleId>, T: Asset>(&self, id: I) -> Handle<T> {
-        Handle::strong(id.into(), self.ref_change_channel.sender.clone())
+        Handle::strong(
+            id.into(),
+            self.asset_server
+                .server
+                .asset_ref_counter
+                .channel
+                .sender
+                .clone(),
+        )
     }
 
     pub async fn read_asset_bytes<P: AsRef<Path>>(&self, path: P) -> Result<Vec<u8>, AssetIoError> {
-        self.asset_io.load_path(path.as_ref()).await
+        self.asset_server
+            .server
+            .asset_io
+            .load_path(path.as_ref())
+            .await
     }
 
     pub fn get_asset_metas(&self) -> Vec<AssetMeta> {
@@ -140,7 +139,11 @@ impl<'a> LoadContext<'a> {
     }
 
     pub fn task_pool(&self) -> &TaskPool {
-        self.task_pool
+        &self.asset_server.server.task_pool
+    }
+
+    pub fn asset_server(&self) -> &AssetServer {
+        &self.asset_server
     }
 }
 
