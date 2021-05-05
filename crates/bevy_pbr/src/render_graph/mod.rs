@@ -40,7 +40,10 @@ pub(crate) fn add_pbr_graph(world: &mut World) {
             AssetRenderResourcesNode::<StandardMaterial>::new(true),
         );
 
-        graph.add_system_node(node::LIGHTS, LightsNode::new(MAX_POINT_LIGHTS, MAX_DIRECTIONAL_LIGHTS));
+        graph.add_system_node(
+            node::LIGHTS,
+            LightsNode::new(MAX_POINT_LIGHTS, MAX_DIRECTIONAL_LIGHTS),
+        );
 
         // TODO: replace these with "autowire" groups
         graph

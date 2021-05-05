@@ -1,5 +1,7 @@
 use crate::{
-    light::{AmbientLight, PointLight, PointLightUniform, DirectionalLight, DirectionalLightUniform},
+    light::{
+        AmbientLight, DirectionalLight, DirectionalLightUniform, PointLight, PointLightUniform,
+    },
     render_graph::uniform,
 };
 use bevy_core::{AsBytes, Byteable};
@@ -99,26 +101,28 @@ pub fn lights_node_system(
     let ambient_light: [f32; 4] =
         (ambient_light_resource.color * ambient_light_resource.brightness).into();
     let ambient_light_size = std::mem::size_of::<[f32; 4]>();
-    
+
     let point_light_count = point_lights.iter().len().min(state.max_point_lights);
     let point_light_size = std::mem::size_of::<PointLightUniform>();
     let point_light_array_size = point_light_size * point_light_count;
     let point_light_array_max_size = point_light_size * state.max_point_lights;
-    
+
     let dir_light_count = dir_lights.iter().len().min(state.max_dir_lights);
     let dir_light_size = std::mem::size_of::<DirectionalLightUniform>();
     let dir_light_array_size = dir_light_size * dir_light_count;
     let dir_light_array_max_size = dir_light_size * state.max_dir_lights;
-    
+
     let light_count_size = ambient_light_size + std::mem::size_of::<LightCount>();
 
     let point_light_uniform_start = light_count_size;
     let point_light_uniform_end = light_count_size + point_light_array_size;
 
     let dir_light_uniform_start = light_count_size + point_light_array_max_size;
-    let dir_light_uniform_end = light_count_size + point_light_array_max_size + dir_light_array_size;
+    let dir_light_uniform_end =
+        light_count_size + point_light_array_max_size + dir_light_array_size;
 
-    let max_light_uniform_size = light_count_size + point_light_array_max_size + dir_light_array_max_size;
+    let max_light_uniform_size =
+        light_count_size + point_light_array_max_size + dir_light_array_max_size;
 
     if let Some(staging_buffer) = state.staging_buffer {
         if point_light_count == 0 && dir_light_count == 0 {
@@ -159,12 +163,14 @@ pub fn lights_node_system(
             data[0..ambient_light_size].copy_from_slice(ambient_light.as_bytes());
 
             // light count
-            data[ambient_light_size..light_count_size]
-                .copy_from_slice([point_light_count as u32, dir_light_count as u32, 0, 0].as_bytes());
+            data[ambient_light_size..light_count_size].copy_from_slice(
+                [point_light_count as u32, dir_light_count as u32, 0, 0].as_bytes(),
+            );
 
             // point light array
             for ((point_light, global_transform), slot) in point_lights.iter().zip(
-                data[point_light_uniform_start..point_light_uniform_end].chunks_exact_mut(point_light_size),
+                data[point_light_uniform_start..point_light_uniform_end]
+                    .chunks_exact_mut(point_light_size),
             ) {
                 slot.copy_from_slice(
                     PointLightUniform::from(&point_light, &global_transform).as_bytes(),
@@ -173,12 +179,15 @@ pub fn lights_node_system(
 
             // directional light array
             for (dir_light, slot) in dir_lights.iter().zip(
-                data[dir_light_uniform_start ..dir_light_uniform_end].chunks_exact_mut(dir_light_size),
+                data[dir_light_uniform_start..dir_light_uniform_end]
+                    .chunks_exact_mut(dir_light_size),
             ) {
-                println!("Sending light dir={:?} color={:?}", dir_light.get_direction(), dir_light.color);
-                slot.copy_from_slice(
-                    DirectionalLightUniform::from(&dir_light).as_bytes(),
+                println!(
+                    "Sending light dir={:?} color={:?}",
+                    dir_light.get_direction(),
+                    dir_light.color
                 );
+                slot.copy_from_slice(DirectionalLightUniform::from(&dir_light).as_bytes());
             }
         },
     );

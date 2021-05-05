@@ -1,9 +1,9 @@
 use bevy_core::Byteable;
 use bevy_ecs::reflect::ReflectComponent;
+use bevy_math::Vec3;
 use bevy_reflect::Reflect;
 use bevy_render::color::Color;
 use bevy_transform::components::GlobalTransform;
-use bevy_math::Vec3;
 
 /// A point light
 #[derive(Debug, Reflect)]
@@ -63,7 +63,7 @@ impl PointLightUniform {
 pub struct DirectionalLight {
     pub color: Color,
     pub intensity: f32,
-    direction: Vec3
+    direction: Vec3,
 }
 
 impl DirectionalLight {
@@ -74,7 +74,9 @@ impl DirectionalLight {
     pub fn new(color: Color, intensity: f32, direction: Vec3) -> Self {
         assert!((direction.length_squared() - 1.0).abs() < 0.0001);
         DirectionalLight {
-            color, intensity, direction
+            color,
+            intensity,
+            direction,
         }
     }
 
@@ -97,7 +99,7 @@ impl Default for DirectionalLight {
         DirectionalLight {
             color: Color::rgb(1.0, 1.0, 1.0),
             intensity: 100000.0, // good start for a sun light
-            direction: Vec3::new(0.0, -1.0, 0.0)
+            direction: Vec3::new(0.0, -1.0, 0.0),
         }
     }
 }
@@ -114,16 +116,18 @@ unsafe impl Byteable for DirectionalLightUniform {}
 impl DirectionalLightUniform {
     pub fn from(light: &DirectionalLight) -> DirectionalLightUniform {
         // direction is negated to be ready for N.L
-        let dir: [f32; 4] = [-light.direction.x, -light.direction.y, -light.direction.z, 0.0];
+        let dir: [f32; 4] = [
+            -light.direction.x,
+            -light.direction.y,
+            -light.direction.z,
+            0.0,
+        ];
 
         // premultiply color by intensity
         // we don't use the alpha at all, so no reason to multiply only [0..3]
         let color: [f32; 4] = (light.color * light.intensity).into();
 
-        DirectionalLightUniform {
-            dir,
-            color,
-        }
+        DirectionalLightUniform { dir, color }
     }
 }
 
