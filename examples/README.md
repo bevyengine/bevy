@@ -130,6 +130,7 @@ Example | File | Description
 `custom_asset` | [`asset/custom_asset.rs`](./asset/custom_asset.rs) | Implements a custom asset loader
 `custom_asset_io` | [`asset/custom_asset_io.rs`](./asset/custom_asset_io.rs) | Implements a custom asset io loader
 `hot_asset_reloading` | [`asset/hot_asset_reloading.rs`](./asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
+`related_asset` | [`asset/related_asset.rs`](./asset/related_asset.rs) | Implements a custom asset loader which also loads a related asset
 
 ## Audio
 
