@@ -27,7 +27,6 @@ fn main() {
         // as vanilla components or resources
         .add_event::<CycleColorAction>()
         .add_event::<AddNumberAction>()
-        .init_resource::<Selected>()
         .add_startup_system(setup.system())
         .add_system(select_entity.system())
         .add_system(
@@ -38,19 +37,21 @@ fn main() {
         )
         .add_system(cycle_color.system().label("action_handling"))
         .add_system(add_number.system().label("action_handling"))
+        .add_system(scale_selected.system().after("action_handling"))
         .add_system(update_text_color.system().after("action_handling"))
         .run()
 }
 
 // Tracks which entity is selected
-#[derive(Default)]
-struct Selected(Option<Entity>);
+struct Selected {
+    entity: Entity,
+}
 // Marks entities as selectable
 struct Selectable;
 #[derive(Bundle)]
 struct InteractableBundle {
     #[bundle]
-    text_bundle: Text2dBundle,
+    text_bundle: TextBundle,
     selectable: Selectable,
     rainbow: Rainbow,
     cycle_color_events: Events<CycleColorAction>,
@@ -58,9 +59,10 @@ struct InteractableBundle {
 }
 
 impl InteractableBundle {
+    // FIXME: fix position
     fn new(x: f32, y: f32, font_handle: &Handle<Font>) -> Self {
         InteractableBundle {
-            text_bundle: Text2dBundle {
+            text_bundle: TextBundle {
                 text: Text::with_section(
                     "0",
                     TextStyle {
@@ -127,38 +129,145 @@ impl From<&Rainbow> for Color {
 struct CycleColorAction;
 // Or store data to be responded to
 struct AddNumberAction {
-    number: u32,
+    number: u8,
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    // Don't forget to include a camera!
+    commands.spawn_bundle(UiCameraBundle::default());
+
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
-    commands.spawn_bundle(InteractableBundle::new(-200.0, 0.0, &font_handle));
-    commands.spawn_bundle(InteractableBundle::new(0.0, 0.0, &font_handle));
-    commands.spawn_bundle(InteractableBundle::new(200.0, 0.0, &font_handle));
+    // Spawns the first entity, and grabs the Entity id that is being allocated
+    let first_entity = commands
+        .spawn_bundle(InteractableBundle::new(-200.0, 400.0, &font_handle))
+        .id();
+    commands.insert_resource(Selected {
+        entity: first_entity,
+    });
+
+    commands.spawn_bundle(InteractableBundle::new(0.0, 400.0, &font_handle));
+    commands.spawn_bundle(InteractableBundle::new(200.0, 400.0, &font_handle));
+}
+
+enum CycleBehavior {
+    Forward,
+    Back,
 }
 
 /// Cycles through entities appropriately based on input
-fn select_entity(mut query: Query<(Entity, &mut Text), With<Selectable>>, selected: Res<Selected>) {
+fn select_entity(
+    mut query: Query<Entity, With<Selectable>>,
+    mut selected: ResMut<Selected>,
+    keyboard_input: Res<Input<KeyCode>>,
+) {
+    let cycle_behavior: CycleBehavior = if keyboard_input.just_pressed(KeyCode::Tab) {
+        if keyboard_input.pressed(KeyCode::LShift) || keyboard_input.pressed(KeyCode::RShift) {
+            CycleBehavior::Back
+        } else {
+            CycleBehavior::Forward
+        }
+    } else if keyboard_input.just_pressed(KeyCode::Right) {
+        CycleBehavior::Forward
+    } else if keyboard_input.just_pressed(KeyCode::Left) {
+        CycleBehavior::Back
+    } else {
+        return;
+    };
+
+    let mut entities = Vec::<Entity>::new();
+    // FIXME: Move to `.for_each` when https://github.com/bevyengine/bevy/issues/753 is resolved
+    query.for_each_mut(|entity| entities.push(entity.clone()));
+
+    let current_position = entities.iter().position(|&e| e == selected.entity).unwrap() as isize;
+
+    let new_position = match cycle_behavior {
+        // We have to convert to isize for this step to avoid underflows when current_postion == 0
+        CycleBehavior::Forward => (current_position + 1).rem_euclid(entities.len() as isize),
+        CycleBehavior::Back => (current_position - 1).rem_euclid(entities.len() as isize),
+    };
+
+    selected.entity = entities[new_position as usize];
+}
+
+fn scale_selected(
+    mut query: Query<(Entity, &mut Text), With<Selectable>>,
+    selected: Res<Selected>,
+) {
+    // Only do work when the selection is changed
+    if !selected.is_changed() {
+        return;
+    }
+
+    for (entity, mut text) in query.iter_mut() {
+        if entity == selected.entity {
+            text.sections[0].style.font_size = 90.0;
+        } else {
+            text.sections[0].style.font_size = 60.0;
+        }
+    }
 }
 
 // FIXME: make this work using `EventWriter<T>` syntax and specialized behavior
+// FIXME: all input events are duplicated, due to just_pressed behavior
 /// Dispatches actions to entities based on the input
 /// Note that we can store several events at once!
-/// Try pressing both "Enter" and "Space" at once to cycle colors twice,
-/// Or both "1" and "3" to add 4 all at once to the selected display
+/// Try pressing both "Enter" and "Space" at the same time to cycle colors twice,
+/// Or both "1" and "3" to add 4 all at the same time to the selected display
 fn input_dispatch(
-    mut query: Query<(
-        &'static EventWriter<CycleColorAction>,
-        &'static EventWriter<AddNumberAction>,
-    )>,
+    mut query: Query<
+        (&mut Events<CycleColorAction>, &mut Events<AddNumberAction>),
+        With<Selectable>,
+    >,
     selected: Res<Selected>,
+    keyboard_input: Res<Input<KeyCode>>,
 ) {
+    let (mut cycle_actions, mut add_actions) = query.get_mut(selected.entity).unwrap();
+
+    // Inputs for cycling colors
+    // Normally, you'd probably want to use || on the inputs here,
+    // but we're demonstrating the ability to process multiple events at once
+    if keyboard_input.just_pressed(KeyCode::Return) {
+        cycle_actions.send(CycleColorAction);
+    }
+    if keyboard_input.just_pressed(KeyCode::Space) {
+        cycle_actions.send(CycleColorAction);
+    }
+
+    // Inputs for sending numbers to be added
+    if keyboard_input.just_pressed(KeyCode::Key1) {
+        add_actions.send(AddNumberAction { number: 1 });
+    }
+    if keyboard_input.just_pressed(KeyCode::Key2) {
+        add_actions.send(AddNumberAction { number: 2 });
+    }
+    if keyboard_input.just_pressed(KeyCode::Key3) {
+        add_actions.send(AddNumberAction { number: 3 });
+    }
+    if keyboard_input.just_pressed(KeyCode::Key4) {
+        add_actions.send(AddNumberAction { number: 4 });
+    }
+    if keyboard_input.just_pressed(KeyCode::Key5) {
+        add_actions.send(AddNumberAction { number: 5 });
+    }
+    if keyboard_input.just_pressed(KeyCode::Key6) {
+        add_actions.send(AddNumberAction { number: 6 });
+    }
+    if keyboard_input.just_pressed(KeyCode::Key7) {
+        add_actions.send(AddNumberAction { number: 7 });
+    }
+    if keyboard_input.just_pressed(KeyCode::Key8) {
+        add_actions.send(AddNumberAction { number: 8 });
+    }
+    if keyboard_input.just_pressed(KeyCode::Key9) {
+        add_actions.send(AddNumberAction { number: 9 });
+    }
 }
 
 // FIXME: make this work using `EventReader<T>` syntax and specialized behavior
-fn cycle_color(mut query: Query<(&mut Rainbow, &'static EventReader<CycleColorAction>)>) {
-    for (mut rainbow, cycle_color_action_queue) in query.iter_mut() {
-        for _ in cycle_color_action_queue.iter() {
+fn cycle_color(mut query: Query<(&mut Rainbow, &mut Events<CycleColorAction>)>) {
+    for (mut rainbow, action_queue) in query.iter_mut() {
+        let mut reader = action_queue.get_reader();
+        for _ in reader.iter(&action_queue) {
             *rainbow = rainbow.next().unwrap();
         }
     }
@@ -177,7 +286,10 @@ fn add_number(mut query: Query<(&mut Text, &Events<AddNumberAction>)>) {
     for (mut text, action_queue) in query.iter_mut() {
         let mut reader = action_queue.get_reader();
         for action in reader.iter(&action_queue) {
-            // TODO: add the number
+            let current_number: u8 = text.sections[0].value.clone().parse().unwrap();
+            // Wrap addition, rather than overflowing
+            let new_number = (current_number + action.number) % std::u8::MAX;
+            text.sections[0].value = new_number.to_string();
         }
     }
 }
