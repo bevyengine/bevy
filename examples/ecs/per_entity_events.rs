@@ -158,7 +158,7 @@ fn input_dispatch(
 // FIXME: make this work using `EventReader<T>` syntax and specialized behavior
 fn cycle_color(mut query: Query<(&mut Rainbow, &'static EventReader<CycleColorAction>)>) {
     for (mut rainbow, cycle_color_action_queue) in query.iter_mut() {
-        for action in cycle_color_action_queue.iter() {
+        for _ in cycle_color_action_queue.iter() {
             *rainbow = rainbow.next().unwrap();
         }
     }
@@ -170,7 +170,9 @@ fn update_text_color(mut query: Query<(&mut Text, &Rainbow), Changed<Rainbow>>) 
     }
 }
 
-fn add_number(mut query: Query<(&mut Text, &'static EventReader<AddNumberAction>)>) {
+// Just as when using Events as a resource, you can work with `Events<T>` directly instead
+// EventReader and EventWriter are just convenient wrappers that better communicate intent
+fn add_number(mut query: Query<(&mut Text, &Events<AddNumberAction>)>) {
     for (mut text, add_number_action_queue) in query.iter_mut() {
         for action in add_number_action_queue.iter() {
             // TODO: add the number
