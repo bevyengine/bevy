@@ -56,7 +56,7 @@ pub struct AssetServerInternal {
     loaders: RwLock<Vec<Arc<Box<dyn AssetLoader>>>>,
     extension_to_loader_index: RwLock<HashMap<String, usize>>,
     handle_to_path: Arc<RwLock<HashMap<HandleId, AssetPath<'static>>>>,
-    pub(crate) task_pool: TaskPool,
+    task_pool: TaskPool,
 }
 
 /// Loads assets from the filesystem on background threads
@@ -286,7 +286,13 @@ impl AssetServer {
         };
 
         // load the asset source using the corresponding AssetLoader
-        let mut load_context = LoadContext::new(asset_path.path(), self.clone(), version);
+        let mut load_context = LoadContext::new(
+            asset_path.path(),
+            &self.server.asset_ref_counter.channel,
+            &*self.server.asset_io,
+            version,
+            &self.server.task_pool,
+        );
         asset_loader
             .load(&bytes, &mut load_context)
             .await
