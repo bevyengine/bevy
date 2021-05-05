@@ -117,7 +117,7 @@ fn setup(mut commands: Commands) {
 fn select_entity(mut query: Query<(Entity, &mut Text), With<Selectable>>, selected: Res<Selected>) {
 }
 
-// FIXME: make this work with EventWriters
+// FIXME: make this work using `EventWriter<T>` syntax and specialized behavior
 /// Dispatches actions to entities based on the input
 /// Note that we can store several events at once!
 /// Try pressing both "Enter" and "Space" at once to cycle colors twice,
@@ -131,7 +131,7 @@ fn input_dispatch(
 ) {
 }
 
-// FIXME: make this work with EventReaders
+// FIXME: make this work using `EventReader<T>` syntax and specialized behavior
 fn cycle_color(mut query: Query<(&mut Rainbow, &'static EventReader<CycleColorAction>)>) {
     for (mut rainbow, cycle_color_action_queue) in query.iter_mut() {
         for action in cycle_color_action_queue.iter() {
