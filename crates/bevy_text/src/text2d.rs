@@ -21,6 +21,7 @@ use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
 use crate::{DefaultTextPipeline, DrawableText, Font, FontAtlasSet, Text, Text2dSize, TextError};
 
 /// The bundle of components needed to draw text in a 2D scene via a 2D `OrthographicCameraBundle`.
+/// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
 #[derive(Bundle, Clone, Debug)]
 pub struct Text2dBundle {
     pub draw: Draw,
