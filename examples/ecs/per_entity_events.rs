@@ -173,8 +173,10 @@ fn update_text_color(mut query: Query<(&mut Text, &Rainbow), Changed<Rainbow>>) 
 // Just as when using Events as a resource, you can work with `Events<T>` directly instead
 // EventReader and EventWriter are just convenient wrappers that better communicate intent
 fn add_number(mut query: Query<(&mut Text, &Events<AddNumberAction>)>) {
-    for (mut text, add_number_action_queue) in query.iter_mut() {
-        for action in add_number_action_queue.iter() {
+    // To add events manually, use events.send(MyEvent::new())
+    for (mut text, action_queue) in query.iter_mut() {
+        let mut reader = action_queue.get_reader();
+        for action in reader.iter(&action_queue) {
             // TODO: add the number
         }
     }
