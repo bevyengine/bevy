@@ -232,10 +232,6 @@ path = "examples/asset/custom_asset_io.rs"
 name = "hot_asset_reloading"
 path = "examples/asset/hot_asset_reloading.rs"
 
-[[example]]
-name = "related_asset"
-path = "examples/asset/related_asset.rs"
-
 # Audio
 [[example]]
 name = "audio"
