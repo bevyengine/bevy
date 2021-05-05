@@ -182,11 +182,6 @@ pub fn lights_node_system(
                 data[dir_light_uniform_start..dir_light_uniform_end]
                     .chunks_exact_mut(dir_light_size),
             ) {
-                println!(
-                    "Sending light dir={:?} color={:?}",
-                    dir_light.get_direction(),
-                    dir_light.color
-                );
                 slot.copy_from_slice(DirectionalLightUniform::from(&dir_light).as_bytes());
             }
         },
