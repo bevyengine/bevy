@@ -52,4 +52,8 @@ impl AssetIo for WasmAssetIo {
     fn is_directory(&self, path: &Path) -> bool {
         self.root_path.join(path).is_dir()
     }
+
+    fn is_file(&self, path: &Path) -> bool {
+        self.root_path.join(path).is_file()
+    }
 }
