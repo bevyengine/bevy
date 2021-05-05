@@ -1,7 +1,7 @@
 use crate as bevy_ecs;
 use crate::{
     component::Component,
-    system::{Local, Res, ResMut, SystemParam},
+    system::{Local, Query, Res, ResMut, SystemParam},
 };
 use bevy_utils::tracing::trace;
 use std::{
@@ -323,9 +323,16 @@ impl<T: Component> Events<T> {
         }
     }
 
-    /// A system that calls [Events::update] once per frame.
-    pub fn update_system(mut events: ResMut<Self>) {
-        events.update();
+    /// A system that calls [Events::update] once per frame on all events of the specified type.
+    ///
+    /// This clears all events from the previous frame,
+    /// and advances the current frame's buffer so it is ready to be cleared.
+    pub fn update_system(
+        mut resource_events: ResMut<Self>,
+        mut component_events: Query<&mut Self>,
+    ) {
+        resource_events.update();
+        component_events.for_each_mut(|mut e| e.update());
     }
 
     /// Removes all events.
