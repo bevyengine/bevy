@@ -49,11 +49,12 @@ struct Selected(Option<Entity>);
 struct Selectable;
 #[derive(Bundle)]
 struct InteractableBundle {
-    selectable: Selectable,
     #[bundle]
     text_bundle: Text2dBundle,
+    selectable: Selectable,
+    rainbow: Rainbow,
     cycle_color_events: Events<CycleColorAction>,
-    swell_events: Events<AddNumberAction>,
+    add_number_events: Events<AddNumberAction>,
 }
 
 impl InteractableBundle {
