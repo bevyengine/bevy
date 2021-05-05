@@ -58,8 +58,29 @@ struct InteractableBundle {
 }
 
 impl InteractableBundle {
-    fn new(x: f32, y: f32) -> Self {
-        // TODO: write convenience function
+    fn new(x: f32, y: f32, font_handle: &Handle<Font>) -> Self {
+        InteractableBundle {
+            text_bundle: Text2dBundle {
+                text: Text::with_section(
+                    "0",
+                    TextStyle {
+                        font: font_handle.clone(),
+                        font_size: 60.0,
+                        color: Color::WHITE,
+                    },
+                    TextAlignment {
+                        vertical: VerticalAlign::Center,
+                        horizontal: HorizontalAlign::Center,
+                    },
+                ),
+                transform: Transform::from_xyz(x, y, 0.0),
+                ..Default::default()
+            },
+            selectable: Selectable,
+            rainbow: Rainbow::Red,
+            cycle_color_events: Events::<CycleColorAction>::default(),
+            add_number_events: Events::<AddNumberAction>::default(),
+        }
     }
 }
 
@@ -109,8 +130,11 @@ struct AddNumberAction {
     number: u32,
 }
 
-fn setup(mut commands: Commands) {
-    // TODO: spawn three InteractableBundles across the screen
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
+    commands.spawn_bundle(InteractableBundle::new(-200.0, 0.0, &font_handle));
+    commands.spawn_bundle(InteractableBundle::new(0.0, 0.0, &font_handle));
+    commands.spawn_bundle(InteractableBundle::new(200.0, 0.0, &font_handle));
 }
 
 /// Cycles through entities appropriately based on input
