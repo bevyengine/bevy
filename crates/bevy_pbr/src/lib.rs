@@ -10,7 +10,7 @@ pub use material::*;
 
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{entity::*, light::PointLight, material::StandardMaterial};
+    pub use crate::{entity::*, light::{PointLight, DirectionalLight}, material::StandardMaterial};
 }
 
 use bevy_app::prelude::*;
