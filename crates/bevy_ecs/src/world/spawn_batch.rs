@@ -6,10 +6,10 @@ use crate::{
     world::{add_bundle_to_archetype, World},
 };
 
-pub struct SpawnBatchIter<'w, I>
+pub struct SpawnBatchIter<'w, I, B>
 where
-    I: Iterator,
-    I::Item: Bundle,
+    I: Iterator<Item = (Entity, B)>,
+    B: Bundle,
 {
     inner: I,
     entities: &'w mut Entities,
@@ -21,10 +21,10 @@ where
     change_tick: u32,
 }
 
-impl<'w, I> SpawnBatchIter<'w, I>
+impl<'w, I, B> SpawnBatchIter<'w, I, B>
 where
-    I: Iterator,
-    I::Item: Bundle,
+    I: Iterator<Item = (Entity, B)>,
+    B: Bundle,
 {
     #[inline]
     pub(crate) fn new(world: &'w mut World, iter: I) -> Self {
@@ -32,11 +32,11 @@ where
         // necessary
         world.flush();
 
+        let bundle_info = world.bundles.init_info::<B>(&mut world.components);
+
         let (lower, upper) = iter.size_hint();
-
-        let bundle_info = world.bundles.init_info::<I::Item>(&mut world.components);
-
         let length = upper.unwrap_or(lower);
+
         // SAFE: empty archetype exists and bundle components were initialized above
         let archetype_id = unsafe {
             add_bundle_to_archetype(
@@ -53,7 +53,6 @@ where
         let table = &mut world.storages.tables[archetype.table_id()];
         archetype.reserve(length);
         table.reserve(length);
-        world.entities.reserve(length as u32);
         let edge = empty_archetype
             .edges()
             .get_add_bundle(bundle_info.id())
@@ -71,26 +70,25 @@ where
     }
 }
 
-impl<I> Drop for SpawnBatchIter<'_, I>
+impl<I, B> Drop for SpawnBatchIter<'_, I, B>
 where
-    I: Iterator,
-    I::Item: Bundle,
+    I: Iterator<Item = (Entity, B)>,
+    B: Bundle,
 {
     fn drop(&mut self) {
         for _ in self {}
     }
 }
 
-impl<I> Iterator for SpawnBatchIter<'_, I>
+impl<I, B> Iterator for SpawnBatchIter<'_, I, B>
 where
-    I: Iterator,
-    I::Item: Bundle,
+    I: Iterator<Item = (Entity, B)>,
+    B: Bundle,
 {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Entity> {
-        let bundle = self.inner.next()?;
-        let entity = self.entities.alloc();
+        let (entity, bundle) = self.inner.next()?;
         // SAFE: component values are immediately written to relevant storages (which have been
         // allocated)
         unsafe {
@@ -115,10 +113,10 @@ where
     }
 }
 
-impl<I, T> ExactSizeIterator for SpawnBatchIter<'_, I>
+impl<I, B> ExactSizeIterator for SpawnBatchIter<'_, I, B>
 where
-    I: ExactSizeIterator<Item = T>,
-    T: Bundle,
+    I: ExactSizeIterator<Item = (Entity, B)>,
+    B: Bundle,
 {
     fn len(&self) -> usize {
         self.inner.len()

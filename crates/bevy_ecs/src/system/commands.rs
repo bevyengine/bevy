@@ -158,12 +158,25 @@ impl<'a> Commands<'a> {
 
     /// Equivalent to iterating `bundles_iter` and calling [`Self::spawn`] on each bundle, but
     /// slightly more performant.
-    pub fn spawn_batch<I>(&mut self, bundles_iter: I)
+    pub fn spawn_batch<I>(&mut self, bundles_iter: I) -> impl IntoIterator<Item = Entity>
     where
-        I: IntoIterator + Send + Sync + 'static,
+        I: IntoIterator,
+        I::IntoIter: ExactSizeIterator + Send + Sync + 'static,
         I::Item: Bundle,
     {
-        self.queue.push(SpawnBatch { bundles_iter });
+        let bundles_iter = bundles_iter.into_iter();
+        let len = bundles_iter.len();
+        let entities = self
+            .entities
+            .reserve_entities(len as u32)
+            .collect::<Vec<_>>();
+
+        self.queue.push(SpawnBatch {
+            bundles_iter,
+            entities: entities.clone(),
+        });
+
+        entities
     }
 
     /// See [`World::insert_resource`].
@@ -303,15 +316,17 @@ where
     I::Item: Bundle,
 {
     pub bundles_iter: I,
+    pub entities: Vec<Entity>,
 }
 
 impl<I> Command for SpawnBatch<I>
 where
     I: IntoIterator + Send + Sync + 'static,
+    I::IntoIter: ExactSizeIterator,
     I::Item: Bundle,
 {
     fn write(self: Box<Self>, world: &mut World) {
-        world.spawn_batch(self.bundles_iter);
+        world.spawn_batch_with_entities(self.entities.into_iter().zip(self.bundles_iter));
     }
 }
 

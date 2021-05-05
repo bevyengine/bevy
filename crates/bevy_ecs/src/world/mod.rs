@@ -325,10 +325,34 @@ impl World {
     ///
     /// assert_eq!(entities.len(), 2);
     /// ```
-    pub fn spawn_batch<I>(&mut self, iter: I) -> SpawnBatchIter<'_, I::IntoIter>
+    #[allow(clippy::needless_collect)]
+    pub fn spawn_batch<I>(
+        &mut self,
+        iter: I,
+    ) -> SpawnBatchIter<'_, impl Iterator<Item = (Entity, I::Item)>, I::Item>
     where
         I: IntoIterator,
+        I::IntoIter: ExactSizeIterator,
         I::Item: Bundle,
+    {
+        let iter = iter.into_iter();
+        let length = iter.len();
+
+        let entities = self
+            .entities
+            .reserve_entities(length as u32)
+            .collect::<Vec<_>>();
+
+        self.spawn_batch_with_entities(entities.into_iter().zip(iter))
+    }
+
+    pub fn spawn_batch_with_entities<I, B>(
+        &mut self,
+        iter: I,
+    ) -> SpawnBatchIter<'_, impl Iterator<Item = (Entity, B)>, B>
+    where
+        I: IntoIterator<Item = (Entity, B)>,
+        B: Bundle,
     {
         SpawnBatchIter::new(self, iter.into_iter())
     }
