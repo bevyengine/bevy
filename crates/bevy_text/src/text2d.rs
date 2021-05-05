@@ -93,13 +93,13 @@ pub fn draw_text2d_system(
 
         if let Some(text_glyphs) = text_pipeline.get_glyphs(&entity) {
             let alignment_offset = match text.alignment.vertical {
-                VerticalAlign::Top => Vec3::ZERO,
+                VerticalAlign::Top => Vec3::new(0.0, -height, 0.0),
                 VerticalAlign::Center => Vec3::new(0.0, -height * 0.5, 0.0),
-                VerticalAlign::Bottom => Vec3::new(0.0, -height, 0.0),
+                VerticalAlign::Bottom => Vec3::ZERO,
             } + match text.alignment.horizontal {
-                HorizontalAlign::Left => Vec3::new(-width, 0.0, 0.0),
+                HorizontalAlign::Left => Vec3::ZERO,
                 HorizontalAlign::Center => Vec3::new(-width * 0.5, 0.0, 0.0),
-                HorizontalAlign::Right => Vec3::ZERO,
+                HorizontalAlign::Right => Vec3::new(-width, 0.0, 0.0),
             };
 
             let mut drawable_text = DrawableText {
@@ -110,7 +110,7 @@ pub fn draw_text2d_system(
                 text_glyphs: &text_glyphs.glyphs,
                 font_quad_vertex_layout: &font_quad_vertex_layout,
                 sections: &text.sections,
-                alignment_offset: alignment_offset * scale_factor,
+                alignment_offset,
             };
 
             drawable_text.draw(&mut draw, &mut context).unwrap();

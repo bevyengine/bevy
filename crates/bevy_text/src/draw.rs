@@ -77,12 +77,13 @@ impl<'a> Drawable for DrawableText<'a> {
                 flip_y: false,
             };
 
-            let scale_transform = Mat4::from_scale(Vec3::splat(1. / self.scale_factor));
             let transform = Mat4::from_rotation_translation(
                 self.global_transform.rotation,
                 self.global_transform.translation,
-            ) * scale_transform
-                * Mat4::from_translation(self.alignment_offset + tv.position.extend(0.));
+            ) * Mat4::from_scale(self.global_transform.scale / self.scale_factor)
+                * Mat4::from_translation(
+                    self.alignment_offset * self.scale_factor + tv.position.extend(0.),
+                );
 
             let transform_buffer = context.get_uniform_buffer(&transform).unwrap();
             let sprite_buffer = context.get_uniform_buffer(&sprite).unwrap();
