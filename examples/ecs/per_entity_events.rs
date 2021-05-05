@@ -1,4 +1,4 @@
-use bevy::app::Events;
+use bevy::app::{Events, ManualEventReader};
 use bevy::prelude::*;
 
 /// In this example, we show how to store events of a given type
@@ -212,12 +212,14 @@ fn scale_selected(
 /// Note that we can store several events at once!
 /// Try pressing both "1" and "3" to add 4 to the selected display
 fn input_dispatch(
+    // You could also access the &Events<T> component directly
+    // then send events to that component with `Events::send`
     mut query: Query<
         (&mut Events<CycleColorAction>, &mut Events<AddNumberAction>),
         With<Selectable>,
     >,
     selected: Res<Selected>,
-    mut keyboard_input: ResMut<Input<KeyCode>>,
+    keyboard_input: ResMut<Input<KeyCode>>,
 ) {
     let (mut cycle_actions, mut add_actions) = query.get_mut(selected.entity).unwrap();
 
@@ -256,7 +258,7 @@ fn input_dispatch(
     }
 }
 
-// FIXME: make this work using `EventReader<T>` syntax and specialized behavior
+// FIXME: make this work without duplication using `EventReader<T>` syntax and specialized behavior
 fn cycle_color(mut query: Query<(&mut Rainbow, &mut Events<CycleColorAction>)>) {
     for (mut rainbow, action_queue) in query.iter_mut() {
         let mut reader = action_queue.get_reader();
@@ -274,16 +276,25 @@ fn update_text_color(mut query: Query<(&mut Text, &Rainbow), Changed<Rainbow>>) 
 
 // Just as when using Events as a resource, you can work with `Events<T>` directly instead
 // EventReader and EventWriter are just convenient wrappers that better communicate intent
-// FIXME: Prevent event duplication by storing a Local resource
-fn add_number(mut query: Query<(&mut Text, &Events<AddNumberAction>)>) {
-    // To add events manually, use events.send(MyEvent::new())
-    for (mut text, action_queue) in query.iter_mut() {
-        let mut reader = action_queue.get_reader();
-        for action in reader.iter(&action_queue) {
-            let current_number: u8 = text.sections[0].value.clone().parse().unwrap();
-            // Wrap addition, rather than overflowing
-            let new_number = ((current_number + action.number) as u16) % std::u8::MAX as u16;
-            text.sections[0].value = new_number.to_string();
-        }
+// And store state automatically for you
+fn add_number(
+    mut query: Query<(&mut Text, &Events<AddNumberAction>)>,
+    mut reader: Local<ManualEventReader<AddNumberAction>>,
+    selected: Res<Selected>,
+) {
+    let (mut text, action_queue) = query.get_mut(selected.entity).unwrap();
+    // Because we only care about one entity at a time, we can store the event reader manually
+    // in a Local resource as part of the system's data
+    // This logic is handled for you, storing one EventReader per entity when you query for an EventReader
+    if selected.is_changed() {
+        // If the resource selected is changed, we need to rebuild a new event reader
+        *reader = action_queue.get_reader();
+    }
+
+    for action in reader.iter(&action_queue) {
+        let current_number: u8 = text.sections[0].value.clone().parse().unwrap();
+        // Wrap addition, rather than overflowing
+        let new_number = ((current_number + action.number) as u16) % std::u8::MAX as u16;
+        text.sections[0].value = new_number.to_string();
     }
 }
