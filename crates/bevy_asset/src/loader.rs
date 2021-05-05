@@ -142,6 +142,14 @@ impl<'a> LoadContext<'a> {
     pub fn task_pool(&self) -> &TaskPool {
         self.task_pool
     }
+
+    pub fn is_directory<P: AsRef<Path>>(&self, path: P) -> bool {
+        self.asset_io.is_directory(path.as_ref())
+    }
+
+    pub fn is_file<P: AsRef<Path>>(&self, path: P) -> bool {
+        self.asset_io.is_file(path.as_ref())
+    }
 }
 
 /// The result of loading an asset of type `T`
