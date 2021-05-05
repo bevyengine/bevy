@@ -513,6 +513,14 @@ impl AssetServer {
             }
         }
     }
+
+    pub fn is_directory<P: AsRef<Path>>(&self, path: P) -> bool {
+        self.server.asset_io.is_directory(path.as_ref())
+    }
+
+    pub fn is_file<P: AsRef<Path>>(&self, path: P) -> bool {
+        self.server.asset_io.is_file(path.as_ref())
+    }
 }
 
 pub fn free_unused_assets_system(asset_server: Res<AssetServer>) {
