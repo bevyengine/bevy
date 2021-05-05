@@ -103,18 +103,11 @@ where
     /// Calls a closure on each item of a parallel iterator.
     ///
     /// See [`Iterator::for_each()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.for_each)
-    fn for_each<F>(mut self, pool: &TaskPool, f: F)
+    fn for_each<F>(self, pool: &TaskPool, mut f: F)
     where
         F: FnMut(Self::Item) + Send + Clone + Sync,
     {
-        pool.scope(|s| {
-            while let Some(batch) = self.next_batch() {
-                let mut newf = f.clone();
-                s.spawn(async move {
-                    batch.into_iter().for_each(move |v| newf(v));
-                });
-            }
-        });
+        self.fold(pool, (), move |(), v| f(v));
     }
 
     /// Creates a parallel iterator which uses a closure to determine
@@ -239,7 +232,7 @@ where
     /// results (in batch order).*
     ///
     /// See [`Iterator::fold()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.fold)
-    fn fold<C, F, D>(mut self, pool: &TaskPool, init: C, f: F) -> Vec<C>
+    fn fold<C, F>(mut self, pool: &TaskPool, init: C, f: F) -> Vec<C>
     where
         F: FnMut(C, Self::Item) -> C + Send + Sync + Clone,
         C: Clone + Send + Sync + 'static,

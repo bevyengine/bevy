@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use bevy_tasks::ParallelIterator;
+use bevy_tasks::{ParallelIterator, TaskPool};
 
 use crate::{
     archetype::{ArchetypeId, Archetypes},
@@ -9,31 +9,29 @@ use crate::{
     world::World,
 };
 
-pub enum ParQueryIter<'w, 's, Q: WorldQuery, F: WorldQuery>
+pub struct ParQueryIter<'w, 's, Q: WorldQuery, F: WorldQuery>
 where
     F::Fetch: FilterFetch,
 {
+    batch_size: usize,
+    offset: usize,
+    world: &'w World,
+    query_state: &'s QueryState<Q, F>,
+    last_change_tick: u32,
+    change_tick: u32,
+    dos: DenseOrSparse<'w, 's>,
+}
+
+enum DenseOrSparse<'w, 's> {
     Dense {
-        batch_size: usize,
-        offset: usize,
-        world: &'w World,
-        query_state: &'s QueryState<Q, F>,
         tables: &'w Tables,
         table_id_iter: std::slice::Iter<'s, TableId>,
         table: Option<TableId>,
-        last_change_tick: u32,
-        change_tick: u32,
     },
     Sparse {
-        batch_size: usize,
-        offset: usize,
-        world: &'w World,
-        query_state: &'s QueryState<Q, F>,
         archetypes: &'w Archetypes,
         archetype_id_iter: std::slice::Iter<'s, ArchetypeId>,
         archetype: Option<ArchetypeId>,
-        last_change_tick: u32,
-        change_tick: u32,
     },
 }
 
@@ -63,30 +61,34 @@ where
         if fetch.is_dense() && filter.is_dense() {
             let tables = &world.storages().tables;
             let mut table_id_iter = query_state.matched_table_ids.iter();
-            ParQueryIter::Dense {
+            ParQueryIter {
                 batch_size,
                 offset: 0,
                 world,
                 query_state,
-                tables,
                 last_change_tick,
                 change_tick,
-                table: table_id_iter.next().copied(),
-                table_id_iter,
+                dos: DenseOrSparse::Dense {
+                    table: table_id_iter.next().copied(),
+                    table_id_iter,
+                    tables,
+                },
             }
         } else {
             let archetypes = world.archetypes();
             let mut archetype_id_iter = query_state.matched_archetype_ids.iter();
-            ParQueryIter::Sparse {
+            ParQueryIter {
                 batch_size,
                 offset: 0,
                 world,
                 query_state,
-                archetypes,
                 last_change_tick,
                 change_tick,
-                archetype: archetype_id_iter.next().copied(),
-                archetype_id_iter,
+                dos: DenseOrSparse::Sparse {
+                    archetype: archetype_id_iter.next().copied(),
+                    archetype_id_iter,
+                    archetypes,
+                },
             }
         }
     }
@@ -206,17 +208,20 @@ where
     type Item = QItem<'w, Q>;
 
     fn next_batch(&mut self) -> Option<IntoBatchIterator<'w, 's, Q, F>> {
-        match self {
-            ParQueryIter::Dense {
-                batch_size,
-                offset,
-                world,
-                query_state,
+        let Self {
+            batch_size,
+            offset,
+            world,
+            query_state,
+            last_change_tick,
+            change_tick,
+            dos,
+        } = self;
+        match dos {
+            DenseOrSparse::Dense {
                 tables,
                 table_id_iter,
                 table,
-                last_change_tick,
-                change_tick,
             } => {
                 if let Some(table) = table {
                     if *offset >= tables[*table].len() {
@@ -250,16 +255,10 @@ where
                     None
                 }
             }
-            ParQueryIter::Sparse {
-                batch_size,
-                offset,
-                world,
-                query_state,
+            DenseOrSparse::Sparse {
                 archetypes,
                 archetype_id_iter,
                 archetype,
-                last_change_tick,
-                change_tick,
             } => {
                 if let Some(archetype) = archetype {
                     if *offset >= archetypes[*archetype].len() {
@@ -292,5 +291,106 @@ where
                 }
             }
         }
+    }
+
+    fn fold<C, E>(self, pool: &TaskPool, init: C, f: E) -> Vec<C>
+    where
+        E: FnMut(C, Self::Item) -> C + Send + Sync + Clone,
+        C: Clone + Send + Sync + 'static,
+    {
+        let Self {
+            offset,
+            batch_size,
+            world,
+            query_state,
+            last_change_tick,
+            change_tick,
+            dos,
+        } = self;
+        pool.scope(move |scope| match dos {
+            DenseOrSparse::Dense {
+                tables,
+                table_id_iter,
+                table,
+            } => {
+                for table_id in table.into_iter().chain(table_id_iter.copied()) {
+                    let table = &tables[table_id];
+                    let mut offset = offset;
+                    while offset < table.len() {
+                        let func = f.clone();
+                        let init = init.clone();
+                        scope.spawn(async move {
+                            unsafe {
+                                let mut fetch = <Q::Fetch as Fetch>::init(
+                                    world,
+                                    &query_state.fetch_state,
+                                    last_change_tick,
+                                    change_tick,
+                                );
+                                let mut filter = <F::Fetch as Fetch>::init(
+                                    world,
+                                    &query_state.filter_state,
+                                    last_change_tick,
+                                    change_tick,
+                                );
+                                let tables = &world.storages().tables;
+                                let table = &tables[table_id];
+                                fetch.set_table(&query_state.fetch_state, table);
+                                filter.set_table(&query_state.filter_state, table);
+                                let len = batch_size.min(table.len() - offset);
+                                (offset..offset + len)
+                                    .filter(|&table_index| filter.table_filter_fetch(table_index))
+                                    .map(|table_index| fetch.table_fetch(table_index))
+                                    .fold(init, func)
+                            }
+                        });
+                        offset += batch_size;
+                    }
+                }
+            }
+            DenseOrSparse::Sparse {
+                archetypes,
+                archetype_id_iter,
+                archetype,
+            } => {
+                for archetype_id in archetype.into_iter().chain(archetype_id_iter.copied()) {
+                    let mut offset = offset;
+                    let archetype = &archetypes[archetype_id];
+                    while offset < archetype.len() {
+                        let func = f.clone();
+                        let init = init.clone();
+                        scope.spawn(async move {
+                            unsafe {
+                                let mut fetch = <Q::Fetch as Fetch>::init(
+                                    world,
+                                    &query_state.fetch_state,
+                                    last_change_tick,
+                                    change_tick,
+                                );
+                                let mut filter = <F::Fetch as Fetch>::init(
+                                    world,
+                                    &query_state.filter_state,
+                                    last_change_tick,
+                                    change_tick,
+                                );
+                                let tables = &world.storages().tables;
+                                let archetype = &world.archetypes[archetype_id];
+                                fetch.set_archetype(&query_state.fetch_state, archetype, tables);
+                                filter.set_archetype(&query_state.filter_state, archetype, tables);
+
+                                let len = batch_size.min(archetype.len() - offset);
+                                (offset..offset + len)
+                                    .filter(|&table_index| {
+                                        filter.archetype_filter_fetch(table_index)
+                                    })
+                                    .map(|table_index| fetch.archetype_fetch(table_index))
+                                    .fold(init, func)
+                            }
+                        });
+                        offset += batch_size;
+                    }
+                }
+            }
+        })
     }
 }
