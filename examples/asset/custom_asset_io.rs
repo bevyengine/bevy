@@ -26,6 +26,11 @@ impl AssetIo for CustomAssetIo {
         self.0.read_directory(path)
     }
 
+    fn is_file(&self, path: &Path) -> bool {
+        info!("is_file({:?})", path);
+        self.0.is_file(path)
+    }
+
     fn is_directory(&self, path: &Path) -> bool {
         info!("is_directory({:?})", path);
         self.0.is_directory(path)
