@@ -288,7 +288,7 @@ fn add_number(mut query: Query<(&mut Text, &Events<AddNumberAction>)>) {
         for action in reader.iter(&action_queue) {
             let current_number: u8 = text.sections[0].value.clone().parse().unwrap();
             // Wrap addition, rather than overflowing
-            let new_number = (current_number + action.number) % std::u8::MAX;
+            let new_number = ((current_number + action.number) as u16) % std::u8::MAX as u16;
             text.sections[0].value = new_number.to_string();
         }
     }
