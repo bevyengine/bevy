@@ -260,6 +260,10 @@ name = "event"
 path = "examples/ecs/event.rs"
 
 [[example]]
+name = "per_entity_events"
+path = "examples/ecs/per_entity_events"
+
+[[example]]
 name = "fixed_timestep"
 path = "examples/ecs/fixed_timestep.rs"
 
