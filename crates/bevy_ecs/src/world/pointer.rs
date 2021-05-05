@@ -10,7 +10,7 @@ pub struct Mut<'a, T> {
 }
 
 impl<'a, T> Mut<'a, T> {
-    pub fn deref_mut(self) -> &'a mut T {
+    pub fn into_inner(self) -> &'a mut T {
         self.component_ticks.set_changed(self.change_tick);
         self.value
     }
