@@ -109,8 +109,8 @@ impl Iterator for Rainbow {
     }
 }
 
-impl From<Rainbow> for Color {
-    fn from(rainbow: Rainbow) -> Color {
+impl From<&Rainbow> for Color {
+    fn from(rainbow: &Rainbow) -> Color {
         use Rainbow::*;
         match rainbow {
             Red => Color::RED,
@@ -166,7 +166,7 @@ fn cycle_color(mut query: Query<(&mut Rainbow, &'static EventReader<CycleColorAc
 
 fn update_text_color(mut query: Query<(&mut Text, &Rainbow), Changed<Rainbow>>) {
     for (mut text, rainbow) in query.iter_mut() {
-        // TODO: change the color
+        text.sections[0].style.color = rainbow.into();
     }
 }
 
