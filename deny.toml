@@ -12,7 +12,7 @@ ignore = [
 ]
 
 [licenses]
-unlicensed = "allow"
+unlicensed = "deny"
 copyleft = "deny"
 allow = [
     "MIT",
@@ -27,6 +27,10 @@ allow = [
 ]
 default = "deny"
 
+[[licenses.clarify]]
+name = "stretch"
+expression = "MIT"
+license-files = []
 
 [bans]
 multiple-versions = "deny"
