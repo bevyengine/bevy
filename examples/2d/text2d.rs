@@ -4,7 +4,9 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
-        .add_system(animate.system())
+        .add_system(animate_translation.system())
+        .add_system(animate_rotation.system())
+        .add_system(animate_scale.system())
         .run();
 }
 
@@ -48,24 +50,32 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .insert(AnimateScale);
 }
 
-fn animate(
+fn animate_translation(
     time: Res<Time>,
-    mut queries: QuerySet<(
-        Query<&mut Transform, WithBundle<(Text, AnimateTranslation)>>,
-        Query<&mut Transform, WithBundle<(Text, AnimateRotation)>>,
-        Query<&mut Transform, WithBundle<(Text, AnimateScale)>>,
-    )>,
+    mut query: Query<&mut Transform, (With<Text>, With<AnimateTranslation>)>,
 ) {
-    for mut transform in queries.q0_mut().iter_mut() {
+    for mut transform in query.iter_mut() {
         transform.translation.x = 100.0 * time.seconds_since_startup().sin() as f32 - 400.0;
         transform.translation.y = 100.0 * time.seconds_since_startup().cos() as f32;
     }
-    for mut transform in queries.q1_mut().iter_mut() {
+}
+
+fn animate_rotation(
+    time: Res<Time>,
+    mut query: Query<&mut Transform, (With<Text>, With<AnimateRotation>)>,
+) {
+    for mut transform in query.iter_mut() {
         transform.rotation = Quat::from_rotation_z(time.seconds_since_startup().cos() as f32);
     }
+}
+
+fn animate_scale(
+    time: Res<Time>,
+    mut query: Query<&mut Transform, (With<Text>, With<AnimateScale>)>,
+) {
     // Consider changing font-size instead of scaling the transform. Scaling a Text2D will scale the
     // rendered quad, resulting in a pixellated look.
-    for mut transform in queries.q2_mut().iter_mut() {
+    for mut transform in query.iter_mut() {
         transform.translation = Vec3::new(400.0, 0.0, 0.0);
         transform.scale = Vec3::splat((time.seconds_since_startup().sin() as f32 + 1.1) * 2.0);
     }
