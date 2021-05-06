@@ -175,8 +175,8 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
         if let Ok(asset) = asset.downcast::<T>() {
             self.sender
                 .send(AssetLifecycleEvent::Create(AssetResult {
-                    id,
                     asset,
+                    id,
                     version,
                 }))
                 .unwrap()
