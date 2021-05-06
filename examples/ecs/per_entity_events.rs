@@ -208,40 +208,36 @@ fn input_dispatch(
     selected: Res<Selected>,
     keyboard_input: ResMut<Input<KeyCode>>,
 ) {
+    use KeyCode::*;
+
     let (mut cycle_actions, mut add_actions) = query.get_mut(selected.entity).unwrap();
 
     // Inputs for cycling colors
-    if keyboard_input.just_pressed(KeyCode::Return) || keyboard_input.just_pressed(KeyCode::Space) {
+    if keyboard_input.just_pressed(Space) {
         cycle_actions.send(CycleColorAction);
     }
 
     // Inputs for sending numbers to be added
-    if keyboard_input.just_pressed(KeyCode::Key1) {
-        add_actions.send(AddNumberAction { number: 1 });
-    }
-    if keyboard_input.just_pressed(KeyCode::Key2) {
-        add_actions.send(AddNumberAction { number: 2 });
-    }
-    if keyboard_input.just_pressed(KeyCode::Key3) {
-        add_actions.send(AddNumberAction { number: 3 });
-    }
-    if keyboard_input.just_pressed(KeyCode::Key4) {
-        add_actions.send(AddNumberAction { number: 4 });
-    }
-    if keyboard_input.just_pressed(KeyCode::Key5) {
-        add_actions.send(AddNumberAction { number: 5 });
-    }
-    if keyboard_input.just_pressed(KeyCode::Key6) {
-        add_actions.send(AddNumberAction { number: 6 });
-    }
-    if keyboard_input.just_pressed(KeyCode::Key7) {
-        add_actions.send(AddNumberAction { number: 7 });
-    }
-    if keyboard_input.just_pressed(KeyCode::Key8) {
-        add_actions.send(AddNumberAction { number: 8 });
-    }
-    if keyboard_input.just_pressed(KeyCode::Key9) {
-        add_actions.send(AddNumberAction { number: 9 });
+    for k in keyboard_input.get_just_pressed() {
+        let num = match key_code {
+            Key0 => Some(0),
+            Key1 => Some(1),
+            Key2 => Some(2),
+            Key3 => Some(3),
+            Key4 => Some(4),
+            Key5 => Some(5),
+            Key6 => Some(6),
+            Key7 => Some(7),
+            Key8 => Some(8),
+            Key9 => Some(9),
+            _ => None,
+        };
+
+        if num.is_some() {
+            add_actions.send(AddNumberAction {
+                number: num.unwrap(),
+            });
+        }
     }
 }
 
