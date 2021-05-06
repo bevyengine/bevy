@@ -262,6 +262,11 @@ impl Mesh {
     /// Texture coordinates for the vertex. Use in conjunction with [`Mesh::set_attribute`]
     pub const ATTRIBUTE_UV_0: &'static str = "Vertex_Uv";
 
+    /// Per vertex joint transform matrix weight. Use in conjunction with [`Mesh::set_attribute`]
+    pub const ATTRIBUTE_JOINT_WEIGHT: &'static str = "Vertex_JointWeight";
+    /// Per vertex joint transform matrix index. Use in conjunction with [`Mesh::set_attribute`]
+    pub const ATTRIBUTE_JOINT_INDEX: &'static str = "Vertex_JointIndex";
+
     /// Construct a new mesh. You need to provide a PrimitiveTopology so that the
     /// renderer knows how to treat the vertex data. Most of the time this will be
     /// `PrimitiveTopology::TriangleList`.
