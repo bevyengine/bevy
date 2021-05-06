@@ -53,7 +53,7 @@ struct InteractableBundle {
     #[bundle]
     text_bundle: TextBundle,
     selectable: Selectable,
-    rainbow: Rainbow,
+    rainbow: ColorChoices,
     cycle_color_events: Events<CycleColorAction>,
     add_number_events: Events<AddNumberAction>,
 }
@@ -79,46 +79,37 @@ impl InteractableBundle {
                 ..Default::default()
             },
             selectable: Selectable,
-            rainbow: Rainbow::Red,
+            rainbow: ColorChoices::Red,
             cycle_color_events: Events::<CycleColorAction>::default(),
             add_number_events: Events::<AddNumberAction>::default(),
         }
     }
 }
 
-enum Rainbow {
+enum ColorChoices {
     Red,
-    Orange,
-    Yellow,
-    Green,
     Blue,
     Violet,
 }
 
-impl Iterator for Rainbow {
+impl Iterator for ColorChoices {
     type Item = Self;
 
-    fn next(&mut self) -> Option<Rainbow> {
-        use Rainbow::*;
+    fn next(&mut self) -> Option<ColorChoices> {
+        use ColorChoices::*;
         Some(match *self {
-            Red => Orange,
-            Orange => Yellow,
-            Yellow => Green,
-            Green => Blue,
+            Red => Blue,
             Blue => Violet,
             Violet => Red,
         })
     }
 }
 
-impl From<&Rainbow> for Color {
-    fn from(rainbow: &Rainbow) -> Color {
-        use Rainbow::*;
+impl From<&ColorChoices> for Color {
+    fn from(rainbow: &ColorChoices) -> Color {
+        use ColorChoices::*;
         match rainbow {
             Red => Color::RED,
-            Orange => Color::ORANGE,
-            Yellow => Color::YELLOW,
-            Green => Color::GREEN,
             Blue => Color::BLUE,
             Violet => Color::VIOLET,
         }
@@ -256,15 +247,15 @@ fn input_dispatch(
 
 // FIXME: make this work without duplication using `EventReader<T>` syntax and specialized behavior
 fn cycle_color(mut query: Query<(&mut Rainbow, &mut Events<CycleColorAction>)>) {
-    for (mut rainbow, action_queue) in query.iter_mut() {
+    for (mut color, action_queue) in query.iter_mut() {
         let mut reader = action_queue.get_reader();
         for _ in reader.iter(&action_queue) {
-            *rainbow = rainbow.next().unwrap();
+            *color = color.next().unwrap();
         }
     }
 }
 
-fn update_text_color(mut query: Query<(&mut Text, &Rainbow), Changed<Rainbow>>) {
+fn update_text_color(mut query: Query<(&mut Text, &ColorChoices), Changed<ColorChoices>>) {
     for (mut text, rainbow) in query.iter_mut() {
         text.sections[0].style.color = rainbow.into();
     }
