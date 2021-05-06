@@ -194,7 +194,6 @@ fn scale_selected(
     }
 }
 
-// FIXME: make this work using `EventWriter<T>` syntax and specialized behavior
 /// Dispatches actions to entities based on the input
 /// Note that we can store several events at once!
 /// Try pressing both "1" and "3" to add 4 to the selected display
@@ -202,7 +201,7 @@ fn input_dispatch(
     // You could also access the &Events<T> component directly
     // then send events to that component with `Events::send`
     mut query: Query<
-        (&mut Events<CycleColorAction>, &mut Events<AddNumberAction>),
+        (EventWriter<CycleColorAction>, EventWriter<AddNumberAction>),
         With<Selectable>,
     >,
     selected: Res<Selected>,
@@ -230,8 +229,7 @@ fn input_dispatch(
 
 fn cycle_color(mut query: Query<(&mut ColorChoices, EventReader<CycleColorAction>)>) {
     for (mut color, action_queue) in query.iter_mut() {
-        let mut reader = action_queue.get_reader();
-        for _ in reader.iter(&action_queue) {
+        for _ in action_queue.iter() {
             *color = color.next().unwrap();
         }
     }
