@@ -49,8 +49,18 @@ impl AssetIo for WasmAssetIo {
         bevy_log::warn!("Watching for changes is not supported in WASM");
         Ok(())
     }
-
-    fn is_directory(&self, path: &Path) -> bool {
-        self.root_path.join(path).is_dir()
+    
+    fn get_metadata(&self, path: &Path) -> Result<Metadata, AssetIoError> {
+        let full_path = self.root_path.join(path);
+        full_path
+            .metadata()
+            .map(|metadata| metadata.into())
+            .map_err(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    AssetIoError::NotFound(full_path)
+                } else {
+                    e.into()
+                }
+            })
     }
 }
