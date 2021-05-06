@@ -99,9 +99,9 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
-`run_animation` | [`animations/run_animation.rs`](./animations/run_animation.rs) | Demonstrates how to play and blending between a idle and run animations
-[//]: # (`mesh_swap_animation` | [`animations/mesh_swap_animation.rs`](./animations/mesh_swap_animation.rs) | Demonstrates hot to create your own animation clip that swaps meshes (or any other asset handle))
-[//]: # (`material_animation` | [`animations/material_animation.rs`](./animations/material_animation.rs) | Illustrate how to animate material properties (or any other asset property))
+`run_animation` | [`animations/run_animation.rs`](./animations/run_animation.rs) | Demonstrates how to play, and blend between, an idle animation and a run animation
+[//]: # (`mesh_swap_animation` | [`animations/mesh_swap_animation.rs`](./animations/mesh_swap_animation.rs) | Demonstrates how to create your own animation clip that swaps meshes (or any other asset handle))
+[//]: # (`material_animation` | [`animations/material_animation.rs`](./animations/material_animation.rs) | Illustrates how to animate material properties (or any other asset property))
 
 ## Application
 
