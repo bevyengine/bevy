@@ -218,31 +218,17 @@ fn input_dispatch(
     }
 
     // Inputs for sending numbers to be added
-    for k in keyboard_input.get_just_pressed() {
-        let num = match key_code {
-            Key0 => Some(0),
-            Key1 => Some(1),
-            Key2 => Some(2),
-            Key3 => Some(3),
-            Key4 => Some(4),
-            Key5 => Some(5),
-            Key6 => Some(6),
-            Key7 => Some(7),
-            Key8 => Some(8),
-            Key9 => Some(9),
-            _ => None,
-        };
-
-        if num.is_some() {
+    for key_code in keyboard_input.get_just_pressed() {
+        if (key_code as u8) < 10 {
             add_actions.send(AddNumberAction {
-                number: num.unwrap(),
+                // The keycode for KeyCode::Key1 is 0
+                number: key_code as u8 + 1,
             });
         }
     }
 }
 
-// FIXME: make this work without duplication using `EventReader<T>` syntax and specialized behavior
-fn cycle_color(mut query: Query<(&mut Rainbow, &mut Events<CycleColorAction>)>) {
+fn cycle_color(mut query: Query<(&mut ColorChoices, EventReader<CycleColorAction>)>) {
     for (mut color, action_queue) in query.iter_mut() {
         let mut reader = action_queue.get_reader();
         for _ in reader.iter(&action_queue) {
