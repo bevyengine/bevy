@@ -1,7 +1,6 @@
-use crate as bevy_ecs;
 use crate::{
     component::Component,
-    system::{Local, Query, Res, ResMut, SystemParam},
+    system::{Local, Query, ResMut, ResMutState, ResState, SystemParam},
 };
 use bevy_utils::tracing::trace;
 use std::{
@@ -150,16 +149,22 @@ fn map_instance_event<T>(event_instance: &EventInstance<T>) -> &T {
 }
 
 /// Reads events of type `T` in order and tracks which events have already been read.
-#[derive(SystemParam)]
 pub struct EventReader<'a, T: Component> {
     last_event_count: Local<'a, (usize, PhantomData<T>)>,
-    events: Res<'a, Events<T>>,
+    events: &'a Events<T>,
+}
+
+impl<'a, T: Component> SystemParam for EventReader<'a, T> {
+    type Fetch = ResState<Events<T>>;
 }
 
 /// Sends events of type `T`.
-#[derive(SystemParam)]
 pub struct EventWriter<'a, T: Component> {
-    events: ResMut<'a, Events<T>>,
+    events: &'a mut Events<T>,
+}
+
+impl<'a, T: Component> SystemParam for EventWriter<'a, T> {
+    type Fetch = ResMutState<Events<T>>;
 }
 
 impl<'a, T: Component> EventWriter<'a, T> {
