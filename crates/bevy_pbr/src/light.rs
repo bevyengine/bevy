@@ -58,6 +58,8 @@ impl PointLightUniform {
 /// Directional lights don't exist in reality but they are a good
 /// approximation for light sources VERY far away, like the sun or
 /// the moon.
+///
+/// An `intensity` of 100000.0 is a good start for a sunlight.
 #[derive(Debug, Reflect)]
 #[reflect(Component)]
 pub struct DirectionalLight {
@@ -72,7 +74,7 @@ impl DirectionalLight {
     /// # Panics
     /// Will panic if `direction` is not normalized.
     pub fn new(color: Color, intensity: f32, direction: Vec3) -> Self {
-        assert!((direction.length_squared() - 1.0).abs() < 0.0001);
+        assert!(direction.is_normalized(), "Light direction vector should have been normalized.");
         DirectionalLight {
             color,
             intensity,
@@ -85,7 +87,7 @@ impl DirectionalLight {
     /// # Panics
     /// Will panic if `direction` is not normalized.
     pub fn set_direction(&mut self, direction: Vec3) {
-        assert!((direction.length_squared() - 1.0).abs() < 0.0001);
+        assert!(direction.is_normalized(), "Light direction vector should have been normalized.");
         self.direction = direction;
     }
 
@@ -98,7 +100,7 @@ impl Default for DirectionalLight {
     fn default() -> Self {
         DirectionalLight {
             color: Color::rgb(1.0, 1.0, 1.0),
-            intensity: 100000.0, // good start for a sun light
+            intensity: 100000.0,
             direction: Vec3::new(0.0, -1.0, 0.0),
         }
     }
