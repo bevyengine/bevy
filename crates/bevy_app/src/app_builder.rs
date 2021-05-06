@@ -396,7 +396,7 @@ impl AppBuilder {
     /// Sets the main runner loop function for this Bevy App
     ///
     /// Usually the main loop is handled by Bevy integrated plugins ([`WinitPlugin`]), but
-    /// in some cases one wants to implement an own main loop.
+    /// in some cases one might wish to implement their own main loop.
     ///
     /// This method sets the main loop function, overwriting a previous runner if any.
     ///
