@@ -6,5 +6,6 @@ fn main() {
     App::build()
         .insert_resource(DefaultTaskPoolOptions::with_num_threads(4))
         .add_plugins(DefaultPlugins)
+        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }

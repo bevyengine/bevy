@@ -7,6 +7,7 @@ fn main() {
         .add_system(animate_translation.system())
         .add_system(animate_rotation.system())
         .add_system(animate_scale.system())
+        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }
 

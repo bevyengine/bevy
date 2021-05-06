@@ -13,6 +13,7 @@ fn main() {
         //         .disable::<PrintWorldPlugin>()
         //         .add_before::<PrintHelloPlugin,
         // _>(bevy::diagnostic::LogDiagnosticsPlugin::default()) })
+        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }
 

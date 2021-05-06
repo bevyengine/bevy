@@ -73,5 +73,6 @@ fn main() {
         .add_startup_system(spawn_system.system())
         .add_system(move_system.system())
         .add_system(bounce_system.system())
+        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }

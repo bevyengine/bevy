@@ -10,6 +10,7 @@ fn main() {
         .init_resource::<GamepadLobby>()
         .add_system_to_stage(CoreStage::PreUpdate, connection_system.system())
         .add_system(gamepad_system.system())
+        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }
 

@@ -16,6 +16,7 @@ fn main() {
         .register_type::<Foo>()
         .register_type::<Bar>()
         .add_startup_system(setup.system())
+        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }
 

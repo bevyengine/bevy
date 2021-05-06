@@ -8,6 +8,7 @@ fn main() {
         .add_startup_system(setup.system())
         .add_system(scene_update.system())
         .add_system(move_scene_entities.system())
+        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }
 

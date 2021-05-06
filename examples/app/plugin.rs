@@ -11,6 +11,7 @@ fn main() {
             wait_duration: Duration::from_secs(1),
             message: "This is an example plugin".to_string(),
         })
+        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }
 

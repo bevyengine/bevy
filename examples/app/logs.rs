@@ -10,6 +10,7 @@ fn main() {
         // })
         .add_plugins(DefaultPlugins)
         .add_system(log_system.system())
+        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }
 

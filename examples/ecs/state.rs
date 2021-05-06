@@ -16,6 +16,7 @@ fn main() {
                 .with_system(movement.system())
                 .with_system(change_color.system()),
         )
+        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }
 

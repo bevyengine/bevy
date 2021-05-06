@@ -18,6 +18,7 @@ fn main() {
         .add_asset::<MyArrayTexture>()
         .add_startup_system(setup.system())
         .add_system(create_array_texture.system())
+        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }
 

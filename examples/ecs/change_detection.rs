@@ -9,6 +9,7 @@ fn main() {
         .add_system(change_component.system())
         .add_system(change_detection.system())
         .add_system(tracker_monitoring.system())
+        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }
 

@@ -12,6 +12,7 @@ fn main() {
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_startup_system(setup_diagnostic_system.system())
         .add_system(my_system.system())
+        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }
 

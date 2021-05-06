@@ -26,6 +26,7 @@ fn main() {
                 )
                 .with_system(fixed_update.system()),
         )
+        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }
 

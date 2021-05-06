@@ -8,6 +8,7 @@ fn main() {
         .init_resource::<ButtonMaterials>()
         .add_startup_system(setup.system())
         .add_system(button_system.system())
+        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }
 

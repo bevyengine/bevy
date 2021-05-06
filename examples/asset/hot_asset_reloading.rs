@@ -7,6 +7,7 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
+        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }
 
