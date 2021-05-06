@@ -7,7 +7,6 @@ fn main() {
         .add_startup_system(setup_system.system())
         .add_system(countdown_system.system())
         .add_system(timer_system.system())
-        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }
 

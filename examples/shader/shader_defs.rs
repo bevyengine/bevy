@@ -22,7 +22,6 @@ fn main() {
             CoreStage::PostUpdate,
             asset_shader_defs_system::<MyMaterial>.system(),
         )
-        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }
 

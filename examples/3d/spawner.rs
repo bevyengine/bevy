@@ -19,7 +19,6 @@ fn main() {
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_startup_system(setup.system())
         .add_system(move_cubes.system())
-        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }
 

@@ -9,7 +9,6 @@ fn main() {
         .insert_resource(ClearColor(Color::rgb(0.2, 0.2, 0.8)))
         .add_plugins(DefaultPlugins)
         .add_system(system1.system())
-        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
     println!("Running another App.");
     App::build()
@@ -21,7 +20,6 @@ fn main() {
             group.disable::<bevy::log::LogPlugin>()
         })
         .add_system(system2.system())
-        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
     println!("Done.");
 }

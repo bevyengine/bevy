@@ -9,7 +9,6 @@ fn main() {
         .init_resource::<EventTriggerState>()
         .add_system(event_trigger_system.system())
         .add_system(event_listener_system.system())
-        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }
 

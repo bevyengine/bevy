@@ -14,7 +14,6 @@ fn main() {
         .add_system(move_system.system())
         .add_system(collision_system.system())
         .add_system(select_system.system())
-        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }
 

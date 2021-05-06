@@ -229,6 +229,5 @@ fn main() {
         .add_startup_system(setup.system())
         .add_system(cube_rotator_system.system())
         .add_system(rotator_system.system())
-        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }

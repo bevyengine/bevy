@@ -86,7 +86,6 @@ fn main() {
             group.add_before::<bevy::asset::AssetPlugin, _>(CustomAssetIoPlugin)
         })
         .add_startup_system(setup.system())
-        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }
 

@@ -13,7 +13,6 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_system(change_title.system())
         .add_system(toggle_cursor.system())
-        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }
 

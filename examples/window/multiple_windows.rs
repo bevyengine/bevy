@@ -22,7 +22,6 @@ fn main() {
             SystemSet::on_update(AppState::CreateWindow).with_system(setup_window.system()),
         )
         .add_system_set(SystemSet::on_update(AppState::Setup).with_system(setup_pipeline.system()))
-        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }
 

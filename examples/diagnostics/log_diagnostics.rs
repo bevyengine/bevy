@@ -17,6 +17,5 @@ fn main() {
         // .add_plugin(bevy::diagnostic::EntityCountDiagnosticsPlugin::default())
         // Uncomment this to add an asset count diagnostics:
         // .add_plugin(bevy::asset::diagnostic::AssetCountDiagnosticsPlugin::<Texture>::default())
-        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }

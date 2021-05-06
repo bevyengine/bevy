@@ -13,7 +13,6 @@ fn main() {
         .add_startup_system(setup.system())
         .add_system(text_update_system.system())
         .add_system(text_color_system.system())
-        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }
 

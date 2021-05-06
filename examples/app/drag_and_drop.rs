@@ -4,7 +4,6 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .add_system(file_drag_and_drop_system.system())
-        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }
 

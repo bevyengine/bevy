@@ -18,7 +18,6 @@ fn main() {
         .add_startup_system(setup.system())
         .add_system_to_stage(CoreStage::Update, remove_component.system())
         .add_system_to_stage(CoreStage::PostUpdate, react_on_removal.system())
-        .add_system(bevy::input::system::exit_on_esc_system.system())
         .run();
 }
 
