@@ -166,10 +166,6 @@ fn select_entity(
         } else {
             CycleBehavior::Forward
         }
-    } else if keyboard_input.just_pressed(KeyCode::Right) {
-        CycleBehavior::Forward
-    } else if keyboard_input.just_pressed(KeyCode::Left) {
-        CycleBehavior::Back
     } else {
         return;
     };
