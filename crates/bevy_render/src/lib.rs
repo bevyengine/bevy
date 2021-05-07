@@ -12,6 +12,10 @@ pub mod shader;
 pub mod texture;
 pub mod wireframe;
 
+// without this line, the are a lot of linker errors from bevy-glsl-to-spirv
+#[cfg(not(target_arch = "wasm32"))]
+extern crate spirv_reflect;
+
 use bevy_ecs::{
     schedule::{ParallelSystemDescriptorCoercion, SystemStage},
     system::{IntoExclusiveSystem, IntoSystem, Res},
