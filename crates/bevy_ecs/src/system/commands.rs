@@ -158,7 +158,7 @@ impl<'a> Commands<'a> {
 
     /// Equivalent to iterating `bundles_iter` and calling [`Self::spawn`] on each bundle, but
     /// slightly more performant.
-    pub fn spawn_batch<I>(&mut self, bundles_iter: I) -> impl IntoIterator<Item = Entity>
+    pub fn spawn_batch<I>(&mut self, bundles_iter: I) -> Vec<Entity>
     where
         I: IntoIterator,
         I::IntoIter: ExactSizeIterator + Send + Sync + 'static,
