@@ -26,6 +26,7 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate as bevy_reflect;
 
     #[derive(TypeUuid)]
     #[uuid = "af6466c2-a9f4-11eb-bcbc-0242ac130002"]

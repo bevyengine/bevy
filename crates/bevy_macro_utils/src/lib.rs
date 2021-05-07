@@ -17,20 +17,19 @@ pub fn get_module_path_by_manifest(name: &str, manifest: &Manifest) -> syn::Path
     const BEVY_INTERNAL: &str = "bevy_internal";
 
     let find_in_deps = |deps: &DepsSet| -> Option<syn::Path> {
-        let package = if let Some(dep) = deps.get(BEVY) {
-            Some(dep.package().unwrap_or(BEVY))
-        } else if let Some(dep) = deps.get(BEVY_INTERNAL) {
-            Some(dep.package().unwrap_or(BEVY_INTERNAL))
-        } else {
-            None
-        };
-
-        package.map(get_path).map(|mut p| {
-            if let Some(module) = name.strip_prefix("bevy_") {
-                p.segments.push(parse_str(module));
-            }
-            p
-        })
+        deps.get(BEVY)
+            .map(|dep| dep.package().unwrap_or(BEVY))
+            .or_else(|| {
+                deps.get(BEVY_INTERNAL)
+                    .map(|dep| dep.package().unwrap_or(BEVY_INTERNAL))
+            })
+            .map(get_path)
+            .map(|mut p| {
+                if let Some(module) = name.strip_prefix("bevy_") {
+                    p.segments.push(parse_str(module));
+                }
+                p
+            })
     };
 
     let deps = manifest.dependencies.as_ref();
