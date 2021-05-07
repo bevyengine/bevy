@@ -132,7 +132,7 @@ impl DirectionalLightUniform {
         ];
 
         // convert from illuminance (lux) to candelas
-        // 
+        //
         // exposure is hard coded at the moment but should be replaced
         // by values coming from the camera
         // see: https://google.github.io/filament/Filament.html#imagingpipeline/physicallybasedcamera/exposuresettings
