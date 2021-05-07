@@ -343,7 +343,8 @@ void main() {
 
     // accumulate color
     vec3 light_accum = vec3(0.0);
-    for (int i = 0; i < int(NumLights.x) && i < MAX_LIGHTS; ++i) {
+    // No need to check against MAX_LIGHTS as NumLights will not exceed it
+    for (int i = 0; i < int(NumLights.x); ++i) {
         PointLight light = PointLights[i];
         vec3 light_to_frag = light.pos.xyz - v_WorldPosition.xyz;
         float distance_square = dot(light_to_frag, light_to_frag);

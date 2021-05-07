@@ -92,6 +92,7 @@ pub fn lights_node_system(
     let ambient_light: [f32; 4] =
         (ambient_light_resource.color * ambient_light_resource.brightness).into();
     let ambient_light_size = std::mem::size_of::<[f32; 4]>();
+    // make sure to never pass a light_count higher than max_lights to GPU
     let point_light_count = query.iter().len().min(state.max_point_lights);
     let size = std::mem::size_of::<PointLightUniform>();
     let light_count_size = ambient_light_size + std::mem::size_of::<LightCount>();
