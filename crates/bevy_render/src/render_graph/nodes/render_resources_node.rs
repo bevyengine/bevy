@@ -956,22 +956,22 @@ fn global_render_resources_node_system<T: RenderResources>(
         };
 
         // Write the resources into the staging buffer
-        let mut offset = 0;
+        let mut offset = 0u64;
         for (index, render_resource) in render_resources.iter().enumerate() {
             let render_resource_name = render_resources.get_render_resource_name(index).unwrap();
             // dbg!(&render_resource_name);
 
             let size = render_resource.buffer_byte_len().unwrap();
-            let aligned_size = render_resource_context.get_aligned_uniform_size(size, false);
+            let aligned_size = render_resource_context.get_aligned_uniform_size(size, false) as u64;
 
             render_resource_context.write_mapped_buffer(
                 staging_buffer,
-                offset as u64..(offset + aligned_size) as u64,
+                offset..(offset + aligned_size),
                 &mut |mut buf, _render_resource_context| {
                     render_resource.write_buffer_bytes(buf);
 
                     // add padding
-                    for _ in 0..(aligned_size - size) {
+                    for _ in 0..(aligned_size - size as u64) {
                         buf.write_all(&[0]).unwrap();
                     }
                 },
@@ -981,7 +981,7 @@ fn global_render_resources_node_system<T: RenderResources>(
                 render_resource_name,
                 RenderResourceBinding::Buffer {
                     buffer: target_buffer,
-                    range: offset as u64..(offset + aligned_size) as u64,
+                    range: offset..(offset + aligned_size),
                     dynamic_index: None,
                 },
             );
