@@ -901,29 +901,32 @@ fn global_render_resources_node_system<T: RenderResources>(
             });
 
         // Get old buffer and possibly resize
-        let staging_buffer = if let Some(staging_buffer) = state.staging_buffer {
-            if render_resource_context
-                .get_buffer_info(staging_buffer)
-                .unwrap()
-                .size
-                != aligned_size
-            {
-                render_resource_context.remove_buffer(staging_buffer);
+        let staging_buffer = match state.staging_buffer {
+            Some(staging_buffer) => {
+                if render_resource_context
+                    .get_buffer_info(staging_buffer)
+                    .unwrap()
+                    .size
+                    != aligned_size
+                {
+                    render_resource_context.remove_buffer(staging_buffer);
+                    render_resource_context.create_buffer(BufferInfo {
+                        size: aligned_size,
+                        buffer_usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
+                        mapped_at_creation: true,
+                    })
+                } else {
+                    staging_buffer
+                }
+            }
+            None => {
+                // Or create a new one
                 render_resource_context.create_buffer(BufferInfo {
                     size: aligned_size,
                     buffer_usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
                     mapped_at_creation: true,
                 })
-            } else {
-                staging_buffer
             }
-        } else {
-            // Or create a new one
-            render_resource_context.create_buffer(BufferInfo {
-                size: aligned_size,
-                buffer_usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
-                mapped_at_creation: true,
-            })
         };
 
         // Get old buffer and possibly resize
