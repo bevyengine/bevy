@@ -1,4 +1,4 @@
-use crate::{AssetIo, AssetIoError};
+use crate::{AssetIo, AssetIoError, Metadata};
 use anyhow::Result;
 use bevy_utils::BoxedFuture;
 use js_sys::Uint8Array;
@@ -49,18 +49,15 @@ impl AssetIo for WasmAssetIo {
         bevy_log::warn!("Watching for changes is not supported in WASM");
         Ok(())
     }
-    
+
     fn get_metadata(&self, path: &Path) -> Result<Metadata, AssetIoError> {
         let full_path = self.root_path.join(path);
-        full_path
-            .metadata()
-            .map(|metadata| metadata.into())
-            .map_err(|e| {
-                if e.kind() == std::io::ErrorKind::NotFound {
-                    AssetIoError::NotFound(full_path)
-                } else {
-                    e.into()
-                }
-            })
+        full_path.metadata().map(Metadata::from).map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                AssetIoError::NotFound(full_path)
+            } else {
+                e.into()
+            }
+        })
     }
 }

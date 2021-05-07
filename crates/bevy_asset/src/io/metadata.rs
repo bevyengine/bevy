@@ -1,5 +1,5 @@
 /// A enum representing a type of file.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum FileType {
     Directory,
     File,
@@ -8,12 +8,12 @@ pub enum FileType {
 }
 
 impl FileType {
-    pub fn is_directory(&self) -> bool {
-        *self == Self::Directory
+    pub const fn is_dir(&self) -> bool {
+        (*self as isize) == (Self::Directory as isize)
     }
 
-    pub fn is_file(&self) -> bool {
-        *self == Self::File
+    pub const fn is_file(&self) -> bool {
+        (*self as isize) == (Self::File as isize)
     }
 }
 
@@ -34,17 +34,17 @@ impl From<std::fs::FileType> for FileType {
 /// Metadata information about a file.
 ///
 /// This structure is returned from the [`AssetIo::get_metadata`] method.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Metadata {
     pub file_type: FileType,
 }
 
 impl Metadata {
-    pub fn is_directory(&self) -> bool {
-        self.file_type.is_directory()
+    pub const fn is_dir(&self) -> bool {
+        self.file_type.is_dir()
     }
 
-    pub fn is_file(&self) -> bool {
+    pub const fn is_file(&self) -> bool {
         self.file_type.is_file()
     }
 }

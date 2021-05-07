@@ -47,15 +47,17 @@ pub trait AssetIo: Downcast + Send + Sync + 'static {
     fn watch_path_for_changes(&self, path: &Path) -> Result<(), AssetIoError>;
     fn watch_for_changes(&self) -> Result<(), AssetIoError>;
 
-    fn is_directory(&self, path: &Path) -> bool {
+    fn is_dir(&self, path: &Path) -> bool {
         self.get_metadata(path)
-            .map(|metadata| metadata.is_directory())
+            .as_ref()
+            .map(Metadata::is_dir)
             .unwrap_or(false)
     }
 
     fn is_file(&self, path: &Path) -> bool {
         self.get_metadata(path)
-            .map(|metadata| metadata.is_file())
+            .as_ref()
+            .map(Metadata::is_file)
             .unwrap_or(false)
     }
 }

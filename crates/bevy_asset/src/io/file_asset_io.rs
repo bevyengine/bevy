@@ -130,16 +130,13 @@ impl AssetIo for FileAssetIo {
 
     fn get_metadata(&self, path: &Path) -> Result<Metadata, AssetIoError> {
         let full_path = self.root_path.join(path);
-        full_path
-            .metadata()
-            .map(|metadata| metadata.into())
-            .map_err(|e| {
-                if e.kind() == std::io::ErrorKind::NotFound {
-                    AssetIoError::NotFound(full_path)
-                } else {
-                    e.into()
-                }
-            })
+        full_path.metadata().map(Metadata::from).map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                AssetIoError::NotFound(full_path)
+            } else {
+                e.into()
+            }
+        })
     }
 }
 
