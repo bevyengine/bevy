@@ -1,6 +1,6 @@
 use super::{state_descriptors::PrimitiveTopology, IndexFormat, PipelineDescriptor};
 use crate::{
-    pipeline::{BindType, InputStepMode, VertexBufferLayout},
+    pipeline::{BindType, VertexBufferLayout},
     renderer::RenderResourceContext,
     shader::{Shader, ShaderError},
 };
