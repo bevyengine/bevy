@@ -3,6 +3,7 @@ use crate::{
     entity::Entity,
     storage::BlobVec,
 };
+use bevy_utils::NonMaxUsize;
 use std::{cell::UnsafeCell, marker::PhantomData};
 
 #[derive(Debug)]
@@ -89,7 +90,7 @@ pub struct ComponentSparseSet {
     dense: BlobVec,
     ticks: UnsafeCell<Vec<ComponentTicks>>,
     entities: Vec<Entity>,
-    sparse: SparseArray<Entity, usize>,
+    sparse: SparseArray<Entity, NonMaxUsize>,
 }
 
 impl ComponentSparseSet {
@@ -123,14 +124,17 @@ impl ComponentSparseSet {
         let dense = &mut self.dense;
         let entities = &mut self.entities;
         let ticks_list = self.ticks.get_mut();
-        let dense_index = *self.sparse.get_or_insert_with(entity, move || {
-            ticks_list.push(ComponentTicks::new(change_tick));
-            entities.push(entity);
-            dense.push_uninit()
-        });
+        let dense_index = self
+            .sparse
+            .get_or_insert_with(entity, move || {
+                ticks_list.push(ComponentTicks::new(change_tick));
+                entities.push(entity);
+                NonMaxUsize::new(dense.push_uninit()).unwrap()
+            })
+            .get();
         // SAFE: dense_index exists thanks to the call above
         self.dense.set_unchecked(dense_index, value);
-        ((*self.ticks.get()).get_unchecked_mut(dense_index)).set_changed(change_tick);
+        (*self.ticks.get()).get_unchecked_mut(dense_index).set_changed(change_tick);
     }
 
     #[inline]
@@ -144,7 +148,7 @@ impl ComponentSparseSet {
     pub fn get(&self, entity: Entity) -> Option<*mut u8> {
         self.sparse.get(entity).map(|dense_index| {
             // SAFE: if the sparse index points to something in the dense vec, it exists
-            unsafe { self.dense.get_unchecked(*dense_index) }
+            unsafe { self.dense.get_unchecked(dense_index.get()) }
         })
     }
 
@@ -154,7 +158,7 @@ impl ComponentSparseSet {
     pub unsafe fn get_with_ticks(&self, entity: Entity) -> Option<(*mut u8, *mut ComponentTicks)> {
         let ticks = &mut *self.ticks.get();
         self.sparse.get(entity).map(move |dense_index| {
-            let dense_index = *dense_index;
+            let dense_index = dense_index.get();
             // SAFE: if the sparse index points to something in the dense vec, it exists
             (
                 self.dense.get_unchecked(dense_index),
@@ -169,9 +173,8 @@ impl ComponentSparseSet {
     pub unsafe fn get_ticks(&self, entity: Entity) -> Option<&mut ComponentTicks> {
         let ticks = &mut *self.ticks.get();
         self.sparse.get(entity).map(move |dense_index| {
-            let dense_index = *dense_index;
             // SAFE: if the sparse index points to something in the dense vec, it exists
-            ticks.get_unchecked_mut(dense_index)
+            ticks.get_unchecked_mut(dense_index.get())
         })
     }
 
@@ -180,13 +183,17 @@ impl ComponentSparseSet {
     /// returned).
     pub fn remove_and_forget(&mut self, entity: Entity) -> Option<*mut u8> {
         self.sparse.remove(entity).map(|dense_index| {
-            self.ticks.get_mut().swap_remove(dense_index);
-            self.entities.swap_remove(dense_index);
-            let is_last = dense_index == self.dense.len() - 1;
+            let dense_index_usize = dense_index.get();
+            self.ticks.get_mut().swap_remove(dense_index_usize);
+            self.entities.swap_remove(dense_index_usize);
+            let is_last = dense_index_usize == self.dense.len() - 1;
             // SAFE: dense_index was just removed from `sparse`, which ensures that it is valid
-            let value = unsafe { self.dense.swap_remove_and_forget_unchecked(dense_index) };
+            let value = unsafe {
+                self.dense
+                    .swap_remove_and_forget_unchecked(dense_index_usize)
+            };
             if !is_last {
-                let swapped_entity = self.entities[dense_index];
+                let swapped_entity = self.entities[dense_index_usize];
                 *self.sparse.get_mut(swapped_entity).unwrap() = dense_index;
             }
             value
@@ -195,13 +202,14 @@ impl ComponentSparseSet {
 
     pub fn remove(&mut self, entity: Entity) -> bool {
         if let Some(dense_index) = self.sparse.remove(entity) {
-            self.ticks.get_mut().swap_remove(dense_index);
-            self.entities.swap_remove(dense_index);
-            let is_last = dense_index == self.dense.len() - 1;
+            let dense_index_usize = dense_index.get();
+            self.ticks.get_mut().swap_remove(dense_index_usize);
+            self.entities.swap_remove(dense_index_usize);
+            let is_last = dense_index_usize == self.dense.len() - 1;
             // SAFE: if the sparse index points to something in the dense vec, it exists
-            unsafe { self.dense.swap_remove_and_drop_unchecked(dense_index) }
+            unsafe { self.dense.swap_remove_and_drop_unchecked(dense_index_usize) }
             if !is_last {
-                let swapped_entity = self.entities[dense_index];
+                let swapped_entity = self.entities[dense_index_usize];
                 *self.sparse.get_mut(swapped_entity).unwrap() = dense_index;
             }
             true
@@ -222,7 +230,7 @@ impl ComponentSparseSet {
 pub struct SparseSet<I, V: 'static> {
     dense: Vec<V>,
     indices: Vec<I>,
-    sparse: SparseArray<I, usize>,
+    sparse: SparseArray<I, NonMaxUsize>,
 }
 
 impl<I: SparseSetIndex, V> Default for SparseSet<I, V> {
@@ -258,10 +266,11 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
         if let Some(dense_index) = self.sparse.get(index.clone()).cloned() {
             // SAFE: dense indices stored in self.sparse always exist
             unsafe {
-                *self.dense.get_unchecked_mut(dense_index) = value;
+                *self.dense.get_unchecked_mut(dense_index.get()) = value;
             }
         } else {
-            self.sparse.insert(index.clone(), self.dense.len());
+            self.sparse
+                .insert(index.clone(), NonMaxUsize::new(self.dense.len()).unwrap());
             self.indices.push(index);
             self.dense.push(value);
         }
@@ -292,11 +301,12 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
     pub fn get_or_insert_with(&mut self, index: I, func: impl FnOnce() -> V) -> &mut V {
         if let Some(dense_index) = self.sparse.get(index.clone()).cloned() {
             // SAFE: dense indices stored in self.sparse always exist
-            unsafe { self.dense.get_unchecked_mut(dense_index) }
+            unsafe { self.dense.get_unchecked_mut(dense_index.get()) }
         } else {
             let value = func();
             let dense_index = self.dense.len();
-            self.sparse.insert(index.clone(), dense_index);
+            self.sparse
+                .insert(index.clone(), NonMaxUsize::new(dense_index).unwrap());
             self.indices.push(index);
             self.dense.push(value);
             // SAFE: dense index was just populated above
@@ -322,7 +332,7 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
     pub fn get(&self, index: I) -> Option<&V> {
         self.sparse.get(index).map(|dense_index| {
             // SAFE: if the sparse index points to something in the dense vec, it exists
-            unsafe { self.dense.get_unchecked(*dense_index) }
+            unsafe { self.dense.get_unchecked(dense_index.get()) }
         })
     }
 
@@ -330,17 +340,18 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
         let dense = &mut self.dense;
         self.sparse.get(index).map(move |dense_index| {
             // SAFE: if the sparse index points to something in the dense vec, it exists
-            unsafe { dense.get_unchecked_mut(*dense_index) }
+            unsafe { dense.get_unchecked_mut(dense_index.get()) }
         })
     }
 
     pub fn remove(&mut self, index: I) -> Option<V> {
         self.sparse.remove(index).map(|dense_index| {
-            let is_last = dense_index == self.dense.len() - 1;
-            let value = self.dense.swap_remove(dense_index);
-            self.indices.swap_remove(dense_index);
+            let dense_index_usize = dense_index.get();
+            let is_last = dense_index_usize == self.dense.len() - 1;
+            let value = self.dense.swap_remove(dense_index_usize);
+            self.indices.swap_remove(dense_index_usize);
             if !is_last {
-                let swapped_index = self.indices[dense_index].clone();
+                let swapped_index = self.indices[dense_index_usize].clone();
                 *self.sparse.get_mut(swapped_index).unwrap() = dense_index;
             }
             value

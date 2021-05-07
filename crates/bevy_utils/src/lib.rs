@@ -1,5 +1,8 @@
 mod enum_variant_meta;
+mod num;
+
 pub use enum_variant_meta::*;
+pub use num::*;
 
 pub use ahash::AHasher;
 pub use instant::{Duration, Instant};
