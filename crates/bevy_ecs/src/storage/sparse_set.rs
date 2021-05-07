@@ -368,55 +368,21 @@ pub trait SparseSetIndex: Clone {
     fn get_sparse_set_index(value: usize) -> Self;
 }
 
-impl SparseSetIndex for u8 {
-    fn sparse_set_index(&self) -> usize {
-        *self as usize
-    }
+macro_rules! impl_sparse_set_index {
+    ($($ty:ty),+) => {
+        $(impl SparseSetIndex for $ty {
+            fn sparse_set_index(&self) -> usize {
+                *self as usize
+            }
 
-    fn get_sparse_set_index(value: usize) -> Self {
-        value as u8
-    }
+            fn get_sparse_set_index(value: usize) -> Self {
+                value as $ty
+            }
+        })*
+    };
 }
 
-impl SparseSetIndex for u16 {
-    fn sparse_set_index(&self) -> usize {
-        *self as usize
-    }
-
-    fn get_sparse_set_index(value: usize) -> Self {
-        value as u16
-    }
-}
-
-impl SparseSetIndex for u32 {
-    fn sparse_set_index(&self) -> usize {
-        *self as usize
-    }
-
-    fn get_sparse_set_index(value: usize) -> Self {
-        value as u32
-    }
-}
-
-impl SparseSetIndex for u64 {
-    fn sparse_set_index(&self) -> usize {
-        *self as usize
-    }
-
-    fn get_sparse_set_index(value: usize) -> Self {
-        value as u64
-    }
-}
-
-impl SparseSetIndex for usize {
-    fn sparse_set_index(&self) -> usize {
-        *self
-    }
-
-    fn get_sparse_set_index(value: usize) -> Self {
-        value
-    }
-}
+impl_sparse_set_index!(u8, u16, u32, u64, usize);
 
 #[derive(Default)]
 pub struct SparseSets {
