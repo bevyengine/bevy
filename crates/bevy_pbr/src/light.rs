@@ -38,7 +38,7 @@ pub(crate) struct PointLightUniform {
 unsafe impl Byteable for PointLightUniform {}
 
 impl PointLightUniform {
-    pub fn from(light: &PointLight, global_transform: &GlobalTransform) -> PointLightUniform {
+    pub fn new(light: &PointLight, global_transform: &GlobalTransform) -> PointLightUniform {
         let (x, y, z) = global_transform.translation.into();
 
         // premultiply color by intensity
@@ -74,7 +74,10 @@ impl DirectionalLight {
     /// # Panics
     /// Will panic if `direction` is not normalized.
     pub fn new(color: Color, intensity: f32, direction: Vec3) -> Self {
-        assert!(direction.is_normalized(), "Light direction vector should have been normalized.");
+        assert!(
+            direction.is_normalized(),
+            "Light direction vector should have been normalized."
+        );
         DirectionalLight {
             color,
             intensity,
@@ -87,7 +90,10 @@ impl DirectionalLight {
     /// # Panics
     /// Will panic if `direction` is not normalized.
     pub fn set_direction(&mut self, direction: Vec3) {
-        assert!(direction.is_normalized(), "Light direction vector should have been normalized.");
+        assert!(
+            direction.is_normalized(),
+            "Light direction vector should have been normalized."
+        );
         self.direction = direction;
     }
 
@@ -116,7 +122,7 @@ pub(crate) struct DirectionalLightUniform {
 unsafe impl Byteable for DirectionalLightUniform {}
 
 impl DirectionalLightUniform {
-    pub fn from(light: &DirectionalLight) -> DirectionalLightUniform {
+    pub fn new(light: &DirectionalLight) -> DirectionalLightUniform {
         // direction is negated to be ready for N.L
         let dir: [f32; 4] = [
             -light.direction.x,

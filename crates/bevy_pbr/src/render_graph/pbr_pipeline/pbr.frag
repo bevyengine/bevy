@@ -285,7 +285,7 @@ vec3 reinhard_extended_luminance(vec3 color, float max_white_l) {
 
 #endif
 
-vec3 do_point_light(PointLight light, float roughness, float NdotV, vec3 N, vec3 V, vec3 R, vec3 F0, vec3 diffuseColor) {
+vec3 point_light(PointLight light, float roughness, float NdotV, vec3 N, vec3 V, vec3 R, vec3 F0, vec3 diffuseColor) {
     vec3 light_to_frag = light.pos.xyz - v_WorldPosition.xyz;
     float distance_square = dot(light_to_frag, light_to_frag);
     float rangeAttenuation =
@@ -334,18 +334,17 @@ vec3 do_point_light(PointLight light, float roughness, float NdotV, vec3 N, vec3
     return ((diffuse + specular) * light.color.rgb) * (rangeAttenuation * NoL);
 }
 
-vec3 do_dir_light(DirectionalLight light, float roughness, float NdotV, vec3 N, vec3 V, vec3 R, vec3 F0, vec3 diffuseColor) {
-    vec3 L = light.direction.xyz;
+vec3 dir_light(DirectionalLight light, float roughness, float NdotV, vec3 normal, vec3 view, vec3 R, vec3 F0, vec3 diffuseColor) {
+    vec3 incident_light = light.direction.xyz;
 
-    float NdotL = clamp(dot(N, light.direction.xyz), 0.0, 1.0);
-    vec3 H = normalize(L + V);
-    float NoL = saturate(dot(N, L));
-    float NoH = saturate(dot(N, H));
-    float LoH = saturate(dot(L, H));
+    vec3 half_vector = normalize(incident_light + view);
+    float NoL = saturate(dot(normal, incident_light));
+    float NoH = saturate(dot(normal, half_vector));
+    float LoH = saturate(dot(incident_light, half_vector));
 
     vec3 diffuse = diffuseColor * Fd_Burley(roughness, NdotV, NoL, LoH);
     float specularIntensity = 1.0;
-    vec3 specular = specular(F0, roughness, H, NdotV, NoL, NoH, LoH, specularIntensity);
+    vec3 specular = specular(F0, roughness, half_vector, NdotV, NoL, NoH, LoH, specularIntensity);
 
     return (specular + diffuse) * light.color.rgb * NoL;
 }
@@ -417,10 +416,10 @@ void main() {
     // accumulate color
     vec3 light_accum = vec3(0.0);
     for (int i = 0; i < int(NumLights.x) && i < MAX_POINT_LIGHTS; ++i) {
-        light_accum += do_point_light(PointLights[i], roughness, NdotV, N, V, R, F0, diffuseColor);
+        light_accum += point_light(PointLights[i], roughness, NdotV, N, V, R, F0, diffuseColor);
     }
     for (int i = 0; i < int(NumLights.y) && i < MAX_DIRECTIONAL_LIGHTS; ++i) {
-        light_accum += do_dir_light(DirectionalLights[i], roughness, NdotV, N, V, R, F0, diffuseColor);
+        light_accum += dir_light(DirectionalLights[i], roughness, NdotV, N, V, R, F0, diffuseColor);
     }
 
     vec3 diffuse_ambient = EnvBRDFApprox(diffuseColor, 1.0, NdotV);
