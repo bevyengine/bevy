@@ -6,7 +6,7 @@ use bevy_render::color::Color;
 use bevy_transform::components::GlobalTransform;
 
 /// A point light
-#[derive(Debug, Reflect)]
+#[derive(Debug, Clone, Copy, Reflect)]
 #[reflect(Component)]
 pub struct PointLight {
     pub color: Color,
@@ -60,7 +60,7 @@ impl PointLightUniform {
 /// the moon.
 ///
 /// An `intensity` of 100000.0 is a good start for a sunlight.
-#[derive(Debug, Reflect)]
+#[derive(Debug, Clone, Copy, Reflect)]
 #[reflect(Component)]
 pub struct DirectionalLight {
     pub color: Color,
