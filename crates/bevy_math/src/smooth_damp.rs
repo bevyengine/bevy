@@ -107,6 +107,7 @@ macro_rules! impl_smooth_damp {
     ($t:ty, $f:ty, $clamp:expr) => {
         impl SmoothDampFunctions for $t {
             #[track_caller]
+            #[inline]
             fn smooth_damp(
                 from: $t,
                 to: $t,
@@ -114,7 +115,7 @@ macro_rules! impl_smooth_damp {
                 smooth_time: f32,
                 delta_time: f32,
             ) -> SmoothDamp<Self> {
-                assert!(smooth_time > 0.0);
+                assert!(smooth_time > 0.0, "Smooth time must be greater than zero.");
                 let smooth_time = smooth_time as $f;
 
                 let delta_time = delta_time as $f;
@@ -136,6 +137,7 @@ macro_rules! impl_smooth_damp {
             }
 
             #[track_caller]
+            #[inline]
             fn smooth_damp_max(
                 from: $t,
                 to: $t,
