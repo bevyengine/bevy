@@ -131,9 +131,21 @@ impl DirectionalLightUniform {
             0.0,
         ];
 
+        // convert from illuminance (lux) to candelas
+        // 
+        // exposure is hard coded at the moment but should be replaced
+        // by values coming from the camera
+        // see: https://google.github.io/filament/Filament.html#imagingpipeline/physicallybasedcamera/exposuresettings
+        let aperture = 4.0;
+        let shutter_speed = 1.0 / 250.0;
+        let sensitivity = 100.0;
+        let ev100 = f32::log2(aperture * aperture / shutter_speed) - f32::log2(sensitivity / 100.0);
+        let exposure = 1.0 / (f32::powf(2.0, ev100) * 1.2);
+        let intensity = light.intensity * exposure;
+
         // premultiply color by intensity
         // we don't use the alpha at all, so no reason to multiply only [0..3]
-        let color: [f32; 4] = (light.color * light.intensity).into();
+        let color: [f32; 4] = (light.color * intensity).into();
 
         DirectionalLightUniform { dir, color }
     }
