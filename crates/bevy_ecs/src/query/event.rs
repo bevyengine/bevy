@@ -7,6 +7,7 @@ use crate::{
     component::{Component, ComponentId, StorageType},
     prelude::World,
     storage::{Table, Tables},
+    world::Mut,
 };
 use std::any::TypeId;
 
@@ -72,18 +73,17 @@ impl<'a, T: Component> Fetch<'a> for EventWriterFetch<T> {
 
     /// Returns the EventWriter<T> of the next entity when the storage type of the query is sparse
     unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item {
-        let events = *self.write_fetch.archetype_fetch(archetype_index);
-        EventWriter {
-            events: &mut events,
-        }
+        let events = self
+            .write_fetch
+            .archetype_fetch(archetype_index)
+            .into_inner();
+        EventWriter { events }
     }
 
     /// Returns the EventWriter<T> of the next entity when the storage type of the query is dense
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
-        let events = *self.write_fetch.archetype_fetch(table_row);
-        EventWriter {
-            events: &mut events,
-        }
+        let events = self.write_fetch.archetype_fetch(table_row).into_inner();
+        EventWriter { events }
     }
 }
 struct EventWriterState<T> {
