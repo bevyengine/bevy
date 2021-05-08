@@ -12,7 +12,7 @@ fn print_keyboard_event_system(mut keyboard_input_events: EventReader<KeyboardIn
     for event in keyboard_input_events.iter() {
         let scan_code: u32 = event.scan_code;
         let key_code: Option<KeyCode> = event.key_code;
-        let state = event.state;
+        let state: ElementState = event.state;
         info!("Scan code: {}", scan_code);
         info!("Key code: {:?}", key_code);
         match state {
