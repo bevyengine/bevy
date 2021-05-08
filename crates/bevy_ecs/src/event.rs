@@ -252,10 +252,14 @@ impl<T: Component> Events<T> {
     }
 }
 
+// Needed to ensure match branches have same type signature
+// As closures never have the same type
 fn map_instance_event_with_id<T>(event_instance: &EventInstance<T>) -> (&T, EventId<T>) {
     (&event_instance.event, event_instance.event_id)
 }
 
+// Needed to ensure match branches have same type signature
+// As closures never have the same type
 fn map_instance_event<T>(event_instance: &EventInstance<T>) -> &T {
     &event_instance.event
 }
