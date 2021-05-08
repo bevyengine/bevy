@@ -169,7 +169,7 @@ fn reflect_bind_groups(
                 name
             };
 
-            let bind_type = reflect_bind_type(&module, variable.class, binding, &ty.inner);
+            let bind_type = reflect_bind_type(&module, variable, &ty.inner);
             let binding_descriptor = BindingDescriptor {
                 index: binding.binding,
                 bind_type,
@@ -202,11 +202,10 @@ fn reflect_bind_groups(
 
 fn reflect_bind_type(
     module: &naga::Module,
-    storage_class: naga::StorageClass,
-    _binding: &naga::ResourceBinding,
+    variable: &naga::GlobalVariable,
     ty: &naga::TypeInner,
 ) -> BindType {
-    match storage_class {
+    match variable.class {
         naga::StorageClass::Uniform => BindType::Uniform {
             has_dynamic_offset: false,
             property: reflect_uniform(module, ty),
@@ -268,7 +267,7 @@ fn reflect_bind_type(
         },
         naga::StorageClass::Storage => BindType::StorageBuffer {
             has_dynamic_offset: false,
-            readonly: false,
+            readonly: !variable.storage_access.contains(naga::StorageAccess::STORE),
         },
         naga::StorageClass::PushConstant => panic!("unsupported bind type: push constant"),
         other => panic!("unexpected storage type for shader binding: {:?}", other),
@@ -517,6 +516,10 @@ layout(set = 2, binding = 2) uniform sampler ColorMaterial_texture_sampler;
 layout(set = 2, binding = 3) uniform samplerCubeArray arrayTextureSampler;
 // layout(set = 2, binding = 3) uniform samplerCube textureSamplerArray[16];
 
+layout(set = 2, binding = 4) buffer TextureAtlas_textures {
+    float data;
+};
+
 void main() {
     vec4 color = Color;
     color *= texture(sampler2D(ColorMaterial_texture, ColorMaterial_texture_sampler), v_Uv);
@@ -580,6 +583,15 @@ void main() {
                                 multisampled: false,
                                 view_dimension: TextureViewDimension::CubeArray,
                                 sample_type: TextureSampleType::Float { filterable: true },
+                            },
+                            shader_stage: BindingShaderStage::VERTEX,
+                        },
+                        BindingDescriptor {
+                            index: 4,
+                            name: "TextureAtlas_textures".into(),
+                            bind_type: BindType::StorageBuffer {
+                                has_dynamic_offset: false,
+                                readonly: false,
                             },
                             shader_stage: BindingShaderStage::VERTEX,
                         },
