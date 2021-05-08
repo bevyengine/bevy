@@ -1,5 +1,8 @@
-use bevy::app::{Events, ManualEventReader};
 use bevy::prelude::*;
+use bevy::{
+    app::{Events, ManualEventReader},
+    core::FixedTimestep,
+};
 
 /// In this example, we show how to store events of a given type
 /// as a component on individual entities rather than in a single resource.
@@ -39,6 +42,11 @@ fn main() {
         .add_system(add_number.system().label("action_handling"))
         .add_system(scale_selected.system().after("action_handling"))
         .add_system(update_text_color.system().after("action_handling"))
+        .add_system(
+            move_text
+                .system()
+                .with_run_criteria(FixedTimestep::step(TIME_STEP)),
+        )
         .run()
 }
 
@@ -55,6 +63,7 @@ struct InteractableBundle {
     selectable: Selectable,
     rainbow: ColorChoices,
     cycle_color_events: Events<CycleColorAction>,
+    move_events: Events<MoveAction>,
     add_number_events: Events<AddNumberAction>,
 }
 
@@ -81,6 +90,7 @@ impl InteractableBundle {
             selectable: Selectable,
             rainbow: ColorChoices::Red,
             cycle_color_events: Events::<CycleColorAction>::default(),
+            move_events: Events<MoveAction>::default(),
             add_number_events: Events::<AddNumberAction>::default(),
         }
     }
@@ -201,7 +211,11 @@ fn input_dispatch(
     // You could also access the &Events<T> component directly
     // then send events to that component with `Events::send`
     mut query: Query<
-        (EventWriter<CycleColorAction>, EventWriter<AddNumberAction>),
+        (
+            EventWriter<CycleColorAction>,
+            EventWriter<MoveAction>,
+            EventWriter<AddNumberAction>,
+        ),
         With<Selectable>,
     >,
     selected: Res<Selected>,
@@ -211,13 +225,27 @@ fn input_dispatch(
 
     let (mut cycle_actions, mut add_actions) = query.get_mut(selected.entity).unwrap();
 
-    // Inputs for cycling colors
-    if keyboard_input.just_pressed(Space) {
-        cycle_actions.send(CycleColorAction);
-    }
-
-    // Inputs for sending numbers to be added
     for key_code in keyboard_input.get_just_pressed() {
+        match key_code {
+            // Color changing
+            Space => cycle_actions.send(CycleColorAction),
+            // Movement
+            Left => move_actions.send(MoveAction {
+                transform: Transform::from_xyz(-MOVE_DISTANCE, 0.0, 0.0),
+            }),
+            Right => move_actions.send(MoveAction {
+                transform: Transform::from_xyz(MOVE_DISTANCE, 0.0, 0.0),
+            }),
+            Down => move_actions.send(MoveAction {
+                transform: Transform::from_xyz(0.0, -MOVE_DISTANCE, 0.0),
+            }),
+            Up => move_actions.send(MoveAction {
+                transform: Transform::from_xyz(0.0, MOVE_DISTANCE, 0.0),
+            }),
+            _ => (),
+        }
+
+        // Inputs for sending numbers to be added
         if (key_code as u8) < 10 {
             add_actions.send(AddNumberAction {
                 // The keycode for KeyCode::Key1 is 0
@@ -263,5 +291,26 @@ fn add_number(
         // Wrap addition, rather than overflowing
         let new_number = ((current_number + action.number) as u16) % std::u8::MAX as u16;
         text.sections[0].value = new_number.to_string();
+    }
+}
+
+const MOVE_DISTANCE: f32 = 100.0;
+const TIME_STEP: f32 = 2;
+#[derive(Default)]
+struct MoveAction {
+    transform: Transform,
+}
+
+// When events are registered in the AppBuilder using .add_event(), 
+// a system will automatically be created to clean them up after two frames.
+// This can be problematic if your event-consuming systems ever skip frames (such as due to a fixed timestep run criteria).
+// We can get around this by not registering them, and instead handling clean-up by consuming them when read.
+// Be careful though: once consumed, other systems will not be able to read them!
+fn move_text(query: Query<(&mut Transform, EventConsumer<MoveAction>)>) {
+    for (mut transform, events) in query.iter() {
+        // Unlike EventReaders which simply iterate, EventConsumers drain the events they read
+        for move_action in events.drain() {
+            *transform += move_action.transform * TIME_STEP;
+        }
     }
 }
