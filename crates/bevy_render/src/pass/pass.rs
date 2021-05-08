@@ -25,17 +25,6 @@ impl From<RenderResourceId> for TextureAttachment {
     }
 }
 
-// impl TextureAttachment {
-//     pub fn get_texture_id(&self) -> Option<TextureId> {
-//         // TODO View
-//         if let TextureAttachment::SwapChain(texture_id) = self {
-//             Some(*texture_id)
-//         } else {
-//             None
-//         }
-//     }
-// }
-
 #[derive(Clone, Debug)]
 pub struct ClearColor(pub Color);
 
