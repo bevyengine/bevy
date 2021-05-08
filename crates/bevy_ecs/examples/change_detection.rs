@@ -1,5 +1,6 @@
 use bevy_ecs::prelude::*;
 use std::ops::Deref;
+use rand::Rng;
 
 #[derive(Debug)]
 struct Counter {
@@ -32,17 +33,15 @@ fn main() {
 
 fn manipulate_entities(
     mut commands: Commands,
-    last_spawned_entity: Query<Entity, Without<i32>>,
     mut entities: Query<&mut i32>,
 ) {
-    if rand::random::<f32>() > 0.5 {
-        commands.spawn();
+    if rand::thread_rng().gen_bool(0.5) {
+        let mut entity = commands.spawn();
+        entity.insert(0);
+        println!("    spawned {:?}", entity.id())
     }
     for mut value in entities.iter_mut() {
         *value += 1;
-    }
-    for entity in last_spawned_entity.iter() {
-        commands.entity(entity).insert(0);
     }
 }
 
@@ -59,8 +58,7 @@ fn print_changed_entities(
 }
 
 fn increase_counter(mut counter: ResMut<Counter>) {
-    let random_value: f32 = rand::random();
-    if random_value > 0.5 {
+    if rand::thread_rng().gen_bool(0.5) {
         counter.value += 1;
         println!("    Increased counter value");
     }
@@ -68,6 +66,6 @@ fn increase_counter(mut counter: ResMut<Counter>) {
 
 fn print_counter_when_changed(counter: Res<Counter>) {
     if counter.is_changed() && !counter.is_added() {
-        println!("    Changed to {:?}", counter.deref());
+        println!("    Changed {:?}", counter.deref());
     }
 }

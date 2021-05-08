@@ -1,5 +1,6 @@
 use bevy_ecs::prelude::*;
 use std::ops::Deref;
+use rand::Rng;
 
 // This is our resource
 #[derive(Debug)]
@@ -18,7 +19,7 @@ fn main() {
     let mut schedule = Schedule::default();
     let mut update = SystemStage::parallel();
 
-    // Add systems sending and receiving events
+    // Add systems to increase the counter and to print out the current value
     update.add_system(increase_counter.system().label("increase"));
     update.add_system(print_counter.system().after("increase"));
     schedule.add_stage("update", update);
@@ -30,8 +31,7 @@ fn main() {
 }
 
 fn increase_counter(mut counter: ResMut<Counter>) {
-    let random_value: f32 = rand::random();
-    if random_value > 0.5 {
+    if rand::thread_rng().gen_bool(0.5) {
         counter.value += 1;
         println!("    Increased counter value");
     }

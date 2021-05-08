@@ -1,7 +1,7 @@
 use bevy_ecs::event::Events;
 use bevy_ecs::prelude::*;
 
-// this is our event
+// This is our event
 #[derive(Debug)]
 struct MyEvent {
     pub message: String,
@@ -17,12 +17,13 @@ fn main() {
     let mut schedule = Schedule::default();
     let mut update = SystemStage::parallel();
 
-    // Add the event managing system to the stage and register the stage in with the schedule
+    // Add the event managing system to the stage
     update.add_system(Events::<MyEvent>::update_system.system());
 
     // Add systems sending and receiving events
     update.add_system(sending_system.system());
     update.add_system(receiving_system.system());
+
     schedule.add_stage("update", update);
 
     for iteration in 1..=10 {
