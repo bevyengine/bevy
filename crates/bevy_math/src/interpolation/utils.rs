@@ -18,7 +18,7 @@ pub fn inv_sqrt(x: f32) -> f32 {
 
 #[inline]
 pub fn step_unclamped<T: Clone>(k0: &T, k1: &T, u: f32) -> T {
-    if u > 0.999 {
+    if u < (1.0 - 1e-9) {
         k0.clone()
     } else {
         k1.clone()

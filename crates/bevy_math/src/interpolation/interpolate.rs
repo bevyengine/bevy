@@ -6,7 +6,7 @@ use crate::{Quat, Vec2, Vec3, Vec3A, Vec4};
 #[derive(Debug, Copy, Clone)]
 pub struct TangentIgnore;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Interpolation {
     Step,
     Linear,
