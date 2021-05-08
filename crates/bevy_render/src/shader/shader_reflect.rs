@@ -44,7 +44,7 @@ fn reflect_vertex_buffer_layout(
     module: &naga::Module,
     bevy_conventions: bool,
 ) -> Vec<VertexBufferLayout> {
-    function
+    let mut vertex_attribute_layouts: Vec<_> = function
         .arguments
         .iter()
         .filter_map(|argument| {
@@ -86,7 +86,11 @@ fn reflect_vertex_buffer_layout(
             };
             Some(layout)
         })
-        .collect()
+        .collect();
+
+    vertex_attribute_layouts.sort_by_key(|layout| layout.attributes[0].shader_location);
+
+    vertex_attribute_layouts
 }
 
 fn reflect_vertex_format(type_description: &naga::TypeInner) -> VertexFormat {
