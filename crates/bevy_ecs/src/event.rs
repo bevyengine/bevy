@@ -168,6 +168,10 @@ impl<'a, T: Component> SystemParam for EventWriter<'a, T> {
 }
 
 impl<'a, T: Component> EventWriter<'a, T> {
+    pub fn new(events: &'a mut Events<T>) -> Self {
+        EventWriter::<'a, T> { events }
+    }
+
     pub fn send(&mut self, event: T) {
         self.events.send(event);
     }
