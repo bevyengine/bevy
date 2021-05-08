@@ -423,6 +423,11 @@ mod tests {
             };
             layout(set = 1, binding = 0) uniform texture2D Texture;
 
+            layout(set = 2, binding = 0) uniform texture2D ColorMaterial_texture;
+            layout(set = 2, binding = 1) uniform sampler ColorMaterial_texture_sampler;
+            layout(set = 2, binding = 2) uniform samplerCubeArray arrayTextureSampler;
+            layout(set = 2, binding = 3) buffer TextureAtlas_textures { float data; };
+
             void main() {
                 v_Position = Vertex_Position;
                 gl_Position = ViewProj * v_Position;
@@ -495,108 +500,50 @@ mod tests {
                             shader_stage: BindingShaderStage::VERTEX,
                         }]
                     ),
+                    BindGroupDescriptor::new(
+                        2,
+                        vec![
+                            BindingDescriptor {
+                                index: 0,
+                                name: "ColorMaterial_texture".into(),
+                                bind_type: BindType::Texture {
+                                    multisampled: false,
+                                    view_dimension: TextureViewDimension::D2,
+                                    sample_type: TextureSampleType::Float { filterable: true }
+                                },
+                                shader_stage: BindingShaderStage::VERTEX,
+                            },
+                            BindingDescriptor {
+                                index: 1,
+                                name: "ColorMaterial_texture_sampler".into(),
+                                bind_type: BindType::Sampler {
+                                    filtering: true,
+                                    comparison: false,
+                                },
+                                shader_stage: BindingShaderStage::VERTEX,
+                            },
+                            BindingDescriptor {
+                                index: 2,
+                                name: "arrayTextureSampler".into(),
+                                bind_type: BindType::Texture {
+                                    multisampled: false,
+                                    view_dimension: TextureViewDimension::CubeArray,
+                                    sample_type: TextureSampleType::Float { filterable: true },
+                                },
+                                shader_stage: BindingShaderStage::VERTEX,
+                            },
+                            BindingDescriptor {
+                                index: 3,
+                                name: "TextureAtlas_textures".into(),
+                                bind_type: BindType::StorageBuffer {
+                                    has_dynamic_offset: false,
+                                    readonly: false,
+                                },
+                                shader_stage: BindingShaderStage::VERTEX,
+                            },
+                        ]
+                    )
                 ]
-            }
-        );
-    }
-
-    #[test]
-    fn test_reflection_ui_shader() {
-        let vertex_shader = Shader::from_glsl(
-            ShaderStage::Vertex,
-            r#"
-#version 450
-
-layout(location = 0) in vec2 v_Uv;
-layout(location = 0) out vec4 o_Target;
-layout(set = 2, binding = 0) uniform ColorMaterial_color { vec4 Color; };
-layout(set = 2, binding = 1) uniform texture2D ColorMaterial_texture;
-layout(set = 2, binding = 2) uniform sampler ColorMaterial_texture_sampler;
-
-layout(set = 2, binding = 3) uniform samplerCubeArray arrayTextureSampler;
-// layout(set = 2, binding = 3) uniform samplerCube textureSamplerArray[16];
-
-layout(set = 2, binding = 4) buffer TextureAtlas_textures {
-    float data;
-};
-
-void main() {
-    vec4 color = Color;
-    color *= texture(sampler2D(ColorMaterial_texture, ColorMaterial_texture_sampler), v_Uv);
-    o_Target = color;
-}
-        "#,
-        )
-        .get_spirv_shader(None)
-        .unwrap();
-
-        let layout = vertex_shader.reflect_layout(true).unwrap();
-        pretty_assertions::assert_eq!(
-            layout,
-            ShaderLayout {
-                entry_point: "main".into(),
-                vertex_buffer_layout: vec![VertexBufferLayout::new_from_attribute(
-                    VertexAttribute {
-                        name: "v_Uv".into(),
-                        format: VertexFormat::Float32x2,
-                        offset: 0,
-                        shader_location: 0,
-                    },
-                    InputStepMode::Vertex
-                )
-                .test_zero_stride()],
-                bind_groups: vec![BindGroupDescriptor::new(
-                    2,
-                    vec![
-                        BindingDescriptor {
-                            index: 0,
-                            name: "ColorMaterial_color".into(),
-                            bind_type: BindType::Uniform {
-                                has_dynamic_offset: false,
-                                property: UniformProperty::Struct(vec![UniformProperty::Vec4]),
-                            },
-                            shader_stage: BindingShaderStage::VERTEX,
-                        },
-                        BindingDescriptor {
-                            index: 1,
-                            name: "ColorMaterial_texture".into(),
-                            bind_type: BindType::Texture {
-                                multisampled: false,
-                                view_dimension: TextureViewDimension::D2,
-                                sample_type: TextureSampleType::Float { filterable: true }
-                            },
-                            shader_stage: BindingShaderStage::VERTEX,
-                        },
-                        BindingDescriptor {
-                            index: 2,
-                            name: "ColorMaterial_texture_sampler".into(),
-                            bind_type: BindType::Sampler {
-                                filtering: true,
-                                comparison: false,
-                            },
-                            shader_stage: BindingShaderStage::VERTEX,
-                        },
-                        BindingDescriptor {
-                            index: 3,
-                            name: "arrayTextureSampler".into(),
-                            bind_type: BindType::Texture {
-                                multisampled: false,
-                                view_dimension: TextureViewDimension::CubeArray,
-                                sample_type: TextureSampleType::Float { filterable: true },
-                            },
-                            shader_stage: BindingShaderStage::VERTEX,
-                        },
-                        BindingDescriptor {
-                            index: 4,
-                            name: "TextureAtlas_textures".into(),
-                            bind_type: BindType::StorageBuffer {
-                                has_dynamic_offset: false,
-                                readonly: false,
-                            },
-                            shader_stage: BindingShaderStage::VERTEX,
-                        },
-                    ]
-                )]
             }
         );
     }
