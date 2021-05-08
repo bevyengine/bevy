@@ -187,7 +187,12 @@ fn reflect_bind_groups(
         .into_iter()
         .map(|(index, bindings)| BindGroupDescriptor::new(index, bindings))
         .collect();
+
+    for group in &mut groups {
+        group.bindings.sort_by_key(|binding| binding.index);
+    }
     groups.sort_by_key(|bind_group| bind_group.index);
+
     groups
 }
 
