@@ -1,6 +1,6 @@
 use crate::{
     component::Component,
-    system::{Local, Query, ResMut, ResMutState, ResState, SystemParam},
+    system::{LocalState, Query, ResMut, ResMutState, ResState, SystemParam},
 };
 use bevy_utils::tracing::trace;
 use std::{
@@ -339,12 +339,22 @@ impl<'a, T: Component> EventWriter<'a, T> {
 
 /// Reads events of type `T` in order and tracks which events have already been read.
 pub struct EventReader<'a, T: Component> {
-    last_event_count: Local<'a, (usize, PhantomData<T>)>,
+    last_event_count: EventCount<T>,
     events: &'a Events<T>,
 }
 
+/// Wrapper struct used by [EventReader] to count events
+pub struct EventCount<T>(usize, PhantomData<T>);
+
+// #[derive(Default)] doesn't handle PhantomData properly, so we're stuck with a manual impl
+impl<T> Default for EventCount<T> {
+    fn default() -> Self {
+        EventCount(0, PhantomData::default())
+    }
+}
+
 impl<'a, T: Component> SystemParam for EventReader<'a, T> {
-    type Fetch = ResState<Events<T>>;
+    type Fetch = (ResState<Events<T>>, LocalState<EventCount<T>>);
 }
 
 impl<'a, T: Component> EventReader<'a, T> {
