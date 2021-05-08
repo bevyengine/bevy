@@ -1,10 +1,11 @@
+use std::convert::{TryFrom, TryInto};
+
 /// A enum representing a type of file.
+#[non_exhaustive]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum FileType {
     Directory,
     File,
-    // To be compatible with [`std::fs::FileType`].
-    Symlink,
 }
 
 impl FileType {
@@ -17,16 +18,19 @@ impl FileType {
     }
 }
 
-impl From<std::fs::FileType> for FileType {
-    fn from(file_type: std::fs::FileType) -> Self {
+impl TryFrom<std::fs::FileType> for FileType {
+    type Error = std::io::Error;
+
+    fn try_from(file_type: std::fs::FileType) -> Result<Self, Self::Error> {
         if file_type.is_dir() {
-            Self::Directory
+            Ok(Self::Directory)
         } else if file_type.is_file() {
-            Self::File
-        } else if file_type.is_symlink() {
-            Self::Symlink
+            Ok(Self::File)
         } else {
-            unreachable!()
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "unknown file type",
+            ))
         }
     }
 }
@@ -49,10 +53,12 @@ impl Metadata {
     }
 }
 
-impl From<std::fs::Metadata> for Metadata {
-    fn from(metadata: std::fs::Metadata) -> Self {
-        Self {
-            file_type: metadata.file_type().into(),
-        }
+impl TryFrom<std::fs::Metadata> for Metadata {
+    type Error = std::io::Error;
+
+    fn try_from(metadata: std::fs::Metadata) -> Result<Self, Self::Error> {
+        Ok(Self {
+            file_type: metadata.file_type().try_into()?,
+        })
     }
 }

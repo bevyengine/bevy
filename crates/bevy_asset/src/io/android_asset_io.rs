@@ -2,6 +2,7 @@ use crate::{AssetIo, AssetIoError, Metadata};
 use anyhow::Result;
 use bevy_utils::BoxedFuture;
 use std::{
+    convert::TryFrom,
     ffi::CString,
     path::{Path, PathBuf},
 };
@@ -48,12 +49,15 @@ impl AssetIo for AndroidAssetIo {
 
     fn get_metadata(&self, path: &Path) -> Result<Metadata, AssetIoError> {
         let full_path = self.root_path.join(path);
-        full_path.metadata().map(Metadata::from).map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                AssetIoError::NotFound(full_path)
-            } else {
-                e.into()
-            }
-        })
+        full_path
+            .metadata()
+            .and_then(Metadata::try_from)
+            .map_err(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    AssetIoError::NotFound(full_path)
+                } else {
+                    e.into()
+                }
+            })
     }
 }
