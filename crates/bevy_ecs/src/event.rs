@@ -433,10 +433,43 @@ impl<T> ManualEventReader<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::schedule::{Stage, SystemStage};
+    use crate::system::IntoSystem;
+    use crate::world::World;
 
     #[derive(Copy, Clone, PartialEq, Eq, Debug)]
     struct TestEvent {
         i: usize,
+    }
+
+    #[test]
+    fn event_system_params() {
+        let world = World::default();
+        struct E;
+        fn writes(ew: EventWriter<E>) {
+            ew.send(E)
+        }
+        fn reads(er: EventReader<E>) {
+            er.iter();
+        }
+        fn consumes(ec: EventConsumer<E>) {
+            ec.drain();
+        }
+
+        let mut stage1 = SystemStage::parallel();
+        stage1.add_system(writes.system());
+        stage1.add_system(reads.system());
+
+        stage1.run(&mut World::default());
+        let current_events = world.get_resource::<Events<E>>().unwrap();
+        assert!(current_events.events_a.len() == 1);
+
+        let mut stage2 = SystemStage::parallel();
+        stage2.add_system(consumes.system());
+
+        stage2.run(&mut World::default());
+        let current_events = world.get_resource::<Events<E>>().unwrap();
+        assert!(current_events.events_a.len() == 0);
     }
 
     #[test]
