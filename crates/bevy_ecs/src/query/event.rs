@@ -11,17 +11,17 @@ use crate::{
 use std::any::TypeId;
 
 impl<'a, T: Component> WorldQuery for EventWriter<'a, T> {
-    type Fetch = EventWriterFetch<'a, T>;
+    type Fetch = EventWriterFetch<T>;
     type State = EventWriterState<T>;
 }
 
-struct EventWriterFetch<'s, T> {
+struct EventWriterFetch<T> {
     /// EventWriter query parameters require write access to &mut Events<T>
     write_fetch: WriteFetch<Events<T>>,
-    state: &'s EventWriterState<T>,
+    storage_type: StorageType,
 }
 
-impl<'a, T: Component> Fetch<'a> for EventWriterFetch<'a, T> {
+impl<'a, T: Component> Fetch<'a> for EventWriterFetch<T> {
     /// EventWriter queries return an EventWriter<T> in each item
     type Item = EventWriter<'a, T>;
     /// This is the corresponding S: FetchState type
@@ -29,7 +29,7 @@ impl<'a, T: Component> Fetch<'a> for EventWriterFetch<'a, T> {
 
     /// Checks the storage type of the corresponding Events<T> component
     fn is_dense(&self) -> bool {
-        match self.state.event_storage_type {
+        match self.storage_type {
             StorageType::SparseSet => false,
             StorageType::Table => true,
         }
@@ -48,7 +48,11 @@ impl<'a, T: Component> Fetch<'a> for EventWriterFetch<'a, T> {
                 last_change_tick,
                 change_tick,
             ),
-            state,
+            storage_type: world
+                .components
+                .get_info(world.components.get_id(TypeId::of::<Events<T>>()).unwrap())
+                .unwrap()
+                .storage_type(),
         }
     }
 
