@@ -10,7 +10,7 @@ Bevy ECS is the Entity Component System used in and developed for the game engin
 
 ## About
 
-Entity Component System is an architectural pattern using composition to provide greater flexibility.
+Entity Component System is an architectural pattern using composition to provide greater flexibility. Using an ECS can provide a clean architecture by separating data and functionality. At the same time this separation can enable more cache friendly storage and thus allow for better performance.
 
 ### Main concepts
 
@@ -18,13 +18,17 @@ Entity Component System is an architectural pattern using composition to provide
 * Components are data structures that can be attached to entities
 * Systems encode a certain behaviour of the world
 
-Entities and components are kept in a `World`. Constructing a `Schedule` with systems allows you to simulate a tick of the world. The schedule will consider dependencies between systems and run as many of them in parallel as possible. This maximises performance, while keeping the system execution safe. You can make dependencies explicit by requesting certain execution orders using `SystemLabel`s.
+Entities and components are kept in a `World`. Constructing a `Schedule` with systems allows you to simulate a tick of the world. The schedule will consider dependencies between systems and (by default) run as many of them in parallel as possible. This maximises performance, while keeping the system execution safe. You can make dependencies explicit by requesting certain execution orders using `SystemLabel`.
 
 ## Features
 
 Bevy ECS uses Rust's type safety to represent systems as "normal" functions and components as structs. In most cases this does not require any additional effort by the user.
 
+In a minimal example we can create a world and simulate 10 ticks with a schedule containing a single system:
+
 ```rust
+use bevy_ecs::prelude::*;
+
 fn main() {
     // Create a world
     let mut world = World::new();
@@ -35,7 +39,7 @@ fn main() {
 
     // Add a system to the stage
     update.add_system(print_a_message.system());
-    
+
     // Add the prepared stage to the schedule
     schedule.add_stage("update", update);
 
@@ -48,13 +52,17 @@ fn main() {
 
 // This function serves as a system
 fn print_a_message() {
-    println!("System is running", my_event);
+    println!("System is running");
 }
 ```
+
+The output of this trivial example are two console logs for each tick.
 
 ### Component storage
 
 A unique feature of Bevy ECS is the support for multiple component storage types.
+
+Components can be stored in:
 
 * Tables: fast and cache friendly iteration, but slower adding and removing of components
 * Sparse Sets: fast adding and removing of components, but slower iteration
@@ -63,15 +71,15 @@ The used storage type can be configured per component and defaults to table stor
 
 ### Resources
 
-A common pattern when working with ECS is the creation of global singleton components. Bevy ECS makes this pattern a first class citizen. `Resource`s are a special kind of component that do not belong to any entity. Bevy itself makes heavy use of Resources as a way to configure systems.
+A common pattern when working with ECS is the creation of global singleton components. Bevy ECS makes this pattern a first class citizen. `Resource` is a special kind of component that does not belong to any entity. Bevy itself makes heavy use of resources as a way to configure systems.
 
 The example [`resources.rs`](examples/resources.rs) uses a resource to keep a counter that can be increased by a system and read from other systems.
 
 ### Events
 
-Events offer a short-lived communication channel between one to many systems. Events can be sent using `EventWriter` and received with `EventReader`. Very little boilerplate is required to register a struct as an event.
+Events offer a short-lived communication channel between one to many systems. Events can be sent using the system parameter `EventWriter` and received with `EventReader`. Very little boilerplate is required to register a struct as an event.
 
-A minimal set up to use events can be seen in [`events.rs`](examples/events.rs).
+A minimal set up using events can be seen in [`events.rs`](examples/events.rs).
 
 ### Change detection
 
