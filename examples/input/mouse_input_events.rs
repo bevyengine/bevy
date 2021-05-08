@@ -1,8 +1,4 @@
-use bevy::{
-    input::mouse::{MouseButtonInput, MouseMotion, MouseWheel},
-    prelude::*,
-    window::CursorMoved,
-};
+use bevy::{input::{ElementState, mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel}}, prelude::*, window::{CursorMoved, WindowId}};
 
 fn main() {
     App::build()
@@ -19,18 +15,30 @@ fn print_mouse_events_system(
     mut mouse_wheel_events: EventReader<MouseWheel>,
 ) {
     for event in mouse_button_input_events.iter() {
-        info!("{:?}", event);
+        let button: MouseButton = event.button;
+        let state: ElementState = event.state;
+        info!("Button: {:?}", button);
+        info!("State: {:?}", state);
     }
 
     for event in mouse_motion_events.iter() {
-        info!("{:?}", event);
+        let movement: Vec2 = event.delta;
+        info!("Mouse moved by ({}, {})", movement.x, movement.y);
     }
 
     for event in cursor_moved_events.iter() {
-        info!("{:?}", event);
+        let id: WindowId = event.id;
+        let position: Vec2 = event.position;
+
+        info!("Window id: {:?}", id);
+        info!("Cursor position: {:?}", position);
     }
 
     for event in mouse_wheel_events.iter() {
-        info!("{:?}", event);
+        let unit: MouseScrollUnit = event.unit;
+        let x: f32 = event.x;
+        let y: f32 = event.y;
+        info!("Unit: {:?}", unit);
+        info!("Moved by {}, {}", x, y);
     }
 }
