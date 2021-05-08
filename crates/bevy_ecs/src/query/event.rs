@@ -87,7 +87,6 @@ impl<'a, T: Component> Fetch<'a> for EventWriterFetch<T> {
 }
 struct EventWriterState<T> {
     event_component_id: ComponentId,
-    event_storage_type: StorageType,
     /// EventWriter query parameters require write access to &mut Events<T>
     write_state: WriteState<Events<T>>,
 }
@@ -97,11 +96,6 @@ unsafe impl<T: Component> FetchState for EventWriterState<T> {
         let event_component_id = world.components.get_id(TypeId::of::<Events<T>>()).unwrap();
         EventWriterState {
             event_component_id,
-            event_storage_type: world
-                .components
-                .get_info(event_component_id)
-                .unwrap()
-                .storage_type(),
             write_state: WriteState::<Events<T>>::init(world),
         }
     }
