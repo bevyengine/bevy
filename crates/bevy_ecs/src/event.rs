@@ -213,20 +213,21 @@ impl<T: Component> Events<T> {
     }
 
     /// Creates a draining iterator that removes all events.
-    pub fn drain(&mut self) -> impl Iterator<Item = T> + '_ {
-        let map = |i: EventInstance<T>| i.event;
-        match self.state {
-            BufferState::A => self
-                .events_b
-                .drain(..)
-                .map(map)
-                .chain(self.events_a.drain(..).map(map)),
-            BufferState::B => self
-                .events_a
-                .drain(..)
-                .map(map)
-                .chain(self.events_b.drain(..).map(map)),
-        }
+    pub fn drain(&mut self) -> impl DoubleEndedIterator<Item = T> + '_ {
+        self.drain_with_id().map(|(e, _)| e)
+    }
+
+    /// Creates a draining iterator that returns both events and their ids
+    pub fn drain_with_id(&mut self) -> impl DoubleEndedIterator<Item = (T, EventId<T>)> + '_ {
+        let event_instances = match self.state {
+            BufferState::A => self.events_b.drain(..).chain(self.events_a.drain(..)),
+            BufferState::B => self.events_a.drain(..).chain(self.events_b.drain(..)),
+        };
+
+        event_instances.map(|ei| {
+            trace!("Events::drain_with_id -> {}", ei.event_id);
+            (ei.event, ei.event_id)
+        })
     }
 
     pub fn extend<I>(&mut self, events: I)
@@ -371,6 +372,32 @@ impl<'a, T: Component> EventReader<'a, T> {
             trace!("EventReader::iter() -> {}", id);
             (event, id)
         })
+    }
+}
+
+/// Reads and consumes all events of type T
+///
+/// Useful for manual event cleanup when [AppBuilder::add_event::<T>] is omitted,
+/// allowing events to accumulate on your components or resources until consumed.
+/// Note: due to the draining nature of this reader, you probably only want one
+/// EventConsumer per event storage location + event type combination.
+pub struct EventConsumer<'a, T: Component> {
+    events: &'a mut Events<T>,
+}
+
+impl<'a, T: Component> SystemParam for EventConsumer<'a, T> {
+    type Fetch = ResMutState<Events<T>>;
+}
+
+impl<'a, T: Component> EventConsumer<'a, T> {
+    /// Drains all available events this EventConsumer has access to into an iterator
+    pub fn drain(self) -> impl DoubleEndedIterator<Item = T> + 'a {
+        self.events.drain()
+    }
+
+    /// Drains all available events this EventConsumer has access to into an iterator and returns the id
+    pub fn drain_with_id(self) -> impl DoubleEndedIterator<Item = (T, EventId<T>)> + 'a {
+        self.events.drain_with_id()
     }
 }
 
