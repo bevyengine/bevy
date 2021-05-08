@@ -19,7 +19,6 @@ use bevy::{
 ///
 /// This specific example shows a simple input -> action dispatch use case,
 /// where this pattern helps to avoid messy rechecking and allows simple merging of multiple event input streams.
-///
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
@@ -45,110 +44,78 @@ fn main() {
         .add_system(
             move_text
                 .system()
+                .label("action_handling")
                 .with_run_criteria(FixedTimestep::step(TIME_STEP)),
         )
         .run()
 }
 
+pub mod setup {
+    #[derive(Bundle)]
+    struct InteractableBundle {
+        #[bundle]
+        text_bundle: TextBundle,
+        selectable: Selectable,
+        rainbow: ColorChoices,
+        cycle_color_events: Events<CycleColorAction>,
+        move_events: Events<MoveAction>,
+        add_number_events: Events<AddNumberAction>,
+    }
+    
+    impl InteractableBundle {
+        // FIXME: fix position
+        fn new(x: f32, y: f32, font_handle: &Handle<Font>) -> Self {
+            InteractableBundle {
+                text_bundle: TextBundle {
+                    text: Text::with_section(
+                        "0",
+                        TextStyle {
+                            font: font_handle.clone(),
+                            font_size: 60.0,
+                            color: Color::WHITE,
+                        },
+                        TextAlignment {
+                            vertical: VerticalAlign::Center,
+                            horizontal: HorizontalAlign::Center,
+                        },
+                    ),
+                    transform: Transform::from_xyz(x, y, 0.0),
+                    ..Default::default()
+                },
+                selectable: Selectable,
+                rainbow: ColorChoices::Red,
+                cycle_color_events: Events::<CycleColorAction>::default(),
+                move_events: Events<MoveAction>::default(),
+                add_number_events: Events::<AddNumberAction>::default(),
+            }
+        }
+    }
+    
+    fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+        commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    
+        let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
+        // Spawns the first entity, and grabs the Entity id that is being allocated
+        let first_entity = commands
+            .spawn_bundle(InteractableBundle::new(-200.0, 0.0, &font_handle))
+            .id();
+        commands.insert_resource(Selected {
+            entity: first_entity,
+        });
+    
+        commands.spawn_bundle(InteractableBundle::new(0.0, 0.0, &font_handle));
+        commands.spawn_bundle(InteractableBundle::new(200.0, 0.0, &font_handle));
+    }
+    
+}
+
+pub mod selection {
 // Tracks which entity is selected
 struct Selected {
     entity: Entity,
 }
 // Marks entities as selectable
 struct Selectable;
-#[derive(Bundle)]
-struct InteractableBundle {
-    #[bundle]
-    text_bundle: TextBundle,
-    selectable: Selectable,
-    rainbow: ColorChoices,
-    cycle_color_events: Events<CycleColorAction>,
-    move_events: Events<MoveAction>,
-    add_number_events: Events<AddNumberAction>,
-}
-
-impl InteractableBundle {
-    // FIXME: fix position
-    fn new(x: f32, y: f32, font_handle: &Handle<Font>) -> Self {
-        InteractableBundle {
-            text_bundle: TextBundle {
-                text: Text::with_section(
-                    "0",
-                    TextStyle {
-                        font: font_handle.clone(),
-                        font_size: 60.0,
-                        color: Color::WHITE,
-                    },
-                    TextAlignment {
-                        vertical: VerticalAlign::Center,
-                        horizontal: HorizontalAlign::Center,
-                    },
-                ),
-                transform: Transform::from_xyz(x, y, 0.0),
-                ..Default::default()
-            },
-            selectable: Selectable,
-            rainbow: ColorChoices::Red,
-            cycle_color_events: Events::<CycleColorAction>::default(),
-            move_events: Events<MoveAction>::default(),
-            add_number_events: Events::<AddNumberAction>::default(),
-        }
-    }
-}
-
-enum ColorChoices {
-    Red,
-    Blue,
-    Violet,
-}
-
-impl Iterator for ColorChoices {
-    type Item = Self;
-
-    fn next(&mut self) -> Option<ColorChoices> {
-        use ColorChoices::*;
-        Some(match *self {
-            Red => Blue,
-            Blue => Violet,
-            Violet => Red,
-        })
-    }
-}
-
-impl From<&ColorChoices> for Color {
-    fn from(rainbow: &ColorChoices) -> Color {
-        use ColorChoices::*;
-        match rainbow {
-            Red => Color::RED,
-            Blue => Color::BLUE,
-            Violet => Color::VIOLET,
-        }
-    }
-}
-
-// Events can be simple unit structs
-struct CycleColorAction;
-// Or store data to be responded to
-struct AddNumberAction {
-    number: u8,
-}
-
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // Don't forget to include a camera!
-    commands.spawn_bundle(UiCameraBundle::default());
-
-    let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
-    // Spawns the first entity, and grabs the Entity id that is being allocated
-    let first_entity = commands
-        .spawn_bundle(InteractableBundle::new(-200.0, 400.0, &font_handle))
-        .id();
-    commands.insert_resource(Selected {
-        entity: first_entity,
-    });
-
-    commands.spawn_bundle(InteractableBundle::new(0.0, 400.0, &font_handle));
-    commands.spawn_bundle(InteractableBundle::new(200.0, 400.0, &font_handle));
-}
 
 enum CycleBehavior {
     Forward,
@@ -204,6 +171,9 @@ fn scale_selected(
     }
 }
 
+}
+
+pub mod input {
 /// Dispatches actions to entities based on the input
 /// Note that we can store several events at once!
 /// Try pressing both "1" and "3" to add 4 to the selected display
@@ -255,20 +225,85 @@ fn input_dispatch(
     }
 }
 
-fn cycle_color(mut query: Query<(&mut ColorChoices, EventReader<CycleColorAction>)>) {
-    for (mut color, action_queue) in query.iter_mut() {
-        for _ in action_queue.iter() {
-            *color = color.next().unwrap();
+}
+
+pub mod colors {
+    struct CycleColorAction;
+    enum ColorChoices {
+        Red,
+        Blue,
+        Violet,
+    }
+    
+    impl Iterator for ColorChoices {
+        type Item = Self;
+    
+        fn next(&mut self) -> Option<ColorChoices> {
+            use ColorChoices::*;
+            Some(match *self {
+                Red => Blue,
+                Blue => Violet,
+                Violet => Red,
+            })
         }
     }
-}
-
-fn update_text_color(mut query: Query<(&mut Text, &ColorChoices), Changed<ColorChoices>>) {
-    for (mut text, rainbow) in query.iter_mut() {
-        text.sections[0].style.color = rainbow.into();
+    
+    impl From<&ColorChoices> for Color {
+        fn from(rainbow: &ColorChoices) -> Color {
+            use ColorChoices::*;
+            match rainbow {
+                Red => Color::RED,
+                Blue => Color::BLUE,
+                Violet => Color::VIOLET,
+            }
+        }
     }
+    
+    fn cycle_color(mut query: Query<(&mut ColorChoices, EventReader<CycleColorAction>)>) {
+        for (mut color, action_queue) in query.iter_mut() {
+            for _ in action_queue.iter() {
+                *color = color.next().unwrap();
+            }
+        }
+    }
+    
+    fn update_text_color(mut query: Query<(&mut Text, &ColorChoices), Changed<ColorChoices>>) {
+        for (mut text, rainbow) in query.iter_mut() {
+            text.sections[0].style.color = rainbow.into();
+        }
+    }
+    
 }
 
+pub mod movement {
+    struct MoveAction {
+        transform: Transform,
+    }
+    
+    const MOVE_DISTANCE: f32 = 100.0;
+    const TIME_STEP: f32 = 2;
+
+    // When events are registered in the AppBuilder using .add_event(), 
+    // a system will automatically be created to clean them up after two frames.
+    // This can be problematic if your event-consuming systems ever skip frames (such as due to a fixed timestep run criteria).
+    // We can get around this by not registering them, and instead handling clean-up by consuming them when read.
+    // Be careful though: once consumed, other systems will not be able to read them!
+    fn move_text(query: Query<(&mut Transform, EventConsumer<MoveAction>)>) {
+        for (mut transform, events) in query.iter() {
+            // Unlike EventReaders which simply iterate, EventConsumers drain the events they read
+            for move_action in events.drain() {
+                *transform += move_action.transform * TIME_STEP;
+            }
+        }
+    }
+    
+}
+
+pub mod addition {
+// Or store data to be responded to
+struct AddNumberAction {
+    number: u8,
+}
 // Just as when using Events as a resource, you can work with `Events<T>` directly instead
 // EventReader and EventWriter are just convenient wrappers that better communicate intent
 // And store state automatically for you
@@ -294,23 +329,4 @@ fn add_number(
     }
 }
 
-const MOVE_DISTANCE: f32 = 100.0;
-const TIME_STEP: f32 = 2;
-#[derive(Default)]
-struct MoveAction {
-    transform: Transform,
-}
-
-// When events are registered in the AppBuilder using .add_event(), 
-// a system will automatically be created to clean them up after two frames.
-// This can be problematic if your event-consuming systems ever skip frames (such as due to a fixed timestep run criteria).
-// We can get around this by not registering them, and instead handling clean-up by consuming them when read.
-// Be careful though: once consumed, other systems will not be able to read them!
-fn move_text(query: Query<(&mut Transform, EventConsumer<MoveAction>)>) {
-    for (mut transform, events) in query.iter() {
-        // Unlike EventReaders which simply iterate, EventConsumers drain the events they read
-        for move_action in events.drain() {
-            *transform += move_action.transform * TIME_STEP;
-        }
-    }
 }
