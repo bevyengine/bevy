@@ -236,7 +236,26 @@ fn reflect_bind_type(
                 comparison,
                 filtering: true,
             },
-            _ => panic!("handle storage class not with image or sampler type"),
+
+            naga::TypeInner::Array { base, size, .. } => match size {
+                naga::ArraySize::Constant(size) => {
+                    let inner_ty = module.types.try_get(base).unwrap();
+                    let len = get_constant_usize(module, size)
+                        .expect("expected integer constant for array length");
+                    panic!(
+                        "unsupported binding: sampler array [{:?}; {}]",
+                        inner_ty.inner, len
+                    );
+                }
+                naga::ArraySize::Dynamic => {
+                    panic!("unsupported binding: handle array with dynamic size")
+                }
+            },
+
+            ref other => panic!(
+                "handle storage class not with image or sampler type: {:?}",
+                other
+            ),
         },
         naga::StorageClass::Storage => BindType::StorageBuffer {
             has_dynamic_offset: false,
