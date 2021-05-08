@@ -57,16 +57,15 @@ fn reflect_vertex_buffer_layout(
                 .clone()
                 .expect("expected vertex attribute to have a name");
 
-            let instance = if bevy_conventions {
-                name.starts_with("I_")
-            } else {
-                false
-            };
-
             let current_buffer_name = if bevy_conventions {
                 name.clone()
             } else {
                 "DefaultVertex".to_string()
+            };
+            let step_mode = if bevy_conventions && name.starts_with("I_") {
+                InputStepMode::Instance
+            } else {
+                InputStepMode::Vertex
             };
 
             let ty = module
@@ -78,11 +77,6 @@ fn reflect_vertex_buffer_layout(
                 format: reflect_vertex_format(&ty.inner),
                 offset: 0,
                 shader_location: location,
-            };
-            let step_mode = if instance {
-                InputStepMode::Instance
-            } else {
-                InputStepMode::Vertex
             };
             let layout = VertexBufferLayout {
                 name: current_buffer_name.into(),
@@ -146,8 +140,6 @@ fn reflect_bind_groups(
     module: &naga::Module,
     shader_stage: BindingShaderStage,
 ) -> Vec<BindGroupDescriptor> {
-    let mut bind_groups = HashMap::<u32, Vec<_>>::default();
-
     let binding_descriptors = module
         .global_variables
         .iter()
@@ -183,6 +175,7 @@ fn reflect_bind_groups(
             (binding, binding_descriptor)
         });
 
+    let mut bind_groups = HashMap::<u32, Vec<_>>::default();
     for (binding, binding_descriptor) in binding_descriptors {
         bind_groups
             .entry(binding.group)

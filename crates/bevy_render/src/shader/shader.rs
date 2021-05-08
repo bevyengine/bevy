@@ -193,7 +193,7 @@ impl Shader {
             module.entry_points[0].stage
         } else {
             return Err(ShaderError::Compilation(
-                "mulitple entry points in shader".to_string(),
+                "multiple entry points in shader".to_string(),
             ));
         };
 
