@@ -59,20 +59,24 @@ A unique feature of Bevy ECS is the support for multiple component storage types
 * Tables: fast and cache friendly iteration, but slower adding and removing of components
 * Sparse Sets: fast adding and removing of components, but slower iteration
 
-The used storage type can be configured per component and defaults to table storage. [`examples/component_storage.rs`](examples/component_storage.rs) shows how to configure the storage type for a component.
+The used storage type can be configured per component and defaults to table storage. The example [`component_storage.rs`](examples/component_storage.rs) shows how to configure the storage type for a component.
 
 ### Resources
 
 A common pattern when working with ECS is the creation of global singleton components. Bevy ECS makes this pattern a first class citizen. `Resource`s are a special kind of component that do not belong to any entity. Bevy itself makes heavy use of Resources as a way to configure systems.
 
-[`examples/resources.rs`] uses a resource to keep a counter that can be increased by a system and read from other systems.
+The example [`resources.rs`](examples/resources.rs) uses a resource to keep a counter that can be increased by a system and read from other systems.
 
 ### Events
 
-Events offer a short-lived communication channel between one to many systems. Events can be sent using `EventWriter` and received with `EventReader`. Very little boilerplate is required to register a struct as an event. To see a minimal set up to use events, take a look at [`example/events.rs`](examples/events.rs).
+Events offer a short-lived communication channel between one to many systems. Events can be sent using `EventWriter` and received with `EventReader`. Very little boilerplate is required to register a struct as an event.
+
+A minimal set up to use events can be seen in [`events.rs`](examples/events.rs).
 
 ### Change detection
 
-Bevy ECS includes a simple way of detecting change in resources and entities. Resources have `is_changed` and `is_added` functions and entities can be queried based on changed or added components (see [`examples/change_detection`](examples/change_detection.rs)).
+Bevy ECS includes a simple way of detecting change in resources and entities. Resources have `is_changed` and `is_added` functions and entities can be queried based on changed or added components.
+
+The example [`change_detection.rs`](examples/change_detection.rs) shows how to query only for updated entities and react on changes in resources.
 
 [bevy]: https://bevyengine.org/
