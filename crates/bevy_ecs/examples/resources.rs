@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::*;
-use std::ops::Deref;
 use rand::Rng;
+use std::ops::Deref;
 
 // This is our resource
 #[derive(Debug)]
