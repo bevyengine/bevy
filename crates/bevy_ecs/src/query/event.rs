@@ -15,7 +15,7 @@ impl<'a, T: Component> WorldQuery for EventWriter<'a, T> {
     type State = EventWriterState<T>;
 }
 
-struct EventWriterFetch<T> {
+pub struct EventWriterFetch<T> {
     /// EventWriter query parameters require write access to &mut Events<T>
     write_fetch: WriteFetch<Events<T>>,
     storage_type: StorageType,
@@ -85,7 +85,7 @@ impl<'a, T: Component> Fetch<'a> for EventWriterFetch<T> {
         EventWriter::new(events)
     }
 }
-struct EventWriterState<T> {
+pub struct EventWriterState<T> {
     event_component_id: ComponentId,
     /// EventWriter query parameters require write access to &mut Events<T>
     write_state: WriteState<Events<T>>,
