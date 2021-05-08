@@ -136,10 +136,10 @@ impl DirectionalLightUniform {
         // exposure is hard coded at the moment but should be replaced
         // by values coming from the camera
         // see: https://google.github.io/filament/Filament.html#imagingpipeline/physicallybasedcamera/exposuresettings
-        let aperture = 4.0;
-        let shutter_speed = 1.0 / 250.0;
-        let sensitivity = 100.0;
-        let ev100 = f32::log2(aperture * aperture / shutter_speed) - f32::log2(sensitivity / 100.0);
+        const APERTURE: f32 = 4.0;
+        const SHUTTER_SPEED: f32 = 1.0 / 250.0;
+        const SENSITIVITY: f32 = 100.0;
+        let ev100 = f32::log2(APERTURE * APERTURE / SHUTTER_SPEED) - f32::log2(SENSITIVITY / 100.0);
         let exposure = 1.0 / (f32::powf(2.0, ev100) * 1.2);
         let intensity = light.intensity * exposure;
 
