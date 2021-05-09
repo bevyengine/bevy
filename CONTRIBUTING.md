@@ -28,7 +28,7 @@ The main [Bevy engine org](https://github.com/bevyengine) has 4 important repos:
 3. [`awesome-bevy`](https://github.com/bevyengine/awesome-bevy) is a central home for community content: tutorials, tools, templates, showcases and crates! Make a PR if you want to showcase your stuff there!
 4. [`rfcs`](https://github.com/bevyengine/rfcs) a place for informal but detailed discussion and design work for elaborate features and revamps.
 
-The `bevy` repo itself contains many smaller subcrates, each of which can be downloaded on their own, and freely replaced to enable a modular architecture.
+The `bevy` repo itself contains many smaller subcrates, each of which can be downloaded on their own, and modularly replaced to allow you to pick and choose the parts of Bevy that you want to use.
 Of particular interest, [`bevy_ecs`](./crates/bevy_ecs) is fully functional as a stand-alone ECS, which can be very valuable if you're looking to integrate it with other game engines or use it for non-game executables.
 
 [`bevy_app`](./crates/bevy_app) and [`bevy_tasks`](./crates/bevy_tasks) are also worth calling out separately: the former serves as a nice framework to handle various data-piping needs, while the latter is our own lightweight custom async library.
@@ -37,12 +37,12 @@ Of particular interest, [`bevy_ecs`](./crates/bevy_ecs) is fully functional as a
 
 Bevy is intended as an **accessible**, **Rust-first**, **commercially-viable**, **free and open source** game engine.
 
-We prioritize:
+While building Bevy, we're prioritizing:
 
 * rapid experimentation over API stability
-* a consistent vision over a democratic decision making process
-* accessible, lightweight workflows over bureaucratic standardization
-* a focus on our next goal over immediately integrating major new community-contributed features
+* a consistent vision over a democratic decision making process (see [*How we're organized*](https://github.com/bevy-engine/bevy/blob/main/CONTRIBUTING.md#what-were-trying-to-build))
+* flexible processes over bureaucratic standardization
+* focusing on one clear goal at a time over immediately integrating major new community-contributed features
 * end-user ergonomics over implementation simplicity
 * modularity over deep cross-crate integration
 * supporting a thriving, easily integrated ecosystem over cramming every feature into the core engine
@@ -50,7 +50,7 @@ We prioritize:
 * an ergonomic Rust workflow over a first-party scripting language
 * thoughtful public interfaces over maximal configurability
 * welcoming contributions over insisting on existing skills and knowledge
-* an inclusive environment over avoiding conflict at any cost
+* fostering an inclusive environment over avoiding conflict at any cost
 
 ## How we're organized
 
@@ -73,19 +73,22 @@ we work to fix any `high-impact` or `regression` tagged issues that we can,
 write up our release notes and migration guide, and then announce the next Bevy version to the world!
 
 You can see what we're planning by following along at the [Bevy roadmap](https://github.com/bevyengine/bevy/projects/1).
-If you'd like an up-to-the-minute update on progress, feel free to ask on Discord.
+If you'd like an up-to-the-minute look at our progress on a specific project, feel free to ask on Discord.
 
-But as you may have guessed, that's not *all* that happens.
+### Simple changes
+
 Simple changes have a simple process:
 
 1. A community member (that's you!) creates an issue or opens a pull request to fix an issue or add simple functionality.
-2. Other community members review and comment on the work in an ad-hoc fashion.
-3. Once they're content with the quality of the work (code quality, documentation, approach, need for functionality), they individually approve the work.
+2. Other community members review and comment in an ad-hoc fashion. Active subject matter experts may be pinged into a thread.
+3. Once they're content with the quality of the work (code quality, documentation, approach, need for functionality), individual reviewers leave "Approved" reviews.
 4. After consensus has been reached (typically two approvals from the community or one for extremely simple changes) and CI passes, the `ready-for-cart` label is added.
 5. When @cart has a good opportunity to pause from his implementation work, he performs a final code review on these pull requests and then presses the Big Merge Button (actually, he types `bors r+` to make sure we don't break `main` by accident).
 
+### Complex changes
+
 Individual contributors can and do lead major new features and reworks that have caught their interest as well:
-these are merged in once they're ready and released as part of the latest version.
+these are merged as soon as their review and quality control is complete and released as part of the next version.
 
 Complex changes like this tend to go through the following lifecycle:
 
@@ -110,21 +113,21 @@ If you ever find yourself at a loss for what to do, or in need of mentorship or 
 ### Battle-testing Bevy
 
 Ultimately, Bevy is a tool that's designed to help people make cool games.
-By doing so, you can help us catch bugs, prioritize new features, polish off the rough edges and promote the project.
+By using Bevy, you can help us catch bugs, prioritize new features, polish off the rough edges and promote the project.
 
 If you need help, don't hesitate to ask for help on [Discord](https://discord.gg/bevy), [GitHub Discussions](https://github.com/bevyengine/bevy/discussions), [reddit](https://www.reddit.com/r/bevy) or [StackOverflow](https://stackoverflow.com/questions/tagged/bevy).
 
 When you think you've found a bug, some missing documentation or a feature that would help you make better games, please [file an issue](https://github.com/bevyengine/bevy/issues/new/choose) on the main `bevy` repo.
 The templates are great, and high-quality issues really do help us!
-Do your best to search for duplicate issues, but if you're unsure, open a new issue and link to other related issues within.
+Do your best to search for duplicate issues, but if you're unsure, open a new issue and link to other related issues on the thread you make.
 
-And once you've made something that you're proud of, feel free to drop a link, video or screenshot in `#showcase` on Discord!
+Once you've made something that you're proud of, feel free to drop a link, video or screenshot in `#showcase` on Discord!
 If you release a game on [itch.io](https://itch.io/games/tag-bevy) we'd be thrilled if you tagged it with `bevy`.
 
 ### Teaching others
 
 Bevy is still very young, and light on documentation, tutorials and accumulated expertise.
-By teaching others and helping them with their issues, you can learn the engine yourself and make our community better!
+By helping others with their issues, and teaching them about Bevy in the process you will naturally learn the engine and codebase in greater depth while making our community better!
 
 Some of the best ways to do this are:
 
@@ -137,16 +140,16 @@ Some of the best ways to do this are:
 If you're interested in contributing to the community ecosystem in a way that doesn't make sense as part of the core engine,
 feel free to write a plugin or crate for Bevy!
 
-Any useful, reusable and non-trivial pieces of functionality that you've made serves as a good candidate for a plugin.
+Non-trivial, reusable functionality that works well with itself is a good candidate for a plugin.
 If it's closer to a snippet or design pattern, you may want to share it with the community on Discord, Reddit or GitHub Discussions instead.
 
 Check out our [plugin guidelines](https://github.com/bevyengine/bevy/blob/main/docs/plugins_guidelines.md) for helpful tips and norms.
 
 ### Fixing bugs
 
-Bugs in Bevy (or our website / books) are filed on the issue tracker corresponding to where they're found, using the [`bug`](https://github.com/bevyengine/bevy/issues?q=is%3Aissue+is%3Aopen+label%3Abug) label.
+Bugs in Bevy (or the associated website / book) are filed on the issue tracker corresponding to where they're found, using the [`bug`](https://github.com/bevyengine/bevy/issues?q=is%3Aissue+is%3Aopen+label%3Abug) label.
 
-If you're looking for an easy place to start, take a look at the [`good-first-issue`](https://github.com/bevyengine/bevy/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) tag, and feel free to ask questions on the issue in question or on Discord.
+If you're looking for an easy place to start, take a look at the [`good-first-issue`](https://github.com/bevyengine/bevy/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) tag, and feel free to ask questions on that issue's thread in question or on Discord.
 You don't need anyone's permission to try fixing a bug or adding a simple feature, but stating that you'd like to tackle an issue can be helpful to avoid duplicated work.
 
 When you make a pull request that fixes an issue, include a line that says `Fixes #X` (or "Closes"), where `X` is the issue number.
@@ -157,30 +160,30 @@ Bevy can always be safer, better tested, and more idiomatic.
 
 ### Writing docs
 
-Like every other large, rapidly developing open source library you've ever used, Bevy's documentation could stand to be improved.
+Like every other large, rapidly developing open source library you've ever used, Bevy's documentation can always use improvement.
 This is incredibly valuable, easily distributed work, but requires a bit of guidance:
 
 * inaccurate documentation is worse than no documentation: prioritize fixing broken docs
-* Bevy is remarkable unstable: before tackling a new major documentation project, check in with the community about the stability of that feature and upcoming plans to save yourself heartache
+* Bevy is remarkable unstable: before tackling a new major documentation project, check in with the community on Discord or GitHub (making an issue about specific missing docs is a great way to plan) about the stability of that feature and upcoming plans to save yourself heartache
 * code documentation (doc examples and in the examples folder) is easier to maintain because the compiler will tell us when it breaks
-* inline documentation should be fairly direct, minimal and technical
+* inline documentation should be technical and to the point. Link relevant examples or other explanations if broader context is useful.
 * the Bevy book is hosted on the `bevy-website` repo and targeted towards beginners who are just getting to know Bevy (and perhaps Rust!)
-* RFCs are not documentation: they serve as a record of accepted decisions
+* accepted RFCs are not documentation: they serve only as a record of accepted decisions
 
-[docs.rs](https://docs.rs/bevy) is built out of the last release's documentation, which is written right beside the adjacent code.
+[docs.rs](https://docs.rs/bevy) is built from out of the last release's documentation, which is written right in-line directly above the code it documents.
 To view the current docs on `main` before you contribute, clone the `bevy` repo, and run `cargo doc --open`.
 
 ### Writing examples
 
-Most [examples in Bevy](https://github.com/bevyengine/bevy/tree/main/examples) aim to clearly demonstrate a single feature, group of closely related small features, or show how to accomplish a particular task (such as asset loading, creating a custom shader or testing of your app).
-In rare cases, creating new "game" examples is justified to demonstrate new features
-that open a complex class of functionality in a way that's hard to showcase in isolation or requires additional integration testing.
+Most [examples in Bevy](https://github.com/bevyengine/bevy/tree/main/examples) aim to clearly demonstrate a single feature, group of closely related small features, or show how to accomplish a particular task (such as asset loading, creating a custom shader or testing your app).
+In rare cases, creating new "game" examples is justified in order to demonstrate new features
+that open a complex class of functionality in a way that's hard to demonstrate in isolation or requires additional integration testing.
 
 Examples in Bevy should be:
 
-1. **Working:** They must compile and run, and should fail in obvious ways.
-2. **Clear:** They must use descriptive variable names, have reasonable code-quality, be formatted, and be appropriately commented.
-3. **Relevant:** They should explain, through comments or variable names, how what they can be useful to a game developer.
+1. **Working:** They must compile and run, and any introduced errors in them should be obvious (through tests, simple results or clearly displayed behavior).
+2. **Clear:** They must use descriptive variable names, be formatted, and be appropriately commented. Try your best to showcase good habits when it doesn't obscure the point of the example.
+3. **Relevant:** They should explain, through comments or variable names, what they do and how this can be useful to a game developer.
 4. **Minimal:** They should be no larger or more complex than is needed to meet their other goals.
 
 When you add a new example, be sure to update `examples/README.md` with the new example and add it to the root `Cargo.toml` file.
@@ -188,19 +191,19 @@ Use a generous sprinkling of keywords in your description: these are commonly us
 
 More complex demonstrations of functionality are also welcome, but for now belong in community tutorials or template games.
 
-Check out [awesome-bevy](https://github.com/bevyengine/awesome-bevy) for a place to put your tutorials, tools, templates and crates!
+Check out [awesome-bevy](https://github.com/bevyengine/awesome-bevy) for a place to put your tutorials, tools, templates, crates and plugins!
 
 ### Reviewing others work
 
-With the sheer volume of activity in Bevy's community, reviewing others work and helping it improve is one of the most valuable things you can do.
-You don't need to be an Elder Rustacean to be useful here: anyone can catch issues of missing tests, unclear docs, logic errors or so on.
+With the sheer volume of activity in Bevy's community, reviewing others work with the aim of improving it is one of the most valuable things you can do.
+You don't need to be an Elder Rustacean to be useful here: anyone can catch issues of missing tests, unclear docs, logic errors and so on.
 If you have unusual skills (e.g. advanced familiarity with `unsafe` code, rendering knowledge or web development experience) or personal experience with a problem, try to prioritize those areas to ensure we can get appropriate expertise where we need it.
 
 Focus on giving constructive, actionable feedback that results in real improvements to code quality or end-user experience.
 If you don't understand why an approach was taken, please ask!
 
 Small changes work well as comments or in-line suggestions on specific lines of codes.
-Larger changes deserve a comment in the main thread, or a pull request to the original author's branch (but mention that you've made one).
+Larger changes deserve a comment in the main thread, or a pull request to the original author's branch (but please mention that you've made one).
 When in doubt about a matter of architectural philosophy, refer back to [*What we're trying to build*](https://github.com/bevy-engine/bevy/blob/main/CONTRIBUTING.md#what-were-trying-to-build) for guidance.
 
 Once you're happy with the work and feel you're reasonably qualified to assess quality in this particular area, leave your `Approved` review on the PR so we can mark it as `ready-for-cart`.
@@ -215,7 +218,7 @@ Not even our project lead is exempt from reviews and RFCs!
 By giving feedback on this work (and related supporting work), you can help us make sure our releases are both high-quality and timely.
 
 Finally, if nothing brings you more satisfaction than seeing every last issue tagged and all resolved issues closed, feel free to message @cart for a Bevy org role to help us keep things tidy.
-As discussed in [*How we're organized*](https://github.com/bevy-engine/bevy/blob/main/CONTRIBUTING.md#how-were-organized), this is not intended to have a high bar.
+As discussed in [*How we're organized*](https://github.com/bevy-engine/bevy/blob/main/CONTRIBUTING.md#how-were-organized), this janitorial role only requires good faith and a basic understanding of how the engine's development works in practice.
 
 ### Contributing your own ideas
 
@@ -224,7 +227,7 @@ If you're new to Bevy, here's the workflow we use:
 
 1. Fork the `bevyengine/bevy` repository on GitHub, you'll need to create a GitHub account if you don't have one already.
 2. Make your changes in a local clone of your fork, typically in its own new branch.
-   1. Try to split your work into separate commits, each with a new purpose. Be particularly thoughtful of this when responding to reviews so we can see what's changed.
+   1. Try to split your work into separate commits, each with a distinct purpose. Be particularly mindful of this when responding to reviews so it's easy to see what's changed.
 3. For a higher chance of CI passing the first time, consider locally running `cargo run -p ci`. You can run the commands manually:
     1. `cargo fmt --all -- --check` (remove `--check` to let the command fix found problems)
     2. `cargo clippy --workspace --all-targets --all-features -- -D warnings -A clippy::type_complexity`
@@ -238,7 +241,7 @@ To locally lint your files using the same workflow as our CI:
 7. Respond to any CI failures or review feedback. While CI failures must be fixed before we can merge your PR; you do not need to *agree* with all feedback from your reviews, merely acknowledge that it was given. If you cannot come to an agreement, leave the thread open and defer to @cart's final judgement.
 8. When your PR is ready to merge, @cart will review it and suggest final changes. If those changes are minimal he may even apply them directly to speed up merging.
 
-If you end up creating a new crate to the `bevy` repo:
+If you end up adding a new official Bevy crate to the `bevy` repo:
 
 1. Add a "Bevy Contributors <bevyengine@gmail.com>" entry in the Author field of `Cargo.toml`.
 2. Add the new crate to the ./tools./publish.sh file.
@@ -249,7 +252,7 @@ When contributing, please:
 * explain what you're doing and why
 * document new code with doc comments
 * include clear, simple tests
-* add or improve the examples for new functionality
+* add or improve the examples when adding new user-facing functionality
 * break work into digestible chunks
 * ask for any help that you need!
 
