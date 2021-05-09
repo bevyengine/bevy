@@ -558,6 +558,7 @@ where
     }
 }
 
+#[must_use = "use the `done` function to insert the keyframe"]
 pub struct CurveVariableKeyframeBuilder<'a, T: Interpolate> {
     curve: &'a mut CurveVariable<T>,
     time: f32,
