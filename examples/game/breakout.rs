@@ -1,5 +1,6 @@
 use bevy::{
     core::FixedTimestep,
+    input::system::exit_on_esc_system,
     prelude::*,
     render::pass::ClearColor,
     sprite::collide_aabb::{collide, Collision},
@@ -81,26 +82,34 @@ fn main() {
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
                 .with_system(kinematics.system().label("kinematics"))
-                // We need to check for collisions before handling movement 
+                // We need to check for collisions before handling movement
                 // to reduce the risk of the ball passing through objects
                 .with_system(ball_collision.system().before("kinematics")),
         )
         // Ordinary systems run every frame
-        // We need to handle input before we move our paddle, 
+        // We need to handle input before we move our paddle,
         // to ensure that we're responding to the most recent frame's events,
         // avoiding input lag
-        // See https://github.com/bevyengine/bevy/blob/latest/examples/ecs/ecs_guide.rs 
+        // See https://github.com/bevyengine/bevy/blob/latest/examples/ecs/ecs_guide.rs
         // for more information on system ordering
-        .add_system(paddle_input.system().before("bound_paddle").before("kinematics"))
+        .add_system(
+            paddle_input
+                .system()
+                .before("bound_paddle")
+                .before("kinematics"),
+        )
         .add_system(
             bound_paddle
                 .system()
                 .label("bound_paddle")
                 // This system must run after kinematics, or the velocity will be set to 0
-                // before the paddle moves, causing it to be stuck to the wall 
+                // before the paddle moves, causing it to be stuck to the wall
                 .after("kinematics"),
         )
         .add_system(update_scoreboard.system())
+        // Exits the game when `KeyCode::Esc` is pressed
+        // This is a simple built-in system
+        .add_system(exit_on_esc_system.system())
         .run();
 }
 
