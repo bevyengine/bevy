@@ -37,7 +37,7 @@ impl<T> CurveVariableLinear<T> {
 
         // Make sure both have the same length
         if length != values.len() {
-            return Err(CurveCreationError::MissMachLength);
+            return Err(CurveCreationError::MismatchedLength);
         }
 
         if values.len() > CurveCursor::MAX as usize {
