@@ -10,11 +10,11 @@ pub enum FileType {
 
 impl FileType {
     pub const fn is_dir(&self) -> bool {
-        (*self as isize) == (Self::Directory as isize)
+        matches!(self, Self::Directory)
     }
 
     pub const fn is_file(&self) -> bool {
-        (*self as isize) == (Self::File as isize)
+        matches!(self, Self::File)
     }
 }
 
