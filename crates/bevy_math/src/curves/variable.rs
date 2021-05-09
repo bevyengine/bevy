@@ -8,9 +8,13 @@ use crate::{
 /// Keyframe tangents control mode
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum TangentControl {
+    /// Tangents are automatically calculated, based on the catmull-rom algorithm
     Auto,
+    /// In tangent will be the same as the out tangent
     Free,
+    /// Tangents will set to be [`Interpolate::FLAT_TANGENT`]
     Flat,
+    /// In and out tangents can be set to a different values
     Broken,
 }
 
@@ -394,6 +398,11 @@ where
                         &self.keyframes[n],
                     );
                 }
+            }
+            TangentControl::Free => {
+                // Copy left tangent into the right tangent
+                self.tangents_out[i] = self.tangents_in[i];
+                return;
             }
             TangentControl::Flat => {}
             _ => {
