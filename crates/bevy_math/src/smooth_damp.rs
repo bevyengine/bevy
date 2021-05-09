@@ -12,9 +12,6 @@ pub trait SmoothDampFunctions {
     ///
     /// Returns smoothed value and new velocity.
     ///
-    /// # Panics
-    /// Panics if `smooth_time <= 0.0`.
-    ///
     /// # Example
     /// ```
     /// # use bevy_math::prelude::{Vec3, Quat};
@@ -57,9 +54,6 @@ pub trait SmoothDampFunctions {
     /// `smooth_time` is the expected time to reach the target when at maximum velocity.
     ///
     /// Returns smoothed value and new velocity.
-    ///
-    /// # Panics
-    /// Panics if `smooth_time <= 0.0` or `max_speed <= 0.0`.
     ///
     /// # Example
     /// ```
@@ -115,9 +109,7 @@ macro_rules! impl_smooth_damp {
                 smooth_time: f32,
                 delta_time: f32,
             ) -> SmoothDamp<Self> {
-                assert!(smooth_time > 0.0, "Smooth time must be greater than zero.");
-                let smooth_time = smooth_time as $f;
-
+                let smooth_time = <$f>::max(smooth_time as $f, 0.00001);
                 let delta_time = delta_time as $f;
 
                 // from game programming gems 4, chapter 1.10
@@ -146,11 +138,8 @@ macro_rules! impl_smooth_damp {
                 smooth_time: f32,
                 delta_time: f32,
             ) -> SmoothDamp<Self> {
-                assert!(max_speed > 0.0, "Max speed must be greater than zero.");
-                let max_speed = max_speed as $f;
-
-                assert!(smooth_time > 0.0, "Smooth time must be greater than zero.");
-                let smooth_time = smooth_time as $f;
+                let max_speed = <$f>::max(max_speed as $f, 0.00001);
+                let smooth_time = <$f>::max(smooth_time as $f, 0.00001);
 
                 let delta_time = delta_time as $f;
 
