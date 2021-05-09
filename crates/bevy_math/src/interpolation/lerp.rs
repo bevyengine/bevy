@@ -91,13 +91,9 @@ impl Lerp for Quat {
 
 impl<T: Lerp + Clone> Lerp for Option<T> {
     fn lerp_unclamped(a: &Self, b: &Self, t: f32) -> Self {
-        match (a.is_some(), b.is_some()) {
-            (true, true) => Some(T::lerp_unclamped(
-                a.as_ref().unwrap(),
-                b.as_ref().unwrap(),
-                t,
-            )),
-            (false, true) | (true, false) | (false, false) => {
+        match (a, b) {
+            (Some(a), Some(b)) => Some(T::lerp_unclamped(a, b, t)),
+            _ => {
                 if t > 0.99 {
                     b.clone()
                 } else {
