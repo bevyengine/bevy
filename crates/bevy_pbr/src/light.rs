@@ -65,7 +65,7 @@ impl PointLightUniform {
 /// |-------------------|------------------------------------------------|
 /// | 0.0001            | Moonless, overcast night sky (starlight)       |
 /// | 0.002             | Moonless clear night sky with airglow          |
-/// | 0.05–0.3 	        | Full moon on a clear night                     |
+/// | 0.05–0.3          | Full moon on a clear night                     |
 /// | 3.4               | Dark limit of civil twilight under a clear sky |
 /// | 20–50             | Public areas with dark surroundings            |
 /// | 50                | Family living room lights                      |
