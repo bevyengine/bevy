@@ -30,7 +30,7 @@ pub trait Curve {
 #[derive(Error, Debug)]
 pub enum CurveCreationError {
     #[error("number of keyframes time stamps and values doesn't match")]
-    MissMachLength,
+    MismatchedLength,
     #[error("limit of {0} keyframes exceeded")]
     KeyframeLimitReached(usize),
     #[error("keyframes aren't sorted by time")]
