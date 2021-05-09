@@ -9,6 +9,7 @@ pub use light::*;
 pub use material::*;
 
 pub mod prelude {
+    #[doc(hidden)]
     pub use crate::{entity::*, light::PointLight, material::StandardMaterial};
 }
 

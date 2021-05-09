@@ -40,6 +40,6 @@ struct PrintMessageState {
 
 fn print_message_system(mut state: ResMut<PrintMessageState>, time: Res<Time>) {
     if state.timer.tick(time.delta()).finished() {
-        println!("{}", state.message);
+        info!("{}", state.message);
     }
 }

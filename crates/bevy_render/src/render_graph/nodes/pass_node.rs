@@ -167,7 +167,8 @@ where
                     }
                     for render_command in draw.render_commands.iter() {
                         commands.push(render_command.clone());
-                        // whenever a new pipeline is set, ensure the relevant camera bind groups are set
+                        // whenever a new pipeline is set, ensure the relevant camera bind groups
+                        // are set
                         if let RenderCommand::SetPipeline { pipeline } = render_command {
                             let bind_groups = pipeline_camera_commands
                                 .entry(pipeline.clone_weak())

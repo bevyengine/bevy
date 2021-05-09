@@ -11,6 +11,7 @@ mod texture_atlas;
 mod texture_atlas_builder;
 
 pub mod prelude {
+    #[doc(hidden)]
     pub use crate::{
         entity::{SpriteBundle, SpriteSheetBundle},
         ColorMaterial, Sprite, SpriteResizeMode, TextureAtlas, TextureAtlasSprite,

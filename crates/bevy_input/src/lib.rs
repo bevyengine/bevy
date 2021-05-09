@@ -14,6 +14,7 @@ use bevy_ecs::{
 pub use input::*;
 
 pub mod prelude {
+    #[doc(hidden)]
     pub use crate::{
         gamepad::{
             Gamepad, GamepadAxis, GamepadAxisType, GamepadButton, GamepadButtonType, GamepadEvent,

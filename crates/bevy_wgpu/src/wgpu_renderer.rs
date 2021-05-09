@@ -47,7 +47,12 @@ impl WgpuRenderer {
             .expect("Unable to find a GPU! Make sure you have installed required drivers!");
 
         #[cfg(feature = "trace")]
-        let trace_path = Some(std::path::Path::new("wgpu_trace"));
+        let trace_path = {
+            let path = std::path::Path::new("wgpu_trace");
+            // ignore potential error, wgpu will log it
+            let _ = std::fs::create_dir(path);
+            Some(path)
+        };
         #[cfg(not(feature = "trace"))]
         let trace_path = None;
 
@@ -94,6 +99,7 @@ impl WgpuRenderer {
             {
                 let winit_windows = world.get_resource::<bevy_winit::WinitWindows>().unwrap();
                 let winit_window = winit_windows.get_window(window.id()).unwrap();
+                // SAFE: The raw window handle created from a `winit::Window` is always valid.
                 let surface = unsafe { self.instance.create_surface(winit_window.deref()) };
                 render_resource_context.set_window_surface(window.id(), surface);
             }

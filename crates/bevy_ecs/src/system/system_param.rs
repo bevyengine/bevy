@@ -10,6 +10,7 @@ use crate::{
 pub use bevy_ecs_macros::SystemParam;
 use bevy_ecs_macros::{all_tuples, impl_query_set};
 use std::{
+    fmt::Debug,
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
@@ -167,11 +168,20 @@ impl_query_set!();
 /// Panics when used as a [`SystemParameter`](SystemParam) if the resource does not exist.
 ///
 /// Use `Option<Res<T>>` instead if the resource might not always exist.
-pub struct Res<'w, T> {
+pub struct Res<'w, T: Component> {
     value: &'w T,
     ticks: &'w ComponentTicks,
     last_change_tick: u32,
     change_tick: u32,
+}
+
+impl<'w, T: Component> Debug for Res<'w, T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Res").field(&self.value).finish()
+    }
 }
 
 impl<'w, T: Component> Res<'w, T> {
@@ -311,11 +321,20 @@ impl<'a, T: Component> SystemParamFetch<'a> for OptionResState<T> {
 /// Panics when used as a [`SystemParameter`](SystemParam) if the resource does not exist.
 ///
 /// Use `Option<ResMut<T>>` instead if the resource might not always exist.
-pub struct ResMut<'w, T> {
+pub struct ResMut<'w, T: Component> {
     value: &'w mut T,
     ticks: &'w mut ComponentTicks,
     last_change_tick: u32,
     change_tick: u32,
+}
+
+impl<'w, T: Component> Debug for ResMut<'w, T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("ResMut").field(&self.value).finish()
+    }
 }
 
 impl<'w, T: Component> ResMut<'w, T> {
@@ -407,7 +426,8 @@ impl<'a, T: Component> SystemParamFetch<'a> for ResMutState<T> {
             .get_resource_unchecked_mut_with_id(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
-                    "Requested resource does not exist: {}",
+                    "Resource requested by {} does not exist: {}",
+                    system_state.name,
                     std::any::type_name::<T>()
                 )
             });
@@ -518,6 +538,15 @@ impl<'a> SystemParamFetch<'a> for CommandQueue {
 /// assert_eq!(read_system.run((), world), 0);
 /// ```
 pub struct Local<'a, T: Component>(&'a mut T);
+
+impl<'a, T: Component> Debug for Local<'a, T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Local").field(&self.0).finish()
+    }
+}
 
 impl<'a, T: Component> Deref for Local<'a, T> {
     type Target = T;
@@ -660,6 +689,15 @@ pub struct NonSend<'w, T> {
     change_tick: u32,
 }
 
+impl<'w, T> Debug for NonSend<'w, T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("NonSend").field(&self.value).finish()
+    }
+}
+
 impl<'w, T: Component> NonSend<'w, T> {
     /// Returns true if (and only if) this resource been added since the last execution of this
     /// system.
@@ -741,7 +779,8 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendState<T> {
             .get_populated_resource_column(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
-                    "Requested non-send resource does not exist: {}",
+                    "Non-send resource requested by {} does not exist: {}",
+                    system_state.name,
                     std::any::type_name::<T>()
                 )
             });
@@ -805,7 +844,7 @@ impl<'a, T: 'static> DerefMut for NonSendMut<'a, T> {
 
 impl<'a, T: 'static + core::fmt::Debug> core::fmt::Debug for NonSendMut<'a, T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        self.value.fmt(f)
+        f.debug_tuple("NonSendMut").field(&self.value).finish()
     }
 }
 
@@ -871,7 +910,8 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendMutState<T> {
             .get_populated_resource_column(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
-                    "Requested non-send resource does not exist: {}",
+                    "Non-send resource requested by {} does not exist: {}",
+                    system_state.name,
                     std::any::type_name::<T>()
                 )
             });
@@ -883,8 +923,6 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendMutState<T> {
         }
     }
 }
-
-pub struct OrState<T>(T);
 
 impl<'a> SystemParam for &'a Archetypes {
     type Fetch = ArchetypesState;

@@ -323,7 +323,7 @@ fn spawn_bonus(
                 Transform {
                     translation: Vec3::new(
                         game.bonus.i as f32,
-                        game.board[game.player.j][game.player.i].height + 0.2,
+                        game.board[game.bonus.j][game.bonus.i].height + 0.2,
                         game.bonus.j as f32,
                     ),
                     ..Default::default()

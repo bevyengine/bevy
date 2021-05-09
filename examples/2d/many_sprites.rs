@@ -12,8 +12,8 @@ const CAMERA_SPEED: f32 = 1000.0;
 pub struct PrintTimer(Timer);
 pub struct Position(Transform);
 
-///This example is for performance testing purposes.
-///See https://github.com/bevyengine/bevy/pull/1492
+/// This example is for performance testing purposes.
+/// See https://github.com/bevyengine/bevy/pull/1492
 fn main() {
     App::build()
         .add_plugin(LogDiagnosticsPlugin::default())
@@ -90,7 +90,7 @@ fn tick(time: Res<Time>, sprites: Query<&Sprite>, mut query: Query<&mut PrintTim
         timer.0.tick(time.delta());
 
         if timer.0.just_finished() {
-            println!("Sprites: {}", sprites.iter().count(),);
+            info!("Sprites: {}", sprites.iter().count(),);
         }
     }
 }

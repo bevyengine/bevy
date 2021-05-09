@@ -18,7 +18,7 @@ use bevy_ecs::schedule::State;
 /// but only one should react, for example in the case of triggering
 /// [`State`] change, you should consider clearing the input state, either by:
 ///
-/// * Using [`Input::just_pressed_and_clear`] or [`Input::just_released_and_clear`] instead.
+/// * Using [`Input::clear_just_pressed`] or [`Input::clear_just_released`] instead.
 /// * Calling [`Input::clear`] or [`Input::reset`] immediately after the state change.
 ///
 /// ## Notes when adding this resource for a new input type
@@ -74,8 +74,8 @@ where
         self.just_pressed.contains(&input)
     }
 
-    /// Clear the "just pressed" state of `input`. Future calls to [`Input::just_pressed`] for the given
-    /// input will return false until a new press event occurs.
+    /// Clear the "just pressed" state of `input`. Future calls to [`Input::just_pressed`] for the
+    /// given input will return false until a new press event occurs.
     /// Returns true if `input` is currently "just pressed"
     pub fn clear_just_pressed(&mut self, input: T) -> bool {
         self.just_pressed.remove(&input)
@@ -86,8 +86,8 @@ where
         self.just_released.contains(&input)
     }
 
-    /// Clear the "just released" state of `input`. Future calls to [`Input::just_released`] for the given
-    /// input will return false until a new release event occurs.
+    /// Clear the "just released" state of `input`. Future calls to [`Input::just_released`] for the
+    /// given input will return false until a new release event occurs.
     /// Returns true if `input` is currently "just released"
     pub fn clear_just_released(&mut self, input: T) -> bool {
         self.just_released.remove(&input)

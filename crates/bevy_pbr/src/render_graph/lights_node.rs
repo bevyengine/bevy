@@ -47,6 +47,7 @@ impl Node for LightsNode {
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 struct LightCount {
+    // storing as a `[u32; 4]` for memory alignement
     pub num_lights: [u32; 4],
 }
 
@@ -91,7 +92,7 @@ pub fn lights_node_system(
     let ambient_light: [f32; 4] =
         (ambient_light_resource.color * ambient_light_resource.brightness).into();
     let ambient_light_size = std::mem::size_of::<[f32; 4]>();
-    let point_light_count = query.iter().count();
+    let point_light_count = query.iter().len().min(state.max_point_lights);
     let size = std::mem::size_of::<PointLightUniform>();
     let light_count_size = ambient_light_size + std::mem::size_of::<LightCount>();
     let point_light_array_size = size * point_light_count;

@@ -39,7 +39,7 @@ const int MAX_LIGHTS = 10;
 struct PointLight {
     vec4 pos;
     vec4 color;
-    float inverseRangeSquared;
+    vec4 lightParams;
 };
 
 layout(location = 0) in vec3 v_WorldPosition;
@@ -193,12 +193,12 @@ vec3 fresnel(vec3 f0, float LoH) {
 // Cook-Torrance approximation of the microfacet model integration using Fresnel law F to model f_m
 // f_r(v,l) = { D(h,α) G(v,l,α) F(v,h,f0) } / { 4 (n⋅v) (n⋅l) }
 vec3 specular(vec3 f0, float roughness, const vec3 h, float NoV, float NoL,
-              float NoH, float LoH) {
+              float NoH, float LoH, float specularIntensity) {
     float D = D_GGX(roughness, NoH, h);
     float V = V_SmithGGXCorrelated(roughness, NoV, NoL);
     vec3 F = fresnel(f0, LoH);
 
-    return (D * V) * F;
+    return (specularIntensity * D * V) * F;
 }
 
 // Diffuse BRDF
@@ -339,24 +339,44 @@ void main() {
     // Diffuse strength inversely related to metallicity
     vec3 diffuseColor = output_color.rgb * (1.0 - metallic);
 
+    vec3 R = reflect(-V, N);
+
     // accumulate color
     vec3 light_accum = vec3(0.0);
     for (int i = 0; i < int(NumLights.x) && i < MAX_LIGHTS; ++i) {
         PointLight light = PointLights[i];
-
         vec3 light_to_frag = light.pos.xyz - v_WorldPosition.xyz;
-        vec3 L = normalize(light_to_frag);
         float distance_square = dot(light_to_frag, light_to_frag);
-
         float rangeAttenuation =
-            getDistanceAttenuation(distance_square, light.inverseRangeSquared);
+            getDistanceAttenuation(distance_square, light.lightParams.r);
 
+        // Specular.
+        // Representative Point Area Lights.
+        // see http://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf p14-16
+        float a = roughness;
+        float radius = light.lightParams.g;
+        vec3 centerToRay = dot(light_to_frag, R) * R - light_to_frag;
+        vec3 closestPoint = light_to_frag + centerToRay * saturate(radius * inversesqrt(dot(centerToRay, centerToRay)));
+        float LspecLengthInverse = inversesqrt(dot(closestPoint, closestPoint));
+        float normalizationFactor = a / saturate(a + (radius * 0.5 * LspecLengthInverse));
+        float specularIntensity = normalizationFactor * normalizationFactor;
+
+        vec3 L = closestPoint * LspecLengthInverse; // normalize() equivalent?
         vec3 H = normalize(L + V);
         float NoL = saturate(dot(N, L));
         float NoH = saturate(dot(N, H));
         float LoH = saturate(dot(L, H));
 
-        vec3 specular = specular(F0, roughness, H, NdotV, NoL, NoH, LoH);
+        vec3 specular = specular(F0, roughness, H, NdotV, NoL, NoH, LoH, specularIntensity);
+
+        // Diffuse.
+        // Comes after specular since its NoL is used in the lighting equation.
+        L = normalize(light_to_frag);
+        H = normalize(L + V);
+        NoL = saturate(dot(N, L));
+        NoH = saturate(dot(N, H));
+        LoH = saturate(dot(L, H));
+
         vec3 diffuse = diffuseColor * Fd_Burley(roughness, NdotV, NoL, LoH);
 
         // Lout = f(v,l) Φ / { 4 π d^2 }⟨n⋅l⟩

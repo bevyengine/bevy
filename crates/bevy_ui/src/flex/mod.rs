@@ -21,6 +21,18 @@ pub struct FlexSurface {
     stretch: Stretch,
 }
 
+// SAFE: as long as MeasureFunc is Send + Sync. https://github.com/vislyhq/stretch/issues/69
+unsafe impl Send for FlexSurface {}
+unsafe impl Sync for FlexSurface {}
+
+fn _assert_send_sync_flex_surface_impl_safe() {
+    fn _assert_send_sync<T: Send + Sync>() {}
+    _assert_send_sync::<HashMap<Entity, stretch::node::Node>>();
+    _assert_send_sync::<HashMap<WindowId, stretch::node::Node>>();
+    // FIXME https://github.com/vislyhq/stretch/issues/69
+    // _assert_send_sync::<Stretch>();
+}
+
 impl fmt::Debug for FlexSurface {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("FlexSurface")
@@ -182,10 +194,6 @@ pub enum FlexError {
     InvalidHierarchy,
     StretchError(stretch::Error),
 }
-
-// SAFE: as long as MeasureFunc is Send + Sync. https://github.com/vislyhq/stretch/issues/69
-unsafe impl Send for FlexSurface {}
-unsafe impl Sync for FlexSurface {}
 
 #[allow(clippy::too_many_arguments)]
 pub fn flex_node_system(

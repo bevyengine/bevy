@@ -279,7 +279,7 @@ mod tests {
     };
 
     #[test]
-    pub fn test_spawn() {
+    fn test_spawn() {
         let pool = TaskPool::new();
 
         let foo = Box::new(42);
@@ -310,7 +310,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_mixed_spawn_local_and_spawn() {
+    fn test_mixed_spawn_local_and_spawn() {
         let pool = TaskPool::new();
 
         let foo = Box::new(42);
@@ -355,7 +355,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_thread_locality() {
+    fn test_thread_locality() {
         let pool = Arc::new(TaskPool::new());
         let count = Arc::new(AtomicI32::new(0));
         let barrier = Arc::new(Barrier::new(101));

@@ -3,6 +3,7 @@ extern crate proc_macro;
 mod app_plugin;
 mod bevy_main;
 mod bytes;
+mod enum_variant_meta;
 mod modules;
 mod render_resource;
 mod render_resources;
@@ -53,4 +54,9 @@ pub fn derive_dynamic_plugin(input: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn bevy_main(attr: TokenStream, item: TokenStream) -> TokenStream {
     bevy_main::bevy_main(attr, item)
+}
+
+#[proc_macro_derive(EnumVariantMeta, attributes(as_crate))]
+pub fn derive_enum_variant_meta(input: TokenStream) -> TokenStream {
+    enum_variant_meta::derive_enum_variant_meta(input)
 }

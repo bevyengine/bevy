@@ -4,36 +4,79 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
-        .add_system(animate.system())
+        .add_system(animate_translation.system())
+        .add_system(animate_rotation.system())
+        .add_system(animate_scale.system())
         .run();
 }
 
+struct AnimateTranslation;
+struct AnimateRotation;
+struct AnimateScale;
+
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let text_style = TextStyle {
+        font,
+        font_size: 60.0,
+        color: Color::WHITE,
+    };
+    let text_alignment = TextAlignment {
+        vertical: VerticalAlign::Center,
+        horizontal: HorizontalAlign::Center,
+    };
     // 2d camera
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-    commands.spawn_bundle(Text2dBundle {
-        text: Text::with_section(
-            "This text is in the 2D scene.",
-            TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 60.0,
-                color: Color::WHITE,
-            },
-            TextAlignment {
-                vertical: VerticalAlign::Center,
-                horizontal: HorizontalAlign::Center,
-            },
-        ),
-        ..Default::default()
-    });
+    // Demonstrate changing translation
+    commands
+        .spawn_bundle(Text2dBundle {
+            text: Text::with_section("translation", text_style.clone(), text_alignment),
+            ..Default::default()
+        })
+        .insert(AnimateTranslation);
+    // Demonstrate changing rotation
+    commands
+        .spawn_bundle(Text2dBundle {
+            text: Text::with_section("rotation", text_style.clone(), text_alignment),
+            ..Default::default()
+        })
+        .insert(AnimateRotation);
+    // Demonstrate changing scale
+    commands
+        .spawn_bundle(Text2dBundle {
+            text: Text::with_section("scale", text_style, text_alignment),
+            ..Default::default()
+        })
+        .insert(AnimateScale);
 }
 
-fn animate(time: Res<Time>, mut query: Query<&mut Transform, With<Text>>) {
-    // `Transform.translation` will determine the location of the text.
-    // `Transform.scale` and `Transform.rotation` do not yet affect text (though you can set the
-    // size of the text via `Text.style.font_size`)
+fn animate_translation(
+    time: Res<Time>,
+    mut query: Query<&mut Transform, (With<Text>, With<AnimateTranslation>)>,
+) {
     for mut transform in query.iter_mut() {
-        transform.translation.x = 100.0 * time.seconds_since_startup().sin() as f32;
+        transform.translation.x = 100.0 * time.seconds_since_startup().sin() as f32 - 400.0;
         transform.translation.y = 100.0 * time.seconds_since_startup().cos() as f32;
+    }
+}
+
+fn animate_rotation(
+    time: Res<Time>,
+    mut query: Query<&mut Transform, (With<Text>, With<AnimateRotation>)>,
+) {
+    for mut transform in query.iter_mut() {
+        transform.rotation = Quat::from_rotation_z(time.seconds_since_startup().cos() as f32);
+    }
+}
+
+fn animate_scale(
+    time: Res<Time>,
+    mut query: Query<&mut Transform, (With<Text>, With<AnimateScale>)>,
+) {
+    // Consider changing font-size instead of scaling the transform. Scaling a Text2D will scale the
+    // rendered quad, resulting in a pixellated look.
+    for mut transform in query.iter_mut() {
+        transform.translation = Vec3::new(400.0, 0.0, 0.0);
+        transform.scale = Vec3::splat((time.seconds_since_startup().sin() as f32 + 1.1) * 2.0);
     }
 }
