@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 
 use crate::{
-    curves::{Curve, CurveCreationError, CurveCursor},
+    curves::{Curve, CurveCursor, CurveError},
     interpolation::{Interpolate, Interpolation},
 };
 
@@ -72,10 +72,7 @@ where
     T: Interpolate,
 {
     #[inline]
-    pub fn with_flat_tangents(
-        samples: Vec<f32>,
-        values: Vec<T>,
-    ) -> Result<Self, CurveCreationError> {
+    pub fn with_flat_tangents(samples: Vec<f32>, values: Vec<T>) -> Result<Self, CurveError> {
         Self::with_tangents_and_mode(
             samples,
             values,
@@ -85,10 +82,7 @@ where
     }
 
     #[inline]
-    pub fn with_auto_tangents(
-        samples: Vec<f32>,
-        values: Vec<T>,
-    ) -> Result<Self, CurveCreationError> {
+    pub fn with_auto_tangents(samples: Vec<f32>, values: Vec<T>) -> Result<Self, CurveError> {
         Self::with_tangents_and_mode(
             samples,
             values,
@@ -102,18 +96,16 @@ where
         values: Vec<T>,
         tangent_control: TangentControl,
         mode: Interpolation,
-    ) -> Result<Self, CurveCreationError> {
+    ) -> Result<Self, CurveError> {
         let length = samples.len();
 
         // Make sure both have the same length
         if length != values.len() {
-            return Err(CurveCreationError::MismatchedLength);
+            return Err(CurveError::MismatchedLength);
         }
 
         if values.len() > CurveCursor::MAX as usize {
-            return Err(CurveCreationError::KeyframeLimitReached(
-                CurveCursor::MAX as usize,
-            ));
+            return Err(CurveError::KeyframeLimitReached(CurveCursor::MAX as usize));
         }
 
         // Make sure the
@@ -122,7 +114,7 @@ where
             .zip(samples.iter().skip(1))
             .all(|(a, b)| a < b)
         {
-            return Err(CurveCreationError::NotSorted);
+            return Err(CurveError::NotSorted);
         }
 
         let mut tangents = Vec::with_capacity(length);
@@ -620,16 +612,23 @@ impl<'a, T: Interpolate> CurveVariableKeyframeBuilder<'a, T> {
         self.tangent_out = tangent;
     }
 
-    pub fn done(self) {
-        if let Some(i) = self.curve.time_stamps.iter().position(|t| *t < self.time) {
-            self.curve.time_stamps.insert(i, self.time);
-            self.curve.keyframes.insert(i, self.value);
-            self.curve.modes.insert(i, self.mode);
-            self.curve.tangents_control.insert(i, self.tangent_control);
-            self.curve.tangents_in.insert(i, self.tangent_in);
-            self.curve.tangents_out.insert(i, self.tangent_out);
+    pub fn done(self) -> Result<CurveCursor, CurveError> {
+        let index;
 
-            self.curve.adjust_tangents_with_neighbors(i);
+        if self.curve.len() >= (CurveCursor::MAX - 1) as usize {
+            return Err(CurveError::KeyframeLimitReached(CurveCursor::MAX as usize));
+        }
+
+        if let Some(i) = self.curve.time_stamps.iter().position(|t| *t > self.time) {
+            index = i;
+            self.curve.time_stamps.insert(index, self.time);
+            self.curve.keyframes.insert(index, self.value);
+            self.curve.modes.insert(index, self.mode);
+            self.curve
+                .tangents_control
+                .insert(index, self.tangent_control);
+            self.curve.tangents_in.insert(index, self.tangent_in);
+            self.curve.tangents_out.insert(index, self.tangent_out);
         } else {
             self.curve.time_stamps.push(self.time);
             self.curve.keyframes.push(self.value);
@@ -638,9 +637,11 @@ impl<'a, T: Interpolate> CurveVariableKeyframeBuilder<'a, T> {
             self.curve.tangents_in.push(self.tangent_in);
             self.curve.tangents_out.push(self.tangent_out);
 
-            self.curve
-                .adjust_tangents_with_neighbors(self.curve.keyframes.len() - 1);
+            index = self.curve.keyframes.len() - 1;
         }
+
+        self.curve.adjust_tangents_with_neighbors(index);
+        Ok(index as CurveCursor)
     }
 }
 

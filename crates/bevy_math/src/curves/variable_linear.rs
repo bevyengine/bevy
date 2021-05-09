@@ -1,5 +1,5 @@
 use crate::{
-    curves::{Curve, CurveCreationError, CurveCursor},
+    curves::{Curve, CurveCursor, CurveError},
     interpolation::Lerp,
 };
 
@@ -32,18 +32,16 @@ impl<T: Clone> Clone for CurveVariableLinear<T> {
 }
 
 impl<T> CurveVariableLinear<T> {
-    pub fn new(samples: Vec<f32>, values: Vec<T>) -> Result<Self, CurveCreationError> {
+    pub fn new(samples: Vec<f32>, values: Vec<T>) -> Result<Self, CurveError> {
         let length = samples.len();
 
         // Make sure both have the same length
         if length != values.len() {
-            return Err(CurveCreationError::MismatchedLength);
+            return Err(CurveError::MismatchedLength);
         }
 
         if values.len() > CurveCursor::MAX as usize {
-            return Err(CurveCreationError::KeyframeLimitReached(
-                CurveCursor::MAX as usize,
-            ));
+            return Err(CurveError::KeyframeLimitReached(CurveCursor::MAX as usize));
         }
 
         // Make sure the
@@ -52,7 +50,7 @@ impl<T> CurveVariableLinear<T> {
             .zip(samples.iter().skip(1))
             .all(|(a, b)| a < b)
         {
-            return Err(CurveCreationError::NotSorted);
+            return Err(CurveError::NotSorted);
         }
 
         Ok(Self {
