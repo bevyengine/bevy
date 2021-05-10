@@ -7,17 +7,13 @@ If you don't see your distro present in the list, feel free to add the instructi
 ## Ubuntu 20.04
 
 ```bash
-sudo apt-get install pkg-config libx11-dev libasound2-dev libudev-dev
+sudo apt-get install g++ pkg-config libx11-dev libasound2-dev libudev-dev
 ```
 
 Depending on your graphics card, you may have to install one of the following:
 `vulkan-radeon`, `vulkan-intel`, or `mesa-vulkan-drivers`
 
-If you want to enable fast compiles
-
-```bash
-sudo apt-get install clang
-```
+Compiling with clang is also possible - replace the `g++` package with `clang`.
 
 ### Windows Subsystem for Linux (WSL 2)
 
@@ -28,6 +24,23 @@ Please see the ubuntu [WSL documentation](https://wiki.ubuntu.com/WSL) on how to
 
 ```bash
 sudo dnf install gcc-c++ libX11-devel alsa-lib-devel systemd-devel
+```
+
+If there are errors with linking during the build process such as:
+
+```bash
+ = note: /usr/bin/ld: skipping incompatible /usr/lib/libasound.so when searching for -lasound
+          /usr/bin/ld: skipping incompatible /usr/lib/libasound.so when searching for -lasound
+          /usr/bin/ld: skipping incompatible /usr/lib/gcc/x86_64-redhat-linux/10/../../../libasound.so when searching for -lasound
+          /usr/bin/ld: skipping incompatible /lib/libasound.so when searching for -lasound
+          /usr/bin/ld: skipping incompatible /usr/lib/libasound.so when searching for -lasound
+          /usr/bin/ld: cannot find -lasound
+```
+
+Add your arch to the end of the package to remove the linker error. For example:
+
+```bash
+sudo dnf install alsa-lib-devel.x86_64
 ```
 
 ## Arch / Manjaro

@@ -9,7 +9,7 @@ edition = "2018"
 
 [dev-dependencies]
 criterion = "0.3"
-rand = "0.8.1"
+rand = "0.8.3"
 bevy = { path = "../" }
 
 [[bench]]
@@ -30,4 +30,9 @@ harness = false
 [[bench]]
 name = "animation-tracks-narrow-and-wide"
 path = "benches/bevy_animation/tracks_narrow_and_wide.rs"
+harness = false
+
+[[bench]]
+name = "curves"
+path = "benches/bevy_math/curves.rs"
 harness = false

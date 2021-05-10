@@ -4,8 +4,8 @@ use super::{
 };
 use crate::{
     pass::{
-        LoadOp, Operations, PassDescriptor, RenderPassColorAttachmentDescriptor,
-        RenderPassDepthStencilAttachmentDescriptor, TextureAttachment,
+        LoadOp, Operations, PassDescriptor, RenderPassColorAttachment,
+        RenderPassDepthStencilAttachment, TextureAttachment,
     },
     texture::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage},
     Color,
@@ -31,20 +31,20 @@ impl Default for Msaa {
 }
 
 impl Msaa {
-    pub fn color_attachment_descriptor(
+    pub fn color_attachment(
         &self,
         attachment: TextureAttachment,
         resolve_target: TextureAttachment,
         ops: Operations<Color>,
-    ) -> RenderPassColorAttachmentDescriptor {
+    ) -> RenderPassColorAttachment {
         if self.samples > 1 {
-            RenderPassColorAttachmentDescriptor {
+            RenderPassColorAttachment {
                 attachment,
                 resolve_target: Some(resolve_target),
                 ops,
             }
         } else {
-            RenderPassColorAttachmentDescriptor {
+            RenderPassColorAttachment {
                 attachment,
                 resolve_target: None,
                 ops,
@@ -117,7 +117,7 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
                 WindowId::primary(),
                 TextureDescriptor {
                     size: Extent3d {
-                        depth: 1,
+                        depth_or_array_layers: 1,
                         width: 1,
                         height: 1,
                     },
@@ -134,7 +134,7 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
 
     if config.add_main_pass {
         let mut main_pass_node = PassNode::<&MainPass>::new(PassDescriptor {
-            color_attachments: vec![msaa.color_attachment_descriptor(
+            color_attachments: vec![msaa.color_attachment(
                 TextureAttachment::Input("color_attachment".to_string()),
                 TextureAttachment::Input("color_resolve_target".to_string()),
                 Operations {
@@ -142,7 +142,7 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
                     store: true,
                 },
             )],
-            depth_stencil_attachment: Some(RenderPassDepthStencilAttachmentDescriptor {
+            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 attachment: TextureAttachment::Input("depth".to_string()),
                 depth_ops: Some(Operations {
                     load: LoadOp::Clear(1.0),
@@ -212,7 +212,7 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
                 WindowId::primary(),
                 TextureDescriptor {
                     size: Extent3d {
-                        depth: 1,
+                        depth_or_array_layers: 1,
                         width: 1,
                         height: 1,
                     },

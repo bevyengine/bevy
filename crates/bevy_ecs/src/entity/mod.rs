@@ -11,15 +11,15 @@ use std::{
     sync::atomic::{AtomicI64, Ordering},
 };
 
-/// Lightweight unique ID of an entity
+/// Lightweight unique ID of an entity.
 ///
-/// Obtained from [World::spawn](crate::world::World::spawn), typically via
-/// [Commands::spawn](crate::system::Commands::spawn). Can be stored to refer to an entity in the
+/// Obtained from [`World::spawn`](crate::world::World::spawn), typically via
+/// [`Commands::spawn`](crate::system::Commands::spawn). Can be stored to refer to an entity in the
 /// future.
 ///
 /// `Entity` can be a part of a query, e.g. `Query<(Entity, &MyComponent)>`.
 /// Components of a specific entity can be accessed using
-/// [Query::get](crate::system::Query::get) and related methods.
+/// [`Query::get`](crate::system::Query::get) and related methods.
 #[derive(Clone, Copy, Hash, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Entity {
     pub(crate) generation: u32,
@@ -27,12 +27,12 @@ pub struct Entity {
 }
 
 impl Entity {
-    /// Creates a new entity reference with a generation of 0
+    /// Creates a new entity reference with a generation of 0.
     pub fn new(id: u32) -> Entity {
         Entity { id, generation: 0 }
     }
 
-    /// Convert to a form convenient for passing outside of rust
+    /// Convert to a form convenient for passing outside of rust.
     ///
     /// Only useful for identifying entities within the same instance of an application. Do not use
     /// for serialization between runs.
@@ -42,7 +42,7 @@ impl Entity {
         u64::from(self.generation) << 32 | u64::from(self.id)
     }
 
-    /// Reconstruct an `Entity` previously destructured with `to_bits`
+    /// Reconstruct an `Entity` previously destructured with [`Entity::to_bits`].
     ///
     /// Only useful when applied to results from `to_bits` in the same instance of an application.
     pub fn from_bits(bits: u64) -> Self {
@@ -52,7 +52,7 @@ impl Entity {
         }
     }
 
-    /// Return a transiently unique identifier
+    /// Return a transiently unique identifier.
     ///
     /// No two simultaneously-live entities share the same ID, but dead entities' IDs may collide
     /// with both live and dead entities. Useful for compactly representing entities within a
@@ -87,7 +87,8 @@ impl SparseSetIndex for Entity {
     }
 }
 
-/// An iterator returning a sequence of Entity values from `Entities::reserve_entities`.
+/// An [`Iterator`] returning a sequence of [`Entity`] values from
+/// [`Entities::reserve_entities`](crate::entity::Entities::reserve_entities).
 pub struct ReserveEntitiesIterator<'a> {
     // Metas, so we can recover the current generation for anything in the freelist.
     meta: &'a [EntityMeta],
@@ -165,7 +166,7 @@ pub struct Entities {
 }
 
 impl Entities {
-    /// Reserve entity IDs concurrently
+    /// Reserve entity IDs concurrently.
     ///
     /// Storage for entity generation and location is lazily allocated by calling `flush`.
     pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
@@ -207,7 +208,7 @@ impl Entities {
         }
     }
 
-    /// Reserve one entity ID concurrently
+    /// Reserve one entity ID concurrently.
     ///
     /// Equivalent to `self.reserve_entities(1).next().unwrap()`, but more efficient.
     pub fn reserve_entity(&self) -> Entity {
@@ -240,7 +241,7 @@ impl Entities {
         );
     }
 
-    /// Allocate an entity ID directly
+    /// Allocate an entity ID directly.
     ///
     /// Location should be written immediately.
     pub fn alloc(&mut self) -> Entity {
@@ -261,7 +262,7 @@ impl Entities {
         }
     }
 
-    /// Allocate a specific entity ID, overwriting its generation
+    /// Allocate a specific entity ID, overwriting its generation.
     ///
     /// Returns the location of the entity currently using the given ID, if any. Location should be
     /// written immediately.
@@ -293,7 +294,7 @@ impl Entities {
         loc
     }
 
-    /// Destroy an entity, allowing it to be reused
+    /// Destroy an entity, allowing it to be reused.
     ///
     /// Must not be called while reserved entities are awaiting `flush()`.
     pub fn free(&mut self, entity: Entity) -> Option<EntityLocation> {
@@ -315,7 +316,7 @@ impl Entities {
         Some(loc)
     }
 
-    /// Ensure at least `n` allocations can succeed without reallocating
+    /// Ensure at least `n` allocations can succeed without reallocating.
     pub fn reserve(&mut self, additional: u32) {
         self.verify_flushed();
 
@@ -340,7 +341,7 @@ impl Entities {
         *self.free_cursor.get_mut() = 0;
     }
 
-    /// Access the location storage of an entity
+    /// Access the location storage of an entity.
     ///
     /// Must not be called on pending entities.
     pub fn get_mut(&mut self, entity: Entity) -> Option<&mut EntityLocation> {
@@ -352,7 +353,7 @@ impl Entities {
         }
     }
 
-    /// Returns `Ok(Location { archetype: 0, index: undefined })` for pending entities
+    /// Returns `Ok(Location { archetype: 0, index: undefined })` for pending entities.
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
         if (entity.id as usize) < self.meta.len() {
             let meta = &self.meta[entity.id as usize];
@@ -368,6 +369,7 @@ impl Entities {
     /// Panics if the given id would represent an index outside of `meta`.
     ///
     /// # Safety
+    ///
     /// Must only be called for currently allocated `id`s.
     pub unsafe fn resolve_unknown_gen(&self, id: u32) -> Entity {
         let meta_len = self.meta.len();
@@ -463,7 +465,7 @@ impl EntityMeta {
     };
 }
 
-/// A location of an entity in an archetype
+/// A location of an entity in an archetype.
 #[derive(Copy, Clone, Debug)]
 pub struct EntityLocation {
     /// The archetype index

@@ -891,8 +891,7 @@ impl Stage for SystemStage {
 mod tests {
     use crate::{
         entity::Entity,
-        query::ChangeTrackers,
-        query::Changed,
+        query::{ChangeTrackers, Changed},
         schedule::{
             BoxedSystemLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
             RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaPiping, ShouldRun,

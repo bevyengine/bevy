@@ -15,8 +15,14 @@ fn setup(
     meshes: Res<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // By default AssetServer will load assets from inside the "assets" folder
-    // For example, the next line will load "assets/models/cube/cube.gltf#Mesh0/Primitive0"
+    // By default AssetServer will load assets from inside the "assets" folder.
+    // For example, the next line will load "ROOT/assets/models/cube/cube.gltf#Mesh0/Primitive0",
+    // where "ROOT" is the directory of the Application.
+    //
+    // This can be overridden by setting the "CARGO_MANIFEST_DIR" environment variable (see
+    // https://doc.rust-lang.org/cargo/reference/environment-variables.html)
+    // to another directory. When the Application is run through Cargo, "CARGO_MANIFEST_DIR" is
+    // automatically set to your crate (workspace) root directory.
     let cube_handle = asset_server.load("models/cube/cube.gltf#Mesh0/Primitive0");
     let sphere_handle = asset_server.load("models/sphere/sphere.gltf#Mesh0/Primitive0");
 
@@ -25,9 +31,9 @@ fn setup(
         // You might notice that this doesn't run! This is because assets load in parallel without
         // blocking. When an asset has loaded, it will appear in relevant Assets<T>
         // collection.
-        println!("{:?}", sphere.primitive_topology());
+        info!("{:?}", sphere.primitive_topology());
     } else {
-        println!("sphere hasn't loaded yet");
+        info!("sphere hasn't loaded yet");
     }
 
     // You can load all assets in a folder like this. They will be loaded in parallel without
@@ -65,7 +71,7 @@ fn setup(
         ..Default::default()
     });
     // light
-    commands.spawn_bundle(LightBundle {
+    commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_xyz(4.0, 5.0, 4.0),
         ..Default::default()
     });

@@ -9,7 +9,6 @@ pub struct DepthStencilState {
     pub depth_compare: CompareFunction,
     pub stencil: StencilState,
     pub bias: DepthBiasState,
-    pub clamp_depth: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -117,16 +116,9 @@ impl Default for FrontFace {
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
-pub enum CullMode {
-    None = 0,
-    Front = 1,
-    Back = 2,
-}
-
-impl Default for CullMode {
-    fn default() -> Self {
-        CullMode::None
-    }
+pub enum Face {
+    Front = 0,
+    Back = 1,
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
@@ -150,31 +142,30 @@ pub struct PrimitiveState {
     pub topology: PrimitiveTopology,
     pub strip_index_format: Option<IndexFormat>,
     pub front_face: FrontFace,
-    pub cull_mode: CullMode,
+    pub cull_mode: Option<Face>,
     pub polygon_mode: PolygonMode,
+    pub clamp_depth: bool,
+    pub conservative: bool,
 }
 
 #[derive(Clone, Debug)]
 pub struct ColorTargetState {
     pub format: TextureFormat,
-    pub alpha_blend: BlendState,
-    pub color_blend: BlendState,
+    pub blend: Option<BlendState>,
     pub write_mask: ColorWrite,
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct BlendState {
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BlendComponent {
     pub src_factor: BlendFactor,
     pub dst_factor: BlendFactor,
     pub operation: BlendOperation,
 }
 
-impl BlendState {
-    pub const REPLACE: Self = BlendState {
-        src_factor: BlendFactor::One,
-        dst_factor: BlendFactor::Zero,
-        operation: BlendOperation::Add,
-    };
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BlendState {
+    pub alpha: BlendComponent,
+    pub color: BlendComponent,
 }
 
 bitflags::bitflags! {
@@ -199,17 +190,17 @@ impl Default for ColorWrite {
 pub enum BlendFactor {
     Zero = 0,
     One = 1,
-    SrcColor = 2,
-    OneMinusSrcColor = 3,
+    Src = 2,
+    OneMinusSrc = 3,
     SrcAlpha = 4,
     OneMinusSrcAlpha = 5,
-    DstColor = 6,
-    OneMinusDstColor = 7,
+    Dst = 6,
+    OneMinusDst = 7,
     DstAlpha = 8,
     OneMinusDstAlpha = 9,
     SrcAlphaSaturated = 10,
-    BlendColor = 11,
-    OneMinusBlendColor = 12,
+    Constant = 11,
+    OneMinusConstant = 12,
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]

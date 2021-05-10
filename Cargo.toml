@@ -38,7 +38,7 @@ default = [
 # Force dynamic linking, which improves iterative compile times
 dynamic = ["bevy_dylib"]
 
-# Rendering support
+# Rendering support (Also needs the bevy_wgpu feature or a third-party rendering backend)
 render = ["bevy_internal/bevy_pbr", "bevy_internal/bevy_render", "bevy_internal/bevy_sprite", "bevy_internal/bevy_text", "bevy_internal/bevy_ui"]
 
 # Optional bevy crates
@@ -77,12 +77,12 @@ x11 = ["bevy_internal/x11"]
 # enable rendering of font glyphs using subpixel accuracy
 subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
 
+# enable systems that allow for automated testing on CI
+bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
+
 [dependencies]
 bevy_dylib = {path = "crates/bevy_dylib", version = "0.5.0", default-features = false, optional = true}
 bevy_internal = {path = "crates/bevy_internal", version = "0.5.0", default-features = false}
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-syn = "=1.0.65"
 
 [dev-dependencies]
 anyhow = "1.0"
@@ -98,6 +98,10 @@ path = "examples/hello_world.rs"
 [[example]]
 name = "contributors"
 path = "examples/2d/contributors.rs"
+
+[[example]]
+name = "mesh"
+path = "examples/2d/mesh.rs"
 
 [[example]]
 name = "many_sprites"
@@ -147,6 +151,10 @@ path = "examples/3d/parenting.rs"
 [[example]]
 name = "pbr"
 path = "examples/3d/pbr.rs"
+
+[[example]]
+name = "render_to_texture"
+path = "examples/3d/render_to_texture.rs"
 
 [[example]]
 name = "spawner"
@@ -286,8 +294,16 @@ name = "system_param"
 path = "examples/ecs/system_param.rs"
 
 [[example]]
+name = "system_sets"
+path = "examples/ecs/system_sets.rs"
+
+[[example]]
 name = "timers"
 path = "examples/ecs/timers.rs"
+
+[[example]]
+name = "query_bundle"
+path = "examples/ecs/query_bundle.rs"
 
 # Games
 [[example]]
@@ -362,6 +378,10 @@ name = "scene"
 path = "examples/scene/scene.rs"
 
 # Shaders
+[[example]]
+name = "animate_shader"
+path = "examples/shader/animate_shader.rs"
+
 [[example]]
 name = "array_texture"
 path = "examples/shader/array_texture.rs"
@@ -464,6 +484,11 @@ path = "examples/animations/mesh_swap_animation.rs"
 # [[example]]
 # name = "material_animation"
 # path = "examples/animations/material_animation.rs"
+
+# Animation
+[[example]]
+name = "smooth_curves"
+path = "examples/animations/smooth_curves.rs"
 
 [package.metadata.android]
 apk_label = "Bevy Example"

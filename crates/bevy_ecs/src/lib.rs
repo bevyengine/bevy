@@ -2,6 +2,7 @@ pub mod archetype;
 pub mod bundle;
 pub mod component;
 pub mod entity;
+pub mod event;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
@@ -11,11 +12,14 @@ pub mod system;
 pub mod world;
 
 pub mod prelude {
+    #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
     pub use crate::reflect::ReflectComponent;
+    #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
         entity::Entity,
+        event::{EventReader, EventWriter},
         query::{Added, ChangeTrackers, Changed, Or, QueryState, With, WithBundle, Without},
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
@@ -34,9 +38,11 @@ pub mod prelude {
 mod tests {
     use crate::{
         bundle::Bundle,
-        component::{Component, ComponentDescriptor, StorageType, TypeInfo},
+        component::{Component, ComponentDescriptor, ComponentId, StorageType, TypeInfo},
         entity::Entity,
-        query::{Added, ChangeTrackers, Changed, FilterFetch, With, Without, WorldQuery},
+        query::{
+            Added, ChangeTrackers, Changed, FilterFetch, FilteredAccess, With, Without, WorldQuery,
+        },
         world::{Mut, World},
     };
     use bevy_tasks::TaskPool;
@@ -247,8 +253,31 @@ mod tests {
     }
 
     #[test]
-    fn par_for_each() {
+    fn par_for_each_dense() {
         let mut world = World::new();
+        let task_pool = TaskPool::default();
+        let e1 = world.spawn().insert(1).id();
+        let e2 = world.spawn().insert(2).id();
+        let e3 = world.spawn().insert(3).id();
+        let e4 = world.spawn().insert_bundle((4, true)).id();
+        let e5 = world.spawn().insert_bundle((5, true)).id();
+        let results = Arc::new(Mutex::new(Vec::new()));
+        world
+            .query::<(Entity, &i32)>()
+            .par_for_each(&world, &task_pool, 2, |(e, &i)| results.lock().push((e, i)));
+        results.lock().sort();
+        assert_eq!(
+            &*results.lock(),
+            &[(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)]
+        );
+    }
+
+    #[test]
+    fn par_for_each_sparse() {
+        let mut world = World::new();
+        world
+            .register_component(ComponentDescriptor::new::<i32>(StorageType::SparseSet))
+            .unwrap();
         let task_pool = TaskPool::default();
         let e1 = world.spawn().insert(1).id();
         let e2 = world.spawn().insert(2).id();
@@ -1071,6 +1100,13 @@ mod tests {
 
     #[test]
     #[should_panic]
+    fn mut_and_ref_query_panic() {
+        let mut world = World::new();
+        world.query::<(&mut A, &A)>();
+    }
+
+    #[test]
+    #[should_panic]
     fn mut_and_mut_query_panic() {
         let mut world = World::new();
         world.query::<(&mut A, &mut A)>();
@@ -1084,6 +1120,28 @@ mod tests {
         let mut query = world_a.query::<&i32>();
         query.iter(&world_a);
         query.iter(&world_b);
+    }
+
+    #[test]
+    fn query_filters_dont_collide_with_fetches() {
+        let mut world = World::new();
+        world.query_filtered::<&mut i32, Changed<i32>>();
+    }
+
+    #[test]
+    fn filtered_query_access() {
+        let mut world = World::new();
+        let query = world.query_filtered::<&mut i32, Changed<f64>>();
+
+        let mut expected = FilteredAccess::<ComponentId>::default();
+        let i32_id = world.components.get_id(TypeId::of::<i32>()).unwrap();
+        let f64_id = world.components.get_id(TypeId::of::<f64>()).unwrap();
+        expected.add_write(i32_id);
+        expected.add_read(f64_id);
+        assert!(
+            query.component_access.eq(&expected),
+            "ComponentId access from query fetch and query filter should be combined"
+        );
     }
 
     #[test]

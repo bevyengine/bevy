@@ -17,8 +17,8 @@ pub fn inv_sqrt(x: f32) -> f32 {
 }
 
 #[inline]
-pub fn step<T: Clone>(k0: &T, k1: &T, u: f32) -> T {
-    if u > 0.999 {
+pub fn step_unclamped<T: Clone>(k0: &T, k1: &T, u: f32) -> T {
+    if u < (1.0 - 1e-9) {
         k0.clone()
     } else {
         k1.clone()
@@ -26,30 +26,33 @@ pub fn step<T: Clone>(k0: &T, k1: &T, u: f32) -> T {
 }
 
 #[inline]
-pub fn lerp<T>(k0: T, k1: T, u: f32) -> T
+pub fn lerp_unclamped<T>(k0: T, k1: T, u: f32) -> T
 where
     T: Add<Output = T> + Mul<f32, Output = T>,
 {
     k0 * (1.0 - u) + k1 * u
 }
 
-/// Catmull-Rom spline interpolation
+/// Cubic hermite spline
 ///
 /// Source: http://archive.gamedev.net/archive/reference/articles/article1497.html
 #[inline]
-pub fn catmull_rom<T>(k0: T, t0: T, k1: T, t1: T, u: f32) -> T
+pub fn hermite_unclamped<T>(k0: T, t0: T, k1: T, t1: T, u: f32, dx: f32) -> T
 where
     T: Add<Output = T> + Sub<Output = T> + Mul<f32, Output = T>,
 {
-    let u2 = u * u;
-    let u3 = u2 * u;
-    let _3u2 = 3.0 * u2;
-    let _2u3 = 2.0 * u3;
+    let v_u2 = u * u;
+    let v_u3 = v_u2 * u;
+    let v_3u2 = 3.0 * v_u2;
+    let v_2u3 = 2.0 * v_u3;
 
-    k0 * (_2u3 - _3u2 + 1.0) + k1 * (_3u2 - _2u3) + t0 * (u3 - 2.0 * u2 + u) + t1 * (u3 - u2)
+    k0 * (v_2u3 - v_3u2 + 1.0)
+        + k1 * (v_3u2 - v_2u3)
+        + t0 * dx * (v_u3 - 2.0 * v_u2 + u)
+        + t1 * dx * (v_u3 - v_u2)
 }
 
-/// Finds the tangent gradients for the Catmull-Rom spline
+/// Finds the tangent gradients for the hermite spline
 ///
 /// Source: http://archive.gamedev.net/archive/reference/articles/article1497.html
 #[inline]
@@ -58,5 +61,7 @@ where
     T: Copy + Add<Output = T> + Sub<Output = T> + Mul<f32, Output = T> + Div<f32, Output = T>,
 {
     // k'(t) = ½[k(t) - k(t-1)]/δx1 + ½[k(t+1) - k(t)]/δx2
-    ((k1 - k0) / (t1 - t0) + (k2 - k1) / (t2 - t1)) * 0.5
+    ((k1 - k0) / (t1 - t0).max(1e-9) + (k2 - k1) / (t2 - t1).max(1e-9)) * 0.5
 }
+
+// https://www.cubic.org/docs/hermite.htm

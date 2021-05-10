@@ -10,7 +10,7 @@ use crate::{
     Asset, Assets,
 };
 use bevy_ecs::reflect::ReflectComponent;
-use bevy_math::interpolation::{utils::step, Lerp};
+use bevy_math::interpolation::{utils::step_unclamped, Interpolate, Lerp, TangentIgnore};
 use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_utils::Uuid;
 use crossbeam_channel::{Receiver, Sender};
@@ -69,7 +69,8 @@ where
     #[reflect(ignore)]
     handle_type: HandleType,
     #[reflect(ignore)]
-    marker: PhantomData<T>,
+    // NOTE: PhantomData<fn() -> T> gives this safe Send/Sync impls
+    marker: PhantomData<fn() -> T>,
 }
 
 enum HandleType {
@@ -230,14 +231,31 @@ impl<T: Asset> Clone for Handle<T> {
     }
 }
 
-// SAFE: T is phantom data and Handle::id is an integer
-unsafe impl<T: Asset> Send for Handle<T> {}
-unsafe impl<T: Asset> Sync for Handle<T> {}
-
 impl<T: Asset + 'static> Lerp for Handle<T> {
     #[inline(always)]
     fn lerp_unclamped(a: &Self, b: &Self, t: f32) -> Self {
-        step(a, b, t)
+        step_unclamped(a, b, t)
+    }
+}
+
+impl<T: Asset + 'static> Interpolate for Handle<T> {
+    type Tangent = TangentIgnore;
+    const FLAT_TANGENT: Self::Tangent = TangentIgnore;
+
+    fn interpolate_unclamped(
+        k0: &Self,
+        _: &Self::Tangent,
+        k1: &Self,
+        _: &Self::Tangent,
+        _: bevy_math::interpolation::Interpolation,
+        t: f32,
+        _: f32,
+    ) -> Self {
+        step_unclamped(k0, k1, t)
+    }
+
+    fn auto_tangent(_: f32, _: f32, _: f32, _: &Self, _: &Self, _: &Self) -> Self::Tangent {
+        TangentIgnore
     }
 }
 
@@ -351,7 +369,28 @@ impl Clone for HandleUntyped {
 impl Lerp for HandleUntyped {
     #[inline(always)]
     fn lerp_unclamped(a: &Self, b: &Self, t: f32) -> Self {
-        step(a, b, t)
+        step_unclamped(a, b, t)
+    }
+}
+
+impl Interpolate for HandleUntyped {
+    type Tangent = TangentIgnore;
+    const FLAT_TANGENT: Self::Tangent = TangentIgnore;
+
+    fn interpolate_unclamped(
+        k0: &Self,
+        _: &Self::Tangent,
+        k1: &Self,
+        _: &Self::Tangent,
+        _: bevy_math::interpolation::Interpolation,
+        t: f32,
+        _: f32,
+    ) -> Self {
+        step_unclamped(k0, k1, t)
+    }
+
+    fn auto_tangent(_: f32, _: f32, _: f32, _: &Self, _: &Self, _: &Self) -> Self::Tangent {
+        TangentIgnore
     }
 }
 

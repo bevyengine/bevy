@@ -2,8 +2,9 @@ use bevy_asset::{Assets, HandleUntyped};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     pipeline::{
-        BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrite, CompareFunction,
-        DepthBiasState, DepthStencilState, PipelineDescriptor, StencilFaceState, StencilState,
+        BlendComponent, BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrite,
+        CompareFunction, DepthBiasState, DepthStencilState, PipelineDescriptor, StencilFaceState,
+        StencilState,
     },
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat,
@@ -29,20 +30,21 @@ pub(crate) fn build_pbr_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescri
                 slope_scale: 0.0,
                 clamp: 0.0,
             },
-            clamp_depth: false,
         }),
         color_target_states: vec![ColorTargetState {
             format: TextureFormat::default(),
-            color_blend: BlendState {
-                src_factor: BlendFactor::SrcAlpha,
-                dst_factor: BlendFactor::OneMinusSrcAlpha,
-                operation: BlendOperation::Add,
-            },
-            alpha_blend: BlendState {
-                src_factor: BlendFactor::One,
-                dst_factor: BlendFactor::One,
-                operation: BlendOperation::Add,
-            },
+            blend: Some(BlendState {
+                color: BlendComponent {
+                    src_factor: BlendFactor::SrcAlpha,
+                    dst_factor: BlendFactor::OneMinusSrcAlpha,
+                    operation: BlendOperation::Add,
+                },
+                alpha: BlendComponent {
+                    src_factor: BlendFactor::One,
+                    dst_factor: BlendFactor::One,
+                    operation: BlendOperation::Add,
+                },
+            }),
             write_mask: ColorWrite::ALL,
         }],
         ..PipelineDescriptor::new(ShaderStages {

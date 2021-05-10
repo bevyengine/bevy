@@ -2,7 +2,7 @@
 name: Feature Request
 about: Propose a new feature!
 title: ''
-labels: ''
+labels: enhancement, needs-triage
 assignees: ''
 ---
 

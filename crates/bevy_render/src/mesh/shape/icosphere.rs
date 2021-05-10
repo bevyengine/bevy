@@ -64,13 +64,13 @@ impl From<Icosphere> for Mesh {
             );
         }
         let generated = IcoSphere::new(sphere.subdivisions, |point| {
-            let inclination = point.z.acos();
-            let azumith = point.y.atan2(point.x);
+            let inclination = point.y.acos();
+            let azimuth = point.z.atan2(point.x);
 
-            let norm_inclination = 1.0 - (inclination / std::f32::consts::PI);
-            let norm_azumith = (azumith / std::f32::consts::PI) * 0.5;
+            let norm_inclination = inclination / std::f32::consts::PI;
+            let norm_azimuth = 0.5 - (azimuth / std::f32::consts::TAU);
 
-            [norm_inclination, norm_azumith]
+            [norm_azimuth, norm_inclination]
         });
 
         let raw_points = generated.raw_points();
