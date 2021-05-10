@@ -8,7 +8,7 @@ use std::{
 
 use futures_lite::{future, pin};
 
-use crate::Task;
+use crate::{Priority, PriorityExecutor, Task};
 
 /// Used to create a TaskPool
 #[derive(Debug, Default, Clone)]
@@ -68,12 +68,6 @@ struct TaskPoolInner {
 impl Drop for TaskPoolInner {
     fn drop(&mut self) {
         self.shutdown_tx.close();
-
-        for join_handle in self.threads.drain(..) {
-            join_handle
-                .join()
-                .expect("task thread panicked while executing");
-        }
     }
 }
 
@@ -86,7 +80,7 @@ pub struct TaskPool {
     /// This has to be separate from TaskPoolInner because we have to create an Arc<Executor> to
     /// pass into the worker threads, and we must create the worker threads before we can create the
     /// Vec<Task<T>> contained within TaskPoolInner
-    executor: Arc<async_executor::Executor<'static>>,
+    executor: Arc<PriorityExecutor<'static>>,
 
     /// Inner state of the pool
     inner: Arc<TaskPoolInner>,
@@ -105,7 +99,7 @@ impl TaskPool {
     ) -> Self {
         let (shutdown_tx, shutdown_rx) = async_channel::unbounded::<()>();
 
-        let executor = Arc::new(async_executor::Executor::new());
+        let executor = Arc::new(PriorityExecutor::new());
 
         let num_threads = num_threads.unwrap_or_else(num_cpus::get);
 
@@ -120,7 +114,7 @@ impl TaskPool {
                     format!("TaskPool ({})", i)
                 };
 
-                let mut thread_builder = thread::Builder::new().name(thread_name);
+                let mut thread_builder = thread::Builder::new().name(thread_name.clone());
 
                 if let Some(stack_size) = stack_size {
                     thread_builder = thread_builder.stack_size(stack_size);
@@ -131,6 +125,7 @@ impl TaskPool {
                         let shutdown_future = ex.run(shutdown_rx.recv());
                         // Use unwrap_err because we expect a Closed error
                         future::block_on(shutdown_future).unwrap_err();
+                        println!("{} exits", thread_name.clone());
                     })
                     .expect("failed to spawn thread")
             })
@@ -164,8 +159,8 @@ impl TaskPool {
         // before this function returns. However, rust has no way of knowing
         // this so we must convert to 'static here to appease the compiler as it is unable to
         // validate safety.
-        let executor: &async_executor::Executor = &*self.executor;
-        let executor: &'scope async_executor::Executor = unsafe { mem::transmute(executor) };
+        let executor: &PriorityExecutor = &*self.executor;
+        let executor: &'scope PriorityExecutor = unsafe { mem::transmute(executor) };
 
         let fut = async move {
             let mut scope = Scope {
@@ -176,6 +171,7 @@ impl TaskPool {
             f(&mut scope);
 
             let mut results = Vec::with_capacity(scope.spawned.len());
+            self.executor.tick();
             for task in scope.spawned {
                 results.push(task.await);
             }
@@ -190,11 +186,13 @@ impl TaskPool {
         // data from futures outside of the 'scope lifetime. However, rust has no way of knowing
         // this so we must convert to 'static here to appease the compiler as it is unable to
         // validate safety.
-        let fut: Pin<&mut (dyn Future<Output = Vec<T>> + Send)> = fut;
-        let fut: Pin<&'static mut (dyn Future<Output = Vec<T>> + Send + 'static)> =
+        let fut: Pin<&mut (dyn Future<Output=Vec<T>> + Send)> = fut;
+        let fut: Pin<&'static mut (dyn Future<Output=Vec<T>> + Send + 'static)> =
             unsafe { mem::transmute(fut) };
 
-        future::block_on(self.executor.spawn(fut))
+        self.executor.tick();
+
+        future::block_on(self.executor.spawn(Priority::FinishWithinFrame, fut))
     }
 
     /// Spawns a static future onto the thread pool. The returned Task is a future. It can also be
@@ -204,7 +202,7 @@ impl TaskPool {
     where
         T: Send + 'static,
     {
-        Task::new(self.executor.spawn(future))
+        Task::new(self.executor.spawn(Priority::IO, future))
     }
 }
 
@@ -216,21 +214,22 @@ impl Default for TaskPool {
 
 #[derive(Debug)]
 pub struct Scope<'scope, T> {
-    executor: &'scope async_executor::Executor<'scope>,
+    executor: &'scope PriorityExecutor<'scope>,
     spawned: Vec<async_executor::Task<T>>,
 }
 
 impl<'scope, T: Send + 'scope> Scope<'scope, T> {
     pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
-        let task = self.executor.spawn(f);
+        let task = self.executor.spawn(Priority::FinishWithinFrame, f);
         self.spawned.push(task);
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::sync::atomic::{AtomicI32, Ordering};
+
+    use super::*;
 
     #[test]
     pub fn test_spawn() {
