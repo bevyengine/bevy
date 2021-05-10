@@ -224,6 +224,10 @@ name = "asset_loading"
 path = "examples/asset/asset_loading.rs"
 
 [[example]]
+name = "cpu_texture"
+path = "examples/asset/cpu_texture.rs"
+
+[[example]]
 name = "custom_asset"
 path = "examples/asset/custom_asset.rs"
 
