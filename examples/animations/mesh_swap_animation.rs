@@ -30,7 +30,7 @@ fn setup(
         CurveVariableLinear::new(
             vec![0.0, 0.5, 1.0],
             vec![cube.clone(), sphere, cube.clone()],
-        ),
+        ).unwrap(),
     );
     let clip_handle = clips.add(clip);
 
@@ -47,7 +47,7 @@ fn setup(
         })
         .insert(animator);
 
-    commands.spawn_bundle(LightBundle {
+    commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_translation(Vec3::new(4.0, 8.0, 4.0)),
         ..Default::default()
     });

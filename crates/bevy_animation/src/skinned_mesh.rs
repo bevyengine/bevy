@@ -362,13 +362,13 @@ pub(crate) fn skinning_debugger_update(
 
             mesh.set_attribute(
                 Mesh::ATTRIBUTE_POSITION,
-                VertexAttributeValues::Float3(vertices),
+                VertexAttributeValues::Float32x3(vertices),
             );
             mesh.set_attribute(
                 Mesh::ATTRIBUTE_NORMAL,
-                VertexAttributeValues::Float3(normals),
+                VertexAttributeValues::Float32x3(normals),
             );
-            mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, VertexAttributeValues::Float2(uvs));
+            mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, VertexAttributeValues::Float32x2(uvs));
             mesh.set_indices(Some(Indices::U32(indices)));
         }
     }
