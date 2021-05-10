@@ -1,8 +1,19 @@
+pub use asset_server::*;
+pub use assets::*;
+use bevy_app::{AppBuilder, prelude::Plugin};
+use bevy_tasks::{ComputeTaskPool, IoTaskPool};
+use bevy_type_registry::RegisterType;
+pub use handle::*;
+pub use info::*;
+pub use io::*;
+pub use loader::*;
+pub use path::*;
+
 mod asset_server;
 mod assets;
 #[cfg(all(
-    feature = "filesystem_watcher",
-    all(not(target_arch = "wasm32"), not(target_os = "android"))
+feature = "filesystem_watcher",
+all(not(target_arch = "wasm32"), not(target_os = "android"))
 ))]
 mod filesystem_watcher;
 mod handle;
@@ -11,15 +22,6 @@ mod io;
 mod loader;
 mod path;
 
-pub use asset_server::*;
-pub use assets::*;
-use bevy_tasks::IoTaskPool;
-pub use handle::*;
-pub use info::*;
-pub use io::*;
-pub use loader::*;
-pub use path::*;
-
 /// The names of asset stages in an App Schedule
 pub mod stage {
     pub const LOAD_ASSETS: &str = "load_assets";
@@ -27,11 +29,8 @@ pub mod stage {
 }
 
 pub mod prelude {
-    pub use crate::{AddAsset, AssetEvent, AssetServer, Assets, Handle, HandleUntyped};
+    pub use crate::{AddAsset, AssetEvent, Assets, AssetServer, Handle, HandleUntyped};
 }
-
-use bevy_app::{prelude::Plugin, AppBuilder};
-use bevy_type_registry::RegisterType;
 
 /// Adds support for Assets to an App. Assets are typed collections with change tracking, which are added as App Resources.
 /// Examples of assets: textures, sounds, 3d models, maps, scenes
@@ -54,7 +53,7 @@ impl Plugin for AssetPlugin {
     fn build(&self, app: &mut AppBuilder) {
         let task_pool = app
             .resources()
-            .get::<IoTaskPool>()
+            .get::<ComputeTaskPool>()
             .expect("IoTaskPool resource not found")
             .0
             .clone();
