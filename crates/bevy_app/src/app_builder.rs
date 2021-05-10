@@ -469,9 +469,12 @@ impl AppBuilder {
     /// Adds a group of plugins
     ///
     /// Bevy plugins can be grouped into a set of plugins. Bevy provides
-    /// built-in PluginGroups that provide core engine functionality.
+    /// built-in [`PluginGroup`] that provide core engine functionality.
     ///
     /// The plugin groups available by default are [`DefaultPlugins`] and [`MinimalPlugins`].
+    ///
+    /// To customize the plugins in the group (reorder, disable a plugin, add a new plugin
+    /// before / after another plugin), see [`add_plugins_with`](Self::add_plugins_with).
     ///
     /// ## Example
     /// ```
@@ -498,7 +501,7 @@ impl AppBuilder {
     /// Can be used to add a group of plugins, where the group is modified
     /// before insertion into Bevy application. For example, you can add
     /// extra plugins at a specific place in the plugin group, or deactivate
-    /// specific plugins while keeping the rest.
+    /// specific plugins while keeping the rest using a [`PluginGroupBuilder`].
     ///
     /// ## Example
     /// ```
