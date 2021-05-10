@@ -14,7 +14,7 @@ use bevy_ecs::{
     world::Mut,
 };
 use bevy_math::*;
-use bevy_reflect::{TypeUuid, Reflect};
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_utils::EnumVariantMeta;
 use std::{borrow::Cow, collections::BTreeMap};
 

@@ -30,7 +30,8 @@ fn setup(
         CurveVariableLinear::new(
             vec![0.0, 0.5, 1.0],
             vec![cube.clone(), sphere, cube.clone()],
-        ).unwrap(),
+        )
+        .unwrap(),
     );
     let clip_handle = clips.add(clip);
 

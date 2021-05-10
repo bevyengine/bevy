@@ -1,5 +1,7 @@
 use bevy_app::{PluginGroup, PluginGroupBuilder};
 
+#[cfg(feature = "bevy_animation")]
+use bevy_animation::AnimationPlugin;
 use bevy_app::ScheduleRunnerPlugin;
 use bevy_asset::AssetPlugin;
 #[cfg(feature = "bevy_audio")]
@@ -8,8 +10,6 @@ use bevy_core::CorePlugin;
 use bevy_diagnostic::DiagnosticsPlugin;
 #[cfg(feature = "bevy_gilrs")]
 use bevy_gilrs::GilrsPlugin;
-#[cfg(feature = "bevy_animation")]
-use bevy_animation::AnimationPlugin;
 #[cfg(all(feature = "bevy_gltf", feature = "bevy_animation"))]
 use bevy_gltf::GltfPlugin;
 use bevy_input::InputPlugin;

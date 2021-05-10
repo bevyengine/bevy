@@ -156,7 +156,9 @@ async fn load_gltf<'a, 'b>(
                 } else {
                     let len = mesh.count_vertices();
                     let uvs = vec![[0.0, 0.0]; len];
-                    bevy_log::debug!("missing `TEXCOORD_0` vertex attribute, loading zeroed out UVs");
+                    bevy_log::debug!(
+                        "missing `TEXCOORD_0` vertex attribute, loading zeroed out UVs"
+                    );
                     mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
                 }
 
@@ -191,7 +193,7 @@ async fn load_gltf<'a, 'b>(
                 {
                     mesh.set_attribute(Mesh::ATTRIBUTE_JOINT_INDEX, joint_attribute);
                 }
-                
+
                 if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none() {
                     let vertex_count_before = mesh.count_vertices();
                     mesh.duplicate_vertices();
@@ -363,23 +365,29 @@ async fn load_gltf<'a, 'b>(
                 ReadOutputs::Translations(values) => {
                     let values = values.map(Vec3::from).collect::<Vec<_>>();
                     property_path += "@Transform.translation";
-                    clip_curves_translation_and_scale
-                        .push((property_path, CurveVariableLinear::new(time_stamps, values).unwrap()));
+                    clip_curves_translation_and_scale.push((
+                        property_path,
+                        CurveVariableLinear::new(time_stamps, values).unwrap(),
+                    ));
 
                     // TODO: This is a runtime importer so here's no place for further optimizations
                 }
                 ReadOutputs::Rotations(values) => {
                     let values = values.into_f32().map(Quat::from).collect::<Vec<_>>();
                     property_path += "@Transform.rotation";
-                    clip_curves_rotation
-                        .push((property_path, CurveVariableLinear::new(time_stamps, values).unwrap()));
+                    clip_curves_rotation.push((
+                        property_path,
+                        CurveVariableLinear::new(time_stamps, values).unwrap(),
+                    ));
                 }
                 ReadOutputs::Scales(values) => {
                     let values = values.map(Vec3::from).collect::<Vec<_>>();
 
                     property_path += "@Transform.scale";
-                    clip_curves_translation_and_scale
-                        .push((property_path, CurveVariableLinear::new(time_stamps, values).unwrap()));
+                    clip_curves_translation_and_scale.push((
+                        property_path,
+                        CurveVariableLinear::new(time_stamps, values).unwrap(),
+                    ));
                 }
                 ReadOutputs::MorphTargetWeights(_) => {
                     unimplemented!("morph targets aren't current supported")
