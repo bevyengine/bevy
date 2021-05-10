@@ -14,6 +14,7 @@ macro_rules! impl_non_max_fmt {
 macro_rules! impl_non_max {
     ($nonmax:ident, $nonzero:ty, $repr:ty, $test:ident) => {
         #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+        #[repr(transparent)]
         pub struct $nonmax($nonzero);
 
         impl $nonmax {
