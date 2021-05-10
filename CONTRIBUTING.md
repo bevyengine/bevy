@@ -80,7 +80,7 @@ If you'd like an up-to-the-minute look at our progress on a specific project, fe
 Simple changes have a simple process:
 
 1. A community member (that's you!) creates an issue or opens a pull request to fix an issue or add simple functionality.
-2. Other community members review and comment in an ad-hoc fashion. Active subject matter experts may be pinged into a thread.
+2. Other community members review and comment in an ad-hoc fashion. Active subject matter experts may be pinged into a thread. If your PR has been quiet for a while and is ready for review, feel free to bring it up on Discord in an appropriate engine development channel.
 3. Once they're content with the quality of the work (code quality, documentation, approach, need for functionality), individual reviewers leave "Approved" reviews.
 4. After consensus has been reached (typically two approvals from the community or one for extremely simple changes) and CI passes, the `ready-for-cart` label is added.
 5. When @cart has a good opportunity to pause from his implementation work, he performs a final code review on these pull requests and then presses the Big Merge Button (actually, he runs [Bors](https://bors.tech/) by typing `bors r+` to make sure we don't break `main` by accident).
