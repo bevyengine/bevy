@@ -65,7 +65,7 @@ The bar for trust here is low due to the janitorial nature of the role; feel fre
 ## How we work together
 
 Making a game engine is a huge project, but at the moment we only have one paid contributor, @cart (go [donate!](https://github.com/sponsors/cart)).
-While we have *many* active contributors (welcome aboard!), herding all of these cats in a predictable way is challenging.
+While we have *many* active contributors (welcome aboard!), herding all of these ~~cats~~ birds in a predictable way is challenging.
 
 Bevy releases are intended to be spaced 6-8 weeks apart and tend to target one or two major features, led by @cart.
 [Once those features are complete](https://github.com/bevyengine/bevy/blob/main/docs/release_checklist.md),
