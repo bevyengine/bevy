@@ -4,8 +4,8 @@
 
 # Explicitly declare text files you want to always be normalized and converted
 # to native line endings on checkout.
-*.rs text
-*.toml text
+*.rs text eof=lf
+*.toml text eof=lf
 *.frag text
 *.vert text
 
