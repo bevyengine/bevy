@@ -18,7 +18,13 @@ where
     archetypes: &'w Archetypes,
     query_state: &'s QueryState<Q, F>,
     world: &'w World,
-    cursor: QueryIterationCursor<'s, Q, F>,
+    table_id_iter: std::slice::Iter<'s, TableId>,
+    archetype_id_iter: std::slice::Iter<'s, ArchetypeId>,
+    fetch: Q::Fetch,
+    filter: F::Fetch,
+    current_len: usize,
+    current_index: usize,
+    is_dense: bool,
 }
 
 impl<'w, 's, Q: WorldQuery, F: WorldQuery> QueryIter<'w, 's, Q, F>
@@ -36,12 +42,31 @@ where
         last_change_tick: u32,
         change_tick: u32,
     ) -> Self {
+        let fetch = <Q::Fetch as Fetch>::init(
+            world,
+            &query_state.fetch_state,
+            last_change_tick,
+            change_tick,
+        );
+        let filter = <F::Fetch as Fetch>::init(
+            world,
+            &query_state.filter_state,
+            last_change_tick,
+            change_tick,
+        );
+
         QueryIter {
             world,
             query_state,
             tables: &world.storages().tables,
             archetypes: &world.archetypes,
-            cursor: QueryIterationCursor::init(world, query_state, last_change_tick, change_tick),
+            is_dense: fetch.is_dense() && filter.is_dense(),
+            fetch,
+            filter,
+            table_id_iter: query_state.matched_table_ids.iter(),
+            archetype_id_iter: query_state.matched_archetype_ids.iter(),
+            current_len: 0,
+            current_index: 0,
         }
     }
 }
@@ -52,11 +77,61 @@ where
 {
     type Item = <Q::Fetch as Fetch<'w>>::Item;
 
-    #[inline]
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
-            self.cursor
-                .next(&self.tables, &self.archetypes, &self.query_state)
+            if self.is_dense {
+                loop {
+                    if self.current_index == self.current_len {
+                        let table_id = self.table_id_iter.next()?;
+                        let table = &self.tables[*table_id];
+                        self.fetch.set_table(&self.query_state.fetch_state, table);
+                        self.filter.set_table(&self.query_state.filter_state, table);
+                        self.current_len = table.len();
+                        self.current_index = 0;
+                        continue;
+                    }
+
+                    if !self.filter.table_filter_fetch(self.current_index) {
+                        self.current_index += 1;
+                        continue;
+                    }
+
+                    let item = self.fetch.table_fetch(self.current_index);
+
+                    self.current_index += 1;
+                    return Some(item);
+                }
+            } else {
+                loop {
+                    if self.current_index == self.current_len {
+                        let archetype_id = self.archetype_id_iter.next()?;
+                        let archetype = &self.archetypes[*archetype_id];
+                        self.fetch.set_archetype(
+                            &self.query_state.fetch_state,
+                            archetype,
+                            self.tables,
+                        );
+                        self.filter.set_archetype(
+                            &self.query_state.filter_state,
+                            archetype,
+                            self.tables,
+                        );
+                        self.current_len = archetype.len();
+                        self.current_index = 0;
+                        continue;
+                    }
+
+                    if !self.filter.archetype_filter_fetch(self.current_index) {
+                        self.current_index += 1;
+                        continue;
+                    }
+
+                    let item = self.fetch.archetype_fetch(self.current_index);
+                    self.current_index += 1;
+                    return Some(item);
+                }
+            }
         }
     }
 
@@ -194,6 +269,7 @@ where
     }
 
     /// Get next combination of queried components
+    #[inline]
     pub fn fetch_next(&mut self) -> Option<[<Q::Fetch as Fetch<'_>>::Item; K]>
     where
         Q::Fetch: Clone,
@@ -357,7 +433,7 @@ where
         }
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn next<'w>(
         &mut self,
         tables: &'w Tables,
