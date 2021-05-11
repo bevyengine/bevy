@@ -442,7 +442,7 @@ mod tests {
 
         stage2.run(&mut world);
         let current_events = world.get_resource::<Events<E>>().unwrap();
-        assert!(current_events.events_a.len() == 0);
+        assert!(current_events.events_a.is_empty());
     }
 
     #[test]
