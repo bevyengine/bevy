@@ -141,134 +141,6 @@ impl<T> Default for Events<T> {
     }
 }
 
-fn map_instance_event_with_id<T>(event_instance: &EventInstance<T>) -> (&T, EventId<T>) {
-    (&event_instance.event, event_instance.event_id)
-}
-
-fn map_instance_event<T>(event_instance: &EventInstance<T>) -> &T {
-    &event_instance.event
-}
-
-/// Reads events of type `T` in order and tracks which events have already been read.
-#[derive(SystemParam)]
-pub struct EventReader<'a, T: Component> {
-    last_event_count: Local<'a, (usize, PhantomData<T>)>,
-    events: Res<'a, Events<T>>,
-}
-
-/// Sends events of type `T`.
-#[derive(SystemParam)]
-pub struct EventWriter<'a, T: Component> {
-    events: ResMut<'a, Events<T>>,
-}
-
-impl<'a, T: Component> EventWriter<'a, T> {
-    pub fn send(&mut self, event: T) {
-        self.events.send(event);
-    }
-
-    pub fn send_batch(&mut self, events: impl Iterator<Item = T>) {
-        self.events.extend(events);
-    }
-}
-
-pub struct ManualEventReader<T> {
-    last_event_count: usize,
-    _marker: PhantomData<T>,
-}
-
-impl<T> Default for ManualEventReader<T> {
-    fn default() -> Self {
-        ManualEventReader {
-            last_event_count: 0,
-            _marker: Default::default(),
-        }
-    }
-}
-
-impl<T> ManualEventReader<T> {
-    /// See [`EventReader::iter`]
-    pub fn iter<'a>(&mut self, events: &'a Events<T>) -> impl DoubleEndedIterator<Item = &'a T> {
-        internal_event_reader(&mut self.last_event_count, events).map(|(e, _)| e)
-    }
-
-    /// See [`EventReader::iter_with_id`]
-    pub fn iter_with_id<'a>(
-        &mut self,
-        events: &'a Events<T>,
-    ) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> {
-        internal_event_reader(&mut self.last_event_count, events)
-    }
-}
-
-/// Like [`iter_with_id`](EventReader::iter_with_id) except not emitting any traces for read
-/// messages.
-fn internal_event_reader<'a, T>(
-    last_event_count: &mut usize,
-    events: &'a Events<T>,
-) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> {
-    // if the reader has seen some of the events in a buffer, find the proper index offset.
-    // otherwise read all events in the buffer
-    let a_index = if *last_event_count > events.a_start_event_count {
-        *last_event_count - events.a_start_event_count
-    } else {
-        0
-    };
-    let b_index = if *last_event_count > events.b_start_event_count {
-        *last_event_count - events.b_start_event_count
-    } else {
-        0
-    };
-    *last_event_count = events.event_count;
-    match events.state {
-        State::A => events
-            .events_b
-            .get(b_index..)
-            .unwrap_or_else(|| &[])
-            .iter()
-            .map(map_instance_event_with_id)
-            .chain(
-                events
-                    .events_a
-                    .get(a_index..)
-                    .unwrap_or_else(|| &[])
-                    .iter()
-                    .map(map_instance_event_with_id),
-            ),
-        State::B => events
-            .events_a
-            .get(a_index..)
-            .unwrap_or_else(|| &[])
-            .iter()
-            .map(map_instance_event_with_id)
-            .chain(
-                events
-                    .events_b
-                    .get(b_index..)
-                    .unwrap_or_else(|| &[])
-                    .iter()
-                    .map(map_instance_event_with_id),
-            ),
-    }
-}
-
-impl<'a, T: Component> EventReader<'a, T> {
-    /// Iterates over the events this EventReader has not seen yet. This updates the EventReader's
-    /// event counter, which means subsequent event reads will not include events that happened
-    /// before now.
-    pub fn iter(&mut self) -> impl DoubleEndedIterator<Item = &T> {
-        self.iter_with_id().map(|(event, _id)| event)
-    }
-
-    /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
-    pub fn iter_with_id(&mut self) -> impl DoubleEndedIterator<Item = (&T, EventId<T>)> {
-        internal_event_reader(&mut self.last_event_count.0, &self.events).map(|(event, id)| {
-            trace!("EventReader::iter() -> {}", id);
-            (event, id)
-        })
-    }
-}
-
 impl<T: Component> Events<T> {
     /// "Sends" an `event` by writing it to the current event buffer. [EventReader]s can then read
     /// the event.
@@ -371,6 +243,143 @@ impl<T: Component> Events<T> {
             State::A => self.events_a.iter().map(map_instance_event),
             State::B => self.events_b.iter().map(map_instance_event),
         }
+    }
+}
+
+fn map_instance_event_with_id<T>(event_instance: &EventInstance<T>) -> (&T, EventId<T>) {
+    (&event_instance.event, event_instance.event_id)
+}
+
+fn map_instance_event<T>(event_instance: &EventInstance<T>) -> &T {
+    &event_instance.event
+}
+
+/// Like [`iter_with_id`](EventReader::iter_with_id) except not emitting any traces for read
+/// messages.
+fn internal_event_reader<'a, T>(
+    last_event_count: &mut usize,
+    events: &'a Events<T>,
+) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> {
+    // if the reader has seen some of the events in a buffer, find the proper index offset.
+    // otherwise read all events in the buffer
+    let a_index = if *last_event_count > events.a_start_event_count {
+        *last_event_count - events.a_start_event_count
+    } else {
+        0
+    };
+    let b_index = if *last_event_count > events.b_start_event_count {
+        *last_event_count - events.b_start_event_count
+    } else {
+        0
+    };
+    *last_event_count = events.event_count;
+    match events.state {
+        State::A => events
+            .events_b
+            .get(b_index..)
+            .unwrap_or_else(|| &[])
+            .iter()
+            .map(map_instance_event_with_id)
+            .chain(
+                events
+                    .events_a
+                    .get(a_index..)
+                    .unwrap_or_else(|| &[])
+                    .iter()
+                    .map(map_instance_event_with_id),
+            ),
+        State::B => events
+            .events_a
+            .get(a_index..)
+            .unwrap_or_else(|| &[])
+            .iter()
+            .map(map_instance_event_with_id)
+            .chain(
+                events
+                    .events_b
+                    .get(b_index..)
+                    .unwrap_or_else(|| &[])
+                    .iter()
+                    .map(map_instance_event_with_id),
+            ),
+    }
+}
+/// Sends events of type `T`.
+pub struct EventWriter<'a, T: Component> {
+    events: &'a mut Events<T>,
+}
+
+impl<'a, T: Component> SystemParam for EventWriter<'a, T> {
+    type Fetch = ResMutState<Events<T>>;
+}
+
+impl<'a, T: Component> EventWriter<'a, T> {
+    pub fn new(events: &'a mut Events<T>) -> Self {
+        EventWriter::<'a, T> { events }
+    }
+
+    pub fn send(&mut self, event: T) {
+        self.events.send(event);
+    }
+
+    pub fn send_batch(&mut self, events: impl Iterator<Item = T>) {
+        self.events.extend(events);
+    }
+}
+
+/// Reads events of type `T` in order and tracks which events have already been read.
+pub struct EventReader<'a, T: Component> {
+    last_event_count: Local<'a, (usize, PhantomData<T>)>,
+    events: &'a Events<T>,
+}
+
+impl<'a, T: Component> SystemParam for EventReader<'a, T> {
+    type Fetch = ResState<Events<T>>;
+}
+
+impl<'a, T: Component> EventReader<'a, T> {
+    /// Iterates over the events this EventReader has not seen yet. This updates the EventReader's
+    /// event counter, which means subsequent event reads will not include events that happened
+    /// before now.
+    pub fn iter(&mut self) -> impl DoubleEndedIterator<Item = &T> {
+        self.iter_with_id().map(|(event, _id)| event)
+    }
+
+    /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
+    pub fn iter_with_id(&mut self) -> impl DoubleEndedIterator<Item = (&T, EventId<T>)> {
+        internal_event_reader(&mut self.last_event_count.0, &self.events).map(|(event, id)| {
+            trace!("EventReader::iter() -> {}", id);
+            (event, id)
+        })
+    }
+}
+
+pub struct ManualEventReader<T> {
+    last_event_count: usize,
+    _marker: PhantomData<T>,
+}
+
+impl<T> Default for ManualEventReader<T> {
+    fn default() -> Self {
+        ManualEventReader {
+            last_event_count: 0,
+            _marker: Default::default(),
+        }
+    }
+}
+
+impl<T> ManualEventReader<T> {
+    /// See [`EventReader::iter`]
+    pub fn iter<'a>(&mut self, events: &'a Events<T>) -> impl DoubleEndedIterator<Item = &'a T> {
+        internal_event_reader(&mut self.last_event_count, events).map(|(e, _)| e)
+    }
+
+    /// See [`EventReader::iter_with_id`]
+    pub fn iter_with_id<'a>(
+        &mut self,
+        events: &'a Events<T>,
+    ) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> {
+        internal_event_reader(&mut self.last_event_count, events)
     }
 }
 
