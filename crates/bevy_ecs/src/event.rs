@@ -347,7 +347,7 @@ impl<'a, T: Component> EventReader<'a, T> {
     }
 }
 
-/// Reads and consumes all events of type T
+/// Reads and consumes all events of type T when .drain or .drain_with_id are called
 ///
 /// Useful for manual event cleanup when [AppBuilder::add_event::<T>] is omitted,
 /// allowing events to accumulate on your components or resources until consumed.
