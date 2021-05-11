@@ -151,6 +151,7 @@ Example | File | Description
 `ecs_guide` | [`ecs/ecs_guide.rs`](./ecs/ecs_guide.rs) | Full guide to Bevy's ECS
 `change_detection` | [`ecs/change_detection.rs`](./ecs/change_detection.rs) | Change detection on components
 `event` | [`ecs/event.rs`](./ecs/event.rs) | Illustrates event creation, activation, and reception
+`event_consumer` | [`ecs/event_consumer.rs`](./ecs/event_consumer.rs) | Shows how to consume events and avoid automatic event cleanup when skipping systems
 `fixed_timestep` | [`ecs/fixed_timestep.rs`](./ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick
 `hierarchy` | [`ecs/hierarchy.rs`](./ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities
 `parallel_query` | [`ecs/parallel_query.rs`](./ecs/parallel_query.rs) | Illustrates parallel queries with `ParallelIterator`

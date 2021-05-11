@@ -19,7 +19,7 @@ pub mod prelude {
     pub use crate::{
         bundle::Bundle,
         entity::Entity,
-        event::{EventReader, EventWriter},
+        event::{EventConsumer, EventReader, EventWriter},
         query::{Added, ChangeTrackers, Changed, Or, QueryState, With, WithBundle, Without},
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
