@@ -124,7 +124,7 @@ pub struct BundleInfo {
 impl BundleInfo {
     /// # Safety
     /// table row must exist, entity must be valid
-    #[allow(clippy::clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     #[inline]
     pub(crate) unsafe fn write_components<T: Bundle>(
         &self,

@@ -52,7 +52,7 @@ impl Default for CapsuleUvProfile {
 }
 
 impl From<Capsule> for Mesh {
-    #[allow(clippy::clippy::needless_range_loop)]
+    #[allow(clippy::needless_range_loop)]
     fn from(capsule: Capsule) -> Self {
         // code adapted from https://behreajj.medium.com/making-a-capsule-mesh-via-script-in-five-3d-environments-c2214abf02db
 
