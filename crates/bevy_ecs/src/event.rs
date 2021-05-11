@@ -218,9 +218,9 @@ impl<T: Component> Events<T> {
             BufferState::B => self.events_a.drain(..).chain(self.events_b.drain(..)),
         };
 
-        event_instances.map(|ei| {
-            trace!("Events::drain_with_id -> {}", ei.event_id);
-            (ei.event, ei.event_id)
+        event_instances.map(|instance| {
+            trace!("Events::drain_with_id -> {}", instance.event_id);
+            (instance.event, instance.event_id)
         })
     }
 
