@@ -358,13 +358,15 @@ pub struct EventConsumer<'a, T: Component> {
 
 impl<'a, T: Component> EventConsumer<'a, T> {
     /// Drains all available events this EventConsumer has access to into an iterator
-    pub fn drain(self) -> impl DoubleEndedIterator<Item = T> {
-        self.events.drain()
+    pub fn drain(self) -> impl DoubleEndedIterator<Item = T> + 'a {
+        // into_inner is needed to ensure the lifetime is not bound to the implicit .deref_mut() call
+        self.events.into_inner().drain()
     }
 
     /// Drains all available events this EventConsumer has access to into an iterator and returns the id
-    pub fn drain_with_id(self) -> impl DoubleEndedIterator<Item = (T, EventId<T>)> {
-        self.events.drain_with_id()
+    pub fn drain_with_id(self) -> impl DoubleEndedIterator<Item = (T, EventId<T>)> + 'a {
+        // into_inner is needed to ensure the lifetime is not bound to the implicit .deref_mut() call
+        self.events.into_inner().drain_with_id()
     }
 }
 
