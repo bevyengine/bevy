@@ -247,10 +247,12 @@ impl<T: Component> Events<T> {
     }
 }
 
+// Used in internal_event_reader instead of a closure to ensure stable type
 fn map_instance_event_with_id<T>(event_instance: &EventInstance<T>) -> (&T, EventId<T>) {
     (&event_instance.event, event_instance.event_id)
 }
 
+// Used in internal_event_reader instead of a closure to ensure stable type
 fn map_instance_event<T>(event_instance: &EventInstance<T>) -> &T {
     &event_instance.event
 }
