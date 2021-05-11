@@ -491,8 +491,8 @@ impl Animator {
         let clip = self.add_clip(clip);
         let layer_index = self.layers.len();
         self.layers.push(Layer {
-            clip,
             weight,
+            clip,
             ..Default::default()
         });
         layer_index

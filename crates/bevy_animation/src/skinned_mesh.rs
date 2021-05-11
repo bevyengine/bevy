@@ -284,15 +284,13 @@ pub(crate) fn skinning_debugger_update(
             if !debugger.started {
                 let bone_mesh = meshes.add(Mesh::from(shape::Cube { size: 0.05 }));
                 // TODO: Keep track of all these entities, their position will only be updated if the parent GlobalTransform changes ...
-                for bone in skinner.joint_entities.iter() {
-                    if let Some(entity) = bone {
-                        commands
-                            .spawn_bundle(PbrBundle {
-                                mesh: bone_mesh.clone(),
-                                ..Default::default()
-                            })
-                            .insert(Parent(*entity));
-                    }
+                for entity in skinner.joint_entities.iter().flatten() {
+                    commands
+                        .spawn_bundle(PbrBundle {
+                            mesh: bone_mesh.clone(),
+                            ..Default::default()
+                        })
+                        .insert(Parent(*entity));
                 }
 
                 debugger.started = true;
