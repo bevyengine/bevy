@@ -367,6 +367,13 @@ impl<'w, T: Component> DerefMut for ResMut<'w, T> {
     }
 }
 
+impl<'a, T: Component> ResMut<'a, T> {
+    pub fn into_inner(self) -> &'a mut T {
+        self.ticks.set_changed(self.change_tick);
+        self.value
+    }
+}
+
 /// The [`SystemParamState`] of [`ResMut`].
 pub struct ResMutState<T> {
     component_id: ComponentId,
