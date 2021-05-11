@@ -1,5 +1,5 @@
-use bevy::core::FixedTimestep;
 use bevy::prelude::*;
+use bevy::{app::Events, core::FixedTimestep};
 
 /// Events are automatically cleaned up after two frames when intialized via `.add_event`.
 /// To bypass this, you can simply add the Events::<T> resource manually.
@@ -17,7 +17,8 @@ use bevy::prelude::*;
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .add_event::<MyEvent>()
+        // We can't use .add_event or our events will be cleaned up too soon
+        .init_resource::<Events<MyEvent>>()
         .add_system(
             event_trigger_system
                 .system()
@@ -42,7 +43,7 @@ struct MyEvent {
 fn event_trigger_system(time: Res<Time>, mut my_events: EventWriter<MyEvent>) {
     my_events.send(MyEvent {
         message: format!(
-            "This event was sent at {}",
+            "This event was sent at {} milliseconds",
             time.time_since_startup().as_millis()
         )
         .to_string(),
@@ -50,6 +51,7 @@ fn event_trigger_system(time: Res<Time>, mut my_events: EventWriter<MyEvent>) {
 }
 
 // reads events as soon as they come in
+// FIXME: stops responding after the first time events are consumed
 fn event_listener_system(mut events: EventReader<MyEvent>) {
     for _ in events.iter() {
         info!("I heard an event!");
