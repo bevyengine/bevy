@@ -306,19 +306,12 @@ fn internal_event_reader<'a, T>(
     }
 }
 /// Sends events of type `T`.
+#[derive(SystemParam)]
 pub struct EventWriter<'a, T: Component> {
-    events: &'a mut Events<T>,
-}
-
-impl<'a, T: Component> SystemParam for EventWriter<'a, T> {
-    type Fetch = ResMutState<Events<T>>;
+    events: ResMut<'a, Events<T>>,
 }
 
 impl<'a, T: Component> EventWriter<'a, T> {
-    pub fn new(events: &'a mut Events<T>) -> Self {
-        EventWriter::<'a, T> { events }
-    }
-
     pub fn send(&mut self, event: T) {
         self.events.send(event);
     }
@@ -329,13 +322,10 @@ impl<'a, T: Component> EventWriter<'a, T> {
 }
 
 /// Reads events of type `T` in order and tracks which events have already been read.
+#[derive(SystemParam)]
 pub struct EventReader<'a, T: Component> {
     last_event_count: Local<'a, (usize, PhantomData<T>)>,
-    events: &'a Events<T>,
-}
-
-impl<'a, T: Component> SystemParam for EventReader<'a, T> {
-    type Fetch = ResState<Events<T>>;
+    events: Res<'a, Events<T>>,
 }
 
 impl<'a, T: Component> EventReader<'a, T> {
@@ -361,22 +351,19 @@ impl<'a, T: Component> EventReader<'a, T> {
 /// allowing events to accumulate on your components or resources until consumed.
 /// Note: due to the draining nature of this reader, you probably only want one
 /// EventConsumer per event storage location + event type combination.
+#[derive(SystemParam)]
 pub struct EventConsumer<'a, T: Component> {
-    events: &'a mut Events<T>,
-}
-
-impl<'a, T: Component> SystemParam for EventConsumer<'a, T> {
-    type Fetch = ResMutState<Events<T>>;
+    events: ResMut<'a, Events<T>>,
 }
 
 impl<'a, T: Component> EventConsumer<'a, T> {
     /// Drains all available events this EventConsumer has access to into an iterator
-    pub fn drain(self) -> impl DoubleEndedIterator<Item = T> + 'a {
+    pub fn drain(self) -> impl DoubleEndedIterator<Item = T> {
         self.events.drain()
     }
 
     /// Drains all available events this EventConsumer has access to into an iterator and returns the id
-    pub fn drain_with_id(self) -> impl DoubleEndedIterator<Item = (T, EventId<T>)> + 'a {
+    pub fn drain_with_id(self) -> impl DoubleEndedIterator<Item = (T, EventId<T>)> {
         self.events.drain_with_id()
     }
 }
