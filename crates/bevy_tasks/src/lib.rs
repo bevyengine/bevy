@@ -1,34 +1,34 @@
-pub use countdown_event::CountdownEvent;
-pub use iter::ParallelIterator;
-#[cfg(not(target_arch = "wasm32"))]
-pub use priority_executor::*;
-#[cfg(target_arch = "wasm32")]
-pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder};
-pub use slice::{ParallelSlice, ParallelSliceMut};
-pub use task::Task;
-#[cfg(not(target_arch = "wasm32"))]
-pub use task_pool::{Scope, TaskPool, TaskPoolBuilder};
-pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
-
 mod slice;
+pub use slice::{ParallelSlice, ParallelSliceMut};
+
 mod task;
+pub use task::Task;
+
 #[cfg(not(target_arch = "wasm32"))]
 mod task_pool;
 #[cfg(not(target_arch = "wasm32"))]
-mod priority_executor;
+pub use task_pool::{Scope, TaskPool, TaskPoolBuilder};
 
 #[cfg(target_arch = "wasm32")]
 mod single_threaded_task_pool;
+#[cfg(target_arch = "wasm32")]
+pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder};
+
 mod usages;
+pub use usages::{ComputeTaskPool};
+
 mod countdown_event;
+pub use countdown_event::CountdownEvent;
+
 mod iter;
+pub use iter::ParallelIterator;
 
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         iter::ParallelIterator,
         slice::{ParallelSlice, ParallelSliceMut},
-        usages::ComputeTaskPool,
+        usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool},
     };
 }
 
