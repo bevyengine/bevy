@@ -11,7 +11,7 @@ use bevy::{app::Events, core::FixedTimestep};
 ///
 /// `EventConsumer::<T>` provides a simple interface to do so, clearing all events that it reads
 /// by draining them into a new vector.
-/// You can combine it with other `EventReader`s as long as they read events before ,
+/// You can combine it with other `EventReader`s as long as they read events before,
 /// but only one `EventConsumer` system should be used per event type in most cases
 /// as they will compete for events.
 fn main() {
