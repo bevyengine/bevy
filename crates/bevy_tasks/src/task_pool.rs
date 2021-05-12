@@ -8,7 +8,7 @@ use std::{
 
 use futures_lite::{future, pin};
 
-use crate::{Task, Priority, PriorityExecutor};
+use crate::{Priority, PriorityExecutor, Task};
 
 /// Used to create a TaskPool
 #[derive(Debug, Default, Clone)]
@@ -162,9 +162,9 @@ impl TaskPool {
     ///
     /// This is similar to `rayon::scope` and `crossbeam::scope`
     pub fn scope<'scope, F, T>(&self, f: F) -> Vec<T>
-        where
-            F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
-            T: Send + 'static,
+    where
+        F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
+        T: Send + 'static,
     {
         TaskPool::LOCAL_EXECUTOR.with(|local_executor| {
             // SAFETY: This function blocks until all futures complete, so this future must return
@@ -232,15 +232,15 @@ impl TaskPool {
     /// cancelled and "detached" allowing it to continue running without having to be polled by the
     /// end-user.
     pub fn spawn<T>(&self, future: impl Future<Output = T> + Send + 'static) -> Task<T>
-        where
-            T: Send + 'static,
+    where
+        T: Send + 'static,
     {
         Task::new(self.executor.spawn(Priority::IO, future))
     }
 
     pub fn spawn_local<T>(&self, future: impl Future<Output = T> + 'static) -> Task<T>
-        where
-            T: 'static,
+    where
+        T: 'static,
     {
         Task::new(TaskPool::LOCAL_EXECUTOR.with(|executor| executor.spawn(future)))
     }
@@ -274,11 +274,12 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
 #[cfg(test)]
 #[allow(clippy::blacklisted_name)]
 mod tests {
-    use super::*;
     use std::sync::{
         atomic::{AtomicBool, AtomicI32, Ordering},
         Barrier,
     };
+
+    use super::*;
 
     #[test]
     fn test_spawn() {
