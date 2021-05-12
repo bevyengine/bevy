@@ -207,6 +207,13 @@ Larger changes deserve a comment in the main thread, or a pull request to the or
 When in doubt about a matter of architectural philosophy, refer back to [*What we're trying to build*](https://github.com/bevy-engine/bevy/blob/main/CONTRIBUTING.md#what-were-trying-to-build) for guidance.
 
 Once you're happy with the work and feel you're reasonably qualified to assess quality in this particular area, leave your `Approved` review on the PR so we can mark it as `ready-for-cart`.
+If you're new to GitHub:
+
+1. Select the "Files Changed" tab on the PR.
+2. Press the "Review Changes" button.
+3. Leave any non-local comments you want to add to the main thread then select "Approve".
+
+No special permissions needed!
 
 There are a two main places you can check for new work to review:
 
