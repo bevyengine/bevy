@@ -1,10 +1,9 @@
 name: CI
 
 on:
-  push:
-    branches: [master]
   pull_request:
-    branches: [master]
+  push:
+    branches: [main, staging, trying]
 
 env:
   CARGO_TERM_COLOR: always
@@ -14,45 +13,33 @@ jobs:
     strategy:
       matrix:
         toolchain: [stable, nightly]
-        os: [windows-2019, ubuntu-20.04, macos-10.15]
+        os: [windows-latest, ubuntu-latest, macos-latest]
         exclude:
-          - os: macos-10.15
+          - os: macos-latest
             toolchain: nightly
-          - os: windows-2019
+          - os: windows-latest
             toolchain: nightly
     runs-on: ${{ matrix.os }}
-    needs: clean
     steps:
       - uses: actions/checkout@v2
 
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.toolchain }}
+          components: rustfmt, clippy
           override: true
 
-      - uses: actions/cache@v2
-        with:
-          path: |
-            target
-          key: ${{ runner.os }}-cargo-check-test-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install alsa and udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+        if: runner.os == 'linux'
 
-      - name: Install alsa
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev
-        if: ${{ runner.os == 'Linux' }}
+      - name: Check the format
+        # See tools/ci/src/main.rs for the commands this runs
+        run: cargo run -p ci
+        if: runner.os == 'linux' && matrix.toolchain == 'stable'
 
-      - name: Install udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libudev-dev
-        if: ${{ runner.os == 'Linux' }}
-
-      - name: Build
-        run: cargo check
-        env:
-          CARGO_INCREMENTAL: 0
-          RUSTFLAGS: "-C debuginfo=0 -D warnings"
-
-      - name: Run tests
+      - name: Build & run tests
         run: cargo test --workspace
-        if: ${{ runner.os == 'Linux' }}
         env:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
@@ -61,9 +48,8 @@ jobs:
     strategy:
       matrix:
         toolchain: [stable, nightly]
-        os: [ubuntu-20.04]
+        os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
-    needs: clean
     steps:
       - uses: actions/checkout@v2
 
@@ -72,12 +58,6 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
           target: wasm32-unknown-unknown
           override: true
-
-      - uses: actions/cache@v2
-        with:
-          path: |
-            target
-          key: ${{ runner.os }}-cargo-check-test-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Check wasm
         uses: actions-rs/cargo@v1
@@ -88,35 +68,88 @@ jobs:
   build-android:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Install Android targets
-      run: rustup target add aarch64-linux-android armv7-linux-androideabi
-    - name: Install Cargo APK
-      run: cargo install cargo-apk
-    - name: Build APK
-      run: cargo apk build --example android
+      - uses: actions/checkout@v2
+      - name: Install Android targets
+        run: rustup target add aarch64-linux-android armv7-linux-androideabi
+      - name: Install Cargo APK
+        run: cargo install cargo-apk
+      - name: Build APK
+        run: cargo apk build --example android
 
-  clean:
+  markdownlint:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
+        with:
+          # Full git history is needed to get a proper list of changed files within `super-linter`
+          fetch-depth: 0
+
+      - name: Run Markdown Lint
+        uses: github/super-linter@v3.16.2
+        env:
+          VALIDATE_ALL_CODEBASE: false
+          VALIDATE_MARKDOWN: true
+          DEFAULT_BRANCH: main
+          # Not needed here as only one Linter is used.
+          #GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  check-markdown-links:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: gaurav-nelson/github-action-markdown-link-check@0fe4911067fa322422f325b002d2038ba5602170
+      with:
+        use-quiet-mode: 'yes'
+        use-verbose-mode: 'yes'
+        config-file: '.github/linters/markdown-link-check.json'
+
+  run-examples:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get update;
+          DEBIAN_FRONTEND=noninteractive sudo apt-get install --no-install-recommends -yq \
+            libasound2-dev libudev-dev wget unzip xvfb;
+
       - uses: actions/checkout@v2
 
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
-          components: rustfmt, clippy
-          override: true
+          toolchain: stable
 
-      - name: Install alsa
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev
+      - name: Setup swiftshader
+        run: |
+          wget https://github.com/qarmin/gtk_library_store/releases/download/3.24.0/swiftshader.zip;
+          unzip swiftshader.zip;
+          curr="$(pwd)/libvk_swiftshader.so";
+          sed -i "s|PATH_TO_CHANGE|$curr|" vk_swiftshader_icd.json;
 
-      - name: Install udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libudev-dev
+      - name: Build bevy
+        run: |
+          cargo build --no-default-features --features "bevy_dynamic_plugin,bevy_gilrs,bevy_gltf,bevy_wgpu,bevy_winit,render,png,hdr,x11,bevy_ci_testing"
 
-      - name: Check the format
-        run: cargo +nightly fmt --all -- --check
+      - name: Run examples
+        run: |
+          for example in .github/example-run/*.ron; do
+            example_name=`basename $example .ron`
+            echo "running $example_name - "`date`
+            time CI_TESTING_CONFIG=$example VK_ICD_FILENAMES=$(pwd)/vk_swiftshader_icd.json DRI_PRIME=0 xvfb-run cargo run --example $example_name --no-default-features --features "bevy_dynamic_plugin,bevy_gilrs,bevy_gltf,bevy_wgpu,bevy_winit,render,png,hdr,x11,bevy_ci_testing"
+            sleep 10
+          done
 
-      # type complexity must be ignored because we use huge templates for queries
-      # -A clippy::manual-strip: strip_prefix support was added in 1.45. we want to support earlier rust versions
-      - name: Run clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings -A clippy::type_complexity -A clippy::manual-strip
+  check-doc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install alsa and udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+        if: runner.os == 'linux'
+      - name: Installs cargo-deadlinks
+        run: cargo install cargo-deadlinks
+      - name: Build and check doc
+        run: RUSTDOCFLAGS='-D warnings' cargo doc --all-features --no-deps
+      - name: Checks dead links
+        run: cargo deadlinks --dir target/doc/bevy
+        continue-on-error: true

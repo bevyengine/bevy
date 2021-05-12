@@ -1,5 +1,5 @@
 use super::{WgpuRenderContext, WgpuRenderResourceContext};
-use bevy_ecs::{Resources, World};
+use bevy_ecs::world::World;
 use bevy_render::{
     render_graph::{Edge, NodeId, ResourceSlots, StageBorrow},
     renderer::RenderResourceContext,
@@ -17,17 +17,19 @@ impl WgpuRenderGraphExecutor {
     pub fn execute(
         &self,
         world: &World,
-        resources: &Resources,
         device: Arc<wgpu::Device>,
         queue: &mut wgpu::Queue,
         stages: &mut [StageBorrow],
     ) {
-        let mut render_resource_context = resources
-            .get_mut::<Box<dyn RenderResourceContext>>()
-            .unwrap();
-        let render_resource_context = render_resource_context
-            .downcast_mut::<WgpuRenderResourceContext>()
-            .unwrap();
+        let render_resource_context = {
+            let context = world
+                .get_resource::<Box<dyn RenderResourceContext>>()
+                .unwrap();
+            context
+                .downcast_ref::<WgpuRenderResourceContext>()
+                .unwrap()
+                .clone()
+        };
         let node_outputs: Arc<RwLock<HashMap<NodeId, ResourceSlots>>> = Default::default();
         for stage in stages.iter_mut() {
             // TODO: sort jobs and slice by "amount of work" / weights
@@ -60,19 +62,18 @@ impl WgpuRenderGraphExecutor {
                                 let outputs = if let Some(outputs) = node_outputs.get(output_node) {
                                     outputs
                                 } else {
-                                    panic!("node inputs not set")
+                                    panic!("Node inputs not set.")
                                 };
 
                                 let output_resource =
-                                    outputs.get(*output_index).expect("output should be set");
+                                    outputs.get(*output_index).expect("Output should be set.");
                                 input_slot.resource = Some(output_resource);
                             } else {
-                                panic!("no edge connected to input")
+                                panic!("No edge connected to input.")
                             }
                         }
                         node_state.node.update(
                             world,
-                            resources,
                             &mut render_context,
                             &node_state.input_slots,
                             &mut node_state.output_slots,

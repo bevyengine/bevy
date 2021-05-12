@@ -24,6 +24,7 @@ mod countdown_event;
 mod iter;
 
 pub mod prelude {
+    #[doc(hidden)]
     pub use crate::{
         iter::ParallelIterator,
         slice::{ParallelSlice, ParallelSliceMut},

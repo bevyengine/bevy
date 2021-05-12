@@ -1,17 +1,17 @@
 use crate::{AudioSource, Decodable};
-use bevy_asset::Handle;
+use bevy_asset::{Asset, Handle};
 use parking_lot::RwLock;
 use std::{collections::VecDeque, fmt};
 
 /// The external struct used to play audio
 pub struct Audio<P = AudioSource>
 where
-    P: Decodable,
+    P: Asset + Decodable,
 {
     pub queue: RwLock<VecDeque<Handle<P>>>,
 }
 
-impl<P> fmt::Debug for Audio<P>
+impl<P: Asset> fmt::Debug for Audio<P>
 where
     P: Decodable,
 {
@@ -22,7 +22,7 @@ where
 
 impl<P> Default for Audio<P>
 where
-    P: Decodable,
+    P: Asset + Decodable,
 {
     fn default() -> Self {
         Self {
@@ -33,7 +33,7 @@ where
 
 impl<P> Audio<P>
 where
-    P: Decodable,
+    P: Asset + Decodable,
     <P as Decodable>::Decoder: rodio::Source + Send + Sync,
     <<P as Decodable>::Decoder as Iterator>::Item: rodio::Sample + Send + Sync,
 {

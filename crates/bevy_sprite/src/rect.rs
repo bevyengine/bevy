@@ -1,7 +1,8 @@
 use bevy_core::Byteable;
 use bevy_math::Vec2;
 
-/// A rectangle defined by two points. There is no defined origin, so 0,0 could be anywhere (top-left, bottom-left, etc)
+/// A rectangle defined by two points. There is no defined origin, so 0,0 could be anywhere
+/// (top-left, bottom-left, etc)
 #[repr(C)]
 #[derive(Default, Clone, Copy, Debug)]
 pub struct Rect {

@@ -44,9 +44,12 @@ pub mod math {
     pub use bevy_math::*;
 }
 
-pub mod property {
-    //! Dynamically interact with struct fields and names.
-    pub use bevy_property::*;
+pub mod reflect {
+    // TODO: remove these renames once TypeRegistryArc is no longer required
+    //! Type reflection used for dynamically interacting with rust types.
+    pub use bevy_reflect::{
+        TypeRegistry as TypeRegistryInternal, TypeRegistryArc as TypeRegistry, *,
+    };
 }
 
 pub mod scene {
@@ -64,11 +67,6 @@ pub mod transform {
     pub use bevy_transform::*;
 }
 
-pub mod type_registry {
-    //! Registered types and components can be used when loading scenes.
-    pub use bevy_type_registry::*;
-}
-
 pub mod utils {
     pub use bevy_utils::*;
 }
@@ -84,6 +82,11 @@ pub mod audio {
     pub use bevy_audio::*;
 }
 
+#[cfg(feature = "bevy_gilrs")]
+pub mod gilrs {
+    pub use bevy_gilrs::*;
+}
+
 #[cfg(feature = "bevy_gltf")]
 pub mod gltf {
     //! Support for GLTF file loading.
@@ -93,7 +96,6 @@ pub mod gltf {
 #[cfg(feature = "bevy_pbr")]
 pub mod pbr {
     //! Physically based rendering.
-    //! **Note**: true PBR has not yet been implemented; the name `pbr` is aspirational.
     pub use bevy_pbr::*;
 }
 

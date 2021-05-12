@@ -1,0 +1,64 @@
+[
+  (
+    entity: 0,
+    components: [
+      {
+        "type": "bevy_transform::components::transform::Transform",
+        "struct": {
+          "translation": {
+            "type": "glam::vec3::Vec3",
+            "value": (0.0, 0.0, 0.0),
+          },
+          "rotation": {
+            "type": "glam::quat::Quat",
+            "value": (0.0, 0.0, 0.0, 1.0),
+          },
+          "scale": {
+            "type": "glam::vec3::Vec3",
+            "value": (1.0, 1.0, 1.0),
+          },
+        },
+      },
+      {
+        "type": "scene::ComponentB",
+        "struct": {
+          "value": {
+            "type": "alloc::string::String",
+            "value": "hello",
+          },
+        },
+      },
+      {
+        "type": "scene::ComponentA",
+        "struct": {
+          "x": {
+            "type": "f32",
+            "value": 1.0,
+          },
+          "y": {
+            "type": "f32",
+            "value": 2.0,
+          },
+        },
+      },
+    ],
+  ),
+  (
+    entity: 1,
+    components: [
+      {
+        "type": "scene::ComponentA",
+        "struct": {
+          "x": {
+            "type": "f32",
+            "value": 3.0,
+          },
+          "y": {
+            "type": "f32",
+            "value": 4.0,
+          },
+        },
+      },
+    ],
+  ),
+]

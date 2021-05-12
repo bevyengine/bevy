@@ -24,8 +24,8 @@ impl DynamicTextureAtlasBuilder {
         texture: &Texture,
     ) -> Option<u32> {
         let allocation = self.atlas_allocator.allocate(size2(
-            texture.size.x as i32 + self.padding,
-            texture.size.y as i32 + self.padding,
+            texture.size.width as i32 + self.padding,
+            texture.size.height as i32 + self.padding,
         ));
         if let Some(allocation) = allocation {
             let atlas_texture = textures.get_mut(&texture_atlas.texture).unwrap();
@@ -51,8 +51,8 @@ impl DynamicTextureAtlasBuilder {
     //     let change_list = self.atlas_allocator.resize_and_rearrange(new_size2);
 
     //     for change in change_list.changes {
-    //         if let Some(changed_texture_handle) = self.allocation_textures.remove(&change.old.id) {
-    //             let changed_texture = textures.get(&changed_texture_handle).unwrap();
+    //         if let Some(changed_texture_handle) = self.allocation_textures.remove(&change.old.id)
+    // {             let changed_texture = textures.get(&changed_texture_handle).unwrap();
     //             self.place_texture(change.new, changed_texture_handle, changed_texture);
     //         }
     //     }
@@ -72,7 +72,7 @@ impl DynamicTextureAtlasBuilder {
         let mut rect = allocation.rectangle;
         rect.max.x -= self.padding;
         rect.max.y -= self.padding;
-        let atlas_width = atlas_texture.size.x as usize;
+        let atlas_width = atlas_texture.size.width as usize;
         let rect_width = rect.width() as usize;
         let format_size = atlas_texture.format.pixel_size();
 

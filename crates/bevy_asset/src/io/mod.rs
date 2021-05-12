@@ -13,7 +13,7 @@ pub use file_asset_io::*;
 pub use wasm_asset_io::*;
 
 use anyhow::Result;
-use bevy_ecs::bevy_utils::BoxedFuture;
+use bevy_utils::BoxedFuture;
 use downcast_rs::{impl_downcast, Downcast};
 use std::{
     io,
@@ -24,11 +24,11 @@ use thiserror::Error;
 /// Errors that occur while loading assets
 #[derive(Error, Debug)]
 pub enum AssetIoError {
-    #[error("Path not found")]
+    #[error("path not found: {0}")]
     NotFound(PathBuf),
-    #[error("Encountered an io error while loading asset.")]
+    #[error("encountered an io error while loading asset: {0}")]
     Io(#[from] io::Error),
-    #[error("Failed to watch path")]
+    #[error("failed to watch path: {0}")]
     PathWatchError(PathBuf),
 }
 

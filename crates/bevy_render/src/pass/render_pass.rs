@@ -1,5 +1,5 @@
 use crate::{
-    pipeline::{BindGroupDescriptorId, PipelineDescriptor},
+    pipeline::{BindGroupDescriptorId, IndexFormat, PipelineDescriptor},
     renderer::{BindGroupId, BufferId, RenderContext},
 };
 use bevy_asset::Handle;
@@ -7,7 +7,7 @@ use std::ops::Range;
 
 pub trait RenderPass {
     fn get_render_context(&self) -> &dyn RenderContext;
-    fn set_index_buffer(&mut self, buffer: BufferId, offset: u64);
+    fn set_index_buffer(&mut self, buffer: BufferId, offset: u64, index_format: IndexFormat);
     fn set_vertex_buffer(&mut self, start_slot: u32, buffer: BufferId, offset: u64);
     fn set_pipeline(&mut self, pipeline_handle: &Handle<PipelineDescriptor>);
     fn set_viewport(&mut self, x: f32, y: f32, w: f32, h: f32, min_depth: f32, max_depth: f32);

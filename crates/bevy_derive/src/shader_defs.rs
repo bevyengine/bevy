@@ -17,7 +17,7 @@ pub fn derive_shader_defs(input: TokenStream) -> TokenStream {
             fields: Fields::Named(fields),
             ..
         }) => &fields.named,
-        _ => panic!("expected a struct with named fields"),
+        _ => panic!("Expected a struct with named fields."),
     };
 
     let shader_def_idents = fields

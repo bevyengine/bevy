@@ -3,16 +3,21 @@ mod system;
 mod window;
 mod windows;
 
+use bevy_ecs::system::IntoSystem;
 pub use event::*;
 pub use system::*;
 pub use window::*;
 pub use windows::*;
 
 pub mod prelude {
-    pub use crate::{CursorMoved, ReceivedCharacter, Window, WindowDescriptor, Windows};
+    #[doc(hidden)]
+    pub use crate::{
+        CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter, Window,
+        WindowDescriptor, WindowMoved, Windows,
+    };
 }
 
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, Events};
 
 pub struct WindowPlugin {
     pub add_primary_window: bool,
@@ -36,16 +41,23 @@ impl Plugin for WindowPlugin {
             .add_event::<WindowCloseRequested>()
             .add_event::<CloseWindow>()
             .add_event::<CursorMoved>()
+            .add_event::<CursorEntered>()
+            .add_event::<CursorLeft>()
             .add_event::<ReceivedCharacter>()
+            .add_event::<WindowFocused>()
+            .add_event::<WindowScaleFactorChanged>()
+            .add_event::<WindowBackendScaleFactorChanged>()
+            .add_event::<FileDragAndDrop>()
+            .add_event::<WindowMoved>()
             .init_resource::<Windows>();
 
         if self.add_primary_window {
-            let resources = app.resources();
-            let window_descriptor = resources
-                .get::<WindowDescriptor>()
+            let world = app.world_mut();
+            let window_descriptor = world
+                .get_resource::<WindowDescriptor>()
                 .map(|descriptor| (*descriptor).clone())
                 .unwrap_or_else(WindowDescriptor::default);
-            let mut create_window_event = resources.get_mut::<Events<CreateWindow>>().unwrap();
+            let mut create_window_event = world.get_resource_mut::<Events<CreateWindow>>().unwrap();
             create_window_event.send(CreateWindow {
                 id: WindowId::primary(),
                 descriptor: window_descriptor,
@@ -53,7 +65,7 @@ impl Plugin for WindowPlugin {
         }
 
         if self.exit_on_close {
-            app.add_system(exit_on_window_close_system);
+            app.add_system(exit_on_window_close_system.system());
         }
     }
 }

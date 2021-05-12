@@ -1,8 +1,7 @@
 use crate::{path::AssetPath, LabelId};
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet, Uuid};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use uuid::Uuid;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SourceMeta {

@@ -11,8 +11,8 @@ fn main() {
         // .add_plugins_with(HelloWorldPlugins, |group| {
         //     group
         //         .disable::<PrintWorldPlugin>()
-        //         .add_before::<PrintHelloPlugin, _>(bevy::diagnostic::PrintDiagnosticsPlugin::default())
-        // })
+        //         .add_before::<PrintHelloPlugin,
+        // _>(bevy::diagnostic::LogDiagnosticsPlugin::default()) })
         .run();
 }
 
@@ -29,22 +29,22 @@ pub struct PrintHelloPlugin;
 
 impl Plugin for PrintHelloPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_system(print_hello_system);
+        app.add_system(print_hello_system.system());
     }
 }
 
 fn print_hello_system() {
-    println!("hello");
+    info!("hello");
 }
 
 pub struct PrintWorldPlugin;
 
 impl Plugin for PrintWorldPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_system(print_world_system);
+        app.add_system(print_world_system.system());
     }
 }
 
 fn print_world_system() {
-    println!("world");
+    info!("world");
 }
