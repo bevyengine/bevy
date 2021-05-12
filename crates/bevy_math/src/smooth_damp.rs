@@ -128,7 +128,6 @@ macro_rules! impl_smooth_damp {
                 }
             }
 
-            #[track_caller]
             #[inline]
             fn smooth_damp_max(
                 from: $t,
