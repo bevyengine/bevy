@@ -145,20 +145,7 @@ impl<T: Component> Events<T> {
     /// "Sends" an `event` by writing it to the current event buffer. [EventReader]s can then read
     /// the event.
     pub fn send(&mut self, event: T) {
-        let event_id = EventId {
-            id: self.event_count,
-            _marker: PhantomData,
-        };
-        trace!("Events::send() -> {}", event_id);
-
-        let event_instance = EventInstance { event_id, event };
-
-        match self.state {
-            BufferState::A => self.events_a.push(event_instance),
-            BufferState::B => self.events_b.push(event_instance),
-        }
-
-        self.event_count += 1;
+        self.extend(std::iter::once(event));
     }
 
     /// Gets a new [ManualEventReader]. This will include all events already in the event buffers.
@@ -231,13 +218,30 @@ impl<T: Component> Events<T> {
         })
     }
 
+    /// Writes each event in `events` to the current event buffer.
     pub fn extend<I>(&mut self, events: I)
     where
         I: Iterator<Item = T>,
     {
-        for event in events {
-            self.send(event);
+        let mut event_count = self.event_count;
+        let events = events.map(|event| {
+            let event_id = EventId {
+                id: event_count,
+                _marker: PhantomData,
+            };
+            event_count += 1;
+            EventInstance { event_id, event }
+        });
+        match self.state {
+            BufferState::A => self.events_a.extend(events),
+            BufferState::B => self.events_b.extend(events),
         }
+        trace!(
+            "Events::extend() -> [{}, {})",
+            self.event_count,
+            event_count
+        );
+        self.event_count = event_count;
     }
 
     /// Iterates over events that happened since the last "update" call.
