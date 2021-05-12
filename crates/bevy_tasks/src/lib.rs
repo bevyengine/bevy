@@ -7,7 +7,11 @@ pub use task::Task;
 #[cfg(not(target_arch = "wasm32"))]
 mod task_pool;
 #[cfg(not(target_arch = "wasm32"))]
+mod priority_executor;
+#[cfg(not(target_arch = "wasm32"))]
 pub use task_pool::{Scope, TaskPool, TaskPoolBuilder};
+#[cfg(not(target_arch = "wasm32"))]
+pub use priority_executor::{PriorityExecutor, Priority};
 
 #[cfg(target_arch = "wasm32")]
 mod single_threaded_task_pool;
