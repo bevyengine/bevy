@@ -49,10 +49,7 @@ impl<'a> PriorityExecutor<'a> {
             loop {
                 // idling
                 future::block_on(async {
-                    let listener = event.listen();
-                    future::yield_now()
-                        .or(listener)
-                        .await
+                    event.listen().await;
                 });
 
                 future::block_on(async {
