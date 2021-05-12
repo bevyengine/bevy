@@ -67,11 +67,11 @@ pub fn create_platform_default_asset_io(app: &mut AppBuilder) -> Box<dyn AssetIo
         .get_resource_or_insert_with(AssetServerSettings::default);
 
     #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
-        let source = FileAssetIo::new(&settings.asset_folder);
+    let source = FileAssetIo::new(&settings.asset_folder);
     #[cfg(target_arch = "wasm32")]
-        let source = WasmAssetIo::new(&settings.asset_folder);
+    let source = WasmAssetIo::new(&settings.asset_folder);
     #[cfg(target_os = "android")]
-        let source = AndroidAssetIo::new(&settings.asset_folder);
+    let source = AndroidAssetIo::new(&settings.asset_folder);
 
     Box::new(source)
 }
@@ -98,22 +98,22 @@ impl Plugin for AssetPlugin {
             AssetStage::LoadAssets,
             SystemStage::parallel(),
         )
-            .add_stage_after(
-                bevy_app::CoreStage::PostUpdate,
-                AssetStage::AssetEvents,
-                SystemStage::parallel(),
-            )
-            .register_type::<HandleId>()
-            .add_system_to_stage(
-                bevy_app::CoreStage::PreUpdate,
-                asset_server::free_unused_assets_system.system(),
-            );
+        .add_stage_after(
+            bevy_app::CoreStage::PostUpdate,
+            AssetStage::AssetEvents,
+            SystemStage::parallel(),
+        )
+        .register_type::<HandleId>()
+        .add_system_to_stage(
+            bevy_app::CoreStage::PreUpdate,
+            asset_server::free_unused_assets_system.system(),
+        );
 
         #[cfg(all(
-        feature = "filesystem_watcher",
-        all(not(target_arch = "wasm32"), not(target_os = "android"))
+            feature = "filesystem_watcher",
+            all(not(target_arch = "wasm32"), not(target_os = "android"))
         ))]
-            app.add_system_to_stage(
+        app.add_system_to_stage(
             AssetStage::LoadAssets,
             io::filesystem_watcher_system.system(),
         );
