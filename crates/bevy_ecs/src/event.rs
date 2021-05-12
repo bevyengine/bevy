@@ -446,6 +446,29 @@ mod tests {
     }
 
     #[test]
+    fn write_eat_repeat() {
+        struct E;
+        let mut events = Events::<E>::default();
+        let mut reader = events.get_reader();
+
+        assert!(reader.iter(&events).next().is_none());
+
+        // Send an event
+        events.send(E);
+        assert!(reader.iter(&events).next().is_some());
+        assert!(reader.iter(&events).next().is_none());
+
+        // Eat all events
+        let _ = events.drain();
+        assert!(reader.iter(&events).next().is_none());
+
+        // Try again
+        events.send(E);
+        assert!(reader.iter(&events).next().is_some());
+        assert!(reader.iter(&events).next().is_none());
+    }
+
+    #[test]
     fn test_events() {
         let mut events = Events::<TestEvent>::default();
         let event_0 = TestEvent { i: 0 };
