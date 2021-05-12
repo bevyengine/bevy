@@ -46,7 +46,6 @@ fn event_trigger_system(time: Res<Time>, mut my_events: EventWriter<MyEvent>) {
             "This event was sent at {} milliseconds",
             time.time_since_startup().as_millis()
         )
-        .to_string(),
     });
 }
 
