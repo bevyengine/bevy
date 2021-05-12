@@ -51,7 +51,6 @@ fn event_trigger_system(time: Res<Time>, mut my_events: EventWriter<MyEvent>) {
 }
 
 // reads events as soon as they come in
-// FIXME: stops responding after the first time events are consumed
 fn event_listener_system(mut events: EventReader<MyEvent>) {
     for _ in events.iter() {
         info!("I heard an event!");

@@ -218,6 +218,13 @@ impl<T: Component> Events<T> {
             BufferState::B => self.events_a.drain(..).chain(self.events_b.drain(..)),
         };
 
+        // We must reset these values to 0 as all events have been drained
+        self.a_start_event_count = 0;
+        self.b_start_event_count = 0;
+        self.event_count = 0;
+        // Reset to A for consistency with Self::default()
+        self.state = BufferState::A;
+
         event_instances.map(|instance| {
             trace!("Events::drain_with_id -> {}", instance.event_id);
             (instance.event, instance.event_id)
