@@ -9,14 +9,14 @@ pub use light::*;
 pub use material::*;
 
 pub mod prelude {
-    pub use crate::{entity::*, light::Light, material::StandardMaterial};
+    #[doc(hidden)]
+    pub use crate::{entity::*, light::PointLight, material::StandardMaterial};
 }
 
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets, Handle};
-use bevy_render::{prelude::Color, render_graph::RenderGraph, shader};
-use bevy_type_registry::RegisterType;
-use light::Light;
+use bevy_ecs::system::IntoSystem;
+use bevy_render::{prelude::Color, shader};
 use material::StandardMaterial;
 use render_graph::add_pbr_graph;
 
@@ -27,27 +27,25 @@ pub struct PbrPlugin;
 impl Plugin for PbrPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_asset::<StandardMaterial>()
-            .register_component::<Light>()
+            .register_type::<PointLight>()
             .add_system_to_stage(
-                stage::POST_UPDATE,
-                shader::asset_shader_defs_system::<StandardMaterial>,
+                CoreStage::PostUpdate,
+                shader::asset_shader_defs_system::<StandardMaterial>.system(),
             )
             .init_resource::<AmbientLight>();
-        let resources = app.resources();
-        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-        add_pbr_graph(&mut render_graph, resources);
+        add_pbr_graph(app.world_mut());
 
         // add default StandardMaterial
         let mut materials = app
-            .resources()
-            .get_mut::<Assets<StandardMaterial>>()
+            .world_mut()
+            .get_resource_mut::<Assets<StandardMaterial>>()
             .unwrap();
         materials.set_untracked(
             Handle::<StandardMaterial>::default(),
             StandardMaterial {
-                albedo: Color::PINK,
-                shaded: false,
-                albedo_texture: None,
+                base_color: Color::PINK,
+                unlit: true,
+                ..Default::default()
             },
         );
     }

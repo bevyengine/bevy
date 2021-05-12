@@ -2,8 +2,8 @@ use bevy::prelude::*;
 
 fn main() {
     App::build()
-        .add_startup_system(startup_system)
-        .add_system(normal_system)
+        .add_startup_system(startup_system.system())
+        .add_system(normal_system.system())
         .run();
 }
 

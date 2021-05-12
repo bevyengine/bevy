@@ -1,6 +1,9 @@
 use crate::CalculatedSize;
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::{Query, Res, With};
+use bevy_ecs::{
+    query::With,
+    system::{Query, Res},
+};
 use bevy_math::Size;
 use bevy_render::texture::Texture;
 use bevy_sprite::ColorMaterial;
@@ -27,10 +30,14 @@ pub fn image_node_system(
             .and_then(|material| material.texture.as_ref())
             .and_then(|texture_handle| textures.get(texture_handle))
         {
-            calculated_size.size = Size {
-                width: texture.size.x,
-                height: texture.size.y,
+            let size = Size {
+                width: texture.size.width as f32,
+                height: texture.size.height as f32,
             };
+            // Update only if size has changed to avoid needless layout calculations
+            if size != calculated_size.size {
+                calculated_size.size = size;
+            }
         }
     }
 }

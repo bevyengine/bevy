@@ -1,56 +1,51 @@
 use crate::app_builder::AppBuilder;
-use bevy_ecs::{ParallelExecutor, Resources, Schedule, World};
+use bevy_ecs::{
+    schedule::{Schedule, Stage},
+    world::World,
+};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
 #[allow(clippy::needless_doctest_main)]
 /// Containers of app logic and data
 ///
-/// App store the ECS World, Resources, Schedule, and Executor. They also store the "run" function of the App, which
-/// by default executes the App schedule once. Apps are constructed using the builder pattern.
+/// App store the ECS World, Resources, Schedule, and Executor. They also store the "run" function
+/// of the App, which by default executes the App schedule once. Apps are constructed using the
+/// builder pattern.
 ///
 /// ## Example
 /// Here is a simple "Hello World" Bevy app:
 /// ```
-///use bevy_app::prelude::*;
-///use bevy_ecs::prelude::*;
+/// # use bevy_app::prelude::*;
+/// # use bevy_ecs::prelude::*;
 ///
-///fn main() {
+/// fn main() {
 ///    App::build()
 ///        .add_system(hello_world_system.system())
 ///        .run();
-///}
+/// }
 ///
-///fn hello_world_system() {
+/// fn hello_world_system() {
 ///    println!("hello world");
-///}
+/// }
 /// ```
 pub struct App {
     pub world: World,
-    pub resources: Resources,
     pub runner: Box<dyn Fn(App)>,
     pub schedule: Schedule,
-    pub executor: ParallelExecutor,
-    pub startup_schedule: Schedule,
-    pub startup_executor: ParallelExecutor,
 }
 
 impl Default for App {
     fn default() -> Self {
         Self {
             world: Default::default(),
-            resources: Default::default(),
             schedule: Default::default(),
-            executor: Default::default(),
-            startup_schedule: Default::default(),
-            startup_executor: ParallelExecutor::without_tracker_clears(),
             runner: Box::new(run_once),
         }
     }
 }
 
 fn run_once(mut app: App) {
-    app.initialize();
     app.update();
 }
 
@@ -60,34 +55,18 @@ impl App {
     }
 
     pub fn update(&mut self) {
-        self.schedule
-            .initialize(&mut self.world, &mut self.resources);
-        self.executor
-            .run(&mut self.schedule, &mut self.world, &mut self.resources);
-    }
-
-    pub fn initialize(&mut self) {
         #[cfg(feature = "trace")]
-        let startup_schedule_span = info_span!("startup_schedule");
+        let bevy_frame_update_span = info_span!("frame");
         #[cfg(feature = "trace")]
-        let _startup_schedule_guard = startup_schedule_span.enter();
-        self.startup_schedule
-            .initialize(&mut self.world, &mut self.resources);
-        self.startup_executor.initialize(&mut self.resources);
-        self.startup_executor.run(
-            &mut self.startup_schedule,
-            &mut self.world,
-            &mut self.resources,
-        );
+        let _bevy_frame_update_guard = bevy_frame_update_span.enter();
+        self.schedule.run(&mut self.world);
     }
 
     pub fn run(mut self) {
         #[cfg(feature = "trace")]
-        let bevy_app_run_span = info_span!("bevy_app_run");
+        let bevy_app_run_span = info_span!("bevy_app");
         #[cfg(feature = "trace")]
         let _bevy_app_run_guard = bevy_app_run_span.enter();
-
-        self.executor.initialize(&mut self.resources);
 
         let runner = std::mem::replace(&mut self.runner, Box::new(run_once));
         (runner)(self);

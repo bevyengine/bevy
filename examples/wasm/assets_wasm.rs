@@ -1,20 +1,20 @@
 use bevy::{
     asset::{AssetLoader, AssetServerSettings, LoadContext, LoadedAsset},
     prelude::*,
-    type_registry::TypeUuid,
+    reflect::TypeUuid,
     utils::BoxedFuture,
 };
 
 fn main() {
     App::build()
-        .add_resource(AssetServerSettings {
+        .insert_resource(AssetServerSettings {
             asset_folder: "/".to_string(),
         })
         .add_plugins(DefaultPlugins)
         .add_asset::<RustSourceCode>()
         .init_asset_loader::<RustSourceCodeLoader>()
-        .add_startup_system(load_asset)
-        .add_system(print_asset)
+        .add_startup_system(load_asset.system())
+        .add_system(print_asset.system())
         .run();
 }
 
@@ -23,7 +23,7 @@ struct State {
     printed: bool,
 }
 
-fn load_asset(commands: &mut Commands, asset_server: Res<AssetServer>) {
+fn load_asset(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(State {
         handle: asset_server.load("assets_wasm.rs"),
         printed: false,

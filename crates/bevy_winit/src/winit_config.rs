@@ -4,7 +4,7 @@ pub struct WinitConfig {
     /// Configures the winit library to return control to the main thread after
     /// the [run](bevy_app::App::run) loop is exited. Winit strongly recommends
     /// avoiding this when possible. Before using this please read and understand
-    /// the [caveats](winit::platform::desktop::EventLoopExtDesktop::run_return)
+    /// the [caveats](winit::platform::run_return::EventLoopExtRunReturn::run_return)
     /// in the winit documentation.
     ///
     /// This feature is only available on desktop `target_os` configurations.

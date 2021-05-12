@@ -2,6 +2,7 @@
 mod android_tracing;
 
 pub mod prelude {
+    #[doc(hidden)]
     pub use bevy_utils::tracing::{
         debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn, warn_span,
     };
@@ -12,15 +13,57 @@ pub use bevy_utils::tracing::{
 };
 
 use bevy_app::{AppBuilder, Plugin};
+#[cfg(feature = "tracing-chrome")]
+use tracing_subscriber::fmt::{format::DefaultFields, FormattedFields};
 use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 
-/// Adds logging to Apps.
+/// Adds logging to Apps. This plugin is part of the `DefaultPlugins`. Adding
+/// this plugin will setup a collector appropriate to your target platform:
+/// * Using [`tracing-subscriber`](https://crates.io/crates/tracing-subscriber) by default,
+/// logging to `stdout`.
+/// * Using [`android_log-sys`](https://crates.io/crates/android_log-sys) on Android,
+/// logging to Android logs.
+/// * Using [`tracing-wasm`](https://crates.io/crates/tracing-wasm) in WASM, logging
+/// to the browser console.
+///
+/// You can configure this plugin using the resource [`LogSettings`].
+/// ```no_run
+/// # use bevy_internal::DefaultPlugins;
+/// # use bevy_app::App;
+/// # use bevy_log::LogSettings;
+/// # use bevy_utils::tracing::Level;
+/// fn main() {
+///     App::build()
+///         .insert_resource(LogSettings {
+///             level: Level::DEBUG,
+///             filter: "wgpu=error,bevy_render=info".to_string(),
+///         })
+///         .add_plugins(DefaultPlugins)
+///         .run();
+/// }
+/// ```
+///
+/// Log level can also be changed using the `RUST_LOG` environment variable.
+/// It has the same syntax has the field [`LogSettings::filter`], see [`EnvFilter`].
+///
+/// If you want to setup your own tracing collector, you should disable this
+/// plugin from `DefaultPlugins` with [`AppBuilder::add_plugins_with`]:
+/// ```no_run
+/// # use bevy_internal::DefaultPlugins;
+/// # use bevy_app::App;
+/// # use bevy_log::LogPlugin;
+/// fn main() {
+///     App::build()
+///         .add_plugins_with(DefaultPlugins, |group| group.disable::<LogPlugin>())
+///         .run();
+/// }
+/// ```
 #[derive(Default)]
 pub struct LogPlugin;
 
 /// LogPlugin settings
 pub struct LogSettings {
-    /// Filters logs using the [EnvFilter] format
+    /// Filters logs using the [`EnvFilter`] format
     pub filter: String,
 
     /// Filters out logs that are "less than" the given level.
@@ -31,7 +74,7 @@ pub struct LogSettings {
 impl Default for LogSettings {
     fn default() -> Self {
         Self {
-            filter: "wgpu=warn".to_string(),
+            filter: "wgpu=error".to_string(),
             level: Level::INFO,
         }
     }
@@ -40,7 +83,9 @@ impl Default for LogSettings {
 impl Plugin for LogPlugin {
     fn build(&self, app: &mut AppBuilder) {
         let default_filter = {
-            let settings = app.resources_mut().get_or_insert_with(LogSettings::default);
+            let settings = app
+                .world_mut()
+                .get_resource_or_insert_with(LogSettings::default);
             format!("{},{}", settings.level, settings.filter)
         };
 
@@ -55,17 +100,30 @@ impl Plugin for LogPlugin {
             let subscriber = subscriber.with(fmt_layer);
             #[cfg(feature = "tracing-chrome")]
             {
-                let (chrome_layer, guard) = tracing_chrome::ChromeLayerBuilder::new().build();
-                app.resources_mut().insert_thread_local(guard);
+                let (chrome_layer, guard) = tracing_chrome::ChromeLayerBuilder::new()
+                    .name_fn(Box::new(|event_or_span| match event_or_span {
+                        tracing_chrome::EventOrSpan::Event(event) => event.metadata().name().into(),
+                        tracing_chrome::EventOrSpan::Span(span) => {
+                            if let Some(fields) =
+                                span.extensions().get::<FormattedFields<DefaultFields>>()
+                            {
+                                format!("{}: {}", span.metadata().name(), fields.fields.as_str())
+                            } else {
+                                span.metadata().name().into()
+                            }
+                        }
+                    }))
+                    .build();
+                app.world_mut().insert_non_send(guard);
                 let subscriber = subscriber.with(chrome_layer);
                 bevy_utils::tracing::subscriber::set_global_default(subscriber)
-                    .expect("Could not set global default tracing subscriber");
+                    .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
             }
 
             #[cfg(not(feature = "tracing-chrome"))]
             {
                 bevy_utils::tracing::subscriber::set_global_default(subscriber)
-                    .expect("Could not set global default tracing subscriber");
+                    .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
             }
         }
 
@@ -76,14 +134,14 @@ impl Plugin for LogPlugin {
                 tracing_wasm::WASMLayerConfig::default(),
             ));
             bevy_utils::tracing::subscriber::set_global_default(subscriber)
-                .expect("Could not set global default tracing subscriber");
+                .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
         }
 
         #[cfg(target_os = "android")]
         {
             let subscriber = subscriber.with(android_tracing::AndroidLayer::default());
             bevy_utils::tracing::subscriber::set_global_default(subscriber)
-                .expect("Could not set global default tracing subscriber");
+                .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
         }
     }
 }

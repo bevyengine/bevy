@@ -1,11 +1,11 @@
 use crate::Node;
-use bevy_asset::{Assets, Handle};
-use bevy_ecs::Resources;
+use bevy_asset::{Assets, HandleUntyped};
+use bevy_ecs::world::World;
+use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ActiveCameras,
     pass::{
-        LoadOp, Operations, PassDescriptor, RenderPassDepthStencilAttachmentDescriptor,
-        TextureAttachment,
+        LoadOp, Operations, PassDescriptor, RenderPassDepthStencilAttachment, TextureAttachment,
     },
     pipeline::*,
     prelude::Msaa,
@@ -16,44 +16,42 @@ use bevy_render::{
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat,
 };
-use bevy_type_registry::TypeUuid;
 
-pub const UI_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
-    Handle::weak_from_u64(PipelineDescriptor::TYPE_UUID, 3234320022263993878);
+pub const UI_PIPELINE_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 3234320022263993878);
 
 pub fn build_ui_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
     PipelineDescriptor {
-        rasterization_state: Some(RasterizationStateDescriptor {
-            front_face: FrontFace::Ccw,
-            cull_mode: CullMode::Back,
-            depth_bias: 0,
-            depth_bias_slope_scale: 0.0,
-            depth_bias_clamp: 0.0,
-            clamp_depth: false,
-        }),
-        depth_stencil_state: Some(DepthStencilStateDescriptor {
+        depth_stencil: Some(DepthStencilState {
             format: TextureFormat::Depth32Float,
             depth_write_enabled: true,
             depth_compare: CompareFunction::Less,
-            stencil: StencilStateDescriptor {
-                front: StencilStateFaceDescriptor::IGNORE,
-                back: StencilStateFaceDescriptor::IGNORE,
+            stencil: StencilState {
+                front: StencilFaceState::IGNORE,
+                back: StencilFaceState::IGNORE,
                 read_mask: 0,
                 write_mask: 0,
             },
+            bias: DepthBiasState {
+                constant: 0,
+                slope_scale: 0.0,
+                clamp: 0.0,
+            },
         }),
-        color_states: vec![ColorStateDescriptor {
+        color_target_states: vec![ColorTargetState {
             format: TextureFormat::default(),
-            color_blend: BlendDescriptor {
-                src_factor: BlendFactor::SrcAlpha,
-                dst_factor: BlendFactor::OneMinusSrcAlpha,
-                operation: BlendOperation::Add,
-            },
-            alpha_blend: BlendDescriptor {
-                src_factor: BlendFactor::One,
-                dst_factor: BlendFactor::One,
-                operation: BlendOperation::Add,
-            },
+            blend: Some(BlendState {
+                color: BlendComponent {
+                    src_factor: BlendFactor::SrcAlpha,
+                    dst_factor: BlendFactor::OneMinusSrcAlpha,
+                    operation: BlendOperation::Add,
+                },
+                alpha: BlendComponent {
+                    src_factor: BlendFactor::One,
+                    dst_factor: BlendFactor::One,
+                    operation: BlendOperation::Add,
+                },
+            }),
             write_mask: ColorWrite::ALL,
         }],
         ..PipelineDescriptor::new(ShaderStages {
@@ -70,50 +68,52 @@ pub fn build_ui_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
 }
 
 pub mod node {
-    pub const UI_CAMERA: &str = "ui_camera";
+    pub const CAMERA_UI: &str = "camera_ui";
     pub const NODE: &str = "node";
     pub const UI_PASS: &str = "ui_pass";
 }
 
 pub mod camera {
-    pub const UI_CAMERA: &str = "UiCamera";
+    pub const CAMERA_UI: &str = "CameraUi";
 }
 
-pub trait UiRenderGraphBuilder {
-    fn add_ui_graph(&mut self, resources: &Resources) -> &mut Self;
-}
+pub(crate) fn add_ui_graph(world: &mut World) {
+    let world = world.cell();
+    let mut graph = world.get_resource_mut::<RenderGraph>().unwrap();
+    let mut pipelines = world
+        .get_resource_mut::<Assets<PipelineDescriptor>>()
+        .unwrap();
+    let mut shaders = world.get_resource_mut::<Assets<Shader>>().unwrap();
+    let mut active_cameras = world.get_resource_mut::<ActiveCameras>().unwrap();
+    let msaa = world.get_resource::<Msaa>().unwrap();
 
-impl UiRenderGraphBuilder for RenderGraph {
-    fn add_ui_graph(&mut self, resources: &Resources) -> &mut Self {
-        let mut pipelines = resources.get_mut::<Assets<PipelineDescriptor>>().unwrap();
-        let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
-        let msaa = resources.get::<Msaa>().unwrap();
-        pipelines.set_untracked(UI_PIPELINE_HANDLE, build_ui_pipeline(&mut shaders));
+    pipelines.set_untracked(UI_PIPELINE_HANDLE, build_ui_pipeline(&mut shaders));
 
-        let mut ui_pass_node = PassNode::<&Node>::new(PassDescriptor {
-            color_attachments: vec![msaa.color_attachment_descriptor(
-                TextureAttachment::Input("color_attachment".to_string()),
-                TextureAttachment::Input("color_resolve_target".to_string()),
-                Operations {
-                    load: LoadOp::Load,
-                    store: true,
-                },
-            )],
-            depth_stencil_attachment: Some(RenderPassDepthStencilAttachmentDescriptor {
-                attachment: TextureAttachment::Input("depth".to_string()),
-                depth_ops: Some(Operations {
-                    load: LoadOp::Clear(1.0),
-                    store: true,
-                }),
-                stencil_ops: None,
+    let mut ui_pass_node = PassNode::<&Node>::new(PassDescriptor {
+        color_attachments: vec![msaa.color_attachment(
+            TextureAttachment::Input("color_attachment".to_string()),
+            TextureAttachment::Input("color_resolve_target".to_string()),
+            Operations {
+                load: LoadOp::Load,
+                store: true,
+            },
+        )],
+        depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+            attachment: TextureAttachment::Input("depth".to_string()),
+            depth_ops: Some(Operations {
+                load: LoadOp::Clear(1.0),
+                store: true,
             }),
-            sample_count: msaa.samples,
-        });
+            stencil_ops: None,
+        }),
+        sample_count: msaa.samples,
+    });
 
-        ui_pass_node.add_camera(camera::UI_CAMERA);
-        self.add_node(node::UI_PASS, ui_pass_node);
+    ui_pass_node.add_camera(camera::CAMERA_UI);
+    graph.add_node(node::UI_PASS, ui_pass_node);
 
-        self.add_slot_edge(
+    graph
+        .add_slot_edge(
             base::node::PRIMARY_SWAP_CHAIN,
             WindowSwapChainNode::OUT_TEXTURE,
             node::UI_PASS,
@@ -125,7 +125,8 @@ impl UiRenderGraphBuilder for RenderGraph {
         )
         .unwrap();
 
-        self.add_slot_edge(
+    graph
+        .add_slot_edge(
             base::node::MAIN_DEPTH_TEXTURE,
             WindowTextureNode::OUT_TEXTURE,
             node::UI_PASS,
@@ -133,27 +134,26 @@ impl UiRenderGraphBuilder for RenderGraph {
         )
         .unwrap();
 
-        if msaa.samples > 1 {
-            self.add_slot_edge(
+    if msaa.samples > 1 {
+        graph
+            .add_slot_edge(
                 base::node::MAIN_SAMPLED_COLOR_ATTACHMENT,
                 WindowSwapChainNode::OUT_TEXTURE,
                 node::UI_PASS,
                 "color_attachment",
             )
             .unwrap();
-        }
-
-        // ensure ui pass runs after main pass
-        self.add_node_edge(base::node::MAIN_PASS, node::UI_PASS)
-            .unwrap();
-
-        // setup ui camera
-        self.add_system_node(node::UI_CAMERA, CameraNode::new(camera::UI_CAMERA));
-        self.add_node_edge(node::UI_CAMERA, node::UI_PASS).unwrap();
-        self.add_system_node(node::NODE, RenderResourcesNode::<Node>::new(true));
-        self.add_node_edge(node::NODE, node::UI_PASS).unwrap();
-        let mut active_cameras = resources.get_mut::<ActiveCameras>().unwrap();
-        active_cameras.add(camera::UI_CAMERA);
-        self
     }
+
+    // ensure ui pass runs after main pass
+    graph
+        .add_node_edge(base::node::MAIN_PASS, node::UI_PASS)
+        .unwrap();
+
+    // setup ui camera
+    graph.add_system_node(node::CAMERA_UI, CameraNode::new(camera::CAMERA_UI));
+    graph.add_node_edge(node::CAMERA_UI, node::UI_PASS).unwrap();
+    graph.add_system_node(node::NODE, RenderResourcesNode::<Node>::new(true));
+    graph.add_node_edge(node::NODE, node::UI_PASS).unwrap();
+    active_cameras.add(camera::CAMERA_UI);
 }

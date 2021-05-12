@@ -15,19 +15,28 @@ use bevy::{
 /// This example creates a second window and draws a mesh from two different cameras.
 fn main() {
     App::build()
-        .add_resource(Msaa { samples: 4 })
+        .insert_resource(Msaa { samples: 4 })
+        .add_state(AppState::CreateWindow)
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_system_set(
+            SystemSet::on_update(AppState::CreateWindow).with_system(setup_window.system()),
+        )
+        .add_system_set(SystemSet::on_update(AppState::Setup).with_system(setup_pipeline.system()))
         .run();
 }
 
-fn setup(
-    commands: &mut Commands,
-    mut create_window_events: ResMut<Events<CreateWindow>>,
-    mut active_cameras: ResMut<ActiveCameras>,
-    mut render_graph: ResMut<RenderGraph>,
-    asset_server: Res<AssetServer>,
-    msaa: Res<Msaa>,
+// NOTE: this "state based" approach to multiple windows is a short term workaround.
+// Future Bevy releases shouldn't require such a strict order of operations.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+enum AppState {
+    CreateWindow,
+    Setup,
+    Done,
+}
+
+fn setup_window(
+    mut app_state: ResMut<State<AppState>>,
+    mut create_window_events: EventWriter<CreateWindow>,
 ) {
     let window_id = WindowId::new();
 
@@ -35,13 +44,36 @@ fn setup(
     create_window_events.send(CreateWindow {
         id: window_id,
         descriptor: WindowDescriptor {
-            width: 800,
-            height: 600,
+            width: 800.,
+            height: 600.,
             vsync: false,
             title: "second window".to_string(),
             ..Default::default()
         },
     });
+
+    app_state.set(AppState::Setup).unwrap();
+}
+
+fn setup_pipeline(
+    mut commands: Commands,
+    windows: Res<Windows>,
+    mut active_cameras: ResMut<ActiveCameras>,
+    mut render_graph: ResMut<RenderGraph>,
+    asset_server: Res<AssetServer>,
+    msaa: Res<Msaa>,
+    mut app_state: ResMut<State<AppState>>,
+) {
+    // get the non-default window id
+    let window_id = windows
+        .iter()
+        .find(|w| w.id() != WindowId::default())
+        .map(|w| w.id());
+
+    let window_id = match window_id {
+        Some(window_id) => window_id,
+        None => return,
+    };
 
     // here we setup our render graph to draw our second camera to the new window's swap chain
 
@@ -70,7 +102,7 @@ fn setup(
 
     // add a new render pass for our new window / camera
     let mut second_window_pass = PassNode::<&MainPass>::new(PassDescriptor {
-        color_attachments: vec![msaa.color_attachment_descriptor(
+        color_attachments: vec![msaa.color_attachment(
             TextureAttachment::Input("color_attachment".to_string()),
             TextureAttachment::Input("color_resolve_target".to_string()),
             Operations {
@@ -78,7 +110,7 @@ fn setup(
                 store: true,
             },
         )],
-        depth_stencil_attachment: Some(RenderPassDepthStencilAttachmentDescriptor {
+        depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
             attachment: TextureAttachment::Input("depth".to_string()),
             depth_ops: Some(Operations {
                 load: LoadOp::Clear(1.0),
@@ -127,7 +159,7 @@ fn setup(
                 window_id,
                 TextureDescriptor {
                     size: Extent3d {
-                        depth: 1,
+                        depth_or_array_layers: 1,
                         width: 1,
                         height: 1,
                     },
@@ -153,28 +185,27 @@ fn setup(
     // SETUP SCENE
 
     // add entities to the world
-    commands
-        .spawn_scene(asset_server.load("models/monkey/Monkey.gltf"))
-        // light
-        .spawn(LightBundle {
-            transform: Transform::from_translation(Vec3::new(4.0, 5.0, 4.0)),
+    commands.spawn_scene(asset_server.load("models/monkey/Monkey.gltf#Scene0"));
+    // light
+    commands.spawn_bundle(PointLightBundle {
+        transform: Transform::from_xyz(4.0, 5.0, 4.0),
+        ..Default::default()
+    });
+    // main camera
+    commands.spawn_bundle(PerspectiveCameraBundle {
+        transform: Transform::from_xyz(0.0, 0.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..Default::default()
+    });
+    // second window camera
+    commands.spawn_bundle(PerspectiveCameraBundle {
+        camera: Camera {
+            name: Some("Secondary".to_string()),
+            window: window_id,
             ..Default::default()
-        })
-        // main camera
-        .spawn(Camera3dBundle {
-            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 6.0))
-                .looking_at(Vec3::default(), Vec3::unit_y()),
-            ..Default::default()
-        })
-        // second window camera
-        .spawn(Camera3dBundle {
-            camera: Camera {
-                name: Some("Secondary".to_string()),
-                window: window_id,
-                ..Default::default()
-            },
-            transform: Transform::from_translation(Vec3::new(6.0, 0.0, 0.0))
-                .looking_at(Vec3::default(), Vec3::unit_y()),
-            ..Default::default()
-        });
+        },
+        transform: Transform::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..Default::default()
+    });
+
+    app_state.set(AppState::Done).unwrap();
 }

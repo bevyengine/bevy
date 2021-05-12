@@ -3,28 +3,27 @@ use crate::{
     renderer::{BufferInfo, BufferUsage, RenderContext},
     texture::{Texture, TextureDescriptor, TEXTURE_ASSET_INDEX},
 };
-use bevy_app::prelude::{EventReader, Events};
+use bevy_app::{Events, ManualEventReader};
 use bevy_asset::{AssetEvent, Assets};
-use bevy_ecs::{Resources, World};
-use bevy_utils::{AHashExt, HashSet};
+use bevy_ecs::world::World;
+use bevy_utils::HashSet;
 
 #[derive(Default)]
 pub struct TextureCopyNode {
-    pub texture_event_reader: EventReader<AssetEvent<Texture>>,
+    pub texture_event_reader: ManualEventReader<AssetEvent<Texture>>,
 }
 
 impl Node for TextureCopyNode {
     fn update(
         &mut self,
-        _world: &World,
-        resources: &Resources,
+        world: &World,
         render_context: &mut dyn RenderContext,
         _input: &ResourceSlots,
         _output: &mut ResourceSlots,
     ) {
-        let texture_events = resources.get::<Events<AssetEvent<Texture>>>().unwrap();
-        let textures = resources.get::<Assets<Texture>>().unwrap();
-        let mut copied_textures = HashSet::new();
+        let texture_events = world.get_resource::<Events<AssetEvent<Texture>>>().unwrap();
+        let textures = world.get_resource::<Assets<Texture>>().unwrap();
+        let mut copied_textures = HashSet::default();
         for event in self.texture_event_reader.iter(&texture_events) {
             match event {
                 AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
@@ -34,13 +33,18 @@ impl Node for TextureCopyNode {
                         }
 
                         let texture_descriptor: TextureDescriptor = texture.into();
-                        let width = texture.size.x as usize;
-                        let aligned_width = render_context
-                            .resources()
-                            .get_aligned_texture_size(texture.size.x as usize);
+                        let width = texture.size.width as usize;
+                        let aligned_width =
+                            render_context.resources().get_aligned_texture_size(width);
                         let format_size = texture.format.pixel_size();
-                        let mut aligned_data =
-                            vec![0; format_size * aligned_width * texture.size.y as usize];
+                        let mut aligned_data = vec![
+                            0;
+                            format_size
+                                * aligned_width
+                                * texture.size.height as usize
+                                * texture.size.depth_or_array_layers
+                                    as usize
+                        ];
                         texture
                             .data
                             .chunks_exact(format_size * width)

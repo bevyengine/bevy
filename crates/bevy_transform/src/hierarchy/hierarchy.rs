@@ -1,48 +1,21 @@
 use crate::components::{Children, Parent};
-use bevy_ecs::{Command, Commands, Entity, Query, Resources, World};
+use bevy_ecs::{
+    entity::Entity,
+    system::{Command, EntityCommands},
+    world::World,
+};
 use bevy_utils::tracing::debug;
-
-pub fn run_on_hierarchy<T, S>(
-    children_query: &Query<&Children>,
-    state: &mut S,
-    entity: Entity,
-    parent_result: Option<T>,
-    mut previous_result: Option<T>,
-    run: &mut dyn FnMut(&mut S, Entity, Option<T>, Option<T>) -> Option<T>,
-) -> Option<T>
-where
-    T: Clone,
-{
-    let parent_result = run(state, entity, parent_result, previous_result);
-    previous_result = None;
-    if let Ok(children) = children_query.get(entity) {
-        for child in children.iter().cloned() {
-            previous_result = run_on_hierarchy(
-                children_query,
-                state,
-                child,
-                parent_result.clone(),
-                previous_result,
-                run,
-            );
-        }
-    } else {
-        previous_result = parent_result;
-    }
-
-    previous_result
-}
 
 #[derive(Debug)]
 pub struct DespawnRecursive {
     entity: Entity,
 }
 
-fn despawn_with_children_recursive(world: &mut World, entity: Entity) {
+pub fn despawn_with_children_recursive(world: &mut World, entity: Entity) {
     // first, make the entity's own parent forget about it
-    if let Ok(parent) = world.get::<Parent>(entity).map(|parent| parent.0) {
-        if let Ok(mut children) = world.get_mut::<Children>(parent) {
-            children.retain(|c| *c != entity);
+    if let Some(parent) = world.get::<Parent>(entity).map(|parent| parent.0) {
+        if let Some(mut children) = world.get_mut::<Children>(parent) {
+            children.0.retain(|c| *c != entity);
         }
     }
 
@@ -52,86 +25,101 @@ fn despawn_with_children_recursive(world: &mut World, entity: Entity) {
 
 // Should only be called by `despawn_with_children_recursive`!
 fn despawn_with_children_recursive_inner(world: &mut World, entity: Entity) {
-    if let Some(children) = world
-        .get::<Children>(entity)
-        .ok()
-        .map(|children| children.0.iter().cloned().collect::<Vec<Entity>>())
-    {
-        for e in children {
+    if let Some(mut children) = world.get_mut::<Children>(entity) {
+        for e in std::mem::take(&mut children.0) {
             despawn_with_children_recursive(world, e);
         }
     }
 
-    if let Err(e) = world.despawn(entity) {
-        debug!("Failed to despawn entity {:?}: {}", entity, e);
+    if !world.despawn(entity) {
+        debug!("Failed to despawn entity {:?}", entity);
     }
 }
 
 impl Command for DespawnRecursive {
-    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
+    fn write(self: Box<Self>, world: &mut World) {
         despawn_with_children_recursive(world, self.entity);
     }
 }
 
 pub trait DespawnRecursiveExt {
     /// Despawns the provided entity and its children.
-    fn despawn_recursive(&mut self, entity: Entity) -> &mut Self;
+    fn despawn_recursive(&mut self);
 }
 
-impl DespawnRecursiveExt for Commands {
+impl<'a, 'b> DespawnRecursiveExt for EntityCommands<'a, 'b> {
     /// Despawns the provided entity and its children.
-    fn despawn_recursive(&mut self, entity: Entity) -> &mut Self {
-        self.add_command(DespawnRecursive { entity })
+    fn despawn_recursive(&mut self) {
+        let entity = self.id();
+        self.commands().add(DespawnRecursive { entity });
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use bevy_ecs::{
+        system::{CommandQueue, Commands},
+        world::World,
+    };
+
     use super::DespawnRecursiveExt;
     use crate::{components::Children, hierarchy::BuildChildren};
-    use bevy_ecs::{Commands, Resources, World};
 
     #[test]
     fn despawn_recursive() {
         let mut world = World::default();
-        let mut resources = Resources::default();
-        let mut command_buffer = Commands::default();
-        command_buffer.set_entity_reserver(world.get_entity_reserver());
+        let mut queue = CommandQueue::default();
+        let grandparent_entity;
+        {
+            let mut commands = Commands::new(&mut queue, &world);
 
-        command_buffer.spawn((0u32, 0u64)).with_children(|parent| {
-            parent.spawn((0u32, 0u64));
-        });
-
-        // Create a grandparent entity which will _not_ be deleted
-        command_buffer.spawn((1u32, 1u64));
-        let grandparent_entity = command_buffer.current_entity().unwrap();
-
-        command_buffer.with_children(|parent| {
-            // Add a child to the grandparent (the "parent"), which will get deleted
-            parent.spawn((2u32, 2u64));
-            // All descendents of the "parent" should also be deleted.
-            parent.with_children(|parent| {
-                parent.spawn((3u32, 3u64)).with_children(|parent| {
-                    // child
-                    parent.spawn((4u32, 4u64));
+            commands
+                .spawn_bundle(("Another parent".to_owned(), 0u32))
+                .with_children(|parent| {
+                    parent.spawn_bundle(("Another child".to_owned(), 1u32));
                 });
-                parent.spawn((5u32, 5u64));
-            });
-        });
 
-        command_buffer.spawn((0u32, 0u64));
-        command_buffer.apply(&mut world, &mut resources);
+            // Create a grandparent entity which will _not_ be deleted
+            grandparent_entity = commands.spawn_bundle(("Grandparent".to_owned(), 2u32)).id();
+            commands.entity(grandparent_entity).with_children(|parent| {
+                // Add a child to the grandparent (the "parent"), which will get deleted
+                parent
+                    .spawn_bundle(("Parent, to be deleted".to_owned(), 3u32))
+                    // All descendents of the "parent" should also be deleted.
+                    .with_children(|parent| {
+                        parent
+                            .spawn_bundle(("First Child, to be deleted".to_owned(), 4u32))
+                            .with_children(|parent| {
+                                // child
+                                parent.spawn_bundle((
+                                    "First grand child, to be deleted".to_owned(),
+                                    5u32,
+                                ));
+                            });
+                        parent.spawn_bundle(("Second child, to be deleted".to_owned(), 6u32));
+                    });
+            });
+
+            commands.spawn_bundle(("An innocent bystander".to_owned(), 7u32));
+        }
+        queue.apply(&mut world);
 
         let parent_entity = world.get::<Children>(grandparent_entity).unwrap()[0];
 
-        command_buffer.despawn_recursive(parent_entity);
-        command_buffer.despawn_recursive(parent_entity); // despawning the same entity twice should not panic
-        command_buffer.apply(&mut world, &mut resources);
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.entity(parent_entity).despawn_recursive();
+            // despawning the same entity twice should not panic
+            commands.entity(parent_entity).despawn_recursive();
+        }
+        queue.apply(&mut world);
 
-        let results = world
-            .query::<(&u32, &u64)>()
-            .map(|(a, b)| (*a, *b))
+        let mut results = world
+            .query::<(&String, &u32)>()
+            .iter(&world)
+            .map(|(a, b)| (a.clone(), *b))
             .collect::<Vec<_>>();
+        results.sort_unstable_by_key(|(_, index)| *index);
 
         {
             let children = world.get::<Children>(grandparent_entity).unwrap();
@@ -142,11 +130,14 @@ mod tests {
             );
         }
 
-        // parent_entity and its children should be deleted,
-        // the grandparent tuple (1, 1) and (0, 0) tuples remaining.
         assert_eq!(
             results,
-            vec![(0u32, 0u64), (0u32, 0u64), (0u32, 0u64), (1u32, 1u64)]
+            vec![
+                ("Another parent".to_owned(), 0u32),
+                ("Another child".to_owned(), 1u32),
+                ("Grandparent".to_owned(), 2u32),
+                ("An innocent bystander".to_owned(), 7u32)
+            ]
         );
     }
 }

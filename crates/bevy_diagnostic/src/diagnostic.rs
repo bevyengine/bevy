@@ -1,9 +1,11 @@
-use bevy_utils::{Duration, HashMap, Instant};
-use std::collections::VecDeque;
-use uuid::Uuid;
+use bevy_log::warn;
+use bevy_utils::{Duration, Instant, StableHashMap, Uuid};
+use std::{borrow::Cow, collections::VecDeque};
+
+use crate::log_diagnostics_plugin::MAX_LOG_NAME_WIDTH;
 
 /// Unique identifier for a [Diagnostic]
-#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub struct DiagnosticId(pub Uuid);
 
 impl DiagnosticId {
@@ -30,7 +32,8 @@ pub struct DiagnosticMeasurement {
 #[derive(Debug)]
 pub struct Diagnostic {
     pub id: DiagnosticId,
-    pub name: String,
+    pub name: Cow<'static, str>,
+    pub suffix: Cow<'static, str>,
     history: VecDeque<DiagnosticMeasurement>,
     sum: f64,
     max_history_length: usize,
@@ -50,14 +53,33 @@ impl Diagnostic {
             .push_front(DiagnosticMeasurement { time, value });
     }
 
-    pub fn new(id: DiagnosticId, name: &str, max_history_length: usize) -> Diagnostic {
+    pub fn new(
+        id: DiagnosticId,
+        name: impl Into<Cow<'static, str>>,
+        max_history_length: usize,
+    ) -> Diagnostic {
+        let name = name.into();
+        if name.chars().count() > MAX_LOG_NAME_WIDTH {
+            // This could be a false positive due to a unicode width being shorter
+            warn!(
+                "Diagnostic {:?} has name longer than {} characters, and so might overflow in the LogDiagnosticsPlugin\
+                Consider using a shorter name.",
+                name, MAX_LOG_NAME_WIDTH
+            )
+        }
         Diagnostic {
             id,
-            name: name.to_string(),
+            name,
+            suffix: Cow::Borrowed(""),
             history: VecDeque::with_capacity(max_history_length),
             max_history_length,
             sum: 0.0,
         }
+    }
+
+    pub fn with_suffix(mut self, suffix: impl Into<Cow<'static, str>>) -> Self {
+        self.suffix = suffix.into();
+        self
     }
 
     pub fn value(&self) -> Option<f64> {
@@ -102,7 +124,9 @@ impl Diagnostic {
 /// A collection of [Diagnostic]s
 #[derive(Debug, Default)]
 pub struct Diagnostics {
-    diagnostics: HashMap<DiagnosticId, Diagnostic>,
+    // This uses a [`StableHashMap`] to ensure that the iteration order is deterministic between
+    // runs when all diagnostics are inserted in the same order.
+    diagnostics: StableHashMap<DiagnosticId, Diagnostic>,
 }
 
 impl Diagnostics {

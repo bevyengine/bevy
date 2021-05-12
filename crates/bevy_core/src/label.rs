@@ -1,5 +1,10 @@
-use bevy_ecs::prelude::*;
-use bevy_property::Properties;
+use bevy_ecs::{
+    entity::Entity,
+    query::Changed,
+    reflect::ReflectComponent,
+    system::{Query, RemovedComponents, ResMut},
+};
+use bevy_reflect::Reflect;
 use bevy_utils::{HashMap, HashSet};
 use std::{
     borrow::Cow,
@@ -8,7 +13,8 @@ use std::{
 };
 
 /// A collection of labels
-#[derive(Default, Properties)]
+#[derive(Default, Reflect)]
+#[reflect(Component)]
 pub struct Labels {
     labels: HashSet<Cow<'static, str>>,
 }
@@ -46,12 +52,17 @@ impl Labels {
         self.labels.insert(label.into());
     }
 
+    pub fn remove<T: Into<Cow<'static, str>>>(&mut self, label: T) {
+        self.labels.remove(&label.into());
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = &str> {
         self.labels.iter().map(|label| label.deref())
     }
 }
 
-/// Maintains a mapping from [Entity](bevy_ecs::prelude::Entity) ids to entity labels and entity labels to [Entities](bevy_ecs::prelude::Entity).
+/// Maintains a mapping from [Entity](bevy_ecs::prelude::Entity) ids to entity labels and entity
+/// labels to [Entities](bevy_ecs::prelude::Entity).
 #[derive(Debug, Default)]
 pub struct EntityLabels {
     label_entities: HashMap<Cow<'static, str>, Vec<Entity>>,
@@ -59,25 +70,37 @@ pub struct EntityLabels {
 }
 
 impl EntityLabels {
-    pub fn get(&self, label: &str) -> Option<&[Entity]> {
+    pub fn get(&self, label: &str) -> &[Entity] {
         self.label_entities
             .get(label)
             .map(|entities| entities.as_slice())
+            .unwrap_or(&[])
     }
 }
 
 pub(crate) fn entity_labels_system(
     mut entity_labels: ResMut<EntityLabels>,
-    // TODO: use change tracking when add/remove events are added
-    // mut query: Query<(Entity, Changed<Labels>)>,
-    query: Query<(Entity, &Labels)>,
+    removed_labels: RemovedComponents<Labels>,
+    query: Query<(Entity, &Labels), Changed<Labels>>,
 ) {
     let entity_labels = entity_labels.deref_mut();
+
+    for entity in removed_labels.iter() {
+        if let Some(labels) = entity_labels.entity_labels.get(&entity) {
+            for label in labels.iter() {
+                if let Some(entities) = entity_labels.label_entities.get_mut(label) {
+                    entities.retain(|e| *e != entity);
+                }
+            }
+        }
+    }
+
     for (entity, labels) in query.iter() {
         let current_labels = entity_labels
             .entity_labels
             .entry(entity)
             .or_insert_with(HashSet::default);
+
         for removed_label in current_labels.difference(&labels.labels) {
             if let Some(entities) = entity_labels.label_entities.get_mut(removed_label) {
                 entities.retain(|e| *e != entity);
@@ -85,11 +108,149 @@ pub(crate) fn entity_labels_system(
         }
 
         for added_label in labels.labels.difference(&current_labels) {
-            if let Some(entities) = entity_labels.label_entities.get_mut(added_label) {
-                entities.push(entity);
-            }
+            entity_labels
+                .label_entities
+                .entry(added_label.clone())
+                .or_insert_with(Vec::new)
+                .push(entity);
         }
 
         *current_labels = labels.labels.clone();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_ecs::{
+        schedule::{Schedule, Stage, SystemStage},
+        system::IntoSystem,
+        world::World,
+    };
+
+    use super::*;
+
+    fn setup() -> (World, Schedule) {
+        let mut world = World::new();
+        world.insert_resource(EntityLabels::default());
+        let mut schedule = Schedule::default();
+        schedule.add_stage("test", SystemStage::single_threaded());
+        schedule.add_system_to_stage("test", entity_labels_system.system());
+        (world, schedule)
+    }
+
+    fn holy_cow() -> Labels {
+        Labels::from(["holy", "cow"].iter().cloned())
+    }
+
+    fn holy_shamoni() -> Labels {
+        Labels::from(["holy", "shamoni"].iter().cloned())
+    }
+
+    #[test]
+    fn adds_spawned_entity() {
+        let (mut world, mut schedule) = setup();
+
+        let e1 = world.spawn().insert(holy_cow()).id();
+        schedule.run(&mut world);
+
+        let entity_labels = world.get_resource::<EntityLabels>().unwrap();
+        assert_eq!(entity_labels.get("holy"), &[e1], "holy");
+        assert_eq!(entity_labels.get("cow"), &[e1], "cow");
+        assert_eq!(entity_labels.get("shalau"), &[], "shalau");
+    }
+
+    #[test]
+    fn add_labels() {
+        let (mut world, mut schedule) = setup();
+        let e1 = world.spawn().insert(holy_cow()).id();
+        schedule.run(&mut world);
+
+        world.get_mut::<Labels>(e1).unwrap().insert("shalau");
+        schedule.run(&mut world);
+
+        let entity_labels = world.get_resource::<EntityLabels>().unwrap();
+        assert_eq!(entity_labels.get("holy"), &[e1], "holy");
+        assert_eq!(entity_labels.get("cow"), &[e1], "cow");
+        assert_eq!(entity_labels.get("shalau"), &[e1], "shalau");
+    }
+
+    #[test]
+    fn remove_labels() {
+        let (mut world, mut schedule) = setup();
+        let e1 = world.spawn().insert(holy_cow()).id();
+        schedule.run(&mut world);
+
+        world.get_mut::<Labels>(e1).unwrap().remove("holy");
+        schedule.run(&mut world);
+
+        let entity_labels = world.get_resource::<EntityLabels>().unwrap();
+        assert_eq!(entity_labels.get("holy"), &[], "holy");
+        assert_eq!(entity_labels.get("cow"), &[e1], "cow");
+        assert_eq!(entity_labels.get("shalau"), &[], "shalau");
+    }
+
+    #[test]
+    fn removes_despawned_entity() {
+        let (mut world, mut schedule) = setup();
+        let e1 = world.spawn().insert(holy_cow()).id();
+        schedule.run(&mut world);
+
+        assert!(world.despawn(e1));
+        schedule.run(&mut world);
+
+        let entity_labels = world.get_resource::<EntityLabels>().unwrap();
+        assert_eq!(entity_labels.get("holy"), &[], "holy");
+        assert_eq!(entity_labels.get("cow"), &[], "cow");
+        assert_eq!(entity_labels.get("shalau"), &[], "shalau");
+    }
+
+    #[test]
+    fn removes_labels_when_component_removed() {
+        let (mut world, mut schedule) = setup();
+        let e1 = world.spawn().insert(holy_cow()).id();
+        schedule.run(&mut world);
+
+        world.entity_mut(e1).remove::<Labels>().unwrap();
+        schedule.run(&mut world);
+
+        let entity_labels = world.get_resource::<EntityLabels>().unwrap();
+        assert_eq!(entity_labels.get("holy"), &[], "holy");
+        assert_eq!(entity_labels.get("cow"), &[], "cow");
+        assert_eq!(entity_labels.get("shalau"), &[], "shalau");
+    }
+
+    #[test]
+    fn adds_another_spawned_entity() {
+        let (mut world, mut schedule) = setup();
+        let e1 = world.spawn().insert(holy_cow()).id();
+        schedule.run(&mut world);
+
+        let e2 = world.spawn().insert(holy_shamoni()).id();
+        schedule.run(&mut world);
+
+        let entity_labels = world.get_resource::<EntityLabels>().unwrap();
+        assert_eq!(entity_labels.get("holy"), &[e1, e2], "holy");
+        assert_eq!(entity_labels.get("cow"), &[e1], "cow");
+        assert_eq!(entity_labels.get("shamoni"), &[e2], "shamoni");
+        assert_eq!(entity_labels.get("shalau"), &[], "shalau");
+    }
+
+    #[test]
+    fn removes_despawned_entity_but_leaves_other() {
+        let (mut world, mut schedule) = setup();
+        let e1 = world.spawn().insert(holy_cow()).id();
+        schedule.run(&mut world);
+
+        let e2 = world.spawn().insert(holy_shamoni()).id();
+        schedule.run(&mut world);
+
+        assert!(world.despawn(e1));
+        schedule.run(&mut world);
+
+        let entity_labels = world.get_resource::<EntityLabels>().unwrap();
+        assert_eq!(entity_labels.get("holy"), &[e2], "holy");
+        assert_eq!(entity_labels.get("cow"), &[], "cow");
+        assert_eq!(entity_labels.get("shamoni"), &[e2], "shamoni");
+        assert_eq!(entity_labels.get("shalau"), &[], "shalau");
     }
 }

@@ -87,6 +87,10 @@ pub struct TaskPool {
 }
 
 impl TaskPool {
+    thread_local! {
+        static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = async_executor::LocalExecutor::new();
+    }
+
     /// Create a `TaskPool` with the default configuration.
     pub fn new() -> Self {
         TaskPoolBuilder::new().build()
@@ -127,7 +131,7 @@ impl TaskPool {
                         future::block_on(shutdown_future).unwrap_err();
                         println!("{} exits", thread_name.clone());
                     })
-                    .expect("failed to spawn thread")
+                    .expect("Failed to spawn thread.")
             })
             .collect();
 
@@ -165,6 +169,7 @@ impl TaskPool {
         let fut = async move {
             let mut scope = Scope {
                 executor,
+                local_executor,
                 spawned: Vec::new(),
             };
 
@@ -204,6 +209,13 @@ impl TaskPool {
     {
         Task::new(self.executor.spawn(Priority::IO, future))
     }
+
+    pub fn spawn_local<T>(&self, future: impl Future<Output = T> + 'static) -> Task<T>
+    where
+        T: 'static,
+    {
+        Task::new(TaskPool::LOCAL_EXECUTOR.with(|executor| executor.spawn(future)))
+    }
 }
 
 impl Default for TaskPool {
@@ -223,16 +235,22 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
         let task = self.executor.spawn(Priority::FinishWithinFrame, f);
         self.spawned.push(task);
     }
+
+    pub fn spawn_local<Fut: Future<Output = T> + 'scope>(&mut self, f: Fut) {
+        let task = self.local_executor.spawn(f);
+        self.spawned.push(task);
+    }
 }
 
 #[cfg(test)]
+#[allow(clippy::blacklisted_name)]
 mod tests {
     use std::sync::atomic::{AtomicI32, Ordering};
 
     use super::*;
 
     #[test]
-    pub fn test_spawn() {
+    fn test_spawn() {
         let pool = TaskPool::new();
 
         let foo = Box::new(42);
@@ -260,5 +278,87 @@ mod tests {
 
         assert_eq!(outputs.len(), 100);
         assert_eq!(count.load(Ordering::Relaxed), 100);
+    }
+
+    #[test]
+    fn test_mixed_spawn_local_and_spawn() {
+        let pool = TaskPool::new();
+
+        let foo = Box::new(42);
+        let foo = &*foo;
+
+        let local_count = Arc::new(AtomicI32::new(0));
+        let non_local_count = Arc::new(AtomicI32::new(0));
+
+        let outputs = pool.scope(|scope| {
+            for i in 0..100 {
+                if i % 2 == 0 {
+                    let count_clone = non_local_count.clone();
+                    scope.spawn(async move {
+                        if *foo != 42 {
+                            panic!("not 42!?!?")
+                        } else {
+                            count_clone.fetch_add(1, Ordering::Relaxed);
+                            *foo
+                        }
+                    });
+                } else {
+                    let count_clone = local_count.clone();
+                    scope.spawn_local(async move {
+                        if *foo != 42 {
+                            panic!("not 42!?!?")
+                        } else {
+                            count_clone.fetch_add(1, Ordering::Relaxed);
+                            *foo
+                        }
+                    });
+                }
+            }
+        });
+
+        for output in &outputs {
+            assert_eq!(*output, 42);
+        }
+
+        assert_eq!(outputs.len(), 100);
+        assert_eq!(local_count.load(Ordering::Relaxed), 50);
+        assert_eq!(non_local_count.load(Ordering::Relaxed), 50);
+    }
+
+    #[test]
+    fn test_thread_locality() {
+        let pool = Arc::new(TaskPool::new());
+        let count = Arc::new(AtomicI32::new(0));
+        let barrier = Arc::new(Barrier::new(101));
+        let thread_check_failed = Arc::new(AtomicBool::new(false));
+
+        for _ in 0..100 {
+            let inner_barrier = barrier.clone();
+            let count_clone = count.clone();
+            let inner_pool = pool.clone();
+            let inner_thread_check_failed = thread_check_failed.clone();
+            std::thread::spawn(move || {
+                inner_pool.scope(|scope| {
+                    let inner_count_clone = count_clone.clone();
+                    scope.spawn(async move {
+                        inner_count_clone.fetch_add(1, Ordering::Release);
+                    });
+                    let spawner = std::thread::current().id();
+                    let inner_count_clone = count_clone.clone();
+                    scope.spawn_local(async move {
+                        inner_count_clone.fetch_add(1, Ordering::Release);
+                        if std::thread::current().id() != spawner {
+                            // NOTE: This check is using an atomic rather than simply panicing the
+                            // thread to avoid deadlocking the barrier on failure
+                            inner_thread_check_failed.store(true, Ordering::Release);
+                        }
+                    });
+                });
+                inner_barrier.wait();
+            });
+        }
+        barrier.wait();
+        assert!(!thread_check_failed.load(Ordering::Acquire));
+        assert_eq!(count.load(Ordering::Acquire), 200);
     }
 }
