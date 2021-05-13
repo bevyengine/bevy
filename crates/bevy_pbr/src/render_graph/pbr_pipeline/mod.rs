@@ -3,7 +3,7 @@ use bevy_reflect::TypeUuid;
 use bevy_render::{
     pipeline::{
         BlendComponent, BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrite,
-        CompareFunction, DepthBiasState, DepthStencilState, PipelineDescriptor, StencilFaceState,
+        CompareFunction, DepthBiasState, DepthStencilState, RenderPipelineDescriptor, StencilFaceState,
         StencilState,
     },
     shader::{Shader, ShaderStage, ShaderStages},
@@ -11,10 +11,10 @@ use bevy_render::{
 };
 
 pub const PBR_PIPELINE_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 13148362314012771389);
+    HandleUntyped::weak_from_u64(RenderPipelineDescriptor::TYPE_UUID, 13148362314012771389);
 
-pub(crate) fn build_pbr_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
-    PipelineDescriptor {
+pub(crate) fn build_pbr_pipeline(shaders: &mut Assets<Shader>) -> RenderPipelineDescriptor {
+    RenderPipelineDescriptor {
         depth_stencil: Some(DepthStencilState {
             format: TextureFormat::Depth32Float,
             depth_write_enabled: true,
@@ -47,7 +47,7 @@ pub(crate) fn build_pbr_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescri
             }),
             write_mask: ColorWrite::ALL,
         }],
-        ..PipelineDescriptor::new(ShaderStages {
+        ..RenderPipelineDescriptor::new(ShaderStages {
             vertex: shaders.add(Shader::from_glsl(
                 ShaderStage::Vertex,
                 include_str!("pbr.vert"),

@@ -37,7 +37,7 @@ use bevy_reflect::TypeUuid;
 use bevy_render::{
     draw::OutsideFrustum,
     mesh::{shape, Mesh},
-    pipeline::PipelineDescriptor,
+    pipeline::RenderPipelineDescriptor,
     render_graph::RenderGraph,
     shader::{asset_shader_defs_system, Shader},
 };
@@ -106,7 +106,7 @@ impl Plugin for SpritePlugin {
         let world_cell = world.cell();
         let mut render_graph = world_cell.get_resource_mut::<RenderGraph>().unwrap();
         let mut pipelines = world_cell
-            .get_resource_mut::<Assets<PipelineDescriptor>>()
+            .get_resource_mut::<Assets<RenderPipelineDescriptor>>()
             .unwrap();
         let mut shaders = world_cell.get_resource_mut::<Assets<Shader>>().unwrap();
         crate::render::add_sprite_graph(&mut render_graph, &mut pipelines, &mut shaders);

@@ -1,9 +1,5 @@
 use super::RenderResourceContext;
-use crate::{
-    pass::{PassDescriptor, RenderPass},
-    renderer::{BufferId, RenderResourceBindings, TextureId},
-    texture::Extent3d,
-};
+use crate::{pass::{ComputePass, PassDescriptor, RenderPass}, renderer::{BufferId, RenderResourceBindings, TextureId}, texture::Extent3d};
 
 pub trait RenderContext {
     fn resources(&self) -> &dyn RenderResourceContext;
@@ -49,10 +45,15 @@ pub trait RenderContext {
         destination_mip_level: u32,
         size: Extent3d,
     );
-    fn begin_pass(
+    fn begin_render_pass(
         &mut self,
         pass_descriptor: &PassDescriptor,
         render_resource_bindings: &RenderResourceBindings,
         run_pass: &mut dyn FnMut(&mut dyn RenderPass),
+    );
+
+    fn begin_compute_pass(
+        &mut self,
+        run_pass: &mut dyn FnMut(&mut dyn ComputePass),
     );
 }

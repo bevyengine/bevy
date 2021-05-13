@@ -3,7 +3,7 @@ use bevy::{
     reflect::TypeUuid,
     render::{
         mesh::shape,
-        pipeline::{PipelineDescriptor, RenderPipeline},
+        pipeline::{RenderPipelineDescriptor, RenderPipeline},
         render_graph::{base, AssetRenderResourcesNode, RenderGraph},
         renderer::RenderResources,
         shader::{ShaderStage, ShaderStages},
@@ -78,12 +78,12 @@ void main() {
 
 struct LoadingTexture(Option<Handle<Texture>>);
 
-struct MyPipeline(Handle<PipelineDescriptor>);
+struct MyPipeline(Handle<RenderPipelineDescriptor>);
 
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut pipelines: ResMut<Assets<PipelineDescriptor>>,
+    mut pipelines: ResMut<Assets<RenderPipelineDescriptor>>,
     mut shaders: ResMut<Assets<Shader>>,
     mut render_graph: ResMut<RenderGraph>,
 ) {
@@ -93,7 +93,7 @@ fn setup(
     )));
 
     // Create a new shader pipeline.
-    let pipeline_handle = pipelines.add(PipelineDescriptor::default_config(ShaderStages {
+    let pipeline_handle = pipelines.add(RenderPipelineDescriptor::default_config(ShaderStages {
         vertex: shaders.add(Shader::from_glsl(ShaderStage::Vertex, VERTEX_SHADER)),
         fragment: Some(shaders.add(Shader::from_glsl(ShaderStage::Fragment, FRAGMENT_SHADER))),
     }));

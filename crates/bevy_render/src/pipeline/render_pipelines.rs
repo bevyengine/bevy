@@ -1,4 +1,4 @@
-use super::{PipelineDescriptor, PipelineSpecialization};
+use super::{RenderPipelineDescriptor, PipelineSpecialization};
 use crate::{
     draw::{Draw, DrawContext, OutsideFrustum},
     mesh::{Indices, Mesh},
@@ -16,7 +16,7 @@ use bevy_utils::HashSet;
 
 #[derive(Debug, Default, Clone, Reflect)]
 pub struct RenderPipeline {
-    pub pipeline: Handle<PipelineDescriptor>,
+    pub pipeline: Handle<RenderPipelineDescriptor>,
     pub specialization: PipelineSpecialization,
     /// used to track if PipelineSpecialization::dynamic_bindings is in sync with
     /// RenderResourceBindings
@@ -24,7 +24,7 @@ pub struct RenderPipeline {
 }
 
 impl RenderPipeline {
-    pub fn new(pipeline: Handle<PipelineDescriptor>) -> Self {
+    pub fn new(pipeline: Handle<RenderPipelineDescriptor>) -> Self {
         RenderPipeline {
             specialization: Default::default(),
             pipeline,
@@ -33,7 +33,7 @@ impl RenderPipeline {
     }
 
     pub fn specialized(
-        pipeline: Handle<PipelineDescriptor>,
+        pipeline: Handle<RenderPipelineDescriptor>,
         specialization: PipelineSpecialization,
     ) -> Self {
         RenderPipeline {
@@ -60,7 +60,7 @@ impl RenderPipelines {
         }
     }
 
-    pub fn from_handles<'a, T: IntoIterator<Item = &'a Handle<PipelineDescriptor>>>(
+    pub fn from_handles<'a, T: IntoIterator<Item = &'a Handle<RenderPipelineDescriptor>>>(
         handles: T,
     ) -> Self {
         RenderPipelines {

@@ -1,7 +1,7 @@
 use bevy::{
     prelude::*,
     render::{
-        pipeline::{PipelineDescriptor, RenderPipeline},
+        pipeline::{RenderPipelineDescriptor, RenderPipeline},
         shader::{ShaderStage, ShaderStages},
     },
 };
@@ -18,7 +18,7 @@ fn star(
     // We will add a new Mesh for the star being created
     mut meshes: ResMut<Assets<Mesh>>,
     // A pipeline will be added with custom shaders
-    mut pipelines: ResMut<Assets<PipelineDescriptor>>,
+    mut pipelines: ResMut<Assets<RenderPipelineDescriptor>>,
     // Access to add new shaders
     mut shaders: ResMut<Assets<Shader>>,
 ) {
@@ -29,7 +29,7 @@ fn star(
     // steps, the vertex and fragment shaders, that we can customize writing
     // shader programs.
 
-    let pipeline_handle = pipelines.add(PipelineDescriptor::default_config(ShaderStages {
+    let pipeline_handle = pipelines.add(RenderPipelineDescriptor::default_config(ShaderStages {
         // Vertex shaders are run once for every vertex in the mesh.
         // Each vertex can have attributes associated to it (e.g. position,
         // color, texture mapping). The output of a shader is per-vertex.

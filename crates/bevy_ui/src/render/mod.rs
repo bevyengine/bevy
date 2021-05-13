@@ -18,10 +18,10 @@ use bevy_render::{
 };
 
 pub const UI_PIPELINE_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 3234320022263993878);
+    HandleUntyped::weak_from_u64(RenderPipelineDescriptor::TYPE_UUID, 3234320022263993878);
 
-pub fn build_ui_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
-    PipelineDescriptor {
+pub fn build_ui_pipeline(shaders: &mut Assets<Shader>) -> RenderPipelineDescriptor {
+    RenderPipelineDescriptor {
         depth_stencil: Some(DepthStencilState {
             format: TextureFormat::Depth32Float,
             depth_write_enabled: true,
@@ -54,7 +54,7 @@ pub fn build_ui_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
             }),
             write_mask: ColorWrite::ALL,
         }],
-        ..PipelineDescriptor::new(ShaderStages {
+        ..RenderPipelineDescriptor::new(ShaderStages {
             vertex: shaders.add(Shader::from_glsl(
                 ShaderStage::Vertex,
                 include_str!("ui.vert"),
@@ -81,7 +81,7 @@ pub(crate) fn add_ui_graph(world: &mut World) {
     let world = world.cell();
     let mut graph = world.get_resource_mut::<RenderGraph>().unwrap();
     let mut pipelines = world
-        .get_resource_mut::<Assets<PipelineDescriptor>>()
+        .get_resource_mut::<Assets<RenderPipelineDescriptor>>()
         .unwrap();
     let mut shaders = world.get_resource_mut::<Assets<Shader>>().unwrap();
     let mut active_cameras = world.get_resource_mut::<ActiveCameras>().unwrap();

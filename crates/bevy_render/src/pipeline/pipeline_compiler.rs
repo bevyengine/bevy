@@ -1,4 +1,4 @@
-use super::{state_descriptors::PrimitiveTopology, IndexFormat, PipelineDescriptor};
+use super::{state_descriptors::PrimitiveTopology, IndexFormat, RenderPipelineDescriptor};
 use crate::{
     pipeline::{BindType, VertexBufferLayout},
     renderer::RenderResourceContext,
@@ -55,15 +55,15 @@ pub struct SpecializedShader {
 
 #[derive(Debug)]
 struct SpecializedPipeline {
-    pipeline: Handle<PipelineDescriptor>,
+    pipeline: Handle<RenderPipelineDescriptor>,
     specialization: PipelineSpecialization,
 }
 
 #[derive(Debug, Default)]
 pub struct PipelineCompiler {
     specialized_shaders: HashMap<Handle<Shader>, Vec<SpecializedShader>>,
-    specialized_shader_pipelines: HashMap<Handle<Shader>, Vec<Handle<PipelineDescriptor>>>,
-    specialized_pipelines: HashMap<Handle<PipelineDescriptor>, Vec<SpecializedPipeline>>,
+    specialized_shader_pipelines: HashMap<Handle<Shader>, Vec<Handle<RenderPipelineDescriptor>>>,
+    specialized_pipelines: HashMap<Handle<RenderPipelineDescriptor>, Vec<SpecializedPipeline>>,
 }
 
 impl PipelineCompiler {
@@ -111,9 +111,9 @@ impl PipelineCompiler {
 
     pub fn get_specialized_pipeline(
         &self,
-        pipeline: &Handle<PipelineDescriptor>,
+        pipeline: &Handle<RenderPipelineDescriptor>,
         specialization: &PipelineSpecialization,
-    ) -> Option<Handle<PipelineDescriptor>> {
+    ) -> Option<Handle<RenderPipelineDescriptor>> {
         self.specialized_pipelines
             .get(pipeline)
             .and_then(|specialized_pipelines| {
@@ -129,11 +129,11 @@ impl PipelineCompiler {
     pub fn compile_pipeline(
         &mut self,
         render_resource_context: &dyn RenderResourceContext,
-        pipelines: &mut Assets<PipelineDescriptor>,
+        pipelines: &mut Assets<RenderPipelineDescriptor>,
         shaders: &mut Assets<Shader>,
-        source_pipeline: &Handle<PipelineDescriptor>,
+        source_pipeline: &Handle<RenderPipelineDescriptor>,
         pipeline_specialization: &PipelineSpecialization,
-    ) -> Handle<PipelineDescriptor> {
+    ) -> Handle<RenderPipelineDescriptor> {
         let source_descriptor = pipelines.get(source_pipeline).unwrap();
         let mut specialized_descriptor = source_descriptor.clone();
         let specialized_vertex_shader = self
@@ -282,8 +282,8 @@ impl PipelineCompiler {
 
     pub fn iter_compiled_pipelines(
         &self,
-        pipeline_handle: Handle<PipelineDescriptor>,
-    ) -> Option<impl Iterator<Item = &Handle<PipelineDescriptor>>> {
+        pipeline_handle: Handle<RenderPipelineDescriptor>,
+    ) -> Option<impl Iterator<Item = &Handle<RenderPipelineDescriptor>>> {
         self.specialized_pipelines
             .get(&pipeline_handle)
             .map(|compiled_pipelines| {
@@ -293,7 +293,7 @@ impl PipelineCompiler {
             })
     }
 
-    pub fn iter_all_compiled_pipelines(&self) -> impl Iterator<Item = &Handle<PipelineDescriptor>> {
+    pub fn iter_all_compiled_pipelines(&self) -> impl Iterator<Item = &Handle<RenderPipelineDescriptor>> {
         self.specialized_pipelines
             .values()
             .map(|compiled_pipelines| {
@@ -309,7 +309,7 @@ impl PipelineCompiler {
     pub fn update_shader(
         &mut self,
         shader: &Handle<Shader>,
-        pipelines: &mut Assets<PipelineDescriptor>,
+        pipelines: &mut Assets<RenderPipelineDescriptor>,
         shaders: &mut Assets<Shader>,
         render_resource_context: &dyn RenderResourceContext,
     ) -> Result<(), ShaderError> {

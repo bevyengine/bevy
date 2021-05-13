@@ -17,7 +17,7 @@ use bevy_reflect::TypeUuid;
 
 #[derive(Clone, Debug, TypeUuid)]
 #[uuid = "ebfc1d11-a2a4-44cb-8f12-c49cc631146c"]
-pub struct PipelineDescriptor {
+pub struct RenderPipelineDescriptor {
     pub name: Option<String>,
     pub layout: Option<PipelineLayout>,
     pub shader_stages: ShaderStages,
@@ -29,9 +29,9 @@ pub struct PipelineDescriptor {
     pub color_target_states: Vec<ColorTargetState>,
 }
 
-impl PipelineDescriptor {
+impl RenderPipelineDescriptor {
     pub fn new(shader_stages: ShaderStages) -> Self {
-        PipelineDescriptor {
+        RenderPipelineDescriptor {
             name: None,
             layout: None,
             color_target_states: Vec::new(),
@@ -55,7 +55,7 @@ impl PipelineDescriptor {
     }
 
     pub fn default_config(shader_stages: ShaderStages) -> Self {
-        PipelineDescriptor {
+        RenderPipelineDescriptor {
             name: None,
             primitive: PrimitiveState {
                 topology: PrimitiveTopology::TriangleList,

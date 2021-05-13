@@ -1,17 +1,10 @@
 use super::WgpuRenderResourceContext;
-use crate::{wgpu_type_converter::WgpuInto, WgpuRenderPass, WgpuResourceRefs};
+use crate::{WgpuComputePass, WgpuRenderPass, WgpuResourceRefs, wgpu_type_converter::WgpuInto};
 
-use bevy_render::{
-    pass::{
-        PassDescriptor, RenderPass, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
-        TextureAttachment,
-    },
-    renderer::{
+use bevy_render::{pass::{ComputePass, PassDescriptor, RenderPass, RenderPassColorAttachment, RenderPassDepthStencilAttachment, TextureAttachment}, renderer::{
         BufferId, RenderContext, RenderResourceBinding, RenderResourceBindings,
         RenderResourceContext, TextureId,
-    },
-    texture::Extent3d,
-};
+    }, texture::Extent3d};
 
 use std::sync::Arc;
 
@@ -167,7 +160,7 @@ impl RenderContext for WgpuRenderContext {
         &mut self.render_resource_context
     }
 
-    fn begin_pass(
+    fn begin_render_pass(
         &mut self,
         pass_descriptor: &PassDescriptor,
         render_resource_bindings: &RenderResourceBindings,
@@ -198,6 +191,33 @@ impl RenderContext for WgpuRenderContext {
 
         self.command_encoder.set(encoder);
     }
+
+    fn begin_compute_pass(
+        &mut self,
+        run_pass: &mut dyn FnMut(&mut dyn ComputePass),
+    ) {
+        if !self.command_encoder.is_some() {
+            self.command_encoder.create(&self.device);
+        }
+        let resource_lock = self.render_resource_context.resources.read();
+        let refs = resource_lock.refs();
+        let mut encoder = self.command_encoder.take().unwrap();
+        {
+            let compute_pass = create_compute_pass(
+                &mut encoder,
+            );
+            let mut wgpu_render_pass = WgpuComputePass {
+                compute_pass,
+                render_context: self,
+                wgpu_resources: refs,
+                pipeline_descriptor: None,
+            };
+
+            run_pass(&mut wgpu_render_pass);
+        }
+
+        self.command_encoder.set(encoder);
+    }
 }
 
 pub fn create_render_pass<'a, 'b>(
@@ -216,6 +236,14 @@ pub fn create_render_pass<'a, 'b>(
         depth_stencil_attachment: pass_descriptor.depth_stencil_attachment.as_ref().map(|d| {
             create_wgpu_depth_stencil_attachment(global_render_resource_bindings, refs, d)
         }),
+    })
+}
+
+pub fn create_compute_pass<'a>(
+    encoder: &'a mut wgpu::CommandEncoder,
+) -> wgpu::ComputePass<'a> {
+    encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+        label: None,
     })
 }
 

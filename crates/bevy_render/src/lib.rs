@@ -47,7 +47,7 @@ use camera::{
     RenderLayers, ScalingMode, VisibleEntities, WindowOrigin,
 };
 use pipeline::{
-    IndexFormat, PipelineCompiler, PipelineDescriptor, PipelineSpecialization, PrimitiveTopology,
+    IndexFormat, PipelineCompiler, RenderPipelineDescriptor, PipelineSpecialization, PrimitiveTopology,
     ShaderSpecialization, VertexBufferLayout,
 };
 use render_graph::{
@@ -135,7 +135,7 @@ impl Plugin for RenderPlugin {
         .add_asset::<Mesh>()
         .add_asset::<Texture>()
         .add_asset::<Shader>()
-        .add_asset::<PipelineDescriptor>()
+        .add_asset::<RenderPipelineDescriptor>()
         .register_type::<Camera>()
         .register_type::<DepthCalculation>()
         .register_type::<Draw>()

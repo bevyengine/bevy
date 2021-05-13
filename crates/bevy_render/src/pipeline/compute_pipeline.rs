@@ -1,14 +1,11 @@
 use super::{ComputePipelineSpecialization, PipelineLayout};
 use crate::{
-    pipeline::BindType,
     renderer::RenderResourceBindings,
-    shader::{ComputeShaderStages, Shader},
+    shader::{ComputeShaderStages},
 };
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{Handle};
 use bevy_ecs::{
-    query::Without,
     reflect::ReflectComponent,
-    system::{Query, Res, ResMut},
 };
 use bevy_reflect::{Reflect, TypeUuid};
 

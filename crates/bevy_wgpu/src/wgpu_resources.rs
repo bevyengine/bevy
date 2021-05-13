@@ -1,6 +1,6 @@
 use bevy_asset::{Handle, HandleUntyped};
 use bevy_render::{
-    pipeline::{BindGroupDescriptorId, ComputePipelineDescriptor, PipelineDescriptor},
+    pipeline::{BindGroupDescriptorId, ComputePipelineDescriptor, RenderPipelineDescriptor},
     renderer::{BindGroupId, BufferId, BufferInfo, RenderResourceId, SamplerId, TextureId},
     shader::Shader,
     texture::TextureDescriptor,
@@ -49,7 +49,7 @@ pub struct WgpuResourcesReadLock<'a> {
     pub textures: RwLockReadGuard<'a, HashMap<TextureId, wgpu::TextureView>>,
     pub swap_chain_frames: RwLockReadGuard<'a, HashMap<TextureId, wgpu::SwapChainFrame>>,
     pub render_pipelines:
-        RwLockReadGuard<'a, HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>>,
+        RwLockReadGuard<'a, HashMap<Handle<RenderPipelineDescriptor>, wgpu::RenderPipeline>>,
     pub compute_pipelines:
         RwLockReadGuard<'a, HashMap<Handle<ComputePipelineDescriptor>, wgpu::ComputePipeline>>,
     pub bind_groups: RwLockReadGuard<'a, HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>>,
@@ -77,7 +77,7 @@ pub struct WgpuResourceRefs<'a> {
     pub buffers: &'a HashMap<BufferId, Arc<wgpu::Buffer>>,
     pub textures: &'a HashMap<TextureId, wgpu::TextureView>,
     pub swap_chain_frames: &'a HashMap<TextureId, wgpu::SwapChainFrame>,
-    pub render_pipelines: &'a HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>,
+    pub render_pipelines: &'a HashMap<Handle<RenderPipelineDescriptor>, wgpu::RenderPipeline>,
     pub compute_pipelines: &'a HashMap<Handle<ComputePipelineDescriptor>, wgpu::ComputePipeline>,
     pub bind_groups: &'a HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>,
     pub used_bind_group_sender: &'a Sender<BindGroupId>,
@@ -95,7 +95,7 @@ pub struct WgpuResources {
     pub textures: Arc<RwLock<HashMap<TextureId, wgpu::Texture>>>,
     pub samplers: Arc<RwLock<HashMap<SamplerId, wgpu::Sampler>>>,
     pub shader_modules: Arc<RwLock<HashMap<Handle<Shader>, wgpu::ShaderModule>>>,
-    pub render_pipelines: Arc<RwLock<HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>>>,
+    pub render_pipelines: Arc<RwLock<HashMap<Handle<RenderPipelineDescriptor>, wgpu::RenderPipeline>>>,
     pub compute_pipelines:
         Arc<RwLock<HashMap<Handle<ComputePipelineDescriptor>, wgpu::ComputePipeline>>>,
     pub bind_groups: Arc<RwLock<HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>>>,

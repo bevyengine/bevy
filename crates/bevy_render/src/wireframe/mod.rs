@@ -1,7 +1,7 @@
 use crate::{
     draw::DrawContext,
     mesh::Indices,
-    pipeline::{PipelineDescriptor, PipelineSpecialization, RenderPipeline},
+    pipeline::{RenderPipelineDescriptor, PipelineSpecialization, RenderPipeline},
     prelude::*,
     shader::Shader,
 };
@@ -19,7 +19,7 @@ use bevy_utils::HashSet;
 mod pipeline;
 
 pub const WIREFRAME_PIPELINE_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 0x137c75ab7e9ad7f5);
+    HandleUntyped::weak_from_u64(RenderPipelineDescriptor::TYPE_UUID, 0x137c75ab7e9ad7f5);
 
 #[derive(Debug, Default)]
 pub struct WireframePlugin;
@@ -31,7 +31,7 @@ impl Plugin for WireframePlugin {
         let world = app.world_mut().cell();
         let mut shaders = world.get_resource_mut::<Assets<Shader>>().unwrap();
         let mut pipelines = world
-            .get_resource_mut::<Assets<PipelineDescriptor>>()
+            .get_resource_mut::<Assets<RenderPipelineDescriptor>>()
             .unwrap();
         pipelines.set_untracked(
             WIREFRAME_PIPELINE_HANDLE,

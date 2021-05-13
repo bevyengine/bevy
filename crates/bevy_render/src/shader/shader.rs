@@ -1,5 +1,5 @@
 use crate::{
-    pipeline::{PipelineCompiler, PipelineDescriptor},
+    pipeline::{PipelineCompiler, RenderPipelineDescriptor},
     renderer::RenderResourceContext,
 };
 
@@ -374,7 +374,7 @@ impl AssetLoader for ShaderLoader {
 
 pub fn shader_update_system(
     mut shaders: ResMut<Assets<Shader>>,
-    mut pipelines: ResMut<Assets<PipelineDescriptor>>,
+    mut pipelines: ResMut<Assets<RenderPipelineDescriptor>>,
     mut shader_events: EventReader<AssetEvent<Shader>>,
     mut pipeline_compiler: ResMut<PipelineCompiler>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,

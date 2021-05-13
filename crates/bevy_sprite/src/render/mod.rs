@@ -4,7 +4,7 @@ use bevy_reflect::TypeUuid;
 use bevy_render::{
     pipeline::{
         BlendComponent, BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrite,
-        CompareFunction, DepthBiasState, DepthStencilState, FrontFace, PipelineDescriptor,
+        CompareFunction, DepthBiasState, DepthStencilState, FrontFace, RenderPipelineDescriptor,
         PolygonMode, PrimitiveState, PrimitiveTopology, StencilFaceState, StencilState,
     },
     render_graph::{base, AssetRenderResourcesNode, RenderGraph, RenderResourcesNode},
@@ -13,13 +13,13 @@ use bevy_render::{
 };
 
 pub const SPRITE_PIPELINE_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 2785347840338765446);
+    HandleUntyped::weak_from_u64(RenderPipelineDescriptor::TYPE_UUID, 2785347840338765446);
 
 pub const SPRITE_SHEET_PIPELINE_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 9016885805180281612);
+    HandleUntyped::weak_from_u64(RenderPipelineDescriptor::TYPE_UUID, 9016885805180281612);
 
-pub fn build_sprite_sheet_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
-    PipelineDescriptor {
+pub fn build_sprite_sheet_pipeline(shaders: &mut Assets<Shader>) -> RenderPipelineDescriptor {
+    RenderPipelineDescriptor {
         depth_stencil: Some(DepthStencilState {
             format: TextureFormat::Depth32Float,
             depth_write_enabled: true,
@@ -61,7 +61,7 @@ pub fn build_sprite_sheet_pipeline(shaders: &mut Assets<Shader>) -> PipelineDesc
             clamp_depth: false,
             conservative: false,
         },
-        ..PipelineDescriptor::new(ShaderStages {
+        ..RenderPipelineDescriptor::new(ShaderStages {
             vertex: shaders.add(Shader::from_glsl(
                 ShaderStage::Vertex,
                 include_str!("sprite_sheet.vert"),
@@ -74,8 +74,8 @@ pub fn build_sprite_sheet_pipeline(shaders: &mut Assets<Shader>) -> PipelineDesc
     }
 }
 
-pub fn build_sprite_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
-    PipelineDescriptor {
+pub fn build_sprite_pipeline(shaders: &mut Assets<Shader>) -> RenderPipelineDescriptor {
+    RenderPipelineDescriptor {
         depth_stencil: Some(DepthStencilState {
             format: TextureFormat::Depth32Float,
             depth_write_enabled: true,
@@ -117,7 +117,7 @@ pub fn build_sprite_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor
             clamp_depth: false,
             conservative: false,
         },
-        ..PipelineDescriptor::new(ShaderStages {
+        ..RenderPipelineDescriptor::new(ShaderStages {
             vertex: shaders.add(Shader::from_glsl(
                 ShaderStage::Vertex,
                 include_str!("sprite.vert"),
@@ -139,7 +139,7 @@ pub mod node {
 
 pub(crate) fn add_sprite_graph(
     graph: &mut RenderGraph,
-    pipelines: &mut Assets<PipelineDescriptor>,
+    pipelines: &mut Assets<RenderPipelineDescriptor>,
     shaders: &mut Assets<Shader>,
 ) {
     graph.add_system_node(

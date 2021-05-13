@@ -1,11 +1,11 @@
 use crate::{
-    pipeline::{FrontFace, PipelineDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology},
+    pipeline::{FrontFace, RenderPipelineDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology},
     shader::{Shader, ShaderStage, ShaderStages},
 };
 use bevy_asset::Assets;
 
-pub(crate) fn build_wireframe_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
-    PipelineDescriptor {
+pub(crate) fn build_wireframe_pipeline(shaders: &mut Assets<Shader>) -> RenderPipelineDescriptor {
+    RenderPipelineDescriptor {
         name: Some("wireframe".into()),
         primitive: PrimitiveState {
             topology: PrimitiveTopology::TriangleList,
@@ -16,7 +16,7 @@ pub(crate) fn build_wireframe_pipeline(shaders: &mut Assets<Shader>) -> Pipeline
             clamp_depth: false,
             conservative: false,
         },
-        ..PipelineDescriptor::default_config(ShaderStages {
+        ..RenderPipelineDescriptor::default_config(ShaderStages {
             vertex: shaders.add(Shader::from_glsl(
                 ShaderStage::Vertex,
                 include_str!("wireframe.vert"),

@@ -5,7 +5,7 @@ use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_render::{
     pipeline::{
         BindGroupDescriptor, BindGroupDescriptorId, BindingShaderStage, ComputePipelineDescriptor,
-        PipelineDescriptor,
+        RenderPipelineDescriptor,
     },
     renderer::{
         BindGroup, BufferId, BufferInfo, BufferMapMode, RenderResourceBinding,
@@ -424,8 +424,8 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
     fn create_render_pipeline(
         &self,
-        pipeline_handle: Handle<PipelineDescriptor>,
-        pipeline_descriptor: &PipelineDescriptor,
+        pipeline_handle: Handle<RenderPipelineDescriptor>,
+        pipeline_descriptor: &RenderPipelineDescriptor,
         shaders: &Assets<Shader>,
     ) {
         if self

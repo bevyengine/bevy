@@ -20,7 +20,7 @@ pub mod uniform {
 use crate::prelude::StandardMaterial;
 use bevy_asset::Assets;
 use bevy_render::{
-    pipeline::PipelineDescriptor,
+    pipeline::RenderPipelineDescriptor,
     render_graph::{base, AssetRenderResourcesNode, RenderGraph, RenderResourcesNode},
     shader::Shader,
 };
@@ -58,7 +58,7 @@ pub(crate) fn add_pbr_graph(world: &mut World) {
     }
     let pipeline = build_pbr_pipeline(&mut world.get_resource_mut::<Assets<Shader>>().unwrap());
     let mut pipelines = world
-        .get_resource_mut::<Assets<PipelineDescriptor>>()
+        .get_resource_mut::<Assets<RenderPipelineDescriptor>>()
         .unwrap();
     pipelines.set_untracked(PBR_PIPELINE_HANDLE, pipeline);
 }

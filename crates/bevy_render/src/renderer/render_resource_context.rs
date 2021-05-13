@@ -1,6 +1,6 @@
 use crate::{
     pipeline::{
-        BindGroupDescriptorId, ComputePipelineDescriptor, PipelineDescriptor, PipelineLayout,
+        BindGroupDescriptorId, ComputePipelineDescriptor, RenderPipelineDescriptor, PipelineLayout,
     },
     renderer::{
         BindGroup, BufferId, BufferInfo, BufferMapMode, RenderResourceId, SamplerId, TextureId,
@@ -64,8 +64,8 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
     fn remove_asset_resource_untyped(&self, handle: HandleUntyped, index: u64);
     fn create_render_pipeline(
         &self,
-        pipeline_handle: Handle<PipelineDescriptor>,
-        pipeline_descriptor: &PipelineDescriptor,
+        pipeline_handle: Handle<RenderPipelineDescriptor>,
+        pipeline_descriptor: &RenderPipelineDescriptor,
         shaders: &Assets<Shader>,
     );
     fn create_compute_pipeline(

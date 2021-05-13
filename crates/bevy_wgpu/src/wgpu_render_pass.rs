@@ -2,7 +2,7 @@ use crate::{renderer::WgpuRenderContext, wgpu_type_converter::WgpuInto, WgpuReso
 use bevy_asset::Handle;
 use bevy_render::{
     pass::RenderPass,
-    pipeline::{BindGroupDescriptorId, IndexFormat, PipelineDescriptor},
+    pipeline::{BindGroupDescriptorId, IndexFormat, RenderPipelineDescriptor},
     renderer::{BindGroupId, BufferId, RenderContext},
 };
 use bevy_utils::tracing::trace;
@@ -13,7 +13,7 @@ pub struct WgpuRenderPass<'a> {
     pub render_pass: wgpu::RenderPass<'a>,
     pub render_context: &'a WgpuRenderContext,
     pub wgpu_resources: WgpuResourceRefs<'a>,
-    pub pipeline_descriptor: Option<&'a PipelineDescriptor>,
+    pub pipeline_descriptor: Option<&'a RenderPipelineDescriptor>,
 }
 
 impl<'a> RenderPass for WgpuRenderPass<'a> {
@@ -92,7 +92,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
         }
     }
 
-    fn set_pipeline(&mut self, pipeline_handle: &Handle<PipelineDescriptor>) {
+    fn set_pipeline(&mut self, pipeline_handle: &Handle<RenderPipelineDescriptor>) {
         let pipeline = self
             .wgpu_resources
             .render_pipelines

@@ -3,7 +3,7 @@ use bevy::{
     reflect::TypeUuid,
     render::{
         mesh::shape,
-        pipeline::{PipelineDescriptor, RenderPipeline},
+        pipeline::{RenderPipelineDescriptor, RenderPipeline},
         render_graph::{base, AssetRenderResourcesNode, RenderGraph},
         renderer::RenderResources,
         shader::ShaderStages,
@@ -29,7 +29,7 @@ struct MyMaterial {
 fn setup(
     mut commands: Commands,
     asset_server: ResMut<AssetServer>,
-    mut pipelines: ResMut<Assets<PipelineDescriptor>>,
+    mut pipelines: ResMut<Assets<RenderPipelineDescriptor>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<MyMaterial>>,
     mut render_graph: ResMut<RenderGraph>,
@@ -38,7 +38,7 @@ fn setup(
     asset_server.watch_for_changes().unwrap();
 
     // Create a new shader pipeline with shaders loaded from the asset directory
-    let pipeline_handle = pipelines.add(PipelineDescriptor::default_config(ShaderStages {
+    let pipeline_handle = pipelines.add(RenderPipelineDescriptor::default_config(ShaderStages {
         vertex: asset_server.load::<Shader, _>("shaders/hot.vert"),
         fragment: Some(asset_server.load::<Shader, _>("shaders/hot.frag")),
     }));

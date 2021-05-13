@@ -1,6 +1,6 @@
 use crate::{
     pipeline::{
-        IndexFormat, PipelineCompiler, PipelineDescriptor, PipelineLayout, PipelineSpecialization,
+        IndexFormat, PipelineCompiler, RenderPipelineDescriptor, PipelineLayout, PipelineSpecialization,
     },
     renderer::{
         AssetRenderResourceBindings, BindGroup, BindGroupId, BufferId, RenderResource,
@@ -21,7 +21,7 @@ use thiserror::Error;
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum RenderCommand {
     SetPipeline {
-        pipeline: Handle<PipelineDescriptor>,
+        pipeline: Handle<RenderPipelineDescriptor>,
     },
     SetVertexBuffer {
         slot: u32,
@@ -98,7 +98,7 @@ impl Draw {
         self.render_commands.clear();
     }
 
-    pub fn set_pipeline(&mut self, pipeline: &Handle<PipelineDescriptor>) {
+    pub fn set_pipeline(&mut self, pipeline: &Handle<RenderPipelineDescriptor>) {
         self.render_command(RenderCommand::SetPipeline {
             pipeline: pipeline.clone_weak(),
         });
@@ -165,14 +165,14 @@ pub enum DrawError {
 
 #[derive(SystemParam)]
 pub struct DrawContext<'a> {
-    pub pipelines: ResMut<'a, Assets<PipelineDescriptor>>,
+    pub pipelines: ResMut<'a, Assets<RenderPipelineDescriptor>>,
     pub shaders: ResMut<'a, Assets<Shader>>,
     pub asset_render_resource_bindings: ResMut<'a, AssetRenderResourceBindings>,
     pub pipeline_compiler: ResMut<'a, PipelineCompiler>,
     pub render_resource_context: Res<'a, Box<dyn RenderResourceContext>>,
     pub shared_buffers: ResMut<'a, SharedBuffers>,
     #[system_param(ignore)]
-    pub current_pipeline: Option<Handle<PipelineDescriptor>>,
+    pub current_pipeline: Option<Handle<RenderPipelineDescriptor>>,
 }
 
 impl<'a> DrawContext<'a> {
@@ -188,7 +188,7 @@ impl<'a> DrawContext<'a> {
     pub fn set_pipeline(
         &mut self,
         draw: &mut Draw,
-        pipeline_handle: &Handle<PipelineDescriptor>,
+        pipeline_handle: &Handle<RenderPipelineDescriptor>,
         specialization: &PipelineSpecialization,
     ) -> Result<(), DrawError> {
         let specialized_pipeline = if let Some(specialized_pipeline) = self
@@ -211,7 +211,7 @@ impl<'a> DrawContext<'a> {
         Ok(())
     }
 
-    pub fn get_pipeline_descriptor(&self) -> Result<&PipelineDescriptor, DrawError> {
+    pub fn get_pipeline_descriptor(&self) -> Result<&RenderPipelineDescriptor, DrawError> {
         self.current_pipeline
             .as_ref()
             .and_then(|handle| self.pipelines.get(handle))
@@ -264,8 +264,8 @@ impl<'a> DrawContext<'a> {
     }
 
     fn set_bind_groups_from_bindings_internal(
-        current_pipeline: &Option<Handle<PipelineDescriptor>>,
-        pipelines: &Assets<PipelineDescriptor>,
+        current_pipeline: &Option<Handle<RenderPipelineDescriptor>>,
+        pipelines: &Assets<RenderPipelineDescriptor>,
         render_resource_context: &dyn RenderResourceContext,
         mut asset_render_resource_bindings: Option<&mut AssetRenderResourceBindings>,
         draw: &mut Draw,
