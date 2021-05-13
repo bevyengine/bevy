@@ -55,6 +55,12 @@ pub enum Next {
     SameFrame,
 }
 
+impl Default for Next {
+    fn default() -> Self {
+        Next::SameFrame
+    }
+}
+
 #[derive(Debug)]
 struct ScheduledOperation<T: StateData> {
     ty: ScheduledOperationType<T>,
@@ -78,6 +84,24 @@ impl StateCallback {
         T: StateData,
     {
         StateRunCriteriaLabel(state, self)
+    }
+}
+
+pub struct StateTransitionBuilder<'a, T>
+where
+    T: StateData,
+{
+    state: &'a mut State<T>,
+}
+
+impl<'a, T> StateTransitionBuilder<'a, T>
+where
+    T: StateData,
+{
+    /// Controls where the transition will land, by default in the same frame.
+    pub fn next(self, next: Next) -> Self {
+        self.state.scheduled.as_mut().unwrap().next = next;
+        self
     }
 }
 
@@ -281,10 +305,28 @@ where
         }
     }
 
-    /// Schedule a state change that replaces the active state with the given state, and rerun
-    /// in the same frame if `next` is [`Next::SameFrame`]. This will fail if there is a scheduled
-    /// operation, or if the given `state` matches the current state.
-    pub fn set(&mut self, state: T, next: Next) -> Result<(), StateError> {
+    /// Schedule a state change that replaces the active state with the given state.
+    /// This will fail if there is a scheduled operation, or if the given `state` matches the
+    /// current state. The change will happen by default in the same frame, running the
+    /// new state immediately. This can be changed through the [`StateTransitionBuilder`]
+    /// returned.
+    ///
+    /// If you need to change the frame before running systems from the new state:
+    ///
+    /// ```rust
+    /// # use bevy_ecs::system::{IntoSystem, ResMut};
+    /// # use bevy_ecs::schedule::{Next, State};
+    /// # #[derive(Clone, PartialEq, Eq, Debug, Hash)]
+    /// # enum AppState {
+    /// #     Game,
+    /// # }
+    /// #
+    /// fn change_state(mut state: ResMut<State<AppState>>) {
+    ///     state.set(AppState::Game).unwrap().next(Next::NextFrame);
+    /// }
+    /// # change_state.system();
+    /// ```
+    pub fn set(&mut self, state: T) -> Result<StateTransitionBuilder<T>, StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
@@ -295,29 +337,31 @@ where
 
         self.scheduled = Some(ScheduledOperation {
             ty: ScheduledOperationType::Set(state),
-            next,
+            next: Next::default(),
         });
-        Ok(())
+        Ok(StateTransitionBuilder { state: self })
     }
 
     /// Same as [`Self::set`], but if there is already a next state, it will be overwritten
     /// instead of failing
-    pub fn overwrite_set(&mut self, state: T, next: Next) -> Result<(), StateError> {
+    pub fn overwrite_set(&mut self, state: T) -> Result<StateTransitionBuilder<T>, StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
 
         self.scheduled = Some(ScheduledOperation {
             ty: ScheduledOperationType::Set(state),
-            next,
+            next: Next::default(),
         });
-        Ok(())
+        Ok(StateTransitionBuilder { state: self })
     }
 
-    /// Schedule a state change that replaces the full stack with the given state, and rerun
-    /// in the same frame if `next` is [`Next::SameFrame`]. This will fail if there is a scheduled
-    /// operation, or if the given `state` matches the current state.
-    pub fn replace(&mut self, state: T, next: Next) -> Result<(), StateError> {
+    /// Schedule a state change that replaces the full stack with the given state.
+    /// This will fail if there is a scheduled operation, or if the given `state` matches the
+    /// current state. The change will happen by default in the same frame, running the
+    /// new state immediately. This can be changed through the [`StateTransitionBuilder`]
+    /// returned.
+    pub fn replace(&mut self, state: T) -> Result<StateTransitionBuilder<T>, StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
@@ -328,27 +372,27 @@ where
 
         self.scheduled = Some(ScheduledOperation {
             ty: ScheduledOperationType::Replace(state),
-            next,
+            next: Next::default(),
         });
-        Ok(())
+        Ok(StateTransitionBuilder { state: self })
     }
 
     /// Same as [`Self::replace`], but if there is already a next state, it will be overwritten
     /// instead of failing
-    pub fn overwrite_replace(&mut self, state: T, next: Next) -> Result<(), StateError> {
+    pub fn overwrite_replace(&mut self, state: T) -> Result<StateTransitionBuilder<T>, StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
 
         self.scheduled = Some(ScheduledOperation {
             ty: ScheduledOperationType::Replace(state),
-            next,
+            next: Next::default(),
         });
-        Ok(())
+        Ok(StateTransitionBuilder { state: self })
     }
 
     /// Same as [`Self::set`], but does a push operation instead of a next operation
-    pub fn push(&mut self, state: T, next: Next) -> Result<(), StateError> {
+    pub fn push(&mut self, state: T) -> Result<StateTransitionBuilder<T>, StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
@@ -359,27 +403,27 @@ where
 
         self.scheduled = Some(ScheduledOperation {
             ty: ScheduledOperationType::Push(state),
-            next,
+            next: Next::default(),
         });
-        Ok(())
+        Ok(StateTransitionBuilder { state: self })
     }
 
     /// Same as [`Self::push`], but if there is already a next state, it will be overwritten
     /// instead of failing
-    pub fn overwrite_push(&mut self, state: T, next: Next) -> Result<(), StateError> {
+    pub fn overwrite_push(&mut self, state: T) -> Result<StateTransitionBuilder<T>, StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
 
         self.scheduled = Some(ScheduledOperation {
             ty: ScheduledOperationType::Push(state),
-            next,
+            next: Next::default(),
         });
-        Ok(())
+        Ok(StateTransitionBuilder { state: self })
     }
 
     /// Same as [`Self::set`], but does a pop operation instead of a set operation
-    pub fn pop(&mut self, next: Next) -> Result<(), StateError> {
+    pub fn pop(&mut self) -> Result<StateTransitionBuilder<T>, StateError> {
         if self.scheduled.is_some() {
             return Err(StateError::StateAlreadyQueued);
         }
@@ -390,27 +434,27 @@ where
 
         self.scheduled = Some(ScheduledOperation {
             ty: ScheduledOperationType::Pop,
-            next,
+            next: Next::default(),
         });
-        Ok(())
+        Ok(StateTransitionBuilder { state: self })
     }
 
     /// Same as [`Self::pop`], but if there is already a next state, it will be overwritten
     /// instead of failing
-    pub fn overwrite_pop(&mut self, next: Next) -> Result<(), StateError> {
+    pub fn overwrite_pop(&mut self) -> Result<StateTransitionBuilder<T>, StateError> {
         if self.stack.len() == 1 {
             return Err(StateError::StackEmpty);
         }
         self.scheduled = Some(ScheduledOperation {
             ty: ScheduledOperationType::Pop,
-            next,
+            next: Next::default(),
         });
-        Ok(())
+        Ok(StateTransitionBuilder { state: self })
     }
 
     /// Schedule a state change that restarts the active state.
     /// This will fail if there is a scheduled operation
-    pub fn restart(&mut self, next: Next) -> Result<(), StateError> {
+    pub fn restart(&mut self) -> Result<StateTransitionBuilder<T>, StateError> {
         if self.scheduled.is_some() {
             return Err(StateError::StateAlreadyQueued);
         }
@@ -418,19 +462,20 @@ where
         let state = self.stack.last().unwrap();
         self.scheduled = Some(ScheduledOperation {
             ty: ScheduledOperationType::Set(state.clone()),
-            next,
+            next: Next::default(),
         });
-        Ok(())
+        Ok(StateTransitionBuilder { state: self })
     }
 
     /// Same as [`Self::restart`], but if there is already a scheduled state operation,
     /// it will be overwritten instead of failing
-    pub fn overwrite_restart(&mut self, next: Next) {
+    pub fn overwrite_restart(&mut self) -> StateTransitionBuilder<T> {
         let state = self.stack.last().unwrap();
         self.scheduled = Some(ScheduledOperation {
             ty: ScheduledOperationType::Set(state.clone()),
-            next,
+            next: Next::default(),
         });
+        StateTransitionBuilder { state: self }
     }
 
     pub fn current(&self) -> &T {
@@ -585,7 +630,7 @@ mod test {
             .add_system_set(State::on_update_set(MyState::S1).with_system(
                 |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                     r.push("update S1");
-                    s.overwrite_replace(MyState::S2, Next::SameFrame).unwrap();
+                    s.overwrite_replace(MyState::S2).unwrap();
                 },
             ))
             .add_system_set(
@@ -595,7 +640,7 @@ mod test {
             .add_system_set(State::on_update_set(MyState::S2).with_system(
                 |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                     r.push("update S2");
-                    s.overwrite_replace(MyState::S3, Next::SameFrame).unwrap();
+                    s.overwrite_replace(MyState::S3).unwrap();
                 },
             ))
             .add_system_set(
@@ -609,7 +654,7 @@ mod test {
             .add_system_set(State::on_update_set(MyState::S3).with_system(
                 |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                     r.push("update S3");
-                    s.overwrite_push(MyState::S4, Next::SameFrame).unwrap();
+                    s.overwrite_push(MyState::S4).unwrap();
                 },
             ))
             .add_system_set(
@@ -619,7 +664,7 @@ mod test {
             .add_system_set(State::on_update_set(MyState::S4).with_system(
                 |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                     r.push("update S4");
-                    s.overwrite_push(MyState::S5, Next::SameFrame).unwrap();
+                    s.overwrite_push(MyState::S5).unwrap();
                 },
             ))
             .add_system_set(State::on_inactive_update_set(MyState::S4).with_system(
@@ -629,7 +674,7 @@ mod test {
                 State::on_update_set(MyState::S5).with_system(
                     (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                         r.push("update S5");
-                        s.overwrite_push(MyState::S6, Next::SameFrame).unwrap();
+                        s.overwrite_push(MyState::S6).unwrap();
                     })
                     .after("inactive s4"),
                 ),
@@ -645,7 +690,7 @@ mod test {
                 State::on_update_set(MyState::S6).with_system(
                     (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                         r.push("update S6");
-                        s.overwrite_push(MyState::Final, Next::SameFrame).unwrap();
+                        s.overwrite_push(MyState::Final).unwrap();
                     })
                     .after("inactive s5"),
                 ),
@@ -770,20 +815,20 @@ mod test {
 
         // A. Restart state
         let mut state = world.get_resource_mut::<State<LoadState>>().unwrap();
-        let result = state.restart(Next::SameFrame);
-        assert!(matches!(result, Ok(())));
+        let result = state.restart();
+        assert!(result.is_ok());
         stage.run(&mut world);
 
         // B. Restart state (overwrite schedule)
         let mut state = world.get_resource_mut::<State<LoadState>>().unwrap();
-        state.set(LoadState::Finish, Next::SameFrame).unwrap();
-        state.overwrite_restart(Next::SameFrame);
+        state.set(LoadState::Finish).unwrap();
+        state.overwrite_restart();
         stage.run(&mut world);
 
         // C. Fail restart state (transition already scheduled)
         let mut state = world.get_resource_mut::<State<LoadState>>().unwrap();
-        state.set(LoadState::Finish, Next::SameFrame).unwrap();
-        let result = state.restart(Next::SameFrame);
+        state.set(LoadState::Finish).unwrap();
+        let result = state.restart();
         assert!(matches!(result, Err(StateError::StateAlreadyQueued)));
         stage.run(&mut world);
 
@@ -829,8 +874,8 @@ mod test {
 
         fn change_state(mut state: ResMut<State<AppState>>) {
             let _ = match state.current() {
-                AppState::State1 => state.set(AppState::State2, Next::NextFrame),
-                AppState::State2 => state.set(AppState::State1, Next::NextFrame),
+                AppState::State1 => state.set(AppState::State2).unwrap().next(Next::NextFrame),
+                AppState::State2 => state.set(AppState::State1).unwrap().next(Next::NextFrame),
             };
         }
 
