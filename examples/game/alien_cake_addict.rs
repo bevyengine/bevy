@@ -309,7 +309,7 @@ fn spawn_bonus(
         game.bonus.entity = None;
         if game.score <= -5 {
             // We don't particularly care if this operation fails
-            let _ = state.overwrite_set(GameState::GameOver);
+            let _ = state.overwrite_set(GameState::GameOver, true);
             return;
         }
     }
@@ -373,7 +373,7 @@ fn scoreboard_system(game: Res<Game>, mut query: Query<&mut Text>) {
 // restart the game when pressing spacebar
 fn gameover_keyboard(mut state: ResMut<State<GameState>>, keyboard_input: Res<Input<KeyCode>>) {
     if keyboard_input.just_pressed(KeyCode::Space) {
-        state.set(GameState::Playing).unwrap();
+        state.set(GameState::Playing, true).unwrap();
     }
 }
 
