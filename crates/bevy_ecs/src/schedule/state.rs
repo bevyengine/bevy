@@ -82,14 +82,14 @@ impl StateCallback {
     }
 }
 
-pub struct StateTransitionBuilder<'a, T>
+pub struct StateTransitionConfig<'a, T>
 where
     T: Component + Debug + Clone + Eq + Hash,
 {
     state: &'a mut State<T>,
 }
 
-impl<'a, T> StateTransitionBuilder<'a, T>
+impl<'a, T> StateTransitionConfig<'a, T>
 where
     T: Component + Debug + Clone + Eq + Hash,
 {
@@ -311,7 +311,7 @@ where
     /// Schedule a state change that replaces the active state with the given state.
     /// This will fail if there is a scheduled operation, or if the given `state` matches the
     /// current state. The change will happen by default in the same frame, running the
-    /// new state immediately. This can be changed through the [`StateTransitionBuilder`]
+    /// new state immediately. This can be changed through the [`StateTransitionConfig`]
     /// returned.
     ///
     /// If you need to change the frame before running systems from the new state:
@@ -329,7 +329,7 @@ where
     /// }
     /// # change_state.system();
     /// ```
-    pub fn set(&mut self, state: T) -> Result<StateTransitionBuilder<T>, StateError> {
+    pub fn set(&mut self, state: T) -> Result<StateTransitionConfig<T>, StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
@@ -342,12 +342,12 @@ where
             ty: ScheduledOperationType::Set(state),
             next: Next::default(),
         });
-        Ok(StateTransitionBuilder { state: self })
+        Ok(StateTransitionConfig { state: self })
     }
 
     /// Same as [Self::set], but if there is already a next state, it will be overwritten
     /// instead of failing.
-    pub fn overwrite_set(&mut self, state: T) -> Result<StateTransitionBuilder<T>, StateError> {
+    pub fn overwrite_set(&mut self, state: T) -> Result<StateTransitionConfig<T>, StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
@@ -356,15 +356,15 @@ where
             ty: ScheduledOperationType::Set(state),
             next: Next::default(),
         });
-        Ok(StateTransitionBuilder { state: self })
+        Ok(StateTransitionConfig { state: self })
     }
 
     /// Schedule a state change that replaces the full stack with the given state.
     /// This will fail if there is a scheduled operation, or if the given `state` matches the
     /// current state. The change will happen by default in the same frame, running the
-    /// new state immediately. This can be changed through the [`StateTransitionBuilder`]
+    /// new state immediately. This can be changed through the [`StateTransitionConfig`]
     /// returned.
-    pub fn replace(&mut self, state: T) -> Result<StateTransitionBuilder<T>, StateError> {
+    pub fn replace(&mut self, state: T) -> Result<StateTransitionConfig<T>, StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
@@ -377,12 +377,12 @@ where
             ty: ScheduledOperationType::Replace(state),
             next: Next::default(),
         });
-        Ok(StateTransitionBuilder { state: self })
+        Ok(StateTransitionConfig { state: self })
     }
 
     /// Same as [Self::replace], but if there is already a next state, it will be overwritten
     /// instead of failing
-    pub fn overwrite_replace(&mut self, state: T) -> Result<StateTransitionBuilder<T>, StateError> {
+    pub fn overwrite_replace(&mut self, state: T) -> Result<StateTransitionConfig<T>, StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
@@ -391,11 +391,11 @@ where
             ty: ScheduledOperationType::Replace(state),
             next: Next::default(),
         });
-        Ok(StateTransitionBuilder { state: self })
+        Ok(StateTransitionConfig { state: self })
     }
 
     /// Same as [Self::set], but does a push operation instead of a next operation
-    pub fn push(&mut self, state: T) -> Result<StateTransitionBuilder<T>, StateError> {
+    pub fn push(&mut self, state: T) -> Result<StateTransitionConfig<T>, StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
@@ -408,12 +408,12 @@ where
             ty: ScheduledOperationType::Push(state),
             next: Next::default(),
         });
-        Ok(StateTransitionBuilder { state: self })
+        Ok(StateTransitionConfig { state: self })
     }
 
     /// Same as [Self::push], but if there is already a next state, it will be overwritten
     /// instead of failing
-    pub fn overwrite_push(&mut self, state: T) -> Result<StateTransitionBuilder<T>, StateError> {
+    pub fn overwrite_push(&mut self, state: T) -> Result<StateTransitionConfig<T>, StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
@@ -422,11 +422,11 @@ where
             ty: ScheduledOperationType::Push(state),
             next: Next::default(),
         });
-        Ok(StateTransitionBuilder { state: self })
+        Ok(StateTransitionConfig { state: self })
     }
 
     /// Same as [Self::set], but does a pop operation instead of a set operation
-    pub fn pop(&mut self) -> Result<StateTransitionBuilder<T>, StateError> {
+    pub fn pop(&mut self) -> Result<StateTransitionConfig<T>, StateError> {
         if self.scheduled.is_some() {
             return Err(StateError::StateAlreadyQueued);
         }
@@ -439,12 +439,12 @@ where
             ty: ScheduledOperationType::Pop,
             next: Next::default(),
         });
-        Ok(StateTransitionBuilder { state: self })
+        Ok(StateTransitionConfig { state: self })
     }
 
     /// Same as [Self::pop], but if there is already a next state, it will be overwritten
     /// instead of failing
-    pub fn overwrite_pop(&mut self) -> Result<StateTransitionBuilder<T>, StateError> {
+    pub fn overwrite_pop(&mut self) -> Result<StateTransitionConfig<T>, StateError> {
         if self.stack.len() == 1 {
             return Err(StateError::StackEmpty);
         }
@@ -452,7 +452,7 @@ where
             ty: ScheduledOperationType::Pop,
             next: Next::default(),
         });
-        Ok(StateTransitionBuilder { state: self })
+        Ok(StateTransitionConfig { state: self })
     }
 
     pub fn current(&self) -> &T {
