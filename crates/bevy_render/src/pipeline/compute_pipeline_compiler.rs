@@ -1,72 +1,53 @@
-use super::{state_descriptors::PrimitiveTopology, IndexFormat, PipelineDescriptor};
+use super::{ComputePipelineDescriptor, ShaderSpecialization, SpecializedShader};
 use crate::{
-    pipeline::{BindType, VertexBufferLayout},
+    pipeline::BindType,
     renderer::RenderResourceContext,
     shader::{Shader, ShaderError},
 };
 use bevy_asset::{Assets, Handle};
-use bevy_reflect::{Reflect, ReflectDeserialize};
+use bevy_reflect::Reflect;
 use bevy_utils::{HashMap, HashSet};
 use once_cell::sync::Lazy;
-use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Eq, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
-pub struct PipelineSpecialization {
+pub struct ComputePipelineSpecialization {
     pub shader_specialization: ShaderSpecialization,
-    pub primitive_topology: PrimitiveTopology,
     pub dynamic_bindings: HashSet<String>,
-    pub strip_index_format: Option<IndexFormat>,
-    pub vertex_buffer_layout: VertexBufferLayout,
-    pub sample_count: u32,
 }
 
-impl Default for PipelineSpecialization {
+impl Default for ComputePipelineSpecialization {
     fn default() -> Self {
         Self {
-            sample_count: 1,
-            strip_index_format: None,
             shader_specialization: Default::default(),
-            primitive_topology: Default::default(),
             dynamic_bindings: Default::default(),
-            vertex_buffer_layout: Default::default(),
         }
     }
 }
 
-impl PipelineSpecialization {
-    pub fn empty() -> &'static PipelineSpecialization {
-        pub static EMPTY: Lazy<PipelineSpecialization> = Lazy::new(PipelineSpecialization::default);
+impl ComputePipelineSpecialization {
+    pub fn empty() -> &'static ComputePipelineSpecialization {
+        pub static EMPTY: Lazy<ComputePipelineSpecialization> =
+            Lazy::new(ComputePipelineSpecialization::default);
         &EMPTY
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Default, Reflect, Serialize, Deserialize)]
-#[reflect(PartialEq, Serialize, Deserialize)]
-pub struct ShaderSpecialization {
-    pub shader_defs: HashSet<String>,
-}
-
 #[derive(Debug)]
-pub struct SpecializedShader {
-    pub shader: Handle<Shader>,
-    pub specialization: ShaderSpecialization,
-}
-
-#[derive(Debug)]
-struct SpecializedPipeline {
-    pipeline: Handle<PipelineDescriptor>,
-    specialization: PipelineSpecialization,
+struct ComputeSpecializedPipeline {
+    pipeline: Handle<ComputePipelineDescriptor>,
+    specialization: ComputePipelineSpecialization,
 }
 
 #[derive(Debug, Default)]
-pub struct PipelineCompiler {
+pub struct ComputePipelineCompiler {
     specialized_shaders: HashMap<Handle<Shader>, Vec<SpecializedShader>>,
-    specialized_shader_pipelines: HashMap<Handle<Shader>, Vec<Handle<PipelineDescriptor>>>,
-    specialized_pipelines: HashMap<Handle<PipelineDescriptor>, Vec<SpecializedPipeline>>,
+    specialized_shader_pipelines: HashMap<Handle<Shader>, Vec<Handle<ComputePipelineDescriptor>>>,
+    specialized_pipelines:
+        HashMap<Handle<ComputePipelineDescriptor>, Vec<ComputeSpecializedPipeline>>,
 }
 
-impl PipelineCompiler {
+impl ComputePipelineCompiler {
     fn compile_shader(
         &mut self,
         render_resource_context: &dyn RenderResourceContext,
@@ -111,9 +92,9 @@ impl PipelineCompiler {
 
     pub fn get_specialized_pipeline(
         &self,
-        pipeline: &Handle<PipelineDescriptor>,
-        specialization: &PipelineSpecialization,
-    ) -> Option<Handle<PipelineDescriptor>> {
+        pipeline: &Handle<ComputePipelineDescriptor>,
+        specialization: &ComputePipelineSpecialization,
+    ) -> Option<Handle<ComputePipelineDescriptor>> {
         self.specialized_pipelines
             .get(pipeline)
             .and_then(|specialized_pipelines| {
@@ -129,41 +110,24 @@ impl PipelineCompiler {
     pub fn compile_pipeline(
         &mut self,
         render_resource_context: &dyn RenderResourceContext,
-        pipelines: &mut Assets<PipelineDescriptor>,
+        pipelines: &mut Assets<ComputePipelineDescriptor>,
         shaders: &mut Assets<Shader>,
-        source_pipeline: &Handle<PipelineDescriptor>,
-        pipeline_specialization: &PipelineSpecialization,
-    ) -> Handle<PipelineDescriptor> {
+        source_pipeline: &Handle<ComputePipelineDescriptor>,
+        pipeline_specialization: &ComputePipelineSpecialization,
+    ) -> Handle<ComputePipelineDescriptor> {
         let source_descriptor = pipelines.get(source_pipeline).unwrap();
         let mut specialized_descriptor = source_descriptor.clone();
-        let specialized_vertex_shader = self
+        let specialized_compute_shader = self
             .compile_shader(
                 render_resource_context,
                 shaders,
-                &specialized_descriptor.shader_stages.vertex,
+                &specialized_descriptor.shader_stages.compute,
                 &pipeline_specialization.shader_specialization,
             )
             .unwrap_or_else(|e| panic_shader_error(e));
-        specialized_descriptor.shader_stages.vertex = specialized_vertex_shader.clone_weak();
-        let mut specialized_fragment_shader = None;
-        specialized_descriptor.shader_stages.fragment = specialized_descriptor
-            .shader_stages
-            .fragment
-            .as_ref()
-            .map(|fragment| {
-                let shader = self
-                    .compile_shader(
-                        render_resource_context,
-                        shaders,
-                        fragment,
-                        &pipeline_specialization.shader_specialization,
-                    )
-                    .unwrap_or_else(|e| panic_shader_error(e));
-                specialized_fragment_shader = Some(shader.clone_weak());
-                shader
-            });
+        specialized_descriptor.shader_stages.compute = specialized_compute_shader.clone_weak();
 
-        let mut layout = render_resource_context.reflect_pipeline_layout(
+        let mut layout = render_resource_context.reflect_compute_pipeline_layout(
             &shaders,
             &specialized_descriptor.shader_stages,
             true,
@@ -197,59 +161,8 @@ impl PipelineCompiler {
         }
         specialized_descriptor.layout = Some(layout);
 
-        // create a vertex layout that provides all attributes from either the specialized vertex
-        // buffers or a zero buffer
-        let mut pipeline_layout = specialized_descriptor.layout.as_mut().unwrap();
-        // the vertex buffer descriptor of the mesh
-        let mesh_vertex_buffer_layout = &pipeline_specialization.vertex_buffer_layout;
-
-        // the vertex buffer descriptor that will be used for this pipeline
-        let mut compiled_vertex_buffer_descriptor = VertexBufferLayout {
-            step_mode: mesh_vertex_buffer_layout.step_mode,
-            stride: mesh_vertex_buffer_layout.stride,
-            ..Default::default()
-        };
-
-        for shader_vertex_attribute in pipeline_layout.vertex_buffer_descriptors.iter() {
-            let shader_vertex_attribute = shader_vertex_attribute
-                .attributes
-                .get(0)
-                .expect("Reflected layout has no attributes.");
-
-            if let Some(target_vertex_attribute) = mesh_vertex_buffer_layout
-                .attributes
-                .iter()
-                .find(|x| x.name == shader_vertex_attribute.name)
-            {
-                // copy shader location from reflected layout
-                let mut compiled_vertex_attribute = target_vertex_attribute.clone();
-                compiled_vertex_attribute.shader_location = shader_vertex_attribute.shader_location;
-                compiled_vertex_buffer_descriptor
-                    .attributes
-                    .push(compiled_vertex_attribute);
-            } else {
-                panic!(
-                    "Attribute {} is required by shader, but not supplied by mesh. Either remove the attribute from the shader or supply the attribute ({}) to the mesh.",
-                    shader_vertex_attribute.name,
-                    shader_vertex_attribute.name,
-                );
-            }
-        }
-
-        // TODO: add other buffers (like instancing) here
-        let mut vertex_buffer_descriptors = Vec::<VertexBufferLayout>::default();
-        if !pipeline_layout.vertex_buffer_descriptors.is_empty() {
-            vertex_buffer_descriptors.push(compiled_vertex_buffer_descriptor);
-        }
-
-        pipeline_layout.vertex_buffer_descriptors = vertex_buffer_descriptors;
-        specialized_descriptor.multisample.count = pipeline_specialization.sample_count;
-        specialized_descriptor.primitive.topology = pipeline_specialization.primitive_topology;
-        specialized_descriptor.primitive.strip_index_format =
-            pipeline_specialization.strip_index_format;
-
         let specialized_pipeline_handle = pipelines.add(specialized_descriptor);
-        render_resource_context.create_render_pipeline(
+        render_resource_context.create_compute_pipeline(
             specialized_pipeline_handle.clone_weak(),
             pipelines.get(&specialized_pipeline_handle).unwrap(),
             &shaders,
@@ -257,22 +170,16 @@ impl PipelineCompiler {
 
         // track specialized shader pipelines
         self.specialized_shader_pipelines
-            .entry(specialized_vertex_shader)
+            .entry(specialized_compute_shader)
             .or_insert_with(Default::default)
             .push(source_pipeline.clone_weak());
-        if let Some(specialized_fragment_shader) = specialized_fragment_shader {
-            self.specialized_shader_pipelines
-                .entry(specialized_fragment_shader)
-                .or_insert_with(Default::default)
-                .push(source_pipeline.clone_weak());
-        }
 
         let specialized_pipelines = self
             .specialized_pipelines
             .entry(source_pipeline.clone_weak())
             .or_insert_with(Vec::new);
         let weak_specialized_pipeline_handle = specialized_pipeline_handle.clone_weak();
-        specialized_pipelines.push(SpecializedPipeline {
+        specialized_pipelines.push(ComputeSpecializedPipeline {
             pipeline: specialized_pipeline_handle,
             specialization: pipeline_specialization.clone(),
         });
@@ -282,8 +189,8 @@ impl PipelineCompiler {
 
     pub fn iter_compiled_pipelines(
         &self,
-        pipeline_handle: Handle<PipelineDescriptor>,
-    ) -> Option<impl Iterator<Item = &Handle<PipelineDescriptor>>> {
+        pipeline_handle: Handle<ComputePipelineDescriptor>,
+    ) -> Option<impl Iterator<Item = &Handle<ComputePipelineDescriptor>>> {
         self.specialized_pipelines
             .get(&pipeline_handle)
             .map(|compiled_pipelines| {
@@ -293,7 +200,9 @@ impl PipelineCompiler {
             })
     }
 
-    pub fn iter_all_compiled_pipelines(&self) -> impl Iterator<Item = &Handle<PipelineDescriptor>> {
+    pub fn iter_all_compiled_pipelines(
+        &self,
+    ) -> impl Iterator<Item = &Handle<ComputePipelineDescriptor>> {
         self.specialized_pipelines
             .values()
             .map(|compiled_pipelines| {
@@ -309,7 +218,7 @@ impl PipelineCompiler {
     pub fn update_shader(
         &mut self,
         shader: &Handle<Shader>,
-        pipelines: &mut Assets<PipelineDescriptor>,
+        pipelines: &mut Assets<ComputePipelineDescriptor>,
         shaders: &mut Assets<Shader>,
         render_resource_context: &dyn RenderResourceContext,
     ) -> Result<(), ShaderError> {

@@ -4,7 +4,8 @@ use crate::wgpu_type_converter::OwnedWgpuVertexBufferLayout;
 use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_render::{
     pipeline::{
-        BindGroupDescriptor, BindGroupDescriptorId, BindingShaderStage, PipelineDescriptor,
+        BindGroupDescriptor, BindGroupDescriptorId, BindingShaderStage, ComputePipelineDescriptor,
+        PipelineDescriptor,
     },
     renderer::{
         BindGroup, BufferId, BufferInfo, BufferMapMode, RenderResourceBinding,
@@ -519,6 +520,64 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             .create_render_pipeline(&render_pipeline_descriptor);
         let mut render_pipelines = self.resources.render_pipelines.write();
         render_pipelines.insert(pipeline_handle, render_pipeline);
+    }
+
+    fn create_compute_pipeline(
+        &self,
+        pipeline_handle: Handle<ComputePipelineDescriptor>,
+        pipeline_descriptor: &ComputePipelineDescriptor,
+        shaders: &Assets<Shader>,
+    ) {
+        if self
+            .resources
+            .compute_pipelines
+            .read()
+            .get(&pipeline_handle)
+            .is_some()
+        {
+            return;
+        }
+
+        let layout = pipeline_descriptor.get_layout().unwrap();
+        for bind_group_descriptor in layout.bind_groups.iter() {
+            self.create_bind_group_layout(&bind_group_descriptor);
+        }
+
+        let bind_group_layouts = self.resources.bind_group_layouts.read();
+        // setup and collect bind group layouts
+        let bind_group_layouts = layout
+            .bind_groups
+            .iter()
+            .map(|bind_group| bind_group_layouts.get(&bind_group.id).unwrap())
+            .collect::<Vec<&wgpu::BindGroupLayout>>();
+
+        let pipeline_layout = self
+            .device
+            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: None,
+                bind_group_layouts: bind_group_layouts.as_slice(),
+                push_constant_ranges: &[],
+            });
+
+        self.create_shader_module(&pipeline_descriptor.shader_stages.compute, shaders);
+
+        let shader_modules = self.resources.shader_modules.read();
+        let compute_shader_module = shader_modules
+            .get(&pipeline_descriptor.shader_stages.compute)
+            .unwrap();
+
+        let compute_pipeline_descriptor = wgpu::ComputePipelineDescriptor {
+            label: None,
+            layout: Some(&pipeline_layout),
+            module: compute_shader_module,
+            entry_point: "main",
+        };
+
+        let compute_pipeline = self
+            .device
+            .create_compute_pipeline(&compute_pipeline_descriptor);
+        let mut compute_pipelines = self.resources.compute_pipelines.write();
+        compute_pipelines.insert(pipeline_handle, compute_pipeline);
     }
 
     fn bind_group_descriptor_exists(

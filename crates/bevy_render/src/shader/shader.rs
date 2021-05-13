@@ -193,6 +193,7 @@ impl Shader {
         let stage = match module.get_shader_stage() {
             ReflectShaderStageFlags::VERTEX => ShaderStage::Vertex,
             ReflectShaderStageFlags::FRAGMENT => ShaderStage::Fragment,
+            ReflectShaderStageFlags::COMPUTE => ShaderStage::Compute,
             other => panic!("cannot load {:?} shader", other),
         };
 
@@ -288,6 +289,51 @@ impl ShaderStages {
 
     pub fn iter(&self) -> ShaderStagesIterator {
         ShaderStagesIterator {
+            shader_stages: &self,
+            state: 0,
+        }
+    }
+}
+
+/// Compute stages in a shader program
+#[derive(Clone, Debug)]
+pub struct ComputeShaderStages {
+    pub compute: Handle<Shader>,
+}
+
+pub struct ComputeShaderStagesIterator<'a> {
+    shader_stages: &'a ComputeShaderStages,
+    state: u32,
+}
+
+impl<'a> Iterator for ComputeShaderStagesIterator<'a> {
+    type Item = Handle<Shader>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let ret = match self.state {
+            0 => Some(self.shader_stages.compute.clone_weak()),
+            _ => None,
+        };
+        self.state += 1;
+        ret
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (1, Some(1))
+    }
+}
+
+impl<'a> ExactSizeIterator for ComputeShaderStagesIterator<'a> {}
+
+impl ComputeShaderStages {
+    pub fn new(compute_shader: Handle<Shader>) -> Self {
+        ComputeShaderStages {
+            compute: compute_shader,
+        }
+    }
+
+    pub fn iter(&self) -> ComputeShaderStagesIterator {
+        ComputeShaderStagesIterator {
             shader_stages: &self,
             state: 0,
         }
