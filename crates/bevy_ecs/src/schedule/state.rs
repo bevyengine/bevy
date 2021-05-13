@@ -38,10 +38,10 @@ enum StateTransition<T: Component + Clone + Eq> {
 
 #[derive(Debug)]
 enum ScheduledOperation<T: Component + Clone + Eq> {
-    Set(T),
-    Replace(T),
-    Pop,
-    Push(T),
+    Set(T, bool),
+    Replace(T, bool),
+    Pop(bool),
+    Push(T, bool),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
@@ -272,10 +272,10 @@ where
         }
     }
 
-    /// Schedule a state change that replaces the active state with the given state.
-    /// This will fail if there is a scheduled operation, or if the given `state` matches the
-    /// current state
-    pub fn set(&mut self, state: T) -> Result<(), StateError> {
+    /// Schedule a state change that replaces the active state with the given state, and rerun
+    /// in the same frame if `rerun` is `true`. This will fail if there is a scheduled
+    /// operation, or if the given `state` matches the current state.
+    pub fn set(&mut self, state: T, rerun: bool) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
@@ -284,25 +284,25 @@ where
             return Err(StateError::StateAlreadyQueued);
         }
 
-        self.scheduled = Some(ScheduledOperation::Set(state));
+        self.scheduled = Some(ScheduledOperation::Set(state, rerun));
         Ok(())
     }
 
     /// Same as [Self::set], but if there is already a next state, it will be overwritten
-    /// instead of failing
-    pub fn overwrite_set(&mut self, state: T) -> Result<(), StateError> {
+    /// instead of failing.
+    pub fn overwrite_set(&mut self, state: T, rerun: bool) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
 
-        self.scheduled = Some(ScheduledOperation::Set(state));
+        self.scheduled = Some(ScheduledOperation::Set(state, rerun));
         Ok(())
     }
 
-    /// Schedule a state change that replaces the full stack with the given state.
-    /// This will fail if there is a scheduled operation, or if the given `state` matches the
-    /// current state
-    pub fn replace(&mut self, state: T) -> Result<(), StateError> {
+    /// Schedule a state change that replaces the full stack with the given state, and rerun
+    /// in the same frame if `rerun` is `true`. This will fail if there is a scheduled
+    /// operation, or if the given `state` matches the current state.
+    pub fn replace(&mut self, state: T, rerun: bool) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
@@ -311,23 +311,23 @@ where
             return Err(StateError::StateAlreadyQueued);
         }
 
-        self.scheduled = Some(ScheduledOperation::Replace(state));
+        self.scheduled = Some(ScheduledOperation::Replace(state, rerun));
         Ok(())
     }
 
     /// Same as [Self::replace], but if there is already a next state, it will be overwritten
     /// instead of failing
-    pub fn overwrite_replace(&mut self, state: T) -> Result<(), StateError> {
+    pub fn overwrite_replace(&mut self, state: T, rerun: bool) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
 
-        self.scheduled = Some(ScheduledOperation::Replace(state));
+        self.scheduled = Some(ScheduledOperation::Replace(state, rerun));
         Ok(())
     }
 
     /// Same as [Self::set], but does a push operation instead of a next operation
-    pub fn push(&mut self, state: T) -> Result<(), StateError> {
+    pub fn push(&mut self, state: T, rerun: bool) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
@@ -336,23 +336,23 @@ where
             return Err(StateError::StateAlreadyQueued);
         }
 
-        self.scheduled = Some(ScheduledOperation::Push(state));
+        self.scheduled = Some(ScheduledOperation::Push(state, rerun));
         Ok(())
     }
 
     /// Same as [Self::push], but if there is already a next state, it will be overwritten
     /// instead of failing
-    pub fn overwrite_push(&mut self, state: T) -> Result<(), StateError> {
+    pub fn overwrite_push(&mut self, state: T, rerun: bool) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
 
-        self.scheduled = Some(ScheduledOperation::Push(state));
+        self.scheduled = Some(ScheduledOperation::Push(state, rerun));
         Ok(())
     }
 
     /// Same as [Self::set], but does a pop operation instead of a set operation
-    pub fn pop(&mut self) -> Result<(), StateError> {
+    pub fn pop(&mut self, rerun: bool) -> Result<(), StateError> {
         if self.scheduled.is_some() {
             return Err(StateError::StateAlreadyQueued);
         }
@@ -361,17 +361,17 @@ where
             return Err(StateError::StackEmpty);
         }
 
-        self.scheduled = Some(ScheduledOperation::Pop);
+        self.scheduled = Some(ScheduledOperation::Pop(rerun));
         Ok(())
     }
 
     /// Same as [Self::pop], but if there is already a next state, it will be overwritten
     /// instead of failing
-    pub fn overwrite_pop(&mut self) -> Result<(), StateError> {
+    pub fn overwrite_pop(&mut self, rerun: bool) -> Result<(), StateError> {
         if self.stack.len() == 1 {
             return Err(StateError::StackEmpty);
         }
-        self.scheduled = Some(ScheduledOperation::Pop);
+        self.scheduled = Some(ScheduledOperation::Pop(rerun));
         Ok(())
     }
 
@@ -423,20 +423,23 @@ fn state_cleaner<T: Component + Clone + Eq>(
         return ShouldRun::No;
     }
     match state.scheduled.take() {
-        Some(ScheduledOperation::Set(next)) => {
+        Some(ScheduledOperation::Set(next, rerun)) => {
             state.transition = Some(StateTransition::ExitingFull(
                 state.stack.last().unwrap().clone(),
                 next,
             ));
+            if !rerun {
+                state.end_next_loop = true;
+            }
         }
-        Some(ScheduledOperation::Replace(next)) => {
+        Some(ScheduledOperation::Replace(next, rerun)) => {
             if state.stack.len() <= 1 {
                 state.transition = Some(StateTransition::ExitingFull(
                     state.stack.last().unwrap().clone(),
                     next,
                 ));
             } else {
-                state.scheduled = Some(ScheduledOperation::Replace(next));
+                state.scheduled = Some(ScheduledOperation::Replace(next, rerun));
                 match state.transition.take() {
                     Some(StateTransition::ExitingToResume(p, n)) => {
                         state.stack.pop();
@@ -450,17 +453,27 @@ fn state_cleaner<T: Component + Clone + Eq>(
                     }
                 }
             }
+            if !rerun {
+                state.end_next_loop = true;
+            }
         }
-        Some(ScheduledOperation::Push(next)) => {
+        Some(ScheduledOperation::Push(next, rerun)) => {
             let last_type_id = state.stack.last().unwrap().clone();
             state.transition = Some(StateTransition::Pausing(last_type_id, next));
+            if !rerun {
+                state.end_next_loop = true;
+            }
         }
-        Some(ScheduledOperation::Pop) => {
+        Some(ScheduledOperation::Pop(rerun)) => {
             state.transition = Some(StateTransition::ExitingToResume(
                 state.stack[state.stack.len() - 1].clone(),
                 state.stack[state.stack.len() - 2].clone(),
             ));
+            if !rerun {
+                state.end_next_loop = true;
+            }
         }
+
         None => match state.transition.take() {
             Some(StateTransition::ExitingFull(p, n)) => {
                 state.transition = Some(StateTransition::Entering(p, n.clone()));
@@ -522,7 +535,7 @@ mod test {
                 State::on_update_set(MyState::S1).with_system(
                     (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                         r.push("update S1");
-                        s.overwrite_replace(MyState::S2).unwrap();
+                        s.overwrite_replace(MyState::S2, true).unwrap();
                     })
                     .system(),
                 ),
@@ -535,7 +548,7 @@ mod test {
                 State::on_update_set(MyState::S2).with_system(
                     (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                         r.push("update S2");
-                        s.overwrite_replace(MyState::S3).unwrap();
+                        s.overwrite_replace(MyState::S3, true).unwrap();
                     })
                     .system(),
                 ),
@@ -552,7 +565,7 @@ mod test {
                 State::on_update_set(MyState::S3).with_system(
                     (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                         r.push("update S3");
-                        s.overwrite_push(MyState::S4).unwrap();
+                        s.overwrite_push(MyState::S4, true).unwrap();
                     })
                     .system(),
                 ),
@@ -565,7 +578,7 @@ mod test {
                 State::on_update_set(MyState::S4).with_system(
                     (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                         r.push("update S4");
-                        s.overwrite_push(MyState::S5).unwrap();
+                        s.overwrite_push(MyState::S5, true).unwrap();
                     })
                     .system(),
                 ),
@@ -581,7 +594,7 @@ mod test {
                 State::on_update_set(MyState::S5).with_system(
                     (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                         r.push("update S5");
-                        s.overwrite_push(MyState::S6).unwrap();
+                        s.overwrite_push(MyState::S6, true).unwrap();
                     })
                     .system()
                     .after("inactive s4"),
@@ -599,7 +612,7 @@ mod test {
                 State::on_update_set(MyState::S6).with_system(
                     (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                         r.push("update S6");
-                        s.overwrite_push(MyState::Final).unwrap();
+                        s.overwrite_push(MyState::Final, true).unwrap();
                     })
                     .system()
                     .after("inactive s5"),
@@ -680,6 +693,44 @@ mod test {
         let mut stage = SystemStage::parallel()
             .with_system_set(State::<AppState>::get_driver())
             .with_system(should_run_once.system());
+        stage.run(&mut world);
+        assert!(*world.get_resource::<bool>().unwrap(), "after test");
+    }
+
+    #[test]
+    fn break_out_of_state_loop_in_frame() {
+        #[derive(Clone, PartialEq, Eq, Debug, Hash)]
+        enum AppState {
+            State1,
+            State2,
+        }
+
+        fn should_run_once(mut flag: ResMut<bool>) {
+            assert!(!*flag);
+            *flag = true;
+        }
+
+        fn change_state(mut state: ResMut<State<AppState>>) {
+            let _ = match state.current() {
+                AppState::State1 => state.set(AppState::State2, false),
+                AppState::State2 => state.set(AppState::State1, false),
+            };
+        }
+
+        let mut world = World::new();
+        world.insert_resource(State::new(AppState::State1));
+        world.insert_resource(false);
+        let mut stage = SystemStage::parallel()
+            .with_system_set(State::<AppState>::get_driver())
+            .with_system_set(
+                SystemSet::on_enter(AppState::State1).with_system(should_run_once.system()),
+            )
+            .with_system_set(
+                SystemSet::on_update(AppState::State1).with_system(change_state.system()),
+            )
+            .with_system_set(
+                SystemSet::on_update(AppState::State2).with_system(change_state.system()),
+            );
         stage.run(&mut world);
         assert!(*world.get_resource::<bool>().unwrap(), "after test");
     }

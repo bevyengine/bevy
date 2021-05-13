@@ -81,7 +81,7 @@ fn menu(
         match *interaction {
             Interaction::Clicked => {
                 *material = button_materials.pressed.clone();
-                state.set(AppState::InGame).unwrap();
+                state.set(AppState::InGame, true).unwrap();
             }
             Interaction::Hovered => {
                 *material = button_materials.hovered.clone();

@@ -52,7 +52,7 @@ fn setup_window(
         },
     });
 
-    app_state.set(AppState::Setup).unwrap();
+    app_state.set(AppState::Setup, true).unwrap();
 }
 
 fn setup_pipeline(
@@ -207,5 +207,5 @@ fn setup_pipeline(
         ..Default::default()
     });
 
-    app_state.set(AppState::Done).unwrap();
+    app_state.set(AppState::Done, true).unwrap();
 }
