@@ -61,7 +61,7 @@ pub struct GltfPrimitive {
     pub material: Option<Handle<StandardMaterial>>,
 }
 
-#[derive(Debug, Reflect, Default)]
+#[derive(Clone, Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct GltfExtras {
     pub value: String,
