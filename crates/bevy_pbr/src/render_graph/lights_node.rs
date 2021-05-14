@@ -1,5 +1,7 @@
 use crate::{
-    light::{AmbientLight, PointLight, PointLightUniform},
+    light::{
+        AmbientLight, DirectionalLight, DirectionalLightUniform, PointLight, PointLightUniform,
+    },
     render_graph::uniform,
 };
 use bevy_core::{AsBytes, Byteable};
@@ -21,12 +23,14 @@ use bevy_transform::prelude::*;
 pub struct LightsNode {
     command_queue: CommandQueue,
     max_point_lights: usize,
+    max_dir_lights: usize,
 }
 
 impl LightsNode {
-    pub fn new(max_lights: usize) -> Self {
+    pub fn new(max_point_lights: usize, max_dir_lights: usize) -> Self {
         LightsNode {
-            max_point_lights: max_lights,
+            max_point_lights,
+            max_dir_lights,
             command_queue: CommandQueue::default(),
         }
     }
@@ -48,6 +52,8 @@ impl Node for LightsNode {
 #[derive(Debug, Clone, Copy)]
 struct LightCount {
     // storing as a `[u32; 4]` for memory alignement
+    // Index 0 is for point lights,
+    // Index 1 is for directional lights
     pub num_lights: [u32; 4],
 }
 
@@ -59,6 +65,7 @@ impl SystemNode for LightsNode {
             config.0 = Some(LightsNodeSystemState {
                 command_queue: self.command_queue.clone(),
                 max_point_lights: self.max_point_lights,
+                max_dir_lights: self.max_dir_lights,
                 light_buffer: None,
                 staging_buffer: None,
             })
@@ -74,6 +81,7 @@ pub struct LightsNodeSystemState {
     staging_buffer: Option<BufferId>,
     command_queue: CommandQueue,
     max_point_lights: usize,
+    max_dir_lights: usize,
 }
 
 pub fn lights_node_system(
@@ -83,7 +91,8 @@ pub fn lights_node_system(
     // TODO: this write on RenderResourceBindings will prevent this system from running in parallel
     // with other systems that do the same
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
-    query: Query<(&PointLight, &GlobalTransform)>,
+    point_lights: Query<(&PointLight, &GlobalTransform)>,
+    dir_lights: Query<&DirectionalLight>,
 ) {
     let state = &mut state;
     let render_resource_context = &**render_resource_context;
@@ -92,16 +101,31 @@ pub fn lights_node_system(
     let ambient_light: [f32; 4] =
         (ambient_light_resource.color * ambient_light_resource.brightness).into();
     let ambient_light_size = std::mem::size_of::<[f32; 4]>();
-    let point_light_count = query.iter().len().min(state.max_point_lights);
-    let size = std::mem::size_of::<PointLightUniform>();
+
+    let point_light_count = point_lights.iter().len().min(state.max_point_lights);
+    let point_light_size = std::mem::size_of::<PointLightUniform>();
+    let point_light_array_size = point_light_size * point_light_count;
+    let point_light_array_max_size = point_light_size * state.max_point_lights;
+
+    let dir_light_count = dir_lights.iter().len().min(state.max_dir_lights);
+    let dir_light_size = std::mem::size_of::<DirectionalLightUniform>();
+    let dir_light_array_size = dir_light_size * dir_light_count;
+    let dir_light_array_max_size = dir_light_size * state.max_dir_lights;
+
     let light_count_size = ambient_light_size + std::mem::size_of::<LightCount>();
-    let point_light_array_size = size * point_light_count;
-    let point_light_array_max_size = size * state.max_point_lights;
-    let current_point_light_uniform_size = light_count_size + point_light_array_size;
-    let max_light_uniform_size = light_count_size + point_light_array_max_size;
+
+    let point_light_uniform_start = light_count_size;
+    let point_light_uniform_end = light_count_size + point_light_array_size;
+
+    let dir_light_uniform_start = light_count_size + point_light_array_max_size;
+    let dir_light_uniform_end =
+        light_count_size + point_light_array_max_size + dir_light_array_size;
+
+    let max_light_uniform_size =
+        light_count_size + point_light_array_max_size + dir_light_array_max_size;
 
     if let Some(staging_buffer) = state.staging_buffer {
-        if point_light_count == 0 {
+        if point_light_count == 0 && dir_light_count == 0 {
             return;
         }
 
@@ -133,22 +157,32 @@ pub fn lights_node_system(
     let staging_buffer = state.staging_buffer.unwrap();
     render_resource_context.write_mapped_buffer(
         staging_buffer,
-        0..current_point_light_uniform_size as u64,
+        0..max_light_uniform_size as u64,
         &mut |data, _renderer| {
             // ambient light
             data[0..ambient_light_size].copy_from_slice(ambient_light.as_bytes());
 
             // light count
-            data[ambient_light_size..light_count_size]
-                .copy_from_slice([point_light_count as u32, 0, 0, 0].as_bytes());
+            data[ambient_light_size..light_count_size].copy_from_slice(
+                [point_light_count as u32, dir_light_count as u32, 0, 0].as_bytes(),
+            );
 
-            // light array
-            for ((point_light, global_transform), slot) in query.iter().zip(
-                data[light_count_size..current_point_light_uniform_size].chunks_exact_mut(size),
+            // point light array
+            for ((point_light, global_transform), slot) in point_lights.iter().zip(
+                data[point_light_uniform_start..point_light_uniform_end]
+                    .chunks_exact_mut(point_light_size),
             ) {
                 slot.copy_from_slice(
-                    PointLightUniform::from(&point_light, &global_transform).as_bytes(),
+                    PointLightUniform::new(&point_light, &global_transform).as_bytes(),
                 );
+            }
+
+            // directional light array
+            for (dir_light, slot) in dir_lights.iter().zip(
+                data[dir_light_uniform_start..dir_light_uniform_end]
+                    .chunks_exact_mut(dir_light_size),
+            ) {
+                slot.copy_from_slice(DirectionalLightUniform::new(&dir_light).as_bytes());
             }
         },
     );
