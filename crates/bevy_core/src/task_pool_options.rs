@@ -15,22 +15,6 @@ pub struct TaskPoolThreadAssignmentPolicy {
     pub percent: f32,
 }
 
-impl TaskPoolThreadAssignmentPolicy {
-    /// Determine the number of threads to use for this task pool
-    fn get_number_of_threads(&self, remaining_threads: usize, total_threads: usize) -> usize {
-        assert!(self.percent >= 0.0);
-        let mut desired = (total_threads as f32 * self.percent).round() as usize;
-
-        // Limit ourselves to the number of cores available
-        desired = desired.min(remaining_threads);
-
-        // Clamp by min_threads, max_threads. (This may result in us using more threads than are
-        // available, this is intended. An example case where this might happen is a device with
-        // <= 2 threads.
-        desired.clamp(self.min_threads, self.max_threads)
-    }
-}
-
 /// Helper for configuring and creating the default task pools. For end-users who want full control,
 /// insert the default task pools into the resource map manually. If the pools are already inserted,
 /// this helper will do nothing.
@@ -98,19 +82,10 @@ impl DefaultTaskPoolOptions {
             bevy_tasks::logical_core_count().clamp(self.min_total_threads, self.max_total_threads);
         trace!("Assigning {} cores to default task pools", total_threads);
 
-        let mut remaining_threads = total_threads;
-
         if !world.contains_resource::<ComputeTaskPool>() {
-            // Determine the number of compute threads we will use
-            // This is intentionally last so that an end user can specify 1.0 as the percent
-            let compute_threads = self
-                .compute
-                .get_number_of_threads(remaining_threads, total_threads);
-
-            trace!("Compute Threads: {}", compute_threads);
             world.insert_resource(ComputeTaskPool(
                 TaskPoolBuilder::default()
-                    .num_threads(compute_threads)
+                    .num_threads(total_threads)
                     .thread_name("Compute Task Pool".to_string())
                     .build(),
             ));

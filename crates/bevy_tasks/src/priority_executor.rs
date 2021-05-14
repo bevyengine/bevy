@@ -1,10 +1,9 @@
 use std::future::Future;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
 
 use async_executor::{Executor, Task};
 use event_listener::Event;
-use futures_lite::{future, FutureExt};
+use futures_lite::FutureExt;
 
 /// Task priority.
 #[repr(usize)]
@@ -20,6 +19,10 @@ pub struct PriorityExecutor<'a> {
     ex: [Executor<'a>; 3],
     event: Event,
     worker: AtomicUsize,
+}
+
+impl<'a> Default for PriorityExecutor<'a> {
+    fn default() -> Self { PriorityExecutor::new() }
 }
 
 impl<'a> PriorityExecutor<'a> {
@@ -52,13 +55,12 @@ impl<'a> PriorityExecutor<'a> {
                 let t1 = self.ex[1].tick();
                 let t2 = self.ex[2].tick();
                 self.event.listen().or(t1).or(t2).await
-            };
+            }
         };
 
         let result = future.or(run_forever).await;
         result
     }
-
 
     pub fn tick(&self) {
         self.event.notify(usize::MAX);
