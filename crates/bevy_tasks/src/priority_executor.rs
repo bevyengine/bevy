@@ -22,7 +22,9 @@ pub struct PriorityExecutor<'a> {
 }
 
 impl<'a> Default for PriorityExecutor<'a> {
-    fn default() -> Self { PriorityExecutor::new() }
+    fn default() -> Self {
+        PriorityExecutor::new()
+    }
 }
 
 impl<'a> PriorityExecutor<'a> {
