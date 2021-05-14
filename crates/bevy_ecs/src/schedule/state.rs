@@ -322,7 +322,9 @@ where
     /// # }
     /// #
     /// fn change_state(mut state: ResMut<State<AppState>>) {
-    ///     state.set(AppState::Game).unwrap().end_frame();
+    ///     if let Ok(transition) = state.set(AppState::Game) {
+    ///         transition.end_frame();
+    ///     }
     /// }
     /// # change_state.system();
     /// ```
