@@ -1,14 +1,14 @@
 use super::{
     state_descriptors::{
-        BlendFactor, BlendOperation, ColorWrite, CompareFunction, CullMode, FrontFace,
+        BlendFactor, BlendOperation, ColorWrite, CompareFunction, Face, FrontFace,
         PrimitiveTopology,
     },
     PipelineLayout,
 };
 use crate::{
     pipeline::{
-        BlendState, ColorTargetState, DepthBiasState, DepthStencilState, MultisampleState,
-        PolygonMode, PrimitiveState, StencilFaceState, StencilState,
+        BlendComponent, BlendState, ColorTargetState, DepthBiasState, DepthStencilState,
+        MultisampleState, PolygonMode, PrimitiveState, StencilFaceState, StencilState,
     },
     shader::ShaderStages,
     texture::TextureFormat,
@@ -41,8 +41,10 @@ impl PipelineDescriptor {
                 topology: PrimitiveTopology::TriangleList,
                 strip_index_format: None,
                 front_face: FrontFace::Ccw,
-                cull_mode: CullMode::Back,
+                cull_mode: Some(Face::Back),
                 polygon_mode: PolygonMode::Fill,
+                clamp_depth: false,
+                conservative: false,
             },
             multisample: MultisampleState {
                 count: 1,
@@ -59,8 +61,10 @@ impl PipelineDescriptor {
                 topology: PrimitiveTopology::TriangleList,
                 strip_index_format: None,
                 front_face: FrontFace::Ccw,
-                cull_mode: CullMode::Back,
+                cull_mode: Some(Face::Back),
                 polygon_mode: PolygonMode::Fill,
+                clamp_depth: false,
+                conservative: false,
             },
             layout: None,
             depth_stencil: Some(DepthStencilState {
@@ -78,20 +82,21 @@ impl PipelineDescriptor {
                     slope_scale: 0.0,
                     clamp: 0.0,
                 },
-                clamp_depth: false,
             }),
             color_target_states: vec![ColorTargetState {
                 format: TextureFormat::default(),
-                color_blend: BlendState {
-                    src_factor: BlendFactor::SrcAlpha,
-                    dst_factor: BlendFactor::OneMinusSrcAlpha,
-                    operation: BlendOperation::Add,
-                },
-                alpha_blend: BlendState {
-                    src_factor: BlendFactor::One,
-                    dst_factor: BlendFactor::One,
-                    operation: BlendOperation::Add,
-                },
+                blend: Some(BlendState {
+                    color: BlendComponent {
+                        src_factor: BlendFactor::SrcAlpha,
+                        dst_factor: BlendFactor::OneMinusSrcAlpha,
+                        operation: BlendOperation::Add,
+                    },
+                    alpha: BlendComponent {
+                        src_factor: BlendFactor::One,
+                        dst_factor: BlendFactor::One,
+                        operation: BlendOperation::Add,
+                    },
+                }),
                 write_mask: ColorWrite::ALL,
             }],
             multisample: MultisampleState {

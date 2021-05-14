@@ -18,7 +18,7 @@ use bevy_ecs::schedule::State;
 /// but only one should react, for example in the case of triggering
 /// [`State`] change, you should consider clearing the input state, either by:
 ///
-/// * Using [`Input::just_pressed_and_clear`] or [`Input::just_released_and_clear`] instead.
+/// * Using [`Input::clear_just_pressed`] or [`Input::clear_just_released`] instead.
 /// * Calling [`Input::clear`] or [`Input::reset`] immediately after the state change.
 ///
 /// ## Notes when adding this resource for a new input type

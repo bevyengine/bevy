@@ -10,7 +10,9 @@ use bevy_render::{
 };
 use bevy_utils::HashMap;
 
-/// An atlas containing multiple textures (like a spritesheet or a tilemap)
+/// An atlas containing multiple textures (like a spritesheet or a tilemap).
+/// [Example usage animating sprite.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_sheet.rs)
+/// [Example usage loading sprite sheet.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
 #[derive(Debug, RenderResources, TypeUuid)]
 #[uuid = "946dacc5-c2b2-4b30-b81d-af77d79d1db7"]
 pub struct TextureAtlas {

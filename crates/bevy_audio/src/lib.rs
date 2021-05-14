@@ -3,6 +3,7 @@ mod audio_output;
 mod audio_source;
 
 pub mod prelude {
+    #[doc(hidden)]
     pub use crate::{Audio, AudioOutput, AudioSource, Decodable};
 }
 

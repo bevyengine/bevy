@@ -28,13 +28,13 @@ Explanation:
 ### [markdownlint](https://github.com/DavidAnson/markdownlint)
 
 `markdownlint` is provided by `super-linter` and is responsible for `.md` files.
-Its configuration is saved in the [.markdown-lint.yml](../.github/linters/markdown-lint.yml) file.
+Its configuration is saved in the [.markdown-lint.yml](../.github/linters/.markdown-lint.yml) file.
 
 The provided rules are documented [here](https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md) and information about setting the config can be seen [here](https://github.com/DavidAnson/markdownlint#optionsconfig).
 
 #### Using [VS Code markdownlint](https://marketplace.visualstudio.com/items?itemName=DavidAnson.vscode-markdownlint)
 
-If you want to use the VS Code Extension with the rules defined in [.markdown-lint.yml](../.github/linters/markdown-lint.yml), then you need to create a local config file in the root of the project with the configuration below.
+If you want to use the VS Code Extension with the rules defined in [.markdown-lint.yml](../.github/linters/.markdown-lint.yml), then you need to create a local config file in the root of the project with the configuration below.
 Currently, this is not needed as the extension already disables the rule `MD013` by default.
 
 ```json

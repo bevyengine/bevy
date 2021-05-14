@@ -295,6 +295,11 @@ impl<'a, T: Component> Fetch<'a> for WithoutFetch<T> {
 
 pub struct WithBundle<T: Bundle>(PhantomData<T>);
 
+impl<T: Bundle> WorldQuery for WithBundle<T> {
+    type Fetch = WithBundleFetch<T>;
+    type State = WithBundleState<T>;
+}
+
 pub struct WithBundleFetch<T: Bundle> {
     is_dense: bool,
     marker: PhantomData<T>,

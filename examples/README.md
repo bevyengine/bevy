@@ -32,6 +32,8 @@ git checkout v0.4.0
 
 ## Table of Contents
 
+- [Examples](#examples)
+  - [Table of Contents](#table-of-contents)
 - [The Bare Minimum](#the-bare-minimum)
   - [Hello, World!](#hello-world)
 - [Cross-Platform Examples](#cross-platform-examples)
@@ -53,8 +55,15 @@ git checkout v0.4.0
   - [Window](#window)
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
+    - [Setup](#setup)
+    - [Build & Run](#build--run)
+    - [Old phones](#old-phones)
   - [iOS](#ios)
+    - [Setup](#setup-1)
+    - [Build & Run](#build--run-1)
   - [WASM](#wasm)
+    - [Setup](#setup-2)
+    - [Build & Run](#build--run-2)
 
 # The Bare Minimum
 
@@ -90,7 +99,7 @@ Example | File | Description
 `msaa` | [`3d/msaa.rs`](./3d/msaa.rs) | Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges
 `orthographic` | [`3d/orthographic.rs`](./3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look games or CAD applications)
 `parenting` | [`3d/parenting.rs`](./3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
-`pbr` | [`3d/pbr.rs`](./3d/[pbr].rs) | Demonstrates use of Physically Based Rendering (PBR) properties
+`pbr` | [`3d/pbr.rs`](./3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
 `render_to_texture` | [`3d/render_to_texture.rs`](./3d/render_to_texture.rs) | Shows how to render to texture
 `spawner` | [`3d/spawner.rs`](./3d/spawner.rs) | Renders a large number of cubes with changing position and material
 `texture` | [`3d/texture.rs`](./3d/texture.rs) | Shows configuration of texture materials
@@ -145,6 +154,7 @@ Example | File | Description
 `fixed_timestep` | [`ecs/fixed_timestep.rs`](./ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick
 `hierarchy` | [`ecs/hierarchy.rs`](./ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities
 `parallel_query` | [`ecs/parallel_query.rs`](./ecs/parallel_query.rs) | Illustrates parallel queries with `ParallelIterator`
+`query_bundle` | [`ecs/query_bundle.rs`](./ecs/query_bundle.rs) | Shows how to query entities that contain components in a `Bundle`
 `removal_detection` | [`ecs/removal_detection.rs`](./ecs/removal_detection.rs) | Query for entities that had a specific component removed in a previous stage during the current frame.
 `startup_system` | [`ecs/startup_system.rs`](./ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)
 `state` | [`ecs/state.rs`](./ecs/state.rs) | Illustrates how to use States to control transitioning from a Menu state to an InGame state
@@ -173,7 +183,7 @@ Example | File | Description
 `mouse_input` | [`input/mouse_input.rs`](./input/mouse_input.rs) | Demonstrates handling a mouse button press/release
 `mouse_input_events` | [`input/mouse_input_events.rs`](./input/mouse_input_events.rs) | Prints out all mouse events (buttons, movement, etc.)
 `touch_input` | [`input/touch_input.rs`](./input/touch_input.rs) | Displays touch presses, releases, and cancels
-`touch_input_events` | [`input/touch_input_events.rs`](./input/touch_input_input_events.rs) | Prints out all touch inputs
+`touch_input_events` | [`input/touch_input_events.rs`](./input/touch_input_events.rs) | Prints out all touch inputs
 
 ## Reflection
 
@@ -270,7 +280,9 @@ Please reference `cargo-apk` [README](https://crates.io/crates/cargo-apk) for ot
 
 ### Old phones
 
-Bevy by default targets Android API level 29 in its examples which is the [Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). Users of older phones may want to use an older API when testing.
+Bevy by default targets Android API level 29 in its examples which is the <!-- markdown-link-check-disable -->
+[Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). <!-- markdown-link-check-enable -->
+Users of older phones may want to use an older API when testing.
 
 To use a different API, the following fields must be updated in Cargo.toml:
 

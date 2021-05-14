@@ -9,6 +9,13 @@ pub struct Mut<'a, T> {
     pub(crate) change_tick: u32,
 }
 
+impl<'a, T> Mut<'a, T> {
+    pub fn into_inner(self) -> &'a mut T {
+        self.component_ticks.set_changed(self.change_tick);
+        self.value
+    }
+}
+
 impl<'a, T> Deref for Mut<'a, T> {
     type Target = T;
 

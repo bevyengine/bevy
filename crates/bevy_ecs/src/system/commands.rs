@@ -284,8 +284,8 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
 }
 
 #[derive(Debug)]
-pub(crate) struct Spawn<T> {
-    bundle: T,
+pub struct Spawn<T> {
+    pub bundle: T,
 }
 
 impl<T> Command for Spawn<T>
@@ -297,12 +297,12 @@ where
     }
 }
 
-pub(crate) struct SpawnBatch<I>
+pub struct SpawnBatch<I>
 where
     I: IntoIterator,
     I::Item: Bundle,
 {
-    bundles_iter: I,
+    pub bundles_iter: I,
 }
 
 impl<I> Command for SpawnBatch<I>
@@ -316,8 +316,8 @@ where
 }
 
 #[derive(Debug)]
-pub(crate) struct Despawn {
-    entity: Entity,
+pub struct Despawn {
+    pub entity: Entity,
 }
 
 impl Command for Despawn {
@@ -328,9 +328,9 @@ impl Command for Despawn {
     }
 }
 
-pub(crate) struct InsertBundle<T> {
-    entity: Entity,
-    bundle: T,
+pub struct InsertBundle<T> {
+    pub entity: Entity,
+    pub bundle: T,
 }
 
 impl<T> Command for InsertBundle<T>
@@ -343,9 +343,9 @@ where
 }
 
 #[derive(Debug)]
-pub(crate) struct Insert<T> {
-    entity: Entity,
-    component: T,
+pub struct Insert<T> {
+    pub entity: Entity,
+    pub component: T,
 }
 
 impl<T> Command for Insert<T>
@@ -358,7 +358,7 @@ where
 }
 
 #[derive(Debug)]
-pub(crate) struct Remove<T> {
+pub struct Remove<T> {
     entity: Entity,
     phantom: PhantomData<T>,
 }
@@ -375,9 +375,9 @@ where
 }
 
 #[derive(Debug)]
-pub(crate) struct RemoveBundle<T> {
-    entity: Entity,
-    phantom: PhantomData<T>,
+pub struct RemoveBundle<T> {
+    pub entity: Entity,
+    pub phantom: PhantomData<T>,
 }
 
 impl<T> Command for RemoveBundle<T>
@@ -393,8 +393,8 @@ where
     }
 }
 
-pub(crate) struct InsertResource<T: Component> {
-    resource: T,
+pub struct InsertResource<T: Component> {
+    pub resource: T,
 }
 
 impl<T: Component> Command for InsertResource<T> {
@@ -403,8 +403,8 @@ impl<T: Component> Command for InsertResource<T> {
     }
 }
 
-pub(crate) struct RemoveResource<T: Component> {
-    phantom: PhantomData<T>,
+pub struct RemoveResource<T: Component> {
+    pub phantom: PhantomData<T>,
 }
 
 impl<T: Component> Command for RemoveResource<T> {
