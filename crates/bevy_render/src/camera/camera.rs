@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 #[reflect(Component)]
 pub struct Camera {
     pub projection_matrix: Mat4,
+    pub multiview_projection_matrices: Vec<Mat4>,
     pub name: Option<String>,
     #[reflect(ignore)]
     pub window: WindowId,

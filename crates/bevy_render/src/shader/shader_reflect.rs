@@ -327,6 +327,7 @@ mod tests {
             layout(location = 0) out vec4 v_Position;
             layout(set = 0, binding = 0) uniform Camera {
                 mat4 ViewProj;
+                mat4 ViewProj2;
             };
             layout(set = 1, binding = 0) uniform texture2D Texture;
 
@@ -384,7 +385,7 @@ mod tests {
                             name: "Camera".into(),
                             bind_type: BindType::Uniform {
                                 has_dynamic_offset: false,
-                                property: UniformProperty::Struct(vec![UniformProperty::Mat4]),
+                                property: UniformProperty::Struct(vec![UniformProperty::Mat4, UniformProperty::Mat4]),
                             },
                             shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
                         }]

@@ -8,6 +8,66 @@ use bevy_ecs::{Resources, World};
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use std::borrow::Cow;
 
+pub struct XRWindowTextureNode {
+    descriptor: TextureDescriptor,
+    have_texture: bool,
+}
+
+impl XRWindowTextureNode {
+    pub fn new(descriptor: TextureDescriptor) -> Self {
+        XRWindowTextureNode {
+            descriptor,
+            have_texture: false,
+        }
+    }
+}
+
+impl Node for XRWindowTextureNode {
+    fn output(&self) -> &[ResourceSlotInfo] {
+        static OUTPUT: &[ResourceSlotInfo] = &[ResourceSlotInfo {
+            name: Cow::Borrowed(WindowTextureNode::OUT_TEXTURE),
+            resource_type: RenderResourceType::Texture,
+        }];
+        OUTPUT
+    }
+
+    fn update(
+        &mut self,
+        _world: &World,
+        _resources: &Resources,
+        render_context: &mut dyn RenderContext,
+        _input: &ResourceSlots,
+        output: &mut ResourceSlots,
+    ) {
+        const WINDOW_TEXTURE: usize = 0;
+
+        if !self.have_texture {
+            let render_resource_context = render_context.resources_mut();
+            if let Some(RenderResourceId::Texture(old_texture)) = output.get(WINDOW_TEXTURE) {
+                render_resource_context.remove_texture(old_texture);
+            }
+
+            #[cfg(target_os = "android")]
+            {
+                self.descriptor.size.width = 1440;
+                self.descriptor.size.height = 1584;
+            }
+
+            #[cfg(not(target_os = "android"))]
+            {
+                self.descriptor.size.width = 1344;
+                self.descriptor.size.height = 1512;
+            }
+            self.descriptor.size.depth = 2; // two eyes
+
+            let texture_resource = render_resource_context.create_texture(self.descriptor);
+            output.set(WINDOW_TEXTURE, RenderResourceId::Texture(texture_resource));
+
+            self.have_texture = true;
+        }
+    }
+}
+
 pub struct WindowTextureNode {
     window_id: WindowId,
     descriptor: TextureDescriptor,

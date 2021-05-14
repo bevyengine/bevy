@@ -1,6 +1,6 @@
 use crate::{
     camera::{ActiveCameras, Camera},
-    render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
+    render_graph::{base::camera::CAMERA_XR, CommandQueue, Node, ResourceSlots, SystemNode},
     renderer::{
         BufferId, BufferInfo, BufferMapMode, BufferUsage, RenderContext, RenderResourceBinding,
         RenderResourceBindings, RenderResourceContext,
@@ -11,6 +11,11 @@ use bevy_core::AsBytes;
 use bevy_ecs::{
     BoxedSystem, Commands, IntoSystem, Local, Query, Res, ResMut, Resources, System, World,
 };
+
+#[cfg(feature = "use-openxr")]
+use bevy_openxr_core::XRDevice;
+
+// use bevy_math::{Mat4, Quat, Vec4};
 use bevy_transform::prelude::*;
 use std::borrow::Cow;
 
@@ -73,6 +78,7 @@ pub fn camera_node_system(
     mut state: Local<CameraNodeState>,
     active_cameras: Res<ActiveCameras>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
+    #[cfg(feature = "use-openxr")] mut xr_device: ResMut<XRDevice>,
     // PERF: this write on RenderResourceAssignments will prevent this system from running in parallel
     // with other systems that do the same
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
@@ -90,12 +96,14 @@ pub fn camera_node_system(
         render_resource_context.map_buffer(staging_buffer, BufferMapMode::Write);
         staging_buffer
     } else {
-        let size = std::mem::size_of::<[[f32; 4]; 4]>();
+        let size = std::mem::size_of::<[[[f32; 4]; 4]; 2]>();
+
         let buffer = render_resource_context.create_buffer(BufferInfo {
             size,
             buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
             ..Default::default()
         });
+
         render_resource_bindings.set(
             &state.camera_name,
             RenderResourceBinding::Buffer {
@@ -116,17 +124,43 @@ pub fn camera_node_system(
         staging_buffer
     };
 
-    let matrix_size = std::mem::size_of::<[[f32; 4]; 4]>();
-    let camera_matrix: [f32; 16] =
-        (camera.projection_matrix * global_transform.compute_matrix().inverse()).to_cols_array();
+    let matrix_size = std::mem::size_of::<[[[f32; 4]; 4]; 2]>();
 
-    render_resource_context.write_mapped_buffer(
-        staging_buffer,
-        0..matrix_size as u64,
-        &mut |data, _renderer| {
-            data[0..matrix_size].copy_from_slice(camera_matrix.as_bytes());
-        },
-    );
+    if state.camera_name == CAMERA_XR {
+        #[cfg(feature = "use-openxr")]
+        if let Some(positions) = xr_device.get_view_positions() {
+            // FIXME handle array length
+            let camera_matrix_left: [f32; 16] = (camera.multiview_projection_matrices[0]
+                * positions[0].compute_matrix().inverse())
+            .to_cols_array();
+
+            let camera_matrix_right: [f32; 16] = (camera.multiview_projection_matrices[1]
+                * positions[1].compute_matrix().inverse())
+            .to_cols_array();
+
+            render_resource_context.write_mapped_buffer(
+                staging_buffer,
+                0..matrix_size as u64,
+                &mut |data, _renderer| {
+                    data[0..matrix_size / 2].copy_from_slice(camera_matrix_left.as_bytes());
+                    data[matrix_size / 2..].copy_from_slice(camera_matrix_right.as_bytes());
+                },
+            );
+        }
+    } else {
+        let camera_matrix: [f32; 16] = (camera.projection_matrix
+            * global_transform.compute_matrix().inverse())
+        .to_cols_array();
+
+        render_resource_context.write_mapped_buffer(
+            staging_buffer,
+            0..(matrix_size / 2) as u64,
+            &mut |data, _renderer| {
+                data[..].copy_from_slice(camera_matrix.as_bytes());
+            },
+        );
+    }
+
     render_resource_context.unmap_buffer(staging_buffer);
 
     let camera_buffer = state.camera_buffer.unwrap();

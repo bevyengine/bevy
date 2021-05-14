@@ -16,7 +16,7 @@ readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
 
 [workspace]
-exclude = ["benches"]
+exclude = ["benches", "examples/openxr"]
 members = ["crates/*", "examples/ios"]
 
 [features]
@@ -52,6 +52,8 @@ trace_chrome = ["bevy_internal/trace_chrome"]
 trace = ["bevy_internal/trace"]
 wgpu_trace = ["bevy_internal/wgpu_trace"]
 
+use-openxr = ["bevy_internal/use-openxr"]
+
 # Image format support for texture loading (PNG and HDR are enabled by default)
 hdr = ["bevy_internal/hdr"]
 png = ["bevy_internal/png"]
@@ -84,6 +86,12 @@ anyhow = "1.0"
 rand = "0.8.0"
 ron = "0.6.2"
 serde = {version = "1", features = ["derive"]}
+openxr = { version = "0.14", features = ["loaded"], default-features = false } # FIXME optional based on feature
+wgpu = "0.7" # FIXME optional based on feature
+image = "0.23.13"
+log = "0.4.14"
+env_logger = "0.8.2"
+#pprof = { version = "0.4.0", features = ["flamegraph"] }
 
 [[example]]
 name = "hello_world"
@@ -402,6 +410,10 @@ path = "examples/wasm/assets_wasm.rs"
 required-features = ["bevy_winit"]
 
 [[example]]
+name = "xr_scene"
+path = "examples/xr/xr_scene.rs"
+
+[[example]]
 crate-type = ["cdylib"]
 name = "android"
 path = "examples/android/android.rs"
@@ -414,3 +426,6 @@ icon = "@mipmap/ic_launcher"
 build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
 min_sdk_version = 16
 target_sdk_version = 29
+
+[patch.crates-io]
+wgpu = { path = "../wgpu-rs" }

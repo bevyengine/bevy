@@ -349,6 +349,9 @@ fn load_node(
                 node.with(orthographic_projection);
             }
             gltf::camera::Projection::Perspective(perspective) => {
+                if true {
+                    panic!("FIX THIS CODE PATH! Need to add XR camera here");
+                }
                 let mut perspective_projection: PerspectiveProjection = PerspectiveProjection {
                     fov: perspective.yfov(),
                     near: perspective.znear(),
@@ -365,6 +368,7 @@ fn load_node(
                     projection_matrix: perspective_projection.get_projection_matrix(),
                     ..Default::default()
                 });
+                // FIXME how to differentiate between CAMERA_XR and CAMERA_3D?
                 node.with(perspective_projection);
             }
         }

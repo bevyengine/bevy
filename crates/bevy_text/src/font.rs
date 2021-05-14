@@ -49,7 +49,7 @@ impl Font {
                 })
                 .flatten()
                 .collect::<Vec<u8>>(),
-            TextureFormat::Rgba8UnormSrgb,
+            TextureFormat::Rgba8Unorm,
         )
     }
 }

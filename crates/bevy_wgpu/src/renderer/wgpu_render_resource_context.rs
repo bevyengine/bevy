@@ -17,7 +17,7 @@ use bevy_utils::tracing::trace;
 use bevy_window::{Window, WindowId};
 use futures_lite::future;
 use std::{borrow::Cow, num::NonZeroU64, ops::Range, sync::Arc};
-use wgpu::util::DeviceExt;
+use wgpu::{util::DeviceExt, TextureView};
 
 #[derive(Clone, Debug)]
 pub struct WgpuRenderResourceContext {
@@ -681,5 +681,10 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             source: ShaderSource::Spirv(spirv_data),
             ..*shader
         })
+    }
+
+    fn add_texture_view(&self, id: TextureId, view: TextureView) {
+        let mut texture_views = self.resources.texture_views.write();
+        texture_views.insert(id, view);
     }
 }

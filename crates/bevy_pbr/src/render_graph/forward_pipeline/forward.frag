@@ -1,5 +1,7 @@
 #version 450
 
+//#extension GL_EXT_multiview : enable
+
 const int MAX_LIGHTS = 10;
 
 struct Light {
@@ -16,6 +18,7 @@ layout(location = 0) out vec4 o_Target;
 
 layout(set = 0, binding = 0) uniform Camera {
     mat4 ViewProj;
+    mat4 ViewProj2;
 };
 
 layout(set = 1, binding = 0) uniform Lights {

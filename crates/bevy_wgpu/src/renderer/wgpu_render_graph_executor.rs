@@ -29,6 +29,7 @@ impl WgpuRenderGraphExecutor {
             .downcast_mut::<WgpuRenderResourceContext>()
             .unwrap();
         let node_outputs: Arc<RwLock<HashMap<NodeId, ResourceSlots>>> = Default::default();
+
         for stage in stages.iter_mut() {
             // TODO: sort jobs and slice by "amount of work" / weights
             // stage.jobs.sort_by_key(|j| j.node_states.len());

@@ -185,6 +185,10 @@ impl Plugin for RenderPlugin {
             let msaa = resources.get::<Msaa>().unwrap();
             render_graph.add_base_graph(config, &msaa);
             let mut active_cameras = resources.get_mut::<ActiveCameras>().unwrap();
+            if config.add_xr_camera {
+                active_cameras.add(base::camera::CAMERA_XR);
+            }
+
             if config.add_3d_camera {
                 active_cameras.add(base::camera::CAMERA_3D);
             }

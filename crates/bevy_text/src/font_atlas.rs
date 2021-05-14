@@ -52,7 +52,7 @@ impl FontAtlas {
             Extent3d::new(size.x as u32, size.y as u32, 1),
             TextureDimension::D2,
             &[0, 0, 0, 0],
-            TextureFormat::Rgba8UnormSrgb,
+            TextureFormat::Rgba8Unorm,
         ));
         let texture_atlas = TextureAtlas::new_empty(atlas_texture, size);
         Self {

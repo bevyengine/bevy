@@ -225,6 +225,13 @@ impl PipelineCompiler {
                     .attributes
                     .push(compiled_vertex_attribute);
             } else {
+                // #[cfg(feature = "use-openxr")]
+                if shader_vertex_attribute.name == "gl_ViewIndex" {
+                    // openxr has multiview enabled - gl_ViewIndex will be supplied by graphics runtime
+                    // not require to be submitted by mesh
+                    continue;
+                }
+
                 panic!(
                     "Attribute {} is required by shader, but not supplied by mesh. Either remove the attribute from the shader or supply the attribute ({}) to the mesh.",
                     shader_vertex_attribute.name,
