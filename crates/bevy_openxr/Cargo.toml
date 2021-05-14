@@ -1,0 +1,40 @@
+[package]
+name = "bevy_openxr"
+version = "0.4.0"
+edition = "2018"
+authors = [
+    "Bevy Contributors <bevyengine@gmail.com>",
+    "Carter Anderson <mcanders1@gmail.com>",
+]
+description = "OpenXR integration for VR, AR, MR, etc."
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT"
+keywords = ["bevy"]
+readme = "README.md"
+
+[dependencies]
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.4.0" }
+bevy_asset = { path = "../bevy_asset", version = "0.4.0" }
+bevy_core = { path = "../bevy_core", version = "0.4.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.4.0" }
+bevy_math = { path = "../bevy_math", version = "0.4.0" }
+bevy_openxr_core = { path = "../bevy_openxr_core", version = "0.4.0" }
+bevy_pbr = { path = "../bevy_pbr", version = "0.4.0" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.4.0" }
+bevy_render = { path = "../bevy_render", version = "0.4.0", features = ["use-openxr"] }
+bevy_scene = { path = "../bevy_scene", version = "0.4.0" } # FIXME not really needed, except for plugin order
+bevy_transform = { path = "../bevy_transform", version = "0.4.0" }
+
+# other
+openxr = { path = "../../../openxrs/openxr", features = ["loaded"], default-features = false }
+wgpu = { path = "../../../wgpu-rs" }
+
+num-traits = "0.2"
+num-derive = "0.2"
+
+[target.'cfg(target_os = "android")'.dependencies]
+ndk-glue = "0.2.1"
+ndk = { version = "0.2.1", features = ["trace"] }
+jni = "0.18.0"

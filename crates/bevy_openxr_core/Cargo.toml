@@ -1,0 +1,35 @@
+[package]
+name = "bevy_openxr_core"
+version = "0.4.0"
+edition = "2018"
+authors = [
+    "Bevy Contributors <bevyengine@gmail.com>",
+    "Carter Anderson <mcanders1@gmail.com>",
+]
+description = "OpenXR integration for VR, AR, MR, etc."
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT"
+keywords = ["bevy"]
+readme = "README.md"
+
+[features]
+default = ["use-openxr"]
+use-openxr = ["wgpu/use-openxr"]
+
+[dependencies]
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.4.0" }
+bevy_core = { path = "../bevy_core", version = "0.4.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.4.0" }
+bevy_math = { path = "../bevy_math", version = "0.4.0" }
+
+# other
+openxr = { path = "../../../openxrs/openxr", features = ["loaded"], default-features = false }
+wgpu = { path = "../../../wgpu-rs" }
+
+# TODO: replace once_cell with std equivalent if/when this lands: https://github.com/rust-lang/rfcs/pull/2788
+once_cell = "1.4.1"
+
+ash = "0.31" # FIXME remove
+
