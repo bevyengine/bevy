@@ -69,13 +69,13 @@ impl Drop for TaskPoolInner {
     fn drop(&mut self) {
         self.shutdown_tx.close();
 
-        //let panicking = thread::panicking();
-        //for join_handle in self.threads.drain(..) {
-        //    let res = join_handle.join();
-        //    if !panicking {
-        //        res.expect("Task thread panicked while executing.");
-        //    }
-        //}
+        let panicking = thread::panicking();
+        for join_handle in self.threads.drain(..) {
+            let res = join_handle.join();
+            if !panicking {
+                res.expect("Task thread panicked while executing.");
+            }
+        }
     }
 }
 
