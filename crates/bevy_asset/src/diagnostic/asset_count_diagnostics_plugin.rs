@@ -34,13 +34,15 @@ impl<T: Asset> AssetCountDiagnosticsPlugin<T> {
         diagnostics.add(Diagnostic::new(
             Self::diagnostic_id(),
             format!(
-                    "asset_count {}",
-                    if asset_type_name.len() > max_length {
-                        asset_type_name.split_at(asset_type_name.len() - max_length + 1).1
-                    } else {
-                        asset_type_name
-                    }
-                ),
+                "asset_count {}",
+                if asset_type_name.len() > max_length {
+                    asset_type_name
+                        .split_at(asset_type_name.len() - max_length + 1)
+                        .1
+                } else {
+                    asset_type_name
+                }
+            ),
             20,
         ));
     }
