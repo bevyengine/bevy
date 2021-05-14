@@ -45,7 +45,7 @@ enum ScheduledOperationType<T: Component + Clone + Eq> {
 }
 
 #[derive(Debug)]
-pub enum Next {
+enum Next {
     NextFrame,
     SameFrame,
 }
@@ -93,10 +93,10 @@ impl<'a, T> StateTransitionConfig<'a, T>
 where
     T: Component + Debug + Clone + Eq + Hash,
 {
-    /// Controls where the transition will land, by default in the same frame.
-    pub fn next(self, next: Next) -> Self {
-        self.state.scheduled.as_mut().unwrap().next = next;
-        self
+    /// Stop reevaluating [`RunCriteria`](crate::schedule::RunCriteria) for this [`State`]
+    /// for this frame.
+    pub fn end_frame(self) {
+        self.state.scheduled.as_mut().unwrap().next = Next::NextFrame;
     }
 }
 
@@ -318,14 +318,14 @@ where
     ///
     /// ```rust
     /// # use bevy_ecs::system::{IntoSystem, ResMut};
-    /// # use bevy_ecs::schedule::{Next, State};
+    /// # use bevy_ecs::schedule::State;
     /// # #[derive(Clone, PartialEq, Eq, Debug, Hash)]
     /// # enum AppState {
     /// #     Game,
     /// # }
     /// #
     /// fn change_state(mut state: ResMut<State<AppState>>) {
-    ///     state.set(AppState::Game).unwrap().next(Next::NextFrame);
+    ///     state.set(AppState::Game).unwrap().end_frame();
     /// }
     /// # change_state.system();
     /// ```
@@ -788,8 +788,8 @@ mod test {
 
         fn change_state(mut state: ResMut<State<AppState>>) {
             let _ = match state.current() {
-                AppState::State1 => state.set(AppState::State2).unwrap().next(Next::NextFrame),
-                AppState::State2 => state.set(AppState::State1).unwrap().next(Next::NextFrame),
+                AppState::State1 => state.set(AppState::State2).unwrap().end_frame(),
+                AppState::State2 => state.set(AppState::State1).unwrap().end_frame(),
             };
         }
 
