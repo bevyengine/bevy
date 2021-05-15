@@ -148,9 +148,11 @@ fn reflect_bind_groups(
         .global_variables
         .iter()
         .map(|(_, variable)| variable)
-        .filter(|variable| match variable.class {
-            StorageClass::Uniform | StorageClass::Storage | StorageClass::Handle => true,
-            _ => false,
+        .filter(|variable| {
+            matches!(
+                variable.class,
+                StorageClass::Uniform | StorageClass::Storage | StorageClass::Handle
+            )
         })
         .filter_map(|variable| {
             let binding = variable.binding.as_ref()?;
