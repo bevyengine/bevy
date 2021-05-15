@@ -6,7 +6,6 @@ use event_listener::Event;
 use futures_lite::FutureExt;
 
 /// Task priority.
-#[repr(usize)]
 #[derive(Debug, Clone, Copy)]
 pub enum Priority {
     FinishWithinFrame = 0,
