@@ -137,17 +137,13 @@ impl SystemStage {
     }
 
     pub fn add_system(&mut self, system: impl Into<SystemDescriptor>) -> &mut Self {
-        self.add_system_inner(system, None);
+        self.add_system_inner(system.into(), None);
         self
     }
 
-    fn add_system_inner(
-        &mut self,
-        system: impl Into<SystemDescriptor>,
-        default_run_criteria: Option<usize>,
-    ) {
+    fn add_system_inner(&mut self, system: SystemDescriptor, default_run_criteria: Option<usize>) {
         self.systems_modified = true;
-        match system.into() {
+        match system {
             SystemDescriptor::Exclusive(mut descriptor) => {
                 let insertion_point = descriptor.insertion_point;
                 let criteria = descriptor.run_criteria.take();
