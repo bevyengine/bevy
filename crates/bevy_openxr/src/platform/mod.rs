@@ -1,4 +1,5 @@
-use crate::Error;
+use crate::error::Error;
+use bevy_openxr_core::{set_xr_instance, XrInstance};
 use openxr::{ExtensionSet, Instance};
 
 // Platform-specific loaders
@@ -40,4 +41,25 @@ impl OpenXRInstance for openxr::Entry {
 
         Ok(xr_instance)
     }
+}
+
+pub(crate) fn initialize_openxr() {
+    println!("Initializing OpenXR");
+    let mut entry = openxr::Entry::load_bevy_openxr().unwrap();
+    let mut extensions = entry.enumerate_extensions().unwrap();
+    let layers = entry.enumerate_layers().unwrap();
+    println!("EXTENSIONS: {:#?}", extensions);
+    println!("LAYERS: {:#?}", layers);
+
+    extensions.mnd_headless = false;
+
+    let instance = entry.instantiate(&extensions).unwrap();
+    let wgpu_openxr = wgpu::wgpu_openxr::new(
+        wgpu::BackendBit::VULKAN,
+        &instance,
+        wgpu::wgpu_openxr::OpenXROptions::default(),
+    )
+    .unwrap();
+
+    set_xr_instance(XrInstance::new(wgpu_openxr, instance));
 }

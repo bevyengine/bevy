@@ -9,6 +9,7 @@ mod systems;
 mod view_transform;
 mod xr_instance;
 
+use bevy_utils::tracing::debug;
 pub use device::*;
 pub use swapchain::*;
 use systems::*;
@@ -20,6 +21,7 @@ pub struct OpenXRCorePlugin;
 
 impl Plugin for OpenXRCorePlugin {
     fn build(&self, app: &mut AppBuilder) {
+        debug!("Building OpenXRCorePlugin");
         let xr_instance = xr_instance::take_xr_instance();
         let options = XrOptions::default(); // FIXME user configurable?
         let xr_device = xr_instance.into_device_with_options(options);

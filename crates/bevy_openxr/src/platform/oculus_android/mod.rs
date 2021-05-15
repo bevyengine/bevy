@@ -2,8 +2,8 @@ use std::{ffi, ptr};
 
 use openxr::{Entry, ExtensionSet, Instance};
 
-use crate::Error;
 use super::OpenXRInstance;
+use crate::error::Error;
 
 impl OpenXRInstance for openxr::Entry {
     fn load_bevy_openxr() -> Result<openxr::Entry, Error> {
@@ -55,7 +55,6 @@ impl OpenXRInstance for openxr::Entry {
             application_activity: application_context,
         };
 
-
         /*
         let other_extensions = extensions.other
             .iter()
@@ -73,7 +72,7 @@ impl OpenXRInstance for openxr::Entry {
                 application_name: "hello openxr",
                 engine_name: "bevy",
                 application_version: 1, // FIXME allow user to submit application version?
-                engine_version: 1, // FIXME pull bevy version from somewhere?
+                engine_version: 1,      // FIXME pull bevy version from somewhere?
             },
             &extensions,
             Some(other_extensions),

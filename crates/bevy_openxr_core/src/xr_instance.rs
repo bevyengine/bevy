@@ -1,4 +1,5 @@
 use once_cell::sync::OnceCell;
+use std::fmt;
 use wgpu::wgpu_openxr::WGPUOpenXR;
 
 use crate::{OpenXRStruct, XRDevice, XrOptions};
@@ -19,7 +20,7 @@ impl XrInstance {
         }
     }
 
-    pub fn into_device_with_options(self, options: XrOptions) -> XRDevice {
+    pub(crate) fn into_device_with_options(self, options: XrOptions) -> XRDevice {
         let handles = self.wgpu_openxr.get_session_handles().unwrap();
         let xr_struct = OpenXRStruct::new(self.inner, handles, options);
 
@@ -27,9 +28,9 @@ impl XrInstance {
     }
 }
 
-impl std::fmt::Debug for XrInstance {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "WgpuData[]")
+impl fmt::Debug for XrInstance {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "XrInstance[]")
     }
 }
 

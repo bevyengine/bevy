@@ -36,6 +36,6 @@ num-traits = "0.2"
 num-derive = "0.2"
 
 [target.'cfg(target_os = "android")'.dependencies]
-ndk-glue = "0.2.1"
+ndk-glue = { version = "0.2", features = ["logger"]}
 ndk = { version = "0.2.1", features = ["trace"] }
 jni = "0.18.0"

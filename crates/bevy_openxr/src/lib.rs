@@ -1,8 +1,7 @@
 use bevy_app::{
-    AppBuilder, Events, Plugin, PluginGroupBuilder, ScheduleRunnerPlugin, ScheduleRunnerSettings,
+    AppBuilder, Plugin, PluginGroupBuilder, ScheduleRunnerPlugin, ScheduleRunnerSettings,
 };
 use bevy_ecs::prelude::*;
-use bevy_openxr_core::{set_xr_instance, XrInstance};
 use bevy_render::{camera::Camera, camera::CameraProjection};
 
 pub mod prelude {
@@ -11,18 +10,15 @@ pub mod prelude {
     pub use openxr::HandJointLocations;
 }
 
-mod platform;
 use openxr::HandJointLocations;
-use platform::OpenXRInstance;
-
-mod projection;
-pub use projection::*;
 
 mod error;
-pub use error::Error;
-
 mod hand_tracking;
+mod platform;
+mod projection;
+
 pub use hand_tracking::*;
+pub use projection::*;
 
 // FIXME: any better way for this? Works only for DefaultPlugins probably.
 pub fn add_plugins_fn(group: &mut PluginGroupBuilder) -> &mut PluginGroupBuilder {
@@ -53,14 +49,6 @@ impl Default for OpenXRSettings {
     }
 }
 
-#[derive(Default)]
-pub struct XRState {
-    #[allow(dead_code)]
-    entry: Option<openxr::Entry>,
-    #[allow(dead_code)]
-    instance: Option<openxr::Instance>,
-}
-
 impl Plugin for OpenXRPlugin {
     fn build(&self, app: &mut AppBuilder) {
         {
@@ -70,38 +58,17 @@ impl Plugin for OpenXRPlugin {
         };
 
         // must be initialized at startup, so that bevy_wgpu has access
-        initialize_openxr();
+        platform::initialize_openxr();
 
-        app.init_resource::<XRState>()
-            .init_resource::<ProjectionState>()
+        app.init_resource::<ProjectionState>()
             // FIXME should handposeevent be conditional based on options
             .insert_resource(ScheduleRunnerSettings::run_loop(
                 std::time::Duration::from_micros(0),
             ))
             .add_plugin(ScheduleRunnerPlugin::default())
             .add_event::<HandPoseEvent>()
-            //.add_startup_system(openxr_startup_system.system())
-            .add_system(render_openxr_system.system())
             .add_system(openxr_camera_system.system());
     }
-}
-
-fn initialize_openxr() {
-    let mut entry = openxr::Entry::load_bevy_openxr().unwrap();
-    let extensions = entry.enumerate_extensions().unwrap();
-    let instance = entry.instantiate(&extensions).unwrap();
-    let wgpu_openxr = wgpu::wgpu_openxr::new(
-        wgpu::BackendBit::VULKAN,
-        &instance,
-        wgpu::wgpu_openxr::OpenXROptions::default(),
-    )
-    .unwrap();
-
-    set_xr_instance(XrInstance::new(wgpu_openxr, instance));
-}
-
-fn render_openxr_system(_state: ResMut<XRState>, _hand_pose_events: ResMut<Events<HandPoseEvent>>) {
-    //render::render_once(&mut state, hand_pose_events);
 }
 
 pub struct HandPoseEvent {
