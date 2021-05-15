@@ -1,77 +1,46 @@
-use once_cell::sync::OnceCell;
-
 use bevy_app::{prelude::*, EventReader};
 use bevy_ecs::system::IntoSystem;
 
-mod swapchain;
-pub use swapchain::*;
-
 mod device;
-pub use device::*;
-
+pub mod hand_tracking;
+mod runner;
+mod swapchain;
 mod systems;
-use systems::*;
-
 mod view_transform;
+mod xr_instance;
+
+pub use device::*;
+pub use swapchain::*;
+use systems::*;
 pub use view_transform::*;
-
-static mut WGPU_INSTANCE: OnceCell<WgpuData> = once_cell::sync::OnceCell::new();
-
-struct WgpuData((wgpu::wgpu_openxr::WGPUOpenXR, openxr::Instance));
-
-impl std::fmt::Debug for WgpuData {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "WgpuData[]")
-    }
-}
-
-pub fn set_openxr(wgpu_openxr: wgpu::wgpu_openxr::WGPUOpenXR, openxr_instance: openxr::Instance) {
-    unsafe {
-        WGPU_INSTANCE
-            .set(WgpuData((wgpu_openxr, openxr_instance)))
-            .unwrap()
-    };
-}
+pub use xr_instance::{set_xr_instance, XrInstance};
 
 #[derive(Default)]
 pub struct OpenXRCorePlugin;
 
 impl Plugin for OpenXRCorePlugin {
     fn build(&self, app: &mut AppBuilder) {
-        let (wgpu_openxr, openxr_instance) = unsafe { WGPU_INSTANCE.take().unwrap() }.0;
-
-        let options = OpenXROptions::default(); // FIXME user configurable
-        println!("XR OPTIONS {:?}", options);
-
-        let openxr_builder = OpenXRStructBuilder::new()
-            .set_instance(openxr_instance)
-            .set_wgpu_openxr(wgpu_openxr)
-            .set_options(options);
-
-        let openxr_inner = openxr_builder.build();
-
-        let xr_device = XRDevice {
-            inner: Some(openxr_inner),
-            swapchain: None,
-        };
+        let xr_instance = xr_instance::take_xr_instance();
+        let options = XrOptions::default(); // FIXME user configurable?
+        let xr_device = xr_instance.into_device_with_options(options);
 
         app.insert_resource(xr_device)
             .add_system(openxr_event_system.system())
             .add_event::<XRViewConfigurationEvent>()
             .add_event::<XRState>()
-            .init_resource::<HandPoseState>()
+            .init_resource::<hand_tracking::HandPoseState>()
             .add_system(xr_event_debug.system())
-            .set_runner(xr_runner); // FIXME conditional, or extract xr_events to whole new system? probably good
+            .set_runner(runner::xr_runner); // FIXME conditional, or extract xr_events to whole new system? probably good
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct OpenXROptions {
+pub struct XrOptions {
     pub view_type: openxr::ViewConfigurationType,
     pub hand_trackers: bool,
 }
 
-impl Default for OpenXROptions {
+impl Default for XrOptions {
     fn default() -> Self {
         #[cfg(target_os = "android")]
         let hand_trackers = true;
@@ -86,59 +55,14 @@ impl Default for OpenXROptions {
     }
 }
 
-pub struct OpenXRStructBuilder {
-    instance: Option<openxr::Instance>,
-    options: Option<OpenXROptions>,
-    wgpu_openxr: Option<wgpu::wgpu_openxr::WGPUOpenXR>,
-}
-
-impl OpenXRStructBuilder {
-    pub fn new() -> Self {
-        OpenXRStructBuilder {
-            instance: None,
-            options: None,
-            wgpu_openxr: None,
-        }
-    }
-
-    pub fn set_instance(mut self, instance: openxr::Instance) -> Self {
-        self.instance = Some(instance);
-        self
-    }
-
-    pub fn set_options(mut self, options: OpenXROptions) -> Self {
-        self.options = Some(options);
-        self
-    }
-
-    pub fn set_wgpu_openxr(mut self, wgpu_openxr: wgpu::wgpu_openxr::WGPUOpenXR) -> Self {
-        self.wgpu_openxr = Some(wgpu_openxr);
-        self
-    }
-
-    pub fn build(mut self) -> OpenXRStruct {
-        let handles = self
-            .wgpu_openxr
-            .take()
-            .unwrap()
-            .get_session_handles()
-            .unwrap();
-
-        OpenXRStruct::new(
-            self.instance.take().unwrap(),
-            handles,
-            self.options.take().unwrap(),
-        )
-    }
-}
-
+// TODO: proposal to rename into `XRInstance`
 pub struct OpenXRStruct {
     event_storage: EventDataBufferHolder,
     session_state: XRState,
     previous_frame_state: XRState,
     pub handles: wgpu::OpenXRHandles,
     pub instance: openxr::Instance,
-    pub options: OpenXROptions,
+    pub options: XrOptions,
 }
 
 impl std::fmt::Debug for OpenXRStruct {
@@ -151,7 +75,7 @@ impl OpenXRStruct {
     pub fn new(
         instance: openxr::Instance,
         handles: wgpu::OpenXRHandles,
-        options: OpenXROptions,
+        options: XrOptions,
     ) -> Self {
         OpenXRStruct {
             event_storage: EventDataBufferHolder(openxr::EventDataBuffer::new()),
@@ -280,22 +204,6 @@ pub enum XRState {
     Running,
     RunningFocused,
     Exiting,
-}
-
-fn xr_runner(mut app: App) {
-    let mut frame = 0;
-    loop {
-        let start = std::time::Instant::now();
-        app.update();
-
-        if frame % 70 == 0 {
-            let took = start.elapsed();
-            let fps = 1000.0 / took.as_millis() as f32;
-            println!("Frame {} took {:?} ({} fps)", frame, took, fps);
-        }
-
-        frame += 1;
-    }
 }
 
 fn xr_event_debug(mut state_events: EventReader<XRState>) {

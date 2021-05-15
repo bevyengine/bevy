@@ -2,6 +2,7 @@ use bevy_app::{
     AppBuilder, Events, Plugin, PluginGroupBuilder, ScheduleRunnerPlugin, ScheduleRunnerSettings,
 };
 use bevy_ecs::prelude::*;
+use bevy_openxr_core::{set_xr_instance, XrInstance};
 use bevy_render::{camera::Camera, camera::CameraProjection};
 
 pub mod prelude {
@@ -86,27 +87,9 @@ impl Plugin for OpenXRPlugin {
 }
 
 fn initialize_openxr() {
-    //println!("Initialize openxr");
-    //let start = Instant::now();
     let mut entry = openxr::Entry::load_bevy_openxr().unwrap();
-    //println!("\tloading took {:?}", start.elapsed());
-
     let extensions = entry.enumerate_extensions().unwrap();
-    //println!("Extensions: {:#?}", extensions);
-
-    //let layers = entry.enumerate_layers().unwrap();
-    //println!("Supported layers: {:?}", layers);
-
     let instance = entry.instantiate(&extensions).unwrap();
-
-    //let instance_props = instance.properties().unwrap();
-    //println!("loaded instance: {:?}", instance_props);
-
-    //println!("\telapsed since initialize {:?}", start.elapsed());
-
-    //state.entry = Some(entry);
-    //state.instance = Some(instance);
-
     let wgpu_openxr = wgpu::wgpu_openxr::new(
         wgpu::BackendBit::VULKAN,
         &instance,
@@ -114,9 +97,7 @@ fn initialize_openxr() {
     )
     .unwrap();
 
-    bevy_openxr_core::set_openxr(wgpu_openxr, instance);
-
-    //println!("\tfull init took {:?}", start.elapsed());
+    set_xr_instance(XrInstance::new(wgpu_openxr, instance));
 }
 
 fn render_openxr_system(_state: ResMut<XRState>, _hand_pose_events: ResMut<Events<HandPoseEvent>>) {

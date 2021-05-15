@@ -1,27 +1,42 @@
 use bevy_math::{Quat, Vec3};
+use bevy_utils::tracing::warn;
 use openxr::HandJointLocations;
-use std::num::NonZeroU32;
+use std::{fmt::Debug, num::NonZeroU32, sync::Arc};
 use wgpu::OpenXRHandles;
 
-use crate::{OpenXROptions, XRState, XRViewTransform};
+use crate::{
+    hand_tracking::{HandPoseState, HandTrackers},
+    OpenXRStruct, XRState, XRViewTransform,
+};
 
 pub struct XRSwapchain {
-    handle: openxr::Swapchain<openxr::Vulkan>,
+    /// OpenXR internal swapchain handle
+    sc_handle: openxr::Swapchain<openxr::Vulkan>,
+
+    /// Swapchain Framebuffers. `XRSwapChainNode` will take ownership of the color buffer
     buffers: Vec<Framebuffer>,
+
+    /// Swapchain resolution
     resolution: wgpu::Extent3d,
-    options: OpenXROptions,
+
+    /// Swapchain view configuration type
+    view_configuration_type: openxr::ViewConfigurationType,
+
+    /// Desired environment blend mode
     environment_blend_mode: openxr::EnvironmentBlendMode,
-    frame_state: Option<openxr::FrameState>,
+
+    /// Rendering and prediction information for the next frame
+    next_frame_state: Option<openxr::FrameState>,
+
+    /// TODO: move this away, doesn't belong here
     hand_trackers: Option<HandTrackers>,
 }
 
-impl XRSwapchain {
-    pub fn new(
-        device: std::sync::Arc<wgpu::Device>,
-        openxr_struct: &mut crate::OpenXRStruct,
-    ) -> Self {
-        const VIEW_COUNT: u32 = 2; // FIXME get from settings
+const VIEW_COUNT: u32 = 2; // FIXME get from settings
+const COLOR_FORMAT: ash::vk::Format = ash::vk::Format::R8G8B8A8_UNORM; // FIXME change!!
 
+impl XRSwapchain {
+    pub fn new(device: Arc<wgpu::Device>, openxr_struct: &mut OpenXRStruct) -> Self {
         let views = openxr_struct
             .instance
             .enumerate_view_configuration_views(
@@ -41,7 +56,6 @@ impl XRSwapchain {
             depth_or_array_layers: 1,
         };
 
-        const COLOR_FORMAT: ash::vk::Format = ash::vk::Format::R8G8B8A8_UNORM; // FIXME change!!
         let format = wgpu::TextureFormat::Rgba8Unorm;
 
         let handle = openxr_struct
@@ -114,9 +128,7 @@ impl XRSwapchain {
             })
             .collect();
 
-        let options = openxr_struct.options.clone();
-
-        let hand_trackers = if options.hand_trackers {
+        let hand_trackers = if openxr_struct.options.hand_trackers {
             // FIXME check feature
             Some(HandTrackers::new(&openxr_struct.handles.session).unwrap())
         } else {
@@ -124,28 +136,36 @@ impl XRSwapchain {
         };
 
         XRSwapchain {
-            handle,
+            sc_handle: handle,
             buffers,
             resolution,
-            options,
+            view_configuration_type: openxr_struct.options.view_type,
             environment_blend_mode,
-            frame_state: None,
+            next_frame_state: None,
             hand_trackers,
         }
     }
 
+    /// Return the next swapchain image index to render into
+    /// FIXME: currently waits for compositor to release image for rendering, this might cause delays in bevy system
+    ///        (e.g. should wait somewhere else - but how to use handle there)
     pub fn get_next_swapchain_image_index(&mut self) -> usize {
-        let image_index = self.handle.acquire_image().unwrap();
-        self.handle.wait_image(openxr::Duration::INFINITE).unwrap();
+        let image_index = self.sc_handle.acquire_image().unwrap();
+        self.sc_handle
+            .wait_image(openxr::Duration::INFINITE)
+            .unwrap();
         image_index as usize
     }
 
+    /// Prepares the device for rendering. Called before each frame is rendered
     pub fn prepare_update(&mut self, handles: &mut OpenXRHandles) -> XRState {
-        if let Some(_) = self.frame_state {
-            return XRState::Running;
+        // Check that previous frame was rendered
+        if let Some(_) = self.next_frame_state {
+            warn!("Called prepare_update() even though it was called already");
+            return XRState::Running; // <-- FIXME might change state, should keep it in memory somewhere
         }
 
-        let xr_frame_state = match handles.frame_waiter.wait() {
+        let frame_state = match handles.frame_waiter.wait() {
             Ok(fs) => fs,
             Err(_) => {
                 // FIXME handle this better
@@ -153,13 +173,15 @@ impl XRSwapchain {
             }
         };
 
+        // 'Indicate that graphics device work is beginning'
         handles.frame_stream.begin().unwrap();
 
-        if !xr_frame_state.should_render {
+        if !frame_state.should_render {
+            // if false, "the application should avoid heavy GPU work where possible" (openxr spec)
             handles
                 .frame_stream
                 .end(
-                    xr_frame_state.predicted_display_time,
+                    frame_state.predicted_display_time,
                     self.environment_blend_mode,
                     &[],
                 )
@@ -168,13 +190,14 @@ impl XRSwapchain {
             return XRState::Paused;
         }
 
-        self.frame_state = Some(xr_frame_state);
-
+        // All ok for rendering
+        self.next_frame_state = Some(frame_state);
         return XRState::Running;
     }
 
+    /// TODO: move this away, doesn't belong here
     pub fn get_hand_positions(&mut self, handles: &mut OpenXRHandles) -> Option<HandPoseState> {
-        let frame_state = match self.frame_state {
+        let frame_state = match self.next_frame_state {
             Some(fs) => fs,
             None => return None,
         };
@@ -202,17 +225,17 @@ impl XRSwapchain {
     }
 
     pub fn get_view_positions(&mut self, handles: &mut OpenXRHandles) -> Vec<XRViewTransform> {
-        if let None = self.frame_state {
+        if let None = self.next_frame_state {
             self.prepare_update(handles);
         }
 
-        let frame_state = self.frame_state.as_ref().unwrap();
+        let frame_state = self.next_frame_state.as_ref().unwrap();
 
         // FIXME views acquisition should probably occur somewhere else - timing problem?
         let (_, views) = handles
             .session
             .locate_views(
-                self.options.view_type,
+                self.view_configuration_type,
                 frame_state.predicted_display_time,
                 &handles.space,
             )
@@ -236,21 +259,28 @@ impl XRSwapchain {
         transforms
     }
 
+    /// Finalizes the swapchain update - will tell openxr that GPU has rendered to textures
     pub fn finalize_update(&mut self, handles: &mut OpenXRHandles) {
-        self.handle.release_image().unwrap();
-        let frame_state = self.frame_state.take().unwrap();
+        // "Release the oldest acquired image"
+        self.sc_handle.release_image().unwrap();
+
+        // Take the next frame state
+        let next_frame_state = self.next_frame_state.take().unwrap();
 
         // FIXME views acquisition should probably occur somewhere else - timing problem?
+        // FIXME is there a problem now, if the rendering uses different camera positions than what's used at openxr?
+        // "When rendering, this should be called as late as possible before the GPU accesses it to"
         let (_, views) = handles
             .session
             .locate_views(
-                self.options.view_type,
-                frame_state.predicted_display_time,
+                self.view_configuration_type,
+                next_frame_state.predicted_display_time,
                 &handles.space,
             )
             .unwrap();
 
         // Tell OpenXR what to present for this frame
+        // Because we're using GL_EXT_multiview, same rect for both eyes
         let rect = openxr::Rect2Di {
             offset: openxr::Offset2Di { x: 0, y: 0 },
             extent: openxr::Extent2Di {
@@ -259,37 +289,37 @@ impl XRSwapchain {
             },
         };
 
+        // Construct views
+        // TODO: for performance (no-vec allocations), use `SmallVec`?
+        let views = views
+            .iter()
+            .enumerate()
+            .map(|(idx, view)| {
+                openxr::CompositionLayerProjectionView::new()
+                    .pose(view.pose)
+                    .fov(view.fov)
+                    .sub_image(
+                        openxr::SwapchainSubImage::new()
+                            .swapchain(&self.sc_handle)
+                            .image_array_index(idx as u32)
+                            .image_rect(rect),
+                    )
+            })
+            .collect::<Vec<_>>();
+
         handles
             .frame_stream
             .end(
-                frame_state.predicted_display_time,
+                next_frame_state.predicted_display_time,
                 self.environment_blend_mode,
                 &[&openxr::CompositionLayerProjection::new()
                     .space(&handles.space)
-                    .views(&[
-                        openxr::CompositionLayerProjectionView::new()
-                            .pose(views[0].pose)
-                            .fov(views[0].fov)
-                            .sub_image(
-                                openxr::SwapchainSubImage::new()
-                                    .swapchain(&self.handle)
-                                    .image_array_index(0)
-                                    .image_rect(rect),
-                            ),
-                        openxr::CompositionLayerProjectionView::new()
-                            .pose(views[1].pose)
-                            .fov(views[1].fov)
-                            .sub_image(
-                                openxr::SwapchainSubImage::new()
-                                    .swapchain(&self.handle)
-                                    .image_array_index(1)
-                                    .image_rect(rect),
-                            ),
-                    ])],
+                    .views(&views)],
             )
             .unwrap();
     }
 
+    /// Should be called only once by `XRSwapChainNode`
     pub fn take_color_textures(&mut self) -> Vec<wgpu::TextureView> {
         self.buffers
             .iter_mut()
@@ -298,47 +328,16 @@ impl XRSwapchain {
     }
 }
 
-impl std::fmt::Debug for XRSwapchain {
+impl Debug for XRSwapchain {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "XRSwapchain[]")
     }
 }
 
+/// Per view framebuffer, that will contain an underlying texture and a texture view (taken away by bevy render graph)
+/// where the contents should be rendered
 struct Framebuffer {
     #[allow(dead_code)]
     texture: wgpu::Texture,
     color: Option<wgpu::TextureView>,
-}
-
-struct HandTrackers {
-    tracker_l: openxr::HandTracker,
-    tracker_r: openxr::HandTracker,
-}
-
-impl HandTrackers {
-    pub fn new(session: &openxr::Session<openxr::Vulkan>) -> Result<Self, crate::Error> {
-        let ht = HandTrackers {
-            tracker_l: session.create_hand_tracker(openxr::HandEXT::LEFT)?,
-            tracker_r: session.create_hand_tracker(openxr::HandEXT::RIGHT)?,
-        };
-
-        Ok(ht)
-    }
-}
-
-#[derive(Default)]
-pub struct HandPoseState {
-    pub left: Option<HandJointLocations>,
-    pub right: Option<HandJointLocations>,
-}
-
-impl std::fmt::Debug for HandPoseState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "(left: {}, right: {})",
-            self.left.is_some(),
-            self.right.is_some()
-        )
-    }
 }

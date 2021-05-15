@@ -2,7 +2,7 @@ use bevy_app::prelude::*;
 use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
 use bevy_math::{Quat, Vec3};
-use bevy_openxr_core::{HandPoseState, XRState};
+use bevy_openxr_core::{hand_tracking::HandPoseState, XRState};
 use bevy_pbr::{prelude::*, PbrBundle};
 use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
