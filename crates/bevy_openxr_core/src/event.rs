@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub(crate) enum XREvent {
     ViewCreated(XRViewCreated),
 }
@@ -9,9 +10,11 @@ pub enum XRState {
     Running,
     RunningFocused,
     Exiting,
+    SkipFrame,
 }
 
 /// XR View has been configured/created
+#[derive(Debug)]
 pub struct XRViewCreated {
     pub width: u32,
     pub height: u32,

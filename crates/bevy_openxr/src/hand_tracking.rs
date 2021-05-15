@@ -92,6 +92,7 @@ fn hand_visibility_system(
         let visible = match state_event {
             XRState::RunningFocused => true,
             XRState::Paused | XRState::Exiting | XRState::Running => false,
+            XRState::SkipFrame => continue,
         };
 
         // println!("Change hands visibility to {}", visible);

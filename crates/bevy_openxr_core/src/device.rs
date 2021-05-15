@@ -53,12 +53,20 @@ impl XRDevice {
         if self.swapchain.is_none() {
             let swapchain = XRSwapchain::new(device.clone(), &mut self.inner);
             let resolution = swapchain.get_resolution();
+
+            println!("Swapchain configured, resolution {:?}", resolution);
             self.events_to_send
                 .push(XREvent::ViewCreated(XRViewCreated {
                     width: resolution.0,
                     height: resolution.1,
                 }));
             self.swapchain = Some(swapchain);
+
+            // hack to prevent render graph panic when output has not been sent
+            // what will happen after this: event will be sent about xr view, XRWindowTextureNode will configure itself at next frame
+            // and after that all will be okay
+            // this doesn't actually work on all cases... have to investigate
+            return XRState::SkipFrame;
         }
 
         // call swapchain update

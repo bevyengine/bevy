@@ -49,6 +49,7 @@ impl Node for XRWindowTextureNode {
             .last()
         {
             // Configure texture size. This usually happens only at the start of openxr session?
+            println!("Configured XRWindowTextureNode");
 
             let render_resource_context = render_context.resources_mut();
             if let Some(RenderResourceId::Texture(old_texture)) = output.get(WINDOW_TEXTURE) {

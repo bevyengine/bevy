@@ -15,6 +15,7 @@ pub(crate) fn openxr_event_system(
 ) {
     // TODO add this drain -system as pre-render and post-render system?
     for event in openxr.drain_events() {
+        println!("Drained openxr event {:?}", event);
         match event {
             XREvent::ViewCreated(view_created) => view_created_sender.send(view_created),
         }
