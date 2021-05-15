@@ -59,8 +59,7 @@ impl<'a> PriorityExecutor<'a> {
             }
         };
 
-        let result = future.or(run_forever).await;
-        result
+        future.or(run_forever).await
     }
 
     pub fn tick(&self) {
