@@ -124,7 +124,9 @@ impl RunCriteriaContainer {
     }
 }
 
-impl GraphNode<BoxedRunCriteriaLabel> for RunCriteriaContainer {
+impl GraphNode for RunCriteriaContainer {
+    type Label = BoxedRunCriteriaLabel;
+
     fn name(&self) -> Cow<'static, str> {
         match &self.inner {
             RunCriteriaInner::Single(system) => system.name(),

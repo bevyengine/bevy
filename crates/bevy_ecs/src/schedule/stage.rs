@@ -412,9 +412,9 @@ impl SystemStage {
                 && self.uninitialized_before_commands.is_empty()
                 && self.uninitialized_at_end.is_empty()
         );
-        fn unwrap_dependency_cycle_error<Output, Label, Labels: Debug>(
+        fn unwrap_dependency_cycle_error<Node: GraphNode, Output, Labels: Debug>(
             result: Result<Output, DependencyGraphError<Labels>>,
-            nodes: &[impl GraphNode<Label>],
+            nodes: &[Node],
             nodes_description: &'static str,
         ) -> Output {
             match result {

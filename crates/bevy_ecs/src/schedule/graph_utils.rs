@@ -6,22 +6,23 @@ pub enum DependencyGraphError<Labels> {
     GraphCycles(Vec<(usize, Labels)>),
 }
 
-pub trait GraphNode<Label> {
+pub trait GraphNode {
+    type Label;
     fn name(&self) -> Cow<'static, str>;
-    fn labels(&self) -> &[Label];
-    fn before(&self) -> &[Label];
-    fn after(&self) -> &[Label];
+    fn labels(&self) -> &[Self::Label];
+    fn before(&self) -> &[Self::Label];
+    fn after(&self) -> &[Self::Label];
 }
 
 /// Constructs a dependency graph of given nodes.
-pub fn build_dependency_graph<Node, Label>(
+pub fn build_dependency_graph<Node>(
     nodes: &[Node],
-) -> HashMap<usize, HashMap<usize, HashSet<Label>>>
+) -> HashMap<usize, HashMap<usize, HashSet<Node::Label>>>
 where
-    Node: GraphNode<Label>,
-    Label: Debug + Clone + Eq + Hash,
+    Node: GraphNode,
+    Node::Label: Debug + Clone + Eq + Hash,
 {
-    let mut labels = HashMap::<Label, FixedBitSet>::default();
+    let mut labels = HashMap::<Node::Label, FixedBitSet>::default();
     for (label, index) in nodes.iter().enumerate().flat_map(|(index, container)| {
         container
             .labels()
