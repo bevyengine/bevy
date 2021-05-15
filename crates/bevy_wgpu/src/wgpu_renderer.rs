@@ -7,7 +7,7 @@ use bevy_app::{Events, ManualEventReader};
 use bevy_ecs::world::{Mut, World};
 
 #[cfg(feature = "use-openxr")]
-use bevy_openxr_core::{XRDevice, XRState};
+use bevy_openxr_core::{event::XRState, XRDevice};
 
 use bevy_render::{
     render_graph::{DependentNodeStager, RenderGraph, RenderGraphStager},

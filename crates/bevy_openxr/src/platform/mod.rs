@@ -44,13 +44,10 @@ impl OpenXRInstance for openxr::Entry {
 }
 
 pub(crate) fn initialize_openxr() {
-    println!("Initializing OpenXR");
     let mut entry = openxr::Entry::load_bevy_openxr().unwrap();
     let mut extensions = entry.enumerate_extensions().unwrap();
-    let layers = entry.enumerate_layers().unwrap();
-    println!("EXTENSIONS: {:#?}", extensions);
-    println!("LAYERS: {:#?}", layers);
 
+    // because of https://gitlab.freedesktop.org/monado/monado/-/issues/98
     extensions.mnd_headless = false;
 
     let instance = entry.instantiate(&extensions).unwrap();

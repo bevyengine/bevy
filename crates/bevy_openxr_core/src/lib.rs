@@ -2,6 +2,7 @@ use bevy_app::{prelude::*, EventReader};
 use bevy_ecs::system::IntoSystem;
 
 mod device;
+pub mod event;
 pub mod hand_tracking;
 mod runner;
 mod swapchain;
@@ -11,6 +12,7 @@ mod xr_instance;
 
 use bevy_utils::tracing::debug;
 pub use device::*;
+use event::XRState;
 pub use swapchain::*;
 use systems::*;
 pub use view_transform::*;
@@ -28,8 +30,8 @@ impl Plugin for OpenXRCorePlugin {
 
         app.insert_resource(xr_device)
             .add_system(openxr_event_system.system())
-            .add_event::<XRViewConfigurationEvent>()
-            .add_event::<XRState>()
+            .add_event::<event::XRState>()
+            .add_event::<event::XRViewCreated>()
             .init_resource::<hand_tracking::HandPoseState>()
             .add_system(xr_event_debug.system())
             .set_runner(runner::xr_runner); // FIXME conditional, or extract xr_events to whole new system? probably good
@@ -200,23 +202,10 @@ pub struct EventDataBufferHolder(openxr::EventDataBuffer);
 unsafe impl Sync for EventDataBufferHolder {}
 unsafe impl Send for EventDataBufferHolder {}
 
-#[derive(PartialEq, Clone, Copy, Debug)]
-pub enum XRState {
-    Paused,
-    Running,
-    RunningFocused,
-    Exiting,
-}
-
 fn xr_event_debug(mut state_events: EventReader<XRState>) {
     for event in state_events.iter() {
         println!("#STATE EVENT: {:#?}", event);
     }
-}
-
-pub struct XRViewConfigurationEvent {
-    pub width: u32,
-    pub height: u32,
 }
 
 #[derive(Debug)]

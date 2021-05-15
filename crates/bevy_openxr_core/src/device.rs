@@ -1,18 +1,28 @@
 use std::sync::Arc;
 
-use crate::{hand_tracking::HandPoseState, OpenXRStruct, XRState, XRSwapchain, XRViewTransform};
+use crate::{
+    event::{XREvent, XRViewCreated},
+    hand_tracking::HandPoseState,
+    OpenXRStruct, XRState, XRSwapchain, XRViewTransform,
+};
 
-#[derive(Default)]
 pub struct XRDevice {
-    pub(crate) inner: Option<OpenXRStruct>, // FIXME remove option
+    pub(crate) inner: OpenXRStruct,
+
+    /// Swapchain. Must be `Option` because initializing swapchain requires access to `wgpu::Device`
+    /// which is not available here - but rather at `bevy_wgpu`
     pub(crate) swapchain: Option<XRSwapchain>,
+
+    /// Event collection to convert into bevy events
+    events_to_send: Vec<XREvent>,
 }
 
 impl XRDevice {
     pub fn new(xr_struct: OpenXRStruct) -> Self {
         Self {
-            inner: Some(xr_struct),
+            inner: xr_struct,
             swapchain: None,
+            events_to_send: Vec::new(),
         }
     }
 
@@ -24,7 +34,7 @@ impl XRDevice {
         self.swapchain
             .as_mut()
             .unwrap()
-            .prepare_update(&mut self.inner.as_mut().unwrap().handles)
+            .prepare_update(&mut self.inner.handles)
     }
 
     pub fn get_hand_positions(&mut self) -> Option<HandPoseState> {
@@ -35,24 +45,31 @@ impl XRDevice {
         self.swapchain
             .as_mut()
             .unwrap()
-            .get_hand_positions(&mut self.inner.as_mut().unwrap().handles)
+            .get_hand_positions(&mut self.inner.handles)
     }
 
     pub fn prepare_update(&mut self, device: &Arc<wgpu::Device>) -> XRState {
+        // construct swapchain at first call
         if self.swapchain.is_none() {
-            let xr_swapchain = XRSwapchain::new(device.clone(), self.inner.as_mut().unwrap());
-
-            self.swapchain = Some(xr_swapchain);
+            let swapchain = XRSwapchain::new(device.clone(), &mut self.inner);
+            let resolution = swapchain.get_resolution();
+            self.events_to_send
+                .push(XREvent::ViewCreated(XRViewCreated {
+                    width: resolution.0,
+                    height: resolution.1,
+                }));
+            self.swapchain = Some(swapchain);
         }
 
+        // call swapchain update
         self.swapchain
             .as_mut()
             .unwrap()
-            .prepare_update(&mut self.inner.as_mut().unwrap().handles)
+            .prepare_update(&mut self.inner.handles)
     }
 
     pub fn get_view_positions(&mut self) -> Option<Vec<XRViewTransform>> {
-        if !self.inner.as_mut().unwrap().is_running() {
+        if !self.inner.is_running() {
             return None;
         }
 
@@ -61,18 +78,22 @@ impl XRDevice {
             Some(sc) => sc,
         };
 
-        Some(swapchain.get_view_positions(&mut self.inner.as_mut().unwrap().handles))
+        Some(swapchain.get_view_positions(&mut self.inner.handles))
     }
 
     pub fn finalize_update(&mut self) {
         self.swapchain
             .as_mut()
             .unwrap()
-            .finalize_update(&mut self.inner.as_mut().unwrap().handles);
+            .finalize_update(&mut self.inner.handles);
     }
 
     pub fn get_swapchain_mut(&mut self) -> Option<&mut XRSwapchain> {
         Some(self.swapchain.as_mut()?)
+    }
+
+    pub(crate) fn drain_events(&mut self) -> Vec<XREvent> {
+        self.events_to_send.drain(..).collect()
     }
 }
 

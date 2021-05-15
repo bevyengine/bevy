@@ -1,27 +1,39 @@
-use bevy_app::Events;
+use bevy_app::{EventWriter, Events};
 use bevy_ecs::system::ResMut;
 
-use crate::{hand_tracking::HandPoseState, XRDevice, XRState};
+use crate::{
+    event::{XREvent, XRState, XRViewCreated},
+    hand_tracking::HandPoseState,
+    XRDevice,
+};
 
 pub(crate) fn openxr_event_system(
     mut openxr: ResMut<XRDevice>,
     mut hand_pose: ResMut<HandPoseState>,
-    //mut my_events: ResMut<Events<XRViewConfigurationEvent>>,
     mut state_events: ResMut<Events<XRState>>,
+    mut view_created_sender: EventWriter<XRViewCreated>,
 ) {
-    if let Some(inner) = openxr.inner.as_mut() {
-        match inner.handle_openxr_events() {
-            None => (),
-            Some(changed_state) => {
-                // FIXME handle XRState::Exiting
-                state_events.send(changed_state);
-            }
+    // TODO add this drain -system as pre-render and post-render system?
+    for event in openxr.drain_events() {
+        match event {
+            XREvent::ViewCreated(view_created) => view_created_sender.send(view_created),
         }
+    }
 
-        openxr.touch_update();
-
-        if let Some(hp) = openxr.get_hand_positions() {
-            *hand_pose = hp;
+    // This should be before all other events
+    match openxr.inner.handle_openxr_events() {
+        None => (),
+        Some(changed_state) => {
+            // FIXME handle XRState::Exiting
+            state_events.send(changed_state);
         }
+    }
+
+    // FIXME: this should happen just before bevy render graph and / or wgpu render?
+    openxr.touch_update();
+
+    // FIXME this should be in before-other-systems system? so that all systems can use hand pose data...
+    if let Some(hp) = openxr.get_hand_positions() {
+        *hand_pose = hp;
     }
 }

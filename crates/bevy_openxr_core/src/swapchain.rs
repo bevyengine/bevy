@@ -63,9 +63,10 @@ impl XRSwapchain {
             .session
             .create_swapchain(&openxr::SwapchainCreateInfo {
                 create_flags: openxr::SwapchainCreateFlags::EMPTY,
-                usage_flags: openxr::SwapchainUsageFlags::COLOR_ATTACHMENT | openxr::SwapchainUsageFlags::DEPTH_STENCIL_ATTACHMENT // FIXME depth?
-                | openxr::SwapchainUsageFlags::SAMPLED | openxr::SwapchainUsageFlags::TRANSFER_SRC
-                | openxr::SwapchainUsageFlags::TRANSFER_DST,
+                usage_flags: openxr::SwapchainUsageFlags::COLOR_ATTACHMENT
+                 ,/*   | openxr::SwapchainUsageFlags::DEPTH_STENCIL_ATTACHMENT, // FIXME depth?
+                | openxr::SwapchainUsageFlags::SAMPLED, | openxr::SwapchainUsageFlags::TRANSFER_SRC
+                | openxr::SwapchainUsageFlags::TRANSFER_DST,*/
                 format: COLOR_FORMAT.as_raw() as _,
                 sample_count: 1,
                 width: resolution.width,
@@ -325,6 +326,10 @@ impl XRSwapchain {
             .iter_mut()
             .map(|buf| buf.color.take().unwrap())
             .collect()
+    }
+
+    pub fn get_resolution(&self) -> (u32, u32) {
+        (self.resolution.width, self.resolution.height)
     }
 }
 

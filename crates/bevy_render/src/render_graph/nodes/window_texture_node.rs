@@ -5,19 +5,20 @@ use crate::{
 };
 use bevy_app::{Events, ManualEventReader};
 use bevy_ecs::world::World;
+use bevy_openxr_core::event::XRViewCreated;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use std::borrow::Cow;
 
 pub struct XRWindowTextureNode {
     descriptor: TextureDescriptor,
-    have_texture: bool,
+    xr_view_created_reader: ManualEventReader<XRViewCreated>,
 }
 
 impl XRWindowTextureNode {
     pub fn new(descriptor: TextureDescriptor) -> Self {
         XRWindowTextureNode {
             descriptor,
-            have_texture: false,
+            xr_view_created_reader: Default::default(),
         }
     }
 }
@@ -33,36 +34,33 @@ impl Node for XRWindowTextureNode {
 
     fn update(
         &mut self,
-        _world: &mut World,
+        world: &mut World,
         render_context: &mut dyn RenderContext,
         _input: &ResourceSlots,
         output: &mut ResourceSlots,
     ) {
         const WINDOW_TEXTURE: usize = 0;
 
-        if !self.have_texture {
+        let xr_view_created_events = world.get_resource::<Events<XRViewCreated>>().unwrap();
+
+        for event in self
+            .xr_view_created_reader
+            .iter(&xr_view_created_events)
+            .last()
+        {
+            // Configure texture size. This usually happens only at the start of openxr session?
+
             let render_resource_context = render_context.resources_mut();
             if let Some(RenderResourceId::Texture(old_texture)) = output.get(WINDOW_TEXTURE) {
                 render_resource_context.remove_texture(old_texture);
             }
 
-            #[cfg(target_os = "android")]
-            {
-                self.descriptor.size.width = 1440;
-                self.descriptor.size.height = 1584;
-            }
-
-            #[cfg(not(target_os = "android"))]
-            {
-                self.descriptor.size.width = 1344;
-                self.descriptor.size.height = 1512;
-            }
+            self.descriptor.size.width = event.width;
+            self.descriptor.size.height = event.height;
             self.descriptor.size.depth_or_array_layers = 2; // two eyes
 
             let texture_resource = render_resource_context.create_texture(self.descriptor);
             output.set(WINDOW_TEXTURE, RenderResourceId::Texture(texture_resource));
-
-            self.have_texture = true;
         }
     }
 }
