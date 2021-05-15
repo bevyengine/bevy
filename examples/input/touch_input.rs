@@ -9,7 +9,7 @@ fn main() {
 
 fn touch_system(touches: Res<Touches>) {
     for touch in touches.iter_just_pressed() {
-        println!(
+        info!(
             "just pressed touch with id: {:?}, at: {:?}",
             touch.id(),
             touch.position()
@@ -17,7 +17,7 @@ fn touch_system(touches: Res<Touches>) {
     }
 
     for touch in touches.iter_just_released() {
-        println!(
+        info!(
             "just released touch with id: {:?}, at: {:?}",
             touch.id(),
             touch.position()
@@ -25,12 +25,12 @@ fn touch_system(touches: Res<Touches>) {
     }
 
     for touch in touches.iter_just_cancelled() {
-        println!("cancelled touch with id: {:?}", touch.id());
+        info!("cancelled touch with id: {:?}", touch.id());
     }
 
     // you can also iterate all current touches and retrieve their state like this:
     for touch in touches.iter() {
-        println!("active touch: {:?}", touch);
-        println!("  just_pressed: {}", touches.just_pressed(touch.id()));
+        info!("active touch: {:?}", touch);
+        info!("  just_pressed: {}", touches.just_pressed(touch.id()));
     }
 }

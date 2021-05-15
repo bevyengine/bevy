@@ -26,7 +26,7 @@ where
 }
 
 fn bench_overhead(c: &mut Criterion) {
-    fn noop(_: &mut usize) {};
+    fn noop(_: &mut usize) {}
 
     let mut v = (0..10000).collect::<Vec<usize>>();
     c.bench_function("overhead_iter", |b| {

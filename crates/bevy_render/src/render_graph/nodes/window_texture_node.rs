@@ -3,8 +3,8 @@ use crate::{
     renderer::{RenderContext, RenderResourceId, RenderResourceType},
     texture::TextureDescriptor,
 };
-use bevy_app::{prelude::Events, ManualEventReader};
-use bevy_ecs::{Resources, World};
+use bevy_app::{Events, ManualEventReader};
+use bevy_ecs::world::World;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use std::borrow::Cow;
 
@@ -33,8 +33,7 @@ impl Node for XRWindowTextureNode {
 
     fn update(
         &mut self,
-        _world: &World,
-        _resources: &Resources,
+        _world: &mut World,
         render_context: &mut dyn RenderContext,
         _input: &ResourceSlots,
         output: &mut ResourceSlots,
@@ -58,7 +57,7 @@ impl Node for XRWindowTextureNode {
                 self.descriptor.size.width = 1344;
                 self.descriptor.size.height = 1512;
             }
-            self.descriptor.size.depth = 2; // two eyes
+            self.descriptor.size.depth_or_array_layers = 2; // two eyes
 
             let texture_resource = render_resource_context.create_texture(self.descriptor);
             output.set(WINDOW_TEXTURE, RenderResourceId::Texture(texture_resource));
@@ -99,16 +98,15 @@ impl Node for WindowTextureNode {
 
     fn update(
         &mut self,
-        _world: &World,
-        resources: &Resources,
+        world: &mut World,
         render_context: &mut dyn RenderContext,
         _input: &ResourceSlots,
         output: &mut ResourceSlots,
     ) {
         const WINDOW_TEXTURE: usize = 0;
-        let window_created_events = resources.get::<Events<WindowCreated>>().unwrap();
-        let window_resized_events = resources.get::<Events<WindowResized>>().unwrap();
-        let windows = resources.get::<Windows>().unwrap();
+        let window_created_events = world.get_resource::<Events<WindowCreated>>().unwrap();
+        let window_resized_events = world.get_resource::<Events<WindowResized>>().unwrap();
+        let windows = world.get_resource::<Windows>().unwrap();
 
         let window = windows
             .get(self.window_id)

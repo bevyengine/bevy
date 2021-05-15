@@ -1,6 +1,9 @@
 use crate::Node;
 use bevy_core::FloatOrd;
-use bevy_ecs::prelude::*;
+use bevy_ecs::{
+    entity::Entity,
+    system::{Local, Query, Res},
+};
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_transform::components::GlobalTransform;
 use bevy_window::Windows;
@@ -36,6 +39,7 @@ pub struct State {
     entities_to_reset: SmallVec<[Entity; 1]>,
 }
 
+#[allow(clippy::type_complexity)]
 pub fn ui_focus_system(
     mut state: Local<State>,
     windows: Res<Windows>,
@@ -90,7 +94,8 @@ pub fn ui_focus_system(
                 let extents = node.size / 2.0;
                 let min = ui_position - extents;
                 let max = ui_position + extents;
-                // if the current cursor position is within the bounds of the node, consider it for clicking
+                // if the current cursor position is within the bounds of the node, consider it for
+                // clicking
                 if (min.x..max.x).contains(&cursor_position.x)
                     && (min.y..max.y).contains(&cursor_position.y)
                 {
@@ -117,7 +122,8 @@ pub fn ui_focus_system(
                 // only consider nodes with Interaction "clickable"
                 if *interaction != Interaction::Clicked {
                     *interaction = Interaction::Clicked;
-                    // if the mouse was simultaneously released, reset this Interaction in the next frame
+                    // if the mouse was simultaneously released, reset this Interaction in the next
+                    // frame
                     if mouse_released {
                         state.entities_to_reset.push(entity);
                     }

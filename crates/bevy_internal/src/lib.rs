@@ -108,7 +108,6 @@ pub mod openxr_core {
 #[cfg(feature = "bevy_pbr")]
 pub mod pbr {
     //! Physically based rendering.
-    //! **Note**: true PBR has not yet been implemented; the name `pbr` is aspirational.
     pub use bevy_pbr::*;
 }
 

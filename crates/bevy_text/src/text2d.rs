@@ -1,8 +1,13 @@
 use bevy_asset::Assets;
-use bevy_ecs::{Bundle, Changed, Entity, Local, Query, QuerySet, Res, ResMut, With};
+use bevy_ecs::{
+    bundle::Bundle,
+    entity::Entity,
+    query::{Changed, With, Without},
+    system::{Local, Query, QuerySet, Res, ResMut},
+};
 use bevy_math::{Size, Vec3};
 use bevy_render::{
-    draw::{DrawContext, Drawable},
+    draw::{DrawContext, Drawable, OutsideFrustum},
     mesh::Mesh,
     prelude::{Draw, Msaa, Texture, Visible},
     render_graph::base::MainPass,
@@ -13,11 +18,10 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_window::Windows;
 use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
 
-use crate::{
-    CalculatedSize, DefaultTextPipeline, DrawableText, Font, FontAtlasSet, Text, TextError,
-};
+use crate::{DefaultTextPipeline, DrawableText, Font, FontAtlasSet, Text, Text2dSize, TextError};
 
-/// The bundle of components needed to draw text in a 2D scene via the Camera2dBundle.
+/// The bundle of components needed to draw text in a 2D scene via a 2D `OrthographicCameraBundle`.
+/// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
 #[derive(Bundle, Clone, Debug)]
 pub struct Text2dBundle {
     pub draw: Draw,
@@ -26,7 +30,7 @@ pub struct Text2dBundle {
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     pub main_pass: MainPass,
-    pub calculated_size: CalculatedSize,
+    pub text_2d_size: Text2dSize,
 }
 
 impl Default for Text2dBundle {
@@ -43,16 +47,17 @@ impl Default for Text2dBundle {
             transform: Default::default(),
             global_transform: Default::default(),
             main_pass: MainPass {},
-            calculated_size: CalculatedSize {
+            text_2d_size: Text2dSize {
                 size: Size::default(),
             },
         }
     }
 }
 
-/// System for drawing text in a 2D scene via the Camera2dBundle.  Included in the default
-/// `TextPlugin`. Position is determined by the `Transform`'s translation, though scale and rotation
-/// are ignored.
+/// System for drawing text in a 2D scene via a 2D `OrthographicCameraBundle`. Included in the
+/// default `TextPlugin`. Position is determined by the `Transform`'s translation, though scale and
+/// rotation are ignored.
+#[allow(clippy::type_complexity)]
 pub fn draw_text2d_system(
     mut context: DrawContext,
     msaa: Res<Msaa>,
@@ -67,9 +72,9 @@ pub fn draw_text2d_system(
             &Visible,
             &Text,
             &GlobalTransform,
-            &CalculatedSize,
+            &Text2dSize,
         ),
-        With<MainPass>,
+        (With<MainPass>, Without<OutsideFrustum>),
     >,
 ) {
     let font_quad = meshes.get(&QUAD_HANDLE).unwrap();
@@ -89,26 +94,25 @@ pub fn draw_text2d_system(
         let (width, height) = (calculated_size.size.width, calculated_size.size.height);
 
         if let Some(text_glyphs) = text_pipeline.get_glyphs(&entity) {
-            let position = global_transform.translation
-                + match text.alignment.vertical {
-                    VerticalAlign::Top => Vec3::zero(),
-                    VerticalAlign::Center => Vec3::new(0.0, -height * 0.5, 0.0),
-                    VerticalAlign::Bottom => Vec3::new(0.0, -height, 0.0),
-                }
-                + match text.alignment.horizontal {
-                    HorizontalAlign::Left => Vec3::new(-width, 0.0, 0.0),
-                    HorizontalAlign::Center => Vec3::new(-width * 0.5, 0.0, 0.0),
-                    HorizontalAlign::Right => Vec3::zero(),
-                };
+            let alignment_offset = match text.alignment.vertical {
+                VerticalAlign::Top => Vec3::new(0.0, -height, 0.0),
+                VerticalAlign::Center => Vec3::new(0.0, -height * 0.5, 0.0),
+                VerticalAlign::Bottom => Vec3::ZERO,
+            } + match text.alignment.horizontal {
+                HorizontalAlign::Left => Vec3::ZERO,
+                HorizontalAlign::Center => Vec3::new(-width * 0.5, 0.0, 0.0),
+                HorizontalAlign::Right => Vec3::new(-width, 0.0, 0.0),
+            };
 
             let mut drawable_text = DrawableText {
                 render_resource_bindings: &mut render_resource_bindings,
-                position,
+                global_transform: *global_transform,
+                scale_factor,
                 msaa: &msaa,
                 text_glyphs: &text_glyphs.glyphs,
                 font_quad_vertex_layout: &font_quad_vertex_layout,
-                scale_factor,
                 sections: &text.sections,
+                alignment_offset,
             };
 
             drawable_text.draw(&mut draw, &mut context).unwrap();
@@ -122,7 +126,7 @@ pub struct QueuedText2d {
 }
 
 /// Updates the TextGlyphs with the new computed glyphs from the layout
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn text2d_system(
     mut queued_text: Local<QueuedText2d>,
     mut textures: ResMut<Assets<Texture>>,
@@ -133,7 +137,7 @@ pub fn text2d_system(
     mut text_pipeline: ResMut<DefaultTextPipeline>,
     mut text_queries: QuerySet<(
         Query<Entity, (With<MainPass>, Changed<Text>)>,
-        Query<(&Text, &mut CalculatedSize), With<MainPass>>,
+        Query<(&Text, &mut Text2dSize), With<MainPass>>,
     )>,
 ) {
     // Adds all entities where the text or the style has changed to the local queue
@@ -168,7 +172,8 @@ pub fn text2d_system(
                 &mut *textures,
             ) {
                 Err(TextError::NoSuchFont) => {
-                    // There was an error processing the text layout, let's add this entity to the queue for further processing
+                    // There was an error processing the text layout, let's add this entity to the
+                    // queue for further processing
                     new_queue.push(entity);
                 }
                 Err(e @ TextError::FailedToAddGlyph(_)) => {

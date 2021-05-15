@@ -163,7 +163,7 @@ impl TextureAtlasBuilder {
             target_bins.insert(0, TargetBin::new(current_width, current_height, 1));
             rect_placements = match pack_rects(
                 &self.rects_to_place,
-                target_bins,
+                &mut target_bins,
                 &volume_heuristic,
                 &contains_smallest_box,
             ) {
@@ -177,8 +177,8 @@ impl TextureAtlasBuilder {
                     Some(rect_placements)
                 }
                 Err(rectangle_pack::RectanglePackError::NotEnoughBinSpace) => {
-                    current_height = bevy_math::clamp(current_height * 2, 0, max_height);
-                    current_width = bevy_math::clamp(current_width * 2, 0, max_width);
+                    current_height = (current_height * 2).clamp(0, max_height);
+                    current_width = (current_width * 2).clamp(0, max_width);
                     None
                 }
             };

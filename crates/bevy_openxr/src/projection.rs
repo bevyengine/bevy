@@ -1,9 +1,10 @@
+use bevy_ecs::bundle::Bundle;
+use bevy_ecs::reflect::ReflectComponent;
 use bevy_math::Mat4;
-use bevy_reflect::{Reflect, ReflectComponent};
+use bevy_reflect::Reflect;
 use bevy_render::camera::{Camera, CameraProjection, DepthCalculation, VisibleEntities};
 use bevy_render::render_graph::base::camera::CAMERA_XR;
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_ecs::Bundle;
 
 #[derive(Debug, Clone, Reflect)]
 #[reflect(Component)]
@@ -14,10 +15,7 @@ pub struct XRProjection {
 
 impl XRProjection {
     pub fn new(near: f32, far: f32) -> Self {
-        XRProjection {
-            near,
-            far
-        }
+        XRProjection { near, far }
     }
 }
 
@@ -26,8 +24,7 @@ impl CameraProjection for XRProjection {
         panic!("XRProjection.get_projection_matrix() called. Need to call get_projection_matrix_fov(fov)")
     }
 
-    fn update(&mut self, _width: f32, _height: f32) {
-    }
+    fn update(&mut self, _width: f32, _height: f32) {}
 
     fn depth_calculation(&self) -> DepthCalculation {
         DepthCalculation::Distance
@@ -76,7 +73,11 @@ impl XRProjection {
         // positive Y up (OpenGL / D3D / Metal).
         // const float tanAngleHeight =
         //     graphicsApi == GRAPHICS_VULKAN ? (tanAngleDown - tanAngleUp) : (tanAngleUp - tanAngleDown);
-        let tan_angle_height = if is_vulkan_api { tan_angle_down - tan_angle_up } else { tan_angle_up - tan_angle_down };
+        let tan_angle_height = if is_vulkan_api {
+            tan_angle_down - tan_angle_up
+        } else {
+            tan_angle_up - tan_angle_down
+        };
 
         // Set to nearZ for a [-1,1] Z clip space (OpenGL / OpenGL ES).
         // Set to zero for a [0,1] Z clip space (Vulkan / D3D / Metal).
@@ -179,11 +180,14 @@ mod tests {
         });
 
         // FIXME approx tests?
-        assert_eq!(matrix, Mat4::from_cols(
-            Vec4::new(0.93007326, 0.0, 0.0, 0.0),
-            Vec4::new(0.0, 0.86867154, 0.0, 0.0),
-            Vec4::new(-0.06992678, -0.035242435, -1.0002, -1.0),
-            Vec4::new(0.0, 0.0, -0.020002, 0.0),
-        ));
+        assert_eq!(
+            matrix,
+            Mat4::from_cols(
+                Vec4::new(0.93007326, 0.0, 0.0, 0.0),
+                Vec4::new(0.0, 0.86867154, 0.0, 0.0),
+                Vec4::new(-0.06992678, -0.035242435, -1.0002, -1.0),
+                Vec4::new(0.0, 0.0, -0.020002, 0.0),
+            )
+        );
     }
 }

@@ -51,8 +51,8 @@ impl DynamicTextureAtlasBuilder {
     //     let change_list = self.atlas_allocator.resize_and_rearrange(new_size2);
 
     //     for change in change_list.changes {
-    //         if let Some(changed_texture_handle) = self.allocation_textures.remove(&change.old.id) {
-    //             let changed_texture = textures.get(&changed_texture_handle).unwrap();
+    //         if let Some(changed_texture_handle) = self.allocation_textures.remove(&change.old.id)
+    // {             let changed_texture = textures.get(&changed_texture_handle).unwrap();
     //             self.place_texture(change.new, changed_texture_handle, changed_texture);
     //         }
     //     }

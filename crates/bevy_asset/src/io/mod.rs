@@ -13,7 +13,7 @@ pub use file_asset_io::*;
 pub use wasm_asset_io::*;
 
 use anyhow::Result;
-use bevy_ecs::bevy_utils::BoxedFuture;
+use bevy_utils::BoxedFuture;
 use downcast_rs::{impl_downcast, Downcast};
 use std::{
     io,

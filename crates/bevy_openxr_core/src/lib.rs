@@ -1,7 +1,7 @@
 use once_cell::sync::OnceCell;
 
-use bevy_app::prelude::*;
-use bevy_ecs::IntoSystem;
+use bevy_app::{prelude::*, EventReader};
+use bevy_ecs::system::IntoSystem;
 
 mod swapchain;
 pub use swapchain::*;

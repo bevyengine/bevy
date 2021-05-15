@@ -11,9 +11,10 @@ pub fn derive_render_resource(input: TokenStream) -> TokenStream {
     let bevy_asset_path: Path = get_path(&modules.bevy_asset);
     let bevy_core_path: Path = get_path(&modules.bevy_core);
     let struct_name = &ast.ident;
+    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
     TokenStream::from(quote! {
-        impl #bevy_render_path::renderer::RenderResource for #struct_name {
+        impl #impl_generics #bevy_render_path::renderer::RenderResource for #struct_name #type_generics #where_clause {
             fn resource_type(&self) -> Option<#bevy_render_path::renderer::RenderResourceType> {
                 Some(#bevy_render_path::renderer::RenderResourceType::Buffer)
             }

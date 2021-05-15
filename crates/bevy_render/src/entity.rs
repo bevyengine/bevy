@@ -10,7 +10,7 @@ use crate::{
 };
 use base::MainPass;
 use bevy_asset::Handle;
-use bevy_ecs::Bundle;
+use bevy_ecs::bundle::Bundle;
 use bevy_transform::components::{GlobalTransform, Transform};
 
 /// A component bundle for "mesh" entities

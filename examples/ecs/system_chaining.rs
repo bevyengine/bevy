@@ -16,7 +16,8 @@ fn parse_message_system(message: Res<Message>) -> Result<usize> {
 }
 
 // This system takes a Result<usize> input and either prints the parsed value or the error message
-// Try changing the Message resource to something that isn't an integer. You should see the error message printed.
+// Try changing the Message resource to something that isn't an integer. You should see the error
+// message printed.
 fn handler_system(In(result): In<Result<usize>>) {
     match result {
         Ok(value) => println!("parsed message: {}", value),

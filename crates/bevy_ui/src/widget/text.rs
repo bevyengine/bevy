@@ -1,18 +1,20 @@
-use crate::{Node, Style, Val};
+use crate::{CalculatedSize, Node, Style, Val};
 use bevy_asset::Assets;
-use bevy_ecs::{Changed, Entity, Local, Or, Query, QuerySet, Res, ResMut};
+use bevy_ecs::{
+    entity::Entity,
+    query::{Changed, Or, With, Without},
+    system::{Local, Query, QuerySet, Res, ResMut},
+};
 use bevy_math::Size;
 use bevy_render::{
-    draw::{Draw, DrawContext, Drawable},
+    draw::{Draw, DrawContext, Drawable, OutsideFrustum},
     mesh::Mesh,
     prelude::{Msaa, Visible},
     renderer::RenderResourceBindings,
     texture::Texture,
 };
 use bevy_sprite::{TextureAtlas, QUAD_HANDLE};
-use bevy_text::{
-    CalculatedSize, DefaultTextPipeline, DrawableText, Font, FontAtlasSet, Text, TextError,
-};
+use bevy_text::{DefaultTextPipeline, DrawableText, Font, FontAtlasSet, Text, TextError};
 use bevy_transform::prelude::GlobalTransform;
 use bevy_window::Windows;
 
@@ -40,9 +42,10 @@ pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f6
 
 /// Computes the size of a text block and updates the TextGlyphs with the
 /// new computed glyphs from the layout
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn text_system(
     mut queued_text: Local<QueuedText>,
+    mut last_scale_factor: Local<f64>,
     mut textures: ResMut<Assets<Texture>>,
     fonts: Res<Assets<Font>>,
     windows: Res<Windows>,
@@ -51,6 +54,7 @@ pub fn text_system(
     mut text_pipeline: ResMut<DefaultTextPipeline>,
     mut text_queries: QuerySet<(
         Query<Entity, Or<(Changed<Text>, Changed<Style>)>>,
+        Query<Entity, (With<Text>, With<Style>)>,
         Query<(&Text, &Style, &mut CalculatedSize)>,
     )>,
 ) {
@@ -62,9 +66,18 @@ pub fn text_system(
 
     let inv_scale_factor = 1. / scale_factor;
 
-    // Adds all entities where the text or the style has changed to the local queue
-    for entity in text_queries.q0_mut().iter_mut() {
-        queued_text.entities.push(entity);
+    #[allow(clippy::float_cmp)]
+    if *last_scale_factor == scale_factor {
+        // Adds all entities where the text or the style has changed to the local queue
+        for entity in text_queries.q0().iter() {
+            queued_text.entities.push(entity);
+        }
+    } else {
+        // If the scale factor has changed, queue all text
+        for entity in text_queries.q1().iter() {
+            queued_text.entities.push(entity);
+        }
+        *last_scale_factor = scale_factor;
     }
 
     if queued_text.entities.is_empty() {
@@ -73,7 +86,7 @@ pub fn text_system(
 
     // Computes all text in the local queue
     let mut new_queue = Vec::new();
-    let query = text_queries.q1_mut();
+    let query = text_queries.q2_mut();
     for entity in queued_text.entities.drain(..) {
         if let Ok((text, style, mut calculated_size)) = query.get_mut(entity) {
             let node_size = Size::new(
@@ -103,7 +116,8 @@ pub fn text_system(
                 &mut *textures,
             ) {
                 Err(TextError::NoSuchFont) => {
-                    // There was an error processing the text layout, let's add this entity to the queue for further processing
+                    // There was an error processing the text layout, let's add this entity to the
+                    // queue for further processing
                     new_queue.push(entity);
                 }
                 Err(e @ TextError::FailedToAddGlyph(_)) => {
@@ -125,7 +139,7 @@ pub fn text_system(
     queued_text.entities = new_queue;
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn draw_text_system(
     mut context: DrawContext,
     msaa: Res<Msaa>,
@@ -133,7 +147,10 @@ pub fn draw_text_system(
     meshes: Res<Assets<Mesh>>,
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
     text_pipeline: Res<DefaultTextPipeline>,
-    mut query: Query<(Entity, &mut Draw, &Visible, &Text, &Node, &GlobalTransform)>,
+    mut query: Query<
+        (Entity, &mut Draw, &Visible, &Text, &Node, &GlobalTransform),
+        Without<OutsideFrustum>,
+    >,
 ) {
     let scale_factor = if let Some(window) = windows.get_primary() {
         window.scale_factor()
@@ -150,16 +167,15 @@ pub fn draw_text_system(
         }
 
         if let Some(text_glyphs) = text_pipeline.get_glyphs(&entity) {
-            let position = global_transform.translation - (node.size / 2.0).extend(0.0);
-
             let mut drawable_text = DrawableText {
                 render_resource_bindings: &mut render_resource_bindings,
-                position,
+                global_transform: *global_transform,
                 scale_factor: scale_factor as f32,
                 msaa: &msaa,
                 text_glyphs: &text_glyphs.glyphs,
                 font_quad_vertex_layout: &vertex_buffer_layout,
                 sections: &text.sections,
+                alignment_offset: (node.size / -2.0).extend(0.0),
             };
 
             drawable_text.draw(&mut draw, &mut context).unwrap();

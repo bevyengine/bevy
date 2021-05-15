@@ -3,9 +3,9 @@
 A refreshingly simple task executor for bevy. :)
 
 This is a simple threadpool with minimal dependencies. The main usecase is a scoped fork-join, i.e. spawning tasks from
-a single thread and having that thread await the completion of those tasks. This is intended specifically for 
+a single thread and having that thread await the completion of those tasks. This is intended specifically for
 [`bevy`][bevy] as a lighter alternative to [`rayon`][rayon] for this specific usecase. There are also utilities for
-generating the tasks from a slice of data. This library is intended for games and makes no attempt to ensure fairness 
+generating the tasks from a slice of data. This library is intended for games and makes no attempt to ensure fairness
 or ordering of spawned tasks.
 
 It is based on [`async-executor`][async-executor], a lightweight executor that allows the end user to manage their own threads.
@@ -19,7 +19,7 @@ It is based on [`async-executor`][async-executor], a lightweight executor that a
 
 A very small dependency list is a key feature of this module
 
-```
+```text
 ├── async-executor
 │   ├── async-task
 │   ├── concurrent-queue

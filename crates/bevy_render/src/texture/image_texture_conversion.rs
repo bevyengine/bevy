@@ -12,16 +12,18 @@ pub(crate) fn image_to_texture(dyn_img: image::DynamicImage) -> Texture {
 
     match dyn_img {
         image::DynamicImage::ImageLuma8(i) => {
+            let i = image::DynamicImage::ImageLuma8(i).into_rgba8();
             width = i.width();
             height = i.height();
-            format = TextureFormat::R8Unorm;
+            format = TextureFormat::Rgba8UnormSrgb;
 
             data = i.into_raw();
         }
         image::DynamicImage::ImageLumaA8(i) => {
+            let i = image::DynamicImage::ImageLumaA8(i).into_rgba8();
             width = i.width();
             height = i.height();
-            format = TextureFormat::Rg8Unorm;
+            format = TextureFormat::Rgba8UnormSrgb;
 
             data = i.into_raw();
         }

@@ -190,7 +190,7 @@ pub fn convert_virtual_key_code(virtual_key_code: winit::event::VirtualKeyCode) 
         winit::event::VirtualKeyCode::NumpadComma => KeyCode::NumpadComma,
         winit::event::VirtualKeyCode::NumpadEnter => KeyCode::NumpadEnter,
         winit::event::VirtualKeyCode::NumpadEquals => KeyCode::NumpadEquals,
-        winit::event::VirtualKeyCode::OEM102 => KeyCode::OEM102,
+        winit::event::VirtualKeyCode::OEM102 => KeyCode::Oem102,
         winit::event::VirtualKeyCode::Period => KeyCode::Period,
         winit::event::VirtualKeyCode::PlayPause => KeyCode::PlayPause,
         winit::event::VirtualKeyCode::Power => KeyCode::Power,

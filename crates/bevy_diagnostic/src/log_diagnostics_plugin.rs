@@ -1,7 +1,7 @@
 use super::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_app::prelude::*;
 use bevy_core::{Time, Timer};
-use bevy_ecs::{IntoSystem, Res, ResMut};
+use bevy_ecs::system::{IntoSystem, Res, ResMut};
 use bevy_log::{debug, info};
 use bevy_utils::Duration;
 
@@ -37,11 +37,11 @@ impl Plugin for LogDiagnosticsPlugin {
 
         if self.debug {
             app.add_system_to_stage(
-                stage::POST_UPDATE,
+                CoreStage::PostUpdate,
                 Self::log_diagnostics_debug_system.system(),
             );
         } else {
-            app.add_system_to_stage(stage::POST_UPDATE, Self::log_diagnostics_system.system());
+            app.add_system_to_stage(CoreStage::PostUpdate, Self::log_diagnostics_system.system());
         }
     }
 }
@@ -58,11 +58,25 @@ impl LogDiagnosticsPlugin {
         if let Some(value) = diagnostic.value() {
             if let Some(average) = diagnostic.average() {
                 info!(
-                    "{:<65}: {:<10.6}  (avg {:.6})",
-                    diagnostic.name, value, average
+                    target: "bevy diagnostic",
+                    "{:<name_width$}: {:>12} (avg {:>})",
+                    diagnostic.name,
+                    // Suffix is only used for 's' as in seconds currently,
+                    // so we reserve one column for it
+                    format!("{:.6}{:1}", value, diagnostic.suffix),
+                    // Do not reserve one column for the suffix in the average
+                    // The ) hugging the value is more aesthetically pleasing
+                    format!("{:.6}{:}", average, diagnostic.suffix),
+                    name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
                 );
             } else {
-                info!("{:<65}: {:<10.6}", diagnostic.name, value);
+                info!(
+                    target: "bevy diagnostic",
+                    "{:<name_width$}: {:>}",
+                    diagnostic.name,
+                    format!("{:.6}{:}", value, diagnostic.suffix),
+                    name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
+                );
             }
         }
     }
@@ -72,7 +86,7 @@ impl LogDiagnosticsPlugin {
         time: Res<Time>,
         diagnostics: Res<Diagnostics>,
     ) {
-        if state.timer.tick(time.delta_seconds()).finished() {
+        if state.timer.tick(time.delta()).finished() {
             if let Some(ref filter) = state.filter {
                 for diagnostic in filter.iter().map(|id| diagnostics.get(*id).unwrap()) {
                     Self::log_diagnostic(diagnostic);
@@ -90,7 +104,7 @@ impl LogDiagnosticsPlugin {
         time: Res<Time>,
         diagnostics: Res<Diagnostics>,
     ) {
-        if state.timer.tick(time.delta_seconds()).finished() {
+        if state.timer.tick(time.delta()).finished() {
             if let Some(ref filter) = state.filter {
                 for diagnostic in filter.iter().map(|id| diagnostics.get(*id).unwrap()) {
                     debug!("{:#?}\n", diagnostic);

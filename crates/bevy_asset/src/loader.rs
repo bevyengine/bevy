@@ -3,8 +3,12 @@ use crate::{
     RefChangeChannel,
 };
 use anyhow::Result;
-use bevy_ecs::{Res, ResMut, Resource};
+use bevy_ecs::{
+    component::Component,
+    system::{Res, ResMut},
+};
 use bevy_reflect::{TypeUuid, TypeUuidDynamic};
+use bevy_tasks::TaskPool;
 use bevy_utils::{BoxedFuture, HashMap};
 use crossbeam_channel::{Receiver, Sender};
 use downcast_rs::{impl_downcast, Downcast};
@@ -61,10 +65,9 @@ pub(crate) struct BoxedLoadedAsset {
 impl<T: Asset> From<LoadedAsset<T>> for BoxedLoadedAsset {
     fn from(asset: LoadedAsset<T>) -> Self {
         BoxedLoadedAsset {
-            value: match asset.value {
-                Some(value) => Some(Box::new(value)),
-                None => None,
-            },
+            value: asset
+                .value
+                .map(|value| Box::new(value) as Box<dyn AssetDynamic>),
             dependencies: asset.dependencies,
         }
     }
@@ -76,6 +79,7 @@ pub struct LoadContext<'a> {
     pub(crate) labeled_assets: HashMap<Option<String>, BoxedLoadedAsset>,
     pub(crate) path: &'a Path,
     pub(crate) version: usize,
+    pub(crate) task_pool: &'a TaskPool,
 }
 
 impl<'a> LoadContext<'a> {
@@ -84,6 +88,7 @@ impl<'a> LoadContext<'a> {
         ref_change_channel: &'a RefChangeChannel,
         asset_io: &'a dyn AssetIo,
         version: usize,
+        task_pool: &'a TaskPool,
     ) -> Self {
         Self {
             ref_change_channel,
@@ -91,6 +96,7 @@ impl<'a> LoadContext<'a> {
             labeled_assets: Default::default(),
             version,
             path,
+            task_pool,
         }
     }
 
@@ -132,24 +138,28 @@ impl<'a> LoadContext<'a> {
         }
         asset_metas
     }
+
+    pub fn task_pool(&self) -> &TaskPool {
+        self.task_pool
+    }
 }
 
 /// The result of loading an asset of type `T`
 #[derive(Debug)]
-pub struct AssetResult<T: Resource> {
-    pub asset: T,
+pub struct AssetResult<T: Component> {
+    pub asset: Box<T>,
     pub id: HandleId,
     pub version: usize,
 }
 
 /// A channel to send and receive [AssetResult]s
 #[derive(Debug)]
-pub struct AssetLifecycleChannel<T: Resource> {
+pub struct AssetLifecycleChannel<T: Component> {
     pub sender: Sender<AssetLifecycleEvent<T>>,
     pub receiver: Receiver<AssetLifecycleEvent<T>>,
 }
 
-pub enum AssetLifecycleEvent<T: Resource> {
+pub enum AssetLifecycleEvent<T: Component> {
     Create(AssetResult<T>),
     Free(HandleId),
 }
@@ -165,8 +175,8 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
         if let Ok(asset) = asset.downcast::<T>() {
             self.sender
                 .send(AssetLifecycleEvent::Create(AssetResult {
+                    asset,
                     id,
-                    asset: *asset,
                     version,
                 }))
                 .unwrap()
@@ -183,7 +193,7 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
     }
 }
 
-impl<T: Resource> Default for AssetLifecycleChannel<T> {
+impl<T: Component> Default for AssetLifecycleChannel<T> {
     fn default() -> Self {
         let (sender, receiver) = crossbeam_channel::unbounded();
         AssetLifecycleChannel { sender, receiver }

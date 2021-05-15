@@ -1,5 +1,5 @@
 use super::{WgpuRenderContext, WgpuRenderResourceContext};
-use bevy_ecs::{Resources, World};
+use bevy_ecs::world::World;
 use bevy_render::{
     render_graph::{Edge, NodeId, ResourceSlots, StageBorrow},
     renderer::RenderResourceContext,
@@ -16,18 +16,20 @@ pub struct WgpuRenderGraphExecutor {
 impl WgpuRenderGraphExecutor {
     pub fn execute(
         &self,
-        world: &World,
-        resources: &Resources,
+        world: &mut World,
         device: Arc<wgpu::Device>,
         queue: &mut wgpu::Queue,
         stages: &mut [StageBorrow],
     ) {
-        let mut render_resource_context = resources
-            .get_mut::<Box<dyn RenderResourceContext>>()
-            .unwrap();
-        let render_resource_context = render_resource_context
-            .downcast_mut::<WgpuRenderResourceContext>()
-            .unwrap();
+        let render_resource_context = {
+            let context = world
+                .get_resource::<Box<dyn RenderResourceContext>>()
+                .unwrap();
+            context
+                .downcast_ref::<WgpuRenderResourceContext>()
+                .unwrap()
+                .clone()
+        };
         let node_outputs: Arc<RwLock<HashMap<NodeId, ResourceSlots>>> = Default::default();
 
         for stage in stages.iter_mut() {
@@ -40,7 +42,7 @@ impl WgpuRenderGraphExecutor {
             // crossbeam_utils::thread::scope(|s| {
             for jobs_chunk in stage.jobs.chunks_mut(chunk_size) {
                 let sender = sender.clone();
-                let world = &*world;
+                let world = &mut *world;
                 actual_thread_count += 1;
                 let device = device.clone();
                 let render_resource_context = render_resource_context.clone();
@@ -73,7 +75,6 @@ impl WgpuRenderGraphExecutor {
                         }
                         node_state.node.update(
                             world,
-                            resources,
                             &mut render_context,
                             &node_state.input_slots,
                             &mut node_state.output_slots,

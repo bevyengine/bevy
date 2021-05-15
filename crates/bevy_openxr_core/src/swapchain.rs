@@ -1,9 +1,9 @@
+use bevy_math::{Quat, Vec3};
+use openxr::HandJointLocations;
 use std::num::NonZeroU32;
-use openxr::{HandJointLocations};
 use wgpu::OpenXRHandles;
-use bevy_math::{Vec3, Quat};
 
-use crate::{XRState, OpenXROptions, XRViewTransform};
+use crate::{OpenXROptions, XRState, XRViewTransform};
 
 pub struct XRSwapchain {
     handle: openxr::Swapchain<openxr::Vulkan>,
@@ -22,10 +22,13 @@ impl XRSwapchain {
     ) -> Self {
         const VIEW_COUNT: u32 = 2; // FIXME get from settings
 
-        let views = openxr_struct.instance.enumerate_view_configuration_views(
-            openxr_struct.handles.system,
-            openxr_struct.options.view_type
-        ).unwrap();
+        let views = openxr_struct
+            .instance
+            .enumerate_view_configuration_views(
+                openxr_struct.handles.system,
+                openxr_struct.options.view_type,
+            )
+            .unwrap();
 
         assert_eq!(views.len(), VIEW_COUNT as usize);
         assert_eq!(views[0], views[1]);
@@ -35,69 +38,81 @@ impl XRSwapchain {
         let resolution = wgpu::Extent3d {
             width: views[0].recommended_image_rect_width,
             height: views[0].recommended_image_rect_height,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
 
         const COLOR_FORMAT: ash::vk::Format = ash::vk::Format::R8G8B8A8_UNORM; // FIXME change!!
         let format = wgpu::TextureFormat::Rgba8Unorm;
 
-        let handle = openxr_struct.handles.session.create_swapchain(&openxr::SwapchainCreateInfo {
-            create_flags: openxr::SwapchainCreateFlags::EMPTY,
-            usage_flags: openxr::SwapchainUsageFlags::COLOR_ATTACHMENT | openxr::SwapchainUsageFlags::DEPTH_STENCIL_ATTACHMENT // FIXME depth?
+        let handle = openxr_struct
+            .handles
+            .session
+            .create_swapchain(&openxr::SwapchainCreateInfo {
+                create_flags: openxr::SwapchainCreateFlags::EMPTY,
+                usage_flags: openxr::SwapchainUsageFlags::COLOR_ATTACHMENT | openxr::SwapchainUsageFlags::DEPTH_STENCIL_ATTACHMENT // FIXME depth?
                 | openxr::SwapchainUsageFlags::SAMPLED | openxr::SwapchainUsageFlags::TRANSFER_SRC
                 | openxr::SwapchainUsageFlags::TRANSFER_DST,
-            format: COLOR_FORMAT.as_raw() as _,
-            sample_count: 1,
-            width: resolution.width,
-            height: resolution.height,
-            face_count: 1,
-            array_size: VIEW_COUNT,
-            mip_count: 1,
-        }).unwrap();
+                format: COLOR_FORMAT.as_raw() as _,
+                sample_count: 1,
+                width: resolution.width,
+                height: resolution.height,
+                face_count: 1,
+                array_size: VIEW_COUNT,
+                mip_count: 1,
+            })
+            .unwrap();
 
-        let environment_blend_mode = openxr_struct.instance.enumerate_environment_blend_modes(
-            openxr_struct.handles.system,
-            openxr_struct.options.view_type
-        ).unwrap()[0];
+        let environment_blend_mode = openxr_struct
+            .instance
+            .enumerate_environment_blend_modes(
+                openxr_struct.handles.system,
+                openxr_struct.options.view_type,
+            )
+            .unwrap()[0];
 
         let images = handle.enumerate_images().unwrap();
 
         let buffers = images
-                .into_iter()
-                .map(|color_image| {
-                    // FIXME keep in sync with above usage_flags
-                    let texture = device.create_openxr_texture_from_raw_image(
-                        &wgpu::TextureDescriptor {
-                            size: wgpu::Extent3d {
-                                width: resolution.width,
-                                height: resolution.height,
-                                depth: 2,
-                            },
-                            mip_level_count: 1,
-                            sample_count: 1,
-                            dimension: wgpu::TextureDimension::D2,
-                            format,
-                            usage: wgpu::TextureUsage::RENDER_ATTACHMENT | wgpu::TextureUsage::STORAGE
-                                | wgpu::TextureUsage::COPY_SRC | wgpu::TextureUsage::COPY_DST,
-                            label: None,
+            .into_iter()
+            .map(|color_image| {
+                // FIXME keep in sync with above usage_flags
+                let texture = device.create_openxr_texture_from_raw_image(
+                    &wgpu::TextureDescriptor {
+                        size: wgpu::Extent3d {
+                            width: resolution.width,
+                            height: resolution.height,
+                            depth_or_array_layers: 2,
                         },
-                        color_image,
-                    );
-
-                    let color = texture.create_view(&wgpu::TextureViewDescriptor {
+                        mip_level_count: 1,
+                        sample_count: 1,
+                        dimension: wgpu::TextureDimension::D2,
+                        format,
+                        usage: wgpu::TextureUsage::RENDER_ATTACHMENT
+                            | wgpu::TextureUsage::STORAGE
+                            | wgpu::TextureUsage::COPY_SRC
+                            | wgpu::TextureUsage::COPY_DST,
                         label: None,
-                        format: Some(format),
-                        dimension: Some(wgpu::TextureViewDimension::D2Array),
-                        aspect: wgpu::TextureAspect::All,
-                        base_mip_level: 0,
-                        level_count: NonZeroU32::new(1),
-                        base_array_layer: 0,
-                        array_layer_count: NonZeroU32::new(2),
-                    });
+                    },
+                    color_image,
+                );
 
-                    Framebuffer { texture, color: Some(color) }
-                })
-                .collect();
+                let color = texture.create_view(&wgpu::TextureViewDescriptor {
+                    label: None,
+                    format: Some(format),
+                    dimension: Some(wgpu::TextureViewDimension::D2Array),
+                    aspect: wgpu::TextureAspect::All,
+                    base_mip_level: 0,
+                    mip_level_count: NonZeroU32::new(1),
+                    base_array_layer: 0,
+                    array_layer_count: NonZeroU32::new(2),
+                });
+
+                Framebuffer {
+                    texture,
+                    color: Some(color),
+                }
+            })
+            .collect();
 
         let options = openxr_struct.options.clone();
 
@@ -115,7 +130,7 @@ impl XRSwapchain {
             options,
             environment_blend_mode,
             frame_state: None,
-            hand_trackers
+            hand_trackers,
         }
     }
 
@@ -134,7 +149,7 @@ impl XRSwapchain {
             Ok(fs) => fs,
             Err(_) => {
                 // FIXME handle this better
-                return XRState::Paused
+                return XRState::Paused;
             }
         };
 
@@ -161,16 +176,22 @@ impl XRSwapchain {
     pub fn get_hand_positions(&mut self, handles: &mut OpenXRHandles) -> Option<HandPoseState> {
         let frame_state = match self.frame_state {
             Some(fs) => fs,
-            None => return None
+            None => return None,
         };
 
         let ht = match &self.hand_trackers {
             Some(ht) => ht,
-            None => return None
+            None => return None,
         };
 
-        let hand_l = handles.space.locate_hand_joints(&ht.tracker_l, frame_state.predicted_display_time).unwrap();
-        let hand_r = handles.space.locate_hand_joints(&ht.tracker_r, frame_state.predicted_display_time).unwrap();
+        let hand_l = handles
+            .space
+            .locate_hand_joints(&ht.tracker_l, frame_state.predicted_display_time)
+            .unwrap();
+        let hand_r = handles
+            .space
+            .locate_hand_joints(&ht.tracker_r, frame_state.predicted_display_time)
+            .unwrap();
 
         let hand_pose_state = HandPoseState {
             left: hand_l,
@@ -188,22 +209,28 @@ impl XRSwapchain {
         let frame_state = self.frame_state.as_ref().unwrap();
 
         // FIXME views acquisition should probably occur somewhere else - timing problem?
-        let (_, views) = handles.session.locate_views(
-            self.options.view_type,
-            frame_state.predicted_display_time,
-            &handles.space,
-        ).unwrap();
+        let (_, views) = handles
+            .session
+            .locate_views(
+                self.options.view_type,
+                frame_state.predicted_display_time,
+                &handles.space,
+            )
+            .unwrap();
 
         //println!("VIEWS: {:#?}", views);
 
-        let transforms = views.iter().map(|view| {
-            let pos = &view.pose.position;
-            let ori = &view.pose.orientation;
-            XRViewTransform::new(
-                Vec3::new(pos.x, pos.y, pos.z),
-                Quat::from_xyzw(ori.x, ori.y, ori.z, ori.w),
-            )
-        }).collect();
+        let transforms = views
+            .iter()
+            .map(|view| {
+                let pos = &view.pose.position;
+                let ori = &view.pose.orientation;
+                XRViewTransform::new(
+                    Vec3::new(pos.x, pos.y, pos.z),
+                    Quat::from_xyzw(ori.x, ori.y, ori.z, ori.w),
+                )
+            })
+            .collect();
 
         //println!("TRANSFORMS: {:#?}", transforms);
         transforms
@@ -214,11 +241,14 @@ impl XRSwapchain {
         let frame_state = self.frame_state.take().unwrap();
 
         // FIXME views acquisition should probably occur somewhere else - timing problem?
-        let (_, views) = handles.session.locate_views(
-            self.options.view_type,
-            frame_state.predicted_display_time,
-            &handles.space,
-        ).unwrap();
+        let (_, views) = handles
+            .session
+            .locate_views(
+                self.options.view_type,
+                frame_state.predicted_display_time,
+                &handles.space,
+            )
+            .unwrap();
 
         // Tell OpenXR what to present for this frame
         let rect = openxr::Rect2Di {
@@ -229,7 +259,8 @@ impl XRSwapchain {
             },
         };
 
-        handles.frame_stream
+        handles
+            .frame_stream
             .end(
                 frame_state.predicted_display_time,
                 self.environment_blend_mode,
@@ -259,11 +290,12 @@ impl XRSwapchain {
             .unwrap();
     }
 
-
     pub fn take_color_textures(&mut self) -> Vec<wgpu::TextureView> {
-        self.buffers.iter_mut().map(|buf| buf.color.take().unwrap()).collect()
+        self.buffers
+            .iter_mut()
+            .map(|buf| buf.color.take().unwrap())
+            .collect()
     }
-
 }
 
 impl std::fmt::Debug for XRSwapchain {
@@ -275,7 +307,7 @@ impl std::fmt::Debug for XRSwapchain {
 struct Framebuffer {
     #[allow(dead_code)]
     texture: wgpu::Texture,
-    color: Option<wgpu::TextureView>
+    color: Option<wgpu::TextureView>,
 }
 
 struct HandTrackers {
@@ -310,4 +342,3 @@ impl std::fmt::Debug for HandPoseState {
         )
     }
 }
-

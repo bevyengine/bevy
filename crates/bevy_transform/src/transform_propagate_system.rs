@@ -1,10 +1,16 @@
-use crate::components::*;
-use bevy_ecs::prelude::*;
+use crate::components::{Children, GlobalTransform, Parent, Transform};
+use bevy_ecs::{
+    entity::Entity,
+    query::{Changed, With, Without},
+    system::Query,
+};
 
+/// Update [`GlobalTransform`] component of entities based on entity hierarchy and
+/// [`Transform`] component.
 pub fn transform_propagate_system(
     mut root_query: Query<
         (Entity, Option<&Children>, &Transform, &mut GlobalTransform),
-        (Without<Parent>, With<GlobalTransform>),
+        Without<Parent>,
     >,
     mut transform_query: Query<(&Transform, &mut GlobalTransform), With<Parent>>,
     changed_transform_query: Query<Entity, Changed<Transform>>,
@@ -69,14 +75,18 @@ fn propagate_recursive(
 
 #[cfg(test)]
 mod test {
+    use bevy_ecs::{
+        schedule::{Schedule, Stage, SystemStage},
+        system::{CommandQueue, Commands, IntoSystem},
+        world::World,
+    };
+
     use super::*;
     use crate::hierarchy::{parent_update_system, BuildChildren, BuildWorldChildren};
-    use bevy_ecs::{Resources, Schedule, Stage, SystemStage, World};
 
     #[test]
     fn did_propagate() {
         let mut world = World::default();
-        let mut resources = Resources::default();
 
         let mut update_stage = SystemStage::parallel();
         update_stage.add_system(parent_update_system.system());
@@ -86,32 +96,37 @@ mod test {
         schedule.add_stage("update", update_stage);
 
         // Root entity
-        world.spawn((
+        world.spawn().insert_bundle((
             Transform::from_xyz(1.0, 0.0, 0.0),
             GlobalTransform::identity(),
         ));
 
         let mut children = Vec::new();
         world
-            .build()
-            .spawn((
+            .spawn()
+            .insert_bundle((
                 Transform::from_xyz(1.0, 0.0, 0.0),
                 GlobalTransform::identity(),
             ))
             .with_children(|parent| {
-                parent
-                    .spawn((
-                        Transform::from_xyz(0.0, 2.0, 0.),
-                        GlobalTransform::identity(),
-                    ))
-                    .for_current_entity(|entity| children.push(entity))
-                    .spawn((
-                        Transform::from_xyz(0.0, 0.0, 3.),
-                        GlobalTransform::identity(),
-                    ))
-                    .for_current_entity(|entity| children.push(entity));
+                children.push(
+                    parent
+                        .spawn_bundle((
+                            Transform::from_xyz(0.0, 2.0, 0.),
+                            GlobalTransform::identity(),
+                        ))
+                        .id(),
+                );
+                children.push(
+                    parent
+                        .spawn_bundle((
+                            Transform::from_xyz(0.0, 0.0, 3.),
+                            GlobalTransform::identity(),
+                        ))
+                        .id(),
+                );
             });
-        schedule.run(&mut world, &mut resources);
+        schedule.run(&mut world);
 
         assert_eq!(
             *world.get::<GlobalTransform>(children[0]).unwrap(),
@@ -127,7 +142,6 @@ mod test {
     #[test]
     fn did_propagate_command_buffer() {
         let mut world = World::default();
-        let mut resources = Resources::default();
 
         let mut update_stage = SystemStage::parallel();
         update_stage.add_system(parent_update_system.system());
@@ -137,29 +151,34 @@ mod test {
         schedule.add_stage("update", update_stage);
 
         // Root entity
-        let mut commands = Commands::default();
-        commands.set_entity_reserver(world.get_entity_reserver());
+        let mut queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut queue, &world);
         let mut children = Vec::new();
         commands
-            .spawn((
+            .spawn_bundle((
                 Transform::from_xyz(1.0, 0.0, 0.0),
                 GlobalTransform::identity(),
             ))
             .with_children(|parent| {
-                parent
-                    .spawn((
-                        Transform::from_xyz(0.0, 2.0, 0.0),
-                        GlobalTransform::identity(),
-                    ))
-                    .for_current_entity(|entity| children.push(entity))
-                    .spawn((
-                        Transform::from_xyz(0.0, 0.0, 3.0),
-                        GlobalTransform::identity(),
-                    ))
-                    .for_current_entity(|entity| children.push(entity));
+                children.push(
+                    parent
+                        .spawn_bundle((
+                            Transform::from_xyz(0.0, 2.0, 0.0),
+                            GlobalTransform::identity(),
+                        ))
+                        .id(),
+                );
+                children.push(
+                    parent
+                        .spawn_bundle((
+                            Transform::from_xyz(0.0, 0.0, 3.0),
+                            GlobalTransform::identity(),
+                        ))
+                        .id(),
+                );
             });
-        commands.apply(&mut world, &mut resources);
-        schedule.run(&mut world, &mut resources);
+        queue.apply(&mut world);
+        schedule.run(&mut world);
 
         assert_eq!(
             *world.get::<GlobalTransform>(children[0]).unwrap(),

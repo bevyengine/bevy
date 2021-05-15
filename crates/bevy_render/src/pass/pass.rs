@@ -28,7 +28,7 @@ impl Default for ClearColor {
 }
 
 #[derive(Debug, Clone)]
-pub struct RenderPassColorAttachmentDescriptor {
+pub struct RenderPassColorAttachment {
     /// The actual color attachment.
     pub attachment: TextureAttachment,
 
@@ -40,7 +40,7 @@ pub struct RenderPassColorAttachmentDescriptor {
 }
 
 #[derive(Debug, Clone)]
-pub struct RenderPassDepthStencilAttachmentDescriptor {
+pub struct RenderPassDepthStencilAttachment {
     pub attachment: TextureAttachment,
     /// What operations will be performed on the depth part of the attachment.
     pub depth_ops: Option<Operations<f32>>,
@@ -51,7 +51,7 @@ pub struct RenderPassDepthStencilAttachmentDescriptor {
 // A set of pipeline bindings and draw calls with color and depth outputs
 #[derive(Debug, Clone)]
 pub struct PassDescriptor {
-    pub color_attachments: Vec<RenderPassColorAttachmentDescriptor>,
-    pub depth_stencil_attachment: Option<RenderPassDepthStencilAttachmentDescriptor>,
+    pub color_attachments: Vec<RenderPassColorAttachment>,
+    pub depth_stencil_attachment: Option<RenderPassDepthStencilAttachment>,
     pub sample_count: u32,
 }

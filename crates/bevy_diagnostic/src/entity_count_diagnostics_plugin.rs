@@ -1,6 +1,10 @@
+use bevy_app::{AppBuilder, Plugin};
+use bevy_ecs::{
+    system::{IntoExclusiveSystem, IntoSystem, ResMut},
+    world::World,
+};
+
 use crate::{Diagnostic, DiagnosticId, Diagnostics};
-use bevy_app::prelude::*;
-use bevy_ecs::{IntoExclusiveSystem, IntoSystem, ResMut, Resources, World};
 
 /// Adds "entity count" diagnostic to an App
 #[derive(Default)]
@@ -21,9 +25,10 @@ impl EntityCountDiagnosticsPlugin {
         diagnostics.add(Diagnostic::new(Self::ENTITY_COUNT, "entity_count", 20));
     }
 
-    pub fn diagnostic_system(world: &mut World, resources: &mut Resources) {
-        if let Some(mut diagnostics) = resources.get_mut::<Diagnostics>() {
-            diagnostics.add_measurement(Self::ENTITY_COUNT, world.entity_count() as f64);
+    pub fn diagnostic_system(world: &mut World) {
+        let entity_count = world.entities().len();
+        if let Some(mut diagnostics) = world.get_resource_mut::<Diagnostics>() {
+            diagnostics.add_measurement(Self::ENTITY_COUNT, entity_count as f64);
         }
     }
 }

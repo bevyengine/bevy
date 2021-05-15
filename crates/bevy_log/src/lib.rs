@@ -2,6 +2,7 @@
 mod android_tracing;
 
 pub mod prelude {
+    #[doc(hidden)]
     pub use bevy_utils::tracing::{
         debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn, warn_span,
     };
@@ -16,13 +17,53 @@ use bevy_app::{AppBuilder, Plugin};
 use tracing_subscriber::fmt::{format::DefaultFields, FormattedFields};
 use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 
-/// Adds logging to Apps.
+/// Adds logging to Apps. This plugin is part of the `DefaultPlugins`. Adding
+/// this plugin will setup a collector appropriate to your target platform:
+/// * Using [`tracing-subscriber`](https://crates.io/crates/tracing-subscriber) by default,
+/// logging to `stdout`.
+/// * Using [`android_log-sys`](https://crates.io/crates/android_log-sys) on Android,
+/// logging to Android logs.
+/// * Using [`tracing-wasm`](https://crates.io/crates/tracing-wasm) in WASM, logging
+/// to the browser console.
+///
+/// You can configure this plugin using the resource [`LogSettings`].
+/// ```no_run
+/// # use bevy_internal::DefaultPlugins;
+/// # use bevy_app::App;
+/// # use bevy_log::LogSettings;
+/// # use bevy_utils::tracing::Level;
+/// fn main() {
+///     App::build()
+///         .insert_resource(LogSettings {
+///             level: Level::DEBUG,
+///             filter: "wgpu=error,bevy_render=info".to_string(),
+///         })
+///         .add_plugins(DefaultPlugins)
+///         .run();
+/// }
+/// ```
+///
+/// Log level can also be changed using the `RUST_LOG` environment variable.
+/// It has the same syntax has the field [`LogSettings::filter`], see [`EnvFilter`].
+///
+/// If you want to setup your own tracing collector, you should disable this
+/// plugin from `DefaultPlugins` with [`AppBuilder::add_plugins_with`]:
+/// ```no_run
+/// # use bevy_internal::DefaultPlugins;
+/// # use bevy_app::App;
+/// # use bevy_log::LogPlugin;
+/// fn main() {
+///     App::build()
+///         .add_plugins_with(DefaultPlugins, |group| group.disable::<LogPlugin>())
+///         .run();
+/// }
+/// ```
 #[derive(Default)]
 pub struct LogPlugin;
 
 /// LogPlugin settings
 pub struct LogSettings {
-    /// Filters logs using the [EnvFilter] format
+    /// Filters logs using the [`EnvFilter`] format
     pub filter: String,
 
     /// Filters out logs that are "less than" the given level.
@@ -42,7 +83,9 @@ impl Default for LogSettings {
 impl Plugin for LogPlugin {
     fn build(&self, app: &mut AppBuilder) {
         let default_filter = {
-            let settings = app.resources_mut().get_or_insert_with(LogSettings::default);
+            let settings = app
+                .world_mut()
+                .get_resource_or_insert_with(LogSettings::default);
             format!("{},{}", settings.level, settings.filter)
         };
 
@@ -71,7 +114,7 @@ impl Plugin for LogPlugin {
                         }
                     }))
                     .build();
-                app.resources_mut().insert_non_send(guard);
+                app.world_mut().insert_non_send(guard);
                 let subscriber = subscriber.with(chrome_layer);
                 bevy_utils::tracing::subscriber::set_global_default(subscriber)
                     .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");

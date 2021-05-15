@@ -1,7 +1,7 @@
 use crate::renderer::WgpuRenderResourceContext;
 use bevy_app::prelude::*;
 use bevy_diagnostic::{Diagnostic, DiagnosticId, Diagnostics};
-use bevy_ecs::{IntoSystem, Res, ResMut};
+use bevy_ecs::system::{IntoSystem, Res, ResMut};
 use bevy_render::renderer::RenderResourceContext;
 
 #[derive(Default)]

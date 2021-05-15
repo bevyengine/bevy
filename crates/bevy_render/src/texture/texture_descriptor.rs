@@ -30,7 +30,7 @@ impl Default for TextureDescriptor {
             size: Extent3d {
                 width: 1,
                 height: 1,
-                depth: 1,
+                depth_or_array_layers: 1,
             },
             mip_level_count: 1,
             sample_count: 1,
@@ -58,7 +58,8 @@ pub enum StorageTextureAccess {
     /// ```
     WriteOnly,
     /// The texture can be both read and written in the shader.
-    /// [`Features::STORAGE_TEXTURE_ACCESS_READ_WRITE`] must be enabled to use this access mode.
+    /// `wgpu::Features::STORAGE_TEXTURE_ACCESS_READ_WRITE` must be enabled to use this access
+    /// mode.
     ///
     /// Example GLSL syntax:
     /// ```cpp,ignore

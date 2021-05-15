@@ -1,9 +1,12 @@
 use std::borrow::Cow;
 
-use bevy_ecs::{Resources, World};
+use bevy_ecs::world::World;
 use bevy_openxr_core::XRDevice;
 
-use crate::{render_graph::{Node, ResourceSlotInfo, ResourceSlots}, renderer::{RenderContext, RenderResourceId, RenderResourceType, TextureId}};
+use crate::{
+    render_graph::{Node, ResourceSlotInfo, ResourceSlots},
+    renderer::{RenderContext, RenderResourceId, RenderResourceType, TextureId},
+};
 
 #[derive(Default)]
 pub struct XRSwapChainNode {
@@ -29,15 +32,14 @@ impl Node for XRSwapChainNode {
 
     fn update(
         &mut self,
-        _world: &World,
-        resources: &Resources,
+        world: &mut World,
         render_context: &mut dyn RenderContext,
         _input: &ResourceSlots,
         output: &mut ResourceSlots,
     ) {
         const WINDOW_TEXTURE: usize = 0;
 
-        let mut openxr_device = resources.get_mut::<XRDevice>().unwrap();
+        let mut openxr_device = world.get_resource_mut::<XRDevice>().unwrap();
         let xr_swapchain = openxr_device.get_swapchain_mut().unwrap();
 
         let textures = match &self.textures {
@@ -50,11 +52,14 @@ impl Node for XRSwapChainNode {
                 let texture_views = xr_swapchain.take_color_textures();
 
                 // and set textures to current struct
-                let textures: Vec<TextureId> = texture_views.into_iter().map(|texture_view| {
-                    let id = TextureId::new();
-                    render_resource_context.add_texture_view(id, texture_view);
-                    id
-                }).collect();
+                let textures: Vec<TextureId> = texture_views
+                    .into_iter()
+                    .map(|texture_view| {
+                        let id = TextureId::new();
+                        render_resource_context.add_texture_view(id, texture_view);
+                        id
+                    })
+                    .collect();
 
                 self.textures = Some(textures);
                 self.textures.as_mut().unwrap()
@@ -65,9 +70,6 @@ impl Node for XRSwapChainNode {
         let swap_chain_index = xr_swapchain.get_next_swapchain_image_index();
         let texture_id = textures.get(swap_chain_index).unwrap().clone();
 
-        output.set(
-            WINDOW_TEXTURE,
-            RenderResourceId::Texture(texture_id),
-        );
+        output.set(WINDOW_TEXTURE, RenderResourceId::Texture(texture_id));
     }
 }

@@ -1,12 +1,13 @@
 use crate::converter::{convert_axis, convert_button, convert_gamepad_id};
 use bevy_app::Events;
-use bevy_ecs::{Resources, World};
+use bevy_ecs::world::World;
 use bevy_input::{gamepad::GamepadEventRaw, prelude::*};
 use gilrs::{EventType, Gilrs};
 
-pub fn gilrs_event_startup_system(_world: &mut World, resources: &mut Resources) {
-    let gilrs = resources.get_non_send::<Gilrs>().unwrap();
-    let mut event = resources.get_mut::<Events<GamepadEventRaw>>().unwrap();
+pub fn gilrs_event_startup_system(world: &mut World) {
+    let world = world.cell();
+    let gilrs = world.get_non_send::<Gilrs>().unwrap();
+    let mut event = world.get_resource_mut::<Events<GamepadEventRaw>>().unwrap();
     for (id, _) in gilrs.gamepads() {
         event.send(GamepadEventRaw(
             convert_gamepad_id(id),
@@ -15,9 +16,10 @@ pub fn gilrs_event_startup_system(_world: &mut World, resources: &mut Resources)
     }
 }
 
-pub fn gilrs_event_system(_world: &mut World, resources: &mut Resources) {
-    let mut gilrs = resources.get_non_send_mut::<Gilrs>().unwrap();
-    let mut event = resources.get_mut::<Events<GamepadEventRaw>>().unwrap();
+pub fn gilrs_event_system(world: &mut World) {
+    let world = world.cell();
+    let mut gilrs = world.get_non_send_mut::<Gilrs>().unwrap();
+    let mut event = world.get_resource_mut::<Events<GamepadEventRaw>>().unwrap();
     event.update();
     while let Some(gilrs_event) = gilrs.next_event() {
         match gilrs_event.event {

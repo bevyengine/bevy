@@ -19,18 +19,18 @@ fn print_mouse_events_system(
     mut mouse_wheel_events: EventReader<MouseWheel>,
 ) {
     for event in mouse_button_input_events.iter() {
-        println!("{:?}", event);
+        info!("{:?}", event);
     }
 
     for event in mouse_motion_events.iter() {
-        println!("{:?}", event);
+        info!("{:?}", event);
     }
 
     for event in cursor_moved_events.iter() {
-        println!("{:?}", event);
+        info!("{:?}", event);
     }
 
     for event in mouse_wheel_events.iter() {
-        println!("{:?}", event);
+        info!("{:?}", event);
     }
 }

@@ -1,8 +1,7 @@
 use bevy_app::{
     AppBuilder, Events, Plugin, PluginGroupBuilder, ScheduleRunnerPlugin, ScheduleRunnerSettings,
 };
-use bevy_ecs::{Added, Entity, Query, QuerySet};
-use bevy_ecs::{IntoSystem, ResMut};
+use bevy_ecs::prelude::*;
 use bevy_render::{camera::Camera, camera::CameraProjection};
 
 pub mod prelude {
@@ -64,9 +63,7 @@ pub struct XRState {
 impl Plugin for OpenXRPlugin {
     fn build(&self, app: &mut AppBuilder) {
         {
-            let settings = app
-                .resources_mut()
-                .get_or_insert_with(OpenXRSettings::default);
+            let settings = app.world_mut().insert_resource(OpenXRSettings::default());
 
             println!("Settings: {:?}", settings);
         };
@@ -154,7 +151,7 @@ fn openxr_camera_system(
         Query<Entity, Added<Camera>>,
     )>,
 ) {
-    // FIXME ugly hack. handle resolution
+    // FIXME ugly hack. handle resolution changes
     if projection_state.is_configured {
         return;
     }
@@ -178,7 +175,10 @@ fn openxr_camera_system(
             }),
         ];
 
-        //println!("Projection matrices set to {:#?}", camera.multiview_projection_matrices);
+        println!(
+            "Updated projection matrices TO: {:#?}",
+            camera.multiview_projection_matrices
+        );
 
         //camera.projection_matrix = camera.multiview_projection_matrices[0]; // camera_projection.get_projection_matrix();
         camera.depth_calculation = camera_projection.depth_calculation();

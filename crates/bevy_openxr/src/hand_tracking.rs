@@ -1,6 +1,6 @@
 use bevy_app::prelude::*;
 use bevy_asset::Assets;
-use bevy_ecs::{Commands, IntoSystem, Query, QuerySet, Res, ResMut, With};
+use bevy_ecs::prelude::*;
 use bevy_math::{Quat, Vec3};
 use bevy_openxr_core::{HandPoseState, XRState};
 use bevy_pbr::{prelude::*, PbrBundle};
@@ -26,7 +26,7 @@ struct LeftHand(usize);
 struct RightHand(usize);
 
 fn setup(
-    commands: &mut Commands,
+    mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
@@ -38,15 +38,15 @@ fn setup(
     // left hand
     for i in 0..openxr::HAND_JOINT_COUNT {
         commands
-            .spawn(get_joint_box(i, &mut meshes, &mut materials))
-            .with(LeftHand(i));
+            .spawn_bundle(get_joint_box(i, &mut meshes, &mut materials))
+            .insert(LeftHand(i));
     }
 
     // right hand
     for i in 0..openxr::HAND_JOINT_COUNT {
         commands
-            .spawn(get_joint_box(i, &mut meshes, &mut materials))
-            .with(RightHand(i));
+            .spawn_bundle(get_joint_box(i, &mut meshes, &mut materials))
+            .insert(RightHand(i));
     }
 }
 

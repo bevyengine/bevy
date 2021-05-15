@@ -1,6 +1,7 @@
 use super::DepthCalculation;
+use bevy_ecs::reflect::ReflectComponent;
 use bevy_math::Mat4;
-use bevy_reflect::{Reflect, ReflectComponent, ReflectDeserialize};
+use bevy_reflect::{Reflect, ReflectDeserialize};
 use serde::{Deserialize, Serialize};
 
 pub trait CameraProjection {

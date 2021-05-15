@@ -1,7 +1,7 @@
 use bevy_app::Events;
-use bevy_ecs::ResMut;
+use bevy_ecs::system::ResMut;
 
-use crate::{XRDevice, XRState, HandPoseState};
+use crate::{HandPoseState, XRDevice, XRState};
 
 pub fn openxr_event_system(
     mut openxr: ResMut<XRDevice>,
