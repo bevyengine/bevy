@@ -386,12 +386,10 @@ impl PipelineCompiler {
         );
 
         if !pipeline_specialization.dynamic_bindings.is_empty() {
-            if !pipeline_specialization.dynamic_bindings.is_empty() {
-                Self::set_bind_group_layout_dynamic(
-                    &PipelineSpecialization::Compute(pipeline_specialization.clone()),
-                    &mut layout,
-                );
-            }
+            Self::set_bind_group_layout_dynamic(
+                &PipelineSpecialization::Compute(pipeline_specialization.clone()),
+                &mut layout,
+            );
         }
         specialized_descriptor.layout = Some(layout);
 
