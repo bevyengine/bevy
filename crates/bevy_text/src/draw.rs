@@ -1,11 +1,11 @@
 use crate::{PositionedGlyph, TextSection};
 use bevy_math::{Mat4, Vec3};
-use bevy_render::pipeline::IndexFormat;
+use bevy_render::pipeline::{IndexFormat, RenderPipelineSpecialization};
 use bevy_render::{
     draw::{Draw, DrawContext, DrawError, Drawable},
     mesh,
     mesh::Mesh,
-    pipeline::{PipelineSpecialization, VertexBufferLayout},
+    pipeline::{VertexBufferLayout},
     prelude::Msaa,
     renderer::{BindGroup, RenderResourceBindings, RenderResourceId},
 };
@@ -29,7 +29,7 @@ impl<'a> Drawable for DrawableText<'a> {
         context.set_pipeline(
             draw,
             &bevy_sprite::SPRITE_SHEET_PIPELINE_HANDLE.typed(),
-            &PipelineSpecialization {
+            &RenderPipelineSpecialization {
                 sample_count: self.msaa.samples,
                 vertex_buffer_layout: self.font_quad_vertex_layout.clone(),
                 ..Default::default()

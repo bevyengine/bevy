@@ -1,7 +1,4 @@
-use crate::{
-    pipeline::{PipelineCompiler, RenderPipelineDescriptor},
-    renderer::RenderResourceContext,
-};
+use crate::{pipeline::{ComputePipelineDescriptor, PipelineCompiler, RenderPipelineDescriptor}, renderer::RenderResourceContext};
 
 use super::ShaderLayout;
 use bevy_app::EventReader;
@@ -374,7 +371,8 @@ impl AssetLoader for ShaderLoader {
 
 pub fn shader_update_system(
     mut shaders: ResMut<Assets<Shader>>,
-    mut pipelines: ResMut<Assets<RenderPipelineDescriptor>>,
+    mut render_pipelines: ResMut<Assets<RenderPipelineDescriptor>>,
+    mut compute_pipelines: ResMut<Assets<ComputePipelineDescriptor>>,
     mut shader_events: EventReader<AssetEvent<Shader>>,
     mut pipeline_compiler: ResMut<PipelineCompiler>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
@@ -384,7 +382,8 @@ pub fn shader_update_system(
             AssetEvent::Modified { handle } => {
                 if let Err(e) = pipeline_compiler.update_shader(
                     handle,
-                    &mut pipelines,
+                    &mut render_pipelines,
+                    &mut compute_pipelines,
                     &mut shaders,
                     &**render_resource_context,
                 ) {

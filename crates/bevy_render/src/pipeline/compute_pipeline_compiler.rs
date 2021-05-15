@@ -34,7 +34,7 @@ impl ComputePipelineSpecialization {
 }
 
 #[derive(Debug)]
-struct ComputeSpecializedPipeline {
+struct SpecializedComputePipeline {
     pipeline: Handle<ComputePipelineDescriptor>,
     specialization: ComputePipelineSpecialization,
 }
@@ -44,7 +44,7 @@ pub struct ComputePipelineCompiler {
     specialized_shaders: HashMap<Handle<Shader>, Vec<SpecializedShader>>,
     specialized_shader_pipelines: HashMap<Handle<Shader>, Vec<Handle<ComputePipelineDescriptor>>>,
     specialized_pipelines:
-        HashMap<Handle<ComputePipelineDescriptor>, Vec<ComputeSpecializedPipeline>>,
+        HashMap<Handle<ComputePipelineDescriptor>, Vec<SpecializedComputePipeline>>,
 }
 
 impl ComputePipelineCompiler {
@@ -179,7 +179,7 @@ impl ComputePipelineCompiler {
             .entry(source_pipeline.clone_weak())
             .or_insert_with(Vec::new);
         let weak_specialized_pipeline_handle = specialized_pipeline_handle.clone_weak();
-        specialized_pipelines.push(ComputeSpecializedPipeline {
+        specialized_pipelines.push(SpecializedComputePipeline {
             pipeline: specialized_pipeline_handle,
             specialization: pipeline_specialization.clone(),
         });

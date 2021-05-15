@@ -46,10 +46,7 @@ use camera::{
     ActiveCameras, Camera, DepthCalculation, OrthographicProjection, PerspectiveProjection,
     RenderLayers, ScalingMode, VisibleEntities, WindowOrigin,
 };
-use pipeline::{
-    IndexFormat, PipelineCompiler, RenderPipelineDescriptor, PipelineSpecialization, PrimitiveTopology,
-    ShaderSpecialization, VertexBufferLayout,
-};
+use pipeline::{ComputePipelineDescriptor, IndexFormat, PipelineCompiler, PipelineSpecialization, PrimitiveTopology, RenderPipelineDescriptor, ShaderSpecialization, VertexBufferLayout};
 use render_graph::{
     base::{self, BaseRenderGraphConfig, MainPass},
     RenderGraph,
@@ -136,6 +133,7 @@ impl Plugin for RenderPlugin {
         .add_asset::<Texture>()
         .add_asset::<Shader>()
         .add_asset::<RenderPipelineDescriptor>()
+        .add_asset::<ComputePipelineDescriptor>()
         .register_type::<Camera>()
         .register_type::<DepthCalculation>()
         .register_type::<Draw>()

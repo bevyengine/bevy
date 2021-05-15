@@ -1,10 +1,4 @@
-use crate::{
-    draw::DrawContext,
-    mesh::Indices,
-    pipeline::{RenderPipelineDescriptor, PipelineSpecialization, RenderPipeline},
-    prelude::*,
-    shader::Shader,
-};
+use crate::{draw::DrawContext, mesh::Indices, pipeline::{RenderPipeline, RenderPipelineDescriptor, RenderPipelineSpecialization}, prelude::*, shader::Shader};
 use bevy_app::prelude::*;
 use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_ecs::{
@@ -85,7 +79,7 @@ pub fn draw_wireframes_system(
 
         let mut render_pipeline = RenderPipeline::specialized(
             WIREFRAME_PIPELINE_HANDLE.typed(),
-            PipelineSpecialization {
+            RenderPipelineSpecialization {
                 sample_count: msaa.samples,
                 strip_index_format: None,
                 shader_specialization: Default::default(),

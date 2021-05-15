@@ -1,13 +1,7 @@
-use crate::{
-    pipeline::{
-        IndexFormat, PipelineCompiler, RenderPipelineDescriptor, PipelineLayout, PipelineSpecialization,
-    },
-    renderer::{
+use crate::{pipeline::{IndexFormat, PipelineCompiler, PipelineLayout, RenderPipelineDescriptor, RenderPipelineSpecialization}, renderer::{
         AssetRenderResourceBindings, BindGroup, BindGroupId, BufferId, RenderResource,
         RenderResourceBinding, RenderResourceBindings, RenderResourceContext, SharedBuffers,
-    },
-    shader::Shader,
-};
+    }, shader::Shader};
 use bevy_asset::{Asset, Assets, Handle};
 use bevy_ecs::{
     reflect::ReflectComponent,
@@ -189,15 +183,15 @@ impl<'a> DrawContext<'a> {
         &mut self,
         draw: &mut Draw,
         pipeline_handle: &Handle<RenderPipelineDescriptor>,
-        specialization: &PipelineSpecialization,
+        specialization: &RenderPipelineSpecialization,
     ) -> Result<(), DrawError> {
         let specialized_pipeline = if let Some(specialized_pipeline) = self
             .pipeline_compiler
-            .get_specialized_pipeline(pipeline_handle, specialization)
+            .get_specialized_render_pipeline(pipeline_handle, specialization)
         {
             specialized_pipeline
         } else {
-            self.pipeline_compiler.compile_pipeline(
+            self.pipeline_compiler.compile_render_pipeline(
                 &**self.render_resource_context,
                 &mut self.pipelines,
                 &mut self.shaders,
