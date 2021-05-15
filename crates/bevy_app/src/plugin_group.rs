@@ -96,6 +96,19 @@ impl PluginGroupBuilder {
         self
     }
 
+    pub fn remove<T: Plugin>(&mut self) -> &mut Self {
+        let plugin_exists = self.plugins.contains_key(&TypeId::of::<T>());
+
+        if plugin_exists {
+            self.order.retain(|val| val != &TypeId::of::<T>());
+
+            self.plugins
+                .remove(&TypeId::of::<T>())
+                .expect("Could not remove a plugin");
+        }
+        self
+    }
+
     pub fn finish(self, app: &mut AppBuilder) {
         for ty in self.order.iter() {
             if let Some(entry) = self.plugins.get(ty) {
@@ -105,5 +118,111 @@ impl PluginGroupBuilder {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct TestPlugin1;
+    impl Plugin for TestPlugin1 {
+        fn build(&self, _app: &mut AppBuilder) {}
+    }
+
+    struct TestPlugin2;
+    impl Plugin for TestPlugin2 {
+        fn build(&self, _app: &mut AppBuilder) {}
+    }
+
+    struct TestPlugin3;
+    impl Plugin for TestPlugin3 {
+        fn build(&self, _app: &mut AppBuilder) {}
+    }
+
+    impl PluginGroupBuilder {
+        fn contains<T: Plugin>(&self) -> bool {
+            self.plugins.contains_key(&TypeId::of::<T>())
+        }
+
+        fn get_idx<T: Plugin>(&self) -> Option<usize> {
+            self.order
+                .iter()
+                .enumerate()
+                .find(|(_, &type_id)| type_id == TypeId::of::<T>())
+                .map(|(idx, _)| idx)
+        }
+    }
+
+    #[test]
+    fn adds_plugin() {
+        let mut builder = PluginGroupBuilder::default();
+        builder.add(TestPlugin1);
+        assert!(builder.contains::<TestPlugin1>());
+        assert_eq!(builder.get_idx::<TestPlugin1>().unwrap(), 0);
+    }
+
+    #[test]
+    fn adds_plugin_before() {
+        let mut builder = PluginGroupBuilder::default();
+        builder.add(TestPlugin1);
+        builder.add_before::<TestPlugin1, _>(TestPlugin2);
+        assert_eq!(builder.get_idx::<TestPlugin2>().unwrap(), 0);
+        assert_eq!(builder.get_idx::<TestPlugin1>().unwrap(), 1);
+    }
+
+    #[test]
+    fn adds_plugin_after() {
+        let mut builder = PluginGroupBuilder::default();
+        builder.add(TestPlugin1);
+        builder.add(TestPlugin2);
+        builder.add_after::<TestPlugin1, _>(TestPlugin3);
+        assert_eq!(builder.get_idx::<TestPlugin1>().unwrap(), 0);
+        assert_eq!(builder.get_idx::<TestPlugin2>().unwrap(), 2);
+        assert_eq!(builder.get_idx::<TestPlugin3>().unwrap(), 1);
+    }
+
+    #[test]
+    fn removes_plugin() {
+        let mut builder = PluginGroupBuilder::default();
+        builder.add(TestPlugin1);
+        assert!(builder.contains::<TestPlugin1>());
+        builder.remove::<TestPlugin1>();
+        assert!(!builder.contains::<TestPlugin1>());
+    }
+
+    #[test]
+    fn enables_and_disables_plugin() {
+        let mut builder = PluginGroupBuilder::default();
+        builder.add(TestPlugin1);
+
+        assert_eq!(
+            builder
+                .plugins
+                .get(&TypeId::of::<TestPlugin1>())
+                .unwrap()
+                .enabled,
+            true
+        );
+
+        builder.disable::<TestPlugin1>();
+        assert_eq!(
+            builder
+                .plugins
+                .get(&TypeId::of::<TestPlugin1>())
+                .unwrap()
+                .enabled,
+            false
+        );
+
+        builder.enable::<TestPlugin1>();
+        assert_eq!(
+            builder
+                .plugins
+                .get(&TypeId::of::<TestPlugin1>())
+                .unwrap()
+                .enabled,
+            true
+        );
     }
 }
