@@ -36,7 +36,7 @@ impl Node for WindowSwapChainNode {
 
     fn update(
         &mut self,
-        world: &World,
+        world: &mut World,
         render_context: &mut dyn RenderContext,
         _input: &ResourceSlots,
         output: &mut ResourceSlots,

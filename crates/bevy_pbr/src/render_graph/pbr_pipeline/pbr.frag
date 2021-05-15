@@ -43,7 +43,7 @@ struct PointLight {
     vec4 color;
     vec4 lightParams;
 };
- 
+
 struct DirectionalLight {
     vec4 direction;
     vec4 color;
@@ -61,6 +61,7 @@ layout(location = 0) out vec4 o_Target;
 
 layout(set = 0, binding = 0) uniform CameraViewProj {
     mat4 ViewProj;
+    mat4 ViewProj2;
 };
 layout(std140, set = 0, binding = 1) uniform CameraPosition {
     vec4 CameraPos;

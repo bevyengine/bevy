@@ -119,6 +119,7 @@ pub fn get_wgpu_render_system(world: &mut World) -> impl FnMut(&mut World) {
         .get_resource::<WgpuOptions>()
         .cloned()
         .unwrap_or_else(WgpuOptions::default);
+
     let mut wgpu_renderer = future::block_on(WgpuRenderer::new(options));
 
     let resource_context = WgpuRenderResourceContext::new(wgpu_renderer.device.clone());
@@ -162,7 +163,7 @@ impl WgpuBackend {
                 other => panic!("Unknown backend: {}", other),
             }
         } else {
-            WgpuBackend::Auto
+            WgpuBackend::Vulkan // FIXME
         }
     }
 }

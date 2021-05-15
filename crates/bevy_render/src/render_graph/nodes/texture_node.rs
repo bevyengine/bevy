@@ -40,7 +40,7 @@ impl Node for TextureNode {
 
     fn update(
         &mut self,
-        _world: &World,
+        _world: &mut World,
         render_context: &mut dyn RenderContext,
         _input: &ResourceSlots,
         output: &mut ResourceSlots,

@@ -16,7 +16,7 @@ pub struct WgpuRenderGraphExecutor {
 impl WgpuRenderGraphExecutor {
     pub fn execute(
         &self,
-        world: &World,
+        world: &mut World,
         device: Arc<wgpu::Device>,
         queue: &mut wgpu::Queue,
         stages: &mut [StageBorrow],
@@ -31,6 +31,7 @@ impl WgpuRenderGraphExecutor {
                 .clone()
         };
         let node_outputs: Arc<RwLock<HashMap<NodeId, ResourceSlots>>> = Default::default();
+
         for stage in stages.iter_mut() {
             // TODO: sort jobs and slice by "amount of work" / weights
             // stage.jobs.sort_by_key(|j| j.node_states.len());
@@ -41,7 +42,7 @@ impl WgpuRenderGraphExecutor {
             // crossbeam_utils::thread::scope(|s| {
             for jobs_chunk in stage.jobs.chunks_mut(chunk_size) {
                 let sender = sender.clone();
-                let world = &*world;
+                let world = &mut *world;
                 actual_thread_count += 1;
                 let device = device.clone();
                 let render_resource_context = render_resource_context.clone();

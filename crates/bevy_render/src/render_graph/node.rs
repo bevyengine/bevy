@@ -36,7 +36,7 @@ pub trait Node: Downcast + Send + Sync + 'static {
     /// on all nodes.
     fn update(
         &mut self,
-        world: &World,
+        world: &mut World,
         render_context: &mut dyn RenderContext,
         input: &ResourceSlots,
         output: &mut ResourceSlots,

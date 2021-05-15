@@ -94,6 +94,9 @@ impl<Q: WorldQuery> PassNode<Q> {
             }
         }
 
+        // FIXME bevy 0.4->0.5 had camera_bind_group_descriptor which set
+        // property: UniformProperty::Struct(vec![UniformProperty::Mat4, UniformProperty::Mat4]),
+        // does this cause errors now? This comment is probably safe to remove, if everything works
         PassNode {
             descriptor,
             inputs,
@@ -205,7 +208,7 @@ where
 
     fn update(
         &mut self,
-        world: &World,
+        world: &mut World,
         render_context: &mut dyn RenderContext,
         input: &ResourceSlots,
         _output: &mut ResourceSlots,

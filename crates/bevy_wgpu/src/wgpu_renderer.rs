@@ -5,6 +5,10 @@ use crate::{
 };
 use bevy_app::{Events, ManualEventReader};
 use bevy_ecs::world::{Mut, World};
+
+#[cfg(feature = "use-openxr")]
+use bevy_openxr_core::{event::XRState, XRDevice};
+
 use bevy_render::{
     render_graph::{DependentNodeStager, RenderGraph, RenderGraphStager},
     renderer::RenderResourceContext,
@@ -123,12 +127,27 @@ impl WgpuRenderer {
     }
 
     pub fn update(&mut self, world: &mut World) {
-        self.handle_window_created_events(world);
+        #[cfg(feature = "use-openxr")]
+        if let Some(mut xr_device) = world.get_resource_mut::<XRDevice>() {
+            if let XRState::Running = xr_device.prepare_update(&self.device) {
+            } else {
+                return;
+            };
+        } else {
+            self.handle_window_created_events(world);
+        }
+
         self.run_graph(world);
+
+        #[cfg(feature = "use-openxr")]
+        if let Some(mut xr_device) = world.get_resource_mut::<XRDevice>() {
+            xr_device.finalize_update();
+        }
 
         let render_resource_context = world
             .get_resource::<Box<dyn RenderResourceContext>>()
             .unwrap();
+
         render_resource_context.drop_all_swap_chain_textures();
         render_resource_context.remove_stale_bind_groups();
     }

@@ -41,7 +41,7 @@ impl Default for TextureAtlasBuilder {
             rects_to_place: GroupedRectsToPlace::new(),
             initial_size: Vec2::new(256., 256.),
             max_size: Vec2::new(2048., 2048.),
-            format: TextureFormat::Rgba8UnormSrgb,
+            format: TextureFormat::Rgba8Unorm,
             auto_format_conversion: true,
         }
     }

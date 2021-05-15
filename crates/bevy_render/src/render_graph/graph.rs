@@ -346,7 +346,7 @@ mod tests {
 
         fn update(
             &mut self,
-            _: &World,
+            _: &mut World,
             _: &mut dyn RenderContext,
             _: &ResourceSlots,
             _: &mut ResourceSlots,
@@ -419,7 +419,7 @@ mod tests {
         impl Node for MyNode {
             fn update(
                 &mut self,
-                _: &World,
+                _: &mut World,
                 _: &mut dyn RenderContext,
                 _: &ResourceSlots,
                 _: &mut ResourceSlots,

@@ -1,4 +1,5 @@
 #version 450
+#extension GL_EXT_multiview : enable
 
 layout(location = 0) in vec3 Vertex_Position;
 layout(location = 1) in vec3 Vertex_Normal;
@@ -14,6 +15,7 @@ layout(location = 2) out vec2 v_Uv;
 
 layout(set = 0, binding = 0) uniform CameraViewProj {
     mat4 ViewProj;
+    mat4 ViewProj2;
 };
 
 #ifdef STANDARDMATERIAL_NORMAL_MAP
@@ -32,5 +34,13 @@ void main() {
 #ifdef STANDARDMATERIAL_NORMAL_MAP
     v_WorldTangent = vec4(mat3(Model) * Vertex_Tangent.xyz, Vertex_Tangent.w);
 #endif
-    gl_Position = ViewProj * world_position;
+
+    mat4 eyeViewProj;
+    if (gl_ViewIndex == 0) {
+        eyeViewProj = ViewProj;
+    } else {
+        eyeViewProj = ViewProj2;
+    }
+
+    gl_Position = eyeViewProj * world_position;
 }

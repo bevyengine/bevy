@@ -16,7 +16,7 @@ pub struct TextureCopyNode {
 impl Node for TextureCopyNode {
     fn update(
         &mut self,
-        world: &World,
+        world: &mut World,
         render_context: &mut dyn RenderContext,
         _input: &ResourceSlots,
         _output: &mut ResourceSlots,
