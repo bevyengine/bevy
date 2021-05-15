@@ -186,9 +186,16 @@ mod tests {
     fn removes_plugin() {
         let mut builder = PluginGroupBuilder::default();
         builder.add(TestPlugin1);
+        builder.add(TestPlugin2);
+        builder.add(TestPlugin3);
+        builder.remove::<TestPlugin2>();
         assert!(builder.contains::<TestPlugin1>());
-        builder.remove::<TestPlugin1>();
-        assert!(!builder.contains::<TestPlugin1>());
+        assert!(!builder.contains::<TestPlugin2>());
+        assert!(builder.contains::<TestPlugin3>());
+        assert_eq!(
+            builder.order.as_slice(),
+            &[TypeId::of::<TestPlugin1>(), TypeId::of::<TestPlugin3>()]
+        );
     }
 
     #[test]
