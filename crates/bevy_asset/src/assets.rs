@@ -1,9 +1,12 @@
 use crate::{
-    update_asset_storage_system, Asset, AssetLoader, AssetServer, Handle, HandleId, RefChange,
+    update_asset_storage_system, Asset, AssetLoader, AssetServer, AssetStage, Handle, HandleId,
+    RefChange,
 };
-use bevy_app::{prelude::Events, AppBuilder};
-use bevy_ecs::{FromResources, IntoSystem, ResMut};
-use bevy_reflect::RegisterTypeBuilder;
+use bevy_app::{AppBuilder, EventWriter, Events};
+use bevy_ecs::{
+    system::{IntoSystem, ResMut},
+    world::FromWorld,
+};
 use bevy_utils::HashMap;
 use crossbeam_channel::Sender;
 use std::fmt::Debug;
@@ -69,18 +72,10 @@ impl<T: Asset> Assets<T> {
         self.get_handle(id)
     }
 
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn set<H: Into<HandleId>>(&mut self, handle: H, asset: T) -> Handle<T> {
         let id: HandleId = handle.into();
-        if self.assets.insert(id, asset).is_some() {
-            self.events.send(AssetEvent::Modified {
-                handle: Handle::weak(id),
-            });
-        } else {
-            self.events.send(AssetEvent::Created {
-                handle: Handle::weak(id),
-            });
-        }
-
+        self.set_untracked(id, asset);
         self.get_handle(id)
     }
 
@@ -179,10 +174,10 @@ impl<T: Asset> Assets<T> {
     }
 
     pub fn asset_event_system(
-        mut events: ResMut<Events<AssetEvent<T>>>,
+        mut events: EventWriter<AssetEvent<T>>,
         mut assets: ResMut<Assets<T>>,
     ) {
-        events.extend(assets.events.drain())
+        events.send_batch(assets.events.drain())
     }
 
     pub fn len(&self) -> usize {
@@ -201,7 +196,7 @@ pub trait AddAsset {
         T: Asset;
     fn init_asset_loader<T>(&mut self) -> &mut Self
     where
-        T: AssetLoader + FromResources;
+        T: AssetLoader + FromWorld;
     fn add_asset_loader<T>(&mut self, loader: T) -> &mut Self
     where
         T: AssetLoader;
@@ -213,17 +208,17 @@ impl AddAsset for AppBuilder {
         T: Asset,
     {
         let assets = {
-            let asset_server = self.resources().get::<AssetServer>().unwrap();
+            let asset_server = self.world().get_resource::<AssetServer>().unwrap();
             asset_server.register_asset_type::<T>()
         };
 
-        self.add_resource(assets)
+        self.insert_resource(assets)
             .add_system_to_stage(
-                super::stage::ASSET_EVENTS,
+                AssetStage::AssetEvents,
                 Assets::<T>::asset_event_system.system(),
             )
             .add_system_to_stage(
-                crate::stage::LOAD_ASSETS,
+                AssetStage::LoadAssets,
                 update_asset_storage_system::<T>.system(),
             )
             .register_type::<Handle<T>>()
@@ -232,17 +227,18 @@ impl AddAsset for AppBuilder {
 
     fn init_asset_loader<T>(&mut self) -> &mut Self
     where
-        T: AssetLoader + FromResources,
+        T: AssetLoader + FromWorld,
     {
-        self.add_asset_loader(T::from_resources(self.resources()))
+        let result = T::from_world(self.world_mut());
+        self.add_asset_loader(result)
     }
 
     fn add_asset_loader<T>(&mut self, loader: T) -> &mut Self
     where
         T: AssetLoader,
     {
-        self.resources()
-            .get_mut::<AssetServer>()
+        self.world_mut()
+            .get_resource_mut::<AssetServer>()
             .expect("AssetServer does not exist. Consider adding it as a resource.")
             .add_loader(loader);
         self

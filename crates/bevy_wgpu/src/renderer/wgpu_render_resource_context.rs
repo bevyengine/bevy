@@ -1,8 +1,6 @@
-use crate::{
-    wgpu_type_converter::{OwnedWgpuVertexBufferDescriptor, WgpuInto},
-    WgpuBindGroupInfo, WgpuResources,
-};
+use crate::{wgpu_type_converter::WgpuInto, WgpuBindGroupInfo, WgpuResources};
 
+use crate::wgpu_type_converter::OwnedWgpuVertexBufferLayout;
 use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_render::{
     pipeline::{
@@ -18,7 +16,12 @@ use bevy_render::{
 use bevy_utils::tracing::trace;
 use bevy_window::{Window, WindowId};
 use futures_lite::future;
-use std::{borrow::Cow, ops::Range, sync::Arc};
+use std::{
+    borrow::Cow,
+    num::{NonZeroU32, NonZeroU64},
+    ops::Range,
+    sync::Arc,
+};
 use wgpu::util::DeviceExt;
 
 #[derive(Clone, Debug)]
@@ -27,8 +30,10 @@ pub struct WgpuRenderResourceContext {
     pub resources: WgpuResources,
 }
 
-pub const BIND_BUFFER_ALIGNMENT: usize = 256;
-pub const TEXTURE_ALIGNMENT: usize = 256;
+pub const COPY_BYTES_PER_ROW_ALIGNMENT: usize = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
+pub const BIND_BUFFER_ALIGNMENT: usize = wgpu::BIND_BUFFER_ALIGNMENT as usize;
+pub const COPY_BUFFER_ALIGNMENT: usize = wgpu::COPY_BUFFER_ALIGNMENT as usize;
+pub const PUSH_CONSTANT_ALIGNMENT: u32 = wgpu::PUSH_CONSTANT_ALIGNMENT;
 
 impl WgpuRenderResourceContext {
     pub fn new(device: Arc<wgpu::Device>) -> Self {
@@ -81,7 +86,7 @@ impl WgpuRenderResourceContext {
         let source = textures.get(&source_texture).unwrap();
         let destination = textures.get(&destination_texture).unwrap();
         command_encoder.copy_texture_to_texture(
-            wgpu::TextureCopyView {
+            wgpu::ImageCopyTexture {
                 texture: source,
                 mip_level: source_mip_level,
                 origin: wgpu::Origin3d {
@@ -90,7 +95,7 @@ impl WgpuRenderResourceContext {
                     z: source_origin[2],
                 },
             },
-            wgpu::TextureCopyView {
+            wgpu::ImageCopyTexture {
                 texture: destination,
                 mip_level: destination_mip_level,
                 origin: wgpu::Origin3d {
@@ -121,7 +126,7 @@ impl WgpuRenderResourceContext {
         let source = textures.get(&source_texture).unwrap();
         let destination = buffers.get(&destination_buffer).unwrap();
         command_encoder.copy_texture_to_buffer(
-            wgpu::TextureCopyView {
+            wgpu::ImageCopyTexture {
                 texture: source,
                 mip_level: source_mip_level,
                 origin: wgpu::Origin3d {
@@ -130,12 +135,12 @@ impl WgpuRenderResourceContext {
                     z: source_origin[2],
                 },
             },
-            wgpu::BufferCopyView {
+            wgpu::ImageCopyBuffer {
                 buffer: destination,
-                layout: wgpu::TextureDataLayout {
+                layout: wgpu::ImageDataLayout {
                     offset: destination_offset,
-                    bytes_per_row: destination_bytes_per_row,
-                    rows_per_image: size.height,
+                    bytes_per_row: NonZeroU32::new(destination_bytes_per_row),
+                    rows_per_image: NonZeroU32::new(size.height),
                 },
             },
             size.wgpu_into(),
@@ -160,15 +165,15 @@ impl WgpuRenderResourceContext {
         let source = buffers.get(&source_buffer).unwrap();
         let destination = textures.get(&destination_texture).unwrap();
         command_encoder.copy_buffer_to_texture(
-            wgpu::BufferCopyView {
+            wgpu::ImageCopyBuffer {
                 buffer: source,
-                layout: wgpu::TextureDataLayout {
+                layout: wgpu::ImageDataLayout {
                     offset: source_offset,
-                    bytes_per_row: source_bytes_per_row,
-                    rows_per_image: size.height,
+                    bytes_per_row: NonZeroU32::new(source_bytes_per_row),
+                    rows_per_image: NonZeroU32::new(size.height),
                 },
             },
-            wgpu::TextureCopyView {
+            wgpu::ImageCopyTexture {
                 texture: destination,
                 mip_level: destination_mip_level,
                 origin: wgpu::Origin3d {
@@ -331,7 +336,11 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         let spirv: Cow<[u32]> = shader.get_spirv(None).unwrap().into();
         let shader_module = self
             .device
-            .create_shader_module(wgpu::ShaderModuleSource::SpirV(spirv));
+            .create_shader_module(&wgpu::ShaderModuleDescriptor {
+                label: None,
+                source: wgpu::ShaderSource::SpirV(spirv),
+                flags: Default::default(),
+            });
         shader_modules.insert(shader_handle.clone_weak(), shader_module);
     }
 
@@ -453,13 +462,13 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             .vertex_buffer_descriptors
             .iter()
             .map(|v| v.wgpu_into())
-            .collect::<Vec<OwnedWgpuVertexBufferDescriptor>>();
+            .collect::<Vec<OwnedWgpuVertexBufferLayout>>();
 
         let color_states = pipeline_descriptor
-            .color_states
+            .color_target_states
             .iter()
             .map(|c| c.wgpu_into())
-            .collect::<Vec<wgpu::ColorStateDescriptor>>();
+            .collect::<Vec<wgpu::ColorTargetState>>();
 
         self.create_shader_module(&pipeline_descriptor.shader_stages.vertex, shaders);
 
@@ -472,45 +481,37 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             .get(&pipeline_descriptor.shader_stages.vertex)
             .unwrap();
 
-        let fragment_shader_module = match pipeline_descriptor.shader_stages.fragment {
-            Some(ref fragment_handle) => Some(shader_modules.get(fragment_handle).unwrap()),
-            None => None,
-        };
-
+        let fragment_shader_module = pipeline_descriptor
+            .shader_stages
+            .fragment
+            .as_ref()
+            .map(|fragment_handle| shader_modules.get(fragment_handle).unwrap());
         let render_pipeline_descriptor = wgpu::RenderPipelineDescriptor {
             label: None,
             layout: Some(&pipeline_layout),
-            vertex_stage: wgpu::ProgrammableStageDescriptor {
+            vertex: wgpu::VertexState {
                 module: &vertex_shader_module,
                 entry_point: "main",
-            },
-            fragment_stage: match pipeline_descriptor.shader_stages.fragment {
-                Some(_) => Some(wgpu::ProgrammableStageDescriptor {
-                    entry_point: "main",
-                    module: fragment_shader_module.as_ref().unwrap(),
-                }),
-                None => None,
-            },
-            rasterization_state: pipeline_descriptor
-                .rasterization_state
-                .as_ref()
-                .map(|r| r.wgpu_into()),
-            primitive_topology: pipeline_descriptor.primitive_topology.wgpu_into(),
-            color_states: &color_states,
-            depth_stencil_state: pipeline_descriptor
-                .depth_stencil_state
-                .as_ref()
-                .map(|d| d.wgpu_into()),
-            vertex_state: wgpu::VertexStateDescriptor {
-                index_format: pipeline_descriptor.index_format.wgpu_into(),
-                vertex_buffers: &owned_vertex_buffer_descriptors
+                buffers: &owned_vertex_buffer_descriptors
                     .iter()
                     .map(|v| v.into())
-                    .collect::<Vec<wgpu::VertexBufferDescriptor>>(),
+                    .collect::<Vec<wgpu::VertexBufferLayout>>(),
             },
-            sample_count: pipeline_descriptor.sample_count,
-            sample_mask: pipeline_descriptor.sample_mask,
-            alpha_to_coverage_enabled: pipeline_descriptor.alpha_to_coverage_enabled,
+            fragment: pipeline_descriptor
+                .shader_stages
+                .fragment
+                .as_ref()
+                .map(|_| wgpu::FragmentState {
+                    entry_point: "main",
+                    module: fragment_shader_module.as_ref().unwrap(),
+                    targets: color_states.as_slice(),
+                }),
+            primitive: pipeline_descriptor.primitive.clone().wgpu_into(),
+            depth_stencil: pipeline_descriptor
+                .depth_stencil
+                .clone()
+                .map(|depth_stencil| depth_stencil.wgpu_into()),
+            multisample: pipeline_descriptor.multisample.clone().wgpu_into(),
         };
 
         let render_pipeline = self
@@ -564,7 +565,13 @@ impl RenderResourceContext for WgpuRenderResourceContext {
                         }
                         RenderResourceBinding::Buffer { buffer, range, .. } => {
                             let wgpu_buffer = buffers.get(&buffer).unwrap();
-                            wgpu::BindingResource::Buffer(wgpu_buffer.slice(range.clone()))
+                            let size = NonZeroU64::new(range.end - range.start)
+                                .expect("Size of the buffer needs to be greater than 0!");
+                            wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                                buffer: wgpu_buffer,
+                                offset: range.start,
+                                size: Some(size),
+                            })
                         }
                     };
                     wgpu::BindGroupEntry {
@@ -659,7 +666,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
     }
 
     fn get_aligned_texture_size(&self, size: usize) -> usize {
-        (size + TEXTURE_ALIGNMENT - 1) & !(TEXTURE_ALIGNMENT - 1)
+        (size + COPY_BYTES_PER_ROW_ALIGNMENT - 1) & !(COPY_BYTES_PER_ROW_ALIGNMENT - 1)
     }
 
     fn get_aligned_uniform_size(&self, size: usize, dynamic: bool) -> usize {

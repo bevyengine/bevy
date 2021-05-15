@@ -1,6 +1,6 @@
 use crate::{AssetIo, AssetIoError};
 use anyhow::Result;
-use bevy_ecs::bevy_utils::BoxedFuture;
+use bevy_utils::BoxedFuture;
 use js_sys::Uint8Array;
 use std::path::{Path, PathBuf};
 use wasm_bindgen::JsCast;

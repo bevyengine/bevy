@@ -1,6 +1,6 @@
 use super::{BindGroup, BindGroupId, BufferId, SamplerId, TextureId};
 use crate::{
-    pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineDescriptor},
+    pipeline::{BindGroupDescriptor, BindGroupDescriptorId, IndexFormat, PipelineDescriptor},
     renderer::RenderResourceContext,
 };
 use bevy_asset::{Asset, Handle, HandleUntyped};
@@ -61,15 +61,17 @@ pub enum BindGroupStatus {
     NoMatch,
 }
 
-// PERF: if the bindings are scoped to a specific pipeline layout, then names could be replaced with indices here for a perf boost
+// PERF: if the bindings are scoped to a specific pipeline layout, then names could be replaced with
+// indices here for a perf boost
 #[derive(Eq, PartialEq, Debug, Default, Clone)]
 pub struct RenderResourceBindings {
     pub bindings: HashMap<String, RenderResourceBinding>,
     /// A Buffer that contains all attributes a mesh has defined
     pub vertex_attribute_buffer: Option<BufferId>,
-    /// A Buffer that is filled with zeros that will be used for attributes required by the shader, but undefined by the mesh.
+    /// A Buffer that is filled with zeros that will be used for attributes required by the shader,
+    /// but undefined by the mesh.
     pub vertex_fallback_buffer: Option<BufferId>,
-    pub index_buffer: Option<BufferId>,
+    pub index_buffer: Option<(BufferId, IndexFormat)>,
     assets: HashSet<(HandleUntyped, TypeId)>,
     bind_groups: HashMap<BindGroupId, BindGroup>,
     bind_group_descriptors: HashMap<BindGroupDescriptorId, Option<BindGroupId>>,
@@ -87,7 +89,8 @@ impl RenderResourceBindings {
         self.bindings.insert(name.to_string(), binding);
     }
 
-    /// The current "generation" of dynamic bindings. This number increments every time a dynamic binding changes
+    /// The current "generation" of dynamic bindings. This number increments every time a dynamic
+    /// binding changes
     pub fn dynamic_bindings_generation(&self) -> usize {
         self.dynamic_bindings_generation
     }
@@ -116,8 +119,8 @@ impl RenderResourceBindings {
         }
     }
 
-    pub fn set_index_buffer(&mut self, index_buffer: BufferId) {
-        self.index_buffer = Some(index_buffer);
+    pub fn set_index_buffer(&mut self, index_buffer: BufferId, index_format: IndexFormat) {
+        self.index_buffer = Some((index_buffer, index_format));
     }
 
     fn create_bind_group(&mut self, descriptor: &BindGroupDescriptor) -> BindGroupStatus {
@@ -182,8 +185,9 @@ impl RenderResourceBindings {
                 Some(bind_group)
             }
             BindGroupStatus::Unchanged(id) => {
-                // PERF: this is only required because RenderResourceContext::remove_stale_bind_groups doesn't inform RenderResourceBindings
-                // when a stale bind group has been removed
+                // PERF: this is only required because
+                // RenderResourceContext::remove_stale_bind_groups doesn't inform
+                // RenderResourceBindings when a stale bind group has been removed
                 let bind_group = self
                     .get_bind_group(id)
                     .expect("`RenderResourceSet` was just changed, so it should exist.");
@@ -303,7 +307,7 @@ mod tests {
                     index: 0,
                     name: "a".to_string(),
                     bind_type: BindType::Uniform {
-                        dynamic: false,
+                        has_dynamic_offset: false,
                         property: UniformProperty::Struct(vec![UniformProperty::Mat4]),
                     },
                     shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
@@ -312,7 +316,7 @@ mod tests {
                     index: 1,
                     name: "b".to_string(),
                     bind_type: BindType::Uniform {
-                        dynamic: false,
+                        has_dynamic_offset: false,
                         property: UniformProperty::Float,
                     },
                     shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
@@ -330,12 +334,12 @@ mod tests {
         bindings.set("b", resource2.clone());
 
         let mut different_bindings = RenderResourceBindings::default();
-        different_bindings.set("a", resource3.clone());
-        different_bindings.set("b", resource4.clone());
+        different_bindings.set("a", resource3);
+        different_bindings.set("b", resource4);
 
         let mut equal_bindings = RenderResourceBindings::default();
         equal_bindings.set("a", resource1.clone());
-        equal_bindings.set("b", resource2.clone());
+        equal_bindings.set("b", resource2);
 
         let status = bindings.update_bind_group_status(&bind_group_descriptor);
         let id = if let BindGroupStatus::Changed(id) = status {
@@ -368,7 +372,7 @@ mod tests {
         };
 
         let mut unmatched_bindings = RenderResourceBindings::default();
-        unmatched_bindings.set("a", resource1.clone());
+        unmatched_bindings.set("a", resource1);
         let unmatched_bind_group_status =
             unmatched_bindings.update_bind_group_status(&bind_group_descriptor);
         assert_eq!(unmatched_bind_group_status, BindGroupStatus::NoMatch);

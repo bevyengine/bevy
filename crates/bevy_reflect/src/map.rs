@@ -4,8 +4,8 @@ use bevy_utils::HashMap;
 
 use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
 
-/// An ordered ReflectValue->ReflectValue mapping. ReflectValue Keys are assumed to return a non-None hash.  
-/// Ideally the ordering is stable across runs, but this is not required.
+/// An ordered ReflectValue->ReflectValue mapping. ReflectValue Keys are assumed to return a
+/// non-None hash. Ideally the ordering is stable across runs, but this is not required.
 /// This corresponds to types like [std::collections::HashMap].
 pub trait Map: Reflect {
     fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect>;
@@ -23,11 +23,20 @@ const HASH_ERROR: &str = "the given key does not support hashing";
 
 #[derive(Default)]
 pub struct DynamicMap {
-    pub values: Vec<(Box<dyn Reflect>, Box<dyn Reflect>)>,
-    pub indices: HashMap<u64, usize>,
+    name: String,
+    values: Vec<(Box<dyn Reflect>, Box<dyn Reflect>)>,
+    indices: HashMap<u64, usize>,
 }
 
 impl DynamicMap {
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn set_name(&mut self, name: String) {
+        self.name = name;
+    }
+
     pub fn insert<K: Reflect, V: Reflect>(&mut self, key: K, value: V) {
         self.insert_boxed(Box::new(key), Box::new(value));
     }
@@ -65,6 +74,7 @@ impl Map for DynamicMap {
 
     fn clone_dynamic(&self) -> DynamicMap {
         DynamicMap {
+            name: self.name.clone(),
             values: self
                 .values
                 .iter()
@@ -88,9 +98,10 @@ impl Map for DynamicMap {
     }
 }
 
-impl Reflect for DynamicMap {
+// SAFE: any and any_mut both return self
+unsafe impl Reflect for DynamicMap {
     fn type_name(&self) -> &str {
-        std::any::type_name::<Self>()
+        &self.name
     }
 
     fn any(&self) -> &dyn Any {
@@ -156,7 +167,14 @@ impl<'a> Iterator for MapIter<'a> {
         self.index += 1;
         value
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let size = self.map.len();
+        (size, Some(size))
+    }
 }
+
+impl<'a> ExactSizeIterator for MapIter<'a> {}
 
 #[inline]
 pub fn map_partial_eq<M: Map>(a: &M, b: &dyn Reflect) -> Option<bool> {

@@ -7,7 +7,7 @@ use bevy::{
 
 fn main() {
     App::build()
-        .add_resource(AssetServerSettings {
+        .insert_resource(AssetServerSettings {
             asset_folder: "/".to_string(),
         })
         .add_plugins(DefaultPlugins)
@@ -23,7 +23,7 @@ struct State {
     printed: bool,
 }
 
-fn load_asset(commands: &mut Commands, asset_server: Res<AssetServer>) {
+fn load_asset(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(State {
         handle: asset_server.load("assets_wasm.rs"),
         printed: false,

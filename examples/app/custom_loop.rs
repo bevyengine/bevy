@@ -9,7 +9,7 @@ fn my_runner(mut app: App) {
     println!("Type stuff into the console");
     for line in io::stdin().lock().lines() {
         {
-            let mut input = app.resources.get_mut::<Input>().unwrap();
+            let mut input = app.world.get_resource_mut::<Input>().unwrap();
             input.0 = line.unwrap();
         }
         app.update();
@@ -22,7 +22,7 @@ fn print_system(input: Res<Input>) {
 
 fn main() {
     App::build()
-        .add_resource(Input(String::new()))
+        .insert_resource(Input(String::new()))
         .set_runner(my_runner)
         .add_system(print_system.system())
         .run();

@@ -6,7 +6,7 @@ use crate::{
 use super::ShaderLayout;
 use bevy_app::EventReader;
 use bevy_asset::{AssetEvent, AssetLoader, Assets, Handle, LoadContext, LoadedAsset};
-use bevy_ecs::{Res, ResMut};
+use bevy_ecs::system::{Res, ResMut};
 use bevy_reflect::TypeUuid;
 use bevy_utils::{tracing::error, BoxedFuture};
 use std::marker::Copy;
@@ -24,31 +24,54 @@ pub enum ShaderStage {
 #[derive(Error, Debug)]
 pub enum ShaderError {
     /// Shader compilation error.
-    #[error("Shader compilation error: {0}")]
+    #[error("Shader compilation error:\n{0}")]
     Compilation(String),
 
-    #[cfg(any(target_os = "ios", all(target_arch = "aarch64", target_os = "macos")))]
+    #[cfg(not(any(
+        target_arch = "wasm32",
+        all(target_arch = "x86_64", target_os = "linux", target_env = "gnu"),
+        all(target_arch = "x86_64", target_os = "macos"),
+        all(target_arch = "aarch64", target_os = "android"),
+        all(target_arch = "armv7", target_os = "androidabi"),
+        all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"),
+    )))]
     /// shaderc error.
-    #[error("shaderc error")]
+    #[error("shaderc error: {0}")]
     ShaderC(#[from] shaderc::Error),
 
-    #[cfg(any(target_os = "ios", all(target_arch = "aarch64", target_os = "macos")))]
+    #[cfg(not(any(
+        target_arch = "wasm32",
+        all(target_arch = "x86_64", target_os = "linux", target_env = "gnu"),
+        all(target_arch = "x86_64", target_os = "macos"),
+        all(target_arch = "aarch64", target_os = "android"),
+        all(target_arch = "armv7", target_os = "androidabi"),
+        all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"),
+    )))]
     #[error("Error initializing shaderc Compiler")]
     ErrorInitializingShadercCompiler,
 
-    #[cfg(any(target_os = "ios", all(target_arch = "aarch64", target_os = "macos")))]
+    #[cfg(not(any(
+        target_arch = "wasm32",
+        all(target_arch = "x86_64", target_os = "linux", target_env = "gnu"),
+        all(target_arch = "x86_64", target_os = "macos"),
+        all(target_arch = "aarch64", target_os = "android"),
+        all(target_arch = "armv7", target_os = "androidabi"),
+        all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"),
+    )))]
     #[error("Error initializing shaderc CompileOptions")]
     ErrorInitializingShadercCompileOptions,
 }
 
-#[cfg(all(
-    not(target_os = "ios"),
-    not(target_arch = "wasm32"),
-    not(all(target_arch = "aarch64", target_os = "macos"))
+#[cfg(any(
+    all(target_arch = "x86_64", target_os = "linux", target_env = "gnu"),
+    all(target_arch = "x86_64", target_os = "macos"),
+    all(target_arch = "aarch64", target_os = "android"),
+    all(target_arch = "armv7", target_os = "androidabi"),
+    all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"),
 ))]
-impl Into<bevy_glsl_to_spirv::ShaderType> for ShaderStage {
-    fn into(self) -> bevy_glsl_to_spirv::ShaderType {
-        match self {
+impl From<ShaderStage> for bevy_glsl_to_spirv::ShaderType {
+    fn from(s: ShaderStage) -> bevy_glsl_to_spirv::ShaderType {
+        match s {
             ShaderStage::Vertex => bevy_glsl_to_spirv::ShaderType::Vertex,
             ShaderStage::Fragment => bevy_glsl_to_spirv::ShaderType::Fragment,
             ShaderStage::Compute => bevy_glsl_to_spirv::ShaderType::Compute,
@@ -56,10 +79,12 @@ impl Into<bevy_glsl_to_spirv::ShaderType> for ShaderStage {
     }
 }
 
-#[cfg(all(
-    not(target_os = "ios"),
-    not(target_arch = "wasm32"),
-    not(all(target_arch = "aarch64", target_os = "macos"))
+#[cfg(any(
+    all(target_arch = "x86_64", target_os = "linux", target_env = "gnu"),
+    all(target_arch = "x86_64", target_os = "macos"),
+    all(target_arch = "aarch64", target_os = "android"),
+    all(target_arch = "armv7", target_os = "androidabi"),
+    all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"),
 ))]
 pub fn glsl_to_spirv(
     glsl_source: &str,
@@ -70,7 +95,14 @@ pub fn glsl_to_spirv(
         .map_err(ShaderError::Compilation)
 }
 
-#[cfg(any(target_os = "ios", all(target_arch = "aarch64", target_os = "macos")))]
+#[cfg(not(any(
+    target_arch = "wasm32",
+    all(target_arch = "x86_64", target_os = "linux", target_env = "gnu"),
+    all(target_arch = "x86_64", target_os = "macos"),
+    all(target_arch = "aarch64", target_os = "android"),
+    all(target_arch = "armv7", target_os = "androidabi"),
+    all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"),
+)))]
 impl Into<shaderc::ShaderKind> for ShaderStage {
     fn into(self) -> shaderc::ShaderKind {
         match self {
@@ -81,7 +113,14 @@ impl Into<shaderc::ShaderKind> for ShaderStage {
     }
 }
 
-#[cfg(any(target_os = "ios", all(target_arch = "aarch64", target_os = "macos")))]
+#[cfg(not(any(
+    target_arch = "wasm32",
+    all(target_arch = "x86_64", target_os = "linux", target_env = "gnu"),
+    all(target_arch = "x86_64", target_os = "macos"),
+    all(target_arch = "aarch64", target_os = "android"),
+    all(target_arch = "armv7", target_os = "androidabi"),
+    all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"),
+)))]
 pub fn glsl_to_spirv(
     glsl_source: &str,
     stage: ShaderStage,
@@ -142,7 +181,7 @@ pub struct Shader {
 
 impl Shader {
     pub fn new(stage: ShaderStage, source: ShaderSource) -> Shader {
-        Shader { stage, source }
+        Shader { source, stage }
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -228,7 +267,16 @@ impl<'a> Iterator for ShaderStagesIterator<'a> {
         self.state += 1;
         ret
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        if self.shader_stages.fragment.is_some() {
+            return (2, Some(2));
+        }
+        (1, Some(1))
+    }
 }
+
+impl<'a> ExactSizeIterator for ShaderStagesIterator<'a> {}
 
 impl ShaderStages {
     pub fn new(vertex_shader: Handle<Shader>) -> Self {

@@ -4,7 +4,7 @@ use bevy::prelude::*;
 /// certain number of threads).
 fn main() {
     App::build()
-        .add_resource(DefaultTaskPoolOptions::with_num_threads(4))
+        .insert_resource(DefaultTaskPoolOptions::with_num_threads(4))
         .add_plugins(DefaultPlugins)
         .run();
 }

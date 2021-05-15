@@ -14,7 +14,7 @@ struct CustomAssetIo(Box<dyn AssetIo>);
 
 impl AssetIo for CustomAssetIo {
     fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
-        println!("load_path({:?})", path);
+        info!("load_path({:?})", path);
         self.0.load_path(path)
     }
 
@@ -22,22 +22,22 @@ impl AssetIo for CustomAssetIo {
         &self,
         path: &Path,
     ) -> Result<Box<dyn Iterator<Item = PathBuf>>, AssetIoError> {
-        println!("read_directory({:?})", path);
+        info!("read_directory({:?})", path);
         self.0.read_directory(path)
     }
 
     fn is_directory(&self, path: &Path) -> bool {
-        println!("is_directory({:?})", path);
+        info!("is_directory({:?})", path);
         self.0.is_directory(path)
     }
 
     fn watch_path_for_changes(&self, path: &Path) -> Result<(), AssetIoError> {
-        println!("watch_path_for_changes({:?})", path);
+        info!("watch_path_for_changes({:?})", path);
         self.0.watch_path_for_changes(path)
     }
 
     fn watch_for_changes(&self) -> Result<(), AssetIoError> {
-        println!("watch_for_changes()");
+        info!("watch_for_changes()");
         self.0.watch_for_changes()
     }
 }
@@ -50,8 +50,8 @@ impl Plugin for CustomAssetIoPlugin {
         // must get a hold of the task pool in order to create the asset server
 
         let task_pool = app
-            .resources()
-            .get::<bevy::tasks::IoTaskPool>()
+            .world()
+            .get_resource::<bevy::tasks::IoTaskPool>()
             .expect("`IoTaskPool` resource not found.")
             .0
             .clone();
@@ -69,7 +69,7 @@ impl Plugin for CustomAssetIoPlugin {
 
         // the asset server is constructed and added the resource manager
 
-        app.add_resource(AssetServer::new(asset_io, task_pool));
+        app.insert_resource(AssetServer::new(asset_io, task_pool));
     }
 }
 
@@ -90,15 +90,14 @@ fn main() {
 }
 
 fn setup(
-    commands: &mut Commands,
+    mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     let texture_handle = asset_server.load("branding/icon.png");
-    commands
-        .spawn(Camera2dBundle::default())
-        .spawn(SpriteBundle {
-            material: materials.add(texture_handle.into()),
-            ..Default::default()
-        });
+    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(SpriteBundle {
+        material: materials.add(texture_handle.into()),
+        ..Default::default()
+    });
 }

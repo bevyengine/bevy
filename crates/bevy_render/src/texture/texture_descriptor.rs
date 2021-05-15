@@ -30,7 +30,7 @@ impl Default for TextureDescriptor {
             size: Extent3d {
                 width: 1,
                 height: 1,
-                depth: 1,
+                depth_or_array_layers: 1,
             },
             mip_level_count: 1,
             sample_count: 1,
@@ -39,4 +39,31 @@ impl Default for TextureDescriptor {
             usage: TextureUsage::SAMPLED | TextureUsage::COPY_DST,
         }
     }
+}
+
+#[derive(Hash, Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub enum StorageTextureAccess {
+    /// The texture can only be read in the shader and it must be annotated with `readonly`.
+    ///
+    /// Example GLSL syntax:
+    /// ```cpp,ignore
+    /// layout(set=0, binding=0, r32f) readonly uniform image2D myStorageImage;
+    /// ```
+    ReadOnly,
+    /// The texture can only be written in the shader and it must be annotated with `writeonly`.
+    ///
+    /// Example GLSL syntax:
+    /// ```cpp,ignore
+    /// layout(set=0, binding=0, r32f) writeonly uniform image2D myStorageImage;
+    /// ```
+    WriteOnly,
+    /// The texture can be both read and written in the shader.
+    /// `wgpu::Features::STORAGE_TEXTURE_ACCESS_READ_WRITE` must be enabled to use this access
+    /// mode.
+    ///
+    /// Example GLSL syntax:
+    /// ```cpp,ignore
+    /// layout(set=0, binding=0, r32f) uniform image2D myStorageImage;
+    /// ```
+    ReadWrite,
 }

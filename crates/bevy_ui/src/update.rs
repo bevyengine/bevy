@@ -1,5 +1,9 @@
 use super::Node;
-use bevy_ecs::{Entity, Query, With, Without};
+use bevy_ecs::{
+    entity::Entity,
+    query::{With, Without},
+    system::Query,
+};
 use bevy_transform::prelude::{Children, Parent, Transform};
 
 pub const UI_Z_STEP: f32 = 0.001;
@@ -48,7 +52,11 @@ fn update_hierarchy(
 }
 #[cfg(test)]
 mod tests {
-    use bevy_ecs::{Commands, IntoSystem, Resources, Schedule, SystemStage, World};
+    use bevy_ecs::{
+        schedule::{Schedule, Stage, SystemStage},
+        system::{CommandQueue, Commands, IntoSystem},
+        world::World,
+    };
     use bevy_transform::{components::Transform, hierarchy::BuildChildren};
 
     use crate::Node;
@@ -56,7 +64,7 @@ mod tests {
     use super::{ui_z_system, UI_Z_STEP};
 
     fn node_with_transform(name: &str) -> (String, Node, Transform) {
-        (name.to_owned(), Node::default(), Transform::default())
+        (name.to_owned(), Node::default(), Transform::identity())
     }
 
     fn node_without_transform(name: &str) -> (String, Node) {
@@ -70,58 +78,57 @@ mod tests {
     #[test]
     fn test_ui_z_system() {
         let mut world = World::default();
-        let mut resources = Resources::default();
-        let mut commands = Commands::default();
-        commands.set_entity_reserver(world.get_entity_reserver());
-
-        commands.spawn(node_with_transform("0"));
+        let mut queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut queue, &world);
+        commands.spawn_bundle(node_with_transform("0"));
 
         commands
-            .spawn(node_with_transform("1"))
+            .spawn_bundle(node_with_transform("1"))
             .with_children(|parent| {
                 parent
-                    .spawn(node_with_transform("1-0"))
+                    .spawn_bundle(node_with_transform("1-0"))
                     .with_children(|parent| {
-                        parent.spawn(node_with_transform("1-0-0"));
-                        parent.spawn(node_without_transform("1-0-1"));
-                        parent.spawn(node_with_transform("1-0-2"));
+                        parent.spawn_bundle(node_with_transform("1-0-0"));
+                        parent.spawn_bundle(node_without_transform("1-0-1"));
+                        parent.spawn_bundle(node_with_transform("1-0-2"));
                     });
-                parent.spawn(node_with_transform("1-1"));
+                parent.spawn_bundle(node_with_transform("1-1"));
                 parent
-                    .spawn(node_without_transform("1-2"))
+                    .spawn_bundle(node_without_transform("1-2"))
                     .with_children(|parent| {
-                        parent.spawn(node_with_transform("1-2-0"));
-                        parent.spawn(node_with_transform("1-2-1"));
+                        parent.spawn_bundle(node_with_transform("1-2-0"));
+                        parent.spawn_bundle(node_with_transform("1-2-1"));
                         parent
-                            .spawn(node_with_transform("1-2-2"))
+                            .spawn_bundle(node_with_transform("1-2-2"))
                             .with_children(|_| ());
-                        parent.spawn(node_with_transform("1-2-3"));
+                        parent.spawn_bundle(node_with_transform("1-2-3"));
                     });
-                parent.spawn(node_with_transform("1-3"));
+                parent.spawn_bundle(node_with_transform("1-3"));
             });
 
         commands
-            .spawn(node_without_transform("2"))
+            .spawn_bundle(node_without_transform("2"))
             .with_children(|parent| {
                 parent
-                    .spawn(node_with_transform("2-0"))
+                    .spawn_bundle(node_with_transform("2-0"))
                     .with_children(|_parent| ());
                 parent
-                    .spawn(node_with_transform("2-1"))
+                    .spawn_bundle(node_with_transform("2-1"))
                     .with_children(|parent| {
-                        parent.spawn(node_with_transform("2-1-0"));
+                        parent.spawn_bundle(node_with_transform("2-1-0"));
                     });
             });
-        commands.apply(&mut world, &mut resources);
+        queue.apply(&mut world);
 
         let mut schedule = Schedule::default();
         let mut update_stage = SystemStage::parallel();
         update_stage.add_system(ui_z_system.system());
         schedule.add_stage("update", update_stage);
-        schedule.initialize_and_run(&mut world, &mut resources);
+        schedule.run(&mut world);
 
         let mut actual_result = world
             .query::<(&String, &Transform)>()
+            .iter(&world)
             .map(|(name, transform)| (name.clone(), get_steps(transform)))
             .collect::<Vec<(String, u32)>>();
         actual_result.sort_unstable_by_key(|(name, _)| name.clone());

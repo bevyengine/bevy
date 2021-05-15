@@ -8,20 +8,12 @@ mod tuple_struct;
 mod type_registry;
 mod type_uuid;
 mod impls {
-    #[cfg(feature = "bevy_app")]
-    mod bevy_app;
-    #[cfg(feature = "bevy_ecs")]
-    mod bevy_ecs;
     #[cfg(feature = "glam")]
     mod glam;
     #[cfg(feature = "smallvec")]
     mod smallvec;
     mod std;
 
-    #[cfg(feature = "bevy_app")]
-    pub use self::bevy_app::*;
-    #[cfg(feature = "bevy_ecs")]
-    pub use self::bevy_ecs::*;
     #[cfg(feature = "glam")]
     pub use self::glam::*;
     #[cfg(feature = "smallvec")]
@@ -31,10 +23,7 @@ mod impls {
 
 pub mod serde;
 pub mod prelude {
-    #[cfg(feature = "bevy_ecs")]
-    pub use crate::ReflectComponent;
-    #[cfg(feature = "bevy_app")]
-    pub use crate::RegisterTypeBuilder;
+    #[doc(hidden)]
     pub use crate::{
         reflect_trait, GetField, GetTupleStructField, Reflect, ReflectDeserialize, Struct,
         TupleStruct,
@@ -56,6 +45,7 @@ pub use bevy_reflect_derive::*;
 pub use erased_serde;
 
 #[cfg(test)]
+#[allow(clippy::blacklisted_name, clippy::approx_constant)]
 mod tests {
     use ::serde::de::DeserializeSeed;
     use bevy_utils::HashMap;
@@ -67,6 +57,7 @@ mod tests {
     use crate::serde::{ReflectDeserializer, ReflectSerializer};
 
     use super::*;
+
     #[test]
     fn reflect_struct() {
         #[derive(Reflect)]
@@ -145,6 +136,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::blacklisted_name)]
     fn reflect_unit_struct() {
         #[derive(Reflect)]
         struct Foo(u32, u64);
@@ -203,6 +195,7 @@ mod tests {
     #[test]
     fn reflect_complex_patch() {
         #[derive(Reflect, Eq, PartialEq, Debug)]
+        #[reflect(PartialEq)]
         struct Foo {
             a: u32,
             #[reflect(ignore)]
@@ -214,6 +207,7 @@ mod tests {
         }
 
         #[derive(Reflect, Eq, PartialEq, Debug)]
+        #[reflect(PartialEq)]
         struct Bar {
             x: u32,
         }
@@ -326,6 +320,7 @@ mod tests {
     #[test]
     fn reflect_take() {
         #[derive(Reflect, Debug, PartialEq)]
+        #[reflect(PartialEq)]
         struct Bar {
             x: u32,
         }
@@ -333,5 +328,44 @@ mod tests {
         let x: Box<dyn Reflect> = Box::new(Bar { x: 2 });
         let y = x.take::<Bar>().unwrap();
         assert_eq!(y, Bar { x: 2 });
+    }
+
+    #[test]
+    fn dynamic_names() {
+        let list = Vec::<usize>::new();
+        let dyn_list = list.clone_dynamic();
+        assert_eq!(dyn_list.type_name(), std::any::type_name::<Vec<usize>>());
+
+        let map = HashMap::<usize, String>::default();
+        let dyn_map = map.clone_dynamic();
+        assert_eq!(
+            dyn_map.type_name(),
+            std::any::type_name::<HashMap<usize, String>>()
+        );
+
+        let tuple = (0usize, "1".to_string(), 2.0f32);
+        let mut dyn_tuple = tuple.clone_dynamic();
+        dyn_tuple.insert::<usize>(3);
+        assert_eq!(
+            dyn_tuple.type_name(),
+            std::any::type_name::<(usize, String, f32, usize)>()
+        );
+
+        #[derive(Reflect)]
+        struct TestStruct {
+            a: usize,
+        }
+        let struct_ = TestStruct { a: 0 };
+        let dyn_struct = struct_.clone_dynamic();
+        assert_eq!(dyn_struct.type_name(), std::any::type_name::<TestStruct>());
+
+        #[derive(Reflect)]
+        struct TestTupleStruct(usize);
+        let tuple_struct = TestTupleStruct(0);
+        let dyn_tuple_struct = tuple_struct.clone_dynamic();
+        assert_eq!(
+            dyn_tuple_struct.type_name(),
+            std::any::type_name::<TestTupleStruct>()
+        );
     }
 }

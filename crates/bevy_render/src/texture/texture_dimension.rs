@@ -26,32 +26,68 @@ pub enum TextureDimension {
 pub struct Extent3d {
     pub width: u32,
     pub height: u32,
-    pub depth: u32,
+    pub depth_or_array_layers: u32,
 }
 
 impl Extent3d {
-    pub fn new(width: u32, height: u32, depth: u32) -> Self {
+    pub fn new(width: u32, height: u32, depth_or_array_layers: u32) -> Self {
         Self {
             width,
             height,
-            depth,
+            depth_or_array_layers,
         }
     }
 
     pub fn volume(&self) -> usize {
-        (self.width * self.height * self.depth) as usize
+        (self.width * self.height * self.depth_or_array_layers) as usize
     }
 
     pub fn as_vec3(&self) -> Vec3 {
-        Vec3::new(self.width as f32, self.height as f32, self.depth as f32)
+        Vec3::new(
+            self.width as f32,
+            self.height as f32,
+            self.depth_or_array_layers as f32,
+        )
     }
 }
 
 /// Type of data shaders will read from a texture.
 #[derive(Copy, Hash, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
-pub enum TextureComponentType {
-    Float,
+pub enum TextureSampleType {
+    /// Sampling returns floats.
+    ///
+    /// If `filterable` is false, the texture can't be sampled with
+    /// a filtering sampler.
+    ///
+    /// Example GLSL syntax:
+    /// ```cpp,ignore
+    /// layout(binding = 0)
+    /// uniform texture2D t;
+    /// ```
+    Float { filterable: bool },
+    /// Sampling does the depth reference comparison.
+    ///
+    /// Example GLSL syntax:
+    /// ```cpp,ignore
+    /// layout(binding = 0)
+    /// uniform texture2DShadow t;
+    /// ```
+    Depth,
+    /// Sampling returns signed integers.
+    ///
+    /// Example GLSL syntax:
+    /// ```cpp,ignore
+    /// layout(binding = 0)
+    /// uniform itexture2D t;
+    /// ```
     Sint,
+    /// Sampling returns unsigned integers.
+    ///
+    /// Example GLSL syntax:
+    /// ```cpp,ignore
+    /// layout(binding = 0)
+    /// uniform utexture2D t;
+    /// ```
     Uint,
 }
 
@@ -63,7 +99,8 @@ pub struct PixelInfo {
 /// Underlying texture data format.
 ///
 /// If there is a conversion in the format (such as srgb -> linear), The conversion listed is for
-/// loading from texture in a shader. When writing to the texture, the opposite conversion takes place.
+/// loading from texture in a shader. When writing to the texture, the opposite conversion takes
+/// place.
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub enum TextureFormat {
     // Normal 8 bit formats

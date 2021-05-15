@@ -1,4 +1,4 @@
-use super::{BindGroupDescriptor, VertexBufferDescriptor};
+use super::{BindGroupDescriptor, VertexBufferLayout};
 use crate::shader::ShaderLayout;
 use bevy_utils::HashMap;
 use std::hash::Hash;
@@ -6,7 +6,7 @@ use std::hash::Hash;
 #[derive(Clone, Debug, Default)]
 pub struct PipelineLayout {
     pub bind_groups: Vec<BindGroupDescriptor>,
-    pub vertex_buffer_descriptors: Vec<VertexBufferDescriptor>,
+    pub vertex_buffer_descriptors: Vec<VertexBufferLayout>,
 }
 
 impl PipelineLayout {
@@ -49,7 +49,7 @@ impl PipelineLayout {
             }
         }
 
-        for vertex_buffer_descriptor in shader_layouts[0].vertex_buffer_descriptors.iter() {
+        for vertex_buffer_descriptor in shader_layouts[0].vertex_buffer_layout.iter() {
             vertex_buffer_descriptors.push(vertex_buffer_descriptor.clone());
         }
 
@@ -58,8 +58,8 @@ impl PipelineLayout {
             .map(|(_, value)| value)
             .collect::<Vec<BindGroupDescriptor>>();
 
-        // NOTE: for some reason bind groups need to be sorted by index. this is likely an issue with bevy and not with wgpu
-        // TODO: try removing this
+        // NOTE: for some reason bind groups need to be sorted by index. this is likely an issue
+        // with bevy and not with wgpu TODO: try removing this
         bind_groups_result.sort_by(|a, b| a.index.partial_cmp(&b.index).unwrap());
 
         PipelineLayout {

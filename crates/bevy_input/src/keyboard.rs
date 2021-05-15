@@ -1,6 +1,6 @@
 use crate::{ElementState, Input};
-use bevy_app::prelude::*;
-use bevy_ecs::ResMut;
+use bevy_app::EventReader;
+use bevy_ecs::system::ResMut;
 
 /// A key input event from a keyboard device
 #[derive(Debug, Clone)]
@@ -15,7 +15,7 @@ pub fn keyboard_input_system(
     mut keyboard_input: ResMut<Input<KeyCode>>,
     mut keyboard_input_events: EventReader<KeyboardInput>,
 ) {
-    keyboard_input.update();
+    keyboard_input.clear();
     for event in keyboard_input_events.iter() {
         if let KeyboardInput {
             key_code: Some(key_code),
@@ -196,7 +196,7 @@ pub enum KeyCode {
     NumpadComma,
     NumpadEnter,
     NumpadEquals,
-    OEM102,
+    Oem102,
     Period,
     PlayPause,
     Power,

@@ -1,23 +1,27 @@
 use super::{Edge, Node, NodeId, NodeLabel, NodeState, RenderGraphError, SlotLabel, SystemNode};
-use bevy_ecs::{Commands, Schedule, SystemStage};
+use bevy_ecs::{
+    schedule::{Schedule, StageLabel, SystemStage},
+    world::World,
+};
 use bevy_utils::HashMap;
 use std::{borrow::Cow, fmt::Debug};
 pub struct RenderGraph {
     nodes: HashMap<NodeId, NodeState>,
     node_names: HashMap<Cow<'static, str>, NodeId>,
     system_node_schedule: Option<Schedule>,
-    commands: Commands,
 }
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+struct RenderGraphUpdate;
 
 impl Default for RenderGraph {
     fn default() -> Self {
         let mut schedule = Schedule::default();
-        schedule.add_stage("update", SystemStage::parallel());
+        schedule.add_stage(RenderGraphUpdate, SystemStage::parallel());
         Self {
             nodes: Default::default(),
             node_names: Default::default(),
             system_node_schedule: Some(schedule),
-            commands: Default::default(),
         }
     }
 }
@@ -41,8 +45,10 @@ impl RenderGraph {
         T: SystemNode + 'static,
     {
         let schedule = self.system_node_schedule.as_mut().unwrap();
-        let stage = schedule.get_stage_mut::<SystemStage>("update").unwrap();
-        stage.add_system_boxed(node.get_system(&mut self.commands));
+        let stage = schedule
+            .get_stage_mut::<SystemStage>(&RenderGraphUpdate)
+            .unwrap();
+        stage.add_system(node.get_system());
         self.add_node(name, node)
     }
 
@@ -274,8 +280,10 @@ impl RenderGraph {
             .map(move |(edge, input_node_id)| (edge, self.get_node_state(input_node_id).unwrap())))
     }
 
-    pub fn take_commands(&mut self) -> Commands {
-        std::mem::take(&mut self.commands)
+    pub fn prepare(&mut self, world: &mut World) {
+        for node in self.nodes.values_mut() {
+            node.node.prepare(world);
+        }
     }
 }
 
@@ -298,7 +306,7 @@ mod tests {
         render_graph::{Edge, Node, NodeId, RenderGraphError, ResourceSlotInfo, ResourceSlots},
         renderer::{RenderContext, RenderResourceType},
     };
-    use bevy_ecs::{Resources, World};
+    use bevy_ecs::world::World;
     use bevy_utils::HashSet;
     use std::iter::FromIterator;
 
@@ -339,7 +347,6 @@ mod tests {
         fn update(
             &mut self,
             _: &World,
-            _: &Resources,
             _: &mut dyn RenderContext,
             _: &ResourceSlots,
             _: &mut ResourceSlots,
@@ -348,7 +355,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_graph_edges() {
+    fn test_graph_edges() {
         let mut graph = RenderGraph::default();
         let a_id = graph.add_node("A", TestNode::new(0, 1));
         let b_id = graph.add_node("B", TestNode::new(0, 1));
@@ -404,7 +411,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_get_node_typed() {
+    fn test_get_node_typed() {
         struct MyNode {
             value: usize,
         }
@@ -413,7 +420,6 @@ mod tests {
             fn update(
                 &mut self,
                 _: &World,
-                _: &Resources,
                 _: &mut dyn RenderContext,
                 _: &ResourceSlots,
                 _: &mut ResourceSlots,
@@ -437,7 +443,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_slot_already_occupied() {
+    fn test_slot_already_occupied() {
         let mut graph = RenderGraph::default();
 
         graph.add_node("A", TestNode::new(0, 1));
@@ -457,7 +463,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_edge_already_exists() {
+    fn test_edge_already_exists() {
         let mut graph = RenderGraph::default();
 
         graph.add_node("A", TestNode::new(0, 1));

@@ -8,7 +8,7 @@ use bevy::{
 
 fn main() {
     App::build()
-        .add_resource(WindowDescriptor {
+        .insert_resource(WindowDescriptor {
             width: 300.,
             height: 300.,
             ..Default::default()

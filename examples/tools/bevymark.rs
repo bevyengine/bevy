@@ -2,12 +2,15 @@ use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
 };
+use rand::Rng;
 
 const BIRDS_PER_SECOND: u32 = 1000;
+const BASE_COLOR: Color = Color::rgb(5.0, 5.0, 5.0);
 const GRAVITY: f32 = -9.8 * 100.0;
 const MAX_VELOCITY: f32 = 750.;
 const BIRD_SCALE: f32 = 0.15;
 const HALF_BIRD_SIZE: f32 = 256. * BIRD_SCALE * 0.5;
+
 struct BevyCounter {
     pub count: u128,
 }
@@ -18,17 +21,18 @@ struct Bird {
 
 struct BirdMaterial(Handle<ColorMaterial>);
 
-impl FromResources for BirdMaterial {
-    fn from_resources(resources: &Resources) -> Self {
-        let mut color_materials = resources.get_mut::<Assets<ColorMaterial>>().unwrap();
-        let asset_server = resources.get_mut::<AssetServer>().unwrap();
+impl FromWorld for BirdMaterial {
+    fn from_world(world: &mut World) -> Self {
+        let world = world.cell();
+        let mut color_materials = world.get_resource_mut::<Assets<ColorMaterial>>().unwrap();
+        let asset_server = world.get_resource_mut::<AssetServer>().unwrap();
         BirdMaterial(color_materials.add(asset_server.load("branding/icon.png").into()))
     }
 }
 
 fn main() {
     App::build()
-        .add_resource(WindowDescriptor {
+        .insert_resource(WindowDescriptor {
             title: "BevyMark".to_string(),
             width: 800.,
             height: 600.,
@@ -38,7 +42,7 @@ fn main() {
         })
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_resource(BevyCounter { count: 0 })
+        .insert_resource(BevyCounter { count: 0 })
         .init_resource::<BirdMaterial>()
         .add_startup_system(setup.system())
         .add_system(mouse_handler.system())
@@ -48,69 +52,83 @@ fn main() {
         .run();
 }
 
-fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
-    commands
-        .spawn(Camera2dBundle::default())
-        .spawn(CameraUiBundle::default())
-        .spawn(TextBundle {
-            text: Text {
-                sections: vec![
-                    TextSection {
-                        value: "Bird Count: ".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 40.0,
-                            color: Color::rgb(0.0, 1.0, 0.0),
-                        },
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(UiCameraBundle::default());
+    commands.spawn_bundle(TextBundle {
+        text: Text {
+            sections: vec![
+                TextSection {
+                    value: "Bird Count: ".to_string(),
+                    style: TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 40.0,
+                        color: Color::rgb(0.0, 1.0, 0.0),
                     },
-                    TextSection {
-                        value: "".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 40.0,
-                            color: Color::rgb(0.0, 1.0, 1.0),
-                        },
-                    },
-                    TextSection {
-                        value: "\nAverage FPS: ".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 40.0,
-                            color: Color::rgb(0.0, 1.0, 0.0),
-                        },
-                    },
-                    TextSection {
-                        value: "".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 40.0,
-                            color: Color::rgb(0.0, 1.0, 1.0),
-                        },
-                    },
-                ],
-                ..Default::default()
-            },
-            style: Style {
-                position_type: PositionType::Absolute,
-                position: Rect {
-                    top: Val::Px(5.0),
-                    left: Val::Px(5.0),
-                    ..Default::default()
                 },
+                TextSection {
+                    value: "".to_string(),
+                    style: TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 40.0,
+                        color: Color::rgb(0.0, 1.0, 1.0),
+                    },
+                },
+                TextSection {
+                    value: "\nAverage FPS: ".to_string(),
+                    style: TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 40.0,
+                        color: Color::rgb(0.0, 1.0, 0.0),
+                    },
+                },
+                TextSection {
+                    value: "".to_string(),
+                    style: TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 40.0,
+                        color: Color::rgb(0.0, 1.0, 1.0),
+                    },
+                },
+            ],
+            ..Default::default()
+        },
+        style: Style {
+            position_type: PositionType::Absolute,
+            position: Rect {
+                top: Val::Px(5.0),
+                left: Val::Px(5.0),
                 ..Default::default()
             },
             ..Default::default()
-        });
+        },
+        ..Default::default()
+    });
 }
 
+#[allow(clippy::too_many_arguments)]
 fn mouse_handler(
-    commands: &mut Commands,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
     time: Res<Time>,
     mouse_button_input: Res<Input<MouseButton>>,
     window: Res<WindowDescriptor>,
-    bird_material: Res<BirdMaterial>,
+    mut bird_material: ResMut<BirdMaterial>,
     mut counter: ResMut<BevyCounter>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
+    if mouse_button_input.just_pressed(MouseButton::Left) {
+        let mut rnd = rand::thread_rng();
+        let color = gen_color(&mut rnd);
+
+        let texture_handle = asset_server.load("branding/icon.png");
+
+        bird_material.0 = materials.add(ColorMaterial {
+            color: BASE_COLOR * color,
+            texture: Some(texture_handle),
+        });
+    }
+
     if mouse_button_input.pressed(MouseButton::Left) {
         let spawn_count = (BIRDS_PER_SECOND as f32 * time.delta_seconds()) as u128;
         let bird_x = (window.width / -2.) + HALF_BIRD_SIZE;
@@ -119,7 +137,7 @@ fn mouse_handler(
         for count in 0..spawn_count {
             let bird_z = (counter.count + count) as f32 * 0.00001;
             commands
-                .spawn(SpriteBundle {
+                .spawn_bundle(SpriteBundle {
                     material: bird_material.0.clone(),
                     transform: Transform {
                         translation: Vec3::new(bird_x, bird_y, bird_z),
@@ -128,7 +146,7 @@ fn mouse_handler(
                     },
                     ..Default::default()
                 })
-                .with(Bird {
+                .insert(Bird {
                     velocity: Vec3::new(
                         rand::random::<f32>() * MAX_VELOCITY - (MAX_VELOCITY * 0.5),
                         0.,
@@ -183,4 +201,16 @@ fn counter_system(
             }
         }
     };
+}
+
+/// Generate a color modulation
+///
+/// Because there is no `Mul<Color> for Color` instead `[f32; 3]` is
+/// used.
+fn gen_color(rng: &mut impl Rng) -> [f32; 3] {
+    let r = rng.gen_range(0.2..1.0);
+    let g = rng.gen_range(0.2..1.0);
+    let b = rng.gen_range(0.2..1.0);
+    let v = Vec3::new(r, g, b);
+    v.normalize().into()
 }

@@ -13,7 +13,8 @@ pub struct TypeRegistry {
     ambiguous_names: HashSet<String>,
 }
 
-// TODO:  remove this wrapper once we migrate to Atelier Assets and the Scene AssetLoader doesn't need a TypeRegistry ref
+// TODO:  remove this wrapper once we migrate to Atelier Assets and the Scene AssetLoader doesn't
+// need a TypeRegistry ref
 #[derive(Clone, Default)]
 pub struct TypeRegistryArc {
     pub internal: Arc<RwLock<TypeRegistry>>,
@@ -150,7 +151,7 @@ impl TypeRegistration {
         self.name
     }
 
-    fn get_short_name(full_name: &str) -> String {
+    pub fn get_short_name(full_name: &str) -> String {
         let mut short_name = String::new();
 
         {
@@ -218,12 +219,15 @@ where
     }
 }
 
+// TODO: Dead code
+// This trait seems to be unused apart from in implementations of this trait
 pub trait FromType<T> {
     fn from_type() -> Self;
 }
 
 #[derive(Clone)]
 pub struct ReflectDeserialize {
+    #[allow(clippy::type_complexity)]
     pub func: fn(
         deserializer: &mut dyn erased_serde::Deserializer,
     ) -> Result<Box<dyn Reflect>, erased_serde::Error>,
@@ -234,7 +238,7 @@ impl ReflectDeserialize {
     where
         D: serde::Deserializer<'de>,
     {
-        let mut erased = erased_serde::Deserializer::erase(deserializer);
+        let mut erased = <dyn erased_serde::Deserializer>::erase(deserializer);
         (self.func)(&mut erased)
             .map_err(<<D as serde::Deserializer<'de>>::Error as serde::de::Error>::custom)
     }

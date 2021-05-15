@@ -14,16 +14,16 @@ fn gamepad_events(mut gamepad_event: EventReader<GamepadEvent>) {
     for event in gamepad_event.iter() {
         match &event {
             GamepadEvent(gamepad, GamepadEventType::Connected) => {
-                println!("{:?} Connected", gamepad);
+                info!("{:?} Connected", gamepad);
             }
             GamepadEvent(gamepad, GamepadEventType::Disconnected) => {
-                println!("{:?} Disconnected", gamepad);
+                info!("{:?} Disconnected", gamepad);
             }
             GamepadEvent(gamepad, GamepadEventType::ButtonChanged(button_type, value)) => {
-                println!("{:?} of {:?} is changed to {}", button_type, gamepad, value);
+                info!("{:?} of {:?} is changed to {}", button_type, gamepad, value);
             }
             GamepadEvent(gamepad, GamepadEventType::AxisChanged(axis_type, value)) => {
-                println!("{:?} of {:?} is changed to {}", axis_type, gamepad, value);
+                info!("{:?} of {:?} is changed to {}", axis_type, gamepad, value);
             }
         }
     }

@@ -3,7 +3,7 @@ use bevy::prelude::*;
 /// This example illustrates how to customize the default window settings
 fn main() {
     App::build()
-        .add_resource(WindowDescriptor {
+        .insert_resource(WindowDescriptor {
             width: 500.,
             height: 300.,
             ..Default::default()
@@ -16,15 +16,15 @@ fn main() {
 }
 
 fn setup(
-    commands: &mut Commands,
+    mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
+    // ui camera
+    commands.spawn_bundle(UiCameraBundle::default());
+    // root node
     commands
-        // ui camera
-        .spawn(CameraUiBundle::default())
-        // root node
-        .spawn(NodeBundle {
+        .spawn_bundle(NodeBundle {
             style: Style {
                 size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                 justify_content: JustifyContent::SpaceBetween,
@@ -34,9 +34,9 @@ fn setup(
             ..Default::default()
         })
         .with_children(|parent| {
+            // left vertical fill (border)
             parent
-                // left vertical fill (border)
-                .spawn(NodeBundle {
+                .spawn_bundle(NodeBundle {
                     style: Style {
                         size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
                         border: Rect::all(Val::Px(2.0)),
@@ -46,7 +46,7 @@ fn setup(
                     ..Default::default()
                 })
                 .with_children(|parent| {
-                    parent.spawn(TextBundle {
+                    parent.spawn_bundle(TextBundle {
                         style: Style {
                             align_self: AlignSelf::FlexEnd,
                             ..Default::default()

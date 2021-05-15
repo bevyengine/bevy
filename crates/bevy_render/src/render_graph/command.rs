@@ -47,7 +47,8 @@ pub enum Command {
 
 #[derive(Debug, Default, Clone)]
 pub struct CommandQueue {
-    // TODO: this shouldn't really need a mutex. it just needs to be shared on whatever thread it's scheduled on
+    // TODO: this shouldn't really need a mutex. it just needs to be shared on whatever thread it's
+    // scheduled on
     queue: Arc<Mutex<Vec<Command>>>,
 }
 
@@ -147,7 +148,7 @@ impl CommandQueue {
         self.queue.lock().clear();
     }
 
-    pub fn execute(&mut self, render_context: &mut dyn RenderContext) {
+    pub fn execute(&self, render_context: &mut dyn RenderContext) {
         for command in self.queue.lock().drain(..) {
             match command {
                 Command::CopyBufferToBuffer {

@@ -5,12 +5,12 @@
 * hecs
 * legion_transform
 * wgpu-rs examples
-* yaks: ArchetypeSet, borrowed some ideas from their scheduler implementation 
+* yaks: ArchetypeSet, borrowed some ideas from their scheduler implementation
 
 ## Inspiration
 
 * game engines: amethyst, coffee
-* ecs: legion, shipyard, yaks 
+* ecs: legion, shipyard, yaks
 
 ## Assets
 

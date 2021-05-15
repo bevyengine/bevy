@@ -1,22 +1,23 @@
 use super::{state_descriptors::PrimitiveTopology, IndexFormat, PipelineDescriptor};
 use crate::{
-    pipeline::{BindType, InputStepMode, VertexBufferDescriptor},
+    pipeline::{BindType, VertexBufferLayout},
     renderer::RenderResourceContext,
     shader::{Shader, ShaderError},
 };
 use bevy_asset::{Assets, Handle};
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_utils::{HashMap, HashSet};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Eq, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq)]
 pub struct PipelineSpecialization {
     pub shader_specialization: ShaderSpecialization,
     pub primitive_topology: PrimitiveTopology,
     pub dynamic_bindings: HashSet<String>,
-    pub index_format: IndexFormat,
-    pub vertex_buffer_descriptor: VertexBufferDescriptor,
+    pub strip_index_format: Option<IndexFormat>,
+    pub vertex_buffer_layout: VertexBufferLayout,
     pub sample_count: u32,
 }
 
@@ -24,11 +25,11 @@ impl Default for PipelineSpecialization {
     fn default() -> Self {
         Self {
             sample_count: 1,
-            index_format: IndexFormat::Uint32,
+            strip_index_format: None,
             shader_specialization: Default::default(),
             primitive_topology: Default::default(),
             dynamic_bindings: Default::default(),
-            vertex_buffer_descriptor: Default::default(),
+            vertex_buffer_layout: Default::default(),
         }
     }
 }
@@ -41,6 +42,7 @@ impl PipelineSpecialization {
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, Reflect, Serialize, Deserialize)]
+#[reflect(PartialEq, Serialize, Deserialize)]
 pub struct ShaderSpecialization {
     pub shader_defs: HashSet<String>,
 }
@@ -141,7 +143,7 @@ impl PipelineCompiler {
                 &specialized_descriptor.shader_stages.vertex,
                 &pipeline_specialization.shader_specialization,
             )
-            .unwrap();
+            .unwrap_or_else(|e| panic_shader_error(e));
         specialized_descriptor.shader_stages.vertex = specialized_vertex_shader.clone_weak();
         let mut specialized_fragment_shader = None;
         specialized_descriptor.shader_stages.fragment = specialized_descriptor
@@ -156,7 +158,7 @@ impl PipelineCompiler {
                         fragment,
                         &pipeline_specialization.shader_specialization,
                     )
-                    .unwrap();
+                    .unwrap_or_else(|e| panic_shader_error(e));
                 specialized_fragment_shader = Some(shader.clone_weak());
                 shader
             });
@@ -178,10 +180,11 @@ impl PipelineCompiler {
                         .any(|b| b == &binding.name)
                     {
                         if let BindType::Uniform {
-                            ref mut dynamic, ..
+                            ref mut has_dynamic_offset,
+                            ..
                         } = binding.bind_type
                         {
-                            *dynamic = true;
+                            *has_dynamic_offset = true;
                             binding_changed = true;
                         }
                     }
@@ -194,15 +197,16 @@ impl PipelineCompiler {
         }
         specialized_descriptor.layout = Some(layout);
 
-        // create a vertex layout that provides all attributes from either the specialized vertex buffers or a zero buffer
+        // create a vertex layout that provides all attributes from either the specialized vertex
+        // buffers or a zero buffer
         let mut pipeline_layout = specialized_descriptor.layout.as_mut().unwrap();
         // the vertex buffer descriptor of the mesh
-        let mesh_vertex_buffer_descriptor = &pipeline_specialization.vertex_buffer_descriptor;
+        let mesh_vertex_buffer_layout = &pipeline_specialization.vertex_buffer_layout;
 
         // the vertex buffer descriptor that will be used for this pipeline
-        let mut compiled_vertex_buffer_descriptor = VertexBufferDescriptor {
-            step_mode: InputStepMode::Vertex,
-            stride: mesh_vertex_buffer_descriptor.stride,
+        let mut compiled_vertex_buffer_descriptor = VertexBufferLayout {
+            step_mode: mesh_vertex_buffer_layout.step_mode,
+            stride: mesh_vertex_buffer_layout.stride,
             ..Default::default()
         };
 
@@ -212,7 +216,7 @@ impl PipelineCompiler {
                 .get(0)
                 .expect("Reflected layout has no attributes.");
 
-            if let Some(target_vertex_attribute) = mesh_vertex_buffer_descriptor
+            if let Some(target_vertex_attribute) = mesh_vertex_buffer_layout
                 .attributes
                 .iter()
                 .find(|x| x.name == shader_vertex_attribute.name)
@@ -232,14 +236,17 @@ impl PipelineCompiler {
             }
         }
 
-        //TODO: add other buffers (like instancing) here
-        let mut vertex_buffer_descriptors = Vec::<VertexBufferDescriptor>::default();
-        vertex_buffer_descriptors.push(compiled_vertex_buffer_descriptor);
+        // TODO: add other buffers (like instancing) here
+        let mut vertex_buffer_descriptors = Vec::<VertexBufferLayout>::default();
+        if !pipeline_layout.vertex_buffer_descriptors.is_empty() {
+            vertex_buffer_descriptors.push(compiled_vertex_buffer_descriptor);
+        }
 
         pipeline_layout.vertex_buffer_descriptors = vertex_buffer_descriptors;
-        specialized_descriptor.sample_count = pipeline_specialization.sample_count;
-        specialized_descriptor.primitive_topology = pipeline_specialization.primitive_topology;
-        specialized_descriptor.index_format = pipeline_specialization.index_format;
+        specialized_descriptor.multisample.count = pipeline_specialization.sample_count;
+        specialized_descriptor.primitive.topology = pipeline_specialization.primitive_topology;
+        specialized_descriptor.primitive.strip_index_format =
+            pipeline_specialization.strip_index_format;
 
         let specialized_pipeline_handle = pipelines.add(specialized_descriptor);
         render_resource_context.create_render_pipeline(
@@ -277,15 +284,13 @@ impl PipelineCompiler {
         &self,
         pipeline_handle: Handle<PipelineDescriptor>,
     ) -> Option<impl Iterator<Item = &Handle<PipelineDescriptor>>> {
-        if let Some(compiled_pipelines) = self.specialized_pipelines.get(&pipeline_handle) {
-            Some(
+        self.specialized_pipelines
+            .get(&pipeline_handle)
+            .map(|compiled_pipelines| {
                 compiled_pipelines
                     .iter()
-                    .map(|specialized_pipeline| &specialized_pipeline.pipeline),
-            )
-        } else {
-            None
-        }
+                    .map(|specialized_pipeline| &specialized_pipeline.pipeline)
+            })
     }
 
     pub fn iter_all_compiled_pipelines(&self) -> impl Iterator<Item = &Handle<PipelineDescriptor>> {
@@ -350,4 +355,13 @@ impl PipelineCompiler {
 
         Ok(())
     }
+}
+
+fn panic_shader_error(error: ShaderError) -> ! {
+    let msg = error.to_string();
+    let msg = msg
+        .trim_end()
+        .trim_end_matches("Debug log:") // if this matches, then there wasn't a debug log anyways
+        .trim_end();
+    panic!("{}\n", msg);
 }

@@ -1,21 +1,48 @@
 use crate::texture::TextureFormat;
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, ReflectDeserialize};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug)]
-pub struct DepthStencilStateDescriptor {
+pub struct DepthStencilState {
     pub format: TextureFormat,
     pub depth_write_enabled: bool,
     pub depth_compare: CompareFunction,
-    pub stencil: StencilStateDescriptor,
+    pub stencil: StencilState,
+    pub bias: DepthBiasState,
 }
 
 #[derive(Clone, Debug)]
-pub struct StencilStateDescriptor {
-    pub front: StencilStateFaceDescriptor,
-    pub back: StencilStateFaceDescriptor,
+pub struct StencilState {
+    pub front: StencilFaceState,
+    pub back: StencilFaceState,
     pub read_mask: u32,
     pub write_mask: u32,
+}
+#[derive(Clone, Debug)]
+pub struct MultisampleState {
+    /// The number of samples calculated per pixel (for MSAA). For non-multisampled textures,
+    /// this should be `1`
+    pub count: u32,
+    /// Bitmask that restricts the samples of a pixel modified by this pipeline. All samples
+    /// can be enabled using the value `!0`
+    pub mask: u64,
+    /// When enabled, produces another sample mask per pixel based on the alpha output value, that
+    /// is ANDed with the sample_mask and the primitive coverage to restrict the set of samples
+    /// affected by a primitive.
+    ///
+    /// The implicit mask produced for alpha of zero is guaranteed to be zero, and for alpha of one
+    /// is guaranteed to be all 1-s.
+    pub alpha_to_coverage_enabled: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct DepthBiasState {
+    /// Constant depth biasing factor, in basic units of the depth format.
+    pub constant: i32,
+    /// Slope depth biasing factor.
+    pub slope_scale: f32,
+    /// Depth bias clamp value (absolute).
+    pub clamp: f32,
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
@@ -31,15 +58,15 @@ pub enum StencilOperation {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct StencilStateFaceDescriptor {
+pub struct StencilFaceState {
     pub compare: CompareFunction,
     pub fail_op: StencilOperation,
     pub depth_fail_op: StencilOperation,
     pub pass_op: StencilOperation,
 }
 
-impl StencilStateFaceDescriptor {
-    pub const IGNORE: Self = StencilStateFaceDescriptor {
+impl StencilFaceState {
+    pub const IGNORE: Self = StencilFaceState {
         compare: CompareFunction::Always,
         fail_op: StencilOperation::Keep,
         depth_fail_op: StencilOperation::Keep,
@@ -59,7 +86,9 @@ pub enum CompareFunction {
     Always = 7,
 }
 
+/// Describes how the VertexAttributes should be interpreted while rendering
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Reflect)]
+#[reflect_value(Serialize, Deserialize, PartialEq, Hash)]
 pub enum PrimitiveTopology {
     PointList = 0,
     LineList = 1,
@@ -87,49 +116,56 @@ impl Default for FrontFace {
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
-pub enum CullMode {
-    None = 0,
-    Front = 1,
-    Back = 2,
+pub enum Face {
+    Front = 0,
+    Back = 1,
 }
 
-impl Default for CullMode {
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum PolygonMode {
+    /// Polygons are filled
+    Fill = 0,
+    /// Polygons are draw as line segments
+    Line = 1,
+    /// Polygons are draw as points
+    Point = 2,
+}
+
+impl Default for PolygonMode {
     fn default() -> Self {
-        CullMode::None
+        PolygonMode::Fill
     }
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct RasterizationStateDescriptor {
+pub struct PrimitiveState {
+    pub topology: PrimitiveTopology,
+    pub strip_index_format: Option<IndexFormat>,
     pub front_face: FrontFace,
-    pub cull_mode: CullMode,
-    pub depth_bias: i32,
-    pub depth_bias_slope_scale: f32,
-    pub depth_bias_clamp: f32,
+    pub cull_mode: Option<Face>,
+    pub polygon_mode: PolygonMode,
     pub clamp_depth: bool,
+    pub conservative: bool,
 }
 
 #[derive(Clone, Debug)]
-pub struct ColorStateDescriptor {
+pub struct ColorTargetState {
     pub format: TextureFormat,
-    pub alpha_blend: BlendDescriptor,
-    pub color_blend: BlendDescriptor,
+    pub blend: Option<BlendState>,
     pub write_mask: ColorWrite,
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct BlendDescriptor {
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BlendComponent {
     pub src_factor: BlendFactor,
     pub dst_factor: BlendFactor,
     pub operation: BlendOperation,
 }
 
-impl BlendDescriptor {
-    pub const REPLACE: Self = BlendDescriptor {
-        src_factor: BlendFactor::One,
-        dst_factor: BlendFactor::Zero,
-        operation: BlendOperation::Add,
-    };
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BlendState {
+    pub alpha: BlendComponent,
+    pub color: BlendComponent,
 }
 
 bitflags::bitflags! {
@@ -154,17 +190,17 @@ impl Default for ColorWrite {
 pub enum BlendFactor {
     Zero = 0,
     One = 1,
-    SrcColor = 2,
-    OneMinusSrcColor = 3,
+    Src = 2,
+    OneMinusSrc = 3,
     SrcAlpha = 4,
     OneMinusSrcAlpha = 5,
-    DstColor = 6,
-    OneMinusDstColor = 7,
+    Dst = 6,
+    OneMinusDst = 7,
     DstAlpha = 8,
     OneMinusDstAlpha = 9,
     SrcAlphaSaturated = 10,
-    BlendColor = 11,
-    OneMinusBlendColor = 12,
+    Constant = 11,
+    OneMinusConstant = 12,
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
@@ -183,6 +219,7 @@ impl Default for BlendOperation {
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Reflect)]
+#[reflect_value(Hash, PartialEq, Serialize, Deserialize)]
 pub enum IndexFormat {
     Uint16 = 0,
     Uint32 = 1,
