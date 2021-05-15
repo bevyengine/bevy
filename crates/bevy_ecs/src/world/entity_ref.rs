@@ -325,7 +325,7 @@ impl<'w> EntityMut<'w> {
             T::from_components(|| {
                 let component_id = bundle_components.next().unwrap();
                 // SAFE: entity location is valid and table row is removed below
-                remove_component(
+                take_component(
                     components,
                     storages,
                     old_archetype,
@@ -406,17 +406,18 @@ impl<'w> EntityMut<'w> {
         let entity = self.entity;
         for component_id in bundle_info.component_ids.iter().cloned() {
             if old_archetype.contains(component_id) {
-                // SAFE: entity location is valid and table row is removed below
-                unsafe {
-                    remove_component(
-                        components,
-                        storages,
-                        old_archetype,
-                        removed_components,
-                        component_id,
-                        entity,
-                        old_location,
-                    );
+                removed_components
+                    .get_or_insert_with(component_id, Vec::new)
+                    .push(entity);
+
+                // Make sure to drop components stored in sparse sets.
+                // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
+                if let Some(StorageType::SparseSet) = old_archetype.get_storage_type(component_id) {
+                    storages
+                        .sparse_sets
+                        .get_mut(component_id)
+                        .unwrap()
+                        .remove(entity);
                 }
             }
         }
@@ -586,13 +587,18 @@ unsafe fn get_component_and_ticks(
     }
 }
 
+/// Moves component data out of storage.
+///
+/// This function leaves the underlying memory unchanged, but the component behind
+/// returned pointer is semantically owned by the caller and will not be dropped in its original location.
+/// Caller is responsible to drop component data behind returned pointer.
+///
 /// # Safety
-// `entity_location` must be within bounds of the given archetype and `entity` must exist inside the
-// archetype
-/// The relevant table row must be removed separately
-/// `component_id` must be valid
+/// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside the archetype
+/// - `component_id` must be valid
+/// - The relevant table row **must be removed** by the caller once all components are taken
 #[inline]
-unsafe fn remove_component(
+unsafe fn take_component(
     components: &Components,
     storages: &mut Storages,
     archetype: &Archetype,
