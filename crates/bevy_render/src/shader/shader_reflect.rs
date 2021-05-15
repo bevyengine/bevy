@@ -2,7 +2,7 @@ use std::convert::TryInto;
 
 use bevy_core::cast_slice;
 use bevy_utils::HashMap;
-use naga::{ScalarKind, VectorSize};
+use naga::{ScalarKind, StorageClass, VectorSize};
 
 use crate::{
     pipeline::{
@@ -148,6 +148,10 @@ fn reflect_bind_groups(
         .global_variables
         .iter()
         .map(|(_, variable)| variable)
+        .filter(|variable| match variable.class {
+            StorageClass::Uniform | StorageClass::Storage | StorageClass::Handle => true,
+            _ => false,
+        })
         .filter_map(|variable| {
             let binding = variable.binding.as_ref()?;
             Some((variable, binding))
@@ -269,7 +273,6 @@ fn reflect_bind_type(
             has_dynamic_offset: false,
             readonly: !variable.storage_access.contains(naga::StorageAccess::STORE),
         },
-        naga::StorageClass::PushConstant => panic!("unsupported bind type: push constant"),
         other => panic!("unexpected storage type for shader binding: {:?}", other),
     }
 }
