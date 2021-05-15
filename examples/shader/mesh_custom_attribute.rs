@@ -2,7 +2,7 @@ use bevy::{
     prelude::*,
     render::{
         mesh::{shape, VertexAttributeValues},
-        pipeline::{RenderPipelineDescriptor, RenderPipeline},
+        pipeline::{RenderPipeline, RenderPipelineDescriptor},
         shader::{ShaderStage, ShaderStages},
     },
 };

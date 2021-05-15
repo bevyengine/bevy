@@ -1,7 +1,7 @@
 use bevy::{
     prelude::*,
     render::{
-        pipeline::{RenderPipelineDescriptor, RenderPipeline},
+        pipeline::{RenderPipeline, RenderPipelineDescriptor},
         shader::{ShaderStage, ShaderStages},
     },
 };

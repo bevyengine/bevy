@@ -1,4 +1,10 @@
-use crate::{draw::DrawContext, mesh::Indices, pipeline::{RenderPipeline, RenderPipelineDescriptor, RenderPipelineSpecialization}, prelude::*, shader::Shader};
+use crate::{
+    draw::DrawContext,
+    mesh::Indices,
+    pipeline::{RenderPipeline, RenderPipelineDescriptor, RenderPipelineSpecialization},
+    prelude::*,
+    shader::Shader,
+};
 use bevy_app::prelude::*;
 use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_ecs::{

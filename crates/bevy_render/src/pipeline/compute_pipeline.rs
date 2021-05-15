@@ -1,12 +1,7 @@
 use super::{ComputePipelineSpecialization, PipelineLayout};
-use crate::{
-    renderer::RenderResourceBindings,
-    shader::{ComputeShaderStages},
-};
-use bevy_asset::{Handle};
-use bevy_ecs::{
-    reflect::ReflectComponent,
-};
+use crate::{renderer::RenderResourceBindings, shader::ComputeShaderStages};
+use bevy_asset::Handle;
+use bevy_ecs::reflect::ReflectComponent;
 use bevy_reflect::{Reflect, TypeUuid};
 
 /// Compute pipeline descriptor

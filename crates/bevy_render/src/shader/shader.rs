@@ -1,4 +1,7 @@
-use crate::{pipeline::{ComputePipelineDescriptor, PipelineCompiler, RenderPipelineDescriptor}, renderer::RenderResourceContext};
+use crate::{
+    pipeline::{ComputePipelineDescriptor, PipelineCompiler, RenderPipelineDescriptor},
+    renderer::RenderResourceContext,
+};
 
 use super::ShaderLayout;
 use bevy_app::EventReader;

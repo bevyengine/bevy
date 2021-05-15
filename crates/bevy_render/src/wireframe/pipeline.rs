@@ -1,5 +1,7 @@
 use crate::{
-    pipeline::{FrontFace, RenderPipelineDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology},
+    pipeline::{
+        FrontFace, PolygonMode, PrimitiveState, PrimitiveTopology, RenderPipelineDescriptor,
+    },
     shader::{Shader, ShaderStage, ShaderStages},
 };
 use bevy_asset::Assets;

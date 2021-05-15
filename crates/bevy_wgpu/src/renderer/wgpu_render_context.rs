@@ -1,10 +1,17 @@
 use super::WgpuRenderResourceContext;
-use crate::{WgpuComputePass, WgpuRenderPass, WgpuResourceRefs, wgpu_type_converter::WgpuInto};
+use crate::{wgpu_type_converter::WgpuInto, WgpuComputePass, WgpuRenderPass, WgpuResourceRefs};
 
-use bevy_render::{pass::{ComputePass, PassDescriptor, RenderPass, RenderPassColorAttachment, RenderPassDepthStencilAttachment, TextureAttachment}, renderer::{
+use bevy_render::{
+    pass::{
+        ComputePass, PassDescriptor, RenderPass, RenderPassColorAttachment,
+        RenderPassDepthStencilAttachment, TextureAttachment,
+    },
+    renderer::{
         BufferId, RenderContext, RenderResourceBinding, RenderResourceBindings,
         RenderResourceContext, TextureId,
-    }, texture::Extent3d};
+    },
+    texture::Extent3d,
+};
 
 use std::sync::Arc;
 
@@ -192,10 +199,7 @@ impl RenderContext for WgpuRenderContext {
         self.command_encoder.set(encoder);
     }
 
-    fn begin_compute_pass(
-        &mut self,
-        run_pass: &mut dyn FnMut(&mut dyn ComputePass),
-    ) {
+    fn begin_compute_pass(&mut self, run_pass: &mut dyn FnMut(&mut dyn ComputePass)) {
         if !self.command_encoder.is_some() {
             self.command_encoder.create(&self.device);
         }
@@ -203,9 +207,7 @@ impl RenderContext for WgpuRenderContext {
         let refs = resource_lock.refs();
         let mut encoder = self.command_encoder.take().unwrap();
         {
-            let compute_pass = create_compute_pass(
-                &mut encoder,
-            );
+            let compute_pass = create_compute_pass(&mut encoder);
             let mut wgpu_render_pass = WgpuComputePass {
                 compute_pass,
                 render_context: self,
@@ -239,12 +241,8 @@ pub fn create_render_pass<'a, 'b>(
     })
 }
 
-pub fn create_compute_pass<'a>(
-    encoder: &'a mut wgpu::CommandEncoder,
-) -> wgpu::ComputePass<'a> {
-    encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-        label: None,
-    })
+pub fn create_compute_pass<'a>(encoder: &'a mut wgpu::CommandEncoder) -> wgpu::ComputePass<'a> {
+    encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None })
 }
 
 fn get_texture_view<'a>(

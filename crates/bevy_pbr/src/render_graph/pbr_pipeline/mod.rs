@@ -3,8 +3,8 @@ use bevy_reflect::TypeUuid;
 use bevy_render::{
     pipeline::{
         BlendComponent, BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrite,
-        CompareFunction, DepthBiasState, DepthStencilState, RenderPipelineDescriptor, StencilFaceState,
-        StencilState,
+        CompareFunction, DepthBiasState, DepthStencilState, RenderPipelineDescriptor,
+        StencilFaceState, StencilState,
     },
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat,

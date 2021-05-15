@@ -1,4 +1,7 @@
-use super::{ComputePipelineDescriptor, IndexFormat, PipelineLayout, RenderPipelineDescriptor, state_descriptors::PrimitiveTopology};
+use super::{
+    state_descriptors::PrimitiveTopology, ComputePipelineDescriptor, IndexFormat, PipelineLayout,
+    RenderPipelineDescriptor,
+};
 use crate::{
     pipeline::{BindType, VertexBufferLayout},
     renderer::RenderResourceContext,
@@ -73,7 +76,8 @@ impl Default for RenderPipelineSpecialization {
 
 impl RenderPipelineSpecialization {
     pub fn empty() -> &'static RenderPipelineSpecialization {
-        pub static EMPTY: Lazy<RenderPipelineSpecialization> = Lazy::new(RenderPipelineSpecialization::default);
+        pub static EMPTY: Lazy<RenderPipelineSpecialization> =
+            Lazy::new(RenderPipelineSpecialization::default);
         &EMPTY
     }
 }
@@ -100,8 +104,10 @@ pub struct SpecializedShader {
 pub struct PipelineCompiler {
     specialized_shaders: HashMap<Handle<Shader>, Vec<SpecializedShader>>,
     specialized_shader_pipelines: HashMap<Handle<Shader>, Vec<Handle<RenderPipelineDescriptor>>>,
-    specialized_pipelines: HashMap<Handle<RenderPipelineDescriptor>, Vec<SpecializedRenderPipeline>>,
-    specialized_shader_compute_pipelines: HashMap<Handle<Shader>, Vec<Handle<ComputePipelineDescriptor>>>,
+    specialized_pipelines:
+        HashMap<Handle<RenderPipelineDescriptor>, Vec<SpecializedRenderPipeline>>,
+    specialized_shader_compute_pipelines:
+        HashMap<Handle<Shader>, Vec<Handle<ComputePipelineDescriptor>>>,
     specialized_compute_pipelines:
         HashMap<Handle<ComputePipelineDescriptor>, Vec<SpecializedComputePipeline>>,
 }
@@ -183,8 +189,11 @@ impl PipelineCompiler {
             .map(|specialized_pipeline| specialized_pipeline.pipeline.clone_weak())
     }
 
-    fn set_bind_group_layout_dynamic(pipeline_specialization: &PipelineSpecialization, layout: &mut PipelineLayout) {
-            // set binding uniforms to dynamic if render resource bindings use dynamic
+    fn set_bind_group_layout_dynamic(
+        pipeline_specialization: &PipelineSpecialization,
+        layout: &mut PipelineLayout,
+    ) {
+        // set binding uniforms to dynamic if render resource bindings use dynamic
         for bind_group in layout.bind_groups.iter_mut() {
             let mut binding_changed = false;
             for binding in bind_group.bindings.iter_mut() {
@@ -196,7 +205,7 @@ impl PipelineCompiler {
                     PipelineSpecialization::Render(render_ps) => render_ps
                         .dynamic_bindings
                         .iter()
-                        .any(|b| b == &binding.name),                        
+                        .any(|b| b == &binding.name),
                 };
                 if pipeline_specialization {
                     if let BindType::Uniform {
@@ -260,7 +269,10 @@ impl PipelineCompiler {
         );
 
         if !pipeline_specialization.dynamic_bindings.is_empty() {
-            Self::set_bind_group_layout_dynamic(&PipelineSpecialization::Render(pipeline_specialization.clone()), &mut layout);
+            Self::set_bind_group_layout_dynamic(
+                &PipelineSpecialization::Render(pipeline_specialization.clone()),
+                &mut layout,
+            );
         }
         specialized_descriptor.layout = Some(layout);
 
@@ -375,7 +387,10 @@ impl PipelineCompiler {
 
         if !pipeline_specialization.dynamic_bindings.is_empty() {
             if !pipeline_specialization.dynamic_bindings.is_empty() {
-                Self::set_bind_group_layout_dynamic(&PipelineSpecialization::Compute(pipeline_specialization.clone()), &mut layout);
+                Self::set_bind_group_layout_dynamic(
+                    &PipelineSpecialization::Compute(pipeline_specialization.clone()),
+                    &mut layout,
+                );
             }
         }
         specialized_descriptor.layout = Some(layout);
@@ -432,7 +447,9 @@ impl PipelineCompiler {
             })
     }
 
-    pub fn iter_all_compiled_render_pipelines(&self) -> impl Iterator<Item = &Handle<RenderPipelineDescriptor>> {
+    pub fn iter_all_compiled_render_pipelines(
+        &self,
+    ) -> impl Iterator<Item = &Handle<RenderPipelineDescriptor>> {
         self.specialized_pipelines
             .values()
             .map(|compiled_pipelines| {
@@ -503,8 +520,9 @@ impl PipelineCompiler {
                         }
                     }
                 }
-                if let Some(source_pipelines) =
-                    self.specialized_shader_compute_pipelines.remove(&old_handle)
+                if let Some(source_pipelines) = self
+                    .specialized_shader_compute_pipelines
+                    .remove(&old_handle)
                 {
                     // Remove all specialized pipelines from tracking
                     // and asset storage. They will be rebuilt on next

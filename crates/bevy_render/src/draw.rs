@@ -1,7 +1,14 @@
-use crate::{pipeline::{IndexFormat, PipelineCompiler, PipelineLayout, RenderPipelineDescriptor, RenderPipelineSpecialization}, renderer::{
+use crate::{
+    pipeline::{
+        IndexFormat, PipelineCompiler, PipelineLayout, RenderPipelineDescriptor,
+        RenderPipelineSpecialization,
+    },
+    renderer::{
         AssetRenderResourceBindings, BindGroup, BindGroupId, BufferId, RenderResource,
         RenderResourceBinding, RenderResourceBindings, RenderResourceContext, SharedBuffers,
-    }, shader::Shader};
+    },
+    shader::Shader,
+};
 use bevy_asset::{Asset, Assets, Handle};
 use bevy_ecs::{
     reflect::ReflectComponent,

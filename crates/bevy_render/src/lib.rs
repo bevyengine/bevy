@@ -46,7 +46,10 @@ use camera::{
     ActiveCameras, Camera, DepthCalculation, OrthographicProjection, PerspectiveProjection,
     RenderLayers, ScalingMode, VisibleEntities, WindowOrigin,
 };
-use pipeline::{ComputePipelineDescriptor, IndexFormat, PipelineCompiler, PipelineSpecialization, PrimitiveTopology, RenderPipelineDescriptor, ShaderSpecialization, VertexBufferLayout};
+use pipeline::{
+    ComputePipelineDescriptor, IndexFormat, PipelineCompiler, PipelineSpecialization,
+    PrimitiveTopology, RenderPipelineDescriptor, ShaderSpecialization, VertexBufferLayout,
+};
 use render_graph::{
     base::{self, BaseRenderGraphConfig, MainPass},
     RenderGraph,

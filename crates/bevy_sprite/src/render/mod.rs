@@ -4,8 +4,8 @@ use bevy_reflect::TypeUuid;
 use bevy_render::{
     pipeline::{
         BlendComponent, BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrite,
-        CompareFunction, DepthBiasState, DepthStencilState, FrontFace, RenderPipelineDescriptor,
-        PolygonMode, PrimitiveState, PrimitiveTopology, StencilFaceState, StencilState,
+        CompareFunction, DepthBiasState, DepthStencilState, FrontFace, PolygonMode, PrimitiveState,
+        PrimitiveTopology, RenderPipelineDescriptor, StencilFaceState, StencilState,
     },
     render_graph::{base, AssetRenderResourcesNode, RenderGraph, RenderResourcesNode},
     shader::{Shader, ShaderStage, ShaderStages},

@@ -95,7 +95,8 @@ pub struct WgpuResources {
     pub textures: Arc<RwLock<HashMap<TextureId, wgpu::Texture>>>,
     pub samplers: Arc<RwLock<HashMap<SamplerId, wgpu::Sampler>>>,
     pub shader_modules: Arc<RwLock<HashMap<Handle<Shader>, wgpu::ShaderModule>>>,
-    pub render_pipelines: Arc<RwLock<HashMap<Handle<RenderPipelineDescriptor>, wgpu::RenderPipeline>>>,
+    pub render_pipelines:
+        Arc<RwLock<HashMap<Handle<RenderPipelineDescriptor>, wgpu::RenderPipeline>>>,
     pub compute_pipelines:
         Arc<RwLock<HashMap<Handle<ComputePipelineDescriptor>, wgpu::ComputePipeline>>>,
     pub bind_groups: Arc<RwLock<HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>>>,

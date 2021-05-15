@@ -5,7 +5,7 @@ use bevy_render::{
     draw::{Draw, DrawContext, DrawError, Drawable},
     mesh,
     mesh::Mesh,
-    pipeline::{VertexBufferLayout},
+    pipeline::VertexBufferLayout,
     prelude::Msaa,
     renderer::{BindGroup, RenderResourceBindings, RenderResourceId},
 };

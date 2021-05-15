@@ -130,7 +130,9 @@ where
         let commands = &mut self.commands;
         world.resource_scope(|world, mut active_cameras: Mut<ActiveCameras>| {
             let mut pipeline_camera_commands = HashMap::default();
-            let pipelines = world.get_resource::<Assets<RenderPipelineDescriptor>>().unwrap();
+            let pipelines = world
+                .get_resource::<Assets<RenderPipelineDescriptor>>()
+                .unwrap();
             let render_resource_context = &**world
                 .get_resource::<Box<dyn RenderResourceContext>>()
                 .unwrap();
@@ -237,7 +239,9 @@ where
         }
 
         let render_resource_bindings = world.get_resource::<RenderResourceBindings>().unwrap();
-        let pipelines = world.get_resource::<Assets<RenderPipelineDescriptor>>().unwrap();
+        let pipelines = world
+            .get_resource::<Assets<RenderPipelineDescriptor>>()
+            .unwrap();
 
         let mut draw_state = DrawState::default();
         let commands = &mut self.commands;

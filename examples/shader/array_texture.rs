@@ -3,7 +3,7 @@ use bevy::{
     reflect::TypeUuid,
     render::{
         mesh::shape,
-        pipeline::{RenderPipelineDescriptor, RenderPipeline},
+        pipeline::{RenderPipeline, RenderPipelineDescriptor},
         render_graph::{base, AssetRenderResourcesNode, RenderGraph},
         renderer::RenderResources,
         shader::{ShaderStage, ShaderStages},

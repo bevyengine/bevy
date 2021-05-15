@@ -1,6 +1,6 @@
 use crate::{
     pipeline::{
-        BindGroupDescriptorId, ComputePipelineDescriptor, RenderPipelineDescriptor, PipelineLayout,
+        BindGroupDescriptorId, ComputePipelineDescriptor, PipelineLayout, RenderPipelineDescriptor,
     },
     renderer::{
         BindGroup, BufferId, BufferInfo, BufferMapMode, RenderResourceId, SamplerId, TextureId,
