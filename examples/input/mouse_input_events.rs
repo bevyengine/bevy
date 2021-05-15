@@ -15,30 +15,21 @@ fn print_mouse_events_system(
     mut mouse_wheel_events: EventReader<MouseWheel>,
 ) {
     for event in mouse_button_input_events.iter() {
-        let button: MouseButton = event.button;
-        let state: ElementState = event.state;
-        info!("Button: {:?}", button);
-        info!("State: {:?}", state);
+        info!("Button: {:?}", event.button);
+        info!("State: {:?}", event.state);
     }
 
     for event in mouse_motion_events.iter() {
-        let movement: Vec2 = event.delta;
-        info!("Mouse moved by ({}, {})", movement.x, movement.y);
+        info!("Mouse moved by ({}, {})", event.delta.x, event.delta.y);
     }
 
     for event in cursor_moved_events.iter() {
-        let id: WindowId = event.id;
-        let position: Vec2 = event.position;
-
-        info!("Window id: {:?}", id);
-        info!("Cursor position: {:?}", position);
+        info!("Window id: {:?}", event.id);
+        info!("Cursor position: {:?}", event.position);
     }
 
     for event in mouse_wheel_events.iter() {
-        let unit: MouseScrollUnit = event.unit;
-        let x: f32 = event.x;
-        let y: f32 = event.y;
-        info!("Unit: {:?}", unit);
-        info!("Moved by {}, {}", x, y);
+        info!("Unit: {:?}", event.unit);
+        info!("Moved by {}, {}", event.x, event.y);
     }
 }
