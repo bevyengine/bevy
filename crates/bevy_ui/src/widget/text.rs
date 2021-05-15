@@ -42,7 +42,7 @@ pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f6
 
 /// Computes the size of a text block and updates the TextGlyphs with the
 /// new computed glyphs from the layout
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn text_system(
     mut queued_text: Local<QueuedText>,
     mut last_scale_factor: Local<f64>,
@@ -139,7 +139,7 @@ pub fn text_system(
     queued_text.entities = new_queue;
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn draw_text_system(
     mut context: DrawContext,
     msaa: Res<Msaa>,

@@ -34,12 +34,19 @@
 //
 // The above integration needs to be approximated.
 
-const int MAX_LIGHTS = 10;
+// reflects the constants defined bevy_pbr/src/render_graph/mod.rs
+const int MAX_POINT_LIGHTS = 10;
+const int MAX_DIRECTIONAL_LIGHTS = 1;
 
 struct PointLight {
     vec4 pos;
     vec4 color;
     vec4 lightParams;
+};
+ 
+struct DirectionalLight {
+    vec4 direction;
+    vec4 color;
 };
 
 layout(location = 0) in vec3 v_WorldPosition;
@@ -61,8 +68,9 @@ layout(std140, set = 0, binding = 1) uniform CameraPosition {
 
 layout(std140, set = 1, binding = 0) uniform Lights {
     vec4 AmbientColor;
-    uvec4 NumLights;
-    PointLight PointLights[MAX_LIGHTS];
+    uvec4 NumLights; // x = point lights, y = directional lights
+    PointLight PointLights[MAX_POINT_LIGHTS];
+    DirectionalLight DirectionalLights[MAX_DIRECTIONAL_LIGHTS];
 };
 
 layout(set = 3, binding = 0) uniform StandardMaterial_base_color {
@@ -277,6 +285,70 @@ vec3 reinhard_extended_luminance(vec3 color, float max_white_l) {
 
 #endif
 
+vec3 point_light(PointLight light, float roughness, float NdotV, vec3 N, vec3 V, vec3 R, vec3 F0, vec3 diffuseColor) {
+    vec3 light_to_frag = light.pos.xyz - v_WorldPosition.xyz;
+    float distance_square = dot(light_to_frag, light_to_frag);
+    float rangeAttenuation =
+        getDistanceAttenuation(distance_square, light.lightParams.r);
+
+    // Specular.
+    // Representative Point Area Lights.
+    // see http://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf p14-16
+    float a = roughness;
+    float radius = light.lightParams.g;
+    vec3 centerToRay = dot(light_to_frag, R) * R - light_to_frag;
+    vec3 closestPoint = light_to_frag + centerToRay * saturate(radius * inversesqrt(dot(centerToRay, centerToRay)));
+    float LspecLengthInverse = inversesqrt(dot(closestPoint, closestPoint));
+    float normalizationFactor = a / saturate(a + (radius * 0.5 * LspecLengthInverse));
+    float specularIntensity = normalizationFactor * normalizationFactor;
+
+    vec3 L = closestPoint * LspecLengthInverse; // normalize() equivalent?
+    vec3 H = normalize(L + V);
+    float NoL = saturate(dot(N, L));
+    float NoH = saturate(dot(N, H));
+    float LoH = saturate(dot(L, H));
+
+    vec3 specular = specular(F0, roughness, H, NdotV, NoL, NoH, LoH, specularIntensity);
+
+    // Diffuse.
+    // Comes after specular since its NoL is used in the lighting equation.
+    L = normalize(light_to_frag);
+    H = normalize(L + V);
+    NoL = saturate(dot(N, L));
+    NoH = saturate(dot(N, H));
+    LoH = saturate(dot(L, H));
+
+    vec3 diffuse = diffuseColor * Fd_Burley(roughness, NdotV, NoL, LoH);
+
+    // Lout = f(v,l) Φ / { 4 π d^2 }⟨n⋅l⟩
+    // where
+    // f(v,l) = (f_d(v,l) + f_r(v,l)) * light_color
+    // Φ is light intensity
+
+    // our rangeAttentuation = 1 / d^2 multiplied with an attenuation factor for smoothing at the edge of the non-physical maximum light radius
+    // It's not 100% clear where the 1/4π goes in the derivation, but we follow the filament shader and leave it out
+
+    // See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminanceEquation
+    // TODO compensate for energy loss https://google.github.io/filament/Filament.html#materialsystem/improvingthebrdfs/energylossinspecularreflectance
+    // light.color.rgb is premultiplied with light.intensity on the CPU
+    return ((diffuse + specular) * light.color.rgb) * (rangeAttenuation * NoL);
+}
+
+vec3 dir_light(DirectionalLight light, float roughness, float NdotV, vec3 normal, vec3 view, vec3 R, vec3 F0, vec3 diffuseColor) {
+    vec3 incident_light = light.direction.xyz;
+
+    vec3 half_vector = normalize(incident_light + view);
+    float NoL = saturate(dot(normal, incident_light));
+    float NoH = saturate(dot(normal, half_vector));
+    float LoH = saturate(dot(incident_light, half_vector));
+
+    vec3 diffuse = diffuseColor * Fd_Burley(roughness, NdotV, NoL, LoH);
+    float specularIntensity = 1.0;
+    vec3 specular = specular(F0, roughness, half_vector, NdotV, NoL, NoH, LoH, specularIntensity);
+
+    return (specular + diffuse) * light.color.rgb * NoL;
+}
+
 void main() {
     vec4 output_color = base_color;
 #ifdef STANDARDMATERIAL_BASE_COLOR_TEXTURE
@@ -343,55 +415,11 @@ void main() {
 
     // accumulate color
     vec3 light_accum = vec3(0.0);
-    for (int i = 0; i < int(NumLights.x) && i < MAX_LIGHTS; ++i) {
-        PointLight light = PointLights[i];
-        vec3 light_to_frag = light.pos.xyz - v_WorldPosition.xyz;
-        float distance_square = dot(light_to_frag, light_to_frag);
-        float rangeAttenuation =
-            getDistanceAttenuation(distance_square, light.lightParams.r);
-
-        // Specular.
-        // Representative Point Area Lights.
-        // see http://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf p14-16
-        float a = roughness;
-        float radius = light.lightParams.g;
-        vec3 centerToRay = dot(light_to_frag, R) * R - light_to_frag;
-        vec3 closestPoint = light_to_frag + centerToRay * saturate(radius * inversesqrt(dot(centerToRay, centerToRay)));
-        float LspecLengthInverse = inversesqrt(dot(closestPoint, closestPoint));
-        float normalizationFactor = a / saturate(a + (radius * 0.5 * LspecLengthInverse));
-        float specularIntensity = normalizationFactor * normalizationFactor;
-
-        vec3 L = closestPoint * LspecLengthInverse; // normalize() equivalent?
-        vec3 H = normalize(L + V);
-        float NoL = saturate(dot(N, L));
-        float NoH = saturate(dot(N, H));
-        float LoH = saturate(dot(L, H));
-
-        vec3 specular = specular(F0, roughness, H, NdotV, NoL, NoH, LoH, specularIntensity);
-
-        // Diffuse.
-        // Comes after specular since its NoL is used in the lighting equation.
-        L = normalize(light_to_frag);
-        H = normalize(L + V);
-        NoL = saturate(dot(N, L));
-        NoH = saturate(dot(N, H));
-        LoH = saturate(dot(L, H));
-
-        vec3 diffuse = diffuseColor * Fd_Burley(roughness, NdotV, NoL, LoH);
-
-        // Lout = f(v,l) Φ / { 4 π d^2 }⟨n⋅l⟩
-        // where
-        // f(v,l) = (f_d(v,l) + f_r(v,l)) * light_color
-        // Φ is light intensity
-
-        // our rangeAttentuation = 1 / d^2 multiplied with an attenuation factor for smoothing at the edge of the non-physical maximum light radius
-        // It's not 100% clear where the 1/4π goes in the derivation, but we follow the filament shader and leave it out
-
-        // See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminanceEquation
-        // TODO compensate for energy loss https://google.github.io/filament/Filament.html#materialsystem/improvingthebrdfs/energylossinspecularreflectance
-        // light.color.rgb is premultiplied with light.intensity on the CPU
-        light_accum +=
-            ((diffuse + specular) * light.color.rgb) * (rangeAttenuation * NoL);
+    for (int i = 0; i < int(NumLights.x) && i < MAX_POINT_LIGHTS; ++i) {
+        light_accum += point_light(PointLights[i], roughness, NdotV, N, V, R, F0, diffuseColor);
+    }
+    for (int i = 0; i < int(NumLights.y) && i < MAX_DIRECTIONAL_LIGHTS; ++i) {
+        light_accum += dir_light(DirectionalLights[i], roughness, NdotV, N, V, R, F0, diffuseColor);
     }
 
     vec3 diffuse_ambient = EnvBRDFApprox(diffuseColor, 1.0, NdotV);
