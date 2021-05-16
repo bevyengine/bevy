@@ -87,21 +87,19 @@ mod test {
         let (shutdown_tx, shutdown_rx) = async_channel::unbounded::<()>();
 
         let num_cpus = num_cpus::get();
-        let mut job_handles = vec![];
+        let mut job_handles = (0..num_cpus)
+            .map(|_| {
+                let executor = executor.clone();
+                let shutdown_rx = shutdown_rx.clone();
+                // Spawn a thread running the executor forever.
 
-        for _ in 0..num_cpus {
-            let executor = executor.clone();
-            let shutdown_rx = shutdown_rx.clone();
-            // Spawn a thread running the executor forever.
-
-            let job_handle = thread::spawn(move || {
-                let shutdown_future = executor.run(shutdown_rx.recv());
-                // Use unwrap_err because we expect a Closed error
-                future::block_on(shutdown_future).unwrap_err();
-                //println!("worker thread {} exits", x)
-            });
-            job_handles.push(job_handle);
-        }
+                thread::spawn(move || {
+                    let shutdown_future = executor.run(shutdown_rx.recv());
+                    // Use unwrap_err because we expect a Closed error
+                    future::block_on(shutdown_future).unwrap_err();
+                })
+            })
+            .collect::<Vec<_>>();
 
         let mut tasks: Vec<(Task<_>, Priority)> = Vec::new();
         let priority_choice = [
