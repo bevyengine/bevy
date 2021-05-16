@@ -14,6 +14,8 @@ pub mod prelude {
     pub use openxr::HandJointLocations;
 }
 
+use bevy_utils::tracing::warn;
+use bevy_wgpu::{WgpuBackend, WgpuOptions};
 use openxr::HandJointLocations;
 
 mod error;
@@ -68,8 +70,19 @@ impl Plugin for OpenXRPlugin {
         // must be initialized at startup, so that bevy_wgpu has access
         platform::initialize_openxr();
 
+        let mut wgpu_options = app
+            .world_mut()
+            .get_resource::<WgpuOptions>()
+            .cloned()
+            .unwrap_or_else(WgpuOptions::default);
+
+        // force to Vulkan
+        wgpu_options.backend = WgpuBackend::Vulkan;
+        warn!("Set WgpuBackend to WgpuBackend::Vulkan (only one supported for OpenXR currently)");
+
         app
             // FIXME should handposeevent be conditional based on options
+            .insert_resource(wgpu_options)
             .insert_resource(ScheduleRunnerSettings::run_loop(
                 std::time::Duration::from_micros(0),
             ))
