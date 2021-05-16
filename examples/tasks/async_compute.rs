@@ -68,7 +68,7 @@ fn handle_tasks(
             // Normally we would add our mesh and material assets once
             // and store the handle, but that's for another example
             let box_mesh = meshes.add(Mesh::from(shape::Cube { size: 0.25 }));
-            let box_material = materials.add(bevy::render::color::Color::rgb(1.0, 0.2, 0.3).into());
+            let box_material = materials.add(Color::rgb(1.0, 0.2, 0.3).into());
 
             // Add our new PbrBundle of components to our tagged entity
             commands.entity(entity).insert_bundle(PbrBundle {
