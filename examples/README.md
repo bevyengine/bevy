@@ -216,7 +216,7 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
-`async_compute` | [`tasks/async_compute.rs`](./tasks/async_compute.rs) | How to use AsyncComputeTaskPool to complete longer running tasks
+`async_compute` | [`tasks/async_compute.rs`](./tasks/async_compute.rs) | How to use `AsyncComputeTaskPool` to complete longer running tasks
 
 
 ## Tests
