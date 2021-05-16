@@ -1,6 +1,9 @@
+use crate::View;
+
 #[derive(Debug)]
 pub(crate) enum XREvent {
-    ViewCreated(XRViewCreated),
+    ViewSurfaceCreated(XRViewSurfaceCreated),
+    ViewsCreated(XRViewsCreated),
 }
 
 /// Current state of XR hardware/session
@@ -15,7 +18,12 @@ pub enum XRState {
 
 /// XR View has been configured/created
 #[derive(Debug)]
-pub struct XRViewCreated {
+pub struct XRViewSurfaceCreated {
     pub width: u32,
     pub height: u32,
+}
+
+#[derive(Debug)]
+pub struct XRViewsCreated {
+    pub views: Vec<View>,
 }

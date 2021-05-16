@@ -1,9 +1,12 @@
 use std::sync::Arc;
 
+use bevy_transform::components::Transform;
+use openxr::Time;
+
 use crate::{
-    event::{XREvent, XRViewCreated},
+    event::{XREvent, XRViewSurfaceCreated, XRViewsCreated},
     hand_tracking::HandPoseState,
-    OpenXRStruct, XRState, XRSwapchain, XRViewTransform,
+    OpenXRStruct, XRState, XRSwapchain,
 };
 
 pub struct XRDevice {
@@ -51,15 +54,40 @@ impl XRDevice {
     pub fn prepare_update(&mut self, device: &Arc<wgpu::Device>) -> XRState {
         // construct swapchain at first call
         if self.swapchain.is_none() {
-            let swapchain = XRSwapchain::new(device.clone(), &mut self.inner);
-            let resolution = swapchain.get_resolution();
+            let mut swapchain = XRSwapchain::new(device.clone(), &mut self.inner);
 
-            println!("Swapchain configured, resolution {:?}", resolution);
+            swapchain.prepare_update(&mut self.inner.handles);
+
+            let views = swapchain
+                .get_views(&mut self.inner.handles)
+                .iter()
+                .map(|view| View {
+                    fov: XrFovf {
+                        angle_left: view.fov.angle_left,
+                        angle_right: view.fov.angle_right,
+                        angle_down: view.fov.angle_down,
+                        angle_up: view.fov.angle_up,
+                    },
+                })
+                .collect::<Vec<View>>();
+
+            let resolution = swapchain.get_resolution();
+            println!(
+                "Swapchain configured, resolution {:?}, views: {:#?}",
+                resolution, views
+            );
+
             self.events_to_send
-                .push(XREvent::ViewCreated(XRViewCreated {
+                .push(XREvent::ViewSurfaceCreated(XRViewSurfaceCreated {
                     width: resolution.0,
                     height: resolution.1,
                 }));
+
+            self.events_to_send
+                .push(XREvent::ViewsCreated(XRViewsCreated {
+                    views: views.clone(),
+                }));
+
             self.swapchain = Some(swapchain);
 
             // hack to prevent render graph panic when output has not been sent
@@ -76,7 +104,7 @@ impl XRDevice {
             .prepare_update(&mut self.inner.handles)
     }
 
-    pub fn get_view_positions(&mut self) -> Option<Vec<XRViewTransform>> {
+    pub fn get_view_positions(&mut self) -> Option<Vec<Transform>> {
         if !self.inner.is_running() {
             return None;
         }
@@ -86,7 +114,7 @@ impl XRDevice {
             Some(sc) => sc,
         };
 
-        Some(swapchain.get_view_positions(&mut self.inner.handles))
+        swapchain.get_view_positions(&mut self.inner.handles)
     }
 
     pub fn finalize_update(&mut self) {
@@ -108,3 +136,16 @@ impl XRDevice {
 // FIXME FIXME FIXME ?!
 unsafe impl Sync for XRDevice {}
 unsafe impl Send for XRDevice {}
+
+#[derive(Debug, Clone)]
+pub struct View {
+    pub fov: XrFovf,
+}
+
+#[derive(Debug, Clone)]
+pub struct XrFovf {
+    pub angle_left: f32,
+    pub angle_right: f32,
+    pub angle_down: f32,
+    pub angle_up: f32,
+}

@@ -1,6 +1,7 @@
 use bevy_ecs::bundle::Bundle;
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_math::Mat4;
+use bevy_openxr_core::XrFovf;
 use bevy_reflect::Reflect;
 use bevy_render::camera::{Camera, CameraProjection, DepthCalculation, VisibleEntities};
 use bevy_render::render_graph::base::camera::CAMERA_XR;
@@ -40,13 +41,6 @@ impl Default for XRProjection {
     }
 }
 
-pub struct XrFovf {
-    pub angle_left: f32,
-    pub angle_right: f32,
-    pub angle_down: f32,
-    pub angle_up: f32,
-}
-
 impl XRProjection {
     // =============================================================================
     // math code adapted from
@@ -55,7 +49,7 @@ impl XRProjection {
     // Copyright (c) 2016 Oculus VR, LLC.
     // SPDX-License-Identifier: Apache-2.0
     // =============================================================================
-    pub fn get_projection_matrix_fov(&self, fov: XrFovf) -> Mat4 {
+    pub fn get_projection_matrix_fov(&self, fov: &XrFovf) -> Mat4 {
         let is_vulkan_api = false; // FIXME wgpu probably abstracts this
         let near_z = self.near;
         let far_z = self.far;
@@ -172,7 +166,7 @@ mod tests {
     fn test_projection() {
         let projection = XRProjection::new(0.01, 100.);
 
-        let matrix = projection.get_projection_matrix_fov(XrFovf {
+        let matrix = projection.get_projection_matrix_fov(&XrFovf {
             angle_left: -0.8552113,
             angle_right: 0.7853982,
             angle_up: 0.83775806,

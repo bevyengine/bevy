@@ -5,13 +5,13 @@ use crate::{
 };
 use bevy_app::{Events, ManualEventReader};
 use bevy_ecs::world::World;
-use bevy_openxr_core::event::XRViewCreated;
+use bevy_openxr_core::event::XRViewSurfaceCreated;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use std::borrow::Cow;
 
 pub struct XRWindowTextureNode {
     descriptor: TextureDescriptor,
-    xr_view_created_reader: ManualEventReader<XRViewCreated>,
+    xr_view_created_reader: ManualEventReader<XRViewSurfaceCreated>,
 }
 
 impl XRWindowTextureNode {
@@ -41,16 +41,16 @@ impl Node for XRWindowTextureNode {
     ) {
         const WINDOW_TEXTURE: usize = 0;
 
-        let xr_view_created_events = world.get_resource::<Events<XRViewCreated>>().unwrap();
+        let xr_view_created_events = world
+            .get_resource::<Events<XRViewSurfaceCreated>>()
+            .unwrap();
 
         for event in self
             .xr_view_created_reader
             .iter(&xr_view_created_events)
             .last()
         {
-            // Configure texture size. This usually happens only at the start of openxr session?
-            println!("Configured XRWindowTextureNode");
-
+            // Configure texture size. This usually happens only at the start of openxr session
             let render_resource_context = render_context.resources_mut();
             if let Some(RenderResourceId::Texture(old_texture)) = output.get(WINDOW_TEXTURE) {
                 render_resource_context.remove_texture(old_texture);

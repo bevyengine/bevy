@@ -4,10 +4,10 @@ use bevy_ecs::system::IntoSystem;
 mod device;
 pub mod event;
 pub mod hand_tracking;
+pub mod math;
 mod runner;
 mod swapchain;
 mod systems;
-mod view_transform;
 mod xr_instance;
 
 use bevy_utils::tracing::debug;
@@ -15,7 +15,6 @@ pub use device::*;
 use event::XRState;
 pub use swapchain::*;
 use systems::*;
-pub use view_transform::*;
 pub use xr_instance::{set_xr_instance, XrInstance};
 
 #[derive(Default)]
@@ -31,7 +30,8 @@ impl Plugin for OpenXRCorePlugin {
         app.insert_resource(xr_device)
             .add_system(openxr_event_system.system())
             .add_event::<event::XRState>()
-            .add_event::<event::XRViewCreated>()
+            .add_event::<event::XRViewSurfaceCreated>()
+            .add_event::<event::XRViewsCreated>()
             .init_resource::<hand_tracking::HandPoseState>()
             .add_system(xr_event_debug.system())
             .set_runner(runner::xr_runner); // FIXME conditional, or extract xr_events to whole new system? probably good

@@ -35,7 +35,16 @@ wgpu = { path = "../../../wgpu-rs" }
 num-traits = "0.2"
 num-derive = "0.2"
 
+[dev-dependencies]
+bevy_wgpu = { path = "../bevy_wgpu", version = "0.5.0", default-features = false, features = ["use-openxr"] }
+bevy_ui = { path = "../bevy_ui", version = "0.5.0" }
+bevy_input = { path = "../bevy_input", version = "0.5.0" }
+bevy_sprite = { path = "../bevy_sprite", version = "0.5.0" }
+bevy_text = { path = "../bevy_text", version = "0.5.0" }
+bevy_window = { path = "../bevy_window", version = "0.5.0" }
+
 [target.'cfg(target_os = "android")'.dependencies]
 ndk-glue = { version = "0.2", features = ["logger"]}
 ndk = { version = "0.2.1", features = ["trace"] }
 jni = "0.18.0"
+

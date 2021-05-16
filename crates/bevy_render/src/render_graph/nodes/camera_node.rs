@@ -13,10 +13,11 @@ use bevy_ecs::{
 };
 
 #[cfg(feature = "use-openxr")]
-use bevy_openxr_core::XRDevice;
+use bevy_openxr_core::{XRDevice, math::XRMatrixComputation};
 
 // use bevy_math::{Mat4, Quat, Vec4};
 use bevy_transform::prelude::*;
+use bevy_utils::tracing::warn;
 use std::borrow::Cow;
 
 #[derive(Debug)]
@@ -191,25 +192,29 @@ pub fn camera_node_system(
         if state.camera_name == CAMERA_XR {
             #[cfg(feature = "use-openxr")]
             if let Some(positions) = xr_device.get_view_positions() {
-                // FIXME handle array length
-                let camera_matrix_left: [f32; 16] = (camera.multiview_projection_matrices[0]
-                    * positions[0].compute_matrix().inverse())
-                .to_cols_array();
+                if positions.len() == 2 && camera.multiview_projection_matrices.len() == 2 {
+                    // FIXME handle array length
+                    let camera_matrix_left: [f32; 16] = (camera.multiview_projection_matrices[0]
+                        * positions[0].compute_xr_matrix().inverse())
+                    .to_cols_array();
 
-                let camera_matrix_right: [f32; 16] = (camera.multiview_projection_matrices[1]
-                    * positions[1].compute_matrix().inverse())
-                .to_cols_array();
+                    let camera_matrix_right: [f32; 16] = (camera.multiview_projection_matrices[1]
+                        * positions[1].compute_xr_matrix().inverse())
+                    .to_cols_array();
 
-                render_resource_context.write_mapped_buffer(
-                    staging_buffer,
-                    offset..(offset + MATRIX_SIZE_VIEW_PROJS as u64),
-                    &mut |data, _renderer| {
-                        data[0..MATRIX_SIZE_VIEW_PROJS / 2]
-                            .copy_from_slice(camera_matrix_left.as_bytes());
-                        data[MATRIX_SIZE_VIEW_PROJS / 2..]
-                            .copy_from_slice(camera_matrix_right.as_bytes());
-                    },
-                );
+                    render_resource_context.write_mapped_buffer(
+                        staging_buffer,
+                        offset..(offset + MATRIX_SIZE_VIEW_PROJS as u64),
+                        &mut |data, _renderer| {
+                            data[0..MATRIX_SIZE_VIEW_PROJS / 2]
+                                .copy_from_slice(camera_matrix_left.as_bytes());
+                            data[MATRIX_SIZE_VIEW_PROJS / 2..]
+                                .copy_from_slice(camera_matrix_right.as_bytes());
+                        },
+                    );
+                } else {
+                    warn!("XR view_positions len wasn't 2")
+                }
             }
         } else {
             let view_proj = camera.projection_matrix * view.inverse();

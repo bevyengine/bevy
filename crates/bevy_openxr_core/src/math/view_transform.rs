@@ -1,18 +1,8 @@
-use bevy_math::{Vec3, Quat, Mat4};
+use bevy_math::{Mat4, Quat, Vec3};
+use bevy_transform::components::Transform;
 
-#[derive(Debug)]
-pub struct XRViewTransform {
-    translation: Vec3,
-    rotation: Quat,
-}
-
-impl XRViewTransform {
-    pub fn new(translation: Vec3, rotation: Quat) -> Self {
-        Self {
-            translation,
-            rotation
-        }
-    }
+pub trait XRMatrixComputation {
+    fn compute_xr_matrix(&self) -> Mat4;
 }
 
 // =============================================================================
@@ -22,9 +12,8 @@ impl XRViewTransform {
 // Copyright (c) 2016 Oculus VR, LLC.
 // SPDX-License-Identifier: Apache-2.0
 // =============================================================================
-impl XRViewTransform {
-    #[inline]
-    pub fn compute_matrix(&self) -> Mat4 {
+impl XRMatrixComputation for Transform {
+    fn compute_xr_matrix(&self) -> Mat4 {
         let rotation_matrix = create_from_quaternion(self.rotation);
         let translation_matrix = create_translation(&self.translation);
         let view_matrix = translation_matrix * rotation_matrix;
@@ -108,25 +97,27 @@ fn create_translation(translation: &Vec3) -> Mat4 {
     Mat4::from_cols_array(&cols)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy_math::{Vec3, Quat, Vec4};
+    use bevy_math::{Quat, Vec3, Vec4};
 
     #[test]
     fn test_compute_matrix() {
-        let view_transform = XRViewTransform::new(
-                Vec3::new(0.013484435, 1.4237524, 0.0749487),
-                Quat::from_xyzw(-0.11108862, -0.09665678, 0.0010674158, 0.9890984)
+        let mut view_transform =
+            Transform::from_translation(Vec3::new(0.013484435, 1.4237524, 0.0749487));
+
+        view_transform.rotation =
+            Quat::from_xyzw(-0.11108862, -0.09665678, 0.0010674158, 0.9890984);
+
+        assert_eq!(
+            view_transform.compute_matrix(),
+            Mat4::from_cols(
+                Vec4::new(0.9813127, 0.023586493, 0.19096898, 0.0),
+                Vec4::new(0.019363377, 0.97531635, -0.21996151, 0.0),
+                Vec4::new(-0.19144328, 0.2195488, 0.95663357, 0.0),
+                Vec4::new(0.013484435, 1.4237524, 0.0749487, 1.0),
+            )
         );
-
-        assert_eq!(view_transform.compute_matrix(), Mat4::from_cols(
-            Vec4::new(0.9813127, 0.023586493, 0.19096898, 0.0),
-            Vec4::new(0.019363377, 0.97531635, -0.21996151, 0.0),
-            Vec4::new(-0.19144328, 0.2195488, 0.95663357, 0.0),
-            Vec4::new(0.013484435, 1.4237524, 0.0749487, 1.0),
-        ));
-
     }
 }

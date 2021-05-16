@@ -2,7 +2,7 @@ use bevy_app::{EventWriter, Events};
 use bevy_ecs::system::ResMut;
 
 use crate::{
-    event::{XREvent, XRState, XRViewCreated},
+    event::{XREvent, XRState, XRViewSurfaceCreated, XRViewsCreated},
     hand_tracking::HandPoseState,
     XRDevice,
 };
@@ -11,13 +11,17 @@ pub(crate) fn openxr_event_system(
     mut openxr: ResMut<XRDevice>,
     mut hand_pose: ResMut<HandPoseState>,
     mut state_events: ResMut<Events<XRState>>,
-    mut view_created_sender: EventWriter<XRViewCreated>,
+
+    mut view_surface_created_sender: EventWriter<XRViewSurfaceCreated>,
+    mut views_created_sender: EventWriter<XRViewsCreated>,
 ) {
     // TODO add this drain -system as pre-render and post-render system?
     for event in openxr.drain_events() {
-        println!("Drained openxr event {:?}", event);
         match event {
-            XREvent::ViewCreated(view_created) => view_created_sender.send(view_created),
+            XREvent::ViewSurfaceCreated(view_created) => {
+                view_surface_created_sender.send(view_created)
+            }
+            XREvent::ViewsCreated(views) => views_created_sender.send(views),
         }
     }
 
