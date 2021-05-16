@@ -98,12 +98,10 @@ fn main() {
 fn setup_env(mut commands: Commands) {
 
     // Used to center camera on spawned cubes
-    let offset = || {
-        if NUM_CUBES % 2 == 0 {
-            (NUM_CUBES / 2) as f32 - 0.5
-        } else {
-            (NUM_CUBES / 2) as f32
-        }
+    let offset = if NUM_CUBES % 2 == 0 {
+        (NUM_CUBES / 2) as f32 - 0.5
+    } else {
+        (NUM_CUBES / 2) as f32
     };
 
     // lights
@@ -114,8 +112,8 @@ fn setup_env(mut commands: Commands) {
 
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_translation(Vec3::new(offset(), offset(), 15.0))
-            .looking_at(Vec3::new(offset(), offset(), 0.0), Vec3::Y),
+        transform: Transform::from_translation(Vec3::new(offset, offset, 15.0))
+            .looking_at(Vec3::new(offset, offset, 0.0), Vec3::Y),
         ..Default::default()
     });
 }
