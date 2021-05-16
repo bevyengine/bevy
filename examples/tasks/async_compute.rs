@@ -2,7 +2,6 @@ use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use std::time::{Instant, Duration};
 use rand::Rng;
-use std::option::Option::Some;
 use futures_lite::future;
 
 /// This example shows how to use the ecs system and the AsyncComputeTaskPool
