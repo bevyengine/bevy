@@ -9,9 +9,6 @@ use futures_lite::future;
 // Number of cubes to spawn across the x, y, and z axis
 const NUM_CUBES: u32 = 6;
 
-// Used to tag our new entity spawned with tasks
-struct Marker;
-
 /// This system generates tasks simulating computationally intensive
 /// work that potentially spans multiple frames/ticks. A separate
 /// system, handle_tasks, will poll the spawned tasks on subsequent
@@ -27,7 +24,6 @@ fn spawn_tasks(
                 // Spawn new task on the AsyncComputeTaskPool
                 let task = thread_pool.spawn(async move {
 
-
                     let mut rng = rand::thread_rng();
                     let start_time = Instant::now();
                     let duration = Duration::from_secs_f32(rng.gen_range(0.05..0.2));
@@ -42,25 +38,22 @@ fn spawn_tasks(
                     Transform::from_translation(Vec3::new(x as f32, y as f32, z as f32))
                 });
 
-                // Spawn new entity, tag it with Marker as a component,
-                // and add our new task as a component
-                commands.spawn()
-                    .insert(Marker)
-                    .insert(task);
+                // Spawn new entity and add our new task as a component
+                commands.spawn().insert(task);
             }
         }
     }
 }
 
-/// This system queries for entities that have both our Marker component
-/// as well as a Task<Transform> component. It polls the tasks to see if they're
-/// complete. If the task is complete it takes the result, adds a new PbrBundle of components to the
-/// entity using the result from the task's work, and removes the task component from the entity.
+/// This system queries for entities that have our Task<Transform> component. It polls the
+/// tasks to see if they're complete. If the task is complete it takes the result, adds a
+/// new PbrBundle of components to the entity using the result from the task's work, and
+/// removes the task component from the entity.
 fn handle_tasks(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut our_entity_tasks: Query<(Entity, &mut Task<Transform>), With<Marker>>
+    mut our_entity_tasks: Query<(Entity, &mut Task<Transform>)>
 ) {
     our_entity_tasks.for_each_mut(|(entity, mut task)| {
 
