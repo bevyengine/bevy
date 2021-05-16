@@ -7,7 +7,7 @@ use futures_lite::future;
 /// to spawn, poll, and complete tasks across systems and system ticks.
 
 // Number of cubes to spawn across the x, y, and z axis
-const NUM_CUBES: i32 = 6;
+const NUM_CUBES: u32 = 6;
 
 // Used to tag our new entity spawned with tasks
 struct Marker;
