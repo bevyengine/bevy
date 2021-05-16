@@ -3,7 +3,6 @@ mod binding;
 mod compute_pipeline;
 mod pipeline_compiler;
 mod pipeline_layout;
-#[allow(clippy::module_inception)]
 mod render_pipeline;
 mod render_pipelines;
 mod state_descriptors;
