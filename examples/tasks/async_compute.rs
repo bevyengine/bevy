@@ -3,7 +3,7 @@ use std::time::{Instant, Duration};
 use rand::Rng;
 use futures_lite::future;
 
-/// This example shows how to use the ecs system and the AsyncComputeTaskPool
+/// This example shows how to use the ECS and the AsyncComputeTaskPool
 /// to spawn, poll, and complete tasks across systems and system ticks.
 
 // Number of cubes to spawn across the x, y, and z axis
