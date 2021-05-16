@@ -10,6 +10,9 @@ use bevy_ecs::{
 use bevy_reflect::Reflect;
 use bevy_transform::prelude::{Children, GlobalTransform, Parent};
 
+// This struct reflects Visible and is used to store the effective value.
+// The only one reason why it's not stored in the original struct is the `is_transparent` field.
+// Having both that field and the effective value in Visible complicates creation of that struct.
 #[derive(Default, Debug, Reflect)]
 #[reflect(Component)]
 pub struct VisibleEffective {
@@ -211,6 +214,13 @@ mod rendering_mask_tests {
     }
 }
 
+//Computes effective visibility for entities.
+//
+//In hirerarchies the actual visiblity of an entity isn't only the current value,
+//but also depends on ancestors of the entity./ To avoid traversing each hierarchy
+//and determine the effective visibility for each entity, this system listens to
+//visiblity and hierarchy changes and only then computes a value to be cached and
+//used by other systems.
 pub fn visible_effective_system(
     children_query: Query<&Children>,
     changes_query: Query<
