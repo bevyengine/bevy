@@ -71,8 +71,8 @@ fn handle_tasks(
 
             // Add our new PbrBundle of components to our tagged entity
             commands.entity(entity).insert_bundle(PbrBundle {
-                mesh: box_mesh.clone(),
-                material: box_material.clone(),
+                mesh: box_mesh,
+                material: box_material,
                 transform,
                 ..Default::default()
             });
