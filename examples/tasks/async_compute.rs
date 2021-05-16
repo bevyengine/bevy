@@ -60,7 +60,7 @@ fn handle_tasks(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut our_entity_tasks: Query<(Entity, &mut Task<Transform>), With<Marker>>
 ) {
-    for (entity, mut task) in our_entity_tasks.iter_mut() {
+    our_entity_tasks.for_each_mut(|(entity, mut task)| {
 
         if let Some(transform) = future::block_on(future::poll_once(&mut *task)) {
 
@@ -80,7 +80,7 @@ fn handle_tasks(
             // Task is complete, so remove task component from entity
             commands.entity(entity).remove::<Task<Transform>>();
         }
-    }
+    });
 }
 
 fn main() {
