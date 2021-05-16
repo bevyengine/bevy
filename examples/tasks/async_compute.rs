@@ -27,11 +27,13 @@ fn spawn_tasks(
                 // Spawn new task on the AsyncComputeTaskPool
                 let task = thread_pool.spawn(async move {
 
+
                     let mut rng = rand::thread_rng();
                     let start_time = Instant::now();
                     let duration = Duration::from_secs_f32(rng.gen_range(0.05..0.2));
                     while Instant::now() - start_time < duration {
-                        // Simulating doing hard compute work generating translation coords!
+                        // Spinning for 'duration', simulating doing hard
+                        // compute work generating translation coords!
                     }
 
                     // Such hard work, all done!
