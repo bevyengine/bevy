@@ -120,6 +120,7 @@ impl From<image::DynamicImage> for Texture {
         )
     }
 }
+
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
 pub enum TextureConversionError {
     #[error("Unsupported texture format")]
