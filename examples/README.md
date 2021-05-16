@@ -49,6 +49,7 @@ git checkout v0.4.0
   - [Reflection](#reflection)
   - [Scene](#scene)
   - [Shaders](#shaders)
+  - [Tasks](#tasks)
   - [Tests](#tests)
   - [Tools](#tools)
   - [UI (User Interface)](#ui-user-interface)
@@ -210,6 +211,13 @@ Example | File | Description
 `mesh_custom_attribute` | [`shader/mesh_custom_attribute.rs`](./shader/mesh_custom_attribute.rs) | Illustrates how to add a custom attribute to a mesh and use it in a custom shader
 `shader_custom_material` | [`shader/shader_custom_material.rs`](./shader/shader_custom_material.rs) | Illustrates creating a custom material and a shader that uses it
 `shader_defs` | [`shader/shader_defs.rs`](./shader/shader_defs.rs) | Demonstrates creating a custom material that uses "shaders defs" (a tool to selectively toggle parts of a shader)
+
+## Tasks
+
+Example | File | Description
+--- | --- | ---
+`async_compute` | [`tasks/async_compute.rs`](./tasks/async_compute.rs) | How to use AsyncComputeTaskPool to complete longer running tasks
+
 
 ## Tests
 
