@@ -1,5 +1,4 @@
-use bevy::prelude::*;
-use bevy::tasks::{AsyncComputeTaskPool, Task};
+use bevy::{prelude::*, tasks::{AsyncComputeTaskPool, Task};
 use std::time::{Instant, Duration};
 use rand::Rng;
 use futures_lite::future;
