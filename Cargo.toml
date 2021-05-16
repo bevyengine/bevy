@@ -87,6 +87,8 @@ anyhow = "1.0"
 rand = "0.8.0"
 ron = "0.6.2"
 serde = {version = "1", features = ["derive"]}
+# Needed to poll Task examples
+futures-lite = "1.11.3"
 
 [[example]]
 name = "hello_world"
@@ -399,6 +401,11 @@ path = "examples/shader/shader_custom_material.rs"
 [[example]]
 name = "shader_defs"
 path = "examples/shader/shader_defs.rs"
+
+# Tasks
+[[example]]
+name = "async_compute"
+path = "examples/tasks/async_compute.rs"
 
 # Tools
 [[example]]
