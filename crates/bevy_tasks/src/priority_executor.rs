@@ -44,11 +44,7 @@ impl<'a> PriorityExecutor<'a> {
     pub async fn run<T>(&self, future: impl Future<Output = T>) -> T {
         let run_forever = async {
             loop {
-                loop {
-                    if !self.ex[0].try_tick() {
-                        break;
-                    }
-                }
+                while self.ex[0].try_tick() {}
 
                 let t1 = self.ex[1].tick();
                 let t2 = self.ex[2].tick();
