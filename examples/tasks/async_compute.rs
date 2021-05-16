@@ -33,8 +33,6 @@ fn spawn_tasks(
                     }
 
                     // Such hard work, all done!
-                    println!("Done generating translation coords x: {} y: {} z: {}", x, y, z);
-
                     Transform::from_translation(Vec3::new(x as f32, y as f32, z as f32))
                 });
 
