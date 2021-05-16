@@ -1,4 +1,5 @@
 use std::convert::TryFrom;
+use thiserror::Error;
 
 use super::{Extent3d, Texture, TextureDimension, TextureFormat};
 
@@ -90,7 +91,7 @@ impl From<image::DynamicImage> for Texture {
                     let r = pixel[0];
                     let g = pixel[1];
                     let b = pixel[2];
-                    let a = u16::max_value();
+                    let a = u16::MAX;
 
                     local_data.extend_from_slice(&r.to_ne_bytes());
                     local_data.extend_from_slice(&g.to_ne_bytes());
@@ -119,9 +120,11 @@ impl From<image::DynamicImage> for Texture {
         )
     }
 }
-
+#[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
 pub enum TextureConversionError {
+    #[error("Unsupported texture format")]
     UnsupportedFormat,
+    #[error("Invalid texture size")]
     InvalidSize,
 }
 
