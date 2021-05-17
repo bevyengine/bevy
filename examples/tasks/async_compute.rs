@@ -9,6 +9,25 @@ use futures_lite::future;
 // Number of cubes to spawn across the x, y, and z axis
 const NUM_CUBES: u32 = 6;
 
+struct BoxMeshHandle(Handle<Mesh>);
+struct BoxMaterialHandle(Handle<StandardMaterial>);
+
+/// Startup system which runs only once and generates our Box Mesh
+/// and Box Material assets, adds them to their respective Asset
+/// Resources, and stores their handles as resources so we can access
+/// them later when we're ready to render our Boxes
+fn add_assets(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+){
+    let box_mesh_handle = meshes.add(Mesh::from(shape::Cube { size: 0.25 }));
+    commands.insert_resource(BoxMeshHandle(box_mesh_handle));
+
+    let box_material_handle = materials.add(Color::rgb(1.0, 0.2, 0.3).into());
+    commands.insert_resource(BoxMaterialHandle(box_material_handle));
+}
+
 /// This system generates tasks simulating computationally intensive
 /// work that potentially spans multiple frames/ticks. A separate
 /// system, handle_tasks, will poll the spawned tasks on subsequent
@@ -49,23 +68,18 @@ fn spawn_tasks(
 /// removes the task component from the entity.
 fn handle_tasks(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut our_entity_tasks: Query<(Entity, &mut Task<Transform>)>
+    mut our_entity_tasks: Query<(Entity, &mut Task<Transform>)>,
+    box_mesh_handle: Res<BoxMeshHandle>,
+    box_material_handle: Res<BoxMaterialHandle>,
 ) {
     our_entity_tasks.for_each_mut(|(entity, mut task)| {
 
         if let Some(transform) = future::block_on(future::poll_once(&mut *task)) {
 
-            // Normally we would add our mesh and material assets once
-            // and store the handle, but that's for another example
-            let box_mesh = meshes.add(Mesh::from(shape::Cube { size: 0.25 }));
-            let box_material = materials.add(Color::rgb(1.0, 0.2, 0.3).into());
-
             // Add our new PbrBundle of components to our tagged entity
             commands.entity(entity).insert_bundle(PbrBundle {
-                mesh: box_mesh,
-                material: box_material,
+                mesh: box_mesh_handle.0.clone(),
+                material: box_material_handle.0.clone(),
                 transform,
                 ..Default::default()
             });
@@ -81,13 +95,13 @@ fn main() {
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup_env.system())
+        .add_startup_system(add_assets.system())
         .add_startup_system(spawn_tasks.system())
         .add_system(handle_tasks.system())
         .run();
 }
 
-/// This system IS NOT part of the example, it's only
-/// used to setup the light and camera for the environment
+/// This system is only used to setup light and camera for the environment
 fn setup_env(mut commands: Commands) {
 
     // Used to center camera on spawned cubes
