@@ -2,7 +2,8 @@ use crate::{
     component::Component,
     entity::Entity,
     query::{
-        Fetch, FilterFetch, QueryEntityError, QueryIter, QueryState, ReadOnlyFetch, WorldQuery,
+        Fetch, FilterFetch, QueryCombinationIter, QueryEntityError, QueryIter, QueryState,
+        ReadOnlyFetch, WorldQuery,
     },
     world::{Mut, World},
 };
@@ -157,6 +158,29 @@ where
         }
     }
 
+    /// Returns an [`Iterator`] over all possible combinations of `K` query results without repetition.
+    /// This can only be called for read-only queries
+    ///
+    ///  For permutations of size K of query returning N results, you will get:
+    /// - if K == N: one permutation of all query results
+    /// - if K < N: all possible K-sized combinations of query results, without repetition
+    /// - if K > N: empty set (no K-sized combinations exist)
+    #[inline]
+    pub fn iter_combinations<const K: usize>(&self) -> QueryCombinationIter<'_, '_, Q, F, K>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        // SAFE: system runs without conflicts with other systems.
+        // same-system queries have runtime borrow checks when they conflict
+        unsafe {
+            self.state.iter_combinations_unchecked_manual(
+                self.world,
+                self.last_change_tick,
+                self.change_tick,
+            )
+        }
+    }
+
     /// Returns an [`Iterator`] over the query results.
     #[inline]
     pub fn iter_mut(&mut self) -> QueryIter<'_, '_, Q, F> {
@@ -165,6 +189,42 @@ where
         unsafe {
             self.state
                 .iter_unchecked_manual(self.world, self.last_change_tick, self.change_tick)
+        }
+    }
+
+    /// Iterates over all possible combinations of `K` query results without repetition.
+    ///
+    /// The returned value is not an `Iterator`, because that would lead to aliasing of mutable references.
+    /// In order to iterate it, use `fetch_next` method with `while let Some(..)` loop pattern.
+    ///
+    /// ```
+    /// # struct A;
+    /// # use bevy_ecs::prelude::*;
+    /// # fn some_system(mut query: Query<&mut A>) {
+    /// // iterate using `fetch_next` in while loop
+    /// let mut combinations = query.iter_combinations_mut();
+    /// while let Some([mut a, mut b]) = combinations.fetch_next() {
+    ///    // mutably access components data
+    /// }
+    /// # }
+    /// ```
+    ///
+    /// There is no `for_each` method, because it cannot be safely implemented
+    /// due to a [compiler bug](https://github.com/rust-lang/rust/issues/62529).
+    ///
+    /// For immutable access see [`Query::iter_combinations`].
+    #[inline]
+    pub fn iter_combinations_mut<const K: usize>(
+        &mut self,
+    ) -> QueryCombinationIter<'_, '_, Q, F, K> {
+        // SAFE: system runs without conflicts with other systems.
+        // same-system queries have runtime borrow checks when they conflict
+        unsafe {
+            self.state.iter_combinations_unchecked_manual(
+                self.world,
+                self.last_change_tick,
+                self.change_tick,
+            )
         }
     }
 
@@ -180,6 +240,25 @@ where
         // same-system queries have runtime borrow checks when they conflict
         self.state
             .iter_unchecked_manual(self.world, self.last_change_tick, self.change_tick)
+    }
+
+    /// Iterates over all possible combinations of `K` query results without repetition.
+    /// See [`Query::iter_combinations`].
+    ///
+    /// # Safety
+    /// This allows aliased mutability. You must make sure this call does not result in multiple
+    /// mutable references to the same component
+    #[inline]
+    pub unsafe fn iter_combinations_unsafe<const K: usize>(
+        &self,
+    ) -> QueryCombinationIter<'_, '_, Q, F, K> {
+        // SEMI-SAFE: system runs without conflicts with other systems.
+        // same-system queries have runtime borrow checks when they conflict
+        self.state.iter_combinations_unchecked_manual(
+            self.world,
+            self.last_change_tick,
+            self.change_tick,
+        )
     }
 
     /// Runs `f` on each query result. This is faster than the equivalent iter() method, but cannot

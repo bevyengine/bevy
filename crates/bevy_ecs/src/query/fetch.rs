@@ -279,6 +279,18 @@ pub struct ReadFetch<T> {
     sparse_set: *const ComponentSparseSet,
 }
 
+impl<T> Clone for ReadFetch<T> {
+    fn clone(&self) -> Self {
+        Self {
+            storage_type: self.storage_type,
+            table_components: self.table_components,
+            entity_table_rows: self.entity_table_rows,
+            entities: self.entities,
+            sparse_set: self.sparse_set,
+        }
+    }
+}
+
 /// SAFETY: access is read only
 unsafe impl<T> ReadOnlyFetch for ReadFetch<T> {}
 
@@ -380,6 +392,21 @@ pub struct WriteFetch<T> {
     sparse_set: *const ComponentSparseSet,
     last_change_tick: u32,
     change_tick: u32,
+}
+
+impl<T> Clone for WriteFetch<T> {
+    fn clone(&self) -> Self {
+        Self {
+            storage_type: self.storage_type,
+            table_components: self.table_components,
+            table_ticks: self.table_ticks,
+            entities: self.entities,
+            entity_table_rows: self.entity_table_rows,
+            sparse_set: self.sparse_set,
+            last_change_tick: self.last_change_tick,
+            change_tick: self.change_tick,
+        }
+    }
 }
 
 /// The [`FetchState`] of `&mut T`.
