@@ -50,7 +50,7 @@ pub trait SystemParam: Sized {
 /// conflicting access across all SystemParams.
 pub unsafe trait SystemParamState: Send + Sync + 'static {
     /// Values of this type can be used to adjust the behavior of the
-    /// system parameter.  For instance, this can be used to pass
+    /// system parameter. For instance, this can be used to pass
     /// values from a `Plugin` to a `System`, or to control the
     /// behavior of the `System`.
     ///
