@@ -4,7 +4,7 @@ use crate::{
     },
     render_graph::uniform,
 };
-use bevy_core::{AsBytes, Byteable};
+use bevy_core::{bytes_of, Pod, Zeroable};
 use bevy_ecs::{
     system::{BoxedSystem, IntoSystem, Local, Query, Res, ResMut},
     world::World,
@@ -49,15 +49,13 @@ impl Node for LightsNode {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Pod, Zeroable)]
 struct LightCount {
     // storing as a `[u32; 4]` for memory alignement
     // Index 0 is for point lights,
     // Index 1 is for directional lights
     pub num_lights: [u32; 4],
 }
-
-unsafe impl Byteable for LightCount {}
 
 impl SystemNode for LightsNode {
     fn get_system(&self) -> BoxedSystem {
@@ -160,21 +158,25 @@ pub fn lights_node_system(
         0..max_light_uniform_size as u64,
         &mut |data, _renderer| {
             // ambient light
-            data[0..ambient_light_size].copy_from_slice(ambient_light.as_bytes());
+            data[0..ambient_light_size].copy_from_slice(bytes_of(&ambient_light));
 
             // light count
-            data[ambient_light_size..light_count_size].copy_from_slice(
-                [point_light_count as u32, dir_light_count as u32, 0, 0].as_bytes(),
-            );
+            data[ambient_light_size..light_count_size].copy_from_slice(bytes_of(&[
+                point_light_count as u32,
+                dir_light_count as u32,
+                0,
+                0,
+            ]));
 
             // point light array
             for ((point_light, global_transform), slot) in point_lights.iter().zip(
                 data[point_light_uniform_start..point_light_uniform_end]
                     .chunks_exact_mut(point_light_size),
             ) {
-                slot.copy_from_slice(
-                    PointLightUniform::new(&point_light, &global_transform).as_bytes(),
-                );
+                slot.copy_from_slice(bytes_of(&PointLightUniform::new(
+                    &point_light,
+                    &global_transform,
+                )));
             }
 
             // directional light array
@@ -182,7 +184,7 @@ pub fn lights_node_system(
                 data[dir_light_uniform_start..dir_light_uniform_end]
                     .chunks_exact_mut(dir_light_size),
             ) {
-                slot.copy_from_slice(DirectionalLightUniform::new(&dir_light).as_bytes());
+                slot.copy_from_slice(bytes_of(&DirectionalLightUniform::new(&dir_light)));
             }
         },
     );

@@ -1,4 +1,4 @@
-use bevy_core::Byteable;
+use bevy_core::{Pod, Zeroable};
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_math::Vec3;
 use bevy_reflect::Reflect;
@@ -27,15 +27,13 @@ impl Default for PointLight {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Pod, Zeroable)]
 pub(crate) struct PointLightUniform {
     pub pos: [f32; 4],
     pub color: [f32; 4],
     // storing as a `[f32; 4]` for memory alignement
     pub light_params: [f32; 4],
 }
-
-unsafe impl Byteable for PointLightUniform {}
 
 impl PointLightUniform {
     pub fn new(light: &PointLight, global_transform: &GlobalTransform) -> PointLightUniform {
@@ -118,13 +116,11 @@ impl Default for DirectionalLight {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Pod, Zeroable)]
 pub(crate) struct DirectionalLightUniform {
     pub dir: [f32; 4],
     pub color: [f32; 4],
 }
-
-unsafe impl Byteable for DirectionalLightUniform {}
 
 impl DirectionalLightUniform {
     pub fn new(light: &DirectionalLight) -> DirectionalLightUniform {
