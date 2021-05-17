@@ -207,6 +207,13 @@ impl<'w, T: Component> Deref for Res<'w, T> {
     }
 }
 
+impl<'w, T: Component> AsRef<T> for Res<'w, T> {
+    #[inline]
+    fn as_ref(&self) -> &T {
+        self.deref()
+    }
+}
+
 /// The [`SystemParamState`] of [`Res`].
 pub struct ResState<T> {
     component_id: ComponentId,
@@ -364,6 +371,20 @@ impl<'w, T: Component> DerefMut for ResMut<'w, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.ticks.set_changed(self.change_tick);
         self.value
+    }
+}
+
+impl<'w, T: Component> AsRef<T> for ResMut<'w, T> {
+    #[inline]
+    fn as_ref(&self) -> &T {
+        self.deref()
+    }
+}
+
+impl<'w, T: Component> AsMut<T> for ResMut<'w, T> {
+    #[inline]
+    fn as_mut(&mut self) -> &mut T {
+        self.deref_mut()
     }
 }
 
