@@ -397,6 +397,8 @@ where
         last_change_tick: u32,
         change_tick: u32,
     ) {
+        // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
+        // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         let mut fetch =
             <Q::Fetch as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);
         let mut filter =
@@ -449,6 +451,8 @@ where
         last_change_tick: u32,
         change_tick: u32,
     ) {
+        // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
+        // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         task_pool.scope(|scope| {
             let fetch =
                 <Q::Fetch as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);
