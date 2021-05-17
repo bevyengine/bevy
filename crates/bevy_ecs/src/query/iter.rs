@@ -77,6 +77,8 @@ where
 {
     type Item = <Q::Fetch as Fetch<'w>>::Item;
 
+    // NOTE: If you are changing QueryIter code, also update QueryIterationCursor code, when relevant.
+    // QueryIter doesn't use QueryIterationCursor for performance reasons. See #1763 for context.
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
@@ -433,6 +435,8 @@ where
         }
     }
 
+    // NOTE: If you are changing QueryIterationCursor code, also update QueryIter code, when relevant.
+    // QueryIter doesn't use QueryIterationCursor for performance reasons. See #1763 for context.
     #[inline(always)]
     unsafe fn next<'w>(
         &mut self,
