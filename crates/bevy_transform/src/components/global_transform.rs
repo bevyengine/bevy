@@ -207,7 +207,7 @@ impl GlobalTransform {
         let forward = Vec3::normalize(self.translation - target);
         let right = up.cross(forward).normalize();
         let up = forward.cross(right);
-        self.rotation = Quat::from_rotation_mat3(&Mat3::from_cols(right, up, forward));
+        self.rotation = Quat::from_mat3(&Mat3::from_cols(right, up, forward));
     }
 }
 
