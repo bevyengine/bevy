@@ -10,7 +10,7 @@ use crate::{
 use std::{borrow::Cow, ptr::NonNull};
 
 /// System metadata like its name, labels, order requirements and component access.
-pub trait SystemContainer: GraphNode<BoxedSystemLabel> {
+pub trait SystemContainer: GraphNode<Label = BoxedSystemLabel> {
     #[doc(hidden)]
     fn dependencies(&self) -> &[usize];
     #[doc(hidden)]
@@ -54,7 +54,9 @@ impl ExclusiveSystemContainer {
     }
 }
 
-impl GraphNode<BoxedSystemLabel> for ExclusiveSystemContainer {
+impl GraphNode for ExclusiveSystemContainer {
+    type Label = BoxedSystemLabel;
+
     fn name(&self) -> Cow<'static, str> {
         self.system.name()
     }
@@ -163,7 +165,9 @@ impl ParallelSystemContainer {
     }
 }
 
-impl GraphNode<BoxedSystemLabel> for ParallelSystemContainer {
+impl GraphNode for ParallelSystemContainer {
+    type Label = BoxedSystemLabel;
+
     fn name(&self) -> Cow<'static, str> {
         self.system().name()
     }
