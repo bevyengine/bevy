@@ -7,7 +7,7 @@ use crate::{
     },
     system::{ExclusiveSystem, System},
 };
-use std::{borrow::Cow, ptr::NonNull};
+use std::{borrow::Cow, cell::UnsafeCell};
 
 /// System metadata like its name, labels, order requirements and component access.
 pub trait SystemContainer: GraphNode<Label = BoxedSystemLabel> {
@@ -106,7 +106,7 @@ impl SystemContainer for ExclusiveSystemContainer {
 }
 
 pub struct ParallelSystemContainer {
-    system: NonNull<dyn System<In = (), Out = ()>>,
+    system: Box<UnsafeCell<dyn System<In = (), Out = ()>>>,
     pub(crate) run_criteria_index: Option<usize>,
     pub(crate) run_criteria_label: Option<BoxedRunCriteriaLabel>,
     pub(crate) should_run: bool,
@@ -123,7 +123,8 @@ unsafe impl Sync for ParallelSystemContainer {}
 impl ParallelSystemContainer {
     pub(crate) fn from_descriptor(descriptor: ParallelSystemDescriptor) -> Self {
         ParallelSystemContainer {
-            system: unsafe { NonNull::new_unchecked(Box::into_raw(descriptor.system)) },
+            // SAFE: it is fine to wrap inner value with UnsafeCell, as it is repr(transparent)
+            system: unsafe { Box::from_raw(Box::into_raw(descriptor.system) as *mut _) },
             should_run: false,
             run_criteria_index: None,
             run_criteria_label: None,
@@ -140,20 +141,19 @@ impl ParallelSystemContainer {
     }
 
     pub fn system(&self) -> &dyn System<In = (), Out = ()> {
-        // SAFE: statically enforced shared access.
-        unsafe { self.system.as_ref() }
+        // SAFE: statically enforced shared access
+        unsafe { self.system.get().as_ref().unwrap() }
     }
 
     pub fn system_mut(&mut self) -> &mut dyn System<In = (), Out = ()> {
-        // SAFE: statically enforced exclusive access.
-        unsafe { self.system.as_mut() }
+        self.system.get_mut()
     }
 
     /// # Safety
     /// Ensure no other borrows exist along with this one.
     #[allow(clippy::mut_from_ref)]
     pub unsafe fn system_mut_unsafe(&self) -> &mut dyn System<In = (), Out = ()> {
-        &mut *self.system.as_ptr()
+        self.system.get().as_mut().unwrap()
     }
 
     pub fn should_run(&self) -> bool {
