@@ -283,8 +283,6 @@ vec3 reinhard_extended_luminance(vec3 color, float max_white_l) {
     return change_luminance(color, l_new);
 }
 
-#endif
-
 vec3 point_light(PointLight light, float roughness, float NdotV, vec3 N, vec3 V, vec3 R, vec3 F0, vec3 diffuseColor) {
     vec3 light_to_frag = light.pos.xyz - v_WorldPosition.xyz;
     float distance_square = dot(light_to_frag, light_to_frag);
@@ -348,6 +346,8 @@ vec3 dir_light(DirectionalLight light, float roughness, float NdotV, vec3 normal
 
     return (specular + diffuse) * light.color.rgb * NoL;
 }
+
+#endif
 
 void main() {
     vec4 output_color = base_color;
