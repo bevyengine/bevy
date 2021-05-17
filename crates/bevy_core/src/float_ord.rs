@@ -1,4 +1,4 @@
-use bytemuck::bytes_of;
+use crate::bytes_of;
 use std::{
     cmp::Ordering,
     hash::{Hash, Hasher},

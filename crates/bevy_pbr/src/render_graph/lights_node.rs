@@ -4,6 +4,7 @@ use crate::{
     },
     render_graph::uniform,
 };
+use bevy_core::{bytes_of, Pod, Zeroable};
 use bevy_ecs::{
     system::{BoxedSystem, IntoSystem, Local, Query, Res, ResMut},
     world::World,
@@ -16,7 +17,6 @@ use bevy_render::{
     },
 };
 use bevy_transform::prelude::*;
-use bytemuck::{bytes_of, Pod, Zeroable};
 
 /// A Render Graph [Node] that write light data from the ECS to GPU buffers
 #[derive(Debug, Default)]

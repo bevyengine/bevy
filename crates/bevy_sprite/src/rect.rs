@@ -1,5 +1,5 @@
+use bevy_core::{Pod, Zeroable};
 use bevy_math::Vec2;
-use bytemuck::{Pod, Zeroable};
 
 /// A rectangle defined by two points. There is no defined origin, so 0,0 could be anywhere
 /// (top-left, bottom-left, etc)

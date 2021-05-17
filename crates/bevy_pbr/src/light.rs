@@ -1,9 +1,9 @@
+use bevy_core::{Pod, Zeroable};
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_math::Vec3;
 use bevy_reflect::Reflect;
 use bevy_render::color::Color;
 use bevy_transform::components::GlobalTransform;
-use bytemuck::{Pod, Zeroable};
 
 /// A point light
 #[derive(Debug, Clone, Copy, Reflect)]
