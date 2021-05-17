@@ -13,5 +13,5 @@ license = "MIT"
 keywords = ["bevy"]
 
 [dependencies]
-glam = { version = "0.14.0", features = ["serde"] }
+glam = { version = "0.15.1", features = ["serde"] }
 bevy_reflect = { path = "../bevy_reflect", version = "0.5.0", features = ["bevy"] }
