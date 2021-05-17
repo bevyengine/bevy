@@ -212,6 +212,8 @@ impl WgpuRenderResourceContext {
                     wgpu::ShaderStage::VERTEX
                 } else if binding.shader_stage == BindingShaderStage::FRAGMENT {
                     wgpu::ShaderStage::FRAGMENT
+                } else if binding.shader_stage == BindingShaderStage::COMPUTE { 
+                    wgpu::ShaderStage::COMPUTE
                 } else {
                     panic!("Invalid binding shader stage.")
                 };
