@@ -28,12 +28,11 @@ pub struct State<T: Component + Clone + Eq> {
 enum StateTransition<T: Component + Clone + Eq> {
     PreStartup,
     Startup,
-    // The parameter order is always (leaving, entering)
-    ExitingToResume(T, T),
-    ExitingFull(T, T),
-    Entering(T, T),
-    Resuming(T, T),
-    Pausing(T, T),
+    ExitingToResume { exiting: T, resuming: T },
+    ExitingToEnter { exiting: T, entering: T },
+    Entering(T),
+    Resuming(T),
+    Pausing { pausing: T, entering: T },
 }
 
 #[derive(Debug)]
@@ -108,8 +107,12 @@ where
         (|state: Res<State<T>>, mut is_inactive: Local<bool>, pred: Local<Option<T>>| match &state
             .transition
         {
-            Some(StateTransition::Pausing(ref relevant, _))
-            | Some(StateTransition::Resuming(_, ref relevant)) => {
+            Some(
+                StateTransition::Pausing {
+                    pausing: relevant, ..
+                }
+                | StateTransition::Resuming(relevant),
+            ) => {
                 if relevant == pred.as_ref().unwrap() {
                     *is_inactive = !*is_inactive;
                 }
@@ -129,22 +132,24 @@ where
         (|state: Res<State<T>>, mut is_in_stack: Local<bool>, pred: Local<Option<T>>| match &state
             .transition
         {
-            Some(StateTransition::Entering(ref relevant, _))
-            | Some(StateTransition::ExitingToResume(_, ref relevant)) => {
+            Some(StateTransition::Entering(relevant)) => {
                 if relevant == pred.as_ref().unwrap() {
-                    *is_in_stack = !*is_in_stack;
+                    *is_in_stack = true;
                 }
                 false
             }
-            Some(StateTransition::ExitingFull(_, ref relevant)) => {
-                if relevant == pred.as_ref().unwrap() {
-                    *is_in_stack = !*is_in_stack;
+            Some(
+                StateTransition::ExitingToEnter { exiting, .. }
+                | StateTransition::ExitingToResume { exiting, .. },
+            ) => {
+                if exiting == pred.as_ref().unwrap() {
+                    *is_in_stack = false;
                 }
                 false
             }
             Some(StateTransition::Startup) => {
                 if state.stack.last().unwrap() == pred.as_ref().unwrap() {
-                    *is_in_stack = !*is_in_stack;
+                    *is_in_stack = true;
                 }
                 false
             }
@@ -164,7 +169,7 @@ where
                 .transition
                 .as_ref()
                 .map_or(false, |transition| match transition {
-                    StateTransition::Entering(_, entering) => entering == pred.as_ref().unwrap(),
+                    StateTransition::Entering(entering) => entering == pred.as_ref().unwrap(),
                     StateTransition::Startup => {
                         state.stack.last().unwrap() == pred.as_ref().unwrap()
                     }
@@ -184,8 +189,10 @@ where
                 .transition
                 .as_ref()
                 .map_or(false, |transition| match transition {
-                    StateTransition::ExitingToResume(exiting, _)
-                    | StateTransition::ExitingFull(exiting, _) => exiting == pred.as_ref().unwrap(),
+                    StateTransition::ExitingToResume { exiting, .. }
+                    | StateTransition::ExitingToEnter { exiting, .. } => {
+                        exiting == pred.as_ref().unwrap()
+                    }
                     _ => false,
                 })
         })
@@ -202,7 +209,7 @@ where
                 .transition
                 .as_ref()
                 .map_or(false, |transition| match transition {
-                    StateTransition::Pausing(pausing, _) => pausing == pred.as_ref().unwrap(),
+                    StateTransition::Pausing { pausing, .. } => pausing == pred.as_ref().unwrap(),
                     _ => false,
                 })
         })
@@ -219,7 +226,7 @@ where
                 .transition
                 .as_ref()
                 .map_or(false, |transition| match transition {
-                    StateTransition::Resuming(_, resuming) => resuming == pred.as_ref().unwrap(),
+                    StateTransition::Resuming(resuming) => resuming == pred.as_ref().unwrap(),
                     _ => false,
                 })
         })
@@ -424,55 +431,58 @@ fn state_cleaner<T: Component + Clone + Eq>(
     }
     match state.scheduled.take() {
         Some(ScheduledOperation::Set(next)) => {
-            state.transition = Some(StateTransition::ExitingFull(
-                state.stack.last().unwrap().clone(),
-                next,
-            ));
+            state.transition = Some(StateTransition::ExitingToEnter {
+                exiting: state.stack.last().unwrap().clone(),
+                entering: next,
+            });
         }
         Some(ScheduledOperation::Replace(next)) => {
-            if state.stack.len() <= 1 {
-                state.transition = Some(StateTransition::ExitingFull(
-                    state.stack.last().unwrap().clone(),
-                    next,
-                ));
+            if state.stack.len() == 1 {
+                state.transition = Some(StateTransition::ExitingToEnter {
+                    exiting: state.stack.last().unwrap().clone(),
+                    entering: next,
+                });
             } else {
                 state.scheduled = Some(ScheduledOperation::Replace(next));
                 match state.transition.take() {
-                    Some(StateTransition::ExitingToResume(p, n)) => {
+                    Some(StateTransition::ExitingToResume { resuming, .. }) => {
                         state.stack.pop();
-                        state.transition = Some(StateTransition::Resuming(p, n));
+                        state.transition = Some(StateTransition::Resuming(resuming));
                     }
                     _ => {
-                        state.transition = Some(StateTransition::ExitingToResume(
-                            state.stack[state.stack.len() - 1].clone(),
-                            state.stack[state.stack.len() - 2].clone(),
-                        ));
+                        state.transition = Some(StateTransition::ExitingToResume {
+                            exiting: state.stack[state.stack.len() - 1].clone(),
+                            resuming: state.stack[state.stack.len() - 2].clone(),
+                        });
                     }
                 }
             }
         }
         Some(ScheduledOperation::Push(next)) => {
-            let last_type_id = state.stack.last().unwrap().clone();
-            state.transition = Some(StateTransition::Pausing(last_type_id, next));
+            let last = state.stack.last().unwrap().clone();
+            state.transition = Some(StateTransition::Pausing {
+                pausing: last,
+                entering: next,
+            });
         }
         Some(ScheduledOperation::Pop) => {
-            state.transition = Some(StateTransition::ExitingToResume(
-                state.stack[state.stack.len() - 1].clone(),
-                state.stack[state.stack.len() - 2].clone(),
-            ));
+            state.transition = Some(StateTransition::ExitingToResume {
+                exiting: state.stack[state.stack.len() - 1].clone(),
+                resuming: state.stack[state.stack.len() - 2].clone(),
+            });
         }
         None => match state.transition.take() {
-            Some(StateTransition::ExitingFull(p, n)) => {
-                state.transition = Some(StateTransition::Entering(p, n.clone()));
-                *state.stack.last_mut().unwrap() = n;
+            Some(StateTransition::ExitingToEnter { entering, .. }) => {
+                state.transition = Some(StateTransition::Entering(entering.clone()));
+                *state.stack.last_mut().unwrap() = entering;
             }
-            Some(StateTransition::Pausing(p, n)) => {
-                state.transition = Some(StateTransition::Entering(p, n.clone()));
-                state.stack.push(n);
+            Some(StateTransition::Pausing { entering, .. }) => {
+                state.transition = Some(StateTransition::Entering(entering.clone()));
+                state.stack.push(entering);
             }
-            Some(StateTransition::ExitingToResume(p, n)) => {
+            Some(StateTransition::ExitingToResume { resuming, .. }) => {
                 state.stack.pop();
-                state.transition = Some(StateTransition::Resuming(p, n));
+                state.transition = Some(StateTransition::Resuming(resuming));
             }
             Some(StateTransition::PreStartup) => {
                 state.transition = Some(StateTransition::Startup);
