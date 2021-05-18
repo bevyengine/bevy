@@ -15,11 +15,11 @@ impl<'a, T> Mut<'a, T> {
         self.value
     }
 
-    /// Flags this component as having been changed.
+    /// Manually flags this value as having been changed. This normally isn't
+    /// required because accessing this pointer mutably automatically flags this
+    /// resource as "changed".
     ///
-    /// **Note**: this operation is irreversible.
-    /// You should generally prefer to use [`Mut::as_mut`], as this returns
-    /// the component _and_ sets it as changed.
+    /// **Note**: This operation is irreversible.
     #[inline]
     pub fn set_changed(&mut self) {
         self.component_ticks.set_changed(self.change_tick);

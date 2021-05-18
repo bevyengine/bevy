@@ -370,11 +370,11 @@ impl<'w, T: Component> ResMut<'w, T> {
             .is_changed(self.last_change_tick, self.change_tick)
     }
 
-    /// Flags this resource as having been changed.
+    /// Manually flags this resource as having been changed. This normally isn't
+    /// required because accessing this pointer mutably automatically flags this
+    /// resource as "changed".
     ///
-    /// **Note**: this operation is irreversible.
-    /// You should generally prefer to use [`ResMut::as_mut`], as this returns
-    /// the contained value _and_ sets this resource as changed.
+    /// **Note**: This operation is irreversible.
     #[inline]
     pub fn set_changed(&mut self) {
         self.ticks.set_changed(self.change_tick);
