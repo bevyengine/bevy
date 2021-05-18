@@ -1,10 +1,10 @@
-use bevy_core::Byteable;
+use bevy_core::{Pod, Zeroable};
 use bevy_math::Vec2;
 
 /// A rectangle defined by two points. There is no defined origin, so 0,0 could be anywhere
 /// (top-left, bottom-left, etc)
 #[repr(C)]
-#[derive(Default, Clone, Copy, Debug)]
+#[derive(Default, Clone, Copy, Debug, Pod, Zeroable)]
 pub struct Rect {
     /// The beginning point of the rect
     pub min: Vec2,
@@ -21,5 +21,3 @@ impl Rect {
         self.max.y - self.min.y
     }
 }
-
-unsafe impl Byteable for Rect {}

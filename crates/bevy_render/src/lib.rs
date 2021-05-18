@@ -23,6 +23,7 @@ use draw::{OutsideFrustum, Visible};
 pub use once_cell;
 
 pub mod prelude {
+    #[doc(hidden)]
     pub use crate::{
         base::Msaa,
         color::Color,

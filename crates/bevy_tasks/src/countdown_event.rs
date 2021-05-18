@@ -82,50 +82,56 @@ impl CountdownEvent {
     }
 }
 
-#[test]
-pub fn countdown_event_ready_after() {
-    let countdown_event = CountdownEvent::new(2);
-    countdown_event.decrement();
-    countdown_event.decrement();
-    futures_lite::future::block_on(countdown_event.listen());
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-#[test]
-pub fn countdown_event_ready() {
-    let countdown_event = CountdownEvent::new(2);
-    countdown_event.decrement();
-    let countdown_event_clone = countdown_event.clone();
-    let handle =
-        std::thread::spawn(move || futures_lite::future::block_on(countdown_event_clone.listen()));
+    #[test]
+    fn countdown_event_ready_after() {
+        let countdown_event = CountdownEvent::new(2);
+        countdown_event.decrement();
+        countdown_event.decrement();
+        futures_lite::future::block_on(countdown_event.listen());
+    }
 
-    // Pause to give the new thread time to start blocking (ugly hack)
-    std::thread::sleep(instant::Duration::from_millis(100));
+    #[test]
+    fn countdown_event_ready() {
+        let countdown_event = CountdownEvent::new(2);
+        countdown_event.decrement();
+        let countdown_event_clone = countdown_event.clone();
+        let handle = std::thread::spawn(move || {
+            futures_lite::future::block_on(countdown_event_clone.listen())
+        });
 
-    countdown_event.decrement();
-    handle.join().unwrap();
-}
+        // Pause to give the new thread time to start blocking (ugly hack)
+        std::thread::sleep(instant::Duration::from_millis(100));
 
-#[test]
-pub fn event_resets_if_listeners_are_cleared() {
-    let event = Event::new();
+        countdown_event.decrement();
+        handle.join().unwrap();
+    }
 
-    // notify all listeners
-    let listener1 = event.listen();
-    event.notify(std::usize::MAX);
-    futures_lite::future::block_on(listener1);
+    #[test]
+    fn event_resets_if_listeners_are_cleared() {
+        let event = Event::new();
 
-    // If all listeners are notified, the structure should now be cleared. We're free to listen
-    // again
-    let listener2 = event.listen();
-    let listener3 = event.listen();
+        // notify all listeners
+        let listener1 = event.listen();
+        event.notify(std::usize::MAX);
+        futures_lite::future::block_on(listener1);
 
-    // Verify that we are still blocked
-    assert_eq!(
-        false,
-        listener2.wait_timeout(instant::Duration::from_millis(10))
-    );
+        // If all listeners are notified, the structure should now be cleared. We're free to listen
+        // again
+        let listener2 = event.listen();
+        let listener3 = event.listen();
 
-    // Notify all and verify the remaining listener is notified
-    event.notify(std::usize::MAX);
-    futures_lite::future::block_on(listener3);
+        // Verify that we are still blocked
+        assert_eq!(
+            false,
+            listener2.wait_timeout(instant::Duration::from_millis(10))
+        );
+
+        // Notify all and verify the remaining listener is notified
+        event.notify(std::usize::MAX);
+        futures_lite::future::block_on(listener3);
+    }
 }

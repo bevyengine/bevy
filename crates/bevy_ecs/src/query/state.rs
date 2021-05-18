@@ -3,8 +3,8 @@ use crate::{
     component::ComponentId,
     entity::Entity,
     query::{
-        Access, Fetch, FetchState, FilterFetch, FilteredAccess, QueryIter, ReadOnlyFetch,
-        WorldQuery,
+        Access, Fetch, FetchState, FilterFetch, FilteredAccess, QueryCombinationIter, QueryIter,
+        ReadOnlyFetch, WorldQuery,
     },
     storage::TableId,
     world::{World, WorldId},
@@ -205,6 +205,27 @@ where
         unsafe { self.iter_unchecked(world) }
     }
 
+    #[inline]
+    pub fn iter_combinations<'w, 's, const K: usize>(
+        &'s mut self,
+        world: &'w World,
+    ) -> QueryCombinationIter<'w, 's, Q, F, K>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        // SAFE: query is read only
+        unsafe { self.iter_combinations_unchecked(world) }
+    }
+
+    #[inline]
+    pub fn iter_combinations_mut<'w, 's, const K: usize>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> QueryCombinationIter<'w, 's, Q, F, K> {
+        // SAFE: query has unique world access
+        unsafe { self.iter_combinations_unchecked(world) }
+    }
+
     /// # Safety
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
@@ -222,6 +243,22 @@ where
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
+    #[inline]
+    pub unsafe fn iter_combinations_unchecked<'w, 's, const K: usize>(
+        &'s mut self,
+        world: &'w World,
+    ) -> QueryCombinationIter<'w, 's, Q, F, K> {
+        self.validate_world_and_update_archetypes(world);
+        self.iter_combinations_unchecked_manual(
+            world,
+            world.last_change_tick(),
+            world.read_change_tick(),
+        )
+    }
+
+    /// # Safety
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
     /// with a mismatched WorldId is unsound.
     #[inline]
@@ -232,6 +269,21 @@ where
         change_tick: u32,
     ) -> QueryIter<'w, 's, Q, F> {
         QueryIter::new(world, self, last_change_tick, change_tick)
+    }
+
+    /// # Safety
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
+    /// with a mismatched WorldId is unsound.
+    #[inline]
+    pub(crate) unsafe fn iter_combinations_unchecked_manual<'w, 's, const K: usize>(
+        &'s self,
+        world: &'w World,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> QueryCombinationIter<'w, 's, Q, F, K> {
+        QueryCombinationIter::new(world, self, last_change_tick, change_tick)
     }
 
     #[inline]
@@ -345,6 +397,8 @@ where
         last_change_tick: u32,
         change_tick: u32,
     ) {
+        // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
+        // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         let mut fetch =
             <Q::Fetch as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);
         let mut filter =
@@ -397,6 +451,8 @@ where
         last_change_tick: u32,
         change_tick: u32,
     ) {
+        // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
+        // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         task_pool.scope(|scope| {
             let fetch =
                 <Q::Fetch as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);

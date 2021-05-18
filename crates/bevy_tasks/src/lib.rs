@@ -24,6 +24,7 @@ mod iter;
 pub use iter::ParallelIterator;
 
 pub mod prelude {
+    #[doc(hidden)]
     pub use crate::{
         iter::ParallelIterator,
         slice::{ParallelSlice, ParallelSliceMut},

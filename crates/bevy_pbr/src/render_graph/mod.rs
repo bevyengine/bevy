@@ -27,6 +27,7 @@ use bevy_render::{
 use bevy_transform::prelude::GlobalTransform;
 
 pub const MAX_POINT_LIGHTS: usize = 10;
+pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
 pub(crate) fn add_pbr_graph(world: &mut World) {
     {
         let mut graph = world.get_resource_mut::<RenderGraph>().unwrap();
@@ -39,7 +40,10 @@ pub(crate) fn add_pbr_graph(world: &mut World) {
             AssetRenderResourcesNode::<StandardMaterial>::new(true),
         );
 
-        graph.add_system_node(node::LIGHTS, LightsNode::new(MAX_POINT_LIGHTS));
+        graph.add_system_node(
+            node::LIGHTS,
+            LightsNode::new(MAX_POINT_LIGHTS, MAX_DIRECTIONAL_LIGHTS),
+        );
 
         // TODO: replace these with "autowire" groups
         graph

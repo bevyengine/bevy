@@ -26,6 +26,23 @@ Please see the ubuntu [WSL documentation](https://wiki.ubuntu.com/WSL) on how to
 sudo dnf install gcc-c++ libX11-devel alsa-lib-devel systemd-devel
 ```
 
+If there are errors with linking during the build process such as:
+
+```bash
+ = note: /usr/bin/ld: skipping incompatible /usr/lib/libasound.so when searching for -lasound
+          /usr/bin/ld: skipping incompatible /usr/lib/libasound.so when searching for -lasound
+          /usr/bin/ld: skipping incompatible /usr/lib/gcc/x86_64-redhat-linux/10/../../../libasound.so when searching for -lasound
+          /usr/bin/ld: skipping incompatible /lib/libasound.so when searching for -lasound
+          /usr/bin/ld: skipping incompatible /usr/lib/libasound.so when searching for -lasound
+          /usr/bin/ld: cannot find -lasound
+```
+
+Add your arch to the end of the package to remove the linker error. For example:
+
+```bash
+sudo dnf install alsa-lib-devel.x86_64
+```
+
 ## Arch / Manjaro
 
 ```bash

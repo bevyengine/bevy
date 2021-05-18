@@ -6,7 +6,7 @@ use crate::{
     shader::{ShaderLayout, GL_FRONT_FACING, GL_INSTANCE_INDEX, GL_VERTEX_INDEX},
     texture::{TextureSampleType, TextureViewDimension},
 };
-use bevy_core::AsBytes;
+use bevy_core::cast_slice;
 use spirv_reflect::{
     types::{
         ReflectDescriptorBinding, ReflectDescriptorSet, ReflectDescriptorType, ReflectDimension,
@@ -17,7 +17,7 @@ use spirv_reflect::{
 
 impl ShaderLayout {
     pub fn from_spirv(spirv_data: &[u32], bevy_conventions: bool) -> ShaderLayout {
-        match ShaderModule::load_u8_data(spirv_data.as_bytes()) {
+        match ShaderModule::load_u8_data(cast_slice(spirv_data)) {
             Ok(ref mut module) => {
                 // init
                 let entry_point_name = module.get_entry_point_name();
@@ -148,7 +148,7 @@ fn reflect_binding(
             &binding.name,
             BindType::Sampler {
                 comparison: false,
-                filtering: false,
+                filtering: true,
             },
         ),
         _ => panic!("Unsupported bind type {:?}.", binding.descriptor_type),
@@ -269,28 +269,28 @@ fn reflect_vertex_format(type_description: &ReflectTypeDescription) -> VertexFor
     let width = traits.numeric.scalar.width;
 
     match (number_type, traits.numeric.vector.component_count, width) {
-        (NumberType::UInt, 2, 8) => VertexFormat::Uchar2,
-        (NumberType::UInt, 4, 8) => VertexFormat::Uchar4,
-        (NumberType::Int, 2, 8) => VertexFormat::Char2,
-        (NumberType::Int, 4, 8) => VertexFormat::Char4,
-        (NumberType::UInt, 2, 16) => VertexFormat::Ushort2,
-        (NumberType::UInt, 4, 16) => VertexFormat::Ushort4,
-        (NumberType::Int, 2, 16) => VertexFormat::Short2,
-        (NumberType::Int, 8, 16) => VertexFormat::Short4,
-        (NumberType::Float, 2, 16) => VertexFormat::Half2,
-        (NumberType::Float, 4, 16) => VertexFormat::Half4,
-        (NumberType::Float, 0, 32) => VertexFormat::Float,
-        (NumberType::Float, 2, 32) => VertexFormat::Float2,
-        (NumberType::Float, 3, 32) => VertexFormat::Float3,
-        (NumberType::Float, 4, 32) => VertexFormat::Float4,
-        (NumberType::UInt, 0, 32) => VertexFormat::Uint,
-        (NumberType::UInt, 2, 32) => VertexFormat::Uint2,
-        (NumberType::UInt, 3, 32) => VertexFormat::Uint3,
-        (NumberType::UInt, 4, 32) => VertexFormat::Uint4,
-        (NumberType::Int, 0, 32) => VertexFormat::Int,
-        (NumberType::Int, 2, 32) => VertexFormat::Int2,
-        (NumberType::Int, 3, 32) => VertexFormat::Int3,
-        (NumberType::Int, 4, 32) => VertexFormat::Int4,
+        (NumberType::UInt, 2, 8) => VertexFormat::Uint8x2,
+        (NumberType::UInt, 4, 8) => VertexFormat::Uint8x4,
+        (NumberType::Int, 2, 8) => VertexFormat::Sint8x2,
+        (NumberType::Int, 4, 8) => VertexFormat::Sint8x4,
+        (NumberType::UInt, 2, 16) => VertexFormat::Uint16x2,
+        (NumberType::UInt, 4, 16) => VertexFormat::Uint16x4,
+        (NumberType::Int, 2, 16) => VertexFormat::Sint16x2,
+        (NumberType::Int, 8, 16) => VertexFormat::Sint16x4,
+        (NumberType::Float, 2, 16) => VertexFormat::Float16x2,
+        (NumberType::Float, 4, 16) => VertexFormat::Float16x4,
+        (NumberType::Float, 0, 32) => VertexFormat::Float32,
+        (NumberType::Float, 2, 32) => VertexFormat::Float32x2,
+        (NumberType::Float, 3, 32) => VertexFormat::Float32x3,
+        (NumberType::Float, 4, 32) => VertexFormat::Float32x4,
+        (NumberType::UInt, 0, 32) => VertexFormat::Uint32,
+        (NumberType::UInt, 2, 32) => VertexFormat::Uint32x2,
+        (NumberType::UInt, 3, 32) => VertexFormat::Uint32x3,
+        (NumberType::UInt, 4, 32) => VertexFormat::Uint32x4,
+        (NumberType::Int, 0, 32) => VertexFormat::Sint32,
+        (NumberType::Int, 2, 32) => VertexFormat::Sint32x2,
+        (NumberType::Int, 3, 32) => VertexFormat::Sint32x3,
+        (NumberType::Int, 4, 32) => VertexFormat::Sint32x4,
         (number_type, component_count, width) => panic!(
             "unexpected uniform property format {:?} {} {}",
             number_type, component_count, width
@@ -343,7 +343,7 @@ mod tests {
                     VertexBufferLayout::new_from_attribute(
                         VertexAttribute {
                             name: "Vertex_Position".into(),
-                            format: VertexFormat::Float4,
+                            format: VertexFormat::Float32x4,
                             offset: 0,
                             shader_location: 0,
                         },
@@ -353,7 +353,7 @@ mod tests {
                     VertexBufferLayout::new_from_attribute(
                         VertexAttribute {
                             name: "Vertex_Normal".into(),
-                            format: VertexFormat::Uint4,
+                            format: VertexFormat::Uint32x4,
                             offset: 0,
                             shader_location: 1,
                         },
@@ -363,7 +363,7 @@ mod tests {
                     VertexBufferLayout::new_from_attribute(
                         VertexAttribute {
                             name: "I_TestInstancing_Property".into(),
-                            format: VertexFormat::Uint4,
+                            format: VertexFormat::Uint32x4,
                             offset: 0,
                             shader_location: 2,
                         },

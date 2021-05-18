@@ -1,6 +1,6 @@
 extern crate proc_macro;
 
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::{parse::*, *};
 use uuid::Uuid;
 
@@ -15,6 +15,11 @@ pub fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 
     // Build the trait implementation
     let name = &ast.ident;
+
+    let (impl_generics, type_generics, _) = &ast.generics.split_for_impl();
+    if !impl_generics.to_token_stream().is_empty() || !type_generics.to_token_stream().is_empty() {
+        panic!("#[derive(TypeUuid)] is not supported for generics.");
+    }
 
     let mut uuid = None;
     for attribute in ast.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {

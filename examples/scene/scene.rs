@@ -35,14 +35,14 @@ struct ComponentA {
 struct ComponentB {
     pub value: String,
     #[reflect(ignore)]
-    pub time_since_startup: Duration,
+    pub _time_since_startup: Duration,
 }
 
 impl FromWorld for ComponentB {
     fn from_world(world: &mut World) -> Self {
         let time = world.get_resource::<Time>().unwrap();
         ComponentB {
-            time_since_startup: time.time_since_startup(),
+            _time_since_startup: time.time_since_startup(),
             value: "Default Value".to_string(),
         }
     }
