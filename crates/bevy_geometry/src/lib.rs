@@ -1,6 +1,7 @@
 use bevy_math::*;
 use bevy_reflect::Reflect;
-use std::{error::Error, fmt};
+use std::error::Error;
+use std::fmt;
 
 pub trait Primitive3d {
     /// Returns true if this primitive is entirely on the outside (in the normal direction) of the
@@ -58,7 +59,7 @@ impl Sphere {
     }
 }
 impl Primitive3d for Sphere {
-    /// Use the sphere's position and radius to determin eif it is entirely on the outside of the
+    /// Use the sphere's position and radius to determine if it is entirely on the outside of the
     /// the supplied plane.
     fn outside_plane(&self, plane: Plane) -> bool {
         plane.distance_to_point(self.origin) > self.radius
@@ -175,7 +176,7 @@ impl AABB {
             Err(PrimitiveError::MinGreaterThanMax)
         }
     }
-    /// Construct an [AxisALignedBox] from the origin at the minimum corner, and the extents - the
+    /// Construct an [AxisAlignedBox] from the origin at the minimum corner, and the extents - the
     /// dimensions of the box in each axis.
     pub fn from_extents_origin(extents: Vec3, origin: Vec3) -> Result<AABB, PrimitiveError> {
         if extents.min_element() > 0.0 {
@@ -187,7 +188,7 @@ impl AABB {
             Err(PrimitiveError::NonPositiveExtents)
         }
     }
-    /// Computes the AAB that
+    /// Computes the [AxisAlignedBox] whose extents are determined by the minimum and maximum of the points given.
     pub fn from_points(points: &[Vec3]) -> AABB {
         let mut max = Vec3::splat(f32::MIN);
         let mut min = Vec3::splat(f32::MAX);
