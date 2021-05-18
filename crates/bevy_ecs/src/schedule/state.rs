@@ -107,12 +107,10 @@ where
         (|state: Res<State<T>>, mut is_inactive: Local<bool>, pred: Local<Option<T>>| match &state
             .transition
         {
-            Some(
-                StateTransition::Pausing {
-                    pausing: relevant, ..
-                }
-                | StateTransition::Resuming(relevant),
-            ) => {
+            Some(StateTransition::Pausing {
+                pausing: relevant, ..
+            })
+            | Some(StateTransition::Resuming(relevant)) => {
                 if relevant == pred.as_ref().unwrap() {
                     *is_inactive = !*is_inactive;
                 }
@@ -138,10 +136,8 @@ where
                 }
                 false
             }
-            Some(
-                StateTransition::ExitingToEnter { exiting, .. }
-                | StateTransition::ExitingToResume { exiting, .. },
-            ) => {
+            Some(StateTransition::ExitingToEnter { exiting, .. })
+            | Some(StateTransition::ExitingToResume { exiting, .. }) => {
                 if exiting == pred.as_ref().unwrap() {
                     *is_in_stack = false;
                 }
