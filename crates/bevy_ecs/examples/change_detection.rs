@@ -45,9 +45,8 @@ struct Age {
 
 fn spawn_entities(mut commands: Commands, mut entity_counter: ResMut<EntityCounter>) {
     if rand::thread_rng().gen_bool(0.6) {
-        let mut entity = commands.spawn();
-        entity.insert(Age::default());
-        println!("    spawning {:?}", entity.id());
+        let entity_id = commands.spawn().insert(Age::default()).id();
+        println!("    spawning {:?}", entity_id);
         entity_counter.value += 1;
     }
 }
