@@ -69,11 +69,12 @@ git checkout v0.4.0
 
 <!-- MD026 - Hello, World! looks better with the ! -->
 <!-- markdownlint-disable-next-line MD026 -->
+
 ## Hello, World!
 
-Example | Main | Description
---- | --- | ---
-`hello_world` | [`hello_world.rs`](./hello_world.rs) | Runs a minimal example that outputs "hello world"
+| Example       | Main                                 | Description                                       |
+| ------------- | ------------------------------------ | ------------------------------------------------- |
+| `hello_world` | [`hello_world.rs`](./hello_world.rs) | Runs a minimal example that outputs "hello world" |
 
 # Cross-Platform Examples
 
@@ -89,6 +90,7 @@ Example | Main | Description
 `text2d` | [`2d/text2d.rs`](./2d/text2d.rs) | Generates text in 2d
 `sprite_flipping` | [`2d/sprite_flipping.rs`](./2d/sprite_flipping.rs) | Renders a sprite flipped along an axis
 `texture_atlas` | [`2d/texture_atlas.rs`](./2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
+`mouse_tracking` | [`2d/mouse_tracking.rs`](./2d/mouse_tracking.rs) | Creates a sprite that follows your mouse |
 
 ## 3D Rendering
 
@@ -105,37 +107,38 @@ Example | File | Description
 `texture` | [`3d/texture.rs`](./3d/texture.rs) | Shows configuration of texture materials
 `update_gltf_scene` | [`3d/update_gltf_scene.rs`](./3d/update_gltf_scene.rs) | Update a scene from a gltf file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 `wireframe` | [`3d/wireframe.rs`](./3d/wireframe.rs) | Showcases wireframe rendering
-`z_sort_debug` | [`3d/z_sort_debug.rs`](./3d/z_sort_debug.rs) | Visualizes camera Z-ordering
+`z_sort_debug` | [`3d/z_sort_debug.rs`](./3d/z_sort_debug.rs) | Visualizes camera Z-ordering|
+`screen_to_world` | [`3d/screen_to_world.rs`](./3d/screen_to_world.rs) | Converts screen-space coordinates to world coordinates to make an object follow the mouse |
 
 ## Application
 
-Example | File | Description
---- | --- | ---
-`custom_loop` | [`app/custom_loop.rs`](./app/custom_loop.rs) | Demonstrates how to create a custom runner (to update an app manually).
-`drag_and_drop` | [`app/drag_and_drop.rs`](./app/drag_and_drop.rs) | An example that shows how to handle drag and drop in an app.
-`empty` | [`app/empty.rs`](./app/empty.rs) | An empty application (does nothing)
-`empty_defaults` | [`app/empty_defaults.rs`](./app/empty_defaults.rs) | An empty application with default plugins
-`headless` | [`app/headless.rs`](./app/headless.rs) | An application that runs without default plugins
-`logs` | [`app/logs.rs`](./app/logs.rs) | Illustrate how to use generate log output
-`plugin` | [`app/plugin.rs`](./app/plugin.rs) | Demonstrates the creation and registration of a custom plugin
-`plugin_group` | [`app/plugin_group.rs`](./app/plugin_group.rs) | Demonstrates the creation and registration of a custom plugin group
-`return_after_run` | [`app/return_after_run.rs`](./app/return_after_run.rs) | Show how to return to main after the Bevy app has exited
-`thread_pool_resources` | [`app/thread_pool_resources.rs`](./app/thread_pool_resources.rs) | Creates and customizes the internal thread pool
+| Example                 | File                                                             | Description                                                             |
+| ----------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `custom_loop`           | [`app/custom_loop.rs`](./app/custom_loop.rs)                     | Demonstrates how to create a custom runner (to update an app manually). |
+| `drag_and_drop`         | [`app/drag_and_drop.rs`](./app/drag_and_drop.rs)                 | An example that shows how to handle drag and drop in an app.            |
+| `empty`                 | [`app/empty.rs`](./app/empty.rs)                                 | An empty application (does nothing)                                     |
+| `empty_defaults`        | [`app/empty_defaults.rs`](./app/empty_defaults.rs)               | An empty application with default plugins                               |
+| `headless`              | [`app/headless.rs`](./app/headless.rs)                           | An application that runs without default plugins                        |
+| `logs`                  | [`app/logs.rs`](./app/logs.rs)                                   | Illustrate how to use generate log output                               |
+| `plugin`                | [`app/plugin.rs`](./app/plugin.rs)                               | Demonstrates the creation and registration of a custom plugin           |
+| `plugin_group`          | [`app/plugin_group.rs`](./app/plugin_group.rs)                   | Demonstrates the creation and registration of a custom plugin group     |
+| `return_after_run`      | [`app/return_after_run.rs`](./app/return_after_run.rs)           | Show how to return to main after the Bevy app has exited                |
+| `thread_pool_resources` | [`app/thread_pool_resources.rs`](./app/thread_pool_resources.rs) | Creates and customizes the internal thread pool                         |
 
 ## Assets
 
-Example | File | Description
---- | --- | ---
-`asset_loading` | [`asset/asset_loading.rs`](./asset/asset_loading.rs) | Demonstrates various methods to load assets
-`custom_asset` | [`asset/custom_asset.rs`](./asset/custom_asset.rs) | Implements a custom asset loader
-`custom_asset_io` | [`asset/custom_asset_io.rs`](./asset/custom_asset_io.rs) | Implements a custom asset io loader
-`hot_asset_reloading` | [`asset/hot_asset_reloading.rs`](./asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
+| Example               | File                                                             | Description                                                      |
+| --------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `asset_loading`       | [`asset/asset_loading.rs`](./asset/asset_loading.rs)             | Demonstrates various methods to load assets                      |
+| `custom_asset`        | [`asset/custom_asset.rs`](./asset/custom_asset.rs)               | Implements a custom asset loader                                 |
+| `custom_asset_io`     | [`asset/custom_asset_io.rs`](./asset/custom_asset_io.rs)         | Implements a custom asset io loader                              |
+| `hot_asset_reloading` | [`asset/hot_asset_reloading.rs`](./asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk |
 
 ## Audio
 
-Example | File | Description
---- | --- | ---
-`audio` | [`audio/audio.rs`](./audio/audio.rs) | Shows how to load and play an audio file
+| Example | File                                 | Description                              |
+| ------- | ------------------------------------ | ---------------------------------------- |
+| `audio` | [`audio/audio.rs`](./audio/audio.rs) | Shows how to load and play an audio file |
 
 ## Diagnostics
 
@@ -165,13 +168,26 @@ Example | File | Description
 
 ## Games
 
-Example | File | Description
---- | --- | ---
-`alien_cake_addict` | [`game/alien_cake_addict.rs`](./game/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game
-`breakout` | [`game/breakout.rs`](./game/breakout.rs) | An implementation of the classic game "Breakout"
+| Example             | File                                                       | Description                                      |
+| ------------------- | ---------------------------------------------------------- | ------------------------------------------------ |
+| `alien_cake_addict` | [`game/alien_cake_addict.rs`](./game/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game  |
+| `breakout`          | [`game/breakout.rs`](./game/breakout.rs)                   | An implementation of the classic game "Breakout" |
 
 ## Input
 
+<<<<<<< HEAD
+| Example | File | Description |
+| ----------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `char_input_events` | [`input/char_input_events.rs`](./input/char_input_events.rs) | Prints out all chars as they are inputted. |
+| `gamepad_input` | [`input/gamepad_input.rs`](./input/gamepad_input.rs) | Shows handling of gamepad input, connections, and disconnections |
+| `gamepad_input_events` | [`input/gamepad_input_events.rs`](./input/gamepad_input_events.rs) | Iterates and prints gamepad input and connection events |
+| `keyboard_input` | [`input/keyboard_input.rs`](./input/keyboard_input.rs) | Demonstrates handling a key press/release |
+| `keyboard_input_events` | [`input/keyboard_input_events.rs`](./input/keyboard_input_events.rs) | Prints out all keyboard events |
+| `mouse_input` | [`input/mouse_input.rs`](./input/mouse_input.rs) | Demonstrates handling a mouse button press/release |
+| `mouse_input_events` | [`input/mouse_input_events.rs`](./input/mouse_input_events.rs) | Prints out all mouse events (buttons, movement, etc.) |
+| `touch_input` | [`input/touch_input.rs`](./input/touch_input.rs) | Displays touch presses, releases, and cancels |
+| `touch_input_events` | [`input/touch_input_events.rs`](./input/touch_input_input_events.rs) | Prints out all touch inputs |
+=======
 Example | File | Description
 --- | --- | ---
 `char_input_events` | [`input/char_input_events.rs`](./input/char_input_events.rs) | Prints out all chars as they are inputted.
@@ -185,23 +201,34 @@ Example | File | Description
 `touch_input` | [`input/touch_input.rs`](./input/touch_input.rs) | Displays touch presses, releases, and cancels
 `touch_input_events` | [`input/touch_input_events.rs`](./input/touch_input_events.rs) | Prints out all touch inputs
 
+> > > > > > > upstream/main
+
 ## Reflection
 
-Example | File | Description
---- | --- | ---
-`reflection` | [`reflection/reflection.rs`](reflection/reflection.rs) | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types
-`generic_reflection` | [`reflection/generic_reflection.rs`](reflection/generic_reflection.rs) | Registers concrete instances of generic types that may be used with reflection
-`reflection_types` | [`reflection/reflection_types.rs`](reflection/reflection_types.rs) | Illustrates the various reflection types available
-`trait_reflection` | [`reflection/trait_reflection.rs`](reflection/trait_reflection.rs) | Allows reflection with trait objects
+| Example              | File                                                                   | Description                                                                                |
+| -------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `reflection`         | [`reflection/reflection.rs`](reflection/reflection.rs)                 | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types |
+| `generic_reflection` | [`reflection/generic_reflection.rs`](reflection/generic_reflection.rs) | Registers concrete instances of generic types that may be used with reflection             |
+| `reflection_types`   | [`reflection/reflection_types.rs`](reflection/reflection_types.rs)     | Illustrates the various reflection types available                                         |
+| `trait_reflection`   | [`reflection/trait_reflection.rs`](reflection/trait_reflection.rs)     | Allows reflection with trait objects                                                       |
 
 ## Scene
 
-Example | File | Description
---- | --- | ---
-`scene` | [`scene/scene.rs`](./scene/scene.rs) | Demonstrates loading from and saving scenes to files
+| Example | File                                 | Description                                          |
+| ------- | ------------------------------------ | ---------------------------------------------------- |
+| `scene` | [`scene/scene.rs`](./scene/scene.rs) | Demonstrates loading from and saving scenes to files |
 
 ## Shaders
 
+<<<<<<< HEAD
+| Example                  | File                                                                     | Description                                                                                                       |
+| ------------------------ | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `array_texture`          | [`shader/array_texture.rs`](./shader/array_texture.rs)                   | Illustrates how to create a texture for use with a texture2DArray shader uniform variable                         |
+| `hot_shader_reloading`   | [`shader/hot_shader_reloading.rs`](./shader/hot_shader_reloading.rs)     | Illustrates how to load shaders such that they can be edited while the example is still running                   |
+| `mesh_custom_attribute`  | [`shader/mesh_custom_attribute.rs`](./shader/mesh_custom_attribute.rs)   | Illustrates how to add a custom attribute to a mesh and use it in a custom shader                                 |
+| `shader_custom_material` | [`shader/shader_custom_material.rs`](./shader/shader_custom_material.rs) | Illustrates creating a custom material and a shader that uses it                                                  |
+| `shader_defs`            | [`shader/shader_defs.rs`](./shader/shader_defs.rs)                       | Demonstrates creating a custom material that uses "shaders defs" (a tool to selectively toggle parts of a shader) |
+=======
 Example | File | Description
 --- | --- | ---
 `animate_shader` | [`shader/animate_shader.rs`](./shader/animate_shader.rs) | Shows how to animate a shader by accessing a time uniform variable
@@ -210,6 +237,7 @@ Example | File | Description
 `mesh_custom_attribute` | [`shader/mesh_custom_attribute.rs`](./shader/mesh_custom_attribute.rs) | Illustrates how to add a custom attribute to a mesh and use it in a custom shader
 `shader_custom_material` | [`shader/shader_custom_material.rs`](./shader/shader_custom_material.rs) | Illustrates creating a custom material and a shader that uses it
 `shader_defs` | [`shader/shader_defs.rs`](./shader/shader_defs.rs) | Demonstrates creating a custom material that uses "shaders defs" (a tool to selectively toggle parts of a shader)
+>>>>>>> upstream/main
 
 ## Tests
 
@@ -219,28 +247,28 @@ Example | File | Description
 
 ## Tools
 
-Example | File | Description
---- | --- | ---
-`bevymark` | [`tools/bevymark.rs`](./tools/bevymark.rs) | A heavy workload to benchmark your system with Bevy
+| Example    | File                                       | Description                                         |
+| ---------- | ------------------------------------------ | --------------------------------------------------- |
+| `bevymark` | [`tools/bevymark.rs`](./tools/bevymark.rs) | A heavy workload to benchmark your system with Bevy |
 
 ## UI (User Interface)
 
-Example | File | Description
---- | --- | ---
-`button` | [`ui/button.rs`](./ui/button.rs) | Illustrates creating and updating a button
-`font_atlas_debug` | [`ui/font_atlas_debug.rs`](./ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
-`text` | [`ui/text.rs`](./ui/text.rs) | Illustrates creating and updating text
-`text_debug` | [`ui/text_debug.rs`](./ui/text_debug.rs) | An example for debugging text layout
-`ui` | [`ui/ui.rs`](./ui/ui.rs) | Illustrates various features of Bevy UI
+| Example            | File                                                 | Description                                                                            |
+| ------------------ | ---------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `button`           | [`ui/button.rs`](./ui/button.rs)                     | Illustrates creating and updating a button                                             |
+| `font_atlas_debug` | [`ui/font_atlas_debug.rs`](./ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally) |
+| `text`             | [`ui/text.rs`](./ui/text.rs)                         | Illustrates creating and updating text                                                 |
+| `text_debug`       | [`ui/text_debug.rs`](./ui/text_debug.rs)             | An example for debugging text layout                                                   |
+| `ui`               | [`ui/ui.rs`](./ui/ui.rs)                             | Illustrates various features of Bevy UI                                                |
 
 ## Window
 
-Example | File | Description
---- | --- | ---
-`clear_color` | [`window/clear_color.rs`](./window/clear_color.rs) | Creates a solid color window
-`multiple_windows` | [`window/multiple_windows.rs`](./window/multiple_windows.rs) | Creates two windows and cameras viewing the same mesh
-`scale_factor_override` | [`window/scale_factor_override.rs`](./window/scale_factor_override.rs) | Illustrates how to customize the default window settings
-`window_settings` | [`window/window_settings.rs`](./window/window_settings.rs) | Demonstrates customizing default window settings
+| Example                 | File                                                                   | Description                                              |
+| ----------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------- |
+| `clear_color`           | [`window/clear_color.rs`](./window/clear_color.rs)                     | Creates a solid color window                             |
+| `multiple_windows`      | [`window/multiple_windows.rs`](./window/multiple_windows.rs)           | Creates two windows and cameras viewing the same mesh    |
+| `scale_factor_override` | [`window/scale_factor_override.rs`](./window/scale_factor_override.rs) | Illustrates how to customize the default window settings |
+| `window_settings`       | [`window/window_settings.rs`](./window/window_settings.rs)             | Demonstrates customizing default window settings         |
 
 # Platform-Specific Examples
 
@@ -292,9 +320,9 @@ target_sdk_version = >>API<<
 min_sdk_version = >>API or less<<
 ```
 
-Example | File | Description
---- | --- | ---
-`android` | [`android/android.rs`](./android/android.rs) | The `3d/3d_scene.rs` example for Android
+| Example   | File                                         | Description                              |
+| --------- | -------------------------------------------- | ---------------------------------------- |
+| `android` | [`android/android.rs`](./android/android.rs) | The `3d/3d_scene.rs` example for Android |
 
 ## iOS
 
@@ -340,9 +368,9 @@ variable in the "`cargo_ios` target" to be either `x86_64-apple-ios` or
 Note: if you update this variable in Xcode, it will also change the default
 used for the `Makefile`.
 
-Example | File | Description
---- | --- | ---
-`ios` | [`ios/src/lib.rs`](./ios/src/lib.rs) | The `3d/3d_scene.rs` example for iOS
+| Example | File                                 | Description                          |
+| ------- | ------------------------------------ | ------------------------------------ |
+| `ios`   | [`ios/src/lib.rs`](./ios/src/lib.rs) | The `3d/3d_scene.rs` example for iOS |
 
 ## WASM
 
@@ -370,9 +398,9 @@ Then serve `examples/wasm` dir to browser. i.e.
 basic-http-server examples/wasm
 ```
 
-Example | File | Description
---- | --- | ---
-`hello_wasm` | [`wasm/hello_wasm.rs`](./wasm/hello_wasm.rs) | Runs a minimal example that logs "hello world" to the browser's console
-`assets_wasm` | [`wasm/assets_wasm.rs`](./wasm/assets_wasm.rs) | Demonstrates how to load assets from wasm
-`headless_wasm` | [`wasm/headless_wasm.rs`](./wasm/headless_wasm.rs) | Sets up a schedule runner and continually logs a counter to the browser's console
-`winit_wasm` | [`wasm/winit_wasm.rs`](./wasm/winit_wasm.rs) | Logs user input to the browser's console. Requires the `bevy_winit` features
+| Example         | File                                               | Description                                                                       |
+| --------------- | -------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `hello_wasm`    | [`wasm/hello_wasm.rs`](./wasm/hello_wasm.rs)       | Runs a minimal example that logs "hello world" to the browser's console           |
+| `assets_wasm`   | [`wasm/assets_wasm.rs`](./wasm/assets_wasm.rs)     | Demonstrates how to load assets from wasm                                         |
+| `headless_wasm` | [`wasm/headless_wasm.rs`](./wasm/headless_wasm.rs) | Sets up a schedule runner and continually logs a counter to the browser's console |
+| `winit_wasm`    | [`wasm/winit_wasm.rs`](./wasm/winit_wasm.rs)       | Logs user input to the browser's console. Requires the `bevy_winit` features      |
