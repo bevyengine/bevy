@@ -55,8 +55,7 @@ impl Default for BoxedRunCriteria {
         Self {
             criteria_system: None,
             initialized: false,
-            // MAX ensures access information will be initialized on first run.
-            archetype_generation: ArchetypeGeneration::new(usize::MAX),
+            archetype_generation: ArchetypeGeneration::initial(),
         }
     }
 }
@@ -74,20 +73,14 @@ impl BoxedRunCriteria {
                 self.initialized = true;
             }
             let archetypes = world.archetypes();
-            let old_generation = self.archetype_generation;
             let new_generation = archetypes.generation();
-            if old_generation != new_generation {
-                let archetype_index_range = if old_generation.value() == usize::MAX {
-                    0..archetypes.len()
-                } else {
-                    old_generation.value()..archetypes.len()
-                };
-                for archetype in archetypes.archetypes[archetype_index_range].iter() {
-                    run_criteria.new_archetype(archetype);
-                }
+            let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
+            let archetype_index_range = old_generation.value()..new_generation.value();
 
-                self.archetype_generation = new_generation;
+            for archetype in archetypes.archetypes[archetype_index_range].iter() {
+                run_criteria.new_archetype(archetype);
             }
+
             let should_run = run_criteria.run((), world);
             run_criteria.apply_buffers(world);
             should_run
@@ -125,8 +118,7 @@ impl RunCriteriaContainer {
             label: descriptor.label,
             before: descriptor.before,
             after: descriptor.after,
-            // MAX ensures access information will be initialized on first run.
-            archetype_generation: ArchetypeGeneration::new(usize::MAX),
+            archetype_generation: ArchetypeGeneration::initial(),
         }
     }
 
@@ -146,16 +138,9 @@ impl RunCriteriaContainer {
 
     pub fn update_archetypes(&mut self, world: &World) {
         let archetypes = world.archetypes();
-        let old_generation = self.archetype_generation;
         let new_generation = archetypes.generation();
-        if old_generation == new_generation {
-            return;
-        }
-        let archetype_index_range = if old_generation.value() == usize::MAX {
-            0..archetypes.len()
-        } else {
-            old_generation.value()..archetypes.len()
-        };
+        let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
+        let archetype_index_range = old_generation.value()..new_generation.value();
         for archetype in archetypes.archetypes[archetype_index_range].iter() {
             match &mut self.inner {
                 RunCriteriaInner::Single(system) => {
