@@ -2,8 +2,7 @@ use super::{Extent3d, Texture, TextureDimension, TextureFormat};
 
 /// Helper method to convert a `DynamicImage` to a `Texture`
 pub(crate) fn image_to_texture(dyn_img: image::DynamicImage) -> Texture {
-    use bevy_core::AsBytes;
-
+    use bevy_core::cast_slice;
     let width;
     let height;
 
@@ -65,7 +64,7 @@ pub(crate) fn image_to_texture(dyn_img: image::DynamicImage) -> Texture {
 
             let raw_data = i.into_raw();
 
-            data = raw_data.as_slice().as_bytes().to_owned();
+            data = cast_slice(&raw_data).to_owned();
         }
         image::DynamicImage::ImageLumaA16(i) => {
             width = i.width();
@@ -74,7 +73,7 @@ pub(crate) fn image_to_texture(dyn_img: image::DynamicImage) -> Texture {
 
             let raw_data = i.into_raw();
 
-            data = raw_data.as_slice().as_bytes().to_owned();
+            data = cast_slice(&raw_data).to_owned();
         }
 
         image::DynamicImage::ImageRgb16(image) => {
@@ -107,7 +106,7 @@ pub(crate) fn image_to_texture(dyn_img: image::DynamicImage) -> Texture {
 
             let raw_data = i.into_raw();
 
-            data = raw_data.as_slice().as_bytes().to_owned();
+            data = cast_slice(&raw_data).to_owned();
         }
     }
 

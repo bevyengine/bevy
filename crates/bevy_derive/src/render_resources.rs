@@ -42,11 +42,12 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
             attributes
         });
     let struct_name = &ast.ident;
+    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
     let struct_name_string = struct_name.to_string();
 
     if attributes.from_self {
         TokenStream::from(quote! {
-            impl #bevy_render_path::renderer::RenderResources for #struct_name {
+            impl #impl_generics #bevy_render_path::renderer::RenderResources for #struct_name #type_generics #where_clause {
                 fn render_resources_len(&self) -> usize {
                     1
                 }
@@ -154,7 +155,7 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
                 #(#render_resource_hints,)*
             ];
 
-            impl #bevy_render_path::renderer::RenderResources for #struct_name {
+            impl #impl_generics #bevy_render_path::renderer::RenderResources for #struct_name #type_generics #where_clause {
                 fn render_resources_len(&self) -> usize {
                     #render_resource_count
                 }

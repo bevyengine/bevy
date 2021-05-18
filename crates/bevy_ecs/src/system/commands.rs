@@ -284,8 +284,8 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
 }
 
 #[derive(Debug)]
-pub(crate) struct Spawn<T> {
-    bundle: T,
+pub struct Spawn<T> {
+    pub bundle: T,
 }
 
 impl<T> Command for Spawn<T>
@@ -297,12 +297,12 @@ where
     }
 }
 
-pub(crate) struct SpawnBatch<I>
+pub struct SpawnBatch<I>
 where
     I: IntoIterator,
     I::Item: Bundle,
 {
-    bundles_iter: I,
+    pub bundles_iter: I,
 }
 
 impl<I> Command for SpawnBatch<I>
@@ -316,8 +316,8 @@ where
 }
 
 #[derive(Debug)]
-pub(crate) struct Despawn {
-    entity: Entity,
+pub struct Despawn {
+    pub entity: Entity,
 }
 
 impl Command for Despawn {
@@ -328,9 +328,9 @@ impl Command for Despawn {
     }
 }
 
-pub(crate) struct InsertBundle<T> {
-    entity: Entity,
-    bundle: T,
+pub struct InsertBundle<T> {
+    pub entity: Entity,
+    pub bundle: T,
 }
 
 impl<T> Command for InsertBundle<T>
@@ -343,9 +343,9 @@ where
 }
 
 #[derive(Debug)]
-pub(crate) struct Insert<T> {
-    entity: Entity,
-    component: T,
+pub struct Insert<T> {
+    pub entity: Entity,
+    pub component: T,
 }
 
 impl<T> Command for Insert<T>
@@ -358,7 +358,7 @@ where
 }
 
 #[derive(Debug)]
-pub(crate) struct Remove<T> {
+pub struct Remove<T> {
     entity: Entity,
     phantom: PhantomData<T>,
 }
@@ -375,9 +375,9 @@ where
 }
 
 #[derive(Debug)]
-pub(crate) struct RemoveBundle<T> {
-    entity: Entity,
-    phantom: PhantomData<T>,
+pub struct RemoveBundle<T> {
+    pub entity: Entity,
+    pub phantom: PhantomData<T>,
 }
 
 impl<T> Command for RemoveBundle<T>
@@ -393,8 +393,8 @@ where
     }
 }
 
-pub(crate) struct InsertResource<T: Component> {
-    resource: T,
+pub struct InsertResource<T: Component> {
+    pub resource: T,
 }
 
 impl<T: Component> Command for InsertResource<T> {
@@ -403,8 +403,8 @@ impl<T: Component> Command for InsertResource<T> {
     }
 }
 
-pub(crate) struct RemoveResource<T: Component> {
-    phantom: PhantomData<T>,
+pub struct RemoveResource<T: Component> {
+    pub phantom: PhantomData<T>,
 }
 
 impl<T: Component> Command for RemoveResource<T> {
@@ -417,9 +417,29 @@ impl<T: Component> Command for RemoveResource<T> {
 #[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
     use crate::{
+        component::{ComponentDescriptor, StorageType},
         system::{CommandQueue, Commands},
         world::World,
     };
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    };
+
+    #[derive(Clone, Debug)]
+    struct DropCk(Arc<AtomicUsize>);
+    impl DropCk {
+        fn new_pair() -> (Self, Arc<AtomicUsize>) {
+            let atomic = Arc::new(AtomicUsize::new(0));
+            (DropCk(atomic.clone()), atomic)
+        }
+    }
+
+    impl Drop for DropCk {
+        fn drop(&mut self) {
+            self.0.as_ref().fetch_add(1, Ordering::Relaxed);
+        }
+    }
 
     #[test]
     fn commands() {
@@ -454,10 +474,20 @@ mod tests {
     #[test]
     fn remove_components() {
         let mut world = World::default();
+
+        struct DenseDropCk(DropCk);
+        world
+            .register_component(ComponentDescriptor::new::<DropCk>(StorageType::SparseSet))
+            .unwrap();
+
         let mut command_queue = CommandQueue::default();
+        let (dense_dropck, dense_is_dropped) = DropCk::new_pair();
+        let dense_dropck = DenseDropCk(dense_dropck);
+        let (sparse_dropck, sparse_is_dropped) = DropCk::new_pair();
+
         let entity = Commands::new(&mut command_queue, &world)
             .spawn()
-            .insert_bundle((1u32, 2u64))
+            .insert_bundle((1u32, 2u64, dense_dropck, sparse_dropck))
             .id();
         command_queue.apply(&mut world);
         let results_before = world
@@ -471,8 +501,14 @@ mod tests {
         Commands::new(&mut command_queue, &world)
             .entity(entity)
             .remove::<u32>()
-            .remove_bundle::<(u32, u64)>();
+            .remove_bundle::<(u32, u64, DenseDropCk, DropCk)>();
+
+        assert_eq!(dense_is_dropped.load(Ordering::Relaxed), 0);
+        assert_eq!(sparse_is_dropped.load(Ordering::Relaxed), 0);
         command_queue.apply(&mut world);
+        assert_eq!(dense_is_dropped.load(Ordering::Relaxed), 1);
+        assert_eq!(sparse_is_dropped.load(Ordering::Relaxed), 1);
+
         let results_after = world
             .query::<(&u32, &u64)>()
             .iter(&world)

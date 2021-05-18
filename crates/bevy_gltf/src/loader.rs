@@ -116,35 +116,40 @@ async fn load_gltf<'a, 'b>(
 
             if let Some(vertex_attribute) = reader
                 .read_positions()
-                .map(|v| VertexAttributeValues::Float3(v.collect()))
+                .map(|v| VertexAttributeValues::Float32x3(v.collect()))
             {
                 mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, vertex_attribute);
             }
 
             if let Some(vertex_attribute) = reader
                 .read_normals()
-                .map(|v| VertexAttributeValues::Float3(v.collect()))
+                .map(|v| VertexAttributeValues::Float32x3(v.collect()))
             {
                 mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, vertex_attribute);
             }
 
             if let Some(vertex_attribute) = reader
                 .read_tangents()
-                .map(|v| VertexAttributeValues::Float4(v.collect()))
+                .map(|v| VertexAttributeValues::Float32x4(v.collect()))
             {
                 mesh.set_attribute(Mesh::ATTRIBUTE_TANGENT, vertex_attribute);
             }
 
             if let Some(vertex_attribute) = reader
                 .read_tex_coords(0)
-                .map(|v| VertexAttributeValues::Float2(v.into_f32().collect()))
+                .map(|v| VertexAttributeValues::Float32x2(v.into_f32().collect()))
             {
                 mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, vertex_attribute);
+            } else {
+                let len = mesh.count_vertices();
+                let uvs = vec![[0.0, 0.0]; len];
+                bevy_log::debug!("missing `TEXCOORD_0` vertex attribute, loading zeroed out UVs");
+                mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
             }
 
             if let Some(vertex_attribute) = reader
                 .read_colors(0)
-                .map(|v| VertexAttributeValues::Float4(v.into_rgba_f32().collect()))
+                .map(|v| VertexAttributeValues::Float32x4(v.into_rgba_f32().collect()))
             {
                 mesh.set_attribute(Mesh::ATTRIBUTE_COLOR, vertex_attribute);
             }
@@ -209,7 +214,7 @@ async fn load_gltf<'a, 'b>(
                         scale,
                     } => Transform {
                         translation: bevy_math::Vec3::from(translation),
-                        rotation: bevy_math::Quat::from(rotation),
+                        rotation: bevy_math::Quat::from_vec4(rotation.into()),
                         scale: bevy_math::Vec3::from(scale),
                     },
                 },
@@ -235,48 +240,32 @@ async fn load_gltf<'a, 'b>(
         })
         .collect();
 
+    // TODO: use the threaded impl on wasm once wasm thread pool doesn't deadlock on it
+    #[cfg(target_arch = "wasm32")]
     for gltf_texture in gltf.textures() {
-        let mut texture = match gltf_texture.source().source() {
-            gltf::image::Source::View { view, mime_type } => {
-                let start = view.offset() as usize;
-                let end = (view.offset() + view.length()) as usize;
-                let buffer = &buffer_data[view.buffer().index()][start..end];
-                Texture::from_buffer(buffer, ImageType::MimeType(mime_type))?
-            }
-            gltf::image::Source::Uri { uri, mime_type } => {
-                let uri = percent_encoding::percent_decode_str(uri)
-                    .decode_utf8()
-                    .unwrap();
-                let uri = uri.as_ref();
-                let (bytes, image_type) = match DataUri::parse(uri) {
-                    Ok(data_uri) => (data_uri.decode()?, ImageType::MimeType(data_uri.mime_type)),
-                    Err(()) => {
-                        let parent = load_context.path().parent().unwrap();
-                        let image_path = parent.join(uri);
-                        let bytes = load_context.read_asset_bytes(image_path.clone()).await?;
-
-                        let extension = Path::new(uri).extension().unwrap().to_str().unwrap();
-                        let image_type = ImageType::Extension(extension);
-
-                        (bytes, image_type)
-                    }
-                };
-
-                Texture::from_buffer(
-                    &bytes,
-                    mime_type
-                        .map(|mt| ImageType::MimeType(mt))
-                        .unwrap_or(image_type),
-                )?
-            }
-        };
-        let texture_label = texture_label(&gltf_texture);
-        texture.sampler = texture_sampler(&gltf_texture);
-        if linear_textures.contains(&gltf_texture.index()) {
-            texture.format = TextureFormat::Rgba8Unorm;
-        }
-        load_context.set_labeled_asset::<Texture>(&texture_label, LoadedAsset::new(texture));
+        let (texture, label) =
+            load_texture(gltf_texture, &buffer_data, &linear_textures, &load_context).await?;
+        load_context.set_labeled_asset(&label, LoadedAsset::new(texture));
     }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    load_context
+        .task_pool()
+        .scope(|scope| {
+            gltf.textures().for_each(|gltf_texture| {
+                let linear_textures = &linear_textures;
+                let load_context: &LoadContext = load_context;
+                let buffer_data = &buffer_data;
+                scope.spawn(async move {
+                    load_texture(gltf_texture, buffer_data, linear_textures, load_context).await
+                });
+            });
+        })
+        .into_iter()
+        .filter_map(|result| result.ok())
+        .for_each(|(texture, label)| {
+            load_context.set_labeled_asset(&label, LoadedAsset::new(texture));
+        });
 
     let mut scenes = vec![];
     let mut named_scenes = HashMap::new();
@@ -323,6 +312,54 @@ async fn load_gltf<'a, 'b>(
     }));
 
     Ok(())
+}
+
+async fn load_texture<'a>(
+    gltf_texture: gltf::Texture<'a>,
+    buffer_data: &[Vec<u8>],
+    linear_textures: &HashSet<usize>,
+    load_context: &LoadContext<'a>,
+) -> Result<(Texture, String), GltfError> {
+    let mut texture = match gltf_texture.source().source() {
+        gltf::image::Source::View { view, mime_type } => {
+            let start = view.offset() as usize;
+            let end = (view.offset() + view.length()) as usize;
+            let buffer = &buffer_data[view.buffer().index()][start..end];
+            Texture::from_buffer(buffer, ImageType::MimeType(mime_type))?
+        }
+        gltf::image::Source::Uri { uri, mime_type } => {
+            let uri = percent_encoding::percent_decode_str(uri)
+                .decode_utf8()
+                .unwrap();
+            let uri = uri.as_ref();
+            let (bytes, image_type) = match DataUri::parse(uri) {
+                Ok(data_uri) => (data_uri.decode()?, ImageType::MimeType(data_uri.mime_type)),
+                Err(()) => {
+                    let parent = load_context.path().parent().unwrap();
+                    let image_path = parent.join(uri);
+                    let bytes = load_context.read_asset_bytes(image_path.clone()).await?;
+
+                    let extension = Path::new(uri).extension().unwrap().to_str().unwrap();
+                    let image_type = ImageType::Extension(extension);
+
+                    (bytes, image_type)
+                }
+            };
+
+            Texture::from_buffer(
+                &bytes,
+                mime_type
+                    .map(|mt| ImageType::MimeType(mt))
+                    .unwrap_or(image_type),
+            )?
+        }
+    };
+    texture.sampler = texture_sampler(&gltf_texture);
+    if (linear_textures).contains(&gltf_texture.index()) {
+        texture.format = TextureFormat::Rgba8Unorm;
+    }
+
+    Ok((texture, texture_label(&gltf_texture)))
 }
 
 fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<StandardMaterial> {

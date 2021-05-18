@@ -467,6 +467,7 @@ impl Window {
     }
 
     #[inline]
+    #[doc(alias = "mouse position")]
     pub fn cursor_position(&self) -> Option<Vec2> {
         self.cursor_position
     }

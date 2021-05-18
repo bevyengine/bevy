@@ -1,3 +1,5 @@
+//! Utilities for detecting if and on which side two axis-aligned bounding boxes (AABB) collide.
+
 use bevy_math::{Vec2, Vec3};
 
 #[derive(Debug)]

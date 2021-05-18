@@ -16,6 +16,7 @@ pub use plugin_group::*;
 pub use schedule_runner::*;
 
 pub mod prelude {
+    #[doc(hidden)]
     pub use crate::{
         app::App, app_builder::AppBuilder, CoreStage, DynamicPlugin, Plugin, PluginGroup,
         StartupStage,

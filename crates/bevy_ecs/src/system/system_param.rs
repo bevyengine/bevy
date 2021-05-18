@@ -10,6 +10,7 @@ use crate::{
 pub use bevy_ecs_macros::SystemParam;
 use bevy_ecs_macros::{all_tuples, impl_query_set};
 use std::{
+    fmt::Debug,
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
@@ -48,6 +49,18 @@ pub trait SystemParam: Sized {
 /// Additionally, it is the implementor's responsibility to ensure there is no
 /// conflicting access across all SystemParams.
 pub unsafe trait SystemParamState: Send + Sync + 'static {
+    /// Values of this type can be used to adjust the behavior of the
+    /// system parameter. For instance, this can be used to pass
+    /// values from a `Plugin` to a `System`, or to control the
+    /// behavior of the `System`.
+    ///
+    /// The default configuration of the parameter is set by
+    /// [`SystemParamState::default_config`]. To change it, invoke
+    /// [`FunctionSystem::config`](super::FunctionSystem::config) when
+    /// creating the system.
+    ///
+    /// See [`FunctionSystem::config`](super::FunctionSystem::config)
+    /// for more information and examples.
     type Config: Send + Sync;
     fn init(world: &mut World, system_state: &mut SystemState, config: Self::Config) -> Self;
     #[inline]
@@ -174,6 +187,15 @@ pub struct Res<'w, T: Component> {
     change_tick: u32,
 }
 
+impl<'w, T: Component> Debug for Res<'w, T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Res").field(&self.value).finish()
+    }
+}
+
 impl<'w, T: Component> Res<'w, T> {
     /// Returns true if (and only if) this resource been added since the last execution of this
     /// system.
@@ -194,6 +216,13 @@ impl<'w, T: Component> Deref for Res<'w, T> {
 
     fn deref(&self) -> &Self::Target {
         self.value
+    }
+}
+
+impl<'w, T: Component> AsRef<T> for Res<'w, T> {
+    #[inline]
+    fn as_ref(&self) -> &T {
+        self.deref()
     }
 }
 
@@ -318,6 +347,15 @@ pub struct ResMut<'w, T: Component> {
     change_tick: u32,
 }
 
+impl<'w, T: Component> Debug for ResMut<'w, T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("ResMut").field(&self.value).finish()
+    }
+}
+
 impl<'w, T: Component> ResMut<'w, T> {
     /// Returns true if (and only if) this resource been added since the last execution of this
     /// system.
@@ -331,6 +369,16 @@ impl<'w, T: Component> ResMut<'w, T> {
         self.ticks
             .is_changed(self.last_change_tick, self.change_tick)
     }
+
+    /// Manually flags this resource as having been changed. This normally isn't
+    /// required because accessing this pointer mutably automatically flags this
+    /// resource as "changed".
+    ///
+    /// **Note**: This operation is irreversible.
+    #[inline]
+    pub fn set_changed(&mut self) {
+        self.ticks.set_changed(self.change_tick);
+    }
 }
 
 impl<'w, T: Component> Deref for ResMut<'w, T> {
@@ -343,8 +391,22 @@ impl<'w, T: Component> Deref for ResMut<'w, T> {
 
 impl<'w, T: Component> DerefMut for ResMut<'w, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.ticks.set_changed(self.change_tick);
+        self.set_changed();
         self.value
+    }
+}
+
+impl<'w, T: Component> AsRef<T> for ResMut<'w, T> {
+    #[inline]
+    fn as_ref(&self) -> &T {
+        self.deref()
+    }
+}
+
+impl<'w, T: Component> AsMut<T> for ResMut<'w, T> {
+    #[inline]
+    fn as_mut(&mut self) -> &mut T {
+        self.deref_mut()
     }
 }
 
@@ -520,6 +582,15 @@ impl<'a> SystemParamFetch<'a> for CommandQueue {
 /// ```
 pub struct Local<'a, T: Component>(&'a mut T);
 
+impl<'a, T: Component> Debug for Local<'a, T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Local").field(&self.0).finish()
+    }
+}
+
 impl<'a, T: Component> Deref for Local<'a, T> {
     type Target = T;
 
@@ -659,6 +730,15 @@ pub struct NonSend<'w, T> {
     ticks: ComponentTicks,
     last_change_tick: u32,
     change_tick: u32,
+}
+
+impl<'w, T> Debug for NonSend<'w, T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("NonSend").field(&self.value).finish()
+    }
 }
 
 impl<'w, T: Component> NonSend<'w, T> {
@@ -807,7 +887,7 @@ impl<'a, T: 'static> DerefMut for NonSendMut<'a, T> {
 
 impl<'a, T: 'static + core::fmt::Debug> core::fmt::Debug for NonSendMut<'a, T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        self.value.fmt(f)
+        f.debug_tuple("NonSendMut").field(&self.value).finish()
     }
 }
 

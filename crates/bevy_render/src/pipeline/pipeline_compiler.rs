@@ -1,6 +1,6 @@
 use super::{state_descriptors::PrimitiveTopology, IndexFormat, PipelineDescriptor};
 use crate::{
-    pipeline::{BindType, InputStepMode, VertexBufferLayout},
+    pipeline::{BindType, VertexBufferLayout},
     renderer::RenderResourceContext,
     shader::{Shader, ShaderError},
 };
@@ -205,7 +205,7 @@ impl PipelineCompiler {
 
         // the vertex buffer descriptor that will be used for this pipeline
         let mut compiled_vertex_buffer_descriptor = VertexBufferLayout {
-            step_mode: InputStepMode::Vertex,
+            step_mode: mesh_vertex_buffer_layout.step_mode,
             stride: mesh_vertex_buffer_layout.stride,
             ..Default::default()
         };

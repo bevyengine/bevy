@@ -46,12 +46,18 @@ fn get_meta() -> Option<Modules> {
 
 const AS_CRATE_ATTRIBUTE_NAME: &str = "as_crate";
 
+fn validate_as_crate_attribute(tokens: &str) -> bool {
+    tokens.len() > 2 && tokens.starts_with('(') && tokens.ends_with(')')
+}
+
 pub fn get_modules(attributes: &[Attribute]) -> Modules {
     let mut modules = get_meta().unwrap_or_else(Modules::external);
     for attribute in attributes.iter() {
         if *attribute.path.get_ident().as_ref().unwrap() == AS_CRATE_ATTRIBUTE_NAME {
             let value = attribute.tokens.to_string();
-            if value[1..value.len() - 1] == modules.bevy_render {
+            if !validate_as_crate_attribute(&value) {
+                panic!("The attribute `#[as_crate{}]` is invalid. It must follow the format `#[as_crate(<crate name>)]`", value);
+            } else if value[1..value.len() - 1] == modules.bevy_render {
                 modules.bevy_render = "crate".to_string();
             }
         }

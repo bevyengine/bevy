@@ -27,7 +27,7 @@ bevy_scene = { path = "../bevy_scene", version = "0.5.0" }
 bevy_log = { path = "../bevy_log", version = "0.5.0" }
 
 # other
-gltf = { version = "0.15.2", default-features = false, features = ["utils", "names", "KHR_materials_unlit"] }
+gltf = { version = "0.16.0", default-features = false, features = ["utils", "names", "KHR_materials_unlit"] }
 thiserror = "1.0"
 anyhow = "1.0"
 base64 = "0.13.0"

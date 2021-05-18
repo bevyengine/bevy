@@ -17,6 +17,7 @@ pub use render::*;
 pub use ui_node::*;
 
 pub mod prelude {
+    #[doc(hidden)]
     pub use crate::{entity::*, ui_node::*, widget::Button, Anchors, Interaction, Margins};
 }
 

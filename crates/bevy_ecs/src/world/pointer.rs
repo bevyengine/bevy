@@ -9,6 +9,23 @@ pub struct Mut<'a, T> {
     pub(crate) change_tick: u32,
 }
 
+impl<'a, T> Mut<'a, T> {
+    pub fn into_inner(self) -> &'a mut T {
+        self.component_ticks.set_changed(self.change_tick);
+        self.value
+    }
+
+    /// Manually flags this value as having been changed. This normally isn't
+    /// required because accessing this pointer mutably automatically flags this
+    /// value as "changed".
+    ///
+    /// **Note**: This operation is irreversible.
+    #[inline]
+    pub fn set_changed(&mut self) {
+        self.component_ticks.set_changed(self.change_tick);
+    }
+}
+
 impl<'a, T> Deref for Mut<'a, T> {
     type Target = T;
 
@@ -21,7 +38,7 @@ impl<'a, T> Deref for Mut<'a, T> {
 impl<'a, T> DerefMut for Mut<'a, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut T {
-        self.component_ticks.set_changed(self.change_tick);
+        self.set_changed();
         self.value
     }
 }
@@ -29,6 +46,20 @@ impl<'a, T> DerefMut for Mut<'a, T> {
 impl<'a, T: core::fmt::Debug> core::fmt::Debug for Mut<'a, T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.value.fmt(f)
+    }
+}
+
+impl<'w, T> AsRef<T> for Mut<'w, T> {
+    #[inline]
+    fn as_ref(&self) -> &T {
+        self.deref()
+    }
+}
+
+impl<'w, T> AsMut<T> for Mut<'w, T> {
+    #[inline]
+    fn as_mut(&mut self) -> &mut T {
+        self.deref_mut()
     }
 }
 

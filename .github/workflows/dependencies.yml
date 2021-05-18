@@ -1,0 +1,54 @@
+name: Dependencies
+
+on:
+  pull_request:
+    paths:
+      - '**/Cargo.toml'
+      - 'deny.toml'
+  push:
+    branches: [main, staging, trying]
+    paths:
+      - '**/Cargo.toml'
+      - 'deny.toml'
+  schedule:
+    - cron: "0 0 * * 0"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check-advisories:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install cargo-deny
+        run: cargo install cargo-deny
+      - name: Check for security advisories and unmaintained crates
+        run: cargo deny check advisories
+
+  check-bans:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install cargo-deny
+        run: cargo install cargo-deny
+      - name: Check for banned and duplicated dependencies
+        run: cargo deny check bans
+
+  check-licenses:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install cargo-deny
+        run: cargo install cargo-deny
+      - name: Check for unauthorized licenses
+        run: cargo deny check licenses
+
+  check-sources:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install cargo-deny
+        run: cargo install cargo-deny
+      - name: Checked for unauthorized crate sources
+        run: cargo deny check sources
