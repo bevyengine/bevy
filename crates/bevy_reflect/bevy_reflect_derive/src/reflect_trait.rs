@@ -1,4 +1,4 @@
-use bevy_macro_utils::get_module_path;
+use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::quote;
@@ -28,7 +28,7 @@ pub fn reflect_trait(_args: TokenStream, input: TokenStream) -> TokenStream {
     let trait_ident = &item_trait.ident;
     let reflect_trait_ident =
         Ident::new(&format!("Reflect{}", item_trait.ident), Span::call_site());
-    let bevy_reflect_path = get_module_path("bevy_reflect");
+    let bevy_reflect_path = BevyManifest::default().get_path("bevy_reflect");
     TokenStream::from(quote! {
         #item_trait
 

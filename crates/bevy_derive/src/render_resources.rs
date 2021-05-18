@@ -1,4 +1,4 @@
-use crate::modules::get_modules;
+use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
@@ -22,7 +22,7 @@ static RENDER_RESOURCE_ATTRIBUTE_NAME: &str = "render_resources";
 pub fn derive_render_resources(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
-    let bevy_render_path: Path = get_modules(&ast.attrs).bevy_render;
+    let bevy_render_path: Path = BevyManifest::default().get_path(crate::modules::BEVY_RENDER);
     let attributes = ast
         .attrs
         .iter()

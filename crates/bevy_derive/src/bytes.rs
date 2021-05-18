@@ -1,4 +1,4 @@
-use crate::modules::get_modules;
+use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields};
@@ -13,7 +13,7 @@ pub fn derive_bytes(input: TokenStream) -> TokenStream {
         _ => panic!("Expected a struct with named fields."),
     };
 
-    let bevy_core_path = get_modules(&ast.attrs).bevy_core;
+    let bevy_core_path = BevyManifest::default().get_path(crate::modules::BEVY_CORE);
 
     let fields = fields
         .iter()

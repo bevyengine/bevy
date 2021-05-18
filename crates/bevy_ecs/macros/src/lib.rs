@@ -1,6 +1,6 @@
 extern crate proc_macro;
 
-use bevy_macro_utils::get_module_path;
+use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
@@ -471,5 +471,5 @@ fn derive_label(input: DeriveInput, label_type: Ident) -> TokenStream2 {
 }
 
 fn bevy_ecs_path() -> syn::Path {
-    get_module_path("bevy_ecs")
+    BevyManifest::default().get_path("bevy_ecs")
 }

@@ -277,9 +277,9 @@ impl RenderResources for bevy_transform::prelude::GlobalTransform {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate as bevy_render;
 
     #[derive(RenderResource, Bytes)]
-    #[as_crate(bevy_render)]
     struct GenericRenderResource<T>
     where
         T: Bytes + Send + Sync + 'static,
@@ -288,7 +288,6 @@ mod test {
     }
 
     #[derive(RenderResources)]
-    #[as_crate(bevy_render)]
     struct GenericRenderResources<T>
     where
         T: RenderResource + Send + Sync + 'static,
@@ -298,7 +297,6 @@ mod test {
 
     #[derive(Bytes, RenderResource, RenderResources)]
     #[render_resources(from_self)]
-    #[as_crate(bevy_render)]
     struct FromSelfGenericRenderResources<T>
     where
         T: Bytes + Send + Sync + 'static,

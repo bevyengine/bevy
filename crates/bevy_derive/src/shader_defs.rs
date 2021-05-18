@@ -1,4 +1,4 @@
-use crate::modules::get_modules;
+use bevy_macro_utils::BevyManifest;
 use inflector::Inflector;
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
@@ -9,7 +9,7 @@ static SHADER_DEF_ATTRIBUTE_NAME: &str = "shader_def";
 
 pub fn derive_shader_defs(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let bevy_render_path: Path = get_modules(&ast.attrs).bevy_render;
+    let bevy_render_path: Path = BevyManifest::default().get_path(crate::modules::BEVY_RENDER);
 
     let fields = match &ast.data {
         Data::Struct(DataStruct {
