@@ -277,7 +277,7 @@ impl<T: Component> Events<T> {
             id: self.event_count,
             _marker: PhantomData,
         };
-        trace!("Events::send() -> {}", event_id);
+        trace!("Events::send() -> id: {}", event_id);
 
         let event_instance = EventInstance { event_id, event };
 
@@ -396,7 +396,7 @@ impl<T> std::iter::Extend<T> for Events<T> {
         }
 
         trace!(
-            "Events::extend() -> [{}, {})",
+            "Events::extend() -> ids: ({}..{})",
             self.event_count,
             event_count
         );
