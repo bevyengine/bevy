@@ -180,10 +180,7 @@ impl ComponentSparseSet {
     /// returned).
     pub fn remove_and_forget(&mut self, entity: Entity) -> Option<*mut u8> {
         self.sparse.remove(entity).map(|dense_index| {
-            // SAFE: unique access to ticks
-            unsafe {
-                (*self.ticks.get()).swap_remove(dense_index);
-            }
+            self.ticks.get_mut().swap_remove(dense_index);
             self.entities.swap_remove(dense_index);
             let is_last = dense_index == self.dense.len() - 1;
             // SAFE: dense_index was just removed from `sparse`, which ensures that it is valid

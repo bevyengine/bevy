@@ -54,7 +54,7 @@ where
 
         let mut state = Self {
             world_id: world.id(),
-            archetype_generation: ArchetypeGeneration::new(usize::MAX),
+            archetype_generation: ArchetypeGeneration::initial(),
             matched_table_ids: Vec::new(),
             matched_archetype_ids: Vec::new(),
             fetch_state,
@@ -74,17 +74,10 @@ where
                 std::any::type_name::<Self>());
         }
         let archetypes = world.archetypes();
-        let old_generation = self.archetype_generation;
-        let archetype_index_range = if old_generation == archetypes.generation() {
-            0..0
-        } else {
-            self.archetype_generation = archetypes.generation();
-            if old_generation.value() == usize::MAX {
-                0..archetypes.len()
-            } else {
-                old_generation.value()..archetypes.len()
-            }
-        };
+        let new_generation = archetypes.generation();
+        let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
+        let archetype_index_range = old_generation.value()..new_generation.value();
+
         for archetype_index in archetype_index_range {
             self.new_archetype(&archetypes[ArchetypeId::new(archetype_index)]);
         }
