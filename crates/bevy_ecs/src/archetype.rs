@@ -317,7 +317,7 @@ pub struct ArchetypeGeneration(usize);
 
 impl ArchetypeGeneration {
     #[inline]
-    pub fn initial() -> Self {
+    pub const fn initial() -> Self {
         ArchetypeGeneration(0)
     }
 
