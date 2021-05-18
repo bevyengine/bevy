@@ -406,7 +406,7 @@ impl System for RunOnce {
         true
     }
 
-    unsafe fn run_unsafe(&mut self, (): (), _world: &World) -> ShouldRun {
+    unsafe fn run_unsafe(&mut self, _input: (), _world: &World) -> ShouldRun {
         if self.ran {
             ShouldRun::No
         } else {
