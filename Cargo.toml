@@ -303,6 +303,10 @@ path = "examples/ecs/timers.rs"
 name = "query_bundle"
 path = "examples/ecs/query_bundle.rs"
 
+[[example]]
+name = "generic_systems"
+path = "examples/ecs/generic_systems.rs"
+
 # Games
 [[example]]
 name = "alien_cake_addict"
