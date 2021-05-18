@@ -17,7 +17,7 @@ impl<'a, T> Mut<'a, T> {
 
     /// Manually flags this value as having been changed. This normally isn't
     /// required because accessing this pointer mutably automatically flags this
-    /// resource as "changed".
+    /// value as "changed".
     ///
     /// **Note**: This operation is irreversible.
     #[inline]
