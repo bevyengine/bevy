@@ -14,6 +14,16 @@ impl<'a, T> Mut<'a, T> {
         self.component_ticks.set_changed(self.change_tick);
         self.value
     }
+
+    /// Flags this component as having been changed.
+    ///
+    /// **Note**: this operation is irreversible.
+    /// You should generally prefer to use [`Mut::as_mut`], as this returns
+    /// the component _and_ sets it as changed.
+    #[inline]
+    pub fn set_changed(&mut self) {
+        self.component_ticks.set_changed(self.change_tick);
+    }
 }
 
 impl<'a, T> Deref for Mut<'a, T> {
@@ -28,7 +38,7 @@ impl<'a, T> Deref for Mut<'a, T> {
 impl<'a, T> DerefMut for Mut<'a, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut T {
-        self.component_ticks.set_changed(self.change_tick);
+        self.set_changed();
         self.value
     }
 }

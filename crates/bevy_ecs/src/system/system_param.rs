@@ -369,6 +369,16 @@ impl<'w, T: Component> ResMut<'w, T> {
         self.ticks
             .is_changed(self.last_change_tick, self.change_tick)
     }
+
+    /// Flags this resource as having been changed.
+    ///
+    /// **Note**: this operation is irreversible.
+    /// You should generally prefer to use [`ResMut::as_mut`], as this returns
+    /// the contained value _and_ sets this resource as changed.
+    #[inline]
+    pub fn set_changed(&mut self) {
+        self.ticks.set_changed(self.change_tick);
+    }
 }
 
 impl<'w, T: Component> Deref for ResMut<'w, T> {
@@ -381,7 +391,7 @@ impl<'w, T: Component> Deref for ResMut<'w, T> {
 
 impl<'w, T: Component> DerefMut for ResMut<'w, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.ticks.set_changed(self.change_tick);
+        self.set_changed();
         self.value
     }
 }
