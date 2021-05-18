@@ -1,5 +1,4 @@
-use bevy_ecs::event::Events;
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, component::{ComponentDescriptor, StorageType}};
 
 // This is our event
 #[derive(Debug)]
