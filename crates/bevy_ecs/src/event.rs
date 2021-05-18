@@ -548,7 +548,7 @@ mod tests {
     }
 
     #[test]
-    fn test_events_extent_impl() {
+    fn test_events_extend_impl() {
         let mut events = Events::<TestEvent>::default();
         let mut reader = events.get_reader();
 
