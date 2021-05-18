@@ -417,9 +417,29 @@ impl<T: Component> Command for RemoveResource<T> {
 #[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
     use crate::{
+        component::{ComponentDescriptor, StorageType},
         system::{CommandQueue, Commands},
         world::World,
     };
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    };
+
+    #[derive(Clone, Debug)]
+    struct DropCk(Arc<AtomicUsize>);
+    impl DropCk {
+        fn new_pair() -> (Self, Arc<AtomicUsize>) {
+            let atomic = Arc::new(AtomicUsize::new(0));
+            (DropCk(atomic.clone()), atomic)
+        }
+    }
+
+    impl Drop for DropCk {
+        fn drop(&mut self) {
+            self.0.as_ref().fetch_add(1, Ordering::Relaxed);
+        }
+    }
 
     #[test]
     fn commands() {
@@ -454,10 +474,20 @@ mod tests {
     #[test]
     fn remove_components() {
         let mut world = World::default();
+
+        struct DenseDropCk(DropCk);
+        world
+            .register_component(ComponentDescriptor::new::<DropCk>(StorageType::SparseSet))
+            .unwrap();
+
         let mut command_queue = CommandQueue::default();
+        let (dense_dropck, dense_is_dropped) = DropCk::new_pair();
+        let dense_dropck = DenseDropCk(dense_dropck);
+        let (sparse_dropck, sparse_is_dropped) = DropCk::new_pair();
+
         let entity = Commands::new(&mut command_queue, &world)
             .spawn()
-            .insert_bundle((1u32, 2u64))
+            .insert_bundle((1u32, 2u64, dense_dropck, sparse_dropck))
             .id();
         command_queue.apply(&mut world);
         let results_before = world
@@ -471,8 +501,14 @@ mod tests {
         Commands::new(&mut command_queue, &world)
             .entity(entity)
             .remove::<u32>()
-            .remove_bundle::<(u32, u64)>();
+            .remove_bundle::<(u32, u64, DenseDropCk, DropCk)>();
+
+        assert_eq!(dense_is_dropped.load(Ordering::Relaxed), 0);
+        assert_eq!(sparse_is_dropped.load(Ordering::Relaxed), 0);
         command_queue.apply(&mut world);
+        assert_eq!(dense_is_dropped.load(Ordering::Relaxed), 1);
+        assert_eq!(sparse_is_dropped.load(Ordering::Relaxed), 1);
+
         let results_after = world
             .query::<(&u32, &u64)>()
             .iter(&world)

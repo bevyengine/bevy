@@ -124,7 +124,9 @@ impl RunCriteriaContainer {
     }
 }
 
-impl GraphNode<BoxedRunCriteriaLabel> for RunCriteriaContainer {
+impl GraphNode for RunCriteriaContainer {
+    type Label = BoxedRunCriteriaLabel;
+
     fn name(&self) -> Cow<'static, str> {
         match &self.inner {
             RunCriteriaInner::Single(system) => system.name(),
@@ -404,7 +406,7 @@ impl System for RunOnce {
         true
     }
 
-    unsafe fn run_unsafe(&mut self, (): (), _world: &World) -> ShouldRun {
+    unsafe fn run_unsafe(&mut self, _input: (), _world: &World) -> ShouldRun {
         if self.ran {
             ShouldRun::No
         } else {

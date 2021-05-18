@@ -214,7 +214,7 @@ async fn load_gltf<'a, 'b>(
                         scale,
                     } => Transform {
                         translation: bevy_math::Vec3::from(translation),
-                        rotation: bevy_math::Quat::from(rotation),
+                        rotation: bevy_math::Quat::from_vec4(rotation.into()),
                         scale: bevy_math::Vec3::from(scale),
                     },
                 },

@@ -58,8 +58,7 @@ impl Default for ParallelExecutor {
     fn default() -> Self {
         let (finish_sender, finish_receiver) = async_channel::unbounded();
         Self {
-            // MAX ensures access information will be initialized on first run.
-            archetype_generation: ArchetypeGeneration::new(usize::MAX),
+            archetype_generation: ArchetypeGeneration::initial(),
             system_metadata: Default::default(),
             finish_sender,
             finish_receiver,
@@ -152,17 +151,10 @@ impl ParallelExecutor {
     /// [update_archetypes] and updates cached archetype_component_access.
     fn update_archetypes(&mut self, systems: &mut [ParallelSystemContainer], world: &World) {
         let archetypes = world.archetypes();
-        let old_generation = self.archetype_generation;
         let new_generation = archetypes.generation();
-        if old_generation == new_generation {
-            return;
-        }
+        let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
+        let archetype_index_range = old_generation.value()..new_generation.value();
 
-        let archetype_index_range = if old_generation.value() == usize::MAX {
-            0..archetypes.len()
-        } else {
-            old_generation.value()..archetypes.len()
-        };
         for archetype in archetypes.archetypes[archetype_index_range].iter() {
             for (index, container) in systems.iter_mut().enumerate() {
                 let meta = &mut self.system_metadata[index];
@@ -172,8 +164,6 @@ impl ParallelExecutor {
                     .extend(system.archetype_component_access());
             }
         }
-
-        self.archetype_generation = new_generation;
     }
 
     /// Populates `should_run` bitset, spawns tasks for systems that should run this iteration,

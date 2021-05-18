@@ -57,6 +57,7 @@ impl Default for Text2dBundle {
 /// System for drawing text in a 2D scene via a 2D `OrthographicCameraBundle`. Included in the
 /// default `TextPlugin`. Position is determined by the `Transform`'s translation, though scale and
 /// rotation are ignored.
+#[allow(clippy::type_complexity)]
 pub fn draw_text2d_system(
     mut context: DrawContext,
     msaa: Res<Msaa>,
@@ -125,7 +126,7 @@ pub struct QueuedText2d {
 }
 
 /// Updates the TextGlyphs with the new computed glyphs from the layout
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn text2d_system(
     mut queued_text: Local<QueuedText2d>,
     mut textures: ResMut<Assets<Texture>>,

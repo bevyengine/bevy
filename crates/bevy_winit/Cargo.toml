@@ -27,10 +27,10 @@ bevy_window = { path = "../bevy_window", version = "0.5.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 
 # other
-winit = { version = "0.24.0", default-features = false }
+winit = { version = "0.25.0", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-winit = { version = "0.24.0", features = ["web-sys"], default-features = false }
+winit = { version = "0.25.0", features = ["web-sys"], default-features = false }
 wasm-bindgen = { version = "0.2" }
 web-sys = "0.3"
 
