@@ -428,6 +428,7 @@ impl<I, T: RenderResources> Default for RenderResourcesNodeState<I, T> {
     }
 }
 
+#[allow(clippy::type_complexity)]
 fn render_resources_node_system<T: RenderResources>(
     mut state: Local<RenderResourcesNodeState<Entity, T>>,
     mut entities_waiting_for_textures: Local<Vec<Entity>>,
@@ -610,7 +611,7 @@ impl<T: Asset> Default for AssetRenderNodeState<T> {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn asset_render_resources_node_system<T: RenderResources + Asset>(
     mut state: Local<RenderResourcesNodeState<HandleId, T>>,
     mut asset_state: Local<AssetRenderNodeState<T>>,

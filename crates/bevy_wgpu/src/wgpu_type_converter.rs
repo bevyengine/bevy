@@ -146,7 +146,7 @@ impl WgpuFrom<BufferUsage> for wgpu::BufferUsage {
 impl WgpuFrom<&LoadOp<Color>> for wgpu::LoadOp<wgpu::Color> {
     fn from(val: &LoadOp<Color>) -> Self {
         match val {
-            LoadOp::Clear(value) => wgpu::LoadOp::Clear(value.clone().wgpu_into()),
+            LoadOp::Clear(value) => wgpu::LoadOp::Clear((*value).wgpu_into()),
             LoadOp::Load => wgpu::LoadOp::Load,
         }
     }

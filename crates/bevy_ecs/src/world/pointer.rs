@@ -39,6 +39,20 @@ impl<'a, T: core::fmt::Debug> core::fmt::Debug for Mut<'a, T> {
     }
 }
 
+impl<'w, T> AsRef<T> for Mut<'w, T> {
+    #[inline]
+    fn as_ref(&self) -> &T {
+        self.deref()
+    }
+}
+
+impl<'w, T> AsMut<T> for Mut<'w, T> {
+    #[inline]
+    fn as_mut(&mut self) -> &mut T {
+        self.deref_mut()
+    }
+}
+
 impl<'w, T> Mut<'w, T> {
     /// Returns true if (and only if) this component been added since the last execution of this
     /// system.
