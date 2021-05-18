@@ -59,7 +59,7 @@ impl HandleId {
 /// Handles contain a unique id that corresponds to a specific asset in the [Assets](crate::Assets)
 /// collection.
 #[derive(Reflect)]
-#[reflect(Component)]
+#[reflect_value(Component)]
 pub struct Handle<T>
 where
     T: Asset,
