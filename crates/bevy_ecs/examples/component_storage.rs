@@ -1,4 +1,7 @@
-use bevy_ecs::{prelude::*, component::{ComponentDescriptor, StorageType}};
+use bevy_ecs::{
+    component::{ComponentDescriptor, StorageType},
+    prelude::*,
+};
 
 fn main() {
     let mut world = World::new();
