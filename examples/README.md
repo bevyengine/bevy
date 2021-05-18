@@ -154,6 +154,7 @@ Example | File | Description
 `fixed_timestep` | [`ecs/fixed_timestep.rs`](./ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick
 `hierarchy` | [`ecs/hierarchy.rs`](./ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities
 `parallel_query` | [`ecs/parallel_query.rs`](./ecs/parallel_query.rs) | Illustrates parallel queries with `ParallelIterator`
+`per_entity_events` | [`ecs/per_entity_events.rs`](./ecs/per_entity_events.rs) | Demonstrates how to store events on individual entities in a channel-like fashion.
 `query_bundle` | [`ecs/query_bundle.rs`](./ecs/query_bundle.rs) | Shows how to query entities that contain components in a `Bundle`
 `removal_detection` | [`ecs/removal_detection.rs`](./ecs/removal_detection.rs) | Query for entities that had a specific component removed in a previous stage during the current frame.
 `startup_system` | [`ecs/startup_system.rs`](./ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)

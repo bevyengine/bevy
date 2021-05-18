@@ -1,4 +1,5 @@
 mod access;
+mod event;
 mod fetch;
 mod filter;
 mod iter;
@@ -8,6 +9,7 @@ pub use access::*;
 pub use fetch::*;
 pub use filter::*;
 pub use iter::*;
+pub use state::*;
 pub use state::*;
 
 #[cfg(test)]

@@ -1,7 +1,6 @@
-use crate as bevy_ecs;
 use crate::{
     component::Component,
-    system::{Local, Res, ResMut, SystemParam},
+    system::{LocalState, Query, ResMut, ResMutState, ResState, SystemParam},
 };
 use bevy_utils::tracing::trace;
 use std::{
@@ -51,7 +50,7 @@ struct EventInstance<T> {
 }
 
 #[derive(Debug)]
-enum State {
+enum BufferState {
     A,
     B,
 }
@@ -125,7 +124,7 @@ pub struct Events<T> {
     a_start_event_count: usize,
     b_start_event_count: usize,
     event_count: usize,
-    state: State,
+    state: BufferState,
 }
 
 impl<T> Default for Events<T> {
@@ -136,39 +135,260 @@ impl<T> Default for Events<T> {
             event_count: 0,
             events_a: Vec::new(),
             events_b: Vec::new(),
-            state: State::A,
+            state: BufferState::A,
         }
     }
 }
 
+impl<T: Component> Events<T> {
+    /// "Sends" an `event` by writing it to the current event buffer. [EventReader]s can then read
+    /// the event.
+    pub fn send(&mut self, event: T) {
+        let event_id = EventId {
+            id: self.event_count,
+            _marker: PhantomData,
+        };
+        trace!("Events::send() -> {}", event_id);
+
+        let event_instance = EventInstance { event_id, event };
+
+        match self.state {
+            BufferState::A => self.events_a.push(event_instance),
+            BufferState::B => self.events_b.push(event_instance),
+        }
+
+        self.event_count += 1;
+    }
+
+    /// Gets a new [ManualEventReader]. This will include all events already in the event buffers.
+    pub fn get_reader(&self) -> ManualEventReader<T> {
+        ManualEventReader {
+            last_event_count: 0,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Gets a new [ManualEventReader]. This will ignore all events already in the event buffers. It
+    /// will read all future events.
+    pub fn get_reader_current(&self) -> ManualEventReader<T> {
+        ManualEventReader {
+            last_event_count: self.event_count,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Swaps the event buffers and clears the oldest event buffer. In general, this should be
+    /// called once per frame/update.
+    pub fn update(&mut self) {
+        match self.state {
+            BufferState::A => {
+                self.events_b = Vec::new();
+                self.state = BufferState::B;
+                self.b_start_event_count = self.event_count;
+            }
+            BufferState::B => {
+                self.events_a = Vec::new();
+                self.state = BufferState::A;
+                self.a_start_event_count = self.event_count;
+            }
+        }
+    }
+
+    /// A system that calls [Events::update] once per frame on all events of the specified type.
+    ///
+    /// This clears all events from the previous frame,
+    /// and advances the current frame's buffer so it is ready to be cleared.
+    pub fn update_system(
+        mut resource_events: ResMut<Self>,
+        mut component_events: Query<&mut Self>,
+    ) {
+        resource_events.update();
+        component_events.for_each_mut(|mut e| e.update());
+    }
+
+    /// Removes all events.
+    pub fn clear(&mut self) {
+        self.events_a.clear();
+        self.events_b.clear();
+    }
+
+    /// Creates a draining iterator that removes all events.
+    pub fn drain(&mut self) -> impl DoubleEndedIterator<Item = T> + '_ {
+        self.drain_with_id().map(|(e, _)| e)
+    }
+
+    /// Creates a draining iterator that returns both events and their ids
+    pub fn drain_with_id(&mut self) -> impl DoubleEndedIterator<Item = (T, EventId<T>)> + '_ {
+        let event_instances = match self.state {
+            BufferState::A => self.events_b.drain(..).chain(self.events_a.drain(..)),
+            BufferState::B => self.events_a.drain(..).chain(self.events_b.drain(..)),
+        };
+
+        event_instances.map(|ei| {
+            trace!("Events::drain_with_id -> {}", ei.event_id);
+            (ei.event, ei.event_id)
+        })
+    }
+
+    pub fn extend<I>(&mut self, events: I)
+    where
+        I: Iterator<Item = T>,
+    {
+        for event in events {
+            self.send(event);
+        }
+    }
+
+    /// Iterates over events that happened since the last "update" call.
+    /// WARNING: You probably don't want to use this call. In most cases you should use an
+    /// `EventReader`. You should only use this if you know you only need to consume events
+    /// between the last `update()` call and your call to `iter_current_update_events`.
+    /// If events happen outside that window, they will not be handled. For example, any events that
+    /// happen after this call and before the next `update()` call will be dropped.
+    pub fn iter_current_update_events(&self) -> impl DoubleEndedIterator<Item = &T> {
+        match self.state {
+            BufferState::A => self.events_a.iter().map(map_instance_event),
+            BufferState::B => self.events_b.iter().map(map_instance_event),
+        }
+    }
+}
+
+// Needed to ensure match branches have same type signature
+// As closures never have the same type
 fn map_instance_event_with_id<T>(event_instance: &EventInstance<T>) -> (&T, EventId<T>) {
     (&event_instance.event, event_instance.event_id)
 }
 
+// Needed to ensure match branches have same type signature
+// As closures never have the same type
 fn map_instance_event<T>(event_instance: &EventInstance<T>) -> &T {
     &event_instance.event
 }
 
-/// Reads events of type `T` in order and tracks which events have already been read.
-#[derive(SystemParam)]
-pub struct EventReader<'a, T: Component> {
-    last_event_count: Local<'a, (usize, PhantomData<T>)>,
-    events: Res<'a, Events<T>>,
+/// Like [`iter_with_id`](EventReader::iter_with_id) except not emitting any traces for read
+/// messages.
+fn internal_event_reader<'a, T>(
+    last_event_count: &mut usize,
+    events: &'a Events<T>,
+) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> {
+    // if the reader has seen some of the events in a buffer, find the proper index offset.
+    // otherwise read all events in the buffer
+    let a_index = if *last_event_count > events.a_start_event_count {
+        *last_event_count - events.a_start_event_count
+    } else {
+        0
+    };
+    let b_index = if *last_event_count > events.b_start_event_count {
+        *last_event_count - events.b_start_event_count
+    } else {
+        0
+    };
+    *last_event_count = events.event_count;
+    match events.state {
+        BufferState::A => events
+            .events_b
+            .get(b_index..)
+            .unwrap_or_else(|| &[])
+            .iter()
+            .map(map_instance_event_with_id)
+            .chain(
+                events
+                    .events_a
+                    .get(a_index..)
+                    .unwrap_or_else(|| &[])
+                    .iter()
+                    .map(map_instance_event_with_id),
+            ),
+        BufferState::B => events
+            .events_a
+            .get(a_index..)
+            .unwrap_or_else(|| &[])
+            .iter()
+            .map(map_instance_event_with_id)
+            .chain(
+                events
+                    .events_b
+                    .get(b_index..)
+                    .unwrap_or_else(|| &[])
+                    .iter()
+                    .map(map_instance_event_with_id),
+            ),
+    }
 }
-
 /// Sends events of type `T`.
 #[derive(SystemParam)]
 pub struct EventWriter<'a, T: Component> {
-    events: ResMut<'a, Events<T>>,
+    events: &'a mut Events<T>,
 }
 
 impl<'a, T: Component> EventWriter<'a, T> {
+    pub fn new(events: &'a mut Events<T>) -> Self {
+        EventWriter::<'a, T> { events }
+    }
+
     pub fn send(&mut self, event: T) {
         self.events.send(event);
     }
 
     pub fn send_batch(&mut self, events: impl Iterator<Item = T>) {
         self.events.extend(events);
+    }
+}
+
+/// Reads events of type `T` in order and tracks which events have already been read.
+#[derive(SystemParam)]
+pub struct EventReader<'a, T: Component> {
+    last_event_count: EventCount<T>,
+    events: &'a Events<T>,
+}
+
+/// Wrapper struct used by [EventReader] to count events
+pub struct EventCount<T>(usize, PhantomData<T>);
+
+// #[derive(Default)] doesn't handle PhantomData properly, so we're stuck with a manual impl
+impl<T> Default for EventCount<T> {
+    fn default() -> Self {
+        EventCount(0, PhantomData::default())
+    }
+}
+
+impl<'a, T: Component> EventReader<'a, T> {
+    /// Iterates over the events this EventReader has not seen yet. This updates the EventReader's
+    /// event counter, which means subsequent event reads will not include events that happened
+    /// before now.
+    pub fn iter(&mut self) -> impl DoubleEndedIterator<Item = &T> {
+        self.iter_with_id().map(|(event, _id)| event)
+    }
+
+    /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
+    pub fn iter_with_id(&mut self) -> impl DoubleEndedIterator<Item = (&T, EventId<T>)> {
+        internal_event_reader(&mut self.last_event_count.0, &self.events).map(|(event, id)| {
+            trace!("EventReader::iter() -> {}", id);
+            (event, id)
+        })
+    }
+}
+
+/// Reads and consumes all events of type T
+///
+/// Useful for manual event cleanup when [AppBuilder::add_event::<T>] is omitted,
+/// allowing events to accumulate on your components or resources until consumed.
+/// Note: due to the draining nature of this reader, you probably only want one
+/// EventConsumer per event storage location + event type combination.
+#[derive(SystemParam)]
+pub struct EventConsumer<'a, T: Component> {
+    events: &'a mut Events<T>,
+}
+
+impl<'a, T: Component> EventConsumer<'a, T> {
+    /// Drains all available events this EventConsumer has access to into an iterator
+    pub fn drain(self) -> impl DoubleEndedIterator<Item = T> + 'a {
+        self.events.drain()
+    }
+
+    /// Drains all available events this EventConsumer has access to into an iterator and returns the id
+    pub fn drain_with_id(self) -> impl DoubleEndedIterator<Item = (T, EventId<T>)> + 'a {
+        self.events.drain_with_id()
     }
 }
 
@@ -201,186 +421,46 @@ impl<T> ManualEventReader<T> {
     }
 }
 
-/// Like [`iter_with_id`](EventReader::iter_with_id) except not emitting any traces for read
-/// messages.
-fn internal_event_reader<'a, T>(
-    last_event_count: &mut usize,
-    events: &'a Events<T>,
-) -> impl DoubleEndedIterator<Item = (&'a T, EventId<T>)> {
-    // if the reader has seen some of the events in a buffer, find the proper index offset.
-    // otherwise read all events in the buffer
-    let a_index = if *last_event_count > events.a_start_event_count {
-        *last_event_count - events.a_start_event_count
-    } else {
-        0
-    };
-    let b_index = if *last_event_count > events.b_start_event_count {
-        *last_event_count - events.b_start_event_count
-    } else {
-        0
-    };
-    *last_event_count = events.event_count;
-    match events.state {
-        State::A => events
-            .events_b
-            .get(b_index..)
-            .unwrap_or_else(|| &[])
-            .iter()
-            .map(map_instance_event_with_id)
-            .chain(
-                events
-                    .events_a
-                    .get(a_index..)
-                    .unwrap_or_else(|| &[])
-                    .iter()
-                    .map(map_instance_event_with_id),
-            ),
-        State::B => events
-            .events_a
-            .get(a_index..)
-            .unwrap_or_else(|| &[])
-            .iter()
-            .map(map_instance_event_with_id)
-            .chain(
-                events
-                    .events_b
-                    .get(b_index..)
-                    .unwrap_or_else(|| &[])
-                    .iter()
-                    .map(map_instance_event_with_id),
-            ),
-    }
-}
-
-impl<'a, T: Component> EventReader<'a, T> {
-    /// Iterates over the events this EventReader has not seen yet. This updates the EventReader's
-    /// event counter, which means subsequent event reads will not include events that happened
-    /// before now.
-    pub fn iter(&mut self) -> impl DoubleEndedIterator<Item = &T> {
-        self.iter_with_id().map(|(event, _id)| event)
-    }
-
-    /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
-    pub fn iter_with_id(&mut self) -> impl DoubleEndedIterator<Item = (&T, EventId<T>)> {
-        internal_event_reader(&mut self.last_event_count.0, &self.events).map(|(event, id)| {
-            trace!("EventReader::iter() -> {}", id);
-            (event, id)
-        })
-    }
-}
-
-impl<T: Component> Events<T> {
-    /// "Sends" an `event` by writing it to the current event buffer. [EventReader]s can then read
-    /// the event.
-    pub fn send(&mut self, event: T) {
-        let event_id = EventId {
-            id: self.event_count,
-            _marker: PhantomData,
-        };
-        trace!("Events::send() -> {}", event_id);
-
-        let event_instance = EventInstance { event_id, event };
-
-        match self.state {
-            State::A => self.events_a.push(event_instance),
-            State::B => self.events_b.push(event_instance),
-        }
-
-        self.event_count += 1;
-    }
-
-    /// Gets a new [ManualEventReader]. This will include all events already in the event buffers.
-    pub fn get_reader(&self) -> ManualEventReader<T> {
-        ManualEventReader {
-            last_event_count: 0,
-            _marker: PhantomData,
-        }
-    }
-
-    /// Gets a new [ManualEventReader]. This will ignore all events already in the event buffers. It
-    /// will read all future events.
-    pub fn get_reader_current(&self) -> ManualEventReader<T> {
-        ManualEventReader {
-            last_event_count: self.event_count,
-            _marker: PhantomData,
-        }
-    }
-
-    /// Swaps the event buffers and clears the oldest event buffer. In general, this should be
-    /// called once per frame/update.
-    pub fn update(&mut self) {
-        match self.state {
-            State::A => {
-                self.events_b = Vec::new();
-                self.state = State::B;
-                self.b_start_event_count = self.event_count;
-            }
-            State::B => {
-                self.events_a = Vec::new();
-                self.state = State::A;
-                self.a_start_event_count = self.event_count;
-            }
-        }
-    }
-
-    /// A system that calls [Events::update] once per frame.
-    pub fn update_system(mut events: ResMut<Self>) {
-        events.update();
-    }
-
-    /// Removes all events.
-    pub fn clear(&mut self) {
-        self.events_a.clear();
-        self.events_b.clear();
-    }
-
-    /// Creates a draining iterator that removes all events.
-    pub fn drain(&mut self) -> impl Iterator<Item = T> + '_ {
-        let map = |i: EventInstance<T>| i.event;
-        match self.state {
-            State::A => self
-                .events_b
-                .drain(..)
-                .map(map)
-                .chain(self.events_a.drain(..).map(map)),
-            State::B => self
-                .events_a
-                .drain(..)
-                .map(map)
-                .chain(self.events_b.drain(..).map(map)),
-        }
-    }
-
-    pub fn extend<I>(&mut self, events: I)
-    where
-        I: Iterator<Item = T>,
-    {
-        for event in events {
-            self.send(event);
-        }
-    }
-
-    /// Iterates over events that happened since the last "update" call.
-    /// WARNING: You probably don't want to use this call. In most cases you should use an
-    /// `EventReader`. You should only use this if you know you only need to consume events
-    /// between the last `update()` call and your call to `iter_current_update_events`.
-    /// If events happen outside that window, they will not be handled. For example, any events that
-    /// happen after this call and before the next `update()` call will be dropped.
-    pub fn iter_current_update_events(&self) -> impl DoubleEndedIterator<Item = &T> {
-        match self.state {
-            State::A => self.events_a.iter().map(map_instance_event),
-            State::B => self.events_b.iter().map(map_instance_event),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::schedule::{Stage, SystemStage};
+    use crate::system::IntoSystem;
+    use crate::world::World;
 
     #[derive(Copy, Clone, PartialEq, Eq, Debug)]
     struct TestEvent {
         i: usize,
+    }
+
+    #[test]
+    fn event_system_params() {
+        let world = World::default();
+        struct E;
+        fn writes(ew: EventWriter<E>) {
+            ew.send(E)
+        }
+        fn reads(er: EventReader<E>) {
+            er.iter();
+        }
+        fn consumes(ec: EventConsumer<E>) {
+            ec.drain();
+        }
+
+        let mut stage1 = SystemStage::parallel();
+        stage1.add_system(writes.system());
+        stage1.add_system(reads.system());
+
+        stage1.run(&mut World::default());
+        let current_events = world.get_resource::<Events<E>>().unwrap();
+        assert!(current_events.events_a.len() == 1);
+
+        let mut stage2 = SystemStage::parallel();
+        stage2.add_system(consumes.system());
+
+        stage2.run(&mut World::default());
+        let current_events = world.get_resource::<Events<E>>().unwrap();
+        assert!(current_events.events_a.len() == 0);
     }
 
     #[test]
