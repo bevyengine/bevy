@@ -190,6 +190,28 @@ pub enum WindowMode {
     Fullscreen { use_size: bool },
 }
 
+impl std::str::FromStr for WindowMode {
+    type Err = Box<dyn std::error::Error>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            // Run in a window
+            "windowed" | "Windowed" | "w" | "W" => Ok(WindowMode::Windowed),
+            // Run fullscreen
+            "native_fullscreen" | "NativeFullscreen" | "nf" | "NF" => {
+                Ok(WindowMode::Fullscreen { use_size: false })
+            }
+            // Run fullscreen, obeying size
+            "fullscreen" | "Fullscreen" | "f" | "F" => {
+                Ok(WindowMode::Fullscreen { use_size: true })
+            }
+            // Run in a borderless fullscreen window
+            "borderless" | "Borderless" | "bf" | "BF" => Ok(WindowMode::BorderlessFullscreen),
+            _ => Err(format!("Failed to convert {} to WindowMode", s).into()),
+        }
+    }
+}
+
 impl Window {
     pub fn new(
         id: WindowId,
