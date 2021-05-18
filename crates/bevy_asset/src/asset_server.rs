@@ -194,7 +194,7 @@ impl AssetServer {
         }
     }
 
-    pub fn get_group_load_state(&self, handles: impl IntoIterator<Item = HandleId>) -> LoadState {
+    pub fn get_group_load_state(&self, handles: impl Iterator<Item = HandleId>) -> LoadState {
         let mut load_state = LoadState::Loaded;
         for handle_id in handles {
             match handle_id {
