@@ -275,7 +275,7 @@ impl<'w> EntityMut<'w> {
         };
         self.location = new_location;
 
-        let table = &storages.tables[archetype.table_id()];
+        let table = &mut storages.tables[archetype.table_id()];
         let table_row = archetype.entity_table_row(new_location.index);
         // SAFE: table row is valid
         unsafe {

@@ -35,7 +35,7 @@ impl BlobVec {
                 item_layout,
                 drop,
             };
-            blob_vec.reserve(capacity);
+            blob_vec.reserve_exact(capacity);
             blob_vec
         }
     }
@@ -55,14 +55,14 @@ impl BlobVec {
         self.capacity
     }
 
-    pub fn reserve(&mut self, amount: usize) {
+    pub fn reserve_exact(&mut self, additional: usize) {
         let available_space = self.capacity - self.len;
-        if available_space < amount {
-            self.grow(amount - available_space);
+        if available_space < additional {
+            self.grow_exact(additional - available_space);
         }
     }
 
-    fn grow(&mut self, increment: usize) {
+    fn grow_exact(&mut self, increment: usize) {
         debug_assert!(self.item_layout.size() != 0);
 
         let new_capacity = self.capacity + increment;
@@ -102,7 +102,7 @@ impl BlobVec {
     /// the newly allocated space must be immediately populated with a valid value
     #[inline]
     pub unsafe fn push_uninit(&mut self) -> usize {
-        self.reserve(1);
+        self.reserve_exact(1);
         let index = self.len;
         self.len += 1;
         index
