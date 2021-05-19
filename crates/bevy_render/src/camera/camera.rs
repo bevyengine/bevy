@@ -1,5 +1,6 @@
 use super::CameraProjection;
 use bevy_ecs::{
+    change_detection::ChangeDetectable,
     component::Component,
     entity::Entity,
     event::EventReader,
