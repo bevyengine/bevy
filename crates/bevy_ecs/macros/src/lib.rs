@@ -1,6 +1,6 @@
 extern crate proc_macro;
 
-use find_crate::{Dependencies, Manifest};
+use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
@@ -471,24 +471,5 @@ fn derive_label(input: DeriveInput, label_type: Ident) -> TokenStream2 {
 }
 
 fn bevy_ecs_path() -> syn::Path {
-    fn find_in_manifest(manifest: &mut Manifest, dependencies: Dependencies) -> Option<String> {
-        manifest.dependencies = dependencies;
-        if let Some(package) = manifest.find(|name| name == "bevy") {
-            Some(format!("{}::ecs", package.name))
-        } else if let Some(package) = manifest.find(|name| name == "bevy_internal") {
-            Some(format!("{}::ecs", package.name))
-        } else if let Some(package) = manifest.find(|name| name == "bevy_ecs") {
-            Some(package.name)
-        } else {
-            None
-        }
-    }
-
-    let mut manifest = Manifest::new().unwrap();
-    let path_str = find_in_manifest(&mut manifest, Dependencies::Release)
-        .or_else(|| find_in_manifest(&mut manifest, Dependencies::Dev))
-        .unwrap_or_else(|| "bevy_ecs".to_string());
-
-    let path: Path = syn::parse(path_str.parse::<TokenStream>().unwrap()).unwrap();
-    path
+    BevyManifest::default().get_path("bevy_ecs")
 }
