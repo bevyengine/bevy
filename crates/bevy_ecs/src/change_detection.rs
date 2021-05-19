@@ -19,20 +19,6 @@ pub trait ChangeDetectable {
     fn set_changed(&mut self);
 }
 
-pub trait Underlying: ChangeDetectable {
-    type Target: ?Sized;
-
-    /// Get the underlying value.
-    /// Does not mark `self` as changed since access is immutable.
-    fn underlying(&self) -> &Self::Target;
-
-    /// Get the underlying value and mark `self` as "changed".
-    fn underlying_mut(&mut self) -> &mut Self::Target;
-
-    /// Get the underlying value **without** marking `self` as "changed".
-    fn underlying_mut_untracked(&mut self) -> &mut Self::Target;
-}
-
 macro_rules! change_detection_impl {
     ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident),*) => {
         impl<$($generics),*: $($traits),*> ChangeDetectable for $name<$($generics),*>
@@ -59,27 +45,6 @@ macro_rules! change_detection_impl {
             }
         }
 
-        impl<$($generics),*: $($traits),*> Underlying for $name<$($generics),*>
-        {
-            type Target = $target;
-
-            #[inline]
-            fn underlying(&self) -> &Self::Target {
-                self.value
-            }
-
-            #[inline]
-            fn underlying_mut(&mut self) -> &mut Self::Target {
-                self.set_changed();
-                self.value
-            }
-
-            #[inline]
-            fn underlying_mut_untracked(&mut self) -> &mut Self::Target {
-                self.value
-            }
-        }
-
         impl<$($generics),*: $($traits),*> Deref for $name<$($generics),*>
         {
             type Target = $target;
@@ -94,7 +59,8 @@ macro_rules! change_detection_impl {
         {
             #[inline]
             fn deref_mut(&mut self) -> &mut Self::Target {
-                self.underlying_mut()
+                self.set_changed();
+                self.value
             }
         }
 
