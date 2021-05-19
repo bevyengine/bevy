@@ -328,14 +328,24 @@ impl<T: Component> Events<T> {
         events.update();
     }
 
+    #[inline]
+    fn reset_start_event_count(&mut self) {
+        self.a_start_event_count = self.event_count;
+        self.b_start_event_count = self.event_count;
+    }
+
     /// Removes all events.
+    #[inline]
     pub fn clear(&mut self) {
+        self.reset_start_event_count();
         self.events_a.clear();
         self.events_b.clear();
     }
 
     /// Creates a draining iterator that removes all events.
     pub fn drain(&mut self) -> impl Iterator<Item = T> + '_ {
+        self.reset_start_event_count();
+
         let map = |i: EventInstance<T>| i.event;
         match self.state {
             State::A => self
@@ -479,5 +489,41 @@ mod tests {
         reader: &mut ManualEventReader<TestEvent>,
     ) -> Vec<TestEvent> {
         reader.iter(events).cloned().collect::<Vec<TestEvent>>()
+    }
+
+    #[derive(PartialEq, Eq, Debug)]
+    struct E(usize);
+
+    fn events_clear_and_read_impl(clear_func: impl FnOnce(&mut Events<E>)) {
+        let mut events = Events::<E>::default();
+        let mut reader = events.get_reader();
+
+        assert!(reader.iter(&events).next().is_none());
+
+        events.send(E(0));
+        assert_eq!(*reader.iter(&events).next().unwrap(), E(0));
+        assert_eq!(reader.iter(&events).next(), None);
+
+        events.send(E(1));
+        clear_func(&mut events);
+        assert!(reader.iter(&events).next().is_none());
+
+        events.send(E(2));
+        events.update();
+        events.send(E(3));
+
+        assert!(reader.iter(&events).eq([E(2), E(3)].iter()));
+    }
+
+    #[test]
+    fn test_events_clear_and_read() {
+        events_clear_and_read_impl(|events| events.clear());
+    }
+
+    #[test]
+    fn test_events_drain_and_read() {
+        events_clear_and_read_impl(|events| {
+            assert!(events.drain().eq(vec![E(0), E(1)].into_iter()));
+        });
     }
 }
