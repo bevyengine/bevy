@@ -7,9 +7,12 @@ use crate::{
 use bevy_utils::tracing::debug;
 #[cfg(feature = "command_panic_origin")]
 use bevy_utils::tracing::error;
+use std::marker::PhantomData;
 #[cfg(feature = "command_panic_origin")]
-use std::panic::{self, AssertUnwindSafe};
-use std::{borrow::Cow, marker::PhantomData};
+use std::{
+    borrow::Cow,
+    panic::{self, AssertUnwindSafe},
+};
 
 /// A [`World`] mutation.
 pub trait Command: Send + Sync + 'static {
@@ -20,7 +23,7 @@ pub trait Command: Send + Sync + 'static {
 #[derive(Default)]
 pub struct CommandQueue {
     pub(crate) commands: Vec<Box<dyn Command>>,
-    #[allow(unused)]
+    #[cfg(feature = "command_panic_origin")]
     pub(crate) system_name: Option<Cow<'static, str>>,
 }
 

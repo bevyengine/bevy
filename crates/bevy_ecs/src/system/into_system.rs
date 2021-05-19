@@ -48,6 +48,7 @@ impl SystemState {
         self.is_send = false;
     }
 
+    #[cfg(feature = "command_panic_origin")]
     pub fn name(&self) -> Cow<'static, str> {
         self.name.clone()
     }
