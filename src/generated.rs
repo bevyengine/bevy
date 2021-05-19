@@ -14,15 +14,27 @@
 
 use std::ptr::null_mut;
 
-use nalgebra::{zero, Vector3};
+#[cfg(all(feature = "glam", feature = "nalgebra"))]
+compile_error!("Can't have both glam and nalgebra");
+
+#[cfg(all(not(feature = "glam"), not(feature = "nalgebra")))]
+compile_error!("Please select either the `glam` or `nalgebra` feature");
+
+#[cfg(feature = "nalgebra")]
+type Vec3 = nalgebra::Vector3<f32>;
+
+#[cfg(feature = "glam")]
+type Vec3 = glam::Vec3;
+#[cfg(feature = "glam")]
+type Vec2 = glam::Vec2;
 
 use crate::{face_vert_to_index, get_normal, get_position, get_tex_coord, Geometry};
 
 #[derive(Copy, Clone)]
 pub struct STSpace {
-    pub vOs: Vector3<f32>,
+    pub vOs: Vec3,
     pub fMagS: f32,
-    pub vOt: Vector3<f32>,
+    pub vOt: Vec3,
     pub fMagT: f32,
     pub iCounter: i32,
     pub bOrient: bool,
@@ -31,9 +43,9 @@ pub struct STSpace {
 impl STSpace {
     pub fn zero() -> Self {
         Self {
-            vOs: zero(),
+            vOs: Default::default(),
             fMagS: 0.0,
-            vOt: zero(),
+            vOt: Default::default(),
             fMagT: 0.0,
             iCounter: 0,
             bOrient: false,
@@ -70,8 +82,8 @@ impl STSpace {
 pub struct STriInfo {
     pub FaceNeighbors: [i32; 3],
     pub AssignedGroup: [*mut SGroup; 3],
-    pub vOs: Vector3<f32>,
-    pub vOt: Vector3<f32>,
+    pub vOs: Vec3,
+    pub vOt: Vec3,
     pub fMagS: f32,
     pub fMagT: f32,
     pub iOrgFaceNumber: i32,
@@ -85,8 +97,8 @@ impl STriInfo {
         Self {
             FaceNeighbors: [0, 0, 0],
             AssignedGroup: [null_mut(), null_mut(), null_mut()],
-            vOs: zero(),
-            vOt: zero(),
+            vOs: Default::default(),
+            vOt: Default::default(),
             fMagS: 0.0,
             fMagT: 0.0,
             iOrgFaceNumber: 0,
@@ -181,9 +193,8 @@ pub unsafe fn genTangSpace<I: Geometry>(
     let mut index = 0;
     let iNrFaces = geometry.num_faces();
     let mut bRes: bool = false;
-    let fThresCos: f32 = ((fAngularThreshold * 3.14159265358979323846f64 as f32
-        / 180.0f32) as f64)
-        .cos() as f32;
+    let fThresCos: f32 =
+        ((fAngularThreshold * 3.14159265358979323846f64 as f32 / 180.0f32) as f64).cos() as f32;
     f = 0;
     while f < iNrFaces {
         let verts = geometry.num_vertices_of_face(f);
@@ -252,9 +263,9 @@ pub unsafe fn genTangSpace<I: Geometry>(
 
     let mut psTspace = vec![
         STSpace {
-            vOs: Vector3::new(1.0, 0.0, 0.0),
+            vOs: Vec3::new(1.0, 0.0, 0.0),
             fMagS: 1.0,
-            vOt: Vector3::new(0.0, 1.0, 0.0),
+            vOt: Vec3::new(0.0, 1.0, 0.0),
             fMagT: 1.0,
             ..STSpace::zero()
         };
@@ -289,8 +300,8 @@ pub unsafe fn genTangSpace<I: Geometry>(
             i = 0;
             while i < verts_0 {
                 let mut pTSpace: *const STSpace = &mut psTspace[index] as *mut STSpace;
-                let mut tang = Vector3::new((*pTSpace).vOs.x, (*pTSpace).vOs.y, (*pTSpace).vOs.z);
-                let mut bitang = Vector3::new((*pTSpace).vOt.x, (*pTSpace).vOt.y, (*pTSpace).vOt.z);
+                let mut tang = Vec3::new((*pTSpace).vOs.x, (*pTSpace).vOs.y, (*pTSpace).vOs.z);
+                let mut bitang = Vec3::new((*pTSpace).vOt.x, (*pTSpace).vOt.y, (*pTSpace).vOt.z);
                 geometry.set_tangent(
                     tang.into(),
                     bitang.into(),
@@ -346,8 +357,7 @@ unsafe fn DegenEpilogue<I: Geometry>(
                     let iSrcVert: i32 =
                         (*pTriInfos.offset(iTri as isize)).vert_num[iVert as usize] as i32;
                     let iSrcOffs: i32 = (*pTriInfos.offset(iTri as isize)).iTSpacesOffs;
-                    let iDstVert: i32 =
-                        (*pTriInfos.offset(t as isize)).vert_num[i as usize] as i32;
+                    let iDstVert: i32 = (*pTriInfos.offset(t as isize)).vert_num[i as usize] as i32;
                     let iDstOffs: i32 = (*pTriInfos.offset(t as isize)).iTSpacesOffs;
                     *psTspace.offset((iDstOffs + iDstVert) as isize) =
                         *psTspace.offset((iSrcOffs + iSrcVert) as isize)
@@ -360,7 +370,7 @@ unsafe fn DegenEpilogue<I: Geometry>(
     t = 0i32;
     while t < iNrTrianglesIn {
         if (*pTriInfos.offset(t as isize)).iFlag & 2i32 != 0i32 {
-            let mut vDstP = Vector3::new(0.0, 0.0, 0.0);
+            let mut vDstP = Vec3::new(0.0, 0.0, 0.0);
             let mut iOrgF: i32 = -1i32;
             let mut i_0: i32 = 0i32;
             let mut bNotFound_0: bool = false;
@@ -451,9 +461,9 @@ unsafe fn GenerateTSpaces<I: Geometry>(
                 pTriMembers: Vec::new(),
             };
             let mut bFound: bool = false;
-            let mut n = Vector3::new(0.0, 0.0, 0.0);
-            let mut vOs = Vector3::new(0.0, 0.0, 0.0);
-            let mut vOt = Vector3::new(0.0, 0.0, 0.0);
+            let mut n = Vec3::new(0.0, 0.0, 0.0);
+            let mut vOs = Vec3::new(0.0, 0.0, 0.0);
+            let mut vOt = Vec3::new(0.0, 0.0, 0.0);
             if (*pTriInfos.offset(f as isize)).AssignedGroup[0usize] == pGroup as *mut SGroup {
                 index = 0i32
             } else if (*pTriInfos.offset(f as isize)).AssignedGroup[1usize] == pGroup as *mut SGroup
@@ -465,10 +475,18 @@ unsafe fn GenerateTSpaces<I: Geometry>(
             }
             iVertIndex = *piTriListIn.offset((f * 3i32 + index) as isize);
             n = get_normal(geometry, iVertIndex as usize);
-            vOs = (*pTriInfos.offset(f as isize)).vOs
+            #[cfg(feature = "nalgebra")]
+            let mut vOs = (*pTriInfos.offset(f as isize)).vOs
                 - (n.dot(&(*pTriInfos.offset(f as isize)).vOs) * n);
-            vOt = (*pTriInfos.offset(f as isize)).vOt
+            #[cfg(feature = "nalgebra")]
+            let mut vOt = (*pTriInfos.offset(f as isize)).vOt
                 - (n.dot(&(*pTriInfos.offset(f as isize)).vOt) * n);
+            #[cfg(feature = "glam")]
+            let mut vOs = (*pTriInfos.offset(f as isize)).vOs
+                - (n.dot((*pTriInfos.offset(f as isize)).vOs) * n);
+            #[cfg(feature = "glam")]
+            let mut vOt = (*pTriInfos.offset(f as isize)).vOt
+                - (n.dot((*pTriInfos.offset(f as isize)).vOt) * n);
             if VNotZero(vOs) {
                 vOs = Normalize(vOs)
             }
@@ -481,10 +499,18 @@ unsafe fn GenerateTSpaces<I: Geometry>(
             while j < (*pGroup).iNrFaces {
                 let t: i32 = *(*pGroup).pFaceIndices.offset(j as isize);
                 let iOF_2: i32 = (*pTriInfos.offset(t as isize)).iOrgFaceNumber;
+                #[cfg(feature = "nalgebra")]
                 let mut vOs2 = (*pTriInfos.offset(t as isize)).vOs
                     - (n.dot(&(*pTriInfos.offset(t as isize)).vOs) * n);
+                #[cfg(feature = "nalgebra")]
                 let mut vOt2 = (*pTriInfos.offset(t as isize)).vOt
                     - (n.dot(&(*pTriInfos.offset(t as isize)).vOt) * n);
+                #[cfg(feature = "glam")]
+                let mut vOs2 = (*pTriInfos.offset(t as isize)).vOs
+                    - (n.dot((*pTriInfos.offset(t as isize)).vOs) * n);
+                #[cfg(feature = "glam")]
+                let mut vOt2 = (*pTriInfos.offset(t as isize)).vOt
+                    - (n.dot((*pTriInfos.offset(t as isize)).vOt) * n);
                 if VNotZero(vOs2) {
                     vOs2 = Normalize(vOs2)
                 }
@@ -501,8 +527,14 @@ unsafe fn GenerateTSpaces<I: Geometry>(
                     false
                 };
                 let bSameOrgFace: bool = iOF_1 == iOF_2;
+                #[cfg(feature = "nalgebra")]
                 let fCosS: f32 = vOs.dot(&vOs2);
+                #[cfg(feature = "nalgebra")]
                 let fCosT: f32 = vOt.dot(&vOt2);
+                #[cfg(feature = "glam")]
+                let fCosS: f32 = vOs.dot(vOs2);
+                #[cfg(feature = "glam")]
+                let fCosT: f32 = vOt.dot(vOt2);
                 if bAny || bSameOrgFace || fCosS > fThresCos && fCosT > fThresCos {
                     let fresh0 = iMembers;
                     iMembers = iMembers + 1;
@@ -564,9 +596,9 @@ unsafe fn GenerateTSpaces<I: Geometry>(
 }
 unsafe fn AvgTSpace(mut pTS0: *const STSpace, mut pTS1: *const STSpace) -> STSpace {
     let mut ts_res: STSpace = STSpace {
-        vOs: Vector3::new(0.0, 0.0, 0.0),
+        vOs: Vec3::new(0.0, 0.0, 0.0),
         fMagS: 0.,
-        vOt: Vector3::new(0.0, 0.0, 0.0),
+        vOt: Vec3::new(0.0, 0.0, 0.0),
         fMagT: 0.,
         iCounter: 0,
         bOrient: false,
@@ -595,11 +627,14 @@ unsafe fn AvgTSpace(mut pTS0: *const STSpace, mut pTS1: *const STSpace) -> STSpa
     return ts_res;
 }
 
-unsafe fn Normalize(v: Vector3<f32>) -> Vector3<f32> {
+unsafe fn Normalize(v: Vec3) -> Vec3 {
+    #[cfg(feature = "nalgebra")]
     return (1.0 / v.magnitude()) * v;
+    #[cfg(feature = "glam")]
+    return (1.0 / v.length()) * v;
 }
 
-unsafe fn VNotZero(v: Vector3<f32>) -> bool {
+unsafe fn VNotZero(v: Vec3) -> bool {
     NotZero(v.x) || NotZero(v.y) || NotZero(v.z)
 }
 
@@ -616,9 +651,9 @@ unsafe fn EvalTspace<I: Geometry>(
     iVertexRepresentitive: i32,
 ) -> STSpace {
     let mut res: STSpace = STSpace {
-        vOs: Vector3::new(0.0, 0.0, 0.0),
+        vOs: Vec3::new(0.0, 0.0, 0.0),
         fMagS: 0.,
-        vOt: Vector3::new(0.0, 0.0, 0.0),
+        vOt: Vec3::new(0.0, 0.0, 0.0),
         fMagT: 0.,
         iCounter: 0,
         bOrient: false,
@@ -637,14 +672,14 @@ unsafe fn EvalTspace<I: Geometry>(
     while face < iFaces {
         let f: i32 = *face_indices.offset(face as isize);
         if (*pTriInfos.offset(f as isize)).iFlag & 4i32 == 0i32 {
-            let mut n = Vector3::new(0.0, 0.0, 0.0);
-            let mut vOs = Vector3::new(0.0, 0.0, 0.0);
-            let mut vOt = Vector3::new(0.0, 0.0, 0.0);
-            let mut p0 = Vector3::new(0.0, 0.0, 0.0);
-            let mut p1 = Vector3::new(0.0, 0.0, 0.0);
-            let mut p2 = Vector3::new(0.0, 0.0, 0.0);
-            let mut v1 = Vector3::new(0.0, 0.0, 0.0);
-            let mut v2 = Vector3::new(0.0, 0.0, 0.0);
+            let mut n = Vec3::new(0.0, 0.0, 0.0);
+            let mut vOs = Vec3::new(0.0, 0.0, 0.0);
+            let mut vOt = Vec3::new(0.0, 0.0, 0.0);
+            let mut p0 = Vec3::new(0.0, 0.0, 0.0);
+            let mut p1 = Vec3::new(0.0, 0.0, 0.0);
+            let mut p2 = Vec3::new(0.0, 0.0, 0.0);
+            let mut v1 = Vec3::new(0.0, 0.0, 0.0);
+            let mut v2 = Vec3::new(0.0, 0.0, 0.0);
             let mut fCos: f32 = 0.;
             let mut fAngle: f32 = 0.;
             let mut fMagS: f32 = 0.;
@@ -663,10 +698,18 @@ unsafe fn EvalTspace<I: Geometry>(
             }
             index = *piTriListIn.offset((3i32 * f + i) as isize);
             n = get_normal(geometry, index as usize);
-            vOs = (*pTriInfos.offset(f as isize)).vOs
+            #[cfg(feature = "nalgebra")]
+            let mut vOs = (*pTriInfos.offset(f as isize)).vOs
                 - (n.dot(&(*pTriInfos.offset(f as isize)).vOs) * n);
-            vOt = (*pTriInfos.offset(f as isize)).vOt
+            #[cfg(feature = "nalgebra")]
+            let mut vOt = (*pTriInfos.offset(f as isize)).vOt
                 - (n.dot(&(*pTriInfos.offset(f as isize)).vOt) * n);
+            #[cfg(feature = "glam")]
+            let mut vOs = (*pTriInfos.offset(f as isize)).vOs
+                - (n.dot((*pTriInfos.offset(f as isize)).vOs) * n);
+            #[cfg(feature = "glam")]
+            let mut vOt = (*pTriInfos.offset(f as isize)).vOt
+                - (n.dot((*pTriInfos.offset(f as isize)).vOt) * n);
             if VNotZero(vOs) {
                 vOs = Normalize(vOs)
             }
@@ -681,16 +724,26 @@ unsafe fn EvalTspace<I: Geometry>(
             p2 = get_position(geometry, i2 as usize);
             v1 = p0 - p1;
             v2 = p2 - p1;
-            v1 = v1 - (n.dot(&v1) * n);
+            #[cfg(feature = "nalgebra")]
+            let mut v1 = v1 - (n.dot(&v1) * n);
+            #[cfg(feature = "glam")]
+            let mut v1 = v1 - (n.dot(v1) * n);
             if VNotZero(v1) {
                 v1 = Normalize(v1)
             }
-            v2 = v2 - (n.dot(&v2) * n);
+            #[cfg(feature = "nalgebra")]
+            let mut v2 = v2 - (n.dot(&v2) * n);
+            #[cfg(feature = "glam")]
+            let mut v2 = v2 - (n.dot(v2) * n);
             if VNotZero(v2) {
                 v2 = Normalize(v2)
             }
-            fCos = v1.dot(&v2);
-            fCos = if fCos > 1i32 as f32 {
+            #[cfg(feature = "nalgebra")]
+            let fCos = v1.dot(&v2);
+            #[cfg(feature = "glam")]
+            let fCos = v1.dot(v2);
+
+            let fCos = if fCos > 1i32 as f32 {
                 1i32 as f32
             } else if fCos < -1i32 as f32 {
                 -1i32 as f32
@@ -989,8 +1042,14 @@ unsafe fn InitTriInfo<I: Geometry>(
         };
         if NotZero(fSignedAreaSTx2) {
             let fAbsArea: f32 = fSignedAreaSTx2.abs();
+            #[cfg(feature = "nalgebra")]
             let fLenOs: f32 = vOs.magnitude();
+            #[cfg(feature = "nalgebra")]
             let fLenOt: f32 = vOt.magnitude();
+            #[cfg(feature = "glam")]
+            let fLenOs: f32 = vOs.length();
+            #[cfg(feature = "glam")]
+            let fLenOt: f32 = vOt.length();
             let fS: f32 = if (*pTriInfos.offset(f as isize)).iFlag & 8i32 == 0i32 {
                 -1.0f32
             } else {
@@ -1411,7 +1470,7 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
     let mut iMaxCount = 0;
     let mut vMin = get_position(geometry, 0);
     let mut vMax = vMin;
-    let mut vDim = Vector3::new(0.0, 0.0, 0.0);
+    let mut vDim = Vec3::new(0.0, 0.0, 0.0);
     let mut fMin: f32 = 0.;
     let mut fMax: f32 = 0.;
     i = 1;
@@ -1505,7 +1564,7 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
         }
         k += 1
     }
-    let mut pTmpVert = vec!(STmpVert::zero(); iMaxCount);
+    let mut pTmpVert = vec![STmpVert::zero(); iMaxCount];
     k = 0;
     while k < g_iCells {
         // extract table of cell k and amount of entries in it
@@ -1722,8 +1781,14 @@ unsafe fn GenerateInitialVerticesIndexList<I: Geometry>(
                 let T1 = get_tex_coord(geometry, i1);
                 let T2 = get_tex_coord(geometry, i2);
                 let T3 = get_tex_coord(geometry, i3);
+                #[cfg(feature = "nalgebra")]
                 let distSQ_02: f32 = (T2 - T0).magnitude_squared();
+                #[cfg(feature = "nalgebra")]
                 let distSQ_13: f32 = (T3 - T1).magnitude_squared();
+                #[cfg(feature = "glam")]
+                let distSQ_02: f32 = (T2 - T0).length_squared();
+                #[cfg(feature = "glam")]
+                let distSQ_13: f32 = (T3 - T1).length_squared();
                 let mut bQuadDiagIs_02: bool = false;
                 if distSQ_02 < distSQ_13 {
                     bQuadDiagIs_02 = true
@@ -1734,8 +1799,14 @@ unsafe fn GenerateInitialVerticesIndexList<I: Geometry>(
                     let P1 = get_position(geometry, i1);
                     let P2 = get_position(geometry, i2);
                     let P3 = get_position(geometry, i3);
+                    #[cfg(feature = "nalgebra")]
                     let distSQ_02_0: f32 = (P2 - P0).magnitude_squared();
+                    #[cfg(feature = "nalgebra")]
                     let distSQ_13_0: f32 = (P3 - P1).magnitude_squared();
+                    #[cfg(feature = "glam")]
+                    let distSQ_02_0: f32 = (P2 - P0).length_squared();
+                    #[cfg(feature = "glam")]
+                    let distSQ_13_0: f32 = (P3 - P1).length_squared();
                     bQuadDiagIs_02 = if distSQ_13_0 < distSQ_02_0 {
                         false
                     } else {
