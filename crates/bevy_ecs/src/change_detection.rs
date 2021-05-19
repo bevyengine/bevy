@@ -24,14 +24,18 @@ macro_rules! change_detection_impl {
             /// system.
             #[inline]
             fn is_added(&self) -> bool {
-                self.ticks.is_added()
+                self.ticks
+                    .component_ticks
+                    .is_added(self.ticks.last_change_tick, self.ticks.change_tick)
             }
 
             /// Returns true if (and only if) this value been changed since the last execution of this
             /// system.
             #[inline]
             fn is_changed(&self) -> bool {
-                self.ticks.is_changed()
+                self.ticks
+                    .component_ticks
+                    .is_changed(self.ticks.last_change_tick, self.ticks.change_tick)
             }
 
             /// Manually flags this value as having been changed. This normally isn't
@@ -41,7 +45,9 @@ macro_rules! change_detection_impl {
             /// **Note**: This operation is irreversible.
             #[inline]
             fn set_changed(&mut self) {
-                self.ticks.set_changed();
+                self.ticks
+                    .component_ticks
+                    .set_changed(self.ticks.change_tick);
             }
 
             /// Get the underlying value.
@@ -134,25 +140,6 @@ pub(crate) struct Ticks<'a> {
     pub(crate) component_ticks: &'a mut ComponentTicks,
     pub(crate) last_change_tick: u32,
     pub(crate) change_tick: u32,
-}
-
-impl<'a> Ticks<'a> {
-    #[inline]
-    fn is_added(&self) -> bool {
-        self.component_ticks
-            .is_added(self.last_change_tick, self.change_tick)
-    }
-
-    #[inline]
-    fn is_changed(&self) -> bool {
-        self.component_ticks
-            .is_changed(self.last_change_tick, self.change_tick)
-    }
-
-    #[inline]
-    fn set_changed(&mut self) {
-        self.component_ticks.set_changed(self.change_tick);
-    }
 }
 
 /// Unique borrow of a resource.
