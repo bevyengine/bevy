@@ -85,7 +85,6 @@ fn print_time(time: Res<Time>) {
 
 The [`resources.rs`](examples/resources.rs) example illustrates how to read and write a Counter resource from Systems.
 
-
 ### Schedules
 
 Schedules consist of zero or more Stages, which run a set of Systems according to some execution strategy. Bevy ECS provides a few built in Stage implementations (ex: parallel, serial), but you can also implement your own! Schedules run Stages one-by-one in an order defined by the user.
@@ -182,7 +181,6 @@ fn system(time: Res<Time>) {
     }
 }
 ```
-
 
 The [`change_detection.rs`](examples/change_detection.rs) example shows how to query only for updated entities and react on changes in resources.
 
