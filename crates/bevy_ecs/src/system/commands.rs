@@ -34,15 +34,16 @@ impl CommandQueue {
             #[cfg(not(feature = "command_panic_origin"))]
             command.write(world);
             #[cfg(feature = "command_panic_origin")]
-            if panic::catch_unwind(AssertUnwindSafe(|| {
-                command.write(world);
-            }))
-            .is_err()
             {
-                if let Some(system_name) = &self.system_name {
-                    error!("panic while applying a command from {}", system_name);
+                let may_panic = panic::catch_unwind(AssertUnwindSafe(|| {
+                    command.write(world);
+                }));
+                if may_panic.is_err() {
+                    if let Some(system_name) = &self.system_name {
+                        error!("panic while applying a command from {}", system_name);
+                    }
+                    panic!("panic applying a command");
                 }
-                panic!("panic applying a command");
             }
         }
     }
