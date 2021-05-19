@@ -3,25 +3,40 @@ use bevy_reflect::Reflect;
 use std::ops::{Deref, DerefMut};
 
 pub trait ChangeDetectable {
+    /// Returns true if (and only if) this value been added since the last execution of this
+    /// system.
+    fn is_added(&self) -> bool;
+
+    /// Returns true if (and only if) this value been changed since the last execution of this
+    /// system.
+    fn is_changed(&self) -> bool;
+
+    /// Manually flags this value as having been changed. This normally isn't
+    /// required because accessing this pointer mutably automatically flags this
+    /// value as "changed".
+    ///
+    /// **Note**: This operation is irreversible.
+    fn set_changed(&mut self);
+}
+
+pub trait Underlying: ChangeDetectable {
     type Target: ?Sized;
 
-    fn is_added(&self) -> bool;
-    fn is_changed(&self) -> bool;
-    fn set_changed(&mut self);
+    /// Get the underlying value.
+    /// Does not mark `self` as changed since access is immutable.
+    fn underlying(&self) -> &Self::Target;
 
-    fn get(&self) -> &Self::Target;
-    fn get_mut(&mut self) -> &mut Self::Target;
-    fn get_mut_untracked(&mut self) -> &mut Self::Target;
+    /// Get the underlying value and mark `self` as "changed".
+    fn underlying_mut(&mut self) -> &mut Self::Target;
+
+    /// Get the underlying value **without** marking `self` as "changed".
+    fn underlying_mut_untracked(&mut self) -> &mut Self::Target;
 }
 
 macro_rules! change_detection_impl {
     ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident),*) => {
         impl<$($generics),*: $($traits),*> ChangeDetectable for $name<$($generics),*>
         {
-            type Target = $target;
-
-            /// Returns true if (and only if) this value been added since the last execution of this
-            /// system.
             #[inline]
             fn is_added(&self) -> bool {
                 self.ticks
@@ -29,8 +44,6 @@ macro_rules! change_detection_impl {
                     .is_added(self.ticks.last_change_tick, self.ticks.change_tick)
             }
 
-            /// Returns true if (and only if) this value been changed since the last execution of this
-            /// system.
             #[inline]
             fn is_changed(&self) -> bool {
                 self.ticks
@@ -38,35 +51,31 @@ macro_rules! change_detection_impl {
                     .is_changed(self.ticks.last_change_tick, self.ticks.change_tick)
             }
 
-            /// Manually flags this value as having been changed. This normally isn't
-            /// required because accessing this pointer mutably automatically flags this
-            /// value as "changed".
-            ///
-            /// **Note**: This operation is irreversible.
             #[inline]
             fn set_changed(&mut self) {
                 self.ticks
                     .component_ticks
                     .set_changed(self.ticks.change_tick);
             }
+        }
 
-            /// Get the underlying value.
-            /// Does not mark `self` as changed since access is immutable.
+        impl<$($generics),*: $($traits),*> Underlying for $name<$($generics),*>
+        {
+            type Target = $target;
+
             #[inline]
-            fn get(&self) -> &Self::Target {
+            fn underlying(&self) -> &Self::Target {
                 self.value
             }
 
-            /// Get the underlying value and mark `self` as "changed".
             #[inline]
-            fn get_mut(&mut self) -> &mut Self::Target {
+            fn underlying_mut(&mut self) -> &mut Self::Target {
                 self.set_changed();
                 self.value
             }
 
-            /// Get the underlying value **without** marking `self` as "changed".
             #[inline]
-            fn get_mut_untracked(&mut self) -> &mut Self::Target {
+            fn underlying_mut_untracked(&mut self) -> &mut Self::Target {
                 self.value
             }
         }
@@ -85,7 +94,7 @@ macro_rules! change_detection_impl {
         {
             #[inline]
             fn deref_mut(&mut self) -> &mut Self::Target {
-                self.get_mut()
+                self.underlying_mut()
             }
         }
 
@@ -104,7 +113,7 @@ macro_rules! change_detection_impl {
                 self.deref_mut()
             }
         }
-    };
+    }
 }
 
 macro_rules! impl_into_inner {
