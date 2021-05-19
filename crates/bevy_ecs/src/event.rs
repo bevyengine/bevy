@@ -277,7 +277,7 @@ impl<T: Component> Events<T> {
             id: self.event_count,
             _marker: PhantomData,
         };
-        trace!("Events::send() -> {}", event_id);
+        trace!("Events::send() -> id: {}", event_id);
 
         let event_instance = EventInstance { event_id, event };
 
@@ -361,15 +361,6 @@ impl<T: Component> Events<T> {
         }
     }
 
-    pub fn extend<I>(&mut self, events: I)
-    where
-        I: Iterator<Item = T>,
-    {
-        for event in events {
-            self.send(event);
-        }
-    }
-
     /// Iterates over events that happened since the last "update" call.
     /// WARNING: You probably don't want to use this call. In most cases you should use an
     /// `EventReader`. You should only use this if you know you only need to consume events
@@ -381,6 +372,35 @@ impl<T: Component> Events<T> {
             State::A => self.events_a.iter().map(map_instance_event),
             State::B => self.events_b.iter().map(map_instance_event),
         }
+    }
+}
+
+impl<T> std::iter::Extend<T> for Events<T> {
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = T>,
+    {
+        let mut event_count = self.event_count;
+        let events = iter.into_iter().map(|event| {
+            let event_id = EventId {
+                id: event_count,
+                _marker: PhantomData,
+            };
+            event_count += 1;
+            EventInstance { event_id, event }
+        });
+
+        match self.state {
+            State::A => self.events_a.extend(events),
+            State::B => self.events_b.extend(events),
+        }
+
+        trace!(
+            "Events::extend() -> ids: ({}..{})",
+            self.event_count,
+            event_count
+        );
+        self.event_count = event_count;
     }
 }
 
@@ -525,5 +545,16 @@ mod tests {
         events_clear_and_read_impl(|events| {
             assert!(events.drain().eq(vec![E(0), E(1)].into_iter()));
         });
+    }
+
+    #[test]
+    fn test_events_extend_impl() {
+        let mut events = Events::<TestEvent>::default();
+        let mut reader = events.get_reader();
+
+        events.extend(vec![TestEvent { i: 0 }, TestEvent { i: 1 }]);
+        assert!(reader
+            .iter(&events)
+            .eq([TestEvent { i: 0 }, TestEvent { i: 1 }].iter()));
     }
 }
