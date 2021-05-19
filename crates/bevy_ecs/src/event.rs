@@ -329,23 +329,22 @@ impl<T: Component> Events<T> {
     }
 
     #[inline]
-    fn increment_start_event_count(&mut self) {
-        let count = self.event_count + 1;
-        self.a_start_event_count = count;
-        self.b_start_event_count = count;
+    fn reset_start_event_count(&mut self) {
+        self.a_start_event_count = self.event_count;
+        self.b_start_event_count = self.event_count;
     }
 
     /// Removes all events.
     #[inline]
     pub fn clear(&mut self) {
-        self.increment_start_event_count();
+        self.reset_start_event_count();
         self.events_a.clear();
         self.events_b.clear();
     }
 
     /// Creates a draining iterator that removes all events.
     pub fn drain(&mut self) -> impl Iterator<Item = T> + '_ {
-        self.increment_start_event_count();
+        self.reset_start_event_count();
 
         let map = |i: EventInstance<T>| i.event;
         match self.state {
