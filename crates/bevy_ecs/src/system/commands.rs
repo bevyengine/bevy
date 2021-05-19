@@ -5,7 +5,11 @@ use crate::{
     world::World,
 };
 use bevy_utils::tracing::debug;
-use std::marker::PhantomData;
+#[cfg(feature = "command_panic_origin")]
+use bevy_utils::tracing::error;
+#[cfg(feature = "command_panic_origin")]
+use std::panic::{self, AssertUnwindSafe};
+use std::{borrow::Cow, marker::PhantomData};
 
 /// A [`World`] mutation.
 pub trait Command: Send + Sync + 'static {
@@ -15,7 +19,9 @@ pub trait Command: Send + Sync + 'static {
 /// A queue of [`Command`]s.
 #[derive(Default)]
 pub struct CommandQueue {
-    commands: Vec<Box<dyn Command>>,
+    pub(crate) commands: Vec<Box<dyn Command>>,
+    #[allow(unused)]
+    pub(crate) system_name: Option<Cow<'static, str>>,
 }
 
 impl CommandQueue {
@@ -24,7 +30,20 @@ impl CommandQueue {
     pub fn apply(&mut self, world: &mut World) {
         world.flush();
         for command in self.commands.drain(..) {
+            // TODO: replace feature by proper error handling from commands
+            #[cfg(not(feature = "command_panic_origin"))]
             command.write(world);
+            #[cfg(feature = "command_panic_origin")]
+            if panic::catch_unwind(AssertUnwindSafe(|| {
+                command.write(world);
+            }))
+            .is_err()
+            {
+                if let Some(system_name) = &self.system_name {
+                    error!("panic while applying a command from {}", system_name);
+                }
+                panic!("panic applying a command");
+            }
         }
     }
 

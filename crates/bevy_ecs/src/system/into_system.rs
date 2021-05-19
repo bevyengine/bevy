@@ -47,6 +47,10 @@ impl SystemState {
     pub fn set_non_send(&mut self) {
         self.is_send = false;
     }
+
+    pub fn name(&self) -> Cow<'static, str> {
+        self.name.clone()
+    }
 }
 
 /// Conversion trait to turn something into a [`System`].
