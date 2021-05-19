@@ -34,6 +34,7 @@ impl CommandQueue {
         world.flush();
         for command in self.commands.drain(..) {
             // TODO: replace feature by proper error handling from commands
+            // https://github.com/bevyengine/bevy/issues/2004
             #[cfg(not(feature = "command_panic_origin"))]
             command.write(world);
             #[cfg(feature = "command_panic_origin")]
