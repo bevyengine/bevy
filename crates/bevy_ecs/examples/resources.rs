@@ -30,6 +30,7 @@ fn main() {
     }
 }
 
+// System label to enforce a run order of our systems
 #[derive(SystemLabel, Debug, Clone, PartialEq, Eq, Hash)]
 enum CounterSystem {
     Increase,
