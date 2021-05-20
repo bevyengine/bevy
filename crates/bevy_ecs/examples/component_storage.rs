@@ -23,7 +23,7 @@ fn main() {
     update.add_system(query_entities.system());
     schedule.add_stage("update", update);
 
-    schedule.run_once(&mut world);
+    schedule.run(&mut world);
 }
 
 // The storage type does not matter for how to query in systems
