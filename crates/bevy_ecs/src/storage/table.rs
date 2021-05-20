@@ -105,7 +105,7 @@ impl Column {
         (data, ticks)
     }
 
-    // Safety:
+    // # Safety
     // - ptr must point to valid data of this column's component type
     pub(crate) unsafe fn push(&mut self, ptr: *mut u8, ticks: ComponentTicks) {
         let row = self.data.push_uninit();
@@ -486,6 +486,7 @@ mod tests {
         table.add_column(components.get_info(component_id).unwrap());
         let entities = (0..200).map(Entity::new).collect::<Vec<_>>();
         for entity in entities.iter() {
+            // SAFE: we allocate and immediately set data afterwards
             unsafe {
                 let row = table.allocate(*entity);
                 let mut value = row;
