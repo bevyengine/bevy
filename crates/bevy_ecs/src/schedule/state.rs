@@ -689,4 +689,30 @@ mod test {
         stage.run(&mut world);
         assert!(*world.get_resource::<bool>().unwrap(), "after test");
     }
+
+    #[test]
+    fn pr_2211() {
+        let mut world = World::default();
+
+        world.insert_resource(0u32);
+        world.insert_resource(State::new(MyState::S1));
+
+        let mut stage = SystemStage::parallel();
+
+        stage.add_system_set(State::<MyState>::get_driver());
+
+        stage.add_system_set(
+            SystemSet::on_in_stack_update(MyState::S1).with_system(
+                (|mut r: ResMut<u32>, mut s: ResMut<State<MyState>>| {
+                    *r += 1;
+                    s.push(MyState::S2).ok();
+                })
+                .system(),
+            ),
+        );
+        stage.run(&mut world);
+        stage.run(&mut world);
+        // This is 3 even though we run twice, because the first actually does two so MyState::S2 is also updated.
+        assert_eq!(world.get_resource::<u32>().unwrap(), &3);
+    }
 }
