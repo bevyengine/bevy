@@ -373,7 +373,7 @@ async fn load_gltf<'a, 'b>(
                     // TODO: This is a runtime importer so here's no place for further optimizations
                 }
                 ReadOutputs::Rotations(values) => {
-                    let values = values.into_f32().map(Quat::from).collect::<Vec<_>>();
+                    let values = values.into_f32().map(Quat::from_array).collect::<Vec<_>>();
                     property_path += "@Transform.rotation";
                     clip_curves_rotation.push((
                         property_path,
@@ -630,7 +630,7 @@ fn load_node(
     let mut active = parent.spawn_bundle((
         Transform {
             translation: translation.into(),
-            rotation: rotation.into(),
+            rotation: Quat::from_array(rotation),
             scale: scale.into(),
         },
         GlobalTransform::default(),

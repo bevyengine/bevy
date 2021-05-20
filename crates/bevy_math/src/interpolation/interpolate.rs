@@ -160,7 +160,7 @@ impl Interpolate for Quat {
 
                 let q = utils::lerp_unclamped::<Vec4>((*k0).into(), k1.into(), t);
                 let d = utils::inv_sqrt(q.dot(q));
-                (q * d).into()
+                Quat::from_vec4(q * d)
             }
             Interpolation::Hermite => {
                 // Make sure is always the short path, look at this: https://github.com/mgeier/quaternion-nursery
@@ -178,7 +178,7 @@ impl Interpolate for Quat {
                     dt,
                 );
                 let d = utils::inv_sqrt(q.dot(q));
-                (q * d).into()
+                Quat::from_vec4(q * d)
             }
         }
     }
