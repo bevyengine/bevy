@@ -8,13 +8,10 @@ pub fn spawn_entities<T: Component>(mut commands: Commands,
     mouse_button_inputs: Res<Input<MouseButton>>,) {
     for _ in 0..10 {
         let id = commands.spawn().insert(T).id();
-        if mouse_button_inputs.just_pressed(MouseButton::Left) {
-            return info!("Spawned entity {:?} with component {}", id, std::any::type_name::<T>());
-        }
-        if mouse_button_inputs.just_pressed(MouseButton::Right) {
-            return info!("Spawned entity {:?} with component {}", id, std::any::type_name::<T>());
-        }
+        info!("Spawned entity {:?} with component {}", id, std::any::type_name::<T>());
     }
+    mouse_button_inputs.just_pressed(MouseButton::Left);
+    mouse_button_inputs.just_pressed(MouseButton::Right);
 }
 
 
