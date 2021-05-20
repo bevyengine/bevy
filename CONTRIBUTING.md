@@ -188,6 +188,7 @@ Examples in Bevy should be:
 
 When you add a new example, be sure to update `examples/README.md` with the new example and add it to the root `Cargo.toml` file.
 Use a generous sprinkling of keywords in your description: these are commonly used to search for a specific example.
+See the [example style guide](.github/contributing/example-style-guide.md) to help make sure the style of your example matches what we're already using.
 
 More complex demonstrations of functionality are also welcome, but for now belong in community tutorials or template games.
 
@@ -256,6 +257,7 @@ If you end up adding a new official Bevy crate to the `bevy` repo:
 When contributing, please:
 
 * try to loosely follow the workflow in [*How we work together*](https://github.com/bevy-engine/bevy/blob/main/CONTRIBUTING.md#how-we-work-together)
+* consult the [style guide](.github/contributing/engine-style-guide.md) to help keep our code base tidy
 * explain what you're doing and why
 * document new code with doc comments
 * include clear, simple tests
