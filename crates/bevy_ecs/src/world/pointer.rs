@@ -14,6 +14,16 @@ impl<'a, T> Mut<'a, T> {
         self.component_ticks.set_changed(self.change_tick);
         self.value
     }
+
+    /// Manually flags this value as having been changed. This normally isn't
+    /// required because accessing this pointer mutably automatically flags this
+    /// value as "changed".
+    ///
+    /// **Note**: This operation is irreversible.
+    #[inline]
+    pub fn set_changed(&mut self) {
+        self.component_ticks.set_changed(self.change_tick);
+    }
 }
 
 impl<'a, T> Deref for Mut<'a, T> {
@@ -28,7 +38,7 @@ impl<'a, T> Deref for Mut<'a, T> {
 impl<'a, T> DerefMut for Mut<'a, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut T {
-        self.component_ticks.set_changed(self.change_tick);
+        self.set_changed();
         self.value
     }
 }

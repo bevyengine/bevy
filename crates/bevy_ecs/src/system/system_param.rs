@@ -49,6 +49,18 @@ pub trait SystemParam: Sized {
 /// Additionally, it is the implementor's responsibility to ensure there is no
 /// conflicting access across all SystemParams.
 pub unsafe trait SystemParamState: Send + Sync + 'static {
+    /// Values of this type can be used to adjust the behavior of the
+    /// system parameter. For instance, this can be used to pass
+    /// values from a `Plugin` to a `System`, or to control the
+    /// behavior of the `System`.
+    ///
+    /// The default configuration of the parameter is set by
+    /// [`SystemParamState::default_config`]. To change it, invoke
+    /// [`FunctionSystem::config`](super::FunctionSystem::config) when
+    /// creating the system.
+    ///
+    /// See [`FunctionSystem::config`](super::FunctionSystem::config)
+    /// for more information and examples.
     type Config: Send + Sync;
     fn init(world: &mut World, system_state: &mut SystemState, config: Self::Config) -> Self;
     #[inline]
@@ -357,6 +369,16 @@ impl<'w, T: Component> ResMut<'w, T> {
         self.ticks
             .is_changed(self.last_change_tick, self.change_tick)
     }
+
+    /// Manually flags this resource as having been changed. This normally isn't
+    /// required because accessing this pointer mutably automatically flags this
+    /// resource as "changed".
+    ///
+    /// **Note**: This operation is irreversible.
+    #[inline]
+    pub fn set_changed(&mut self) {
+        self.ticks.set_changed(self.change_tick);
+    }
 }
 
 impl<'w, T: Component> Deref for ResMut<'w, T> {
@@ -369,7 +391,7 @@ impl<'w, T: Component> Deref for ResMut<'w, T> {
 
 impl<'w, T: Component> DerefMut for ResMut<'w, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.ticks.set_changed(self.change_tick);
+        self.set_changed();
         self.value
     }
 }

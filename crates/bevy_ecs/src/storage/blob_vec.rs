@@ -1,6 +1,5 @@
 use std::{
     alloc::{handle_alloc_error, Layout},
-    cell::UnsafeCell,
     ptr::NonNull,
 };
 
@@ -9,8 +8,8 @@ pub struct BlobVec {
     item_layout: Layout,
     capacity: usize,
     len: usize,
-    data: UnsafeCell<NonNull<u8>>,
-    swap_scratch: UnsafeCell<NonNull<u8>>,
+    data: NonNull<u8>,
+    swap_scratch: NonNull<u8>,
     drop: unsafe fn(*mut u8),
 }
 
@@ -18,8 +17,8 @@ impl BlobVec {
     pub fn new(item_layout: Layout, drop: unsafe fn(*mut u8), capacity: usize) -> BlobVec {
         if item_layout.size() == 0 {
             BlobVec {
-                swap_scratch: UnsafeCell::new(NonNull::dangling()),
-                data: UnsafeCell::new(NonNull::dangling()),
+                swap_scratch: NonNull::dangling(),
+                data: NonNull::dangling(),
                 capacity: usize::MAX,
                 len: 0,
                 item_layout,
@@ -29,8 +28,8 @@ impl BlobVec {
             let swap_scratch = NonNull::new(unsafe { std::alloc::alloc(item_layout) })
                 .unwrap_or_else(|| std::alloc::handle_alloc_error(item_layout));
             let mut blob_vec = BlobVec {
-                swap_scratch: UnsafeCell::new(swap_scratch),
-                data: UnsafeCell::new(NonNull::dangling()),
+                swap_scratch,
+                data: NonNull::dangling(),
                 capacity: 0,
                 len: 0,
                 item_layout,
@@ -81,9 +80,7 @@ impl BlobVec {
                 )
             };
 
-            self.data = UnsafeCell::new(
-                NonNull::new(new_data).unwrap_or_else(|| handle_alloc_error(new_layout)),
-            );
+            self.data = NonNull::new(new_data).unwrap_or_else(|| handle_alloc_error(new_layout));
         }
         self.capacity = new_capacity;
     }
@@ -132,7 +129,7 @@ impl BlobVec {
     pub unsafe fn swap_remove_and_forget_unchecked(&mut self, index: usize) -> *mut u8 {
         debug_assert!(index < self.len());
         let last = self.len - 1;
-        let swap_scratch = (*self.swap_scratch.get()).as_ptr();
+        let swap_scratch = self.swap_scratch.as_ptr();
         std::ptr::copy_nonoverlapping(
             self.get_unchecked(index),
             swap_scratch,
@@ -170,7 +167,7 @@ impl BlobVec {
     /// must ensure rust mutability rules are not violated
     #[inline]
     pub unsafe fn get_ptr(&self) -> NonNull<u8> {
-        *self.data.get()
+        self.data
     }
 
     pub fn clear(&mut self) {
@@ -199,7 +196,7 @@ impl Drop for BlobVec {
                     array_layout(&self.item_layout, self.capacity)
                         .expect("array layout should be valid"),
                 );
-                std::alloc::dealloc((*self.swap_scratch.get()).as_ptr(), self.item_layout);
+                std::alloc::dealloc(self.swap_scratch.as_ptr(), self.item_layout);
             }
         }
     }

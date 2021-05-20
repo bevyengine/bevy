@@ -1,4 +1,4 @@
-use crate::modules::{get_modules, get_path};
+use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, Data, DeriveInput};
@@ -10,8 +10,7 @@ pub fn derive_enum_variant_meta(input: TokenStream) -> TokenStream {
         _ => panic!("Expected an enum."),
     };
 
-    let modules = get_modules(&ast.attrs);
-    let bevy_util_path = get_path(&modules.bevy_utils);
+    let bevy_util_path = BevyManifest::default().get_path(crate::modules::BEVY_UTILS);
 
     let generics = ast.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
