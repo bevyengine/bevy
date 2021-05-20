@@ -21,7 +21,7 @@ pub trait ChangeDetectable {
 
 macro_rules! change_detection_impl {
     ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
-        impl<$($generics),*: $($traits)?> ChangeDetectable for $name<$($generics),*>
+        impl<$($generics),* $(: $traits)?> ChangeDetectable for $name<$($generics),*>
         {
             #[inline]
             fn is_added(&self) -> bool {
@@ -45,7 +45,7 @@ macro_rules! change_detection_impl {
             }
         }
 
-        impl<$($generics),*: $($traits)?> Deref for $name<$($generics),*>
+        impl<$($generics),* $(: $traits)?> Deref for $name<$($generics),*>
         {
             type Target = $target;
 
@@ -55,7 +55,7 @@ macro_rules! change_detection_impl {
             }
         }
 
-        impl<$($generics),*: $($traits)?> DerefMut for $name<$($generics),*>
+        impl<$($generics),* $(: $traits)?> DerefMut for $name<$($generics),*>
         {
             #[inline]
             fn deref_mut(&mut self) -> &mut Self::Target {
@@ -64,7 +64,7 @@ macro_rules! change_detection_impl {
             }
         }
 
-        impl<$($generics),*: $($traits)?> AsRef<$target> for $name<$($generics),*>
+        impl<$($generics),* $(: $traits)?> AsRef<$target> for $name<$($generics),*>
         {
             #[inline]
             fn as_ref(&self) -> &$target {
@@ -72,7 +72,7 @@ macro_rules! change_detection_impl {
             }
         }
 
-        impl<$($generics),*: $($traits)?> AsMut<$target> for $name<$($generics),*>
+        impl<$($generics),* $(: $traits)?> AsMut<$target> for $name<$($generics),*>
         {
             #[inline]
             fn as_mut(&mut self) -> &mut $target {
@@ -84,7 +84,7 @@ macro_rules! change_detection_impl {
 
 macro_rules! impl_into_inner {
     ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
-        impl<$($generics),*: $($traits)?> $name<$($generics),*>
+        impl<$($generics),* $(: $traits)?> $name<$($generics),*>
         {
             /// Consume `self` and return the contained value while marking `self` as "changed".
             #[inline]
@@ -98,7 +98,7 @@ macro_rules! impl_into_inner {
 
 macro_rules! impl_debug {
     ($name:ident < $( $generics:tt ),+ >, $($traits:ident)?) => {
-        impl<$($generics),*: $($traits)?> std::fmt::Debug for $name<$($generics),*>
+        impl<$($generics),* $(: $traits)?> std::fmt::Debug for $name<$($generics),*>
             where T: std::fmt::Debug
         {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
