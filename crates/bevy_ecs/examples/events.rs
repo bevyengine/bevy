@@ -1,5 +1,7 @@
 use bevy_ecs::{event::Events, prelude::*};
 
+// In this example a system sends a custom event with a 50/50 chance during any frame.
+// If an event was send, it will be printed by the console in a receiving system.
 fn main() {
     // Create a new empty world and add the event as a resource
     let mut world = World::new();
@@ -11,7 +13,8 @@ fn main() {
     // Events need to be updated in every frame. This update should happen before we use
     // the events. To guarantee this, we can let the update run in an earlier stage than our logic.
     // Here we will use a stage called "first" that will always run it's systems before the Stage
-    // called "second". In "first" we update the events and in "second" we run our systems using the events.
+    // called "second". In "first" we update the events and in "second" we run our systems
+    // sending and receiving events.
     let mut first = SystemStage::parallel();
     first.add_system(Events::<MyEvent>::update_system.system());
     schedule.add_stage("first", first);

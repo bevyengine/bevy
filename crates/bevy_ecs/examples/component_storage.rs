@@ -3,6 +3,8 @@ use bevy_ecs::{
     prelude::*,
 };
 
+// This example shows how to configure the storage of Components.
+// A system demonstrates that querying for components is independent of their storage type.
 fn main() {
     let mut world = World::new();
 

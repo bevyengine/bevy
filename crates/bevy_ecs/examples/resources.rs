@@ -2,12 +2,8 @@ use bevy_ecs::prelude::*;
 use rand::Rng;
 use std::ops::Deref;
 
-// This is our resource
-#[derive(Debug)]
-struct Counter {
-    pub value: i32,
-}
-
+// In this example we add a counter resource and increase it's value in one system,
+// while a different system prints the current count to the console.
 fn main() {
     // Create a world
     let mut world = World::new();
@@ -28,6 +24,12 @@ fn main() {
         println!("Simulating frame {}/10", iteration);
         schedule.run(&mut world);
     }
+}
+
+// Counter resource to be increased and read by systems
+#[derive(Debug)]
+struct Counter {
+    pub value: i32,
 }
 
 // System label to enforce a run order of our systems
