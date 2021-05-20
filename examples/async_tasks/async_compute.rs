@@ -1,7 +1,10 @@
-use bevy::{prelude::*, tasks::{AsyncComputeTaskPool, Task}};
-use std::time::{Instant, Duration};
-use rand::Rng;
+use bevy::{
+    prelude::*,
+    tasks::{AsyncComputeTaskPool, Task},
+};
 use futures_lite::future;
+use rand::Rng;
+use std::time::{Duration, Instant};
 
 /// This example shows how to use the ECS and the AsyncComputeTaskPool
 /// to spawn, poll, and complete tasks across systems and system ticks.
@@ -20,7 +23,7 @@ fn add_assets(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-){
+) {
     let box_mesh_handle = meshes.add(Mesh::from(shape::Cube { size: 0.25 }));
     commands.insert_resource(BoxMeshHandle(box_mesh_handle));
 
@@ -32,17 +35,12 @@ fn add_assets(
 /// work that potentially spans multiple frames/ticks. A separate
 /// system, handle_tasks, will poll the spawned tasks on subsequent
 /// frames/ticks, and use the results to spawn cubes
-fn spawn_tasks(
-    mut commands: Commands,
-    thread_pool: Res<AsyncComputeTaskPool>,
-) {
-    for x in 0 ..NUM_CUBES {
-        for y in 0 ..NUM_CUBES {
-            for z in 0 ..NUM_CUBES {
-
+fn spawn_tasks(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
+    for x in 0..NUM_CUBES {
+        for y in 0..NUM_CUBES {
+            for z in 0..NUM_CUBES {
                 // Spawn new task on the AsyncComputeTaskPool
                 let task = thread_pool.spawn(async move {
-
                     let mut rng = rand::thread_rng();
                     let start_time = Instant::now();
                     let duration = Duration::from_secs_f32(rng.gen_range(0.05..0.2));
@@ -73,9 +71,7 @@ fn handle_tasks(
     box_material_handle: Res<BoxMaterialHandle>,
 ) {
     our_entity_tasks.for_each_mut(|(entity, mut task)| {
-
         if let Some(transform) = future::block_on(future::poll_once(&mut *task)) {
-
             // Add our new PbrBundle of components to our tagged entity
             commands.entity(entity).insert_bundle(PbrBundle {
                 mesh: box_mesh_handle.0.clone(),
@@ -103,7 +99,6 @@ fn main() {
 
 /// This system is only used to setup light and camera for the environment
 fn setup_env(mut commands: Commands) {
-
     // Used to center camera on spawned cubes
     let offset = if NUM_CUBES % 2 == 0 {
         (NUM_CUBES / 2) as f32 - 0.5
