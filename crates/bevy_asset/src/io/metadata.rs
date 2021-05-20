@@ -9,10 +9,12 @@ pub enum FileType {
 }
 
 impl FileType {
+    #[inline]
     pub const fn is_dir(&self) -> bool {
         matches!(self, Self::Directory)
     }
 
+    #[inline]
     pub const fn is_file(&self) -> bool {
         matches!(self, Self::File)
     }
@@ -44,10 +46,12 @@ pub struct Metadata {
 }
 
 impl Metadata {
+    #[inline]
     pub const fn is_dir(&self) -> bool {
         self.file_type.is_dir()
     }
 
+    #[inline]
     pub const fn is_file(&self) -> bool {
         self.file_type.is_file()
     }
