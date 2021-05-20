@@ -140,20 +140,20 @@ impl BundleInfo {
         // bundle_info.component_ids are also in "bundle order"
         let mut bundle_component = 0;
         bundle.get_components(|component_ptr| {
-            // SAFE: component_id was initialized by get_dynamic_bundle_info
             let component_id = *self.component_ids.get_unchecked(bundle_component);
-            let component_status = bundle_status.get_unchecked(bundle_component);
             match self.storage_types[bundle_component] {
                 StorageType::Table => {
                     let column = table.get_column_mut(component_id).unwrap();
-                    column.set_data_unchecked(table_row, component_ptr);
-                    let column_status = column.get_ticks_unchecked_mut(table_row);
-                    match component_status {
+                    match bundle_status.get_unchecked(bundle_component) {
                         ComponentStatus::Added => {
-                            *column_status = ComponentTicks::new(change_tick);
+                            column.initialize(
+                                table_row,
+                                component_ptr,
+                                ComponentTicks::new(change_tick),
+                            );
                         }
                         ComponentStatus::Mutated => {
-                            column_status.set_changed(change_tick);
+                            column.replace(table_row, component_ptr, change_tick);
                         }
                     }
                 }

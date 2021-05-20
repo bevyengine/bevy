@@ -287,8 +287,8 @@ impl<'a, T: Component> SystemParamFetch<'a> for ResState<T> {
                 )
             });
         Res {
-            value: &*column.get_ptr().as_ptr().cast::<T>(),
-            ticks: &*column.get_ticks_mut_ptr(),
+            value: &*column.get_data_ptr().as_ptr().cast::<T>(),
+            ticks: &*column.get_ticks_ptr(),
             last_change_tick: system_state.last_change_tick,
             change_tick,
         }
@@ -325,8 +325,8 @@ impl<'a, T: Component> SystemParamFetch<'a> for OptionResState<T> {
         world
             .get_populated_resource_column(state.0.component_id)
             .map(|column| Res {
-                value: &*column.get_ptr().as_ptr().cast::<T>(),
-                ticks: &*column.get_ticks_mut_ptr(),
+                value: &*column.get_data_ptr().as_ptr().cast::<T>(),
+                ticks: &*column.get_ticks_ptr(),
                 last_change_tick: system_state.last_change_tick,
                 change_tick,
             })
@@ -342,7 +342,7 @@ impl<'a, T: Component> SystemParamFetch<'a> for OptionResState<T> {
 /// Use `Option<ResMut<T>>` instead if the resource might not always exist.
 pub struct ResMut<'w, T: Component> {
     value: &'w mut T,
-    ticks: &'w mut ComponentTicks,
+    ticks: &'w ComponentTicks,
     last_change_tick: u32,
     change_tick: u32,
 }
@@ -827,9 +827,10 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendState<T> {
                     std::any::type_name::<T>()
                 )
             });
+
         NonSend {
-            value: &*column.get_ptr().as_ptr().cast::<T>(),
-            ticks: *column.get_ticks_mut_ptr(),
+            value: &*column.get_data_ptr().as_ptr().cast::<T>(),
+            ticks: column.get_ticks_unchecked(0).clone(),
             last_change_tick: system_state.last_change_tick,
             change_tick,
         }
@@ -848,7 +849,7 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendState<T> {
 /// Panics when used as a `SystemParameter` if the resource does not exist.
 pub struct NonSendMut<'a, T: 'static> {
     pub(crate) value: &'a mut T,
-    ticks: &'a mut ComponentTicks,
+    ticks: &'a ComponentTicks,
     last_change_tick: u32,
     change_tick: u32,
 }
@@ -959,8 +960,8 @@ impl<'a, T: 'static> SystemParamFetch<'a> for NonSendMutState<T> {
                 )
             });
         NonSendMut {
-            value: &mut *column.get_ptr().as_ptr().cast::<T>(),
-            ticks: &mut *column.get_ticks_mut_ptr(),
+            value: &mut *column.get_data_ptr().as_ptr().cast::<T>(),
+            ticks: column.get_ticks_unchecked(0),
             last_change_tick: system_state.last_change_tick,
             change_tick,
         }

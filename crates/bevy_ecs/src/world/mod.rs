@@ -593,14 +593,16 @@ impl World {
     pub fn is_resource_added<T: Component>(&self) -> bool {
         let component_id = self.components.get_resource_id(TypeId::of::<T>()).unwrap();
         let column = self.get_populated_resource_column(component_id).unwrap();
-        let ticks = unsafe { &*column.get_ticks_mut_ptr() };
+        // SAFE: resurces table always have row 0
+        let ticks = unsafe { column.get_ticks_unchecked(0) };
         ticks.is_added(self.last_change_tick(), self.read_change_tick())
     }
 
     pub fn is_resource_changed<T: Component>(&self) -> bool {
         let component_id = self.components.get_resource_id(TypeId::of::<T>()).unwrap();
         let column = self.get_populated_resource_column(component_id).unwrap();
-        let ticks = unsafe { &*column.get_ticks_mut_ptr() };
+        // SAFE: resurces table always have row 0
+        let ticks = unsafe { column.get_ticks_unchecked(0) };
         ticks.is_changed(self.last_change_tick(), self.read_change_tick())
     }
 
@@ -733,7 +735,7 @@ impl World {
         component_id: ComponentId,
     ) -> Option<&T> {
         let column = self.get_populated_resource_column(component_id)?;
-        Some(&*column.get_ptr().as_ptr().cast::<T>())
+        Some(&*column.get_data_ptr().as_ptr().cast::<T>())
     }
 
     /// # Safety
@@ -746,8 +748,8 @@ impl World {
     ) -> Option<Mut<'_, T>> {
         let column = self.get_populated_resource_column(component_id)?;
         Some(Mut {
-            value: &mut *column.get_ptr().as_ptr().cast::<T>(),
-            component_ticks: &mut *column.get_ticks_mut_ptr(),
+            value: &mut *column.get_data_ptr().as_ptr().cast::<T>(),
+            component_ticks: column.get_ticks_unchecked(0),
             last_change_tick: self.last_change_tick(),
             change_tick: self.read_change_tick(),
         })

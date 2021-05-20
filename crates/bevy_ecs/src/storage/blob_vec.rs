@@ -86,12 +86,22 @@ impl BlobVec {
     }
 
     /// # Safety
-    /// `index` must be in bounds
-    /// Allows aliased mutable access to `index`'s data. Caller must ensure this does not happen
+    /// - index must be in bounds
+    /// - memory must be reserved and uninitialized
     #[inline]
-    pub unsafe fn set_unchecked(&self, index: usize, value: *mut u8) {
+    pub unsafe fn initialize_unchecked(&mut self, index: usize, value: *mut u8) {
         debug_assert!(index < self.len());
         let ptr = self.get_unchecked(index);
+        std::ptr::copy_nonoverlapping(value, ptr, self.item_layout.size());
+    }
+
+    /// # Safety
+    /// - index must be in-bounds
+    //  - memory must be previously initialized
+    pub unsafe fn replace_unchecked(&mut self, index: usize, value: *mut u8) {
+        debug_assert!(index < self.len());
+        let ptr = self.get_unchecked(index);
+        (self.drop)(ptr);
         std::ptr::copy_nonoverlapping(value, ptr, self.item_layout.size());
     }
 
@@ -267,7 +277,7 @@ mod tests {
     /// `blob_vec` must have a layout that matches Layout::new::<T>()
     unsafe fn push<T>(blob_vec: &mut BlobVec, mut value: T) {
         let index = blob_vec.push_uninit();
-        blob_vec.set_unchecked(index, (&mut value as *mut T).cast::<u8>());
+        blob_vec.initialize_unchecked(index, (&mut value as *mut T).cast::<u8>());
         std::mem::forget(value);
     }
 
