@@ -22,7 +22,7 @@ fn main() {
     // before moving on to the next Stage
     let mut update = SystemStage::parallel();
 
-    // Add systems to the Stage that execute behaviour
+    // Add systems to the Stage to execute our app logic
     // We can label our systems to force a specific run-order between some of them
     update.add_system(spawn_entities.system().label(SimulationSystem::Spawn));
     update.add_system(
