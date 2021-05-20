@@ -24,11 +24,15 @@ fn main() {
 
     // Add systems to the Stage that execute behaviour
     // We can label our systems to force a specific run-order between some of them
-    update.add_system(spawn_entities.system().label("spawn"));
-    update.add_system(print_counter_when_changed.system().after("spawn"));
-    update.add_system(age_all_entities.system().label("age"));
-    update.add_system(remove_old_entities.system().after("age"));
-    update.add_system(print_changed_entities.system().after("age"));
+    update.add_system(spawn_entities.system().label(SimulationSystem::Spawn));
+    update.add_system(
+        print_counter_when_changed
+            .system()
+            .after(SimulationSystem::Spawn),
+    );
+    update.add_system(age_all_entities.system().label(SimulationSystem::Age));
+    update.add_system(remove_old_entities.system().after(SimulationSystem::Age));
+    update.add_system(print_changed_entities.system().after(SimulationSystem::Age));
     // Add the Stage with our systems to the Schedule
     schedule.add_stage("update", update);
 
@@ -49,6 +53,12 @@ struct EntityCounter {
 #[derive(Default, Debug)]
 struct Age {
     frames: i32,
+}
+
+#[derive(SystemLabel, Debug, Clone, PartialEq, Eq, Hash)]
+enum SimulationSystem {
+    Spawn,
+    Age,
 }
 
 // This system randomly spawns a new entity in 60% of all frames
