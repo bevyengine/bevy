@@ -4,13 +4,15 @@ use std::ops::{Deref, DerefMut};
 
 /// Types that implement reliable change detection.
 ///
-/// # Examples
+/// ## Example
 /// Using types that implement [`ChangeDetectable`], such as [`ResMut`], provide
 /// a way to query if a value has been mutated in another system.
 /// Normally change detecting is triggered by either [`DerefMut`] or [`AsMut`], however
 /// it can be manually triggered via [`ChangeDetectable::set_changed`].
 ///
 /// ```
+/// use bevy_ecs::prelude::*;
+///
 /// struct MyResource(u32);
 ///
 /// fn my_system(mut resource: ResMut<MyResource>) {
