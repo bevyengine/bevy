@@ -8,6 +8,16 @@ use std::time::{Duration, Instant};
 
 /// This example shows how to use the ECS and the AsyncComputeTaskPool
 /// to spawn, poll, and complete tasks across systems and system ticks.
+fn main() {
+    App::build()
+        .insert_resource(Msaa { samples: 4 })
+        .add_plugins(DefaultPlugins)
+        .add_startup_system(setup_env.system())
+        .add_startup_system(add_assets.system())
+        .add_startup_system(spawn_tasks.system())
+        .add_system(handle_tasks.system())
+        .run();
+}
 
 // Number of cubes to spawn across the x, y, and z axis
 const NUM_CUBES: u32 = 6;
@@ -66,11 +76,11 @@ fn spawn_tasks(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
 /// removes the task component from the entity.
 fn handle_tasks(
     mut commands: Commands,
-    mut our_entity_tasks: Query<(Entity, &mut Task<Transform>)>,
+    mut transform_tasks: Query<(Entity, &mut Task<Transform>)>,
     box_mesh_handle: Res<BoxMeshHandle>,
     box_material_handle: Res<BoxMaterialHandle>,
 ) {
-    our_entity_tasks.for_each_mut(|(entity, mut task)| {
+    for (entity, mut task) in transform_tasks.iter_mut() {
         if let Some(transform) = future::block_on(future::poll_once(&mut *task)) {
             // Add our new PbrBundle of components to our tagged entity
             commands.entity(entity).insert_bundle(PbrBundle {
@@ -83,18 +93,7 @@ fn handle_tasks(
             // Task is complete, so remove task component from entity
             commands.entity(entity).remove::<Task<Transform>>();
         }
-    });
-}
-
-fn main() {
-    App::build()
-        .insert_resource(Msaa { samples: 4 })
-        .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_env.system())
-        .add_startup_system(add_assets.system())
-        .add_startup_system(spawn_tasks.system())
-        .add_system(handle_tasks.system())
-        .run();
+    }
 }
 
 /// This system is only used to setup light and camera for the environment
