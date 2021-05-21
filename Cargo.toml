@@ -288,6 +288,10 @@ name = "state"
 path = "examples/ecs/state.rs"
 
 [[example]]
+name = "system_closures"
+path = "examples/ecs/system_closures.rs"
+
+[[example]]
 name = "system_chaining"
 path = "examples/ecs/system_chaining.rs"
 
