@@ -3,6 +3,25 @@ use bevy_reflect::Reflect;
 use std::ops::{Deref, DerefMut};
 
 /// Types that implement reliable change detection.
+///
+/// # Examples
+/// Using types that implement [`ChangeDetectable`], such as [`ResMut`], provide
+/// a way to query if a value has been mutated in another system.
+/// Normally change detecting is triggered by either [`DerefMut`] or [`AsMut`], however
+/// it can be manually triggered via [`ChangeDetectable::set_changed`].
+///
+/// ```
+/// struct MyResource(u32);
+///
+/// fn my_system(mut resource: ResMut<MyResource>) {
+///     if resource.is_changed() {
+///         println!("My resource was mutated!");
+///     }
+///
+///    resource.0 = 42; // triggers change detection via [`DerefMut`]
+/// }
+/// ```
+///
 pub trait ChangeDetectable {
     /// Returns true if (and only if) this value been added since the last execution of this
     /// system.
