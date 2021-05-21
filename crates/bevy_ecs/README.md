@@ -53,7 +53,7 @@ let velocity = entity_ref.get::<Velocity>().unwrap();
 
 ### Systems
 
-System are normal Rust functions. Thanks to the Rust type system, Bevy ECS can use function parameter types to determine what data needs to be sent to the system. It also uses this "data access" information to determine what Systems can run in parallel with each other.
+Systems are normal Rust functions. Thanks to the Rust type system, Bevy ECS can use function parameter types to determine what data needs to be sent to the system. It also uses this "data access" information to determine what Systems can run in parallel with each other.
 
 ```rust
 fn print_position(query: Query<(Entity, &Position)>) {
@@ -77,7 +77,7 @@ world.insert_resource(Time::default());
 
 let time = world.get_resource::<Time>().unwrap();
 
-// you can also access resources from Systems
+// You can also access resources from Systems
 fn print_time(time: Res<Time>) {
     println!("{}", time.seconds);
 }
@@ -174,7 +174,7 @@ fn system(query: Query<&Position, Added<Velocity>>) {
 Resources also expose change state:
 
 ```rust
-// Gets the Position component of all Entities whose Velocity has changed since the last run of the System
+// Prints "time changed!" if the Time resource has changed since the last run of the System
 fn system(time: Res<Time>) {
     if time.is_changed() {
         println!("time changed!");
@@ -193,7 +193,7 @@ Components can be stored in:
 * **Tables**: Fast and cache friendly iteration, but slower adding and removing of components. This is the default storage type.
 * **Sparse Sets**: Fast adding and removing of components, but slower iteration.
 
-Component storage types are configurable and they default to table storage if the storage is not manually defined. The [`component_storage.rs`](examples/component_storage.rs) example shows how to configure the storage type for a component.
+Component storage types are configurable, and they default to table storage if the storage is not manually defined. The [`component_storage.rs`](examples/component_storage.rs) example shows how to configure the storage type for a component.
 
 ```rust
 // store Position components in Sparse Sets
@@ -212,6 +212,7 @@ struct PlayerBundle {
     velocity: Velocity,
 }
 
+// Spawn a new entity and insert the default PlayerBundle
 world.spawn().insert_bundle(PlayerBundle::default());
 
 // Bundles play well with Rust's struct update syntax
