@@ -2,6 +2,7 @@ use crate::component::{Component, ComponentTicks};
 use bevy_reflect::Reflect;
 use std::ops::{Deref, DerefMut};
 
+/// Types that implement reliable change detection.
 pub trait ChangeDetectable {
     /// Returns true if (and only if) this value been added since the last execution of this
     /// system.
@@ -21,8 +22,7 @@ pub trait ChangeDetectable {
 
 macro_rules! change_detection_impl {
     ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
-        impl<$($generics),* $(: $traits)?> ChangeDetectable for $name<$($generics),*>
-        {
+        impl<$($generics),* $(: $traits)?> ChangeDetectable for $name<$($generics),*> {
             #[inline]
             fn is_added(&self) -> bool {
                 self.ticks
@@ -45,8 +45,7 @@ macro_rules! change_detection_impl {
             }
         }
 
-        impl<$($generics),* $(: $traits)?> Deref for $name<$($generics),*>
-        {
+        impl<$($generics),* $(: $traits)?> Deref for $name<$($generics),*> {
             type Target = $target;
 
             #[inline]
@@ -55,8 +54,7 @@ macro_rules! change_detection_impl {
             }
         }
 
-        impl<$($generics),* $(: $traits)?> DerefMut for $name<$($generics),*>
-        {
+        impl<$($generics),* $(: $traits)?> DerefMut for $name<$($generics),*> {
             #[inline]
             fn deref_mut(&mut self) -> &mut Self::Target {
                 self.set_changed();
@@ -64,16 +62,14 @@ macro_rules! change_detection_impl {
             }
         }
 
-        impl<$($generics),* $(: $traits)?> AsRef<$target> for $name<$($generics),*>
-        {
+        impl<$($generics),* $(: $traits)?> AsRef<$target> for $name<$($generics),*> {
             #[inline]
             fn as_ref(&self) -> &$target {
                 self.deref()
             }
         }
 
-        impl<$($generics),* $(: $traits)?> AsMut<$target> for $name<$($generics),*>
-        {
+        impl<$($generics),* $(: $traits)?> AsMut<$target> for $name<$($generics),*> {
             #[inline]
             fn as_mut(&mut self) -> &mut $target {
                 self.deref_mut()
@@ -84,9 +80,9 @@ macro_rules! change_detection_impl {
 
 macro_rules! impl_into_inner {
     ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
-        impl<$($generics),* $(: $traits)?> $name<$($generics),*>
-        {
-            /// Consume `self` and return the contained value while marking `self` as "changed".
+        impl<$($generics),* $(: $traits)?> $name<$($generics),*> {
+            /// Consume `self` and return a mutable reference to the
+            /// contained value while marking `self` as "changed".
             #[inline]
             pub fn into_inner(mut self) -> &'a mut $target {
                 self.set_changed();
@@ -117,11 +113,11 @@ pub(crate) struct Ticks<'a> {
     pub(crate) change_tick: u32,
 }
 
-/// Unique borrow of a resource.
+/// Unique mutable borrow of a resource.
 ///
 /// # Panics
 ///
-/// Panics when used as a [`SystemParameter`](SystemParam) if the resource does not exist.
+/// Panics when used as a [`SystemParameter`](crate::system::SystemParam) if the resource does not exist.
 ///
 /// Use `Option<ResMut<T>>` instead if the resource might not always exist.
 pub struct ResMut<'a, T: Component> {
@@ -133,7 +129,7 @@ change_detection_impl!(ResMut<'a, T>, T, Component);
 impl_into_inner!(ResMut<'a, T>, T, Component);
 impl_debug!(ResMut<'a, T>, Component);
 
-/// Unique borrow of an entity's component
+/// Unique mutable borrow of an entity's component
 pub struct Mut<'a, T> {
     pub(crate) value: &'a mut T,
     pub(crate) ticks: Ticks<'a>,
@@ -143,7 +139,7 @@ change_detection_impl!(Mut<'a, T>, T,);
 impl_into_inner!(Mut<'a, T>, T,);
 impl_debug!(Mut<'a, T>,);
 
-/// Unique borrow of a Reflected component
+/// Unique mutable borrow of a Reflected component
 pub struct ReflectMut<'a> {
     pub(crate) value: &'a mut dyn Reflect,
     pub(crate) ticks: Ticks<'a>,
