@@ -398,7 +398,7 @@ impl<T: Component> Command for RemoveResource<T> {
 }
 
 pub struct RunSystem {
-    system: Mutex<RefCell<Box<dyn System<In = (), Out = ()>>>>,
+    pub system: Mutex<RefCell<Box<dyn System<In = (), Out = ()>>>>,
 }
 
 impl Command for RunSystem {
