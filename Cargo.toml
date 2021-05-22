@@ -302,6 +302,10 @@ name = "system_chaining"
 path = "examples/ecs/system_chaining.rs"
 
 [[example]]
+name = "system_command"
+path = "examples/ecs/system_command.rs"
+
+[[example]]
 name = "system_param"
 path = "examples/ecs/system_param.rs"
 
