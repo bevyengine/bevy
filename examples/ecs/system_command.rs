@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+
 /// This example triggers a system from a command
 fn main() {
     App::build()
