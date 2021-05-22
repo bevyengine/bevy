@@ -5,7 +5,10 @@ use crate::{
     world::World,
 };
 use bevy_utils::tracing::debug;
-use std::marker::PhantomData;
+use parking_lot::Mutex;
+use std::{cell::RefCell, marker::PhantomData};
+
+use super::System;
 
 /// A [`World`] mutation.
 pub trait Command: Send + Sync + 'static {
@@ -175,6 +178,13 @@ impl<'a> Commands<'a> {
     pub fn remove_resource<T: Component>(&mut self) {
         self.queue.push(RemoveResource::<T> {
             phantom: PhantomData,
+        });
+    }
+
+    /// Run a one off [`System`].
+    pub fn run_system(&mut self, system: impl System<In = (), Out = ()>) {
+        self.queue.push(RunSystem {
+            system: Mutex::new(RefCell::new(Box::new(system))),
         });
     }
 
@@ -410,6 +420,19 @@ pub struct RemoveResource<T: Component> {
 impl<T: Component> Command for RemoveResource<T> {
     fn write(self: Box<Self>, world: &mut World) {
         world.remove_resource::<T>();
+    }
+}
+
+pub struct RunSystem {
+    system: Mutex<RefCell<Box<dyn System<In = (), Out = ()>>>>,
+}
+
+impl Command for RunSystem {
+    fn write(self: Box<Self>, world: &mut World) {
+        let lock = self.system.lock();
+        let mut system = lock.borrow_mut();
+        system.initialize(world);
+        system.run((), world);
     }
 }
 
