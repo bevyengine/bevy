@@ -154,7 +154,7 @@ impl<'a> Commands<'a> {
         });
     }
 
-    /// Run a one off [`System`].
+    /// Run a one-off [`System`].
     pub fn run_system(&mut self, system: impl System<In = (), Out = ()>) {
         self.queue.push(RunSystem {
             system: Box::new(system),
