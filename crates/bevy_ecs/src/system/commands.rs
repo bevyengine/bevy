@@ -5,7 +5,6 @@ use crate::{
     world::World,
 };
 use bevy_utils::tracing::debug;
-use parking_lot::Mutex;
 use std::marker::PhantomData;
 
 use super::System;
@@ -184,7 +183,7 @@ impl<'a> Commands<'a> {
     /// Run a one off [`System`].
     pub fn run_system(&mut self, system: impl System<In = (), Out = ()>) {
         self.queue.push(RunSystem {
-            system: Mutex::new(Box::new(system)),
+            system: Box::new(system),
         });
     }
 
@@ -424,14 +423,13 @@ impl<T: Component> Command for RemoveResource<T> {
 }
 
 pub struct RunSystem {
-    pub system: Mutex<Box<dyn System<In = (), Out = ()>>>,
+    pub system: Box<dyn System<In = (), Out = ()>>,
 }
 
 impl Command for RunSystem {
-    fn write(self: Box<Self>, world: &mut World) {
-        let mut system = self.system.lock();
-        system.initialize(world);
-        system.run((), world);
+    fn write(mut self: Box<Self>, world: &mut World) {
+        self.system.initialize(world);
+        self.system.run((), world);
     }
 }
 
