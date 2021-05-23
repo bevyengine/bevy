@@ -93,18 +93,6 @@ pub mod gltf {
     pub use bevy_gltf::*;
 }
 
-#[cfg(feature = "use-openxr")]
-pub mod openxr {
-    //! Support for OpenXR
-    pub use bevy_openxr::*;
-}
-
-#[cfg(feature = "use-openxr")]
-pub mod openxr_core {
-    //! Support for OpenXR
-    pub use bevy_openxr_core::*;
-}
-
 #[cfg(feature = "bevy_pbr")]
 pub mod pbr {
     //! Physically based rendering.
