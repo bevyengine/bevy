@@ -338,7 +338,9 @@ where
     T: Bundle + 'static,
 {
     fn write(self: Box<Self>, world: &mut World) {
-        world.entity_mut(self.entity).insert_bundle(self.bundle);
+        if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
+            entity_mut.insert_bundle(self.bundle);
+        }
     }
 }
 
@@ -353,7 +355,9 @@ where
     T: Component,
 {
     fn write(self: Box<Self>, world: &mut World) {
-        world.entity_mut(self.entity).insert(self.component);
+        if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
+            entity_mut.insert(self.component);
+        }
     }
 }
 
