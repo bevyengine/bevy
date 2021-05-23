@@ -15,7 +15,6 @@ keywords = ["bevy"]
 [features]
 default = ["bevy_winit"]
 trace = ["wgpu/trace"]
-use-openxr = ["wgpu/use-openxr"]
 
 [dependencies]
 # bevy

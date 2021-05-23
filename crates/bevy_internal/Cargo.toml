@@ -18,8 +18,6 @@ wgpu_trace = ["bevy_wgpu/trace"]
 trace = [ "bevy_app/trace", "bevy_ecs/trace" ]
 trace_chrome = [ "bevy_log/tracing-chrome" ]
 
-use-openxr = ["bevy_wgpu/use-openxr"]
-
 # Image format support for texture loading (PNG and HDR are enabled by default)
 hdr = ["bevy_render/hdr"]
 png = ["bevy_render/png"]

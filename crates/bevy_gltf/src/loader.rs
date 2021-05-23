@@ -481,9 +481,6 @@ fn load_node(
                 node.insert(orthographic_projection);
             }
             gltf::camera::Projection::Perspective(perspective) => {
-                if true {
-                    panic!("FIX THIS CODE PATH! Need to add XR camera here");
-                }
                 let mut perspective_projection: PerspectiveProjection = PerspectiveProjection {
                     fov: perspective.yfov(),
                     near: perspective.znear(),
