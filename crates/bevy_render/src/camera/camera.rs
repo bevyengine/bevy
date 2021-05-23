@@ -9,15 +9,16 @@ use bevy_ecs::{
 };
 use bevy_math::{Mat4, Vec2, Vec3};
 use bevy_reflect::{Reflect, ReflectDeserialize};
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, Reflect)]
 #[reflect(Component)]
 pub struct Camera {
-    pub projection_matrix: Mat4,
-    pub multiview_projection_matrices: Vec<Mat4>,
+    pub projection_matrices: Vec<Mat4>,
+    pub position_matrices: Vec<Mat4>,
+
     pub name: Option<String>,
     #[reflect(ignore)]
     pub window: WindowId,
@@ -52,7 +53,7 @@ impl Camera {
         let window_size = Vec2::new(window.width(), window.height());
         // Build a transform to convert from world to NDC using camera data
         let world_to_ndc: Mat4 =
-            self.projection_matrix * camera_transform.compute_matrix().inverse();
+            self.projection_matrices[0] * camera_transform.compute_matrix().inverse();
         let ndc_space_coords: Vec3 = world_to_ndc.project_point3(world_position);
         // NDC z-values outside of 0 < z < 1 are behind the camera and are thus not in screen space
         if ndc_space_coords.z < 0.0 || ndc_space_coords.z > 1.0 {
@@ -61,6 +62,13 @@ impl Camera {
         // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
         let screen_space_coords = (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * window_size;
         Some(screen_space_coords)
+    }
+
+    pub fn get_view_projection(&self, view_idx: usize) -> Option<Mat4> {
+        let projection_matrix = self.projection_matrices.get(view_idx)?;
+        let position = self.position_matrices.get(view_idx)?;
+
+        Some(*projection_matrix * position.inverse())
     }
 }
 
@@ -106,9 +114,11 @@ pub fn camera_system<T: CameraProjection + Component>(
                 || camera_projection.is_changed()
             {
                 camera_projection.update(window.width(), window.height());
-                camera.projection_matrix = camera_projection.get_projection_matrix();
+                camera.projection_matrices = vec![camera_projection.get_projection_matrix()];
                 camera.depth_calculation = camera_projection.depth_calculation();
             }
         }
     }
 }
+
+// FIXME: add a system to update Camera.position_matrices based on GlobalTransform?

@@ -36,7 +36,7 @@ pub trait Node: Downcast + Send + Sync + 'static {
     /// on all nodes.
     fn update(
         &mut self,
-        world: &mut World,
+        world: &World,
         render_context: &mut dyn RenderContext,
         input: &ResourceSlots,
         output: &mut ResourceSlots,
@@ -182,6 +182,13 @@ impl NodeState {
         }
 
         Ok(())
+    }
+
+    pub fn replace_node<T>(&mut self, node: T)
+    where
+        T: Node,
+    {
+        self.node = Box::new(node);
     }
 }
 

@@ -266,11 +266,17 @@ impl XRSwapchain {
 
     /// Finalizes the swapchain update - will tell openxr that GPU has rendered to textures
     pub fn finalize_update(&mut self, handles: &mut OpenXRHandles) {
+        // Take the next frame state
+        let next_frame_state = match self.next_frame_state.take() {
+            Some(nfst) => nfst,
+            None => {
+                warn!("NO NEXT FRAME");
+                return;
+            }
+        };
+
         // "Release the oldest acquired image"
         self.sc_handle.release_image().unwrap();
-
-        // Take the next frame state
-        let next_frame_state = self.next_frame_state.take().unwrap();
 
         // FIXME views acquisition should probably occur somewhere else - timing problem?
         // FIXME is there a problem now, if the rendering uses different camera positions than what's used at openxr?

@@ -9,7 +9,6 @@ use crate::{
 use bevy_asset::{Asset, Assets, Handle, HandleUntyped};
 use bevy_window::Window;
 use downcast_rs::{impl_downcast, Downcast};
-use wgpu::TextureView;
 use std::ops::Range;
 
 pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
@@ -107,8 +106,6 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
             .collect();
         PipelineLayout::from_shader_layouts(&mut shader_layouts)
     }
-
-    fn add_texture_view(&self, id: TextureId, view: TextureView);
 }
 
 impl dyn RenderResourceContext {

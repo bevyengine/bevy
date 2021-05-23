@@ -1,3 +1,5 @@
+use bevy_transform::components::Transform;
+
 use crate::View;
 
 #[derive(Debug)]
@@ -26,4 +28,9 @@ pub struct XRViewSurfaceCreated {
 #[derive(Debug)]
 pub struct XRViewsCreated {
     pub views: Vec<View>,
+}
+
+#[derive(Debug)]
+pub struct XRCameraTransformsUpdated {
+    pub transforms: Vec<Transform>,
 }

@@ -475,7 +475,7 @@ fn load_node(
 
                 node.insert(Camera {
                     name: Some(base::camera::CAMERA_2D.to_owned()),
-                    projection_matrix: orthographic_projection.get_projection_matrix(),
+                    projection_matrices: vec![orthographic_projection.get_projection_matrix()],
                     ..Default::default()
                 });
                 node.insert(orthographic_projection);
@@ -497,10 +497,9 @@ fn load_node(
                 }
                 node.insert(Camera {
                     name: Some(base::camera::CAMERA_3D.to_owned()),
-                    projection_matrix: perspective_projection.get_projection_matrix(),
+                    projection_matrices: vec![perspective_projection.get_projection_matrix()],
                     ..Default::default()
                 });
-                // FIXME how to differentiate between CAMERA_XR and CAMERA_3D?
                 node.insert(perspective_projection);
             }
         }

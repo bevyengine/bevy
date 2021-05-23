@@ -11,7 +11,6 @@ use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_utils::HashMap;
 use bevy_window::Window;
 use parking_lot::RwLock;
-use wgpu::TextureView;
 use std::{ops::Range, sync::Arc};
 
 #[derive(Debug, Default)]
@@ -172,6 +171,4 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
     }
 
     fn remove_stale_bind_groups(&self) {}
-
-    fn add_texture_view(&self, _id: TextureId, _view: TextureView) {}
 }

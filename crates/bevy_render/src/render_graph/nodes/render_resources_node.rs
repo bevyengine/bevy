@@ -386,7 +386,7 @@ where
 {
     fn update(
         &mut self,
-        _world: &mut World,
+        _world: &World,
         render_context: &mut dyn RenderContext,
         _input: &ResourceSlots,
         _output: &mut ResourceSlots,
@@ -569,7 +569,7 @@ where
 {
     fn update(
         &mut self,
-        _world: &mut World,
+        _world: &World,
         render_context: &mut dyn RenderContext,
         _input: &ResourceSlots,
         _output: &mut ResourceSlots,

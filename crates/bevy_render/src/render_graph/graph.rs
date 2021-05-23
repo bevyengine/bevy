@@ -74,6 +74,25 @@ impl RenderGraph {
             .ok_or(RenderGraphError::InvalidNode(label))
     }
 
+    pub fn replace_node<T>(
+        &mut self,
+        label: impl Into<NodeLabel>,
+        node: T,
+    ) -> Result<(), RenderGraphError>
+    where
+        T: Node,
+    {
+        let label = label.into();
+        let node_id = self.get_node_id(&label)?;
+        let node_state = self
+            .nodes
+            .get_mut(&node_id)
+            .ok_or(RenderGraphError::InvalidNode(label))?;
+
+        node_state.replace_node(node);
+        Ok(())
+    }
+
     pub fn get_node_id(&self, label: impl Into<NodeLabel>) -> Result<NodeId, RenderGraphError> {
         let label = label.into();
         match label {
@@ -346,7 +365,7 @@ mod tests {
 
         fn update(
             &mut self,
-            _: &mut World,
+            _: &World,
             _: &mut dyn RenderContext,
             _: &ResourceSlots,
             _: &mut ResourceSlots,
@@ -419,7 +438,7 @@ mod tests {
         impl Node for MyNode {
             fn update(
                 &mut self,
-                _: &mut World,
+                _: &World,
                 _: &mut dyn RenderContext,
                 _: &ResourceSlots,
                 _: &mut ResourceSlots,

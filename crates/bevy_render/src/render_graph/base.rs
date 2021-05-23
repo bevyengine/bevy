@@ -1,6 +1,6 @@
 use super::{
     CameraNode, PassNode, RenderGraph, SharedBuffersNode, TextureCopyNode, WindowSwapChainNode,
-    WindowTextureNode, XRWindowTextureNode,
+    WindowTextureNode,
 };
 use crate::{
     pass::{
@@ -13,9 +13,6 @@ use crate::{
 use bevy_ecs::{reflect::ReflectComponent, world::World};
 use bevy_reflect::Reflect;
 use bevy_window::WindowId;
-
-#[cfg(feature = "use-openxr")]
-use super::XRSwapchainNode;
 
 /// A component that indicates that an entity should be drawn in the "main pass"
 #[derive(Clone, Debug, Default, Reflect)]
@@ -60,7 +57,6 @@ impl Msaa {
 pub struct BaseRenderGraphConfig {
     pub add_2d_camera: bool,
     pub add_3d_camera: bool,
-    pub add_xr_camera: bool,
     pub add_main_depth_texture: bool,
     pub add_main_pass: bool,
     pub connect_main_pass_to_swapchain: bool,
@@ -69,7 +65,6 @@ pub struct BaseRenderGraphConfig {
 
 pub mod node {
     pub const PRIMARY_SWAP_CHAIN: &str = "swapchain";
-    pub const CAMERA_XR: &str = "camera_xr";
     pub const CAMERA_3D: &str = "camera_3d";
     pub const CAMERA_2D: &str = "camera_2d";
     pub const TEXTURE_COPY: &str = "texture_copy";
@@ -80,7 +75,6 @@ pub mod node {
 }
 
 pub mod camera {
-    pub const CAMERA_XR: &str = "CameraXr";
     pub const CAMERA_3D: &str = "Camera3d";
     pub const CAMERA_2D: &str = "Camera2d";
 }
@@ -90,7 +84,6 @@ impl Default for BaseRenderGraphConfig {
         BaseRenderGraphConfig {
             add_2d_camera: true,
             add_3d_camera: true,
-            add_xr_camera: false,
             add_main_pass: true,
             add_main_depth_texture: true,
             connect_main_pass_to_swapchain: true,
@@ -108,11 +101,6 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
     let msaa = world.get_resource::<Msaa>().unwrap();
 
     graph.add_node(node::TEXTURE_COPY, TextureCopyNode::default());
-
-    if config.add_xr_camera {
-        graph.add_system_node(node::CAMERA_XR, CameraNode::new(camera::CAMERA_XR));
-    }
-
     if config.add_3d_camera {
         graph.add_system_node(node::CAMERA_3D, CameraNode::new(camera::CAMERA_3D));
     }
@@ -123,30 +111,25 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
 
     graph.add_node(node::SHARED_BUFFERS, SharedBuffersNode::default());
     if config.add_main_depth_texture {
-        let texture_descriptor = TextureDescriptor {
-            size: Extent3d {
-                depth_or_array_layers: 1,
-                width: 1,
-                height: 1,
-            },
-            mip_level_count: 1,
-            sample_count: msaa.samples,
-            dimension: TextureDimension::D2,
-            format: TextureFormat::Depth32Float, // PERF: vulkan docs recommend using 24 bit depth for better performance
-            usage: TextureUsage::OUTPUT_ATTACHMENT,
-        };
-
-        if config.add_xr_camera {
-            graph.add_node(
-                node::MAIN_DEPTH_TEXTURE,
-                XRWindowTextureNode::new(texture_descriptor),
-            );
-        } else {
-            graph.add_node(
-                node::MAIN_DEPTH_TEXTURE,
-                WindowTextureNode::new(WindowId::primary(), texture_descriptor),
-            );
-        }
+        graph.add_node(
+            node::MAIN_DEPTH_TEXTURE,
+            WindowTextureNode::new(
+                WindowId::primary(),
+                TextureDescriptor {
+                    size: Extent3d {
+                        depth_or_array_layers: 1,
+                        width: 1,
+                        height: 1,
+                    },
+                    mip_level_count: 1,
+                    sample_count: msaa.samples,
+                    dimension: TextureDimension::D2,
+                    format: TextureFormat::Depth32Float, /* PERF: vulkan docs recommend using 24
+                                                          *  bit depth for better performance */
+                    usage: TextureUsage::OUTPUT_ATTACHMENT,
+                },
+            ),
+        );
     }
 
     if config.add_main_pass {
@@ -172,10 +155,6 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
 
         main_pass_node.use_default_clear_color(0);
 
-        if config.add_xr_camera {
-            main_pass_node.add_camera(camera::CAMERA_XR);
-        }
-
         if config.add_3d_camera {
             main_pass_node.add_camera(camera::CAMERA_3D);
         }
@@ -199,12 +178,6 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
                 .unwrap();
         }
 
-        if config.add_xr_camera {
-            graph
-                .add_node_edge(node::CAMERA_XR, node::MAIN_PASS)
-                .unwrap();
-        }
-
         if config.add_2d_camera {
             graph
                 .add_node_edge(node::CAMERA_2D, node::MAIN_PASS)
@@ -212,18 +185,10 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
         }
     }
 
-    if config.add_xr_camera {
-        #[cfg(feature = "use-openxr")]
-        {
-            graph.add_node(node::PRIMARY_SWAP_CHAIN, XRSwapchainNode::new());
-        }
-        // FIXME else panic?
-    } else {
-        graph.add_node(
-            node::PRIMARY_SWAP_CHAIN,
-            WindowSwapChainNode::new(WindowId::primary()),
-        );
-    }
+    graph.add_node(
+        node::PRIMARY_SWAP_CHAIN,
+        WindowSwapChainNode::new(WindowId::primary()),
+    );
 
     if config.connect_main_pass_to_swapchain {
         graph
@@ -241,30 +206,24 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
     }
 
     if msaa.samples > 1 {
-        let texture_descriptor = TextureDescriptor {
-            size: Extent3d {
-                depth_or_array_layers: 1,
-                width: 1,
-                height: 1,
-            },
-            mip_level_count: 1,
-            sample_count: msaa.samples,
-            dimension: TextureDimension::D2,
-            format: TextureFormat::default(),
-            usage: TextureUsage::OUTPUT_ATTACHMENT,
-        };
-
-        if config.add_xr_camera {
-            graph.add_node(
-                node::MAIN_SAMPLED_COLOR_ATTACHMENT,
-                XRWindowTextureNode::new(texture_descriptor),
-            );
-        } else {
-            graph.add_node(
-                node::MAIN_SAMPLED_COLOR_ATTACHMENT,
-                WindowTextureNode::new(WindowId::primary(), texture_descriptor),
-            );
-        }
+        graph.add_node(
+            node::MAIN_SAMPLED_COLOR_ATTACHMENT,
+            WindowTextureNode::new(
+                WindowId::primary(),
+                TextureDescriptor {
+                    size: Extent3d {
+                        depth_or_array_layers: 1,
+                        width: 1,
+                        height: 1,
+                    },
+                    mip_level_count: 1,
+                    sample_count: msaa.samples,
+                    dimension: TextureDimension::D2,
+                    format: TextureFormat::default(),
+                    usage: TextureUsage::OUTPUT_ATTACHMENT,
+                },
+            ),
+        );
 
         graph
             .add_slot_edge(

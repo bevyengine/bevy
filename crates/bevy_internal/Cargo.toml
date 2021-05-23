@@ -18,7 +18,7 @@ wgpu_trace = ["bevy_wgpu/trace"]
 trace = [ "bevy_app/trace", "bevy_ecs/trace" ]
 trace_chrome = [ "bevy_log/tracing-chrome" ]
 
-use-openxr = ["bevy_wgpu/use-openxr", "bevy_render/use-openxr", "bevy_openxr", "bevy_openxr_core"]
+use-openxr = ["bevy_wgpu/use-openxr", "bevy_openxr", "bevy_openxr_core"]
 
 # Image format support for texture loading (PNG and HDR are enabled by default)
 hdr = ["bevy_render/hdr"]
@@ -74,7 +74,7 @@ bevy_openxr_core = { path = "../bevy_openxr_core", optional = true, version = "0
 bevy_sprite = { path = "../bevy_sprite", optional = true, version = "0.5.0" }
 bevy_text = { path = "../bevy_text", optional = true, version = "0.5.0" }
 bevy_ui = { path = "../bevy_ui", optional = true, version = "0.5.0" }
-bevy_wgpu = { path = "../bevy_wgpu", optional = true, version = "0.5.0" }
+bevy_wgpu = { path = "../bevy_wgpu", optional = true, default-features = false, version = "0.5.0" }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.5.0" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.5.0" }
 

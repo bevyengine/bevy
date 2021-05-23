@@ -308,7 +308,7 @@ mod tests {
 
         fn update(
             &mut self,
-            _: &mut World,
+            _: &World,
             _: &mut dyn RenderContext,
             _: &ResourceSlots,
             _: &mut ResourceSlots,

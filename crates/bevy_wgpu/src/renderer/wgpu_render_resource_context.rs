@@ -240,6 +240,11 @@ impl WgpuRenderResourceContext {
         swap_chain_outputs.insert(id, next_texture);
         Some(id)
     }
+
+    pub fn add_wgpu_texture_view(&self, id: TextureId, view: TextureView) {
+        let mut texture_views = self.resources.texture_views.write();
+        texture_views.insert(id, view);
+    }
 }
 
 impl RenderResourceContext for WgpuRenderResourceContext {
@@ -690,10 +695,5 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             source: ShaderSource::Spirv(spirv_data),
             ..*shader
         })
-    }
-
-    fn add_texture_view(&self, id: TextureId, view: TextureView) {
-        let mut texture_views = self.resources.texture_views.write();
-        texture_views.insert(id, view);
     }
 }

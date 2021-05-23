@@ -51,7 +51,10 @@ impl XRDevice {
             .get_hand_positions(&mut self.inner.handles)
     }
 
-    pub fn prepare_update(&mut self, device: &Arc<wgpu::Device>) -> XRState {
+    pub fn prepare_update(
+        &mut self,
+        device: &Arc<wgpu::Device>,
+    ) -> (XRState, Option<Vec<wgpu::TextureView>>) {
         // construct swapchain at first call
         if self.swapchain.is_none() {
             let mut swapchain = XRSwapchain::new(device.clone(), &mut self.inner);
@@ -94,14 +97,20 @@ impl XRDevice {
             // what will happen after this: event will be sent about xr view, XRWindowTextureNode will configure itself at next frame
             // and after that all will be okay
             // this doesn't actually work on all cases... have to investigate
-            return XRState::SkipFrame;
+            return (
+                XRState::SkipFrame,
+                Some(self.swapchain.as_mut().unwrap().take_texture_views()),
+            );
         }
 
         // call swapchain update
-        self.swapchain
-            .as_mut()
-            .unwrap()
-            .prepare_update(&mut self.inner.handles)
+        (
+            self.swapchain
+                .as_mut()
+                .unwrap()
+                .prepare_update(&mut self.inner.handles),
+            None,
+        )
     }
 
     pub fn get_view_positions(&mut self) -> Option<Vec<Transform>> {

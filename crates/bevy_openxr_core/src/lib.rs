@@ -28,11 +28,13 @@ impl Plugin for OpenXRCorePlugin {
         let xr_device = xr_instance.into_device_with_options(options);
 
         app.insert_resource(xr_device)
-            .add_system(openxr_event_system.system())
             .add_event::<event::XRState>()
             .add_event::<event::XRViewSurfaceCreated>()
             .add_event::<event::XRViewsCreated>()
+            .add_event::<event::XRCameraTransformsUpdated>()
+            .init_resource::<XRConfigurationState>()
             .init_resource::<hand_tracking::HandPoseState>()
+            .add_system_to_stage(CoreStage::PreUpdate, openxr_event_system.system())
             .add_system(xr_event_debug.system())
             .set_runner(runner::xr_runner); // FIXME conditional, or extract xr_events to whole new system? probably good
     }
@@ -128,6 +130,7 @@ impl OpenXRStruct {
                         openxr::SessionState::STOPPING => {
                             self.handles.session.end().unwrap();
                             self.change_state(XRState::Paused, &mut state_changed);
+                            std::process::exit(0); // FIXME should remove this
                         }
                         // XR Docs:
                         // EXITING: The application should end its XR experience and not automatically restart it.
@@ -217,4 +220,11 @@ impl From<openxr::sys::Result> for Error {
     fn from(e: openxr::sys::Result) -> Self {
         Error::XR(e)
     }
+}
+
+#[derive(Default)]
+pub struct XRConfigurationState {
+    // option, because these will be taken away
+    pub texture_views: Option<Vec<wgpu::TextureView>>,
+    pub next_swap_chain_index: usize,
 }

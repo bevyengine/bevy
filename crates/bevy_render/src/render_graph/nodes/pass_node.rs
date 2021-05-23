@@ -208,7 +208,7 @@ where
 
     fn update(
         &mut self,
-        world: &mut World,
+        world: &World,
         render_context: &mut dyn RenderContext,
         input: &ResourceSlots,
         _output: &mut ResourceSlots,

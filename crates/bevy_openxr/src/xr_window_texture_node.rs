@@ -1,11 +1,11 @@
-use crate::{
+use bevy_app::{Events, ManualEventReader};
+use bevy_ecs::world::World;
+use bevy_openxr_core::event::XRViewSurfaceCreated;
+use bevy_render::{
     render_graph::{Node, ResourceSlotInfo, ResourceSlots, WindowTextureNode},
     renderer::{RenderContext, RenderResourceId, RenderResourceType},
     texture::TextureDescriptor,
 };
-use bevy_app::{Events, ManualEventReader};
-use bevy_ecs::world::World;
-use bevy_openxr_core::event::XRViewSurfaceCreated;
 use std::borrow::Cow;
 
 /// MAIN_SAMPLED_COLOR_ATTACHMENT node in OpenXR implementation, used instead of `WindowTextureNode`
@@ -35,7 +35,7 @@ impl Node for XRWindowTextureNode {
 
     fn update(
         &mut self,
-        world: &mut World,
+        world: &World,
         render_context: &mut dyn RenderContext,
         _input: &ResourceSlots,
         output: &mut ResourceSlots,

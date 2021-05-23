@@ -26,6 +26,10 @@ impl WindowTextureNode {
             window_resized_event_reader: Default::default(),
         }
     }
+
+    pub fn descriptor(&self) -> &TextureDescriptor {
+        &self.descriptor
+    }
 }
 
 impl Node for WindowTextureNode {
@@ -39,7 +43,7 @@ impl Node for WindowTextureNode {
 
     fn update(
         &mut self,
-        world: &mut World,
+        world: &World,
         render_context: &mut dyn RenderContext,
         _input: &ResourceSlots,
         output: &mut ResourceSlots,

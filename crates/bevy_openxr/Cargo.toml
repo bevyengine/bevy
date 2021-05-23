@@ -23,11 +23,12 @@ bevy_math = { path = "../bevy_math", version = "0.5.0" }
 bevy_openxr_core = { path = "../bevy_openxr_core", version = "0.5.0" }
 bevy_pbr = { path = "../bevy_pbr", version = "0.5.0" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.5.0" }
-bevy_render = { path = "../bevy_render", version = "0.5.0", features = ["use-openxr"] }
+bevy_render = { path = "../bevy_render", version = "0.5.0" }
 bevy_scene = { path = "../bevy_scene", version = "0.5.0" } # FIXME not really needed, except for plugin order
 bevy_transform = { path = "../bevy_transform", version = "0.5.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
 bevy_wgpu = { path = "../bevy_wgpu", version = "0.5.0", default-features = false, features = ["use-openxr"] }
+bevy_window = { path = "../bevy_window", version = "0.5.0" }
 
 # other
 openxr = { path = "../../../openxrs/openxr", features = ["loaded"], default-features = false }

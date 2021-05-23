@@ -2,7 +2,7 @@ use bevy_app::{EventWriter, Events};
 use bevy_ecs::system::ResMut;
 
 use crate::{
-    event::{XREvent, XRState, XRViewSurfaceCreated, XRViewsCreated},
+    event::{XRCameraTransformsUpdated, XREvent, XRState, XRViewSurfaceCreated, XRViewsCreated},
     hand_tracking::HandPoseState,
     XRDevice,
 };
@@ -14,6 +14,7 @@ pub(crate) fn openxr_event_system(
 
     mut view_surface_created_sender: EventWriter<XRViewSurfaceCreated>,
     mut views_created_sender: EventWriter<XRViewsCreated>,
+    mut camera_transforms_updated: EventWriter<XRCameraTransformsUpdated>,
 ) {
     // TODO add this drain -system as pre-render and post-render system?
     for event in openxr.drain_events() {
@@ -40,5 +41,9 @@ pub(crate) fn openxr_event_system(
     // FIXME this should be in before-other-systems system? so that all systems can use hand pose data...
     if let Some(hp) = openxr.get_hand_positions() {
         *hand_pose = hp;
+    }
+
+    if let Some(transforms) = openxr.get_view_positions() {
+        camera_transforms_updated.send(XRCameraTransformsUpdated { transforms });
     }
 }

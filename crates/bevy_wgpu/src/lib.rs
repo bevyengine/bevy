@@ -14,13 +14,12 @@ use bevy_ecs::{
     system::{IntoExclusiveSystem, IntoSystem},
     world::World,
 };
-use bevy_render::{
-    renderer::{shared_buffers_update_system, RenderResourceContext, SharedBuffers},
-    RenderStage,
-};
+use bevy_render::renderer::{shared_buffers_update_system, RenderResourceContext, SharedBuffers};
 use futures_lite::future;
 use renderer::WgpuRenderResourceContext;
-use std::borrow::Cow;
+use std::{borrow::Cow, sync::Arc};
+
+pub use bevy_render::RenderStage;
 
 #[derive(Clone, Copy)]
 pub enum WgpuFeature {
@@ -124,9 +123,24 @@ pub fn get_wgpu_render_system(world: &mut World) -> impl FnMut(&mut World) {
     let resource_context = WgpuRenderResourceContext::new(wgpu_renderer.device.clone());
     world.insert_resource::<Box<dyn RenderResourceContext>>(Box::new(resource_context));
     world.insert_resource(SharedBuffers::new(4096));
+    world.insert_resource(WgpuRendererHandles {
+        device: wgpu_renderer.device.clone(),
+    });
+    world.insert_resource(WgpuRenderState {
+        should_render: true,
+    });
+
     move |world| {
         wgpu_renderer.update(world);
     }
+}
+
+pub struct WgpuRendererHandles {
+    pub device: Arc<wgpu::Device>,
+}
+
+pub struct WgpuRenderState {
+    pub should_render: bool,
 }
 
 #[derive(Default, Clone)]

@@ -1,6 +1,6 @@
 use crate::{
     camera::{ActiveCameras, Camera},
-    render_graph::{base::camera::CAMERA_XR, CommandQueue, Node, ResourceSlots, SystemNode},
+    render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     renderer::{
         BufferId, BufferInfo, BufferMapMode, BufferUsage, RenderContext, RenderResourceBinding,
         RenderResourceContext,
@@ -12,12 +12,7 @@ use bevy_ecs::{
     world::World,
 };
 
-#[cfg(feature = "use-openxr")]
-use bevy_openxr_core::{math::XRMatrixComputation, XRDevice};
-
-// use bevy_math::{Mat4, Quat, Vec4};
 use bevy_transform::prelude::*;
-use bevy_utils::tracing::warn;
 use std::borrow::Cow;
 
 #[derive(Debug)]
@@ -41,7 +36,7 @@ impl CameraNode {
 impl Node for CameraNode {
     fn update(
         &mut self,
-        _world: &mut World,
+        _world: &World,
         render_context: &mut dyn RenderContext,
         _input: &ResourceSlots,
         _output: &mut ResourceSlots,
@@ -74,7 +69,8 @@ pub struct CameraNodeState {
     staging_buffer: Option<BufferId>,
 }
 
-const MATRIX_SIZE_VIEW_PROJS: usize = std::mem::size_of::<[[[f32; 4]; 4]; 2]>();
+const VIEW_PROJ_COUNT: usize = 2;
+const VIEW_PROJS_SIZE: usize = std::mem::size_of::<[[[f32; 4]; 4]; VIEW_PROJ_COUNT]>();
 const MATRIX_SIZE: usize = std::mem::size_of::<[[f32; 4]; 4]>();
 const VEC4_SIZE: usize = std::mem::size_of::<[f32; 4]>();
 
@@ -82,7 +78,6 @@ pub fn camera_node_system(
     mut state: Local<CameraNodeState>,
     mut active_cameras: ResMut<ActiveCameras>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
-    #[cfg(feature = "use-openxr")] mut xr_device: ResMut<XRDevice>,
     mut query: Query<(&Camera, &GlobalTransform)>,
 ) {
     let render_resource_context = &**render_resource_context;
@@ -105,7 +100,7 @@ pub fn camera_node_system(
         let staging_buffer = render_resource_context.create_buffer(BufferInfo {
             size:
                 // ViewProj
-                MATRIX_SIZE_VIEW_PROJS +
+                VIEW_PROJS_SIZE +
                 // View
                 MATRIX_SIZE +
                 // Position
@@ -120,7 +115,7 @@ pub fn camera_node_system(
 
     if bindings.get(CAMERA_VIEW_PROJ).is_none() {
         let buffer = render_resource_context.create_buffer(BufferInfo {
-            size: MATRIX_SIZE_VIEW_PROJS,
+            size: VIEW_PROJS_SIZE,
             buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
             ..Default::default()
         });
@@ -129,7 +124,7 @@ pub fn camera_node_system(
             CAMERA_VIEW_PROJ,
             RenderResourceBinding::Buffer {
                 buffer,
-                range: 0..MATRIX_SIZE_VIEW_PROJS as u64,
+                range: 0..VIEW_PROJS_SIZE as u64,
                 dynamic_index: None,
             },
         );
@@ -189,58 +184,30 @@ pub fn camera_node_system(
     }
 
     if let Some(RenderResourceBinding::Buffer { buffer, .. }) = bindings.get(CAMERA_VIEW_PROJ) {
-        let range = offset..(offset + MATRIX_SIZE_VIEW_PROJS as u64);
+        let range = offset..(offset + VIEW_PROJS_SIZE as u64);
 
-        if state.camera_name == CAMERA_XR {
-            // FIXME: the positions should come in as events, that are pulled before
-            // FIXME: or instead, the camera should contain another struct that'll contain positions
-            //        that are set beforehand
-            #[cfg(feature = "use-openxr")]
-            if let Some(positions) = xr_device.get_view_positions() {
-                // FIXME handle array length
-                if positions.len() == 2 && camera.multiview_projection_matrices.len() == 2 {
-                    let camera_matrix_left: [f32; 16] = (camera.multiview_projection_matrices[0]
-                        * positions[0].compute_xr_matrix().inverse())
-                    .to_cols_array();
-
-                    let camera_matrix_right: [f32; 16] = (camera.multiview_projection_matrices[1]
-                        * positions[1].compute_xr_matrix().inverse())
-                    .to_cols_array();
-
-                    render_resource_context.write_mapped_buffer(
-                        staging_buffer,
-                        range,
-                        &mut |data, _renderer| {
-                            data[0..MATRIX_SIZE_VIEW_PROJS / 2]
-                                .copy_from_slice(camera_matrix_left.as_bytes());
-                            data[MATRIX_SIZE_VIEW_PROJS / 2..]
-                                .copy_from_slice(camera_matrix_right.as_bytes());
-                        },
-                    );
-                } else {
-                    warn!("XR view_positions len wasn't 2")
+        render_resource_context.write_mapped_buffer(
+            staging_buffer,
+            range,
+            &mut |data, _renderer| {
+                for i in 0..VIEW_PROJ_COUNT {
+                    if let Some(view_proj) = camera.get_view_projection(i) {
+                        data[i * (VIEW_PROJS_SIZE / VIEW_PROJ_COUNT)
+                            ..(i + 1) * VIEW_PROJS_SIZE / VIEW_PROJ_COUNT]
+                            .copy_from_slice(view_proj.to_cols_array_2d().as_bytes());
+                    }
                 }
-            }
-        } else {
-            let view_proj = camera.projection_matrix * view.inverse();
-            render_resource_context.write_mapped_buffer(
-                staging_buffer,
-                range,
-                &mut |data, _renderer| {
-                    data[0..MATRIX_SIZE_VIEW_PROJS]
-                        .copy_from_slice(view_proj.to_cols_array_2d().as_bytes());
-                },
-            );
-        }
+            },
+        );
 
         state.command_queue.copy_buffer_to_buffer(
             staging_buffer,
             offset,
             *buffer,
             0,
-            MATRIX_SIZE_VIEW_PROJS as u64,
+            VIEW_PROJS_SIZE as u64,
         );
-        offset += MATRIX_SIZE_VIEW_PROJS as u64;
+        offset += VIEW_PROJS_SIZE as u64;
     }
 
     if let Some(RenderResourceBinding::Buffer { buffer, .. }) = bindings.get(CAMERA_POSITION) {

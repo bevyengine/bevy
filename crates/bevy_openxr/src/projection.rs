@@ -1,10 +1,12 @@
 use bevy_ecs::bundle::Bundle;
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_math::Mat4;
-use bevy_openxr_core::XrFovf;
+use bevy_openxr_core::{View, XrFovf};
 use bevy_reflect::Reflect;
-use bevy_render::camera::{Camera, CameraProjection, DepthCalculation, VisibleEntities};
-use bevy_render::render_graph::base::camera::CAMERA_XR;
+use bevy_render::{
+    camera::{Camera, CameraProjection, DepthCalculation, VisibleEntities},
+    render_graph::base::camera::CAMERA_3D,
+};
 use bevy_transform::components::{GlobalTransform, Transform};
 
 #[derive(Debug, Clone, Reflect)]
@@ -145,7 +147,7 @@ impl Default for XRCameraBundle {
     fn default() -> Self {
         XRCameraBundle {
             camera: Camera {
-                name: Some(CAMERA_XR.to_string()),
+                name: Some(CAMERA_3D.to_string()),
                 ..Default::default()
             },
             // FIXME: ..Default::default() here causes stack overflow? Wut?
