@@ -404,6 +404,7 @@ impl Command for RunSystem {
     fn write(mut self, world: &mut World) {
         self.system.initialize(world);
         self.system.run((), world);
+        self.system.apply_buffers(world);
     }
 }
 
