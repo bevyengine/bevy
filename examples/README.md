@@ -41,6 +41,7 @@ git checkout v0.4.0
   - [3D Rendering](#3d-rendering)
   - [Application](#application)
   - [Assets](#assets)
+  - [Async Tasks](#async-tasks)
   - [Audio](#audio)
   - [Diagnostics](#diagnostics)
   - [ECS (Entity Component System)](#ecs-entity-component-system)
@@ -130,6 +131,12 @@ Example | File | Description
 `custom_asset` | [`asset/custom_asset.rs`](./asset/custom_asset.rs) | Implements a custom asset loader
 `custom_asset_io` | [`asset/custom_asset_io.rs`](./asset/custom_asset_io.rs) | Implements a custom asset io loader
 `hot_asset_reloading` | [`asset/hot_asset_reloading.rs`](./asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
+
+## Async Tasks
+
+Example | File | Description
+--- | --- | ---
+`async_compute` | [`async_tasks/async_compute.rs`](async_tasks/async_compute.rs) | How to use `AsyncComputeTaskPool` to complete longer running tasks
 
 ## Audio
 

@@ -87,6 +87,8 @@ anyhow = "1.0"
 rand = "0.8.0"
 ron = "0.6.2"
 serde = {version = "1", features = ["derive"]}
+# Needed to poll Task examples
+futures-lite = "1.11.3"
 
 [[example]]
 name = "hello_world"
@@ -231,6 +233,11 @@ path = "examples/asset/custom_asset_io.rs"
 [[example]]
 name = "hot_asset_reloading"
 path = "examples/asset/hot_asset_reloading.rs"
+
+# Async Tasks
+[[example]]
+name = "async_compute"
+path = "examples/async_tasks/async_compute.rs"
 
 # Audio
 [[example]]
