@@ -14,7 +14,7 @@ pub struct XRSwapchain {
     /// OpenXR internal swapchain handle
     sc_handle: openxr::Swapchain<openxr::Vulkan>,
 
-    /// Swapchain Framebuffers. `XRSwapChainNode` will take ownership of the color buffer
+    /// Swapchain Framebuffers. `XRSwapchainNode` will take ownership of the color buffer
     buffers: Vec<Framebuffer>,
 
     /// Swapchain resolution
@@ -125,7 +125,7 @@ impl XRSwapchain {
 
                 Framebuffer {
                     texture,
-                    color: Some(color),
+                    texture_view: Some(color),
                 }
             })
             .collect();
@@ -324,11 +324,11 @@ impl XRSwapchain {
             .unwrap();
     }
 
-    /// Should be called only once by `XRSwapChainNode`
-    pub fn take_color_textures(&mut self) -> Vec<wgpu::TextureView> {
+    /// Should be called only once by `XRSwapchainNode`
+    pub fn take_texture_views(&mut self) -> Vec<wgpu::TextureView> {
         self.buffers
             .iter_mut()
-            .map(|buf| buf.color.take().unwrap())
+            .map(|buf| buf.texture_view.take().unwrap())
             .collect()
     }
 
@@ -361,5 +361,5 @@ impl Debug for XRSwapchain {
 struct Framebuffer {
     #[allow(dead_code)]
     texture: wgpu::Texture,
-    color: Option<wgpu::TextureView>,
+    texture_view: Option<wgpu::TextureView>,
 }

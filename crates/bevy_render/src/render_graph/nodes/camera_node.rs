@@ -13,7 +13,7 @@ use bevy_ecs::{
 };
 
 #[cfg(feature = "use-openxr")]
-use bevy_openxr_core::{XRDevice, math::XRMatrixComputation};
+use bevy_openxr_core::{math::XRMatrixComputation, XRDevice};
 
 // use bevy_math::{Mat4, Quat, Vec4};
 use bevy_transform::prelude::*;
@@ -189,11 +189,16 @@ pub fn camera_node_system(
     }
 
     if let Some(RenderResourceBinding::Buffer { buffer, .. }) = bindings.get(CAMERA_VIEW_PROJ) {
+        let range = offset..(offset + MATRIX_SIZE_VIEW_PROJS as u64);
+
         if state.camera_name == CAMERA_XR {
+            // FIXME: the positions should come in as events, that are pulled before
+            // FIXME: or instead, the camera should contain another struct that'll contain positions
+            //        that are set beforehand
             #[cfg(feature = "use-openxr")]
             if let Some(positions) = xr_device.get_view_positions() {
+                // FIXME handle array length
                 if positions.len() == 2 && camera.multiview_projection_matrices.len() == 2 {
-                    // FIXME handle array length
                     let camera_matrix_left: [f32; 16] = (camera.multiview_projection_matrices[0]
                         * positions[0].compute_xr_matrix().inverse())
                     .to_cols_array();
@@ -204,7 +209,7 @@ pub fn camera_node_system(
 
                     render_resource_context.write_mapped_buffer(
                         staging_buffer,
-                        offset..(offset + MATRIX_SIZE_VIEW_PROJS as u64),
+                        range,
                         &mut |data, _renderer| {
                             data[0..MATRIX_SIZE_VIEW_PROJS / 2]
                                 .copy_from_slice(camera_matrix_left.as_bytes());
@@ -220,7 +225,7 @@ pub fn camera_node_system(
             let view_proj = camera.projection_matrix * view.inverse();
             render_resource_context.write_mapped_buffer(
                 staging_buffer,
-                offset..(offset + MATRIX_SIZE_VIEW_PROJS as u64),
+                range,
                 &mut |data, _renderer| {
                     data[0..MATRIX_SIZE_VIEW_PROJS]
                         .copy_from_slice(view_proj.to_cols_array_2d().as_bytes());

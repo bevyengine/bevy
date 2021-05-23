@@ -7,8 +7,11 @@ mod texture_node;
 mod window_swapchain_node;
 mod window_texture_node;
 
-#[cfg(feature="use-openxr")]
+#[cfg(feature = "use-openxr")]
 mod xr_swapchain_node;
+
+#[cfg(feature = "use-openxr")]
+mod xr_window_texture_node;
 
 pub use camera_node::*;
 pub use pass_node::*;
@@ -19,5 +22,8 @@ pub use texture_node::*;
 pub use window_swapchain_node::*;
 pub use window_texture_node::*;
 
-#[cfg(feature="use-openxr")]
+#[cfg(feature = "use-openxr")]
 pub use xr_swapchain_node::*;
+
+#[cfg(feature = "use-openxr")]
+pub use xr_window_texture_node::*;

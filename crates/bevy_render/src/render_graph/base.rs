@@ -15,7 +15,7 @@ use bevy_reflect::Reflect;
 use bevy_window::WindowId;
 
 #[cfg(feature = "use-openxr")]
-use super::XRSwapChainNode;
+use super::XRSwapchainNode;
 
 /// A component that indicates that an entity should be drawn in the "main pass"
 #[derive(Clone, Debug, Default, Reflect)]
@@ -215,7 +215,7 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
     if config.add_xr_camera {
         #[cfg(feature = "use-openxr")]
         {
-            graph.add_node(node::PRIMARY_SWAP_CHAIN, XRSwapChainNode::new());
+            graph.add_node(node::PRIMARY_SWAP_CHAIN, XRSwapchainNode::new());
         }
         // FIXME else panic?
     } else {
