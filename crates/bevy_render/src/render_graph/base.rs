@@ -125,7 +125,7 @@ pub(crate) fn add_base_graph(config: &BaseRenderGraphConfig, world: &mut World) 
                     sample_count: msaa.samples,
                     dimension: TextureDimension::D2,
                     format: TextureFormat::Depth32Float, /* PERF: vulkan docs recommend using 24
-                                                          *  bit depth for better performance */
+                                                          * bit depth for better performance */
                     usage: TextureUsage::OUTPUT_ATTACHMENT,
                 },
             ),

@@ -11,7 +11,6 @@ use bevy_ecs::{
     system::{BoxedSystem, IntoSystem, Local, Query, Res, ResMut},
     world::World,
 };
-
 use bevy_transform::prelude::*;
 use std::borrow::Cow;
 

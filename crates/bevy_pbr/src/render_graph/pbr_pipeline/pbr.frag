@@ -43,7 +43,6 @@ struct PointLight {
     vec4 color;
     vec4 lightParams;
 };
-
 struct DirectionalLight {
     vec4 direction;
     vec4 color;
