@@ -119,6 +119,9 @@ impl PluginGroup for PipelinedDefaultPlugins {
         group.add(bevy_asset::AssetPlugin::default());
         group.add(bevy_scene::ScenePlugin::default());
 
+        #[cfg(feature = "bevy_winit")]
+        group.add(bevy_winit::WinitPlugin::default());
+
         #[cfg(feature = "bevy_render2")]
         {
             group.add(bevy_render2::RenderPlugin::default());
@@ -138,7 +141,5 @@ impl PluginGroup for PipelinedDefaultPlugins {
             group.add(bevy_gltf2::GltfPlugin::default());
         }
 
-        #[cfg(feature = "bevy_winit")]
-        group.add(bevy_winit::WinitPlugin::default());
     }
 }
