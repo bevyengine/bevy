@@ -158,29 +158,33 @@ impl<'a> Commands<'a> {
 
     /// Equivalent to iterating `bundles_iter` and calling [`Self::spawn`] on each bundle, but
     /// slightly more performant.
-    pub fn spawn_batch<I>(&mut self, bundles_iter: I)
+    pub fn spawn_batch<I>(&mut self, bundles_iter: I) -> &mut Self
     where
         I: IntoIterator + Send + Sync + 'static,
         I::Item: Bundle,
     {
         self.queue.push(SpawnBatch { bundles_iter });
+        self
     }
 
     /// See [`World::insert_resource`].
-    pub fn insert_resource<T: Component>(&mut self, resource: T) {
-        self.queue.push(InsertResource { resource })
+    pub fn insert_resource<T: Component>(&mut self, resource: T) -> &mut Self {
+        self.queue.push(InsertResource { resource });
+        self
     }
 
     /// Queue a resource removal.
-    pub fn remove_resource<T: Component>(&mut self) {
+    pub fn remove_resource<T: Component>(&mut self) -> &mut Self {
         self.queue.push(RemoveResource::<T> {
             phantom: PhantomData,
         });
+        self
     }
 
     /// Adds a command directly to the command list.
-    pub fn add<C: Command>(&mut self, command: C) {
+    pub fn add<C: Command>(&mut self, command: C) -> &mut Self {
         self.queue.push(command);
+        self
     }
 }
 
@@ -274,7 +278,7 @@ impl<'a, 'b> EntityCommands<'a, 'b> {
     pub fn despawn(&mut self) {
         self.commands.add(Despawn {
             entity: self.entity,
-        })
+        });
     }
 
     /// Returns the underlying `[Commands]`.
