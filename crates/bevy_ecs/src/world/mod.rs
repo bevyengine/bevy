@@ -718,12 +718,10 @@ impl World {
         let column = unique_components
             .get_mut(component_id)
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<T>()));
-        // SAFE: new location is immediately written to below
-        let row = unsafe { column.push_uninit() };
-        // SAFE: row was just allocated above
-        unsafe { column.set_unchecked(row, ptr) };
-        // SAFE: row was just allocated above
-        unsafe { *column.get_ticks_unchecked_mut(row) = ticks };
+        unsafe {
+            // SAFE: pointer is of type T
+            column.push(ptr, ticks);
+        }
         result
     }
 
@@ -787,13 +785,8 @@ impl World {
         if column.is_empty() {
             // SAFE: column is of type T and has been allocated above
             let data = (&mut value as *mut T).cast::<u8>();
-            // SAFE: new location is immediately written to below
-            let row = column.push_uninit();
-            // SAFE: index was just allocated above
-            column.set_unchecked(row, data);
             std::mem::forget(value);
-            // SAFE: index was just allocated above
-            *column.get_ticks_unchecked_mut(row) = ComponentTicks::new(change_tick);
+            column.push(data, ComponentTicks::new(change_tick));
         } else {
             // SAFE: column is of type T and has already been allocated
             *column.get_unchecked(0).cast::<T>() = value;

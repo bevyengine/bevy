@@ -1,5 +1,4 @@
 use crate::{
-    archetype::ArchetypeId,
     component::{ComponentId, ComponentInfo, ComponentTicks, Components},
     entity::Entity,
     storage::{BlobVec, SparseSet},
@@ -48,12 +47,24 @@ impl Column {
         }
     }
 
-    /// # Safety
-    /// Assumes data has already been allocated for the given row/column.
-    /// Allows aliased mutable accesses to the data at the given `row`. Caller must ensure that this
-    /// does not happen.
     #[inline]
-    pub unsafe fn set_unchecked(&self, row: usize, data: *mut u8) {
+    fn ticks_mut(&mut self) -> &mut Vec<ComponentTicks> {
+        self.ticks.get_mut()
+    }
+
+    /// # Safety
+    /// Assumes data has already been allocated for the given row.
+    #[inline]
+    pub unsafe fn set_unchecked(&mut self, row: usize, data: *mut u8, ticks: ComponentTicks) {
+        self.set_data_unchecked(row, data);
+        *self.ticks_mut().get_unchecked_mut(row) = ticks;
+    }
+
+    /// # Safety
+    /// Assumes data has already been allocated for the given row.
+    #[inline]
+    pub unsafe fn set_data_unchecked(&mut self, row: usize, data: *mut u8) {
+        debug_assert!(row < self.len());
         self.data.set_unchecked(row, data);
     }
 
@@ -68,20 +79,19 @@ impl Column {
     }
 
     /// # Safety
-    /// Assumes data has already been allocated for the given row/column.
-    /// Allows aliased mutable accesses to the row's [ComponentTicks].
-    /// Caller must ensure that this does not happen.
+    /// Assumes data has already been allocated for the given row.
     #[inline]
-    #[allow(clippy::mut_from_ref)]
-    pub unsafe fn get_ticks_unchecked_mut(&self, row: usize) -> &mut ComponentTicks {
+    pub unsafe fn get_ticks_unchecked_mut(&mut self, row: usize) -> &mut ComponentTicks {
         debug_assert!(row < self.len());
-        (*self.ticks.get()).get_unchecked_mut(row)
+        self.ticks_mut().get_unchecked_mut(row)
     }
 
+    /// # Safety
+    /// index must be in-bounds
     #[inline]
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: usize) {
         self.data.swap_remove_and_drop_unchecked(row);
-        (*self.ticks.get()).swap_remove(row);
+        self.ticks_mut().swap_remove(row);
     }
 
     #[inline]
@@ -90,26 +100,22 @@ impl Column {
         row: usize,
     ) -> (*mut u8, ComponentTicks) {
         let data = self.data.swap_remove_and_forget_unchecked(row);
-        let ticks = (*self.ticks.get()).swap_remove(row);
+        let ticks = self.ticks_mut().swap_remove(row);
         (data, ticks)
     }
 
-    /// # Safety
-    /// allocated value must be immediately set at the returned row
-    pub(crate) unsafe fn push_uninit(&mut self) -> usize {
+    // # Safety
+    // - ptr must point to valid data of this column's component type
+    pub(crate) unsafe fn push(&mut self, ptr: *mut u8, ticks: ComponentTicks) {
         let row = self.data.push_uninit();
-        (*self.ticks.get()).push(ComponentTicks::new(0));
-        row
+        self.data.set_unchecked(row, ptr);
+        self.ticks_mut().push(ticks);
     }
 
     #[inline]
-    pub(crate) fn reserve(&mut self, additional: usize) {
-        self.data.reserve(additional);
-        // SAFE: unique access to self
-        unsafe {
-            let ticks = &mut (*self.ticks.get());
-            ticks.reserve(additional);
-        }
+    pub(crate) fn reserve_exact(&mut self, additional: usize) {
+        self.data.reserve_exact(additional);
+        self.ticks_mut().reserve_exact(additional);
     }
 
     /// # Safety
@@ -144,8 +150,7 @@ impl Column {
 
     #[inline]
     pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
-        let ticks = unsafe { (*self.ticks.get()).iter_mut() };
-        for component_ticks in ticks {
+        for component_ticks in self.ticks_mut() {
             component_ticks.check_ticks(change_tick);
         }
     }
@@ -154,29 +159,20 @@ impl Column {
 pub struct Table {
     columns: SparseSet<ComponentId, Column>,
     entities: Vec<Entity>,
-    archetypes: Vec<ArchetypeId>,
-    grow_amount: usize,
-    capacity: usize,
 }
 
 impl Table {
-    pub const fn new(grow_amount: usize) -> Table {
+    pub const fn new() -> Table {
         Self {
             columns: SparseSet::new(),
             entities: Vec::new(),
-            archetypes: Vec::new(),
-            grow_amount,
-            capacity: 0,
         }
     }
 
-    pub fn with_capacity(capacity: usize, column_capacity: usize, grow_amount: usize) -> Table {
+    pub fn with_capacity(capacity: usize, column_capacity: usize) -> Table {
         Self {
             columns: SparseSet::with_capacity(column_capacity),
             entities: Vec::with_capacity(capacity),
-            archetypes: Vec::new(),
-            grow_amount,
-            capacity,
         }
     }
 
@@ -185,14 +181,10 @@ impl Table {
         &self.entities
     }
 
-    pub fn add_archetype(&mut self, archetype_id: ArchetypeId) {
-        self.archetypes.push(archetype_id);
-    }
-
     pub fn add_column(&mut self, component_info: &ComponentInfo) {
         self.columns.insert(
             component_info.id(),
-            Column::with_capacity(component_info, self.capacity()),
+            Column::with_capacity(component_info, self.entities.capacity()),
         )
     }
 
@@ -232,8 +224,7 @@ impl Table {
         for column in self.columns.values_mut() {
             let (data, ticks) = column.swap_remove_and_forget_unchecked(row);
             if let Some(new_column) = new_table.get_column_mut(column.component_id) {
-                new_column.set_unchecked(new_row, data);
-                *new_column.get_ticks_unchecked_mut(new_row) = ticks;
+                new_column.set_unchecked(new_row, data, ticks);
             }
         }
         TableMoveResult {
@@ -263,8 +254,7 @@ impl Table {
         for column in self.columns.values_mut() {
             if let Some(new_column) = new_table.get_column_mut(column.component_id) {
                 let (data, ticks) = column.swap_remove_and_forget_unchecked(row);
-                new_column.set_unchecked(new_row, data);
-                *new_column.get_ticks_unchecked_mut(new_row) = ticks;
+                new_column.set_unchecked(new_row, data, ticks);
             } else {
                 column.swap_remove_unchecked(row);
             }
@@ -296,8 +286,7 @@ impl Table {
         for column in self.columns.values_mut() {
             let new_column = new_table.get_column_mut(column.component_id).unwrap();
             let (data, ticks) = column.swap_remove_and_forget_unchecked(row);
-            new_column.set_unchecked(new_row, data);
-            *new_column.get_ticks_unchecked_mut(new_row) = ticks;
+            new_column.set_unchecked(new_row, data, ticks);
         }
         TableMoveResult {
             new_row,
@@ -324,20 +313,16 @@ impl Table {
         self.columns.contains(component_id)
     }
 
-    pub fn reserve(&mut self, amount: usize) {
-        let available_space = self.capacity - self.len();
-        if available_space < amount {
-            let min_capacity = self.len() + amount;
-            // normally we would check if min_capacity is 0 for the below calculation, but amount >
-            // available_space and available_space > 0, so min_capacity > 1
-            let new_capacity =
-                ((min_capacity + self.grow_amount - 1) / self.grow_amount) * self.grow_amount;
-            let reserve_amount = new_capacity - self.len();
+    pub fn reserve(&mut self, additional: usize) {
+        if self.entities.capacity() - self.entities.len() < additional {
+            self.entities.reserve(additional);
+
+            // use entities vector capacity as driving capacity for all related allocations
+            let new_capacity = self.entities.capacity();
+
             for column in self.columns.values_mut() {
-                column.reserve(reserve_amount);
+                column.reserve_exact(new_capacity - column.len());
             }
-            self.entities.reserve(reserve_amount);
-            self.capacity = new_capacity;
         }
     }
 
@@ -358,7 +343,7 @@ impl Table {
 
     #[inline]
     pub fn capacity(&self) -> usize {
-        self.capacity
+        self.entities.capacity()
     }
 
     #[inline]
@@ -389,7 +374,7 @@ pub struct Tables {
 
 impl Default for Tables {
     fn default() -> Self {
-        let empty_table = Table::with_capacity(0, 0, 64);
+        let empty_table = Table::with_capacity(0, 0);
         Tables {
             tables: vec![empty_table],
             table_ids: HashMap::default(),
@@ -446,7 +431,7 @@ impl Tables {
         let hash = hasher.finish();
         let tables = &mut self.tables;
         *self.table_ids.entry(hash).or_insert_with(move || {
-            let mut table = Table::with_capacity(0, component_ids.len(), 64);
+            let mut table = Table::with_capacity(0, component_ids.len());
             for component_id in component_ids.iter() {
                 table.add_column(components.get_info_unchecked(*component_id));
             }
@@ -496,18 +481,19 @@ mod tests {
         let type_info = TypeInfo::of::<usize>();
         let component_id = components.get_or_insert_with(type_info.type_id(), || type_info);
         let columns = &[component_id];
-        let mut table = Table::with_capacity(0, columns.len(), 64);
+        let mut table = Table::with_capacity(0, columns.len());
         table.add_column(components.get_info(component_id).unwrap());
         let entities = (0..200).map(Entity::new).collect::<Vec<_>>();
-        for (row, entity) in entities.iter().cloned().enumerate() {
+        for entity in entities.iter() {
+            // SAFE: we allocate and immediately set data afterwards
             unsafe {
-                table.allocate(entity);
+                let row = table.allocate(*entity);
                 let mut value = row;
                 let value_ptr = ((&mut value) as *mut usize).cast::<u8>();
                 table
-                    .get_column(component_id)
+                    .get_column_mut(component_id)
                     .unwrap()
-                    .set_unchecked(row, value_ptr);
+                    .set_data_unchecked(row, value_ptr);
             };
         }
 

@@ -130,7 +130,7 @@ impl BundleInfo {
         &self,
         sparse_sets: &mut SparseSets,
         entity: Entity,
-        table: &Table,
+        table: &mut Table,
         table_row: usize,
         bundle_status: &[ComponentStatus],
         bundle: T,
@@ -145,8 +145,8 @@ impl BundleInfo {
             let component_status = bundle_status.get_unchecked(bundle_component);
             match self.storage_types[bundle_component] {
                 StorageType::Table => {
-                    let column = table.get_column(component_id).unwrap();
-                    column.set_unchecked(table_row, component_ptr);
+                    let column = table.get_column_mut(component_id).unwrap();
+                    column.set_data_unchecked(table_row, component_ptr);
                     let column_status = column.get_ticks_unchecked_mut(table_row);
                     match component_status {
                         ComponentStatus::Added => {
