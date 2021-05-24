@@ -49,8 +49,7 @@ impl Column {
 
     #[inline]
     fn ticks_mut(&mut self) -> &mut Vec<ComponentTicks> {
-        // SAFE: unique access
-        unsafe { &mut *self.ticks.get() }
+        self.ticks.get_mut()
     }
 
     /// # Safety
