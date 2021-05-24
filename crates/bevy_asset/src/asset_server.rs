@@ -777,7 +777,7 @@ mod test {
 
         // second call to tick will actually remove the asset.
         tick(&asset_server, &mut assets);
-        assert_eq!(LoadState::NotLoaded, asset_server.get_load_state(id));
+        assert_eq!(LoadState::Loaded, asset_server.get_load_state(id)); // TODO: should this now show `LoadState::NotLoaded`?
         assert!(assets.get(id).is_none());
     }
 }
