@@ -84,7 +84,9 @@ impl AppBuilder {
     }
 
     pub fn add_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
+        let cloned_label = label.dyn_clone();
         self.app.schedule.add_stage(label, stage);
+        self.add_startup_stage_boxed(cloned_label, SystemStage::parallel());
         self
     }
 
@@ -94,6 +96,7 @@ impl AppBuilder {
         label: impl StageLabel,
         stage: S,
     ) -> &mut Self {
+        self.add_startup_stage_after_boxed(&target, label.dyn_clone(), SystemStage::parallel());
         self.app.schedule.add_stage_after(target, label, stage);
         self
     }
@@ -104,10 +107,51 @@ impl AppBuilder {
         label: impl StageLabel,
         stage: S,
     ) -> &mut Self {
+        self.add_startup_stage_before_boxed(&target, label.dyn_clone(), SystemStage::parallel());
         self.app.schedule.add_stage_before(target, label, stage);
         self
     }
 
+    pub(crate) fn add_startup_stage_boxed<S: Stage>(
+        &mut self,
+        label: Box<dyn StageLabel>,
+        stage: S,
+    ) -> &mut Self {
+        self.app
+            .schedule
+            .stage(CoreStage::Startup, |schedule: &mut Schedule| {
+                schedule.add_stage_boxed(label, stage)
+            });
+        self
+    }
+
+    pub(crate) fn add_startup_stage_after_boxed<S: Stage>(
+        &mut self,
+        target: &dyn StageLabel,
+        label: Box<dyn StageLabel>,
+        stage: S,
+    ) -> &mut Self {
+        self.app
+            .schedule
+            .stage(CoreStage::Startup, |schedule: &mut Schedule| {
+                schedule.add_stage_after_boxed(target, label, stage)
+            });
+        self
+    }
+
+    pub(crate) fn add_startup_stage_before_boxed<S: Stage>(
+        &mut self,
+        target: &dyn StageLabel,
+        label: Box<dyn StageLabel>,
+        stage: S,
+    ) -> &mut Self {
+        self.app
+            .schedule
+            .stage(CoreStage::Startup, |schedule: &mut Schedule| {
+                schedule.add_stage_before_boxed(target, label, stage)
+            });
+        self
+    }
     pub fn add_startup_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
         self.app
             .schedule
@@ -271,19 +315,15 @@ impl AppBuilder {
     }
 
     pub fn add_default_stages(&mut self) -> &mut Self {
-        self.add_stage(CoreStage::First, SystemStage::parallel())
-            .add_stage(
-                CoreStage::Startup,
-                Schedule::default()
-                    .with_run_criteria(RunOnce::default())
-                    .with_stage(StartupStage::PreStartup, SystemStage::parallel())
-                    .with_stage(StartupStage::Startup, SystemStage::parallel())
-                    .with_stage(StartupStage::PostStartup, SystemStage::parallel()),
-            )
-            .add_stage(CoreStage::PreUpdate, SystemStage::parallel())
-            .add_stage(CoreStage::Update, SystemStage::parallel())
-            .add_stage(CoreStage::PostUpdate, SystemStage::parallel())
-            .add_stage(CoreStage::Last, SystemStage::parallel())
+        self.add_stage(
+            CoreStage::Startup,
+            Schedule::default().with_run_criteria(RunOnce::default()),
+        )
+        .add_stage(CoreStage::First, SystemStage::parallel())
+        .add_stage(CoreStage::PreUpdate, SystemStage::parallel())
+        .add_stage(CoreStage::Update, SystemStage::parallel())
+        .add_stage(CoreStage::PostUpdate, SystemStage::parallel())
+        .add_stage(CoreStage::Last, SystemStage::parallel())
     }
 
     /// Setup the application to manage events of type `T`.
