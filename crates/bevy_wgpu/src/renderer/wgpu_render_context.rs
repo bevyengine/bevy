@@ -53,14 +53,20 @@ impl LazyCommandEncoder {
 #[derive(Debug)]
 pub struct WgpuRenderContext {
     pub device: Arc<wgpu::Device>,
+    pub queue: Arc<wgpu::Queue>,
     pub command_encoder: LazyCommandEncoder,
     pub render_resource_context: WgpuRenderResourceContext,
 }
 
 impl WgpuRenderContext {
-    pub fn new(device: Arc<wgpu::Device>, resources: WgpuRenderResourceContext) -> Self {
+    pub fn new(
+        device: Arc<wgpu::Device>,
+        queue: Arc<wgpu::Queue>,
+        resources: WgpuRenderResourceContext,
+    ) -> Self {
         WgpuRenderContext {
             device,
+            queue,
             render_resource_context: resources,
             command_encoder: LazyCommandEncoder::default(),
         }

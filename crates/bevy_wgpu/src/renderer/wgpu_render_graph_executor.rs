@@ -18,7 +18,7 @@ impl WgpuRenderGraphExecutor {
         &self,
         world: &World,
         device: Arc<wgpu::Device>,
-        queue: &mut wgpu::Queue,
+        queue: Arc<wgpu::Queue>,
         stages: &mut [StageBorrow],
     ) {
         let render_resource_context = {
@@ -47,7 +47,8 @@ impl WgpuRenderGraphExecutor {
                 let render_resource_context = render_resource_context.clone();
                 let node_outputs = node_outputs.clone();
                 // s.spawn(move |_| {
-                let mut render_context = WgpuRenderContext::new(device, render_resource_context);
+                let mut render_context =
+                    WgpuRenderContext::new(device, queue.clone(), render_resource_context);
                 for job in jobs_chunk.iter_mut() {
                     for node_state in job.node_states.iter_mut() {
                         // bind inputs from connected node outputs
