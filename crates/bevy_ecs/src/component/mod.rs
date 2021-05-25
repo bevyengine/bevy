@@ -16,6 +16,13 @@ use thiserror::Error;
 ///
 /// Any type that is `Send + Sync + 'static` can implement `Component` using `#[derive(Component)]`.
 ///
+/// In order to use foreign types as components, wrap them using a newtype pattern.
+/// ```
+/// # use bevy_ecs::component::Component;
+/// use std::time::Duration;
+/// #[derive(Component)]
+/// struct Cooldown(Duration);
+/// ```
 /// Components are added with new entities using [`Commands::spawn`](crate::system::Commands::spawn),
 /// or to existing entities with [`EntityCommands::insert`](crate::system::EntityCommands::insert),
 /// or their [`World`](crate::world::World) equivalents.
