@@ -20,13 +20,9 @@ pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 mod countdown_event;
 pub use countdown_event::CountdownEvent;
 
-mod iter;
-pub use iter::ParallelIterator;
-
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        iter::ParallelIterator,
         slice::{ParallelSlice, ParallelSliceMut},
         usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool},
     };
