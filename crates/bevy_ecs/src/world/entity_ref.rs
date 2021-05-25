@@ -575,17 +575,11 @@ unsafe fn get_component_and_ticks(
                 components.get_ticks_mut_ptr_unchecked(table_row),
             ))
         }
-        StorageType::SparseSet => {
-            world
-                .storages
-                .sparse_sets
-                .get(component_id)
-                .and_then(|sparse_set| {
-                    sparse_set
-                        .get_with_ticks(entity)
-                        .map(|(d, t)| (d, t as *mut ComponentTicks))
-                })
-        }
+        StorageType::SparseSet => world
+            .storages
+            .sparse_sets
+            .get(component_id)
+            .and_then(|sparse_set| sparse_set.get_with_ticks(entity)),
     }
 }
 
