@@ -109,12 +109,15 @@ impl DefaultTaskPoolOptions {
             trace!("IO Threads: {}", io_threads);
             remaining_threads = remaining_threads.saturating_sub(io_threads);
 
-            world.insert_resource(IoTaskPool(
-                TaskPoolBuilder::default()
-                    .num_threads(io_threads)
-                    .thread_name("IO Task Pool".to_string())
-                    .build(),
-            ));
+            let task_pool = TaskPoolBuilder::default()
+                .num_threads(io_threads)
+                .thread_name("IO Task Pool".to_string())
+                .build();
+
+            let io_task_pool =
+                IoTaskPool::init(task_pool).unwrap_or_else(|_| IoTaskPool::get().clone());
+
+            world.insert_resource(io_task_pool);
         }
 
         if !world.contains_resource::<AsyncComputeTaskPool>() {
@@ -126,12 +129,15 @@ impl DefaultTaskPoolOptions {
             trace!("Async Compute Threads: {}", async_compute_threads);
             remaining_threads = remaining_threads.saturating_sub(async_compute_threads);
 
-            world.insert_resource(AsyncComputeTaskPool(
-                TaskPoolBuilder::default()
-                    .num_threads(async_compute_threads)
-                    .thread_name("Async Compute Task Pool".to_string())
-                    .build(),
-            ));
+            let task_pool = TaskPoolBuilder::default()
+                .num_threads(async_compute_threads)
+                .thread_name("Async Compute Task Pool".to_string())
+                .build();
+
+            let async_task_pool = AsyncComputeTaskPool::init(task_pool)
+                .unwrap_or_else(|_| AsyncComputeTaskPool::get().clone());
+
+            world.insert_resource(async_task_pool);
         }
 
         if !world.contains_resource::<ComputeTaskPool>() {
@@ -142,12 +148,16 @@ impl DefaultTaskPoolOptions {
                 .get_number_of_threads(remaining_threads, total_threads);
 
             trace!("Compute Threads: {}", compute_threads);
-            world.insert_resource(ComputeTaskPool(
-                TaskPoolBuilder::default()
-                    .num_threads(compute_threads)
-                    .thread_name("Compute Task Pool".to_string())
-                    .build(),
-            ));
+
+            let task_pool = TaskPoolBuilder::default()
+                .num_threads(compute_threads)
+                .thread_name("Compute Task Pool".to_string())
+                .build();
+
+            let compute_task_pool =
+                ComputeTaskPool::init(task_pool).unwrap_or_else(|_| ComputeTaskPool::get().clone());
+
+            world.insert_resource(compute_task_pool);
         }
     }
 }

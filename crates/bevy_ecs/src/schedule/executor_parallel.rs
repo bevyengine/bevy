@@ -115,7 +115,10 @@ impl ParallelSystemExecutor for ParallelExecutor {
         self.update_archetypes(systems, world);
 
         let compute_pool = world
-            .get_resource_or_insert_with(|| ComputeTaskPool(TaskPool::default()))
+            .get_resource_or_insert_with(|| {
+                ComputeTaskPool::init(TaskPool::default())
+                    .unwrap_or_else(|_| ComputeTaskPool::get().clone())
+            })
             .clone();
         compute_pool.scope(|scope| {
             self.prepare_systems(scope, systems, world);

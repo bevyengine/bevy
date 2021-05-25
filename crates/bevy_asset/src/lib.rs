@@ -32,6 +32,7 @@ use bevy_ecs::{
     system::IntoSystem,
 };
 use bevy_tasks::IoTaskPool;
+use std::ops::Deref;
 
 /// The names of asset stages in an App Schedule
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
@@ -83,7 +84,7 @@ impl Plugin for AssetPlugin {
                 .world()
                 .get_resource::<IoTaskPool>()
                 .expect("`IoTaskPool` resource not found.")
-                .0
+                .deref()
                 .clone();
 
             let source = create_platform_default_asset_io(app);
