@@ -1,11 +1,7 @@
-use crate::{
-    schedule::{
-        AmbiguitySetLabel, BoxedAmbiguitySetLabel, BoxedSystemLabel, IntoRunCriteria,
-        RunCriteriaDescriptorOrLabel, State, SystemDescriptor, SystemLabel,
-    },
-    system::Resource,
+use crate::schedule::{
+    AmbiguitySetLabel, BoxedAmbiguitySetLabel, BoxedSystemLabel, IntoRunCriteria,
+    RunCriteriaDescriptorOrLabel, State, StateData, SystemDescriptor, SystemLabel,
 };
-use std::{fmt::Debug, hash::Hash};
 
 /// A builder for describing several systems at the same time.
 pub struct SystemSet {
@@ -37,49 +33,49 @@ impl SystemSet {
 
     pub fn on_update<T>(s: T) -> SystemSet
     where
-        T: Resource + Debug + Clone + Eq + Hash,
+        T: StateData,
     {
         Self::new().with_run_criteria(State::<T>::on_update(s))
     }
 
     pub fn on_inactive_update<T>(s: T) -> SystemSet
     where
-        T: Resource + Debug + Clone + Eq + Hash,
+        T: StateData,
     {
         Self::new().with_run_criteria(State::<T>::on_inactive_update(s))
     }
 
     pub fn on_in_stack_update<T>(s: T) -> SystemSet
     where
-        T: Resource + Debug + Clone + Eq + Hash,
+        T: StateData,
     {
         Self::new().with_run_criteria(State::<T>::on_in_stack_update(s))
     }
 
     pub fn on_enter<T>(s: T) -> SystemSet
     where
-        T: Resource + Debug + Clone + Eq + Hash,
+        T: StateData,
     {
         Self::new().with_run_criteria(State::<T>::on_enter(s))
     }
 
     pub fn on_exit<T>(s: T) -> SystemSet
     where
-        T: Resource + Debug + Clone + Eq + Hash,
+        T: StateData,
     {
         Self::new().with_run_criteria(State::<T>::on_exit(s))
     }
 
     pub fn on_pause<T>(s: T) -> SystemSet
     where
-        T: Resource + Debug + Clone + Eq + Hash,
+        T: StateData,
     {
         Self::new().with_run_criteria(State::<T>::on_pause(s))
     }
 
     pub fn on_resume<T>(s: T) -> SystemSet
     where
-        T: Resource + Debug + Clone + Eq + Hash,
+        T: StateData,
     {
         Self::new().with_run_criteria(State::<T>::on_resume(s))
     }

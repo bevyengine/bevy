@@ -7,13 +7,13 @@ use bevy_ecs::{
     component::ComponentDescriptor,
     event::Events,
     schedule::{
-        RunOnce, Schedule, Stage, StageLabel, State, SystemDescriptor, SystemSet, SystemStage,
+        RunOnce, Schedule, Stage, StageLabel, State, StateData, SystemDescriptor, SystemSet,
+        SystemStage,
     },
     system::{IntoExclusiveSystem, IntoSystem, Resource},
     world::{FromWorld, World},
 };
 use bevy_utils::tracing::debug;
-use std::{fmt::Debug, hash::Hash};
 
 /// Configure [App]s using the builder pattern
 pub struct AppBuilder {
@@ -252,7 +252,7 @@ impl AppBuilder {
     /// adding [State::get_driver] to additional stages you need it in.
     pub fn add_state<T>(&mut self, initial: T) -> &mut Self
     where
-        T: Resource + Debug + Clone + Eq + Hash,
+        T: StateData,
     {
         self.add_state_to_stage(CoreStage::Update, initial)
     }
@@ -264,7 +264,7 @@ impl AppBuilder {
     /// stages you need it in.
     pub fn add_state_to_stage<T>(&mut self, stage: impl StageLabel, initial: T) -> &mut Self
     where
-        T: Resource + Debug + Clone + Eq + Hash,
+        T: StateData,
     {
         self.insert_resource(State::new(initial))
             .add_system_set_to_stage(stage, State::<T>::get_driver())
