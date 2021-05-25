@@ -4,7 +4,7 @@ use std::ops::{Deref, DerefMut};
 /// Unique borrow of an entity's component
 pub struct Mut<'a, T> {
     pub(crate) value: &'a mut T,
-    pub(crate) component_ticks: &'a ComponentTicks,
+    pub(crate) component_ticks: &'a mut ComponentTicks,
     pub(crate) last_change_tick: u32,
     pub(crate) change_tick: u32,
 }

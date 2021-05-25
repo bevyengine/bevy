@@ -3,7 +3,7 @@ use crate::{
     entity::Entity,
     storage::BlobVec,
 };
-use std::marker::PhantomData;
+use std::{cell::UnsafeCell, marker::PhantomData};
 
 #[derive(Debug)]
 pub struct SparseArray<I, V = I> {
@@ -87,7 +87,7 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
 #[derive(Debug)]
 pub struct ComponentSparseSet {
     dense: BlobVec,
-    ticks: Vec<ComponentTicks>,
+    ticks: Vec<UnsafeCell<ComponentTicks>>,
     entities: Vec<Entity>,
     sparse: SparseArray<Entity, usize>,
 }
@@ -122,14 +122,16 @@ impl ComponentSparseSet {
     pub unsafe fn insert(&mut self, entity: Entity, value: *mut u8, change_tick: u32) {
         if let Some(&dense_index) = self.sparse.get(entity) {
             self.dense.replace_unchecked(dense_index, value);
-            *self.ticks.get_unchecked_mut(dense_index) = ComponentTicks::new(change_tick);
+            *self.ticks.get_unchecked_mut(dense_index) =
+                UnsafeCell::new(ComponentTicks::new(change_tick));
         } else {
             let dense_index = self.dense.push_uninit();
             self.dense.initialize_unchecked(dense_index, value);
             self.sparse.insert(entity, dense_index);
             debug_assert_eq!(self.ticks.len(), dense_index);
             debug_assert_eq!(self.entities.len(), dense_index);
-            self.ticks.push(ComponentTicks::new(change_tick));
+            self.ticks
+                .push(UnsafeCell::new(ComponentTicks::new(change_tick)));
             self.entities.push(entity);
         }
     }
@@ -152,12 +154,12 @@ impl ComponentSparseSet {
     /// # Safety
     /// ensure the same entity is not accessed twice at the same time
     #[inline]
-    pub unsafe fn get_with_ticks(&self, entity: Entity) -> Option<(*mut u8, &ComponentTicks)> {
+    pub unsafe fn get_with_ticks(&self, entity: Entity) -> Option<(*mut u8, *mut ComponentTicks)> {
         let dense_index = *self.sparse.get(entity)?;
         // SAFE: if the sparse index points to something in the dense vec, it exists
         Some((
             self.dense.get_unchecked(dense_index),
-            self.ticks.get_unchecked(dense_index),
+            self.ticks.get_unchecked(dense_index).get(),
         ))
     }
 
@@ -165,7 +167,7 @@ impl ComponentSparseSet {
     pub fn get_ticks(&self, entity: Entity) -> Option<&ComponentTicks> {
         let dense_index = *self.sparse.get(entity)?;
         // SAFE: if the sparse index points to something in the dense vec, it exists
-        unsafe { Some(self.ticks.get_unchecked(dense_index)) }
+        unsafe { Some(&*self.ticks.get_unchecked(dense_index).get()) }
     }
 
     /// Removes the `entity` from this sparse set and returns a pointer to the associated value (if
@@ -205,7 +207,7 @@ impl ComponentSparseSet {
 
     pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
         for component_ticks in &mut self.ticks {
-            component_ticks.check_ticks(change_tick);
+            component_ticks.get_mut().check_ticks(change_tick);
         }
     }
 }

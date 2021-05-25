@@ -116,7 +116,7 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
 /// Unique borrow of a Reflected component
 pub struct ReflectMut<'a> {
     pub(crate) value: &'a mut dyn Reflect,
-    pub(crate) component_ticks: &'a ComponentTicks,
+    pub(crate) component_ticks: &'a mut ComponentTicks,
     pub(crate) last_change_tick: u32,
     pub(crate) change_tick: u32,
 }

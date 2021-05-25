@@ -80,7 +80,7 @@ impl<'w> EntityRef<'w> {
         get_component_and_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
             .map(|(value, ticks)| Mut {
                 value: &mut *value.cast::<T>(),
-                component_ticks: &*ticks,
+                component_ticks: &mut *ticks,
                 last_change_tick,
                 change_tick,
             })
@@ -161,7 +161,7 @@ impl<'w> EntityMut<'w> {
             )
             .map(|(value, ticks)| Mut {
                 value: &mut *value.cast::<T>(),
-                component_ticks: &*ticks,
+                component_ticks: &mut *ticks,
                 last_change_tick: self.world.last_change_tick(),
                 change_tick: self.world.change_tick(),
             })
@@ -176,7 +176,7 @@ impl<'w> EntityMut<'w> {
         get_component_and_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
             .map(|(value, ticks)| Mut {
                 value: &mut *value.cast::<T>(),
-                component_ticks: &*ticks,
+                component_ticks: &mut *ticks,
                 last_change_tick: self.world.last_change_tick(),
                 change_tick: self.world.read_change_tick(),
             })
@@ -543,7 +543,7 @@ unsafe fn get_component(
             let components = table.get_column(component_id)?;
             let table_row = archetype.entity_table_row(location.index);
             // SAFE: archetypes only store valid table_rows and the stored component type is T
-            Some(components.get_unchecked(table_row))
+            Some(components.get_data_unchecked(table_row))
         }
         StorageType::SparseSet => world
             .storages
@@ -561,7 +561,7 @@ unsafe fn get_component_and_ticks(
     component_id: ComponentId,
     entity: Entity,
     location: EntityLocation,
-) -> Option<(*mut u8, *const ComponentTicks)> {
+) -> Option<(*mut u8, *mut ComponentTicks)> {
     let archetype = &world.archetypes[location.archetype_id];
     let component_info = world.components.get_info_unchecked(component_id);
     match component_info.storage_type() {
@@ -571,8 +571,8 @@ unsafe fn get_component_and_ticks(
             let table_row = archetype.entity_table_row(location.index);
             // SAFE: archetypes only store valid table_rows and the stored component type is T
             Some((
-                components.get_unchecked(table_row),
-                components.get_ticks_unchecked(table_row) as *const ComponentTicks,
+                components.get_data_unchecked(table_row),
+                components.get_ticks_mut_ptr_unchecked(table_row),
             ))
         }
         StorageType::SparseSet => {
@@ -583,7 +583,7 @@ unsafe fn get_component_and_ticks(
                 .and_then(|sparse_set| {
                     sparse_set
                         .get_with_ticks(entity)
-                        .map(|(d, t)| (d, t as *const ComponentTicks))
+                        .map(|(d, t)| (d, t as *mut ComponentTicks))
                 })
         }
     }
@@ -619,7 +619,7 @@ unsafe fn take_component(
             let components = table.get_column(component_id).unwrap();
             let table_row = archetype.entity_table_row(location.index);
             // SAFE: archetypes only store valid table_rows and the stored component type is T
-            components.get_unchecked(table_row)
+            components.get_data_unchecked(table_row)
         }
         StorageType::SparseSet => storages
             .sparse_sets
@@ -649,7 +649,7 @@ pub(crate) unsafe fn get_component_and_ticks_with_type(
     type_id: TypeId,
     entity: Entity,
     location: EntityLocation,
-) -> Option<(*mut u8, *const ComponentTicks)> {
+) -> Option<(*mut u8, *mut ComponentTicks)> {
     let component_id = world.components.get_id(type_id)?;
     get_component_and_ticks(world, component_id, entity, location)
 }

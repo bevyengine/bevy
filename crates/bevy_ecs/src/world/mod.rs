@@ -748,8 +748,8 @@ impl World {
     ) -> Option<Mut<'_, T>> {
         let column = self.get_populated_resource_column(component_id)?;
         Some(Mut {
-            value: &mut *column.get_data_ptr().as_ptr().cast::<T>(),
-            component_ticks: column.get_ticks_unchecked(0),
+            value: &mut *column.get_data_ptr().cast::<T>().as_ptr(),
+            component_ticks: &mut *column.get_ticks_mut_ptr_unchecked(0),
             last_change_tick: self.last_change_tick(),
             change_tick: self.read_change_tick(),
         })
@@ -791,7 +791,7 @@ impl World {
             column.push(data, ComponentTicks::new(change_tick));
         } else {
             // SAFE: column is of type T and has already been allocated
-            *column.get_unchecked(0).cast::<T>() = value;
+            *column.get_data_unchecked(0).cast::<T>() = value;
             column.get_ticks_unchecked_mut(0).set_changed(change_tick);
         }
     }

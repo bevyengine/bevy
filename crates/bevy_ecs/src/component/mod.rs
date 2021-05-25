@@ -6,7 +6,6 @@ use crate::storage::SparseSetIndex;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
-    cell::Cell,
     collections::hash_map::Entry,
 };
 use thiserror::Error;
@@ -310,7 +309,7 @@ impl Components {
 #[derive(Clone, Debug)]
 pub struct ComponentTicks {
     pub(crate) added: u32,
-    pub(crate) changed: Cell<u32>,
+    pub(crate) changed: u32,
 }
 
 impl ComponentTicks {
@@ -327,7 +326,7 @@ impl ComponentTicks {
 
     #[inline]
     pub fn is_changed(&self, last_change_tick: u32, change_tick: u32) -> bool {
-        let component_delta = change_tick.wrapping_sub(self.changed.get());
+        let component_delta = change_tick.wrapping_sub(self.changed);
         let system_delta = change_tick.wrapping_sub(last_change_tick);
 
         component_delta < system_delta
@@ -336,13 +335,13 @@ impl ComponentTicks {
     pub(crate) fn new(change_tick: u32) -> Self {
         Self {
             added: change_tick,
-            changed: Cell::new(change_tick),
+            changed: change_tick,
         }
     }
 
     pub(crate) fn check_ticks(&mut self, change_tick: u32) {
         check_tick(&mut self.added, change_tick);
-        check_tick(self.changed.get_mut(), change_tick);
+        check_tick(&mut self.changed, change_tick);
     }
 
     /// Manually sets the change tick.
@@ -358,8 +357,8 @@ impl ComponentTicks {
     /// component_ticks.set_changed(world.read_change_tick());
     /// ```
     #[inline]
-    pub fn set_changed(&self, change_tick: u32) {
-        self.changed.set(change_tick);
+    pub fn set_changed(&mut self, change_tick: u32) {
+        self.changed = change_tick;
     }
 }
 

@@ -2050,7 +2050,7 @@ mod tests {
                 assert!(time_since_last_check <= MAX_DELTA);
                 let time_since_last_check = tracker
                     .change_tick
-                    .wrapping_sub(tracker.component_ticks.changed.get());
+                    .wrapping_sub(tracker.component_ticks.changed);
                 assert!(time_since_last_check <= MAX_DELTA);
             }
             let change_tick = world.change_tick.get_mut();
