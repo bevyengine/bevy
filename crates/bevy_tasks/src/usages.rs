@@ -27,10 +27,10 @@ impl ComputeTaskPool {
     /// Initializes the global ComputeTaskPool instance.
     ///
     /// Returns the provided `[TaskPool]` the global instance has already been initialized.
-    pub fn init(task_pool: TaskPool) -> Result<Self, TaskPool> {
+    pub fn init(task_pool: TaskPool) -> Result<&'static Self, TaskPool> {
         COMPUTE_TASK_POOL
             .set(Self(task_pool))
-            .map(|_| Self::get().clone())
+            .map(|_| Self::get())
             .map_err(|pool| pool.0)
     }
 
@@ -61,10 +61,10 @@ impl AsyncComputeTaskPool {
     /// Initializes the global AsyncComputeTaskPool instance.
     ///
     /// Returns the provided `[TaskPool]` the global instance has already been initialized.
-    pub fn init(task_pool: TaskPool) -> Result<Self, TaskPool> {
+    pub fn init(task_pool: TaskPool) -> Result<&'static Self, TaskPool> {
         ASYNC_COMPUTE_TASK_POOL
             .set(Self(task_pool))
-            .map(|_| Self::get().clone())
+            .map(|_| Self::get())
             .map_err(|pool| pool.0)
     }
 
@@ -96,10 +96,10 @@ impl IoTaskPool {
     /// Initializes the global IoTaskPool instance.
     ///
     /// Returns the provided `[TaskPool]` the global instance has already been initialized.
-    pub fn init(task_pool: TaskPool) -> Result<Self, TaskPool> {
+    pub fn init(task_pool: TaskPool) -> Result<&'static Self, TaskPool> {
         IO_TASK_POOL
             .set(Self(task_pool))
-            .map(|_| Self::get().clone())
+            .map(|_| Self::get())
             .map_err(|pool| pool.0)
     }
 

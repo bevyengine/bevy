@@ -117,6 +117,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
         let compute_pool = world
             .get_resource_or_insert_with(|| {
                 ComputeTaskPool::init(TaskPool::default())
+                    .map(|pool| pool.clone())
                     .unwrap_or_else(|_| ComputeTaskPool::get().clone())
             })
             .clone();
